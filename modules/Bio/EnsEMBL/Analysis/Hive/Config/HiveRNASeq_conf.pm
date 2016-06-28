@@ -470,16 +470,8 @@ sub pipeline_analyses {
                        },
         -rc_name    => '3GB_multithread',
         -flow_into => {
-                        1 => ['create_header_intron', 'clean_sai_files'],
+                        1 => ['create_header_intron'],
                       },
-      },
-            {
-        -logic_name => 'clean_sai_files',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -meadow_type => 'LOCAL',
-        -parameters => {
-                         cmd => 'rm #wide_output_dir#/*.sai',
-                       },
       },
             {
         -logic_name => 'create_header_intron',
