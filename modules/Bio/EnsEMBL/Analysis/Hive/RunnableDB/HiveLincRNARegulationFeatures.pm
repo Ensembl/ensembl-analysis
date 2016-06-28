@@ -32,6 +32,7 @@ Bio::EnsEMBL::Analysis::RunnableDB::HiveLincRNARegulationFeatures -
 
 =head1 SYNOPSIS
 
+Gets all lincRNA canditates and compare them against histone modification features. (mainly for human and mouse)
 
 =head1 DESCRIPTION
 
@@ -51,6 +52,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
 use Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Analysis::Tools::LincRNA qw(get_genes_of_biotypes) ;  
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -96,12 +98,9 @@ sub fetch_input {
 
 	# get data
 	my $biotype_tmp = $self->param_required('BIOTYPE_TO_CHECK');
-	my $new_cdna    = $self->get_genes_of_biotypes_by_db_hash_ref($biotype_tmp);
-	print "DEBUG_BK::RunnableDB::lincRNARegulation: fetch input :: number of lincRNA genes: " . scalar(@$new_cdna) . "\n";
-  if (scalar(@$new_cdna) > 0) {
-  	my @tmp = @$new_cdna; 
-    print "value" .  scalar(@{$tmp[0]->get_all_Transcripts}) . "\n" ;
-  } 
+	my $dbName_tmp  = 'lincRNA_output_db';
+	my $new_cdna    = $self->get_genes_of_biotypes($biotype_tmp, $dbName_tmp);
+	print "fetch input :: number of lincRNA genes: " . scalar(@$new_cdna) . "\n";
 
 	# get simple features
 	my $efg_simple_features = $self->get_efg_simple_features();
@@ -114,15 +113,13 @@ sub fetch_input {
 
 sub run {
 	my ($self) = @_;
-	print "\n\n DEBUG_BK::RunnableDB::lincRNARegulation: fetch input :: 5o : ", $self->param('WRITE_DEBUG_OUTPUT'), " !! ...\n\n";
   my $efg_simple_features = $self->param('efg_simple_features');
 	$self->output($efg_simple_features) if ($self->param('WRITE_DEBUG_OUTPUT'));
 
-	print "\n\n DEBUG_BK::RunnableDB::lincRNARegulation: fetch input :: 6o !! ...\n\n";
 	my $passed_cdnas_dbIDs = $self->score_cdna_overlap_with_multi_K36( $efg_simple_features, $self->param('genes') );
 
-	print "DEBUG_BK::RunnableDB::lincRNARegulation: fetch input .. passed cdnas:              " . scalar(@$passed_cdnas_dbIDs) . "\n";
-	print "DEBUG_BK::RunnableDB::lincRNARegulation: fetch input .. number of artificial genes "	. scalar(@$efg_simple_features) . "\n";
+	print "-- passed cdnas:              " . scalar(@$passed_cdnas_dbIDs) . "\n";
+	print "-- number of artificial genes "	. scalar(@$efg_simple_features) . "\n";
 
 	my $store_genes_that_overlap_fungen =	1;    # the default is to store genes that overlap regulation elements
 	$self->output( $passed_cdnas_dbIDs ) if ($store_genes_that_overlap_fungen);
@@ -132,7 +129,6 @@ sub run {
 sub write_output {
 	my ($self) = @_;
 
-	print "DEBUG_BK::RunnableDB::lincRNAReg::write_output\n";
 	my $adaptor = $self->hrdb_get_con('regulation_reform_db')->get_GeneAdaptor;
 	print "have " . @{ $self->output } . " genes to write\n";
   my $logic_name_to_be = "lincRNA_reg";
@@ -144,7 +140,6 @@ sub write_output {
 	foreach my $gene ( @{ $self->output } ) {
     $gene->status(undef); 
     $gene->analysis($self->analysis);   
-		# print "DEBUG_BK::RunnableDB::lincRNAReg: write_output write this gene: " . $gene->seq_region_start . " --- " . $gene->biotype . " --- " . $gene->seq_region_end . " --- " . $gene->seq_region_name . " howmanyExons: " . scalar(@{ $gene->get_all_Exons }) . "\n";
 		eval { 
 			$adaptor->store($gene); 
 		};
@@ -155,50 +150,16 @@ sub write_output {
 }
 
 
-sub get_genes_of_biotypes_by_db_hash_ref {
-	my ( $self, $href ) = @_;
-	my @genes_to_fetch;
-	my $set_db  = $self->hrdb_get_con('lincRNA_output_db');
-	my $id = $self->param('iid');
-	my $slice   =	$self->fetch_sequence( $id, $set_db);
-
-	# implementation of fetch_all_biotypes....
-	my $fetch_all_biotypes_flag;
-	$fetch_all_biotypes_flag = 1 if ( $href eq "fetch_all_biotypes" );
-
-	if ($fetch_all_biotypes_flag) {
-		print "fetching ALL biotypes for slice out of db 2 :\n";
-		my $genes = $slice->get_all_Genes( undef, undef, 1 );
-		push @genes_to_fetch, @$genes;
-		print scalar(@genes_to_fetch) . " genes fetched all biotypes in total\n";
-	}
-	else {
-		my $genes = $slice->get_all_Genes_by_type( $href, undef, 1 );
-		if ( @$genes == 0 ) {
-			warn("No genes of biotype $href found in $set_db (it is possible) \n");
-		}
-		for (@$genes) {
-			print "DEBUG::get_genes_of_biotypes_by_db_hash_ref:: gene info: "	. $_->biotype . " --- "
-				. $_->seq_region_start . " --- " . $_->seq_region_end . " --- "	. $_->seq_region_name . "\n";
-		}
-		print " [ "	. $set_db->dbc->dbname	. " ] Retrieved "	. @$genes . " of type "	. $href . "\n";
-		push @genes_to_fetch, @$genes;
-	}
-
-	return \@genes_to_fetch;
-}
-
-
 # get histone modification data from fungen database
 sub get_efg_simple_features {
 	my ($self) = @_;
 
-	#Get fngen db adaptor
+	#Get fungen db adaptor
 	my $efgdba = $self->hrdb_get_con('regulation_db');
 	my $fsa = $efgdba->get_FeatureSetAdaptor;
   $self->warning("DBadaptor is not defined! \n") if ( !$fsa ) ;
 
- print "Fetching EFG domain data\n";
+  print "Fetching EFG domain data\n";
 	my ( $fset, @fsets );
 	my @feature_sets;    # = ('K562_H3K36me3_ENCODE_Broad_ccat_histone');
 	my $all = 'all'; # I want all and then will filter. 
@@ -261,7 +222,7 @@ sub convert_simple_features {
 				$f_start = $f_tmpt->start - $offset;
 				$f_end   = $f_tmpt->end + $offset;
 
-				# print_feature($f_tmpt);
+				# print_feature($f_tmpt); # print all info of a feature
 				my $biotype_to_use = 'efg';
 				my $gene           = Bio::EnsEMBL::Gene->new(
 					-analysis => $f_tmpt->analysis,
@@ -317,8 +278,8 @@ sub convert_simple_features {
 
 sub score_cdna_overlap_with_multi_K36 {
 	my ( $self, $K36_genes, $cdna_genes ) = @_;
-	print "DEBUG_BK::RunnableDB::lincRNARegulation::score_cdna_overlap_with_multi_K36:: artificial fungen genes:  " . scalar @$K36_genes 
-		. "   - real genes: " . scalar @$cdna_genes . "\n";
+	print "-- artificial fungen genes:  " . scalar @$K36_genes 
+		. "\n-- real genes: " . scalar @$cdna_genes . "\n";
 	my ( $clustered, $unclustered ) = @{ simple_cluster_Genes( $K36_genes, "K36", $cdna_genes, "lincRNA" ) };
 	my @K36_regions     = (@$K36_genes);
 	my $K36_cluster_cnt = scalar(@K36_regions);
@@ -330,14 +291,14 @@ sub score_cdna_overlap_with_multi_K36 {
 	if ( $K36_cluster_cnt > 1 )
 	{ # i.e. the H3K36me3 feats don't fall into the same genomic location but distributed across exons
 		foreach my $cdna (@$cdna_genes) {
-			my $curr_sr_start = $cdna->start;
-			my $curr_sr_end   = $cdna->end;
+			# my $curr_sr_start = $cdna->start;
+			# my $curr_sr_end   = $cdna->end;
 			foreach my $K36_region (@K36_regions) {
-				my $K36_clust_start = $curr_sr_start + $K36_region->start;
-				my $K36_clust_end   = $curr_sr_start + $K36_region->end;
+				# my $K36_clust_start = $curr_sr_start + $K36_region->start;
+				# my $K36_clust_end   = $curr_sr_start + $K36_region->end;
 				if ( $cdna->seq_region_end >= $K36_region->seq_region_start	&& $cdna->seq_region_start <= $K36_region->seq_region_end ) {    
 					 # overlap
-					 # if ($cdna->seq_region_end >= $K36_clust_start && $cdna->seq_region_start <= $K36_clust_end) {   # before overlap.... Since I am using the seq_regions, I don't think we need t
+					 # if ($cdna->seq_region_end >= $K36_clust_start && $cdna->seq_region_start <= $K36_clust_end) {   # before overlap.... Since I am using the seq_region coordinates, I don't think we need t
 					 # print "DEBUG_BK::RunnableDB::lincRNARegulation::score_cdna_overlap_with_multi_K36: cDNAstart: " .  $cdna->start . " cDNAend: " . $cdna->end . " K_start: " . $K36_region->start . " K_end: " . $K36_region->end . " cluster_start: " . $K36_clust_start . " clust_end: " . $K36_clust_end . "\n";
 					 # print "DEBUG_BK::RunnableDB::lincRNARegulation::score_cdna_overlap_with_multi_K36: K36_r_start: " .  $K36_region->seq_region_start . " K36_r_end: " .   $K36_region->seq_region_end . "\n" ;
 					 # print "    FOUND MATCH in this region for cDNA: " .$cdna->seq_region_start . " -  " . $cdna->seq_region_end . " (dbID " . $cdna->dbID.") " . " description: " . $K36_region->description . "\n";
@@ -346,10 +307,10 @@ sub score_cdna_overlap_with_multi_K36 {
 					}
 					else {
 					  $scoring{ $cdna->dbID }++;
-					  print "DEBUG_BK::RunnableDB::lincRNARegulation::score_cdna_overlap_with_multi_K36 "	. $scoring{ $cdna->dbID } . " "	. $cdna->dbID . "\n";
+					  # print " "	. $scoring{ $cdna->dbID } . " "	. $cdna->dbID . "\n";
 						$cdna->biotype('overlap_regulation');
-
-            # this is because of ZMap wants the gene.analysis_id and transcript.analysis_id to be the same !
+						
+            # this is because of ZMap. It wants the gene.analysis_id and transcript.analysis_id to be the same !
             # quick: mysql -h  genebuild11   -P 3306 -uXXXXXXX -pXXXXXX  kb15_human_fugn_reform_83_38 -e "UPDATE transcript t  JOIN gene g ON t.gene_id = g.gene_id  SET t.analysis_id = g.analysis_id ;"
 					}
 				}
@@ -360,12 +321,9 @@ sub score_cdna_overlap_with_multi_K36 {
 		print "This means only one block of H3K36me3 features are overlapping with cDNA(s).\n";
 	}
 
-	print "DEBUG_BK::RunnableDB::lincRNARegulation::score_cdna_overlap_with_multi_K36: number of genes with fungen elements: " . scalar( keys %scoring ) . "\n";
+	print "-- number of genes with fungen elements: " . scalar( keys %scoring ) . "\n";
 
 	foreach my $cdna (@$cdna_genes) {
-		print "DEBUG_BK::RunnableDB::lincRNARegulation::score_cdna_overlap_with_multi_K36 "
-			. $scoring{ $cdna->dbID } . " "
-			. $cdna->dbID . "\n";
 		if ( defined( $scoring{ $cdna->dbID } ) ) {
 			my $biotype_tmp = $self->param_required('OUTPUT_BIOTYPE_OVERLAP');
 			$cdna->biotype($biotype_tmp);

@@ -35,8 +35,8 @@ Get lincRNA candidate genes and break them down into single-transcript genes.
 
 =head1 DESCRIPTION
 
-This module collects many genes of a region, checks overlaps, collapse overlapping models (with genebuilder) 
-and write back the genebuilder "unique" results. This module is usefull for lincRNA pipeline, it collapses
+This module collects the genes of a region, checks for overlaps, collapses overlapping models (with genebuilder) 
+and writes back the genebuilder "unique" results. This module is usefull for lincRNA pipeline, it collapses
 all RNAseq models of the different tissues. This is memory efficient and avoids doing the same calculations 
 many times. 
 
@@ -50,12 +50,11 @@ use warnings ;
 use vars qw(@ISA);
 use strict;
 
-# use Bio::EnsEMBL::Analysis; 
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
+use Bio::EnsEMBL::Analysis::Tools::LincRNA qw(get_genes_of_biotypes_by_db_hash_ref) ;  
 
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
-
 
 
 sub fetch_input{
@@ -87,7 +86,7 @@ sub run {
  
   print  "\nCOLLAPSING RNAseq models (removing duplications) BY GENEBUILDER. \n Afterwards feed lincRNA pipeline.\n";
   my $tmp = $self->runnable->[0]; 
-  print  "\n 1. Running GeneBuilder for " . scalar( @{$tmp->input_genes} ). " unclustered lincRNAs...\n";  
+  print  "\n 1. Running GeneBuilder for " . scalar( @{$tmp->input_genes} ). " RNAseq models...\n";  
   foreach my $runnable (@{$self->runnable}) {
     $runnable->run;
     $self->output($runnable->output);
@@ -107,12 +106,7 @@ sub write_output{
 
   my $sucessful_count = 0 ; 
   foreach my $gene(@genes_to_write){  
-    for ( @{$gene->get_all_Transcripts} ) {    
-     #  print  "DEBUG::write $_ : ".$_->seq_region_start . " " . $_->biotype . " " . $_->translation()->seq() . " " . $_->translation()->start() . " gene: " . $gene->dbID . " " . $gene->biotype . " " . $_->strand . " " . $gene->strand ."\n"; 
-      my $end_exon = $_->end_Exon;
-    } 
     my $logic_name_to_be = "lincRNA_set_test_3"; 
-
     ## I will create a new gene without translations and only one transcript to be stored under different analysis ##
     # Make an analysis object (used later for storing stuff in the db)
     my $analysis = Bio::EnsEMBL::Analysis->new(
@@ -125,10 +119,9 @@ sub write_output{
       $lincrna_ga->store($gene);
     };
     if($@){
-      warning("Failed to write gene ".id($gene)." ".coord_string($gene)." $@");
+      $self->warning("Failed to write gene ".id($gene)." ".coord_string($gene)." $@");
     }else{
       $sucessful_count++;
-      # print  "STORED LINCRNA GENE ".$gene->dbID. " "  . $gene->biotype  . " " .  $gene->strand . "\n";
     }
   } 
   
@@ -136,7 +129,6 @@ sub write_output{
   eval{
     my $check = $self->check_if_all_stored_correctly($self->RNA_DB); 
     print "check result: " . $check . " -- " . $sucessful_count ." genes written to FINAL OUTPUT DB " . $dba->dbc->dbname . "\n" ; # . $self->output_db->dbname . " @ ". $self->output_db->host . "\n"  ;   
-    
     if($sucessful_count != @genes_to_write ) { 
       $self->throw("Failed to write some genes");
     }
@@ -170,62 +162,8 @@ sub post_cleanup {
   return 1;
 }
 
-# need to put this method in one place
-sub get_genes_of_biotypes_by_db_hash_ref { 
-  my ($self, $href) = @_;
 
-  my %dbnames_2_biotypes = %$href ; 
-
-  ### ### print  "DEBUG::get_genes_of_biotypes_by_db_hash_ref::Get genes " . scalar(keys %dbnames_2_biotypes) . "\n dumper:" . Dumper(%$href) . "\n"; 
-  my @genes_to_fetch;  
-  foreach my $db_hash_key ( keys %dbnames_2_biotypes )  {
-    my @biotypes_to_fetch = @{$dbnames_2_biotypes{$db_hash_key}};  
-    my $set_db = $self->hrdb_get_dba($self->param('source_cdna_db'));
-    my $dna_dba = $self->hrdb_get_dba($self->param('reference_db'));
-    if($dna_dba) {
-      $set_db->dnadb($dna_dba);
-    }
-
-    my $test_id = $self->param('iid'); 
-    my $slice = $self->fetch_sequence($test_id, $set_db, undef, undef, $db_hash_key); 
-    print "slice: $test_id -- db: " .  $set_db->dbc->dbname  . " \n";
-    # implementation of fetch_all_biotypes ....  
-    my $fetch_all_biotypes_flag ; 
-    foreach my $biotype  ( @biotypes_to_fetch ) {   
-      if ($biotype=~m/fetch_all_biotypes/ ) {    
-        $fetch_all_biotypes_flag = 1 ; 
-      }
-    }  
-    if ( $fetch_all_biotypes_flag ) {  
-         print  "fetching ALL biotypes for slice out of db $db_hash_key :\n" ; 
-         my $genes = $slice->get_all_Genes(undef,undef,1) ; 
-         push @genes_to_fetch, @$genes;  
-         my %tmp ; 
-         for ( @$genes ) {  
-           $tmp{$_->biotype}++; 
-         }  
-         foreach ( keys %tmp ) {  
-           print  "found $_ $tmp{$_}\n" ; 
-         }  
-         print  scalar(@genes_to_fetch) . " genes fetched in total\n" ; 
-    } else { 
-      foreach my $biotype  ( @biotypes_to_fetch ) { 
-         my $genes = $slice->get_all_Genes_by_type($biotype,undef,1);
-         if ( @$genes == 0 ) {
-           warning("No genes of biotype $biotype found in $set_db\n");
-         } 
-         # if ( $self->verbose ) { 
-         print  "$db_hash_key [ " . $set_db->dbc->dbname  . " ] Retrieved ".@$genes." of type ".$biotype."\n";
-         # }
-         push @genes_to_fetch, @$genes;
-      }  
-    }  
-  } 
-
-  return \@genes_to_fetch;
-}
-
-
+# this functions 
 sub check_if_all_stored_correctly {
   my ($self, $href) = @_;
 
@@ -309,6 +247,8 @@ sub RNA_DB{
   }
   return $self->param('RNA_DB');
 }  
+
+
 
 
 1;

@@ -39,7 +39,7 @@ sub param_defaults {
     'max_seq_length_per_file' => undef,  # Maximum sequence length in a file
     'max_files_per_directory' => 100,    # Maximum number of files in a directory
     'max_dirs_per_directory'  => 100,    # Maximum number of subdirectories
-    'delete_existing_files'   => 1,      # Ensure that directories only contains files generated with the latest execution
+    'delete_existing_files'   => 0,      # Ensure that directories only contains files generated with the latest execution
     'unique_file_names'       => 0,      # Ensure that output file names are unique across all directories?
     'delete_original_file'    => 0,      # After splitting, delete original fasta file?
   };
@@ -142,7 +142,7 @@ sub write_output {
   my ($self) = @_;
   
   foreach my $split_file (@{$self->param('split_files')}) {
-    $self->dataflow_output_id({'split_file' => $split_file}, 1);
+    $self->dataflow_output_id({'split_file' => $split_file}, 2);
   }
   
 }

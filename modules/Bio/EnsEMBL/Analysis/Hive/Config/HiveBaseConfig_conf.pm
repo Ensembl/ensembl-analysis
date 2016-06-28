@@ -120,9 +120,14 @@ sub lsf_resource_builder {
         my %seen;
         foreach my $server (@$servers) {
             if (! exists $seen{$server}) {
-                my ($server_id) = $server =~ /(\d+)$/;
-                push(@lsf_rusage, 'myens_build'.$server_id.'tok='.($tokens->[$i] || 10));
-                $seen{$server} = $i;
+            	  if ($server =~ /ens-livemirror/) {
+                    push(@lsf_rusage, 'myens_livemirrortok='.($tokens->[$i] || 10));
+                    $seen{$server} = $i;
+            	  } else {
+                    my ($server_id) = $server =~ /(\d+)$/;
+                    push(@lsf_rusage, 'myens_build'.$server_id.'tok='.($tokens->[$i] || 10));
+                    $seen{$server} = $i;
+            	  }
             }
             else {
                 my ($token) = $lsf_rusage[$seen{$server}] =~ /tok=(\d+)/;

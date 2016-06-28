@@ -34,7 +34,7 @@
 Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNAFinder - 
 
 =head1 SYNOPSIS
-
+Find RNAseq models that don't overlap with protein coding (models) predictions and use them as lincRNA candidates
 
 =head1 DESCRIPTION
 
@@ -57,11 +57,12 @@ use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils	qw(id coord_string lies_inside_of_slice);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info) ; 
+use Bio::EnsEMBL::Analysis::Tools::LincRNA qw(get_genes_of_biotypes_by_db_hash_ref) ;  
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info) ; 
 
 
 =head2 new
@@ -119,7 +120,7 @@ sub write_output {
 	my $sucessful_count = 0;
   GENE: foreach my $gene ( @{ $self->output } ) {
 		if ( !defined $gene->get_all_Transcripts ) {
-			throw(" gene does not have any transcripts ....\n");
+			$self->throw(" gene does not have any transcripts ....\n");
 		}
 
 		my @tr     = @{ $gene->get_all_Transcripts };
@@ -137,68 +138,18 @@ sub write_output {
 		};
 
 		if ($@) {
-			warning( "Failed to write gene " . id($gene) . " "	. coord_string($gene)	. " $@" );
+			$self->warning( "Failed to write gene " . id($gene) . " "	. coord_string($gene)	. " $@" );
 		}
 		else {
 			$sucessful_count++;
-			# print "STORED LINCRNA GENE " . id($gene) . "\n";
 		}
 	}
-
-	print "Final: " . $sucessful_count	. " genes written to " . " @ \n";
 
 	if ( $sucessful_count != @{ $self->output } ) {
-		throw("Failed to write some genes");
+		$self->throw("Failed to write some genes");
 	}
+	print "Final: " . $sucessful_count	. " genes written to " . " @ \n";
 }
-
-sub get_genes_of_biotypes_by_db_hash_ref {
-	my ( $self, $href ) = @_;
-
-	my %dbnames_2_biotypes = %$href;
-	my @genes_to_fetch;
-	foreach my $db_hash_key ( keys %dbnames_2_biotypes ) {
-
-		my @biotypes_to_fetch = @{ $dbnames_2_biotypes{$db_hash_key} };
-		my $set_db            = $self->hrdb_get_dba( $self->param($db_hash_key) );
-		my $dna_dba = $self->hrdb_get_dba( $self->param('reference_db') );
-		if ($dna_dba) {
-			$set_db->dnadb($dna_dba);
-		}
-
-		my $id = $self->param('iid');
-		my $slice =	$self->fetch_sequence( $id, $set_db, undef, undef, $db_hash_key );
-
-		# implementation of fetch_all_biotypes ....
-		my $fetch_all_biotypes_flag;
-		foreach my $biotype (@biotypes_to_fetch) {
-			if ( $biotype =~ m/fetch_all_biotypes/ ) {
-				$fetch_all_biotypes_flag = 1;
-			}
-		}
-		
-		if ($fetch_all_biotypes_flag) {
-			print "fetching ALL biotypes for slice out of db $db_hash_key :\n";
-			my $genes = $slice->get_all_Genes( undef, undef, 1 );
-			push @genes_to_fetch, @$genes;
-			print scalar(@genes_to_fetch) . " genes fetched in total\n";
-		}
-		else {
-			foreach my $biotype (@biotypes_to_fetch) {
-				my $genes = $slice->get_all_Genes_by_type( $biotype, undef, 1 );
-				if ( @$genes == 0 ) {
-					warning("No genes of biotype $biotype found in $set_db\n");
-				}
-				# if ( $self->param('verbose') ) {
-				print "$db_hash_key [ " . $set_db->dbc->dbname	. " ] Retrieved " . @$genes	. " of type "	. $biotype	. "... in input_id: " . $id . "\n";
-				# }
-				push @genes_to_fetch, @$genes;
-			}
-		}
-	}
-	return \@genes_to_fetch;
-}
-
 
 
 =head2 read_and_check_config
@@ -227,7 +178,7 @@ sub hive_set_config {
 	unless ( $self->param_is_defined('logic_name')
 		&& $self->param_is_defined('module') )
 	{
-		throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, "
+		$self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, "
 				. "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB "
 				. "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to "
 				. "write the genes to and this should also include the module name even if it isn't strictly necessary"
