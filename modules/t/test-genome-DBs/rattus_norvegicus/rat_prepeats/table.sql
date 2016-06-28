@@ -35,7 +35,7 @@ CREATE TABLE `alt_allele_attrib` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -72,7 +72,7 @@ CREATE TABLE `alt_allele_group` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -113,7 +113,7 @@ CREATE TABLE `alt_allele` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -154,7 +154,7 @@ CREATE TABLE `analysis_description` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -205,7 +205,7 @@ CREATE TABLE `analysis` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -252,7 +252,7 @@ CREATE TABLE `assembly_exception` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -297,7 +297,7 @@ CREATE TABLE `assembly` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -335,7 +335,7 @@ CREATE TABLE `associated_group` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -383,7 +383,7 @@ CREATE TABLE `associated_xref` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -424,7 +424,7 @@ CREATE TABLE `attrib_type_bak` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -465,7 +465,7 @@ CREATE TABLE `attrib_type` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -510,7 +510,7 @@ CREATE TABLE `coord_system` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -557,7 +557,7 @@ CREATE TABLE `data_file` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -601,7 +601,7 @@ CREATE TABLE `density_feature` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -643,7 +643,7 @@ CREATE TABLE `density_type` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -684,7 +684,7 @@ CREATE TABLE `dependent_xref` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -736,7 +736,7 @@ CREATE TABLE `ditag_feature` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -777,7 +777,7 @@ CREATE TABLE `ditag` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -835,7 +835,7 @@ CREATE TABLE `dna_align_feature` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -873,7 +873,7 @@ CREATE TABLE `dna` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -924,7 +924,7 @@ CREATE TABLE `exon` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -965,7 +965,7 @@ CREATE TABLE `exon_transcript` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1012,7 +1012,7 @@ CREATE TABLE `external_db_bak` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1059,7 +1059,7 @@ CREATE TABLE `external_db` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1098,7 +1098,7 @@ CREATE TABLE `external_synonym` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1145,7 +1145,7 @@ CREATE TABLE `gene_archive` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1187,7 +1187,7 @@ CREATE TABLE `gene_attrib` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1245,7 +1245,7 @@ CREATE TABLE `gene` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1288,7 +1288,7 @@ CREATE TABLE `genome_statistics` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1334,7 +1334,7 @@ CREATE TABLE `identity_xref` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1373,7 +1373,7 @@ CREATE TABLE `interpro` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1421,7 +1421,7 @@ CREATE TABLE `intron_supporting_evidence` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1464,7 +1464,7 @@ CREATE TABLE `karyotype` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1508,7 +1508,7 @@ CREATE TABLE `mapping_session` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1548,7 +1548,7 @@ CREATE TABLE `mapping_set` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1586,7 +1586,7 @@ CREATE TABLE `map` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1631,7 +1631,7 @@ CREATE TABLE `marker_feature` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1674,7 +1674,7 @@ CREATE TABLE `marker_map_location` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1720,7 +1720,7 @@ CREATE TABLE `marker` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1762,7 +1762,7 @@ CREATE TABLE `marker_synonym` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1801,7 +1801,7 @@ CREATE TABLE `meta_coord` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1843,7 +1843,7 @@ CREATE TABLE `meta` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1885,7 +1885,7 @@ CREATE TABLE `misc_attrib` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1924,7 +1924,7 @@ CREATE TABLE `misc_feature_misc_set` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -1966,7 +1966,7 @@ CREATE TABLE `misc_feature` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2008,7 +2008,7 @@ CREATE TABLE `misc_set_bak` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2050,7 +2050,7 @@ CREATE TABLE `misc_set` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2095,7 +2095,7 @@ CREATE TABLE `object_xref` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2136,7 +2136,7 @@ CREATE TABLE `ontology_xref` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2186,7 +2186,7 @@ CREATE TABLE `operon` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2224,7 +2224,7 @@ CREATE TABLE `operon_transcript_gene` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2275,7 +2275,7 @@ CREATE TABLE `operon_transcript` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2315,7 +2315,7 @@ CREATE TABLE `peptide_archive` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2363,7 +2363,7 @@ CREATE TABLE `prediction_exon` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2408,7 +2408,7 @@ CREATE TABLE `prediction_transcript` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2464,7 +2464,7 @@ CREATE TABLE `protein_align_feature` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2517,7 +2517,7 @@ CREATE TABLE `protein_feature` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2562,7 +2562,7 @@ CREATE TABLE `repeat_consensus` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2611,7 +2611,7 @@ CREATE TABLE `repeat_feature` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2653,7 +2653,7 @@ CREATE TABLE `seq_region_attrib` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2692,7 +2692,7 @@ CREATE TABLE `seq_region_mapping` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2723,7 +2723,7 @@ CREATE TABLE `seq_region` (
   PRIMARY KEY (`seq_region_id`),
   UNIQUE KEY `name_cs_idx` (`name`,`coord_system_id`),
   KEY `cs_idx` (`coord_system_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=1595 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=464 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -2734,7 +2734,7 @@ CREATE TABLE `seq_region` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2776,7 +2776,7 @@ CREATE TABLE `seq_region_synonym` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2823,7 +2823,7 @@ CREATE TABLE `simple_feature` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2868,7 +2868,7 @@ CREATE TABLE `stable_id_event` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2908,7 +2908,7 @@ CREATE TABLE `supporting_feature` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2950,7 +2950,7 @@ CREATE TABLE `transcript_attrib` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -2991,7 +2991,7 @@ CREATE TABLE `transcript_intron_supporting_evidence` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -3051,7 +3051,7 @@ CREATE TABLE `transcript` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -3091,7 +3091,7 @@ CREATE TABLE `transcript_supporting_feature` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -3133,7 +3133,7 @@ CREATE TABLE `translation_attrib` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -3181,7 +3181,7 @@ CREATE TABLE `translation` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -3232,7 +3232,7 @@ CREATE TABLE `unmapped_object` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:03
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -3271,7 +3271,7 @@ CREATE TABLE `unmapped_reason_bak` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:04
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -3310,7 +3310,7 @@ CREATE TABLE `unmapped_reason` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:04
 -- MySQL dump 10.13  Distrib 5.6.30, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: eat_rat_core_db
@@ -3357,4 +3357,4 @@ CREATE TABLE `xref` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-06-28 10:59:30
+-- Dump completed on 2016-06-28 14:32:04
