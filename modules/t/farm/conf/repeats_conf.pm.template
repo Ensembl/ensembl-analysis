@@ -39,13 +39,14 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
+'strain'               => 'eat_mini',
+'farm_user_name'       => 'rn6', # for ref db prefix
 'genebuilder_id'       => '40', # for meta table
 'enscode_root_dir'     => 'EAT_CODE_PATH', # git repo checkouts
 'repeatmasker_library' => 'rat', # repbase library to use
-'species_name'         => 'mus_musculus',
-'taxon_id'             => '10090',
+'species_name'         => 'rattus_norvegicus',
+'taxon_id'             => '10116',
 'repeatmasker_engine'  => 'crossmatch',
-'email_address'        => 'rishi@ebi.ac.uk',
 
 
 ########################
@@ -58,7 +59,7 @@ sub default_options {
 'user_r'                         => 'EAT_DB_USER_RO',
 'user_w'                         => 'EAT_DB_USER',
 'password'                       => 'EAT_DB_PASS',
-'port'                           => '',
+'port'                           => 'EAT_DB_PORT',
 
 
 'output_path'               => 'EAT_OUTPUT_PATH',
@@ -109,7 +110,7 @@ sub default_options {
 
 # NOTE! the dbname for each species is generated in the pipeline itself by setup_assembly_loading_pipeline
 'reference_db' => {
-  -dbname => EAT_DB_NAME,
+  -dbname => 'EAT_DB_NAME',
   -host   => $self->o('reference_db_server'),
   -port   => $self->o('port'),
   -user   => $self->o('user_w'),
@@ -157,33 +158,14 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'repeatmasker',
         -flow_into => {
-                        -1 => ['run_repeatmasker_himem'],
                         4 => ['run_dust'],
                       },
-        -hive_capacity => 900,
-      },
-
-      {
-        -logic_name => 'run_repeatmasker_himem',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
-        -parameters => {
-                         target_db => $self->o('reference_db'),
-                         logic_name => 'repeatmasker_repbase_'.$self->o('repeatmasker_library'),
-                         module => 'HiveRepeatMasker',
-                         repeatmasker_path => $self->o('repeatmasker_path'),
-                         commandline_params => '-nolow -species "'.$self->o('repeatmasker_library').'" -engine "'.$self->o('repeatmasker_engine').'"',
-                       },
-        -rc_name    => 'repeatmasker_himem',
-        -flow_into => {
-                         4 => ['run_dust'],
-                      },
-        -hive_capacity => 900,
-        -can_be_empty  => 1,
       },
 
 
+
       {
-        # Set the toplevel
+        # dump the toplevel
         -logic_name => 'dump_softmasked_toplevel',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDumpGenome',
         -parameters => {

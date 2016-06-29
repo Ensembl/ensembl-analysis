@@ -39,15 +39,14 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
-'strain'               => '129S1_SvImJ_v1',
-'farm_user_name'       => 'mpg_pr', # for ref db prefix
+'strain'               => 'eat_mini',
+'farm_user_name'       => 'rn6', # for ref db prefix
 'genebuilder_id'       => '40', # for meta table
 'enscode_root_dir'     => '/home/rishi/coding/eat', # git repo checkouts TODO set in conjuction with travis
 'repeatmasker_library' => 'mouse', # repbase library to use
-'species_name'         => 'mus_musculus',
-'taxon_id'             => '10090',
+'species_name'         => 'rattus_norvegicus',
+'taxon_id'             => '10116',
 'repeatmasker_engine'  => 'crossmatch',
-'email_address'        => 'rishi@ebi.ac.uk',
 
 
 ########################

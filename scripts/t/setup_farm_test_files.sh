@@ -3,12 +3,12 @@
 display_usage()
 {
 	echo "The user will need GRANT and DROP privileges on the specified host."
-	echo -e "\nUsage:\n$0 username password hostname portnumber read_only_username\n"
+	echo -e "\nUsage:\n$0 username password hostname portnumber read_only_username output_path\n"
 }
 
 
 # if less than five arguments supplied, display usage
-if [  $# -le 4 ]
+if [  $# -le 5 ]
 then
     display_usage
     exit 1
@@ -30,6 +30,7 @@ db_pass=$2  # for EAT_DB_PASS
 db_host=$3  # for EAT_DB_HOST
 db_port=$4  # for EAT_DB_PORT
 db_user_ro=$5  # for EAT_DB_USER_RO
+output_path=$6 # for EAT_OUTPUT_PATH
 
 db_name=$USER'_eat_rat_core_db'  # for EAT_DB_NAME
 
@@ -44,7 +45,8 @@ do
      gawk '{ gsub("EAT_DB_PASS", "'$db_pass'"); print }' | \
      gawk '{ gsub("EAT_DB_PORT", "'$db_port'"); print }' | \
      gawk '{ gsub("EAT_DB_NAME", "'$db_name'"); print }' | \
-     gawk '{ gsub("EAT_DB_USER", "'$db_user_ro'"); print }' | \
+     gawk '{ gsub("EAT_DB_USER_RO", "'$db_user_ro'"); print }' | \
+     gawk '{ gsub("EAT_OUTPUT_PATH", "'$output_path'"); print }' | \
      gawk '{ gsub("EAT_DB_HOST", "'$db_host'"); print }' > $farm_test_dir/$output_file
 done
 
@@ -58,7 +60,8 @@ do
      gawk '{ gsub("EAT_DB_PASS", "'$db_pass'"); print }' | \
      gawk '{ gsub("EAT_DB_PORT", "'$db_port'"); print }' | \
      gawk '{ gsub("EAT_DB_NAME", "'$db_name'"); print }' | \
-     gawk '{ gsub("EAT_DB_USER", "'$db_user_ro'"); print }' | \
+     gawk '{ gsub("EAT_DB_USER_RO", "'$db_user_ro'"); print }' | \
+     gawk '{ gsub("EAT_OUTPUT_PATH", "'$output_path'"); print }' | \
      gawk '{ gsub("EAT_DB_HOST", "'$db_host'"); print }' > $farm_test_dir/conf/$output_file
 
 done
