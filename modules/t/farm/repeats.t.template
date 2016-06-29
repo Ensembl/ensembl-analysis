@@ -58,7 +58,7 @@ my $db_port = '3306' ;
   is($checkval, 443, "num dna sequences loaded") ;
   $sth_select = $dba->dbc->prepare('SELECT COUNT(*) FROM seq_region');
   $sth_select->execute();
-  my ($checkval) = $sth_select->fetchrow_array;
+  ($checkval) = $sth_select->fetchrow_array;
   is($checkval, 463, "num seq regions loaded") ;
 
 
