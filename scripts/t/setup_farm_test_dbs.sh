@@ -7,8 +7,8 @@ display_usage()
 }
 
 
-# if less than two arguments supplied, display usage
-if [  $# -le 1 ]
+# if less than three arguments supplied, display usage
+if [  $# -le 2 ]
 then
     display_usage
     exit 1

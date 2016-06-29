@@ -30,7 +30,7 @@ my $hive_dba = $multi_db->get_DBAdaptor('hive') or BAIL_OUT 'Cannot get HIVE DB.
 
 #TO DO - read these values out from the config file directly (or perhaps via versa)
 my $db_name = 'EAT_DB_NAME' ;
-my $db_server = 'localhost' ;
+my $db_server = 'EAT_DB_HOST' ;
 my $db_user   = 'EAT_DB_USER' ;
 my $db_password = 'EAT_DB_PASS' ;
 my $db_port = '3306' ;

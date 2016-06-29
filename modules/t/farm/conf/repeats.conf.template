@@ -40,8 +40,8 @@ sub default_options {
 # Misc setup info
 ########################
 'genebuilder_id'       => '40', # for meta table
-'enscode_root_dir'     => '/nfs/users/nfs_f/fm2/enscode/', # git repo checkouts
-'repeatmasker_library' => 'mouse', # repbase library to use
+'enscode_root_dir'     => 'EAT_CODE_PATH', # git repo checkouts
+'repeatmasker_library' => 'rat', # repbase library to use
 'species_name'         => 'mus_musculus',
 'taxon_id'             => '10090',
 'repeatmasker_engine'  => 'crossmatch',
@@ -58,7 +58,7 @@ sub default_options {
 'user_r'                         => 'EAT_DB_USER_RO',
 'user_w'                         => 'EAT_DB_USER',
 'password'                       => 'EAT_DB_PASS',
-'port'                           => '3306',
+'port'                           => '',
 
 
 'output_path'               => 'EAT_OUTPUT_PATH',
