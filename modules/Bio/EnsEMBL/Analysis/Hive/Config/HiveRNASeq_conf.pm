@@ -160,6 +160,8 @@ sub default_options {
         rough_db_password => $self->o('password'),
         rough_db_driver => $self->o('hive_driver'),
 
+        databases_to_delete => ['blast_db', 'refine_db', 'rough_db'],
+
         'blast_db' => {
                            -dbname => $self->o('blast_dbname'),
                            -host   => $self->o('blast_db_server'),
