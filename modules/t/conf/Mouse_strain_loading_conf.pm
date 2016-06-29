@@ -59,7 +59,7 @@ sub default_options {
 
 'user_r'                         => 'ensro',
 'user_w'                         => 'ensadmin',
-'password'                       => 'ensembl',
+'password'                       => '',
 'port'                           => '3306',
 
 
