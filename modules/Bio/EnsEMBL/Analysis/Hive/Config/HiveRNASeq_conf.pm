@@ -30,6 +30,7 @@ package HiveRNASeq_conf;
 use strict;
 use warnings;
 use feature 'say';
+use File::Spec;
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw (get_analysis_settings);
 use parent ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
@@ -194,9 +195,9 @@ sub default_options {
 sub pipeline_wide_parameters {
     my ($self) = @_;
 
-    my $output_sam_dir = $self->o('sam_dir') ? $self->o('sam_dir') :$self->o('output_dir').'/SAM';
-    my $merge_dir = $self->o('merge_dir') ? $self->o('merge_dir') : $self->o('output_dir').'/merge_out';
-    my $genome_file = $self->o('genome_file') =~ /^\// ? $self->o('genome_file') : $self->o('input_dir').'/'.$self->o('genome_file');
+    my $output_sam_dir = $self->o('sam_dir') ? $self->o('sam_dir') : File::Spec->catdir($self->o('output_dir'), 'SAM');
+    my $merge_dir = $self->o('merge_dir') ? $self->o('merge_dir') : File::Spec->catdir($self->o('output_dir'), 'merge_out');
+    my $genome_file = File::Spec->file_name_is_absolute($self->o('genome_file')) ? $self->o('genome_file') : File::Spec->catdir($self->o('input_dir'), $self->o('genome_file'));
     return {
         %{ $self->SUPER::pipeline_wide_parameters() },  # inherit other stuff from the base class
                          wide_genome_file => $genome_file,
@@ -208,7 +209,7 @@ sub pipeline_wide_parameters {
                          wide_output_sam_dir => $output_sam_dir,
                          wide_species => $self->o('species'),
                          wide_use_ucsc_naming => $self->o('use_ucsc_naming'),
-                         wide_intron_bam_file => $self->o('output_dir').'/introns',
+                         wide_intron_bam_file => File::Spec->catfile($self->o('output_dir'), 'introns'),
     };
 }
 
@@ -277,7 +278,9 @@ sub pipeline_analyses {
         -parameters => {
             cmd => 'EXIT_CODE=0; for F in #wide_short_read_aligner# #wide_samtools# '.join (' ', $self->o('splicing_aligner'), $self->o('clone_db_script_path'), $self->o('sequence_dump_script'), $self->o('blastp')).'; do which "$F"; if [ "$?" == 1 ]; then EXIT_CODE=1;fi; done; for D in #wide_output_dir# #wide_input_dir# #wide_merge_dir# #wide_output_sam_dir# `dirname #wide_genome_file#`; do mkdir -p "$D"; done; exit $EXIT_CODE',
         },
-        -input_ids => [{}],
+        -input_ids => [{
+          alignment_bam_file => File::spec->catfile($self->o('wide_merge_dir'), 'merged.bam'),
+          }],
         -flow_into => {
             '1->A' => ['create_rnaseq_genome_file'],
             'A->1' => ['parse_summary_file'],
