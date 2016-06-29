@@ -1,0 +1,213 @@
+Running the Ensembl assembly loading pipeline:
+
+Background:
+
+The Ensembl assembly loading pipeline works in two phases. Phase one downloads an assembly and the associated information from the NCBI ftp site. The assembly is then loaded into an Ensembl core database, and the loaded assembly is then quality checked against the original data.
+
+Phase two consists of a series of analyses to provide some basic annotation on the genome. These analyses are:
+•     Repeatmasker (using repbase libraries)
+•     Dust
+•     TRF
+•     Eponine
+•     FirstEF
+•     CPG
+•     tRNAscan
+•     genscan
+•     BLAST of genscan predictions against UniProt, Unigene and VertRNA
+
+It should be noted that any of the above analyses that are not needed are relatively easy to remove from the configuration file prior to running the pipeline (though this functionality will be improved in future versions).
+
+Requirements:
+
+APIs:
+
+Ensembl core:
+
+https://github.com/Ensembl/ensembl
+
+Ensembl analysis:
+
+https://github.com/Ensembl/ensembl-analysis
+
+Ensembl pipeline:
+
+https://github.com/Ensembl/ensembl-pipeline
+
+Ensembl hive:
+
+https://github.com/Ensembl/ensembl-hive
+
+Ensembl production:
+
+https://github.com/Ensembl/ensembl-production
+
+
+Code branches: the stable public release of the config/repo is on the dev/FAANG_hive_assembly_loading branch of ensembl-analysis
+
+Software (depending on the analyses you want to run):
+
+•        Repeatmasker
+•        Dust
+•        TRF
+•        Eponine
+•        FirstEF
+•        CPG
+•        tRNAscan
+•        genscan
+•        BLAST package
+
+Compute requirements:
+
+Currently tested on Platform LSF only. The pipeline by default will run up to 900 jobs concurrently during phase 2, with the BLAST analyses being most intensive as they ask for 3 cores per job (at peak compute the pipeline uses 2700 cores simultaneously). This is something that can be tweaked in the config file.
+
+MySQL database servers are required, two ideally, one to house the pipeline db and one to house the core db.
+
+
+Setting up the pipeline:
+
+The first thing required is to fill in a valid configuration file. The config file can be found in the ensembl-analysis repo:
+
+/PATH/TO/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/HiveAssemblyLoading.pm
+
+You can edit this file directly or make a copy; it is more usual to make a copy.
+
+The config itself contains information on the variables that need to be set.
+
+To initialise the pipeline:
+
+/PATH/TO/ensembl-hive/scripts/init_pipeline.pl /PATH/TO/HiveAssemblyLoading.pm
+
+To sync the pipeline (this step should always be done before running a pipeline to ensure jobs are correctly semaphored/blocked)
+
+/PATH/TO/ensembl-hive/scripts/beekeeper.pl –url PIPELINE_URL –sync
+
+Note that the init_pipeline script will print out the above command with the correct URL at the end of the output
+
+Run the pipeline:
+
+/PATH/TO/ensembl-hive/scripts/beekeeper.pl –url PIPELINE_URL –loop
+
+Notes on running the beekeeper:
+
+The beekeeper is a script that controls the running of jobs produced by the pipeline on the compute cluster. The normal operation of the beekeeper script is to sleep, wake up after a defined time interval, check the status of the pipeline and the workers, release new workers if needed and then go back to sleep. The default sleep interval is 1 minute. As such the pipeline
+
+Modifying the pipeline:
+
+Changes to remove/add analyses can be done via the pipeline_analyses subroutine. Analyses in the pipeline are generally sequential, so often it is possible to remove an analysis without having to radically alter the config. In future we will add flags to allow direct adding/removing of option analyses. For now the procedure is to edit the config as in the following example.
+
+Example of removing the run_trf analysis:
+
+1) In this example taken  from the unmodified config we have three analyses: run_dust, run_trf, run_firstef. Analyses are connected via the ‘-flow_into’ parameter. In this case run_dust flows into run_trf, which then flows into run_firstef.
+
+      {
+         # Run dust
+        -logic_name => 'run_dust',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDust',
+        -parameters => {
+                         target_db => $self->o('reference_db'),
+                         logic_name => 'dust',
+                         module => 'HiveDust',
+                         dust_path => $self->o('dust_path'),
+                       },
+        -rc_name    => 'simple_features',
+        -flow_into => {
+                         1 => ['run_trf'],
+                      },
+        -hive_capacity => 900,
+        -batch_size => 20,
+      },
+
+     {
+        # Run TRF
+        -logic_name => 'run_trf',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveTRF',
+        -parameters => {
+                         target_db => $self->o('reference_db'),
+                         logic_name => 'trf',
+                         module => 'HiveTRF',
+                         trf_path => $self->o('trf_path'),
+                       },
+        -rc_name    => 'simple_features',
+        -flow_into => {
+                         1 => ['run_eponine'],
+                      },
+       -hive_capacity => 900,
+       -batch_size => 20,
+      },
+
+      {
+        # Run eponine
+        -logic_name => 'run_eponine',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveEponine',
+        -parameters => {
+                         target_db => $self->o('reference_db'),
+                         logic_name => 'eponine',
+                         module => 'HiveEponine',
+                         eponine_path => $self->o('eponine_java_path'),
+                         commandline_params => '-epojar => '.$self->o('eponine_jar_path').', -threshold => 0.999',
+                       },
+        -rc_name    => 'simple_features',
+        -flow_into => {
+                         1 => ['run_firstef'],
+                      },
+       -hive_capacity => 900,
+       -batch_size => 20,
+      },
+
+2) This is the modified config to remove the run_trf analysis. The only changes required where to change the ‘-flow_into’ parameter for run_dust to point to run_firstef, instead of run_trf. Technically it is unnecessary to delete the run_trf analysis code itself (as no jobs will get passed into it at this point), but for clarity it is better to remove it from the config, as has been done in the example below:
+
+
+      {
+        # Run dust
+        -logic_name => 'run_dust',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDust',
+        -parameters => {
+                         target_db => $self->o('reference_db'),
+                         logic_name => 'dust',
+                         module => 'HiveDust',
+                         dust_path => $self->o('dust_path'),
+                       },
+        -rc_name    => 'simple_features',
+        -flow_into => {
+                         1 => ['run_eponine'],
+                      },
+        -hive_capacity => 900,
+        -batch_size => 20,
+      },
+
+
+      {
+        # Run eponine
+        -logic_name => 'run_eponine',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveEponine',
+        -parameters => {
+                         target_db => $self->o('reference_db'),
+                         logic_name => 'eponine',
+                         module => 'HiveEponine',
+                         eponine_path => $self->o('eponine_java_path'),
+                         commandline_params => '-epojar => '.$self->o('eponine_jar_path').', -threshold => 0.999',
+                       },
+        -rc_name    => 'simple_features',
+        -flow_into => {
+                         1 => ['run_firstef'],
+                      },
+       -hive_capacity => 900,
+       -batch_size => 20,
+      },
+
+
+Note that in many cases this is possible, however there are some analyses that are dependant on others. For example genscan is dependant on the results of repeatmasker and the blast analyses are dependant on having predicted transcripts created by genscan. So it is important to consider these relationships when removing analyses.
+
+
+Resource classes:
+
+Resource classes are defined in the resource_classes subroutine. Each analysis usually has a defined resource class, which is held in the –rc_name parameter for that analysis. There is then a corresponding entry in the resource_classes subroutine in the config file. These resource classes really correspond to requests for things like memory and cpus on the compute cluster. At the moment these requests are designed for the Ensembl server infrastructure, so if they are being uses outside this scenario you will need to define the contents of this subroutine. The goal for each resource class is to have all the information needed for submission to the particular job deployment system us are using. An example of a simplified LSF  resource class would be:
+
+'genscan' => { LSF => '-q normal -W 180 –M1900 -R"select[mem>1900] rusage[mem=1900]” }
+
+Here there is a request for a deployment of jobs associated with this resource class on a job queues called ‘normal’, with a runlimit of 180 minutes and a memory requirement of 1900MB.
+
+An analysis that wanted to use this class would invoke it as part of the analysis parameters as follows:
+
+-rc_name    => 'genscan',
+
