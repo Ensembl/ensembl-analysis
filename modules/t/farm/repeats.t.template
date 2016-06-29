@@ -36,7 +36,7 @@ my $db_password = 'EAT_DB_PASS' ;
 my $db_port = '3306' ;
 
 {
-  my $module = 'download_assembly_init_conf' ;
+  my $module = 'repeats' ;
   my $pipeline = Bio::EnsEMBL::Test::RunPipeline->new( $module, $options );
   $pipeline->run();
 
