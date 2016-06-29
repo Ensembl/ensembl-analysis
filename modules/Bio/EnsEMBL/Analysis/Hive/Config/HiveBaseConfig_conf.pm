@@ -44,6 +44,7 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
  Arg [1]    : None
  Description: It returns a hashref containing the default options for HiveGeneric_conf
                 use_tokens => 0,
+                drop_databases => 0,
                 password_r => undef,
                 dna_db_port => $self->o('port'),
                 dna_db_user => $self->o('user_r'),
@@ -63,6 +64,7 @@ sub default_options {
 
 #        At the moment, we want to use tokens
         use_tokens => 1,
+        drop_databases => 0,
         password_r => undef,
 
         dna_db_port => $self->o('port'),
@@ -90,6 +92,33 @@ sub default_options {
     };
 }
 
+
+=head2 pipeline_create_commands
+
+ Arg [1]    : None
+ Description: If drop_databases is set to 1, it will delete all databases
+              in databases_to_delete. -driver has to be set in the database
+              you want to delete
+ Returntype : Arrayref
+ Exceptions : None
+
+=cut
+
+sub pipeline_create_commands {
+  my ($self) = @_;
+
+  my $drop_commands = $self->SUPER::pipeline_create_commands;
+# To be able to have drop_databases as a commandline option we have to trick Hive so
+# we store parameters and doing a string comparison on a number otherwise it fails...
+  my $drop_databases = $self->o('drop_databases');
+  my $databases_to_delete = $self->o('databases_to_delete');
+  if ($drop_databases eq 1) {
+    foreach my $database (@{$self->o('databases_to_delete')}) {
+      push(@{$drop_commands}, $self->db_cmd('DROP DATABASE IF EXISTS', $self->dbconn_2_url($database, 1)));
+    }
+  }
+  return $drop_commands;
+}
 
 =head2 lsf_resource_builder
 
