@@ -42,6 +42,7 @@ do
  echo Using template $filename to generate $output_file
  gawk '{ gsub("EAT_DB_USER", "'$db_user'"); print }' $f | \
      gawk '{ gsub("EAT_DB_PASS", "'$db_pass'"); print }' | \
+     gawk '{ gsub("EAT_DB_PORT", "'$db_port'"); print }' | \
      gawk '{ gsub("EAT_DB_NAME", "'$db_name'"); print }' | \
      gawk '{ gsub("EAT_DB_USER", "'$db_user_ro'"); print }' | \
      gawk '{ gsub("EAT_DB_HOST", "'$db_host'"); print }' > $farm_test_dir/$output_file
