@@ -41,11 +41,17 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
 
 =head2 default_options
 
+ Arg [1]    : None
  Description: It returns a hashref containing the default options for HiveGeneric_conf
-              and three DB connection hash: pipeline_db, reference_db and dna_db
+                use_tokens => 0,
+                password_r => undef,
+                dna_db_port => $self->o('port'),
+                dna_db_user => $self->o('user_r'),
+                dna_db_password => $self->o('password_r'),
+                dna_db_driver => $self->o('hive_driver'),
+              and two DB connection hash: pipeline_db and dna_db
  Returntype : Hashref
  Exceptions : None
-
 
 =cut
 
@@ -57,6 +63,13 @@ sub default_options {
 
 #        At the moment, we want to use tokens
         use_tokens => 1,
+        password_r => undef,
+
+        dna_db_port => $self->o('port'),
+        dna_db_user => $self->o('user_r'),
+        dna_db_password => $self->o('password_r'),
+        dna_db_driver => $self->o('hive_driver'),
+
         'pipeline_db' => {
             -dbname => $self->o('pipe_dbname'),
             -host   => $self->o('pipe_db_server'),
@@ -69,8 +82,10 @@ sub default_options {
         'dna_db' => {
             -dbname => $self->o('dna_dbname'),
             -host   => $self->o('dna_db_server'),
-            -port   => $self->o('port'),
-            -user   => $self->o('user_r'),
+            -port   => $self->o('dna_db_port'),
+            -user   => $self->o('dna_db_user'),
+            -pass   => $self->o('dna_db_password'),
+            -driver => $self->o('dna_db_driver'),
         },
     };
 }
