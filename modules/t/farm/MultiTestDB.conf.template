@@ -1,7 +1,7 @@
 {
   'port'   => '3306',
   'driver' => 'mysql',
-  'user'   => '',
-  'pass'   => '',
-  'host'   => '127.0.0.1',
+  'user'   => 'EAT_DB_USER',
+  'pass'   => 'EAT_DB_PASS',
+  'host'   => 'EAT_DB_HOST',
 }

@@ -29,10 +29,10 @@ my $multi_db = Bio::EnsEMBL::Test::MultiTestDB->new('hive');
 my $hive_dba = $multi_db->get_DBAdaptor('hive') or BAIL_OUT 'Cannot get HIVE DB. Stopping.';
 
 #TO DO - read these values out from the config file directly (or perhaps via versa)
-my $db_name = 'eat_rat_core_db' ;
+my $db_name = 'EAT_DB_NAME' ;
 my $db_server = 'localhost' ;
-my $db_user   = '_EAT_DB_USER_' ;
-my $db_password = '_EAT_DB_PASS_' ;
+my $db_user   = 'EAT_DB_USER' ;
+my $db_password = 'EAT_DB_PASS' ;
 my $db_port = '3306' ;
 
 {

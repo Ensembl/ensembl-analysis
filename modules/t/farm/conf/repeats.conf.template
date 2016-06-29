@@ -39,8 +39,6 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
-'strain'               => '129S1_SvImJ_v1',
-'farm_user_name'       => 'mpg_pr', # for ref db prefix
 'genebuilder_id'       => '40', # for meta table
 'enscode_root_dir'     => '/nfs/users/nfs_f/fm2/enscode/', # git repo checkouts
 'repeatmasker_library' => 'mouse', # repbase library to use
@@ -54,36 +52,19 @@ sub default_options {
 # Pipe and ref db info
 ########################
 
-'pipe_db_server'                 => 'genebuild3', # NOTE! used to generate tokens in the resource_classes sub below
-'reference_db_server'            => 'genebuild4', # NOTE! used to generate tokens in the resource_classes sub below
+'pipe_db_server'                 => 'EAT_DB_HOST',
+'reference_db_server'            => 'EAT_DB_HOST',
 
-'user_r'                         => 'ensro',
-'user_w'                         => 'ensadmin',
-'password'                       => 'ensembl',
+'user_r'                         => 'EAT_DB_USER_RO',
+'user_w'                         => 'EAT_DB_USER',
+'password'                       => 'EAT_DB_PASS',
 'port'                           => '3306',
 
 
-'output_path'               => '/lustre/scratch109/ensembl/rn6/mouse_strains_1/mus_musculus/129S1_SvImJ_v1/',
-'primary_assembly_dir_name' => 'Primary_Assembly',
-'wgs_id'                    => 'LVXH',
-'assembly_name'             => '129S1_SvImJ_v1',
-'assembly_accession'        => 'GCA_001624185.1',
-'full_ftp_path'             => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Mus_musculus/all_assembly_versions/GCA_001624185.1_129S1_SvImJ_v1//GCA_001624185.1_129S1_SvImJ_v1_assembly_structure',
+'output_path'               => 'EAT_OUTPUT_PATH',
 'chromosomes_present'       => '1',
 
 
-########################
-# BLAST db paths
-########################
-'uniprot_blast_db_path'     => '/data/blastdb/Ensembl/uniprot_2016_04/uniprot_vertebrata',
-'uniprot_index'             => '/data/blastdb/Ensembl/uniprot_2016_04/entry_loc',
-'vertrna_blast_db_path'     => '/data/blastdb/Ensembl/vertrna_xdformat_2016_04/embl_vertrna-1',
-'unigene_blast_db_path'     => '/data/blastdb/Ensembl/unigene/unigene',
-#'mito_index_path'           => '/data/blastdb/Ensembl/refseq_mitochondria_set/mito_index.txt',
-
-# Annotation loading
-'gtf_parsing_script'        => '/nfs/users/nfs_f/fm2/enscode/ensembl-personal/fm2/scripts/load_gtf_ensembl.pl',
-'loading_report_script'     => '/nfs/users/nfs_f/fm2/enscode/ensembl-personal/fm2/scripts/report_genome_prep_stats.pl',
 
 ######################################################
 #
@@ -116,36 +97,19 @@ sub default_options {
 'cpg_path' => '/software/ensembl/genebuild/usrlocalensemblbin/cpg',
 'trnascan_path' => '/software/ensembl/genebuild/usrlocalensemblbin/tRNAscan-SE',
 'repeatmasker_path' => '/software/ensembl/bin/RepeatMasker_4_0_5/RepeatMasker',
-'genscan_path' => '/software/ensembl/genebuild/usrlocalensemblbin/genscan',
-'uniprot_blast_exe_path' => '/software/ensembl/genebuild/usrlocalensemblbin/wublastp',
-'vertrna_blast_exe_path' => '/software/ensembl/genebuild/usrlocalensemblbin/wutblastn',
-'unigene_blast_exe_path' => '/software/ensembl/genebuild/usrlocalensemblbin/wutblastn',
 
 
-########################
-# Misc setup info
-########################
-'contigs_source' => 'ncbi',
-'primary_assembly_dir_name' => 'Primary_Assembly',
 
 ########################
 # db info
 ########################
-'user' => 'ensro',
+'user' => 'EAT_DB_USER_RO',
 
 
-'pipeline_db' => {
-  -dbname => $self->o('farm_user_name').'_'.$self->o('species_name').'_'.$self->o('strain').'_pipe',
-  -host   => $self->o('pipe_db_server'),
-  -port   => $self->o('port'),
-  -user   => $self->o('user_w'),
-  -pass   => $self->o('password'),
-  -driver => $self->o('driver'),
-},
 
 # NOTE! the dbname for each species is generated in the pipeline itself by setup_assembly_loading_pipeline
 'reference_db' => {
-  -dbname => $self->o('farm_user_name').'_'.$self->o('species_name').'_'.$self->o('strain').'_core',
+  -dbname => EAT_DB_NAME,
   -host   => $self->o('reference_db_server'),
   -port   => $self->o('port'),
   -user   => $self->o('user_w'),
