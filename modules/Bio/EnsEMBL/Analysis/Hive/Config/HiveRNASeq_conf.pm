@@ -362,6 +362,9 @@ sub pipeline_analyses {
             {
         -logic_name => 'bwa',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA',
+        -parameters => {
+          disconnect_jobs => 1,
+        }
         -flow_into => {
             1 => [ ':////accu?fastq=[]' ],
             -1 => [ 'bwa_failed' ],
@@ -373,6 +376,9 @@ sub pipeline_analyses {
         -logic_name => 'bwa_failed',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA',
         -can_be_empty => 1,
+        -parameters => {
+          disconnect_jobs => 1,
+        }
         -flow_into => {
             1 => [ ':////accu?fastq=[]' ],
             },
@@ -388,6 +394,7 @@ sub pipeline_analyses {
                          min_mapped => $self->o('read_min_mapped'),
                          header_file => '#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h',
                          bam_prefix => $self->o('read_id_tag'),
+                         disconnect_jobs => 1,
                        },
         -flow_into => {
             1 => [ ':////accu?filename=[]' ],
@@ -407,6 +414,7 @@ sub pipeline_analyses {
                          min_mapped => $self->o('read_min_mapped'),
                          header_file => '#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h',
                          bam_prefix => $self->o('read_id_tag'),
+                         disconnect_jobs => 1,
                        },
         -flow_into => {
             1 => [ ':////accu?filename=[]' ],
@@ -467,6 +475,7 @@ sub pipeline_analyses {
                          # Use this default options for Picard: 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT'
                          # You will need to change the options if you want to use samtools for merging
                          options       => 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT',
+                         disconnect_jobs => 1,
                        },
         -rc_name    => '3GB_multithread',
         -flow_into => {
@@ -488,6 +497,7 @@ sub pipeline_analyses {
                          # Use this default options for Picard: 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT'
                          # You will need to change the options if you want to use samtools for merging
                          options       => 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT',
+                         disconnect_jobs => 1,
                        },
         -rc_name    => '3GB_multithread',
         -flow_into => {
@@ -708,6 +718,7 @@ sub pipeline_analyses {
         -parameters => {
                          regex => '.sam',
                          headerfile => '#wide_output_dir#/merged_header.h',
+                         disconnect_jobs => 1,
                        },
         -rc_name    => '2GB',
         -flow_into => ['create_top_level_input_ids_again'],
