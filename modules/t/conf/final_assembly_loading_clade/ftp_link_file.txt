@@ -1,0 +1,8 @@
+ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Macaca_nemestrina/all_assembly_versions/GCA_000956065.1_Mnem_1.0/
+ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Cercocebus_atys/all_assembly_versions/GCA_000955945.1_Caty_1.0/
+ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Mandrillus_leucophaeus/all_assembly_versions/GCA_000951045.1_Mleu.le_1.0/
+ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Colobus_angolensis/all_assembly_versions/GCA_000951035.1_Cang.pa_1.0/
+ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Aotus_nancymaae/all_assembly_versions/GCA_000952055.1_Anan_1.0/
+ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Microcebus_murinus/all_assembly_versions/GCA_000165445.2_Mmur_2.0/
+ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Propithecus_coquereli/all_assembly_versions/GCA_000956105.1_Pcoq_1.0/
+ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Macaca_fascicularis/all_assembly_versions/GCA_000364345.1_Macaca_fascicularis_5.0/

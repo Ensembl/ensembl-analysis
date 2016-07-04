@@ -1,0 +1,28 @@
+#############################################################
+# GENERAL SETTINGS                                          #
+#############################################################
+Master output path: /lustre/scratch109/ensembl/fm2/hive_assembly_loading/final_assembly_loading
+FTP link file: /lustre/scratch109/ensembl/fm2/hive_assembly_loading/final_assembly_loading/ftp_link_file.txt
+Genebuilder id: 42
+Farm user name: fm2
+DB write user: ensadmin
+DB write pass: ensembl
+Reference DB server: genebuild7
+Reference DB port: 3306
+Creation type for reference DB: core_only
+Pipeline DB server: genebuild3
+ENSCODE root dir: /nfs/users/nfs_f/fm2/enscode/
+Primary assembly dir name: Primary_Assembly
+Contigs source: ncbi
+
+-------------------------------------------------------------
+- PAPIO_ANUBIS SETTINGS
+-------------------------------------------------------------
+Species dir path: /lustre/scratch109/ensembl/fm2/hive_assembly_loading/final_assembly_loading/papio_anubis
+Assembly name (coord_system_version): Panu_2.0
+GCA accession: GCA_000264685.1
+Taxon id: 9555
+Assembly level: chromosome
+wgs id: AHZZ
+Reference DB name: fm2_papio_anubis_ref
+

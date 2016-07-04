@@ -54,6 +54,7 @@ sub write_output {
 sub create_db {
   my $self = shift;
   my $create_type = $self->param('create_type');
+  say("rn6DEBUG: creating DB of type $create_type") ;
   if($create_type eq 'clone') {
     $self->clone_db();
   } elsif ($create_type eq 'copy') {
@@ -146,19 +147,19 @@ sub copy_db {
     $self->check_db_string($self->param('target_db'));
     $target_string = $self->param('target_db');
   }
-  
+
   my @source_string_at_split = split('@',$source_string);
   my $source_dbname = shift(@source_string_at_split);
   my @source_string_colon_split = split(':',shift(@source_string_at_split));
   my $source_host = shift(@source_string_colon_split);
   my $source_port = shift(@source_string_colon_split);
-  
+
   my @target_string_at_split = split('@',$target_string);
   my $target_dbname = shift(@target_string_at_split);
   my @target_string_colon_split = split(':',shift(@target_string_at_split));
   my $target_host = shift(@target_string_colon_split);
   my $target_port = shift(@target_string_colon_split);
-  
+
   $self->dump_database($source_host,$source_port,$self->param('user_w'),$self->param('pass_w'),$source_dbname,$self->param('db_dump_file'),$self->param('ignore_dna'));
   $self->create_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
   $self->load_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname,$self->param('db_dump_file'));
@@ -349,9 +350,9 @@ sub create_database {
 }
 
 sub load_database {
-	
+
   my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file) = @_;
-  
+
   print "\nLoading file $db_file into database $dbname"."@"."$dbhost:$dbport...\n";
   if (system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname < $db_file")) {
     $self->throw("The database loading process failed. Please, check that you have access to the file $db_file and the database you are trying to write to.");
@@ -374,9 +375,3 @@ sub remove_file {
 }
 
 1;
-
-
-
-
-
-

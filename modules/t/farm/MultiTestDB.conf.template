@@ -1,0 +1,7 @@
+{
+  'port'   => 'EAT_DB_PORT',
+  'driver' => 'mysql',
+  'user'   => 'EAT_DB_USER',
+  'pass'   => 'EAT_DB_PASS',
+  'host'   => 'EAT_DB_HOST',
+}

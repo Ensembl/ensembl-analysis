@@ -1,0 +1,1 @@
+gene	num_of_HSPs	num_of_edges	time_of_1st_phase	score_of_1st_group	num_of_groups_pruned_due_to_overlap	num_of_edges_2nd_phase	time_of_2nd_phase	time_2nd_phase_without_comp_pid	#_of_correct_exons	#_of_incorrect_exons	#_of_missed_exons

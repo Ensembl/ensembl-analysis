@@ -1,0 +1,1 @@
+ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Papio_anubis/all_assembly_versions/GCA_000264685.1_Panu_2.0/

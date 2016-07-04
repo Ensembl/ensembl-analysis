@@ -1,0 +1,11 @@
+{
+  'databases' => {
+    'hive' => {
+      'hive' => 'Bio::EnsEMBL::Hive::DBSQL::DBAdaptor',
+    },
+    'rattus_norvegicus' => {
+      'core' => 'Bio::EnsEMBL::DBSQL::DBAdaptor',
+      'empty' => 'Bio::EnsEMBL::DBSQL::DBAdaptor',
+    }
+  }
+}

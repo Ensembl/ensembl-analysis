@@ -31,3 +31,6 @@ a.out
 *.o
 *.obj
 *.class
+modules/t/farm/*.t
+modules/t/farm/*.conf
+modules/t/farm/conf/*.conf
