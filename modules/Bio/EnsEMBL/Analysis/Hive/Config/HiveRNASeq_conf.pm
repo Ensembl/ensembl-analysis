@@ -475,6 +475,9 @@ sub pipeline_analyses {
                          # Use this default options for Picard: 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT'
                          # You will need to change the options if you want to use samtools for merging
                          options       => 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT',
+                         # target_db is the database where we will write the files in the data_file table
+                         # You can use store_datafile => 0, if you don't want to store the output file
+                         target_db => $self->o('blast_db'),
                          disconnect_jobs => 1,
                        },
         -rc_name    => '3GB_multithread',
@@ -497,6 +500,9 @@ sub pipeline_analyses {
                          # Use this default options for Picard: 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT'
                          # You will need to change the options if you want to use samtools for merging
                          options       => 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT',
+                         # target_db is the database where we will write the files in the data_file table
+                         # You can use store_datafile => 0, if you don't want to store the output file
+                         target_db => $self->o('blast_db'),
                          disconnect_jobs => 1,
                        },
         -rc_name    => '3GB_multithread',
