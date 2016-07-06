@@ -97,9 +97,6 @@ sub new {
     throw('At least one of the input file does not exist!') if ($missing);
     $self->input_files($input_files);
   }
-  elsif ($self->options =~ /-b\s+(\S+)/){
-      throw('Could not access '.$1) unless (-e $1);
-  }
   else {
       throw('You need to give a array of input files');
   }

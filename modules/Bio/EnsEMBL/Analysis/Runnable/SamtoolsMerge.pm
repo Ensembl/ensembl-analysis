@@ -56,6 +56,9 @@ sub new {
     my $self = $class->SUPER::new(@args);
 
     $self->samtools($self->program);
+    if ($self->options =~ /-b\s+(\S+)/){
+        throw('Could not access file containing BAM files '.$1) unless (-e $1);
+    }
 
     return $self;
 }
