@@ -54,11 +54,9 @@ use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; # needed for re
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
-use vars qw (@ISA  @EXPORT);
 
-@ISA = qw(Exporter);
-
-@EXPORT = qw( shuffle
+our @EXPORT_OK = qw(
+              shuffle
               parse_config
               parse_config_mini
               parse_config_value
