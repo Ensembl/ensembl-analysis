@@ -49,7 +49,11 @@ package Bio::EnsEMBL::Analysis::Tools::Utilities;
 
 use strict;
 use warnings;
+
 use Exporter;
+use File::Spec;
+use File::Which;
+
 use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; # needed for read_config()
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
@@ -75,7 +79,9 @@ our @EXPORT_OK = qw(
               send_email
               hrdb_get_dba
               convert_to_ucsc_name
-              align_proteins ) ;
+              align_proteins
+              locate_executable
+              );
 
 
 
@@ -1068,6 +1074,42 @@ sub get_analysis_settings {
     }
     my $config = $class->new();
     return $config->get_config_settings($key, $additional_hash);
+}
+
+
+=head2 locate_executable
+
+ Arg [1]    : String $executable, executable to locate
+ Arg [2]    : String $bindir (optional), directory to look for the executable
+ Description: First checks if Arg[1] is executable, if not checks if the name
+              concatenated with Arg[2] is executable, if not then uses File::Which
+              to search in PATH
+ Returntype : String absolute path to the executable
+ Exceptions : Throws if Arg[1] is not defined
+              Throws if it couldn't find the path to the executable
+
+=cut
+
+sub locate_executable {
+  my ($name, $bindir) = @_;
+
+  my $path;
+  if ($name) {
+    if (-x $name) {
+      $path = $name;
+    }
+    elsif ($bindir && -x File::Spec->catfile($bindir, $name)) {
+      $path = File::Spec->catfile($bindir, $name);
+    }
+    else {
+      $path = File::Which::which($name);
+    }
+    throw('Could not find the absolute path for '.$name) unless ($path);
+  }
+  else {
+    throw("Must pass locate_executable a name if the program is to be located");
+  }
+  return $path;
 }
 
 1;

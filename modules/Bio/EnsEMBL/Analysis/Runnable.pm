@@ -538,21 +538,7 @@ sub create_filename{
 sub locate_executable{
   my ($self, $name) = @_;
 
-  my $path;
-  if($name){
-    if(-x $name){
-      $path = $name;
-    }elsif($self->bindir && -x $self->bindir."/$name"){
-      $path = $self->bindir."/$name";
-    }else{
-      Bio::EnsEMBL::Analysis::Programs->import($name);
-      $path = $Bio::EnsEMBL::Analysis::Programs::Program_Paths{$name};
-    }
-  }else{
-    throw("Must pass Runnable:locate_executable a name if the program ".
-          "is to be located");
-  }
-  return $path;
+  return Bio::EnsEMBL::Analysis::Tools::Utilities::locate_executable($name, $self->bindir);
 }
 
 
