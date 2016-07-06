@@ -99,7 +99,7 @@ foreach my $alt_seq_mapping (@alt_seq_mappings) {
   	
   	my $ae_gene_key = get_gene_key($ae_gene,$alt_seq_mapping->hstart());
   	
-  	foreach my $pa_gene (@pa_genes) {
+  	PA_GENE: foreach my $pa_gene (@pa_genes) {
   	
   	  my $pa_gene_key = get_gene_key($pa_gene,$alt_seq_mapping->seq_region_start());
 
@@ -140,9 +140,21 @@ foreach my $alt_seq_mapping (@alt_seq_mappings) {
   	  	  $pa_gene_group->add_member($ae_gene->dbID(),\%alt_gene_flags);
   	  	  $aaga->update($pa_gene_group);
   	  	} elsif ($ae_gene_group) {
-  	  	  print "FOUND new alt_allele relationship for: ".$ae_gene->stable_id()." ".$ae_gene_key." and ".$pa_gene->stable_id()." ".$pa_gene_key." Adding the latter to the former's alt allele group ".$ae_gene_group->dbID().".\n";
-  	  	  $ae_gene_group->add_member($pa_gene->dbID(),\%primary_gene_flags);
+
+          # if a gene on the primary assembly is found, we don't want to add more genes on the primary assembly to this alt allele group
+          foreach my $ae_gene_group_gene (@{$ae_gene_group->get_all_Genes()}) {
+            if ($ae_gene_group_gene->seq_region_name() !~ /CHR/) {
+              print "FOUND primary assembly gene in this alt allele group. Skipping alt allele group ".$ae_gene_group->dbID()."\n";
+              next PA_GENE;
+            } else {
+              ;
+            }
+          }
+          
+          print "FOUND new alt_allele relationship for: ".$ae_gene->stable_id()." ".$ae_gene_key." and ".$pa_gene->stable_id()." ".$pa_gene_key." Adding the latter to the former's alt allele group ".$ae_gene_group->dbID().".\n";
+          $ae_gene_group->add_member($pa_gene->dbID(),\%primary_gene_flags);
   	  	  $aaga->update($ae_gene_group);
+
   	  	} else {
           my $new_group = Bio::EnsEMBL::AltAlleleGroup->new(-MEMBERS => [ [$pa_gene->dbID(),\%primary_gene_flags ],
                                                                           [$ae_gene->dbID(),\%alt_gene_flags] ]);
