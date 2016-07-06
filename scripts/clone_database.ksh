@@ -41,8 +41,6 @@ Creates a new Core database and copies important tables from a reference
 (source) database to it.  Alternatively, updates important tables in an
 existing database with the ones from a reference (source) database.
 
-The usernames and passwords are hard-coded into the script.
-
   -s    ("source") Source database on the form "database@host:port",
         where the ":port" part is optional (default port is 3306).
 
@@ -52,6 +50,10 @@ The usernames and passwords are hard-coded into the script.
   -f    ("force") Force creation of the target database by dropping it
         if it already exists.  The -f switch is ignored if -u is also
         used.
+
+  -l    ("lock_table") Do NOT lock the table when dumping. This can be
+        dangerous but useful if your read-only user has no LOCK TABLES
+        priviledge. Default is to lock the tables.
 
   -u    ("update") Do not try to create or recreate the target database
         but update it with the important tables from the source
@@ -97,13 +99,15 @@ USAGE_END
 opt_update=0
 opt_force=0
 opt_output=''
+opt_locktable='true'
 
-while getopts 's:t:ufo:r:w:P:h' opt; do
+while getopts 's:t:uflo:r:w:P:h' opt; do
   case ${opt} in
     s)  eval $( parse_dbarg 'opt_source' ${OPTARG} )   ;;
     t)  eval $( parse_dbarg 'opt_target' ${OPTARG} )   ;;
     u)  opt_update=1    ;;
     f)  opt_force=1     ;;
+    l)  opt_locktable='false'     ;;
     o)  opt_output=${OPTARG}    ;;
     r)  opt_ro_user=${OPTARG}    ;;
     w)  opt_rw_user=${OPTARG}    ;;
@@ -133,6 +137,7 @@ if [[ -z ${opt_rw_pass} ]]; then
   usage; exit 1
 fi
 
+set -o pipefail
 if [[ -z ${opt_output} ]]; then
   if (( !opt_update )); then
     # Create the new database:
@@ -150,7 +155,8 @@ if [[ -z ${opt_output} ]]; then
     # the new target database.
     mysqldump --host=${opt_source.dbhost} --port=${opt_source.dbport} \
       --user=${opt_ro_user} \
-      --no-data  ${opt_source.dbname} |
+      --no-data --lock-table=${opt_locktable} \
+      ${opt_source.dbname} |
     mysql --host=${opt_target.dbhost} --port=${opt_target.dbport} \
       --user=${opt_rw_user} --password=${opt_rw_pass} \
       --database=${opt_target.dbname}
@@ -172,7 +178,8 @@ fi
 # target database:
 mysqldump --host=${opt_source.dbhost} --port=${opt_source.dbport} \
   --user=${opt_ro_user} \
-  --verbose ${opt_source.dbname} \
+  --verbose --lock-table=${opt_locktable} \
+  ${opt_source.dbname} \
   analysis \
   analysis_description \
   assembly \
