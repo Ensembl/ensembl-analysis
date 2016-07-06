@@ -155,7 +155,7 @@ sub lsf_resource_builder {
         push(@lsf_rusage, 'mem='.$memory);
         push(@lsf_select, 'mem>'.$memory);
     }
-    if ($self->default_options->{use_tokens} and defined $servers) {
+    if (($self->o('use_tokens') eq 1) and defined $servers) {
         my $i = 0;
         my %seen;
         foreach my $server (@$servers) {

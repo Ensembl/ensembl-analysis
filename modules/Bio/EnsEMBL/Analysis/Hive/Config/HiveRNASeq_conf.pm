@@ -214,6 +214,16 @@ sub pipeline_wide_parameters {
 }
 
 
+=head2 pipeline_create_commands
+
+ Arg [1]    : None
+ Description: Add a table named with 'summary_csv_table' to store information about the reads
+              The columns are defined by 'file_columns'
+ Returntype : Arrayref String, commands to create/delete databases and/or tables
+ Exceptions : None
+
+=cut
+
 sub pipeline_create_commands {
     my ($self) = @_;
     my $tables;
