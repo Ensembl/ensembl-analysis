@@ -277,9 +277,9 @@ sub dump_database {
 
   my $command;
   if (!$dbpass) { # dbpass for read access can be optional
-  	$command = "mysqldump --skip-opt -h$dbhost -P$dbport -u$dbuser $dbname > $db_file";
+  	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser $dbname > $db_file";
   } else {
-  	$command = "mysqldump --skip-opt -h$dbhost -P$dbport -u$dbuser -p$dbpass $dbname > $db_file";
+  	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser -p$dbpass $dbname > $db_file";
   }
 
   if (system($command)) {
