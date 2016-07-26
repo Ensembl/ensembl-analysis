@@ -47,48 +47,48 @@ sub default_options {
 #                                                                        #
 ##########################################################################
     
-    'recipient_email'            => 'dmurphy@ebi.ac.uk', # email address where reports will be sent
+    'recipient_email'            => '', # email address where reports will be sent
 
-    'species'                    => 'human',
+    'species'                    => '',
 
-    'ensembl_release'            => '86',
+    'ensembl_release'            => '',
 
-    'gb_user'                    => 'dm15',
+    'gb_user'                    => '',
 
     'pipeline_name'              => $self->o('species').'_cdna_update_'.$self->o('ensembl_release'),
     'pipe_db_name'               => $self->o('gb_user').'_'.$self->o('species').'_cdna_'.$self->o('ensembl_release'),
     'pipe_db_server'             => 'genebuild11',
 
     # the dna db should be the one on livemirror so need to change this
-    'dna_db_name'                => 'dm15_human_84_copy',
-    'dna_db_server'              => 'genebuild12',
+    'dna_db_name'                => '',
+    'dna_db_server'              => '',
 
-    'killlist_db_server'         => 'genebuild6',
+    'killlist_db_server'         => '',
 
-    'exonerate_output_db_server' => 'genebuild13',
+    'exonerate_output_db_server' => '',
 
-    'last_release'               => '85',
+    'last_release'               => '',
 
-    'old_cdna_db_name'           => 'homo_sapiens_cdna_'.$self->o('last_release').'_38',
+    'old_cdna_db_name'           => '_cdna_'.$self->o('last_release').'_38',
 
-    'old_cdna_file_name'         => '/lustre/scratch110/ensembl/dm15/hive_humancdna_85/cdna_update.clipped',
+    'old_cdna_file_name'         => '',
 
-    'output_path'                => '/lustre/scratch109/ensembl/dm15/humancdna_86/',
+    'output_path'                => '',
 
-    'refseq_path'                => '/data/blastdb/Ensembl/RefSeq_2016_01/',
-    'refseq_file'                => 'hs.fna',
+    'refseq_path'                => '',
+    'refseq_file'                => '',
 
-    'clone_db_script_path'       => '~/cvs_checkout_head/ensembl-personal/genebuilders/scripts/clone_database.ksh',
+    'clone_db_script_path'       => 'ensembl-personal/genebuilders/scripts/clone_database.ksh',
 
-    'genome_file'                => '/data/blastdb/Ensembl/Human/GRCh38/genome/softmasked_dusted/toplevel.with_nonref_and_GRCh38_p7.no_duplicate.softmasked_dusted.fa',
+    'genome_file'                => '',
 
     'repeat_masking_logic_names' => ['repeatmask_repbase_human'],
 
-    'gss_file'                   => '/nfs/users/nfs_d/dm15/cvs_checkout_head/ensembl-personal/genebuilders/cDNA_update/gss_acc.txt',
+    'gss_file'                   => 'ensembl-personal/genebuilders/cDNA_update/gss_acc.txt',
 
-    'optimize_script'            => '/nfs/users/nfs_d/dm15/cvs_checkout_head/ensembl-personal/genebuilders/scripts/load_external_db_ids_and_optimize_af.pl',
+    'optimize_script'            => 'ensembl-personal/genebuilders/scripts/load_external_db_ids_and_optimize_af.pl',
 
-    'refseq_version'             => 'refseq_70',
+    'refseq_version'             => '',
 
     'exonerate_version'          => 'exonerate-0.9.0',
 
@@ -122,8 +122,6 @@ sub default_options {
     'port'                       => '3306',
 
     'cdna_query_dir_name'        => 'cdna_temp',
-
-    #'cdna_tmp_filename'          => 'cdnadump.tmp',
 
     'retired_cdnas_file'         => $self->o('output_path').'/cdna_update.retired',
     'genes_to_delete'            => $self->o('output_path').'/genes_to_delete.ids',
@@ -212,27 +210,10 @@ sub pipeline_analyses {
   my ($self) = @_;
 
   return [
-#    {
-#      # make the appropriate output and config directories and copy modules
-#      -logic_name => 'setup_directories_configs',
-#      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-#      -parameters => {
-#        # NB need to possibly edit the module files for each of the 2 species
-#        cmd => 'mkdir -p '.$self->o('output_path').'; mkdir -p $ENSEMBL_ROOT_REPO/ensembl-config/cDNA_update/'.$self->o('species').'/release'.$self->o('ensembl_release').
-#               '; mkdir -p $ENSEMBL_ROOT_REPO/ensembl-config/cDNA_update/'.$self->o('species').'/release'.$self->o('ensembl_release').'Bio/EnsEMBL/Analysis/Config/; '.
-#               'cp $ENSEMBL_REPO_ROOT/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Config/General.pm.example $ENSEMBL_ROOT_REPO/ensembl-config/cDNA_update/'
-#               .$self->o('species').'/release'.$self->o('ensembl_release').'Bio/EnsEMBL/Analysis/Config/General.pm; '.               
-#               'cp $ENSEMBL_REPO_ROOT/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Config/KillListFilter.pm.example $ENSEMBL_ROOT_REPO/ensembl-config/cDNA_update/'
-#               .$self->o('species').'/release'.$self->o('ensembl_release').'Bio/EnsEMBL/Analysis/Config/GeneBuild/KillListFilter.pm'
-#      },
-#      -input_ids => [{}],
-#      -max_retry_count => 0,
-#    },
     {
       # need to make sure the database actually copies as if it doesn't the job does appear to complete according to eHive
       -logic_name => 'create_output_db',
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-#      -wait_for => ['setup_directories_configs'],
       -parameters => {
         source_db => $self->o('old_cdna_db'),
         target_db => $self->o('exonerate_output_db'),
@@ -241,7 +222,6 @@ sub pipeline_analyses {
         pass_w => $self->o('password'),
         user_w => $self->o('user_w'),
         user_r => $self->o('user_r'),
-        #db_dump_file => $self->o('output_path').'/'.$self->o('cdna_tmp_filename'),
       },
       -rc_name => 'default',
       -input_ids => [{}],
@@ -271,7 +251,6 @@ sub pipeline_analyses {
           output_path => $self->o('output_path'),
           output_file => $self->o('cdna_file_name'),
           species => $self->o('species'),
-         #taxon_id => $self->o('human_taxon_id'),
         },
         refseq_sequences => {
           refseq_path => $self->o('refseq_path'),
@@ -291,7 +270,6 @@ sub pipeline_analyses {
       -parameters => {
         prepare_seqs => {
           dest_dir => $self->o('output_path'),
-          #embl_file => $self->o('embl_file'),
           embl_file => 'embl_' . $taxon_id {$self->o('species')} . '.fa',
           refseq_file => $self->o('refseq_file'),
           gss_file => $self->o('gss_file'),
@@ -325,10 +303,6 @@ sub pipeline_analyses {
       -rc_name => 'download',
       -input_ids => [{}],
       -wait_for => ['prepare_cdnas'],
-      #-flow_into => {
-      #  1 => ['load_cdnas'],
-      #  2 => ['list_retired_cdnas'],
-      #},
     },
     {
       -logic_name => 'list_retired_genes',
@@ -359,19 +333,6 @@ sub pipeline_analyses {
       -max_retry_count => 0,
       -wait_for => ['list_retired_genes'],
     },
- #   {
- #     -logic_name => 'delete_retired_unmapped_objects',
- #     -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
- #     -parameters => {
- #       cmd =>
- #              #'grep -r "rpp" ' . $self->o('output_path') . '/exonerate_2*out | awk \'{split($0,a,":"); print a[2]}\' >> '
- #              #. $self->o('output_path') . '/failed_hits.out;'
- #              #. ' grep -r "only" ' . $self->o('output_path') . '/exonerate_2*out | awk \'{split($0,a,":"); print a[2]}\' >> '
- #     },
- #     -input_ids => [{}],
- #     -max_retry_count => 0,
- #     -wait_for => ['list_retired_genes'],
- #   },
     {
       -logic_name => 'load_cdnas',
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadcDNAs',
@@ -399,24 +360,6 @@ sub pipeline_analyses {
         1 => ['exonerate'],
       },
     },
-##    {
-##      -logic_name => 'list_cdnas',
-##      -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-##      -parameters => {
-##        inputcmd => 'mysql -NB -u'.$self->o('user_r').
-##                    ' -h'.$self->o('pipeline_db','-host').
-##                    ' -D'.$self->o('pipeline_db','-dbname').
-##                    ' -P'.$self->o('pipeline_db','-port').
-##                    ' -e"select accession from '.$self->o('cdna_table_name').';"',
-##        column_names => ['accession'],
-##      },
-##      -wait_for => ['load_cdnas'],
-##      -input_ids => [{}],
-##      -flow_into => { 
-##        2 => [ 'exonerate' ],
-##      },
-##      -rc_name => 'default',
-##    },
     {
       -logic_name => 'exonerate',
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes_cdna',
@@ -548,33 +491,6 @@ sub pipeline_analyses {
       -input_ids => [{}],
       -max_retry_count => 0,
     },
-
-##    {
-##      -logic_name => 'store_unmapped',
-##      -wait_for => ['filter_output'],
-##      -wait_for => ['find_missing_cdnas'],
-##      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-##      -parameters => {
-##        cmd => 'perl $ENSEMBL_REPO_ROOT/ensembl-pipeline/scripts/cDNA_update/store_unmapped_cdnas.pl'
-##               . ' -gss ' . $self->o('gss_file')
-##               . ' -seq_file ' . $self->o('output_path') . '/missing_cdnas.fasta'
-##               . ' -user ' . $self->o('user_w')
-##               . ' -pass ' . $self->o('password')
-##               . ' -host ' . $self->o('exonerate_output_db_server')
-##               . ' -port ' . $self->o('port')
-##               . ' -dbname ' . $self->o('exonerate_output_db_name')
-##               . ' -species "' . $self->o('species') . '"'
-##               . ' -vertrna ' . $self->o('output_path') . '/embl_' . $taxon_id {$self->o('species')} . '.fa'
-               #. ' -vertrna ' . $self->o('output_path') . '/' . $self->o('embl_file')
-               #. ' -vertrna ' . $self->o('output_path') . '/embl_' . $taxon_id {"$self->o('species')"} . '.fa'
-##               . ' -refseq ' . $self->o('refseq_path') . '/' . $self->o('refseq_file')
-##               . ' -infile ' . $self->o('output_path') . '/failed_hits.out'
-##               . ' -findN_prog $ENSEMBL_REPO_ROOT/ensembl-pipeline/scripts/cDNA_update/find_N.pl'
-##               . ' -reasons_file ' . $self->o('output_path') . '/unmapped_reasons.txt'
-##      },
-##      -input_ids => [ {} ],
-##      -max_retry_count => 0,
-##    },
     {
       -logic_name => 'database_compare',
       -wait_for => ['store_unmapped','delete_retired_genes'],
@@ -600,17 +516,6 @@ sub pipeline_analyses {
       -input_ids => [{}],
       -failed_job_tolerance => 0,
     },
-##    {
-##      -logic_name => 'detailed_compare',
-##      -wait_for => ['database_compare'],
-##      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-##      -parameters => {
-##        cmd => 'perl $ENSGBSCRIPTS/load_external_db_ids_and_optimize_af.pl'.
-##      },
-##      -can_be_empty  => 1,
-##      -rc_name => 'default',
-##      -failed_job_tolerance => 0,
-##    },
     {
       -logic_name => 'load_xdbids',
       -wait_for => ['database_compare'],
@@ -666,18 +571,6 @@ sub pipeline_analyses {
       -input_ids => [{}],
       -max_retry_count => 0,
     },
-##    {
-##      -logic_name => 'completion_report',
-##      -wait_for => ['handover_preparation'],
-##      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::TextfileByEmail',
-##      -parameters => {
-##        email => $self->o('recipient_email'),
-##        subject => 'AUTOMATED REPORT: cDNA update has completed',
-##        text => 'The cDNA update is now complete and the database is ready for handover.',
-##      },
-##      -input_ids => [{}],
-##      -failed_job_tolerance => 0,
-##    },
   ];
 }
 
