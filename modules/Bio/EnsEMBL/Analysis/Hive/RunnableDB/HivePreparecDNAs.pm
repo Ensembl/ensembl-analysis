@@ -64,27 +64,27 @@ sub fix_headers {
   my ($self,$embl_file,$refseq_file,$output_path,$cdna_file,$species) = @_;
   local $/ = "\n>";
   open( CF, ">", $output_path . "/" . $cdna_file ) or die "can't create $cdna_file\n";
-  #open( EF, "<", $output_path . "/" . $embl_file ) or die "can't read $embl_file\n";
+  open( EF, "<", $output_path . "/" . $embl_file ) or die "can't read $embl_file\n";
   
   my $header;
 
   # read EMBL file
-  #while ( my $entry = <EF> ) {
-  #  # Need this to include the first record when using $/='\n>'
-  #  $entry =~ s/^>//;
-  #  # Extract & save id
-  #  $entry =~ s/^([\w\.\d]+)\s.*\n{1}?/$1\n/;
-  #  if ( !$1 ) {
-  #     say "\nunmatched id pattern:\n$entry";
-  #  }
-  #  # Re-write fasta entry
-  #  $entry =~ s/\>//g;
-  #  print CF '>' . $entry;
-  #}
-  #close(EF);
+  while ( my $entry = <EF> ) {
+    # Need this to include the first record when using $/='\n>'
+    $entry =~ s/^>//;
+    # Extract & save id
+    $entry =~ s/^([\w\.\d]+)\s.*\n{1}?/$1\n/;
+    if ( !$1 ) {
+       say "\nunmatched id pattern:\n$entry";
+    }
+    # Re-write fasta entry
+    $entry =~ s/\>//g;
+    print CF '>' . $entry;
+  }
+  close(EF);
   # Just to avoid a missing \n
-  #print CF "\n";
-  #print("\nRead EMBL file.\n");
+  print CF "\n";
+  print("\nRead EMBL file.\n");
 
   # Read RefSeq file
   open( RF, "<", $output_path . "/" . $refseq_file ) or die "can't read $refseq_file\n";
@@ -92,9 +92,9 @@ sub fix_headers {
     # Need this to include the first record when using $/='\n>'
     # we're not using 'predicted' XM entries for now
     $entry =~ s/^>//;
-    if ( $entry =~ m/^gi.+ref\|(NM_.+)\| Homo sapiens.*/ ) {
+    if ( $entry =~ m/^gi.+ref\|(NM_.+)\| Homo sapiens.*/ || $entry =~ m/^gi.+ref\|(NM_.+)\| Mus musculus.*/ ) {
       $header = $1;
-    } elsif ( $entry =~ m/^gi.+ref\|(NR_.+)\| Homo sapiens.*/ ) {
+    } elsif ( $entry =~ m/^gi.+ref\|(NR_.+)\| Homo sapiens.*/ || $entry =~ m/^gi.+ref\|(NR_.+)\| Mus musculus.*/ ) {
       $header = $1;
     } else {
       next;

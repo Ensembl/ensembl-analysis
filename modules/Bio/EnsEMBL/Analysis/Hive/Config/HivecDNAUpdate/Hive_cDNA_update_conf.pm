@@ -37,10 +37,6 @@ $taxon_id {"mouse"} = 10090;
 sub default_options {
   my ($self) = @_;
 
-  #my %taxon_id;
-  #$taxon_id {'human'} = 9606;
-  #$taxon_id {'mouse'} = 10090;
-
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
@@ -51,40 +47,50 @@ sub default_options {
 #                                                                        #
 ##########################################################################
     
-    'recipient_email'            => '', # email address where reports will be sent
+    'recipient_email'            => 'dmurphy@ebi.ac.uk', # email address where reports will be sent
 
     'species'                    => 'human',
 
-    'pipeline_name'              => '',
-    'pipe_db_name'               => '',
-    'pipe_db_server'             => '',
+    'ensembl_release'            => '86',
 
-    'dna_db_name'                => '',
-    'dna_db_server'              => '',
+    'gb_user'                    => 'dm15',
 
-    'killlist_db_server'         => '',
+    'pipeline_name'              => $self->o('species').'_cdna_update_'.$self->o('ensembl_release'),
+    'pipe_db_name'               => $self->o('gb_user').'_'.$self->o('species').'_cdna_'.$self->o('ensembl_release'),
+    'pipe_db_server'             => 'genebuild11',
 
-    'exonerate_output_db_name'   => '',
-    'exonerate_output_db_server' => '',
+    # the dna db should be the one on livemirror so need to change this
+    'dna_db_name'                => 'dm15_human_84_copy',
+    'dna_db_server'              => 'genebuild12',
 
-    'old_cdna_db_name'           => '',
-    'old_cdna_db_server'         => '',
+    'killlist_db_server'         => 'genebuild6',
 
-    'output_path'                => '',
+    'exonerate_output_db_server' => 'genebuild13',
 
-    'refseq_path'                => '',
+    'last_release'               => '85',
+
+    'old_cdna_db_name'           => 'homo_sapiens_cdna_'.$self->o('last_release').'_38',
+
+    'old_cdna_file_name'         => '/lustre/scratch110/ensembl/dm15/hive_humancdna_85/cdna_update.clipped',
+
+    'output_path'                => '/lustre/scratch109/ensembl/dm15/humancdna_86/',
+
+    'refseq_path'                => '/data/blastdb/Ensembl/RefSeq_2016_01/',
     'refseq_file'                => 'hs.fna',
 
-    'exonerate_batch_size'       => '50',
+    'clone_db_script_path'       => '~/cvs_checkout_head/ensembl-personal/genebuilders/scripts/clone_database.ksh',
 
-    'clone_db_script_path'       => 'ensembl-personal/genebuilders/scripts/clone_database.ksh',
-
-    'genome_file'                => '/data/blastdb/Ensembl/human/GRCh38/genome/softmasked_dusted/toplevel.with_nonref_and_GRCh38_p5.no_duplicate.softmasked_dusted.fa',
+    'genome_file'                => '/data/blastdb/Ensembl/Human/GRCh38/genome/softmasked_dusted/toplevel.with_nonref_and_GRCh38_p7.no_duplicate.softmasked_dusted.fa',
 
     'repeat_masking_logic_names' => ['repeatmask_repbase_human'],
 
-    'gss_file'                   => 'ensembl-personal/genebuilders/cDNA_update/gss_acc.txt',
+    'gss_file'                   => '/nfs/users/nfs_d/dm15/cvs_checkout_head/ensembl-personal/genebuilders/cDNA_update/gss_acc.txt',
 
+    'optimize_script'            => '/nfs/users/nfs_d/dm15/cvs_checkout_head/ensembl-personal/genebuilders/scripts/load_external_db_ids_and_optimize_af.pl',
+
+    'refseq_version'             => 'refseq_70',
+
+    'exonerate_version'          => 'exonerate-0.9.0',
 
 ##########################################################################
 #                                                                        #
@@ -92,7 +98,17 @@ sub default_options {
 #                                                                        #
 ##########################################################################
 
+    'pipeline_name'              => $self->o('species').'_cdna_update_'.$self->o('ensembl_release'),
+    'pipe_db_name'               => $self->o('gb_user').'_'.$self->o('species').'_cdna_'.$self->o('ensembl_release'),
+
+    'exonerate_output_db_name'   => $self->o('gb_user').'_'.$self->o('species').'_cdna_exonerate_'.$self->o('ensembl_release'),
+
+    'old_cdna_db_server'         => 'ens-livemirror',
+
+    'exonerate_batch_size'       => '50',
+
     'fastasplit_random_path'     => '/software/ensembl/bin/fastasplit_random',
+
     'killlist_db_name'           => 'gb_kill_list',
 
     'cdna_file_name'             => 'cdna_update',
@@ -106,6 +122,11 @@ sub default_options {
     'port'                       => '3306',
 
     'cdna_query_dir_name'        => 'cdna_temp',
+
+    #'cdna_tmp_filename'          => 'cdnadump.tmp',
+
+    'retired_cdnas_file'         => $self->o('output_path').'/cdna_update.retired',
+    'genes_to_delete'            => $self->o('output_path').'/genes_to_delete.ids',
 
     'many_hits_dir'              => 'many_hits',
 
@@ -124,11 +145,13 @@ sub default_options {
 
     'polyA_script'               => 'ENSEMBL_REPO_ROOT/ensembl-pipeline/scripts/EST/new_polyA_clipping.pl',
 
+    'delete_genes_script'        => '/nfs/users/nfs_d/dm15/enscode/ensembl-analysis/scripts/genebuild/delete_genes.pl',
+
     'driver'                     => 'mysql',
     'num_tokens'                 => 10,
     'user'                       => 'ensro',
 
-    'create_type'                => 'clone',
+    'create_type'                => 'copy',
 
     'pipeline_db' => {
       -dbname => $self->o('pipe_db_name'),
@@ -189,15 +212,36 @@ sub pipeline_analyses {
   my ($self) = @_;
 
   return [
+#    {
+#      # make the appropriate output and config directories and copy modules
+#      -logic_name => 'setup_directories_configs',
+#      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+#      -parameters => {
+#        # NB need to possibly edit the module files for each of the 2 species
+#        cmd => 'mkdir -p '.$self->o('output_path').'; mkdir -p $ENSEMBL_ROOT_REPO/ensembl-config/cDNA_update/'.$self->o('species').'/release'.$self->o('ensembl_release').
+#               '; mkdir -p $ENSEMBL_ROOT_REPO/ensembl-config/cDNA_update/'.$self->o('species').'/release'.$self->o('ensembl_release').'Bio/EnsEMBL/Analysis/Config/; '.
+#               'cp $ENSEMBL_REPO_ROOT/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Config/General.pm.example $ENSEMBL_ROOT_REPO/ensembl-config/cDNA_update/'
+#               .$self->o('species').'/release'.$self->o('ensembl_release').'Bio/EnsEMBL/Analysis/Config/General.pm; '.               
+#               'cp $ENSEMBL_REPO_ROOT/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Config/KillListFilter.pm.example $ENSEMBL_ROOT_REPO/ensembl-config/cDNA_update/'
+#               .$self->o('species').'/release'.$self->o('ensembl_release').'Bio/EnsEMBL/Analysis/Config/GeneBuild/KillListFilter.pm'
+#      },
+#      -input_ids => [{}],
+#      -max_retry_count => 0,
+#    },
     {
       # need to make sure the database actually copies as if it doesn't the job does appear to complete according to eHive
       -logic_name => 'create_output_db',
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+#      -wait_for => ['setup_directories_configs'],
       -parameters => {
-        source_db => $self->o('dna_db'),
+        source_db => $self->o('old_cdna_db'),
         target_db => $self->o('exonerate_output_db'),
-        create_type => $self->o('create_type'),
+        create_type => 'copy',
         script_path => $self->o('clone_db_script_path'),
+        pass_w => $self->o('password'),
+        user_w => $self->o('user_w'),
+        user_r => $self->o('user_r'),
+        #db_dump_file => $self->o('output_path').'/'.$self->o('cdna_tmp_filename'),
       },
       -rc_name => 'default',
       -input_ids => [{}],
@@ -214,67 +258,131 @@ sub pipeline_analyses {
                ' -h '.$self->o('exonerate_output_db','-host').
                ' -u '.$self->o('exonerate_output_db','-user').
                ' -p '.$self->o('exonerate_output_db','-pass').
-               ' -md ensembl_production -mh ens-staging1 -mu ensro -t external_db -t attrib_type -t misc_set -t unmapped_reason'
+               ' -md ensembl_production -mh ens-staging3 -mu ensro -t external_db -t attrib_type -t misc_set -t unmapped_reason'
       },
       -input_ids => [{}],
       -max_retry_count => 0,
     },
-#    {
-#      -logic_name => 'download_cdnas',
-#      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadcDNAFiles',
-#      -parameters => {
-#        embl_sequences => {
-#          output_path => $self->o('output_path'),
-#          output_file => $self->o('cdna_file_name'),
-#          species => $self->o('species'),
-          #taxon_id => $self->o('human_taxon_id'),
-#        },
-#        refseq_sequences => {
-#          refseq_path => $self->o('refseq_path'),
-#          refseq_file => $self->o('refseq_file'),
-#        },
-#      },  
-#      -max_retry_count => 0,
-#      -rc_name => 'download',
-#      -input_ids => [{}],
-#      -flow_into => {
-#        1 => ['prepare_cdnas'],
-#      },
-#    },
-#    {
-#      -logic_name => 'prepare_cdnas',
-#      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePreparecDNAs',
-#      -parameters => {
-#        prepare_seqs => {
-#          dest_dir => $self->o('output_path'),
+    {
+      -logic_name => 'download_cdnas',
+      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadcDNAFiles',
+      -parameters => {
+        embl_sequences => {
+          output_path => $self->o('output_path'),
+          output_file => $self->o('cdna_file_name'),
+          species => $self->o('species'),
+         #taxon_id => $self->o('human_taxon_id'),
+        },
+        refseq_sequences => {
+          refseq_path => $self->o('refseq_path'),
+          refseq_file => $self->o('refseq_file'),
+        },
+      },  
+      -max_retry_count => 0,
+      -rc_name => 'download',
+      -input_ids => [{}],
+      -flow_into => {
+        1 => ['prepare_cdnas'],
+      },
+    },
+    {
+      -logic_name => 'prepare_cdnas',
+      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePreparecDNAs',
+      -parameters => {
+        prepare_seqs => {
+          dest_dir => $self->o('output_path'),
           #embl_file => $self->o('embl_file'),
-#          embl_file => 'embl_' . $taxon_id {$self->o('species')} . '.fa',
-#          refseq_file => $self->o('refseq_file'),
-#          gss_file => $self->o('gss_file'),
-#          killlist_type => 'cdna_update',
-#          killlist_db => $self->o('killlist_db'),
-#          polyA_script => $self->o('polyA_script'),
-#          cdna_file => $self->o('cdna_file_name'),
-#          species => $self->o('species'),
-#        },
-#      },
-#      -max_retry_count => 0,
-#      -rc_name => 'default',
-#      -flow_into => {
-#        1 => ['load_cdnas'],
-#      },
-#    },
+          embl_file => 'embl_' . $taxon_id {$self->o('species')} . '.fa',
+          refseq_file => $self->o('refseq_file'),
+          gss_file => $self->o('gss_file'),
+          killlist_type => 'cdna_update',
+          killlist_db => $self->o('killlist_db'),
+          polyA_script => $self->o('polyA_script'),
+          cdna_file => $self->o('cdna_file_name'),
+          species => $self->o('species'),
+        },
+      },
+      -max_retry_count => 0,
+      -rc_name => 'default',
+      -flow_into => {
+        1 => ['compare_cdna_files'],
+      },
+    },
+    {
+      # there should probably be a check here to make sure that we get roughly the number of retired sequences we expect
+      -logic_name => 'compare_cdna_files',
+      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveComparecDNAfiles',
+      -parameters => {
+        compare_files => {
+          dest_dir => $self->o('output_path'),
+          new_cdna_file => $self->o('output_path').'/'.$self->o('cdna_file_name').'.clipped',
+          old_cdna_file => $self->o('old_cdna_file_name'),
+          filtered_file => $self->o('output_path').'/'.$self->o('cdna_file_name').'.filtered',
+          retired_file => $self->o('retired_cdnas_file'),
+        },
+      },
+      -max_retry_count => 0,
+      -rc_name => 'download',
+      -input_ids => [{}],
+      -wait_for => ['prepare_cdnas'],
+      #-flow_into => {
+      #  1 => ['load_cdnas'],
+      #  2 => ['list_retired_cdnas'],
+      #},
+    },
+    {
+      -logic_name => 'list_retired_genes',
+      -wait_for => ['compare_cdna_files'],
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'for cdna in `cat '.$self->o('retired_cdnas_file').'`; do mysql -h '.$self->o('exonerate_output_db','-host'). ' -u '
+               .$self->o('exonerate_output_db','-user').' -p'.$self->o('exonerate_output_db','-pass').' -D '
+               .$self->o('exonerate_output_db','-dbname').' -NB  -e"DELETE FROM unmapped_object where identifier = \'${cdna}\'"; '
+               .'mysql -h '.$self->o('exonerate_output_db','-host'). ' -u '.$self->o('exonerate_output_db','-user').' -p'
+               .$self->o('exonerate_output_db','-pass').' -D '.$self->o('exonerate_output_db','-dbname').' -NB  -e"SELECT DISTINCT(g.gene_id)'
+               .' FROM gene g left join transcript t on g.gene_id = t.gene_id left join exon_transcript et on t.transcript_id '
+               .'= et.transcript_id left join supporting_feature sf on et.exon_id = sf.exon_id left join dna_align_feature daf on ' 
+               .'daf.dna_align_feature_id = sf.feature_id where daf.hit_name = \'${cdna}\'" >> '.$self->o('genes_to_delete').'; done'
+      },
+      -input_ids => [{}],
+      -max_retry_count => 0,
+    },
+    {
+      -logic_name => 'delete_retired_genes',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'perl '.$self->o('delete_genes_script').' -h '.$self->o('exonerate_output_db','-host').' -u '.$self->o('exonerate_output_db','-user')   
+               .' -p '.$self->o('exonerate_output_db','-pass').' -D '.$self->o('exonerate_output_db','-dbname'). ' -P '.$self->o('exonerate_output_db','-port')
+               .' -idfile '.$self->o('genes_to_delete')
+      },
+      -input_ids => [{}],
+      -max_retry_count => 0,
+      -wait_for => ['list_retired_genes'],
+    },
+ #   {
+ #     -logic_name => 'delete_retired_unmapped_objects',
+ #     -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+ #     -parameters => {
+ #       cmd =>
+ #              #'grep -r "rpp" ' . $self->o('output_path') . '/exonerate_2*out | awk \'{split($0,a,":"); print a[2]}\' >> '
+ #              #. $self->o('output_path') . '/failed_hits.out;'
+ #              #. ' grep -r "only" ' . $self->o('output_path') . '/exonerate_2*out | awk \'{split($0,a,":"); print a[2]}\' >> '
+ #     },
+ #     -input_ids => [{}],
+ #     -max_retry_count => 0,
+ #     -wait_for => ['list_retired_genes'],
+ #   },
     {
       -logic_name => 'load_cdnas',
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadcDNAs',
       -parameters => {
-        cdna_file => $self->o('output_path').'/'.$self->o('cdna_file_name').'.clipped',
+        cdna_file => $self->o('output_path').'/'.$self->o('cdna_file_name').'.filtered',
         species => $self->o('species'),
       },
       -rc_name => 'default',
       -input_ids => [{}],
       -max_retry_count => 0,
-#      -wait_for => ['prepare_cdnas'],
+      -wait_for => ['compare_cdna_files'],
     },
     {
       -logic_name => 'generate_jobs',
@@ -408,7 +516,7 @@ sub pipeline_analyses {
                . $self->o('output_path') . '/failed_hits.out;'
                . ' grep -r "reject" ' . $self->o('output_path') . '/exonerate_2*out | awk \'{split($0,a,":"); print a[2] ": " a[3]}\' >> '
                . $self->o('output_path') . '/failed_hits.out;'
-               . ' grep -r "max_coverage" ' . $self->o('output_path') . '/exonerate_2*out | awk \'{split($0,a,":"); print a[2]}\' >> '
+               . ' grep -r "max_coverage" ' . $self->o('output_path') . '/exonerate_2*out | awk \'{split($0,a,":"); print a[1]}\' >> '
                . $self->o('output_path') . '/failed_hits.out'
       },
       -input_ids => [{}],
@@ -469,7 +577,7 @@ sub pipeline_analyses {
 ##    },
     {
       -logic_name => 'database_compare',
-      -wait_for => ['store_unmapped'],
+      -wait_for => ['store_unmapped','delete_retired_genes'],
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveComparecDNAdbs',
       -parameters => {
         old_cdna_db => $self->o('old_cdna_db'),
@@ -508,35 +616,19 @@ sub pipeline_analyses {
       -wait_for => ['database_compare'],
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'perl $ENSGBSCRIPTS/load_external_db_ids_and_optimize_af.pl'.
+        cmd => 'perl '. $self->o('optimize_script').
                ' -output_path '.$self->o('output_path').'/optimise_daf_paf.1'.
                ' -dbname '.$self->o('exonerate_output_db','-dbname').
                ' -dbhost '.$self->o('exonerate_output_db','-host').
                ' -dbport '.$self->o('exonerate_output_db','-port').
                ' -dbuser '.$self->o('exonerate_output_db','-user').
                ' -dbpass '.$self->o('exonerate_output_db','-pass').
-               ' -ensgbscripts $ENSGBSCRIPTS -verbose -clean -no_external_db'
+               ' -verbose -clean -no_external_db'
       },
       -rc_name => 'optimise',
       -input_ids => [{}],
       -max_retry_count => 0,
     },
-##    {
-##      -logic_name => 'populate_production_tables',
-##      -wait_for => ['load_xdbids'],
-##      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-##      -parameters => {
-##        cmd => 'perl $ENSEMBL_REPO_ROOT/ensembl-production/scripts/production_database/populate_production_db_tables.pl'.
-##               ' -dp '.$self->o('output_path').
-##               ' -d '.$self->o('exonerate_output_db','-dbname').
-##               ' -h '.$self->o('exonerate_output_db','-host').
-##               ' -u '.$self->o('exonerate_output_db','-user').
-##               ' -p '.$self->o('exonerate_output_db','-pass').
-##               ' -md ensembl_production -mh ens-staging1 -mu ensro -t external_db -t attrib_type -t misc_set -t unmapped_reason'
-##      },
-##      -input_ids => [ {} ],
-##      -max_retry_count => 0,
-##    },
     {
       -logic_name => 'populate_analysis_description',
       -wait_for => ['load_xdbids'],
@@ -561,8 +653,8 @@ sub pipeline_analyses {
         db_conn => 'mysql://'.$self->o('exonerate_output_db','-user').':'.$self->o('exonerate_output_db','-pass').'@'.$self->o('exonerate_output_db','-host').':'.$self->o('exonerate_output_db','-port').'/'.$self->o('exonerate_output_db','-dbname'),
         sql => [
           "DELETE FROM meta WHERE meta_key = 'progress_status'",
-          "UPDATE analysis SET db_version = 'refseq_70', db = 'RefSeq' WHERE logic_name = 'cdna_update'",
-          "UPDATE analysis SET program_file='exonerate-0.9.0' WHERE logic_name = 'cdna_update'", 
+          "UPDATE analysis SET db_version = '".$self->o('refseq_version')."', db = 'RefSeq' WHERE logic_name = 'cdna_update'",
+          "UPDATE analysis SET program_file= '".$self->o('exonerate_version')."' WHERE logic_name = 'cdna_update'", 
           "DELETE FROM analysis WHERE logic_name != 'cdna_update'",
           "DROP TABLE analysis_description_bak",
           "DROP TABLE attrib_type_bak",
@@ -765,7 +857,7 @@ sub master_config_settings {
         },
         KILL_TYPE => undef,
         USE_KILL_LIST => 0,
-        OPTIONS => '--model est2genome --forwardcoordinates FALSE --maxintron 400000 --softmasktarget FALSE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14',
+        OPTIONS => '--model est2genome --forwardcoordinates FALSE --maxintron 100000 --softmasktarget FALSE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14',
       },
       exonerate_2 => {
         COVERAGE_BY_ALIGNED => 1,
@@ -780,33 +872,8 @@ sub master_config_settings {
           }
         },
         KILL_TYPE => undef,
-        OPTIONS => '--model est2genome --forwardcoordinates FALSE --maxintron 400000 --softmasktarget FALSE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14',
+        OPTIONS => '--model est2genome --forwardcoordinates FALSE --maxintron 100000 --softmasktarget FALSE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14',
       },
-
-#      exonerate => {
-#        FILTER                        => {
-#          OBJECT                      => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-#          PARAMETERS                  => {
-#            -coverage                 => $self->o('exonerate_cov'),
-#            -percent_id               => $self->o('exonerate_pid'),
-#            -best_in_genome           => 1,
-#            -reject_processed_pseudos => 1,
-#          },
-#        },
-#      },
-#      exonerate_second_run => {
-#        OPTIONS                       => '--model est2genome --forwardcoordinates FALSE --softmasktarget FALSE --maxintron 400000 --bestn 10 --exhaustive FALSE',
-#        FILTER                        => {
-#          OBJECT                      => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-#          PARAMETERS                  => {
-#            -verbosity                => 1,
-#            -coverage                 => $self->o('exonerate_cov'),
-#            -percent_id               => $self->o('exonerate_pid'),
-#            -best_in_genome           => 1,
-#            -reject_processed_pseudos => 1,
-#          },
-#        },
-#      },
 
       # it looks like the filter option is set, along with killlist, for the second run of the cdna update in the original code
       # I need to therefore look into this - probably best to set in the hash of the analysis in the config settings using killlist_cdna, exonerate etc.

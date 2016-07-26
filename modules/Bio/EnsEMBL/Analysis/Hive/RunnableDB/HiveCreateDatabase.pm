@@ -1,26 +1,10 @@
-#!/usr/bin/env perl
-
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase;
 
 use strict;
 use warnings;
 use feature 'say';
 
-use Bio::EnsEMBL::Analysis::RunnableDB;
+use File::Basename;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -33,17 +17,15 @@ sub param_defaults {
       create_type => '',
       source_db => '',
       target_db => '',
-
+      
       # used by create_type = 'clone'
-      script_path => "/nfs/users/nfs_d/dm15/cvs_checkout_head/ensembl-personal/genebuilders/scripts/clone_database.ksh",
-
+      script_path => '~/enscode/ensembl-personal/genebuilders/scripts/clone_database.ksh',
+      
       # used by create_type = 'copy'
       db_dump_file => "/tmp/source_db_".time().".tmp",
-      pass_r => '',
       pass_w => '',
-      user_r => '',
       user_w => '',
-
+      ignore_dna => 0, # if set to 1, the dna table won't be dumped
     }
 }
 
@@ -76,9 +58,7 @@ sub create_db {
   if($create_type eq 'clone') {
     $self->clone_db();
   } elsif ($create_type eq 'copy') {
-    $self->copy_db();
-  } elsif($create_type eq 'core_only') {
-    $self->core_only_db();
+  	$self->copy_db();
   } else {
     throw("You have specified a create type of ".$create_type.", however this is not supported by the module");
   }
@@ -134,12 +114,18 @@ sub copy_db {
     throw("You have specified a create type of copy but you don't have both a source_db and target_db specified in your config.");
   }
 
-  if (not $self->param('user_r') or not $self->param('user_w') or not $self->param('pass_w')) {
-    throw("You have specified a create type of copy but you haven't specified the user_r, user_w and pass_w.\n");
+  if (not $self->param('user_w') or not $self->param('pass_w')) {
+    throw("You have specified a create type of copy but you haven't specified the user_w and pass_w.\n");
   }
 
   if (not $self->param('db_dump_file')) {
     throw("You have specified a create type of copy but you haven't specified a db_dump_file which will be used as a temporary file.");
+  } else {
+  	my $dump_dir = dirname($self->param('db_dump_file'));
+  	`mkdir -p $dump_dir`;
+  	if (!(-e $dump_dir)) {
+  	  throw("Couldn't create $dump_dir directory.");
+  	}
   }
 
   my $source_string;
@@ -157,20 +143,20 @@ sub copy_db {
     $self->check_db_string($self->param('target_db'));
     $target_string = $self->param('target_db');
   }
-
+  
   my @source_string_at_split = split('@',$source_string);
   my $source_dbname = shift(@source_string_at_split);
   my @source_string_colon_split = split(':',shift(@source_string_at_split));
   my $source_host = shift(@source_string_colon_split);
   my $source_port = shift(@source_string_colon_split);
-
+  
   my @target_string_at_split = split('@',$target_string);
   my $target_dbname = shift(@target_string_at_split);
   my @target_string_colon_split = split(':',shift(@target_string_at_split));
   my $target_host = shift(@target_string_colon_split);
   my $target_port = shift(@target_string_colon_split);
-
-  dump_database($source_host,$source_port,$self->param('user_r'),$self->param('pass_r'),$source_dbname,$self->param('db_dump_file'));
+  
+  dump_database($source_host,$source_port,$self->param('user_w'),$self->param('pass_w'),$source_dbname,$self->param('db_dump_file'),$self->param('ignore_dna'));
   create_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
   load_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname,$self->param('db_dump_file'));
   remove_file($self->param('db_dump_file'));
@@ -271,16 +257,20 @@ sub check_db_string {
 
 sub dump_database {
 
-  my ($dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file) = @_;
+  my ($dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file,$ignore_dna) = @_;
 
   print "\nDumping database $dbname"."@"."$dbhost:$dbport...\n";
-
+  
   my $command;
   if (!$dbpass) { # dbpass for read access can be optional
-  	$command = "mysqldump --skip-opt -h$dbhost -P$dbport -u$dbuser $dbname > $db_file";
+  	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser ";
   } else {
-  	$command = "mysqldump --skip-opt -h$dbhost -P$dbport -u$dbuser -p$dbpass $dbname > $db_file";
+  	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser -p$dbpass";
   }
+  if ($ignore_dna) {
+  	$command .= " --ignore-table=".$dbname.".dna ";
+  }
+  $command .= " $dbname > $db_file";
 
   if (system($command)) {
     throw("The dump was not completed. Please, check that you have enough disk space in the output path $db_file as well as writing permission.");
@@ -300,9 +290,9 @@ sub create_database {
 }
 
 sub load_database {
-
+	
   my ($dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file) = @_;
-
+  
   print "\nLoading file $db_file into database $dbname"."@"."$dbhost:$dbport...\n";
   if (system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname < $db_file")) {
     throw("The database loading process failed. Please, check that you have access to the file $db_file and the database you are trying to write to.");
