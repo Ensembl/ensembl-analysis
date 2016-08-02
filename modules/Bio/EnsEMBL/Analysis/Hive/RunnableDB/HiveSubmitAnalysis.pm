@@ -750,21 +750,14 @@ sub filter_slice_on_features {
 
   my $feature_type = $self->param('feature_type');
   if($feature_type eq 'gene') {
-    foreach my $feature_dba (@{$feature_dbs}) {
-      say "Checking constraints for: ".$feature_dba->dbc->dbname();
-      my $slice_adaptor= $feature_dba->get_SliceAdaptor();
-      foreach my $slice_name (@{$slice_names}) {
-        if($feature_slices->{$slice_name}) {
-          next;
-        }
-        my $slice = $slice_adaptor->fetch_by_name($slice_name);
-        my $genes = $slice->get_all_Genes();
-        if(scalar(@{$genes})) {
-          $feature_slices->{$slice_name} = 1;
+    foreach my $slice_name (@$slice_names) {
+      foreach my $db (@$feature_dbs) {
+        if ($db->get_GeneAdaptor->count_all_by_Slice($db->get_SliceAdaptor->fetch_by_name($slice_name))) {
+          push(@output_slices, $slice_name);
+          last;
         }
       }
     }
-    @output_slices = keys(%{$feature_slices});
   } else {
     $self->throw("The feature type you have selected to constrain the slices on is not currently implemented in the code. ".
                  "Feature type selected: ".$feature_type);
