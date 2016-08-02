@@ -124,11 +124,14 @@ sub blessed_biotypes {
 sub clean_genes {
   my ($self,$genes) = @_;
   my $transcript_ids_to_remove = [];
-
+  my $tiny_gene_size = 500; # Note that this should be made a param. Usually there are very few such genes in a geneset
   say "Have ".scalar(@{$genes})." genes to process";
+
+  my $gene_strings;
   foreach my $gene (@{$genes}) {
+    my $gene_string = $gene->start.":".$gene->end.":".$gene->seq_region_name;
     my $transcripts = $gene->get_all_Transcripts();
-    my ($normal_transcripts,$flagged_transcripts) = @{$self->flag_transcripts($transcripts)};
+    my ($normal_transcripts,$flagged_transcripts) = @{$self->flag_transcripts($transcripts,$gene_string)};
     say "Checking gene with dbID: ".$gene->dbID;
     say "Total transcript count: ".scalar(@{$transcripts});
     say "Normal transcript count: ".scalar(@{$normal_transcripts});
@@ -172,8 +175,9 @@ sub clean_genes {
           say "Found single exon or frameshift intron only gene within another gene, will remove: ".$transcript->dbID.", ".$transcript->biotype;
           push(@{$transcript_ids_to_remove},$transcript->dbID);
         } else {
-          unless($transcript->biotype =~ /.+\_95$/) {
-            # Unless there is UTR flag for deletion
+          # Keep things with excellent alignments, self proteins and swiss prot good alignments
+          unless($transcript->biotype =~ /.+\_95$/ || $transcript->biotype =~ /^self.+/ || $transcript->biotype =~ /.+_sp_80$/) {
+            # For everything else unless there is UTR flag for deletion
             unless(scalar(@{$transcript->get_all_five_prime_UTRs}) || scalar(@{$transcript->get_all_three_prime_UTRs})) {
               say "Found single exon or frameshift intron only gene for removal due to biotype and lack of UTR: ".$transcript->dbID.", ".$transcript->biotype;
               push(@{$transcript_ids_to_remove},$transcript->dbID);
@@ -181,21 +185,47 @@ sub clean_genes {
           }
         }
       }
-    } # End if(scalar(@{$transcripts}) == 1)
+    } elsif(($gene->end - $gene->start + 1) <= $tiny_gene_size) {
+      foreach my $transcript (@{$transcripts}) {
+        unless($transcript->biotype =~ /.+\_95$/) {
+          # Unless there is UTR flag for deletion
+          unless(scalar(@{$transcript->get_all_five_prime_UTRs}) || scalar(@{$transcript->get_all_three_prime_UTRs})) {
+            say "Found tiny gene that does not have a 95/95 alignment: ".$transcript->dbID.", ".$transcript->biotype;
+            push(@{$transcript_ids_to_remove},$transcript->dbID);
+          }
+        }
+      }
+    }
 
+    if($gene_strings->{$gene_string}) {
+      say "Found a duplicate gene string:";
+      say "Duplicate start: ".$gene->start;
+      say "Duplicate end: ".$gene->end;
+      say "Duplicate strand: ".$gene->strand;
+      say "Duplicate name: ".$gene->seq_region_name;
+    } else {
+      $gene_strings->{$gene_string} = 1;
+    }
 
   } # End foreach my $gene (@{$genes})
   return($transcript_ids_to_remove);
 }
 
 sub flag_transcripts {
-  my ($self,$transcripts) = @_;
+  my ($self,$transcripts,$gene_string) = @_;
   my $flagged_transcripts = [];
   my $normal_transcripts = [];
   foreach my $transcript (@{$transcripts}) {
+    my $exons = $transcript->get_all_Exons();
+    $gene_string .= ":".$self->generate_exon_string($exons);
+    if($transcript->translation) {
+      $gene_string .= $transcript->translation->seq;
+    }
+
     if($self->blessed_biotypes()->{$transcript->biotype}) {
       next;
     }
+
 
     my $introns = $transcript->get_all_Introns();
     my $translateable_seq = $transcript->translateable_seq();
@@ -545,5 +575,21 @@ sub add_transcript_supporting_features {
 
 }
 
+
+sub generate_exon_string {
+  my ($self,$exon_array) = @_;
+
+  my $exon_string = "";
+  foreach my $exon (@{$exon_array}) {
+    my $start = $exon->start();
+    my $end = $exon->end();
+    $exon_string .= $start."..".$end.":";
+    print "(".$start."..".$end.")";
+  }
+
+  print "\n";
+
+  return($exon_string);
+}
 
 1;
