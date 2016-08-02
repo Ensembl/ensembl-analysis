@@ -76,9 +76,7 @@ use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes;
 use Bio::EnsEMBL::Analysis::Runnable::HiveSplicedElsewhere;
-#use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
 use Bio::EnsEMBL::Analysis::Runnable::BaseExonerate; 
-use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Utils::Exception qw(warning);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;

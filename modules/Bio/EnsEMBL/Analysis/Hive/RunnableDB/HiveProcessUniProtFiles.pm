@@ -51,7 +51,7 @@ sub write_output {
   foreach my $output_id (@{$output_ids}) {
     my $output_hash = {};
     $output_hash->{'uniprot_range'} = $output_id;
-    $self->dataflow_output_id($output_hash,1);
+    $self->dataflow_output_id($output_hash,2);
   }
 
   return 1;

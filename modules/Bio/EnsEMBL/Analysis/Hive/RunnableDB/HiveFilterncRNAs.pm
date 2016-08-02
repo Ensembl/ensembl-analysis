@@ -217,7 +217,7 @@ sub filter_rfam_hits {
   my %rfam_threshold;
   my @rfam_filtered_ids = ();
 
-  my $rfam_logic_name = 'rfam_blast';
+  my $rfam_logic_name = 'rfamblast';
   my $rfam_analysis_id = ${sql("select analysis_id from analysis where logic_name='".$rfam_logic_name."';",$output_dba)}[0]->[0];
 
   my %thr;
@@ -281,7 +281,7 @@ sub filter_mirna_hits {
   my ($self,$output_dba,$daf_adaptor) = @_;
 
   my @mirna_filtered_ids = ();
-  my $mirna_logic_name = 'mirna_blast';
+  my $mirna_logic_name = 'blastmirna';
   my $mirna_analysis_id = ${sql("select analysis_id from analysis where logic_name='".$mirna_logic_name."';",$output_dba)}[0]->[0];
   my %mirbase_blasts;
 
@@ -361,6 +361,8 @@ sub final_rfam_db_ids {
 sub sql {
   my ($query,$db) = @_;
   my @array;
+
+  print "FM2 QUERY: ".$query;
 
   my $sth = $db->dbc->prepare($query);
   $sth->execute();

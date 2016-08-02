@@ -83,6 +83,8 @@ sub fetch_input {
     $self->split_slice();
   } elsif($self->param('iid_type') eq 'uniprot_accession') {
     $self->uniprot_accession();
+  } elsif($self->param('iid_type') eq 'rechunk_uniprot_accession') {
+    $self->rechunk_uniprot_accession();
   } elsif($self->param('cdna_accession')) {
     $self->cdna_accession();
   } else {
@@ -140,7 +142,7 @@ sub create_slice_ids {
   my $input_ids = $input_id_factory->input_ids;
 
   if($self->param('feature_constraint')) {
-    my $filtered_ids = $self->filter_slice_on_features($input_ids);
+    my $filtered_ids = $self->filter_slice_on_features($input_ids,$dba);
     $input_ids = $filtered_ids;
   }
 
@@ -445,14 +447,14 @@ sub uniprot_accession {
   foreach my $accession (@{$accessions}) {
     my $size = scalar(@{$accession_array});
     if($size == $batch_size) {
-      push(@{$output_id_array},$accession_array);
+      push(@{$output_id_array},[$accession_array]);
       $accession_array = [];
     }
     push(@{$accession_array},$accession);
   }
 
   if(scalar(@{$accession_array})) {
-    push(@{$output_id_array},$accession_array);
+    push(@{$output_id_array},[$accession_array]);
   }
 
   $self->param('inputlist', $output_id_array);
@@ -539,14 +541,14 @@ sub rechunk_uniprot_accession {
   foreach my $accession (@{$input_accession_array}) {
     my $size = scalar(@{$output_accession_array});
     if($size == $batch_size) {
-      push(@{$output_id_array},$output_accession_array);
+      push(@{$output_id_array},[$output_accession_array]);
       $output_accession_array = [];
     }
     push(@{$output_accession_array},$accession);
   }
 
   if(scalar(@{$output_accession_array})) {
-    push(@{$output_id_array},$output_accession_array);
+    push(@{$output_id_array},[$output_accession_array]);
   }
 
   $self->param('inputlist', $output_id_array);
@@ -725,7 +727,7 @@ sub feature_restriction {
 
 
 sub filter_slice_on_features {
-  my ($self,$slice_names) = @_;
+  my ($self,$slice_names,$dba) = @_;
 
   my $feature_dbs = [];
   my @output_slices;
@@ -738,19 +740,19 @@ sub filter_slice_on_features {
   unless($self->param('feature_dbs')) {
     $self->warning("You have selected to use a feature_constraint, but haven't passed in a feature dbs array ref using ".
                    "the feature_dbs param. Defaulting to the target db");
-   push(@{$feature_dbs},$self->hrdb_get_con('target_db'));
+   push(@{$feature_dbs},$dba);
   } else {
     foreach my $feature_db (@{$self->param('feature_dbs')}) {
-      my $dba = $self->hrdb_get_dba($feature_db);
+      $dba = hrdb_get_dba($feature_db);
       push(@{$feature_dbs},$dba);
     }
   }
 
   my $feature_type = $self->param('feature_type');
   if($feature_type eq 'gene') {
-    foreach my $dba (@{$feature_dbs}) {
-      say "Checking constraints for: ".$dba->dbc->dbname();
-      my $slice_adaptor= $dba->get_SliceAdaptor();
+    foreach my $feature_dba (@{$feature_dbs}) {
+      say "Checking constraints for: ".$feature_dba->dbc->dbname();
+      my $slice_adaptor= $feature_dba->get_SliceAdaptor();
       foreach my $slice_name (@{$slice_names}) {
         if($feature_slices->{$slice_name}) {
           next;
@@ -794,7 +796,7 @@ sub batch_slice_ids {
   foreach my $slice_name (sort { $length_hash{$a} <=> $length_hash{$b} } keys %length_hash) {
     my $length = $length_hash{$slice_name};
     if($length + $total_length > $batch_target_size) {
-      push(@{$all_batches},$single_batch_array);
+      push(@{$all_batches},[$single_batch_array]);
       $single_batch_array = [];
       $total_length = 0;
       push(@{$single_batch_array},$slice_name);
@@ -804,7 +806,7 @@ sub batch_slice_ids {
       $total_length += $length;
     }
   }
-  push(@{$all_batches},$single_batch_array);
+  push(@{$all_batches},[$single_batch_array]);
   return($all_batches);
 }
 

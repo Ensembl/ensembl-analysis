@@ -136,11 +136,8 @@ sub run {
 
     if($@) {
       my $except = $@;
-      if($except =~ /Error closing exonerate command/) {
-        warn("Error closing exonerate command, this input id was not analysed successfully:\n".$self->input_id);
-      } else {
-        $self->throw($except);
-      }
+      $self->runnable_failed(1);
+      $self->warning("Issue with running genblast, will dataflow input id on branch -3. Exception:\n".$except);
     } else {
       $self->output($runnable->output);
     }
@@ -168,40 +165,48 @@ sub write_output{
 
   my $adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
   my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
+  my $failure_branch_code = -3;
 
-  my @output = @{$self->output};
-  my $ff = $self->feature_factory;
+  if($self->runnable_failed == 1) {
+    my $output_hash = {};
+    $output_hash->{'iid'} = $self->param('iid');
+    $self->dataflow_output_id($output_hash,$failure_branch_code);
+  } else {
+    my @output = @{$self->output};
+    my $ff = $self->feature_factory;
 
-  foreach my $transcript (@output){
-    my $gene = Bio::EnsEMBL::Gene->new();
-    $gene->analysis($self->analysis);
+    foreach my $transcript (@output){
+      my $gene = Bio::EnsEMBL::Gene->new();
+      $gene->analysis($self->analysis);
 
-    $transcript->analysis($self->analysis);
-    my $accession = $transcript->{'accession'};
-    my $transcript_biotype = $self->get_biotype->{$accession};
-    $transcript->biotype($transcript_biotype);
+      $transcript->analysis($self->analysis);
+      my $accession = $transcript->{'accession'};
+      my $transcript_biotype = $self->get_biotype->{$accession};
+      $transcript->biotype($transcript_biotype);
 
-    if($transcript->{'rank'} > 1) {
-      my $analysis = new Bio::EnsEMBL::Analysis(-logic_name => $transcript->analysis->logic_name()."_not_best",
-                                                -module     => $transcript->analysis->module);
-      $transcript->analysis($analysis);
-      $gene->analysis($analysis);
+      if($transcript->{'rank'} > 1) {
+        my $analysis = new Bio::EnsEMBL::Analysis(-logic_name => $transcript->analysis->logic_name()."_not_best",
+                                                  -module     => $transcript->analysis->module);
+        $transcript->analysis($analysis);
+        $gene->analysis($analysis);
+      }
+
+      $gene->biotype($gene->analysis->logic_name);
+
+  #    if ($self->test_translates()) {
+  #      print "The GenBlast transcript ",$pt->display_label," doesn't translate correctly\n";
+  #      next;
+  #    } # test to see if this transcript translates OK
+      $gene->add_Transcript($transcript);
+      $gene->slice($transcript->slice);
+      empty_Gene($gene);
+      $adaptor->store($gene);
     }
 
-    $gene->biotype($gene->analysis->logic_name);
+    if($self->param('store_blast_results')) {
+      $self->store_protein_align_features();
+    }
 
-#    if ($self->test_translates()) {
-#      print "The GenBlast transcript ",$pt->display_label," doesn't translate correctly\n";
-#      next;
-#    } # test to see if this transcript translates OK
-    $gene->add_Transcript($transcript);
-    $gene->slice($transcript->slice);
-    empty_Gene($gene);
-    $adaptor->store($gene);
-  }
-
-  if($self->param('store_blast_results')) {
-    $self->store_protein_align_features();
   }
 
   if($self->files_to_delete()) {
@@ -211,6 +216,15 @@ sub write_output{
   }
 
   return 1;
+}
+
+
+sub runnable_failed {
+  my ($self,$runnable_failed) = @_;
+  if($runnable_failed) {
+    $self->param('_runnable_failed',$runnable_failed);
+  }
+  return($self->param('_runnable_failed'));
 }
 
 
