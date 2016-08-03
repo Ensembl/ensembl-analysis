@@ -194,7 +194,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => 'default',
       -parameters => {
-          cmd => 'sed -i.bak \'s"\(tmhmm.model.path\)=.*"\1='.$self->o('tmhmm_model_path').'";s"\(binary.tmhmm.path\)=.*"\1='.$self->o('binary_tmhmm_path').'";s"\(binary.signalp.path\)=.*"\1='.$self->o('binary_signalp_path').'";s"\(signalp.perl.library.dir\)=.*"\1='.$self->o('signalp_perl_library_dir').'";s"\(temporary.file.directory\)=\w\+"\1='.$self->o('temp_dir').'";s"\(panther.temporary.file.directory\)=.*"\1=";s"\(precalculated.match.lookup.service.url\)=.*"\1="\' #iprscan_dir#/interproscan.properties',
+          cmd => 'sed -i.bak \'s"\(tmhmm.model.path\)=.*"\1='.$self->o('tmhmm_model_path').'";s"\(binary.tmhmm.path\)=.*"\1='.$self->o('binary_tmhmm_path').'";s"\(binary.signalp.path\)=.*"\1='.$self->o('binary_signalp_path').'";s"\(signalp.perl.library.dir\)=.*"\1='.$self->o('signalp_perl_library_dir').'";s"\(temporary.file.directory\)=\w\+"\1='.$self->o('temp_dir').'";s"\(panther.temporary.file.directory\)=.*"\1=temp";s"\(precalculated.match.lookup.service.url\)=.*"\1="\' #iprscan_dir#/interproscan.properties',
       },
       -flow_into => {
           '1' => ['update_java_path'],
