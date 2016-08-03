@@ -96,7 +96,13 @@ sub fetch_input {
       } elsif($self->param('iid_type') eq 'slice_to_feature_ids') {
         $self->convert_slice_to_feature_ids($dba);
       } elsif($self->param('iid_type') eq 'feature_region') {
-        $self->feature_region($dba);
+        if ($self->param_is_defined('annotation_file') {
+          $self->throw('Could not find annotation file '.$self->param('annotation_file')) unless (-e $self->param('annotation_file'));
+          $self->feature_region_annotation($dba);
+        }
+        else {
+          $self->feature_region($dba);
+        }
       } elsif($self->param('iid_type') eq 'feature_id') {
         $self->feature_id($dba);
       } else {
@@ -554,6 +560,40 @@ sub rechunk_uniprot_accession {
   $self->param('inputlist', $output_id_array);
 }
 
+sub feature_region_annotation {
+  my ($self, $dba) = @_;
+
+  my %accessions;
+  my @input_ids;
+  open(F, $self->param('annotation_file')) or $self->throw('Could not open supplied annotation file for reading');
+  while (<F>) {
+    my @fields = split;
+    $accessions{$fields[0]} = 1;
+  }
+  close(F) || $self->throw('Could not close annotation_file: '.$self->param('annotation_file'));
+
+  foreach my $slice (@{$db->get_SliceAdaptor->fetch_all('toplevel')}) {
+    foreach my $gene (@{$slice->fetch_all_Genes}) {
+      foreach my $transcript (@{$gene->get_all_Transcripts}) {
+        $evidence = $transcript->get_all_supporting_features->[0];
+        last unless (exists $accessions{$evidence->hseqname});
+        if ($self->param_is_defined('region_padding')) {
+          my $start = $transcript->seq_region_start-$self->param('region_padding');
+          my $end = $transcript->seq_region_end+$self->param('region_padding');
+          $start = 1 if ($start < 1);
+          $end = $transcript->slice->end if ($end > $transcript->slice->end);
+          push(@input_ids, join(':', $transcript->coord_system->name,
+                                  $transcript->coord_system->version,
+                                  $transcript->slice->seq_region_name,
+                                  $start,
+                                  $end,
+                                  1);
+        }
+      }
+    }
+  }
+  $self->param('inputlist', \@input_ids);
+}
 
 =head2 feature_region
 
