@@ -43,6 +43,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(
                                                                        compute_translation
                                                                        contains_internal_stops
                                                                        print_Translation
+                                                                       create_Translation
                                                                       );
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -447,7 +448,6 @@ sub add_five_prime_utr {
   }
 
   my $final_exons = [];
-  my $final_translation;
   # Note that for the moment I'm going to convert all exons before the merge candidate to non-coding (this should be true anyway)
   for(my $i=0; $i<$exon_merge_index_b; $i++) {
     my $exon = ${$exons_b}[$i];
@@ -497,12 +497,6 @@ sub add_five_prime_utr {
       push(@{$final_exons},$out_exon);
     }
 
-    my $translation = Bio::EnsEMBL::Translation->new();
-    $translation->start_Exon($start_exon);
-    $translation->start($transcript_a->translation()->start());
-    $translation->end_Exon($$final_exons[$#$final_exons]);
-    $translation->end($transcript_a->translation()->end());
-    $final_translation = $translation;
   } else {
     say "Donor boundry exon is longer than acceptor, therefore merge of exon data will occur";
     my $merge_exon = new Bio::EnsEMBL::Exon(
@@ -548,17 +542,7 @@ sub add_five_prime_utr {
  #     $$final_exons[$i]->add_supporting_features(@{$supporting_features_b});
  #   }
 
-    my $translation = Bio::EnsEMBL::Translation->new();
-    $translation->start_Exon($merge_exon);
-    $translation->start($new_translation_start);
-    $translation->end_Exon($$final_exons[$#$final_exons]);
-    $translation->end($transcript_a->translation()->end());
-    $final_translation = $translation;
-
   }
-
-  say "Old translation start: ".$transcript_a->translation->start;
-  say "New translation start: ".$final_translation->start;
 
   say "\nOriginal exon coords (A):";
   foreach my $exon (@{$exons_a}) {
@@ -574,6 +558,11 @@ sub add_five_prime_utr {
   foreach my $exon (@{$final_exons}) {
     print "(".$exon->start."..".$exon->end.")";
   }
+  print "\n";
+
+  my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+  say "Old translation start: ".$transcript_a->translation->start;
+  say "New translation start: ".$final_translation->start;
 
   my $modified_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $final_exons);
 
@@ -710,19 +699,12 @@ sub add_three_prime_utr {
     push(@{$final_exons},$out_exon);
   }
 
-  my $final_translation;
 
   # Now look at the merge candidates. There are a few things to check. If the start coord of the donor exon is greater than the start coord of the
   # acceptor then just push the acceptor exon on the final exons array
   if(($strand == 1 && ($merge_exon_candidate_b->end <= $merge_exon_candidate_a->end)) ||
      ($strand == -1 && ($merge_exon_candidate_b->start >= $merge_exon_candidate_a->start))) {
     say "Donor boundry exon is shorter than candidate, therefore no merge of boundry exon data will occur";
-    my $translation = Bio::EnsEMBL::Translation->new();
-    $translation->start_Exon($$final_exons[0]);
-    $translation->start($transcript_a->translation()->start());
-    $translation->end_Exon($$final_exons[$#$final_exons]);
-    $translation->end($transcript_a->translation()->end());
-    $final_translation = $translation;
   }  else {
     say "Donor boundry exon is longer than acceptor, therefore merge of boundry exon data will occur";
     my $merge_exon = new Bio::EnsEMBL::Exon(
@@ -736,13 +718,6 @@ sub add_three_prime_utr {
 
     my $supporting_features_a = $merge_exon_candidate_a->get_all_supporting_features();
     $merge_exon->add_supporting_features(@{$supporting_features_a});
-
-    my $translation = Bio::EnsEMBL::Translation->new();
-    $translation->start_Exon($$final_exons[0]);
-    $translation->start($transcript_a->translation()->start());
-    $translation->end_Exon($merge_exon);
-    $translation->end($transcript_a->translation()->end());
-    $final_translation = $translation;
 
     pop(@{$final_exons});
     push(@{$final_exons},$merge_exon);
@@ -762,8 +737,8 @@ sub add_three_prime_utr {
     push(@{$final_exons},$out_exon);
   }
 
-  say "Old translation start: ".$transcript_a->translation->start;
-  say "New translation start: ".$final_translation->start;
+#  say "Old translation start: ".$transcript_a->translation->start;
+#  say "New translation start: ".$final_translation->start;
 
 
   say "\nOriginal exon coords:";
@@ -783,6 +758,7 @@ sub add_three_prime_utr {
 #    $$final_exons[$i]->add_supporting_features(@{$supporting_features_b});
 #  }
 
+  my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
   my $modified_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $final_exons);
 
   # This is a basic sanity check on the UTR itself. First we want to check if the transcript is now abnormally longer (> 100KB longer)
@@ -861,7 +837,6 @@ sub add_single_exon_utr {
     }
   }
 
-  my $final_translation;
   my $contained = 0;
 
   my $final_exons = [];
@@ -884,7 +859,6 @@ sub add_single_exon_utr {
       my $supporting_features_a = $exon_a->get_all_supporting_features();
       $merge_exon->add_supporting_features(@{$supporting_features_a});
 
-      my $translation = Bio::EnsEMBL::Translation->new();
       my $start_phase;
       my $end_phase;
       my $translation_shift;
@@ -912,11 +886,6 @@ sub add_single_exon_utr {
         $start_phase = $exon_a->phase();
       }
 
-      $translation->start_Exon($merge_exon);
-      $translation->start($transcript_a->translation()->start() + $translation_shift);
-      $translation->end_Exon($merge_exon);
-      $translation->end($transcript_a->translation()->end() + $translation_shift);
-      $final_translation = $translation;
       push(@{$final_exons},$merge_exon);
     } else {
       my $out_exon = new Bio::EnsEMBL::Exon(
@@ -938,6 +907,7 @@ sub add_single_exon_utr {
     return(0);
   }
 
+  my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
   my $modified_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $final_exons);
   $modified_transcript->analysis($transcript_a->analysis);
   $modified_transcript->biotype($transcript_a->biotype);
@@ -1021,18 +991,27 @@ sub join_transcripts {
   my $joined_offset = scalar(@{$joined_exon_set}) - scalar(@{$exons_b});
   $cds_3_prime_index += $joined_offset;
 
-  # The translation is the same, but still need to modify the translation so that it has the correct start and end exon
-  my $translation = Bio::EnsEMBL::Translation->new();
-  $translation->start_Exon($$joined_exon_set[$cds_5_prime_index]);
-  $translation->start($transcript_a->translation()->start());
-  $translation->end_Exon($$joined_exon_set[$cds_3_prime_index]);
-  $translation->end($transcript_a->translation()->end());
+  my %seen;
+  my @unique_exons;
+  foreach my $exon (@$joined_exon_set) {
+    push(@unique_exons, $exon) unless (exists $seen{$exon->seq_region_start.':'.$exon->seq_region_end});
+    $seen{$exon->seq_region_start.':'.$exon->seq_region_end} = 1;
+  }
 
-  my $joined_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $joined_exon_set);
+  # The translation is the same, but still need to modify the translation so that it has the correct start and end exon
+  my $translation = create_Translation(\@unique_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+
+  my $joined_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => \@unique_exons);
   $joined_transcript->analysis($transcript_a->analysis);
   $joined_transcript->biotype($transcript_a->biotype);
   $joined_transcript->slice($transcript_a->slice());
   $joined_transcript->translation($translation);
+
+  say "Joined exon coords:";
+  foreach my $exon (@unique_exons) {
+    print "(".$exon->start."..".$exon->end.")";
+  }
+  print "\n";
 
   unless($transcript_a->translation->seq eq $joined_transcript->translation->seq) {
     $self->throw("When attempting to join the modified 5' and 3' transcripts, there was a difference in the joined translation. The translation should be identical at ".
@@ -1040,12 +1019,6 @@ sub join_transcripts {
   }
 
   say "Joined translation: ".$joined_transcript->translation->seq();
-
-  say "Joined exon coords:";
-  foreach my $exon (@{$joined_exon_set}) {
-    print "(".$exon->start."..".$exon->end.")";
-  }
-  print "\n";
 
   return($joined_transcript);
 }
