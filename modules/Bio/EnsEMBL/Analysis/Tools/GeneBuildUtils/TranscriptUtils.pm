@@ -1404,6 +1404,7 @@ sub replace_stops_with_introns{
               }
               $fp_left->seqname   ($ug->seqname);
               $fp_left->strand    ($ug->strand);
+              $fp_left->hstrand    ($ug->hstrand);
               $fp_left->hseqname  ($ug->hseqname);
               $fp_left->score     ($ug->score);
               $fp_left->percent_id($ug->percent_id);
@@ -1419,6 +1420,7 @@ sub replace_stops_with_introns{
               }
               $fp_right->seqname   ($ug->seqname);
               $fp_right->strand    ($ug->strand);
+              $fp_right->hstrand    ($ug->hstrand);
               $fp_right->hseqname  ($ug->hseqname);
               $fp_right->score     ($ug->score);
               $fp_right->percent_id($ug->percent_id);
