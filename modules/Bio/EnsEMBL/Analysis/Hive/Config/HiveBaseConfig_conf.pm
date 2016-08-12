@@ -65,6 +65,7 @@ sub default_options {
 #        At the moment, we want to use tokens
         use_tokens => 1,
         drop_databases => 0,
+        databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
         password_r => undef,
 
         dna_db_port => $self->o('port'),
