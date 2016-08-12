@@ -203,7 +203,7 @@ sub default_options {
                     -port      => $self->o('default_port'),
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
-                    -dbname    => $self->o('pipeline_name'),
+                    -dbname    => $self->o('pipe_dbname'),
                     -driver    => "mysql",
     },
 
