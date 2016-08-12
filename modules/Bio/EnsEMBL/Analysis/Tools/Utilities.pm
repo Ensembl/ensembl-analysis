@@ -49,7 +49,11 @@ package Bio::EnsEMBL::Analysis::Tools::Utilities;
 
 use strict;
 use warnings;
-use Exporter;
+
+use Exporter qw(import);
+use File::Spec;
+use File::Which;
+
 use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; # needed for read_config()
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
