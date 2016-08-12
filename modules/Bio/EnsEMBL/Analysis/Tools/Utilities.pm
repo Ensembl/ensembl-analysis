@@ -50,7 +50,7 @@ package Bio::EnsEMBL::Analysis::Tools::Utilities;
 use strict;
 use warnings;
 
-use Exporter;
+use Exporter qw(import);
 use File::Spec;
 use File::Which;
 
