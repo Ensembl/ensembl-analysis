@@ -1,12 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # Copyright [2016] EMBL-European Bioinformatics Institute
-# 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,11 +15,11 @@
 
 # POD documentation - main docs before the code
 
-=pod 
+=pod
 
 =head1 NAME
 
-Bio::EnsEMBL::Test::Checker 
+Bio::EnsEMBL::Test::Checker
 
 
 =head1 SYNOPSIS
@@ -56,19 +55,19 @@ sub ignorewarnings {
     $self->{_ignorewarnings} = $arg;
   }
   return $self->{_ignorewarnings};
-}                                                                               
+}
 
 
-=head2 add_Error 
- 
+=head2 add_Error
+
  Title   : add_Error
  Usage   : $obj->add_Error($newval)
  Function:
  Returns : value of errors
- 
- 
+
+
 =cut
- 
+
 sub add_Error {
    my $self = shift;
    if( @_ ) {
@@ -76,7 +75,7 @@ sub add_Error {
       push @{$self->{_errors}},$value;
     }
     return @{$self->{_errors}};
-}      
+}
 
 sub get_all_Errors {
    my $self = shift;
@@ -84,7 +83,7 @@ sub get_all_Errors {
      @{$self->{_errors}} = ();
    }
    return @{$self->{_errors}};
-}      
+}
 
 sub add_Warning {
    my $self = shift;
@@ -93,7 +92,7 @@ sub add_Warning {
       push @{$self->{_warnings}},$value;
     }
     return @{$self->{_warnings}};
-}      
+}
 
 sub get_all_Warnings {
    my $self = shift;
@@ -101,17 +100,17 @@ sub get_all_Warnings {
      @{$self->{_warnings}} = ();
    }
    return @{$self->{_warnings}};
-}      
+}
 
 sub has_Errors {
   my $self = shift;
 
-  if (scalar($self->get_all_Errors) || 
+  if (scalar($self->get_all_Errors) ||
       (scalar($self->get_all_Warnings) && !$self->ignorewarnings)) {
     return 1;
-  } 
+  }
   return 0;
-} 
+}
 
 sub output {
   my $self = shift;

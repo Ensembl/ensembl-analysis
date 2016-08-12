@@ -1,12 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # Copyright [2016] EMBL-European Bioinformatics Institute
-# 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,11 +18,11 @@
 
 # POD documentation - main docs before the code
 
-=pod 
+=pod
 
 =head1 NAME
 
-Bio::EnsEMBL::Test::GeneChecker 
+Bio::EnsEMBL::Test::GeneChecker
 
 
 =head1 SYNOPSIS
@@ -80,25 +79,25 @@ sub new {
                   ADAPTOR
 	      )], @args );
 
- 
-  if( !defined $gene ) { 
+
+  if( !defined $gene ) {
     $self->throw("Gene must be set in new for GeneChecker")
   }
   $self->gene($gene);
 
-  if( defined $maxgenelen ) { 
-    $self->maxgenelen( $maxgenelen ); 
+  if( defined $maxgenelen ) {
+    $self->maxgenelen( $maxgenelen );
   } else {
-    $self->maxgenelen(2_000_000); 
-  } 
-  if( defined $maxtransgene ) { 
-    $self->maxtransgene( $maxtransgene ); 
+    $self->maxgenelen(2_000_000);
+  }
+  if( defined $maxtransgene ) {
+    $self->maxtransgene( $maxtransgene );
   } else {
-    $self->maxtransgene(10); 
-  } 
+    $self->maxtransgene(10);
+  }
 
-  if( defined $ignorewarnings) { $self->ignorewarnings($ignorewarnings); } 
-  if( defined $slice) { $self->slice($slice); } 
+  if( defined $ignorewarnings) { $self->ignorewarnings($ignorewarnings); }
+  if( defined $slice) { $self->slice($slice); }
   if( defined $adaptor ) { $self->adaptor( $adaptor )}
 
   $self->{_errors} = [];
@@ -126,15 +125,15 @@ sub maxgenelen {
 
 
 =head2 gene
- 
+
  Title   : gene
  Usage   : $obj->gene($newval)
  Function:
  Returns : value of gene
  Args    : newvalue (optional)
- 
+
 =cut
- 
+
 sub gene {
    my $self = shift;
    if( @_ ) {
@@ -145,7 +144,7 @@ sub gene {
       $self->{_gene} = $value;
     }
     return $self->{_gene};
- 
+
 }
 
 sub slice {
@@ -158,7 +157,7 @@ sub slice {
       $self->{_slice} = $value;
     }
     return $self->{_slice};
- 
+
 }
 
 sub adaptor {
@@ -167,9 +166,9 @@ sub adaptor {
     $self->{_adaptor} = $arg;
   }
   return $self->{_adaptor};
-}                                                                               
+}
 
- 
+
 sub output {
   my $self = shift;
 
@@ -177,10 +176,10 @@ sub output {
 
   print "\n++++++++++++++++++\n";
 
-  print "Gene " . $self->gene->dbID . " " . 
+  print "Gene " . $self->gene->dbID . " " .
         (defined($self->gene->stable_id) ? $self->gene->stable_id : "") . " type " . $self->gene->biotype . "\n";
 
- 
+
   my $vcoffset = 0;
   if ($self->slice) {
     $vcoffset = $self->slice->start - 1;

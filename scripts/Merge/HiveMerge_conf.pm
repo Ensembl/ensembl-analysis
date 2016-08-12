@@ -1,3 +1,18 @@
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 package HiveMerge_conf;
 
 use strict;
@@ -39,32 +54,32 @@ sub default_options {
     'user_w' => '',
     'user' => $self->o('user_w'),
     'password' => $self->o('pass_w'),
-    
+
     # output directory. The merge will write log files here. The directory must not already exist.
     'output_dir' => '',
-    
+
     # name of the directory where the vega checks reports will be written. This directory must not be neither output_dir nor a subdirectory of output_dir.
     'reports_dir' => '',
-    
+
     # email to send the vega checks reports to
     'vega_checks_reports_email' => '@ebi.ac.uk',
-    
+
     # email to send the missing CCDS report to
     'CCDS_report_email' => '@ebi.ac.uk',
-    
+
     # name of the file containing the temporary original vega database dump
     'vega_tmp_filename' => 'vegadump.tmp',
-    
+
     # name of the file containing the temporary previous core database dump
     'prevcore_tmp_filename' => 'prevcoredump.tmp',
-    
+
     # name of the file containing the list of processed gene ids after running the merge
     'processed_genes_filename' => 'havana_merge_list_processed_genes.ids',
-    
+
     # name of the file containing the list of unprocessed gene ids to be copied from the Ensembl to the merge db
     # after running the merge
     'unprocessed_genes_filename' => 'havana_merge_list_unprocessed_genes.ids',
-    
+
     # name of the file containing the list of genes from the Havana db to be merged
     'vega_genes_for_merge_filename' => 'vega_genes_for_merge.ids',
 
@@ -75,7 +90,7 @@ sub default_options {
     # name of the file containing the list of core db tables which will be dumped from the previous core db
     # and loaded into the new core db
     'core_db_tables_filename' => 'core_db_tables_for_dump.list',
-    
+
     # name of the file containing the list of genes from the core db to be deleted just after its creation
     'core_genes_for_deletion_filename' => 'core_genes_for_deletion.ids',
 
@@ -89,10 +104,10 @@ sub default_options {
     # The maximum number of consecutive jobs for the merge code to run at any point in time.
     # A number between 10 and 20 seems to be optimal.
     'concurrent' => '15',
-    
+
     # assembly path without patch update extension required by some scripts
     'assembly_path' => 'GRCh38',
-    
+
     # full path to uniprot file to be used for the script which assigns the external DB IDs and optimises the align feature tables
     'uniprot_file' => '../Ensembl/uniprot_2015_12/entry_loc',
 
@@ -102,29 +117,29 @@ sub default_options {
     # database parameters
     'default_port' => 3306, # default port to be used for all databases except the original vega db provided by the Vega team
     'default_host' => 'genebuildXX', # default host to be used for the pipeline, vega and core databases. Used to build the resource requirements.
-    
+
     'original_vega_host' => '', # vega database provided by the Vega team
     'original_vega_port' => '',
     'original_vega_name' => '',
-    
+
     'ensembl_host' => '', # ensembl database to be used for the merge
     'ensembl_name' => '',
-    
+
     'ccds_host' => '', # ccds database containing the CCDS gene set
     'ccds_name' => '',
-    
+
     'prevcore_host' => '', # previous core database (available on staging or live)
     'prevcore_name' => '',
-    
+
     'production_host' => '', # production database (available on staging)
     'production_name' => '',
-        
+
     'pipe_dbname' => $ENV{USER}.'_'.$self->o('pipeline_name').'_hive', # pipeline db, automatically created
 
     'vega_name' => $ENV{USER}.'_'.$self->o('pipeline_name').'_vega', # vega database to be used for the merge
 
     'core_name' => $ENV{USER}.'_'.$self->o('pipeline_name').'_core', # core database which will contain the merged gene set at the end of the process
-    
+
     'vega_host' => $self->o('default_host'),
     'core_host' => $self->o('default_host'),
     'pipe_db_server' => $self->o('default_host'),
@@ -132,19 +147,19 @@ sub default_options {
     ##
     # You shouldn't need to change anything below this line
     ##
-    
+
     ## Required by HiveBaseConfig_conf
     #reference_db (not required in the merge process, leave blank)
-    'reference_dbname' => '', 
-    'reference_db_server' => '', 
+    'reference_dbname' => '',
+    'reference_db_server' => '',
     'port' => '',
     #'user_r' => '',
     #dna_db (not required in the merge process, leave blank)
-    'dna_dbname' => '', 
-    'dna_db_server' => '', 
+    'dna_dbname' => '',
+    'dna_db_server' => '',
     #'port' => '',
-    #'user_r' => '', 
-    
+    #'user_r' => '',
+
     # vega database provided by the Vega team
     'original_vega_db' => {
                     -host      => $self->o('original_vega_host'),
@@ -162,7 +177,7 @@ sub default_options {
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('ensembl_name'),
     },
-    
+
     # ccds database containing the CCDS gene set
     'ccds_db' => {
                     -host      => $self->o('ccds_host'),
@@ -171,7 +186,7 @@ sub default_options {
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('ccds_name'),
     },
-    
+
     # previous core database (available on ens-staging or ens-livemirror)
     'prevcore_db' => {
                     -host      => $self->o('prevcore_host'),
@@ -263,7 +278,7 @@ sub pipeline_analyses {
               -rc_name => 'default',
               -input_ids => [ {} ],
             },
-            
+
             {
               -logic_name => 'create_vega_db',
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
@@ -305,7 +320,7 @@ sub pipeline_analyses {
               -flow_into => { '2->A' => { 'parallel_dump_core_db' => { 'table_name' => '#Name#' }, },
                               'A->1' => ['list_core_genes'] },
             },
-                        
+
             {
               -logic_name => 'parallel_dump_core_db',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
@@ -321,7 +336,7 @@ sub pipeline_analyses {
                -rc_name => 'normal_1500',
                -flow_into => { 1 => ['parallel_load_core_db'] },
             },
-            
+
             {
               -logic_name => 'parallel_load_core_db',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
@@ -345,7 +360,7 @@ sub pipeline_analyses {
               -rc_name => 'default',
               -flow_into => { 1 => ['chunk_core_genes'] },
             },
-            
+
             {
 
               -logic_name => 'chunk_core_genes',
@@ -392,7 +407,7 @@ sub pipeline_analyses {
                                         'TRUNCATE interpro',
                                         'TRUNCATE identity_xref',
                                         'TRUNCATE ontology_xref',
-                                        'DELETE FROM unmapped_object WHERE type LIKE "xref"'                                        
+                                        'DELETE FROM unmapped_object WHERE type LIKE "xref"'
                                        ],
                              },
               -max_retry_count => 0,
@@ -898,7 +913,7 @@ sub pipeline_analyses {
                -rc_name => 'default',
                -flow_into => { 1 => ['list_toplevel'] },
             },
-            
+
 
             {
               -logic_name => 'list_toplevel',
@@ -912,7 +927,7 @@ sub pipeline_analyses {
 
                               'A->1' => WHEN ('#process_ccds#' => ['ccds_addition'],
                                         ELSE                      ['set_frameshift_transcript_attributes']),
-                            },   
+                            },
               -rc_name => 'default',
             },
 
@@ -961,7 +976,7 @@ sub pipeline_analyses {
                -analysis_capacity => 25,
                -hive_capacity => 25,
                -max_retry_count => 2,
-               -rc_name => 'normal_1500',               
+               -rc_name => 'normal_1500',
             },
 
             {
@@ -974,7 +989,7 @@ sub pipeline_analyses {
                                       ' -user '.$self->o('ccds_db','-user').
                                       ' -port '.$self->o('ccds_db','-port').
                                       ' -path '.$self->o('assembly_path').
-                                      ' -genetype ccds_gene'. 
+                                      ' -genetype ccds_gene'.
                                       ' -compdbname '.$self->o('core_db','-dbname').
                                       ' -comphost '.$self->o('core_db','-host').
                                       ' -compport '.$self->o('core_db','-port').
@@ -1179,4 +1194,3 @@ sub pipeline_wide_parameters {
 }
 
 1;
-

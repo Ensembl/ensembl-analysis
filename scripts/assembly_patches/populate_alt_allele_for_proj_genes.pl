@@ -98,6 +98,7 @@ my $old_db = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $old_host,
 #get adaptors
 my $ga = $db->get_GeneAdaptor();
 my $ta = $db->get_TranscriptAdaptor();
+my $sa = $db->get_SliceAdaptor();
 my $old_ga = $old_db->get_GeneAdaptor();
 my $old_ta = $old_db->get_TranscriptAdaptor();
 # alt allele group adaptor
@@ -173,14 +174,28 @@ foreach my $logic_name (sort @projected_logic_names){
   print $fh $logic_name." ".scalar(@projected_genes)."\n";
 }
 
-
 #work out the relationships between projected gene and parent gene
 foreach my $proj_gene (@projected_genes){
 
-  # although we just need one transcript
-  # don't do this: (old method)
-  #     my @proj_transcripts = @{$proj_gene->get_all_Transcripts()};
-  #     my $proj_transcript = $proj_transcripts[0];
+  my $patch_slice = $sa->fetch_by_region(undef,$proj_gene->seq_region_name());;
+
+  #get reference slice
+  my $ref_slice = get_ref_slice($patch_slice);
+  if (!$ref_slice) {
+    throw("Cannot find reference slice for patch slice ".$patch_slice->name());
+  }
+
+  #create reference transcripts hash
+  my @ref_genes = @{$ga->fetch_all_by_Slice($ref_slice)};
+  my @ref_transcripts;
+  my %ref_trans_hash = ();
+  foreach my $ref_gene (@ref_genes){ # make sure get transcripts outside the patch
+    my @ref_trans = @{$ref_gene->get_all_Transcripts};
+    foreach my $t (@ref_trans) {
+      $ref_trans_hash{get_transcript_exon_key($t)} = $t->stable_id;
+      push(@ref_transcripts,$t);
+    }
+  }
 
   my $orig_transcript_id = "";
   my %unique_parent_gene;
@@ -189,20 +204,32 @@ foreach my $proj_gene (@projected_genes){
   # (this has not always been the case in the past)...
   # do this more extended check:
   foreach my $proj_transcript ( @{$proj_gene->get_all_Transcripts()} ) {
-    my @supp_feat_pairs = @{ $db->get_TranscriptSupportingFeatureAdaptor->fetch_all_by_Transcript($proj_transcript) };
-  
-    # we know that we ran the ProjectedTranscriptEvidence.pm already
-    # and that the parent's transcript stable id will be stored as a hit name in the projected gene 
-    FP: foreach my $feat_pair (@supp_feat_pairs){
-      if($feat_pair->hseqname =~ m/^$stable_id_prefix/){
-        # fetch parent
-        my $parent_g = $old_ga->fetch_by_transcript_stable_id($feat_pair->hseqname);
-        # store parent
-        push @{$unique_parent_gene{$parent_g->stable_id}}, $proj_transcript;
-      }
+  	
+  	my @parent_exon_key_attribs = @{$proj_transcript->get_all_Attributes('parent_exon_key')};
+    my $parent_exon_key = "";
+
+    if (scalar(@parent_exon_key_attribs) > 1) {
+      warning("Projected transcript ".$proj_transcript->stable_id." has more than 1 parent_exon_key attribute.");
+    } elsif (scalar(@parent_exon_key_attribs) > 0) {
+      $parent_exon_key = $parent_exon_key_attribs[0]->value();
     }
 
-  }
+    if ($parent_exon_key) {
+      if (exists($ref_trans_hash{$parent_exon_key})) {
+
+        # fetch parent
+        my $parent_g = $old_ga->fetch_by_transcript_stable_id($ref_trans_hash{$parent_exon_key});
+        
+        # store parent
+        push(@{$unique_parent_gene{$parent_g->stable_id}},$proj_transcript);
+
+      } else {
+        warning("Projected transcript ".$proj_transcript->stable_id()." does not have a parent.");
+      }
+    } else {
+      throw("Projected transcript ".$proj_transcript->stable_id()." does not have a parent_exon_key attribute. It should have been added during the projection stage!");
+    }
+  } # foreach proj_transcript
 
   # check only one parent
   my $parent_gene;
@@ -354,5 +381,35 @@ sub sort_by_start_end_pos {
 
   return \@sorted;
 }
+sub get_transcript_exon_key {
+  my $transcript = shift;
+  my $string = $transcript->slice->seq_region_name.":".$transcript->biotype.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$transcript->seq_region_strand.":";
 
+  my $exons = sort_by_start_end_pos($transcript->get_all_Exons);
+  foreach my $exon (@{$exons}) {
+    $string .= ":".$exon->seq_region_start.":".$exon->seq_region_end;
+  } 
 
+  return $string;
+}
+
+sub get_ref_slice {
+  my $patch_slice = shift;
+  my $ref_slice;
+
+  print "patch slice is: ".$patch_slice->name."\n";
+
+  my @excs = $patch_slice->get_all_AssemblyExceptionFeatures();
+
+  if (@excs) {
+    foreach my $exc (@excs) {
+      if (@$exc[0]) {
+        if (@$exc[0]->type() !~ m/REF/) {
+            $ref_slice = @$exc[0]->alternate_slice();
+        }
+      }
+    }
+  }
+  print "reference slice is: ".$ref_slice->name."\n";
+  return $ref_slice;
+}

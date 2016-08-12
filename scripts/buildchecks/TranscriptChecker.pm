@@ -1,12 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # Copyright [2016] EMBL-European Bioinformatics Institute
-# 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,11 +19,11 @@
 
 # POD documentation - main docs before the code
 
-=pod 
+=pod
 
 =head1 NAME
 
-Bio::EnsEMBL::Test::TranscriptChecker 
+Bio::EnsEMBL::Test::TranscriptChecker
 
 
 =head1 SYNOPSIS
@@ -84,7 +83,7 @@ sub new {
   my ( $transcript, $minshortintronlen, $maxshortintronlen, $minlongintronlen,
        $minshortexonlen, $maxshortexonlen, $minlongexonlen, $maxexonstranscript,
        $mintranslationlen, $ignorewarnings, $slice, $adaptor ) = rearrange
-	 ( [ qw ( TRANSCRIPT  
+	 ( [ qw ( TRANSCRIPT
 		  MINSHORTINTRONLEN
 		  MAXSHORTINTRONLEN
 		  MINLONGINTRONLEN
@@ -98,57 +97,57 @@ sub new {
                   ADAPTOR
 	      )], @args );
 
-  
-  if( !defined $transcript ) { 
+
+  if( !defined $transcript ) {
     $self->throw("Transcript must be set in new for TranscriptChecker")
   }
   $self->transcript($transcript);
 
-  if( defined $minshortintronlen ) { 
-    $self->minshortintronlen( $minshortintronlen ); 
+  if( defined $minshortintronlen ) {
+    $self->minshortintronlen( $minshortintronlen );
   } else {
-    $self->minshortintronlen(3); 
-  } 
-  if( defined $maxshortintronlen ) { 
-    $self->maxshortintronlen( $maxshortintronlen ); 
+    $self->minshortintronlen(3);
+  }
+  if( defined $maxshortintronlen ) {
+    $self->maxshortintronlen( $maxshortintronlen );
   } else {
-    $self->maxshortintronlen(50); 
-  } 
-  if( defined $minlongintronlen ) { 
+    $self->maxshortintronlen(50);
+  }
+  if( defined $minlongintronlen ) {
     $self->minlongintronlen( $minlongintronlen );
   } else {
-    $self->minlongintronlen(100000); 
-  } 
+    $self->minlongintronlen(100000);
+  }
 
-  if( defined $minshortexonlen ) { 
-    $self->minshortexonlen( $minshortexonlen ); 
+  if( defined $minshortexonlen ) {
+    $self->minshortexonlen( $minshortexonlen );
   } else {
-    $self->minshortexonlen(3); 
-  } 
-  if( defined $maxshortexonlen ) { 
-    $self->maxshortexonlen( $maxshortexonlen ); 
+    $self->minshortexonlen(3);
+  }
+  if( defined $maxshortexonlen ) {
+    $self->maxshortexonlen( $maxshortexonlen );
   } else {
-    $self->maxshortexonlen(10); 
-  } 
-  if( defined $minlongexonlen ) { 
-    $self->minlongexonlen( $minlongexonlen ); 
+    $self->maxshortexonlen(10);
+  }
+  if( defined $minlongexonlen ) {
+    $self->minlongexonlen( $minlongexonlen );
   } else {
-    $self->minlongexonlen(50000); 
-  } 
+    $self->minlongexonlen(50000);
+  }
 
-  if( defined $mintranslationlen ) { 
-    $self->mintranslationlen( $mintranslationlen ); 
+  if( defined $mintranslationlen ) {
+    $self->mintranslationlen( $mintranslationlen );
   } else {
-    $self->mintranslationlen(10); 
-  } 
+    $self->mintranslationlen(10);
+  }
 
-  if( defined $maxexonstranscript) { 
+  if( defined $maxexonstranscript) {
     $self->maxexonstranscript( $maxexonstranscript );
   } else {
     $self->maxexonstranscript(150);
   }
-  if( defined $ignorewarnings) { $self->ignorewarnings($ignorewarnings); } 
-  if( defined $slice) { $self->slice($slice); } 
+  if( defined $ignorewarnings) { $self->ignorewarnings($ignorewarnings); }
+  if( defined $slice) { $self->slice($slice); }
   if( defined $adaptor ) { $self->adaptor( $adaptor )}
 
   $self->{_errors} = [];
@@ -225,15 +224,15 @@ sub minlongexonlen {
 
 
 =head2 transcript
- 
+
  Title   : transcript
  Usage   : $obj->transcript($newval)
  Function:
  Returns : value of transcript
  Args    : newvalue (optional)
- 
+
 =cut
- 
+
 sub transcript {
    my $self = shift;
    if( @_ ) {
@@ -244,7 +243,7 @@ sub transcript {
       $self->{_transcript} = $value;
     }
     return $self->{_transcript};
- 
+
 }
 
 sub slice {
@@ -257,7 +256,7 @@ sub slice {
       $self->{_slice} = $value;
     }
     return $self->{_slice};
- 
+
 }
 
 sub adaptor {
@@ -266,18 +265,18 @@ sub adaptor {
     $self->{_adaptor} = $arg;
   }
   return $self->{_adaptor};
-}                                                                               
+}
 
- 
+
 sub output {
   my $self = shift;
 
   my $transcript = $self->transcript;
 
   print "\n===\n";
-  print "Transcript " . $transcript->dbID . " " . 
+  print "Transcript " . $transcript->dbID . " " .
         (defined($transcript->stable_id) ? $transcript->stable_id : "") .  "\n";
- 
+
   my $vcoffset = 0;
   if ($self->slice) {
     $vcoffset = $self->slice->start - 1;
@@ -291,7 +290,7 @@ sub output {
            $exon->strand, ($exon->end-$exon->start+1), $exon->phase, $exon->end_phase;
     if (defined($translation)) {
       if ($exon == $translation->start_Exon) {
-        print " S (" . $translation->start . " (" . 
+        print " S (" . $translation->start . " (" .
                  (($exon->strand == 1 ? $exon->start+$translation->start-1 : $exon->end-$translation->start+1) + $vcoffset) ."))";
       }
       if ($exon == $translation->end_Exon) {
@@ -324,9 +323,9 @@ sub print_raw_data {
 #
 #  my $q = qq(
 #    SELECT e.exon_id,
-#           if(sgp.raw_ori=1,(e.seq_start-sgp.raw_start+sgp.chr_start), 
+#           if(sgp.raw_ori=1,(e.seq_start-sgp.raw_start+sgp.chr_start),
 #              (sgp.chr_start+sgp.raw_end-e.seq_end)) as start,
-#           if(sgp.raw_ori=1,(e.seq_end-sgp.raw_start+sgp.chr_start), 
+#           if(sgp.raw_ori=1,(e.seq_end-sgp.raw_start+sgp.chr_start),
 #              (sgp.chr_start+sgp.raw_end-e.seq_start)) as end,
 #           if (sgp.raw_ori=1,e.strand,(-e.strand)) as strand,
 #           sgp.chr_name,
@@ -338,7 +337,7 @@ sub print_raw_data {
 #              (concat(tl.seq_end," (end)")),(""))) as transcoord,
 #           if(e.sticky_rank>1,(concat("sticky (rank = ",e.sticky_rank,")")),
 #              ("")) as sticky
-#     FROM  translation tl, exon e, transcript tr, exon_transcript et, 
+#     FROM  translation tl, exon e, transcript tr, exon_transcript et,
 #           static_golden_path sgp
 #     WHERE e.exon_id=et.exon_id AND
 #           et.transcript_id=tr.transcript_id AND
@@ -352,11 +351,11 @@ sub print_raw_data {
 #
 #  print "\nTranscript data from SQL query:\n";
 #  printf "%-9s: %-9s %-9s %-15s %-6s %-6s %-4s %-16s %-11s\n",
-#         "Exon ID", "Start", "End", "Chromosome", "Strand", "Length", 
+#         "Exon ID", "Start", "End", "Chromosome", "Strand", "Length",
 #         "Rank", "Translation_Info", "Sticky_Info";
-#  while( my ($id, $start, $end, $strand, $chrname, $length, 
+#  while( my ($id, $start, $end, $strand, $chrname, $length,
 #             $rank, $transstr, $stickystr)= $sth->fetchrow_array) {
-#    printf "%9d: %9d %9d %-15s %6d %6d %4d %16s %11s\n",$id, $start, $end, 
+#    printf "%9d: %9d %9d %-15s %6d %6d %4d %16s %11s\n",$id, $start, $end,
 #           $chrname, $strand, $length, $rank, $transstr, $stickystr;
 #  }
 }
@@ -365,7 +364,7 @@ sub print_raw_data {
 sub check {
   my $self = shift;
 
-  my $transcript = $self->transcript; 
+  my $transcript = $self->transcript;
   #print "Transcript " . $transcript->dbID . " ";
   my @exons = @{$transcript->get_all_Exons()};
 
@@ -376,11 +375,11 @@ sub check {
     return;
 
   } elsif ($numexon > $self->maxexonstranscript) {
-    $self->add_Error("Unusually large number of exons (" . 
+    $self->add_Error("Unusually large number of exons (" .
                      $numexon . ")\n", 'manyexons');
   }
 
-  
+
 # Sorting is needed because rank is flacky
 # This allows other tests to be performed even if ranks are wrong
   my @sortedexons;
@@ -408,7 +407,7 @@ sub check {
     if ($exon != $exons[$exnum++]) {
       $self->add_Error("Incorrect exon ranks (first at exon " .
                        $exons[$exnum++]->dbID . ")\n".
-                       "NOTE: Further error checking (except translations) " . 
+                       "NOTE: Further error checking (except translations) " .
                        "done with resorted exons.\n" ,'exonrank');
       last EXON;
     }
@@ -439,7 +438,7 @@ sub check_Phases {
     my @exons = @{$self->transcript->get_all_translateable_Exons};
     my $prev_exon = $exons[0];
     my $start_phase = $prev_exon->phase;
-  
+
     if ($start_phase == -1) {
       $start_phase = 0;
     }
@@ -448,7 +447,7 @@ sub check_Phases {
     if ($start_phase == 0) {
       $zero_phase_count++;
     }
-    
+
     my @calc_phases;
     my $phase = $start_phase;
     for (my $i=0; $i<scalar(@exons);$i++) {
@@ -462,8 +461,8 @@ sub check_Phases {
         $zero_phase_count++;
       }
       if ($exon->phase != $prev_exon->end_phase) {
-        $self->add_Error("EndPhase/Phase mismatch (" . $prev_exon->end_phase . " and " . $exon->phase . 
-                         ") between exons " .  $prev_exon->dbID . " and " . $exon->dbID . 
+        $self->add_Error("EndPhase/Phase mismatch (" . $prev_exon->end_phase . " and " . $exon->phase .
+                         ") between exons " .  $prev_exon->dbID . " and " . $exon->dbID .
                          "\n", 'endphase_phase');
       }
 
@@ -493,7 +492,7 @@ sub check_Translation {
   return if (!defined($self->transcript->translation));
 
   eval {
-    $pepseq = $self->transcript->translate; 
+    $pepseq = $self->transcript->translate;
   };
   if (defined($pepseq)) {
     my $pepseqstr = $pepseq->seq;
@@ -502,20 +501,20 @@ sub check_Translation {
     if ($pepseqstr =~ /\*/) {
       $self->add_Error("Translation failed - Translation contains stop codons\n",'transstop');
       $self->get_initial_frame;
-      return 1; 
+      return 1;
     } elsif ($peplen == 0) {
       $self->add_Error("Translation failed - Translation has zero length\n",'transzerolen');
-      return 1; 
+      return 1;
     } elsif ($pepseqstr =~ /^X*$/) {
       $self->add_Error("Translation failed - Translation is all X (probably on sequence gap)\n",'transallx');
-      return 1; 
+      return 1;
     } elsif ($peplen < $self->mintranslationlen) {
       $self->add_Error("Short (" . $peplen . " residue) translation\n",'transminlen');
     }
     return 0;
   } else {
     $self->add_Error("Translation failed.\n",'transfail');
-    return 1; 
+    return 1;
   }
 }
 
@@ -531,14 +530,14 @@ sub check_Structure {
     my $exlen = $exon->length;
     $totalexonlen+=$exlen;
 
-    if ($exlen >= $self->minshortexonlen && 
+    if ($exlen >= $self->minshortexonlen &&
         $exlen <= $self->maxshortexonlen) {
-      $self->add_Error("Short exon (" . $exlen . 
+      $self->add_Error("Short exon (" . $exlen .
                        " bases) for exon " . $exon->dbID . "\n", 'shortexon');
     } elsif ($exon->length >= $self->minlongexonlen) {
-      $self->add_Error("Long exon (" . $exlen . 
+      $self->add_Error("Long exon (" . $exlen .
                        " bases) for exon " . $exon->dbID . "\n", 'longexon');
-    }  
+    }
     if (defined $prev_exon) {
       if ($exon->strand != $prev_exon->strand) {
         $self->add_Error("Exons on different strands\n",'mixedstrands');
@@ -557,7 +556,7 @@ sub check_Structure {
   if (scalar(@$sortedexons) > 1) {
     if ($exondensity > 0.8) {
       $self->add_Warning("Unusually high exon density (exon len/genomic len) (value $exondensity)\n");
-    } elsif ($exondensity < 0.005) { 
+    } elsif ($exondensity < 0.005) {
       $self->add_Warning("Unusually low exon density (exon len/genomic len) (value $exondensity)\n");
     }
   }
@@ -565,14 +564,14 @@ sub check_Structure {
 
 #NOTE: This method doesn't use the UTR methods in Transcript because:
 #  1. They rely on stable_ids
-#  2. They will fetch unnecessary (for this purpose) sequence 
+#  2. They will fetch unnecessary (for this purpose) sequence
 #
 sub check_UTRs {
   my $self = shift;
   my $exons = shift;
 
   my $translation = $self->transcript->translation;
- 
+
   return if (!defined($translation));
   my $rank = 0;
   my $trans_start_exon = $translation->start_Exon;
@@ -587,7 +586,7 @@ sub check_UTRs {
     if ($exon == $trans_start_exon) {
       $foundstart = 1;
       if ($translation->start > 3 || $rank > 0) {
-        my $startcodon = substr($exon->seq->seq,$translation->start-1,3); 
+        my $startcodon = substr($exon->seq->seq,$translation->start-1,3);
         if ($startcodon ne "ATG") {
           $self->add_Warning("No ATG at five prime of transcript CDS with UTR (has $startcodon)\n");
         } else {
@@ -610,7 +609,7 @@ sub check_UTRs {
     if ($exon == $trans_end_exon) {
       $foundend = 1;
       if ($translation->end < ($exon->length-2) || $rank < scalar(@$exons) - 1) {
-        my $stopcodon = substr($exon->seq->seq,$translation->end-3,3); 
+        my $stopcodon = substr($exon->seq->seq,$translation->end-3,3);
         if ($stopcodon !~ /TAA|TAG|TGA/) {
           $self->add_Warning("No TAA, TAG or TGA at three prime end of transcript CDS with UTR (has $stopcodon)\n");
         } else {
@@ -621,11 +620,11 @@ sub check_UTRs {
     $rank++;
   }
   if (!$foundstart) {
-    $self->add_Error("Didn't find translation->start_exon (" . 
+    $self->add_Error("Didn't find translation->start_exon (" .
                      $trans_start_exon->dbID .  ")\n");
   }
   if (!$foundend) {
-    $self->add_Error("Didn't find translation->end_exon (" . 
+    $self->add_Error("Didn't find translation->end_exon (" .
                      $trans_end_exon->dbID .  ")\n");
   }
 
@@ -675,14 +674,14 @@ sub check_Intron {
 
   my $intlen = $intron->length;
 
-  if ($intlen >= $self->minshortintronlen && 
+  if ($intlen >= $self->minshortintronlen &&
       $intlen <= $self->maxshortintronlen) {
-    $self->add_Error("Short intron (" . $intlen . 
+    $self->add_Error("Short intron (" . $intlen .
                      " bases) between exons " . $prev_exon->dbID .
                      " and " . $exon->dbID . "\n", 'shortintron');
   } elsif ($intlen >= $self->minlongintronlen) {
-    $self->add_Error("Long intron (" . $intlen . ") between exons " . 
-                     $prev_exon->dbID . " and " . $exon->dbID . 
+    $self->add_Error("Long intron (" . $intlen . ") between exons " .
+                     $prev_exon->dbID . " and " . $exon->dbID .
                      "\n", 'longintron');
   }
 
@@ -695,17 +694,17 @@ sub check_Intron {
     #print "Checking intron\n";
     if (substr($intseq,0,2) ne "GT") {
       $self->add_Warning("Non consensus 5' intron splice site sequence (".
-                         substr($intseq,0,2) . ") after exon " . 
+                         substr($intseq,0,2) . ") after exon " .
                          $prev_exon->dbID . " (intron length = " . $intlen .
                          ")\n", 'noncons5');
     }
     if (substr($intseq,-2,2) ne "AG") {
       $self->add_Warning("Non consensus 3' intron splice site sequence (".
-                         substr($intseq,-2,2) . 
+                         substr($intseq,-2,2) .
                          ") before exon " .  $exon->dbID . " (intron length = ".
                          $intlen . ")\n", 'noncons3');
     }
-  } 
+  }
 }
 
 sub get_initial_frame {
@@ -734,4 +733,3 @@ sub get_initial_frame {
 #  }
   return 0;
 }
-

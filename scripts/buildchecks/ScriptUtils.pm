@@ -1,12 +1,11 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # Copyright [2016] EMBL-European Bioinformatics Institute
-# 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -43,20 +42,20 @@ sub get_chrlengths_v20 {
     if (!$db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
       die "get_chrlengths should be passed a Bio::EnsEMBL::DBSQL::DBAdaptor\n";
     }
-  
+
     my $query = "select seq_region.name, seq_region.length as mce from seq_region,coord_system where" .
                 " seq_region.coord_system_id=coord_system.coord_system_id and" .
                 " coord_system.version = '" . $type . "' and coord_system.name='$coordsystem'";
-    if ($ignore_haplotypes) {    
+    if ($ignore_haplotypes) {
       $query .= " and seq_region.seq_region_id not in (select seq_region_id from assembly_exception where exc_type in ('HAP','PATCH_NOVEL','PATCH_FIX'))";
     }
 
     #print "query $query\n";
     my $sth = $db->dbc->prepare($query);
-  
+
     $sth->execute;
-  
-  
+
+
     my $hashref;
     while (($hashref = $sth->fetchrow_hashref) && defined($hashref)) {
       $chrhash{$hashref->{'name'}} = $hashref->{mce};
@@ -172,8 +171,8 @@ sub filter_to_chr_list {
     }
     HASH: foreach my $chr_from_hash (keys %$chrhash) {
       foreach my $chr (@$chromosomes) {
-        if ($chr_from_hash =~ /^${chr}$/) { 
-          #print "Keeping $chr_from_hash\n"; 
+        if ($chr_from_hash =~ /^${chr}$/) {
+          #print "Keeping $chr_from_hash\n";
           next HASH;
         }
       }

@@ -11,13 +11,13 @@
 
   NOTE: for new biotypes they must be entered in TWO places below:
   (i) in the %known_biotypes hash
-  (ii) in the decision tree ie in one of these methods: 
+  (ii) in the decision tree ie in one of these methods:
   returnBasicCodingAnnotation
   returnBasicNonCodingAnnotation
   returnBasicPseudogeneAnnotation
 
 
-  
+
 =head1 OPTIONS
 
   -host/dbhost     host name for database (gets put as host= in locator)
@@ -32,7 +32,7 @@
   -dnauser/dnadbuser     For RDBs, what username to connect as (dbuser= in locator)
 
   -path            Name of the assembly
-  -verbose         Verbose options adds print statements 
+  -verbose         Verbose options adds print statements
 
 =cut
 
@@ -57,7 +57,7 @@ my $pass   = '';
 my $port   = 3306;
 my $dbname = '';
 my $dnahost;
-my $dnauser; 
+my $dnauser;
 my $dnaport   = 3306;
 my $dnadbname;
 my $coord_system_name = 'toplevel';
@@ -69,7 +69,7 @@ my $MAX_TRANSCRIPT_LENGTH = '100000'; # the longest transcript in human was less
 
 # use most recent
 my $production_dbname = 'ensembl_production';
-my $production_host; 
+my $production_host;
 my $production_port = 3306;
 my $production_user;
 
@@ -177,12 +177,14 @@ my $known_biotypes = {
                      'macro_lncRNA'                       => 'noncoding_second_choice',
                      'ribozyme'                           => 'noncoding_second_choice',
                      'scaRNA'                             => 'noncoding_second_choice',
+                     'scRNA'                              => 'noncoding_second_choice',
                      'sRNA'                               => 'noncoding_second_choice',
                      'vaultRNA'                           => 'noncoding_second_choice',
                      'processed_transcript'               => 'noncoding_second_choice',
                      'misc_RNA'                           => 'noncoding_second_choice',
-                     '3prime_overlapping_ncrna'           => 'noncoding_second_choice',
+                     '3prime_overlapping_ncRNA'           => 'noncoding_second_choice',
                      'non_coding'                         => 'noncoding_second_choice',
+                     'bidirectional_promoter_lncRNA'      => 'noncoding_second_choice',
                      'transcribed_processed_pseudogene'   => 'pseudogene_transcribed',
                      'transcribed_unitary_pseudogene'     => 'pseudogene_transcribed',
                      'transcribed_unprocessed_pseudogene' => 'pseudogene_transcribed',
@@ -192,6 +194,7 @@ my $known_biotypes = {
                      'translated_processed_pseudogene'    => 'pseudogene',
                      'translated_unprocessed_pseudogene'  => 'pseudogene',
                      'unitary_pseudogene'                 => 'pseudogene',
+                     'IG_pseudogene'                      => 'pseudogene',
                      'IG_C_pseudogene'                    => 'pseudogene',
                      'IG_D_pseudogene'                    => 'pseudogene',
                      'IG_J_pseudogene'                    => 'pseudogene',
@@ -303,8 +306,8 @@ sub delete_old_attrib {
 
   my $sql = q{
     DELETE ta
-    FROM transcript_attrib ta, attrib_type att 
-    WHERE att.attrib_type_id = ta.attrib_type_id 
+    FROM transcript_attrib ta, attrib_type att
+    WHERE att.attrib_type_id = ta.attrib_type_id
     AND att.code = ? };
 
   my $sth = $db->dbc->prepare($sql);
@@ -359,7 +362,7 @@ sub giveMeBasicAnnotationTranscripts{  # as a parameter I give a gene object and
   if (@basicCodingAnnotationTranscripts) {
     @basicAnnotationTranscripts = @basicCodingAnnotationTranscripts;
   } elsif (@basicPseudogeneAnnotationTranscripts) {
-    @basicAnnotationTranscripts = @basicPseudogeneAnnotationTranscripts; 
+    @basicAnnotationTranscripts = @basicPseudogeneAnnotationTranscripts;
   } else {
     @basicAnnotationTranscripts = @basicNonCodingAnnotationTranscripts;
   }
@@ -370,10 +373,10 @@ sub giveMeBasicAnnotationTranscripts{  # as a parameter I give a gene object and
     foreach my $transcript (@transcripts){
 
       if($known_biotypes->{$transcript->biotype} eq 'problem') {
-#      if($transcript->biotype eq "retained_intron" or $transcript->biotype eq "TEC" or $transcript->biotype eq "ambiguous_orf" or 
+#      if($transcript->biotype eq "retained_intron" or $transcript->biotype eq "TEC" or $transcript->biotype eq "ambiguous_orf" or
 #         $transcript->biotype eq "disrupted_domain"){
 
-        if(scalar @ncProblemlengths ==0){ 
+        if(scalar @ncProblemlengths ==0){
 
           $ncProblemlengths[0]=$transcript;
 
@@ -589,8 +592,8 @@ sub returnBasicNonCodingAnnotation{  # i call it with a gene object and it retur
       return \@basicNonCodingAnnotation;
     } else {
       print "No basicNonCodingAnnotation from first non-coding group found.\n";
-    }  
-  }  	
+    }
+  }
 
   if(scalar (@basicNonCodingAnnotation) ==0 ){ # if there are no nc-well caracterized-FULL LENGTH transcripts, I get the transcripts that are non-coding biggest length
 
@@ -655,11 +658,11 @@ sub returnBasicPseudogeneAnnotation{ # i call it with a gene object and it retur
   my @basicPseudogeneAnnotation;
 
   my $transcribed_pseudogene = 0;
-  foreach my $transcript (@transcripts){  # pushes all transcripts but expects only one per gene 
+  foreach my $transcript (@transcripts){  # pushes all transcripts but expects only one per gene
 
     if($known_biotypes->{$transcript->biotype} eq 'pseudogene_transcribed') {
       # 07 August 2014
-      # When a transcribed processed pseudogene, take all transcripts [requested by af2] 
+      # When a transcribed processed pseudogene, take all transcripts [requested by af2]
       $transcribed_pseudogene = 1;
       last;
 
@@ -708,16 +711,16 @@ sub getGivenCoverUntilExonsCovered { # I call it with a set of transcripts and i
 sub getUncoveredExons() {
   # returns an array of the exons in 'gene' which are not covered by any exon in 'transcripts'
   my ($gene,@transcripts) = @_;
-  
+
   my @uncoveredExons;
 
   my @allTranscriptExons;
   foreach my $transcript (@transcripts) {
     push @allTranscriptExons,@{$transcript->get_all_Exons()};
   }
-  
+
   my @uniqueExons = @{$gene->get_all_Exons()};
-  
+
   my $found = 0;
   UNIQUE: foreach my $geneExon (@uniqueExons) {
   	$found = 0;
@@ -725,7 +728,7 @@ sub getUncoveredExons() {
       if ($transcriptExon->start() == $geneExon->start() and
           $transcriptExon->end() == $geneExon->end()) {
         $found = 1;
-        last;      
+        last;
       }
     }
     if (!$found) {
@@ -745,11 +748,11 @@ sub getScoreExonsCoverAndLength {
       if ($transcriptExon->start() == $exon->start() and
           $transcriptExon->end() == $exon->end()) {
         $numExonsCovered++;
-        next UNIQUE;      
+        next UNIQUE;
       }
     }
   }
-  
+
   my $length_score_percentage = min(($MAX_TRANSCRIPT_LENGTH-1)/$MAX_TRANSCRIPT_LENGTH,$transcript->length()/$MAX_TRANSCRIPT_LENGTH);
   my $score = $numExonsCovered+$length_score_percentage;
 
@@ -772,18 +775,18 @@ sub transcriptExonsCoverGenePercentage() {
   my $max_coverage = 0; # different exons can overlap a gene exon so we need to get the maximum coverage
   UNIQUE: foreach my $geneExon (@uniqueExons) {
     foreach my $transcriptExon (@allTranscriptExons) {
-    	
+
       if ($transcriptExon->start() <= $geneExon->end() and
           $transcriptExon->end() >= $geneExon->start()) {
-        
+
         my $coverage_start = max($transcriptExon->start(),$geneExon->start());
         my $coverage_end = min($transcriptExon->end(),$geneExon->end());
         my $coverage_length = $coverage_end-$coverage_start+1;
         if ($coverage_length > $max_coverage) {
-          $max_coverage = $coverage_length;	
+          $max_coverage = $coverage_length;
         }
       } # end if transcriptExon
-      
+
       if (($max_coverage == $geneExon->length()) or
             ($transcriptExon == $allTranscriptExons[-1])) {
         $total_coverage += $max_coverage;
@@ -810,7 +813,7 @@ sub getGenomicLengthOfTranscript{ # i call it with a transcript object and it re
 }
 
 sub cdsLength{
-	
+
 
   my $transcript=shift;
   my $length;
@@ -841,8 +844,8 @@ sub filter_transcribed_pseudogene {
     }
   }
   # collect only lowest start and highest end
-  my $min_start = min(keys %starts);    
-  my $max_end = max(keys %ends);    
+  my $min_start = min(keys %starts);
+  my $max_end = max(keys %ends);
 
   foreach my $t (@{$starts{$min_start}}) {
     $keep{$t->dbID} = $t;
@@ -891,7 +894,7 @@ print "tbio ".$t->biotype." vs mybio ".$biotype." \n";
       print "pushed transcript with $numex exons and length $len \n";
     }
   }
-  
+
   print "  keep ".@keep_for_biotype." + sorted ".(scalar(@sorted))." of ".(scalar(@$transcripts))." transcripts\n";
   return (\@keep_for_biotype, \@sorted);
 }
@@ -912,7 +915,7 @@ sub get_distinct_gene_biotypes {
   my @biotypes;
 
   my $sql = q{
-    SELECT distinct(biotype) 
+    SELECT distinct(biotype)
     FROM gene};
 
   my $sth = $db->dbc->prepare($sql);
@@ -1004,6 +1007,3 @@ well characterized: antisense, Mt_rRNA, Mt_tRNA, miRNA, rRNA, snRNA, snoRNA
 poorly characterized: 3prime_overlapping_ncrna, lincRNA, misc_RNA, non_coding, processed_transcript, sense_intronic, sense_overlapping
 
 =cut
-
-
-
