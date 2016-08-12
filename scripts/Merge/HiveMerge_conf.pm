@@ -199,7 +199,7 @@ sub default_options {
 
     # pipeline db, pipeline will create this automatically
     'pipeline_db' => {
-                    -host      => $self->o('pipeline_host'),
+                    -host      => $self->o('default_host'),
                     -port      => $self->o('default_port'),
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
