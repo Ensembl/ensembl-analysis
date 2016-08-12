@@ -82,7 +82,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMerge;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::Tools::Utilities;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
