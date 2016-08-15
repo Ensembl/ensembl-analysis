@@ -60,7 +60,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCCDSAddition;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command send_email);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 use Net::FTP;
