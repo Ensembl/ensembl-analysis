@@ -44,7 +44,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDeleteTranscripts;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::Tools::Utilities;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 use Net::FTP;
