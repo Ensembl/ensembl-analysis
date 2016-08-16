@@ -160,6 +160,8 @@ sub fetch_input{
 
       $self->hrdb_set_con($transcript_dba,'transcript_db');
       $transcript_features = $self->get_transcript_features($transcript_id);
+#      $transcript_features = $self->correct_features($transcript_features);
+
       $peptide_seq = $self->get_peptide_seq($self->accession());
     } else {
       $self->throw("The feature_type you passed in is not supported! Type:\n".$feature_type);
@@ -557,6 +559,34 @@ sub add_slice_to_features {
 
 }
 
+
+#sub correct_features {
+#  my ($self,$features) = @_;
+
+#  my $feature_string = "";
+ # for(my $i=0; $i<scalar(@{$features})) {
+#    $feature_string .= $$features[$i]->start.'..'.$$features[$i]->end.":";
+#  }
+#  chop $feature_string;
+#  say "Starting FS: ".$feature_string;
+
+
+#  my $feature_string = "1..10:13..100:101..150:500..550:552..554:";
+
+#  my $feature_string_temp =  $feature_string;
+#  while($feature_string_temp =~ s/\.\.(\d+)\:(\d+)\.\./\.\./) {
+#    my $d1 = $1;
+#    my $d2 = $2;
+#    if($d2 - $d1 + 1 < 10) {
+#      say "Removing frameshift from feature";
+#      $feature_string =~ s/\.\.$d1\:$d2\.\./\.\./;
+#    }
+#    say "TS: ".$feature_string_temp;
+#    say "FS: ".$feature_string;
+#  }
+
+  
+#}
 
 =head2 filter_genes
 
