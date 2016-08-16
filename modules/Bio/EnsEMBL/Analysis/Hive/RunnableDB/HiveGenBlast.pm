@@ -90,13 +90,35 @@ sub fetch_input {
     $self->throw("You haven't provided an input id type. Need to provide one via the 'iid_type' param");
   }
 
+  # If there is a sequence table name, store for use later
+  if($self->param_is_defined('sequence_table_name')) {
+    my $sequence_table_name = $self->param('sequence_table_name');
+    $self->sequence_table_name($sequence_table_name);
+  }
+
   if($iid_type eq 'db_seq') {
-    $query_file = $self->output_query_file();
+    $query_file = $self->output_query_file($self->param("iid"));
   } elsif($iid_type eq 'chunk_file') {
     $query_file = $self->param('iid');
     if($self->param('query_seq_dir')) {
       $query_file = $self->param('query_seq_dir')."/".$query_file;
     }
+  } elsif($iid_type eq 'projection_transcript_id') {
+    my @iid = @{$self->param("iid")};
+    my $projection_dba = $self->hrdb_get_dba($self->param('projection_db'));
+    my $projection_transcript_id = $iid[0];
+    my $projection_protein_accession = $iid[1];
+    my $padding = $self->param("projection_padding");
+
+    unless(defined($padding)) {
+      $padding = 50000;
+    }
+
+    if($dna_dba) {
+      $projection_dba->dnadb($dna_dba);
+    }
+    $query_file = $self->output_query_file([$projection_protein_accession]);
+    $genome_file = $self->output_transcript_slice($projection_dba,$projection_transcript_id,$padding);
   } else {
     $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
@@ -107,12 +129,14 @@ sub fetch_input {
   my $max_rank = $self->param('max_rank');
   my $genblast_pid = $self->param('genblast_pid');
 
+  say "FM2 DBA NAME: ".$dba->dbname;
+
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlastGene->new
     (
      -query => $query_file,
      -program => $self->analysis->program_file,
      -analysis => $self->analysis,
-     -database => $self->analysis->db_file,
+     -database => $genome_file,
      -genblast_program => $genblast_program,
      -max_rank => $max_rank,
      -genblast_pid => $genblast_pid,
@@ -128,7 +152,7 @@ sub fetch_input {
 
 sub run {
   my ($self) = @_;
-
+  $self->runnable_failed(0);
   foreach my $runnable (@{$self->runnable}) {
     eval {
       $runnable->run;
@@ -315,14 +339,26 @@ sub get_biotype {
 }
 
 
+sub sequence_table_name {
+  my ($self,$sequence_table_name) = @_;
+  if($sequence_table_name) {
+    $self->param('_sequence_table_name',$sequence_table_name);
+  }
+  return($self->param('_sequence_table_name'));
 
+}
 sub output_query_file {
-  my ($self) = @_;
+  my ($self,$accession_array) = @_;
 
-  my $accession_array = $self->param('iid');
+#  my $accession_array = $self->param('iid');
+
+  my $table_name = $self->sequence_table_name();
+  unless($table_name) {
+    $self->throw("You are trying to use a sequence table, but haven't provided a sequence_table_name param");
+  }
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
-  $table_adaptor->table_name('uniprot_sequences');
+  $table_adaptor->table_name($table_name);
 
 
   my $rand = int(rand(1000000));
@@ -358,9 +394,62 @@ sub output_query_file {
   close QUERY_OUT;
 
   $self->files_to_delete($output_dir);
+  $self->output_dir_path($output_dir);
+
   $self->get_biotype($biotypes_hash);
 
   return($outfile_path);
+}
+
+
+sub output_transcript_slice {
+  my ($self,$dba,$transcript_id,$padding) = @_;
+
+  my $transcript_adaptor = $dba->get_TranscriptAdaptor();
+  my $transcript = $transcript_adaptor->fetch_by_dbID($transcript_id);
+  my $slice = $transcript->slice();
+  my $new_start = $transcript->seq_region_start() - $padding;
+  if($new_start <= 0) {
+    $new_start = 1;
+  }
+  my $new_end = $transcript->seq_region_end() + $padding;
+  if($new_end > $slice->seq_region_length) {
+    $new_end = $slice->seq_region_length;
+  }
+
+  my $transcript_slice  = Bio::EnsEMBL::Slice->new
+      (-seq_region_name   => $slice->seq_region_name,
+       -seq_region_length => $slice->seq_region_length,
+       -coord_system      => $slice->coord_system,
+       -start             => $new_start,
+       -end               => $new_end,
+       -strand            => 1,
+       -adaptor           => $slice->adaptor());
+
+  my $name = $transcript_slice->name;
+  my $seq = $transcript_slice->seq;
+
+  my $outfile_name = "genblast_slice.db";
+  my $output_dir = $self->output_dir_path;
+  my $outfile_path = $output_dir."/".$outfile_name;
+
+  unless(-e $output_dir) {
+    `mkdir -p $output_dir`;
+  }
+
+  if(-e $outfile_path) {
+    $self->warning("Found the db file in the query dir already. Overwriting. File path\n:".$outfile_path);
+  }
+
+  open(SLICE_OUT,">".$outfile_path);
+  my $record = ">".$name."\n".$seq;
+  say SLICE_OUT $record;
+  close SLICE_OUT;
+
+#  $self->files_to_delete($output_dir);
+
+  return($outfile_path);
+
 }
 
 
@@ -386,6 +475,16 @@ sub test_translates {
     $result = 1;
   }
   return $result;
+}
+
+
+sub output_dir_path {
+  my ($self,$val) = @_;
+  if($val) {
+    $self->param('_output_dir_path',$val);
+  }
+
+  return($self->param('_output_dir_path'));
 }
 
 
