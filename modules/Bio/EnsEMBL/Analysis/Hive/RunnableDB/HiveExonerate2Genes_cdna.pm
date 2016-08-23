@@ -73,7 +73,7 @@ use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::KillList::KillList;
 use Bio::SeqIO;
-use Data::Dumper;
+use Bio::Seq;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -271,7 +271,6 @@ sub fetch_input {
               -analysis => $self->analysis,
               -target_file    => $database,
               -query_type     => $self->QUERYTYPE,
-              -query_file     => $query_file,
               -annotation_file => $self->QUERYANNOTATION ? $self->QUERYANNOTATION : undef,
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
@@ -279,6 +278,12 @@ sub fetch_input {
               %parameters,
               );
 
+      if (ref($query_file) eq 'ARRAY') {
+        $runnable->query_seqs($query_file);
+      }
+      else {
+        $runnable->query_file($query_file);
+      }
       $self->runnable($runnable);
   }
 
@@ -289,7 +294,7 @@ sub run {
   my ($self) = @_;
   my @results;
 
-  open STDOUT, '>>', $self->param('stdout_file') if ($self->param('stdout_file'));
+#  open STDOUT, '>>', $self->param('stdout_file') if ($self->param('stdout_file'));
 
   $self->throw("Can't run - no runnable objects") unless ($self->runnable);
 
@@ -779,6 +784,12 @@ sub filter {
   if ($val) {
     $self->param('_transcript_filter',$val);
   }
+  elsif (!$self->param_is_defined('_transcript_filter')
+    and $self->param_is_defined('FILTER')
+    and exists $self->param('FILTER')->{OBJECT}) {
+    my $module = $self->require_module($self->param('FILTER')->{OBJECT});
+    $self->param('_transcript_filter', $module->new(%{$self->param('FILTER')->{PARAMETERS}}));
+  }
   if ($self->param_is_defined('_transcript_filter')) {
     return $self->param('_transcript_filter');
   }
@@ -864,13 +875,14 @@ sub filter_killed_entries {
                             -format => "Fasta",
                           );
 
-  my $filtered_seqout_filename = "/tmp/$inputID"."_filtered";
-  print "Filename for my filtered sequence: $filtered_seqout_filename.\n";
+#  my $filtered_seqout_filename = "/tmp/$inputID"."_filtered";
+#  print "Filename for my filtered sequence: $filtered_seqout_filename.\n";
+#
+#  my $seqout = new Bio::SeqIO(-file   => ">$filtered_seqout_filename",
+#                              -format => "Fasta"
+#                             );
 
-  my $seqout = new Bio::SeqIO(-file   => ">$filtered_seqout_filename",
-                              -format => "Fasta"
-                             );
-
+  my @sequences;
   while( my $query_entry = $seqin->next_seq ){
     my $display_id  = $query_entry->display_id;
     my $no_ver_id;
@@ -887,12 +899,14 @@ sub filter_killed_entries {
     }
 
     if ( !$kill_list{$no_ver_id} ) {
-      $seqout->write_seq($query_entry);
+#      $seqout->write_seq($query_entry);
+      push(@sequences, $query_entry);
     } elsif ( $kill_list{$no_ver_id} ) {
       print "$mol_type $display_id is in the kill_list. Discarded from analysis.\n";
     }
   }
-  return $filtered_seqout_filename;
+#  return $filtered_seqout_filename;
+  return \@sequences;
 }
 
 sub output_query_file {
@@ -906,23 +920,24 @@ sub output_query_file {
   $table_adaptor->table_name('cdna_sequences');
 
 
-  my $output_dir = $self->param('query_seq_dir');
-
-  # Note as each accession will occur in only one file, there should be no problem using the first one
-  my $outfile_name = "exonerate_".${$accession_array}[0].".fasta";
-  my $outfile_path = $output_dir."/".$outfile_name;
+#  my $output_dir = $self->param('query_seq_dir');
+#
+#  # Note as each accession will occur in only one file, there should be no problem using the first one
+#  my $outfile_name = "exonerate_".${$accession_array}[0].".fasta";
+#  my $outfile_path = $output_dir."/".$outfile_name;
 
   my $biotypes_hash = {};
 
-  unless(-e $output_dir) {
-    `mkdir $output_dir`;
-  }
+#  unless(-e $output_dir) {
+#    `mkdir $output_dir`;
+#  }
+#
+#  if(-e $outfile_path) {
+#    $self->warning("Found the query file in the query dir already. Overwriting. File path:\n".$outfile_path);
+#  }
 
-  if(-e $outfile_path) {
-    $self->warning("Found the query file in the query dir already. Overwriting. File path:\n".$outfile_path);
-  }
-
-  open(QUERY_OUT,">".$outfile_path);
+#  open(QUERY_OUT,">".$outfile_path);
+  my @query_sequences;
   foreach my $accession (@{$accession_array}) {
     my $db_row = $table_adaptor->fetch_by_dbID($accession);
     unless($db_row) {
@@ -932,15 +947,18 @@ sub output_query_file {
     my $seq = $db_row->{'seq'};
     $biotypes_hash->{$accession} = $db_row->{'biotype'};
 
-    my $record = ">".$accession."\n".$seq;
-    say QUERY_OUT $record;
+#    my $record = ">".$accession."\n".$seq;
+    push(@query_sequences, Bio::Seq->new(-id => $accession, -seq => $seq));
+
+#    say QUERY_OUT $record;
   }
-  close QUERY_OUT;
+#  close QUERY_OUT;
 
   #$self->files_to_delete($outfile_path);
   $self->get_biotype($biotypes_hash);
 
-  return($outfile_path);
+#  return($outfile_path);
+  return \@query_sequences;
 }
 
 

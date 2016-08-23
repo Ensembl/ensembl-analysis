@@ -76,16 +76,12 @@ package Bio::EnsEMBL::Analysis::Runnable::InternalStopFix;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name write_seqfile);
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(contains_internal_stops);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns);
-use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
-use vars qw (@ISA);
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+use parent qw(Bio::EnsEMBL::Analysis::Runnable);
 
 
 =head2 new
@@ -160,6 +156,7 @@ sub run {
             if (@transcripts) {
                 my $new_gene = Bio::EnsEMBL::Gene->new();
                 foreach my $transcript (@transcripts) {
+                    $transcript->biotype($self->edited_biotype);
                     $new_gene->add_Transcript($transcript);
                     $new_gene->analysis($self->analysis);
                     $new_gene->biotype($self->edited_biotype);
@@ -167,6 +164,9 @@ sub run {
                 push(@new_genes, $new_gene);
             }
             $gene->biotype($self->stop_codon_biotype);
+            foreach my $t (@{$gene->get_all_Transcripts}) {
+              $t->biotype($self->stop_codon_biotype);
+            }
             push(@new_genes, $gene);
         }
     }

@@ -586,7 +586,6 @@ sub create_Translation {
 
   my $translation = Bio::EnsEMBL::Translation->new();
   foreach my $exon (@$exons) {
-    print STDERR 'EXON ', join (' ', $exon->seq_region_start, $exon->seq_region_end, $exon->seq_region_strand), "\n";
     if ($genomic_start >= $exon->seq_region_start and $genomic_start <= $exon->seq_region_end) {
       if ($exon->strand == 1) {
         $translation->start_Exon($exon);
@@ -597,7 +596,7 @@ sub create_Translation {
         $translation->end($exon->seq_region_end-$genomic_start+1);
       }
     }
-    elsif ($genomic_end >= $exon->seq_region_start and $genomic_end <= $exon->seq_region_end) {
+    if ($genomic_end >= $exon->seq_region_start and $genomic_end <= $exon->seq_region_end) {
       if ($exon->strand == 1) {
         $translation->end_Exon($exon);
         $translation->end($genomic_end-$exon->seq_region_start+1);

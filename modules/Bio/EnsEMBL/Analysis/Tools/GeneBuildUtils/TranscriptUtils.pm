@@ -1218,7 +1218,8 @@ sub replace_stops_with_introns{
   #print 'DEBUG: peptide: ', $pep, "\n";
   my $removed_exon_count = 0;
   # gaps adjacent to internal stop codons - skip
-  return 0 if ($pep =~ /X\*/ || $pep =~ /\*X/);
+# I'm not sure this happens often but I had a peptide equal to '*'
+  return 0 if ($pep eq '*' or $pep =~ /X\*/ || $pep =~ /\*X/);
 
   my $num_stops = $pep =~ s/\*/\*/g;
 
