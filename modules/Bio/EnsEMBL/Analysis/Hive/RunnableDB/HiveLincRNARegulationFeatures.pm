@@ -139,7 +139,7 @@ sub write_output {
 
 	foreach my $gene ( @{ $self->output } ) {
     $gene->status(undef); 
-    $gene->analysis($self->analysis);   
+    $gene->analysis($analysis);
 		eval { 
 			$adaptor->store($gene); 
 		};

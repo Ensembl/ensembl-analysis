@@ -105,16 +105,16 @@ sub write_output{
   print  "***HAVE ". scalar(@genes_to_write) ." GENE(S) TO WRITE IN TOTAL (INCLUDING VALID AND REJECTED lincRNAs).\n";  
 
   my $sucessful_count = 0 ; 
+  my $logic_name_to_be = "lincRNA_set_test_3";
+  ## I will create a new gene without translations and only one transcript to be stored under different analysis ##
+  # Make an analysis object (used later for storing stuff in the db)
+  my $analysis = Bio::EnsEMBL::Analysis->new(
+                                         -logic_name => $logic_name_to_be,
+                                         -displayable => 1
+                                         );
   foreach my $gene(@genes_to_write){  
-    my $logic_name_to_be = "lincRNA_set_test_3"; 
-    ## I will create a new gene without translations and only one transcript to be stored under different analysis ##
-    # Make an analysis object (used later for storing stuff in the db)
-    my $analysis = Bio::EnsEMBL::Analysis->new(
-                                           -logic_name => $logic_name_to_be,
-                                           -displayable => 1
-                                           );    
     $gene->status(undef); 
-    $gene->analysis($self->analysis);   
+    $gene->analysis($analysis);
     eval{
       $lincrna_ga->store($gene);
     };

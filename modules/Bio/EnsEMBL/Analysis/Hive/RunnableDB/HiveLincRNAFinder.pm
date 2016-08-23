@@ -118,6 +118,7 @@ sub write_output {
 	print "have " . @{ $self->output } . " genes to write\n";
 
 	my $sucessful_count = 0;
+  my $analysis = $self->analysis;
   GENE: foreach my $gene ( @{ $self->output } ) {
 		if ( !defined $gene->get_all_Transcripts ) {
 			$self->throw(" gene does not have any transcripts ....\n");
@@ -127,12 +128,12 @@ sub write_output {
 		my $max_ex = 0;
 		for (@tr) {
 			$_->status(undef);
-			$_->analysis( $self->analysis );
+			$_->analysis( $analysis );
 		}
 
 		$gene->biotype( $self->OUTPUT_BIOTYPE );
 		$gene->status(undef);
-		$gene->analysis( $self->analysis );
+		$gene->analysis( $analysis );
 		eval { 
 			$adaptor->store($gene); 
 		};

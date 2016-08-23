@@ -182,6 +182,7 @@ sub run {
 sub write_output{
   my ($self) = @_; 
 
+  $self->create_analysis;
   print  "\nWRITING RESULTS IN OUTPUT DB and/or VALIDATION DB... " . "\n";
   # update genes in the source db which cluster with processed_transcripts or lincRNAs
   # (if requested in the config file)
@@ -257,6 +258,7 @@ sub write_output{
   print  "***HAVE ". scalar(@genes_to_write) ." GENE(S) TO WRITE IN TOTAL (INCLUDING VALID AND REJECTED lincRNAs).\n";  
 
   my $sucessful_count = 0 ; 
+  my $analysis = $self->analysis;
   foreach my $gene(@genes_to_write){ 
     my $logic_name_to_be = "lincRNA_set_test_3"; 
     my @t = @{ $gene->get_all_Transcripts}; 
@@ -271,22 +273,6 @@ sub write_output{
 
     ## I will create a new gene without translations and only one transcript to be stored under different analysis ##
     # Make an analysis object (used later for storing stuff in the db)
-    my $analysis = Bio::EnsEMBL::Analysis->new(
-                                           -logic_name => $logic_name_to_be,
-                                           -displayable => 1
-                                           );
- 
-    my $analysis_adaptor = $dba->get_AnalysisAdaptor();
-    # check if the logic name present in my database or if I need to create a new analysis_id, logic_name etc... 
-    if ($analysis_adaptor->fetch_by_logic_name($logic_name_to_be) ) {
-    }else {
-        print "# will store the analysis, since it is not exist \n"; 
-        my $description = $logic_name_to_be ;
-        my $display_label = $logic_name_to_be; 
-        $analysis->description($description) if $description;
-        $analysis->display_label($display_label) if $display_label;
-        $analysis_adaptor->store($analysis);
-    } 
     
     my $tag      = $gene->display_id; 
     my $gene_linc = Bio::EnsEMBL::Gene->new( 
