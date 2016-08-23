@@ -52,9 +52,6 @@ sub filter_results {
       $transcript->flush_Exons();
       foreach my $exon (@$exons) {
         $exon->strand($real_strand);
-        foreach my $sf (@{$exon->get_all_supporting_features}) {
-          e
-        }
         $transcript->add_Exon($exon);
       }
       $transcript->{_gb_flag} = 1;
