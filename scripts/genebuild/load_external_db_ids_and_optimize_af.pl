@@ -1,75 +1,28 @@
 #!/usr/bin/env perl
-
-# $Source: /cvsroot/ensembl/ensembl-personal/genebuilders/scripts/load_external_db_ids_and_optimize_af.pl,v $
-# $Revision: 1.35 $
-
-=pod
-
-=head1 NAME 
-
-load_external_db_ids_and_optimize_af.pl
-
-=head1 DESCRIPTION
-
-This script dumps the dna_align_feature, transcript_support_feature and support_feature tables for optimizing the dna_align_feature table for a given database. It also assigns the external DB IDs for both the dna_align_feature and the protein_align_feature tables. The scripts test_regexes.pl, assign_external_db_ids.pl and fix_supporting_evidence_links.pl in ensembl-personal/genebuilders/scripts are required.
-
-=head1 OPTIONS
-
--output_path		Path where the output files and backup files will be written. It will be created if it does not exist.
-
--dbhost    		host name where the database is located
-
--dbport    		what port to connect (default 3306)
-
--dbname    		database name
-
--dbuser    		what username to connect as
-
--dbpass    		what password to use
-
--ensgbscripts	path to local ensembl-personal/genebuilders/scripts, read from ENSGBSCRIPTS environment variable or deduced from this scripts path if not specified
-
--uniprot_filename	full path to the uniprot filename required by the script which assigns the external DB IDs
-
--no_external_db		skip the external db assignments, only do the sorting
-
--no_backup		skip the backup
-
--clean			delete any backup and output file once the final checks step has finished successfully
-
-
-=head2 Output options:
-
-        -verbose        Use this option to get more print statements to follow
-                        the script. Set to 0 (not verbose) by default to get
-                        only the final summary.
-
-	-help		Show usage.
-
-=head1 EXAMPLE USAGE
-
-=head1
-
-# assign external DB IDs and sort features tables
-bsub -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -prod_dbuser *** -prod_dbpass *** -prod_dbhost *** -prod_dbname *** -prod_dbport *** -output_path /lustre/scratch101/sanger/cgg/CanFam3.1/optimize -dbhost genebuild1 -dbname cgg_dog_ref_test -dbuser ensadmin -dbpass *** -ensgbscripts /nfs/users/nfs_c/cgg/ensembl-personal/genebuilders/scripts -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose"
-
-# sort features tables only
-bsub -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af_after_alt_seq_mapping.out -e optimize_af_after_alt_seq_mapping.err "perl load_external_db_ids_and_optimize_af.pl -prod_dbuser *** -prod_dbpass *** -prod_dbhost *** -prod_dbname *** -prod_dbport *** -output_path optimize_core_af_alt_seq_mapping -dbhost ens-staging1 -dbname homo_sapiens_core_70_37 -dbuser ensadmin -dbpass *** -ensgbscripts /nfs/users/nfs_c/cgg/ensembl-personal/genebuilders/scripts -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose -no_external_db"
-
-# assign external DB IDs and sort features tables, clean
-bsub -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -prod_dbuser *** -prod_dbpass *** -prod_dbhost *** -prod_dbname *** -prod_dbport *** -output_path /lustre/scratch101/sanger/cgg/optimize -dbhost ens-staging1 -dbname homo_sapiens_core_70_37 -dbuser ensadmin -dbpass *** -ensgbscripts /nfs/users/nfs_c/cgg/ensembl-personal/genebuilders/scripts -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose -clean"
-
-=cut
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 
 use strict;
 use warnings;
 
-use Net::FTP;
 use Bio::EnsEMBL::DBSQL::DBConnection;
 use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use File::Basename;
+use File::Spec;
 use List::Util qw(sum);
 
 my $output_path;
@@ -83,7 +36,7 @@ my $prod_dbuser;
 my $prod_dbpass;
 my $prod_dbport = 3306;
 my $prod_dbname;
-my $dir_ensgbscripts;
+my $analysis_scripts;
 my $uniprot_filename;
 my $no_external_db = 0;
 my $no_backup = 0;
@@ -104,7 +57,7 @@ GetOptions('output_path:s' => \$output_path,
            'prod_dbhost=s' => \$prod_dbhost,
            'prod_dbname=s' => \$prod_dbname,
            'prod_dbport=s' => \$prod_dbport,
-           'ensgbscripts=s'     => \$dir_ensgbscripts, 
+           'analysis_scripts=s'     => \$analysis_scripts,
            'uniprot_filename=s' => \$uniprot_filename, 
            'no_external_db!'=> \$no_external_db, 
            'no_backup!'    => \$no_backup,       
@@ -115,9 +68,16 @@ GetOptions('output_path:s' => \$output_path,
            'verbose'       => \$verbose);
 print $0, "\n";
 
-($dir_ensgbscripts) = $0 =~ /(.*)\/[^\/]+$/ unless $dir_ensgbscripts ;
-if (!$output_path or !$dbhost or !$dbname or !$dbuser or !$dbpass or !$dir_ensgbscripts or $help) 
+($analysis_scripts) = $0 =~ /(.*)\/[^\/]+$/ unless $analysis_scripts ;
+if (!$output_path or !$dbhost or !$dbname or !$dbuser or !$dbpass or !$analysis_scripts or $help)
 {
+    &usage;
+    exit(1);
+}
+
+if (!$prod_dbhost or !$prod_dbname or !$prod_dbuser)
+{
+    warn('You did not specify all parameters for the production db: '.join(' ', $prod_dbhost, $prod_dbuser, $prod_dbname, $prod_dbpass));
     &usage;
     exit(1);
 }
@@ -137,16 +97,16 @@ if( !$no_external_db )
 # BEGIN
 #-------
 $output_path =~ s/\/$//;
-$dir_ensgbscripts =~ s/\/$//;
+$analysis_scripts =~ s/\/$//;
 
 if (system("mkdir -p $output_path")) {
   throw("Cannot create output_path $output_path.");
 }
 
 my $num_fixed = 0; # will be calculated later
-my $fix_supporting_evidence_script = $dir_ensgbscripts.'/fix_supporting_evidence_links.pl';
-my $test_regex_script = $dir_ensgbscripts.'/test_regexes.pl';
-my $assign_db_id_script = $dir_ensgbscripts.'/assign_external_db_ids.pl';
+my $fix_supporting_evidence_script = $analysis_scripts.'/fix_supporting_evidence_links.pl';
+my $test_regex_script = $analysis_scripts.'/test_regexes.pl';
+my $assign_db_id_script = $analysis_scripts.'/assign_external_db_ids.pl';
 foreach my $script ($fix_supporting_evidence_script, $test_regex_script, $assign_db_id_script) {
     throw("Cannot access $script") unless (-e $script);
 }
@@ -248,7 +208,7 @@ foreach my $type (@types) {
         push(@files_to_delete, $cfg_file);
         my $cfg_log_file = $output_path.'/'.$type.'.cfg.log';
         push(@files_to_delete, $cfg_log_file);
-        if (system("perl $test_regex_script -dbname $dbname -dbhost $dbhost -dbuser $dbuser -dbpass $dbpass -type $synonyms{$type} -main_regex_file $dir_ensgbscripts/$synonyms{$type}_regexes.dat -output_config_file $cfg_file > $cfg_log_file")) {
+        if (system("perl $test_regex_script -dbname $dbname -dbhost $dbhost -dbuser $dbuser -dbpass $dbpass -type $synonyms{$type} -main_regex_file $analysis_scripts/$synonyms{$type}_regexes.dat -output_config_file $cfg_file > $cfg_log_file")) {
             throw("Could not execute $test_regex_script\n");
         }
 
@@ -584,7 +544,7 @@ sub usage {
 
 Usage:
 
-$0 -output_path <output_path> -dbhost <dbhost> [-dbport <dbport>] -dbname <dbname> -dbuser <dbuser> -dbpass <dbpass> -ensgbscripts <ensgbscripts> -uniprot_filename <uniprot_filename> [-verbose] [-help]
+$0 -output_path <output_path> -dbhost <dbhost> [-dbport <dbport>] -dbname <dbname> -dbuser <dbuser> -dbpass <dbpass> -analysis_scripts <analysis_scripts> -uniprot_filename <uniprot_filename> [-verbose] [-help]
 
 -output_path	Path where the output files and backup files will be written. It will be created if it does not exist.
 
@@ -598,7 +558,7 @@ $0 -output_path <output_path> -dbhost <dbhost> [-dbport <dbport>] -dbname <dbnam
 
 -dbpass    		what password to use
 
--ensgbscripts	path to local ensembl-personal/genebuilders/scripts, needed to run fix_supporting_evidence_links.pl, read from ENSGBSCRIPTS environment variable or deduced from this scripts path if not specified
+-analysis_scripts	path to ensembl-analysis/scripts, needed to run fix_supporting_evidence_links.pl,  or deduced from this scripts path if not specified
 
 -uniprot_filename	full path to the uniprot filename required by the script which assigns the external DB IDs
 
@@ -615,13 +575,13 @@ $0 -output_path <output_path> -dbhost <dbhost> [-dbport <dbport>] -dbname <dbnam
 
 Examples:
 # assign external DB IDs and sort features tables
-bsub -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -output_path /lustre/scratch101/sanger/cgg/CanFam3.1/optimize -dbhost genebuild1 -dbname cgg_dog_ref_test -dbuser ensadmin -dbpass *** -ensgbscripts /nfs/users/nfs_c/cgg/ensembl-personal/genebuilders/scripts -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose"
+bsub -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -output_path /lustre/scratch101/sanger/cgg/CanFam3.1/optimize -dbhost genebuild1 -dbname cgg_dog_ref_test -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose"
 
 # sort features tables only
-bsub -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af_after_alt_seq_mapping.out -e optimize_af_after_alt_seq_mapping.err "perl load_external_db_ids_and_optimize_af.pl -output_path optimize_core_af_alt_seq_mapping -dbhost ens-staging1 -dbname homo_sapiens_core_70_37 -dbuser ensadmin -dbpass *** -ensgbscripts /nfs/users/nfs_c/cgg/ensembl-personal/genebuilders/scripts -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose -no_external_db"
+bsub -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af_after_alt_seq_mapping.out -e optimize_af_after_alt_seq_mapping.err "perl load_external_db_ids_and_optimize_af.pl -output_path optimize_core_af_alt_seq_mapping -dbhost ens-staging1 -dbname homo_sapiens_core_70_37 -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose -no_external_db"
 
 # assign external DB IDs and sort features tables, clean
-bsub -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -output_path /lustre/scratch101/sanger/cgg/optimize -dbhost ens-staging1 -dbname homo_sapiens_core_70_37 -dbuser ensadmin -dbpass *** -ensgbscripts /nfs/users/nfs_c/cgg/ensembl-personal/genebuilders/scripts -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose -clean"
+bsub -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -output_path /lustre/scratch101/sanger/cgg/optimize -dbhost ens-staging1 -dbname homo_sapiens_core_70_37 -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose -clean"
 
 EOF
 }
