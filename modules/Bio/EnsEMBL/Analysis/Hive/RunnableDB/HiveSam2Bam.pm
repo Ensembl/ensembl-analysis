@@ -90,7 +90,7 @@ sub fetch_input {
 sub run {
   my ($self) = @_;
   $self->throw("Can't run - no runnable objects") unless ( $self->runnable );
-  $self->dbc->disconnect_if_idle();
+  $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
   my ($runnable) = @{$self->runnable};
   $runnable->run;
 }
