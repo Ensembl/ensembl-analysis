@@ -197,7 +197,9 @@ sub add_supporting_features {
     unless $gene;
   print "Got gene " . $gene->stable_id ."\n";
   my $chr_slice = $self->param('toplevel_slice');
-  foreach my $tran ( @{$gene->get_all_Transcripts} ) {
+  my $transcripts = $gene->get_all_Transcripts;
+  $gene->flush_Transcripts;
+  foreach my $tran ( @$transcripts ) {
     $tran = $tran->transfer($chr_slice);
     # order them by name
     foreach my $f ( @$features ) {
@@ -312,6 +314,7 @@ sub add_supporting_features {
       print STDERR "hcoverage $hcoverage\n";
       $tran->add_supporting_features($tsf);
     }
+    $gene->add_Transcript($tran);
   }
 
   push @output,$gene;
@@ -456,7 +459,12 @@ sub MODEL_DB {
 sub LOGICNAME {
     my ($self) = @_;
 
-    return $self->param('logic_name');
+    if ($self->param_is_defined('logic_name')) {
+      return $self->param('logic_name');
+    }
+    else {
+      return;
+    }
 }
 
 
