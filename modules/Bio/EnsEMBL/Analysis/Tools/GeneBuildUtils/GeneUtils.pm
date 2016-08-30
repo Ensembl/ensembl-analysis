@@ -116,6 +116,7 @@ sub filter_Genes_by_Exon_count {
     } elsif ( $max_nr_exons > 1 ) {
       push @multi_exon_genes, $g;
     } else {
+      print "DEBUG:problem with this gene: " . print_Gene($g) . "\n";
       throw (" Gene ".$g->dbID. " does not have any exons !");
     }
   }

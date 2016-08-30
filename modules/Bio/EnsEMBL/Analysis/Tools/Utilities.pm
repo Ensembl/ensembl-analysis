@@ -962,7 +962,7 @@ sub align_proteins {
     throw("Pairwise alignment between the query protein sequence and the target protein sequence shows zero aligned positions. Something has gone wrong.");
   }
   my $percent_id = ($match_count/$aligned_positions)*100;
-  
+  print "[BK:\n$file ]\n" if ( ( $coverage >75) && ($percent_id >75) ) ;
   return ($coverage,$percent_id);
 }
 

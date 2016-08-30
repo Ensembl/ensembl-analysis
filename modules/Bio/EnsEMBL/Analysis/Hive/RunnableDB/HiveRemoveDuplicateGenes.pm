@@ -52,7 +52,7 @@ use strict;
 
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
 use Bio::EnsEMBL::Analysis::Tools::LincRNA qw(get_genes_of_biotypes_by_db_hash_ref) ;  
-
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(print_Gene) ; 
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -107,7 +107,7 @@ sub write_output{
   my $sucessful_count = 0 ; 
   foreach my $gene(@genes_to_write){  
     my $logic_name_to_be = "lincRNA_set_test_3"; 
-    ## I will create a new gene without translations and only one transcript to be stored under different analysis ##
+    # Create a new gene without translations and only one transcript to be stored under different analysis 
     # Make an analysis object (used later for storing stuff in the db)
     my $analysis = Bio::EnsEMBL::Analysis->new(
                                            -logic_name => $logic_name_to_be,
@@ -119,7 +119,7 @@ sub write_output{
       $lincrna_ga->store($gene);
     };
     if($@){
-      $self->warning("Failed to write gene ".id($gene)." ".coord_string($gene)." $@");
+      $self->warning("Failed to write gene: " . print_Gene($gene) ." $@");
     }else{
       $sucessful_count++;
     }
@@ -152,7 +152,8 @@ sub post_cleanup {
     my $gene_adaptor = $dba->get_GeneAdaptor;
     foreach my $gene (@{$self->param('fail_delete_features')}) {
       eval {
-         $gene_adaptor->remove($gene);
+        print "DEBUG::cleaning-removing gene, something didn't go as should... \n"; 
+        $gene_adaptor->remove($gene);
       };
       if ($@) {
         $self->throw('Could not cleanup the mess for these dbIDs: '.join(', ', @{$self->param('fail_delete_features')}));
@@ -163,21 +164,21 @@ sub post_cleanup {
 }
 
 
-# this functions 
-sub check_if_all_stored_correctly {
-  my ($self, $href) = @_;
+# this function checks if everything stored successfully 
+sub check_if_all_stored_correctly { 
+  my ($self, $href) = @_; 
 
-  my $set_db = $self->hrdb_get_dba($self->param('lincRNA_output_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('reference_db'));
-  if($dna_dba) {
-    $set_db->dnadb($dna_dba);
-  }
+  my $set_db = $self->hrdb_get_dba($self->param('lincRNA_output_db')); 
+  my $dna_dba = $self->hrdb_get_dba($self->param('reference_db')); 
+  if($dna_dba) { 
+    $set_db->dnadb($dna_dba); 
+  } 
   
   my $test_id = $self->param('iid'); 
-  my $slice = $self->fetch_sequence($test_id, $set_db, undef, undef, 'lincRNA_output_db')  ;
+  my $slice = $self->fetch_sequence($test_id, $set_db, undef, undef, 'lincRNA_output_db')  ; 
   print  "check if all genes are fine!! \n" ; 
   my $genes = $slice->get_all_Genes(undef,undef,1) ; 
-	return "yes";
+	return "yes"; 
 }
 
 
@@ -212,10 +213,8 @@ sub hive_set_config {
             "key:\n".$config_key
            );
     }
-  }
+	}
 }
-
-
 
 
 =head2 FINAL_OUTPUT_DB

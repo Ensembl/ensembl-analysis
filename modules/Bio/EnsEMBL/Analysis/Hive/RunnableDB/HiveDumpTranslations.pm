@@ -119,7 +119,7 @@ sub run {
                        ." -dnadbname ".$self->param('dnadbname')
                        ." -dnadbuser ".$self->param('dnauser')
                        ." -dnadbport ".$self->param('dnaport')
-                       . " -verbose -db_id ";
+                       ." -verbose -db_id ";
 
   $command .= " -dbpass ".$self->param('sourcepass') if ($self->param_is_defined('sourcepass'));
   $command .= " -dnadbpass ".$self->param('dnapass') if ($self->param_is_defined('dnapass'));
@@ -148,7 +148,5 @@ sub write_output {
 }
 
 1;
-
-
 
 

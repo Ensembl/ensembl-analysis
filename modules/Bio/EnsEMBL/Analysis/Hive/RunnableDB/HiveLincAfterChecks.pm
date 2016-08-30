@@ -9,14 +9,7 @@ use feature 'say';
 use File::Basename;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use Bio::EnsEMBL::Analysis::Tools::LincRNA qw(get_genes_of_biotypes) ;  
-
-
-use warnings;
-use strict;
-
 use Bio::EnsEMBL::Analysis;
-
-
 use Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -26,7 +19,6 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
 	my ($self) = @_;
 	$self->hive_set_config;
-
   $self->param_required('file');      	
 
 	# get data
@@ -36,8 +28,8 @@ sub fetch_input {
   $self->hrdb_set_con($set_db, 'regulation_reform_db');
 
 	my $biotype_tmp = 'lincRNA_withReg';
-	my $dbName_tmp  = 'regulation_reform_db';
-	my $genes_to_check    = $self->get_genes_of_biotypes($biotype_tmp, $dbName_tmp);
+	my $dbName_tmp = 'regulation_reform_db';
+	my $genes_to_check  = $self->get_genes_of_biotypes($biotype_tmp, $dbName_tmp);
 	print "fetch input :: number of lincRNA genes to check: " . scalar(@$genes_to_check) . "\n";
   $self->param('genes', $genes_to_check);
   return 1;
@@ -65,7 +57,7 @@ sub check_length_of_genes {
 	my @genes_to_fetch;
   my $count =0;
   my $how_many = 0;
-  
+
   open (MYFILE, ">" , $output_file) or die "Couldn't open: $!"; 
   foreach my $g ( @{ $genes_to_process } ) {
       for my $t ( @{$g->get_all_Transcripts } ) {  

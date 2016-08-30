@@ -28,6 +28,7 @@ please send any questions to http://lists.ensembl.org/mailman/listinfo/dev
 
 =head1 METHODS
 get_genes_of_biotypes_by_db_hash_ref
+get_genes_of_biotypes
 
 =cut
 
