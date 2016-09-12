@@ -47,8 +47,6 @@ use Data::Dumper;
 use Bio::EnsEMBL::Hive::Utils ('destringify'); 
 use Bio::EnsEMBL::Analysis; 
 use Bio::EnsEMBL::Analysis::Runnable::lincRNAEvaluator; 
-# use Bio::EnsEMBL::Utils::Exception qw(throw warning); 
-# use Bio::EnsEMBL::Utils::Argument qw (rearrange); 
 use Bio::EnsEMBL::Analysis::Tools::Logger; 
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice); 
@@ -295,7 +293,7 @@ sub write_output{
                                        -strand  => $strand_to_use, 
                                        );
 
-    # print_Gene_Transcript_and_Exons($gene);
+    # print_Gene_Transcript_and_Exons($gene); # if check
     
     foreach my $tr (@t) {
       my $exs      = []; # new array of exons
@@ -306,8 +304,6 @@ sub write_output{
         my $end_exon       = $ex_load->end();
         my $slice          = $ex_load->slice();
         my $q_strand       = $ex_load->strand; 
-        # $start_exon        =~ s/-//;
-        # $end_exon          =~ s/-//;
   
         my $ex_load        = Bio::EnsEMBL::Exon->new(                     
                                                                 -start  => $start_exon,
