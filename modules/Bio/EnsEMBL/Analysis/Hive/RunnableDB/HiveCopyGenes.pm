@@ -38,6 +38,12 @@ This module copies the genes whose identifiers are listed in a given file from a
 -dnauser        dna database read-only user name
 -dnaport        dna database port
 -file           file containing the list of gene ids to be copied from the source to the destination database
+--merge         The source genes will be copied into existing genes in the output database if they overlap if this parameter is true.
+--logic         This option will change the analysis of the genes and transcripts being written to the output database to an analysis with the specified logic_name.
+--source        This option will change the source of the genes and transcripts being written to the output database to the source specified.
+--biotype       This option will change the biotype of the genes and transcripts being written to the output database to the biotype specified.
+--stable_id     Flag for indicating that input file contains stable IDs and not gene IDs.
+--verbose       It adds some more prints to the output.
 
 =head1 EXAMPLE USAGE
 
@@ -67,6 +73,10 @@ sub param_defaults {
       copy_genes_script_name => 'copy_genes.pl',
 
       # copy_genes.pl script parameters
+      source => '',
+      biotype => '',
+      stable_id => 0,
+      merge => 0,
       logic => '', # to set the genes and transcripts analysis (logic names) (optional)
       sourcehost => undef,
       sourceuser => undef,
@@ -140,7 +150,12 @@ sub run {
                          ." -dnauser ".$self->param('dnauser')
                          ." -dnaport ".$self->param('dnaport')
                          ." -file ".$self->param('file')
-                         . " -verbose";
+                         ." -logic ".$self->param('logic')
+                         ." -source ".$self->param('source')
+                         ." -biotype ".$self->param('biotype')
+                         ." -stable_id ".$self->param('stable_id')
+                         ." -merge ".$self->param('merge')
+                         ." -verbose";
 
   if ($self->param('logic')) {
   	$command .= " -logic ".$self->param('logic');

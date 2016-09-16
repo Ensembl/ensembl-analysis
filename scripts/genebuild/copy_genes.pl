@@ -38,15 +38,26 @@ file.
 
   --all                 This option will copy all genes from
                         $sourcedbname to the output database.
-
+  
+  --merge               The source transcripts will be copied into existing genes in the output database
+                        if they overlap at gene level if this parameter is true.
+                        
   --skip_exon_sf        Prevent copying supporting features across exons increased speed for lost accuracy
 
   --split               This option will split multi-transcript genes
                         into single-transcript genes.
 
   --logic               This option will change the analysis of the
-                        genes being written to the output database to an
+                        genes and transcripts being written to the output database to an
                         analysis with the specified logic_name.
+                        
+  --biotype             This option will change the biotype of the
+                        genes and transcripts being written to the output database to the
+                        biotype specified.
+                        
+  --source              This option will change the source of the
+                        genes and transcripts being written to the output database to the
+                        source specified.
 
   --remove_xrefs        Using this flag will remove xrefs from genes,
                         transcripts, and from translations.
@@ -123,10 +134,13 @@ my $in_config_name;
 my $out_config_name;
 
 my $logic;
+my $biotype;
+my $source;
 my $split = 0;
 my $skip_exon_sf = 1;
 my $infile;
 my $all;
+my $merge;
 my $remove_xrefs;
 my $remove_stable_ids;
 my $transform_to;
@@ -152,8 +166,11 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'dnadbname:s'                          => \$dnadbname,
             'dnaport:n'                            => \$dnaport,
             'logic:s'                              => \$logic,
+            'biotype:s'                            => \$biotype,
+            'source:s'                             => \$source,
             'split!'                               => \$split,
             'all!'                                 => \$all,
+            'merge!'                               => \$merge,
             'skip_exon_sf!'                        => \$skip_exon_sf,
             'remove_xrefs!'                        => \$remove_xrefs,
             'remove_stable_ids!' => \$remove_stable_ids,
@@ -352,6 +369,20 @@ while (@gene_ids) {
         $t->analysis($analysis);
       }
     }
+    
+    if ( defined($biotype) ) {
+      $gene->biotype($biotype);
+      foreach my $t ( @{ $gene->get_all_Transcripts() } ) {
+        $t->biotype($biotype);
+      }
+    }
+    
+    if ( defined($source) ) {
+      $gene->source($source);
+      foreach my $t ( @{ $gene->get_all_Transcripts() } ) {
+        $t->source($source);
+      }
+    }    
 
     if ($transform_to) {
       if ($verbose) {
@@ -370,9 +401,36 @@ while (@gene_ids) {
     }
 
     if ( defined($gene) ) {
-      empty_Gene( $gene, $remove_stable_ids, $remove_xrefs );
+      if (defined($merge)) {
+        # check if there is any other gene on that region
+        my $outdb_slice = get_feature_slice_from_db($gene,$outga->db());
+        my @outdb_genes = @{$outga->fetch_all_by_Slice($outdb_slice,undef,1)};
+        if (scalar(@outdb_genes) > 0) {
+          # choose target gene to copy the source gene transcripts into
+          my @sorted_outdb_genes = sort {$b->length() <=> $a->length()} @outdb_genes; # pick the longest
+          my $target_gene = shift(@sorted_outdb_genes);
 
-      $outga->store($gene,1,0,$skip_exon_sf);
+          $target_gene->load();
+          $outga->remove($target_gene);
+
+          # copy the source gene transcripts into the chosen target gene
+          foreach my $source_transcript (@{$gene->get_all_Transcripts()}) {
+            $source_transcript->load();
+
+            my $new_source_transcript = $source_transcript->transfer($target_gene->slice());
+            $new_source_transcript->dbID(0); # to make sure we don't delete any transcript of the output db whose id matches the id of the source db transcript
+            $target_gene->add_Transcript($new_source_transcript);
+          }
+          empty_Gene( $target_gene, 0, 0 );
+          $outga->store($target_gene,1,0,$skip_exon_sf);
+        } else {
+          $outga->store($gene,1,0,$skip_exon_sf);
+        }
+
+      } else {
+        empty_Gene( $gene, $remove_stable_ids, $remove_xrefs );
+        $outga->store($gene,1,0,$skip_exon_sf);
+      }
       ++$genes_stored;
       --$genes_to_go;
 
@@ -448,3 +506,28 @@ sub check_transform {
 
   return 1;
 } ## end sub check_transform
+
+sub get_feature_slice_from_db {
+  my ( $feature, $db ) = @_;
+
+  # This little helper routine returns a feature slice for a particular
+  # region.  The slice will be associated with the given database.
+
+  my $slice = $feature->feature_Slice();
+
+  my @slices = @{
+    $db->get_SliceAdaptor()->fetch_by_region_unique(
+         $slice->coord_system_name(), $slice->seq_region_name(),
+         $slice->start(),             $slice->end(),
+         1,            $slice->coord_system()->version(),
+         1 ) };
+
+  if ( scalar(@slices) != 1 ) {
+    # This will hopefully only happen if the Primary and Secondary
+    # databases contain different assemblies.
+    die( "!! Problem with projection for feature slice %s\n",
+         $slice->name() );
+  }
+
+  return $slices[0];
+}
