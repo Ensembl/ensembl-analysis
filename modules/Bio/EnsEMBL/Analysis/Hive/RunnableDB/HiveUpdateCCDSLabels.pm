@@ -236,7 +236,6 @@ sub insert_ccds_labels {
     print("--------------- Processing CCDS slice: ".$slice->seq_region_name()."\n");
 
     foreach my $ccds_transcript (@{$slice->get_all_Transcripts()}) {
-print "Processing ".$ccds_transcript->stable_id()."\n";
       $ccds_transcript->load();
       my $ccds_found = 0;
   	
@@ -249,20 +248,17 @@ print "Processing ".$ccds_transcript->stable_id()."\n";
       my $ccds_translation_seq;
       if ($ccds_translation) {
         $ccds_translation_seq = $ccds_translation->seq();
-print "ccds translation is:".$ccds_translation_seq."\n";
       } else {
         throw($ccds_transcript->stable_id()." does not have a translation");
       }
 
       # check if any overlapping transcript matches ccds and add attribute and feature
       foreach my $output_transcript (@output_transcripts) {
-print "Processing ".$output_transcript->stable_id()."\n";  
 
         my $output_translation = $output_transcript->translation();
         my $output_translation_seq;
         if ($output_translation) {
           $output_translation_seq = $output_translation->seq();
-print "output translation is:".$output_translation_seq."\n";
         } else {
       	  throw($output_transcript->stable_id()." does not have a translation");
         }
@@ -386,7 +382,7 @@ sub add_ccds_transcript_xref {
 }
 
 sub delete_ccds_labels_from_all_transcripts_on_slice {
-# Deletes the CCDS attributes 'ccds_transcript', the CCDS dna_align_features and the CCDS transcript xrefs from the transcript 'transcript' in the database associated with the adaptor 'db_adaptor'
+# Deletes the CCDS attributes 'ccds_transcript', the CCDS dna_align_features and the CCDS transcript xrefs from the slice 'slice' in the database associated with the adaptor 'db_adaptor'
   my ($slice) = shift();
   
   my $sa = $slice->adaptor();
