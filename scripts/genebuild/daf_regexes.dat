@@ -88,3 +88,4 @@
 '^contig[0-9]{5}$'	RIKEN
 '^[1-22XY]{1}$'	GRC_primary_assembly
 '^Cluster'	Ensembl_Bam2Genes_intron
+'^GAAA[0-9]{8}\.[0-9]'	RefSeq_rna
