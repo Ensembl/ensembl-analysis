@@ -65,10 +65,11 @@ sub default_options {
     'vega_checks_reports_email' => '@ebi.ac.uk',
 
     # email to send the missing CCDS report to
-    'CCDS_report_email' => '@ebi.ac.uk',
+    'ccds_report_email' => '@ebi.ac.uk',
 
-    # name of the file containing the temporary original vega database dump
+    # name of the file containing the temporary original vega and ensembl database dumps
     'vega_tmp_filename' => 'vegadump.tmp',
+    'ensembl_tmp_filename' => 'ensembldump.tmp',
 
     # name of the file containing the temporary previous core database dump
     'prevcore_tmp_filename' => 'prevcoredump.tmp',
@@ -118,6 +119,10 @@ sub default_options {
     'default_port' => 3306, # default port to be used for all databases except the original vega db provided by the Vega team
     'default_host' => 'genebuildXX', # default host to be used for the pipeline, vega and core databases. Used to build the resource requirements.
 
+    'original_ensembl_host' => 'genebuild13', # vega database provided by the Vega team
+    'original_ensembl_port' => '3306',
+    'original_ensembl_name' => 'carlos_homo_sapiens_ens_87',
+
     'original_vega_host' => '', # vega database provided by the Vega team
     'original_vega_port' => '',
     'original_vega_name' => '',
@@ -134,11 +139,11 @@ sub default_options {
     'production_host' => '', # production database (available on staging)
     'production_name' => '',
 
-    'pipe_dbname' => $ENV{USER}.'_'.$self->o('pipeline_name').'_hive', # pipeline db, automatically created
+    'pipe_dbname' => '', # pipeline db, automatically created
 
-    'vega_name' => $ENV{USER}.'_'.$self->o('pipeline_name').'_vega', # vega database to be used for the merge
+    'vega_name' => '', # vega database to be used for the merge
 
-    'core_name' => $ENV{USER}.'_'.$self->o('pipeline_name').'_core', # core database which will contain the merged gene set at the end of the process
+    'core_name' => '', # core database which will contain the merged gene set at the end of the process
 
     'vega_host' => $self->o('default_host'),
     'core_host' => $self->o('default_host'),
@@ -160,6 +165,15 @@ sub default_options {
     #'port' => '',
     #'user_r' => '',
 
+    # original Ensembl database (used in previous release)
+    'original_ensembl_db' => {
+                    -host      => $self->o('original_ensembl_host'),
+                    -port      => $self->o('original_ensembl_port'),
+                    -user      => $self->o('user_r'),
+                    -pass      => $self->o('pass_r'),
+                    -dbname    => $self->o('original_ensembl_name'),
+    },
+
     # vega database provided by the Vega team
     'original_vega_db' => {
                     -host      => $self->o('original_vega_host'),
@@ -173,8 +187,8 @@ sub default_options {
     'ensembl_db' => {
                     -host      => $self->o('ensembl_host'),
                     -port      => $self->o('default_port'),
-                    -user      => $self->o('user_r'),
-                    -pass      => $self->o('pass_r'),
+                    -user      => $self->o('user_w'),
+                    -pass      => $self->o('pass_w'),
                     -dbname    => $self->o('ensembl_name'),
     },
 
@@ -278,6 +292,68 @@ sub pipeline_analyses {
               -rc_name => 'default',
               -input_ids => [ {} ],
             },
+
+            {
+              -logic_name => 'create_ensembl_db',
+              -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+              -parameters => {
+                                'cmd'   => 'mysql -NB -u'.$self->o('user_w').
+                                               ' -p'.$self->o('pass_w').
+                                               ' -h'.$self->o('ensembl_db','-host').
+                                               ' -P'.$self->o('ensembl_db','-port').
+                                               ' -e "CREATE DATABASE '.$self->o('ensembl_db','-dbname').'"'
+                             },
+              -input_ids => [ {} ],
+              -rc_name => 'default',
+              -flow_into => { 1 => ['list_ensembl_db_tables'] },
+            },
+
+            {
+              -logic_name => 'list_ensembl_db_tables',
+              -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+              -parameters => {
+                               'db_conn'    => $self->o('original_ensembl_db'),
+                               'inputquery' => 'SHOW TABLE STATUS',
+                             },
+              -rc_name => 'default',
+              -flow_into => { '2->A' => { 'parallel_dump_ensembl_db' => { 'table_name' => '#Name#' }, },
+                              'A->1' => ['ensembl_db_creation_completed'] },
+            },
+            
+            {
+              -logic_name => 'ensembl_db_creation_completed',
+              -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+              -parameters => {
+                               'cmd'   => 'echo "Ensembl db creation completed."'
+                             },
+              -rc_name => 'default',
+            },
+
+            {
+              -logic_name => 'parallel_dump_ensembl_db',
+              -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
+              -parameters => {
+                               'db_conn'       => $self->o('original_ensembl_db'),
+                               'output_file'   => $self->o('output_dir').'/'.$self->o('original_ensembl_db','-dbname').'_'.'#table_name#.sql',
+                               'executable'    => 'mysqldump',
+                               'append'        => ['#table_name#'],
+                             },
+               -analysis_capacity => 200,
+               -hive_capacity => 200,
+               -max_retry_count => 2,
+               -rc_name => 'normal_1500',
+               -flow_into => { 1 => ['parallel_load_ensembl_db'] },
+            },
+
+            {
+              -logic_name => 'parallel_load_ensembl_db',
+              -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
+              -parameters => {
+                                 db_conn => $self->o('ensembl_db'),
+                                 input_file => $self->o('output_dir').'/'.$self->o('original_ensembl_db','-dbname').'_'.'#table_name#.sql',
+                             },
+              -rc_name => 'normal_1500',
+            },         
 
             {
               -logic_name => 'create_vega_db',
@@ -452,6 +528,7 @@ sub pipeline_analyses {
                              },
               -hive_capacity    => 30,
               -analysis_capacity => 30,
+              -wait_for => ['ensembl_db_creation_completed'],
             },
             {
               -logic_name => 'vega_checks_before_concat',
@@ -494,7 +571,322 @@ sub pipeline_analyses {
                                skip => 0,
                                only => 0,
                              },
+              -flow_into => { 1 => WHEN ('#process_ccds#' => ['set_ccds_biotype'],
+                                   ELSE                      ['list_vega_genes_for_merge']) },
+            },
+
+            {
+              -logic_name => 'set_ccds_biotype',
+              -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+              -parameters => {
+                               db_conn => $self->o('ensembl_db'),
+                               sql => ['UPDATE transcript SET biotype="ccds" WHERE stable_id LIKE "CCDS%"'],
+                             },
+              -flow_into => { 1 => ['delete_ccds'] },
+            },
+
+            {
+              -logic_name => 'delete_ccds',
+              -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDeleteTranscripts',
+              -parameters => {
+                               biotype => 'ccds',
+                               dbhost => $self->o('ensembl_db','-host'),
+                               dbname => $self->o('ensembl_db','-dbname'),
+                               dbuser => $self->o('user_w'),
+                               dbpass => $self->o('pass_w'),
+                               dbport => $self->o('ensembl_db','-port'),
+                               delete_transcripts_path => $self->o('ensembl_analysis_base').'/scripts/genebuild/',
+                               delete_genes_path => $self->o('ensembl_analysis_base').'/scripts/genebuild/',
+                               delete_transcripts_script_name => 'delete_transcripts.pl',
+                               delete_genes_script_name => 'delete_genes.pl',
+                               output_path => $self->o('output_dir').'/delete_ccds/',
+                               output_file_name => 'delete_ccds.out',
+                               email => $self->o('vega_checks_reports_email'),
+                               from => 'ensembl-genebuild@ebi.ac.uk'
+                             },
+              -max_retry_count => 0,
+              -flow_into => { 1 => ['list_ensembl_toplevel_for_update_ccds_labels'] },
+            },
+
+            {
+              -logic_name => 'list_ensembl_toplevel_for_update_ccds_labels',
+              -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+              -parameters => {
+                               db_conn => $self->o('ensembl_db'),
+                               inputquery => 'SELECT sr.name FROM seq_region sr, seq_region_attrib sra, attrib_type at WHERE sr.seq_region_id = sra.seq_region_id AND sr.name NOT LIKE "LRG\_%" AND sra.attrib_type_id = at.attrib_type_id AND code = "toplevel"',
+                               column_names => ['chromosome'],
+                             },
+              -flow_into => { '2->A' => [ 'update_ensembl_ccds_labels' ],
+                              'A->1' => [ 'update_ensembl_ccds_labels_concat' ],
+                            },
+              -rc_name => 'default',
+            },
+
+            {
+              -logic_name => 'update_ensembl_ccds_labels',
+              -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveUpdateCCDSLabels',
+              -parameters => {
+                               ccds_dbname => $self->o('ccds_db','-dbname'),
+                               ccds_host => $self->o('ccds_db','-host'),
+                               ccds_user => $self->o('ccds_db','-user'),
+                               output_dbname => $self->o('ensembl_db','-dbname'),
+                               output_host => $self->o('ensembl_db','-host'),
+                               output_user => $self->o('user_w'),
+                               output_pass => $self->o('pass_w'),
+                               dna_dbname => $self->o('ensembl_db','-dbname'),
+                               dna_host => $self->o('ensembl_db','-host'),
+                               dna_user => $self->o('user_r'),
+                               dna_pass => $self->o('pass_r'),
+                               assembly_path => $self->o('assembly_path'),
+                               reports_dir => $self->o('reports_dir'),
+                               output_filename => $self->o('ensembl_missing_ccds_filename1'), # this will get an extra extension corresponding to the chromosome name
+                               #chromosome => '',
+                             },
+              -hive_capacity    => 30,
+              -analysis_capacity => 30,
+            },
+            {
+              -logic_name => 'update_ensembl_ccds_labels_concat',
+              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+              -parameters => {
+                               'cmd'   => 'cat '.$self->o('reports_dir').'/'.$self->o('ensembl_missing_ccds_filename1').'.* > '.
+                                                 $self->o('reports_dir').'/'.$self->o('ensembl_missing_ccds_filename1')
+                             },
+              -flow_into => { 1 => ['list_vega_toplevel_for_update_ccds_labels'] },
+              -rc_name => 'default',
+            },
+
+            {
+              -logic_name => 'list_vega_toplevel_for_update_ccds_labels',
+              -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+              -parameters => {
+                               db_conn => $self->o('vega_db'),
+                               inputquery => 'SELECT sr.name FROM seq_region sr, seq_region_attrib sra, attrib_type at WHERE sr.seq_region_id = sra.seq_region_id AND sr.name NOT LIKE "LRG\_%" AND sra.attrib_type_id = at.attrib_type_id AND code = "toplevel"',
+                               column_names => ['chromosome'],
+                             },
+              -flow_into => { '2->A' => [ 'update_vega_ccds_labels' ],
+                              'A->1' => [ 'update_vega_ccds_labels_concat' ],
+                            },
+              -rc_name => 'default',
+            },
+
+            {
+              -logic_name => 'update_vega_ccds_labels',
+              -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveUpdateCCDSLabels',
+              -parameters => {
+                               ccds_dbname => $self->o('ccds_db','-dbname'),
+                               ccds_host => $self->o('ccds_db','-host'),
+                               ccds_user => $self->o('ccds_db','-user'),
+                               output_dbname => $self->o('vega_db','-dbname'),
+                               output_host => $self->o('vega_db','-host'),
+                               output_user => $self->o('user_w'),
+                               output_pass => $self->o('pass_w'),
+                               dna_dbname => $self->o('ensembl_db','-dbname'),
+                               dna_host => $self->o('ensembl_db','-host'),
+                               dna_user => $self->o('user_r'),
+                               dna_pass => $self->o('pass_r'),
+                               assembly_path => $self->o('assembly_path'),
+                               reports_dir => $self->o('reports_dir'),
+                               output_filename => $self->o('vega_missing_ccds_filename1'), # this will get an extra extension corresponding to the chromosome name
+                               #chromosome => '',
+                             },
+              -hive_capacity    => 30,
+              -analysis_capacity => 30,
+            },
+
+            {
+              -logic_name => 'update_vega_ccds_labels_concat',
+              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+              -parameters => {
+                               'cmd'   => 'cat '.$self->o('reports_dir').'/'.$self->o('vega_missing_ccds_filename1').'.* > '.
+                                                 $self->o('reports_dir').'/'.$self->o('vega_missing_ccds_filename1')
+                             },
+              -flow_into => { 1 => ['create_missing_ccds_report1'] },
+              -rc_name => 'default',
+            },
+
+            {
+              -logic_name => 'create_missing_ccds_report1',
+              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+              -parameters => {
+                               'cmd'   => 'grep -Fx -f '.$self->o('reports_dir').'/'.$self->o('ensembl_missing_ccds_filename1').' '.
+                                                 $self->o('reports_dir').'/'.$self->o('vega_missing_ccds_filename1').' > '.
+                                                 $self->o('reports_dir').'/'.$self->o('missing_ccds_filename1')
+                             },
+              -flow_into => { 1 => ['email_missing_ccds_report1'] },
+              -rc_name => 'default',
+            },
+
+            {
+              -logic_name => 'email_missing_ccds_report1',
+              -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::TextfileByEmail',
+              -parameters => {
+                               email => $self->o('ccds_report_email'),
+                               subject => 'AUTOMATED REPORT: missing CCDS before copying missing CCDS',
+                               text => 'Please find below the list of missing CCDS models before copying the missing CCDS into the Ensembl database.',
+                               file => $self->o('reports_dir').'/'.$self->o('missing_ccds_filename1'),
+                               command => q{cat},
+                             },
+              -flow_into => { 1 => ['copy_missing_ccds'] },
+              -rc_name => 'default',
+            },
+
+            {
+              -logic_name => 'copy_missing_ccds',
+              -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes',
+              -parameters => {
+                               copy_genes_path => $self->o('ensembl_analysis_base').'/scripts/genebuild/',
+                               copy_genes_script_name => 'copy_genes.pl',
+
+                               # copy_genes.pl script parameters
+                               sourcehost => $self->o('ccds_db','-host'),
+                               sourceuser => $self->o('ccds_db','-user'),
+                               sourceport => $self->o('ccds_db','-port'),
+                               sourcepass => $self->o('ccds_db','-pass'),
+                               sourcedbname => $self->o('ccds_db','-dbname'),
+                               outhost => $self->o('ensembl_db','-host'),
+                               outuser => $self->o('ensembl_db','-user'),
+                               outpass => $self->o('ensembl_db','-pass'),
+                               outdbname => $self->o('ensembl_db','-dbname'),
+                               outport => $self->o('ensembl_db','-port'),
+                               dnahost => $self->o('ensembl_db','-host'),
+                               dnadbname => $self->o('ensembl_db','-dbname'),
+                               dnauser => $self->o('user_r'),
+                               dnaport => $self->o('ensembl_db','-port'),
+                               logic => 'ensembl',
+                               source => 'ensembl',
+                               biotype => 'protein_coding',
+                               stable_id => 1,
+                               merge => 1,
+                               file => $self->o('reports_dir').'/'.$self->o('missing_ccds_filename1'),
+                             },
+               -flow_into => { 1 => ['list_ensembl_toplevel_for_update_ccds_labels_after'] },
+               -analysis_capacity => 20,
+               -hive_capacity => 20,
+               -max_retry_count => 0,
+            },
+
+            {
+              -logic_name => 'list_ensembl_toplevel_for_update_ccds_labels_after',
+              -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+              -parameters => {
+                               db_conn => $self->o('ensembl_db'),
+                               inputquery => 'SELECT sr.name FROM seq_region sr, seq_region_attrib sra, attrib_type at WHERE sr.seq_region_id = sra.seq_region_id AND sr.name NOT LIKE "LRG\_%" AND sra.attrib_type_id = at.attrib_type_id AND code = "toplevel"',
+                               column_names => ['chromosome'],
+                             },
+              -flow_into => { '2->A' => [ 'update_ensembl_ccds_labels_after' ],
+                              'A->1' => [ 'update_ensembl_ccds_labels_concat_after' ],
+                            },
+              -rc_name => 'default',
+            },
+
+            {
+              -logic_name => 'update_ensembl_ccds_labels_after',
+              -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveUpdateCCDSLabels',
+              -parameters => {
+                               ccds_dbname => $self->o('ccds_db','-dbname'),
+                               ccds_host => $self->o('ccds_db','-host'),
+                               ccds_user => $self->o('ccds_db','-user'),
+                               output_dbname => $self->o('ensembl_db','-dbname'),
+                               output_host => $self->o('ensembl_db','-host'),
+                               output_user => $self->o('user_w'),
+                               output_pass => $self->o('pass_w'),
+                               dna_dbname => $self->o('ensembl_db','-dbname'),
+                               dna_host => $self->o('ensembl_db','-host'),
+                               dna_user => $self->o('user_r'),
+                               dna_pass => $self->o('pass_r'),
+                               assembly_path => $self->o('assembly_path'),
+                               reports_dir => $self->o('reports_dir'),
+                               output_filename => $self->o('ensembl_missing_ccds_filename2'), # this will get an extra extension corresponding to the chromosome name
+                               #chromosome => '',
+                             },
+              -hive_capacity    => 30,
+              -analysis_capacity => 30,
+            },
+            {
+              -logic_name => 'update_ensembl_ccds_labels_concat_after',
+              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+              -parameters => {
+                               'cmd'   => 'cat '.$self->o('reports_dir').'/'.$self->o('ensembl_missing_ccds_filename2').'.* > '.
+                                                 $self->o('reports_dir').'/'.$self->o('ensembl_missing_ccds_filename2')
+                             },
+              -flow_into => { 1 => ['list_vega_toplevel_for_update_ccds_labels_after'] },
+              -rc_name => 'default',
+            },
+
+            {
+              -logic_name => 'list_vega_toplevel_for_update_ccds_labels_after',
+              -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+              -parameters => {
+                               db_conn => $self->o('vega_db'),
+                               inputquery => 'SELECT sr.name FROM seq_region sr, seq_region_attrib sra, attrib_type at WHERE sr.seq_region_id = sra.seq_region_id AND sr.name NOT LIKE "LRG\_%" AND sra.attrib_type_id = at.attrib_type_id AND code = "toplevel"',
+                               column_names => ['chromosome'],
+                             },
+              -flow_into => { '2->A' => [ 'update_vega_ccds_labels_after' ],
+                              'A->1' => [ 'update_vega_ccds_labels_concat_after' ],
+                            },
+              -rc_name => 'default',
+            },
+
+            {
+              -logic_name => 'update_vega_ccds_labels_after',
+              -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveUpdateCCDSLabels',
+              -parameters => {
+                               ccds_dbname => $self->o('ccds_db','-dbname'),
+                               ccds_host => $self->o('ccds_db','-host'),
+                               ccds_user => $self->o('ccds_db','-user'),
+                               output_dbname => $self->o('vega_db','-dbname'),
+                               output_host => $self->o('vega_db','-host'),
+                               output_user => $self->o('user_w'),
+                               output_pass => $self->o('pass_w'),
+                               dna_dbname => $self->o('ensembl_db','-dbname'),
+                               dna_host => $self->o('ensembl_db','-host'),
+                               dna_user => $self->o('user_r'),
+                               dna_pass => $self->o('pass_r'),
+                               assembly_path => $self->o('assembly_path'),
+                               reports_dir => $self->o('reports_dir'),
+                               output_filename => $self->o('vega_missing_ccds_filename2'), # this will get an extra extension corresponding to the chromosome name
+                               #chromosome => '',
+                             },
+              -hive_capacity    => 30,
+              -analysis_capacity => 30,
+            },
+
+            {
+              -logic_name => 'update_vega_ccds_labels_concat_after',
+              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+              -parameters => {
+                               'cmd'   => 'cat '.$self->o('reports_dir').'/'.$self->o('vega_missing_ccds_filename2').'.* > '.
+                                                 $self->o('reports_dir').'/'.$self->o('vega_missing_ccds_filename2')
+                             },
+              -flow_into => { 1 => ['create_missing_ccds_report2'] },
+              -rc_name => 'default',
+            },
+
+            {
+              -logic_name => 'create_missing_ccds_report2',
+              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+              -parameters => {
+                               'cmd'   => 'grep -Fx -f '.$self->o('reports_dir').'/'.$self->o('ensembl_missing_ccds_filename2').' '.
+                                                 $self->o('reports_dir').'/'.$self->o('vega_missing_ccds_filename2').' | cat > '.
+                                                 $self->o('reports_dir').'/'.$self->o('missing_ccds_filename2')
+                             },
+              -flow_into => { 1 => ['email_missing_ccds_report2'] },
+              -rc_name => 'default',
+            },
+
+            {
+              -logic_name => 'email_missing_ccds_report2',
+              -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::TextfileByEmail',
+              -parameters => {
+                               email => $self->o('ccds_report_email'),
+                               subject => 'AUTOMATED REPORT: missing CCDS after copying missing CCDS',
+                               text => 'Please find below the list of missing CCDS models after copying the missing CCDS into the Ensembl database. NOTE THIS LIST SHOULD BE EMPTY. OTHERWISE THERE IS A PROBLEM.',
+                               file => $self->o('reports_dir').'/'.$self->o('missing_ccds_filename2'),
+                               command => q{cat},
+                             },
               -flow_into => { 1 => ['list_vega_genes_for_merge'] },
+              -rc_name => 'default',
             },
 
             {
@@ -539,10 +931,6 @@ sub pipeline_analyses {
                                user_primary => $self->o('user_r'),
                                password_primary =>$self->o('pass_r'),
                                database_primary => $self->o('vega_db','-dbname'),
-                               host_ccds => $self->o('ccds_db','-host'),
-                               user_ccds =>$self->o('user_r'),
-                               password_ccds => $self->o('pass_r'),
-                               database_ccds => $self->o('ccds_db','-dbname'),
                                host_output => $self->o('core_db','-host'),
                                user_output =>$self->o('user_w'),
                                password_output => $self->o('pass_w'),
@@ -925,7 +1313,7 @@ sub pipeline_analyses {
                              },
                -flow_into => { '2->A' => ['alternative_atg_attributes'],
 
-                              'A->1' => WHEN ('#process_ccds#' => ['ccds_addition'],
+                              'A->1' => WHEN ('#process_ccds#' => ['ccds_sql_updates'],
                                         ELSE                      ['set_frameshift_transcript_attributes']),
                             },
               -rc_name => 'default',
@@ -955,8 +1343,7 @@ sub pipeline_analyses {
                -hive_capacity => 25,
                -max_retry_count => 2,
                -rc_name => 'normal_1500',
-               -flow_into => { 1 => WHEN ('#process_ccds#' => ['ccds_comparison'],
-                                    ELSE                      ['set_canonical_transcripts_without_ccds'])},
+               -flow_into => { 1 => WHEN ('!#process_ccds#' => ['set_canonical_transcripts_without_ccds'])},
             },
 
             {
@@ -977,69 +1364,6 @@ sub pipeline_analyses {
                -hive_capacity => 25,
                -max_retry_count => 2,
                -rc_name => 'normal_1500',
-            },
-
-            {
-              -logic_name => 'ccds_comparison',
-              -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-              -parameters => {
-                               cmd => 'perl $ENSEMBL_ANALYSIS/scripts/Merge/ccds_merge_comparison.pl'.
-                                      ' -dbname '.$self->o('ccds_db','-dbname').
-                                      ' -host '.$self->o('ccds_db','-host').
-                                      ' -user '.$self->o('ccds_db','-user').
-                                      ' -port '.$self->o('ccds_db','-port').
-                                      ' -path '.$self->o('assembly_path').
-                                      ' -genetype ccds_gene'.
-                                      ' -compdbname '.$self->o('core_db','-dbname').
-                                      ' -comphost '.$self->o('core_db','-host').
-                                      ' -compport '.$self->o('core_db','-port').
-                                      ' -compuser '.$self->o('user_r').
-                                      ' -compgenetype protein_coding'.
-                                      ' -dnadb '.$self->o('ensembl_db','-dbname').
-                                      ' -dnahost '.$self->o('ensembl_db','-host').
-                                      ' -dnaport '.$self->o('ensembl_db','-port').
-                                      ' -dnauser '.$self->o('user_r').
-                                      ' -redundant'.
-                                      ' -schema 20'.
-                                      ' -coord toplevel'.
-                                      ' -chromosomes #chr#'.
-                                      ' -set1_name CCDS'.
-                                      ' -set2_name MERGE'.
-                                      ' -file '.$self->o('output_dir').'/'.$self->o('ccds_filename_prefix').'#chr#.out'
-                             },
-               -analysis_capacity => 25,
-               -hive_capacity => 25,
-               -max_retry_count => 1,
-            },
-
-            {
-              -logic_name => 'ccds_addition',
-              -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCCDSAddition',
-              -parameters => {
-                               copy_genes_path => $self->o('ensembl_analysis_base').'/scripts/genebuild/',
-                               copy_genes_script_name => 'copy_genes.pl',
-                               add_ccds_path => $self->o('ensembl_analysis_base').'/scripts/Merge/',
-                               add_ccds_script_name => 'add_ccds_support.pl',
-
-              	               ccds_comparison_output_dir => $self->o('output_dir'),
-                               ccds_filename_prefix => $self->o('ccds_filename_prefix'),
-                               email => $self->o('CCDS_report_email'),
-                               from => 'ensembl-genebuild@ebi.ac.uk',
-                               ccds_dbname => $self->o('ccds_db','-dbname'),
-                               ccds_host => $self->o('ccds_db','-host'),
-                               ccds_user => $self->o('ccds_db','-user'),
-                               dna_dbname => $self->o('ensembl_db','-dbname'),
-                               dna_host => $self->o('ensembl_db','-host'),
-                               dna_user => $self->o('user_r'),
-                               merge_dbname => $self->o('core_db','-dbname'),
-                               merge_host => $self->o('core_db','-host'),
-                               merge_user => $self->o('user_w'),
-                               merge_pass => $self->o('pass_w'),
-                               assembly_path => $self->o('assembly_path'),
-                               logic_name => 'ensembl',
-                             },
-               -max_retry_count => 0,
-               -flow_into => { 1 => ['ccds_sql_updates'] },
             },
 
             {
@@ -1109,7 +1433,7 @@ sub pipeline_analyses {
                              },
                -max_retry_count => 3,
                -rc_name => 'default',
-               -flow_into => { 1 => ['dummy'] },
+               -flow_into => { 1 => ['backup_dump_core_db_after_merge'] },
             },
 
             {
@@ -1170,15 +1494,20 @@ sub pipeline_analyses {
                -max_retry_count => 2,
                -rc_name => 'normal_12000',
             },
-
+            
             {
-              -logic_name => 'dummy',
-              -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+              -logic_name => 'backup_dump_core_db_after_merge',
+              -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
               -parameters => {
-                               cmd => 'echo "I am dummy and I know it. TBC..."'
+                                create_type => 'backup',
+                                source_db => $self->o('core_db'),
+                                backup_name => $self->o('backup_dump_core_db_after_merge_filename'),
+                                pass_w => $self->o('pass_w'),
+                                user_w => $self->o('user_w'),
+                                output_path => $self->o('output_dir'),
                              },
-              -max_retry_count => 0,
-              -rc_name => 'default',
+
+
             },
   ];
 }
