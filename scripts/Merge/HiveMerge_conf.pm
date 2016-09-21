@@ -121,7 +121,7 @@ sub default_options {
     'assembly_path' => 'GRCh38',
 
     # full path to uniprot file to be used for the script which assigns the external DB IDs and optimises the align feature tables
-    'uniprot_file' => '../Ensembl/uniprot_2015_12/entry_loc',
+    'uniprot_file' => '../Ensembl/uniprot_20XX_XX/entry_loc',
 
     # full path to your local copy of the ensembl-analysis git repository
     'ensembl_analysis_base' => '$ENSCODE/ensembl-analysis',
@@ -1045,7 +1045,7 @@ sub pipeline_analyses {
                                outport => $self->o('core_db','-port'),
                                dnahost => $self->o('ensembl_db','-host'),
                                dnadbname => $self->o('ensembl_db','-dbname'),
-                               dnauser => $self->o('ensembl_db','-user'),
+                               dnauser => $self->o('user_r'),
                                dnaport => $self->o('ensembl_db','-port'),
                                #file => $self->o('output_dir').$self->o('unprocessed_genes_filename'),
                              },
