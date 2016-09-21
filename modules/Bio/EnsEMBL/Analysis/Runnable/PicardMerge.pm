@@ -154,7 +154,7 @@ sub picard_lib {
         $self->{_picard_lib} = $files;
 # If the picard lib is picard.jar, we have the "new" version which needs
 # a command
-        $self->{_picard_version} = $files =~ /picard\.jar$/ 1 : 0;
+        $self->{_picard_version} = $files =~ /picard\.jar$/ ? 1 : 0;
     }
     return $self->{_picard_lib};
 }
