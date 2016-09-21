@@ -73,11 +73,11 @@ sub param_defaults {
       copy_genes_script_name => 'copy_genes.pl',
 
       # copy_genes.pl script parameters
-      source => '',
-      biotype => '',
-      stable_id => 0,
-      merge => 0,
-      logic => '', # to set the genes and transcripts analysis (logic names) (optional)
+      source => undef,
+      biotype => undef,
+      stable_id => undef,
+      merge => undef,
+      logic => undef, # to set the genes and transcripts analysis (logic names) (optional)
       sourcehost => undef,
       sourceuser => undef,
       sourceport => '3306',
@@ -149,16 +149,26 @@ sub run {
                          ." -dnadbname ".$self->param('dnadbname')
                          ." -dnauser ".$self->param('dnauser')
                          ." -dnaport ".$self->param('dnaport')
-                         ." -file ".$self->param('file')
-                         ." -logic ".$self->param('logic')
-                         ." -source ".$self->param('source')
-                         ." -biotype ".$self->param('biotype')
-                         ." -stable_id ".$self->param('stable_id')
-                         ." -merge ".$self->param('merge')
-                         ." -verbose";
+                         ." -file ".$self->param('file');
 
   if ($self->param('logic')) {
   	$command .= " -logic ".$self->param('logic');
+  }
+
+  if ($self->param('source')) {
+    $command .= " -source ".$self->param('source');
+  }
+
+  if ($self->param('biotype')) {
+    $command .= " -biotype ".$self->param('biotype');
+  }
+
+  if ($self->param('stable_id')) {
+    $command .= " -stable_id ";
+  }
+
+  if ($self->param('merge')) {
+    $command .= " -merge ";
   }
 
   print run_command($command,"Copying genes...");
