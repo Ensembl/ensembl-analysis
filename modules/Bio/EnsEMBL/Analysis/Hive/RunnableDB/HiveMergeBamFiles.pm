@@ -51,9 +51,41 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMergeBamFiles;
 use warnings ;
 use strict;
 
+use File::Copy;
+use File::Spec;
+use File::Basename qw(basename);
+
+use Bio::EnsEMBL::DataFile;
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters for the module
+               bam_version => 1,
+               rename_file => 1,
+               store_datafile => 1,
+               _index_ext => 'bai',
+               _file_ext => 'bam',
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults()},
+    bam_version => 1,
+    rename_file => 1,
+    store_datafile => 1,
+    _index_ext => 'bai',
+    _file_ext => 'bam',
+  }
+}
 =head2 fetch_input
 
  Arg [1]    : None
@@ -70,7 +102,13 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
     my ($self) = @_;
 
+    $self->param('logic_name', $self->param('wide_species').'_bwa_'.lc($self->param('sample_name')))
+      unless ($self->param_is_defined('logic_name'));
     $self->create_analysis;
+    if (!$self->param_is_defined('alignment_bam_file')) {
+      my $out_filename = $self->param_is_defined('sample_name') ? $self->param('sample_name') : 'merged';
+      $self->param('alignment_bam_file', File::Spec->catfile($self->param('wide_merge_dir'), join('.', $self->param('assembly_name'), $self->param('rnaseq_data_provider'), $out_filename, $self->param('bam_version'), $self->param('_file_ext'))));
+    }
     if (scalar(@{$self->param('filename')}) == 0) {
         $self->throw('You did not specify input files for '.$self->analysis->logic_name);
     }
@@ -79,19 +117,26 @@ sub fetch_input {
         # In other cases I just want to push the filename but I don't need to run the BAM merge
         # First pushing the filename
         my $abs_filename = $self->param('filename')->[0];
-        if (-e $self->param('wide_merge_dir').'/'.$abs_filename) {
-            $abs_filename = $self->param('wide_merge_dir').'/'.$abs_filename;
+        if (-e File::Spec->catfile($self->param('wide_merge_dir'), $abs_filename)) {
+            $abs_filename = File::Spec->catfile($self->param('wide_merge_dir'), $abs_filename);
         }
-        elsif (-e $self->param('wide_output_dir').'/'.$abs_filename) {
-            $abs_filename = $self->param('wide_output_dir').'/'.$abs_filename;
+        elsif (-e File::Spec->catfile($self->param('wide_output_dir'), $abs_filename)) {
+            $abs_filename = File::Spec->catfile($self->param('wide_output_dir'), $abs_filename);
         }
-        $self->throw($abs_filename.' is not an absolute path!') unless ($abs_filename =~ /^\//);
+        $self->throw($abs_filename.' is not an absolute path!') unless (File::Spec->file_name_is_absolute($abs_filename));
+        if ($self->param('rename_file')) {
+          my $index_ext = '.'.$self->param('_index_ext');
+          move($abs_filename, $self->param('alignment_bam_file')) || $self->throw("Could not rename file $abs_filename to ".$self->param('alignment_bam_file'));
+          move($abs_filename.$index_ext, $self->param('alignment_bam_file').$index_ext) || $self->throw("Could not rename file $abs_filename$index_ext to ".$self->param('alignment_bam_file').$index_ext);
+          $abs_filename = $self->param('alignment_bam_file');
+        }
+        if ($self->param('store_datafile')) {
+          $self->store_filename_into_datafile;
+        }
         $self->dataflow_output_id({filename => $abs_filename}, 1);
         # Finally tell Hive that we've finished processing
         $self->complete_early('There is only one file to process');
     }
-    my $out_filename = $self->param_is_defined('sample_name') ? $self->param('sample_name') : 'merged';
-    $self->param('output_file', $self->param('wide_merge_dir').'/'.$out_filename.'.bam');
     if ($self->param_is_defined('picard_lib')) {
         $self->require_module('Bio::EnsEMBL::Analysis::Runnable::PicardMerge');
         $self->runnable(Bio::EnsEMBL::Analysis::Runnable::PicardMerge->new(
@@ -100,7 +145,7 @@ sub fetch_input {
             -lib => $self->param('picard_lib'),
             -options => $self->param('options'),
             -analysis => $self->analysis,
-            -output_file => $self->param('output_file'),
+            -output_file => $self->param('alignment_bam_file'),
             -input_files => $self->param('filename'),
             -use_threading => $self->param('use_threading'),
             -samtools => $self->param('wide_samtools') || 'samtools',
@@ -112,11 +157,12 @@ sub fetch_input {
             -program => $self->param('wide_samtools') || 'samtools',
             -options => $self->param('options'),
             -analysis => $self->analysis,
-            -output_file => $self->param('output_file'),
+            -output_file => $self->param('alignment_bam_file'),
             -input_files => $self->param('filename'),
             -use_threading => $self->param('use_threading'),
             ));
     }
+  $self->hrdb_set_con($self->get_database_by_name('target_db'), 'target_db');
 }
 
 
@@ -132,12 +178,12 @@ sub fetch_input {
 sub run {
     my ($self) = @_;
 
-    $self->disconnect_if_idle() if ($self->param('disconnect_jobs'));
+    $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
     foreach my $runnable (@{$self->runnable}) {
         $runnable->run;
         $runnable->check_output_file;
     }
-    $self->output([$self->param('output_file')]);
+    $self->output([$self->param('alignment_bam_file')]);
 }
 
 
@@ -153,7 +199,30 @@ sub run {
 sub write_output {
     my ($self) = @_;
 
+    if ($self->param('store_datafile')) {
+      $self->store_filename_into_datafile;
+    }
     $self->dataflow_output_id({filename => $self->output->[0]}, 1);
 }
 
+sub store_filename_into_datafile {
+  my ($self) = @_;
+
+  my $db = $self->hrdb_get_con('target_db');
+  my $analysis_adaptor = $db->get_AnalysisAdaptor;
+  my $analysis = $analysis_adaptor->fetch_by_logic_name($self->analysis->logic_name);
+  if (!$analysis) {
+    $analysis_adaptor->store($self->analysis);
+    $analysis = $self->analysis;
+  }
+  my @coord_systems = sort {$a->rank <=> $b->rank} @{$db->get_CoordSystemAdaptor->fetch_all_by_version($self->param('assembly_name'))};
+  my $datafile = Bio::EnsEMBL::DataFile->new();
+  $datafile->analysis($analysis);
+  $datafile->name(basename($self->param('alignment_bam_file'), '.'.$self->param('_file_ext')));
+  $datafile->file_type('BAMCOV');
+  $datafile->version_lock(0);
+  $datafile->absolute(0);
+  $datafile->coord_system($coord_systems[0]);
+  $db->get_DataFileAdaptor->store($datafile);
+}
 1;

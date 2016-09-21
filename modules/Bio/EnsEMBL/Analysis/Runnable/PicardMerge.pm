@@ -103,7 +103,8 @@ sub new {
 sub run {
     my ($self) = @_;
 
-    my $cmd = join(' ', $self->program, $self->java_options, '-jar', $self->picard_lib, 'MergeSamFiles', $self->options, 'OUTPUT='.$self->output_file, 'INPUT='.join(' INPUT=', @{$self->input_files}));
+    my $picard_command = $self->{_picard_version} ? 'MergeSamFiles' : '';
+    my $cmd = join(' ', $self->program, $self->java_options, '-jar', $self->picard_lib, $picard_command, $self->options, 'OUTPUT='.$self->output_file, 'INPUT='.join(' INPUT=', @{$self->input_files}));
     $cmd .= ' USE_THREADING=true' if ($self->use_threading);
     logger_info($cmd);
     throw('Could not execute picard command '.$cmd) if (system($cmd));
@@ -151,6 +152,9 @@ sub picard_lib {
     my ($self, $files) = @_;
     if ($files){
         $self->{_picard_lib} = $files;
+# If the picard lib is picard.jar, we have the "new" version which needs
+# a command
+        $self->{_picard_version} = $files =~ /picard\.jar$/ 1 : 0;
     }
     return $self->{_picard_lib};
 }

@@ -163,7 +163,11 @@ sub run {
 
   # run bwa
   my $sai_fastq_files = "$outdir/$filename.sai $fastq";
-  $sai_fastq_files = "$outdir/$filename.sai $outdir/$pairfilename.sai $fastq $fastqpair" if ($fastqpair);
+  $self->files_to_delete("$outdir/$filename.sai");
+  if ($fastqpair) {
+    $sai_fastq_files = "$outdir/$filename.sai $outdir/$pairfilename.sai $fastq $fastqpair";
+    $self->files_to_delete("$outdir/$pairfilename.sai");
+  }
 
   $command = join(' ', $program, $method, $readgroup, $self->genome, $sai_fastq_files, '|', $samtools, 'view - -b -S -o', "$outdir/$outfile.bam");
   
@@ -181,7 +185,13 @@ sub run {
 
   my $sorted_bam = $outdir.'/'.$outfile.'_sorted';
   # sort the bam
-  $command = "$samtools sort $outdir/$outfile.bam $sorted_bam";
+  my $samtools_version = `$samtools 2>&1`;
+  if ($samtools_version =~ /0\.1/) {
+    $command = "$samtools sort $outdir/$outfile.bam $sorted_bam";
+  }
+  else {
+    $command = "$samtools sort -o $outdir/$outfile.bam -T $outdir/$outfile.tmp $sorted_bam";
+  }
   print STDERR "Sort: $command\n";
     open  ( $fh,"$command 2>&1 |" ) ||
       $self->throw("Error sorting bam $@\n");
@@ -225,16 +235,9 @@ sub run {
   close($fh) || $self->throw("Failed checking alignment");
 
   #if the BAM file has been sorted and indexed OK delete the original BAM file that was generated
-  $command = "rm $outdir/$outfile".".bam";
-  print STDERR "Delete: $command\n";
-  open  ( $fh,"$command 2>&1 |" ) || $self->throw("Error deleting unsorted bam $@\n");
-  while (<$fh>)
-  {
-      chomp;
-      print STDERR "DELETE: $_\n";
-  }
-  close($fh) || $self->throw("Failed deleting bam");
+  $self->files_to_delete("$outdir/$outfile".".bam");
   $self->output([$sorted_bam.'.bam']);
+  $self->delete_files;
 }
 
 

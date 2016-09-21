@@ -408,7 +408,7 @@ sub require_module {
   eval{
     require "$class.pm";
   };
-  $self->throw("Couldn't require ".$class." Blast:require_module $@") if($@);
+  $self->throw("Couldn't require ".$class.":\n$@") if($@);
   return $module;
 }
 
@@ -530,6 +530,7 @@ sub create_analysis {
 
  Arg [1]    : String $name, name of a database as it stored in parameters
  Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna (optional)
+ Arg [3]    : String $alternative_class (optional), Allowed class are Variation, Compara, Funcgen
  Example    : $self->hrdb_get_dba($self->param('target_db'));
  Description: It's a wrapper for hrdb_get_dba from Bio::EnsEMBL::Analysis::Tools::Utilities
  Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
@@ -540,16 +541,29 @@ sub create_analysis {
 =cut
 
 sub  hrdb_get_dba {
-    my ($self, $connection_info, $dna_db) = @_;
+    my ($self, $connection_info, $dna_db, $alternative_class) = @_;
 
-    return Bio::EnsEMBL::Analysis::Tools::Utilities::hrdb_get_dba($connection_info, $dna_db);
+    $self->throw($connection_info.' is not a HASHREF') unless (ref($connection_info) eq 'HASH');
+    my $uniq_id = join(':', $connection_info->{-host},
+                            $connection_info->{-dbname},
+                            $connection_info->{-port},
+                            $connection_info->{-user});
+    if ($self->{_gb_cache}->{'_cache_lastlogicname'} ne $self->input_job->analysis->logic_name) {
+      delete $self->{_gb_cache};
+    }
+    if (!exists $self->{_gb_cache}->{'_cache_dba_'.$uniq_id}) {
+      $self->{_gb_cache}->{'_cache_dba_'.$uniq_id} = Bio::EnsEMBL::Analysis::Tools::Utilities::hrdb_get_dba($connection_info, $dna_db, $alternative_class);
+      $self->{_gb_cache}->{'_cache_lastlogicname'} = $self->input_job->analysis->logic_name;
+    }
+    return $self->{_gb_cache}->{'_cache_dba_'.$uniq_id};
 }
 
 
 =head2 get_database_by_name
 
  Arg [1]    : String $name, name of a database as it stored in parameters
- Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna (optional)
+ Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object (optional), the database will have the dna
+ Arg [3]    : String $alternative_class (optional), Allowed class are Variation, Compara, Funcgen
  Example    : $self->get_database_by_name('target_db');
  Description: It creates a object based on the information contained in $connection_info.
               If the hasref contains -dna_db or if the second argument is populated, it will
@@ -562,9 +576,9 @@ sub  hrdb_get_dba {
 =cut
 
 sub get_database_by_name {
-    my ($self, $name, $dna_db) = @_;
+    my ($self, $name, $dna_db, $alternative_class) = @_;
 
-    return $self->hrdb_get_dba(destringify($self->param($name)), $dna_db);
+    return $self->hrdb_get_dba(destringify($self->param($name)), $dna_db, $alternative_class);
 }
 
 
