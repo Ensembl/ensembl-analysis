@@ -47,7 +47,7 @@ sub default_options {
 # CHANGE STUFF HERE                                                      #
 #                                                                        #
 ##########################################################################
-        'pipeline_name'              => '',
+        'pipeline_name'              => $self->o('species').'',
 
         'user_r'                     => '',
         'user'                     => '',
@@ -55,11 +55,11 @@ sub default_options {
         'port'                       => '',
         species    => '',
 
-        'pipe_dbname'                => $ENV{USER}.'_'.$self->o('pipeline_name').'_hive',
+        'pipe_dbname'                => $self->o('dbowner').'_'.$self->o('pipeline_name').'_hive',
         'dna_dbname'                 => '',
-        'blast_output_dbname'     => $ENV{USER}.'_'.$self->o('pipeline_name').'_'.$self->o('species').'_blast',
-        'refine_output_dbname'     => $ENV{USER}.'_'.$self->o('pipeline_name').'_'.$self->o('species').'_refine',
-        'rough_output_dbname'    => $ENV{USER}.'_'.$self->o('pipeline_name').'_'.$self->o('species').'_rough',
+        'blast_output_dbname'     => $self->o('dbowner').'_'.$self->o('pipeline_name').'_'.$self->o('species').'_blast',
+        'refine_output_dbname'     => $self->o('dbowner').'_'.$self->o('pipeline_name').'_'.$self->o('species').'_refine',
+        'rough_output_dbname'    => $self->o('dbowner').'_'.$self->o('pipeline_name').'_'.$self->o('species').'_rough',
 
         'pipe_db_server'             => '',
         'dna_db_server'              => '',
@@ -69,7 +69,8 @@ sub default_options {
         'genome_file'                => 'genome/genome.fa',
         'use_ucsc_naming' => 0,
 
-        'clone_db_script_path'       => $ENV{ENSCODE}.'/ensembl-analysis/scripts/clone_database.ksh',
+        'ensembl_base' => $ENV{ENSCODE},
+        'clone_db_script_path'       => $self->o('ensembl_base').'/ensembl-analysis/scripts/clone_database.ksh',
         'create_type'       => 'clone',
         'rnaseq_summary_file'         => '',
 
@@ -77,11 +78,12 @@ sub default_options {
         'samtools' => 'samtools',
         'picard_lib_jar' => 'picard.jar',
         'short_read_aligner'    => 'bwa',
+        refine_ccode_exe => 'RefineSolexaGenes',
         'input_dir'    => '',
          output_dir => '',
         'merge_dir' => '',
         'sam_dir' => '',
-        'sequence_dump_script' => $ENV{ENSCODE}.'/ensembl-analysis/scripts/sequence_dump.pl',
+        'sequence_dump_script' => $self->o('ensembl_base').'/ensembl-analysis/scripts/sequence_dump.pl',
         # Use this option to change the delimiter for your summary data
         # file.
         summary_file_delimiter => '\t',
@@ -147,25 +149,25 @@ sub default_options {
 #                                                                        #
 ##########################################################################
 
-        'blast_output_db' => {
-                           -dbname => $self->o('blast_output_dbname'),
-                           -host   => $self->o('blast_output_db_server'),
+        'blast_db' => {
+                           -dbname => $self->o('blast_dbname'),
+                           -host   => $self->o('blast_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user'),
                            -pass   => $self->o('password'),
                          },
 
-        'refine_output_db' => {
-                           -dbname => $self->o('refine_output_dbname'),
-                           -host   => $self->o('refine_output_db_server'),
+        'refine_db' => {
+                           -dbname => $self->o('refine_dbname'),
+                           -host   => $self->o('refine_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user'),
                            -pass   => $self->o('password'),
                         },
 
-        'rough_output_db' => {
-                           -dbname => $self->o('rough_output_dbname'),
-                           -host   => $self->o('rough_output_db_server'),
+        'rough_db' => {
+                           -dbname => $self->o('rough_dbname'),
+                           -host   => $self->o('rough_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user'),
                            -pass   => $self->o('password'),
@@ -305,8 +307,8 @@ sub pipeline_analyses {
         -logic_name => 'create_tissue_jobs',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
         -parameters => {
-            inputquery => join(' ', 'SELECT', $self->o('read_group_tag'), ',', $self->o('read_id_tag'), ', is_paired', 'FROM', $self->o('summary_csv_table'), 'WHERE', $self->o('read_group_tag'), '= "#sample_name#"'),
-            column_names => [$self->o('read_group_tag'), $self->o('read_id_tag'), 'is_paired'],
+            inputquery => join(' ', 'SELECT', $self->o('read_group_tag'), ',', $self->o('read_id_tag'), ', is_paired, PL', 'FROM', $self->o('summary_csv_table'), 'WHERE', $self->o('read_group_tag'), '= "#sample_name#"'),
+            column_names => [$self->o('read_group_tag'), $self->o('read_id_tag'), 'is_paired', 'rnaseq_data_provider'],
                        },
         -rc_name    => '1GB',
         -flow_into => {
@@ -393,11 +395,11 @@ sub pipeline_analyses {
         -rc_name    => '10GB',
       },
       {
-        -logic_name => 'create_rough_output_db',
+        -logic_name => 'create_rough_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
                          source_db => $self->o('dna_db'),
-                         target_db => $self->o('rough_output_db'),
+                         target_db => $self->o('rough_db'),
                          create_type => $self->o('create_type'),
                          script_path => $self->o('clone_db_script_path'),
                        },
@@ -406,11 +408,11 @@ sub pipeline_analyses {
       },
 
       {
-        -logic_name => 'create_refine_output_db',
+        -logic_name => 'create_refine_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
                          source_db => $self->o('dna_db'),
-                         target_db => $self->o('refine_output_db'),
+                         target_db => $self->o('refine_db'),
                          create_type => $self->o('create_type'),
                          script_path => $self->o('clone_db_script_path'),
                        },
@@ -419,11 +421,11 @@ sub pipeline_analyses {
       },
 
       {
-        -logic_name => 'create_blast_output_db',
+        -logic_name => 'create_blast_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
                          source_db => $self->o('dna_db'),
-                         target_db => $self->o('blast_output_db'),
+                         target_db => $self->o('blast_db'),
                          create_type => $self->o('create_type'),
                          script_path => $self->o('clone_db_script_path'),
                        },
@@ -446,6 +448,8 @@ sub pipeline_analyses {
                          # Use this default options for Picard: 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT'
                          # You will need to change the options if you want to use samtools for merging
                          options       => 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT',
+                         assembly_name => $self->o('assembly_name'),
+                         target_db => $self->o('blast_db'),
                        },
         -rc_name    => '3GB_multithread',
         -flow_into => {
@@ -467,19 +471,13 @@ sub pipeline_analyses {
                          # Use this default options for Picard: 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT'
                          # You will need to change the options if you want to use samtools for merging
                          options       => 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT',
+                         assembly_name => $self->o('assembly_name'),
+                         target_db => $self->o('blast_db'),
                        },
         -rc_name    => '3GB_multithread',
         -flow_into => {
-                        1 => ['create_header_intron', 'clean_sai_files'],
+                        1 => ['create_header_intron'],
                       },
-      },
-            {
-        -logic_name => 'clean_sai_files',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -meadow_type => 'LOCAL',
-        -parameters => {
-                         cmd => 'rm #wide_output_dir#/*.sai',
-                       },
       },
             {
         -logic_name => 'create_header_intron',
@@ -503,9 +501,9 @@ sub pipeline_analyses {
                          slice => 1,
                          include_non_reference => 0,
                          top_level => 1,
-                         target_db => $self->o('rough_output_db'),
+                         target_db => $self->o('rough_db'),
                        },
-        -wait_for => ['create_rough_output_db'],
+        -wait_for => ['create_rough_db'],
         -flow_into => {
                         2 => {'dispatch_toplevel' => {'iid' => '#iid#', alignment_bam_file => '#filename#'}},
                       },
@@ -529,7 +527,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Genes',
         -parameters => {
                          logic_name => 'rough_transcripts',
-                         output_db    => $self->o('rough_output_db'),
+                         output_db    => $self->o('rough_db'),
                          dna_db    => $self->o('dna_db'),
                          alignment_bam_file => '#wide_merge_dir#/merged.bam',
                          min_length => 300,
@@ -553,7 +551,7 @@ sub pipeline_analyses {
         -can_be_empty => 1,
         -parameters => {
                          logic_name => 'rough_transcripts',
-                         output_db    => $self->o('rough_output_db'),
+                         output_db    => $self->o('rough_db'),
                          dna_db    => $self->o('dna_db'),
                          alignment_bam_file => '#wide_merge_dir#/merged.bam',
                          min_length => 300,
@@ -577,7 +575,7 @@ sub pipeline_analyses {
         -can_be_empty => 1,
         -parameters => {
                          logic_name => 'rough_transcripts',
-                         output_db    => $self->o('rough_output_db'),
+                         output_db    => $self->o('rough_db'),
                          dna_db    => $self->o('dna_db'),
                          alignment_bam_file => '#wide_merge_dir#/merged.bam',
                          min_length => 300,
@@ -598,7 +596,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
                          iid_type => 'slice_to_feature_ids',
-                         target_db => $self->o('rough_output_db'),
+                         target_db => $self->o('rough_db'),
                          feature_type => 'gene',
                          logic_name => ['rough_transcripts'],
                          use_stable_ids => 1,
@@ -616,7 +614,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns',
         -parameters => {
                          program_file => $self->o('splicing_aligner'),
-                         input_db => $self->o('rough_output_db'),
+                         input_db => $self->o('rough_db'),
                          dna_db => $self->o('dna_db'),
                          missmatch => 6,
                          word_length => 10,
@@ -643,7 +641,7 @@ sub pipeline_analyses {
         -can_be_empty => 1,
         -parameters => {
                          program_file => $self->o('splicing_aligner'),
-                         input_db => $self->o('rough_output_db'),
+                         input_db => $self->o('rough_db'),
                          dna_db => $self->o('dna_db'),
                          missmatch => 6,
                          word_length => 10,
@@ -670,7 +668,7 @@ sub pipeline_analyses {
         -can_be_empty => 1,
         -parameters => {
                          program_file => $self->o('splicing_aligner'),
-                         input_db => $self->o('rough_output_db'),
+                         input_db => $self->o('rough_db'),
                          dna_db => $self->o('dna_db'),
                          missmatch => 6,
                          word_length => 10,
@@ -697,422 +695,123 @@ sub pipeline_analyses {
                          headerfile => '#wide_output_dir#/merged_header.h',
                        },
         -rc_name    => '2GB',
-        -flow_into => ['create_top_level_input_ids_again'],
-      },
-            {
-        -logic_name => 'create_top_level_input_ids_again',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -rc_name    => '1GB',
-        -parameters => {
-                         iid_type => 'slice',
-                         coord_system_name => 'toplevel',
-                         slice => 1,
-                         include_non_reference => 0,
-                         top_level => 1,
-                         target_db => $self->o('rough_output_db'),
-                       },
-        -flow_into => {
-                        2 => ['create_refine_genes_jobs'],
-                      },
-      },
-            {
-        -logic_name => 'create_refine_genes_jobs',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateRefineGenesJobs',
-        -parameters => {
-                         single_tissue => $self->o('single_tissue'),
-                         sample_column => $self->o('read_group_tag'),
-                         sample_id_column => $self->o('read_id_tag'),
-                         csvfile_table => $self->o('summary_csv_table'),
-                       },
-        -rc_name    => '1GB',
-        -batch_size => 100,
-        -flow_into => {
-                        2 => ['refine_genes'],
-                      },
-      },
-
-      {
-        -logic_name => 'refine_genes',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
-        -parameters => {
-               input_db => $self->o('rough_output_db'),
-               dna_db => $self->o('dna_db'),
-               output_db => $self->o('refine_output_db'),
-               # write the intron features into the OUTPUT_DB along with the models
-               write_introns => 1,
-               # maximum number of times to loop when building all possible paths through the transcript
-               max_recursions => 100000,
-               # analysis logic_name for the dna_align_features to fetch from the INTRON_DB
-               # If left blank all features will be fetched
-               logicname => [],
-               # logic name of the gene models to fetch
-               model_ln  => '',
-               # penalty for removing a retined intron
-               retained_intron_penalty => 2,
-               #Remove introns that overlap X introns
-               filter_on_overlap => 0,
-               # minimum size for an intron
-               min_intron_size  => 30,
-               max_intron_size  => 200000,
-               # biotype to give to single exon models if left blank single exons are ignored
-               # minimum single exon size (bp)
-               min_single_exon => 1000,
-               # minimum percentage of single exon length that is coding
-               single_exon_cds => 66,
-               # Intron with most support determines the splice sites for an internal exon
-               # lower scoring introns with different splice sites are rejected
-               strict_internal_splice_sites => 1,
-               # In some species alternate splice sites for end exons seem to be common
-               strict_internal_end_exon_splice_sites => 1,
-               # biotypes to give gene models if left blank these models will not get written to the output database
-               # best score - model with most supporting intron features
-               # all other possible models
-               # max number of other models to make - blank = all
-               other_num      => '10',
-               # max number of other models to process - blank = all
-               max_num      => '1000',
-               # biotype to label bad models ( otherwise they are not written )
-               # do you want to trim UTR
-               trim_utr => 1,
-               # config for trimming UTR
-               max_3prime_exons => 2,
-               max_3prime_length => 5000,
-               max_5prime_exons => 3,
-               max_5prime_length => 1000,
-               # % of average intron score that a UTR intron must have
-               reject_intron_cutoff => 5,
-                       },
-
-        -rc_name          => '2GB_refine',
-        -wait_for => ['create_refine_output_db'],
-        -flow_into => {
-                        1 => ['blast_rnaseq'],
-                        -1 => ['refine_genes_5GB'],
-                        -2 => {'create_10MB_slices'=> {"bad_models" => "#bad_models#", "best_score" => "#best_score#", "iid" => "#iid#", "intron_bam_files" => "#intron_bam_files#", "introns_logic_name" => "#introns_logic_name#", "logic_name" => "#logic_name#", "other_isoforms" => "#other_isoforms#", "single_exon_model" => "#single_exon_model#"}},
-                      },
+        -flow_into => ['create_ccode_config'],
       },
       {
-        -logic_name => 'refine_genes_5GB',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
-        -can_be_empty => 1,
-        -parameters => {
-               input_db => $self->o('rough_output_db'),
-               dna_db => $self->o('dna_db'),
-               output_db => $self->o('refine_output_db'),
-               # write the intron features into the OUTPUT_DB along with the models
-               write_introns => 1,
-               # maximum number of times to loop when building all possible paths through the transcript
-               max_recursions => 100000,
-               # analysis logic_name for the dna_align_features to fetch from the INTRON_DB
-               # If left blank all features will be fetched
-               logicname => [],
-               # logic name of the gene models to fetch
-               model_ln  => '',
-               # penalty for removing a retined intron
-               retained_intron_penalty => 2,
-               #Remove introns that overlap X introns
-               filter_on_overlap => 0,
-               # minimum size for an intron
-               min_intron_size  => 30,
-               max_intron_size  => 200000,
-               # biotype to give to single exon models if left blank single exons are ignored
-               # minimum single exon size (bp)
-               min_single_exon => 1000,
-               # minimum percentage of single exon length that is coding
-               single_exon_cds => 66,
-               # Intron with most support determines the splice sites for an internal exon
-               # lower scoring introns with different splice sites are rejected
-               strict_internal_splice_sites => 1,
-               # In some species alternate splice sites for end exons seem to be common
-               strict_internal_end_exon_splice_sites => 1,
-               # biotypes to give gene models if left blank these models will not get written to the output database
-               # best score - model with most supporting intron features
-               # all other possible models
-               # max number of other models to make - blank = all
-               other_num      => '10',
-               # max number of other models to process - blank = all
-               max_num      => '1000',
-               # biotype to label bad models ( otherwise they are not written )
-               # do you want to trim UTR
-               trim_utr => 1,
-               # config for trimming UTR
-               max_3prime_exons => 2,
-               max_3prime_length => 5000,
-               max_5prime_exons => 3,
-               max_5prime_length => 1000,
-               # % of average intron score that a UTR intron must have
-               reject_intron_cutoff => 5,
-                       },
+              -logic_name => 'create_ccode_config',
+              -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenerateRefineConfig',
+              -parameters => {
+                     single_tissue => $self->o('single_tissue'),
+                     sample_column => $self->o('read_group_tag'),
+                     sample_id_column => $self->o('read_id_tag'),
+                     csvfile_table => $self->o('summary_csv_table'),
+                     input_db => $self->o('rough_db'),
+                     dna_db => $self->o('dna_db'),
+                     output_db => $self->o('refine_db'),
+                     # write the intron features into the OUTPUT_DB along with the models
+                     write_introns => 1,
+                     # maximum number of times to loop when building all possible paths through the transcript
+                     max_recursions => 10000000000000,
+                     # analysis logic_name for the dna_align_features to fetch from the INTRON_DB
+                     # If left blank all features will be fetched
+                     logicname => [],
+                     # logic name of the gene models to fetch
+                     model_ln  => '',
+                     # penalty for removing a retined intron
+                     retained_intron_penalty => 2,
+                     #Remove introns that overlap X introns
+                     filter_on_overlap => 0,
+                     # minimum size for an intron
+                     min_intron_size  => 30,
+                     max_intron_size  => 200000,
+                     # biotype to give to single exon models if left blank single exons are ignored
+                     # minimum single exon size (bp)
+                     min_single_exon => 1000,
+                     # minimum percentage of single exon length that is coding
+                     single_exon_cds => 66,
+                     # Intron with most support determines the splice sites for an internal exon
+                     # lower scoring introns with different splice sites are rejected
+                     strict_internal_splice_sites => 1,
+                     # In some species alternate splice sites for end exons seem to be common
+                     strict_internal_end_exon_splice_sites => 1,
+                     # biotypes to give gene models if left blank these models will not get written to the output database
+                     # best score - model with most supporting intron features
+                     # all other possible models
+                     # max number of other models to make - blank = all
+                     other_num      => '10',
+                     # max number of other models to process - blank = all
+                     max_num      => '1000',
+                     # biotype to label bad models ( otherwise they are not written )
+                     # do you want to trim UTR
+                     trim_utr => 1,
+                     # config for trimming UTR
+                     max_3prime_exons => 2,
+                     max_3prime_length => 5000,
+                     max_5prime_exons => 3,
+                     max_5prime_length => 1000,
+                     # % of average intron score that a UTR intron must have
+                     reject_intron_cutoff => 5,
+                             },
 
-        -rc_name          => '5GB_refine',
-        -flow_into => {
-                        1 => ['blast_rnaseq'],
-                        -1 => {'create_10MB_slices'=> {"bad_models" => "#bad_models#", "best_score" => "#best_score#", "iid" => "#iid#", "intron_bam_files" => "#intron_bam_files#", "introns_logic_name" => "#introns_logic_name#", "logic_name" => "#logic_name#", "other_isoforms" => "#other_isoforms#", "single_exon_model" => "#single_exon_model#"}},
-                        -2 => {'create_10MB_slices'=> {"bad_models" => "#bad_models#", "best_score" => "#best_score#", "iid" => "#iid#", "intron_bam_files" => "#intron_bam_files#", "introns_logic_name" => "#introns_logic_name#", "logic_name" => "#logic_name#", "other_isoforms" => "#other_isoforms#", "single_exon_model" => "#single_exon_model#"}},
-                      },
-      },
-      {
-        -logic_name => 'create_10MB_slices',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -can_be_empty => 1,
-        -rc_name    => '1GB',
-        -parameters => {
-                         iid_type => 'split_slice',
-                         coord_system_name => 'toplevel',
-                         slice => 1,
-                         slice_size => 10000000,
-                         include_non_reference => 0,
-                         top_level => 1,
-                         target_db => $self->o('refine_output_db'),
-                       },
+              -rc_name          => '1GB',
+              -flow_into => {
+                              2 => ['create_ccode_input_ids'],
+                            },
+            },
+        {
+                -logic_name => 'create_ccode_input_ids',
+                -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+                -rc_name    => '1GB',
+                -parameters => {
+                                 iid_type => 'slice',
+                                 coord_system_name => 'toplevel',
+                                 slice => 1,
+                                 include_non_reference => 0,
+                                 top_level => 1,
+                                 target_db => $self->o('rough_db'),
+                               },
+                -flow_into => {
+                                2 => {'refine_genes' => {iid => '#iid#', logic_name => '#logic_name#', config_file => '#config_file#'}},
+                              },
+              },
 
-        -flow_into => {
-                        2 => {'refine_slice' => {"bad_models" => "#bad_models#", "best_score" => "#best_score#", "iid" => "#iid#", "intron_bam_files" => "#intron_bam_files#", "introns_logic_name" => "#introns_logic_name#", "logic_name" => "#logic_name#", "other_isoforms" => "#other_isoforms#", "single_exon_model" => "#single_exon_model#"}},
-                      },
-      },
-      {
-        -logic_name => 'refine_slice',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
-        -can_be_empty => 1,
-        -parameters => {
-               input_db => $self->o('rough_output_db'),
-               dna_db => $self->o('dna_db'),
-               output_db => $self->o('refine_output_db'),
-               # write the intron features into the OUTPUT_DB along with the models
-               write_introns => 1,
-               # maximum number of times to loop when building all possible paths through the transcript
-               max_recursions => 100000,
-               # analysis logic_name for the dna_align_features to fetch from the INTRON_DB
-               # If left blank all features will be fetched
-               logicname => [],
-               # logic name of the gene models to fetch
-               model_ln  => '',
-               # penalty for removing a retined intron
-               retained_intron_penalty => 2,
-               #Remove introns that overlap X introns
-               filter_on_overlap => 0,
-               # minimum size for an intron
-               min_intron_size  => 30,
-               max_intron_size  => 200000,
-               # biotype to give to single exon models if left blank single exons are ignored
-               # minimum single exon size (bp)
-               min_single_exon => 1000,
-               # minimum percentage of single exon length that is coding
-               single_exon_cds => 66,
-               # Intron with most support determines the splice sites for an internal exon
-               # lower scoring introns with different splice sites are rejected
-               strict_internal_splice_sites => 1,
-               # In some species alternate splice sites for end exons seem to be common
-               strict_internal_end_exon_splice_sites => 1,
-               # biotypes to give gene models if left blank these models will not get written to the output database
-               # best score - model with most supporting intron features
-               # all other possible models
-               # max number of other models to make - blank = all
-               other_num      => '10',
-               # max number of other models to process - blank = all
-               max_num      => '1000',
-               # biotype to label bad models ( otherwise they are not written )
-               # do you want to trim UTR
-               trim_utr => 1,
-               # config for trimming UTR
-               max_3prime_exons => 2,
-               max_3prime_length => 5000,
-               max_5prime_exons => 3,
-               max_5prime_length => 1000,
-               # % of average intron score that a UTR intron must have
-               reject_intron_cutoff => 5,
-                       },
-
-        -rc_name          => '5GB_refine',
-        -flow_into => {
-                        1 => ['blast_rnaseq'],
-                        -1 => {'refine_genes_20GB' => {"bad_models" => "#bad_models#", "best_score" => "#best_score#", "iid" => "#iid#", "intron_bam_files" => "#intron_bam_files#", "introns_logic_name" => "#introns_logic_name#", "logic_name" => "#logic_name#", "other_isoforms" => "#other_isoforms#", "single_exon_model" => "#single_exon_model#"}},
-                        -2 => {'refine_slice_low_recursion' => {"bad_models" => "#bad_models#", "best_score" => "#best_score#", "iid" => "#iid#", "intron_bam_files" => "#intron_bam_files#", "introns_logic_name" => "#introns_logic_name#", "logic_name" => "#logic_name#", "other_isoforms" => "#other_isoforms#", "single_exon_model" => "#single_exon_model#"}},
-                      },
-      },
-      {
-        -logic_name => 'refine_slice_low_recursion',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
-        -can_be_empty => 1,
-        -parameters => {
-               input_db => $self->o('rough_output_db'),
-               dna_db => $self->o('dna_db'),
-               output_db => $self->o('refine_output_db'),
-               # write the intron features into the OUTPUT_DB along with the models
-               write_introns => 1,
-               # maximum number of times to loop when building all possible paths through the transcript
-               max_recursions => 10000,
-               # analysis logic_name for the dna_align_features to fetch from the INTRON_DB
-               # If left blank all features will be fetched
-               logicname => [],
-               # logic name of the gene models to fetch
-               model_ln  => '',
-               # penalty for removing a retined intron
-               retained_intron_penalty => 2,
-               #Remove introns that overlap X introns
-               filter_on_overlap => 0,
-               # minimum size for an intron
-               min_intron_size  => 30,
-               max_intron_size  => 200000,
-               # biotype to give to single exon models if left blank single exons are ignored
-               # minimum single exon size (bp)
-               min_single_exon => 1000,
-               # minimum percentage of single exon length that is coding
-               single_exon_cds => 66,
-               # Intron with most support determines the splice sites for an internal exon
-               # lower scoring introns with different splice sites are rejected
-               strict_internal_splice_sites => 1,
-               # In some species alternate splice sites for end exons seem to be common
-               strict_internal_end_exon_splice_sites => 1,
-               # biotypes to give gene models if left blank these models will not get written to the output database
-               # best score - model with most supporting intron features
-               # all other possible models
-               # max number of other models to make - blank = all
-               other_num      => '10',
-               # max number of other models to process - blank = all
-               max_num      => '1000',
-               # biotype to label bad models ( otherwise they are not written )
-               # do you want to trim UTR
-               trim_utr => 1,
-               # config for trimming UTR
-               max_3prime_exons => 2,
-               max_3prime_length => 5000,
-               max_5prime_exons => 3,
-               max_5prime_length => 1000,
-               # % of average intron score that a UTR intron must have
-               reject_intron_cutoff => 5,
-                       },
-
-        -rc_name          => '5GB_refine',
-        -flow_into => {
-                        1 => ['blast_rnaseq'],
-                        -1 => {'refine_slice_low_recursion_20GB' => {"bad_models" => "#bad_models#", "best_score" => "#best_score#", "iid" => "#iid#", "intron_bam_files" => "#intron_bam_files#", "introns_logic_name" => "#introns_logic_name#", "logic_name" => "#logic_name#", "other_isoforms" => "#other_isoforms#", "single_exon_model" => "#single_exon_model#"}},
-                      },
-      },
-      {
-        -logic_name => 'refine_genes_20GB',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
-        -can_be_empty => 1,
-        -parameters => {
-               input_db => $self->o('rough_output_db'),
-               dna_db => $self->o('dna_db'),
-               output_db => $self->o('refine_output_db'),
-               # write the intron features into the OUTPUT_DB along with the models
-               write_introns => 1,
-               # maximum number of times to loop when building all possible paths through the transcript
-               max_recursions => 100000,
-               # analysis logic_name for the dna_align_features to fetch from the INTRON_DB
-               # If left blank all features will be fetched
-               logicname => [],
-               # logic name of the gene models to fetch
-               model_ln  => '',
-               # penalty for removing a retined intron
-               retained_intron_penalty => 2,
-               #Remove introns that overlap X introns
-               filter_on_overlap => 0,
-               # minimum size for an intron
-               min_intron_size  => 30,
-               max_intron_size  => 200000,
-               # biotype to give to single exon models if left blank single exons are ignored
-               # minimum single exon size (bp)
-               min_single_exon => 1000,
-               # minimum percentage of single exon length that is coding
-               single_exon_cds => 66,
-               # Intron with most support determines the splice sites for an internal exon
-               # lower scoring introns with different splice sites are rejected
-               strict_internal_splice_sites => 1,
-               # In some species alternate splice sites for end exons seem to be common
-               strict_internal_end_exon_splice_sites => 1,
-               # biotypes to give gene models if left blank these models will not get written to the output database
-               # best score - model with most supporting intron features
-               # all other possible models
-               # max number of other models to make - blank = all
-               other_num      => '10',
-               # max number of other models to process - blank = all
-               max_num      => '1000',
-               # biotype to label bad models ( otherwise they are not written )
-               # do you want to trim UTR
-               trim_utr => 1,
-               # config for trimming UTR
-               max_3prime_exons => 2,
-               max_3prime_length => 5000,
-               max_5prime_exons => 3,
-               max_5prime_length => 1000,
-               # % of average intron score that a UTR intron must have
-               reject_intron_cutoff => 5,
-                       },
-
-        -rc_name          => '20GB_refine',
-        -flow_into => {
-                        1 => ['blast_rnaseq'],
-                      },
-      },
-      {
-        -logic_name => 'refine_slice_low_recursion_20GB',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
-        -can_be_empty => 1,
-        -parameters => {
-               input_db => $self->o('rough_output_db'),
-               dna_db => $self->o('dna_db'),
-               output_db => $self->o('refine_output_db'),
-               # write the intron features into the OUTPUT_DB along with the models
-               write_introns => 1,
-               # maximum number of times to loop when building all possible paths through the transcript
-               max_recursions => 10000,
-               # analysis logic_name for the dna_align_features to fetch from the INTRON_DB
-               # If left blank all features will be fetched
-               logicname => [],
-               # logic name of the gene models to fetch
-               model_ln  => '',
-               # penalty for removing a retined intron
-               retained_intron_penalty => 2,
-               #Remove introns that overlap X introns
-               filter_on_overlap => 0,
-               # minimum size for an intron
-               min_intron_size  => 30,
-               max_intron_size  => 200000,
-               # biotype to give to single exon models if left blank single exons are ignored
-               # minimum single exon size (bp)
-               min_single_exon => 1000,
-               # minimum percentage of single exon length that is coding
-               single_exon_cds => 66,
-               # Intron with most support determines the splice sites for an internal exon
-               # lower scoring introns with different splice sites are rejected
-               strict_internal_splice_sites => 1,
-               # In some species alternate splice sites for end exons seem to be common
-               strict_internal_end_exon_splice_sites => 1,
-               # biotypes to give gene models if left blank these models will not get written to the output database
-               # best score - model with most supporting intron features
-               # all other possible models
-               # max number of other models to make - blank = all
-               other_num      => '10',
-               # max number of other models to process - blank = all
-               max_num      => '1000',
-               # biotype to label bad models ( otherwise they are not written )
-               # do you want to trim UTR
-               trim_utr => 1,
-               # config for trimming UTR
-               max_3prime_exons => 2,
-               max_3prime_length => 5000,
-               max_5prime_exons => 3,
-               max_5prime_length => 1000,
-               # % of average intron score that a UTR intron must have
-               reject_intron_cutoff => 5,
-                       },
-
-        -rc_name          => '20GB_refine',
-        -flow_into => {
-                        1 => ['blast_rnaseq'],
-                      },
-      },
-
+        {
+              -logic_name => 'refine_genes',
+                -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+                -parameters => {
+                    cmd => $self->o('refine_ccode_exe').($self->o('use_ucsc_naming') ? ' -u ' : ' ').($self->o('use_threads') ? ' -t '.$self->o('use_threads').' ' : ' ').'-c #config_file# -i #iid# -l #logic_name# -v 0',
+                    return_codes_2_branches => {
+                      42 => 2,
+                    },
+                },
+                -rc_name => '2GB_refine',
+                -wait_for => ['create_refine_db'],
+                -flow_into => {
+                    1 => ['blast_rnaseq'],
+                    -1 => {'refine_genes_20GB' => {iid => '#iid#', config_file => '#config_file#', logic_name => '#logic_name#'}},
+                },
+          },
+        {
+              -logic_name => 'refine_genes_20GB',
+                -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+                -parameters => {
+                    cmd => $self->o('refine_ccode_exe').($self->o('use_ucsc_naming') ? ' -u ' : ' ').($self->o('use_threads') ? ' -t '.$self->o('use_threads').' ' : ' ').'-c #config_file# -i #iid# -l #logic_name# -v 0',
+                    return_codes_2_branches => {
+                      42 => 2,
+                    },
+                },
+                -rc_name => '20GB_refine',
+                -flow_into => {
+                    1 => ['blast_rnaseq'],
+                },
+          },
       {
         -logic_name => 'blast_rnaseq',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
         -parameters => {
 
-            input_db => $self->o('refine_output_db'),
-            output_db => $self->o('blast_output_db'),
+            input_db => $self->o('refine_db'),
+            output_db => $self->o('blast_db'),
             dna_db => $self->o('dna_db'),
 
             # path to index to fetch the sequence of the blast hit to calculate % coverage
@@ -1123,7 +822,7 @@ sub pipeline_analyses {
             commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->default_options->{'use_threads'}.' -hitdist=40' : '-p blastp -A 40',
                       },
         -rc_name => '2GB_blast',
-        -wait_for => ['create_blast_output_db'],
+        -wait_for => ['create_blast_db'],
       },
     );
     foreach my $analyses (@analysis) {
@@ -1138,26 +837,26 @@ sub resource_classes {
     return {
         %{ $self->SUPER::resource_classes() },  # inherit other stuff from the base class
       '1GB' => { LSF => $self->lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}])},
-      '1GB_rough' => { LSF => $self->lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}])},
-      '2GB_rough' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}])},
-      '5GB_rough' => { LSF => $self->lsf_resource_builder('long', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}])},
-      '15GB_rough' => { LSF => $self->lsf_resource_builder('long', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}])},
-      '2GB_blast' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refine_output_db_server'}, $self->default_options->{'blast_output_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
+      '1GB_rough' => { LSF => $self->lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
+      '2GB_rough' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
+      '5GB_rough' => { LSF => $self->lsf_resource_builder('long', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
+      '15GB_rough' => { LSF => $self->lsf_resource_builder('long', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
+      '2GB_blast' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refine_db_server'}, $self->default_options->{'blast_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
       '2GB' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}])},
       '4GB' => { LSF => $self->lsf_resource_builder('normal', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}])},
       '5GB' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}])},
-      '2GB_introns' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}])},
-      '2GB_refine' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_output_db_server'}])},
-      '5GB_introns' => { LSF => $self->lsf_resource_builder('long', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}])},
-      '10GB_introns' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}])},
+      '2GB_introns' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
+      '2GB_refine' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
+      '5GB_introns' => { LSF => $self->lsf_resource_builder('long', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
+      '10GB_introns' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
       '3GB_multithread' => { LSF => $self->lsf_resource_builder('long', 3000, [$self->default_options->{'pipe_db_server'}], undef, $self->default_options->{'use_threads'})},
       '5GB_multithread' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
       '10GB_multithread' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
       '20GB_multithread' => { LSF => $self->lsf_resource_builder('long', 20000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
       '5GB' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}])},
       '10GB' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}])},
-      '5GB_refine' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_output_db_server'}])},
-      '20GB_refine' => { LSF => $self->lsf_resource_builder('normal', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_output_db_server'}])},
+      '5GB_refine' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
+      '20GB_refine' => { LSF => $self->lsf_resource_builder('normal', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
     };
 }
 
