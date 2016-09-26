@@ -152,7 +152,14 @@ sub compare_seqs {
   print STDERR "Ref " . $ref_slice->subseq( 1, 100 ) . "\n";
   print STDERR "Alt " . $alt_slice->subseq( 1, 100 ) . "\n";
 
-  if ( $ref_slice->subseq( 1, 100 ) ne $alt_slice->subseq( 1, 100 ) ) {
+  my @ref_seq_arr = split('',$ref_slice->subseq(1,100));
+  my @alt_seq_arr = split('',$alt_slice->subseq(1,100));
+
+  my $num_mismatches = 0;
+  join('',map { $ref_seq_arr[$_] eq $alt_seq_arr[$_] ? $alt_seq_arr[$_] : $num_mismatches++ }
+              0 .. $#alt_seq_arr);
+
+  if ($num_mismatches >= 6) { # 95% identity instead of 100%
     print "WARNING: starts have different seqs\n";
   }
 
@@ -164,7 +171,14 @@ sub compare_seqs {
   print STDERR "Ref " . $ref_slice_end . "\n";
   print STDERR "Alt " . $alt_slice_end . "\n";
 
-  if ( $ref_slice_end !~ $alt_slice_end ) {
+  my @ref_seq_end_arr = split('',$ref_slice_end);
+  my @alt_seq_end_arr = split('',$alt_slice_end);
+
+  $num_mismatches = 0;
+  join('',map { $ref_seq_end_arr[$_] eq $alt_seq_end_arr[$_] ? $alt_seq_end_arr[$_] : $num_mismatches++ }
+              0 .. $#alt_seq_end_arr);
+
+  if ($num_mismatches >= 6) { # 95% identity instead of 100%
     print "WARNING: ends have different seqs\n";
   }
 
