@@ -20,6 +20,7 @@ my $port;
 my $central_coordsystem;
 my $chromosome_name;
 my $path;
+my $verbose = 0;
 
 $| = 1;
 
@@ -32,6 +33,7 @@ $| = 1;
   'path:s'   => \$path,
   'central_coordsystem:s' => \$central_coordsystem,
   'chromosome_name:s' => \$chromosome_name,
+  'verbose:s' => \$verbose,
 );
 
 
@@ -79,7 +81,7 @@ foreach my $chrslice (@chrslices) {
 
   foreach my $ctgseg (@$ctgsegs) {
     my $ctgslice = $ctgseg->[2];
-    print "Slice: " . $ctgslice->name . "\n";
+    print "Slice: " . $ctgslice->name . "\n" if ($verbose);
     my $f = new Bio::EnsEMBL::Feature( -start  => 1,
                                        -end    => $ctgslice->length,
                                        -strand => 1,
@@ -88,15 +90,15 @@ foreach my $chrslice (@chrslices) {
     my $matched = 0;
     my $part_match = 0;
     my @feats = check_feature($f);
-    print "Feats: ".scalar(@feats)."\n";
+    print "Feats: ".scalar(@feats)."\n" if ($verbose);
     if(scalar(@feats)>1){
-      print "Multiple features returned\n";
+      print "Multiple features returned\n" if ($verbose);
     }
     foreach my $f (@feats){
-      print "Returned feature start: ".$f->start." end: ".$f->end." strand: ".$f->strand." ".$f->slice->name."\n";
+      print "Returned feature start: ".$f->start." end: ".$f->end." strand: ".$f->strand." ".$f->slice->name."\n" if ($verbose);
       my $f_slice = $f->feature_Slice;
       if($f_slice->name eq $ctgslice->name){
-        print "Contig ".$ctgslice->name." matched\n";
+        print "Contig ".$ctgslice->name." matched\n" if ($verbose);
         $matched++;
       }#check if partial match
       elsif(($f_slice->seq_region_name eq $ctgslice->seq_region_name) and
@@ -104,25 +106,25 @@ foreach my $chrslice (@chrslices) {
             ($f_slice->start <= $ctgslice->end) and
             ($f_slice->end >= $ctgslice->start) and
             ($f_slice->coord_system_name eq $ctgslice->coord_system_name)){
-        print "Partial match\n";
-        print $f_slice->name."\n";
+        print "Partial match\n" if ($verbose);
+        print $f_slice->name."\n" if ($verbose);
         $part_match++;
         push @part_match_c, $f_slice;
       }
     }
     if(!$matched){
-      print "NOTHING fully matched contig ".$ctgslice->name."\n";
+      print "NOTHING fully matched contig ".$ctgslice->name."\n" if ($verbose);
       push @no_match_c, $ctgslice;
     }
     else{
-      print $matched." contigs matched ".$ctgslice->name."\n";
+      print $matched." contigs matched ".$ctgslice->name."\n" if ($verbose);
       if($matched > 1){
-        print "There were multiple matches to the contig\n";
+        print "There were multiple matches to the contig\n" if ($verbose);
         push @multi_match_c, $ctgslice;
       }
     }
     
-    print "\n";
+    print "\n" if ($verbose);
   }
   push @multi_match_contigs, [@multi_match_c];
   push @no_match_contigs, [@no_match_c];
@@ -154,7 +156,7 @@ foreach my $chr_n (@chr_name) {
 
 sub check_feature{
   my $f = shift;
-  print "Check start: ".$f->start." end: ".$f->end." strand: ".$f->strand." ".$f->slice->name."\n";
+  print "Check start: ".$f->start." end: ".$f->end." strand: ".$f->strand." ".$f->slice->name."\n" if ($verbose);
   my @features;
   my $coord_sys = $f->coord_system_name;
   my $next_sys = '';
@@ -168,7 +170,7 @@ sub check_feature{
     $next_sys = 'contig';
   }
   else{
-    print "Unrecognised coord system\n";
+    print "Unrecognised coord system\n" if ($verbose);
   }
 
   #first try to transform to next coord_system
@@ -179,11 +181,11 @@ sub check_feature{
   if(!defined($next_f)){
     my $projection = $f->project($next_sys);
     if(@$projection > 1){
-      print "Multiple options on coord system $next_sys\n";
+      print "Multiple options on coord system $next_sys\n" if ($verbose);
       foreach my $proj_seg(@$projection){
         #print "PROJ_SEG:".$proj_seg->from_start." ".$proj_seg->from_end." ".$proj_seg->to_Slice->name."\n";
         if ($proj_seg->to_Slice->start() > $proj_seg->to_Slice->end()+1) {
-          print "Projection segment ignored because start (".$proj_seg->to_Slice->start().") is greater than end+1 (".$proj_seg->to_Slice->end()."+1). ".$proj_seg->to_Slice->name."\n";
+          print "Projection segment ignored because start (".$proj_seg->to_Slice->start().") is greater than end+1 (".$proj_seg->to_Slice->end()."+1). ".$proj_seg->to_Slice->name."\n" if ($verbose);
         } else {
           my $proj_f = make_feature($proj_seg->to_Slice);
 
@@ -196,7 +198,7 @@ sub check_feature{
       }
     }
     elsif(@$projection == 1){
-      print "Feature that didn't transform only had one projection - not expected\n";
+      print "Feature that didn't transform only had one projection - not expected\n" if ($verbose);
     }
   }elsif($next_sys ne 'contig'){
     push @features, check_feature($next_f);
