@@ -95,7 +95,7 @@ if ( !-d $exploded_dir ) {
 }
 
 
-my $acc_header = $downloaded_fasta."_acc_header";
+my $acc_header = "downloaded_fasta_acc_header";
 open( ACC_HEADER, ">" . $write_dir . "/" . $acc_header ) || die "Could not open file $acc_header";
 
 open( DOWNLOAD_SEQ, "<" . $downloaded_fasta ) || die( "Could not open file $downloaded_fasta");
