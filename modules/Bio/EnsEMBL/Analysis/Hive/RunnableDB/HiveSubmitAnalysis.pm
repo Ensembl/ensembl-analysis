@@ -85,12 +85,15 @@ sub fetch_input {
     $self->uniprot_accession();
   } elsif($self->param('iid_type') eq 'rechunk_uniprot_accession') {
     $self->rechunk_uniprot_accession();
-  }else {
+  } else {
       $self->param('target_db', destringify($self->param('target_db'))) if (ref($self->param('target_db')) ne 'HASH');
       my $dba = hrdb_get_dba($self->param('target_db'));
       if($self->param('iid_type') eq 'slice') {
         $self->param('slice', 1);
         $self->create_slice_ids($dba);
+      } elsif($self->param('iid_type') eq 'patch_slice') {
+        $self->param('slice', 1);
+        $self->create_patch_ids($dba);
       } elsif($self->param('iid_type') eq 'slice_to_feature_ids') {
         $self->convert_slice_to_feature_ids($dba);
       } elsif($self->param('iid_type') eq 'feature_region') {
@@ -153,6 +156,50 @@ sub create_slice_ids {
 
 }
 
+=head2 create_patch_ids
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Description: Create input ids based on slices for patch_novel and patch_fix assembly exceptions.
+              It stores the input ids in 'inputlist'
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub create_patch_ids {
+  my ($self,$dba) = @_;
+  my $code_patch_novel = 'patch_novel';
+  my $code_patch_fix = 'patch_fix';
+  my @pt;
+  push(@pt,$code_patch_novel,$code_patch_fix);
+
+  my $input_ids = [];
+
+  my $sa = $dba->get_SliceAdaptor();
+  
+  #get non-ref but not duplicates
+  my @slices = @{$sa->fetch_all('toplevel',undef,1)};
+  print scalar(@slices)."\n";
+  foreach my $slice (@slices) {
+    foreach my $type (@pt) {
+      my @slice_attributes = @{$slice->get_all_Attributes($type)};
+      if (scalar(@slice_attributes) > 0) {
+        push(@{$input_ids},$slice->name());
+      }
+    }
+  }
+
+  if ($self->param('feature_constraint')) {
+    my $filtered_ids = $self->filter_slice_on_features($input_ids,$dba);
+    $input_ids = $filtered_ids;
+  }
+
+  if ($self->param('batch_slice_ids')) {
+    my $batched_ids = $self->batch_slice_ids($input_ids);
+    $input_ids = $batched_ids;
+  }
+  $self->param('inputlist',$input_ids);
+}
 
 =head2 create_chunk_ids
 
