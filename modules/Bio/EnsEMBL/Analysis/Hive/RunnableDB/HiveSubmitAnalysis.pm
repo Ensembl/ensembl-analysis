@@ -104,6 +104,7 @@ sub fetch_input {
         $self->throw('You have not specified one of the recognised operation types');
       }
   }
+
   $self->param('column_names', ['iid']);
   return 1;
 }
@@ -199,6 +200,42 @@ sub create_patch_ids {
     $input_ids = $batched_ids;
   }
   $self->param('inputlist',$input_ids);
+}
+
+sub create_patch_ids {
+  my ($self, $dba) = @_;
+  my $code_patch_novel = 'patch_novel';
+  my $code_patch_fix = 'patch_fix';
+  my @pt;
+  push @pt, $code_patch_novel, $code_patch_fix;
+
+  my $input_ids = [];
+
+  my $sa = $dba->get_SliceAdaptor();
+  #get non-ref but not duplicates
+  my @slices = @{$sa->fetch_all('toplevel',undef, 1)};
+  print scalar(@slices)."\n";
+  foreach my $slice (@slices){
+    foreach my $type (@pt){
+      my @slice_attributes = @{$slice->get_all_Attributes($type)};
+      if (scalar(@slice_attributes) > 0) {
+        push(@{$input_ids},$slice->name);
+      }
+    }
+  }
+
+  if($self->param('feature_constraint')) {
+    my $filtered_ids = $self->filter_slice_on_features($input_ids,$dba);
+    $input_ids = $filtered_ids;
+  }
+
+  if($self->param('batch_slice_ids')) {
+    my $batched_ids = $self->batch_slice_ids($input_ids);
+    $input_ids = $batched_ids;
+  }
+
+  $self->param('inputlist', $input_ids);
+
 }
 
 =head2 create_chunk_ids

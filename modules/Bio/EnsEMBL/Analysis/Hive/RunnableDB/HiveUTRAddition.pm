@@ -355,27 +355,33 @@ sub add_utr {
       $joined_transcript->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($joined_transcript,$acceptor_transcript);
       $joined_transcript = $self->look_for_both($joined_transcript);
+      calculate_exon_phases($joined_transcript, 0);
       push(@{$final_transcripts},$joined_transcript);
+
     } elsif($modified_acceptor_transcript_5prime) {
       say "Added 5' UTR only";
       $modified_acceptor_transcript_5prime->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($modified_acceptor_transcript_5prime,$acceptor_transcript);
       $modified_acceptor_transcript_5prime = $self->look_for_both($modified_acceptor_transcript_5prime);
+      calculate_exon_phases($modified_acceptor_transcript_5prime, 0);
       push(@{$final_transcripts},$modified_acceptor_transcript_5prime);
     } elsif($modified_acceptor_transcript_3prime) {
       say "Added 3' UTR only";
       $modified_acceptor_transcript_3prime->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($modified_acceptor_transcript_3prime,$acceptor_transcript);
       $modified_acceptor_transcript_3prime = $self->look_for_both($modified_acceptor_transcript_3prime);
+      calculate_exon_phases($modified_acceptor_transcript_3prime, 0);
       push(@{$final_transcripts},$modified_acceptor_transcript_3prime);
     } elsif($modified_acceptor_transcript_single_exon) {
       say "Added UTR to single exon transcript";
       $modified_acceptor_transcript_single_exon->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($modified_acceptor_transcript_single_exon,$acceptor_transcript);
       $modified_acceptor_transcript_single_exon = $self->look_for_both($modified_acceptor_transcript_single_exon);
+      calculate_exon_phases($modified_acceptor_transcript_single_exon, 0);
       push(@{$final_transcripts},$modified_acceptor_transcript_single_exon);
     }else {
       say "No UTR added to transcript";
+      calculate_exon_phases($acceptor_transcript, 0);
       push(@{$final_transcripts},$acceptor_transcript);
     }
   }

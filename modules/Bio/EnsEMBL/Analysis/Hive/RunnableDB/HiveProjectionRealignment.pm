@@ -170,7 +170,7 @@ sub assess_projection_transcript {
     }
   }
 
-  say "Transcript has ".$has_non_canonical_splice_sites." splice sites";
+  say "Transcript has ".$has_non_canonical_splice_sites." non-canonical splice sites";
   say "Transcript has ".$has_frameshift_introns." frameshift introns";
 
   if($has_non_canonical_splice_sites || $has_frameshift_introns) {
