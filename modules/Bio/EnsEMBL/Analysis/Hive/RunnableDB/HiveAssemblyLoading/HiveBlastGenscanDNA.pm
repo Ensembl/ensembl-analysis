@@ -99,7 +99,6 @@ sub fetch_input{
                                            );
 
   $self->analysis($analysis);
-  $self->hive_set_config;
 
   my $pta = $dba->get_PredictionTranscriptAdaptor;
 
