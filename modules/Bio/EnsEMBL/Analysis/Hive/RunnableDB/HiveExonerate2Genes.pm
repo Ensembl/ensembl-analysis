@@ -137,7 +137,27 @@ sub fetch_input {
     } else {
       $self->throw("The feature_type you passed in is not supported! Type:\n".$feature_type);
     }
-  } elsif($iid_type eq 'chunk_file') {
+  } elsif($iid_type eq 'projection_transcript_id') {
+       my @iid = @{$self->param("iid")};
+       my $transcript_dba = $self->hrdb_get_dba($self->param('transcript_db'));
+       my $projection_transcript_id = $iid[0];
+       my $projection_protein_accession = $iid[1];
+       my $padding = $self->param("projection_padding");
+
+       unless(defined($padding)) {
+         $padding = 50000;
+       }
+
+       if($dna_dba) {
+         $transcript_dba->dnadb($dna_dba);
+       }
+        $self->hrdb_set_con($transcript_dba,'transcript_db');
+
+       my ($slice,$accession_array) = $self->get_transcript_region($projection_transcript_id);
+       $query_seq = $self->get_query_seq($accession_array);
+       $self->peptide_seq($query_seq->seq);
+       @db_files = ($self->output_db_file($slice,$accession_array));
+   } elsif($iid_type eq 'chunk_file') {
     my $query = $self->QUERYSEQS;
 
     if(-e $query and -d $query) {
@@ -364,6 +384,7 @@ sub get_transcript_region {
   my ($self,$transcript_id) = @_;
 
   my $transcript_dba = $self->hrdb_get_con('transcript_db');
+
   my $transcript = $transcript_dba->get_TranscriptAdaptor()->fetch_by_dbID($transcript_id);
   my $tsf = $transcript->get_all_supporting_features();
 
@@ -381,7 +402,7 @@ sub get_transcript_region {
   }
 
   my $padding = $self->param('region_padding');
-  unless($self->param('region_padding')) {
+  unless(defined($self->param('region_padding'))) {
     $self->warning("You didn't pass in any value for padding. Defaulting to 10000");
     $padding = 10000;
   }
@@ -1018,7 +1039,7 @@ sub filter_killed_entries {
 sub get_query_seq {
   my ($self,$accession_array) = @_;
 
-  my $query_table_name = $self->param('query_table_name');
+  my $query_table_name = $self->param('sequence_table_name');
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
   $table_adaptor->table_name($query_table_name);
 
@@ -1047,7 +1068,7 @@ sub get_query_seq {
 sub output_query_file {
   my ($self,$accession_array) = @_;
 
-  my $query_table_name = $self->param('query_table_name');
+  my $query_table_name = $self->param('sequence_table_name');
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
   $table_adaptor->table_name($query_table_name);
 
