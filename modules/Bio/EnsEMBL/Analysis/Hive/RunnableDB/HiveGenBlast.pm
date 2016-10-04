@@ -213,6 +213,13 @@ sub write_output{
   return 1;
 }
 
+sub runnable_failed {
+  my ($self,$runnable_failed) = @_;
+  if (defined $runnable_failed) {
+    $self->param('_runnable_failed',$runnable_failed);
+  }
+  return ($self->param('_runnable_failed'));
+}
 
 sub store_protein_align_features {
   my ($self) = @_;
