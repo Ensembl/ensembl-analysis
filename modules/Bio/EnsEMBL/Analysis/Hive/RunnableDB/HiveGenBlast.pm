@@ -245,10 +245,10 @@ sub write_output{
 
 sub runnable_failed {
   my ($self,$runnable_failed) = @_;
-  if($runnable_failed) {
+  if (defined $runnable_failed) {
     $self->param('_runnable_failed',$runnable_failed);
   }
-  return($self->param('_runnable_failed'));
+  return ($self->param('_runnable_failed'));
 }
 
 
