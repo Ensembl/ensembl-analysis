@@ -1676,11 +1676,11 @@ sub pipeline_analyses {
                -hive_capacity => 25,
                -max_retry_count => 2,
                -rc_name => 'normal_4600',
-               -flow_into => { 1 => ['set_repeat_types'] },
+               -flow_into => { 1 => ['set_repeat_types_after_merge'] },
             },
 
             {
-              -logic_name => 'set_repeat_types',
+              -logic_name => 'set_repeat_types_after_merge',
               -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
               -parameters => {
                                cmd => 'perl '.$self->o('ensembl_analysis_base').'/../ensembl/misc-scripts/repeats/repeat-types.pl'.
