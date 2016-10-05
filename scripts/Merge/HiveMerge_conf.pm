@@ -24,6 +24,7 @@ use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;           # Allow this par
 use parent ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
 use Env qw(ENSCODE);
 
 sub default_options {
@@ -46,6 +47,12 @@ sub default_options {
     # If you are working on human and mouse you need the CCDS. If you are doing the merge
     # for any other species which does NOT have CCDS, set process_ccds to 0
     'process_ccds' => 1,
+
+    # If you are working on human and mouse and there is a patch update to be applied, set this to 1
+    # to load the new patches and run the patches annotation pipeline on patches and set the patches_ftp_dir
+    # to the corresponding ftp path on the NCBI FTP server where the PATCHES are located
+    'patch_update' => 1,
+    'patches_ftp_dir' => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA_00000XXXX.X_GRCXXX.pX/GCA_00000XXXX.X_GRCXXX.pX_assembly_structure/PATCHES/alt_scaffolds',
 
     # users and passwords for read-only and write access to the genebuild MySQL servers
     'pass_r' => '',
