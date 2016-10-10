@@ -139,12 +139,14 @@ sub fetch_input {
      -genblast_program => $genblast_program,
      -max_rank => $max_rank,
      -genblast_pid => $genblast_pid,
-     -work_dir => $self->param('query_seq_dir'),
+     -work_dir => $self->param('genblast_dir'),
      -database_adaptor => $dba,
      %parameters,
     );
+  my $curdir = getcwd;
+  chdir $self->param('genblast_dir') ;
   $self->runnable($runnable);
-
+  chdir $curdir;
   return 1;
 }
 
