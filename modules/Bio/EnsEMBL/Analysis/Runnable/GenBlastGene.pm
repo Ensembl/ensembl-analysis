@@ -4,13 +4,13 @@
 
 #!/usr/bin/env perl
 
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -57,7 +57,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-
+use Cwd ;
 use parent('Bio::EnsEMBL::Analysis::Runnable');
 
 =head2 new
@@ -121,7 +121,7 @@ sub new {
   Arg [2]   : string, directory
   Function  : a generic run method. This checks the directory specifed
   to run it, write the query sequence to file, marks the query sequence
-  file and results file for deletion, runs the analysis parses the 
+  file and results file for deletion, runs the analysis parses the
   results and deletes any files
   Returntype: 1
   Exceptions: throws if no query sequence is specified
@@ -133,7 +133,7 @@ sub new {
 sub run{
   my ($self, $dir) = @_;
   $self->workdir($dir) if($dir);
-  throw("Can't run ".$self." without a query sequence") 
+  throw("Can't run ".$self." without a query sequence")
     unless($self->query);
   $self->checkdir();
   $self->run_analysis();
@@ -152,7 +152,7 @@ sub run{
   Returntype: none
   Exceptions: throws if the program in not executable or the system
   command fails to execute
-  Example   : 
+  Example   :
 
 =cut
 
@@ -162,7 +162,7 @@ sub run_analysis{
     $program = $self->program;
   }
 
-  throw($program." is not executable GenBlast::run_analysis ") 
+  throw($program." is not executable GenBlast::run_analysis ")
     unless($program && -x $program);
 
   my $workdir = $self->work_dir();
@@ -181,7 +181,7 @@ sub run_analysis{
 
   # genBlast sticks "_1.1c_2.3_s1_0_16_1" on the end of the output
   # file for some reason - it will probably change in future
-  # versions of genBlast.  
+  # versions of genBlast.
   my $outfile_suffix = "_1.1c_2.3_s1_0_16_1";
   my $outfile_glob_prefix = $self->query . $outfile_suffix;
 
@@ -207,8 +207,15 @@ sub run_analysis{
 
   my $return = system($command);
 
-  unless($return == 0) {
-    throw("genblast returned a non-zero exit code (".$return."). Commandline used:\n".$command);
+  unless($return == 0)
+  {
+    my $pwd = getcwd ;
+    my open QUERY_FILE, $self->query ;
+    undef $/;
+    $content = <QUERY_FILE>;
+    close QUERY_FILE;
+    $/ = "\n";
+    throw("genblast returned a non-zero exit code (".$return.").\n Commandline used:\n".$command."\npwd=".$pwd."\nQuery file content--\n".$content."\n--\n");
   }
 
   foreach my $file (glob("${outfile_glob_prefix}*")) {
@@ -223,10 +230,10 @@ sub run_analysis{
   Function  : parse the results file into prediction exons then
   collate them into prediction transcripts and calculate their
   phases
-  Returntype: none 
+  Returntype: none
   Exceptions: throws if cant open or close results file or the parsing
   doesnt work
-  Example   : 
+  Example   :
 
 =cut
 
@@ -636,7 +643,7 @@ sub join_supporting_features {
       my $right_proto = $$proto_supporting_features[$i-1];
 
       say "FM2 PROTO LTS: ".$left_proto->{'tstart'};
-      say "FM2 PROTO LTE: ".$left_proto->{'tend'}; 
+      say "FM2 PROTO LTE: ".$left_proto->{'tend'};
       say "FM2 PROTO LHS: ".$left_proto->{'hstart'};
       say "FM2 PROTO LHE: ".$left_proto->{'hend'};
       say "FM2 PROTO RTS: ".$right_proto->{'tstart'};

@@ -36,7 +36,7 @@ use strict;
 use warnings;
 use feature 'say';
 use Data::Dumper;
-
+use Cwd ;
 use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::Analysis::Runnable::GenBlastGene;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene attach_Slice_to_Gene);
