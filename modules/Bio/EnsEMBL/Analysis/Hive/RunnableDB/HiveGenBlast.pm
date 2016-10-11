@@ -129,7 +129,7 @@ sub fetch_input {
   my $max_rank = $self->param('max_rank');
   my $genblast_pid = $self->param('genblast_pid');
 
-  say "FM2 DBA NAME: ".$dba->dbname;
+  #say "FM2 DBA NAME: ".$dba->dbname;
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlastGene->new
     (
