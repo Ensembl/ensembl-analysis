@@ -210,9 +210,9 @@ sub run_analysis{
   unless($return == 0)
   {
     my $pwd = getcwd ;
-    my open QUERY_FILE, $self->query ;
+    open QUERY_FILE, $self->query ;
     undef $/;
-    $content = <QUERY_FILE>;
+    my $content = <QUERY_FILE>;
     close QUERY_FILE;
     $/ = "\n";
     throw("genblast returned a non-zero exit code (".$return.").\n Commandline used:\n".$command."\npwd=".$pwd."\nQuery file content--\n".$content."\n--\n");
