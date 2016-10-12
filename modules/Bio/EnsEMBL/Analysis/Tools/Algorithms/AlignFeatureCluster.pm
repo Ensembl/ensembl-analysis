@@ -29,10 +29,7 @@ use vars qw(@ISA);
 use strict;
 
 use Bio::EnsEMBL::BaseAlignFeature;
-use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning );
-
-@ISA = qw(Bio::EnsEMBL::Root);
 
 =head1 METHODS
 
