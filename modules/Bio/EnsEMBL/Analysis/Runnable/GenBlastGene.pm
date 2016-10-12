@@ -273,9 +273,12 @@ sub parse_results{
               "GenBlast:parse_results");
       }
       my ($chromosome, $type, $start, $end, $score, $strand, $other) =  @elements[0, 2, 3, 4, 5, 6, 8];
-      my $slice = $slice_adaptor->fetch_by_name($chromosome);
+      #changed the following for MMETPS type loading
+      #my $slice = $slice_adaptor->fetch_by_name($chromosome);
+      my $slice = $slice_adaptor->fetch_by_region('contig',$chromosome);
 
-      if ($type eq 'transcript') {
+      if ($type eq 'transcript')
+      {
         #ID=Q502Q5.1-R1-1-A1;Name=Q502Q5.1;PID=67.05;Coverage=99.36;Note=PID:67.05-Cover:99.36
         my ($group, $hitname, $pid, $cov) = ($other =~ /ID=(\S+?);Name=([^;]+);PID=([^;]+);Coverage=([^;]+);/);
         $group =~ /^$hitname\-R(\d+)\-/;
@@ -286,24 +289,26 @@ sub parse_results{
         $transcripts{$group}->{cov} = $cov;
         $transcripts{$group}->{rank} = $rank;
         $transcripts{$group}->{slice} = $slice;
-      } elsif ($type eq 'coding_exon') {
-        my ($group) = ($other =~ /Parent=(\S+)/);
-#        if (not exists $self->genome_slices->{$chromosome}) {
+       }
+       elsif ($type eq 'coding_exon')
+       {
+         my ($group) = ($other =~ /Parent=(\S+)/);
+#        if (not exists $self->genome_slices->{$chromosome})
+#        {
 #          throw("No slice supplied to runnable with for $chromosome");
 #        }
 
-        my $exon = Bio::EnsEMBL::Exon->new(-start => $start,
+         my $exon = Bio::EnsEMBL::Exon->new(-start => $start,
                                            -end   => $end,
                                            -strand => $strand eq '-' ? -1 : 1,
                                            -analysis => $self->analysis,
                                            -slice => $transcripts{$group}->{slice});
 
-        push @{$transcripts{$group}->{exons}}, $exon;
-      }
+         push @{$transcripts{$group}->{exons}}, $exon;
+       }
     }
   }
-  close(OUT) or throw("FAILED to close ".$results.
-                      "GenBlast:parse_results");
+  close(OUT) or throw("FAILED to close ".$results."GenBlast:parse_results");
 
   foreach my $tid (keys %transcripts) {
 
