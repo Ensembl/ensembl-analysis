@@ -34,7 +34,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Slice;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::DBSQL::SliceAdaptor;
-use Bio::EnsEMBL::Analysis::Tools::Utilities;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(align_proteins);
 
 $| = 1;
 
