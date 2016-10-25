@@ -78,9 +78,11 @@ sub get_genes_of_biotypes_by_db_hash_ref {
 
     # implementation of fetch_all_biotypes ....  
     my $fetch_all_biotypes_flag ; 
-    foreach my $biotype  ( @biotypes_to_fetch ) {   
+    foreach my $biotype  ( @biotypes_to_fetch ) {  
+    	print "checking..... $biotype  \n"; 
       if ($biotype=~m/fetch_all_biotypes/ ) {    
         $fetch_all_biotypes_flag = 1 ; 
+        print "Note: I will fetch all biotypes\n";
       }
     }  
     if ( $fetch_all_biotypes_flag ) {  
@@ -147,9 +149,17 @@ sub get_genes_of_biotypes {
   	my $sa = $set_db->get_SliceAdaptor; 
     my $count =0; 
     my $how_many = 0; 
-    foreach my $sliceB (@{$sa->fetch_all('toplevel')}) { 
-      foreach my $g ( @{ $sliceB->get_all_Genes_by_type( $hbiotype, undef, 1 ) } ) {
-      	push @genes_to_fetch, $g;  
+    if ($hbiotype eq "fetch_all_biotypes") {
+       foreach my $sliceC (@{$sa->fetch_all('toplevel')}) { 
+         my $genes = $sliceC->get_all_Genes(undef,undef,1) ; 
+         push @genes_to_fetch, @$genes;
+      }
+    	
+    } else {
+      foreach my $sliceB (@{$sa->fetch_all('toplevel')}) { 
+        foreach my $g ( @{ $sliceB->get_all_Genes_by_type( $hbiotype, undef, 1 ) } ) {
+      	  push @genes_to_fetch, $g;  
+        }
       }
     }
   }
