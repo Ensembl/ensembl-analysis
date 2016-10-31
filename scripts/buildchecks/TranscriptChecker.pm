@@ -712,7 +712,7 @@ sub get_initial_frame {
 
   my $trans = $self->transcript;
 
-  $trans->sort;
+  #$trans->sort;
 
   # print " Trying to find translating frame\n";
   my $cdna = new Bio::Seq(-seq => $trans->translateable_seq);
