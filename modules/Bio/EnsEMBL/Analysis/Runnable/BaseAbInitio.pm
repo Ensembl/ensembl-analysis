@@ -172,11 +172,16 @@ sub run_analysis{
   }
   throw($program." is not executable BaseAbInitio::run_analysis ") 
     unless($program && -x $program);
-  
   my $command = $program." ".$self->matrix." ".$self->queryfile." > ".
     $self->resultsfile;
   print "Running analysis ".$command."\n";
-  system($command) == 0 or throw("FAILED to run ".$command);
+  system($command); 
+  if ( $? == 0) { 
+  	print "Everything was fine\n"; 
+  } else {
+  	print "Hey I am here and I will die because your $command is a problem!!!! \n";
+  	throw("FAILED to run, error: $! and $? , ".$command);
+  } 
 }
 
 =head2 create_transcripts

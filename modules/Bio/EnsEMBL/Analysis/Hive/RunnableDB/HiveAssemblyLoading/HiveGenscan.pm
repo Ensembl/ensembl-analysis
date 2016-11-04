@@ -132,7 +132,15 @@ sub run {
   my ($self) = @_;
 
   foreach my $runnable(@{$self->runnable}){
-    $runnable->run;
+    eval {
+    	$runnable->run; 
+    }; 
+    if ($@) {
+      $self->dataflow_output_id(undef,-3); 
+      $self->complete_early("FAILED to run, and I will die now... check your runnable!!". $@);
+    } else {
+      print "command was fine\n";
+    } 
     $self->output($runnable->output);
   }
 
