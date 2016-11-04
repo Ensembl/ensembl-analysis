@@ -115,7 +115,6 @@ GetOptions('output_path:s' => \$output_path,
            'verbose'       => \$verbose);
 print $0, "\n";
 
-$dir_ensgbscripts = $ENV{'ENSGBSCRIPTS'} unless $dir_ensgbscripts ;
 ($dir_ensgbscripts) = $0 =~ /(.*)\/[^\/]+$/ unless $dir_ensgbscripts ;
 if (!$output_path or !$dbhost or !$dbname or !$dbuser or !$dbpass or !$dir_ensgbscripts or $help) 
 {
