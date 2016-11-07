@@ -127,13 +127,10 @@ sub set_meta {
     } elsif($line =~ /^#\s*Date:\s*(\d+)-(\d+)-\d+/) {
       $meta_adaptor->store_key_value('assembly.date', $1.'-'.$2);
       say "Inserted into meta:\nassembly.date => ".$1.'-'.$2;
-    } elsif($line =~ /^#\s*Description:\s*(\S+)/) {
-      $description_defined = 1;
-      $meta_adaptor->store_key_value('assembly.name', $1);
-      say "Inserted into meta:\nassembly.name => ".$1;
    } elsif($line =~ /^#\s*Assembly [Nn]ame:\s*(\S+)/) {
       $assembly_name = $1;
       $meta_adaptor->store_key_value('assembly.default', $assembly_name);
+      $meta_adaptor->store_key_value('assembly.name', $assembly_name);
       say "Inserted into meta:\nassembly.default => ".$assembly_name;
     } elsif($line =~ /^#\s*Taxid:\s*(\d+)/) {
       $taxon_id = $1;
