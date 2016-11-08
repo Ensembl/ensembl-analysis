@@ -81,6 +81,7 @@ our @EXPORT_OK = qw(
               convert_to_ucsc_name
               align_proteins
               locate_executable
+              execute_with_wait
               );
 
 
@@ -1110,6 +1111,30 @@ sub locate_executable {
     throw("Must pass locate_executable a name if the program is to be located");
   }
   return $path;
+}
+
+=head2 execute_with_wait
+
+ Arg [1]    : String $cmd, the command to run
+ Arg [2]    : String $msg (optional), message to the user if something goes wrong
+ Arg [3]    : Int $wait (optional), how long we should wait before throwing an exception
+              Default is 30 seconds
+ Description: Execute a command and wait for Arg[3] seconds before throwing an execption
+              This is really useful in Hive while using LSF as processes are killed in random order
+              Without the wait a LSF signal like TERM_MEMLIMIT might not be caught before the exit
+              code from the executable. Hive would not use the -1, -2 branches
+ Returntype : None
+ Exceptions : Throws after a Arg[3] seconds wait if the execution failed
+
+=cut
+
+sub execute_with_wait {
+  my ($cmd, $failed_msg, $wait) = @_;
+
+  if (system($cmd)) {
+    sleep($wait || 30);
+    throw($failed_msg || 'Failed to run with code: '.$?."\n".$cmd);
+  }
 }
 
 1;

@@ -129,6 +129,7 @@ sub pipeline_create_commands {
  Arg [4]    : Arrayref Integer, list of tokens value for each server, default is 10
  Arg [5]    : Integer $num_threads, number of cores, use only if you ask for multiple cores
  Arg [6]    : String $extra_requirements, any other parameters you want to give to LSF option -R
+ Arg [7]    : Arrayref String, any parameters related to your file system if you need to use -R"select[gpfs]"
  Example    : '1GB' => { LSF => $self->lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}])},
               '3GB_multithread' => { LSF => $self->lsf_resource_builder('long', 3000, [$self->default_options->{'pipe_db_server'}], undef, 3)},
  Description: It will return the LSF requirement parameters you require based on the queue, the memory, the database servers, the number
@@ -145,7 +146,7 @@ sub pipeline_create_commands {
 =cut
 
 sub lsf_resource_builder {
-    my ($self, $queue, $memory, $servers, $tokens, $threads, $extra_requirements) = @_;
+    my ($self, $queue, $memory, $servers, $tokens, $threads, $extra_requirements, $paths) = @_;
 
     my $lsf_requirement = '-q '.($queue || 'normal');
     my @lsf_rusage;
@@ -178,6 +179,19 @@ sub lsf_resource_builder {
     if (defined $threads) {
         $lsf_requirement .= ' -n '.$threads;
         $extra_requirements .= ' span[hosts=1]';
+    }
+    if (defined $paths) {
+      foreach my $path (@$paths) {
+        if ($path =~ '/gpfs/') {
+          push(@lsf_select, 'gpfs');
+        }
+        elsif ($path =~ '/hps/') {
+          push(@lsf_select, 'hps');
+        }
+        elsif ($path =~ '/panfs/') {
+          push(@lsf_select, 'panfs');
+        }
+      }
     }
     return $lsf_requirement.' -R"select['.join(', ', @lsf_select).'] rusage['.join(', ', @lsf_rusage).'] '.$extra_requirements.'"';
 }
