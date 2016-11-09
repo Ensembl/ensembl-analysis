@@ -32,6 +32,7 @@ Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSelectGeneOnFilter
 
 =head1 DESCRIPTION
 
+Module to filter genes by modifying the biotypes based on a filter object
 
 =cut
 
@@ -43,7 +44,17 @@ use warnings;
 use Bio::EnsEMBL::Gene;
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
-use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes_cdna');
+use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Fetch transcripts on the given slice. Autoflow will stop if
+              no transcripts are found
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub fetch_input {
   my ($self) = @_;
@@ -66,6 +77,16 @@ sub fetch_input {
   }
 }
 
+=head2 run
+
+ Arg [1]    : None
+ Description: Filter the transcripts based on the filter given in 'FILTER->{OBJECT}'
+              and update the biotype of the transcripts
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub run {
   my ($self) = @_;
 
@@ -85,6 +106,16 @@ sub run {
   }
   $self->output(\@output);
 }
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Write the genes in a new database if 'target_db' is provided or
+              update the biotype in the 'source_db'
+ Returntype : None
+ Exceptions : Throws if it fails to store genes
+
+=cut
 
 sub write_output {
   my ($self) = @_;
@@ -122,6 +153,36 @@ sub get_adaptor {
   return $self->param('_gene_adaptor');
 }
 
+=head2 filter
+
+ Arg [1]    : String $val, perl module name of the filter
+ Description: Getter/setter to retrieve a filter object or to create the
+              object based on Arg[1]
+ Returntype : Object
+ Exceptions : Throws if the object cannot be create when giving a parameter
+
+=cut
+
+# The module should inherit from HiveExonerate2Genes_cdna to get the filter
+# method or from another model having a similar method
+sub filter {
+  my ($self, $val) = @_;
+  if ($val) {
+    $self->param('_transcript_filter',$val);
+  }
+  elsif (!$self->param_is_defined('_transcript_filter')
+    and $self->param_is_defined('FILTER')
+    and exists $self->param('FILTER')->{OBJECT}) {
+    my $module = $self->require_module($self->param('FILTER')->{OBJECT});
+    $self->param('_transcript_filter', $module->new(%{$self->param('FILTER')->{PARAMETERS}}));
+  }
+  if ($self->param_is_defined('_transcript_filter')) {
+    return $self->param('_transcript_filter');
+  }
+  else {
+    return;
+  }
+}
 
 1;
 
