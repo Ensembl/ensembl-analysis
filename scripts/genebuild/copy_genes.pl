@@ -132,6 +132,7 @@ my $remove_stable_ids;
 my $transform_to;
 my $stable_id;
 my $verbose;
+my $clean_transcripts = 0;
 
 verbose('EXCEPTION');
 
@@ -160,6 +161,7 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'transform_to:s'     => \$transform_to,
             'verbose!'           => \$verbose,
             'stable_id!'         => \$stable_id,
+            'clean_transcripts!' => \$clean_transcripts,
             'file:s'             => \$infile ) ||
   throw("Error while parsing command line options");
 
@@ -345,6 +347,9 @@ while (@gene_ids) {
     my $old_stable_id = $gene->stable_id();
 
     $gene->load();    # fully_load_Gene($gene);
+    if ($clean_transcripts) {
+      clean_transcripts($gene);
+    }
 
     if ( defined($logic) ) {
       $gene->analysis($analysis);
@@ -448,3 +453,32 @@ sub check_transform {
 
   return 1;
 } ## end sub check_transform
+
+sub clean_transcripts {
+  my ($gene) = @_;
+
+  my $transcripts = $gene->get_all_Transcripts;
+  if (scalar(@$transcripts) > 1) {
+    $gene->flush_Transcripts;
+    my %transcripts_haskey;
+    my %exons_haskey;
+    foreach my $transcript (@$transcripts) {
+      my $hashkey = join(':', $transcript->seq_region_start, $transcript->seq_region_end, $transcript->biotype);
+      my $ehashkey = '';
+      foreach my $exon (@{$transcript->get_all_Exons}) {
+        $ehashkey .= $exon->hashkey.':';
+      }
+      if (exists $transcripts_haskey{$hashkey}) {
+        if (!exists $exons_haskey{$ehashkey}) {
+          $gene->add_Transcript($transcript);
+          $exons_haskey{$ehashkey} = 1;
+        }
+      }
+      else {
+        $transcripts_haskey{$hashkey} = 1;
+        $exons_haskey{$ehashkey} = 1;
+        $gene->add_Transcript($transcript);
+      }
+    }
+  }
+}
