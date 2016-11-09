@@ -194,11 +194,7 @@ sub fetch_input {
             -use_threading => $self->param('use_threading'),
             ));
     }
-<<<<<<< HEAD
     $self->hrdb_set_con($self->get_database_by_name('target_db'), 'target_db');
-=======
-  $self->hrdb_set_con($self->get_database_by_name('target_db'), 'target_db');
->>>>>>> d0f7e61... Changes done to run the RNASeq pipeline, need some more work
 }
 
 
