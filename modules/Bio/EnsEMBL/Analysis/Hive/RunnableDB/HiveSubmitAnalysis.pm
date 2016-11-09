@@ -85,6 +85,8 @@ sub fetch_input {
     $self->uniprot_accession();
   } elsif($self->param('iid_type') eq 'rechunk_uniprot_accession') {
     $self->rechunk_uniprot_accession();
+  } elsif($self->param('cdna_accession')) {
+    $self->cdna_accession();
   } else {
       $self->param('target_db', destringify($self->param('target_db'))) if (ref($self->param('target_db')) ne 'HASH');
       my $dba = hrdb_get_dba($self->param('target_db'));
@@ -97,7 +99,13 @@ sub fetch_input {
       } elsif($self->param('iid_type') eq 'slice_to_feature_ids') {
         $self->convert_slice_to_feature_ids($dba);
       } elsif($self->param('iid_type') eq 'feature_region') {
-        $self->feature_region($dba);
+        if ($self->param_is_defined('use_annotation')) {
+          $self->throw('Could not find annotation file '.$self->param('annotation_file')) if ($self->param('use_annotation') and !-e $self->param('annotation_file'));
+          $self->feature_region_annotation($dba);
+        }
+        else {
+          $self->feature_region($dba);
+        }
       } elsif($self->param('iid_type') eq 'feature_id') {
         $self->feature_id($dba);
       } else {
@@ -507,6 +515,55 @@ sub uniprot_accession {
 }
 
 
+=head2 cdna_accession
+
+ Arg [1]    : None
+ Description: Create input_ids based on the sequence accessions stored in Hive
+ Returntype : None
+ Exceptions : Throws if 'cdna_batch_size' is defined but not set
+              Throws if 'cdna_table_name' is defined but not set
+
+=cut
+
+sub cdna_accession {
+  my ($self) = @_;
+
+  my $output_id_array = [];
+
+  unless($self->param('cdna_batch_size')) {
+    $self->throw("You've selected to batch cdna ids but haven't passed in a batch size using 'cdna_batch_size'");
+  }
+
+  unless($self->param('cdna_table_name')) {
+    $self->throw("You've selected to batch cdna ids but haven't passed the name of the cdna table in ".
+                 "the pipeline database using 'cdna_table_name'");
+  }
+
+  my $batch_size = $self->param('cdna_batch_size');
+  my $table_name = $self->param('cdna_table_name');
+
+  my $table_adaptor = $self->db->get_NakedTableAdaptor();
+  $table_adaptor->table_name($table_name);
+
+  $table_adaptor->column_set();
+  my $accessions = $table_adaptor->fetch_all(undef,undef,undef,'accession');
+  my $accession_array = [];
+  foreach my $accession (@{$accessions}) {
+    my $size = scalar(@{$accession_array});
+    if($size == $batch_size) {
+      push(@{$output_id_array},[$accession_array]);
+      $accession_array = [];
+    }
+    push(@{$accession_array},$accession);
+  }
+
+  if(scalar(@{$accession_array})) {
+    push(@{$output_id_array},[$accession_array]);
+  }
+
+  $self->param('inputlist', $output_id_array);
+}
+
 =head2 rechunk_uniprot_accession
 
  Arg [1]    : None
@@ -551,6 +608,52 @@ sub rechunk_uniprot_accession {
   $self->param('inputlist', $output_id_array);
 }
 
+sub feature_region_annotation {
+  my ($self, $dba) = @_;
+
+  my %accessions;
+  my @input_ids;
+  my $use_annotation = $self->param_is_defined('annotation_file');
+  if ($use_annotation) {
+    open(F, $self->param('annotation_file')) or $self->throw('Could not open supplied annotation file for reading');
+    while (<F>) {
+      my @fields = split;
+      $accessions{$fields[0]} = 1;
+    }
+    close(F) || $self->throw('Could not close annotation_file: '.$self->param('annotation_file'));
+  }
+
+  my $slices;
+  if ($self->param_is_defined('iid')) {
+    $slices = [$dba->get_SliceAdaptor->fetch_by_name($self->param('iid'))];
+  }
+  else {
+    $slices = $dba->get_SliceAdaptor->fetch_all('toplevel');
+  }
+  foreach my $slice (@$slices) {
+    foreach my $gene (@{$slice->get_all_Genes}) {
+      foreach my $transcript (@{$gene->get_all_Transcripts}) {
+        my $evidence = $transcript->get_all_supporting_features->[0];
+        last if ($use_annotation and !exists $accessions{$evidence->hseqname});
+        my $slice = $transcript->slice;
+        my $start = $transcript->seq_region_start-$self->param('region_padding');
+        my $end = $transcript->seq_region_end+$self->param('region_padding');
+        if ($self->param_is_defined('region_padding')) {
+          $start = 1 if ($start < 1);
+          $end = $slice->end if ($end > $slice->end);
+        }
+        push(@input_ids, join(':', $transcript->coord_system_name,
+                                $slice->coord_system->version,
+                                $slice->seq_region_name,
+                                $start,
+                                $end,
+                                1,
+                                ':'.$evidence->hseqname));
+      }
+    }
+  }
+  $self->param('inputlist', \@input_ids);
+}
 
 =head2 feature_region
 
@@ -747,21 +850,14 @@ sub filter_slice_on_features {
 
   my $feature_type = $self->param('feature_type');
   if($feature_type eq 'gene') {
-    foreach my $feature_dba (@{$feature_dbs}) {
-      say "Checking constraints for: ".$feature_dba->dbc->dbname();
-      my $slice_adaptor= $feature_dba->get_SliceAdaptor();
-      foreach my $slice_name (@{$slice_names}) {
-        if($feature_slices->{$slice_name}) {
-          next;
-        }
-        my $slice = $slice_adaptor->fetch_by_name($slice_name);
-        my $genes = $slice->get_all_Genes();
-        if(scalar(@{$genes})) {
-          $feature_slices->{$slice_name} = 1;
+    foreach my $slice_name (@$slice_names) {
+      foreach my $db (@$feature_dbs) {
+        if ($db->get_GeneAdaptor->count_all_by_Slice($db->get_SliceAdaptor->fetch_by_name($slice_name))) {
+          push(@output_slices, $slice_name);
+          last;
         }
       }
     }
-    @output_slices = keys(%{$feature_slices});
   } else {
     $self->throw("The feature type you have selected to constrain the slices on is not currently implemented in the code. ".
                  "Feature type selected: ".$feature_type);
