@@ -14,6 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#geneb13 th3_chicken_core_87_2 -NB -e "SELECT * FROM transcript_intron_supporting_evidence" > /lustre/scratch110/ensembl/th3/Gallus_gallus-5.0/tsie.dat
+#geneb13 th3_chicken_core_87_2 -NB -e "SELECT * FROM intron_supporting_evidence" | sort -nk3 -nk4 -nk5 -nk6 > ise.dat
+#geneb13 th3_chicken_core_87_2 -NB -e "SELECT t.seq_region_id, t.seq_region_start, t.seq_region_end, t.seq_region_strand, i.seq_region_id, i.seq_region_start, i.seq_region_end, i.seq_region_strand FROM transcript t LEFT JOIN transcript_intron_supporting_evidence tise ON t.transcript_id = tise.transcript_id LEFT JOIN intron_supporting_evidence i ON tise.intron_supporting_evidence_id = i.intron_supporting_evidence_id" | sort -nk1 -nk2 -nk3 -nk4 > ise_check_old.dat
+#perl ensembl-analysis/scripts/genebuild/fix_intron_supporting_evidence_links.pl -indaf ise.dat -insf tsie.dat -outdaf ise.dat.fixed -outsf tsie.dat.fixed -analysis_id 21
+#geneb13 th3_chicken_core_87_2 -NB -e "SELECT t.seq_region_id, t.seq_region_start, t.seq_region_end, t.seq_region_strand, i.seq_region_id, i.seq_region_start, i.seq_region_end, i.seq_region_strand FROM transcript t LEFT JOIN transcript_intron_supporting_evidence tise ON t.transcript_id = tise.transcript_id LEFT JOIN intron_supporting_evidence i ON tise.intron_supporting_evidence_id = i.intron_supporting_evidence_id" | sort -nk1 -nk2 -nk3 -nk4 > ise_check_new.dat
 use strict;
 use warnings;
 
@@ -23,6 +28,7 @@ my $daf_outfile;
 my $daf_infile;
 my $sf_infile;
 my $sf_outfile;
+my $analysis_id;
 
 
 #85      29      25790   37912   38072   1       AADN04000776*1:37912:38072:1:canon      10.000  DEPTH   1
@@ -32,6 +38,7 @@ GetOptions(
             'outsf=s'        => \$sf_outfile,
             'indaf=s'        => \$daf_infile,
             'insf=s'         => \$sf_infile,
+            'analysis_id=i' => \$analysis_id,
            );
 
 if (!$daf_outfile || !$sf_outfile ) {
@@ -51,6 +58,7 @@ my %seen;
 open(ISE, $daf_infile) || die("Could not open $daf_infile");
 while (<ISE>) {
   my @line = split("\t", $_);
+  $line[1] = $analysis_id if ($analysis_id);
   if (exists $seen{$line[6]}) {
     if ($seen{$line[6]} >= $line[7]) {
       $to_replace{$line[0]} = $to_keep{$line[6]};
