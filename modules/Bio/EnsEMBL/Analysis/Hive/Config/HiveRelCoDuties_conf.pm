@@ -41,6 +41,7 @@ use strict;
 use warnings;
 use File::Spec::Functions;
 
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(first_upper_case);
 use parent ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');
 
 =head2 default_options
@@ -492,23 +493,6 @@ sub resource_classes {
       'default' => { LSF => '-M1000 -R"select[mem>1000] rusage[mem=1000]"'},
       '4GB' => { LSF => '-M4000 -R"select[mem>4000] rusage[mem=4000]"'},
     };
-}
-
-
-=head2 first_upper_case
-
- Arg [1]    : String $string
- Description: Set the first letter of the string to upper case
- Returntype : String
- Exceptions : None
-
-=cut
-
-sub first_upper_case {
-  my ($string) = @_;
-
-  $string =~ s/^(\w)/\U$1/;
-  return $string;
 }
 
 1;
