@@ -27,19 +27,19 @@ before_install:
     - unzip bioperl-release-1-2-3.zip
     - git clone --branch bioperl-release-1-6-9 --depth 1 https://github.com/bioperl/bioperl-live.git
     - git clone --branch master --depth 1 https://github.com/bioperl/bioperl-run.git
-    - wget http://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download 
-    - tar -jxvf download 
-    - cd samtools-0.1.19 && make CFLAGS="-g -O2 -fPIC"
+    - wget https://github.com/samtools/htslib/releases/download/1.3.2/htslib-1.3.2.tar.bz2
+    - tar -jxvf htslib-1.3.2.tar.bz2
+    - cd htslib-1.3.2 && make CFLAGS="-g -O2 -fPIC"
     - cd ..
 
 
 install:
     - cpanm -v --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
-    - export SAMTOOLS=$PWD/samtools-0.1.19
+    - export HTSLIB_DIR=$PWD/htslib-1.3.2
     - export PERL5LIB=$PWD/bioperl-live
-    - cpanm -v --with-recommends --notest Bio::DB::Sam
+    - cpanm -v --with-recommends --notest Bio::DB::HTS
     - cpanm -v --with-recommends --notest JSON
-    - unset SAMTOOLS
+    - unset HTSLIB_DIR
     - unset PERL5LIB
 # We don't really need the modules below this, just one module needs it (modules/Bio/EnsEMBL/Analysis/Tools/BlastDBTracking.pm) and it is not used by us
     - echo "We need these modules for an unused module"
