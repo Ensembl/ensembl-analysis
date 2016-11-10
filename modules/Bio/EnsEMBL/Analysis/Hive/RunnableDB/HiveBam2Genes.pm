@@ -46,7 +46,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Genes;
 use warnings ;
 use strict;
 
-use Bio::DB::HTS;
+use Bio::DB::Sam;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Analysis::Runnable::Bam2Genes;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
@@ -74,7 +74,7 @@ sub fetch_input {
     $self->hrdb_set_con($self->get_database_by_name('output_db'), 'output_db');
 
     my $slice = $self->fetch_sequence($self->input_id, $reference_db);
-    my $sam = Bio::DB::HTS->new(
+    my $sam = Bio::DB::Sam->new(
             -bam => $self->param('alignment_bam_file'),
             -expand_flags => 1,
             );
@@ -135,7 +135,7 @@ sub write_output{
 =head2 exon_cluster
 
   Arg[0]     : Bio::EnsEMBL::Slice object representing the input_id
-  Arg[1]     : Bio::DB::HTS object containing the aligned short reads
+  Arg[1]     : Bio::DB::Sam object containing the aligned short reads
   Usage      : $self->exon_cluster($slice, $bam)
   Description: clusters individual reads into blocks representing exons
                uses pair information to link blocks into transcripts

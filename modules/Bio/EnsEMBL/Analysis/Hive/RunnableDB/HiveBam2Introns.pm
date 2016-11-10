@@ -61,7 +61,7 @@ use File::Spec;
 use File::Path qw(make_path);
 
 use Bio::Seq;
-use Bio::DB::HTS;
+use Bio::DB::Sam;
 
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::FeaturePair;
@@ -119,14 +119,14 @@ sub fetch_input {
   $self->param('min_missmatch', $missmatch);
   print "Ignoring reads with < $missmatch mismatches\n";
   my @reads;
-  my $bam = Bio::DB::HTSfile->open($self->param('bam_file'));
-  my $header = $bam->header_read();
+  my $bam = Bio::DB::Bam->open($self->param('bam_file'));
+  my $header = $bam->header();
   my $seq_region_name = $rough->seq_region_name;
   if ($self->param('wide_use_ucsc_naming')) {
       $seq_region_name = convert_to_ucsc_name($seq_region_name, $rough->slice);
   }
   my ($tid, $start, $end) = $header->parse_region($seq_region_name);
-  my $bam_index = Bio::DB::HTSfile->index_load($bam);
+  my $bam_index = Bio::DB::Bam->index_open($self->param('bam_file'));
   $self->throw('Bam file ' . $self->param('bam_file') . "  not found \n") unless $bam_index;
   $counters->{'count'} = 0;
   $counters->{'batch'} = 0;
