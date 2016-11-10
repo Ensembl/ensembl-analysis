@@ -85,14 +85,16 @@ sub download_ftp_contigs {
 
   $source = lc($source);
   if($source eq 'ncbi') {
-    my $base = 'wget -nv "ftp://ftp.ncbi.nlm.nih.gov/genbank/wgs';
+    # my $base = 'wget -nv "ftp://ftp.ncbi.nlm.nih.gov/genbank/wgs';
+    my $base = 'rsync -av ftp.ncbi.nlm.nih.gov::genbank/wgs/' ;  # wgs.AALT.*.fsa_nt.gz .  wget -nv "ftp://ftp.ncbi.nlm.nih.gov/genbank/wgs';
     foreach my $a_wgs_id (@wgs_ids) {
       $a_wgs_id = uc($a_wgs_id);
       my $file = 'wgs.'.$a_wgs_id.'.*.fsa_nt.gz';
-      my $wget = "$base/$file\" -P $output_path";
+      # my $wget = "$base/$file\" -P $output_path";
+      my $wget = "$base/$file   $output_path";
       my $return = system($wget);
       if($return) {
-        $self->throw("wget failed on the following command line:\n".$wget);
+        $self->throw("wget/rsync failed on the following command line:\n".$wget);
       }
     }
   } #elsif($source eq 'ena') {
@@ -173,7 +175,7 @@ sub find_missing_accessions {
   if($result) {
     $self->throw("Issue parsing headers from contigs.fa into contig_headers.txt. Commandline used:\n".$cmd);
   }
-
+print "$contig_accession_path \n";
   open(IN,$contig_accession_path);
   my @all_accessions = <IN>;
   close IN;
