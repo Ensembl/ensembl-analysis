@@ -81,6 +81,7 @@ our @EXPORT_OK = qw(
               convert_to_ucsc_name
               align_proteins
               locate_executable
+              first_upper_case
               );
 
 
@@ -1125,4 +1126,20 @@ sub locate_executable {
   return $path;
 }
 
+
+=head2 first_upper_case
+
+ Arg [1]    : String $string
+ Description: Set the first letter of the string to upper case
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub first_upper_case {
+  my ($string) = @_;
+
+  $string =~ s/^(\w)/\U$1/;
+  return $string;
+}
 1;
