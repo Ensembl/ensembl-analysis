@@ -37,7 +37,7 @@ install:
     - cpanm -v --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
     - export SAMTOOLS=$PWD/samtools-0.1.19
     - export PERL5LIB=$PWD/bioperl-live
-    - cpanm -v --with-recommends --notest Bio::DB::Sam
+    - cpanm -v --with-recommends --notest Bio::DB::HTS
     - cpanm -v --with-recommends --notest JSON
     - unset SAMTOOLS
     - unset PERL5LIB
