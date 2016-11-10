@@ -193,6 +193,19 @@ sub _master_config {
           -db => ['/lustre/scratch110/ensembl/db8/builds/rat/Rnor_6.0/cdna2genome/index/'],
         },
     },
+    exonerate_cov_per_sub => {
+      IIDREGEXP           => '(\d+):(\d+)',
+      OPTIONS             => ' --maxintron 100000 --model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE ',
+      COVERAGE_BY_ALIGNED => 0,
+      QUERYTYPE           => 'dna',
+      FILTER => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -coverage   => '#exonerate_cdna_cov#',
+          -percent_id => '#exonerate_cdna_pid#',
+        },
+      },
+    },
   );
   return $config{$key};
 }
