@@ -51,6 +51,8 @@ use strict;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Analysis::Runnable::Samtools;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable::BWA');
 
@@ -65,7 +67,7 @@ use parent ('Bio::EnsEMBL::Analysis::Runnable::BWA');
  Arg [BAM_PREFIX]: String
  Description     : Creates a new Bio::EnsEMBL::Analysis::Runnable::BWA2BAM object
  Returntype      : Bio::EnsEMBL::Analysis::Runnable::BWA2BAM
- Exceptions      : Throws if the path to samtools does not exist
+ Exceptions      : Throws if it cannot create a Bio::EnsEMBL::Analysis::Runnable::Samtools object
 
 =cut
   
@@ -74,8 +76,6 @@ sub new {
   my $self = $class->SUPER::new(@args);
   my ($header, $fastqpair, $samtools, $min_mapped, $min_paired, $bam_prefix) = rearrange([qw(HEADER FASTQPAIR SAMTOOLS MIN_MAPPED MIN_PAIRED BAM_PREFIX)],@args);
   $self->fastqpair($fastqpair);
-  $self->throw("You must define a path to samtools cannot find $samtools\n")  
-    unless $samtools && -e $samtools;
   $self->samtools($samtools);
   $self->header($header);
   $self->min_mapped($min_mapped);
@@ -105,8 +105,8 @@ sub run {
   my $outdir = $self->outdir;
   my $program = $self->program;
   my $method = $self->options;
-  my $samtools = $self->samtools;
   my $header = $self->header;
+  my $samtools = $self->samtools;
   my $readgroup;
   my $filename;
   my $outfile;
@@ -156,6 +156,7 @@ sub run {
     while (<HEAD>){
       chomp;
       $readgroup .= "\"$_\"";
+      $readgroup =~ s/\s+(\w+:)/\\t$1/g;
     }
     print "using readgroup line $readgroup\n";
     close(HEAD) || $self->throw("Could not close $header\n");
@@ -169,68 +170,32 @@ sub run {
     $self->files_to_delete("$outdir/$pairfilename.sai");
   }
 
-  $command = join(' ', $program, $method, $readgroup, $self->genome, $sai_fastq_files, '|', $samtools, 'view - -b -S -o', "$outdir/$outfile.bam");
+  $command = join(' ', $program, $method, $readgroup, $self->genome, $sai_fastq_files, '|', $samtools->make_commandline('view', '-b -S', $outdir.'/'.$outfile.'_unsorted.bam', '-'));
   
-  print STDERR "Command: $command\n";
-  open  ( $fh,"$command 2>&1 |" ) ||
-    $self->throw("Error processing alignment $@\n");
-    while (<$fh>){
-  chomp;
-  print STDERR "VIEW: $_\n";
-  if ( $_ =~ /truncated file/ ) {
-    $self->throw("Error converting file\n");
-  }
-    }
-  close($fh) || $self->throw("Failed processing alignment");
+  execute_with_wait($command, 'Failed processing alignment: '.$command."\n$?\n");
 
-  my $sorted_bam = $outdir.'/'.$outfile.'_sorted';
+  my $sorted_bam = $outdir.'/'.$outfile;
   # sort the bam
-  $command = "$samtools sort $outdir/$outfile.bam $sorted_bam";
-  print STDERR "Sort: $command\n";
-    open  ( $fh,"$command 2>&1 |" ) ||
-      $self->throw("Error sorting bam $@\n");
-    while (<$fh>){
-      chomp;
-      print STDERR "SORT: $_\n";
-    }
-  close($fh) || $self->throw("Failed sorting bam");
+  $samtools->sort($sorted_bam, $sorted_bam.'_unsorted.bam');
   # index the bam
-  $command = "$samtools index $sorted_bam.bam";
-  print STDERR "Index: $command\n";
-    open  ( $fh,"$command 2>&1 |" ) ||
-      $self->throw("Error indexing bam $@\n");
-    while (<$fh>){
-      chomp;
-      print STDERR "INDEX: $_\n";
-    }
-  close($fh) || $self->throw("Failed indexing bam");
+  $samtools->index($sorted_bam.'.bam');
 
  # check the reads with flagstat
-  $command = "$samtools flagstat $sorted_bam.bam";
-  print STDERR "Got $total_reads to check\nCheck: $command\n";
-    open  ( $fh,"$command 2>&1 |" ) ||
-      $self->throw("Error checking alignment $@\n");
-    while (<$fh>){
-      print STDERR "$_";
-      if ( $_ =~ /EOF marker is absent/ or /invalid BAM binary header/ ) {
-	$self->throw("EOF marker absent, something went wrong\n");
-      }
-      if ( $_ =~ /(\d+) \+ \d+ in total \(/ ) {
-	$self->throw("Got $1 reads in flagstat  rather than $total_reads in fastq - something went wrong\n")
-	  unless ( $total_reads - $1 ) <=1 ;
-      }
-      elsif (/^\s*\d+.*mapped\s+\(([0-9.]+)/) {
-          warning("$sorted_bam.bam is below the threshold of ".$self->min_mapped.": $1") if ($self->min_mapped > $1);
-      }
-      elsif (/\s*\d+.*properly paired \(([0-9.]+)/) {
-          warning("$sorted_bam.bam is below the threshold of ".$self->min_paired.": $1") if ($self->min_paired > $1);
-      }
-    }
-  close($fh) || $self->throw("Failed checking alignment");
+  my $flagstat_results = $samtools->flagstat($sorted_bam.'.bam', 1);
+  $self->throw('Got '.$flagstat_results->[0]." reads in flagstat rather than $total_reads in fastq - something went wrong\n")
+    unless ($flagstat_results->[0] == $total_reads);
+  if (($self->min_mapped > $flagstat_results->[1]) or ($self->min_paired > $flagstat_results->[2])) {
+    warning("Mappings for $sorted_bam.bam is bad:\n".
+            'Min mapped '.$self->min_mapped.': '.$flagstat_results->[1]."\n".
+            'Min paired '.$self->min_paired.': '.$flagstat_results->[2]."\n"
+            );
+  }
+  else {
+    $self->output([$sorted_bam.'.bam']);
+  }
 
   #if the BAM file has been sorted and indexed OK delete the original BAM file that was generated
-  $self->files_to_delete("$outdir/$outfile".".bam");
-  $self->output([$sorted_bam.'.bam']);
+  $self->files_to_delete("$outdir/$outfile"."_unsorted.bam");
   $self->delete_files;
 }
 
@@ -244,10 +209,11 @@ sub run {
 
 =head2 samtools
 
- Arg [1]    : (optional) String
- Description: Getter/setter
- Returntype : String
- Exceptions : None
+ Arg [1]    : String (optional)
+ Description: Getter/setter, creates an Bio::EnsEMBL::Analysis::Runnable::Samtools object
+              when Arg[1] is defined and set the usage of threads.
+ Returntype : Bio::EnsEMBL::Analysis::Runnable::Samtools
+ Exceptions : Trows if it cannot create the Bio::EnsEMBL::Analysis::Runnable::Samtools object
 
 =cut
 
@@ -255,7 +221,8 @@ sub samtools {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->{'_samtools'} = $value;
+    $self->{_samtools} = Bio::EnsEMBL::Analysis::Runnable::Samtools->new($value);
+    $self->{_samtools}->use_threading($1) if ($self->analysis->parameters =~ /-use_threads\s+=>\s+(\d+)/);
   }
   
   if (exists($self->{'_samtools'})) {

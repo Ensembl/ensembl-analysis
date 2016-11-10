@@ -56,7 +56,7 @@ use warnings ;
 use strict;
 
 use Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep;
-use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
+use Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast');
@@ -304,10 +304,10 @@ sub add_supporting_features {
       $tsf->analysis($tran->analysis);
       print STDERR "coverage $coverage\n";
       # calculate the hcoverage
-      my $seqfetcher =Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new
-	( -db => [$self->INDEX],
-	  -format => 'fasta'
-	);
+      my $seqfetcher = Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher->new(
+        -db => [$self->INDEX],
+        -format => 'fasta'
+      );
       my $seq = $seqfetcher->get_Seq_by_acc($tsf->hseqname);
       my $hcoverage =  sprintf("%.3f",( $hlen / length($seq->seq) ) * 100);
       $tsf->hcoverage(  $hcoverage ) ;

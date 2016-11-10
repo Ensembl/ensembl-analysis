@@ -126,6 +126,7 @@ sub fetch_input {
     my ($self) = @_;
 
     $self->create_analysis;
+    $self->param_required('target_db');
     my $outname = $self->param_is_defined('sample_name') ? $self->param('sample_name') : 'merged';
     if (!$self->param_is_defined('logic_name')) {
       my $aligner = $self->param('wide_short_read_aligner');

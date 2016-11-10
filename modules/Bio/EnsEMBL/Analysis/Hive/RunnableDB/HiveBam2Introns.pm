@@ -57,8 +57,11 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns;
 use warnings ;
 use strict;
 
+use File::Spec;
+use File::Path qw(make_path);
+
 use Bio::Seq;
-use Bio::DB::Sam;
+use Bio::DB::HTS;
 
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::FeaturePair;
@@ -116,14 +119,14 @@ sub fetch_input {
   $self->param('min_missmatch', $missmatch);
   print "Ignoring reads with < $missmatch mismatches\n";
   my @reads;
-  my $bam = Bio::DB::Bam->open($self->param('bam_file'));
-  my $header = $bam->header();
+  my $bam = Bio::DB::HTSfile->open($self->param('bam_file'));
+  my $header = $bam->header_read();
   my $seq_region_name = $rough->seq_region_name;
   if ($self->param('wide_use_ucsc_naming')) {
       $seq_region_name = convert_to_ucsc_name($seq_region_name, $rough->slice);
   }
   my ($tid, $start, $end) = $header->parse_region($seq_region_name);
-  my $bam_index = Bio::DB::Bam->index_open($self->param('bam_file'));
+  my $bam_index = Bio::DB::HTSfile->index_load($bam);
   $self->throw('Bam file ' . $self->param('bam_file') . "  not found \n") unless $bam_index;
   $counters->{'count'} = 0;
   $counters->{'batch'} = 0;
@@ -185,7 +188,8 @@ sub fetch_input {
                );
   # set uo the runnable
   my $program = $self->param('program_file');
-  $program = "/software/ensembl/genebuild/bin/exonerate64-0.9.0" unless $program;
+  $program = 'exonerate' unless $program;
+  $self->param('saturatethreshold', scalar(@reads)) unless ($self->param_is_defined('saturatethreshold'));
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
      -analysis     => $self->create_analysis,
@@ -218,7 +222,7 @@ sub get_aligner_options {
                 '--model est2genome --forwardcoordinates false '.
                 '--softmasktarget '.($self->param('mask') ? 'true' : 'false').' --exhaustive false --percent 80 '.
                 '--dnahspthreshold 70 --minintron 20 --dnawordlen '.$self->param('word_length').' -i -12 --bestn 1';
-    $options .= ' --saturatethreshold '.$self->param('saturate_threshold') if ($self->param('saturate_threshold'));
+    $options .= ' --saturatethreshold '.$self->param('saturate_threshold') if ($self->param_is_defined('saturate_threshold'));
     return $options;
 }
 
@@ -264,30 +268,16 @@ sub write_output {
       # write to file
       my $iid = $self->input_id;
       # remove any batching info at the end
-      if ( $self->input_id =~ /(\S+):(\d+):(\d+):(\d+)/ ) {
-        $iid = $1;
-      }
+      $iid =~ s/:\d+:\d+:\d+$//;
 
       my $path;
       my $filename;
       # figure out a directory structure based on the stable ids
       if ( $iid =~ /^\w+\d+(\d)(\d)(\d)(\d)(\d\d)$/ ) {
         # make the directory structure
-        $path = $self->param('wide_output_sam_dir'). '/' . "$1";
-        mkdir($path) unless -d ($path);
-        $path = $path . '/' . "$2";
-        mkdir($path) unless -d ($path);
-        $path = $path . '/' . "$3";
-        mkdir($path) unless -d ($path);
-        $path = $path . '/' . "$4";
-        mkdir($path) unless -d ($path);
-        $filename = $path.'/'.$self->input_id.'.sam';
-      }
-      elsif ($self->param_is_defined('iid')) {
-        $self->param->('iid') =~ /(([^\/]+)_\d+\.fa)$/;
-        $path = $self->param('wide_output_sam_dir').'/'.$2;
-        mkdir($path) unless -d ($path);
-        $filename = $path.'/'.$1.'.sam';
+        $path = File::Spec->catdir($self->param('wide_output_sam_dir'), $1, $2, $3, $4);
+        make_path($path);
+        $filename = File::Spec->catfile($path, $self->input_id.'.sam');
       }
       else {
         $self->throw("Input id $iid structure not recognised should be something like BAMG00000002548\n");
@@ -310,7 +300,7 @@ sub write_output {
       }
       else {
           $self->input_job->autoflow(0);
-          $self->warning("Could not remove empty SAM file $filename") unless (system("rm $filename") == 0);
+          unlink $filename || $self->warning("Could not remove empty SAM file $filename");
       }
   }
   else {

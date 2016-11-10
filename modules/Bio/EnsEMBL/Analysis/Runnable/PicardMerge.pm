@@ -114,7 +114,7 @@ sub run {
     throw("Failed to move index file $index_file to ".$self->output_file.'.bai') unless (move($index_file, $self->output_file.'.bai'));
     # It's needed because the index can be younger that the bam file but Bio::DB::Sam doesn't like it
     # Return 0 on success
-    throw('Failed to update the timestamp for '.$self->output_file.'.bai') if (system('touch '.$self->output_file.'.bai'));
+    utime($self->output_file.'.bai') || throw('Failed to update the timestamp for '.$self->output_file.'.bai');
 
     return 1;
 }
