@@ -15,9 +15,22 @@ HIVE_USER=''
 HIVE_PASS=''
 HIVE_PORT=3306
 
-BASE_UNIPROT_PATH="/data/blastdb/Ensembl"
-export EMBL2FASTA_SCRIPT="$ENSCODE/ensembl-analysis/scripts/databases/embl2fasta.pl"
-export PROCESS_ISOFORMS_SCRIPT="$ENSCODE/ensembl-analysis/scripts/databases/process_uniprot_isoforms.pl"
+BASE_UNIPROT_PATH="/nfs/production/panda/ensembl/genebuild/blastdb/uniprot"
+ENSEMBL_BASE=$ENSCODE
+OPTIND=1 # If OPTIND is not reset to 1 before getopts, bash thinks it has already processed the params
+while getopts "s:d:h:u:p:P:" o; do
+    case $o in
+        d ) BASE_UNIPROT_PATH=$OPTARG;;
+        s ) ENSEMBL_BASE=$OPTARG;;
+        h ) HIVE_HOST=$OPTARG;;
+        u ) HIVE_USER=$OPTARG;;
+        p ) HIVE_PASS=$OPTARG;;
+        P ) HIVE_PORT=$OPTARG;;
+        * ) USAGE=1;;
+    esac
+done
+export EMBL2FASTA_SCRIPT="$ENSEMBL_BASE/ensembl-analysis/scripts/databases/embl2fasta.pl"
+export PROCESS_ISOFORMS_SCRIPT="$ENSEMBL_BASE/ensembl-analysis/scripts/databases/process_uniprot_isoforms.pl"
 
 ###
 ## You should only change values above this line.
@@ -55,8 +68,8 @@ hive_url="mysql://${HIVE_USER}:${HIVE_PASS}@${HIVE_HOST}:${HIVE_PORT}/${HIVE_DBN
 echo "Hive url: ${hive_url}"
 
 init_pipe="ensembl-hive/scripts/init_pipeline.pl"
-if [ -e "$ENSCODE/$init_pipe" ]; then
-    init_pipe="$ENSCODE/$init_pipe"
+if [ -e "$ENSEMBL_BASE/$init_pipe" ]; then
+    init_pipe="$ENSEMBL_BASE/$init_pipe"
 fi
 printf "\nInitiating the pipeline:\n \e[32m$\e[0m perl $init_pipe UniProtDB_conf -host ${HIVE_HOST} -port ${HIVE_PORT} -user ${HIVE_USER} -password ${HIVE_PASS} -dbname ${HIVE_DBNAME} -pipeline_name ${pipeline_name}\n"
 unset init_pipe

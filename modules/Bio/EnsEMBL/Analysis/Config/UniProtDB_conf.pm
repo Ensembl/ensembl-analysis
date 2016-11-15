@@ -35,6 +35,7 @@ package UniProtDB_conf;
 use strict;
 use warnings;
 
+use 5.014000;
 use Bio::EnsEMBL::ApiVersion ();
 
 use base ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');
@@ -52,19 +53,19 @@ sub default_options {
     return {
         %{ $self->SUPER::default_options() },
 
-        'dbowner' => $self->o('ENV', 'USER'),
         'pipeline_name' => $self->o('ENV', 'pipeline_name'),
         'base_uniprot_ftp'  => $ENV{'BASE_UNIPROT_FTP'} || 'ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase',
         'base_uniprot_url'  => $ENV{'BASE_UNIPROT_URL'} || 'http://www.uniprot.org/uniprot/?query=',
         'uniprot_vert_file'  => $ENV{'UNIPROT_VERT_FILE'} || $self->o('uniprot_vert_file'),
         'uniprot_file'  => $ENV{'UNIPROT_FILE'} || 'uniprot',
-        'uniprot_dir'  => $ENV{'UNIPROT_DIR'},
+        'uniprot_dir'  => $ENV{'UNIPROT_DIR'} || $self->o('uniprot_dir'),
         'varsplic_file'  => $ENV{'VARSPLIC_FILE'} || 'uniprot_sprot_varsplic',
         'embl2fasta_script'  => $ENV{'EMBL2FASTA_SCRIPT'},
         'process_isoforms_script'  => $ENV{'PROCESS_ISOFORMS_SCRIPT'},
         'fasta_suffix'  => $ENV{'FASTA_SUFFIX'} || '.fasta',
         'uniprot_version'  => $ENV{'UNIPROT_VERSION'},
         'uniprot_date'  => $ENV{'UNIPROT_DATE'} || localtime,
+        'indicate' => '/nfs/production/panda/ensembl/thibaut/linuxbrew/bin/indicate',
     };
 }
 
@@ -91,7 +92,7 @@ sub resource_classes {
     my $self = shift @_;
 
     my $resources = $self->SUPER::resource_classes();
-    $resources->{'1GB_mem'}->{LSF} = '-M1000 -R"select[mem>1000] rusage[mem=1000]"';
+    $resources->{'default'}->{LSF} = '-M1000 -R"select[mem>1000] rusage[mem=1000]"';
     return $resources;
 }
 
@@ -102,15 +103,86 @@ sub pipeline_analyses {
 
         {   -logic_name => 'setup_directory',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-            -meadow_type=> 'LOCAL',
             -parameters => {
                 'cmd'     => 'mkdir #uniprot_dir#',
             },
 
             -analysis_capacity  => 1,
 
-            -input_ids  => [ { dummy => 'dummy' } ],
+            -input_ids  => [ { uniprot_dir => $self->o('uniprot_dir')} ],
+            -flow_into => {
+              '1->A' => ['create_pe_level_ids', 'create_fasta_ids', 'dummy_fan'],
+              'A->1' => ['finalise_dbs'],
+            }
 
+        },
+        {   -logic_name => 'dummy_fan',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+            -analysis_capacity  => 1,
+
+            -flow_into => {
+              '1->A' => ['create_taxonony_ids', 'create_isoforms_ids'],
+              'A->1' => ['concat_by_taxonomy'],
+            }
+
+        },
+        {   -logic_name => 'create_taxonony_ids',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+            -parameters => {
+                'inputlist'     => ['uniprot_sprot_human', 'uniprot_sprot_mammals', 'uniprot_sprot_rodents', 'uniprot_sprot_vertebrates', 'uniprot_trembl_human', 'uniprot_trembl_mammals', 'uniprot_trembl_rodents', 'uniprot_trembl_vertebrates'], # this is the last one that we don't do for now: uniprot_trembl_unclassified
+                'column_names' => ['input_file'],
+            },
+            -analysis_capacity  => 1,
+            -flow_into => {
+#              2 => {'download_by_taxonomy' => {input_file => '#input_file#', uniprot_dir => '#uniprot_dir#'}},
+              2 => ['download_by_taxonomy'],
+            },
+        },
+        {
+            -logic_name  => 'create_pe_level_ids',
+            -module      => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+            -parameters  => {
+               'inputlist' => [['uniprot_PE12_vertebrata', '(existence%3a%22evidence+at+protein+level%22+OR+existence%3a%22evidence+at+transcript+level%22)+AND+taxonomy%3aCraniata+AND+fragment:no&compress=yes&format=fasta'],
+                               ['uniprot_PE12_nonvert', '(existence%3a%22evidence+at+protein+level%22+OR+existence%3a%22evidence+at+transcript+level%22)+NOT+taxonomy%3aCraniata+AND+fragment%3ano&compress=yes&format=fasta'],
+                               ['uniprot_PE12_vertebrata_frag', '(existence%3a%22evidence+at+protein+level%22+OR+existence%3a%22evidence+at+transcript+level%22)+AND+taxonomy%3aCraniata+AND+fragment:yes&compress=yes&format=fasta'],
+                               ['uniprot_PE12_nonvert_frag', '(existence%3a%22evidence+at+protein+level%22+OR+existence%3a%22evidence+at+transcript+level%22)+NOT+taxonomy%3aCraniata+AND+fragment%3ayes&compress=yes&format=fasta'],],
+                'column_names' => ['input_file', 'uniprot_query'],
+            },
+            -analysis_capacity  => 1,
+            -flow_into => {
+#                    2 => {'download_by_pe_level' => {input_file => '#input_file#', uniprot_dir => '#uniprot_dir#'}},
+                    '2->A' => ['download_by_pe_level'],
+                    'A->1' => ['prepare_format_pe_level'],
+            },
+        },
+        {   -logic_name => 'create_fasta_ids',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+            -parameters => {
+                'inputlist'     => [['uniprot_sprot.fasta', 'http://web.expasy.org/docs/relnotes/relstat.html'],
+                                    ['uniprot_trembl.fasta', 'http://www.ebi.ac.uk/uniprot/TrEMBLstats/'],],
+                'column_names' => ['input_file', 'check_file'],
+
+            -analysis_capacity  => 1,
+            },
+            -flow_into => {
+#                    2 => {'download_fasta' => {input_file => '#input_file#', uniprot_dir => '#uniprot_dir#'}},
+                    '2->A' => ['download_fasta'],
+                    'A->1' => ['concat_fasta'],
+            },
+        },
+        {   -logic_name => 'create_isoforms_ids',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+            -parameters => {
+                'inputlist'     => [['#varsplic_file#', 'http://web.expasy.org/docs/relnotes/relstat.html']],
+                'column_names' => ['input_file', 'check_file'],
+            },
+
+            -analysis_capacity  => 1,
+
+            -flow_into => {
+#                    2 => {'download_isoforms' => {input_file => '#input_file#', uniprot_dir => '#uniprot_dir#'}},
+                    2 => ['download_isoforms'],
+            },
         },
         {   -logic_name => 'download_by_taxonomy',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -119,38 +191,6 @@ sub pipeline_analyses {
             },
 
             -analysis_capacity  => 5,
-            -wait_for => ['setup_directory'],
-
-            -input_ids  => [
-            {
-                input_file => 'uniprot_sprot_human'
-            },
-            {
-                input_file => 'uniprot_sprot_mammals'
-            },
-            {
-                input_file => 'uniprot_sprot_rodents'
-            },
-            {
-                input_file => 'uniprot_sprot_vertebrates'
-            },
-            {
-                input_file => 'uniprot_trembl_human'
-            },
-            {
-                input_file => 'uniprot_trembl_mammals'
-            },
-            {
-                input_file => 'uniprot_trembl_rodents'
-            },
-            {
-                input_file => 'uniprot_trembl_vertebrates'
-            },
-# The unclassified group will not be used but I'm leaving it here just in case
-#            {
-#                input_file => 'uniprot_trembl_unclassified'
-#            },
-          ],
 
             -flow_into => {
                 1 => [ 'gunzip_taxonomy_file' ],
@@ -175,24 +215,23 @@ sub pipeline_analyses {
             },
             -analysis_capacity  => 5,
             -flow_into => {
-                1 => [ 'check_embl2fasta' ],
+                1 => { 'check_embl2fasta' => {input_file => '#input_file#', filename => '#input_file##fasta_suffix#'}},
             },
         },
 
         {   -logic_name => 'check_embl2fasta',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                'cmd'   => 'EXIT_CODE=1; if [ "`grep -c \> #uniprot_dir#/#input_file##fasta_suffix#`" -eq "`grep -c ^SQ #uniprot_dir#/#input_file#.dat`" ]; then rm #uniprot_dir#/#input_file#.dat; EXIT_CODE=0; fi; exit $EXIT_CODE;',
+                'cmd'   => 'EXIT_CODE=1; if [ "`grep -c \> #uniprot_dir#/#filename#`" -eq "`grep -c ^SQ #uniprot_dir#/#input_file#.dat`" ]; then rm #uniprot_dir#/#input_file#.dat; EXIT_CODE=0; fi; exit $EXIT_CODE;',
             },
             -analysis_capacity  => 5,
             -flow_into => {
-                1 => [ 'concat_by_taxonomy', 'pre_process_isoforms' ],
+                1 => [ 'pre_process_isoforms', '?accu_name=filename&accu_input_variable=filename&accu_address=[]'],
             },
         },
 
         {   -logic_name => 'pre_process_isoforms',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-            -meadow_type => 'LOCAL',
             -parameters => {
                 'cmd'   => 'EXIT_CODE=1; if [ "`echo #input_file# | sed \'s/sprot//\'`" = "#input_file#" ]; then EXIT_CODE=2; else EXIT_CODE=0; fi; exit $EXIT_CODE;',
                 'return_codes_2_branches' => { '2' => 3},
@@ -205,54 +244,74 @@ sub pipeline_analyses {
 
         {   -logic_name => 'concat_by_taxonomy',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-            -meadow_type => 'LOCAL',
             -parameters => {
-                'cmd'   => 'cat #uniprot_dir#/#input_file##fasta_suffix# >> #uniprot_dir#/#uniprot_vert_file#',
+                'cmd'   => 'cd #uniprot_dir#; cat #expr(join(" ", @{#filename#}))expr# > #uniprot_vert_file#; COUNT=0; for F in #expr(join(" ", @{#filename#}))expr#;do FCOUNT=`grep -c \> $F`;COUNT=$((COUNT+FCOUNT));done; if [ "`grep -c \> #uniprot_vert_file#`" -eq "$COUNT" ]; then rm -f #expr(join(" ", @{#filename#}))expr#; else exit 1;fi',
+            },
+            -analysis_capacity  => 1,
+            -flow_into => {
+              1 => ['prepare_format_uniprot_and_isoforms'],
+            },
+        },
+
+        {   -logic_name => 'prepare_format_uniprot_and_isoforms',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+            -analysis_capacity  => 1,
+            -parameters => {
+              inputlist  => [['uniprot_vertebrate_all_isoforms', '#uniprot_vert_file# *.varsplic'],
+                              ['uniprot_vertebrate', '#uniprot_vert_file#']],
+              column_names => ['db_name', 'input_file'],
+            },
+            -flow_into => {
+              2 => ['concat_uniprot_and_isoforms'],
+            }
+
+        },
+        {   -logic_name => 'concat_uniprot_and_isoforms',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -parameters => {
+                'cmd'         => 'cd #uniprot_dir#; cat #input_file# > #db_name#',
+            },
+            -analysis_capacity  => 2,
+            -flow_into => {
+                1 => ['indicate'],
+                '1->A' => ['format_uniprot_and_isoforms'],
+                'A->1' => ['clean_uniprot_and_isoforms'],
+            },
+        },
+        {   -logic_name => 'clean_uniprot_and_isoforms',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -parameters => {
+                'cmd'         => 'cd #uniprot_dir#; for F in #input_file# #varsplic_file#; do rm -f "$F"*;done',
             },
             -analysis_capacity  => 1,
         },
-
         {   -logic_name => 'indicate',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                'cmd'   => '/software/ensembl/bin/indicate -d #uniprot_dir# -f #uniprot_vert_file# --index #uniprot_dir#/#uniprot_file#_index  --parser singleWordParser',
+                'cmd'   => $self->o('indicate').' -d #uniprot_dir# -f #db_name# --index #uniprot_dir#/#uniprot_file#_index  --parser singleWordParser',
             },
-            -rc_name => '1GB_mem',
             -analysis_capacity  => 1,
-            -wait_for => ['gunzip_taxonomy_file', 'embl2fasta', 'check_embl2fasta', 'concat_by_taxonomy'],
-            -input_ids => [ { dummy => 'dummy' } ],
         },
 
-        {   -logic_name => 'xdformat_uniprot_and_isoforms',
+        {   -logic_name => 'format_uniprot_and_isoforms',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                'cmd'         => 'cd #uniprot_dir#; XDBNAME="`ls #input_file#`"; xdformat -p -o #uniprot_dir#/#xdb_name# -t "`echo $XDBNAME | sed \'s/ /,/g\'`" -v "#uniprot_version#" -d "#uniprot_date#" #input_file#',
+#                'cmd'         => 'cd #uniprot_dir#; XDBNAME="`ls #input_file#`"; xdformat -p -o #uniprot_dir#/#xdb_name# -t "`echo $XDBNAME | sed \'s/ /,/g\'`" -v "#uniprot_version#" -d "#uniprot_date#" #input_file#',
+                'cmd'         => 'makeblastdb -dbtype prot -title "#db_name#" -in #uniprot_dir#/#db_name#',
             },
-            -rc_name => '1GB_mem',
-            -input_ids  => [
-            {
-                xdb_name => 'uniprot_vertebrate_all_isoforms',
-                input_file => '#uniprot_vert_file# *.varsplic',
-            },
-            {
-                xdb_name => 'uniprot_vertebrate',
-                input_file => '#uniprot_vert_file#',
-            },
-            ],
-            -wait_for => [ 'gunzip_taxonomy_file', 'embl2fasta', 'check_embl2fasta', 'process_isoforms', 'concat_by_taxonomy'],
             -analysis_capacity  => 2,
-            -flow_into => {
-                1 => ['check_xdformat_uniprot_and_isoforms'],
-            },
+#            -flow_into => {
+#                1 => ['check_format_uniprot_and_isoforms'],
+#            },
         },
 
-        {   -logic_name => 'check_xdformat_uniprot_and_isoforms',
-            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-            -parameters => {
-                'cmd'         => 'EXIT_CODE=1; cd #uniprot_dir#; if [ "`grep -c \> #input_file# | cut -d \':\' -f2 | awk \'{SUM += $1} END {print SUM}\'`" -eq "`xdformat -p -i #uniprot_dir#/#xdb_name# 2>&1 | grep letters | awk \'{print $5}\' | sed \'s/,//g\'`" ]; then EXIT_CODE=0;fi; exit $EXIT_CODE',
-            },
-            -analysis_capacity  => 2,
-        },
+#        {   -logic_name => 'check_format_uniprot_and_isoforms',
+#            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+#            -parameters => {
+#                'cmd'         => 'EXIT_CODE=1; cd #uniprot_dir#; if [ "`grep -c \> #input_file# | cut -d \':\' -f2 | awk \'{SUM += $1} END {print SUM}\'`" -eq "`xdformat -p -i #uniprot_dir#/#xdb_name# 2>&1 | grep letters | awk \'{print $5}\' | sed \'s/,//g\'`" ]; then EXIT_CODE=0;fi; exit $EXIT_CODE',
+#            },
+#            -analysis_capacity  => 2,
+#        },
 
         {   -logic_name => 'download_isoforms',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -261,15 +320,6 @@ sub pipeline_analyses {
             },
 
             -analysis_capacity  => 1,
-            -wait_for => ['setup_directory'],
-
-            -input_ids  => [
-            {
-                input_file => '#varsplic_file#',
-                check_file => 'http://web.expasy.org/docs/relnotes/relstat.html',
-            },
-          ],
-
             -flow_into => {
                 1 => [ 'gunzip_isofasta_file' ],
             },
@@ -306,23 +356,10 @@ sub pipeline_analyses {
         {   -logic_name => 'download_fasta',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                'cmd'     => 'wget -O #uniprot_dir#/#input_file##fasta_suffix#.gz -q "#base_uniprot_ftp#/complete/#input_file##fasta_suffix#.gz"',
+                'cmd'     => 'wget -O #uniprot_dir#/#input_file#.gz -q "#base_uniprot_ftp#/complete/#input_file#.gz"',
             },
 
             -analysis_capacity  => 2,
-            -wait_for => ['setup_directory'],
-
-            -input_ids  => [
-            {
-                input_file => 'uniprot_sprot',
-                check_file => 'http://web.expasy.org/docs/relnotes/relstat.html',
-            },
-            {
-                input_file => 'uniprot_trembl',
-                check_file => 'http://www.ebi.ac.uk/uniprot/TrEMBLstats/',
-            },
-          ],
-
             -flow_into => {
                 1 => [ 'gunzip_fasta_file' ],
             },
@@ -331,7 +368,7 @@ sub pipeline_analyses {
         {   -logic_name => 'gunzip_fasta_file',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                'cmd'         => 'gunzip -c #uniprot_dir#/#input_file##fasta_suffix#.gz | perl -ne \'if (/>/) { s/>...([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}).*PE=([0-9]).*SV=([0-9]).*/>$1.$4 $3/} else {s/O/K/g} print;\' > #uniprot_dir#/#input_file##fasta_suffix#',
+                'cmd'         => 'gunzip -c #uniprot_dir#/#input_file#.gz | perl -ne \'if (/>/) { s/>...([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}).*PE=([0-9]).*SV=([0-9]).*/>$1.$4 $3/} else {s/O/K/g} print;\' > #uniprot_dir#/#input_file#',
             },
             -analysis_capacity  => 2,
             -flow_into => {
@@ -342,17 +379,16 @@ sub pipeline_analyses {
         {   -logic_name => 'check_fasta_file',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                'cmd'         => 'EXIT_CODE=1; if [ "`wget -q -O - #check_file# | perl -ne \'if(/(\d+)\s+sequence\s+entries/) {print $1}\'`" -eq "`grep -c \> #uniprot_dir#/#input_file##fasta_suffix#`" ]; then rm #uniprot_dir#/#input_file##fasta_suffix#.gz;EXIT_CODE=0; fi; exit $EXIT_CODE',
+                'cmd'         => 'EXIT_CODE=1; COUNT=`grep -c \> #uniprot_dir#/#input_file#`;if [ "`wget -q -O - #check_file# | perl -ne \'if(/(\d+)\s+sequence\s+entries/) {print $1}\'`" -eq "$COUNT" ]; then rm #uniprot_dir#/#input_file#.gz; echo $COUNT > #uniprot_dir#/#input_file#.count;EXIT_CODE=0; fi; exit $EXIT_CODE',
             },
             -analysis_capacity  => 2,
             -flow_into => {
-                1 => [ 'concat_fasta', 'pre_entry_loc' ],
+                1 => [ 'pre_entry_loc', '?accu_name=filename&accu_input_variable=input_file&accu_address=[]' ],
             },
         },
 
         {   -logic_name => 'pre_entry_loc',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-            -meadow_type => 'LOCAL',
             -parameters => {
                 'cmd'   => 'EXIT_CODE=1; if [ "`echo #input_file# | sed \'s/sprot//\'`" = "#input_file#" ]; then EXIT_CODE=2; else EXIT_CODE=0; fi; exit $EXIT_CODE;',
                 'return_codes_2_branches' => { '2' => 3},
@@ -365,52 +401,40 @@ sub pipeline_analyses {
 
         {   -logic_name => 'entry_loc',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-            -meadow_type => 'LOCAL',
             -parameters => {
-                'cmd'         => 'grep \> #uniprot_dir#/#input_file##fasta_suffix# | sed \'s/>//\' | awk \'{print $1, "STD"}\' > #uniprot_dir#/entry_loc',
+                'cmd'         => 'EXIT_CODE=1;grep \> #uniprot_dir#/#input_file# | sed \'s/>//\' | awk \'{print $1, "STD"}\' > #uniprot_dir#/entry_loc;EXIT_CODE=$?;WCCOUNT=`wc -l #uniprot_dir#/entry_loc | awk \'{print $1}\'`;COUNT=`grep -c \> #uniprot_dir#/#input_file#`; if [ $WCCOUNT -ne $COUNT ]; then EXIT_CODE=1;fi; exit $EXIT_CODE',
             },
             -analysis_capacity  => 1,
-            -wait_for => ['download_fasta', 'gunzip_fasta_file', 'check_fasta_file'],
         },
 
         {   -logic_name => 'concat_fasta',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                'cmd'   => 'grep -H -c \> #uniprot_dir#/#input_file##fasta_suffix# | sed \'s/:/ /\' >> #uniprot_dir#/#uniprot_file#.a; cat #uniprot_dir#/#input_file##fasta_suffix# >> #uniprot_dir#/#uniprot_file#',
+                'cmd'   => 'EXIT_CODE=1;cd #uniprot_dir#; cat #expr(join(" ", @{#filename#}))expr# > #uniprot_file#;EXIT_CODE=$?; if [ "`awk \'{SUM+=$1} END {print SUM}\' ./*.count`" -eq "`grep -c \> #uniprot_file#`" ]; then rm #expr(join(" ", @{#filename#}))expr#; rm -f ./*.count; EXIT_CODE=0; fi; exit $EXIT_CODE',
+            },
+            -analysis_capacity  => 1,
+            -flow_into => {
+              1 => ['format_blast_uniprot'],
+            },
+        },
+
+        {   -logic_name => 'format_blast_uniprot',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -parameters => {
+#                'cmd'   => 'xdformat -p -t "#uniprot_file#" -v "#uniprot_version#" -d "#uniprot_date#" #uniprot_dir#/#uniprot_file#',
+                'cmd'   => 'makeblastdb -dbtype prot -title "#uniprot_file#" -in #uniprot_dir#/#uniprot_file#',
             },
             -analysis_capacity  => 1,
         },
 
-        {   -logic_name => 'check_concat_fasta',
-            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-            -parameters => {
-                'cmd'   => 'EXIT_CODE=1; if [ "`awk \'{SUM+=$2} END {print SUM}\' #uniprot_dir#/#uniprot_file#.a`" -eq "`grep -c \> #uniprot_dir#/#uniprot_file#`" ]; then ECOUNT=`wc -l #uniprot_dir#/entry_loc | awk \'{print $1}\'`; for C in `awk \'{print $2}\' #uniprot_dir#/#uniprot_file#.a`; do if [ "$ECOUNT" -eq "$C" ]; then awk \'{print $1}\' #uniprot_dir#/#uniprot_file#.a | xargs -I {} rm {}; rm #uniprot_dir#/#uniprot_file#.a; EXIT_CODE=0; fi; done; fi; exit $EXIT_CODE',
-            },
-            -analysis_capacity  => 1,
-            -wait_for => ['concat_fasta', 'entry_loc'],
-            -input_ids => [ { dummy => 'dummy' } ],
-        },
-
-        {   -logic_name => 'xdformat_blast_uniprot',
-            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-            -parameters => {
-                'cmd'   => 'xdformat -p -t "#uniprot_file#" -v "#uniprot_version#" -d "#uniprot_date#" #uniprot_dir#/#uniprot_file#',
-            },
-            -rc_name => '1GB_mem',
-            -analysis_capacity  => 1,
-            -wait_for => ['check_concat_fasta'],
-            -input_ids => [ { dummy => 'dummy' } ],
-        },
-
-        {   -logic_name => 'check_xdformat_uniprot',
-            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-            -parameters => {
-                'cmd'         => 'EXIT_CODE=1; cd #uniprot_dir#; if [ "`grep -c \> #uniprot_file#`" -eq "`xdformat -p -i #uniprot_dir#/#uniprot_file# 2>&1 | grep letters | awk \'{print $5}\' | sed \'s/,//g\'`" ]; then EXIT_CODE=0;fi; exit $EXIT_CODE',
-            },
-            -analysis_capacity  => 1,
-            -wait_for => ['xdformat_blast_uniprot'],
-            -input_ids => [ { dummy => 'dummy' } ],
-        },
+#        {   -logic_name => 'check_format_uniprot',
+#            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+#            -parameters => {
+#                'cmd'         => 'EXIT_CODE=1; cd #uniprot_dir#; if [ "`grep -c \> #uniprot_file#`" -eq "`xdformat -p -i #uniprot_dir#/#uniprot_file# 2>&1 | grep letters | awk \'{print $5}\' | sed \'s/,//g\'`" ]; then EXIT_CODE=0;fi; exit $EXIT_CODE',
+#            },
+#            -analysis_capacity  => 1,
+#            -input_ids => [ { dummy => 'dummy' } ],
+#        },
 
         {   -logic_name => 'download_by_pe_level',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -419,26 +443,6 @@ sub pipeline_analyses {
             },
 
             -analysis_capacity  => 2,
-            -wait_for => ['setup_directory'],
-
-            -input_ids  => [
-            {
-                input_file => 'uniprot_PE12_vertebrata',
-                uniprot_query => '(existence%3a%22evidence+at+protein+level%22+OR+existence%3a%22evidence+at+transcript+level%22)+AND+taxonomy%3aCraniata+AND+fragment:no&compress=yes&format=fasta',
-            },
-            {
-                input_file => 'uniprot_PE12_nonvert',
-                uniprot_query => '(existence%3a%22evidence+at+protein+level%22+OR+existence%3a%22evidence+at+transcript+level%22)+NOT+taxonomy%3aCraniata+AND+fragment%3ano&compress=yes&format=fasta',
-            },
-            {
-                input_file => 'uniprot_PE12_vertebrata_frag',
-                uniprot_query => '(existence%3a%22evidence+at+protein+level%22+OR+existence%3a%22evidence+at+transcript+level%22)+AND+taxonomy%3aCraniata+AND+fragment:yes&compress=yes&format=fasta',
-            },
-            {
-                input_file => 'uniprot_PE12_nonvert_frag',
-                uniprot_query => '(existence%3a%22evidence+at+protein+level%22+OR+existence%3a%22evidence+at+transcript+level%22)+NOT+taxonomy%3aCraniata+AND+fragment%3ayes&compress=yes&format=fasta',
-            },
-          ],
 
             -flow_into => {
                 1 => [ 'gunzip_taxonomy_pe' ],
@@ -462,58 +466,69 @@ sub pipeline_analyses {
             -analysis_capacity  => 2,
         },
 
-        {   -logic_name => 'xdformat_pe_level',
+        {   -logic_name => 'prepare_format_pe_level',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+            -analysis_capacity  => 1,
+            -parameters => {
+              inputlist  => [['PE12', 'uniprot_PE12_vertebrata uniprot_PE12_nonvert'],
+                              ['PE12_wfrag', 'uniprot_PE12_vertebrata uniprot_PE12_nonvert uniprot_PE12_vertebrata_frag uniprot_PE12_nonvert_frag'],
+                              ['PE12_vertebrata', 'uniprot_PE12_vertebrata_frag'],
+                              ['PE12_vertebrata_wfrag', 'uniprot_PE12_vertebrata uniprot_PE12_vertebrata_frag']],
+              column_names => ['db_name', 'input_file'],
+            },
+            -flow_into => {
+              2 => ['concat_pe_level_fasta'],
+            }
+        },
+        {   -logic_name => 'concat_pe_level_fasta',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                'cmd'         => 'cd #uniprot_dir#; xdformat -p -o #uniprot_dir#/#xdb_name# -t `echo "#input_file#" | sed "s/ /,/g"` -v "#uniprot_version#" -d "#uniprot_date#" #input_file#',
+                'cmd'         => 'cd #uniprot_dir#; cat #input_file# > #db_name#',
             },
-            -rc_name => '1GB_mem',
-            -wait_for => ['download_by_pe_level', 'gunzip_taxonomy_pe', 'convert_taxonomy_pe'],
-            -flow_into => ['check_xdformat_pe_level'],
+#            -flow_into => ['check_format_pe_level'],
             -analysis_capacity  => 2,
-            -input_ids  => [
-            {
-                xdb_name => 'PE12',
-                input_file => 'uniprot_PE12_vertebrata uniprot_PE12_nonvert',
+            -flow_into => {
+              '1->A' => ['format_pe_level'],
+              'A->1' => ['clean_pe_level'],
+            }
+        },
+        {   -logic_name => 'format_pe_level',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -parameters => {
+#                'cmd'         => 'cd #uniprot_dir#; xdformat -p -o #uniprot_dir#/#xdb_name# -t `echo "#input_file#" | sed "s/ /,/g"` -v "#uniprot_version#" -d "#uniprot_date#" #input_file#',
+                'cmd'         => 'makeblastdb -dbtype prot -title "#db_name#" -in #uniprot_dir#/#db_name#',
             },
-            {
-                xdb_name => 'PE12_wfrag',
-                input_file => 'uniprot_PE12_vertebrata uniprot_PE12_nonvert uniprot_PE12_vertebrata_frag uniprot_PE12_nonvert_frag',
+#            -flow_into => ['check_format_pe_level'],
+            -analysis_capacity  => 2,
+        },
+        {   -logic_name => 'clean_pe_level',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -parameters => {
+                'cmd'         => 'cd #uniprot_dir#; for F in #input_file#; do rm -f "$F"*;done',
             },
-            {
-                xdb_name => 'PE12_vertebrata',
-                input_file => 'uniprot_PE12_vertebrata_frag',
-            },
-            {
-                xdb_name => 'PE12_vertebrata_wfrag',
-                input_file => 'uniprot_PE12_vertebrata uniprot_PE12_vertebrata_frag',
-            },
-            ],
+            -analysis_capacity  => 1,
         },
 
-        {   -logic_name => 'check_xdformat_pe_level',
-            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-            -parameters => {
-                'cmd'         => 'EXIT_CODE=1; cd #uniprot_dir#; CFILE=`grep -c \> #input_file# | cut -d \':\' -f2 | awk \'{SUM += $1} END {print SUM}\'`;if [ "$CFILE" -eq "`xdformat -p -i #uniprot_dir#/#xdb_name# 2>&1 | grep letters | awk \'{print $5}\' | sed \'s/,//g\'`" ]; then for F in #input_file#; do rm "${F}_initial"; done; EXIT_CODE=0;fi; exit $EXIT_CODE',
-            },
-            -analysis_capacity  => 2,
-        },
+#        {   -logic_name => 'check_format_pe_level',
+#            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+#            -parameters => {
+#                'cmd'         => 'EXIT_CODE=1; cd #uniprot_dir#; CFILE=`grep -c \> #input_file# | cut -d \':\' -f2 | awk \'{SUM += $1} END {print SUM}\'`;if [ "$CFILE" -eq "`xdformat -p -i #uniprot_dir#/#xdb_name# 2>&1 | grep letters | awk \'{print $5}\' | sed \'s/,//g\'`" ]; then for F in #input_file#; do rm "${F}_initial"; done; EXIT_CODE=0;fi; exit $EXIT_CODE',
+#            },
+#            -analysis_capacity  => 2,
+#        },
 
         {   -logic_name => 'finalise_dbs',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-            -meadow_type => 'LOCAL',
             -parameters => {
                 'cmd'         => 'cd #uniprot_dir#; find ./ -type d -execdir chmod g+w {} \;',
             },
             -analysis_capacity  => 1,
-            -input_ids => [ { dummy => 'dummy' } ],
-            -wait_for => ['check_xdformat_uniprot_and_isoforms', 'check_xdformat_uniprot', 'check_xdformat_pe_level' ],
         },
 
     );
 
     foreach my $analysis (@analyses) {
-        $analysis->{'-max_retry_count'} = 1 unless (exists $analysis->{'-max_retry_count'});
+        $analysis->{'-max_retry_count'} = 0 unless (exists $analysis->{'-max_retry_count'});
         $analysis->{'-meadow_type'} = 'LSF' unless (exists $analysis->{'-meadow_type'});
     }
     return \@analyses;
