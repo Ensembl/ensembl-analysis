@@ -1936,11 +1936,13 @@ sub is_transcript_in_gene {
 
 sub get_transcript_exon_key {
   my $transcript = shift;
-  my $string = $transcript->slice->seq_region_name.":".$transcript->biotype.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$transcript->seq_region_strand.":".@{$transcript->get_all_translateable_Exons()}.":";
+  my $string = $transcript->slice()->seq_region_name().":".$transcript->biotype().":".$transcript->seq_region_start().":".$transcript->seq_region_end().":".$transcript->seq_region_strand().":".$transcript->coding_region_start()
+.":".$transcript->coding_region_end()
+.":".@{$transcript->get_all_translateable_Exons()}.":";
 
   my $exons = sort_by_start_end_pos($transcript->get_all_Exons());
   foreach my $exon (@{$exons}) {
-    $string .= ":".$exon->seq_region_start.":".$exon->seq_region_end;
+    $string .= ":".$exon->seq_region_start().":".$exon->seq_region_end();
   }
 
   return $string;
