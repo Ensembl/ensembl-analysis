@@ -350,14 +350,6 @@ sub runnable_failed {
 }
 
 
-sub calculate_coverage_and_pid {
-  my ($self, $value) = @_;
-  if($value){
-    $self->{_calculate_coverage_and_pid} = $value;
-  }
-  return $self->{_calculate_coverage_and_pid};
-}
-
 sub realign_translation {
   my ($self,$source_transcript,$projected_transcript) = @_;
 
