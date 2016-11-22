@@ -83,7 +83,7 @@ sub fetch_input{
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
   $self->hrdb_set_con($dba,'target_db');
 
-  $self->hive_set_config;
+  $self->create_analysis;
 
   my $input_id = $self->param('iid');
   my $slice = $self->fetch_sequence($input_id,$dba,$repeat_masking);

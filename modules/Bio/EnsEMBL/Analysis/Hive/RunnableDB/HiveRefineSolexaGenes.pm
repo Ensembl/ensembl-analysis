@@ -169,7 +169,7 @@ sub fetch_input {
             # pre fetch all the intron features
             $self->dna_2_intron_features($real_slice_start, $real_slice_end);
         }
-        $genes_db->dbc->disconnect_when_inactive(1);
+        $genes_db->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
         my $runnable = Bio::EnsEMBL::Analysis::Runnable::RefineSolexaGenes->new (
                 -analysis     => $self->analysis,
                 -retained_intron_penalty => $self->param('retained_intron_penalty'),
@@ -309,7 +309,6 @@ sub write_output {
     if ($total == 0) {
         $self->input_job->autoflow(0);
     }
-    $outdb->dbc->disconnect_when_inactive(1);
 }
 
 
