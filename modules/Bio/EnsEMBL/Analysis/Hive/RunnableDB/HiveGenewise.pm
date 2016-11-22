@@ -655,8 +655,8 @@ sub write_output{
 
 sub exon_mask_list{
   my ($self, $arg) = @_;
-  if(!$self->{exon_mask_list}){
-    $self->{exon_mask_list} = [];
+  if(!$self->param_is_defined('exon_mask_list')){
+    $self->param('exon_mask_list', []);
   }
   if($arg){
     $self->param('exon_mask_list', $arg);
@@ -678,8 +678,8 @@ sub exon_mask_list{
 =cut
 sub gene_mask_list{
   my ($self, $arg) = @_;
-  if(!$self->{gene_mask_list}){
-    $self->{gene_mask_list} = [];
+  if(!$self->param_is_defined('gene_mask_list')){
+    $self->param('gene_mask_list', []);
   }
   if($arg){
     $self->param('gene_mask_list', $arg);
@@ -718,7 +718,7 @@ sub paf_source_db{
   if($db){
     $self->param('paf_source_db', $db);
   }
-  if(!$self->{paf_source_db}){
+  if(!$self->param_is_defined('paf_source_db')){
     my $db = $self->get_dbadaptor($self->PAF_SOURCE_DB); 
     $self->param('paf_source_db', $db);
   }
@@ -730,7 +730,7 @@ sub gene_source_db{
   if($db){
     $self->param('gene_source_db', $db);
   }
-  if(!$self->{gene_source_db}){
+  if(!$self->param_is_defined('gene_source_db')){
     if (@{$self->BIOTYPES_TO_MASK}) {
       my $db = $self->get_dbadaptor($self->GENE_SOURCE_DB);
       $self->param('gene_source_db', $db);
@@ -762,7 +762,7 @@ sub paf_slice{
   if($slice){
     $self->param('paf_slice', $slice);
   }
-  if(!$self->{paf_slice}){
+  if(!$self->param_is_defined('paf_slice')){
     my $slice = $self->fetch_sequence($self->input_id, $self->paf_source_db,
                                       $self->REPEATMASKING);
     $self->param('paf_slice', $slice);
@@ -776,7 +776,7 @@ sub gene_slice{
   if($slice){
     $self->param('gene_slice', $slice);
   }
-  if(!$self->{gene_slice}){
+  if(!$self->param_is_defined('gene_slice')){
     my $slice = $self->fetch_sequence($self->input_id, $self->gene_source_db,
                                       $self->REPEATMASKING);
     $self->param('gene_slice', $slice);
@@ -790,7 +790,7 @@ sub output_slice{
   if($slice){
     $self->param('output_slice', $slice);
   }
-  if(!$self->{output_slice}){
+  if(!$self->param_is_defined('output_slice')){
     my $slice = $self->fetch_sequence($self->input_id, $self->output_db);
     $self->param('output_slice', $slice);
   }
@@ -803,7 +803,7 @@ sub kill_list{
   if($arg){
     $self->param('kill_list', $arg);
   }
-  if(!$self->{kill_list}){
+  if(!$self->param_is_defined('kill_list')){
     my $kill_list_object = Bio::EnsEMBL::KillList::KillList
       ->new(-TYPE => 'protein');
     $self->param('kill_list', $kill_list_object)->get_kill_list;
@@ -813,7 +813,7 @@ sub kill_list{
 
 sub rejected_set{
   my ($self, $arg) = @_;
-  $self->{rejected_set} = [] if(!$self->{rejected_set});
+  $self->param('rejected_set', []) if(!$self->param_is_defined('rejected_set'));
   if($arg){
     $self->param('rejected_set', $arg);
   }
@@ -828,7 +828,7 @@ sub filter_object{
       unless($arg->can("filter_genes"));
     $self->param('filter_object', $arg);
   }
-  if(!$self->{filter_object} && $self->FILTER_OBJECT){
+  if(!$self->param_is_defined('filter_object') && $self->FILTER_OBJECT){
     $self->require_module($self->FILTER_OBJECT);
     my %params = %{$self->FILTER_PARAMS};
     $arg = $self->FILTER_OBJECT->new(
@@ -850,7 +850,7 @@ sub seqfetcher{
       unless($arg->can("get_Seq_by_acc"));
     $self->param('seqfetcher', $arg);
   }
-  if(!$self->{seqfetcher}){
+  if(!$self->param_is_defined('seqfetcher')){
     $self->require_module($self->SEQFETCHER_OBJECT);
     my %params = %{$self->SEQFETCHER_PARAMS};
     print $params{-db}->[0], "\n";

@@ -367,15 +367,15 @@ sub seqfetcher {
     $self->throw(   "RunnableDB::Exonerate2GenesRegion " . $arg
            . " must have a method get_Seq_by_acc" )
       unless ( $arg->can("get_Seq_by_acc") );
-    $self->{seqfetcher} = $arg;
+    $self->param('seqfetcher', $arg);
   }
-  if ( !$self->{seqfetcher} ) {
+  if ( !$self->param_is_defined('seqfetcher') ) {
     $self->require_module( $self->SEQFETCHER_OBJECT );
     my %params = %{ $self->SEQFETCHER_PARAMS };
     print $params{-db}->[0], "\n";
-    $self->{seqfetcher} = $self->SEQFETCHER_OBJECT->new( %params, );
+    $self->param('seqfetcher', $self->SEQFETCHER_OBJECT->new( %params, ));
   }
-  return $self->{seqfetcher};
+  return $self->param('seqfetcher');
 }
 
 

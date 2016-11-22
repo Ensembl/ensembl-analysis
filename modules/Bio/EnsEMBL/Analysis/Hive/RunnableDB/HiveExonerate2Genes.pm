@@ -1043,18 +1043,18 @@ sub files_to_delete {
 sub peptide_seq {
   my ($self, $value) = @_;
   if($value){
-    $self->{_peptide_seq} = $value;
+    $self->param('_peptide_seq', $value);
   }
-  return $self->{_peptide_seq};
+  return $self->param('_peptide_seq');
 }
 
 
 sub calculate_coverage_and_pid {
   my ($self, $value) = @_;
   if($value){
-    $self->{_calculate_coverage_and_pid} = $value;
+    $self->param('_calculate_coverage_and_pid', $value);
   }
-  return $self->{_calculate_coverage_and_pid};
+  return $self->param('_calculate_coverage_and_pid');
 }
 
 
