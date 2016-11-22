@@ -721,12 +721,12 @@ sub filter {
         not exists($self->TRANSCRIPT_FILTER->{OBJECT}) or
         not exists($self->TRANSCRIPT_FILTER->{PARAMETERS})) {
 
-      $self->throw("FILTER in config foR '$logic' must be a hash ref with elements:\n" .
+      $self->throw("FILTER in config for '".$self->analysis->logic_name."' must be a hash ref with elements:\n" .
             "  OBJECT : qualified name of the filter module;\n" .
             "  PARAMETERS : anonymous hash of parameters to pass to the filter");
     } else {
       $self->require_module($self->TRANSCRIPT_FILTER->{OBJECT});
-      $self->filter($module->new(%{$self->TRANSCRIPT_FILTER->{PARAMETERS}}));
+      $self->filter($self->TRANSCRIPT_FILTER->{OBJECT}->new(%{$self->TRANSCRIPT_FILTER->{PARAMETERS}}));
     }
   }
   if ($self->param_is_defined('_runnable_filter')) {
