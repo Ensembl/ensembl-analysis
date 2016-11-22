@@ -127,7 +127,6 @@ sub write_output{
         $total++;
     }
     $self->throw("Not all genes could be written successfully ($fails fails out of $total)") if ($fails);
-    $gene_adaptor->dbc->disconnect_when_inactive(1);
     print STDERR "$total genes written after filtering\n";
 }
 
