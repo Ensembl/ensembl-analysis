@@ -188,7 +188,7 @@ sub default_options {
     'clone_db_script_path'        => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
     'refseq_synonyms_script_path' => catfile($self->o('enscode_root_dir'), 'ensembl-pipeline', 'scripts', 'refseq_import', 'load_refseq_synonyms.pl'),
     'refseq_import_script_path'   => catfile($self->o('enscode_root_dir'), 'ensembl-pipeline', 'scripts', 'refseq_import', 'parse_ncbi_gff3.pl'),
-    'loading_report_script'     => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts','report_genome_prep_stats.pl'),
+    'loading_report_script'     => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'report_genome_prep_stats.pl'),
     'remove_duplicates_script_path' => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts','find_and_remove_duplicates.pl'),
     repeat_types_script => catfile($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts', 'repeats', 'repeat-types.pl'),
     meta_coord_script => catfile($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts', 'meta_coord', 'update_meta_coord.pl'),
