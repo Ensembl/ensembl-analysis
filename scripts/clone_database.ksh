@@ -155,7 +155,7 @@ if [[ -z ${opt_output} ]]; then
     # the new target database.
     mysqldump --host=${opt_source.dbhost} --port=${opt_source.dbport} \
       --user=${opt_ro_user} \
-      --no-data --lock-table=${opt_locktable} \
+      --no-data --lock-tables=${opt_locktable} \
       ${opt_source.dbname} |
     mysql --host=${opt_target.dbhost} --port=${opt_target.dbport} \
       --user=${opt_rw_user} --password=${opt_rw_pass} \
@@ -178,7 +178,7 @@ fi
 # target database:
 mysqldump --host=${opt_source.dbhost} --port=${opt_source.dbport} \
   --user=${opt_ro_user} \
-  --verbose --lock-table=${opt_locktable} \
+  --verbose --lock-tables=${opt_locktable} \
   ${opt_source.dbname} \
   analysis \
   analysis_description \
