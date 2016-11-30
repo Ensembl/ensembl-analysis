@@ -86,7 +86,7 @@ sub _master_config {
 
       BlastGenscanPep => {
         PARSER_PARAMS => {
-                           -regex => '^(\w+\W\d+)',
+                           -regex => '^\s*(\w+\W\d+)',
                            -query_type => 'pep',
                            -database_type => 'pep',
                            -threshold_type => 'PVALUE',
@@ -102,7 +102,7 @@ sub _master_config {
       BlastGenscanVertRNA => {
         BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
         PARSER_PARAMS => {
-                           -regex => '^(\w+\W\d+)',
+                           -regex => '^\s*(\w+\W\d+)',
                            -query_type => 'pep',
                            -database_type => 'dna',
                            -threshold_type => 'PVALUE',
