@@ -63,7 +63,7 @@ sub pipeline_analyses {
 
 This is the config file for all genebuilder analysis. You should use it in your Hive configuration file to
 specify the parameters of an analysis. You can either choose an existing config or you can create
-a new one based on the default hash. 
+a new one based on the default hash.
 
 =head1 METHODS
 
@@ -161,7 +161,7 @@ sub _master_config {
                 'mammals_pe12_tr_80',
     ],
 
-    mammals_basic=> [
+    mammals_basic => [
                 'realign_80',
                 'realign_95',
                 'realign_50',

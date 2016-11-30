@@ -90,6 +90,7 @@ sub _master_config {
                    'vert_taxon_id'     => '7742',
                  };
   my %config = (
+    default => {},
     primates_basic => {
               self_pe12 =>{
                             file_name => 'self_pe12.fasta',
@@ -276,6 +277,7 @@ sub _master_config {
                             },
 
              },
+
     fish_complete => {
               self_pe12 =>{
                             file_name => 'self_pe12.fasta',
@@ -355,6 +357,7 @@ sub _master_config {
                             },
 
              },
+
     fish_basic => {
               self_pe12 =>{
                             file_name => 'self_pe12.fasta',
