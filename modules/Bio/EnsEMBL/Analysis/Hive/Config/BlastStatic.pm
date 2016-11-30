@@ -117,7 +117,7 @@ sub _master_config {
       BlastGenscanUnigene => {
         BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
         PARSER_PARAMS => {
-                           -regex => '\/ug\=([\w\.]+)',
+                           -regex => '^\s*(\w+\.\d+)',
                            -query_type => 'pep',
                            -database_type => 'dna',
                            -threshold_type => 'PVALUE',
