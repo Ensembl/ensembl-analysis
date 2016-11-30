@@ -277,6 +277,120 @@ sub _master_config {
             },
 
     ],
+
+    fish_basic => [
+             {
+              ID         => 'LAYER1',
+              BIOTYPES   => [
+                             'realign_95',
+                             'realign_80',
+                             'rnaseq_95',
+                             'rnaseq_80',
+                             'self_pe12_sp_95',
+                             'self_pe12_tr_95',
+                             'self_pe12_sp_80',
+                             'self_pe12_tr_80',
+                             'fish_pe12_sp_95',
+                             'fish_pe12_tr_95',
+                            ],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER2',
+              BIOTYPES   => [
+                             'fish_pe12_sp_80',
+                             'fish_pe12_tr_80',
+                             'human_pe12_sp_95',
+                             'human_pe12_tr_95',
+                             'mouse_pe12_sp_95',
+                             'mouse_pe12_tr_95',
+                             'self_pe3_sp_95',
+                             'self_pe3_tr_95',
+                             'vert_pe12_sp_95',
+                             'vert_pe12_tr_95',
+                            ],
+              FILTER_AGAINST => ['LAYER1'],
+              DISCARD    => 0,
+            },
+
+             {
+              ID         => 'LAYER3',
+              BIOTYPES   => [
+                             'human_pe12_sp_80',
+                             'human_pe12_tr_80',
+                             'mouse_pe12_sp_80',
+                             'mouse_pe12_tr_80',
+                             'vert_pe12_sp_80',
+                             'vert_pe12_tr_80',
+                             'mammals_pe12_sp_95',
+                             'mammals_pe12_tr_95',
+                             'mammals_pe12_sp_80',
+                             'mammals_pe12_tr_80',
+                             'realign_50',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2'],
+              DISCARD    => 0,
+            },
+
+    ],
+
+    fish_complete => [
+             {
+              ID         => 'LAYER1',
+              BIOTYPES   => [
+                             'realign_95',
+                             'realign_80',
+                             'rnaseq_95',
+                             'rnaseq_80',
+                             'self_pe12_sp_95',
+                             'self_pe12_tr_95',
+                             'self_pe12_sp_80',
+                             'self_pe12_tr_80',
+                             'fish_pe12_sp_95',
+                             'fish_pe12_tr_95',
+                            ],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER2',
+              BIOTYPES   => [
+                             'fish_pe12_sp_80',
+                             'fish_pe12_tr_80',
+                             'human_pe12_sp_95',
+                             'human_pe12_tr_95',
+                             'mouse_pe12_sp_95',
+                             'mouse_pe12_tr_95',
+                             'self_pe3_sp_95',
+                             'self_pe3_tr_95',
+                             'vert_pe12_sp_95',
+                             'vert_pe12_tr_95',
+                            ],
+              FILTER_AGAINST => ['LAYER1'],
+              DISCARD    => 0,
+            },
+
+             {
+              ID         => 'LAYER3',
+              BIOTYPES   => [
+                             'human_pe12_sp_80',
+                             'human_pe12_tr_80',
+                             'mouse_pe12_sp_80',
+                             'mouse_pe12_tr_80',
+                             'vert_pe12_sp_80',
+                             'vert_pe12_tr_80',
+                             'mammals_pe12_sp_95',
+                             'mammals_pe12_tr_95',
+                             'mammals_pe12_sp_80',
+                             'mammals_pe12_tr_80',
+                             'realign_50',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2'],
+              DISCARD    => 0,
+            },
+
+    ],
   );
   return $config{$key};
 }
