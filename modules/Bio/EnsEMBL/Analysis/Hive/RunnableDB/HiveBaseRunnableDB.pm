@@ -312,7 +312,7 @@ sub feature_factory {
   if($feature_factory) {
     $self->param('feature_factory',$feature_factory);
   }
-  if(!$self->param('feature_factory')) {
+  if(!$self->param_is_defined('feature_factory')) {
     $self->param('feature_factory',Bio::EnsEMBL::Analysis::Tools::FeatureFactory->new());
   }
   return $self->param('feature_factory');

@@ -58,7 +58,6 @@ use strict;
 use warnings;
 use feature 'say';
 
-use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Runnable::Blast;
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -99,18 +98,12 @@ sub fetch_input{
     $self->throw("You did not pass in the blast_db_path parameter. This is required to locate the blast db");
   }
 
-  my $blast_db_path = $self->param('blast_db_path');
-  my $blast_exe_path = $self->param('blast_exe_path');
-
- # Make an analysis object and set it, this will allow the module to write to the output db
-  my $analysis = new Bio::EnsEMBL::Analysis(
-                                             -logic_name => $self->param('logic_name'),
-                                             -module => $self->param('module'),
-                                             -program_file => $blast_exe_path,
-                                             -db_file => $blast_db_path,
-                                             -parameters => $self->param('commandline_params'),
-                                           );
-  $self->analysis($analysis);
+  $self->create_analysis;
+  $self->analysis->program($self->param('blast_program')) if ($self->param_is_defined('blast_program'));
+  $self->analysis->program_file($self->param('blast_exe_path')) if ($self->param_is_defined('blast_exe_path'));
+  $self->analysis->parameters($self->param('commandline_params')) if ($self->param_is_defined('commandline_params'));
+  $self->analysis->db_file($self->param('blast_db_path')) if ($self->param_is_defined('blast_db_path'));
+  $self->analysis->db($self->param('blast_db_name')) if ($self->param_is_defined('blast_db_name'));
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Blast->new
     (
