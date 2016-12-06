@@ -29,7 +29,7 @@ use vars qw(@ISA);
 use strict;
 
 use Bio::EnsEMBL::Gene;
-use Bio::EnsEMBL::Root;
+# use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning );
 #use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils qw( genes_to_Transcript_Cluster ) ;
 

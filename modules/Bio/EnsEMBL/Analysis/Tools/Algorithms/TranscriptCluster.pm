@@ -33,7 +33,7 @@ use Bio::EnsEMBL::Analysis::Tools::Algorithms::IntronCluster;
 use strict;
 
 use Bio::EnsEMBL::Gene;
-use Bio::EnsEMBL::Root;
+#use Bio::EnsEMBL::Root;
 use Bio::RangeI;
 use Bio::EnsEMBL::Utils::Exception qw (throw warning ) ; 
 use vars qw(@ISA);

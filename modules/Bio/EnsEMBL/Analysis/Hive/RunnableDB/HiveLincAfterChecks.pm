@@ -219,7 +219,7 @@ sub update_biotypes {
     my $db_lincRNA_out = $self->hrdb_get_dba( $self->param('lincRNA_output_db') ); 
     my $command_to_upload = 'mysql -h  ' . $db_lincRNA_out->dbc->host . ' -P ' . $db_lincRNA_out->dbc->port .' -u ' . $db_lincRNA_out->dbc->user . ' -p' . $db_lincRNA_out->dbc->password . '  ' . $db_lincRNA_out->dbc->dbname . ' < ' .  $output_file ; 
     print "I will apply the suggested changes to the database... " . $command_to_upload . "\n"; 
-    $self->throw ("can't update the biotypes check the file: ". $output_file)
+    $self->throw("can't update the biotypes check the file: ". $output_file)
       unless ((system ($command_to_upload)) == 0);
   } else {
   	print "Check the files and think if you need to apply the biotypes...\n"; 
