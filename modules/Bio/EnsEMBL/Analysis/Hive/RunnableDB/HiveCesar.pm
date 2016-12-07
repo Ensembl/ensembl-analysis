@@ -15,6 +15,7 @@ use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
 use Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns calculate_exon_phases);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(align_proteins);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -42,8 +43,6 @@ sub fetch_input {
   # Define the compara db
   my $compara_dba = $self->hrdb_get_dba($self->param('compara_db'),undef,'Compara');
   $self->hrdb_set_con($compara_dba,'compara_db');
-
-#  say "DUMPER:".Dumper($compara_dba);
 
   # Get the genome db adpator
   my $genome_dba = $compara_dba->get_GenomeDBAdaptor;
@@ -144,12 +143,8 @@ sub run {
     }
   }
 
+#  die "TEST";
   my $transcripts = $self->build_transcripts($projected_exons);
-  unless($transcripts) {
-    
-  }
-
-
 
   say "Had a total of ".$fail_count."/".scalar(@{$exons})." failed exon projections";
 }
@@ -163,6 +158,7 @@ sub write_output {
 
   my $genes = $self->output_genes();
   foreach my $gene (@{$genes}) {
+    say "Storing gene: ".$gene->start.":".$gene->end.":".$gene->strand;
     empty_Gene($gene);
     $gene_adaptor->store($gene);
   }
@@ -227,6 +223,14 @@ sub build_transcripts {
     say "Transcript translation:\n".$transcript->translation->seq;
     say "Projected transcript translation:\n".$projected_transcript->translation->seq;
 
+    my ($coverage,$percent_id) = align_proteins($transcript->translation->seq,$projected_transcript->translation->seq);
+
+   $projected_transcript->source($coverage);
+   $projected_transcript->biotype($percent_id);
+   $projected_transcript->description(">orig\n".$transcript->translation->seq."\n>proj\n".$projected_transcript->translation->seq);
+
+   say "PROJECTED EXON SEQ:\n".$projected_transcript->seq->seq;
+   say "TRANSCRIPT EXON SEQ:\n".$transcript->translateable_seq;
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->add_Transcript($projected_transcript);
     $gene->analysis($analysis);
@@ -234,8 +238,34 @@ sub build_transcripts {
   }
 
 }
+
+
 sub project_exon {
   my ($self,$exon) = @_;
+
+#  unless($exon->stable_id eq 'ENSE00002824626') {
+#    next;
+#  }
+
+#  unless($exon->stable_id eq 'ENSE00002798178') {
+#    next;
+#  }
+
+#  unless($exon->stable_id eq 'ENSE00002808130') {
+#    next;
+#  }
+
+#  unless($exon->stable_id eq 'ENSE00002798178') {
+#    next;
+#  }
+
+#  unless($exon->stable_id eq 'ENSE00001777460') {
+#    next;
+#  }
+
+# ENST00000445623 - This has two exons, for some reason the orig CDS has an N, which is missing in the
+# projection and frameshifts the whole thing. Non met start issue?
+
   my $exon_align_slices = $self->param('_exon_align_slices')->{$exon->dbID};
 
   unless($exon_align_slices) {
@@ -243,6 +273,14 @@ sub project_exon {
   }
 
   my $seq = $exon->seq->seq();
+  if($exon->{'is_first_exon'}) {
+    $seq =~ s/^ATG//;
+  }
+
+  if($exon->{'is_last_exon'}) {
+    $seq =~ s/(TAA|TAG|TGA)$//;
+  }
+
   my $phase = $exon->phase();
   my $end_phase = $exon->end_phase();
 
@@ -251,8 +289,7 @@ sub project_exon {
   my $start_coord;
   my $end_coord;
 
-  say "Phase/End phase: ".$phase."/".$end_phase;
-  say "S0: ".$seq;
+  # Find 5' split codon and lowercase bases
   if($phase == 0 || $phase == -1) {
   } elsif($phase == 1) {
     my $split_codon = substr($seq,0,2);
@@ -266,7 +303,7 @@ sub project_exon {
     $self->throw("Unexpected phase found for exon ".$exon->stable_id." (".$exon->dbID()."): ".$phase);
   }
 
-  say "S1: ".$seq;
+  # Find 3' split codon and lowercase bases
   if($end_phase == 0 || $end_phase == -1) {
   } elsif($end_phase == 1) {
     my $split_codon = substr($seq,length($seq)-1);
@@ -283,6 +320,7 @@ sub project_exon {
   my $rand = int(rand(10000));
   # Note as each accession will occur in only one file, there should be no problem using the first one
   my $outfile_path = $self->param('output_path')."/cesar_".$$."_".$exon->stable_id."_".$rand.".fasta";
+  $self->files_to_delete($outfile_path);
 
   open(OUT,">".$outfile_path);
   say OUT ">".$exon->stable_id;
@@ -291,18 +329,24 @@ sub project_exon {
   foreach my $exon_align_slice (@{$exon_align_slices}) {
     say $exon->stable_id.": ".$exon_align_slice->name();
     say OUT ">".$exon_align_slice->name();
-    say OUT $exon_align_slice->seq();
+    if($exon->strand == -1) {
+      my $temp_seq = reverse($exon_align_slice->seq());
+      $temp_seq =~ tr/atgcATGC/tacgTACG/;
+      say OUT $temp_seq;
+    } else {
+      say OUT $exon_align_slice->seq();
+    }
   }
   close OUT;
 
   chdir $self->param('cesar_path');
   my $extra_commands = "";
   if($exon->{'is_first_exon'}) {
-   $extra_commands .= "--is_first_exon 1 ";
+    $extra_commands .= "--is_first_exon IS_FIRST_EXON ";
   }
 
   if($exon->{'is_last_exon'}) {
-   $extra_commands .= "--is_last_exon 1 ";
+   $extra_commands .= "--is_last_exon IS_LAST_EXON ";
   }
 
   my $cesar_command = "python2.7 CESAR/CESAR.py ".$outfile_path." ".$extra_commands."--clade human > ".$outfile_path.".ces";
@@ -310,8 +354,18 @@ sub project_exon {
     return(0);
   }
 
+  $self->files_to_delete($outfile_path.".ces");
   my $projected_exon = $self->parse_exon($exon,$outfile_path.".ces");
+#  while(my $file_to_delete = shift(@{$self->files_to_delete})) {
+#    system('rm '.$file_to_delete);
+#  }
+
   if($projected_exon) {
+   say "PROJ EXON START: ".$projected_exon->start;
+   say "PROJ EXON END: ".$projected_exon->end;
+   say "PROJ EXON STRAND: ".$projected_exon->strand;
+   say "PROJ EXON SEQ: ".$projected_exon->seq->seq();
+   say "ORIG EXON SEQ: ".$exon->seq->seq();
    return($projected_exon);
   } else {
     return(0);
@@ -328,38 +382,118 @@ sub parse_exon {
     $self->warning("Output file has more than one projection. We should put in code for this. Exon: ".$source_exon->stable_id);
   }
 
+  my $source_seq =  $projection_array[1];
   my $slice_name = $projection_array[2];
   my $proj_seq = $projection_array[3];
 
+#  $self->analyse_alignment($source_seq,$proj_seq);
+
   # Code needs to go here to tag frameshifts
+#  my $count_source_gap = 0;
+#  my $count_proj_gap = 0;
+#  while($source_seq =~ s/-//) {
+#    $count_source_gap++;
+#  }
+
+#  while($proj_seq =~ s/-//) {
+#    $count_proj_gap++;
+#  }
 
   # For now just sub out the frameshifts
-  $proj_seq =~ s/-//g;
+#  $proj_seq =~ s/-//g;
 
-  unless($proj_seq =~ /(^[atgcn]+)[ATGCN]+([atgcn]+$)/) {
-    $self->throw("Couldn't match on the projected exon seq. Sequence: ".$proj_seq);
-  }
+#  unless($proj_seq =~ /(^[atgcn]+)[ATGCN]+([atgcn]+$)/) {
+#    $self->throw("Couldn't match on the projected exon seq. Sequence: ".$proj_seq);
+#  }
 
-  my $flank_length_start = length($1);
-  my $flank_length_end = length($2);
-#  >chromosome:Mmul_8.0.1:20:2231611:2231829:1
+#  my $flank_length_start = length($1);
+#  my $flank_length_end = length($2);
+#  unless($slice_name =~ /^>(.+\:.+\:.+\:)(.+)\:(.+)\:(.+)$/) {
+#    $self->throw("Couldn't parse the header to get the slice name. Header: ".$slice_name);
+#  }
+
+
+#  my $proj_exon_slice_name = $1;
+#  my $start_coord = $2 + $flank_length_start;
+#  my $end_coord = $3 - $flank_length_end;
+#  my $strand = $4;
+
+
   unless($slice_name =~ /^>(.+\:.+\:.+\:)(.+)\:(.+)\:(.+)$/) {
     $self->throw("Couldn't parse the header to get the slice name. Header: ".$slice_name);
   }
 
+
   my $proj_exon_slice_name = $1;
-  my $start_coord = $2 + $flank_length_start;
-  my $end_coord = $3 - $flank_length_end;
+  my $start_coord = $2;
+  my $end_coord = $3;
   my $strand = $4;
+
+  # Reverse the strand if the slice if the source exon is on the negative strand (in these cases we have reverse complemented
+  # the slice sequence when projecting)
+  if($source_exon->strand == -1) {
+    $strand = $strand * -1;
+  }
+
+  say "FM2 EXON SLICE START: ".$start_coord;
+  say "FM2 EXON SLICE END: ".$end_coord;
+
+  $source_seq =~ /( *)([\-atgcnATGCN]+)/;
+
+  my $source_left_flank = $1;
+  my $source_align = $2;
+#  my $source_right_flank = length($proj_seq) - length($source_seq);
+
+  say "FM2 LLF: ".length($source_left_flank);
+#  say "FM2 LRF: ".length($source_right_flank);
+  if($strand == -1) {
+    $start_coord += length($proj_seq) - length($source_seq);
+  } else {
+    $start_coord += length($source_left_flank);
+  }
+
+  my $gap_count = 0;
+  while($proj_seq =~ s/\-//) {
+    $gap_count++;
+  }
+
+  if($strand == -1) {
+    $end_coord -= length($source_left_flank);
+  } else {
+    $end_coord -= length($proj_seq) - length($source_seq);
+  }
+#  $end_coord = $start_coord + length($source_align) - $gap_count + 1;
+
+  say "FM2 START: ".$start_coord;
+  say "FM2 END: ".$end_coord;
+
+  if($source_exon->{'is_first_exon'} && $source_exon->seq->seq =~ /^ATG/) {
+    say "FM2 IN ISFIRST!!!!!!!!!!!!!!!!!!";
+    if($strand == -1) {
+      $end_coord += 3;
+    } else {
+      $start_coord -= 3;
+    }
+  }
+
+  if($source_exon->{'is_last_exon'} && $source_exon->seq->seq =~ /(TAA|TAG|TGA)$/) {
+    say "FM2 IN ISEND!!!!!!!!!!!!!!!!!!";
+    if($strand == -1) {
+      $start_coord -= 3;
+    } else {
+      $end_coord += 3;
+    }
+  }
+
   $proj_exon_slice_name .= join(":",($start_coord,$end_coord,$strand));
   my $slice_adaptor =  $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor();
-#  say "FM2 DUMPER: ".Dumper($slice_adaptor);
+
 
   my $proj_slice = $slice_adaptor->fetch_by_name($proj_exon_slice_name)->seq_region_Slice;
   unless($proj_slice) {
     $self->throw("Couldn't retrieve a slice for: ".$proj_exon_slice_name);
   }
-#  say "Proj slice name: ".$proj_slice->name;
+
   my $proj_exon = new Bio::EnsEMBL::Exon(
       -START     => $start_coord,
       -END       => $end_coord,
@@ -374,6 +508,27 @@ sub parse_exon {
   say "Proj exon seq: ".$proj_exon->seq->seq;
 
   return($proj_exon);
+
+}
+
+sub analyse_alignment {
+  my ($self,$source_seq,$proj_seq) = @_;
+
+  say "FM2 LENGTH SOURCE: ".length($source_seq);
+  say "FM2 LENGTH PROJ: ".length($proj_seq);
+  my @source_align = split('',$source_seq);
+  my @proj_align = split('',$proj_seq);
+  for(my $i=0; $i<$#source_align; $i++) {
+    if($source_align[$i] eq ' ') {
+      next;
+    }
+
+    if($source_align[$i] eq $proj_align[$i]) {
+#      say "FM2 MATCH: ".$source_align[$i]."-".$proj_align[$i];
+    } else {
+#      say "FM2 MISMATCH!: ".$source_align[$i]."-".$proj_align[$i];
+    }
+  }
 
 }
 
@@ -478,5 +633,19 @@ sub output_genes {
 
   return($self->param('_output_genes'));
 }
+
+sub files_to_delete {
+  my ($self,$val) = @_;
+  unless($self->param('_files_to_delete')) {
+    $self->param('_files_to_delete',[]);
+  }
+
+  if($val) {
+    push(@{$self->param('_files_to_delete')},$val);
+  }
+
+  return($self->param('_files_to_delete'));
+}
+
 
 1;
