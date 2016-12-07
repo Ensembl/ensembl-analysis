@@ -968,7 +968,8 @@ sub align_proteins {
     throw("Pairwise alignment between the query protein sequence and the target protein sequence shows zero aligned positions. Something has gone wrong.");
   }
   my $percent_id = ($match_count/$aligned_positions)*100;
-  
+  $coverage = sprintf "%.2f", $coverage;
+  $percent_id = sprintf "%.2f", $percent_id;
   return ($coverage,$percent_id);
 }
 
