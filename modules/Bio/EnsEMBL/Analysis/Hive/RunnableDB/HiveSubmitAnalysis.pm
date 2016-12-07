@@ -658,7 +658,7 @@ sub feature_restriction {
 
   if($restriction) {
     # Transcript restrictions go here
-    if($type eq 'transcript') {
+    if($type eq 'gene' || $type eq 'transcript') {
       if($restriction eq 'protein_coding') {
         # Note initially this is based on translation and not biotype, but for projection I've switched to to biotype temporarily
         unless($feature->biotype() eq 'protein_coding') {
@@ -667,7 +667,7 @@ sub feature_restriction {
       } elsif($restriction eq 'biotype') {
         # future code with a new param for a biotype array should go here
       }
-    } # End if transcript
+    } # End if type eq gene or transcript
   } # End if restriction
 
   return($feature_restricted);
