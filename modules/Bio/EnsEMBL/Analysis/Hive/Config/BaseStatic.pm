@@ -143,4 +143,28 @@ sub _add_keys {
   }
 }
 
+
+=head2 get_array_config_settings
+
+ Arg [1]    : String $config_group, key for a hash containing an arrayref
+ Arg [2]    : Arrayref $additional_array (optional), optional data to add to the array
+ Description: Method to get an arrayref from a Static.pm config
+ Returntype : Arrayref
+ Exceptions : Throws if Arg[1] cannot be found in the config
+
+=cut
+
+sub get_array_config_settings {
+  my ($self, $config_group, $additional_array) = @_;
+
+  my $config = $self->_master_config('default');
+  if ($config) {
+    my $config_group_array = $self->_master_config($config_group);
+    throw("You have asked for a group name in _master_config that doesn't exist. Group name:\n".$config_group)
+      unless($config_group_array);
+    push(@$config, @$config_group_array);
+  }
+  push(@$config, @$additional_array) if ($additional_array);
+  return $config;
+}
 1;

@@ -128,6 +128,23 @@ sub _master_config {
                            -prune => 1,
                          },
         },
+        BlastRFam => {
+          BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
+          PARSER_PARAMS => {
+                             -regex => '(\w+)\.\w+',
+                             -query_type => 'dna',
+                             -database_type => 'dna',
+                             -threshold => 0.01,
+                           },
+        },
+        BlastmiRBase => {
+          BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::BPliteWrapper',
+          PARSER_PARAMS => {
+                             -regex => '\w+\s+(\w+)',
+                             -query_type => 'dna',
+                             -database_type => 'dna',
+                           },
+          },
   );
   return $config{$key};
 }

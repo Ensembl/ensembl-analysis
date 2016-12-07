@@ -265,7 +265,7 @@ sub add_attribute_to_GAGE_cluster {
                             "\n===== STEP 5: Add attribute to GAGE cluster =====\n");
 
   my $insert_sql = <<END;
-insert into transcript_attrib (transcript_id,attrib_type_id,value)
+insert ignore into transcript_attrib (transcript_id,attrib_type_id,value)
 select t.transcript_id,(select attrib_type_id from attrib_type where code = 'gene_cluster'),'gene_cluster_GAGE'
 from transcript t, gene_attrib ga, attrib_type at
 where t.gene_id = ga.gene_id and ga.attrib_type_id = at.attrib_type_id and ga.value = 'gene_cluster_GAGE';

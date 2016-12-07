@@ -54,19 +54,25 @@ sub fetch_input {
   my ($self) = @_;
 
     my @output_ids;
+    my $other_isoforms = '';
+    my $bad_models = '';
     if ($self->param('single_tissue')) {
         my $table_adaptor = $self->db->get_NakedTableAdaptor;
         $table_adaptor->table_name($self->param('csvfile_table'));
         my %tissue_hash;
         my $results = $table_adaptor->fetch_all();
         foreach my $result (@$results) {
-            $tissue_hash{$result->{$self->param('sample_column')}}->{$result->{$self->param('sample_id_column')}} = 1;
+            $tissue_hash{lc($result->{$self->param('sample_column')})}->{$result->{$self->param('sample_id_column')}} = 1;
         }
         foreach my $key (keys %tissue_hash) {
-            push(@output_ids, [File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_'.$key.'.conf'), [{FILE => $self->param('wide_intron_bam_file').'.bam', GROUPNAME => [keys %{$tissue_hash{$key}}], DEPTH => 0, MIXED_BAM => 0}], $self->param('wide_species').'_'.$key.'_rnaseq', $self->param('wide_species').'_'.$key.'_introns', "best_$key", "single_$key", '', '']);
+            $other_isoforms = $self->param('other_isoforms').'_'.$key if ($self->param_is_defined('other_isoforms'));
+            $bad_models = $self->param('bad_models').'_'.$key if ($self->param_is_defined('bad_models'));
+            push(@output_ids, [File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_'.$key.'.conf'), [{FILE => $self->param('wide_intron_bam_file').'.bam', GROUPNAME => [keys %{$tissue_hash{$key}}], DEPTH => 0, MIXED_BAM => 0}], $self->param('wide_species').'_'.$key.'_rnaseq', $self->param('wide_species').'_'.$key.'_introns', "best_$key", "single_$key", $other_isoforms, $bad_models]);
         }
     }
-    push(@output_ids, [File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_merged.conf'), [{FILE => $self->param('wide_intron_bam_file').'.bam', GROUPNAME => [], DEPTH => 0, MIXED_BAM => 0}], $self->param('wide_species').'_merged_rnaseq', $self->param('wide_species').'_merged_introns', "best", "single", '', '']);
+    $other_isoforms = $self->param('other_isoforms').'_merged' if ($self->param_is_defined('other_isoforms'));
+    $bad_models = $self->param('bad_models').'_merged' if ($self->param_is_defined('bad_models'));
+    push(@output_ids, [File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_merged.conf'), [{FILE => $self->param('wide_intron_bam_file').'.bam', GROUPNAME => [], DEPTH => 0, MIXED_BAM => 0}], $self->param('wide_species').'_merged_rnaseq', $self->param('wide_species').'_merged_introns', "best", "single", $other_isoforms, $bad_models]);
   $self->param('analyses', \@output_ids);
   $self->param('database_file', File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_database.conf'));
 }
@@ -130,7 +136,7 @@ sub generate_config_file {
             MODEL_DB  => "ROUGH_DB",
             INTRON_BAM_FILES => $analysis->[1],
             WRITE_INTRONS => 1,
-            MAX_RECURSIONS => 1600000000,
+            MAX_RECURSIONS => 100000,
             LOGICNAME => [],
             MODEL_LN  => "",
             RETAINED_INTRON_PENALTY => "2.0",
@@ -158,10 +164,10 @@ sub generate_config_file {
             RESTART_NONCONSLIM => "-1.0",
           },
           $analysis->[2] => {
-            SINGLE_EXON_MODEL => $analysis->[4],
-            BEST_SCORE => $analysis->[3],
-            OTHER_ISOFORMS => $analysis->[5],
-            BAD_MODELS     => $analysis->[6],
+            SINGLE_EXON_MODEL => $analysis->[5],
+            BEST_SCORE => $analysis->[4],
+            OTHER_ISOFORMS => $analysis->[6],
+            BAD_MODELS     => $analysis->[7],
           }
         }
     );

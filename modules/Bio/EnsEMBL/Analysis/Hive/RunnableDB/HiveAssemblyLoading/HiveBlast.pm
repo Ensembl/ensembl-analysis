@@ -83,7 +83,7 @@ sub fetch_input{
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
   $self->hrdb_set_con($dba,'target_db');
 
-  $self->hive_set_config;
+  $self->create_analysis;
 
   my $input_id = $self->param('iid');
   my $slice = $self->fetch_sequence($input_id,$dba,$repeat_masking);
@@ -398,14 +398,13 @@ sub FILTER_PARAMS{
 
 sub BLAST_PARAMS {
   my ($self, $value) = @_;
-
   if(defined $value){
     $self->throw("BLAST_PARAMS must be a hash ref not ".$self->BLAST_PARAMS." Blast::set_hive_config")
       unless (ref($value) eq 'HASH');
     $self->param('BLAST_PARAMS',$value);
   }
   if($self->parameters_hash) {
-    my %parameters = (%{$self->param('BLAST_PARAMS')}, %{$self->parameters_hash});
+    my %parameters = (%{$self->param('BLAST_PARAMS') || {}}, %{$self->parameters_hash});
     $self->param('BLAST_PARAMS', \%parameters);
   }
 

@@ -20,8 +20,6 @@ my ( $opt_host_primary,     $opt_port_primary, $opt_user_primary,
      $opt_password_primary, $opt_database_primary );
 my ( $opt_host_dna,     $opt_port_dna, $opt_user_dna,
      $opt_password_dna, $opt_database_dna );
-my ( $opt_host_ccds,     $opt_port_ccds, $opt_user_ccds,
-     $opt_password_ccds, $opt_database_ccds );
 my ( $opt_host_output,     $opt_port_output, $opt_user_output,
      $opt_password_output, $opt_database_output );
 
@@ -35,8 +33,7 @@ my $opt_primary_gene_xref        = 'OTTG,Havana gene,ALT_GENE';
 my $opt_primary_transcript_xref  = 'OTTT,Havana transcript,ALT_TRANS';
 my $opt_primary_translation_xref = 'OTTP,Havana translation,MISC';
 
-$opt_port_secondary = $opt_port_primary = $opt_port_dna = $opt_port_ccds =
-  $opt_port_output = 3306;
+$opt_port_secondary = $opt_port_primary = $opt_port_dna = $opt_port_output = 3306;
 
 my $opt_njobs = 1;    # Default number of jobs.
 my $opt_job   = 1;    # This job.
@@ -65,11 +62,6 @@ if ( !GetOptions(
           'user_dna:s'                        => \$opt_user_dna,
           'password_dna|pass_dna:s'           => \$opt_password_dna,
           'database_dna|dbname_dna:s'         => \$opt_database_dna,
-          'host_ccds:s'                       => \$opt_host_ccds,
-          'port_ccds:i'                       => \$opt_port_ccds,
-          'user_ccds:s'                       => \$opt_user_ccds,
-          'password_ccds|pass_ccds:s'         => \$opt_password_ccds,
-          'database_ccds|dbname_ccds:s'       => \$opt_database_ccds,
           'host_output:s'                     => \$opt_host_output,
           'port_output:i'                     => \$opt_port_output,
           'user_output:s'                     => \$opt_user_output,
@@ -191,26 +183,6 @@ my $output_dba =
   ) or
   die('Failed to connect to output database');
 
-my $ccds_dba;
-if ( defined($opt_host_ccds) &&
-     defined($opt_user_ccds)     &&
-     defined($opt_database_ccds) &&
-     $opt_database_ccds ne '' )
-{
-  $ccds_dba =
-    Bio::EnsEMBL::DBSQL::DBAdaptor->new('-no_cache' => 1,
-                                        '-host'     => $opt_host_ccds,
-                                        '-port'     => $opt_port_ccds,
-                                        '-user'     => $opt_user_ccds,
-                                        '-pass'   => $opt_password_ccds,
-                                        '-dbname' => $opt_database_ccds,
-    ) or
-    die('Failed to connect to CCDS database');
-}
-else {
-  print("Not attaching CCDS database\n");
-}
-
 @opt_secondary_include = split( /,/, join( ',', @opt_secondary_include ) );
 @opt_secondary_exclude = split( /,/, join( ',', @opt_secondary_exclude ) );
 @opt_primary_include  = split( /,/, join( ',', @opt_primary_include ) );
@@ -237,11 +209,6 @@ PRIMARY database\thost:\t$opt_host_primary
                \tuser:\t$opt_user_primary
                \tname:\t$opt_database_primary
 
-CCDS database\thost:\t$opt_host_ccds
-               \tport:\t$opt_port_ccds
-               \tuser:\t$opt_user_ccds
-               \tname:\t$opt_database_ccds
-
 OUTPUT database\thost:\t$opt_host_output
                \tport:\t$opt_port_output
                \tuser:\t$opt_user_output
@@ -267,10 +234,6 @@ my $SECONDARY_GA = $secondary_dba->get_GeneAdaptor();    # Used globally.
 my $PRIMARY_GA  = $primary_dba->get_GeneAdaptor();     # Used globally.
 my $OUTPUT_GA  = $output_dba->get_GeneAdaptor();     # This one too.
 my $OUTPUT_AA  = $output_dba->get_AnalysisAdaptor();     # This one too.
-my $CCDS_TA;
-if ( defined($ccds_dba) ) {
-  $CCDS_TA = $ccds_dba->get_TranscriptAdaptor();     # Ditto.
-}
 
 # Create a chunk of work, i.e. a list of gene IDs.  We create uniformly
 # sized chunks whose size depend on the number of available Primary
@@ -695,14 +658,6 @@ sub process_genes {
     my $is_pseudogene    = 0;
     my $transcript_count = 0;
 
-    my @ccds_transcripts;
-    if ( defined($CCDS_TA) ) {
-      my $ccds_slice =
-        get_feature_slice_from_db( $secondary_gene, $CCDS_TA->db() );
-      @ccds_transcripts =
-        @{ $CCDS_TA->fetch_all_by_Slice( $ccds_slice, 1 ) };
-    }
-
     my $is_rna = (
          index( lc( $secondary_gene->analysis()->logic_name() ), 'ncrna' )
            >= 0 );
@@ -719,22 +674,7 @@ sub process_genes {
       my $secondary_translation = $secondary_transcript->translation();
 
       if ( defined($secondary_translation) ) {
-        if ( scalar(@ccds_transcripts) > 0 ) {
-          my @translatable_exons =
-            @{ $secondary_transcript->get_all_translateable_Exons() };
-
-          foreach my $ccds_transcript (@ccds_transcripts) {
-            if ( features_are_same( \@translatable_exons,
-                                    $ccds_transcript
-                                      ->get_all_translateable_Exons( ) )
-              )
-            {
-              $secondary_transcript->{__is_ccds} = 1;    # HACK
-              last;
-            }
-          }
-        }
-
+        $secondary_transcript->{__is_ccds} = scalar(@{$secondary_transcript->get_all_Attributes('ccds_transcript')});    # HACK
         $is_coding = 1;
       }
       elsif ( $secondary_transcript->biotype() =~ /pseudogene/ ) {
@@ -982,10 +922,12 @@ SECONDARY_GENE:
       if ( $primary_transcript->dbID() !=
            $distinct_transcripts_to_copy{$key}[1]->dbID() )
       {
-        my $total_overlap =
-          exon_overlap( $secondary_transcript, $primary_transcript );
+      	# select by score based on exonic and non-exonic overlap 
+      	my $exon_overlap = exon_overlap($secondary_transcript,$primary_transcript);
+      	my $exon_non_overlap = abs($secondary_transcript->length()-$primary_transcript->length());
+        my $overlap_score = $exon_overlap-$exon_non_overlap;
 
-        if ( $total_overlap > $distinct_transcripts_to_copy{$key}[4] ) {
+        if ( $overlap_score > $distinct_transcripts_to_copy{$key}[4] ) {
           if ($is_conflicting) {
             printf( "Will choose to copy %s (%d) into %s (%d) " .
                       "due to larger exon overlap (%dbp > %dbp)\n",
@@ -993,14 +935,14 @@ SECONDARY_GENE:
                     $secondary_transcript->dbID(),
                     $primary_gene->stable_id(),
                     $primary_gene->dbID(),
-                    $total_overlap,
+                    $overlap_score,
                     $distinct_transcripts_to_copy{$key}[4] );
           }
 
           $distinct_transcripts_to_copy{$key} = [
                                      $primary_gene,  $primary_transcript,
                                      $secondary_gene, $secondary_transcript,
-                                     $total_overlap ];
+                                     $overlap_score ];
         }
         elsif ($is_conflicting) {
           printf( "Will choose to copy %s (%d) into %s (%d) " .
@@ -1010,18 +952,21 @@ SECONDARY_GENE:
                   $distinct_transcripts_to_copy{$key}[0]->stable_id(),
                   $distinct_transcripts_to_copy{$key}[0]->dbID(),
                   $distinct_transcripts_to_copy{$key}[4],
-                  $total_overlap );
+                  $overlap_score );
         }
       } ## end if ( $primary_transcript...)
 
     } ## end if ( exists( $distinct_transcripts_to_copy...))
     else {
+      my $exon_overlap = exon_overlap($secondary_transcript,$primary_transcript);
+      my $exon_non_overlap = abs($secondary_transcript->length()-$primary_transcript->length());
+      my $overlap_score = $exon_overlap-$exon_non_overlap;
       $distinct_transcripts_to_copy{$key} = [
                  $primary_gene,
                  $primary_transcript,
                  $secondary_gene,
                  $secondary_transcript,
-                 exon_overlap( $secondary_transcript, $primary_transcript )
+                 $overlap_score
       ];
     }
 
@@ -1735,7 +1680,7 @@ sub merge {
             $feature_count, $exon_index );
 
   }
-
+  
   $target_gene->source($merged_source);
   $target_transcript->source($merged_source);
 
@@ -1996,11 +1941,13 @@ sub is_transcript_in_gene {
 
 sub get_transcript_exon_key {
   my $transcript = shift;
-  my $string = $transcript->slice->seq_region_name.":".$transcript->biotype.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$transcript->seq_region_strand.":".@{$transcript->get_all_translateable_Exons()}.":";
+  my $string = $transcript->slice()->seq_region_name().":".$transcript->biotype().":".$transcript->seq_region_start().":".$transcript->seq_region_end().":".$transcript->seq_region_strand().":".$transcript->coding_region_start()
+.":".$transcript->coding_region_end()
+.":".@{$transcript->get_all_translateable_Exons()}.":";
 
   my $exons = sort_by_start_end_pos($transcript->get_all_Exons());
   foreach my $exon (@{$exons}) {
-    $string .= ":".$exon->seq_region_start.":".$exon->seq_region_end;
+    $string .= ":".$exon->seq_region_start().":".$exon->seq_region_end();
   }
 
   return $string;

@@ -101,7 +101,7 @@ sub fetch_input{
   $self->hrdb_set_con($input_dba,'input_db');
   $self->hrdb_set_con($output_dba,'output_db');
 
-  $self->hive_set_config();
+  $self->create_analysis;
 
   #fetch sequence
   my $slice = $input_dba->get_SliceAdaptor->fetch_by_name($self->param('iid'));
@@ -201,19 +201,16 @@ sub get_Genes {
   my @genes;
 
   my $slice = $self->query();
-  my $genes = $slice->get_all_Genes();
 
-  #foreach my $db_name(keys(%{$self->INPUT_GENES})){
-  #  my $biotypes = $self->INPUT_GENES->{$db_name};
-  #  foreach my $biotype(@$biotypes){
-  #    my $genes = $slice->get_all_Genes_by_type($biotype);
-  #    print "Retrieved ".@$genes." of type ".$biotype."\n";
-  #    push(@genes, @$genes);
-  #  }
-  #}
-  #$self->input_genes(\@genes);
-
-  $self->input_genes($genes);
+  foreach my $db_name(keys(%{$self->INPUT_GENES})){
+    my $biotypes = $self->INPUT_GENES->{$db_name};
+    foreach my $biotype(@$biotypes){
+      my $genes = $slice->get_all_Genes_by_type($biotype);
+      print "Retrieved ".@$genes." of type ".$biotype."\n";
+      push(@genes, @$genes);
+    }
+  }
+  $self->input_genes(\@genes);
 }
 
 
@@ -294,72 +291,7 @@ sub validate_Transcript{
 }
 
 
-
 #CONFIG METHODS
-sub hive_set_config {
-  my ($self, $hash) = @_;
-
-  # Throw is these aren't present as they should both be defined
-  unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    $self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
-          "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
-          "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
-          "write the genes to and this should also include the module name even if it isn't strictly necessary"
-         );
-  }
-
-  # Make an analysis object and set it, this will allow the module to write to the output db
-  my $analysis = new Bio::EnsEMBL::Analysis(
-                                             -logic_name => $self->param('logic_name'),
-                                             -module => $self->param('module'),
-                                           );
-  $self->analysis($analysis);
-
-  # Now loop through all the keys in the parameters hash and set anything that can be set
-  my $config_hash = $self->param('config_settings');
-  foreach my $config_key (keys(%{$config_hash})) {
-    if(defined &$config_key) {
-      $self->$config_key($config_hash->{$config_key});
-    } else {
-      $self->throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
-            "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
-            "key:\n".$config_key
-           );
-    }
-  }
-
-  foreach my $var (qw(INPUT_GENES)) {
-    unless($self->$var) {
-      $self->throw("Hive::RunnableDB::HiveGeneBuilder ".$var." config variable is not defined");
-    }
-  }
-
-  my @keys = keys(%{$self->INPUT_GENES});
-  unless(@keys) {
-    $self->throw("Hive::RunnableDB::GeneBuilder INPUT_GENES has needs to contain values");
-  }
-
-  my %unique;
-  foreach my $key(@keys) {
-    my $biotypes = $self->INPUT_GENES->{$key};
-    foreach my $biotype(@$biotypes) {
-      if(!$unique{$biotype}) {
-        $unique{$biotype} = $key;
-      } else {
-        if($self->BLESSED_BIOTYPES->{$biotype}){
-          $self->throw($biotype." is defined for both ".$key." and ".$unique{$biotype}.
-                " and is found in the blessed biotype hash\n".
-                "This is likely to cause problems for the filtering done in ".
-                "the genebuilder code");
-        } else {
-          $self->warning($biotype." appears twice in your listing, make sure this ".
-                  "isn't for the same database otherwise it will cause issue");
-        }
-      }
-    }
-  }
-  $self->OUTPUT_BIOTYPE($self->analysis->logic_name) if(!$self->OUTPUT_BIOTYPE);
-}
 
 =head2 INPUT_GENES
 
@@ -378,73 +310,73 @@ sub hive_set_config {
 sub INPUT_GENES {
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->param('_INPUT_GENES',$arg);
+    $self->param('INPUT_GENES',$arg);
   }
-  return $self->param('_INPUT_GENES');
+  return $self->param_required('INPUT_GENES');
 }
 
 #sub OUTPUT_DB {
 #  my ($self, $arg) = @_;
 #  if(defined $arg){
-#    $self->param('_OUTPUT_DB',$arg);
+#    $self->param('OUTPUT_DB',$arg);
 #  }
-#  return $self->param('_OUTPUT_DB');
+#  return $self->param('OUTPUT_DB');
 #}
 
 sub OUTPUT_BIOTYPE {
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->param('_OUTPUT_BIOTYPE',$arg);
+    $self->param('OUTPUT_BIOTYPE',$arg);
   }
-  return $self->param('_OUTPUT_BIOTYPE');
+  return $self->param('OUTPUT_BIOTYPE');
 }
 
 sub MAX_TRANSCRIPTS_PER_CLUSTER {
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->param('_MAX_TRANSCRIPTS_PER_CLUSTER',$arg);
+    $self->param('MAX_TRANSCRIPTS_PER_CLUSTER',$arg);
   }
-  return $self->param('_MAX_TRANSCRIPTS_PER_CLUSTER');
+  return $self->param('MAX_TRANSCRIPTS_PER_CLUSTER');
 }
 
 sub MIN_SHORT_INTRON_LEN {
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->param('_MIN_SHORT_INTRON_LEN',$arg);
+    $self->param('MIN_SHORT_INTRON_LEN',$arg);
   }
-  return $self->param('_MIN_SHORT_INTRON_LEN');
+  return $self->param('MIN_SHORT_INTRON_LEN');
 }
 
 sub MAX_SHORT_INTRON_LEN {
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->param('_MAX_SHORT_INTRON_LEN',$arg);
+    $self->param('MAX_SHORT_INTRON_LEN',$arg);
   }
-  return $self->param('_MAX_SHORT_INTRON_LEN');
+  return $self->param('MAX_SHORT_INTRON_LEN');
 }
 
 sub BLESSED_BIOTYPES {
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->param('_BLESSED_BIOTYPES',$arg);
+    $self->param('BLESSED_BIOTYPES',$arg);
   }
-  return $self->param('_BLESSED_BIOTYPES');
+  return $self->param('BLESSED_BIOTYPES');
 }
 
 sub MAX_EXON_LENGTH {
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->param('_MAX_EXON_LENGTH',$arg);
+    $self->param('MAX_EXON_LENGTH',$arg);
   }
-  return $self->param('_MAX_EXON_LENGTH');
+  return $self->param('MAX_EXON_LENGTH');
 }
 
 sub CODING_ONLY {
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->param('_CODING_ONLY',$arg);
+    $self->param('CODING_ONLY',$arg);
   }
-  return $self->param('_CODING_ONLY');
+  return $self->param('CODING_ONLY');
 }
 
 1;

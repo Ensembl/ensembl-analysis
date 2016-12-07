@@ -92,6 +92,10 @@ sub run {
             " -output_dir ".$output_path.
             " -filename ".$output_file;
 
+  if($self->param('patch_only')) {
+    $cmd .= " -patch_only ";
+  }
+
   say "Running command:\n".$cmd;
 
   my $result = system($cmd);

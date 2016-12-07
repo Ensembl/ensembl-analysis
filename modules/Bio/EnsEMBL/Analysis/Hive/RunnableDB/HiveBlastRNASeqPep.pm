@@ -56,7 +56,7 @@ use warnings ;
 use strict;
 
 use Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep;
-use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
+use Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast');
@@ -197,7 +197,9 @@ sub add_supporting_features {
     unless $gene;
   print "Got gene " . $gene->stable_id ."\n";
   my $chr_slice = $self->param('toplevel_slice');
-  foreach my $tran ( @{$gene->get_all_Transcripts} ) {
+  my $transcripts = $gene->get_all_Transcripts;
+  $gene->flush_Transcripts;
+  foreach my $tran ( @$transcripts ) {
     $tran = $tran->transfer($chr_slice);
     # order them by name
     foreach my $f ( @$features ) {
@@ -302,16 +304,17 @@ sub add_supporting_features {
       $tsf->analysis($tran->analysis);
       print STDERR "coverage $coverage\n";
       # calculate the hcoverage
-      my $seqfetcher =Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new
-	( -db => [$self->INDEX],
-	  -format => 'fasta'
-	);
+      my $seqfetcher = Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher->new(
+        -db => [$self->INDEX],
+        -format => 'fasta'
+      );
       my $seq = $seqfetcher->get_Seq_by_acc($tsf->hseqname);
       my $hcoverage =  sprintf("%.3f",( $hlen / length($seq->seq) ) * 100);
       $tsf->hcoverage(  $hcoverage ) ;
       print STDERR "hcoverage $hcoverage\n";
       $tran->add_supporting_features($tsf);
     }
+    $gene->add_Transcript($tran);
   }
 
   push @output,$gene;
@@ -456,7 +459,12 @@ sub MODEL_DB {
 sub LOGICNAME {
     my ($self) = @_;
 
-    return $self->param('logic_name');
+    if ($self->param_is_defined('logic_name')) {
+      return $self->param('logic_name');
+    }
+    else {
+      return;
+    }
 }
 
 

@@ -97,7 +97,6 @@ sub fetch_input{
                                              -parameters => $self->param('commandline_params'),
                                            );
   $self->analysis($analysis);
-  $self->hive_set_config;
 
   my $pta = $dba->get_PredictionTranscriptAdaptor;
 

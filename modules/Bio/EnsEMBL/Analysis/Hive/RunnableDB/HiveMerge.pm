@@ -45,10 +45,6 @@ standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMerge
                                -user_primary READ_ONLY_USER
                                -password_primary READ_ONLY_PASS
                                -database_primary VEGADBNAME
-                               -host_ccds CCDSHOST
-                               -user_ccds READ_ONLY_USER
-                               -password_ccds READ_ONLY_PASS
-                               -database_ccds CCDSDBNAME
                                -host_output MERGEDBHOST
                                -user_output WRITE_USER
                                -password_output WRITE_PASS
@@ -109,10 +105,6 @@ sub param_defaults {
       port_dna => '',
       user_dna => '',
       database_dna => '',
-      host_ccds => '',
-      user_ccds => '',
-      password_ccds => '',
-      database_ccds => '',
       host_output => '',
       user_output => '',
       password_output => '',
@@ -165,10 +157,6 @@ sub run {
               " --port_dna=".$self->param('port_dna').
               " --user_dna=".$self->param('user_dna').
               " --database_dna=".$self->param('database_dna').
-              " --host_ccds=".$self->param('host_ccds').
-              " --user_ccds=".$self->param('user_ccds').
-              " --password_ccds=".$self->param('password_ccds').
-              " --database_ccds=".$self->param('database_ccds').
               " --host_output=".$self->param('host_output').
               " --user_output=".$self->param('user_output').
               " --password_output=".$self->param('password_output').

@@ -110,7 +110,7 @@ my $aaga = $db->get_AltAlleleGroupAdaptor();
 # First fetch all existing alt allele groups from the output database
 # There are probably some here from havana already (previous script in ensembl/misc-scripts/alt_alleles.pl)
 # # #
-my $alt_allele_groups = $aaga->fetch_all_Groups();
+my $alt_allele_groups = $aaga->fetch_all();
 
 # Just for curiousity:
 # Work out what the max alt_allele_id and alt_allele_group_id is

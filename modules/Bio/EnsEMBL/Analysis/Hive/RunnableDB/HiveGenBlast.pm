@@ -129,7 +129,7 @@ sub fetch_input {
   my $max_rank = $self->param('max_rank');
   my $genblast_pid = $self->param('genblast_pid');
 
-  say "FM2 DBA NAME: ".$dba->dbname;
+  #say "FM2 DBA NAME: ".$dba->dbname;
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlastGene->new
     (
@@ -245,10 +245,10 @@ sub write_output{
 
 sub runnable_failed {
   my ($self,$runnable_failed) = @_;
-  if($runnable_failed) {
+  if (defined $runnable_failed) {
     $self->param('_runnable_failed',$runnable_failed);
   }
-  return($self->param('_runnable_failed'));
+  return ($self->param('_runnable_failed'));
 }
 
 
