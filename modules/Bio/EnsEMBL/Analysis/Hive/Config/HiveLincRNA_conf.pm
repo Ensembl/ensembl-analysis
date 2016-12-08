@@ -91,7 +91,7 @@ sub default_options {
     'max_seq_length_per_file' => 20000, # Maximum sequence length in a file 
     'max_files_per_directory' => 1000, # Maximum number of files in a directory
     'max_dirs_per_directory'  => $self->o('max_files_per_directory'),
-    'out_dir' => '/lustre/scratch110/ensembl/kb15/linc_mouse_lemur/lincRNA_annotation_3rd_r',
+    'out_dir' => '',
     'file_translations' => $self->o('out_dir').'/hive_dump_translations.fasta',  
     
 ########################
