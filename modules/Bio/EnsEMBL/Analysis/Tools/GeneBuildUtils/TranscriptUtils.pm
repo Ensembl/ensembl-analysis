@@ -96,6 +96,7 @@ use vars qw (@ISA @EXPORT);
              evidence_coverage_greater_than_minimum
              exon_lengths_all_less_than_maximum
              exon_overlap
+             coding_exon_overlap
              exonic_proportion
              features_overlap
              fully_load_Transcript
@@ -2912,6 +2913,21 @@ sub exon_overlap {
 
   foreach my $exonA (@{$trancriptA->get_all_Exons()}) {
     foreach my $exonB (@{$trancriptB->get_all_Exons()}) {
+      $overlap += overlap_length($exonA,$exonB);
+    }
+  }
+  return $overlap;
+}
+
+sub coding_exon_overlap {
+# return the length of the coding exonic overlap between
+# transcriptA and transcriptB
+  my ($trancriptA,$trancriptB) = @_;
+
+  my $overlap = 0;
+
+  foreach my $exonA (@{$trancriptA->get_all_translateable_Exons()}) {
+    foreach my $exonB (@{$trancriptB->get_all_translateable_Exons()}) {
       $overlap += overlap_length($exonA,$exonB);
     }
   }
