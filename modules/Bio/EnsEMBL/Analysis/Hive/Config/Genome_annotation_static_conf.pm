@@ -853,6 +853,18 @@ sub pipeline_analyses {
                        },
         -input_ids => [{}],
         -wait_for => ['run_dust','run_repeatmasker','run_repeatmasker_himem'],
+        -flow_into => {
+          1 => ['format_softmasked_toplevel'],
+        },
+        -rc_name    => 'default_himem',
+      },
+      {
+        # This should probably be a proper module
+        -logic_name => 'format_softmasked_toplevel',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmaski -in '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa.asnb;makeblastdb -in '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa -dbtype nucl -parse_seqids -mask_data '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa;fi',
+                       },
         -rc_name    => 'default_himem',
       },
 
@@ -1290,7 +1302,7 @@ sub pipeline_analyses {
                          pass_w => $self->o('password'),
                        },
         -rc_name    => 'default',
-        -wait_for => ['dump_softmasked_toplevel'],
+        -wait_for => ['format_softmasked_toplevel'],
         -flow_into => {
                         '1->A' => ['get_refseq_cdnas'],
                         'A->1' => ['create_genblast_output_db'],
