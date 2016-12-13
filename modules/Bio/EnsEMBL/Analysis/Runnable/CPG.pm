@@ -195,7 +195,7 @@ sub parse_results{
       my @elements = split;
       my ($name, $start, $end, $score, $gc_content, $oe) 
         = @elements[0, 1, 2, 3, 6, 7];
-      if($oe eq "-"){ 
+      if($oe eq "-" or $oe eq 'inf'){
         $oe = 0; 
       }
       my $length = $end - $start + 1;

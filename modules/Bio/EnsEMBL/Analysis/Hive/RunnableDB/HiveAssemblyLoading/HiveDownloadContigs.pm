@@ -22,18 +22,18 @@ use warnings;
 use feature 'say';
 
 
+use File::Spec::Functions;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
-  return 1;
-  unless($self->param('wgs_ids') && $self->param('output_path') && $self->param('contigs_source')) {
+  unless($self->param('wgs_id') && $self->param('output_path') && $self->param('contigs_source')) {
     $self->throw("Must pass in the following parameters:\n".
           "wgs_id e.g AAEX for Dog".
           "output_path e.g /path/to/work/dir\n".
           "contigs_source e.g. 'ENA' or 'NCBI'");
   }
-
+  return 1;
 }
 
 sub run {
@@ -41,8 +41,8 @@ sub run {
 
   my $wgs_id = $self->param('wgs_id');
   my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
-  my $contig_accession_path = $self->param('output_path')."/".$primary_assembly_dir_name."/AGP/contigs.txt";
-  my $output_path = $self->param('output_path')."/".$primary_assembly_dir_name."/contigs";
+  my $contig_accession_path = catfile($self->param('output_path'), $primary_assembly_dir_name, 'AGP', 'contigs.txt');
+  my $output_path = catdir($self->param('output_path'), $primary_assembly_dir_name, 'contigs');
   my $source = $self->param('contigs_source');
 
   $self->download_ftp_contigs($source,$wgs_id,$output_path);
@@ -67,7 +67,7 @@ sub download_ftp_contigs {
   say "The contigs will be downloaded from the ".$source." ftp site";
 
   # check if the output dir for contigs exists; otherwise, create it
-  if (-e "$output_path") {
+  if (-e $output_path) {
     say "Output path ".$output_path." found";
   } else {
     `mkdir -p $output_path`;
@@ -128,8 +128,8 @@ sub fix_contig_headers {
 
   $source = lc($source);
   if($source eq 'ncbi') {
-    my $contigs_unfixed = $output_path.'/contigs_unfixed_header.fa';
-    my $contigs_fixed = $output_path.'/contigs.fa';
+    my $contigs_unfixed = catfile($output_path, 'contigs_unfixed_header.fa');
+    my $contigs_fixed = catfile($output_path, 'contigs.fa');
 
     my $cat_files = 'cat '.$output_path.'/*.fsa_nt > '.$contigs_unfixed;
     my $return = system($cat_files);
@@ -167,34 +167,32 @@ sub fix_contig_headers {
 sub find_missing_accessions {
   my ($self,$output_path,$contig_accession_path) = @_;
 
-  my $contig_file = $output_path.'/contigs.fa';
-  my $contig_headers_file = $output_path.'/contig_headers.txt';
+  my $contig_file = catfile($output_path, 'contigs.fa');
+  my $contig_headers_file = catfile($output_path, 'contig_headers.txt');
 
-  my $cmd = "grep '^>' ".$contig_file." > ".$contig_headers_file;
-  my $result = system($cmd);
-  if($result) {
-    $self->throw("Issue parsing headers from contigs.fa into contig_headers.txt. Commandline used:\n".$cmd);
+  my %accessions;
+  open(IN, $contig_accession_path) || $self->throw("Could not open $contig_accession_path");
+  while (<IN>) {
+    chomp $_;
+    $accessions{$_} = 1;
   }
-print "$contig_accession_path \n";
-  open(IN,$contig_accession_path);
-  my @all_accessions = <IN>;
-  close IN;
+  close(IN) || $self->throw("Could not close $contig_accession_path");
 
-  my $missing_accessions = [];
-  foreach my $accession (@all_accessions) {
-    chomp $accession;
-    $cmd = "grep -c '^>".$accession."\$' ".$contig_headers_file;
-    my $found_accession = int(`$cmd`);
-    unless($found_accession) {
-      $self->warning("No match in initial wgs download for accession: ".$accession);
-      push(@{$missing_accessions},$accession);
+  my @missing_accessions;
+  open(FH, "grep '^>' $contig_file |") || $self->throw("Could not open $contig_file");
+  while (<FH>) {
+    $_ =~ />(\S+)/;
+    if (!exists $accessions{$1}) {
+      $self->warning("No match in initial wgs download for accession: ".$1);
+      push(@missing_accessions,$1);
     }
   }
+  close(FH) || $self->throw("Could not close $contig_file");
 
-  if(scalar(@{$missing_accessions}) > 1000) {
-    $self->throw("Found a large amount of missing accessions (".scalar(@{$missing_accessions})."), something might be wrong");
-  } elsif(scalar(@{$missing_accessions})) {
-    $self->recover_missing_accessions($output_path,$missing_accessions);
+  if(scalar(@missing_accessions) > 1000) {
+    $self->throw("Found a large amount of missing accessions (".scalar(@missing_accessions)."), something might be wrong");
+  } elsif(scalar(@missing_accessions)) {
+    $self->recover_missing_accessions($output_path, \@missing_accessions);
   } else {
     say "All accession accounted for in the initial wgs download";
   }

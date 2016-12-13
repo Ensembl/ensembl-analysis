@@ -21,6 +21,9 @@ use strict;
 use warnings;
 use feature 'say';
 
+use File::Spec::Functions;
+use File::Path;
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
@@ -32,7 +35,7 @@ sub fetch_input {
   }
 
   unless($self->param('production_db')) {
-    throw("You have used the populate_production_tables flag but have not passed in the production db connection hash with ".
+    $self->throw("You have used the populate_production_tables flag but have not passed in the production db connection hash with ".
           "the production_db flag");
   }
 
@@ -45,6 +48,9 @@ sub fetch_input {
     $self->throw("You have not specified the path to the main output directory with the -output_path flag, ".
                  "this is needed to dump the backup tables into");
   }
+  my $dump_path = catdir($self->param('output_path'), 'populate_script_dump');
+  make_path($dump_path) unless (-d $dump_path);
+  $self->param('dump_path', $dump_path);
 
   return 1;
 }
@@ -56,10 +62,10 @@ sub run {
   my $target_db = $self->param('target_db');
   my $production_db = $self->param('production_db');
   my $enscode_dir = $self->param('enscode_root_dir');
-  my $dump_path = $self->param('output_path')."/populate_script_dump";
+
 
   say "Running populate script on target db...\n";
-  $self->populate_production_db_tables($target_db,$production_db,$enscode_dir,$dump_path);
+  $self->populate_production_db_tables($target_db,$production_db,$enscode_dir,$self->param('dump_path'));
   say "...finished running script on target db\n";
   return 1;
 }
@@ -73,10 +79,6 @@ sub write_output {
 
 sub populate_production_db_tables {
   my ($self,$target_db,$production_db,$enscode_dir,$dump_path) = @_;
-
-  unless(-d $dump_path) {
-    `mkdir -p $dump_path`;
-  }
 
   my $target_dbname;
   my $target_host;
@@ -92,7 +94,7 @@ sub populate_production_db_tables {
 
 
   unless($target_dbname && $target_host && $target_user && $target_pass) {
-    throw("The connection info for the database could not be recovered from the parameters passed in. ".
+    $self->throw("The connection info for the database could not be recovered from the parameters passed in. ".
           "Make sure you pass in user_w, pass_w and either a db string or a hash to target_db");
   }
 
@@ -101,7 +103,7 @@ sub populate_production_db_tables {
   my $production_port = $production_db->{'-port'};
   my $production_dbname = $production_db->{'-dbname'};
 
-  my $populate_script = $self->param('enscode_root_dir')."/ensembl-production/scripts/production_database/populate_production_db_tables.pl";
+  my $populate_script = catfile($self->param('enscode_root_dir'), 'ensembl-production', 'scripts', 'production_database', 'populate_production_db_tables.pl');
   my $cmd = "perl ".$populate_script.
             " -h ".$target_host.
             " -u ".$target_user.
@@ -110,7 +112,7 @@ sub populate_production_db_tables {
             " -mh ".$production_host.
             " -md ".$production_dbname.
             " -mu ".$production_user.
-            " -dp ".$self->param('output_path');
+            " -dp ".$dump_path;
 
   if($target_port) {
     $cmd .= " -P ".$target_port;
@@ -122,7 +124,7 @@ sub populate_production_db_tables {
 
   my $return = system($cmd);
   if($return) {
-    throw("The populate_production_db_tables script returned a non-zero exit value. Commandline used:\n".$cmd);
+    $self->throw("The populate_production_db_tables script returned a non-zero exit value. Commandline used:\n".$cmd);
   }
 
 }

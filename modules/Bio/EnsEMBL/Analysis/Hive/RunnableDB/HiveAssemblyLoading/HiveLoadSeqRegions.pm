@@ -44,6 +44,9 @@ sub fetch_input {
     $self->throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
+  if ($self->param_is_defined('assembly_accession') and !$self->param_is_defined('coord_system_version')) {
+    $self->param('coord_system_version', $self->param('assembly_accession'));
+  }
   unless($self->param('coord_system_version')) {
     $self->throw("coord_system_version flag not passed into parameters hash. You need to specify the assembly version e.g. GRCh38");
   }

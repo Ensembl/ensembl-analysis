@@ -23,6 +23,37 @@ use feature 'say';
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters
+                chromosomes_present => 0,
+                has_mitochondria => 0,
+ Returntype : Hashref, the default parameter for this module
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my $self = shift;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    chromosomes_present => 0,
+    has_mitochondria => 0,
+  }
+}
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Check that 'target_db' and 'enscode_root_dir' are set
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub fetch_input {
   my $self = shift;
 
@@ -38,6 +69,16 @@ sub fetch_input {
   return 1;
 }
 
+
+=head2 run
+
+ Arg [1]    : None
+ Description: backup the meta table, add information in the meta table and add seq_region_synonyms
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub run {
   my $self = shift;
 
@@ -48,7 +89,6 @@ sub run {
   my $enscode_dir = $self->param('enscode_root_dir');
   my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
   my $path_to_files = $self->param('output_path')."/".$primary_assembly_dir_name;
-  my $chromo_present = $self->param('chromosomes_present');
 
   say "\nBacking up meta and seq_region tables...";
   $self->backup_tables($path_to_files,$target_db);
@@ -59,19 +99,47 @@ sub run {
   say "\nMeta table insertions complete\n";
 
   say "Setting seq region synonyms...\n";
-  $self->set_seq_region_synonyms($target_db,$path_to_files,$chromo_present);
+  $self->set_seq_region_synonyms($target_db,$path_to_files);
   say "\nSeq region synonyms inserted\n";
 
   say "\nFinished updating meta table and setting seq region synonyms";
   return 1;
 }
 
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: It will get the job related input ids, add 'mt_accession' and 'chromosomes_present'
+              if needed and flow the data on branch #1
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub write_output {
   my $self = shift;
 
+# This code should get the upstream input and add 'mt_accession' and 'chromosomes_present' if needed
+  my $job_params = eval {$self->input_job->input_id};
+  if ($self->param_is_defined('mt_accession')) {
+    $job_params->{mt_accession} = $self->param('mt_accession');
+  }
+  $self->dataflow_output_id($job_params, 1);
   return 1;
 }
 
+
+=head2 backup_tables
+
+ Arg [1]    : String $path_to_files, directory
+ Arg [2]    : Hashref $target_db, connection details
+ Description: It will backup the meta table in the directory specified
+              in Arg[1] in the format table_name.time.sql
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub backup_tables {
   my ($self,$path_to_files,$target_db) = @_;
@@ -101,6 +169,20 @@ sub backup_tables {
   }
 }
 
+
+=head2 set_meta
+
+ Arg [1]    : Hashref $target_db, DB connection detail
+ Arg [2]    : Int $genebuilder_id, numerical id of the person doing the annotation
+ Arg [3]    : String $path_to_files, directory containing the file assembly_report.txt
+ Description: Parse the assembly_report.txt file to get information about the assemlby date
+              the taxon id, the assembly accession, the assembly level (chromosome, scaffold,...)
+              and the presence of a mitochondria annotated by RefSeq
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub set_meta {
   my ($self,$target_db,$genebuilder_id,$path_to_files) = @_;
 
@@ -112,6 +194,7 @@ sub set_meta {
   say "Inserted into meta:\nmarker.priority => 1";
   $meta_adaptor->store_key_value('assembly.coverage_depth', 'high');
   say "Inserted into meta:\nassembly.coverage_depth => high";
+  $meta_adaptor->store_key_value('species.production_name', $self->param('production_name'));
 
   unless(-e $path_to_files."/assembly_report.txt") {
     $self->throw("Could not find the assembly_report.txt file. Path checked:\n".$path_to_files."/assembly_report.txt");
@@ -122,8 +205,10 @@ sub set_meta {
   my $assembly_name;
   my $taxon_id;
   while (my $line = <IN>) {
-    if($line !~ /^#/) {
-      next;
+    if($line !~ /^#/ or $self->param('has_mitochondria')) {
+      if ($line =~ /(NC_\S+)\s+non-nuclear/) {
+        $self->param('mt_accession', $1);
+      }
     } elsif($line =~ /^#\s*Date:\s*(\d+)-(\d+)-\d+/) {
       $meta_adaptor->store_key_value('assembly.date', $1.'-'.$2);
       say "Inserted into meta:\nassembly.date => ".$1.'-'.$2;
@@ -143,6 +228,10 @@ sub set_meta {
       say "Inserted into meta:\nassembly.web_accession_source => NCBI";
       $meta_adaptor->store_key_value('assembly.web_accession_type', 'GenBank Assembly ID');
       say "Inserted into meta:\nassembly.web_accession_type => GenBank Assembly ID";
+    } elsif ($line =~ /^#\s*Assembly level:\s*Chromosome/) {
+      $self->param('chromosomes_present', 1);
+    } elsif ($line =~ /##\s*GCF_\S+\s*non-nuclear/) {
+      $self->param('has_mitochondria', 1);
     }
   }
 
@@ -155,12 +244,24 @@ sub set_meta {
 
 }
 
+
+=head2 set_seq_region_synonyms
+
+ Arg [1]    : Hashref $target_db, DB connection details
+ Arg [2]    : String $path_to_files, directory name
+ Description: Set the INSDC seq_region_syonyms for the chromosomes if present and
+              the submitter's synonyms for the contigs and scaffolds
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub set_seq_region_synonyms {
-  my ($self,$target_db,$path_to_files,$chromo_present) = @_;
+  my ($self,$target_db,$path_to_files) = @_;
 
   my $target_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$target_db});
 
-  if($chromo_present) {
+  if($self->param('chromosomes_present')) {
     unless(-e $path_to_files."/chr2acc") {
       $self->throw("Could not find chr2acc file. No chromosome synonyms loaded. Expected location:\n".$path_to_files."/chr2acc");
     }

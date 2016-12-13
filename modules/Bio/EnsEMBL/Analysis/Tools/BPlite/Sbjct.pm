@@ -129,7 +129,7 @@ sub nextHSP {
     elsif ($_ =~ /Strand HSP/)    {next} # WU-BLAST non-data
     elsif ($_ =~ /^\s*Strand/)    {next} # NCBI-BLAST non-data
     elsif ($_ =~ /^\s*Score/)     {$self->{'LASTLINE'} = $_; last}
-    elsif ($_ =~ /^>|^Parameters|^\s+Database:|^CPU\stime/)   {
+    elsif ($_ =~ /^>|^Parameters|^\s+Database:|^CPU\stime|^Lambda/)   {
       $self->{'LASTLINE'} = $_;
       $self->{'PARENT'}->{'LASTLINE'} = $_;
       $self->{'HSP_ALL_PARSED'} = 1;
