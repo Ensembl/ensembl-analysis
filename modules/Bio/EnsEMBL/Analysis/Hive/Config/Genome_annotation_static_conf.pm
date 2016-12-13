@@ -1330,6 +1330,8 @@ sub pipeline_analyses {
                          SOFT_MASKED_REPEATS => ['repeatmasker_repbase_'.$self->o('repeatmasker_library'),'dust'],
                          query_seq_dir => $self->o('output_path'),
                          calculate_coverage_and_pid => $self->o('refseq_cdna_calculate_coverage_and_pid'),
+                         exonerate_cdna_pid => $self->o('exonerate_cdna_pid'),
+                         exonerate_cdna_cov => $self->o('exonerate_cdna_cov'),
                       },
         -flow_into => {
                         -1 => ['refseq_cdna_retry'],
@@ -1359,6 +1361,8 @@ sub pipeline_analyses {
                          SOFT_MASKED_REPEATS => ['repeatmasker_repbase_'.$self->o('repeatmasker_library'),'dust'],
                          query_seq_dir => $self->o('output_path'),
                          calculate_coverage_and_pid => $self->o('refseq_cdna_calculate_coverage_and_pid'),
+                         exonerate_cdna_pid => $self->o('exonerate_cdna_pid'),
+                         exonerate_cdna_cov => $self->o('exonerate_cdna_cov'),
                       },
         -flow_into => {
                         -1 => ['failed_refseq_cdnas'],

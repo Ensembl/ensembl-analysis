@@ -85,9 +85,10 @@ sub _master_config {
                    'human_taxon_id'    => '9606',
                    'mammals_taxon_id'  => '40674',
                    'mouse_taxon_id'    => '10090',
-                   'primates_taxon_id'  => '9443',
+                   'primates_taxon_id' => '9443',
                    'rodents_taxon_id'  => '9989',
                    'vert_taxon_id'     => '7742',
+                   'fish_taxon_id'     => '7898',
                  };
   my %config = (
     default => {},
@@ -288,7 +289,7 @@ sub _master_config {
                           },
 
               self_pe3 =>{
-                            file_name => 'self_pe12.fasta',
+                            file_name => 'self_pe3.fasta',
                             taxon_id  => '#taxon_id#',
                             dest_dir  => '#output_path#',
                             compress  => 0,
@@ -296,7 +297,7 @@ sub _master_config {
                           },
 
               self_pe45 =>{
-                            file_name => 'self_pe12.fasta',
+                            file_name => 'self_pe45.fasta',
                             taxon_id  => '#taxon_id#',
                             dest_dir  => '#output_path#',
                             compress  => 0,
