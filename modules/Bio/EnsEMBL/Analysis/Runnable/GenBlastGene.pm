@@ -49,8 +49,7 @@ use warnings;
 use feature 'say';
 
 
-use File::Basename;
-
+use File::Spec;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
@@ -74,19 +73,17 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($database,$genblast_program,$max_rank,$genblast_pid,$work_dir,$database_adaptor) = rearrange([qw(DATABASE
-                                                                                                       GENBLAST_PROGRAM
-                                                                                                       MAX_RANK
-                                                                                                       GENBLAST_PID
-                                                                                                       WORK_DIR
-                                                                                                       DATABASE_ADAPTOR
-                                                                                                   )], @args);
+  my ($database,$genblast_program,$max_rank,$genblast_pid,$database_adaptor) = rearrange([qw(DATABASE
+                                                                                             GENBLAST_PROGRAM
+                                                                                             MAX_RANK
+                                                                                             GENBLAST_PID
+                                                                                             DATABASE_ADAPTOR
+                                                                                         )], @args);
   $self->database($database) if defined $database;
   # Allows the specification of exonerate or genewise instead of genblastg. Will default to genblastg if undef
-  $self->genblast_program($genblast_program) if defined $genblast_program;
+  $self->genblast_program($genblast_program || 'genblastg');
   $self->max_rank($max_rank) if defined $max_rank;
   $self->genblast_pid($genblast_pid) if defined $genblast_pid;
-  $self->work_dir($work_dir) if defined $work_dir;
   $self->database_adaptor($database_adaptor) if defined $database_adaptor;
   throw("You must supply a database") if not $self->database;
   throw("You must supply a query") if not $self->query;
@@ -163,19 +160,11 @@ sub run_analysis{
   throw($program." is not executable GenBlast::run_analysis ") 
     unless($program && -x $program);
 
-  my $workdir = $self->work_dir();
-
-  # set up environment variables
-  # we want the path of the program_file
-  my $dir = dirname($program);
-  $ENV{GBLAST_PATH} = $dir;
-  $ENV{path} = "" if (!defined $ENV{path});
-  $ENV{path} = "(".$ENV{path}.":".$dir.")";
-
   # link to alignscore.txt if not already linked
-  chdir $workdir;
-  my $ln_cmd = "ln -s ".$dir."/alignscore.txt alignscore.txt";
-  my $value = system($ln_cmd) unless (-e "alignscore.txt");
+  my (undef, $directory, $progname) = File::Spec->splitpath($program);
+  if ($directory) {
+    chdir $directory;
+  }
 
   # genBlast sticks "_1.1c_2.3_s1_0_16_1" on the end of the output
   # file for some reason - it will probably change in future
@@ -879,16 +868,6 @@ sub genblast_pid {
   }
 
   return $self->{_genblast_pid};
-}
-
-sub work_dir {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->{_work_dir} = $val;
-  }
-
-  return $self->{_work_dir};
 }
 
 sub database_adaptor {

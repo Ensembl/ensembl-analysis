@@ -79,10 +79,11 @@ package Bio::EnsEMBL::Analysis::Runnable;
 use strict;
 use warnings;
 
+use File::Spec::Functions qw(tmpdir);
+
 use Bio::SeqIO;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::Analysis::Programs;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name write_seqfile);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
@@ -246,7 +247,7 @@ sub workdir{
     }
     $self->{'workdir'} = $workdir;
   }
-  return $self->{'workdir'} || '/tmp';
+  return $self->{'workdir'} || tmpdir();
 }
 
 
@@ -504,19 +505,8 @@ sub resultsfile{
 
 sub create_filename{
   my ($self, $stem, $ext, $dir) = @_;
-  if(!$dir){
-    $dir = $self->workdir;
-  }
-  $stem = '' if(!$stem);
-  $ext = '' if(!$ext);
-  throw($dir." doesn't exist Runnable:create_filename") unless(-d $dir);
-  my $num = int(rand(100000));
-  my $file = $dir."/".$stem.".".$$.".".$num.".".$ext;
-  while(-e $file){
-    $num = int(rand(100000));
-    $file = $dir."/".$stem.".".$$.".".$num.".".$ext;
-  }
-  return $file;
+
+  return create_file_name($stem, $ext, $dir || $self->workdir);
 }
 
 
@@ -587,10 +577,10 @@ sub find_file{
   my $found;
   if(-e $file){
     $found = $file;
-  }elsif($self->datadir && -e ($self->datadir."/".$file)){
-    $found = $self->datadir."/".$file;
-  }elsif($self->libdir && -e ($self->libdir."/".$file)){
-    $found = $self->libdir."/".$file;
+  }elsif($self->datadir && -e (catfile($self->datadir, $file))){
+    $found = catfile($self->datadir, $file);
+  }elsif($self->libdir && -e (catfile($self->libdir, $file))){
+    $found = catfile($self->libdir, $file);
   }else{
     throw($file." doesn't exist Runnable:find_file");
   }
