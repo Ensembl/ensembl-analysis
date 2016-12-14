@@ -517,7 +517,7 @@ sub pipeline_analyses {
         -flow_into  => {
                          1 => ['find_contig_accessions'],
                        },
-        -input_ids  => [{assembly_accession => $self->o('assembly_accession'), assembly_refseq_accession => $self->o('assembly_refseq_accession')}],
+        -input_ids  => [{assembly_name => $self->o('assembly_name'), assembly_accession => $self->o('assembly_accession'), assembly_refseq_accession => $self->o('assembly_refseq_accession')}],
       },
 
       {
