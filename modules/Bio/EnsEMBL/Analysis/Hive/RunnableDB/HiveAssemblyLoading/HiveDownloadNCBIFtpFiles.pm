@@ -57,7 +57,7 @@ sub download_ftp_dir {
 
   # This is some magic to get the correct number for --cut-dir
   my @dirs = splitdir($ftp_path);
-  my $numDirs = scalar(@cleaned_dirs)-2;
+  my $numDirs = scalar(@dirs)-2;
 
   my $cmd = "wget --no-proxy ".$wget_verbose." -r -nH --cut-dirs=".$numDirs." --reject *.rm.out.gz -P ".$local_dir." ".$ftp_path;
   my $return = system($cmd);
