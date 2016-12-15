@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-    Bio::EnsEMBL::Hive::PipeConfig::UniProtDB_conf
+    Bio::EnsEMBL::Analysis::Hive::Config::UniProtDB_conf
 
 =head1 DESCRIPTION
 
@@ -30,7 +30,7 @@
 =cut
 
 
-package UniProtDB_conf;
+package Bio::EnsEMBL::Analysis::Hive::Config::UniProtDB_conf;
 
 use strict;
 use warnings;

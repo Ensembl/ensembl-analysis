@@ -71,5 +71,5 @@ init_pipe="ensembl-hive/scripts/init_pipeline.pl"
 if [ -e "$ENSEMBL_BASE/$init_pipe" ]; then
     init_pipe="$ENSEMBL_BASE/$init_pipe"
 fi
-printf "\nInitiating the pipeline:\n \e[32m$\e[0m perl $init_pipe UniProtDB_conf -host ${HIVE_HOST} -port ${HIVE_PORT} -user ${HIVE_USER} -password ${HIVE_PASS} -dbname ${HIVE_DBNAME} -pipeline_name ${pipeline_name}\n"
+printf "\nInitiating the pipeline:\n \e[32m$\e[0m perl $init_pipe Bio::EnsEMBL::Analysis::Hive::Config::UniProtDB_conf -host ${HIVE_HOST} -port ${HIVE_PORT} -user ${HIVE_USER} -password ${HIVE_PASS} -dbname ${HIVE_DBNAME} -pipeline_name ${pipeline_name}\n"
 unset init_pipe
