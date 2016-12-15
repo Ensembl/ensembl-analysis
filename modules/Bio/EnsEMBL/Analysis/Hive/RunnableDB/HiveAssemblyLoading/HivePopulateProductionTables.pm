@@ -22,7 +22,7 @@ use warnings;
 use feature 'say';
 
 use File::Spec::Functions;
-use File::Path;
+use File::Path qw(make_path);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
