@@ -663,6 +663,8 @@ sub pipeline_analyses {
         -parameters => {
                          'target_db'        => $self->o('reference_db'),
                          'enscode_root_dir' => $self->o('enscode_root_dir'),
+                         'production_db'    => $self->o('production_db'),
+                         'taxonomy_db'      => $self->o('taxonomy_db'),
                        },
         -rc_name    => 'default',
 
