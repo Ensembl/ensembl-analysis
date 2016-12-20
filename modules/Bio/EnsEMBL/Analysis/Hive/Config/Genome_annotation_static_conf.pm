@@ -57,6 +57,7 @@ sub default_options {
     'assembly_name'             => '', #!!!!!!!!!!!!!! Name (as it appears in the assembly report file)
     'assembly_accession'        => '', #!!!!!!!!!!!!!! GCA
     'assembly_refseq_accession' => '', #!!!!!!!!!!!!!! GCF
+    'mt_accession'              => undef, # This should be set to undef unless you know what you are doing
 
 ########################
 # Pipe and ref db info
@@ -704,6 +705,7 @@ sub pipeline_analyses {
                          'enscode_root_dir'          => $self->o('enscode_root_dir'),
                          'mito_index_path'           => $self->o('mito_index_path'),
                          'species_name'              => $self->o('species_name'),
+                         'mt_accession'              => $self->o('mt_accession'),
                       },
         -rc_name    => 'default',
 
@@ -1258,7 +1260,7 @@ sub pipeline_analyses {
         -parameters => {
                          cmd => 'perl '.$self->o('meta_coord_script').
                                 ' -user '.$self->o('reference_db', '-user').
-                                ' -pass '.$self->o('reference_db', 'pass').
+                                ' -pass '.$self->o('reference_db', '-pass').
                                 ' -host '.$self->o('reference_db','-host').
                                 ' -port '.$self->o('reference_db','-port').
                                 ' -dbpattern '.$self->o('reference_db','-dbname')
@@ -1429,7 +1431,7 @@ sub pipeline_analyses {
         -logic_name => 'download_uniprot_files',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadUniProtFiles',
         -parameters => {
-                         multi_query_download => %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::UniProtCladeDownloadStatic', $self->default_options->{'uniprot_set'})},
+                         multi_query_download => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::UniProtCladeDownloadStatic', $self->default_options->{'uniprot_set'}),
                          taxon_id => $self->o('taxon_id'),
                          output_path => $self->o('homology_models_path'),
                        },
