@@ -79,7 +79,7 @@ package Bio::EnsEMBL::Analysis::Runnable;
 use strict;
 use warnings;
 
-use File::Spec::Functions qw(tmpdir);
+use File::Spec::Functions qw(tmpdir catfile);
 
 use Bio::SeqIO;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);

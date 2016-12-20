@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use feature 'say';
 
-use File::Spec::Functions qw(splitdir);
+use File::Spec::Functions qw(splitdir catdir);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
