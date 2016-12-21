@@ -20,9 +20,8 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HivePopul
 use strict;
 use warnings;
 use feature 'say';
-
+use File::Path qw(make_path);
 use File::Spec::Functions;
-use File::Path;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 

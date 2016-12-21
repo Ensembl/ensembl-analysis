@@ -43,7 +43,8 @@ sub run {
   my $agp_files_path = $self->param('output_path')."/".$primary_assembly_dir_name."/AGP";
   my $contig_accessions = $self->find_contig_accessions($agp_files_path);
 
-  open(OUT,">".$agp_files_path."/contigs.txt");
+  my $agp_contigs = $agp_files_path."/contigs.txt" ;
+  open(OUT,">",$agp_contigs) or $self->throw("Could not open file $agp_contigs, $!");
   foreach my $contig_accession (keys(%{$contig_accessions})) {
     say OUT $contig_accession;
   }
