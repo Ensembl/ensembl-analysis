@@ -52,12 +52,10 @@ package Bio::EnsEMBL::Analysis::Runnable::Dust;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+use parent qw(Bio::EnsEMBL::Analysis::Runnable);
 
 
 
@@ -218,7 +216,7 @@ sub parse_results{
  LINE:while(<DUST>){
     chomp;
     next LINE if(/^>/);
-    if (/(\d+)\.\.(\d+)/) {
+    if (/(\d+)\D+(\d+)/) {
       my ($start, $end) = ($1, $2);
       $start++;
       $end++;
@@ -232,3 +230,5 @@ sub parse_results{
   $self->output(\@output);
   close(DUST) or throw("FAILED to close ".$results);
 }
+
+1;
