@@ -48,8 +48,9 @@ use strict;
 use warnings;
 use feature 'say';
 
-
 use File::Spec;
+
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
@@ -192,11 +193,7 @@ sub run_analysis{
 
   $self->resultsfile($self->query. $outfile_suffix. ".gff");
 
-  my $return = system($command);
-
-  unless($return == 0) {
-    throw("genblast returned a non-zero exit code (".$return."). Commandline used:\n".$command);
-  }
+  execute_with_wait($command, undef, 10);
 
   foreach my $file (glob("${outfile_glob_prefix}*")) {
     $self->files_to_delete($file);
