@@ -44,12 +44,11 @@ package Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use vars qw(@ISA);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+use parent qw(Bio::EnsEMBL::Analysis::Runnable);
 
 
 sub new {
@@ -170,18 +169,12 @@ sub run_analysis{
   if(!$program){
     $program = $self->program;
   }
-  throw($program." is not executable BaseAbInitio::run_analysis ") 
+  throw($program.' is not executable '.ref($self).'::run_analysis ')
     unless($program && -x $program);
   my $command = $program." ".$self->matrix." ".$self->queryfile." > ".
     $self->resultsfile;
   print "Running analysis ".$command."\n";
-  system($command); 
-  if ( $? == 0) { 
-  	print "Everything was fine\n"; 
-  } else {
-  	print "Hey I am here and I will die because your $command is a problem!!!! \n";
-  	throw("FAILED to run, error: $! and $? , ".$command);
-  } 
+  execute_with_wait($command);
 }
 
 =head2 create_transcripts

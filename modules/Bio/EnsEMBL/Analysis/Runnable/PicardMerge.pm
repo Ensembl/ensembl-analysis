@@ -103,7 +103,8 @@ sub new {
 sub run {
     my ($self) = @_;
 
-    my $cmd = join(' ', $self->program, $self->java_options, '-jar', $self->picard_lib, 'MergeSamFiles', $self->options, 'OUTPUT='.$self->output_file, 'INPUT='.join(' INPUT=', @{$self->input_files}));
+    my $picard_command = $self->{_picard_version} ? 'MergeSamFiles' : '';
+    my $cmd = join(' ', $self->program, $self->java_options, '-jar', $self->picard_lib, $picard_command, $self->options, 'OUTPUT='.$self->output_file, 'INPUT='.join(' INPUT=', @{$self->input_files}));
     $cmd .= ' USE_THREADING=true' if ($self->use_threading);
     logger_info($cmd);
     throw('Could not execute picard command '.$cmd) if (system($cmd));
@@ -113,8 +114,7 @@ sub run {
     # Return 1 on success
     throw("Failed to move index file $index_file to ".$self->output_file.'.bai') unless (move($index_file, $self->output_file.'.bai'));
     # It's needed because the index can be younger that the bam file but Bio::DB::Sam doesn't like it
-    # Return 0 on success
-    utime($self->output_file.'.bai') || throw('Failed to update the timestamp for '.$self->output_file.'.bai');
+    utime(undef, undef, $self->output_file.'.bai') || throw('Failed to update the timestamp for '.$self->output_file.'.bai');
 
     return 1;
 }
@@ -151,6 +151,9 @@ sub picard_lib {
     my ($self, $files) = @_;
     if ($files){
         $self->{_picard_lib} = $files;
+# If the picard lib is picard.jar, we have the "new" version which needs
+# a command
+        $self->{_picard_version} = $files =~ /picard\.jar$/ ? 1 : 0;
     }
     return $self->{_picard_lib};
 }
