@@ -84,24 +84,26 @@ sub run {
     $mt_accession = $self->param('mt_accession');
   }
   else {
-    $self->throw("Could not locate the mito index on the path provided. Path:\n".$mito_index)
-      unless (-e $mito_index);
-    open(IN, $mito_index) || $self->throw("Could not open $mito_index");
-    while(<IN>) {
-      my ($accession,$index_species_name) = split('=',$_);
-      chomp $index_species_name;
-      if($index_species_name eq $species_name) {
-        say "Found mito accession for ".$species_name.": ".$accession;
-        $mt_filename = catfile($output_path, $accession.'.gb');
-        $mt_accession = $accession;
-        last;
-      }
-    }
-    close IN;
+#    $self->throw("Could not locate the mito index on the path provided. Path:\n".$mito_index)
+#      unless (-e $mito_index);
+#    open(IN, $mito_index) || $self->throw("Could not open $mito_index");
+#    while(<IN>) {
+#      my ($accession,$index_species_name) = split('=',$_);
+#      chomp $index_species_name;
+#      if($index_species_name eq $species_name) {
+#        say "Found mito accession for ".$species_name.": ".$accession;
+#        $mt_filename = catfile($output_path, $accession.'.gb');
+#        $mt_accession = $accession;
+#        last;
+#      }
+#    }
+#    close IN;
 
-    $self->throw("Could not fine species accession in the index file")
-      unless ($mt_accession);
-  }
+#    $self->throw("Could not fine species accession in the index file")
+#      unless ($mt_accession);
+ 
+      return;
+}
   my $toplevel;
   my $chromosome_flag = "";
   my $scaffold_flag = "";
