@@ -295,7 +295,7 @@ sub pipeline_analyses {
             cmd => 'EXIT_CODE=0; for F in #wide_short_read_aligner# #wide_samtools# '.join (' ', $self->o('splicing_aligner'), $self->o('clone_db_script_path'), $self->o('sequence_dump_script'), $self->o('blastp')).'; do which "$F"; if [ "$?" == 1 ]; then EXIT_CODE=1;fi; done; for D in #wide_output_dir# #wide_input_dir# #wide_merge_dir# #wide_output_sam_dir# `dirname #wide_genome_file#`; do mkdir -p "$D"; done; exit $EXIT_CODE',
         },
         -input_ids => [{
-          alignment_bam_file => File::spec->catfile($self->o('wide_merge_dir'), 'merged.bam'),
+          alignment_bam_file => File::Spec->catfile('#wide_merge_dir#', 'merged.bam'),
           assembly_name => $self->o('assembly_name'),
           }],
         -flow_into => {
@@ -381,7 +381,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA',
         -parameters => {
           disconnect_jobs => 1,
-        }
+        },
         -flow_into => {
             1 => [ ':////accu?fastq=[]' ],
             -1 => [ 'bwa_failed' ],
@@ -395,7 +395,7 @@ sub pipeline_analyses {
         -can_be_empty => 1,
         -parameters => {
           disconnect_jobs => 1,
-        }
+        },
         -flow_into => {
             1 => [ ':////accu?fastq=[]' ],
             },
