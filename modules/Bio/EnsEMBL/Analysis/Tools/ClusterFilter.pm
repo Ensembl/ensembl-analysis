@@ -48,7 +48,7 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use vars qw (@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Root);
+# @ISA = qw(Bio::EnsEMBL::Root);
 
 
 
@@ -63,8 +63,9 @@ use vars qw (@ISA);
 
 
 sub new{
-  my ($class,@args) = @_;
-  my $self = $class->SUPER::new(@args);
+  my ($caller,@args) = @_;
+  my $class = ref($caller) || $caller;
+  my $self = bless({},$class);
   &verbose('WARNING');
   my ($min_coverage,
       $min_percent,

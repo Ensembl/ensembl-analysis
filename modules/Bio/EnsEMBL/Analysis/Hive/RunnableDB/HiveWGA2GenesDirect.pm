@@ -94,17 +94,20 @@ sub fetch_input {
   my $target_dna_dbc = $self->hrdb_get_con('target_dna_db');
 
   # Define the source transcript and target transcript dbs
-  my $source_transcript_dba = $self->hrdb_get_dba($self->QUERY_CORE_DB,undef,'source_dna_db');
-  my $target_transcript_dba = $self->hrdb_get_dba($self->TARGET_CORE_DB,undef,'target_dna_db');
+  my $source_transcript_dba = $self->hrdb_get_dba($self->QUERY_CORE_DB);
+  my $target_transcript_dba = $self->hrdb_get_dba($self->TARGET_CORE_DB);
   $self->hrdb_set_con($source_transcript_dba,'source_transcript_db');
   $self->hrdb_set_con($target_transcript_dba,'target_transcript_db');
   my $source_transcript_dbc = $self->hrdb_get_con('source_transcript_db');
+  $source_transcript_dbc->dnadb($source_dna_dbc); 
   my $target_transcript_dbc = $self->hrdb_get_con('target_transcript_db');
+  $target_transcript_dbc->dnadb($target_dna_dbc); 
 
   # Define the compara db
-  my $compara_dba = $self->hrdb_get_dba($self->COMPARA_DB,'compara');
+  my $compara_dba = $self->hrdb_get_dba($self->COMPARA_DB,undef,'Compara');
   $self->hrdb_set_con($compara_dba,'compara_db');
   my $compara_dbc = $self->hrdb_get_con('compara_db');
+
 
   # Get the genome db adpator
   my $gdb_adap = $compara_dbc->get_GenomeDBAdaptor;
@@ -534,7 +537,7 @@ sub hive_set_config {
 
 }
 
-sub hrdb_set_con {
+sub hrdb_set_con_NOTUSED_TODELETE {
   my ($self,$dba,$dba_con_name) = @_;
 
   if($dba_con_name){
@@ -546,7 +549,7 @@ sub hrdb_set_con {
 }
 
 
-sub hrdb_get_con {
+sub hrdb_get_con_NOTUSED_TODELETE {
   my ($self,$dba_con_name) = @_;
 
   if($dba_con_name) {
@@ -556,7 +559,7 @@ sub hrdb_get_con {
   }
 }
 
-sub hrdb_get_dba {
+sub hrdb_get_dba_NOTUSED_TODELETE {
    my ($self,$connection_info, $non_standard_db_adaptor, $dna_db_name) = @_;
    my $dba;
 
@@ -575,7 +578,6 @@ sub hrdb_get_dba {
                                               );
 
      if($dna_db_name) {
-
             my $dnadb = $self->hrdb_get_con($dna_db_name);
 
             # try to get default asm+ species name for OTHER db - does not work
@@ -614,11 +616,10 @@ sub hrdb_get_dba {
               . $dnadb->dbname . " to "
               . $dba->dbname . "\n";
           }
-          }
-
-          else {
+       }
+       else {
             print "Not attaching a dna db to: ".$dba->dbname."\n";
-          }
+       }
    }
 
   $dba->dbc->disconnect_when_inactive(1) ;
@@ -636,8 +637,8 @@ sub _check_gene {
   my @good_transcripts;
 
   foreach my $t (@{$gene->get_all_Transcripts}){
-    #print "Transcript Start: ",$t->start, "  END: ", $t->end,"\n";
-    #print "translation: ",$t->translateable_seq,"\n";
+    # print "Transcript Start: ",$t->start, "  END: ", $t->end,"\n";
+    # print "translation: ",$t->translateable_seq,"\n";
 
     if ((length($t->translateable_seq) % 3) == 0){
 
