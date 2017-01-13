@@ -174,8 +174,16 @@ sub fetch_input {
   unless($mlss) {
     throw("No MethodLinkSpeciesSet for :\n" .$self->INPUT_METHOD_LINK_TYPE . "\n" .$query_species . "\n" .$target_species);
   }
-
   my $dnafrag = $compara_dbc->get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($q_gdb,$self->gene->slice->seq_region_name);
+
+  # there was a problem with a _PATCH, may because we use different version of mouse core db
+  my $tmp_seq_reg = $self->gene->slice->seq_region_name ; 
+  if ( ($tmp_seq_reg eq 'CHR_MG3833_PATCH' ) && (!defined($dnafrag)) ) {
+  	print "DO SOMETHING!\n";
+    $self->input_job->autoflow(-3); # -3 may not work! 
+    $self->complete_early('It is this strange CHR_MG3833_PATCH patch: IF MANY JOBS HERE NEED TO FIND OUT\n');
+  }
+
 
   my $gaba = $compara_dbc->get_GenomicAlignBlockAdaptor;
 
@@ -279,6 +287,7 @@ sub run {
       } else {
         $self->warning('Not realigning translation as translation length >= 20000');
       }
+      $res_tran->stable_id($source_transcript->stable_id()); 
     }
     push @final_tran, $res_tran;
   }

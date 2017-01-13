@@ -321,6 +321,11 @@ sub pipeline_create_commands {
                     'group_name varchar(255) NOT NULL,'.
                     'seq text NOT NULL,'.
                     'PRIMARY KEY (accession))'),
+      $self->db_cmd('CREATE TABLE projection_protein_sequences ('.
+                    'accession varchar(50) NOT NULL,'.
+                    'seq text NOT NULL,'.
+                    'PRIMARY KEY (accession))'),
+
     ];
 }
 

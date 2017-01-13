@@ -42,9 +42,9 @@ sub fetch_input {
 
   my $projection_transcript_id = $self->param("iid");
   my $transcript_adaptor = $projection_dba->get_TranscriptAdaptor();
-  say "D1";
+  say "D1" .$projection_transcript_id;
   my $projection_transcript = $transcript_adaptor->fetch_by_dbID($projection_transcript_id);
-  say "D2";
+  say "D2" . $projection_transcript;
   $self->projection_transcript($projection_transcript);
   say "D3 " .$projection_transcript->stable_id();
 
@@ -162,22 +162,27 @@ sub assess_projection_transcript {
   my $has_frameshift_introns = 0;
 
   my @introns = @{$transcript->get_all_Introns()};
+  print "transcript has " . scalar(@introns) . " introns \n";
   foreach my $intron (@introns) {
     if($intron->length < 10) {
       $has_frameshift_introns++;
     } elsif($intron->is_splice_canonical() == 0) {
       $has_non_canonical_splice_sites++;
+    } else {
+    	print "anything goes here? \n";
     }
   }
 
   say "Transcript has ".$has_non_canonical_splice_sites." non-canonical splice sites";
   say "Transcript has ".$has_frameshift_introns." frameshift introns";
 
-  if($has_non_canonical_splice_sites || $has_frameshift_introns) {
-    return(1);
-  } else {
+  if($has_non_canonical_splice_sites <= 1 && $has_frameshift_introns <= 1) {
     return(0);
   }
+  else {
+    return(1);
+  }
+
 }
 
 1;
