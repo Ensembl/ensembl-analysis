@@ -354,29 +354,65 @@ sub add_utr {
       my $joined_transcript = $self->join_transcripts($modified_acceptor_transcript_5prime,$modified_acceptor_transcript_3prime);
       $joined_transcript->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($joined_transcript,$acceptor_transcript);
-      $joined_transcript = $self->look_for_both($joined_transcript);
+      my $tmp_transcript; 
+      eval {
+        $tmp_transcript = $self->look_for_both($joined_transcript);
+      };
+      if (!$@) {
+        $joined_transcript = $tmp_transcript; 
+      } 
+      # $joined_transcript = $self->look_for_both($joined_transcript);
       calculate_exon_phases($joined_transcript, 0);
       push(@{$final_transcripts},$joined_transcript);
-
     } elsif($modified_acceptor_transcript_5prime) {
       say "Added 5' UTR only";
       $modified_acceptor_transcript_5prime->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($modified_acceptor_transcript_5prime,$acceptor_transcript);
-      $modified_acceptor_transcript_5prime = $self->look_for_both($modified_acceptor_transcript_5prime);
+      # $modified_acceptor_transcript_5prime = $self->look_for_both($modified_acceptor_transcript_5prime);
+      
+      my $tmp_transcript; 
+      eval {
+        $tmp_transcript = $self->look_for_both($modified_acceptor_transcript_5prime);
+      };
+      if (!$@) {
+        $modified_acceptor_transcript_5prime = $tmp_transcript; 
+      } 
+      
       calculate_exon_phases($modified_acceptor_transcript_5prime, 0);
       push(@{$final_transcripts},$modified_acceptor_transcript_5prime);
     } elsif($modified_acceptor_transcript_3prime) {
       say "Added 3' UTR only";
       $modified_acceptor_transcript_3prime->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($modified_acceptor_transcript_3prime,$acceptor_transcript);
-      $modified_acceptor_transcript_3prime = $self->look_for_both($modified_acceptor_transcript_3prime);
+      # $modified_acceptor_transcript_3prime = $self->look_for_both($modified_acceptor_transcript_3prime);
+
+      my $tmp_transcript; 
+      eval {
+        $tmp_transcript = $self->look_for_both($modified_acceptor_transcript_3prime);
+      };
+      if (!$@) {
+        $modified_acceptor_transcript_3prime = $tmp_transcript; 
+      } 
+      
       calculate_exon_phases($modified_acceptor_transcript_3prime, 0);
       push(@{$final_transcripts},$modified_acceptor_transcript_3prime);
     } elsif($modified_acceptor_transcript_single_exon) {
       say "Added UTR to single exon transcript";
       $modified_acceptor_transcript_single_exon->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($modified_acceptor_transcript_single_exon,$acceptor_transcript);
-      $modified_acceptor_transcript_single_exon = $self->look_for_both($modified_acceptor_transcript_single_exon);
+      # $modified_acceptor_transcript_single_exon = $self->look_for_both($modified_acceptor_transcript_single_exon);
+      
+
+      my $tmp_transcript; 
+      eval {
+        $tmp_transcript = $self->look_for_both($modified_acceptor_transcript_single_exon);
+      };
+      if (!$@) {
+        $modified_acceptor_transcript_single_exon = $tmp_transcript; 
+      } 
+      
+      
+      
       calculate_exon_phases($modified_acceptor_transcript_single_exon, 0);
       push(@{$final_transcripts},$modified_acceptor_transcript_single_exon);
     }else {
@@ -1392,11 +1428,11 @@ sub look_for_both {
             while ($coding_start > 3 && !$had_stop) {
                   my $testseq = substr($cdna_seq,$coding_start-4,3);
                   if ($testseq eq "ATG") {
-                          print_Translation($trans) if(1);
+                          print_Translation($trans); #  if(1);
 
-                                my @coords = $trans->cdna2genomic($coding_start-3,$coding_start-1,$trans->strand);
-                                my $new_start;
-                                my $new_end;
+                          my @coords = $trans->cdna2genomic($coding_start-3,$coding_start-1,$trans->strand);
+                          my $new_start;
+                          my $new_end;
                           if(scalar(@coords) > 2) {
                             $self->throw("Shouldn't happen - new coding start maps to >2 locations in genome - I'm out of here\n");
                           } elsif (scalar(@coords) == 2) {
@@ -1410,7 +1446,7 @@ sub look_for_both {
                                   $new_start = $coords[0]->end;
                                     $new_end   = $coords[$#coords]->start;
                                 }
-                          } else {
+                          } else { 
                             $new_start = $coords[0]->start;
                             $new_end   = $coords[0]->end;
                           }
