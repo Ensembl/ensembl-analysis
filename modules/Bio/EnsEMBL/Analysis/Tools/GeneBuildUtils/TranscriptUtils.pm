@@ -193,6 +193,7 @@ sub print_Transcript{
   }
   for my $transcript ( @transcripts ) { 
     print Transcript_info($transcript, $indent)."\n";
+    print_Transcript_evidence($transcript);
     my $translation_indent = $indent."\t";
     print_Translation($transcript, $translation_indent) ;
     foreach my $exon(@{$transcript->get_all_Exons}){
@@ -257,7 +258,8 @@ sub Transcript_info{
   $indent = '' if(!$indent);
   my $coord_string = seq_region_coord_string($transcript); 
   my $id = $transcript->display_id;
-  return $indent."TRANSCRIPT: ".$id." ".$coord_string;
+  my $logic_name = $transcript->analysis ? $transcript->analysis->logic_name : 'NO_ANALYSIS';
+  return $indent."TRANSCRIPT: ".$id." ".$coord_string.' '.$logic_name;
 }
 
 =head2 print_Transcript_evidence
