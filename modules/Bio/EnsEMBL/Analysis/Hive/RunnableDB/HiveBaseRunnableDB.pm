@@ -413,7 +413,7 @@ sub require_module {
   eval{
     require "$class.pm";
   };
-  $self->throw("Couldn't require ".$class." Blast:require_module $@") if($@);
+  $self->throw("Couldn't require ".$class.":\n$@") if($@);
   return $module;
 }
 

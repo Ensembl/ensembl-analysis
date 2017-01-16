@@ -802,9 +802,10 @@ sub filter_slice_on_features {
 
   my $feature_type = $self->param('feature_type');
   if($feature_type eq 'gene') {
+    $feature_type = 'Gene';
     foreach my $slice_name (@$slice_names) {
       foreach my $db (@$feature_dbs) {
-        if ($db->get_GeneAdaptor->count_all_by_Slice($db->get_SliceAdaptor->fetch_by_name($slice_name))) {
+        if ($db->get_adaptor($feature_type)->count_all_by_Slice($db->get_SliceAdaptor->fetch_by_name($slice_name))) {
           push(@output_slices, $slice_name);
           last;
         }
