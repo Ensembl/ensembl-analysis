@@ -294,8 +294,6 @@ sub run {
   my ($self) = @_;
   my @results;
 
-#  open STDOUT, '>>', $self->param('stdout_file') if ($self->param('stdout_file'));
-
   $self->throw("Can't run - no runnable objects") unless ($self->runnable);
 
   foreach my $runnable (@{$self->runnable}){
@@ -350,10 +348,6 @@ sub write_output {
     if ($fails > 0){
       $self->throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
-    }
-    if($self->files_to_delete()) {
-      my $files_to_delete = $self->files_to_delete();
-      `rm $files_to_delete`;
     }
   }
 }
@@ -875,12 +869,6 @@ sub filter_killed_entries {
                             -format => "Fasta",
                           );
 
-#  my $filtered_seqout_filename = "/tmp/$inputID"."_filtered";
-#  print "Filename for my filtered sequence: $filtered_seqout_filename.\n";
-#
-#  my $seqout = new Bio::SeqIO(-file   => ">$filtered_seqout_filename",
-#                              -format => "Fasta"
-#                             );
 
   my @sequences;
   while( my $query_entry = $seqin->next_seq ){
@@ -899,13 +887,11 @@ sub filter_killed_entries {
     }
 
     if ( !$kill_list{$no_ver_id} ) {
-#      $seqout->write_seq($query_entry);
       push(@sequences, $query_entry);
     } elsif ( $kill_list{$no_ver_id} ) {
       print "$mol_type $display_id is in the kill_list. Discarded from analysis.\n";
     }
   }
-#  return $filtered_seqout_filename;
   return \@sequences;
 }
 
@@ -936,28 +922,21 @@ sub output_query_file {
 #    $self->warning("Found the query file in the query dir already. Overwriting. File path:\n".$outfile_path);
 #  }
 
-#  open(QUERY_OUT,">".$outfile_path);
   my @query_sequences;
   foreach my $accession (@{$accession_array}) {
     my $db_row = $table_adaptor->fetch_by_dbID($accession);
     unless($db_row) {
-      $self->throw("Did not find an entry in the cdna_sequences table matching the accession. Accession:\n".$accession);
+      $self->throw('Did not find an entry in the '.$self->param('query_table_name')." table matching the accession. Accession:\n".$accession);
     }
 
     my $seq = $db_row->{'seq'};
     $biotypes_hash->{$accession} = $db_row->{'biotype'};
 
-#    my $record = ">".$accession."\n".$seq;
     push(@query_sequences, Bio::Seq->new(-id => $accession, -seq => $seq));
-
-#    say QUERY_OUT $record;
   }
-#  close QUERY_OUT;
 
-  #$self->files_to_delete($outfile_path);
   $self->get_biotype($biotypes_hash);
 
-#  return($outfile_path);
   return \@query_sequences;
 }
 
@@ -971,19 +950,6 @@ sub get_biotype {
 }
 
 
-sub files_to_delete {
-  my ($self,$val) = @_;
-  if($val) {
-    $self->param('_files_to_delete',$val);
-  }
-
-  if ($self->param_is_defined('_files_to_delete')) {
-    return($self->param('_files_to_delete'));
-  }
-  else {
-    return;
-  }
-}
 
 
 1;
