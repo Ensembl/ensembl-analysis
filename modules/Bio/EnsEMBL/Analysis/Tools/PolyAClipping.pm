@@ -147,10 +147,9 @@ sub clip_if_necessary {
   # # #
   my $num_bases_removed;
   if (defined $clipped_seq) {
-    $clipped = new Bio::Seq;
+    $clipped = $unclipped;
     eval {
       $clipped->seq($clipped_seq);
-      $clipped->display_id($unclipped->display_id);
       $clipped->desc("");
     };
     #print "$unclipped->display_id: $seq\n$cdna->display_id: $clipped_seq\n\n";
@@ -197,7 +196,6 @@ sub prepare_seq {
       $id = $tmp;
     } elsif ($tmp =~ m/[\w\.\d]+/) {
       $id = $tmp;
-      print STDERR "Generic matched id is $id.\n";
     } else {
       throw("Cannot extract the input id from: \n".$unclipped->id."\nTry making your file so that the first line of each entry ".
             "only contains the id, eg: \n>BC000830.1\n");
@@ -205,6 +203,8 @@ sub prepare_seq {
 
     # make a new clipped cdna
     $prepared->display_id($id);
+    $prepared->accession_number($unclipped->accession_number);
+    $prepared->version($unclipped->version);
 
     # change seq to uppercase (as pattern matching later on is case-sensitive)
     my $seq = $unclipped->seq;
