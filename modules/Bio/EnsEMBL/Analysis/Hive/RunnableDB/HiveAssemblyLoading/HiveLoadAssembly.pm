@@ -31,14 +31,14 @@ sub fetch_input {
                  "into must be passed in with write access");
   }
 
-  unless($self->param('primary_assembly_dir_name')) {
-    $self->throw("primary_assembly_dir_name flag not passed into parameters hash. This is usually Primary_Assembly ");
-  }
+#  unless($self->param('primary_assembly_dir_name')) {
+#    $self->throw("primary_assembly_dir_name flag not passed into parameters hash. This is usually Primary_Assembly ");
+#  }
 
-  unless($self->param('output_path')) {
-    $self->throw("output_path flag not passed into parameters hash. This should be the path to the working directory ".
-                 "that you downloaded the ftp files to earlier in the pipeline");
-  }
+#  unless($self->param('output_path')) {
+#    $self->throw("output_path flag not passed into parameters hash. This should be the path to the working directory ".
+#                 "that you downloaded the ftp files to earlier in the pipeline");
+#  }
 
   unless($self->param('enscode_root_dir')) {
     $self->throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
@@ -52,11 +52,15 @@ sub run {
 
   say "Loading seq regions into reference db";
   my $target_db = $self->param('target_db');
-  my $path_to_files = $self->param('output_path')."/".$self->param('primary_assembly_dir_name')."/AGP/";
   my $enscode_dir = $self->param('enscode_root_dir');
-
-  $self->load_assembly($target_db,$path_to_files,$enscode_dir);
-
+  if($self->param('simple_load')) {
+    my $assembly_name = $self->param('assembly_name');
+    my $path_to_files = $self->param('assembly_data_directory');
+    $self->load_assembly_basic($target_db,$path_to_files,$enscode_dir,$assembly_name);
+  } else {
+    my $path_to_files = $self->param('output_path')."/".$self->param('primary_assembly_dir_name')."/AGP/";
+    $self->load_assembly($target_db,$path_to_files,$enscode_dir);
+  }
   say "Finished downloading contig files";
   return 1;
 }
@@ -268,4 +272,125 @@ sub load_assembly {
   }
 
 }
+
+sub load_assembly_basic {
+  my ($self,$target_db,$path_to_files,$enscode_dir,$assembly_name) = @_;
+
+  my $dbhost = $target_db->{'-host'};
+  my $dbport = $target_db->{'-port'};
+  my $dbuser = $target_db->{'-user'};
+  my $dbpass = $target_db->{'-pass'};
+  my $dbname = $target_db->{'-dbname'};
+
+  my $load_contig_command = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_seq_region.pl -dbhost ".$dbhost.
+                            " -dbuser ".$dbuser.
+                            " -dbpass ".$dbpass.
+                            " -dbport ".$dbport.
+                            " -dbname ".$dbname.
+                            " -coord_system_name contig ".
+                            " -coord_system_version ".$assembly_name.
+                            " -rank 3 ".
+                            " -default_version ".
+                            " -fasta_file ".$path_to_files."/contigs.fa".
+                            " -sequence_level ".
+                            " -noverbose";
+
+  my $load_scaffold_command = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_seq_region.pl -dbhost ".$dbhost.
+                              " -dbuser ".$dbuser.
+                              " -dbpass ".$dbpass.
+                              " -dbport ".$dbport.
+                              " -dbname ".$dbname.
+                              " -coord_system_name scaffold ".
+                              " -coord_system_version ".$assembly_name.
+                              " -rank 2 ".
+                              " -default_version ".
+                              " -agp_file ".$path_to_files."/scaffold_contig.agp".
+                              " -noverbose";
+
+  my $load_chromosome_command = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_seq_region.pl -dbhost ".$dbhost.
+                                " -dbuser ".$dbuser.
+                                " -dbpass ".$dbpass.
+                                " -dbport ".$dbport.
+                                " -dbname ".$dbname.
+                                " -coord_system_name chromosome ".
+                                " -coord_system_version ".$assembly_name.
+                                " -rank 1 ".
+                                " -default_version ".
+                                " -agp_file ".$path_to_files."/chromosome_scaffold.agp".
+                                " -noverbose";
+
+  my $map_contig_scaffold = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_agp.pl".
+                            " -dbhost ".$dbhost.
+                            " -dbuser ".$dbuser.
+                            " -dbpass ".$dbpass.
+                            " -dbport ".$dbport.
+                            " -dbname ".$dbname.
+                            " -assembled_name scaffold".
+                            " -component_name contig".
+                            " -agp_file ".$path_to_files."/scaffold_contig.agp";
+
+  my $map_contig_chromosome = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_agp.pl".
+                              " -dbhost ".$dbhost.
+                              " -dbuser ".$dbuser.
+                              " -dbpass ".$dbpass.
+                              " -dbport ".$dbport.
+                              " -dbname ".$dbname.
+                              " -assembled_name chromosome".
+                              " -component_name contig".
+                              " -agp_file ".$path_to_files."/chromosome_contig.agp";
+
+  my $map_scaffold_chromosome = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_agp.pl".
+                                " -dbhost ".$dbhost.
+                                " -dbuser ".$dbuser.
+                                " -dbpass ".$dbpass.
+                                " -dbport ".$dbport.
+                                " -dbname ".$dbname.
+                                " -assembled_name chromosome".
+                                " -component_name scaffold".
+                                " -agp_file ".$path_to_files."/chromosome_scaffold.agp";
+
+  my $set_toplevel = "perl ".$enscode_dir."/ensembl-pipeline/scripts/set_toplevel.pl".
+                      " -dbhost ".$dbhost.
+                      " -dbuser ".$dbuser.
+                      " -dbpass ".$dbpass.
+                      " -dbport ".$dbport.
+                      " -dbname ".$dbname;
+
+  my $return = system($load_contig_command);
+  if($return) {
+    $self->throw("The load seq region script returned a non-zero exit code. Commandline used:\n".$load_contig_command);
+  }
+
+  $return = system($load_scaffold_command);
+  if($return) {
+    $self->throw("The load seq region script returned a non-zero exit code. Commandline used:\n".$load_scaffold_command);
+  }
+
+  $return = system($load_chromosome_command);
+  if($return) {
+    $self->throw("The load seq region script returned a non-zero exit code. Commandline used:\n".$load_chromosome_command);
+  }
+
+  $return = system($map_contig_scaffold);
+  if($return) {
+    $self->throw("The load agp script returned a non-zero exit code. Commandline used:\n".$map_contig_scaffold);
+  }
+
+  $return = system($map_contig_chromosome);
+  if($return) {
+    $self->throw("The load agp script returned a non-zero exit code. Commandline used:\n".$map_contig_chromosome);
+  }
+
+  $return = system($map_scaffold_chromosome);
+  if($return) {
+    $self->throw("The load agp script returned a non-zero exit code. Commandline used:\n".$map_scaffold_chromosome);
+  }
+
+  $return = system($set_toplevel);
+  if($return) {
+    $self->throw("The load set toplevel script returned a non-zero exit code. Commandline used:\n".$set_toplevel);
+  }
+
+}
+
 1;
