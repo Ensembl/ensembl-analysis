@@ -922,10 +922,12 @@ SECONDARY_GENE:
       if ( $primary_transcript->dbID() !=
            $distinct_transcripts_to_copy{$key}[1]->dbID() )
       {
-        my $total_overlap =
-          exon_overlap( $secondary_transcript, $primary_transcript );
+      	# select by score based on exonic and non-exonic overlap 
+      	my $exon_overlap = exon_overlap($secondary_transcript,$primary_transcript);
+      	my $exon_non_overlap = abs($secondary_transcript->length()-$primary_transcript->length());
+        my $overlap_score = $exon_overlap-$exon_non_overlap;
 
-        if ( $total_overlap > $distinct_transcripts_to_copy{$key}[4] ) {
+        if ( $overlap_score > $distinct_transcripts_to_copy{$key}[4] ) {
           if ($is_conflicting) {
             printf( "Will choose to copy %s (%d) into %s (%d) " .
                       "due to larger exon overlap (%dbp > %dbp)\n",
@@ -933,14 +935,14 @@ SECONDARY_GENE:
                     $secondary_transcript->dbID(),
                     $primary_gene->stable_id(),
                     $primary_gene->dbID(),
-                    $total_overlap,
+                    $overlap_score,
                     $distinct_transcripts_to_copy{$key}[4] );
           }
 
           $distinct_transcripts_to_copy{$key} = [
                                      $primary_gene,  $primary_transcript,
                                      $secondary_gene, $secondary_transcript,
-                                     $total_overlap ];
+                                     $overlap_score ];
         }
         elsif ($is_conflicting) {
           printf( "Will choose to copy %s (%d) into %s (%d) " .
@@ -950,18 +952,21 @@ SECONDARY_GENE:
                   $distinct_transcripts_to_copy{$key}[0]->stable_id(),
                   $distinct_transcripts_to_copy{$key}[0]->dbID(),
                   $distinct_transcripts_to_copy{$key}[4],
-                  $total_overlap );
+                  $overlap_score );
         }
       } ## end if ( $primary_transcript...)
 
     } ## end if ( exists( $distinct_transcripts_to_copy...))
     else {
+      my $exon_overlap = exon_overlap($secondary_transcript,$primary_transcript);
+      my $exon_non_overlap = abs($secondary_transcript->length()-$primary_transcript->length());
+      my $overlap_score = $exon_overlap-$exon_non_overlap;
       $distinct_transcripts_to_copy{$key} = [
                  $primary_gene,
                  $primary_transcript,
                  $secondary_gene,
                  $secondary_transcript,
-                 exon_overlap( $secondary_transcript, $primary_transcript )
+                 $overlap_score
       ];
     }
 
@@ -1936,11 +1941,13 @@ sub is_transcript_in_gene {
 
 sub get_transcript_exon_key {
   my $transcript = shift;
-  my $string = $transcript->slice->seq_region_name.":".$transcript->biotype.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$transcript->seq_region_strand.":".@{$transcript->get_all_translateable_Exons()}.":";
+  my $string = $transcript->slice()->seq_region_name().":".$transcript->biotype().":".$transcript->seq_region_start().":".$transcript->seq_region_end().":".$transcript->seq_region_strand().":".$transcript->coding_region_start()
+.":".$transcript->coding_region_end()
+.":".@{$transcript->get_all_translateable_Exons()}.":";
 
   my $exons = sort_by_start_end_pos($transcript->get_all_Exons());
   foreach my $exon (@{$exons}) {
-    $string .= ":".$exon->seq_region_start.":".$exon->seq_region_end;
+    $string .= ":".$exon->seq_region_start().":".$exon->seq_region_end();
   }
 
   return $string;

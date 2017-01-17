@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,6 +56,9 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns;
 
 use warnings ;
 use strict;
+
+use File::Spec;
+use File::Path qw(make_path);
 
 use Bio::Seq;
 use Bio::DB::Sam;
@@ -185,7 +188,8 @@ sub fetch_input {
                );
   # set uo the runnable
   my $program = $self->param('program_file');
-  $program = "/software/ensembl/genebuild/bin/exonerate64-0.9.0" unless $program;
+  $program = 'exonerate' unless $program;
+  $self->param('saturatethreshold', scalar(@reads)) unless ($self->param_is_defined('saturatethreshold'));
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
      -analysis     => $self->create_analysis,
@@ -218,7 +222,7 @@ sub get_aligner_options {
                 '--model est2genome --forwardcoordinates false '.
                 '--softmasktarget '.($self->param('mask') ? 'true' : 'false').' --exhaustive false --percent 80 '.
                 '--dnahspthreshold 70 --minintron 20 --dnawordlen '.$self->param('word_length').' -i -12 --bestn 1';
-    $options .= ' --saturatethreshold '.$self->param('saturate_threshold') if ($self->param('saturate_threshold'));
+    $options .= ' --saturatethreshold '.$self->param('saturate_threshold') if ($self->param_is_defined('saturate_threshold'));
     return $options;
 }
 
@@ -264,30 +268,16 @@ sub write_output {
       # write to file
       my $iid = $self->input_id;
       # remove any batching info at the end
-      if ( $self->input_id =~ /(\S+):(\d+):(\d+):(\d+)/ ) {
-        $iid = $1;
-      }
+      $iid =~ s/:\d+:\d+:\d+$//;
 
       my $path;
       my $filename;
       # figure out a directory structure based on the stable ids
       if ( $iid =~ /^\w+\d+(\d)(\d)(\d)(\d)(\d\d)$/ ) {
         # make the directory structure
-        $path = $self->param('wide_output_sam_dir'). '/' . "$1";
-        mkdir($path) unless -d ($path);
-        $path = $path . '/' . "$2";
-        mkdir($path) unless -d ($path);
-        $path = $path . '/' . "$3";
-        mkdir($path) unless -d ($path);
-        $path = $path . '/' . "$4";
-        mkdir($path) unless -d ($path);
-        $filename = $path.'/'.$self->input_id.'.sam';
-      }
-      elsif ($self->param_is_defined('iid')) {
-        $self->param->('iid') =~ /(([^\/]+)_\d+\.fa)$/;
-        $path = $self->param('wide_output_sam_dir').'/'.$2;
-        mkdir($path) unless -d ($path);
-        $filename = $path.'/'.$1.'.sam';
+        $path = File::Spec->catdir($self->param('wide_output_sam_dir'), $1, $2, $3, $4);
+        make_path($path);
+        $filename = File::Spec->catfile($path, $self->input_id.'.sam');
       }
       else {
         $self->throw("Input id $iid structure not recognised should be something like BAMG00000002548\n");
@@ -310,7 +300,7 @@ sub write_output {
       }
       else {
           $self->input_job->autoflow(0);
-          $self->warning("Could not remove empty SAM file $filename") unless (system("rm $filename") == 0);
+          unlink $filename || $self->warning("Could not remove empty SAM file $filename");
       }
   }
   else {

@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -96,6 +96,7 @@ use vars qw (@ISA @EXPORT);
              evidence_coverage_greater_than_minimum
              exon_lengths_all_less_than_maximum
              exon_overlap
+             coding_exon_overlap
              exonic_proportion
              features_overlap
              fully_load_Transcript
@@ -1218,7 +1219,8 @@ sub replace_stops_with_introns{
   #print 'DEBUG: peptide: ', $pep, "\n";
   my $removed_exon_count = 0;
   # gaps adjacent to internal stop codons - skip
-  return 0 if ($pep =~ /X\*/ || $pep =~ /\*X/);
+# I'm not sure this happens often but I had a peptide equal to '*'
+  return 0 if ($pep eq '*' or $pep =~ /X\*/ || $pep =~ /\*X/);
 
   my $num_stops = $pep =~ s/\*/\*/g;
 
@@ -1404,6 +1406,7 @@ sub replace_stops_with_introns{
               }
               $fp_left->seqname   ($ug->seqname);
               $fp_left->strand    ($ug->strand);
+              $fp_left->hstrand    ($ug->hstrand);
               $fp_left->hseqname  ($ug->hseqname);
               $fp_left->score     ($ug->score);
               $fp_left->percent_id($ug->percent_id);
@@ -1419,6 +1422,7 @@ sub replace_stops_with_introns{
               }
               $fp_right->seqname   ($ug->seqname);
               $fp_right->strand    ($ug->strand);
+              $fp_right->hstrand    ($ug->hstrand);
               $fp_right->hseqname  ($ug->hseqname);
               $fp_right->score     ($ug->score);
               $fp_right->percent_id($ug->percent_id);
@@ -2912,6 +2916,21 @@ sub exon_overlap {
 
   foreach my $exonA (@{$trancriptA->get_all_Exons()}) {
     foreach my $exonB (@{$trancriptB->get_all_Exons()}) {
+      $overlap += overlap_length($exonA,$exonB);
+    }
+  }
+  return $overlap;
+}
+
+sub coding_exon_overlap {
+# return the length of the coding exonic overlap between
+# transcriptA and transcriptB
+  my ($trancriptA,$trancriptB) = @_;
+
+  my $overlap = 0;
+
+  foreach my $exonA (@{$trancriptA->get_all_translateable_Exons()}) {
+    foreach my $exonB (@{$trancriptB->get_all_translateable_Exons()}) {
       $overlap += overlap_length($exonA,$exonB);
     }
   }

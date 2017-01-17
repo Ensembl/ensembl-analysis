@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -98,19 +98,29 @@ my $window_size = 3;
 my $dbuser      = 'genero';
 my $dbhost      = 'cbi5d';
 my $dbport      = 3306;
+my $killist_dbname = 'gb_kill_list';
+my $killist_dbuser;
+my $killist_dbhost;
+my $killist_dbport = 3306;
 my $min_length  = 0;
+my $tax_id;
 
 GetOptions(
         'dbnames|db|D=s'              => \@dbnames,
         'dbuser|user|u=s'               => \$dbuser,
         'dbhost|host|h=s'               => \$dbhost,
         'dbport|port|P=s'               => \$dbport,
+        'killdbnames|kdb=s'              => \$killist_dbname,
+        'killdbuser|kuser=s'               => \$killist_dbuser,
+        'killdbhost|khost=s'               => \$killist_dbhost,
+        'killdbport|kport=s'               => \$killist_dbport,
         'infile=s'               => \$infile,
         'outfile=s'              => \$outfile,
         'annotation=s'           => \$annotation_file,
         'buffer=s'               => \$buffer,
         'window=s'               => \$window_size,
         'min_length:s'           => \$min_length,
+        'tax_id:s'           => \$tax_id,
 );
 
 # check commandline
@@ -165,7 +175,16 @@ my $AT_only_count        = 0;
 my $cdna_written         = 0;
 my $zero_length          = 0;
 
-my $kill_list_object = Bio::EnsEMBL::KillList::KillList->new( -TYPE => "cDNA" );
+my $kill_list_object = Bio::EnsEMBL::KillList::KillList->new( -TYPE => "cDNA",
+    -KILL_LIST_DB => {
+        '-dbname' => $killist_dbname,
+        '-host'   => $killist_dbhost,
+        '-user'   => $killist_dbuser,
+        '-port'   => $killist_dbport,
+    });
+if ($tax_id) {
+  $kill_list_object->FILTER_PARAMS->{-for_species} = [$tax_id];
+}
 my %kill_list = %{ $kill_list_object->get_kill_list() };
 
 if ($annotation_file) { open( ANNOTATION, ">>$annotation_file" ) or die "Cannot open $annotation_file\n"; }

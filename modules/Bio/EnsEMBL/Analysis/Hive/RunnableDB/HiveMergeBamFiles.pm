@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ use strict;
 
 use File::Copy;
 use File::Spec;
-use File::Basename;
+use File::Basename qw(basename);
 
 use Bio::EnsEMBL::DataFile;
 
@@ -126,6 +126,7 @@ sub fetch_input {
     my ($self) = @_;
 
     $self->create_analysis;
+    $self->param_required('target_db');
     my $outname = $self->param_is_defined('sample_name') ? $self->param('sample_name') : 'merged';
     if (!$self->param_is_defined('logic_name')) {
       my $aligner = $self->param('wide_short_read_aligner');
@@ -139,7 +140,7 @@ sub fetch_input {
     }
     if (!$self->param_is_defined('alignment_bam_file')) {
       $self->param('alignment_bam_file', File::Spec->catfile($self->param('wide_merge_dir'),
-        join('.', $self->param('assembly_name'), $self->param('rnaseq_data_provider'), $outname, $self->param('bam_version'), $self->param('_file_ext'))));
+        join('.', $self->param_required('assembly_name'), $self->param_required('rnaseq_data_provider'), $outname, $self->param('bam_version'), $self->param('_file_ext'))));
     }
     if (scalar(@{$self->param('filename')}) == 0) {
         $self->throw('You did not specify input files for '.$self->analysis->logic_name);
@@ -257,13 +258,17 @@ sub store_filename_into_datafile {
   my $analysis_adaptor = $db->get_AnalysisAdaptor;
   my $analysis = $analysis_adaptor->fetch_by_logic_name($self->analysis->logic_name);
   if (!$analysis) {
-    $analysis_adaptor->store($analysis);
+    $analysis_adaptor->store($self->analysis);
+    $analysis = $self->analysis;
   }
+  my @coord_systems = sort {$a->rank <=> $b->rank} @{$db->get_CoordSystemAdaptor->fetch_all_by_version($self->param('assembly_name'))};
   my $datafile = Bio::EnsEMBL::DataFile->new();
   $datafile->analysis($analysis);
-  $datafile->file(basename($self->param('alignment_bam_file'), '.'.$self->param('_file_ext')));
-  $datafile->filetype('BAMCOV');
-  $datafile->coord_ssytem($db->get_CoordSystemAdaptor->fetch_by_rank(1));
+  $datafile->name(basename($self->param('alignment_bam_file'), '.'.$self->param('_file_ext')));
+  $datafile->file_type('BAMCOV');
+  $datafile->version_lock(0);
+  $datafile->absolute(0);
+  $datafile->coord_system($coord_systems[0]);
   $db->get_DataFileAdaptor->store($datafile);
 }
 

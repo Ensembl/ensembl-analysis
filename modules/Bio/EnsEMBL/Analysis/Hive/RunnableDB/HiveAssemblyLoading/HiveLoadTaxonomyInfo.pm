@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -88,12 +88,7 @@ sub load_taxonomy {
 
 
   unless($target_dbname && $target_host && $target_user && $target_pass) {
-    throw("The connection info for the database could not be recovered from the parameters passed in. ".
-          "Make sure you pass in user_w, pass_w and either a db string or a hash to target_db");
-  }
-
-  unless($target_dbname && $target_host && $target_user && $target_pass) {
-    throw("The connection info for the database could not be recovered from the parameters passed in. ".
+    $self->throw("The connection info for the database could not be recovered from the parameters passed in. ".
           "Make sure you pass in user_w, pass_w and either a db string or a hash to target_db");
   }
 
@@ -105,28 +100,29 @@ sub load_taxonomy {
 
 
   my $taxonomy_script = $self->param('enscode_root_dir')."/ensembl-production/scripts/production_database/populate_species_meta.pl";
-  my $cmd = "perl ".$taxonomy_script.
-            " -h ".$target_host.
-            " -u ".$target_user.
-            " -p ".$target_pass.
-            " -d ".$target_dbname.
-            " -P ".$target_port;
+  my $cmd = 'perl '.$taxonomy_script.
+            ' -h '.$target_host.
+            ' -u '.$target_user.
+            ' -p '.$target_pass.
+            ' -d '.$target_dbname.
+            ' -P '.$target_port;
+  if ($self->param_is_defined('production_db')) {
+    $cmd .= ' -mh '.$self->param('production_db')->{-host}.
+            ' -mu '.$self->param('production_db')->{-user}.
+            ' -md '.$self->param('production_db')->{-dbname}.
+            ' -mP '.$self->param('production_db')->{-port};
+    $cmd .= ' -mp '.$self->param('production_db')->{-pass} if (defined $self->param('production_db')->{-pass});
+  }
+  if ($self->param_is_defined('taxonomy_db')) {
+    $cmd .= ' -th '.$self->param('taxonomy_db')->{-host}.
+            ' -tu '.$self->param('taxonomy_db')->{-user}.
+            ' -td '.$self->param('taxonomy_db')->{-dbname}.
+            ' -tP '.$self->param('taxonomy_db')->{-port};
+    $cmd .= ' -tp '.$self->param('taxonomy_db')->{-pass} if (defined $self->param('taxonomy_db')->{-pass});
+  }
 
-#  my $cmd = "perl ".$taxonomy_script.
-#            " -lcdbhost ".$target_host.
-#            " -lcdbuser ".$target_user.
-#            " -lcdbpass ".$target_pass.
-#            " -lcdbname ".$target_dbname.
-#            " -lcdbport ".$target_port.
-#            " -taxondbhost ".$taxonomy_host.
-#            " -taxondbport ".$taxonomy_port.
-#            " -taxondbname ".$taxonomy_dbname.
-#            " -taxon_id ".$taxon_id;
-            # Note script has no flag for -taxonuser, maybe it should be added. Hardcoded to ensro at the moment
-
-  my $return = system($cmd);
-  if($return) {
-    throw("The load_taxonomy script returned a non-zero exit value. Commandline used:\n".$cmd);
+  if(system($cmd)) {
+    $self->throw("The load_taxonomy script returned a non-zero exit value. Commandline used:\n".$cmd);
   }
 
 }

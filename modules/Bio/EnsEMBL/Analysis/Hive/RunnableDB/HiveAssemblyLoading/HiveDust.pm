@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,9 +60,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDust;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis;
-use Bio::EnsEMBL::Analysis::Runnable::Dust;
-
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 =head2 fetch_input
@@ -87,20 +84,20 @@ sub fetch_input{
   my $slice = $self->fetch_sequence($input_id,$dba);
   $self->query($slice);
 
-  my $analysis = Bio::EnsEMBL::Analysis->new(
-                                              -logic_name => $self->param('logic_name'),
-                                              -module => $self->param('module'),
-                                              -program_file => $self->param('dust_path'),
-                                              -parameters => $self->param('commandline_params'),
-                                            );
-
-  $self->analysis($analysis);
+  $self->create_analysis();
+  $self->analysis->program_file($self->param('dust_path'));
+  $self->analysis->parameters($self->param('commandline_params')) if ($self->param_is_defined('commandline_params'));
 
   my %parameters;
   if($self->parameters_hash){
     %parameters = %{$self->parameters_hash};
   }
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Dust->new
+  my $runnable_class = 'Bio::EnsEMBL::Analysis::Runnable::Dust';
+  if ($self->param('dust_path') =~ /dustmasker/) {
+    $runnable_class = 'Bio::EnsEMBL::Analysis::Runnable::DustMasker';
+  }
+  $self->require_module($runnable_class);
+  my $runnable = $runnable_class->new
        (
          -query => $self->query,
          -program => $self->analysis->program_file,
@@ -153,11 +150,6 @@ sub write_output{
             "the database $@");
     }
   }
-
-  my $output_hash = {};
-  $output_hash->{'iid'} = $self->param('iid');
-  $self->dataflow_output_id($output_hash,4);
-  $self->dataflow_output_id($output_hash,1);
 
 }
 

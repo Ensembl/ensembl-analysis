@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,7 +58,6 @@ use strict;
 use warnings;
 use feature 'say';
 
-use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Runnable::Blast;
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -83,7 +82,7 @@ sub fetch_input{
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
   $self->hrdb_set_con($dba,'target_db');
 
-  $self->hive_set_config;
+  $self->create_analysis;
 
   my $input_id = $self->param('iid');
   my $slice = $self->fetch_sequence($input_id,$dba,$repeat_masking);
@@ -99,18 +98,12 @@ sub fetch_input{
     $self->throw("You did not pass in the blast_db_path parameter. This is required to locate the blast db");
   }
 
-  my $blast_db_path = $self->param('blast_db_path');
-  my $blast_exe_path = $self->param('blast_exe_path');
-
- # Make an analysis object and set it, this will allow the module to write to the output db
-  my $analysis = new Bio::EnsEMBL::Analysis(
-                                             -logic_name => $self->param('logic_name'),
-                                             -module => $self->param('module'),
-                                             -program_file => $blast_exe_path,
-                                             -db_file => $blast_db_path,
-                                             -parameters => $self->param('commandline_params'),
-                                           );
-  $self->analysis($analysis);
+  $self->create_analysis;
+  $self->analysis->program($self->param('blast_program')) if ($self->param_is_defined('blast_program'));
+  $self->analysis->program_file($self->param('blast_exe_path')) if ($self->param_is_defined('blast_exe_path'));
+  $self->analysis->parameters($self->param('commandline_params')) if ($self->param_is_defined('commandline_params'));
+  $self->analysis->db_file($self->param('blast_db_path')) if ($self->param_is_defined('blast_db_path'));
+  $self->analysis->db($self->param('blast_db_name')) if ($self->param_is_defined('blast_db_name'));
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Blast->new
     (
@@ -218,11 +211,6 @@ sub write_output{
       }
     }
   }
-
-  my $output_hash = {};
-  $output_hash->{'iid'} = $self->param('iid');
-  $self->dataflow_output_id($output_hash,4);
-  $self->dataflow_output_id($output_hash,1);
 
   return 1;
 }
@@ -398,14 +386,13 @@ sub FILTER_PARAMS{
 
 sub BLAST_PARAMS {
   my ($self, $value) = @_;
-
   if(defined $value){
     $self->throw("BLAST_PARAMS must be a hash ref not ".$self->BLAST_PARAMS." Blast::set_hive_config")
       unless (ref($value) eq 'HASH');
     $self->param('BLAST_PARAMS',$value);
   }
   if($self->parameters_hash) {
-    my %parameters = (%{$self->param('BLAST_PARAMS')}, %{$self->parameters_hash});
+    my %parameters = (%{$self->param('BLAST_PARAMS') || {}}, %{$self->parameters_hash});
     $self->param('BLAST_PARAMS', \%parameters);
   }
 

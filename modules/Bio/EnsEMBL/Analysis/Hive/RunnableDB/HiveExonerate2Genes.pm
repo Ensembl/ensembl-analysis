@@ -3,7 +3,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ sub fetch_input {
 
   # This call will set the config file parameters. Note this will set REFGB (which overrides the
   # value in $self->db and OUTDB
-  $self->hive_set_config;
+  $self->create_analysis;
 
   ##########################################
   # set up the target (genome)
@@ -327,59 +327,6 @@ sub write_output {
 
 }
 
-sub hive_set_config {
-  my $self = shift;
-
-  # Throw is these aren't present as they should both be defined
-  unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    $self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
-          "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
-          "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
-          "write the genes to and this should also include the module name even if it isn't strictly necessary"
-         );
-  }
-
-  # Make an analysis object and set it, this will allow the module to write to the output db
-  my $analysis = new Bio::EnsEMBL::Analysis(
-                                             -logic_name => $self->param('logic_name'),
-                                             -module => $self->param('module'),
-                                           );
-  $self->analysis($analysis);
-
-  # Now loop through all the keys in the parameters hash and set anything that can be set
-  my $config_hash = $self->param('config_settings');
-  foreach my $config_key (keys(%{$config_hash})) {
-    if(defined &$config_key) {
-      $self->$config_key($config_hash->{$config_key});
-    } else {
-      $self->throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
-            "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
-            "key:\n".$config_key
-           );
-    }
-  }
-
-
-  if($self->FILTER) {
-    if(not ref($self->FILTER) eq "HASH" or not exists($self->FILTER->{OBJECT}) or not exists($self->FILTER->{PARAMETERS})) {
-       $self->throw("FILTER in config of ".$analysis->logic_name."  must be a hash ref with elements:\n" .
-             "  OBJECT : qualified name of the filter module;\n" .
-             "  PARAMETERS : anonymous hash of parameters to pass to the filter");
-    } else {
-      my $module = $self->FILTER->{OBJECT};
-      my $pars   = $self->FILTER->{PARAMETERS};
-
-      (my $class = $module) =~ s/::/\//g;
-      eval {
-        require "$class.pm";
-      };
-      $self->throw("Couldn't require ".$class." Exonerate2Genes:require_module $@") if($@);
-
-      $self->filter($module->new(%{$pars}));
-    }
-  }
-}
-
 sub get_transcript_region {
   my ($self,$transcript_id) = @_;
 
@@ -442,12 +389,12 @@ sub best_in_genome_transcript {
    my ($self,$val) = @_;
 
    if(defined($val) && $val==1) {
-     $self->param('_best_in_genome_transcript', 1);
+     $self->param('best_in_genome_transcript', 1);
    } elsif(defined($val) && $val==0) {
-     $self->param('_best_in_genome_transcript', 0);
+     $self->param('best_in_genome_transcript', 0);
    }
 
-   return($self->param('_best_in_genome_transcript'));
+   return($self->param('best_in_genome_transcript'));
 }
 
 
@@ -564,8 +511,6 @@ sub get_output_db {
   } else {
     $outdb = $self->hrdb_get_con('target_db');
   }
-  $self->hrdb_get_con('target_db')->dbc->disconnect_when_inactive(1) ;
-  $outdb->dbc->disconnect_when_inactive(1) ;
   return $outdb;
 }
 
@@ -613,11 +558,11 @@ sub QUERYSEQS {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_CONFIG_QUERYSEQS',$value);
+    $self->param('QUERYSEQS',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_QUERYSEQS')) {
-    return $self->param('_CONFIG_QUERYSEQS');
+  if ($self->param_is_defined('QUERYSEQS')) {
+    return $self->param('QUERYSEQS');
   } else {
     return undef;
   }
@@ -627,11 +572,11 @@ sub QUERYTYPE {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_CONFIG_QUERYTYPE',$value);
+    $self->param('QUERYTYPE',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_QUERYTYPE')) {
-    return $self->param('_CONFIG_QUERYTYPE');
+  if ($self->param_is_defined('QUERYTYPE')) {
+    return $self->param('QUERYTYPE');
   } else {
     return undef;
   }
@@ -641,11 +586,11 @@ sub QUERYANNOTATION {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_CONFIG_QUERYANNOTATION',$value);
+    $self->param('QUERYANNOTATION',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_QUERYANNOTATION')) {
-    return $self->param('_CONFIG_QUERYANNOTATION');
+  if ($self->param_is_defined('QUERYANNOTATION')) {
+    return $self->param('QUERYANNOTATION');
   } else {
     return undef;
   }
@@ -655,11 +600,11 @@ sub GENOMICSEQS {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_CONFIG_GENOMICSEQS',$value);
+    $self->param('GENOMICSEQS',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_GENOMICSEQS')) {
-    return $self->param('_CONFIG_GENOMICSEQS');
+  if ($self->param_is_defined('GENOMICSEQS')) {
+    return $self->param('GENOMICSEQS');
   } else {
     return undef;
   }
@@ -669,11 +614,11 @@ sub IIDREGEXP {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_CONFIG_IIDREGEXP',$value);
+    $self->param('IIDREGEXP',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_IIDREGEXP')) {
-    return $self->param('_CONFIG_IIDREGEXP');
+  if ($self->param_is_defined('IIDREGEXP')) {
+    return $self->param('IIDREGEXP');
   } else {
     return undef;
   }
@@ -686,13 +631,13 @@ sub REFDB {
     my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
                                                   %$value
                                                 );
-    $self->param('_CONFIG_REFDB',$dba);
+    $self->param('REFDB',$dba);
     # Set this to override the default dbc which is inherited from Process and is to the Hive db
     #$self->db($dba);
   }
 
-  if ($self->param_is_defined('_CONFIG_REFDB')) {
-    return $self->param('_CONFIG_REFDB');
+  if ($self->param_is_defined('REFDB')) {
+    return $self->param('REFDB');
 
   } else {
     return undef;
@@ -703,11 +648,11 @@ sub OUTDB {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_CONFIG_OUTDB',$value);
+    $self->param('OUTDB',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_OUTDB')) {
-    return $self->param('_CONFIG_OUTDB');
+  if ($self->param_is_defined('OUTDB')) {
+    return $self->param('OUTDB');
 
   } else {
     return undef;
@@ -718,11 +663,11 @@ sub KILLLISTDB {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_CONFIG_KILLLISTDB',$value);
+    $self->param('KILLLISTDB',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_KILLLISTDB')) {
-    return $self->param('_CONFIG_KILLLISTDB');
+  if ($self->param_is_defined('KILLLISTDB')) {
+    return $self->param('KILLLISTDB');
   } else {
     return undef;
   }
@@ -732,39 +677,26 @@ sub COVERAGE_BY_ALIGNED {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_CONFIG_COVERAGE',$value);
+    $self->param('COVERAGE_BY_ALIGNED',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_COVERAGE')) {
-    return $self->param('_CONFIG_COVERAGE');
+  if ($self->param_is_defined('COVERAGE_BY_ALIGNED')) {
+    return $self->param('COVERAGE_BY_ALIGNED');
   } else {
     return undef;
   }
 }
 
-sub FILTER {
-  my ($self,$value) = @_;
-
-  if (defined $value) {
-    $self->param('_CONFIG_FILTER',$value);
-  }
-
-  if ($self->param_is_defined('_CONFIG_FILTER')) {
-    return $self->param('_CONFIG_FILTER');
-  } else {
-    return undef;
-  }
-}
 
 sub OPTIONS {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_CONFIG_OPTIONS',$value);
+    $self->param('OPTIONS',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_OPTIONS')) {
-    return $self->param('_CONFIG_OPTIONS');
+  if ($self->param_is_defined('OPTIONS')) {
+    return $self->param('OPTIONS');
   } else {
     return undef;
   }
@@ -774,11 +706,11 @@ sub NONREF_REGIONS {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_CONFIG_NONREF_REGIONS',$value);
+    $self->param('NONREF_REGIONS',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_NONREF_REGIONS')) {
-    return $self->param('_CONFIG_NONREF_REGIONS');
+  if ($self->param_is_defined('NONREF_REGIONS')) {
+    return $self->param('NONREF_REGIONS');
   } else {
     return undef;
   }
@@ -788,11 +720,11 @@ sub PROGRAM {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_CONFIG_PROGRAM',$value);
+    $self->param('PROGRAM',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_PROGRAM')) {
-    return $self->param('_CONFIG_PROGRAM');
+  if ($self->param_is_defined('PROGRAM')) {
+    return $self->param('PROGRAM');
   } else {
     return undef;
   }
@@ -802,11 +734,11 @@ sub USE_KILL_LIST {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_CONFIG_USE_KILL_LIST',$value);
+    $self->param('USE_KILL_LIST',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_USE_KILL_LIST')) {
-    return $self->param('_CONFIG_USE_KILL_LIST');
+  if ($self->param_is_defined('USE_KILL_LIST')) {
+    return $self->param('USE_KILL_LIST');
   } else {
     return undef;
   }
@@ -816,11 +748,11 @@ sub KILL_TYPE {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_CONFIG_KILL_TYPE',$value);
+    $self->param('KILL_TYPE',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_KILL_TYPE')) {
-    return $self->param('_CONFIG_KILL_TYPE');
+  if ($self->param_is_defined('KILL_TYPE')) {
+    return $self->param('KILL_TYPE');
   } else {
     return undef;
   }
@@ -830,11 +762,11 @@ sub KILL_LIST_FILTER {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_CONFIG_KILL_LIST_FILTER',$value);
+    $self->param('KILL_LIST_FILTER',$value);
   }
 
-  if ($self->param_is_defined('_CONFIG_KILL_LIST_FILTER')) {
-    return $self->param('_CONFIG_KILL_LIST_FILTER');
+  if ($self->param_is_defined('KILL_LIST_FILTER')) {
+    return $self->param('KILL_LIST_FILTER');
   } else {
     return undef;
   }
@@ -844,11 +776,11 @@ sub SOFT_MASKED_REPEATS {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_SOFT_MASKED_REPEATS',$value);
+    $self->param('SOFT_MASKED_REPEATS',$value);
   }
 
-  if ($self->param_is_defined('_SOFT_MASKED_REPEATS')) {
-    return $self->param('_SOFT_MASKED_REPEATS');
+  if ($self->param_is_defined('SOFT_MASKED_REPEATS')) {
+    return $self->param('SOFT_MASKED_REPEATS');
   } else {
     return undef;
   }
@@ -858,11 +790,11 @@ sub SEQFETCHER_PARAMS {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_SEQFETCHER_PARAMS',$value);
+    $self->param('SEQFETCHER_PARAMS',$value);
   }
 
-  if ($self->param_is_defined('_SEQFETCHER_PARAMS')) {
-    return $self->param('_SEQFETCHER_PARAMS');
+  if ($self->param_is_defined('SEQFETCHER_PARAMS')) {
+    return $self->param('SEQFETCHER_PARAMS');
   } else {
     return undef;
   }
@@ -872,11 +804,11 @@ sub SEQFETCHER_OBJECT {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('_SEQFETCHER_OBJECT',$value);
+    $self->param('SEQFETCHER_OBJECT',$value);
   }
 
-  if ($self->param_is_defined('_SEQFETCHER_OBJECT')) {
-    return $self->param('_SEQFETCHER_OBJECT');
+  if ($self->param_is_defined('SEQFETCHER_OBJECT')) {
+    return $self->param('SEQFETCHER_OBJECT');
   } else {
     return undef;
   }
@@ -924,7 +856,16 @@ sub filter {
   if ($val) {
     $self->param('_transcript_filter',$val);
   }
-  return $self->param('_transcript_filter');
+  elsif ($self->param_is_defined('FILTER')) {
+    $self->require_module($self->param('FILTER')->{OBJECT});
+    $self->param('_transcript_filter', $self->param('FILTER')->{OBJECT}->new(%{$self->param('FILTER')->{FILTER_PARAMS}}));
+  }
+  if ($self->param_is_defined('_transcript_filter')) {
+    return $self->param('_transcript_filter');
+  }
+  else {
+    return;
+  }
 }
 
 ############################################################
@@ -936,58 +877,6 @@ sub filtered_query_file {
   }
   return $self->param('_filtered_query_file');
 }
-
-#############################################################
-# Declare and set up config variables
-#############################################################
-
-#sub read_and_check_config {
-#  my $self = shift;
-
-#  $self->SUPER::read_and_check_config($EXONERATE_CONFIG_BY_LOGIC);
-
-  ##########
-  # CHECKS
-  ##########
-#  my $logic = $self->analysis->logic_name;
-
-  # check that compulsory options have values
-#  foreach my $config_var (qw(QUERYSEQS 
-#                             QUERYTYPE
-#                             GENOMICSEQS)) {
-
-#   $self->throw("You must define $config_var in config for logic '$logic'")
-#        if not defined $self->$config_var;
-#  }
-  
-#  $self->throw("QUERYANNOTATION '" . $self->QUERYANNOTATION . "' in config must be readable")
-#      if $self->QUERYANNOTATION and not -e $self->QUERYANNOTATION;
-
-  # filter does not have to be defined, but if it is, it should
-  # give details of an object and its parameters
-#  if ($self->FILTER) {
-#    if (not ref($self->FILTER) eq "HASH" or
-#        not exists($self->FILTER->{OBJECT}) or
-#        not exists($self->FILTER->{PARAMETERS})) {
-
-#      $self->throw("FILTER in config fo '$logic' must be a hash ref with elements:\n" .
-#            "  OBJECT : qualified name of the filter module;\n" .
-#            "  PARAMETERS : anonymous hash of parameters to pass to the filter");
-#    } else {
-#      my $module = $self->FILTER->{OBJECT};
-#      my $pars   = $self->FILTER->{PARAMETERS};
-      
-#      (my $class = $module) =~ s/::/\//g;
-#      eval{
-#        require "$class.pm";
-#      };
-#      $self->throw("Couldn't require ".$class." Exonerate2Genes:require_module $@") if($@);
-#    
-#      $self->filter($module->new(%{$pars}));
-#    }
-#  }
-#}
-
 
 
 ###############################################
@@ -1139,7 +1028,7 @@ sub get_biotype {
 sub files_to_delete {
   my ($self,$val) = @_;
 
-  unless($self->param('_files_to_delete')) {
+  unless($self->param_is_defined('_files_to_delete')) {
     $self->param('_files_to_delete',[]);
   }
 
@@ -1154,18 +1043,18 @@ sub files_to_delete {
 sub peptide_seq {
   my ($self, $value) = @_;
   if($value){
-    $self->{_peptide_seq} = $value;
+    $self->param('_peptide_seq', $value);
   }
-  return $self->{_peptide_seq};
+  return $self->param('_peptide_seq');
 }
 
 
 sub calculate_coverage_and_pid {
   my ($self, $value) = @_;
   if($value){
-    $self->{_calculate_coverage_and_pid} = $value;
+    $self->param('calculate_coverage_and_pid', $value);
   }
-  return $self->{_calculate_coverage_and_pid};
+  return $self->param('calculate_coverage_and_pid');
 }
 
 

@@ -1,6 +1,6 @@
 =head1 LICENSE
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -132,7 +132,15 @@ sub run {
   my ($self) = @_;
 
   foreach my $runnable(@{$self->runnable}){
-    $runnable->run;
+    eval {
+    	$runnable->run; 
+    }; 
+    if ($@) {
+      $self->dataflow_output_id(undef,-3); 
+      $self->complete_early("FAILED to run, and I will die now... check your runnable!!". $@);
+    } else {
+      print "command was fine\n";
+    } 
     $self->output($runnable->output);
   }
 

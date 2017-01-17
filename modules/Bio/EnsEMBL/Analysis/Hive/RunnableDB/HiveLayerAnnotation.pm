@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,10 +45,7 @@ use warnings ;
 use strict;
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
-use Data::Dumper;
-use feature 'say';
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -66,7 +63,10 @@ sub fetch_input {
 
   # This call will set the config file parameters. Note this will set REFGB (which overrides the
   # value in $self->db and OUTDB
-  $self->hive_set_config;
+  foreach my $i (qw(LAYERS SOURCEDB_REFS TARGETDB_REF FILTER)) {
+     $self->throw("You must define $i in config") unless ($self->param_required($i));
+  }
+  $self->create_analysis;
 
   my $target_dba = $self->hrdb_get_dba($self->TARGETDB_REF);
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
@@ -74,8 +74,6 @@ sub fetch_input {
     $target_dba->dnadb($dna_dba);
   }
   $self->hrdb_set_con($target_dba,'target_db');
-
-  $self->dbc->disconnect_if_idle(1);
 
   my $found_input_genes = 0;
   foreach my $input_db (@{$self->SOURCEDB_REFS}) {
@@ -99,7 +97,6 @@ sub fetch_input {
         }
       }
     }
-    #$dba->dbc->disconnect_when_inactive(0) ;
   }
 
   # If there are no input genes then finish and don't flow
@@ -139,7 +136,7 @@ sub run {
       if ($layer->filter_object) {
         @layer_genes = @{$layer->filter_object->filter(\@layer_genes, \@compare_genes)};
       } else {
-        throw("No filter object");
+        $self->throw("No filter object");
       }
 
       if (not $layer->discard) {
@@ -195,7 +192,7 @@ sub write_output {
   }
 
   if ($fails > 0) {
-    throw("Not all genes could be written successfully " .
+    $self->throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
   }
 
@@ -207,122 +204,66 @@ sub layers {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->{_runnabledb_layers} = $val;
+    $self->param('_runnabledb_layers', $val);
+  }
+  elsif ($self->LAYERS and !$self->param_is_defined('_runnabledb_layers')) {
+    my $filter;
+    if ($self->FILTER) {
+      $self->require_module($self->FILTER);
+      $filter = $self->FILTER->new;
+    }
+
+    my (%biotypes, %layer_ids, @layers);
+
+    # finally, check the integrity of the LAYERS
+    foreach my $el (@{$self->LAYERS}) {
+      $self->throw("Elements of LAYERS must be hash references")
+          if ref($el) ne "HASH";
+
+      $self->throw("Each element of LAYERS must contain a layer ID")
+          if not exists $el->{ID};
+
+      $self->throw("LAYER " . $el->{ID} . " should a list of BIOTYPES")
+          if not exists $el->{BIOTYPES} or ref($el->{BIOTYPES}) ne "ARRAY";
+
+      my $layer_id = $el->{ID};
+      my @biotypes = @{$el->{BIOTYPES}};
+      my $discard = 0;
+      my (@filter_against);
+
+      if (exists $el->{DISCARD} and $el->{DISCARD}) {
+        $discard = 1;
+      }
+      foreach my $tp (@biotypes) {
+        if (exists $biotypes{$tp}) {
+          $self->throw("biotype $tp occurs more than once");
+        }
+        $biotypes{$tp} = 1;
+      }
+      if (exists $el->{FILTER_AGAINST}) {
+        $self->throw("In layer $layer_id FILTER_AGAINST must contain a list of layer ids")
+            if ref($el->{FILTER_AGAINST}) ne "ARRAY";
+        @filter_against = @{$el->{FILTER_AGAINST}};
+
+        foreach my $id (@filter_against) {
+          $self->throw("In FILTER_AGAINST in layer $layer_id, '$id' is not the name ".
+                "of a higher level layer")
+              if not exists $layer_ids{$id};
+        }
+      }
+      push @layers, Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLayerAnnotation::Layer->new(-id => $layer_id,
+                                                                                              -discard => $discard,
+                                                                                              -biotypes =>  \@biotypes,
+                                                                                              -filter_object  => $filter,
+                                                                                              -filter_against => \@filter_against);
+      $layer_ids{$layer_id} = 1;
+    }
+    $self->param('_runnabledb_layers', \@layers);
   }
 
-  return $self->{_runnabledb_layers};
+  return $self->param('_runnabledb_layers');
 }
 
-
-
-sub hive_set_config {
-  my $self = shift;
-
-  # Throw is these aren't present as they should both be defined
-  unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
-          "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
-          "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
-          "write the genes to and this should also include the module name even if it isn't strictly necessary"
-         );
-  }
-
-  # Make an analysis object and set it, this will allow the module to write to the output db
-  my $analysis = new Bio::EnsEMBL::Analysis(
-                                             -logic_name => $self->param('logic_name'),
-                                             -module => $self->param('module'),
-                                           );
-  $self->analysis($analysis);
-
-  # Now loop through all the keys in the parameters hash and set anything that can be set
-  my $config_hash = $self->param('config_settings');
-  foreach my $config_key (keys(%{$config_hash})) {
-    if(defined &$config_key) {
-      $self->$config_key($config_hash->{$config_key});
-    } else {
-      throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
-            "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
-            "key:\n".$config_key
-           );
-    }
-  }
-
-  # check that all relevant vars have been defined
-  foreach my $i (qw(LAYERS
-                    SOURCEDB_REFS
-                    TARGETDB_REF
-                    FILTER)) {
-    throw("You must define $i in config")
-        if not $self->$i;
-  }
-
-  # check types
-  throw("Config var LAYERS must be an array reference")
-      if ref($self->LAYERS) ne "ARRAY";
-  throw("Config var SOURCEDB_REFS must be an array reference")
-      if ref($self->SOURCEDB_REFS) ne "ARRAY";
-  throw("Config var TARGETDB_REF must be a hash reference")
-      if ref($self->TARGETDB_REF) ne "HASH";
-  throw("Config var FILTER must be an scalar")
-      if ref($self->FILTER);
-
-  my $filter;
-  if ($self->FILTER) {
-    $self->require_module($self->FILTER);
-    $filter = $self->FILTER->new;
-  }
-
-  my (%biotypes, %layer_ids, @layers);
-
-  # finally, check the integrity of the LAYERS
-  foreach my $el (@{$self->LAYERS}) {
-    throw("Elements of LAYERS must be hash references")
-        if ref($el) ne "HASH";
-
-    throw("Each element of LAYERS must contain a layer ID")
-        if not exists $el->{ID};
-
-    throw("LAYER " . $el->{ID} . " should a list of BIOTYPES")
-        if not exists $el->{BIOTYPES} or ref($el->{BIOTYPES}) ne "ARRAY";
-
-    my $layer_id = $el->{ID};
-    my @biotypes = @{$el->{BIOTYPES}};
-    my $discard = 0;
-    my (@filter_against);
-
-    if (exists $el->{DISCARD} and $el->{DISCARD}) {
-      $discard = 1;
-    }
-    foreach my $tp (@biotypes) {
-      if (exists $biotypes{$tp}) {
-        throw("biotype $tp occurs more than once");
-      }
-      $biotypes{$tp} = 1;
-    }
-    if (exists $el->{FILTER_AGAINST}) {
-      throw("In layer $layer_id FILTER_AGAINST must contain a list of layer ids")
-          if ref($el->{FILTER_AGAINST}) ne "ARRAY";
-      @filter_against = @{$el->{FILTER_AGAINST}};
-
-      foreach my $id (@filter_against) {
-        throw("In FILTER_AGAINST in layer $layer_id, '$id' is not the name ".
-              "of a higher level layer")
-            if not exists $layer_ids{$id};
-      }
-    }
-
-
-    push @layers, Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLayerAnnotation::Layer->new(-id => $layer_id,
-                                                                                            -discard => $discard,
-                                                                                            -biotypes =>  \@biotypes,
-                                                                                            -filter_object  => $filter,
-                                                                                            -filter_against => \@filter_against);
-
-    $layer_ids{$layer_id} = 1;
-  }
-
-  $self->layers(\@layers);
-}
 
 
 ################################################
@@ -332,10 +273,15 @@ sub LAYERS {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->param('_layers',$val);
+    $self->param('LAYERS',$val);
   }
 
-  return $self->param('_layers');
+  if ($self->param_is_defined('LAYERS')) {
+    return $self->param('LAYERS');
+  }
+  else {
+    return;
+  }
 }
 
 
@@ -343,10 +289,10 @@ sub FILTER {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->param('_filter_object_name',$val);
+    $self->param('FILTER',$val);
   }
 
-  return $self->param('_filter_object_name');
+  return $self->param('FILTER');
 }
 
 
@@ -354,10 +300,10 @@ sub SOURCEDB_REFS {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->param('_inputdb_names',$val);
+    $self->param('SOURCEDB_REFS',$val);
   }
 
-  return $self->param('_inputdb_names');
+  return $self->param('SOURCEDB_REFS');
 }
 
 
@@ -365,10 +311,10 @@ sub TARGETDB_REF {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->param('_outputdb_name',$val);
+    $self->param('TARGETDB_REF',$val);
   }
 
-  return $self->param('_outputdb_name');
+  return $self->param('TARGETDB_REF');
 }
 
 ##############################################

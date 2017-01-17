@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,12 +36,31 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenBlast;
 use strict;
 use warnings;
 use feature 'say';
-use Data::Dumper;
 
 use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::Analysis::Runnable::GenBlastGene;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene attach_Slice_to_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: It allows the definition of default parameters for all inherting module.
+              These are the default values:
+               projection_padding => 50000,
+ Returntype : Hashref, containing all default parameters
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my ($self) = @_;
+  return {
+    %{$self->SUPER::param_defaults},
+    projection_padding => 50000,
+  }
+}
 
 
 =head2 fetch_input
@@ -67,69 +86,46 @@ sub fetch_input {
 
   $self->hrdb_set_con($dba,'target_db');
 
-  my $analysis = Bio::EnsEMBL::Analysis->new(
-                                              -logic_name => $self->param('logic_name'),
-                                              -module => $self->param('module'),
-                                              -program_file => $self->param('genblast_path'),
-                                              -db_file => $self->param('genblast_db_path'),
-                                              -parameters => $self->param('commandline_params'),
-                                            );
-  $self->analysis($analysis);
+  $self->create_analysis;
+  my $genome_file = $self->param('genblast_db_path');
+  $self->analysis->program_file($self->param('genblast_path'));
+  $self->analysis->db_file($genome_file);
+  $self->analysis->parameters($self->param('commandline_params'));
 
   my %parameters;
   if($self->parameters_hash){
     %parameters = %{$self->parameters_hash};
   }
 
-  my $genome_file = $self->analysis->db_file;
 
   my $query_file;
 
-  my $iid_type = $self->param('iid_type');
-  unless($iid_type) {
-    $self->throw("You haven't provided an input id type. Need to provide one via the 'iid_type' param");
-  }
-
+  my $iid_type = $self->param_required('iid_type');
   # If there is a sequence table name, store for use later
-  if($self->param_is_defined('sequence_table_name')) {
-    my $sequence_table_name = $self->param('sequence_table_name');
-    $self->sequence_table_name($sequence_table_name);
-  }
+  $self->param_required('sequence_table_name');
 
   if($iid_type eq 'db_seq') {
     $query_file = $self->output_query_file($self->param("iid"));
   } elsif($iid_type eq 'chunk_file') {
     $query_file = $self->param('iid');
-    if($self->param('query_seq_dir')) {
+    if($self->param_is_defined('query_seq_dir')) {
       $query_file = $self->param('query_seq_dir')."/".$query_file;
     }
   } elsif($iid_type eq 'projection_transcript_id') {
     my @iid = @{$self->param("iid")};
     my $projection_dba = $self->hrdb_get_dba($self->param('projection_db'));
-    my $projection_transcript_id = $iid[0];
-    my $projection_protein_accession = $iid[1];
-    my $padding = $self->param("projection_padding");
-
-    unless(defined($padding)) {
-      $padding = 50000;
-    }
-
     if($dna_dba) {
       $projection_dba->dnadb($dna_dba);
     }
+    my $projection_transcript_id = $iid[0];
+    my $projection_protein_accession = $iid[1];
+    my $padding = $self->param('projection_padding');
+
     $query_file = $self->output_query_file([$projection_protein_accession]);
     $genome_file = $self->output_transcript_slice($projection_dba,$projection_transcript_id,$padding);
   } else {
     $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
-
-
-  my $genblast_program = $self->param('genblast_program');
-  my $biotypes_hash = $self->get_biotype();
-  my $max_rank = $self->param('max_rank');
-  my $genblast_pid = $self->param('genblast_pid');
-
-  say "FM2 DBA NAME: ".$dba->dbname;
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlastGene->new
     (
@@ -137,13 +133,13 @@ sub fetch_input {
      -program => $self->analysis->program_file,
      -analysis => $self->analysis,
      -database => $genome_file,
-     -genblast_program => $genblast_program,
-     -max_rank => $max_rank,
-     -genblast_pid => $genblast_pid,
-     -work_dir => $self->param('query_seq_dir'),
+     -max_rank => $self->param('max_rank'),
+     -genblast_pid => $self->param('genblast_pid'),
+     -workdir => $self->param('query_seq_dir'),
      -database_adaptor => $dba,
      %parameters,
     );
+  $runnable->genblast_program($self->param('genblast_program')) if ($self->param_is_defined('genblast_program'));
   $self->runnable($runnable);
 
   return 1;
@@ -197,38 +193,29 @@ sub write_output{
     $self->dataflow_output_id($output_hash,$failure_branch_code);
   } else {
     my @output = @{$self->output};
-    my $ff = $self->feature_factory;
 
+    my $analysis = $self->analysis;
+    my $not_best_analysis = new Bio::EnsEMBL::Analysis(-logic_name => $analysis->logic_name()."_not_best",
+                                                       -module     => $analysis->module);
     foreach my $transcript (@output){
-      my $gene = Bio::EnsEMBL::Gene->new();
-      $gene->analysis($self->analysis);
-
-      $transcript->analysis($self->analysis);
+      $transcript->analysis($analysis);
       my $accession = $transcript->{'accession'};
-      my $transcript_biotype = $self->get_biotype->{$accession};
-      $transcript->biotype($transcript_biotype);
+      $transcript->biotype($self->get_biotype->{$accession});
 
       if($transcript->{'rank'} > 1) {
-        my $analysis = new Bio::EnsEMBL::Analysis(-logic_name => $transcript->analysis->logic_name()."_not_best",
-                                                  -module     => $transcript->analysis->module);
+        $transcript->analysis($not_best_analysis);
+      }
+      else {
         $transcript->analysis($analysis);
-        $gene->analysis($analysis);
       }
 
+      empty_Transcript($transcript);
+      my $gene = Bio::EnsEMBL::Gene->new();
+      $gene->analysis($transcript->analysis);
+
       $gene->biotype($gene->analysis->logic_name);
-
-  #    if ($self->test_translates()) {
-  #      print "The GenBlast transcript ",$pt->display_label," doesn't translate correctly\n";
-  #      next;
-  #    } # test to see if this transcript translates OK
       $gene->add_Transcript($transcript);
-      $gene->slice($transcript->slice);
-      empty_Gene($gene);
       $adaptor->store($gene);
-    }
-
-    if($self->param('store_blast_results')) {
-      $self->store_protein_align_features();
     }
 
   }
@@ -245,88 +232,10 @@ sub write_output{
 
 sub runnable_failed {
   my ($self,$runnable_failed) = @_;
-  if($runnable_failed) {
+  if (defined $runnable_failed) {
     $self->param('_runnable_failed',$runnable_failed);
   }
-  return($self->param('_runnable_failed'));
-}
-
-
-sub store_protein_align_features {
-  my ($self) = @_;
-
-  # Need to build the path to theblast report file. It is the query seq path with the genome db appended
-  # on to it (with a .wublast.report extension)
-  my $query_file_path = $self->files_to_delete();
-  my $genome_db_path = $self->param('genblast_db_path');
-  unless($genome_db_path =~ /[^\/]+$/) {
-   $self->throw("Could not parse the genome db file name off the end of the path. Path used:\n".$genome_db_path);
-  }
-
-  my $genome_db_name = $&;
-  my $report_file_path = $query_file_path."_".$genome_db_name.".wublast.report";
-
-  unless(-e $report_file_path) {
-    $self->throw("Parsed the report file info, but the constructed path points to a non-existant file. Offending path:\n".$report_file_path);
-  }
-
-  my $dba = $self->hrdb_get_con('target_db');
-  my $protein_align_feature_adaptor = $dba->get_ProteinAlignFeatureAdaptor();
-  my $analysis = $self->analysis();
-  if($self->param('protein_align_feature_logic_name')) {
-    my $logic_name = $self->param('protein_align_feature_logic_name');
-    unless($self->analysis->logic_name eq $logic_name) {
-      $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $logic_name);
-    }
-  }
-
-  say "Parsing hits from:\n".$report_file_path;
-  open(BLAST_REPORT,$report_file_path);
-  my $remove_info_line = <BLAST_REPORT>;
-  my $current_hit_name;
-  while(<BLAST_REPORT>) {
-    my $line = $_;
-    if($line =~ /^\>(\S+)/) {
-      $current_hit_name = $1;
-    } else {
-      my @hit_array = split('\s',$line);
-      unless(scalar(@hit_array) == 14) {
-        $self->throw("Did not get the expected number of columns when parsing a hit for ".$current_hit_name.", offending line:\n".$line);
-      }
-
-      my $seq_region_start = $hit_array[7];
-      my $seq_region_end = $hit_array[8];
-      my $seq_region_strand = $hit_array[10];
-      my $hit_start = $hit_array[11];
-      my $hit_end = $hit_array[12];
-      my $hit_score = $hit_array[2];
-      my $percent_identity = $hit_array[5];
-      my $e_value = $hit_array[4];
-      my $cigar = $hit_array[13]."M";
-      my $slice = $self->genome_slices->{$hit_array[6]};
-      unless($slice) {
-        self->throw("Could not find a matching slice for:\n".$hit_array[6]);
-      }
-
-      my $hit = Bio::EnsEMBL::DnaPepAlignFeature->new(
-                                                      -start      => $seq_region_start,
-                                                      -end        => $seq_region_end,
-                                                      -strand     => $seq_region_strand,
-                                                      -hseqname   => $current_hit_name,
-                                                      -hstart     => $hit_start,
-                                                      -hend       => $hit_end,
-                                                      -score      => $hit_score,
-                                                      -percent_id => $percent_identity,
-                                                      -cigar_string => $cigar,
-                                                      -p_value    => $e_value,
-                                                      -slice      => $slice,
-                                                      -analysis   => $analysis);
-
-      $protein_align_feature_adaptor->store($hit);
-    }
-
-  }
-  close BLAST_REPORT;
+  return ($self->param('_runnable_failed'));
 }
 
 
@@ -339,26 +248,12 @@ sub get_biotype {
 }
 
 
-sub sequence_table_name {
-  my ($self,$sequence_table_name) = @_;
-  if($sequence_table_name) {
-    $self->param('_sequence_table_name',$sequence_table_name);
-  }
-  return($self->param('_sequence_table_name'));
-
-}
 sub output_query_file {
   my ($self,$accession_array) = @_;
 
-#  my $accession_array = $self->param('iid');
-
-  my $table_name = $self->sequence_table_name();
-  unless($table_name) {
-    $self->throw("You are trying to use a sequence table, but haven't provided a sequence_table_name param");
-  }
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
-  $table_adaptor->table_name($table_name);
+  $table_adaptor->table_name($self->param('sequence_table_name'));
 
 
   my $rand = int(rand(1000000));

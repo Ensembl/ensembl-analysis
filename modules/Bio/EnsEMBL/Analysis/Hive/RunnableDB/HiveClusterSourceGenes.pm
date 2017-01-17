@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -133,10 +133,20 @@ sub filter_input_genes {
   my $final_input_genes = [];
   my $slice = $self->query;
 
-  foreach my $adaptor_name (keys(%{$gene_source_dbs})) {
+  SOURCEDB: foreach my $adaptor_name (keys(%{$gene_source_dbs})) {
     my $db_con_hash = $gene_source_dbs->{$adaptor_name};
     my $db_adaptor = $self->hrdb_get_dba($db_con_hash);
     my $transcript_adaptor = $db_adaptor->get_TranscriptAdaptor();
+    
+    # check if the slice seq region exists in the current source db
+    my $slice_adaptor = $db_adaptor->get_SliceAdaptor();
+    my @slices = @{$slice_adaptor->fetch_all('toplevel',undef,1)};
+    my %slicenames_hash = map { $_->seq_region_name() => $_ } @slices;
+    if (!($slicenames_hash{$slice->seq_region_name()})) {
+      print "Skipping $adaptor_name as slice name ".$slice->seq_region_name()."is missing\n";
+      next SOURCEDB;
+    }
+    
     my $all_transcripts = $transcript_adaptor->fetch_all_by_Slice($slice);
     my $input_genes = [];
 

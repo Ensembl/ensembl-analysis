@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@ use strict;
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_info);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(locate_executable execute_with_wait);
 
 
 =head2 new
@@ -71,7 +72,6 @@ sub new {
 
 
   $program = 'samtools' unless ($program);
-  throw($program.'samtools cannot be executed ') unless (-x $program);
   $self->program($program);
   $self->use_threading($use_threading);
   logger_verbosity($verbose) if ($verbose);
@@ -104,15 +104,8 @@ sub new {
 sub run_command {
   my ($self, $command, $options, $output_file, $input_file) = @_;
 
-  my $cmd = join(' ', $self->program, $command, $options);
-  $cmd .= ' -@ '.$self->use_threading if ($self->use_threading);
-  if ($command eq 'view') {
-      $cmd .= join(' ', '-o', $output_file, $input_file);
-  }
-  else {
-      $cmd .= join(' ', $output_file, $input_file);
-  }
-  throw('Command '.$cmd.' failed') if (system($cmd));
+  my $cmd = $self->make_commandline($command, $options, $output_file, $input_file);
+  execute_with_wait($cmd, 'Command '.$cmd.' failed');
 }
 
 
@@ -133,24 +126,68 @@ sub run_command {
 sub merge {
   my ($self, $options, $output_file, $input_files) = @_;
 
-  my $cmd = join(' ', $self->program, 'merge', $options);
-  $cmd .= ' -@ '.$self->use_threading if ($self->use_threading);
+  my $cmd = $self->_base_command('merge', $options);
   if (ref($input_files) ne 'ARRAY') {
        throw('input file does not exist: '.$input_files) unless (-e $input_files);
        $cmd .= join(' ', '-b', $input_files, $output_file);
   }
   else {
-      $cmd .= join(' ', $output_file, @{$self->input_files});
+      $cmd .= join(' ', $output_file, @{$input_files});
   }
   logger_info($cmd);
-  throw($output_file.' merge failed') if (system($cmd));
+  execute_with_wait($cmd, $output_file.' merge failed');
   $self->index($output_file);
 }
 
+=head2 _base_command
+
+ Arg [1]    : String $command
+ Arg [2]    : String (optional) $options
+ Description: Return the base of a samtools command. It adds the number of threads
+              if you use use_threading.
+ Returntype : String command
+ Exceptions : None
+
+=cut
+
+sub _base_command {
+  my ($self, $command, @options) = @_;
+
+  my $cmd = join(' ', $self->program, $command, @options);
+  $cmd .= ' -@ '.$self->use_threading if ($self->use_threading);
+  return $cmd.' ';
+}
+
+=head2 sort
+
+ Arg [1]    : String output_file
+ Arg [2]    : String input_file
+ Arg [3]    : String (optional) temp_prefix
+ Arg [4]    : String (optional) options
+ Description: Sort a BAM file, it should be smart enough to do it the right way
+ Returntype : None
+ Exceptions : Throws if it cannot execute the command
+
+=cut
+
+sub sort {
+  my ($self, $output_file, $input_file, $temp_prefix, $options) = @_;
+
+  my $cmd = $self->_base_command('sort', $options);
+  if($self->version) {
+    $temp_prefix = $output_file.$$ unless ($temp_prefix);
+    $cmd .= ' -T '.$temp_prefix.' -o '.$output_file.'.bam '.$input_file;
+  }
+  else {
+    $cmd .= $input_file.' '.$output_file;
+  }
+  execute_with_wait($cmd, 'Sort command: '.$cmd.' failed');
+}
 
 =head2 index
 
  Arg [1]    : String filename
+ Arg [2]    : String (optional) filename
  Example    : $samtools->index($filename);
  Description: Index a BAM file
  Returntype : None
@@ -159,11 +196,11 @@ sub merge {
 =cut
 
 sub index {
-  my ($self, $file) = @_;
+  my ($self, $file, $options) = @_;
 
-  my $cmd = join(' ', $self->program, 'index', $file);
+  my $cmd = join(' ', $self->program, 'index', $options, $file);
   logger_info($cmd);
-  throw($file.' indexing failed') if (system($cmd));
+  execute_with_wait($cmd, $file.' indexing failed');
 }
 
 
@@ -189,7 +226,8 @@ sub flagstat {
   my @output;
   open(CMD, $cmd.' 2>&1 | ') || throw("Could not open command $cmd");
   while(<CMD>) {
-      throw($file.' is truncated') if (/truncated/);
+      throw($file.' is truncated, something went wrong: '.$_)
+        if (/truncated/ or /EOF marker is absent/ or /invalid BAM binary header/);
       if ($stat and /^\s*(\d+).*in total/) {
           $output[0] = $1;
       }
@@ -210,10 +248,11 @@ sub flagstat {
 
 =head2 program
 
- Arg [1]    : (optional) String
- Description: Getter/setter for the binary
+ Arg [1]    : String (optional) $program
+ Description: Getter/setter for the binary. It tries to locate properly the executable
  Returntype : String
- Exceptions : None
+ Exceptions : Throw if it can't find the executable Arg[1]
+              Throw if it has problem guessing the version
 
 =cut
 
@@ -221,15 +260,39 @@ sub program {
     my ($self, $file) = @_;
 
     if ($file) {
-        $self->{_program} = $file;
+        $self->{_program} = locate_executable($file);
+        $self->{_version} = 1;
+        open(FH, $self->{_program}.' 2>&1 |') || throw('Could not run samtools');
+        while (<FH>) {
+          if (/Version:\s+(\d)/) {
+            $self->{_version} = $1;
+            last;
+          }
+        }
+        close(FH); # samtools exits with 1 so we should never check the result here, this is just for checking which version so it's OK
+        warning('It seems you are on a 0.x.x version, we recommend you to update samtools') unless $self->version;
     }
     return $self->{_program};
 }
 
+=head2 version
+
+ Arg [1]    : None
+ Description: Getter for the version of samtools to know how to construct commands
+ Returntype : String version
+ Exceptions : None
+
+=cut
+
+sub version {
+  my ($self) = @_;
+
+  return $self->{_version};
+}
 
 =head2 use_threading
 
- Arg [1]    : (optional) Integer
+ Arg [1]    : Integer (optional)
  Description: Getter/setter for the number of threads to use
  Returntype : Integer
  Exceptions : None
@@ -245,5 +308,32 @@ sub use_threading {
     return $self->{_use_threading};
 }
 
+
+=head2 make_commandline
+
+ Arg [1]    : String, a samtools command like view, index,...
+ Arg [2]    : String, samtools options
+ Arg [3]    : String, output file
+ Arg [4]    : String, input file
+ Example    : $samtools->make_commandline('view', '-b', $output_file, $input_file);
+ Description: Prepare a samtools command. If use_threading is defined it will use
+              the value in use_threading for the number of threads
+ Returntype : String $command
+ Exceptions : None
+
+=cut
+
+sub make_commandline {
+  my ($self, $command, $options, $output_file, $input_file) = @_;
+
+  my $cmd = $self->_base_command($command, $options);
+  if ($command eq 'view' or $self->version) {
+      $cmd .= join(' ', '-o', $output_file, $input_file);
+  }
+  else {
+      $cmd .= join(' ', $output_file, $input_file);
+  }
+  return $cmd;
+}
 
 1;

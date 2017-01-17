@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -77,16 +77,18 @@ sub fetch_input {
           $fastqpair = $abs_filename;
       }
   }
+  my $analysis = $self->create_analysis;
+  $analysis->parameters('-use_threads => '.$self->param('use_threads')) if ($self->param_is_defined('use_threads'));
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::BWA2BAM->new
     (
-     -analysis   => $self->create_analysis,
+     -analysis   => $analysis,
      -program    => $program,
      -fastq      => $fastqfile,
      -fastqpair  => $fastqpair,
      -options    => $method,
      -outdir     => $self->param('wide_output_dir'),
      -genome     => $self->param('wide_genome_file'),
-	 -samtools => $self->param('wide_samtools'),
+     -samtools => $self->param('wide_samtools'),
      -header => $self->param('header_file'),
      -min_mapped => $self->param('min_mapped'),
      -min_paired => $self->param('min_paired'),

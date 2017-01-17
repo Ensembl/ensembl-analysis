@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -589,33 +589,40 @@ sub add_five_prime_utr {
   my $big_utr_length = 50000;
   my $max_no_intron_extension = 5000;
   my $max_average_5_prime_intron_length = 35000;
-  my $added_length = $modified_transcript->length - $transcript_a->length;
+  
+  my $modified_transcript_length = $modified_transcript->seq_region_end() - $modified_transcript->seq_region_start();
+  my $transcript_a_length = $transcript_a->seq_region_end() - $transcript_a->seq_region_start();
+  my $added_length = $modified_transcript_length - $transcript_a_length;  
 
   if($utr_intron_count == 0 && $added_length > $max_no_intron_extension) {
     say "\nNot adding UTR as no introns were present but transcript length was extended past max allowed value.";
     say "Max allowed genomic extension (for UTR with no introns): ".$max_no_intron_extension;
     say "Observed extension length: ".$added_length;
     return(0);
-  } elsif($utr_intron_count >= 0 && $added_length >= $big_utr_length) {
-    say "Modified transcript is significantly longer due to 5' UTR addition (length added: ".$added_length."), calculating average 5' intron length.";
-    my $total_length = 0;
-    for(my $i=0; $i<$utr_intron_count; $i++) {
-      my $exon_1 = ${$exons_b}[$i];
-      my $exon_2 = ${$exons_b}[$i+1];
-      if($strand == 1) {
-        $total_length += $exon_2->start - $exon_1->end + 1;
-      } else {
-        $total_length += $exon_1->start - $exon_2->end + 1;
-      }
-    }
-    my $average_5_prime_intron_length = $total_length / $utr_intron_count;
-    if($average_5_prime_intron_length > $max_average_5_prime_intron_length) {
-      say "\nAverage intron length exceeds the max allowed value for 5' UTR, not adding UTR";
-      say "Allowed max average 5' UTR intron size: ".$max_average_5_prime_intron_length;
-      say "Observed average 5' UTR intron size: ".$average_5_prime_intron_length;
-      return 0;
-    }
+  } elsif ($added_length > $big_utr_length) {
+      return 0; 
   }
+    
+#  } elsif($utr_intron_count >= 0 && $added_length >= $big_utr_length) {
+#    say "Modified transcript is significantly longer due to 5' UTR addition (length added: ".$added_length."), calculating average 5' intron length.";
+#    my $total_length = 0;
+#    for(my $i=0; $i<$utr_intron_count; $i++) {
+#      my $exon_1 = ${$exons_b}[$i];
+#      my $exon_2 = ${$exons_b}[$i+1];
+#      if($strand == 1) {
+#        $total_length += $exon_2->start - $exon_1->end + 1;
+#      } else {
+#        $total_length += $exon_1->start - $exon_2->end + 1;
+#      }
+#    }
+#    my $average_5_prime_intron_length = $total_length / $utr_intron_count;
+#    if($average_5_prime_intron_length > $max_average_5_prime_intron_length) {
+#      say "\nAverage intron length exceeds the max allowed value for 5' UTR, not adding UTR";
+#      say "Allowed max average 5' UTR intron size: ".$max_average_5_prime_intron_length;
+#      say "Observed average 5' UTR intron size: ".$average_5_prime_intron_length;
+#      return 0;
+#    }
+# }
 
   $modified_transcript->analysis($transcript_a->analysis);
   $modified_transcript->biotype($transcript_a->biotype);
@@ -797,33 +804,41 @@ sub add_three_prime_utr {
   my $big_utr_length = 50000;
   my $max_no_intron_extension = 5000;
   my $max_average_3_prime_intron_length = 35000;
-  my $added_length = $modified_transcript->length - $transcript_a->length;
+
+  my $modified_transcript_length = $modified_transcript->seq_region_end() - $modified_transcript->seq_region_start();
+  my $transcript_a_length = $transcript_a->seq_region_end() - $transcript_a->seq_region_start();
+  my $added_length = $modified_transcript_length - $transcript_a_length;
 
   if($utr_intron_count == 0 && $added_length > $max_no_intron_extension) {
     say "\nNot adding UTR as no introns were present but transcript length was extended past max allowed value.";
     say "Max allowed genomic extension (for UTR with no introns): ".$max_no_intron_extension;
     say "Observed extension length: ".$added_length;
     return(0);
-  } elsif($utr_intron_count >= 0 && $added_length >= $big_utr_length) {
-    say "Modified transcript is significantly longer due to 3' UTR addition (length added: ".$added_length."), calculating average 3' intron length.";
-    my $total_length = 0;
-    for(my $i=$exon_merge_index_b; $i<$utr_intron_count; $i++) {
-      my $exon_1 = ${$exons_b}[$i];
-      my $exon_2 = ${$exons_b}[$i+1];
-      if($strand == 1) {
-        $total_length += $exon_2->start - $exon_1->end + 1;
-      } else {
-        $total_length += $exon_1->start - $exon_2->end + 1;
-      }
-    }
-    my $average_3_prime_intron_length = $total_length / $utr_intron_count;
-    if($average_3_prime_intron_length > $max_average_3_prime_intron_length) {
-      say "\nAverage intron length exceeds the max allowed value for 3' UTR, not adding UTR";
-      say "Allowed max average 3' UTR intron size: ".$max_average_3_prime_intron_length;
-      say "Observed average 3' UTR intron size: ".$average_3_prime_intron_length;
-      return 0;
-    }
+    
+  } elsif ($added_length > $big_utr_length) {
+      return 0; 
   }
+    
+#  } elsif($utr_intron_count >= 0 && $added_length >= $big_utr_length) {
+#    say "Modified transcript is significantly longer due to 3' UTR addition (length added: ".$added_length."), calculating average 3' intron length.";
+#    my $total_length = 0;
+#    for(my $i=$exon_merge_index_b; $i<$utr_intron_count; $i++) {
+#      my $exon_1 = ${$exons_b}[$i];
+#      my $exon_2 = ${$exons_b}[$i+1];
+#      if($strand == 1) {
+#        $total_length += $exon_2->start - $exon_1->end + 1;
+#      } else {
+#        $total_length += $exon_1->start - $exon_2->end + 1;
+#      }
+#    }
+#    my $average_3_prime_intron_length = $total_length / $utr_intron_count;
+#    if($average_3_prime_intron_length > $max_average_3_prime_intron_length) {
+#      say "\nAverage intron length exceeds the max allowed value for 3' UTR, not adding UTR";
+#      say "Allowed max average 3' UTR intron size: ".$max_average_3_prime_intron_length;
+#      say "Observed average 3' UTR intron size: ".$average_3_prime_intron_length;
+#      return 0;
+#    }
+#  }
 
   $modified_transcript->analysis($transcript_a->analysis);
   $modified_transcript->biotype($transcript_a->biotype);
