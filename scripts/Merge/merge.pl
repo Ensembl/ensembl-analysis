@@ -630,6 +630,7 @@ sub process_genes {
               ) > 0 );
 
     $primary_gene->{__is_coding} = $is_coding;    # HACK
+    $primary_gene->{__is_polymorphic_pseudogene} = $primary_gene->biotype() =~ /polymorphic_pseudogene/;
 
     $primary_gene->{__is_pseudogene} =            # HACK
       ( !$primary_gene->{__is_coding} &&
@@ -1702,17 +1703,16 @@ sub copy {
 
 ###############################################################################
 # Case 1 - Primary gene is coding, Secondary transcript is a pseudogene
-# Do not copy the Secondary transcript. The corresponding Secondary gene
-# will not be listed as processed and therefore should be copied over
-# at the end of merge process (if it wasn't processed elsewhere)
+# Do not copy the Secondary transcript and the corresponding gene will be listed
+# as processed and will not be copied at the end.
 ###############################################################################
-  if ( $source_transcript->{__is_pseudogene} &&
-       $target_gene->{__is_coding} )
+  if ( $source_transcript->{__is_pseudogene} and
+       ($target_gene->{__is_coding} or $target_gene->{__is_polymorphic_pseudogene}) )
   {
     print( "Copy> Source transcript is pseudogene, " .
-           "will not copy it into a coding gene.\n" );
-    print( "Copy> Leaving Secondary annotation as is.\n");
-    return 1;
+           "will not copy it into a coding or polymorphic_pseudogene gene.\n" );
+    print( "Copy> Deleting the Secondary annotation.\n");
+    return 0;
   }
 
 ###############################################################################
