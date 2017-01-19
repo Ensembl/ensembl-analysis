@@ -278,22 +278,25 @@ sub remove_patches_on_patches() {
   my $cmd = "IFS=\$'\\n';
              set -f;
              for line in `cat $alt_scaffold_file`; do
-               PARENTACC=`echo \$line | awk '{print \$7}'`;
-               ACC=`echo \$line | awk '{print \$4}'`;
+               PARENTACCorNAME=`echo \$line | awk '{if(\$2 == \"Primary\") {print \$8} else {if(\$7 == \"parent_acc\") {print \$7} else {print \$6}}}'`;
+               ACC=`echo \$line | awk '{if(\$2 == \"Primary\") {print \$5} else {print \$4}}'`;
                RES=`mysql -u$user \\
                           -p$pass \\
                           -h$host \\
                           -D$name -NB \\
                           -e\"SELECT COUNT(*)
                               FROM seq_region_synonym
-                              WHERE synonym=\\\"\$PARENTACC\\\"
+                              WHERE synonym=\\\"\$PARENTACCorNAME\\\"
                                 AND seq_region_id NOT IN (SELECT seq_region_id
                                                           FROM assembly_exception
                                                           WHERE exc_type IN (\\\"PATCH_NOVEL\\\",\\\"PATCH_FIX\\\",\\\"HAP\\\"));\"`;
-               if [ \$RES == 1 ] || [ \$PARENTACC == \"parent_acc\" ]; then echo \$line >> $alt_scaffold_file_fixed ; else echo \$ACC >> $alt_scaffold_file_seqs_to_remove; fi;
+               if [[ ( \$RES == 1 ) && ( \$ACC != \"KV766194.1\" ) ]] || [ \$PARENTACCorNAME == \"parent_acc\" ]; then echo \$line >> $alt_scaffold_file_fixed ; else echo \$ACC >> $alt_scaffold_file_seqs_to_remove; fi;
              done";
 
-  run_command($cmd,"Removing patches on patches from file $alt_scaffold_fna_file...");
+  run_command($cmd,"Removing patches on patches from file $alt_scaffold_file...");
+
+  $cmd = "echo 'KV766194.1' >> $alt_scaffold_file_seqs_to_remove";
+  run_command($cmd,"Removing patches on patches from file $alt_scaffold_file... Adding manually the patch whose associated contig is too big for the database as it exceeds the max_alloed_packet_bytes when loading its sequence...");
 
   #$cmd = "grep -v ^# $alt_scaffold_file | awk '{if (\$2 != \"Primary\") print \$4}' | cat > $alt_scaffold_file_seqs_to_remove";
   #run_command($cmd,"Getting the list of patch sequences to remove from the fasta file $alt_scaffold_fna_file...");
@@ -330,9 +333,9 @@ sub load_patches() {
 #GCA_000001405.20
   my $patches_filepath = $output_dir."/patches.sql";
 
-  my $ass_acc = (split('_',(split('/',$ftp_dir))[5]))[0]."_".
-                (split('_',(split('/',$ftp_dir))[5]))[1];
-  my $ass_name = (split('_',(split('/',$ftp_dir))[5]))[2];
+  my $ass_acc = (split('_',(split('/',$ftp_dir))[8]))[0]."_".
+                (split('_',(split('/',$ftp_dir))[8]))[1];
+  my $ass_name = (split('_',(split('/',$ftp_dir))[8]))[2];
 
   run_command('perl $ENSEMBL_ANALYSIS/scripts/assembly_patches/assembly_exception_load.pl '."-user $user -pass $pass -host $host -dbname $name -mapping $output_dir/alt.scaf.agp -txt $alt_scaffold_filepath -patchtype $output_dir/patch_type -assembly_name $ass_name -assembly_acc $ass_acc -coord_system scaffold -sql_file $patches_filepath","Creating the file $patches_filepath that will be used to load the patches into the database...");
 
