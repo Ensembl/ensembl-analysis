@@ -276,13 +276,8 @@ sub make_backup {
                        $pass_w,
                        $source_dbname,
                        $dump_file,
-                       $ignore_dna);
-
-  my $cmd = "gzip ".$dump_file;
-  my $return = system($cmd);
-  if($return) {
-      $self->warning("Failed to compress the backup file. The file itself should be okay. Commandline used:\n".$cmd);
-  }
+                       $ignore_dna,
+                       1);
 }
 
 sub convert_hash_to_db_string {
@@ -316,7 +311,7 @@ sub check_db_string {
 
 sub dump_database {
 
-  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file,$ignore_dna) = @_;
+  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file,$ignore_dna, $compress) = @_;
 
   print "\nDumping database $dbname"."@"."$dbhost:$dbport...\n";
 
@@ -326,13 +321,34 @@ sub dump_database {
   } else {
   	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser -p$dbpass";
   }
+  # Check the max_allowed_packet before dumping tables
+  my $check_cmd = $command;
+  $check_cmd =~ s/dump/admin/;
+  my $max_allowed_packet;
+  open(RH, $check_cmd.' variables |') || $self->throw("Coudl not execute command: $check_cmd variables");
+  while(<RH>) {
+    if (/max_allowed_packet\D+(\d+)/) {
+      $max_allowed_packet = $1;
+      last;
+    }
+  }
+  close(RH) || $self->throw("Could not close: $check_cmd variables");
+  if ($max_allowed_packet) {
+    $command .= ' --max_allowed_packet '.$max_allowed_packet;
+  }
   if ($ignore_dna) {
   	$command .= " --ignore-table=".$dbname.".dna ";
   }
-  $command .= " $dbname > $db_file";
+  if ($compress) {
+    # If pipefail is not set your command can fail without telling you
+    $command = "set -o pipefail; $command $dbname | gzip > $db_file.gz";
+  }
+  else {
+    $command .= " $dbname > $db_file";
+  }
 
   if (system($command)) {
-    $self->throw("The dump was not completed. Please, check that you have enough disk space in the output path $db_file as well as writing permission.");
+    $self->throw("The dump was not completed. Please, check the command or that you have enough disk space in the output path $db_file as well as writing permission.");
   } else {
     print("The database dump was completed successfully into file $db_file\n");
   }
