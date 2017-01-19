@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ sub pipeline_analyses {
 
 This is the config file for all genebuilder analysis. You should use it in your Hive configuration file to
 specify the parameters of an analysis. You can either choose an existing config or you can create
-a new one based on the default hash. 
+a new one based on the default hash.
 
 =head1 METHODS
 
@@ -161,7 +161,7 @@ sub _master_config {
                 'mammals_pe12_tr_80',
     ],
 
-    mammals_basic=> [
+    mammals_basic => [
                 'realign_80',
                 'realign_95',
                 'realign_50',
@@ -173,6 +173,74 @@ sub _master_config {
                 'self_pe3_tr_80',
                 'rnaseq_95',
                 'rnaseq_80',
+                'human_pe12_sp_80',
+                'human_pe12_sp_95',
+                'human_pe12_tr_80',
+                'human_pe12_tr_95',
+                'mouse_pe12_sp_95',
+                'mouse_pe12_sp_80',
+                'mouse_pe12_tr_80',
+                'mouse_pe12_tr_95',
+                'mammals_pe12_sp_80',
+                'mammals_pe12_sp_95',
+                'mammals_pe12_tr_95',
+                'mammals_pe12_tr_80',
+                'vert_pe12_sp_95',
+                'vert_pe12_sp_80',
+                'vert_pe12_tr_80',
+                'vert_pe12_tr_95',
+    ],
+
+    fish_basic => [
+                'realign_80',
+                'realign_95',
+                'realign_50',
+                'self_pe12_sp_95',
+                'self_pe12_sp_80',
+                'self_pe12_tr_95',
+                'self_pe12_tr_80',
+                'self_pe3_tr_95',
+                'self_pe3_tr_80',
+                'rnaseq_95',
+                'rnaseq_80',
+                'fish_pe12_sp_80',
+                'fish_pe12_sp_95',
+                'fish_pe12_tr_80',
+                'fish_pe12_tr_95',
+                'human_pe12_sp_80',
+                'human_pe12_sp_95',
+                'human_pe12_tr_80',
+                'human_pe12_tr_95',
+                'mouse_pe12_sp_95',
+                'mouse_pe12_sp_80',
+                'mouse_pe12_tr_80',
+                'mouse_pe12_tr_95',
+                'mammals_pe12_sp_80',
+                'mammals_pe12_sp_95',
+                'mammals_pe12_tr_95',
+                'mammals_pe12_tr_80',
+                'vert_pe12_sp_95',
+                'vert_pe12_sp_80',
+                'vert_pe12_tr_80',
+                'vert_pe12_tr_95',
+    ],
+
+    fish_complete => [
+                'realign_80',
+                'realign_95',
+                'realign_50',
+                'self_pe12_sp_95',
+                'self_pe12_sp_80',
+                'self_pe12_tr_95',
+                'self_pe12_tr_80',
+                'self_pe3_tr_95',
+                'self_pe3_tr_80',
+                'rnaseq_95',
+                'rnaseq_80',
+                'fish_pe12_sp_80',
+                'fish_pe12_sp_95',
+                'fish_pe12_tr_80',
+                'fish_pe12_tr_95',
                 'human_pe12_sp_80',
                 'human_pe12_sp_95',
                 'human_pe12_tr_80',

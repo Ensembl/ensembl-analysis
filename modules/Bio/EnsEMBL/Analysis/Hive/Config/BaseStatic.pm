@@ -93,7 +93,7 @@ sub get_config_settings {
   my $config = $self->_master_config('default');
   if ($config_group) {
     my $config_group_hash = $self->_master_config($config_group);
-    throw("You have asked for a group name in _master_config that doesn't exist. Group name:\n".$config_group)
+    throw("You have asked for a group name in _master_config of ".ref($self)." that doesn't exist. Group name:\n".$config_group)
       unless($config_group_hash);
 
     # All values in the first hash will be overwritten by the values in the second hash.
@@ -102,7 +102,12 @@ sub get_config_settings {
   }
   _add_keys($config, $additional_hash) if ($additional_hash);
 
-  return $config;
+  if ($config) {
+    return $config;
+  }
+  else {
+    throw('Something went wrong, $config does not exist for '.$config_group.' in '.ref($self));
+  }
 }
 
 
@@ -160,7 +165,7 @@ sub get_array_config_settings {
   my $config = $self->_master_config('default');
   if ($config) {
     my $config_group_array = $self->_master_config($config_group);
-    throw("You have asked for a group name in _master_config that doesn't exist. Group name:\n".$config_group)
+    throw("You have asked for a group name in _master_config ".ref($self)." that doesn't exist. Group name:\n".$config_group)
       unless($config_group_array);
     push(@$config, @$config_group_array);
   }

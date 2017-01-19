@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadM
 use strict;
 use warnings;
 use feature 'say';
+use File::Fetch;
+use File::Spec::Functions;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -51,6 +53,12 @@ sub fetch_input {
     $self->throw("Need to pass in the chromosomes_present param to define the toplevel");
   }
 
+  if ($self->param_is_defined('mt_accession')) {
+    chdir($self->param('output_path'));
+    my $fetcher = File::Fetch->new(uri => 'http://www.ncbi.nlm.nih.gov/nuccore/'.$self->param('mt_accession'));
+    $self->param('mt_filename', $fetcher->fetch());
+  }
+
   return 1;
 }
 
@@ -62,8 +70,6 @@ sub run {
   my $mito_index = $self->param('mito_index_path');
   my $enscode_dir = $self->param('enscode_root_dir');
 
-  my $chromosomes_present = $self->param('chromosomes_present');
-
   unless(-e $output_path) {
     my $return = system("mkdir -p ".$output_path);
     if($return) {
@@ -71,32 +77,36 @@ sub run {
     }
   }
 
-  unless(-e $mito_index) {
-    $self->throw("Could not locate the mito index on the path provided. Path:\n".$mito_index);
-  }
-
+  my $mt_filename;
   my $mt_accession;
-  open(IN,$mito_index);
-  while(<IN>) {
-    my ($accession,$index_species_name) = split('=',$_);
-    chomp $index_species_name;
-    if($index_species_name eq $species_name) {
-      say "Found mito accession for ".$species_name.": ".$accession;
-      $mt_accession = $accession;
-      last;
+  if ($self->param_is_defined('mt_filename')) {
+    $mt_filename = $self->param('mt_filename');
+    $mt_accession = $self->param('mt_accession');
+  }
+  else {
+    $self->throw("Could not locate the mito index on the path provided. Path:\n".$mito_index)
+      unless (-e $mito_index);
+    open(IN, $mito_index) || $self->throw("Could not open $mito_index");
+    while(<IN>) {
+      my ($accession,$index_species_name) = split('=',$_);
+      chomp $index_species_name;
+      if($index_species_name eq $species_name) {
+        say "Found mito accession for ".$species_name.": ".$accession;
+        $mt_filename = catfile($output_path, $accession.'.gb');
+        $mt_accession = $accession;
+        last;
+      }
     }
-  }
-  close IN;
+    close IN;
 
-  unless($mt_accession) {
-    $self->throw("Could not fine species accession in the index file");
+    $self->throw("Could not fine species accession in the index file")
+      unless ($mt_accession);
   }
-
   my $toplevel;
   my $chromosome_flag = "";
   my $scaffold_flag = "";
   my $contig_flag = " -contig ".$mt_accession;
-  if($chromosomes_present) {
+  if($self->param('chromosomes_present')) {
     $toplevel = "chromosome";
     $chromosome_flag = " -chromosome  MT";
     $scaffold_flag = " -scaffold ".$mt_accession;
@@ -130,7 +140,7 @@ sub run {
              " -logic_name mt_genbank_import".
              " -source RefSeq".
              " -accession ".$mt_accession.
-             " -genbank_file ".$output_path."/".$mt_accession.".gb".
+             " -genbank_file ".$mt_filename.
              " -non_interactive".
              " -download";
 

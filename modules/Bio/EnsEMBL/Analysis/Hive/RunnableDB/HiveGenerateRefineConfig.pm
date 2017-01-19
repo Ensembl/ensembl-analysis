@@ -57,6 +57,7 @@ sub fetch_input {
     my $other_isoforms = '';
     my $bad_models = '';
     if ($self->param('single_tissue')) {
+        my $tissue_count = 0;
         my $table_adaptor = $self->db->get_NakedTableAdaptor;
         $table_adaptor->table_name($self->param('csvfile_table'));
         my %tissue_hash;
@@ -68,7 +69,12 @@ sub fetch_input {
             $other_isoforms = $self->param('other_isoforms').'_'.$key if ($self->param_is_defined('other_isoforms'));
             $bad_models = $self->param('bad_models').'_'.$key if ($self->param_is_defined('bad_models'));
             push(@output_ids, [File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_'.$key.'.conf'), [{FILE => $self->param('wide_intron_bam_file').'.bam', GROUPNAME => [keys %{$tissue_hash{$key}}], DEPTH => 0, MIXED_BAM => 0}], $self->param('wide_species').'_'.$key.'_rnaseq', $self->param('wide_species').'_'.$key.'_introns', "best_$key", "single_$key", $other_isoforms, $bad_models]);
+            $tissue_count++;
         }
+# This feature is still experimental, maybe it can be lowered.
+# Anyway people can specify the INTRON_OVERLAP_THRESHOLD for any samples
+# in the config file
+        $self->param('INTRON_OVERLAP_THRESHOLD', $tissue_count*4);
     }
     $other_isoforms = $self->param('other_isoforms').'_merged' if ($self->param_is_defined('other_isoforms'));
     $bad_models = $self->param('bad_models').'_merged' if ($self->param_is_defined('bad_models'));
@@ -147,6 +153,7 @@ sub generate_config_file {
             SINGLE_EXON_CDS => "66.0",
             STRICT_INTERNAL_SPLICE_SITES => 1,
             STRICT_INTERNAL_END_EXON_SPLICE_SITES => 1,
+            INTRON_OVERLAP_THRESHOLD => 4,
             BEST_SCORE => "best",
             OTHER_ISOFORMS => "",
             OTHER_NUM      => 10,
@@ -171,6 +178,12 @@ sub generate_config_file {
           }
         }
     );
+    $config_file{REFINESOLEXAGENES_CONFIG_BY_LOGIC}->{$analysis->[2]}->{BAD_MODELS} = $analysis->[7]
+      if ($analysis->[7]);
+    foreach my $key (keys %{$config_file{REFINESOLEXAGENES_CONFIG_BY_LOGIC}->{DEFAULT}}) {
+      $config_file{REFINESOLEXAGENES_CONFIG_BY_LOGIC}->{$analysis->[2]}->{$key} = $self->param($key)
+        if ($self->param_is_defined($key));
+    }
     push(@results, [$analysis->[0], print_hash('Config', \%config_file, undef, '')]);
   }
 

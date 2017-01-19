@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -195,7 +195,7 @@ sub parse_results{
       my @elements = split;
       my ($name, $start, $end, $score, $gc_content, $oe) 
         = @elements[0, 1, 2, 3, 6, 7];
-      if($oe eq "-"){ 
+      if($oe eq "-" or $oe eq 'inf'){
         $oe = 0; 
       }
       my $length = $end - $start + 1;

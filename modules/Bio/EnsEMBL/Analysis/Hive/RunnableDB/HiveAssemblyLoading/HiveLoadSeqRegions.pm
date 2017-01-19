@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,6 +44,9 @@ sub fetch_input {
     $self->throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
+  if ($self->param_is_defined('assembly_accession') and !$self->param_is_defined('coord_system_version')) {
+    $self->param('coord_system_version', $self->param('assembly_accession'));
+  }
   unless($self->param('coord_system_version')) {
     $self->throw("coord_system_version flag not passed into parameters hash. You need to specify the assembly version e.g. GRCh38");
   }

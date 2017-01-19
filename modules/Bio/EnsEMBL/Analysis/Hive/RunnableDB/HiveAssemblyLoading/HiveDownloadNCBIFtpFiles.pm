@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ use strict;
 use warnings;
 use feature 'say';
 
+use File::Spec::Functions qw(splitdir catdir);
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
@@ -39,7 +41,7 @@ sub run {
   my $self = shift;
 
   my $ftp_species_path = $self->param('full_ftp_path')."/".$self->param('primary_assembly_dir_name');
-  my $local_path = $self->param('output_path')."/".$self->param('primary_assembly_dir_name');
+  my $local_path = catdir($self->param('output_path'), $self->param('primary_assembly_dir_name'));
   $self->download_ftp_dir($ftp_species_path,$local_path);
   $self->download_non_nuclear_ftp_dir($self->param('full_ftp_path'),$self->param('output_path'));
   $self->unzip($local_path);
@@ -53,9 +55,9 @@ sub download_ftp_dir {
 
   my $wget_verbose = "-nv";
 
-  my @dirs = split(/\//,$ftp_path); # get array of names of subdirectories
-  my @cleaned_dirs = map {$_ ? $_ : ()} @dirs; # delete empty elements in the array
-  my $numDirs = @cleaned_dirs; # count the number of dirs we need to skip to be able to put the files in the local path specified as parameter
+  # This is some magic to get the correct number for --cut-dir
+  my @dirs = splitdir($ftp_path);
+  my $numDirs = scalar(@dirs)-2;
 
   my $cmd = "wget --no-proxy ".$wget_verbose." -r -nH --cut-dirs=".$numDirs." --reject *.rm.out.gz -P ".$local_dir." ".$ftp_path;
   my $return = system($cmd);

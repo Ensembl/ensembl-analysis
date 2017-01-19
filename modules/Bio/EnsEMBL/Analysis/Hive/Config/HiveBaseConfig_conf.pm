@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,13 +43,21 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
 
  Arg [1]    : None
  Description: It returns a hashref containing the default options for HiveGeneric_conf
-                use_tokens => 0,
-                drop_databases => 0,
+                use_tokens => 1,
+                drop_databases => 0, # This should never be changed in any config file, only use it on the commandline
+                databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
                 password_r => undef,
+
                 dna_db_port => $self->o('port'),
                 dna_db_user => $self->o('user_r'),
                 dna_db_password => $self->o('password_r'),
                 dna_db_driver => $self->o('hive_driver'),
+
+                pipe_dbname => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+                pipe_db_port => $self->o('port'),
+                pipe_db_user => $self->o('user'),
+                pipe_db_password => $self->o('password'),
+                pipe_db_driver => $self->o('hive_driver'),
               and two DB connection hash: pipeline_db and dna_db
  Returntype : Hashref
  Exceptions : None
@@ -64,7 +72,7 @@ sub default_options {
 
 #        At the moment, we want to use tokens
         use_tokens => 1,
-        drop_databases => 0,
+        drop_databases => 0, # This should never be changed in any config file, only use it on the commandline
         databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
         password_r => undef,
 
@@ -73,13 +81,19 @@ sub default_options {
         dna_db_password => $self->o('password_r'),
         dna_db_driver => $self->o('hive_driver'),
 
+        pipe_dbname => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+        pipe_db_port => $self->o('port'),
+        pipe_db_user => $self->o('user'),
+        pipe_db_password => $self->o('password'),
+        pipe_db_driver => $self->o('hive_driver'),
+
         'pipeline_db' => {
             -dbname => $self->o('pipe_dbname'),
             -host   => $self->o('pipe_db_server'),
-            -port   => $self->o('port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('hive_driver'),
+            -port   => $self->o('pipe_db_port'),
+            -user   => $self->o('pipe_db_user'),
+            -pass   => $self->o('pipe_db_password'),
+            -driver => $self->o('pipe_db_driver'),
         },
 
         'dna_db' => {

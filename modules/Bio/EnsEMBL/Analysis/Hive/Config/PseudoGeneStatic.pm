@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ sub pipeline_analyses {
 
 This is the config file for all pseudogene analysis. You should use it in your Hive configuration file to
 specify the parameters of an analysis. You can either choose an existing config or you can create
-a new one based on the default hash. 
+a new one based on the default hash.
 
 =head1 METHODS
 

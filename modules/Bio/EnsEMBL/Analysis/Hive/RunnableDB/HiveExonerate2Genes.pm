@@ -3,7 +3,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -389,12 +389,12 @@ sub best_in_genome_transcript {
    my ($self,$val) = @_;
 
    if(defined($val) && $val==1) {
-     $self->param('_best_in_genome_transcript', 1);
+     $self->param('best_in_genome_transcript', 1);
    } elsif(defined($val) && $val==0) {
-     $self->param('_best_in_genome_transcript', 0);
+     $self->param('best_in_genome_transcript', 0);
    }
 
-   return($self->param('_best_in_genome_transcript'));
+   return($self->param('best_in_genome_transcript'));
 }
 
 
@@ -1028,7 +1028,7 @@ sub get_biotype {
 sub files_to_delete {
   my ($self,$val) = @_;
 
-  unless($self->param('_files_to_delete')) {
+  unless($self->param_is_defined('_files_to_delete')) {
     $self->param('_files_to_delete',[]);
   }
 
@@ -1052,9 +1052,9 @@ sub peptide_seq {
 sub calculate_coverage_and_pid {
   my ($self, $value) = @_;
   if($value){
-    $self->param('_calculate_coverage_and_pid', $value);
+    $self->param('calculate_coverage_and_pid', $value);
   }
-  return $self->param('_calculate_coverage_and_pid');
+  return $self->param('calculate_coverage_and_pid');
 }
 
 

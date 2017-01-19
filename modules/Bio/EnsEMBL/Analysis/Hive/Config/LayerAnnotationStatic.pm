@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ sub pipeline_analyses {
 
 This is the config file for all layer annotation analysis. You should use it in your Hive configuration file to
 specify the parameters of an analysis. You can either choose an existing config or you can create
-a new one based on the default hash. 
+a new one based on the default hash.
 
 =head1 METHODS
 
@@ -270,6 +270,120 @@ sub _master_config {
               BIOTYPES   => [
                              'vert_pe12_sp_80',
                              'vert_pe12_tr_80',
+                             'realign_50',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2'],
+              DISCARD    => 0,
+            },
+
+    ],
+
+    fish_basic => [
+             {
+              ID         => 'LAYER1',
+              BIOTYPES   => [
+                             'realign_95',
+                             'realign_80',
+                             'rnaseq_95',
+                             'rnaseq_80',
+                             'self_pe12_sp_95',
+                             'self_pe12_tr_95',
+                             'self_pe12_sp_80',
+                             'self_pe12_tr_80',
+                             'fish_pe12_sp_95',
+                             'fish_pe12_tr_95',
+                            ],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER2',
+              BIOTYPES   => [
+                             'fish_pe12_sp_80',
+                             'fish_pe12_tr_80',
+                             'human_pe12_sp_95',
+                             'human_pe12_tr_95',
+                             'mouse_pe12_sp_95',
+                             'mouse_pe12_tr_95',
+                             'self_pe3_sp_95',
+                             'self_pe3_tr_95',
+                             'vert_pe12_sp_95',
+                             'vert_pe12_tr_95',
+                            ],
+              FILTER_AGAINST => ['LAYER1'],
+              DISCARD    => 0,
+            },
+
+             {
+              ID         => 'LAYER3',
+              BIOTYPES   => [
+                             'human_pe12_sp_80',
+                             'human_pe12_tr_80',
+                             'mouse_pe12_sp_80',
+                             'mouse_pe12_tr_80',
+                             'vert_pe12_sp_80',
+                             'vert_pe12_tr_80',
+                             'mammals_pe12_sp_95',
+                             'mammals_pe12_tr_95',
+                             'mammals_pe12_sp_80',
+                             'mammals_pe12_tr_80',
+                             'realign_50',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2'],
+              DISCARD    => 0,
+            },
+
+    ],
+
+    fish_complete => [
+             {
+              ID         => 'LAYER1',
+              BIOTYPES   => [
+                             'realign_95',
+                             'realign_80',
+                             'rnaseq_95',
+                             'rnaseq_80',
+                             'self_pe12_sp_95',
+                             'self_pe12_tr_95',
+                             'self_pe12_sp_80',
+                             'self_pe12_tr_80',
+                             'fish_pe12_sp_95',
+                             'fish_pe12_tr_95',
+                            ],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER2',
+              BIOTYPES   => [
+                             'fish_pe12_sp_80',
+                             'fish_pe12_tr_80',
+                             'human_pe12_sp_95',
+                             'human_pe12_tr_95',
+                             'mouse_pe12_sp_95',
+                             'mouse_pe12_tr_95',
+                             'self_pe3_sp_95',
+                             'self_pe3_tr_95',
+                             'vert_pe12_sp_95',
+                             'vert_pe12_tr_95',
+                            ],
+              FILTER_AGAINST => ['LAYER1'],
+              DISCARD    => 0,
+            },
+
+             {
+              ID         => 'LAYER3',
+              BIOTYPES   => [
+                             'human_pe12_sp_80',
+                             'human_pe12_tr_80',
+                             'mouse_pe12_sp_80',
+                             'mouse_pe12_tr_80',
+                             'vert_pe12_sp_80',
+                             'vert_pe12_tr_80',
+                             'mammals_pe12_sp_95',
+                             'mammals_pe12_tr_95',
+                             'mammals_pe12_sp_80',
+                             'mammals_pe12_tr_80',
                              'realign_50',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2'],
