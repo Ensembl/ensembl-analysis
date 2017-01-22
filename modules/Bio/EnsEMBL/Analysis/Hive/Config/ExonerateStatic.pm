@@ -67,7 +67,7 @@ sub _master_config {
 
     exonerate_protein => {
       IIDREGEXP => '(\d+):(\d+)',
-      OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1 --maxintron 100000',
+      OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1 --maxintron 50000',
       COVERAGE_BY_ALIGNED => 0,
       QUERYTYPE           => 'protein',
     },
