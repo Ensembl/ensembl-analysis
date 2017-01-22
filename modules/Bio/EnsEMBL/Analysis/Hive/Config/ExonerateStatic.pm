@@ -64,6 +64,14 @@ sub _master_config {
       KILL_TYPE => undef,
       USE_KILL_LIST => 0,
     },
+
+    exonerate_protein => {
+      IIDREGEXP => '(\d+):(\d+)',
+      OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1 --maxintron 100000',
+      COVERAGE_BY_ALIGNED => 0,
+      QUERYTYPE           => 'protein',
+    },
+
     exonerate => {
       COVERAGE_BY_ALIGNED => 1,
       FILTER => {
