@@ -461,6 +461,10 @@ sub make_genes{
     my $transcript_biotype = $self->get_biotype->{$accession};
     $tran->biotype($transcript_biotype);
 
+    if($self->param('transcript_biotype')) {
+      $tran->biotype($self->param('transcript_biotype'));
+    }
+
    if($self->calculate_coverage_and_pid) {
       $self->realign_translation($tran);
     }
