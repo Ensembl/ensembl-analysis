@@ -55,6 +55,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect;
 use warnings ;
 use strict;
 use feature 'say';
+use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 
@@ -96,15 +97,17 @@ sub fetch_input {
   my $target_dna_dbc = $self->hrdb_get_con('target_dna_db');
 
   # Define the source transcript and target transcript dbs
-  my $source_transcript_dba = $self->hrdb_get_dba($self->QUERY_CORE_DB,undef,'source_dna_db');
-  my $target_transcript_dba = $self->hrdb_get_dba($self->TARGET_CORE_DB,undef,'target_dna_db');
+  my $source_transcript_dba = $self->hrdb_get_dba($self->QUERY_CORE_DB);
+  $source_transcript_dba->dnadb($source_dna_dba);
+  my $target_transcript_dba = $self->hrdb_get_dba($self->TARGET_CORE_DB);
+  $target_transcript_dba->dnadb($target_dna_dba);
   $self->hrdb_set_con($source_transcript_dba,'source_transcript_db');
   $self->hrdb_set_con($target_transcript_dba,'target_transcript_db');
   my $source_transcript_dbc = $self->hrdb_get_con('source_transcript_db');
   my $target_transcript_dbc = $self->hrdb_get_con('target_transcript_db');
 
   # Define the compara db
-  my $compara_dba = $self->hrdb_get_dba($self->COMPARA_DB,'compara');
+  my $compara_dba = $self->hrdb_get_dba($self->COMPARA_DB,undef,'Compara');
   $self->hrdb_set_con($compara_dba,'compara_db');
   my $compara_dbc = $self->hrdb_get_con('compara_db');
 
@@ -176,6 +179,14 @@ sub fetch_input {
 
   my $dnafrag = $compara_dbc->get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($q_gdb,$self->gene->slice->seq_region_name);
 
+  # there was a problem with a _PATCH, may because we use different version of mouse core db
+  my $tmp_seq_reg = $self->gene->slice->seq_region_name ;
+  if ( ($tmp_seq_reg eq 'CHR_MG3833_PATCH' ) && (!defined($dnafrag)) ) {
+        print "DO SOMETHING!\n";
+    $self->input_job->autoflow(-3); # -3 may not work!
+    $self->complete_early('It is this strange CHR_MG3833_PATCH patch: IF MANY JOBS HERE NEED TO FIND OUT\n');
+      }
+
   my $gaba = $compara_dbc->get_GenomicAlignBlockAdaptor;
 
 
@@ -221,7 +232,7 @@ sub run {
   my ($self) = @_;
 
   unless(scalar(@{$self->good_transcripts}) > 0) {
-    warning("No transcripts in the good_transcripts list, so nothing to project");
+    $self->warning("No transcripts in the good_transcripts list, so nothing to project");
     return 1;
   }
 
