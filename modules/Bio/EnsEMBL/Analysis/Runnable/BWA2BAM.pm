@@ -184,7 +184,7 @@ sub run {
   my $flagstat_results = $samtools->flagstat($sorted_bam.'.bam', 1);
   $self->throw('Got '.$flagstat_results->[0]." reads in flagstat rather than $total_reads in fastq - something went wrong\n")
     unless ($flagstat_results->[0] == $total_reads);
-  if (($self->min_mapped > $flagstat_results->[1]) or ($self->min_paired > $flagstat_results->[2])) {
+  if (($self->min_mapped > $flagstat_results->[1]) or ($fastqpair and $self->min_paired > $flagstat_results->[2])) {
     warning("Mappings for $sorted_bam.bam is bad:\n".
             'Min mapped '.$self->min_mapped.': '.$flagstat_results->[1]."\n".
             'Min paired '.$self->min_paired.': '.$flagstat_results->[2]."\n"
