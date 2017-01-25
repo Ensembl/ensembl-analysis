@@ -37,8 +37,10 @@ use warnings;
 
 use 5.014000;
 use Bio::EnsEMBL::ApiVersion ();
+use File::Spec::Functions;
 
-use base ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');
+use  Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf; # This is needed for WHEN() ELSE
+use parent ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');
 
 
 =head2 default_options
@@ -53,19 +55,20 @@ sub default_options {
     return {
         %{ $self->SUPER::default_options() },
 
-        'pipeline_name' => $self->o('ENV', 'pipeline_name'),
+        'pipeline_name' => $ENV{pipeline_name},
         'base_uniprot_ftp'  => $ENV{'BASE_UNIPROT_FTP'} || 'ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase',
         'base_uniprot_url'  => $ENV{'BASE_UNIPROT_URL'} || 'http://www.uniprot.org/uniprot/?query=',
-        'uniprot_vert_file'  => $ENV{'UNIPROT_VERT_FILE'} || $self->o('uniprot_vert_file'),
+        'uniprot_vert_file'  => $ENV{'UNIPROT_VERT_FILE'} || 'uniprot_vertebrata',
         'uniprot_file'  => $ENV{'UNIPROT_FILE'} || 'uniprot',
-        'uniprot_dir'  => $ENV{'UNIPROT_DIR'} || $self->o('uniprot_dir'),
+        'uniprot_dir'  => $ENV{'UNIPROT_DIR'} || catdir($ENV{BLASTDB_DIR}, 'uniprot', 'uniprot_'.$self->o('uniprot_version')),
         'varsplic_file'  => $ENV{'VARSPLIC_FILE'} || 'uniprot_sprot_varsplic',
-        'embl2fasta_script'  => $ENV{'EMBL2FASTA_SCRIPT'},
-        'process_isoforms_script'  => $ENV{'PROCESS_ISOFORMS_SCRIPT'},
+        'embl2fasta_script'  => $ENV{'EMBL2FASTA_SCRIPT'} || catfile($ENV{ENSCODE}, 'ensembl-analysis', 'scripts', 'databases', 'embl2fasta.pl'),
+        'process_isoforms_script'  => $ENV{'PROCESS_ISOFORMS_SCRIPT'} || catfile($ENV{ENSCODE}, 'ensembl-analysis', 'scripts', 'databases', 'process_uniprot_isoforms.pl'),
         'fasta_suffix'  => $ENV{'FASTA_SUFFIX'} || '.fasta',
         'uniprot_version'  => $ENV{'UNIPROT_VERSION'},
         'uniprot_date'  => $ENV{'UNIPROT_DATE'} || localtime,
-        'indicate' => '/nfs/production/panda/ensembl/thibaut/linuxbrew/bin/indicate',
+        'indicate' => 'indicate',
+        'blast_type' => 'ncbi', # Should be either 'ncbi' or 'wu'
     };
 }
 
@@ -84,6 +87,7 @@ sub pipeline_wide_parameters {
         'uniprot_version'  => $self->o('uniprot_version'),
         'uniprot_date'  => $self->o('uniprot_date'),
         'process_isoforms_script'  => $self->o('process_isoforms_script'),
+        'blast_type' => $self->o('blast_type'),
     };
 }
 
@@ -274,7 +278,7 @@ sub pipeline_analyses {
             -analysis_capacity  => 2,
             -flow_into => {
                 1 => ['indicate'],
-                '1->A' => ['format_uniprot_and_isoforms'],
+                '1->A' => WHEN( '#blast_type# eq "ncbi"' => 'ncbi_format_uniprot_and_isoforms', ELSE 'wu_format_uniprot_and_isoforms',),
                 'A->1' => ['clean_uniprot_and_isoforms'],
             },
         },
@@ -293,16 +297,20 @@ sub pipeline_analyses {
             -analysis_capacity  => 1,
         },
 
-        {   -logic_name => 'format_uniprot_and_isoforms',
+        {   -logic_name => 'wu_format_uniprot_and_isoforms',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-#                'cmd'         => 'cd #uniprot_dir#; XDBNAME="`ls #input_file#`"; xdformat -p -o #uniprot_dir#/#xdb_name# -t "`echo $XDBNAME | sed \'s/ /,/g\'`" -v "#uniprot_version#" -d "#uniprot_date#" #input_file#',
+                'cmd'         => 'cd #uniprot_dir#; XDBNAME="`ls #input_file#`"; xdformat -p -o #uniprot_dir#/#xdb_name# -t "`echo $XDBNAME | sed \'s/ /,/g\'`" -v "#uniprot_version#" -d "#uniprot_date#" #input_file#',
+            },
+            -analysis_capacity  => 2,
+        },
+
+        {   -logic_name => 'ncbi_format_uniprot_and_isoforms',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -parameters => {
                 'cmd'         => 'makeblastdb -dbtype prot -title "#db_name#" -in #uniprot_dir#/#db_name#',
             },
             -analysis_capacity  => 2,
-#            -flow_into => {
-#                1 => ['check_format_uniprot_and_isoforms'],
-#            },
         },
 
 #        {   -logic_name => 'check_format_uniprot_and_isoforms',
@@ -414,14 +422,21 @@ sub pipeline_analyses {
             },
             -analysis_capacity  => 1,
             -flow_into => {
-              1 => ['format_blast_uniprot'],
+              1 => WHEN( '#blast_type# eq "ncbi"' => 'ncbi_format_blast_uniprot', ELSE 'wu_format_blast_uniprot',),
             },
         },
 
-        {   -logic_name => 'format_blast_uniprot',
+        {   -logic_name => 'wu_format_blast_uniprot',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-#                'cmd'   => 'xdformat -p -t "#uniprot_file#" -v "#uniprot_version#" -d "#uniprot_date#" #uniprot_dir#/#uniprot_file#',
+                'cmd'   => 'xdformat -p -t "#uniprot_file#" -v "#uniprot_version#" -d "#uniprot_date#" #uniprot_dir#/#uniprot_file#',
+            },
+            -analysis_capacity  => 1,
+        },
+
+        {   -logic_name => 'ncbi_format_blast_uniprot',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -parameters => {
                 'cmd'   => 'makeblastdb -dbtype prot -title "#uniprot_file#" -in #uniprot_dir#/#uniprot_file#',
             },
             -analysis_capacity  => 1,
@@ -488,15 +503,22 @@ sub pipeline_analyses {
 #            -flow_into => ['check_format_pe_level'],
             -analysis_capacity  => 2,
             -flow_into => {
-              '1->A' => ['format_pe_level'],
+              '1->A' => WHEN( '#blast_type# eq "ncbi"' => 'ncbi_format_pe_level', ELSE 'wu_format_pe_level',),
               'A->1' => ['clean_pe_level'],
             }
         },
-        {   -logic_name => 'format_pe_level',
+        {   -logic_name => 'ncbi_format_pe_level',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-#                'cmd'         => 'cd #uniprot_dir#; xdformat -p -o #uniprot_dir#/#xdb_name# -t `echo "#input_file#" | sed "s/ /,/g"` -v "#uniprot_version#" -d "#uniprot_date#" #input_file#',
                 'cmd'         => 'makeblastdb -dbtype prot -title "#db_name#" -in #uniprot_dir#/#db_name#',
+            },
+#            -flow_into => ['check_format_pe_level'],
+            -analysis_capacity  => 2,
+        },
+        {   -logic_name => 'wu_format_pe_level',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -parameters => {
+                'cmd'         => 'cd #uniprot_dir#; xdformat -p -o #uniprot_dir#/#xdb_name# -t `echo "#input_file#" | sed "s/ /,/g"` -v "#uniprot_version#" -d "#uniprot_date#" #input_file#',
             },
 #            -flow_into => ['check_format_pe_level'],
             -analysis_capacity  => 2,
