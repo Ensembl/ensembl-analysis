@@ -79,10 +79,6 @@ use Bio::SeqIO;
 use Bio::EnsEMBL::KillList::KillList;
 use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::ExternalData::Mole::DBXref;
-use Bio::EnsEMBL::ExternalData::Mole::Entry;
-use Bio::EnsEMBL::ExternalData::Mole::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Pipeline::SeqFetcher::Mfetch;
 
 my (
         @dbnames,
@@ -143,21 +139,27 @@ if ( !defined($infile) || !defined($outfile) ) {
 
 # connect to databases
 my @dbs;
-foreach my $dbname (@dbnames) {
-  my $db = Bio::EnsEMBL::ExternalData::Mole::DBSQL::DBAdaptor->new(
-        '-dbname' => $dbname,
-        '-host'   => $dbhost,
-        '-user'   => $dbuser,
-        '-port'   => $dbport,
-  );
-  push @dbs, $db;
-}
-
 my $filetype = 'Fasta';
-$filetype = 'Genbank' unless ($use_mole);
 if ($use_mole) {
+  require 'Bio/EnsEMBL/ExternalData/Mole/DBXref.pm';
+  require 'Bio/EnsEMBL/ExternalData/Mole/Entry.pm';
+  require 'Bio/EnsEMBL/ExternalData/Mole/DBSQL/DBAdaptor.pm';
+  require 'Bio/EnsEMBL/Pipeline/SeqFetcher/Mfetch.pm';
 
+  foreach my $dbname (@dbnames) {
+    my $db = Bio::EnsEMBL::ExternalData::Mole::DBSQL::DBAdaptor->new(
+          '-dbname' => $dbname,
+          '-host'   => $dbhost,
+          '-user'   => $dbuser,
+          '-port'   => $dbport,
+    );
+    push @dbs, $db;
+  }
 }
+else {
+  $filetype = 'Genbank';
+}
+
 # open the downloaded cdna file
 my $seqin  = new Bio::SeqIO( -file   => "<$infile",
                              -format => $filetype,
