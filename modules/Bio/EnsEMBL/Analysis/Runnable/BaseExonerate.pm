@@ -302,7 +302,10 @@ sub run {
   
   $self->output($self->parse_results( $exo_fh ));
   
-  close( $exo_fh ) or throw ("Error closing exonerate command: $? : $!");
+  if (close( $exo_fh )) {
+    sleep 30;
+    throw ("Error closing exonerate command: $? : $!");
+  }
   $self->delete_files;
 
   return 1;
