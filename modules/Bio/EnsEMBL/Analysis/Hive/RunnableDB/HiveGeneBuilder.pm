@@ -48,9 +48,9 @@ use feature 'say';
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_support empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_support empty_Gene print_Gene_Transcript_and_Exons);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils 
-  qw(are_strands_consistent are_phases_consistent 
+  qw(are_strands_consistent are_phases_consistent calculate_exon_phases
      is_not_folded all_exons_are_valid intron_lengths_all_less_than_maximum);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(exon_length_less_than_maximum);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils 

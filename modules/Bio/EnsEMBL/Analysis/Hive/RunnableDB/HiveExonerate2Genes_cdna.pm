@@ -3,7 +3,6 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +20,7 @@
 
   Please email comments or questions to the public Ensembl
   developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
-sub
+
   Questions may also be sent to the Ensembl help desk at
   <http://www.ensembl.org/Help/Contact>.
 
@@ -63,7 +62,7 @@ Internal methods are usually preceded with a '_'
 
 =cut
 
-package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes;
+package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes_cdna;
 
 use warnings ;
 use strict;
@@ -96,70 +95,106 @@ sub fetch_input {
 
   $self->create_analysis;
   my @db_files;
+  my @target_list = $self->GENOMICSEQS;
+
+
+  foreach my $target (@target_list){ 
+
+    if(ref $target eq 'ARRAY'){
+      #check to see if we have multiple files or directories:
+
+      my $dir = 0;
+      foreach my $alt_target (@$target){
+        if (-d $alt_target){
+            $dir = 1;
+            last;
+        }
+      }
+
+      # genome is in multiple directories;  the order of directories determines
+      # which file is used in case of duplicates. New versions should therefore
+      # be in the directory listed first.
+
+      if ($dir) {
+
+        foreach my $chr_name ($self->get_chr_names) {
+          my $found = 0;
+          DIRCHECK:
+          foreach my $alt_target (@$target){
+            if (-s "$alt_target/$chr_name.fa") {
+              push @db_files, "$alt_target/$chr_name.fa";
+              $found = 1;
+              last DIRCHECK;
+            }
+          }
+          if(!$found){
+	        $self->warning( "Could not find fasta file for '$chr_name' in directories:\n".
+            join("\n\t", @$target)."\n");
+          }
+        }
+      }else{
+        foreach my $alt_target (@$target){
+          if (-s $alt_target){
+             push @db_files, $alt_target;
+          }
+        }
+      }
+    } # // end target is a directory
+    else {
+      $target =~s/^\s+//;
+      if (-e $target and -d $target) {
+        # genome is in a directory; the directory must contain the complete
+        # genome else we cannot do best-in-genome filtering.
+        # We would like to use exonerate's ability to accept a directory as
+        # target (because bestn then works), but we must check that the directory
+        # contains only toplevel sequence files
+
+        my %dir_contents;
+        opendir DIR, $target;
+        while(my $entry = readdir DIR) {
+          if ($entry ne '.' and $entry ne '..') {
+            $dir_contents{$entry} = 0;
+          }
+        }
+        closedir(DIR);
+
+        foreach my $chr ($self->get_chr_names) {
+          my $seq_fname = "$chr.fa"; 
+          if (-s "$target/$seq_fname") {
+            $dir_contents{$seq_fname}++;
+            push @db_files, "$target/$seq_fname";
+          } else {
+            $self->warning( "Could not find fasta file for '$chr' in '$target'\n");
+          }
+        }
+
+        # if all files in dir were expected, we can revert to having
+        # the whole directory as target
+        if (not grep { $dir_contents{$_} == 0 } keys %dir_contents) {
+          @db_files = ($target);
+        }
+      }
+      elsif (-e $target and -s $target) {
+        # genome sequence is in a single file
+        @db_files = ($target);
+      } else {
+        $self->throw("'$target' refers to something that could not be made sense of");
+      }
+    }
+  }
 
   ##########################################
   # set up the query (est/cDNA/protein)
   ##########################################
   my $iid_type = $self->param('iid_type');
-  my ($querys, $query_file,$chunk_number,$chunk_total, $query_seq);
+  my ($query_file,$chunk_number,$chunk_total);
   unless($iid_type) {
     $self->throw("You haven't provided an input id type. Need to provide one via the 'iid_type' param");
   }
 
   if($iid_type eq 'db_seq') {
-    $querys = $self->get_query_seqs($self->param('iid'));
-    if ($self->param('query_table_name') =~ /protein/) {
-      $self->peptide_seq($querys->[0]->seq);
-    }
-    $self->calculate_coverage_and_pid($self->param('calculate_coverage_and_pid'));
-    @db_files = ($self->GENOMICSEQS);
-  } elsif($iid_type eq 'feature_region') {
-    my $feature_region_id = $self->param('iid');
-    my ($slice,$accession_array) = $self->parse_feature_region_id($feature_region_id);
-    $querys = $self->get_query_seqs($accession_array);
-    @db_files = ($self->output_db_file($slice));
-  } elsif($iid_type eq 'feature_id') {
-    my $feature_type = $self->param('feature_type');
-    if($feature_type eq 'transcript') {
-      my $transcript_id = $self->param('iid');
-      my $transcript_dba = $self->hrdb_get_dba($self->param('transcript_db'));
-      if($dna_dba) {
-        $transcript_dba->dnadb($dna_dba);
-      }
-      $self->hrdb_set_con($transcript_dba,'transcript_db');
-
-      my ($slice,$accession_array) = $self->get_transcript_region($transcript_id);
-      #$query_file = $self->output_query_file($accession_array);
-      $querys = $self->get_query_seqs($accession_array);
-      if ($self->param('query_table_name') =~ /protein/) {
-        $self->peptide_seq($querys->[0]->seq);
-      }
-      $self->calculate_coverage_and_pid($self->param('calculate_coverage_and_pid'));
-      @db_files = ($self->output_db_file($slice,$accession_array));
-    } else {
-      $self->throw("The feature_type you passed in is not supported! Type:\n".$feature_type);
-    }
-  } elsif($iid_type eq 'projection_transcript_id') {
-       my @iid = @{$self->param("iid")};
-       my $transcript_dba = $self->hrdb_get_dba($self->param('transcript_db'));
-       my $projection_transcript_id = $iid[0];
-       my $projection_protein_accession = $iid[1];
-       my $padding = $self->param("projection_padding");
-
-       unless(defined($padding)) {
-         $padding = 50000;
-       }
-
-       if($dna_dba) {
-         $transcript_dba->dnadb($dna_dba);
-       }
-        $self->hrdb_set_con($transcript_dba,'transcript_db');
-
-       my ($slice,$accession_array) = $self->get_transcript_region($projection_transcript_id);
-       $query_seq = $self->get_query_seq($accession_array);
-       $self->peptide_seq($query_seq->seq);
-       @db_files = ($self->output_db_file($slice,$accession_array));
-   } elsif($iid_type eq 'chunk_file') {
+    $query_file = $self->output_query_file();
+  } elsif($iid_type eq 'chunk_file') {
     my $query = $self->QUERYSEQS;
 
     if(-e $query and -d $query) {
@@ -240,12 +275,11 @@ sub fetch_input {
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
               -biotypes => $biotypes_hash,
-              -calculate_coverage_and_pid => $self->param('calculate_coverage_and_pid'),
               %parameters,
               );
 
-      if (ref($querys) eq 'ARRAY') {
-        $runnable->query_seqs($querys);
+      if (ref($query_file) eq 'ARRAY') {
+        $runnable->query_seqs($query_file);
       }
       else {
         $runnable->query_file($query_file);
@@ -294,99 +328,28 @@ sub write_output {
   my $fails = 0;
   my $total = 0;
 
-  foreach my $gene (@output){
-    empty_Gene($gene);
-    eval {
-      $gene_adaptor->store($gene);
-    };
-    if ($@){
-      $self->warning("Unable to store gene!!\n$@");
-      $fails++;
-    }
-    $total++;
+  if (scalar(@output) == 0){
+    my $output_hash = {};
+    $output_hash->{'iid'} = $self->param('iid');
+    $self->dataflow_output_id($output_hash,2);
   }
-  if ($fails > 0) {
-    $self->throw("Not all genes could be written successfully " .
+  else {
+    foreach my $gene (@output){
+      empty_Gene($gene);
+      eval {
+        $gene_adaptor->store($gene);
+      };
+      if ($@){
+        $self->warning("Unable to store gene!!\n$@");
+        $fails++;
+      }
+      $total++;
+    }
+    if ($fails > 0){
+      $self->throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
-  }
-
-
-}
-
-
-sub get_transcript_region {
-  my ($self,$transcript_id) = @_;
-
-  my $transcript_dba = $self->hrdb_get_con('transcript_db');
-
-  my $transcript = $transcript_dba->get_TranscriptAdaptor()->fetch_by_dbID($transcript_id);
-  my $tsf = $transcript->get_all_supporting_features();
-
-
-  my $feature_pair = ${$tsf}[0];
-  my $accession = $feature_pair->hseqname();
-
-  if($self->param('use_genblast_best_in_genome')) {
-    my $logic_name = $transcript->analysis->logic_name();
-    if($logic_name =~ /_not_best$/) {
-      $self->best_in_genome_transcript(0);
-    } else {
-      $self->best_in_genome_transcript(1);
     }
   }
-
-  my $padding = $self->param('region_padding');
-  unless(defined($self->param('region_padding'))) {
-    $self->warning("You didn't pass in any value for padding. Defaulting to 10000");
-    $padding = 10000;
-  }
-
-  my $start = $transcript->seq_region_start;
-  my $end = $transcript->seq_region_end;
-  my $strand = $transcript->strand;
-  my $slice = $transcript->slice();
-  my $slice_length = $slice->length();
-  if($padding) {
-    $start = $start - $padding;
-    if($start < 1) {
-      $start = 1;
-    }
-    $end = $end + $padding;
-    my $slice = $transcript->slice();
-    my $slice_length = $slice->length();
-    if($end > $slice_length) {
-      $end = $slice_length;
-    }
-  }
-
-  my @slice_array = split(':',$slice->name());
-  $slice_array[3] = $start;
-  $slice_array[4] = $end;
-  $slice_array[5] = $strand;
-  my $new_slice_name = join(':',@slice_array);
-
-  my $sa = $transcript_dba->get_SliceAdaptor();
-  my $transcript_slice = $sa->fetch_by_name($new_slice_name);
-
-  return($transcript_slice,[$accession]);
-}
-
-
-sub best_in_genome_transcript {
-   my ($self,$val) = @_;
-
-   if(defined($val) && $val==1) {
-     $self->param('best_in_genome_transcript', 1);
-   } elsif(defined($val) && $val==0) {
-     $self->param('best_in_genome_transcript', 0);
-   }
-
-   if ($self->param_is_defined('best_in_genome_transcript')) {
-     return $self->param('best_in_genome_transcript');
-   }
-   else {
-     return;
-   }
 }
 
 
@@ -402,16 +365,6 @@ sub make_genes{
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->analysis($self->analysis);
     $gene->biotype($self->analysis->logic_name);
-    $tran->analysis($self->analysis);
-
-    if(defined($self->best_in_genome_transcript()) && $self->best_in_genome_transcript() == 0) {
-      my $analysis = $self->analysis;
-      my $logic_name = $analysis->logic_name."_not_best";
-      $analysis->logic_name($logic_name);
-      $gene->analysis($analysis);
-      $gene->biotype($logic_name);
-      $tran->analysis($analysis);
-    }
 
     ############################################################
     # put a slice on the transcript
@@ -449,14 +402,10 @@ sub make_genes{
 
     $self->throw("Have no slice") if(!$slice);
     $tran->slice($slice);
+    $tran->analysis($self->analysis);
     my $accession = $tran->{'accession'};
     my $transcript_biotype = $self->get_biotype->{$accession};
     $tran->biotype($transcript_biotype);
-
-   if($self->calculate_coverage_and_pid) {
-      $self->realign_translation($tran);
-    }
-
     $gene->add_Transcript($tran);
     push( @genes, $gene);
   }
@@ -503,29 +452,11 @@ sub get_output_db {
   } else {
     $outdb = $self->hrdb_get_con('target_db');
   }
+  $self->hrdb_get_con('target_db')->dbc->disconnect_when_inactive(1) ;
+  $outdb->dbc->disconnect_when_inactive(1) ;
   return $outdb;
 }
 
-
-sub parse_feature_region_id {
-  my ($self,$feature_region_id) = @_;
-
-  my $dba = $self->hrdb_get_con('target_db');
-  my $sa = $dba->get_SliceAdaptor();
-
-  unless($feature_region_id =~ s/\:([^\:]+)$//) {
-    $self->throw("Could not parse the accession from the feature region id. Expecting a normal slice id, with an extra colon ".
-                 "followed by the accession. Offending feature_region_id:\n".$feature_region_id);
-  }
-
-  my $slice_name = $feature_region_id;
-  my $accession = $1;
-
-  my $slice = $sa->fetch_by_name($slice_name);
-
-  return($slice,[$accession]);
-
-}
 ############################################################
 #
 # get/set methods
@@ -655,16 +586,29 @@ sub COVERAGE_BY_ALIGNED {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('COVERAGE_BY_ALIGNED',$value);
+    $self->param('COVERAGE',$value);
   }
 
-  if ($self->param_is_defined('COVERAGE_BY_ALIGNED')) {
-    return $self->param('COVERAGE_BY_ALIGNED');
+  if ($self->param_is_defined('COVERAGE')) {
+    return $self->param('COVERAGE');
   } else {
     return undef;
   }
 }
 
+sub FILTER {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->param('FILTER',$value);
+  }
+
+  if ($self->param_is_defined('FILTER')) {
+    return $self->param('FILTER');
+  } else {
+    return undef;
+  }
+}
 
 sub OPTIONS {
   my ($self,$value) = @_;
@@ -754,11 +698,11 @@ sub SOFT_MASKED_REPEATS {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('SOFT_MASKED_REPEATS',$value);
+    $self->param('_SOFT_MASKED_REPEATS',$value);
   }
 
-  if ($self->param_is_defined('SOFT_MASKED_REPEATS')) {
-    return $self->param('SOFT_MASKED_REPEATS');
+  if ($self->param_is_defined('_SOFT_MASKED_REPEATS')) {
+    return $self->param('_SOFT_MASKED_REPEATS');
   } else {
     return undef;
   }
@@ -768,11 +712,11 @@ sub SEQFETCHER_PARAMS {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('SEQFETCHER_PARAMS',$value);
+    $self->param('_SEQFETCHER_PARAMS',$value);
   }
 
-  if ($self->param_is_defined('SEQFETCHER_PARAMS')) {
-    return $self->param('SEQFETCHER_PARAMS');
+  if ($self->param_is_defined('_SEQFETCHER_PARAMS')) {
+    return $self->param('_SEQFETCHER_PARAMS');
   } else {
     return undef;
   }
@@ -782,11 +726,11 @@ sub SEQFETCHER_OBJECT {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('SEQFETCHER_OBJECT',$value);
+    $self->param('_SEQFETCHER_OBJECT',$value);
   }
 
-  if ($self->param_is_defined('SEQFETCHER_OBJECT')) {
-    return $self->param('SEQFETCHER_OBJECT');
+  if ($self->param_is_defined('_SEQFETCHER_OBJECT')) {
+    return $self->param('_SEQFETCHER_OBJECT');
   } else {
     return undef;
   }
@@ -834,9 +778,11 @@ sub filter {
   if ($val) {
     $self->param('_transcript_filter',$val);
   }
-  elsif ($self->param_is_defined('FILTER')) {
-    $self->require_module($self->param('FILTER')->{OBJECT});
-    $self->param('_transcript_filter', $self->param('FILTER')->{OBJECT}->new(%{$self->param('FILTER')->{FILTER_PARAMS}}));
+  elsif (!$self->param_is_defined('_transcript_filter')
+    and $self->param_is_defined('FILTER')
+    and exists $self->param('FILTER')->{OBJECT}) {
+    my $module = $self->require_module($self->param('FILTER')->{OBJECT});
+    $self->param('_transcript_filter', $module->new(%{$self->param('FILTER')->{PARAMETERS}}));
   }
   if ($self->param_is_defined('_transcript_filter')) {
     return $self->param('_transcript_filter');
@@ -855,6 +801,58 @@ sub filtered_query_file {
   }
   return $self->param('_filtered_query_file');
 }
+
+#############################################################
+# Declare and set up config variables
+#############################################################
+
+#sub read_and_check_config {
+#  my $self = shift;
+
+#  $self->SUPER::read_and_check_config($EXONERATE_CONFIG_BY_LOGIC);
+
+  ##########
+  # CHECKS
+  ##########
+#  my $logic = $self->analysis->logic_name;
+
+  # check that compulsory options have values
+#  foreach my $config_var (qw(QUERYSEQS 
+#                             QUERYTYPE
+#                             GENOMICSEQS)) {
+
+#   throw("You must define $config_var in config for logic '$logic'")
+#        if not defined $self->$config_var;
+#  }
+  
+#  throw("QUERYANNOTATION '" . $self->QUERYANNOTATION . "' in config must be readable")
+#      if $self->QUERYANNOTATION and not -e $self->QUERYANNOTATION;
+
+  # filter does not have to be defined, but if it is, it should
+  # give details of an object and its parameters
+#  if ($self->FILTER) {
+#    if (not ref($self->FILTER) eq "HASH" or
+#        not exists($self->FILTER->{OBJECT}) or
+#        not exists($self->FILTER->{PARAMETERS})) {
+
+#      throw("FILTER in config fo '$logic' must be a hash ref with elements:\n" . 
+#            "  OBJECT : qualified name of the filter module;\n" .
+#            "  PARAMETERS : anonymous hash of parameters to pass to the filter");
+#    } else {
+#      my $module = $self->FILTER->{OBJECT};
+#      my $pars   = $self->FILTER->{PARAMETERS};
+      
+#      (my $class = $module) =~ s/::/\//g;
+#      eval{
+#        require "$class.pm";
+#      };
+#      throw("Couldn't require ".$class." Exonerate2Genes:require_module $@") if($@);
+#    
+#      $self->filter($module->new(%{$pars}));
+#    }
+#  }
+#}
+
 
 
 ###############################################
@@ -897,13 +895,33 @@ sub filter_killed_entries {
   return \@sequences;
 }
 
-sub get_query_seqs {
-  my ($self, $accession_array) = @_;
+sub output_query_file {
+  my ($self) = @_;
+
+  my $accession_array = $self->param('iid');
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
-  $table_adaptor->table_name($self->param('query_table_name'));
+
+  # table name here should probably be changed to something more general
+  $table_adaptor->table_name('cdna_sequences');
+
+
+#  my $output_dir = $self->param('query_seq_dir');
+#
+#  # Note as each accession will occur in only one file, there should be no problem using the first one
+#  my $outfile_name = "exonerate_".${$accession_array}[0].".fasta";
+#  my $outfile_path = $output_dir."/".$outfile_name;
 
   my $biotypes_hash = {};
+
+#  unless(-e $output_dir) {
+#    `mkdir $output_dir`;
+#  }
+#
+#  if(-e $outfile_path) {
+#    $self->warning("Found the query file in the query dir already. Overwriting. File path:\n".$outfile_path);
+#  }
+
   my @query_sequences;
   foreach my $accession (@{$accession_array}) {
     my $db_row = $table_adaptor->fetch_by_dbID($accession);
@@ -914,7 +932,7 @@ sub get_query_seqs {
     my $seq = $db_row->{'seq'};
     $biotypes_hash->{$accession} = $db_row->{'biotype'};
 
-    push(@query_sequences, Bio::Seq->new(-display_id => $accession, -seq => $seq));
+    push(@query_sequences, Bio::Seq->new(-id => $accession, -seq => $seq));
   }
 
   $self->get_biotype($biotypes_hash);
@@ -932,138 +950,6 @@ sub get_biotype {
 }
 
 
-sub peptide_seq {
-  my ($self, $value) = @_;
-  if($value){
-    $self->param('_peptide_seq', $value);
-  }
-  return $self->param('_peptide_seq');
-}
 
-
-sub calculate_coverage_and_pid {
-  my ($self, $value) = @_;
-  if($value){
-    $self->param('calculate_coverage_and_pid', $value);
-  }
-  return $self->param('calculate_coverage_and_pid');
-}
-
-
-sub realign_translation {
-  my ($self,$transcript) = @_;
-
-  my $query_seq = $self->peptide_seq;
-  my $translation = $transcript->translate->seq();
-
-  my $align_input_file = "/tmp/exonerate_align_".$$.".fa";
-  my $align_output_file = "/tmp/exonerate_align_".$$.".aln";
-
-  open(INPUT,">".$align_input_file);
-  say INPUT ">query";
-  say INPUT $query_seq;
-  say INPUT ">target";
-  say INPUT $translation;
-  close INPUT;
-
-  my $align_program_path = 'muscle';
-
-  my $cmd = $align_program_path." -in ".$align_input_file." -out ".$align_output_file;
-  my $result = system($cmd);
-
-  if($result) {
-    $self->throw("Got a non-zero exit code from alignment. Commandline used:\n".$cmd);
-  }
-
-  my $file = "";
-  open(ALIGN,$align_output_file);
-  while(<ALIGN>) {
-    $file .= $_;
-  }
-  close ALIGN;
-
-  unless($file =~ /\>.+\n(([^>]+\n)+)\>.+\n(([^>]+\n)+)/) {
-    $self->throw("Could not parse the alignment file for the alignment sequences. Alignment file: ".$align_output_file);
-  }
-
-  my $aligned_query_seq = $1;
-  my $aligned_target_seq = $3;
-
-  $aligned_query_seq =~ s/\n//g;
-  $aligned_target_seq =~ s/\n//g;
-
-  say "Aligned query:\n".$aligned_query_seq;
-  say "Aligned target:\n".$aligned_target_seq;
-
-  `rm $align_input_file`;
-  `rm $align_output_file`;
-
-  # Work out coverage
-  my $coverage;
-  my $temp = $aligned_target_seq;
-  my $target_gap_count = $temp =~ s/\-//g;
-  my $ungapped_query_seq = $aligned_query_seq;
-  $ungapped_query_seq  =~ s/\-//g;
-
-  if(length($ungapped_query_seq) == 0) {
-    $coverage = 0;
-  } else {
-    $coverage = 100 - (($target_gap_count/length($ungapped_query_seq)) * 100);
-  }
-
-  # Work out percent identity
-  my $match_count = 0;
-  my $aligned_positions = 0;
-  for(my $j=0; $j<length($aligned_query_seq); $j++) {
-    my $char_query = substr($aligned_query_seq,$j,1);
-    my $char_target = substr($aligned_target_seq,$j,1);
-    if($char_query eq '-' || $char_target  eq '-') {
-      next;
-    }
-    if($char_query eq $char_target) {
-      $match_count++;
-    }
-    $aligned_positions++;
-  }
-
-  unless($aligned_positions) {
-    $self->throw("Pairwise alignment between the query sequence and the translation shows zero aligned positions. Something has gone wrong");
-  }
-
-  my $percent_id = ($match_count / $aligned_positions) * 100;
-
-  # Get all exons and transcript supporting features
-  my $transcript_supporting_features = $transcript->get_all_supporting_features();
-  my $exons = $transcript->get_all_Exons();
-
-  # Now clean these out
-  $transcript->flush_Exons();
-  $transcript->flush_supporting_features();
-
-  # Loop through the TSFs and add the coverage and pid, then add back into transcript
-  foreach my $transcript_supporting_feature (@{$transcript_supporting_features}) {
-    $transcript_supporting_feature->hcoverage($coverage);
-    $transcript_supporting_feature->percent_id($percent_id);
-    $transcript->add_supporting_features($transcript_supporting_feature);
-  }
-
-  # Loop through exons, get supporting features for each, flush existing SF, add coverage and pid, add back to exon, add exon to transcript
-  foreach my $exon (@{$exons}) {
-    my $exon_supporting_features = $exon->get_all_supporting_features();
-    $exon->flush_supporting_features();
-    foreach my $exon_supporting_feature (@{$exon_supporting_features}) {
-      $exon_supporting_feature->hcoverage($coverage);
-      $exon_supporting_feature->percent_id($percent_id);
-      $exon->add_supporting_features($exon_supporting_feature);
-    }
-    $transcript->add_Exon($exon);
-  }
-}
-
-sub output_db_file {
-  my ($self) = @_;
-
-  $self->throw('Method '.ref($self).'::output_db_file has not been implemeted. Only the Runnable should write temporary files. You should pass the databases as Bio::Seq');
-}
 
 1;

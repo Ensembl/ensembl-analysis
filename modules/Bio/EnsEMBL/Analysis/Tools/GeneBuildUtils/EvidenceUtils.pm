@@ -42,7 +42,6 @@ sub print_Evidence{
 sub Evidence_info{
  my ($feature, $indent) = @_;
   my $coord_string = coord_string($feature);
-  my $id = id($feature);
   my $tag;
   if($feature->isa('Bio::EnsEMBL::DnaDnaAlignFeature')){
     $tag = "DNA EVIDENCE";
@@ -56,11 +55,12 @@ sub Evidence_info{
   my $percent_id = $feature->percent_id || ".";
   my $p_value = $feature->p_value || ".";
   $indent = '' if(!$indent);
+  my $logic_name = $feature->analysis ? $feature->analysis->logic_name : 'NO_ANALYSIS';
   return $indent.$tag.": ".$coord_string." ".$score." ".
     $feature->hseqname." ".$feature->hstart." ".
       $feature->hend." ".$feature->hstrand." ".
         $percent_id." ".$p_value." ".
-          $feature->cigar_string;
+          $feature->cigar_string.' '.$logic_name;
 }
 
 
