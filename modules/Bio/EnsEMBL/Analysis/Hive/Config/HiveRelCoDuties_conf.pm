@@ -88,8 +88,8 @@ sub default_options {
         chimpanzee_alias => 'pan_troglotydes',
         pig_alias => 'sus_scrofa',
         samtools => 'samtools', # It might be better to give the absolute path, but I think it's ok
-        webdev_nfs => '/nfs/ensnfs/webdev/staging',
-        blastdb_basedir => $ENV{BLASTDB_DIR}, # This can be anywhere, the path has to be given to the peson doing the cDNA update
+        webdev_nfs => '/nfs/production/panda/ensembl/production/ensemblftp/data_files',
+        blastdb_basedir => $ENV{BLASTDB_DIR}, # This can be anywhere, the path created $BLASTDB_DIR/RefSeq_XX_XX has to be given to the person running the cDNA update
         refseq_ftp_basedir => 'ftp://ftp.ncbi.nlm.nih.gov/refseq',
         tsl_ftp_base => 'http://hgwdev.cse.ucsc.edu/~markd/gencode/tsl-handoff',
         appris_ftp_base => 'http://apprisws.bioinfo.cnio.es/forEnsembl',
@@ -99,15 +99,15 @@ sub default_options {
         load_tsl_script => catfile($self->o('ensembl_analysis_dir'), 'scripts', 'Merge', 'import_transcript_support_levels.pl'),
         load_appris_script => catfile($self->o('ensembl_analysis_dir'), 'scripts', 'Merge', 'import_appris.pl'),
         staging1_db => {
-            -host   => 'ens-staging1',
-            -port   => 3306,
+            -host   => 'mysql-ens-sta-1',
+            -port   => 4519,
             -user   => $self->o('user_r'),
             -pass   => $self->o('pass_r'),
             -driver => $self->o('hive_driver'),
         },
         staging2_db => {
-            -host   => 'ens-staging2',
-            -port   => 3306,
+            -host   => 'mysql-ens-sta-2',
+            -port   => 4520,
             -user   => $self->o('user_r'),
             -pass   => $self->o('pass_r'),
             -driver => $self->o('hive_driver'),
