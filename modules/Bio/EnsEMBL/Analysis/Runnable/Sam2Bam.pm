@@ -181,8 +181,9 @@ sub run {
 
 
 
-  $command = "$program sort $bamfile"."_unsorted.bam  $bamfile";
+  $command = "$program sort $bamfile"."_unsorted.bam  -o $bamfile".".bam"; # solution to analyses 27 samtools error: added -o flag [osagie 30/01/2017]
   print STDERR "$command \n";
+  print "DEBUG:: $command \n";
   system("$command 2> /tmp/sam2bam_sort.err");
   $self->throw("Could not sort ${bamfile}_unsorted.bam") if ($?);
   open  ( $fh,"/tmp/sam2bam_sort.err" ) or die ("Cannot find STDERR from sorting\n");
