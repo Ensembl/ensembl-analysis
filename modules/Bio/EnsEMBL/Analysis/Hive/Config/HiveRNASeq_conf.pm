@@ -103,7 +103,7 @@ sub default_options {
 
         blastp => 'blastp', #You may need to specify the full path to the blastp binary
         # blast used, it can be either ncbi or wu, it is overriding the -type value from BLAST_PARAMS
-        blast_type => 'wu',
+        blast_type => 'ncbi',
 
         splicing_aligner => 'exonerate-0.9.0', #You may need to specify the full path to the exonerate binary
 
