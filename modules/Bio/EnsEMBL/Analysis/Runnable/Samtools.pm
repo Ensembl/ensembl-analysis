@@ -153,7 +153,8 @@ sub merge {
 sub _base_command {
   my ($self, $command, @options) = @_;
 
-  my $cmd = join(' ', $self->program, $command, @options);
+  my $cmd = $self->program.' '.$command;
+  $cmd .= ' '.join(' ', @options) if (defined $options[0]);
   $cmd .= ' -@ '.$self->use_threading if ($self->use_threading);
   return $cmd.' ';
 }
@@ -198,6 +199,7 @@ sub sort {
 sub index {
   my ($self, $file, $options) = @_;
 
+  $options = '' unless (defined $options);
   my $cmd = join(' ', $self->program, 'index', $options, $file);
   logger_info($cmd);
   execute_with_wait($cmd, $file.' indexing failed');

@@ -56,6 +56,8 @@ use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
+use Bio::EnsEMBL::Analysis::Runnable::Samtools;
+
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
 
@@ -100,6 +102,9 @@ sub run {
   # get a list of files to use
   my $bamfile = $self->bamfile;
   my $program = $self->program;
+  my $samtools = Bio::EnsEMBL::Analysis::Runnable::Samtools->new(
+                        -program => $program,
+                        );
   my $count = 0;
   my @fails;
   # next make all the sam files into one big sam flie
@@ -179,32 +184,9 @@ sub run {
      system("$command");
   }
 
+  $samtools->sort($bamfile, $bamfile.'_unsorted.bam');
+  $samtools->index($bamfile.'.bam');
 
-
-  $command = "$program sort $bamfile"."_unsorted.bam  $bamfile";
-  print STDERR "$command \n";
-  system("$command 2> /tmp/sam2bam_sort.err");
-  $self->throw("Could not sort ${bamfile}_unsorted.bam") if ($?);
-  open  ( $fh,"/tmp/sam2bam_sort.err" ) or die ("Cannot find STDERR from sorting\n");
-  # write output
-  while(<$fh>){
-    print STDERR "SORT $_";
-    $self->throw('Samtools failed to sort the bam file '.$bamfile.'_unsorted.bam') if ($_ =~ /truncated/ or $_ =~ /invalid/ )
-  }
-  close($fh) || $self->throw("Cannot close STDERR from sorting");
-  $self->files_to_delete("/tmp/sam2bam_sort.err");
-
-  $command = "$program index $bamfile.bam";
-  print STDERR "$command \n";
-  system("$command 2> /tmp/sam2bam_bamindex.err");
-  open  ( $fh,"/tmp/sam2bam_bamindex.err" ) or die ("Cannot find STDERR from bam indexing\n");
-  # write output
-  while(<$fh>){
-    print STDERR "INDEXBAM $_";
-    $self->throw('Samtools failed to index the bam file '.$bamfile.'.bam') if ($_ =~ /invalid/ or $_ =~ /abort/ or $_ =~ /truncated/ )
-  }
-  close($fh) || $self->throw("Cannot close STDERR from bam indexing");
-  $self->files_to_delete("/tmp/sam2bam_bamindex.err");
   $self->files_to_delete($bamfile.'_unsorted.bam');
   $self->delete_files();
 }
