@@ -82,6 +82,7 @@ sub _master_config {
   my ($self, $key) = @_;
 
   my %config = (
+    default => [],
     primates_basic => [
              {
               ID         => 'LAYER1',

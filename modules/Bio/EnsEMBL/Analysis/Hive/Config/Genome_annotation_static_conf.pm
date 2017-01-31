@@ -163,7 +163,7 @@ sub default_options {
     'layering_input_gene_dbs' => [
                                    $self->o('genblast_db'),
                                    $self->o('rnaseq_db'),
-                                   $self->o('projection_db'),
+                                   $self->o('projection_realign_db'),
                                  ],
 
     'utr_gene_dbs' => {
@@ -262,7 +262,7 @@ sub default_options {
 ########################################################
     'ncbi_base_ftp'           => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all',
     'insdc_base_ftp'          => $self->o('ncbi_base_ftp').'/#expr(substr(#assembly_accession#, 0, 3))expr#/#expr(substr(#assembly_accession#, 4, 3))expr#/#expr(substr(#assembly_accession#, 7, 3))expr#/#expr(substr(#assembly_accession#, 10, 3))expr#/#assembly_accession#_#assembly_name#',
-    'assembly_ftp_path'       => $self->o('insdc_base_ftp').'/#assembly_accession#_#assembly_name#_assembly_structure',
+    'assembly_ftp_path'       => $self->o('insdc_base_ftp').'/#assembly_accession#_#assembly_name#_assembly_structure/',
     'refseq_base_ftp'         => $self->o('ncbi_base_ftp').'/#expr(substr(#assembly_refseq_accession#, 0, 3))expr#/#expr(substr(#assembly_refseq_accession#, 4, 3))expr#/#expr(substr(#assembly_refseq_accession#, 7, 3))expr#/#expr(substr(#assembly_refseq_accession#, 10, 3))expr#/#assembly_refseq_accession#_#assembly_name#',
     'refseq_import_ftp_path'  => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_genomic.gff.gz',
     'refseq_mrna_ftp_path'    => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_rna.fna.gz',
@@ -459,31 +459,51 @@ sub default_options {
     };
 }
 
+#sub pipeline_create_commands {
+#    my ($self) = @_;
+#    return [
+    # inheriting database and hive tables' creation
+#      @{$self->SUPER::pipeline_create_commands},
+
+#      $self->db_cmd('CREATE TABLE '.$self->o('uniprot_table_name').' ('.
+#                    'accession varchar(50) NOT NULL,'.
+#                    'source_db varchar(50) NOT NULL,'.
+#                    'pe_level varchar(50) NOT NULL,'.
+#                    'biotype varchar(255) NOT NULL,'.
+#                    'group_name varchar(255) NOT NULL,'.
+#                    'seq text NOT NULL,'.
+#                    'PRIMARY KEY (accession))'),
+
+#      $self->db_cmd('CREATE TABLE '.$self->o('refseq_cdna_table_name').' ('.
+#                    'accession varchar(50) NOT NULL,'.
+#                    'source_db varchar(50) NOT NULL,'.
+#                    'biotype varchar(25) NOT NULL,'.
+#                    'date varchar(50) NOT NULL,'.
+#                    'seq text NOT NULL,'.
+#                    'PRIMARY KEY (accession))'),
+#    ];
+#}
 sub pipeline_create_commands {
     my ($self) = @_;
-    return [
-    # inheriting database and hive tables' creation
-      @{$self->SUPER::pipeline_create_commands},
+   return [
+   # inheriting database and hive tables' creation
+       @{$self->SUPER::pipeline_create_commands},
 
-      $self->db_cmd('CREATE TABLE '.$self->o('uniprot_table_name').' ('.
-                    'accession varchar(50) NOT NULL,'.
-                    'source_db varchar(50) NOT NULL,'.
-                    'pe_level varchar(50) NOT NULL,'.
-                    'biotype varchar(255) NOT NULL,'.
-                    'group_name varchar(255) NOT NULL,'.
-                    'seq text NOT NULL,'.
-                    'PRIMARY KEY (accession))'),
+     $self->db_cmd('CREATE TABLE '.$self->o('uniprot_table_name').' ('.
+                   'accession varchar(50) NOT NULL,'.
+                   'source_db varchar(50) NOT NULL,'.
+                   'pe_level varchar(50) NOT NULL,'.
+                   'biotype varchar(255) NOT NULL,'.
+                   'group_name varchar(255) NOT NULL,'.
+                   'seq text NOT NULL,'.
+                   'PRIMARY KEY (accession))'),
+     $self->db_cmd('CREATE TABLE projection_protein_sequences ('.
+                   'accession varchar(50) NOT NULL,'.
+                   'seq text NOT NULL,'.
+                   'PRIMARY KEY (accession))'),
 
-      $self->db_cmd('CREATE TABLE '.$self->o('refseq_cdna_table_name').' ('.
-                    'accession varchar(50) NOT NULL,'.
-                    'source_db varchar(50) NOT NULL,'.
-                    'biotype varchar(25) NOT NULL,'.
-                    'date varchar(50) NOT NULL,'.
-                    'seq text NOT NULL,'.
-                    'PRIMARY KEY (accession))'),
-    ];
+       ];
 }
-
 
 ## See diagram for pipeline structure
 sub pipeline_analyses {
@@ -645,8 +665,11 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveSetMetaAndSeqRegionSynonym',
         -parameters => {
                          'taxon_id'                  => $self->o('taxon_id'),
+                         'production_name'			=> $self->o('production_name'),
                          'genebuilder_id'            => $self->o('genebuilder_id'),
                          'target_db'                 => $self->o('reference_db'),
+                         'taxonomy_db'                 => $self->o('taxonomy_db'),
+                         'production_db'                 => $self->o('production_db'),
                          'output_path'               => $self->o('output_path'),
                          'enscode_root_dir'          => $self->o('enscode_root_dir'),
                          'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
@@ -663,6 +686,8 @@ sub pipeline_analyses {
         -parameters => {
                          'target_db'        => $self->o('reference_db'),
                          'enscode_root_dir' => $self->o('enscode_root_dir'),
+                         'taxonomy_db'      => $self->o('taxonomy_db'),
+                         'production_db'    => $self->o('production_db'),
                        },
         -rc_name    => 'default',
 
@@ -702,6 +727,7 @@ sub pipeline_analyses {
                          'enscode_root_dir'          => $self->o('enscode_root_dir'),
                          'mito_index_path'           => $self->o('mito_index_path'),
                          'species_name'              => $self->o('species_name'),
+                         'chromosomes_present'       => $self->o('chromosomes_present'), # may need to remove later
                       },
         -rc_name    => 'default',
 
@@ -863,7 +889,7 @@ sub pipeline_analyses {
         -logic_name => 'format_softmasked_toplevel',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmaski -in '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa.asnb;makeblastdb -in '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa -dbtype nucl -parse_seqids -mask_data '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa;fi',
+                         'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmask -in '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa.asnb;makeblastdb -in '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa -dbtype nucl -parse_seqids -mask_data '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa;fi',
                        },
         -rc_name    => 'default_himem',
       },
@@ -1197,7 +1223,8 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
                          'source_db'        => $self->o('dna_db'),
-                         'user'           => $self->o('user'),
+                         'user'           	=> $self->o('user_r'),
+                         'user_w' 			=> $self->o('user'),
                          'pass_w'           => $self->o('password'),
                          'create_type'      => 'backup',
                          'output_path'      => $self->o('output_path')."/core_db_bak/",
@@ -1256,7 +1283,7 @@ sub pipeline_analyses {
         -parameters => {
                          cmd => 'perl '.$self->o('meta_coord_script').
                                 ' -user '.$self->o('reference_db', '-user').
-                                ' -pass '.$self->o('reference_db', 'pass').
+                                ' -pass '.$self->o('reference_db', '-pass').
                                 ' -host '.$self->o('reference_db','-host').
                                 ' -port '.$self->o('reference_db','-port').
                                 ' -dbpattern '.$self->o('reference_db','-dbname')
@@ -1427,7 +1454,7 @@ sub pipeline_analyses {
         -logic_name => 'download_uniprot_files',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadUniProtFiles',
         -parameters => {
-                         multi_query_download => %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::UniProtCladeDownloadStatic', $self->default_options->{'uniprot_set'})},
+                         multi_query_download => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::UniProtCladeDownloadStatic', $self->default_options->{'uniprot_set'}),
                          taxon_id => $self->o('taxon_id'),
                          output_path => $self->o('homology_models_path'),
                        },
@@ -1494,7 +1521,7 @@ sub pipeline_analyses {
                          module => 'HiveGenblast',
                          genblast_path => $self->o('genblast_path'),
                          genblast_db_path => $self->o('genome_file'),
-                         commandline_params => ' -P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
+                         commandline_params => ' -P blast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
                          query_seq_dir => catdir($self->o('homology_models_path'), $self->o('uniprot_query_dir_name')),
                          sequence_table_name => $self->o('uniprot_table_name'),
                          max_rank => $self->o('genblast_max_rank'),
@@ -1818,12 +1845,32 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                       '1->A' => ['create_ids_for_evaluate_projection'],
-                       'A->1' => ['classify_realigned_models'],
+        	           1=>['create_realign_db'],
+           
                       },
       },
 
-            {
+      {
+        -logic_name => 'create_realign_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('projection_realign_db'),
+                         create_type => 'clone',
+                         script_path => $self->o('clone_db_script_path'),
+                         user_r => $self->o('user_r'),
+                         user => $self->o('user'),
+                         pass_w => $self->o('password'),
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                       '1->A' => ['create_ids_for_evaluate_projection'],
+                       'A->1' => ['update_realigned_biotypes'],
+                      },      
+      },
+
+
+      {
         -logic_name => 'create_ids_for_evaluate_projection',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
@@ -1880,7 +1927,6 @@ sub pipeline_analyses {
                        },
       },
 
-
       {
         -logic_name => 'failed_realignments',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
@@ -1890,6 +1936,23 @@ sub pipeline_analyses {
         -can_be_empty  => 1,
         -failed_job_tolerance => 100,
       },
+
+     {
+        -logic_name => 'update_realigned_biotypes',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                                'cmd'   => 'mysql -NB -u'.$self->o('user').
+                                               ' -p'.$self->o('password').
+                                               ' -h'.$self->o('projection_realign_db','-host').
+                                               ' -P'.$self->o('projection_realign_db','-port').
+                                               ' -D'.$self->o('projection_realign_db','-dbname').
+                                               ' -e "UPDATE gene SET biotype =\'realign\' ;  UPDATE transcript SET biotype =\'realign\'; "  '                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['classify_realigned_models'],
+                      },
+      },
+
 
      {
         -logic_name => 'classify_realigned_models',
@@ -2032,7 +2095,7 @@ sub pipeline_analyses {
                          # are only retained if they do not "interfere" with genes from
                          # higher layers. Genes in "Discard" layers are when assessing
                          # interference, but are not written to the final database
-                         LAYERS => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic', $self->default_options->{'uniprot_set'}, undef, 'ARRAY'),
+                         LAYERS => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic', $self->default_options->{'uniprot_set'}, undef, 'ARRAY') ,
                        },
         -rc_name    => 'layer_annotation',
         -flow_into  => {

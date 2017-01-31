@@ -235,6 +235,7 @@ sub recover_missing_accessions {
 
   $count = 0;
   foreach my $id_string (@{$id_string_array}) {
+  	# print "DEBUG::$id_string\n"; 
     my $efetch_path = $output_path.'/efetched.'.$count.'.fa';
     my $fetch_cmd = 'wget -q -O '.$efetch_path.' "'.$fetchbase.$id_string.'"';
     $self->throw($fetch_cmd.' did not run successfully') if (system($fetch_cmd));
@@ -245,6 +246,13 @@ sub recover_missing_accessions {
         my $line = $_;
         if($line =~ /^>.*gb\|([^\|]+\.\d+)\|/) {
           say OUT '>'.$1;
+          
+        } elsif($line =~ /^>(\w+)/) {
+          # print $1 . "<----MYACCESSION \n"; 
+          my $tmp_1 = $1 . '.1';
+          print "DEBUG::$tmp_1\--\n";
+          say OUT '>'.$tmp_1;
+          	  
         } elsif($line =~ /^>/) {
           $self->throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);
         } else {
