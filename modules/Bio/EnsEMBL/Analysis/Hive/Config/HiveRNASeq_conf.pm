@@ -98,14 +98,14 @@ sub default_options {
         # Blast database for comparing the final models to.
         uniprotdb => '',
 
-        # Index for the blast database.
+        # Indicate Index for the blast database.
         uniprotindex => '',
 
         blastp => 'blastp', #You may need to specify the full path to the blastp binary
         # blast used, it can be either ncbi or wu, it is overriding the -type value from BLAST_PARAMS
         blast_type => 'ncbi',
 
-        splicing_aligner => 'exonerate-0.9.0', #You may need to specify the full path to the exonerate binary
+        splicing_aligner => 'exonerate-0.9.0', #You may need to specify the full path to the exonerate binary version 0.9.0
 
         # If your reads are unpaired you may want to run on slices to avoid
         # making overlong rough models.  If you want to do this, specify a
@@ -132,6 +132,7 @@ sub default_options {
         use_threads => 3,
         read_min_paired => 50,
         read_min_mapped => 50,
+        other_isoforms => 'other', # If you don't want isoforms, set this to undef
 
         # Please assign some or all columns from the summary file to the
         # some or all of the following categories.  Multiple values can be
@@ -794,6 +795,7 @@ sub pipeline_analyses {
                      other_num      => '10',
                      # max number of other models to process - blank = all
                      max_num      => '1000',
+                     other_isoforms => $self->o('other_isoforms'),
                      # biotype to label bad models ( otherwise they are not written )
                      # do you want to trim UTR
                      trim_utr => 1,
