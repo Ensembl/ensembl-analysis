@@ -48,10 +48,12 @@ else
 # We avoid the Finished directory at the moment
 #  Exonerate2Array.pm as it is a FuncGen module
 #  ExonerateRefinedCloneEnds.pm as we have a newer module for the clone ends
+#  SWEmbl.pm, InputSet.pm has been removed from ensembl-funcgen and it doesn't affect us
 #  M=( "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm" "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" )
   M=( "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateClones.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" \
+  "Bio/EnsEMBL/Analysis/RunnableDB/Funcgen/SWEmbl.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" )
   printf "\e[31mWe will not test:\e[0m\n - \e[33m%s\e[0m\n" "Annacode modules"
   for S in `seq 0 $((${#M[@]}-1))`; do

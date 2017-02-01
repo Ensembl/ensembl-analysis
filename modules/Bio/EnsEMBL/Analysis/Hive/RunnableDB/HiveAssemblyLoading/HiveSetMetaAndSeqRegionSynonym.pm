@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -121,7 +121,9 @@ sub write_output {
   my $self = shift;
 
 # This code should get the upstream input and add 'mt_accession' and 'chromosomes_present' if needed
+
   my $job_params = eval ($self->input_job->input_id);
+
   if ($self->param_is_defined('mt_accession')) {
     $job_params->{mt_accession} = $self->param('mt_accession');
   }

@@ -25,7 +25,6 @@ eae@sanger.ac.uk
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
 
 use Bio::EnsEMBL::Gene;

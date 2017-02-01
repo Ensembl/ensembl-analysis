@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@ sub default_options {
     'assembly_name'             => '', #!!!!!!!!!!!!!! Name (as it appears in the assembly report file)
     'assembly_accession'        => '', #!!!!!!!!!!!!!! GCA
     'assembly_refseq_accession' => '', #!!!!!!!!!!!!!! GCF
+    'mt_accession'              => undef, # This should be set to undef unless you know what you are doing
 
 ########################
 # Pipe and ref db info
@@ -686,8 +687,8 @@ sub pipeline_analyses {
         -parameters => {
                          'target_db'        => $self->o('reference_db'),
                          'enscode_root_dir' => $self->o('enscode_root_dir'),
-                         'taxonomy_db'      => $self->o('taxonomy_db'),
                          'production_db'    => $self->o('production_db'),
+                         'taxonomy_db'      => $self->o('taxonomy_db'),
                        },
         -rc_name    => 'default',
 
@@ -728,6 +729,7 @@ sub pipeline_analyses {
                          'mito_index_path'           => $self->o('mito_index_path'),
                          'species_name'              => $self->o('species_name'),
                          'chromosomes_present'       => $self->o('chromosomes_present'), # may need to remove later
+                         'mt_accession'              => $self->o('mt_accession'),
                       },
         -rc_name    => 'default',
 

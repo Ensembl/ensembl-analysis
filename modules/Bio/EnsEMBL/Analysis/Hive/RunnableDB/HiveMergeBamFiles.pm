@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -126,7 +126,8 @@ sub fetch_input {
     my ($self) = @_;
 
     $self->create_analysis;
-    $self->param_required('target_db');
+    my $db = $self->get_database_by_name('target_db');
+    $self->hrdb_set_con($db, 'target_db');
     my $outname = $self->param_is_defined('sample_name') ? $self->param('sample_name') : 'merged';
     if (!$self->param_is_defined('logic_name')) {
       my $aligner = $self->param('wide_short_read_aligner');
@@ -159,8 +160,12 @@ sub fetch_input {
         $self->throw($abs_filename.' is not an absolute path!') unless (File::Spec->file_name_is_absolute($abs_filename));
         if ($self->param('rename_file')) {
           my $index_ext = '.'.$self->param('_index_ext');
-          move($abs_filename, $self->param('alignment_bam_file')) || $self->throw("Could not rename file $abs_filename to ".$self->param('alignment_bam_file'));
-          move($abs_filename.$index_ext, $self->param('alignment_bam_file').$index_ext) || $self->throw("Could not rename file $abs_filename$index_ext to ".$self->param('alignment_bam_file').$index_ext);
+          if (!move($abs_filename, $self->param('alignment_bam_file'))) {
+             $self->throw("Could not rename file $abs_filename to ".$self->param('alignment_bam_file'));
+	  }
+          if (!move($abs_filename.$index_ext, $self->param('alignment_bam_file').$index_ext)) {
+            $self->throw("Could not rename file $abs_filename$index_ext to ".$self->param('alignment_bam_file').$index_ext);
+	  }
           $abs_filename = $self->param('alignment_bam_file');
         }
         if ($self->param('store_datafile')) {
