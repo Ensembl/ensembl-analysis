@@ -65,6 +65,8 @@ sub default_options {
 
         'pipe_db_server'   => '',
         'dna_db_server'    => '',
+        'dna_db_port'   => $self->o('port'),
+        'data_db_port'  => $self->o('port'), # Port for the blast, refine and rough DBs, or you can set them down below
         'blast_db_server'  => '',
         'refine_db_server' => '',
         'rough_db_server'  => '',
@@ -155,15 +157,15 @@ sub default_options {
 #                                                                        #
 ##########################################################################
 
-        blast_db_port => $self->o('port'),
+        blast_db_port => $self->o('data_db_port'),
         blast_db_user => $self->o('user'),
         blast_db_password => $self->o('password'),
         blast_db_driver => $self->o('hive_driver'),
-        refine_db_port => $self->o('port'),
+        refine_db_port => $self->o('data_db_port'),
         refine_db_user => $self->o('user'),
         refine_db_password => $self->o('password'),
         refine_db_driver => $self->o('hive_driver'),
-        rough_db_port => $self->o('port'),
+        rough_db_port => $self->o('data_db_port'),
         rough_db_user => $self->o('user'),
         rough_db_password => $self->o('password'),
         rough_db_driver => $self->o('hive_driver'),
