@@ -66,7 +66,7 @@ use warnings ;
 use strict;
 use feature qw(say) ;
 
-use Bio::DB::Sam;
+use Bio::DB::HTS;
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
 use Bio::EnsEMBL::DnaDnaAlignFeature;
@@ -152,7 +152,7 @@ sub fetch_input {
         $self->create_analysis;
         if ( $self->param('intron_bam_files') ) {
             foreach my $intron_files (@{ $self->param('intron_bam_files')} ) {
-                my $sam = Bio::DB::Sam->new(
+                my $sam = Bio::DB::HTS->new(
                         -bam => $intron_files->{file},
                         -expand_flags => 1,
                         );
@@ -314,7 +314,7 @@ sub write_output {
 
 =head2 bam_2_intron_features
 
-  Arg [1]    : Bio::DB::Sam::segment
+  Arg [1]    : Bio::DB::HTS::segment
   Arg [2]    : Arrayref of hashref containing the information about the introns
   Description: Fetches all alignments from the bam file segment, collapses them down into a
                non redundant set and builds a Bio::EnsEMBL::DnaDnaAlignFeature to
@@ -527,7 +527,7 @@ sub bam_2_intron_features {
 
 =head2 ungapped_features
 
- Arg [1]    : Bio::DB::Sam::Alignment
+ Arg [1]    : Bio::DB::HTS::Alignment
  Description: Create introns based on the cigar line of the read
  Returntype : Arrayref of array
               0 -> read name
