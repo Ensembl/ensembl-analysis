@@ -65,6 +65,12 @@ else
   if [ "$EXIT_CODE" -ne 0 ]; then
       rt=$EXIT_CODE
   fi
+  find modules/t -type f -name "*.t" | xargs -i perl {}
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" -ne 0 ]; then
+      rt=$EXIT_CODE
+  fi
+
 fi
 if [ $rt -eq 0 ]; then
   if [ "$COVERALLS" = 'true' ]; then
