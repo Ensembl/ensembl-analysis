@@ -83,6 +83,7 @@ our @EXPORT_OK = qw(
               locate_executable
               first_upper_case
               execute_with_wait
+              execute_with_timer
               );
 
 
@@ -1167,6 +1168,60 @@ sub execute_with_wait {
   if (system($cmd)) {
     sleep($wait || 30);
     throw($failed_msg || 'Failed to run with code: '.$?."\n".$cmd);
+  }
+}
+
+
+=head2 execute_with_timer
+
+ Arg [1]    : String $cmd, the command to run
+ Arg [2]    : Int $timer, how long we should wait before killing your job
+ Description: Execute a system command and kill it if it doesn't finish in time
+              You can either specify the time in seconds as digits only or
+              you can use M and H to specify hours and/or minutes, without white spaces.
+ Returntype : None
+ Exceptions : Throws after a Arg[2] seconds if your jobs did not finish
+              Throws if Arg[2] is not set or incorrect or 0
+
+=cut
+
+sub execute_with_timer {
+  my ($cmd, $timer) = @_;
+
+  my $realtimer = 0;
+  if ($timer) {
+    if ($timer =~ tr/mhMH/MHMH/) {
+      if ($timer =~ s/^(\d+H)//) {
+        $realtimer = $1*3600;
+      }
+      if ($timer =~ s/^(\d+M)//) {
+        $realtimer += $1*60;
+      }
+    }
+    if ($timer =~ /^\d*\s*$/) {
+      $realtimer += $timer;
+    }
+    else {
+      throw("This is what is left of your timer: $timer and this is what I could calculate: $realtimer\n");
+    }
+  }
+  else {
+    throw("Something is wrong with your timer: $timer\n");
+  }
+# As seen on perldoc: http://perldoc.perl.org/5.14.2/functions/alarm.html
+  eval {
+    local $SIG{ALRM} = sub {die("alarm\n")};
+    alarm $realtimer;
+    execute_with_wait($cmd);
+    alarm 0;
+  };
+  if ($@) {
+    if ($@ eq "alarm\n") {
+      throw("Your job $cmd was still running after your timer: $timer\n");
+    }
+    else {
+      throw($@);
+    }
   }
 }
 
