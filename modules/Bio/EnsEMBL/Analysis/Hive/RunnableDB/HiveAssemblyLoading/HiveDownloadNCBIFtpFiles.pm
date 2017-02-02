@@ -44,7 +44,6 @@ sub run {
   my $local_path = catdir($self->param('output_path'), $self->param('primary_assembly_dir_name'));
   $self->download_ftp_dir($ftp_species_path,$local_path);
   $self->download_non_nuclear_ftp_dir($self->param('full_ftp_path'),$self->param('output_path'));
-  exit;
   $self->unzip($local_path);
 
   say "Finished downloading NCBI ftp structure and files";
@@ -136,13 +135,16 @@ sub unzip {
 sub concat_non_nuclear {
   my ($self,$path) = @_;
   my $cmd = "cat ".$path."/*.agp > ".$path."/concat_non_nuclear.agp";
- # my $filename = $path."/concat_non_nuclear.agp"; 
- # if (!-e $filename) {
- # 	print "DEBUG:::The file does not exist!";
+  my $filename = $path."/concat_non_nuclear.agp"; 
+  if (!-e $filename) {
+  	print "DEBUG:::The file does not exist!";
   	if (system($cmd)) {
     	$self->throw("Problem concatenation the non nuclear AGP files into concat_non_nuclear.agp\n".
                 "Commandline used:\n".$cmd);
-  		}	
+  		}
+  else{
+  	print $filename.": File exists, cannot concat";
+  }	
 	}
 }
 
