@@ -97,20 +97,25 @@ sub download_ftp_contigs {
         $self->throw("wget/rsync failed on the following command line:\n".$wget);
       }
     }
-  } #elsif($source eq 'ena') {
-    #$wgs_id =~ /^(..)/;
-    #my $prefix = $1;
+    
+    # ftp://ftp.ebi.ac.uk/pub/databases/ena/wgs_fasta/ag/AGCE01.fasta.gz
+  } elsif($source eq 'ena') {
+  	# rsync -av rsync://ftp.ebi.ac.uk/pub/databases/ena/wgs_fasta/ag/AGCE01.fasta.gz /hps/nobackup/production/ensembl/leanne/primates_annotation_1/saimiri_boliviensis_boliviensis/Primary_Assembly/contigs/
+    $wgs_id =~ /^(..)/;
+    my $prefix = $1;
+    $prefix = lc($prefix);
 
-   # my $base = 'wget -nv "ftp://ftp.ebi.ac.uk/pub/databases/embl/release/wgs/'.$prefix.'/';
-   # foreach my $a_wgs_id (@wgs_ids) {
-   #   my $file = 'wgs_'.$a_wgs_id.'_*.dat.gz';
-   #   my $wget = "$base/$file\" -P $output_path";
-   ##   my $return = system($wget);
-   #   if($return) {
-   #     $self->throw("wget failed on the following command line:\n".$wget);
-   #   }
-   # }
-  #}
+    my $base = 'rsync -av "rsync://ftp.ebi.ac.uk/pub/databases/ena/wgs_fasta/'.$prefix.'/';
+  	foreach my $a_wgs_id (@wgs_ids) {
+    	my $file = $a_wgs_id.'*.fasta.gz';
+    	print $file ."\n";
+      	my $wget = "$base/$file\" $output_path";
+      	my $return = system($wget);
+      	if($return) {
+        	$self->throw("wget failed on the following command line:\n".$wget);
+      }
+    }
+  }
    else {
     $self->throw("You have specified an unknown source! Source must be NCBI or ENA! Source specified:\n".$source);
   }
@@ -160,6 +165,45 @@ sub fix_contig_headers {
     }
 
   } elsif($source eq 'ena') {
+
+
+
+    my $contigs_unfixed = catfile($output_path, 'contigs_unfixed_header.fa');
+    my $contigs_fixed = catfile($output_path, 'contigs.fa');
+
+    my $cat_files = 'cat '.$output_path.'/*.fasta > '.$contigs_unfixed;
+    my $return = system($cat_files);
+    if($return) {
+      $self->throw("Problem concatenating the contig files. Commandline used:\n".$cat_files);
+    }
+    open(IN,$contigs_unfixed);
+    open(OUT,">$contigs_fixed");
+    while(<IN>) {
+      my $line = $_;
+      if($line =~ /^>.*gb\|([^\|]+\.\d+)\|/) {
+        say OUT '>'.$1;
+      } elsif ($line =~ /^>ENA\|(.*)\|([^\|]+\.\d+)\s/ )  {  
+        say OUT '>'.$2;
+      } elsif($line =~ /^>/) {
+        $self->throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);
+      } else {
+        print OUT $line; # print instead of say since the newline will be there already
+      }
+    }
+    close OUT;
+    close IN;
+
+    my $contig_count1 = int(`grep -c '>' $contigs_unfixed`);
+    my $contig_count2 = int(`grep -c '>' $contigs_fixed`);
+
+    unless($contig_count1 == $contig_count2) {
+      $self->throw("The contig count in contigs_unfixed_header.fa (".$contig_count1.") did not match the count in contigs.fa (".
+                   $contig_count2."). They should match");
+    }
+
+
+
+
 
   }
 }

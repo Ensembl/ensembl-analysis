@@ -44,6 +44,7 @@ sub run {
   my $local_path = catdir($self->param('output_path'), $self->param('primary_assembly_dir_name'));
   $self->download_ftp_dir($ftp_species_path,$local_path);
   $self->download_non_nuclear_ftp_dir($self->param('full_ftp_path'),$self->param('output_path'));
+  exit;
   $self->unzip($local_path);
 
   say "Finished downloading NCBI ftp structure and files";
@@ -94,16 +95,30 @@ sub download_ftp_dir {
 sub download_non_nuclear_ftp_dir {
   my ($self,$ftp_path,$local_dir) = @_;
   my $non_nuclear = "/non-nuclear/assembled_chromosomes/AGP/";
+  my $non_nuclear_test = "/non-nuclear/";
   my $full_ftp_path = $ftp_path.$non_nuclear;
   my $full_local_dir_path = $local_dir."/non_nuclear_agp/";
+  my $non_nuclear_http_check = $ftp_path.$non_nuclear_test ;
 
-  my $cmd = "wget -P ".$full_local_dir_path." ".$full_ftp_path."*.agp.gz";
-  if (system($cmd)) {
-    $self->warning("No non-nuclear AGP files found. Continuing anyway\n".
-                   "Commandline used:\n".$cmd);
-    return;
+
+  use LWP::Simple qw($ua head);
+  $ua->timeout(100);
+ 
+  if (head($non_nuclear_http_check)) {
+    print "Does exist\n";
+    # my $cmd = "wget -P ".$full_local_dir_path." ".$full_ftp_path."*.agp.gz";
+    $non_nuclear_http_check =~ s/ftp\:\/\/ftp.ncbi.nlm.nih.gov\//ftp.ncbi.nlm.nih.gov\:\:/g;
+    my $cmd = "rsync $non_nuclear_http_check/*/AGP/*agp.gz  -P $full_local_dir_path"; 
+
+    if (system($cmd)) {
+      $self->throw("No non-nuclear AGP files found, but there is a non-nuclear dir.  Will not continue. Check me! $non_nuclear_http_check \n".
+                   "Commandline used:\n".$cmd);                   
+      return;
+    } else {
+      say "Downloaded non-nuclear AGP files (can be used to identify mito later in contigs.fa)";
+    }
   } else {
-    say "Downloaded non-nuclear AGP files (can be used to identify mito later in contigs.fa)";
+    print "non-nuclear dir/ftp does not exist or timeout, so nothing to download\n";;
   }
 
   $self->unzip($full_local_dir_path);
@@ -113,7 +128,7 @@ sub download_non_nuclear_ftp_dir {
 
 sub unzip {
   my ($self,$path) = @_;
-  say "Unzipping the compressed files...";
+  say "Unzipping the compressed files...$path";
   $self->throw("gunzip operation failed. Please check your error log file.") if (system("gunzip -r $path") == 1);
   say "Unzipping finished!";
 }
@@ -121,10 +136,14 @@ sub unzip {
 sub concat_non_nuclear {
   my ($self,$path) = @_;
   my $cmd = "cat ".$path."/*.agp > ".$path."/concat_non_nuclear.agp";
-  if (system($cmd)) {
-    $self->throw("Problem concatenation the non nuclear AGP files into concat_non_nuclear.agp\n".
-                 "Commandline used:\n".$cmd);
-  }
+ # my $filename = $path."/concat_non_nuclear.agp"; 
+ # if (!-e $filename) {
+ # 	print "DEBUG:::The file does not exist!";
+  	if (system($cmd)) {
+    	$self->throw("Problem concatenation the non nuclear AGP files into concat_non_nuclear.agp\n".
+                "Commandline used:\n".$cmd);
+  		}	
+	}
 }
 
 
