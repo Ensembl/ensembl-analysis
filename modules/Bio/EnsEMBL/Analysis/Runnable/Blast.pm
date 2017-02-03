@@ -102,7 +102,7 @@ sub new {
   ######################
   $self->type('wu');
   $self->unknown_error_string('FAILED');
-  $self->options('-cpus=1') if(!$self->options);
+  $self->options('-num_threads 1') if(!$self->options);
   ######################
   $self->databases($database);
   $self->parser($parser);
