@@ -47,7 +47,7 @@ sub write_output {
   my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($db_path);
   my $header;
   my $seq;
-
+  my $biotype;
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
   $table_adaptor->table_name($protein_table_name);
@@ -56,13 +56,19 @@ sub write_output {
     $header = $parser->getHeader();
     $seq = $parser->getSequence();
 
+    if($self->param('load_biotype')) {
+      ($header,$biotype) = split(/\|/,$header);
+    }
+
     my $output_hash = {};
     $output_hash->{'iid'} = [$header];
 
     my $db_row = [{
       'accession'  => $header,
       'seq'        => $seq,
+      'biotype'    => $biotype, 
     }];
+
     $table_adaptor->store($db_row);
 
     $self->dataflow_output_id($output_hash,1);
