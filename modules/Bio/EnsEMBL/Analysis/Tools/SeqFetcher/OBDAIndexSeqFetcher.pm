@@ -121,8 +121,7 @@ sub new {
     # we take as default format = 'FASTA';
     $format = 'FASTA' unless ( $format );
 
-
-    my $OBDAfetcher = new Bio::DB::Flat::BinarySearch(-index_dir => $self->index_name,
+    my $OBDAfetcher = new Bio::DB::Flat::BinarySearch(-directory => $self->index_name,
 						   -dbname    => $db_name,
 						   -format    => $format
 						 );
