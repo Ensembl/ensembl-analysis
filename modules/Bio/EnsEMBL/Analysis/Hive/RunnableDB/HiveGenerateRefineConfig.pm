@@ -78,7 +78,7 @@ sub fetch_input {
             $tissue_hash{lc($result->{$self->param('sample_column')})}->{$result->{$self->param('sample_id_column')}} = 1;
         }
         foreach my $key (keys %tissue_hash) {
-          my %analysis_hash = (BEST_SCORE => "best_$key", SINGLE_EXON_MODEL => "single_$key");
+          my %analysis_hash = (BEST_SCORE => "best_$key", SINGLE_EXON_MODEL => "single_$key", INTRON_OVERLAP_THRESHOLD => $default_iot);
           $analysis_hash{OTHER_ISOFORMS} = $self->param('other_isoforms').'_'.$key if ($self->param_is_defined('other_isoforms'));
           $analysis_hash{BAD_MODELS} = $self->param('bad_models').'_'.$key if ($self->param_is_defined('bad_models'));
           push(@output_ids, [File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_'.$key.'.conf'), [{FILE => $self->param('wide_intron_bam_file').'.bam', GROUPNAME => [keys %{$tissue_hash{$key}}], DEPTH => 0, MIXED_BAM => 0}], $self->param('wide_species').'_'.$key.'_rnaseq', \%analysis_hash]);
@@ -89,7 +89,7 @@ sub fetch_input {
 # in the config file
          $merged_iot = $tissue_count*$default_iot;
     }
-    my %analysis_hash = (BEST_SCORE => 'best', SINGLE_EXON_MODEL => 'single');
+    my %analysis_hash = (BEST_SCORE => 'best', SINGLE_EXON_MODEL => 'single', INTRON_OVERLAP_THRESHOLD => $merged_iot);
     $analysis_hash{OTHER_ISOFORMS} = $self->param('other_isoforms').'_merged' if ($self->param_is_defined('other_isoforms'));
     $analysis_hash{BAD_MODELS} = $self->param('bad_models').'_merged' if ($self->param_is_defined('bad_models'));
     push(@output_ids, [File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_merged.conf'), [{FILE => $self->param('wide_intron_bam_file').'.bam', GROUPNAME => [], DEPTH => 0, MIXED_BAM => 0}], $self->param('wide_species').'_merged_rnaseq', \%analysis_hash]);
