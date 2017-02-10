@@ -33,7 +33,7 @@ use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
               in 'pairing_regex' to determine which mate correspond to the filename
               processed
  Returntype : None
- Exceptions : None
+ Exceptions : Throws if the file has more than two rows with the same ID
 
 =cut
 
@@ -41,10 +41,18 @@ sub write_output {
     my $self = shift;
 
     my %keyword_hash;
+    my %id_check;
     my $table_adaptor = $self->db->get_NakedTableAdaptor;
     $table_adaptor->table_name($self->param('csvfile_table'));
     foreach my $input_id (@{$self->param('output_ids')}) {
         $input_id->{$self->param('sample_column')} =~ s/ /_/g;
+        if (exists $id_check{$input_id->{ID}}) {
+          ++$id_check{$input_id->{ID}};
+          $self->throw("You should only have one or two file with the same ID") if ($id_check{$input_id->{ID}} > 2);
+        }
+        else {
+          $id_check{$input_id->{ID}} = 1;
+        }
         if (!exists $input_id->{is_mate_1} or $input_id->{'is_mate_1'} == -1) {
             my $regex = $self->param('pairing_regex');
             my ($pair) = $input_id->{filename} =~ /$regex/;
