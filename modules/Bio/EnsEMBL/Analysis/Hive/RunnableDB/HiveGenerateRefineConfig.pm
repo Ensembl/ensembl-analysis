@@ -137,6 +137,7 @@ sub generate_databases_file {
   );
   foreach my $db ('REFERENCE_DB', 'ROUGH_DB', 'REFINED_DB') {
     $config_file{DATABASES}->{$db}->{-pass} = "" unless (exists $config_file{DATABASES}->{$db}->{-pass});
+    delete $config_file{DATABASES}->{$db}->{-driver} if (exists $config_file{DATABASES}->{$db}->{-driver});
   }
 
   return print_hash('Config', \%config_file, undef, '');
