@@ -46,9 +46,6 @@ package Checker;
 use vars qw(@ISA $AUTOLOAD);
 use strict;
 
-
-@ISA = qw( Bio::EnsEMBL::Root );
-
 sub ignorewarnings {
   my ( $self, $arg ) = @_;
   if( defined $arg ) {
