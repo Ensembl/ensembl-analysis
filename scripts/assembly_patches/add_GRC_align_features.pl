@@ -90,7 +90,7 @@ $ftp->login('anonymous', '-anonymous@')
 
 chomp $gca_patch_release;
 
-my $ncbi_patch_release_wd = "/genomes/genbank/vertebrate_mammalian/Mus_musculus/all_assembly_versions/".$gca_patch_release."/".$gca_patch_release."_assembly_structure";
+my $ncbi_patch_release_wd = "/genomes/genbank/vertebrate_mammalian/Homo_sapiens/all_assembly_versions/".$gca_patch_release."/".$gca_patch_release."_assembly_structure";
 my $ncbi_wd = $ncbi_patch_release_wd;
 $ftp->cwd($ncbi_wd);
 
