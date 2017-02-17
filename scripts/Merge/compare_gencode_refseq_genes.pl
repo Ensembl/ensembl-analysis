@@ -238,8 +238,15 @@ $sth->finish();
 # # #
 
 # fetch slice from ensembl database
-my $ensembl_slice  = $ensemblsa->fetch_by_region($coord_system_name, $chr_num,undef,undef,undef,$coord_system_version);
+my $ensembl_slice;
+if ($chr_num =~ /\D/) {
+  $ensembl_slice  = $ensemblsa->fetch_by_name($chr_num);
+}
+else {
+  $ensembl_slice  = $ensemblsa->fetch_by_region($coord_system_name, $chr_num,undef,undef,undef,$coord_system_version);
+}
 
+throw("Could not fetch the region") unless ($ensembl_slice);
 # now we fetch all ensembl genes
 print STDERR "Fetching ENSEMBL genes...\n";
 my @ensembl_genes = @{do_gene_fetch($ensembl_slice)};

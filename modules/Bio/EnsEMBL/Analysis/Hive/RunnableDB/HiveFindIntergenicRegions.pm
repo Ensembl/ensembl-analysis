@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -117,8 +117,8 @@ sub calculate_input_gene_coords {
     my $all_genes = $gene_adaptor->fetch_all_by_Slice($slice);
 
     foreach my $gene (@{$all_genes}) {
-      my $start = $gene->start;
-      my $end = $gene->end;
+      my $start = $gene->seq_region_start;
+      my $end = $gene->seq_region_end;
       if($skip_duplicates->{$start.":".$end}) {
         next;
       } else {

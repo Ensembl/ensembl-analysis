@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,6 +56,8 @@ use strict;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
+use Bio::EnsEMBL::Analysis::Runnable::Samtools;
+
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
 
@@ -100,6 +102,9 @@ sub run {
   # get a list of files to use
   my $bamfile = $self->bamfile;
   my $program = $self->program;
+  my $samtools = Bio::EnsEMBL::Analysis::Runnable::Samtools->new(
+                        -program => $program,
+                        );
   my $count = 0;
   my @fails;
   # next make all the sam files into one big sam flie
@@ -110,11 +115,14 @@ sub run {
     my $line_count = 0;
     while (<SAM>) {
       # 1st file copy the header all the others just copy the data
-      chomp;
-      $line = $_;
-      next if $_ =~ /^\@/;
-      print BAM "$_\n";
-      $line_count++;
+      if ($_ =~ /^(\@\w+)/) {
+        $line = $_;
+      }
+      else {
+        chomp;
+        print BAM "$_\n";
+        $line_count++;
+      }
     }
     close(SAM) || $self->throw("Failed closing '$file'\n");
     $count++;
@@ -155,6 +163,7 @@ sub run {
     $self->throw('Samtools failed to created an unsorted bam file '.$bamfile.'_unsorted.bam') if ($_ =~ /fail/ or $_ =~ /abort/ or $_ =~ /truncated/ )
   }
   close($fh) || $self->throw("Cannot close STDERR from samtools view");
+  $self->files_to_delete($bamfile.'.sam');
   $self->files_to_delete("/tmp/sam2bam_view.err");
 
   # add readgroup info if there is any
@@ -175,31 +184,10 @@ sub run {
      system("$command");
   }
 
+  $samtools->sort($bamfile, $bamfile.'_unsorted.bam');
+  $samtools->index($bamfile.'.bam');
 
-
-  $command = "$program sort $bamfile"."_unsorted.bam  $bamfile";
-  print STDERR "$command \n";
-  system("$command 2> /tmp/sam2bam_sort.err");
-  open  ( $fh,"/tmp/sam2bam_sort.err" ) or die ("Cannot find STDERR from sorting\n");
-  # write output
-  while(<$fh>){
-    print STDERR "SORT $_";
-    $self->throw('Samtools failed to sort the bam file '.$bamfile.'_unsorted.bam') if ($_ =~ /truncated/ or $_ =~ /invalid/ )
-  }
-  close($fh) || $self->throw("Cannot close STDERR from sorting");
-  $self->files_to_delete("/tmp/sam2bam_sort.err");
-
-  $command = "$program index $bamfile.bam";
-  print STDERR "$command \n";
-  system("$command 2> /tmp/sam2bam_bamindex.err");
-  open  ( $fh,"/tmp/sam2bam_bamindex.err" ) or die ("Cannot find STDERR from bam indexing\n");
-  # write output
-  while(<$fh>){
-    print STDERR "INDEXBAM $_";
-    $self->throw('Samtools failed to index the bam file '.$bamfile.'.bam') if ($_ =~ /invalid/ or $_ =~ /abort/ or $_ =~ /truncated/ )
-  }
-  close($fh) || $self->throw("Cannot close STDERR from bam indexing");
-  $self->files_to_delete("/tmp/sam2bam_bamindex.err");
+  $self->files_to_delete($bamfile.'_unsorted.bam');
   $self->delete_files();
 }
 

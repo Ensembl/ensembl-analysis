@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@
   -idfile     File with internal gene ids or stable IDs to be deleted
   -stable_id  A boolean flag to indicate that the file specified in
               -idfile contains gene stable IDs.
-
+  -all        A boolean flag to delete all genes in the db, no file needed
 =head1 EXAMPLES
 
   perl delete_genes.pl -dbhost my_host -dbuser ensadmin -dbpass **** \
@@ -67,6 +67,7 @@ my $user;
 my $pass;
 my $idfile;
 my $stable_id = 0;
+my $all = 0;
 my $config_dbname;
 
 
@@ -77,6 +78,7 @@ GetOptions( 'dbhost|host|h:s'        => \$host,
             'dbpass|pass|p:s'        => \$pass,
             'idfile:s'        => \$idfile,
             'stable_id!'      => \$stable_id,
+            'all!'      => \$all,
             'config_dbname:s' => \$config_dbname, );
 
 
@@ -98,28 +100,47 @@ if ($config_dbname) {
 
 my $gene_adaptor = $db->get_GeneAdaptor;
 
+if($idfile) {
 open(INFILE, "<$idfile") or die ("Can't read $idfile $! \n");
 
-while (<INFILE>) {
-  chomp;
-  my $gene_id = $_;
+  while (<INFILE>) {
+    chomp;
+    my $gene_id = $_;
 
-  eval{
-    my $gene;
-    if ($stable_id) {
-      $gene = $gene_adaptor->fetch_by_stable_id($gene_id);
-    } else {
-      $gene = $gene_adaptor->fetch_by_dbID($gene_id);
+    eval{
+      my $gene;
+      if ($stable_id) {
+        $gene = $gene_adaptor->fetch_by_stable_id($gene_id);
+      } else {
+        $gene = $gene_adaptor->fetch_by_dbID($gene_id);
+      }
+
+      # it seems that some xrefs might not be deleted when using this method
+      # Could it be because the gene is lazy-loaded?
+      $gene_adaptor->remove($gene);
+      print STDERR "Deleted $gene_id\n";
+    };
+
+    if($@){
+      print "Couldn't remove gene $gene_id ($@)\n";
     }
+  }
+  close(INFILE);
+}
 
-    # it seems that some xrefs might not be deleted when using this method
-    # Could it be because the gene is lazy-loaded?
-
-    $gene_adaptor->remove($gene);
-    print STDERR "Deleted $gene_id\n";
-  };
-  if($@){
-    print "Couldn't remove gene $gene_id ($@)\n";
+elsif($all) {
+  my $genes = $gene_adaptor->fetch_all();
+  foreach my $gene (@{$genes}) {
+    eval{
+      $gene_adaptor->remove($gene);
+      print STDERR "Deleted gene ".$gene->dbID();
+    };
+    if($@){
+      print "Couldn't remove gene ".$gene->dbID()." (".$@.")\n";
+    }
   }
 }
-close(INFILE);
+
+else {
+  die "No delete option was selected, either use -idfile or -all";
+}

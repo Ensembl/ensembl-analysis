@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -158,7 +158,7 @@ sub databases{
     # If it doesn't exist then see if $database-1,$database-2 exist
     # and put them in the database array
     
-    if (-f $dbname || -f $dbname . ".fa" || -f $dbname . '.xpd') {
+    if (-f $dbname || -f $dbname . ".fa" || -f $dbname . '.xpd' || -f $dbname . '.phr' || -f $dbname . '.nhr') {
       push(@dbs,$dbname);
     } else {
       my $count = 1;
@@ -287,9 +287,13 @@ sub run_analysis {
     my $results_file = $self->create_filename($db, 'blast.out');
     $self->files_to_delete($results_file);
     $self->results_files($results_file);
-    if ($self->type eq 'ncbi') {
+    if ($self->type eq 'legacy_ncbi') {
       $command .= " -d $database -i $filename ";
-    } else {
+    }
+    elsif ($self->type eq 'ncbi') {
+      $command .= " -db $database -query $filename ";
+    }
+    else {
       $command .= " $database $filename -gi ";
     }
     $command .= $self->options. ' 2>&1 > '.$results_file;
@@ -297,8 +301,9 @@ sub run_analysis {
     print "Running blast ".$command."\n";
     info("Running blast ".$command); 
 
-    if ( ! -e $ENV{BLASTMAT} && ! -e $ENV{WUBLASTMAT}) {  
-      throw(" your environment variable \$BLASTMAT is not set !!! ". 
+    if ((!exists $ENV{BLASTMAT} or ! -e $ENV{BLASTMAT})
+     && (!exists $ENV{WUBLASTMAT} or ! -e $ENV{WUBLASTMAT})) {
+      warning(" your environment variable \$BLASTMAT is not set !!! ".
             " Point it to /usr/local/ensembl/data/blastmat/ or where your BLOSUM62 matrices live\n") ;
     } 
     open(my $fh, "$command |") || 

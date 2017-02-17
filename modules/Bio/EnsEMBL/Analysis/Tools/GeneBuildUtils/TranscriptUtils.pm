@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1219,7 +1219,8 @@ sub replace_stops_with_introns{
   #print 'DEBUG: peptide: ', $pep, "\n";
   my $removed_exon_count = 0;
   # gaps adjacent to internal stop codons - skip
-  return 0 if ($pep =~ /X\*/ || $pep =~ /\*X/);
+# I'm not sure this happens often but I had a peptide equal to '*'
+  return 0 if ($pep eq '*' or $pep =~ /X\*/ || $pep =~ /\*X/);
 
   my $num_stops = $pep =~ s/\*/\*/g;
 
@@ -1405,6 +1406,7 @@ sub replace_stops_with_introns{
               }
               $fp_left->seqname   ($ug->seqname);
               $fp_left->strand    ($ug->strand);
+              $fp_left->hstrand    ($ug->hstrand);
               $fp_left->hseqname  ($ug->hseqname);
               $fp_left->score     ($ug->score);
               $fp_left->percent_id($ug->percent_id);
@@ -1420,6 +1422,7 @@ sub replace_stops_with_introns{
               }
               $fp_right->seqname   ($ug->seqname);
               $fp_right->strand    ($ug->strand);
+              $fp_right->hstrand    ($ug->hstrand);
               $fp_right->hseqname  ($ug->hseqname);
               $fp_right->score     ($ug->score);
               $fp_right->percent_id($ug->percent_id);

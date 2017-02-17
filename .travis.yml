@@ -11,6 +11,7 @@ addons:
     apt:
         packages:
         - unzip
+        - samtools
 
 before_install:
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl.git
@@ -27,8 +28,8 @@ before_install:
     - unzip bioperl-release-1-2-3.zip
     - git clone --branch bioperl-release-1-6-9 --depth 1 https://github.com/bioperl/bioperl-live.git
     - git clone --branch master --depth 1 https://github.com/bioperl/bioperl-run.git
-    - wget http://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download 
-    - tar -jxvf download 
+    - wget http://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2/download
+    - tar -jxvf download
     - cd samtools-0.1.19 && make CFLAGS="-g -O2 -fPIC"
     - cd ..
 
@@ -46,7 +47,7 @@ install:
     - cpanm -v --notest MooseX::ClassAttribute
     - cpanm -v --notest File::Spec::Link
     - cpanm -v --notest Readonly
- 
+
 script: "./travisci/harness.sh"
 
 notifications:

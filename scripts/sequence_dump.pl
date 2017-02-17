@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -167,6 +167,7 @@ my @logic_names;
 my $mask;
 my $help;
 my $padded_nonref;
+my $patch_only = 0;
 
 GetOptions( 'dbhost|host|h:s'               => \$host,
             'dbport|port|P:n'               => \$port,
@@ -194,6 +195,7 @@ GetOptions( 'dbhost|host|h:s'               => \$host,
             'softmask!'              => \$softmask,
             'onefile!'               => \$single_file,
             'filename=s'             => \$filename,
+            'patch_only!'            => \$patch_only,
             'help!'                  => \$help,
 ) or ( $help = 1 );
 
@@ -398,6 +400,22 @@ if(not exists $dispatch->{$header}){
 ################################################################################
 SLICE:
 foreach my $slice(@$slices){
+
+  if($patch_only) {
+    my $is_patch = 0;
+    my @pt = ('patch_novel','patch_fix');
+    foreach my $type (@pt) {
+      my @slice_attributes = @{$slice->get_all_Attributes($type)};
+      if (scalar(@slice_attributes) > 0) {
+        $is_patch = 1;
+        last;
+      }
+    }
+
+    unless($is_patch) {
+      next;
+    }
+  }
 
   # Compliance with header format used in previous version of this script
   $singleSerializer->header_function($dispatch->{$header}) if($filename);

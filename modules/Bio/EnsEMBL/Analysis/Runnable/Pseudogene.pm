@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -905,18 +905,25 @@ sub write_seq_array{
   if(!$filename){
     $self->throw("FAILED to write genes - no filename");
   }
-  my $seqout = Bio::SeqIO->new(
-                               -file => ">".$filename,
-                               -format => 'Fasta',
-                              );
+ # my $seqout = Bio::SeqIO->new(
+ #                              -file => ">".$filename,
+ #                              -format => 'Fasta',
+ #                             );
+  open(OUT,">".$filename);
   eval{
     foreach my $gene (@{$genes}){
       foreach my $transcript (@{$gene->get_all_Transcripts}){
         next unless ( $transcript->translateable_seq );
-        $seqout->write_seq($transcript->seq);
+#        $seqout->write_seq($transcript->seq);
+         my $header = ">".$transcript->dbID();
+         my $seq = $transcript->seq->seq();
+         print OUT $header."\n";
+         print OUT $seq."\n";
       }
     }
   };
+  close OUT;
+
   if($@){
     $self->throw("FAILED to write to $filename Runnable:write_seq_file\n\n$@");
   }

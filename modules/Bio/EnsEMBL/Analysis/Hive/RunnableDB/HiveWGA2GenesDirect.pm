@@ -3,7 +3,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,20 +55,12 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect;
 use warnings ;
 use strict;
 use feature 'say';
-use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 
 use Bio::SeqIO;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Analysis::RunnableDB;
-use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
-
-#use Bio::EnsEMBL::Analysis::Config::General;
-#use Bio::EnsEMBL::Analysis::Config::WGA2GenesDirect;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
 use Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils
@@ -80,7 +72,11 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my($self) = @_;
 
-  $self->hive_set_config();
+  foreach my $var (qw(INPUT_METHOD_LINK_TYPE QUERY_CORE_DB TARGET_CORE_DB COMPARA_DB)) {
+    $self->param_required($var);
+  }
+
+  $self->create_analysis;
 
   my $input_id = $self->param('iid');
 
@@ -247,8 +243,14 @@ sub run {
     foreach my $tran (@{$self->good_transcripts}) {
       # Remember to remove the 1 in place transcripts as right now this is only used for testing purposes
       #$gene_scaffold->place_transcript($tran,1);
-      my $proj_trans = $gene_scaffold->place_transcript($tran);
+      my $proj_trans;
+      eval {
+        $proj_trans  = $gene_scaffold->place_transcript($tran);
+      };
 
+      if($@) {
+        $self->runnable_failed(1);
+      }
       if ($proj_trans) {
         push @res_tran, $proj_trans;
       }
@@ -271,7 +273,11 @@ sub run {
       my $gene = $self->gene();
       my $transcripts = $gene->get_all_Transcripts;
       my $source_transcript = $$transcripts[0];
-      $self->realign_translation($source_transcript,$res_tran);
+      if($res_tran->translation->length < 20000 && $source_transcript->translation->length < 20000) {
+        $self->realign_translation($source_transcript,$res_tran);
+      } else {
+        $self->warning('Not realigning translation as translation length >= 20000');
+      }
     }
     push @final_tran, $res_tran;
   }
@@ -288,50 +294,61 @@ sub write_output {
   my $trans_count = 0;
   my $target_transcript_dbc = $self->hrdb_get_con('target_transcript_db');
   my $t_gene_adaptor = $target_transcript_dbc->get_GeneAdaptor();
+  my $failure_branch_code = -3;
 
-  foreach my $t (@{$self->output}) {
-    $t->analysis($self->analysis);
-    $t->biotype('projection');
+  if($self->runnable_failed && scalar(@{$self->output}) == 0) {
+    $self->warning("Issue with projection, will dataflow input id on branch -3");
+    my $output_hash = {};
+    $output_hash->{'iid'} = $self->param('iid');
+    $self->dataflow_output_id($output_hash,$failure_branch_code);
+  } else {
+    foreach my $t (@{$self->output}) {
+      $t->analysis($self->analysis);
+      $t->biotype('projection');
 
-    my $gene = Bio::EnsEMBL::Gene->new(-analysis => $self->analysis,-biotype  => 'projection');
+      my $gene = Bio::EnsEMBL::Gene->new(-analysis => $self->analysis,-biotype  => 'projection');
 
-    foreach my $tsf ( @{ $t->get_all_supporting_features }){
-      $tsf->analysis($self->analysis);
-    }
-
-    foreach my $exon (@{$t->get_all_Exons()}){
-      $exon->analysis($self->analysis);
-      foreach my $esf (@{$exon->get_all_supporting_features()}){
-        $esf->analysis($self->analysis);
+      foreach my $tsf ( @{ $t->get_all_supporting_features }){
+        $tsf->analysis($self->analysis);
       }
+
+      foreach my $exon (@{$t->get_all_Exons()}){
+        $exon->analysis($self->analysis);
+        foreach my $esf (@{$exon->get_all_supporting_features()}){
+          $esf->analysis($self->analysis);
+        }
+      }
+
+      $gene->add_Transcript($t);
+      empty_Gene($gene);
+      $t_gene_adaptor->store($gene);
+      $trans_count++;
+
+      print "TRANSCRIPT:\n";
+      foreach my $e (@{$t->get_all_Exons}) {
+        printf("%s\tEnsembl\tExon\t%d\t%d\t%d\t%d\t%d\n", $e->slice->seq_region_name, $e->start, $e->end, $e->strand, $e->phase, $e->end_phase);
+      }
+      my $seqio = Bio::SeqIO->new(-format => 'fasta',
+                                  -fh => \*STDOUT);
+      $seqio->write_seq($t->translate);
     }
 
-    $gene->add_Transcript($t);
-    empty_Gene($gene);
-    $t_gene_adaptor->store($gene);
-    $trans_count++;
-
-    print "TRANSCRIPT:\n";
-    foreach my $e (@{$t->get_all_Exons}) {
-      printf("%s\tEnsembl\tExon\t%d\t%d\t%d\t%d\t%d\n", $e->slice->seq_region_name, $e->start, $e->end, $e->strand, $e->phase, $e->end_phase);
-    }
-    my $seqio = Bio::SeqIO->new(-format => 'fasta',
-                                -fh => \*STDOUT);
-    $seqio->write_seq($t->translate);
+    print "For gene " . $self->param('iid'). " you stored ", $trans_count, " transcripts\n";
+    # to do: write gene back to core target database
   }
 
-  print "For gene " . $self->param('iid'). " you stored ", $trans_count, " transcripts\n";
-  # to do: write gene back to core target database
+  return 1;
 }
 
 
-sub calculate_coverage_and_pid {
-  my ($self, $value) = @_;
-  if($value){
-    $self->{_calculate_coverage_and_pid} = $value;
+sub runnable_failed {
+  my ($self,$runnable_failed) = @_;
+  if($runnable_failed) {
+    $self->param('_runnable_failed',$runnable_failed);
   }
-  return $self->{_calculate_coverage_and_pid};
+  return($self->param('_runnable_failed'));
 }
+
 
 sub realign_translation {
   my ($self,$source_transcript,$projected_transcript) = @_;
@@ -446,162 +463,6 @@ sub realign_translation {
 
 }
 
-sub hive_set_config {
-  my $self = shift;
-
-  # Throw is these aren't present as they should both be defined
-  unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
-          "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
-          "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
-          "write the genes to and this should also include the module name even if it isn't strictly necessary"
-         );
-  }
-
-  # Make an analysis object and set it, this will allow the module to write to the output db
-  my $analysis = new Bio::EnsEMBL::Analysis(
-                                             -logic_name => $self->param('logic_name'),
-                                             -module => $self->param('module'),
-                                           );
-  $self->analysis($analysis);
-
-  # Now loop through all the keys in the parameters hash and set anything that can be set
-  my $config_hash = $self->param('config_settings');
-  foreach my $config_key (keys(%{$config_hash})) {
-    if(defined &$config_key) {
-      $self->$config_key($config_hash->{$config_key});
-    } else {
-      throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
-            "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
-            "key:\n".$config_key
-           );
-    }
-  }
-
-  my $logic = $self->analysis->logic_name;
-  foreach my $var (qw(INPUT_METHOD_LINK_TYPE QUERY_CORE_DB TARGET_CORE_DB COMPARA_DB)) {
-    unless($self->$var) {
-      throw("You must define $var in config for logic '".$logic."' or in the DEFAULT entry");
-    }
-  }
-
- # filter does not have to be defined, but if it is, it should
-  # give details of an object and its parameters
-  if ($self->TRANSCRIPT_FILTER) {
-    if (not ref($self->TRANSCRIPT_FILTER) eq "HASH" or
-        not exists($self->TRANSCRIPT_FILTER->{OBJECT}) or
-        not exists($self->TRANSCRIPT_FILTER->{PARAMETERS})) {
-
-      throw("FILTER in config foR '$logic' must be a hash ref with elements:\n" .
-            "  OBJECT : qualified name of the filter module;\n" .
-            "  PARAMETERS : anonymous hash of parameters to pass to the filter");
-    } else {
-      my $module = $self->TRANSCRIPT_FILTER->{OBJECT};
-      my $pars   = $self->TRANSCRIPT_FILTER->{PARAMETERS};
-
-      (my $class = $module) =~ s/::/\//g;
-      eval{
-        require "$class.pm";
-      };
-      throw("Couldn't require ".$class." Exonerate2Genes:require_module $@") if($@);
-
-      $self->filter($module->new(%{$pars}));
-    }
-  }
-
-}
-
-sub hrdb_set_con {
-  my ($self,$dba,$dba_con_name) = @_;
-
-  if($dba_con_name){
-      $self->param('_'.$dba_con_name,$dba);
-    } else {
-      $self->param('_hrdbadaptor',$dba);
-    }
-
-}
-
-
-sub hrdb_get_con {
-  my ($self,$dba_con_name) = @_;
-
-  if($dba_con_name) {
-    return $self->param('_'.$dba_con_name);
-  } else {
-    return $self->param('_hrdbadaptor');
-  }
-}
-
-sub hrdb_get_dba {
-   my ($self,$connection_info, $non_standard_db_adaptor, $dna_db_name) = @_;
-   my $dba;
-
-   if(defined $non_standard_db_adaptor) {
-     if($non_standard_db_adaptor eq 'compara') {
-       $dba = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
-                                                            %$connection_info
-                                                          );
-       print "Not attaching a dna db to: ".$dba->dbname."\n";
-     }
-   }
-
-   else {
-     $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-                                                %$connection_info
-                                              );
-
-     if($dna_db_name) {
-
-            my $dnadb = $self->hrdb_get_con($dna_db_name);
-
-            # try to get default asm+ species name for OTHER db - does not work
-            # for comapra database
-            my $core_db_asm = $dba->get_MetaContainer->get_default_assembly();
-            my $core_db_species = $dba->get_MetaContainer->get_common_name();
-
-            # get the same for dna-db
-            my $dna_db_asm = $dnadb->get_MetaContainer->get_default_assembly();
-            my $dna_db_species = $dnadb->get_MetaContainer()->get_common_name();
-
-            my $dna_db_and_core_db_are_compatible = 1;
-
-            unless ( $core_db_asm eq $dna_db_asm ) {
-            warning( "You try to add  a DNA_DB with assembly $dna_db_asm to "
-              . "a core/cdna/otherfeatures DB with assembly $core_db_asm ...\n\t"
-              . "that's incompatbile. I will not add dna_database "
-              . $dnadb->dbname . " to core " . $dba->dbname . "\n" );
-
-              $dna_db_and_core_db_are_compatible = 0;
-          }
-
-            unless ( $core_db_species eq $dna_db_species ) {
-            warning( "You try to add a DNA_DB with species ".$dna_db_species." to "
-                     . "a core database with species: '" .$core_db_species . "' - this does not work. \n"
-                . "Check that you are using the correct DNA_DB and that the species.common_name values in the meta tables match\n"
-            );
-            $dna_db_and_core_db_are_compatible = 0;
-
-          }
-
-
-            if ($dna_db_and_core_db_are_compatible) {
-            $dba->dnadb($dnadb);
-            print "\nAttaching DNA_DB "
-              . $dnadb->dbname . " to "
-              . $dba->dbname . "\n";
-          }
-          }
-
-          else {
-            print "Not attaching a dna db to: ".$dba->dbname."\n";
-          }
-   }
-
-  $dba->dbc->disconnect_when_inactive(1) ;
-  return $dba;
-
-}
 
 ######################################
 # internal methods
@@ -750,51 +611,6 @@ sub max_internal_stops {
 # config variable holders
 ####################################
 
-#sub read_and_check_config {
-#  my ($self, $hash) = @_;
-
-#  $self->SUPER::read_and_check_config($hash);
-
-#  my $logic = $self->analysis->logic_name;
-
-#  foreach my $var (qw(INPUT_METHOD_LINK_TYPE
-#                      QUERY_CORE_DB
-#                      TARGET_CORE_DB
-#                      COMPARA_DB)) {
-
-#    throw("You must define $var in config for logic '$logic'" .
-#          " or in the DEFAULT entry")
-#        if not $self->$var;
-#  }
-
- # filter does not have to be defined, but if it is, it should
-  # give details of an object and its parameters
-#  if ($self->TRANSCRIPT_FILTER) {
-#    if (not ref($self->TRANSCRIPT_FILTER) eq "HASH" or
-#        not exists($self->TRANSCRIPT_FILTER->{OBJECT}) or
-#        not exists($self->TRANSCRIPT_FILTER->{PARAMETERS})) {
-
-#      throw("FILTER in config foR '$logic' must be a hash ref with elements:\n" .
-#            "  OBJECT : qualified name of the filter module;\n" .
-#            "  PARAMETERS : anonymous hash of parameters to pass to the filter");
-#    } else {
-#      my $module = $self->TRANSCRIPT_FILTER->{OBJECT};
-#      my $pars   = $self->TRANSCRIPT_FILTER->{PARAMETERS};
-
-#      (my $class = $module) =~ s/::/\//g;
-#      eval{
-#        require "$class.pm";
-#      };
-#      throw("Couldn't require ".$class." Exonerate2Genes:require_module $@") if($@);
-
-#      $self->filter($module->new(%{$pars}));
-#    }
-#  }
-
-
-
-
-#}
 
 #
 # core options
@@ -804,10 +620,10 @@ sub INPUT_METHOD_LINK_TYPE {
   my ($self, $type) = @_;
 
   if (defined $type) {
-    $self->param('_input_method_link_type',$type);
+    $self->param('INPUT_METHOD_LINK_TYPE',$type);
   }
 
-  return $self->param('_input_method_link_type');
+  return $self->param('INPUT_METHOD_LINK_TYPE');
 }
 
 
@@ -815,10 +631,10 @@ sub COMPARA_DB {
   my ($self, $db) = @_;
 
   if (defined $db) {
-    $self->param('_compara_db',$db);
+    $self->param('COMPARA_DB',$db);
   }
 
-  return $self->param('_compara_db');
+  return $self->param('COMPARA_DB');
 }
 
 
@@ -826,40 +642,40 @@ sub QUERY_CORE_DB {
   my ($self, $db) = @_;
 
   if (defined $db) {
-    $self->param('_query_core_db',$db);
+    $self->param('QUERY_CORE_DB',$db);
   }
 
-  return $self->param('_query_core_db');
+  return $self->param('QUERY_CORE_DB');
 }
 
 sub QUERY_CORE_DNA_DB {
   my ($self, $db) = @_;
 
   if (defined $db) {
-    $self->param('_query_core_dna_db',$db);
+    $self->param('QUERY_CORE_DNA_DB',$db);
   }
 
-  return $self->param('_query_core_dna_db');
+  return $self->param('QUERY_CORE_DNA_DB');
 }
 
 sub TARGET_CORE_DB {
   my ($self,$db) = @_;
 
   if (defined $db) {
-    $self->param('_target_core_db',$db);
+    $self->param('TARGET_CORE_DB',$db);
   }
 
-  return $self->param('_target_core_db');
+  return $self->param('TARGET_CORE_DB');
 }
 
 sub TARGET_CORE_DNA_DB {
   my ($self,$db) = @_;
 
   if (defined $db) {
-    $self->param('_target_core_dna_db',$db);
+    $self->param('TARGET_CORE_DNA_DB',$db);
   }
 
-  return $self->param('_target_core_dna_db');
+  return $self->param('TARGET_CORE_DNA_DB');
 }
 
 
@@ -872,20 +688,45 @@ sub TRANSCRIPT_FILTER {
    my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->param('_transcript_filter',$val);
+    $self->param('TRANSCRIPT_FILTER',$val);
   }
 
-  return $self->param('_transcript_filter');
+  if ($self->param_is_defined('TRANSCRIPT_FILTER')) {
+    return $self->param('TRANSCRIPT_FILTER');
+  }
+  else {
+    return;
+  }
 }
 
 
 sub filter {
   my ($self, $val) = @_;
   if ($val) {
-    $self->param('_filter',$val);
+    $self->param('_runnable_filter',$val);
   }
 
-  return $self->param('_filter');
+ # filter does not have to be defined, but if it is, it should
+  # give details of an object and its parameters
+  if ($self->TRANSCRIPT_FILTER and !$self->param_is_defined('_runnable_filter')) {
+    if (not ref($self->TRANSCRIPT_FILTER) eq "HASH" or
+        not exists($self->TRANSCRIPT_FILTER->{OBJECT}) or
+        not exists($self->TRANSCRIPT_FILTER->{PARAMETERS})) {
+
+      $self->throw("FILTER in config for '".$self->analysis->logic_name."' must be a hash ref with elements:\n" .
+            "  OBJECT : qualified name of the filter module;\n" .
+            "  PARAMETERS : anonymous hash of parameters to pass to the filter");
+    } else {
+      $self->require_module($self->TRANSCRIPT_FILTER->{OBJECT});
+      $self->filter($self->TRANSCRIPT_FILTER->{OBJECT}->new(%{$self->TRANSCRIPT_FILTER->{PARAMETERS}}));
+    }
+  }
+  if ($self->param_is_defined('_runnable_filter')) {
+    return $self->param('_runnable_filter');
+  }
+  else {
+    return;
+  }
 }
 
 
@@ -893,10 +734,10 @@ sub MAX_EXON_READTHROUGH_DIST {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->param('_max_ex_rt_dist',$val);
+    $self->param('MAX_EX_RT_DIST',$val);
   }
 
-  return $self->param('_max_ex_rt_dist');
+  return $self->param('MAX_EX_RT_DIST');
 }
 
 
@@ -904,10 +745,10 @@ sub MIN_COVERAGE {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    $self->param('_min_coverage',$val);
+    $self->param('MIN_COVERAGE',$val);
   }
 
-  return $self->param('_min_coverage');
+  return $self->param('MIN_COVERAGE');
 }
 
 1;

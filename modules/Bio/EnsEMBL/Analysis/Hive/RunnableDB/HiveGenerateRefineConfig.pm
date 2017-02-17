@@ -50,23 +50,49 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 use constant DEFAULT_SEPARATOR => ';';
 use constant DEFAULT_TAB => '  ';
 
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    _intron_overlap_threshold => 4, # This is a experimental value but it worked well
+  }
+}
+
+
 sub fetch_input {
   my ($self) = @_;
 
     my @output_ids;
+    my $other_isoforms = '';
+    my $bad_models = '';
+    my $default_iot = $self->param('_intron_overlap_threshold');
+    my $merged_iot = $default_iot;
     if ($self->param('single_tissue')) {
+        my $tissue_count = 0;
         my $table_adaptor = $self->db->get_NakedTableAdaptor;
         $table_adaptor->table_name($self->param('csvfile_table'));
         my %tissue_hash;
         my $results = $table_adaptor->fetch_all();
         foreach my $result (@$results) {
-            $tissue_hash{$result->{$self->param('sample_column')}}->{$result->{$self->param('sample_id_column')}} = 1;
+            $tissue_hash{lc($result->{$self->param('sample_column')})}->{$result->{$self->param('sample_id_column')}} = 1;
         }
         foreach my $key (keys %tissue_hash) {
-            push(@output_ids, [File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_'.$key.'.conf'), [{FILE => $self->param('wide_intron_bam_file').'.bam', GROUPNAME => [keys %{$tissue_hash{$key}}], DEPTH => 0, MIXED_BAM => 0}], $self->param('wide_species').'_'.$key.'_rnaseq', $self->param('wide_species').'_'.$key.'_introns', "best_$key", "single_$key", '', '']);
+          my %analysis_hash = (BEST_SCORE => "best_$key", SINGLE_EXON_MODEL => "single_$key", INTRON_OVERLAP_THRESHOLD => $default_iot);
+          $analysis_hash{OTHER_ISOFORMS} = $self->param('other_isoforms').'_'.$key if ($self->param_is_defined('other_isoforms'));
+          $analysis_hash{BAD_MODELS} = $self->param('bad_models').'_'.$key if ($self->param_is_defined('bad_models'));
+          push(@output_ids, [File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_'.$key.'.conf'), [{FILE => $self->param('wide_intron_bam_file').'.bam', GROUPNAME => [keys %{$tissue_hash{$key}}], DEPTH => 0, MIXED_BAM => 0}], $self->param('wide_species').'_'.$key.'_rnaseq', \%analysis_hash]);
+          $tissue_count++;
         }
+# This feature is still experimental, maybe it can be lowered.
+# Anyway people can specify the INTRON_OVERLAP_THRESHOLD for any samples
+# in the config file
+         $merged_iot = $tissue_count*$default_iot;
     }
-    push(@output_ids, [File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_merged.conf'), [{FILE => $self->param('wide_intron_bam_file').'.bam', GROUPNAME => [], DEPTH => 0, MIXED_BAM => 0}], $self->param('wide_species').'_merged_rnaseq', $self->param('wide_species').'_merged_introns', "best", "single", '', '']);
+    my %analysis_hash = (BEST_SCORE => 'best', SINGLE_EXON_MODEL => 'single', INTRON_OVERLAP_THRESHOLD => $merged_iot);
+    $analysis_hash{OTHER_ISOFORMS} = $self->param('other_isoforms').'_merged' if ($self->param_is_defined('other_isoforms'));
+    $analysis_hash{BAD_MODELS} = $self->param('bad_models').'_merged' if ($self->param_is_defined('bad_models'));
+    push(@output_ids, [File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_merged.conf'), [{FILE => $self->param('wide_intron_bam_file').'.bam', GROUPNAME => [], DEPTH => 0, MIXED_BAM => 0}], $self->param('wide_species').'_merged_rnaseq', \%analysis_hash]);
   $self->param('analyses', \@output_ids);
   $self->param('database_file', File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_database.conf'));
 }
@@ -111,6 +137,7 @@ sub generate_databases_file {
   );
   foreach my $db ('REFERENCE_DB', 'ROUGH_DB', 'REFINED_DB') {
     $config_file{DATABASES}->{$db}->{-pass} = "" unless (exists $config_file{DATABASES}->{$db}->{-pass});
+    delete $config_file{DATABASES}->{$db}->{-driver} if (exists $config_file{DATABASES}->{$db}->{-driver});
   }
 
   return print_hash('Config', \%config_file, undef, '');
@@ -130,7 +157,7 @@ sub generate_config_file {
             MODEL_DB  => "ROUGH_DB",
             INTRON_BAM_FILES => $analysis->[1],
             WRITE_INTRONS => 1,
-            MAX_RECURSIONS => 1600000000,
+            MAX_RECURSIONS => 100000,
             LOGICNAME => [],
             MODEL_LN  => "",
             RETAINED_INTRON_PENALTY => "2.0",
@@ -141,6 +168,7 @@ sub generate_config_file {
             SINGLE_EXON_CDS => "66.0",
             STRICT_INTERNAL_SPLICE_SITES => 1,
             STRICT_INTERNAL_END_EXON_SPLICE_SITES => 1,
+            INTRON_OVERLAP_THRESHOLD => 4,
             BEST_SCORE => "best",
             OTHER_ISOFORMS => "",
             OTHER_NUM      => 10,
@@ -157,14 +185,13 @@ sub generate_config_file {
             NONCONSLIMS => [ "1.0" ],
             RESTART_NONCONSLIM => "-1.0",
           },
-          $analysis->[2] => {
-            SINGLE_EXON_MODEL => $analysis->[4],
-            BEST_SCORE => $analysis->[3],
-            OTHER_ISOFORMS => $analysis->[5],
-            BAD_MODELS     => $analysis->[6],
-          }
+          $analysis->[2] => $analysis->[3],
         }
     );
+    foreach my $key (keys %{$config_file{REFINESOLEXAGENES_CONFIG_BY_LOGIC}->{DEFAULT}}) {
+      $config_file{REFINESOLEXAGENES_CONFIG_BY_LOGIC}->{$analysis->[2]}->{$key} = $self->param($key)
+        if ($self->param_is_defined($key));
+    }
     push(@results, [$analysis->[0], print_hash('Config', \%config_file, undef, '')]);
   }
 

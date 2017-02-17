@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ sub write_output {
   foreach my $output_id (@{$output_ids}) {
     my $output_hash = {};
     $output_hash->{'uniprot_range'} = $output_id;
-    $self->dataflow_output_id($output_hash,1);
+    $self->dataflow_output_id($output_hash,2);
   }
 
   return 1;

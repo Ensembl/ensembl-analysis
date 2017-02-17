@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -127,7 +127,6 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input{
   my ($self) = @_;
 
-  $self->dbc->disconnect_if_idle(1);
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
   if($dna_dba) {
@@ -136,7 +135,7 @@ sub fetch_input{
 
   $self->hrdb_set_con($dba,'target_db');
 
-  $self->hive_set_config();
+  $self->create_analysis;
 
   my $iid_type = $self->param('iid_type');
   my $calculate_coverage_and_pid = $self->param('calculate_coverage_and_pid');
@@ -161,6 +160,8 @@ sub fetch_input{
 
       $self->hrdb_set_con($transcript_dba,'transcript_db');
       $transcript_features = $self->get_transcript_features($transcript_id);
+#      $transcript_features = $self->correct_features($transcript_features);
+
       $peptide_seq = $self->get_peptide_seq($self->accession());
     } else {
       $self->throw("The feature_type you passed in is not supported! Type:\n".$feature_type);
@@ -336,40 +337,6 @@ sub parse_feature_region_id {
 
 
 
-sub hive_set_config {
-  my $self = shift;
-
-  # Throw is these aren't present as they should both be defined
-  unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    $self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
-          "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
-          "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
-          "write the genes to and this should also include the module name even if it isn't strictly necessary"
-         );
-  }
-
-  # Make an analysis object and set it, this will allow the module to write to the output db
-  my $analysis = new Bio::EnsEMBL::Analysis(
-                                             -logic_name => $self->param('logic_name'),
-                                             -module => $self->param('module'),
-                                           );
-  $self->analysis($analysis);
-
-  # Now loop through all the keys in the parameters hash and set anything that can be set
-  my $config_hash = $self->param('config_settings');
-  foreach my $config_key (keys(%{$config_hash})) {
-    if(defined &$config_key) {
-      $self->$config_key($config_hash->{$config_key});
-    } else {
-      $self->throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
-            "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
-            "key:\n".$config_key
-           );
-    }
-  }
-
-}
-
 sub get_peptide_seq {
   my ($self,$accession) = @_;
 
@@ -420,31 +387,30 @@ sub get_biotype {
 sub run{
   my ($self) = @_;
   my @genes;
-  #print "HAVE ".@{$self->runnable}." runnables to run\n";
-  foreach my $runnable (@{$self->runnable}){
-    my $output;
-    eval{
-      $runnable->run;
-    };
-    if($@){
-      # jhv - warning changed to throw() to prevent silent failing  
-      $self->throw("Running ".$runnable." failed error:$@");
-    }else{
-      $output =  $runnable->output;
-    }
 
+  my $runnable = shift @{$self->runnable};
+  my $output;
+  eval{
+    $runnable->run;
+  };
+  if($@){
+    my $except = $@;
+    $self->runnable_failed(1);
+    $self->warning("Issue with running genewise, will dataflow input id on branch -3. Exception:\n".$except);
+  } else {
+    $output =  $runnable->output;
     my $transcript = ${$output}[0];
 
     unless($self->check_coverage($transcript)) {
-      say "FM2 SKIPPING COV";
       next;
     }
 
     unless($self->check_pid($transcript)) {
-      say "FM2 SKIPPING PID";
       next;
     }
+
     $transcript = $self->add_slice_to_features($transcript);
+    $transcript = $self->process_transcript($transcript);
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->analysis($self->analysis);
     $gene->biotype($self->analysis->logic_name);
@@ -456,9 +422,8 @@ sub run{
     $transcript->biotype($transcript_biotype);
     $gene->add_Transcript($transcript);
     push(@genes,$gene);
+    $self->param('output_genes',\@genes);
   }
-
-  $self->param('output_genes',\@genes);
 
 #  my $complete_transcripts = $self->process_transcripts(\@transcripts);
 #  my @genes = @{convert_to_genes($complete_transcripts, $self->analysis, 
@@ -475,7 +440,6 @@ sub run{
 #    @masked_genes = @genes;
 #  }
 #  logger_info("HAVE ".@masked_genes." genesafter masking") if($self->POST_GENEWISE_MASK);
-  
 #  $self->filter_genes(\@masked_genes);
   #$hash = $self->group_genes_by_id($self->output);
   #foreach my $name(keys(%{$hash})){
@@ -516,6 +480,16 @@ sub check_pid {
 
 }
 
+
+sub runnable_failed {
+  my ($self,$runnable_failed) = @_;
+  if($runnable_failed) {
+    $self->param('_runnable_failed',$runnable_failed);
+  }
+  return($self->param('_runnable_failed'));
+}
+
+
 sub add_slice_to_features {
   my ($self,$transcript) = @_;
 
@@ -551,6 +525,34 @@ sub add_slice_to_features {
 
 }
 
+
+#sub correct_features {
+#  my ($self,$features) = @_;
+
+#  my $feature_string = "";
+ # for(my $i=0; $i<scalar(@{$features})) {
+#    $feature_string .= $$features[$i]->start.'..'.$$features[$i]->end.":";
+#  }
+#  chop $feature_string;
+#  say "Starting FS: ".$feature_string;
+
+
+#  my $feature_string = "1..10:13..100:101..150:500..550:552..554:";
+
+#  my $feature_string_temp =  $feature_string;
+#  while($feature_string_temp =~ s/\.\.(\d+)\:(\d+)\.\./\.\./) {
+#    my $d1 = $1;
+#    my $d2 = $2;
+#    if($d2 - $d1 + 1 < 10) {
+#      say "Removing frameshift from feature";
+#      $feature_string =~ s/\.\.$d1\:$d2\.\./\.\./;
+#    }
+#    say "TS: ".$feature_string_temp;
+#    say "FS: ".$feature_string;
+#  }
+
+  
+#}
 
 =head2 filter_genes
 
@@ -589,18 +591,11 @@ sub filter_genes{
 
 
 
-sub process_transcripts{
-  my ($self, $transcripts) = @_;
-  my @complete_transcripts;
-  foreach my $transcript(@$transcripts){
-    my $unmasked_slice = $self->fetch_sequence($transcript->slice->name, 
-                                               $self->output_db);
-    attach_Slice_to_Transcript($transcript, $unmasked_slice);
-    my $start_t = set_start_codon($transcript);
-    my $end_t = set_stop_codon($start_t);
-    push(@complete_transcripts, $end_t);
-  }
-  return \@complete_transcripts
+sub process_transcript {
+  my ($self, $transcript) = @_;
+  my $start_t = set_start_codon($transcript);
+  my $end_t = set_stop_codon($start_t);
+  return $end_t;
 }
 
 
@@ -618,19 +613,24 @@ sub process_transcripts{
 
 
 sub write_output{
-
   my ($self) = @_;
-  my $ga = $self->get_adaptor;
-  my @output = @{$self->param('output_genes')};
-  my $sucessful_count = 0;
 
-  foreach my $gene (@output) {
-    empty_Gene($gene);
-    eval {
-      $ga->store($gene);
-    };
-    if($@){
-      $self->throw("Failed to write gene: ".$@);
+  my $failure_branch_code = -3;
+  if($self->runnable_failed == 1) {
+    my $output_hash = {};
+    $output_hash->{'iid'} = $self->param('iid');
+    $self->dataflow_output_id($output_hash,$failure_branch_code);
+  } else {
+    my $ga = $self->get_adaptor;
+    my @output = @{$self->param('output_genes')};
+    foreach my $gene (@output) {
+      empty_Gene($gene);
+      eval {
+        $ga->store($gene);
+      };
+      if($@){
+        $self->throw("Failed to write gene: ".$@);
+      }
     }
   }
 
@@ -655,13 +655,13 @@ sub write_output{
 
 sub exon_mask_list{
   my ($self, $arg) = @_;
-  if(!$self->{exon_mask_list}){
-    $self->{exon_mask_list} = [];
+  if(!$self->param_is_defined('exon_mask_list')){
+    $self->param('exon_mask_list', []);
   }
   if($arg){
-    $self->{exon_mask_list} = $arg;
+    $self->param('exon_mask_list', $arg);
   }
-  return $self->{exon_mask_list};
+  return $self->param('exon_mask_list');
 }
 
 =head2 gene_mask_list
@@ -678,71 +678,65 @@ sub exon_mask_list{
 =cut
 sub gene_mask_list{
   my ($self, $arg) = @_;
-  if(!$self->{gene_mask_list}){
-    $self->{gene_mask_list} = [];
+  if(!$self->param_is_defined('gene_mask_list')){
+    $self->param('gene_mask_list', []);
   }
   if($arg){
-    $self->{gene_mask_list} = $arg;
+    $self->param('gene_mask_list', $arg);
   }
-  return $self->{gene_mask_list};
+  return $self->param('gene_mask_list');
 }
 
 
 sub id_pool_bin{
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->{id_pool_bin} = $arg;
+    $self->param('id_pool_bin', $arg);
   }
-  return $self->{id_pool_bin};
+  return $self->param('id_pool_bin');
 }
 
 sub id_pool_index{
   my ($self, $arg) = @_;
   if(defined $arg){
-    $self->{id_pool_index} = $arg;
+    $self->param('id_pool_index', $arg);
   }
-  return $self->{id_pool_index};
+  return $self->param('id_pool_index');
 }
 
 sub use_id{
   my ($self, $id) = @_;
   if($id){
-    $self->{use_id} = $id;
+    $self->param('use_id', $id);
   }
-  return $self->{use_id};
+  return $self->param('use_id');
 }
 
 
 sub paf_source_db{
   my ($self, $db) = @_;
   if($db){
-    $self->{paf_source_db} = $db;
+    $self->param('paf_source_db', $db);
   }
-  if(!$self->{paf_source_db}){
+  if(!$self->param_is_defined('paf_source_db')){
     my $db = $self->get_dbadaptor($self->PAF_SOURCE_DB); 
-    if ( $db->dnadb ) {  
-       $db->dnadb->disconnect_when_inactive(1);  
-    } 
-    $self->{paf_source_db} = $db;
+    $self->param('paf_source_db', $db);
   }
-  return $self->{paf_source_db};
+  return $self->param('paf_source_db');
 }
 
 sub gene_source_db{
   my ($self, $db) = @_;
   if($db){
-    $self->{gene_source_db} = $db;
+    $self->param('gene_source_db', $db);
   }
-  if(!$self->{gene_source_db}){
+  if(!$self->param_is_defined('gene_source_db')){
     if (@{$self->BIOTYPES_TO_MASK}) {
       my $db = $self->get_dbadaptor($self->GENE_SOURCE_DB);
-      if ( $db->dnadb ) {
-         $db->dnadb->disconnect_when_inactive(1);
-      }
-      $self->{gene_source_db} = $db;
+      $self->param('gene_source_db', $db);
     }
   }
-  return $self->{gene_source_db};
+  return $self->param('gene_source_db');
 }
 
 sub output_db{
@@ -766,64 +760,64 @@ sub paf_slice{
   my ($self, $slice) = @_;
 
   if($slice){
-    $self->{paf_slice} = $slice;
+    $self->param('paf_slice', $slice);
   }
-  if(!$self->{paf_slice}){
+  if(!$self->param_is_defined('paf_slice')){
     my $slice = $self->fetch_sequence($self->input_id, $self->paf_source_db,
                                       $self->REPEATMASKING);
-    $self->{paf_slice} = $slice;
+    $self->param('paf_slice', $slice);
   }
-  return $self->{paf_slice};
+  return $self->param('paf_slice');
 }
 
 sub gene_slice{
   my ($self, $slice) = @_;
 
   if($slice){
-    $self->{gene_slice} = $slice;
+    $self->param('gene_slice', $slice);
   }
-  if(!$self->{gene_slice}){
+  if(!$self->param_is_defined('gene_slice')){
     my $slice = $self->fetch_sequence($self->input_id, $self->gene_source_db,
                                       $self->REPEATMASKING);
-    $self->{gene_slice} = $slice;
+    $self->param('gene_slice', $slice);
   }
-  return $self->{gene_slice};
+  return $self->param('gene_slice');
 }
 
 sub output_slice{
   my ($self, $slice) = @_;
 
   if($slice){
-    $self->{output_slice} = $slice;
+    $self->param('output_slice', $slice);
   }
-  if(!$self->{output_slice}){
+  if(!$self->param_is_defined('output_slice')){
     my $slice = $self->fetch_sequence($self->input_id, $self->output_db);
-    $self->{output_slice} = $slice;
+    $self->param('output_slice', $slice);
   }
-  return $self->{output_slice};
+  return $self->param('output_slice');
 }
 
 sub kill_list{
   my ($self, $arg) = @_;
 
   if($arg){
-    $self->{kill_list} = $arg;
+    $self->param('kill_list', $arg);
   }
-  if(!$self->{kill_list}){
+  if(!$self->param_is_defined('kill_list')){
     my $kill_list_object = Bio::EnsEMBL::KillList::KillList
       ->new(-TYPE => 'protein');
-    $self->{kill_list} = $kill_list_object->get_kill_list;
+    $self->param('kill_list', $kill_list_object)->get_kill_list;
   }
-  return $self->{kill_list};
+  return $self->param('kill_list');
 }
 
 sub rejected_set{
   my ($self, $arg) = @_;
-  $self->{rejected_set} = [] if(!$self->{rejected_set});
+  $self->param('rejected_set', []) if(!$self->param_is_defined('rejected_set'));
   if($arg){
-    $self->{rejected_set} = $arg;
+    $self->param('rejected_set', $arg);
   }
-  return $self->{rejected_set};
+  return $self->param('rejected_set');
 }
 
 sub filter_object{
@@ -832,9 +826,9 @@ sub filter_object{
     $self->throw("RunnableDB::BlastMiniGenewise ".
           $arg." must have a method filter_genes") 
       unless($arg->can("filter_genes"));
-    $self->{filter_object} = $arg;
+    $self->param('filter_object', $arg);
   }
-  if(!$self->{filter_object} && $self->FILTER_OBJECT){
+  if(!$self->param_is_defined('filter_object') && $self->FILTER_OBJECT){
     $self->require_module($self->FILTER_OBJECT);
     my %params = %{$self->FILTER_PARAMS};
     $arg = $self->FILTER_OBJECT->new(
@@ -842,9 +836,9 @@ sub filter_object{
                                      -seqfetcher => $self->seqfetcher,
                                      %params,
                                     );
-    $self->{filter_object} = $arg;
+    $self->param('filter_object', $arg);
   }
-  return $self->{filter_object};
+  return $self->param('filter_object');
 }
 
 sub seqfetcher{
@@ -854,18 +848,18 @@ sub seqfetcher{
     $self->throw("RunnableDB::BlastMiniGenewise ".
           $arg." must have a method get_Seq_by_acc") 
       unless($arg->can("get_Seq_by_acc"));
-    $self->{seqfetcher} = $arg;
+    $self->param('seqfetcher', $arg);
   }
-  if(!$self->{seqfetcher}){
+  if(!$self->param_is_defined('seqfetcher')){
     $self->require_module($self->SEQFETCHER_OBJECT);
     my %params = %{$self->SEQFETCHER_PARAMS};
     print $params{-db}->[0], "\n";
     $arg = $self->SEQFETCHER_OBJECT->new(
                                     %params,
                                    );
-    $self->{seqfetcher} = $arg;
+    $self->param('seqfetcher', $arg);
   }
-  return $self->{seqfetcher};
+  return $self->param('seqfetcher');
 }
 
 =head2 require_module
@@ -976,238 +970,238 @@ sub accession {
 sub PAF_LOGICNAMES{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{PAF_LOGICNAMES} = $arg;
+    $self->param('PAF_LOGICNAMES', $arg);
   }
-  return $self->{PAF_LOGICNAMES}
+  return $self->param('PAF_LOGICNAMES');
 }
 
 sub PAF_MIN_SCORE_THRESHOLD {
   my ($self, $arg) = @_;
   if( defined($arg) ) {
-    $self->{PAF_MIN_SCORE_THRESHOLD} = $arg;
+    $self->param('PAF_MIN_SCORE_THRESHOLD', $arg);
   }
-  return $self->{PAF_MIN_SCORE_THRESHOLD}
+  return $self->param('PAF_MIN_SCORE_THRESHOLD');
 }
 
 sub PAF_UPPER_SCORE_THRESHOLD{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{PAF_UPPER_SCORE_THRESHOLD} = $arg;
+    $self->param('PAF_UPPER_SCORE_THRESHOLD', $arg);
   }
-  return $self->{PAF_UPPER_SCORE_THRESHOLD}
+  return $self->param('PAF_UPPER_SCORE_THRESHOLD');
 }
 
 sub PAF_SOURCE_DB{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{PAF_SOURCE_DB} = $arg;
+    $self->param('PAF_SOURCE_DB', $arg);
   }
-  return $self->{PAF_SOURCE_DB}
+  return $self->param('PAF_SOURCE_DB');
 }
 
 sub GENE_SOURCE_DB{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{GENE_SOURCE_DB} = $arg;
+    $self->param('GENE_SOURCE_DB', $arg);
   }
-  return $self->{GENE_SOURCE_DB}
+  return $self->param('GENE_SOURCE_DB');
 }
 
 sub OUTPUT_DB{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{OUTPUT_DB} = $arg;
+    $self->param('OUTPUT_DB', $arg);
   }
-  return $self->{OUTPUT_DB}
+  return $self->param('OUTPUT_DB');
 }
 
 sub OUTPUT_BIOTYPE{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{OUTPUT_BIOTYPE} = $arg;
+    $self->param('OUTPUT_BIOTYPE', $arg);
   }
-  return $self->{OUTPUT_BIOTYPE}
+  return $self->param('OUTPUT_BIOTYPE');
 }
 
 sub GENEWISE_PARAMETERS{
   my ($self, $arg) = @_;
   if($arg){
-    $self->param('_GENEWISE_PARAMETERS',$arg);
+    $self->param('GENEWISE_PARAMETERS',$arg);
   }
-  return $self->param('_GENEWISE_PARAMETERS');
+  return $self->param('GENEWISE_PARAMETERS');
 }
 
 sub MINIGENEWISE_PARAMETERS{
   my ($self, $arg) = @_;
   if($arg){
-    $self->param('_MINIGENEWISE_PARAMETERS',$arg);
+    $self->param('MINIGENEWISE_PARAMETERS',$arg);
   }
-  return $self->param('_MINIGENEWISE_PARAMETERS');
+  return $self->param('MINIGENEWISE_PARAMETERS');
 }
 
 sub MULTIMINIGENEWISE_PARAMETERS{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{MULTIMINIGENEWISE_PARAMETERS} = $arg;
+    $self->param('MULTIMINIGENEWISE_PARAMETERS', $arg);
   }
-  return $self->{MULTIMINIGENEWISE_PARAMETERS}
+  return $self->param('MULTIMINIGENEWISE_PARAMETERS');
 }
 
 sub BLASTMINIGENEWISE_PARAMETERS{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{BLASTMINIGENEWISE_PARAMETERS} = $arg;
+    $self->param('BLASTMINIGENEWISE_PARAMETERS', $arg);
   }
-  return $self->{BLASTMINIGENEWISE_PARAMETERS}
+  return $self->param('BLASTMINIGENEWISE_PARAMETERS');
 }
 
 
 sub EXONERATE_PARAMETERS{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{EXONERATE_PARAMETERS} = $arg;
+    $self->param('EXONERATE_PARAMETERS', $arg);
   }
-  return $self->{EXONERATE_PARAMETERS}
+  return $self->param('EXONERATE_PARAMETERS');
 }
 
 
 sub FILTER_PARAMS{
   my ($self, $arg) = @_;
   if($arg){
-    $self->param('_FILTER_PARAMETERS',$arg);
+    $self->param('FILTER_PARAMETERS',$arg);
   }
-  return $self->param('_FILTER_PARAMETERS');
+  return $self->param('FILTER_PARAMETERS');
 }
 
 sub FILTER_OBJECT{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{FILTER_OBJECT} = $arg;
+    $self->param('FILTER_OBJECT', $arg);
   }
-  return $self->{FILTER_OBJECT}
+  return $self->param('FILTER_OBJECT');
 }
 
 sub BIOTYPES_TO_MASK{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{BIOTYPES_TO_MASK} = $arg;
+    $self->param('BIOTYPES_TO_MASK', $arg);
   }
-  return $self->{BIOTYPES_TO_MASK}
+  return $self->param('BIOTYPES_TO_MASK');
 }
 
 sub EXON_BASED_MASKING{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{EXON_BASED_MASKING} = $arg;
+    $self->param('EXON_BASED_MASKING', $arg);
   }
-  return $self->{EXON_BASED_MASKING}
+  return $self->param('EXON_BASED_MASKING');
 }
 
 sub GENE_BASED_MASKING{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{GENE_BASED_MASKING} = $arg;
+    $self->param('GENE_BASED_MASKING', $arg);
   }
-  return $self->{GENE_BASED_MASKING}
+  return $self->param('GENE_BASED_MASKING');
 }
 
 
 sub POST_GENEWISE_MASK{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{POST_GENEWISE_MASK} = $arg;
+    $self->param('POST_GENEWISE_MASK', $arg);
   }
-  return $self->{POST_GENEWISE_MASK}
+  return $self->param('POST_GENEWISE_MASK');
 }
 
 sub PRE_GENEWISE_MASK{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{PRE_GENEWISE_MASK} = $arg;
+    $self->param('PRE_GENEWISE_MASK', $arg);
   }
-  return $self->{PRE_GENEWISE_MASK}
+  return $self->param('PRE_GENEWISE_MASK');
 }
 
 sub REPEATMASKING{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{REPEATMASKING} = $arg;
+    $self->param('REPEATMASKING', $arg);
   }
-  return $self->{REPEATMASKING}
+  return $self->param('REPEATMASKING');
 }
 
 sub SEQFETCHER_OBJECT{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{SEQFETCHER_OBJECT} = $arg;
+    $self->param('SEQFETCHER_OBJECT', $arg);
   }
-  return $self->{SEQFETCHER_OBJECT}
+  return $self->param('SEQFETCHER_OBJECT');
 }
 
 sub SEQFETCHER_PARAMS{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{SEQFETCHER_PARAMS} = $arg;
+    $self->param('SEQFETCHER_PARAMS', $arg);
   }
-  return $self->{SEQFETCHER_PARAMS}
+  return $self->param('SEQFETCHER_PARAMS');
 }
 
 sub USE_KILL_LIST{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{USE_KILL_LIST} = $arg;
+    $self->param('USE_KILL_LIST', $arg);
   }
-  return $self->{USE_KILL_LIST}
+  return $self->param('USE_KILL_LIST');
 }
 
 sub LIMIT_TO_FEATURE_RANGE{
   my ($self, $arg) = @_;
   if($arg){
-    $self->param('_LIMIT_TO_FEATURE_RANGE',$arg);
+    $self->param('LIMIT_TO_FEATURE_RANGE',$arg);
   }
-  return $self->param('_LIMIT_TO_FEATURE_RANGE');
+  return $self->param('LIMIT_TO_FEATURE_RANGE');
 }
 
 
 sub FEATURE_RANGE_PADDING{
   my ($self, $arg) = @_;
   if($arg){
-    $self->param('_FEATURE_RANGE_PADDING',$arg);
+    $self->param('FEATURE_RANGE_PADDING',$arg);
   }
-  return $self->param('_FEATURE_RANGE_PADDING');
+  return $self->param('FEATURE_RANGE_PADDING');
 }
 
 sub WRITE_REJECTED{
   my ($self, $arg) = @_;
   if(defined($arg)){
-    $self->{WRITE_REJECTED} = $arg;
+    $self->param('WRITE_REJECTED', $arg);
   }
-  return $self->{WRITE_REJECTED};
+  return $self->param('WRITE_REJECTED');
 }
 
 sub REJECTED_BIOTYPE{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{REJECTED_BIOTYPE} = $arg;
+    $self->param('REJECTED_BIOTYPE', $arg);
   }
-  return $self->{REJECTED_BIOTYPE};
+  return $self->param('REJECTED_BIOTYPE');
 }
 
 sub SOFTMASKING{
   my ($self, $arg) = @_;
   if($arg){
-    $self->{SOFTMASKING} = $arg;
+    $self->param('SOFTMASKING', $arg);
   }
-  return $self->{SOFTMASKING}
+  return $self->param('SOFTMASKING');
 }
 
 
 sub MAKE_SIMGW_INPUT_ID_PARMAMS {
   my ($self, $arg) = @_;
   if($arg){
-    $self->{MAKE_SIMGW_INPUT_ID_PARMAMS} = $arg;
+    $self->param('MAKE_SIMGW_INPUT_ID_PARMAMS', $arg);
   }
-  return $self->{MAKE_SIMGW_INPUT_ID_PARMAMS}
+  return $self->param('MAKE_SIMGW_INPUT_ID_PARMAMS');
 }
 
 =head2 group_genes_by_id
@@ -1243,9 +1237,9 @@ sub group_genes_by_id{
 sub OPTIMAL_LENGTH {
   my ($self, $arg) = @_;
   if($arg){
-    $self->{OPTIMAL_LENGTH} = $arg;
+    $self->param('OPTIMAL_LENGTH', $arg);
   }
-  return $self->{OPTIMAL_LENGTH}
+  return $self->param('OPTIMAL_LENGTH');
 }
 
 1;

@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,12 +57,6 @@ use warnings;
 use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptDNA;
-#use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast;
-#use Bio::EnsEMBL::Analysis::Config::General;
-#use Bio::EnsEMBL::Analysis::Config::Blast;
-#use vars qw(@ISA);
-
-#@ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::Blast);
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast');
 
@@ -87,21 +81,14 @@ sub fetch_input{
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
   $self->hrdb_set_con($dba,'target_db');
 
-  # Make an analysis object and set it, this will allow the module to write to the output db
-  my $analysis = new Bio::EnsEMBL::Analysis(
-                                             -logic_name => $self->param('logic_name'),
-                                             -module => $self->param('module'),
-                                             -program => $self->param('blast_program'),
-                                             -program_file => $self->param('blast_exe_path'),
-                                             -parameters => $self->param('commandline_params'),
-                                             -db_file => $self->param('blast_db_path'),
-                                             -db => $self->param('blast_db_name'),
-                                           );
-
-  $self->analysis($analysis);
+  $self->create_analysis;
+  $self->analysis->program($self->param('blast_program')) if ($self->param_is_defined('blast_program'));
+  $self->analysis->program_file($self->param('blast_exe_path')) if ($self->param_is_defined('blast_exe_path'));
+  $self->analysis->parameters($self->param('commandline_params')) if ($self->param_is_defined('commandline_params'));
+  $self->analysis->db_file($self->param('blast_db_path')) if ($self->param_is_defined('blast_db_path'));
+  $self->analysis->db($self->param('blast_db_name')) if ($self->param_is_defined('blast_db_name'));
 
   my $pta = $dba->get_PredictionTranscriptAdaptor;
-
   my $input_id = $self->param('iid');
   my $input_id_type = $self->param('iid_type');
   my @pts ;

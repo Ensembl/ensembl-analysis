@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -169,7 +169,7 @@ sub fetch_input {
             # pre fetch all the intron features
             $self->dna_2_intron_features($real_slice_start, $real_slice_end);
         }
-        $genes_db->dbc->disconnect_when_inactive(1);
+        $genes_db->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
         my $runnable = Bio::EnsEMBL::Analysis::Runnable::RefineSolexaGenes->new (
                 -analysis     => $self->analysis,
                 -retained_intron_penalty => $self->param('retained_intron_penalty'),
@@ -309,7 +309,6 @@ sub write_output {
     if ($total == 0) {
         $self->input_job->autoflow(0);
     }
-    $outdb->dbc->disconnect_when_inactive(1);
 }
 
 

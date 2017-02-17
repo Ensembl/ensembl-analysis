@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,6 +47,7 @@ use vars qw (@ISA  @EXPORT);
              validate_Translation_coords
              add_ORF_to_transcript
              compute_6frame_translations_for_transcript 
+             create_Translation
             );
 
 
@@ -566,6 +567,47 @@ sub validate_Translation_coords{
     return 0;
   }
   return 1;
+}
+
+
+=head2 create_Translation
+
+ Arg [1]    : Arrayref of Bio::EnsEMBL::Exons
+ Arg [2]    : Int start, genomic start of the cds
+ Arg [3]    : Int end, genomic end of the cds
+ Description: Create a Bio::EnsEMBL::Translation object based on an array of Bio::EnsEMBL::Exons
+ Returntype : Bio::EnsEMBL::Translation
+ Exceptions : None
+
+=cut
+
+sub create_Translation {
+  my ($exons, $genomic_start, $genomic_end) = @_;
+
+  my $translation = Bio::EnsEMBL::Translation->new();
+  foreach my $exon (@$exons) {
+    if ($genomic_start >= $exon->seq_region_start and $genomic_start <= $exon->seq_region_end) {
+      if ($exon->strand == 1) {
+        $translation->start_Exon($exon);
+        $translation->start($genomic_start-$exon->seq_region_start+1);
+      }
+      else {
+        $translation->end_Exon($exon);
+        $translation->end($exon->seq_region_end-$genomic_start+1);
+      }
+    }
+    if ($genomic_end >= $exon->seq_region_start and $genomic_end <= $exon->seq_region_end) {
+      if ($exon->strand == 1) {
+        $translation->end_Exon($exon);
+        $translation->end($genomic_end-$exon->seq_region_start+1);
+      }
+      else {
+        $translation->start_Exon($exon);
+        $translation->start($exon->seq_region_end-$genomic_end+1);
+      }
+    }
+  }
+  return $translation;
 }
 
 1;

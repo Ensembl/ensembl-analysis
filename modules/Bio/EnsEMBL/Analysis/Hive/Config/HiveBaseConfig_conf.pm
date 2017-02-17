@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,13 +43,21 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
 
  Arg [1]    : None
  Description: It returns a hashref containing the default options for HiveGeneric_conf
-                use_tokens => 0,
-                drop_databases => 0,
+                use_tokens => 1,
+                drop_databases => 0, # This should never be changed in any config file, only use it on the commandline
+                databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
                 password_r => undef,
+
                 dna_db_port => $self->o('port'),
                 dna_db_user => $self->o('user_r'),
                 dna_db_password => $self->o('password_r'),
                 dna_db_driver => $self->o('hive_driver'),
+
+                pipe_dbname => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+                pipe_db_port => $self->o('port'),
+                pipe_db_user => $self->o('user'),
+                pipe_db_password => $self->o('password'),
+                pipe_db_driver => $self->o('hive_driver'),
               and two DB connection hash: pipeline_db and dna_db
  Returntype : Hashref
  Exceptions : None
@@ -64,7 +72,7 @@ sub default_options {
 
 #        At the moment, we want to use tokens
         use_tokens => 1,
-        drop_databases => 0,
+        drop_databases => 0, # This should never be changed in any config file, only use it on the commandline
         databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
         password_r => undef,
 
@@ -73,13 +81,19 @@ sub default_options {
         dna_db_password => $self->o('password_r'),
         dna_db_driver => $self->o('hive_driver'),
 
+        pipe_dbname => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+        pipe_db_port => $self->o('port'),
+        pipe_db_user => $self->o('user'),
+        pipe_db_password => $self->o('password'),
+        pipe_db_driver => $self->o('hive_driver'),
+
         'pipeline_db' => {
             -dbname => $self->o('pipe_dbname'),
             -host   => $self->o('pipe_db_server'),
-            -port   => $self->o('port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('hive_driver'),
+            -port   => $self->o('pipe_db_port'),
+            -user   => $self->o('pipe_db_user'),
+            -pass   => $self->o('pipe_db_password'),
+            -driver => $self->o('pipe_db_driver'),
         },
 
         'dna_db' => {
@@ -129,6 +143,7 @@ sub pipeline_create_commands {
  Arg [4]    : Arrayref Integer, list of tokens value for each server, default is 10
  Arg [5]    : Integer $num_threads, number of cores, use only if you ask for multiple cores
  Arg [6]    : String $extra_requirements, any other parameters you want to give to LSF option -R
+ Arg [7]    : Arrayref String, any parameters related to your file system if you need to use -R"select[gpfs]"
  Example    : '1GB' => { LSF => $self->lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}])},
               '3GB_multithread' => { LSF => $self->lsf_resource_builder('long', 3000, [$self->default_options->{'pipe_db_server'}], undef, 3)},
  Description: It will return the LSF requirement parameters you require based on the queue, the memory, the database servers, the number
@@ -145,7 +160,7 @@ sub pipeline_create_commands {
 =cut
 
 sub lsf_resource_builder {
-    my ($self, $queue, $memory, $servers, $tokens, $threads, $extra_requirements) = @_;
+    my ($self, $queue, $memory, $servers, $tokens, $threads, $extra_requirements, $paths) = @_;
 
     my $lsf_requirement = '-q '.($queue || 'normal');
     my @lsf_rusage;
@@ -178,6 +193,19 @@ sub lsf_resource_builder {
     if (defined $threads) {
         $lsf_requirement .= ' -n '.$threads;
         $extra_requirements .= ' span[hosts=1]';
+    }
+    if (defined $paths) {
+      foreach my $path (@$paths) {
+        if ($path =~ '/gpfs/') {
+          push(@lsf_select, 'gpfs');
+        }
+        elsif ($path =~ '/hps/') {
+          push(@lsf_select, 'hps');
+        }
+        elsif ($path =~ '/panfs/') {
+          push(@lsf_select, 'panfs');
+        }
+      }
     }
     return $lsf_requirement.' -R"select['.join(', ', @lsf_select).'] rusage['.join(', ', @lsf_rusage).'] '.$extra_requirements.'"';
 }
