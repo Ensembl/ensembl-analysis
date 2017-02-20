@@ -23,8 +23,7 @@ use feature 'say';
 
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
-# We will have to choose if we want to really use a InputIDFactory or if this will be the InputIdFactory
-use Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory;
+use Bio::EnsEMBL::Utils::Slice qw(split_Slices);
 
 use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
 
@@ -33,14 +32,20 @@ use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
 
  Description: It allows the definition of default parameters for all inherting module.
               These are the default values:
-               seq_level => 0,
-               top_level => 1,
                include_non_reference => 0,
-               hap_pair => 0,
+               include_duplicates => 0,
+               include_lrg => 0, #This one should never be used but it's here for compatibility
                mitochondrion => 0,
                slice_size => 0,
                slice_overlaps => 0,
-               coord_system_name => 'toplevel'
+               coord_system_name => 'toplevel',
+               coord_system_version => undef,
+               stable_id_prefix => 'ENS',
+               region_padding => 10000,
+               use_annotation => 0,
+               batch_target_size => 1000000,
+               table_column_name => 'accession',
+               column_names => ['iid'],
  Returntype : Hashref, containing all default parameters
  Exceptions : None
 
@@ -51,14 +56,21 @@ sub param_defaults {
 
     return {
         %{$self->SUPER::param_defaults},
-        seq_level => 0,
-        top_level => 1,
         include_non_reference => 0,
-        hap_pair => 0,
+        include_duplicates => 0,
+        include_lrg => 0, #This one should never be used but it's here for compatibility
         mitochondrion => 0,
+        use_annotation => 0,
+        batch_slice_ids => 0,
         slice_size => 0,
         slice_overlaps => 0,
-        coord_system_name => 'toplevel'
+        coord_system_name => 'toplevel',
+        coord_system_version => undef,
+        stable_id_prefix => 'ENS',
+        region_padding => 10000,
+        batch_target_size => 1000000,
+        table_column_name => 'accession',
+        column_names => ['iid'],
     }
 }
 
@@ -76,45 +88,34 @@ sub param_defaults {
 sub fetch_input {
   my $self = shift;
 
-  if($self->param('iid_type') eq 'chunk') {
+  my $iid_type = $self->param_required('iid_type');
+  if($iid_type eq 'chunk') {
     $self->create_chunk_ids();
-  } elsif($self->param('iid_type') eq 'split_slice') {
-    # Maybe we could use the method in Core: Bio::EnsEMBL::Utils::Slice qw(split_Slices);
-    $self->split_slice();
-  } elsif($self->param('iid_type') eq 'uniprot_accession') {
-    $self->uniprot_accession();
-  } elsif($self->param('iid_type') eq 'rechunk_uniprot_accession') {
-    $self->rechunk_uniprot_accession();
-  } elsif($self->param('cdna_accession')) {
-    $self->cdna_accession();
+  } elsif($iid_type eq 'sequence_accession') {
+    $self->sequence_accession();
+  } elsif($iid_type eq 'rechunk') {
+    $self->rechunk_input_ids();
   } else {
       $self->param('target_db', destringify($self->param('target_db'))) if (ref($self->param('target_db')) ne 'HASH');
       my $dba = hrdb_get_dba($self->param('target_db'));
-      if($self->param('iid_type') eq 'slice') {
-        $self->param('slice', 1);
+      if($iid_type eq 'slice') {
         $self->create_slice_ids($dba);
-      } elsif($self->param('iid_type') eq 'patch_slice') {
-        $self->param('slice', 1);
-        $self->create_patch_ids($dba);
-      } elsif($self->param('iid_type') eq 'slice_to_feature_ids') {
+      } elsif($iid_type eq 'split_slice') {
+        # Not sure it's the correct call but Core has a split_Slice method
+        # so it's better to use it
+        $self->split_slice($dba);
+      } elsif($iid_type eq 'patch_slice') {
+        $self->create_slice_ids($dba);
+      } elsif($iid_type eq 'slice_to_feature_ids') {
         $self->convert_slice_to_feature_ids($dba);
-      } elsif($self->param('iid_type') eq 'feature_region') {
-        if ($self->param_is_defined('use_annotation')) {
-          $self->throw('Could not find annotation file '.$self->param('annotation_file')) if ($self->param('use_annotation') and !-e $self->param('annotation_file'));
-          $self->feature_region_annotation($dba);
-        }
-        else {
-          $self->feature_region($dba);
-        }
-      } elsif($self->param('iid_type') eq 'feature_id') {
+      } elsif($iid_type eq 'feature_region') {
+        $self->feature_region($dba);
+      } elsif($iid_type eq 'feature_id') {
         $self->feature_id($dba);
       } else {
         $self->throw('You have not specified one of the recognised operation types');
       }
   }
-
-  $self->param('column_names', ['iid']);
-  return 1;
 }
 
 
@@ -131,83 +132,57 @@ sub fetch_input {
 sub create_slice_ids {
   my ($self, $dba) = @_;
 
-  my $input_id_factory = new Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory
-     (
-       -db => $dba,
-       -slice => $self->param('slice'),
-       -seq_level => $self->param('seq_level'),
-       -top_level => $self->param('top_level'),
-       -include_non_reference => $self->param('include_non_reference'),
-       -coord_system => $self->param('coord_system_name'),
-       -coord_system_version => $self->param_is_defined('coord_system_version') ? $self->param('coord_system_version') : undef,
-       -slice_size => $self->param('slice_size'),
-       -slice_overlaps => $self->param('slice_overlaps'),
-#       -seq_region_name => $self->param('seq_region_name'),
-       -hap_pair => $self->param('hap_pair'),
-       -mt => $self->param_is_defined('mitochondrion') ? $self->param('mitochondrion') : 0,
-       -min_slice_length => $self->param('min_slice_length'),
-     );
-
-  $input_id_factory->generate_input_ids;
-  my $input_ids = $input_id_factory->input_ids;
-
-  if($self->param('feature_constraint')) {
-    my $filtered_ids = $self->filter_slice_on_features($input_ids,$dba);
-    $input_ids = $filtered_ids;
+  if ($self->param('slice_size') < 0) {
+    $self->throw('Slice size must be >= 0. Currently '.$self->param('slice_size'));
   }
 
-  if($self->param('batch_slice_ids')) {
-    my $batched_ids = $self->batch_slice_ids($input_ids);
-    $input_ids = $batched_ids;
-  }
+  my $sa = $dba->get_SliceAdaptor;
 
-  $self->param('inputlist', $input_ids);
+  my $slices = $sa->fetch_all($self->param('coord_system_name'),
+                              $self->param('coord_system_version'),
+                              $self->param('include_non_reference'),
+                              $self->param('include_duplicates'),
+                              $self->param('include_lrg'));
 
-}
-
-=head2 create_patch_ids
-
- Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
- Description: Create input ids based on slices for patch_novel and patch_fix assembly exceptions.
-              It stores the input ids in 'inputlist'
- Returntype : None
- Exceptions : None
-
-=cut
-
-sub create_patch_ids {
-  my ($self,$dba) = @_;
-  my $code_patch_novel = 'patch_novel';
-  my $code_patch_fix = 'patch_fix';
-  my @pt;
-  push(@pt,$code_patch_novel,$code_patch_fix);
-
-  my $input_ids = [];
-
-  my $sa = $dba->get_SliceAdaptor();
-
-  #get non-ref but not duplicates
-  my @slices = @{$sa->fetch_all('toplevel',undef,1)};
-  print scalar(@slices)."\n";
-  foreach my $slice (@slices) {
-    foreach my $type (@pt) {
-      my @slice_attributes = @{$slice->get_all_Attributes($type)};
-      if (scalar(@slice_attributes) > 0) {
-        push(@{$input_ids},$slice->name());
-      }
+  if (!$self->param('mitochondrion')) {
+    my $mt = $sa->fetch_by_region('toplevel', 'MT');
+    if ($mt) {
+      my @ids = grep {$_->seq_region_name ne $mt->seq_region_name} @$slices;
+      $slices = \@ids;
     }
   }
 
-  if ($self->param('feature_constraint')) {
-    my $filtered_ids = $self->filter_slice_on_features($input_ids,$dba);
-    $input_ids = $filtered_ids;
+  if ($self->param('iid_type') eq 'patch_slice') {
+    my @pt = ('patch_novel', 'patch_fix');
+    my @tmp_slices;
+    foreach my $slice (@$slices) {
+      foreach my $type (@pt) {
+        if (scalar(@{$slice->get_all_Attributes($type)}) > 0) {
+          push(@tmp_slices, $slice);
+          last;
+        }
+      }
+    }
+    $slices = \@tmp_slices;
   }
 
-  if ($self->param('batch_slice_ids')) {
-    my $batched_ids = $self->batch_slice_ids($input_ids);
-    $input_ids = $batched_ids;
+  if($self->param('slice_size') > 0) {
+    $slices = split_Slices($slices, $self->param_required('slice_size'), $self->param('slice_overlaps'));
   }
-  $self->param('inputlist',$input_ids);
+
+  if($self->param('feature_constraint')) {
+    $slices = $self->filter_slice_on_features($slices, $dba);
+  }
+
+  if($self->param('batch_slice_ids')) {
+    $slices = $self->batch_slice_ids($slices);
+    $self->param('inputlist', $slices);
+  }
+  else {
+    my @input_ids = map {$_->name} @$slices;
+    $self->param('inputlist', \@input_ids);
+  }
+
 }
 
 =head2 create_chunk_ids
@@ -349,23 +324,16 @@ sub make_chunk_files {
 sub convert_slice_to_feature_ids {
   my ($self, $dba) = @_;
 
-  unless($self->param('iid')) {
-    $self->throw("Failed to provide an input id. Expected to find a slice input id using \$self->param('iid')");
-  }
-
-  unless($self->param('feature_type')) {
-    $self->throw("You're trying to convert a slice to a set of feature ids but haven't provided a feature type. ".
-                 "Expected \$self->param('feature_type')");
-  }
-
   my $output_id_array = [];
 
-  my $input_id = $self->param('iid');
-  my $slice = $dba->get_SliceAdaptor->fetch_by_name($input_id);
+  my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param_required('iid'));
+  my $feature_type = $self->param_required('feature_type');
+  my $template_sql = 'UPDATE %s SET stable_id = CONCAT("'.$self->param('stable_id_prefix').'%s", LPAD(%s_id, 11, 0)) WHERE seq_region_id = %d';
 
-  if($self->param('feature_type') eq 'prediction_transcript') {
+  if($feature_type eq 'prediction_transcript') {
     if ($self->param_is_defined('create_stable_ids')) {
-        my $sqlquery = 'UPDATE prediction_transcript SET stable_id = CONCAT("'.$self->param('stable_id_prefix').'X", LPAD(prediction_transcript_id, 11, 0)) WHERE seq_region_id = '.$slice->get_seq_region_id;
+#        my $sqlquery = 'UPDATE prediction_transcript SET stable_id = CONCAT("'.$self->param('stable_id_prefix').'X", LPAD(prediction_transcript_id, 11, 0)) WHERE seq_region_id = '.$slice->get_seq_region_id;
+        my $sqlquery = sprintf($template_sql, $feature_type, 'X', $feature_type, $slice->get_seq_region_id);
         my $sth = $dba->dbc->prepare($sqlquery);
         $sth->execute();
     }
@@ -381,23 +349,25 @@ sub convert_slice_to_feature_ids {
         push(@{$output_id_array},$pt_feature->dbID());
       }
     }
-  } elsif($self->param('feature_type') eq 'gene') {
+  } elsif($feature_type eq 'gene') {
     if ($self->param_is_defined('create_stable_ids')) {
-        my $sqlquery = 'UPDATE gene SET stable_id = CONCAT("'.$self->param('stable_id_prefix').'G", LPAD(gene_id, 11, 0)) WHERE seq_region_id = '.$slice->get_seq_region_id;
+#        my $sqlquery = 'UPDATE gene SET stable_id = CONCAT("'.$self->param('stable_id_prefix').'G", LPAD(gene_id, 11, 0)) WHERE seq_region_id = '.$slice->get_seq_region_id;
+        my $sqlquery = sprintf($template_sql, $feature_type, 'G', $feature_type, $slice->get_seq_region_id);
         my $sth = $dba->dbc->prepare($sqlquery);
         $sth->execute();
     }
     my $ga = $dba->get_GeneAdaptor;
     my $logic_names = $self->param('logic_name');
 
+    my $use_stable_ids = $self->param_is_defined('use_stable_ids');
     foreach my $logic_name (@$logic_names) {
       my $genes = $ga->fetch_all_by_Slice($slice, $logic_name);
       foreach my $gene_feature (@{$genes}) {
-        push(@{$output_id_array}, ($self->param_is_defined('use_stable_ids') ? $gene_feature->stable_id : $gene_feature->dbID()));
+        push(@{$output_id_array}, ($use_stable_ids ? $gene_feature->stable_id : $gene_feature->dbID()));
       }
     }
   } else {
-    $self->throw("The feature_type you provided is not currently supported by the code.\nfeature_type: ".$self->param('feature_type'));
+    $self->throw("The feature_type you provided is not currently supported by the code.\nfeature_type: $feature_type");
   }
 
   $self->param('inputlist', $output_id_array);
@@ -411,337 +381,149 @@ sub convert_slice_to_feature_ids {
               It stores the input ids in 'inputlist'
  Returntype : None
  Exceptions : Throws if 'iid' is not defined
-              Throws if 'slice_size' is not defined
+              Throws if 'slice_size' is negative
 
 =cut
 
 sub split_slice {
-  my ($self) = @_;
+  my ($self, $dba) = @_;
 
-  unless($self->param('iid')) {
-    $self->throw("Failed to provide an input id. Expected to find a slice input id using \$self->param('iid')");
+  if ($self->param('slice_size') < 0) {
+    $self->throw('Slice size must be >= 0. Currently '.$self->param('slice_size'));
   }
 
-  unless($self->param('slice_size')) {
-    $self->throw("You selected the split_slice option, but did not specific 'slice_size'. Need a size to split into");
-  }
+  my $sa = $dba->get_SliceAdaptor;
+  my $slices = split_Slices($sa->fetch_by_name($self->param_required('iid')), $self->param('slice_size'), $self->param('slice_overlaps'));
+  my @input_ids = map {$_->name} @$slices;
 
-  my $output_id_array = [];
-
-  my $slice_name = $self->param('iid');
-  my $target_slice_size = $self->param('slice_size');
-
-  # 'scaffold:PapAnu2.0:JH684492.1:1:489941:1'
-
-  my @slice_array = split(':',$slice_name);
-  my $slice_length = $slice_array[4]-$slice_array[3] + 1;
-  if($slice_length <= $target_slice_size) {
-    push(@{$output_id_array},$slice_name);
-  } else {
-    my $remainder = $slice_length % $target_slice_size;
-    my $loop_count = int($slice_length / $target_slice_size);
-    my $slice_start = $slice_array[3];
-    my $slice_end = $slice_start + $target_slice_size - 1;
-    my $new_slice = $slice_array[0].':'.$slice_array[1].':'.$slice_array[2].':'.$slice_start.':'.$slice_end.':'.$slice_array[5];
-    push(@{$output_id_array},$new_slice);
-    my $i=0;
-    for($i=1; $i<$loop_count; $i++) {
-      $slice_start += $target_slice_size;
-      $slice_end += $target_slice_size;
-      $new_slice = $slice_array[0].':'.$slice_array[1].':'.$slice_array[2].':'.$slice_start.':'.$slice_end.':'.$slice_array[5];
-      push(@{$output_id_array},$new_slice);
-    }
-    if($remainder) {
-      $slice_start += $target_slice_size;
-      $slice_end += $remainder;
-      $new_slice = $slice_array[0].':'.$slice_array[1].':'.$slice_array[2].':'.$slice_start.':'.$slice_end.':'.$slice_array[5];
-      push(@{$output_id_array},$new_slice);
-    }
-  }
-
-  $self->param('inputlist', $output_id_array);
+  $self->param('inputlist', \@input_ids);
 }
 
 
-=head2 uniprot_accession
-
- Arg [1]    : None
- Description: Create input ids based on the custom table in the hive pipeline database specified
-              by 'uniprot_table_name'. You need to specify a batch size with 'uniprot_batch_size'
-              It stores the input ids in 'inputlist'
- Returntype : None
- Exceptions : Throws if 'uniprot_batch_size' is not defined
-              Throws if 'uniprot_table_name' is not defined
-
-=cut
-
-sub uniprot_accession {
-  my ($self) = @_;
-
-  my $output_id_array = [];
-
-  unless($self->param('uniprot_batch_size')) {
-    $self->throw("You've select to batch uniprot ids but haven't passed in a batch size using 'uniprot_batch_size'");
-  }
-
-  unless($self->param('uniprot_table_name')) {
-    $self->throw("You've select to batch uniprot ids but haven't passed the name of the uniprot table in ".
-                 "the pipeline database using 'uniprot_table_name'");
-  }
-
-  my $batch_size = $self->param('uniprot_batch_size');
-  my $table_name = $self->param('uniprot_table_name');
-
-  my $table_adaptor = $self->db->get_NakedTableAdaptor();
-  $table_adaptor->table_name($table_name);
-
-  $table_adaptor->column_set();
-  my $accessions = $table_adaptor->fetch_all(undef,undef,undef,'accession');
-  my $accession_array = [];
-  foreach my $accession (@{$accessions}) {
-    my $size = scalar(@{$accession_array});
-    if($size == $batch_size) {
-      push(@{$output_id_array},[$accession_array]);
-      $accession_array = [];
-    }
-    push(@{$accession_array},$accession);
-  }
-
-  if(scalar(@{$accession_array})) {
-    push(@{$output_id_array},[$accession_array]);
-  }
-
-  $self->param('inputlist', $output_id_array);
-}
-
-
-=head2 cdna_accession
+=head2 sequence_accession
 
  Arg [1]    : None
  Description: Create input_ids based on the sequence accessions stored in Hive
  Returntype : None
- Exceptions : Throws if 'cdna_batch_size' is defined but not set
-              Throws if 'cdna_table_name' is defined but not set
+ Exceptions : Throws if 'batch_size' is defined but not set
+              Throws if 'sequence_table_name' is defined but not set
 
 =cut
 
-sub cdna_accession {
+sub sequence_accession {
   my ($self) = @_;
 
-  my $output_id_array = [];
-
-  unless($self->param('cdna_batch_size')) {
-    $self->throw("You've selected to batch cdna ids but haven't passed in a batch size using 'cdna_batch_size'");
-  }
-
-  unless($self->param('cdna_table_name')) {
-    $self->throw("You've selected to batch cdna ids but haven't passed the name of the cdna table in ".
-                 "the pipeline database using 'cdna_table_name'");
-  }
-
-  my $batch_size = $self->param('cdna_batch_size');
-  my $table_name = $self->param('cdna_table_name');
-
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
-  $table_adaptor->table_name($table_name);
+  $table_adaptor->table_name($self->param_required('sequence_table_name'));
 
   $table_adaptor->column_set();
-  my $accessions = $table_adaptor->fetch_all(undef,undef,undef,'accession');
-  my $accession_array = [];
-  foreach my $accession (@{$accessions}) {
-    my $size = scalar(@{$accession_array});
-    if($size == $batch_size) {
-      push(@{$output_id_array},[$accession_array]);
-      $accession_array = [];
-    }
-    push(@{$accession_array},$accession);
-  }
+  my $accessions = $table_adaptor->fetch_all(undef,undef,undef, $self->param('table_column_name'));
 
-  if(scalar(@{$accession_array})) {
-    push(@{$output_id_array},[$accession_array]);
-  }
-
-  $self->param('inputlist', $output_id_array);
+  $self->param('inputlist', $self->_chunk_input_ids($self->param_required('batch_size'), $accessions));
 }
 
-=head2 rechunk_uniprot_accession
+
+=head2 rechunk_input_ids
 
  Arg [1]    : None
- Description: Create smaller chunks of uniprot accession using 'uniprot_batch_size'
+ Description: Create smaller chunks of input ids using 'batch_size'
               It stores the input ids in 'inputlist'
  Returntype : None
- Exceptions : Throws if 'uniprot_batch_size' is not defined
+ Exceptions : Throws if 'batch_size' is not defined
               Throws if 'iid' is not defined
 
 =cut
 
-sub rechunk_uniprot_accession {
+sub rechunk_input_ids {
   my ($self) = @_;
 
-  my $output_id_array = [];
-
-  unless($self->param('uniprot_batch_size')) {
-    $self->throw("You've select to batch uniprot ids but haven't passed in a batch size using 'uniprot_batch_size'");
-  }
-
-  unless($self->param('iid')) {
-    $self->throw("You've select to rechunk uniprot ids but haven't passed in an input_id using 'iid'");
-  }
-
-  my $batch_size = $self->param('uniprot_batch_size');
-
-  my $input_accession_array = $self->param('iid');
-  my $output_accession_array = [];
-  foreach my $accession (@{$input_accession_array}) {
-    my $size = scalar(@{$output_accession_array});
-    if($size == $batch_size) {
-      push(@{$output_id_array},[$output_accession_array]);
-      $output_accession_array = [];
-    }
-    push(@{$output_accession_array},$accession);
-  }
-
-  if(scalar(@{$output_accession_array})) {
-    push(@{$output_id_array},[$output_accession_array]);
-  }
-
-  $self->param('inputlist', $output_id_array);
+  $self->param('inputlist', $self->_chunk_input_ids($self->param_required('batch_size'), $self->param_required('iid')));
 }
 
-sub feature_region_annotation {
-  my ($self, $dba) = @_;
-
-  my %accessions;
-  my @input_ids;
-  my $use_annotation = $self->param_is_defined('annotation_file');
-  if ($use_annotation) {
-    open(F, $self->param('annotation_file')) or $self->throw('Could not open supplied annotation file for reading');
-    while (<F>) {
-      my @fields = split;
-      $accessions{$fields[0]} = 1;
-    }
-    close(F) || $self->throw('Could not close annotation_file: '.$self->param('annotation_file'));
-  }
-
-  my $slices;
-  if ($self->param_is_defined('iid')) {
-    $slices = [$dba->get_SliceAdaptor->fetch_by_name($self->param('iid'))];
-  }
-  else {
-    $slices = $dba->get_SliceAdaptor->fetch_all('toplevel');
-  }
-  foreach my $slice (@$slices) {
-    foreach my $gene (@{$slice->get_all_Genes}) {
-      foreach my $transcript (@{$gene->get_all_Transcripts}) {
-        my $evidence = $transcript->get_all_supporting_features->[0];
-        last if ($use_annotation and !exists $accessions{$evidence->hseqname});
-        my $slice = $transcript->slice;
-        my $start = $transcript->seq_region_start-$self->param('region_padding');
-        my $end = $transcript->seq_region_end+$self->param('region_padding');
-        if ($self->param_is_defined('region_padding')) {
-          $start = 1 if ($start < 1);
-          $end = $slice->end if ($end > $slice->end);
-        }
-        push(@input_ids, join(':', $transcript->coord_system_name,
-                                $slice->coord_system->version,
-                                $slice->seq_region_name,
-                                $start,
-                                $end,
-                                1,
-                                ':'.$evidence->hseqname));
-      }
-    }
-  }
-  $self->param('inputlist', \@input_ids);
-}
 
 =head2 feature_region
 
  Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
- Description: Creates input ids based on the presence of feature 'feature_type' in a region
+ Description: Creates slice input ids with an accession to the evidence supporting the models.
+              It is used to realign evidences on a smaller region of the genome so we can use
+              more expensive search types.
+              If you specify an arrayref of logic names, it will fetch models from these logic
+              names. Otherwise it will fetch all genes.
+              If you set 'use_annotation' and provide an annotation file with 'annotation_file'
+              it will ony realign models which are in the annotation file.
               It stores the input ids in 'inputlist'
  Returntype : None
- Exceptions : Throws if 'feature_type' is not defined
-              Throws if 'logic_name' is not defined
-              Throws if the name of the supporting evidence contains ':'
+ Exceptions : Throws if 'annotation_file' does not exists or fails to open/close when using 'use_annotation'
+              Throws if the accession has a ':' in it's name as it will disrupt the input_id
+              Throws if the feature type cannot be processed
 
 =cut
 
 sub feature_region {
   my ($self, $dba) = @_;
 
-  unless($self->param('feature_type')) {
-    $self->throw("You're trying to convert a slice to a set of feature ids but haven't provided a feature type. ".
-                 "Expected \$self->param('feature_type')");
-  }
-
-  my $output_id_array = [];
-  if($self->param('feature_type') eq 'gene') {
-    my $ga = $dba->get_GeneAdaptor;
-    my $logic_names = $self->param('logic_name');
-    my $padding = $self->param('region_padding');
-
-    unless($self->param('region_padding')) {
-      $self->warning("You didn't pass in any value for padding. Defaulting to 10000");
-      $padding = 10000;
+  my @input_ids;
+  my $feature_type = $self->param_required('feature_type');
+  if ($feature_type eq 'gene') {
+    my %accessions;
+    my $use_annotation = $self->param('use_annotation');
+    if ($use_annotation) {
+      open(F, $self->param_required('annotation_file')) || $self->throw('Could not open annotation file for reading '.$self->param('annotation_file'));
+      while (<F>) {
+        my @fields = split;
+        $accessions{$fields[0]} = 1;
+      }
+      close(F) || $self->throw('Could not close annotation_file: '.$self->param('annotation_file'));
     }
 
-    unless($logic_names) {
-      $self->throw("You didn't pass in an arrayref of logic names for the genes. Pass this in using the 'logic_name' param");
+    my $slices;
+    if ($self->param_is_defined('iid')) {
+      $slices = [$dba->get_SliceAdaptor->fetch_by_name($self->param('iid'))];
     }
-
-    foreach my $logic_name (@$logic_names) {
-      my $genes = $ga->fetch_all_by_logic_name($logic_name);
-      foreach my $gene (@{$genes}) {
-        my $transcripts = $gene->get_all_Transcripts();
-        foreach my $transcript (@{$transcripts}) {
-          my $start = $transcript->seq_region_start;
-          my $end = $transcript->seq_region_end;
-          my $strand = $transcript->strand;
-          my $slice = $transcript->slice();
-          my $slice_length = $slice->length();
-          if($padding) {
-            $start = $start - $padding;
-            if($start < 1) {
-              $start = 1;
+    else {
+      $slices = $dba->get_SliceAdaptor->fetch_all($self->param('coord_system_name'));
+    }
+    foreach my $slice (@$slices) {
+      my $logic_names = [''];
+      if ($self->param_is_defined('logic_name')) {
+        $logic_names = $self->param('logic_name');
+      }
+      my $base_name = join(':', $slice->coord_system_name,
+                                $slice->coord_system->coord_system_version,
+                                $slice->seq_region_name);
+      my %slice_hash;
+      foreach my $logic_name (@$logic_names) {
+        foreach my $gene (@{$slice->get_all_Genes($logic_name)}) {
+          foreach my $transcript (@{$gene->get_all_Transcripts}) {
+            my $start = $transcript->seq_region_start-$self->param('region_padding');
+            my $end = $transcript->seq_region_end+$self->param('region_padding');
+            $start = 1 if ($start < 1);
+            $end = $slice->end if ($end > $slice->end);
+            my $strand = $use_annotation ? 1 : $transcript->strand;
+            my $tbase_name = join(':', $base_name,
+                                       $start,
+                                       $end,
+                                       $strand);
+            foreach my $tse (@{$transcript->get_all_supporting_features}) {
+              my $hit_name = $tse->hseqname();
+              last if ($use_annotation and !exists $accessions{$hit_name});
+              if($hit_name =~ /\:/) {
+                $self->throw("The hit name for the supporting evidence has a colon in it and this will break the output id structure. ".
+                             "Transcript dbID: ".$transcript->dbID.", hit_name: ".$hit_name);
+              }
+              my $hit_slice_name = $tbase_name.':'.$hit_name;
+              $slice_hash{$hit_slice_name} = 1;
             }
-            $end = $end + $padding;
-            my $slice = $transcript->slice();
-            my $slice_length = $slice->length();
-            if($end > $slice_length) {
-              $end = $slice_length;
-            }
-          }
-
-          my @slice_array = split(':',$slice->name());
-          $slice_array[3] = $start;
-          $slice_array[4] = $end;
-          $slice_array[5] = $strand;
-          my $new_slice_name = join(':',@slice_array);
-
-          my @transcript_supporting_evidence = @{$transcript->get_all_supporting_features};
-          my $slice_hash;
-          foreach my $tse (@transcript_supporting_evidence) {
-            my $hit_name = $tse->hseqname();
-            if($hit_name =~ /\:/) {
-              $self->throw("The hit name for the supporting evidence has a colon in it and this will break the output id structure. ".
-                           "Transcript dbID: ".$transcript->dbID.", hit_name: ".$hit_name);
-            }
-            my $hit_slice_name = $new_slice_name.":".$hit_name;
-            $slice_hash->{$hit_slice_name} = 1;
-          }
-
-          foreach my $output_slice (keys(%$slice_hash)) {
-            push(@{$output_id_array},$output_slice);
           }
         }
       }
+      push(@input_ids,keys %slice_hash);
     }
-  } else {
-    $self->throw("The feature_type you provided is not currently supported by the code.\nfeature_type: ".$self->param('feature_type'));
   }
-
-  $self->param('inputlist', $output_id_array);
+  else {
+    $self->throw("The feature_type you provided is not currently supported by the code.\nfeature_type: $feature_type");
+  }
+  $self->param('inputlist', \@input_ids);
 }
 
 
@@ -760,12 +542,7 @@ sub feature_id {
   my ($self, $dba) = @_;
 
   my $output_id_array = [];
-  unless($self->param('feature_type')) {
-    $self->throw("You're trying to output a set of feature ids but haven't provided a feature type. ".
-                 "Expected \$self->param('feature_type')");
-  }
-
-  my $type = $self->param('feature_type');
+  my $type = $self->param_required('feature_type');
 
 #  my $logic_names = $self->param('logic_name');
   my $logic_names = $self->param('feature_logic_names');
@@ -826,34 +603,41 @@ sub feature_restriction {
 }
 
 
+=head2 filter_slice_on_features
+
+ Arg [1]    : Arrayref of Bio::EnsEMBL::Slice
+ Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor (optional)
+ Description: Creates input ids for a region if any object of type 'feature_type'
+              can be found for this region.
+              If an arrayref of database hash cannot be found in 'feature_dbs', you
+              will need to have 'target_db' set.
+ Returntype : Arrayref of Bio::EnsEMBL::Slice
+ Exceptions : Throws if the 'feature_type' cannot be processed
+
+=cut
+
 sub filter_slice_on_features {
-  my ($self,$slice_names,$dba) = @_;
+  my ($self,$slices,$dba) = @_;
 
-  my $feature_dbs = [];
+  my @feature_dbs;
   my @output_slices;
-  my $feature_slices = {};
 
-  unless($self->param('feature_type')) {
-    $self->throw("You have selected to use a feature_constraint, but haven't passed in the feature_type parameter");
-  }
-
-  unless($self->param('feature_dbs')) {
+  if($self->param_is_defined('feature_dbs')) {
+    foreach my $feature_db (@{$self->param('feature_dbs')}) {
+      push(@feature_dbs, hrdb_get_dba($feature_db));
+    }
+  } else {
     $self->warning("You have selected to use a feature_constraint, but haven't passed in a feature dbs array ref using ".
                    "the feature_dbs param. Defaulting to the target db");
-   push(@{$feature_dbs},$dba);
-  } else {
-    foreach my $feature_db (@{$self->param('feature_dbs')}) {
-      $dba = hrdb_get_dba($feature_db);
-      push(@{$feature_dbs},$dba);
-    }
+    @feature_dbs = ($dba);
   }
 
-  my $feature_type = $self->param('feature_type');
+  my $feature_type = $self->param_required('feature_type');
   if($feature_type eq 'gene') {
-    foreach my $slice_name (@$slice_names) {
-      foreach my $db (@$feature_dbs) {
-        if ($db->get_GeneAdaptor->count_all_by_Slice($db->get_SliceAdaptor->fetch_by_name($slice_name))) {
-          push(@output_slices, $slice_name);
+    foreach my $slice (@$slices) {
+      foreach my $db (@feature_dbs) {
+        if ($db->get_GeneAdaptor->count_all_by_Slice($slice)) {
+          push(@output_slices, $slice);
           last;
         }
       }
@@ -865,56 +649,69 @@ sub filter_slice_on_features {
   return \@output_slices;
 }
 
-sub batch_slice_ids {
-  my ($self,$slice_names) = @_;
-  my $batch_target_size = 1000000;
-  if($self->param('batch_target_size')) {
-    $batch_target_size = $self->param('batch_target_size');
-  }
 
-  # "chromosome:Mmul_8.0.1:1:1:998163:1"
-  my %length_hash;
-  foreach my $slice_name (@{$slice_names}) {
-    $slice_name =~ /(\d+)\:(\d+)\:\d+$/;
-    my $start = $1;
-    my $end = $2;
-    my $length = $end - $start + 1;
-    $length_hash{$slice_name} = $length;
-  }
+=head2 batch_slice_ids
+
+ Arg [1]    : Arrayref Bio::EnsEMBL::Slice
+ Description: Creates batch of slices to cover at least 'batch_target_size' bp.
+              It's useful when you have many small scaffolds to avoid having too
+              many jobs
+ Returntype : Arrayref of arrayref
+ Exceptions : None
+
+=cut
+
+sub batch_slice_ids {
+  my ($self, $slices) = @_;
+  my $batch_target_size = $self->param('batch_target_size');
 
   my $all_batches = [];
   my $single_batch_array = [];
   my $total_length = 0;
   # Sort shortest first
-  foreach my $slice_name (sort { $length_hash{$a} <=> $length_hash{$b} } keys %length_hash) {
-    my $length = $length_hash{$slice_name};
+  foreach my $slice (sort { $a->length <=> $b->length } $slices) {
+    my $length = $slice->length;
     if($length + $total_length > $batch_target_size) {
       push(@{$all_batches},[$single_batch_array]);
       $single_batch_array = [];
       $total_length = 0;
-      push(@{$single_batch_array},$slice_name);
-      $total_length += $length;
-    } else {
-      push(@{$single_batch_array},$slice_name);
-      $total_length += $length;
     }
+    push(@{$single_batch_array}, $slice->name);
+    $total_length += $length;
   }
   push(@{$all_batches},[$single_batch_array]);
   return($all_batches);
 }
 
 
-sub input_id_factory {
- my ($self,$value) = @_;
+=head2 _chunk_input_ids
 
-  if (defined $value) {
-    unless($value->isa('Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory')) {
-      $self->throw("To set an input id factory object it must be of type Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory, not a ".$value);
+ Arg [1]    : Int $batch_size, size of the batch to create
+ Arg [2]    : Arrayref Object, an array ref of object
+ Description: Split Arg[2] into smaller array of length Arg[1]
+ Returntype : Arrayref of Arrayref
+ Exceptions : None
+
+=cut
+
+sub _chunk_input_ids {
+  my ($self, $batch_size, $values) = @_;
+  my @output_id_array;
+
+  my $output_accession_array = [];
+  foreach my $accession (@$values) {
+    if(scalar(@{$output_accession_array}) == $batch_size) {
+      push(@output_id_array, [$output_accession_array]);
+      $output_accession_array = [];
     }
-    $self->param('_input_id_factory',$value);
+    push(@{$output_accession_array},$accession);
   }
 
-  return $self->param('_input_id_factory');
+  if(scalar(@{$output_accession_array})) {
+    push(@output_id_array,[$output_accession_array]);
+  }
+
+  return \@output_id_array;
 }
 
 1;
