@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -184,7 +184,7 @@ sub run {
   my $flagstat_results = $samtools->flagstat($sorted_bam.'.bam', 1);
   $self->throw('Got '.$flagstat_results->[0]." reads in flagstat rather than $total_reads in fastq - something went wrong\n")
     unless ($flagstat_results->[0] == $total_reads);
-  if (($self->min_mapped > $flagstat_results->[1]) or ($self->min_paired > $flagstat_results->[2])) {
+  if (($self->min_mapped > $flagstat_results->[1]) or ($fastqpair and $self->min_paired > $flagstat_results->[2])) {
     warning("Mappings for $sorted_bam.bam is bad:\n".
             'Min mapped '.$self->min_mapped.': '.$flagstat_results->[1]."\n".
             'Min paired '.$self->min_paired.': '.$flagstat_results->[2]."\n"
