@@ -770,6 +770,37 @@ sub run_analysis{
 }
 
 
+=head2 timer
+
+ Arg [1]    : Int String, the time you want to wait before
+ Description: Getter/Setter for the timer when you want to
+              use execute_with_timer to stop a job after an
+              amount of time.
+              The format is either in seconds, 3600 or m/M
+              for minutes, 30m or Hh for hours, 2h. They can
+              be combined: 2h30m
+ Returntype : String
+ Exceptions : Throws if the string is not conform to the format above
+
+=cut
+
+sub timer {
+  my ($self, $value) = @_;
+
+  if ($value) {
+    throw('The value should only be number or the format describe in Bio::EnsEMBL::Analysis::Tools::Utilities::execute_with_timer'.
+      "\nNot: '$value'")
+      unless ($value =~ /^[0-9HhMm]+$/);
+    $self->{_timer} = $value;
+  }
+  if (exists $self->{_timer}) {
+    return $self->{_timer};
+  }
+  else {
+    return;
+  }
+}
+
 
 
 
