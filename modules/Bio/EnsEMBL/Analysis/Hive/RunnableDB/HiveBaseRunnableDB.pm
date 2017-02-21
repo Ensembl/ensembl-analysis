@@ -33,6 +33,7 @@ use parent ('Bio::EnsEMBL::Hive::Process');
               These are the default values:
                _input_id_name => 'iid',
                disconnect_jobs => 0,
+               _branch_to_flow_to => 2,
  Returntype : Hashref, containing all default parameters
  Exceptions : None
 
@@ -45,6 +46,7 @@ sub param_defaults {
         %{$self->SUPER::param_defaults},
         _input_id_name => 'iid',
         disconnect_jobs => 0,
+        _branch_to_flow_to => 2,
     }
 }
 

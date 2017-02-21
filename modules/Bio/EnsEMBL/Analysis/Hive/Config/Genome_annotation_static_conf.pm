@@ -224,8 +224,6 @@ sub default_options {
     'exonerate_path'         => '/nfs/software/ensembl/RHEL7/linuxbrew/opt/exonerate09/bin/exonerate',
     'cmsearch_exe_path'    => catfile($self->o('binary_base'), 'cmsearch'),
 
-    'uniprot_index_name'          => 'uniprot_index',
-    'uniprot_db_name'             => 'uniprot_db',
     'uniprot_query_dir_name'      => 'uniprot_temp',
     'uniprot_genblast_batch_size' => 5,
     'uniprot_table_name'          => 'uniprot_sequences',
@@ -1476,7 +1474,8 @@ sub pipeline_analyses {
                        },
         -rc_name          => 'default',
         -flow_into => {
-                        1 => ['process_uniprot_files'],
+                        '2->A' => ['process_uniprot_files'],
+                        'A->1' => ['generate_genblast_jobs'],
                       },
       },
 
@@ -1484,28 +1483,11 @@ sub pipeline_analyses {
         -logic_name => 'process_uniprot_files',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessUniProtFiles',
         -parameters => {
-                         uniprot_db_name => $self->o('uniprot_db_name'),
-                         uniprot_index_name => $self->o('uniprot_index_name'),
-                         dest_dir   => $self->o('homology_models_path'),
                          killlist_type => 'protein',
                          killlist_db => $self->o('killlist_db'),
+                         sequence_table_name => $self->o('uniprot_table_name'),
                       },
         -rc_name => 'default',
-        -flow_into => {
-                       '2->A' => ['load_uniprot_seqs'],
-                       'A->1' => ['generate_genblast_jobs'],
-                      },
-      },
-
-      {
-        -logic_name => 'load_uniprot_seqs',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadSeqsPipeDB',
-        -parameters => {
-                         uniprot_db_path => catdir($self->o('homology_models_path'), $self->o('uniprot_db_name')),
-                         uniprot_index_path => catdir($self->o('homology_models_path'), $self->o('uniprot_index_name')),
-                       },
-        -rc_name          => 'default',
-        -hive_capacity => 100,
       },
 
 
@@ -1537,7 +1519,7 @@ sub pipeline_analyses {
                          module => 'HiveGenblast',
                          genblast_path => $self->o('genblast_path'),
                          genblast_db_path => $self->o('genome_file'),
-                         commandline_params => ' -P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
+                         commandline_params => ' -P '.($self->o('blast_type') eq 'ncbi' ? 'blast' : 'wublast').' -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
                          query_seq_dir => catdir($self->o('homology_models_path'), $self->o('uniprot_query_dir_name')),
                          sequence_table_name => $self->o('uniprot_table_name'),
                          max_rank => $self->o('genblast_max_rank'),
@@ -1578,7 +1560,7 @@ sub pipeline_analyses {
                          module => 'HiveGenblast',
                          genblast_path => $self->o('genblast_path'),
                          genblast_db_path => $self->o('genome_file'),
-                         commandline_params => ' -P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
+                         commandline_params => ' -P '.($self->o('blast_type') eq 'ncbi' ? 'blast' : 'wublast').' -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
                          query_seq_dir => catdir($self->o('homology_models_path'), $self->o('uniprot_query_dir_name')),
                          sequence_table_name => $self->o('uniprot_table_name'),
                          max_rank => $self->o('genblast_max_rank'),

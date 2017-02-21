@@ -109,7 +109,7 @@ sub write_output {
   my $self = shift;
 
   my @iids = map {{iid => $_}} @{$self->output};
-  $self->dataflow_output_id(\@iids, 1);
+  $self->dataflow_output_id(\@iids, $self->param('_branch_to_flow_to'));
 }
 
 
