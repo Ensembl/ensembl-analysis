@@ -18,44 +18,39 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadcDNAs;
 
 use strict;
 use warnings;
-use feature 'say';
-use Bio::EnsEMBL::IO::Parser::Fasta;
-use Data::Dumper;
 
-use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+use Bio::EnsEMBL::IO::Parser::Fasta;
+
+use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults()},
+    sequence_biotype => 'cdna',
+    column_names => ['iid'],
+    sequence_table_name => 'cdna_sequences',
+  }
+}
+
 
 sub fetch_input {
   my $self = shift;
 
-  return 1;
-}
-
-sub run {
-  my $self = shift;
-
-  return 1;
-}
-
-sub write_output {
-  my $self = shift;
-
-  my $db_path = $self->param('cdna_file');
-
-  my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($db_path);
+  my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($self->param_required('cdna_file'));
   my $header;
   my $seq;
-  my $biotype = 'cdna';
+  my $biotype = $self->param('sequence_biotype');
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
-  $table_adaptor->table_name('cdna_sequences');
+  $table_adaptor->table_name($self->param('sequence_table_name'));
 
+  my @iids;
   while($parser->next()) {
     $header = $parser->getHeader();
     $seq = $parser->getSequence();
     $header =~ s/(\S+).*/$1/;
-
-    my $output_hash = {};
-    $output_hash->{'iid'} = $header;
 
     my $db_row = [{
       'accession'  => $header,
@@ -63,10 +58,9 @@ sub write_output {
       'biotype'    => $biotype,
     }];
     $table_adaptor->store($db_row);
-    
-    $self->dataflow_output_id($output_hash,2);
+    push(@iids, $header);
   }
-  return 1;
+  $self->param('inputlist', \@iids);
 }
 
 1;
