@@ -197,6 +197,9 @@ sub fetch_input {
     } else {
       $self->throw("'$query' refers to something that could not be made sense of\n");
     }
+  } elsif($iid_type eq 'filename') {
+    @db_files = ($self->GENOMICSEQS);
+    $query_file = $self->input_id;
   } else {
    $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
