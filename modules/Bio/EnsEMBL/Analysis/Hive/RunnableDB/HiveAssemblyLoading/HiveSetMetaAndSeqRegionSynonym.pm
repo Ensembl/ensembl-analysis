@@ -121,11 +121,11 @@ sub write_output {
   my $self = shift;
 
 # This code should get the upstream input and add 'mt_accession' and 'chromosomes_present' if needed
-  my $job_params = eval($self->input_job->input_id);
   if ($self->param_is_defined('mt_accession')) {
+    my $job_params = eval($self->input_job->input_id);
     $job_params->{mt_accession} = $self->param('mt_accession');
+    $self->dataflow_output_id($job_params, 1);
   }
-  $self->dataflow_output_id($job_params, 1);
   return 1;
 }
 
