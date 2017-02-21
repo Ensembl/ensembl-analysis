@@ -302,7 +302,7 @@ sub run {
   
   $self->output($self->parse_results( $exo_fh ));
   
-  if (close( $exo_fh )) {
+  if (!close( $exo_fh )) {
     sleep 30;
     throw ("Error closing exonerate command: $? : $!");
   }
