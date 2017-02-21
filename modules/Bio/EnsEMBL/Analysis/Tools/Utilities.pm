@@ -1157,7 +1157,7 @@ sub first_upper_case {
               This is really useful in Hive while using LSF as processes are killed in random order
               Without the wait a LSF signal like TERM_MEMLIMIT might not be caught before the exit
               code from the executable. Hive would not use the -1, -2 branches
- Returntype : None
+ Returntype : Int 1 if successfull
  Exceptions : Throws after a Arg[3] seconds wait if the execution failed
 
 =cut
@@ -1169,6 +1169,7 @@ sub execute_with_wait {
     sleep($wait || 30);
     throw($failed_msg || 'Failed to run with code: '.$?."\n".$cmd);
   }
+  return 1;
 }
 
 
@@ -1179,7 +1180,7 @@ sub execute_with_wait {
  Description: Execute a system command and kill it if it doesn't finish in time
               You can either specify the time in seconds as digits only or
               you can use M and H to specify hours and/or minutes, without white spaces.
- Returntype : None
+ Returntype : Int 1 if successfull
  Exceptions : Throws after a Arg[2] seconds if your jobs did not finish
               Throws if Arg[2] is not set or incorrect or 0
 
@@ -1223,6 +1224,7 @@ sub execute_with_timer {
       throw($@);
     }
   }
+  return 1;
 }
 
 1;
