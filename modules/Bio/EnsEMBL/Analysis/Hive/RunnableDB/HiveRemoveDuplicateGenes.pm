@@ -136,7 +136,8 @@ sub write_output{
   if($@){
   	print "You have a problem with those genes, they didn't stored suggessfully, I will try to delete them and rerun the job: \n "; 
   	foreach my $g_t(@genes_to_write){ 
-  		print $g_t->dbID . "\n";  	
+  		print $g_t->dbID . "\n";
+                print "--start:" . $g_t->seq_region_start . " end:" . $g_t->seq_region_end . "\n" ;  	
   	}
     $self->param('fail_delete_features', \@genes_to_write);
     $self->throw($@);

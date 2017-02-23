@@ -146,9 +146,10 @@ sub run{
   #          Filtering of single-exon lincRNAs and artefactual two-exon lincRNAs (containing frameshift introns)
   #          happens at this stage if required.
   
-  
+  print "DEBUG::proble1\n";
   my $multi_exon_genes  = get_multi_Exon_Genes(\@no_prot_domain_genes) ;     
-  my $single_exon_genes  = get_single_Exon_Genes(\@no_prot_domain_genes) ;     
+  print "DEBUG::proble2\n";
+  my $single_exon_genes  =  get_single_Exon_Genes(\@no_prot_domain_genes) ;     
 
   print "  Up to this stage, out of all lincRNA candidates, " . scalar(@$multi_exon_genes) . " is multi-exon and " . scalar(@$single_exon_genes) . " is single-exon.\n";
   

@@ -41,6 +41,9 @@ sub default_options {
 ########################
 # Pipe and ref db info
 ########################
+
+# you will need to have a source with registry creation! 
+# check https://www.ebi.ac.uk/seqdb/confluence/pages/viewpage.action?pageId=39822808
     'pipeline_name' => 'lincRNA_Pipe_Month20XX',
     'species' => '', # your species name ie microcebus_murinus
     'pipe_dbname' => join('_', $ENV{USER}, $self->o('species'), $self->o('pipeline_name')),
@@ -91,7 +94,7 @@ sub default_options {
     'max_seq_length_per_file' => 20000, # Maximum sequence length in a file 
     'max_files_per_directory' => 1000, # Maximum number of files in a directory
     'max_dirs_per_directory'  => $self->o('max_files_per_directory'),
-    'out_dir' => '',
+    'out_dir' => '',  # DO NOT FORGET to set your output dir. 
     'file_translations' => $self->o('out_dir').'/hive_dump_translations.fasta',  
     
 ########################
@@ -268,7 +271,7 @@ sub pipeline_analyses {
                       },
       -rc_name    => 'normal_4600',
       -flow_into => {
-        1 => ['Hive_LincRNAFinder_test_pi'],
+        1 => ['Hive_LincRNAFinder'],
       }
     },
 
@@ -277,13 +280,13 @@ sub pipeline_analyses {
 ##############################################################################
 
     {
-      -logic_name => 'Hive_LincRNAFinder_test_pi',
+      -logic_name => 'Hive_LincRNAFinder',
       -hive_capacity => 200,
       -batch_size    => 100,      
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNAFinder',
       -max_retry_count => 1,
       -parameters => {
-                       logic_name => 'Hive_LincRNAFinder_test',
+                       logic_name => 'Hive_LincRNAFinder',
                        module => 'HiveLincRNAFinder_1',
                        config_settings => $self->get_config_settings('HiveLincRNAFinder', 'Hive_lincRNA_1'),
                        source_protein_coding_db => $self->o('source_protein_coding_db'),
@@ -293,7 +296,7 @@ sub pipeline_analyses {
       -rc_name    => 'normal_4600',
      # -wait_for   => ['Hive_LincRNARemoveDuplicateGenes'], 
       -flow_into => {
-                      1  => ['HiveDumpTranslations_test_pi'],
+                      1  => ['HiveDumpTranslations'],
                      -1 => ['Hive_LincRNAFinder_himem'],
                     },
     },
@@ -303,7 +306,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNAFinder',
       -batch_size => 5,
       -parameters => {
-                       logic_name => 'Hive_LincRNAFinder_test',
+                       logic_name => 'Hive_LincRNAFinder',
                        module => 'HiveLincRNAFinder_1',
                        config_settings => $self->get_config_settings('HiveLincRNAFinder', 'Hive_lincRNA_1'),
                        source_cdna_db => $self->o('cdna_db'),
@@ -314,12 +317,12 @@ sub pipeline_analyses {
       -rc_name    => 'normal_18000',
       -can_be_empty  => 1,
       -flow_into => {
-                      1  => ['HiveDumpTranslations_test_pi'],
+                      1  => ['HiveDumpTranslations'],
                     },
     },
     
     {
-      -logic_name => 'HiveDumpTranslations_test_pi',
+      -logic_name => 'HiveDumpTranslations',
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDumpTranslations',
       -batch_size    => 100,
       -parameters => {
@@ -341,13 +344,13 @@ sub pipeline_analyses {
                      },
       -rc_name    => 'normal_1500_db',
       -flow_into => {
-                     '2->A' => ['SplitDumpFiles_test_pi'],
-                     'A->1' => ['Hive_LincRNAEvaluator_test_pi'],
+                     '2->A' => ['SplitDumpFiles'],
+                     'A->1' => ['Hive_LincRNAEvaluator'],
                     },
      },
 
      {
-       -logic_name => 'SplitDumpFiles_test_pi',
+       -logic_name => 'SplitDumpFiles',
        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSplitFasta',
        -parameters => {
                         fasta_file              => $self->o('file_translations') ,
@@ -359,13 +362,13 @@ sub pipeline_analyses {
                        },
        -rc_name    => 'normal_1500',
        -flow_into     => {
-          2 => ['RunI5Lookup_test_pi'],
+          2 => ['RunI5Lookup'],
        }
     },
 
      ### Here begins the running InterproScan
     {
-      -logic_name    => 'RunI5Lookup_test_pi',
+      -logic_name    => 'RunI5Lookup',
       -module        => 'Bio::EnsEMBL::Hive::RunnableDB::InterProScan::RunI5',
       -hive_capacity => 250,
       -batch_size    => 10,
@@ -376,11 +379,11 @@ sub pipeline_analyses {
                            interproscan_applications => $self->o('interproscan_lookup_applications'),
                          },
       -rc_name       => 'normal_1500',
-      -flow_into     => ['StoreFeatures_test_pi'],
+      -flow_into     => ['StoreFeatures'],
     },
 
     {
-      -logic_name    => 'StoreFeatures_test_pi',
+      -logic_name    => 'StoreFeatures',
       -max_retry_count => 1,
       -module        => 'Bio::EnsEMBL::Hive::RunnableDB::InterProScan::StoreFeatures',
       -parameters    => {
@@ -391,30 +394,49 @@ sub pipeline_analyses {
     }, 
 
     {
-      -logic_name => 'Hive_LincRNAEvaluator_test_pi',
+      -logic_name => 'Hive_LincRNAEvaluator',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNAEvaluator',
       -max_retry_count => 0,
       -hive_capacity => 100,
       -batch_size    => 150,
       -parameters => {
                          logic_name => 'Hive_LincRNAEvaluator_test',
-                         module => 'HiveLincRNAEvaluator_1',
+                         module => 'HiveLincRNAEvaluator',
                          config_settings => $self->get_config_settings('HiveLincRNAEvaluator', 'Hive_lincRNAEvaluator_1'),
                          source_protein_coding_db => $self->o('source_protein_coding_db'),
                          lincRNA_output_db => $self->o('lincRNA_output_db'),
                          reference_db => $self->o('dna_db'),
                          source_cdna_db => $self->o('cdna_db'),
                       },
-    #   -wait_for   => ['StoreFeatures_test_pi'],
       -rc_name    => 'normal_4600',
     }, 
+
+
+     # for human in case there are regulation feature data. 
+     # {
+     #   -logic_name => 'Hive_LincRNARegulation',
+     #   -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNARegulationFeatures',
+     #   -max_retry_count => 1,
+     #   -parameters => {
+     #                    logic_name => 'HiveLincRNA_RegFeat',
+     #                    module => 'HiveLincRNAReg',
+     #                    config_settings => $self->get_config_settings('HiveLincRNAReg', 'HiveLincRNAReg_1'),
+     #                    lincRNA_output_db => $self->default_options->{lincRNA_output_db},
+     #                    regulation_db => $self->o('regulation_db'), 
+     #                    regulation_reform_db => $self->o('regulation_reform_db'),
+     #                    reference_db => $self->o('reference_db'),
+     #                 },
+     #   -rc_name    => 'default', 
+     # }, 
+
+   
 
     {
       -logic_name => 'Hive_LincRNAAftCheck_pi',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincAfterChecks',
       -parameters => {
-                         logic_name => 'HiveLAfChecks_test',
-                         module => 'HiveLAfChecks_test_1',
+                         logic_name => 'HiveLincRNA_afterChecks',
+                         module => 'HiveLincAfterChecks',
                          config_settings => $self->get_config_settings('HiveLincRNA_checks', 'HiveLincRNA_checks_1'),
                          lincRNA_output_db => $self->o('lincRNA_output_db'),
                          reference_db => $self->o('dna_db'),                         
@@ -427,11 +449,10 @@ sub pipeline_analyses {
                       },
       -rc_name    => 'normal_7900',
       -input_ids => [{}],
-      -wait_for   => ['Hive_LincRNAEvaluator_test_pi'], 
+      -wait_for   => ['Hive_LincRNAEvaluator'], 
     }, 
-    
-  ];
-}
+  ]; 
+} 
 
 
 
@@ -749,6 +770,41 @@ sub master_config_settings {
 
   	},
   },
+  
+
+
+  # this could be used only for human and mouse. 
+  HiveLincRNAReg=> {
+    HiveLincRNAReg_1 => { 
+
+                  EFG_FEATURE_DB    => 'regulation_db', 
+                  EFG_FEATURE_NAMES => ['H3K4me3','H3K36me3'], 
+                  OUTPUT_DB => $self->default_options->{lincRNA_output_db}, 
+                  BIOTYPE_TO_CHECK => 'lincRNA_pass_Eval_no_pfam', 
+                  
+                  EXTEND_EFG_FEATURES => 500, # make efg features longer! 
+                  
+                  CHECK_CDNA_OVERLAP_WITH_BOTH_K4_K36 => 1, 
+
+                  CHECK_CDNA_OVERLAP_WITH_MULTI_K36 => 1, 
+
+                  WRITE_DEBUG_OUTPUT => 1,     # Set this to "0" to turn off debugging.
+                  DEBUG_OUTPUT_DB    => 'regulation_reform_db',    # where debug output (if any) will be written to
+                  OUTPUT_BIOTYPE_OVERLAP => 'lincRNA_withReg', 
+                  OUTPUT_BIOTYPE_NOT_OVERLAP => 'lincRNA_withOutReg', 
+
+                  # logic_name for H3 features which do NOT cluster with cDNA/RNASeq models or protein_coding genes:
+                  DEBUG_LG_EFG_UNCLUSTERED  => 'efg_NO_cdna_update_NO_pc', 
+                                                                               
+                  # logic_name for H3 features which cluster with cDNA/RNASeq models checked to be not overlapping with protein_coding genes:                                           
+                  DEBUG_LG_EFG_CLUSTERING_WITH_CDNA => 'efg_cluster_non_pc_cdna_update',
+    },	
+  },
+  
+  
+  
+  
+  
   HiveLincRNA_checks=> {
     HiveLincRNA_checks_1 => {
     	            Final_BIOTYPE_TO_CHECK  => 'lincRNA_pass_Eval_no_pfam',

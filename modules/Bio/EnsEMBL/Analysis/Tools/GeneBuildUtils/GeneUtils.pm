@@ -106,18 +106,21 @@ sub filter_Genes_by_Exon_count {
   for my $g ( @$genes ) {
     my $max_nr_exons = 0 ;
     for my $t ( @{$g->get_all_Transcripts} ) {
+      print "DEBUG::transcript_id:" . $t->dbID() . "\n" ;
       my $exons = scalar( @{$t->get_all_Exons} );
       if ( $max_nr_exons < $exons ) {
         $max_nr_exons = $exons;
       }
     }
+    print "DEBUG::filter_Genes_by_Exon: " . $g->dbID()  . " -- " . $max_nr_exons . "\n" ;
     if ( $max_nr_exons == 1 ) {
       push @single_exon_genes, $g ;
     } elsif ( $max_nr_exons > 1 ) {
       push @multi_exon_genes, $g;
     } else {
-      print "DEBUG:problem with this gene: " . print_Gene($g) . "\n";
-      throw (" Gene ".$g->dbID. " does not have any exons !");
+      print "DEBUG:problem with this gene, it has $max_nr_exons exons\n";      
+      print "DEBUG:printGene:: " . print_Gene($g) . "\n";
+      throw("Gene ".$g->dbID. " does not have any exons !");
     }
   }
   return ( \@single_exon_genes , \@multi_exon_genes ) ;
