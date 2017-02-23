@@ -1358,7 +1358,6 @@ sub pipeline_analyses {
         -rc_name    => 'genblast',
         -parameters => {
                          iid_type => 'db_seq',
-                         query_table_name => $self->o('refseq_cdna_table_name'),
                          sequence_table_name => $self->o('refseq_cdna_table_name'), # there is a problem here. I add that, but it should be query_table_name or sequence_table_name
 
                          dna_db => $self->o('dna_db'),
@@ -1389,7 +1388,6 @@ sub pipeline_analyses {
         -rc_name    => 'genblast_retry',
         -parameters => {
                          iid_type => 'db_seq',
-                         query_table_name => $self->o('refseq_cdna_table_name'),
                          sequence_table_name => $self->o('refseq_cdna_table_name'), # there is a problem here. I add that, but it should be query_table_name or sequence_table_name
 
                          dna_db => $self->o('dna_db'),
@@ -1500,9 +1498,9 @@ sub pipeline_analyses {
         -logic_name => 'generate_genblast_jobs',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
-                         iid_type => 'uniprot_accession',
-                         uniprot_batch_size => $self->o('uniprot_genblast_batch_size'),
-                         uniprot_table_name => $self->o('uniprot_table_name'),
+                         iid_type => 'sequence_accession',
+                         batch_size => $self->o('uniprot_genblast_batch_size'),
+                         sequence_table_name => $self->o('uniprot_table_name'),
                        },
         -rc_name      => 'default_himem',
         -flow_into => {
@@ -1543,9 +1541,8 @@ sub pipeline_analyses {
         -logic_name => 'split_genblast_jobs',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
-                         iid_type => 'rechunk_uniprot_accession',
-                         uniprot_batch_size => 1,
-                         uniprot_table_name => $self->o('uniprot_table_name'),
+                         iid_type => 'rechunk',
+                         batch_size => 1,
                        },
         -rc_name      => 'default',
         -can_be_empty  => 1,
