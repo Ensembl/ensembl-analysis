@@ -323,30 +323,9 @@ sub output_transcript_slice {
        -strand            => 1,
        -adaptor           => $slice->adaptor());
 
-  my $name = $transcript_slice->name;
-  my $seq = $transcript_slice->seq;
-
-  my $outfile_name = "genblast_slice.db";
-  my $output_dir = $self->output_dir_path;
-  my $outfile_path = $output_dir."/".$outfile_name;
-
-  unless(-e $output_dir) {
-    `mkdir -p $output_dir`;
-  }
-
-  if(-e $outfile_path) {
-    $self->warning("Found the db file in the query dir already. Overwriting. File path\n:".$outfile_path);
-  }
-
-  open(SLICE_OUT,">".$outfile_path);
-  my $record = ">".$name."\n".$seq;
-  say SLICE_OUT $record;
-  close SLICE_OUT;
-
-#  $self->files_to_delete($output_dir);
-
+  my $outfile_path = $self->create_target_file('genblast_slice', 'db');
+  &dump($transcript_slice, 'fasta', $outfile_path);
   return($outfile_path);
-
 }
 
 

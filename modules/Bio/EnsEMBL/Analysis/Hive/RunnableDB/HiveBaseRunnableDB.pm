@@ -601,4 +601,75 @@ sub is_slice_name {
     return $string =~ /^[^:]+:[^:]+:[^:]+:\d+:\d+:(1|-1)$/;
 }
 
+
+=head2 create_target_file
+
+ Arg [1]    : (optional) String, prefix for the file
+ Arg [2]    : (optional) String, extension of the file
+ Arg [3]    : (optional) String, directory to write to
+ Description: Create a temporary file for the target sequence.
+              It should be called without argument but mostly
+              without Arg[3] as you want to use /tmp
+              The object can be called with 'target_file'
+ Returntype : String filename
+ Exceptions : None
+
+=cut
+
+sub create_target_file {
+  my ($self, $stem, $suffix, $dir) = @_;
+
+  $stem = 'target' unless ($stem);
+  return $self->_create_temporary_file('target_file', $stem, $suffix, $dir);
+}
+
+
+=head2 create_query_file
+
+ Arg [1]    : (optional) String, prefix for the file
+ Arg [2]    : (optional) String, extension of the file
+ Arg [3]    : (optional) String, directory to write to
+ Description: Create a temporary file for the query sequence.
+              It should be called without argument but mostly
+              without Arg[3] as you want to use /tmp
+              The object can be called with 'query_file'
+ Returntype : String filename
+ Exceptions : None
+
+=cut
+
+sub create_query_file {
+  my ($self, $stem, $suffix, $dir) = @_;
+
+  $stem = 'query' unless ($stem);
+  return $self->_create_temporary_file('query_file', $stem, $suffix, $dir);
+}
+
+
+=head2 _create_temporary_file
+
+ Arg [1]    : String, name of parameter to store
+ Arg [2]    : (optional) String, prefix for the file
+ Arg [3]    : (optional) String, extension of the file
+ Arg [4]    : (optional) String, directory to write to
+ Description: Create a temporary file.
+ Returntype : String filename
+ Exceptions : None
+
+=cut
+
+sub _create_temporary_file {
+  my ($self, $name, $stem, $suffix, $dir) = @_;
+
+  my $random = 'XXXXX';
+  my %params;
+  $params{TEMPLATE} = $stem.'_'.$random if ($stem);
+  $params{SUFFIX} = $suffix if ($suffix);
+  $params{DIR} = $dir if ($dir);
+  my $fh = File::Temp->new(%params);
+  $self->param($name, $fh);
+  return $fh->filename;
+}
+
+
 1;
