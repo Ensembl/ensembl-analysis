@@ -20,6 +20,7 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::IO::Parser::Fasta;
+use Bio::EnsEMBL::Analysis::Tools::PolyAClipping qw(clip_if_necessary);
 
 use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
 
@@ -38,7 +39,11 @@ sub param_defaults {
 sub fetch_input {
   my $self = shift;
 
+  my $process_polyA = 0;
   my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($self->param_required('cdna_file'));
+  if ($self->param_is_defined('process_polyA') and $self->param('process_polyA')) {
+    $process_polyA = 1;
+  }
   my $header;
   my $seq;
   my $biotype = $self->param('sequence_biotype');
@@ -51,6 +56,11 @@ sub fetch_input {
     $header = $parser->getHeader();
     $seq = $parser->getSequence();
     $header =~ s/(\S+).*/$1/;
+    if ($process_polyA) {
+      my $bioseq = Bio::Seq->new(-id => $header, -seq => $seq);
+      ($bioseq, undef, undef) = clip_if_necessary($bioseq);
+      $seq = $bioseq->seq;
+    }
 
     my $db_row = [{
       'accession'  => $header,

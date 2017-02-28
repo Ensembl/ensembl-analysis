@@ -45,12 +45,9 @@ use strict;
 use warnings;
 use Bio::Seq;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Exporter;
-use vars qw(@ISA @EXPORT);
+use Exporter qw(import);
 
-@ISA = qw(Exporter);
-
-@EXPORT = qw(clip_if_necessary prepare_seq);
+our @EXPORT_OK = qw(clip_if_necessary prepare_seq);
 
 
 =head2 clip_if_necessary 

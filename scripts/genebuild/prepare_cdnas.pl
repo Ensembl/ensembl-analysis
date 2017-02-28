@@ -74,7 +74,7 @@
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::Tools::PolyAClipping;
+use Bio::EnsEMBL::Analysis::Tools::PolyAClipping qw(clip_if_necessary prepare_seq);
 use Bio::SeqIO;
 use Bio::EnsEMBL::KillList::KillList;
 use Getopt::Long qw(:config no_ignore_case);
