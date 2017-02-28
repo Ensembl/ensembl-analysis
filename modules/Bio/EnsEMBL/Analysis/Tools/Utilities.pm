@@ -1181,7 +1181,7 @@ sub execute_with_wait {
               You can either specify the time in seconds as digits only or
               you can use M and H to specify hours and/or minutes, without white spaces.
  Returntype : Int 1 if successfull
- Exceptions : Throws after a Arg[2] seconds if your jobs did not finish
+ Exceptions : Throws after your jobs did not finish in time
               Throws if Arg[2] is not set or incorrect or 0
 
 =cut
@@ -1192,18 +1192,20 @@ sub execute_with_timer {
   my $realtimer = 0;
   if ($timer) {
     if ($timer =~ tr/mhMH/MHMH/) {
-      if ($timer =~ s/^(\d+H)//) {
+      if ($timer =~ s/^(\d+)H//) {
         $realtimer = $1*3600;
       }
-      if ($timer =~ s/^(\d+M)//) {
+      if ($timer =~ s/^(\d+)M//) {
         $realtimer += $1*60;
       }
     }
-    if ($timer =~ /^\d*\s*$/) {
-      $realtimer += $timer;
-    }
-    else {
-      throw("This is what is left of your timer: $timer and this is what I could calculate: $realtimer\n");
+    if ($timer) {
+      if ($timer =~ /^\d*\s*$/) {
+        $realtimer += $timer;
+      }
+      else {
+        throw("This is what is left of your timer: $timer and this is what I could calculate: $realtimer\n");
+      }
     }
   }
   else {
@@ -1218,7 +1220,7 @@ sub execute_with_timer {
   };
   if ($@) {
     if ($@ eq "alarm\n") {
-      throw("Your job $cmd was still running after your timer: $timer\n");
+      throw("Your job $cmd was still running after your timer: $realtimer\n");
     }
     else {
       throw($@);
