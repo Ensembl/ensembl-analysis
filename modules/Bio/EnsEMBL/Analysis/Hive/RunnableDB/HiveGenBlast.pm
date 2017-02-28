@@ -37,7 +37,8 @@ use strict;
 use warnings;
 use feature 'say';
 
-use Bio::EnsEMBL::DnaPepAlignFeature;
+use Bio::Seq;
+
 use Bio::EnsEMBL::Analysis::Runnable::GenBlastGene;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -79,7 +80,7 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
+  my $dba = $self->hrdb_get_dba($self->param_required('target_db'));
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
   if($dna_dba) {
     $dba->dnadb($dna_dba);
@@ -88,8 +89,8 @@ sub fetch_input {
   $self->hrdb_set_con($dba,'target_db');
 
   $self->create_analysis;
-  my $genome_file = $self->param('genblast_db_path');
-  $self->analysis->program_file($self->param('genblast_path'));
+  my $genome_file = $self->param_required('genblast_db_path');
+  $self->analysis->program_file($self->param_required('genblast_path'));
   $self->analysis->db_file($genome_file);
   $self->analysis->parameters($self->param('commandline_params'));
 
@@ -99,47 +100,49 @@ sub fetch_input {
   }
 
 
-  my $query_file;
+  my $query;
 
   my $iid_type = $self->param_required('iid_type');
-  # If there is a sequence table name, store for use later
-  $self->param_required('sequence_table_name');
 
   if($iid_type eq 'db_seq') {
-    $query_file = $self->output_query_file($self->param("iid"));
+    $query = $self->get_query_seqs($self->input_id);
   } elsif($iid_type eq 'chunk_file') {
-    $query_file = $self->param('iid');
+    $query = $self->input_id;
     if($self->param_is_defined('query_seq_dir')) {
-      $query_file = $self->param('query_seq_dir')."/".$query_file;
+      $query = catfile($self->param('query_seq_dir'), $query);
     }
   } elsif($iid_type eq 'projection_transcript_id') {
-    my @iid = @{$self->param("iid")};
+    my @iid = @{$self->input_id};
     my $projection_dba = $self->hrdb_get_dba($self->param('projection_db'));
     if($dna_dba) {
       $projection_dba->dnadb($dna_dba);
     }
     my $projection_transcript_id = $iid[0];
     my $projection_protein_accession = $iid[1];
-    my $padding = $self->param('projection_padding');
 
-    $query_file = $self->output_query_file([$projection_protein_accession]);
-    $genome_file = $self->output_transcript_slice($projection_dba,$projection_transcript_id,$padding);
+    $query = $self->get_query_seqs([$projection_protein_accession]);
+    $genome_file = $self->output_transcript_slice($projection_dba, $projection_transcript_id);
   } else {
     $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlastGene->new
     (
-     -query => $query_file,
      -program => $self->analysis->program_file,
      -analysis => $self->analysis,
      -database => $genome_file,
      -max_rank => $self->param('max_rank'),
      -genblast_pid => $self->param('genblast_pid'),
-     -workdir => $self->param('query_seq_dir'),
+     -workdir => File::Temp->newdir(),
      -database_adaptor => $dba,
      %parameters,
     );
+  if (ref($query) eq 'ARRAY') {
+    $runnable->write_seq_file($query);
+  }
+  else {
+    $runnable->queryfile($query);
+  }
   $runnable->genblast_program($self->param('genblast_program')) if ($self->param_is_defined('genblast_program'));
   $runnable->timer($self->param('timer'));
   $self->runnable($runnable);
@@ -222,12 +225,6 @@ sub write_output{
 
   }
 
-  if($self->files_to_delete()) {
-    my $files_to_delete = $self->files_to_delete();
-    `rm -r $files_to_delete/genblast_*`;
-    `rmdir $files_to_delete`;
-  }
-
   return 1;
 }
 
@@ -250,63 +247,41 @@ sub get_biotype {
 }
 
 
-sub output_query_file {
+sub get_query_seqs {
   my ($self,$accession_array) = @_;
 
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
-  $table_adaptor->table_name($self->param('sequence_table_name'));
-
-
-  my $rand = int(rand(1000000));
-  # Note as each accession will occur in only one file, there should be no problem using the first one
-  my $outfile_name = "genblast_".$$."_".$rand.".fasta";
-  my $output_dir = $self->param('query_seq_dir')."/genblast_".$$."_".$rand;
-  my $outfile_path = $output_dir."/".$outfile_name;
+  $table_adaptor->table_name($self->param_required('sequence_table_name'));
 
   my $biotypes_hash = {};
+  my @seqs;
 
-
-  unless(-e $output_dir) {
-    `mkdir -p $output_dir`;
-  }
-
-  if(-e $outfile_path) {
-    $self->warning("Found the query file in the query dir already. Overwriting. File path\n:".$outfile_path);
-  }
-
-  open(QUERY_OUT,">".$outfile_path);
   foreach my $accession (@{$accession_array}) {
     my $db_row = $table_adaptor->fetch_by_dbID($accession);
     unless($db_row) {
       $self->throw("Did not find an entry in the uniprot_sequences table matching the accession. Accession:\n".$accession);
     }
 
-    my $seq = $db_row->{'seq'};
+    push(@seqs, Bio::Seq->new(-id => $accession, -seq => $db_row->{seq}));
     $biotypes_hash->{$accession} = $db_row->{'biotype'};
-
-    my $record = ">".$accession."\n".$seq;
-    say QUERY_OUT $record;
   }
-  close QUERY_OUT;
-
-  $self->files_to_delete($output_dir);
-  $self->output_dir_path($output_dir);
 
   $self->get_biotype($biotypes_hash);
 
-  return($outfile_path);
+  return \@seqs;
 }
 
 
 sub output_transcript_slice {
-  my ($self,$dba,$transcript_id,$padding) = @_;
+  my ($self,$dba,$transcript_id) = @_;
 
+  my $padding = $self->param('projection_padding');
   my $transcript_adaptor = $dba->get_TranscriptAdaptor();
   my $transcript = $transcript_adaptor->fetch_by_dbID($transcript_id);
   my $slice = $transcript->slice();
   my $new_start = $transcript->seq_region_start() - $padding;
-  if($new_start <= 0) {
+  if($new_start < 1) {
     $new_start = 1;
   }
   my $new_end = $transcript->seq_region_end() + $padding;
