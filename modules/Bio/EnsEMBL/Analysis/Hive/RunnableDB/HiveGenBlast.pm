@@ -185,7 +185,7 @@ sub write_output{
 
   my $adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
   my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
-  my $failure_branch_code = -3;
+  my $failure_branch_code = $self->param('_branch_to_flow_to_on_fail');
 
   if($self->runnable_failed == 1) {
     my $output_hash = {};

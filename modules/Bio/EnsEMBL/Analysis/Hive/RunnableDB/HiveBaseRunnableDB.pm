@@ -47,6 +47,7 @@ sub param_defaults {
         _input_id_name => 'iid',
         disconnect_jobs => 0,
         _branch_to_flow_to => 2,
+        _branch_to_flow_to_on_fail => -3,
     }
 }
 
