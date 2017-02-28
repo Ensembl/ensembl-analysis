@@ -59,6 +59,7 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     projection_padding => 50000,
+    timer => '2h',
   }
 }
 
@@ -140,6 +141,7 @@ sub fetch_input {
      %parameters,
     );
   $runnable->genblast_program($self->param('genblast_program')) if ($self->param_is_defined('genblast_program'));
+  $runnable->timer($self->param('timer'));
   $self->runnable($runnable);
 
   return 1;

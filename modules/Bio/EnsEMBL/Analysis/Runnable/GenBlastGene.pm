@@ -50,6 +50,7 @@ use feature 'say';
 
 
 use File::Spec;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_timer);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
@@ -191,11 +192,8 @@ sub run_analysis{
   ' -g T -pid -r '.$max_rank.' '.$self->options;
 
   $self->resultsfile($self->query. $outfile_suffix. ".gff");
+  execute_with_timer($command, $self->timer);
 
-  my $return = system($command);
-
-  unless($return == 0) {
-    throw("genblast returned a non-zero exit code (".$return."). Commandline used:\n".$command);
   }
 
   foreach my $file (glob("${outfile_glob_prefix}*")) {
