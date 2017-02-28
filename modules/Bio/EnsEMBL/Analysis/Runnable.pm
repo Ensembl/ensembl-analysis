@@ -295,7 +295,7 @@ sub program{
     my $path = $self->locate_executable($program);
     $self->{'program'} = $path;
   }
-  throw($self->{'program'}." is not executable") 
+  throw($self->{'program'}.' is not executable for '.ref($self))
     if($self->{'program'} && !(-x $self->{'program'}));
   return $self->{'program'};
 }
