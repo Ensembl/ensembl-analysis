@@ -512,7 +512,7 @@ sub check_transform {
   return 1;
 } ## end sub check_transform
 
-<<<<<<< HEAD
+
 sub get_feature_slice_from_db {
   my ( $feature, $db ) = @_;
 
@@ -536,7 +536,8 @@ sub get_feature_slice_from_db {
   }
 
   return $slices[0];
-=======
+}
+
 sub clean_transcripts {
   my ($gene) = @_;
 
@@ -564,5 +565,4 @@ sub clean_transcripts {
       }
     }
   }
->>>>>>> origin/task/update/chicken/Gallus_gallus-5.0
 }

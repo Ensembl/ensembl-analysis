@@ -78,7 +78,6 @@ sub new {
 
   my ($epojar, $threshold) = rearrange(['EPOJAR', 'THRESHOLD'], @args);
 
-<<<<<<< HEAD
   if(!$self->program){
     $self->program('java');
   }
@@ -94,29 +93,6 @@ sub new {
   } else {
     $self->threshold(50);
   }
-=======
-
-
-  ##################
-  #SETTING DEFAULTS#
-  ##################
-  if(!$self->program){
-    $self->program('java');
-  }
-
-  unless($epojar) {
-    $self->epojar('eponine-scan.jar');
-  } else {
-    $self->epojar($epojar);
-  }
-
-  unless(defined($threshold)) {
-    $self->threshold(50);
-  } else {
-    $self->threshold($threshold);
-  }
-  ##################
->>>>>>> origin/task/update/chicken/Gallus_gallus-5.0
 
   return $self;
 }
