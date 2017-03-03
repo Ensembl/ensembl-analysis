@@ -142,11 +142,12 @@ sub default_options {
 ########################
 # BLAST db paths
 ########################
-    'uniprot_blast_db_path'     => '/hps/nobackup/production/ensembl/genebuild/blastdb/uniprot/uniprot_2016_10/uniprot_vertebrate',
-    'vertrna_blast_db_path'     => '/hps/nobackup/production/ensembl/genebuild/blastdb/vertrna/130/embl_vertrna-1',
-    'unigene_blast_db_path'     => '/hps/nobackup/production/ensembl/genebuild/blastdb/unigene/unigene',
+    'base_blast_db_path'        => '' || $ENV{BLASTDB_DIR},
+    'uniprot_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'uniprot', 'uniprot_2016_10/uniprot_vertebrate'),
+    'vertrna_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'vertrna', '130/embl_vertrna-1'),
+    'unigene_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'unigene', 'unigene'),
     'mito_index_path'           => undef, # Set this path only if you don't want to use the GCF report and if you haven't set 'mt_accession' '/nfs/production/panda/ensembl/genebuild/blastdb/refseq_mitochondria_set/mito_index.txt',
-    'ncrna_blast_path'          => '/hps/nobackup/production/ensembl/genebuild/blastdb/ncrna_2016_05/',
+    'ncrna_blast_path'          => catfile($self->o('base_blast_db_path'), 'ncrna_2016_05'),
     'mirBase_fasta'             => 'mouse_mirnas.fa',
 
 ######################################################
@@ -224,12 +225,11 @@ sub default_options {
     'exonerate_path'         => '/nfs/software/ensembl/RHEL7/linuxbrew/opt/exonerate09/bin/exonerate',
     'cmsearch_exe_path'    => catfile($self->o('binary_base'), 'cmsearch'),
 
-    'uniprot_query_dir_name'      => 'uniprot_temp',
     'uniprot_genblast_batch_size' => 5,
     'uniprot_table_name'          => 'uniprot_sequences',
 
     'genblast_path'     => catfile($self->o('binary_base'), 'genblast'),
-    'genblast_eval'     => '1e-20',
+    'genblast_eval'     => $self->o('blast_type') eq 'wu' ? '1e-20' : '1e-1',
     'genblast_cov'      => '0.5',
     'genblast_pid'      => '50',
     'genblast_max_rank' => '5',
@@ -490,6 +490,10 @@ sub pipeline_create_commands {
 sub pipeline_analyses {
     my ($self) = @_;
 
+    my %genblast_params = (
+      wu   => '-P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov'),
+      ncbi => '-P blast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' -W 3 -rl 5000',
+      );
     my %commandline_params = (
       'ncbi' => '-num_threads 3 -window_size 40',
       'wu' => '-cpus 3 -hitdist 40',
@@ -738,19 +742,19 @@ sub pipeline_analyses {
                          top_level => 1,
                        },
         -flow_into => {
-                        2 => ['create_10mb_slice_ids'],
+                        2 => ['create_5mb_slice_ids'],
                       },
       },
 
       {
         # Create 10mb toplevel slices, each species flow into this independantly
-        -logic_name => 'create_10mb_slice_ids',
+        -logic_name => 'create_5mb_slice_ids',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
                          target_db        => $self->o('dna_db'),
                          coord_system_name => 'toplevel',
                          iid_type => 'split_slice',
-                         slice_size => 10000000,
+                         slice_size => 5000000,
                          include_non_reference => 0,
                          top_level => 1,
                          min_slice_length => $self->o('min_toplevel_slice_length'),
@@ -1026,8 +1030,7 @@ sub pipeline_analyses {
 #                         batch_target_size => 1000000,
                        },
         -flow_into => {
-                        '2->A' => ['run_genscan'],
-                        'A->1' => ['create_prediction_transcript_ids'],
+                        '2' => ['run_genscan'],
                       },
 
       },
@@ -1055,6 +1058,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'genscan',
         -flow_into => {
+                        1 => ['create_prediction_transcript_ids'],
                         -1 => ['decrease_genscan_slice_size'],
                         -2 => ['decrease_genscan_slice_size'],
                         -3 => ['decrease_genscan_slice_size'],
@@ -1070,6 +1074,7 @@ sub pipeline_analyses {
         -logic_name => 'decrease_genscan_slice_size',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
+                         target_db  => $self->o('dna_db'),
                          iid_type => 'split_slice',
                          slice_size => 100000,
                        },
@@ -1093,6 +1098,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'genscan',
         -flow_into => {
+                        1 => ['create_prediction_transcript_ids'],
                         -1 => ['failed_genscan_slices'],
                         -2 => ['failed_genscan_slices'],
                         -3 => ['decrease_genscan_slice_size'],
@@ -1519,8 +1525,7 @@ sub pipeline_analyses {
                          module => 'HiveGenblast',
                          genblast_path => $self->o('genblast_path'),
                          genblast_db_path => $self->o('genome_file'),
-                         commandline_params => ' -P '.($self->o('blast_type') eq 'ncbi' ? 'blast' : 'wublast').' -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
-                         query_seq_dir => catdir($self->o('homology_models_path'), $self->o('uniprot_query_dir_name')),
+                         commandline_params => $genblast_params{$self->o('blast_type')},
                          sequence_table_name => $self->o('uniprot_table_name'),
                          max_rank => $self->o('genblast_max_rank'),
                          genblast_pid => $self->o('genblast_pid'),
@@ -1560,8 +1565,7 @@ sub pipeline_analyses {
                          module => 'HiveGenblast',
                          genblast_path => $self->o('genblast_path'),
                          genblast_db_path => $self->o('genome_file'),
-                         commandline_params => ' -P '.($self->o('blast_type') eq 'ncbi' ? 'blast' : 'wublast').' -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
-                         query_seq_dir => catdir($self->o('homology_models_path'), $self->o('uniprot_query_dir_name')),
+                         commandline_params => $genblast_params{$self->o('blast_type')},
                          sequence_table_name => $self->o('uniprot_table_name'),
                          max_rank => $self->o('genblast_max_rank'),
                          genblast_pid => $self->o('genblast_pid'),
