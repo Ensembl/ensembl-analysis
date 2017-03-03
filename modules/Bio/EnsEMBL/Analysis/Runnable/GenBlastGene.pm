@@ -861,7 +861,7 @@ sub database_adaptor {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    throw(ref($value).' is not a Bio::EnsEMBL::DBSQL::DBAdaptor')
+    throw(ref($val).' is not a Bio::EnsEMBL::DBSQL::DBAdaptor')
       unless ($val->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
     $self->{_database_adaptor} = $val;
   }
