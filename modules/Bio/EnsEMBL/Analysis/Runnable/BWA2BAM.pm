@@ -195,12 +195,7 @@ sub run {
   }
 
   #if the BAM file has been sorted and indexed OK delete the original BAM file that was generated
-<<<<<<< HEAD
   $self->files_to_delete("$outdir/$outfile"."_unsorted.bam");
-=======
-  $self->files_to_delete("$outdir/$outfile".".bam");
-  $self->output([$sorted_bam.'.bam']);
->>>>>>> origin/task/update/chicken/Gallus_gallus-5.0
   $self->delete_files;
 }
 

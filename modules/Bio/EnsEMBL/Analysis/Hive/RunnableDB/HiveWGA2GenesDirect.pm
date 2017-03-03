@@ -60,10 +60,6 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 
 use Bio::SeqIO;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-<<<<<<< HEAD
-=======
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
->>>>>>> origin/task/update/chicken/Gallus_gallus-5.0
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
 use Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
@@ -342,18 +338,6 @@ sub write_output {
   }
 
   return 1;
-<<<<<<< HEAD
-=======
-}
-
-
-sub runnable_failed {
-  my ($self,$runnable_failed) = @_;
-  if($runnable_failed) {
-    $self->param('_runnable_failed',$runnable_failed);
-  }
-  return($self->param('_runnable_failed'));
->>>>>>> origin/task/update/chicken/Gallus_gallus-5.0
 }
 
 
