@@ -232,6 +232,35 @@ sub _master_config {
         },
       },
     },
+    exonerate_cov_per_bestn_sub => {
+      IIDREGEXP           => '(\d+):(\d+)',
+      OPTIONS             => ' --maxintron 100000 --model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1',
+      COVERAGE_BY_ALIGNED => 0,
+      QUERYTYPE           => 'dna',
+      FILTER => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -coverage   => '#exonerate_cdna_cov#',
+          -percent_id => '#exonerate_cdna_pid#',
+        },
+      },
+    },
+    pacbio_exonerate => {
+      COVERAGE_BY_ALIGNED => 1,
+      FILTER => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -best_in_genome => 0,
+          -coverage => 90,
+          -percent_id => 95,
+          -reject_processed_pseudos => 1,
+          -verbosity => 1,
+        }
+      },
+      KILL_TYPE => undef,
+      USE_KILL_LIST => 0,
+      OPTIONS => '--model est2genome --forwardcoordinates FALSE --maxintron 200000 --softmasktarget FALSE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14',
+    },
   );
   return $config{$key};
 }
