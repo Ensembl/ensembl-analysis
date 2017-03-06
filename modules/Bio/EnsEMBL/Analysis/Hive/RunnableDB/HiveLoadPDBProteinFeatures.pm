@@ -1,11 +1,12 @@
-# Copyright [1999-2017] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -50,13 +51,11 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 use Net::FTP;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Getopt::Long;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use File::Basename;
 use File::Find;
 use List::Util qw(sum);
@@ -79,6 +78,8 @@ sub param_defaults {
 
 sub fetch_input {
   my $self = shift;
+
+
 
   return 1;
 }
@@ -119,8 +120,8 @@ sub run {
     run_command("mkdir -p ".$self->param('output_path'),"Create output path.");
   }
 
-  my $pdb_filepath = download_pdb_file($self->param('ftp_path'),
-                                      $self->param('output_path'));
+  my $pdb_filepath = $self->download_pdb_file($self->param('ftp_path'),
+                                              $self->param('output_path'));
 
   my @pdb_info = parse_pdb_file($pdb_filepath);
   my %perfect_matches = fetch_latest_uniprot_enst_perfect_matches($gifts_dbc,"Homo sapiens","GRCh38");
@@ -131,19 +132,19 @@ sub download_pdb_file() {
 # download the SIFTS PDB chain file from the ftp_path (including file name)
 # to the local directory 'local_dir' and return the file path of the downloaded file
 
-  my ($ftp_path,$local_dir) = @_;
+  my ($self,$ftp_path,$local_dir) = @_;
 
   my $wget_verbose = "-nv";
 
   if (system("wget ".$wget_verbose." -nH -P ".$local_dir." ".$ftp_path)) {
-    throw("Could not download SIFTS PDB chain file from ".$ftp_path." to ".$local_dir.". Please, check that both paths are valid.");
+    $self->throw("Could not download SIFTS PDB chain file from ".$ftp_path." to ".$local_dir.". Please, check that both paths are valid.");
   }
   else {
     print($ftp_path." file was downloaded successfully.\n");
   }
 
   if (system("gunzip $local_dir/*.gz")) {
-    throw("Could not gunzip the .gz files.");
+    $self->throw("Could not gunzip the .gz files.");
   } else {
   	print("File gunzipped successfully.\n");
   }
