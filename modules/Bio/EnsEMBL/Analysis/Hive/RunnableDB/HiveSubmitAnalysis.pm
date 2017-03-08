@@ -393,7 +393,7 @@ sub split_slice {
   }
 
   my $sa = $dba->get_SliceAdaptor;
-  my $slices = split_Slices($sa->fetch_by_name($self->param_required('iid')), $self->param('slice_size'), $self->param('slice_overlaps'));
+  my $slices = split_Slices([$sa->fetch_by_name($self->param_required('iid'))], $self->param('slice_size'), $self->param('slice_overlaps'));
   my @input_ids = map {$_->name} @$slices;
 
   $self->param('inputlist', \@input_ids);
