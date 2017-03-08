@@ -108,7 +108,7 @@ sub fetch_input {
 
   if($iid_type eq 'db_seq') {
     $querys = $self->get_query_seqs($self->param('iid'));
-    if ($self->param('query_table_name') =~ /protein/) {
+    if ($self->param('sequence_table_name') =~ /protein/) {
       $self->peptide_seq($querys->[0]->seq);
     }
     $self->calculate_coverage_and_pid($self->param('calculate_coverage_and_pid'));
@@ -131,7 +131,7 @@ sub fetch_input {
       my ($slice,$accession_array) = $self->get_transcript_region($transcript_id);
       #$query_file = $self->output_query_file($accession_array);
       $querys = $self->get_query_seqs($accession_array);
-      if ($self->param('query_table_name') =~ /protein/) {
+      if ($self->param('sequence_table_name') =~ /protein/) {
         $self->peptide_seq($querys->[0]->seq);
       }
       $self->calculate_coverage_and_pid($self->param('calculate_coverage_and_pid'));
@@ -904,14 +904,14 @@ sub get_query_seqs {
   my ($self, $accession_array) = @_;
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
-  $table_adaptor->table_name($self->param('query_table_name'));
+  $table_adaptor->table_name($self->param_required('sequence_table_name'));
 
   my $biotypes_hash = {};
   my @query_sequences;
   foreach my $accession (@{$accession_array}) {
     my $db_row = $table_adaptor->fetch_by_dbID($accession);
     unless($db_row) {
-      $self->throw('Did not find an entry in the '.$self->param('query_table_name')." table matching the accession. Accession:\n".$accession);
+      $self->throw('Did not find an entry in the '.$self->param('sequence_table_name')." table matching the accession. Accession:\n".$accession);
     }
 
     my $seq = $db_row->{'seq'};
