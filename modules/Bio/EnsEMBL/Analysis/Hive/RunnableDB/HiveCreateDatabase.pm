@@ -36,9 +36,10 @@ use warnings;
 use feature 'say';
 
 use File::Basename;
+use File::Spec::Functions qw(catfile);
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
-use Data::Dumper;
 
 sub param_defaults {
     return {
@@ -61,6 +62,10 @@ sub param_defaults {
 
 sub fetch_input {
   my $self = shift;
+
+  if (!-e $self->param('script_path') and $self->param_is_defined('enscode_root_dir')) {
+    $self->param('script_path', catfile($self->param('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'));
+  }
   return 1;
 }
 
@@ -218,44 +223,16 @@ sub core_only_db {
   }
 
   my $target_string;
-  if (ref($self->param('target_db')) eq 'HASH') {
-    $target_string = $self->convert_hash_to_db_string($self->param('target_db'));
-  } else {
-    $self->check_db_string($self->param('target_db'));
-    $target_string = $self->param('target_db');
-  }
+  my $db = $self->get_database_by_name('target_db');
+  $self->require_module('Bio::EnsEMBL::Hive::DBSQL::DBConnection');
 
-  my @target_string_at_split = split('@',$target_string);
-  my $target_dbname = shift(@target_string_at_split);
-  my @target_string_colon_split = split(':',shift(@target_string_at_split));
-  my $target_host = shift(@target_string_colon_split);
-  my $target_port = shift(@target_string_colon_split);
-  my $target_user = $self->param('user_w');
-  my $target_pass = $self->param('pass_w');
-
-  my $command;
-  # Create the empty db
-  if($target_port) {
-    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -P".$target_port." -e 'CREATE DATABASE ".$target_dbname."'";
-  } else {
-    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -e 'CREATE DATABASE ".$target_dbname."'";
+  my @command = Bio::EnsEMBL::Hive::DBSQL::DBConnection::to_cmd($db->dbc, undef, undef, undef, ['CREATE DATABASE '.$db->dbname]);
+  if(system(join(' ', @command))) {
+    $self->throw("The create database command exited with a non-zero exit code: ".$?);
   }
-  say "COMMAND: ".$command;
-
-  my $exit_code = system($command);
-  if($exit_code) {
-    $self->throw("The create database command exited with a non-zero exit code: ".$exit_code);
-  }
-
-  # Load core tables
-  if($target_port) {
-    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -P".$target_port." -D".$target_dbname." < ".$table_file;
-  } else {
-    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -D".$target_dbname." < ".$table_file;
-  }
-  $exit_code = system($command);
-  if($exit_code) {
-    $self->throw("The load tables command exited with a non-zero exit code: ".$exit_code);
+  @command = Bio::EnsEMBL::Hive::DBSQL::DBConnection::to_cmd($db->dbc, undef, undef, [ '<', $table_file], ['CREATE DATABASE '.$db->dbname]);
+  if(system(join(' ', @command))) {
+    $self->throw("The load tables command exited with a non-zero exit code: ".$?);
   }
 
 }
