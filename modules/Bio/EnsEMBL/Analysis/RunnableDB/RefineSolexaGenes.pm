@@ -80,7 +80,7 @@ use Bio::EnsEMBL::IntronSupportingEvidence;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::RefineSolexaGenes;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
-use Bio::DB::Sam;
+use Bio::DB::HTS;
 
 
 @ISA = qw(Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild);
@@ -174,7 +174,7 @@ sub fetch_input {
 
   if ( $self->INTRON_BAM_FILES ) {
     foreach my $intron_files ( @{$self->INTRON_BAM_FILES} ) {
-      my $sam = Bio::DB::Sam->new(   -bam => $intron_files->{FILE},
+      my $sam = Bio::DB::HTS->new(   -bam => $intron_files->{FILE},
 				     -autoindex => 1,
 				     -expand_flags => 1,
 				 );
