@@ -52,6 +52,7 @@ use warnings;
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+use Bio::EnsEMBL::Analysis::Runnable::MakePDBProteinFeatures;
 
 use Net::FTP;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
@@ -61,7 +62,7 @@ use File::Find;
 use List::Util qw(sum);
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
-use Bio::EnsEMBL::GIFTS::DB qw(get_default_gifts_dbc fetch_latest_uniprot_enst_perfect_matches);
+use Bio::EnsEMBL::GIFTS::DB qw(get_default_gifts_dba);
 
 sub param_defaults {
     return {
@@ -73,19 +74,11 @@ sub param_defaults {
       core_dbuser => undef,
       core_dbpass => undef,
       cs_version => undef,
+      species => undef,
     }
 }
 
 sub fetch_input {
-  my $self = shift;
-
-
-
-  return 1;
-}
-
-sub run {
-
   my $self = shift;
 
   $self->param_required('ftp_path');
@@ -96,20 +89,8 @@ sub run {
   $self->param_required('core_dbuser');
   $self->param_required('core_dbpass');
   $self->param_required('cs_version');
-  
-  # connect to the GIFTS database
-  my $gifts_dbc = get_default_gifts_dbc();
-  
-  # connect to the core database
-  my $core_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
-                   '-no_cache' => 1,
-                   '-host'     => $self->param('core_dbhost'),
-                   '-port'     => $self->param('core_dbport'),
-                   '-user'     => $self->param('core_dbuser'),
-                   '-pass' => $self->param('core_dbpass'),
-                   '-dbname' => $self->param('core_dbname'),
-  ) or die('Failed to connect to the core database.');
-  
+  $self->param_required('species');
+
   #add / at the end of the paths if it cannot be found to avoid possible errors
   if (!($self->param('output_path') =~ /\/$/)) {
     $self->param('output_path',$self->param('output_path')."/");
@@ -119,13 +100,57 @@ sub run {
   if (not -e $self->param('output_path')) {
     run_command("mkdir -p ".$self->param('output_path'),"Create output path.");
   }
+  
+  # connect to the core and gifts databases
+  my $core_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
+                   '-no_cache' => 1,
+                   '-host'     => $self->param('core_dbhost'),
+                   '-port'     => $self->param('core_dbport'),
+                   '-user'     => $self->param('core_dbuser'),
+                   '-pass' => $self->param('core_dbpass'),
+                   '-dbname' => $self->param('core_dbname'),
+  ) or die('Failed to connect to the core database.');
 
+  my $gifts_dba = get_default_gifts_dba();
+
+  $self->hrdb_set_con($core_dba,"core");
+  $self->hrdb_set_con($gifts_dba,"gifts");
+
+  # download the PDB file from the FTP
   my $pdb_filepath = $self->download_pdb_file($self->param('ftp_path'),
                                               $self->param('output_path'));
 
-  my @pdb_info = parse_pdb_file($pdb_filepath);
-  my %perfect_matches = fetch_latest_uniprot_enst_perfect_matches($gifts_dbc,"Homo sapiens","GRCh38");
-  insert_protein_features($core_dba,\%perfect_matches,\@pdb_info);
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::MakePDBProteinFeatures->new(
+    -analysis => new Bio::EnsEMBL::Analysis(-logic_name => 'sifts_import',
+                                            -display_label => 'SIFTS import',
+                                            -displayable => '1',
+                                            -description => 'Protein features based on the PDB-UniProt mappings found in the EMBL-EBI PDB SIFTS data and the UniProt-ENSP mappings found in the GIFTS database.'),
+    -core_dba => $self->hrdb_get_con("core"),
+    -gifts_dba => $self->hrdb_get_con("gifts"),
+    -pdb_filepath => $pdb_filepath,
+    -species => $self->param('species'),
+    -cs_version => $self->param('cs_version')
+    );
+  $self->runnable($runnable);
+
+  return 1;
+}
+
+sub run {
+  my $self = shift;
+
+  foreach my $runnable (@{$self->runnable}) {
+    $runnable->run();
+    $self->output($runnable->output);
+  }
+}
+
+sub write_output {
+  my $self = shift;
+
+  $self->insert_protein_features();
+
+  return 1;
 }
 
 sub download_pdb_file() {
@@ -155,89 +180,18 @@ sub download_pdb_file() {
   return $local_dir.$filename_without_gz;
 }
 
-sub parse_pdb_file() {
-# Parse the CSV PDB file containing the following 9 columns:
-# PDB CHAIN SP_PRIMARY RES_BEG RES_END PDB_BEG PDB_END SP_BEG SP_END
-# Lines starting with '#' or 'PDB' are ignored.
-# Return array of hashes with SP_PRIMARY, PDB, CHAIN, RES_BEG, RES_END, SP_BEG and SP_END as keys.
-
-  my $pdb_filepath = shift;
-
-  open(my $pdb_fh,'<',$pdb_filepath) or die "Cannot open: $pdb_filepath";
-  my @pdb_info = ();
-  
-  while (my $line = <$pdb_fh>) {
-
-    next if $line =~ /^#/;
-    next if $line =~ /^PDB/; 
-
-    my ($pdb,$chain,$sp_primary,$res_beg,$res_end,undef,undef,$sp_beg,$sp_end) = split(/\s+/,$line);
-
-    push(@pdb_info,{'PDB' => $pdb,
-                    'CHAIN' => $chain,
-                    'SP_PRIMARY' => $sp_primary,
-                    'RES_BEG' => $res_beg,
-                    'RES_END' => $res_end,
-                    'SP_BEG' => $sp_beg,
-                    'SP_END' => $sp_end
-                   });
-  }
-  return @pdb_info;
-}
-
 sub insert_protein_features() {
-# create and insert the protein features into the database 'dba'
-# linking the ENSP proteins and the PDB entries
-# from 'ref_perfect_matches' and 'pdb_info'
+# insert the protein features into the database 'core_dba'
 
-  my ($dba,$ref_perfect_matches,$pdb_info) = @_;
-
-  # get list of transcript stable IDs from the keys of the perfect matches hash
-  my @t_sids = keys %{$ref_perfect_matches};
-
-  # loop through all pdb lines and find the corresponding ENSTs (if any)
-  # in the perfect matches hash,
-  # fetch their proteins and add their protein features
-  my $ta = $dba->get_TranscriptAdaptor();
-  my $pfa = $dba->get_ProteinFeatureAdaptor();
-  my $analysis = new Bio::EnsEMBL::Analysis(-logic_name => 'sifts_import',
-                                            -display_label => 'SIFTS import',
-                                            -displayable => '1',
-                                            -description => 'Protein features based on the PDB-UniProt mappings found in the EMBL-EBI PDB SIFTS data and the UniProt-ENSP mappings found in the GIFTS database.',
-  );
-  
-  foreach my $pdb_line (@{$pdb_info}) {
-    my $pdb_uniprot = $$pdb_line{'SP_PRIMARY'};    
-
-    if (defined($$ref_perfect_matches{$pdb_uniprot})) {
-      my @ensts = @{$$ref_perfect_matches{$pdb_uniprot}};
-      if (scalar(@ensts) > 0) {
-        foreach my $enst (@ensts) {
-          my $t = $ta->fetch_by_stable_id($enst);
-      
-          my $translation = $t->translation();
-          my $translation_sid = $translation->stable_id();
-
-          my $pf = Bio::EnsEMBL::ProteinFeature->new(
-                  -start    => $$pdb_line{'SP_BEG'},
-                  -end      => $$pdb_line{'SP_END'},
-                  -hseqname => $$pdb_line{'PDB'},
-                  -hstart   => $$pdb_line{'RES_BEG'},
-                  -hend     => $$pdb_line{'RES_END'},
-                  -analysis => $analysis,
-                  -hdescription => "Chain ".$$pdb_line{'CHAIN'}.". Via UniProt protein ".$$pdb_line{'SP_PRIMARY'}." isoform exact match to Ensembl protein $translation_sid",
-               );
-          $pfa->store($pf,$translation->dbID());
-        } # foreach my enst
-      } # if scalar
-    } # if ensts
-  } # foreach my pdb_line
-}
-
-sub write_output {
   my $self = shift;
 
-  return 1;
+  my $core_dba = $self->hrdb_get_con("core");
+  my $pfa = $core_dba->get_ProteinFeatureAdaptor();
+
+  foreach my $pf_hashref (@{$self->output}) {  
+    my ($translation_id) = keys %$pf_hashref;
+    $pfa->store($pf_hashref->{$translation_id},$translation_id);
+  }
 }
 
 1;
