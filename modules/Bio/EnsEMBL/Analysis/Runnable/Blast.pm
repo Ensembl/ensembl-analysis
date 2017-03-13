@@ -95,20 +95,28 @@ sub new {
       $unknown_error ) = rearrange(['PARSER', 'FILTER', 'DATABASE', 
                                     'TYPE', 'UNKNOWN_ERROR_STRING',
                                    ], @args);
-  $type = undef unless($type);
-  $unknown_error = undef unless($unknown_error);
   ######################
   #SETTING THE DEFAULTS#
   ######################
-  $self->type('wu');
-  $self->unknown_error_string('FAILED');
-  $self->options('-num_threads 1') if(!$self->options);
+  if ($type) {
+    $self->type($type);
+  }
+  else {
+    $self->type('ncbi');
+  }
+  if (!$self->options) {
+    if ($self->type eq 'wu') {
+      $self->options('-cpus=1');
+    }
+    else {
+      $self->options('-num_threads 1');
+    }
+  }
+  $self->unknown_error_string($unknown_error || 'FAILED');
   ######################
   $self->databases($database);
   $self->parser($parser);
   $self->filter($filter);
-  $self->type($type) if($type);
-  $self->unknown_error_string($unknown_error) if($unknown_error);
 
   throw("No valid databases to search")
       unless(@{$self->databases});
