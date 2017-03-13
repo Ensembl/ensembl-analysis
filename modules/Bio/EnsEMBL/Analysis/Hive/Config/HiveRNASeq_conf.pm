@@ -558,8 +558,6 @@ sub pipeline_analyses {
                          slice => 1,
                          include_non_reference => 0,
                          top_level => 1,
-                         feature_constraint => 1,
-                         feature_type => 'gene',
                          target_db => $self->o('rough_db'),
                        },
         -wait_for => ['create_rough_db'],
