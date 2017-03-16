@@ -52,6 +52,7 @@ use warnings ;
 use strict;
 
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable::BaseShortReadAligner');
 
@@ -97,9 +98,7 @@ sub run {
   my $command = "$program aln $options -f $outdir/$filename.sai ".$self->genome." $fastq";
   print STDERR "Command: $command\n";
   $self->warning("Command: $command\n");
-  if (system($command)) {
-      $self->throw("Error aligning $filename\nError code: $?\n");
-  }
+  execute_with_wait($command);
 }
 
 
