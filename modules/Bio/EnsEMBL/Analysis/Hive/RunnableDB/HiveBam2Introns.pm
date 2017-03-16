@@ -96,17 +96,16 @@ sub fetch_input {
   my $gene_db = $self->get_database_by_name('input_db', $dna_db);
   my $gene_adaptor = $gene_db->get_GeneAdaptor;
   my $slice_adaptor = $dna_db->get_SliceAdaptor;
-  my $counters;
-  $counters->{'start'} = 0;
-  $counters->{'offset'} = 0;
-  $counters->{'start_exon'} = 0;
+  my $start = 0;
+  my $offset = 0;
+  my $start_exon = 0;
   my $stable_id = $self->input_id;
   # check for batch info in the input id
   if ( $self->input_id =~ /(\S+):(\d+):(\d+):(\d+)/ ) {
     $stable_id = $1;
-    $counters->{'start_exon'} = $2;
-    $counters->{'start'} = $3;
-    $counters->{'offset'} = $4;
+    $start_exon = $2;
+    $start = $3;
+    $offset = $4;
   }
   my $rough = $gene_adaptor->fetch_by_stable_id($stable_id);
   $self->throw("Gene $stable_id not found \n") unless $rough;
@@ -118,44 +117,16 @@ sub fetch_input {
   my $missmatch = $self->param('word_length') - int($self->param('word_length') / 4);
   $self->param('min_missmatch', $missmatch);
   print "Ignoring reads with < $missmatch mismatches\n";
-  my @reads;
-  my $bam = Bio::DB::HTSfile->open($self->param('bam_file'));
-  my $header = $bam->header_read();
-  my $seq_region_name = $rough->seq_region_name;
-  if ($self->param('wide_use_ucsc_naming')) {
-      $seq_region_name = convert_to_ucsc_name($seq_region_name, $rough->slice);
-  }
-  my ($tid, $start, $end) = $header->parse_region($seq_region_name);
-  my $bam_index = Bio::DB::HTSfile->index_load($bam);
-  $self->throw('Bam file ' . $self->param('bam_file') . "  not found \n") unless $bam_index;
-  $counters->{'count'} = 0;
-  $counters->{'batch'} = 0;
-  $counters->{'batch_size'} = $self->param('batch_size');
-  my $exon = 0;
-  my @exons = sort { $a->start <=> $b->start } @{$rough->get_all_Exons};
-  my @iids;
-  $counters->{'stop_loop'} = 0;
-
-  $self->param('seq_hash', {});
-  for ( my $i = $counters->{'start_exon'} ; $i <= $#exons ; $i++ ){
-    my $exon = $exons[$i];
-    my $exon_start = $exon->start;
-    $counters->{'read_offset'} = 0;
-    $counters->{'last_start'} = 0;
-    my %split_points;
-    $exon_start = $counters->{'start'} if ($counters->{'start'} && $counters->{'start_exon'} == $i);
-    my @callback_data = ($self, $i, $exon_start, $rough->stable_id, \@reads, \@iids, $counters, $self->param('seq_hash'));
-    $bam_index->fetch($bam, $tid, $exon_start-1, $exon->end-1, \&_process_reads, \@callback_data);
-  }
-  if (  scalar(@reads) == 0 ) {
+  my ($reads, $seq_hash, $iids) = $self->fetch_reads($rough, $self->param_required('bam_file'), $missmatch, $start_exon, $start, $offset);
+  if (scalar(@$reads) == 0) {
     $self->input_job->autoflow(0);
     $self->complete_early('No read with more than '.$missmatch.' missmatches');
   }
   else {
-  if ( scalar(@iids) > 0  && !$counters->{'start'} ) {
+  if (scalar(@$iids)) {
     # We want the original input_id job to finish before submitting the new input ids otherwise we may have problems
-    print 'Making ',  scalar(@iids), ' New input ids from ', $counters->{'count'}, " reads\n";
-    $self->param('iids', \@iids);
+    print 'Making ',  scalar(@$iids), " new input ids\n";
+    $self->param('iids', $iids);
   }
   my $fullseq = $self->fullslice;
   my $queryseq;
@@ -189,14 +160,15 @@ sub fetch_input {
   # set uo the runnable
   my $program = $self->param('program_file');
   $program = 'exonerate' unless $program;
-  $self->param('saturatethreshold', scalar(@reads)) unless ($self->param_is_defined('saturatethreshold'));
+  $self->param('saturatethreshold', scalar(@$reads)) unless ($self->param_is_defined('saturatethreshold'));
+  $self->param('seq_hash', $seq_hash);
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
      -analysis     => $self->create_analysis,
      -program      => $program,
      -basic_options => $self->get_aligner_options,
      -target_seqs => [$seqio],
-     -query_seqs => \@reads,
+     -query_seqs => $reads,
      -percent_id   => $self->param('percent_id'),
      -coverage     => $self->param('coverage'),
      -missmatch     => $self->param('missmatch'),
@@ -344,7 +316,6 @@ sub convert_to_sam {
   $feature = $self->check_cigar($feature);
   my $cigar = $feature->cigar_string;
   # N is used to represent splicing in sam format
-#  $cigar =~ s/I/N/g;
   # But SAM does not like D in the CIGAR line as it's not counted as part of the sequence. We need to change it to I
   $cigar =~ tr/ID/NI/;
   # is the feature paired in the alignment
@@ -379,9 +350,9 @@ sub convert_to_sam {
     $seq = $feature_seq->seq;
   }
   # if the feature is aligned to the -ve strand we want the complement of he sequence as well
-  if ( $feature->strand == -1 ) {
-    $seq =~ tr/ACGTacgt/TGCAtgca/;
-  }
+#  if ( $feature->strand == -1 ) {
+#    $seq =~ tr/ACGTacgt/TGCAtgca/;
+#  }
 
   # strand of the mate = -1 so we add nothing
   $line .= $feature->hseqname ."\t";
@@ -658,43 +629,65 @@ sub stored_features {
 # of the type STABLEID00000001:2 for the second bacth
 # of 100,000 reads etc.
 
-=head2 _process_reads
 
- Arg [1]    : Arrayref of objects needed for processing the reads
- Description: This function is called for each read in the region. It checks the number of missmatches,
-              the nnumber of reads already processed, update the name of the read based on the FIRST_MATE
-              flag and store the sequence in a Bio::Seq object which will be put in an arrayref
- Returntype : None
- Exceptions : None
+sub fetch_reads {
+  my ($self, $rough, $bam_index, $missmatch, $start_exon, $start, $offset) = @_;
 
-=cut
+  my @reads;
+  my $bam = Bio::DB::HTS->new(-bam => $self->param('bam_file'));
+  my $seq_region_name = $rough->seq_region_name;
+  if ($self->param('wide_use_ucsc_naming')) {
+      $seq_region_name = convert_to_ucsc_name($seq_region_name, $rough->slice);
+  }
+  my $count = 0;
+  my $batch = 0;
+  my $batch_size = $self->param('batch_size');
+  my $exon = 0;
+  my @exons = sort { $a->start <=> $b->start } @{$rough->get_all_Exons};
+  my @iids;
+  my $stable_id = $rough->stable_id;
 
-sub _process_reads {
-    my ($read, $callbackdata) = @_;
+  my %seq_hash;
+  for ( my $i = $start_exon ; $i <= $#exons ; $i++ ){
+    my $exon = $exons[$i];
+    my $exon_start = $exon->start;
+    my $read_offset = 0;
+    my $last_start = 0;
+    my $read_count = 0;
+    $exon_start = $start if ($start && $start_exon == $i);
+    my $segment = $bam->segment(-seq_id => $seq_region_name, -start => $exon->start, -end => $exon->end);
+    my $iterator = $segment->features(-iterator => 1, -filter => sub {my $r = shift;if ($r->get_tag_values('NM') and $r->get_tag_values('NM') >= $missmatch) {return 1} else {return 0}});
+    while (my $read = $iterator->next_seq) {
+      # get rid of any reads that might start before our start point
+      next if (!$read->start or ($i == $start_exon and $read->start < $exon_start));
+      $read_count++;
+      # get rid of any reads overlapping out start point
+      next if ($offset and $read_count <= $offset);
+      # calculate the offset
+      if ( $read->start == $last_start ) {
+          $read_offset++;
+      } else {
+          $read_offset = 0;
+          $last_start = $read->start;
+      }
 
-    my ($self, $i, $exon_start, $stable_id, $reads, $iids, $counters, $seq_hash) = @$callbackdata;
-    return if ($counters->{'stop_loop'});
-    my $missmatch  = $read->get_tag_values('NM');
-    return unless ($missmatch and $missmatch >= $self->param('min_missmatch'));
-    # get rid of any reads that might start before our start point
-    return if (!$read->start or ($i == $counters->{'start_exon'} and $read->start < $exon_start));
-    $counters->{'read_count'} ++;
-    # get rid of any reads overlapping out start point
-    return if ($counters->{'read_offset'} and $counters->{'read_count'} <= $counters->{'read_offset'});
-    # calculate the offset
-    if ( $read->start == $counters->{'last_start'} ) {
-        $counters->{'read_offset'} ++;
-    } else {
-        $counters->{'read_offset'} = 0;
-        $counters->{'last_start'} = $read->start;
-    }
+      my $rg = $read->get_tag_values('RG') || '*';
 
-    my $rg = $read->get_tag_values('RG') || '*';
+      $batch++;
+      $count++;
 
-    $counters->{'batch'} ++;
-    $counters->{'count'} ++;
-
-    if ($counters->{'count'} <= $counters->{'batch_size'}) {
+      if ($count > $batch_size) {
+        # if running a batch finish here
+        if ($start) {
+            last;
+        }
+        elsif ($batch_size < $batch ) {
+            $batch = 1;
+            push(@iids, { iid => $stable_id .":$i:" . $read->start .':'.$read_offset});
+        }
+        # otherwise figure out the ids for the rest of the batches
+      }
+      else {
         my $name = $read->query->name;
         # is it the 1st or 2nd read?
         if ( $read->get_tag_values('FIRST_MATE')) {
@@ -707,24 +700,15 @@ sub _process_reads {
         my $bioseq = Bio::Seq->new(
                 -seq        => $read->query->dna,
                 -display_id => $name,
-                -desc       => $rg
+                -desc       => $rg,
                 );
-        push(@$reads, $bioseq);
+        push(@reads, $bioseq);
         # want to store the read sequence for making it into a SAM file later
-        $seq_hash->{$name} = $bioseq;
+        $seq_hash{$name} = $bioseq;
+      }
     }
-    else {
-        # if running a batch finish here
-        if ($counters->{'start'}) {
-            $counters->{'stop_loop'} = 1;
-            return;
-        }
-        if ($counters->{'batch_size'}+1 == $counters->{'batch'} ) {
-            $counters->{'batch'} = 1;
-            push(@$iids, { iid => $stable_id .":$i:" . $read->start .':'.$counters->{'read_offset'}});
-        }
-        # otherwise figure out the ids for the rest of the batches
-    }
+  }
+  return \@reads, \%seq_hash, \@iids;
 }
 
 1;
