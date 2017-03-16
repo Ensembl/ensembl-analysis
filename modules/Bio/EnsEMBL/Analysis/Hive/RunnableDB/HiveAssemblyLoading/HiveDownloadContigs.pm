@@ -100,7 +100,6 @@ sub download_ftp_contigs {
     
     # ftp://ftp.ebi.ac.uk/pub/databases/ena/wgs_fasta/ag/AGCE01.fasta.gz
   } elsif($source eq 'ena') {
-  	# rsync -av rsync://ftp.ebi.ac.uk/pub/databases/ena/wgs_fasta/ag/AGCE01.fasta.gz /hps/nobackup/production/ensembl/leanne/primates_annotation_1/saimiri_boliviensis_boliviensis/Primary_Assembly/contigs/
     $wgs_id =~ /^(..)/;
     my $prefix = $1;
     $prefix = lc($prefix);
@@ -108,7 +107,6 @@ sub download_ftp_contigs {
     my $base = 'rsync -av "rsync://ftp.ebi.ac.uk/pub/databases/ena/wgs_fasta/'.$prefix.'/';
   	foreach my $a_wgs_id (@wgs_ids) {
     	my $file = $a_wgs_id.'*.fasta.gz';
-    	print $file ."\n";
       	my $wget = "$base/$file\" $output_path";
       	my $return = system($wget);
       	if($return) {
@@ -164,9 +162,9 @@ sub fix_contig_headers {
                    $contig_count2."). They should match");
     }
 
-  } elsif($source eq 'ena') {
+  } 
 
-
+  elsif($source eq 'ena') {
 
     my $contigs_unfixed = catfile($output_path, 'contigs_unfixed_header.fa');
     my $contigs_fixed = catfile($output_path, 'contigs.fa');
@@ -182,9 +180,12 @@ sub fix_contig_headers {
       my $line = $_;
       if($line =~ /^>.*gb\|([^\|]+\.\d+)\|/) {
         say OUT '>'.$1;
-      } elsif ($line =~ /^>ENA\|(.*)\|([^\|]+\.\d+)\s/ )  {  
-        say OUT '>'.$2;
-      } elsif($line =~ /^>/) {
+      } 
+      elsif ($line =~ /^>ENA\|(.*)\|([^\|]+\.\d+)\s/ )  
+      {
+	      say OUT '>'.$2;
+      } 
+      elsif($line =~ /^>/) {
         $self->throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);
       } else {
         print OUT $line; # print instead of say since the newline will be there already
@@ -196,15 +197,10 @@ sub fix_contig_headers {
     my $contig_count1 = int(`grep -c '>' $contigs_unfixed`);
     my $contig_count2 = int(`grep -c '>' $contigs_fixed`);
 
-    unless($contig_count1 == $contig_count2) {
+    unless($contig_count1 == ($contig_count2)) {
       $self->throw("The contig count in contigs_unfixed_header.fa (".$contig_count1.") did not match the count in contigs.fa (".
                    $contig_count2."). They should match");
     }
-
-
-
-
-
   }
 }
 
