@@ -52,7 +52,7 @@ sub run {
   $self->fix_contig_headers($source,$output_path);
   say "Checking for accessions from nuclear AGP that are missing in the contig accessions";
   $self->find_missing_accessions($output_path,$contig_accession_path);
-  say "Comparing contigs to AGP file, all contigs much match nuclear AGP accession. Non-nuclear AGP accession will have contigs removed";
+  say "Comparing contigs to AGP file, all contigs must match nuclear AGP accession. Non-nuclear AGP accession will have contigs removed";
   $self->compare_to_agp($output_path,$contig_accession_path);
   say "Finished downloading contig files";
   return 1;
@@ -193,9 +193,20 @@ sub find_missing_accessions {
 
   my $contig_file = $output_path.'/contigs.fa';
   my $max_allowed_missing = 1000;
-  my $header;
-  my $header_hash = {};
+  my $agp_accession_hash = {};
+  my $fasta_header;
+  my $fasta_accession_hash = {};
 
+  # Load the agp accessions into a hash
+  open(IN,$contig_accession_path);
+  while(<IN>) {
+    my $agp_accession = $_;
+    chomp $agp_accession;
+    $agp_accession_hash->{$agp_accession} = 1;
+  }
+  close IN;
+
+  # Load the fasta headers into a hash
   # Note: I have tested doing the contig accession parsing with EnsEMBL::IO and it is much much slower
   #       A grep on the command line might be slightly quicker, but the code below is cleaner
   open(IN,$contig_file);
@@ -205,27 +216,25 @@ sub find_missing_accessions {
       next;
     }
 
-    my $accession = $1;
-    unless($header_hash->{$accession}) {
-      $header_hash->{$accession} = 1;
+    my $fasta_accession = $1;
+    unless($fasta_accession_hash->{$fasta_accession}) {
+      $fasta_accession_hash->{$fasta_accession} = 1;
     } else {
-      $self->throw("There appears to be a duplicate header in ".$contig_file."\nHeader: ".$header);
+      $self->throw("There appears to be a duplicate header in ".$contig_file."\nHeader: ".$fasta_header);
     }
 
   }
   close IN;
 
-
-  open(IN,$contig_accession_path);
-  my @all_accessions = <IN>;
-  close IN;
+  # Store these to use in the reverse comparison that's done in compare_to_agp
+  $self->agp_accessions($agp_accession_hash);
+  $self->fasta_accessions($fasta_accession_hash);
 
   my $missing_accessions = [];
-  foreach my $accession (@all_accessions) {
-    chomp $accession;
-    unless($header_hash->{$accession}) {
-      $self->warning("No match in initial wgs download for accession: ".$accession);
-      push(@{$missing_accessions},$accession);
+  foreach my $agp_accession (keys(%$agp_accession_hash)) {
+    unless($fasta_accession_hash->{$agp_accession}) {
+      $self->warning("No match in initial wgs download for agp accession: ".$agp_accession);
+      push(@{$missing_accessions},$agp_accession);
     }
   }
 
@@ -342,34 +351,38 @@ sub recover_missing_accessions {
 }
 
 
+=head2 compare_to_agp
+
+  Arg [1]    : string $output_path
+  Arg [2]    : string $contig_accession_path
+  Example    : $self->compare_to_agp($output_path,contig_accession_path);
+  Description: Compares the contig accessions in the fasta files to the AGP file contig accession. This is the reverse comparison of the
+               find_missing_accessions subroutine in that it looks to accessions present in the contig files that are not listed in the
+               AGP files describing the nuclear assembly. Compares the unidentified contigs to the non-nuclear AGP files and removes them
+               (with a warning) as we currently do not load MTs from anywhere other than RefSeq. If there are contigs that are not described
+               by any AGP file then the subroutine will throw
+  Returntype : none
+  Exceptions : Throw on finding contigs in the fasta files that are not described in either the nuclear or non-nuclear AGP files
+               Throw on failing to remove non-nuclear contigs from the contig fasta file
+               Warn on finding non-nuclear contigs
+  Caller     : find_missing_accessions (set), compare_to_agp (get)
+  Status     : Likely to change to allow loading of the assembly mitochondrion data in future
+
+=cut
 sub compare_to_agp {
   my ($self,$output_path,$contig_accession_path) = @_;
 
   my $contig_headers_file = $output_path.'/contig_headers.txt';
-  my $agp_accessions = {};
+  my $agp_accessions = $self->agp_accessions;
+  my $fasta_accessions = $self->fasta_accessions;
   my $extra_accessions = {};
 
-  open(IN,$contig_accession_path);
-  while(<IN>) {
-    my $agp_accession = $_;
-    chomp $agp_accession;
-    $agp_accessions->{$agp_accession} = 1;
-  }
-  close IN;
-
-  open(IN,$contig_headers_file);
-  while(<IN>) {
-    my $header = $_;
-    chomp $header;
-    $header =~ s/^\>//;
-
-    unless($agp_accessions->{$header}) {
-      $self->warning("Found a contig accession in the contig.fa file that is not in any AGP file. Will remove from the contig.fa file");
-      $extra_accessions->{$header} = 1;
+  foreach my $fasta_accession (keys(%$fasta_accessions)) {
+    unless($agp_accessions->{$fasta_accession}) {
+      $self->warning("Found a contig accession in the contig.fa file that is not in any nuclear AGP file. Accession: ".$fasta_accession);
+      $extra_accessions->{$fasta_accession} = 1;
     }
   }
-  close IN;
-
 
   my @extra_accessions = keys(%$extra_accessions);
   if(scalar(@extra_accessions)) {
@@ -451,6 +464,48 @@ sub compare_to_agp {
       $self->throw("Problem deleting the contigs_with_extra_accessions.fa file. Commandline used:\n".$cmd);
     }
   }
+}
+
+
+=head2 agp_accessions
+
+  Arg [1]    : hashref $val
+  Example    : $self->agp_accessions($agp_accesion_hash);
+  Description: Getter/setter for storing the contig accessions listed in the AGP files
+  Returntype : none
+  Exceptions : none
+  Caller     : find_missing_accessions (set), compare_to_agp (get)
+  Status     : Stable
+
+=cut
+sub agp_accessions {
+  my ($self,$val) = @_;
+  if($val) {
+    $self->param('_agp_accessions',$val);
+  }
+
+  return($self->param('_agp_accessions'));
+}
+
+
+=head2 fasta_accessions
+
+  Arg [1]    : hashref $val
+  Example    : $self->fasta_accessions($fasta_accesion_hash);
+  Description: Getter/setter for storing the contig accessions listed in the fasta files
+  Returntype : none
+  Exceptions : none
+  Caller     : find_missing_accessions (set), compare_to_agp (get)
+  Status     : Stable
+
+=cut
+sub fasta_accessions {
+  my ($self,$val) = @_;
+  if($val) {
+    $self->param('_fasta_accessions',$val);
+  }
+
+  return($self->param('_fasta_accessions'));
 }
 
 1;
