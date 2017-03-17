@@ -21,7 +21,6 @@ use strict;
 use warnings;
 use feature 'say';
 
-
 use File::Spec::Functions;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -45,10 +44,15 @@ sub run {
   my $output_path = catdir($self->param('output_path'), $primary_assembly_dir_name, 'contigs');
   my $source = $self->param('contigs_source');
 
+  say "Downloading contig files";
   $self->download_ftp_contigs($source,$wgs_id,$output_path);
+  say "Unzipping contig files";
   $self->unzip($output_path);
+  say "Fixing contig headers";
   $self->fix_contig_headers($source,$output_path);
+  say "Checking for accessions from nuclear AGP that are missing in the contig accessions";
   $self->find_missing_accessions($output_path,$contig_accession_path);
+  say "Comparing contigs to AGP file, all contigs much match nuclear AGP accession. Non-nuclear AGP accession will have contigs removed";
   $self->compare_to_agp($output_path,$contig_accession_path);
   say "Finished downloading contig files";
   return 1;
@@ -97,7 +101,7 @@ sub download_ftp_contigs {
         $self->throw("wget/rsync failed on the following command line:\n".$wget);
       }
     }
-    
+
     # ftp://ftp.ebi.ac.uk/pub/databases/ena/wgs_fasta/ag/AGCE01.fasta.gz
   } elsif($source eq 'ena') {
   	# rsync -av rsync://ftp.ebi.ac.uk/pub/databases/ena/wgs_fasta/ag/AGCE01.fasta.gz /hps/nobackup/production/ensembl/leanne/primates_annotation_1/saimiri_boliviensis_boliviensis/Primary_Assembly/contigs/
@@ -208,40 +212,76 @@ sub fix_contig_headers {
   }
 }
 
+=head2 find_missing_accessions
+
+  Arg [1]    : string $output_path
+  Arg [2]    : string $contig_accession_path
+  Example    : $self->find_missing_accessions();
+  Description: Compares a list of contig accessions from the assembly AGP files to the accession the the contigs.fa file
+               and determines if any contigs listed in the AGP file are missing from the contigs.fa file. If there are less missing
+               than the value of $max_allowed_missing, the missing contigs are retrieved by calling recover_missing_accessions
+               If more are missing than the limit, the subroutine will throw. If there are duplicate contigs in the contigs.fa file
+               the subroutine will also throw. If this subroutine finishes running successfully, all contigs that are listed in the assembly
+               should be present in contigs.fa. Note that at that point there could be extra contigs that are not defined in the nuclear AGP
+               files (for example contigs from the mitochondrion). These are checked later by the compare_to_agp subroutine
+  Returntype : none
+  Exceptions : Duplicate headers in contig file
+               Large number of missing contigs
+  Caller     : run
+  Status     : Stable
+
+=cut
 sub find_missing_accessions {
   my ($self,$output_path,$contig_accession_path) = @_;
 
-  my $contig_file = catfile($output_path, 'contigs.fa');
-  my $contig_headers_file = catfile($output_path, 'contig_headers.txt');
+  my $contig_file = $output_path.'/contigs.fa';
+  my $max_allowed_missing = 1000;
+  my $header;
+  my $header_hash = {};
 
-  my %accessions;
-  open(IN, $contig_accession_path) || $self->throw("Could not open $contig_accession_path");
-  while (<IN>) {
-    chomp $_;
-    $accessions{$_} = 1;
+  # Note: I have tested doing the contig accession parsing with EnsEMBL::IO and it is much much slower
+  #       A grep on the command line might be slightly quicker, but the code below is cleaner
+  open(IN,$contig_file);
+  while(<IN>) {
+    my $line = $_;
+    unless($line =~ /^\>(.+)\n/) {
+      next;
+    }
+
+    my $accession = $1;
+    unless($header_hash->{$accession}) {
+      $header_hash->{$accession} = 1;
+    } else {
+      $self->throw("There appears to be a duplicate header in ".$contig_file."\nHeader: ".$header);
+    }
+
   }
-  close(IN) || $self->throw("Could not close $contig_accession_path");
+  close IN;
 
-  my @missing_accessions;
-  open(FH, "grep '^>' $contig_file |") || $self->throw("Could not open $contig_file");
-  while (<FH>) {
-    $_ =~ />(\S+)/;
-    if (!exists $accessions{$1}) {
-      $self->warning("No match in initial wgs download for accession: ".$1);
-      push(@missing_accessions,$1);
+
+  open(IN,$contig_accession_path);
+  my @all_accessions = <IN>;
+  close IN;
+
+  my $missing_accessions = [];
+  foreach my $accession (@all_accessions) {
+    chomp $accession;
+    unless($header_hash->{$accession}) {
+      $self->warning("No match in initial wgs download for accession: ".$accession);
+      push(@{$missing_accessions},$accession);
     }
   }
-  close(FH) || $self->throw("Could not close $contig_file");
 
-  if(scalar(@missing_accessions) > 1000) {
-    $self->throw("Found a large amount of missing accessions (".scalar(@missing_accessions)."), something might be wrong");
-  } elsif(scalar(@missing_accessions)) {
-    $self->recover_missing_accessions($output_path, \@missing_accessions);
+  if(scalar(@{$missing_accessions}) > $max_allowed_missing) {
+    $self->throw("Found a large amount of missing accessions (".scalar(@{$missing_accessions})."), something might be wrong");
+  } elsif(scalar(@{$missing_accessions})) {
+    $self->recover_missing_accessions($output_path,$missing_accessions);
   } else {
     say "All accession accounted for in the initial wgs download";
   }
 
 }
+
 
 sub recover_missing_accessions {
   my ($self,$output_path,$missing_accessions) = @_;
@@ -290,13 +330,10 @@ sub recover_missing_accessions {
         my $line = $_;
         if($line =~ /^>.*gb\|([^\|]+\.\d+)\|/) {
           say OUT '>'.$1;
-          
         } elsif($line =~ /^>(\w+)/) {
-          # print $1 . "<----MYACCESSION \n"; 
           my $tmp_1 = $1 . '.1';
           print "DEBUG::$tmp_1\--\n";
           say OUT '>'.$tmp_1;
-          	  
         } elsif($line =~ /^>/) {
           $self->throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);
         } else {
@@ -381,7 +418,7 @@ sub compare_to_agp {
   my @extra_accessions = keys(%$extra_accessions);
   if(scalar(@extra_accessions)) {
     my $non_nuclear_agp_path = $output_path."/../../non_nuclear_agp/concat_non_nuclear.agp";
-    say "FM2 non-nuc path: ".$non_nuclear_agp_path;
+
     unless(-e $non_nuclear_agp_path) {
       $self->throw("Could not find a non-nuclear AGP file, but there appears to be extra contigs present that aren't nuclear. Offending accessions:\n".@extra_accessions);
     }
