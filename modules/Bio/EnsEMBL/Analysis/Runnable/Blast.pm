@@ -95,6 +95,7 @@ sub new {
       $unknown_error ) = rearrange(['PARSER', 'FILTER', 'DATABASE', 
                                     'TYPE', 'UNKNOWN_ERROR_STRING',
                                    ], @args);
+    
   $type = undef unless($type);
   $unknown_error = undef unless($unknown_error);
   ######################
@@ -102,7 +103,7 @@ sub new {
   ######################
   $self->type('wu');
   $self->unknown_error_string('FAILED');
-  $self->options('-cpus=1') if(!$self->options);
+  # $self->options('-cpus=1') if(!$self->options);
   ######################
   $self->databases($database);
   $self->parser($parser);
@@ -111,8 +112,9 @@ sub new {
   $self->unknown_error_string($unknown_error) if($unknown_error);
 
   throw("No valid databases to search")
-      unless(@{$self->databases});
-
+      #unless(@{$self->databases});
+		unless($self->databases);
+		
   throw("Must pass Bio::EnsEMBL::Analysis::Runnable::Blast ".
         "a parser object ") 
       unless($self->parser);
@@ -296,6 +298,7 @@ sub run_analysis {
     else {
       $command .= " $database $filename -gi ";
     }
+    print "DEBUG::BLAST.pm::: " . $self->options . "\n"; 
     $command .= $self->options. ' 2>&1 > '.$results_file;
     
     print "Running blast ".$command."\n";

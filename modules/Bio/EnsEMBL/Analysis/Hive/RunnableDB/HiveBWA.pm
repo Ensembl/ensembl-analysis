@@ -63,6 +63,8 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my ($self) = @_;
   my $filename =  $self->param('wide_input_dir') ."/" .$self->param('filename');
+  $filename =~ s/\s//g;
+  
   $self->throw("Fastq file  $filename not found\n") unless ( -e $filename );
   my $program = $self->param('wide_short_read_aligner');
   $self->throw("BWA program not defined in analysis \n") unless (defined $program);

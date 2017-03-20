@@ -260,6 +260,8 @@ sub get_Seq_by_acc {
     warning("sequence not found. Returning undef\n");
   }
 
+print "DEBUG:: I AM STILL ALIVE!! \n"; 
+
   return $seq;
 
 }
