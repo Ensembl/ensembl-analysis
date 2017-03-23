@@ -139,10 +139,18 @@ sub fetch_input {
       }
       $self->analysis->logic_name($self->param('wide_species').'_'.$aligner.'_'.$outname);
     }
+print "DEBUG::bamname1:" . $self->param_is_defined('alignment_bam_file') . "\n" ;
     if (!$self->param_is_defined('alignment_bam_file')) {
       $self->param('alignment_bam_file', File::Spec->catfile($self->param('wide_merge_dir'),
         join('.', $self->param_required('assembly_name'), $self->param_required('rnaseq_data_provider'), $outname, $self->param('bam_version'), $self->param('_file_ext'))));
     }
+print "DEBUG::bamname2:" . $self->param_is_defined('alignment_bam_file') . "\n" ;
+use Data::Dumper; 
+
+print "DEBUG::bamname3:" . Dumper($self->param('alignment_bam_file')) . "\nfinish! \n" ;
+
+print "DEBUG::bamname4:" . Dumper(@{$self->param('filename')}) . "\n";
+
     if (scalar(@{$self->param('filename')}) == 0) {
         $self->throw('You did not specify input files for '.$self->analysis->logic_name);
     }
@@ -151,6 +159,7 @@ sub fetch_input {
         # In other cases I just want to push the filename but I don't need to run the BAM merge
         # First pushing the filename
         my $abs_filename = $self->param('filename')->[0];
+print "DEBUG::filename: $abs_filename \n"; 
         if (-e File::Spec->catfile($self->param('wide_merge_dir'), $abs_filename)) {
             $abs_filename = File::Spec->catfile($self->param('wide_merge_dir'), $abs_filename);
         }
