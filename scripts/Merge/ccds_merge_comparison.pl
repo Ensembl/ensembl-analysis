@@ -1,36 +1,34 @@
-#!/usr/local/ensembl/bin/perl
+#!/usr/bin/env perl
 
 use strict;
 use warnings;
-use GeneCluster;
-#use Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster;
-#use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils qw(cluster_Genes);
 use ScriptUtils;
 use Getopt::Long;
 
-use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::Tools::CodonTable;
+use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 
 my $translate  = 1;
 my $use_intron = 0;
-my $host;#       = 'ecs4';
-my $user;#       = 'ensro';
-my $dbname;#     = 'steve_ens_vega_merged_ncbi34';
-my $port;#       = 3350;
-my $comphost ;#  = 'ecs4';
-my $compuser ;#  = 'ensro';
-my $compdbname;# = 'steve_ncbi_feb04_all';
-my $compport;#   = 3350;
-my $outhost = undef; #   = 'ecs4';
-my $outuser = undef;#   = 'ensadmin';
-my $outpass = undef;#    = 'ensembl';
+my $host;
+my $user;
+my $dbname;
+my $port;
+my $comphost ;
+my $compuser ;
+my $compdbname;
+my $compport;
+my $outhost = undef;
+my $outuser = undef;
+my $outpass = undef;
 my $outdbname  = undef;
-my $outport = undef;#    = 3350;
-my $dnahost;#    = 'ecs4';
-my $dnauser ;#   = 'ensro';
+my $outport = undef;
+my $dnahost;
+my $dnauser ;
 my $dnadbname  = undef;
-my $dnaport;#    = 3350;
+my $dnaport;
 my @chromosomes;
 my $file          = 'stdout';
 my $usephase      = 1;
@@ -120,10 +118,6 @@ my $db =
                                       -port   => $port,
                                       -dbname => $dbname );
 
-my $coord_sys_adaptor = $db->get_CoordSystemAdaptor();
-#$coord_sys_adaptor->fetch_all->[0]->version();
-#$db->assembly_type($path);
-
 my $dnadb;
 if ($dnadbname) {
   $dnadb =
@@ -131,9 +125,6 @@ if ($dnadbname) {
                                         -user   => $dnauser,
                                         -port   => $dnaport,
                                         -dbname => $dnadbname );
-  $dnadb->assembly_type($path);
-  #my $dnadb_csa = $dnadb->get_CoordSystemAdaptor();
-  #$dnadb_csa->fetch_all->[0]->version();
 
   $db->dnadb($dnadb);
 }
@@ -147,9 +138,6 @@ my $compdb =
                                       -user   => $compuser,
                                       -port   => $compport,
                                       -dbname => $compdbname );
-$compdb->assembly_type($path);
-#my $comp_csa = $compdb->get_CoordSystemAdaptor();
-#$comp_csa->fetch_all->[0]->version();
 
 if ($dnadb) {
   $compdb->dnadb($dnadb);
@@ -171,9 +159,6 @@ if ($outdbname) {
                                         -port   => $outport,
                                         -pass   => $outpass,
                                         -dbname => $outdbname, );
-  #$outdb->assembly_type($path);
-  my $outdb_csa = $outdb->get_CoordSystemAdaptor();
-  $outdb_csa->fetch_all->[0]->version();
 
   if ($dnadb) {
     $outdb->dnadb($dnadb);
@@ -372,9 +357,9 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
   my $n_chr_set1_only_unclustered = 0;
   my $n_chr_set2_only_unclustered = 0;
   foreach my $uncl (@$unclustered) {
-    my @inc_sets = $uncl->get_sets_included;
+    my @inc_sets = @{$uncl->get_sets_included};
     print FP "UNCLUSTERED: Chr $chr " . $inc_sets[0];
-    foreach my $gene ($uncl->get_Genes) {
+    foreach my $gene (@{$uncl->get_Genes}) {
       my $max_exons_in_trans = 0;
       my $n_trans_with_stop = 0;
       my $total_stops_in_gene = 0; 
@@ -419,7 +404,7 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
 
       # Temporary to see if in CCDS
       my $in_ccds = 0;
-      foreach my $gene ($uncl->get_Genes) {
+      foreach my $gene (@{$uncl->get_Genes}) {
         foreach my $trans (@{$gene->get_all_Transcripts}) {
           foreach my $xref (@{$trans->get_all_DBLinks}) {
             if ($xref->dbname eq 'CCDS') {
@@ -435,7 +420,7 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
 
       # Temporary to see if in CCDS
       my $in_ccds = 0;
-      foreach my $gene ($uncl->get_Genes) {
+      foreach my $gene (@{$uncl->get_Genes}) {
         foreach my $trans (@{$gene->get_all_Transcripts}) {
           foreach my $xref (@{$trans->get_all_DBLinks}) {
             if ($xref->dbname eq 'CCDS') {
@@ -455,12 +440,12 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
   $n_unclustered += scalar(@$unclustered);
 
   my @twoways;
-  my $n_set1_redund;
-  my $n_set2_redund;
+  my $n_set1_redund = 0;
+  my $n_set2_redund = 0;
 
   foreach my $cluster (@$clusters) {
-    my @inc_sets = $cluster->get_sets_included;
-    if (scalar($cluster->get_sets_included) == 2) {
+    my @inc_sets = @{$cluster->get_sets_included};
+    if (scalar(@inc_sets) == 2) {
 
       if (!$keepredundant) {
         $n_set1_redund += remove_redundant_cds_from_cluster($cluster,$set1_name);
@@ -471,13 +456,13 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
     } elsif ($inc_sets[0] eq $set1_name) {
       $n_set1_only_cluster++;
       print "SINGLE SET CLUSTER: $set1_name ";
-      foreach my $gene ($cluster->get_Genes_by_Set($set1_name)) {
+      foreach my $gene (@{$cluster->get_Genes_by_Set($set1_name)}) {
         print " " . get_gene_id($gene);
       }
       print "\n";
     } elsif ($inc_sets[0] eq $set2_name) {
       print "SINGLE SET CLUSTER: $set2_name ";
-      foreach my $gene ($cluster->get_Genes_by_Set($set2_name)) {
+      foreach my $gene (@{$cluster->get_Genes_by_Set($set2_name)}) {
         print " " . get_gene_id($gene);
       }
       print "\n";
@@ -501,8 +486,8 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
     $n_set1_redund, $n_set2_redund, scalar(@twoways);
 
   CLUSTER: foreach my $cluster (@twoways) {
-    my @genes = $cluster->get_Genes_by_Set($set1_name);
-    my @comp_genes = $cluster->get_Genes_by_Set($set2_name);
+    my @genes = @{$cluster->get_Genes_by_Set($set1_name)};
+    my @comp_genes = @{$cluster->get_Genes_by_Set($set2_name)};
 
 
     my $cluster_match = 0;
@@ -748,8 +733,7 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
       print FP get_gene_id($gene);
     }
     print FP " with ";
-    my $firstone = 1;
-    #$firstone = 1;
+    $firstone = 1;
     foreach my $comp_gene (@comp_genes) {
       if ($firstone) {
         print FP " ";
@@ -808,7 +792,6 @@ sub get_gene_id {
   }
 
   $name = $gene->stable_id if ($gene->stable_id && !$name);
-  #return $gene->stable_id if ($gene->stable_id);
 
   if (!$name) {
     if (scalar(@{$gene->get_all_Transcripts}) == 1) {
@@ -817,9 +800,8 @@ sub get_gene_id {
       my @tsfs = @{$transcript->get_all_supporting_features};
       if (scalar(@tsfs)) {
        $name = $tsfs[0]->hseqname;
-        #return $tsfs[0]->hseqname;
       }
-    } else { 
+    } else {
      #print "FAILED To get tsf from gene with " . scalar(@{$gene->get_all_Transcripts}) . " transcripts, geneid = " . $gene->dbID . " ";
     }
   }
@@ -828,10 +810,11 @@ sub get_gene_id {
   }
 
   if ($show_gene_type) {
-    $name .= " ".$gene->biotype."_".$gene->status."_".$gene->source;
+    $name .= ' '.$gene->biotype;
+    $name .= '_'.$gene->status if ($gene->status);
+    $name .= '_'.$gene->source;
   }
   return $name;
-  #return $gene->dbID;
 }
 
 sub get_transcript_id {
@@ -868,8 +851,6 @@ sub write_genes {
     my $tcount = 1;
     foreach my $trans ( @{$gene->get_all_Transcripts} ) {
       my $get2 = $trans->translation->stable_id;
-      #print "Got $get2\n";
-      #$trans->sort;
       trim_to_CDS($trans,$tcount);
 
       my @exons= @{$trans->get_all_Exons};
@@ -892,7 +873,7 @@ sub write_genes {
 sub trim_to_CDS {
   my ($trans,$tnum) = @_;
 
-  my @exons=tweak_translateable($trans,$tnum); 
+  my @exons=tweak_translateable($trans,$tnum);
 
   $trans->flush_Exons;
 
@@ -920,7 +901,7 @@ sub tweak_translateable {
     $exons[0]->version($trans->translation->start_Exon->version);
     $exons[0]->created($trans->translation->start_Exon->created);
     $exons[0]->modified($trans->translation->start_Exon->modified);
-  
+
     $exons[0]->add_supporting_features(@{$trans->translation->start_Exon->get_all_supporting_features});
   }
 
@@ -1008,13 +989,13 @@ sub remove_redundant_cds_from_gene {
 
 sub remove_redundant_cds_from_cluster {
   my ($cluster, $set) = @_;
-  my @genes = $cluster->get_Genes_by_Set($set);
+  my @genes = @{$cluster->get_Genes_by_Set($set)};
   my $n_removed = 0;
 
   foreach my $gene (@genes) {
     $n_removed += remove_redundant_cds_from_gene($gene);
   }
-  
+
 
 # So now we have a set of genes which have no duplication within themselves
 
@@ -1282,11 +1263,11 @@ sub cluster_Genes {
     foreach my $cluster (@clusters) {
       if ($gene->end  >= $cluster->start &&
           $gene->start <= $cluster->end) {
-        foreach my $cluster_gene ($cluster->get_Genes){       
+        foreach my $cluster_gene (@{$cluster->get_Genes}){
           if ($gene->end  >= $cluster_gene->start &&
               $gene->start <= $cluster_gene->end) {
-  
-            if (_compare_Genes( $gene, $cluster_gene)) {	
+
+            if (_compare_Genes( $gene, $cluster_gene)) {
               push (@matching_clusters, $cluster);
               next CLUSTER;
             }
@@ -1296,24 +1277,22 @@ sub cluster_Genes {
     }
 
     if (scalar(@matching_clusters) == 0) {
-      #my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster->new();
-      my $newcluster = GeneCluster->new();
+      my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster->new();
       foreach my $set_name (keys %$types_hash) {
         $newcluster->gene_Types($set_name,$types_hash->{$set_name});
       }
-      $newcluster->put_Genes($gene);
+      $newcluster->put_Genes([$gene]);
 
       push(@clusters,$newcluster);
 
     } elsif (scalar(@matching_clusters) == 1) {
-      $matching_clusters[0]->put_Genes($gene);
+      $matching_clusters[0]->put_Genes([$gene]);
 
     } else {
       # Merge the matching clusters into a single cluster
       my @new_clusters;
 
-      my $merged_cluster = GeneCluster->new();
-      #my $merged_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster->new();
+      my $merged_cluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster->new();
 
       foreach my $set_name (keys %$types_hash) {
         $merged_cluster->gene_Types($set_name,$types_hash->{$set_name});
@@ -1321,11 +1300,11 @@ sub cluster_Genes {
 
       my %match_cluster_hash;
       foreach my $clust (@matching_clusters) {
-        $merged_cluster->put_Genes($clust->get_Genes);
+        $merged_cluster->put_Genes(@{$clust->get_Genes});
 
         $match_cluster_hash{$clust} = $clust;
       }
-      $merged_cluster->put_Genes($gene);
+      $merged_cluster->put_Genes([$gene]);
 
       push @new_clusters,$merged_cluster;
 

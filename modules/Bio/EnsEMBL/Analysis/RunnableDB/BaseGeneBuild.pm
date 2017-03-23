@@ -190,6 +190,11 @@ sub get_dbadaptor {
                    . "you need to provide a -speices flag.\n" );
           }
         }
+        else {
+          throw( "No matching non-standard adaptor could be found. If you want ".
+                 "a standard adaptor you should pass in undef.");
+        }
+
       } else {
         $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%$constructor_args);
         # it's a core db so try to attach dna_db
