@@ -219,8 +219,16 @@ sub run_FASTA{
   while (<PROBES>) {
     chomp;
 	
-    if (/$header_regex$/) {     #This places header values into @match_refs
+    if (/$header_regex/) {     #This places header values into @match_refs
       $cnt++;
+
+      #Annoyingly some probes have IDs of '0', but have differing probe seqs (and x;y; coords)
+      #This is prevalent on AFFY_ST arrays e.g.
+      #>probe:HuGene-1_0-st-v1:0;780:205; TranscriptClusterID=8180325; Sense; ProbeSetType=rescue->FLmRNA->unmapped
+      #GGGCTGTCGCACACTGCACAGTTTG
+      #>probe:HuGene-1_0-st-v1:0;956:935; TranscriptClusterID=8180325; Sense; ProbeSetType=rescue->FLmRNA->unmapped
+      #CATGTCATGCGAAGGCAAGTCTGAA
+
 
       if ($current_sequence) {
 		
@@ -235,9 +243,14 @@ sub run_FASTA{
 
         $probe_set = (exists $probe_attrs{'-probe_set'}) ?  $probe_attrs{'-probe_set'} : 'NO_PROBESET';
         $existing_probe = $probes_by_sequence{$probe_set}{$current_sequence};
+        #As this is keyed on the sequence it will not return probes with the same ID on the same 
+        #array but with different sequence. (regardless of the probe_set_id)
+        #Hence these, will be stored as separate probes, which will look identical apart from their probe_features
 
         if (! $existing_probe) {
           $nr_cnt++;
+          #warn "Creating new probe:\t".$probe_attrs{'-name'}."\n";
+
           $existing_probe = $self->create_new_probe(
                                                     $current_array_chip, 
                                                     \%probe_attrs,
@@ -251,20 +264,23 @@ sub run_FASTA{
           #due to the fact we don't model spatial differences here (e.g. x/y coords)
           #This is done implicitly for Affy arrays as they integrate the x/y coords into the probe names
 
+
           my $existing_name = $existing_probe->get_probename($probe_attrs{'-array'});
 
-          if($existing_name && 
+          if((defined $existing_name) && 
              ($existing_name eq $probe_attrs{'-name'}) ){
           
             #Must have found either a technical replicate with an identical name
             #Currently the model only allows one unique name per probeset per array
+
+            #Check $current_sequence matches here also?
             warn "Skipping identical technical replicate probe:\t".
               $probe_attrs{'-name'}.' '.$current_sequence."\n";
             $skipped_reps ++;  
           }
           else {
            
-            if($existing_name){
+            if(defined ($existing_name)){
               warn "Found replicate probe for ($existing_name) replicate:\t".
                 $probe_attrs{'-name'}."\n";
               $redundant_seq ++;

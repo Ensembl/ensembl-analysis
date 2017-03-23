@@ -299,7 +299,7 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
 
  # Hack to run 17 manual/ensembl comparison
   $types_hash{$set1_name} = \@munged_genetypes;
-  
+
   $n_gene += scalar(@genes);
 
   push @allgenes,@genes;
@@ -322,7 +322,7 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
           my $coding_end   = $trans->cdna_coding_end;
           my $cdna_seq     = uc($trans->spliced_seq);
           my $endseq       = substr($cdna_seq,$coding_end-3,3);
-  
+
           if ($endseq eq "TAG" || $endseq eq "TGA" || $endseq eq "TAA") {
             if ($trans->translation->end > 3) {
               $trans->translation->end($trans->translation->end()-3);
@@ -341,14 +341,14 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
   $n_trans += $ntrans;
   $n_comp_trans += $ncomptrans;
 
-  print FP "GENE INFO: Chr $chr " . scalar(@genes) .      " genes " .      $ntrans . " trans " . 
+  print FP "GENE INFO: Chr $chr " . scalar(@genes) .      " genes " .      $ntrans . " trans " .
                                     scalar(@comp_genes) . " comp_genes " . $ncomptrans . " comp_trans\n";
 
   $n_comp_gene += scalar(@comp_genes);
 
   push @allgenes,@comp_genes;
 
-  my ($clusters, $unclustered) = cluster_Genes(\@allgenes, \%types_hash); 
+  my ($clusters, $unclustered) = cluster_Genes(\@allgenes, \%types_hash);
 
   print "Got " . scalar(@$clusters) . " clusters\n";
 
@@ -362,11 +362,11 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
     foreach my $gene (@{$uncl->get_Genes}) {
       my $max_exons_in_trans = 0;
       my $n_trans_with_stop = 0;
-      my $total_stops_in_gene = 0; 
+      my $total_stops_in_gene = 0;
       my $n_trans_with_fshift = 0;
       foreach my $trans (@{$gene->get_all_Transcripts}) {
         my $nexon_in_trans = scalar(@{$trans->get_all_Exons});
-       
+
         if ($nexon_in_trans > $max_exons_in_trans) {
           $max_exons_in_trans = $nexon_in_trans;
         }
@@ -408,8 +408,8 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
         foreach my $trans (@{$gene->get_all_Transcripts}) {
           foreach my $xref (@{$trans->get_all_DBLinks}) {
             if ($xref->dbname eq 'CCDS') {
-              $in_ccds++; 
-            } 
+              $in_ccds++;
+            }
           }
         }
       }
@@ -424,8 +424,8 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
         foreach my $trans (@{$gene->get_all_Transcripts}) {
           foreach my $xref (@{$trans->get_all_DBLinks}) {
             if ($xref->dbname eq 'CCDS') {
-              $in_ccds++; 
-            } 
+              $in_ccds++;
+            }
           }
         }
       }
@@ -509,9 +509,9 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
             @exons = sort {$a->start <=> $b->start} @{$trans->get_all_Introns};
           }
 
-      
+
           COMPTRANS: foreach my $comp_trans (@{$comp_gene->get_all_Transcripts}) {
-            my @comp_exons; 
+            my @comp_exons;
             if (!$use_intron) {
               if ($translate) {
                 if (!defined($comp_trans->translation)) {
@@ -525,13 +525,13 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
             } else {
               @comp_exons = sort {$a->start <=> $b->start} @{$comp_trans->get_all_Introns};
             }
-      
+
             if (scalar(@comp_exons) != scalar(@exons)) {
                 print FP "Number of exons differs: ", scalar(@comp_exons), " ", scalar(@exons), "\n";
                 next COMPTRANS;
             }
 #            next COMPTRANS if (scalar(@comp_exons) != scalar(@exons));
-        
+
             my $e_count = 0;
             my $n_exon  = scalar(@exons);
 
@@ -586,8 +586,8 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
 
             printf FP "MATCH:\t%s\t%-40.40s\t%-40.40s\t%-40.40s\t%-40.40s\t%1d\t%1d\t%1d\t%1d\t%3d\t%3d\t%3d",
                   $chr, get_gene_id($gene), get_transcript_id($trans),
-                  get_gene_id($comp_gene), get_transcript_id($comp_trans), 
-                  $is_complete,  $has_stops, 
+                  get_gene_id($comp_gene), get_transcript_id($comp_trans),
+                  $is_complete,  $has_stops,
                   $has_frameshifts, $has_noncons_splice,
                   scalar(@{$trans->get_all_Exons}),
                   scalar(@{$comp_trans->get_all_Exons}),
@@ -606,13 +606,13 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
               $n_chr_complete_translating_match_trans++;
               $n_complete_translating_match_trans++;
               if ($outdb) {
-                if (!exists($outgenes{$gene})) { 
+                if (!exists($outgenes{$gene})) {
                   my $outgene = copy_empty_gene($gene);
                   $outgenes{$gene} = $outgene;
                 }
                 my $outgene = $outgenes{$gene};
-            
-                my $outtrans = Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils::clone_Transcript($trans); 
+
+                my $outtrans = Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils::clone_Transcript($trans);
                 $outgene->add_Transcript($outtrans);
               }
             }
@@ -634,16 +634,16 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
           my $is_ccds = 0;
           foreach my $xref (@{$trans->get_all_DBLinks}) {
             if ($xref->dbname eq 'CCDS') {
-              $is_ccds=1; 
+              $is_ccds=1;
               last;
-            } 
+            }
           }
 
           print FP "UNMATCHED TRANSCRIPT: ", get_transcript_id($trans) , " " , $trans->slice->seq_region_name , " " ,
-                $trans->start, " ", $trans->end, " ", 
-                $is_complete,  " ", 
+                $trans->start, " ", $trans->end, " ",
+                $is_complete,  " ",
                 $has_stops, " ",
-                $has_frameshifts, " ", 
+                $has_frameshifts, " ",
                 $has_noncons_splice, " ",
                 $is_ccds, " ",
                 get_gene_id($gene), "\n";
@@ -658,8 +658,8 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
       foreach my $trans (@{$gene->get_all_Transcripts}) {
         foreach my $xref (@{$trans->get_all_DBLinks}) {
           if ($xref->dbname eq 'CCDS') {
-            $in_ccds++; 
-          } 
+            $in_ccds++;
+          }
         }
       }
     }
@@ -745,8 +745,8 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
     }
     print FP "\n";
   }
-  
-  printf FP "SUMMARY: Chr %10.10s %4d genes %4d trans %4d comp_genes %4d comp_trans %4d clusters %4d unclustered %4d twoways %4d matched %4d good matches %4d matched_clusters\n", 
+
+  printf FP "SUMMARY: Chr %10.10s %4d genes %4d trans %4d comp_genes %4d comp_trans %4d clusters %4d unclustered %4d twoways %4d matched %4d good matches %4d matched_clusters\n",
                  $chr,scalar(@genes),$ntrans,scalar(@comp_genes),$ncomptrans,
                  scalar(@$clusters),scalar(@$unclustered),scalar(@twoways),
                  $n_chr_match_trans, $n_chr_complete_translating_match_trans,
@@ -762,7 +762,7 @@ foreach my $chr (@{sort_chr_names($chrhash)}) {
     write_genes($outga, $out_slice, \%outgenes);
   }
 }
-print FP "OVERALL: Total matched trans $n_match_trans\n"; 
+print FP "OVERALL: Total matched trans $n_match_trans\n";
 print FP "OVERALL: Total good trans matches $n_complete_translating_match_trans\n";
 print FP "OVERALL: Total $set1_name genes $n_gene\n";
 print FP "OVERALL: Total $set2_name genes $n_comp_gene\n";
@@ -917,7 +917,7 @@ sub tweak_translateable {
     }
   }
 
-  return @exons; 
+  return @exons;
 }
 
 
@@ -1007,21 +1007,21 @@ sub remove_redundant_cds_from_cluster {
     TRANS:
     for (my $i=0; $i<scalar(@trans_from_gene); $i++) {
       my $trans = $trans_from_gene[$i];
-  
+
       next if (!$trans->translation);
-  
+
       my @exons = sort {$a->start <=> $b->start} @{$trans->get_all_translateable_Exons};
-  
+
       COMPTRANS:
       for (my $j=0; $j<scalar(@unique_trans_array); $j++) {
         my $comp_trans = $unique_trans_array[$j];
-  
+
         next if (!$comp_trans->translation);
-  
+
         my @comp_exons = sort {$a->start <=> $b->start} @{$comp_trans->get_all_translateable_Exons};
-  
+
         next if (scalar(@comp_exons) != scalar(@exons));
-  
+
         foreach my $exon (@exons) {
           my $comp_exon = shift @comp_exons;
           if ($exon->start != $comp_exon->start ||
@@ -1141,7 +1141,7 @@ sub is_significant_overlap {
     }
   }
   print "Overlap = $overlap\n";
-  if ($overlap >= $sigamount) { 
+  if ($overlap >= $sigamount) {
     return 1;
   } else {
     return 0;
@@ -1197,12 +1197,12 @@ sub check_for_gene_duplication {
   my $tc = genes_to_Transcript_Cluster($genes);
 
   my @exonclusters = cluster_exons_in_transcript_cluster($tc);
-  
+
   my $most_exon_transcript = find_Transcript_with_most_Exons_in_Transcript_Cluster($tc);
- 
+
   my $max_num_exons_transcript = scalar(@{$most_exon_transcript->get_all_Exons()});
 
-  print "Number of exon clusters = " . scalar(@exonclusters) . 
+  print "Number of exon clusters = " . scalar(@exonclusters) .
         " max number of exons in transcript = " . $max_num_exons_transcript . "\n";
 
 # Matches against multiple wrongly combined genes (duplicates or gene cluster)
@@ -1217,7 +1217,7 @@ sub find_Longest_CDS_of_Gene {
   my $maxlen = 0;
   my $nexonmax = 0;
   my $longest;
-  print "For gene " . get_gene_id($gene); 
+  print "For gene " . get_gene_id($gene);
   foreach my $trans (@{$gene->get_all_Transcripts}) {
     my $len = 0;
     if ($trans->translation) {
@@ -1248,7 +1248,7 @@ sub find_Longest_CDS_of_Gene {
 
 sub cluster_Genes {
   my ($genes, $types_hash) = @_;
-  
+
   return ([],[]) if (!scalar(@$genes));
 
   my @sorted_genes = sort { $a->start <=> $b->start ? $a->start <=> $b->start  : $b->end <=> $a->end } @$genes;
@@ -1318,11 +1318,11 @@ sub cluster_Genes {
     }
   }
 
-  my @new_clusters;  
+  my @new_clusters;
   my @unclustered;
   foreach my $cl (@clusters){
     if ( $cl->get_Gene_Count == 1 ){
-      push @unclustered, $cl; 
+      push @unclustered, $cl;
     }
     else{
       push( @new_clusters, $cl );
@@ -1339,11 +1339,11 @@ sub cluster_Genes {
 
 =cut
 
-sub _compare_Genes {         
+sub _compare_Genes {
   my ($gene1,$gene2) = @_;
 
 #  print "Comparing " . $gene1->stable_id . " to " . $gene2->stable_id . "\n";
-#  
+#
   if ($gene1->end < $gene2->start || $gene1->start > $gene2->end) {
 #    print "Gene 1  " . $gene1->start . " " . $gene1->end . " \n";
 #    print "Gene 2  " . $gene1->start . " " . $gene1->end . " \n";
@@ -1374,7 +1374,7 @@ sub _compare_Genes {
   }
   #print "Failed overlap check (translate = $translate) - returning 0\n";
   return 0;
-}      
+}
 #########################################################################
 
 {
@@ -1386,7 +1386,7 @@ sub _compare_Genes {
 
   sub get_coding_exons_for_gene {
     my ($gene) = @_;
-  
+
     if (exists($coding_exon_cache{$gene})) {
       return $coding_exon_cache{$gene};
     } else {
