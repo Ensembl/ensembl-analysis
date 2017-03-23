@@ -133,19 +133,25 @@ sub get_unprocessed_genes() {
   my %genes_to_copy = ();
   
   if ($include) {
+      print STDERR 'INCLUDE', "\n";
     # include the genes whose logic name matches
     foreach my $gene (@{$ga->fetch_all_by_logic_name($include)}) {
       $genes_to_copy{$gene->dbID()} = 1;
     }
   } elsif ($exclude) {
+      print STDERR 'EXCLUDE', "\n";
     # include the genes whose logic name does not match
     foreach my $gene (@{$ga->fetch_all()}) {
       my $gene_analysis = $gene->analysis();
       if ($gene_analysis->logic_name() ne $exclude) {
         $genes_to_copy{$gene->dbID()} = 1;
       }
+      else {
+          print STDERR 'EXCLDING ', $gene->dbID, ' ', $gene->biotype, "\n";
+      }
     }
   } else {
+      print STDERR 'ALL', "\n";
     # include all genes
     %genes_to_copy = map { $_ => 1 } @{$ga->list_dbIDs()};
   }

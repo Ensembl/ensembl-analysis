@@ -125,6 +125,10 @@ sub default_options {
     # You shouldn't need to change anything below this line
     ##
     
+    # We never want to process the MT genes either during the merge or when we process the unprocessed
+    secondary_include => '',
+    secondary_exclude => 'mt_genbank_import',
+    
     # vega database provided by the Vega team
     'original_vega_db' => {
                     -host      => $self->o('original_vega_host'),
@@ -354,7 +358,7 @@ sub pipeline_analyses {
                                        ],
                              },
               -max_retry_count => 0,
-              -rc_name => 'default',
+              -rc_name => 'local',
             },
 
             {
@@ -490,8 +494,8 @@ sub pipeline_analyses {
                                user_output =>$self->o('user_w'),
                                password_output => $self->o('pass_w'),
                                database_output => $self->o('core_db','-dbname'),
-                               secondary_include => '',
-                               secondary_exclude => '',
+                               secondary_include => $self->o('secondary_include'),
+                               secondary_exclude => $self->o('secondary_exclude'),
                                primary_include => '',
                                primary_exclude => '',
 
@@ -546,8 +550,8 @@ sub pipeline_analyses {
                                user_secondary => $self->o('user_r'),
                                password_secondary => $self->o('pass_r'),
                                database_secondary => $self->o('ensembl_db','-dbname'),
-                               secondary_include => '',
-                               secondary_exclude => '',
+                               secondary_include => $self->o('secondary_include'),
+                               secondary_exclude => $self->o('secondary_exclude'),
                              },
               -rc_name => 'default',
               #-hive_capacity    => 100,
@@ -1028,7 +1032,7 @@ sub pipeline_analyses {
                                sql => [ "UPDATE gene SET biotype = 'lincRNA' WHERE biotype = 'new_lincRNA'" ],
                              },
                -max_retry_count => 3,
-               -rc_name => 'default',
+               -rc_name => 'local',
                -flow_into => { 1 => ['dummy'] },
             },
             {
@@ -1038,7 +1042,7 @@ sub pipeline_analyses {
                                cmd => 'echo "I am dummy and I know it. TBC..."'
                              },
                -max_retry_count => 0,
-               -rc_name => 'default',
+               -rc_name => 'local',
             },
 
             ));
