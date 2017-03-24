@@ -48,6 +48,7 @@ sub param_defaults {
         disconnect_jobs => 0,
         _branch_to_flow_to => 2,
         _branch_to_flow_to_on_fail => -3,
+        _output => [],
     }
 }
 
@@ -86,9 +87,7 @@ sub run {
 
 sub output {
   my ($self, $output) = @_;
-  unless($self->param_is_defined('_output')){
-    $self->param('_output',[]);
-  }
+
   if($output){
     if(ref($output) ne 'ARRAY'){
       $self->throw('Must pass RunnableDB:output an array ref not a '.$output);
