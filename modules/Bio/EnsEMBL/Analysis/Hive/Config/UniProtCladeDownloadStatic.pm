@@ -387,6 +387,11 @@ sub _master_config {
                             },
 
              },
+             selenocysteine => {
+               query_url => 'taxonomy%3A#taxon_id#+AND+annotation%3A%28type%3Anon_std+Selenocysteine%29+AND+fragment%3Ano&format=fasta&include=yes',
+               file_name => '#taxon_id#_seleno.fa',
+               dest_dir   => '#output_path#',
+             },
   );
   return $config{$key};
 }

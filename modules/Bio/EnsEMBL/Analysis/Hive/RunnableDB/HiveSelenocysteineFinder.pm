@@ -32,6 +32,11 @@ Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSelenocysteineFinder
 
 =head1 DESCRIPTION
 
+This module will run exonerate first to find where are the best 3 alignments.
+Then it will run exonerate with the exhaustive parameter to refine the alignment.
+Finally it will run genewise and compare the two alignment and the original protein
+to find the best match. To allow genewise to create a good model we have to modify
+the dna sequence to change the TGA for selenocysteine to a TGC for a cysteine
 
 =cut
 
@@ -48,7 +53,6 @@ use Bio::EnsEMBL::Analysis::Runnable::Genewise;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Analysis_to_Gene attach_Slice_to_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(attach_Slice_to_Transcript);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile);
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity);
 
 use Bio::SeqIO;
 
@@ -75,9 +79,8 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
-  logger_verbosity('INFO');
-  $self->param_required('genome');
-  $self->param_required('exonerate');
+  my $target = $self->param_required('genome');
+  my $exonerate = $self->param_required('exonerate');
   $self->param_required('genewise');
   my $dnadb = $self->get_database_by_name('dna_db');
   my $db = $self->get_database_by_name('target_db', $dnadb);
@@ -85,8 +88,7 @@ sub fetch_input {
   if ($self->param_is_defined('source_db')) {
     $self->hrdb_set_con($self->get_database_by_name('source_db', $dnadb), 'source_db');
   }
-# I want to get the proper version by asking UniProt
-  $self->create_analysis;
+  my $analysis = $self->create_analysis;
 
   my $querys;
   my $iid_type = $self->param_required('iid_type');
@@ -100,8 +102,21 @@ sub fetch_input {
   elsif ($iid_type eq 'filename') {
     $querys = get_fasta_file_from_uniprot($self->input_id);
   }
-  $self->param('querys', $self->prepare_sequence($querys));
-  if (!scalar(@{$self->param('querys')})) {
+
+  my $seqs = $self->prepare_sequences($querys);
+  if ($seqs) {
+    foreach my $seq (@$seqs) {
+      $self->runnable(Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
+        -program => $exonerate,
+        -analysis => $analysis,
+        -query_seqs => [$seq],
+        -query_type => 'protein',
+        -target_file => $target,
+        -options => '--model protein2genome --bestn 3 --softmasktarget true',
+      ));
+    }
+  }
+  else {
     $self->complete_early('No selenoprotein to use');
     $self->input_job->autoflow(0);
   }
@@ -112,17 +127,173 @@ sub run {
   my ($self) = @_;
 
   my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
-  foreach my $seq (@{$self->param('querys')}) {
-    my $alignments = $self->exonerate_sequences(write_seqfile($seq));
-
-    my $transcripts = $self->selenocysteine_finder($alignments, $seq, $slice_adaptor);
-    my $genewise_sequences = $self->mutate_genomic_sequence($transcripts, $slice_adaptor);
-
-    my $selenocysteine_transcripts = $self->genewise_sequences($genewise_sequences, $seq, $alignments);
-    $self->output($selenocysteine_transcripts);
+  my $minimum_identity = $self->param('minimum_identity');
+  my $coverage_threshold = $self->param('coverage_threshold')/100;
+  my $score_threshold = $self->param('score_threshold')/100;
+  my $padding = $self->param('padding');
+  my $exonerate = $self->param('exonerate');
+  foreach my $runnable (@{$self->runnable}) {
+    $runnable->run;
+    my %alignments;
+    foreach my $transcript (@{$runnable->output}) {
+      my $tsf = $transcript->get_all_supporting_features->[0];
+      next if ($tsf->hcoverage < $self->param('coverage_threshold'));
+      if (exists $alignments{$tsf->seqname}) {
+        my $accession = $tsf->seqname;
+        if ($tsf->score > ($alignments{$accession}->{score}+$tsf->{score}*$score_threshold)
+            or ($tsf->percent_id > $minimum_identity and
+              $tsf->percent_id > $alignments{$accession}->get_all_supporting_features->[0]->percent_id and
+              (($tsf->q_end-$tsf->q_start) > $tsf->{query_length}*$coverage_threshold)) ) {
+          $transcript->slice($alignments{$tsf->seqname}->slice);
+          $alignments{$tsf->seqname} = $transcript;
+        }
+      }
+      else {
+        $alignments{$tsf->seqname} = $transcript;
+        $transcript->slice($slice_adaptor->fetch_by_name($tsf->seqname));
+      }
+    }
+    my @selenocysteine_transcripts;
+    foreach my $transcript ( sort {$a->{score} > $b->{score}} values %alignments) {
+      my $accession = $transcript->{accession};
+      my ($seq) = grep {$_->id eq $accession} @{$runnable->query_seqs};
+      print 'Working on ', $accession, ' ', $transcript->seq_region_start, ' ', $transcript->seq_region_end, ' ', $transcript->seq_region_strand, ' and ', $transcript->slice->name, "\n";
+      $self->create_target_file('selenocysteine', 'fa');
+      my $sub_slice = $self->param('target_file');
+      my $fasta_serial = Bio::EnsEMBL::Utils::IO::FASTASerializer->new($sub_slice);
+      my $gene_slice = $transcript->slice->sub_Slice($transcript->seq_region_start-$padding, $transcript->seq_region_end+$padding);
+      $fasta_serial->print_Seq($gene_slice);
+      my $exonerate_runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
+          -program => $runnable->program,
+          -analysis => $runnable->analysis,
+          -query_seqs => [$seq],
+          -query_type => $runnable->query_type,
+          -target_file => $sub_slice->filename,
+          -options => '--bestn 1 --exhaustive --model protein2genome',
+          );
+      $exonerate_runnable->run;
+      foreach my $exonerate_transcript (@{$exonerate_runnable->output}) {
+        attach_Slice_to_Transcript($exonerate_transcript, $gene_slice);
+      print 'Working on ', $accession, ' ', $exonerate_transcript->seq_region_start, ' ', $exonerate_transcript->seq_region_end, ' ', $exonerate_transcript->seq_region_strand, ' and ', $exonerate_transcript->slice->name, "\n";
+        my $num_seqEdits = $self->get_SeqEdit($exonerate_transcript, $seq);
+        if ($num_seqEdits) {
+          my $genewise_padding = 2*$self->param('padding');
+# For all our transcripts we try to find the genomic position of the start so we can change TGA to TGC
+# Then we can use GeneWise to predict a model.
+          my $genewise_slice = $transcript->slice->sub_Slice($exonerate_transcript->seq_region_start-$genewise_padding, $exonerate_transcript->seq_region_end+$genewise_padding);
+          my $genewise_sequence = $self->mutate_dna($exonerate_transcript, $genewise_slice);
+          if ($genewise_sequence) {
+# A Slice with its sequence manually modified can't use the SequenceAdaptor.
+# So we need to create a copy of the Slice. We will use the copy for GeneWise
+# then use the original one to get the translation.
+            my $edited_slice = Bio::EnsEMBL::Slice->new(
+                -start => $genewise_slice->start,
+                -end => $genewise_slice->end,
+                -strand => $genewise_slice->strand,
+                -seq_region_name => $genewise_slice->seq_region_name,
+                -coord_system => $genewise_slice->coord_system,
+                );
+            $edited_slice->{seq} = $$genewise_sequence;
+            my $genewise_runnable = Bio::EnsEMBL::Analysis::Runnable::Genewise->new (
+                -protein => $seq,
+                -query => $edited_slice,
+                -reverse => $exonerate_transcript->strand eq '1' ? 0 : 1,
+                -analysis => $runnable->analysis,
+                );
+            $genewise_runnable->run;
+            foreach my $genewise_transcript (@{$genewise_runnable->output}) {
+              attach_Slice_to_Transcript($genewise_transcript, $genewise_slice);
+      print 'Working on ', $accession, ' ', $genewise_transcript->seq_region_start, ' ', $genewise_transcript->seq_region_end, ' ', $genewise_transcript->seq_region_strand, ' and ', $genewise_transcript->slice->name, "\n";
+              $self->get_SeqEdit_by_transcript($genewise_transcript);
+              my $seleno_transcript = $self->get_best_transcript($genewise_transcript, $exonerate_transcript, $seq);
+              push(@selenocysteine_transcripts, $seleno_transcript) if ($seleno_transcript);
+            }
+          }
+        }
+      }
+    }
+    $self->output(\@selenocysteine_transcripts);
   }
 }
 
+
+sub get_best_transcript {
+  my ($self, $genewise_transcript, $exonerate_transcript, $seq) = @_;
+
+  my $SEQ_DISPLAY_LENGTH = 70;
+  my $is_equal = 1;
+  my $accession = $seq->id;
+  if ($genewise_transcript->seq_region_start == $exonerate_transcript->seq_region_start
+      and $genewise_transcript->seq_region_end == $exonerate_transcript->seq_region_end
+      and $genewise_transcript->seq_region_strand == $exonerate_transcript->seq_region_strand) {
+    my $exonerate_idx = 0;
+    my @exonerate_exons = sort {$a->start <=> $b->start} @{$exonerate_transcript->get_all_Exons};
+    foreach my $exon (sort {$a->start <=> $b->start} @{$genewise_transcript->get_all_Exons}) {
+      if (defined $exonerate_exons[$exonerate_idx]) {
+        if ($exon->seq_region_start != $exonerate_exons[$exonerate_idx]->seq_region_start or $exon->seq_region_end != $exonerate_exons[$exonerate_idx]->seq_region_end or $exon->seq_region_strand != $exonerate_exons[$exonerate_idx]->seq_region_strand) {
+          $is_equal = 0;
+          $self->warning("Exon $exonerate_idx created by Exonerate and Genewise for $accession differs!");
+        }
+      }
+      else {
+        $is_equal = 0;
+        $self->warning("Exon $exonerate_idx created by Exonerate and Genewise for $accession differs!");
+      }
+      $exonerate_idx++;
+    }
+    if (defined $exonerate_exons[$exonerate_idx]) {
+      $is_equal = 0;
+      $self->warning("Exon $exonerate_idx created by Exonerate and Genewise for $accession differs!");
+
+    }
+  }
+  else {
+    $is_equal = 0;
+    $self->warning("Transcripts created by Exonerate and Genewise for $accession differs!");
+  }
+  my $transcript_ori = $seq->{original_seq};
+  my $exo_ori = $self->is_same_translation($exonerate_transcript, $transcript_ori, 'Exonerate');
+  my $transcript_exo = $exonerate_transcript->translation->seq;
+  my $transcript_genewise = $genewise_transcript->translation->seq;
+  if ($is_equal) {
+    if ($exo_ori >= 0) {
+      $self->warning("GREAT MATCH!! The predicted proteins match the original protein $accession");
+      return $exonerate_transcript;
+    }
+    else {
+      $self->warning("The predicted proteins does not match the original protein $accession");
+    }
+  }
+  else {
+    my $genewise_ori = $self->is_same_translation($genewise_transcript, $transcript_ori, 'GeneWise');
+    if ($exo_ori >= 0 and abs($genewise_ori) >= $exo_ori) {
+      $self->warning("GOOD MATCH!! The Exonerate protein match the original protein $accession");
+      display_alignment('EXONERATE', $transcript_exo, 'ORIGIN', $transcript_ori, $SEQ_DISPLAY_LENGTH) if ($self->debug > 2);
+      return $exonerate_transcript;
+    }
+    elsif ($genewise_ori >= 0 and abs($exo_ori) >= $genewise_ori) {
+# For some reason genewise has FeaturePair fo the transcript_supporting_features.
+# We might need to chage it but there are some warning in the GeneWise module...
+# So let's change it to a DnaPepAlignFeature
+      $genewise_transcript->flush_supporting_features;
+      my @sfs;
+      foreach my $exon (@{$genewise_transcript->get_all_Exons}) {
+        push(@sfs, @{$exon->get_all_supporting_features});
+      }
+      my $new_tsf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@sfs);
+      $genewise_transcript->add_supporting_features($new_tsf);
+      $self->warning("GOOD MATCH!! The GeneWise protein match the original protein $accession");
+      display_alignment('GENEWISE', $transcript_genewise, 'ORIGIN', $transcript_ori, $SEQ_DISPLAY_LENGTH) if ($self->debug > 2);
+      return $genewise_transcript;
+    }
+    else {
+      display_alignment('EXONERATE', $transcript_exo, 'GENEWISE', $transcript_genewise, $SEQ_DISPLAY_LENGTH) if ($self->debug > 1);
+      $self->warning("The predicted protein does not match the original protein $accession");
+    }
+
+  }
+  return;
+}
 
 sub write_output {
   my ($self) = @_;
@@ -142,7 +313,7 @@ sub write_output {
   }
 }
 
-sub prepare_sequence {
+sub prepare_sequences {
   my ($self, $sequences) = @_;
 
   my @seqs;
@@ -159,7 +330,12 @@ sub prepare_sequence {
     $seq->seq($protein);
     push(@seqs, $seq);
   }
-  return \@seqs;
+  if (@seqs) {
+    return \@seqs;
+  }
+  else {
+    return;
+  }
 }
 
 sub get_fasta_file_from_uniprot {
@@ -175,277 +351,56 @@ sub get_fasta_file_from_uniprot {
     return \@sequences;
 }
 
-sub exonerate_sequences {
-    my ($self, $seleno_fasta) = @_;
 
-    my $basic_options = '--model protein2genome --bestn 3 --ryo "RESULT: %S %pi %ql %tl %V\n" --softmasktarget true --showalignment false --showsugar false';
-#    my $basic_options ||= "--showsugar false --showvulgar false --showalignment false --ryo \"RESULT: %S %pi %ql %tl %g %V\\n\" ";
-    my $exonerate_cmd = $self->param('exonerate').' '.$basic_options.' --target '.$self->param('genome')." --query $seleno_fasta";
-    $exonerate_cmd =~ s/(showalignment\s+)false/$1true/ if ($self->debug > 2);
-#    print STDERR $exonerate_cmd, "\n" if ($self->debug);
-    my %alignments;
-    my $minimum_identity = $self->param('minimum_identity');
-    my $coverage_threshold = $self->param('coverage_threshold')/100;
-    my $score_threshold = $self->param('score_threshold')/100;
-    open(my $fh, "$exonerate_cmd |") || die("Could not execute exonerate: $exonerate_cmd\n");
-    while(my $line = <$fh>) {
-        print $line if ($self->debug > 2);
-        next unless ($line =~ s/^RESULT: //);
-        my ($accession, $q_start, $q_end, $q_orient, $t_seqname, $t_start, $t_end, $t_strand, $score, $perc_ident, $q_length, $t_length) = split(' ', $line);
-        ($t_start, $t_end) = ($t_end, $t_start) if ($t_strand eq '-');
-        # correct for exonerate half-open coords
-        $q_start += 1;
-        $t_start += 1;
-        if (exists $alignments{$accession}) {
-            if ($score > ($alignments{$accession}{score}+$score*$score_threshold) or ($perc_ident > $alignments{$accession}{identity} and $perc_ident > $minimum_identity and (($q_end-$q_start) > $q_length*$coverage_threshold)) ) {
-                $alignments{$accession} = {
-                    t_seqname => $t_seqname,
-                    t_start => $t_start,
-                    t_end => $t_end,
-                    t_strand => $t_strand,
-                    score => $score,
-                    identity => $perc_ident,
-                    };
-            }
+sub mutate_dna {
+  my ($self, $transcript, $slice) = @_;
+
+  my $selenocysteines = $transcript->translation->get_all_SeqEdits('_selenocysteine');
+  return unless (scalar(@$selenocysteines));
+  my $sequence_length = 0;
+  my $index = 0;
+  my $dna = $slice->seq;
+
+  foreach my $exon (@{$transcript->get_all_Exons}) {
+    last unless (defined $selenocysteines->[$index]);
+    $sequence_length += $exon->length;
+    while (defined $selenocysteines->[$index] and $sequence_length > $selenocysteines->[$index]->start*3) {
+      my $position = ($selenocysteines->[$index]->start*3)-2;
+      my $exon_seq = $exon->seq->seq;
+      my $exon_position = $position-($sequence_length-$exon->length);
+# The exon sequence is on the translateable strand so we can search for TGA.
+# But the genomic sequence will always be on the 5'->3', so we need to do math
+# to get the right position on the reverse strand
+      if (substr($exon_seq, $exon_position-1, 3) eq 'TGA') {
+        if ($exon->strand == 1) {
+          substr($dna, ($exon->seq_region_start+$exon_position+2)-$slice->start-1, 1, 'C');
         }
         else {
-            $alignments{$accession} = {
-                t_seqname => $t_seqname,
-                t_start => $t_start,
-                t_end => $t_end,
-                t_strand => $t_strand,
-                score => $score,
-                identity => $perc_ident,
-                };
+          substr($dna, (($exon->seq_region_end-$exon_position+1)-$slice->start)-2, 1, 'G');
         }
+      }
+      else {
+        $self->warning("Could not find the stop coding for position: ".$selenocysteines->[$index]->start."($exon_position) for the protein ".$transcript->{accession}."\n".substr($exon_seq, $exon_position-5, 13));
+        return;
+      }
+      $index++;
     }
-    close($fh) || die("Could not close exonerate filehandle $?");
-    return \%alignments;
-}
-
-
-sub selenocysteine_finder {
-    my ($self, $alignments, $sequence, $slice_adaptor) = @_;
-
-    my @transcripts;
-    my $padding = $self->param('padding');
-    my $exonerate = $self->param('exonerate');
-    my $analysis = $self->analysis;
-    foreach my $accession (keys %$alignments) {
-        my $slice = $slice_adaptor->fetch_by_name($alignments->{$accession}->{t_seqname});
-        my $gene_slice = $slice->sub_Slice($alignments->{$accession}{t_start}-$padding, $alignments->{$accession}{t_end}+$padding);
-        print 'Working on ', $accession, ' and ', $gene_slice->name, "\n";
-        $self->create_target_file('selenocysteine', 'fa');
-        my $sub_slice = $self->param('target_file');
-        my $fasta_serial = Bio::EnsEMBL::Utils::IO::FASTASerializer->new($sub_slice);
-        $fasta_serial->print_Seq($gene_slice);
-        my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
-            -program => $exonerate,
-            -analysis => $analysis,
-            -query_seqs => [$sequence],
-            -query_type => 'protein',
-            -target_file => $sub_slice->filename,
-            -options => '--bestn 1 --exhaustive --model protein2genome',
-            );
-        $runnable->verbose(1) if ($self->debug > 2);
-        if ($self->debug > 1) {
-            my $basic_options = $runnable->options;
-            $basic_options =~ s/(showalignment\s+)false/$1true/;
-            $runnable->options($basic_options);
-        }
-        $runnable->run;
-        foreach my $transcript (@{$runnable->output}) {
-            attach_Slice_to_Transcript($transcript, $gene_slice);
-            my ($is_ok, $attributes) = $self->get_SeqEdit($transcript->translate->seq, $sequence, $accession, $transcript->get_all_supporting_features->[0]->hstart, $transcript->get_all_supporting_features->[0]->cigar_string);
-            if ($is_ok) {
-                $transcript->translation->add_Attributes(@$attributes);
-                push(@transcripts, $transcript);
-            }
-        }
-    }
-    return \@transcripts;
-}
-
-sub mutate_genomic_sequence {
-    my ($self, $transcripts, $slice_adaptor) = @_;
-
-    my $padding = 2*$self->param('padding');
-    my %genewise_sequences;
-    # For all our transcripts we try to find the genomic position of the start so we can change TGA to TGC
-    # Then we can use GeneWise to predict a model.
-    foreach my $transcript (@$transcripts) {
-        my $do_push = 1;
-        my $genewise_slice = $slice_adaptor->fetch_by_region('toplevel', $transcript->seq_region_name, $transcript->seq_region_start-$padding, $transcript->seq_region_end+$padding);
-        my $genewise_sequence = $genewise_slice->seq;
-        my $accession = $transcript->get_all_supporting_features()->[0]->hseqname;
-        my $selenocysteines = $transcript->translation->get_all_SeqEdits('_selenocysteine');
-        my $sequence_length = 0;
-        my $index = 0;
-        foreach my $exon (@{$transcript->get_all_Exons}) {
-            last unless (defined $selenocysteines->[$index]);
-            $sequence_length += $exon->length;
-            while (defined $selenocysteines->[$index] and $sequence_length > $selenocysteines->[$index]->start*3) {
-                my $position = ($selenocysteines->[$index]->start*3)-2;
-                my $exon_seq = $exon->seq->seq;
-                my $exon_position = $position-($sequence_length-$exon->length);
-                # The exon sequence is on the translateable strand so we can search for TGA.
-                # But the genomic sequence will always be on the 5'->3', so we need to do math
-                # to get the right position on the reverse strand
-                if (substr($exon_seq, $exon_position-1, 3) eq 'TGA') {
-                    if ($exon->strand == 1) {
-                        substr($genewise_sequence, ($exon->seq_region_start+$exon_position+2)-$genewise_slice->start-1, 1, 'C');
-                    }
-                    else {
-                        substr($genewise_sequence, (($exon->seq_region_end-$exon_position+1)-$genewise_slice->start)-2, 1, 'G');
-                    }
-                }
-                else {
-                    $self->warning("Could not find the stop coding for position: ".$selenocysteines->[$index]->start."(".$exon_position.") for the protein $accession\n".substr($exon_seq, $exon_position-5, 13));
-                    $do_push = 0;
-                }
-                $index++;
-            }
-        }
-        # A Slice with its sequence manually modified can't use the SequenceAdaptor.
-        # So we need to create a copy of the Slice. We will use the copy for GeneWise
-        # then use the original one to get the translation.
-        my $edited_slice = Bio::EnsEMBL::Slice->new(
-            -start => $genewise_slice->start,
-            -end => $genewise_slice->end,
-            -strand => $genewise_slice->strand,
-            -seq_region_name => $genewise_slice->seq_region_name,
-            -coord_system => $genewise_slice->coord_system,
-            );
-        $edited_slice->{seq} = $genewise_sequence;
-        $genewise_sequences{$accession}{edited_sequence} = $edited_slice;
-        $genewise_sequences{$accession}{sequence} = $genewise_slice;
-        $genewise_sequences{$accession}{transcript} = $transcript if ($do_push);
-    }
-    return \%genewise_sequences;
-}
-
-sub genewise_sequences {
-    my ($self, $genewise_sequences, $seq, $alignments) = @_;
-
-    my @selenocysteine_transcripts;
-    my $analysis = $self->param('analysis');
-    my $SEQ_DISPLAY_LENGTH = 70;
-    foreach my $accession (keys %$genewise_sequences) {
-        my $edited_slice = $genewise_sequences->{$accession}{edited_sequence};
-        my $slice = $genewise_sequences->{$accession}{sequence};
-        my $runnable = Bio::EnsEMBL::Analysis::Runnable::Genewise->new (
-            -protein => $seq,
-            -query => $edited_slice,
-            -reverse => $alignments->{$accession}{t_strand} eq '+' ? 0 : 1,
-            -analysis => $analysis,
-            );
-        $runnable->verbose(1) if ($self->debug > 2);
-        $runnable->run;
-        my $exonerate_transcript = $genewise_sequences->{$accession}{transcript};
-        foreach my $genewise_transcript (@{$runnable->output}) {
-            my $is_equal = 1;
-            attach_Slice_to_Transcript($genewise_transcript, $slice);
-            my ($is_ok, $attributes) = $self->get_SeqEdit_by_transcript($genewise_transcript);
-            if ($is_ok) {
-                $genewise_transcript->translation->add_Attributes(@$attributes);
-            }
-            if ($genewise_transcript->seq_region_start == $exonerate_transcript->seq_region_start and $genewise_transcript->seq_region_end == $exonerate_transcript->seq_region_end and $genewise_transcript->seq_region_strand == $exonerate_transcript->seq_region_strand) {
-                my $exonerate_idx = 0;
-                my @exonerate_exons = sort {$a->start <=> $b->start} @{$exonerate_transcript->get_all_Exons};
-                foreach my $exon (sort {$a->start <=> $b->start} @{$genewise_transcript->get_all_Exons}) {
-                    if (defined $exonerate_exons[$exonerate_idx]) {
-                        if ($exon->seq_region_start != $exonerate_exons[$exonerate_idx]->seq_region_start or $exon->seq_region_end != $exonerate_exons[$exonerate_idx]->seq_region_end or $exon->seq_region_strand != $exonerate_exons[$exonerate_idx]->seq_region_strand) {
-                            $is_equal = 0;
-                            $self->warning("Exon $exonerate_idx created by Exonerate and Genewise for $accession differs!");
-                        }
-                    }
-                    else {
-                        $is_equal = 0;
-                        $self->warning("Exon $exonerate_idx created by Exonerate and Genewise for $accession differs!");
-                    }
-                    $exonerate_idx++;
-                }
-                if (defined $exonerate_exons[$exonerate_idx]) {
-                    $is_equal = 0;
-                    $self->warning("Exon $exonerate_idx created by Exonerate and Genewise for $accession differs!");
-
-                }
-            }
-            else {
-                $is_equal = 0;
-                $self->warning("Transcripts created by Exonerate and Genewise for $accession differs!");
-                foreach my $t ($genewise_transcript, $exonerate_transcript) {
-                    print $t->get_all_supporting_features->[0]->hseqname, ': ', $t->seq_region_start, ' - ', $t->seq_region_end, ' @ ', $t->seq_region_strand, "\n";
-                    my $idx = 1;
-                    foreach my $e (@{$t->get_all_Exons}) {
-                        print "\tE$idx ", $e->seq_region_start, ' - ', $e->seq_region_end, "\n";
-                        $idx++;
-                    }
-                }
-            }
-            my $transcript_exo = $exonerate_transcript->translation->seq;
-            my $transcript_genewise = $genewise_transcript->translation->seq;
-            my $transcript_ori = $seq->{original_seq};
-            my $exo_ori = $self->is_same_translation($exonerate_transcript, $transcript_ori, 'Exonerate');
-            if ($is_equal) {
-                if ($exo_ori >= 0) {
-                    push(@selenocysteine_transcripts, $exonerate_transcript);
-                    $self->warning("GREAT MATCH!! The predicted proteins match the original protein $accession");
-                }
-                else {
-                    $self->warning("The predicted proteins does not match the original protein $accession");
-                }
-            }
-            else {
-                my $genewise_ori = $self->is_same_translation($genewise_transcript, $transcript_ori, 'GeneWise');
-                if ($exo_ori >= 0 and abs($genewise_ori) >= $exo_ori) {
-                    push(@selenocysteine_transcripts, $exonerate_transcript);
-                    $self->warning("GOOD MATCH!! The Exonerate protein match the original protein $accession");
-                    display_alignment('EXONERATE', $transcript_exo, 'ORIGIN', $transcript_ori, $SEQ_DISPLAY_LENGTH) if ($self->debug > 2);
-                }
-                elsif ($genewise_ori >= 0 and abs($exo_ori) >= $genewise_ori) {
-                    # For some reason genewise has FeaturePair fo the transcript_supporting_features.
-                    # We might need to chage it but there are some warning in the GeneWise module...
-                    # So let's change it to a DnaPepAlignFeature
-                    $genewise_transcript->flush_supporting_features;
-                    my @sfs;
-                    foreach my $exon (@{$genewise_transcript->get_all_Exons}) {
-                      push(@sfs, @{$exon->get_all_supporting_features});
-                    }
-                    my $new_tsf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@sfs);
-                    $genewise_transcript->add_supporting_features($new_tsf); 
-                    push(@selenocysteine_transcripts, $genewise_transcript);
-                    $self->warning("GOOD MATCH!! The GeneWise protein match the original protein $accession");
-                    display_alignment('GENEWISE', $transcript_genewise, 'ORIGIN', $transcript_ori, $SEQ_DISPLAY_LENGTH) if ($self->debug > 2);
-                }
-                else {
-                    display_alignment('EXONERATE', $transcript_exo, 'GENEWISE', $transcript_genewise, $SEQ_DISPLAY_LENGTH) if ($self->debug > 1);
-                    $self->warning("The predicted protein does not match the original protein $accession");
-                }
-
-            }
-        }
-    }
-    return \@selenocysteine_transcripts;
+  }
+  return \$dna;
 }
 
 sub is_same_translation {
-    my ($self, $seq1, $seq2, $label) = @_;
+    my ($self, $tseq1, $seq2, $label) = @_;
 
-    my $seq1_start = 0;
+    my $seq1_start = $tseq1->get_all_supporting_features->[0]->hstart-1;
+    my $seq1 = $tseq1->translation->seq;
     my $seq2_start = 0;
-    if (ref($seq1) eq 'Bio::EnsEMBL::Transcript') {
-        $seq1_start = $seq1->get_all_supporting_features->[0]->hstart-1;
-        $seq1 = $seq1->translation->seq;
-    }
     if (ref($seq2) eq 'Bio::EnsEMBL::Transcript') {
         $seq2_start = $seq2->get_all_supporting_features->[0]->hstart-1;
         $seq2 = $seq2->translation->seq;
     }
     return 0 if ($seq1 eq $seq2);
-    print "$seq1_start ## $seq2_start\n";
     my $missmatch = $seq1_start;
-#    my $longest = length($seq1) >= length($seq2) ? length($seq1) : length($seq2);
     my $longest = length($seq2);
     if (length($seq1) > $longest) {
       $longest = length($seq1);
@@ -458,13 +413,17 @@ sub is_same_translation {
     for (my $dix = 0; $dix < $longest; $dix++) {
         last unless (defined $seq1_split[$dix+$seq2_start] and defined $seq2_split[$dix+$seq1_start]);
         if ($seq1_split[$dix+$seq2_start] ne $seq2_split[$dix+$seq1_start]) {
-            print STDOUT ($dix+$seq2_start), ': ', $seq1_split[$dix+$seq2_start], ' %% ', ($dix+$seq1_start), ': ', $seq2_split[$dix+$seq1_start], "\n";
             if ($seq1_split[$dix+$seq2_start] eq '*' or $seq2_split[$dix+$seq1_start] eq '*') {
                 if ($seq1_split[$dix+$seq2_start] eq 'C' or $seq2_split[$dix+$seq1_start] eq 'C') {
                     $self->warning('You have a stop codon and a cysteine at position '.($dix+1).'. you probably want to edit this model');
                 }
                 else {
-                    $self->warning('One of your sequence has a stop codon at position '.($dix+1));
+                    if ($dix-1 > (length($seq2)*($self->param('coverage_threshold')/100))) {
+                      $self->warning('One of your sequence has a stop codon at position '.($dix+1).' and could have been saved');
+                    }
+                    else {
+                      $self->warning('One of your sequence has a stop codon at position '.($dix+1));
+                    }
                 }
                 return -100;
             }
@@ -492,12 +451,16 @@ sub display_alignment {
 
 
 sub get_SeqEdit {
-    my ($self, $translation, $seq, $accession, $q_start, $cigar_string) = @_;
+    my ($self, $transcript, $seq) = @_;
 
-    my $is_ok = 1;
     my @attributes;
     my $pidx = 0;
     my @positions;
+    my $translation = $transcript->translation->seq;
+    my $tsf = $transcript->get_all_supporting_features->[0];
+    my $accession = $tsf->hseqname;
+    my $q_start = $tsf->hstart;
+    my $cigar_string = $tsf->cigar_string;
     while ($translation =~ /\*/g) {
         push(@positions, pos($translation));
     }
@@ -522,8 +485,7 @@ sub get_SeqEdit {
             }
           }
           if ($pos == $adjusted_position) {
-#              $pos = $guessed_pos;
-              $self->warning('Stop codon found at position '.$pos." for $accession");
+              $self->warning("Stop codon found at position $pos for $accession");
               last;
           }
           else {
@@ -542,15 +504,20 @@ sub get_SeqEdit {
                                    -ALT_SEQ => 'U'
                                    );
             push(@attributes, $seqedit->get_Attribute);
-            $self->warning("We found a selenocysteine for $accession", $pos,"\n");
+            $self->warning("We found a selenocysteine for $accession $pos\n");
         }
         else {
             $self->warning("We're missing some selenocysteine for $accession:$rpos $adjusted_position $pos\n");
-            $is_ok = 0;
         }
         $pidx++;
     }
-    return $is_ok, \@attributes;
+    if (scalar(@attributes)) {
+      $transcript->translation->add_Attributes(@attributes);
+      return scalar(@attributes);
+    }
+    else {
+      return;
+    }
 }
 
 sub get_SeqEdit_by_transcript {
@@ -569,9 +536,10 @@ sub get_SeqEdit_by_transcript {
                 -ALT_SEQ => 'U'
                 );
         push(@attributes, $seqedit->get_Attribute);
-        $self->warning("We found a selenocysteine for ". $transcript->get_all_supporting_features->[0]->hseqname. " $pos\n");
+        $self->warning('We found a selenocysteine for '. $transcript->get_all_supporting_features->[0]->hseqname. " $pos\n");
     }
-    return 1, \@attributes;
+    $transcript->translation->add_Attributes(@attributes);
+    return scalar(@attributes);
 }
 
 1;

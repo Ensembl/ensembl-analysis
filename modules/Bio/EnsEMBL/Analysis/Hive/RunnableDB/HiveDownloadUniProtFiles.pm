@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use feature 'say';
 
-use File::Spec::Functions qw(catfile);
+use File::Spec::Functions qw(catfile file_name_is_absolute);
 use File::Path qw(make_path);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -32,6 +32,7 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     base_url => '"http://www.uniprot.org/uniprot/?query=',
+    format => 'fasta',
   }
 }
 
@@ -44,7 +45,11 @@ sub fetch_input {
       $url = $self->param('base_url').$url;
       $url .= '"' unless ($url =~ /"$/);
     }
-    $self->param('query_url', [{url => $url, file_name => $self->param_required('filename')}]);
+    my $filename = $self->param_required('file_name');
+    if (!file_name_is_absolute($filename)) {
+      $filename = catfile($self->param_required('dest_dir'), $filename);
+    }
+    $self->param('query_url', [{url => $url, file_name => $filename}]);
   }
   else {
     if($self->param('multi_query_download')) {
@@ -59,6 +64,7 @@ sub fetch_input {
         dest_dir => $self->param_required('dest_dir'),
         file_name => $self->param_required('file_name'),
         pe_level => $self->param_required('pe_level'),
+        format => $self->param('format'),
       );
       $hash{compress} = $self->param('compress') if ($self->param_is_defined('compress'));
       $hash{taxon_group} = $self->param('taxon_group') if ($self->param_is_defined('taxon_group'));
@@ -68,7 +74,7 @@ sub fetch_input {
       $hash{compress} = $self->param('compress') if ($self->param_is_defined('compress'));
       $hash{mito} = $self->param('mito') if ($self->param_is_defined('mito'));
       $hash{fragment} = $self->param('fragment') if ($self->param_is_defined('fragment'));
-      $hash{format} = $self->param('format') if ($self->param_is_defined('format'));
+      $hash{isoforms} = $self->param('isoforms') if ($self->param_is_defined('isoforms'));
       $self->param('query_url', [$self->build_query(\%hash)]);
     }
   }
@@ -108,7 +114,7 @@ sub run {
 sub write_output {
   my $self = shift;
 
-  my @iids = map {{iid => $_}} @{$self->output};
+  my @iids = map {{iid => $_, iid_type => 'filename'}} @{$self->output};
   $self->dataflow_output_id(\@iids, $self->param('_branch_to_flow_to'));
 }
 
@@ -128,7 +134,7 @@ sub build_query {
   my $compress = "yes";
   my $fragment_string = "+AND+fragment:no";
   my $mito = "+NOT+organelle%3Amitochondrion";
-  my $format = "fasta";
+  my $format = $self->param('format');
 
   if(exists($query_params->{'compress'})) {
     if($query_params->{'compress'} eq '0') {

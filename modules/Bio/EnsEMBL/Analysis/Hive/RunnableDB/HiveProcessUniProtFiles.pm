@@ -20,6 +20,8 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessUniProtFiles;
 use strict;
 use warnings;
 use feature 'say';
+
+use File::Spec::Functions qw(splitpath);
 use Bio::EnsEMBL::IO::Parser::Fasta;
 use Bio::EnsEMBL::KillList::KillList;
 
@@ -46,53 +48,64 @@ sub fetch_input {
   my $below_min_length_count = 0;
   my $killed_count = 0;
 
-  my $kill_list_object = Bio::EnsEMBL::KillList::KillList->new(-TYPE => $self->param('killlist_type'),
-                                                                -KILL_LIST_DB => $self->param('killlist_db'),
-                                                                -FILTER_PARAMS => $self->param('KILL_LIST_FILTER'));
-  my $kill_list = $kill_list_object->get_kill_list();
+  my $kill_list;
+  if ($self->param_is_defined('killlist_db')) {
+    my $kill_list_object = Bio::EnsEMBL::KillList::KillList->new(-TYPE => $self->param_required('killlist_type'),
+                                                                  -KILL_LIST_DB => $self->param('killlist_db'),
+                                                                  -FILTER_PARAMS => $self->param('KILL_LIST_FILTER'));
+    $kill_list = $kill_list_object->get_kill_list();
+  }
 
 
   my $min_seq_length = $self->param('min_seq_length');
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
   $table_adaptor->table_name($self->param_required('sequence_table_name'));
-  my ($group_name) = $file_path =~ /(\w+)\.fasta/;
+  my (undef, undef, $group_name) = splitpath($file_path);
+  $group_name =~ s/\.\w+$//;
 
   my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($file_path);
-  my $header;
-  my $seq;
 
   my @iids;
   while($parser->next()) {
     $input_seq_count++;
-    $header = $parser->getHeader();
-    $seq = $parser->getSequence();
+    my $header = $parser->getHeader();
+    my $seq = $parser->getSequence();
+    my ($source_db, $accession, $pe_level, $sequence_version, $versioned_accession, $last_pe);
     if ($header =~ /^([^\|]+)\|([^\|]+)\|.+ PE\=([1-5]) SV\=(\d+)/) {
-      my ($source_db, $accession, $pe_level, $sequence_version) = ($1, $2, $3, $4);
-      if(length($seq) < $min_seq_length) {
-        $below_min_length_count++;
-        next;
-      } elsif(exists($kill_list->{$accession})) {
-        say "Removing ".$accession." as it is present in kill list";
-        $killed_count++;
-        next;
-      }
-
-      my $versioned_accession = $accession.'.'.$sequence_version;
-      my $db_row = [{ 'accession'  => $versioned_accession,
-                      'source_db'  => $source_db,
-                      'pe_level'   => $pe_level,
-                      'biotype'    => $group_name.'_'.$source_db,
-                      'group_name' => $group_name,
-                      'seq'        => $seq,
-                   }];
-      $table_adaptor->store($db_row);
-      push(@iids, $versioned_accession);
+      ($source_db, $accession, $pe_level, $sequence_version) = ($1, $2, $3, $4);
+      $versioned_accession = $accession.'.'.$sequence_version;
+      $last_pe = $pe_level;
+    }
+    elsif ($header =~ /^([sptr]{2})\|([^\|]+-\d+)\|/) {
+# If you ask for isoforms, the first sequence has the PE level
+      ($source_db, $accession) = ($1, $2);
+      $versioned_accession = $accession;
+      $pe_level = $last_pe;
     }
     else {
       $self->throw("Matched a header but couldn't parse it fully. Expect to find sp/tr, accession, ".
                    "pe level and sequence version. Offending header:\n".$header);
     }
+    if(length($seq) < $min_seq_length) {
+      say "Removing $accession as its sequence is smaller than $min_seq_length";
+      $below_min_length_count++;
+      next;
+    } elsif(exists($kill_list->{$accession})) {
+      say "Removing ".$accession." as it is present in kill list";
+      $killed_count++;
+      next;
+    }
+
+    my $db_row = [{ 'accession'  => $versioned_accession,
+                    'source_db'  => $source_db,
+                    'pe_level'   => $pe_level,
+                    'biotype'    => $group_name.'_'.$source_db,
+                    'group_name' => $group_name,
+                    'seq'        => $seq,
+                 }];
+    $table_adaptor->store($db_row);
+    push(@iids, $versioned_accession);
   }
 
   $self->warning("Total sequences: $input_seq_count\nSequences below $min_seq_length: $below_min_length_count\nKilled sequences: $killed_count\nStored sequences: ".scalar(@iids)."\n");
