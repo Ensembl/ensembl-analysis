@@ -154,6 +154,11 @@ sub fetch_input {
       }
     }
   }
+  my $masked_count = $queryseq =~ tr/atcgn/atcgn/;
+  if (($masked_count/length($queryseq)) > .99) {
+    $self->input_job->autoflow(0);
+    $self->complete_early(sprintf("Highly repetitive sequence: %.2f%% masked", (($masked_count*100)/length($queryseq))));
+  }
   my $seqio = Bio::Seq->new( -seq => $queryseq,
                  -display_id => $rough->stable_id
                );
