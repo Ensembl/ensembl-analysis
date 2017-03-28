@@ -163,6 +163,7 @@ sub run {
   }
 
   # run bwa
+  print "___".$filename>"___\n";
   my $sai_fastq_files = "$outdir/$filename.sai $fastq";
   $self->files_to_delete("$outdir/$filename.sai");
   if ($fastqpair) {

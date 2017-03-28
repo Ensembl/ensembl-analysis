@@ -310,6 +310,7 @@ sub add_supporting_features {
       );
       my $seq = $seqfetcher->get_Seq_by_acc($tsf->hseqname);
       my $hcoverage =  sprintf("%.3f",( $hlen / length($seq->seq) ) * 100);
+
       $tsf->hcoverage(  $hcoverage ) ;
       print STDERR "hcoverage $hcoverage\n";
       $tran->add_supporting_features($tsf);

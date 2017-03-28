@@ -58,6 +58,7 @@ use strict;
 use warnings;
 
 
+
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -107,7 +108,7 @@ sub run{
   my $queries = $self->queries;
   my @attributes;
   my $descriptions = $self->get_descriptions;
-  my $cmfh = IO::File->new( $self->analysis->db_file."/Rfam.cm"  ) or $self->throw("can't file the Rfam.cm file"); 
+  my $cmfh = IO::File->new( $self->analysis->db_file."/Rfam.cm"  ) or $self->throw("can't file the Rfam.cm file ".$self->analysis->db_file); 
   my $cm = $self->read_cm_library($cmfh);
   foreach my $query (@$queries){
     $self->query($self->get_sequence($query,$cm));
@@ -156,11 +157,18 @@ sub run_analysis{
   my $filename = $self->queryfile;
   my $results_file = $self->create_filename("Infernal.$domain.out");
   my $options = " --ga " . $cm->{$domain}->{-options};
+  #my $options = $cm->{$domain}->{-options};
+  
   print "OPTIONS $options\n";
   $options =~ s/\-\-toponly//;
 
   $self->files_to_delete($results_file);
   $self->resultsfile($results_file);
+  my $cp_tmp1 = "cp $cmfile /hps/nobackup/production/ensembl/leanne/primates_annotation_1/propithecus_coquereli/tmp/cmfile1";
+  my $cp_tmp2 = "cp $filename /hps/nobackup/production/ensembl/leanne/primates_annotation_1/propithecus_coquereli/tmp/filename1"; 
+  system($cp_tmp1); 
+  system($cp_tmp2);
+  
   $command .= "   $options $cmfile $filename > $results_file ";
   print STDOUT "Running infernal ".$command."\n" if $verbose;
   open(my $fh, "$command |") || 

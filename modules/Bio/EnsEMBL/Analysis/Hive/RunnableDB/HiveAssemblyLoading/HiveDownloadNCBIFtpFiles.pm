@@ -104,24 +104,26 @@ sub download_non_nuclear_ftp_dir {
   $ua->timeout(100);
  
   if (head($non_nuclear_http_check)) {
-    print "Does exist\n";
     # my $cmd = "wget -P ".$full_local_dir_path." ".$full_ftp_path."*.agp.gz";
     $non_nuclear_http_check =~ s/ftp\:\/\/ftp.ncbi.nlm.nih.gov\//ftp.ncbi.nlm.nih.gov\:\:/g;
     my $cmd = "rsync $non_nuclear_http_check/*/AGP/*agp.gz  -P $full_local_dir_path"; 
+	
 
     if (system($cmd)) {
-      $self->throw("No non-nuclear AGP files found, but there is a non-nuclear dir.  Will not continue. Check me! $non_nuclear_http_check \n".
+      	$self->throw("No non-nuclear AGP files found, but there is a non-nuclear dir.  Will not continue. Check me! $non_nuclear_http_check \n".
                    "Commandline used:\n".$cmd);                   
-      return;
-    } else {
-      say "Downloaded non-nuclear AGP files (can be used to identify mito later in contigs.fa)";
+      	return;
+    } 
+    else {
+      	say "Downloaded non-nuclear AGP files (can be used to identify mito later in contigs.fa)";
     }
-  } else {
-    print "non-nuclear dir/ftp does not exist or timeout, so nothing to download\n";;
-  }
-
-  $self->unzip($full_local_dir_path);
-  $self->concat_non_nuclear($full_local_dir_path);
+  	$self->unzip($full_local_dir_path);
+  	$self->concat_non_nuclear($full_local_dir_path);
+  } 
+  
+  else {
+    	print "non-nuclear dir/ftp does not exist or timeout, so nothing to download\n";;
+  	}
 }
 
 

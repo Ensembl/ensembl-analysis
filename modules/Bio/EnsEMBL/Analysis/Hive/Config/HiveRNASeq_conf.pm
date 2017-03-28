@@ -29,7 +29,7 @@ package HiveRNASeq_conf;
 
 use strict;
 use warnings;
-use feature 'say';
+
 use File::Spec;
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw (get_analysis_settings);
@@ -135,6 +135,8 @@ sub default_options {
         read_min_paired => 50,
         read_min_mapped => 50,
         other_isoforms => 'other', # If you don't want isoforms, set this to undef
+        normal_queue => 'normal', # If LSF/other system has submission queues with multiple run time allowed, you might want to change this
+        long_queue => 'long', # If LSF/other system has submission queues with multiple run time allowed, you might want to change this
 
         # Please assign some or all columns from the summary file to the
         # some or all of the following categories.  Multiple values can be
@@ -825,6 +827,8 @@ sub pipeline_analyses {
                                  slice => 1,
                                  include_non_reference => 0,
                                  top_level => 1,
+                                 feature_constraint => 1,
+                                 feature_type => 'gene',
                                  target_db => $self->o('rough_db'),
                                },
                 -flow_into => {
@@ -877,7 +881,7 @@ sub pipeline_analyses {
             uniprot_index => [$self->o('uniprotdb')],
             blast_program => $self->o('blastp'),
             %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
-            commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->default_options->{'use_threads'}.' -hitdist=40' : '-p blastp -A 40',
+            commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_cpus '.$self->o('use_threads').' -window_size 40',
                       },
         -rc_name => '2GB_blast',
         -wait_for => ['create_blast_db'],
@@ -894,27 +898,27 @@ sub resource_classes {
 
     return {
         %{ $self->SUPER::resource_classes() },  # inherit other stuff from the base class
-      '1GB' => { LSF => $self->lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}])},
-      '1GB_rough' => { LSF => $self->lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
-      '2GB_rough' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
-      '5GB_rough' => { LSF => $self->lsf_resource_builder('long', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
-      '15GB_rough' => { LSF => $self->lsf_resource_builder('long', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
-      '2GB_blast' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refine_db_server'}, $self->default_options->{'blast_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
-      '2GB' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}])},
-      '4GB' => { LSF => $self->lsf_resource_builder('normal', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}])},
-      '5GB' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}])},
-      '2GB_introns' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
-      '2GB_refine' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
-      '5GB_introns' => { LSF => $self->lsf_resource_builder('long', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
-      '10GB_introns' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
-      '3GB_multithread' => { LSF => $self->lsf_resource_builder('long', 3000, [$self->default_options->{'pipe_db_server'}], undef, $self->default_options->{'use_threads'})},
-      '5GB_multithread' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
-      '10GB_multithread' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
-      '20GB_multithread' => { LSF => $self->lsf_resource_builder('long', 20000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
-      '5GB' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}])},
-      '10GB' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}])},
-      '5GB_refine' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
-      '20GB_refine' => { LSF => $self->lsf_resource_builder('normal', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
+      '1GB' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 1000, [$self->default_options->{'pipe_db_server'}])},
+      '1GB_rough' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
+      '2GB_rough' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
+      '5GB_rough' => { LSF => $self->lsf_resource_builder($self->default_options->{long_queue}, 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
+      '15GB_rough' => { LSF => $self->lsf_resource_builder($self->default_options->{long_queue}, 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
+      '2GB_blast' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refine_db_server'}, $self->default_options->{'blast_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
+      '2GB' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 2000, [$self->default_options->{'pipe_db_server'}])},
+      '4GB' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}])},
+      '5GB' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 5000, [$self->default_options->{'pipe_db_server'}])},
+      '2GB_introns' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
+      '2GB_refine' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
+      '5GB_introns' => { LSF => $self->lsf_resource_builder($self->default_options->{long_queue}, 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
+      '10GB_introns' => { LSF => $self->lsf_resource_builder($self->default_options->{long_queue}, 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
+      '3GB_multithread' => { LSF => $self->lsf_resource_builder($self->default_options->{long_queue}, 3000, [$self->default_options->{'pipe_db_server'}], undef, $self->default_options->{'use_threads'})},
+      '5GB_multithread' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 5000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
+      '10GB_multithread' => { LSF => $self->lsf_resource_builder($self->default_options->{long_queue}, 10000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
+      '20GB_multithread' => { LSF => $self->lsf_resource_builder($self->default_options->{long_queue}, 20000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
+      '5GB' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 5000, [$self->default_options->{'pipe_db_server'}])},
+      '10GB' => { LSF => $self->lsf_resource_builder($self->default_options->{long_queue}, 10000, [$self->default_options->{'pipe_db_server'}])},
+      '5GB_refine' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
+      '20GB_refine' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
     };
 }
 
