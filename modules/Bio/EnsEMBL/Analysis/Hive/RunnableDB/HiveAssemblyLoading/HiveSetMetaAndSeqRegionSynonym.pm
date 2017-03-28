@@ -277,6 +277,7 @@ sub set_seq_region_synonyms {
     my $sth_insert = $target_dba->dbc->prepare('INSERT INTO seq_region_synonym (seq_region_id, synonym, external_db_id) VALUES(?, ?, ?)');
     my $sth_update = $target_dba->dbc->prepare('UPDATE seq_region set name = ? WHERE seq_region_id = ?');
     my $insert_count = 0;
+    my $exist_count = 0;
     while(my $line = <IN>) {
       if($line =~ /^#/) {
         next;
@@ -285,6 +286,13 @@ sub set_seq_region_synonyms {
       $sth_select->bind_param(1, $seq_region_name);
       $sth_select->execute();
       my ($seq_region_id) = $sth_select->fetchrow_array();
+
+      my $sth_syn_select = $target_dba->dbc->prepare('SELECT seq_region_id FROM seq_region_synonym WHERE synonym = ? ');
+      $sth_syn_select->bind_param(1, $synonym);
+      # $sth_syn_select->bind_param(1, $seq_region_id);
+      $sth_syn_select->execute();
+      my ($syn_exist) = $sth_syn_select->fetchrow_array();
+
       $sth_insert->bind_param(1, $seq_region_id);
       $sth_insert->bind_param(2, $seq_region_name);
       $sth_insert->bind_param(3, $insdc_db_id);
@@ -293,10 +301,11 @@ sub set_seq_region_synonyms {
       $sth_update->bind_param(2, $seq_region_id);
       $sth_update->execute();
       $insert_count++;
+
     }
     close(IN);
-
-    if($insert_count == 0) {
+print "DEBUG_ready:: exist $exist_count and insert: $insert_count \n "; 
+    if(($insert_count == 0) and ($exist_count == 0)) {
       $self->throw("The insert/update count after parsing chr2acc was 0, this is probably wrong. File used:\n".$path_to_files."/chr2acc");
     }
 
@@ -313,7 +322,8 @@ sub set_seq_region_synonyms {
     open(IN,$path_to_files."/".$file);
     my $sth_select = $target_dba->dbc->prepare('SELECT seq_region_id FROM seq_region WHERE name = ?');
     my $sth_insert = $target_dba->dbc->prepare('INSERT INTO seq_region_synonym (seq_region_id, synonym) VALUES(?, ?)');
-    my $insert_count = 0;
+    my $exist_count = 0;
+    my $insert_count = 0;    
     while (my $line = <IN>) {
       if ($line =~ /^#/) {
         next;
@@ -327,12 +337,26 @@ sub set_seq_region_synonyms {
       $sth_select->execute();
       my ($seq_region_id) = $sth_select->fetchrow_array();
       $sth_insert->bind_param(1, $seq_region_id);
-      $sth_insert->bind_param(2, $synonym);
-      $sth_insert->execute();
-      $insert_count++;
-    }
+      
+      my $sth_syn_select = $target_dba->dbc->prepare('SELECT seq_region_id FROM seq_region_synonym WHERE synonym = ? and seq_region_id = ? ');
+      $sth_syn_select->bind_param(1, $synonym);
+      $sth_syn_select->bind_param(2, $seq_region_id);
 
-    if($insert_count == 0) {
+      $sth_syn_select->execute();
+      my ($syn_exist) = $sth_syn_select->fetchrow_array();
+      if ($syn_exist) {
+      	# print "DEBUG:: $syn_exist\n";
+      	$exist_count++; 
+      }else {
+        $sth_insert->bind_param(2, $synonym);
+        $sth_insert->execute();
+        $insert_count++;
+      }
+
+    }
+print "DEBUG:: exist $exist_count and insert: $insert_count \n "; 
+
+    if(($insert_count == 0) and ($exist_count == 0)) {
       $self->throw("The insert/update count after parsing ".$file." was 0, this is probably wrong. File used:\n".$path_to_files."/".$file);
     }
 
