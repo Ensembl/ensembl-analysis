@@ -46,12 +46,6 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 
-use vars qw (@ISA);
-
-@ISA = qw(Bio::EnsEMBL::Root);
-
-
-
 =head2 new
 
   Returntype: Bio::EnsEMBL::Analysis::Tools::ClusterFilter
@@ -64,7 +58,7 @@ use vars qw (@ISA);
 
 sub new{
   my ($class,@args) = @_;
-  my $self = $class->SUPER::new(@args);
+  my $self = bless {},$class;
   &verbose('WARNING');
   my ($min_coverage,
       $min_percent,
