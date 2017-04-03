@@ -87,7 +87,7 @@ sub fetch_input {
   }
   $self->max_internal_stops($max_internal_stops);
 
-  # Define the dna dbs
+ # Define the dna dbs
   my $source_dna_dba = $self->hrdb_get_dba($self->QUERY_CORE_DNA_DB);
   my $target_dna_dba = $self->hrdb_get_dba($self->TARGET_CORE_DNA_DB);
   $self->hrdb_set_con($source_dna_dba,'source_dna_db');
@@ -96,18 +96,20 @@ sub fetch_input {
   my $target_dna_dbc = $self->hrdb_get_con('target_dna_db');
 
   # Define the source transcript and target transcript dbs
-  my $source_transcript_dba = $self->hrdb_get_dba($self->QUERY_CORE_DB,undef,'source_dna_db');
-  my $target_transcript_dba = $self->hrdb_get_dba($self->TARGET_CORE_DB,undef,'target_dna_db');
+  my $source_transcript_dba = $self->hrdb_get_dba($self->QUERY_CORE_DB);
+  $source_transcript_dba->dnadb($source_dna_dba);
+  my $target_transcript_dba = $self->hrdb_get_dba($self->TARGET_CORE_DB);
+  $target_transcript_dba->dnadb($target_dna_dba);
   $self->hrdb_set_con($source_transcript_dba,'source_transcript_db');
   $self->hrdb_set_con($target_transcript_dba,'target_transcript_db');
   my $source_transcript_dbc = $self->hrdb_get_con('source_transcript_db');
   my $target_transcript_dbc = $self->hrdb_get_con('target_transcript_db');
 
   # Define the compara db
-  my $compara_dba = $self->hrdb_get_dba($self->COMPARA_DB,'compara');
+  my $compara_dba = $self->hrdb_get_dba($self->COMPARA_DB,undef,'Compara');
   $self->hrdb_set_con($compara_dba,'compara_db');
   my $compara_dbc = $self->hrdb_get_con('compara_db');
-
+  
   # Get the genome db adpator
   my $gdb_adap = $compara_dbc->get_GenomeDBAdaptor;
 
