@@ -164,10 +164,6 @@ sub run_analysis{
 
   $self->files_to_delete($results_file);
   $self->resultsfile($results_file);
-  my $cp_tmp1 = "cp $cmfile /hps/nobackup/production/ensembl/leanne/primates_annotation_1/propithecus_coquereli/tmp/cmfile1";
-  my $cp_tmp2 = "cp $filename /hps/nobackup/production/ensembl/leanne/primates_annotation_1/propithecus_coquereli/tmp/filename1"; 
-  system($cp_tmp1); 
-  system($cp_tmp2);
   
   $command .= "   $options $cmfile $filename > $results_file ";
   print STDOUT "Running infernal ".$command."\n" if $verbose;
