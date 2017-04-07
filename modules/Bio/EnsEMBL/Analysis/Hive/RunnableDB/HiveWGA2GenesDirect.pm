@@ -223,7 +223,7 @@ sub run {
   my ($self) = @_;
 
   unless(scalar(@{$self->good_transcripts}) > 0) {
-    warning("No transcripts in the good_transcripts list, so nothing to project");
+    $self->warning("No transcripts in the good_transcripts list, so nothing to project");
     return 1;
   }
 
