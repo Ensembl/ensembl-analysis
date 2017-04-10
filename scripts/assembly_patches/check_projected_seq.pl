@@ -17,7 +17,6 @@
 
 use strict;
 use warnings;
-use Data::Dumper;
 use Getopt::Long;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Slice;
@@ -100,10 +99,11 @@ print scalar(@proj_genes)." genes in projection db\n";
 
 #for each projected gene
 foreach my $pg (@proj_genes){
-  my $gene_file = $out_dir."/".$pg->stable_id.".fa"; 
+  my $gene_file = $out_dir."/".$pg->stable_id.".fa";
   open (GENE, ">", $gene_file);
   my $gene_transcript_changed = 0;
   my $gene_translation_changed = 0;
+
   my @transcripts = @{$pg->get_all_Transcripts};
   #for each transcript
   foreach my $t (@transcripts){
@@ -120,7 +120,7 @@ foreach my $pg (@proj_genes){
     else{
       $gene_transcript_changed++;
       my $db_id = $t->dbID;
-      print TSCRIPT "insert into transcript_attrib(transcript_id, attrib_type_id) values(".$db_id.", ".$attrib_id.");\n";
+      print TSCRIPT "insert into transcript_attrib(transcript_id, attrib_type_id,value) values(".$db_id.", ".$attrib_id.",'');\n";
       print $stable_id." ".$t->biotype." seqs are different\n";
     }
     #check translation

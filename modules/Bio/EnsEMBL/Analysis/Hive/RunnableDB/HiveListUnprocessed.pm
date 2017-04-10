@@ -79,7 +79,7 @@ sub fetch_input {
 sub run {
 
   my $self = shift;
-  
+
   $self->param_required('processed_genes_filename');
   $self->param_required('output_file');
   $self->param_required('output_dir');
@@ -87,6 +87,7 @@ sub run {
   $self->param_required('user_secondary');
   $self->param_required('password_secondary');
   $self->param_required('database_secondary');
+  $self->param_required('port_secondary');
 
   #add / at the end of the paths if it cannot be found to avoid possible errors
   if (!($self->param('output_dir') =~ /\/$/)) {
@@ -104,6 +105,7 @@ sub run {
                                                $self->param('user_secondary'),
                                                $self->param('password_secondary'),
                                                $self->param('database_secondary'),
+                                               $self->param('port_secondary'),
                                                $self->param('secondary_include'),
                                                $self->param('secondary_exclude'));
 
@@ -123,16 +125,16 @@ sub write_output {
 }
 
 sub get_unprocessed_genes() {
-  my ($filename,$output_dir,$dbhost,$user,$pass,$dbname,$include,$exclude) = @_;  
-  
+  my ($filename,$output_dir,$dbhost,$user,$pass,$dbname,$port,$include,$exclude) = @_;
+
   my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(-dbname => $dbname,
                                               -host   => $dbhost,
                                               -user   => $user,
                                               -pass   => $pass,
-                                              -port   => '3306');
+                                              -port   => $port);
   my $ga = $db->get_GeneAdaptor();
   my %genes_to_copy = ();
-  
+
   if ($include) {
     # include the genes whose logic name matches
     foreach my $gene (@{$ga->fetch_all_by_logic_name($include)}) {

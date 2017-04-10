@@ -43,16 +43,16 @@ sub param_defaults {
     return {
       dbname => '',
       dbhost => '',
+      port => '',
+      user => 'ensro',
+      pass => '',
       dnadbname => '',
       dnadbhost => '',
-      dnadbport => '3306',
+      dnadbport => '',
       coord_system => '',
       path => '',
       sql_output => '',
       dbtype => '', # can be 'vega' or '' (empty string)
-      port => '3306',
-      user => 'ensro',
-      pass => '',
       chromosome => '',
       write => '',
       affix => 0, # perform the checks by using the biotypes with or without the prefixes and suffixes like weird_, _Ens, _hav, ... ; without affixes by default
@@ -72,7 +72,7 @@ sub fetch_input {
   $self->param('gene_non_coding_biotypes',${$self->param('ensembl_biotype_groups')}{'gene_non_coding'});
   $self->param('transcript_coding_biotypes',${$self->param('ensembl_biotype_groups')}{'transcript_coding'});
   $self->param('transcript_non_coding_biotypes',${$self->param('ensembl_biotype_groups')}{'transcript_non_coding'});
-  
+
   return 1;
 }
 

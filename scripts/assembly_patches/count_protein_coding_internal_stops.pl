@@ -28,13 +28,14 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils
   qw(Gene_info);
 	
 my $host   = '';
-my $port   = 3306;
+my $port;
 my $dbname = '';
 my $dbuser = '';
 my $dbpass = '';
 my $biotype = '';
 my $dnadbname = 'sf7_patch_core_62';
 my $dnadbhost = 'genebuild5';
+my $dnadbport;
 my $gene_outfile = '';
 
 my $internal_stop = 0;
@@ -48,6 +49,7 @@ my $processed = 0;
             'dbpass:s'   => \$dbpass,
             'dnadbname:s'=> \$dnadbname,
             'dnadbhost:s'=> \$dnadbhost,
+            'dnadbport:s'=> \$dnadbport,
 	    'biotype:s'   => \$biotype,
 	    'gene_outfile:s' => \$gene_outfile,
             );
@@ -72,7 +74,7 @@ my $dnadb =
                                        -host   => $dnadbhost,
                                        -user   => $dbuser,
                                        -pass   => $dbpass,
-                                       -port   => $port );
+                                       -port   => $dnadbport );
 
 #print "Connected to ".$db->dbc->dbname." on ".$db->dbc->host."\n";
 $db->dnadb($dnadb);

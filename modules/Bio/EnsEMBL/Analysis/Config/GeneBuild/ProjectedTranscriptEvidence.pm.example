@@ -48,7 +48,7 @@ use vars qw( %Config );
               #where original transcript will be added as a transcript_supporting_feature
 	            OUTGENEDB => 'PROJECT_DB',
               OPTIONS   => '--model affine:local --bestn 1 --dnahspthreshold 50 -w 1 -s 0',
-              PROGRAM   => "exonerate-0.9.0",
+              PROGRAM   => "/nfs/software/ensembl/RHEL7/linuxbrew/opt/exonerate09/bin/exonerate",
        	    },
 
      }

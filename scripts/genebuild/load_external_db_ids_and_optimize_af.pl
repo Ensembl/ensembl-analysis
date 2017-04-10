@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 
 use strict;
 use warnings;
+use feature 'say';
 
 use Bio::EnsEMBL::DBSQL::DBConnection;
 use Getopt::Long qw(:config no_ignore_case);
@@ -29,12 +30,12 @@ my $output_path;
 my $dbhost;
 my $dbuser;
 my $dbpass;
-my $dbport = 3306;
+my $dbport;
 my $dbname;
 my $prod_dbhost;
 my $prod_dbuser;
 my $prod_dbpass;
-my $prod_dbport = 3306;
+my $prod_dbport;
 my $prod_dbname;
 my $analysis_scripts;
 my $uniprot_filename;
@@ -208,8 +209,19 @@ foreach my $type (@types) {
         push(@files_to_delete, $cfg_file);
         my $cfg_log_file = $output_path.'/'.$type.'.cfg.log';
         push(@files_to_delete, $cfg_log_file);
-        if (system("perl $test_regex_script -dbname $dbname -dbhost $dbhost -dbuser $dbuser -dbpass $dbpass -type $synonyms{$type} -main_regex_file $analysis_scripts/$synonyms{$type}_regexes.dat -output_config_file $cfg_file > $cfg_log_file")) {
-            throw("Could not execute $test_regex_script\n");
+        my $test_regex_cmd = "perl ".$test_regex_script.
+                             " -dbport ".$dbport.
+                             " -dbname ".$dbname.
+                             " -dbhost ".$dbhost.
+                             " -dbuser ".$dbuser.
+                             " -dbpass ".$dbpass.
+                             " -type ".$synonyms{$type}.
+                             " -main_regex_file ".$analysis_scripts."/".$synonyms{$type}."_regexes.dat".
+                             " -output_config_file ".$cfg_file." > ".$cfg_log_file;
+
+        say "Running test_reg_ex script:\n".$test_regex_cmd;
+        if (system($test_regex_cmd)) {
+            throw("Could not execute $test_regex_script\nCommandline used:\n".$test_regex_cmd);
         }
 
         print("Output files: $cfg_file and $cfg_log_file\n") if ($verbose);
@@ -226,7 +238,7 @@ foreach my $type (@types) {
         }
 
         print "\nAssigning external DB IDs to your ", uc($human_readable{$type}), "...\n" if ($verbose);
-        if (system("perl $assign_db_id_script -masterhost $prod_dbhost -masterport $prod_dbport -masterdbname $prod_dbname -masteruser $prod_dbuser -host $dbhost -user $dbuser -pass $dbpass -dbname $dbname -conf $cfg_file -feature_type $moltype{$type} -dumpdir $output_path -update_only_null_rows -uniprot_filename $uniprot_filename")) {
+        if (system("perl $assign_db_id_script -masterhost $prod_dbhost -masterport $prod_dbport -masterdbname $prod_dbname -masteruser $prod_dbuser -port $dbport -host $dbhost -user $dbuser -pass $dbpass -dbname $dbname -conf $cfg_file -feature_type $moltype{$type} -dumpdir $output_path -update_only_null_rows -uniprot_filename $uniprot_filename")) {
         #if (system("bsub  -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -I perl $assign_db_id_script -host $dbhost -pass $dbpass -dbname $dbname -conf $cfg_file -feature_type $moltype{$type} -dumpdir $output_path -update_only_null_rows -uniprot_filename $uniprot_filename")) {
             throw("Could not execute $assign_db_id_script\n");
         }

@@ -38,7 +38,7 @@ sub trim($);
 my $host         = '';
 my $user         = '';
 my $dbname       = '';
-my $port         = 3306;
+my $port;
 my $pass         = '';
 my $conf_file    = undef;
 my $feature_type = undef;
@@ -53,7 +53,7 @@ my $full_path_to_uniprot; # ../Ensembl/uniprot_2013_05/entry_loc
 my $masterhost = "production_host" ;
 my $masteruser = "read_only_user" ;
 my $masterdbname = "production_dbname" ;
-my $masterport = "3306" ;
+my $masterport = "" ;
 my $masterpass = "" ;
 $| = 1;
 

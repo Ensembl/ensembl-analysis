@@ -31,20 +31,23 @@ This module:
 -ccds_dbname                CCDS database name.
 -ccds_host                  CCDS database host.
 -ccds_user                  CCDS database user name.
+-ccds_port                  CCDS database user port.
 -output_dbname              Output database name.
 -output_host                Output database host.
 -output_user                Output database user name.
 -output_pass                Output database user pass.
+-output_port                Output database port.
 -dna_dbname                 DNA database name.
 -dna_host                   DNA database host.
 -dna_user                   DNA database user name.
 -dna_pass                   DNA database user pass.
+-dna_port                   DNA database user port.
 -reports_dir                Directory where the file containing the list of missing ccds stable IDs will be written.
 -output_filename            File name for the file containing the list of missing ccds stable IDs. This will get an extra extension corresponding to the chromosome name.
 
 =head1 EXAMPLE USAGE
 
-standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveInsertCCDSLabels -ccds_dbname CCDSDBNAME -ccds_host CCDSHOST -ccds_user CCDSUSER -output_dbname OUTPUTDBNAME -output_host OUTPUTHOST -output_user OUTPUTUSER -output_pass OUTPUTPASS -dna_dbname DNADBNAME -dna_host DNAHOST -dna_user DNAUSER -dna_pass DNAPASS -reports_dir REPORTSDIR -output_filename OUTPUTFILENAME
+standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveInsertCCDSLabels -ccds_dbname CCDSDBNAME -ccds_host CCDSHOST -ccds_user CCDSUSER -ccds_port CCDSPORT -output_dbname OUTPUTDBNAME -output_host OUTPUTHOST -output_user OUTPUTUSER -output_pass OUTPUTPASS -output_port OUTPUTPORT -dna_dbname DNADBNAME -dna_host DNAHOST -dna_user DNAUSER -dna_pass DNAPASS -dna_port DNAPORT -reports_dir REPORTSDIR -output_filename OUTPUTFILENAME
 
 =cut
 
@@ -72,14 +75,17 @@ sub param_defaults {
       ccds_dbname => undef,
       ccds_host => undef,
       ccds_user => undef,
+      ccds_port => undef,
       output_dbname => undef,
       output_host => undef,
       output_user => undef,
       output_pass => undef,
+      output_port => undef,
       dna_dbname => undef,
       dna_host => undef,
       dna_user => undef,
       dna_pass => undef,
+      dna_port => undef,
       reports_dir => undef,
       output_filename => undef
     }
@@ -94,19 +100,22 @@ sub fetch_input {
 sub run {
 
   my $self = shift;
-  
+
   $self->param_required('assembly_path');
   $self->param_required('ccds_dbname');
   $self->param_required('ccds_host');
   $self->param_required('ccds_user');
+  $self->param_required('ccds_port');
   $self->param_required('output_dbname');
   $self->param_required('output_host');
   $self->param_required('output_user');
   $self->param_required('output_pass');
+  $self->param_required('output_port');
   $self->param_required('dna_dbname');
   $self->param_required('dna_host');
   $self->param_required('dna_user');
   $self->param_required('dna_pass');
+  $self->param_required('dna_port');
   $self->param_required('reports_dir');
   $self->param_required('output_filename');
 
@@ -116,14 +125,17 @@ sub run {
                                         $self->param('ccds_dbname'),
                                         $self->param('ccds_host'),
                                         $self->param('ccds_user'),
+                                        $self->param('ccds_port'),
                                         $self->param('output_dbname'),
                                         $self->param('output_host'),
                                         $self->param('output_user'),
                                         $self->param('output_pass'),
+                                        $self->param('output_port'),
                                         $self->param('dna_dbname'),
                                         $self->param('dna_host'),
                                         $self->param('dna_user'),
-                                        $self->param('dna_pass'));
+                                        $self->param('dna_pass'),
+                                        $self->param('dna_port'));
 
   # write the missing ccds stable IDs into a file
   my $missing_ccds_file = $self->param('reports_dir').$self->param('output_filename').".".$self->param_required('chromosome');
@@ -142,19 +154,22 @@ sub insert_ccds_labels {
       $ccds_dbname,
       $ccds_host,
       $ccds_user,
+      $ccds_port,
       $output_dbname,
       $output_host,
       $output_user,
       $output_pass,
+      $output_port,
       $dna_dbname,
       $dna_host,
       $dna_user,
-      $dna_pass) = @_;
+      $dna_pass,
+      $dna_port) = @_;
 
   my $dna_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
                                      '-no_cache' => 1,
                                      '-host'     => $dna_host,
-                                     '-port'     => 3306,
+                                     '-port'     => $dna_port,
                                      '-user'     => $dna_user,
                                      '-pass'     => $dna_pass,
                                      '-dbname'   => $dna_dbname
@@ -164,7 +179,7 @@ sub insert_ccds_labels {
   my $output_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
                                      '-no_cache' => 1,
                                      '-host'     => $output_host,
-                                     '-port'     => 3306,
+                                     '-port'     => $output_port,
                                      '-user'     => $output_user,
                                      '-pass'     => $output_pass,
                                      '-dbname'   => $output_dbname
@@ -175,7 +190,7 @@ sub insert_ccds_labels {
   my $ccds_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
                                      '-no_cache' => 1,
                                      '-host'     => $ccds_host,
-                                     '-port'     => 3306,
+                                     '-port'     => $ccds_port,
                                      '-user'     => $ccds_user,
                                      '-pass'     => '',
                                      '-dbname'   => $ccds_dbname

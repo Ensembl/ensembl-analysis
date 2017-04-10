@@ -88,9 +88,9 @@ sub param_defaults {
       dbname => undef,
       dbuser => undef,
       dbpass => undef,
-      dbport => 3306,
+      dbport => undef,
       dnadbhost => undef,
-      dnadbport => 3306,
+      dnadbport => undef,
       dnadbname => undef,
       check_vega_met_stop_dir => undef,
       skip => 0,
@@ -212,7 +212,7 @@ sub methionine_to_stop_codon {
 
   my $num_ids = int(run_command("wc -l $ids_file | cut -f1 -d' '"));
 
-  run_command("perl $check_vega_met_stop_dir/check_vega_met_stop.pl -dbname $dbname -host $dbhost -dna_dbname $dnadbname -dna_host $dnadbhost -dna_port $dnadbport < $ids_file > $full_ids_file");
+  run_command("perl $check_vega_met_stop_dir/check_vega_met_stop.pl -dbname $dbname -host $dbhost -port $dbport -dna_dbname $dnadbname -dna_host $dnadbhost -dna_port $dnadbport < $ids_file > $full_ids_file");
 
   my $num_wrong_ids = int(
      run_command(
