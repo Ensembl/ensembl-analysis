@@ -116,21 +116,31 @@ sub fetch_input {
   # Retrieve the production names for the query and target species
   my $query_species = $source_transcript_dbc->get_MetaContainerAdaptor->get_production_name();
   my $target_species = $target_transcript_dbc->get_MetaContainerAdaptor->get_production_name();
+	use Data::Dumper;
+	print Dumper $query_species;
+	print "source::\n"; 
+    print Dumper $target_species;
+	print "--XXXXXXXXXXXXXXXXX--::\n";
 
 
   my $q_gdb = $gdb_adap->fetch_by_core_DBAdaptor($source_transcript_dbc);
   my $t_gdb = $gdb_adap->fetch_by_core_DBAdaptor($target_transcript_dbc);
 
-
+	print Dumper $source_transcript_dbc;
+	print "source::\n"; 
+print Dumper $target_transcript_dbc;
   ########
   # check that the default assembly for the query and target agrees
   # with that for the method_link_species_set GenomeDBs
   ########
+	print "--XXXXXXXXXXXXXXXXX--::\n";
+	# print Dumper $q_gdb;
+	print "--::\n"; 
+    # print Dumper $t_gdb;
+
 
   my $q_assembly = $q_gdb->assembly;
   my $t_assembly = $t_gdb->assembly;
-
-
 
   my ($q_assembly_version, $t_assembly_version);
   eval {
