@@ -254,6 +254,7 @@ sub run {
         $self->runnable_failed(1);
       }
       if ($proj_trans) {
+        $proj_trans->stable_id($tran->stable_id());
         push @res_tran, $proj_trans;
       }
     }
