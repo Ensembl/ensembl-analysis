@@ -100,29 +100,37 @@ sub run {
 sub parse_pdb_file() {
 # Parse the CSV PDB file containing the following 9 columns:
 # PDB CHAIN SP_PRIMARY RES_BEG RES_END PDB_BEG PDB_END SP_BEG SP_END
-# Lines starting with '#' or 'PDB' are ignored.
-# Return reference to an array of hashes with SP_PRIMARY, PDB, CHAIN, RES_BEG, RES_END, SP_BEG and SP_END as keys.
+# The SIFTS release date is fetched from the lines starting with '#'.
+# Lines starting with 'PDB' are ignored.
+# Return reference to an array of hashes with SP_PRIMARY, PDB, CHAIN, RES_BEG, RES_END, SP_BEG, SP_END and SIFTS_RELEASE_DATE as keys.
 
   my $self = shift;
 
   open(my $pdb_fh,'<',$self->{'pdb_filepath'}) or die "Cannot open: ".$self->{'pdb_filepath'};
   my @pdb_info = ();
+  my $sifts_release_date;
   
   while (my $line = <$pdb_fh>) {
+    
+    next if $line =~ /^PDB/;
 
-    next if $line =~ /^#/;
-    next if $line =~ /^PDB/; 
+    if ($line =~ /^#/) {
+    # parse SIFTS release date
+      (undef,$sifts_release_date) = split(/\s+/,$line);
+    } else {
+    # parse a PDB-UniProt line
+      my ($pdb,$chain,$sp_primary,$res_beg,$res_end,undef,undef,$sp_beg,$sp_end) = split(/\s+/,$line);
 
-    my ($pdb,$chain,$sp_primary,$res_beg,$res_end,undef,undef,$sp_beg,$sp_end) = split(/\s+/,$line);
-
-    push(@pdb_info,{'PDB' => $pdb,
-                    'CHAIN' => $chain,
-                    'SP_PRIMARY' => $sp_primary,
-                    'RES_BEG' => $res_beg,
-                    'RES_END' => $res_end,
-                    'SP_BEG' => $sp_beg,
-                    'SP_END' => $sp_end
-                   });
+      push(@pdb_info,{'PDB' => $pdb,
+                      'CHAIN' => $chain,
+                      'SP_PRIMARY' => $sp_primary,
+                      'RES_BEG' => $res_beg,
+                      'RES_END' => $res_end,
+                      'SP_BEG' => $sp_beg,
+                      'SP_END' => $sp_end,
+                      'SIFTS_RELEASE_DATE' => $sifts_release_date
+                     });
+    }
   }
   return \@pdb_info;
 }
@@ -165,17 +173,22 @@ sub make_protein_features() {
           my $translation = $t->translation();
           my $translation_sid = $translation->stable_id();
 
-          my $pf = Bio::EnsEMBL::ProteinFeature->new(
-                  -start    => $$pdb_line{'SP_BEG'},
-                  -end      => $$pdb_line{'SP_END'},
-                  -hseqname => $$pdb_line{'PDB'},
-                  -hstart   => $$pdb_line{'RES_BEG'},
-                  -hend     => $$pdb_line{'RES_END'},
-                  -analysis => $analysis,
-                  -hdescription => "Chain ".$$pdb_line{'CHAIN'}.". Via UniProt protein ".$$pdb_line{'SP_PRIMARY'}." isoform exact match to Ensembl protein $translation_sid",
-               );
-          $pf_translation{$translation->dbID()} = $pf;
-          push(@pfs,\%pf_translation);
+          if ($$pdb_line{'SP_BEG'} < $$pdb_line{'SP_END'}+1) {
+          # ignore complex PDB-UniProt mappings that allow SP_BEG > SP_END
+            my $pf = Bio::EnsEMBL::ProteinFeature->new(
+                    -start    => $$pdb_line{'SP_BEG'},
+                    -end      => $$pdb_line{'SP_END'},
+                    -hseqname => $$pdb_line{'PDB'}.".".$$pdb_line{'CHAIN'},
+                    -hstart   => $$pdb_line{'RES_BEG'},
+                    -hend     => $$pdb_line{'RES_END'},
+                    -analysis => $analysis,
+                    -hdescription => "Via SIFTS (".$$pdb_line{'SIFTS_RELEASE_DATE'}.
+                                     ") UniProt protein ".$$pdb_line{'SP_PRIMARY'}.
+                                     " isoform exact match to Ensembl protein $translation_sid"
+                 );
+            $pf_translation{$translation->dbID()} = $pf;
+            push(@pfs,\%pf_translation);
+          }
         } # foreach my enst
       } # if scalar
     } # if ensts
