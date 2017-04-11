@@ -21,6 +21,8 @@ HiveLoadPDBProteinFeatures.pm
 
 This module inserts protein features into an Ensembl core database based on the PDB-UniProt mappings found in the EMBL-EBI PDB SIFTS data and the UniProt-ENSP mappings found in the GIFTS database in order to make the link between PDB and ENSP having a PDB entry as a protein feature for a given ENSP protein.
 
+It also populates the "pdb_ens" table in the GIFTS database with similar data.
+
 =head1 OPTIONS
 
 -ftp_path       FTP path where the PDB chain Uniprot file is located (including file name).
@@ -62,7 +64,7 @@ use File::Find;
 use List::Util qw(sum);
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
-use Bio::EnsEMBL::GIFTS::DB qw(get_default_gifts_dba);
+use Bio::EnsEMBL::GIFTS::DB qw(get_default_gifts_dba get_default_gifts_dbc store_pdb_ens);
 
 sub param_defaults {
     return {
@@ -148,7 +150,12 @@ sub run {
 sub write_output {
   my $self = shift;
 
+  # insert the Ensembl-PDB links into the protein_feature table in the core database
+  # and add its associated xrefs
   $self->insert_protein_features();
+  
+  # insert the Ensembl-PDB links into the pdb_ens table in the GIFTS database
+  $self->insert_pdb_ens();
 
   return 1;
 }
@@ -181,7 +188,7 @@ sub download_pdb_file() {
 }
 
 sub insert_protein_features() {
-# insert the protein features into the database 'core_dba'
+# insert the protein features and their associated xrefs into the database 'core_dba'
 
   my $self = shift;
 
@@ -191,6 +198,74 @@ sub insert_protein_features() {
   foreach my $pf_hashref (@{$self->output}) {  
     my ($translation_id) = keys %$pf_hashref;
     $pfa->store($pf_hashref->{$translation_id},$translation_id);
+    
+    # This is not done because we only want to insert "real" IDs in the dbprimary_acc column.
+    # Fake "abcd.A" PDB.chain IDs are not linkable to any external DB at the moment.
+    #$self->insert_protein_features_xrefs($core_dba,$pf_hashref->{$translation_id},$translation_id);
+  }
+}
+
+sub insert_protein_features_xrefs {
+# Inserts a PDB protein feature translation xref
+  my ($self,$db_adaptor,$pf,$translation_id) = @_;
+
+  my $dbe_adaptor = $db_adaptor->get_DBEntryAdaptor();
+  my ($pdb_acc,$pdb_chain) = split(/\./,$pf->hseqname());
+  my $pf_description = $pf->hdescription();
+  my @pf_description_array = split(' ',$pf_description);
+  
+  my $pdb_xref = new Bio::EnsEMBL::DBEntry(
+                                             -adaptor => $dbe_adaptor,
+                                             -primary_id => $pdb_acc.".".$pdb_chain,
+                                             -version => 0,
+                                             -dbname  => 'PDB',
+                                             -release => 1,
+                                             -display_id => $pdb_acc.".".$pdb_chain,
+                                             -description => $pf_description,
+                                             -priority => 5,
+                                             -db_display_name => 'PDB',
+                                             -info_type => 'DEPENDENT',
+                                             -type => 'MISC'
+                                           );
+  $pdb_xref->status('XREF');
+  $pdb_xref->analysis($pf->analysis());
+  $dbe_adaptor->store($pdb_xref,$translation_id,'Translation');
+}
+
+sub insert_pdb_ens() {
+# insert the Ensembl-PDB links into the pdb_ens table in the GIFTS database
+
+  my $self = shift;
+
+  my $gifts_dbc = get_default_gifts_dbc();
+  my $core_dba = $self->hrdb_get_con("core");
+  my $core_ta = $core_dba->get_TranscriptAdaptor();
+  
+  foreach my $pf_hashref (@{$self->output}) {  
+    my ($translation_id) = keys %$pf_hashref;
+    my $pf = $pf_hashref->{$translation_id};
+
+    # Parse description like "Via SIFTS (2017/03/26) UniProt protein Q68DU8 isoform exact match to Ensembl protein ENSP00000424151"
+    my $pf_description = $pf->hdescription();
+    my @pf_description_array = split(' ',$pf_description);
+
+    my $transcript = $core_ta->fetch_by_translation_id($translation_id);
+    my $translation_sid = $transcript->translation()->stable_id();
+    
+    my ($pdb_acc,$pdb_chain) = split(/\./,$pf->hseqname());
+
+    store_pdb_ens($gifts_dbc,
+                  $pdb_acc,
+                  substr($pf_description_array[2],1,-1), # YYYY/MM/DD
+                  $pf_description_array[5], # UniProt protein accession
+                  $transcript->stable_id(),
+                  $transcript->version(),
+                  $translation_sid,
+                  $pf->start(),
+                  $pf->end(),
+                  $pf->hstart(),
+                  $pf->hend(),
+                  $pdb_chain);
   }
 }
 
