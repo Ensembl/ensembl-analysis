@@ -19,7 +19,8 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadcDNAs;
 use strict;
 use warnings;
 use feature 'say';
-use Bio::EnsEMBL::IO::Parser::Fasta;
+#use Bio::EnsEMBL::IO::Parser::Fasta;
+use Bio::SeqIO;
 use Data::Dumper;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -41,7 +42,10 @@ sub write_output {
 
   my $db_path = $self->param('cdna_file');
 
-  my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($db_path);
+  my $seq_file = new Bio::SeqIO( -file => $db_path,
+                                 -format => "Fasta",
+                               );
+
   my $header;
   my $seq;
   my $biotype = 'cdna';
@@ -49,9 +53,9 @@ sub write_output {
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
   $table_adaptor->table_name('cdna_sequences');
 
-  while($parser->next()) {
-    $header = $parser->getHeader();
-    $seq = $parser->getSequence();
+  while (my $seq = $seq_file->next_seq) {
+    my $header = $seq->id;
+    my $sequence = $seq->seq;
     $header =~ s/(\S+).*/$1/;
 
     my $output_hash = {};
@@ -59,7 +63,7 @@ sub write_output {
 
     my $db_row = [{
       'accession'  => $header,
-      'seq'        => $seq,
+      'seq'        => $sequence,
       'biotype'    => $biotype,
     }];
     $table_adaptor->store($db_row);
