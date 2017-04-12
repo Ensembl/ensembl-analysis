@@ -1,4 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,7 +49,11 @@ package Bio::EnsEMBL::Analysis::Tools::Utilities;
 
 use strict;
 use warnings;
-use Exporter;
+
+use Exporter qw(import);
+use File::Spec;
+use File::Which;
+
 use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; # needed for read_config()
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
@@ -72,7 +77,10 @@ use vars qw (@ISA  @EXPORT);
               is_canonical_splice
               get_database_connection_parameters_by_string
               run_command
-              send_email ) ;
+              send_email
+              hrdb_get_dba
+              convert_to_ucsc_name
+              align_proteins ) ;
 
 
 
@@ -871,6 +879,168 @@ sub send_email {
   print $sendmail_fh "\n";
   print $sendmail_fh "$body\n";
   close $sendmail_fh;
+}
+
+=head2 align_proteins
+
+  Arg [0]   : source protein sequence
+  Arg [1]   : target protein sequence
+  
+  Function  : It aligns the source protein sequence to the target protein sequence to
+              calculate the coverage and the percent identity of the source against the target.
+  Returntype: List containing (coverage,percent_identity) i.e. (82.7%,91.22%)
+  Examples  : align_proteins("ADCDA","ADCTM");
+  
+=cut
+
+sub align_proteins {
+  my ($source_protein_seq,$target_protein_seq) = @_;
+
+  my $align_input_file = "/tmp/align_".$$.".fa";
+  my $align_output_file = "/tmp/align_".$$.".aln";
+
+  open(INPUT,">".$align_input_file);
+  say INPUT ">query";
+  say INPUT $source_protein_seq;
+  say INPUT ">target";
+  say INPUT $target_protein_seq;
+  close INPUT;
+
+  my $align_program_path = 'muscle';
+
+  my $cmd = $align_program_path." -in ".$align_input_file." -out ".$align_output_file;
+  my $result = system($cmd);
+
+  if ($result) {
+    throw("Got a non-zero exit code from alignment. Command line used:\n".$cmd);
+  }
+
+  my $file = "";
+  open(ALIGN,$align_output_file);
+  while (<ALIGN>) {
+    $file .= $_;
+  }
+  close ALIGN;
+
+  if ($file !~ /\>.+\n(([^>]+\n)+)\>.+\n(([^>]+\n)+)/) {
+    throw("Could not parse the alignment file for the alignment sequences. Alignment file: ".$align_output_file);
+  }
+
+  my $aligned_source_protein_seq = $1;
+  my $aligned_target_protein_seq = $3;
+
+  $aligned_source_protein_seq =~ s/\n//g;
+  $aligned_target_protein_seq =~ s/\n//g;
+
+  `rm $align_input_file`;
+  `rm $align_output_file`;
+
+  # Work out coverage
+  my $coverage;
+  my $temp = $aligned_target_protein_seq;
+  my $projected_gap_count = $temp =~ s/\-//g;
+  my $ungapped_source_protein_seq = $aligned_source_protein_seq;
+  $ungapped_source_protein_seq  =~ s/\-//g;
+
+  if (length($ungapped_source_protein_seq) == 0) {
+    $coverage = 0;
+  } else {
+    $coverage = 100-(($projected_gap_count/length($ungapped_source_protein_seq))*100);
+  }
+
+  # Work out percent identity
+  my $match_count = 0;
+  my $aligned_positions = 0;
+  for (my $j = 0; $j < length($aligned_source_protein_seq); $j++) {
+    my $char_query = substr($aligned_source_protein_seq,$j,1);
+    my $char_target = substr($aligned_target_protein_seq,$j,1);
+    if ($char_query eq '-' || $char_target  eq '-') {
+      next;
+    }
+    if ($char_query eq $char_target) {
+      $match_count++;
+    }
+    $aligned_positions++;
+  }
+
+  if ($aligned_positions <= 0) {
+    throw("Pairwise alignment between the query protein sequence and the target protein sequence shows zero aligned positions. Something has gone wrong.");
+  }
+  my $percent_id = ($match_count/$aligned_positions)*100;
+  
+  return ($coverage,$percent_id);
+}
+
+=head2 hrdb_get_dba
+
+ Arg [1]    : Hashref $connection_info, containing the connection details for the database:
+              -host, -user, -dbname, -port [, -pass, -dna_db,...]
+ Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna
+ Example    : hrdb_get_dba->($self->param('target_db'));
+ Description: It creates a object based on the information contained in $connection_info.
+              If the hasref contains -dna_db or if the second argument is populated, it will
+              try to attach the DNA database
+ Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Exceptions : Throws if it cannot connect to the database.
+              Throws if $connection_info is not a hashref
+              Throws if $dna_db is not a Bio::EnsEMBL::DBSQL::DBAdaptor object
+
+=cut
+
+sub hrdb_get_dba {
+  my ($connection_info, $dna_db) = @_;
+  my $dba;
+
+# It should be OK to use eq instead of =~
+  if(ref($connection_info) eq 'HASH') {
+    eval {
+      $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(%$connection_info);
+    };
+
+    if($@) {
+      throw("Error while setting up database connection:\n".$@);
+    }
+  } else {
+    throw("DB connection info passed in was not a hash:\n".$connection_info);
+  }
+
+  if (defined $dna_db) {
+      if ($dna_db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
+          $dba->dnadb($dna_db);
+      }
+      else {
+          throw(ref($dna_db)." is not a Bio::EnsEMBL::DBSQL::DBAdaptor\n");
+      }
+  }
+
+  return $dba;
+}
+
+=head2 convert_to_ucsc_name
+
+ Arg [1]    : String $ensembl_name, an Ensembl seq_region name
+ Arg [2]    : (optional) Bio::EnsEMBL::Slice Object slice, the slice you want to get the UCSC name from
+ Example    : convert_to_ucsc_name($slice->seq_region_name, $slice);
+ Description: It returns the UCSC name of the region by fetching the UCSC name from the seq_region_synonym table.
+              If a Bio::EnsEMBL::Slice object is not provided or if it cannot find the synonym, it returns the
+              Ensembl name prefixed with 'chr'.
+ Returntype : String
+ Exceptions : None
+
+
+=cut
+
+sub convert_to_ucsc_name {
+    my ($ensembl_name, $slice) = @_;
+
+    my $ucsc_name = 'chr'.$ensembl_name;
+    if ($slice) {
+        my $ucsc_synonyms = $slice->get_all_synonyms('UCSC');
+        if (scalar(@$ucsc_synonyms)) {
+            $ucsc_name = $ucsc_synonyms->[0]->name;
+        }
+    }
+    return $ucsc_name;
 }
 
 1;
