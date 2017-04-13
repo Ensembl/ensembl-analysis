@@ -46,6 +46,7 @@ use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+
 =head2 fetch_input
 
  Arg [1]    : None
@@ -77,6 +78,7 @@ sub fetch_input {
   }
 }
 
+
 =head2 run
 
  Arg [1]    : None
@@ -107,6 +109,7 @@ sub run {
   $self->output(\@output);
 }
 
+
 =head2 write_output
 
  Arg [1]    : None
@@ -135,6 +138,7 @@ sub write_output {
   }
 }
 
+
 =head2 get_adaptor
 
  Arg [1]    : None
@@ -152,6 +156,7 @@ sub get_adaptor {
   }
   return $self->param('_gene_adaptor');
 }
+
 
 =head2 filter
 
@@ -185,4 +190,3 @@ sub filter {
 }
 
 1;
-

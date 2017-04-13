@@ -58,6 +58,7 @@ use strict;
 use Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep;
 use Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast');
 
@@ -108,6 +109,13 @@ sub fetch_input {
     print " of type " . $logicname . "\n";
   } else {
     print "\n";
+  }
+  if ($self->param_is_defined('create_translation') and $self->param('create_translation')) {
+    foreach my $gene (@$genes) {
+      foreach my $tran (@{$gene->get_all_Transcripts}) {
+        compute_translation($tran);
+      }
+    }
   }
   foreach my $gene (@$genes) {
       foreach my $tran (@{$gene->get_all_Transcripts}) {

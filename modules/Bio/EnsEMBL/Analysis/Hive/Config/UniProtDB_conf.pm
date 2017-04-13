@@ -487,7 +487,7 @@ sub pipeline_analyses {
             -parameters => {
               inputlist  => [['PE12', 'uniprot_PE12_vertebrata uniprot_PE12_nonvert'],
                               ['PE12_wfrag', 'uniprot_PE12_vertebrata uniprot_PE12_nonvert uniprot_PE12_vertebrata_frag uniprot_PE12_nonvert_frag'],
-                              ['PE12_vertebrata', 'uniprot_PE12_vertebrata_frag'],
+                              ['PE12_vertebrata', 'uniprot_PE12_vertebrata'],
                               ['PE12_vertebrata_wfrag', 'uniprot_PE12_vertebrata uniprot_PE12_vertebrata_frag']],
               column_names => ['db_name', 'input_file'],
             },

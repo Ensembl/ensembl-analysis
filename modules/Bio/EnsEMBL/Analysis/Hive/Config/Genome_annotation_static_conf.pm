@@ -42,8 +42,8 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
-    'email_address'             => '', #!!!!!!!!!!!
-    'genebuilder_id'            => '', #!!!!!!!!!!!
+    'email_address'             => '' || $ENV{HIVE_EMAIL}, #!!!!!!!!!!!
+    'genebuilder_id'            => '' || $ENV{GENEBUILDER_ID}, #!!!!!!!!!!!
     'release_number'            => '', #!!!!!!!!!!! (you can put whatever here if you're not sure)
     'enscode_root_dir'          => '', #!!!!!!!!!!! git repo checkouts
     'repeatmasker_library'      => '', #!!!!!!!!!!!!!!!!! repbase library name e.g. rodents
@@ -67,67 +67,69 @@ sub default_options {
     'user'                         => '', #!!!!!!!!!!!
     'password'                     => '', #!!!!!!!!!!!
     'port'                         => '', #!!!!!!!!!!!
+    'databases_port'               => '', #!!!!!!!!!!!
+    'databases_server'             => '', #!!!!!!!!!!!
 
-    'pipe_db_server'               => '',
-    'pipe_db_port'                 => '',
+    'pipe_db_server'               => '', #!!!!!!!!!!!
+    'pipe_db_port'                 => '', #!!!!!!!!!!!
 
     'dna_dbname'                   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
-    'dna_db_server'                => '',
-    'dna_db_port'                  => $self->o('port'),
+    'dna_db_server'                => '', #!!!!!!!!!!!
+    'dna_db_port'                  => '', #!!!!!!!!!!!
 
     'reference_dbname'             => $self->o('dna_dbname'),
-    'reference_db_server'          => '',
+    'reference_db_server'          => $self->o('dna_db_server'),
     'reference_db_port'            => $self->o('dna_db_port'),
 
-    'cdna_db_server'               => '',
-    'cdna_db_port'                 => $self->o('port'),
+    'cdna_db_server'               => $self->o('databases_server'),
+    'cdna_db_port'                 => $self->o('databases_port'),
 
-    'genblast_db_server'           => '',
-    'genblast_db_port'             => $self->o('port'),
+    'genblast_db_server'           => $self->o('databases_server'),
+    'genblast_db_port'             => $self->o('databases_port'),
 
-    'genewise_db_server'           => '',
-    'genewise_db_port'             => $self->o('port'),
+    'genewise_db_server'           => $self->o('databases_server'),
+    'genewise_db_port'             => $self->o('databases_port'),
 
-    'projection_db_server'         => '',
-    'projection_db_port'           => $self->o('port'),
+    'projection_db_server'         => $self->o('databases_server'),
+    'projection_db_port'           => $self->o('databases_port'),
 
-    'projection_realign_db_server' => '',
-    'projection_realign_db_port'   => $self->o('port'),
+    'projection_realign_db_server' => $self->o('databases_server'),
+    'projection_realign_db_port'   => $self->o('databases_port'),
 
     'projection_source_db_name'    => '', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_server'  => 'mysql-ensembl-mirror',
     'projection_source_db_port'    => 4240,
 
-    'projection_lastz_db_server'   => '',
-    'projection_lastz_db_port'     => $self->o('port'),
+    'projection_lastz_db_server'   => $self->o('databases_server'),
+    'projection_lastz_db_port'     => $self->o('databases_port'),
 
     'rnaseq_dbname'                => $self->o('dbowner').'_'.$self->o('species_name').'_rnaseq_'.$self->o('release_number'),
-    'rnaseq_db_server'             => '',
-    'rnaseq_db_port'               => $self->o('port'),
+    'rnaseq_db_server'             => $self->o('databases_server'),
+    'rnaseq_db_port'               => $self->o('databases_port'),
 
-    'layering_db_server'           => '',
-    'layering_db_port'             => $self->o('port'),
+    'layering_db_server'           => $self->o('databases_server'),
+    'layering_db_port'             => $self->o('databases_port'),
 
-    'utr_db_server'                => '',
-    'utr_db_port'                  => $self->o('port'),
+    'utr_db_server'                => $self->o('databases_server'),
+    'utr_db_port'                  => $self->o('databases_port'),
 
-    'genebuilder_db_server'        => '',
-    'genebuilder_db_port'          => $self->o('port'),
+    'genebuilder_db_server'        => $self->o('databases_server'),
+    'genebuilder_db_port'          => $self->o('databases_port'),
 
-    'pseudogene_db_server'         => '',
-    'pseudogene_db_port'           => $self->o('port'),
+    'pseudogene_db_server'         => $self->o('databases_server'),
+    'pseudogene_db_port'           => $self->o('databases_port'),
 
-    'ncrna_db_server'              => '',
-    'ncrna_db_port'                => $self->o('port'),
+    'ncrna_db_server'              => $self->o('databases_server'),
+    'ncrna_db_port'                => $self->o('databases_port'),
 
-    'final_geneset_db_server'      => '',
-    'final_geneset_db_port'        => $self->o('port'),
+    'final_geneset_db_server'      => $self->o('databases_server'),
+    'final_geneset_db_port'        => $self->o('databases_port'),
 
-    'refseq_db_server'             => '',
-    'refseq_db_port'               => $self->o('port'),
+    'refseq_db_server'             => $self->o('databases_server'),
+    'refseq_db_port'               => $self->o('databases_port'),
 
-    'killlist_db_server'           => '',
-    'killlist_db_port'             => $self->o('port'),
+    'killlist_db_server'           => $self->o('databases_server'),
+    'killlist_db_port'             => $self->o('databases_port'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'staging_1_db_server'          => 'mysql-ens-sta-1',
@@ -140,11 +142,12 @@ sub default_options {
 ########################
 # BLAST db paths
 ########################
-    'uniprot_blast_db_path'     => '/nfs/production/panda/ensembl/genebuild/blastdb/uniprot/uniprot_2016_10/uniprot_vertebrate',
-    'vertrna_blast_db_path'     => '/nfs/production/panda/ensembl/genebuild/blastdb/vertrna/129/embl_vertrna-1',
-    'unigene_blast_db_path'     => '/nfs/production/panda/ensembl/genebuild/blastdb/unigene/unigene',
-    'mito_index_path'           => '/nfs/production/panda/ensembl/genebuild/blastdb/refseq_mitochondria_set/mito_index.txt',
-    'ncrna_blast_path'          => '/nfs/production/panda/ensembl/genebuild/blastdb/ncrna_2016_05/',
+    'base_blast_db_path'        => '' || $ENV{BLASTDB_DIR},
+    'uniprot_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'uniprot', 'uniprot_2016_10/uniprot_vertebrate'),
+    'vertrna_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'vertrna', '130/embl_vertrna-1'),
+    'unigene_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'unigene', 'unigene'),
+    'mito_index_path'           => undef, # Set this path only if you don't want to use the GCF report and if you haven't set 'mt_accession' '/nfs/production/panda/ensembl/genebuild/blastdb/refseq_mitochondria_set/mito_index.txt',
+    'ncrna_blast_path'          => catfile($self->o('base_blast_db_path'), 'ncrna_2016_05'),
     'mirBase_fasta'             => 'mouse_mirnas.fa',
 
 ######################################################
@@ -206,7 +209,7 @@ sub default_options {
 ########################
     'blast_type' => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     'binary_base' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin',
-    'dust_path' => catfile($self->o('binary_base'), 'tcdust'),
+    'dust_path' => catfile($self->o('binary_base'), 'dustmasker'),
     'trf_path' => catfile($self->o('binary_base'), 'trf'),
     'eponine_java_path' => '/nfs/software/ensembl/RHEL7/jenv/shims/java',
     'eponine_jar_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/eponine/1.0/libexec/eponine-scan.jar',
@@ -222,14 +225,11 @@ sub default_options {
     'exonerate_path'         => '/nfs/software/ensembl/RHEL7/linuxbrew/opt/exonerate09/bin/exonerate',
     'cmsearch_exe_path'    => catfile($self->o('binary_base'), 'cmsearch'),
 
-    'uniprot_index_name'          => 'uniprot_index',
-    'uniprot_db_name'             => 'uniprot_db',
-    'uniprot_query_dir_name'      => 'uniprot_temp',
     'uniprot_genblast_batch_size' => 5,
     'uniprot_table_name'          => 'uniprot_sequences',
 
     'genblast_path'     => catfile($self->o('binary_base'), 'genblast'),
-    'genblast_eval'     => '1e-20',
+    'genblast_eval'     => $self->o('blast_type') eq 'wu' ? '1e-20' : '1e-1',
     'genblast_cov'      => '0.5',
     'genblast_pid'      => '50',
     'genblast_max_rank' => '5',
@@ -490,6 +490,10 @@ sub pipeline_create_commands {
 sub pipeline_analyses {
     my ($self) = @_;
 
+    my %genblast_params = (
+      wu   => '-P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov'),
+      ncbi => '-P blast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' -W 3 -rl 5000',
+      );
     my %commandline_params = (
       'ncbi' => '-num_threads 3 -window_size 40',
       'wu' => '-cpus 3 -hitdist 40',
@@ -593,7 +597,7 @@ sub pipeline_analyses {
         -logic_name => 'load_contigs',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadSeqRegions',
         -parameters => {
-#                         'coord_system_version'      => $self->o('assembly_name'),
+                         'coord_system_version'      => $self->o('assembly_name'),
                          'target_db'                 => $self->o('reference_db'),
                          'output_path'               => $self->o('output_path'),
                          'enscode_root_dir'          => $self->o('enscode_root_dir'),
@@ -651,6 +655,7 @@ sub pipeline_analyses {
                          'output_path'               => $self->o('output_path'),
                          'enscode_root_dir'          => $self->o('enscode_root_dir'),
                          'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
+                         'production_name'           => $self->o('production_name'),
                        },
         -rc_name    => 'default',
         -flow_into  => {
@@ -670,10 +675,22 @@ sub pipeline_analyses {
         -rc_name    => 'default',
 
         -flow_into  => {
-                          1 => ['load_refseq_synonyms'],
+                          1 => ['load_mitochondrion', 'fan_refseq'],
                        },
       },
 
+      {
+        -logic_name => 'fan_refseq',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'if [ -n "#assembly_refseq_accession#" ]; then exit 0; else exit 42;fi',
+                         return_codes_2_branches => {'42' => 2},
+                       },
+        -rc_name => 'default',
+        -flow_into  => {
+                          1 => ['load_refseq_synonyms'],
+                       },
+      },
 
       {
         -logic_name => 'load_refseq_synonyms',
@@ -690,13 +707,11 @@ sub pipeline_analyses {
                        },
         -rc_name => 'default',
         -flow_into  => {
-                          1 => ['load_mitochondrion', 'download_refseq_gff'],
+                          1 => ['download_refseq_gff'],
                        },
       },
 
-
       {
-        # Load the AGP files
         -logic_name => 'load_mitochondrion',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadMitochondrion',
         -parameters => {
@@ -710,24 +725,36 @@ sub pipeline_analyses {
         -rc_name    => 'default',
 
         -flow_into => {
-                        # FirstEF is left out here as it runs on repeats. Repeatmasker analyses flow into it
-                        '1->A' => ['create_1mb_slice_ids'],
+                        '1->A' => ['create_toplevel_slice_ids'],
                         'A->1' => ['backup_core_db'],
                       },
 
       },
 
-
-
       {
-        # Create 1mb toplevel slices, each species flow into this independantly
-        -logic_name => 'create_1mb_slice_ids',
+        -logic_name => 'create_toplevel_slice_ids',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
                          target_db        => $self->o('dna_db'),
                          coord_system_name => 'toplevel',
                          iid_type => 'slice',
-                         slice_size => 1000000,
+                         include_non_reference => 0,
+                         top_level => 1,
+                       },
+        -flow_into => {
+                        2 => ['create_5mb_slice_ids'],
+                      },
+      },
+
+      {
+        # Create 10mb toplevel slices, each species flow into this independantly
+        -logic_name => 'create_5mb_slice_ids',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db        => $self->o('dna_db'),
+                         coord_system_name => 'toplevel',
+                         iid_type => 'split_slice',
+                         slice_size => 5000000,
                          include_non_reference => 0,
                          top_level => 1,
                          min_slice_length => $self->o('min_toplevel_slice_length'),
@@ -735,11 +762,11 @@ sub pipeline_analyses {
 #                         batch_target_size => 1000000,
                        },
         -flow_into => {
-                        '2' => ['run_repeatmasker'],
+                        '2->A' => ['run_repeatmasker'],
+                        'A->1' => ['run_dust'],
                       },
 
       },
-
 
 ###############################################################################
 #
@@ -819,7 +846,6 @@ sub pipeline_analyses {
         -rc_name    => 'repeatmasker',
         -flow_into => {
                         -1 => ['run_repeatmasker_himem'],
-                        1 => ['run_dust'],
                       },
         -hive_capacity => 900,
       },
@@ -835,9 +861,6 @@ sub pipeline_analyses {
                          commandline_params => '-nolow -species "'.$self->o('repeatmasker_species').'" -engine "'.$self->o('repeatmasker_engine').'"',
                        },
         -rc_name    => 'repeatmasker_himem',
-        -flow_into => {
-                         1 => ['run_dust'],
-                      },
         -hive_capacity => 900,
         -can_be_empty  => 1,
       },
@@ -867,7 +890,7 @@ sub pipeline_analyses {
         -logic_name => 'format_softmasked_toplevel',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmaski -in '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa.asnb;makeblastdb -in '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa -dbtype nucl -parse_seqids -mask_data '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa;fi',
+                         'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmask -in '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa.asnb;makeblastdb -in '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa -dbtype nucl -parse_seqids -mask_data '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa;fi',
                        },
         -rc_name    => 'default_himem',
       },
@@ -985,10 +1008,31 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'simple_features',
         -flow_into => {
-                         1 => ['run_genscan'],
+                         1 => ['create_1mb_slice_ids'],
                       },
        -hive_capacity => 900,
        -batch_size => 20,
+      },
+
+      {
+        # Create 1mb toplevel slices, each species flow into this independantly
+        -logic_name => 'create_1mb_slice_ids',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db        => $self->o('dna_db'),
+                         coord_system_name => 'toplevel',
+                         iid_type => 'split_slice',
+                         slice_size => 1000000,
+                         include_non_reference => 0,
+                         top_level => 1,
+                         min_slice_length => $self->o('min_toplevel_slice_length'),
+#                         batch_slice_ids => 1,
+#                         batch_target_size => 1000000,
+                       },
+        -flow_into => {
+                        '2' => ['run_genscan'],
+                      },
+
       },
 
 
@@ -1030,6 +1074,7 @@ sub pipeline_analyses {
         -logic_name => 'decrease_genscan_slice_size',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
+                         target_db  => $self->o('dna_db'),
                          iid_type => 'split_slice',
                          slice_size => 100000,
                        },
@@ -1333,7 +1378,6 @@ sub pipeline_analyses {
         -rc_name    => 'genblast',
         -parameters => {
                          iid_type => 'db_seq',
-                         query_table_name => $self->o('refseq_cdna_table_name'),
                          sequence_table_name => $self->o('refseq_cdna_table_name'), # there is a problem here. I add that, but it should be query_table_name or sequence_table_name
 
                          dna_db => $self->o('dna_db'),
@@ -1364,7 +1408,6 @@ sub pipeline_analyses {
         -rc_name    => 'genblast_retry',
         -parameters => {
                          iid_type => 'db_seq',
-                         query_table_name => $self->o('refseq_cdna_table_name'),
                          sequence_table_name => $self->o('refseq_cdna_table_name'), # there is a problem here. I add that, but it should be query_table_name or sequence_table_name
 
                          dna_db => $self->o('dna_db'),
@@ -1437,7 +1480,8 @@ sub pipeline_analyses {
                        },
         -rc_name          => 'default',
         -flow_into => {
-                        1 => ['process_uniprot_files'],
+                        '2->A' => ['process_uniprot_files'],
+                        'A->1' => ['generate_genblast_jobs'],
                       },
       },
 
@@ -1445,28 +1489,11 @@ sub pipeline_analyses {
         -logic_name => 'process_uniprot_files',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessUniProtFiles',
         -parameters => {
-                         uniprot_db_name => $self->o('uniprot_db_name'),
-                         uniprot_index_name => $self->o('uniprot_index_name'),
-                         dest_dir   => $self->o('homology_models_path'),
                          killlist_type => 'protein',
                          killlist_db => $self->o('killlist_db'),
+                         sequence_table_name => $self->o('uniprot_table_name'),
                       },
         -rc_name => 'default',
-        -flow_into => {
-                       '2->A' => ['load_uniprot_seqs'],
-                       'A->1' => ['generate_genblast_jobs'],
-                      },
-      },
-
-      {
-        -logic_name => 'load_uniprot_seqs',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadSeqsPipeDB',
-        -parameters => {
-                         uniprot_db_path => catdir($self->o('homology_models_path'), $self->o('uniprot_db_name')),
-                         uniprot_index_path => catdir($self->o('homology_models_path'), $self->o('uniprot_index_name')),
-                       },
-        -rc_name          => 'default',
-        -hive_capacity => 100,
       },
 
 
@@ -1475,9 +1502,9 @@ sub pipeline_analyses {
         -logic_name => 'generate_genblast_jobs',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
-                         iid_type => 'uniprot_accession',
-                         uniprot_batch_size => $self->o('uniprot_genblast_batch_size'),
-                         uniprot_table_name => $self->o('uniprot_table_name'),
+                         iid_type => 'sequence_accession',
+                         batch_size => $self->o('uniprot_genblast_batch_size'),
+                         sequence_table_name => $self->o('uniprot_table_name'),
                        },
         -rc_name      => 'default_himem',
         -flow_into => {
@@ -1498,8 +1525,7 @@ sub pipeline_analyses {
                          module => 'HiveGenblast',
                          genblast_path => $self->o('genblast_path'),
                          genblast_db_path => $self->o('genome_file'),
-                         commandline_params => ' -P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
-                         query_seq_dir => catdir($self->o('homology_models_path'), $self->o('uniprot_query_dir_name')),
+                         commandline_params => $genblast_params{$self->o('blast_type')},
                          sequence_table_name => $self->o('uniprot_table_name'),
                          max_rank => $self->o('genblast_max_rank'),
                          genblast_pid => $self->o('genblast_pid'),
@@ -1518,9 +1544,8 @@ sub pipeline_analyses {
         -logic_name => 'split_genblast_jobs',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
-                         iid_type => 'rechunk_uniprot_accession',
-                         uniprot_batch_size => 1,
-                         uniprot_table_name => $self->o('uniprot_table_name'),
+                         iid_type => 'rechunk',
+                         batch_size => 1,
                        },
         -rc_name      => 'default',
         -can_be_empty  => 1,
@@ -1540,8 +1565,7 @@ sub pipeline_analyses {
                          module => 'HiveGenblast',
                          genblast_path => $self->o('genblast_path'),
                          genblast_db_path => $self->o('genome_file'),
-                         commandline_params => ' -P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
-                         query_seq_dir => catdir($self->o('homology_models_path'), $self->o('uniprot_query_dir_name')),
+                         commandline_params => $genblast_params{$self->o('blast_type')},
                          sequence_table_name => $self->o('uniprot_table_name'),
                          max_rank => $self->o('genblast_max_rank'),
                          genblast_pid => $self->o('genblast_pid'),
@@ -2200,7 +2224,7 @@ sub pipeline_analyses {
         -logic_name => 'format_blast_db',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'xdformat -n '.$self->o('output_path').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta'
+                         cmd => 'if [ "'.$self->o('blast_type').'" = "ncbi" ];then makeblastdb -dbtype nucl -in '.$self->o('output_path').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta; else xdformat -n '.$self->o('output_path').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta;fi'
                        },
          -rc_name => 'default',
       },
@@ -2328,8 +2352,6 @@ sub pipeline_analyses {
         -rc_name => 'default',
       },
 
-
-
     ];
 }
 
@@ -2348,8 +2370,8 @@ sub resource_classes {
     'blast' => { LSF => $self->lsf_resource_builder('production-rh7', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'blast_himem' => { LSF => $self->lsf_resource_builder('production-rh7', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'blast' => { LSF => $self->lsf_resource_builder('production-rh7', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
-    'genblast' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 120'},
-    'genblast_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 120'},
+    'genblast' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    'genblast_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genewise' => { LSF => $self->lsf_resource_builder('production-rh7', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genewise_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 120'},
     'genewise_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genewise_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 120'},
     'project_transcripts' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 120'},

@@ -68,12 +68,13 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes;
 use warnings ;
 use strict;
 use feature 'say';
+
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::KillList::KillList;
 use Bio::SeqIO;
-use Data::Dumper;
+use Bio::Seq;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -88,36 +89,35 @@ sub fetch_input {
   }
   $self->hrdb_set_con($dba,'target_db');
 
-  # This call will set the config file parameters. Note this will set REFGB (which overrides the
-  # value in $self->db and OUTDB
-  $self->create_analysis;
 
   ##########################################
   # set up the target (genome)
   ##########################################
 
+  $self->create_analysis;
   my @db_files;
 
   ##########################################
   # set up the query (est/cDNA/protein)
   ##########################################
   my $iid_type = $self->param('iid_type');
-  my ($query_file,$query_seq,$chunk_number,$chunk_total);
+  my ($querys, $query_file,$chunk_number,$chunk_total, $query_seq);
   unless($iid_type) {
     $self->throw("You haven't provided an input id type. Need to provide one via the 'iid_type' param");
   }
 
   if($iid_type eq 'db_seq') {
-    my $accession_array = $self->param('iid');
-    $query_seq = $self->get_query_seq($accession_array);
-    $self->peptide_seq($query_seq->seq);
+    $querys = $self->get_query_seqs($self->param('iid'));
+    if ($self->param('sequence_table_name') =~ /protein/) {
+      $self->peptide_seq($querys->[0]->seq);
+    }
     $self->calculate_coverage_and_pid($self->param('calculate_coverage_and_pid'));
     @db_files = ($self->GENOMICSEQS);
   } elsif($iid_type eq 'feature_region') {
     my $feature_region_id = $self->param('iid');
     my ($slice,$accession_array) = $self->parse_feature_region_id($feature_region_id);
-    $query_file = $self->output_query_file($accession_array);
-    @db_files = ($self->output_db_file($slice,$accession_array));
+    $querys = $self->get_query_seqs($accession_array);
+    @db_files = ($self->output_db_file($slice));
   } elsif($iid_type eq 'feature_id') {
     my $feature_type = $self->param('feature_type');
     if($feature_type eq 'transcript') {
@@ -130,8 +130,10 @@ sub fetch_input {
 
       my ($slice,$accession_array) = $self->get_transcript_region($transcript_id);
       #$query_file = $self->output_query_file($accession_array);
-      $query_seq = $self->get_query_seq($accession_array);
-      $self->peptide_seq($query_seq->seq);
+      $querys = $self->get_query_seqs($accession_array);
+      if ($self->param('sequence_table_name') =~ /protein/) {
+        $self->peptide_seq($querys->[0]->seq);
+      }
       $self->calculate_coverage_and_pid($self->param('calculate_coverage_and_pid'));
       @db_files = ($self->output_db_file($slice,$accession_array));
     } else {
@@ -195,6 +197,9 @@ sub fetch_input {
     } else {
       $self->throw("'$query' refers to something that could not be made sense of\n");
     }
+  } elsif($iid_type eq 'filename') {
+    @db_files = ($self->GENOMICSEQS);
+    $query_file = $self->input_id;
   } else {
    $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
@@ -226,7 +231,6 @@ sub fetch_input {
     }
   }
 
-
 #  my $transcript_biotype = $self->transcript_biotype();
   my $biotypes_hash = $self->get_biotype();
   foreach my $database ( @db_files ){
@@ -235,8 +239,6 @@ sub fetch_input {
               -analysis => $self->analysis,
               -target_file    => $database,
               -query_type     => $self->QUERYTYPE,
-              -query_file     => $query_file,
-              -query_seqs => [$query_seq],
               -annotation_file => $self->QUERYANNOTATION ? $self->QUERYANNOTATION : undef,
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
@@ -245,8 +247,13 @@ sub fetch_input {
               %parameters,
               );
 
+      if (ref($querys) eq 'ARRAY') {
+        $runnable->query_seqs($querys);
+      }
+      else {
+        $runnable->query_file($query_file);
+      }
       $self->runnable($runnable);
-
   }
 
 }
@@ -261,21 +268,9 @@ sub run {
   foreach my $runnable (@{$self->runnable}){
     # This is to catch the closing exonerate errors, which we currently have no actual solution for
     # It seems to be more of a problem with the exonerate code itself
-    eval {
-      $runnable->run;
-    };
+    $runnable->run;
 
-    if($@) {
-      my $except = $@;
-
-      if($except =~ /Error closing exonerate command/) {
-        warn("Error closing exonerate command, this input id was not analysed successfully:\n".$self->input_id);
-      } else {
-        $self->throw($except);
-      }
-    } else {
-      push ( @results, @{$runnable->output} );
-    }
+    push ( @results, @{$runnable->output} );
   }
   if ($self->USE_KILL_LIST) {
     unlink $self->filtered_query_file;
@@ -318,14 +313,9 @@ sub write_output {
           "($fails fails out of $total)");
   }
 
-  if($self->files_to_delete()) {
-    my $files_to_delete = $self->files_to_delete();
-    foreach my $file_to_delete (@{$files_to_delete}) {
-      `rm $file_to_delete`;
-    }
-  }
 
 }
+
 
 sub get_transcript_region {
   my ($self,$transcript_id) = @_;
@@ -394,7 +384,12 @@ sub best_in_genome_transcript {
      $self->param('best_in_genome_transcript', 0);
    }
 
-   return($self->param('best_in_genome_transcript'));
+   if ($self->param_is_defined('best_in_genome_transcript')) {
+     return $self->param('best_in_genome_transcript');
+   }
+   else {
+     return;
+   }
 }
 
 
@@ -514,20 +509,6 @@ sub get_output_db {
   return $outdb;
 }
 
-sub input_id {
-  # Override the input_id inherited from Process, which is a stringify on the input id hash
-  # Note also that as HiveBaseRunnableDB inherits from RunnableDB also, this has an input_id
-  # sub too, which would not function normally as there is no attached input id object
-  my $self = shift;
-
-  my $input_id_string = $self->Bio::EnsEMBL::Hive::Process::input_id;
-  unless($input_id_string =~ /.+\=\>.+\"(.+)\"/) {
-    $self->throw("Could not find the chunk file in the input id. Input id:\n".$input_id_string);
-  }
-
-  $input_id_string = $1;
-  return($input_id_string);
-}
 
 sub parse_feature_region_id {
   my ($self,$feature_region_id) = @_;
@@ -893,13 +874,8 @@ sub filter_killed_entries {
                             -format => "Fasta",
                           );
 
-  my $filtered_seqout_filename = "/tmp/$inputID"."_filtered";
-  print "Filename for my filtered sequence: $filtered_seqout_filename.\n";
 
-  my $seqout = new Bio::SeqIO(-file   => ">$filtered_seqout_filename",
-                              -format => "Fasta"
-                             );
-
+  my @sequences;
   while( my $query_entry = $seqin->next_seq ){
     my $display_id  = $query_entry->display_id;
     my $no_ver_id;
@@ -916,106 +892,39 @@ sub filter_killed_entries {
     }
 
     if ( !$kill_list{$no_ver_id} ) {
-      $seqout->write_seq($query_entry);
+      push(@sequences, $query_entry);
     } elsif ( $kill_list{$no_ver_id} ) {
       print "$mol_type $display_id is in the kill_list. Discarded from analysis.\n";
     }
   }
-  return $filtered_seqout_filename;
+  return \@sequences;
 }
 
+sub get_query_seqs {
+  my ($self, $accession_array) = @_;
 
-sub get_query_seq {
-  my ($self,$accession_array) = @_;
-
-  my $query_table_name = $self->param('sequence_table_name');
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
-  $table_adaptor->table_name($query_table_name);
-
-  my $accession = $$accession_array[0];
-
-  my $db_row = $table_adaptor->fetch_by_dbID($accession);
-  unless($db_row) {
-    $self->throw("Did not find an entry in the ".$query_table_name." table matching the accession. Accession:\n".$accession);
-  }
-
-  my $seq = $db_row->{'seq'};
-
-  # If the table has a biotype col set the value
-  my $biotypes_hash = {};
-  $biotypes_hash->{$accession} = $db_row->{'biotype'};
-  $self->get_biotype($biotypes_hash);
-
-
-  my $peptide_obj = Bio::Seq->new( -display_id => $accession,
-                                   -seq => $seq);
-
-  return($peptide_obj);
-}
-
-
-sub output_query_file {
-  my ($self,$accession_array) = @_;
-
-  my $query_table_name = $self->param('sequence_table_name');
-  my $table_adaptor = $self->db->get_NakedTableAdaptor();
-  $table_adaptor->table_name($query_table_name);
-
-  my $output_dir = $self->param('query_seq_dir');
-
-  # Note as each accession will occur in only one file, there should be no problem using the first one
-  my $outfile_name = "exonerate_".${$accession_array}[0].".".$$.".fasta";
-  my $outfile_path = $output_dir."/".$outfile_name;
+  $table_adaptor->table_name($self->param_required('sequence_table_name'));
 
   my $biotypes_hash = {};
-
-  unless(-e $output_dir) {
-    `mkdir $output_dir`;
-  }
-
-  if(-e $outfile_path) {
-    $self->warning("Found the query file in the query dir already. Overwriting. File path\n:".$outfile_path);
-  }
-
-  open(QUERY_OUT,">".$outfile_path);
+  my @query_sequences;
   foreach my $accession (@{$accession_array}) {
     my $db_row = $table_adaptor->fetch_by_dbID($accession);
     unless($db_row) {
-      $self->throw("Did not find an entry in the uniprot_sequences table matching the accession. Accession:\n".$accession);
+      $self->throw('Did not find an entry in the '.$self->param('sequence_table_name')." table matching the accession. Accession:\n".$accession);
     }
 
     my $seq = $db_row->{'seq'};
     $biotypes_hash->{$accession} = $db_row->{'biotype'};
 
-    my $record = ">".$accession."\n".$seq;
-    say QUERY_OUT $record;
+    push(@query_sequences, Bio::Seq->new(-display_id => $accession, -seq => $seq));
   }
-  close QUERY_OUT;
 
-  $self->files_to_delete($outfile_path);
   $self->get_biotype($biotypes_hash);
 
-  return($outfile_path);
+  return \@query_sequences;
 }
 
-sub output_db_file {
-  my ($self,$slice,$accession_array) = @_;
-
-  my $output_dir = $self->param('query_seq_dir');
-  # Note as each accession will occur in only one file, there should be no problem using the first one
-  my $outfile_name = "exonerate_db_".${$accession_array}[0].".".$$.".fasta";
-  my $outfile_path = $output_dir."/".$outfile_name;
-
-  my $header = ">".$slice->name();
-  my $seq = $slice->seq;
-  open(DB_OUT,">".$outfile_path);
-  say DB_OUT $header;
-  say DB_OUT $seq;
-  close DB_OUT;
-
-  $self->files_to_delete($outfile_path);
-  return($outfile_path);
-}
 
 sub get_biotype {
   my ($self,$biotype_hash) = @_;
@@ -1023,20 +932,6 @@ sub get_biotype {
     $self->param('_biotype_hash',$biotype_hash);
   }
   return($self->param('_biotype_hash'));
-}
-
-sub files_to_delete {
-  my ($self,$val) = @_;
-
-  unless($self->param_is_defined('_files_to_delete')) {
-    $self->param('_files_to_delete',[]);
-  }
-
-  if($val) {
-    push(@{$self->param('_files_to_delete')}, $val);
-  }
-
-  return($self->param('_files_to_delete'));
 }
 
 
@@ -1166,6 +1061,12 @@ sub realign_translation {
     }
     $transcript->add_Exon($exon);
   }
+}
+
+sub output_db_file {
+  my ($self) = @_;
+
+  $self->throw('Method '.ref($self).'::output_db_file has not been implemeted. Only the Runnable should write temporary files. You should pass the databases as Bio::Seq');
 }
 
 1;

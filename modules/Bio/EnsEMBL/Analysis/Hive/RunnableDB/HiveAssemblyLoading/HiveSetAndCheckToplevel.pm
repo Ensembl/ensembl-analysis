@@ -49,7 +49,8 @@ sub run {
   my $path_to_files = catdir($self->param('output_path'), $primary_assembly_dir_name);
 
   $self->set_toplevel($target_db,$enscode_dir);
-  $self->check_toplevel($target_db,$enscode_dir,$path_to_files);
+  $self->check_toplevel($target_db,$enscode_dir,$path_to_files)
+    if ($self->param_is_defined('primary_assembly_dir_name'));
   say "Finished checking contig files";
   return 1;
 }

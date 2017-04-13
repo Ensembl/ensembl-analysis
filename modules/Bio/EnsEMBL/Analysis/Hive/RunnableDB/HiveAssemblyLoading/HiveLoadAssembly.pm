@@ -21,7 +21,8 @@ use strict;
 use warnings;
 use feature 'say';
 
-use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+use File::Spec::Functions qw(catfile catdir);
+use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadSeqRegions');
 
 sub fetch_input {
   my $self = shift;
@@ -31,223 +32,96 @@ sub fetch_input {
                  "into must be passed in with write access");
   }
 
-  unless($self->param('primary_assembly_dir_name')) {
-    $self->throw("primary_assembly_dir_name flag not passed into parameters hash. This is usually Primary_Assembly ");
-  }
+  $self->throw("Could not find the load_agp script in enscode dir. Path checked:\n". catfile($self->param('enscode_root_dir'), 'ensembl-pipeline', 'scripts', 'load_agp.pl'))
+    unless(-e catfile($self->param_required('enscode_root_dir'), 'ensembl-pipeline', 'scripts', 'load_agp.pl'));
 
-  unless($self->param('output_path')) {
-    $self->throw("output_path flag not passed into parameters hash. This should be the path to the working directory ".
-                 "that you downloaded the ftp files to earlier in the pipeline");
-  }
-
-  unless($self->param('enscode_root_dir')) {
-    $self->throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
-  }
-
+  $self->param_required('output_path');
   return 1;
 }
 
 sub run {
   my $self = shift;
 
+  my $path_to_files = $self->param('output_path');
+  if ($self->param_is_defined('primary_assembly_dir_name')) {
+    $path_to_files = catdir($self->param('output_path'), $self->param_required('primary_assembly_dir_name'), 'AGP');
+  }
+
   say "Loading seq regions into reference db";
   my $target_db = $self->param('target_db');
-  my $path_to_files = $self->param('output_path')."/".$self->param('primary_assembly_dir_name')."/AGP/";
-  my $enscode_dir = $self->param('enscode_root_dir');
-
-  $self->load_assembly($target_db,$path_to_files,$enscode_dir);
-
-  say "Finished downloading contig files";
-  return 1;
-}
-
-sub write_output {
-  my $self = shift;
-
-  return 1;
-}
-
-sub load_assembly {
-  my ($self,$target_db,$path_to_files,$enscode_dir) = @_;
-
   my $dbhost = $target_db->{'-host'};
   my $dbport = $target_db->{'-port'};
   my $dbuser = $target_db->{'-user'};
   my $dbpass = $target_db->{'-pass'};
   my $dbname = $target_db->{'-dbname'};
 
-  unless(-e $enscode_dir."/ensembl-pipeline/scripts/load_agp.pl") {
-    $self->throw("Could not find the load_agp script in enscode dir. Path checked:\n".$enscode_dir."/ensembl-pipeline/scripts/load_agp.pl");
-  }
-
   my $chromo_present = 0;
 
-  my $assembled;
-  my $component;
-  if(-e $path_to_files."/scaf_all.agp") {
-    say "Loading scaffold to contig mappings from:\n".$path_to_files."/scaf_all.agp";
-    $assembled = "scaffold";
-    $component = "contig";
+  my %assembled = (
+    $self->param('scaffold_contig') => 'scaffold',
+    $self->param('chromosome_contig') => 'chromosome',
+    $self->param('chromosome_scaffold')  => 'chromosome',
+  );
+  my %component = (
+    $self->param('scaffold_contig') => 'contig',
+    $self->param('chromosome_contig') => 'contig',
+    $self->param('chromosome_scaffold')  => 'scaffold',
+  );
+  my $sql_count = "mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'SELECT COUNT(*) FROM assembly'";
+  my $base_cmd = 'perl '.catfile($self->param('enscode_root_dir'), 'ensembl-pipeline', 'scripts', 'load_agp.pl').
+                ' -dbhost '.$dbhost.
+                ' -dbuser '.$dbuser.
+                ' -dbpass '.$dbpass.
+                ' -dbport '.$dbport.
+                ' -dbname '.$dbname;
+  foreach my $filename (keys %assembled) {
+    my $file = catfile($path_to_files, $filename);
+    if (-e $file) {
+      ++$chromo_present if ($assembled{$filename} eq 'chromosome');
+      say 'Loading '.$assembled{$filename}.' to '.$component{$filename}." mappings from:\n$file";
 
-    my $assembly_count_before = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'`);
+      my $assembly_count_before = int(`$sql_count`);
 
-    my $cmd = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_agp.pl".
-              " -dbhost ".$dbhost.
-              " -dbuser ".$dbuser.
-              " -dbpass ".$dbpass.
-              " -dbport ".$dbport.
-              " -dbname ".$dbname.
-              " -assembled_name ".$assembled.
-              " -component_name ".$component.
-              " -agp_file ".$path_to_files."/scaf_all.agp".
-              "  > ".$path_to_files."/load_assembly_scaffold_contig.out";
-    my $return = system($cmd);
+      my $cmd = $base_cmd.' -assembled_name '.$assembled{$filename}.
+                ' -component_name '.$component{$filename}.
+                ' -agp_file '.$file;
 
-    if($return) {
-      $self->throw("The load agp script returned a non-zero exit code. Commandline used:\n".$cmd);
+      my $num_warnings = 0;
+      my $assembly_count_file = 0;
+      open(CMD, $cmd.' 2>&1 | ') || $self->throw("Could not execute $cmd");
+      while (<CMD>) {
+        if (/WARN/) {
+          ++$num_warnings;
+        }
+        elsif (/You are already using/) {
+          ++$num_warnings;
+        }
+        elsif (/EXCEPTION/) {
+          $self->throw('Something went wrong!');
+        }
+      }
+      close(CMD) || $self->throw("$cmd failed");
+
+#      my $assembly_count_after = int(`$sql_count`);
+#      my $assembly_count_diff = $assembly_count_after - $assembly_count_before;
+#      if ($assembly_count_file != $assembly_count_diff) {
+#        $self->throw("Difference in count between $filename and entries loaded into the database:\n".
+#              "$filename: ".$assembly_count_file."\ndatabase: ".$assembly_count_diff);
+#      }
+#
+#      if ($num_warnings > 0) {
+#        $self->warning("There are some warning messages in the output file that should be checked (grep 'You are already using'):\n$file");
+#      }
+    } else {
+      $self->throw("No scaffold to contig agp file exists, expected the following file:\n$file");
     }
-
-    say "Loading of scaffold to contig mappings completed. Output written to:\n".$path_to_files."/load_assembly_scaffold_contig.out\n";
-
-    my $assembly_count_after = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'`);
-    my $assembly_count_diff = $assembly_count_after - $assembly_count_before;
-    my $assembly_count_file = int(`grep -v "#" $path_to_files/scaf_all.agp | grep -v "\\WN\\W" | grep -c -v "\\WU\\W"`);
-    unless($assembly_count_file == $assembly_count_diff) {
-      $self->throw("Difference in count between scaff_all.agp and entries loaded into the database:\n".
-            "scaff_all.agp: ".$assembly_count_file."\ndatabase: ".$assembly_count_diff);
-    }
-
-    # Check output file for any issues
-    my $num_warnings = int(`grep "WARN" $path_to_files/scaf_all.agp | wc -l`);
-    if ($num_warnings > 0) {
-      $self->warning("There are some warning messages in the output file that should be checked (grep 'WARN'):\n".$path_to_files."/scaf_all.agp");
-    }
-
-    $num_warnings = int(`grep "You are already using" $path_to_files/scaf_all.agp | wc -l`);
-    if ($num_warnings > 0) {
-      $self->warning("There are some warning messages in the output file that should be checked (grep 'You are already using'):\n".$path_to_files."/scaf_all.agp");
-    }
-
-    my $exception = int(`grep "EXCEPTION" $path_to_files/scaf_all.agp | wc -l`);
-    if($exception) {
-      $self->throw("Exception found in output file:\n".$path_to_files."/scaf_all.agp");
-    }
-
-  } else {
-    $self->throw("No scaffold to contig agp file exists, expected the following file:\n".$path_to_files."/scaf_all.agp");
-  }
-
-  # Need to rewrite the following at some point to just be a call to a single subroutine with the file name, assembled and component
-  # vars passed in. At the moment it's needlessly duplicated code
-  if(-e $path_to_files."/comp_all.agp") {
-    say "Loading chromosome to contig mappings from:\n".$path_to_files."/comp_all.agp";
-    $assembled = "chromosome";
-    $component = "contig";
-    $chromo_present++;
-
-    my $assembly_count_before = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'`);
-
-    my $cmd = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_agp.pl".
-              " -dbhost ".$dbhost.
-              " -dbuser ".$dbuser.
-              " -dbpass ".$dbpass.
-              " -dbport ".$dbport.
-              " -dbname ".$dbname.
-              " -assembled_name ".$assembled.
-              " -component_name ".$component.
-              " -agp_file ".$path_to_files."/comp_all.agp".
-              "  > ".$path_to_files."/load_assembly_chromosome_contig.out";
-    my $return = system($cmd);
-
-    if($return) {
-      $self->throw("The load agp script returned a non-zero exit code. Commandline used:\n".$cmd);
-    }
-
-    say "Loading of chromosome to contig mappings completed. Output written to:\n".$path_to_files."/load_assembly_chromosome_contig.out\n";
-
-    my $assembly_count_after = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'`);
-    my $assembly_count_diff = $assembly_count_after - $assembly_count_before;
-    my $assembly_count_file = int(`grep -v "#" $path_to_files/comp_all.agp | grep -v "\\WN\\W" | grep -c -v "\\WU\\W"`);
-    unless($assembly_count_file == $assembly_count_diff) {
-      $self->throw("Difference in count between comp_all.agp and entries loaded into the database:\n".
-            "comp_all.agp: ".$assembly_count_file."\ndatabase: ".$assembly_count_diff);
-    }
-
-    # Check output file for any issues
-    my $num_warnings = int(`grep "WARN" $path_to_files/comp_all.agp | wc -l`);
-    if ($num_warnings > 0) {
-      $self->warning("There are some warning messages in the output file that should be checked (grep 'WARN'):\n".$path_to_files."/comp_all.agp");
-    }
-
-    $num_warnings = int(`grep "You are already using" $path_to_files/comp_all.agp | wc -l`);
-    if ($num_warnings > 0) {
-      $self->warning("There are some warning messages in the output file that should be checked (grep 'You are already using'):\n".$path_to_files."/comp_all.agp");
-    }
-
-    my $exception = int(`grep "EXCEPTION" $path_to_files/comp_all.agp | wc -l`);
-    if($exception) {
-      $self->throw("Exception found in output file:\n".$path_to_files."/comp_all.agp");
-    }
-
-  }
-
-  if(-e $path_to_files."/chr_all.agp") {
-    say "Loading chromosome to scaffold mappings from:\n".$path_to_files."chr_all.agp";
-    $assembled = "chromosome";
-    $component = "scaffold";
-    $chromo_present++;
-
-    my $assembly_count_before = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'`);
-
-    my $cmd = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_agp.pl".
-              " -dbhost ".$dbhost.
-              " -dbuser ".$dbuser.
-              " -dbpass ".$dbpass.
-              " -dbport ".$dbport.
-              " -dbname ".$dbname.
-              " -assembled_name ".$assembled.
-              " -component_name ".$component.
-              " -agp_file ".$path_to_files."/chr_all.agp".
-              "  > ".$path_to_files."/load_assembly_chromosome_scaffold.out";
-    my $return = system($cmd);
-
-    if($return) {
-      $self->throw("The load agp script returned a non-zero exit code. Commandline used:\n".$cmd);
-    }
-
-    say "Loading of chromosome to scaffold mappings completed. Output written to:\n".$path_to_files."/load_assembly_chromosome_scaffold.out\n";
-
-    my $assembly_count_after = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e 'select count(*) from assembly'`);
-    my $assembly_count_diff = $assembly_count_after - $assembly_count_before;
-    my $assembly_count_file = int(`grep -v "#" $path_to_files/chr_all.agp | grep -v "\\WN\\W" | grep -c -v "\\WU\\W"`);
-    unless($assembly_count_file == $assembly_count_diff) {
-      $self->throw("Difference in count between chr_all.agp and entries loaded into the database:\n".
-            "chr_all.agp: ".$assembly_count_file."\ndatabase: ".$assembly_count_diff);
-    }
-
-    # Check output file for any issues
-    my $num_warnings = int(`grep "WARN" $path_to_files/chr_all.agp | wc -l`);
-    if ($num_warnings > 0) {
-      $self->warning("There are some warning messages in the output file that should be checked (grep 'WARN'):\n".$path_to_files."/chr_all.agp");
-    }
-
-    $num_warnings = int(`grep "You are already using" $path_to_files/chr_all.agp | wc -l`);
-    if ($num_warnings > 0) {
-      $self->warning("There are some warning messages in the output file that should be checked (grep 'You are already using'):\n".$path_to_files."/chr_all.agp");
-    }
-
-    my $exception = int(`grep "EXCEPTION" $path_to_files/chr_all.agp | wc -l`);
-    if($exception) {
-      $self->throw("Exception found in output file:\n".$path_to_files."/chr_all.agp");
-    }
-
   }
 
   # Have to ask about this scenario and whether it warrants a warning or a throw. It may not
   # actually be needed. But if it is then I need to make it more useful
   if($chromo_present) {
-    unless($chromo_present == 2) {
-      $self->warning("Chromosomes present, but you only have one mapping file instead of two");
+    if ($chromo_present != 2) {
+      $self->warning("Chromosomes present, but you only have $chromo_present mapping file instead of two");
     }
   }
 
@@ -266,6 +140,14 @@ sub load_assembly {
       $self->throw($num_meta_rows." new rows found in 'meta' table for 'assembly.mapping' meta_key. 1 expected");
     }
   }
-
+  say "Finished loading the AGP files";
+  return 1;
 }
+
+sub write_output {
+  my $self = shift;
+
+  return 1;
+}
+
 1;

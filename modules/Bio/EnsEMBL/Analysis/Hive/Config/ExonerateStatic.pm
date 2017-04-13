@@ -64,6 +64,24 @@ sub _master_config {
       KILL_TYPE => undef,
       USE_KILL_LIST => 0,
     },
+    exonerate_cdna => {
+      OPTIONS => '--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1',
+      FILTER  => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -coverage => 50,
+          -percent_id => 50,
+        },
+      },
+    },
+
+    exonerate_protein => {
+      IIDREGEXP => '(\d+):(\d+)',
+      OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1 --maxintron 50000',
+      COVERAGE_BY_ALIGNED => 0,
+      QUERYTYPE           => 'protein',
+    },
+
     exonerate => {
       COVERAGE_BY_ALIGNED => 1,
       FILTER => {
@@ -120,6 +138,22 @@ sub _master_config {
           -coverage => 50,
           -percent_id => 50,
           -reject_processed_pseudos => 1,
+          -verbosity => 1,
+        }
+      },
+      KILL_TYPE => undef,
+      USE_KILL_LIST => 0,
+      OPTIONS => '--model est2genome --forwardcoordinates FALSE --maxintron 200000 --softmasktarget FALSE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14',
+    },
+    cdna_selection => {
+      COVERAGE_BY_ALIGNED => 1,
+      FILTER => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::CdnaUpdateTranscriptFilter',
+        PARAMETERS => {
+          -best_in_genome => 0,
+          -coverage => 90,
+          -percent_id => 97,
+          -reject_processed_pseudos => 0,
           -verbosity => 1,
         }
       },
@@ -205,6 +239,35 @@ sub _master_config {
           -percent_id => '#exonerate_cdna_pid#',
         },
       },
+    },
+    exonerate_cov_per_bestn_sub => {
+      IIDREGEXP           => '(\d+):(\d+)',
+      OPTIONS             => ' --maxintron 100000 --model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1',
+      COVERAGE_BY_ALIGNED => 0,
+      QUERYTYPE           => 'dna',
+      FILTER => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -coverage   => '#exonerate_cdna_cov#',
+          -percent_id => '#exonerate_cdna_pid#',
+        },
+      },
+    },
+    pacbio_exonerate => {
+      COVERAGE_BY_ALIGNED => 1,
+      FILTER => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -best_in_genome => 0,
+          -coverage => 90,
+          -percent_id => 95,
+          -reject_processed_pseudos => 1,
+          -verbosity => 1,
+        }
+      },
+      KILL_TYPE => undef,
+      USE_KILL_LIST => 0,
+      OPTIONS => '--model est2genome --forwardcoordinates FALSE --maxintron 200000 --softmasktarget FALSE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14',
     },
   );
   return $config{$key};

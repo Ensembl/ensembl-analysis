@@ -83,6 +83,7 @@ our @EXPORT_OK = qw(
               locate_executable
               first_upper_case
               execute_with_wait
+              execute_with_timer
               );
 
 
@@ -1156,7 +1157,7 @@ sub first_upper_case {
               This is really useful in Hive while using LSF as processes are killed in random order
               Without the wait a LSF signal like TERM_MEMLIMIT might not be caught before the exit
               code from the executable. Hive would not use the -1, -2 branches
- Returntype : None
+ Returntype : Int 1 if successfull
  Exceptions : Throws after a Arg[3] seconds wait if the execution failed
 
 =cut
@@ -1168,6 +1169,64 @@ sub execute_with_wait {
     sleep($wait || 30);
     throw($failed_msg || 'Failed to run with code: '.$?."\n".$cmd);
   }
+  return 1;
+}
+
+
+=head2 execute_with_timer
+
+ Arg [1]    : String $cmd, the command to run
+ Arg [2]    : Int $timer, how long we should wait before killing your job
+ Description: Execute a system command and kill it if it doesn't finish in time
+              You can either specify the time in seconds as digits only or
+              you can use M and H to specify hours and/or minutes, without white spaces.
+ Returntype : Int 1 if successfull
+ Exceptions : Throws after your jobs did not finish in time
+              Throws if Arg[2] is not set or incorrect or 0
+
+=cut
+
+sub execute_with_timer {
+  my ($cmd, $timer) = @_;
+
+  my $realtimer = 0;
+  if ($timer) {
+    if ($timer =~ tr/mhMH/MHMH/) {
+      if ($timer =~ s/^(\d+)H//) {
+        $realtimer = $1*3600;
+      }
+      if ($timer =~ s/^(\d+)M//) {
+        $realtimer += $1*60;
+      }
+    }
+    if ($timer) {
+      if ($timer =~ /^\d*\s*$/) {
+        $realtimer += $timer;
+      }
+      else {
+        throw("This is what is left of your timer: $timer and this is what I could calculate: $realtimer\n");
+      }
+    }
+  }
+  else {
+    throw("Something is wrong with your timer: $timer\n");
+  }
+# As seen on perldoc: http://perldoc.perl.org/5.14.2/functions/alarm.html
+  eval {
+    local $SIG{ALRM} = sub {die("alarm\n")};
+    alarm $realtimer;
+    execute_with_wait($cmd);
+    alarm 0;
+  };
+  if ($@) {
+    if ($@ eq "alarm\n") {
+      throw("Your job $cmd was still running after your timer: $realtimer\n");
+    }
+    else {
+      throw($@);
+    }
+  }
+  return 1;
 }
 
 1;

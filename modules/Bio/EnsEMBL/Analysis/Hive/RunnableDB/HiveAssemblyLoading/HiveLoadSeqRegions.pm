@@ -21,7 +21,22 @@ use strict;
 use warnings;
 use feature 'say';
 
+use File::Find;
+use File::Spec::Functions qw(catfile catdir);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    contig_file => 'contigs.fa',
+    scaffold_contig => 'scaf_all.agp',
+    chromosome_contig => 'comp_all.agp',
+    chromosome_scaffold => 'chr_all.agp',
+  }
+}
+
 
 sub fetch_input {
   my $self = shift;
@@ -29,10 +44,6 @@ sub fetch_input {
   unless($self->param('target_db')) {
     $self->throw("target_db flag not passed into parameters hash. The target db to load the assembly info ".
                  "into must be passed in with write access");
-  }
-
-  unless($self->param('primary_assembly_dir_name')) {
-    $self->throw("primary_assembly_dir_name flag not passed into parameters hash. This is usually Primary_Assembly ");
   }
 
   unless($self->param('output_path')) {
@@ -44,8 +55,8 @@ sub fetch_input {
     $self->throw("enscode_dir flag not passed into parameters hash. You need to specify where your code checkout is");
   }
 
-  if ($self->param_is_defined('assembly_accession') and !$self->param_is_defined('coord_system_version')) {
-    $self->param('coord_system_version', $self->param('assembly_accession'));
+  if ($self->param_is_defined('assembly_name') and !$self->param_is_defined('coord_system_version')) {
+    $self->param('coord_system_version', $self->param('assembly_name'));
   }
   unless($self->param('coord_system_version')) {
     $self->throw("coord_system_version flag not passed into parameters hash. You need to specify the assembly version e.g. GRCh38");
@@ -60,12 +71,14 @@ sub run {
 
   say "Loading seq regions into reference db";
   my $target_db = $self->param('target_db');
-  my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
-  my $path_to_files = $self->param('output_path')."/".$self->param('primary_assembly_dir_name');
+  my $path_to_files = $self->param('output_path');
+  if ($self->param_is_defined('primary_assembly_dir_name')) {
+    $path_to_files = catdir($self->param('output_path'), $self->param_required('primary_assembly_dir_name'));
+    $self->concat_files_for_loading($path_to_files);
+  }
   my $enscode_dir = $self->param('enscode_root_dir');
   my $coord_system_version = $self->param('coord_system_version');
 
-  $self->concat_files_for_loading($path_to_files);
   $self->load_seq_regions($target_db,$path_to_files,$enscode_dir,$coord_system_version);
 
   say "Finished downloading contig files";
@@ -128,47 +141,48 @@ sub load_seq_regions {
   }
 
   # Check if chromosomes exist
-  my $chromo_present = 0;
-  if(-e $path_to_files."/AGP/chr_all.agp" || -e $path_to_files."/AGP/comp_all.agp") {
-    $chromo_present = 1;
-  }
-
-  # decide which will be the rank 1
-  # the chromosome if available; otherwise, the scaffold
-  my $rank = 2;
-  if ($chromo_present) {
-    # the last string in the array will be the filename for the chromosomes if available.
-    # chromosomes agp file found, so rank 1 for chromosome level
-    $rank = 3;
+  my $chromo_present = 1;
+  my $rank = 3;
+  my $middle_dir = $self->param_is_defined('primary_assembly_dir_name') ? 'AGP' : '';
+  my $file_chr = catfile($path_to_files, $middle_dir, $self->param('chromosome_scaffold'));
+  if(-e $file_chr) {
     say "Chromosome agp file found. Chromosome level will be of rank 1, scaffold level will be of rank 2 and contig level will be of rank 3";
-  } else {
-    # chromosome agp file not found, so rank 1 for scaffold level
+  }
+  elsif (-e catfile($path_to_files, $middle_dir, $self->param('chromosome_contig'))) {
+    $file_chr = catfile($path_to_files, $middle_dir, $self->param('chromosome_contig'));
+    say "Chromosome agp file found. Chromosome level will be of rank 1, scaffold level will be of rank 2 and contig level will be of rank 3";
+  }
+  else {
     say "Chromosome agp file not found. Scaffold level will be of rank 1 and contig level will be of rank 2";
+    $rank = 2;
+    $chromo_present = 0;
   }
 
-
-  my $contigs_file_path = $path_to_files."/contigs/contigs.fa";
+  $middle_dir = $self->param_is_defined('primary_assembly_dir_name') ? 'contigs' : '';
+  my $contigs_file_path = catfile($path_to_files, $middle_dir, $self->param('contig_file'));
   unless (-e $contigs_file_path) {
     $self->throw("Could not locate contigs file. Expected to find here:\n".$contigs_file_path);
   }
 
+  my $base_cmd = 'perl '.catfile($enscode_dir, 'ensembl-pipeline', 'scripts', 'load_seq_region.pl').
+            ' -dbhost '.$dbhost.
+            ' -dbuser '.$dbuser.
+            ' -dbpass '.$dbpass.
+            ' -dbport '.$dbport.
+            ' -dbname '.$dbname.
+            ' -coord_system_version '.$coord_system_version.
+            ' -default_version'.
+            ' -noverbose';
+  my $base_sql = "mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname";
   # use the load seq_regions script to load the contigs
   say "\nLoading the contigs...";
   say "Processing file:\n".$contigs_file_path;
 
-  my $cmd = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_seq_region.pl".
-            " -dbhost ".$dbhost.
-            " -dbuser ".$dbuser.
-            " -dbpass ".$dbpass.
-            " -dbport ".$dbport.
-            " -dbname ".$dbname.
+  my $cmd = $base_cmd.
             " -coord_system_name contig".
-            " -coord_system_version ".$coord_system_version.
             " -rank ".$rank.
-            " -default_version".
             " -fasta_file ".$contigs_file_path.
             " -sequence_level".
-            " -noverbose".
             " > ".$path_to_files."/load_seq_region_contigs.out";
 
   my $result = system($cmd);
@@ -180,8 +194,8 @@ sub load_seq_regions {
 
 
   # check contigs
-  my $num_contigs = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e'select count(*) from seq_region'`);
-  my $num_dna = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e'select count(*) from dna'`);
+  my $num_contigs = int(`$base_sql -NB -e'select count(*) from seq_region'`);
+  my $num_dna = int(`$base_sql -NB -e'select count(*) from dna'`);
 
   if ($num_contigs != $num_dna) {
     $self->throw("The number of 'seq_region' table loaded contigs ($num_contigs) differs from the number of 'dna' table rows ($num_dna)");
@@ -195,18 +209,11 @@ sub load_seq_regions {
   # for each existing scaffold agp file (unplaced, placed, unlocalized)
   say "\nLoading the scaffolds...";
 
-  $cmd = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_seq_region.pl".
-         " -dbhost ".$dbhost.
-         " -dbuser ".$dbuser.
-         " -dbpass ".$dbpass.
-         " -dbport ".$dbport.
-         " -dbname ".$dbname.
+  $middle_dir = $self->param_is_defined('primary_assembly_dir_name') ? 'AGP' : '';
+  $cmd = $base_cmd.
          " -coord_system_name scaffold".
-         " -coord_system_version ".$coord_system_version.
          " -rank ".$rank.
-         " -default_version".
-         " -agp_file ".$path_to_files."/AGP/scaf_all.agp".
-         " -noverbose".
+         " -agp_file ".catfile($path_to_files, $middle_dir, $self->param('scaffold_contig')).
          " > ".$path_to_files."/load_seq_region_scaffolds.out";
 
   $result = system($cmd);
@@ -222,25 +229,11 @@ sub load_seq_regions {
   if ($rank > 0) {
     say "Loading the chromosomes...";
     my $chromo_mapping_file;
-    if(-e $path_to_files."/AGP/chr_all.agp") {
-      $chromo_mapping_file = $path_to_files."/AGP/chr_all.agp";
-    } else {
-      say "A chr_all.agp file was not found in the AGP dir, so using comp_all.agp for chromosome mappings instead";
-      $chromo_mapping_file = $path_to_files."/AGP/comp_all.agp";
-    }
 
-    $cmd = "perl ".$enscode_dir."/ensembl-pipeline/scripts/load_seq_region.pl".
-           " -dbhost ".$dbhost.
-           " -dbuser ".$dbuser.
-           " -dbpass ".$dbpass.
-           " -dbport ".$dbport.
-           " -dbname ".$dbname.
+    $cmd = $base_cmd.
            " -coord_system_name chromosome".
-           " -coord_system_version ".$coord_system_version.
            " -rank ".$rank.
-           " -default_version".
-           " -agp_file ".$chromo_mapping_file.
-           " -noverbose".
+           " -agp_file ".$file_chr.
            " > ".$path_to_files."/load_seq_region_chromosomes.out";
 
   $result = system($cmd);
@@ -257,10 +250,10 @@ sub load_seq_regions {
   }
 
   # ought to update contig version to NULL
-  `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -e'update coord_system set version=NULL where name = "contig"'`;
+  `$base_sql -e'update coord_system set version=NULL where name = "contig"'`;
 
   # check that it was updated
-  my $contig_version = `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -e'select version from coord_system where name = "contig"'`;
+  my $contig_version = `$base_sql -e'select version from coord_system where name = "contig"'`;
 
   if ($contig_version =~ /NULL/) {
     say "Column 'version' in 'coord_system' table set to NULL for contig level as required";

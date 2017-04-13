@@ -49,7 +49,8 @@ use warnings;
 use feature 'say';
 
 
-use File::Spec;
+use File::Spec::Functions qw(splitpath catfile);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_timer);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
@@ -86,7 +87,6 @@ sub new {
   $self->genblast_pid($genblast_pid) if defined $genblast_pid;
   $self->database_adaptor($database_adaptor) if defined $database_adaptor;
   throw("You must supply a database") if not $self->database;
-  throw("You must supply a query") if not $self->query;
   throw("You must supply a database adaptor to fetch the genomic sequence from for supporting features") if not $self->database_adaptor;
 
   # Default max rank
@@ -128,9 +128,10 @@ sub new {
 sub run{
   my ($self, $dir) = @_;
   $self->workdir($dir) if($dir);
-  throw("Can't run ".$self." without a query sequence") 
-    unless($self->query);
   $self->checkdir();
+  $self->write_seq_file if ($self->query and ref($self->query) eq 'ARRAY');
+  throw("Can't run ".$self." without a query sequence")
+    unless($self->queryfile);
   $self->run_analysis();
   $self->parse_results;
   return 1;
@@ -157,50 +158,36 @@ sub run_analysis{
     $program = $self->program;
   }
 
-  throw($program." is not executable GenBlast::run_analysis ") 
-    unless($program && -x $program);
-
   # link to alignscore.txt if not already linked
-  my (undef, $directory, $progname) = File::Spec->splitpath($program);
+  my (undef, $directory, $progname) = splitpath($program);
   if ($directory) {
     chdir $directory;
   }
 
-  # genBlast sticks "_1.1c_2.3_s1_0_16_1" on the end of the output
-  # file for some reason - it will probably change in future
-  # versions of genBlast.  
-  my $outfile_suffix = "_1.1c_2.3_s1_0_16_1";
-  my $outfile_glob_prefix = $self->query . $outfile_suffix;
-
   # if there are old files around, need to get rid of them
-  foreach my $oldfile (glob("${outfile_glob_prefix}*")) {
-    unlink $oldfile;
-  }
-
   my $genblast_program = $self->genblast_program;
   unless($genblast_program) {
     $genblast_program = "genblastg";
   }
 
-  my $max_rank = $self->max_rank();
+  my $outfile = $self->resultsfile;
   my $command = $program .
   ' -p '.$genblast_program.
-  ' -q '.$self->query.
+  ' -q '.$self->queryfile.
   ' -t '.$self->database.
-  ' -o '.$self->query.
-  ' -g T -pid -r '.$max_rank.' '.$self->options;
+  ' -o '.$outfile.
+  ' -g T -pid -r '.$self->max_rank.' '.$self->options;
 
-  $self->resultsfile($self->query. $outfile_suffix. ".gff");
+  execute_with_timer($command, $self->timer);
 
-  my $return = system($command);
-
-  unless($return == 0) {
-    throw("genblast returned a non-zero exit code (".$return."). Commandline used:\n".$command);
+  my @files = glob qq(${outfile}*.gff);
+  if (@files == 1) {
+    $self->resultsfile($files[0]);
+  }
+  else {
+    throw("More than one gff file has been created: ".join(',', @files));
   }
 
-  foreach my $file (glob("${outfile_glob_prefix}*")) {
-    $self->files_to_delete($file);
-  }
 }
 
 =head2 parse_results
@@ -874,6 +861,8 @@ sub database_adaptor {
   my ($self, $val) = @_;
 
   if (defined $val) {
+    throw(ref($val).' is not a Bio::EnsEMBL::DBSQL::DBAdaptor')
+      unless ($val->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
     $self->{_database_adaptor} = $val;
   }
 

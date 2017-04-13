@@ -21,53 +21,47 @@ use strict;
 use warnings;
 use feature 'say';
 use Bio::EnsEMBL::IO::Parser::Fasta;
-use Data::Dumper;
 
-use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults()},
+    column_names => ['iid'],
+    sequence_table_name => 'protein_sequences',
+    load_biotype => 0,
+  }
+}
 
 sub fetch_input {
   my $self = shift;
 
-  return 1;
-}
-
-sub run {
-  my $self = shift;
-
-  return 1;
-}
-
-sub write_output {
-  my $self = shift;
-
-  my $db_path = $self->param('protein_file');
-  my $protein_table_name = $self->param('protein_table_name');
-  my $start_index = 0;
-
-  my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($db_path);
-  my $header;
-  my $seq;
-
+  my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($self->param_required('protein_file'));
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
-  $table_adaptor->table_name($protein_table_name);
+  $table_adaptor->table_name($self->param_required('sequence_table_name'));
 
+  my @iids;
   while($parser->next()) {
-    $header = $parser->getHeader();
-    $seq = $parser->getSequence();
-
-    my $output_hash = {};
-    $output_hash->{'iid'} = [$header];
-
+    my ($accession) = $parser->getHeader =~ /^(\S+)/;
     my $db_row = [{
-      'accession'  => $header,
-      'seq'        => $seq,
+      'accession'  => $accession,
+      'seq'        => $parser->getSequence,
     }];
+    if ($self->param('load_biotype')) {
+      if ($parser->getHeader =~ /\S+\s+(\S+)/) {
+        $db_row->[0]->{biotype} = $1;
+      }
+      else {
+        $self->warning('Could not find biotype for '.$accession);
+      }
+    }
     $table_adaptor->store($db_row);
-
-    $self->dataflow_output_id($output_hash,1);
+    push(@iids, $accession);
   }
-  return 1;
+  $self->param('inputlist', \@iids);
 }
 
 1;
