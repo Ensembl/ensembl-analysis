@@ -225,6 +225,12 @@ print Dumper $target_transcript_dbc;
   }
   $self->genomic_align_block_chains(\@chains);
 
+  $source_dna_dbc->disconnect_if_idle();
+  $target_dna_dbc->disconnect_if_idle();
+  $source_transcript_dbc->disconnect_if_idle();
+  $target_transcript_dbc->disconnect_if_idle();
+  $compara_dbc->disconnect_if_idle();
+
 
 }
 
@@ -334,7 +340,9 @@ sub write_output {
 
       $gene->add_Transcript($t);
       empty_Gene($gene);
-      $t_gene_adaptor->store($gene);
+      open(TEST,">>/hps/nobackup/production/ensembl/leanne/primates_annotation_1/aotus_nancymaae/stable_ids.txt"); 
+      print TEST "stable_id:".$t->stable_id."\n\n";
+      #$t_gene_adaptor->store($gene);
       $trans_count++;
 
       print "TRANSCRIPT:\n";
