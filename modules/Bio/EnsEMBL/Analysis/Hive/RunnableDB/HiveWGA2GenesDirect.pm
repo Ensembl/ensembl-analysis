@@ -225,13 +225,11 @@ print Dumper $target_transcript_dbc;
   }
   $self->genomic_align_block_chains(\@chains);
 
-  $source_dna_dbc->disconnect_if_idle();
-  $target_dna_dbc->disconnect_if_idle();
-  $source_transcript_dbc->disconnect_if_idle();
-  $target_transcript_dbc->disconnect_if_idle();
-  $compara_dbc->disconnect_if_idle();
-
-
+	$source_dna_dbc->dbc->disconnect_if_idle();
+	$target_dna_dbc->dbc->disconnect_if_idle();
+	$source_transcript_dbc->dbc->disconnect_if_idle();
+	$target_transcript_dbc->dbc->disconnect_if_idle();
+	$compara_dbc->dbc->disconnect_if_idle();
 }
 
 
