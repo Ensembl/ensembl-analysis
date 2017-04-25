@@ -226,12 +226,12 @@ sub core_only_db {
   my $db = $self->get_database_by_name('target_db');
   $self->require_module('Bio::EnsEMBL::Hive::DBSQL::DBConnection');
 
-  my @command = Bio::EnsEMBL::Hive::DBSQL::DBConnection::to_cmd($db->dbc, undef, undef, undef, ['CREATE DATABASE '.$db->dbname]);
-  if(system(join(' ', @command))) {
+  my $command = Bio::EnsEMBL::Hive::DBSQL::DBConnection::to_cmd($db->dbc, undef, undef, undef, 'CREATE DATABASE '.$db->dbc->dbname);
+  if(system(@$command)) {
     $self->throw("The create database command exited with a non-zero exit code: ".$?);
   }
-  @command = Bio::EnsEMBL::Hive::DBSQL::DBConnection::to_cmd($db->dbc, undef, undef, [ '<', $table_file], ['CREATE DATABASE '.$db->dbname]);
-  if(system(join(' ', @command))) {
+  $command = Bio::EnsEMBL::Hive::DBSQL::DBConnection::to_cmd($db->dbc, undef, undef, [ '<', $table_file]);
+  if(system(join(' ', @$command))) {
     $self->throw("The load tables command exited with a non-zero exit code: ".$?);
   }
 
