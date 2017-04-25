@@ -1,0 +1,8 @@
+# Placed Scaffolds-from-components
+##agp-version 2.0
+# Format: object object_beg object_end part_number component_type component_id component_beg component_end	orientation
+#	Gaps: object object_beg object_end part_number	N	gap_length	gap_type	linkage	evidence
+scaffold_1	 1		174342	1		D		AC133299.3	1		174342		-
+scaffold_1	 174343		404958	2		D		AC106687.6	1		230616		-
+scaffold_2	 1		199645	3		D		AC126894.4	1		199645		-
+scaffold_2	 199646		303265	4		W		AABR07073112.1		1			103620	+
