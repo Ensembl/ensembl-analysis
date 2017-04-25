@@ -35,6 +35,8 @@ use strict;
 use warnings;
 use feature 'say';
 
+use File::Spec::Functions qw(catfile);
+
 use parent ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');
 
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
@@ -58,6 +60,9 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
                 pipe_db_user => $self->o('user'),
                 pipe_db_password => $self->o('password'),
                 pipe_db_driver => $self->o('hive_driver'),
+
+                enscode_root_dir => $ENV{ENSCODE},
+                create_db_script_path   => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
               and two DB connection hash: pipeline_db and dna_db
  Returntype : Hashref
  Exceptions : None
@@ -86,6 +91,9 @@ sub default_options {
         pipe_db_user => $self->o('user'),
         pipe_db_password => $self->o('password'),
         pipe_db_driver => $self->o('hive_driver'),
+
+        enscode_root_dir => $ENV{ENSCODE},
+        create_db_script_path   => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
 
         'pipeline_db' => {
             -dbname => $self->o('pipe_dbname'),
