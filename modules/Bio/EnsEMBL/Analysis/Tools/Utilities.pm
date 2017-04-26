@@ -84,6 +84,7 @@ our @EXPORT_OK = qw(
               first_upper_case
               execute_with_wait
               execute_with_timer
+              is_slice_name
               );
 
 
@@ -1227,6 +1228,23 @@ sub execute_with_timer {
     }
   }
   return 1;
+}
+
+
+=head2 is_slice_name
+
+ Arg [1]    : String, string to check
+ Example    : is_slice_name($input_id);
+ Description: Return 1 if the string given is an Ensembl slice name
+ Returntype : Boolean
+ Exceptions : None
+
+=cut
+
+sub is_slice_name {
+    my ($string) = @_;
+
+    return $string =~ /^[^:]+:[^:]+:[^:]+:\d+:\d+:(1|-1)$/;
 }
 
 1;
