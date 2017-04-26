@@ -49,13 +49,19 @@ else
 #  Exonerate2Array.pm as it is a FuncGen module
 #  ExonerateRefinedCloneEnds.pm as we have a newer module for the clone ends
 #  SWEmbl.pm, InputSet.pm has been removed from ensembl-funcgen and it doesn't affect us
-#  M=( "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm" "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" )
   M=( "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateClones.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/Funcgen/SWEmbl.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" )
   printf "\e[31mWe will not test:\e[0m\n - \e[33m%s\e[0m\n" "Annacode modules"
+  for S in `seq 0 $((${#M[@]}-1))`; do
+      printf " - \e[33m%s\n\e[0m" "${M[$S]}"
+      RES=${RES}" ! -name `basename ${M[$S]}`"
+  done
+  M=( "Bio/EnsEMBL/Analysis/Hive/RunnableDB/HiveLoadPDBProteinFeatures.pm" \
+  "Bio/EnsEMBL/Analysis/Runnable/MakePDBProteinFeatures.pm" )
+  printf "\e[31mWe will not test:\e[0m\n - \e[33m%s\e[0m\n" "PDB modules as long as GIFTS repo is not public"
   for S in `seq 0 $((${#M[@]}-1))`; do
       printf " - \e[33m%s\n\e[0m" "${M[$S]}"
       RES=${RES}" ! -name `basename ${M[$S]}`"
