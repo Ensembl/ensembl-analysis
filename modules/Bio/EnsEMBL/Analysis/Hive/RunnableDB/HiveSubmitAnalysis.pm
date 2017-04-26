@@ -416,21 +416,18 @@ sub convert_slice_to_feature_ids {
 =cut
 
 sub split_slice {
-  my ($self) = @_;
+  my ($self, $dba) = @_;
 
   unless($self->param('iid')) {
     $self->throw("Failed to provide an input id. Expected to find a slice input id using \$self->param('iid')");
   }
 
-<<<<<<< HEAD
   unless($self->param('slice_size')) {
     $self->throw("You selected the split_slice option, but did not specific 'slice_size'. Need a size to split into");
   }
-=======
   my $sa = $dba->get_SliceAdaptor;
   my $slices = split_Slices([$sa->fetch_by_name($self->param_required('iid'))], $self->param('slice_size'), $self->param('slice_overlaps'));
   my @input_ids = map {$_->name} @$slices;
->>>>>>> origin/dev/hive_master
 
   my $output_id_array = [];
 
