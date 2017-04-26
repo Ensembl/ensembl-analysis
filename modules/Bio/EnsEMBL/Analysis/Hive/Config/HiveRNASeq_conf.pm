@@ -881,7 +881,7 @@ sub pipeline_analyses {
             uniprot_index => [$self->o('uniprotdb')],
             blast_program => $self->o('blastp'),
             %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
-            commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_cpus '.$self->o('use_threads').' -window_size 40',
+            commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40',
                       },
         -rc_name => '2GB_blast',
         -wait_for => ['create_blast_db'],

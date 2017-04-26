@@ -21,11 +21,57 @@ use strict;
 use warnings;
 use feature 'say';
 
+use File::Spec::Functions qw(catfile);
+use File::Path qw(make_path);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    base_url => '"http://www.uniprot.org/uniprot/?query=',
+  }
+}
+
 sub fetch_input {
   my $self = shift;
+
+  if ($self->param_is_defined('query_url')) {
+    my $url = $self->param('query_url');
+    if ($url !~ /http|ftp/) {
+      $url = $self->param('base_url').$url;
+      $url .= '"' unless ($url =~ /"$/);
+    }
+    $self->param('query_url', [{url => $url, file_name => $self->param_required('filename')}]);
+  }
+  else {
+    if($self->param('multi_query_download')) {
+      my @urls;
+      foreach my $hash (values %{$self->param('multi_query_download')}) {
+        push(@urls, $self->build_query($hash));
+      }
+      $self->param('query_url', \@urls);
+    }
+    else {
+      my %hash = (
+        dest_dir => $self->param_required('dest_dir'),
+        file_name => $self->param_required('file_name'),
+        pe_level => $self->param_required('pe_level'),
+      );
+      $hash{compress} = $self->param('compress') if ($self->param_is_defined('compress'));
+      $hash{taxon_group} = $self->param('taxon_group') if ($self->param_is_defined('taxon_group'));
+      $hash{taxon_id} = $self->param('taxon_id') if ($self->param_is_defined('taxon_id'));
+      $hash{exclude_id} = $self->param('exclude_id') if ($self->param_is_defined('exclude_id'));
+      $hash{exclude_group} = $self->param('exclude_group') if ($self->param_is_defined('exclude_group'));
+      $hash{compress} = $self->param('compress') if ($self->param_is_defined('compress'));
+      $hash{mito} = $self->param('mito') if ($self->param_is_defined('mito'));
+      $hash{fragment} = $self->param('fragment') if ($self->param_is_defined('fragment'));
+      $hash{format} = $self->param('format') if ($self->param_is_defined('format'));
+      $self->param('query_url', [$self->build_query(\%hash)]);
+    }
+  }
   return 1;
 }
 
@@ -35,30 +81,26 @@ sub run {
   # This is a bit lazy, originally this was designed to work with a single query
   # but now I also want it to work with multiple files. I'm going to put that into
   # the if and the else will retain the original single file logic
-  if($self->param('multi_query_download')) {
-    $self->multi_query_download();
-  }
+  my @iids;
+  foreach my $query (@{$self->param_required('query_url')}) {
+    my $query_url = $query->{url};
+    my $filename = $query->{file_name};
+    say "Downloading:\n$query_url\n";
 
-  else {
-    my $query_url = $self->build_query();
-    say "Downloading:\n".$query_url."\n";
-
-    my $query_exit_code;
-    $query_exit_code = system($query_url);
-    unless($query_exit_code == 0) {
-      $self->throw("The wget query ended in an non-zero exit code:\n".$query_exit_code);
+    my $get_cmd = 'wget -q -O - ';
+    if(system("$get_cmd $query_url > $filename")) {
+      $self->throw("The wget query ended in an non-zero exit code:\n'$query_url'\n");
     }
 
-    if($query_url =~ /\.gz$/) {
-      my $file_path = $self->param('dest_dir')."/".$self->param('file_name');
-      my $gunzip_command = "gunzip ".$file_path;
-      my $gunzip_exit_code;
-      $gunzip_exit_code = system($gunzip_command);
-      unless($gunzip_exit_code == 0) {
-        $self->throw("gunzip on file ended in an non-zero exit code:\n".$gunzip_exit_code);
+    if($filename =~ s/\.gz$//) {
+      my $gunzip_command = "gunzip $filename.gz";
+      if(system($gunzip_command)) {
+        $self->throw("gunzip on file ended in an non-zero exit code:\n$gunzip_command\n");
       }
     }
+    push(@iids, $filename);
   }
+  $self->output(\@iids);
   say "Finished downloading UniProt files";
   return 1;
 }
@@ -66,69 +108,8 @@ sub run {
 sub write_output {
   my $self = shift;
 
-  if($self->param('multi_query_download')) {
-    my $file_hash = $self->output_hash;
-    my $output_hash = {};
-    $output_hash->{'iid'} = $file_hash;
-    $self->dataflow_output_id($output_hash,1);
-  } else {
-    my $file_path = $self->param('dest_dir')."/".$self->param('file_name');
-    my $output_hash = {};
-    $output_hash->{'iid'} = $file_path;
-    $self->dataflow_output_id($output_hash,1);
-  }
-  return 1;
-}
-
-sub output_hash {
-  my ($self,$val) = @_;
-  if($val) {
-    $self->param('_output_hash',$val);
-  }
-
-  return($self->param('_output_hash'));
-
-}
-
-sub multi_query_download {
-  my ($self) = @_;
-
-  my $output_hash = {};
-  my $multi_query_hash = $self->param('multi_query_download');
-  unless(ref($multi_query_hash) eq 'HASH') {
-    $self->throw("You're trying to download multiple queries, but haven't passed in a hash ref. You ".
-                 "need to pass in hash of hashes, where each internal hash has the relevant query params");
-  }
-
-  foreach my $query_key (keys(%$multi_query_hash)) {
-    say "Building query based on params for: ".$query_key;
-    my $query_params = $multi_query_hash->{$query_key};
-
-    my $query_url = $self->build_query($query_params);
-    say "Downloading:\n".$query_url."\n";
-
-    my $query_exit_code;
-    $query_exit_code = system($query_url);
-    unless($query_exit_code == 0) {
-      $self->throw("The wget query ended in an non-zero exit code:\n".$query_exit_code);
-    }
-
-    my $file_path = $query_params->{'dest_dir'}."/".$query_params->{'file_name'};
-
-    if($query_url =~ /\.gz$/) {
-      my $gunzip_command = "gunzip ".$file_path.".gz";
-      my $gunzip_exit_code;
-      $gunzip_exit_code = system($gunzip_command);
-      unless($gunzip_exit_code == 0) {
-        $self->throw("gunzip on file ended in an non-zero exit code:\n".$gunzip_exit_code);
-      }
-    }
-
-    $output_hash->{$query_key} = $file_path;
-  }
-
-  $self->output_hash($output_hash);
-
+  my @iids = map {{iid => $_}} @{$self->output};
+  $self->dataflow_output_id(\@iids, $self->param('_branch_to_flow_to'));
 }
 
 
@@ -173,7 +154,7 @@ sub build_query {
 
   # http://www.uniprot.org/uniprot/?query=existence%3A%22evidence+at+protein+level%22+OR+existence%3A%22evidence+at+transcript+level%22+AND+taxonomy%3A%22Mammalia+%5B40674%5D%22+NOT+taxonomy%3A%22Primates+%5B9443%5D%22&sort=score
 
-  my $full_query = "wget -q -O - \"http://www.uniprot.org/uniprot/?query=";
+  my $full_query = $self->param('base_url');
   my %pe_code = (
                   '1' => 'evidence+at+protein+level',
                   '2' => 'evidence+at+transcript+level',
@@ -189,17 +170,17 @@ sub build_query {
 
   my @pe_array = @{$pe_level};
   unless(scalar(@pe_array)) {
-    die "Not PE levels found in value of pe_levels key. Format should be an array ref: ['1,2']";
+    $self->throw("Not PE levels found in value of pe_levels key. Format should be an array ref: ['1,2']");
   }
 
   foreach my $pe_level (@pe_array) {
     unless($pe_level =~ /\d+/) {
-     die "Could not parse a PE level from the following: ".$pe_level;
+     $self->throw("Could not parse a PE level from the following: ".$pe_level);
     }
 
     my $parsed_pe_level = $&;
     unless($parsed_pe_level >= 1 && $parsed_pe_level <= 5) {
-     die "Parsed PE level is outside the normal range of 1-5: ".$parsed_pe_level;
+     $self->throw("Parsed PE level is outside the normal range of 1-5: ".$parsed_pe_level);
    }
    $pe_string .= 'existence%3A%22'.$pe_code{$pe_level}.'%22+OR+';
   }
@@ -221,18 +202,14 @@ sub build_query {
     }
   }
 
-  $full_query .= $pe_string.$taxonomy_string.$exclude_string.$fragment_string.$mito."&compress=".$compress."&format=".$format.
-                 "\" > ".$dest_dir."/".$file_name;
-  if($compress eq 'yes') {
-    $full_query .= ".gz";
+  $full_query .= $pe_string.$taxonomy_string.$exclude_string.$fragment_string.$mito.'&compress='.$compress.'&format='.$format.'"';
+  if (!-d $query_params->{dest_dir}) {
+    make_path($query_params->{dest_dir});
   }
+  my $filename = catfile($query_params->{dest_dir}, $query_params->{file_name});
+  $filename .= '.gz' if ($compress eq 'yes');;
 
-  unless(-e $dest_dir) {
-    `mkdir -p $dest_dir`;
-  }
-
-  return($full_query);
-
+  return {url => $full_query, file_name => $filename};
 }
 
 1;

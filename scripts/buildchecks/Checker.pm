@@ -48,8 +48,6 @@ use vars qw(@ISA $AUTOLOAD);
 use strict;
 
 
-@ISA = qw( Bio::EnsEMBL::Root );
-
 sub ignorewarnings {
   my ( $self, $arg ) = @_;
   if( defined $arg ) {
@@ -136,3 +134,5 @@ sub check {
 
   $self->throw("Object did not provide the check method of the Checker interface");
 }
+
+1;

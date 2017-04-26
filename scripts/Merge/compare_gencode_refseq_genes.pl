@@ -53,6 +53,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Attribute;
 use Getopt::Long;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(is_slice_name);
 
 # ensembl genes and dna 
 my $ensemblhost;
@@ -239,7 +240,7 @@ $sth->finish();
 
 # fetch slice from ensembl database
 my $ensembl_slice;
-if ($chr_num =~ /\D/) {
+if (is_slice_name($chr_num)) {
   $ensembl_slice  = $ensemblsa->fetch_by_name($chr_num);
 }
 else {

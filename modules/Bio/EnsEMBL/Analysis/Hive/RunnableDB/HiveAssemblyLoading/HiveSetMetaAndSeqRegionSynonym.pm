@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use feature 'say';
 
+use File::Spec::Functions qw (catfile catdir);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -42,6 +43,9 @@ sub param_defaults {
     %{$self->SUPER::param_defaults},
     chromosomes_present => 0,
     has_mitochondria => 0,
+    chromosome_level => 'chromosome',
+    scaffold_level => 'scaffold',
+    contig_level => 'contig',
   }
 }
 
@@ -83,12 +87,11 @@ sub run {
   my $self = shift;
 
   say "Loading meta information seq region synonyms into reference db\n";
-  my $taxon_id = $self->param('taxon_id');
-  my $target_db = $self->param('target_db');
-  my $genebuilder_id = $self->param('genebuilder_id');
-  my $enscode_dir = $self->param('enscode_root_dir');
-  my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
-  my $path_to_files = $self->param('output_path')."/".$primary_assembly_dir_name;
+  my $taxon_id = $self->param_required('taxon_id');
+  my $target_db = $self->get_database_by_name('target_db');
+  my $genebuilder_id = $self->param_required('genebuilder_id');
+  my $enscode_dir = $self->param_required('enscode_root_dir');
+  my $path_to_files = catdir($self->param('output_path'), $self->param_required('primary_assembly_dir_name'));
 
   say "\nBacking up meta and seq_region tables...";
   $self->backup_tables($path_to_files,$target_db);
@@ -121,14 +124,23 @@ sub write_output {
   my $self = shift;
 
 # This code should get the upstream input and add 'mt_accession' and 'chromosomes_present' if needed
+<<<<<<< HEAD
 
   my $job_params = eval ($self->input_job->input_id);
 
+=======
+>>>>>>> origin/dev/hive_master
   if ($self->param_is_defined('mt_accession')) {
+    my $job_params = eval($self->input_job->input_id);
     $job_params->{mt_accession} = $self->param('mt_accession');
+    $self->dataflow_output_id($job_params, 1);
   }
+<<<<<<< HEAD
   $self->dataflow_output_id($job_params, 1);
   return 1;	
+=======
+  return 1;
+>>>>>>> origin/dev/hive_master
 }
 
 
@@ -146,14 +158,14 @@ sub write_output {
 sub backup_tables {
   my ($self,$path_to_files,$target_db) = @_;
 
-  my $dbhost = $target_db->{'-host'};
-  my $dbport = $target_db->{'-port'};
-  my $dbuser = $target_db->{'-user'};
-  my $dbpass = $target_db->{'-pass'};
-  my $dbname = $target_db->{'-dbname'};
+  my $dbhost = $target_db->dbc->host;
+  my $dbport = $target_db->dbc->port;
+  my $dbuser = $target_db->dbc->user;
+  my $dbpass = $target_db->dbc->password;
+  my $dbname = $target_db->dbc->dbname;
 
   for my $table ('seq_region','meta') {
-    my $backup_file = $path_to_files."/".$table.".".time().".sql";
+    my $backup_file = catfile($path_to_files, $table.'.'.time().'.sql');
     my $cmd = "mysqldump".
               " -h".$dbhost.
               " -P".$dbport.
@@ -186,9 +198,8 @@ sub backup_tables {
 =cut
 
 sub set_meta {
-  my ($self,$target_db,$genebuilder_id,$path_to_files) = @_;
+  my ($self,$target_dba,$genebuilder_id,$path_to_files) = @_;
 
-  my $target_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$target_db});
   my $meta_adaptor = $target_dba->get_MetaContainerAdaptor;
   $meta_adaptor->store_key_value('genebuild.id', $genebuilder_id);
   say "Inserted into meta:\ngenebuild.id => ".$genebuilder_id;
@@ -254,11 +265,12 @@ sub set_meta {
  Description: Set the INSDC seq_region_syonyms for the chromosomes if present and
               the submitter's synonyms for the contigs and scaffolds
  Returntype : None
- Exceptions : None
+ Exceptions : Throws if it cannot open a file
 
 =cut
 
 sub set_seq_region_synonyms {
+<<<<<<< HEAD
   my ($self,$target_db,$path_to_files) = @_;
 
   my $target_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$target_db});
@@ -327,12 +339,56 @@ print "DEBUG_ready:: exist $exist_count and insert: $insert_count \n ";
     while (my $line = <IN>) {
       if ($line =~ /^#/) {
         next;
-      }
+=======
+  my ($self, $target_dba ,$path_to_files) = @_;
 
-      my ($synonym, $seq_region_name) = $line =~ /(\S+)\s+(\S+)/;
-      if($synonym eq 'na') {
-        $synonym = $seq_region_name;
+  my $sa = $target_dba->get_SliceAdaptor;
+  my $insdc_id = $target_dba->get_DBEntryAdaptor->get_external_db_id('INSDC');
+  my %coord_system = (
+    chr2acc => $self->param('chromosome_level'),
+    scaffold_localID2acc => $self->param('scaffold_level'),
+    component_localID2acc => $self->param('contig_level')
+  );
+
+  foreach my $filename ('chr2acc', 'component_localID2acc', 'scaffold_localID2acc') {
+    my $file = catfile($path_to_files, $filename);
+    if (-e $file) {
+      my $insert_count = 0;
+      open(IN, $file) || $self->throw("Could not open $file");
+      while (my $line = <IN>) {
+        if ($line =~ /^#/) {
+          next;
+        }
+
+        my ($synonym, $seq_region_name) = $line =~ /(\S+)\s+(\S+)/;
+        if($synonym eq 'na') {
+          $self->warning($seq_region_name." does not have a synonym, skipping...\n");
+          next;
+        }
+        # Make sure we don't do a fuzzy search
+        my $slice = $sa->fetch_by_region($coord_system{$filename}, $seq_region_name, undef, undef, undef, undef, 1);
+        if ($slice) {
+          if ($filename eq 'chr2acc') {
+            # In this file the synonym is what we want as sequence name
+            $slice->{seq_region_name} = $synonym; # This is quite bad but sometimes you have to do bad things
+            $slice->add_synonym($seq_region_name, $insdc_id);
+          }
+          else {
+            $slice->add_synonym($synonym);
+          }
+          $sa->update($slice);
+          $insert_count++;
+        }
+        else {
+          $self->warning("Could not find $seq_region_name in the database to add synonym $synonym");
+        }
+>>>>>>> origin/dev/hive_master
       }
+      close(IN) || $self->throw("Could not close $file");
+      if($insert_count == 0) {
+        $self->throw("The insert/update count after parsing ".$file." was 0, this is probably wrong. File used:\n".$file);
+      }
+<<<<<<< HEAD
       $sth_select->bind_param(1, $seq_region_name);
       $sth_select->execute();
       my ($seq_region_id) = $sth_select->fetchrow_array();
@@ -358,12 +414,16 @@ print "DEBUG:: exist $exist_count and insert: $insert_count \n ";
 
     if(($insert_count == 0) and ($exist_count == 0)) {
       $self->throw("The insert/update count after parsing ".$file." was 0, this is probably wrong. File used:\n".$path_to_files."/".$file);
+=======
+      say "\nInserted into seq_region_synonym and updated seq_region based on ".$file.". Total inserts/updates: ".$insert_count;
+      say "You will need to update the external_db_id for the synonyms of scaffold or contigs!\n";
     }
-
-    say "\nInserted into seq_region_synonym and updated seq_region based on ".$file.". Total inserts/updates: ".$insert_count;
-    say "You will need to update the external_db_id for the synonyms of scaffold or contigs!\n";
+    else {
+      $self->throw("Could not find $filename file. No synonyms loaded. Expected location:\n".$file)
+        unless ($filename eq 'chr2acc' and $self->param('chromosomes_present'));
+>>>>>>> origin/dev/hive_master
+    }
   }
-
 }
 
 1;

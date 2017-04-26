@@ -22,41 +22,44 @@ use warnings;
 use feature 'say';
 use File::Fetch;
 use File::Spec::Functions;
+use File::Path qw(make_path);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
 
-  unless($self->param('target_db')) {
-    $self->throw("target_db not passed into parameters hash. The core db to load the assembly info ".
-                 "into must be passed in with write access");
-  }
-
-  unless($self->param('enscode_root_dir')) {
-    $self->throw("enscode_root_dir not passed into parameters hash. You need to specify where your code checkout is");
-  }
-
-  unless($self->param('species_name')) {
-    $self->throw("species_name not passed into parameters hash. You need to specify what species you're working on");
-  }
-
-  unless($self->param('output_path')) {
-    $self->throw("output_path not passed into parameters hash. You need to specify where the output dir will be");
-  }
-
-  unless($self->param('mito_index_path')) {
-    $self->throw("mito_index_path not passed into parameters hash. You need to specify where the index of mito accession is");
-  }
+  $self->param_required('target_db');
+  $self->param_required('enscode_root_dir');
+  $self->param_required('species_name');
 
   unless($self->param_is_defined('chromosomes_present')) {
-    $self->throw("Need to pass in the chromosomes_present param to define the toplevel");
+    my $target_db = $self->get_database_by_name('target_db');
+    my $cs_adaptor = $target_db->get_CoordSystemAdaptor;
+    my $cs_rank1 = $cs_adaptor->fetch_by_rank(1);
+    if ($cs_rank1->name eq 'chromosome') {
+      $self->param('chromosomes_present', 1);
+    }
+    else {
+      $self->throw("Need to pass in the chromosomes_present param to define the toplevel");
+    }
+  }
+
+  if (!-e $self->param_required('output_path')) {
+    make_path($self->param('output_path'));
   }
 
   if ($self->param_is_defined('mt_accession')) {
     chdir($self->param('output_path'));
     my $fetcher = File::Fetch->new(uri => 'http://www.ncbi.nlm.nih.gov/nuccore/'.$self->param('mt_accession'));
     $self->param('mt_filename', $fetcher->fetch());
+  }
+  elsif ($self->param_is_defined('mito_index_path')) {
+    $self->throw("mito_index_path not passed into parameters hash. You need to specify where the index of mito accession is")
+      unless (-e $self->param('mito_index_path'));
+  }
+  else {
+    $self->complete_early('No mitochondria for this species');
   }
 
   return 1;
@@ -70,13 +73,6 @@ sub run {
   my $mito_index = $self->param('mito_index_path');
   my $enscode_dir = $self->param('enscode_root_dir');
 
-  unless(-e $output_path) {
-    my $return = system("mkdir -p ".$output_path);
-    if($return) {
-      $self->throw("Output dir didn't exist and failed to create it");
-    }
-  }
-
   my $mt_filename;
   my $mt_accession;
   if ($self->param_is_defined('mt_filename')) {
@@ -84,6 +80,7 @@ sub run {
     $mt_accession = $self->param('mt_accession');
   }
   else {
+<<<<<<< HEAD
 #    $self->throw("Could not locate the mito index on the path provided. Path:\n".$mito_index)
 #      unless (-e $mito_index);
 #    open(IN, $mito_index) || $self->throw("Could not open $mito_index");
@@ -104,6 +101,26 @@ sub run {
  
       return;
 }
+=======
+    $self->throw("Could not locate the mito index on the path provided. Path:\n".$mito_index)
+      unless (-e $mito_index);
+    open(IN, $mito_index) || $self->throw("Could not open $mito_index");
+    while(<IN>) {
+      my ($accession,$index_species_name) = split('=',$_);
+      chomp $index_species_name;
+      if($index_species_name eq $species_name) {
+        say "Found mito accession for ".$species_name.": ".$accession;
+        $mt_filename = catfile($output_path, $accession.'.gb');
+        $mt_accession = $accession;
+        last;
+      }
+    }
+    close(IN) || $self->throw("Could not close $mito_index");
+
+    $self->throw("Could not fine species accession in the index file")
+      unless ($mt_accession);
+  }
+>>>>>>> origin/dev/hive_master
   my $toplevel;
   my $chromosome_flag = "";
   my $scaffold_flag = "";

@@ -163,11 +163,13 @@ sub run {
                 }
                 push(@new_genes, $new_gene);
             }
-            $gene->biotype($self->stop_codon_biotype);
-            foreach my $t (@{$gene->get_all_Transcripts}) {
-              $t->biotype($self->stop_codon_biotype);
+            else {
+              $gene->biotype($self->stop_codon_biotype);
+              foreach my $t (@{$gene->get_all_Transcripts}) {
+                $t->biotype($self->stop_codon_biotype);
+              }
+              push(@new_genes, $gene);
             }
-            push(@new_genes, $gene);
         }
     }
     $self->output(\@new_genes);

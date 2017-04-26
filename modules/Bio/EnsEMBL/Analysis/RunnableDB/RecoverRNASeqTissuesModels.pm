@@ -56,7 +56,7 @@ use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(clone_Gene empty_Gene); 
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::RecoverRNASeqTissuesModels;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-use Bio::DB::Sam;
+use Bio::DB::HTS;
 
 use vars qw(@ISA);
 
@@ -225,7 +225,7 @@ sub run {
     print STDOUT "\t" . scalar@$twoway_clusters . " two_way clusters found.\n\n";
 
     if ( scalar(@$twoway_clusters) )  {
-      my $bam = Bio::DB::Sam->new(
+      my $bam = Bio::DB::HTS->new(
           -bam => $self->INTRON_BAM_FILE,
           -autoindex => 1,
       );

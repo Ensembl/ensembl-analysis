@@ -230,7 +230,8 @@ sub Gene_info{
   my ($gene) = @_;
   my $coord_string = seq_region_coord_string($gene);
   my $id = $gene->display_id;
-  return "GENE: id ".$id." ".$coord_string." biotype ".$gene->biotype;
+  my $logic_name = $gene->analysis ? $gene->analysis->logic_name : 'NO_ANALYSIS';
+  return "GENE: id ".$id." ".$coord_string." biotype ".$gene->biotype.' '.$logic_name;
 }
 
 

@@ -199,12 +199,6 @@ sub lsf_resource_builder {
         if ($path =~ '/gpfs/') {
           push(@lsf_select, 'gpfs');
         }
-        elsif ($path =~ '/hps/') {
-          push(@lsf_select, 'hps');
-        }
-        elsif ($path =~ '/panfs/') {
-          push(@lsf_select, 'panfs');
-        }
       }
     }
     return $lsf_requirement.' -R"select['.join(', ', @lsf_select).'] rusage['.join(', ', @lsf_rusage).'] '.$extra_requirements.'"';

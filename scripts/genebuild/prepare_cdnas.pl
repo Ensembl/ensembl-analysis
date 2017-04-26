@@ -74,17 +74,11 @@
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::Tools::PolyAClipping;
+use Bio::EnsEMBL::Analysis::Tools::PolyAClipping qw(clip_if_necessary prepare_seq);
 use Bio::SeqIO;
 use Bio::EnsEMBL::KillList::KillList;
 use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::ExternalData::Mole::DBXref;
-use Bio::EnsEMBL::ExternalData::Mole::Entry;
-use Bio::EnsEMBL::ExternalData::Mole::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Pipeline::SeqFetcher::Mfetch;
-
-$| = 1; # disable buffering
 
 my (
         @dbnames,
@@ -104,6 +98,8 @@ my $killist_dbhost;
 my $killist_dbport = 3306;
 my $min_length  = 0;
 my $tax_id;
+my $use_mole = 1;
+my %strand_converter = (1 => '+', -1 => '-', 0 => '.');
 
 GetOptions(
         'dbnames|db|D=s'              => \@dbnames,
@@ -121,11 +117,12 @@ GetOptions(
         'window=s'               => \$window_size,
         'min_length:s'           => \$min_length,
         'tax_id:s'           => \$tax_id,
+        'mole!'             => \$use_mole,
 );
 
 # check commandline
 if ($annotation_file) {
-  if (!defined($dbhost) || !defined($dbuser) || !scalar(@dbnames)) {
+  if ($use_mole and (!defined($dbhost) || !defined($dbuser) || !scalar(@dbnames))) {
     throw ("Please set dbhost (-hdbost), dbport (-dbport), dbnames (-dbnames) and dbuser (-dbuser)");
   }
 }
@@ -135,31 +132,43 @@ if ( !defined($infile) || !defined($outfile) ) {
        . "a file name to write to (-outfile) "
        . "and a file name for annotation (-annotation). "
        . "The infile must contain a list of accessions "
-       . "whose CDS coordinates you want to find" );
+       . "whose CDS coordinates you want to find\n$infile\n$outfile" );
 }
 
 @dbnames = split(/,/,join(',',@dbnames));
 
 # connect to databases
 my @dbs;
-foreach my $dbname (@dbnames) {
-  my $db = Bio::EnsEMBL::ExternalData::Mole::DBSQL::DBAdaptor->new(
-        '-dbname' => $dbname,
-        '-host'   => $dbhost,
-        '-user'   => $dbuser,
-        '-port'   => $dbport,
-  );
-  push @dbs, $db;
+my $filetype = 'Fasta';
+if ($use_mole) {
+  require 'Bio/EnsEMBL/ExternalData/Mole/DBXref.pm';
+  require 'Bio/EnsEMBL/ExternalData/Mole/Entry.pm';
+  require 'Bio/EnsEMBL/ExternalData/Mole/DBSQL/DBAdaptor.pm';
+  require 'Bio/EnsEMBL/Pipeline/SeqFetcher/Mfetch.pm';
+
+  foreach my $dbname (@dbnames) {
+    my $db = Bio::EnsEMBL::ExternalData::Mole::DBSQL::DBAdaptor->new(
+          '-dbname' => $dbname,
+          '-host'   => $dbhost,
+          '-user'   => $dbuser,
+          '-port'   => $dbport,
+    );
+    push @dbs, $db;
+  }
+}
+else {
+  $filetype = 'Genbank';
 }
 
 # open the downloaded cdna file
 my $seqin  = new Bio::SeqIO( -file   => "<$infile",
-                             -format => "Fasta",
+                             -format => $filetype,
                            );
 
 my $seqout = new Bio::SeqIO( -file   => ">$outfile",
                              -format => "Fasta"
                            );
+$seqout->preferred_id_type('accession.version');
 
 # Various counter to keep track of cDNAs lost/discarded in the process:
 
@@ -183,14 +192,17 @@ my $kill_list_object = Bio::EnsEMBL::KillList::KillList->new( -TYPE => "cDNA",
         '-port'   => $killist_dbport,
     });
 if ($tax_id) {
-  $kill_list_object->FILTER_PARAMS->{-for_species} = [$tax_id];
+  $kill_list_object->FILTER_PARAMS->{-from_source_species} = $tax_id;
 }
 my %kill_list = %{ $kill_list_object->get_kill_list() };
 
-if ($annotation_file) { open( ANNOTATION, ">>$annotation_file" ) or die "Cannot open $annotation_file\n"; }
+if ($annotation_file) { open( ANNOTATION, ">$annotation_file" ) or die "Cannot open $annotation_file\n"; }
 
 # create hash containing all cdnas from the input file
 my %cdnas;
+my @cdna_ids_no_version;
+my @cdna_ids;
+my $cout = 0;
 while (my $raw_cdna = $seqin->next_seq) {
   $total_cDNAs++;
   if (!$raw_cdna->seq) {
@@ -198,96 +210,55 @@ while (my $raw_cdna = $seqin->next_seq) {
     $zero_length++;
   } else {
     my $display_id = prepare_seq($raw_cdna)->display_id;
-    if ($display_id =~ /XM_/ || $display_id =~ /XR_/) {
-      # if cDNA is XM_ or XR_ RefSeq (predicted), we don't even bother clipping.
-      print STDERR "Predicted RefSeq mRNA, skipped: $display_id.\n";
-      $X_count++;
-    } else {
-      $cdnas{$display_id} = $raw_cdna;
+    my $id_no_version = $display_id;
+    $id_no_version =~ s/\.\d+$//;
+    # Check if in kill_list
+    if (exists $kill_list{$id_no_version}) {
+      print STDERR "$id_no_version is in kill list, discarded.\n";
+      $killed_count++;
+    }
+    else {
+      if ($display_id =~ /XM_/ || $display_id =~ /XR_/) {
+        # if cDNA is XM_ or XR_ RefSeq (predicted), we don't even bother clipping.
+        print STDERR "Predicted RefSeq mRNA, skipped: $display_id.\n";
+        $X_count++;
+      } else {
+        if ($use_mole) {
+          $cdnas{$display_id} = $raw_cdna;
+          push(@cdna_ids, $display_id);
+          push(@cdna_ids_no_version, $id_no_version);
+        }
+        else {
+          process_cdna($raw_cdna);
+        }
+      }
     }
   }
-}
-
-# create hash containing all relevant Mole DBs "simplified" entries
-my @cdna_ids = keys %cdnas;
-my @cdna_ids_no_version;
-
-foreach (@cdna_ids) {
-  my $cdna_id = $_;
-  $cdna_id =~ s/\.\d//;
-  push @cdna_ids_no_version,$cdna_id;
 }
 
 my %mole_dbs_entries;
-foreach my $db (@dbs) {
+if ($use_mole) {
+  foreach my $db (@dbs) {
 
-  foreach my $entry (@{$db->get_EntryAdaptor->fetch_all_dbIDs_by_name(\@cdna_ids_no_version)}) {
-    my @cdna_array = ($entry->{"dbID"},$db);
-    @{$mole_dbs_entries{$entry->{"accession_version"}}} = @cdna_array;
-  }
+    foreach my $entry (@{$db->get_EntryAdaptor->fetch_all_dbIDs_by_name(\@cdna_ids_no_version)}) {
+      my @cdna_array = ($entry->{"dbID"},$db);
+      @{$mole_dbs_entries{$entry->{"accession_version"}}} = @cdna_array;
+    }
 
-  # if found by accession version, the entry found by name will be overwritten (if any)  
-  foreach my $entry (@{$db->get_EntryAdaptor->fetch_all_dbIDs_by_accession_version(\@cdna_ids)}) {
-    my @cdna_array = ($entry->{"dbID"},$db);
-    @{$mole_dbs_entries{$entry->{"accession_version"}}} = @cdna_array;
+    # if found by accession version, the entry found by name will be overwritten (if any)
+    foreach my $entry (@{$db->get_EntryAdaptor->fetch_all_dbIDs_by_accession_version(\@cdna_ids)}) {
+      my @cdna_array = ($entry->{"dbID"},$db);
+      @{$mole_dbs_entries{$entry->{"accession_version"}}} = @cdna_array;
+    }
   }
-}
 
 # Now work on cDNAs one by one
 
-SEQFETCH:
-foreach my $cdna (values %cdnas) {
-  my ($clipped,$clip_end,$num_bases_removed) = clip_if_necessary($cdna,$buffer,$window_size);
-
-  if (defined $clipped) {
-    # $clipped would have been returned undef if the entire cDNA seq
-    # seems to be polyA/T tail/head
-    my $id_w_version = $clipped->id;
-
-    # strip off the version number or else the ID will never match any
-    # accession in kill_list
-    my $id_no_version = $id_w_version;
-    $id_no_version =~ s/\.\d//;
-
-    # Check if in kill_list
-    if (exists $kill_list{$id_no_version}) {
-      print STDERR "$id_w_version is in kill list, discarded.\n";
-      $killed_count++;
-      next SEQFETCH;
-    }
-
-   if ($annotation_file) {
-      # check whether in Mole
-      my ($found,$string,$substr) = in_mole($id_w_version,$clip_end,$num_bases_removed,$clipped->length);
-      if ($substr) {
-        # the clipping cut off too much. We must get it back.
-        if ( $clip_end eq "head" ) {
-          $clipped->seq( substr( $cdna->seq, $substr ) );
-        } elsif ( $clip_end eq "tail" ) {
-          $clipped->seq( substr( $cdna->seq, 0, $substr ) );
-        }
-      }
-      if ($found) {
-        if ( length( $clipped->seq ) >= $min_length ) {
-          $cdna_written++;
-          $seqout->write_seq($clipped);
-
-          print ANNOTATION "$string\n";
-
-        } else {
-          print STDERR "Clipped sequence for ".$clipped->display_id. " is shorter "
-                     . "than $min_length bp and is excluded from output.\n";
-          $too_short_after_clip++;
-        }
-      }
-    } else {
-      $cdna_written++ ;
-      $seqout->write_seq($clipped);
-    }
-  } else {
-    $AT_only_count++;
-  }
-} ## end while ( my $cdna = $seqin...
+  SEQFETCH:
+  foreach my $cdna (values %cdnas) {
+    process_cdna($cdna);
+  } ## end while ( my $cdna = $seqin...
+}
 
 close ANNOTATION;
 
@@ -366,19 +337,19 @@ sub in_mole {
           if ( $length < $end ) {
             print STDERR "Clipped off too many bases from the tail: $display_id\n";
             $do_substr = $end;
-            $string   .= "\t| $clip_end | $end | substr_tail";
+#            $string   .= "\t| $clip_end | $end | substr_tail";
           } else {
-            $string   .= "\t| $clip_end | $num_bases_removed | do_nothing";
+#            $string   .= "\t| $clip_end | $num_bases_removed | do_nothing";
           }
         } elsif ( $clip_end eq "head" ) {
           if ( $start - $num_bases_removed < 0 ) {
             print STDERR "Clipped off too many bases from the head: $display_id\n";
             $do_substr = $start - 1;
             $string    = "$display_id\t$strand\t1\t$cdslength";
-            $string   .= "\t| $clip_end | oldstart $start oldend $end | substr_head";
+#            $string   .= "\t| $clip_end | oldstart $start oldend $end | substr_head";
           } else {
             $string  = "$display_id\t$strand\t" . ( $start - $num_bases_removed ) . "\t$cdslength";
-            $string .= "\t| $clip_end | $num_bases_removed | oldstart $start oldend $end";
+#            $string .= "\t| $clip_end | $num_bases_removed | oldstart $start oldend $end";
             #eg. AF067164.1      +       1075    2946    | head | 12 | oldstart 1087 oldend 2958
           }
         }
@@ -521,4 +492,142 @@ sub is_PE_candidate {
   return ($accession and $accession ne "-" and # skip undefined proteins
           $accession !~ /NP_/ and                # skip RefSeq proteins because they do not have PE levels
           $accession !~ /\.[0-9]+/);             # cDNAs always have a version like .[0-9]+, skip cDNA queries against UniProt DB (they always return "no match")
+}
+
+
+=head2 in_file
+
+ Arg [1]    : String - accession of cDNA, with version
+ Arg [2]    : String - "head" or "tail" depending on which end was clipped
+ Arg [3]    : Integer - number of bases removed by PolyAClipping
+ Arg [4]    : Integer - length of clipped cDNA sequence
+ Description: Get the cds start and end from the Genbank file to be able to create
+              the annotation file
+ Returntype : Array of ($write_cdna, $do_substr). First element boolean whether
+              cDNA should be written to file or not. Second element an Integer
+              that signals whether we need to adjust how much was clipped
+ Exceptions : None
+
+=cut
+
+sub in_file {
+  my ( $cdna, $clip_end, $num_bases_removed, $length ) = @_;
+
+  my $write_cdna = 0;
+  my $do_substr;
+  my $string;
+# Cannot test it at the moment
+  my $low_pe = 0;
+  my $has_cds = 0;
+  my $display_id = $cdna->accession_number;
+  $display_id .= '.'.$cdna->version if ($cdna->version);
+  for my $feat_object ($cdna->get_SeqFeatures) {
+    next unless $feat_object->primary_tag eq "CDS";
+    $has_cds = 1;
+    my $start = $feat_object->start;
+    my $end = $feat_object->end;
+    my $strand = $strand_converter{$feat_object->strand};
+    if ($low_pe) {
+      print STDERR 'PE_low for ', $display_id, "\n";
+      $pe_low++;
+      $write_cdna = 0;
+    }
+    elsif($feat_object->location->isa('Bio::Location::Fuzzy')) {
+      print STDERR "Partial cds $display_id";
+      if ($feat_object->location->start_pos_type ne 'EXACT') {
+        print STDERR "\t", $feat_object->location->start_pos_type, ' ', $feat_object->location->start;
+      }
+      if ($feat_object->location->end_pos_type ne 'EXACT') {
+        print STDERR "\t", $feat_object->location->end_pos_type, ' ', $feat_object->location->end;
+      }
+      print STDERR "\tDISCARDING\n";
+      $partial_cds++;
+      $write_cdna = 0;
+    }
+    elsif ($strand && defined $start && defined $end) {
+      my $cdslength = $feat_object->length;
+      $string = $display_id."\t".$strand."\t".$start."\t".$cdslength;
+      if ( defined $clip_end ) {
+        if ( $clip_end eq "tail" ) {
+          if ( $cdslength < $end ) {
+            print STDERR "Clipped off too many bases from the tail: $display_id\n";
+            $do_substr = $end;
+          }
+        }
+        elsif ( $clip_end eq "head" ) {
+          if ( $start - $num_bases_removed < 0 ) {
+            print STDERR "Clipped off too many bases from the head: $display_id\n";
+            $do_substr = $start - 1;
+            $string    = "$display_id\t$strand\t1\t$cdslength";
+          }
+          else {
+            $string  = "$display_id\t$strand\t" . ( $start - $num_bases_removed ) . "\t$cdslength";
+          }
+        }
+      }
+      $write_cdna = 1;
+    }
+    else {
+      print STDERR "Parse_problem $display_id\n";
+      $parse_problem++;
+    }
+  }
+  if (!$has_cds) {
+    print STDERR "No CDS $display_id\n";
+    $parse_problem++;
+  }
+  return ( $write_cdna, $string, $do_substr );
+}
+
+sub process_cdna {
+  my ($cdna) = @_;
+  my ($clipped,$clip_end,$num_bases_removed) = clip_if_necessary($cdna,$buffer,$window_size);
+
+  if (defined $clipped) {
+    # $clipped would have been returned undef if the entire cDNA seq
+    # seems to be polyA/T tail/head
+    my $id_w_version = $clipped->id;
+
+    # strip off the version number or else the ID will never match any
+    # accession in kill_list
+    my $id_no_version = $id_w_version;
+    $id_no_version =~ s/\.\d//;
+
+   if ($annotation_file) {
+      # check whether in Mole
+      my ($found,$string,$substr);
+      if ($use_mole) {
+        ($found,$string,$substr) = in_mole($id_w_version,$clip_end,$num_bases_removed,$clipped->length);
+      }
+      else {
+        ($found,$string,$substr) = in_file($cdna,$clip_end,$num_bases_removed,$clipped->length);
+      }
+      if ($substr) {
+        # the clipping cut off too much. We must get it back.
+        if ( $clip_end eq "head" ) {
+          $clipped->seq( substr( $cdna->seq, $substr ) );
+        } elsif ( $clip_end eq "tail" ) {
+          $clipped->seq( substr( $cdna->seq, 0, $substr ) );
+        }
+      }
+      if ($found) {
+        if ( length( $clipped->seq ) >= $min_length ) {
+          $cdna_written++;
+          $seqout->write_seq($clipped);
+
+          print ANNOTATION "$string\n";
+
+        } else {
+          print STDERR "Clipped sequence for ".$clipped->display_id. " is shorter "
+                     . "than $min_length bp and is excluded from output.\n";
+          $too_short_after_clip++;
+        }
+      }
+    } else {
+      $cdna_written++ ;
+      $seqout->write_seq($clipped);
+    }
+  } else {
+    $AT_only_count++;
+  }
 }

@@ -67,8 +67,7 @@ sub param_defaults {
     filetype => 'fasta',
     filemode => 'text',
     batch_size => 500,
-#    http_proxy => undef,
-    http_proxy => 'http://wwwcache.sanger.ac.uk:3128',
+    http_proxy => undef,
     _input_id_name => 'query',
   }
 }

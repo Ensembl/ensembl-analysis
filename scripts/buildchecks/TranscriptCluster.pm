@@ -41,15 +41,14 @@ eae@sanger.ac.uk
 # Let the code begin ...
 
 package TranscriptCluster;
-use Bio::EnsEMBL::Transcript;
-use vars qw(@ISA);
 use strict;
+use warnings;
 
+use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Gene;
-use Bio::EnsEMBL::Root;
 use Bio::RangeI;
 
-@ISA = qw(Bio::EnsEMBL::Root Bio::RangeI);
+use parent qw(Bio::RangeI);
 
 =head1 METHODS
 

@@ -56,7 +56,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils ;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::DB::Sam;
+use Bio::DB::HTS;
 
 use vars qw(@ISA);
 
@@ -113,7 +113,7 @@ sub fetch_input {
   }
   
   
-  my $sam = Bio::DB::Sam->new(   -bam => $self->ALIGNMENT_BAM_FILE,
+  my $sam = Bio::DB::HTS->new(   -bam => $self->ALIGNMENT_BAM_FILE,
 				 -autoindex => 1,
 				 -expand_flags => 1,
                              );

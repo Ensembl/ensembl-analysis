@@ -168,11 +168,13 @@ sub run {
 
 sub write_output {
   my ($self) = @_;
-
+use Data::Dumper;
+print Dumper $self;
   # write genes out to a different database from the one we read genes from.
   my $out_dba = $self->hrdb_get_con('output_db');
   foreach my $runnable (@{$self->runnable}){
     my $blast_hits = $runnable->output;
+    print Dumper $blast_hits;
     my $slice = $runnable->query();
     my $daf_adaptor = $out_dba->get_DnaAlignFeatureAdaptor;
     foreach my $hit ( @{$blast_hits} ) {

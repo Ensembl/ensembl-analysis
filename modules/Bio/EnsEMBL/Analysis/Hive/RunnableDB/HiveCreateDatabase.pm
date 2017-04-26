@@ -1,3 +1,34 @@
+=head1 LICENSE
+
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+=head1 CONTACT
+
+Please email comments or questions to the public Ensembl
+developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
+
+Questions may also be sent to the Ensembl help desk at
+<http://www.ensembl.org/Help/Contact>.
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase
+
+=cut
+
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase;
 
 use strict;
@@ -5,9 +36,10 @@ use warnings;
 use feature 'say';
 
 use File::Basename;
+use File::Spec::Functions qw(catfile);
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
-use Data::Dumper;
 
 sub param_defaults {
     return {
@@ -30,6 +62,10 @@ sub param_defaults {
 
 sub fetch_input {
   my $self = shift;
+
+  if (!-e $self->param('script_path') and $self->param_is_defined('enscode_root_dir')) {
+    $self->param('script_path', catfile($self->param('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'));
+  }
   return 1;
 }
 
@@ -187,44 +223,16 @@ sub core_only_db {
   }
 
   my $target_string;
-  if (ref($self->param('target_db')) eq 'HASH') {
-    $target_string = $self->convert_hash_to_db_string($self->param('target_db'));
-  } else {
-    $self->check_db_string($self->param('target_db'));
-    $target_string = $self->param('target_db');
-  }
+  my $db = $self->get_database_by_name('target_db');
+  $self->require_module('Bio::EnsEMBL::Hive::DBSQL::DBConnection');
 
-  my @target_string_at_split = split('@',$target_string);
-  my $target_dbname = shift(@target_string_at_split);
-  my @target_string_colon_split = split(':',shift(@target_string_at_split));
-  my $target_host = shift(@target_string_colon_split);
-  my $target_port = shift(@target_string_colon_split);
-  my $target_user = $self->param('user_w');
-  my $target_pass = $self->param('pass_w');
-
-  my $command;
-  # Create the empty db
-  if($target_port) {
-    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -P".$target_port." -e 'CREATE DATABASE ".$target_dbname."'";
-  } else {
-    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -e 'CREATE DATABASE ".$target_dbname."'";
+  my @command = Bio::EnsEMBL::Hive::DBSQL::DBConnection::to_cmd($db->dbc, undef, undef, undef, ['CREATE DATABASE '.$db->dbname]);
+  if(system(join(' ', @command))) {
+    $self->throw("The create database command exited with a non-zero exit code: ".$?);
   }
-  say "COMMAND: ".$command;
-
-  my $exit_code = system($command);
-  if($exit_code) {
-    $self->throw("The create database command exited with a non-zero exit code: ".$exit_code);
-  }
-
-  # Load core tables
-  if($target_port) {
-    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -P".$target_port." -D".$target_dbname." < ".$table_file;
-  } else {
-    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -D".$target_dbname." < ".$table_file;
-  }
-  $exit_code = system($command);
-  if($exit_code) {
-    $self->throw("The load tables command exited with a non-zero exit code: ".$exit_code);
+  @command = Bio::EnsEMBL::Hive::DBSQL::DBConnection::to_cmd($db->dbc, undef, undef, [ '<', $table_file], ['CREATE DATABASE '.$db->dbname]);
+  if(system(join(' ', @command))) {
+    $self->throw("The load tables command exited with a non-zero exit code: ".$?);
   }
 
 }
@@ -276,13 +284,8 @@ sub make_backup {
                        $pass_w,
                        $source_dbname,
                        $dump_file,
-                       $ignore_dna);
-
-  my $cmd = "gzip ".$dump_file;
-  my $return = system($cmd);
-  if($return) {
-      $self->warning("Failed to compress the backup file. The file itself should be okay. Commandline used:\n".$cmd);
-  }
+                       $ignore_dna,
+                       1);
 }
 
 sub convert_hash_to_db_string {
@@ -316,7 +319,7 @@ sub check_db_string {
 
 sub dump_database {
 
-  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file,$ignore_dna) = @_;
+  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file,$ignore_dna, $compress) = @_;
 
   print "\nDumping database $dbname"."@"."$dbhost:$dbport...\n";
 
@@ -326,13 +329,34 @@ sub dump_database {
   } else {
   	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser -p$dbpass";
   }
+  # Check the max_allowed_packet before dumping tables
+  my $check_cmd = $command;
+  $check_cmd =~ s/dump/admin/;
+  my $max_allowed_packet;
+  open(RH, $check_cmd.' variables |') || $self->throw("Coudl not execute command: $check_cmd variables");
+  while(<RH>) {
+    if (/max_allowed_packet\D+(\d+)/) {
+      $max_allowed_packet = $1;
+      last;
+    }
+  }
+  close(RH) || $self->throw("Could not close: $check_cmd variables");
+  if ($max_allowed_packet) {
+    $command .= ' --max_allowed_packet '.$max_allowed_packet;
+  }
   if ($ignore_dna) {
   	$command .= " --ignore-table=".$dbname.".dna ";
   }
-  $command .= " $dbname > $db_file";
+  if ($compress) {
+    # If pipefail is not set your command can fail without telling you
+    $command = "set -o pipefail; $command $dbname | gzip > $db_file.gz";
+  }
+  else {
+    $command .= " $dbname > $db_file";
+  }
 
   if (system($command)) {
-    $self->throw("The dump was not completed. Please, check that you have enough disk space in the output path $db_file as well as writing permission.");
+    $self->throw("The dump was not completed. Please, check the command or that you have enough disk space in the output path $db_file as well as writing permission.");
   } else {
     print("The database dump was completed successfully into file $db_file\n");
   }

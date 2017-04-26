@@ -925,7 +925,8 @@ sub make_shared_exons_unique {
 sub prune_Exons {
   my ($self, $gene) = @_;
   my @unique_Exons;
-  foreach my $tran (@{$gene->get_all_Transcripts}) {
+  my $transcripts = $gene->get_all_Transcripts;
+  foreach my $tran (@$transcripts) {
     my @newexons;
     foreach my $exon (@{$tran->get_all_Exons}) {
       my $found;
@@ -960,6 +961,7 @@ sub prune_Exons {
     foreach my $exon (@newexons) {
       $tran->add_Exon($exon);
     }
+    $gene->add_Transcript($tran);
   }
   return $gene;
 }
