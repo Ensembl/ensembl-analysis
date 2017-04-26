@@ -134,3 +134,5 @@ sub check {
 
   $self->throw("Object did not provide the check method of the Checker interface");
 }
+
+1;
