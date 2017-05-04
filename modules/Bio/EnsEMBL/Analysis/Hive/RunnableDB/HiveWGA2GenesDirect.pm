@@ -340,7 +340,7 @@ sub write_output {
       empty_Gene($gene);
       open(TEST,">>/hps/nobackup/production/ensembl/leanne/primates_annotation_1/aotus_nancymaae/stable_ids.txt"); 
       print TEST "stable_id:".$t->stable_id."\n\n";
-      #$t_gene_adaptor->store($gene);
+      $t_gene_adaptor->store($gene);
       $trans_count++;
 
       print "TRANSCRIPT:\n";
