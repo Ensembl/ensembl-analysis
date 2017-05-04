@@ -41,6 +41,8 @@ use Bio::Seq;
 
 use Bio::EnsEMBL::Analysis::Runnable::GenBlastGene;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
+use Bio::EnsEMBL::Utils::IO::FASTASerializer;
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -299,7 +301,8 @@ sub output_transcript_slice {
        -adaptor           => $slice->adaptor());
 
   my $outfile_path = $self->create_target_file('genblast_slice', 'db');
-  &dump($transcript_slice, 'fasta', $outfile_path);
+  my $serializer = Bio::EnsEMBL::Utils::IO::FASTASerializer->new($outfile_path);
+  $serializer->print_Seq($transcript_slice);
   return($outfile_path);
 }
 
