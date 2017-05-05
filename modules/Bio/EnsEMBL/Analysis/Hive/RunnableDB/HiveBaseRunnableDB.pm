@@ -22,6 +22,9 @@ use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Hive::Utils ('destringify');
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
+
+use File::Temp;
+use File::Spec::Functions qw(tmpdir);
 use feature 'say';
 
 use parent ('Bio::EnsEMBL::Hive::Process');
@@ -665,7 +668,7 @@ sub _create_temporary_file {
   my %params;
   $params{TEMPLATE} = $stem.'_'.$random if ($stem);
   $params{SUFFIX} = $suffix if ($suffix);
-  $params{DIR} = $dir if ($dir);
+  $params{DIR} = $dir || tmpdir();
   my $fh = File::Temp->new(%params);
   $self->param($name, $fh);
   return $fh->filename;
