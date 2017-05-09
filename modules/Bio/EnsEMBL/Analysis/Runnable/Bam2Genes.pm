@@ -203,17 +203,15 @@ sub process_exon_clusters {
             my $right = $clusters[$i];
             if ( $right->start <= $left->end + $self->max_intron_length ) {
                 push @transcript,$left;
-                push @transcript,$right if $i == $#clusters;
             } else {
                 #copy it before you store it or else you get reference issues
                 my @tmp_transcript = @transcript;
                 push @transcripts, \@tmp_transcript;
                 # empty the array
-                @transcript = ();
-                pop @transcript;
-                push @transcript,$right if $i == $#clusters;
+                undef @transcript;
             }
             if ($i == $#clusters ) {
+                push(@transcript, $right);
                 push @transcripts, \@transcript;
             }
         }
