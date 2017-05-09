@@ -148,6 +148,7 @@ sub create_blastdb{
           "seq objects defined to dump in it") unless($self->sequences);
     write_seqfile($self->sequences, $seq_file);
   }
+  write_seqfile($self->sequences, $seq_file) unless (-s $seq_file);
   $format_command = $self->format_command if(!$format_command);
   if(!$format_command){
     $format_command = $self->discover_command;
