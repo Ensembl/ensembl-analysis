@@ -92,7 +92,7 @@ sub fetch_input {
                         "All adaptor names must have a correspondingly named db hash passed in. Offending adaptor name:\n".$adaptor_name);
          }
          my $transcript_adaptor = $dba->get_TranscriptAdaptor();
-         foreach my $transcript_id (@{$self->input_id}) {
+         foreach my $transcript_id (@{$self->input_id->{$adaptor_name}}) {
            my $transcript = $transcript_adaptor->fetch_by_dbID($transcript_id);
 
            # This is not being used at the moment (it's is used in similar code to be able to track transcripts using a unique id, since dbID may not be unique)
