@@ -538,8 +538,9 @@ sub write_seqfile{
   my %params = ( -format => $format || 'fasta');
   my $seqs;
   if(ref($seq) eq "ARRAY"){
-    throw("Seqs need to be Bio::PrimarySeqI object not a ".$seqs->[0])
-      unless($seqs->[0]->isa('Bio::PrimarySeqI'));
+    throw("Seqs need to be Bio::PrimarySeqI object not a ".$seq->[0])
+      unless($seq->[0]->isa('Bio::PrimarySeqI'));
+    $seqs = $seq
   }else{
     throw("Need a Bio::PrimarySeqI object not a ".$seq)
       if(!$seq || !$seq->isa('Bio::PrimarySeqI'));
@@ -560,7 +561,7 @@ sub write_seqfile{
   my $seqout = Bio::SeqIO->new(%params);
   foreach my $seq(@$seqs){
     eval{
-      $seqout->write_seq($seq);
+      throw("Problem writing to $filename") unless ($seqout->write_seq($seq));
     };
     if($@){
       throw("FAILED to write $seq to $filename ".__PACKAGE__.":write_seqfile $@");
