@@ -100,9 +100,9 @@ sub new {
   ######################
   #SETTING THE DEFAULTS#
   ######################
-  $self->type('wu');
+  $self->type('ncbi');
   $self->unknown_error_string('FAILED');
-  $self->options('-cpus=1') if(!$self->options);
+  $self->options('-num_threads=1') if(!$self->options);
   ######################
   $self->databases($database);
   $self->parser($parser);
@@ -158,12 +158,12 @@ sub databases{
     # If it doesn't exist then see if $database-1,$database-2 exist
     # and put them in the database array
     
-    if (-f $dbname || -f $dbname . ".fa" || -f $dbname . '.xpd' || -f $dbname . '.phr' || -f $dbname . '.nhr') {
+    if (-f "$dbname" || -f "$dbname.fa" || -f "$dbname.xpd" || -f "$dbname.phr" || -f "$dbname.nhr") {
       push(@dbs,$dbname);
     } else {
       my $count = 1;
-      while (-f $dbname . "-$count") {
-        push(@dbs,$dbname . "-$count"); 	 
+      while (-f "$dbname-$count") {
+        push(@dbs,"$dbname-$count");
         $count++; 	 
       }
     }

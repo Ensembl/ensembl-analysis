@@ -43,15 +43,14 @@ package Bio::EnsEMBL::Analysis::Runnable::Pmatch;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
 use Bio::EnsEMBL::Analysis::Tools::Pmatch::First_PMF;
 use Bio::SeqIO;
-use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+use parent qw(Bio::EnsEMBL::Analysis::Runnable);
 
 
 sub new {
@@ -139,7 +138,7 @@ sub run_analysis{
      $self->queryfile." > ".$self->resultsfile;
   print "Running analysis ".$command."\n";
   logger_info("Running analysis ".$command);
-  system($command) == 0 or throw("FAILED to run ".$command);
+  execute_with_wait($command);
 }
 
 sub parse_results {
@@ -227,3 +226,5 @@ sub parse_results {
     $self->output([$paf]);
   }
 }
+
+1;
