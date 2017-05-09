@@ -71,7 +71,7 @@ sub default_options {
         %{ $self->SUPER::default_options() },
 
 #        At the moment, we want to use tokens
-        use_tokens => 1,
+        use_tokens => 0,
         drop_databases => 0, # This should never be changed in any config file, only use it on the commandline
         databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
         password_r => undef,

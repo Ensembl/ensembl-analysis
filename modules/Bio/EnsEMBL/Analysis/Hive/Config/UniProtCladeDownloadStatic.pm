@@ -392,6 +392,17 @@ sub _master_config {
                file_name => '#taxon_id#_seleno.fa',
                dest_dir   => '#output_path#',
              },
+      self_isoforms_12 => {
+              self_isoforms_12 =>{
+                            file_name => 'self_isoforms_12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                            isoforms  => 1,
+                            format    => 'fasta',
+                          },
+              },
   );
   return $config{$key};
 }
