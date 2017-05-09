@@ -208,6 +208,7 @@ sub build_query {
     }
   }
 
+  $compress .= '&include=yes' if (exists $query_params->{isoforms} and $query_params->{isoforms});
   $full_query .= $pe_string.$taxonomy_string.$exclude_string.$fragment_string.$mito.'&compress='.$compress.'&format='.$format.'"';
   if (!-d $query_params->{dest_dir}) {
     make_path($query_params->{dest_dir});
