@@ -17,13 +17,8 @@ package Bio::EnsEMBL::Analysis::Tools::BlastDB;
 
 use warnings ;
 use strict;
-no warnings;
 
-use vars qw (@ISA);
-
-@ISA = qw();
-
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
+use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile create_file_name);
@@ -44,7 +39,7 @@ sub new {
 
  
   #default setting
-  $self->blast_type("wublast");
+  $self->blast_type("ncbi");
   $self->output_dir("/tmp/");
   ###############
 
@@ -182,11 +177,9 @@ sub discover_command{
   my ($self) = @_;
   if($self->blast_type eq "wublast"){
     if($self->molecule_type eq "DNA"){
-      $self->format_command('/software/ensembl/genebuild/usrlocalensemblbin/xdformat -n -I');
-      #$self->format_command('xdformat -n -I');
+      $self->format_command('xdformat -n -I');
     }elsif($self->molecule_type eq "PROTEIN"){
-      $self->format_command('/software/ensembl/genebuild/usrlocalensemblbin/xdformat -p -I');
-      #$self->format_command('xdformat -p -I');
+      $self->format_command('xdformat -p -I');
     }else{
       throw("Don't recognise mol type ".$self->molecule_type);
     }
@@ -198,11 +191,20 @@ sub discover_command{
     }else{
       throw("Don't recognise mol type ".$self->molecule_type);
     }
-  }elsif($self->blast_type eq "ncbi"){
+  }elsif($self->blast_type eq "old_ncbi"){
     if($self->molecule_type eq "DNA"){
       $self->format_command('formatdb -o -p F -i');
     }elsif($self->molecule_type eq "PROTEIN"){
       $self->format_command('formatdb -o -i ');
+    }else{
+      throw("Don't recognise mol type ".$self->molecule_type);
+    }
+  }
+  elsif ($self->blast_type eq 'ncbi') {
+    if($self->molecule_type eq "DNA"){
+      $self->format_command('makeblastdb -parse_seqids -dbtype nucl -in');
+    }elsif($self->molecule_type eq "PROTEIN"){
+      $self->format_command('makeblastdb -parse_seqids -dbtype prot -in ');
     }else{
       throw("Don't recognise mol type ".$self->molecule_type);
     }
