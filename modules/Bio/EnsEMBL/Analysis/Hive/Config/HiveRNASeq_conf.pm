@@ -30,7 +30,7 @@ package HiveRNASeq_conf;
 use strict;
 use warnings;
 
-use File::Spec;
+use File::Spec::Functions qw(catfile catdir file_name_is_absolute);
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw (get_analysis_settings);
 use parent ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
@@ -66,10 +66,11 @@ sub default_options {
         'pipe_db_server'   => '',
         'dna_db_server'    => '',
         'dna_db_port'   => $self->o('port'),
+        'data_db_server'  => '', # Server for the blast, refine and rough DBs, or you can set them down below
         'data_db_port'  => $self->o('port'), # Port for the blast, refine and rough DBs, or you can set them down below
-        'blast_db_server'  => '',
-        'refine_db_server' => '',
-        'rough_db_server'  => '',
+        'blast_db_server'  => $self->o('data_db_server'),
+        'refine_db_server' => $self->o('data_db_server'),
+        'rough_db_server'  => $self->o('data_db_server'),
 
         'input_dir'  => '', #You need to specify the full path to the directory where your input files like your fastq files are
         'output_dir' => '', #You need to specify the full path to the directory where your output files will be written
@@ -79,12 +80,23 @@ sub default_options {
         'genome_file'     => 'genome/genome.fa',
         'use_ucsc_naming' => 0,
 
-        'ensembl_code_base'    => $ENV{ENSCODE}, #You may need to set this to the directory containing your Ensembl APIs
-        'clone_db_script_path' => File::Spec->catfile($self->o('ensembl_code_base'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
-        'sequence_dump_script' => File::Spec->catfile($self->o('ensembl_code_base'),'ensembl-analysis', 'scripts', 'sequence_dump.pl'),
+        'enscode_root_dir'     => $ENV{ENSCODE}, #!!!!!!!!!!! git repo checkouts
+        'software_base_path'   => $ENV{LINUXBREW_HOME},
+        'binary_base'          => catdir($self->o('software_base_path'), 'bin'),
+        'clone_db_script_path' => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
+        'sequence_dump_script' => catfile($self->o('enscode_root_dir'),'ensembl-analysis', 'scripts', 'sequence_dump.pl'),
         'create_type' => 'clone',
 
+# You have the choice between:
+#  * using a csv file you already created
+#  * using a study_accession like PRJEB19386
+#  * using the taxon_id of your species
+# 'rnaseq_summary_file' should always be set. If 'taxon_id' or 'study_accession' are not undef
+# they will be used to retrieve the information from ENA and to create the csv file. In this case,
+# 'file_columns' and 'summary_file_delimiter' should not be changed unless you know what you are doing
         'rnaseq_summary_file' => '', # You need to specify the full path to your csv summary file
+        'taxon_id' => undef,
+        'study_accession' => undef,
         # Use this option to change the delimiter for your summary data
         # file.
         summary_file_delimiter => '\t',
@@ -92,10 +104,10 @@ sub default_options {
         rnaseq_data_provider => 'ENA', #It will be set during the pipeline or it will use this value
 
 
-        'samtools' => 'samtools', #You may need to specify the full path to the samtools binary
-        'picard_lib_jar' => 'picard.jar', #You need to specify the full path to the picard library
-        'short_read_aligner' => 'bwa', #You may need to specify the full path to the bwa binary
-        'refine_ccode_exe' => 'RefineSolexaGenes', #You may need to specify the full path to the RefineSolexaGenes binary
+        'samtools' => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
+        'picard_lib_jar' => catfile($self->o('software_base_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
+        'short_read_aligner' => catfile($self->o('software_base_path'), 'opt', 'bwa-051mt', 'bin', 'bwa'), #You may need to specify the full path to the bwa binary
+        'refine_ccode_exe' => catfile($self->o('binary_base'), 'RefineSolexaGenes'), #You may need to specify the full path to the RefineSolexaGenes binary
 
         # Blast database for comparing the final models to.
         uniprotdb => '',
@@ -103,11 +115,11 @@ sub default_options {
         # Indicate Index for the blast database.
         uniprotindex => '',
 
-        blastp => 'blastp', #You may need to specify the full path to the blastp binary
+        blastp => catfile($self->o('binary_base'), 'blastp'), #You may need to specify the full path to the blastp binary
         # blast used, it can be either ncbi or wu, it is overriding the -type value from BLAST_PARAMS
         blast_type => 'ncbi',
 
-        splicing_aligner => 'exonerate-0.9.0', #You may need to specify the full path to the exonerate binary version 0.9.0
+        splicing_aligner => catfile($self->o('software_base_path'), 'opt', 'exonerate09', 'bin', 'exonerate'), #You may need to specify the full path to the exonerate binary version 0.9.0
 
         # If your reads are unpaired you may want to run on slices to avoid
         # making overlong rough models.  If you want to do this, specify a
@@ -135,8 +147,8 @@ sub default_options {
         read_min_paired => 50,
         read_min_mapped => 50,
         other_isoforms => 'other', # If you don't want isoforms, set this to undef
-        normal_queue => 'normal', # If LSF/other system has submission queues with multiple run time allowed, you might want to change this
-        long_queue => 'long', # If LSF/other system has submission queues with multiple run time allowed, you might want to change this
+        normal_queue => 'production-rh7', # If LSF/other system has submission queues with multiple run time allowed, you might want to change this
+        long_queue => 'production-rh7', # If LSF/other system has submission queues with multiple run time allowed, you might want to change this
 
         # Please assign some or all columns from the summary file to the
         # some or all of the following categories.  Multiple values can be
@@ -206,9 +218,9 @@ sub default_options {
 sub pipeline_wide_parameters {
     my ($self) = @_;
 
-    my $output_sam_dir = $self->o('sam_dir') ? $self->o('sam_dir') : File::Spec->catdir($self->o('output_dir'), 'SAM');
-    my $merge_dir = $self->o('merge_dir') ? $self->o('merge_dir') : File::Spec->catdir($self->o('output_dir'), 'merge_out');
-    my $genome_file = File::Spec->file_name_is_absolute($self->o('genome_file')) ? $self->o('genome_file') : File::Spec->catdir($self->o('input_dir'), $self->o('genome_file'));
+    my $output_sam_dir = $self->o('sam_dir') ? $self->o('sam_dir') : catdir($self->o('output_dir'), 'SAM');
+    my $merge_dir = $self->o('merge_dir') ? $self->o('merge_dir') : catdir($self->o('output_dir'), 'merge_out');
+    my $genome_file = file_name_is_absolute($self->o('genome_file')) ? $self->o('genome_file') : catdir($self->o('input_dir'), $self->o('genome_file'));
     return {
         %{ $self->SUPER::pipeline_wide_parameters() },  # inherit other stuff from the base class
                          wide_genome_file => $genome_file,
@@ -220,7 +232,7 @@ sub pipeline_wide_parameters {
                          wide_output_sam_dir => $output_sam_dir,
                          wide_species => $self->o('species'),
                          wide_use_ucsc_naming => $self->o('use_ucsc_naming'),
-                         wide_intron_bam_file => File::Spec->catfile($self->o('output_dir'), 'introns'),
+                         wide_intron_bam_file => catfile($self->o('output_dir'), 'introns'),
     };
 }
 
@@ -293,16 +305,29 @@ sub pipeline_analyses {
     my $header_line = create_header_line($self->default_options->{'file_columns'});
     my @analysis = (
  {
+      -logic_name => 'downloading_csv',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+        -rc_name => '1GB',
+        -parameters => {
+          study_accession => $self->o('study_accession'),
+        }
+        -input_ids => [{
+          alignment_bam_file => catfile('#wide_merge_dir#', 'merged.bam'),
+          assembly_name => $self->o('assembly_name'),
+          inputfile => $self->o('rnaseq_summary_file'),
+          }],
+        -flow_into => {
+            1 => ['checking_file_path'],
+        },
+  },
+
+ {
       -logic_name => 'checking_file_path',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -rc_name => '1GB',
         -parameters => {
             cmd => 'EXIT_CODE=0; for F in #wide_short_read_aligner# #wide_samtools# '.join (' ', $self->o('splicing_aligner'), $self->o('clone_db_script_path'), $self->o('sequence_dump_script'), $self->o('blastp')).'; do which "$F"; if [ "$?" == 1 ]; then EXIT_CODE=1;fi; done; for D in #wide_output_dir# #wide_input_dir# #wide_merge_dir# #wide_output_sam_dir# `dirname #wide_genome_file#`; do mkdir -p "$D"; done; exit $EXIT_CODE',
         },
-        -input_ids => [{
-          alignment_bam_file => File::Spec->catfile('#wide_merge_dir#', 'merged.bam'),
-          assembly_name => $self->o('assembly_name'),
-          }],
         -flow_into => {
             '1->A' => ['create_rnaseq_genome_file'],
             'A->1' => ['parse_summary_file'],
@@ -558,8 +583,6 @@ sub pipeline_analyses {
                          slice => 1,
                          include_non_reference => 0,
                          top_level => 1,
-                         feature_constraint => 1,
-                         feature_type => 'gene',
                          target_db => $self->o('rough_db'),
                        },
         -wait_for => ['create_rough_db'],
