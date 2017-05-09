@@ -51,8 +51,7 @@ package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 
 use strict;
 use warnings;
-use Exporter;
-use Data::Dumper;
+use Exporter qw(import);
 use feature 'say';
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
@@ -72,10 +71,8 @@ use Bio::SeqIO;
 
 use POSIX qw/ceil/;
 
-use vars qw (@ISA @EXPORT);
 
-@ISA = qw(Exporter);
-@EXPORT = qw(
+our @EXPORT_OK = qw(
              all_exons_are_valid
              are_phases_consistent
              are_splice_sites_canonical
@@ -981,31 +978,31 @@ sub split_Transcript{
   
   foreach my $stran (@split_transcripts) {
     if ($transcript->translation) {
-      if ($stran->end >= $cds_start and
-          $stran->start <= $cds_end) {
+      if ($stran->seq_region_end >= $cds_start and
+          $stran->seq_region_start <= $cds_end) {
         # at least part of this transcript is coding
         my $tr = Bio::EnsEMBL::Translation->new;
         $stran->translation($tr);
 
         my @exons = @{$stran->get_all_Exons};
         foreach my $e (@exons) {
-          if ($cds_start >= $e->start and $cds_start < $e->end) {
+          if ($cds_start >= $e->seq_region_start and $cds_start < $e->seq_region_end) {
             # start of translation is in this exon
             if ($stran->strand > 0) {
               $tr->start_Exon($e);
-              $tr->start( $cds_start - $e->start + 1);
+              $tr->start( $cds_start - $e->seq_region_start + 1);
             } else {
               $tr->end_Exon($e);
-              $tr->end( $e->end - $cds_start + 1);
+              $tr->end( $e->seq_region_end - $cds_start + 1);
             }
           }
-          if ($cds_end >= $e->start and $cds_end <= $e->end) {
+          if ($cds_end >= $e->seq_region_start and $cds_end <= $e->seq_region_end) {
             if ($stran->strand > 0) {
               $tr->end_Exon($e);
-              $tr->end( $cds_end - $e->start + 1);
+              $tr->end( $cds_end - $e->seq_region_start + 1);
             } else {
               $tr->start_Exon($e);
-              $tr->start( $e->end - $cds_end + 1);
+              $tr->start( $e->seq_region_end - $cds_end + 1);
             }
           }
         }
@@ -2171,6 +2168,8 @@ sub get_downstream_splice_sites_from_Exon{
 
 sub attach_Slice_to_Transcript{
   my ($transcript, $slice) = @_;
+  throw('You need a Bio::EnsEMBL::Slice object not a "'.ref($slice).'"')
+    unless ($slice and ref($slice) eq 'Bio::EnsEMBL::Slice');
   $transcript->slice($slice);
   foreach my $sf(@{$transcript->get_all_supporting_features}){
     $sf->slice($slice);
@@ -2185,6 +2184,8 @@ sub attach_Slice_to_Transcript{
 
 sub attach_Analysis_to_Transcript{
   my ($transcript, $analysis) = @_;
+  throw('You need a Bio::EnsEMBL::Analysis object not a "'.ref($analysis).'"')
+    unless ($analysis and ref($analysis) eq 'Bio::EnsEMBL::Analysis');
   $transcript->analysis($analysis);
   foreach my $sf(@{$transcript->get_all_supporting_features}){
     $sf->analysis($analysis);

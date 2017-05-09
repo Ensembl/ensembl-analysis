@@ -16,12 +16,11 @@
 # and a list of ContigHit objects
 
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::ProteinHit;
+
 use warnings ;
 use strict ;
-use vars qw(@ISA);
-use Bio::Root::Object;
 
-@ISA = qw(Bio::Root::Object);
+use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 
 =head2 new
 
@@ -39,7 +38,7 @@ sub new {
   my ($class, @args) = @_;
   my $self = bless {}, $class;
 
-  my ($id) = $self->_rearrange(['ID'], @args);
+  my ($id) = rearrange(['ID'], @args);
 
   $self->throw("No id") unless defined $id;
   $self->id($id);
