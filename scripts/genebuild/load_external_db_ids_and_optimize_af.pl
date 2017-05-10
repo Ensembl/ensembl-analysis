@@ -249,7 +249,7 @@ foreach my $type (@types) {
         push(@files_to_delete, $cfg_file);
         my $cfg_log_file = $output_path.'/'.$type.'.cfg.log';
         push(@files_to_delete, $cfg_log_file);
-        if (system("perl $test_regex_script -dbname $dbname -dbhost $dbhost -dbuser $dbuser -dbpass $dbpass -type $synonyms{$type} -main_regex_file $dir_ensgbscripts/$synonyms{$type}_regexes.dat -output_config_file $cfg_file > $cfg_log_file")) {
+        if (system("perl $test_regex_script -dbname $dbname -dbport $dbport  -dbhost $dbhost -dbuser $dbuser -dbpass $dbpass -type $synonyms{$type} -main_regex_file $dir_ensgbscripts/$synonyms{$type}_regexes.dat -output_config_file $cfg_file > $cfg_log_file")) {
             throw("Could not execute $test_regex_script\n");
         }
 
@@ -267,7 +267,7 @@ foreach my $type (@types) {
         }
 
         print "\nAssigning external DB IDs to your ", uc($human_readable{$type}), "...\n" if ($verbose);
-        if (system("perl $assign_db_id_script -masterhost $prod_dbhost -masterport $prod_dbport -masterdbname $prod_dbname -masteruser $prod_dbuser -host $dbhost -user $dbuser -pass $dbpass -dbname $dbname -conf $cfg_file -feature_type $moltype{$type} -dumpdir $output_path -update_only_null_rows -uniprot_filename $uniprot_filename")) {
+        if (system("perl $assign_db_id_script -masterhost $prod_dbhost -masterport $prod_dbport -masterdbname $prod_dbname -masteruser $prod_dbuser -dbport $dbport -host $dbhost -user $dbuser -pass $dbpass -dbname $dbname -conf $cfg_file -feature_type $moltype{$type} -dumpdir $output_path -update_only_null_rows -uniprot_filename $uniprot_filename")) {
         #if (system("bsub  -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -I perl $assign_db_id_script -host $dbhost -pass $dbpass -dbname $dbname -conf $cfg_file -feature_type $moltype{$type} -dumpdir $output_path -update_only_null_rows -uniprot_filename $uniprot_filename")) {
             throw("Could not execute $assign_db_id_script\n");
         }

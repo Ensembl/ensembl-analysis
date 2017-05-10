@@ -30,7 +30,7 @@ my %opt = ( dbhost   => '',
             dbname   => '',
             dbuser   => 'ensro',
             dbpass   => '',
-            dbport   => '3306',
+            dbport   => '',
             filename => '', );
 
 GetOptions(
