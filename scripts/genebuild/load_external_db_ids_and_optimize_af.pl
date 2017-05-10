@@ -208,7 +208,7 @@ foreach my $type (@types) {
         push(@files_to_delete, $cfg_file);
         my $cfg_log_file = $output_path.'/'.$type.'.cfg.log';
         push(@files_to_delete, $cfg_log_file);
-        if (system("perl $test_regex_script -dbname $dbname -dbhost $dbhost -dbuser $dbuser -dbpass $dbpass -type $synonyms{$type} -main_regex_file $analysis_scripts/$synonyms{$type}_regexes.dat -output_config_file $cfg_file > $cfg_log_file")) {
+        if (system("perl $test_regex_script -dbname $dbname -dbhost $dbhost -dbport $dbport -dbuser $dbuser -dbpass $dbpass -type $synonyms{$type} -main_regex_file $analysis_scripts/$synonyms{$type}_regexes.dat -output_config_file $cfg_file > $cfg_log_file")) {
             throw("Could not execute $test_regex_script\n");
         }
 
@@ -574,6 +574,9 @@ $0 -output_path <output_path> -dbhost <dbhost> [-dbport <dbport>] -dbname <dbnam
 
 
 Examples:
+						   #-primary_namespace  => "ACC",
+						   #-primary_namespace  => "ACC",
+						   #-primary_namespace  => "ACC",
 # assign external DB IDs and sort features tables
 bsub -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -output_path /lustre/scratch101/sanger/cgg/CanFam3.1/optimize -dbhost genebuild1 -dbname cgg_dog_ref_test -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose"
 
