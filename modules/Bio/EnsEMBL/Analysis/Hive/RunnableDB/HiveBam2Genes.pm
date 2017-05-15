@@ -54,6 +54,15 @@ use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    stranded_read => 0,
+  }
+}
+
 =head2 fetch_input
 
  Arg [1]    : None
@@ -74,6 +83,10 @@ sub fetch_input {
     $self->hrdb_set_con($self->get_database_by_name('output_db'), 'output_db');
 
     my $slice = $self->fetch_sequence($self->input_id, $reference_db);
+    if ($self->param('disconnect_jobs')) {
+      $reference_db->dbc->disconnect_if_idle;
+      $self->dbc->disconnect_if_idle;
+    }
     my $sam = Bio::DB::HTS->new(
             -bam => $self->param('alignment_bam_file'),
             -expand_flags => 1,
@@ -157,6 +170,7 @@ sub exon_cluster {
     my $cluster_data;
     my $cluster_count = 0;
     my $read_count = 0;
+    my $stranded_reads = $self->param('stranded_read'); # This should probably be a hash to make sure that we don't treat not strand reads in a group the wrong way...
     # I can't give parameters to $bam->fetch() so it's easier to create the callback
     # inside the method. Maybe with the low level method it's better.
     my $_process_reads = sub {
@@ -171,11 +185,26 @@ sub exon_cluster {
         my $hstart = $query->start;
         my $hend   = $query->end;
         my $paired = $read->get_tag_values('MAP_PAIR');
+        my $is_first_mate = 1;
+        my $hstrand = 1;
+        my $strand = 1;
+        if ($stranded_reads) {
+            $hstrand = $read->get_tag_values('REVERSE') ? -1 : 1;
+            $is_first_mate = $read->get_tag_values('FIRST_MATE');
+            $strand = $read->strand;
+        }
+        my $real_strand = -($hstrand*$strand); # We are making sure that we are -1 if not stranded, which should probably be changed...
+#        print STDERR 'READ: ', $is_first_mate, ' ', $strand, ' ', $real_strand, ' ', $start, ' ', $read->flag, ' ', $read->get_tag_values('FIRST_MATE'), ' ', $read->get_tag_values('SECOND_MATE'), "\n";
+
         # ignore spliced reads
         # make exon clusters and store the names of the reads and associated cluster number
         for (my $index = @exon_clusters; $index > 0; $index--) {
             my $exon_cluster = $exon_clusters[$index-1];
             my $cluster_end = $exon_cluster->end;
+            if (!$stranded_reads or
+                ($stranded_reads and (($exon_cluster->strand == $real_strand and $is_first_mate) or
+                                      ($exon_cluster->strand == -$real_strand and !$is_first_mate))
+                )) {
             if ($start > $cluster_end+1) {
                 last;
             }
@@ -196,6 +225,7 @@ sub exon_cluster {
                 # only allow it to be a part of a single cluster
                 return;
             }
+          }
         }
         # start a new cluster if there is no overlap
         ++$cluster_count;
@@ -204,16 +234,17 @@ sub exon_cluster {
             (
              -start      => $start,
              -end        => $end,
-             -strand     => -1,
+             -strand     => $is_first_mate ? $real_strand : -$real_strand,
              -slice      => $full_slice,
              -hstart     => $hstart,
              -hend       => $hend,
              -hstrand    => 1,
              -score      => 1,
              -percent_id => 100,
-             -hseqname   => "C". $cluster_count,
+             -hseqname   => $cluster_count,
              -analysis   => $self->analysis,
             );
+#            print STDERR 'DEBUG ', $feat->start, ' ', $is_first_mate, ' ', $feat->strand, "\n";
         # store the clusters in a hash with a unique identifier
         push(@exon_clusters, $feat);
         # store the key within the feature
