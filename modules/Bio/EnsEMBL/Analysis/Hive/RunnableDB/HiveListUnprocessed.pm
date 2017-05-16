@@ -27,6 +27,7 @@ This module creates a file which contains the list of genes which have not been 
 -output_file                File name of the file containing the list of gene identifiers which were not processed during the merge analysis.
 -output_dir                 Directory where 'output_file' will be written.
 -host_secondary             Secondary database host.
+-port_secondary             Secondary database port.
 -user_secondary             Secondary database user.
 -password_secondary         Secondary database password.
 -database_secondary         Secondary database username.
@@ -62,6 +63,7 @@ sub param_defaults {
       output_file => 'genes_to_copy.ids',
       output_dir => undef,
       host_secondary => undef,
+      port_secondary => undef,
       user_secondary => undef,
       password_secondary => undef,
       database_secondary => undef,
@@ -84,6 +86,7 @@ sub run {
   $self->param_required('output_file');
   $self->param_required('output_dir');
   $self->param_required('host_secondary');
+  $self->param_required('port_secondary');
   $self->param_required('user_secondary');
   $self->param_required('password_secondary');
   $self->param_required('database_secondary');
@@ -101,6 +104,7 @@ sub run {
   my @gene_ids_to_copy = get_unprocessed_genes($self->param('processed_genes_filename'),
                                                $self->param('output_dir'),
                                                $self->param('host_secondary'),
+                                               $self->param('port_secondary'),
                                                $self->param('user_secondary'),
                                                $self->param('password_secondary'),
                                                $self->param('database_secondary'),
@@ -123,13 +127,13 @@ sub write_output {
 }
 
 sub get_unprocessed_genes() {
-  my ($filename,$output_dir,$dbhost,$user,$pass,$dbname,$include,$exclude) = @_;  
+  my ($filename,$output_dir,$dbhost,$dbport,$user,$pass,$dbname,$include,$exclude) = @_;  
   
   my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(-dbname => $dbname,
                                               -host   => $dbhost,
                                               -user   => $user,
                                               -pass   => $pass,
-                                              -port   => '3306');
+                                              -port   => $dbport);
   my $ga = $db->get_GeneAdaptor();
   my %genes_to_copy = ();
   
