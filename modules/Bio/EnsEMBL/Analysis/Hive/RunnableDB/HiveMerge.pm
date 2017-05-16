@@ -25,7 +25,7 @@ This module runs merge.pl on eHive. Please see merge.pl for further details abou
 
 -dbhost         database host name
 
--dbport         database port (default 3306)
+-dbport         database port
 
 -dbname         database name
 
@@ -38,14 +38,17 @@ This module runs merge.pl on eHive. Please see merge.pl for further details abou
 standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMerge
                                -ensembl_analysis_base $ENSCODE/ensembl-analysis
                                -host_secondary ENSEMBLHOST
+                               -port_secondary ENSEMBLPORT
                                -user_secondary READ_ONLY_USER
                                -password_secondary READ_ONLY_PASS
                                -database_secondary ENSEMBLDBNAME
                                -host_primary VEGADBHOST
+                               -port_primary VEGADBPORT
                                -user_primary READ_ONLY_USER
                                -password_primary READ_ONLY_PASS
                                -database_primary VEGADBNAME
                                -host_output MERGEDBHOST
+                               -port_output MERGEDBPORT
                                -user_output WRITE_USER
                                -password_output WRITE_PASS
                                -database_output MERGEDBNAME
@@ -94,10 +97,12 @@ sub param_defaults {
     return {
       ensembl_analysis_base => '',
       host_secondary => '',
+      port_secondary => '',
       user_secondary => '',
       password_secondary => '',
       database_secondary => '',
       host_primary => '',
+      port_primary => '',
       user_primary => '',
       password_primary => '',
       database_primary => '',
@@ -106,6 +111,7 @@ sub param_defaults {
       user_dna => '',
       database_dna => '',
       host_output => '',
+      port_output => '',
       user_output => '',
       password_output => '',
       database_output => '',
@@ -115,6 +121,7 @@ sub param_defaults {
       primary_exclude => '',
       secondary_tag => '',
       primary_tag => '',
+      primary_xref => '',
       primary_gene_xref => '',
       primary_transcript_xref => '',
       primary_translation_xref => '',
@@ -146,10 +153,12 @@ sub run {
 
   run_command("perl ".$self->param('ensembl_analysis_base')."/scripts/Merge/merge.pl".
               " --host_secondary=".$self->param('host_secondary').
+              " --port_secondary=".$self->param('port_secondary').
               " --user_secondary=".$self->param('user_secondary').
               " --password_secondary=".$self->param('password_secondary').
               " --database_secondary=".$self->param('database_secondary').
               " --host_primary=".$self->param('host_primary').
+              " --port_primary=".$self->param('port_primary').
               " --user_primary=".$self->param('user_primary').
               " --password_primary=".$self->param('password_primary').
               " --database_primary=".$self->param('database_primary').
@@ -158,6 +167,7 @@ sub run {
               " --user_dna=".$self->param('user_dna').
               " --database_dna=".$self->param('database_dna').
               " --host_output=".$self->param('host_output').
+              " --port_output=".$self->param('port_output').
               " --user_output=".$self->param('user_output').
               " --password_output=".$self->param('password_output').
               " --database_output=".$self->param('database_output').
@@ -167,6 +177,7 @@ sub run {
               " --primary_exclude=".$self->param('primary_exclude').
               " --secondary_tag=".$self->param('secondary_tag').
               " --primary_tag=".$self->param('primary_tag').
+              " --primary_xref='".$self->param('primary_xref')."'".
               " --primary_gene_xref='".$self->param('primary_gene_xref')."'".
               " --primary_transcript_xref='".$self->param('primary_transcript_xref')."'".
               " --primary_translation_xref='".$self->param('primary_translation_xref')."'".
