@@ -80,7 +80,7 @@ sub _master_config {
           FILTER_PARAMS => {},
           BLAST_PARAMS => {
             -unknown_error_string => 'FAILED',
-            -type => 'wu',
+            -type => 'ncbi',
           }
       },
 
