@@ -32,7 +32,7 @@ Checks
 
 -dbhost         database host name
 
--dbport         database port (default 3306)
+-dbport         database port
 
 -dbname         database name
 
@@ -44,7 +44,7 @@ Checks
 
 =head1 EXAMPLE USAGE
 
-standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadPatches -ftp_path ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA_000001405.23_GRCh38.p8/GCA_000001405.23_GRCh38.p8_assembly_structure/PATCHES/alt_scaffolds -output_path $SCR9/ -dbhost genebuildX -dbname core_97 -dbuser *** -dbpass *** -dbport 3306 -cs_version GRCh38
+standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadPatches -ftp_path ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA_000001405.23_GRCh38.p8/GCA_000001405.23_GRCh38.p8_assembly_structure/PATCHES/alt_scaffolds -output_path $SCR9/ -dbhost genebuildX -dbname core_97 -dbuser *** -dbpass *** -dbport DBPORT -cs_version GRCh38
 
 =cut
 
@@ -75,7 +75,7 @@ sub param_defaults {
       dbname => undef,
       dbuser => undef,
       dbpass => undef,
-      dbport => 3306,
+      dbport => undef,
       cs_version => undef,
     }
 }
@@ -93,6 +93,7 @@ sub run {
   $self->param_required('ftp_path');
   $self->param_required('output_path');
   $self->param_required('dbhost');
+  $self->param_required('dbport');
   $self->param_required('dbname');
   $self->param_required('dbuser');
   $self->param_required('dbpass');
@@ -112,11 +113,13 @@ sub run {
                    $self->param('output_path'));
   
   remove_old_rawcomputes_karyobands($self->param('dbhost'),
+                                    $self->param('dbport'),
                                     $self->param('dbname'),
                                     $self->param('dbuser'),
                                     $self->param('dbpass')); 
   
   my $patches_removed = remove_deprecated_patches($self->param('dbhost'),
+                                                  $self->param('dbport'),
                                                   $self->param('dbname'),
                                                   $self->param('dbuser'),
                                                   $self->param('dbpass'),
@@ -124,18 +127,21 @@ sub run {
   
   if ($patches_removed) {
     recalculate_markers_map_weights($self->param('dbhost'),
+                                    $self->param('dbport'),
                                     $self->param('dbname'),
                                     $self->param('dbuser'),
                                     $self->param('dbpass')); 
   }
   
   my ($alt_scaffold_fixed_filepath,$alt_scaffold_fna_fixed_filepath) = remove_patches_on_patches($self->param('dbhost'),
+                                                                                                 $self->param('dbport'),
                                                                                                  $self->param('dbname'),
                                                                                                  $self->param('dbuser'),
                                                                                                  $self->param('dbpass'),
                                                                                                  $self->param('output_path'));
   
   load_patches($self->param('dbhost'),
+               $self->param('dbport'),
                $self->param('dbname'),
                $self->param('dbuser'),
                $self->param('dbpass'),
@@ -145,6 +151,7 @@ sub run {
   
   check_patches($self->param('output_path'),
                 $self->param('dbhost'),
+                $self->param('dbport'),
                 $self->param('dbname'),
                 $self->param('dbuser'),
                 $self->param('dbpass'),
@@ -213,23 +220,23 @@ sub download_patches() {
 sub remove_old_rawcomputes_karyobands() {
 # Remove old patch raw compute and karyotype bands
 
-  my ($host,$name,$user,$pass) = @_;
+  my ($host,$port,$name,$user,$pass) = @_;
 
-  run_command("mysql -h $host -u $user -p$pass $name < ".'$ENSEMBL_ANALYSIS/scripts/assembly_patches/remove_patch_raw_compute.sql',"Removing raw computes on patches...");
+  run_command("mysql -h $host -P $port -u $user -p$pass $name < ".'$ENSEMBL_ANALYSIS/scripts/assembly_patches/remove_patch_raw_compute.sql',"Removing raw computes on patches...");
   
-  run_command("mysql -h $host -u $user -p$pass $name < ".'$ENSEMBL_ANALYSIS/scripts/assembly_patches/remove_patch_karyotype.sql',"Removing karyotype bands on patches..."); # we decided not to have karyotype bands on patches because projections do not make sense so there should not be any but just in case they come from the old days...
+  run_command("mysql -h $host -P $port -u $user -p$pass $name < ".'$ENSEMBL_ANALYSIS/scripts/assembly_patches/remove_patch_karyotype.sql',"Removing karyotype bands on patches..."); # we decided not to have karyotype bands on patches because projections do not make sense so there should not be any but just in case they come from the old days...
 }
 
 sub remove_deprecated_patches() {
 # Remove altered and deprecated patches
 # Return 1 if any patch was removed. Otherwise, return 0.
 
-  my ($host,$name,$user,$pass,$output_dir) = @_;
+  my ($host,$port,$name,$user,$pass,$output_dir) = @_;
   
   my $alt_patch_file = $output_dir."/alt_patch_output.txt";
   my $delete_patch_file = $output_dir."/delete_patch.sql";
   
-  run_command('perl $ENSEMBL_ANALYSIS/scripts/assembly_patches/remove_updated_and_deprecated_patches.pl '."-user $user -pass $pass -host $host -dbname $name -patchtype_file $output_dir/patch_type -central_cs scaffold -sqlfile $delete_patch_file > $alt_patch_file","Getting the deprecated patches to remove...");
+  run_command('perl $ENSEMBL_ANALYSIS/scripts/assembly_patches/remove_updated_and_deprecated_patches.pl '."-user $user -pass $pass -host $host -port $port -dbname $name -patchtype_file $output_dir/patch_type -central_cs scaffold -sqlfile $delete_patch_file > $alt_patch_file","Getting the deprecated patches to remove...");
 
   my $res;
   
@@ -243,7 +250,7 @@ sub remove_deprecated_patches() {
   print("New patches: $res\n");
   
   if (-e $delete_patch_file and !(-z $delete_patch_file)) { # exists and not empty
-    run_command("mysql -h $host -u $user -p$pass $name < $output_dir/delete_patch.sql","Deleting the modified and removed patches...");
+    run_command("mysql -h $host -P $port -u $user -p$pass $name < $output_dir/delete_patch.sql","Deleting the modified and removed patches...");
     return 1;
   } else {
     print("There is not any patch to delete.\n");
@@ -254,16 +261,16 @@ sub remove_deprecated_patches() {
 sub recalculate_markers_map_weights() {
 # Since markers were added to patches that went through a full build or a markers update in the past, if the patches containing markers have been deleted, the weights may be wrong for remaining markers and the MarkerFeatures healthcheck will fail. To fix that, we need to recalculate the markers map weights by running the following script in the specified database.
 
-  my ($host,$name,$user,$pass) = @_;
+  my ($host,$port,$name,$user,$pass) = @_;
   
-  run_command('perl $ENSEMBL_ANALYSIS/scripts/markers/unmapped_markers.pl '."-host $host -user $user -pass $pass -dbname $name -port 3306 -logic_name marker -max_duplicates 3","Recalculating markers map weights...");
+  run_command('perl $ENSEMBL_ANALYSIS/scripts/markers/unmapped_markers.pl '."-host $host -port $port -user $user -pass $pass -dbname $name -port $port -logic_name marker -max_duplicates 3","Recalculating markers map weights...");
 }
 
 sub remove_patches_on_patches() {
 # Since patches on patches are not supported, this sub removes the corresponding lines in the alt_scaffold_placement.txt file and in the alt.scaf.fna file
 # output_dir is the directory where the alt_scaffold_placement.txt file is located and where the fixed file will be written.
 # Return the filepath to the file containing the file after removing the patches on pathes.
-  my ($host,$name,$user,$pass,$output_dir) = @_;
+  my ($host,$port,$name,$user,$pass,$output_dir) = @_;
   
   my $alt_scaffold_file = $output_dir."/alt_scaffold_placement.txt";
   my $alt_scaffold_file_fixed = $alt_scaffold_file.".fixed";
@@ -283,6 +290,7 @@ sub remove_patches_on_patches() {
                RES=`mysql -u$user \\
                           -p$pass \\
                           -h$host \\
+                          -P$port \\
                           -D$name -NB \\
                           -e\"SELECT COUNT(*)
                               FROM seq_region_synonym
@@ -296,7 +304,7 @@ sub remove_patches_on_patches() {
   run_command($cmd,"Removing patches on patches from file $alt_scaffold_file...");
 
   $cmd = "echo 'KV766194.1' >> $alt_scaffold_file_seqs_to_remove";
-  run_command($cmd,"Removing patches on patches from file $alt_scaffold_file... Adding manually the patch whose associated contig is too big for the database as it exceeds the max_alloed_packet_bytes when loading its sequence...");
+  run_command($cmd,"Removing patches on patches from file $alt_scaffold_file... Adding manually the patch whose associated contig is too big for the database as it exceeds the max_allowed_packet_bytes when loading its sequence...");
 
   #$cmd = "grep -v ^# $alt_scaffold_file | awk '{if (\$2 != \"Primary\") print \$4}' | cat > $alt_scaffold_file_seqs_to_remove";
   #run_command($cmd,"Getting the list of patch sequences to remove from the fasta file $alt_scaffold_fna_file...");
@@ -327,7 +335,7 @@ sub load_patches() {
 # it creates the sql file that will be used to load the patches into the specified database
 # 'ftp_dir' from NCBI will be used to extract the assembly name and the assembly GCA accession 
 
-  my ($host,$name,$user,$pass,$output_dir,$ftp_dir,$alt_scaffold_filepath) = @_;
+  my ($host,$port,$name,$user,$pass,$output_dir,$ftp_dir,$alt_scaffold_filepath) = @_;
 
 #Find the GCA accession:
 #GCA_000001405.20
@@ -337,22 +345,22 @@ sub load_patches() {
                 (split('_',(split('/',$ftp_dir))[8]))[1];
   my $ass_name = (split('_',(split('/',$ftp_dir))[8]))[2];
 
-  run_command('perl $ENSEMBL_ANALYSIS/scripts/assembly_patches/assembly_exception_load.pl '."-user $user -pass $pass -host $host -dbname $name -mapping $output_dir/alt.scaf.agp -txt $alt_scaffold_filepath -patchtype $output_dir/patch_type -assembly_name $ass_name -assembly_acc $ass_acc -coord_system scaffold -sql_file $patches_filepath","Creating the file $patches_filepath that will be used to load the patches into the database...");
+  run_command('perl $ENSEMBL_ANALYSIS/scripts/assembly_patches/assembly_exception_load.pl '."-user $user -pass $pass -host $host -port $port -dbname $name -mapping $output_dir/alt.scaf.agp -txt $alt_scaffold_filepath -patchtype $output_dir/patch_type -assembly_name $ass_name -assembly_acc $ass_acc -coord_system scaffold -sql_file $patches_filepath","Creating the file $patches_filepath that will be used to load the patches into the database...");
 
-  run_command("mysql -h $host -u $user -p$pass $name < $patches_filepath","Loading the patches into the database $name:$host");
+  run_command("mysql -h $host -P $port -u $user -p$pass $name < $patches_filepath","Loading the patches into the database $name:$host");
 }
 
 sub check_patches() {
 # Run checks to ensure that the patch loading was completed successfully.
 
   my ($output_path,
-      $host,$name,$user,$pass,
+      $host,$port,$name,$user,$pass,
       $alt_scaffold_fixed_filepath,
       $alt_scaffold_fna_fixed_filepath,
       $cs_version) = @_;
 
-  compare_db_with_downloaded($output_path."/compare_db_with_downloaded/",$host,$name,$user,$pass,$alt_scaffold_fixed_filepath,$alt_scaffold_fna_fixed_filepath);
-  check_asm_exception($output_path,$host,$name,$user,$pass,$cs_version,$alt_scaffold_fixed_filepath);
+  compare_db_with_downloaded($output_path."/compare_db_with_downloaded/",$host,$port,$name,$user,$pass,$alt_scaffold_fixed_filepath,$alt_scaffold_fna_fixed_filepath);
+  check_asm_exception($output_path,$host,$port,$name,$user,$pass,$cs_version,$alt_scaffold_fixed_filepath);
 
 
 }
@@ -362,14 +370,14 @@ sub compare_db_with_downloaded() {
 # where it will write assorted files while doing comparisons between the patches
 # in the db and the sequences from the GRC.
 
-  my ($output_path,$host,$name,$user,$pass,$alt_scaffold_fixed_filepath,$alt_scaffold_fna_fixed_filepath) = @_;
+  my ($output_path,$host,$port,$name,$user,$pass,$alt_scaffold_fixed_filepath,$alt_scaffold_fna_fixed_filepath) = @_;
 
   # create output dir if it does not exist
   if (not -e $output_path) {
     run_command("mkdir -p ".$output_path,"Create output path.");
   }
 
-  run_command('perl $ENSEMBL_ANALYSIS/scripts/assembly_patches/compare_db_patch_seq_with_downloaded.pl '."-dbport 3306 -dbname $name -dbhost $host -dbuser $user -dbpass $pass -write_dir $output_path -alt_scaf $alt_scaffold_fixed_filepath -downloaded_fasta $alt_scaffold_fna_fixed_filepath","Comparing database patch sequences with downloaded sequences...");
+  run_command('perl $ENSEMBL_ANALYSIS/scripts/assembly_patches/compare_db_patch_seq_with_downloaded.pl '."-dbport $port -dbname $name -dbhost $host -dbport $port -dbuser $user -dbpass $pass -write_dir $output_path -alt_scaf $alt_scaffold_fixed_filepath -downloaded_fasta $alt_scaffold_fna_fixed_filepath","Comparing database patch sequences with downloaded sequences...");
 
   run_command("wc -l $output_path/differences.out","Checking that the comparison output file does not contain any difference...",0);
 
@@ -379,7 +387,7 @@ sub check_asm_exception() {
 # This compares the sections of the sequence at the beginning and end of the assembly exception (patch)
 # with the reference equivalent.
 
-  my ($output_path,$host,$name,$user,$pass,$cs_version,$alt_scaffold_fixed_filepath) = @_;
+  my ($output_path,$host,$port,$name,$user,$pass,$cs_version,$alt_scaffold_fixed_filepath) = @_;
 
 ## THESE SHOULD TAKE INTO ACCOUNT THE b ORIENTATION IN THE ALT_SCAFFOLD_PLACEMENT.TXT FILE SO
 ## IF THERE IS A b WE LOOK INTO THE gff FILE OF THE ALIGNMENT AND CHECK THAT THE
@@ -390,7 +398,7 @@ sub check_asm_exception() {
 #  my $output_file = $output_path."/checker_exceptions_plus_warn.txt";
 #
 #  # run on current core database
-#  run_command('perl $ENSEMBL_ANALYSIS/scripts/assembly_patches/check_asm_exception.pl '."-host $host -port 3306 -user ensro -dbname $name -file test_all -all -coord_system_version $cs_version >& $output_file","Checking boundaries of the assembly exception sequences in the current database...");
+#  run_command('perl $ENSEMBL_ANALYSIS/scripts/assembly_patches/check_asm_exception.pl '."-host $host -port $port -user ensro -dbname $name -file test_all -all -coord_system_version $cs_version >& $output_file","Checking boundaries of the assembly exception sequences in the current database...");
 #
 #  # check that the number of sequences on patches that have different starts and different ends matches
 #  # the number of non-zero alt_start_tail and alt_stop_tail in the alt_scaffold_placement.txt file
