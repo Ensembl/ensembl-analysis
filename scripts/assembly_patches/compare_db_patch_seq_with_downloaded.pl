@@ -38,6 +38,8 @@ my $subseq_dir;            # as exploded but with seqs trimmed to only the tople
 my $revcomp_dir;           # the revcomp seq if the scaffold has orientation -1 relative to the chromosome level
 my $dna_dbname;
 my $dna_host;
+my $dna_port;
+my $dna_user;
 
 GetOptions( 'dbhost:s'           => \$host,
             'dbuser:s'           => \$user,
@@ -48,7 +50,9 @@ GetOptions( 'dbhost:s'           => \$host,
             'write_dir:s'        => \$write_dir,
             'alt_scaf_file:s'    => \$alt_scaf_file,
             'dnadbname:s'        => \$dna_dbname,
-            'dnahost:s'          => \$dna_host );
+            'dnahost:s'          => \$dna_host,
+            'dnaport:s'          => \$dna_port,
+            'dnauser:s'          => \$dna_user );
 
 my $db =
   new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $host,
@@ -60,10 +64,10 @@ my $db =
 my $dnadb;
 if ($dna_dbname) {
   $dnadb =
-    new Bio::EnsEMBL::DBSQL::DBAdaptor( -dbname => $dna_dbname,
-                                        -host   => $dna_host,
-                                        -port   => '3306',
-                                        -user   => 'ensro' );
+    new Bio::EnsEMBL::DBSQL::DBAdaptor(-dbname => $dna_dbname,
+                                       -host   => $dna_host,
+                                       -port   => $dna_port,
+                                       -user   => $dna_user);
   $db->dnadb($dnadb);
 }
 
@@ -169,7 +173,7 @@ REGION: while (<ALT_SCAF>) {
 } ## end while (<ALT_SCAF>)
 close(ALT_SCAF);
 
-system( "fastadiff -1 " . $write_dir . "/all_patches_db.fa -2 " . $write_dir .  "/all_patches_grc.fa -c FALSE >> " . $write_dir . "/differences.out" );
+system( "fastadiff -1 " . $write_dir . "/all_patches_db.fa -2 " . $write_dir .  "/all_patches_grc.fa -a -c FALSE >> " . $write_dir . "/differences.out" );
 
 print "NOTE: differences should have been written to "
     . $write_dir . "/differences.out. "
