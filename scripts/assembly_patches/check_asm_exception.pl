@@ -41,7 +41,9 @@ GetOptions( 'host:s'                 => \$host,
             'file:s'                 => \$file,
             'all'                    => \$all,
             'dnadbname:s'            => \$dnadbname,
-            'dnahost:s'              => \$dnahost, );
+            'dnahost:s'              => \$dnahost,
+            'dnaport:s'              => \$dnaport,
+            'dnauser:s'              => \$dnauser);
 
 # sanity thing:
 print STDERR "Database $dbname host $host port $port user $user\n";
@@ -55,10 +57,10 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 my $dnadb;
 if ($dnadbname) {
   $dnadb =
-    new Bio::EnsEMBL::DBSQL::DBAdaptor( -dbname => $dnadbname,
-                                        -host   => $dnahost,
-                                        -port   => '3306',
-                                        -user   => 'ensro' );
+    new Bio::EnsEMBL::DBSQL::DBAdaptor(-dbname => $dnadbname,
+                                       -host   => $dnahost,
+                                       -port   => $dnaport,
+                                       -user   => $dnauser);
   $db->dnadb($dnadb);
 }
 
