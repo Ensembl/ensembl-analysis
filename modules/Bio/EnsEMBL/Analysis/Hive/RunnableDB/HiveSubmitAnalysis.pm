@@ -105,6 +105,7 @@ sub fetch_input {
         # so it's better to use it
         $self->split_slice($dba);
       } elsif($iid_type eq 'patch_slice') {
+        $self->param('include_non_reference',1);
         $self->create_slice_ids($dba);
       } elsif($iid_type eq 'slice_to_feature_ids') {
         $self->convert_slice_to_feature_ids($dba);
