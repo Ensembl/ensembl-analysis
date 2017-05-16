@@ -60,7 +60,7 @@ be treated differently:
 
         -dbname         lincRNA DB Name
 
-        -dbport         port to connect to lincRNA DB (optional)
+        -dbport         port to connect to lincRNA DB
 
 
 =head3 DB containing patched gene set
@@ -76,7 +76,7 @@ be treated differently:
 
         -newdbname      Pathced gene set DB Name
 
-        -newdbport      Port to connect to patched gene set DB (optional)
+        -newdbport      Port to connect to patched gene set DB
 
         -----------------------------------------------------------------------
 
