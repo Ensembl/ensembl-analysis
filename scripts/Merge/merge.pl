@@ -29,11 +29,10 @@ my ( @opt_secondary_include, @opt_secondary_exclude );
 my $opt_primary_tag  = 'primary';
 my $opt_secondary_tag = 'secondary';
 
+my $opt_primary_xref = 0; # if 0, no primary xrefs are added; if 1, primary xrefs are added.
 my $opt_primary_gene_xref        = 'OTTG,Havana gene,ALT_GENE';
 my $opt_primary_transcript_xref  = 'OTTT,Havana transcript,ALT_TRANS';
 my $opt_primary_translation_xref = 'OTTP,Havana translation,MISC';
-
-$opt_port_secondary = $opt_port_primary = $opt_port_dna = $opt_port_output = 3306;
 
 my $opt_njobs = 1;    # Default number of jobs.
 my $opt_job   = 1;    # This job.
@@ -73,6 +72,7 @@ if ( !GetOptions(
           'primary_exclude:s'                  => \@opt_primary_exclude,
           'primary_tag:s'                      => \$opt_primary_tag,
           'secondary_tag:s'                     => \$opt_secondary_tag,
+          'primary_xref:i'                     => \$opt_primary_xref,
           'primary_gene_xref:s'                => \$opt_primary_gene_xref,
           'primary_transcript_xref:s'  => \$opt_primary_transcript_xref,
           'primary_translation_xref:s' => \$opt_primary_translation_xref,
@@ -223,6 +223,7 @@ Primary logic name filter (exclude): @opt_primary_exclude
 Secondary tag:\t$opt_secondary_tag
 Primary tag:\t$opt_primary_tag
 
+Primary xref:       \t$opt_primary_xref
 Primary gene xref:       \t$opt_primary_gene_xref
 Primary transcript xref: \t$opt_primary_transcript_xref
 Primary translation xref:\t$opt_primary_translation_xref
@@ -309,7 +310,9 @@ my @logic_names = ($opt_secondary_tag,
                    $merged_lincrna_logic_name);
                 
 foreach my $analysis_name (@logic_names) {
-  $OUTPUT_AA->store(new Bio::EnsEMBL::Analysis(-logic_name => $analysis_name));
+  if (!($OUTPUT_AA->fetch_by_logic_name($analysis_name))) {
+    $OUTPUT_AA->store(new Bio::EnsEMBL::Analysis(-logic_name => $analysis_name));
+  }
 }
 
 my %primary_genes_done;
@@ -596,7 +599,9 @@ sub process_genes {
         $is_coding = 1;
 
         # Add "OTTP" xref to Primary translation.
-        add_primary_xref($primary_translation);
+        if ($opt_primary_xref) {
+          add_primary_xref($primary_translation);
+        }
       }
 
       tag_transcript_analysis( $primary_transcript, $opt_primary_tag );
@@ -604,7 +609,9 @@ sub process_genes {
       $primary_transcript->analysis($OUTPUT_AA->fetch_by_logic_name(get_logic_name_from_biotype_source($primary_transcript)));
 
       # Add "OTTT" xref to Primary transcript.
-      add_primary_xref($primary_transcript);
+      if ($opt_primary_xref) {
+        add_primary_xref($primary_transcript);
+      }
 
       # If the transcript is part of a gene cluster then tag the gene
       unless($primary_gene->{__is_gene_cluster}) {
@@ -641,7 +648,9 @@ sub process_genes {
       ( $transcript_count == 1 );                             # HACK
 
     # Add "OTTG" xref to Primary gene.
-    add_primary_xref($primary_gene);
+    if ($opt_primary_xref) {
+      add_primary_xref($primary_gene);
+    }
 
   } ## end foreach my $primary_gene ( @...)
 
@@ -2105,6 +2114,7 @@ merge --help
     --primary_tag
     --secondary_tag
 
+    --primary_xref
     --primary_gene_xref
     --primary_transcript_xref
     --primary_translation_xref
@@ -2127,7 +2137,7 @@ The server host name for the Secondary database (required).
 
 =item B<--port_secondary>
 
-The port on the server to connect to (optional, default is 3306).
+The port on the server to connect to.
 
 =item B<--user_secondary>
 
@@ -2148,7 +2158,7 @@ The server host name for the Primary database (required).
 
 =item B<--port_primary>
 
-The port on the server to connect to (optional, default is 3306).
+The port on the server to connect to.
 
 =item B<--user_primary>
 
@@ -2205,7 +2215,7 @@ The server host name for the output database (required).
 
 =item B<--port_output>
 
-The port on the server to connect to (optional, default is 3306).
+The port on the server to connect to.
 
 =item B<--user_output>
 
@@ -2271,6 +2281,8 @@ C<primary> for B<--primary_tag> and C<secondary> for B<--secondary_tag>.
 
 =over
 
+=item B<--primary_xref>
+
 =item B<--primary_gene_xref>
 
 =item B<--primary_transcript_xref>
@@ -2285,13 +2297,14 @@ transcripts and translations and added to the output gene set.
 
 For example, the standard xrefs for Primary are specified as
 
+  --primary_xref=1
   --primary_gene_xref='OTTG,Havana gene,ALT_GENE'
   --primary_transcript_xref='OTTT,Havana transcript,ALT_TRANS'
   --primary_translation_xref='OTTP,Havana translation,MISC'
 
-These options are optional.  The default for these three options is the
-default Primary xref information (as above).  It only needs to be changed
-if you replace the Primary input data set with, for example, RefSeq.
+These options are optional.  The default for these four options is to not add
+any xref (--primary_xref=0). If you wish to add xrefs, set primary_xref to 1 and the other three
+parameters to their corresponding values.
 
 =back
 
