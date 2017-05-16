@@ -117,7 +117,7 @@ sub fetch_input {
     my $feature_region_id = $self->param('iid');
     my ($slice,$accession_array) = $self->parse_feature_region_id($feature_region_id);
     $querys = $self->get_query_seqs($accession_array);
-    @db_files = ($self->output_db_file($slice));
+    @db_files = ($slice);
   } elsif($iid_type eq 'feature_id') {
     my $feature_type = $self->param('feature_type');
     if($feature_type eq 'transcript') {
@@ -135,7 +135,7 @@ sub fetch_input {
         $self->peptide_seq($querys->[0]->seq);
       }
       $self->calculate_coverage_and_pid($self->param('calculate_coverage_and_pid'));
-      @db_files = ($self->output_db_file($slice,$accession_array));
+      @db_files = ($slice);
     } else {
       $self->throw("The feature_type you passed in is not supported! Type:\n".$feature_type);
     }
@@ -158,7 +158,7 @@ sub fetch_input {
        my ($slice,$accession_array) = $self->get_transcript_region($projection_transcript_id);
        $query_seq = $self->get_query_seq($accession_array);
        $self->peptide_seq($query_seq->seq);
-       @db_files = ($self->output_db_file($slice,$accession_array));
+       @db_files = ($slice);
    } elsif($iid_type eq 'chunk_file') {
     my $query = $self->QUERYSEQS;
 
@@ -237,7 +237,6 @@ sub fetch_input {
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
               -program  => $self->PROGRAM ? $self->PROGRAM : $self->analysis->program_file,
               -analysis => $self->analysis,
-              -target_file    => $database,
               -query_type     => $self->QUERYTYPE,
               -annotation_file => $self->QUERYANNOTATION ? $self->QUERYANNOTATION : undef,
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
@@ -247,6 +246,12 @@ sub fetch_input {
               %parameters,
               );
 
+      if (ref($database) eq 'Bio::EnsEMBL::Slice') {
+        $runnable->target_seqs($database);
+      }
+      else {
+        $runnable->target_file($database);
+      }
       if (ref($querys) eq 'ARRAY') {
         $runnable->query_seqs($querys);
       }
