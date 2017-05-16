@@ -28,7 +28,7 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 my $host = '';
 my $user = 'enrso';
 my $dbname = '';
-my $port = 3306;
+my $port = '';
 my $max_duplicates = 5;
 my @duplicates;
 my @unmapped;
