@@ -32,7 +32,7 @@ my $sql_file       = "./sql.txt";
 my $dbname;
 my $host;
 my $user;
-my $port            = 3306;
+my $port;
 my $scaf_syn_ext_id; # INSDC = 50710 but it's check by an SQL query
 my $ensembl_syn_ext_id; # ensembl_internal_synonym = 50803 but it's check by an SQL query
 my $central_coord_system;
@@ -73,6 +73,7 @@ if (!defined $central_coord_system)  {
 
 my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
     '-host'    => $host,
+    '-port'    => $port,
     '-user'    => $user,
     '-pass'    => $pass,
     '-dbname'  => $dbname,
