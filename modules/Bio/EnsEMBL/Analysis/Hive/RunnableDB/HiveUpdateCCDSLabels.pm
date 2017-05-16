@@ -71,13 +71,16 @@ sub param_defaults {
       assembly_path => undef,
       ccds_dbname => undef,
       ccds_host => undef,
+      ccds_port => undef,
       ccds_user => undef,
       output_dbname => undef,
       output_host => undef,
+      output_port => undef,
       output_user => undef,
       output_pass => undef,
       dna_dbname => undef,
       dna_host => undef,
+      dna_port => undef,
       dna_user => undef,
       dna_pass => undef,
       reports_dir => undef,
@@ -98,13 +101,16 @@ sub run {
   $self->param_required('assembly_path');
   $self->param_required('ccds_dbname');
   $self->param_required('ccds_host');
+  $self->param_required('ccds_port');
   $self->param_required('ccds_user');
   $self->param_required('output_dbname');
   $self->param_required('output_host');
+  $self->param_required('output_port');
   $self->param_required('output_user');
   $self->param_required('output_pass');
   $self->param_required('dna_dbname');
   $self->param_required('dna_host');
+  $self->param_required('dna_port');
   $self->param_required('dna_user');
   $self->param_required('dna_pass');
   $self->param_required('reports_dir');
@@ -115,13 +121,16 @@ sub run {
                                         $self->param('assembly_path'),
                                         $self->param('ccds_dbname'),
                                         $self->param('ccds_host'),
+                                        $self->param('ccds_port'),
                                         $self->param('ccds_user'),
                                         $self->param('output_dbname'),
                                         $self->param('output_host'),
+                                        $self->param('output_port'),
                                         $self->param('output_user'),
                                         $self->param('output_pass'),
                                         $self->param('dna_dbname'),
                                         $self->param('dna_host'),
+                                        $self->param('dna_port'),
                                         $self->param('dna_user'),
                                         $self->param('dna_pass'));
 
@@ -141,20 +150,23 @@ sub insert_ccds_labels {
       $assembly_path,
       $ccds_dbname,
       $ccds_host,
+      $ccds_port,
       $ccds_user,
       $output_dbname,
       $output_host,
+      $output_port,
       $output_user,
       $output_pass,
       $dna_dbname,
       $dna_host,
+      $dna_port,
       $dna_user,
       $dna_pass) = @_;
 
   my $dna_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
                                      '-no_cache' => 1,
                                      '-host'     => $dna_host,
-                                     '-port'     => 3306,
+                                     '-port'     => $dna_port,
                                      '-user'     => $dna_user,
                                      '-pass'     => $dna_pass,
                                      '-dbname'   => $dna_dbname
@@ -164,7 +176,7 @@ sub insert_ccds_labels {
   my $output_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
                                      '-no_cache' => 1,
                                      '-host'     => $output_host,
-                                     '-port'     => 3306,
+                                     '-port'     => $output_port,
                                      '-user'     => $output_user,
                                      '-pass'     => $output_pass,
                                      '-dbname'   => $output_dbname
@@ -175,7 +187,7 @@ sub insert_ccds_labels {
   my $ccds_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
                                      '-no_cache' => 1,
                                      '-host'     => $ccds_host,
-                                     '-port'     => 3306,
+                                     '-port'     => $ccds_port,
                                      '-user'     => $ccds_user,
                                      '-pass'     => '',
                                      '-dbname'   => $ccds_dbname
