@@ -92,6 +92,26 @@ sub _master_config {
                  };
   my %config = (
     default => {},
+    
+    self_patch => {
+               self_pe12 => {
+                              file_name => 'self_pe12.fasta',
+                              taxon_id  => '#taxon_id#',
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+                          
+               self_frag_pe12 => {
+                                   file_name => 'self_frag_pe12.fasta',
+                                   taxon_id  => '#taxon_id#',
+                                   dest_dir  => '#output_path#',
+                                   compress  => 0,
+                                   fragment  => 1,
+                                   pe_level  => [1,2],
+                                 },
+    },
+    
     primates_basic => {
               self_pe12 =>{
                             file_name => 'self_pe12.fasta',
