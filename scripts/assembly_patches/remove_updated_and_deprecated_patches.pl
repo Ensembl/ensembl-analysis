@@ -27,7 +27,7 @@ my $patchtype_file = "./data/patch_type";
 my $dbname;
 my $host;
 my $user;
-my $port = 3306;
+my $port;
 my $central_coord_system = 'supercontig';
 my $toplevel_coord_system = 'chromosome';
 my $sqlfile = 'delete_patch.sql';
@@ -49,6 +49,7 @@ open(SQL,">$sqlfile") || die "Could not open $sqlfile for writing\n";
 
 my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
     '-host'    => $host,
+    '-port'    => $port,
     '-user'    => $user,
     '-pass'    => $pass,
     '-dbname'  => $dbname,
