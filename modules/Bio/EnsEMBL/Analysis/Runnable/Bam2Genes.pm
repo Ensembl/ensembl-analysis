@@ -328,9 +328,7 @@ sub pad_exons {
              -analysis => $exon->analysis,
              -score    => $exon->score,
              -cigar_string => $padded_exon->length.'M');
-        my @feats;
-        push @feats,$feat;
-        $padded_exon->add_supporting_features(@feats);
+        $padded_exon->add_supporting_features($feat);
         push @padded_exons, $padded_exon;
     }
 
