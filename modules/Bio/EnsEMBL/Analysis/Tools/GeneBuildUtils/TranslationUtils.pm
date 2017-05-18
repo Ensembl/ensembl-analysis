@@ -512,15 +512,11 @@ sub run_translate{
  ORF:
   while ( <ORF> ){
     chomp;
-    next ORF unless /\>/;
-    my @entries = split;
-    next ORF unless ( $entries[3] && $entries[5] );
-    my $id = $entries[1];
-    my $orf_length = $entries[3];
-    $orf_length =~s/\,//;
-    $entries[5] =~/(\d+)\.\.(\d+)/;
-    my $orf_start = $1;
-    my $orf_end   = $2;
+    next ORF unless /\>\s*(\S+).*length\s+(\d+),.*\s+(\d+)\.\.(\d+)/;
+    my $id = $1;
+    my $orf_length = $2;
+    my $orf_start = $3;
+    my $orf_end   = $4;
     if ($orf_start>=$orf_end ) {  
       # print "can't compute translation for this transcript as translation start >= translation end : $orf_start >= $orf_end \n " ;
       next ORF  ; 
