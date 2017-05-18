@@ -193,18 +193,15 @@ sub exon_cluster {
         my $name = $query->name;
         my $start  = $read->start;
         my $end    = $read->end;
-        my $hstart = $query->start;
-        my $hend   = $query->end;
         my $paired = $read->get_tag_values('MAP_PAIR');
         my $is_first_mate = 1;
         my $hstrand = 1;
         my $strand = 1;
+        my $real_strand = -1; # We are making sure that we are -1 if not stranded, which should probably be changed...
         if ($stranded_reads) {
-            $hstrand = $read->get_tag_values('REVERSE') ? -1 : 1;
-            $is_first_mate = $read->get_tag_values('FIRST_MATE');
             $strand = $read->strand;
+            $real_strand = $read->get_tag_values('FIRST_MATE') ? $strand*-1 : $strand;
         }
-        my $real_strand = -($hstrand*$strand); # We are making sure that we are -1 if not stranded, which should probably be changed...
 #        print STDERR 'READ: ', $is_first_mate, ' ', $strand, ' ', $real_strand, ' ', $start, ' ', $read->flag, ' ', $read->get_tag_values('FIRST_MATE'), ' ', $read->get_tag_values('SECOND_MATE'), "\n";
 
         # ignore spliced reads
@@ -241,11 +238,13 @@ sub exon_cluster {
         # start a new cluster if there is no overlap
         ++$cluster_count;
         # make a feature representing the cluster
+        my $hstart = $query->start;
+        my $hend   = $query->end;
         my $feat = Bio::EnsEMBL::FeaturePair->new
             (
              -start      => $start,
              -end        => $end,
-             -strand     => $is_first_mate ? $real_strand : -$real_strand,
+             -strand     => $real_strand,
              -slice      => $full_slice,
              -hstart     => $hstart,
              -hend       => $hend,
