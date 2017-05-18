@@ -218,7 +218,6 @@ sub exon_cluster {
             }
             elsif ( $start <= $cluster_end+1 &&  $end >= $exon_cluster->start-1 ) {
                 # Expand the exon_cluster
-                $exon_cluster->start($start) if $start < $exon_cluster->start;
                 $exon_cluster->end($end)     if $end   > $exon_cluster->end;
                 $exon_cluster->score($exon_cluster->score + 1);
                 # only store the connection data if it is paired in mapping
