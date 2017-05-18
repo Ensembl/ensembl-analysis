@@ -178,6 +178,17 @@ sub exon_cluster {
         ++$read_count;
         # It seems we always get the unmmapped mate, so we need to remove it
         return if ($read->get_tag_values('UNMAPPED') or $read->get_tag_values('XS'));
+        my $length = $read->length;
+        if ($read->get_tag_values('NM') > $length/3) {
+          my $max = 0;
+          my $md = $read->get_tag_values('MD');
+          my $double_digit_count = 0;
+          while ($md =~ /([0-9]{2,})/gc) {
+            $max = $1 if ($max < $1);
+            ++$double_digit_count;
+          }
+          return if ($max < $length/3 and $double_digit_count < 4);
+        }
         my $query = $read->query;
         my $name = $query->name;
         my $start  = $read->start;
