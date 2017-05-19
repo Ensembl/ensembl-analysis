@@ -191,7 +191,7 @@ sub default_options {
     'unigene_blast_db_path'     => '/hps/nobackup/production/ensembl/genebuild/blastdb/unigene/unigene',
     
     # alignment annotation on patches
-    'taxon_id'             => XXXX, # 9606 for human
+    'taxon_id'             => 'XXXX', # '9606' for human
     'clone_db_script_path' => "$ENSCODE/ensembl-analysis/scripts/clone_database.ksh",
     'genblast_name'        => 'XXX_genblast_XXX', # genblast database
     'genblast_host'        => $self->o('default_host'),
