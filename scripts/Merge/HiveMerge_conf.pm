@@ -2299,14 +2299,16 @@ sub pipeline_analyses {
             {
               -logic_name => 'download_uniprot_files',
               -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadUniProtFiles',
-
               -parameters => {
-                               multi_query_download => $self->uniprot_clade_download(),
-
+                               multi_query_download => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::UniProtCladeDownloadStatic',
+                                                                             $self->default_options->{'uniprot_set'}),
+                               taxon_id => $self->o('taxon_id'),
+                               output_path => $self->o('homology_models_path'),
                              },
               -rc_name          => 'default',
               -flow_into => {
-                              1 => ['process_uniprot_files'],
+                              '2->A' => ['process_uniprot_files'],
+                              'A->1' => ['generate_genblast_jobs'],
                             },
             },
 
@@ -2314,17 +2316,11 @@ sub pipeline_analyses {
               -logic_name => 'process_uniprot_files',
               -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessUniProtFiles',
               -parameters => {
-                               uniprot_db_name => $self->o('uniprot_db_name'),
-                               uniprot_index_name => $self->o('uniprot_index_name'),
-                               dest_dir   => $self->o('homology_models_path'),
                                killlist_type => 'protein',
                                killlist_db => $self->o('killlist_db'),
-                            },
+                               sequence_table_name => $self->o('uniprot_table_name'),
+                             },
               -rc_name => 'default',
-              -flow_into => {
-                             '2->A' => ['load_uniprot_seqs'],
-                             'A->1' => ['generate_genblast_jobs'],
-                            },
             },
 
             {
