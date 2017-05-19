@@ -758,15 +758,16 @@ sub pipeline_analyses {
               -parameters => {
               	               dbname => $self->o('vega_db','-dbname'),
                                dbhost => $self->o('vega_db','-host'),
+                               port => $self->o('vega_db','-port'),
                                dnadbname => $self->o('ensembl_db','-dbname'),
                                dnadbhost => $self->o('ensembl_db','-host'),
+                               dnadbport => $self->o('ensembl_db','-port'),
+                               user => $self->o('user_w'),
+                               pass => $self->o('pass_w'),
                                coord_system => 'toplevel',
                                path => $self->o('assembly_path'),
                                sql_output => $self->o('output_dir').'/vega_checks_before_#chromosome#.sql',
                                dbtype => '', # can be 'vega' or '' (empty string)
-                               port => '3306',
-                               user => $self->o('user_w'),
-                               pass => $self->o('pass_w'),
                                #chromosome => '',
                                write => 1,
                                affix => 0, # perform the checks by using the biotypes with or without the prefixes and suffixes like weird_, _Ens, _hav, ... ; without affixes by default
@@ -875,14 +876,17 @@ sub pipeline_analyses {
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveUpdateCCDSLabels',
               -parameters => {
                                ccds_dbname => $self->o('ccds_db','-dbname'),
+                               ccds_port => $self->o('ccds_db','-port'),
                                ccds_host => $self->o('ccds_db','-host'),
                                ccds_user => $self->o('ccds_db','-user'),
                                output_dbname => $self->o('ensembl_db','-dbname'),
                                output_host => $self->o('ensembl_db','-host'),
+                               output_port => $self->o('ensembl_db','-port'),
                                output_user => $self->o('user_w'),
                                output_pass => $self->o('pass_w'),
                                dna_dbname => $self->o('ensembl_db','-dbname'),
                                dna_host => $self->o('ensembl_db','-host'),
+                               dna_port => $self->o('ensembl_db','-port'),
                                dna_user => $self->o('user_r'),
                                dna_pass => $self->o('pass_r'),
                                assembly_path => $self->o('assembly_path'),
@@ -924,13 +928,16 @@ sub pipeline_analyses {
               -parameters => {
                                ccds_dbname => $self->o('ccds_db','-dbname'),
                                ccds_host => $self->o('ccds_db','-host'),
+                               ccds_port => $self->o('ccds_db','-port'),
                                ccds_user => $self->o('ccds_db','-user'),
                                output_dbname => $self->o('vega_db','-dbname'),
                                output_host => $self->o('vega_db','-host'),
+                               output_port => $self->o('vega_db','-port'),
                                output_user => $self->o('user_w'),
                                output_pass => $self->o('pass_w'),
                                dna_dbname => $self->o('ensembl_db','-dbname'),
                                dna_host => $self->o('ensembl_db','-host'),
+                               dna_port => $self->o('ensembl_db','-port'),
                                dna_user => $self->o('user_r'),
                                dna_pass => $self->o('pass_r'),
                                assembly_path => $self->o('assembly_path'),
@@ -1034,13 +1041,16 @@ sub pipeline_analyses {
               -parameters => {
                                ccds_dbname => $self->o('ccds_db','-dbname'),
                                ccds_host => $self->o('ccds_db','-host'),
+                               ccds_port => $self->o('ccds_db','-port'),
                                ccds_user => $self->o('ccds_db','-user'),
                                output_dbname => $self->o('ensembl_db','-dbname'),
                                output_host => $self->o('ensembl_db','-host'),
+                               output_port => $self->o('ensembl_db','-port'),
                                output_user => $self->o('user_w'),
                                output_pass => $self->o('pass_w'),
                                dna_dbname => $self->o('ensembl_db','-dbname'),
                                dna_host => $self->o('ensembl_db','-host'),
+                               dna_port => $self->o('ensembl_db','-port'),
                                dna_user => $self->o('user_r'),
                                dna_pass => $self->o('pass_r'),
                                assembly_path => $self->o('assembly_path'),
@@ -1082,13 +1092,16 @@ sub pipeline_analyses {
               -parameters => {
                                ccds_dbname => $self->o('ccds_db','-dbname'),
                                ccds_host => $self->o('ccds_db','-host'),
+                               ccds_port => $self->o('ccds_db','-port'),
                                ccds_user => $self->o('ccds_db','-user'),
                                output_dbname => $self->o('vega_db','-dbname'),
                                output_host => $self->o('vega_db','-host'),
+                               output_port => $self->o('vega_db','-port'),
                                output_user => $self->o('user_w'),
                                output_pass => $self->o('pass_w'),
                                dna_dbname => $self->o('ensembl_db','-dbname'),
                                dna_host => $self->o('ensembl_db','-host'),
+                               dna_port => $self->o('ensembl_db','-port'),
                                dna_user => $self->o('user_r'),
                                dna_pass => $self->o('pass_r'),
                                assembly_path => $self->o('assembly_path'),
@@ -1171,15 +1184,22 @@ sub pipeline_analyses {
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMerge',
               -parameters => {
                                ensembl_analysis_base => $self->o('ensembl_analysis_base'),
+                               host_dna => $self->o('ensembl_db','-host'),
+                               port_dna => $self->o('ensembl_db','-port'),
+                               user_dna => $self->o('user_r'),
+                               database_dna => $self->o('ensembl_db','-dbname'),
                                host_secondary => $self->o('ensembl_db','-host'),
+                               port_secondary => $self->o('ensembl_db','-port'),
                                user_secondary => $self->o('user_r'),
                                password_secondary => $self->o('pass_r'),
                                database_secondary => $self->o('ensembl_db','-dbname'),
                                host_primary => $self->o('vega_db','-host'),
+                               port_primary => $self->o('vega_db','-port'),
                                user_primary => $self->o('user_r'),
                                password_primary =>$self->o('pass_r'),
                                database_primary => $self->o('vega_db','-dbname'),
                                host_output => $self->o('core_db','-host'),
+                               port_output => $self->o('core_db','-port'),
                                user_output =>$self->o('user_w'),
                                password_output => $self->o('pass_w'),
                                database_output => $self->o('core_db','-dbname'),
@@ -1198,6 +1218,7 @@ sub pipeline_analyses {
                                # Xrefs:  The format is a comma-separated list of
                                # "db_name,db_display_name,type"
 
+                               primary_xref => 1,
                                primary_gene_xref => 'OTTG,Havana gene,ALT_GENE',
                                primary_transcript_xref => 'OTTT,Havana transcript,ALT_TRANS',
                                primary_translation_xref => 'OTTP,Havana translation,MISC',
@@ -1236,6 +1257,7 @@ sub pipeline_analyses {
               	               output_dir => $self->o('output_dir'),
               	               output_file => $self->o('unprocessed_genes_filename'),
                                host_secondary => $self->o('ensembl_db','-host'),
+                               port_secondary => $self->o('ensembl_db','-port'),
                                user_secondary => $self->o('user_r'),
                                password_secondary => $self->o('pass_r'),
                                database_secondary => $self->o('ensembl_db','-dbname'),
@@ -1481,15 +1503,16 @@ sub pipeline_analyses {
               -parameters => {
                                dbname => $self->o('core_db','-dbname'),
                                dbhost => $self->o('core_db','-host'),
+                               port => $self->o('core_db','-port'),
                                dnadbname => $self->o('ensembl_db','-dbname'),
                                dnadbhost => $self->o('ensembl_db','-host'),
+                               dnadbport => $self->o('ensembl_db','-port'),
+                               user => $self->o('user_w'),
+                               pass => $self->o('pass_w'),
                                coord_system => 'toplevel',
                                path => $self->o('assembly_path'),
                                sql_output => $self->o('output_dir').'/vega_checks_after_#chromosome#.sql',
                                dbtype => '', # can be 'vega' or '' (empty string)
-                               port => '3306',
-                               user => $self->o('user_w'),
-                               pass => $self->o('pass_w'),
                                #chromosome => '',
                                write => 1,
                                affix => 1, # perform the checks by using the biotypes with or without the prefixes and suffixes like weird_, _Ens, _hav, ... ; with affixes by default
@@ -1656,6 +1679,7 @@ sub pipeline_analyses {
                                       ' -dbuser '.$self->o('user_r').
                                       ' -newdbname '.$self->o('core_db','-dbname').
                                       ' -newdbhost '.$self->o('core_db','-host').
+                                      ' -newdbport '.$self->o('core_db','-port').
                                       ' -newdbuser '.$self->o('user_w').
                                       ' -newdbpass '.$self->o('pass_w').
                                       ' -vegadbname '.$self->o('vega_db','-dbname').
@@ -1784,6 +1808,7 @@ sub pipeline_analyses {
               -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadPatches',
               -parameters => {
                                 dbhost => $self->o('core_db','-host'),
+                                dbport => $self->o('core_db','-port'),
                                 dbname => $self->o('core_db','-dbname'),
                                 dbuser => $self->o('user_w'),
                                 dbpass => $self->o('pass_w'),
