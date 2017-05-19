@@ -248,6 +248,7 @@ sub default_options {
 
     'cleaning_blessed_biotypes' => {'pseudogene' => 1,'processed_pseudogene' => 1},
 
+    'blast_type'                 => 'ncbi',
     'uniprot_index_name'         => 'uniprot_index',
     'uniprot_db_name'            => 'uniprot_db',
     'uniprot_query_dir_name'     => 'uniprot_temp',
