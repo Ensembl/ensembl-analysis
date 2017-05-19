@@ -2339,10 +2339,9 @@ sub pipeline_analyses {
               -logic_name => 'generate_genblast_jobs',
               -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
               -parameters => {
-                               iid_type => 'uniprot_accession',
-                               uniprot_batch_size => $self->o('uniprot_genblast_batch_size'),
-                               uniprot_table_name => $self->o('uniprot_table_name'),
-
+                               iid_type => 'sequence_accession',
+                               batch_size => $self->o('uniprot_genblast_batch_size'),
+                               sequence_table_name => $self->o('uniprot_table_name'),
                              },
               -rc_name      => 'normal_2900',
               -flow_into => {
@@ -2362,7 +2361,8 @@ sub pipeline_analyses {
                                module => 'HiveGenblast',
                                genblast_path => $self->o('genblast_path'),
                                genblast_db_path => $self->o('genome_file'),
-                               commandline_params => ' -P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
+                               commandline_params => $genblast_params{$self->o('blast_type')},
+                               #commandline_params => ' -P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
                                query_seq_dir => $self->o('homology_models_path').'/'.$self->o('uniprot_query_dir_name'),
                                sequence_table_name => $self->o('uniprot_table_name'),
                                max_rank => $self->o('genblast_max_rank'),
@@ -2383,9 +2383,9 @@ sub pipeline_analyses {
               -logic_name => 'split_genblast_jobs',
               -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
               -parameters => {
-                               iid_type => 'rechunk_uniprot_accession',
-                               uniprot_batch_size => 1,
-                               uniprot_table_name => $self->o('uniprot_table_name'),
+                               iid_type => 'rechunk',
+                               batch_size => 1,
+                               sequence_table_name => $self->o('uniprot_table_name'),
 
                              },
               -rc_name      => 'default',
@@ -2407,7 +2407,8 @@ sub pipeline_analyses {
                                module => 'HiveGenblast',
                                genblast_path => $self->o('genblast_path'),
                                genblast_db_path => $self->o('genome_file'),
-                               commandline_params => ' -P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
+                               commandline_params => $genblast_params{$self->o('blast_type')},
+                               #commandline_params => ' -P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' ',
                                query_seq_dir => $self->o('homology_models_path').'/'.$self->o('uniprot_query_dir_name'),
                                sequence_table_name => $self->o('uniprot_table_name'),
                                max_rank => $self->o('genblast_max_rank'),
