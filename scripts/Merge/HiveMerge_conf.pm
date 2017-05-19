@@ -518,6 +518,16 @@ sub pipeline_create_commands {
 sub pipeline_analyses {
   my ($self) = @_;
 
+  my %genblast_params = (
+    wu   => '-P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov'),
+    ncbi => '-P blast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' -W 3 -rl 5000',
+  );
+  my %commandline_params = (
+    'ncbi' => '-num_threads 3 -window_size 40',
+    'wu' => '-cpus 3 -hitdist 40',
+    'legacy_ncbi' => '-a 3 -A 40',
+  );
+
   return [
             {
               -logic_name => 'create_reports_dir',
