@@ -266,7 +266,8 @@ sub default_options {
     'exonerate_region_padding' => 15000,#1000
 
     'killlist_name'        => 'gb_kill_list', # genblast database
-    'killlist_host'        => 'genebuild12',
+    'killlist_host'        => 'mysql-ens-genebuild-prod-6.ebi.ac.uk',
+    'killlist_port'        => '4532',
 
     'genome_file' => $self->o('output_dir')."/genome_dumps/".$self->o('species_name')."_softmasked_toplevel.fa",
 
