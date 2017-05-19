@@ -2677,7 +2677,23 @@ sub pipeline_analyses {
                          dna_db     => $self->o('ro_core_db'),
                          logic_name => 'ensembl',
                          module     => 'HiveGeneBuilder',
-                         config_settings => $self->get_config_settings('genebuilder','genebuilder_set'),
+                         INPUT_GENES => {
+                           'input_db' => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GenebuilderStatic','self_patch',undef,'ARRAY'),
+                         },
+                         OUTPUT_BIOTYPE => 'ensembl',
+                         MAX_TRANSCRIPTS_PER_CLUSTER => 10,
+                         MIN_SHORT_INTRON_LEN => 7, #introns shorter than this seem
+                         #to be real frame shifts and shoudn't be ignored
+                         MAX_SHORT_INTRON_LEN => 15,
+                         BLESSED_BIOTYPES => {
+                                              'ccds_gene' => 1,
+                                              'Blessed_UTR_Genes' => 1,
+                                             },
+                         #the biotypes of the best genes always to be kept
+                         MAX_EXON_LENGTH => 20000,
+                         #if the coding_only flag is set to 1, the transcript clustering into genes is done over coding exons only
+                         # the current standard way is to cluster only on coding exons
+                         CODING_ONLY => 1,
                        },
         -rc_name    => 'normal_1900',
         -hive_capacity => 900,
