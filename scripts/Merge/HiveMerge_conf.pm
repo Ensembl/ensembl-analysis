@@ -2152,14 +2152,13 @@ sub pipeline_analyses {
                                target_db => $self->o('core_db'),
                                blast_db_path => $self->o('uniprot_blast_db_path'),
                                blast_exe_path => $self->o('uniprot_blast_exe_path'),
-                               commandline_params => '-cpus 3 -hitdist 40',
+                               commandline_params => '-num_threads 3 -window_size 40',
                                repeat_masking_logic_names => ['repeatmask_repbase_'.$self->o('repeatmasker_library')],
                                prediction_transcript_logic_names => ['genscan'],
                                iid_type => 'feature_id',
                                logic_name => 'uniprot',
                                module => 'HiveBlastGenscanPep',
                                %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep')},
-                               #config_settings => $self->get_config_settings('HiveBlast','HiveBlastGenscanPep'),
                             },
               -flow_into => {
                               1 => ['vertrna_blast'],
@@ -2173,22 +2172,20 @@ sub pipeline_analyses {
             },
 
             {
-              # BLAST individual prediction transcripts against vertRNA. The config settings are held lower in this
-              # file in the master_config_settings sub
+              # BLAST individual prediction transcripts against vertRNA.
               -logic_name => 'vertrna_blast',
               -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlastGenscanDNA',
               -parameters => {
                                target_db => $self->o('core_db'),
                                blast_db_path => $self->o('vertrna_blast_db_path'),
                                blast_exe_path => $self->o('vertrna_blast_exe_path'),
-                               commandline_params => '-cpus 3 -hitdist 40',
+                               commandline_params => '-num_threads 3 -window_size 40',
                                repeat_masking_logic_names => ['repeatmask_repbase_'.$self->o('repeatmasker_library')],
                                prediction_transcript_logic_names => ['genscan'],
                                iid_type => 'feature_id',
                                logic_name => 'vertrna',
                                module => 'HiveBlastGenscanDNA',
                                %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanVertRNA')},
-                               #config_settings => $self->get_config_settings('HiveBlast','HiveBlastGenscanVertRNA'),
                             },
               -flow_into => {
                               1 => ['unigene_blast'],
@@ -2202,22 +2199,20 @@ sub pipeline_analyses {
             },
 
             {
-              # BLAST individual prediction transcripts against unigene. The config settings are held lower in this
-              # file in the master_config_settings sub
+              # BLAST individual prediction transcripts against unigene.
               -logic_name => 'unigene_blast',
               -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlastGenscanDNA',
               -parameters => {
                                target_db => $self->o('core_db'),
                                blast_db_path => $self->o('unigene_blast_db_path'),
                                blast_exe_path => $self->o('unigene_blast_exe_path'),
-                               commandline_params => '-cpus 3 -hitdist 40',
+                               commandline_params => '-num_threads 3 -window_size 40',
                                prediction_transcript_logic_names => ['genscan'],
                                iid_type => 'feature_id',
                                repeat_masking_logic_names => ['repeatmask_repbase_'.$self->o('repeatmasker_library')],
                                logic_name => 'unigene',
                                module => 'HiveBlastGenscanDNA',
                                %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanUnigene')},
-                               #config_settings => $self->get_config_settings('HiveBlast','HiveBlastGenscanUnigene'),
                             },
               -flow_into => {
                               -1 => ['failed_blast_job'],
