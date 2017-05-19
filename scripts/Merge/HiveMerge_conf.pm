@@ -474,22 +474,22 @@ sub default_options {
 sub resource_classes {
       my $self = shift;
           return {
-            'default' => { 'LSF' => $self->lsf_resource_builder('normal',900,[$self->default_options->{'default_host'}]) },
-            'normal_1500' => { 'LSF' => $self->lsf_resource_builder('normal',1500,[$self->default_options->{'default_host'}]) },
-            'normal_1900' => { 'LSF' => $self->lsf_resource_builder('normal',1900,[$self->default_options->{'default_host'}]) },
-            'normal_1900_120' => { 'LSF' => "-W 120 ".$self->lsf_resource_builder('normal',1900,[$self->default_options->{'default_host'}]) },
-            'normal_2900' => { 'LSF' => $self->lsf_resource_builder('normal',2900,[$self->default_options->{'default_host'}]) },
-            'normal_2900_180' => { 'LSF' => "-W 180 ".$self->lsf_resource_builder('normal',2900,[$self->default_options->{'default_host'}]) },
-            'normal_2900_n3' => { 'LSF' => $self->lsf_resource_builder('normal',2900,[$self->default_options->{'default_host'}],undef,3) },
-            'normal_3900_200' => { 'LSF' => "-W 200 ".$self->lsf_resource_builder('normal',3900,[$self->default_options->{'default_host'}]) },
-            'normal_5900_60' => { 'LSF' => "-W 60 ".$self->lsf_resource_builder('normal',5900,[$self->default_options->{'default_host'}]) },
-            'normal_4600' => { 'LSF' => $self->lsf_resource_builder('normal',4600,[$self->default_options->{'default_host'}]) },
-            'normal_4900_120' => { 'LSF' => "-W 120 ".$self->lsf_resource_builder('normal',4900,[$self->default_options->{'default_host'}]) },
-            'normal_5900' => { 'LSF' => $self->lsf_resource_builder('normal',5900,[$self->default_options->{'default_host'}]) },
-            'normal_7900' => { 'LSF' => $self->lsf_resource_builder('normal',7900,[$self->default_options->{'default_host'}]) },
-            'normal_12000' => { 'LSF' => $self->lsf_resource_builder('normal',12000,[$self->default_options->{'default_host'}]) },
-            'basement_1500' => { 'LSF' => $self->lsf_resource_builder('basement',1500,[$self->default_options->{'default_host'}]) },
-            'local' => {'LOCAL' => ''},   
+            'default' => { 'LSF' => $self->lsf_resource_builder('production-rh7',900) },
+            'normal_1500' => { 'LSF' => $self->lsf_resource_builder('production-rh7',1500) },
+            'normal_1900' => { 'LSF' => $self->lsf_resource_builder('production-rh7',1900) },
+            'normal_1900_120' => { 'LSF' => "-W 120 ".$self->lsf_resource_builder('production-rh7',1900) },
+            'normal_2900' => { 'LSF' => $self->lsf_resource_builder('production-rh7',2900) },
+            'normal_2900_180' => { 'LSF' => "-W 180 ".$self->lsf_resource_builder('production-rh7',2900) },
+            'normal_2900_n3' => { 'LSF' => $self->lsf_resource_builder('production-rh7',2900,undef,undef,3) },
+            'normal_3900_200' => { 'LSF' => "-W 200 ".$self->lsf_resource_builder('production-rh7',3900) },
+            'normal_5900_60' => { 'LSF' => "-W 60 ".$self->lsf_resource_builder('production-rh7',5900) },
+            'normal_4600' => { 'LSF' => $self->lsf_resource_builder('production-rh7',4600) },
+            'normal_4900_120' => { 'LSF' => "-W 120 ".$self->lsf_resource_builder('production-rh7',4900) },
+            'normal_5900' => { 'LSF' => $self->lsf_resource_builder('production-rh7',5900) },
+            'normal_7900' => { 'LSF' => $self->lsf_resource_builder('production-rh7',7900) },
+            'normal_12000' => { 'LSF' => $self->lsf_resource_builder('production-rh7',12000) },
+            'basement_1500' => { 'LSF' => $self->lsf_resource_builder('production-rh7',1500) },
+            'local' => {'LOCAL' => ''},
                 }
 }
 
