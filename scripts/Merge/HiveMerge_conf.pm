@@ -191,7 +191,6 @@ sub default_options {
     'unigene_blast_db_path'     => '/hps/nobackup/production/ensembl/genebuild/blastdb/unigene/unigene',
     
     # alignment annotation on patches
-    'uniprot_set'          => '',     # 'human_patch' or 'mouse_patch'
     'clone_db_script_path' => "$ENSCODE/ensembl-analysis/scripts/clone_database.ksh",
     'genblast_name'        => 'XXX_genblast_XXX', # genblast database
     'genblast_host'        => $self->o('default_host'),
@@ -218,6 +217,7 @@ sub default_options {
     'repeat_logic_names' => ['repeatmask_repbase_'.$self->o('repeatmasker_library'),
                              'dust'],
     'repeat_masking_logic_names' => ['repeatmask_repbase_'.$self->o('repeatmasker_library')],
+    'uniprot_set'                => 'self_patch',
 
     # executable paths
     'repeatmasker_path' => '/software/ensembl/bin/RepeatMasker_4_0_5/RepeatMasker',
