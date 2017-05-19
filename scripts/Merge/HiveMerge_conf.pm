@@ -194,6 +194,7 @@ sub default_options {
     'clone_db_script_path' => "$ENSCODE/ensembl-analysis/scripts/clone_database.ksh",
     'genblast_name'        => 'XXX_genblast_XXX', # genblast database
     'genblast_host'        => $self->o('default_host'),
+    'exonerate_settings'   => 'exonerate_protein_human_patch', # exonerate settings to use from ExonerateStatic
     'exonerate_name'        => 'XXX_exonerate_XXX', # genblast database
     'exonerate_host'        => $self->o('default_host'),
     'cdna_name'             => '', # latest cdna db on live-mirror
