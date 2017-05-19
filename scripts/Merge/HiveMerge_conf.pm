@@ -148,15 +148,19 @@ sub default_options {
 
     'ensembl_host' => '', # ensembl database to be used for the merge
     'ensembl_name' => '',
+    'ensembl_port' => '',
 
     'ccds_host' => '', # ccds database containing the CCDS gene set
     'ccds_name' => '',
+    'ccds_port' => '',
 
     'prevcore_host' => '', # previous core database (available on staging or live)
     'prevcore_name' => '',
+    'prevcore_port' => '',
 
     'production_host' => '', # production database (available on staging)
     'production_name' => '',
+    'production_port' => '',
 
     'pipe_dbname' => '', # pipeline db, automatically created
 
@@ -165,8 +169,13 @@ sub default_options {
     'core_name' => '', # core database which will contain the merged gene set at the end of the process
 
     'vega_host' => $self->o('default_host'),
+    'vega_port' => $self->o('default_port'),
+
     'core_host' => $self->o('default_host'),
+    'core_port' => $self->o('default_port'),
+    
     'pipe_db_server' => $self->o('default_host'),
+    'pipe_port' => $self->o('default_port'),
 
     ##################
     # patch annotation
