@@ -247,7 +247,7 @@ sub fetch_input {
               );
 
       if (ref($database) eq 'Bio::EnsEMBL::Slice') {
-        $runnable->target_seqs($database);
+        $runnable->target_seqs([$database]);
       }
       else {
         $runnable->target_file($database);
