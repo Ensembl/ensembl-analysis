@@ -258,6 +258,17 @@ sub _master_config {
                 'vert_pe12_tr_80',
                 'vert_pe12_tr_95',
     ],
+    
+    self_patch => [
+                'self_pe12_sp_95',
+                'self_pe12_sp_80',
+                'self_pe12_tr_95',
+                'self_pe12_tr_80',
+                'self_frag_pe12_sp_95',
+                'self_frag_pe12_tr_95',
+                'self_frag_pe12_sp_80',
+                'self_frag_pe12_tr_80',
+    ],
   );
   return $config{$key};
 }
