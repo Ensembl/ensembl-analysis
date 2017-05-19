@@ -2009,23 +2009,6 @@ sub pipeline_analyses {
                                commandline_params => '-epojar => '.$self->o('eponine_jar_path').', -threshold => 0.999',
                              },
               -rc_name    => 'normal_2900',
-              -flow_into => {1 => ['firstef']},
-              -hive_capacity => 900,
-              -batch_size => 20,
-            },
-
-            {
-              -logic_name => 'firstef',
-              -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveFirstEF',
-              -parameters => {
-                               target_db => $self->o('core_db'),
-                               logic_name => 'firstef',
-                               module => 'HiveFirstEF',
-                               firstef_path => $self->o('firstef_path'),
-                               repeat_masking_logic_names => ['repeatmask_repbase_'.$self->o('repeatmasker_library')],
-                               commandline_params => '-repeatmasked',
-                             },
-              -rc_name    => 'normal_2900',
               -flow_into => {1 => ['cpg']},
               -hive_capacity => 900,
               -batch_size => 20,
