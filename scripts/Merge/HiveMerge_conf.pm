@@ -23,6 +23,7 @@ use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;           # Allow this par
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
+use File::Spec::Functions;
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
 use Env qw(ENSCODE);
