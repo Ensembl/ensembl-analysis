@@ -2498,9 +2498,15 @@ sub pipeline_analyses {
                                target_db => $self->o('exonerate_db'),
                                logic_name => 'exonerate',
                                module     => 'HiveExonerate2Genes',
-                               config_settings => $self->get_config_settings('exonerate_protein','exonerate'),
+                               
+                               %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic',$self->default_options()->{'exonerate_settings'})},
+                               GENOMICSEQS         => $self->o('genome_file'),
+                               PROGRAM             => $self->o('exonerate_path'),
+                               SOFT_MASKED_REPEATS => $self->o('repeat_masking_logic_names'),
                                query_seq_dir => $self->o('homology_models_path').'/'.$self->o('uniprot_query_dir_name'),
                                calculate_coverage_and_pid => $self->o('exonerate_calculate_coverage_and_pid'),
+                               exonerate_pid => $self->o('exonerate_pid'),
+                               exonerate_cov => $self->o('exonerate_cov'),
                             },
             },
 
