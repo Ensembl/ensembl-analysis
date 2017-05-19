@@ -20,6 +20,8 @@ my $dbname;
 my $port;
 my $dnadbname;
 my $dnahost;
+my $dnaport;
+my $dnauser;
 
 # genomic location
 my $coordsystem = 'chromosome';
