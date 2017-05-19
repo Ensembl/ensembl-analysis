@@ -391,6 +391,47 @@ sub _master_config {
             },
 
     ],
+    
+    self_patch => [
+            {
+              ID         => 'LAYER1',
+              BIOTYPES   => [
+                             'self_pe12_sp_95',
+                             'self_pe12_tr_95',
+                            ],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER2',
+              BIOTYPES   => [
+                              'self_frag_pe12_sp_95',
+                              'self_frag_pe12_tr_95',
+                            ],
+              FILTER_AGAINST => ['LAYER1'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER3',
+              BIOTYPES   => [
+                             'self_pe12_sp_80',
+                             'self_pe12_tr_80',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2'],
+              DISCARD    => 0,
+            },
+            
+            {
+              ID         => 'LAYER4',
+              BIOTYPES   => [
+                             'self_frag_pe12_sp_80',
+                             'self_frag_pe12_tr_80',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
+              DISCARD    => 0,
+            },
+    ],
   );
   return $config{$key};
 }
