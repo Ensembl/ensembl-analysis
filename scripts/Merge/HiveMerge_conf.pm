@@ -2604,7 +2604,10 @@ sub pipeline_analyses {
                          dna_db     => $self->o('core_db'),
                          logic_name => 'layer_annotation',
                          module     => 'HiveLayerAnnotation',
-                         config_settings => $self->get_config_settings('layer_annotation','layers'),
+                         TARGETDB_REF => $self->o('layering_db'),
+                         SOURCEDB_REFS => $self->o('layering_input_gene_dbs'),
+                         FILTER => 'Bio::EnsEMBL::Analysis::Tools::CodingExonOverlapFilter',
+                         LAYERS => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic','self_patch',undef,'ARRAY'),
                        },
         -rc_name    => 'normal_3900_200',
         -flow_into  => {
