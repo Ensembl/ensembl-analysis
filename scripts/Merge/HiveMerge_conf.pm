@@ -64,10 +64,10 @@ sub default_options {
     'password' => $self->o('pass_w'),
 
     # output directory. The merge will write log files here. The directory must not already exist.
-    'output_dir' => '',
+    'output_dir' => '/hps/nobackup/production/ensembl/...',
 
     # name of the directory where the vega checks reports will be written. This directory must not be neither output_dir nor a subdirectory of output_dir.
-    'reports_dir' => '',
+    'reports_dir' => '/hps/nobackup/production/ensembl/...',
 
     # email to send the vega checks reports to
     'vega_checks_reports_email' => '@ebi.ac.uk',
@@ -129,13 +129,13 @@ sub default_options {
     'assembly_path' => 'GRCh38',
 
     # full path to uniprot file to be used for the script which assigns the external DB IDs and optimises the align feature tables
-    'uniprot_file' => '../Ensembl/uniprot_20XX_XX/entry_loc',
+    'uniprot_file' => '/hps/nobackup/production/ensembl/genebuild/blastdb/uniprot/uniprot_20XX_XX/entry_loc',
 
     # full path to your local copy of the ensembl-analysis git repository
     'ensembl_analysis_base' => '$ENSCODE/ensembl-analysis',
 
     # database parameters
-    'default_port' => 3306, # default port to be used for all databases except the original vega db provided by the Vega team
+    'default_port' => 4527, # default port to be used for all databases except the original vega db provided by the Vega team
     'default_host' => 'genebuildXX', # default host to be used for the pipeline, vega and core databases. Used to build the resource requirements.
 
     'original_ensembl_host' => '', # vega database provided by the Vega team
@@ -185,10 +185,10 @@ sub default_options {
     'species_name' => '',             # 'homo_sapiens' or 'mus_musculus'
     
     # BLAST db paths
-    'uniprot_blast_db_path'     => '/data/blastdb/Ensembl/uniprot_20XX_XX/uniprot_vertebrata',
-    'uniprot_index'             => '/data/blastdb/Ensembl/uniprot_20XX_XX/entry_loc',
-    'vertrna_blast_db_path'     => '/data/blastdb/Ensembl/vertrna_xdformat_20XX_XX/embl_vertrna-1',
-    'unigene_blast_db_path'     => '/data/blastdb/Ensembl/unigene/unigene',
+    'uniprot_blast_db_path'     => '/hps/nobackup/production/ensembl/genebuild/blastdb/uniprot/uniprot_20XX_XX/uniprot_vertebrate',
+    'uniprot_index'             => '/hps/nobackup/production/ensembl/genebuild/blastdb/uniprot/uniprot_20XX_XX/entry_loc',
+    'vertrna_blast_db_path'     => '/hps/nobackup/production/ensembl/genebuild/blastdb/vertrna/XXX/embl_vertrna-1',
+    'unigene_blast_db_path'     => '/hps/nobackup/production/ensembl/genebuild/blastdb/unigene/unigene',
     
     # alignment annotation on patches
     'uniprot_set'          => '',     # 'human_patch' or 'mouse_patch'
