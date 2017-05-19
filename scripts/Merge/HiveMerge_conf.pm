@@ -304,7 +304,7 @@ sub default_options {
     # ensembl database to be used for the merge
     'ensembl_db' => {
                     -host      => $self->o('ensembl_host'),
-                    -port      => $self->o('default_port'),
+                    -port      => $self->o('ensembl_port'),
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
                     -dbname    => $self->o('ensembl_name'),
@@ -313,7 +313,7 @@ sub default_options {
     # ccds database containing the CCDS gene set
     'ccds_db' => {
                     -host      => $self->o('ccds_host'),
-                    -port      => $self->o('default_port'),
+                    -port      => $self->o('ccds_port'),
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('ccds_name'),
@@ -322,17 +322,17 @@ sub default_options {
     # previous core database (available on ens-staging or ens-livemirror)
     'prevcore_db' => {
                     -host      => $self->o('prevcore_host'),
-                    -port      => $self->o('default_port'),
+                    -port      => $self->o('prevcore_port'),
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('prevcore_name'),
     },
-    'db_conn' => 'mysql://'.$self->o('user_r').'@'.$self->o('prevcore_host').'/'.$self->o('prevcore_name'),
+    'db_conn' => 'mysql://'.$self->o('user_r').'@'.$self->o('prevcore_host').':'.$self->o('prevcore_port'),
 
     # pipeline db, pipeline will create this automatically
     'pipeline_db' => {
-                    -host      => $self->o('default_host'),
-                    -port      => $self->o('default_port'),
+                    -host      => $self->o('pipe_db_server'),
+                    -port      => $self->o('pipe_port'),
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
                     -dbname    => $self->o('pipe_dbname'),
@@ -342,7 +342,7 @@ sub default_options {
     # vega database to be used for the merge
     'vega_db' => {
                     -host      => $self->o('vega_host'),
-                    -port      => $self->o('default_port'),
+                    -port      => $self->o('vega_port'),
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
                     -dbname    => $self->o('vega_name'),
@@ -352,7 +352,7 @@ sub default_options {
     # core database
     'core_db' => {
                     -host      => $self->o('core_host'),
-                    -port      => $self->o('default_port'),
+                    -port      => $self->o('core_port'),
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
                     -dbname    => $self->o('core_name'),
@@ -362,7 +362,7 @@ sub default_options {
     # core database read-only access
     'ro_core_db' => {
                     -host      => $self->o('core_host'),
-                    -port      => $self->o('default_port'),
+                    -port      => $self->o('core_port'),
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('core_name'),
@@ -442,7 +442,7 @@ sub default_options {
     # kill list database
     'killlist_db' => {
                     -host      => $self->o('killlist_host'),
-                    -port      => $self->o('default_port'),
+                    -port      => $self->o('killlist_port'),
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('killlist_name'),
@@ -462,7 +462,7 @@ sub default_options {
     # production database
     'production_db' => {
                     -host      => $self->o('production_host'),
-                    -port      => $self->o('default_port'),
+                    -port      => $self->o('production_port'),
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('production_name'),
