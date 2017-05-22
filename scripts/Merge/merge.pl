@@ -600,7 +600,16 @@ sub process_genes {
 
         # Add "OTTP" xref to Primary translation.
         if ($opt_primary_xref) {
-          add_primary_xref($primary_translation);
+          #add_primary_xref($primary_translation);
+          
+          # store xref as an attribute
+          my $attrib = Bio::EnsEMBL::Attribute->new(
+                         -NAME        => 'Xref ID',
+                         -CODE        => 'xref_id',
+                         -VALUE       => $primary_translation->stable_id(),
+                         -DESCRIPTION => 'ID of associated database reference'
+          );
+          $primary_translation->add_Attributes($attrib);
         }
       }
 
@@ -611,6 +620,15 @@ sub process_genes {
       # Add "OTTT" xref to Primary transcript.
       if ($opt_primary_xref) {
         add_primary_xref($primary_transcript);
+        
+        # store xref as an attribute
+        my $attrib = Bio::EnsEMBL::Attribute->new(
+                       -NAME        => 'Xref ID',
+                       -CODE        => 'xref_id',
+                       -VALUE       => $primary_transcript->stable_id(),
+                       -DESCRIPTION => 'ID of associated database reference'
+        );
+        $primary_transcript->add_Attributes($attrib);
       }
 
       # If the transcript is part of a gene cluster then tag the gene
@@ -650,6 +668,15 @@ sub process_genes {
     # Add "OTTG" xref to Primary gene.
     if ($opt_primary_xref) {
       add_primary_xref($primary_gene);
+      
+      # store xref as an attribute
+      my $attrib = Bio::EnsEMBL::Attribute->new(
+                     -NAME        => 'Xref ID',
+                     -CODE        => 'xref_id',
+                     -VALUE       => $primary_gene->stable_id(),
+                     -DESCRIPTION => 'ID of associated database reference'
+      );
+      $primary_gene->add_Attributes($attrib);
     }
 
   } ## end foreach my $primary_gene ( @...)
