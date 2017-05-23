@@ -120,7 +120,7 @@ foreach my $pg (@proj_genes){
     else{
       $gene_transcript_changed++;
       my $db_id = $t->dbID;
-      print TSCRIPT "insert into transcript_attrib(transcript_id, attrib_type_id) values(".$db_id.", ".$attrib_id.");\n";
+      print TSCRIPT "insert into transcript_attrib(transcript_id, attrib_type_id, value) values(".$db_id.", ".$attrib_id.",'');\n";
       print $stable_id." ".$t->biotype." seqs are different\n";
     }
     #check translation
@@ -139,14 +139,14 @@ foreach my $pg (@proj_genes){
         print $t->translation->stable_id." ".$t->biotype." pep seq is different\n";
         my $file = $out_dir."/".$t->translation->stable_id.".fa";
         my $db_id = $t->translation->dbID;
-        print PEP "insert into translation_attrib(translation_id, attrib_type_id) values(".$db_id.", ".$attrib_id.");\n";
+        print PEP "insert into translation_attrib(translation_id, attrib_type_id, value) values(".$db_id.", ".$attrib_id.",'');\n";
         open (OUT, ">", $file);
         print OUT ">ref_".$t->translation->stable_id."\n";
         print OUT $ref_pep."\n";
         print OUT ">patch_".$t->translation->stable_id."\n";
         print OUT $t_pep."\n";
         close(OUT);
-        system("clustalw $file");
+        system("muscle -clw -in $file -out $file.aln");
         print GENE ">ref_".$t->translation->stable_id."\n";
         print GENE $ref_pep."\n";
         print GENE ">patch_".$t->translation->stable_id."\n";
@@ -163,7 +163,7 @@ if($gene_transcript_changed){
 }
 if($gene_translation_changed){
   print $pg->stable_id." has $gene_translation_changed altered translations\n";
-  system("clustalw $gene_file");  
+  system("muscle -clw -in $gene_file -out $gene_file.aln");  
 }
 
 }
