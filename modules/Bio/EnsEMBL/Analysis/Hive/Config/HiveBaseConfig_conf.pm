@@ -35,6 +35,7 @@ use strict;
 use warnings;
 use feature 'say';
 
+use File::Spec::Functions qw(catdir catfile);
 use parent ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');
 
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
@@ -43,10 +44,20 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
 
  Arg [1]    : None
  Description: It returns a hashref containing the default options for HiveGeneric_conf
-                use_tokens => 1,
+                use_tokens => 0,
                 drop_databases => 0, # This should never be changed in any config file, only use it on the commandline
                 databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
                 password_r => undef,
+
+                enscode_root_dir => $ENV{ENSCODE},
+                software_base_path => $ENV{LINUXBREW_HOME},
+                binary_base => catdir($self->o('software_base_path'), 'bin'),
+                clone_db_script_path => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
+
+                data_dbs_server => $self->o('host'),
+                data_dbs_port => $self->o('port'),
+                data_dbs_user => $self->o('user'),
+                data_dbs_password => $self->o('password'),
 
                 dna_db_port => $self->o('port'),
                 dna_db_user => $self->o('user_r'),
@@ -75,6 +86,16 @@ sub default_options {
         drop_databases => 0, # This should never be changed in any config file, only use it on the commandline
         databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
         password_r => undef,
+
+        enscode_root_dir => $ENV{ENSCODE},
+        software_base_path => $ENV{LINUXBREW_HOME},
+        binary_base => catdir($self->o('software_base_path'), 'bin'),
+        clone_db_script_path => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
+
+        data_dbs_server => $self->o('host'),
+        data_dbs_port => $self->o('port'),
+        data_dbs_user => $self->o('user'),
+        data_dbs_password => $self->o('password'),
 
         dna_db_port => $self->o('port'),
         dna_db_user => $self->o('user_r'),
@@ -162,7 +183,7 @@ sub pipeline_create_commands {
 sub lsf_resource_builder {
     my ($self, $queue, $memory, $servers, $tokens, $threads, $extra_requirements, $paths) = @_;
 
-    my $lsf_requirement = '-q '.($queue || 'normal');
+    my $lsf_requirement = '-q '.($queue || 'production-rh7');
     my @lsf_rusage;
     my @lsf_select;
     $extra_requirements = '' unless (defined $extra_requirements);
