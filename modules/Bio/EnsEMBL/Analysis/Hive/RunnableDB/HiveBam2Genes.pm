@@ -165,8 +165,9 @@ sub exon_cluster {
     # BWA has been run on whole genome. If the slice is not starting at 1, the Core API
     # will shift the coordinate of our clusters which is wrong
     my $full_slice = $slice->start == 1 ? $slice : $slice->seq_region_Slice;
-    my %exon_clusters;
+    my %exons_hash;
     my @exon_clusters;
+    my %index_count = ('-1' => 0, '1' => 0);
     my $cluster_data;
     my $cluster_count = 0;
     my $read_count = 0;
@@ -178,17 +179,6 @@ sub exon_cluster {
         ++$read_count;
         # It seems we always get the unmmapped mate, so we need to remove it
         return if ($read->get_tag_values('UNMAPPED') or $read->get_tag_values('XS'));
-        my $length = $read->length;
-        if ($read->get_tag_values('NM') > $length/3) {
-          my $max = 0;
-          my $md = $read->get_tag_values('MD');
-          my $double_digit_count = 0;
-          while ($md =~ /([0-9]{2,})/gc) {
-            $max = $1 if ($max < $1);
-            ++$double_digit_count;
-          }
-          return if ($max < $length/3 and $double_digit_count < 4);
-        }
         my $query = $read->query;
         my $name = $query->name;
         my $start  = $read->start;
@@ -206,31 +196,28 @@ sub exon_cluster {
 
         # ignore spliced reads
         # make exon clusters and store the names of the reads and associated cluster number
-        for (my $index = @exon_clusters; $index > 0; $index--) {
-            my $exon_cluster = $exon_clusters[$index-1];
+        for (my $index = $index_count{$real_strand}; $index > 0; $index--) {
+          my $exon_cluster = $exon_clusters[$index-1];
+          if ($exon_cluster->strand == $real_strand) {
             my $cluster_end = $exon_cluster->end;
-            if (!$stranded_reads or
-                ($stranded_reads and (($exon_cluster->strand == $real_strand and $is_first_mate) or
-                                      ($exon_cluster->strand == -$real_strand and !$is_first_mate))
-                )) {
             if ($start > $cluster_end+1) {
                 last;
             }
             elsif ( $start <= $cluster_end+1 &&  $end >= $exon_cluster->start-1 ) {
-                # Expand the exon_cluster
-                $exon_cluster->end($end)     if $end   > $exon_cluster->end;
-                $exon_cluster->score($exon_cluster->score + 1);
-                # only store the connection data if it is paired in mapping
-                if ($paired) {
-                    if (exists $cluster_data->{$name}->{$exon_cluster->hseqname}) {
-                        delete $cluster_data->{$name};
-                    }
-                    else {
-                        $cluster_data->{$name}->{$exon_cluster->hseqname} = 1;
-                    }
-                }
-                # only allow it to be a part of a single cluster
-                return;
+              # Expand the exon_cluster
+              $exon_cluster->end($end)     if $end   > $exon_cluster->end;
+              $exon_cluster->score($exon_cluster->score + 1);
+              # only store the connection data if it is paired in mapping
+              if ($paired) {
+                  if (exists $cluster_data->{$name}->{$exon_cluster->hseqname}) {
+                      delete $cluster_data->{$name};
+                  }
+                  else {
+                      $cluster_data->{$name}->{$exon_cluster->hseqname} = 1;
+                  }
+              }
+              # only allow it to be a part of a single cluster
+              return;
             }
           }
         }
@@ -256,20 +243,16 @@ sub exon_cluster {
 #            print STDERR 'DEBUG ', $feat->start, ' ', $is_first_mate, ' ', $feat->strand, "\n";
         # store the clusters in a hash with a unique identifier
         push(@exon_clusters, $feat);
+        $exons_hash{$feat->hseqname} = $feat;
+        $index_count{$real_strand} = @exon_clusters;
         # store the key within the feature
         if ($paired) {
-            if (exists $cluster_data->{$name}->{$feat->hseqname}) {
-                delete $cluster_data->{$name};
-            }
-            else {
-                $cluster_data->{$name}->{$feat->hseqname} = 1;
-            }
+          $cluster_data->{$name}->{$feat->hseqname} = 1;
         }
     };
     $bam->fetch($region, $_process_reads);
     print STDERR "Processed $read_count reads\n";
-    %exon_clusters = map {$_->hseqname => $_} @exon_clusters;
-    return \%exon_clusters, $cluster_data, $full_slice;
+    return \%exons_hash, $cluster_data, $full_slice;
 }
 
 1;
