@@ -86,7 +86,6 @@ our @EXPORT_OK = qw(
               execute_with_wait
               execute_with_timer
               is_slice_name
-              has_polyA_signal
               );
 
 
@@ -1255,25 +1254,6 @@ sub is_slice_name {
     my ($string) = @_;
 
     return $string =~ /^[^:]+:[^:]+:[^:]+:\d+:\d+:(1|-1)$/;
-}
-
-
-=head2 has_polyA_signal
-
- Arg [1]    : String $seq, DNA sequence
- Description: Checks for the presence of AATAAA at a maximum distance of 30nt from the end
- Returntype : Boolean true when found, false when not found
- Exceptions : None
-
-=cut
-
-sub has_polyA_signal {
-  my ($seq, $lenient) = @_;
-
-  if ($lenient) {
-    return $seq =~ /A[AG]TA{3}.{0,30}$/;
-  }
-  return $seq =~ /A{2}TA{3}.{10,30}$/;
 }
 
 1;

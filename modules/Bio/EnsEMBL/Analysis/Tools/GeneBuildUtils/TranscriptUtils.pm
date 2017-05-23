@@ -122,6 +122,7 @@ our @EXPORT_OK = qw(
              tidy_split_transcripts
              trim_cds_to_whole_codons
              Transcript_info
+             has_polyA_signal
             );
 
 
@@ -2999,6 +3000,31 @@ sub remove_short_frameshift_introns {
   	$transcript_no_frameshift->add_Exon(clone_Exon($current_exon));
   }
   return $transcript_no_frameshift;
+}
+
+
+=head2 has_polyA_signal
+
+ Arg [1]    : Bio::EnsEMBL::Transcript object
+ Arg [2]    : Boolean $lenient (optional), DNA sequence
+ Description: Checks for the presence of AATAAA between 10 and 30nt from the end
+              When Arg[2] is set to true, it checks for A[AG]TAAA between 0 and 30nt
+              from the end
+ Returntype : Boolean true when found, false when not found
+ Exceptions : Throws if Arg[1] is not a Bio::EnsEMBL::Transcript object
+
+=cut
+
+sub has_polyA_signal {
+  my ($transcript, $lenient) = @_;
+
+  throw('You need to pass a Bio::EnsEMBL::Transcript object not a "'.ref($transcript).'"')
+    unless ($transcript->isa('Bio::EnsEMBL::Transcript'));
+
+  my $regex = 'A{2}TA{3}.{10,30}$';
+  $regex =~ 'A[AG]TA{3}.{0,30}$' if ($lenient);
+
+  return $transcript->end_Exon->seq->seq =~ /$regex/;
 }
 
 1;
