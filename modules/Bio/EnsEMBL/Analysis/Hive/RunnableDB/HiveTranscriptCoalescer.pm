@@ -347,14 +347,6 @@ sub run {
     $self->output(\@retained);
 #    print STDERR "\n", ('-'x5), 'STEP X', "\n";
 # Check for non canonical splice sites
-    foreach my $gene (@for_stepX) {
-      my $transcript = $gene->get_all_Transcripts->[0];
-      my $count = 0;
-      foreach my $intron (@{$transcript->get_all_Introns}) {
-        ++$count unless ($intron->is_splice_canonical);
-      }
-      $gene->{non_canonical} = $count if ($count);
-    }
     @for_step4 = grep {!exists $_->{retained}} @for_step4;
     print STDERR "\n", ('-'x5), 'FINAL STEP', "\n";
     my @final_step;
