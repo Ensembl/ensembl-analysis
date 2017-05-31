@@ -410,10 +410,13 @@ while (@gene_ids) {
         # check if there is any other gene on that region
         my $outdb_slice = get_feature_slice_from_db($gene,$outga->db());
         my @outdb_genes = @{$outga->fetch_all_by_Slice($outdb_slice,undef,1)};
-        if (scalar(@outdb_genes) > 0) {
+        
+        my @outdb_genes_stranded = grep($gene->strand() eq $_->strand(),@outdb_genes); 
+        
+        if (scalar(@outdb_genes_stranded) > 0) {
           # choose target gene to copy the source gene transcripts into
-          my @sorted_outdb_genes = sort {$b->length() <=> $a->length()} @outdb_genes; # pick the longest
-          my $target_gene = shift(@sorted_outdb_genes);
+          my @sorted_outdb_genes_stranded = sort {$b->length() <=> $a->length()} @outdb_genes_stranded; # pick the longest
+          my $target_gene = shift(@sorted_outdb_genes_stranded);
 
           $target_gene->load();
           $outga->remove($target_gene);
