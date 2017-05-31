@@ -356,7 +356,7 @@ sub run {
     foreach my $gene ( sort {$b->{full_length} <=> $a->{full_length}} @for_step4) {
       my $transcript = $gene->get_all_Transcripts->[0];
       my $seq = $transcript->end_Exon->seq->seq;
-      if (has_polyA_signal($seq) or has_polyA_signal($seq, 1)) {
+      if (has_polyA_signal($transcript) or has_polyA_signal($transcript, 1)) {
         print STDERR "$seq\n";
         $gene->biotype($polyA_biotype);
       }
