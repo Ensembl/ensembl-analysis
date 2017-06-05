@@ -619,7 +619,7 @@ sub process_genes {
 
       # Add "OTTT" xref to Primary transcript.
       if ($opt_primary_xref) {
-        add_primary_xref($primary_transcript);
+        #add_primary_xref($primary_transcript);
         
         # store xref as an attribute
         my $attrib = Bio::EnsEMBL::Attribute->new(
@@ -667,7 +667,7 @@ sub process_genes {
 
     # Add "OTTG" xref to Primary gene.
     if ($opt_primary_xref) {
-      add_primary_xref($primary_gene);
+      #add_primary_xref($primary_gene);
       
       # store xref as an attribute
       my $attrib = Bio::EnsEMBL::Attribute->new(
