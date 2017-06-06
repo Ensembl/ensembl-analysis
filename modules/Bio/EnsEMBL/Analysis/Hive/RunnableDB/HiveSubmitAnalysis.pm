@@ -670,7 +670,7 @@ sub batch_slice_ids {
   my $single_batch_array = [];
   my $total_length = 0;
   # Sort shortest first
-  foreach my $slice (sort { $a->length <=> $b->length } $slices) {
+  foreach my $slice (sort { $a->length <=> $b->length } @$slices) {
     my $length = $slice->length;
     if($length + $total_length > $batch_target_size) {
       push(@{$all_batches},[$single_batch_array]);
