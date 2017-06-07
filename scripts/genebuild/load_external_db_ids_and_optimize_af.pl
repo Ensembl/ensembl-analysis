@@ -29,12 +29,12 @@ my $output_path;
 my $dbhost;
 my $dbuser;
 my $dbpass;
-my $dbport = 3306;
+my $dbport;
 my $dbname;
 my $prod_dbhost;
 my $prod_dbuser;
 my $prod_dbpass;
-my $prod_dbport = 3306;
+my $prod_dbport;
 my $prod_dbname;
 my $analysis_scripts;
 my $uniprot_filename;
@@ -69,15 +69,15 @@ GetOptions('output_path:s' => \$output_path,
 print $0, "\n";
 
 ($analysis_scripts) = $0 =~ /(.*)\/[^\/]+$/ unless $analysis_scripts ;
-if (!$output_path or !$dbhost or !$dbname or !$dbuser or !$dbpass or !$analysis_scripts or $help)
+if (!$output_path or !$dbport or !$dbhost or !$dbname or !$dbuser or !$dbpass or !$analysis_scripts or $help)
 {
     &usage;
     exit(1);
 }
 
-if (!$prod_dbhost or !$prod_dbname or !$prod_dbuser)
+if (!$prod_dbhost or !$prod_dbname or !$prod_dbuser or !$prod_dbport)
 {
-    warn('You did not specify all parameters for the production db: '.join(' ', $prod_dbhost, $prod_dbuser, $prod_dbname, $prod_dbpass));
+    warn('You did not specify all parameters for the production db: '.join(' ', $prod_dbhost, $prod_dbuser, $prod_dbname, $prod_dbpass, $prod_dbport));
     &usage;
     exit(1);
 }
@@ -544,19 +544,29 @@ sub usage {
 
 Usage:
 
-$0 -output_path <output_path> -dbhost <dbhost> [-dbport <dbport>] -dbname <dbname> -dbuser <dbuser> -dbpass <dbpass> -analysis_scripts <analysis_scripts> -uniprot_filename <uniprot_filename> [-verbose] [-help]
+$0 -output_path <output_path> -dbhost <dbhost> -dbport <dbport> -dbname <dbname> -dbuser <dbuser> -dbpass <dbpass> -prod_dbhost <prod_dbhost> -prod_dbname <prod_dbname> -prod_dbuser <prod_dbuser> -prod_dbport <prod_dbport> -analysis_scripts <analysis_scripts> -uniprot_filename <uniprot_filename> [-daf 0] [-paf 0] [-verbose] [-help]
 
 -output_path	Path where the output files and backup files will be written. It will be created if it does not exist.
 
 -dbhost    		host name where the database is located
 
--dbport    		port number (default 3306)
+-dbport    		port number
 
 -dbname    		database name
 
 -dbuser    		what username to connect as
 
 -dbpass    		what password to use
+
+-dbhost       production db host name
+
+-dbport       production db port number
+
+-dbname       production database name
+
+-dbuser       what username to connect as for the production db
+
+-dbpass       what password to use for the production db
 
 -analysis_scripts	path to ensembl-analysis/scripts, needed to run fix_supporting_evidence_links.pl,  or deduced from this scripts path if not specified
 
@@ -566,22 +576,26 @@ $0 -output_path <output_path> -dbhost <dbhost> [-dbport <dbport>] -dbname <dbnam
 
 -no_backup		skip the backup
 
--clean			delete any backup and output file once the final checks step has finished successfully
+-clean			  delete any backup and output file once the final checks step has finished successfully
 
--verbose       	Use this option to get more print statements to follow the script.
+-daf          By default both daf and paf tables are optimised. Use "-daf 0" to not do daf.
 
--help			Show usage.
+-paf          By default both daf and paf tables are optimised. Use "-paf 0" to not do paf.
+
+-verbose      Use this option to get more print statements to follow the script.
+
+-help			    Show usage.
 
 
 Examples:
 # assign external DB IDs and sort features tables
-bsub -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -output_path /lustre/scratch101/sanger/cgg/CanFam3.1/optimize -dbhost genebuild1 -dbname cgg_dog_ref_test -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose"
+bsub -M 3700 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -output_path /lustre/scratch101/sanger/cgg/CanFam3.1/optimize -dbhost genebuild1 -dbname cgg_dog_ref_test -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose"
 
 # sort features tables only
-bsub -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af_after_alt_seq_mapping.out -e optimize_af_after_alt_seq_mapping.err "perl load_external_db_ids_and_optimize_af.pl -output_path optimize_core_af_alt_seq_mapping -dbhost ens-staging1 -dbname homo_sapiens_core_70_37 -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose -no_external_db"
+bsub -M 3700 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af_after_alt_seq_mapping.out -e optimize_af_after_alt_seq_mapping.err "perl load_external_db_ids_and_optimize_af.pl -output_path optimize_core_af_alt_seq_mapping -dbhost ens-staging1 -dbname homo_sapiens_core_70_37 -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose -no_external_db"
 
 # assign external DB IDs and sort features tables, clean
-bsub -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -output_path /lustre/scratch101/sanger/cgg/optimize -dbhost ens-staging1 -dbname homo_sapiens_core_70_37 -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose -clean"
+bsub -M 3700 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -output_path /lustre/scratch101/sanger/cgg/optimize -dbhost ens-staging1 -dbname homo_sapiens_core_70_37 -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose -clean"
 
 EOF
 }
