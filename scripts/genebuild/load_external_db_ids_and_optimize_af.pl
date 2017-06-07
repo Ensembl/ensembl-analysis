@@ -208,7 +208,7 @@ foreach my $type (@types) {
         push(@files_to_delete, $cfg_file);
         my $cfg_log_file = $output_path.'/'.$type.'.cfg.log';
         push(@files_to_delete, $cfg_log_file);
-        if (system("perl $test_regex_script -dbname $dbname -dbhost $dbhost -dbuser $dbuser -dbpass $dbpass -type $synonyms{$type} -main_regex_file $analysis_scripts/$synonyms{$type}_regexes.dat -output_config_file $cfg_file > $cfg_log_file")) {
+        if (system("perl $test_regex_script -dbname $dbname -dbhost $dbhost -dbport $dbport -dbuser $dbuser -dbpass $dbpass -type $synonyms{$type} -main_regex_file $analysis_scripts/$synonyms{$type}_regexes.dat -output_config_file $cfg_file > $cfg_log_file")) {
             throw("Could not execute $test_regex_script\n");
         }
 
@@ -226,7 +226,7 @@ foreach my $type (@types) {
         }
 
         print "\nAssigning external DB IDs to your ", uc($human_readable{$type}), "...\n" if ($verbose);
-        if (system("perl $assign_db_id_script -masterhost $prod_dbhost -masterport $prod_dbport -masterdbname $prod_dbname -masteruser $prod_dbuser -host $dbhost -user $dbuser -pass $dbpass -dbname $dbname -conf $cfg_file -feature_type $moltype{$type} -dumpdir $output_path -update_only_null_rows -uniprot_filename $uniprot_filename")) {
+        if (system("perl $assign_db_id_script -masterhost $prod_dbhost -masterport $prod_dbport -masterdbname $prod_dbname -masteruser $prod_dbuser -host $dbhost -port $dbport -user $dbuser -pass $dbpass -dbname $dbname -conf $cfg_file -feature_type $moltype{$type} -dumpdir $output_path -update_only_null_rows -uniprot_filename $uniprot_filename")) {
         #if (system("bsub  -M 3700000 -R 'select[mem>3700] rusage[mem=3700]' -I perl $assign_db_id_script -host $dbhost -pass $dbpass -dbname $dbname -conf $cfg_file -feature_type $moltype{$type} -dumpdir $output_path -update_only_null_rows -uniprot_filename $uniprot_filename")) {
             throw("Could not execute $assign_db_id_script\n");
         }
@@ -589,13 +589,13 @@ $0 -output_path <output_path> -dbhost <dbhost> -dbport <dbport> -dbname <dbname>
 
 Examples:
 # assign external DB IDs and sort features tables
-bsub -M 3700 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -output_path /lustre/scratch101/sanger/cgg/CanFam3.1/optimize -dbhost genebuild1 -dbname cgg_dog_ref_test -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose"
+bsub -M 3700 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -output_path /lustre/scratch101/sanger/cgg/CanFam3.1/optimize -dbhost genebuild1 -dbport 3306 -dbname cgg_dog_ref_test -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose"
 
 # sort features tables only
-bsub -M 3700 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af_after_alt_seq_mapping.out -e optimize_af_after_alt_seq_mapping.err "perl load_external_db_ids_and_optimize_af.pl -output_path optimize_core_af_alt_seq_mapping -dbhost ens-staging1 -dbname homo_sapiens_core_70_37 -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose -no_external_db"
+bsub -M 3700 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af_after_alt_seq_mapping.out -e optimize_af_after_alt_seq_mapping.err "perl load_external_db_ids_and_optimize_af.pl -output_path optimize_core_af_alt_seq_mapping -dbhost ens-staging1 -dbport 3306 -dbname homo_sapiens_core_70_37 -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose -no_external_db"
 
 # assign external DB IDs and sort features tables, clean
-bsub -M 3700 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -output_path /lustre/scratch101/sanger/cgg/optimize -dbhost ens-staging1 -dbname homo_sapiens_core_70_37 -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose -clean"
+bsub -M 3700 -R 'select[mem>3700] rusage[mem=3700]' -o optimize_af.out -e optimize_af.err "perl load_external_db_ids_and_optimize_af.pl -output_path /lustre/scratch101/sanger/cgg/optimize -dbhost ens-staging1 -dbport 3306 -dbname homo_sapiens_core_70_37 -dbuser ensadmin -dbpass *** -analysis_scripts ~/enscode/ensembl-analysis/scripts/genebuild -uniprot_filename /data/blastdb/Ensembl/uniprot_2013_05/entry_loc -verbose -clean"
 
 EOF
 }
