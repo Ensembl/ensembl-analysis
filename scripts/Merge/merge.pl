@@ -29,7 +29,8 @@ my ( @opt_secondary_include, @opt_secondary_exclude );
 my $opt_primary_tag  = 'primary';
 my $opt_secondary_tag = 'secondary';
 
-my $opt_primary_xref = 0; # if 0, no primary xrefs are added; if 1, primary xrefs are added.
+my $opt_primary_xref = 1; # if 0, no primary xrefs are added; if 1, primary xrefs are added.
+                          # Note that the xref attributes will always be added in any case.
 my $opt_primary_gene_xref        = 'OTTG,Havana gene,ALT_GENE';
 my $opt_primary_transcript_xref  = 'OTTT,Havana transcript,ALT_TRANS';
 my $opt_primary_translation_xref = 'OTTP,Havana translation,MISC';
@@ -600,36 +601,35 @@ sub process_genes {
 
         # Add "OTTP" xref to Primary translation.
         if ($opt_primary_xref) {
-          #add_primary_xref($primary_translation);
-          
-          # store xref as an attribute
-          my $attrib = Bio::EnsEMBL::Attribute->new(
+          add_primary_xref($primary_translation);
+        }
+        
+        # store xref as an attribute
+        my $attrib = Bio::EnsEMBL::Attribute->new(
                          -NAME        => 'Xref ID',
                          -CODE        => 'xref_id',
                          -VALUE       => $primary_translation->stable_id(),
                          -DESCRIPTION => 'ID of associated database reference'
-          );
-          $primary_translation->add_Attributes($attrib);
-        }
+        );
+        $primary_translation->add_Attributes($attrib);
       }
-
       tag_transcript_analysis( $primary_transcript, $opt_primary_tag );
       $primary_transcript->source($opt_primary_tag);
       $primary_transcript->analysis($OUTPUT_AA->fetch_by_logic_name(get_logic_name_from_biotype_source($primary_transcript)));
 
       # Add "OTTT" xref to Primary transcript.
       if ($opt_primary_xref) {
-        #add_primary_xref($primary_transcript);
-        
-        # store xref as an attribute
-        my $attrib = Bio::EnsEMBL::Attribute->new(
+        add_primary_xref($primary_transcript);
+      }  
+      
+      # store xref as an attribute
+      my $attrib = Bio::EnsEMBL::Attribute->new(
                        -NAME        => 'Xref ID',
                        -CODE        => 'xref_id',
                        -VALUE       => $primary_transcript->stable_id(),
                        -DESCRIPTION => 'ID of associated database reference'
-        );
-        $primary_transcript->add_Attributes($attrib);
-      }
+      );
+      $primary_transcript->add_Attributes($attrib);
 
       # If the transcript is part of a gene cluster then tag the gene
       unless($primary_gene->{__is_gene_cluster}) {
@@ -667,17 +667,17 @@ sub process_genes {
 
     # Add "OTTG" xref to Primary gene.
     if ($opt_primary_xref) {
-      #add_primary_xref($primary_gene);
-      
-      # store xref as an attribute
-      my $attrib = Bio::EnsEMBL::Attribute->new(
+      add_primary_xref($primary_gene);
+    }
+    
+    # store xref as an attribute
+    my $attrib = Bio::EnsEMBL::Attribute->new(
                      -NAME        => 'Xref ID',
                      -CODE        => 'xref_id',
                      -VALUE       => $primary_gene->stable_id(),
                      -DESCRIPTION => 'ID of associated database reference'
-      );
-      $primary_gene->add_Attributes($attrib);
-    }
+    );
+    $primary_gene->add_Attributes($attrib);
 
   } ## end foreach my $primary_gene ( @...)
 
