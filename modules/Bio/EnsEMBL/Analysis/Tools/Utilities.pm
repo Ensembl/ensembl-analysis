@@ -1,4 +1,5 @@
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,16 +49,18 @@ package Bio::EnsEMBL::Analysis::Tools::Utilities;
 
 use strict;
 use warnings;
-use Exporter;
+
+use Exporter qw(import);
+use File::Spec;
+use File::Which;
+
 use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; # needed for read_config()
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
-use vars qw (@ISA  @EXPORT);
 
-@ISA = qw(Exporter);
-
-@EXPORT = qw( shuffle
+our @EXPORT_OK = qw(
+              shuffle
               parse_config
               parse_config_mini
               parse_config_value
@@ -70,12 +73,17 @@ use vars qw (@ISA  @EXPORT);
               get_db_adaptor_by_string read_config
               import_var
               is_canonical_splice
+              get_analysis_settings
               get_database_connection_parameters_by_string
               run_command
               send_email
               hrdb_get_dba
               convert_to_ucsc_name
-              align_proteins ) ;
+              align_proteins
+              locate_executable
+              first_upper_case
+              execute_with_wait
+              );
 
 
 
@@ -962,7 +970,8 @@ sub align_proteins {
     throw("Pairwise alignment between the query protein sequence and the target protein sequence shows zero aligned positions. Something has gone wrong.");
   }
   my $percent_id = ($match_count/$aligned_positions)*100;
-  print "[BK:\n$file ]\n" if ( ( $coverage >75) && ($percent_id >75) ) ;
+  $coverage = sprintf "%.2f", $coverage;
+  $percent_id = sprintf "%.2f", $percent_id;
   return ($coverage,$percent_id);
 }
 
@@ -970,7 +979,8 @@ sub align_proteins {
 
  Arg [1]    : Hashref $connection_info, containing the connection details for the database:
               -host, -user, -dbname, -port [, -pass, -dna_db,...]
- Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna
+ Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object (optional), the database will have the dna
+ Arg [3]    : String $alternative_class (optional), Allowed class are Variation, Compara, Funcgen
  Example    : hrdb_get_dba->($self->param('target_db'));
  Description: It creates a object based on the information contained in $connection_info.
               If the hasref contains -dna_db or if the second argument is populated, it will
@@ -983,13 +993,20 @@ sub align_proteins {
 =cut
 
 sub hrdb_get_dba {
-  my ($connection_info, $dna_db) = @_;
-  my $dba;
+  my ($connection_info, $dna_db, $alternative_class) = @_;
 
-# It should be OK to use eq instead of =~
+  my $dba;
   if(ref($connection_info) eq 'HASH') {
+    my $module_name = 'Bio::EnsEMBL::DBSQL::DBAdaptor';
+    if ($alternative_class) {
+      $module_name = 'Bio::EnsEMBL::'.$alternative_class.'::DBSQL::DBAdaptor';
+      eval "use $module_name";
+      if ($@) {
+        throw("Cannot find module $module_name");
+      }
+    }
     eval {
-      $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(%$connection_info);
+      $dba = $module_name->new(%$connection_info);
     };
 
     if($@) {
@@ -1036,6 +1053,121 @@ sub convert_to_ucsc_name {
         }
     }
     return $ucsc_name;
+}
+
+
+=head2 get_analysis_settings
+
+ Arg [1]    : String $class which represents the class of the config file you want to use
+ Arg [2]    : String $key, the key value of the hash you want to retrieve
+ Arg [3]    : Hashref $additional_data (optional), additional values to add or to overwrite the default/original values
+ Arg [4]    : String $data_type (optional), to specify the type of data which will be return, default is hashref. Values are:
+                ARRAY
+                HASH
+ Example    : my $config_hash = get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic', 'BlastGenscanPep');
+ Description: Retrieve Blast, Exonerate,... configuration hash which are similar for most of the analyses like running raw computes
+ Returntype : Reference, it will return an empty hashref/arrayref if the Config file does not exists or is not in PERL5LIB
+ Exceptions : None
+
+=cut
+
+sub get_analysis_settings {
+    my ($class, $key, $additional_data, $data_type) = @_;
+
+    eval "use $class";
+    if ($@) {
+        if (defined $data_type and $data_type eq 'ARRAY') {
+          return [];
+        }
+        else {
+          return {};
+        }
+    }
+    my $config = $class->new();
+    if (defined $data_type and $data_type eq 'ARRAY') {
+      return $config->get_array_config_settings($key, $additional_data);
+    }
+    else {
+      return $config->get_config_settings($key, $additional_data);
+    }
+}
+
+
+=head2 locate_executable
+
+ Arg [1]    : String $executable, executable to locate
+ Arg [2]    : String $bindir (optional), directory to look for the executable
+ Description: First checks if Arg[1] is executable, if not checks if the name
+              concatenated with Arg[2] is executable, if not then uses File::Which
+              to search in PATH
+ Returntype : String absolute path to the executable
+ Exceptions : Throws if Arg[1] is not defined
+              Throws if it couldn't find the path to the executable
+
+=cut
+
+sub locate_executable {
+  my ($name, $bindir) = @_;
+
+  my $path;
+  if ($name) {
+    if (-x $name) {
+      $path = $name;
+    }
+    elsif ($bindir && -x File::Spec->catfile($bindir, $name)) {
+      $path = File::Spec->catfile($bindir, $name);
+    }
+    else {
+      $path = File::Which::which($name);
+    }
+    throw('Could not find the absolute path for '.$name) unless ($path);
+  }
+  else {
+    throw("Must pass locate_executable a name if the program is to be located");
+  }
+  return $path;
+}
+
+
+=head2 first_upper_case
+
+ Arg [1]    : String $string
+ Description: Set the first letter of the string to upper case
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub first_upper_case {
+  my ($string) = @_;
+
+  $string =~ s/^(\w)/\U$1/;
+  return $string;
+}
+
+
+=head2 execute_with_wait
+
+ Arg [1]    : String $cmd, the command to run
+ Arg [2]    : String $msg (optional), message to the user if something goes wrong
+ Arg [3]    : Int $wait (optional), how long we should wait before throwing an exception
+              Default is 30 seconds
+ Description: Execute a command and wait for Arg[3] seconds before throwing an execption
+              This is really useful in Hive while using LSF as processes are killed in random order
+              Without the wait a LSF signal like TERM_MEMLIMIT might not be caught before the exit
+              code from the executable. Hive would not use the -1, -2 branches
+ Returntype : None
+ Exceptions : Throws after a Arg[3] seconds wait if the execution failed
+
+=cut
+
+sub execute_with_wait {
+  my ($cmd, $failed_msg, $wait) = @_;
+
+  if (system($cmd)) {
+    sleep($wait || 30);
+    throw($failed_msg || 'Failed to run with code: '.$?."\n".$cmd);
+  }
 }
 
 1;

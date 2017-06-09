@@ -66,7 +66,6 @@ sub get_genes_of_biotypes_by_db_hash_ref {
   my %dbnames_2_biotypes = %$href ; 
   my @genes_to_fetch;  
   foreach my $db_hash_key ( keys %dbnames_2_biotypes )  {
-    print  "DEBUG::get_genes_of_biotypes_by_db_hash_ref::Get genes " . scalar(keys %dbnames_2_biotypes) . "\n"; 
     my @biotypes_to_fetch = @{$dbnames_2_biotypes{$db_hash_key}};  
     my $set_db = $self->hrdb_get_dba($self->param($db_hash_key));
     my $dna_dba = $self->hrdb_get_dba($self->param('reference_db'));
@@ -79,10 +78,9 @@ sub get_genes_of_biotypes_by_db_hash_ref {
     # implementation of fetch_all_biotypes ....  
     my $fetch_all_biotypes_flag ; 
     foreach my $biotype  ( @biotypes_to_fetch ) {  
-    	print "checking..... $biotype  \n"; 
+      print "checking biotype: $biotype  \n"; 
       if ($biotype=~m/fetch_all_biotypes/ ) {    
         $fetch_all_biotypes_flag = 1 ; 
-        print "Note: I will fetch all biotypes\n";
       }
     }  
     if ( $fetch_all_biotypes_flag ) {  

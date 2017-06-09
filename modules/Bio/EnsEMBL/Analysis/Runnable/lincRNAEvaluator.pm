@@ -71,8 +71,8 @@ sub new{
   $self->linc_rna_genes($linc_rna_genes); 
   $self->ensembl_genes($ensembl_genes); 
   
-  print "BKDEBUG:Analysis:runnable::lincRNAEvaluator  Found linc_rna: " . scalar(@$linc_rna_genes) . " \n"; 
-  print "BKDEBUG:Analysis:runnable::lincRNAEvaluator  Found ensembl : " . scalar(@$ensembl_genes) . " \n";
+  print "Found linc_rna: " . scalar(@$linc_rna_genes) . " \n"; 
+  print "Found ensembl : " . scalar(@$ensembl_genes) . " \n";
   
   return $self;
 } 
@@ -311,7 +311,6 @@ sub run{
 
 
   # data which will be used for output 
- 
   $self->unclustered_ncrnas(\@lincrna_unclustered); 
   $self->ncrna_clusters_with_processed_transcript(\@ncrna_clusters_with_processed_transcript);   
   $self->ncrna_clusters_with_existing_lincRNAs(\@ncrna_clusters_with_existing_lincRNAs);   

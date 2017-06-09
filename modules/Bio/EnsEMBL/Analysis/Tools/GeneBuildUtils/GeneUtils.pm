@@ -1,4 +1,5 @@
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -106,21 +107,17 @@ sub filter_Genes_by_Exon_count {
   for my $g ( @$genes ) {
     my $max_nr_exons = 0 ;
     for my $t ( @{$g->get_all_Transcripts} ) {
-      print "DEBUG::transcript_id:" . $t->dbID() . "\n" ;
       my $exons = scalar( @{$t->get_all_Exons} );
       if ( $max_nr_exons < $exons ) {
         $max_nr_exons = $exons;
       }
     }
-    print "DEBUG::filter_Genes_by_Exon: " . $g->dbID()  . " -- " . $max_nr_exons . "\n" ;
     if ( $max_nr_exons == 1 ) {
       push @single_exon_genes, $g ;
     } elsif ( $max_nr_exons > 1 ) {
       push @multi_exon_genes, $g;
     } else {
-      print "DEBUG:problem with this gene, it has $max_nr_exons exons\n";      
-      print "DEBUG:printGene:: " . print_Gene($g) . "\n";
-      throw("Gene ".$g->dbID. " does not have any exons !");
+      throw (" Gene ".$g->dbID. " does not have any exons !");
     }
   }
   return ( \@single_exon_genes , \@multi_exon_genes ) ;
@@ -233,7 +230,8 @@ sub Gene_info{
   my ($gene) = @_;
   my $coord_string = seq_region_coord_string($gene);
   my $id = $gene->display_id;
-  return "GENE: id ".$id." ".$coord_string." biotype ".$gene->biotype;
+  my $logic_name = $gene->analysis ? $gene->analysis->logic_name : 'NO_ANALYSIS';
+  return "GENE: id ".$id." ".$coord_string." biotype ".$gene->biotype.' '.$logic_name;
 }
 
 
@@ -613,6 +611,7 @@ sub compute_6frame_translations{
   my @tr = @{ $gene->get_all_Transcripts};
 
   my @new_transcripts ;
+print "DEBUG::translations found for gene " . Gene_info($gene) . "\n"; 
 
   TRANSCRIPTS: for my $transcript ( @tr ) {
     push @new_transcripts, @{compute_6frame_translations_for_transcript($transcript)}; 
@@ -624,6 +623,9 @@ sub compute_6frame_translations{
  for my $nt ( @new_transcripts ) { 
    $new_gene->add_Transcript($nt) ;
  }  
+
+print "DEBUG::translations found for new gene " . Gene_info($new_gene) . "\n";
+
   return $new_gene ;
 }
 

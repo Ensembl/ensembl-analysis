@@ -25,15 +25,11 @@ eae@sanger.ac.uk
 package Bio::EnsEMBL::Analysis::Tools::Algorithms::GeneCluster;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
 
 use Bio::EnsEMBL::Gene;
-# use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning );
 #use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils qw( genes_to_Transcript_Cluster ) ;
-
-@ISA = qw(Bio::EnsEMBL::Root);
 
 =head1 METHODS
 

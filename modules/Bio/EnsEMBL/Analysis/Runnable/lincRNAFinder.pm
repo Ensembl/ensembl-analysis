@@ -116,21 +116,25 @@ sub run{
   print "result_set: " . scalar(@{$self->result_set}) . " and unclustered set: " . scalar(@unclust_efg) . " for 3 step \n";
 
   my @genes_with_translations ;  
+  my @genes_withOUT_translations ; 
   RG: for my $rg( @unclust_efg ) {
-  	# location of the function: ./enscode/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/GeneUtils.pm:sub compute_6frame_translations{
-  	# WARNING: when stand specific models this should be only against 3 frames of correct strand... 
+ 	# WARNING: when stand specific models this should be only against 3 frames of correct strand... 
     my $new_gene = compute_6frame_translations($rg);  # compute_translation() # 
+    # print " translations found for gene " . Gene_info($rg) . "::::" . $rg->display_id() . "\n"; 
     # print scalar(@{ $new_gene->get_all_Transcripts} ) ." translations found for gene " . Gene_info($rg) . "::::" . $rg->display_id() . "\n";  # " seq_region: " . $rg->seq_region_name . " start: " . $rg->seq_region_start . " end: " . $rg->seq_region_end . " strand: " . $rg->seq_region_strand . " \n" ; 
 
     if (!defined $new_gene->get_all_Transcripts) {
-      print "  Could not compute translation for cDNA: gene dbID ". $rg->dbID . " " . $rg->seq_region_name . " " . 
-             $rg->seq_region_start . " " . $rg->seq_region_end ."\n";
+      throw("  Could not compute translation for cDNA: gene dbID ". $rg->dbID . " " . $rg->seq_region_name . " " . 
+             $rg->seq_region_start . " " . $rg->seq_region_end ) ;
       next RG;
+      $rg->biotype('gene_WITHOUT_translation');
+      push @genes_withOUT_translations, $rg ; 
     }     
 
     push @genes_with_translations, $new_gene ; 
   }
   print "--  ".scalar(@genes_with_translations) . " genes with 6-frame-translations found\n" ;     
+  print "--  ".scalar(@genes_withOUT_translations) . " genes WITHOUT 6-frame-translations found\n" ;  # I migth need to report them too!!! 
 
   # cap the number of transcripts per gene according to config 
   my $capped_genes = $self->cap_number_of_translations_per_gene(\@genes_with_translations) ;  
@@ -206,7 +210,7 @@ sub filter_genes_with_long_translations {
   # if a gene has a transcript with a translation over a specified % threshold transcript
   # length, the gene will not be taken as lincRNA candidate.
   
-  # if WRITE_DEBUG_OPTION is turned on, the cDNA "genes" with long translations will
+  # if WRITE_DEBUG_OPTION is turned on, the cDNA "genes" with long translations could 
   # be written to the DEBUG_OUTPUT_DB with new biotype "long translation".
   
   my (@long_genes, @short_genes );  
@@ -219,7 +223,7 @@ sub filter_genes_with_long_translations {
        my $ratio = sprintf('%.1f',$tl_length*100 /  $tr_length);
        if ( $ratio > $max_trans_length_ratio ) { 
          # The cDNA "genes" have no usable display IDs, hence not printing any in the next line:
-         print "BK_DEBUG::lincRNAFidner.pm  LONG_TRANSLATION: " .  $g   .  " cDNA has translation-length to transcript-length ratio ($ratio) higher than max. value allowed in config ($max_trans_length_ratio).\n";
+         print "LONG_TRANSLATION: " .  $g   .  " cDNA has translation-length to transcript-length ratio ($ratio) higher than max. value allowed in config ($max_trans_length_ratio).\n";
          my $analysis =Bio::EnsEMBL::Analysis->new(
                                        -logic_name => 'long_translation_cDNA' ,
                                        );
@@ -229,7 +233,6 @@ sub filter_genes_with_long_translations {
          next GENES; 
        } 
     }     
-    # print "BK_DEBUG::lincRNAFidner.pm SHORT_TRANSLATION: " . $g .  " cDNA has translation-length to transcript-length ratio () lower than max. value allowed in config ($max_trans_length_ratio).\n";
     push @short_genes , $g ;
   }
   return ( \@short_genes, \@long_genes );  

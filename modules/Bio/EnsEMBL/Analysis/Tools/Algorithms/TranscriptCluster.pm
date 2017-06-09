@@ -33,11 +33,10 @@ use Bio::EnsEMBL::Analysis::Tools::Algorithms::IntronCluster;
 use strict;
 
 use Bio::EnsEMBL::Gene;
-#use Bio::EnsEMBL::Root;
 use Bio::RangeI;
 use Bio::EnsEMBL::Utils::Exception qw (throw warning ) ; 
 use vars qw(@ISA);
-@ISA = qw(Bio::EnsEMBL::Root Bio::RangeI);
+@ISA = qw(Bio::RangeI);
 
 
 #########################################################################

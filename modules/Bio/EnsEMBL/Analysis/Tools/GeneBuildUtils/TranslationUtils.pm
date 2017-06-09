@@ -1,4 +1,5 @@
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,6 +47,7 @@ use vars qw (@ISA  @EXPORT);
              validate_Translation_coords
              add_ORF_to_transcript
              compute_6frame_translations_for_transcript 
+             create_Translation
             );
 
 
@@ -504,21 +506,17 @@ sub run_translate{
   $command .= " -m " if($met);
   $command .= " ".$file." | ";
   logger_info($command);
-  open ( ORF, $command ) || throw( "Error running translate" );
+  open ( ORF, $command ) || throw( "Could not run command '$command': $!" );
   
   my @orf_predictions;
  ORF:
   while ( <ORF> ){
     chomp;
-    next ORF unless /\>/;
-    my @entries = split;
-    next ORF unless ( $entries[3] && $entries[5] );
-    my $id = $entries[1];
-    my $orf_length = $entries[3];
-    $orf_length =~s/\,//;
-    $entries[5] =~/(\d+)\.\.(\d+)/;
-    my $orf_start = $1;
-    my $orf_end   = $2;
+    next ORF unless /\>\s*(\S+).*length\s+(\d+),.*\s+(\d+)\.\.(\d+)/;
+    my $id = $1;
+    my $orf_length = $2;
+    my $orf_start = $3;
+    my $orf_end   = $4;
     if ($orf_start>=$orf_end ) {  
       # print "can't compute translation for this transcript as translation start >= translation end : $orf_start >= $orf_end \n " ;
       next ORF  ; 
@@ -534,6 +532,7 @@ sub run_translate{
     my @prediction = ($orf_length,$orf_start,$orf_end);
     push( @orf_predictions, \@prediction );
   }
+  close(ORF) || throw("Error running '$command': $!");
   my @sorted_predictions = 
     map { $_->[1] } sort { $b->[0] <=> $a->[0] } map { [$_->[0], $_] } @orf_predictions;
   unlink $file;
@@ -564,6 +563,47 @@ sub validate_Translation_coords{
     return 0;
   }
   return 1;
+}
+
+
+=head2 create_Translation
+
+ Arg [1]    : Arrayref of Bio::EnsEMBL::Exons
+ Arg [2]    : Int start, genomic start of the cds
+ Arg [3]    : Int end, genomic end of the cds
+ Description: Create a Bio::EnsEMBL::Translation object based on an array of Bio::EnsEMBL::Exons
+ Returntype : Bio::EnsEMBL::Translation
+ Exceptions : None
+
+=cut
+
+sub create_Translation {
+  my ($exons, $genomic_start, $genomic_end) = @_;
+
+  my $translation = Bio::EnsEMBL::Translation->new();
+  foreach my $exon (@$exons) {
+    if ($genomic_start >= $exon->seq_region_start and $genomic_start <= $exon->seq_region_end) {
+      if ($exon->strand == 1) {
+        $translation->start_Exon($exon);
+        $translation->start($genomic_start-$exon->seq_region_start+1);
+      }
+      else {
+        $translation->end_Exon($exon);
+        $translation->end($exon->seq_region_end-$genomic_start+1);
+      }
+    }
+    if ($genomic_end >= $exon->seq_region_start and $genomic_end <= $exon->seq_region_end) {
+      if ($exon->strand == 1) {
+        $translation->end_Exon($exon);
+        $translation->end($genomic_end-$exon->seq_region_start+1);
+      }
+      else {
+        $translation->start_Exon($exon);
+        $translation->start($exon->seq_region_end-$genomic_end+1);
+      }
+    }
+  }
+  return $translation;
 }
 
 1;
