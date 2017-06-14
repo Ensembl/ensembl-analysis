@@ -1,142 +1,194 @@
-#!/usr/bin/env perl
+=head1 LICENSE
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+=head1 CONTACT
+
+Please email comments or questions to the public Ensembl
+developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
+
+Questions may also be sent to the Ensembl help desk at
+<http://www.ensembl.org/Help/Contact>.
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport
+
+=head1 SYNOPSIS
+
+
+=head1 DESCRIPTION
+
+
+=cut
 
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport;
 
 use strict;
 use warnings;
-use feature 'say';
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: This are the default values:
+                update_gene_biotype => 0,
+                classification_type => 'standard',
+                classification => undef,
+                feature_type => 'protein_align_feature',
+              feature_type can be either protein_align_feature or dna_align_feature
+              classification_type can only be standard at the moment unless you fill
+              the classification hash
+              classification is the hash that will help build the sql queries. The standard
+              classification is:
+                95 => [95, 95],
+                80 => [80, 80],
+                50 => [50, 50],
+                0 => [0, 0],
+              The key will be concatenated to the biotype with an underscore, the first element
+              is the coverage, the second element is the percentage of identity
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    update_gene_biotype => 0,
+    classification_type => 'standard',
+    classification => undef,
+    feature_type => 'protein_align_feature',
+  }
+}
+
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Just checking that you have a 'target_db' and setting the classification hash
+              if it's not provided or it is set to 'standard'
+ Returntype : None
+ Exceptions : Throws if 'target_db' is not set
+
+=cut
 
 sub fetch_input {
   my $self = shift;
 
-  my $target_db = $self->param('target_db');
+  $self->hrdb_set_con($self->get_database_by_name('target_db'), 'target_db');
 
-  unless($target_db) {
-    $self->throw("target_db not passed into param hash. Expected an input id of the format:\n".
-                 "{'iid' => 'target_db_connection_hash'}");
+  if (!$self->param('classification')) {
+    my %classification;
+    if($self->param('classification_type') eq 'standard') {
+      %classification = (
+        95 => [95, 95],
+        80 => [80, 80],
+        50 => [50, 50],
+        0 => [0, 0],
+      );
+      $self->param('classification', \%classification);
+    } else {
+      $self->throw('Unrecognised classification type, the default is "standard". Classification type passed in: '.$self->param('classification_type'));
+    }
   }
-
-  my $target_dba = $self->hrdb_get_dba($target_db);
-  $self->hrdb_set_con($target_dba,'target_db');
-
-  my $classification_type = $self->param('classification_type');
-  unless($classification_type) {
-    $self->warning("The classification_type param has not been passed in so defaulting to 'standard'");
-    $classification_type = 'standard';
-  }
-
-  $self->classification_type($classification_type);
-
-  return 1;
 }
+
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Do nothing, everything is done in write_output
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub run {
   my $self = shift;
 
-  my $type = $self->classification_type();
-  $self->run_classification($type);
-
   return 1;
 }
+
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Backup the transcript table, if it already exists it keeps it as it was.
+              Update the transcript biotype based on the classification hash.
+              If 'update_gene_biotype' is set to 1, it also backs up the gene table and
+              update the biotype
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub write_output {
   my $self = shift;
 
-  return 1;
-}
+  my $dbc = $self->hrdb_get_con('target_db')->dbc;
 
-sub run_classification {
-  my ($self,$type) = @_;
+  my $sth = $dbc->prepare('CREATE table transcript_classify_bak like transcript');
+  eval {
+    $sth->execute();
+  };
+  if ($@) {
+    $self->warning("Table transcript_classify_bak already exists, KEEPING it as it is");
+  }
+  else {
+    $sth = $dbc->prepare('INSERT INTO transcript_classify_bak SELECT * FROM transcript');
+    $sth->execute();
+  }
 
-  my $update_gene_biotype = 0;
+  $sth = $dbc->prepare('UPDATE transcript t LEFT JOIN transcript_classify_bak tcb USING(transcript_id) '.
+      'LEFT JOIN transcript_supporting_feature tsf USING(transcript_id) '.
+      'LEFT JOIN '.$self->param('feature_type').' taf ON taf.'.$self->param('feature_type').'_id = tsf.feature_id '.
+      'SET t.biotype = CONCAT(tcb.biotype, ?) WHERE hcoverage >= ? AND perc_ident >= ? '.
+      'AND tsf.feature_type = "'.$self->param('feature_type').'"');
+  my $classification = $self->param('classification');
+  foreach my $key (sort {$a <=> $b} keys %{$classification}) {
+    $sth->bind_param(1, '_'.$key);
+    $sth->bind_param(2, $classification->{$key}->[0]);
+    $sth->bind_param(3, $classification->{$key}->[1]);
+    $sth->execute();
+  }
+
+# I am putting this (and the gene backup code) because at the moment the core api doesn't allow us to get transcripts
+# by biotype, only genes. Since LayerAnnotation and GeneBuilder work off gene biotypes, it's very hard to convert them
+# to use transcript biotypes without an equivalent core api method. So for now they will continue to work off gene
+# biotypes
   if($self->param('update_gene_biotype')) {
-    $update_gene_biotype = 1;
-  }
-
-  my $target_db = $self->hrdb_get_con('target_db');
-
-  my $sth_create =  $target_db->dbc->prepare('CREATE table transcript_classify_bak like transcript');
-  $sth_create->execute();
-
-  my $sth_copy =  $target_db->dbc->prepare('INSERT INTO transcript_classify_bak SELECT * FROM transcript');
-  $sth_copy->execute();
-
-  $sth_create =  $target_db->dbc->prepare('CREATE table gene_classify_bak like gene');
-  $sth_create->execute();
-
-  $sth_copy =  $target_db->dbc->prepare('INSERT INTO gene_classify_bak SELECT * FROM gene');
-  $sth_copy->execute();
-
-  if($type eq 'standard') {
-    my $sth_update = $target_db->dbc->prepare('UPDATE transcript t LEFT JOIN transcript_classify_bak tcb using(transcript_id) '.
-                                              'LEFT JOIN transcript_supporting_feature tsf using(transcript_id) '.
-                                              'LEFT JOIN protein_align_feature paf on paf.protein_align_feature_id=tsf.feature_id '.
-                                              'SET t.biotype=concat(tcb.biotype,"_0") WHERE hcoverage >= 0 AND perc_ident >= 0 '.
-                                              'AND tsf.feature_type="protein_align_feature"');
-    $sth_update->execute();
-
-
-    $sth_update = $target_db->dbc->prepare('UPDATE transcript t LEFT JOIN transcript_classify_bak tcb using(transcript_id) '.
-                                           'LEFT JOIN transcript_supporting_feature tsf using(transcript_id) '.
-                                           'LEFT JOIN protein_align_feature paf on paf.protein_align_feature_id=tsf.feature_id '.
-                                           'SET t.biotype=concat(tcb.biotype,"_50") WHERE hcoverage >= 50 AND perc_ident >= 50 '.
-                                           'AND tsf.feature_type="protein_align_feature"');
-    $sth_update->execute();
-
-
-    $sth_update = $target_db->dbc->prepare('UPDATE transcript t LEFT JOIN transcript_classify_bak tcb using(transcript_id) '.
-                                           'LEFT JOIN transcript_supporting_feature tsf using(transcript_id) '.
-                                           'LEFT JOIN protein_align_feature paf on paf.protein_align_feature_id=tsf.feature_id '.
-                                           'SET t.biotype=concat(tcb.biotype,"_80") WHERE hcoverage >= 80 AND perc_ident >= 80 '.
-                                           'AND tsf.feature_type="protein_align_feature"');
-    $sth_update->execute();
-
-
-    $sth_update = $target_db->dbc->prepare('UPDATE transcript t LEFT JOIN transcript_classify_bak tcb using(transcript_id) '.
-                                           'LEFT JOIN transcript_supporting_feature tsf using(transcript_id) '.
-                                           'LEFT JOIN protein_align_feature paf on paf.protein_align_feature_id=tsf.feature_id '.
-                                           'SET t.biotype=concat(tcb.biotype,"_95") WHERE hcoverage >= 95 AND perc_ident >= 95 '.
-                                           'AND tsf.feature_type="protein_align_feature"');
-    $sth_update->execute();
-
-    # I am putting this (and the gene backup code) because at the moment the core api doesn't allow us to get transcripts
-    # by biotype, only genes. Since LayerAnnotation and GeneBuilder work off gene biotypes, it's very hard to convert them
-    # to use transcript biotypes without an equivalent core api method. So for now they will continue to work off gene
-    # biotypes
-    if($update_gene_biotype) {
-      $sth_update = $target_db->dbc->prepare('UPDATE gene g LEFT JOIN transcript t using(gene_id) set g.biotype=t.biotype');
-      $sth_update->execute();
+    $sth = $dbc->prepare('CREATE table gene_classify_bak like gene');
+    eval {
+      $sth->execute();
+    };
+    if ($@) {
+      $self->warning("Table gene_classify_bak already exists, KEEPING it as it is");
     }
-  } else {
-    $self->throw("Unrecognised classification type, the default is 'standard'. Classification type passed in: ".$type);
+    else {
+      $sth = $dbc->prepare('INSERT INTO gene_classify_bak SELECT * FROM gene');
+      $sth->execute();
+    }
+    $sth = $dbc->prepare('UPDATE gene g LEFT JOIN transcript t USING(gene_id) SET g.biotype = t.biotype');
+    $sth->execute();
   }
-
 }
-
-sub classification_type {
-  my ($self,$val) = @_;
-  if($val) {
-    $self->param('_classification_type',$val);
-  }
-  return($self->param('_classification_type'));
-
-}
-
 
 1;
