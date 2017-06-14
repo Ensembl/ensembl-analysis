@@ -102,7 +102,12 @@ sub run {
   say "\nMeta table insertions complete\n";
 
   say "Setting seq region synonyms...\n";
-  $self->set_seq_region_synonyms($target_db,$path_to_files);
+  if(-e $path_to_files."/AGP/") {
+    $self->set_seq_region_synonyms($target_db,$path_to_files);
+  } else {
+    $self->warning("No AGP dir found so assuming assembly is single level. Will not load synonyms");
+  }
+
   say "\nSeq region synonyms inserted\n";
 
   say "\nFinished updating meta table and setting seq region synonyms";
