@@ -74,7 +74,9 @@ sub run {
   my $path_to_files = $self->param('output_path');
   if ($self->param_is_defined('primary_assembly_dir_name')) {
     $path_to_files = catdir($self->param('output_path'), $self->param_required('primary_assembly_dir_name'));
-    $self->concat_files_for_loading($path_to_files);
+    if(-e $path_to_files."/AGP/") {
+      $self->concat_files_for_loading($path_to_files);
+    }
   }
   my $enscode_dir = $self->param('enscode_root_dir');
   my $coord_system_version = $self->param('coord_system_version');
@@ -178,6 +180,12 @@ sub load_seq_regions {
   say "\nLoading the contigs...";
   say "Processing file:\n".$contigs_file_path;
 
+  unless(-e $path_to_files."/AGP/") {
+    $self->warning("Path to AGP dir does not exist. Assuming single level assembly. Will set rank to 2 for contig. ".
+                   "Path checked:\n".$path_to_files."/AGP/");
+    $rank = 2;
+  }
+
   my $cmd = $base_cmd.
             " -coord_system_name contig".
             " -rank ".$rank.
@@ -202,6 +210,21 @@ sub load_seq_regions {
   } else {
     say "The number of 'seq_region' table loaded contigs (".$num_contigs.") is the same as the number of 'dna' table rows ($num_dna). Great!";
   }
+
+  # ought to update contig version to NULL
+  `$base_sql -e'update coord_system set version=NULL where name = "contig"'`;
+
+  # check that it was updated
+  my $contig_version = `$base_sql -e'select version from coord_system where name = "contig"'`;
+
+  if ($contig_version =~ /NULL/) {
+    say "Column 'version' in 'coord_system' table set to NULL for contig level as required";
+  } else {
+    $self->throw("Column 'version' in 'coord_system' table could not be set to NULL for contig level");
+  }
+
+  # At this point we want to stop for single level assemblies
+  return;
 
   $rank--;
 
@@ -249,17 +272,6 @@ sub load_seq_regions {
     # maybe check warnings about non-ATGCN (RYKMSWBDHV) bases
   }
 
-  # ought to update contig version to NULL
-  `$base_sql -e'update coord_system set version=NULL where name = "contig"'`;
-
-  # check that it was updated
-  my $contig_version = `$base_sql -e'select version from coord_system where name = "contig"'`;
-
-  if ($contig_version =~ /NULL/) {
-    say "Column 'version' in 'coord_system' table set to NULL for contig level as required";
-  } else {
-    $self->throw("Column 'version' in 'coord_system' table could not be set to NULL for contig level");
-  }
 
 
 }

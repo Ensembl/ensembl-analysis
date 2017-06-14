@@ -47,6 +47,11 @@ sub run {
     $path_to_files = catdir($self->param('output_path'), $self->param_required('primary_assembly_dir_name'), 'AGP');
   }
 
+  unless(-e $path_to_files) {
+    $self->warning("The AGP directory was not found. Assuming the assembly is single level. Path checked:\n".$path_to_files);
+    return;
+  }
+
   say "Loading seq regions into reference db";
   my $target_db = $self->param('target_db');
   my $dbhost = $target_db->{'-host'};

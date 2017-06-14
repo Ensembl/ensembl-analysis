@@ -105,12 +105,22 @@ sub check_toplevel {
     `rm -r $check_dump_path`;
   }
 
-  `mkdir $check_dump_path`;
-
-  my $cmd = "ls ".$path_to_files."/FASTA/*.fna | grep -v '\\.placed.' | xargs cat >> ".$check_dump_path."/downloaded_toplevel.fa";
-  my $return = system($cmd);
-  if($return) {
-    $self->throw("Concatenation of downloaded fna sequences filed. Commandline used:\n".$cmd);
+ `mkdir $check_dump_path`;
+  my $cmd = "";
+  my $return;
+  unless(-e $path_to_files."/FASTA/") {
+    $self->warning("The path to the FASTA dir does not exist. Assuming assembly is single level");
+    $cmd = "cp ".$path_to_files."/contigs/contigs.fa ".$check_dump_path."/downloaded_toplevel.fa";
+    $return = system($cmd);
+    if($return) {
+      $self->throw("Copy of contig sequences filed. Commandline used:\n".$cmd);
+    }
+  } else {
+    $cmd = "ls ".$path_to_files."/FASTA/*.fna | grep -v '\\.placed.' | xargs cat >> ".$check_dump_path."/downloaded_toplevel.fa";
+    $return = system($cmd);
+    if($return) {
+      $self->throw("Concatenation of downloaded fna sequences filed. Commandline used:\n".$cmd);
+    }
   }
 
   my $num_toplevel_downloaded = int(`grep -c ">" $check_dump_path/downloaded_toplevel.fa`);

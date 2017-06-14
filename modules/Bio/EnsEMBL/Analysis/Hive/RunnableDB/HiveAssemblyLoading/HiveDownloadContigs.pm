@@ -44,16 +44,27 @@ sub run {
   my $output_path = catdir($self->param('output_path'), $primary_assembly_dir_name, 'contigs');
   my $source = $self->param('contigs_source');
 
+  my $single_level = 0;
+  unless(-e $contig_accession_path) {
+    $self->warning("No contig accession file found. Assuming assembly is single level");
+    $single_level = 1;
+    system('mkdir -p '.$output_path);
+  }
+
   say "Downloading contig files";
   $self->download_ftp_contigs($source,$wgs_id,$output_path);
   say "Unzipping contig files";
   $self->unzip($output_path);
   say "Fixing contig headers";
   $self->fix_contig_headers($source,$output_path);
-  say "Checking for accessions from nuclear AGP that are missing in the contig accessions";
-  $self->find_missing_accessions($output_path,$contig_accession_path);
-  say "Comparing contigs to AGP file, all contigs must match nuclear AGP accession. Non-nuclear AGP accession will have contigs removed";
-  $self->compare_to_agp($output_path,$contig_accession_path);
+
+  unless($single_level) {
+    say "Checking for accessions from nuclear AGP that are missing in the contig accessions";
+    $self->find_missing_accessions($output_path,$contig_accession_path);
+    say "Comparing contigs to AGP file, all contigs must match nuclear AGP accession. Non-nuclear AGP accession will have contigs removed";
+    $self->compare_to_agp($output_path,$contig_accession_path);
+  }
+
   say "Finished downloading contig files";
   return 1;
 }
@@ -146,6 +157,8 @@ sub fix_contig_headers {
     while(<IN>) {
       my $line = $_;
       if($line =~ /^>.*gb\|([^\|]+\.\d+)\|/) {
+        say OUT '>'.$1;
+      } elsif($line =~ /^>gi\|[^\|]+\|[^\|]+\|([^\|]+)\|/) {
         say OUT '>'.$1;
       } elsif($line =~ /^>/) {
         $self->throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);

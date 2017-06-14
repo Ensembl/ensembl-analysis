@@ -40,7 +40,14 @@ sub run {
   my $self = shift;
 
   my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
+
   my $agp_files_path = $self->param('output_path')."/".$primary_assembly_dir_name."/AGP";
+
+  unless(-e $agp_files_path) {
+    $self->warning("Could not find an agp file path, therefore assuming the assembly is single level");
+    return;
+  }
+
   my $contig_accessions = $self->find_contig_accessions($agp_files_path);
 
   open(OUT,">".$agp_files_path."/contigs.txt");
