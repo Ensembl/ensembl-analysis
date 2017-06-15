@@ -287,7 +287,7 @@ sub parse_results{
     }
   }
   print "No tandem repeats found" if(@output == 0);
-  $self->output(\@output);
+  $self->output(\@output,1);
   close(OUT) or throw("FAILED to close ".$results.
                       "TRF:parse_results");
 }

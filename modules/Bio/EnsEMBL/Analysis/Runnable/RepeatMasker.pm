@@ -319,8 +319,8 @@ sub parse_results{
           ($start, $end, $strand, $score, 
            $repeat_start, $repeat_end, 
            $rc, $self->query);
-        
-        $self->output([$rf]);
+
+        $self->output([$rf],1);
       }
     }
   close(OUT) or throw("FAILED to close ".$results.
