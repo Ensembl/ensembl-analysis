@@ -306,6 +306,7 @@ sub program{
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
   Arg [2]   : arrayref of output
+  Arg [3]   : flag to attach the runnable->query as a slice
   Function  : pushes passed in arrayref onto the output array
   Returntype: arrayref
   Exceptions: throws if not passed an arrayref
@@ -316,7 +317,7 @@ sub program{
 
 
 sub output{
-  my ($self, $output) = @_;
+  my ($self, $output, $attach_slice) = @_;
   if(!$self->{'output'}){
     $self->{'output'} = [];
   }
@@ -324,6 +325,11 @@ sub output{
     throw("Must pass Runnable:output an arrayref not a ".$output)
       unless(ref($output) eq 'ARRAY');
     push(@{$self->{'output'}}, @$output);
+  }
+  if($attach_slice) {
+    foreach my $output_unit (@{$output}) {
+      $output_unit->slice($self->{'query'});
+    }
   }
   return $self->{'output'};
 }
