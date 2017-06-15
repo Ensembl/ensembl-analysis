@@ -61,6 +61,7 @@ package Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptDNA;
 
 use strict;
 use warnings;
+use Data::Dumper;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -86,8 +87,10 @@ use vars qw(@ISA);
 sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($pt) = rearrange(['TRANSCRIPT'], @args);
+  my ($pt,$slice) = rearrange(['TRANSCRIPT','QUERY'], @args);
   $self->transcript($pt);
+  $self->store_slice($slice);
+
   return $self;
 }
 
@@ -133,6 +136,12 @@ sub output {
   if($arr_ref){
     throw("Must pass Runnable:output an arrayref not a ".$arr_ref)
       unless(ref($arr_ref) eq 'ARRAY');
+
+    # Attach the slice by default
+    foreach my $feature (@{$arr_ref}) {
+      $feature->slice($self->store_slice());
+    }
+
     if ($reset) {
       $self->{'output'} = $arr_ref;
     } else {

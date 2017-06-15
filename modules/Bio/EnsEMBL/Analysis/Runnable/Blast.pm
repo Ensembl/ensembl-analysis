@@ -395,4 +395,25 @@ sub parse_results{
 }
 
 
+=head2 store_slice
+
+ Arg [1]    : Bio::EnsEMBL::Slice
+ Description: used to explictly get/set the slice since query is used inconsistently
+ Returntype : Bio::EnsEMBL::Slice
+ Exceptions : throw if not a slice ref
+
+=cut
+
+sub store_slice {
+  my ($self,$slice) = @_;
+  if($slice) {
+    unless(ref($slice) eq 'Bio::EnsEMBL::Slice') {
+      throw("Must pass in a slice ref. Ref type found: ".ref($slice));
+    }
+    $self->{'_store_slice'} = $slice;
+  }
+
+  return($self->{'_store_slice'});
+}
+
 1;
