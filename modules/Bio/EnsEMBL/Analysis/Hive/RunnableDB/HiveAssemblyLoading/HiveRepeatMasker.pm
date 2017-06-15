@@ -2,13 +2,13 @@
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # Copyright [2016-2017] EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -29,13 +29,13 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::RepeatMasker - 
+Bio::EnsEMBL::Analysis::RunnableDB::RepeatMasker -
 
 =head1 SYNOPSIS
 
   my $repeat_masker = Bio::EnsEMBL::Analysis::RunnableDB::RepeatMasker->
   new(
-      -input_id => 'contig::AL805961.22.1.166258:1:166258:1',
+      -input_id => ['contig::AL805961.22.1.166258:1:5000:1','contig::AL805961.22.1.166258:5001:10000:1'],
       -db => $db,
       -analysis => $analysis,
      );
@@ -50,7 +50,7 @@ the Runnable RepeatMasker which wraps the program RepeatMasker
 
 This module can fetch appropriate input from the database
 pass it to the runnable then write the results back to the database
-in the repeat_feature and repeat_consensus tables 
+in the repeat_feature and repeat_consensus tables
 
 =head1 METHODS
 
@@ -75,7 +75,7 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
   Function  : fetch data out of database and create runnable
   Returntype: 1
   Exceptions: none
-  Example   : 
+  Example   :
 
 =cut
 
@@ -85,11 +85,28 @@ sub fetch_input{
   my ($self) = @_;
 
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
+
+  # This adaptor MUST be set before attaching the dna_db, as the core api currently
+  # forces the dna_db to be the db used for storing the features, even if a separate
+  # output db is specified
+  my $rfa = $dba->get_RepeatFeatureAdaptor;
+  $self->get_adaptor($rfa);
+
+  if($self->param_is_defined('dna_db')) {
+    say "Attaching dna_db to output db adaptor";
+    my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+
+    $dba->dnadb($dna_dba);
+  } else {
+    say "No dna_db param defined, so assuming target_db has dna";
+  }
+
   $self->hrdb_set_con($dba,'target_db');
 
-  my $input_id = $self->param('iid');
-  my $slice = $self->fetch_sequence($input_id,$dba);
-  $self->query($slice);
+  my $slice_array = $self->param('iid');
+  unless(ref($slice_array) eq "ARRAY") {
+    $self->throw("Expected an input id to be an array reference. Type found: ".ref($slice_array));
+  }
 
   my $analysis = Bio::EnsEMBL::Analysis->new(
                                               -logic_name => $self->param('logic_name'),
@@ -98,72 +115,46 @@ sub fetch_input{
                                               -parameters => $self->param('commandline_params'),
                                             );
 
-  $self->param('analysis',$analysis);
+  $self->analysis($analysis);
 
   my %parameters;
   if($self->parameters_hash){
     %parameters = %{$self->parameters_hash};
   }
 
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::RepeatMasker->new
-    (
-     -query => $self->query,
-     -program => $analysis->program_file,
-     -analysis => $self->param('analysis'),
-     %parameters,
-    );
-  $self->runnable($runnable);
-  say "Runnable ref: ".ref($self->runnable);
+  foreach my $slice_name (@{$slice_array}) {
+    my $slice = $self->fetch_sequence($slice_name,$dba);
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::RepeatMasker->new
+                   (
+                     -query => $slice,
+                     -program => $analysis->program_file,
+                     -analysis => $analysis,
+                      %parameters,
+                   );
+    $self->runnable($runnable);
+  }
   return 1;
 }
 
+=head2 get_adaptor
 
-sub run {
-  my ($self) = @_;
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::RepeatMasker
+  Arg [2]   : Bio::EnsEMBL::DBSQL::RepeatFeatureAdaptor
+  Function  : get/set repeatfeature adaptor
+  Returntype: Bio::EnsEMBL::DBSQL::RepeatFeatureAdaptor
+  Exceptions: none
+  Example   :
 
-  foreach my $runnable(@{$self->runnable}){
-    $runnable->run;
-    $self->output($runnable->output);
+=cut
+
+
+sub get_adaptor {
+  my ($self,$rfa) = @_;
+  if($rfa) {
+    $self->param('_rfa',$rfa);
   }
 
-  return 1;
-}
-
-sub write_output {
-  my ($self) = @_;
-  my $rf_adaptor = $self->hrdb_get_con('target_db')->get_RepeatFeatureAdaptor;
-  my $analysis = $self->param('analysis');
-
-  # Keep track of the analysis_id we have here, because the store()
-  # method might change it if the analysis does not already exist in
-  # the output database, which will make running the next job difficult
-  # or impossible (because the analysis tables weren't in sync).  If we
-  # find that the analysis ID changes, throw() so that the genebuilder
-  # realizes that she has to sync thhe analysis tables.
-
-
-  foreach my $feature ( @{ $self->output() } ) {
-    $feature->analysis($analysis);
-
-    if ( !defined( $feature->slice() ) ) {
-      $feature->slice( $self->query() );
-    }
-
-    $self->feature_factory->validate($feature);
-
-    eval { $rf_adaptor->store($feature); };
-    if ($@) {
-      $self->throw("RunnableDB::write_output() failed:failed to store '".$feature."' into database '".$rf_adaptor->dbc()->dbname()."': ".$@);
-    }
-  }
-
-  my $output_hash = {};
-  $output_hash->{'iid'} = $self->param('iid');
-  $self->dataflow_output_id($output_hash,4);
-  $self->dataflow_output_id($output_hash,1);
-
-  return 1;
-
+  return($self->param('_rfa'));
 }
 
 1;
