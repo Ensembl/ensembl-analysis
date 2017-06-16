@@ -158,6 +158,51 @@ sub pipeline_create_commands {
   return $drop_commands;
 }
 
+
+=head2 hive_data_table
+
+ Arg [1]    : String type, the type of data table you need: protein, cdna, refseq
+ Arg [2]    : String name, the name of the table
+ Description: Creates a table for protein or cdnas which can be used later in the pipeline
+ Returntype : String mysql_query
+ Exceptions : None
+
+=cut
+
+sub hive_data_table {
+  my ($self, $type, $table_name) = @_;
+
+  my %table_types = (
+      protein => 'CREATE TABLE '.$table_name.' ('.
+                  'accession varchar(50) NOT NULL,'.
+                  'source_db varchar(50) NOT NULL,'.
+                  'pe_level varchar(50) NOT NULL,'.
+                  'biotype varchar(255) NOT NULL,'.
+                  'group_name varchar(255) NOT NULL,'.
+                  'seq text NOT NULL,'.
+                  'PRIMARY KEY (accession))',
+      refseq =>  'CREATE TABLE '.$table_name.' ('.
+                  'accession varchar(50) NOT NULL,'.
+                  'source_db varchar(50) NOT NULL,'.
+                  'biotype varchar(25) NOT NULL,'.
+                  'date varchar(50) NOT NULL,'.
+                  'seq text NOT NULL,'.
+                  'PRIMARY KEY (accession))',
+      cdna =>    'CREATE TABLE '.$table_name.' ('.
+                  'accession VARCHAR(50) NOT NULL,'.
+                  'source VARCHAR(50) NOT NULL,'.
+                  'date DATE DEFAULT 0,'.
+                  'db_version VARCHAR(50) NOT NULL,'.
+                  'species VARCHAR(50) NOT NULL,'.
+                  'seq TEXT NOT NULL,'.
+                  'protein_accession VARCHAR(50),'.
+                  'PRIMARY KEY (accession))',
+  );
+
+  return $self->db_cmd($table_types{$type});
+}
+
+
 =head2 lsf_resource_builder
 
  Arg [1]    : String $queue, name of the queue to submit to, default is 'normal'
