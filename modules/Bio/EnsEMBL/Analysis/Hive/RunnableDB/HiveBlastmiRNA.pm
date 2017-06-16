@@ -103,11 +103,11 @@ sub fetch_input{
 
   my $repeat_logic_names = $self->param('repeat_logic_names');
 
-  my $blast_params = $self->param('config_settings')->{BLAST_PARAMS};
-  my $blast_filter = $self->param('config_settings')->{BLAST_FILTER};
-  my $blast_parser = $self->param('config_settings')->{BLAST_PARSER};
-  my $filter_params = $self->param('config_settings')->{FILTER_PARAMS};
-  my $parser_params = $self->param('config_settings')->{PARSER_PARAMS};
+  my $blast_params = $self->param('BLAST_PARAMS');
+  my $blast_filter = $self->param('BLAST_FILTER');
+  my $blast_parser = $self->param('BLAST_PARSER');
+  my $filter_params = $self->param('FILTER_PARAMS');
+  my $parser_params = $self->param('PARSER_PARAMS');
 
   my %blast = %{$blast_params};
 
