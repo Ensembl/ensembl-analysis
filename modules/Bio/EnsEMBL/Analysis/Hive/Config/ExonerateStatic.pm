@@ -51,6 +51,9 @@ sub _master_config {
       OPTIONS             => '--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE',
       COVERAGE_BY_ALIGNED => 0,
       QUERYTYPE           => 'dna',
+      GENOMICSEQS         => '#genome_file#',
+      PROGRAM             => '#exonerate_path#',
+      SOFT_MASKED_REPEATS => '#repeat_libraries#', # This should be an arrayref
       FILTER => {
         OBJECT => 'Bio::EnsEMBL::Analysis::Tools::CdnaUpdateTranscriptFilter',
         PARAMETERS => {
@@ -283,6 +286,20 @@ sub _master_config {
         PARAMETERS => {
           -coverage   => '#exonerate_cdna_cov#',
           -percent_id => '#exonerate_cdna_pid#',
+        },
+      },
+    },
+    protein_cov_per_bestn_maxintron_sub => {
+      OPTIONS             => ' --model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn #exonerate_bestn# --maxintron #exonerate_max_intron#',
+      COVERAGE_BY_ALIGNED => 0,
+      QUERYTYPE           => 'protein',
+      FILTER => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -coverage   => '#exonerate_cdna_cov#',
+          -percent_id => '#exonerate_cdna_pid#',
+          -best_in_genome => 0,
+          -reject_processed_pseudos => 1,
         },
       },
     },
