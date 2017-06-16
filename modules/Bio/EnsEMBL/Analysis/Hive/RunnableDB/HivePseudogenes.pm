@@ -91,8 +91,6 @@ use Bio::EnsEMBL::Pipeline::Flag;
 #use Bio::EnsEMBL::Analysis::Config::Databases qw(DATABASES DNA_DBNAME);
 #use Bio::EnsEMBL::Analysis::Config::Pseudogene;
 #use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning 
-                                      stack_trace);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
