@@ -97,12 +97,14 @@ sub default_options {
         data_dbs_user => $self->o('user'),
         data_dbs_password => $self->o('password'),
 
+        dna_db_server => $self->o('host'),
         dna_db_port => $self->o('port'),
         dna_db_user => $self->o('user_r'),
         dna_db_password => $self->o('password_r'),
         dna_db_driver => $self->o('hive_driver'),
 
         pipe_dbname => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+        pipe_db_server => $self->o('host'),
         pipe_db_port => $self->o('port'),
         pipe_db_user => $self->o('user'),
         pipe_db_password => $self->o('password'),

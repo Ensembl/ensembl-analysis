@@ -140,7 +140,7 @@ sub _master_config {
         BlastmiRBase => {
           BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::BPliteWrapper',
           PARSER_PARAMS => {
-                             -regex => '\w+\s+(\w+)',
+                             -regex => '\S+\s+(\w+)',
                              -query_type => 'dna',
                              -database_type => 'dna',
                            },
