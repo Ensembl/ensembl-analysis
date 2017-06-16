@@ -1254,8 +1254,6 @@ sub is_slice_name {
     my ($string) = @_;
 
     return $string =~ /^[^:]+:[^:]+:[^:]+:\d+:\d+:(1|-1)$/;
-=======
->>>>>>> experimental/lincRNA_dev_2nd_generation
 }
 
 1;
