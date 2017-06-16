@@ -222,7 +222,7 @@ sub get_efg_simple_features {
   my ( $self ) = @_ ;  
 
   my $dba = $self->get_dbadaptor($self->EFG_FEATURE_DB); 
-  $dba->disconnect_when_inactive(1);    
+  # $dba->disconnect_when_inactive(0);    
 
   my $set_db = $dba->get_SimpleFeatureAdaptor();
   print "Fetching EFG domain data from " . $dba->dbname . "\@" . $dba->host . ".... \n";
