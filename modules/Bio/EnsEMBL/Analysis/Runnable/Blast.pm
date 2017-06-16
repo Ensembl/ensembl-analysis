@@ -158,7 +158,7 @@ sub databases{
     # If it doesn't exist then see if $database-1,$database-2 exist
     # and put them in the database array
     
-    if (-f "$dbname" || -f "$dbname.fa" || -f "$dbname.xpd" || -f "$dbname.phr" || -f "$dbname.nhr") {
+    if (-f "$dbname" || -f "$dbname.fa" || -f "$dbname.xpd" || -f "$dbname.phr" || -f "$dbname.nhr" || -f "$dbname.nal") {
       push(@dbs,$dbname);
     } else {
       my $count = 1;
