@@ -113,7 +113,7 @@ sub write_output{
                                            -logic_name => $logic_name_to_be,
                                            -displayable => 1
                                            );    
-    $gene->status(undef); 
+    # $gene->status(undef); 
     $gene->analysis($self->analysis);   
     eval{
       $lincrna_ga->store($gene);

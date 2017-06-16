@@ -125,12 +125,12 @@ sub write_output {
 		my @tr     = @{ $gene->get_all_Transcripts };
 		my $max_ex = 0;
 		for (@tr) {
-			$_->status(undef);
+			# $_->status(undef);
 			$_->analysis( $self->analysis );
 		}
 
 		$gene->biotype( $self->OUTPUT_BIOTYPE );
-		$gene->status(undef);
+		# $gene->status(undef);
 		$gene->analysis( $self->analysis );
 		eval { 
 			$adaptor->store($gene); 

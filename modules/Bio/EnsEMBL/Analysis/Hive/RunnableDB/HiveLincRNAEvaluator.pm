@@ -326,7 +326,7 @@ sub write_output{
       $gene_linc->add_Transcript($transcript);    
     }
 
-    $gene_linc->status(undef); 
+    # $gene_linc->status(undef); 
     $gene_linc->analysis($self->analysis);   
     empty_Gene($gene_linc, 1);
     eval{
