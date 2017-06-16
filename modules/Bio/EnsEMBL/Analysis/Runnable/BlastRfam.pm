@@ -162,7 +162,7 @@ sub parse_results{
 	   if ($coverage_cutoff){
 	     next unless($coverage > $coverage_cutoff);
 	   }
-	   $subject->name =~ /^(\S+);\S+;(\S+)/;
+	   $subject->name =~ /^\s*(\S+);\S+;(\S+)/;
 	   my $name = $1."-".$2;
 	   push @daf_results, $self->parser->split_hsp($hsp,$name);
 	   # add coverage into daf score?

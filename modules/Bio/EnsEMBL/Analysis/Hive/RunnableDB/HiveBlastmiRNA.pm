@@ -109,9 +109,6 @@ sub fetch_input{
   my $filter_params = $self->param('FILTER_PARAMS');
   my $parser_params = $self->param('PARSER_PARAMS');
 
-
-
-
   my %blast = %{$blast_params};
 
   my $parser = $blast_parser->new(%$parser_params);
