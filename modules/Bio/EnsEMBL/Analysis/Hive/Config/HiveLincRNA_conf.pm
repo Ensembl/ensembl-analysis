@@ -46,7 +46,7 @@ sub default_options {
 # check https://www.ebi.ac.uk/seqdb/confluence/pages/viewpage.action?pageId=39822808
     'pipeline_name' => 'lincRNA_Pipe_Month20XX',
     'species' => '', # your species name ie microcebus_murinus
-    'pipe_dbname' => join('_', $ENV{USER}, $self->o('species'), $self->o('pipeline_name')),
+    'pipe_dbname' => join('_', $self->o('dbowner'), $self->o('species'), $self->o('pipeline_name')),
     'pipe_db_server' => '', # NOTE! used to generate tokens in the resource_classes sub below
      dna_dbname => '', # what's your dna db name 
     'dna_db_server' => '', # where is your dna db?  NOTE! used to generate tokens in the resource_classes sub below
@@ -82,7 +82,6 @@ sub default_options {
 #
 ######################################################
 
-    'clone_db_script_path'   => $ENV{GIT}.'/ensembl-analysis/scripts/clone_database.ksh',
     'biotype_output' => 'rnaseq',
 
 
@@ -113,7 +112,7 @@ sub default_options {
 # species       => [],
 
 # Release 20 November 2014, InterProScan 5:version 5.8-49 using InterPro version 49.0 data
-    interproscan_exe => '/software/ensembl/genebuild/bin/interproscan/interproscan-5.8-49.0/interproscan.sh',
+    interproscan_exe => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/interproscan.sh',
     interproscan_lookup_applications => [
       'PfamA',           # pfam
     ],
@@ -326,7 +325,7 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDumpTranslations',
       -batch_size    => 100,
       -parameters => {
-                        dump_translations_path => $ENV{GIT}.'/ensembl-analysis/scripts/protein/',
+                        dump_translations_path => $self->o('enscode_root_dir').'/ensembl-analysis/scripts/protein/',
                         dump_translations_name => 'dump_translations.pl',
                         # dump_translations.pl script parameters
                         # logic => 'HiveDumpTranslations_test',
