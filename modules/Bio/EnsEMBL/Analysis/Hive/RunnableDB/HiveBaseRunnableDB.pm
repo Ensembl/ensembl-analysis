@@ -515,14 +515,24 @@ sub failing_job_status {
 sub create_analysis {
     my ($self, $add_module, $extra_params) = @_;
 
-    if (!$self->param_is_defined('logic_name')) {
-        $self->param('logic_name', $self->input_job->analysis->logic_name);
+    my $logic_name;
+    if ($self->param_is_defined('logic_name')) {
+        $logic_name = $self->param('logic_name');
     }
-    if (!$self->param_is_defined('module')) {
+    else {
+      $logic_name = $self->input_job->analysis->logic_name;
+    }
+    my $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $logic_name, %$extra_params);
+    if ($add_module) {
+      my $module;
+      if ($self->param_is_defined('module')) {
+        $module = $self->param('module');
+      }
+      else {
         $self->param('module', $self->input_job->analysis->module);
+      }
+      $analysis->module($self->param('module'));
     }
-    my $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $self->param('logic_name'), %$extra_params);
-    $analysis->module($self->param('module')) if (defined $add_module);
     $analysis->program_file($self->param('program_file')) if ($self->param_is_defined('program_file'));
 
     return $self->analysis($analysis);
