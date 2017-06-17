@@ -327,32 +327,38 @@ sub convert_slice_to_feature_ids {
 
   my $output_id_array = [];
 
-  my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param_required('iid'));
   my $feature_type = $self->param_required('feature_type');
   my $template_sql = 'UPDATE %s SET stable_id = CONCAT("'.$self->param('stable_id_prefix').'%s", LPAD(%s_id, 11, 0)) WHERE seq_region_id = %d';
 
   if($feature_type eq 'prediction_transcript') {
-    if ($self->param_is_defined('create_stable_ids')) {
-#        my $sqlquery = 'UPDATE prediction_transcript SET stable_id = CONCAT("'.$self->param('stable_id_prefix').'X", LPAD(prediction_transcript_id, 11, 0)) WHERE seq_region_id = '.$slice->get_seq_region_id;
+    # Note that the way feature ids work for the analyses PTs have been updated to arrayrefs for batching purposes. I am going to modify this
+    # to take that into account and allow batching. When the other analyses that use feature ids are updated then this change can be applied
+    # generically to the gene features as well
+    my $slices = $self->param_required('iid');
+    my $all_slice_pt_ids = [];
+    foreach my $slice (@{$slices}) {
+      if ($self->param_is_defined('create_stable_ids')) {
         my $sqlquery = sprintf($template_sql, $feature_type, 'X', $feature_type, $slice->get_seq_region_id);
         my $sth = $dba->dbc->prepare($sqlquery);
         $sth->execute();
-    }
-    my $pta = $dba->get_PredictionTranscriptAdaptor;
-    my $logic_names = $self->param('logic_name');
-    if (!ref($logic_names) || scalar(@$logic_names) == 0 ) {
-      $logic_names = ['genscan'];
-    }
-    my @pts ;
-    foreach my $logic_name (@$logic_names) {
-      my $pt = $pta->fetch_all_by_Slice($slice, $logic_name);
-      foreach my $pt_feature (@{$pt}) {
-        push(@{$output_id_array},$pt_feature->dbID());
+      }
+
+      my $pta = $dba->get_PredictionTranscriptAdaptor;
+      my $logic_names = $self->param('logic_name');
+      if (!ref($logic_names) || scalar(@$logic_names) == 0 ) {
+        $logic_names = ['genscan'];
+      }
+      foreach my $logic_name (@$logic_names) {
+        my $pts = $pta->fetch_all_by_Slice($slice, $logic_name);
+        foreach my $pt (@{$pts}) {
+          push(@{$all_slice_pt_ids},$pt->dbID());
+        }
       }
     }
+    $self->param('inputlist', $self->_chunk_input_ids($self->param_required('batch_size'), $all_slice_pt_ids))
   } elsif($feature_type eq 'gene') {
+     my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param_required('iid'));
     if ($self->param_is_defined('create_stable_ids')) {
-#        my $sqlquery = 'UPDATE gene SET stable_id = CONCAT("'.$self->param('stable_id_prefix').'G", LPAD(gene_id, 11, 0)) WHERE seq_region_id = '.$slice->get_seq_region_id;
         my $sqlquery = sprintf($template_sql, $feature_type, 'G', $feature_type, $slice->get_seq_region_id);
         my $sth = $dba->dbc->prepare($sqlquery);
         $sth->execute();
@@ -373,6 +379,17 @@ sub convert_slice_to_feature_ids {
 
   $self->param('inputlist', $output_id_array);
 }
+
+
+=head2 batch_feature_ids
+
+ Arg [1]    : None
+ Description: Batch a set of input ids
+ Returntype : None
+ Exceptions : Throws if 'iid' is not defined
+              Throws if 'slice_size' is negative
+
+=cut
 
 
 =head2 split_slice
