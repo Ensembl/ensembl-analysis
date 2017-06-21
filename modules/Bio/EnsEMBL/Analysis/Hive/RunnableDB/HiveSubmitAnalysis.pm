@@ -334,9 +334,11 @@ sub convert_slice_to_feature_ids {
     # Note that the way feature ids work for the analyses PTs have been updated to arrayrefs for batching purposes. I am going to modify this
     # to take that into account and allow batching. When the other analyses that use feature ids are updated then this change can be applied
     # generically to the gene features as well
-    my $slices = $self->param_required('iid');
+    my $slice_names = $self->param_required('iid');
     my $all_slice_pt_ids = [];
-    foreach my $slice (@{$slices}) {
+    my $sa = $dba->get_SliceAdaptor();
+    foreach my $slice_name (@{$slice_names}) {
+      my $slice = $sa->fetch_by_name($slice_name);
       if ($self->param_is_defined('create_stable_ids')) {
         my $sqlquery = sprintf($template_sql, $feature_type, 'X', $feature_type, $slice->get_seq_region_id);
         my $sth = $dba->dbc->prepare($sqlquery);

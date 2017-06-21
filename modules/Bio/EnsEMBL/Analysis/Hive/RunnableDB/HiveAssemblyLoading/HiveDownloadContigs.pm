@@ -160,6 +160,8 @@ sub fix_contig_headers {
         say OUT '>'.$1;
       } elsif($line =~ /^>gi\|[^\|]+\|[^\|]+\|([^\|]+)\|/) {
         say OUT '>'.$1;
+      } elsif($line =~ /^\>([A-Z\d\.]+\.\d+) /) {
+        say OUT '>'.$1;
       } elsif($line =~ /^>/) {
         $self->throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);
       } else {
@@ -275,13 +277,15 @@ sub recover_missing_accessions {
     my $id_string_array = [];
     my $count = 0;
     foreach my $accession (@{$missing_accessions}) {
+      say "Attempting to fetch missing accession: ".$accession;
       my $search_cmd = 'wget -q -O - "'.$searchbase.$accession.'"';
+
       open(HTTP, $search_cmd.' | ') or $self->throw("Could not run $search_cmd");
       while (my $line = <HTTP>) {
         $ids .= '&id='.$1 if ($line =~ /<Id>(\d+)<\/Id>/);
         $count++;
         if($count==$max_batch_size) {
-           push(@{$id_string_array},$ids);
+          push(@{$id_string_array},$ids);
           $ids = "";
           $count=0;
         }
@@ -306,11 +310,13 @@ sub recover_missing_accessions {
     open(OUT,">".$efetch_path.".fixed");
     while(<IN>) {
         my $line = $_;
+
         if($line =~ /^>.*gb\|([^\|]+\.\d+)\|/) {
           say OUT '>'.$1;
-        } elsif($line =~ /^>(\w+)/) {
+        } elsif($line =~ /\>([^ ]+)/) {
+          say OUT '>'.$1;
+	} elsif($line =~ /^>(\w+)/) {
           my $tmp_1 = $1 . '.1';
-          print "DEBUG::$tmp_1\--\n";
           say OUT '>'.$tmp_1;
         } elsif($line =~ /^>/) {
           $self->throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);

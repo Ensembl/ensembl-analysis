@@ -41,6 +41,7 @@ sub run {
   my $self = shift;
 
   my $ftp_species_path = $self->param('full_ftp_path')."/";
+  say "Using the following as the ftp path:\n".$ftp_species_path;
   my $local_path = $self->param('output_path');
   $self->download_ftp_dir($ftp_species_path,$local_path);
   $self->download_non_nuclear_ftp_dir($self->param('full_ftp_path'),$self->param('output_path'));
@@ -59,13 +60,12 @@ sub download_ftp_dir {
   #$ftp_path = 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/151/905/GCA_000151905.3_gorGor4/';
   #$ftp_path = 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/900/006/655/GCA_900006655.1_GSMRT3/';
 
-  # This is some magic to get the correct number for --cut-dir
-  my @dirs = splitdir($ftp_path);
-  my $numDirs = scalar(@dirs)-2;
   my @ftp_path_array = split('/',$ftp_path);
   my $top_dir = pop(@ftp_path_array);
 
-  my $cmd = "wget --no-cache --spider ".$ftp_path."/".$top_dir."_assembly_structure 2>&1 |";
+  my $cmd = "wget --no-cache --spider ".$ftp_path."/ 2>&1 |";
+  say "Checking for single or multilevel assembly with:\n".$cmd;
+
   my $single_level = 0;
 
   # If there is a failure to find the assembly_structure dir then it is a single level assembly (assuming the path is correct)
@@ -77,16 +77,18 @@ sub download_ftp_dir {
   }
   close CMDOUT;
 
-
+  system('mkdir '.$local_dir."/Primary_Assembly");
   if($single_level) {
-    system('mkdir '.$local_dir."/Primary_Assembly");
     $cmd = "wget ".$wget_verbose." -nH -P ".$local_dir." ".$ftp_path."/".$top_dir."_assembly_report.txt -O ".$local_dir."/Primary_Assembly/assembly_report.txt";
     if (system($cmd)) {
       $self->throw("Could not download *_assembly_report.txt file to ".$local_dir.". Please, check that both paths are valid.\n".
                    "Commandline used:\n".$cmd);
     }
   } else {
-    $cmd = "wget --no-proxy ".$wget_verbose." -r -nH --cut-dirs=".$numDirs." --reject *.rm.out.gz -P ".$local_dir." ".$ftp_path."/".$top_dir."_assembly_structure/Primary_Assembly/";
+    # This is some magic to get the correct number for --cut-dir
+    my @dirs = splitdir($ftp_path."/".$top_dir."_assembly_structure/Primary_Assembly");
+    my $numDirs = scalar(@dirs)-2;
+    $cmd = "wget --no-proxy ".$wget_verbose." -r -nH --cut-dirs=".$numDirs." --reject *.rm.out.gz -P ".$local_dir."/Primary_Assembly/ ".$ftp_path."/".$top_dir."_assembly_structure/Primary_Assembly";
     my $return = system($cmd);
     if($return) {
       $self->throw("Could not download the AGP, FASTA and info files. Commandline used:\n".$cmd);
@@ -104,9 +106,7 @@ sub download_ftp_dir {
     $ftp_path =~ s/([^\:])\/\//$1\//;
 
     my @ftp_path_array = split('/',$ftp_path);
-    my $ass_report_dir = pop(@ftp_path_array);
-
-    $cmd = "wget ".$wget_verbose." -nH -P ".$local_dir." ".$ftp_path."/".$top_dir."_assembly_report.txt -O ".$local_dir."/assembly_report.txt";
+    $cmd = "wget ".$wget_verbose." -nH -P ".$local_dir." ".$ftp_path."/".$top_dir."_assembly_report.txt -O ".$local_dir."/Primary_Assembly/assembly_report.txt";
     if (system($cmd)) {
       $self->throw("Could not download *_assembly_report.txt file to ".$local_dir.". Please, check that both paths are valid.\n".
                    "Commandline used:\n".$cmd);

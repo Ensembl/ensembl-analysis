@@ -263,7 +263,7 @@ sub default_options {
 ########################################################
     'ncbi_base_ftp'           => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all',
     'insdc_base_ftp'          => $self->o('ncbi_base_ftp').'/#expr(substr(#assembly_accession#, 0, 3))expr#/#expr(substr(#assembly_accession#, 4, 3))expr#/#expr(substr(#assembly_accession#, 7, 3))expr#/#expr(substr(#assembly_accession#, 10, 3))expr#/#assembly_accession#_#assembly_name#',
-    'assembly_ftp_path'       => $self->o('insdc_base_ftp').'/#assembly_accession#_#assembly_name#_assembly_structure',
+    'assembly_ftp_path'       => $self->o('insdc_base_ftp'),
     'refseq_base_ftp'         => $self->o('ncbi_base_ftp').'/#expr(substr(#assembly_refseq_accession#, 0, 3))expr#/#expr(substr(#assembly_refseq_accession#, 4, 3))expr#/#expr(substr(#assembly_refseq_accession#, 7, 3))expr#/#expr(substr(#assembly_refseq_accession#, 10, 3))expr#/#assembly_refseq_accession#_#assembly_name#',
     'refseq_import_ftp_path'  => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_genomic.gff.gz',
     'refseq_mrna_ftp_path'    => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_rna.fna.gz',
@@ -509,7 +509,7 @@ sub pipeline_analyses {
 #
 ###############################################################################
 
-            {
+      {
         # Download the files and dir structure from the NCBI ftp site. Uses the link to a species in the ftp_link_file
         -logic_name => 'download_assembly_info',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDownloadNCBIFtpFiles',
@@ -725,41 +725,26 @@ sub pipeline_analyses {
         -rc_name    => 'default',
 
         -flow_into => {
-                        '1->A' => ['create_toplevel_slice_ids'],
+                        '1->A' => ['create_1mb_slice_ids'],
                         'A->1' => ['backup_core_db'],
                       },
 
       },
 
       {
-        -logic_name => 'create_toplevel_slice_ids',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-                         target_db        => $self->o('dna_db'),
-                         coord_system_name => 'toplevel',
-                         iid_type => 'slice',
-                         include_non_reference => 0,
-                         top_level => 1,
-                       },
-        -flow_into => {
-                        2 => ['create_5mb_slice_ids'],
-                      },
-      },
-
-      {
         # Create 10mb toplevel slices, each species flow into this independantly
-        -logic_name => 'create_5mb_slice_ids',
+        -logic_name => 'create_1mb_slice_ids',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
                          target_db        => $self->o('dna_db'),
                          coord_system_name => 'toplevel',
                          iid_type => 'split_slice',
-                         slice_size => 5000000,
+                         slice_size => 1000000,
                          include_non_reference => 0,
                          top_level => 1,
                          min_slice_length => $self->o('min_toplevel_slice_length'),
-#                         batch_slice_ids => 1,
-#                         batch_target_size => 1000000,
+                         batch_slice_ids => 1,
+                         batch_target_size => 1000000,
                        },
         -flow_into => {
                         '2->A' => ['run_repeatmasker'],
@@ -807,14 +792,14 @@ sub pipeline_analyses {
                       },
       },
 
-     {
+      {
         -logic_name => 'load_refseq_gff',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
                          cmd => 'perl '.$self->o('refseq_import_script_path').
                                       ' -dnahost '.$self->o('dna_db','-host').
                                       ' -dnadbname '.$self->o('dna_db','-dbname').
-                                      ' -dnadbport '.$self->o('dna_db','-port').
+                                      ' -dnaport '.$self->o('dna_db','-port').
                                       ' -user '.$self->o('user').
                                       ' -pass '.$self->o('password').
                                       ' -host '.$self->o('refseq_db','-host').
@@ -823,7 +808,6 @@ sub pipeline_analyses {
                                       ' -infile '.$self->o('output_path').'/refseq_import/refseq.gff',
                        },
         -rc_name => 'refseq_import',
-
       },
 
 
@@ -833,10 +817,11 @@ sub pipeline_analyses {
 #
 ###############################################################################
 
-            {
+      {
         -logic_name => 'run_repeatmasker',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
         -parameters => {
+                         dna_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
                          logic_name => 'repeatmasker_repbase_'.$self->o('repeatmasker_library'),
                          module => 'HiveRepeatMasker',
@@ -850,10 +835,11 @@ sub pipeline_analyses {
         -hive_capacity => 900,
       },
 
-            {
+      {
         -logic_name => 'run_repeatmasker_himem',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
         -parameters => {
+                         dna_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
                          logic_name => 'repeatmasker_repbase_'.$self->o('repeatmasker_library'),
                          module => 'HiveRepeatMasker',
@@ -885,6 +871,7 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default_himem',
       },
+
       {
         # This should probably be a proper module
         -logic_name => 'format_softmasked_toplevel',
@@ -901,11 +888,12 @@ sub pipeline_analyses {
 #
 ###############################################################################
 
-            {
+      {
         # Run dust
         -logic_name => 'run_dust',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDust',
         -parameters => {
+                         dna_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
                          logic_name => 'dust',
                          module => 'HiveDust',
@@ -919,11 +907,12 @@ sub pipeline_analyses {
         -batch_size => 20,
       },
 
-            {
+      {
         # Run TRF
         -logic_name => 'run_trf',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveTRF',
         -parameters => {
+                         dna_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
                          logic_name => 'trf',
                          module => 'HiveTRF',
@@ -937,11 +926,12 @@ sub pipeline_analyses {
        -batch_size => 20,
       },
 
-            {
+      {
         # Run eponine
         -logic_name => 'run_eponine',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveEponine',
         -parameters => {
+                         dna_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
                          logic_name => 'eponine',
                          module => 'HiveEponine',
@@ -978,11 +968,12 @@ sub pipeline_analyses {
 #       -batch_size => 20,
 #      },
 
-            {
+      {
         # Run CPG
         -logic_name => 'run_cpg',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveCPG',
         -parameters => {
+                         dna_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
                          logic_name => 'cpg',
                          module => 'HiveCPG',
@@ -996,11 +987,12 @@ sub pipeline_analyses {
        -batch_size => 20,
       },
 
-            {
+      {
         # Run tRNAscan
         -logic_name => 'run_trnascan',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveTRNAScan',
         -parameters => {
+                         dna_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
                          logic_name => 'trnascan',
                          module => 'HiveTRNAScan',
@@ -1008,33 +1000,11 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'simple_features',
         -flow_into => {
-                         1 => ['create_1mb_slice_ids'],
+                         1 => ['run_genscan'],
                       },
-       -hive_capacity => 900,
-       -batch_size => 20,
+         -hive_capacity => 900,
+         -batch_size => 20,
       },
-
-      {
-        # Create 1mb toplevel slices, each species flow into this independantly
-        -logic_name => 'create_1mb_slice_ids',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-                         target_db        => $self->o('dna_db'),
-                         coord_system_name => 'toplevel',
-                         iid_type => 'split_slice',
-                         slice_size => 1000000,
-                         include_non_reference => 0,
-                         top_level => 1,
-                         min_slice_length => $self->o('min_toplevel_slice_length'),
-#                         batch_slice_ids => 1,
-#                         batch_target_size => 1000000,
-                       },
-        -flow_into => {
-                        '2' => ['run_genscan'],
-                      },
-
-      },
-
 
 ###############################################################################
 #
@@ -1042,13 +1012,14 @@ sub pipeline_analyses {
 #
 ##############################################################################
 
-            {
+      {
         # Run genscan, uses 1mb slices from repeatmasker. Flows into create_prediction_transcript_ids which
         # then takes these 1mb slices and converts them into individual prediction transcript input ids based
         # on the dbID of each feature generate by this analysis
         -logic_name => 'run_genscan',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveGenscan',
         -parameters => {
+                         dna_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
                          logic_name => 'genscan',
                          module => 'HiveGenscan',
@@ -1063,14 +1034,13 @@ sub pipeline_analyses {
                         -2 => ['decrease_genscan_slice_size'],
                         -3 => ['decrease_genscan_slice_size'],
                       },
-       -hive_capacity => 900,
-       -batch_size => 20,
+        -hive_capacity => 900,
+        -batch_size => 20,
       },
 
 
 
-            {
-        # Create 1mb toplevel slices, each species flow into this independantly
+      {
         -logic_name => 'decrease_genscan_slice_size',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
@@ -1085,10 +1055,11 @@ sub pipeline_analyses {
         -can_be_empty  => 1,
       },
 
-            {
+      {
         -logic_name => 'run_genscan_short_slice',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveGenscan',
         -parameters => {
+                         dna_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
                          logic_name => 'genscan',
                          module => 'HiveGenscan',
@@ -1119,7 +1090,7 @@ sub pipeline_analyses {
       },
 
 
-            {
+      {
         # Create input ids for individual prediction transcripts. Takes a slice as an input id and converts it
         # to a set of input ids that are individual dbIDs for the prediction transcripts. This avoids empty slices
         # being submitted as jobs and also means one feature corresponds to one job. Each species flows into this
@@ -1132,6 +1103,7 @@ sub pipeline_analyses {
                          feature_type => 'prediction_transcript',
                          iid_type => 'slice_to_feature_ids',
                          prediction_transcript_logic_names => ['genscan'],
+                         batch_size => 10,
                        },
         -flow_into => {
                         2 => ['run_uniprot_blast'],
@@ -1145,22 +1117,26 @@ sub pipeline_analyses {
 #
 ##############################################################################
 
-            {
+      {
         # BLAST individual prediction transcripts against uniprot. The config settings are held lower in this
         # file in the master_config_settings sub
         -logic_name => 'run_uniprot_blast',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlastGenscanPep',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlastGenscan',
         -parameters => {
+                         sequence_type => 'peptide',
+                         prediction_transcript_db => $self->o('dna_db'),
+                         dna_db => $self->default_options->{'dna_db'},
                          target_db => $self->o('reference_db'),
+                         repeat_masking_logic_names => ['repeatmasker_repbase_'.$self->o('repeatmasker_library')], # not sure if this is used
                          blast_db_path => $self->o('uniprot_blast_db_path'),
                          blast_exe_path => $self->o('uniprot_blast_exe_path'),
                          commandline_params => $commandline_params{$self->o('blast_type')},
-                         repeat_masking_logic_names => ['repeatmasker_repbase_'.$self->o('repeatmasker_library')],
-                         prediction_transcript_logic_names => ['genscan'],
                          iid_type => 'feature_id',
                          logic_name => 'uniprot',
-                         module => 'HiveBlastGenscanPep',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
+                         module => 'HiveBlastGenscan',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic',
+                                                 'BlastGenscanPep',
+                                                 {BLAST_PARAMS => {type => $self->o('blast_type')}})},
                       },
         -flow_into => {
                         1 => ['run_vertrna_blast'],
@@ -1177,18 +1153,22 @@ sub pipeline_analyses {
         # BLAST individual prediction transcripts against vertRNA. The config settings are held lower in this
         # file in the master_config_settings sub
         -logic_name => 'run_vertrna_blast',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlastGenscanDNA',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlastGenscan',
         -parameters => {
+                         sequence_type => 'dna',
+                         prediction_transcript_db => $self->o('dna_db'),
+                         dna_db => $self->default_options->{'dna_db'},
                          target_db => $self->o('reference_db'),
+                         repeat_masking_logic_names => ['repeatmasker_repbase_'.$self->o('repeatmasker_library')], # not sure if this is used
                          blast_db_path => $self->o('vertrna_blast_db_path'),
                          blast_exe_path => $self->o('vertrna_blast_exe_path'),
                          commandline_params => $commandline_params{$self->o('blast_type')},
-                         repeat_masking_logic_names => ['repeatmasker_repbase_'.$self->o('repeatmasker_library')],
-                         prediction_transcript_logic_names => ['genscan'],
                          iid_type => 'feature_id',
                          logic_name => 'vertrna',
-                         module => 'HiveBlastGenscanDNA',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanVertRNA', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
+                         module => 'HiveBlastGenscan',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic',
+                                                 'BlastGenscanVertRNA',
+                                                 {BLAST_PARAMS => {type => $self->o('blast_type')}})},
                       },
         -flow_into => {
                         1 => ['run_unigene_blast'],
@@ -1206,19 +1186,23 @@ sub pipeline_analyses {
         # BLAST individual prediction transcripts against unigene. The config settings are held lower in this
         # file in the master_config_settings sub
         -logic_name => 'run_unigene_blast',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlastGenscanDNA',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlastGenscan',
         -parameters => {
+                         sequence_type => 'dna',
+                         prediction_transcript_db => $self->o('dna_db'),
+                         dna_db => $self->default_options->{'dna_db'},
                          target_db => $self->o('reference_db'),
+                         repeat_masking_logic_names => ['repeatmasker_repbase_'.$self->o('repeatmasker_library')], # not sure if this is used
                          blast_db_path => $self->o('unigene_blast_db_path'),
                          blast_exe_path => $self->o('unigene_blast_exe_path'),
                          commandline_params => $commandline_params{$self->o('blast_type')},
-                         prediction_transcript_logic_names => ['genscan'],
                          iid_type => 'feature_id',
-                         repeat_masking_logic_names => ['repeatmasker_repbase_'.$self->o('repeatmasker_library')],
-                         logic_name => 'unigene',
-                         module => 'HiveBlastGenscanDNA',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanUnigene', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
-                      },
+                         logic_name => 'vertrna',
+                         module => 'HiveBlastGenscan',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic',
+                                                 'BlastGenscanUnigene',
+                                                 {BLAST_PARAMS => {type => $self->o('blast_type')}})},
+                       },
         -flow_into => {
                         -1 => ['failed_blast_job'],
                         -2 => ['failed_blast_job'],

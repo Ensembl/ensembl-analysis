@@ -144,10 +144,17 @@ sub load_seq_regions {
 
   # Check if chromosomes exist
   my $chromo_present = 1;
+  my $single_level = 0;
   my $rank = 3;
   my $middle_dir = $self->param_is_defined('primary_assembly_dir_name') ? 'AGP' : '';
   my $file_chr = catfile($path_to_files, $middle_dir, $self->param('chromosome_scaffold'));
-  if(-e $file_chr) {
+
+  unless(-e $path_to_files."/AGP/") {
+    $self->warning("Path to AGP dir does not exist. Assuming single level assembly. Will set rank to 2 for contig. ".
+                   "Path checked:\n".$path_to_files."/AGP/");
+    $rank = 2;
+    $single_level = 1;
+  } elsif(-e $file_chr) {
     say "Chromosome agp file found. Chromosome level will be of rank 1, scaffold level will be of rank 2 and contig level will be of rank 3";
   }
   elsif (-e catfile($path_to_files, $middle_dir, $self->param('chromosome_contig'))) {
@@ -179,12 +186,6 @@ sub load_seq_regions {
   # use the load seq_regions script to load the contigs
   say "\nLoading the contigs...";
   say "Processing file:\n".$contigs_file_path;
-
-  unless(-e $path_to_files."/AGP/") {
-    $self->warning("Path to AGP dir does not exist. Assuming single level assembly. Will set rank to 2 for contig. ".
-                   "Path checked:\n".$path_to_files."/AGP/");
-    $rank = 2;
-  }
 
   my $cmd = $base_cmd.
             " -coord_system_name contig".
@@ -223,8 +224,10 @@ sub load_seq_regions {
     $self->throw("Column 'version' in 'coord_system' table could not be set to NULL for contig level");
   }
 
-  # At this point we want to stop for single level assemblies
-  return;
+  if($single_level) {
+    # At this point we want to stop for single level assemblies
+    return;
+  }
 
   $rank--;
 
