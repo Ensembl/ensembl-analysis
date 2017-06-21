@@ -42,16 +42,20 @@ my $dnahost;
 my $dnaport;
 my $dnadbname;
 my $dnauser;
+my $biotype;
+my $delete_duplicate_transcripts = 0;
 
-GetOptions( 'dbhost:s'        => \$host,
-            'dbport:n'        => \$port,
-            'dbname:s'        => \$dbname,
-            'dbuser:s'        => \$user,
-            'dbpass:s'        => \$pass,
-            'dnadbhost:s'     => \$dnahost,
-            'dnadbport:s'     => \$dnaport,
-            'dnadbuser:s'     => \$dnauser,
-            'dnadbname:s'     => \$dnadbname);
+GetOptions( 'dbhost:s'                     => \$host,
+            'dbport:n'                     => \$port,
+            'dbname:s'                     => \$dbname,
+            'dbuser:s'                     => \$user,
+            'dbpass:s'                     => \$pass,
+            'dnadbhost:s'                  => \$dnahost,
+            'dnadbport:s'                  => \$dnaport,
+            'dnadbuser:s'                  => \$dnauser,
+            'dnadbname:s'                  => \$dnadbname,
+            'biotype:s'                    => \$biotype,
+            'delete_duplicate_transcripts:s' => \$delete_duplicate_transcripts);
 
 my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $host,
                                               -user   => $user,
@@ -70,11 +74,12 @@ my $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 $dba->dnadb($dnadb);
 
 my $gene_adaptor = $dba->get_GeneAdaptor;
+my $transcript_adaptor = $dba->get_TranscriptAdaptor;
 my $slice_adaptor = $dba->get_SliceAdaptor;
 my $slices = $slice_adaptor->fetch_all('toplevel');
 
 foreach my $slice (@{$slices}) {
-  my $genes = $gene_adaptor->fetch_all_by_Slice($slice);
+  my $genes = $gene_adaptor->fetch_all_by_Slice($slice,undef,undef,undef,$biotype);
   my $gene_strings;
 
   foreach my $gene (@{$genes}) {
@@ -82,7 +87,7 @@ foreach my $slice (@{$slices}) {
     my $transcripts = $gene->get_all_Transcripts();
     my $transcript_strings;
     foreach my $transcript (@{$transcripts}) {
-      my $transcript_string = $transcript->start.":".$transcript->end.":".$transcript->seq_region_name;
+      my $transcript_string = $transcript->biotype.":".$transcript->start.":".$transcript->end.":".$transcript->seq_region_name;
       my $exons = $transcript->get_all_Exons();
       my $exon_string = generate_exon_string($exons);
       $transcript_string .= ":".$exon_string;
@@ -97,6 +102,9 @@ foreach my $slice (@{$slices}) {
         say "Duplicate transcript end: ".$transcript->end;
         say "Duplicate strand: ".$transcript->strand;
         say "Duplicate name: ".$transcript->seq_region_name;
+	if($delete_duplicate_transcripts) {
+          $transcript_adaptor->remove($transcript);
+        }
       } else {
         $transcript_strings->{$transcript_string} = 1;
       }

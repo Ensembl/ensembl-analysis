@@ -82,6 +82,55 @@ sub _master_config {
   my ($self, $key) = @_;
 
   my %config = (
+
+    imgt_pig => [
+
+            {
+              ID         => 'LAYER1',
+              BIOTYPES   => [
+                              'ig_C_gene_sus_scrofa','ig_V_gene_sus_scrofa',
+                            ],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER2',
+              BIOTYPES   => [
+                              'tr_C_gene_ovis_aries','tr_J_gene_ovis_aries','tr_V_gene_ovis_aries',
+                            ],
+              FILTER_AGAINST => ['LAYER1'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER3',
+              BIOTYPES   => [
+                              'ig_C_gene_homo_sapiens','ig_V_gene_homo_sapiens','tr_C_gene_homo_sapiens','tr_J_gene_homo_sapiens','tr_V_gene_homo_sapiens',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER4',
+              BIOTYPES   => [
+                              'tr_C_gene_bos_taurus','tr_J_gene_bos_taurus','tr_V_gene_bos_taurus',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER5',
+              BIOTYPES   => [
+                              'ig_C_gene_mus_musculus','ig_V_gene_mus_musculus','tr_C_gene_mus_musculus','tr_V_gene_mus_musculus',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
+              DISCARD    => 0,
+            },
+
+    ],
+
     primates_basic => [
              {
               ID         => 'LAYER1',
