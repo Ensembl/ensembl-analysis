@@ -171,6 +171,10 @@ sub create_slice_ids {
     $slices = split_Slices($slices, $self->param_required('slice_size'), $self->param('slice_overlaps'));
   }
 
+  if($self->param('min_slice_length')) {
+    $slices = $self->filter_slice_on_size($slices);
+  }
+
   if($self->param('feature_constraint')) {
     $slices = $self->filter_slice_on_features($slices, $dba);
   }
@@ -178,8 +182,7 @@ sub create_slice_ids {
   if($self->param('batch_slice_ids')) {
     $slices = $self->batch_slice_ids($slices);
     $self->param('inputlist', $slices);
-  }
-  else {
+  } else {
     my @input_ids = map {$_->name} @$slices;
     $self->param('inputlist', \@input_ids);
   }
@@ -665,6 +668,38 @@ sub filter_slice_on_features {
     $self->throw("The feature type you have selected to constrain the slices on is not currently implemented in the code. ".
                  "Feature type selected: ".$feature_type);
   }
+  return \@output_slices;
+}
+
+
+=head2 filter_slice_on_size
+
+ Arg [1]    : Arrayref of Bio::EnsEMBL::Slice
+ Description: Filters the slices based on the the min_slice_length param. Useful if an assembly contains huge amounts of tiny
+              toplevel slices. While these small slices can be batched together, the overhead can sometimes be extremely large
+              for little to no benefit in terms of annotation
+ Returntype : Arrayref of Bio::EnsEMBL::Slice
+ Exceptions : throw if there are no slices after filtering
+
+=cut
+
+sub filter_slice_on_size {
+  my ($self,$slices) = @_;
+
+  my @output_slices = ();
+  my $min_size = $self->param('min_slice_length');
+  say "Slice count pre length filter: ".scalar(@{$slices});
+  foreach my $slice (@$slices) {
+    if($slice->length >= $min_size) {
+      push(@output_slices, $slice);
+    }
+  }
+
+  if(scalar(@output_slices) == 0) {
+    $self->throw('You set the min_slice_length param to '.$min_size." but after filtering there were no input ids. Something is probably wrong");
+  }
+
+  say "Slice count post length filter: ".scalar(@output_slices);
   return \@output_slices;
 }
 
