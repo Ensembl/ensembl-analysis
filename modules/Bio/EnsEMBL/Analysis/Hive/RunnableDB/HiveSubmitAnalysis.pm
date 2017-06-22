@@ -335,7 +335,6 @@ sub convert_slice_to_feature_ids {
     # to take that into account and allow batching. When the other analyses that use feature ids are updated then this change can be applied
     # generically to the gene features as well
     my $slice_names = $self->param_required('iid');
-    my $all_slice_pt_ids = [];
     my $sa = $dba->get_SliceAdaptor();
     foreach my $slice_name (@{$slice_names}) {
       my $slice = $sa->fetch_by_name($slice_name);
@@ -353,13 +352,13 @@ sub convert_slice_to_feature_ids {
       foreach my $logic_name (@$logic_names) {
         my $pts = $pta->fetch_all_by_Slice($slice, $logic_name);
         foreach my $pt (@{$pts}) {
-          push(@{$all_slice_pt_ids},$pt->dbID());
+          push(@{$output_id_array},$pt->dbID());
         }
       }
     }
-    $self->param('inputlist', $self->_chunk_input_ids($self->param_required('batch_size'), $all_slice_pt_ids))
+    $self->param('inputlist', $self->_chunk_input_ids($self->param_required('batch_size'), $output_id_array));
   } elsif($feature_type eq 'gene') {
-     my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param_required('iid'));
+    my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param_required('iid'));
     if ($self->param_is_defined('create_stable_ids')) {
         my $sqlquery = sprintf($template_sql, $feature_type, 'G', $feature_type, $slice->get_seq_region_id);
         my $sth = $dba->dbc->prepare($sqlquery);
@@ -375,11 +374,11 @@ sub convert_slice_to_feature_ids {
         push(@{$output_id_array}, ($use_stable_ids ? $gene_feature->stable_id : $gene_feature->dbID()));
       }
     }
+    $self->param('inputlist', $output_id_array);
   } else {
     $self->throw("The feature_type you provided is not currently supported by the code.\nfeature_type: $feature_type");
   }
 
-  $self->param('inputlist', $output_id_array);
 }
 
 
