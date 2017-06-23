@@ -280,7 +280,7 @@ sub run_ortheus {
   }
 
   #Add -X to fix -ve indices in array bug suggested by BP
-  $command .= " -m \"$JAVA " . $java_params . "\" -k \" -J " . $self->exonerate . " -X\"";
+  $command .= " -m \"$JAVA " . $java_params . "\" -k \"#-J " . $self->exonerate . " -X\"";
 
   if ($self->tree_string) {
     $command .= " -d '" . $self->tree_string . "'";
