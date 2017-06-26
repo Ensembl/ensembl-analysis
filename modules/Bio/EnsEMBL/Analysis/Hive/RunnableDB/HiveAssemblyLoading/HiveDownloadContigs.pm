@@ -94,7 +94,7 @@ sub download_ftp_contigs {
   }
 
   # It's only letters
-  $wgs_id =~ s/\d+//; # remove any digit 0-9
+#  $wgs_id =~ s/\d+//; # remove any digit 0-9
   $wgs_id = uc($wgs_id);
   my @wgs_ids = split(',',$wgs_id); # multiple wgs ids are allowed (ie for human: AADC,AADD,ABBA)
 
@@ -118,13 +118,13 @@ sub download_ftp_contigs {
     $prefix = lc($prefix);
 
     my $base = 'rsync -av "rsync://ftp.ebi.ac.uk/pub/databases/ena/wgs_fasta/'.$prefix.'/';
-  	foreach my $a_wgs_id (@wgs_ids) {
-    	my $file = $a_wgs_id.'*.fasta.gz';
-    	print $file ."\n";
-      	my $wget = "$base/$file\" $output_path";
-      	my $return = system($wget);
-      	if($return) {
-        	$self->throw("wget failed on the following command line:\n".$wget);
+    foreach my $a_wgs_id (@wgs_ids) {
+      my $file = $a_wgs_id.'*.fasta.gz';
+      print $file ."\n";
+      my $rsync = "$base/$file\" $output_path";
+      my $return = system($rsync);
+      if($return) {
+        $self->throw("rsync failed on the following command line:\n".$rsync);
       }
     }
   } else {
@@ -143,19 +143,30 @@ sub fix_contig_headers {
   my ($self,$source,$output_path) = @_;
 
   $source = lc($source);
-  if($source eq 'ncbi') {
-    my $contigs_unfixed = catfile($output_path, 'contigs_unfixed_header.fa');
-    my $contigs_fixed = catfile($output_path, 'contigs.fa');
 
-    my $cat_files = 'cat '.$output_path.'/*.fsa_nt > '.$contigs_unfixed;
-    my $return = system($cat_files);
-    if($return) {
-      $self->throw("Problem concatenating the contig files. Commandline used:\n".$cat_files);
-    }
-    open(IN,$contigs_unfixed);
-    open(OUT,">$contigs_fixed");
-    while(<IN>) {
-      my $line = $_;
+  my $contigs_unfixed = catfile($output_path, 'contigs_unfixed_header.fa');
+  my $contigs_fixed = catfile($output_path, 'contigs.fa');
+
+  my $cat_files;
+  my $return = 1;
+  if($source eq 'ncbi') {
+    $cat_files = 'cat '.$output_path.'/*.fsa_nt > '.$contigs_unfixed;
+    $return = system($cat_files);
+  } else {
+    $cat_files = 'cat '.$output_path.'/*.fasta > '.$contigs_unfixed;
+    $return = system($cat_files);
+  }
+
+  if($return) {
+    $self->throw("Problem concatenating the contig files. Commandline used:\n".$cat_files);
+  }
+
+  open(IN,$contigs_unfixed);
+  open(OUT,">$contigs_fixed");
+  while(<IN>) {
+    my $line = $_;
+    if($source eq 'ncbi') {
+      # fix headers for ncbi
       if($line =~ /^>.*gb\|([^\|]+\.\d+)\|/) {
         say OUT '>'.$1;
       } elsif($line =~ /^>gi\|[^\|]+\|[^\|]+\|([^\|]+)\|/) {
@@ -167,22 +178,30 @@ sub fix_contig_headers {
       } else {
         print OUT $line; # print instead of say since the newline will be there already
       }
-    }
-    close OUT;
-    close IN;
-
-    my $contig_count1 = int(`grep -c '>' $contigs_unfixed`);
-    my $contig_count2 = int(`grep -c '>' $contigs_fixed`);
-
-    unless($contig_count1 == $contig_count2) {
-      $self->throw("The contig count in contigs_unfixed_header.fa (".$contig_count1.") did not match the count in contigs.fa (".
-                   $contig_count2."). They should match");
-    }
-
-  } elsif($source eq 'ena') {
-
+    } else {
+      # fix headers for ena
+      if($line =~ /^>ENA\|[^|]+\|([A-Z\d]+\.\d+) /) {
+        say OUT '>'.$1;
+      } elsif($line =~ /^>/) {
+        $self->throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);
+      } else {
+        print OUT $line; # print instead of say since the newline will be there already
+      }
+    } # end else
   }
+  close OUT;
+  close IN;
+
+  my $contig_count1 = int(`grep -c '>' $contigs_unfixed`);
+  my $contig_count2 = int(`grep -c '>' $contigs_fixed`);
+
+  unless($contig_count1 == $contig_count2) {
+    $self->throw("The contig count in contigs_unfixed_header.fa (".$contig_count1.") did not match the count in contigs.fa (".
+                 $contig_count2."). They should match");
+  }
+
 }
+
 
 =head2 find_missing_accessions
 
