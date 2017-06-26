@@ -20,6 +20,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis;
 use strict;
 use warnings;
 use feature 'say';
+use Data::Dumper;
 
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
@@ -104,6 +105,8 @@ sub fetch_input {
         # Not sure it's the correct call but Core has a split_Slice method
         # so it's better to use it
         $self->split_slice($dba);
+      } elsif($iid_type eq 'rebatch_and_resize_slices') {
+        $self->rebatch_and_resize_slices($dba);
       } elsif($iid_type eq 'patch_slice') {
         $self->param('include_non_reference',1);
         $self->create_slice_ids($dba);
@@ -422,6 +425,53 @@ sub split_slice {
 }
 
 
+=head2 rebatch_and_resize_slices
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Description: This can be used to rebatch a list of slices towards a new target
+              batch size. So you could rebatch an arrayref of slice names from a
+              1mb target size to a 100kb target size. This can be useful if an
+              assembly has a huge number of tiny toplevel sequences, sometimes
+              the overhead associated with having many runnables is large. You
+              can also ask to split the individual slices themselves, so if for example
+              you had 1mb slices you could ask for 100kb slice sizes instead. This
+              dual functionality should cover decreasing slices in all scenarios.
+              You can do things like set target batch size to 100kb and the slice
+              size to 100kb so that if you had a 1mb batch to begin with, consisting
+              of a 400kb slice and a 600kb slice you would end up with 10 output
+              jobs, each with a 100kb slice. You can do split the input batch into
+              individual jobs by setting the target batch size to 1, but then having
+              slize size set to whatever you want in terms of splitting stuff. This
+              would work well for analyses that get stuck on certain regions
+ Returntype : None
+ Exceptions : Throws if 'iid' is not defined
+              Throws if 'slice_size' defined and it is negative or zero
+
+=cut
+
+sub rebatch_and_resize_slices {
+  my ($self, $dba) = @_;
+
+  my $sa = $dba->get_SliceAdaptor;
+
+  my $slices = [];
+  foreach my $slice_name (@{$self->param_required('iid')}) {
+    my $slice = $sa->fetch_by_name($slice_name);
+    push(@{$slices},$slice);
+  }
+
+  if ($self->param_is_defined('slice_size')) {
+    unless($self->param('slice_size') > 0) {
+      $self->throw("Slice size must be > 0. Currently ".$self->param('slice_size'));
+    }
+    $slices = split_Slices($slices, $self->param('slice_size'), $self->param('slice_overlaps'));
+  }
+
+  $self->param('inputlist',$self->batch_slice_ids($slices));
+}
+
+
+
 =head2 sequence_accession
 
  Arg [1]    : None
@@ -598,6 +648,12 @@ sub feature_id {
     }
   }
 
+  if($self->param_is_defined('batch_size')) {
+    unless($self->param('batch_size') > 0) {
+      $self->throw("You've defined a batch size param of less than 1. Something is wrong");
+    }
+    $output_id_array = $self->_chunk_input_ids($self->param('batch_size'),$output_id_array);
+  }
   $self->param('inputlist', $output_id_array);
 }
 
