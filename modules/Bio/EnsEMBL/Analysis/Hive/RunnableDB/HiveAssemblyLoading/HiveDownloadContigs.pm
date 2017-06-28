@@ -101,10 +101,7 @@ sub download_ftp_contigs {
         $self->throw("wget/rsync failed on the following command line:\n".$wget);
       }
     }
-<<<<<<< HEAD
 
-=======
->>>>>>> origin/dev/hive_master
   } elsif($source eq 'ena') {
     $wgs_id =~ /^(..)/;
     my $prefix = $1;
@@ -113,20 +110,13 @@ sub download_ftp_contigs {
     my $base = 'rsync -av "rsync://ftp.ebi.ac.uk/pub/databases/ena/wgs_fasta/'.$prefix.'/';
   	foreach my $a_wgs_id (@wgs_ids) {
     	my $file = $a_wgs_id.'*.fasta.gz';
-<<<<<<< HEAD
-=======
-    	print $file ."\n";
->>>>>>> origin/dev/hive_master
       	my $wget = "$base/$file\" $output_path";
       	my $return = system($wget);
       	if($return) {
         	$self->throw("wget failed on the following command line:\n".$wget);
       }
     }
-<<<<<<< HEAD
 
-=======
->>>>>>> origin/dev/hive_master
   } else {
     $self->throw("You have specified an unknown source! Source must be NCBI or ENA! Source specified:\n".$source);
   }
@@ -158,6 +148,9 @@ sub fix_contig_headers {
       my $line = $_;
       if($line =~ /^>.*gb\|([^\|]+\.\d+)\|/) {
         say OUT '>'.$1;
+      } elsif($line =~ /^emb|([^\|]+\.\d+)\|/) {
+        say OUT '>'.$1;        
+      
       } elsif($line =~ /^>/) {
         $self->throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);
       } else {
@@ -238,40 +231,14 @@ sub fix_contig_headers {
 =cut
 sub find_missing_accessions {
   my ($self,$output_path,$contig_accession_path) = @_;
-
+print "DEBUG::output_path:: $output_path ..contig_accession_path: $contig_accession_path \n"; 
+ 
   my $contig_file = $output_path.'/contigs.fa';
   my $max_allowed_missing = 1000;
   my $agp_accession_hash = {};
   my $fasta_header;
   my $fasta_accession_hash = {};
-<<<<<<< HEAD
-
-  # Load the agp accessions into a hash
-  open(IN,$contig_accession_path);
-  while(<IN>) {
-    my $agp_accession = $_;
-    chomp $agp_accession;
-    $agp_accession_hash->{$agp_accession} = 1;
-  }
-  close IN;
-
-  # Load the fasta headers into a hash
-  # Note: I have tested doing the contig accession parsing with EnsEMBL::IO and it is much much slower
-  #       A grep on the command line might be slightly quicker, but the code below is cleaner
-  open(IN,$contig_file);
-  while(<IN>) {
-    my $line = $_;
-    unless($line =~ /^\>(.+)\n/) {
-      next;
-    }
-
-    my $fasta_accession = $1;
-    unless($fasta_accession_hash->{$fasta_accession}) {
-      $fasta_accession_hash->{$fasta_accession} = 1;
-    } else {
-      $self->throw("There appears to be a duplicate header in ".$contig_file."\nHeader: ".$fasta_header);
-=======
-
+print "DEBUG:: $contig_file \n" ; 
   # Load the agp accessions into a hash
   open(IN,$contig_accession_path);
   while(<IN>) {
@@ -310,28 +277,9 @@ sub find_missing_accessions {
     unless($fasta_accession_hash->{$agp_accession}) {
       $self->warning("No match in initial wgs download for agp accession: ".$agp_accession);
       push(@{$missing_accessions},$agp_accession);
->>>>>>> origin/dev/hive_master
-    }
-
-  }
-<<<<<<< HEAD
-  close IN;
-
-  # Store these to use in the reverse comparison that's done in compare_to_agp
-  $self->agp_accessions($agp_accession_hash);
-  $self->fasta_accessions($fasta_accession_hash);
-
-  my $missing_accessions = [];
-  foreach my $agp_accession (keys(%$agp_accession_hash)) {
-    unless($fasta_accession_hash->{$agp_accession}) {
-      $self->warning("No match in initial wgs download for agp accession: ".$agp_accession);
-      push(@{$missing_accessions},$agp_accession);
     }
   }
 
-=======
-
->>>>>>> origin/dev/hive_master
   if(scalar(@{$missing_accessions}) > $max_allowed_missing) {
     $self->throw("Found a large amount of missing accessions (".scalar(@{$missing_accessions})."), something might be wrong");
   } elsif(scalar(@{$missing_accessions})) {
