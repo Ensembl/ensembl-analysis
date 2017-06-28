@@ -68,8 +68,24 @@ sub run_classification {
   if($self->param('update_gene_biotype')) {
     $update_gene_biotype = 1;
   }
+  
+  my $update_rnaseq_biotype = 0;
+  if($self->param('update_rnaseq_biotype')) {
+    $update_rnaseq_biotype = 1;
+  }
 
   my $target_db = $self->hrdb_get_con('target_db');
+
+  if($update_rnaseq_biotype) {
+      $sth_update = $target_db->dbc->prepare('update gene set biotype="rnaseq" where biotype in ("single","best","other_merged");');
+      $sth_update->execute();
+
+      $sth_update = $target_db->dbc->prepare('update gene set biotype="rnaseq_tissue" where biotype != "rnaseq";');
+      $sth_update->execute();      
+
+      $sth_update = $target_db->dbc->prepare('update transcript left join gene using(gene_id) set transcript.biotype=gene.biotype;');
+      $sth_update->execute();  
+  }	
 
   my $sth_create =  $target_db->dbc->prepare('CREATE table transcript_classify_bak like transcript');
   $sth_create->execute();

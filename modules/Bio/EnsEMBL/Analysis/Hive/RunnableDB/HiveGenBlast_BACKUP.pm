@@ -41,8 +41,6 @@ use Bio::Seq;
 
 use Bio::EnsEMBL::Analysis::Runnable::GenBlastGene;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
-use Bio::EnsEMBL::Utils::IO::FASTASerializer;
-
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -91,9 +89,9 @@ sub fetch_input {
   $self->hrdb_set_con($dba,'target_db');
 
   $self->create_analysis;
-  my $genome_file ; # = $self->param_required('genblast_db_path');
+  my $genome_file = $self->param_required('genblast_db_path');
   $self->analysis->program_file($self->param_required('genblast_path'));
-  #$self->analysis->db_file($genome_file);
+  $self->analysis->db_file($genome_file);
   $self->analysis->parameters($self->param('commandline_params'));
 
   my %parameters;
@@ -123,9 +121,7 @@ sub fetch_input {
     my $projection_protein_accession = $iid[1];
 
     $query = $self->get_query_seqs([$projection_protein_accession]);
-    # $genome_file = $self->output_transcript_slice($projection_dba, $projection_transcript_id);
-    $genome_file = $self->output_transcript_repeatmasked_slice($projection_dba, $projection_transcript_id);
-    
+    $genome_file = $self->output_transcript_slice($projection_dba, $projection_transcript_id);
   } else {
     $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
@@ -303,55 +299,9 @@ sub output_transcript_slice {
        -adaptor           => $slice->adaptor());
 
   my $outfile_path = $self->create_target_file('genblast_slice', 'db');
-print STDERR $outfile_path, "\n";
-  my $serializer = Bio::EnsEMBL::Utils::IO::FASTASerializer->new($self->param('target_file'));
-  $serializer->print_Seq($transcript_slice);
+  &dump($transcript_slice, 'fasta', $outfile_path);
   return($outfile_path);
 }
-
-sub output_transcript_repeatmasked_slice {
-  my ($self,$dba,$transcript_id) = @_;
-
-  my $padding = $self->param('projection_padding');
-  my $transcript_adaptor = $dba->get_TranscriptAdaptor();
-  my $transcript = $transcript_adaptor->fetch_by_dbID($transcript_id);
-  my $slice = $transcript->slice();
-  
-  # get repeatmasked slice
-  my $new_start = $transcript->seq_region_start() - $padding;
-  if($new_start < 1) {
-    $new_start = 1;
-  }
-  my $new_end = $transcript->seq_region_end() + $padding;
-  if($new_end > $slice->seq_region_length) {
-    $new_end = $slice->seq_region_length;
-  }
-
-  my $transcript_slice  = Bio::EnsEMBL::Slice->new
-      (-seq_region_name   => $slice->seq_region_name,
-       -seq_region_length => $slice->seq_region_length,
-       -coord_system      => $slice->coord_system,
-       -start             => $new_start,
-       -end               => $new_end,
-       -strand            => 1,
-       -adaptor           => $slice->adaptor());
-
-  my $outfile_path = $self->create_target_file('genblast_slice', 'db');
-print STDERR $outfile_path, "\n";
-  my $serializer = Bio::EnsEMBL::Utils::IO::FASTASerializer->new($self->param('target_file'),      
-  sub {
-        my $slice = shift;
-        return $slice->name;
-      });
-  
-  my $slice_repeatmasked = $transcript_slice->get_repeatmasked_seq(['repeatmasker_repbase_primates'],1);
-  
-  # $serializer->print_Seq($transcript_slice);
-  $serializer->print_Seq($slice_repeatmasked);
-  
-  return($outfile_path);
-}
-
 
 
 =head2 test_translates

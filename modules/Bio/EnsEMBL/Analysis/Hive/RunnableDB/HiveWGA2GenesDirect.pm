@@ -196,6 +196,7 @@ print Dumper $target_transcript_dbc;
 
   my (%chains, @chains);
   foreach my $block (@$gen_al_blocks) {
+  	say "Leanne DEBUG::";
     my $qga = $block->reference_genomic_align;
     my ($tga) = @{$block->get_all_non_reference_genomic_aligns};
 

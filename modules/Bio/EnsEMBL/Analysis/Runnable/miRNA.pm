@@ -124,7 +124,8 @@ sub run{
  FAM:  foreach my $family (keys %queries){
   DAF:foreach my $daf (@{$queries{$family}}){    
       # Does the alignment contain the mature sequence?
-      my ($align,$status) = $self->run_analysis($daf);
+     # my ($align,$status) = $self->run_analysis($daf);
+     my $align = $self->run_analysis($daf);
       next DAF unless ($align && scalar @$align > 0);
       # does the sequence fold into a hairpin ?
       my $seq = Bio::PrimarySeq->new
@@ -194,10 +195,12 @@ sub get_miRNAs{
 sub run_analysis{
   my ($self,$daf)=@_;
   my %miRNAs = %{$self->miRNAs};
-  my ($all_mature, $status);
+#  my ($all_mature, $status);
+ my $all_mature;
   my @mature_aligns;
   if ($self->get_mature($daf)){
-    ($all_mature,$status) = $self->get_mature($daf)
+    #($all_mature,$status) = $self->get_mature($daf)
+    $all_mature = $self->get_mature($daf)
   } else {
     # ignore if you dont have a mature form identified.
     $self->warning("No mature sequence identified for sequence ".$daf->hseqname." $@");
@@ -245,7 +248,7 @@ sub run_analysis{
       }
     push @mature_aligns,$align;
   }
-  return \@mature_aligns,$status;
+  return \@mature_aligns,;#$status;
 }
 
 
@@ -265,7 +268,7 @@ sub get_mature{
   my %miRNAs = %{$self->miRNAs};
   my $miRNA = $miRNAs{$query->hseqname};
   my @mature;
-  my $status = "PUTATIVE";
+ # my $status = "PUTATIVE";
   unless ($miRNA){
   print STDERR "Unable to locate miRNA fom embl file that corresponds to ".
 	       $query->hseqname."$@ \n";
@@ -279,8 +282,8 @@ sub get_mature{
 	$self->throw("Cannot process FTHelper... $fth $@\n");
       }
       my $location =  $fth->loc;
-      $status = "KNOWN" 
-	if ($fth->field->{"evidence"}[0] && $fth->field->{"evidence"}[0] eq "experimental");
+#      $status = "KNOWN" 
+#	if ($fth->field->{"evidence"}[0] && $fth->field->{"evidence"}[0] eq "experimental");
       if ($location =~ /(\d+)\.+(\d+)/){
 	push @mature,{ 'start' => $1,
 		       'end'   => $2
@@ -290,7 +293,7 @@ sub get_mature{
       }
     }
   }
-  return \@mature,$status;
+  return \@mature,;#$status;
 }
 
 
@@ -361,7 +364,7 @@ sub make_gene{
   $gene->source("ensembl");
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
-  $gene->status('NOVEL');
+#  $gene->status('NOVEL');
   $gene_hash{'gene'} = $gene;
   $gene_hash{'attrib'} = \@attributes;
   $self->output(\%gene_hash);
@@ -370,10 +373,11 @@ sub make_gene{
 sub display_stuff{
   my ($self,$daf,$structure,$aligns,$score)=@_;
   my $all_mature;
-  my $status;
+#  my $status;
   my %miRNAs = %{$self->miRNAs};
   my $description = $miRNAs{$daf->hseqname}->display_id;
-  ($all_mature,$status) = $self->get_mature($daf);
+ # ($all_mature,$status) = $self->get_mature($daf);
+ ($all_mature) = $self->get_mature($daf);
   print STDERR "DAF ".$daf->dbID." chr ".$daf->seq_region_name." ".$daf->seq_region_start." ".$daf->seq_region_end."\n";
   foreach my $mature (@$all_mature){
     print STDERR $daf->hseqname." $description miRNA at ".$mature->{'start'}." ".$mature->{'end'}."\n ";

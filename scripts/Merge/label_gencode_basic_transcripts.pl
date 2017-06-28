@@ -54,11 +54,11 @@ $| = 1;
 my $host   = '';
 my $user;
 my $pass   = '';
-my $port   = 3306;
+my $port;
 my $dbname = '';
 my $dnahost;
 my $dnauser;
-my $dnaport   = 3306;
+my $dnaport;
 my $dnadbname;
 my $coord_system_name = 'toplevel';
 my $coord_system_version;
@@ -70,7 +70,7 @@ my $MAX_TRANSCRIPT_LENGTH = '100000'; # the longest transcript in human was less
 # use most recent
 my $production_dbname = 'ensembl_production';
 my $production_host;
-my $production_port = 3306;
+my $production_port = 4519;
 my $production_user;
 
 # # #
@@ -168,7 +168,7 @@ my $known_biotypes = {
                      'snoRNA'                             => 'noncoding',
                      'snRNA'                              => 'noncoding',
                      'miRNA'                              => 'noncoding',
-                     'antisense'                          => 'noncoding',
+                     'antisense_RNA'                          => 'noncoding',
                      'Mt_tRNA'                            => 'noncoding',
                      'Mt_rRNA'                            => 'noncoding',
                      'sense_intronic'                     => 'noncoding',

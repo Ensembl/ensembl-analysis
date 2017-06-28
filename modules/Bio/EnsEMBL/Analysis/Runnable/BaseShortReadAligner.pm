@@ -67,6 +67,7 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
+
   my ($fastq, $fastqpair, $outdir, $genome ) = rearrange([qw (FASTQ FASTQPAIR OUTDIR GENOME)],@args);
   $self->throw("Your fastq file '$fastq' does not exist\n") unless (-e $fastq);
   $self->fastq($fastq);

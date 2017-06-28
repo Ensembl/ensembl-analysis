@@ -95,6 +95,7 @@ sub run {
   my $filename = pop @tmp;
   # run bwa
   my $command = "$program aln $options -f $outdir/$filename.sai ".$self->genome." $fastq";
+  print $fastq."\n\n";
   print STDERR "Command: $command\n";
   $self->warning("Command: $command\n");
   if (system($command)) {

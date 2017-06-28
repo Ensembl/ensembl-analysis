@@ -509,7 +509,8 @@ sub make_gene{
   $gene->biotype("antitoxin")   if($type =~ /antitoxin;/);
   $gene->biotype("ribozyme")    if($type =~ /ribozyme;/);
 
-  $gene->status("NOVEL");
+ # $gene->status("NOVEL");
+ 
   $gene->description($description." [Source: RFAM;Acc:$domain]");
   print STDERR "Rfam_id $domain ".$description."\n"if $verbose;;
   $gene->analysis($self->analysis);

@@ -21,15 +21,16 @@ use strict;
 use warnings;
 use feature 'say';
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene attach_Slice_to_Gene);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(
                                                                 clone_Exon
                                                                 transfer_supporting_evidence
                                                                 validate_Exon_coords
+                                                                print_Exon
                                                                );
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(
+                                                                      empty_Transcript
+                                                                      calculate_exon_phases
                                                                       is_Transcript_sane
                                                                       all_exons_are_valid
                                                                       intron_lengths_all_less_than_maximum
@@ -43,35 +44,27 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(
                                                                        compute_translation
                                                                        contains_internal_stops
                                                                        print_Translation
+                                                                       create_Translation
                                                                       );
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
-use Data::Dumper;
 
 
 sub fetch_input {
   my $self = shift;
   my $test_case = 0;
 
-  my $analysis = Bio::EnsEMBL::Analysis->new(
-                                              -logic_name => $self->param('logic_name'),
-                                              -module => $self->param('module'),
-                                            );
-  $self->analysis($analysis);
+  $self->create_analysis;
 
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  $self->hrdb_set_con($dna_dba,'dna_db');
-
 
   my $utr_output_dba = $self->hrdb_get_dba($self->param('utr_output_db'));
   $utr_output_dba->dnadb($dna_dba);
   $self->hrdb_set_con($utr_output_dba,'utr_output_db');
 
-  my $input_id = $self->param('iid');
   my $input_id_type = $self->param('iid_type');
 
-  my $utr_biotype_priorities = $self->param('utr_biotype_priorities');
-  $self->biotype_priorities($utr_biotype_priorities);
+  $self->param_required('utr_biotype_priorities'); # Checking that the Hash is set, it will be accessed with $self->biotype_priorities
 
   if($test_case) {
     $self->donor_transcripts($self->donor_test_cases());
@@ -79,7 +72,57 @@ sub fetch_input {
   } else {
     # If the input is an array of gene ids then loop through them and fetch them from the input db
     if($input_id_type eq 'slice') {
-       $self->load_cluster($input_id);
+       my $input_dbs = $self->param('input_gene_dbs');
+
+       my $donor_transcripts = [];
+       my $acceptor_transcripts = [];
+
+       # Loop through the adaptors listed in the cluster and retrieve the transcripts from the corresponding db using the adaptor
+       # Transcripts are pushed onto either the donor or acceptor array. The key thing to note is that the acceptor array is expecting
+       # an adaptor tagged as 'no_utr_db'. Every transcript from this db is an acceptor. Everything else is considered a donor
+       my $internal_transcript_id = 0;
+       foreach my $adaptor_name (keys(%{$input_dbs})) {
+         unless($input_dbs->{$adaptor_name}) {
+           $self->throw("You are using a cluster type input id, but one of the the adaptor names in the input id did not match a corresponding db hash\n".
+                        "All adaptor names must have a correspondingly named db hash passed in. Offending adaptor name:\n".$adaptor_name);
+         }
+         my $dba = $self->hrdb_get_dba($input_dbs->{$adaptor_name}, $dna_dba);
+         unless($dba) {
+           $self->throw("You are using a cluster type input id, but one of the the adaptor names in the input id did not match a corresponding db hash".
+                        "All adaptor names must have a correspondingly named db hash passed in. Offending adaptor name:\n".$adaptor_name);
+         }
+         my $transcript_adaptor = $dba->get_TranscriptAdaptor();
+         foreach my $transcript_id (@{$self->input_id}) {
+           my $transcript = $transcript_adaptor->fetch_by_dbID($transcript_id);
+
+           # This is not being used at the moment (it's is used in similar code to be able to track transcripts using a unique id, since dbID may not be unique)
+           $transcript->{'internal_transcript_id'} = $internal_transcript_id;
+           $internal_transcript_id++;
+
+           if($adaptor_name eq 'no_utr_db') {
+             push(@{$acceptor_transcripts},$transcript);
+           } else {
+             push(@{$donor_transcripts},$transcript);
+           }
+         }
+       }
+
+       my $biotypes_priority = $self->biotype_priorities;
+       @$donor_transcripts = sort {$biotypes_priority->{$a->biotype} <=> $biotypes_priority->{$b->biotype}} @$donor_transcripts;
+       my $donor_count = scalar(@{$donor_transcripts});
+       my $acceptor_count = scalar(@{$acceptor_transcripts});
+
+       say "utr transcript count: ".$donor_count;
+       $self->donor_transcripts($donor_transcripts);
+       say "no utr transcript count: ".$acceptor_count;
+       $self->acceptor_transcripts($acceptor_transcripts);
+
+       # If we have no acceptor transcripts in a region then just mark the job as finished
+       # Don't do the same for no donor transcripts as we want all acceptors to be output
+       unless($acceptor_count) {
+         $self->input_job->autoflow(0);
+         $self->complete_early('No acceptor transcripts to process');
+       }
     } else {
       $self->throw("You have selected an input id type using iid_type that is not supported by the module. Offending type: ".$input_id_type);
     }
@@ -94,11 +137,17 @@ sub run {
   my $donor_transcripts = $self->donor_transcripts();
   my $acceptor_transcripts = $self->acceptor_transcripts();
 
-  say "Attempting to add utr to non utr transcripts";
-
-  my $utr_transcripts = $self->add_utr($donor_transcripts,$acceptor_transcripts);
-
-  $self->output_transcripts($utr_transcripts);
+  if (scalar(@$donor_transcripts)) {
+    say 'Attempting to add UTR to transcripts';
+    $self->output($self->add_utr($donor_transcripts,$acceptor_transcripts));
+  }
+  else {
+    say 'No UTR donor for this transcript';
+    foreach my $transcript (@$acceptor_transcripts) {
+      calculate_exon_phases($transcript, 0);
+    }
+    $self->output($acceptor_transcripts);
+  }
 
   return 1;
 }
@@ -107,21 +156,16 @@ sub write_output {
   my $self = shift;
 
   my $adaptor = $self->hrdb_get_con('utr_output_db')->get_GeneAdaptor;
-  my $slice = $self->cluster_slice();
 
-#  my @output = @{$self->output_genes};
-  my @output = @{$self->output_transcripts};
   say "Writing genes to output db";
 
-  foreach my $transcript (@output){
-    say "Attempting to store gene on: ".$slice->name();
-    my $output_gene = Bio::EnsEMBL::Gene->new();
-    $output_gene->analysis($transcript->analysis);
-    $output_gene->biotype($transcript->biotype);
-    $output_gene->add_Transcript($transcript);
-    attach_Slice_to_Gene($output_gene,$slice);
-    empty_Gene($output_gene);
-    $adaptor->store($output_gene);
+  foreach my $transcript (@{$self->output}){
+    empty_Transcript($transcript);
+    my $gene = Bio::EnsEMBL::Gene->new();
+    $gene->analysis($transcript->analysis);
+    $gene->biotype($transcript->biotype);
+    $gene->add_Transcript($transcript);
+    $adaptor->store($gene);
   }
   say "...finished writing genes to output db";
 
@@ -129,141 +173,91 @@ sub write_output {
 }
 
 
-sub load_cluster {
-  my ($self,$cluster) = @_;
-
-  my $gene = new Bio::EnsEMBL::Gene();
-  my $dna_dba = $self->hrdb_get_con('dna_db');
-  my $input_dbs = $self->param('input_gene_dbs');
-
-  my $donor_transcripts = [];
-  my $acceptor_transcripts = [];
-
-  # Loop through the adaptors listed in the cluster and retrieve the transcripts from the corresponding db using the adaptor
-  # Transcripts are pushed onto either the donor or acceptor array. The key thing to note is that the acceptor array is expecting
-  # an adaptor tagged as 'no_utr_db'. Every transcript from this db is an acceptor. Everything else is considered a donor
-  my $internal_transcript_id = 0;
-  foreach my $adaptor_name (keys(%{$cluster})) {
-    unless($input_dbs->{$adaptor_name}) {
-      $self->throw("You are using a cluster type input id, but one of the the adaptor names in the input id did not match a corresponding db hash\n".
-                   "All adaptor names must have a correspondingly named db hash passed in. Offending adaptor name:\n".$adaptor_name);
-    }
-    my $dba = $self->hrdb_get_dba($input_dbs->{$adaptor_name});
-    unless($dba) {
-      $self->throw("You are using a cluster type input id, but one of the the adaptor names in the input id did not match a corresponding db hash".
-                   "All adaptor names must have a correspondingly named db hash passed in. Offending adaptor name:\n".$adaptor_name);
-    }
-    $dba->dnadb($dna_dba);
-    $self->hrdb_set_con($dba,$adaptor_name);
-    my $transcript_adaptor = $dba->get_TranscriptAdaptor();
-    my $transcript_id_array = $cluster->{$adaptor_name};
-    foreach my $transcript_id (@{$transcript_id_array}) {
-      my $transcript = $transcript_adaptor->fetch_by_dbID($transcript_id);
-
-      # This is not being used at the moment (it's is used in similar code to be able to track transcripts using a unique id, since dbID may not be unique)
-      $transcript->{'internal_transcript_id'} = $internal_transcript_id;
-      $internal_transcript_id++;
-
-      if($adaptor_name eq 'no_utr_db') {
-        push(@{$acceptor_transcripts},$transcript);
-      } else {
-        push(@{$donor_transcripts},$transcript);
-      }
-    }
-
-  }
-
-
-  my $donor_count = scalar(@{$donor_transcripts});
-  my $acceptor_count = scalar(@{$acceptor_transcripts});
-
-  say "utr transcript count: ".$donor_count;
-  $self->donor_transcripts($donor_transcripts);
-
-  say "no utr transcript count: ".$acceptor_count;
-  $self->acceptor_transcripts($acceptor_transcripts);
-
-  # If we have no acceptor transcripts in a region then just mark the job as finished
-  # Don't do the same for no donor transcripts as we want all acceptors to be output
-  unless($acceptor_count) {
-    $self->input_job->autoflow(0);
-    $self->complete_early('No acceptor transcripts to process');
-  }
-
-   # This bit is slightly awkward, basically we want a slice, all the transcripts should have the same slice
-   # so take if from the first acceptor (since at this point we know there is at least one acceptor) and then
-   # get the toplevel equivalent. This doesn't really need to be done, but seems more correct
-   # The important thing is that a slice is set at this point and can be retrieved later by cluster_slice
-   my $slice_name = ${$acceptor_transcripts}[0]->slice()->seq_region_name;
-   my $slice_adaptor = $dna_dba->get_SliceAdaptor();
-   my $slice = $slice_adaptor->fetch_by_region('toplevel',$slice_name);
-   say "Setting slice to: ".$slice->name();
-   $self->cluster_slice($slice);
-}
-
-
 sub add_utr {
   my ($self,$donor_transcripts,$acceptor_transcripts) = @_;
 
-  my $final_transcripts = [];
+  my @final_transcripts;
+  my $allow_partial_match = $self->param('allow_partial_match');
+
+  my $modified_acceptor_transcript_5prime;
+  my $modified_acceptor_transcript_3prime;
+  my $modified_acceptor_transcript_single_exon;
   foreach my $acceptor_transcript (@{$acceptor_transcripts}) {
-    my $acceptor_is_single_exon = 0;
+    if(exists $self->biotype_priorities->{$acceptor_transcript->biotype}) {
+      if ($self->biotype_priorities->{$acceptor_transcript->biotype} == 1 or
+        (exists $self->biotype_priorities->{$acceptor_transcript->biotype} and
+        $self->biotype_priorities->{$acceptor_transcript->biotype} <= $self->biotype_priorities->{$donor_transcripts->[0]->biotype})) {
+        push(@final_transcripts,$acceptor_transcript);
+#    print STDERR 'TIBO: STOP WORKING ON: ', $acceptor_transcript->display_id, "\n";
+        next;
+      }
+    }
+#    print STDERR 'TIBO: ACCEPTOR: ', $acceptor_transcript->display_id, ' ', $acceptor_transcript->biotype, "\n";
     if(scalar(@{$acceptor_transcript->get_all_Exons}) == 1) {
-      $acceptor_is_single_exon = 1;
+       say "Single exon acceptor detected";
+       # I don't like this duplication of code, should find a better way to do it
+       $acceptor_transcript->{'5_prime_utr'} = 0;
+       $acceptor_transcript->{'3_prime_utr'} = 0;
+       say "Checking transcript ".$acceptor_transcript->dbID()." ".$acceptor_transcript->biotype." for potential UTR transcript match:";
+       foreach my $donor_transcript (@{$donor_transcripts}) {
+         my $priority = $self->biotype_priorities()->{$donor_transcript->biotype};
+#     print STDERR 'TIBO: WORKING ON: ', $donor_transcript->display_id, ' ', $donor_transcript->biotype, ' ', $priority, "\n";
+         unless($priority) {
+           $self->warning("Transcript biotype was not found in the biotype priorities hash or biotype was set to 0 priority. Skipping.".
+               "Biotype: ".$donor_transcript->biotype);
+           next;
+         }
+         if (exists $self->biotype_priorities->{$acceptor_transcript->biotype} and
+             $self->biotype_priorities->{$acceptor_transcript->biotype} == $priority) {
+           push(@final_transcripts,$acceptor_transcript);
+           last;
+         }
+
+         if($acceptor_transcript->{'has_utr'}) {
+           say "UTR has been attached to the single exon acceptor transcript already";
+# First check if the donor priority is worse (1=best), if it's worse then just skip
+           if($priority > $modified_acceptor_transcript_single_exon->{'priority'}) {
+             say "No adding UTR as there is already UTR from a biotype with a better priority";
+             next;
+           }
+           my $new_transcript_single_exon = $self->add_single_exon_utr($acceptor_transcript,$donor_transcript);
+           if($new_transcript_single_exon && ($new_transcript_single_exon->length() > $modified_acceptor_transcript_single_exon->length())) {
+             say "A longer or higher UTR donor has been found, selecting as current UTR donor";
+             $modified_acceptor_transcript_single_exon = $new_transcript_single_exon;
+             $modified_acceptor_transcript_single_exon->{'priority'} = $priority;
+           }
+         } else {
+           $modified_acceptor_transcript_single_exon = $self->add_single_exon_utr($acceptor_transcript,$donor_transcript);
+           if($modified_acceptor_transcript_single_exon) {
+             $modified_acceptor_transcript_single_exon->{'priority'} = $priority;
+           }
+         }
+       }
     }
+    else {
 
-    if($acceptor_transcript->biotype() =~ /^rnaseq_/ || scalar(@{$donor_transcripts}) == 0) {
-      push(@{$final_transcripts},$acceptor_transcript);
-      next;
-    }
-
-    my $cds_introns_a = $acceptor_transcript->get_all_Introns();
-    my $cds_intron_string_a = $self->generate_intron_string($cds_introns_a);
-
-#    unless($cds_intron_string_a) {
-#      say "Acceptor has no CDS introns and is therefore single exon. Not adding UTR";
-#      push(@{$final_transcripts},$acceptor_transcript);
-#      next;
-#    }
+    my $introns_acceptor = $acceptor_transcript->get_all_Introns();
+    my ($cds_intron_string_a, $count_introns_a) = $self->generate_intron_string($introns_acceptor, $acceptor_transcript->coding_region_start, $acceptor_transcript->coding_region_end);
 
     $acceptor_transcript->{'5_prime_utr'} = 0;
     $acceptor_transcript->{'3_prime_utr'} = 0;
-    say "Checking transcript ".$acceptor_transcript->dbID()." for potential UTR transcript match:";
-    my $modified_acceptor_transcript_5prime;
-    my $modified_acceptor_transcript_3prime;
-    my $modified_acceptor_transcript_single_exon;
+    say "Checking transcript ".$acceptor_transcript->dbID()." ".$acceptor_transcript->biotype." for potential UTR transcript match:";
     foreach my $donor_transcript (@{$donor_transcripts}) {
      my $priority = $self->biotype_priorities()->{$donor_transcript->biotype};
+#     print STDERR 'TIBO: WORKING ON: ', $donor_transcript->display_id, ' ', $donor_transcript->biotype, ' ', $priority, "\n";
      unless($priority) {
        $self->warning("Transcript biotype was not found in the biotype priorities hash or biotype was set to 0 priority. Skipping.".
                       "Biotype: ".$donor_transcript->biotype);
        next;
      }
+     if (exists $self->biotype_priorities->{$acceptor_transcript->biotype} and
+       $self->biotype_priorities->{$acceptor_transcript->biotype} == $priority) {
+       push(@final_transcripts,$acceptor_transcript);
+       last;
+     }
 
      # Single exon transcripts will be treated differently, we will only allow a single donor to provide the UTR as there
      # is much less evidence when not considering intron structure
-     if($acceptor_is_single_exon) {
-       say "Single exon acceptor detected";
-       if($acceptor_transcript->{'has_utr'}) {
-         say "UTR has been attached to the single exon acceptor transcript already";
-         # First check if the donor priority is worse (1=best), if it's worse then just skip
-         if($priority > $modified_acceptor_transcript_single_exon->{'priority'}) {
-           say "No adding UTR as there is already UTR from a biotype with a better priority";
-           next;
-         }
-         my $new_transcript_single_exon = $self->add_single_exon_utr($acceptor_transcript,$donor_transcript);
-         if($new_transcript_single_exon && ($new_transcript_single_exon->length() > $modified_acceptor_transcript_single_exon->length())) {
-           say "A longer or higher UTR donor has been found, selecting as current UTR donor";
-           $modified_acceptor_transcript_single_exon = $new_transcript_single_exon;
-           $modified_acceptor_transcript_single_exon->{'priority'} = $priority;
-         }
-       } else {
-         $modified_acceptor_transcript_single_exon = $self->add_single_exon_utr($acceptor_transcript,$donor_transcript);
-         if($modified_acceptor_transcript_single_exon) {
-           $modified_acceptor_transcript_single_exon->{'priority'} = $priority;
-         }
-       }
-     } else {
 
        ########################
        # Add in some code for checking if the donor transcript has a CDS or not
@@ -272,7 +266,7 @@ sub add_utr {
 
        my $introns_b = $donor_transcript->get_all_Introns();
        say "\nCDS intron coords (A):";
-       foreach my $intron (@{$cds_introns_a}) {
+       foreach my $intron (@{$introns_acceptor}) {
          print "(".$intron->start."..".$intron->end.")";
        }
 
@@ -283,12 +277,12 @@ sub add_utr {
 
        print "\n";
 
-       if(scalar(@{$cds_introns_a}) > scalar(@{$introns_b})) {
+       if(scalar(@{$introns_acceptor}) > scalar(@{$introns_b})) {
          say "Acceptor has more introns than donor, so will not add UTR";
          next;
        }
 
-       my $intron_string_b = $self->generate_intron_string($introns_b);
+       my ($intron_string_b, $count_introns_b) = $self->generate_intron_string($introns_b, $acceptor_transcript->coding_region_start, $acceptor_transcript->coding_region_end);
 
        # Unless we have a match of the cds intron coords of the target to the introns coords of the donor, return 0
        unless($intron_string_b =~ $cds_intron_string_a) {
@@ -297,6 +291,10 @@ sub add_utr {
          say $cds_intron_string_a." (acceptor intron coords)";
          say $intron_string_b." (donor intron coords)";
          say "-----------------------------------------------------------------------";
+         next;
+       }
+       if ($count_introns_a != $count_introns_b and @$allow_partial_match == 0) {
+         print 'Donor does not have the same number of CDS introns as acceptor!', $count_introns_a, ' ', $count_introns_b. "\n";
          next;
        }
 
@@ -310,16 +308,16 @@ sub add_utr {
          # First check if the donor priority is worse (1=best), if it's worse then just skip
          if($priority > $modified_acceptor_transcript_5prime->{'priority'}) {
            say "No adding UTR as there is already 5' donor UTR from a biotype with a better priority";
-           next;
+           last;
          }
-         my $new_transcript_5prime = $self->add_five_prime_utr($acceptor_transcript,$donor_transcript,$cds_introns_a,$introns_b,$cds_intron_string_a,$intron_string_b);
+         my $new_transcript_5prime = $self->add_five_prime_utr($acceptor_transcript,$donor_transcript,$introns_acceptor,$introns_b,$cds_intron_string_a,$intron_string_b);
          if($new_transcript_5prime && ($new_transcript_5prime->length() > $modified_acceptor_transcript_5prime->length())) {
            say "A longer or higher UTR donor has been found, selecting as current 5' UTR";
            $modified_acceptor_transcript_5prime = $new_transcript_5prime;
            $modified_acceptor_transcript_5prime->{'priority'} = $priority;
          }
        } else {
-         $modified_acceptor_transcript_5prime = $self->add_five_prime_utr($acceptor_transcript,$donor_transcript,$cds_introns_a,$introns_b,$cds_intron_string_a,$intron_string_b);
+         $modified_acceptor_transcript_5prime = $self->add_five_prime_utr($acceptor_transcript,$donor_transcript,$introns_acceptor,$introns_b,$cds_intron_string_a,$intron_string_b);
          if($modified_acceptor_transcript_5prime) {
            $modified_acceptor_transcript_5prime->{'priority'} = $priority;
          }
@@ -330,16 +328,16 @@ sub add_utr {
          # First check if the donor priority is worse (1=best), if it's worse then just skip
          if($priority > $modified_acceptor_transcript_3prime->{'priority'}) {
            say "No adding UTR as there is already 3' donor UTR from a biotype with a better priority";
-           next;
+           last;
          }
-         my $new_transcript_3prime = $self->add_three_prime_utr($acceptor_transcript,$donor_transcript,$cds_introns_a,$introns_b,$cds_intron_string_a,$intron_string_b);
+         my $new_transcript_3prime = $self->add_three_prime_utr($acceptor_transcript,$donor_transcript,$introns_acceptor,$introns_b,$cds_intron_string_a,$intron_string_b);
          if($new_transcript_3prime && ($new_transcript_3prime->length > $modified_acceptor_transcript_3prime->length())) {
            say "A longer UTR donor has been found, selecting as current 3' UTR";
            $modified_acceptor_transcript_3prime = $new_transcript_3prime;
            $modified_acceptor_transcript_3prime->{'priority'} = $priority;
          }
        } else {
-         $modified_acceptor_transcript_3prime = $self->add_three_prime_utr($acceptor_transcript,$donor_transcript,$cds_introns_a,$introns_b,$cds_intron_string_a,$intron_string_b);
+         $modified_acceptor_transcript_3prime = $self->add_three_prime_utr($acceptor_transcript,$donor_transcript,$introns_acceptor,$introns_b,$cds_intron_string_a,$intron_string_b);
          if($modified_acceptor_transcript_3prime) {
            $modified_acceptor_transcript_3prime->{'priority'} = $priority;
          }
@@ -356,42 +354,76 @@ sub add_utr {
       $self->add_transcript_supporting_features($joined_transcript,$acceptor_transcript);
       $joined_transcript = $self->look_for_both($joined_transcript);
       calculate_exon_phases($joined_transcript, 0);
-      push(@{$final_transcripts},$joined_transcript);
-
+      push(@final_transcripts,$joined_transcript);
     } elsif($modified_acceptor_transcript_5prime) {
       say "Added 5' UTR only";
       $modified_acceptor_transcript_5prime->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($modified_acceptor_transcript_5prime,$acceptor_transcript);
       $modified_acceptor_transcript_5prime = $self->look_for_both($modified_acceptor_transcript_5prime);
       calculate_exon_phases($modified_acceptor_transcript_5prime, 0);
-      push(@{$final_transcripts},$modified_acceptor_transcript_5prime);
+      push(@final_transcripts,$modified_acceptor_transcript_5prime);
     } elsif($modified_acceptor_transcript_3prime) {
       say "Added 3' UTR only";
       $modified_acceptor_transcript_3prime->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($modified_acceptor_transcript_3prime,$acceptor_transcript);
       $modified_acceptor_transcript_3prime = $self->look_for_both($modified_acceptor_transcript_3prime);
       calculate_exon_phases($modified_acceptor_transcript_3prime, 0);
-      push(@{$final_transcripts},$modified_acceptor_transcript_3prime);
+      push(@final_transcripts,$modified_acceptor_transcript_3prime);
     } elsif($modified_acceptor_transcript_single_exon) {
       say "Added UTR to single exon transcript";
       $modified_acceptor_transcript_single_exon->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($modified_acceptor_transcript_single_exon,$acceptor_transcript);
       $modified_acceptor_transcript_single_exon = $self->look_for_both($modified_acceptor_transcript_single_exon);
       calculate_exon_phases($modified_acceptor_transcript_single_exon, 0);
-      push(@{$final_transcripts},$modified_acceptor_transcript_single_exon);
+      push(@final_transcripts,$modified_acceptor_transcript_single_exon);
     }else {
       say "No UTR added to transcript";
       calculate_exon_phases($acceptor_transcript, 0);
-      push(@{$final_transcripts},$acceptor_transcript);
+      push(@final_transcripts,$acceptor_transcript);
     }
   }
 
-  return($final_transcripts);
+  return\@final_transcripts;
 }
 
+sub add_utr_evidence {
+  my ($self, $final_exons, $utr_exons, $utr_transcript) = @_;
+
+  for (my $i = 0; $i < @$final_exons; $i++) {
+    my $exon = $final_exons->[$i];
+    my @new_sfs;
+    for (my $j = $i; $j < @$utr_exons; $j++) {
+      my $utr_exon = $utr_exons->[$j];
+      next if ($exon->start > $utr_exon->end or $exon->end < $utr_exon->start);
+#      print STDERR '  DEBUG ', $i, ' ', $j, ' ', $exon->start, ' ', $exon->end, ' ', $utr_exon->start, ' ', $utr_exon->end, "\n";
+      my @sfs = grep {$_->isa('Bio::EnsEMBL::DnaDnaAlignFeature')} @{$exon->get_all_supporting_features};
+      if (scalar(@sfs)) {
+        foreach my $sf (@sfs) {
+          my $dnaalignfeature = Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => [$sf->ungapped_features]);
+          push(@new_sfs, $dnaalignfeature);
+        }
+      }
+      else {
+        my $dnaalignfeature = Bio::EnsEMBL::DnaDnaAlignFeature->new(-cigar_string => $exon->length.'M');
+        $dnaalignfeature->start($exon->start);
+        $dnaalignfeature->end($exon->end);
+        $dnaalignfeature->strand($exon->strand);
+        $dnaalignfeature->analysis($exon->analysis);
+        $dnaalignfeature->slice($exon->slice);
+        $dnaalignfeature->hseqname('rnaseq');
+        $dnaalignfeature->hstrand(1);
+        $dnaalignfeature->hstart($utr_exon->cdna_start($utr_transcript));
+        $dnaalignfeature->hend($utr_exon->cdna_end($utr_transcript));
+        push(@new_sfs, $dnaalignfeature);
+      }
+    }
+    $exon->add_supporting_features(@new_sfs);
+    print_Exon($exon);
+  }
+}
 
 sub add_five_prime_utr {
-  my ($self,$transcript_a,$transcript_b,$cds_introns_a,$introns_b,$cds_intron_string_a,$intron_string_b) = @_;
+  my ($self,$transcript_a,$transcript_b,$introns_acceptor,$introns_b,$cds_intron_string_a,$intron_string_b) = @_;
 
   my $strand = $transcript_a->strand;
 #  my $modified_transcript;
@@ -434,8 +466,15 @@ sub add_five_prime_utr {
 
   if($strand == 1) {
     if($merge_exon_candidate_b->start >= $merge_exon_candidate_a->start) {
-      say "Merge candidate exon from donor is first exon and has a start that is >= acceptor first exon start, therefore not adding UTR";
-      return(0);
+      if ($self->biotype_priorities->{$transcript_a->biotype} > $self->biotype_priorities->{$transcript_b->biotype} and
+        $transcript_a->coding_region_start > $merge_exon_candidate_b->start and $transcript_a->coding_region_start-$merge_exon_candidate_a->start > $self->min_size_5prime) {
+        say 'Shortening UTR for ', $transcript_a->biotype, ' using ', $transcript_b->biotype, ' as coding start is not changed: ',
+        $transcript_a->coding_region_start, '>', $merge_exon_candidate_b->start;
+      }
+      else {
+        say "Merge candidate exon from donor is first exon and has a start that is >= acceptor first exon start, therefore not adding UTR";
+        return(0);
+      }
     } elsif($merge_exon_candidate_b->end != $merge_exon_candidate_a->end) {
       $self->warning("The internal boundry coord of the donor did not match the acceptor, something is wrong.\n".
                      "Donor boundry: ".$merge_exon_candidate_b->end."\nAcceptor boundry: ".$merge_exon_candidate_a->end);
@@ -443,8 +482,15 @@ sub add_five_prime_utr {
     }
   } else {
     if($merge_exon_candidate_b->end <= $merge_exon_candidate_a->end) {
-      say "Merge candidate exon from donor is first exon and has a start that is <= acceptor first exon end (- strand) , therefore not adding UTR";
-      return(0);
+      if ($self->biotype_priorities->{$transcript_a->biotype} > $self->biotype_priorities->{$transcript_b->biotype} and
+        $transcript_a->coding_region_end < $merge_exon_candidate_b->end and $merge_exon_candidate_b->end-$transcript_a->coding_region_end > $self->min_size_5prime) {
+        say 'Shortening UTR for ', $transcript_a->biotype, ' using ', $transcript_b->biotype, ' as coding end is not changed: ',
+        $transcript_a->coding_region_end, '<', $merge_exon_candidate_b->end;
+      }
+      else {
+        say "Merge candidate exon from donor is first exon and has a start that is <= acceptor first exon end (- strand) , therefore not adding UTR";
+        return(0);
+      }
     } elsif($merge_exon_candidate_b->start != $merge_exon_candidate_a->start) {
       $self->warning("The internal boundry coord of the donor did not match the acceptor, something is wrong.\n".
                      "Donor boundry: ".$merge_exon_candidate_b->start."\nAcceptor boundry: ".$merge_exon_candidate_a->start);
@@ -453,7 +499,6 @@ sub add_five_prime_utr {
   }
 
   my $final_exons = [];
-  my $final_translation;
   # Note that for the moment I'm going to convert all exons before the merge candidate to non-coding (this should be true anyway)
   for(my $i=0; $i<$exon_merge_index_b; $i++) {
     my $exon = ${$exons_b}[$i];
@@ -465,6 +510,7 @@ sub add_five_prime_utr {
                                            -ANALYSIS  => $self->analysis,
                                            -PHASE     => -1,
                                            -END_PHASE => -1);
+
     push(@{$final_exons},$out_exon);
   }
 
@@ -472,8 +518,6 @@ sub add_five_prime_utr {
   # all the other ones
   if(($strand == 1 && ($merge_exon_candidate_b->start >= $merge_exon_candidate_a->start)) ||
      ($strand == -1 && ($merge_exon_candidate_b->end <= $merge_exon_candidate_a->end))) {
-    say "Donor boundry exon is shorter than candidate, therefore no merge of boundry exon data will occur";
-
     my $start_exon = new Bio::EnsEMBL::Exon(
                                            -START     => $merge_exon_candidate_a->start,
                                            -END       => $merge_exon_candidate_a->end,
@@ -482,6 +526,19 @@ sub add_five_prime_utr {
                                            -ANALYSIS  => $self->analysis,
                                            -PHASE     => $merge_exon_candidate_a->phase,
                                            -END_PHASE => $merge_exon_candidate_a->end_phase);
+    if ($transcript_a->{'5_prime_utr'} == 0 or $transcript_a->{'5_prime_utr'} >= $self->biotype_priorities->{$transcript_b->biotype}) {
+      $start_exon->start($merge_exon_candidate_b->start);
+      $start_exon->end($merge_exon_candidate_b->end);
+      $start_exon->strand($merge_exon_candidate_b->strand);
+      $start_exon->slice($merge_exon_candidate_b->slice);
+      $start_exon->analysis($self->analysis);
+      $start_exon->phase($merge_exon_candidate_b->phase);
+      $start_exon->end_phase($merge_exon_candidate_b->end_phase);
+    }
+    else {
+      say "Donor boundry exon is shorter than candidate, therefore no merge of boundry exon data will occur";
+    }
+
     my $supporting_features_a = $merge_exon_candidate_a->get_all_supporting_features();
     $start_exon->add_supporting_features(@{$supporting_features_a});
 
@@ -498,17 +555,11 @@ sub add_five_prime_utr {
                                              -ANALYSIS  => $self->analysis,
                                              -PHASE     => $exon->phase,
                                              -END_PHASE => $exon->end_phase);
-      $supporting_features_a = $merge_exon_candidate_a->get_all_supporting_features();
+      $supporting_features_a = $exon->get_all_supporting_features();
       $out_exon->add_supporting_features(@{$supporting_features_a});
       push(@{$final_exons},$out_exon);
     }
 
-    my $translation = Bio::EnsEMBL::Translation->new();
-    $translation->start_Exon($start_exon);
-    $translation->start($transcript_a->translation()->start());
-    $translation->end_Exon($$final_exons[$#$final_exons]);
-    $translation->end($transcript_a->translation()->end());
-    $final_translation = $translation;
   } else {
     say "Donor boundry exon is longer than acceptor, therefore merge of exon data will occur";
     my $merge_exon = new Bio::EnsEMBL::Exon(
@@ -554,17 +605,7 @@ sub add_five_prime_utr {
  #     $$final_exons[$i]->add_supporting_features(@{$supporting_features_b});
  #   }
 
-    my $translation = Bio::EnsEMBL::Translation->new();
-    $translation->start_Exon($merge_exon);
-    $translation->start($new_translation_start);
-    $translation->end_Exon($$final_exons[$#$final_exons]);
-    $translation->end($transcript_a->translation()->end());
-    $final_translation = $translation;
-
   }
-
-  say "Old translation start: ".$transcript_a->translation->start;
-  say "New translation start: ".$final_translation->start;
 
   say "\nOriginal exon coords (A):";
   foreach my $exon (@{$exons_a}) {
@@ -580,7 +621,13 @@ sub add_five_prime_utr {
   foreach my $exon (@{$final_exons}) {
     print "(".$exon->start."..".$exon->end.")";
   }
+  print "\n";
 
+  my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+  say "Old translation start: ".$transcript_a->translation->start;
+  say "New translation start: ".$final_translation->start;
+
+  $self->add_utr_evidence($final_exons, $exons_b, $transcript_b);
   my $modified_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $final_exons);
 
   # This is a basic sanity check on the UTR itself. First we want to check if the transcript is now abnormally longer (> 100KB longer)
@@ -628,6 +675,7 @@ sub add_five_prime_utr {
   $modified_transcript->biotype($transcript_a->biotype);
   $modified_transcript->slice($transcript_a->slice());
   $modified_transcript->translation($final_translation);
+  calculate_exon_phases($modified_transcript, 0);
 
 
   say "\n";
@@ -641,14 +689,15 @@ sub add_five_prime_utr {
     $self->throw("There is an issue with the translation after UTR was added. Check above for the sequences, all three should match");
   }
 
-  $transcript_a->{'5_prime_utr'} = 1;
+  $transcript_a->{'5_prime_utr'} = $self->biotype_priorities->{$transcript_b->biotype};
+  $modified_transcript->add_supporting_features(grep {$_->isa('Bio::EnsEMBL::DnaDnaAlignFeature')} @{$transcript_b->get_all_supporting_features});
 
   return($modified_transcript);
 }
 
 
 sub add_three_prime_utr {
-  my ($self,$transcript_a,$transcript_b,$cds_introns_a,$introns_b,$cds_intron_string_a,$intron_string_b) = @_;
+  my ($self,$transcript_a,$transcript_b,$introns_acceptor,$introns_b,$cds_intron_string_a,$intron_string_b) = @_;
 
   my $strand = $transcript_a->strand;
 #  my $modified_transcript;
@@ -687,8 +736,15 @@ sub add_three_prime_utr {
 
   if($strand == 1) {
     if($merge_exon_candidate_b->end <= $merge_exon_candidate_a->end) {
-      say "Merge candidate exon from donor is last exon and has an end that is <= acceptor last exon end, therefore not adding UTR";
-      return(0);
+      if ($self->biotype_priorities->{$transcript_a->biotype} > $self->biotype_priorities->{$transcript_b->biotype} and
+        $transcript_a->coding_region_end < $merge_exon_candidate_b->end) {
+        say 'Shortening UTR for ', $transcript_a->biotype, ' using ', $transcript_b->biotype, ' as coding end is not changed: ',
+        $transcript_a->coding_region_end, '<', $merge_exon_candidate_b->end;
+      }
+      else {
+        say "Merge candidate exon from donor is last exon and has an end that is <= acceptor last exon end, therefore not adding UTR";
+        return(0);
+      }
     } elsif($merge_exon_candidate_b->start != $merge_exon_candidate_a->start) {
       $self->warning("The internal boundry coord of the donor did not match the acceptor, something is wrong.\n".
                           "Donor boundry: ".$merge_exon_candidate_b->start."\nAcceptor boundry: ".$merge_exon_candidate_a->start);
@@ -696,8 +752,15 @@ sub add_three_prime_utr {
     }
   } else {
     if($merge_exon_candidate_b->start >= $merge_exon_candidate_a->start) {
-      say "Merge candidate exon from donor is last exon and has a start that is >= acceptor first exon end (- strand) , therefore not addign UTR";
-      return(0);
+      if ($self->biotype_priorities->{$transcript_a->biotype} > $self->biotype_priorities->{$transcript_b->biotype} and
+        $transcript_a->coding_region_start > $merge_exon_candidate_b->start) {
+        say 'Shortening UTR for ', $transcript_a->biotype, ' using ', $transcript_b->biotype, ' as coding end is not changed: ',
+        $transcript_a->coding_region_start, '>', $merge_exon_candidate_b->start;
+      }
+      else {
+        say "Merge candidate exon from donor is last exon and has a start that is >= acceptor first exon end (- strand) , therefore not addign UTR";
+        return(0);
+      }
     } elsif($merge_exon_candidate_b->end != $merge_exon_candidate_a->end) {
       $self->warning("The internal boundry coord of the donor did not match the acceptor, something is wrong.\n".
                      "Donor boundry: ".$merge_exon_candidate_b->end."\nAcceptor boundry: ".$merge_exon_candidate_a->end);
@@ -718,24 +781,34 @@ sub add_three_prime_utr {
                                            -PHASE     => $exon->phase,
                                            -END_PHASE => $exon->end_phase);
 
-    my $supporting_features_a = $merge_exon_candidate_a->get_all_supporting_features();
+    my $supporting_features_a = $exon->get_all_supporting_features();
     $out_exon->add_supporting_features(@{$supporting_features_a});
     push(@{$final_exons},$out_exon);
   }
 
-  my $final_translation;
 
   # Now look at the merge candidates. There are a few things to check. If the start coord of the donor exon is greater than the start coord of the
   # acceptor then just push the acceptor exon on the final exons array
   if(($strand == 1 && ($merge_exon_candidate_b->end <= $merge_exon_candidate_a->end)) ||
      ($strand == -1 && ($merge_exon_candidate_b->start >= $merge_exon_candidate_a->start))) {
-    say "Donor boundry exon is shorter than candidate, therefore no merge of boundry exon data will occur";
-    my $translation = Bio::EnsEMBL::Translation->new();
-    $translation->start_Exon($$final_exons[0]);
-    $translation->start($transcript_a->translation()->start());
-    $translation->end_Exon($$final_exons[$#$final_exons]);
-    $translation->end($transcript_a->translation()->end());
-    $final_translation = $translation;
+    if ($transcript_a->{'3_prime_utr'} == 0 or $transcript_a->{'3_prime_utr'} >= $self->biotype_priorities->{$transcript_b->biotype}) {
+      my $merge_exon = new Bio::EnsEMBL::Exon(
+                                               -START     => $merge_exon_candidate_b->start,
+                                               -END       => $merge_exon_candidate_b->end,
+                                               -STRAND    => $merge_exon_candidate_b->strand,
+                                               -SLICE     => $merge_exon_candidate_b->slice,
+                                               -ANALYSIS  => $self->analysis,
+                                               -PHASE     => $merge_exon_candidate_a->phase,
+                                               -END_PHASE => -1);
+
+      $merge_exon->add_supporting_features(@{$merge_exon_candidate_a->get_all_supporting_features});
+
+      pop(@{$final_exons});
+      push(@{$final_exons},$merge_exon);
+    }
+    else {
+      say "Donor boundry exon is shorter than candidate, therefore no merge of boundry exon data will occur";
+    }
   }  else {
     say "Donor boundry exon is longer than acceptor, therefore merge of boundry exon data will occur";
     my $merge_exon = new Bio::EnsEMBL::Exon(
@@ -749,13 +822,6 @@ sub add_three_prime_utr {
 
     my $supporting_features_a = $merge_exon_candidate_a->get_all_supporting_features();
     $merge_exon->add_supporting_features(@{$supporting_features_a});
-
-    my $translation = Bio::EnsEMBL::Translation->new();
-    $translation->start_Exon($$final_exons[0]);
-    $translation->start($transcript_a->translation()->start());
-    $translation->end_Exon($merge_exon);
-    $translation->end($transcript_a->translation()->end());
-    $final_translation = $translation;
 
     pop(@{$final_exons});
     push(@{$final_exons},$merge_exon);
@@ -775,8 +841,8 @@ sub add_three_prime_utr {
     push(@{$final_exons},$out_exon);
   }
 
-  say "Old translation start: ".$transcript_a->translation->start;
-  say "New translation start: ".$final_translation->start;
+#  say "Old translation start: ".$transcript_a->translation->start;
+#  say "New translation start: ".$final_translation->start;
 
 
   say "\nOriginal exon coords:";
@@ -788,6 +854,7 @@ sub add_three_prime_utr {
   foreach my $exon (@{$final_exons}) {
     print "(".$exon->start."..".$exon->end.")";
   }
+  print "\n";
 
   # Add all the supporting features from the donor transcript
 #  for(my $i=0; $i<scalar(@{$exons_a}); $i++) {
@@ -796,6 +863,8 @@ sub add_three_prime_utr {
 #    $$final_exons[$i]->add_supporting_features(@{$supporting_features_b});
 #  }
 
+  my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+  $self->add_utr_evidence($final_exons, $exons_b, $transcript_b);
   my $modified_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $final_exons);
 
   # This is a basic sanity check on the UTR itself. First we want to check if the transcript is now abnormally longer (> 100KB longer)
@@ -964,6 +1033,130 @@ sub add_single_exon_utr {
   $modified_transcript->biotype($transcript_a->biotype);
   $modified_transcript->slice($transcript_a->slice());
   $modified_transcript->translation($final_translation);
+  calculate_exon_phases($modified_transcript, 0);
+
+  print "Modified transcript: ";
+  foreach my $exon (@{$modified_transcript->get_all_Exons}) {
+    print "(".$exon->start."..".$exon->end.")";
+  }
+  print "\n";
+
+  calculate_exon_phases($modified_transcript, 0);
+  my $modified_translation = $modified_transcript->translation();
+  say "\n";
+  say "Acceptor original sequence:\n".$transcript_a->seq->seq;
+  say "Acceptor original translateable seq:\n".$transcript_a->translateable_seq();
+  say "Acceptor current sequence:\n".$modified_transcript->seq->seq;
+  say "Acceptor current translateable seq:\n".$modified_transcript->translateable_seq();
+  say "Acceptor original translation:\n".$transcript_a->translation->seq;
+  say "Acceptor current translation (from translateable seq):\n".$modified_transcript->translate->seq;
+  say "Acceptor current translation (from translation object string):\n".$modified_transcript->translation->seq;
+
+  unless($transcript_a->translation->seq eq $modified_transcript->translate->seq && $modified_transcript->translate->seq eq $modified_transcript->translation->seq) {
+    $self->throw("There is an issue with the translation after UTR was added. Check above for the sequences, all three should match");
+  }
+
+  $transcript_a->{'3_prime_utr'} = $self->biotype_priorities->{$transcript_b->biotype};
+  $modified_transcript->add_supporting_features(grep {$_->isa('Bio::EnsEMBL::DnaDnaAlignFeature')} @{$transcript_b->get_all_supporting_features});
+
+  return($modified_transcript);
+}
+
+
+sub add_single_exon_utr {
+  my ($self,$transcript_a,$transcript_b) = @_;
+
+  # The first thing to do is to check if the exon from transcript_a is contained in transcript_b. Contained means
+  # that the coordinates could match exactly or reside within the donor exon
+  my $exon_a = shift(@{$transcript_a->get_all_Exons});
+  my $exons_b = $transcript_b->get_all_Exons();
+  return 0 if (scalar(@$exons_b) > 1);
+
+  if(scalar(@{$exons_b}) == 1) {
+    my $exon_b = shift(@{$exons_b});
+    if($exon_a->start == $exon_b->start && $exon_a->end == $exon_b->end) {
+      say "Donor is also single exon and has same start and end, so nothing to add";
+      return 0;
+    }
+  }
+
+  my $contained = 0;
+
+  my $final_exons = [];
+  # First add all the exons from the acceptor
+  say "Single exon acceptor: (".$exon_a->start."..".$exon_a->end.")";
+  print "Donor for single exon: ";
+  foreach my $exon_b (@{$exons_b}) {
+    print "(".$exon_b->start."..".$exon_b->end.")";
+    # If this is true exon a is contained in exon b and we need to create a merged exon
+    if($exon_a->start >= $exon_b->start && $exon_a->end <= $exon_b->end) {
+      $contained = 1;
+
+      my $merge_exon = new Bio::EnsEMBL::Exon(
+                                             -START     => $exon_b->start,
+                                             -END       => $exon_b->end,
+                                             -STRAND    => $exon_b->strand,
+                                             -SLICE     => $exon_b->slice,
+                                             -ANALYSIS  => $self->analysis);
+
+      my $supporting_features_a = $exon_a->get_all_supporting_features();
+      $merge_exon->add_supporting_features(@{$supporting_features_a});
+
+      my $start_phase;
+      my $end_phase;
+      my $translation_shift;
+      if($exon_a->strand == 1) {
+        $translation_shift = $exon_a->start - $exon_b->start;
+        # Work out what the end phase should be
+        if($exon_b->end > $exon_a->end) {
+          $end_phase = -1;
+        } else {
+          $end_phase = $exon_a->end_phase();
+        }
+      } else {
+        $translation_shift = $exon_b->end - $exon_a->end;
+        if($exon_a->start > $exon_b->start) {
+          $end_phase = -1;
+        } else {
+          $end_phase = $exon_a->end_phase();
+        }
+      }
+
+      # Set the start phase, if there is a shift we know there is 5' UTR so set to -1
+      if($translation_shift) {
+        $start_phase = -1;
+      } else {
+        $start_phase = $exon_a->phase();
+      }
+
+      push(@{$final_exons},$merge_exon);
+    } else {
+      my $out_exon = new Bio::EnsEMBL::Exon(
+                                           -START  => $exon_b->start,
+                                           -END       => $exon_b->end,
+                                           -STRAND    => $exon_b->strand,
+                                           -SLICE     => $exon_b->slice,
+                                           -ANALYSIS  => $self->analysis,
+                                           -PHASE     => -1,
+                                           -END_PHASE => -1);
+
+      push(@{$final_exons},$out_exon);
+    }
+  }
+
+  print "\n";
+  unless($contained) {
+    say "Single exon acceptor was not contained within a donor exon, no UTR will be added";
+    return(0);
+  }
+
+  my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+  $self->add_utr_evidence($final_exons, $exons_b, $transcript_b);
+  my $modified_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $final_exons);
+  $modified_transcript->analysis($transcript_a->analysis);
+  $modified_transcript->biotype($transcript_a->biotype);
+  $modified_transcript->slice($transcript_a->slice());
+  $modified_transcript->translation($final_translation);
 
   print "Modified transcript: ";
   foreach my $exon (@{$modified_transcript->get_all_Exons}) {
@@ -987,6 +1180,7 @@ sub add_single_exon_utr {
   }
 
   $transcript_a->{'has_utr'} = 1;
+  $modified_transcript->add_supporting_features(grep {$_->isa('Bio::EnsEMBL::DnaDnaAlignFeature')} @{$transcript_b->get_all_supporting_features});
   return($modified_transcript);
 }
 
@@ -1020,6 +1214,7 @@ sub join_transcripts {
                                            -ANALYSIS  => $self->analysis,
                                            -PHASE     => $exon->phase,
                                            -END_PHASE => $exon->end_phase);
+    $out_exon->add_supporting_features(@{$exon->get_all_supporting_features});
     push(@{$joined_exon_set},$out_exon);
   }
 
@@ -1036,56 +1231,68 @@ sub join_transcripts {
                                            -ANALYSIS  => $self->analysis,
                                            -PHASE     => $exon->phase,
                                            -END_PHASE => $exon->end_phase);
+    $out_exon->add_supporting_features(@{$exon->get_all_supporting_features});
     push(@{$joined_exon_set},$out_exon);
   }
 
   my $joined_offset = scalar(@{$joined_exon_set}) - scalar(@{$exons_b});
   $cds_3_prime_index += $joined_offset;
 
-  # The translation is the same, but still need to modify the translation so that it has the correct start and end exon
-  my $translation = Bio::EnsEMBL::Translation->new();
-  $translation->start_Exon($$joined_exon_set[$cds_5_prime_index]);
-  $translation->start($transcript_a->translation()->start());
-  $translation->end_Exon($$joined_exon_set[$cds_3_prime_index]);
-  $translation->end($transcript_a->translation()->end());
+  my %seen;
+  my @unique_exons;
+  foreach my $exon (@$joined_exon_set) {
+    push(@unique_exons, $exon) unless (exists $seen{$exon->seq_region_start.':'.$exon->seq_region_end});
+    $seen{$exon->seq_region_start.':'.$exon->seq_region_end} = 1;
+  }
 
-  my $joined_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $joined_exon_set);
+  # The translation is the same, but still need to modify the translation so that it has the correct start and end exon
+  my $translation = create_Translation(\@unique_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+
+  my $joined_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => \@unique_exons);
   $joined_transcript->analysis($transcript_a->analysis);
   $joined_transcript->biotype($transcript_a->biotype);
   $joined_transcript->slice($transcript_a->slice());
   $joined_transcript->translation($translation);
+  calculate_exon_phases($joined_transcript, 0);
+
+  say "Joined exon coords:";
+  foreach my $exon (@unique_exons) {
+    print "(".$exon->start."..".$exon->end.")";
+  }
+  print "\n";
 
   unless($transcript_a->translation->seq eq $joined_transcript->translation->seq) {
+    say "Acceptor original sequence:\n".$transcript_a->seq->seq;
+    say "Acceptor current sequence:\n".$joined_transcript->seq->seq;
     $self->throw("When attempting to join the modified 5' and 3' transcripts, there was a difference in the joined translation. The translation should be identical at ".
                  "this point to the original.\nOriginal translation:\n".$transcript_a->translation->seq."\nJoined translation:\n".$joined_transcript->translation->seq);
   }
 
   say "Joined translation: ".$joined_transcript->translation->seq();
-
-  say "Joined exon coords:";
-  foreach my $exon (@{$joined_exon_set}) {
-    print "(".$exon->start."..".$exon->end.")";
-  }
-  print "\n";
+  $joined_transcript->add_supporting_features(grep {$_->isa('Bio::EnsEMBL::DnaDnaAlignFeature')} @{$transcript_a->get_all_supporting_features});
+  $joined_transcript->add_supporting_features(grep {$_->isa('Bio::EnsEMBL::DnaDnaAlignFeature')} @{$transcript_b->get_all_supporting_features});
 
   return($joined_transcript);
 }
 
 
 sub generate_intron_string {
-  my ($self,$intron_array) = @_;
+  my ($self,$intron_array, $seq_region_start, $seq_region_end) = @_;
 
   my $intron_string = "";
+  my $count = 0;
+  print STDERR 'GENERATING: ';
   foreach my $intron (@{$intron_array}) {
+    ++$count if ($intron->seq_region_start < $seq_region_end and $intron->seq_region_end > $seq_region_start);
     my $start = $intron->start();
     my $end = $intron->end();
     $intron_string .= $start."..".$end.":";
-    print "(".$start."..".$end.")";
+    print STDERR "(".$start."..".$end.")";
   }
 
   print "\n";
 
-  return($intron_string);
+  return($intron_string, $count);
 }
 
 
@@ -1281,11 +1488,9 @@ sub output_transcripts {
 
 
 sub biotype_priorities {
-  my ($self,$biotype_priorities_hash) = @_;
-  if($biotype_priorities_hash) {
-    $self->param('_biotype_priorities',$biotype_priorities_hash);
-  }
-  return($self->param('_biotype_priorities'));
+  my ($self) = @_;
+
+  return $self->param('utr_biotype_priorities');
 }
 
 sub get_all_biotypes {
@@ -1341,16 +1546,6 @@ sub process_clusters {
 
 }
 
-sub cluster_slice {
-  my ($self,$slice) = @_;
-  if($slice) {
-    $self->param('_cluster_slice',$slice);
-  }
-
-  return($self->param('_cluster_slice'));
-}
-
-
 sub look_for_both {
   my ($self,$trans) = @_;
 
@@ -1393,13 +1588,11 @@ sub look_for_both {
                   my $testseq = substr($cdna_seq,$coding_start-4,3);
                   if ($testseq eq "ATG") {
                           print_Translation($trans) if(1);
-                                # my @coords = $trans->cdna2genomic($coding_start-3,$coding_start-1,$trans->strand);
-                                my @coords = $trans->cdna2genomic($coding_start-3,$coding_start-1);
+
+                                my @coords = $trans->cdna2genomic($coding_start-3,$coding_start-1,$trans->strand);
+
                                 my $new_start;
                                 my $new_end;
-                                use Data::Dumper;
-                                print Dumper(@coords) . "\n"; 
-                            
                           if(scalar(@coords) > 2) {
                             $self->throw("Shouldn't happen - new coding start maps to >2 locations in genome - I'm out of here\n");
                           } elsif (scalar(@coords) == 2) {
@@ -1411,13 +1604,11 @@ sub look_for_both {
                                   $new_end   = $coords[$#coords]->end;
                               } else {
                                   $new_start = $coords[0]->end;
-                                  $new_end   = $coords[$#coords]->start;
+                                    $new_end   = $coords[$#coords]->start;
                                 }
                           } else {
                             $new_start = $coords[0]->start;
-                            # $new_start = $coords[0]->{"mapped"}->start; 
                             $new_end   = $coords[0]->end;
-                            # $new_end = $coords[0]->{"mapped"}->end;
                           }
 
                           unless($coords[0]->isa('Bio::EnsEMBL::Mapper::Coordinate')) {
@@ -1610,7 +1801,7 @@ sub look_for_both {
 
                     if ($testseq eq "TGA" or $testseq eq "TAA" or $testseq eq "TAG") {
 
-                      my @coords = $trans->cdna2genomic($coding_end+1,$coding_end+3);
+                      my @coords = $trans->cdna2genomic($coding_end+1,$coding_end+3,$trans->strand);
                       my $new_start;
                       my $new_end;
                       if(scalar(@coords) > 2) {
@@ -2094,6 +2285,12 @@ sub acceptor_test_cases {
 
 
   return([$transcript_1,$transcript_2,$transcript_3]);
+}
+
+sub min_size_5prime {
+  my ($self) = @_;
+
+  return 20;
 }
 
 1;

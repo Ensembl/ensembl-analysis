@@ -177,10 +177,10 @@ sub write_output{
     my $gene = $gene_hash->{'gene'};
     @attributes = @{$gene_hash->{'attrib'}};
     $gene->analysis($self->analysis);
-    $gene->status('PREDICTED');
+ #   $gene->status('PREDICTED');
     foreach my $trans (@{$gene->get_all_Transcripts}){
       $trans->analysis($self->analysis);
-      $trans->status('PREDICTED');
+ #     $trans->status('PREDICTED');
     }
     $gene->slice($self->query) if(!$gene->slice);
     $self->feature_factory->validate($gene);

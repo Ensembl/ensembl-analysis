@@ -296,10 +296,12 @@ sub run_analysis {
       $command .= " -db $database -query $filename ";
     }
     else {
-      $command .= " $database $filename -gi ";
+      #$command .= " $database $filename -gi ";
+		$command .= " -db $database -query $filename ";
     }
     print "DEBUG::BLAST.pm::: " . $self->options . "\n"; 
-    $command .= $self->options. ' 2>&1 > '.$results_file;
+    #$command .= $self->options. ' 2>&1 > '.$results_file;
+    $command .= ' 2>&1 > '.$results_file;
     
     print "Running blast ".$command."\n";
     info("Running blast ".$command); 

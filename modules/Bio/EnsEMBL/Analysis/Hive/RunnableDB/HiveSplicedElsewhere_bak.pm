@@ -129,11 +129,13 @@ sub fetch_input{
   my $gene = $ga->fetch_by_dbID($gene_id);
   push @genes, $self->lazy_load($gene);
 
+
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::HiveSplicedElsewhere->new
     (
      '-genes'             => \@genes,
      '-analysis'          => $self->analysis,
-     '-PS_MULTI_EXON_DIR' => $self->param('config_settings')->{PS_MULTI_EXON_DIR},
+     #'-PS_MULTI_EXON_DIR' => $self->param('config_settings')->{PS_MULTI_EXON_DIR},
+      '-PS_MULTI_EXON_DIR' => $self->param('PS_MULTI_EXON_DIR'),
     );
 
   $self->runnable($runnable);
@@ -160,7 +162,8 @@ sub run {
     $self->output($self->real_genes);
     # If you want to store retrotransposed genes for psilc
     return 1 unless ($self->retro_genes);
-    if ($self->param('config_settings')->{RETROTRANSPOSED}) {
+    #if ($self->param('config_settings')->{RETROTRANSPOSED})
+    if ($self->param('RETROTRANSPOSED')) {
       # Store gene dbIDS for PSILC 
       my @id_list;
       foreach my $gene (@{$self->retro_genes}) {
@@ -170,10 +173,12 @@ sub run {
     } else {
       # store retrotransposed genes as pseudo or real depending on config
       foreach my $gene (@{$self->retro_genes}) {
-	if ($self->param('config_settings')->{RETRO_TYPE} eq 'pseudogene') {
+    #if ($self->param('config_settings')->{RETRO_TYPE} eq 'pseudogene')
+	if ($self->param('RETRO_TYPE') eq 'pseudogene') {
 	  $self->pseudo_genes($gene);
 	} else {
-	  $gene->biotype($self->param('config_settings')->{RETRO_TYPE});
+    #$gene->biotype($self->param('config_settings')->{RETRO_TYPE});	
+	  $gene->biotype($self->param('RETRO_TYPE'));
 	  $self->output([$gene]);
 	}
       }
@@ -248,8 +253,10 @@ sub parse_results{
 	my $retro_coverage = 0;
 	my $real_coverage = 0;
 	# is the percent id above threshold?
-	next DAF unless ($daf->percent_id > $self->param('config_settings')->{PS_PERCENT_ID_CUTOFF});
-	next DAF unless ($daf->p_value <  $self->param('config_settings')->{PS_P_VALUE_CUTOFF});
+#	next DAF unless ($daf->percent_id > $self->param('config_settings')->{PS_PERCENT_ID_CUTOFF});
+	next DAF unless ($daf->percent_id > $self->param('PS_PERCENT_ID_CUTOFF'));
+#	next DAF unless ($daf->p_value <  $self->param('config_settings')->{PS_P_VALUE_CUTOFF});
+	next DAF unless ($daf->p_value <  $self->param('PS_P_VALUE_CUTOFF'));	
 	# dont want reverse matches
 	next DAF unless ($daf->strand == $daf->hstrand ) ;
 	# tighten up the result set
@@ -304,8 +311,10 @@ sub parse_results{
 	my $coverage = int(($retro_coverage / $retro_trans->length)*100);
 
 	my $aligned_genomic = $real_coverage - $retro_coverage;
-	next DAF unless ($coverage > $self->param('config_settings')->{PS_RETOTRANSPOSED_COVERAGE});
-	next DAF unless ($aligned_genomic > $self->param('config_settings')->{PS_ALIGNED_GENOMIC});
+	#next DAF unless ($coverage > $self->param('config_settings')->{PS_RETOTRANSPOSED_COVERAGE});
+	next DAF unless ($coverage > $self->param('PS_RETOTRANSPOSED_COVERAGE'));
+	#next DAF unless ($aligned_genomic > $self->param('config_settings')->{PS_ALIGNED_GENOMIC});
+	next DAF unless ($aligned_genomic > $self->param('PS_ALIGNED_GENOMIC'));
 
 	my $real_trans;
 	# Warn if transcript cannot be found, seems to happen is a very small number of cases so need
@@ -333,7 +342,8 @@ sub parse_results{
 	$real_span = $genomic_coords[$#genomic_coords]->end - $genomic_coords[0]->start;
 	
 	# Is the span higher than the allowed ratio?
-	if ($real_span / $retro_span > $self->param('config_settings')->{PS_SPAN_RATIO}) {
+#	if ($real_span / $retro_span > $self->param('config_settings')->{PS_SPAN_RATIO})
+	if ($real_span / $retro_span > $self->param('PS_SPAN_RATIO')) {
 	  print STDERR "---------------------------------------------------------------------------------------------------\n";
 	print STDERR "DAF: " .
 	  $daf->start . " " .
@@ -379,13 +389,17 @@ sub parse_results{
       my $new_transcript = clone_Transcript($only_transcript_to_keep ,0 ) ;
       $new_transcript->translation(undef);
       $new_gene->analysis($self->analysis);
-      $new_gene->biotype($self->param('config_settings')->{RETRO_TYPE});
-      if ( defined $self->param('config_settings')->{KEEP_TRANS_BIOTYPE}
-           && $self->param('config_settings')->{KEEP_TRANS_BIOTYPE} == 1 ) {
+      $new_gene->biotype($self->param('RETRO_TYPE'));
+      #$new_gene->biotype($self->param('config_settings')->{RETRO_TYPE});
+      #if ( defined $self->param('config_settings')->{KEEP_TRANS_BIOTYPE}
+      if ( defined $self->param('KEEP_TRANS_BIOTYPE')
+           #&& $self->param('config_settings')->{KEEP_TRANS_BIOTYPE} == 1 ) {
+           	 && $self->param('KEEP_TRANS_BIOTYPE') == 1 ) {
           warning("keeping original transcript biotype " . $only_transcript_to_keep->biotype() .
-                " instead of setting it to " . $self->param('config_settings')->{RETRO_TYPE}. "\n");
+                " instead of setting it to " . $self->param('RETRO_TYPE'). "\n");
       } else {
-        $new_transcript->biotype($self->param('config_settings')->{RETRO_TYPE});
+        #$new_transcript->biotype($self->param('config_settings')->{RETRO_TYPE});
+        $new_transcript->biotype($self->param('RETRO_TYPE'));
       }
 
       # make sure all exon phases are set to -1 due to the non-coding status
