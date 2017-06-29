@@ -84,7 +84,7 @@ sub pipeline_analyses {
         {   -logic_name => 'setup_directory',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                'cmd'     => 'mkdir #vertrna_dir#',
+                'cmd'     => 'mkdir #vertrna_dir#; lfs getname #vertrna_dir#; if [ $? -eq 0 ]; then lfs setstripe -c -1 #vertrna_dir#;fi',
             },
             -input_ids  => [ { vertrna_dir => $self->o('vertrna_dir'), blast_type => $self->o('blast_type'), vertrna_file => $self->o('vertrna_file')} ],
             -flow_into => {
@@ -156,7 +156,7 @@ sub pipeline_analyses {
             -parameters => {
                 'cmd'   => 'perl '.$self->o('embl2fasta_script').' -vertrna -embl #input_file#.dat -fasta #input_file#',
             },
-            -analysis_capacity  => 12,
+            -analysis_capacity  => 30,
             -flow_into => {
                 1 => ['delete_embl_file'],
             },
@@ -177,6 +177,16 @@ sub pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
                 'cmd'   => 'cat #expr(join(" ", @{#input_file#}))expr# > #vertrna_dir#/#vertrna_file#; rm #expr(join(" ", @{#input_file#}))expr#',
+            },
+            -flow_into => {
+              1 => ['check_against_previous'],
+            }
+        },
+
+        {   -logic_name => 'check_against_previous',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -parameters => {
+                'cmd'   => 'VERSION='.$self->o('version').';DIR="#vertrna_dir#";OLDDIR="${DIR%$VERSION}/$((VERSION-1))";if [ -d "$OLDDIR" ]; then OLD=`grep -c \> $OLDDIR/#vertrna_file#`;NEW=`grep -c \> #vertrna_dir#/#vertrna_file#`; if [ $NEW -lt $OLD ];then exit 2;fi;fi',
             },
             -flow_into => WHEN( '#blast_type# eq "ncbi"' => 'ncbi_format', ELSE 'wu_format',),
         },
