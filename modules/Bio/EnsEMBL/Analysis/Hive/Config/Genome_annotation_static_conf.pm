@@ -223,7 +223,7 @@ sub default_options {
     'vertrna_blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
     'unigene_blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
     'exonerate_path'         => '/nfs/software/ensembl/RHEL7/linuxbrew/opt/exonerate09/bin/exonerate',
-    'cmsearch_exe_path'    => catfile($self->o('binary_base'), 'cmsearch'),
+    'cmsearch_exe_path'    => '/nfs/software/ensembl/RHEL7/linuxbrew/opt/infernal10/bin/cmsearch',
 
     'uniprot_genblast_batch_size' => 5,
     'uniprot_table_name'          => 'uniprot_sequences',
