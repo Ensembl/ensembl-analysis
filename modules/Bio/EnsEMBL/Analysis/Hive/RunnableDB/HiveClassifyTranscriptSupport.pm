@@ -77,7 +77,7 @@ sub run_classification {
   my $target_db = $self->hrdb_get_con('target_db');
 
   if($update_rnaseq_biotype) {
-      $sth_update = $target_db->dbc->prepare('update gene set biotype="rnaseq" where biotype in ("single","best","other_merged");');
+      my $sth_update = $target_db->dbc->prepare('update gene set biotype="rnaseq" where biotype in ("single","best","other_merged");');
       $sth_update->execute();
 
       $sth_update = $target_db->dbc->prepare('update gene set biotype="rnaseq_tissue" where biotype != "rnaseq";');
