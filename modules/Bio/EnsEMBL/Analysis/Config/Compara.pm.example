@@ -52,17 +52,13 @@ use vars qw(%Config);
 
 %Config = (
 
-#    PYTHON  => 'python2.4',
     PYTHON  => 'python',
-#    JAVA => '/software/farm/java/bin/java',
-    JAVA => '/software/bin/java',
-    EXONERATE => '/software/ensembl/compara/exonerate/exonerate',
-    GERP => '/software/ensembl/compara/gerp/GERPv2.1',
-    SEMPHY => '/software/ensembl/compara/semphy_latest',
-#    SEMPHY => '/software/ensembl/compara/semphy',
-    ORTHEUS => '/software/ensembl/compara/OrtheusC/Ortheus.py',
-#    TREEBEST => '/software/ensembl/compara/bin/treebest',
-    TREEBEST => '/software/ensembl/compara/treebest.doubletracking',
+    JAVA => '/nfs/software/ensembl/RHEL7/jenv/shims/java',
+    EXONERATE => '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/exonerate22/2.2.0/bin/exonerate',
+    GERP => '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/gerp/20080211/bin/gerp',
+    SEMPHY => '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/semphy/2.0b3/bin/semphy',
+    ORTHEUS => '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/ortheus/0.5.0/bin/Ortheus.py',
+    TREEBEST => '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/treebest/88/bin/treebest',
 
 );
 
