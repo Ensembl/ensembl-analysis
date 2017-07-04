@@ -253,7 +253,7 @@ sub default_options {
     'uniprot_db_name'            => 'uniprot_db',
     'uniprot_query_dir_name'     => 'uniprot_temp',
     'uniprot_genblast_batch_size' => 50,
-    'uniprot_table_name'         => 'uniprot_sequences',
+    'uniprot_table_name'         => 'uniprot_protein_sequences',
     
     'genblast_eval'              => '1e-10',
     'genblast_cov'               => '0.5',
