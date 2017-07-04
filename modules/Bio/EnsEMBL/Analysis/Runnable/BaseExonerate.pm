@@ -67,6 +67,7 @@ use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile);
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
@@ -249,16 +250,18 @@ sub run {
 
   if ($self->query_seqs) {
     # Write query sequences to file if necessary
-    my $query_file = $self->create_filename('exonerate_q', 'fa');
-    my $seqout = 
-      Bio::SeqIO->new(
-        '-format' => 'fasta',
-        '-file'     => ">$query_file"
-      );
-      
-    foreach my $seq ( @{$self->query_seqs} ) {
-      $seqout->write_seq($seq);
-    }
+    #my $query_file = $self->create_filename('exonerate_q', 'fa');
+    my $query_file = write_seqfile($self->query_seqs);
+    
+    #my $seqout = 
+    #  Bio::SeqIO->new(
+    #    '-format' => 'fasta',
+    #    '-file'     => ">$query_file"
+    #  );
+    #  
+    #foreach my $seq ( @{$self->query_seqs} ) {
+    #  $seqout->write_seq($seq);
+    #}
     
     # register the file for deletion
     $self->files_to_delete($query_file);
@@ -267,16 +270,17 @@ sub run {
 
   if ($self->target_seqs) {
     # Write query sequences to file if necessary
-    my $target_file = $self->create_filename('exonerate_t', 'fa');
-    my $seqout = 
-      Bio::SeqIO->new(
-        '-format' => 'fasta',
-        '-file'     => ">$target_file"
-      );
-      
-    foreach my $seq ( @{$self->target_seqs} ) {
-      $seqout->write_seq($seq);
-    }
+    #my $target_file = $self->create_filename('exonerate_t', 'fa');
+    my $target_file = write_seqfile($self->target_seqs);
+    #my $seqout = 
+    #  Bio::SeqIO->new(
+    #    '-format' => 'fasta',
+    #    '-file'     => ">$target_file"
+    #  );
+    #  
+    #foreach my $seq ( @{$self->target_seqs} ) {
+    #  $seqout->write_seq($seq);
+    #}
     
     # register the file for deletion
     $self->files_to_delete($target_file);
