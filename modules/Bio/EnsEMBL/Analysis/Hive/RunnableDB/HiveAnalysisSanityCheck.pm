@@ -133,14 +133,14 @@ sub gene_db_checks {
   }
 
   say "Checking logic names:";
- foreach my $logic_name (keys(%{$logic_names})) {
-   my $min_count = $logic_names->{$logic_name};
-   my $observed_count = $observed_logic_name_counts->{$logic_name};
-   say "Observed gene/transcript count for ".$logic_name.": ".$observed_count;
-   unless($observed_count >= $min_count) {
-     $self->throw("Gene/transcript count is below the min value of ".$min_count." for ".$logic_name.", observed count: ".$observed_count);
-   }
- }
+  foreach my $logic_name (keys(%{$logic_names})) {
+    my $min_count = $logic_names->{$logic_name};
+    my $observed_count = $observed_logic_name_counts->{$logic_name};
+    say "Observed gene/transcript count for ".$logic_name.": ".$observed_count;
+    unless($observed_count >= $min_count) {
+      $self->throw("Gene/transcript count is below the min value of ".$min_count." for ".$logic_name.", observed count: ".$observed_count);
+    }
+  }
 
   # Count the transcripts per biotype
   # Not particularly happy with this, I think it is good to have a way to specify generic parts of a biotype, but it comes at the
@@ -150,10 +150,20 @@ sub gene_db_checks {
   foreach my $biotype (keys(%{$biotypes})) {
     my $min_count = $biotypes->{$biotype};
     my $observed_count = 0;
-    while($observed_biotype_keys =~ s/$biotype[^|]*//) {
+    while($observed_biotype_keys =~ s/$biotype[^|\)]*//) {
       my $matching_biotype = $&;
       my $matching_biotype_count = $observed_biotype_counts->{$matching_biotype};
       $observed_count += $matching_biotype_count;
+    }
+
+    if($biotype =~ /^rnaseq\_/ && $self->param('skip_rnaseq')) {
+      say "Skipping count of ".$biotype." as rnaseq db flagged as absent";
+      next;
+    }
+
+    if($biotype =~ /^realign\_/ && $self->param('skip_projection')) {
+      say "Skipping count of ".$biotype." as projection db flagged as absent";
+      next;
     }
 
     say "Observed gene/transcript count for ".$biotype.": ".$observed_count;
@@ -170,6 +180,7 @@ sub count_features {
 
   my $feature_set = $adaptor->fetch_all_by_logic_name($logic_name);
   my $feature_count = scalar(@{$feature_set});
+  $feature_set = [];
   return($feature_count);
 }
 

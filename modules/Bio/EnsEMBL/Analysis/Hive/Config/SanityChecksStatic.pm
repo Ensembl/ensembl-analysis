@@ -137,7 +137,8 @@ sub _master_config {
           'mammals_pe12_'       => 10000,
           'vert_pe12_'          => 1,
           'realign'             => 30000,
-          'rnaseq'              => 10000,
+          'rnaseq_merged'       => 10000,
+          'rnaseq_tissue'       => 10000,
         }, # biotypes
       }, # layer
       'genebuilder' => {
@@ -151,7 +152,7 @@ sub _master_config {
           'mammals_pe12_'       => 1000,
           'vert_pe12_'          => 0,
           'realign'             => 10000,
-          'rnaseq'              => 2000,
+          'rnaseq_merged'      => 2000,
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
@@ -168,6 +169,28 @@ sub _master_config {
           'snRNA'               => 400,
         }, # biotypes
       }, # ncrna
+      'final' => {
+        'logic_names' => {
+          'ensembl'             => 20000,
+          'ncrna'               => 2000,
+        }, # logic_names
+        'biotypes' =>    {
+          'realign'             => 10000,
+          'rnaseq_merged'       => 2000,
+          'human_pe12_'         => 2000,
+          'primates_pe12_'      => 2000,
+          'primates_pe3_'       => 0,
+          'mammals_pe12_'       => 1000,
+          'vert_pe12_'          => 0,
+          'miRNA'               => 600,
+          'misc_RNA'            => 400,
+          'ribozyme'            => 0,
+          'rRNA'                => 200,
+          'scaRNA'              => 0,
+          'snoRNA'              => 200,
+          'snRNA'               => 400,
+        }, # biotypes
+      }, # final
     }, # primates_basic
   }, # gene_db_checks
   );
