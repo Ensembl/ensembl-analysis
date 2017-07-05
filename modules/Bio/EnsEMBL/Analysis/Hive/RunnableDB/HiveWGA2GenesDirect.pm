@@ -252,6 +252,8 @@ sub run {
         $self->runnable_failed(1);
       }
       if ($proj_trans) {
+        my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t', -VALUE => $tran->stable_id);
+        $proj_trans->add_Attributes($parent_attribute);
         push @res_tran, $proj_trans;
       }
     }
