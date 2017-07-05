@@ -61,9 +61,9 @@ sub generate_stable_ids {
 
   my $target_db = $self->param('target_db');
   my $start = $self->param_required('id_start');
-  my $cmd = 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/generate_stable_ids.pl'.
+  my $cmd = 'perl '.$self->param_required('enscode_root_dir').'/ensembl/misc-scripts/generate_stable_ids.pl'.
             ' -user '.$target_db->{'-user'}.
-            ' -pass '.$target_db->{'-password'}.
+            ' -pass '.$target_db->{'-pass'}.
             ' -host '.$target_db->{'-host'}.
             ' -port '.$target_db->{'-port'}.
             ' -dbname '.$target_db->{'-dbname'}.
@@ -74,7 +74,7 @@ sub generate_stable_ids {
   }
 
   $cmd = 'mysql -u'.$target_db->{'-user'}.
-         ' -p'.$target_db->{'-password'}.
+         ' -p'.$target_db->{'-pass'}.
          ' -h'.$target_db->{'-host'}.
          ' -P'.$target_db->{'-port'}.
          ' -D'.$target_db->{'-dbname'}.
