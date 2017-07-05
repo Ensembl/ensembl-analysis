@@ -56,6 +56,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastmiRNA;
 use strict;
 use warnings;
 use feature 'say';
+use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::Runnable::BlastmiRNA;
 use Bio::EnsEMBL::Analysis::Tools::FilterBPlite;
@@ -137,8 +138,7 @@ sub fetch_input{
      -database => $self->analysis->db_file,
      -analysis => $self->analysis,
      -options  => $self->param('commandline_params'),
-     -params   => \%blast,
-     %{$self->BLAST_PARAMS},
+     %blast,
     );
 
     $self->runnable($runnable);
