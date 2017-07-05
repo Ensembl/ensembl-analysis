@@ -84,6 +84,7 @@ our @EXPORT_OK = qw(
               first_upper_case
               execute_with_wait
               execute_with_timer
+              parse_timer
               is_slice_name
               );
 
@@ -1183,12 +1184,49 @@ sub execute_with_wait {
               you can use M and H to specify hours and/or minutes, without white spaces.
  Returntype : Int 1 if successfull
  Exceptions : Throws after your jobs did not finish in time
-              Throws if Arg[2] is not set or incorrect or 0
+
 
 =cut
 
 sub execute_with_timer {
   my ($cmd, $timer) = @_;
+
+  my $realtimer = parse_timer($timer);
+  my $remaining_time = 0;
+
+  # As seen on perldoc: http://perldoc.perl.org/5.14.2/functions/alarm.html
+  eval {
+    local $SIG{ALRM} = sub {die("alarm\n")};
+    alarm $realtimer;
+    execute_with_wait($cmd);
+    $remaining_time = alarm 0;
+  };
+  if ($@) {
+    if ($@ eq "alarm\n") {
+      throw("Your job $cmd was still running after your timer: $realtimer\n");
+    }
+    else {
+      throw($@);
+    }
+  }
+  return $remaining_time;
+}
+
+
+=head2 parse_timer
+
+ Arg [1]    : Int $timer, how long we should wait before killing your job
+ Description: Parse a timer value of the form 2h30m or 1H50M or 3600 (seconds)
+              You can either specify the time in seconds as digits only or
+
+              you can use M and H to specify hours and/or minutes, without white spaces.
+ Returntype : Value of the timer convered to seconds
+ Exceptions : Throws if Arg[1] is not set or incorrect or 0
+
+=cut
+
+sub parse_timer {
+  my ($timer) = @_;
 
   my $realtimer = 0;
   if ($timer) {
@@ -1212,23 +1250,10 @@ sub execute_with_timer {
   else {
     throw("Something is wrong with your timer: $timer\n");
   }
-# As seen on perldoc: http://perldoc.perl.org/5.14.2/functions/alarm.html
-  eval {
-    local $SIG{ALRM} = sub {die("alarm\n")};
-    alarm $realtimer;
-    execute_with_wait($cmd);
-    alarm 0;
-  };
-  if ($@) {
-    if ($@ eq "alarm\n") {
-      throw("Your job $cmd was still running after your timer: $realtimer\n");
-    }
-    else {
-      throw($@);
-    }
-  }
-  return 1;
+
+  return($realtimer);
 }
+
 
 
 =head2 is_slice_name

@@ -808,6 +808,34 @@ sub timer {
 }
 
 
+=head2 remaining_time
+
+ Arg [1]    : Int String, how much time is remaining on a timer after running the runnable
+ Description: Getter/Setter remaininig time on an alarm
+              The format is in seconds
+ Returntype : String
+ Exceptions : Throws if the string is not conform to the format above
+
+=cut
+
+sub remaining_time {
+  my ($self, $value) = @_;
+
+  if ($value) {
+    throw('The value should only be number or the format describe in Bio::EnsEMBL::Analysis::Tools::Utilities::remaining_time'.
+      "\nNot: '$value'")
+      unless ($value =~ /^[0-9]+$/);
+    $self->{_timer} = $value;
+  }
+  if (exists $self->{_timer}) {
+    return $self->{_timer};
+  }
+  else {
+    return;
+  }
+}
+
+
 
 
 =head2 parse_results
