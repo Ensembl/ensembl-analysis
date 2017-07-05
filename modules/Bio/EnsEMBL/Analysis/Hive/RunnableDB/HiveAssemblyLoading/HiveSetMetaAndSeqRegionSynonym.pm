@@ -20,6 +20,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveSetMe
 use strict;
 use warnings;
 use feature 'say';
+use Time::Piece;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -83,19 +84,17 @@ sub run {
   my $self = shift;
 
   say "Loading meta information seq region synonyms into reference db\n";
-  my $taxon_id = $self->param('taxon_id');
-  my $target_db = $self->param('target_db');
-  my $genebuilder_id = $self->param('genebuilder_id');
-  my $enscode_dir = $self->param('enscode_root_dir');
-  my $primary_assembly_dir_name = $self->param('primary_assembly_dir_name');
-  my $path_to_files = $self->param('output_path')."/".$primary_assembly_dir_name;
-
+  my $target_db = $self->param_required('target_db');
+  my $enscode_dir = $self->param_required('enscode_root_dir');
+  my $primary_assembly_dir_name = $self->param_required('primary_assembly_dir_name');
+  my $path_to_files = $self->param_required('output_path')."/".$primary_assembly_dir_name;
+  my $meta_keys = $self->param_required('meta_key_list');
   say "\nBacking up meta and seq_region tables...";
   $self->backup_tables($path_to_files,$target_db);
   say "\nBackup of tables complete\n";
 
   say "Setting meta information in meta table...\n";
-  $self->set_meta($target_db,$genebuilder_id,$path_to_files);
+  $self->set_meta($target_db,$meta_keys,$path_to_files);
   say "\nMeta table insertions complete\n";
 
   say "Setting seq region synonyms...\n";
@@ -184,27 +183,27 @@ sub backup_tables {
 =cut
 
 sub set_meta {
-  my ($self,$target_db,$genebuilder_id,$path_to_files) = @_;
+  my ($self,$target_db,$meta_keys,$path_to_files) = @_;
 
   my $target_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(%{$target_db});
   my $meta_adaptor = $target_dba->get_MetaContainerAdaptor;
-  $meta_adaptor->store_key_value('genebuild.id', $genebuilder_id);
-  say "Inserted into meta:\ngenebuild.id => ".$genebuilder_id;
-  $meta_adaptor->store_key_value('marker.priority', 1);
-  say "Inserted into meta:\nmarker.priority => 1";
-  $meta_adaptor->store_key_value('assembly.coverage_depth', 'high');
-  say "Inserted into meta:\nassembly.coverage_depth => high";
-  $meta_adaptor->store_key_value('species.production_name', $self->param('production_name'));
+
+  foreach my $meta_key (keys(%{$meta_keys})) {
+    my $meta_value = $meta_keys->{$meta_key};
+    $meta_adaptor->store_key_value($meta_key, $meta_value);
+    say "Inserted into meta:\n".$meta_key." => ".$meta_value;
+  }
+
+  my $date = localtime->strftime('%Y-%m');
+  $meta_adaptor->store_key_value('genebuild.start_date', $date."-Ensembl");
 
   unless(-e $path_to_files."/assembly_report.txt") {
     $self->throw("Could not find the assembly_report.txt file. Path checked:\n".$path_to_files."/assembly_report.txt");
   }
 
   open(IN,$path_to_files."/assembly_report.txt");
-  my $description_defined = 0;
-  my $assembly_name;
-  my $taxon_id;
   while (my $line = <IN>) {
+    # This check seems odd, might mess up if run on plants
     if($line !~ /^#/ or $self->param('has_mitochondria')) {
       if ($line =~ /(NC_\S+)\s+non-nuclear/) {
         $self->param('mt_accession', $1);
@@ -212,23 +211,7 @@ sub set_meta {
     } elsif($line =~ /^#\s*Date:\s*(\d+)-(\d+)-\d+/) {
       $meta_adaptor->store_key_value('assembly.date', $1.'-'.$2);
       say "Inserted into meta:\nassembly.date => ".$1.'-'.$2;
-   } elsif($line =~ /^#\s*Assembly [Nn]ame:\s*(\S+)/) {
-      $assembly_name = $1;
-      $meta_adaptor->store_key_value('assembly.default', $assembly_name);
-      $meta_adaptor->store_key_value('assembly.name', $assembly_name);
-      say "Inserted into meta:\nassembly.default => ".$assembly_name;
-    } elsif($line =~ /^#\s*Taxid:\s*(\d+)/) {
-      $taxon_id = $1;
-      $meta_adaptor->store_key_value('species.taxonomy_id', $taxon_id);
-      say "Inserted into meta:\nspecies.taxonomy_id => ".$taxon_id;
-    } elsif($line =~ /^#\s*GenBank Assembly ID:\s*(\S+)/) {
-      $meta_adaptor->store_key_value('assembly.accession', $1);
-      say "Inserted into meta:\nassembly.accession => ".$1;
-      $meta_adaptor->store_key_value('assembly.web_accession_source', 'NCBI');
-      say "Inserted into meta:\nassembly.web_accession_source => NCBI";
-      $meta_adaptor->store_key_value('assembly.web_accession_type', 'GenBank Assembly ID');
-      say "Inserted into meta:\nassembly.web_accession_type => GenBank Assembly ID";
-    } elsif ($line =~ /^#\s*Assembly level:\s*Chromosome/) {
+   } elsif ($line =~ /^#\s*Assembly level:\s*[Cc]hromosome/) {
       $self->param('chromosomes_present', 1);
     } elsif ($line =~ /##\s*GCF_\S+\s*non-nuclear/) {
       $self->param('has_mitochondria', 1);
@@ -236,12 +219,6 @@ sub set_meta {
   }
 
   close IN;
-
-  unless($description_defined) {
-    $meta_adaptor->store_key_value('assembly.name', $assembly_name);
-    say "Inserted into meta:\nassembly.name => ".$assembly_name;
-  }
-
 }
 
 
