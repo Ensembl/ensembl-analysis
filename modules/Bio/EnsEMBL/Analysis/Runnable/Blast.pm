@@ -67,6 +67,7 @@ package Bio::EnsEMBL::Analysis::Runnable::Blast;
 
 use strict;
 use warnings;
+use feature 'say';
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_timer);
@@ -93,7 +94,7 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
   my ($parser, $filter, $database, $type,
-      $unknown_error ) = rearrange(['PARSER', 'FILTER', 'DATABASE', 
+      $unknown_error ) = rearrange(['PARSER', 'FILTER', 'DATABASE',
                                     'TYPE', 'UNKNOWN_ERROR_STRING',
                                    ], @args);
   $type = undef unless($type);
@@ -101,7 +102,7 @@ sub new {
   ######################
   #SETTING THE DEFAULTS#
   ######################
-  $self->type('wu');
+  $self->type('ncbi');
   $self->unknown_error_string('FAILED');
   $self->options('-num_threads 1') if(!$self->options);
   ######################
