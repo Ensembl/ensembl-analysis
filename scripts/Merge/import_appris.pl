@@ -47,11 +47,11 @@ $| = 1;
 my $host   = '';
 my $user   = '';
 my $pass   = '';
-my $port   = 3306;
+my $port;
 my $dbname = '';
 my $dnahost   = '';
 my $dnauser   = 'ensro';
-my $dnaport   = 3306;
+my $dnaport;
 my $dnadbname;
 
 my $coord_system_name = 'toplevel';
