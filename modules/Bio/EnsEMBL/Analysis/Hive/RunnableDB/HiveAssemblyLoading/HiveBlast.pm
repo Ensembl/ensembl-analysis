@@ -138,11 +138,18 @@ sub run {
     eval{
       $runnable->run;
     };
-    if(my $err = $@){
-      chomp $err;
 
-      # only match '"ABC_DEFGH"' and not all possible throws
-      if ($err =~ /^\"([A-Z_]{1,40})\"$/i) {
+    if($@) {
+      my $except = $@;
+      chomp $except;
+
+      if($except =~ /still running after your timer/) {
+        $self->warning("genblast took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
+        $self->batch_failed(1);
+        $self->param('_branch_to_flow_to_on_fail',-2);
+        last;
+      } elsif ($except =~ /^\"([A-Z_]{1,40})\"$/i) {
+        # only match '"ABC_DEFGH"' and not all possible throws
         my $code = $1;
         # treat VOID errors in a special way; they are really just
         # BLASTs way of saying "won't bother searching because
@@ -151,11 +158,11 @@ sub run {
         if ($code ne 'VOID') {
           $self->failing_job_status($1);
           $self->throw("Blast::run failed ".$@);
+        } elsif ($except) {
+          $self->throw("Blast Runnable returned unrecognised error string: ".$except);
         }
-      } elsif ($err) {
-        $self->throw("Blast Runnable returned unrecognised error string: ".$err);
-      }
-    }
+      } # end elsif ($except =~ /^\"([A-Z_]{1,40})\"$/i)
+    } # end if($@)
     $self->output($runnable->output);
   }
 
@@ -178,40 +185,49 @@ sub run {
 
 sub write_output{
   my ($self) = @_;
-  my $dna_a = $self->hrdb_get_con('target_db')->get_DnaAlignFeatureAdaptor;
-  my $protein_a = $self->hrdb_get_con('target_db')->get_ProteinAlignFeatureAdaptor;
-  my $ff = $self->feature_factory;
-  foreach my $feature (@{$self->output}){
-    $feature->analysis($self->analysis);
 
-    unless($feature->slice) {
-      $feature->slice($self->query);
-    }
 
-    $ff->validate($feature);
+  if($self->batch_failed == 1) {
+    # Flow out on -2 or -3 based on how the failure happened
+    my $failure_branch_code = $self->param('_branch_to_flow_to_on_fail');
+    my $output_hash = {};
+    $output_hash->{'iid'} = $self->param('iid');
+    $self->dataflow_output_id($output_hash,$failure_branch_code);
+  } else {
+    my $dna_a = $self->hrdb_get_con('target_db')->get_DnaAlignFeatureAdaptor;
+    my $protein_a = $self->hrdb_get_con('target_db')->get_ProteinAlignFeatureAdaptor;
+    my $ff = $self->feature_factory;
+    foreach my $feature (@{$self->output}) {
+      $feature->analysis($self->analysis);
 
-    # Put this in to stop any issues with the coordinates of the align feature. Was running into
-    # this for some reason with the prediction transcript that had dbIDs as their input id
-    my $slice = $feature->slice->seq_region_Slice;
-    $feature->slice($slice);
-
-    if($feature->isa('Bio::EnsEMBL::DnaDnaAlignFeature')){
-      eval{
-        $dna_a->store($feature);
-      };
-      if($@) {
-        $self->throw("Blast:store failed failed to write ".$feature." to the database: ".$@);
+      unless($feature->slice) {
+        $feature->slice($self->query);
       }
-    } elsif($feature->isa('Bio::EnsEMBL::DnaPepAlignFeature')){
-      eval{
-        $protein_a->store($feature);
-      };
-      if($@) {
-        $self->throw("Blast:store failed failed to write ".$feature." to the database: ".$@);
+
+      $ff->validate($feature);
+
+      # Put this in to stop any issues with the coordinates of the align feature. Was running into
+      # this for some reason with the prediction transcript that had dbIDs as their input id
+      my $slice = $feature->slice->seq_region_Slice;
+      $feature->slice($slice);
+
+      if($feature->isa('Bio::EnsEMBL::DnaDnaAlignFeature')){
+        eval{
+          $dna_a->store($feature);
+        };
+        if($@) {
+          $self->throw("Blast:store failed failed to write ".$feature." to the database: ".$@);
+        }
+      } elsif($feature->isa('Bio::EnsEMBL::DnaPepAlignFeature')){
+        eval{
+          $protein_a->store($feature);
+        };
+        if($@) {
+          $self->throw("Blast:store failed failed to write ".$feature." to the database: ".$@);
+        }
       }
     }
-  }
-
+  } # end else
   return 1;
 }
 
@@ -402,6 +418,14 @@ sub BLAST_PARAMS {
   else {
       return;
   }
+}
+
+sub batch_failed {
+  my ($self,$batch_failed) = @_;
+  if($batch_failed) {
+    $self->param('_batch_failed',$batch_failed);
+  }
+  return ($self->param('_batch_failed'));
 }
 
 1;

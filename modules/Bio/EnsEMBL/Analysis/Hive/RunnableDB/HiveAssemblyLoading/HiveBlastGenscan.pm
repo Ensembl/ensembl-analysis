@@ -183,6 +183,7 @@ sub create_runnable {
                         -options => $options_string,
                          %{$blast},
                        );
+  $runnable->timer($self->param('timer'));
   $self->runnable($runnable);
 }
 

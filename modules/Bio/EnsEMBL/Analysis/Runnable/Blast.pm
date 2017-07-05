@@ -69,6 +69,7 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_timer);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
@@ -163,8 +164,8 @@ sub databases{
     } else {
       my $count = 1;
       while (-f $dbname . "-$count") {
-        push(@dbs,$dbname . "-$count"); 	 
-        $count++; 	 
+        push(@dbs,$dbname . "-$count");          
+        $count++;        
       }
     }
 
@@ -274,7 +275,7 @@ sub results_files{
 
 sub run_analysis {
   my ($self) = @_;
-  
+
   foreach my $database (@{$self->databases}) {
 
     my $db = $database;
@@ -297,7 +298,7 @@ sub run_analysis {
       $command .= " $database $filename -gi ";
     }
     $command .= $self->options. ' 2>&1 > '.$results_file;
-    
+
     print "Running blast ".$command."\n";
     info("Running blast ".$command); 
 
@@ -305,66 +306,71 @@ sub run_analysis {
      && (!exists $ENV{WUBLASTMAT} or ! -e $ENV{WUBLASTMAT})) {
       warning(" your environment variable \$BLASTMAT is not set !!! ".
             " Point it to /usr/local/ensembl/data/blastmat/ or where your BLOSUM62 matrices live\n") ;
-    } 
-    open(my $fh, "$command |") || 
-      throw("Error opening Blast cmd <$command>." .
-            " Returned error $? BLAST EXIT: '" . 
-            ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) . 
-            "', There was " . ($? & 128 ? 'a' : 'no') . 
-            " core dump");
-    # this loop reads the STDERR from the blast command
-    # checking for FATAL: messages (wublast) [what does ncbi blast say?]
-    # N.B. using simple die() to make it easier for RunnableDB to parse.
-    while(<$fh>){
-      if(/FATAL:(.+)/){
-        my $match = $1;
-        print $match;
-	# clean up before dying
-	$self->delete_files;
-        if($match =~ /no valid contexts/){
-          die qq{"VOID"\n}; # hack instead
-        }elsif($match =~ /Bus Error signal received/){
-          die qq{"BUS_ERROR"\n}; # can we work out which host?
-        }elsif($match =~ /Segmentation Violation signal received./){
-          die qq{"SEGMENTATION_FAULT"\n}; # can we work out which host?
-        }elsif($match =~ /Out of memory;(.+)/){
-          # (.+) will be something like "1050704 bytes were last 
-          #requested."
-          die qq{"OUT_OF_MEMORY"\n}; 
-          # resenD to big mem machine by rulemanager
-        }elsif($match =~ /the query sequence is shorter than the word length/){
-          #no valid context 
-          die qq{"VOID"\n}; # hack instead
-        }elsif($match =~ /External filter/){
-          # Error while using an external filter
-          die qq{"EXTERNAL_FITLER_ERROR"\n}; 
-        }else{
-          warning("Something FATAL happened to BLAST we've not ".
-                  "seen before, please add it to Package: " 
-                  . __PACKAGE__ . ", File: " . __FILE__);
-          die ($self->unknown_error_string."\n"); 
-          # send appropriate string 
-          #as standard this will be failed so job can be retried
-          #when in pipeline
-        }
-      }elsif(/WARNING:(.+)/){
-        # ONLY a warning usually something like hspmax=xxxx was exceeded
-        # skip ...
-      }elsif(/^\s{10}(.+)/){ # ten spaces
-        # Continuation of a WARNING: message
-        # Hope this doesn't catch more than these.
-        # skip ...
-      }
     }
-    unless(close $fh){
-      # checking for failures when closing.
-      # we should't get here but if we do then $? is translated 
-      #below see man perlvar
-      warning("Error running Blast cmd <$command>. Returned ".
-              "error $? BLAST EXIT: '" . ($? >> 8) . 
-              "', SIGNAL '" . ($? & 127) . "', There was " . 
-              ($? & 128 ? 'a' : 'no') . " core dump");
-      die ($self->unknown_error_string."\n"); 
+
+    if($self->timer) {
+      execute_with_timer($command, $self->timer);
+    } else {
+      open(my $fh, "$command |") || 
+        throw("Error opening Blast cmd <$command>." .
+              " Returned error $? BLAST EXIT: '" . 
+              ($? >> 8) . "'," ." SIGNAL '" . ($? & 127) . 
+              "', There was " . ($? & 128 ? 'a' : 'no') . 
+              " core dump");
+      # this loop reads the STDERR from the blast command
+      # checking for FATAL: messages (wublast) [what does ncbi blast say?]
+      # N.B. using simple die() to make it easier for RunnableDB to parse.
+      while(<$fh>){
+        if(/FATAL:(.+)/){
+          my $match = $1;
+          print $match;
+          # clean up before dying
+          $self->delete_files;
+          if($match =~ /no valid contexts/){
+            die qq{"VOID"\n}; # hack instead
+          }elsif($match =~ /Bus Error signal received/){
+            die qq{"BUS_ERROR"\n}; # can we work out which host?
+          }elsif($match =~ /Segmentation Violation signal received./){
+            die qq{"SEGMENTATION_FAULT"\n}; # can we work out which host?
+          }elsif($match =~ /Out of memory;(.+)/){
+            # (.+) will be something like "1050704 bytes were last 
+            #requested."
+            die qq{"OUT_OF_MEMORY"\n}; 
+            # resenD to big mem machine by rulemanager
+          }elsif($match =~ /the query sequence is shorter than the word length/){
+            #no valid context 
+            die qq{"VOID"\n}; # hack instead
+          }elsif($match =~ /External filter/){
+            # Error while using an external filter
+            die qq{"EXTERNAL_FITLER_ERROR"\n}; 
+          }else{
+            warning("Something FATAL happened to BLAST we've not ".
+                    "seen before, please add it to Package: " 
+                    . __PACKAGE__ . ", File: " . __FILE__);
+            die ($self->unknown_error_string."\n"); 
+            # send appropriate string 
+            #as standard this will be failed so job can be retried
+            #when in pipeline
+          }
+        }elsif(/WARNING:(.+)/){
+          # ONLY a warning usually something like hspmax=xxxx was exceeded
+          # skip ...
+        }elsif(/^\s{10}(.+)/){ # ten spaces
+          # Continuation of a WARNING: message
+          # Hope this doesn't catch more than these.
+          # skip ...
+        }
+      }
+      unless(close $fh){
+        # checking for failures when closing.
+        # we should't get here but if we do then $? is translated 
+        #below see man perlvar
+        warning("Error running Blast cmd <$command>. Returned ".
+                "error $? BLAST EXIT: '" . ($? >> 8) . 
+                "', SIGNAL '" . ($? & 127) . "', There was " . 
+                ($? & 128 ? 'a' : 'no') . " core dump");
+        die ($self->unknown_error_string."\n"); 
+      }
     }
   }
 }
