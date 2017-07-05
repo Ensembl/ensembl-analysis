@@ -89,6 +89,11 @@ sub param_defaults {
 sub fetch_input {
   my $self = shift;
 
+  if($self->param('skip_analysis')) {
+    $self->input_job->autoflow(0);
+    $self->complete_early('Skip analysis flag is enabled, so no input ids will be generated');
+  }
+
   my $iid_type = $self->param_required('iid_type');
   if($iid_type eq 'chunk') {
     $self->create_chunk_ids();
@@ -669,10 +674,13 @@ sub feature_restriction {
         # Note initially this is based on translation and not biotype, but for projection I've switched to to biotype temporarily
         unless($feature->biotype() eq 'protein_coding') {
           $feature_restricted = 1;
+          return($feature_restricted);
         }
       } elsif($restriction eq 'biotype') {
         # future code with a new param for a biotype array should go here
-      }
+      } elsif($restriction eq 'projection') {
+        return($self->assess_projection_transcript($feature));
+      } #  End if type eq projection
     } # End if type eq gene or transcript
   } # End if restriction
 
@@ -680,6 +688,64 @@ sub feature_restriction {
 
 }
 
+
+
+sub assess_projection_transcript {
+  my ($self,$current_transcript) = @_;
+
+  my $feature_restricted = 0;
+  unless($current_transcript->biotype() eq 'protein_coding') {
+    $feature_restricted = 1;
+    return($feature_restricted);
+  }
+
+  my $attribs = $current_transcript->get_all_Attributes();
+  my $readthrough = 0;
+  my $cds_incomplete = 0;
+  foreach my $attrib (@{$attribs}) {
+    my $code = $attrib->code();
+    if($code eq 'cds_start_NF' || $code eq 'cds_end_NF') {
+      $cds_incomplete = 1;
+    }
+
+    # Remove readthroughs
+    if($code eq 'readthrough_tra') {
+      $feature_restricted = 1;
+      return($feature_restricted);
+    }
+  }
+
+  if($cds_incomplete) {
+    my $parent_gene = $current_transcript->get_Gene();
+    my $all_transcripts = $parent_gene->get_all_Transcripts();
+    # If it's the only transcript, then keep it, so return 0
+    if(scalar(@{$all_transcripts}) == 1) {
+      return($feature_restricted);
+    }
+
+    my $current_cds_length = $current_transcript->translation->length();
+
+    # Ignore tiny transcripts
+    my $min_cds_length = 30;
+    if($current_cds_length < $min_cds_length) {
+      $feature_restricted = 1;
+      return($feature_restricted);
+    }
+
+    # If any other coding transcript has a larger CDS then restrict this transcript
+    foreach my $transcript (@{$all_transcripts}) {
+      if($transcript->translation) {
+        my $cds_length = $transcript->translation->length();
+        if($cds_length > $current_cds_length) {
+          $feature_restricted = 1;
+          return($feature_restricted);
+        }
+      }
+    }
+  } # end if($cds_incomplete)
+
+  return($feature_restricted);
+}
 
 =head2 filter_slice_on_features
 
