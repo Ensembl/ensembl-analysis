@@ -91,7 +91,7 @@ sub fetch_input {
   $self->hrdb_set_con($dba,'target_db');
 
   $self->create_analysis;
-  my $genome_file ; # = $self->param_required('genblast_db_path');
+  my $genome_file = $self->param_required('genblast_db_path');
   $self->analysis->program_file($self->param_required('genblast_path'));
   #$self->analysis->db_file($genome_file);
   $self->analysis->parameters($self->param('commandline_params'));

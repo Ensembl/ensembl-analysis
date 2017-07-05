@@ -44,16 +44,27 @@ sub run {
   my $output_path = catdir($self->param('output_path'), $primary_assembly_dir_name, 'contigs');
   my $source = $self->param('contigs_source');
 
+  my $single_level = 0;
+  unless(-e $contig_accession_path) {
+    $self->warning("No contig accession file found. Assuming assembly is single level");
+    $single_level = 1;
+    system('mkdir -p '.$output_path);
+  }
+
   say "Downloading contig files";
   $self->download_ftp_contigs($source,$wgs_id,$output_path);
   say "Unzipping contig files";
   $self->unzip($output_path);
   say "Fixing contig headers";
   $self->fix_contig_headers($source,$output_path);
-  say "Checking for accessions from nuclear AGP that are missing in the contig accessions";
-  $self->find_missing_accessions($output_path,$contig_accession_path);
-  say "Comparing contigs to AGP file, all contigs must match nuclear AGP accession. Non-nuclear AGP accession will have contigs removed";
-  $self->compare_to_agp($output_path,$contig_accession_path);
+
+  unless($single_level) {
+    say "Checking for accessions from nuclear AGP that are missing in the contig accessions";
+    $self->find_missing_accessions($output_path,$contig_accession_path);
+    say "Comparing contigs to AGP file, all contigs must match nuclear AGP accession. Non-nuclear AGP accession will have contigs removed";
+    $self->compare_to_agp($output_path,$contig_accession_path);
+  }
+
   say "Finished downloading contig files";
   return 1;
 }
@@ -101,7 +112,6 @@ sub download_ftp_contigs {
         $self->throw("wget/rsync failed on the following command line:\n".$wget);
       }
     }
-
   } elsif($source eq 'ena') {
     $wgs_id =~ /^(..)/;
     my $prefix = $1;
@@ -110,13 +120,13 @@ sub download_ftp_contigs {
     my $base = 'rsync -av "rsync://ftp.ebi.ac.uk/pub/databases/ena/wgs_fasta/'.$prefix.'/';
   	foreach my $a_wgs_id (@wgs_ids) {
     	my $file = $a_wgs_id.'*.fasta.gz';
+    	print $file ."\n";
       	my $wget = "$base/$file\" $output_path";
       	my $return = system($wget);
       	if($return) {
         	$self->throw("wget failed on the following command line:\n".$wget);
       }
     }
-
   } else {
     $self->throw("You have specified an unknown source! Source must be NCBI or ENA! Source specified:\n".$source);
   }
@@ -148,9 +158,8 @@ sub fix_contig_headers {
       my $line = $_;
       if($line =~ /^>.*gb\|([^\|]+\.\d+)\|/) {
         say OUT '>'.$1;
-      } elsif($line =~ /^emb|([^\|]+\.\d+)\|/) {
-        say OUT '>'.$1;        
-      
+      } elsif($line =~ /^>gi\|[^\|]+\|[^\|]+\|([^\|]+)\|/) {
+        say OUT '>'.$1;
       } elsif($line =~ /^>/) {
         $self->throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);
       } else {
@@ -168,45 +177,8 @@ sub fix_contig_headers {
                    $contig_count2."). They should match");
     }
 
-  } 
+  } elsif($source eq 'ena') {
 
-  elsif($source eq 'ena') {
-
-    my $contigs_unfixed = catfile($output_path, 'contigs_unfixed_header.fa');
-    my $contigs_fixed = catfile($output_path, 'contigs.fa');
-
-    my $cat_files = 'cat '.$output_path.'/*.fasta > '.$contigs_unfixed;
-    my $return = system($cat_files);
-    if($return) {
-      $self->throw("Problem concatenating the contig files. Commandline used:\n".$cat_files);
-    }
-    open(IN,$contigs_unfixed);
-    open(OUT,">$contigs_fixed");
-    while(<IN>) {
-      my $line = $_;
-      if($line =~ /^>.*gb\|([^\|]+\.\d+)\|/) {
-        say OUT '>'.$1;
-      } 
-      elsif ($line =~ /^>ENA\|(.*)\|([^\|]+\.\d+)\s/ )  
-      {
-	      say OUT '>'.$2;
-      } 
-      elsif($line =~ /^>/) {
-        $self->throw("Found a header line that could not be parsed for the unversioned accession. Header:\n".$line);
-      } else {
-        print OUT $line; # print instead of say since the newline will be there already
-      }
-    }
-    close OUT;
-    close IN;
-
-    my $contig_count1 = int(`grep -c '>' $contigs_unfixed`);
-    my $contig_count2 = int(`grep -c '>' $contigs_fixed`);
-
-    unless($contig_count1 == ($contig_count2)) {
-      $self->throw("The contig count in contigs_unfixed_header.fa (".$contig_count1.") did not match the count in contigs.fa (".
-                   $contig_count2."). They should match");
-    }
   }
 }
 
@@ -231,14 +203,13 @@ sub fix_contig_headers {
 =cut
 sub find_missing_accessions {
   my ($self,$output_path,$contig_accession_path) = @_;
-print "DEBUG::output_path:: $output_path ..contig_accession_path: $contig_accession_path \n"; 
- 
+
   my $contig_file = $output_path.'/contigs.fa';
   my $max_allowed_missing = 1000;
   my $agp_accession_hash = {};
   my $fasta_header;
   my $fasta_accession_hash = {};
-print "DEBUG:: $contig_file \n" ; 
+
   # Load the agp accessions into a hash
   open(IN,$contig_accession_path);
   while(<IN>) {
@@ -327,7 +298,6 @@ sub recover_missing_accessions {
 
   $count = 0;
   foreach my $id_string (@{$id_string_array}) {
-  	# print "DEBUG::$id_string\n"; 
     my $efetch_path = $output_path.'/efetched.'.$count.'.fa';
     my $fetch_cmd = 'wget -q -O '.$efetch_path.' "'.$fetchbase.$id_string.'"';
     $self->throw($fetch_cmd.' did not run successfully') if (system($fetch_cmd));
