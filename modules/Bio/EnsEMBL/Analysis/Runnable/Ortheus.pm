@@ -89,6 +89,7 @@ my $default_java_class = "bp.pecan.Pecan";
 my $estimate_tree = "/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/pecan/0.8.0/libexec/bp/pecan/utils/EstimateTree.py";
 $ENV{'PYTHONPATH'} = '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/ortheus/0.5.0/';
 $ENV{'CLASSPATH'}  = '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/pecan/0.8.0/libexec/';
+$ENV{'PATH'} = '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/ortheus/0.5.0/bin/:'.$ENV{'PATH'};
 
 =head2 new
 
