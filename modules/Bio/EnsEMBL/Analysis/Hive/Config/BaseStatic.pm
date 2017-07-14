@@ -163,7 +163,7 @@ sub get_array_config_settings {
   my ($self, $config_group, $additional_array) = @_;
 
   my $config = $self->_master_config('default');
-  if ($config) {
+  if ($config_group) {
     my $config_group_array = $self->_master_config($config_group);
     throw("You have asked for a group name in _master_config ".ref($self)." that doesn't exist. Group name:\n".$config_group)
       unless($config_group_array);
