@@ -97,6 +97,22 @@ sub _master_config {
                   },
       },
     },
+    
+    exonerate_protein_human_patch_non_exhaustive => {
+      IIDREGEXP => '(\d+):(\d+)',
+      OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 5 --maxintron 50000 --minintron 20',
+      COVERAGE_BY_ALIGNED => 0,
+      QUERYTYPE           => 'protein',
+      FILTER => {
+                  OBJECT                      => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+                  PARAMETERS                  => {
+                    -coverage   => '#exonerate_cov#',
+                    -percent_id => '#exonerate_pid#',
+                    -best_in_genome           => 1,
+                    -reject_processed_pseudos => 1,
+                  },
+      },
+    },
 
     exonerate => {
       COVERAGE_BY_ALIGNED => 1,
