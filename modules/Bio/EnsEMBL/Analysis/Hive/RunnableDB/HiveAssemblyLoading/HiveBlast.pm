@@ -144,7 +144,7 @@ sub run {
       chomp $except;
 
       if($except =~ /still running after your timer/) {
-        $self->warning("genblast took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
+        $self->warning("BLAST took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
         $self->batch_failed(1);
         $self->param('_branch_to_flow_to_on_fail',-2);
         last;
