@@ -309,6 +309,8 @@ sub run_analysis {
             " Point it to /usr/local/ensembl/data/blastmat/ or where your BLOSUM62 matrices live\n") ;
     }
 
+    # I don't thing the vast majority of error parsing is needed, so I will not integrate it for the timer
+    # assuming we don't run into problems in the future with BLAST the else can probably be deleted
     if($self->timer) {
       execute_with_timer($command, $self->timer);
     } else {
