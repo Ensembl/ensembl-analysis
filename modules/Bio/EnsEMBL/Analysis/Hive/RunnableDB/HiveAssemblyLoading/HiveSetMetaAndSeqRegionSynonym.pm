@@ -282,7 +282,8 @@ sub set_seq_region_synonyms {
 
   foreach my $file ('component_localID2acc', 'scaffold_localID2acc') {
     unless(-e $path_to_files."/".$file) {
-      $self->throw("Could not find ".$file." file. No synonyms loaded. Expected location:\n".$path_to_files."/".$file);
+      $self->warning("Could not find ".$file." file. No synonyms loaded. Expected location:\n".$path_to_files."/".$file);
+      next;
     }
 
     open(IN,$path_to_files."/".$file);
