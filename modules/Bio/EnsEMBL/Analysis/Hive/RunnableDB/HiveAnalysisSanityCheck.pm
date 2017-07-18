@@ -58,6 +58,8 @@ sub run_sanity_checks {
     $self->post_genome_preparation();
   } elsif($type eq 'gene_db_checks') {
     $self->gene_db_checks();
+  } elsif($type eq 'final_core_checks') {
+    $self->final_core_checks();
   } else {
     $self->throw('The sanity check type you specified is not recognised. Type: '.$type);
   }
@@ -134,6 +136,15 @@ sub gene_db_checks {
 
   say "Checking logic names:";
   foreach my $logic_name (keys(%{$logic_names})) {
+
+    if($logic_name =~ /\_rnaseq$/ && $self->param('skip_rnaseq')) {
+      say "Skipping count of ".$logic_name." as rnaseq db flagged as absent";
+      next;
+    } elsif($logic_name =~ /^project\_/ && $self->param('skip_projection')) {
+      say "Skipping count of ".$logic_name." as projection db flagged as absent";
+      next;
+    }
+
     my $min_count = $logic_names->{$logic_name};
     my $observed_count = $observed_logic_name_counts->{$logic_name};
     say "Observed gene/transcript count for ".$logic_name.": ".$observed_count;
@@ -174,6 +185,13 @@ sub gene_db_checks {
 
 }
 
+sub final_core_checks {
+  my ($self) = @_;
+  # To be implemented
+  # Should cover most of the common healthchecks. Should check that all the logic names and external db ids make sense across the different
+  # table types
+  # After this point we should be certain that it will pass the set of critical healtchecks that production will require for handover
+}
 
 sub count_features {
   my ($self,$logic_name,$adaptor) = @_;
