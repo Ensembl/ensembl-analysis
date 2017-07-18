@@ -361,7 +361,6 @@ sub make_gene{
   $gene->source("ensembl");
   $gene->analysis($self->analysis);
   $gene->add_Transcript($transcript);
-  $gene->status('NOVEL');
   $gene_hash{'gene'} = $gene;
   $gene_hash{'attrib'} = \@attributes;
   $self->output(\%gene_hash);
