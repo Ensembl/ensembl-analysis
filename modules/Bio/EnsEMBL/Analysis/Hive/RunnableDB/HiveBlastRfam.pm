@@ -137,6 +137,7 @@ sub fetch_input{
      -options  => $self->param('commandline_params'),
      %blast,
     );
+    $runnable->timer($self->param('timer'));
     $self->runnable($runnable);
   }
 
