@@ -67,7 +67,7 @@ sub default_options {
     'stable_id_start'           => '0',
     'uniprot_db_dir'            => 'uniprot_2017_04', # e.g. 'uniprot_2017_04'
     'mirBase_fasta'             => 'human_mirnas.fa',
-    'ig_tr_fasta_file'          => 'human_ig_tr.fa'
+    'ig_tr_fasta_file'          => 'human_ig_tr.fa',
 
 ########################
 # Pipe and ref db info
