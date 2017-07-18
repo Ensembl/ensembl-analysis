@@ -83,17 +83,24 @@ sub _master_config {
     'primates_basic' => {
       'genblast' => {
         'logic_names' => {
-          'genblast'            => 300000,
-          'genblast_not_best'   => 300000,
+          'genblast'            => 125000,
+          'genblast_not_best'   => 125000,
         }, # logic_names
         'biotypes' =>    {
           'human_pe12_'         => 20000,
           'primates_pe12_'      => 50000,
-          'primates_pe3_'       => 80000,
           'mammals_pe12_'       => 100000,
-          'vert_pe12_'          => 8000,
         }, # biotypes
       }, # genblast
+      'ig_tr' => {
+        'logic_names' => {
+          'ig_tr_gene'          => 40,
+        }, # logic_names
+        'biotypes' =>    {
+          'IG_'                 => 20,
+          'TR_'                 => 20,
+        }, # biotypes
+      }, # ig_tr
       'projection' => {
         'logic_names' => {
           'project_transcripts' => 50000,
@@ -128,40 +135,40 @@ sub _master_config {
           'genblast'                 => 40000,
           'genblast_not_best'        => 10000,
           'project_transcripts'      => 20000,
-#           $species.'_merged_rnaseq' => 10000,
+          'ig_tr_gene'               => 40,
         }, # logic_names
         'biotypes' =>    {
-          'human_pe12_'         => 10000,
-          'primates_pe12_'      => 15000,
-          'primates_pe3_'       => 1,
-          'mammals_pe12_'       => 10000,
-          'vert_pe12_'          => 1,
-          'realign'             => 30000,
-          'rnaseq_merged'       => 10000,
-          'rnaseq_tissue'       => 10000,
+          'IG_'                  => 20,
+          'TR_'                  => 20,
+          'human_pe12_'          => 10000,
+          'primates_pe12_'       => 15000,
+          'mammals_pe12_'        => 10000,
+          'realign_'             => 30000,
+          'rnaseq_merged_'       => 10000,
+          'rnaseq_tissue_'       => 10000,
         }, # biotypes
       }, # layer
       'genebuilder' => {
         'logic_names' => {
-          'ensembl'             => 30000,
+          'ensembl'             => 19000,
         }, # logic_names
         'biotypes' =>    {
+          'IG_'                  => 20,
+          'TR_'                  => 20,
           'human_pe12_'         => 2000,
           'primates_pe12_'      => 2000,
-          'primates_pe3_'       => 0,
           'mammals_pe12_'       => 1000,
-          'vert_pe12_'          => 0,
-          'realign'             => 10000,
-          'rnaseq_merged'      => 2000,
+          'realign_'            => 10000,
+          'rnaseq_merged_'      => 2000,
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
-          'ncrna' => 2000,
+          'ncrna' => 4000,
         }, # logic_names
         'biotypes' =>    {
-          'miRNA'               => 600,
-          'misc_RNA'            => 400,
+          'miRNA'               => 1000,
+          'misc_RNA'            => 1000,
           'ribozyme'            => 0,
           'rRNA'                => 200,
           'scaRNA'              => 0,
@@ -171,19 +178,19 @@ sub _master_config {
       }, # ncrna
       'final' => {
         'logic_names' => {
-          'ensembl'             => 20000,
-          'ncrna'               => 2000,
+          'ensembl'             => 18000,
+          'ncrna'               => 4000,
         }, # logic_names
         'biotypes' =>    {
-          'realign'             => 10000,
-          'rnaseq_merged'       => 2000,
+          'IG_'                  => 20,
+          'TR_'                  => 20,
+          'realign_'            => 10000,
+          'rnaseq_merged_'      => 2000,
           'human_pe12_'         => 2000,
           'primates_pe12_'      => 2000,
-          'primates_pe3_'       => 0,
           'mammals_pe12_'       => 1000,
-          'vert_pe12_'          => 0,
-          'miRNA'               => 600,
-          'misc_RNA'            => 400,
+          'miRNA'               => 1000,
+          'misc_RNA'            => 1000,
           'ribozyme'            => 0,
           'rRNA'                => 200,
           'scaRNA'              => 0,
@@ -191,8 +198,35 @@ sub _master_config {
           'snRNA'               => 400,
         }, # biotypes
       }, # final
+      'core' => {
+        'logic_names' => {
+          'ensembl'             => 18000,
+          'ncrna'               => 4000,
+        }, # logic_names
+        'biotypes' =>    {
+          'IG_'                  => 20,
+          'TR_'                  => 20,
+          'protein_coding'       => 25000,
+          'pseudogene'           => 50,
+          'processed_pseudogene' => 50,
+          'miRNA'                => 1000,
+          'misc_RNA'             => 1000,
+          'ribozyme'             => 0,
+          'rRNA'                 => 200,
+          'scaRNA'               => 0,
+          'snoRNA'               => 200,
+          'snRNA'                => 400,
+        }, # biotypes
+      }, # core
     }, # primates_basic
   }, # gene_db_checks
+
+  'final_core_checks' => {
+     'primates_basic' => {
+       # Fill in
+     }, # primates_basic
+  }, # final_core_checks
+
   );
   return $config{$key};
 }
