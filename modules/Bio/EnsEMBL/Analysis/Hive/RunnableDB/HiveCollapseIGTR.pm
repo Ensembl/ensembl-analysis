@@ -21,7 +21,7 @@ use warnings;
 use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene attach_Analysis_to_Gene);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -47,13 +47,12 @@ sub write_output {
   my $output_genes = $self->output();
   my $ga = $self->hrdb_get_con('target_db')->get_GeneAdaptor();
   foreach my $gene (@{$output_genes}) {
-    say "Storing gene with dbID: ".$gene->dbID();
     empty_Gene($gene);
-    $gene->analysis($self->analysis);
-    say "FM2 logic: ".$gene->analysis->logic_name();
+    attach_Analysis_to_Gene($gene,$self->analysis);
     $ga->store($gene);
   }
 }
+
 
 sub process_genes {
   my ($self) = @_;
