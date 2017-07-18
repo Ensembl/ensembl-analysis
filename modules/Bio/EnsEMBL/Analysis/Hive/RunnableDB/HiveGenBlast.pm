@@ -81,6 +81,10 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
+  my $iid_type = $self->param_required('iid_type');
+  my $genome_file;
+  my $query;
+
   my $dba = $self->hrdb_get_dba($self->param_required('target_db'));
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
   if($dna_dba) {
@@ -90,20 +94,17 @@ sub fetch_input {
   $self->hrdb_set_con($dba,'target_db');
 
   $self->create_analysis;
-  my $genome_file = $self->param_required('genblast_db_path');
   $self->analysis->program_file($self->param_required('genblast_path'));
-  $self->analysis->db_file($genome_file);
   $self->analysis->parameters($self->param('commandline_params'));
+  unless($iid_type eq 'projection_transcript_id') {
+    $genome_file = $self->param_required('genblast_db_path');
+    $self->analysis->db_file($genome_file);
+  }
 
   my %parameters;
   if($self->parameters_hash){
     %parameters = %{$self->parameters_hash};
   }
-
-
-  my $query;
-
-  my $iid_type = $self->param_required('iid_type');
 
   if($iid_type eq 'db_seq') {
     $query = $self->get_query_seqs($self->input_id);
