@@ -60,6 +60,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDust;
 use strict;
 use warnings;
 use feature 'say';
+use Data::Dumper;
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -200,6 +201,7 @@ sub write_output{
 
 sub convert_feature{
   my ($self, $rf) = @_;
+
   print "Converting ".$rf->start." ".$rf->end." ".
     $rf->slice->seq_region_name."\n";
   my $ff = $self->feature_factory;
@@ -226,8 +228,8 @@ sub convert_feature{
     my $rf = $ff->create_repeat_feature($start, $end, 0, 0, $start,
                                         $end, $rc, $slice->name,
                                         $slice);
-    my $transformed = $rf->transform($self->query->coord_system->name,
-                                     $self->query->coord_system->version);
+    my $transformed = $rf->transform($rf->slice->coord_system->name,
+                                     $rf->slice->coord_system->version);
     if(!$transformed){
       $self->throw("Failed to transform ".$rf." ".$rf->start." ".$rf->end."  ".$rf->seq_region_name." skipping \n");
     }
