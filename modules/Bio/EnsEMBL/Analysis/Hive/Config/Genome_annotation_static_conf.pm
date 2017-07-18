@@ -1914,7 +1914,7 @@ sub pipeline_analyses {
         -parameters => {
                          iid_type => 'db_seq',
                          dna_db => $self->o('dna_db'),
-                         target_db => $self->o('genblast_db'),
+                         target_db => $self->o('ig_tr_db'),
                          logic_name => 'genblast',
                          module => 'HiveGenblast',
                          genblast_path => $self->o('genblast_path'),
@@ -1952,7 +1952,7 @@ sub pipeline_analyses {
         -logic_name => 'cluster_ig_tr_genes',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCollapseIGTR',
         -parameters => {
-                         target_db => $self->o('output_db'),
+                         target_db => $self->o('ig_tr_db'),
                          dna_db => $self->o('dna_db'),
                          logic_name => 'ig_tr_gene',
                          logic_names_to_cluster => ['genblast','genblast_not_best'],
