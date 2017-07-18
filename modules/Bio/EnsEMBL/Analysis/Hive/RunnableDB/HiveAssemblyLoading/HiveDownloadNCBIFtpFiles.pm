@@ -63,7 +63,7 @@ sub download_ftp_dir {
   my @ftp_path_array = split('/',$ftp_path);
   my $top_dir = pop(@ftp_path_array);
 
-  my $cmd = "wget --no-cache --spider ".$ftp_path."/ 2>&1 |";
+  my $cmd = "wget --no-cache --spider ".$ftp_path."/".$top_dir."_assembly_structure/ 2>&1 |";
   say "Checking for single or multilevel assembly with:\n".$cmd;
 
   my $single_level = 0;
@@ -71,7 +71,7 @@ sub download_ftp_dir {
   # If there is a failure to find the assembly_structure dir then it is a single level assembly (assuming the path is correct)
   open CMDOUT, $cmd;
   while (my $output = <CMDOUT>) {
-    if($output =~ /No such file/) {
+    if($output =~ /No such directory/) {
       $single_level = 1;
     }
   }
