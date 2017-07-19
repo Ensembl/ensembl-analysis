@@ -176,7 +176,7 @@ sub default_options {
     'primary_assembly_dir_name' => 'Primary_Assembly',
     'refseq_cdna_calculate_coverage_and_pid' => '0',
     'refseq_cdna_table_name'    => 'refseq_sequences',
-    'refseq_cdna_batch_size'    => 5,
+    'refseq_cdna_batch_size'    => 10,
     'contigs_source'            => 'ena',
 
 
@@ -185,6 +185,7 @@ sub default_options {
                                    $self->o('genblast_db'),
                                    $self->o('rnaseq_db'),
                                    $self->o('projection_db'),
+                                   $self->o('ig_tr_db'),
                                  ],
 
     'utr_gene_dbs' => {
@@ -1958,6 +1959,25 @@ sub pipeline_analyses {
                          logic_names_to_cluster => ['genblast','genblast_not_best'],
                        },
         -rc_name    => 'genblast',
+        -flow_into => {
+                        1 => ['update_ig_tr_biotypes'],
+                      },
+      },
+
+      {
+        -logic_name => 'update_ig_tr_biotypes',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'mysql '.
+                                ' -u'.$self->o('user').
+                                ' -p'.$self->o('password').
+                                ' -h'.$self->o('ig_tr_db','-host').
+                                ' -P'.$self->o('ig_tr_db','-port').
+                                ' -D'.$self->o('ig_tr_db','-dbname').
+                                ' -e \'UPDATE gene join analysis using(analysis_id) set biotype=concat(biotype,"_not_best")'.
+                                ' where logic_name != "ig_tr_gene"; UPDATE transcript join gene using(gene_id) set transcript.biotype=gene.biotype;\'',
+                       },
+        -rc_name    => 'default',
         -flow_into => {
                         1 => ['ig_tr_sanity_checks'],
                       },
