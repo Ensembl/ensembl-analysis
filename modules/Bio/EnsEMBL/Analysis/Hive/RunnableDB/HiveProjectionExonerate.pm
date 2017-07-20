@@ -157,12 +157,14 @@ sub max_cluster_gap_length {
     }
   }
 
+  # This is only an intial guess, using orthologs would allow more accurate estimations for these
+  # values in future. It would make sense to have different values for different clades
   if($longest_intron <= 10000) {
-    return(int($longest_intron * 3));
-  } elsif($longest_intron <= 50000) {
     return(int($longest_intron * 2));
+  } elsif($longest_intron <= 50000) {
+    return(int($longest_intron * 1.5));
   } else {
-    return(int($longest_intron * 1.5))
+    return(int($longest_intron * 1.25))
   }
 }
 
