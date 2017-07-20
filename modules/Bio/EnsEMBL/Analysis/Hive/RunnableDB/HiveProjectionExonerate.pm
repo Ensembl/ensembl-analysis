@@ -5,15 +5,16 @@ use strict;
 use feature 'say';
 use Data::Dumper;
 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my($self) = @_;
-
+  $self->create_analysis;
   my $input_ids = $self->param('iid');
   $self->param('exon_region_padding',100);
   # Define the dna dbs
@@ -70,22 +71,78 @@ sub fetch_input {
   foreach my $input_id (@$input_ids) {
     my $transcript = $source_transcript_dba->get_TranscriptAdaptor->fetch_by_dbID($input_id);
     say "Processing source transcript: ".$transcript->stable_id;
-    $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db);
+    my $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db);
+    my $transcript_seq = $transcript->seq->seq;
+    my $transcript_header = $transcript->stable_id.'.'.$transcript->version;
+    my $transcript_seq_object = Bio::Seq->new(-display_id => $transcript_header, -seq => $transcript_seq);
+    $self->make_runnables($transcript_seq_object, $transcript_slices, $input_id);
   } #close foreach input_id
 
 }
 
 sub run {
   my ($self) = @_;
+  $self->runnable_failed(0);
+  foreach my $runnable (@{$self->runnable}) {
+    eval {
+      $runnable->run;
+    };
 
+    if($@) {
+      my $except = $@;
+      $self->runnable_failed($runnable->{'_transcript_id'});
+      $self->warning("Issue with running genblast, will dataflow input id on branch -3. Exception:\n".$except);
+      $self->param('_branch_to_flow_on_fail', -3);
+    } else {
+      $self->output($runnable->output);
+    }
+  }
+
+  return 1;
+}
+
+sub write_output{
+  my ($self) = @_;
+
+  my $adaptor = $self->hrdb_get_con('target_transcript_db')->get_GeneAdaptor;
+  my $slice_adaptor = $self->hrdb_get_con('target_transcript_db')->get_SliceAdaptor;
+ 
+    my @output = @{$self->output};
+    my $analysis = $self->analysis;
+    my $not_best_analysis = new Bio::EnsEMBL::Analysis(-logic_name => $analysis->logic_name()."_not_best",
+                                                       -module     => $analysis->module);
+    foreach my $transcript (@output){
+      $transcript->analysis($analysis);
+
+      empty_Transcript($transcript);
+      my $gene = Bio::EnsEMBL::Gene->new();
+      $gene->analysis($transcript->analysis);
+      $gene->slice($transcript->slice);
+      $gene->biotype($gene->analysis->logic_name);
+      $gene->add_Transcript($transcript);
+      $adaptor->store($gene);
+    }
+  my $output_hash = {};
+  my $failure_branch_code = $self->param('_branch_to_flow_on_fail');
+  my $failed_transcript_ids = $self->runnable_failed;
+  if (scalar @$failed_transcript_ids ) {
+    $output_hash->{'iid'} = $failed_transcript_ids;
+    $self->dataflow_output_id($output_hash, $failure_branch_code);
+  }
+
+  return 1;
 }
 
 
-sub write_output {
-  my ($self) = @_;
-
- die;
-
+sub runnable_failed {
+  my ($self,$runnable_failed) = @_;
+  unless ($self->param_is_defined('_runnable_failed')) {
+    $self->param('_runnable_failed',[]);
+  }
+  if ($runnable_failed) {
+    push (@{$self->param('_runnable_failed')},$runnable_failed);
+  }
+  return ($self->param('_runnable_failed'));
 }
 
 sub process_transcript {
@@ -93,7 +150,7 @@ sub process_transcript {
 
   my $max_cluster_gap_length = $self->max_cluster_gap_length($transcript);
   say "Max align gap: ".$max_cluster_gap_length;
-  my $all_target_genomic_aligns = [];
+  my @all_target_genomic_aligns = ();
   my $exons = $transcript->get_all_Exons;
   foreach my $exon (@{$exons}) {
     my $exon_region_padding = $self->param('exon_region_padding');
@@ -112,16 +169,13 @@ sub process_transcript {
 
     foreach my $genomic_align_block (@$genomic_align_block) {
       my $source_genomic_align = $genomic_align_block->reference_genomic_align;
-      my @target_genomic_aligns = @{$genomic_align_block->get_all_non_reference_genomic_aligns};
-      foreach my $target_genomic_align (@target_genomic_aligns) {
-        push(@{$all_target_genomic_aligns},$target_genomic_align);
-      }
+      @all_target_genomic_aligns = @{$genomic_align_block->get_all_non_reference_genomic_aligns};
     }
   }
 
   my @sorted_target_genomic_aligns  = sort { $a->get_Slice->seq_region_name cmp $b->get_Slice->seq_region_name ||
                                              $a->get_Slice->start <=> $b->get_Slice->start
-                                           } @{$all_target_genomic_aligns};
+                                           } @all_target_genomic_aligns;
 
   unless(scalar(@sorted_target_genomic_aligns)) {
     say "No align blocks so skipping transcript";
@@ -136,6 +190,31 @@ sub process_transcript {
   foreach my $transcript_slice (@{$transcript_slices}) {
     say "Created transcript slice: ".$transcript_slice->name."\n";
   }
+  return $transcript_slices;
+}
+
+sub make_runnables {
+  my ($self, $transcript_seq, $transcript_slices, $input_id) = @_;
+  my %parameters = %{$self->parameters_hash};
+  if (not exists($parameters{-options}) and defined $self->OPTIONS) {
+    $parameters{-options} = $self->OPTIONS;
+  }
+  if (not exists($parameters{-coverage_by_aligned}) and defined $self->COVERAGE_BY_ALIGNED) {
+    $parameters{-coverage_by_aligned} = $self->COVERAGE_BY_ALIGNED;
+  }
+
+  say "Leanne: ".$self->QUERYTYPE;
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
+              -program  => $self->param('exonerate_path'),
+              -analysis => $self->analysis,
+              -query_type     => $self->QUERYTYPE,
+              -calculate_coverage_and_pid => 1,
+              %parameters,
+              );
+  $runnable->target_seqs($transcript_slices);
+  $runnable->query_seqs([$transcript_seq]);
+  $runnable->{'_transcript_id'} = $input_id;
+  $self->runnable($runnable);
 }
 
 sub max_cluster_gap_length {
@@ -207,5 +286,95 @@ sub make_cluster_slices {
 
   return($cluster_slices);
 }
+
+sub IIDREGEXP {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->param('IIDREGEXP',$value);
+  }
+
+  if ($self->param_is_defined('IIDREGEXP')) {
+    return $self->param('IIDREGEXP');
+  } else {
+    return undef;
+  }
+}
+
+sub OPTIONS {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->param('OPTIONS',$value);
+  }
+
+  if ($self->param_is_defined('OPTIONS')) {
+    return $self->param('OPTIONS');
+  } else {
+    return undef;
+  }
+}
+
+sub COVERAGE_BY_ALIGNED {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->param('COVERAGE_BY_ALIGNED',$value);
+  }
+
+  if ($self->param_is_defined('COVERAGE_BY_ALIGNED')) {
+    return $self->param('COVERAGE_BY_ALIGNED');
+  } else {
+    return undef;
+  }
+}
+
+sub QUERYTYPE {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->param('QUERYTYPE',$value);
+  }
+
+  if ($self->param_is_defined('QUERYTYPE')) {
+    return $self->param('QUERYTYPE');
+  } else {
+    return undef;
+  }
+}
+
+sub filter {
+  my ($self, $val) = @_;
+  if ($val) {
+    $self->param('_transcript_filter',$val);
+  }
+  elsif ($self->param_is_defined('FILTER')) {
+    $self->require_module($self->param('FILTER')->{OBJECT});
+    $self->param('_transcript_filter', $self->param('FILTER')->{OBJECT}->new(%{$self->param('FILTER')->{FILTER_PARAMS}}));
+  }
+  if ($self->param_is_defined('_transcript_filter')) {
+    return $self->param('_transcript_filter');
+  }
+  else {
+    return;
+  }
+}
+
+sub KILL_TYPE {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->param('KILL_TYPE',$value);
+  }
+
+  if ($self->param_is_defined('KILL_TYPE')) {
+    return $self->param('KILL_TYPE');
+  } else {
+    return undef;
+  }
+}
+
+
+
 
 1;

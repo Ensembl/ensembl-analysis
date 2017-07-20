@@ -75,6 +75,18 @@ sub _master_config {
       },
     },
 
+    exonerate_projection_dna => {
+      OPTIONS => '--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 5 --maxintron 100000',
+      FILTER  => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -coverage => 90,
+          -percent_id => 60,
+        },
+      },
+    },
+
+
     exonerate_protein => {
       IIDREGEXP => '(\d+):(\d+)',
       OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1 --maxintron 50000',
