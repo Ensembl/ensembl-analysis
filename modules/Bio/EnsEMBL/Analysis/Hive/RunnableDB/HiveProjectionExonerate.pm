@@ -5,7 +5,8 @@ use strict;
 use feature 'say';
 use Data::Dumper;
 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Slice_to_Gene attach_Analysis_to_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript attach_Slice_to_Transcript);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
@@ -91,7 +92,7 @@ sub run {
     if($@) {
       my $except = $@;
       $self->runnable_failed($runnable->{'_transcript_id'});
-      $self->warning("Issue with running genblast, will dataflow input id on branch -3. Exception:\n".$except);
+      $self->warning("Issue with running exonerate, will dataflow input id on branch -3. Exception:\n".$except);
       $self->param('_branch_to_flow_on_fail', -3);
     } else {
       $self->output($runnable->output);
@@ -109,17 +110,22 @@ sub write_output{
  
     my @output = @{$self->output};
     my $analysis = $self->analysis;
-    my $not_best_analysis = new Bio::EnsEMBL::Analysis(-logic_name => $analysis->logic_name()."_not_best",
-                                                       -module     => $analysis->module);
+    
     foreach my $transcript (@output){
-      $transcript->analysis($analysis);
+      my $slice_id = $transcript->start_Exon->seqname;
+      my $slice = $slice_adaptor->fetch_by_name($slice_id);
+      
+      say "Leanne: transcript: ".$transcript->start.':'.$transcript->end.'  '.$slice_id;
 
-      empty_Transcript($transcript);
+#      empty_Transcript($transcript);
       my $gene = Bio::EnsEMBL::Gene->new();
-      $gene->analysis($transcript->analysis);
-      $gene->slice($transcript->slice);
-      $gene->biotype($gene->analysis->logic_name);
+      attach_Slice_to_Transcript($transcript, $slice);
       $gene->add_Transcript($transcript);
+      $gene->slice($slice);
+      say "Leanne Hiii";
+      attach_Analysis_to_Gene($gene, $analysis);
+      $gene->biotype($gene->analysis->logic_name);
+
       $adaptor->store($gene);
     }
   my $output_hash = {};
@@ -238,6 +244,7 @@ sub max_cluster_gap_length {
 
   # This is only an intial guess, using orthologs would allow more accurate estimations for these
   # values in future. It would make sense to have different values for different clades
+  return(100000);
   if($longest_intron <= 10000) {
     return(int($longest_intron * 2));
   } elsif($longest_intron <= 50000) {
