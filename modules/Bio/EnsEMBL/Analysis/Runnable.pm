@@ -306,6 +306,7 @@ sub program{
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
   Arg [2]   : arrayref of output
+  Arg [3]   : flag to attach the runnable->query as a slice
   Function  : pushes passed in arrayref onto the output array
   Returntype: arrayref
   Exceptions: throws if not passed an arrayref
@@ -316,7 +317,7 @@ sub program{
 
 
 sub output{
-  my ($self, $output) = @_;
+  my ($self, $output, $attach_slice) = @_;
   if(!$self->{'output'}){
     $self->{'output'} = [];
   }
@@ -324,6 +325,11 @@ sub output{
     throw("Must pass Runnable:output an arrayref not a ".$output)
       unless(ref($output) eq 'ARRAY');
     push(@{$self->{'output'}}, @$output);
+  }
+  if($attach_slice) {
+    foreach my $output_unit (@{$output}) {
+      $output_unit->slice($self->{'query'});
+    }
   }
   return $self->{'output'};
 }
@@ -791,6 +797,34 @@ sub timer {
     throw('The value should only be number or the format describe in Bio::EnsEMBL::Analysis::Tools::Utilities::execute_with_timer'.
       "\nNot: '$value'")
       unless ($value =~ /^[0-9HhMm]+$/);
+    $self->{_timer} = $value;
+  }
+  if (exists $self->{_timer}) {
+    return $self->{_timer};
+  }
+  else {
+    return;
+  }
+}
+
+
+=head2 remaining_time
+
+ Arg [1]    : Int String, how much time is remaining on a timer after running the runnable
+ Description: Getter/Setter remaininig time on an alarm
+              The format is in seconds
+ Returntype : String
+ Exceptions : Throws if the string is not conform to the format above
+
+=cut
+
+sub remaining_time {
+  my ($self, $value) = @_;
+
+  if ($value) {
+    throw('The value should only be number or the format describe in Bio::EnsEMBL::Analysis::Tools::Utilities::remaining_time'.
+      "\nNot: '$value'")
+      unless ($value =~ /^[0-9]+$/);
     $self->{_timer} = $value;
   }
   if (exists $self->{_timer}) {

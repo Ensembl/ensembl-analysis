@@ -25,6 +25,10 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my $self = shift;
 
+  if($self->param('skip_analysis')) {
+    $self->complete_early('Skip analysis flag is enabled, so no classification will be carried out');
+  }
+
   my $target_db = $self->param('target_db');
 
   unless($target_db) {

@@ -92,7 +92,7 @@ sub _master_config {
                  };
   my %config = (
     default => {},
-    
+
     self_patch => {
                self_pe12 => {
                               file_name => 'self_pe12.fasta',
@@ -101,7 +101,7 @@ sub _master_config {
                               compress  => 0,
                               pe_level  => [1,2],
                             },
-                          
+
                self_frag_pe12 => {
                                    file_name => 'self_frag_pe12.fasta',
                                    taxon_id  => '#taxon_id#',
@@ -111,7 +111,7 @@ sub _master_config {
                                    pe_level  => [1,2],
                                  },
     },
-    
+
     primates_basic => {
               self_pe12 =>{
                             file_name => 'self_pe12.fasta',
@@ -130,7 +130,7 @@ sub _master_config {
                             },
 
               primates_pe12 => {
-                             file_name => 'primate_pe12.fasta',
+                             file_name => 'primates_pe12.fasta',
                              taxon_id  => $taxon_ids->{'primates_taxon_id'},
                              exclude_id => ['#taxon_id#',$taxon_ids->{'human_taxon_id'}],
                              dest_dir  => '#output_path#',
@@ -138,40 +138,15 @@ sub _master_config {
                              pe_level  => [1,2],
                            },
 
-                primates_pe3 => {
-                             file_name => 'primate_pe3.fasta',
-                             taxon_id  => $taxon_ids->{'primates_taxon_id'},
-                             dest_dir  => '#output_path#',
-                             compress  => 0,
-                             pe_level  => [3],
-                           },
-
-                primates_pe45 => {
-                             file_name => 'primate_pe45.fasta',
-                             taxon_id  => $taxon_ids->{'primates_taxon_id'},
-                             dest_dir  => '#output_path#',
-                             compress  => 0,
-                             pe_level  => [4,5],
-                           },
 
                mammals_pe12 => {
-                                 file_name  => 'mammal_pe12.fasta',
+                                 file_name  => 'mammals_pe12.fasta',
                                  taxon_id   => $taxon_ids->{'mammals_taxon_id'},
                                  exclude_id => [$taxon_ids->{'primates_taxon_id'}],
                                  dest_dir   => '#output_path#',
                                  compress   => 0,
                                  pe_level   => [1,2],
                                },
-
-               vert_pe12 => {
-                              file_name  => 'vert_pe12.fasta',
-                              taxon_id   => $taxon_ids->{'vert_taxon_id'},
-                              exclude_id => [$taxon_ids->{'mammals_taxon_id'}],
-                              dest_dir   => '#output_path#',
-                              compress   => 0,
-                              pe_level   => [1,2],
-                            },
-
              },
 
     rodents_basic => {
@@ -200,7 +175,7 @@ sub _master_config {
                             },
 
               rodents_pe12 => {
-                                file_name => 'rodent_pe12.fasta',
+                                file_name => 'rodents_pe12.fasta',
                                 taxon_id  => $taxon_ids->{'rodents_taxon_id'},
                                 exclude_id => [$taxon_ids->{'mouse_taxon_id'},'#taxon_id#'],
                                 dest_dir  => '#output_path#',
@@ -209,24 +184,15 @@ sub _master_config {
                               },
 
               rodents_pe3 => {
-                               file_name => 'rodent_pe3.fasta',
+                               file_name => 'rodents_pe3.fasta',
                                taxon_id  => $taxon_ids->{'rodents_taxon_id'},
                                dest_dir  => '#output_path#',
                                compress  => 0,
                                pe_level  => [3],
                              },
 
-              rodents_pe45 => {
-                                file_name => 'rodent_pe45.fasta',
-                                taxon_id  => $taxon_ids->{'rodents_taxon_id'},
-                                dest_dir  => '#output_path#',
-                                compress  => 0,
-                                pe_level  => [4,5],
-                              },
-
-
                mammals_pe12 => {
-                                 file_name  => 'mammal_pe12.fasta',
+                                 file_name  => 'mammals_pe12.fasta',
                                  taxon_id   => $taxon_ids->{'mammals_taxon_id'},
                                  exclude_id => [$taxon_ids->{'rodents_taxon_id'},$taxon_ids->{'human_taxon_id'}],
                                  dest_dir   => '#output_path#',
@@ -280,7 +246,7 @@ sub _master_config {
 
 
                mammals_pe12 => {
-                                 file_name  => 'mammal_pe12.fasta',
+                                 file_name  => 'mammals_pe12.fasta',
                                  taxon_id   => $taxon_ids->{'mammals_taxon_id'},
                                  exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
                                  dest_dir   => '#output_path#',
@@ -343,7 +309,7 @@ sub _master_config {
                            },
 
                mammals_pe12 => {
-                                 file_name  => 'mammal_pe12.fasta',
+                                 file_name  => 'mammals_pe12.fasta',
                                  taxon_id   => $taxon_ids->{'mammals_taxon_id'},
                                  exclude_id => [$taxon_ids->{'human_taxon_id'}],
                                  dest_dir   => '#output_path#',
@@ -389,7 +355,7 @@ sub _master_config {
                            },
 
                mammals_pe12 => {
-                                 file_name  => 'mammal_pe12.fasta',
+                                 file_name  => 'mammals_pe12.fasta',
                                  taxon_id   => $taxon_ids->{'mammals_taxon_id'},
                                  exclude_id => [$taxon_ids->{'human_taxon_id'}],
                                  dest_dir   => '#output_path#',

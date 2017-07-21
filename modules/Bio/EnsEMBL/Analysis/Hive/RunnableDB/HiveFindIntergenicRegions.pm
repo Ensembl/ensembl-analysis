@@ -55,6 +55,14 @@ sub fetch_input {
   $self->query($slice);
 
   my $input_gene_coords = $self->calculate_input_gene_coords($input_gene_dbs);
+  if($self->param('utr_addition_filter')) {
+    # If the result has been filtered then don't pass on an input id
+    unless($input_gene_coords) {
+      $self->input_job->autoflow(0);
+      $self->complete_early('No potential UTR to process');
+    }
+  }
+
   $self->input_gene_coords($input_gene_coords);
 
   return 1;
@@ -106,15 +114,22 @@ sub write_output {
 sub calculate_input_gene_coords {
   my ($self,$gene_source_dbs) = @_;
 
+
   my @sorted_start_end_coords = ();
   my @unsorted_start_end_coords = ();
   my $slice = $self->query;
   my $skip_duplicates = {};
+  my $filter = {};
   foreach my $adaptor_name (keys(%{$gene_source_dbs})) {
     my $db_con_hash = $gene_source_dbs->{$adaptor_name};
     my $db_adaptor = $self->hrdb_get_dba($db_con_hash);
     my $gene_adaptor = $db_adaptor->get_GeneAdaptor();
     my $all_genes = $gene_adaptor->fetch_all_by_Slice($slice);
+    # If we want to filter the utr genes then we only want regions where there is a gene in the
+    # no_utr_db and at least one of the other gene dbs
+    if($self->param('utr_addition_filter') && scalar(@{$all_genes})) {
+      $filter->{$adaptor_name} = 1;
+    }
 
     foreach my $gene (@{$all_genes}) {
       my $start = $gene->seq_region_start;
@@ -132,6 +147,13 @@ sub calculate_input_gene_coords {
                                     $a->{'s'} <=> $b->{'s'} ||
                                     $a->{'e'} <=> $b->{'e'}
                                   } @unsorted_start_end_coords;
+
+  if($self->param('utr_addition_filter')) {
+    # Needs to be info from both the acceptor db and at least one donor db
+    unless($filter->{"no_utr_db"} && scalar(keys(%{$filter})) >= 2) {
+      return(undef);
+    }
+  }
 
   return \@sorted_start_end_coords;
 }

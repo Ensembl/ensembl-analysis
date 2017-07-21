@@ -231,7 +231,6 @@ sub fetch_input {
     }
   }
 
-#  my $transcript_biotype = $self->transcript_biotype();
   my $biotypes_hash = $self->get_biotype();
   foreach my $database ( @db_files ){
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(

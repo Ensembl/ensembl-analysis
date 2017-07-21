@@ -55,6 +55,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveGensc
 
 use strict;
 use warnings;
+use feature 'say';
 
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Runnable::Genscan;
@@ -73,19 +74,29 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 =cut
 
 
-
 sub fetch_input{
   my ($self) = @_;
 
   my $repeat_masking = $self->param('repeat_masking_logic_names');
-
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
+  my $pta = $dba->get_PredictionTranscriptAdaptor();
+  $self->get_adaptor($pta);
+
+  if($self->param_is_defined('dna_db')) {
+    say "Attaching dna_db to output db adaptor";
+    my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+
+    $dba->dnadb($dna_dba);
+  } else {
+    say "No dna_db param defined, so assuming target_db has dna";
+  }
+
   $self->hrdb_set_con($dba,'target_db');
 
-  my $input_id = $self->param('iid');
-  my $slice = $self->fetch_sequence($input_id,$dba,$repeat_masking);
-  $self->query($slice);
-
+  my $slice_array = $self->param('iid');
+  unless(ref($slice_array) eq "ARRAY") {
+    $self->throw("Expected an input id to be an array reference. Type found: ".ref($slice_array));
+  }
 
   my $analysis = Bio::EnsEMBL::Analysis->new(
                                               -logic_name => $self->param('logic_name'),
@@ -95,31 +106,36 @@ sub fetch_input{
                                               -db_file => $self->param('genscan_matrix_path'),
                                             );
 
-  $self->param('analysis',$analysis);
+  $self->analysis($analysis);
 
   my %parameters;
   if($self->parameters_hash){
     %parameters = %{$self->parameters_hash};
   }
 
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Genscan->new
-                 (
-                   -query => $self->query,
-                   -program => $analysis->program_file,
-                   -analysis => $self->param('analysis'),
-                   -matrix => $analysis->db_file,
-                   %parameters,
-                 );
-
-  $self->runnable($runnable);
-
-
-  my $seq = $self->query->seq;
-  if ($seq =~ /[CATG]{3}/) {
+  foreach my $slice_name (@{$slice_array}) {
+    my $slice = $self->fetch_sequence($slice_name,$dba,$repeat_masking);
+    my $seq = $slice->seq;
+    if ($seq =~ /[CATG]{3}/) {
      $self->input_is_void(0);
-  } else {
-    $self->input_is_void(1);
-    $self->warning("Need at least 3 nucleotides - maybe your sequence was fully repeatmasked ...");
+    } else {
+      $self->input_is_void(1);
+      $self->warning("Need at least 3 nucleotides - maybe your sequence was fully repeatmasked ...");
+      next;
+    }
+
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::Genscan->new
+                   (
+                     -query    => $slice,
+                     -program  => $analysis->program_file(),
+                     -analysis => $analysis,
+                     -matrix   => $analysis->db_file,
+                     %parameters,
+                   );
+    $self->runnable($runnable);
+  }
+
+  unless(scalar(@{$self->runnable()})) {
     $self->input_job->autoflow(0);
     $self->complete_early('No input seq to process');
   }
@@ -133,67 +149,39 @@ sub run {
 
   foreach my $runnable(@{$self->runnable}){
     eval {
-    	$runnable->run; 
-    }; 
+      $runnable->run;
+    };
     if ($@) {
-      $self->dataflow_output_id(undef,-3); 
+      $self->dataflow_output_id(undef,-3);
       $self->complete_early("FAILED to run, and I will die now... check your runnable!!". $@);
     } else {
       print "command was fine\n";
-    } 
+    }
     $self->output($runnable->output);
   }
 
   return 1;
 }
 
-=head2 write_output
+
+=head2 get_adaptor
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Genscan
-  Function  : writes the prediction transcripts back to the database
-  after validation
-  Returntype: none
-  Exceptions:
+  Arg [2]   : Bio::EnsEMBL::DBSQL::PredictionTranscriptAdaptor
+  Function  : get/set repeatfeature adaptor
+  Returntype: Bio::EnsEMBL::DBSQL::PredictionTranscriptAdaptor
+  Exceptions: none
   Example   :
 
 =cut
 
-
-
-sub write_output{
-  my ($self) = @_;
-
-  my $genscan_adaptor = $self->hrdb_get_con('target_db')->get_PredictionTranscriptAdaptor;
-  my $analysis = $self->param('analysis');
-
-  foreach my $feature ( @{ $self->output() } ) {
-    $feature->analysis($analysis);
-
-    if ( !defined( $feature->slice() ) ) {
-      $feature->slice( $self->query() );
-    }
-
-    $self->feature_factory->validate_prediction_transcript($feature, 1);
-
-    eval { $genscan_adaptor->store($feature); };
-    if ($@) {
-      $self->throw("RunnableDB::write_output() failed:failed to store '".$feature."' into database '".$genscan_adaptor->dbc()->dbname()."': ".$@);
-    }
+sub get_adaptor {
+  my ($self,$pta) = @_;
+  if($pta) {
+    $self->param('_pta',$pta);
   }
 
-  my $output_hash = {};
-  $output_hash->{'iid'} = $self->param('iid');
-  $self->dataflow_output_id($output_hash,4);
-  $self->dataflow_output_id($output_hash,1);
-
-  return 1;
-
+  return($self->param('_pta'));
 }
-
-
-#sub runnable_path{
-#  my ($self);
-#  return "Bio::EnsEMBL::Analysis::Runnable::Genscan";
-#}
 
 1;

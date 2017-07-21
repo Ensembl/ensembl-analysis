@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use feature 'say';
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
+use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(
                                                                 clone_Exon
@@ -92,7 +93,7 @@ sub fetch_input {
                         "All adaptor names must have a correspondingly named db hash passed in. Offending adaptor name:\n".$adaptor_name);
          }
          my $transcript_adaptor = $dba->get_TranscriptAdaptor();
-         foreach my $transcript_id (@{$self->input_id}) {
+         foreach my $transcript_id (@{$self->input_id->{$adaptor_name}}) {
            my $transcript = $transcript_adaptor->fetch_by_dbID($transcript_id);
 
            # This is not being used at the moment (it's is used in similar code to be able to track transcripts using a unique id, since dbID may not be unique)
@@ -293,7 +294,7 @@ sub add_utr {
          say "-----------------------------------------------------------------------";
          next;
        }
-       if ($count_introns_a != $count_introns_b and @$allow_partial_match == 0) {
+       if ($count_introns_a != $count_introns_b and $allow_partial_match == 0) {
          print 'Donor does not have the same number of CDS introns as acceptor!', $count_introns_a, ' ', $count_introns_b. "\n";
          next;
        }
@@ -403,19 +404,19 @@ sub add_utr_evidence {
           push(@new_sfs, $dnaalignfeature);
         }
       }
-      else {
-        my $dnaalignfeature = Bio::EnsEMBL::DnaDnaAlignFeature->new(-cigar_string => $exon->length.'M');
-        $dnaalignfeature->start($exon->start);
-        $dnaalignfeature->end($exon->end);
-        $dnaalignfeature->strand($exon->strand);
-        $dnaalignfeature->analysis($exon->analysis);
-        $dnaalignfeature->slice($exon->slice);
-        $dnaalignfeature->hseqname('rnaseq');
-        $dnaalignfeature->hstrand(1);
-        $dnaalignfeature->hstart($utr_exon->cdna_start($utr_transcript));
-        $dnaalignfeature->hend($utr_exon->cdna_end($utr_transcript));
-        push(@new_sfs, $dnaalignfeature);
-      }
+#      else {
+#        my $dnaalignfeature = Bio::EnsEMBL::DnaDnaAlignFeature->new(-cigar_string => $exon->length.'M');
+#        $dnaalignfeature->start($exon->start);
+#        $dnaalignfeature->end($exon->end);
+#        $dnaalignfeature->strand($exon->strand);
+#        $dnaalignfeature->analysis($exon->analysis);
+#        $dnaalignfeature->slice($exon->slice);
+#        $dnaalignfeature->hseqname('rnaseq');
+#        $dnaalignfeature->hstrand(1);
+#        $dnaalignfeature->hstart($utr_exon->cdna_start($utr_transcript));
+#        $dnaalignfeature->hend($utr_exon->cdna_end($utr_transcript));
+#        push(@new_sfs, $dnaalignfeature);
+#     }
     }
     $exon->add_supporting_features(@new_sfs);
     print_Exon($exon);
@@ -1589,9 +1590,9 @@ sub look_for_both {
                   if ($testseq eq "ATG") {
                           print_Translation($trans) if(1);
 
-                                my @coords = $trans->cdna2genomic($coding_start-3,$coding_start-1,$trans->strand);
-                                my $new_start;
-                                my $new_end;
+                          my @coords = $trans->cdna2genomic($coding_start-3,$coding_start-1);
+                          my $new_start;
+                          my $new_end;
                           if(scalar(@coords) > 2) {
                             $self->throw("Shouldn't happen - new coding start maps to >2 locations in genome - I'm out of here\n");
                           } elsif (scalar(@coords) == 2) {
@@ -1800,7 +1801,7 @@ sub look_for_both {
 
                     if ($testseq eq "TGA" or $testseq eq "TAA" or $testseq eq "TAG") {
 
-                      my @coords = $trans->cdna2genomic($coding_end+1,$coding_end+3,$trans->strand);
+                      my @coords = $trans->cdna2genomic($coding_end+1,$coding_end+3);
                       my $new_start;
                       my $new_end;
                       if(scalar(@coords) > 2) {

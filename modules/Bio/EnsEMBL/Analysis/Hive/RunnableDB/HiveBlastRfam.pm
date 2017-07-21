@@ -137,6 +137,7 @@ sub fetch_input{
      -options  => $self->param('commandline_params'),
      %blast,
     );
+    $runnable->timer($self->param('timer'));
     $self->runnable($runnable);
   }
 
@@ -165,13 +166,12 @@ sub write_output {
   my ($self) = @_;
 
   # write genes out to a different database from the one we read genes from.
-  my $out_dba = $self->hrdb_get_con('output_db');
+  my $daf_adaptor = $self->hrdb_get_con('output_db')->get_DnaAlignFeatureAdaptor;
+  my $analysis = $self->analysis;
   foreach my $runnable (@{$self->runnable}){
-    my $blast_hits = $runnable->output;
     my $slice = $runnable->query();
-    my $daf_adaptor = $out_dba->get_DnaAlignFeatureAdaptor;
-    foreach my $hit ( @{$blast_hits} ) {
-      $hit->analysis($self->analysis);
+    foreach my $hit ( @{$runnable->output} ) {
+      $hit->analysis($analysis);
       $hit->slice($slice);
       $daf_adaptor->store($hit);
     }

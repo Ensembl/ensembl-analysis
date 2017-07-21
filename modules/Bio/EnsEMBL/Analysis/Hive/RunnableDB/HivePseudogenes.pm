@@ -268,7 +268,6 @@ sub write_output {
       my $output_hash = {};
       $output_hash->{'iid'} = $id;
       $self->dataflow_output_id($output_hash,2);
-      $self->dataflow_output_id($output_hash,3);
     }
   }
 
@@ -515,7 +514,7 @@ sub ignored_genes {
 
 sub spliced_elsewhere_ids {
   my ($self, $spliced_elsewhere_genes) = @_;
-  unless(defined($self->param('_spliced_elsewhere_ids'))) {
+  unless($self->param_is_defined('_spliced_elsewhere_ids')) {
     $self->param('_spliced_elsewhere_ids',[]);
   }
 

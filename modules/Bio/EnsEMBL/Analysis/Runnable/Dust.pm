@@ -227,7 +227,7 @@ sub parse_results{
       push(@output, $rf);
     }
   }
-  $self->output(\@output);
+  $self->output(\@output,1);
   close(DUST) or throw("FAILED to close ".$results);
 }
 
