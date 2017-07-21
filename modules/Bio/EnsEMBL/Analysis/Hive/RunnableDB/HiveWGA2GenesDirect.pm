@@ -155,7 +155,7 @@ sub fetch_input {
   $gene->analysis($self->analysis);
   $gene->biotype('projection');
   $gene->add_Transcript($transcript);
-  $gene->stable_id($transcript->stable_id);
+  $gene->stable_id($transcript->stable_id.".".$transcript->version);
   $gene->start($transcript->start);
   $gene->end($transcript->end);
   $gene->strand($transcript->strand);
@@ -252,6 +252,8 @@ sub run {
         $self->runnable_failed(1);
       }
       if ($proj_trans) {
+        my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t', -VALUE => $tran->stable_id.".".$tran->version);
+        $proj_trans->add_Attributes($parent_attribute);
         push @res_tran, $proj_trans;
       }
     }
@@ -443,7 +445,7 @@ sub realign_translation {
   foreach my $transcript_supporting_feature (@{$transcript_supporting_features}) {
     $transcript_supporting_feature->hcoverage($coverage);
     $transcript_supporting_feature->percent_id($percent_id);
-    $transcript_supporting_feature->hseqname($source_transcript->stable_id);
+    $transcript_supporting_feature->hseqname($source_transcript->stable_id.".".$source_transcript->version);
     $projected_transcript->add_supporting_features($transcript_supporting_feature);
   }
 
@@ -455,7 +457,7 @@ sub realign_translation {
     foreach my $exon_supporting_feature (@{$exon_supporting_features}) {
       $exon_supporting_feature->hcoverage($coverage);
       $exon_supporting_feature->percent_id($percent_id);
-      $exon_supporting_feature->hseqname($source_transcript->stable_id);
+      $exon_supporting_feature->hseqname($source_transcript->stable_id.".".$source_transcript->version);
       $exon->add_supporting_features($exon_supporting_feature);
     }
     $projected_transcript->add_Exon($exon);

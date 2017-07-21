@@ -29,6 +29,10 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my $self = shift;
 
+  if($self->param_is_defined('skip_analysis') && $self->param('skip_analysis')) {
+    $self->complete_early('The skip_analysis flag has been set to 1, skipping loading');
+  }
+
   $self->param_required('target_db');
   $self->param_required('enscode_root_dir');
   $self->param_required('species_name');

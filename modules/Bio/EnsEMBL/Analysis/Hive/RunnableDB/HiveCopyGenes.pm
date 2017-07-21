@@ -109,13 +109,18 @@ sub run {
 
   if($self->param('copy_genes_directly')) {
      my $input_dba = $self->hrdb_get_dba($self->param('source_db'));
-     $self->hrdb_set_con($input_dba,'source_db');
-
      my $output_dba = $self->hrdb_get_dba($self->param('target_db'));
+
+     if($self->param('dna_db')) {
+       my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+       $input_dba->dnadb($dna_dba);
+       $output_dba->dnadb($dna_dba);
+     }
+
+     $self->hrdb_set_con($input_dba,'source_db');
      $self->hrdb_set_con($output_dba,'target_db');
 
      my $input_genes = $self->param('iid');
-
      $self->copy_genes_directly($input_genes);
 
   } else {
@@ -133,7 +138,7 @@ sub run {
     $self->param_required('dnadbname');
     $self->param_required('dnauser');
     $self->param_required('dnaport');
-    $self->param_required('file'); 
+    $self->param_required('file');
 
     my $command = "perl ".$self->param('copy_genes_path')
                          .$self->param('copy_genes_script_name')

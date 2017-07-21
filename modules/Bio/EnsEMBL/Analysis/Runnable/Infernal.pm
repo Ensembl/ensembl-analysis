@@ -505,7 +505,6 @@ sub make_gene{
   $gene->biotype("antitoxin")   if($type =~ /antitoxin;/);
   $gene->biotype("ribozyme")    if($type =~ /ribozyme;/);
 
-  $gene->status("NOVEL");
   $gene->description($description." [Source: RFAM;Acc:$domain]");
   print STDERR "Rfam_id $domain ".$description."\n"if $verbose;;
   $gene->analysis($self->analysis);
@@ -671,7 +670,7 @@ sub read_cm_library {
 sub write_cm_file {
   my ($self,$cm,$cmfh) =@_;
   my $id = $self->query->display_id;
-  my $outfile = $self->create_filename($id,'.cm');
+  my $outfile = $self->create_filename($id,'cm');
   seek($cmfh,$cm->{$id}->{-offset},0);
   open( F, ">$outfile" ) or die "FATAL: Failed to retrieve CM [$id] from handle [$cm]\n";
   while(<$cmfh>) {

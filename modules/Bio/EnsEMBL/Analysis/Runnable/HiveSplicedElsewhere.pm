@@ -164,7 +164,7 @@ sub run_blast{
        '-database'  => $self->db,
        '-threshold' => 1e-50,
        '-parser'    => $bplitewrapper,
-       '-options'   => 'V=10',
+       '-options'   => ' ', #'V=10',
        '-analysis'  => $self->analysis,
       );
     eval {

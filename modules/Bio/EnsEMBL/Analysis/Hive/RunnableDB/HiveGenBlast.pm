@@ -36,6 +36,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenBlast;
 use strict;
 use warnings;
 use feature 'say';
+use Data::Dumper;
 
 use Bio::Seq;
 
@@ -80,6 +81,10 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
+  my $iid_type = $self->param_required('iid_type');
+  my $genome_file;
+  my $query;
+
   my $dba = $self->hrdb_get_dba($self->param_required('target_db'));
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
   if($dna_dba) {
@@ -89,20 +94,17 @@ sub fetch_input {
   $self->hrdb_set_con($dba,'target_db');
 
   $self->create_analysis;
-  my $genome_file = $self->param_required('genblast_db_path');
   $self->analysis->program_file($self->param_required('genblast_path'));
-  $self->analysis->db_file($genome_file);
   $self->analysis->parameters($self->param('commandline_params'));
+  unless($iid_type eq 'projection_transcript_id') {
+    $genome_file = $self->param_required('genblast_db_path');
+    $self->analysis->db_file($genome_file);
+  }
 
   my %parameters;
   if($self->parameters_hash){
     %parameters = %{$self->parameters_hash};
   }
-
-
-  my $query;
-
-  my $iid_type = $self->param_required('iid_type');
 
   if($iid_type eq 'db_seq') {
     $query = $self->get_query_seqs($self->input_id);
@@ -153,19 +155,23 @@ sub fetch_input {
 
 sub run {
   my ($self) = @_;
+  my $runnable = shift($self->runnable);
   $self->runnable_failed(0);
-  foreach my $runnable (@{$self->runnable}) {
-    eval {
-      $runnable->run;
-    };
+  eval {
+    $runnable->run;
+  };
 
-    if($@) {
-      my $except = $@;
-      $self->runnable_failed(1);
-      $self->warning("Issue with running genblast, will dataflow input id on branch -3. Exception:\n".$except);
+  if($@) {
+    my $except = $@;
+    $self->runnable_failed(1);
+    if($except =~ /still running after your timer/) {
+      $self->warning("genblast took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
+      $self->param('_branch_to_flow_to_on_fail',-2);
     } else {
-      $self->output($runnable->output);
+      $self->warning("Issue with running genblast, will dataflow input id on branch -3. Exception:\n".$except);
     }
+  } else {
+    $self->output($runnable->output);
   }
 
   return 1;
@@ -190,19 +196,20 @@ sub write_output{
 
   my $adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
   my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
-  my $failure_branch_code = $self->param('_branch_to_flow_to_on_fail');
 
   if($self->runnable_failed == 1) {
+    # Flow out on -2 or -3 based on how the failure happened
+    my $failure_branch_code = $self->param('_branch_to_flow_to_on_fail');
     my $output_hash = {};
     $output_hash->{'iid'} = $self->param('iid');
     $self->dataflow_output_id($output_hash,$failure_branch_code);
   } else {
+    # Store results as normal
     my @output = @{$self->output};
-
     my $analysis = $self->analysis;
     my $not_best_analysis = new Bio::EnsEMBL::Analysis(-logic_name => $analysis->logic_name()."_not_best",
                                                        -module     => $analysis->module);
-    foreach my $transcript (@output){
+    foreach my $transcript (@output) {
       $transcript->analysis($analysis);
       my $accession = $transcript->{'accession'};
       $transcript->biotype($self->get_biotype->{$accession});
@@ -222,7 +229,6 @@ sub write_output{
       $gene->add_Transcript($transcript);
       $adaptor->store($gene);
     }
-
   }
 
   return 1;

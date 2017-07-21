@@ -59,6 +59,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveTRNAS
 
 use strict;
 use warnings;
+use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Runnable::tRNAscan_SE;
 
@@ -75,16 +76,28 @@ use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 =cut
 
 
-
 sub fetch_input{
   my ($self) = @_;
 
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
+  my $sfa = $dba->get_SimpleFeatureAdaptor();
+  $self->get_adaptor($sfa);
+
+  if($self->param_is_defined('dna_db')) {
+    say "Attaching dna_db to output db adaptor";
+    my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+
+    $dba->dnadb($dna_dba);
+  } else {
+    say "No dna_db param defined, so assuming target_db has dna";
+  }
+
   $self->hrdb_set_con($dba,'target_db');
 
-  my $input_id = $self->param('iid');
-  my $slice = $self->fetch_sequence($input_id,$dba);
-  $self->query($slice);
+  my $slice_array = $self->param('iid');
+  unless(ref($slice_array) eq "ARRAY") {
+    $self->throw("Expected an input id to be an array reference. Type found: ".ref($slice_array));
+  }
 
   my $analysis = Bio::EnsEMBL::Analysis->new(
                                               -logic_name => $self->param('logic_name'),
@@ -99,14 +112,19 @@ sub fetch_input{
   if($self->parameters_hash){
     %parameters = %{$self->parameters_hash};
   }
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::tRNAscan_SE->new
+
+  foreach my $slice_name (@{$slice_array}) {
+    my $slice = $self->fetch_sequence($slice_name,$dba);
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::tRNAscan_SE->new
     (
-     -query => $self->query,
-     -program => $self->analysis->program_file,
-     -analysis => $self->analysis,
+     -query     => $slice,
+     -program   => $analysis->program_file,
+     -analysis  => $analysis,
      %parameters,
     );
-  $self->runnable($runnable);
+    $self->runnable($runnable);
+  }
+
   return 1;
 }
 
@@ -114,17 +132,21 @@ sub fetch_input{
 =head2 get_adaptor
 
   Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::tRNAscan_SE
-  Function  : get simple_feature adaptor
+  Arg [2]   : Bio::EnsEMBL::DBSQL::SimpleFeatureAdaptor
+  Function  : get/set simple feature adaptor
   Returntype: Bio::EnsEMBL::DBSQL::SimpleFeatureAdaptor
   Exceptions: none
   Example   :
 
 =cut
 
+sub get_adaptor {
+  my ($self,$sfa) = @_;
+  if($sfa) {
+    $self->param('_sfa',$sfa);
+  }
 
-sub get_adaptor{
-  my ($self) = @_;
-  return $self->hrdb_get_con('target_db')->get_SimpleFeatureAdaptor;
+  return($self->param('_sfa'));
 }
 
 1;

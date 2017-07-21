@@ -82,14 +82,31 @@ sub _master_config {
   my ($self, $key) = @_;
 
   my %config = (
+    default => [],
     primates_basic => [
-             {
+
+            {
               ID         => 'LAYER1',
+              BIOTYPES   => [
+                              'IG_C_gene',
+                              'IG_J_gene',
+                              'IG_V_gene',
+                              'IG_D_gene',
+                              'TR_C_gene',
+                              'TR_J_gene',
+                              'TR_V_gene',
+                              'TR_D_gene',
+                            ],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER2',
               BIOTYPES   => [
                              'realign_95',
                              'realign_80',
-                             'rnaseq_95',
-                             'rnaseq_80',
+                             'rnaseq_merged_95',
+                             'rnaseq_merged_80',
                              'self_pe12_sp_95',
                              'self_pe12_tr_95',
                              'self_pe12_sp_80',
@@ -101,12 +118,14 @@ sub _master_config {
                              'mammals_pe12_sp_95',
                              'mammals_pe12_tr_95',
                             ],
+              FILTER_AGAINST => ['LAYER1'],
               DISCARD    => 0,
             },
 
-             {
-              ID         => 'LAYER2',
+            {
+              ID         => 'LAYER3',
               BIOTYPES   => [
+                             'rnaseq_tissue_95',
                              'human_pe12_sp_80',
                              'human_pe12_tr_80',
                              'primates_pe12_sp_80',
@@ -114,47 +133,51 @@ sub _master_config {
                              'mammals_pe12_sp_80',
                              'mammals_pe12_tr_80',
                             ],
-              FILTER_AGAINST => ['LAYER1'],
-              DISCARD    => 0,
-            },
-
-             {
-              ID         => 'LAYER3',
-              BIOTYPES   => [
-                             'primates_pe3_sp_95',
-                             'vert_pe12_sp_95',
-                             'vert_pe12_tr_95',
-                            ],
               FILTER_AGAINST => ['LAYER1','LAYER2'],
               DISCARD    => 0,
             },
 
-             {
+            {
               ID         => 'LAYER4',
               BIOTYPES   => [
-                             'primates_pe3_sp_80',
-                             'vert_pe12_sp_80',
-                             'vert_pe12_tr_80',
+                             'rnaseq_tissue_80',
+                             'realign_50',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
               DISCARD    => 0,
             },
 
-             {
+            {
               ID         => 'LAYER5',
               BIOTYPES   => [
-                              'realign_50',
+                             'human_pe12_sp_50',
+                             'human_pe12_tr_50',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
               DISCARD    => 0,
             },
 
-
     ],
 
     rodents_basic => [
-             {
+
+            {
               ID         => 'LAYER1',
+              BIOTYPES   => [
+                              'IG_C_gene',
+                              'IG_J_gene',
+                              'IG_V_gene',
+                              'IG_D_gene',
+                              'TR_C_gene',
+                              'TR_J_gene',
+                              'TR_V_gene',
+                              'TR_D_gene',
+                            ],
+              DISCARD    => 0,
+            },
+
+             {
+              ID         => 'LAYER2',
               BIOTYPES   => ['realign_95',
                              'rnaseq_95',
                              'rnaseq_80',
@@ -164,23 +187,24 @@ sub _master_config {
                              'rodents_pe12_sp_95',
                              'human_pe12_sp_95',
                             ],
+              FILTER_AGAINST => ['LAYER1'],
               DISCARD    => 0,
             },
 
              {
-              ID         => 'LAYER2',
+              ID         => 'LAYER3',
               BIOTYPES   => ['self_pe12_tr_95',
                              'mouse_pe12_tr_95',
                              'rodents_pe12_tr_95',
                              'human_pe12_tr_95',
                             ],
-              FILTER_AGAINST => ['LAYER1'],
+              FILTER_AGAINST => ['LAYER1','LAYER2'],
               DISCARD    => 0,
 
             },
 
              {
-              ID         => 'LAYER3',
+              ID         => 'LAYER4',
               BIOTYPES   => ['realign_80',
                              'mouse_pe12_sp_80',
                              'rodents_pe12_sp_80',
@@ -188,12 +212,12 @@ sub _master_config {
                              'mammals_pe12_sp_95',
                              'vert_pe12_sp_95',
                             ],
-              FILTER_AGAINST => ['LAYER1','LAYER2'],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
               DISCARD    => 0,
             },
 
              {
-              ID         => 'LAYER4',
+              ID         => 'LAYER5',
               BIOTYPES   => ['self_pe12_tr_80',
                              'mouse_pe12_tr_80',
                              'rodents_pe12_tr_80',
@@ -201,26 +225,26 @@ sub _master_config {
                              'mammals_pe12_tr_95',
                              'vert_pe12_tr_95',
                             ],
-              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
-              DISCARD    => 0,
-            },
-
-             {
-              ID         => 'LAYER5',
-              BIOTYPES   => ['rodents_pe3_sp_95',
-                             'rodents_pe3_tr_95',
-                             'mammals_pe12_sp_80',
-                             'vert_pe12_sp_80',
-                            ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
               DISCARD    => 0,
             },
 
              {
               ID         => 'LAYER6',
-              BIOTYPES   => ['realign_50',
+              BIOTYPES   => ['rodents_pe3_sp_95',
+                             'rodents_pe3_tr_95',
+                             'mammals_pe12_sp_80',
+                             'vert_pe12_sp_80',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'],
+              DISCARD    => 0,
+            },
+
+             {
+              ID         => 'LAYER7',
+              BIOTYPES   => ['realign_50',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
               DISCARD    => 0,
             },
     ],

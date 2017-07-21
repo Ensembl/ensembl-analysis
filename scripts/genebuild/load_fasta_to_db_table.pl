@@ -1,0 +1,66 @@
+use warnings;
+use strict;
+use feature 'say';
+use Getopt::Long qw(:config no_ignore_case);
+
+use Bio::EnsEMBL::Hive::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::IO::Parser::Fasta;
+use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
+use Data::Dumper;
+
+my $dbname = '';
+my $dbhost = '';
+my $dbport = '';
+my $dbuser = '';
+my $dbpass = '';
+
+my $fasta_file = "";
+my $sequence_table_name;
+my $create_table = 1;
+
+my $result = GetOptions ("user|dbuser|u=s"      => \$dbuser,
+                         "host|dbhost|h=s"      => \$dbhost,
+                         "port|dbport|P=i"      => \$dbport,
+                         "dbname|db|D=s"    => \$dbname,
+                         "dbpass|pass|p=s"  => \$dbpass,
+                         "fasta_file=s"   => \$fasta_file,
+                         "sequence_table_name=s" => \$sequence_table_name,
+                         "create_table!" => \$create_table);
+
+
+# Now connect to the pipe db
+my $url = 'mysql://'.$dbuser.':'.$dbpass.'@'.$dbhost.':'.$dbport.'/'.$dbname;
+my $db = Bio::EnsEMBL::Hive::DBSQL::DBAdaptor->new(-url => $url);
+
+if($create_table) {
+  my $sth_create_table = $db->dbc->prepare('CREATE table '.$sequence_table_name.' ('.
+					   'accession int NOT NULL AUTO_INCREMENT,'.
+                                           'biotype varchar(255),'.
+                                           'hit_name varchar(255),'.
+                                           'seq text NOT NULL,'.
+                                           'PRIMARY KEY (accession))');
+  $sth_create_table->execute();
+}
+
+
+my $table_adaptor = $db->get_NakedTableAdaptor();
+$table_adaptor->table_name($sequence_table_name);
+
+my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($fasta_file);
+my $header;
+my $seq;
+
+while($parser->next()) {
+  $header = $parser->getHeader();
+  $seq = $parser->getSequence();
+  my ($biotype,$hit_name) = split('\|',$header);
+
+  my $db_row = [{
+                  'biotype'    => $biotype,
+                  'hit_name'   => $hit_name,
+                  'seq'        => $seq,
+               }];
+  $table_adaptor->store($db_row);
+}
+
+exit;
