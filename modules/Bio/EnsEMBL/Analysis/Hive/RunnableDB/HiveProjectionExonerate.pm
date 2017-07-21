@@ -5,8 +5,9 @@ use strict;
 use feature 'say';
 use Data::Dumper;
 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Slice_to_Gene attach_Analysis_to_Gene);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript attach_Slice_to_Transcript);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Analysis_to_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(attach_Slice_to_Transcript empty_Transcript);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw (align_proteins);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
@@ -69,17 +70,33 @@ sub fetch_input {
     $self->throw("No MethodLinkSpeciesSet for :\n" .$self->param('method_link_type') . "\n" .$source_species . "\n" .$target_species);
   }
 
+  $self->param('_transcript_biotype',{});
   foreach my $input_id (@$input_ids) {
     my $transcript = $source_transcript_dba->get_TranscriptAdaptor->fetch_by_dbID($input_id);
+    my $transcript_seq;
+    my $biotype = $transcript->biotype;
+    my $stable_id = $transcript->stable_id.".".$transcript->version;
+    $self->param('_transcript_biotype')->{$stable_id} = $biotype;
+
     say "Processing source transcript: ".$transcript->stable_id;
+    if($self->QUERYTYPE eq 'protein') {
+      unless($transcript->translation) {
+        $self->warning("You have protein exonerate selected, but transcript does not have a translation, skipping");
+        next;
+      }
+      $transcript_seq = $transcript->translation->seq;
+    } else {
+      $transcript_seq = $transcript->seq->seq;
+    }
+
     my $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db);
-    my $transcript_seq = $transcript->seq->seq;
     my $transcript_header = $transcript->stable_id.'.'.$transcript->version;
     my $transcript_seq_object = Bio::Seq->new(-display_id => $transcript_header, -seq => $transcript_seq);
     $self->make_runnables($transcript_seq_object, $transcript_slices, $input_id);
   } #close foreach input_id
 
 }
+
 
 sub run {
   my ($self) = @_;
@@ -102,32 +119,34 @@ sub run {
   return 1;
 }
 
+
 sub write_output{
   my ($self) = @_;
 
   my $adaptor = $self->hrdb_get_con('target_transcript_db')->get_GeneAdaptor;
   my $slice_adaptor = $self->hrdb_get_con('target_transcript_db')->get_SliceAdaptor;
- 
-    my @output = @{$self->output};
-    my $analysis = $self->analysis;
-    
-    foreach my $transcript (@output){
-      my $slice_id = $transcript->start_Exon->seqname;
-      my $slice = $slice_adaptor->fetch_by_name($slice_id);
-      
-      say "Leanne: transcript: ".$transcript->start.':'.$transcript->end.'  '.$slice_id;
 
-#      empty_Transcript($transcript);
-      my $gene = Bio::EnsEMBL::Gene->new();
-      attach_Slice_to_Transcript($transcript, $slice);
-      $gene->add_Transcript($transcript);
-      $gene->slice($slice);
-      say "Leanne Hiii";
-      attach_Analysis_to_Gene($gene, $analysis);
-      $gene->biotype($gene->analysis->logic_name);
+  my @output = @{$self->output};
+  my $analysis = $self->analysis;
 
-      $adaptor->store($gene);
+  foreach my $transcript (@output){
+    if($self->filter_transcript($transcript)) {
+      say "Transcript failed coverage and/or percent id filter, will not store";
+      next;
     }
+
+    my $slice_id = $transcript->start_Exon->seqname;
+    my $slice = $slice_adaptor->fetch_by_name($slice_id);
+    my $biotype = $self->retrieve_biotype($transcript);
+    $transcript->biotype($biotype);
+    attach_Slice_to_Transcript($transcript, $slice);
+    my $gene = Bio::EnsEMBL::Gene->new();
+    $gene->biotype($biotype);
+    $gene->add_Transcript($transcript);
+    $gene->slice($slice);
+    attach_Analysis_to_Gene($gene, $analysis);
+    $adaptor->store($gene);
+  }
   my $output_hash = {};
   my $failure_branch_code = $self->param('_branch_to_flow_on_fail');
   my $failed_transcript_ids = $self->runnable_failed;
@@ -151,12 +170,13 @@ sub runnable_failed {
   return ($self->param('_runnable_failed'));
 }
 
+
 sub process_transcript {
   my ($self,$transcript,$compara_dba,$mlss,$source_genome_db) = @_;
 
   my $max_cluster_gap_length = $self->max_cluster_gap_length($transcript);
   say "Max align gap: ".$max_cluster_gap_length;
-  my @all_target_genomic_aligns = ();
+  my $all_target_genomic_aligns = [];
   my $exons = $transcript->get_all_Exons;
   foreach my $exon (@{$exons}) {
     my $exon_region_padding = $self->param('exon_region_padding');
@@ -175,13 +195,14 @@ sub process_transcript {
 
     foreach my $genomic_align_block (@$genomic_align_block) {
       my $source_genomic_align = $genomic_align_block->reference_genomic_align;
-      @all_target_genomic_aligns = @{$genomic_align_block->get_all_non_reference_genomic_aligns};
+      push(@{$all_target_genomic_aligns},@{$genomic_align_block->get_all_non_reference_genomic_aligns});
     }
   }
 
-  my @sorted_target_genomic_aligns  = sort { $a->get_Slice->seq_region_name cmp $b->get_Slice->seq_region_name ||
-                                             $a->get_Slice->start <=> $b->get_Slice->start
-                                           } @all_target_genomic_aligns;
+  my $unique_target_genomic_aligns = $self->unique_genomic_aligns($all_target_genomic_aligns);
+  my @sorted_target_genomic_aligns = sort { $a->get_Slice->seq_region_name cmp $b->get_Slice->seq_region_name ||
+                                            $a->get_Slice->start <=> $b->get_Slice->start
+                                          } @{$unique_target_genomic_aligns};
 
   unless(scalar(@sorted_target_genomic_aligns)) {
     say "No align blocks so skipping transcript";
@@ -199,6 +220,7 @@ sub process_transcript {
   return $transcript_slices;
 }
 
+
 sub make_runnables {
   my ($self, $transcript_seq, $transcript_slices, $input_id) = @_;
   my %parameters = %{$self->parameters_hash};
@@ -209,12 +231,11 @@ sub make_runnables {
     $parameters{-coverage_by_aligned} = $self->COVERAGE_BY_ALIGNED;
   }
 
-  say "Leanne: ".$self->QUERYTYPE;
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
               -program  => $self->param('exonerate_path'),
               -analysis => $self->analysis,
               -query_type     => $self->QUERYTYPE,
-              -calculate_coverage_and_pid => 1,
+              -calculate_coverage_and_pid => $self->param('calculate_coverage_and_pid'),
               %parameters,
               );
   $runnable->target_seqs($transcript_slices);
@@ -223,13 +244,14 @@ sub make_runnables {
   $self->runnable($runnable);
 }
 
+
 sub max_cluster_gap_length {
   my ($self,$transcript) = @_;
 
   # This sub will loop through the introns and decide on how long the max allowed value should be
   # This will be used to decide when to break up clusters on the same seq_region
   # The max value multiplier will change based on how long the biggest intron is
-  # Have 1000 as a min default value to handle small breaks in single exon genes
+  # Have 50 as a min default value to handle small breaks in single exon genes
   my $longest_intron = 50;
   my $introns = $transcript->get_all_Introns();
   unless(scalar(@{$introns}) > 0) {
@@ -244,7 +266,6 @@ sub max_cluster_gap_length {
 
   # This is only an intial guess, using orthologs would allow more accurate estimations for these
   # values in future. It would make sense to have different values for different clades
-  return(100000);
   if($longest_intron <= 10000) {
     return(int($longest_intron * 2));
   } elsif($longest_intron <= 50000) {
@@ -253,6 +274,7 @@ sub max_cluster_gap_length {
     return(int($longest_intron * 1.25))
   }
 }
+
 
 sub make_cluster_slices {
   my ($self,$genomic_aligns,$max_cluster_gap_length) = @_;
@@ -290,9 +312,55 @@ sub make_cluster_slices {
   my $slice = $slice_adaptor->fetch_by_region($previous_genomic_align->get_Slice->coord_system_name,
                                               $previous_genomic_align->get_Slice->seq_region_name, $cluster_start, $cluster_end);
   push(@{$cluster_slices},$slice);
-
   return($cluster_slices);
 }
+
+
+sub unique_genomic_aligns {
+  my ($self,$genomic_aligns) = @_;
+
+  my $seen_id_hash = {};
+  my $unique_genomic_aligns = [];
+  foreach my $genomic_align (@{$genomic_aligns}) {
+    unless($seen_id_hash->{$genomic_align->dbID}) {
+      push(@{$unique_genomic_aligns},$genomic_align);
+      $seen_id_hash->{$genomic_align->dbID} = 1;
+    }
+  }
+  return($unique_genomic_aligns);
+}
+
+
+sub filter_transcript {
+  my ($self,$transcript) = @_;
+
+  my $supporting_features = $transcript->get_all_supporting_features;
+  my $supporting_feature = ${$supporting_features}[0];
+  my $coverage = $supporting_feature->hcoverage;
+  my $identity = $supporting_feature->percent_id;
+
+  unless($identity >= $self->param_required('exonerate_percent_id') && $coverage >= $self->param_required('exonerate_coverage')) {
+    return(1);
+  }
+
+  return(0);
+}
+
+
+sub retrieve_biotype {
+  my ($self, $transcript) = @_;
+
+  my $supporting_features = $transcript->get_all_supporting_features;
+  my $supporting_feature = ${$supporting_features}[0];
+  my $stable_id = $supporting_feature->hseqname;
+
+  my $biotype = $self->param('_transcript_biotype')->{$stable_id};
+  unless($biotype) {
+    $self->throw("Failed to retieve biotype for output transcript. Should have been set in fetch_input");
+  }
+  return($biotype);
+}
+
 
 sub IIDREGEXP {
   my ($self,$value) = @_;
@@ -380,8 +448,5 @@ sub KILL_TYPE {
     return undef;
   }
 }
-
-
-
 
 1;

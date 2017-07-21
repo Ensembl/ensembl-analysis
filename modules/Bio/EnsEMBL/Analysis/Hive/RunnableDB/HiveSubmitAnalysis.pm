@@ -577,7 +577,11 @@ sub feature_id {
     }
   }
 
-  $self->param('inputlist', $output_id_array);
+  if($self->param('batch_size')) {
+    $self->param('inputlist', $self->_chunk_input_ids($self->param_required('batch_size'), $output_id_array));
+  } else{
+    $self->param('inputlist', $output_id_array);
+  }
 }
 
 
@@ -594,7 +598,9 @@ sub feature_restriction {
           $feature_restricted = 1;
         }
       } elsif($restriction eq 'biotype') {
-        # future code with a new param for a biotype array should go here
+        unless($self->param_required('biotypes')->{$feature->biotype()}) {
+          $feature_restricted = 1;
+        }
       }
     } # End if type eq gene or transcript
   } # End if restriction

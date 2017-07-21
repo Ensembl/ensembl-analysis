@@ -80,12 +80,30 @@ sub _master_config {
       FILTER  => {
         OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
         PARAMETERS => {
-          -coverage => 90,
-          -percent_id => 60,
+          -coverage => 50,
+          -percent_id => 50,
         },
       },
     },
 
+    exonerate_projection_pseudogene => {
+      OPTIONS => '--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE'.
+                 ' --bestn 5 --maxintron 100000 --minintron 1 --frameshift 10',
+      FILTER  => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -coverage => 50,
+          -percent_id => 50,
+        },
+      },
+    },
+
+    exonerate_projection_ig_tr_protein => {
+      IIDREGEXP => '(\d+):(\d+)',
+      OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1 --maxintron 50000',
+      COVERAGE_BY_ALIGNED => 0,
+      QUERYTYPE           => 'protein',
+    },
 
     exonerate_protein => {
       IIDREGEXP => '(\d+):(\d+)',
@@ -93,7 +111,7 @@ sub _master_config {
       COVERAGE_BY_ALIGNED => 0,
       QUERYTYPE           => 'protein',
     },
-    
+
     exonerate_protein_human_patch => {
       IIDREGEXP => '(\d+):(\d+)',
       OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive TRUE --bestn 5 --maxintron 50000 --minintron 20',
