@@ -152,6 +152,33 @@ sub fetch_input {
   # fetch the genes; need to work in the coordinate space of the
   # top-level slice to be consistent with compara
   ########
+<<<<<<< HEAD
+=======
+  my $transcript = $source_transcript_dbc->get_TranscriptAdaptor->fetch_by_dbID($input_id);
+  $transcript->analysis($self->analysis);
+  unless($transcript->biotype eq 'protein_coding') {
+    $self->input_job->autoflow(0);
+    $self->complete_early('Transcript does not have protein_coding biotype!');
+  }
+
+  my $gene = Bio::EnsEMBL::Gene->new();
+  $gene->analysis($self->analysis);
+  $gene->biotype('projection');
+  $gene->add_Transcript($transcript);
+  $gene->stable_id($transcript->stable_id.".".$transcript->version);
+  $gene->start($transcript->start);
+  $gene->end($transcript->end);
+  $gene->strand($transcript->strand);
+  $gene->slice($transcript->slice);
+
+  $self->_check_gene($gene);
+  $self->gene($gene);
+
+  #########
+  # get the compara data: MethodLinkSpeciesSet, reference DnaFrag,
+  # and all GenomicAlignBlocks
+  #########
+>>>>>>> 1d8690e8eb742379bb1560e345263d9376f517c5
   my $mlss = $compara_dbc->get_MethodLinkSpeciesSetAdaptor->fetch_by_method_link_type_GenomeDBs($self->INPUT_METHOD_LINK_TYPE,
                                                                                                 [$q_gdb, $t_gdb]);
   unless($mlss) {
@@ -260,6 +287,8 @@ sub run {
         $self->runnable_failed(1);
       }
       if ($proj_trans) {
+        my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t', -VALUE => $tran->stable_id.".".$tran->version);
+        $proj_trans->add_Attributes($parent_attribute);
         push @res_tran, $proj_trans;
       }
     }
@@ -451,7 +480,7 @@ sub realign_translation {
   foreach my $transcript_supporting_feature (@{$transcript_supporting_features}) {
     $transcript_supporting_feature->hcoverage($coverage);
     $transcript_supporting_feature->percent_id($percent_id);
-    $transcript_supporting_feature->hseqname($source_transcript->stable_id);
+    $transcript_supporting_feature->hseqname($source_transcript->stable_id.".".$source_transcript->version);
     $projected_transcript->add_supporting_features($transcript_supporting_feature);
   }
 
@@ -463,7 +492,7 @@ sub realign_translation {
     foreach my $exon_supporting_feature (@{$exon_supporting_features}) {
       $exon_supporting_feature->hcoverage($coverage);
       $exon_supporting_feature->percent_id($percent_id);
-      $exon_supporting_feature->hseqname($source_transcript->stable_id);
+      $exon_supporting_feature->hseqname($source_transcript->stable_id.".".$source_transcript->version);
       $exon->add_supporting_features($exon_supporting_feature);
     }
     $projected_transcript->add_Exon($exon);

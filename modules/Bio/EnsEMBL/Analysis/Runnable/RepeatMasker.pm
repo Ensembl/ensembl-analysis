@@ -61,6 +61,7 @@ use Bio::PrimarySeq;
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_timer);
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
@@ -130,8 +131,11 @@ sub run_analysis{
   local $ENV{HOME} = $self->moved_home;
   print "  with HOME=$ENV{HOME} (for the cache)\n";
 
-  system($cmd) == 0 or throw("FAILED to run ".$cmd.
-                             " RepeatMasker:run_analysis");
+  my $remaining_time = execute_with_timer($cmd, $self->timer);
+  $self->remaining_time($remaining_time);
+
+#  system($cmd) == 0 or throw("FAILED to run ".$cmd.
+#                             " RepeatMasker:run_analysis");
   foreach my $file(glob $self->queryfile."*"){
     $self->files_to_delete($file);
   }
@@ -319,8 +323,8 @@ sub parse_results{
           ($start, $end, $strand, $score, 
            $repeat_start, $repeat_end, 
            $rc, $self->query);
-        
-        $self->output([$rf]);
+
+        $self->output([$rf],1);
       }
     }
   close(OUT) or throw("FAILED to close ".$results.

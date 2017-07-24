@@ -143,6 +143,7 @@ sub RNAfold{
   $self->resultsfile($results_file);
   $command .= "$options < $filename  2>&1 > ".$results_file;
   print STDERR "Running RNAfold ".$command."\n";
+  chdir($self->workdir); # RNAfold create files in the current directory
   open(my $fh, "$command |") || 
     $self->throw("Error opening RNAfold cmd <$command>");
   # this loop reads the STDERR from the blast command

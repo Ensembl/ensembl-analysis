@@ -4,8 +4,9 @@ use warnings;
 use strict;
 use feature 'say';
 use Data::Dumper;
+use File::Spec::Functions qw(tmpdir catfile);
 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Analysis_to_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Analysis_to_Gene attach_Slice_to_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(attach_Slice_to_Transcript empty_Transcript);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw (align_proteins);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
@@ -28,6 +29,7 @@ sub fetch_input {
   # Define the source transcript and target transcript dbs
   my $source_transcript_dba = $self->hrdb_get_dba($self->param('source_db'));
   my $target_transcript_dba = $self->hrdb_get_dba($self->param('target_db'));
+  $target_transcript_dba->dnadb($target_dna_dba);
   $self->hrdb_set_con($source_transcript_dba,'source_transcript_db');
   $self->hrdb_set_con($target_transcript_dba,'target_transcript_db');
 
@@ -76,6 +78,7 @@ sub fetch_input {
     my $transcript_seq;
     my $biotype = $transcript->biotype;
     my $stable_id = $transcript->stable_id.".".$transcript->version;
+    my $annotation_features;
     $self->param('_transcript_biotype')->{$stable_id} = $biotype;
 
     say "Processing source transcript: ".$transcript->stable_id;
@@ -86,13 +89,15 @@ sub fetch_input {
       }
       $transcript_seq = $transcript->translation->seq;
     } else {
+      if($self->param('generate_annotation_file')) {
+        $annotation_features = $self->create_annotation_features($transcript);
+      }
       $transcript_seq = $transcript->seq->seq;
     }
-
     my $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db);
     my $transcript_header = $transcript->stable_id.'.'.$transcript->version;
     my $transcript_seq_object = Bio::Seq->new(-display_id => $transcript_header, -seq => $transcript_seq);
-    $self->make_runnables($transcript_seq_object, $transcript_slices, $input_id);
+    $self->make_runnables($transcript_seq_object, $transcript_slices, $input_id, $annotation_features);
   } #close foreach input_id
 
 }
@@ -112,6 +117,9 @@ sub run {
       $self->warning("Issue with running exonerate, will dataflow input id on branch -3. Exception:\n".$except);
       $self->param('_branch_to_flow_on_fail', -3);
     } else {
+      foreach my $output (@{$runnable->output}) {
+        $output->{'_old_transcript_id'} = $runnable->{'_transcript_id'};
+      }
       $self->output($runnable->output);
     }
   }
@@ -130,16 +138,17 @@ sub write_output{
   my $analysis = $self->analysis;
 
   foreach my $transcript (@output){
-    if($self->filter_transcript($transcript)) {
-      say "Transcript failed coverage and/or percent id filter, will not store";
-      next;
-    }
 
     my $slice_id = $transcript->start_Exon->seqname;
     my $slice = $slice_adaptor->fetch_by_name($slice_id);
     my $biotype = $self->retrieve_biotype($transcript);
     $transcript->biotype($biotype);
     attach_Slice_to_Transcript($transcript, $slice);
+
+    if($self->filter_transcript($transcript)) {
+      next;
+    }
+
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->biotype($biotype);
     $gene->add_Transcript($transcript);
@@ -222,7 +231,7 @@ sub process_transcript {
 
 
 sub make_runnables {
-  my ($self, $transcript_seq, $transcript_slices, $input_id) = @_;
+  my ($self, $transcript_seq, $transcript_slices, $input_id, $annotation_features) = @_;
   my %parameters = %{$self->parameters_hash};
   if (not exists($parameters{-options}) and defined $self->OPTIONS) {
     $parameters{-options} = $self->OPTIONS;
@@ -236,6 +245,7 @@ sub make_runnables {
               -analysis => $self->analysis,
               -query_type     => $self->QUERYTYPE,
               -calculate_coverage_and_pid => $self->param('calculate_coverage_and_pid'),
+              -annotation_features => $annotation_features,
               %parameters,
               );
   $runnable->target_seqs($transcript_slices);
@@ -288,8 +298,11 @@ sub make_cluster_slices {
     return;
   }
 
+  say "FERGAL GA: ".$previous_genomic_align->get_Slice->seq_region_name().":".$previous_genomic_align->get_Slice->start().":".$previous_genomic_align->get_Slice->end();
   foreach my $current_genomic_align (@{$genomic_aligns}) {
+    say "FERGAL GA: ".$current_genomic_align->get_Slice->seq_region_name().":".$current_genomic_align->get_Slice->start().":".$current_genomic_align->get_Slice->end();
     if($previous_genomic_align->get_Slice->seq_region_name ne $current_genomic_align->get_Slice->seq_region_name) {
+      say "FERGAL BREAKING CLUSTER 1";
       my $slice = $slice_adaptor->fetch_by_region($previous_genomic_align->get_Slice->coord_system_name,
                                                   $previous_genomic_align->get_Slice->seq_region_name, $cluster_start, $cluster_end);
       push(@{$cluster_slices},$slice);
@@ -297,6 +310,7 @@ sub make_cluster_slices {
       $cluster_end = $current_genomic_align->get_Slice->end();
       $previous_genomic_align = $current_genomic_align;
     } elsif($current_genomic_align->get_Slice->start - $previous_genomic_align->get_Slice->end > $max_cluster_gap_length) {
+      say "FERGAL BREAKING CLUSTER 2: ".$current_genomic_align->get_Slice->start.":".$previous_genomic_align->get_Slice->end;
       my $slice = $slice_adaptor->fetch_by_region($previous_genomic_align->get_Slice->coord_system_name,
                                                   $previous_genomic_align->get_Slice->seq_region_name, $cluster_start, $cluster_end);
       push(@{$cluster_slices},$slice);
@@ -305,6 +319,7 @@ sub make_cluster_slices {
       $previous_genomic_align = $current_genomic_align;
     } else {
       $cluster_end = $current_genomic_align->get_Slice->end();
+      $previous_genomic_align = $current_genomic_align;
     }
   } # end foreach my $current_genomic_align
 
@@ -336,14 +351,44 @@ sub filter_transcript {
 
   my $supporting_features = $transcript->get_all_supporting_features;
   my $supporting_feature = ${$supporting_features}[0];
-  my $coverage = $supporting_feature->hcoverage;
-  my $identity = $supporting_feature->percent_id;
+  my $transcript_coverage = $supporting_feature->hcoverage;
+  my $transcript_identity = $supporting_feature->percent_id;
 
-  unless($identity >= $self->param_required('exonerate_percent_id') && $coverage >= $self->param_required('exonerate_coverage')) {
+  unless($transcript_identity >= $self->param_required('exonerate_percent_id') && $transcript_coverage >= $self->param_required('exonerate_coverage')) {
+    say "Transcript failed coverage and/or percent id filter, will not store";
     return(1);
   }
 
+  if($transcript->translation) {
+    if($transcript->translation->seq =~ /\*/) {
+      say "Transcript translation seq has stop, will not store";
+      return(1);
+    }
+
+    my $original_transcript = $self->hrdb_get_con('source_transcript_db')->get_TranscriptAdaptor->fetch_by_dbID($transcript->{'_old_transcript_id'});
+    my ($translation_coverage,$translation_identity) = align_proteins($original_transcript->translation->seq, $transcript->translation->seq);
+    unless($translation_identity >= $self->param_required('exonerate_percent_id') && $translation_coverage >= $self->param_required('exonerate_coverage')) {
+      say "Translation failed coverage and/or percent id filter, will not store";
+      return(1);
+    }
+  } # end if($transcript->translation)
   return(0);
+}
+
+sub create_annotation_features {
+  my ($self,$transcript) = @_;
+
+  my $cds_start  = $transcript->cdna_coding_start;
+  my $cds_end = $transcript->cdna_coding_end;
+  my $stable_id  = $transcript->stable_id.".".$transcript->version;
+
+  my $annotation_feature = Bio::EnsEMBL::Feature->new(-seqname => $stable_id,
+                                                      -strand  => 1,
+                                                      -start   => $cds_start,
+                                                      -end     => $cds_end);
+
+ my $annotation_features->{$stable_id} = $annotation_feature;
+ return($annotation_features);
 }
 
 

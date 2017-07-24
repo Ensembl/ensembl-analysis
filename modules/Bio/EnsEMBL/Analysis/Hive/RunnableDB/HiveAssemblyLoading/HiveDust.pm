@@ -2,13 +2,13 @@
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # Copyright [2016-2017] EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,7 +27,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::Dust - 
+Bio::EnsEMBL::Analysis::RunnableDB::Dust -
 
 =head1 SYNOPSIS
 
@@ -59,6 +59,8 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveDust;
 
 use strict;
 use warnings;
+use feature 'say';
+use Data::Dumper;
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -78,34 +80,56 @@ sub fetch_input{
   my ($self) = @_;
 
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
+  my $rfa = $dba->get_RepeatFeatureAdaptor;
+  $self->get_adaptor($rfa);
+
+  if($self->param_is_defined('dna_db')) {
+    say "Attaching dna_db to output db adaptor";
+    my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+
+    $dba->dnadb($dna_dba);
+  } else {
+    say "No dna_db param defined, so assuming target_db has dna";
+  }
   $self->hrdb_set_con($dba,'target_db');
 
-  my $input_id = $self->param('iid');
-  my $slice = $self->fetch_sequence($input_id,$dba);
-  $self->query($slice);
+  my $slice_array = $self->param('iid');
+  unless(ref($slice_array) eq "ARRAY") {
+    $self->throw("Expected an input id to be an array reference. Type found: ".ref($slice_array));
+  }
 
-  $self->create_analysis();
-  $self->analysis->program_file($self->param('dust_path'));
-  $self->analysis->parameters($self->param('commandline_params')) if ($self->param_is_defined('commandline_params'));
+  my $analysis = Bio::EnsEMBL::Analysis->new(
+                                              -logic_name => $self->param('logic_name'),
+                                              -module => $self->param('module'),
+                                              -program_file => $self->param('dust_path'),
+                                              -parameters => $self->param('commandline_params'),
+                                            );
+
+  $self->analysis($analysis);
 
   my %parameters;
   if($self->parameters_hash){
     %parameters = %{$self->parameters_hash};
   }
+
   my $runnable_class = 'Bio::EnsEMBL::Analysis::Runnable::Dust';
   if ($self->param('dust_path') =~ /dustmasker/) {
     $runnable_class = 'Bio::EnsEMBL::Analysis::Runnable::DustMasker';
   }
   $self->require_module($runnable_class);
-  my $runnable = $runnable_class->new
-       (
-         -query => $self->query,
-         -program => $self->analysis->program_file,
-         -analysis => $self->analysis,
-         %parameters,
-       );
 
-  $self->runnable($runnable);
+  foreach my $slice_name (@{$slice_array}) {
+    my $slice = $self->fetch_sequence($slice_name,$dba);
+    my $runnable = $runnable_class->new
+                   (
+                     -query => $slice,
+                     -program => $analysis->program_file,
+                     -analysis => $analysis,
+                      %parameters,
+                   );
+    $self->runnable($runnable);
+  }
+
   return 1;
 }
 
@@ -126,7 +150,7 @@ sub fetch_input{
 
 sub write_output{
   my ($self) = @_;
-  my $rf_adaptor = $self->hrdb_get_con('target_db')->get_RepeatFeatureAdaptor;
+  my $rf_adaptor = $self->get_adaptor;
   my $analysis = $self->analysis();
 
   my @transformed;
@@ -177,6 +201,7 @@ sub write_output{
 
 sub convert_feature{
   my ($self, $rf) = @_;
+
   print "Converting ".$rf->start." ".$rf->end." ".
     $rf->slice->seq_region_name."\n";
   my $ff = $self->feature_factory;
@@ -203,8 +228,8 @@ sub convert_feature{
     my $rf = $ff->create_repeat_feature($start, $end, 0, 0, $start,
                                         $end, $rc, $slice->name,
                                         $slice);
-    my $transformed = $rf->transform($self->query->coord_system->name,
-                                     $self->query->coord_system->version);
+    my $transformed = $rf->transform($rf->slice->coord_system->name,
+                                     $rf->slice->coord_system->version);
     if(!$transformed){
       $self->throw("Failed to transform ".$rf." ".$rf->start." ".$rf->end."  ".$rf->seq_region_name." skipping \n");
     }
@@ -213,5 +238,25 @@ sub convert_feature{
   return \@converted;
 }
 
+
+=head2 get_adaptor
+
+  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::Dust
+  Arg [2]   : Bio::EnsEMBL::DBSQL::RepeatFeatureAdaptor
+  Function  : get/set repeatfeature adaptor
+  Returntype: Bio::EnsEMBL::DBSQL::RepeatFeatureAdaptor
+  Exceptions: none
+  Example   :
+
+=cut
+
+sub get_adaptor {
+  my ($self,$rfa) = @_;
+  if($rfa) {
+    $self->param('_rfa',$rfa);
+  }
+
+  return($self->param('_rfa'));
+}
 
 1;

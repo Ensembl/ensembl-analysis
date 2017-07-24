@@ -110,23 +110,18 @@ sub fetch_input{
 
 
   my $daf_adaptor = $output_dba->get_DnaAlignFeatureAdaptor;
-  my $slice_adaptor = $output_dba->get_SliceAdaptor;
 
-
-  my $daf_ids = $self->param('iid');
-  my $dafs = [];
-  foreach my $db_id (@{$daf_ids}) {
-    push(@{$dafs},$daf_adaptor->fetch_by_dbID($db_id));
+  foreach my $db_id (@{$self->param('iid')}) {
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::Infernal->new
+                   (
+                     -queries  => [$daf_adaptor->fetch_by_dbID($db_id)],
+                     -analysis => $self->analysis,
+                     -program => $self->analysis->program_file
+                   );
+    $self->runnable($runnable);
   }
 
   # Make  the runnable
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Infernal->new
-                 (
-                   -queries  => $dafs,
-                   -analysis => $self->analysis,
-                   -program => $self->analysis->program_file
-                 );
-  $self->runnable($runnable);
 
   say "Fetch input finished";
   return 1;
@@ -180,10 +175,8 @@ sub write_output{
     @attributes = @{$gene_hash->{'attrib'}};
     $xref = $gene_hash->{'xref'};
     $gene->analysis($self->analysis);
-    $gene->status('PREDICTED');
     foreach my $trans (@{$gene->get_all_Transcripts}){
       $trans->analysis($self->analysis);
-      $trans->status('PREDICTED');
     }
     $gene->slice($self->query) if(!$gene->slice);
     $self->feature_factory->validate($gene);

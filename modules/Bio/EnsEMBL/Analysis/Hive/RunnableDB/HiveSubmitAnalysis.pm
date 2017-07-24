@@ -20,6 +20,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis;
 use strict;
 use warnings;
 use feature 'say';
+use Data::Dumper;
 
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
@@ -88,6 +89,11 @@ sub param_defaults {
 sub fetch_input {
   my $self = shift;
 
+  if($self->param('skip_analysis')) {
+    $self->input_job->autoflow(0);
+    $self->complete_early('Skip analysis flag is enabled, so no input ids will be generated');
+  }
+
   my $iid_type = $self->param_required('iid_type');
   if($iid_type eq 'chunk') {
     $self->create_chunk_ids();
@@ -104,6 +110,8 @@ sub fetch_input {
         # Not sure it's the correct call but Core has a split_Slice method
         # so it's better to use it
         $self->split_slice($dba);
+      } elsif($iid_type eq 'rebatch_and_resize_slices') {
+        $self->rebatch_and_resize_slices($dba);
       } elsif($iid_type eq 'patch_slice') {
         $self->param('include_non_reference',1);
         $self->create_slice_ids($dba);
@@ -171,6 +179,10 @@ sub create_slice_ids {
     $slices = split_Slices($slices, $self->param_required('slice_size'), $self->param('slice_overlaps'));
   }
 
+  if($self->param('min_slice_length')) {
+    $slices = $self->filter_slice_on_size($slices);
+  }
+
   if($self->param('feature_constraint')) {
     $slices = $self->filter_slice_on_features($slices, $dba);
   }
@@ -178,8 +190,7 @@ sub create_slice_ids {
   if($self->param('batch_slice_ids')) {
     $slices = $self->batch_slice_ids($slices);
     $self->param('inputlist', $slices);
-  }
-  else {
+  } else {
     my @input_ids = map {$_->name} @$slices;
     $self->param('inputlist', \@input_ids);
   }
@@ -327,32 +338,39 @@ sub convert_slice_to_feature_ids {
 
   my $output_id_array = [];
 
-  my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param_required('iid'));
   my $feature_type = $self->param_required('feature_type');
   my $template_sql = 'UPDATE %s SET stable_id = CONCAT("'.$self->param('stable_id_prefix').'%s", LPAD(%s_id, 11, 0)) WHERE seq_region_id = %d';
 
   if($feature_type eq 'prediction_transcript') {
-    if ($self->param_is_defined('create_stable_ids')) {
-#        my $sqlquery = 'UPDATE prediction_transcript SET stable_id = CONCAT("'.$self->param('stable_id_prefix').'X", LPAD(prediction_transcript_id, 11, 0)) WHERE seq_region_id = '.$slice->get_seq_region_id;
+    # Note that the way feature ids work for the analyses PTs have been updated to arrayrefs for batching purposes. I am going to modify this
+    # to take that into account and allow batching. When the other analyses that use feature ids are updated then this change can be applied
+    # generically to the gene features as well
+    my $slice_names = $self->param_required('iid');
+    my $sa = $dba->get_SliceAdaptor();
+    foreach my $slice_name (@{$slice_names}) {
+      my $slice = $sa->fetch_by_name($slice_name);
+      if ($self->param_is_defined('create_stable_ids')) {
         my $sqlquery = sprintf($template_sql, $feature_type, 'X', $feature_type, $slice->get_seq_region_id);
         my $sth = $dba->dbc->prepare($sqlquery);
         $sth->execute();
-    }
-    my $pta = $dba->get_PredictionTranscriptAdaptor;
-    my $logic_names = $self->param('logic_name');
-    if (!ref($logic_names) || scalar(@$logic_names) == 0 ) {
-      $logic_names = ['genscan'];
-    }
-    my @pts ;
-    foreach my $logic_name (@$logic_names) {
-      my $pt = $pta->fetch_all_by_Slice($slice, $logic_name);
-      foreach my $pt_feature (@{$pt}) {
-        push(@{$output_id_array},$pt_feature->dbID());
+      }
+
+      my $pta = $dba->get_PredictionTranscriptAdaptor;
+      my $logic_names = $self->param('logic_name');
+      if (!ref($logic_names) || scalar(@$logic_names) == 0 ) {
+        $logic_names = ['genscan'];
+      }
+      foreach my $logic_name (@$logic_names) {
+        my $pts = $pta->fetch_all_by_Slice($slice, $logic_name);
+        foreach my $pt (@{$pts}) {
+          push(@{$output_id_array},$pt->dbID());
+        }
       }
     }
+    $self->param('inputlist', $self->_chunk_input_ids($self->param_required('batch_size'), $output_id_array));
   } elsif($feature_type eq 'gene') {
+    my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param_required('iid'));
     if ($self->param_is_defined('create_stable_ids')) {
-#        my $sqlquery = 'UPDATE gene SET stable_id = CONCAT("'.$self->param('stable_id_prefix').'G", LPAD(gene_id, 11, 0)) WHERE seq_region_id = '.$slice->get_seq_region_id;
         my $sqlquery = sprintf($template_sql, $feature_type, 'G', $feature_type, $slice->get_seq_region_id);
         my $sth = $dba->dbc->prepare($sqlquery);
         $sth->execute();
@@ -367,12 +385,23 @@ sub convert_slice_to_feature_ids {
         push(@{$output_id_array}, ($use_stable_ids ? $gene_feature->stable_id : $gene_feature->dbID()));
       }
     }
+    $self->param('inputlist', $output_id_array);
   } else {
     $self->throw("The feature_type you provided is not currently supported by the code.\nfeature_type: $feature_type");
   }
 
-  $self->param('inputlist', $output_id_array);
 }
+
+
+=head2 batch_feature_ids
+
+ Arg [1]    : None
+ Description: Batch a set of input ids
+ Returntype : None
+ Exceptions : Throws if 'iid' is not defined
+              Throws if 'slice_size' is negative
+
+=cut
 
 
 =head2 split_slice
@@ -399,6 +428,53 @@ sub split_slice {
 
   $self->param('inputlist', \@input_ids);
 }
+
+
+=head2 rebatch_and_resize_slices
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Description: This can be used to rebatch a list of slices towards a new target
+              batch size. So you could rebatch an arrayref of slice names from a
+              1mb target size to a 100kb target size. This can be useful if an
+              assembly has a huge number of tiny toplevel sequences, sometimes
+              the overhead associated with having many runnables is large. You
+              can also ask to split the individual slices themselves, so if for example
+              you had 1mb slices you could ask for 100kb slice sizes instead. This
+              dual functionality should cover decreasing slices in all scenarios.
+              You can do things like set target batch size to 100kb and the slice
+              size to 100kb so that if you had a 1mb batch to begin with, consisting
+              of a 400kb slice and a 600kb slice you would end up with 10 output
+              jobs, each with a 100kb slice. You can do split the input batch into
+              individual jobs by setting the target batch size to 1, but then having
+              slize size set to whatever you want in terms of splitting stuff. This
+              would work well for analyses that get stuck on certain regions
+ Returntype : None
+ Exceptions : Throws if 'iid' is not defined
+              Throws if 'slice_size' defined and it is negative or zero
+
+=cut
+
+sub rebatch_and_resize_slices {
+  my ($self, $dba) = @_;
+
+  my $sa = $dba->get_SliceAdaptor;
+
+  my $slices = [];
+  foreach my $slice_name (@{$self->param_required('iid')}) {
+    my $slice = $sa->fetch_by_name($slice_name);
+    push(@{$slices},$slice);
+  }
+
+  if ($self->param_is_defined('slice_size')) {
+    unless($self->param('slice_size') > 0) {
+      $self->throw("Slice size must be > 0. Currently ".$self->param('slice_size'));
+    }
+    $slices = split_Slices($slices, $self->param('slice_size'), $self->param('slice_overlaps'));
+  }
+
+  $self->param('inputlist',$self->batch_slice_ids($slices));
+}
+
 
 
 =head2 sequence_accession
@@ -577,11 +653,14 @@ sub feature_id {
     }
   }
 
-  if($self->param('batch_size')) {
-    $self->param('inputlist', $self->_chunk_input_ids($self->param_required('batch_size'), $output_id_array));
-  } else{
-    $self->param('inputlist', $output_id_array);
+  if($self->param_is_defined('batch_size')) {
+    unless($self->param('batch_size') > 0) {
+      $self->throw("You've defined a batch size param of less than 1. Something is wrong");
+    }
+    $output_id_array = $self->_chunk_input_ids($self->param('batch_size'),$output_id_array);
   }
+
+  $self->param('inputlist', $output_id_array);
 }
 
 
@@ -596,12 +675,15 @@ sub feature_restriction {
         # Note initially this is based on translation and not biotype, but for projection I've switched to to biotype temporarily
         unless($feature->biotype() eq 'protein_coding') {
           $feature_restricted = 1;
+          return($feature_restricted);
         }
       } elsif($restriction eq 'biotype') {
         unless($self->param_required('biotypes')->{$feature->biotype()}) {
           $feature_restricted = 1;
         }
-      }
+      } elsif($restriction eq 'projection') {
+        return($self->assess_projection_transcript($feature));
+      } #  End if type eq projection
     } # End if type eq gene or transcript
   } # End if restriction
 
@@ -609,6 +691,64 @@ sub feature_restriction {
 
 }
 
+
+
+sub assess_projection_transcript {
+  my ($self,$current_transcript) = @_;
+
+  my $feature_restricted = 0;
+  unless($current_transcript->biotype() eq 'protein_coding') {
+    $feature_restricted = 1;
+    return($feature_restricted);
+  }
+
+  my $attribs = $current_transcript->get_all_Attributes();
+  my $readthrough = 0;
+  my $cds_incomplete = 0;
+  foreach my $attrib (@{$attribs}) {
+    my $code = $attrib->code();
+    if($code eq 'cds_start_NF' || $code eq 'cds_end_NF') {
+      $cds_incomplete = 1;
+    }
+
+    # Remove readthroughs
+    if($code eq 'readthrough_tra') {
+      $feature_restricted = 1;
+      return($feature_restricted);
+    }
+  }
+
+  if($cds_incomplete) {
+    my $parent_gene = $current_transcript->get_Gene();
+    my $all_transcripts = $parent_gene->get_all_Transcripts();
+    # If it's the only transcript, then keep it, so return 0
+    if(scalar(@{$all_transcripts}) == 1) {
+      return($feature_restricted);
+    }
+
+    my $current_cds_length = $current_transcript->translation->length();
+
+    # Ignore tiny transcripts
+    my $min_cds_length = 30;
+    if($current_cds_length < $min_cds_length) {
+      $feature_restricted = 1;
+      return($feature_restricted);
+    }
+
+    # If any other coding transcript has a larger CDS then restrict this transcript
+    foreach my $transcript (@{$all_transcripts}) {
+      if($transcript->translation) {
+        my $cds_length = $transcript->translation->length();
+        if($cds_length > $current_cds_length) {
+          $feature_restricted = 1;
+          return($feature_restricted);
+        }
+      }
+    }
+  } # end if($cds_incomplete)
+
+  return($feature_restricted);
+}
 
 =head2 filter_slice_on_features
 
@@ -653,6 +793,38 @@ sub filter_slice_on_features {
     $self->throw("The feature type you have selected to constrain the slices on is not currently implemented in the code. ".
                  "Feature type selected: ".$feature_type);
   }
+  return \@output_slices;
+}
+
+
+=head2 filter_slice_on_size
+
+ Arg [1]    : Arrayref of Bio::EnsEMBL::Slice
+ Description: Filters the slices based on the the min_slice_length param. Useful if an assembly contains huge amounts of tiny
+              toplevel slices. While these small slices can be batched together, the overhead can sometimes be extremely large
+              for little to no benefit in terms of annotation
+ Returntype : Arrayref of Bio::EnsEMBL::Slice
+ Exceptions : throw if there are no slices after filtering
+
+=cut
+
+sub filter_slice_on_size {
+  my ($self,$slices) = @_;
+
+  my @output_slices = ();
+  my $min_size = $self->param('min_slice_length');
+  say "Slice count pre length filter: ".scalar(@{$slices});
+  foreach my $slice (@$slices) {
+    if($slice->length >= $min_size) {
+      push(@output_slices, $slice);
+    }
+  }
+
+  if(scalar(@output_slices) == 0) {
+    $self->throw('You set the min_slice_length param to '.$min_size." but after filtering there were no input ids. Something is probably wrong");
+  }
+
+  say "Slice count post length filter: ".scalar(@output_slices);
   return \@output_slices;
 }
 

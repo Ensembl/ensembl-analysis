@@ -67,10 +67,10 @@ sub fetch_input {
   # Set the slice at this point
   $self->query($slice);
 
-
+  say "Fetching input genes...";
   my $final_input_genes = $self->filter_input_genes($input_gene_dbs,$allowed_input_sets);
+  say "finished fetching input genes";
   $self->input_genes($final_input_genes);
-
   return 1;
 }
 
@@ -133,20 +133,11 @@ sub filter_input_genes {
   my $final_input_genes = [];
   my $slice = $self->query;
 
-  SOURCEDB: foreach my $adaptor_name (keys(%{$gene_source_dbs})) {
+  foreach my $adaptor_name (keys(%{$gene_source_dbs})) {
+    say "  Found adaptor: ".$adaptor_name;
     my $db_con_hash = $gene_source_dbs->{$adaptor_name};
     my $db_adaptor = $self->hrdb_get_dba($db_con_hash);
     my $transcript_adaptor = $db_adaptor->get_TranscriptAdaptor();
-    
-    # check if the slice seq region exists in the current source db
-    my $slice_adaptor = $db_adaptor->get_SliceAdaptor();
-    my @slices = @{$slice_adaptor->fetch_all('toplevel',undef,1)};
-    my %slicenames_hash = map { $_->seq_region_name() => $_ } @slices;
-    if (!($slicenames_hash{$slice->seq_region_name()})) {
-      print "Skipping $adaptor_name as slice name ".$slice->seq_region_name()."is missing\n";
-      next SOURCEDB;
-    }
-    
     my $all_transcripts = $transcript_adaptor->fetch_all_by_Slice($slice);
     my $input_genes = [];
 
