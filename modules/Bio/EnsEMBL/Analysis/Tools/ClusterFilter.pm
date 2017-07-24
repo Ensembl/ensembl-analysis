@@ -46,11 +46,6 @@ use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 
-use vars qw (@ISA);
-
-@ISA = qw(Bio::EnsEMBL::Root);
-
-
 
 =head2 new
 

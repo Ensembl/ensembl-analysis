@@ -63,8 +63,8 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
 use Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils
-    qw(replace_stops_with_introns);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns);
+use Data::Dumper;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -78,7 +78,7 @@ sub fetch_input {
 
   $self->create_analysis;
 
-  my $input_id = $self->param('iid');
+  my $input_ids = $self->param('iid');
 
   my $max_internal_stops = $self->param('max_internal_stops');
   unless(defined($max_internal_stops)) {
@@ -104,7 +104,17 @@ sub fetch_input {
   my $target_transcript_dbc = $self->hrdb_get_con('target_transcript_db');
 
   # Define the compara db
-  my $compara_dba = $self->hrdb_get_dba($self->COMPARA_DB,'compara');
+#  my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor{
+#          -user => 'ensro',
+#          -dbname => 'mateus_lastz_human_primates_col1_88',
+#          -host => 'mysql-ens-compara-prod-1',
+#          -driver => 'mysql',
+#          -port => 4485
+#        };
+#  say "Leanne: compara_db type: ".ref($db);
+#  say "stop_______";
+
+  my $compara_dba = $self->hrdb_get_dba($self->COMPARA_DB,undef,'Compara');
   $self->hrdb_set_con($compara_dba,'compara_db');
   my $compara_dbc = $self->hrdb_get_con('compara_db');
 
@@ -128,8 +138,6 @@ sub fetch_input {
   my $q_assembly = $q_gdb->assembly;
   my $t_assembly = $t_gdb->assembly;
 
-
-
   my ($q_assembly_version, $t_assembly_version);
   eval {
     $q_assembly_version = $source_transcript_dbc->get_CoordSystemAdaptor->fetch_by_name('toplevel',$q_gdb->assembly);
@@ -144,48 +152,47 @@ sub fetch_input {
   # fetch the genes; need to work in the coordinate space of the
   # top-level slice to be consistent with compara
   ########
-  my $transcript = $source_transcript_dbc->get_TranscriptAdaptor->fetch_by_dbID($input_id);
-  $transcript->analysis($self->analysis);
-  unless($transcript->biotype eq 'protein_coding') {
-    $self->input_job->autoflow(0);
-    $self->complete_early('Transcript does not have protein_coding biotype!');
-  }
-
-  my $gene = Bio::EnsEMBL::Gene->new();
-  $gene->analysis($self->analysis);
-  $gene->biotype('projection');
-  $gene->add_Transcript($transcript);
-  $gene->stable_id($transcript->stable_id);
-  $gene->start($transcript->start);
-  $gene->end($transcript->end);
-  $gene->strand($transcript->strand);
-  $gene->slice($transcript->slice);
-
-  $self->_check_gene($gene);
-  $self->gene($gene);
-
-  #########
-  # get the compara data: MethodLinkSpeciesSet, reference DnaFrag,
-  # and all GenomicAlignBlocks
-  #########
   my $mlss = $compara_dbc->get_MethodLinkSpeciesSetAdaptor->fetch_by_method_link_type_GenomeDBs($self->INPUT_METHOD_LINK_TYPE,
                                                                                                 [$q_gdb, $t_gdb]);
   unless($mlss) {
     throw("No MethodLinkSpeciesSet for :\n" .$self->INPUT_METHOD_LINK_TYPE . "\n" .$query_species . "\n" .$target_species);
   }
 
-  my $dnafrag = $compara_dbc->get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($q_gdb,$self->gene->slice->seq_region_name);
+  foreach my $input_id (@$input_ids) {
+    my $transcript = $source_transcript_dba->get_TranscriptAdaptor->fetch_by_dbID($input_id);
 
-  my $gaba = $compara_dbc->get_GenomicAlignBlockAdaptor;
+    $transcript->analysis($self->analysis);
+    unless($transcript->biotype eq 'protein_coding') {
+      $self->input_job->autoflow(0);
+      $self->complete_early('Transcript does not have protein_coding biotype!');
+    }
 
+    my $gene = Bio::EnsEMBL::Gene->new();
+    $gene->analysis($self->analysis);
+    $gene->biotype('projection');
+    $gene->add_Transcript($transcript);
+    $gene->stable_id($transcript->stable_id);
+    $gene->start($transcript->start);
+    $gene->end($transcript->end);
+    $gene->strand($transcript->strand);
+    $gene->slice($transcript->slice);
 
-  my $gen_al_blocks = $gaba->fetch_all_by_MethodLinkSpeciesSet_DnaFrag($mlss,$dnafrag,$gene->start,$gene->end);
+    $self->_check_gene($gene);
+    $self->gene($gene);
 
+  #########
+  # get the compara data: MethodLinkSpeciesSet, reference DnaFrag,
+  # and all GenomicAlignBlocks
+  #########
 
-  my (%chains, @chains);
-  foreach my $block (@$gen_al_blocks) {
-    my $qga = $block->reference_genomic_align;
-    my ($tga) = @{$block->get_all_non_reference_genomic_aligns};
+    my $dnafrag = $compara_dbc->get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($q_gdb,$self->gene->slice->seq_region_name);
+    my $gaba = $compara_dbc->get_GenomicAlignBlockAdaptor;
+    my $gen_al_blocks = $gaba->fetch_all_by_MethodLinkSpeciesSet_DnaFrag($mlss,$dnafrag,$gene->start,$gene->end);
+
+    my (%chains, @chains);
+    foreach my $block (@$gen_al_blocks) {
+      my $qga = $block->reference_genomic_align;
+      my ($tga) = @{$block->get_all_non_reference_genomic_aligns};
 
     ###########################################################
     ###### INVESTIGATE: do we want to just use level 1 chains?
@@ -193,26 +200,28 @@ sub fetch_input {
     #next if $qga->level_id != 1 or $tga->level_id != 1;
 
     # fetch the target slice for later reference
-    if (not exists $self->target_slices->{$tga->dnafrag->name}) {
-      $self->target_slices->{$tga->dnafrag->name} = $target_transcript_dbc->get_SliceAdaptor->fetch_by_region('toplevel',$tga->dnafrag->name);
+      if (not exists $self->target_slices->{$tga->dnafrag->name}) {
+        $self->target_slices->{$tga->dnafrag->name} = $target_transcript_dbc->get_SliceAdaptor->fetch_by_region('toplevel',$tga->dnafrag->name);
+      }
+
+      if ($block->reference_genomic_align->dnafrag_strand < 0) {
+        $block->reverse_complement;
+      }
+
+      push @{$chains{$block->group_id}}, $block;
     }
 
-    if ($block->reference_genomic_align->dnafrag_strand < 0) {
-      $block->reverse_complement;
+    foreach my $chain_id (keys %chains) {
+      push @chains, [
+                    sort {
+                       $a->reference_genomic_align->dnafrag_start <=> $b->reference_genomic_align->dnafrag_start;
+                     } @{$chains{$chain_id}}
+                    ];
     }
-
-    push @{$chains{$block->group_id}}, $block;
+    $gene->{'_genomic_align_block_chains'} = \@chains;
+    say "Leanne: ".$input_id;
+    print Dumper $gene->{'_genomic_align_block_chains'};
   }
-
-  foreach my $chain_id (keys %chains) {
-    push @chains, [
-                   sort {
-                     $a->reference_genomic_align->dnafrag_start <=> $b->reference_genomic_align->dnafrag_start;
-                   } @{$chains{$chain_id}}
-                  ];
-  }
-  $self->genomic_align_block_chains(\@chains);
-
 
 }
 
@@ -227,10 +236,9 @@ sub run {
 
   my @res_tran;
   my @final_tran;
-  print scalar(@{$self->genomic_align_block_chains}),"\n";
-  foreach my $chain (@{$self->genomic_align_block_chains}) {
 
-    #    my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffoldDirect->new(
+  foreach my $chain (@{$self->gene->{_genomic_align_block_chains}}) {
+
     my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold->new(
                                                                                      -genomic_align_blocks => $chain,
                                                                                      -from_slice    => $self->gene->slice,
