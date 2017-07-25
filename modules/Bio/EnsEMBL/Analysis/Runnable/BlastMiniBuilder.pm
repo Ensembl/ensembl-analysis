@@ -57,6 +57,7 @@ use vars qw(@ISA);
 use strict;
 
 
+use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Slice;
 

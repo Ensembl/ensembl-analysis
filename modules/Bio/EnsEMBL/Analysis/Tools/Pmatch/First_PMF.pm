@@ -15,16 +15,14 @@
 package Bio::EnsEMBL::Analysis::Tools::Pmatch::First_PMF;
 use warnings ;
 use strict ;
-use vars qw(@ISA);
-use Bio::Root::Object;
+
 use Bio::EnsEMBL::Analysis::Tools::Pmatch::ContigHit;
 use Bio::EnsEMBL::Analysis::Tools::Pmatch::ProteinHit;
 use Bio::EnsEMBL::Analysis::Tools::Pmatch::CoordPair;
 use Bio::EnsEMBL::Analysis::Tools::Pmatch::MergedHit;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
-@ISA = qw(Bio::Root::Object);
 
 sub new {
   my ($class, @args) = @_;

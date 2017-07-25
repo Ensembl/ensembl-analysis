@@ -75,13 +75,6 @@ if (!$output_path or !$dbport or !$dbhost or !$dbname or !$dbuser or !$dbpass or
     exit(1);
 }
 
-if (!$prod_dbhost or !$prod_dbname or !$prod_dbuser or !$prod_dbport)
-{
-    warn('You did not specify all parameters for the production db: '.join(' ', $prod_dbhost, $prod_dbuser, $prod_dbname, $prod_dbpass, $prod_dbport));
-    &usage;
-    exit(1);
-}
-
 if( !$no_external_db )
 {
     if (!$uniprot_filename) {
@@ -90,6 +83,13 @@ if( !$no_external_db )
         exit(1);
     }
     throw( "uniprot_filename needs to be a file (typically like /data/blastdb/Ensembl/uniprot_yyyy_mm/entry_loc)" ) unless ( -f $uniprot_filename);
+    if (!$prod_dbhost or !$prod_dbname or !$prod_dbuser)
+    {
+        warn('You did not specify all parameters for the production db: '.join(' ', $prod_dbhost, $prod_dbuser, $prod_dbname, $prod_dbpass));
+        &usage;
+        exit(1);
+    }
+
 }
 
 

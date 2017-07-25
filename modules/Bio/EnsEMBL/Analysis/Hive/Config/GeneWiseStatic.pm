@@ -63,7 +63,7 @@ sub pipeline_analyses {
 
 This is the config file for all genewise analysis. You should use it in your Hive configuration file to
 specify the parameters of an analysis. You can either choose an existing config or you can create
-a new one based on the default hash. 
+a new one based on the default hash.
 
 =head1 METHODS
 
@@ -83,30 +83,147 @@ sub _master_config {
 
   my %config = (
       default => {
-        GENEWISE_PARAMETERS => {
-                                  -endbias => 1,
-                                  -matrix => 'BLOSUM80.bla',
-                                  -gap => 20,
-                                  -extension => 8,
-                                  -splice_model => 0
-                               },
-        MINIGENEWISE_PARAMETERS => {
+        PAF_LOGICNAMES => [], #an array of logic names found in the
+        #protein align feature table,
+        PAF_MIN_SCORE_THRESHOLD => 0, # 200 for Similarity
+        PAF_UPPER_SCORE_THRESHOLD => undef,
+        PAF_SOURCE_DB => '#genewise_db#',
+        GENE_SOURCE_DB => '#genewise_db#',
+        GENEWISE_PARAMETERS => {},
+        MINIGENEWISE_PARAMETERS => {},
+        MULTIMINIGENEWISE_PARAMETERS => {},
+        BLASTMINIGENEWISE_PARAMETERS => {
+                                         -fullseq => 1,
+                                        },
+        EXONERATE_PARAMETERS => {},  # for ExonerateForGenewise / TargettedExonerate
+        #example exonerate parameters => {
+        #                                 -options => '--model protein2genome
+        #                                              --bestn 1
+        #                                              --maxintron 700000'
+        #                                 }
+        FILTER_OBJECT => 'Bio::EnsEMBL::Analysis::Tools::Filter::BlastMiniGenewise',
+        #path to object
+        FILTER_PARAMS => {},
+        BIOTYPES_TO_MASK => [], #empty means no masking
+        #specified types will be masked,
+        EXON_BASED_MASKING => 1,
+        GENE_BASED_MASKING => 0,
+        PRE_GENEWISE_MASK => 1,
+        POST_GENEWISE_MASK => 1,
+        REPEATMASKING => [],
+        SOFTMASKING => 0,
+        SEQFETCHER_OBJECT => 'Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher',
+        SEQFETCHER_PARAMS => {
+                              -db => '#seqfetcher_index#',
+                             },
+        USE_KILL_LIST => 1,
+        LIMIT_TO_FEATURE_RANGE => undef,
+        FEATURE_RANGE_PADDING => 0,
+        WRITE_REJECTED => 0,
+        REJECTED_BIOTYPE => 'rejected',
+        OPTIMAL_LENGTH => 1000000,
+      },
+      targetted_genewise => {
+         PAF_LOGICNAMES => ['bestpmatch'],
+         PAF_SOURCE_DB => '#target_db#',
+         GENE_SOURCE_DB => '#target_db#',
+         OUTPUT_DB => '#target_db#',
+         OUTPUT_BIOTYPE => '#biotype#',
+
+         GENEWISE_PARAMETERS => {
+                                 -endbias => 1,
+                                 -matrix => 'BLOSUM80.bla',
+                                 -gap => 20,
+                                -extension => 8,
+                                -splice_model => '#gtag#',
+                                },
+         MINIGENEWISE_PARAMETERS => {
                                      -terminal_padding => 20000,
                                      -exon_padding => 200,
                                      -minimum_intron => 1000,
-                                   },
-
-                   FILTER_PARAMS => {
+                                    },
+         MULTIMINIGENEWISE_PARAMETERS =>{
+                                          -minimum_feature_length => 50,
+                                        },
+         FILTER_PARAMS => {
                            -max_exon_length => '20000',
                            -multi_exon_min_coverage => '25',
                            -single_exon_min_coverage => '80',
-                           -max_intron_length => '100000',
+                           -max_intron_length => '#max_intron_length#',
                            -min_split_coverage => 95,
                            -max_low_complexity => 101,
-                         },
+                          },
+         LIMIT_TO_FEATURE_RANGE => 1,
+         FEATURE_RANGE_PADDING => 20000,
+      },
+      similarity => {
+         PAF_LOGICNAMES => ['uniprot'],
+         PAF_SOURCE_DB => '#target_db#',
+         GENE_SOURCE_DB => '#target_db#',
+         OUTPUT_DB => '#target_db#',
+         OUTPUT_BIOTYPE => '#biotype#',
 
-                   LIMIT_TO_FEATURE_RANGE => 1,
-        FEATURE_RANGE_PADDING => 20000,
+         GENEWISE_PARAMETERS => {
+                                 -endbias => 1,
+                                 -matrix => 'BLOSUM80.bla',
+                                 -gap => 20,
+                                -extension => 8,
+                                -splice_model => '#gtag#',
+                                },
+         MINIGENEWISE_PARAMETERS => {
+                                     -terminal_padding => 20000,
+                                     -exon_padding => 200,
+                                     -minimum_intron => 1000,
+                                    },
+         MULTIMINIGENEWISE_PARAMETERS =>{
+                                          -minimum_feature_length => 50,
+                                        },
+         PAF_MIN_SCORE_THRESHOLD => 200,
+         FILTER_PARAMS => {
+                           -max_exon_length => '20000',
+                           -multi_exon_min_coverage => '70',
+                           -single_exon_min_coverage => '90',
+                           -max_intron_length => '#max_intron_length#',
+                           -min_split_coverage => '90',
+                           -max_low_complexity => '60',
+                          },
+         REPEATMASKING => '#repeatmasking#',
+      },
+      targetted_exonerate => {
+         PAF_LOGICNAMES => ['bestpmatch'],
+         PAF_SOURCE_DB => '#target_db#',
+         GENE_SOURCE_DB => '#target_db#',
+         OUTPUT_DB => '#target_db#',
+         OUTPUT_BIOTYPE => '#biotype#',
+         EXONERATE_PARAMETERS => {
+                                  -options => '--model protein2genome --bestn 1 --maxintron 700000'
+                                 },
+
+         FILTER_PARAMS => {
+                           -max_exon_length => '20000',
+                           -multi_exon_min_coverage => '25',
+                           -single_exon_min_coverage => '80',
+                           -max_intron_length => '#max_intron_length#',
+                           -min_split_coverage => 95,
+                           -max_low_complexity => 101,
+                          },
+         LIMIT_TO_FEATURE_RANGE => 1,
+         FEATURE_RANGE_PADDING => 20000,
+         GENEWISE_PARAMETERS => {
+                                 -endbias => 1,
+                                 -matrix => 'BLOSUM80.bla',
+                                 -gap => 20,
+                                -extension => 8,
+                                -splice_model => '#gtag#',
+                                },
+         MINIGENEWISE_PARAMETERS => {
+                                     -terminal_padding => 20000,
+                                     -exon_padding => 200,
+                                     -minimum_intron => 1000,
+                                    },
+         MULTIMINIGENEWISE_PARAMETERS =>{
+                                          -minimum_feature_length => 50,
+                                        },
       },
   );
   return $config{$key};

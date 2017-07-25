@@ -182,6 +182,8 @@ sub parse_results {
     # attach this to our Exon.
     my $transcript = Bio::EnsEMBL::Transcript->new();
     $transcript->{'accession'} = $q_id;
+    $transcript->{'query_length'} = $q_length;
+    $transcript->{'score'} = $score;
 
     my (@tran_feature_pairs,
         $cds_start_exon, $cds_start,

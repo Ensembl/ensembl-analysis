@@ -335,23 +335,4 @@ sub test_translates {
 }
 
 
-sub output_dir_path {
-  my ($self,$val) = @_;
-  if($val) {
-    $self->param('_output_dir_path',$val);
-  }
-
-  return($self->param('_output_dir_path'));
-}
-
-
-sub files_to_delete {
-  my ($self,$val) = @_;
-  if($val) {
-    $self->param('_files_to_delete',$val);
-  }
-
-  return($self->param('_files_to_delete'));
-}
-
 1;

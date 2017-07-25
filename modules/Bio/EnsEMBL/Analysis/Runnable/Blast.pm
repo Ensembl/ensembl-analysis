@@ -104,7 +104,7 @@ sub new {
   ######################
   $self->type('ncbi');
   $self->unknown_error_string('FAILED');
-  $self->options('-num_threads 1') if(!$self->options);
+  $self->options('-num_threads=1') if(!$self->options);
   ######################
   $self->databases($database);
   $self->parser($parser);
@@ -164,9 +164,9 @@ sub databases{
       push(@dbs,$dbname);
     } else {
       my $count = 1;
-      while (-f $dbname . "-$count") {
-        push(@dbs,$dbname . "-$count");          
-        $count++;        
+      while (-f "$dbname-$count") {
+        push(@dbs,"$dbname-$count");
+        $count++; 	 
       }
     }
 
@@ -284,18 +284,25 @@ sub run_analysis {
     #allow system call to adapt to using ncbi blastall. 
     #defaults to WU blast
     my $command  = $self->program;
-    my $blastype = "";
     my $filename = $self->queryfile;
     my $results_file = $self->create_filename($db, 'blast.out');
     $self->files_to_delete($results_file);
     $self->results_files($results_file);
     if ($self->type eq 'legacy_ncbi') {
+      if (!exists $ENV{BLASTMAT} or ! -e $ENV{BLASTMAT}) {
+        throw(' Your environment variable $BLASTMAT is not set !!! '.
+              " Point it to /usr/local/ensembl/data/blastmat/ or where your BLOSUM62 matrices live\n");
+      }
       $command .= " -d $database -i $filename ";
     }
     elsif ($self->type eq 'ncbi') {
       $command .= " -db $database -query $filename ";
     }
     else {
+      if (!exists $ENV{WUBLASTMAT} or ! -e $ENV{WUBLASTMAT}) {
+        throw(' Your environment variable $BLASTMAT is not set !!! '.
+              " Point it to /usr/local/ensembl/data/blastmat/ or where your BLOSUM62 matrices live\n");
+      }
       $command .= " $database $filename -gi ";
     }
     $command .= $self->options. ' 2>&1 > '.$results_file;
@@ -303,11 +310,6 @@ sub run_analysis {
     print "Running blast ".$command."\n";
     info("Running blast ".$command); 
 
-    if ((!exists $ENV{BLASTMAT} or ! -e $ENV{BLASTMAT})
-     && (!exists $ENV{WUBLASTMAT} or ! -e $ENV{WUBLASTMAT})) {
-      warning(" your environment variable \$BLASTMAT is not set !!! ".
-            " Point it to /usr/local/ensembl/data/blastmat/ or where your BLOSUM62 matrices live\n") ;
-    }
 
     # I don't thing the vast majority of error parsing is needed, so I will not integrate it for the timer
     # assuming we don't run into problems in the future with BLAST the else can probably be deleted

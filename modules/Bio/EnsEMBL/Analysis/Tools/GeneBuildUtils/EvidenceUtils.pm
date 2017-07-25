@@ -17,7 +17,7 @@ package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils;
 
 use strict;
 use warnings;
-use Exporter;
+use Exporter qw(import);
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
                                       stack_trace_dump);
@@ -25,11 +25,12 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(coord_string id);
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::FeaturePair;
-use vars qw (@ISA @EXPORT);
 
-@ISA = qw(Exporter);
-@EXPORT = qw (print_Evidence clone_Evidence Evidence_info create_feature 
-              create_feature_from_gapped_pieces);
+our @EXPORT_OK = qw(print_Evidence
+                    clone_Evidence
+                    Evidence_info
+                    create_feature
+                    create_feature_from_gapped_pieces);
 
 
 sub print_Evidence{
@@ -48,8 +49,8 @@ sub Evidence_info{
   }elsif($feature->isa('Bio::EnsEMBL::DnaPepAlignFeature')){
     $tag = "PROTEIN EVIDENCE";
   }else{
-    throw("ExidenceUtils:print_Evidence Don't know what to do ">
-          "with a ".$feature);
+    throw(__PACKAGE__.":Evidence_info Don't know what to do ".
+          "with a $feature");
   }
   my $score = $feature->score || ".";
   my $percent_id = $feature->percent_id || ".";
@@ -72,7 +73,7 @@ sub clone_Evidence{
   }elsif($feature->isa('Bio::EnsEMBL::DnaPepAlignFeature')){
     $feature_string = 'Bio::EnsEMBL::DnaPepAlignFeature';
   }else{
-    throw("ExidenceUtils:clone_Evidence Don't know what to do ".
+    throw(__PACKAGE__.":clone_Evidence Don't know what to do ".
           "with a ".$feature);
   }
 

@@ -635,10 +635,10 @@ sub cluster_Genes {
   # from clusters which hold more than one gene 
 
   # print "Have " . scalar(@active_clusters) . " active clusters and " . scalar(@inactive_clusters) . " inactive clusters\n";
-  my @clusters = (@active_clusters,@inactive_clusters);
+#  my @clusters = (@active_clusters,@inactive_clusters);
 
   my (@new_clusters, @unclustered);
-  foreach my $cl (@clusters){
+  foreach my $cl (@active_clusters,@inactive_clusters){
     if ( $cl->get_Gene_Count == 1 ){
       push @unclustered, $cl;
     } else{
@@ -667,61 +667,43 @@ sub cluster_Genes {
 sub _compare_Genes {
   my ($gene1,$gene2,$translate, $ignore_strand) = @_;
   
-  if (!$ignore_strand) {
-    $ignore_strand = 0;
-  }
-
   # quit if genes do not have genomic overlap 
   #
   # start-------gene1------end   start--------gene2----------end
   #  
   
-  if ($gene1->end < $gene2->start || $gene1->start > $gene2->end) {
-    print "Gene 1  " . $gene1->start . " " . $gene1->end . " \n";
-    print "Gene 2  " . $gene2->start . " " . $gene2->end . " \n";
-    print "Failed extents check - returning 0\n";
-    return 0;
-  }
   
   
   # $overlaps = ( $exon1->end >= $exon2->start && $exon1->start <= $exon2-> end );  
 
-  if ($translate) {
-    #print "clustering by overlap of coding exons only\n"; 
-    # exon-overlap only on coding exons !
-    my $exons1 = get_coding_exons_for_gene($gene1);
-    my $exons2 = get_coding_exons_for_gene($gene2);
-    foreach my $exon1 (@$exons1) {
-      foreach my $exon2 (@$exons2) {
-        if ($ignore_strand==0) {
-          if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
-            #print "Passed CDS overlap check - returning 1\n";
+  if ($ignore_strand or $gene1->strand == $gene2->strand) {
+    if ($translate) {
+      #print "clustering by overlap of coding exons only\n";
+      # exon-overlap only on coding exons !
+      my $exons1 = get_coding_exons_for_gene($gene1);
+      my $exons2 = get_coding_exons_for_gene($gene2);
+      foreach my $exon1 (@$exons1) {
+        foreach my $exon2 (@$exons2) {
+          if ($exon1->overlaps_local($exon2)){
             return 1;
           }
-        } else {
-          # we ignore strand
-          if ($exon1->overlaps($exon2)){
-            return 1;
+          elsif ($exon1->end < $exon2->start) {
+            last;
           }
         }
       }
-    }
-  } else {
-    #
-    # overlap check based on all (noncoding + coding) Exons 
-    #
-    foreach my $exon1 (@{$gene1->get_all_Exons}){
-      foreach my $exon2 (@{$gene2->get_all_Exons}){
-        if ($ignore_strand==0) {
-          if ( ($exon1->overlaps($exon2)) && ($exon1->strand == $exon2->strand) ){
+    } else {
+      #
+      # overlap check based on all (noncoding + coding) Exons
+      #
+      foreach my $exon1 (@{$gene1->get_all_Exons}){
+        foreach my $exon2 (@{$gene2->get_all_Exons}){
+          if ($exon1->overlaps_local($exon2)){
             #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
             return 1;
           }
-        } else {
-          # we ignore strand
-          if ($exon1->overlaps($exon2)){
-            #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
-            return 1;
+          elsif ($exon1->end < $exon2->start) {
+            last;
           }
         }
       }

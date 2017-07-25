@@ -14,19 +14,19 @@
 # limitations under the License.
 
 # holds the object that does the second round of filtering
+
 package Bio::EnsEMBL::Pipeline::Tools::Pmatch::Second_PMF;
+
 use warnings ;
 use strict ;
-use vars qw(@ISA);
-use Bio::Root::Object;
 
-@ISA = qw(Bio::Root::Object);
+use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 
 sub new {
   my ($class, @args) = @_;
   my $self = bless {}, $class;
 
-  my ($phits) = $self->_rearrange(['PHITS'], @args);
+  my ($phits) = rearrange(['PHITS'], @args);
 
   $self->throw("No pmatch hits data") unless defined $phits;
   $self->phits($phits);

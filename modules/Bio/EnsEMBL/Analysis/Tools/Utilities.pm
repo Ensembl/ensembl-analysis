@@ -51,8 +51,9 @@ use strict;
 use warnings;
 
 use Exporter qw(import);
-use File::Spec;
+use File::Spec::Functions qw(catfile tmpdir);
 use File::Which;
+use File::Temp;
 
 use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; # needed for read_config()
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
@@ -487,15 +488,14 @@ sub parse_config_mini{
 
 =head2 create_file_name
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
-  Arg [2]   : string, stem of filename
-  Arg [3]   : string, extension of filename
-  Arg [4]   : directory file should live in
-  Function  : create a filename containing the PID and a random number
+  Arg [1]   : string, stem of filename
+  Arg [2]   : string, extension of filename
+  Arg [3]   : directory file should live in
+  Function  : create a filename using File::Temp
   with the specified directory, stem and extension
-  Returntype: string, filename
+  Returntype: File::Temp object
   Exceptions: throw if directory specifed doesnt exist
-  Example   : my $queryfile = $self->create_filename('seq', 'fa');
+  Example   : my $queryfile = create_file_name('seq', 'fa');
 
 =cut
 
@@ -503,20 +503,21 @@ sub parse_config_mini{
 
 sub create_file_name{
   my ($stem, $ext, $dir) = @_;
-  if(!$dir){
-    $dir = '/tmp';
+
+  my $random = 'XXXXX';
+  my %params = (DIR => tmpdir);
+  if ($dir) {
+    if (-d $dir) {
+      $params{DIR} = $dir;
+    }
+    else {
+      throw(__PACKAGE__."::create_file_name: $dir doesn't exist");
+    }
   }
-  $stem = '' if(!$stem);
-  $ext = '' if(!$ext);
-  throw($dir." doesn't exist SequenceUtils::create_filename")
-    unless(-d $dir);
-  my $num = int(rand(100000));
-  my $file = $dir."/".$stem.".".$$.".".$num.".".$ext;
-  while(-e $file){
-    $num = int(rand(100000));
-    $file = $dir."/".$stem.".".$$.".".$num.".".$ext;
-  }
-  return $file;
+  $params{TEMPLATE} = $stem.'_'.$random if ($stem);
+  $params{SUFFIX} = '.'.$ext if ($ext);
+  my $fh = File::Temp->new(%params);
+  return $fh;
 }
 
 
@@ -534,29 +535,37 @@ sub create_file_name{
 
 sub write_seqfile{
   my ($seq, $filename, $format) = @_;
-  $format = 'fasta' if(!$format);
-  my @seqs;
+
+  my %params = ( -format => $format || 'fasta');
+  my $seqs;
   if(ref($seq) eq "ARRAY"){
-    @seqs = @$seq;
-    throw("Seqs need to be Bio::PrimarySeqI object not a ".$seqs[0])
-      unless($seqs[0]->isa('Bio::PrimarySeqI'));
+    throw("Seqs need to be Bio::PrimarySeqI object not a ".$seq->[0])
+      unless($seq->[0]->isa('Bio::PrimarySeqI'));
+    $seqs = $seq
   }else{
     throw("Need a Bio::PrimarySeqI object not a ".$seq)
       if(!$seq || !$seq->isa('Bio::PrimarySeqI'));
-    @seqs = ($seq);
+    $seqs = [$seq];
   }
-  $filename = create_file_name('seq', 'fa', '/tmp')
-    if(!$filename);
-  my $seqout = Bio::SeqIO->new(
-                               -file => ">".$filename,
-                               -format => $format,
-                              );
-  foreach my $seq(@seqs){
+  if($filename) {
+    if (ref($filename) eq 'File::Temp') {
+      $params{-fh} = $filename;
+    }
+    else {
+      $params{-file} = $filename;
+    }
+  }
+  else {
+    $params{-fh} = create_file_name('seq', 'fa');
+    $filename = $params{-fh};
+  }
+  my $seqout = Bio::SeqIO->new(%params);
+  foreach my $seq(@$seqs){
     eval{
-      $seqout->write_seq($seq);
+      throw("Problem writing to $filename") unless ($seqout->write_seq($seq));
     };
     if($@){
-      throw("FAILED to write $seq to $filename SequenceUtils:write_seq_file $@");
+      throw("FAILED to write $seq to $filename ".__PACKAGE__.":write_seqfile $@");
     }
   }
   return $filename;
@@ -1117,8 +1126,8 @@ sub locate_executable {
     if (-x $name) {
       $path = $name;
     }
-    elsif ($bindir && -x File::Spec->catfile($bindir, $name)) {
-      $path = File::Spec->catfile($bindir, $name);
+    elsif ($bindir && -x catfile($bindir, $name)) {
+      $path = catfile($bindir, $name);
     }
     else {
       $path = File::Which::which($name);

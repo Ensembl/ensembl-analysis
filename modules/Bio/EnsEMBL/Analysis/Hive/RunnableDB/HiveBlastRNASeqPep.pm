@@ -154,8 +154,11 @@ sub fetch_input {
 
 sub run {
     my ($self) = @_;
-    my @runnables = @{$self->runnable};
-    foreach my $runnable(@runnables){
+    if ($self->param('disconnect_jobs')) {
+      $self->dbc->disconnect_if_idle;
+      $self->hrdb_get_con('dna_db')->dbc->disconnect_if_idle;
+    }
+    foreach my $runnable (@{$self->runnable}){
         eval{
             $runnable->run;
         };

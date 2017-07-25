@@ -129,13 +129,13 @@ sub prune_hits{
   $hits = $self->protein_hits if(!$hits);
   my @chosen;
   my %prots = %{$self->protein_hash};
+  my $lower_threshold = $self->min_coverage;
  PROTEIN:foreach my $p(keys(%{$self->protein_hash})){
     my $allhits = $prots{$p};
     my @sorted = sort {$b->score <=> $a->score} @$allhits;
 
     my $first = shift(@sorted);
     my $score_boundary = $first->score() - 2; 
-    my $lower_threshold = $self->min_coverage;
     next PROTEIN if $first->score < $lower_threshold;
     push(@chosen, $first);
   PRUNE:foreach my $hit(@sorted){
