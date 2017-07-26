@@ -54,6 +54,15 @@ use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    stranded_read => 0,
+  }
+}
+
 =head2 fetch_input
 
  Arg [1]    : None
@@ -74,6 +83,10 @@ sub fetch_input {
     $self->hrdb_set_con($self->get_database_by_name('output_db'), 'output_db');
 
     my $slice = $self->fetch_sequence($self->input_id, $reference_db);
+    if ($self->param('disconnect_jobs')) {
+      $reference_db->dbc->disconnect_if_idle;
+      $self->dbc->disconnect_if_idle;
+    }
     my $sam = Bio::DB::HTS->new(
             -bam => $self->param('alignment_bam_file'),
             -expand_flags => 1,
@@ -152,11 +165,13 @@ sub exon_cluster {
     # BWA has been run on whole genome. If the slice is not starting at 1, the Core API
     # will shift the coordinate of our clusters which is wrong
     my $full_slice = $slice->start == 1 ? $slice : $slice->seq_region_Slice;
-    my %exon_clusters;
+    my %exons_hash;
     my @exon_clusters;
+    my %index_count = ('-1' => 0, '1' => 0);
     my $cluster_data;
     my $cluster_count = 0;
     my $read_count = 0;
+    my $stranded_reads = $self->param('stranded_read'); # This should probably be a hash to make sure that we don't treat not strand reads in a group the wrong way...
     # I can't give parameters to $bam->fetch() so it's easier to create the callback
     # inside the method. Maybe with the low level method it's better.
     my $_process_reads = sub {
@@ -168,68 +183,76 @@ sub exon_cluster {
         my $name = $query->name;
         my $start  = $read->start;
         my $end    = $read->end;
-        my $hstart = $query->start;
-        my $hend   = $query->end;
         my $paired = $read->get_tag_values('MAP_PAIR');
+        my $is_first_mate = 1;
+        my $hstrand = 1;
+        my $strand = 1;
+        my $real_strand = -1; # We are making sure that we are -1 if not stranded, which should probably be changed...
+        if ($stranded_reads) {
+            $strand = $read->strand;
+            $real_strand = $read->get_tag_values('FIRST_MATE') ? $strand*-1 : $strand;
+        }
+#        print STDERR 'READ: ', $is_first_mate, ' ', $strand, ' ', $real_strand, ' ', $start, ' ', $read->flag, ' ', $read->get_tag_values('FIRST_MATE'), ' ', $read->get_tag_values('SECOND_MATE'), "\n";
+
         # ignore spliced reads
         # make exon clusters and store the names of the reads and associated cluster number
-        for (my $index = @exon_clusters; $index > 0; $index--) {
-            my $exon_cluster = $exon_clusters[$index-1];
+        for (my $index = $index_count{$real_strand}; $index > 0; $index--) {
+          my $exon_cluster = $exon_clusters[$index-1];
+          if ($exon_cluster->strand == $real_strand) {
             my $cluster_end = $exon_cluster->end;
             if ($start > $cluster_end+1) {
                 last;
             }
             elsif ( $start <= $cluster_end+1 &&  $end >= $exon_cluster->start-1 ) {
-                # Expand the exon_cluster
-                $exon_cluster->start($start) if $start < $exon_cluster->start;
-                $exon_cluster->end($end)     if $end   > $exon_cluster->end;
-                $exon_cluster->score($exon_cluster->score + 1);
-                # only store the connection data if it is paired in mapping
-                if ($paired) {
-                    if (exists $cluster_data->{$name}->{$exon_cluster->hseqname}) {
-                        delete $cluster_data->{$name};
-                    }
-                    else {
-                        $cluster_data->{$name}->{$exon_cluster->hseqname} = 1;
-                    }
-                }
-                # only allow it to be a part of a single cluster
-                return;
+              # Expand the exon_cluster
+              $exon_cluster->end($end)     if $end   > $exon_cluster->end;
+              $exon_cluster->score($exon_cluster->score + 1);
+              # only store the connection data if it is paired in mapping
+              if ($paired) {
+                  if (exists $cluster_data->{$name}->{$exon_cluster->hseqname}) {
+                      delete $cluster_data->{$name};
+                  }
+                  else {
+                      $cluster_data->{$name}->{$exon_cluster->hseqname} = 1;
+                  }
+              }
+              # only allow it to be a part of a single cluster
+              return;
             }
+          }
         }
         # start a new cluster if there is no overlap
         ++$cluster_count;
         # make a feature representing the cluster
+        my $hstart = $query->start;
+        my $hend   = $query->end;
         my $feat = Bio::EnsEMBL::FeaturePair->new
             (
              -start      => $start,
              -end        => $end,
-             -strand     => -1,
+             -strand     => $real_strand,
              -slice      => $full_slice,
              -hstart     => $hstart,
              -hend       => $hend,
              -hstrand    => 1,
              -score      => 1,
              -percent_id => 100,
-             -hseqname   => "C". $cluster_count,
+             -hseqname   => $cluster_count,
              -analysis   => $self->analysis,
             );
+#            print STDERR 'DEBUG ', $feat->start, ' ', $is_first_mate, ' ', $feat->strand, "\n";
         # store the clusters in a hash with a unique identifier
         push(@exon_clusters, $feat);
+        $exons_hash{$feat->hseqname} = $feat;
+        $index_count{$real_strand} = @exon_clusters;
         # store the key within the feature
         if ($paired) {
-            if (exists $cluster_data->{$name}->{$feat->hseqname}) {
-                delete $cluster_data->{$name};
-            }
-            else {
-                $cluster_data->{$name}->{$feat->hseqname} = 1;
-            }
+          $cluster_data->{$name}->{$feat->hseqname} = 1;
         }
     };
     $bam->fetch($region, $_process_reads);
     print STDERR "Processed $read_count reads\n";
-    %exon_clusters = map {$_->hseqname => $_} @exon_clusters;
-    return \%exon_clusters, $cluster_data, $full_slice;
+    return \%exons_hash, $cluster_data, $full_slice;
 }
 
 1;

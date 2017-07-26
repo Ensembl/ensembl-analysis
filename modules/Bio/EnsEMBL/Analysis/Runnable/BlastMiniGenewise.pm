@@ -73,7 +73,7 @@ use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning stack_trace_dump);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
+use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info logger_verbosity);
 use Bio::EnsEMBL::Analysis::Tools::FilterBPlite;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFilter;
 
@@ -95,6 +95,7 @@ sub new {
   $self->check_repeated(1);
   #########################
   
+  logger_verbosity('INFO');
   $self->seqfetcher($seqfetcher);
   $self->ids($ids);
   $self->minigenewise_options($minigenewise_options);
@@ -521,7 +522,7 @@ sub run_blast {
   my $run = Bio::EnsEMBL::Analysis::Runnable::Blast
     ->new(
           -query => $seq,
-          -program => 'wutblastn',
+          -program => 'tblastn',
           -database => $blastdb_file,
           -parser => $self->blast_parser,
           -filter => $self->blast_filter,
@@ -580,21 +581,22 @@ sub run_blast {
           : the proteins to the slice. The supoporting features of 
           : the transcripts are returned
   Returns : none
-  Args    : list of Bio::EnsEMBL::BaseAlignFeature objects
+  Args    : list of Bio::EnsEMBL::BaseAlignFeatue objects
 
 =cut
 
 sub run_exonerate {
-  my ($self)= @_;
+  my ($self, $seq)= @_;
+
   my @features;
-  my @seqs = @{$self->get_Sequences};
-  if (@seqs != @{$self->ids}) {
-    warning("Managed to get only " . scalar(@seqs) . "  of ".
-            scalar(@{$self->ids}) ."for Exonerate run; check indices\n");
-  }
-  my @valid_seqs   = $self->validate_sequence(@seqs);
-  my @sorted_seqs = sort {$a->id cmp $b->id} @valid_seqs;
-  foreach my $seq (@sorted_seqs) {
+#  my @seqs = @{$self->get_Sequences};
+#  if (@seqs != @{$self->ids}) {
+#    warning("Managed to get only " . scalar(@seqs) . "  of ".
+#            scalar(@{$self->ids}) ."for Exonerate run; check indices\n");
+#  }
+#  my @valid_seqs   = $self->validate_sequence(@seqs);
+#  my @sorted_seqs = sort {$a->id cmp $b->id} @valid_seqs;
+#  foreach my $seq (@sorted_seqs) {
     my $exonerate = new  Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript
       (
        -program     => $self->exonerate_path,
@@ -642,7 +644,7 @@ sub run_exonerate {
 	push @features, @{$exon->get_all_supporting_features};
       }
     }
-  }
+#  }
   return \@features;
 }
 

@@ -373,6 +373,22 @@ sub _master_config {
                             },
 
              },
+             selenocysteine => {
+               query_url => 'taxonomy%3A#taxon_id#+AND+annotation%3A%28type%3Anon_std+Selenocysteine%29+AND+fragment%3Ano&format=fasta&include=yes',
+               file_name => '#taxon_id#_seleno.fa',
+               dest_dir   => '#output_path#',
+             },
+      self_isoforms_12 => {
+              self_isoforms_12 =>{
+                            file_name => 'self_isoforms_12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                            isoforms  => 1,
+                            format    => 'fasta',
+                          },
+              },
   );
   return $config{$key};
 }

@@ -34,10 +34,10 @@
 Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNAFinder - 
 
 =head1 SYNOPSIS
-Find RNAseq models that don't overlap with protein coding (models) predictions and use them as lincRNA candidates
+
+Find RNAseq models that don't overlap with protein coding (models) predictions and store them as lincRNA candidates (rnaseq)
 
 =head1 DESCRIPTION
-
 
 =head1 METHODS
 
@@ -57,7 +57,6 @@ use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils	qw(id coord_string lies_inside_of_slice);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info) ; 
 use Bio::EnsEMBL::Analysis::Tools::LincRNA qw(get_genes_of_biotypes_by_db_hash_ref) ;  
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -127,12 +126,10 @@ sub write_output {
 		my @tr     = @{ $gene->get_all_Transcripts };
 		my $max_ex = 0;
 		for (@tr) {
-			$_->status(undef);
 			$_->analysis( $analysis );
 		}
 
 		$gene->biotype( $self->OUTPUT_BIOTYPE );
-		$gene->status(undef);
 		$gene->analysis( $analysis );
 		eval { 
 			$adaptor->store($gene); 
@@ -149,9 +146,46 @@ sub write_output {
 	if ( $sucessful_count != @{ $self->output } ) {
 		$self->throw("Failed to write some genes");
 	}
+
+  # this check was added because I had problems with few genes that didn't stored and the job didn't died! mysql kind of thing! 
+  eval{
+    my $check = $self->check_if_all_stored_correctly(); 
+    print "check result: " . $check . " -- " . $sucessful_count ." genes written to FINAL OUTPUT DB " . $dba->dbc->dbname . "\n" ; # . $self->output_db->dbname . " @ ". $self->output_db->host . "\n"  ;   
+    if($sucessful_count != @{ $self->output } ) { 
+      $self->throw("Failed to write some genes");
+    }
+  };
+  if($@){
+  	print "You have a problem with those genes, they didn't stored successfully, I will try to delete them and rerun the job: \n "; 
+  	foreach my $g_t(@{ $self->output }){ 
+  		print $g_t->dbID . "\n";  	
+  	}
+    $self->param('fail_delete_features', \@{ $self->output });
+    $self->throw($@);
+  }
+
 	print "Final: " . $sucessful_count	. " genes written to " . " @ \n";
 }
 
+# post_cleanup will clean your entries if your full job didn't finish fine. Usefull! 
+sub post_cleanup {
+  my $self = shift;
+  
+  if ($self->param_is_defined('fail_delete_features')) {
+    my $dba = $self->hrdb_get_con('lincRNA_output_db');
+    my $gene_adaptor = $dba->get_GeneAdaptor;
+    foreach my $gene (@{$self->param('fail_delete_features')}) {
+      eval {
+        print "DEBUG::cleaning-removing gene, something didn't go as should... \n"; 
+        $gene_adaptor->remove($gene);
+      };
+      if ($@) {
+        $self->throw('Could not cleanup the mess for these dbIDs: '.join(', ', @{$self->param('fail_delete_features')}));
+      }
+    }
+  }
+  return 1;
+}
 
 =head2 read_and_check_config
 
@@ -169,6 +203,24 @@ sub write_output {
 #######
 #CHECKS
 #######
+
+# this function checks if everything stored successfully 
+sub check_if_all_stored_correctly { 
+  my ($self) = @_; 
+
+  my $set_db = $self->hrdb_get_dba($self->param('lincRNA_output_db')); 
+  my $dna_dba = $self->hrdb_get_dba($self->param('reference_db')); 
+  if($dna_dba) { 
+    $set_db->dnadb($dna_dba); 
+  } 
+  
+  my $test_id = $self->param('iid'); 
+  my $slice = $self->fetch_sequence($test_id, $set_db, undef, undef, 'lincRNA_output_db')  ; 
+  print  "check if all genes are fine!! \n" ; 
+  my $genes = $slice->get_all_Genes(undef,undef,1) ; 
+	return "yes"; 
+}
+
 
 
 # HIVE check

@@ -162,7 +162,7 @@ sub write_output {
 
   }
   close(WH) || $self->throw('Could not close '.$self->param('output_file'));
-  $self->dataflow_output_id({sequence_file => $self->param('output_file')}, 2);
+  $self->dataflow_output_id({iid => $self->param('output_file'), sequence_file => $self->param('output_file'), iid_type => 'filename'}, $self->param('_branch_to_flow_to'));
 }
 
 1;

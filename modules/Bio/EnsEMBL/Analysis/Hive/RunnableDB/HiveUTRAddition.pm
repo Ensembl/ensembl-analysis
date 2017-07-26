@@ -50,6 +50,14 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    allow_partial_match => 0,
+  }
+}
 
 sub fetch_input {
   my $self = shift;
@@ -180,9 +188,6 @@ sub add_utr {
   my @final_transcripts;
   my $allow_partial_match = $self->param('allow_partial_match');
 
-  my $modified_acceptor_transcript_5prime;
-  my $modified_acceptor_transcript_3prime;
-  my $modified_acceptor_transcript_single_exon;
   foreach my $acceptor_transcript (@{$acceptor_transcripts}) {
     if(exists $self->biotype_priorities->{$acceptor_transcript->biotype}) {
       if ($self->biotype_priorities->{$acceptor_transcript->biotype} == 1 or
@@ -194,6 +199,9 @@ sub add_utr {
       }
     }
 #    print STDERR 'TIBO: ACCEPTOR: ', $acceptor_transcript->display_id, ' ', $acceptor_transcript->biotype, "\n";
+       my $modified_acceptor_transcript_5prime;
+       my $modified_acceptor_transcript_3prime;
+       my $modified_acceptor_transcript_single_exon;
     if(scalar(@{$acceptor_transcript->get_all_Exons}) == 1) {
        say "Single exon acceptor detected";
        # I don't like this duplication of code, should find a better way to do it
@@ -627,6 +635,9 @@ sub add_five_prime_utr {
   my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
   say "Old translation start: ".$transcript_a->translation->start;
   say "New translation start: ".$final_translation->start;
+  foreach my $seq_edit (@{$transcript_a->translation->get_all_SeqEdits}) {
+    $final_translation->add_Attributes($seq_edit->get_Attribute);
+  }
 
   $self->add_utr_evidence($final_exons, $exons_b, $transcript_b);
   my $modified_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $final_exons);
@@ -865,6 +876,9 @@ sub add_three_prime_utr {
 #  }
 
   my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+  foreach my $seq_edit (@{$transcript_a->translation->get_all_SeqEdits}) {
+    $final_translation->add_Attributes($seq_edit->get_Attribute);
+  }
   $self->add_utr_evidence($final_exons, $exons_b, $transcript_b);
   my $modified_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $final_exons);
 
@@ -936,132 +950,6 @@ sub add_three_prime_utr {
 }
 
 
-sub add_single_exon_utr {
-  my ($self,$transcript_a,$transcript_b) = @_;
-
-  # The first thing to do is to check if the exon from transcript_a is contained in transcript_b. Contained means
-  # that the coordinates could match exactly or reside within the donor exon
-  my $exon_a = shift(@{$transcript_a->get_all_Exons});
-  my $exons_b = $transcript_b->get_all_Exons();
-
-  if(scalar(@{$exons_b}) == 1) {
-    my $exon_b = shift(@{$exons_b});
-    if($exon_a->start == $exon_b->start && $exon_a->end == $exon_b->end) {
-      say "Donor is also single exon and has same start and end, so nothing to add";
-      return 0;
-    }
-  }
-
-  my $final_translation;
-  my $contained = 0;
-
-  my $final_exons = [];
-  # First add all the exons from the acceptor
-  say "Single exon acceptor: (".$exon_a->start."..".$exon_a->end.")";
-  print "Donor for single exon: ";
-  foreach my $exon_b (@{$exons_b}) {
-    print "(".$exon_b->start."..".$exon_b->end.")";
-    # If this is true exon a is contained in exon b and we need to create a merged exon
-    if($exon_a->start >= $exon_b->start && $exon_a->end <= $exon_b->end) {
-      $contained = 1;
-
-      my $merge_exon = new Bio::EnsEMBL::Exon(
-                                             -START     => $exon_b->start,
-                                             -END       => $exon_b->end,
-                                             -STRAND    => $exon_b->strand,
-                                             -SLICE     => $exon_b->slice,
-                                             -ANALYSIS  => $self->analysis);
-
-      my $supporting_features_a = $exon_a->get_all_supporting_features();
-      $merge_exon->add_supporting_features(@{$supporting_features_a});
-
-      my $translation = Bio::EnsEMBL::Translation->new();
-      my $start_phase;
-      my $end_phase;
-      my $translation_shift;
-      if($exon_a->strand == 1) {
-        $translation_shift = $exon_a->start - $exon_b->start;
-        # Work out what the end phase should be
-        if($exon_b->end > $exon_a->end) {
-          $end_phase = -1;
-        } else {
-          $end_phase = $exon_a->end_phase();
-        }
-      } else {
-        $translation_shift = $exon_b->end - $exon_a->end;
-        if($exon_a->start > $exon_b->start) {
-          $end_phase = -1;
-        } else {
-          $end_phase = $exon_a->end_phase();
-        }
-      }
-
-      # Set the start phase, if there is a shift we know there is 5' UTR so set to -1
-      if($translation_shift) {
-        $start_phase = -1;
-      } else {
-        $start_phase = $exon_a->phase();
-      }
-
-      $translation->start_Exon($merge_exon);
-      $translation->start($transcript_a->translation()->start() + $translation_shift);
-      $translation->end_Exon($merge_exon);
-      $translation->end($transcript_a->translation()->end() + $translation_shift);
-      $final_translation = $translation;
-      push(@{$final_exons},$merge_exon);
-    } else {
-      my $out_exon = new Bio::EnsEMBL::Exon(
-                                           -START  => $exon_b->start,
-                                           -END       => $exon_b->end,
-                                           -STRAND    => $exon_b->strand,
-                                           -SLICE     => $exon_b->slice,
-                                           -ANALYSIS  => $self->analysis,
-                                           -PHASE     => -1,
-                                           -END_PHASE => -1);
-
-      push(@{$final_exons},$out_exon);
-    }
-  }
-
-  print "\n";
-  unless($contained) {
-    say "Single exon acceptor was not contained within a donor exon, no UTR will be added";
-    return(0);
-  }
-
-  my $modified_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $final_exons);
-  $modified_transcript->analysis($transcript_a->analysis);
-  $modified_transcript->biotype($transcript_a->biotype);
-  $modified_transcript->slice($transcript_a->slice());
-  $modified_transcript->translation($final_translation);
-  calculate_exon_phases($modified_transcript, 0);
-
-  print "Modified transcript: ";
-  foreach my $exon (@{$modified_transcript->get_all_Exons}) {
-    print "(".$exon->start."..".$exon->end.")";
-  }
-  print "\n";
-
-  calculate_exon_phases($modified_transcript, 0);
-  my $modified_translation = $modified_transcript->translation();
-  say "\n";
-  say "Acceptor original sequence:\n".$transcript_a->seq->seq;
-  say "Acceptor original translateable seq:\n".$transcript_a->translateable_seq();
-  say "Acceptor current sequence:\n".$modified_transcript->seq->seq;
-  say "Acceptor current translateable seq:\n".$modified_transcript->translateable_seq();
-  say "Acceptor original translation:\n".$transcript_a->translation->seq;
-  say "Acceptor current translation (from translateable seq):\n".$modified_transcript->translate->seq;
-  say "Acceptor current translation (from translation object string):\n".$modified_transcript->translation->seq;
-
-  unless($transcript_a->translation->seq eq $modified_transcript->translate->seq && $modified_transcript->translate->seq eq $modified_transcript->translation->seq) {
-    $self->throw("There is an issue with the translation after UTR was added. Check above for the sequences, all three should match");
-  }
-
-  $transcript_a->{'3_prime_utr'} = $self->biotype_priorities->{$transcript_b->biotype};
-  $modified_transcript->add_supporting_features(grep {$_->isa('Bio::EnsEMBL::DnaDnaAlignFeature')} @{$transcript_b->get_all_supporting_features});
-
-  return($modified_transcript);
-}
 
 
 sub add_single_exon_utr {
@@ -1152,6 +1040,9 @@ sub add_single_exon_utr {
   }
 
   my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+  foreach my $seq_edit (@{$transcript_a->translation->get_all_SeqEdits}) {
+    $final_translation->add_Attributes($seq_edit->get_Attribute);
+  }
   $self->add_utr_evidence($final_exons, $exons_b, $transcript_b);
   my $modified_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $final_exons);
   $modified_transcript->analysis($transcript_a->analysis);
@@ -1248,6 +1139,9 @@ sub join_transcripts {
 
   # The translation is the same, but still need to modify the translation so that it has the correct start and end exon
   my $translation = create_Translation(\@unique_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+  foreach my $seq_edit (@{$transcript_a->translation->get_all_SeqEdits}) {
+    $translation->add_Attributes($seq_edit->get_Attribute);
+  }
 
   my $joined_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => \@unique_exons);
   $joined_transcript->analysis($transcript_a->analysis);

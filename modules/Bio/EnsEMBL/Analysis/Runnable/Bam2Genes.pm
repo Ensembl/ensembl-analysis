@@ -203,17 +203,15 @@ sub process_exon_clusters {
             my $right = $clusters[$i];
             if ( $right->start <= $left->end + $self->max_intron_length ) {
                 push @transcript,$left;
-                push @transcript,$right if $i == $#clusters;
             } else {
                 #copy it before you store it or else you get reference issues
                 my @tmp_transcript = @transcript;
                 push @transcripts, \@tmp_transcript;
                 # empty the array
-                @transcript = ();
-                pop @transcript;
-                push @transcript,$right if $i == $#clusters;
+                undef @transcript;
             }
             if ($i == $#clusters ) {
+                push(@transcript, $right);
                 push @transcripts, \@transcript;
             }
         }
@@ -307,7 +305,7 @@ sub pad_exons {
              $exon->end + 20 ,
              -1,
              -1,
-             -1,
+             $exon->strand,
              $exon->analysis,
              undef,
              undef,
@@ -322,7 +320,7 @@ sub pad_exons {
             (-slice    => $exon->slice,
              -start    => $padded_exon->start,
              -end      => $padded_exon->end,
-             -strand   => -1,
+             -strand   => $padded_exon->strand,
              -hseqname => $exon->display_id,
              -hstart   => 1,
              -hstrand  => 1,
@@ -330,9 +328,7 @@ sub pad_exons {
              -analysis => $exon->analysis,
              -score    => $exon->score,
              -cigar_string => $padded_exon->length.'M');
-        my @feats;
-        push @feats,$feat;
-        $padded_exon->add_supporting_features(@feats);
+        $padded_exon->add_supporting_features($feat);
         push @padded_exons, $padded_exon;
     }
 

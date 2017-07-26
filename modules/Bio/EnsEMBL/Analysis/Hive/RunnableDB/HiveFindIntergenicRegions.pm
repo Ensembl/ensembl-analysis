@@ -22,7 +22,6 @@ use warnings;
 use feature 'say';
 use Data::Dumper;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::DBSQL::SliceAdaptor;
 
 
@@ -120,25 +119,45 @@ sub calculate_input_gene_coords {
   my $slice = $self->query;
   my $skip_duplicates = {};
   my $filter = {};
-  foreach my $adaptor_name (keys(%{$gene_source_dbs})) {
-    my $db_con_hash = $gene_source_dbs->{$adaptor_name};
-    my $db_adaptor = $self->hrdb_get_dba($db_con_hash);
-    my $gene_adaptor = $db_adaptor->get_GeneAdaptor();
-    my $all_genes = $gene_adaptor->fetch_all_by_Slice($slice);
-    # If we want to filter the utr genes then we only want regions where there is a gene in the
-    # no_utr_db and at least one of the other gene dbs
-    if($self->param('utr_addition_filter') && scalar(@{$all_genes})) {
-      $filter->{$adaptor_name} = 1;
-    }
+  if (ref($gene_source_dbs) eq 'ARRAY') {
+    foreach my $db_con_hash (@$gene_source_dbs) {
+      my $db_adaptor = $self->hrdb_get_dba($db_con_hash);
+      my $gene_adaptor = $db_adaptor->get_GeneAdaptor();
+      my $all_genes = $gene_adaptor->fetch_all_by_Slice($slice);
 
-    foreach my $gene (@{$all_genes}) {
-      my $start = $gene->seq_region_start;
-      my $end = $gene->seq_region_end;
-      if($skip_duplicates->{$start.":".$end}) {
-        next;
-      } else {
-        push(@unsorted_start_end_coords,{'s' => $start, 'e' => $end});
-        $skip_duplicates->{$start.":".$end} = 1;
+      foreach my $gene (@{$all_genes}) {
+        my $start = $gene->seq_region_start;
+        my $end = $gene->seq_region_end;
+        if($skip_duplicates->{$start.":".$end}) {
+          next;
+        } else {
+          push(@unsorted_start_end_coords,{'s' => $start, 'e' => $end});
+          $skip_duplicates->{$start.":".$end} = 1;
+        }
+      }
+    }
+  }
+  else {
+    foreach my $adaptor_name (keys(%{$gene_source_dbs})) {
+      my $db_con_hash = $gene_source_dbs->{$adaptor_name};
+      my $db_adaptor = $self->hrdb_get_dba($db_con_hash);
+      my $gene_adaptor = $db_adaptor->get_GeneAdaptor();
+      my $all_genes = $gene_adaptor->fetch_all_by_Slice($slice);
+      # If we want to filter the utr genes then we only want regions where there is a gene in the
+      # no_utr_db and at least one of the other gene dbs
+      if($self->param('utr_addition_filter') && scalar(@{$all_genes})) {
+        $filter->{$adaptor_name} = 1;
+      }
+
+      foreach my $gene (@{$all_genes}) {
+        my $start = $gene->seq_region_start;
+        my $end = $gene->seq_region_end;
+        if($skip_duplicates->{$start.":".$end}) {
+          next;
+        } else {
+          push(@unsorted_start_end_coords,{'s' => $start, 'e' => $end});
+          $skip_duplicates->{$start.":".$end} = 1;
+        }
       }
     }
   }
