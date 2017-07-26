@@ -118,7 +118,6 @@ sub default_options {
     'projection_lastz_db_server'   => $self->o('databases_server'),
     'projection_lastz_db_port'     => $self->o('databases_port'),
 
-    'rnaseq_dbname'                => $self->o('dbowner').'_'.$self->o('species_name').'_rnaseq_'.$self->o('release_number'),
     'rnaseq_db_server'             => $self->o('databases_server'),
     'rnaseq_db_port'               => $self->o('databases_port'),
 
@@ -145,6 +144,9 @@ sub default_options {
 
     'killlist_db_server'           => $self->o('databases_server'),
     'killlist_db_port'             => $self->o('databases_port'),
+
+    'otherfeatures_db_server'      => $self->o('databases_server'),
+    'otherfeatures_db_port'        => $self->o('databases_port'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'staging_1_db_server'          => 'mysql-ens-sta-1',
@@ -394,7 +396,7 @@ sub default_options {
     },
 
     'rnaseq_db' => {
-      -dbname => $self->o('rnaseq_dbname'),
+      -dbname => $self->o('dbowner').'_'.$self->o('species_name').'_rnaseq_'.$self->o('release_number'),
       -host   => $self->o('rnaseq_db_server'),
       -port   => $self->o('rnaseq_db_port'),
       -user   => $self->o('user'),
@@ -491,7 +493,17 @@ sub default_options {
       -dbname => 'ncbi_taxonomy',
       -driver => $self->o('hive_driver'),
     },
-    };
+
+    'otherfeatures_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('species_name').'_otherfeatures_'.$self->o('release_number'),
+      -host   => $self->o('otherfeatures_db_server'),
+      -port   => $self->o('otherfeatures_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+  };
 }
 
 sub pipeline_create_commands {
@@ -697,7 +709,7 @@ sub pipeline_analyses {
                                               'assembly.name'                           => $self->default_options->{'assembly_name'},
                                               'assembly.web_accession_source'           => 'NCBI',
                                               'assembly.web_accession_type'             => 'GenBank Assembly ID',
-                                              'genebuild.id'                          => $self->o('genebuilder_id'),
+                                              'genebuild.id'                            => $self->o('genebuilder_id'),
                                               'genebuild.method'                        => 'full_genebuild',
                                               'genebuild.projection_source_db'          => $self->default_options->{'projection_source_db_name'},
                                               'provider.name'                           => 'Ensembl',
@@ -990,6 +1002,7 @@ sub pipeline_analyses {
         -rc_name    => 'default_himem',
       },
 
+
       {
         # This should probably be a proper module
         -logic_name => 'format_softmasked_toplevel',
@@ -1026,6 +1039,7 @@ sub pipeline_analyses {
         -batch_size => 20,
       },
 
+
       {
         # Run TRF
         -logic_name => 'run_trf',
@@ -1045,6 +1059,7 @@ sub pipeline_analyses {
        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
        -batch_size => 20,
       },
+
 
       {
         # Run eponine
@@ -1548,10 +1563,9 @@ sub pipeline_analyses {
         -parameters => {
                          iid_type => 'db_seq',
                          sequence_table_name => $self->o('refseq_cdna_table_name'), # there is a problem here. I add that, but it should be query_table_name or sequence_table_name
-
                          dna_db => $self->o('dna_db'),
                          target_db => $self->o('cdna_db'),
-                         logic_name => 'refseq_cdna',
+                         logic_name => 'cdna_alignment',
                          module     => 'HiveExonerate2Genes',
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_cov_per_sub')},
                          GENOMICSEQS         => $self->o('genome_file'),
@@ -3375,7 +3389,247 @@ sub pipeline_analyses {
                          enscode_root_dir => $self->o('enscode_root_dir'),
                        },
         -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['fan_otherfeatures_db'],
+                      },
       },
+
+
+      {
+        -logic_name => 'fan_otherfeatures_db',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'if [ -n "#assembly_refseq_accession#" ]; then exit 0; else exit 42;fi',
+                         return_codes_2_branches => {'42' => 2},
+                       },
+        -rc_name => 'default',
+        -flow_into  => {
+                          1 => ['create_otherfeatures_db'],
+                       },
+        -input_ids => [{assembly_refseq_accession => $self->o('assembly_refseq_accession')}],
+      },
+
+
+      {
+        -logic_name => 'create_otherfeatures_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('cdna_db'),
+                         target_db => $self->o('otherfeatures_db'),
+                         create_type => 'copy',
+                         script_path => $self->o('clone_db_script_path'),
+                         user_r => $self->o('user_r'),
+                         user_w => $self->o('user'),
+                         pass_w => $self->o('password'),
+                       },
+        -rc_name    => 'default',
+
+        -flow_into => {
+                        '1->A' => ['create_refseq_import_ids_to_copy'],
+                        'A->1' => ['update_otherfeatures_db'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'create_refseq_import_ids_to_copy',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db    => $self->o('refseq_db'),
+                         iid_type     => 'feature_id',
+                         feature_type => 'gene',
+                         batch_size   => 500,
+                      },
+        -flow_into => {
+                       '2' => ['copy_refseq_genes_to_otherfeatures'],
+                      },
+
+        -rc_name    => 'default',
+      },
+
+
+      {
+        -logic_name => 'copy_refseq_genes_to_otherfeatures',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes',
+        -parameters => {
+                         copy_genes_directly => 1,
+                         source_db => $self->o('refseq_db'),
+                         dna_db => $self->o('dna_db'),
+                         target_db => $self->o('otherfeatures_db'),
+                       },
+        -rc_name    => 'default',
+      },
+
+
+      {
+        -logic_name => 'update_otherfeatures_db',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'mysql '.
+                                ' -u'.$self->o('user').
+                                ' -p'.$self->o('password').
+                                ' -h'.$self->o('otherfeatures_db','-host').
+                                ' -P'.$self->o('otherfeatures_db','-port').
+                                ' -D'.$self->o('otherfeatures_db','-dbname').
+                                ' -e \'UPDATE analysis set db_version="#assembly_refseq_accession#";'.
+                                ' UPDATE analysis set db_file="#assembly_refseq_accession#";'.
+                                ' DELETE analysis_description from analysis_description join analysis using(analysis_id)'.
+                                ' where logic_name not in ("refseq_import","cdna_alignment");'.
+                                ' DELETE from analysis where logic_name not in ("refseq_import","cdna_alignment");'.
+                                ' DELETE from meta where meta_key like "%\.level";'.
+                                ' DELETE from meta where meta_key like "provider\.%";'.
+                                ' DELETE from meta where meta_key like "assembly.web_accession%";'.
+                                ' DELETE from meta where meta_key like "removed_evidence_flag\.%";'.
+                                ' DELETE from meta where meta_key = "repeat.analysis";'.
+                                ' DELETE from meta where meta_key in'.
+                                ' ("genebuild.last_geneset_update","genebuild.method","genebuild.projection_source_db","genebuild.start_date");'.
+                                ' INSERT into meta (species_id,meta_key,meta_value) values (1,"genebuild.last_otherfeatures_update",now());'.
+                                ' UPDATE gene set biotype = "cdna" WHERE analysis_id ='.
+                                ' (SELECT analysis_id from analysis where logic_name = "cdna_alignment");'.
+                                ' UPDATE transcript set biotype = "cdna" WHERE analysis_id ='.
+                                ' (SELECT analysis_id from analysis where logic_name = "cdna_alignment");'.
+                                ' UPDATE transcript join transcript_supporting_feature using(transcript_id)'.
+                                ' join dna_align_feature on feature_id = dna_align_feature_id set stable_id = hit_name;'.
+                                ' UPDATE gene join transcript using(gene_id) set gene.stable_id = transcript.stable_id'.
+                                ' WHERE gene.analysis_id = (SELECT analysis_id from analysis where logic_name = "cdna_alignment");\'',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['set_otherfeatures_meta_coords'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'set_otherfeatures_meta_coords',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/meta_coord/update_meta_coord.pl'.
+                                ' -user '.$self->o('user').
+                                ' -pass '.$self->o('password').
+                                ' -host '.$self->o('otherfeatures_db','-host').
+                                ' -port '.$self->o('otherfeatures_db','-port').
+                                ' -dbpattern '.$self->o('otherfeatures_db','-dbname')
+                       },
+        -rc_name => 'default',
+        -flow_into => {
+                        1 => ['set_otherfeatures_meta_levels'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'set_otherfeatures_meta_levels',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/meta_levels.pl'.
+                                ' -user '.$self->o('user').
+                                ' -pass '.$self->o('password').
+                                ' -host '.$self->o('otherfeatures_db','-host').
+                                ' -port '.$self->o('otherfeatures_db','-port').
+                                ' -dbname '.$self->o('otherfeatures_db','-dbname')
+                       },
+        -rc_name => 'default',
+        -flow_into => { 1 => ['set_otherfeatures_frameshift_introns'] },
+      },
+
+
+      {
+        -logic_name => 'set_otherfeatures_frameshift_introns',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/frameshift_transcript_attribs.pl'.
+                                ' -user '.$self->o('user').
+                                ' -pass '.$self->o('password').
+                                ' -host '.$self->o('otherfeatures_db','-host').
+                                ' -port '.$self->o('otherfeatures_db','-port').
+                                ' -dbpattern '.$self->o('otherfeatures_db','-dbname')
+                       },
+        -rc_name => '4GB',
+        -flow_into => { 1 => ['set_otherfeatures_canonical_transcripts'] },
+      },
+
+
+      {
+        -logic_name => 'set_otherfeatures_canonical_transcripts',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/canonical_transcripts/select_canonical_transcripts.pl'.
+                                ' -dbuser '.$self->o('user').
+                                ' -dbpass '.$self->o('password').
+                                ' -dbhost '.$self->o('otherfeatures_db','-host').
+                                ' -dbport '.$self->o('otherfeatures_db','-port').
+                                ' -dbname '.$self->o('otherfeatures_db','-dbname').
+                                ' -dnadbuser '.$self->o('user_r').
+                                ' -dnadbhost '.$self->o('dna_db','-host').
+                                ' -dnadbport '.$self->o('dna_db','-port').
+                                ' -dnadbname '.$self->o('dna_db','-dbname').
+                                ' -coord toplevel -write'
+                       },
+        -rc_name => '1.5GB',
+        -flow_into => { 1 => ['null_otherfeatures_columns'] },
+      },
+
+
+      {
+        -logic_name => 'null_otherfeatures_columns',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'mysql '.
+                                ' -u'.$self->o('user').
+                                ' -p'.$self->o('password').
+                                ' -h'.$self->o('otherfeatures_db','-host').
+                                ' -P'.$self->o('otherfeatures_db','-port').
+                                ' -D'.$self->o('otherfeatures_db','-dbname').
+                                ' -e \'UPDATE dna_align_feature set external_db_id=NULL;\'',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['load_external_db_ids_and_optimise_otherfeatures'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'load_external_db_ids_and_optimise_otherfeatures',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl-analysis/scripts/genebuild/load_external_db_ids_and_optimize_af.pl'.
+                                ' -output_path '.$self->o('output_path').'/optimise_otherfeatures/'.
+                                ' -uniprot_filename '.$self->o('uniprot_entry_loc').
+                                ' -dbuser '.$self->o('user').
+                                ' -dbpass '.$self->o('password').
+                                ' -dbport '.$self->o('otherfeatures_db','-port').
+                                ' -dbhost '.$self->o('otherfeatures_db','-host').
+                                ' -dbname '.$self->o('otherfeatures_db','-dbname').
+                                ' -prod_dbuser '.$self->o('user_r').
+                                ' -prod_dbhost '.$self->o('production_db','-host').
+                                ' -prod_dbname '.$self->o('production_db','-dbname').
+                                ' -prod_dbport '.$self->o('production_db','-port').
+                                ' -verbose'
+                       },
+        -max_retry_count => 1,
+        -rc_name => '4GB',
+        -flow_into => {
+                        1 => ['otherfeatures_sanity_checks'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'otherfeatures_sanity_checks',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
+        -parameters => {
+                         target_db => $self->o('otherfeatures_db'),
+                         sanity_check_type => 'gene_db_checks',
+                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
+                                                                             'gene_db_checks')->{'otherfeatures'},
+                       },
+
+        -rc_name    => '4GB',
+      },
+
+
     ];
 }
 
