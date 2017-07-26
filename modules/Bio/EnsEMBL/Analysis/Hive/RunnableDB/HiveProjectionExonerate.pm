@@ -82,6 +82,8 @@ sub fetch_input {
     $self->param('_transcript_biotype')->{$stable_id} = $biotype;
 
     say "Processing source transcript: ".$transcript->stable_id;
+    say "FM2 TSEQ:\n".$transcript->seq->seq;
+    say "FM2 PSEQ:\n".$transcript->translation->seq;
     if($self->QUERYTYPE eq 'protein') {
       unless($transcript->translation) {
         $self->warning("You have protein exonerate selected, but transcript does not have a translation, skipping");
@@ -298,11 +300,8 @@ sub make_cluster_slices {
     return;
   }
 
-  say "FERGAL GA: ".$previous_genomic_align->get_Slice->seq_region_name().":".$previous_genomic_align->get_Slice->start().":".$previous_genomic_align->get_Slice->end();
   foreach my $current_genomic_align (@{$genomic_aligns}) {
-    say "FERGAL GA: ".$current_genomic_align->get_Slice->seq_region_name().":".$current_genomic_align->get_Slice->start().":".$current_genomic_align->get_Slice->end();
     if($previous_genomic_align->get_Slice->seq_region_name ne $current_genomic_align->get_Slice->seq_region_name) {
-      say "FERGAL BREAKING CLUSTER 1";
       my $slice = $slice_adaptor->fetch_by_region($previous_genomic_align->get_Slice->coord_system_name,
                                                   $previous_genomic_align->get_Slice->seq_region_name, $cluster_start, $cluster_end);
       push(@{$cluster_slices},$slice);
@@ -310,7 +309,6 @@ sub make_cluster_slices {
       $cluster_end = $current_genomic_align->get_Slice->end();
       $previous_genomic_align = $current_genomic_align;
     } elsif($current_genomic_align->get_Slice->start - $previous_genomic_align->get_Slice->end > $max_cluster_gap_length) {
-      say "FERGAL BREAKING CLUSTER 2: ".$current_genomic_align->get_Slice->start.":".$previous_genomic_align->get_Slice->end;
       my $slice = $slice_adaptor->fetch_by_region($previous_genomic_align->get_Slice->coord_system_name,
                                                   $previous_genomic_align->get_Slice->seq_region_name, $cluster_start, $cluster_end);
       push(@{$cluster_slices},$slice);

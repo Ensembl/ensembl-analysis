@@ -105,10 +105,12 @@ sub _master_config {
       QUERYTYPE           => 'protein',
     },
 
+
     exonerate_projection_coding => {
         COVERAGE_BY_ALIGNED => 1,
         OPTIONS => "--model cdna2genome --forwardcoordinates FALSE ".
-        "--softmasktarget TRUE --exhaustive FALSE  ".
+        "--softmasktarget TRUE --exhaustive FALSE ".
+        "--refine region --refineboundary 5000 --forcegtag 1 ".
         "--score 500 --saturatethreshold 100 ".
         "--dnahspthreshold 60 --dnawordlen 15 --bestn 10",
         FILTER => { OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
