@@ -3406,7 +3406,6 @@ sub pipeline_analyses {
         -flow_into  => {
                           1 => ['create_otherfeatures_db'],
                        },
-        -input_ids => [{assembly_refseq_accession => $self->o('assembly_refseq_accession')}],
       },
 
 
