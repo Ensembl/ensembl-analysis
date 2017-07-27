@@ -179,16 +179,16 @@ else {
         $seqio_format = 'embl';
         print STDOUT "Getting the contigs from the ENA...\n" if $verbose;
         foreach my $a_wgs_id (@wgs_ids) {
-          my $base_file = 'wgs_'.$a_wgs_id.'_'.$taxon;
+          my $base_file = 'wgs_'.$a_wgs_id.'*_'.$taxon;
           my $file = $base_file.'.dat';
           my $base = 'wget -nv -N "ftp://ftp.ebi.ac.uk/pub/databases/embl';
           my $wget = "$base/wgs/$file$format\"";
           system("$wget -O $outdir/$file$format");
           if ($? != 0) {
-              $wget = "$base/release/$file$format\"";
+              $wget = "$base/release/wgs/$file$format\"";
               system("$wget -O $outdir/$file$format");
               if ($? != 0) {
-                  $wget = "$base/release/$base_file*$format\"";
+                  $wget = "$base/release/wgs/$base_file*$format\"";
                   system($wget.' -N -P '.$outdir);
                   die("wget got a problem!\n") if ($?);
                   opendir(DR, $outdir) || die('Could not open '.$outdir."\n");
@@ -208,8 +208,9 @@ else {
         print STDOUT "Getting the contigs from the NCBI...\n" if $verbose;
         my $base = 'wget -nv "ftp://ftp.ncbi.nlm.nih.gov/genbank/wgs';
         foreach my $a_wgs_id (@wgs_ids) {
+          my $first_letter_uc = uc(substr($a_wgs_id,0,1));
           my $file = 'wgs.'.$a_wgs_id.'.*.fsa_nt'.$format;
-          my $wget = "$base/$file\" -P $outdir";
+          my $wget = "$base/$first_letter_uc/$file\" -P $outdir";
           die("wget got a problem!\n$wget\n") if (system($wget));
           opendir(DR, $outdir) || die("Could not open directory $outdir");
           push(@files, grep { /$file/ } readdir(DR));
