@@ -47,8 +47,6 @@ use Data::Dumper;
 use Bio::EnsEMBL::Hive::Utils ('destringify'); 
 use Bio::EnsEMBL::Analysis; 
 use Bio::EnsEMBL::Analysis::Runnable::lincRNAEvaluator; 
-use Bio::EnsEMBL::Utils::Exception qw(throw warning); 
-use Bio::EnsEMBL::Utils::Argument qw (rearrange); 
 use Bio::EnsEMBL::Analysis::Tools::Logger; 
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice); 
@@ -281,7 +279,7 @@ sub write_output{
                                        -strand  => $strand_to_use, 
                                        );
 
-    # print_Gene_Transcript_and_Exons($gene);
+    # print_Gene_Transcript_and_Exons($gene); # if check
     
     foreach my $tr (@t) {
       my $exs      = []; # new array of exons
@@ -292,8 +290,6 @@ sub write_output{
         my $end_exon       = $ex_load->end();
         my $slice          = $ex_load->slice();
         my $q_strand       = $ex_load->strand; 
-        # $start_exon        =~ s/-//;
-        # $end_exon          =~ s/-//;
   
         my $ex_load        = Bio::EnsEMBL::Exon->new(                     
                                                                 -start  => $start_exon,
@@ -316,7 +312,7 @@ sub write_output{
       $gene_linc->add_Transcript($transcript);    
     }
 
-    $gene_linc->status(undef); 
+    # $gene_linc->status(undef); 
     $gene_linc->analysis($self->analysis);   
     empty_Gene($gene_linc, 1);
     eval{
@@ -334,7 +330,50 @@ sub write_output{
   if($sucessful_count != @genes_to_write ) { 
     $self->throw("Failed to write some genes");
   }
+
+  # this check was added because I had problems with few genes that didn't stored and the job didn't died! mysql kind of thing! 
+  eval{
+    my $check = $self->check_if_all_stored_correctly(); 
+    print "check result: " . $check . " -- " . $sucessful_count ." genes written to FINAL OUTPUT DB " . $dba->dbc->dbname . "\n" ; # . $self->output_db->dbname . " @ ". $self->output_db->host . "\n"  ;   
+    if($sucessful_count != @genes_to_write ) { 
+      $self->throw("Failed to write some genes");
+    }
+  };
+  if($@){
+  	print "You have a problem with those genes, they didn't stored successfully, I will try to delete them and rerun the job: \n "; 
+  	foreach my $g_t(@genes_to_write){ 
+  		print $g_t->dbID . "\n";  	
+  	}
+    $self->param('fail_delete_features', \@genes_to_write);
+    $self->throw($@);
+  }
+
+  
 }
+
+
+
+# post_cleanup will clean your entries if your full job didn't finish fine. Usefull! 
+sub post_cleanup {
+  my $self = shift;
+  
+  if ($self->param_is_defined('fail_delete_features')) {
+    my $dba = $self->hrdb_get_con('lincRNA_output_db');
+    my $gene_adaptor = $dba->get_GeneAdaptor;
+    foreach my $gene (@{$self->param('fail_delete_features')}) {
+      eval {
+        print "DEBUG::cleaning-removing gene, something didn't go as should... \n"; 
+        $gene_adaptor->remove($gene);
+      };
+      if ($@) {
+        $self->throw('Could not cleanup the mess for these dbIDs: '.join(', ', @{$self->param('fail_delete_features')}));
+      }
+    }
+  }
+  return 1;
+}
+
+
 
 sub output_db{
   my ($self, $db) = @_; 
@@ -439,6 +478,22 @@ sub read_and_check_config{
   }
 }
 
+# this function checks if everything stored successfully 
+sub check_if_all_stored_correctly { 
+  my ($self) = @_; 
+
+  my $set_db = $self->hrdb_get_dba($self->param('lincRNA_output_db')); 
+  my $dna_dba = $self->hrdb_get_dba($self->param('reference_db')); 
+  if($dna_dba) { 
+    $set_db->dnadb($dna_dba); 
+  } 
+  
+  my $test_id = $self->param('iid'); 
+  my $slice = $self->fetch_sequence($test_id, $set_db, undef, undef, 'lincRNA_output_db')  ; 
+  print  "check if all genes are fine!! \n" ; 
+  my $genes = $slice->get_all_Genes(undef,undef,1) ; 
+	return "yes"; 
+}
 
 
 

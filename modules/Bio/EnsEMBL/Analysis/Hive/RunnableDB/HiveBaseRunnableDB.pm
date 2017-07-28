@@ -21,7 +21,7 @@ use strict;
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Hive::Utils ('destringify');
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba create_file_name is_slice_name);
 use feature 'say';
 
 use parent ('Bio::EnsEMBL::Hive::Process');
@@ -48,6 +48,7 @@ sub param_defaults {
         disconnect_jobs => 0,
         _branch_to_flow_to => 2,
         _branch_to_flow_to_on_fail => -3,
+        _output => [],
     }
 }
 
@@ -86,9 +87,7 @@ sub run {
 
 sub output {
   my ($self, $output) = @_;
-  unless($self->param_is_defined('_output')){
-    $self->param('_output',[]);
-  }
+
   if($output){
     if(ref($output) ne 'ARRAY'){
       $self->throw('Must pass RunnableDB:output an array ref not a '.$output);
@@ -516,14 +515,25 @@ sub failing_job_status {
 sub create_analysis {
     my ($self, $add_module, $extra_params) = @_;
 
-    if (!$self->param_is_defined('logic_name')) {
-        $self->param('logic_name', $self->input_job->analysis->logic_name);
+    my $logic_name;
+    if ($self->param_is_defined('logic_name')) {
+        $logic_name = $self->param('logic_name');
     }
-    if (!$self->param_is_defined('module')) {
+    else {
+      $logic_name = $self->input_job->analysis->logic_name;
+    }
+    my $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $logic_name, %$extra_params);
+    if ($add_module) {
+      my $module;
+      if ($self->param_is_defined('module')) {
+        $module = $self->param('module');
+      }
+      else {
         $self->param('module', $self->input_job->analysis->module);
+      }
+      $analysis->module($self->param('module'));
     }
-    my $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $self->param('logic_name'), %$extra_params);
-    $analysis->module($self->param('module')) if (defined $add_module);
+    $analysis->program_file($self->param('program_file')) if ($self->param_is_defined('program_file'));
 
     return $self->analysis($analysis);
 }
@@ -588,7 +598,7 @@ sub get_database_by_name {
 =head2 is_slice_name
 
  Arg [1]    : String, string to check
- Example    : $self->is_slice_name($input_id);;
+ Example    : $self->is_slice_name($input_id);
  Description: Return 1 if the string given is an Ensembl slice name
  Returntype : Boolean
  Exceptions : None
@@ -598,7 +608,7 @@ sub get_database_by_name {
 sub is_slice_name {
     my ($self, $string) = @_;
 
-    return $string =~ /^[^:]+:[^:]+:[^:]+:\d+:\d+:(1|-1)$/;
+    return Bio::EnsEMBL::Analysis::Tools::Utilities::is_slice_name($string);
 }
 
 
@@ -661,14 +671,8 @@ sub create_query_file {
 sub _create_temporary_file {
   my ($self, $name, $stem, $suffix, $dir) = @_;
 
-  my $random = 'XXXXX';
-  my %params;
-  $params{TEMPLATE} = $stem.'_'.$random if ($stem);
-  $params{SUFFIX} = $suffix if ($suffix);
-  $params{DIR} = $dir if ($dir);
-  my $fh = File::Temp->new(%params);
-  $self->param($name, $fh);
-  return $fh->filename;
+  $self->param($name, create_file_name($stem, $suffix, $dir));
+  return $self->param($name)->filename;
 }
 
 

@@ -219,6 +219,15 @@ sub _master_config {
         }, # biotypes
       }, # core
     }, # primates_basic
+    otherfeatures => {
+      'logic_names' => {
+        'cdna_alignment'         => 20000,
+        'refseq_import'          => 30000,
+      },
+      'biotypes' => {
+        'cdna'                   => 20000,
+      },
+    }, # otherfeatures
   }, # gene_db_checks
 
   'final_core_checks' => {

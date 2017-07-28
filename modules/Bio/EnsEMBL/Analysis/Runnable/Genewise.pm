@@ -178,7 +178,7 @@ sub run_analysis{
 		  $options .= " -init endbias -splice_gtag ";
     }elsif ($self->splice_model == 1){
 		  print "USING ALTERNATIVE SPLICE MODEL\n";
-      $options .= " -splice model ";
+      $options .= " -nosplice_gtag ";
 		}
   }
   if (($self->reverse) && $self->reverse == 1) {
@@ -467,8 +467,16 @@ sub make_transcript{
         }
         $total_hcoverage += $sf->hend - $sf->hstart + 1;
       }
+      else {
+        warning('No supporting evidence for '.$exon->start.' '.$exon->end.' '.$exon->strand."\n");
+      }
 
-      $transcript->add_Exon($exon);
+
+      eval {$transcript->add_Exon($exon)};
+      if ($@) {
+        warning($@);
+        return;
+      }
     }
     my $tsf = Bio::EnsEMBL::FeaturePair->new();
     $tsf->start($min_start);

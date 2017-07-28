@@ -135,7 +135,7 @@ sub new {
     $self->query_seqs($query_seqs);
   } elsif (defined $query_file) {
     throw("The given query file ".$query_file." does not exist") 
-      if ! -e $query_file;
+      if ! -e "$query_file";
     $self->query_file($query_file);
     
   }
@@ -154,7 +154,7 @@ sub new {
     $self->target_seqs($target_seqs);
   } elsif (defined $target_file) {
     if ($target_file !~ /^[\w\-\.]+:\d+$/) {
-      throw("The given database ($target_file) does not exist") if ! -e $target_file;
+      throw("The given database ($target_file) does not exist") if ! -e "$target_file";
     }
     $self->target_file($target_file);
   }
@@ -165,7 +165,7 @@ sub new {
     }
     $self->annotation_features($annotation_features);
   } elsif (defined $annotation_file) {
-    throw("The given annotation file does not exist") if ! -e $annotation_file;
+    throw("The given annotation file does not exist") if ! -e "$annotation_file";
     $self->annotation_file($annotation_file);
   }
 

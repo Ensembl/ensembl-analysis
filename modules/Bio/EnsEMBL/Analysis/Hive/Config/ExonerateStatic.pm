@@ -51,6 +51,9 @@ sub _master_config {
       OPTIONS             => '--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE',
       COVERAGE_BY_ALIGNED => 0,
       QUERYTYPE           => 'dna',
+      GENOMICSEQS         => '#genome_file#',
+      PROGRAM             => '#exonerate_path#',
+      SOFT_MASKED_REPEATS => '#repeat_libraries#', # This should be an arrayref
       FILTER => {
         OBJECT => 'Bio::EnsEMBL::Analysis::Tools::CdnaUpdateTranscriptFilter',
         PARAMETERS => {
@@ -274,7 +277,20 @@ sub _master_config {
     },
     exonerate_cov_per_bestn_sub => {
       IIDREGEXP           => '(\d+):(\d+)',
-      OPTIONS             => ' --maxintron 100000 --model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1',
+      OPTIONS             => ' --model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn #exonerate_bestn#',
+      COVERAGE_BY_ALIGNED => 0,
+      QUERYTYPE           => 'dna',
+      FILTER => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -coverage   => '#exonerate_cdna_cov#',
+          -percent_id => '#exonerate_cdna_pid#',
+        },
+      },
+    },
+    exonerate_cov_per_bestn_loose_sub => {
+      IIDREGEXP           => '(\d+):(\d+)',
+      OPTIONS             => ' --maxintron 400000 --model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn #exonerate_bestn#',
       COVERAGE_BY_ALIGNED => 0,
       QUERYTYPE           => 'dna',
       FILTER => {
@@ -300,6 +316,32 @@ sub _master_config {
       KILL_TYPE => undef,
       USE_KILL_LIST => 0,
       OPTIONS => '--model est2genome --forwardcoordinates FALSE --maxintron 200000 --softmasktarget FALSE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14',
+    },
+    protein_cov_per_bestn_sub => {
+      OPTIONS             => ' --model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn #exonerate_bestn#',
+      COVERAGE_BY_ALIGNED => 0,
+      QUERYTYPE           => 'protein',
+      FILTER => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -coverage   => '#exonerate_cdna_cov#',
+          -percent_id => '#exonerate_cdna_pid#',
+        },
+      },
+    },
+    protein_cov_per_bestn_maxintron_sub => {
+      OPTIONS             => ' --model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn #exonerate_bestn# --maxintron #exonerate_max_intron#',
+      COVERAGE_BY_ALIGNED => 0,
+      QUERYTYPE           => 'protein',
+      FILTER => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -coverage   => '#exonerate_cdna_cov#',
+          -percent_id => '#exonerate_cdna_pid#',
+          -best_in_genome => 0,
+          -reject_processed_pseudos => 1,
+        },
+      },
     },
   );
   return $config{$key};

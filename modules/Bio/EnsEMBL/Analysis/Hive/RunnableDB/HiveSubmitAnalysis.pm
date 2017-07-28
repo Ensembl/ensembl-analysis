@@ -23,7 +23,7 @@ use feature 'say';
 use Data::Dumper;
 
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba is_slice_name);
 use Bio::EnsEMBL::Utils::Slice qw(split_Slices);
 
 use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
@@ -71,6 +71,7 @@ sub param_defaults {
         region_padding => 10000,
         batch_target_size => 1000000,
         table_column_name => 'accession',
+        logic_name => [],
         column_names => ['iid'],
     }
 }
@@ -494,7 +495,11 @@ sub sequence_accession {
   $table_adaptor->table_name($self->param_required('sequence_table_name'));
 
   $table_adaptor->column_set();
-  my $accessions = $table_adaptor->fetch_all(undef,undef,undef, $self->param('table_column_name'));
+  my $constraint = undef;
+  if ($self->param_is_defined('constraint')) {
+    $constraint = $self->param('constraint');
+  }
+  my $accessions = $table_adaptor->fetch_all($constraint, undef, undef, $self->param('table_column_name'));
 
   $self->param('inputlist', $self->_chunk_input_ids($self->param_required('batch_size'), $accessions));
 }
@@ -541,6 +546,16 @@ sub feature_region {
 
   my @input_ids;
   my $feature_type = $self->param_required('feature_type');
+  my $slices;
+  if ($self->param_is_defined('iid')) {
+    if (is_slice_name($self->param('iid'))) {
+      $slices = [$dba->get_SliceAdaptor->fetch_by_name($self->param('iid'))];
+    }
+  }
+  else {
+    $slices = $dba->get_SliceAdaptor->fetch_all($self->param('coord_system_name'));
+  }
+  my $logic_names = $self->param('logic_name');
   if ($feature_type eq 'gene') {
     my %accessions;
     my $use_annotation = $self->param('use_annotation');
@@ -553,29 +568,15 @@ sub feature_region {
       close(F) || $self->throw('Could not close annotation_file: '.$self->param('annotation_file'));
     }
 
-    my $slices;
-    if ($self->param_is_defined('iid')) {
-      $slices = [$dba->get_SliceAdaptor->fetch_by_name($self->param('iid'))];
-    }
-    else {
-      $slices = $dba->get_SliceAdaptor->fetch_all($self->param('coord_system_name'));
-    }
     foreach my $slice (@$slices) {
-      my $logic_names = [''];
-      if ($self->param_is_defined('logic_name')) {
-        $logic_names = $self->param('logic_name');
-      }
       my $base_name = join(':', $slice->coord_system_name,
-                                $slice->coord_system->coord_system_version,
+                                $slice->coord_system->version,
                                 $slice->seq_region_name);
       my %slice_hash;
       foreach my $logic_name (@$logic_names) {
         foreach my $gene (@{$slice->get_all_Genes($logic_name)}) {
           foreach my $transcript (@{$gene->get_all_Transcripts}) {
-            my $start = $transcript->seq_region_start-$self->param('region_padding');
-            my $end = $transcript->seq_region_end+$self->param('region_padding');
-            $start = 1 if ($start < 1);
-            $end = $slice->end if ($end > $slice->end);
+            my ($start, $end) = _padded_slice_coord($transcript, $slice, $self->param('region_padding'));
             my $strand = $use_annotation ? 1 : $transcript->strand;
             my $tbase_name = join(':', $base_name,
                                        $start,
@@ -591,6 +592,60 @@ sub feature_region {
               my $hit_slice_name = $tbase_name.':'.$hit_name;
               $slice_hash{$hit_slice_name} = 1;
             }
+          }
+        }
+      }
+      push(@input_ids,keys %slice_hash);
+    }
+  }
+  elsif ($feature_type eq 'protein_align_feature') {
+    if ($slices) {
+      foreach my $slice (@$slices) {
+        my $base_name = join(':', $slice->coord_system_name,
+                                  $slice->coord_system->version,
+                                  $slice->seq_region_name);
+        my %slice_hash;
+        foreach my $logic_name (@$logic_names) {
+          foreach my $paf (@{$slice->get_all_ProteinAlignFeatures($logic_name)}) {
+            my ($start, $end) = _padded_slice_coord($paf, $slice, $self->param('region_padding'));
+            my $tbase_name = join(':', $base_name,
+                                       $start,
+                                       $end,
+                                       1,
+                                       $logic_name);
+            my $hit_name = $paf->hseqname();
+            if($hit_name =~ /\:/) {
+              $self->throw("The supporting evidence has a colon in its name and this will break the output id structure. ".
+                           "dbID: ".$paf->dbID.", name: $hit_name");
+            }
+            my $hit_slice_name = $tbase_name.':'.$hit_name;
+            $slice_hash{$hit_slice_name} = 1;
+          }
+        }
+        push(@input_ids,keys %slice_hash);
+      }
+    }
+    else {
+# this code is only for BlastMiniGenewise when recovering from genblast
+      my $paf_adaptor = $dba->get_ProteinAlignFeatureAdaptor;
+      my %slice_hash;
+      foreach my $iid (@{$self->param('iid')}) {
+        if($iid =~ /\:/) {
+          $self->throw('The supporting evidence has a colon in its name and this will break the output id structure. '.
+                       "name: $iid");
+        }
+        foreach my $logic_name (@$logic_names) {
+          foreach my $paf (@{$paf_adaptor->fetch_all_by_hit_name($iid, $logic_name)}) {
+            my $slice = $paf->slice;
+            my $hit_slice_name = join(':', $slice->coord_system_name,
+                                      $slice->coord_system->version,
+                                      $slice->seq_region_name,
+                                      $slice->start,
+                                      $slice->end,
+                                      1,
+                                      $logic_name,
+                                      $iid);
+            $slice_hash{$hit_slice_name} = 1;
           }
         }
       }
@@ -888,6 +943,28 @@ sub _chunk_input_ids {
   }
 
   return \@output_id_array;
+}
+
+=head2 _padded_slice_coord
+
+ Arg [1]    : Bio::EnsEMBL::Feature, the object to get the start and end of the slice from
+ Arg [2]    : Bio::EnsEMBL::Slice, the toplevel slice where Arg[1] is
+ Arg [3]    : Int, the size of the padding
+ Description: It calculate the start and end of the slice to be fetched for next analysis
+              It makes sure that the slice is not out of bound
+ Returntype : Array of Int, start and end of the slice
+ Exceptions : None
+
+=cut
+
+sub _padded_slice_coord {
+  my ($object, $slice, $padding) = @_;
+
+  my $start = $object->seq_region_start-$padding;
+  my $end = $object->seq_region_end+$padding;
+  $start = 1 if ($start < 1);
+  $end = $slice->end if ($end > $slice->end);
+  return $start, $end;
 }
 
 1;

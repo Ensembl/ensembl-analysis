@@ -74,7 +74,7 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Utils::Exception; 
 use Bio::EnsEMBL::Transcript; 
 use Bio::EnsEMBL::Gene ;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils; 
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(clone_Transcript);
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);

@@ -173,8 +173,7 @@ sub write_output {
 
   my $total = 0;
   my $fails = 0;
-  my $out = $self->output;
-  while (my $g = shift @$out) {
+  foreach my $g (@{$self->output}) {
     fully_load_Gene($g);
 
     # Putting this in to stop the wrong dbIDs being assigned
@@ -184,11 +183,10 @@ sub write_output {
     };
 
     if ($@) {
-      $self->warning("Unable to store gene".$g->dbID()." ".$g->stable_id()."\n");
-      print STDERR "$@\n";
-      $fails++;
+      $self->warning('Unable to store gene'.$g->seq_region_name.' '.$g->seq_region_start.' '.$g->seq_region_end.' '.$g->seq_region_strand.' '.$g->biotype."\n$@");
+      ++$fails;
     }
-    $total++;
+    ++$total;
   }
 
   if ($fails > 0) {

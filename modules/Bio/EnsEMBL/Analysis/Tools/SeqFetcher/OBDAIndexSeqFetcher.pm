@@ -98,7 +98,7 @@ sub new {
       $database = $ENV{BLASTDB} . "/" . $database;
     }
     # we want the form '/path/to/index/dir', so remove the last if there is any '/'
-    if ( $database =~/(\S+)\/$/ ){
+    if ( $database =~/(\S+)\/?$/ ){
       $database = $1;
     }
 
@@ -373,7 +373,7 @@ sub get_entry_by_acc {
      $entry = $seqfetcher->get_entry_by_id($acc);
     };
     if ( $@ ) {
-      warning("problem fetching entry for $acc");
+      warning("problem fetching entry for $acc\n$@\n");
     }
   }
   return $entry;
