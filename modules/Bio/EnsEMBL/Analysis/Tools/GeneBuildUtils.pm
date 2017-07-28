@@ -61,13 +61,18 @@ package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils;
 
 use strict;
 use warnings;
-use Exporter;
-use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
-                                      stack_trace_dump);
-use vars qw (@ISA  @EXPORT);
 
-@ISA = qw(Exporter);
-@EXPORT = qw(coord_string seq_region_coord_string id empty_Object lies_inside_of_slice);
+use Exporter qw(import);
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
+
+our @EXPORT_OK = qw(
+                    coord_string
+                    seq_region_coord_string
+                    id
+                    empty_Object
+                    hashkey_Object
+                    lies_inside_of_slice
+                  );
 
 
 =head2 coord_string
@@ -205,5 +210,26 @@ sub lies_inside_of_slice{
   return 1;
 }
 
+
+=head2 hashkey_Object
+
+ Arg [1]    : ArrayRef of features
+ Description: Creates a string which would be unique to a certain point
+              by concatenating start, end, strand of the objects with ':'
+              as a separator. This is mostly used for exons and introns
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub hashkey_Object {
+  my ($objects) = @_;
+
+  my $hashkey = '';
+  foreach my $elm (@$objects) {
+    $hashkey .= $elm->start.':'.$elm->end.':'.$elm->strand.':';
+  }
+  return substr($hashkey, 0, -1);
+}
 
 1;
