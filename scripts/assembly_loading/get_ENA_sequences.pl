@@ -279,6 +279,7 @@ if (-e $clones_file) {
 
         # try to get the mfetch missing sequences from the ENA SVA (mfetch doesn't cope with old versions but ENA SVA does)
         my $ena_archive_file = $outdir.'/'.$wgs_id.'_ena_archive_seq.fa';
+        my $ena_archive_file_retry = $outdir.'/'.$wgs_id.'_ena_archive_seq_retry.fa';
         get_ENA_archive_sequences($ena_archive_file,$ENA_ARCHIVE_BATCH_SIZE,@missing_ids);
 
         print STDOUT "Checking the ENA SVArchive fetched sequences number...\n" if $verbose;
@@ -289,6 +290,7 @@ if (-e $clones_file) {
         if (scalar(@missing_ids) != scalar(@res_ena)) {
           my %infile_ena;
           my $missing_ena = $outdir.'/'.$wgs_id.'_missing_ena.lst';
+          my @missing_ids_ena;
           foreach my $res_ena (@res_ena) {
             $res_ena =~ s/>\S+\|\S+\|(\S+).*/$1/s;
             print STDOUT $res_ena, "\n" if ($verbose);
@@ -298,12 +300,41 @@ if (-e $clones_file) {
           foreach my $clone_ena (@missing_ids) {
             if (!(exists $infile_ena{$clone_ena})) {
               print WFILE $clone_ena, "\n";
+              push(@missing_ids_ena,$clone_ena);
             }
           }
           close(WFILE);
-          throw("You had ".scalar(@missing_ids)." missing sequences from mfetch and only ".scalar(@res_ena)." were fetched from ENA SVArchive, have a look at $missing_ena\n");
+          warning("You had ".scalar(@missing_ids)." missing sequences from mfetch and only ".scalar(@res_ena)." were fetched from ENA SVArchive, have a look at $missing_ena\n");
+          
+          # try to get the ENA archive missing sequences from the ENA SVA again with
+          # a batch size of 1
+          
+          get_ENA_archive_sequences($ena_archive_file_retry,1,@missing_ids_ena);
+          
+          print STDOUT "Checking the ENA SVArchive retry fetched sequences number...\n" if $verbose;
+
+          open(RRFILE, 'grep \> '.$ena_archive_file_retry.' | ') || die('Could not grep '.$ena_archive_file_retry."\n");
+          my @res_ena_retry = <RRFILE>;
+          close(RRFILE);
+          if (scalar(@missing_ids_ena) != scalar(@res_ena_retry)) {
+            my %infile_ena_retry;
+            my $missing_ena_retry = $outdir.'/'.$wgs_id.'_missing_ena_retry.lst';
+            foreach my $res_ena_retry (@res_ena_retry) {
+              $res_ena_retry =~ s/>\S+\|\S+\|(\S+).*/$1/s;
+              print STDOUT $res_ena_retry, "\n" if ($verbose);
+              $infile_ena_retry{$res_ena_retry} = 1;
+            }
+            open(RWFILE, '>'.$missing_ena_retry) || die('Could not open '.$missing_ena_retry."\n");
+            foreach my $clone_ena_retry (@missing_ids_ena) {
+              if (!(exists $infile_ena_retry{$clone_ena_retry})) {
+                print RWFILE $clone_ena_retry, "\n";
+              }
+            }
+            close(RWFILE);
+            throw("You had ".scalar(@missing_ids_ena)." missing sequences from the ENA SVArchive (with a batch size of $ENA_ARCHIVE_BATCH_SIZE) and only ".scalar(@res_ena_retry)." were fetched from ENA SVArchive retry with a batch size of 1, have a look at $missing_ena_retry\n");
+          }
        } else {
-         system('cat '.$ena_archive_file.' '.$clones_file.' '.$fastadir.'/'.$file.'.fa  | sed \'/no match/d\' > '.$contigfile);
+         system('cat '.$ena_archive_file_retry.' '.$ena_archive_file.' '.$clones_file.' '.$fastadir.'/'.$file.'.fa  | sed \'/no match/d\' > '.$contigfile);
        } #end if number ENA SVArchive sequences check
     } else {
       system('cat '.$clones_file.' '.$fastadir.'/'.$file.'.fa > '.$contigfile);
