@@ -1,13 +1,21 @@
 #!/bin/bash
-export PERL5LIB=$PWD/bioperl-live-bioperl-release-1-2-3:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/ensembl-hive/modules:$PWD/ensembl-io/modules:$PWD/bioperl-live:$PWD/bioperl-run/lib:$PWD/ensembl-56/modules
+export PERL5LIB=$PWD/bioperl-live-bioperl-release-1-2-3:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/ensembl-hive/modules:$PWD/ensembl-io/modules:$PWD/bioperl-live:$PWD/bioperl-run/lib:$PWD/ensembl-56/modules:$PWD/ensembl-test/modules
 
 export WORK_DIR=$PWD
+
+if [ "$DB" = 'mysql' ]; then
+    (cd modules/t && ln -sf MultiTestDB.conf.mysql MultiTestDB.conf)
+elif [ "$DB" = 'sqlite' ]; then
+    (cd modules/t && ln -sf MultiTestDB.conf.SQLite MultiTestDB.conf)
+else
+    echo "Don't know about DB '$DB'"
+    exit 1;
+fi
 
 echo "Running test suite"
 echo "Using $PERL5LIB"
 rt=0
 if [ "$COVERALLS" = 'true' ]; then
-  export PERL5LIB=$PERL5LIB:$PWD/ensembl-test/modules
   PERL5OPT='-MDevel::Cover=+ignore,bioperl,+ignore,ensembl-test' perl $PWD/ensembl-test/scripts/runtests.pl -verbose $PWD/modules/t $SKIP_TESTS
 else
   # just test the basic syntax for all the scripts and modules - start by renaming example modules
