@@ -3,6 +3,9 @@ language: "perl"
 perl:
   - "5.14"
 
+services:
+  - mysql
+
 env:
   - COVERALLS=false DB=mysql
 
