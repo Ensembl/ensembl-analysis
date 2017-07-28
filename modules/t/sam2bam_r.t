@@ -26,6 +26,7 @@ use Bio::EnsEMBL::Analysis::Runnable::Sam2Bam;
 
 
 #Generating the data needed
+note('Preparing the data');
 my $accession = 'KQ759721.1';
 my $rest_url = "http://rest.ensembl.org/sequence/region/chicken/$accession?content-type=text/x-fasta";
 my @samstring = (
@@ -95,6 +96,7 @@ close(WH) || die("Could not close header file $headerfile");
 --$header_lcount;
 
 # Starting the tests
+note('Starting the tests');
 my $analysis = new_ok('Bio::EnsEMBL::Analysis', ['-logic_name', 'sam2bam_r_test'], 'Analysis');
 my $runnable = new_ok('Bio::EnsEMBL::Analysis::Runnable::Sam2Bam', [
   '-analysis', $analysis,
@@ -134,6 +136,7 @@ is_deeply(\@headers, [(@results)[0..$header_lcount]], 'Checking header of sort r
 done_testing();
 
 #Cleaning
+note('Cleaning');
 foreach my $file ($genomefile, $genomefile.'.fai', @samfiles, $bamfile.'.bam', $bamfile.'.bam.bai', $bamfile.'.header', $headerfile) {
   unlink $file if (-e $file);
 }
