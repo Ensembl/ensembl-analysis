@@ -3,9 +3,6 @@ language: "perl"
 perl:
   - "5.14"
 
-services:
-  - mysql
-
 env:
   - COVERALLS=false DB=mysql
 
@@ -44,6 +41,7 @@ before_install:
 
 install:
     - cpanm -v --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
+    - cpanm -v --installdeps --with-recommends --notest --cpanfile ensembl-hive/cpanfile .
     - export HTSLIB_DIR=$PWD/htslib-1.3.2
     - export PERL5LIB=$PWD/bioperl-live
     - cpanm -v --with-recommends --notest Bio::DB::HTS
