@@ -434,7 +434,7 @@ MAP: while(<MAPPER>){
         print "Could not get seq_region_id for $contig trying pfetch\n";
         my $out = `pfetch $contig`;
 
-        if ($out =~ /no match/) {
+        if (!$out or $out =~ /no match/) {
           print "Could not get seq_region_id for $contig trying eutils\n";
           $out = system("wget -o $contig.wget.log -O $contig.fa 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=$contig&rettype=fasta&retmode=text' > ./$contig.fa");
         } else {
