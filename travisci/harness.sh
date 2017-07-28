@@ -5,12 +5,6 @@ export WORK_DIR=$PWD
 
 if [ "$DB" = 'mysql' ]; then
     (cd modules/t && ln -sf MultiTestDB.conf.mysql MultiTestDB.conf)
-    pwd
-    if [ -e MultiTestDB.conf.mysql ];then
-      cat MultiTestDB.conf
-    else
-      cat modules/t/MultiTestDB.conf
-    fi
 elif [ "$DB" = 'sqlite' ]; then
     (cd modules/t && ln -sf MultiTestDB.conf.SQLite MultiTestDB.conf)
 else
@@ -18,7 +12,6 @@ else
     exit 1;
 fi
 
-pwd
 echo "Running test suite"
 echo "Using $PERL5LIB"
 rt=0
@@ -86,7 +79,8 @@ else
   if [ "$EXIT_CODE" -ne 0 ]; then
       rt=$EXIT_CODE
   fi
-  find modules/t -type f -name "*.t" | xargs -i perl {}
+  perl $PWD/ensembl-test/scripts/runtests.pl -verbose $PWD/modules/t $SKIP_TESTS
+#  find modules/t -type f -name "*.t" | xargs -i perl {}
   EXIT_CODE=$?
   if [ "$EXIT_CODE" -ne 0 ]; then
       rt=$EXIT_CODE
