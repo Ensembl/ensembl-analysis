@@ -38,13 +38,23 @@ Read ensembl-personal/genebuilders/sap_assembly_loading file for further informa
 
 -dbhost    		host name where the reference database will be created
 
--dbport    		what port to connect (default 3306)
+-dbport    		what port to connect
 
 -dbname    		name for the new reference db that will be created 
 
 -dbuser    		what username to connect as
 
 -dbpass    		what password to use
+
+-prod_dbhost  production db host name
+
+-prod_dbport  production db port
+
+-prod_dbname  production db name 
+
+-prod_dbuser  production db username
+
+-prod_dbpass  production db password
 
 -enscode	    path to the directories containing ensembl, ensembl-pipeline, ensembl-analysis. If not specified ENSCODE environment variable will be used
 
@@ -97,8 +107,13 @@ my $local_path;
 my $dbhost;
 my $dbuser;
 my $dbpass;
-my $dbport = 3306;
+my $dbport;
 my $dbname;
+my $prod_dbhost;
+my $prod_dbuser;
+my $prod_dbpass;
+my $prod_dbport;
+my $prod_dbname;
 my $dir_enscode ;
 my $dir_ensgbscripts ;
 my $ass_name;
@@ -129,6 +144,11 @@ GetOptions(
   'dbuser|user|u=s' => \$dbuser,
   'dbpass|pass|p=s' => \$dbpass,
   'dbport|port|P=s' => \$dbport,
+  'prod_dbhost=s'   => \$prod_dbhost,
+  'prod_dbname=s'   => \$prod_dbname,
+  'prod_dbuser=s'   => \$prod_dbuser,
+  'prod_dbpass=s'   => \$prod_dbpass,
+  'prod_dbport=s'   => \$prod_dbport,
   'enscode=s'       => \$dir_enscode,  
   'ass_name=s'      => \$ass_name, # unique name that identifies the assembly
   'ena_tax=s'       => \$ena_tax,  # the taxonomy code (mam, rod, mus, hum or vrt), always lower case
@@ -145,7 +165,10 @@ GetOptions(
 
 print $0, "\n";
 
-if (!$ftp_species_path or !$local_path or !$dbhost or !$dbname or !$dbuser or !$dbpass or !$ass_name or !$ena_tax or !$ena_id or $help) {
+if (!$ftp_species_path or !$local_path or
+    !$dbhost or !$dbname or !$dbuser or !$dbpass or !$dbport or
+    !$prod_dbhost or !$prod_dbname or !$prod_dbuser or !$prod_dbpass or !$prod_dbport or
+    !$ass_name or !$ena_tax or !$ena_id or $help) {
     &usage;
     exit(1);
 }
@@ -155,7 +178,7 @@ if( !$dir_enscode )
     $dir_enscode = $ENV{'ENSCODE'} ;
     if( !$dir_enscode )
     {
-        print "Please specify ENSCODE directorie\n" ;
+        print "Please specify ENSCODE directory\n" ;
         &usage;
         exit(1);
     }
@@ -176,9 +199,6 @@ if (!($local_path =~ /\/$/)) {
 if (!($ftp_species_path =~ /\/$/)) {
   $ftp_species_path .= "/";
 }
-
-
-
 
 # if parameter 'only' is set, make sure that we 'skip' anything else
 if ($only > 0) {
@@ -237,7 +257,9 @@ if (($skip < 3 and $until >= 3) or $only == 3) {
 
 # create the reference db where the downloaded assembly will be loaded
 print("\n===== STEP 4: CREATE REFERENCE DB =====\n") if ($verbose);
-create_ref_db($dbhost,$dbport,$dbuser,$dbpass,$dbname,$dir_enscode,$local_path,$verbose) if (($skip < 4 and $until >= 4) or $only == 4);
+create_ref_db($dbhost,$dbport,$dbuser,$dbpass,$dbname,
+              $prod_dbhost,$prod_dbport,$prod_dbuser,$prod_dbpass,$prod_dbname,
+              $dir_enscode,$local_path,$verbose) if (($skip < 4 and $until >= 4) or $only == 4);
 
 print("\n===== STEP 5: LOAD SEQ_REGIONS =====\n") if ($verbose);
 my @agp_filepaths = ();
@@ -445,7 +467,14 @@ sub fix_ENA_contig_headers() {
 
 =cut
 sub create_ref_db {
-  my ($host,$port,$user,$pass,$dbname,$enscode,$dump_path,$verbose) = @_;
+  my ($host,$port,$user,$pass,$dbname,
+      $prod_host,$prod_port,$prod_user,$prod_pass,$prod_dbname,
+      $enscode,$dump_path,$verbose) = @_;
+
+  my $prod_db_check = `mysql -h$prod_host -P$prod_port -u$prod_user -p$prod_pass -NB -e"show databases like '$prod_dbname'"`;
+  if ($prod_db_check =~ /$dbname/) {
+    throw("Cannot find production database. The database $prod_dbname does not exist on host $prod_host port $prod_port");
+  }
 
   # CREATE DB--------------------------------------------------------------
   # check if db exists
@@ -519,19 +548,10 @@ sub create_ref_db {
   # populate production db tables
   my $populate_production_tables_script = '/ensembl-production/scripts/production_database/populate_production_db_tables.pl';
   if (-e $enscode.$populate_production_tables_script) {
-    `perl $enscode$populate_production_tables_script -h $host -P $port -u $user -p $pass -d $dbname -mh ens-staging1 -md ensembl_production -mu ensro -mP 3306 -dp $dump_path`;
+    `perl $enscode$populate_production_tables_script -h $host -P $port -u $user -p $pass -d $dbname -mh $prod_host -md $prod_dbname -mu $prod_user -mp $prod_pass -mP $prod_port -dp $dump_path`;
   } else {
     throw("Could not find the production script: ".$populate_production_tables_script." in\n ".$enscode."\n");
   }
-
-  # check if attrib_type,external_db,meta,misc_set and unmapped_reason tables were populated
-
-  # mysqlshow --count -h genebuild1 -P 3306 -u ensadmin -p*** cgg_dog_test24 | awk '{if (int($6) > 0) print $6}'
-  # 220
-  # 491
-  # 6
-  # 16
-  # 51
 
   my $num_populated_tables = int(`mysqlshow --count -h$host -P$port -u$user -p$pass $dbname | awk '{if (int(\$6) > 0) print \$6}' | wc -l`);
 
@@ -1110,6 +1130,16 @@ $0 -ftp_species_path <ftp_species_path> -local_path <local_path> -dbhost <dbhost
 
 -dbpass    		what password to use
 
+-prod_dbhost  production db host name
+
+-prod_dbport  production db port
+
+-prod_dbname  production db name 
+
+-prod_dbuser  production db username
+
+-prod_dbpass  production db password
+
 -enscode      path to the directories containing ensembl, ensembl-pipeline, ensembl-analysis. If not specified ENSCODE environment variable will be used
 
 -ensgbscripts path to the Genebuilder scripts directory. If not specified ENSGBSCRIPT envrionment variable will be used.
@@ -1140,16 +1170,7 @@ $0 -ftp_species_path <ftp_species_path> -local_path <local_path> -dbhost <dbhost
 
 Example:
 
-bsub -M 1000000 -R 'select[mem>1000] rusage[mem=1000]' -o dog_load_assembly.out -e dog_load_assembly.err "perl load_assembly.pl -ftp_species_path /genbank/genomes/Eukaryotes/vertebrates_mammals/Canis_lupus/CanFam3.1 -local_path /lustre/scratch101/sanger/cgg/CanFam3.1_test -dbhost genebuild1 -dbname cgg_dog_ref_test -dbuser ensadmin -dbpass ***  -enscode /nfs/users/nfs_c/cgg/src -ass_name CanFam3.1 -ena -ena_tax mam -ena_id aaex -verbose"
-
-IMPORTANT NOTE:
-
-    !!!!
-    !! You need to add this hacked version of bioperl to your PERL5LIB to make it work:
-    !! /nfs/users/nfs_t/th3/cvs_checkout/bioperl-live-12
-    !!  OR
-    !! bioperl >= 1.5.2
-    !!!!
+bsub -M 1000 -R 'select[mem>1000] rusage[mem=1000]' -o zebrafish_load_assembly.out -e zebrafish_load_assembly.err "perl load_assembly.pl -ftp_species_path /genomes/all/GCA/000/002/035/GCA_000002035.4_GRCz11/GCA_000002035.4_GRCz11_assembly_structure/ -local_path OUTPUT/GRCz11_assembly_loading -dbhost genebuild1 -dbname gb_zebrafish_11 -dbuser *** -dbpass *** -prod_dbhost prod_host -prod_dbname production_db -prod_dbuser *** -prod_dbpass *** -enscode ENSEMBL_CODE_BASE -ass_name GRCz11 -ena -ena_tax vrt -ena_id ahzz -verbose"
 
 EOF
 }
