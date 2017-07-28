@@ -80,7 +80,6 @@ else
       rt=$EXIT_CODE
   fi
   perl $PWD/ensembl-test/scripts/runtests.pl -verbose $PWD/modules/t $SKIP_TESTS
-#  find modules/t -type f -name "*.t" | xargs -i perl {}
   EXIT_CODE=$?
   if [ "$EXIT_CODE" -ne 0 ]; then
       rt=$EXIT_CODE
