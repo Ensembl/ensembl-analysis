@@ -155,7 +155,7 @@ sub run {
                   sample_collection => $row[$fields_index{sample_collection}],
                   sequencing_method => $row[$fields_index{sequencing_method}],
                 );
-                if ($line{center_name} eq 'BioSD') {
+                if ($line{center_name} eq 'BioSD' or $line{center_name} =~ /biosample/i) {
                   my $dh = $ua->default_headers;
                   $ua->default_header('Content-Type' => 'application/json');
                   my $biosd = $ua->get('http://www.ebi.ac.uk/biosamples/api/samples/'.$sample);
@@ -170,6 +170,14 @@ sub run {
                     $line{age} = join(' ', $data->{characteristics}->{animalAgeAtCollection}->[0]->{text},
                                  $data->{characteristics}->{animalAgeAtCollection}->[0]->{unit})
                       if (exists $data->{characteristics}->{animalAgeAtCollection});
+                    if (exists $data->{characteristics}->{organismPart}) {
+                      $line{description} = $data->{characteristics}->{organismPart}->[0]->{text};
+                      $line{uberon} = $data->{characteristics}->{organismPart}->[0]->{ontologyTerms}->[-1];
+                    }
+                    elsif (exists $data->{characteristics}->{cellType}) {
+                      $line{description} = $data->{characteristics}->{cellType}->[0]->{text};
+                      $line{uberon} = $data->{characteristics}->{cellType}->[0]->{ontologyTerms}->[-1];
+                    }
                   }
                   else {
                     $self->warning("Could not connect to BioSample with $sample");
