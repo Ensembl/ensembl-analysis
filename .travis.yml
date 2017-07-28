@@ -13,6 +13,7 @@ addons:
         packages:
         - unzip
         - samtools
+        - graphviz
 
 before_install:
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl.git
