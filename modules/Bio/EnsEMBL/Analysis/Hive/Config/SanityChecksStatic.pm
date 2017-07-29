@@ -228,6 +228,11 @@ sub _master_config {
         'cdna'                   => 20000,
       },
     }, # otherfeatures
+    rnaseq_final => {
+      'biotypes' => {
+        'protein_coding'         => 5000,
+      },
+    }, # rnaseq_final
   }, # gene_db_checks
 
   'final_core_checks' => {
