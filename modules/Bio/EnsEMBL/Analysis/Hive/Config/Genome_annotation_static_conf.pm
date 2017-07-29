@@ -3414,8 +3414,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['fan_otherfeatures_db'],
-                        1 => ['fan_rnaseq_final_db'],
+                        1 => ['fan_otherfeatures_db','fan_rnaseq_final_db'],
                       },
       },
 
