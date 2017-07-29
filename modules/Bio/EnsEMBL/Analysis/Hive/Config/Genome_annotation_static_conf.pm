@@ -3721,7 +3721,7 @@ sub pipeline_analyses {
                                 ' -refinedbhost '.$self->o('rnaseq_refine_db','-host').
                                 ' -refinedbport '.$self->o('rnaseq_refine_db','-port').
                                 ' -refinedbname '.$self->o('rnaseq_refine_db','-dbname').
-                                ' -species '.$self->o('species').
+                                ' -species '.$self->o('species_name').
                                 ' -uniprot_version '.$self->o('uniprot_db_dir'),
                       },
         -flow_into => {
