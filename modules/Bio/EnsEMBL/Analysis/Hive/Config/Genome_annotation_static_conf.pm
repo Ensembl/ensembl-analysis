@@ -3480,6 +3480,7 @@ sub pipeline_analyses {
                                 ' DELETE from meta where meta_key like "provider\.%";'.
                                 ' DELETE from meta where meta_key like "assembly.web_accession%";'.
                                 ' DELETE from meta where meta_key like "removed_evidence_flag\.%";'.
+                                ' DELETE from meta where meta_key like "marker\.%";'.
                                 ' DELETE from meta where meta_key = "repeat.analysis";'.
                                 ' DELETE from meta where meta_key in'.
                                 ' ("genebuild.last_geneset_update","genebuild.method","genebuild.projection_source_db","genebuild.start_date");'.
