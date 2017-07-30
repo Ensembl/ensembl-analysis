@@ -117,8 +117,6 @@ sub run {
 #      if ($num_warnings > 0) {
 #        $self->warning("There are some warning messages in the output file that should be checked (grep 'You are already using'):\n$file");
 #      }
-    } else {
-      $self->throw("No scaffold to contig agp file exists, expected the following file:\n$file");
     }
   }
 
