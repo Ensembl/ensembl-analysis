@@ -44,9 +44,6 @@ sub fetch_input {
     if ($cs_rank1->name eq 'chromosome') {
       $self->param('chromosomes_present', 1);
     }
-    else {
-      $self->throw("Need to pass in the chromosomes_present param to define the toplevel");
-    }
   }
 
   if (!-e $self->param_required('output_path')) {
