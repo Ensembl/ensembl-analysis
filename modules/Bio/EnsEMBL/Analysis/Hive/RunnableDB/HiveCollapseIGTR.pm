@@ -29,7 +29,6 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
-  $self->create_analysis;
   my $dba = $self->hrdb_get_dba($self->param_required('target_db'));
   my $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
   $dba->dnadb($dna_dba);
@@ -45,10 +44,12 @@ sub run {
 sub write_output {
   my $self = shift;
   my $output_genes = $self->output();
+  my $analysis = new Bio::EnsEMBL::Analysis(-logic_name => 'ig_tr_collapse');
+
   my $ga = $self->hrdb_get_con('target_db')->get_GeneAdaptor();
   foreach my $gene (@{$output_genes}) {
     empty_Gene($gene);
-    attach_Analysis_to_Gene($gene,$self->analysis);
+    attach_Analysis_to_Gene($gene,$analysis);
     $ga->store($gene);
   }
 }
