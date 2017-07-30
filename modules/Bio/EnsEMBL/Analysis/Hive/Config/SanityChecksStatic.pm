@@ -164,10 +164,10 @@ sub _master_config {
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
-          'ncrna' => 4000,
+          'ncrna' => 3000,
         }, # logic_names
         'biotypes' =>    {
-          'miRNA'               => 1000,
+          'miRNA'               => 500,
           'misc_RNA'            => 1000,
           'ribozyme'            => 0,
           'rRNA'                => 200,
@@ -179,7 +179,7 @@ sub _master_config {
       'final' => {
         'logic_names' => {
           'ensembl'             => 18000,
-          'ncrna'               => 4000,
+          'ncrna'               => 3000,
         }, # logic_names
         'biotypes' =>    {
           'IG_'                  => 20,
@@ -189,7 +189,7 @@ sub _master_config {
           'human_pe12_'         => 2000,
           'primates_pe12_'      => 2000,
           'mammals_pe12_'       => 1000,
-          'miRNA'               => 1000,
+          'miRNA'               => 500,
           'misc_RNA'            => 1000,
           'ribozyme'            => 0,
           'rRNA'                => 200,
@@ -201,7 +201,7 @@ sub _master_config {
       'core' => {
         'logic_names' => {
           'ensembl'             => 18000,
-          'ncrna'               => 4000,
+          'ncrna'               => 3000,
         }, # logic_names
         'biotypes' =>    {
           'IG_'                  => 20,
@@ -209,7 +209,7 @@ sub _master_config {
           'protein_coding'       => 25000,
           'pseudogene'           => 50,
           'processed_pseudogene' => 50,
-          'miRNA'                => 1000,
+          'miRNA'                => 500,
           'misc_RNA'             => 1000,
           'ribozyme'             => 0,
           'rRNA'                 => 200,
