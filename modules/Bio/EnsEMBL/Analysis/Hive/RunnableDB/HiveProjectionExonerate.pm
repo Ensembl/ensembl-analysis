@@ -82,8 +82,6 @@ sub fetch_input {
     $self->param('_transcript_biotype')->{$stable_id} = $biotype;
 
     say "Processing source transcript: ".$transcript->stable_id;
-    say "FM2 TSEQ:\n".$transcript->seq->seq;
-    say "FM2 PSEQ:\n".$transcript->translation->seq;
     if($self->QUERYTYPE eq 'protein') {
       unless($transcript->translation) {
         $self->warning("You have protein exonerate selected, but transcript does not have a translation, skipping");
