@@ -1899,7 +1899,7 @@ sub pipeline_analyses {
                                 ." -dbport ".$self->o('pipeline_db','-port')
                                 ." -fasta_file ".$self->o('ig_tr_blast_path')."/".$self->o('ig_tr_fasta_file')
                                 ." -sequence_table_name ".$self->o('ig_tr_table_name')
-                                ." -create_table 1"
+                                ." -create_table 1",
                        },
 
          -rc_name => 'default',
@@ -2013,7 +2013,7 @@ sub pipeline_analyses {
                          target_db => $self->o('ig_tr_db'),
                          dna_db => $self->o('dna_db'),
                          logic_name => 'ig_tr_gene',
-                         logic_names_to_cluster => ['genblast','genblast_not_best'],
+                         logic_names_to_cluster => ['ig_tr_gene','ig_tr_gene_not_best'],
                        },
         -rc_name    => 'genblast',
         -flow_into => {
@@ -2031,8 +2031,8 @@ sub pipeline_analyses {
                                 ' -h'.$self->o('ig_tr_db','-host').
                                 ' -P'.$self->o('ig_tr_db','-port').
                                 ' -D'.$self->o('ig_tr_db','-dbname').
-                                ' -e \'UPDATE gene join analysis using(analysis_id) set biotype=concat(biotype,"_not_best")'.
-                                ' where logic_name != "ig_tr_gene"; UPDATE transcript join gene using(gene_id) set transcript.biotype=gene.biotype;\'',
+                                ' -e \'UPDATE transcript join analysis using(analysis_id) set biotype=concat(biotype,"_pre_collapse")'.
+                                ' where logic_name != "ig_tr_collapse"; UPDATE gene join transcript using(gene_id) set gene.biotype=transcript.biotype;\'',
                        },
         -rc_name    => 'default',
         -flow_into => {
@@ -2362,7 +2362,7 @@ sub pipeline_analyses {
                         2 => ['project_transcripts'],
                       },
 
-         -rc_name    => 'default',
+         -rc_name    => '1.5GB',
       },
 
       {
