@@ -78,13 +78,61 @@ sub _master_config {
       },
     },
 
+    exonerate_projection_dna => {
+      OPTIONS => '--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 5 --maxintron 100000',
+      FILTER  => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -coverage => 50,
+          -percent_id => 50,
+        },
+      },
+    },
+
+    exonerate_projection_pseudogene => {
+      OPTIONS => '--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE'.
+                 ' --bestn 5 --maxintron 100000 --minintron 1 --frameshift 10',
+      FILTER  => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -coverage => 50,
+          -percent_id => 50,
+        },
+      },
+    },
+
+    exonerate_projection_ig_tr_protein => {
+      IIDREGEXP => '(\d+):(\d+)',
+      OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1 --maxintron 50000',
+      COVERAGE_BY_ALIGNED => 0,
+      QUERYTYPE           => 'protein',
+    },
+
+
+    exonerate_projection_coding => {
+        COVERAGE_BY_ALIGNED => 1,
+        OPTIONS => "--model cdna2genome --forwardcoordinates FALSE ".
+        "--softmasktarget TRUE --exhaustive FALSE ".
+        "--refine region --refineboundary 5000 --forcegtag 1 ".
+        "--score 500 --saturatethreshold 100 ".
+        "--dnahspthreshold 60 --dnawordlen 15 --bestn 10",
+        FILTER => { OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+          PARAMETERS => { -coverage => 50,
+            -percent_id => 50,
+            -best_in_genome => 0,
+            -reject_processed_pseudos => 1,
+          },
+        },
+      QUERYTYPE           => 'dna',
+    },
+
     exonerate_protein => {
       IIDREGEXP => '(\d+):(\d+)',
       OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1 --maxintron 50000',
       COVERAGE_BY_ALIGNED => 0,
       QUERYTYPE           => 'protein',
     },
-    
+
     exonerate_protein_human_patch => {
       IIDREGEXP => '(\d+):(\d+)',
       OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive TRUE --bestn 5 --maxintron 50000 --minintron 20',
@@ -100,7 +148,7 @@ sub _master_config {
                   },
       },
     },
-    
+
     exonerate_protein_human_patch_non_exhaustive => {
       IIDREGEXP => '(\d+):(\d+)',
       OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 5 --maxintron 50000 --minintron 20',

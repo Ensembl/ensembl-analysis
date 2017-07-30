@@ -56,29 +56,25 @@ use warnings ;
 use strict;
 use feature 'say';
 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Analysis_to_Gene attach_Slice_to_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(parse_timer);
 
 use Bio::SeqIO;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
 use Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils
-    qw(replace_stops_with_introns);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns);
+use Data::Dumper;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
 sub fetch_input {
   my($self) = @_;
-
-  foreach my $var (qw(INPUT_METHOD_LINK_TYPE QUERY_CORE_DB TARGET_CORE_DB COMPARA_DB)) {
-    $self->param_required($var);
-  }
-
   $self->create_analysis;
-
-  my $input_id = $self->param('iid');
+  my $input_ids = $self->param('iid');
 
   my $max_internal_stops = $self->param('max_internal_stops');
   unless(defined($max_internal_stops)) {
@@ -88,276 +84,244 @@ sub fetch_input {
   $self->max_internal_stops($max_internal_stops);
 
   # Define the dna dbs
-  my $source_dna_dba = $self->hrdb_get_dba($self->QUERY_CORE_DNA_DB);
-  my $target_dna_dba = $self->hrdb_get_dba($self->TARGET_CORE_DNA_DB);
+  my $source_dna_dba = $self->hrdb_get_dba($self->param('source_dna_db'));
+  my $target_dna_dba = $self->hrdb_get_dba($self->param('target_dna_db'));
   $self->hrdb_set_con($source_dna_dba,'source_dna_db');
   $self->hrdb_set_con($target_dna_dba,'target_dna_db');
-  my $source_dna_dbc = $self->hrdb_get_con('source_dna_db');
-  my $target_dna_dbc = $self->hrdb_get_con('target_dna_db');
 
   # Define the source transcript and target transcript dbs
-  my $source_transcript_dba = $self->hrdb_get_dba($self->QUERY_CORE_DB,undef,'source_dna_db');
-  my $target_transcript_dba = $self->hrdb_get_dba($self->TARGET_CORE_DB,undef,'target_dna_db');
+  my $source_transcript_dba = $self->hrdb_get_dba($self->param('source_db'));
+  my $target_transcript_dba = $self->hrdb_get_dba($self->param('target_db'));
+  $target_transcript_dba->dnadb($target_dna_dba);
   $self->hrdb_set_con($source_transcript_dba,'source_transcript_db');
   $self->hrdb_set_con($target_transcript_dba,'target_transcript_db');
-  my $source_transcript_dbc = $self->hrdb_get_con('source_transcript_db');
-  my $target_transcript_dbc = $self->hrdb_get_con('target_transcript_db');
 
   # Define the compara db
-  my $compara_dba = $self->hrdb_get_dba($self->COMPARA_DB,undef,'Compara');
+  my $compara_dba = $self->hrdb_get_dba($self->param('compara_db'),undef,'Compara');
   $self->hrdb_set_con($compara_dba,'compara_db');
-  my $compara_dbc = $self->hrdb_get_con('compara_db');
 
   # Get the genome db adpator
-  my $gdb_adap = $compara_dbc->get_GenomeDBAdaptor;
+  my $genome_dba = $compara_dba->get_GenomeDBAdaptor;
 
   # Retrieve the production names for the query and target species
-  my $query_species = $source_transcript_dbc->get_MetaContainerAdaptor->get_production_name();
-  my $target_species = $target_transcript_dbc->get_MetaContainerAdaptor->get_production_name();
+  my $source_species = $source_transcript_dba->get_MetaContainerAdaptor->get_production_name();
+  my $target_species = $target_transcript_dba->get_MetaContainerAdaptor->get_production_name();
 
-
-  my $q_gdb = $gdb_adap->fetch_by_core_DBAdaptor($source_transcript_dbc);
-  my $t_gdb = $gdb_adap->fetch_by_core_DBAdaptor($target_transcript_dbc);
-
+  my $source_genome_db = $genome_dba->fetch_by_core_DBAdaptor($source_transcript_dba);
+  my $target_genome_db = $genome_dba->fetch_by_core_DBAdaptor($target_transcript_dba);
 
   ########
   # check that the default assembly for the query and target agrees
   # with that for the method_link_species_set GenomeDBs
   ########
 
-  my $q_assembly = $q_gdb->assembly;
-  my $t_assembly = $t_gdb->assembly;
+  my $source_assembly = $source_genome_db->assembly;
+  my $target_assembly = $target_genome_db->assembly;
 
-
-
-  my ($q_assembly_version, $t_assembly_version);
+  my ($source_assembly_version, $target_assembly_version);
   eval {
-    $q_assembly_version = $source_transcript_dbc->get_CoordSystemAdaptor->fetch_by_name('toplevel',$q_gdb->assembly);
-    $t_assembly_version = $target_transcript_dbc->get_CoordSystemAdaptor->fetch_by_name('toplevel',$t_gdb->assembly);
+    $source_assembly_version = $source_transcript_dba->get_CoordSystemAdaptor->fetch_by_name('toplevel',$source_genome_db->assembly);
+    $target_assembly_version = $target_transcript_dba->get_CoordSystemAdaptor->fetch_by_name('toplevel',$target_genome_db->assembly);
   };
   if($@) {
-    throw("Had trouble fetching coord systems for ".$q_gdb->assembly . " and " .$t_gdb->assembly . " from core dbs:\n".$@);
+    $self->throw("Had trouble fetching coord systems for ".$source_genome_db->assembly . " and " .$target_genome_db->assembly . " from core dbs:\n".$@);
   }
 
-
-  ########
-  # fetch the genes; need to work in the coordinate space of the
-  # top-level slice to be consistent with compara
-  ########
-  my $transcript = $source_transcript_dbc->get_TranscriptAdaptor->fetch_by_dbID($input_id);
-  $transcript->analysis($self->analysis);
-  unless($transcript->biotype eq 'protein_coding') {
-    $self->input_job->autoflow(0);
-    $self->complete_early('Transcript does not have protein_coding biotype!');
-  }
-
-  my $gene = Bio::EnsEMBL::Gene->new();
-  $gene->analysis($self->analysis);
-  $gene->biotype('projection');
-  $gene->add_Transcript($transcript);
-  $gene->stable_id($transcript->stable_id);
-  $gene->start($transcript->start);
-  $gene->end($transcript->end);
-  $gene->strand($transcript->strand);
-  $gene->slice($transcript->slice);
-
-  $self->_check_gene($gene);
-  $self->gene($gene);
-
-  #########
-  # get the compara data: MethodLinkSpeciesSet, reference DnaFrag,
-  # and all GenomicAlignBlocks
-  #########
-  my $mlss = $compara_dbc->get_MethodLinkSpeciesSetAdaptor->fetch_by_method_link_type_GenomeDBs($self->INPUT_METHOD_LINK_TYPE,
-                                                                                                [$q_gdb, $t_gdb]);
+  my $transcript_align_slices = {};
+  my $mlss = $compara_dba->get_MethodLinkSpeciesSetAdaptor->fetch_by_method_link_type_GenomeDBs($self->param('method_link_type'),
+                                                                                                [$source_genome_db,
+                                                                                                $target_genome_db]);
   unless($mlss) {
-    throw("No MethodLinkSpeciesSet for :\n" .$self->INPUT_METHOD_LINK_TYPE . "\n" .$query_species . "\n" .$target_species);
+    $self->throw("No MethodLinkSpeciesSet for :\n" .$self->param('method_link_type') . "\n" .$source_species . "\n" .$target_species);
   }
 
-  my $dnafrag = $compara_dbc->get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($q_gdb,$self->gene->slice->seq_region_name);
+  foreach my $input_id (@$input_ids) {
+    my $transcript = $source_transcript_dba->get_TranscriptAdaptor->fetch_by_dbID($input_id);
+    say "Processing transcript: ".$transcript->dbID;
 
-  my $gaba = $compara_dbc->get_GenomicAlignBlockAdaptor;
+    #########
+    # get the compara data: MethodLinkSpeciesSet, reference DnaFrag,
+    # and all GenomicAlignBlocks
+    #########
+    my $dnafrag = $compara_dba->get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($source_genome_db,$transcript->slice->seq_region_name);
+    my $genomic_align_block_adaptor = $compara_dba->get_GenomicAlignBlockAdaptor;
+    my $genomic_align_blocks = $genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_DnaFrag($mlss,$dnafrag,$transcript->start,$transcript->end);
 
+    my (%chains, @chains);
+    foreach my $genomic_align_block (@$genomic_align_blocks) {
+      my $source_genomic_align = $genomic_align_block->reference_genomic_align;
+      my ($target_genomic_align) = @{$genomic_align_block->get_all_non_reference_genomic_aligns};
 
-  my $gen_al_blocks = $gaba->fetch_all_by_MethodLinkSpeciesSet_DnaFrag($mlss,$dnafrag,$gene->start,$gene->end);
+      # fetch the target slice for later reference
+      if (not exists $transcript->{'_target_slices'}->{$target_genomic_align->dnafrag->name}) {
+        $transcript->{'_target_slices'}->{$target_genomic_align->dnafrag->name} = $target_transcript_dba->get_SliceAdaptor->fetch_by_region('toplevel',$target_genomic_align->dnafrag->name);
+      }
 
+      if ($genomic_align_block->reference_genomic_align->dnafrag_strand < 0) {
+        $genomic_align_block->reverse_complement;
+      }
 
-  my (%chains, @chains);
-  foreach my $block (@$gen_al_blocks) {
-    my $qga = $block->reference_genomic_align;
-    my ($tga) = @{$block->get_all_non_reference_genomic_aligns};
-
-    ###########################################################
-    ###### INVESTIGATE: do we want to just use level 1 chains?
-    ###########################################################
-    #next if $qga->level_id != 1 or $tga->level_id != 1;
-
-    # fetch the target slice for later reference
-    if (not exists $self->target_slices->{$tga->dnafrag->name}) {
-      $self->target_slices->{$tga->dnafrag->name} = $target_transcript_dbc->get_SliceAdaptor->fetch_by_region('toplevel',$tga->dnafrag->name);
+      push @{$chains{$genomic_align_block->group_id}}, $genomic_align_block;
     }
 
-    if ($block->reference_genomic_align->dnafrag_strand < 0) {
-      $block->reverse_complement;
+    foreach my $chain_id (keys %chains) {
+      push @chains, [
+                    sort {
+                       $a->reference_genomic_align->dnafrag_start <=> $b->reference_genomic_align->dnafrag_start;
+                     } @{$chains{$chain_id}}
+                    ];
     }
 
-    push @{$chains{$block->group_id}}, $block;
-  }
-
-  foreach my $chain_id (keys %chains) {
-    push @chains, [
-                   sort {
-                     $a->reference_genomic_align->dnafrag_start <=> $b->reference_genomic_align->dnafrag_start;
-                   } @{$chains{$chain_id}}
-                  ];
-  }
-  $self->genomic_align_block_chains(\@chains);
-
+    unless (scalar@chains) {
+      say "Transcript ".$transcript->dbID." has no alignment chains, skipping.";
+      next;
+    }
+    $transcript->{'_genomic_align_block_chains'} = \@chains;
+    $self->source_transcripts($transcript);
+ }
 
 }
-
 
 sub run {
   my ($self) = @_;
 
-  unless(scalar(@{$self->good_transcripts}) > 0) {
-    warning("No transcripts in the good_transcripts list, so nothing to project");
-    return 1;
-  }
-
-  my @res_tran;
-  my @final_tran;
-  print scalar(@{$self->genomic_align_block_chains}),"\n";
-  foreach my $chain (@{$self->genomic_align_block_chains}) {
-
-    #    my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffoldDirect->new(
-    my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold->new(
-                                                                                     -genomic_align_blocks => $chain,
-                                                                                     -from_slice    => $self->gene->slice,
-                                                                                     -to_slices     => $self->target_slices,
-                                                                                     -transcripts   => $self->good_transcripts,
-                                                                                     -max_readthrough_dist => $self->MAX_EXON_READTHROUGH_DIST,
-                                                                                     -direct_target_coords => 1,
-                                                                                   );
-
-    foreach my $tran (@{$self->good_transcripts}) {
-      # Remember to remove the 1 in place transcripts as right now this is only used for testing purposes
-      #$gene_scaffold->place_transcript($tran,1);
-      my $proj_trans;
-      eval {
-        $proj_trans  = $gene_scaffold->place_transcript($tran);
-      };
-
-      if($@) {
-        $self->runnable_failed(1);
-      }
-      if ($proj_trans) {
-        my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t', -VALUE => $tran->stable_id);
-        $proj_trans->add_Attributes($parent_attribute);
-        push @res_tran, $proj_trans;
-      }
-    }
-  }
-
-
-  if ($self->TRANSCRIPT_FILTER){
-    @res_tran = @{$self->filter->filter_results(\@res_tran)};
-  }
-
-  foreach my $res_tran (@res_tran){ 
-    $res_tran = $self->process_transcript($res_tran);
-
-    unless($res_tran) {
-      next;
-    }
-
-    if($self->param('calculate_coverage_and_pid') && $res_tran) {
-      my $gene = $self->gene();
-      my $transcripts = $gene->get_all_Transcripts;
-      my $source_transcript = $$transcripts[0];
-      if($res_tran->translation->length < 20000 && $source_transcript->translation->length < 20000) {
-        $self->realign_translation($source_transcript,$res_tran);
-      } else {
-        $self->warning('Not realigning translation as translation length >= 20000');
-      }
-    }
-    push @final_tran, $res_tran;
-  }
-
-  # create new gene object for each transcript
-  print "At the end of RUN, we had ", scalar(@final_tran), " transcripts\n";
-  $self->output(\@final_tran);
+  my $result_transcripts = [];
+  my $source_transcripts = $self->source_transcripts();
+  push(@{$result_transcripts}, $self->project_transcripts($source_transcripts, $result_transcripts));
+  say "At the end of RUN, we had ", scalar(@{$result_transcripts}), " transcripts";
 }
-
 
 sub write_output {
   my ($self) = @_;
 
-  my $trans_count = 0;
+  my $transcript_count = 0;
   my $target_transcript_dbc = $self->hrdb_get_con('target_transcript_db');
-  my $t_gene_adaptor = $target_transcript_dbc->get_GeneAdaptor();
+  my $target_gene_adaptor = $target_transcript_dbc->get_GeneAdaptor();
   my $failure_branch_code = -3;
 
-  if($self->runnable_failed && scalar(@{$self->output}) == 0) {
-    $self->warning("Issue with projection, will dataflow input id on branch -3");
-    my $output_hash = {};
-    $output_hash->{'iid'} = $self->param('iid');
-    $self->dataflow_output_id($output_hash,$failure_branch_code);
-  } else {
-    foreach my $t (@{$self->output}) {
-      $t->analysis($self->analysis);
-      $t->biotype('projection');
+  foreach my $transcript (@{$self->output}) {
+    $transcript->analysis($self->analysis);
+    $transcript->biotype('projection');
+    empty_Transcript($transcript);
 
-      my $gene = Bio::EnsEMBL::Gene->new(-analysis => $self->analysis,-biotype  => 'projection');
+    my $gene = Bio::EnsEMBL::Gene->new();
+    $gene->biotype('projection');
 
-      foreach my $tsf ( @{ $t->get_all_supporting_features }){
-        $tsf->analysis($self->analysis);
-      }
+    $gene->add_Transcript($transcript);
+    attach_Slice_to_Gene($gene, $transcript->slice);
+    attach_Analysis_to_Gene($gene, $self->analysis);
+    $target_gene_adaptor->store($gene);
+    $transcript_count++;
+  }
 
-      foreach my $exon (@{$t->get_all_Exons()}){
-        $exon->analysis($self->analysis);
-        foreach my $esf (@{$exon->get_all_supporting_features()}){
-          $esf->analysis($self->analysis);
-        }
-      }
-
-      $gene->add_Transcript($t);
-      empty_Gene($gene);
-      $t_gene_adaptor->store($gene);
-      $trans_count++;
-
-      print "TRANSCRIPT:\n";
-      foreach my $e (@{$t->get_all_Exons}) {
-        printf("%s\tEnsembl\tExon\t%d\t%d\t%d\t%d\t%d\n", $e->slice->seq_region_name, $e->start, $e->end, $e->strand, $e->phase, $e->end_phase);
-      }
-      my $seqio = Bio::SeqIO->new(-format => 'fasta',
-                                  -fh => \*STDOUT);
-      $seqio->write_seq($t->translate);
-    }
-
-    print "For gene " . $self->param('iid'). " you stored ", $trans_count, " transcripts\n";
-    # to do: write gene back to core target database
+  my $output_hash = {};
+  my $failed_transcript_ids = $self->param('_failed');
+  foreach my $failed_transcript_id (@$failed_transcript_ids) {
+    $output_hash->{'iid'} = [$failed_transcript_id];
+    $self->dataflow_output_id($output_hash, $failure_branch_code);
+  }
+  if (scalar @$failed_transcript_ids ) {
+    $output_hash->{'iid'} = $failed_transcript_ids;
+    $self->dataflow_output_id($output_hash, $failure_branch_code);
   }
 
   return 1;
+
 }
 
+sub project_transcripts {
+  my ($self, $source_transcripts, $result_transcripts)= @_;
+  my $timer = $self->param('timer');
+  $timer = parse_timer($timer);
+  my $failed_transcripts = [];
+
+  foreach my $source_transcript (@$source_transcripts) {
+     eval {
+      local $SIG{ALRM} = sub { die "alarm clock restart" };
+      alarm $timer; #schedule alarm in '$timer' seconds
+
+      foreach my $chain (@{$source_transcript->{_genomic_align_block_chains}}) {
+        my $gene_scaffold = Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold->new(
+                                                                                     -genomic_align_blocks => $chain,
+                                                                                     -from_slice    => $source_transcript->slice,
+                                                                                     -to_slices     => $source_transcript->{'_target_slices'},
+                                                                                     -transcripts   => [$source_transcript],
+                                                                                     -max_readthrough_dist => $self->MAX_EXON_READTHROUGH_DIST,
+                                                                                     -direct_target_coords => 1,
+                                                                                   );
+        my $proj_transcript;
+        eval{
+          $proj_transcript = $gene_scaffold->place_transcript($source_transcript);
+        };
+        if($@ || !$proj_transcript) {
+          say "Projection failed on block chain for transcript ".$source_transcript->dbID;
+          push(@{$failed_transcripts}, $source_transcript->dbID);
+          next;
+        }
+
+        $proj_transcript = $self->process_transcript($proj_transcript);
+        unless($proj_transcript) {
+          next;
+        }
+
+        if($self->param('calculate_coverage_and_pid')) {
+          if($proj_transcript->translation->length < 20000 && $source_transcript->translation->length < 20000) {
+            $self->realign_translation($source_transcript,$proj_transcript);
+          }
+          else {
+            $self->warning('Not realigning translation as translation length >= 20000');
+          }
+        }
+
+        my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t', -VALUE => $source_transcript->stable_id.".".$source_transcript->version);
+        $proj_transcript->add_Attributes($parent_attribute);
+        push(@{$result_transcripts}, $proj_transcript);
+      }
+      alarm 0; #reset alarm
+    };
+
+    if($@ && $@ !~ /alarm clock restart/) {
+      say "Projection failed for transcript ".$source_transcript->dbID." because of time limit on timer param";
+      push(@{$failed_transcripts}, $source_transcript->dbID);
+    }
+
+    if ($self->TRANSCRIPT_FILTER){
+      @{$result_transcripts} = @{$self->filter->filter_results($result_transcripts)};
+    }
+   }
+  $self->output($result_transcripts);
+  $self->param('_failed', $failed_transcripts);
+
+  return $result_transcripts;
+}
 
 sub runnable_failed {
   my ($self,$runnable_failed) = @_;
-  if($runnable_failed) {
-    $self->param('_runnable_failed',$runnable_failed);
+  unless ($self->param_is_defined('_runnable_failed')) {
+    $self->param('_runnable_failed',[]);
   }
-  return($self->param('_runnable_failed'));
+  if ($runnable_failed) {
+    push (@{$self->param('_runnable_failed')},$runnable_failed);
+  }
+  return ($self->param('_runnable_failed'));
 }
 
+sub source_transcripts {
+  my ($self,$transcript) = @_;
+  unless ($self->param_is_defined('_source_transcripts')) {
+    $self->param('_source_transcripts',[]);
+  }
+
+  if ($transcript) {
+    push (@{$self->param('_source_transcripts')},$transcript);
+  }
+  return ($self->param('_source_transcripts'));
+}
 
 sub realign_translation {
   my ($self,$source_transcript,$projected_transcript) = @_;
 
   my $query_seq = $source_transcript->translate->seq();
-#  my $transcripts = $gene->get_all_Transcripts();
-#  my $transcript = ${$transcripts}[0];
   my $projected_seq = $projected_transcript->translate->seq();
 
   my $align_input_file = "/tmp/projected_align_".$$.".fa";
@@ -465,45 +429,6 @@ sub realign_translation {
 
 }
 
-
-######################################
-# internal methods
-#####################################
-
-sub _check_gene {
-  my ($self, $gene) = @_;
-
-  my @good_transcripts;
-
-  foreach my $t (@{$gene->get_all_Transcripts}){
-    #print "Transcript Start: ",$t->start, "  END: ", $t->end,"\n";
-    #print "translation: ",$t->translateable_seq,"\n";
-
-    if ((length($t->translateable_seq) % 3) == 0){
-
-      push(@good_transcripts,$t);
-
-      }
-    else{
-      warn ("Gene ", $gene->display_id(), " contains no valid transcripts");
-      #push @good_transcripts, $t;
-      #print "Done\n";
-      #exit(1);
-    }
-  }
-
-  warn ("Gene ", $gene->display_id(), " contains no valid transcripts") if (scalar(@good_transcripts) == 0);
-
-  $self->good_transcripts(\@good_transcripts);
-
-  # throw an exception here if:
-  # 1. gene is not protein-coding (translations in all transcripts)
-  # 2. gene contains at least one transcript with a coding region
-  #    that is not multiple-of-three in length
-
-}
-
-
 #################################################################
 # FUNCTION  : process_transcript
 #
@@ -548,8 +473,6 @@ sub process_transcript {
   return $tran;
 }
 
-
-
 ###########################
 # gets/sets
 ###########################
@@ -562,27 +485,6 @@ sub genomic_align_block_chains {
   }
 
   return $self->param('_gen_al_chains');
-}
-
-
-sub gene {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->param('_gene_recs',$val);
-  }
-
-  return $self->param('_gene_recs');
-}
-
-sub good_transcripts {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->param('_good_transcripts',$val);
-  }
-
-  return $self->param('_good_transcripts');
 }
 
 sub target_slices {
@@ -612,75 +514,6 @@ sub max_internal_stops {
 ####################################
 # config variable holders
 ####################################
-
-
-#
-# core options
-#
-
-sub INPUT_METHOD_LINK_TYPE {
-  my ($self, $type) = @_;
-
-  if (defined $type) {
-    $self->param('INPUT_METHOD_LINK_TYPE',$type);
-  }
-
-  return $self->param('INPUT_METHOD_LINK_TYPE');
-}
-
-
-sub COMPARA_DB {
-  my ($self, $db) = @_;
-
-  if (defined $db) {
-    $self->param('COMPARA_DB',$db);
-  }
-
-  return $self->param('COMPARA_DB');
-}
-
-
-sub QUERY_CORE_DB {
-  my ($self, $db) = @_;
-
-  if (defined $db) {
-    $self->param('QUERY_CORE_DB',$db);
-  }
-
-  return $self->param('QUERY_CORE_DB');
-}
-
-sub QUERY_CORE_DNA_DB {
-  my ($self, $db) = @_;
-
-  if (defined $db) {
-    $self->param('QUERY_CORE_DNA_DB',$db);
-  }
-
-  return $self->param('QUERY_CORE_DNA_DB');
-}
-
-sub TARGET_CORE_DB {
-  my ($self,$db) = @_;
-
-  if (defined $db) {
-    $self->param('TARGET_CORE_DB',$db);
-  }
-
-  return $self->param('TARGET_CORE_DB');
-}
-
-sub TARGET_CORE_DNA_DB {
-  my ($self,$db) = @_;
-
-  if (defined $db) {
-    $self->param('TARGET_CORE_DNA_DB',$db);
-  }
-
-  return $self->param('TARGET_CORE_DNA_DB');
-}
-
-
 #
 # transcript editing and filtering
 #

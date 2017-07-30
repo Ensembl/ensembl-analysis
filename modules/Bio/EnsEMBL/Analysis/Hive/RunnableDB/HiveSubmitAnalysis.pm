@@ -714,6 +714,7 @@ sub feature_id {
     }
     $output_id_array = $self->_chunk_input_ids($self->param('batch_size'),$output_id_array);
   }
+
   $self->param('inputlist', $output_id_array);
 }
 
@@ -725,17 +726,21 @@ sub feature_restriction {
   if($restriction) {
     # Transcript restrictions go here
     if($type eq 'gene' || $type eq 'transcript') {
-      if($restriction eq 'protein_coding') {
+      if($restriction eq 'has_translation') {
         # Note initially this is based on translation and not biotype, but for projection I've switched to to biotype temporarily
-        unless($feature->biotype() eq 'protein_coding') {
+        unless($feature->translation) {
           $feature_restricted = 1;
           return($feature_restricted);
         }
       } elsif($restriction eq 'biotype') {
-        # future code with a new param for a biotype array should go here
+        unless($self->param_required('biotypes')->{$feature->biotype()}) {
+          $feature_restricted = 1;
+        }
       } elsif($restriction eq 'projection') {
         return($self->assess_projection_transcript($feature));
-      } #  End if type eq projection
+      } else {
+        $self->throw("You've selected a features restriction type that is not recognised: ".$restriction);
+      }
     } # End if type eq gene or transcript
   } # End if restriction
 
@@ -748,8 +753,9 @@ sub feature_restriction {
 sub assess_projection_transcript {
   my ($self,$current_transcript) = @_;
 
+  my $biotypes = $self->param_required('allowed_biotypes');
   my $feature_restricted = 0;
-  unless($current_transcript->biotype() eq 'protein_coding') {
+  unless($biotypes->{$current_transcript->biotype()}) {
     $feature_restricted = 1;
     return($feature_restricted);
   }
