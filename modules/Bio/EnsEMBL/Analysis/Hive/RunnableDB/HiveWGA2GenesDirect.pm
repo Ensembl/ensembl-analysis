@@ -90,8 +90,8 @@ sub fetch_input {
   $self->hrdb_set_con($target_dna_dba,'target_dna_db');
 
   # Define the source transcript and target transcript dbs
-  my $source_transcript_dba = $self->hrdb_get_dba($self->param('source_db'));
-  my $target_transcript_dba = $self->hrdb_get_dba($self->param('target_db'));
+  my $source_transcript_dba = $self->hrdb_get_dba($self->param('source_transcript_db'));
+  my $target_transcript_dba = $self->hrdb_get_dba($self->param('target_transcript_db'));
   $target_transcript_dba->dnadb($target_dna_dba);
   $self->hrdb_set_con($source_transcript_dba,'source_transcript_db');
   $self->hrdb_set_con($target_transcript_dba,'target_transcript_db');
@@ -246,7 +246,7 @@ sub project_transcripts {
                                                                                      -from_slice    => $source_transcript->slice,
                                                                                      -to_slices     => $source_transcript->{'_target_slices'},
                                                                                      -transcripts   => [$source_transcript],
-                                                                                     -max_readthrough_dist => $self->MAX_EXON_READTHROUGH_DIST,
+                                                                                     -max_readthrough_dist => $self->param('max_exon_readthrough_dist'),
                                                                                      -direct_target_coords => 1,
                                                                                    );
         my $proj_transcript;
@@ -409,7 +409,7 @@ sub realign_translation {
   foreach my $transcript_supporting_feature (@{$transcript_supporting_features}) {
     $transcript_supporting_feature->hcoverage($coverage);
     $transcript_supporting_feature->percent_id($percent_id);
-    $transcript_supporting_feature->hseqname($source_transcript->stable_id);
+    $transcript_supporting_feature->hseqname($source_transcript->stable_id.".".$source_transcript->version);
     $projected_transcript->add_supporting_features($transcript_supporting_feature);
   }
 
@@ -421,7 +421,7 @@ sub realign_translation {
     foreach my $exon_supporting_feature (@{$exon_supporting_features}) {
       $exon_supporting_feature->hcoverage($coverage);
       $exon_supporting_feature->percent_id($percent_id);
-      $exon_supporting_feature->hseqname($source_transcript->stable_id);
+      $exon_supporting_feature->hseqname($source_transcript->stable_id.".".$source_transcript->version);
       $exon->add_supporting_features($exon_supporting_feature);
     }
     $projected_transcript->add_Exon($exon);
@@ -562,17 +562,6 @@ sub filter {
   else {
     return;
   }
-}
-
-
-sub MAX_EXON_READTHROUGH_DIST {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    $self->param('MAX_EX_RT_DIST',$val);
-  }
-
-  return $self->param('MAX_EX_RT_DIST');
 }
 
 
