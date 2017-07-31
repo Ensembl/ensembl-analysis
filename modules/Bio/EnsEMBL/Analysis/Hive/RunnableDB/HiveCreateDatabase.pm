@@ -177,19 +177,23 @@ sub copy_db {
     $self->check_db_string($self->param('target_db'));
     $target_string = $self->param('target_db');
   }
-  
+
   my @source_string_at_split = split('@',$source_string);
   my $source_dbname = shift(@source_string_at_split);
   my @source_string_colon_split = split(':',shift(@source_string_at_split));
   my $source_host = shift(@source_string_colon_split);
   my $source_port = shift(@source_string_colon_split);
-  
+
   my @target_string_at_split = split('@',$target_string);
   my $target_dbname = shift(@target_string_at_split);
   my @target_string_colon_split = split(':',shift(@target_string_at_split));
   my $target_host = shift(@target_string_colon_split);
   my $target_port = shift(@target_string_colon_split);
-  
+
+  if($self->param('force_drop')) {
+    $self->drop_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
+  }
+
   $self->dump_database($source_host,$source_port,$self->param('user_w'),$self->param('pass_w'),$source_dbname,$self->param('db_dump_file'),$self->param('ignore_dna'));
   $self->create_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
   $self->load_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname,$self->param('db_dump_file'));
@@ -396,15 +400,19 @@ sub create_database {
 }
 
 sub load_database {
-	
   my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file) = @_;
-  
   print "\nLoading file $db_file into database $dbname"."@"."$dbhost:$dbport...\n";
   if (system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname < $db_file")) {
     $self->throw("The database loading process failed. Please, check that you have access to the file $db_file and the database you are trying to write to.");
   } else {
     print("\nThe database loading process was completed successfully from file $db_file into $dbname.\n");
   }
+}
+
+sub drop_database {
+  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
+  print "\nDropping existing database if it exists $dbname"."@"."$dbhost:$dbport...\n";
+  system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -e 'DROP DATABASE $dbname'");
 }
 
 sub remove_file {
