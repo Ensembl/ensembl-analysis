@@ -103,7 +103,7 @@ sub default_options {
     'rnaseq_blast_db_port'         => 'RNASEQ_BLAST_PORT',
 
 
-    'pipe_dbname' => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe_'.$self->o('release_number'),
+    'pipe_dbname'                  => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe_'.$self->o('release_number'),
     'dna_dbname'                   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
     'port'                         => $self->o('pipe_db_port'),
 
@@ -129,8 +129,8 @@ sub default_options {
     'projection_realign_db_server' => $self->o('databases_server'),
     'projection_realign_db_port'   => $self->o('databases_port'),
 
-    'rnaseq_db_server'             => $self->o('databases_server'),
-    'rnaseq_db_port'               => $self->o('databases_port'),
+    'rnaseq_for_layer_db_server'   => $self->o('databases_server'),
+    'rnaseq_for_layer_db_port'     => $self->o('databases_port'),
 
     'rnaseq_final_db_server'       => $self->o('databases_server'),
     'rnaseq_final_db_port'         => $self->o('databases_port'),
@@ -199,14 +199,14 @@ sub default_options {
 
     'layering_input_gene_dbs' => [
                                    $self->o('genblast_db'),
-                                   $self->o('rnaseq_db'),
+                                   $self->o('rnaseq_for_layer_db'),
                                    $self->o('projection_db'),
                                    $self->o('ig_tr_db'),
                                  ],
 
     'utr_gene_dbs' => {
                         'cdna_db'       => $self->o('cdna_db'),
-                        'rnaseq_utr_db' => $self->o('rnaseq_db'),
+                        'rnaseq_utr_db' => $self->o('rnaseq_for_layer_db'),
                         'no_utr_db'     => $self->o('layering_db'),
                       },
 
@@ -409,10 +409,10 @@ sub default_options {
       -driver => $self->o('hive_driver'),
     },
 
-    'rnaseq_db' => {
+    'rnaseq_for_layer_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('species_name').'_rnaseq_'.$self->o('release_number'),
-      -host   => $self->o('rnaseq_db_server'),
-      -port   => $self->o('rnaseq_db_port'),
+      -host   => $self->o('rnaseq_for_layer_db_server'),
+      -port   => $self->o('rnaseq_for_layer_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -785,12 +785,12 @@ sub pipeline_analyses {
         -rc_name    => 'default',
 
         -flow_into  => {
-                          1 => ['load_mitochondrion', 'fan_refseq'],
+                          1 => ['load_mitochondrion', 'fan_refseq_import'],
                        },
       },
 
       {
-        -logic_name => 'fan_refseq',
+        -logic_name => 'fan_refseq_import',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
                          cmd => 'if [ -n "#assembly_refseq_accession#" ]; then exit 0; else exit 42;fi',
@@ -1550,14 +1550,14 @@ sub pipeline_analyses {
         -rc_name    => 'default',
         -wait_for => ['format_softmasked_toplevel'],
         -flow_into => {
-                        '1->A' => ['fan_refseq_2'],
+                        '1->A' => ['fan_refseq_cdna'],
                         'A->1' => ['create_genblast_output_db'],
                       },
       },
 
 
       {
-        -logic_name => 'fan_refseq_2',
+        -logic_name => 'fan_refseq_cdna',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
                          cmd => 'if [ -n "#assembly_refseq_accession#" ]; then exit 0; else exit 42;fi',
@@ -2359,41 +2359,41 @@ sub pipeline_analyses {
                          allowed_biotypes => {
                                                'protein_coding' => 1,
                                              },
+                         batch_size => 500,
                        },
 
         -flow_into => {
-                        2 => ['project_transcripts'],
+                        2 => ['project_coding_transcripts'],
                       },
 
          -rc_name    => '1.5GB',
       },
 
       {
-        -logic_name => 'project_transcripts',
+        -logic_name => 'project_coding_transcripts',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
         -parameters => {
                          logic_name => 'project_transcripts',
                          module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
-                         QUERY_CORE_DB => $self->default_options()->{'projection_source_db'},
-                         QUERY_CORE_DNA_DB => $self->default_options()->{'projection_source_db'},
-                         TARGET_CORE_DB => $self->o('projection_db'),
-                         TARGET_CORE_DNA_DB => $self->o('dna_db'),
-                         COMPARA_DB => $self->o('projection_lastz_db'),
-                         INPUT_METHOD_LINK_TYPE => 'LASTZ_NET',
-                         MAX_EXON_READTHROUGH_DIST => 15,
+                         source_dna_db         => $self->default_options()->{'projection_source_db'},
+                         target_dna_db         => $self->o('dna_db'),
+                         source_transcript_db  => $self->default_options()->{'projection_source_db'},
+                         target_transcipt_db   => $self->o('projection_db'),
+                         compara_db            => $self->o('projection_lastz_db'),
+                         method_link_type => 'LASTZ_NET',
+                         max_exon_readthrough_dist => 15,
                          TRANSCRIPT_FILTER => {
-                           OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ClusterFilter',
+                           OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
                            PARAMETERS => {
                              -coverage => $self->o('projection_cov'),
                              -percent_id => $self->o('projection_pid'),
-                             -max_editable_stops => $self->o('projection_max_internal_stops'),
-                             -best_in_genome => 1,
                            },
                          },
                          iid_type => 'feature_id',
                          feature_type => 'transcript',
                          calculate_coverage_and_pid => $self->o('projection_calculate_coverage_and_pid'),
                          max_internal_stops => $self->o('projection_max_internal_stops'),
+                         timer => '30m',
                        },
 
         -flow_into => {
@@ -2514,6 +2514,7 @@ sub pipeline_analyses {
                        },
       },
 
+
       {
         -logic_name => 'realign_projection',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenBlast',
@@ -2551,7 +2552,8 @@ sub pipeline_analyses {
         -failed_job_tolerance => 100,
       },
 
-     {
+
+      {
         -logic_name => 'classify_realigned_models',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
         -parameters => {
@@ -2564,6 +2566,7 @@ sub pipeline_analyses {
                         1 => ['realign_sanity_checks'],
                       },
       },
+
 
       {
         -logic_name => 'realign_sanity_checks',
@@ -2578,7 +2581,7 @@ sub pipeline_analyses {
 
         -rc_name    => '4GB',
         -flow_into => {
-                        1 => ['create_rnaseq_db'],
+                        1 => ['create_rnaseq_for_layer_db'],
                       },
       },
 
@@ -2589,11 +2592,11 @@ sub pipeline_analyses {
 ############################################################################
 
       {
-        -logic_name => 'create_rnaseq_db',
+        -logic_name => 'create_rnaseq_for_layer_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
                          source_db => $self->o('dna_db'),
-                         target_db => $self->o('rnaseq_db'),
+                         target_db => $self->o('rnaseq_for_layer_db'),
                          create_type => 'clone',
                          script_path => $self->o('clone_db_script_path'),
                          user_r => $self->o('user_r'),
@@ -2602,42 +2605,96 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['classify_rnaseq_models'],
+                        '1->A' => ['fan_rnaseq_for_layer_db'],
+                        'A->1' => ['create_layering_output_db'],
                       },
       },
 
 
       {
-        -logic_name => 'classify_rnaseq_models',
+        -logic_name => 'fan_rnaseq_for_layer_db',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'if [ "#skip_rnaseq#" -ne "0" ]; then exit 42; else exit 0;fi',
+                         return_codes_2_branches => {'42' => 2},
+                       },
+        -rc_name => 'default',
+        -flow_into  => {
+                          1 => ['copy_rnaseq_blast_db'],
+                       },
+      },
+
+
+      {
+        -logic_name => 'copy_rnaseq_blast_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('rnaseq_blast_db'),
+                         target_db => $self->o('rnaseq_for_layer_db'),
+                         create_type => 'copy',
+                         script_path => $self->o('clone_db_script_path'),
+                         user_r => $self->o('user_r'),
+                         user_w => $self->o('user'),
+                         pass_w => $self->o('password'),
+                         force_drop => 1,
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        '1' => ['update_rnaseq_for_layer_biotypes'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'update_rnaseq_for_layer_biotypes',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                        cmd => 'mysql '.
+                                ' -u'.$self->o('user').
+                                ' -p'.$self->o('password').
+                                ' -h'.$self->o('rnaseq_for_layer_db','-host').
+                                ' -P'.$self->o('rnaseq_for_layer_db','-port').
+                                ' -D'.$self->o('rnaseq_for_layer_db','-dbname').
+                                ' -e \'UPDATE gene set biotype="rnaseq_merged" where biotype in ("best","single","other_merged");'.
+                                ' UPDATE gene set biotype="rnaseq_tissue" where biotype != "rnaseq_merged";'.
+                                ' UPDATE transcript join gene using(gene_id) set transcript.biotype=gene.biotype;\'',
+                      },
+        -rc_name    => 'default',
+        -flow_into => {
+                        '1' => ['classify_rnaseq_for_layer_models'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'classify_rnaseq_for_layer_models',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
         -parameters => {
                          skip_analysis => $self->o('skip_rnaseq'),
                          update_gene_biotype => 1,
                          classification_type => 'standard',
-                         target_db => $self->o('rnaseq_db'),
+                         target_db => $self->o('rnaseq_for_layer_db'),
                        },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['rnaseq_sanity_checks'],
+                        1 => ['rnaseq_for_layer_sanity_checks'],
                       },
 
       },
 
+
       {
-        -logic_name => 'rnaseq_sanity_checks',
+        -logic_name => 'rnaseq_for_layer_sanity_checks',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
         -parameters => {
                          skip_check => $self->o('skip_rnaseq'),
-                         target_db => $self->o('rnaseq_db'),
+                         target_db => $self->o('rnaseq_for_layer_db'),
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
                                                                              'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'rnaseq_blast'},
                        },
 
         -rc_name    => '4GB',
-        -flow_into => {
-                        1 => ['create_layering_output_db'],
-                      },
       },
 
 
@@ -2665,7 +2722,8 @@ sub pipeline_analyses {
                       },
       },
 
-     {
+
+      {
         -logic_name => 'create_utr_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
@@ -2682,6 +2740,7 @@ sub pipeline_analyses {
                         1 => ['create_genebuilder_db'],
                       },
       },
+
 
       {
         -logic_name => 'create_genebuilder_db',
@@ -2702,6 +2761,7 @@ sub pipeline_analyses {
                       },
       },
 
+
       {
         -logic_name => 'create_toplevel_slices',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
@@ -2714,7 +2774,7 @@ sub pipeline_analyses {
                          # These options will create only slices that have a gene on the slice in one of the feature dbs
                          feature_constraint => 1,
                          feature_type => 'gene',
-                         feature_dbs => [$self->o('genblast_db'),$self->o('projection_realign_db'),$self->o('rnaseq_db')],
+                         feature_dbs => [$self->o('genblast_db'),$self->o('projection_realign_db'),$self->o('rnaseq_for_layer_db')],
                       },
         -flow_into => {
                        '2' => ['layer_annotation'],
