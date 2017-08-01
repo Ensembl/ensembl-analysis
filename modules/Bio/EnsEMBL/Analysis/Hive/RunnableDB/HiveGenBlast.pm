@@ -40,6 +40,7 @@ use Data::Dumper;
 
 use Bio::Seq;
 
+use Bio::EnsEMBL::Utils::IO::FASTASerializer;
 use Bio::EnsEMBL::Analysis::Runnable::GenBlastGene;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -295,17 +296,9 @@ sub output_transcript_slice {
     $new_end = $slice->seq_region_length;
   }
 
-  my $transcript_slice  = Bio::EnsEMBL::Slice->new
-      (-seq_region_name   => $slice->seq_region_name,
-       -seq_region_length => $slice->seq_region_length,
-       -coord_system      => $slice->coord_system,
-       -start             => $new_start,
-       -end               => $new_end,
-       -strand            => 1,
-       -adaptor           => $slice->adaptor());
-
   my $outfile_path = $self->create_target_file('genblast_slice', 'db');
-  &dump($transcript_slice, 'fasta', $outfile_path);
+  my $writer = Bio::EnsEMBL::Utils::IO::FASTASerializer->new($self->param('target_file'), sub {return shift->name});
+  $writer->print_Seq($slice->sub_Slice($new_start, $new_end, 1));
   return($outfile_path);
 }
 
