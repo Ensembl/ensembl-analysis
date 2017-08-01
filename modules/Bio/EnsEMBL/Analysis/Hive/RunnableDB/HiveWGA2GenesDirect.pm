@@ -275,6 +275,7 @@ sub project_transcripts {
 
         my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t', -VALUE => $source_transcript->stable_id.".".$source_transcript->version);
         $proj_transcript->add_Attributes($parent_attribute);
+        $proj_transcript->stable_id($source_transcript->stable_id);
         push(@{$result_transcripts}, $proj_transcript);
       }
       alarm 0; #reset alarm
