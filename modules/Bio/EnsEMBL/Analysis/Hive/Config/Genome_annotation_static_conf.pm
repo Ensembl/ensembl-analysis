@@ -2539,7 +2539,7 @@ sub pipeline_analyses {
                          logic_name => 'genblast',
                          module => 'HiveGenblast',
                          genblast_path => $self->o('genblast_path'),
-                         commandline_params => $genblast_params{$self->o('blast_type').'_projection',
+                         commandline_params => $genblast_params{$self->o('blast_type')}.'_projection',
                          query_seq_dir => $self->o('homology_models_path'),
                          max_rank => 1,
                          genblast_pid => $self->o('genblast_pid'),
