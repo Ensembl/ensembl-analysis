@@ -123,11 +123,17 @@ sub default_options {
     'genewise_db_server'           => $self->o('databases_server'),
     'genewise_db_port'             => $self->o('databases_port'),
 
-    'projection_db_server'         => $self->o('databases_server'),
-    'projection_db_port'           => $self->o('databases_port'),
+    'projection_coding_db_server'  => $self->o('databases_server'),
+    'projection_coding_db_port'    => $self->o('databases_port'),
 
     'projection_realign_db_server' => $self->o('databases_server'),
     'projection_realign_db_port'   => $self->o('databases_port'),
+
+    'projection_lincrna_db_server' => $self->o('databases_server'),
+    'projection_lincrna_db_port'   => $self->o('databases_port'),
+
+    'projection_pseudogene_db_server' => $self->o('databases_server'),
+    'projection_pseudogene_db_port'   => $self->o('databases_port'),
 
     'rnaseq_for_layer_db_server'   => $self->o('databases_server'),
     'rnaseq_for_layer_db_port'     => $self->o('databases_port'),
@@ -167,7 +173,7 @@ sub default_options {
     'staging_1_port'               => 4519,
 
 
-    databases_to_delete => ['reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_db', 'projection_realign_db', 'layering_db', 'utr_output_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db'],
+    databases_to_delete => ['reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_coding_db', 'projection_realign_db', 'layering_db', 'utr_output_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db'],
 
 
 ########################
@@ -200,7 +206,7 @@ sub default_options {
     'layering_input_gene_dbs' => [
                                    $self->o('genblast_db'),
                                    $self->o('rnaseq_for_layer_db'),
-                                   $self->o('projection_db'),
+                                   $self->o('projection_coding_db'),
                                    $self->o('ig_tr_db'),
                                  ],
 
@@ -283,6 +289,17 @@ sub default_options {
     'projection_cov'                        => '50',
     'projection_max_internal_stops'         => '1',
     'projection_calculate_coverage_and_pid' => '1',
+
+    'projection_lincrna_percent_id'         => 90,
+    'projection_lincrna_coverage'           => 90,
+    'projection_pseudogene_percent_id'      => 60,
+    'projection_pseudogene_coverage'        => 75,
+    'projection_ig_tr_percent_id'           => 70,
+    'projection_ig_tr_coverage'             => 90,
+    'projection_exonerate_padding'          => 5000,
+
+    'realign_table_name'                    => 'projection_source_sequences',
+    'max_projection_structural_issues'      => 1,
 
 ## Add in genewise path and put in matching code
     'genewise_pid'                        => '50',
@@ -373,10 +390,10 @@ sub default_options {
       -driver => $self->o('hive_driver'),
     },
 
-    'projection_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('species_name').'_proj_'.$self->o('release_number'),
-      -host   => $self->o('projection_db_server'),
-      -port   => $self->o('projection_db_port'),
+    'projection_coding_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('species_name').'_proj_coding_'.$self->o('release_number'),
+      -host   => $self->o('projection_coding_db_server'),
+      -port   => $self->o('projection_coding_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -386,6 +403,24 @@ sub default_options {
       -dbname => $self->o('dbowner').'_'.$self->o('species_name').'_realign_'.$self->o('release_number'),
       -host   => $self->o('projection_realign_db_server'),
       -port   => $self->o('projection_realign_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    'projection_lincrna_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('species_name').'_linc_'.$self->o('release_number'),
+      -host   => $self->o('projection_lincrna_db_server'),
+      -port   => $self->o('projection_lincrna_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    'projection_pseudogene_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('species_name').'_pseudo_'.$self->o('release_number'),
+      -host   => $self->o('projection_pseudogene_db_server'),
+      -port   => $self->o('projection_pseudogene_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -565,6 +600,11 @@ sub pipeline_create_commands {
                     'source_db varchar(50) NOT NULL,'.
                     'biotype varchar(25) NOT NULL,'.
                     'date varchar(50) NOT NULL,'.
+                    'seq text NOT NULL,'.
+                    'PRIMARY KEY (accession))'),
+
+      $self->db_cmd('CREATE TABLE '.$self->o('realign_table_name').' ('.
+                    'accession varchar(50) NOT NULL,'.
                     'seq text NOT NULL,'.
                     'PRIMARY KEY (accession))'),
     ];
@@ -2318,7 +2358,7 @@ sub pipeline_analyses {
 
         -rc_name    => '4GB',
         -flow_into => {
-                        1 => ['create_projection_output_db'],
+                        1 => ['create_projection_realign_db'],
                       },
       },
 
@@ -2327,13 +2367,12 @@ sub pipeline_analyses {
 # Projection analyses
 #
 ########################################################################
-
       {
-        -logic_name => 'create_projection_output_db',
+        -logic_name => 'create_projection_realign_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
                          source_db => $self->o('dna_db'),
-                         target_db => $self->o('projection_db'),
+                         target_db => $self->o('projection_realign_db'),
                          create_type => 'clone',
                          script_path => $self->o('clone_db_script_path'),
                          user_r => $self->o('user_r'),
@@ -2342,16 +2381,51 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                        '1->A' => ['create_projection_input_ids'],
-                        'A->1' => ['classify_projection_models'],
+                        '1->A' => ['fan_projection'],
+                        'A->1' => ['create_rnaseq_for_layer_db'],
                       },
       },
 
+
       {
-        -logic_name => 'create_projection_input_ids',
+        -logic_name => 'fan_projection',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'if [ "#skip_projection#" -ne "0" ]; then exit 42; else exit 0;fi',
+                         return_codes_2_branches => {'42' => 2},
+                       },
+        -rc_name => 'default',
+        -flow_into  => {
+                          '1->A' => ['create_projection_coding_db'],
+                          'A->1' => ['semaphore_realign'],
+                       },
+      },
+
+
+      {
+        -logic_name => 'create_projection_coding_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('projection_coding_db'),
+                         create_type => 'clone',
+                         script_path => $self->o('clone_db_script_path'),
+                         user_r => $self->o('user_r'),
+                         user => $self->o('user'),
+                         pass_w => $self->o('password'),
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        '1->A' => ['create_projection_coding_input_ids'],
+                        'A->1' => ['classify_projection_coding_models'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'create_projection_coding_input_ids',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
-                         skip_analysis => $self->o('skip_projection'),
                          target_db => $self->o('projection_source_db'),
                          iid_type => 'feature_id',
                          feature_type => 'transcript',
@@ -2366,8 +2440,9 @@ sub pipeline_analyses {
                         2 => ['project_coding_transcripts'],
                       },
 
-         -rc_name    => '1.5GB',
+         -rc_name    => '4GB',
       },
+
 
       {
         -logic_name => 'project_coding_transcripts',
@@ -2378,7 +2453,7 @@ sub pipeline_analyses {
                          source_dna_db         => $self->default_options()->{'projection_source_db'},
                          target_dna_db         => $self->o('dna_db'),
                          source_transcript_db  => $self->default_options()->{'projection_source_db'},
-                         target_transcipt_db   => $self->o('projection_db'),
+                         target_transcript_db   => $self->o('projection_coding_db'),
                          compara_db            => $self->o('projection_lastz_db'),
                          method_link_type => 'LASTZ_NET',
                          max_exon_readthrough_dist => 15,
@@ -2397,16 +2472,16 @@ sub pipeline_analyses {
                        },
 
         -flow_into => {
-                        -3 => ['failed_projection_jobs'],
+                        -3 => ['failed_projection_coding_jobs'],
                       },
         -rc_name          => 'project_transcripts',
         -batch_size => 100,
-        -failed_job_tolerance => 0.5,
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
       },
 
+
       {
-        -logic_name => 'failed_projection_jobs',
+        -logic_name => 'failed_projection_coding_jobs',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
         -parameters => {
                        },
@@ -2415,14 +2490,15 @@ sub pipeline_analyses {
         -failed_job_tolerance => 100,
       },
 
+
       {
-        -logic_name => 'classify_projection_models',
+        -logic_name => 'classify_projection_coding_models',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
         -parameters => {
                          skip_analysis => $self->o('skip_projection'),
                          classification_type => 'standard',
                          update_gene_biotype => 1,
-                         target_db => $self->o('projection_db'),
+                         target_db => $self->o('projection_coding_db'),
                        },
         -rc_name    => 'default',
         -flow_into => {
@@ -2430,11 +2506,12 @@ sub pipeline_analyses {
                       },
       },
 
+
       {
         -logic_name => 'fix_unalgined_protein_hit_names',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
         -parameters => {
-                               'db_conn'    => $self->o('projection_db'),
+                               'db_conn'    => $self->o('projection_coding_db'),
                                 input_query => 'UPDATE protein_align_feature join transcript_supporting_feature on feature_id = protein_align_feature_id '.
                                                'join transcript using(transcript_id) SET hit_name = stable_id; '.
                                                'UPDATE protein_align_feature join supporting_feature on feature_id = protein_align_feature_id '.
@@ -2442,71 +2519,61 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['projection_sanity_checks'],
+                        1 => ['projection_coding_sanity_checks'],
                       },
       },
 
+
       {
-        -logic_name => 'projection_sanity_checks',
+        -logic_name => 'projection_coding_sanity_checks',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
         -parameters => {
-                         skip_check => $self->o('skip_projection'),
-                         target_db => $self->o('projection_db'),
+                         target_db => $self->o('projection_coding_db'),
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'projection'},
+                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'projection_coding'},
                        },
 
         -rc_name    => '4GB',
-        -flow_into => {
-                        1 => ['create_realign_output_db'],
-                      },
       },
 
+
       {
-        -logic_name => 'create_realign_output_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('projection_realign_db'),
-                         create_type => 'clone',
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
-                         user => $self->o('user'),
-                         pass_w => $self->o('password'),
-                       },
-        -rc_name    => 'default',
+        -logic_name => 'semaphore_realign',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {},
         -flow_into => {
                        '1->A' => ['create_ids_for_evaluate_projection'],
                        'A->1' => ['classify_realigned_models'],
                       },
       },
 
+
       {
         -logic_name => 'create_ids_for_evaluate_projection',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
-                         skip_analysis => $self->o('skip_projection'),
-                         target_db => $self->o('projection_db'),
+                         target_db => $self->o('projection_coding_db'),
                          iid_type => 'feature_id',
                          feature_type => 'transcript',
                        },
         -flow_into => {
-                        2 => ['evaluate_projection_transcripts'],
+                        2 => ['evaluate_coding_transcripts'],
                       },
         -rc_name    => 'default',
       },
 
 
       {
-        -logic_name => 'evaluate_projection_transcripts',
+        -logic_name => 'evaluate_coding_transcripts',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionRealignment',
         -parameters => {
                          dna_db => $self->o('dna_db'),
-                         projection_db => $self->o('projection_db'),
+                         projection_db => $self->o('projection_coding_db'),
                          projection_source_db => $self->o('projection_source_db'),
                          projection_realign_db => $self->o('projection_realign_db'),
-                         protein_table_name => 'projection_protein_sequences',
+                         protein_table_name => $self->o('realign_table_name'),
+                         max_feature_issues => $self->o('max_projection_structural_issues'),
                        },
         -rc_name    => 'default',
         -flow_into  => {
@@ -2524,11 +2591,11 @@ sub pipeline_analyses {
                          projection_padding => 0,
                          dna_db => $self->o('dna_db'),
                          target_db => $self->o('projection_realign_db'),
-                         projection_db => $self->o('projection_db'),
+                         projection_db => $self->o('projection_coding_db'),
                          logic_name => 'genblast',
                          module => 'HiveGenblast',
                          genblast_path => $self->o('genblast_path'),
-                         commandline_params => ' -P wublast -gff -e '.$self->o('genblast_eval').' -c '.$self->o('genblast_cov').' -n 100 -rl 5000 -x 5 ',
+                         commandline_params => $genblast_params{$self->o('blast_type')},
                          query_seq_dir => $self->o('homology_models_path'),
                          max_rank => 1,
                          genblast_pid => $self->o('genblast_pid'),
@@ -2549,7 +2616,6 @@ sub pipeline_analyses {
                        },
         -rc_name          => 'default',
         -can_be_empty  => 1,
-        -failed_job_tolerance => 100,
       },
 
 
@@ -2572,7 +2638,6 @@ sub pipeline_analyses {
         -logic_name => 'realign_sanity_checks',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
         -parameters => {
-                         skip_check => $self->o('skip_projection'),
                          target_db => $self->o('projection_realign_db'),
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
@@ -2581,9 +2646,185 @@ sub pipeline_analyses {
 
         -rc_name    => '4GB',
         -flow_into => {
-                        1 => ['create_rnaseq_for_layer_db'],
+                       1 => ['create_projection_lincrna_db'],
                       },
       },
+
+
+      {
+        -logic_name => 'create_projection_lincrna_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('projection_lincrna_db'),
+                         create_type => 'clone',
+                         script_path => $self->o('clone_db_script_path'),
+                         user_r => $self->o('user_r'),
+                         user_w => $self->o('user'),
+                         pass_w => $self->o('password'),
+                       },
+        -flow_into => {
+                       1 => ['create_projection_pseudogene_db'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'create_projection_pseudogene_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('projection_pseudogene_db'),
+                         create_type => 'clone',
+                         script_path => $self->o('clone_db_script_path'),
+                         user_r => $self->o('user_r'),
+                         user_w => $self->o('user'),
+                         pass_w => $self->o('password'),
+                       },
+
+        -flow_into => {
+                        1 => ['generate_projection_lincrna_ids','generate_projection_pseudogene_ids','generate_projection_ig_tr_ids'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'generate_projection_lincrna_ids',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('projection_source_db'),
+                         iid_type => 'feature_id',
+                         feature_type => 'transcript',
+                         feature_restriction => 'biotype',
+                         biotypes => {
+                                       'lincRNA' => 1,
+                                     },
+                         batch_size => 100,
+        },
+        -flow_into => {
+                        2 => ['run_project_lincrnas'],
+                      },
+        -rc_name    => 'default',
+      },
+
+
+      {
+        -logic_name => 'run_project_lincrnas',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate',
+        -parameters => {
+                         'logic_name'                 => 'project_lincrna',
+                         'source_dna_db'              => $self->default_options->{'projection_source_db'},
+                         'target_dna_db'              => $self->o('dna_db'),
+                         'source_db'                  => $self->default_options->{'projection_source_db'},
+                         'target_db'                  => $self->o('projection_lincrna_db'),
+                         'compara_db'                 => $self->o('projection_lastz_db'),
+                         'method_link_type'           => 'LASTZ_NET',
+                         'exon_region_padding'        => $self->o('projection_exonerate_padding'),
+                         'exonerate_path'             => $self->o('exonerate_path'),
+                         'exonerate_coverage'         => $self->o('projection_lincrna_coverage'),
+                         'exonerate_percent_id'       => $self->o('projection_lincrna_percent_id'),
+                         'calculate_coverage_and_pid' => 0,
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_projection_dna')},
+			},
+        -rc_name    => 'default',
+        -hive_capacity => 900,
+      },
+
+
+      {
+        -logic_name => 'generate_projection_pseudogene_ids',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('projection_source_db'),
+                         iid_type => 'feature_id',
+                         feature_type => 'transcript',
+                         feature_restriction => 'biotype',
+                         biotypes => {
+                                       'pseudogene' => 1,
+                                       'processed_pseudogene' => 1,
+                                       'unprocessed_pseudogene' => 1,
+                                     },
+                         batch_size => 100,
+        },
+        -flow_into => {
+                        2 => ['run_project_pseudogenes'],
+        },
+        -rc_name    => 'default',
+      },
+
+
+      {
+        -logic_name => 'run_project_pseudogenes',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate',
+        -parameters => {
+                         'logic_name'                 => 'project_pseudogene',
+                         'source_dna_db'              => $self->default_options->{'projection_source_db'},
+                         'target_dna_db'              => $self->o('dna_db'),
+                         'source_db'                  => $self->default_options->{'projection_source_db'},
+                         'target_db'                  => $self->o('projection_pseudogene_db'),
+                         'compara_db'                 => $self->o('projection_lastz_db'),
+                         'method_link_type'           => 'LASTZ_NET',
+                         'exon_region_padding'        => $self->o('projection_exonerate_padding'),
+                         'exonerate_path'             => $self->o('exonerate_path'),
+                         'exonerate_coverage'         => $self->o('projection_pseudogene_coverage'),
+                         'exonerate_percent_id'       => $self->o('projection_pseudogene_percent_id'),
+                         'calculate_coverage_and_pid' => 0,
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_projection_pseudogene')},
+			},
+        -rc_name    => 'default',
+        -hive_capacity => 900,
+      },
+
+
+      {
+        -logic_name => 'generate_projection_ig_tr_ids',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('projection_source_db'),
+                         iid_type => 'feature_id',
+                         feature_type => 'transcript',
+                         feature_restriction => 'biotype',
+                         biotypes => {
+                                       'IG_V_gene' => 1,
+                                       'IG_D_gene' => 1,
+                                       'IG_J_gene' => 1,
+                                       'IG_C_gene' => 1,
+                                       'TR_V_gene' => 1,
+                                       'TR_J_gene' => 1,
+                                       'TR_D_gene' => 1,
+                                       'TR_C_gene' => 1,
+                                     },
+                         batch_size => 100,
+        },
+        -flow_into => {
+                        2 => ['run_project_ig_tr'],
+        },
+        -rc_name    => 'default',
+      },
+
+
+      {
+        -logic_name => 'run_project_ig_tr',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate',
+        -parameters => {
+                         'logic_name'                 => 'project_ig_tr',
+                         'source_dna_db'              => $self->default_options->{'projection_source_db'},
+                         'target_dna_db'              => $self->o('dna_db'),
+                         'source_db'                  => $self->default_options->{'projection_source_db'},
+                         'target_db'                  => $self->o('ig_tr_db'),
+                         'compara_db'                 => $self->o('projection_lastz_db'),
+                         'method_link_type'           => 'LASTZ_NET',
+                         'exon_region_padding'        => $self->o('projection_exonerate_padding'),
+                         'exonerate_path'             => $self->o('exonerate_path'),
+                         'exonerate_coverage'         => $self->o('projection_ig_tr_coverage'),
+                         'exonerate_percent_id'       => $self->o('projection_ig_tr_percent_id'),
+                         'calculate_coverage_and_pid' => 1,
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_projection_ig_tr_protein')},
+			},
+        -rc_name    => 'default',
+        -hive_capacity => 900,
+      },
+
 
 ############################################################################
 #
@@ -2962,7 +3203,7 @@ sub pipeline_analyses {
                       },
       },
 
-            {
+      {
         -logic_name => 'create_pseudogene_ids',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
@@ -2976,7 +3217,7 @@ sub pipeline_analyses {
         -rc_name    => 'default',
       },
 
-            {
+      {
         -logic_name => 'pseudogenes',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes',
         -parameters => {
@@ -3932,7 +4173,7 @@ sub resource_classes {
     'rfam_blast_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'genblast' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genblast_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'project_transcripts' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 120'},
+    'project_transcripts' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_coding_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 120'},
     'refseq_import' => { LSF => $self->lsf_resource_builder('production-rh7', 9900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'layer_annotation' => { LSF => $self->lsf_resource_builder('production-rh7', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 200'},
     'genebuilder' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 200'},
