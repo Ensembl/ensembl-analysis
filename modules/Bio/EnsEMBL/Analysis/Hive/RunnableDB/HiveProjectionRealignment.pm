@@ -40,53 +40,64 @@ sub fetch_input {
 
   $self->hrdb_set_con($output_dba,'output_db');
 
-  my $projection_transcript_id = $self->param("iid");
-  my $transcript_adaptor = $projection_dba->get_TranscriptAdaptor();
-  say "D1";
-  my $projection_transcript = $transcript_adaptor->fetch_by_dbID($projection_transcript_id);
-  say "D2";
-  $self->projection_transcript($projection_transcript);
-  say "D3 " .$projection_transcript->stable_id();
-
-  my $source_transcript_adaptor = $projection_source_dba->get_TranscriptAdaptor();
-  say "D4";
-  my $parent_transcript = $source_transcript_adaptor->fetch_by_stable_id($projection_transcript->stable_id);
-  unless($parent_transcript) {
-    $self->throw("Could not retrieve the parent transcript from the projection source db using the stable id of the projected transcript!\n".
-                 "Stable id: ".$projection_transcript->stable_id."\n".
-                 "Projection source db: ".$projection_source_dba->dbc->dbname."@".$projection_source_dba->dbc->host);
-  }
-
-  say "D5";
-  my $parent_protein = $parent_transcript->translation->seq();
-  say "D6";
-  unless($parent_protein) {
-    $self->throw("Issue fetching the translation sequence for parent transcript from projection source db!\n".
-                 "Stable id: ".$parent_transcript->stable_id.
-                 "Projection source db: ".$projection_source_dba->dbc->dbname."@".$projection_source_dba->dbc->host);
-  }
-
-  $self->parent_protein($parent_protein);
-
   my $projection_protein_table = $self->param('protein_table_name');
   $self->projection_protein_table($projection_protein_table);
 
+  my $projection_transcript_ids = $self->param("iid");
+  my $transcript_adaptor = $projection_dba->get_TranscriptAdaptor();
+
+  my $projection_transcripts = [];
+  my $projection_parent_proteins  ={};
+  foreach my $projection_transcript_id (@$projection_transcript_ids) {
+    my $projection_transcript = $transcript_adaptor->fetch_by_dbID($projection_transcript_id);
+
+    my $source_transcript_adaptor = $projection_source_dba->get_TranscriptAdaptor();
+    my $parent_transcript = $source_transcript_adaptor->fetch_by_stable_id($projection_transcript->stable_id);
+    unless($parent_transcript) {
+      $self->throw("Could not retrieve the parent transcript from the projection source db using the stable id of the projected transcript!\n".
+                   "Stable id: ".$projection_transcript->stable_id."\n".
+                   "Projection source db: ".$projection_source_dba->dbc->dbname."@".$projection_source_dba->dbc->host);
+    }
+
+    my $parent_protein = $parent_transcript->translation->seq();
+    unless($parent_protein) {
+      $self->throw("Issue fetching the translation sequence for parent transcript from projection source db!\n".
+                   "Stable id: ".$parent_transcript->stable_id.
+                   "Projection source db: ".$projection_source_dba->dbc->dbname."@".$projection_source_dba->dbc->host);
+    }
+
+    $projection_parent_proteins->{$projection_transcript->dbID} = $parent_protein;
+  } # end foreach my $projection_transcript_id
+
+  $self->parent_proteins($projection_parent_proteins);
   return 1;
 }
 
 sub run {
   my $self = shift;
-  my $is_bad = $self->assess_projection_transcript();
-  $self->do_realignment($is_bad);
+#  my $is_bad = $self->assess_projection_transcript();
+#  $self->do_realignment($is_bad);
+  $self->assess_projection_transcripts();
   return 1;
 }
 
 sub write_output {
   my $self = shift;
 
-  my $transcript = $self->projection_transcript();
-  if($self->do_realignment) {
-    my $parent_protein = $self->parent_protein();
+  my $transcripts_to_copy = $self->copy_array();
+  my $transcripts_to_realign = $self->realignment_array();
+
+  my $output_dba = $self->hrdb_get_con('output_db');
+  my $gene_adaptor = $output_dba->get_GeneAdaptor();
+  foreach my $transcript (@$transcripts_to_copy) {
+    my $gene = $transcript->get_Gene();
+    empty_Gene($gene);
+    $gene_adaptor->store($gene);
+  }
+
+  my $parent_proteins = $self->parent_proteins();
+  foreach my $transcript (@$transcripts_to_realign) {
+    my $parent_protein = $parent_proteins->{$transcript->dbID};
     my $protein_table_name = $self->projection_protein_table();
 
     # Store the stable id and the protein in the pipeline protein table for realignment later
@@ -105,34 +116,27 @@ sub write_output {
     my $output_hash = {};
     $output_hash->{'iid'} = [$db_id,$stable_id];
     $self->dataflow_output_id($output_hash,2);
-
-  } else {
-    my $output_dba = $self->hrdb_get_con('output_db');
-    my $gene = $transcript->get_Gene();
-    my $gene_adaptor = $output_dba->get_GeneAdaptor();
-    empty_Gene($gene);
-    $gene_adaptor->store($gene);
   }
 
   return 1;
 }
 
-sub projection_transcript {
-  my ($self,$transcript) = @_;
+sub projection_transcripts {
+  my ($self,$transcripts) = @_;
   if($transcript) {
-    $self->param('_projection_transcript',$transcript);
+    $self->param('_projection_transcripts',$transcripts);
   }
 
-  return($self->param('_projection_transcript'));
+  return($self->param('_projection_transcripts'));
 }
 
-sub parent_protein {
-  my ($self,$protein) = @_;
+sub parent_proteins {
+  my ($self,$proteins) = @_;
   if($protein) {
-    $self->param('_parent_protein',$protein);
+    $self->param('_parent_proteins',$proteins);
   }
 
-  return($self->param('_parent_protein'));
+  return($self->param('_parent_proteins'));
 }
 
 sub projection_protein_table {
@@ -154,30 +158,66 @@ sub do_realignment {
   return($self->param('_is_bad'));
 }
 
-sub assess_projection_transcript {
+sub assess_projection_transcripts {
   my ($self) = @_;
 
-  my $transcript = $self->projection_transcript();
-  my $has_non_canonical_splice_sites = 0;
-  my $has_frameshift_introns = 0;
+  my $max_issues = 0;
+  if($self->param('max_feature_issues')) {
+    $max_issues = $self->param('max_feature_issues');
+  }
 
-  my @introns = @{$transcript->get_all_Introns()};
-  foreach my $intron (@introns) {
-    if($intron->length < 10) {
-      $has_frameshift_introns++;
-    } elsif($intron->is_splice_canonical() == 0) {
-      $has_non_canonical_splice_sites++;
+  my $transcripts = $self->projection_transcripts();
+  foreach my $transcript (@$transcripts) {
+    my $has_non_canonical_splice_sites = 0;
+    my $has_frameshift_introns = 0;
+
+    my @introns = @{$transcript->get_all_Introns()};
+    foreach my $intron (@introns) {
+      if($intron->length < 10) {
+        $has_frameshift_introns++;
+      } elsif($intron->is_splice_canonical() == 0) {
+        $has_non_canonical_splice_sites++;
+      }
+    }
+
+    say "Transcript has ".$has_non_canonical_splice_sites." non-canonical splice sites";
+    say "Transcript has ".$has_frameshift_introns." frameshift introns";
+
+    if($has_non_canonical_splice_sites + $has_frameshift_introns > $max_issues) {
+      $self->realignment_array($transcript);
+    } else {
+      $self->copy_array($transcript);
     }
   }
-
-  say "Transcript has ".$has_non_canonical_splice_sites." non-canonical splice sites";
-  say "Transcript has ".$has_frameshift_introns." frameshift introns";
-
-  if($has_non_canonical_splice_sites || $has_frameshift_introns) {
-    return(1);
-  } else {
-    return(0);
-  }
 }
+
+
+sub realignment_array {
+  my ($self,$transcript) = @_;
+  unless($self_param('_realignment_array')) {
+    $self_param('_realignment_array',[]);
+  }
+
+  if($transcript) {
+    push(@{$self_param('_realignment_array')},$transcript);
+  }
+
+  return($self_param('_realignment_array'));
+}
+
+
+sub copy_array {
+  my ($self,$transcript) = @_;
+  unless($self_param('_copy_array')) {
+    $self_param('_copy_array',[]);
+  }
+
+  if($transcript) {
+    push(@{$self_param('_copy_array')},$transcript);
+  }
+
+  return($self_param('_copy_array'));
+}
+
 
 1;
