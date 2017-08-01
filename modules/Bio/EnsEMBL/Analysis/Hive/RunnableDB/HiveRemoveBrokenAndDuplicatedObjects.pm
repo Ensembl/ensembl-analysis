@@ -284,14 +284,14 @@ sub process_prediction {
 
 	my $exon_i = $gene_i->get_all_Exons;
 	my $exon_j = $gene_j->get_all_Exons;
-	if ($exon_i and $exon_j) {
+	if (scalar(@$exon_i) and scalar(@$exon_j)) {
 		if (hashkey_Object($exon_i) eq hashkey_Object($exon_j)) {
 			return $gene_j;
 		}
 	}
 	else {
-		return $gene_i unless ($exon_i);
-		return $gene_j unless ($exon_j);
+		return $gene_i unless (scalar(@$exon_i));
+		return $gene_j unless (scalar(@$exon_j));
 	}
 }
 
@@ -310,7 +310,7 @@ sub process_prediction {
 sub is_ok_prediction {
   my ($self, $transcript) = @_;
 
-  if ($transcript->get_all_Exons) {
+  if (scalar(@{$transcript->get_all_Exons})) {
     my $exon = $transcript->start_Exon;
     return 0 if (!$exon or $exon->start != $transcript->start);
     $exon = $transcript->end_Exon;
