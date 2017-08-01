@@ -101,7 +101,7 @@ sub _master_config {
           'TR_'                 => 20,
         }, # biotypes
       }, # ig_tr
-      'projection' => {
+      'projection_coding' => {
         'logic_names' => {
           'project_transcripts' => 50000,
         }, # logic_names
