@@ -156,7 +156,7 @@ sub fetch_input {
 
 sub run {
   my ($self) = @_;
-  my $runnable = shift($self->runnable);
+  my $runnable = shift(@{$self->runnable});
   $self->runnable_failed(0);
   eval {
     $runnable->run;

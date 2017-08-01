@@ -66,9 +66,11 @@ sub fetch_input {
                    "Projection source db: ".$projection_source_dba->dbc->dbname."@".$projection_source_dba->dbc->host);
     }
 
+    push(@{$projection_transcripts},$projection_transcript);
     $projection_parent_proteins->{$projection_transcript->dbID} = $parent_protein;
   } # end foreach my $projection_transcript_id
 
+  $self->projection_transcripts($projection_transcripts);
   $self->parent_proteins($projection_parent_proteins);
   return 1;
 }
@@ -123,7 +125,7 @@ sub write_output {
 
 sub projection_transcripts {
   my ($self,$transcripts) = @_;
-  if($transcript) {
+  if($transcripts) {
     $self->param('_projection_transcripts',$transcripts);
   }
 
@@ -132,7 +134,7 @@ sub projection_transcripts {
 
 sub parent_proteins {
   my ($self,$proteins) = @_;
-  if($protein) {
+  if($proteins) {
     $self->param('_parent_proteins',$proteins);
   }
 
@@ -194,29 +196,29 @@ sub assess_projection_transcripts {
 
 sub realignment_array {
   my ($self,$transcript) = @_;
-  unless($self_param('_realignment_array')) {
-    $self_param('_realignment_array',[]);
+  unless($self->param('_realignment_array')) {
+    $self->param('_realignment_array',[]);
   }
 
   if($transcript) {
-    push(@{$self_param('_realignment_array')},$transcript);
+    push(@{$self->param('_realignment_array')},$transcript);
   }
 
-  return($self_param('_realignment_array'));
+  return($self->param('_realignment_array'));
 }
 
 
 sub copy_array {
   my ($self,$transcript) = @_;
-  unless($self_param('_copy_array')) {
-    $self_param('_copy_array',[]);
+  unless($self->param('_copy_array')) {
+    $self->param('_copy_array',[]);
   }
 
   if($transcript) {
-    push(@{$self_param('_copy_array')},$transcript);
+    push(@{$self->param('_copy_array')},$transcript);
   }
 
-  return($self_param('_copy_array'));
+  return($self->param('_copy_array'));
 }
 
 
