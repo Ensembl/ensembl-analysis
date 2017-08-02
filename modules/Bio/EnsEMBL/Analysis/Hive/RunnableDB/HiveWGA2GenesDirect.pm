@@ -236,6 +236,7 @@ sub project_transcripts {
   my $failed_transcripts = [];
 
   foreach my $source_transcript (@$source_transcripts) {
+     my $successfully_projected = 0;
      eval {
       local $SIG{ALRM} = sub { die "alarm clock restart" };
       alarm $timer; #schedule alarm in '$timer' seconds
@@ -255,7 +256,6 @@ sub project_transcripts {
         };
         if($@ || !$proj_transcript) {
           say "Projection failed on block chain for transcript ".$source_transcript->dbID;
-          push(@{$failed_transcripts}, $source_transcript->dbID);
           next;
         }
 
@@ -277,19 +277,24 @@ sub project_transcripts {
         $proj_transcript->add_Attributes($parent_attribute);
         $proj_transcript->stable_id($source_transcript->stable_id);
         push(@{$result_transcripts}, $proj_transcript);
+        $successfully_projected = 1;
       }
       alarm 0; #reset alarm
     };
 
     if($@ && $@ !~ /alarm clock restart/) {
       say "Projection failed for transcript ".$source_transcript->dbID." because of time limit on timer param";
-      push(@{$failed_transcripts}, $source_transcript->dbID);
     }
 
-    if ($self->TRANSCRIPT_FILTER){
-      @{$result_transcripts} = @{$self->filter->filter_results($result_transcripts)};
+    unless($successfully_projected) {
+      push(@{$failed_transcripts}, $source_transcript->dbID);
     }
-   }
+  }
+
+  if ($self->TRANSCRIPT_FILTER){
+    $result_transcripts = $self->filter->filter_results($result_transcripts);
+  }
+
   $self->output($result_transcripts);
   $self->param('_failed', $failed_transcripts);
 
