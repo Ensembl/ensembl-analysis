@@ -2567,6 +2567,7 @@ sub pipeline_analyses {
                          target_db => $self->o('projection_coding_db'),
                          iid_type => 'feature_id',
                          feature_type => 'transcript',
+                         batch_size => 500,
                        },
         -flow_into => {
                         2 => ['evaluate_coding_transcripts'],
