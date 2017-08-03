@@ -56,6 +56,7 @@ sub default_options {
         'port'     => '',
         'species'  => '',
         'assembly_name' => '',
+        'email' => '', # Add your email so you can be notified when a bam file is removed
 
         'pipe_dbname'   => $self->o('dbowner').'_'.$self->o('pipeline_name').'_hive',
         'dna_dbname'    => '',
@@ -441,6 +442,7 @@ sub pipeline_analyses {
                          min_mapped => $self->o('read_min_mapped'),
                          header_file => '#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h',
                          bam_prefix => $self->o('read_id_tag'),
+                         email => $self->o('email'),
                          disconnect_jobs => 1,
                        },
         -flow_into => {
@@ -461,6 +463,7 @@ sub pipeline_analyses {
                          min_mapped => $self->o('read_min_mapped'),
                          header_file => '#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h',
                          bam_prefix => $self->o('read_id_tag'),
+                         email => $self->o('email'),
                          disconnect_jobs => 1,
                        },
         -flow_into => {

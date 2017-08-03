@@ -92,6 +92,7 @@ sub new {
                If we have paired reads. Then sort using samtools.
                It deletes the temporary files.
                It stores the name of the resulting BAM file in $self->output
+               It also store the % of mapped read andof paired reads if it is below the threshold
   Returntype : none
 
 =cut 
@@ -189,6 +190,7 @@ sub run {
             'Min mapped '.$self->min_mapped.': '.$flagstat_results->[1]."\n".
             'Min paired '.$self->min_paired.': '.$flagstat_results->[2]."\n"
             );
+    $self->output([$sorted_bam.'.bam', $flagstat_results->[1], $flagstat_results->[2]]);
   }
   else {
     $self->output([$sorted_bam.'.bam']);

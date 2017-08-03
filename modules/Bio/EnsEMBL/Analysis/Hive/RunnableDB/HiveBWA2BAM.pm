@@ -44,6 +44,8 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA2BAM;
 
 use warnings ;
 use strict;
+
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(send_email);
 use Bio::EnsEMBL::Analysis::Runnable::BWA2BAM;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -104,15 +106,27 @@ sub fetch_input {
 
  Arg [1]    : None
  Description: Dataflow the absolute name of the BAM file, accessible via $self->param('filename') on branch 1
+              If the number of mapped reads and of paired reads are below the minimal, it sends an email
+              but do not flow the data
  Returntype : None
  Exceptions : None
 
 =cut
 
 sub write_output {
-    my $self = shift;
+  my $self = shift;
 
-    $self->dataflow_output_id({filename => $self->output->[0]}, 1);
+  my $output = $self->outpout;
+  if (scalar(@$output) == 1) {
+    $self->dataflow_output_id({filename => $output->[0]}, 1);
+  }
+  else {
+    my $text = 'The number of mapped reads is below the threshold of '.$self->param('min_mapped').': '.$output->[1];
+    if ($output->[2]) {
+      $text .= 'The number of paired reads is below the threshold of '.$self->param('min_paired').': '.$output->[2];
+    }
+    send_email($self->param('email'), $self->param('email'), 'Low RNA-seq mapping for '.$output->[0], $text);
+  }
 }
 
 1;
