@@ -781,6 +781,16 @@ sub pipeline_analyses {
         -flow_into => ['create_ccode_config'],
       },
       {
+        -logic_name => 'check_and_delete_broken_duplicated',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRemoveDuplicatedObjects',
+        -parameters => {
+                         target_db => $self->o('rough_db'),
+                         check_support => 0,
+                       },
+        -rc_name    => '4GB',
+        -flow_into => ['create_ccode_config'],
+      },
+      {
               -logic_name => 'create_ccode_config',
               -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenerateRefineConfig',
               -parameters => {
