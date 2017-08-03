@@ -44,6 +44,8 @@ use JSON::PP;
 use LWP::UserAgent;
 use File::Spec::Functions qw(splitpath);
 
+#use Bio::DB::EUtilities;
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub param_defaults {
@@ -59,6 +61,8 @@ sub param_defaults {
     use_developmental_stages => 0,
     download_method => 'ftp',
     separator => '\t',
+    _read_length => 1, # This is a default that should not exist. Some data do not have the read count and base count
+    _centre_name => 'ENA',
   }
 }
 
@@ -103,10 +107,14 @@ sub run {
           %fields_index = map { $_ => $index++} split('\t', $line);
         }
         else {
+          next if ($line =~ / infected /); # I do not want to do that but I don't think we have a choice
           my @row = split("\t", $line);
-          my $read_length = $row[$fields_index{base_count}]/$row[$fields_index{read_count}];
-          if ($row[$fields_index{library_layout}] eq 'PAIRED') {
-            $read_length /= 2;
+          my $read_length = $self->param('_read_length');
+          if ($row[$fields_index{base_count}] and $row[$fields_index{read_count}]) {
+            $read_length = $row[$fields_index{base_count}]/$row[$fields_index{read_count}];
+            if ($row[$fields_index{library_layout}] eq 'PAIRED') {
+              $read_length /= 2;
+            }
           }
           my %line = (
             run_accession => $row[$fields_index{run_accession}],
@@ -124,7 +132,9 @@ sub run {
           push(@{$csv_data{$row[$fields_index{study_accession}]}->{$row[$fields_index{sample_accession}]}}, \%line);
         }
       }
-      foreach my $sample (keys %samples) {
+      my @sample_names = keys %samples;
+      my $header;
+      SAMPLE: foreach my $sample (@sample_names) {
         $url = join('&', $self->param('ena_base_url'), 'query="accession='.$sample.'"', $self->param('sample_domain'), 'fields='.$self->param('sample_fields'));
         $response = $ua->get($url);
         if ($response->is_success) {
@@ -135,6 +145,7 @@ sub run {
               if ($line =~ /^[a-z]/) {
                 my $index = 0;
                 %fields_index = map { $_ => $index++} split('\t', $line);
+                $header = $line;
               }
               else {
                 my @row = split("\t", $line);
@@ -155,35 +166,54 @@ sub run {
                   sample_collection => $row[$fields_index{sample_collection}],
                   sequencing_method => $row[$fields_index{sequencing_method}],
                 );
-                if ($line{center_name} eq 'BioSD' or $line{center_name} =~ /biosample/i) {
-                  my $dh = $ua->default_headers;
-                  $ua->default_header('Content-Type' => 'application/json');
-                  my $biosd = $ua->get('http://www.ebi.ac.uk/biosamples/api/samples/'.$sample);
-                  if ($biosd->is_success) {
-                    $content = $biosd->decoded_content();
-                    my $json = JSON::PP->new();
-                    my $data = $json->decode($content);
-                    $line{dev_stage} = $data->{characteristics}->{developmentalStage}->[0]->{text}
-                      if (exists $data->{characteristics}->{developmentalStage});
-                    $line{status} = $data->{characteristics}->{healthStatusAtCollection}->[0]->{text}
-                      if (exists $data->{characteristics}->{healthStatusAtCollection});
-                    $line{age} = join(' ', $data->{characteristics}->{animalAgeAtCollection}->[0]->{text},
-                                 $data->{characteristics}->{animalAgeAtCollection}->[0]->{unit})
-                      if (exists $data->{characteristics}->{animalAgeAtCollection});
-                    if (exists $data->{characteristics}->{organismPart}) {
-                      $line{description} = $data->{characteristics}->{organismPart}->[0]->{text};
-                      $line{uberon} = $data->{characteristics}->{organismPart}->[0]->{ontologyTerms}->[-1];
-                    }
-                    elsif (exists $data->{characteristics}->{cellType}) {
-                      $line{description} = $data->{characteristics}->{cellType}->[0]->{text};
-                      $line{uberon} = $data->{characteristics}->{cellType}->[0]->{ontologyTerms}->[-1];
-                    }
+                my $dh = $ua->default_headers;
+                $ua->default_header('Content-Type' => 'application/json');
+                my $biosd = $ua->get('http://www.ebi.ac.uk/biosamples/api/samples/'.$sample);
+                if ($biosd->is_success) {
+                  $content = $biosd->decoded_content();
+                  my $json = JSON::PP->new();
+                  my $data = $json->decode($content);
+                  if (exists $data->{characteristics}->{immunization}) {
+                    delete $samples{$sample};
+                    $self->warning("Removed $sample from the set as it has immunization value: ".$data->{characteristics}->{immunization}->[0]->{text});
+                    next SAMPLE;
                   }
-                  else {
-                    $self->warning("Could not connect to BioSample with $sample");
+                  $line{dev_stage} = $data->{characteristics}->{developmentalStage}->[0]->{text}
+                    if (exists $data->{characteristics}->{developmentalStage});
+                  $line{status} = $data->{characteristics}->{healthStatusAtCollection}->[0]->{text}
+                    if (exists $data->{characteristics}->{healthStatusAtCollection});
+                  $line{age} = join(' ', $data->{characteristics}->{animalAgeAtCollection}->[0]->{text},
+                               $data->{characteristics}->{animalAgeAtCollection}->[0]->{unit})
+                    if (exists $data->{characteristics}->{animalAgeAtCollection});
+                  if (exists $data->{characteristics}->{organismPart}) {
+                    $line{description} = $data->{characteristics}->{organismPart}->[0]->{text};
+                    $line{uberon} = $data->{characteristics}->{organismPart}->[0]->{ontologyTerms}->[-1];
                   }
-                  $ua->default_headers($dh);
+                  elsif (exists $data->{characteristics}->{cellType}) {
+                    $line{description} = $data->{characteristics}->{cellType}->[0]->{text};
+                    $line{uberon} = $data->{characteristics}->{cellType}->[0]->{ontologyTerms}->[-1];
+                  }
                 }
+                else {
+                  $self->warning("Could not connect to BioSample with $sample");
+#                    my $eutil = Bio::DB::EUtilities->new (
+#                      -eutil => 'esearch',
+#                      -term => $sample,
+#                      -db => 'biosample',
+#                      -retmax => 3,
+#                      -usehistory => 'y',
+#                    );
+#                    my @histories = $eutil->get_Histories;
+#                    foreach my $hist (@histories) {
+#                      $eutil->set_parameters(-eutil => 'efetch',
+#                        -history => $hist,
+#                        -retmode => 'text');
+#                      my $data;
+#                      eval {
+#                        $eutil->get_Response(-cb => sub {($data) = @_});
+#                      };
+                }
+                $ua->default_headers($dh);
                 $samples{$sample} = \%line;
               }
             }
@@ -211,10 +241,11 @@ sub write_output {
   foreach my $study_accession (keys %{$data->[0]}) {
     my $study = $data->[0]->{$study_accession};
     foreach my $sample (keys %{$study}) {
+      next unless (exists $samples->{$sample});
       foreach my $experiment (@{$study->{$sample}}) {
         foreach my $file (split(';', $experiment->{fastq_file})) {
           (undef, undef, $file) = splitpath($file);
-          print FH sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s, %s, %s, %s\n",
+          print FH sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s, %s, %s, %s%s\n",
             $samples->{$sample}->{description},
             $experiment->{run_accession},
             $experiment->{library_layout} eq 'PAIRED' ? 1 : 0,
@@ -222,12 +253,13 @@ sub write_output {
             -1,
             $experiment->{read_length},
             0,
-            $experiment->{center_name},
+            $experiment->{center_name} || $self->param('_centre_name'),
             $experiment->{instrument_platform},
             $study_accession,
             $sample,
             $experiment->{study_title},
             $experiment->{experiment_title},
+            $samples->{$sample}->{cell_type} ? ', '.$samples->{$sample}->{cell_type} : '',
           );
         }
       }

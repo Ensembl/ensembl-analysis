@@ -29,21 +29,31 @@ It also populates the "pdb_ens" table in the GIFTS database with similar data.
 
 -output_path    Output path where output and log files will be written.
 
--core_dbhost    Core database host name
+-core_dbhost    Core database host name.
 
--core_dbport    Core database port (default 3306)
+-core_dbport    Core database port.
 
--core_dbname    Core database name
+-core_dbname    Core database name.
 
--core_dbuser    Core database username to connect as
+-core_dbuser    Core database username to connect as.
 
--core_dbpass    Core database password to use
+-core_dbpass    Core database password to use.
 
 -cs_version     Coordinate system version.
 
+-giftsdb_name   GIFTS database name.
+
+-giftsdb_host   GIFTS database host.
+
+-giftsdb_port   GIFTS database port.
+
+-giftsdb_user   GIFTS database username.
+
+-giftsdb_pass   GIFTS database password.
+
 =head1 EXAMPLE USAGE
 
-standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadPDBProteinFeatures -ftp_path ftp://ftp.ebi.ac.uk/pub/databases/msd/sifts/flatfiles/tsv/pdb_chain_uniprot.tsv.gz -output_path OUTPUT_PATH -core_dbhost genebuild3 -core_dbport 4500 -core_dbname carlos_homo_sapiens_core_89_test -core_dbuser *** -core_dbpass *** -cs_version GRCh38 
+standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadPDBProteinFeatures -ftp_path ftp://ftp.ebi.ac.uk/pub/databases/msd/sifts/flatfiles/tsv/pdb_chain_uniprot.tsv.gz -output_path OUTPUT_PATH -core_dbhost genebuild3 -core_dbport 4500 -core_dbname carlos_homo_sapiens_core_89_test -core_dbuser *** -core_dbpass *** -cs_version GRCh38 -giftsdb_name GIFTS_NAME -giftsdb_host GIFTS_HOST -giftsdb GIFTS_HOST -giftsdb_port GIFTS_PORT -giftsdb_user GIFTS_USER -giftsdb_pass GIFTS_PASS 
 
 =cut
 
@@ -64,7 +74,7 @@ use File::Find;
 use List::Util qw(sum);
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
-use Bio::EnsEMBL::GIFTS::DB qw(get_default_gifts_dba get_default_gifts_dbc store_pdb_ens);
+use Bio::EnsEMBL::GIFTS::DB qw(get_gifts_dba get_gifts_dbc store_pdb_ens);
 
 sub param_defaults {
     return {
@@ -77,6 +87,11 @@ sub param_defaults {
       core_dbpass => undef,
       cs_version => undef,
       species => undef,
+      giftsdb_name => undef,
+      giftsdb_host => undef,
+      giftsdb_user => undef,
+      giftsdb_pass => undef,
+      giftsdb_port => undef
     }
 }
 
@@ -92,6 +107,11 @@ sub fetch_input {
   $self->param_required('core_dbpass');
   $self->param_required('cs_version');
   $self->param_required('species');
+  $self->param_required('giftsdb_name');
+  $self->param_required('giftsdb_host');
+  $self->param_required('giftsdb_user');
+  $self->param_required('giftsdb_pass');
+  $self->param_required('giftsdb_port');
 
   #add / at the end of the paths if it cannot be found to avoid possible errors
   if (!($self->param('output_path') =~ /\/$/)) {
@@ -113,7 +133,11 @@ sub fetch_input {
                    '-dbname' => $self->param('core_dbname'),
   ) or die('Failed to connect to the core database.');
 
-  my $gifts_dba = get_default_gifts_dba();
+  my $gifts_dba = get_gifts_dba($self->param('giftsdb_name'),
+                                $self->param('giftsdb_host'),
+                                $self->param('giftsdb_user'),
+                                $self->param('giftsdb_pass'),
+                                $self->param('giftsdb_port'));
 
   $self->hrdb_set_con($core_dba,"core");
   $self->hrdb_set_con($gifts_dba,"gifts");
@@ -236,8 +260,9 @@ sub insert_pdb_ens() {
 # insert the Ensembl-PDB links into the pdb_ens table in the GIFTS database
 
   my $self = shift;
+  my ($giftsdb_name,$giftsdb_host,$giftsdb_user,$giftsdb_pass,$giftsdb_port) = @_;
 
-  my $gifts_dbc = get_default_gifts_dbc();
+  my $gifts_dbc = get_gifts_dbc($giftsdb_name,$giftsdb_host,$giftsdb_user,$giftsdb_pass,$giftsdb_port);
   my $core_dba = $self->hrdb_get_con("core");
   my $core_ta = $core_dba->get_TranscriptAdaptor();
   

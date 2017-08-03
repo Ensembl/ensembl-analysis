@@ -56,6 +56,7 @@ sub default_options {
         'port'     => '',
         'species'  => '',
         'assembly_name' => '',
+        'email' => '', # Add your email so you can be notified when a bam file is removed
 
         'pipe_dbname'   => $self->o('dbowner').'_'.$self->o('pipeline_name').'_hive',
         'dna_dbname'    => '',
@@ -441,6 +442,7 @@ sub pipeline_analyses {
                          min_mapped => $self->o('read_min_mapped'),
                          header_file => '#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h',
                          bam_prefix => $self->o('read_id_tag'),
+                         email => $self->o('email'),
                          disconnect_jobs => 1,
                        },
         -flow_into => {
@@ -461,6 +463,7 @@ sub pipeline_analyses {
                          min_mapped => $self->o('read_min_mapped'),
                          header_file => '#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h',
                          bam_prefix => $self->o('read_id_tag'),
+                         email => $self->o('email'),
                          disconnect_jobs => 1,
                        },
         -flow_into => {
@@ -778,6 +781,16 @@ sub pipeline_analyses {
                          disconnect_jobs => 1,
                        },
         -rc_name    => '2GB',
+        -flow_into => ['create_ccode_config'],
+      },
+      {
+        -logic_name => 'check_and_delete_broken_duplicated',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRemoveDuplicatedObjects',
+        -parameters => {
+                         target_db => $self->o('rough_db'),
+                         check_support => 0,
+                       },
+        -rc_name    => '4GB',
         -flow_into => ['create_ccode_config'],
       },
       {
