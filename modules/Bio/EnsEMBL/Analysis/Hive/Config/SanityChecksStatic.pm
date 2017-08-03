@@ -103,20 +103,35 @@ sub _master_config {
       }, # ig_tr
       'projection_coding' => {
         'logic_names' => {
-          'project_transcripts' => 50000,
+          'project_transcripts' => 30000,
         }, # logic_names
         'biotypes' =>    {
-          'projection'          => 50000,
+          'projection'          => 30000,
         }, # biotypes
-      }, # projection
+      }, # projection_coding
+      'projection_lincrna' => {
+        'logic_names' => {
+          'project_lincrna' => 2000,
+        }, # logic_names
+      }, # projection_lincrna
+      'projection_pseudogene' => {
+        'logic_names' => {
+          'project_pseudogene' => 2000,
+        }, # logic_names
+      }, # projection_pseudogene
+      'projection_ig_tr' => {
+        'logic_names' => {
+          'project_ig_tr' => 50,
+        }, # logic_names
+      }, # projection_ig_tr
       'realign' => {
         'logic_names' => {
-          # Would actually prefer an upper limit on realign as opposed to a lower limit 
-          'project_transcripts' => 20000,
-          'realign'             => 1000,
+          # Would actually prefer an upper limit on realign as opposed to a lower limit
+          'project_transcripts'  => 20000,
+          'genblast'             => 1000,
         }, # logic_names
         'biotypes' =>    {
-          'realign'             => 40000,
+          'realign'             => 20000,
         }, # biotypes
       }, # realign
       'rnaseq_blast' =>  {
@@ -131,12 +146,6 @@ sub _master_config {
          }, # biotypes
       }, # rnaseq_blast
       'layer' => {
-        'logic_names' => {
-          'genblast'                 => 40000,
-          'genblast_not_best'        => 10000,
-          'project_transcripts'      => 20000,
-          'ig_tr_gene'               => 40,
-        }, # logic_names
         'biotypes' =>    {
           'IG_'                  => 20,
           'TR_'                  => 20,
@@ -144,8 +153,8 @@ sub _master_config {
           'primates_pe12_'       => 15000,
           'mammals_pe12_'        => 10000,
           'realign_'             => 30000,
-          'rnaseq_merged_'       => 10000,
-          'rnaseq_tissue_'       => 10000,
+          'rnaseq_merged_'       => 5000,
+          'rnaseq_tissue_'       => 100,
         }, # biotypes
       }, # layer
       'genebuilder' => {
