@@ -1,19 +1,19 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # Copyright [2016-2017] EMBL-European Bioinformatics Institute
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-=head1 NAME 
+=head1 NAME
 
 HiveCopyGenes.pm
 
@@ -55,9 +55,11 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes;
 
 use strict;
 use warnings;
+use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 use Net::FTP;
@@ -213,6 +215,13 @@ sub copy_genes_directly {
     unless($gene) {
       $self->throw("Problem loading gene with dbID ".$gene_id." from the input database!");
     }
+
+    if($self->param('filter_on_overlap')) {
+      $gene = $self->filter_on_overlap($gene);
+      unless($gene) {
+        next;
+      }
+    }
     push(@{$output_genes},$gene);
   }
 
@@ -229,5 +238,91 @@ sub output_genes {
 
   return($self->param('_output_genes'));
 }
+
+
+sub filter_on_overlap {
+  my ($self,$gene) = @_;
+
+  my $overlap_filter_type = $self->param_required('overlap_filter_type');
+  my $filter_on_strand = $self->param_required('filter_on_strand');
+  my $filter_against_biotypes = {};
+  if($self->param('filter_against_biotypes')) {
+    $filter_against_biotypes = $self->param('filter_against_biotypes');
+  }
+
+  my $output_db = $self->hrdb_get_con('target_db');
+  my $output_ga = $output_db->get_GeneAdaptor();
+  my $output_db_slice = get_feature_slice_from_db($gene,$output_db);
+  my @output_db_genes = @{$output_ga->fetch_all_by_Slice($output_db_slice,undef,1)};
+
+  unless(scalar(@output_db_genes)) {
+    return($gene);
+  }
+
+  foreach my $output_gene (@output_db_genes) {
+    unless($filter_against_biotypes->{$output_gene->biotype}) {
+      next;
+    }
+
+    if($overlap_filter_type eq 'genomic_overlap') {
+      if($filter_on_strand && $output_gene->strand == $gene->strand) {
+        say "FM2 not copying: ".$gene->dbID.":".$gene->start.":".$gene->end.":".$gene->strand." ".$output_gene->dbID.":".$output_gene->start.":".$output_gene->end.":".$output_gene->strand;
+	next;
+      }
+      if($gene->start <= $output_gene->end && $output_gene->start <= $gene->end) {
+	return(0);
+      }
+    } elsif($overlap_filter_type eq 'exon_overlap') {
+      if($filter_on_strand && $output_gene->strand == $gene->strand) {
+	next;
+      }
+      if(exon_overlap($gene,$output_gene)) {
+	return(0);
+      }
+    } elsif($overlap_filter_type eq 'coding_exon_overlap') {
+      if($filter_on_strand && $output_gene->strand == $gene->strand) {
+	next;
+      }
+      foreach my $transcript (@{$gene->get_all_Transcripts}) {
+	foreach my $output_transcript (@{$output_gene->get_all_Transcripts}) {
+          if(coding_exon_overlap($transcript,$output_transcript)) {
+            return(0);
+          }
+        }
+      }
+    } else {
+      $self->throw("You have selected an unsupported overlap filter. Filter selected: ".$overlap_filter_type);
+    }
+  }
+
+  return($gene);
+}
+
+
+sub get_feature_slice_from_db {
+  my ( $feature, $db ) = @_;
+
+  # This little helper routine returns a feature slice for a particular
+  # region.  The slice will be associated with the given database.
+
+  my $slice = $feature->feature_Slice();
+
+  my @slices = @{
+    $db->get_SliceAdaptor()->fetch_by_region_unique(
+         $slice->coord_system_name(), $slice->seq_region_name(),
+         $slice->start(),             $slice->end(),
+         1,            $slice->coord_system()->version(),
+         1 ) };
+
+  if ( scalar(@slices) != 1 ) {
+    # This will hopefully only happen if the Primary and Secondary
+    # databases contain different assemblies.
+    die( "!! Problem with projection for feature slice %s\n",
+         $slice->name() );
+  }
+
+  return $slices[0];
+}
+
 
 1;
