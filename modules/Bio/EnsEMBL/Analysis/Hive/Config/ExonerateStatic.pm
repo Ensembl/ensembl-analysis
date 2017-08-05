@@ -79,7 +79,7 @@ sub _master_config {
     },
 
     exonerate_projection_dna => {
-      OPTIONS => '--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1 --maxintron 100000 --forcegtag 1',
+      OPTIONS => '--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1 --maxintron 100000 --forcegtag ',
       FILTER  => {
         OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
         PARAMETERS => {

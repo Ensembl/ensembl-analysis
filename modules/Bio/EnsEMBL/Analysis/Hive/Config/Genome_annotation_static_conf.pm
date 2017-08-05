@@ -61,6 +61,7 @@ sub default_options {
     'skip_projection'           => 0, # Will skip projection process if 1
     'skip_rnaseq'               => 0, # Will skip rnaseq blast db formatting if 1
     'skip_ncrna'                => 0, # Will skip ncrna process if 1
+    'skip_cleaning'             => 0, # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => 0,
     'mapping_db'                => '',
     'stable_id_prefix'          => '',
@@ -410,7 +411,7 @@ sub default_options {
     },
 
     'projection_lincrna_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('species_name').'_linc_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('species_name').'_proj_linc_'.$self->o('release_number'),
       -host   => $self->o('projection_lincrna_db_server'),
       -port   => $self->o('projection_lincrna_db_port'),
       -user   => $self->o('user'),
@@ -419,7 +420,7 @@ sub default_options {
     },
 
     'projection_pseudogene_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('species_name').'_pseudo_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('species_name').'_proj_pseudo_'.$self->o('release_number'),
       -host   => $self->o('projection_pseudogene_db_server'),
       -port   => $self->o('projection_pseudogene_db_port'),
       -user   => $self->o('user'),
@@ -1953,7 +1954,7 @@ sub pipeline_analyses {
          -rc_name => 'default',
          -flow_into => {
                          '1->A' => ['generate_ig_tr_jobs'],
-                         'A->1' => ['ig_tr_sanity_checks'],
+                         'A->1' => ['update_ig_tr_hitnames'],
                        },
       },
 
@@ -2028,7 +2029,7 @@ sub pipeline_analyses {
                          genblast_path => $self->o('genblast_path'),
                          genblast_db_path => $self->o('genome_file'),
                          commandline_params => $genblast_params{$self->o('blast_type').'_genome'},
-                         sequence_table_name => $self->o('uniprot_table_name'),
+                         sequence_table_name => $self->o('ig_tr_table_name'),
                          max_rank => $self->o('genblast_max_rank'),
                          genblast_pid => $self->o('genblast_pid'),
                          timer => '1h',
@@ -2055,6 +2056,25 @@ sub pipeline_analyses {
         -rc_name          => 'default',
         -can_be_empty  => 1,
         -failed_job_tolerance => 100,
+      },
+
+
+      {
+        -logic_name => 'update_ig_tr_hitnames',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                        cmd => 'mysql '.
+                                ' -u'.$self->o('user').
+                                ' -p'.$self->o('password').
+                                ' -h'.$self->o('ig_tr_db','-host').
+                                ' -P'.$self->o('ig_tr_db','-port').
+                                ' -D'.$self->o('ig_tr_db','-dbname').
+                                ' -e \'UPDATE protein_align_feature set hit_name="IMGT";\'',
+                      },
+        -rc_name    => 'default',
+        -flow_into => {
+                        '1' => ['ig_tr_sanity_checks'],
+                      },
       },
 
 
@@ -2980,6 +3000,29 @@ sub pipeline_analyses {
                       },
         -rc_name    => 'default',
         -flow_into => {
+                        '1' => ['remove_rnaseq_for_layer_daf_features'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'remove_rnaseq_for_layer_daf_features',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                        cmd => 'mysql '.
+                                ' -u'.$self->o('user').
+                                ' -p'.$self->o('password').
+                                ' -h'.$self->o('rnaseq_for_layer_db','-host').
+                                ' -P'.$self->o('rnaseq_for_layer_db','-port').
+                                ' -D'.$self->o('rnaseq_for_layer_db','-dbname').
+                                ' -e \'DELETE transcript_supporting_feature from transcript_supporting_feature join dna_align_feature on'.
+                                ' feature_id=dna_align_feature_id where feature_type="dna_align_feature";'.
+                                ' DELETE supporting_feature from supporting_feature join dna_align_feature on feature_id=dna_align_feature_id where'.
+                                ' feature_type="dna_align_feature";'.
+                                ' TRUNCATE dna_align_feature;',
+                      },
+        -rc_name    => 'default',
+        -flow_into => {
                         '1' => ['classify_rnaseq_for_layer_models'],
                       },
       },
@@ -3412,15 +3455,54 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                        '1' => ['run_cleaner'],
+                        '1' => ['restore_ig_tr_biotypes'],
                       },
       },
 
 
       {
+        -logic_name => 'restore_ig_tr_biotypes',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'mysql '.
+                                ' -u'.$self->o('user').
+                                ' -p'.$self->o('password').
+                                ' -h'.$self->o('final_geneset_db','-host').
+                                ' -P'.$self->o('final_geneset_db','-port').
+                                ' -D'.$self->o('final_geneset_db','-dbname').
+                                ' -e \'UPDATE gene join transcript using(gene_id) set gene.biotype=transcript.biotype where'.
+                                ' transcript.biotype like "IG\_%" or transcript.biotype like "TR\_%";\'',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['update_rnaseq_ise_logic_names'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'update_rnaseq_ise_logic_names',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'mysql '.
+                                ' -u'.$self->o('user').
+                                ' -p'.$self->o('password').
+                                ' -h'.$self->o('final_geneset_db','-host').
+                                ' -P'.$self->o('final_geneset_db','-port').
+                                ' -D'.$self->o('final_geneset_db','-dbname').
+                                ' -e \'UPDATE analysis set logic_name=CONCAT(logic_name,"_ise") where logic_name like "%\_rnaseq"\'',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['run_cleaner'],
+                      },
+      },
+
+      {
         -logic_name => 'run_cleaner',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCleanGeneset',
         -parameters => {
+                         skip_analysis => $self->o('skip_cleaning'),
                          input_db => $self->o('final_geneset_db'),
                          dna_db => $self->o('dna_db'),
                          output_path => $self->o('output_path').'/clean_genes/',
@@ -3439,6 +3521,7 @@ sub pipeline_analyses {
        -logic_name => 'delete_flagged_transcripts',
        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDeleteTranscripts',
        -parameters => {
+                        skip_analysis => $self->o('skip_cleaning'),
                         dbhost => $self->o('final_geneset_db','-host'),
                         dbname => $self->o('final_geneset_db','-dbname'),
                         dbuser => $self->o('user'),
@@ -3481,9 +3564,111 @@ sub pipeline_analyses {
                       },
         -rc_name => 'default',
         -flow_into => {
-                        '1' => ['delete_duplicate_genes'],
+                        '1->A' => ['fan_transfer_projected_genes'],
+                        'A->1' => ['delete_duplicate_genes'],
                       },
      },
+
+
+     {
+       -logic_name => 'fan_transfer_projected_genes',
+       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+       -parameters => {
+                        cmd => 'if [ "#skip_projection#" -ne "0" ]; then exit 42; else exit 0;fi',
+                        return_codes_2_branches => {'42' => 2},
+                       },
+       -rc_name => 'default',
+       -flow_into  => {
+                         '1->A' => ['create_projected_lincrna_ids_to_copy'],
+                         'A->1' => ['create_projected_pseudogene_ids_to_copy'],
+                      },
+     },
+
+
+     {
+       -logic_name => 'create_projected_lincrna_ids_to_copy',
+       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+       -parameters => {
+                        target_db    => $self->o('projection_lincrna_db'),
+                        iid_type     => 'feature_id',
+                        feature_type => 'gene',
+                        batch_size   => 500,
+                     },
+       -flow_into => {
+                      '2' => ['transfer_projected_lincrnas'],
+                     },
+       -rc_name    => 'default',
+     },
+
+
+     {
+       -logic_name => 'create_projected_pseudogene_ids_to_copy',
+       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+       -parameters => {
+                        target_db    => $self->o('projection_pseudogene_db'),
+                        iid_type     => 'feature_id',
+                        feature_type => 'gene',
+                        batch_size   => 500,
+                      },
+       -flow_into => {
+                       '2' => ['transfer_projected_pseudogenes'],
+                     },
+       -rc_name    => 'default',
+     },
+
+
+     {
+       -logic_name => 'transfer_projected_lincrnas',
+       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes',
+       -parameters => {
+                        copy_genes_directly => 1,
+                        source_db => $self->o('projection_lincrna_db'),
+                        dna_db => $self->o('dna_db'),
+                        target_db => $self->o('final_geneset_db'),
+                        filter_on_overlap => 1,
+                        filter_on_strand  => 0,
+                        overlap_filter_type => 'genomic_overlap',
+                        filter_against_biotypes => {
+                                                     protein_coding => 1,
+                                                     IG_C_gene => 1,
+                                                     IG_V_gene => 1,
+                                                     TR_C_gene => 1,
+                                                     TR_J_gene => 1,
+                                                     TR_V_gene => 1,
+                                                     processed_pseudogene => 1,
+                                                     pseudogene => 1,
+                                                   },
+                      },
+       -rc_name    => 'default',
+      },
+
+
+      {
+        -logic_name => 'transfer_projected_pseudogenes',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes',
+        -parameters => {
+                         copy_genes_directly => 1,
+                         source_db => $self->o('projection_pseudogene_db'),
+                         dna_db => $self->o('dna_db'),
+                         target_db => $self->o('final_geneset_db'),
+                         filter_on_overlap => 1,
+                         filter_on_strand  => 1,
+                         overlap_filter_type => 'genomic_overlap',
+                         filter_against_biotypes => {
+                                                      protein_coding => 1,
+                                                      IG_C_gene => 1,
+                                                      IG_V_gene => 1,
+                                                      TR_C_gene => 1,
+                                                      TR_J_gene => 1,
+                                                      TR_V_gene => 1,
+                                                      processed_pseudogene => 1,
+                                                      pseudogene => 1,
+                                                      lincRNA => 1,
+                                                    },
+                       },
+        -rc_name    => 'default',
+      },
+
 
      {
        -logic_name => 'delete_duplicate_genes',
@@ -3568,15 +3753,23 @@ sub pipeline_analyses {
                                 ' -h'.$self->o('reference_db','-host').
                                 ' -P'.$self->o('reference_db','-port').
                                 ' -D'.$self->o('reference_db','-dbname').
-                                ' -e \'UPDATE gene set biotype="protein_coding" where biotype="ensembl";'.
-                                ' UPDATE gene set analysis_id=(SELECT analysis_id from analysis where logic_name="ensembl")'.
-                                ' WHERE analysis_id in (SELECT analysis_id from analysis where logic_name in ("spliced_elsewhere","pseudogenes","genblast"));'.
-                                ' UPDATE transcript join gene using(gene_id) set transcript.biotype=gene.biotype;'.
-                                ' UPDATE transcript join gene using(gene_id) set transcript.analysis_id=gene.analysis_id;'.
+                                ' -e \'UPDATE gene set biotype = "protein_coding" where biotype = "ensembl";'.
+                                ' UPDATE gene set analysis_id = (SELECT analysis_id from analysis where logic_name = "ensembl")'.
+                                ' WHERE analysis_id in (SELECT analysis_id from analysis where logic_name in'.
+                                ' ("spliced_elsewhere","pseudogenes","genblast","project_transcripts","project_pseudogene","project_lincrna"));'.
+                                ' UPDATE transcript join gene using(gene_id) set transcript.biotype = gene.biotype;'.
+                                ' UPDATE transcript join gene using(gene_id) set transcript.analysis_id = gene.analysis_id;'.
                                 ' INSERT into analysis (created,logic_name,db) values (now(),"other_protein","uniprot");'.
-                                ' UPDATE protein_align_feature set analysis_id='.
-                                '(SELECT analysis_id from analysis where logic_name="other_protein") where analysis_id='.
-                                '(SELECT analysis_id from analysis where logic_name="genblast");\'',
+                                ' INSERT into analysis (created,logic_name,db) values (now(),"projected_transcript","'.$self->o('projection_source_db_name').'");'.
+                                ' UPDATE protein_align_feature set analysis_id ='.
+                                ' (SELECT analysis_id from analysis where logic_name = "projected_transcript") where analysis_id ='.
+                                ' (SELECT analysis_id from analysis where logic_name = "project_transcripts");'.
+                                ' UPDATE protein_align_feature set analysis_id ='.
+                                ' (SELECT analysis_id from analysis where logic_name = "other_protein") where analysis_id not in'.
+                                ' (SELECT analysis_id from analysis where logic_name in ("uniprot","projected_transcript"));'.
+                                ' UPDATE dna_align_feature set analysis_id ='.
+                                ' (SELECT analysis_id from analysis where logic_name = "projected_transcript") where analysis_id in'.
+                                ' (SELECT analysis_id from analysis where logic_name in ("project_lincrna","project_pseudogene"));\'',
                        },
         -rc_name    => 'default',
         -flow_into => {
@@ -3746,8 +3939,12 @@ sub pipeline_analyses {
                                 ' -P'.$self->o('reference_db','-port').
                                 ' -D'.$self->o('reference_db','-dbname').
                                 ' -e \'DELETE from analysis_description where analysis_id in'.
-                                ' (SELECT analysis_id from analysis where logic_name in ("spliced_elsewhere","pseudogenes","genblast"));'.
-                                ' DELETE from analysis where logic_name in ("spliced_elsewhere","pseudogenes","genblast");\'',
+                                ' (SELECT analysis_id from analysis where logic_name in'.
+                                ' ("spliced_elsewhere","pseudogenes","genblast","project_pseudogene",'.
+                                ' "project_lincrna","project_transcripts","ig_tr_collapse"));'.
+                                ' DELETE from analysis where logic_name in'.
+                                ' ("spliced_elsewhere","pseudogenes","genblast","project_pseudogene",'.
+			        ' "project_lincrna","project_transcripts","ig_tr_collapse");\'',
                        },
         -rc_name    => 'default',
         -flow_into => {
@@ -3915,6 +4112,11 @@ sub pipeline_analyses {
                                 ' -D'.$self->o('otherfeatures_db','-dbname').
                                 ' -e \'UPDATE analysis set db_version="#assembly_refseq_accession#";'.
                                 ' UPDATE analysis set db_file="#assembly_refseq_accession#";'.
+                                ' UPDATE dna_align_feature set analysis_id = (SELECT analysis_id from analysis where logic_name="cdna_alignment") where'.
+                                ' analysis_id = (SELECT analysis_id from analysis where logic_name="refseq_cdna");'.
+                                ' UPDATE gene set analysis_id = (SELECT analysis_id from analysis where logic_name="cdna_alignment") where'.
+                                ' analysis_id = (SELECT analysis_id from analysis where logic_name="refseq_cdna");'.
+                                ' UPDATE transcript join gene using(gene_id) set transcript.analysis_id=gene.analysis_id;'.
                                 ' DELETE analysis_description from analysis_description join analysis using(analysis_id)'.
                                 ' where logic_name not in ("refseq_import","cdna_alignment");'.
                                 ' DELETE from analysis where logic_name not in ("refseq_import","cdna_alignment");'.
