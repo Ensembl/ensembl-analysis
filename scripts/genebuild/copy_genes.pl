@@ -147,6 +147,9 @@ my $transform_to;
 my $stable_id;
 my $verbose;
 my $clean_transcripts = 0;
+my $filter_on_overlap = 0;
+my $overlap_filter_type = 'genomic_overlap';
+my $filter_on_strand = 1;
 
 verbose('EXCEPTION');
 
@@ -174,12 +177,15 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'merge!'                               => \$merge,
             'skip_exon_sf!'                        => \$skip_exon_sf,
             'remove_xrefs!'                        => \$remove_xrefs,
-            'remove_stable_ids!' => \$remove_stable_ids,
-            'transform_to:s'     => \$transform_to,
-            'verbose!'           => \$verbose,
-            'stable_id!'         => \$stable_id,
-            'clean_transcripts!' => \$clean_transcripts,
-            'file:s'             => \$infile ) ||
+            'remove_stable_ids!'                   => \$remove_stable_ids,
+            'transform_to:s'                       => \$transform_to,
+            'verbose!'                             => \$verbose,
+            'stable_id!'                           => \$stable_id,
+            'clean_transcripts!'                   => \$clean_transcripts,
+            'file:s'                               => \$infile,
+            'filter_on_overlap:s'                  => \$filter_on_overlap,
+            'overlap_filter_type:s'                => \$overlap_filter_type,
+            'filter_on_strand!'                    => \$filter_on_strand) ||
   throw("Error while parsing command line options");
 
 if ($verbose) {
@@ -374,20 +380,20 @@ while (@gene_ids) {
         $t->analysis($analysis);
       }
     }
-    
+
     if ( defined($biotype) ) {
       $gene->biotype($biotype);
       foreach my $t ( @{ $gene->get_all_Transcripts() } ) {
         $t->biotype($biotype);
       }
     }
-    
+
     if ( defined($source) ) {
       $gene->source($source);
       foreach my $t ( @{ $gene->get_all_Transcripts() } ) {
         $t->source($source);
       }
-    }    
+    }
 
     if ($transform_to) {
       if ($verbose) {
@@ -406,13 +412,16 @@ while (@gene_ids) {
     }
 
     if ( defined($gene) ) {
-      if (defined($merge)) {
+      if ($filter_on_overlap) {
+        $gene = filter_on_overlap($gene,$overlap_filter_type,$outga);
+        if($gene) {
+          $outga->store($gene,1,0,$skip_exon_sf);
+        }
+      } elsif (defined($merge)) {
         # check if there is any other gene on that region
         my $outdb_slice = get_feature_slice_from_db($gene,$outga->db());
         my @outdb_genes = @{$outga->fetch_all_by_Slice($outdb_slice,undef,1)};
-        
         my @outdb_genes_stranded = grep($gene->strand() eq $_->strand(),@outdb_genes); 
-        
         if (scalar(@outdb_genes_stranded) > 0) {
           # choose target gene to copy the source gene transcripts into
           my @sorted_outdb_genes_stranded = sort {$b->length() <=> $a->length()} @outdb_genes_stranded; # pick the longest
@@ -568,4 +577,48 @@ sub clean_transcripts {
       }
     }
   }
+}
+
+sub filter_on_overlap {
+  my ($gene,$overlap_filter_type,$filter_on_strand,$outga) = @_;
+
+  my $outdb_slice = get_feature_slice_from_db($gene,$outga->db());
+  my @outdb_genes = @{$outga->fetch_all_by_Slice($outdb_slice,undef,1)};
+
+  unless(scalar(@outdb_genes)) {
+    return($gene);
+  }
+
+  foreach my $output_gene (@outdb_genes) {
+    if($overlap_filter_type eq 'genomic_overlap') {
+      if($filter_on_strand && $output_gene->strand != 1) {
+        next;
+      }
+      if($gene->start <= $output_gene->end && $output_gene->start <= $gene->end) {
+        return(0);
+      }
+    } elsif($overlap_filter_type eq 'exon_overlap') {
+      if($filter_on_strand && $output_gene->strand != 1) {
+        next;
+      }
+      if(exon_overlap($gene,$output_gene)) {
+        return(0);
+      }
+    } elsif($overlap_filter_type eq 'coding_exon_overlap') {
+      if($filter_on_strand && $output_gene->strand != 1) {
+        next;
+      }
+      foreach my $transcript (@{$gene->get_all_Transcripts}) {
+        foreach my $output_transcript (@{$output_gene->get_all_Transcripts}) {
+          if(coding_exon_overlap($transcript,$output_transcript)) {
+            return(0);
+          }
+        }
+      }
+    } else {
+      throw("You have selected an unsupported overlap filter. Filter selected: ".$overlap_filter_type);
+    }
+  }
+
+  return($gene);
 }

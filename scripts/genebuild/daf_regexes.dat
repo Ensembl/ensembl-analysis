@@ -84,9 +84,9 @@
 '^XTALPA$'	XenTro_cdna
 '^XTBETA$'	XenTro_cdna
 '^XTR[0-9]{6}$'	XenTro_cdna
-'^ENST[0-9]{11}$'	Ens_Hs_transcript
-'^ENSMUST[0-9]{11}$'	Ens_Mm_transcript
-'^ENSTTRT[0-9]{11}$'	Ens_Tt_transcript
+'^ENST[0-9]{11}\.*[0-9]*$'	Ens_Hs_transcript
+'^ENSMUST[0-9]{11}\.*[0-9]*$'	Ens_Mm_transcript
+'^ENSTTRT[0-9]{11}\.*[0-9]*$'	Ens_Tt_transcript
 '^contig[0-9]{5}$'	RIKEN
 '^[1-22XY]{1}$'	GRC_primary_assembly
 '^Cluster'	Ensembl_Bam2Genes_intron

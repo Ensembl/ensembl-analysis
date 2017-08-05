@@ -51,9 +51,9 @@ my $refine_db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -host    => $refinehost,
   -dbname  => $refinedbname);
 
-unless(-e $output_path) {
-  system("mkdir -p ".$output_path)
-}
+#unless(-e $output_path) {
+#  system("mkdir -p ".$output_path)
+#}
 
 
 # Truncate the dna align feature table and remove any unlinked supporting features
