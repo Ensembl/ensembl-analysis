@@ -77,6 +77,10 @@ sub param_defaults {
 sub fetch_input {
   my $self = shift;
 
+  if($self->param('skip_analysis')) {
+    $self->complete_early('Skip analysis flag is enabled, so no cleaning will occur');
+  }
+
   return 1;
 }
 
