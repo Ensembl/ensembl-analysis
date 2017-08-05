@@ -502,7 +502,7 @@ sub parse_config_mini{
 
 
 sub create_file_name{
-  my ($stem, $ext, $dir) = @_;
+  my ($stem, $ext, $dir, $no_clean) = @_;
 
   my $random = 'XXXXX';
   my %params = (DIR => tmpdir);
@@ -516,6 +516,9 @@ sub create_file_name{
   }
   $params{TEMPLATE} = $stem.'_'.$random if ($stem);
   $params{SUFFIX} = '.'.$ext if ($ext);
+  if($no_clean) {
+    $params{UNLINK} = 0;
+  }
   my $fh = File::Temp->new(%params);
   return $fh;
 }
@@ -534,7 +537,7 @@ sub create_file_name{
 =cut
 
 sub write_seqfile{
-  my ($seq, $filename, $format) = @_;
+  my ($seq, $filename, $format, $no_clean) = @_;
 
   my %params = ( -format => $format || 'fasta');
   my $seqs;
@@ -556,9 +559,10 @@ sub write_seqfile{
     }
   }
   else {
-    $params{-fh} = create_file_name('seq', 'fa');
+    $params{-fh} = create_file_name('seq', 'fa', undef, $no_clean);
     $filename = $params{-fh};
   }
+
   my $seqout = Bio::SeqIO->new(%params);
   foreach my $seq(@$seqs){
     eval{

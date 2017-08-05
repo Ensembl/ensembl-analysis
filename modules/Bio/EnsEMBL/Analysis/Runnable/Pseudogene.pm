@@ -179,8 +179,8 @@ sub run {
   $self->test_genes;
   $self->summary;
   if ($self->SINGLE_EXON){
-    # Write out multiple exon genes for making into blast db for Spliced_elsewhere
-    my $filename = $self->create_filename('multi_exon_seq','fasta',$self->PS_MULTI_EXON_DIR);
+    # Write out multiple exon genes for making into blast db for Spliced_elsewhere, 1 at end specifies not to delete these files
+    my $filename = $self->create_filename('multi_exon_seq','fasta',$self->PS_MULTI_EXON_DIR, 1);
     $self->write_seq_array($self->multi_exon_genes,$filename);
 
   }

@@ -510,9 +510,9 @@ sub resultsfile{
 
 
 sub create_filename{
-  my ($self, $stem, $ext, $dir) = @_;
+  my ($self, $stem, $ext, $dir, $no_clean) = @_;
 
-  return create_file_name($stem, $ext, $dir || $self->workdir);
+  return create_file_name($stem, $ext, $dir || $self->workdir, $no_clean);
 }
 
 
@@ -552,7 +552,7 @@ sub locate_executable{
 
 
 sub write_seq_file{
-  my ($self, $seq, $filename) = @_;
+  my ($self, $seq, $filename, $no_clean) = @_;
  
   if(!$seq){
     $seq = $self->query;
@@ -560,7 +560,7 @@ sub write_seq_file{
   if(!$filename){
     $filename = $self->queryfile;
   }
-  $filename = write_seqfile($seq, $filename);
+  $filename = write_seqfile($seq, $filename, $no_clean);
   return $filename;
 }
 
