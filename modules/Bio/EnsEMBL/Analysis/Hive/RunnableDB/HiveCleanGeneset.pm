@@ -30,6 +30,10 @@ sub fetch_input {
   my $self = shift;
   my $test_case = 0;
 
+  if($self->param('skip_analysis')) {
+    $self->complete_early('Skip analysis flag is enabled, so no cleaning will occur');
+  }
+
   my $analysis = Bio::EnsEMBL::Analysis->new(
                                               -logic_name => $self->param('logic_name'),
                                               -module => $self->param('module'),
