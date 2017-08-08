@@ -505,6 +505,27 @@ foreach my $gene (@genes) {
       unless ($gene->biotype =~ /^IG_/ and exists $gene->{exception});
   }
   $stats{gene}->{$gene->biotype}++;
+  print STDERR $gene->stable_id, ' ', $gene->biotype, ' ', $gene->display_id,  ' ', $gene->start, ' ', $gene->end, ' ', $gene->strand, ' ', $gene->description, "\n";
+  foreach my $dbe (@{$gene->get_all_DBEntries}) {
+    print STDERR '     DBE ', $dbe->primary_id, ' ', $dbe->display_id, ' ', $dbe->dbname, "\n";
+  }
+  foreach my $t (@{$gene->get_all_Transcripts}) {
+    print STDERR '  ', $t->stable_id, ' ', $t->biotype, ' ', $t->display_id,  ' ', $t->start, ' ', $t->end, ' ', $t->strand, ' ', $t->description, "\n";
+    foreach my $dbe (@{$t->get_all_DBEntries}) {
+      print STDERR '     DBE ', $dbe->primary_id, ' ', $dbe->display_id, ' ', $dbe->dbname, "\n";
+    }
+    foreach my $e (@{$t->get_all_Exons}) {
+      print STDERR '    ', $e->stable_id, ' ', $e->display_id,  ' ', $e->start, ' ', $e->end, ' ', $e->strand, ' ', $e->phase, ' ', $e->end_phase, "\n";
+    }
+    if ($t->translation) {
+      print STDERR ' P ', $t->translation->stable_id, ' ', $t->translation->start, ' ', $t->translation->end, ' ', $t->translation->start_Exon->start, ' ', $t->translation->start_Exon->end, ' ', $t->translation->end_Exon->start, ' ', $t->translation->end_Exon->end, "\n";
+      foreach my $dbe (@{$t->translation->get_all_DBEntries}) {
+        print STDERR '     DBE ', $dbe->primary_id, ' ', $dbe->display_id, ' ', $dbe->dbname, "\n";
+      }
+      print STDERR ' P ', $t->translation->seq, "\n";
+      warning("STOP") if ($t->translation->seq =~ /\*/);
+    }
+  }
   if ($write) {
     if ($gene->slice->asseembly_exception_type eq 'REF') {
       $ga->store($gene);
