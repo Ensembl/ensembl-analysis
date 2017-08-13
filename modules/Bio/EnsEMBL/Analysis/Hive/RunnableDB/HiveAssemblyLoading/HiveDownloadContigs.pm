@@ -22,6 +22,7 @@ use warnings;
 use feature 'say';
 
 use File::Spec::Functions;
+use Bio::EnsEMBL::IO::Parser::Fasta;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
@@ -94,19 +95,18 @@ sub download_ftp_contigs {
   }
 
   # It's only letters
-#  $wgs_id =~ s/\d+//; # remove any digit 0-9
   $wgs_id = uc($wgs_id);
   my @wgs_ids = split(',',$wgs_id); # multiple wgs ids are allowed (ie for human: AADC,AADD,ABBA)
 
   $source = lc($source);
   if($source eq 'ncbi') {
-    # my $base = 'wget -nv "ftp://ftp.ncbi.nlm.nih.gov/genbank/wgs';
     my $base = 'rsync -av ftp.ncbi.nlm.nih.gov::genbank/wgs/' ;  # wgs.AALT.*.fsa_nt.gz .  wget -nv "ftp://ftp.ncbi.nlm.nih.gov/genbank/wgs';
     foreach my $a_wgs_id (@wgs_ids) {
+      $a_wgs_id =~ s/\d+//; # remove any digit 0-9
       $a_wgs_id = uc($a_wgs_id);
+      my $wgs_sub_dir = substr($a_wgs_id,0,1);
       my $file = 'wgs.'.$a_wgs_id.'.*.fsa_nt.gz';
-      # my $wget = "$base/$file\" -P $output_path";
-      my $wget = "$base/$file   $output_path";
+      my $wget = "$base/$wgs_sub_dir/$file   $output_path";
       my $return = system($wget);
       if($return) {
         $self->throw("wget/rsync failed on the following command line:\n".$wget);
@@ -226,7 +226,7 @@ sub find_missing_accessions {
   my ($self,$output_path,$contig_accession_path) = @_;
 
   my $contig_file = $output_path.'/contigs.fa';
-  my $max_allowed_missing = 1000;
+  my $max_allowed_missing = 3000;
   my $agp_accession_hash = {};
   my $fasta_header;
   my $fasta_accession_hash = {};
@@ -426,20 +426,22 @@ sub compare_to_agp {
   if(scalar(@extra_accessions)) {
     my $non_nuclear_agp_path = $output_path."/../../non_nuclear_agp/concat_non_nuclear.agp";
 
-    unless(-e $non_nuclear_agp_path) {
-      $self->throw("Could not find a non-nuclear AGP file, but there appears to be extra contigs present that aren't nuclear. Offending accessions:\n".@extra_accessions);
-    }
+#    unless(-e $non_nuclear_agp_path) {
+#      $self->throw("Could not find a non-nuclear AGP file, but there appears to be extra contigs present that aren't nuclear. Offending accessions:\n".@extra_accessions);
+#    }
 
     my $non_nuclear_accessions = {};
-    open(IN,$non_nuclear_agp_path);
-    while(<IN>) {
-      my $line = $_;
-      my @cols = split(/\t/,$line);
-      if($cols[5]) {
-        $non_nuclear_accessions->{$cols[5]} = 1;
+    if(-e $non_nuclear_agp_path) {
+      open(IN,$non_nuclear_agp_path);
+      while(<IN>) {
+        my $line = $_;
+        my @cols = split(/\t/,$line);
+        if($cols[5]) {
+          $non_nuclear_accessions->{$cols[5]} = 1;
+        }
       }
+      close IN;
     }
-    close IN;
 
     my $unknown_contig_count = 0;
     foreach my $accession (@extra_accessions) {
@@ -450,10 +452,10 @@ sub compare_to_agp {
     }
 
     if($unknown_contig_count) {
-      $self->throw("Found ".$unknown_contig_count." contigs that were not present in the nuclear or non-nuclear AGP files");
+      $self->warning("Found ".$unknown_contig_count." contigs that were not present in the nuclear or non-nuclear AGP files");
     }
 
-    say "All extra contigs were found to be present in the non-nuclear AGP file. Will delete from contigs.fa";
+    say "Will delete extra non-nuclear or unknown contigs from contigs.fa";
 
     my $cmd = 'cp '.$output_path.'/contigs.fa'.' '.$output_path.'/contigs_with_extra_accessions.fa';
     my $return = system($cmd);
@@ -468,33 +470,45 @@ sub compare_to_agp {
     }
 
     open(OUT,">".$output_path.'/contigs.fa');
-    open(IN,$output_path.'/contigs_with_extra_accessions.fa');
-    my $header = <IN>;
-    chomp $header;
-    $header =~ s/^\>//;
-    my $seq = "";
-    while(<IN>) {
-      my $line = $_;
-      if($line =~ /^\>/) {
-        unless($extra_accessions->{$header}) {
-          say OUT ">".$header;
-          print OUT $seq;
-        }
-        chomp $line;
-        $line =~ s/^\>//;
-        $header = $line;
-        $seq = "";
-      } else {
-        $seq .= $line;
+    my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($output_path.'/contigs_with_extra_accessions.fa');
+    while($parser->next()) {
+      my $seq = $parser->getSequence();
+      my $header = $parser->getHeader();
+      unless($extra_accessions->{$header}) {
+        say OUT ">".$header;
+        say OUT $seq;
       }
     }
+   close OUT;
 
-    unless($extra_accessions->{$header}) {
-      say OUT ">".$header;
-      print OUT $seq;
-    }
-    close IN;
-    close OUT;
+#    open(OUT,">".$output_path.'/contigs.fa');
+#    open(IN,$output_path.'/contigs_with_extra_accessions.fa');
+#    my $header = <IN>;
+#    chomp $header;
+#    $header =~ s/^\>//;
+#    my $seq = "";
+#    while(<IN>) {
+#      my $line = $_;
+#      if($line =~ /^\>/) {
+#        unless($extra_accessions->{$header}) {
+#          say OUT ">".$header;
+#          print OUT $seq;
+#        }
+#        chomp $line;
+#        $line =~ s/^\>//;
+#        $header = $line;
+#        $seq = "";
+#      } else {
+#        $seq .= $line;
+#      }
+#    }
+
+#    unless($extra_accessions->{$header}) {
+#      say OUT ">".$header;
+#      print OUT $seq;
+#    }
+#    close IN;
+#    close OUT;
 
     $cmd = 'rm '.$output_path.'/contigs_with_extra_accessions.fa';
     $return = system($cmd);
