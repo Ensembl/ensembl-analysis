@@ -101,9 +101,13 @@ sub run {
   $self->set_meta($target_db,$meta_key_list,$path_to_files);
   say "\nMeta table insertions complete\n";
 
-  say "Setting seq region synonyms...\n";
-  $self->set_seq_region_synonyms($target_db,$path_to_files);
-  say "\nSeq region synonyms inserted\n";
+  if(-e catdir($path_to_files), 'AGP') {
+    say "Setting seq region synonyms...\n";
+    $self->set_seq_region_synonyms($target_db,$path_to_files);
+    say "\nSeq region synonyms inserted\n";
+  } else {
+    $self->warning("Could not find an AGP dir, so assuming assembly is single level. Will not load synonyms");
+  }
 
   say "\nFinished updating meta table and setting seq region synonyms";
   return 1;
@@ -247,9 +251,13 @@ sub set_seq_region_synonyms {
     component_localID2acc => $self->param('contig_level')
   );
 
+  my @files = ('component_localID2acc', 'scaffold_localID2acc');
+  if($self->param('chromosomes_present')) {
+    push(@files,'chr2acc');
+  }
 
   my $sth = $target_dba->dbc->prepare('UPDATE seq_region set name=? where name=?');
-  foreach my $filename ('chr2acc', 'component_localID2acc', 'scaffold_localID2acc') {
+  foreach my $filename (@files) {
     my $na_count = 0;
     my $line_count = 0;
     my $file = catfile($path_to_files, $filename);
