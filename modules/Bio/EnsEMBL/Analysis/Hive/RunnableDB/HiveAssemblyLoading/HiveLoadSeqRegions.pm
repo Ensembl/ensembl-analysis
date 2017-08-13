@@ -34,6 +34,8 @@ sub param_defaults {
     scaffold_contig => 'scaf_all.agp',
     chromosome_contig => 'comp_all.agp',
     chromosome_scaffold => 'chr_all.agp',
+    replace_ambiguous_bases => 0,
+    ignore_ambiguous_bases => 0,
   }
 }
 
@@ -191,16 +193,18 @@ sub load_seq_regions {
             " -coord_system_name contig".
             " -rank ".$rank.
             " -fasta_file ".$contigs_file_path.
-            " -sequence_level".
-            " > ".$path_to_files."/load_seq_region_contigs.out";
+            " -sequence_level";
+
+  if($self->param('replace_ambiguous_bases')) {
+    $cmd .= " -replace_ambiguous_bases ";
+  } elsif($self->param('ignore_ambiguous_bases')) {
+    $cmd .= " -ignore_ambiguous_bases ";
+  }
 
   my $result = system($cmd);
   if($result) {
     $self->throw("The load_seq_regions script returned a non-zero exit code when loading the contigs. Commandline used:\n".$cmd);
   }
-
-  say "The output  was written to:\n".$path_to_files."/load_seq_region_contigs.out";
-
 
   # check contigs
   my $num_contigs = int(`$base_sql -NB -e'select count(*) from seq_region'`);
@@ -239,15 +243,12 @@ sub load_seq_regions {
   $cmd = $base_cmd.
          " -coord_system_name scaffold".
          " -rank ".$rank.
-         " -agp_file ".catfile($path_to_files, $middle_dir, $self->param('scaffold_contig')).
-         " > ".$path_to_files."/load_seq_region_scaffolds.out";
+         " -agp_file ".catfile($path_to_files, $middle_dir, $self->param('scaffold_contig'));
 
   $result = system($cmd);
   if($result) {
     $self->throw("The load_seq_regions script returned a non-zero exit code when loading the contigs. Commandline used:\n".$cmd);
   }
-
-  say "The output  was written to:\n".$path_to_files."/load_seq_region_scaffolds.out\n";
 
   $rank--;
 
@@ -259,15 +260,13 @@ sub load_seq_regions {
     $cmd = $base_cmd.
            " -coord_system_name chromosome".
            " -rank ".$rank.
-           " -agp_file ".$file_chr.
-           " > ".$path_to_files."/load_seq_region_chromosomes.out";
+           " -agp_file ".$file_chr;
 
   $result = system($cmd);
   if($result) {
     $self->throw("The load_seq_regions script returned a non-zero exit code when loading the contigs. Commandline used:\n".$cmd);
   }
 
-  say "The output  was written to:\n".$path_to_files."/load_seq_region_scaffolds.out";
 
     # maybe check for exceptions in the output file here
 
