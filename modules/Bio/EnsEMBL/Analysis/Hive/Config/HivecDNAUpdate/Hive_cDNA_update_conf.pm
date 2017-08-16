@@ -74,7 +74,6 @@ sub default_options {
     'dna_db_port'                => '4519',    
 
     'output_db_server'           => 'mysql-ens-genebuild-prod-4.ebi.ac.uk',
-    #'output_db_name'             => $self->o('gb_user').'_'.$self->o('species').'_cdna_exonerate_'.$self->o('ensembl_release'),
     'output_db_name'             => $self->o('gb_user').'_'.$self->o('species').'_cdna_exonerate_'.$self->o('ensembl_release'),
     'output_db_port'             => '4530',
 
@@ -260,9 +259,21 @@ sub pipeline_analyses {
       }],
       -max_retry_count => 0,
       -flow_into => {
-        1 => ['create_output_dir'],
+        1 => ['copy_tables'],
 #            1 => [ 'compare_cdna_files'],
 #            1 => [ 'download_cdnas'],
+      }
+    },
+    {
+      -logic_name => 'copy_tables',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'mysqldump -h '.$self->o('old_cdna_db','-host').' -P '.$self->o('old_cdna_db','-port').' -u '.$self->o('user_r').' '.$self->o('old_cdna_db','-dbname').' mapping_set karyotype seq_region_synonym > #wide_output_dir#/copied_tables.sql;'.
+               'mysql -h '.$self->o('output_db','-host').' -P '.$self->o('output_db','-port').' -u '.$self->o('user_w').' -p'.$self->o('password').' '.$self->o('output_db','-dbname').' < #wide_output_dir#/copied_tables.sql'
+      },
+      -max_retry_count => 0,
+      -flow_into => {
+        '1' => [ 'create_output_dir'],
       }
     },
     {
@@ -610,7 +621,7 @@ sub pipeline_analyses {
       #-input_ids => [{}],
       -failed_job_tolerance => 0,
       -flow_into => {
-        1 => [ 'comparison_report','load_xdbids' ],
+        1 => [ 'comparison_report','null_align_features' ],
       },
     },
     {
@@ -623,6 +634,23 @@ sub pipeline_analyses {
         file => '#wide_output_dir#/comparison.out',,
       },
       -failed_job_tolerance => 0,
+    },
+    {
+      -logic_name => 'null_align_features',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => 'mysql://'.$self->o('output_db','-user').':'.
+                   $self->o('output_db','-pass').'@'.$self->o('output_db','-host').
+                   ':'.$self->o('output_db','-port').'/'.$self->o('output_db','-dbname'),
+        sql => [
+          "UPDATE dna_align_feature SET external_db_id=NULL",
+          "UPDATE protein_align_feature SET external_db_id=NULL",
+        ],
+      },
+      -flow_into => {
+        1 => [ 'load_xdbid' ],
+      },
+      -max_retry_count => 0,
     },
     {
       -logic_name => 'load_xdbids',
