@@ -370,9 +370,9 @@ sub pipeline_analyses {
         species => $self->o('species'),
       },
       -rc_name => 'default',
-#      -input_ids => [{}],
+      -input_ids => [{}],
       -max_retry_count => 0,
-#      -wait_for => ['compare_cdna_files'],
+      -wait_for => ['delete_retired_genes'],
       -flow_into => {
         1 => ['generate_jobs'],
       },
