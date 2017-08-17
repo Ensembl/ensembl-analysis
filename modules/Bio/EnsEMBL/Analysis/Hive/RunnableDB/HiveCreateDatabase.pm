@@ -53,12 +53,9 @@ sub param_defaults {
 
       # used by create_type = 'copy'
       db_dump_file => "/tmp/source_db_".time().".tmp",
-      pass_r => '',
-      user_r => '',
       pass_w => '',
       user_w => '',
       ignore_dna => 0, # if set to 1, the dna table won't be dumped
-      force_drop => 0, # if 1, drop the target database if it exists
     }
 }
 
@@ -151,9 +148,8 @@ sub copy_db {
     $self->throw("You have specified a create type of copy but you don't have both a source_db and target_db specified in your config.");
   }
 
-  if (not $self->param('user_w') or not $self->param('pass_w') 
-   or not $self->param('user_r')) {
-    $self->throw("You have specified a create type of copy but you haven't specified the user_w and pass_w and user_r and pass_r.\n");
+  if (not $self->param('user_w') or not $self->param('pass_w')) {
+    $self->throw("You have specified a create type of copy but you haven't specified the user_w and pass_w.\n");
   }
 
   if (not $self->param('db_dump_file')) {
@@ -194,12 +190,11 @@ sub copy_db {
   my $target_host = shift(@target_string_colon_split);
   my $target_port = shift(@target_string_colon_split);
 
-  if ($self->param('force_drop')) {
+  if($self->param('force_drop')) {
     $self->drop_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
   }
 
-  $self->dump_database($source_host,$source_port,$self->param('user_r'),$self->param('pass_r'),$source_dbname,$self->param('db_dump_file'),$self->param('ignore_dna'));
-
+  $self->dump_database($source_host,$source_port,$self->param('user_w'),$self->param('pass_w'),$source_dbname,$self->param('db_dump_file'),$self->param('ignore_dna'));
   $self->create_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
   $self->load_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname,$self->param('db_dump_file'));
   $self->remove_file($self->param('db_dump_file'));
@@ -298,8 +293,8 @@ sub make_backup {
   }
 
   my $source_db = $self->param('source_db');
-  my $user_r = $self->param('user_r');
-  my $pass_r = $self->param('pass_r');
+  my $user_w = $self->param('user_w');
+  my $pass_w = $self->param('pass_w');
   my $ignore_dna = 0;
   if($self->param('ignore_dna')) {
      $ignore_dna = 1;
@@ -312,8 +307,8 @@ sub make_backup {
 
   $self->dump_database($source_host,
                        $source_port,
-                       $user_r,
-                       $pass_r,
+                       $user_w,
+                       $pass_w,
                        $source_dbname,
                        $dump_file,
                        $ignore_dna,

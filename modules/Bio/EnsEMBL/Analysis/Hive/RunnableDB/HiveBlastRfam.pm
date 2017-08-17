@@ -147,7 +147,7 @@ sub fetch_input{
 
 sub run {
   my ($self) = @_;
-  foreach my $runnable(@{$self->runnable}) {
+  foreach my $runnable(@{$self->runnable}){
     eval {
       $runnable->run;
     }; if ($@) {
@@ -158,27 +158,27 @@ sub run {
        $self->throw("Error running BLAST:\nSlice: ".$runnable->query->name."\nError: ".$error);
      }
     }
+    $self->output($runnable->output());
+    # This code was added in to deal with File::Temp having issues with having too many files open at once. The files are
+    # only deleted when the object is removed. As this module is currently batched on 5MB of 200KB slices, it means occasionally
+    # you might get a batch of lots if tiny slices. If the number of tiny slices >= 8185 then the job will die because of File::Temp
+    undef($runnable);
   }
   return 1;
 }
+
 
 sub write_output {
   my ($self) = @_;
 
   # write genes out to a different database from the one we read genes from.
-  my $daf_adaptor = $self->hrdb_get_con('output_db')->get_DnaAlignFeatureAdaptor;
-  my $analysis = $self->analysis;
-  foreach my $runnable (@{$self->runnable}){
-    my $slice = $runnable->query();
-    foreach my $hit ( @{$runnable->output} ) {
-      $hit->analysis($analysis);
-      $hit->slice($slice);
-      $daf_adaptor->store($hit);
-    }
+  my $out_dba = $self->hrdb_get_con('output_db');
+  my $daf_adaptor = $out_dba->get_DnaAlignFeatureAdaptor;
+  foreach my $hit ( @{$self->output} ) {
+    $daf_adaptor->store($hit);
   }
 
   return 1;
 } ## end sub write_output
-
 
 1;

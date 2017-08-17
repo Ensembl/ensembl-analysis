@@ -160,6 +160,11 @@ sub run {
        $self->throw("Error running BLAST:\nSlice: ".$runnable->query->name."\nError: ".$error);
       }
     }
+    $self->output($runnable->output());
+    # This code was added in to deal with File::Temp having issues with having too many files open at once. The files are
+    # only deleted when the object is removed. As this module is currently batched on 5MB of 200KB slices, it means occasionally
+    # you might get a batch of lots if tiny slices. If the number of tiny slices >= 8185 then the job will die because of File::Temp
+    undef($runnable);
   }
   return 1;
 }
@@ -169,16 +174,11 @@ sub write_output {
 
   # write genes out to a different database from the one we read genes from.
   my $out_dba = $self->hrdb_get_con('output_db');
-  foreach my $runnable (@{$self->runnable}){
-    my $blast_hits = $runnable->output;
-    my $slice = $runnable->query();
-    my $daf_adaptor = $out_dba->get_DnaAlignFeatureAdaptor;
-    foreach my $hit ( @{$blast_hits} ) {
-      $hit->analysis($self->analysis);
-      $hit->slice($slice);
-      $daf_adaptor->store($hit);
-    }
+  my $daf_adaptor = $out_dba->get_DnaAlignFeatureAdaptor;
+  foreach my $hit ( @{$self->output} ) {
+    $daf_adaptor->store($hit);
   }
+
   return 1;
 } ## end sub write_output
 

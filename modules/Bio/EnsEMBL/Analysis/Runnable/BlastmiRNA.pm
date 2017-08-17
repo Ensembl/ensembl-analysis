@@ -110,6 +110,8 @@ sub run{
 
 sub parse_results{
   my ($self,$coverage_cutoff) = @_;
+  my $slice = $self->query;
+  my $analysis = $self->analysis;
   my $results = $self->results_files;
   my @daf_coverage_results;
   my $filtered_output;
@@ -142,6 +144,8 @@ sub parse_results{
 	     }
 	     $daf->score($coverage);
 	     $daf->external_db_id(3300);
+             $daf->slice($slice);
+             $daf->analysis($analysis);
 	     push  @daf_coverage_results, $daf;
 	   }
 	 }
