@@ -1,316 +1,262 @@
 use warnings;
 use strict;
 use feature 'say';
-use Net::FTP::File;
+use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Net::FTP;
 use Data::Dumper;
+
 my $config_file = $ARGV[0];
 
+my $ftphost = "ftp.ncbi.nlm.nih.gov";
+my $ftpuser = "anonymous";
+my $ftppassword = "";
+my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
+  -port    => 4240,
+  -user    => 'ensro',
+  -host    => 'mysql-ensembl-mirror',
+  -dbname  => 'ncbi_taxonomy');
+
+my $ftp = Net::FTP->new($ftphost) or die "Can't open $ftphost\n";
+$ftp->login($ftpuser, $ftppassword) or die "Can't log $ftpuser in\n";
+
 my $general_hash = {};
-my @species = ();
+my $assembly_accessions;
 
 open(IN,$config_file);
 while(<IN>) {
     my $line = $_;
-    if($line =~ /^\[.+\]$/) {
-		push(@species,$line);
-    }elsif($line =~ /(.+)\=(.+)\:(.+)/){
-		my $key = $1;
-		my $server =$2;
-		my $port = $3;
-		my $tmp_hash = {};
-		$tmp_hash->{'server'} = $server;
-		$tmp_hash->{'port'} = $port;
-		$general_hash->{$key} = $tmp_hash;
-    }elsif($line =~ /(.+)\=([^:]+)\n/) {
-		my $key = $1;
-		my $value = $2;
-		$general_hash->{$key} = $value;
+    if($line =~ /^ *(.+) *\= *(.+) */) {
+      my $key = $1;
+      my $value = $2;
+      say "Found key/value pair: ".$key." => ".$value;
+      $general_hash->{$key} = $value;
     }elsif($line eq "\n") {
 	# Skip
     }else {
-		say "Line format not recognised. Skipping line:\n".$line;
+      say "Line format not recognised. Skipping line:\n".$line;
     }
 }
-print Dumper ($general_hash);
 close IN;
 
-unless(-e $general_hash->{'work_dir'}) {
-    system("mkdir -p ".$general_hash->{'work_dir'});
+$assembly_accessions = $general_hash->{'assembly_accessions'};
+$assembly_accessions =~ /\[(.+)\]/;
+my $accession_string = $1;
+$accession_string =~ s/ //g;
+my @accession_array = split(',',$accession_string);
+unless(scalar(@accession_array)) {
+  die "Issue parsing assembly_accessions line. Format expected:\n".
+      "assembly_accessions=[GCA_000952055.2,GCA_000164805.2,GCA_001604975.1]";
 }
 
-open(LOOP_CMD,">".$general_hash->{'work_dir'}."/beekeeper_cmds.txt");
-open(CLEAN_CMD,">".$general_hash->{'work_dir'}."/clean_dir_dbs.sh");
-system("chmod +x ".$general_hash->{'work_dir'}."/clean_dir_dbs.sh");
-foreach my $row (@species) {
-  unless($row =~ /^\[([^,]+),([^,]+),([^,]+),([^,]+)\]$/) {
-      die "Issue parsing the following row:\n".$row."\nExpected format:\n[repeatmasker_library_name,uniprot_set_name,assembly_ftp_link,refseq_ftp_link]";
+unless($general_hash->{'output_path'}) {
+  die "Could not find an output path setting in the config. Expected setting".
+      "output_path=/path/to/output/dir/";
+}
+
+my $output_path = $general_hash->{'output_path'};
+unless(-e $output_path) {
+  system("mkdir -p ".$general_hash->{'output_path'});
+}
+
+my $clade = $general_hash->{'clade'};
+unless($clade) {
+  die "No clade selected. Need a clade to specify parameters. Format expected:\n".
+      "clade=primates";
+}
+
+my ($repbase_library,$repbase_logic_name,$uniprot_set) = clade_settings($clade);
+$general_hash->{'repbase_library'} = $repbase_library;
+$general_hash->{'repbase_logic_name'} = $repbase_logic_name;
+$general_hash->{'uniprot_set'} = $uniprot_set;
+
+my $ftp_base_dir = '/genomes/all/';
+
+open(LOOP_CMD,">".$general_hash->{'output_path'}."/beekeeper_cmds.txt");
+
+foreach my $accession (@accession_array) {
+  my $assembly_hash = {};
+
+  say "Processing accession: ".$accession;
+  unless($accession =~ /GCA_([\d]{3})([\d]{3})([\d]{3})\.\d+/) {
+    die "Found an assembly accession that did not match the regex. Offending accession: ".$accession;
   }
 
-  my $repeatmasker_library = $1;
-  my $uniprot_set = $2;
-  my $ftp_path = $3;
-  my $refseq_ftp_path = $4;
-
-  unless($ftp_path =~ /\/genomes\/genbank\/[^\/]+\/([^\/]+)\/all_assembly_versions\/([^\/]+)\//) {
-    die "Failed to parse the following line:\n".$ftp_path."\n\nExpected a link to the main dir for the species. For example:\n".
-        "ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Propithecus_coquereli/all_assembly_versions/GCA_000956105.1_Pcoq_1.0/";
-  }
-
-  my $species_name = $1;
-  $species_name = lc($species_name);
-
-  # Cleaning commands:
- # my $clean_commands = clean_commands($general_hash,$species_name);
- # say CLEAN_CMD $clean_commands;
-
-  my $gca_and_assembly_version = $2;
-  unless($gca_and_assembly_version =~ /^(GCA\_\d+\.\d+)\_(.+)/) {
-    die "Couldn't parse the assembly version out of the ftp link. Tried to parse off end of:\n".$gca_and_assembly_version;
-  }
-  my $gca = $1;
-  my $assembly_version = $2;
-  
-  my $output_path = $general_hash->{'work_dir'}."/".$species_name."/".$assembly_version."/";
-  print "\n\nDEBUG:: ".$output_path."\n\n".$general_hash->{'work_dir'}."\nEND\n";
-  my $output_hash = {};
-  $output_hash->{'gca'} = $assembly_version;
-  $output_hash->{'assembly_version'} = $assembly_version;
-
-  my $cmd = "wget -P ".$output_path." ".$ftp_path."/".$gca_and_assembly_version."_assembly_report.txt";
-  my $return = system($cmd);
-  if($return) {
-      die "wget for assembly report failed. Commandline used:\n".$cmd;
-  }
-
-  open(ASSEMBLY_REPORT,$output_path."/".$gca_and_assembly_version."_assembly_report.txt");
-  my @assembly_report = <ASSEMBLY_REPORT>;
-  close ASSEMBLY_REPORT;
-
-  my $taxon_id;
-  my $assembly_level;
-  my %wgs_code = ();
-  my $assembly_refseq_accession;
-  foreach my $assembly_line (@assembly_report) {
-      chomp $assembly_line;
-
-      if($assembly_line =~ /^#/) {
-	  if($assembly_line =~ /Taxid\:[^\d]+(\d+)/) {
-	      $taxon_id = $1;
-	  } elsif($assembly_line =~ /Assembly level: ([a-zA-Z]+)/) {
-	      $assembly_level = $1;
-	  } elsif($assembly_line =~ /RefSeq assembly accession: (.*)/){
-	  	  $assembly_refseq_accession = $1;
-	  	  $assembly_refseq_accession =~ s/\s+$//;
-	  }
-	  next;
-      }
-      
-      my @assembly_columns = split("\t",$assembly_line);
-      my $accession = $assembly_columns[4];
-      unless($accession && ($accession =~ /(^[A-Z]{4})/ || $accession =~ /^gb\|([A-Z]{4})/)) {
-	  next;
-      }
-
-      my $code = $1;
-      if(exists($wgs_code{$code})) {
-	  $wgs_code{$code}++;
-      } else {
-	  $wgs_code{$code} = 1;
-      }
-  }
-
-  unless($taxon_id) {
-      die "Failed to find and parse 'Taxid' line from report file. File used:\n".$gca_and_assembly_version."_assembly_report.txt";
-  }
-
-  unless($assembly_level) {
-      die "Failed to find and parse 'Assembly level' line from report file. File used:\n".$gca_and_assembly_version."_assembly_report.txt";
-  }
-
-  $assembly_level = lc($assembly_level);
-  unless($assembly_level eq 'scaffold' || $assembly_level eq 'chromosome') {
-      die "Parsed assembly level from report file but it was not 'scaffold' or 'chromosome'. Level found:\n".$assembly_level;
-  }
-
-  my $chromosomes_present = 0;
-  if($assembly_level eq 'chromosome') {
-      $chromosomes_present = 1;
-  }
-
-  # This section deals with either getting 0, 1 or many potential wgs codes. Getting 1 is ideal
-  my @code_types = keys(%wgs_code);
-  if(scalar(@code_types == 0)) {
-      die "Failed to parse any potential 4 letter wgs code from the accessions in ".$gca_and_assembly_version."_assembly_report.txt";
-  }
-
-  if(scalar(@code_types > 1)) {
-    die "Failed because of multiple potential 4 letter wgs code from the accessions in ".$gca_and_assembly_version."_assembly_report.txt, ".
-        " codes parsed:\n".@code_types;
-  }
-
-  my $wgs_id = $code_types[0];
-
-  my $full_ftp_path = $ftp_path."/".$gca_and_assembly_version."_assembly_structure";
-
-# Is contigs_source 'NCBI' or 'ENA'? 
-# Check for existence of files in the ftp using lftp command
-my $half_wgs = substr(lc($wgs_id), 0, 2);
-my $ncbi_suffix = 'wgs.'.$wgs_id.'.*.fsa_nt.gz';
-my $ena_suffix = $half_wgs.'/'.$wgs_id.'*';
-my $ncbi_lftp = `lftp -u anonymous,password -e "ls /genbank/wgs/$ncbi_suffix ;quit" ftp.ncbi.nih.gov`;
-my $ena_lftp = `lftp -u anonymous,password -e "ls /pub/databases/ena/wgs_fasta/$ena_suffix ;quit" ftp.ebi.ac.uk`;
-
-my $contigs_source = '';
-
-if(!$ncbi_lftp){
-    if(!$ena_lftp){
-        die "Failed to find contigs at NCBI or ENA\n";
+  my $assembly_ftp_path = $ftp_base_dir.'GCA/'.$1.'/'.$2.'/'.$3.'/';
+  my $full_assembly_path;
+  my $assembly_name;
+  $ftp->cwd($assembly_ftp_path);
+  my @ftp_dir_contents = $ftp->ls;
+  foreach my $entry (@ftp_dir_contents) {
+    if($entry =~ /^$accession\_(.+)$/) {
+      $full_assembly_path = $assembly_ftp_path."/".$&."/";
+      $assembly_name = $1;
     }
-    else{
-        $contigs_source = 'ENA';
-    }
-}
-else{
-    $contigs_source = 'NCBI';
-}
-# End set contigs_source
+  }
 
-# variables from input_config
-  $output_hash->{'user_r'} = $general_hash->{'user_r'};
-  $output_hash->{'user_w'} = $general_hash->{'user_w'};
-  $output_hash->{'password'} = $general_hash->{'password'};
-  $output_hash->{'port'} = $general_hash->{'port'};
-  $output_hash->{'dbowner'} = $general_hash->{'farm_user_name'};
-  $output_hash->{'email_address'} = $general_hash->{'farm_user_name'}.'@ebi.ac.uk';
-  $output_hash->{'release_number'} = $general_hash->{'release_number'};
-  $output_hash->{'genebuilder_id'} = $general_hash->{'genebuilder_id'};
-  $output_hash->{'farm_user_name'} = $general_hash->{'farm_user_name'};
-  
-# servers/ports
-  $output_hash->{'pipe_db_port'} = $general_hash->{'pipe_server'}->{'port'};
-  $output_hash->{'pipe_db_server'} = $general_hash->{'pipe_server'}->{'server'};
-  $output_hash->{'killlist_db_port'} = $general_hash->{'pipe_server'}->{'port'};
-  $output_hash->{'killlist_db_server'} = $general_hash->{'pipe_server'}->{'server'};
-  $output_hash->{'dna_db_port'} = $general_hash->{'core_server'}->{'port'};
-  $output_hash->{'dna_db_server'} = $general_hash->{'core_server'}->{'server'};
-  $output_hash->{'output_db_port'} = $general_hash->{'output_server'}->{'port'};
-  $output_hash->{'output_db_server'} = $general_hash->{'output_server'}->{'server'};
-  $output_hash->{'projection_source_db_name'} = '';#$general_hash->{''};
-  
- # paths 
-  $output_hash->{'enscode_root_dir'} = $general_hash->{'enscode_dir'};
-  $output_hash->{'uniprot_blast_db_path'} = $general_hash->{'uniprot_blast_db_path'};
-  $output_hash->{'unigene_blast_db_path'} = $general_hash->{'unigene_blast_db_path'};
-  $output_hash->{'vertrna_blast_db_path'} = $general_hash->{'vertrna_blast_db_path'};
+  unless($full_assembly_path && $assembly_name) {
+    die "Issue finding ftp path for the following GCA: ".$accession;
+  }
 
-  $output_hash->{'output_path'} = $output_path;
-  $output_hash->{'genome_file'} = $output_path.'/genome_dumps/'.$species_name.'_softmasked_toplevel.fa';
-  $output_hash->{'contigs_source'} = $contigs_source;
-  $output_hash->{'assembly_name'} = $assembly_version;
-  $output_hash->{'assembly_accession'} = $gca;
-  $output_hash->{'assembly_refseq_accession'} = $assembly_refseq_accession;
-  $output_hash->{'gca'} = $gca;
-  $output_hash->{'gca_and_assembly_version'} = $gca_and_assembly_version;
-  $output_hash->{'taxon_id'} = $taxon_id;
-  $output_hash->{'assembly_level'} = $assembly_level;
-  $output_hash->{'chromosomes_present'} = $chromosomes_present;
-  $output_hash->{'species_name'} = $species_name;
-  $output_hash->{'production_name'} = $species_name;
-  $output_hash->{'full_ftp_path'} = $full_ftp_path;
-  $output_hash->{'wgs_id'} = $wgs_id;
-  $output_hash->{'coord_system_version'} = $assembly_version;
-  $output_hash->{'repeatmasker_library'} = $repeatmasker_library;
-  $output_hash->{'repeatmasker_species'} = $repeatmasker_library;
-  $output_hash->{'uniprot_set'} = $uniprot_set;
+  say "Setting assembly name for ".$accession." to ".$assembly_name;
 
-	print Dumper $output_hash;
+  $assembly_hash->{'assembly_accession'} = $accession;
+  $assembly_hash->{'assembly_name'} = $assembly_name;
 
-  create_config($output_hash);
+  parse_assembly_report($ftp,$general_hash,$assembly_hash,$accession,$assembly_name,$full_assembly_path,$output_path);
+  create_config($assembly_hash);
 
-  chdir($output_path);
-  $cmd = "init_pipeline.pl Genome_annotation_conf.pm";
+  chdir($assembly_hash->{'output_path'});
+  my $cmd = "init_pipeline.pl Genome_annotation_conf.pm -hive_force_init 1";
   my $result = `$cmd`;
   unless($result =~ /beekeeper.+\-sync/) {
-      die "Failed to run init_pipeline for ".$species_name."\nCommandline used:\n".$cmd;
+    die "Failed to run init_pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd;
   }
 
   my $sync_command = $&;
-  $return = system($sync_command);
+  my $return = system($sync_command);
   if($return) {
-      die "Failed to sync the pipeline for ".$species_name."\nCommandline used:\n".$cmd;
+    die "Failed to sync the pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd;
   }
 
   my $loop_command = $sync_command;
-  $loop_command =~ s/sync/loop \-sleep 0.5/;
+  $loop_command =~ s/sync/loop \-sleep 0.3/;
   say LOOP_CMD $loop_command;
 }
-close LOOP_CMD;
-close CLEAN_CMD;
+
+close(LOOP_CMD);
 
 exit;
 
-sub create_config {
-    my ($output_hash) = @_;
+sub parse_assembly_report {
+  my ($ftp,$general_hash,$assembly_hash,$accession,$assembly_name,$full_assembly_path,$output_path) = @_;
 
-    my $output_path = $output_hash->{'output_path'};
+  $ftp->cwd();
+  $ftp->cwd($full_assembly_path);
 
-    my $cmd = "cp /homes/leanne/development/annotation_configs_automation/config_template.pm ".$output_path.'/Genome_annotation_conf.pm.tmp';
-    print $cmd."\n\n";
-    my $return = system($cmd);
-    if($return) {
-	die "Failed to copy parent config. Commandline used:\n".$cmd;
+  my $report_file_name = $accession."_".$assembly_name."_assembly_report.txt";
+  my $report_file_content;
+  my $report_file_handle;
+  my $taxon_id;
+  my $species_name;
+  my $refseq_accession;
+  my $assembly_level;
+  my $wgs_id;
+  open($report_file_handle, '>', \$report_file_content);
+
+  unless($ftp->get($report_file_name, $report_file_handle)) {
+    die "Failed to retrieve the assembly report file: ", $ftp->message;
+  }
+
+  my @report_file_content = split("\n",$report_file_content);
+  foreach my $line (@report_file_content) {
+    unless($line =~ /^\# /) {
+      next;
     }
 
-    my $conf_file = "";
-    open(IN,$output_path.'/Genome_annotation_conf.pm.tmp');
-    while(<IN>) {
-	$conf_file .= $_;
+    if($line =~ /Taxid\:\s*(\d+)/) {
+      $taxon_id = $1;
+    } elsif($line =~ /Assembly level\:\s*([a-zA-Z]+)/) {
+      $assembly_level = $1;
+    } elsif($line =~ /RefSeq assembly accession\:\s*(GCF\_\d{9}\.\d+)/){
+      $refseq_accession = $1;
+    } elsif($line =~ /WGS project\:\s*([A-Z]{4}\d{2})/) {
+      $wgs_id = $1;
     }
-
-  # write to output
-  
-  while((my $key, my $value) = each %$output_hash){
-  	$conf_file =~ s/('$key' +\=\> +)''/$1'$value'/;
 
   }
 
-  # If the path has been set this will delete a commented out input id in the config file and make the
-  # branch of analyses for the refseq import run. Note that in the future there will probably be a better
-  # way of doing this
-    if($output_hash->{'refseq_ftp_path'} =~ /^ftp/) {
-    $conf_file =~ s/##download_refseq_gff##//;
-    }
+  unless($taxon_id && $assembly_level && $wgs_id) {
+    die "Failed to fully parse the assembly report file";
+  }
 
-    open(FINAL_CONF,">".$output_path.'/Genome_annotation_conf.pm');
-    print FINAL_CONF $conf_file;
-    close FINAL_CONF;
+  my $sth = $ncbi_taxonomy->dbc->prepare("SELECT name from ncbi_taxa_name where taxon_id=? and name_class='scientific name'");
+  $sth->bind_param(1,$taxon_id);
+  $sth->execute;
+  $species_name = $sth->fetchrow_array();
+  $species_name =~ s/\s+/\_/g;
+  $species_name = lc($species_name);
+  unless($species_name) {
+    die "Was not able to retrieve the species name from the NCBI taxonomy db using the taxon id. Taxon id used: ".$taxon_id;
+  }
 
- # $cmd = "rm ".$output_path.'/Genome_annotation_conf.pm.tmp';
-    system($cmd);
+  $assembly_hash->{'taxon_id'} = $taxon_id;
+  $assembly_hash->{'assembly_refseq_accession'} = $refseq_accession;
+  $assembly_hash->{'assembly_level'} = $assembly_level;
+  $assembly_hash->{'wgs_id'} = $wgs_id;
+  $assembly_hash->{'species_name'} = $species_name;
+  $assembly_hash->{'production_name'} = $species_name;
+  @{$assembly_hash}{keys(%$general_hash)} = values(%$general_hash);
+  $assembly_hash->{'output_path'} .= "/".$species_name."/".$accession."/";
 }
 
-sub clean_commands {
-    my ($general_hash,$species_name) = @_;
-    my $cmds = "";
-  # Clean species dir:
-    $cmds .= "rm -rf ".$general_hash->{'work_dir'}."/".$species_name."\n";
 
-    my $user = $general_hash->{'user_w'};
-    my $pass = $general_hash->{'password'};
-    my $port = $general_hash->{'port'};
-    my $farm_user = $general_hash->{'farm_user_name'};
-    my @db_names = ('core','pipe','genblast','refseq','cdna','ncrna');
-    my$db_type = '';
-    foreach my $db_name (@db_names) {
-	if ($db_name eq 'core' || $db_name eq 'pipe'){
-	    $db_type = $db_name;
-	} 
-	else{
-	    $db_type = 'output'
-	}
-	
-	$cmds .= "mysql -u".$user." -p".$pass." -P".$port." -h".$general_hash->{$db_type.'_server'}." -e 'drop database ".$farm_user."_".$species_name."_".$db_name."'\n";
+sub create_config {
+  my ($assembly_hash) = @_;
+
+  foreach my $key (keys(%{$assembly_hash})) {
+    say "ASSEMBLY: ". $key." => ".$assembly_hash->{$key};
+  }
+
+  my $output_path = $assembly_hash->{'output_path'};
+  unless(-e $output_path) {
+   system('mkdir -p '.$output_path);
+  }
+
+  my $config_string = "";
+  my $past_default_options = 0;
+  open(CONFIG,$ENV{ENSCODE}."/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_static_conf.pm");
+  while(my $line = <CONFIG>) {
+    if($line =~ /sub pipeline_create_commands/) {
+      $past_default_options = 1;
+    } elsif($past_default_options == 0) {
+      if($line =~ /\'([^\']+)\'\s*\=\>\s*('[^\']*\')/) {
+        my $conf_key = $1;
+        my $conf_val = $2;
+        if($assembly_hash->{$conf_key}) {
+          my $sub_val = "'".$assembly_hash->{$conf_key}."'";
+          $line =~ s/$conf_val/$sub_val/;
+        }
+      }
     }
 
-    return($cmds);
+    $config_string .= $line;
+  }
+  close(CONFIG);
+
+  $config_string =~ s/package Genome_annotation_static_conf/package Genome_annotation_conf/;
+  open(OUT_CONFIG,">".$output_path."/Genome_annotation_conf.pm");
+  print OUT_CONFIG $config_string;
+  close OUT_CONFIG;
 }
+
+sub clade_settings {
+  my ($clade) = @_;
+  my $clade_settings = {
+    'primates' => {
+      'repbase_library'    => 'primates',
+      'repbase_logic_name' => 'primates',
+      'uniprot_set'        => 'primates_basic',
+    },
+
+    'rodents' => {
+      'repbase_library'    => 'rodents',
+      'repbase_logic_name' => 'rodents',
+      'uniprot_set'        => 'rodents_basic',
+    },
+  };
+
+  unless($clade_settings->{$clade}) {
+    die "Could not find the clade specified in the clade_settings hash. Clade specified: ".$clade;
+  }
+
+  my $repbase_library = $clade_settings->{$clade}->{'repbase_library'};
+  my $repbase_logic_name = $clade_settings->{$clade}->{'repbase_logic_name'};
+  my $uniprot_set = $clade_settings->{$clade}->{'uniprot_set'};
+
+  unless($repbase_library && $repbase_logic_name && $uniprot_set) {
+    die "Issues with the settings for the ".$clade." settings hash, some info is missing";
+  }
+
+  return($repbase_library,$repbase_logic_name,$uniprot_set);
+}
+
