@@ -170,6 +170,7 @@ sub run {
       $self->param('_branch_to_flow_to_on_fail',-2);
     } else {
       $self->warning("Issue with running genblast, will dataflow input id on branch -3. Exception:\n".$except);
+      $self->param('_branch_to_flow_to_on_fail',-3);
     }
   } else {
     $self->output($runnable->output);
