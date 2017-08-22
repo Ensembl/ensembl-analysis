@@ -46,8 +46,6 @@ sub write_output {
                                  -format => "Fasta",
                                );
 
-  my $header;
-  my $seq;
   my $biotype = 'cdna';
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
