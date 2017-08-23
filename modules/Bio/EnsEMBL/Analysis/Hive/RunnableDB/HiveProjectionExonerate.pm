@@ -117,10 +117,25 @@ sub run {
       $self->warning("Issue with running exonerate, will dataflow input id on branch -3. Exception:\n".$except);
       $self->param('_branch_to_flow_on_fail', -3);
     } else {
+      # Store original transcript id for realignment later. Should implement a cleaner solution at some point
       foreach my $output (@{$runnable->output}) {
         $output->{'_old_transcript_id'} = $runnable->{'_transcript_id'};
       }
-      $self->output($runnable->output);
+
+      # If the transcript has bee projected to multiple places then select the best one in terms of combined coverage and
+      # percent identity but also any that fall within 5 percent of this value
+      my $preliminary_transcripts = $runnable->output;
+      my $selected_transcripts;
+      unless(scalar(@{$preliminary_transcripts})) {
+        next;
+      }
+
+      if(scalar(@{$preliminary_transcripts}) == 1) {
+        $selected_transcripts = $preliminary_transcripts;
+      } else {
+        $selected_transcripts = $self->select_best_transcripts($preliminary_transcripts);
+      }
+      $self->output($selected_transcripts);
     }
   }
 
@@ -342,6 +357,45 @@ sub unique_genomic_aligns {
 }
 
 
+
+sub select_best_transcripts {
+  my ($self,$preliminary_transcripts) = @_;
+
+  my $selected_transcripts = [];
+  my $best_score = 0;
+  foreach my $preliminary_transcript (@{$preliminary_transcripts}) {
+    my @tsfs = @{$preliminary_transcript->get_all_supporting_features};
+    my $cov = $tsfs[0]->hcoverage;
+    my $pid = $tsfs[0]->percent_id;
+    my $combined_score = $cov + $pid;
+    if($combined_score > $best_score) {
+      $best_score = $combined_score;
+    }
+    $preliminary_transcript->{'combined_score'} = $combined_score;
+  }
+
+  unless($best_score) {
+    $self->throw('Issue with calculating the best score from projection result set. This should not happen.');
+  }
+
+  # At this point we know the highest value in terms of combined percent identity and coverage. Now
+  # we want all transcripts that fall within 5 percent of this value
+  foreach my $preliminary_transcript (@{$preliminary_transcripts}) {
+    my $combined_score = $preliminary_transcript->{'combined_score'};
+    if($combined_score/$best_score >= 0.95) {
+      push(@{$selected_transcripts},$preliminary_transcript);
+    }
+  }
+
+  unless(scalar(@{$selected_transcripts})) {
+    $self->throw("No transcripts selected in select_best_transcripts, something went wrong");
+  }
+
+  return($selected_transcripts);
+
+}
+
+
 sub filter_transcript {
   my ($self,$transcript) = @_;
 
@@ -370,6 +424,7 @@ sub filter_transcript {
   } # end if($transcript->translation)
   return(0);
 }
+
 
 sub create_annotation_features {
   my ($self,$transcript) = @_;
