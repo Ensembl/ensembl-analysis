@@ -48,56 +48,54 @@ sub default_options {
 #                                                                        #
 ##########################################################################
     
-    'recipient_email'            => 'dmurphy@ebi.ac.uk', # email address where reports will be sent
+    'recipient_email'            => '', # email address where reports will be sent
 
-    'species'                    => 'mouse',
+    'species'                    => '',
 
-    'ensembl_release'            => '90',
+    'ensembl_release'            => '',
 
-    'gb_user'                    => 'dmurphy',
+    'gb_user'                    => '',
 
-    'complete_update'            => '1',
-    #'create_type'                => 'copy',
-    'create_type'                => 'clone', # should be 'clon' if you're doing a complete update or 'copy' if you're doing a partial one
+    'complete_update'            => '',
+    'create_type'                => '', # should be 'clon' if you're doing a complete update or 'copy' if you're doing a partial one
     'cdna_batch_size'            => 1,
-    #'pipeline_name'              => $self->o('species').'_cdna_update_'.$self->o('ensembl_release'),
-    'pipeline_name'              => 'mouse_cdna_90_testing_2',
+    'pipeline_name'              => '',
 
     # Database connection info:
-    'pipe_dbname'                => 'dmurphy_mouse_testing_cdna_hive_'.$self->o('ensembl_release'),
-    'pipe_db_server'             => 'mysql-ens-genebuild-prod-1',
-    'pipe_db_port'               => '4527',
+    'pipe_dbname'                => '',
+    'pipe_db_server'             => '',
+    'pipe_db_port'               => '',
 
-    'dna_db_server'              => 'mysql-ensembl-mirror.ebi.ac.uk',
-    'dna_dbname'                 => 'mus_musculus_core_89_38',
-    'dna_db_port'                => '4240',    
+    'dna_db_server'              => '',
+    'dna_dbname'                 => '',
+    'dna_db_port'                => '',    
 
-    'output_db_server'           => 'mysql-ens-genebuild-prod-4.ebi.ac.uk',
-    'output_db_name'             => 'dmurphy_mouse_testing_2',
-    'output_db_port'             => '4530',
+    'output_db_server'           => '',
+    'output_db_name'             => '',
+    'output_db_port'             => '',
 
     'killlist_db_name'           => 'gb_kill_list',
     'killlist_db_server'         => 'mysql-ens-genebuild-prod-6.ebi.ac.uk',
     'killlist_db_port'           => '4532',
 
-    'old_cdna_db_name'           => 'mus_musculus_cdna_89_38',
-    'old_cdna_db_server'         => 'mysql-ensembl-mirror.ebi.ac.uk',
-    'old_cdna_db_port'           => '4240',
+    'old_cdna_db_name'           => '',
+    'old_cdna_db_server'         => '',
+    'old_cdna_db_port'           => '',
 
-    'production_db_name'         => 'ensembl_production_89',
+    'production_db_name'         => 'ensembl_production',
     'production_db_server'       => 'mysql-ensembl-mirror.ebi.ac.uk',
     'production_db_port'         => '4240',
 
-    'output_path'                => '/hps/nobackup/production/ensembl/dmurphy/hive_mousecdna_testing_2/',
+    'output_path'                => '',
     
-    'refseq_path'                => '/hps/nobackup/production/ensembl/dmurphy/hive_mousecdna_testing_2/',
-    'refseq_file'                => 'refseq_mouse.fa',
+    'refseq_path'                => '',
+    'refseq_file'                => '',
 
-    'genome_file'                => '/hps/nobackup/production/ensembl/genebuild/blastdb/mouse/toplevel.with_nonref_and_GRCm38_p4.no_duplicate.softmasked_dusted.fa',
+    'genome_file'                => '',
 
-    'repeat_masking_logic_names' => ['repeatmask'],
+    'repeat_masking_logic_names' => [''],
 
-    'refseq_version'             => '82',
+    'refseq_version'             => '',
 
     'exonerate_version'          => 'exonerate-0.9.0',
 
