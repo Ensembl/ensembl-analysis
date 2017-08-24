@@ -263,7 +263,7 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'mysqldump -h '.$self->o('old_cdna_db','-host').' -P '.$self->o('old_cdna_db','-port').' -u '.$self->o('old_cdna_db','-user').' '.$self->o('old_cdna_db','-dbname').' mapping_set karyotype seq_region_synonym > #wide_output_dir#/copied_tables.sql;'.
-               'mysql -h '.$self->o('output_db','-host').' -P '.$self->o('output_db','-port').' -u '.$self->o('output_db','-user').' -p'.$self->o('output_db','-' '.$self->o('output_db','-dbname').' < #wide_output_dir#/copied_tables.sql'
+               'mysql -h '.$self->o('output_db','-host').' -P '.$self->o('output_db','-port').' -u '.$self->o('output_db','-user').' -p'.$self->o('output_db','-pass').' '.$self->o('output_db','-dbname').' < #wide_output_dir#/copied_tables.sql'
       },
       -max_retry_count => 0,
       -flow_into => {
