@@ -20,8 +20,6 @@ use strict;
 use warnings;
 use feature 'say';
 
-#use Bio::EnsEMBL::IO::Parser::Fasta;
-#use Bio::Phylo::Parsers::Fasta;
 use Bio::SeqIO;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -45,17 +43,17 @@ sub run {
     $taxon_id = 10090;
   }
 
-  #$self->download_embl_seqs($species,$output_path);
+  $self->download_embl_seqs($species,$output_path);
 
   my $refseq_hash = $self->param('refseq_sequences');
   my $ftp_path = $refseq_hash->{'refseq_ftp'};
-  #$self->download_refseq_seqs($ftp_path,$output_path);
+  $self->download_refseq_seqs($ftp_path,$output_path);
 
-  #$self->unzip($output_path);
+  $self->unzip($output_path);
 
-  #$self->convert_embl_to_fasta($output_path,$taxon_id);
+  $self->convert_embl_to_fasta($output_path,$taxon_id);
 
-  #$self->concat_refseq($species,$output_path);
+  $self->concat_refseq($species,$output_path);
 
   return 1;
 }
