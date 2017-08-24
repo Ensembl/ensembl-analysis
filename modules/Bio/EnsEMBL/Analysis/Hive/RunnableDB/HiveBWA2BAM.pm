@@ -116,7 +116,7 @@ sub fetch_input {
 sub write_output {
   my $self = shift;
 
-  my $output = $self->outpout;
+  my $output = $self->output;
   if (scalar(@$output) == 1) {
     $self->dataflow_output_id({filename => $output->[0]}, 1);
   }
