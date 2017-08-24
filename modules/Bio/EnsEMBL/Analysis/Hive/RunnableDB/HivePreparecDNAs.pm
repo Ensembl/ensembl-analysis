@@ -92,9 +92,9 @@ sub fix_headers {
     # Need this to include the first record when using $/='\n>'
     # we're not using 'predicted' XM entries for now
     $entry =~ s/^>//;
-    if ( $entry =~ m/^gi.+ref\|(NM_.+)\| Homo sapiens.*/ || $entry =~ m/^gi.+ref\|(NM_.+)\| Mus musculus.*/ ) {
+    if ( $entry =~ m/^ref\|(NM_.+)\| Homo sapiens.*/ || $entry =~ m/^ref\|(NM_.+)\| Mus musculus.*/ ) {
       $header = $1;
-    } elsif ( $entry =~ m/^gi.+ref\|(NR_.+)\| Homo sapiens.*/ || $entry =~ m/^gi.+ref\|(NR_.+)\| Mus musculus.*/ ) {
+    } elsif ( $entry =~ m/^ref\|(NR_.+)\| Homo sapiens.*/ || $entry =~ m/^ref\|(NR_.+)\| Mus musculus.*/ ) {
       $header = $1;
     } else {
       next;
@@ -102,7 +102,7 @@ sub fix_headers {
     $entry =~ s/\>//g;
     if ($header) {
       # Reduce header to accession number
-      $entry =~ s/^gi.+\n{1}?/$header\n/g;
+      $entry =~ s/^ref.+\n{1}?/$header\n/g;
       print CF '>' . $entry;
     }
   }

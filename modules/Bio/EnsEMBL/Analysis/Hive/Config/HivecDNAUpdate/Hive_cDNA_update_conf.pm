@@ -25,9 +25,6 @@ use warnings;
 use feature 'say';
 
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
-
-#use Bio::EnsEMBL::Analysis::Tools::Utilities qw (get_analysis_settings);
-#use parent ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 use parent ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;           # Allow this particular config to use conditional dataflow and INPUT_PLUS
 
@@ -50,54 +47,59 @@ sub default_options {
     
     'recipient_email'            => '', # email address where reports will be sent
 
-    'species'                    => '',
+    'species'                    => '', # either mouse or human
 
-    'ensembl_release'            => '',
+    'ensembl_release' => '', # What release are you doing this for?
 
-    'gb_user'                    => '',
+    'gb_user' => '', # username used as prefix for dbs
 
-    'complete_update'            => '',
-    'create_type'                => '', # should be 'clon' if you're doing a complete update or 'copy' if you're doing a partial one
-    'cdna_batch_size'            => 1,
-    'pipeline_name'              => '',
+    'complete_update' => '', # set this as 1 or 0. Usually we'll probably only be adding alignments from new cDNAs and removing retired ones so you want to set this to 0
+
+    'create_type' => '', # should be 'clone' if you're doing a complete update or 'copy' if you're doing a partial one
+
+    'cdna_batch_size' => 1,
+
+    'pipeline_name' => '',
 
     # Database connection info:
-    'pipe_dbname'                => '',
-    'pipe_db_server'             => '',
-    'pipe_db_port'               => '',
+    'pipe_dbname' => '',
+    'pipe_db_server' => '',
+    'pipe_db_port' => '',
 
-    'dna_db_server'              => '',
-    'dna_dbname'                 => '',
-    'dna_db_port'                => '',    
+    'dna_db_server' => '',
+    'dna_dbname' => '',
+    'dna_db_port' => '',
 
-    'output_db_server'           => '',
-    'output_db_name'             => '',
-    'output_db_port'             => '',
+    'output_db_server' => '',
+    'output_db_name' => '',
+    'output_db_port' => '',
 
-    'killlist_db_name'           => 'gb_kill_list',
-    'killlist_db_server'         => 'mysql-ens-genebuild-prod-6.ebi.ac.uk',
-    'killlist_db_port'           => '4532',
+    'killlist_db_name' => 'gb_kill_list',
+    'killlist_db_server' => 'mysql-ens-genebuild-prod-6.ebi.ac.uk',
+    'killlist_db_port' => '4532',
 
-    'old_cdna_db_name'           => '',
-    'old_cdna_db_server'         => '',
-    'old_cdna_db_port'           => '',
+    # details of the last cdna db (eg. on livemirror)
+    'old_cdna_db_name' => '',
+    'old_cdna_db_server' => '',
+    'old_cdna_db_port' => '',
 
-    'production_db_name'         => 'ensembl_production',
-    'production_db_server'       => 'mysql-ensembl-mirror.ebi.ac.uk',
-    'production_db_port'         => '4240',
+    'production_db_name' => 'ensembl_production',
+    'production_db_server' => 'mysql-ensembl-mirror.ebi.ac.uk',
+    'production_db_port' => '4240',
 
-    'output_path'                => '',
-    
-    'refseq_path'                => '',
-    'refseq_file'                => '',
+    'output_path' => '', # output directory you want to place downloaded files and log files
 
-    'genome_file'                => '',
+    'refseq_path' => '', # Where you'd like to store the RefSeq data to be downloaded, usually just the same as output_path
+    'refseq_file' => '', # The name of the refseq file, eg. refseq_mouse.fa
 
-    'repeat_masking_logic_names' => [''],
+    'genome_file' => '', #The softmasked genome file for either human or mouse
 
-    'refseq_version'             => '',
+    'repeat_masking_logic_names' => [''], # the repeatmask logic name(s) of the analyses used in the genebuild
 
-    'exonerate_version'          => 'exonerate-0.9.0',
+    'refseq_version' => '', # look at the refseq home page to get the latest version, this will go into the cDNA database
+
+    'exonerate_version' => 'exonerate-0.9.0', # This is unlikely to change any time soon
+
 
 ##########################################################################
 #                                                                        #

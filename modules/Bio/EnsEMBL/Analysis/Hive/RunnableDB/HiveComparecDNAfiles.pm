@@ -21,8 +21,10 @@ use warnings;
 use feature 'say';
 
 
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
-use Bio::EnsEMBL::IO::Parser::Fasta;
+#use Bio::EnsEMBL::Utils::Exception qw(warning throw);
+#use Bio::EnsEMBL::IO::Parser::Fasta;
+#use Bio::Phylo::Parsers::Fasta;
+use Bio::SeqIO;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -57,20 +59,20 @@ sub compare_cdnas {
 
   my $start_index = 0;
 
-  my $new_parser = Bio::EnsEMBL::IO::Parser::Fasta->open($new_file);
+  #my $new_parser = Bio::EnsEMBL::IO::Parser::Fasta->open($new_file);
+  my $new_parser = Bio::Phylo::Parsers::Fasta->open($new_file);
   my $new_header;
   my $new_seq;
 
-  my $old_parser = Bio::EnsEMBL::IO::Parser::Fasta->open($old_file);
+  #my $old_parser = Bio::EnsEMBL::IO::Parser::Fasta->open($old_file);
+  my $old_parser = Bio::Phylo::Parsers::Fasta->open($old_file);
   my $old_header;
   my $old_seq;
 
   my %new_cdnas;
   my %old_cdnas;
 
-  #local $/ = "\n>";
   open( FC, ">", $filtered_cdnas ) or die "can't create file $filtered_cdnas\n";
-  #open( OF, "<", $output_path . "/" . $old_file ) or die "can't read file $old_file\n";
   open( RETIRED, ">", $retired_cdnas ) or die "can't create file $retired_cdnas\n";
   
   # read the new file
