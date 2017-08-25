@@ -2719,7 +2719,7 @@ sub pipeline_analyses {
                          INPUT_GENES => {
                            'input_db' => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GenebuilderStatic',$self->default_options->{'genebuilder_set'},undef,'ARRAY'),
                          },
-                         OUTPUT_BIOTYPE => 'ensembl',
+                         OUTPUT_BIOTYPE => 'protein_coding',
                          MAX_TRANSCRIPTS_PER_CLUSTER => 10,
                          MIN_SHORT_INTRON_LEN => 7, #introns shorter than this seem
                          #to be real frame shifts and shoudn't be ignored
