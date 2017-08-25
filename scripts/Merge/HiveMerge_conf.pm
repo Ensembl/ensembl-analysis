@@ -196,6 +196,7 @@ sub default_options {
     'genblast_name'        => 'XXX_genblast_XXX', # genblast database
     'genblast_host'        => $self->o('default_host'),
     'exonerate_settings'   => 'exonerate_protein_XXX_patch', # exonerate settings to use from ExonerateStatic
+    'exonerate_settings_retry' => 'exonerate_protein_human_patch_non_exhaustive', # exonerate settings to use from ExonerateStatic for the retry
     'exonerate_name'        => 'XXX_exonerate_XXX', # genblast database
     'exonerate_host'        => $self->o('default_host'),
     'cdna_name'             => '', # latest cdna db on live-mirror
@@ -2500,6 +2501,40 @@ sub pipeline_analyses {
                                module     => 'HiveExonerate2Genes',
                                
                                %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic',$self->default_options()->{'exonerate_settings'})},
+                               GENOMICSEQS         => $self->o('genome_file'),
+                               PROGRAM             => $self->o('exonerate_path'),
+                               SOFT_MASKED_REPEATS => $self->o('repeat_masking_logic_names'),
+                               query_seq_dir => $self->o('homology_models_path').'/'.$self->o('uniprot_query_dir_name'),
+                               calculate_coverage_and_pid => $self->o('exonerate_calculate_coverage_and_pid'),
+                               exonerate_pid => $self->o('exonerate_pid'),
+                               exonerate_cov => $self->o('exonerate_cov'),
+                            },
+              -flow_into => {
+                              -1 => ['exonerate_retry'],
+                              -2 => ['exonerate_retry'],
+                              -3 => ['exonerate_retry'],
+                            },
+              -failed_job_tolerance => 0.5,
+            },
+
+            {
+              -logic_name => 'exonerate_retry',
+              -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
+              -rc_name    => 'normal_1900_120',
+              -can_be_empty => 1,
+              -parameters => {
+                               sequence_table_name => $self->o('uniprot_table_name'),
+                               iid_type => 'feature_id',
+                               feature_type => 'transcript',
+                               transcript_db => $self->o('genblast_db'),
+                               region_padding => $self->o('exonerate_region_padding'),
+                               use_genblast_best_in_genome => 0,
+                               dna_db => $self->o('core_db'),
+                               target_db => $self->o('exonerate_db'),
+                               logic_name => 'exonerate',
+                               module     => 'HiveExonerate2Genes',
+                               
+                               %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic',$self->default_options()->{'exonerate_settings_retry'})},
                                GENOMICSEQS         => $self->o('genome_file'),
                                PROGRAM             => $self->o('exonerate_path'),
                                SOFT_MASKED_REPEATS => $self->o('repeat_masking_logic_names'),
