@@ -223,6 +223,8 @@ sub default_options {
                              'dust'],
     'repeat_masking_logic_names' => ['repeatmask_repbase_'.$self->o('repeatmasker_library')],
     'uniprot_set'                => 'self_patch',
+    'layer_annotation_set'       => 'self_patch',
+    'genebuilder_set'            => 'self_patch',
 
     # executable paths
     'repeatmasker_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/repeatmasker/4.0.5/bin/RepeatMasker',
@@ -2644,7 +2646,7 @@ sub pipeline_analyses {
                          TARGETDB_REF => $self->o('layering_db'),
                          SOURCEDB_REFS => $self->o('layering_input_gene_dbs'),
                          FILTER => 'Bio::EnsEMBL::Analysis::Tools::CodingExonOverlapFilter',
-                         LAYERS => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic','self_patch',undef,'ARRAY'),
+                         LAYERS => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic',$self->default_options->{'layer_annotation_set'},undef,'ARRAY'),
                        },
         -rc_name    => 'normal_3900_200',
         -flow_into  => {
@@ -2715,7 +2717,7 @@ sub pipeline_analyses {
                          logic_name => 'ensembl',
                          module     => 'HiveGeneBuilder',
                          INPUT_GENES => {
-                           'input_db' => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GenebuilderStatic','self_patch',undef,'ARRAY'),
+                           'input_db' => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GenebuilderStatic',$self->default_options->{'genebuilder_set'},undef,'ARRAY'),
                          },
                          OUTPUT_BIOTYPE => 'ensembl',
                          MAX_TRANSCRIPTS_PER_CLUSTER => 10,
