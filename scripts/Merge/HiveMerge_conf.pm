@@ -212,6 +212,11 @@ sub default_options {
     'pseudogene_host'        => $self->o('default_host'),
     'patch_geneset_name'        => 'XXX_patch_XXX',
     'patch_geneset_host'        => $self->o('default_host'),
+
+    'killlist_name'        => '', # kill list database
+    'killlist_host'        => '',
+    'killlist_port'        => '',
+
     'homology_models_path' => $self->o('output_dir').'/homology_models/',
     'software_path' => '/path/to/software/ensembl/.../', # path to the directory where your software directories "linuxbrew" (for repeatmasker, tcdust, etc.) and "jenv" (for java) are located
 
@@ -270,10 +275,6 @@ sub default_options {
     'exonerate_cov'              => '80', # Cut-off for coverage
     'exonerate_calculate_coverage_and_pid' => '1',
     'exonerate_region_padding' => 15000,#1000
-
-    'killlist_name'        => 'gb_kill_list', # genblast database
-    'killlist_host'        => 'mysql-ens-genebuild-prod-6.ebi.ac.uk',
-    'killlist_port'        => '4532',
 
     'genome_file' => $self->o('output_dir')."/genome_dumps/".$self->o('species_name')."_softmasked_toplevel.fa",
 
