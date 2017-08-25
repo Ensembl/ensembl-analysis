@@ -213,6 +213,7 @@ sub default_options {
     'patch_geneset_name'        => 'XXX_patch_XXX',
     'patch_geneset_host'        => $self->o('default_host'),
     'homology_models_path' => $self->o('output_dir').'/homology_models/',
+    'software_path' => '/path/to/software/ensembl/.../', # path to the directory where your software directories "linuxbrew" (for repeatmasker, tcdust, etc.) and "jenv" (for java) are located
 
     ##
     # You shouldn't need to change anything below this line
@@ -227,21 +228,21 @@ sub default_options {
     'genebuilder_set'            => 'self_patch',
 
     # executable paths
-    'repeatmasker_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/repeatmasker/4.0.5/bin/RepeatMasker',
-    'dust_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/tcdust',
-    'trf_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/trf',
-    'eponine_java_path' => '/nfs/software/ensembl/RHEL7/jenv/shims/java',
-    'eponine_jar_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/eponine/1.0/libexec/eponine-scan.jar',
-    'cpg_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/cpg_lh',
-    'trnascan_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/tRNAscan-SE',
-    'genscan_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/genscan',
-    'genscan_matrix_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/share/HumanIso.smat',
-    'uniprot_blast_exe_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/blastp',
-    'vertrna_blast_exe_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/tblastn',
-    'unigene_blast_exe_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/tblastn',
-    'exonerate_path'         => '/nfs/software/ensembl/RHEL7/linuxbrew/opt/exonerate09/bin/exonerate',
-    'cmsearch_exe_path'    => '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/infernal10/1.0/bin/cmsearch',
-    'genblast_path'        => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/genblast',
+    'repeatmasker_path' => $self->o('software_path').'/linuxbrew/Cellar/repeatmasker/4.0.5/bin/RepeatMasker',
+    'dust_path' => $self->o('software_path').'/linuxbrew/bin/tcdust',
+    'trf_path' => $self->o('software_path').'/linuxbrew/bin/trf',
+    'eponine_java_path' => $self->o('software_path').'/jenv/shims/java',
+    'eponine_jar_path' => $self->o('software_path').'/linuxbrew/Cellar/eponine/1.0/libexec/eponine-scan.jar',
+    'cpg_path' => $self->o('software_path').'/linuxbrew/bin/cpg_lh',
+    'trnascan_path' => $self->o('software_path').'/linuxbrew/bin/tRNAscan-SE',
+    'genscan_path' => $self->o('software_path').'/linuxbrew/bin/genscan',
+    'genscan_matrix_path' => $self->o('software_path').'/linuxbrew/share/HumanIso.smat',
+    'uniprot_blast_exe_path' => $self->o('software_path').'/linuxbrew/bin/blastp',
+    'vertrna_blast_exe_path' => $self->o('software_path').'/linuxbrew/bin/tblastn',
+    'unigene_blast_exe_path' => $self->o('software_path').'/linuxbrew/bin/tblastn',
+    'exonerate_path'         => $self->o('software_path').'/linuxbrew/opt/exonerate09/bin/exonerate',
+    'cmsearch_exe_path'    => $self->o('software_path').'/linuxbrew/Cellar/infernal10/1.0/bin/cmsearch',
+    'genblast_path'        => $self->o('software_path').'/linuxbrew/bin/genblast',
 
     'layering_input_gene_dbs' => [$self->o('exonerate_db')],
     'utr_gene_dbs' => {
