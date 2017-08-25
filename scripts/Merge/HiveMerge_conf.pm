@@ -200,6 +200,8 @@ sub default_options {
     'exonerate_name'        => 'XXX_exonerate_XXX', # genblast database
     'exonerate_host'        => $self->o('default_host'),
     'cdna_name'             => '', # latest cdna db on live-mirror
+    'cdna_host'             => '',
+    'cdna_port'             => '',
     'layering_name'        => 'XXX_layering_XXX',
     'layering_host'        => $self->o('default_host'),
     'utr_name'        => 'XXX_utr_XXX',
@@ -452,8 +454,8 @@ sub default_options {
 
     # cdna database
     'cdna_db' => {
-                   -host   => 'ens-livemirror',
-                   -port   => $self->o('default_port'),
+                   -host   => $self->o('cdna_host'),
+                   -port   => $self->o('cdna_port'),
                    -user   => $self->o('user_r'),
                    -pass   => $self->o('pass_r'),
                    -dbname => $self->o('cdna_name'),
