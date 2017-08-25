@@ -2727,6 +2727,14 @@ sub pipeline_analyses {
                          BLESSED_BIOTYPES => {
                                               'ccds_gene' => 1,
                                               'Blessed_UTR_Genes' => 1,
+                                              'IG_C_gene' => 1,
+                                              'IG_J_gene' => 1,
+                                              'IG_V_gene' => 1,
+                                              'IG_D_gene' => 1,
+                                              'TR_C_gene' => 1,
+                                              'TR_J_gene' => 1,
+                                              'TR_V_gene' => 1,
+                                              'TR_D_gene' => 1,
                                              },
                          #the biotypes of the best genes always to be kept
                          MAX_EXON_LENGTH => 20000,
