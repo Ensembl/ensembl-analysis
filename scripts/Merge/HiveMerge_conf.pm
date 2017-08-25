@@ -2815,7 +2815,9 @@ sub pipeline_analyses {
         -logic_name => 'format_blast_db',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'xdformat -n '.$self->o('output_dir').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta'
+                         cmd => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then '.
+                                '  makeblastdb -dbtype nucl -in '.$self->o('output_dir').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta; '.
+                                'else xdformat -n '.$self->o('output_dir').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta;fi'
                        },
          -rc_name => 'default',
      },
