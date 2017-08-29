@@ -186,7 +186,7 @@ sub pipeline_analyses {
         {   -logic_name => 'check_against_previous',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
             -parameters => {
-                'cmd'   => 'VERSION='.$self->o('version').';DIR="#vertrna_dir#";OLDDIR="${DIR%$VERSION}/$((VERSION-1))";if [ -d "$OLDDIR" ]; then OLD=`grep -c \> $OLDDIR/#vertrna_file#`;NEW=`grep -c \> #vertrna_dir#/#vertrna_file#`; if [ $NEW -lt $OLD ];then exit 2;fi;fi',
+                'cmd'   => 'VERSION='.$self->o('vertrna_version').';DIR="#vertrna_dir#";OLDDIR="${DIR%$VERSION}/$((VERSION-1))";if [ -d "$OLDDIR" ]; then OLD=`grep -c \> $OLDDIR/#vertrna_file#`;NEW=`grep -c \> #vertrna_dir#/#vertrna_file#`; if [ $NEW -lt $OLD ];then exit 2;fi;fi',
             },
             -flow_into => WHEN( '#blast_type# eq "ncbi"' => 'ncbi_format', ELSE 'wu_format',),
         },
