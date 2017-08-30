@@ -844,16 +844,9 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'load_refseq_synonyms',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadRefSeqSynonyms',
         -parameters => {
-                         cmd => 'perl '.$self->o('refseq_synonyms_script_path').
-                                      ' -species '.$self->o('species_name').
-                                      ' -dbuser '.$self->o('user').
-                                      ' -dbpass '.$self->o('password').
-                                      ' -dbhost '.$self->o('reference_db','-host').
-                                      ' -dbport '.$self->o('reference_db','-port').
-                                      ' -dbname '.$self->o('reference_db','-dbname').
-                                      ' -workdir '.$self->o('output_path').'/refseq_import/',
+                         'target_db'        => $self->o('reference_db'),
                        },
         -rc_name => 'default',
         -flow_into  => {

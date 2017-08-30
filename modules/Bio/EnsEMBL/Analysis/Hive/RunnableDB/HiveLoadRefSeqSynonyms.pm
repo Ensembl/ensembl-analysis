@@ -41,9 +41,22 @@ use strict;
 use warnings;
 
 use Net::FTP;
-use File::Temp;
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters for the module, these should not change
+               ncbi_ftp_host => 'ftp.ncbi.nlm.nih.gov',
+               ncbi_ftp_user => 'anonymous',
+               ncbi_ftp_passwd => undef,
+               external_db => 'RefSeq_genomic',
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
 
 sub param_defaults {
   my ($self) = @_;
@@ -56,6 +69,28 @@ sub param_defaults {
     external_db => 'RefSeq_genomic',
   }
 }
+
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Use the assembly_refseq_accession parameters to retrieve all
+              possible synonyms between the GenBank and the RefSeq assembly.
+              It uses the assembly_report.txt, chr2acc (if it exists),
+              scaffold_localID2acc and component_localID2acc. It looks in
+              the "assembly root directory", %s_assembly_structure,
+              Primary_Assembly and assembled_chromosomes (if it exists).
+              It store the data in a hashref in '' where the key is the
+              coord_system and the data is an arrayref of [seq_region_name, synonym]
+ Returntype : None
+ Exceptions : Throws if 'assembly_name' is not set or found in the meta table
+              Throws if 'external_db_id' is not set or found in the database
+              Throws if 'assembly_refseq_accession' is not set
+              Throws if any problem is encounter while downloading data from
+                the RefSeq FTP
+
+=cut
+
 sub fetch_input {
   my ($self) = @_;
 
@@ -77,44 +112,104 @@ sub fetch_input {
     $self->throw('Could not fetch the dbID for '.$self->param('external_db'));
   }
   my $ncbi_assembly_accession = $self->param_required('assembly_refseq_accession');
-  my $uri = sprintf("genomes/all/%s/%03d/%03d/%03d/%s_%s/%s_%s_assembly_structure/Primary_Assembly", substr($ncbi_assembly_accession, 0, 3), substr($ncbi_assembly_accession, 4, 3), substr($ncbi_assembly_accession, 7, 3), substr($ncbi_assembly_accession, 10, 3), $ncbi_assembly_accession, $assembly_name, $ncbi_assembly_accession, $assembly_name);
   my $ftpclient = Net::FTP->new($self->param('ncbi_ftp_host')) or $self->throw("Can't open ".$self->param('ncbi_ftp_host'));
   $ftpclient->login($self->param('ncbi_ftp_user'), $self->param('ncbi_ftp_passwd')) or $self->throw("Can't log ".$self->param('ncbi_ftp_user').' in');
   
   my $counter = 0;
   my $data_counter = 0;
-# The order is important here because fetch_by_region returns the highest rank so when we have duplicated name for any reasons we will get the correct ones
   my %data;
   my %files = (
-    chromosome => 'assembled_chromosomes/chr2acc',
+    chromosome => 'chr2acc',
     scaffold => 'scaffold_localID2acc',
     contig => 'component_localID2acc',
   );
-  foreach my $file (keys %files) {
-#    my $fh = File::Temp->new();
-#    if ($ftpclient->get("$uri/".$files{$file}, $fh)) {
-    my $fh = $ftpclient->get("$uri/".$files{$file});
-    if ($fh) {
-      open(FH, "$fh") || $self->throw("Could not open $fh");
-      while(<FH>) {
-        next if (/^#|^\s*$/);
-        push(@{$data{$file}}, [split("\t", $_)]);
-        ++$data_counter;
+  my %found_files = (
+    chromosome => 0,
+    scaffold => 0,
+    contig => 0,
+  );
+  foreach my $dir ('genomes',
+                   'all',
+                   substr($ncbi_assembly_accession, 0, 3),
+                   substr($ncbi_assembly_accession, 4, 3),
+                   substr($ncbi_assembly_accession, 7, 3),
+                   substr($ncbi_assembly_accession, 10, 3),
+                   sprintf("%s_%s", $ncbi_assembly_accession, $assembly_name)) {
+    $ftpclient->cwd($dir) || $self->throw("Could not got into $dir");
+  }
+  my $fh = $ftpclient->get(sprintf("%s_%s_assembly_report.txt", $ncbi_assembly_accession, $assembly_name));
+  if ($fh) {
+    open(FH, "$fh") || $self->throw("Could not open $fh");
+    while(<FH>) {
+      next if (/^#|^\s*$/);
+      my @line = split("\t", $_);
+      my $cs = 'scaffold';
+      $cs = 'chromosome' if ($line[1] eq 'assembled-molecule');
+      push(@{$data{$cs}}, [$line[4], $line[6]]);
+    }
+    close(FH) || $self->throw("Could not close $fh");
+    ++$counter;
+    unlink($fh);
+  }
+  foreach my $dir ('.',
+                   sprintf("%s_%s_assembly_structure", $ncbi_assembly_accession, $assembly_name),
+                   'Primary_Assembly',
+                   'assembled_chromosomes') {
+    if ($ftpclient->cwd($dir)) {
+      foreach my $file (keys %files) {
+        my $fh = $ftpclient->get($files{$file});
+        if ($fh) {
+          open(FH, "$fh") || $self->throw("Could not open $fh");
+          while(<FH>) {
+            next if (/^#|^\s*$/);
+            push(@{$data{$file}}, [split("\t", $_)]);
+            ++$data_counter;
+          }
+          close(FH) || $self->throw("Could not close $fh");
+          ++$counter;
+          unlink($fh);
+          ++$found_files{$file};
+        }
       }
-      close(FH) || $self->throw("Could not close $fh");
-      ++$counter;
-      unlink($fh);
     }
   }
+  my $found_file_count = 0;
+  foreach my $file (keys %found_files) {
+    $self->throw("You have a problem with $file as it has been found ${$files{$file}} times")
+      if ($found_files{$file} > 1);
+    $found_file_count += $found_files{$file};
+  }
+  $self->throw("No files were found") unless ($found_file_count);
   $self->throw("No accession was found") unless ($counter);
   $self->param('synonym_count', $data_counter);
   $self->param('synonyms', \%data);
 }
 
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Does nothing
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub run {
 # There is nothing to do know, let's write the data
   return 1;
 }
+
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Write the synonyms for all the seq_regions
+ Returntype : None
+ Exceptions : Throws if the number of synonyms is different from the expectation
+              Throws if there is a problem in the synonyms
+
+=cut
 
 sub write_output {
   my ($self) = @_;
@@ -127,26 +222,28 @@ sub write_output {
   my $counter = 0;
   foreach my $coord_system (keys %$data) {
     foreach my $synonyms (@{$data->{$coord_system}}) {
-      if (!$synonyms->[0] or !$synonyms->[1]) {
-        print STDERR $synonyms->[0], ' ', $synonyms->[1], "\n";
-      }
-      my $slice = $slice_adaptor->fetch_by_region($coord_system, $synonyms->[1]);
-      if ($slice) {
-# It already exists so we can count it 
-        ++$counter;
+      if ($synonyms->[0] and $synonyms->[1]) {
+        if ($synonyms->[0] ne 'na') {
+          my $slice = $slice_adaptor->fetch_by_region($coord_system, $synonyms->[1]);
+          if (!$slice) {
+            ++$counter;
+            $slice = $slice_adaptor->fetch_by_region($coord_system, $synonyms->[0]);
+            $self->throw('The slice '.$synonyms->[0].' with synonym '.$synonyms->[1].' does not exist on '.$coord_system)
+              unless ($slice);
+            $slice->add_synonym($synonyms->[1], $external_db_id);
+            $slice->adaptor->update($slice);
+          }
+# We also count it if it already exists
+          ++$counter;
+        }
       }
       else {
-        $slice = $slice_adaptor->fetch_by_region($coord_system, $synonyms->[0]);
-        $self->throw('The slice '.$synonyms->[0].' with synonym '.$synonyms->[1].' does not exist')
-          unless ($slice);
-        $slice->add_synonym($synonyms->[1], $external_db_id);
-        $slice->adaptor->update($slice);
-        ++$counter;
+        $self->throw('There is a problem with '.$synonyms->[0].' '.$synonyms->[1]);
       }
     }
   }
   $self->throw("You are missing some synonyms: $counter instead of ".$self->param('synonym_count'))
     unless ($counter eq $self->param('synonym_count'));
 }
-1;
 
+1;
