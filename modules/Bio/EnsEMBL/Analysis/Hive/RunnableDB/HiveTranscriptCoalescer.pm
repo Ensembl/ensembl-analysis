@@ -68,6 +68,7 @@ sub param_defaults {
     biotype_noPolyA => 'bad',
     biotype_PolyA => 'good',
     biotype_retained => 'retained',
+    biotype_NMD => 'nonsense_mediated_decay',
     max_overlength => 10, # Random value might be around 20
   }
 }
@@ -144,20 +145,21 @@ sub run {
     $self->dbc->disconnect_if_idle;
     $self->hrdb_get_con('target_db')->dnadb->dbc->disconnect_if_idle;
   }
-  print 'Clustering genes';
+  print STDERR 'Clustering genes';
   my ($clusters, $unclustered) = cluster_Genes($self->param('genes'), $self->get_hashtypes);
-  print " Done\n";
-  print 'Working on unclustered genes';
+  print STDERR " Done\n";
+  print STDERR 'Working on unclustered genes', "\n";
   foreach my $cluster (@$unclustered) {
     foreach my $gene (@{$cluster->get_Genes}) {
       foreach my $transcript (@{$gene->get_all_Transcripts}) {
-      $gene->{polyA_signal} = rank_polyA_signal($transcript);
-      compute_translation($transcript);
+        $gene->{polyA_signal} = rank_polyA_signal($transcript);
+        $gene->{full_length} = 1;
+        compute_translation($transcript);
       }
       $self->output([$gene]);
     }
   }
-  print " Done\n";
+  print STDERR " Done\n";
   my $i = 0;
   my $t1;
   my $t2;
@@ -179,8 +181,17 @@ sub run {
       next if (exists $good_gene->{processed});
       my $good_transcript = $good_gene->get_all_Transcripts->[0]; # We know that we only have 1 transcript per gene
       my $good_name = $good_transcript->get_all_supporting_features->[0]->hseqname;
+      if (exists $good_gene->{partial}) {
+        $good_gene->{polyA_signal} = rank_polyA_signal($good_transcript);
+        compute_translation($good_transcript);
+        $good_gene->biotype('partial');
+        $self->output([$good_gene]);
+        print STDERR ' PARTIAL GENE ', $good_name, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, ' ', $good_transcript->strand, ' ', $good_gene->{polyA_signal}, "\n";
+        next;
+      }
       my $good_hashkey = build_hashkey($good_transcript, 'intron');
       $good_gene->{polyA_signal} = rank_polyA_signal($good_transcript);
+      print STDERR 'GOOD T ', $good_name, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, ' ', $good_transcript->strand, ' ', $good_gene->{polyA_signal}, "\t", $good_hashkey, "\n";
       for (my $jndex = $index+1; $jndex < @to_process; $jndex++) {
         my $gene_to_process = $to_process[$jndex];
         my $transcript_to_process = $gene_to_process->get_all_Transcripts->[0]; # We know that we only have 1 transcript per gene
@@ -193,36 +204,60 @@ sub run {
               ++$good_gene->{full_length}; # We want to keep the number of full length support
               push(@{$good_gene->{genes}}, $gene_to_process);
             }
+      print STDERR ' T ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', abs($good_transcript->end_Exon->length-$transcript_to_process->end_Exon->length), ' ', $good_gene->{full_length}, ' ', $hash_key_to_process, "\n";
           }
           elsif ($good_hashkey =~ /$hash_key_to_process/) { # If the transcript is a fragment we want to add it to our model unless it might be a retained intron
             my $first_exon_to_process = $transcript_to_process->start_Exon;
             my $last_exon_to_process = $transcript_to_process->end_Exon;
             my $add_to_good_gene = 1;
+            my $strand = $good_transcript->strand;
+            my $previous_good_exon = $good_transcript->start_Exon;
             foreach my $good_exon (@{$good_transcript->get_all_Exons}) {
-#              print STDERR join(' ', $good_name, $name_tp, $first_exon_to_process->end, '==', $good_exon->end,
-#                  'and', $good_exon->start, '-', $first_exon_to_process->start, '>', $max_overlength,
-#                 'or', $last_exon_to_process->start, '==', $good_exon->start,
-#                  'and', $first_exon_to_process->end, '-', $good_exon->end, '>', $max_overlength), "\n";
-              if ($first_exon_to_process->end == $good_exon->end
+              if (($strand == 1
+                  and $first_exon_to_process->end == $good_exon->end
                   and $good_exon->start - $first_exon_to_process->start > $max_overlength
-                  and $good_exon != $good_transcript->start_Exon) {
-                $gene_to_process->{retained} = 1;
-#                print STDERR 'Retained against ', $good_name, ' ', $good_gene->{full_length}, ' for ', $name_tp, "\n";
+                  and $good_exon != $good_transcript->start_Exon)
+                or ($strand == -1
+                  and $first_exon_to_process->start == $good_exon->start
+                  and $good_exon->end - $first_exon_to_process->end > $max_overlength
+                  and $good_exon != $good_transcript->start_Exon)) {
+                if ($previous_good_exon->length < 21 and $previous_good_exon == $good_transcript->start_Exon) {
+      print STDERR ' T FRS ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_exon->seq_region_start, ' ', $good_exon->seq_region_end, ' ', $first_exon_to_process->seq_region_start, ' ', $first_exon_to_process->seq_region_end, ' ', $max_overlength, ' ', $hash_key_to_process, "\n";
+                }
+                else {
+                  $gene_to_process->{retained} = 1;
+      print STDERR ' T RS ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_exon->seq_region_start, ' ', $good_exon->seq_region_end, ' ', $first_exon_to_process->seq_region_start, ' ', $first_exon_to_process->seq_region_end, ' ', $max_overlength, ' ', $hash_key_to_process, "\n";
+                }
                 $add_to_good_gene = 0;
+                if (($strand == 1 and $last_exon_to_process->end < $good_transcript->end_Exon->start)
+                    or ($strand == -1 and $last_exon_to_process->start > $good_transcript->end_Exon->end)) {
+                  $gene_to_process->{partial} = 1;
+                }
                 last;
               }
-              if ($last_exon_to_process->start == $good_exon->start
-                   and $first_exon_to_process->end - $good_exon->end > $max_overlength) {
+              if (($strand == 1
+                  and $last_exon_to_process->start == $good_exon->start
+                  and (($good_exon == $good_transcript->end_Exon
+                  and abs($good_exon->end-$good_transcript->end_Exon->end) > $max_overlength)
+                  or $good_exon != $good_transcript->end_Exon))
+                or ($strand == -1
+                  and $last_exon_to_process->end == $good_exon->end
+                  and (($good_exon == $good_transcript->end_Exon
+                  and abs($good_exon->start-$good_transcript->end_Exon->start) > $max_overlength)
+                  or $good_exon != $good_transcript->end_Exon))) {
                  $add_to_good_gene = 0;
+      print STDERR ' T NRE ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_exon->seq_region_start, ' ', $good_exon->seq_region_end, ' ', $last_exon_to_process->seq_region_start, ' ', $last_exon_to_process->seq_region_end, ' ', $max_overlength, ' ', $hash_key_to_process, "\n";
                  last;
                }
             }
             if ($add_to_good_gene) {
               push(@{$good_gene->{genes}}, $gene_to_process);
               $gene_to_process->{processed} = 1; # Mark the gene as processed
+      print STDERR ' T G ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, "\t", $hash_key_to_process, "\n";
             }
             else {
               push(@{$gene_to_process->{match}}, $good_gene); # Our models match except for the last exons, it can be used for scoring later
+      print STDERR ' T M ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, "\t", $hash_key_to_process, "\n";
             }
           }
         }
@@ -235,24 +270,30 @@ sub run {
               if ($good_last_exon->start-$transcript_to_process->start < $max_overlength) {
                 push(@{$good_gene->{genes}}, $gene_to_process);
                 $gene_to_process->{processed} = 1; # Mark the gene as processed
+      print STDERR ' T S ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($good_last_exon->start-$transcript_to_process->start), ' < ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
               }
               else {
                 $gene_to_process->{retained} = 1; # Mark the gene as retained, might be a bit harsh
+      print STDERR ' T SR ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($good_last_exon->start-$transcript_to_process->start), ' > ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
               }
             }
             else {
               if ($transcript_to_process->end-$good_last_exon->end < $max_overlength) {
                 push(@{$good_gene->{genes}}, $gene_to_process);
                 $gene_to_process->{processed} = 1; # Mark the gene as processed
+      print STDERR ' T S ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($transcript_to_process->end-$good_last_exon->end), ' < ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
               }
               else {
                 $gene_to_process->{retained} = 1; # Mark the gene as retained, might be a bit harsh
+      print STDERR ' T SR ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($transcript_to_process->end-$good_last_exon->end), ' < ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
               }
             }
           }
+          else {
+      print STDERR ' T SB ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
+          }
         }
       }
-      compute_translation($good_transcript);
       push(@for_step2, $good_gene);
     }
 #    print_Gene_list(\@for_step2);
@@ -265,73 +306,37 @@ sub run {
     # ######---------###########
 #    my @for_step3 = sort {$a->start <=> $b->start} @for_step2;
 #    my @intron_to_change;
-#    for (my $i = 0; $i < @for_step3-1; $i++) {
-#      my $good_gene = $for_step3[$i];
-#      next if (exists $good_gene->{processed} and $good_gene->{processed} == 2);
-#      my $good_transcript = $good_gene->get_all_Transcripts->[0];
-#      my $good_introns = $good_transcript->get_all_Introns;
-#      for (my $j = $i+1; $j < @for_step3; $j++) {
-#        my $gene_to_process = $for_step3[$j];
-#        if ($gene_to_process->{full_length} == 1) {
-#          my $transcript_to_process = $gene_to_process->get_all_Transcripts->[0];
-#          my $introns_to_process = $transcript_to_process->get_all_Introns;
-#          my $diff = 0;
-#          my $same = 0;
-#          my $good_intron_match = 0;
-#          my $good_intron_missing = 0;
-#          my $good_intron_mismatch = 0;
-#          my $intron_to_process_match = 0;
-#          my $intron_to_process_missing = 0;
-#          my $intron_to_process_mismatch = 0;
-#          my $corrected = 0;
-#          for (my $k = 0; $k < @$good_introns; $k++) {
-#            my $good_intron = $good_introns->[$k];
-#            for (my $l = $k+$diff; $l < @$introns_to_process; $l++) {
-#              my $intron_to_process = $introns_to_process->[$l];
-#              if ($intron_to_process->start == $good_intron->start
-#                  and $intron_to_process->end == $good_intron->end) {
-#                ++$same;
-#                ++$good_intron_match;
-#                ++$intron_to_process_match;
+#    my @exon_clusters;
+#    foreach my $gene (@for_step20 {
+#      foreach my $transcript (@{$gene->get_all_Transcripts}) {
+#        EXON: foreach my $exon (@{$transcript->get_all_Exons}) {
+#          foreach my $cluster (@exon_clusters) {
+#            if ($exon->start < $cluster->{end} and $exon->end > $cluster->{start}) {
+#              push(@{$cluster->{exons}}, $exon);
+#              push(@{$cluster->{transcripts}}, $transcript);
+#              if ($exon->start == $cluster->{end} and $exon->end == $cluster->{start}) {
+#
 #              }
-#              elsif ($good_intron->end < $intron_to_process->start) {
-#                ++$good_intron_missing;
-#                ++$diff;
+#              else {
+#                ++$cluster->{missmatch};
+#                $cluster->{start} = $exon->start if ($cluster->{start} > $exon->start)
 #              }
-#              elsif ($intron_to_process->end < $good_intron->start) {
-#                ++$good_intron_missing;
-#                last;
-#              }
-#              elsif ($good_intron->length == $intron_to_process->length) {
-#                if ($good_intron->prev_Exon->start == $intron_to_process->prev_Exon->start
-#                    and $good_intron->next_Exon->end == $intron_to_process->next_Exon->end) {
-#                  if ($good_intron->is_splice_canonical and $intron_to_process->is_splice_canonical) {
-#                    # If both are canonical maybe it's just a different splice site, hard to guess
-#                  }
-#                  elsif ($good_intron->is_splice_canonical) {
-## If it is canonical we can just add the evidence if the structure is the same in the rest of the transcript
-#                    ++$corrected;
-#                    push(@intron_to_change, [$good_gene, $good_intron, $gene_to_process, $intron_to_process]);
-#                  }
-#                  elsif ($intron_to_process->is_splice_canonical) {
-## If it is canonical we can just add the evidence if the structure is the same in the rest of the transcript
-## But it will be a little bit more complicated
-#                    ++$corrected;
-#                    push(@intron_to_change, [$gene_to_process, $intron_to_process, $good_gene, $good_intron]);
-#                  }
-#                  else {
-#                    # I don't think this would happened or they would definitely be different
-#                  }
-#                }
-#              }
+#              next EXON; # I hate that but sometimes it's pointless to avoid features
 #            }
 #          }
-#          if ($corrected and $corrected < 3) {
-#
-#          }
+#          push(@exon_clusters, {end => $exon->end,
+#                                start => $exon->start,
+#                                exons => [$exon],
+#                                transcripts => [$transcript],,
+#                                missmatch => 0});
 #        }
 #      }
-##      push(@for_step3, $good_gene);
+#    }
+#
+#    foreach my $cluster (sort {$a->{start} <=> $b->{start} || $b->{end} <=> $a->{end}} @exon_clusters) {
+#      if (exists $cluster->{missmatch}) {
+#        h
+#      }
 #    }
 #    print_Gene_list(\@for_step3);
     print STDERR "\n", ('-'x5), 'STEP 3', "\n";
@@ -344,6 +349,9 @@ sub run {
     foreach my $good_gene (@for_step4) {
       my $good_transcript = $good_gene->get_all_Transcripts->[0];
       my $good_introns = $good_transcript->get_all_Introns;
+      foreach my $intron (@$good_introns) {
+        ++$good_gene->{nc_count} unless ($intron->is_splice_canonical);
+      }
       my $good_name = $good_transcript->get_all_supporting_features->[0]->hseqname;
       GENE: foreach my $gene_to_process (@for_step4) {
         next if ($good_gene == $gene_to_process or exists $gene_to_process->{retained});
@@ -352,11 +360,13 @@ sub run {
         my $exons_to_process = $transcript_to_process->get_all_Exons;
         my $first_exon = $transcript_to_process->start_Exon;
         my $last_exon = $transcript_to_process->end_Exon;
-        $last_exon = $transcript_to_process->start_Exon if ($transcript_to_process->strand == -1);
+#        $last_exon = $transcript_to_process->start_Exon if ($transcript_to_process->strand == -1);
+      print STDERR 'GOOD T ', $good_name, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, ' ', $good_transcript->strand, ' ', $first_exon->seq_region_start, ' ', $first_exon->seq_region_end, ' ', $last_exon->seq_region_start, ' ', $last_exon->seq_region_end, "\n";
         my $exon_index = 0;
         foreach my $good_intron (@$good_introns) {
           foreach my $exon (@$exons_to_process) {
             if ($exon == $last_exon) {
+              print STDERR ' L ', $name_tp, ' ', $good_intron->seq_region_start, ' ', $good_intron->seq_region_end, ' ', $exon->seq_region_start, ' ', $exon->seq_region_end, ' ', $last_exon->seq_region_start, ' ', $last_exon->seq_region_end, "\n";
 #              print STDERR "Not looking, last exon\n";
             }
             elsif ($exon->end < $good_intron->start) {
@@ -370,15 +380,18 @@ sub run {
 #              print STDERR $exon->length, ' ', ($good_intron->length/3), ' ', $good_intron->is_splice_canonical, "\n" if ($exon == $first_exon);
               if ($exon == $first_exon) {
                 if (!$good_intron->is_splice_canonical) {
-                  print STDERR 'Go next as first exon and NC ', $good_name, ' for ', $name_tp, "\n";
+#                  print STDERR 'Go next as first exon and NC ', $good_name, ' for ', $name_tp, "\n";
+              print STDERR ' F NC ', $name_tp, ' ', $good_intron->seq_region_start, ' ', $good_intron->seq_region_end, ' ', $exon->seq_region_start, ' ', $exon->seq_region_end, ' ', $first_exon->seq_region_start, ' ', $first_exon->seq_region_end, "\n";
                   next;
                 }
                 if ($exon->length < $good_intron->length/3) {
 #                  print STDERR 'Go next as first exon NB ', $good_name, ' for ', $name_tp, "\n";
+              print STDERR ' SIL ', $name_tp, ' ', $good_intron->seq_region_start, ' ', $good_intron->seq_region_end, ' ', $exon->seq_region_start, ' ', $exon->seq_region_end, ' ', $first_exon->seq_region_start, ' ', $first_exon->seq_region_end, ' ', $exon->length, ' ', ($good_intron->length/3),"\n";
                   next;
                 }
               }
               $gene_to_process->{retained} = 1;
+              print STDERR ' R ', $name_tp, ' ', $good_intron->seq_region_start, ' ', $good_intron->seq_region_end, ' ', $exon->seq_region_start, ' ', $exon->seq_region_end, "\n";
 #              print STDERR 'Retained against ', $good_gene->dbID, ' ', $good_transcript->dbID, ' for ', $gene_to_process->dbID, ' ', $transcript_to_process->dbID, "\n";
 #              print STDERR 'Retained against ', $good_name, ' ', $good_gene->{full_length}, ' for ', $name_tp, ' ', $gene_to_process->{full_length}, "\n";
 #            print STDERR sprintf("%d < %d and %d > %d and %d > %d and %d < %d\n", $exon->start, $good_intron->end, $exon->end, $good_intron->start, $exon->start, $good_intron->start, $exon->end, $good_intron->end);
@@ -391,7 +404,10 @@ sub run {
     my @retained = grep {exists $_->{retained}} @for_step4;
     my $biotype_retained = $self->param('biotype_retained');
     foreach my $gene (@retained) {
-      $gene->biotype($biotype_retained);
+      $gene->biotype($biotype_retained.'_'.$gene->{nc_count});
+      foreach my $t (@{$gene->get_all_Transcripts}) {
+        compute_translation($t);
+      }
     }
     $self->output(\@retained);
 #    print STDERR "\n", ('-'x5), 'STEP X', "\n";
@@ -402,18 +418,25 @@ sub run {
 # Now I'm looking at my evidences to get the correct start and end of my transcript
     my $no_polyA_biotype = $self->param('biotype_noPolyA');
     my $polyA_biotype = $self->param('biotype_PolyA');
+    my $NMD_biotype = $self->param('biotype_NMD');
     foreach my $gene ( sort {$b->{full_length} <=> $a->{full_length}} @for_step4) {
       if ($gene->{polyA_signal}) {
-        $gene->biotype($polyA_biotype);
+        $gene->biotype($polyA_biotype.'_'.$gene->{nc_count});
       }
       else {
-        $gene->biotype($no_polyA_biotype);
+        $gene->biotype($no_polyA_biotype.'_'.$gene->{nc_count});
+      }
+      foreach my $transcript (@{$gene->get_all_Transcripts}) {
+        compute_translation($transcript);
+        if ($transcript->end_Exon != $transcript->translation->end_Exon) {
+          $gene->biotype($NMD_biotype.'_'.$gene->{nc_count}) if (($transcript->translation->end_Exon->length-$transcript->translation->end) > 50);
+        }
       }
       push(@final_step, $gene);
     }
     $self->output(\@final_step);
   }
-#  print_Gene_list($self->output);
+  print_Gene_list($self->output);
 }
 
 sub print_Gene_list {
@@ -422,7 +445,7 @@ sub print_Gene_list {
   my $i = 0;
   my $count = 0;
   foreach my $gene (@$genes) {
-    print 'Gene ', $i++, ' ', $gene->{full_length}, ' ', $gene->biotype, "\n";
+    print 'Gene ', $i++, ' ', $gene->{full_length}, ' ', $gene->biotype, ' ', $gene->{polyA_signal}, "\n";
     foreach my $transcript (@{$gene->get_all_Transcripts}) {
       foreach my $tsf (@{$transcript->get_all_supporting_features}) {
         print "\t", join(' ', $tsf->hseqname, $tsf->seq_region_start, $tsf->seq_region_end, $tsf->seq_region_strand), "\n";
