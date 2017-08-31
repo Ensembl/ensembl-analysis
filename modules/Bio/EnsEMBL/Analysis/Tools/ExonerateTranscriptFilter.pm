@@ -42,16 +42,8 @@ package Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Root;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-
-use Data::Dumper;
-
-use vars qw (@ISA);
-
-@ISA = qw(Bio::EnsEMBL::Root);
-
 
 
 =head2 new
@@ -66,8 +58,8 @@ use vars qw (@ISA);
 
 sub new{
   my ($class,@args) = @_;
-  my $self = $class->SUPER::new(@args);
-  &verbose('WARNING');
+  my $self = bless {}, $class;
+  
   my ($min_coverage,
       $min_percent,
       $best_in_genome,
