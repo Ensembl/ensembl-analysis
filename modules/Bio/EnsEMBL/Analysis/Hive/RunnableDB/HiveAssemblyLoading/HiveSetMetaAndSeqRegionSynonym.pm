@@ -196,9 +196,11 @@ sub set_meta {
   my $meta_adaptor = $target_dba->get_MetaContainerAdaptor;
 
   foreach my $meta_key (keys(%{$meta_keys})) {
-    my $meta_value = $meta_keys->{$meta_key};
-    $meta_adaptor->store_key_value($meta_key, $meta_value);
-    say "Inserted into meta:\n".$meta_key." => ".$meta_value;
+    my $meta_values = ref($meta_keys->{$meta_key}) ? $meta_keys->{$meta_key} : [$meta_keys->{$meta_key}];
+    foreach my $value (@$meta_values) {
+      $meta_adaptor->store_key_value($meta_key, $value);
+      say "Inserted into meta:\n".$meta_key." => ".$value;
+    }
   }
 
   my $date = localtime->strftime('%Y-%m');
@@ -208,7 +210,7 @@ sub set_meta {
     $self->throw("Could not find the assembly_report.txt file. Path checked:\n".$path_to_files."/assembly_report.txt");
   }
 
-  open(IN,$path_to_files."/assembly_report.txt");
+  open(IN, $path_to_files.'/assembly_report.txt') || $self->throw("Could not open $path_to_files/assembly_report.txt");
   while (my $line = <IN>) {
     # This check seems odd, might mess up if run on plants
     if($line !~ /^#/ or $self->param('has_mitochondria')) {
@@ -216,8 +218,8 @@ sub set_meta {
         $self->param('mt_accession', $1);
       }
     } elsif($line =~ /^#\s*Date:\s*(\d+)-(\d+)-\d+/) {
-      $meta_adaptor->store_key_value('assembly.date', $1.'-'.$2);
-      say "Inserted into meta:\nassembly.date => ".$1.'-'.$2;
+      $meta_adaptor->store_key_value('assembly.date', sprintf("%d-%02d", $1, $2));
+      say "Inserted into meta:\nassembly.date => ".sprintf("%d-%02d", $1, $2);
    } elsif ($line =~ /^#\s*Assembly level:\s*[Cc]hromosome/) {
       $self->param('chromosomes_present', 1);
     } elsif ($line =~ /##\s*GCF_\S+\s*non-nuclear/) {
@@ -225,7 +227,7 @@ sub set_meta {
     }
   }
 
-  close IN;
+  close(IN) || $self->throw("Could not close $path_to_files/assembly_report.txt");
 }
 
 

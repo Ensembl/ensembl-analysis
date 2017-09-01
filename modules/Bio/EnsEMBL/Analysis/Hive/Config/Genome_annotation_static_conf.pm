@@ -799,9 +799,7 @@ sub pipeline_analyses {
                                               'genebuild.projection_source_db'          => $self->default_options->{'projection_source_db_name'},
                                               'provider.name'                           => $self->o('provider_name'),
                                               'provider.url'                            => $self->o('provider_url'),
-                                              'repeat.analysis'                         => 'repeatmask_repbase_'.$self->o('repbase_logic_name'),
-                                              'repeat.analysis'                         => 'dust',
-                                              'repeat.analysis'                         => 'trf',
+                                              'repeat.analysis'                         => ['repeatmask_repbase_'.$self->o('repbase_logic_name'), 'dust', 'trf'],
                                               'species.production_name'                 => $self->o('production_name'),
                                               'species.taxonomy_id'                     => $self->default_options->{'taxon_id'},
                                             }
