@@ -750,7 +750,6 @@ sub pipeline_analyses {
         -parameters => {
                          'target_db'                 => $self->o('reference_db'),
                          'output_path'               => $self->o('output_path'),
-                         'enscode_root_dir'          => $self->o('enscode_root_dir'),
                          'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
                        },
 
