@@ -687,9 +687,6 @@ sub _compare_Genes {
           if ($exon1->overlaps_local($exon2)){
             return 1;
           }
-          elsif ($exon1->end < $exon2->start) {
-            last;
-          }
         }
       }
     } else {
@@ -701,9 +698,6 @@ sub _compare_Genes {
           if ($exon1->overlaps_local($exon2)){
             #print "Passed exon overlap check (noncod. + cod. exons checked)  - returning 1\n";
             return 1;
-          }
-          elsif ($exon1->end < $exon2->start) {
-            last;
           }
         }
       }
