@@ -3003,7 +3003,7 @@ sub pipeline_analyses {
                                 ' feature_id=dna_align_feature_id where feature_type="dna_align_feature";'.
                                 ' DELETE supporting_feature from supporting_feature join dna_align_feature on feature_id=dna_align_feature_id where'.
                                 ' feature_type="dna_align_feature";'.
-                                ' TRUNCATE dna_align_feature;',
+                                ' TRUNCATE dna_align_feature;\'',
                       },
         -rc_name    => 'default',
         -flow_into => {
