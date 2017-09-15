@@ -45,7 +45,7 @@ sub write_output {
     my $table_adaptor = $self->db->get_NakedTableAdaptor;
     $table_adaptor->table_name($self->param('csvfile_table'));
     foreach my $input_id (@{$self->param('output_ids')}) {
-        $input_id->{$self->param('sample_column')} =~ s/ /_/g;
+        $input_id->{$self->param('sample_column')} =~ tr/ :\t/_/;
         if (exists $id_check{$input_id->{ID}}) {
           ++$id_check{$input_id->{ID}};
           $self->throw("You should only have one or two file with the same ID") if ($id_check{$input_id->{ID}} > 2);
@@ -62,6 +62,9 @@ sub write_output {
             else {
                 $input_id->{is_mate_1} = 0;
             }
+        }
+        foreach my $key (keys %$input_id) {
+          $input_id->{$key} =~ tr /:\t/ /;
         }
         $table_adaptor->store([$input_id]);
         $keyword_hash{$input_id->{$self->param('sample_column')}} = 1;
