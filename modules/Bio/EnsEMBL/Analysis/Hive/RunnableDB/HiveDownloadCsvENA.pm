@@ -196,6 +196,7 @@ sub run {
                     description => $row[$fields_index{description}],
                     sample_collection => $row[$fields_index{sample_collection}],
                     sequencing_method => $row[$fields_index{sequencing_method}],
+                    sample_alias => $row[$fields_index{sample_alias}],
                   );
                   my $dh = $ua->default_headers;
                   $ua->default_header('Content-Type' => 'application/json');
@@ -217,11 +218,11 @@ sub run {
                                  $data->{characteristics}->{animalAgeAtCollection}->[0]->{unit})
                       if (exists $data->{characteristics}->{animalAgeAtCollection});
                     if (exists $data->{characteristics}->{organismPart}) {
-                      $line{description} = $data->{characteristics}->{organismPart}->[0]->{text};
+                      $line{organismPart} = $data->{characteristics}->{organismPart}->[0]->{text};
                       $line{uberon} = $data->{characteristics}->{organismPart}->[0]->{ontologyTerms}->[-1];
                     }
                     elsif (exists $data->{characteristics}->{cellType}) {
-                      $line{description} = $data->{characteristics}->{cellType}->[0]->{text};
+                      $line{cellType} = $data->{characteristics}->{cellType}->[0]->{text};
                       $line{uberon} = $data->{characteristics}->{cellType}->[0]->{ontologyTerms}->[-1];
                     }
                   }
@@ -244,6 +245,7 @@ sub run {
 #                        $eutil->get_Response(-cb => sub {($data) = @_});
 #                      };
                   }
+                  $line{sample_name} = $line{dev_stage} || $line{cellType} || $line{organismPart} || $line{sample_alias} || $line{description};
                   $ua->default_headers($dh);
                   $samples{$sample} = \%line;
                 }
@@ -302,7 +304,7 @@ sub write_output {
       foreach my $experiment (@{$study->{$sample}}) {
         foreach my $file (split(';', $experiment->{fastq_file})) {
           my (undef, undef, $filename) = splitpath($file);
-          my $sample_name = $samples->{$sample}->{dev_stage} || $samples->{$sample}->{description};
+          my $sample_name = $samples->{$sample}->{sample_name};
           $sample_name =~ s/\s+-\s+\w+:\w+$//;
           $sample_name =~ tr/ :\t/_/;
           my $description = sprintf("%s, %s%s",
