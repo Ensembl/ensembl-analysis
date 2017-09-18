@@ -313,7 +313,7 @@ sub pipeline_analyses {
           study_accession => $self->o('study_accession'),
         }
         -input_ids => [{
-          alignment_bam_file => catfile('#wide_merge_dir#', 'merged.bam'),
+          alignment_bam_file => catfile('#wide_merge_dir#', '#assembly_name#_#rnaseq_data_provider#_merged.1.bam'),
           assembly_name => $self->o('assembly_name'),
           inputfile => $self->o('rnaseq_summary_file'),
           }],
