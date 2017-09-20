@@ -94,7 +94,7 @@ sub fetch_input {
       }
       $transcript_seq = $transcript->seq->seq;
     }
-    my $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db);
+    my $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba);
     my $transcript_header = $transcript->stable_id.'.'.$transcript->version;
     my $transcript_seq_object = Bio::Seq->new(-display_id => $transcript_header, -seq => $transcript_seq);
     $self->make_runnables($transcript_seq_object, $transcript_slices, $input_id, $annotation_features);
@@ -196,13 +196,28 @@ sub runnable_failed {
 
 
 sub process_transcript {
-  my ($self,$transcript,$compara_dba,$mlss,$source_genome_db) = @_;
+  my ($self,$transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba) = @_;
 
   my $max_cluster_gap_length = $self->max_cluster_gap_length($transcript);
   say "Max align gap: ".$max_cluster_gap_length;
   my $all_target_genomic_aligns = [];
   my $exons = $transcript->get_all_Exons;
+  my $exon_region_padding = $self->param('exon_region_padding');
   foreach my $exon (@{$exons}) {
+##    my $exon_padded_start = $exon->seq_region_start - $exon_region_padding;
+##   if($exon_padded_start < 0) {
+##      $exon_padded_start = 0;
+##    }
+
+##    my $exon_padded_end = $exon->seq_region_end + $exon_region_padding;
+##    if($exon_padded_end > $transcript->slice->length) {
+##      $exon_padded_end = $transcript->slice->length;
+##    }
+
+##    my $slice_adaptor = $source_transcript_dba->get_SliceAdaptor();
+##    my $exon_slice = $slice_adaptor->fetch_by_region($exon->slice->coord_system_name, $exon->slice->seq_region_name, $exon_padded_start, $exon_padded_end);
+
+
     my $exon_region_padding = $self->param('exon_region_padding');
     my $exon_padded_start = $exon->start - $exon_region_padding;
     my $exon_padded_end = $exon->end + $exon_region_padding;
@@ -215,11 +230,13 @@ sub process_transcript {
 
     my $dna_fragments = $compara_dba->get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($source_genome_db,$exon->slice->seq_region_name);
     my $genomic_align_block_adaptor = $compara_dba->get_GenomicAlignBlockAdaptor;
-    my $genomic_align_block = $genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_DnaFrag($mlss,$dna_fragments,$exon_padded_start,$exon_padded_end);
+    my $genomic_align_blocks = $genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_DnaFrag($mlss,$dna_fragments,$exon_padded_start,$exon_padded_end);
+##    my $genomic_align_blocks = $genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_Slice($mlss, $exon_slice);
 
-    foreach my $genomic_align_block (@$genomic_align_block) {
-      my $source_genomic_align = $genomic_align_block->reference_genomic_align;
+    foreach my $genomic_align_block (@$genomic_align_blocks) {
+##      my $restricted_genomic_align_block = $genomic_align_block->restrict_between_reference_positions($exon_padded_start, $exon_padded_end);
       push(@{$all_target_genomic_aligns},@{$genomic_align_block->get_all_non_reference_genomic_aligns});
+##      push(@{$all_target_genomic_aligns},@{$restricted_genomic_align_block->get_all_non_reference_genomic_aligns});
     }
   }
 
