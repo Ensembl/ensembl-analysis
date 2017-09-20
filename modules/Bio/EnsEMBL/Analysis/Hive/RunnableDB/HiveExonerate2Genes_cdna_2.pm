@@ -73,7 +73,7 @@ use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::KillList::KillList;
 use Bio::SeqIO;
-use Bio::Seq;
+use Data::Dumper;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -93,7 +93,7 @@ sub fetch_input {
   # set up the target (genome)
   ##########################################
 
-  $self->create_analysis;
+  #$self->create_analysis;
   my @db_files;
   my @target_list = $self->GENOMICSEQS;
 
@@ -187,8 +187,6 @@ sub fetch_input {
   # set up the query (est/cDNA/protein)
   ##########################################
   my $iid_type = $self->param('iid_type');
-  my $timer = $self->param('timer');
-  #$timer = parse_timer($timer);
   my ($query_file,$chunk_number,$chunk_total);
   unless($iid_type) {
     $self->throw("You haven't provided an input id type. Need to provide one via the 'iid_type' param");
@@ -273,20 +271,14 @@ sub fetch_input {
               -analysis => $self->analysis,
               -target_file    => $database,
               -query_type     => $self->QUERYTYPE,
+              -query_file     => $query_file,
               -annotation_file => $self->QUERYANNOTATION ? $self->QUERYANNOTATION : undef,
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
               -biotypes => $biotypes_hash,
-              -timer => $timer,
-               %parameters,
+              %parameters,
               );
 
-      if (ref($query_file) eq 'ARRAY') {
-        $runnable->query_seqs($query_file);
-      }
-      else {
-        $runnable->query_file($query_file);
-      }
       $self->runnable($runnable);
   }
 
@@ -297,26 +289,24 @@ sub run {
   my ($self) = @_;
   my @results;
 
+  open STDOUT, '>>', $self->param('stdout_file') if ($self->param('stdout_file'));
+
   $self->throw("Can't run - no runnable objects") unless ($self->runnable);
 
   foreach my $runnable (@{$self->runnable}){
     # This is to catch the closing exonerate errors, which we currently have no actual solution for
     # It seems to be more of a problem with the exonerate code itself
-    $self->runnable_failed(0);
     eval {
       $runnable->run;
     };
 
     if($@) {
       my $except = $@;
-      $self->runnable_failed(1);
+
       if($except =~ /Error closing exonerate command/) {
         warn("Error closing exonerate command, this input id was not analysed successfully:\n".$self->input_id);
-      } elsif($except =~ /still running after your timer/) {
-        warn("Exonerate took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
-        $self->param('_branch_to_flow_to_on_fail',-2);
       } else {
-        $self->warning("Issue with running Exonerate, will dataflow input id on branch -3. Exception:\n".$except);
+        throw($except);
       }
     } else {
       push ( @results, @{$runnable->output} );
@@ -341,43 +331,36 @@ sub write_output {
 
   my $outdb = $self->hrdb_get_con('target_db');
   my $gene_adaptor = $outdb->get_GeneAdaptor;
-  if($self->runnable_failed == 1) {
-    # Flow out on -2 or -3 based on how the failure happened
-    my $failure_branch_code = $self->param('_branch_to_flow_to_on_fail');
+
+  my @output = @{$self->param('output_genes')};
+  $self->param('output_genes',undef);
+  my $fails = 0;
+  my $total = 0;
+
+  if (scalar(@output) == 0){
     my $output_hash = {};
     $output_hash->{'iid'} = $self->param('iid');
-    $self->dataflow_output_id($output_hash,$failure_branch_code);
-  } else {
-    # Store results as normal
-    my @output = @{$self->param('output_genes')};
-    $self->param('output_genes',undef);
-    my $fails = 0;
-    my $total = 0;
-
-    if (scalar(@output) == 0){
-      my $output_hash = {};
-      $output_hash->{'iid'} = $self->param('iid');
-      $self->dataflow_output_id($output_hash,2);
-    } else {
-      foreach my $gene (@output){
-        empty_Gene($gene);
-        eval {
-          $gene_adaptor->store($gene);
-        };
-        if ($@){
-          $self->warning("Unable to store gene!!\n$@");
-          $fails++;
-        }
-        $total++;
+    $self->dataflow_output_id($output_hash,2);
+  }
+  else {
+    foreach my $gene (@output){
+      empty_Gene($gene);
+      eval {
+        $gene_adaptor->store($gene);
+      };
+      if ($@){
+        $self->warning("Unable to store gene!!\n$@");
+        $fails++;
       }
-      if ($fails > 0){
-        $self->throw("Not all genes could be written successfully " .
+      $total++;
+    }
+    if ($fails > 0){
+      $self->throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
-      }
-      if($self->files_to_delete()) {
-        my $files_to_delete = $self->files_to_delete();
-        `rm $files_to_delete`;
-      }
+    }
+    if($self->files_to_delete()) {
+      my $files_to_delete = $self->files_to_delete();
+      `rm $files_to_delete`;
     }
   }
 }
@@ -443,14 +426,6 @@ sub make_genes{
 }
 
 ############################################################
-
-sub runnable_failed {
-  my ($self,$runnable_failed) = @_;
-  if (defined $runnable_failed) {
-    $self->param('_runnable_failed',$runnable_failed);
-  }
-  return ($self->param('_runnable_failed'));
-}
 
 sub get_chr_names{
   my ($self) = @_;
@@ -816,12 +791,6 @@ sub filter {
   if ($val) {
     $self->param('_transcript_filter',$val);
   }
-  elsif (!$self->param_is_defined('_transcript_filter')
-    and $self->param_is_defined('FILTER')
-    and exists $self->param('FILTER')->{OBJECT}) {
-    my $module = $self->require_module($self->param('FILTER')->{OBJECT});
-    $self->param('_transcript_filter', $module->new(%{$self->param('FILTER')->{PARAMETERS}}));
-  }
   if ($self->param_is_defined('_transcript_filter')) {
     return $self->param('_transcript_filter');
   }
@@ -907,8 +876,13 @@ sub filter_killed_entries {
                             -format => "Fasta",
                           );
 
+  my $filtered_seqout_filename = "/tmp/$inputID"."_filtered";
+  print "Filename for my filtered sequence: $filtered_seqout_filename.\n";
 
-  my @sequences;
+  my $seqout = new Bio::SeqIO(-file   => ">$filtered_seqout_filename",
+                              -format => "Fasta"
+                             );
+
   while( my $query_entry = $seqin->next_seq ){
     my $display_id  = $query_entry->display_id;
     my $no_ver_id;
@@ -925,12 +899,12 @@ sub filter_killed_entries {
     }
 
     if ( !$kill_list{$no_ver_id} ) {
-      push(@sequences, $query_entry);
+      $seqout->write_seq($query_entry);
     } elsif ( $kill_list{$no_ver_id} ) {
       print "$mol_type $display_id is in the kill_list. Discarded from analysis.\n";
     }
   }
-  return \@sequences;
+  return $filtered_seqout_filename;
 }
 
 sub output_query_file {
@@ -944,38 +918,41 @@ sub output_query_file {
   $table_adaptor->table_name('cdna_sequences');
 
 
-#  my $output_dir = $self->param('query_seq_dir');
-#
-#  # Note as each accession will occur in only one file, there should be no problem using the first one
-#  my $outfile_name = "exonerate_".${$accession_array}[0].".fasta";
-#  my $outfile_path = $output_dir."/".$outfile_name;
+  my $output_dir = $self->param('query_seq_dir');
+
+  # Note as each accession will occur in only one file, there should be no problem using the first one
+  my $outfile_name = "exonerate_".${$accession_array}[0].".fasta";
+  my $outfile_path = $output_dir."/".$outfile_name;
 
   my $biotypes_hash = {};
 
-#  unless(-e $output_dir) {
-#    `mkdir $output_dir`;
-#  }
-#
-#  if(-e $outfile_path) {
-#    $self->warning("Found the query file in the query dir already. Overwriting. File path:\n".$outfile_path);
-#  }
+  unless(-e $output_dir) {
+    `mkdir $output_dir`;
+  }
 
-  my @query_sequences;
+  if(-e $outfile_path) {
+    $self->warning("Found the query file in the query dir already. Overwriting. File path:\n".$outfile_path);
+  }
+
+  open(QUERY_OUT,">".$outfile_path);
   foreach my $accession (@{$accession_array}) {
     my $db_row = $table_adaptor->fetch_by_dbID($accession);
     unless($db_row) {
-      $self->throw('Did not find an entry in the '.$self->param('query_table_name')." table matching the accession. Accession:\n".$accession);
+      $self->throw("Did not find an entry in the cdna_sequences table matching the accession. Accession:\n".$accession);
     }
 
     my $seq = $db_row->{'seq'};
     $biotypes_hash->{$accession} = $db_row->{'biotype'};
 
-    push(@query_sequences, Bio::Seq->new(-id => $accession, -seq => $seq));
+    my $record = ">".$accession."\n".$seq;
+    say QUERY_OUT $record;
   }
+  close QUERY_OUT;
 
+  #$self->files_to_delete($outfile_path);
   $self->get_biotype($biotypes_hash);
 
-  return \@query_sequences;
+  return($outfile_path);
 }
 
 
@@ -988,6 +965,19 @@ sub get_biotype {
 }
 
 
+sub files_to_delete {
+  my ($self,$val) = @_;
+  if($val) {
+    $self->param('_files_to_delete',$val);
+  }
+
+  if ($self->param_is_defined('_files_to_delete')) {
+    return($self->param('_files_to_delete'));
+  }
+  else {
+    return;
+  }
+}
 
 
 1;

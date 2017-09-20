@@ -20,7 +20,7 @@ use strict;
 use warnings;
 use feature 'say';
 
-
+use Bio::SeqIO;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -43,17 +43,17 @@ sub run {
     $taxon_id = 10090;
   }
 
-  #my $taxon_id = $embl_hash->{'taxon_id'};
-
   $self->download_embl_seqs($species,$output_path);
-  $self->unzip($output_path);
-  $self->convert_embl_to_fasta($output_path,$taxon_id);
 
   my $refseq_hash = $self->param('refseq_sequences');
-  my $refseq_path = $refseq_hash->{'refseq_path'};
-  my $refseq_file = $refseq_hash->{'refseq_file'};
+  my $ftp_path = $refseq_hash->{'refseq_ftp'};
+  $self->download_refseq_seqs($ftp_path,$output_path);
 
-  $self->download_refseq_seqs($refseq_file,$refseq_path,$output_path);
+  $self->unzip($output_path);
+
+  $self->convert_embl_to_fasta($output_path,$taxon_id);
+
+  $self->concat_refseq($species,$output_path);
 
   return 1;
 }
@@ -82,7 +82,6 @@ sub download_embl_seqs {
   my @ftp_dirs = ("new/", "release/std/");
   my $ftp = "ftp://ftp.ebi.ac.uk/pub/databases/embl/";
   my @prefix = ("rel_htc_", "rel_std_", "cum_htc_", "cum_std_");
-  #my @prefix = ("cum_std_");
 
   my $abv;
 
@@ -96,7 +95,7 @@ sub download_embl_seqs {
       system("wget -nv $ftp$dir$pre$abv*dat.gz -P $output_path");
     }
   }
-  say "Finished downloading cdna files";
+  say "Finished downloading EMBL cdna files";
 }
 
 sub unzip {
@@ -175,19 +174,77 @@ sub convert_embl_to_fasta {
     }
   }
   system("cat $dir/*fasta > $dir/embl_$taxon_id.fa");
+  #system("rm *fasta");
+  #system("rm *dat");
 }
 
 sub download_refseq_seqs {
-  my ($self,$refseq_file,$refseq_dir,$output_path) = @_;
-  my $cmd = 'scp -p '.$refseq_dir.'/'.$refseq_file.' '.$output_path.'/'. $refseq_file;
-  print "Copying RefSeq file containing cDNAs:\n", $cmd, "\n";
+  my ($self,$ftp,$output_path) = @_;
 
-  if (system($cmd) == 1) {
-    die "Failed to copy RefSeq file.\nExiting"; 
+  say "The cdnas will be downloaded from the RefSeq ftp site";
+
+  # check if the output dir for contigs exists; otherwise, create it
+  if (-e "$output_path") {
+    say "Output path ".$output_path." found";
   } else {
-    print "RefSeq file copied.\n";
+    `mkdir -p $output_path`;
+    if (-e "$output_path") {
+      say "Output path $output_path not found.\n".$output_path." created successfully";
+    } else {
+      $self->throw("Cannot create output path ".$output_path);
+    }
+  }
+  system("wget $ftp*fna.gz -P $output_path");
+  say "Finished downloading RefSeq cdna files";
+}
+
+
+sub concat_refseq {
+  my ($self,$species,$output_path) = @_;
+  opendir DIR, $output_path or $self->throw("Could not open directory.");
+  my @files= grep /fna$/, readdir DIR;
+  closedir DIR;
+
+  my $binomial;
+  my $outfile;
+  if ($species eq 'human') {
+    $binomial = 'Homo sapiens';
+    $outfile = $output_path."/refseq_human.fa";
+  } elsif ($species eq 'mouse') {
+    $binomial = 'Mus musculus';
+    $outfile = $output_path."/refseq_mouse.fa";
+  }
+
+  foreach my $file (@files) {
+    if ($file =~/^vertebrate_mammalian/) {
+      my $seq_file = new Bio::SeqIO( -file => $output_path."/".$file,
+                                     -format => "Fasta",
+                                   );
+
+      while (my $seq = $seq_file->next_seq) {
+        my $desc = $seq->desc;
+        my $seqout = Bio::SeqIO->new( -file => ">>$outfile",
+                                      -format => "Fasta",
+                                    );
+        if ($desc =~ /$binomial/) {
+          $seqout->write_seq($seq);
+        }
+      }
+    }
   }
 }
+
+#sub download_refseq_seqs {
+#  my ($self,$refseq_file,$refseq_dir,$output_path) = @_;
+#  my $cmd = 'scp -p '.$refseq_dir.'/'.$refseq_file.' '.$output_path.'/'. $refseq_file;
+#  print "Copying RefSeq file containing cDNAs:\n", $cmd, "\n";
+
+#  if (system($cmd) == 1) {
+#    die "Failed to copy RefSeq file.\nExiting"; 
+#  } else {
+#    print "RefSeq file copied.\n";
+#  }
+#}
 
 1;
 

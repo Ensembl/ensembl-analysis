@@ -1,5 +1,6 @@
 '^[A-Z][A-Z][0-9][0-9][0-9][0-9][0-9][0-9]$'	EMBL
 '^[A-Z][A-Z][0-9][0-9][0-9][0-9][0-9][0-9]\.[0-9]*$'	EMBL
+<<<<<<< HEAD
 '^HAE[LK][0-9]{8}$'	EMBL
 '^gi\|.*\|(gb|emb|dbj)\|.*\|'	EMBL
 '^HAE[LK][0-9]{8}$'	EMBL
@@ -7,6 +8,15 @@
 '^[A-Z][0-9]{5}\.[0-9]*$'	EMBL
 '^CCDS[1-9][0-9]*$'	CCDS
 '^CCDS[1-9][0-9]*\.[1-9][0-9]*$'	CCDS
+=======
+'^gi\|.*\|(gb|emb|dbj)\|.*\|'	EMBL
+'^[A-Z][0-9]{5}$'	EMBL
+'^[A-Z][0-9]{5}\.[0-9]*$'	EMBL
+'^GAPM[0-9]{8}\.[0-9]+'	EMBL	Rat TSA
+'^CCDS[1-9][0-9]*$'	CCDS
+'^CCDS[1-9][0-9]*\.[1-9][0-9]*$'	CCDS
+'^[0-9]{13}$'	Trace_archive	Sheep BAC end
+>>>>>>> dev/hive_cdna
 '^NM_[0-9]{6}$'	RefSeq_dna
 '^NM_[0-9]{7}$'	RefSeq_dna
 '^NM_[0-9]{6}\.[0-9]+$'	RefSeq_dna
@@ -21,16 +31,24 @@
 '^XR_[0-9]{6}$'	RefSeq_rna_predicted
 '^XR_[0-9]{6}\.[0-9]+$'	RefSeq_rna_predicted
 '^gi\|.*\|ref\|'	RefSeq_dna
+<<<<<<< HEAD
 '^[A-Z][a-z]*\.[0-9]*$'	UniGene
 '^454cdna[0-9]*$'	OrnAna_454_cdna
+=======
+'^454cdna[0-9]*$'	OrnAna_454_cdna
+'^[A-Z][a-z]*\.[0-9]*$'	UniGene
+>>>>>>> dev/hive_cdna
 '^CDMT[0-9]{11}$'	TetNig_cdna
 '^EG3ST[0-9]{11}$'	TetNig_mouse_econtig
 '^EG3FT[0-9]{11}$'	TetNig_fugu_econtig
 '^EG3HT[0-9]{11}$'	TetNig_human_econtig
 '^EP3HT[0-9]{11}$'	TetNig_human_IPI_econtig
 '^EP3ST[0-9]{11}$'	TetNig_mouse_IPI_econtig
+<<<<<<< HEAD
 '^GAPM[0-9]{8}\.[0-9]+'	EMBL	Rat TSA
 '^[0-9]{13}$'	Trace_archive	Sheep BAC end
+=======
+>>>>>>> dev/hive_cdna
 '^CHORI(1073|73)_.*$'	Trace_archive	Zebrafish BAC ends
 '^z[A-Za-z]{1,2}[0-9]+[A-Z][0-9]+\.[a-z][a-z]$'	Trace_archive	Zebrafish BAC ends
 '^z[A-Z]*[0-9]*.*PIB[FR]$'	Trace_archive	Zebrafish BAC ends
@@ -84,9 +102,15 @@
 '^XTALPA$'	XenTro_cdna
 '^XTBETA$'	XenTro_cdna
 '^XTR[0-9]{6}$'	XenTro_cdna
+<<<<<<< HEAD
 '^ENST[0-9]{11}\.*[0-9]*$'	Ens_Hs_transcript
 '^ENSMUST[0-9]{11}\.*[0-9]*$'	Ens_Mm_transcript
 '^ENSTTRT[0-9]{11}\.*[0-9]*$'	Ens_Tt_transcript
+=======
+'^ENST[0-9]{11}$'	Ens_Hs_transcript
+'^ENSMUST[0-9]{11}$'	Ens_Mm_transcript
+'^ENSTTRT[0-9]{11}$'	Ens_Tt_transcript
+>>>>>>> dev/hive_cdna
 '^contig[0-9]{5}$'	RIKEN
 '^[1-22XY]{1}$'	GRC_primary_assembly
 '^Cluster'	Ensembl_Bam2Genes_intron

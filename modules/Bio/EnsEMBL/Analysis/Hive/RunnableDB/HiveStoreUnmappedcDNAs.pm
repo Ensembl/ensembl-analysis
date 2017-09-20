@@ -26,7 +26,7 @@ use Bio::EnsEMBL::KillList::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::DBSQL::UnmappedObjectAdaptor;
 use Getopt::Long qw(:config no_ignore_case);
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
+#use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -39,7 +39,7 @@ sub fetch_input {
 sub run {
   my ($self) = shift;
 
-  my $gss = $self->param('gss');
+  #my $gss = $self->param('gss');
   my $seq_file = $self->param('seq_file');
   my $user = $self->param('user');
   my $pass = $self->param('pass');
@@ -56,7 +56,7 @@ sub run {
   my $cov = $self->param('cov');
   my $outdir = $self->param('outdir');
 
-  $self->find_reasons($gss,$reasons_file,$findN_prog,$seq_file,$species,$infile,$cov,$pid,$vertrna,$refseq,$outdir,$user,$pass,$host,$port,$dbname);
+  $self->find_reasons($reasons_file,$findN_prog,$seq_file,$species,$infile,$cov,$pid,$vertrna,$refseq,$outdir,$user,$pass,$host,$port,$dbname);
 
   #my %EMBL_ids = $self->get_EMBL_ids($vertrna,$refseq);
 
@@ -72,7 +72,7 @@ sub write_output {
 
 
 sub find_reasons {
-  my ($self,$gss,$reasons_file,$findN_prog,$seq_file,$species,$infile,$cov,$pid,$vertrna,$refseq,$outdir,$user,$pass,$host,$port,$dbname) = @_;
+  my ($self,$reasons_file,$findN_prog,$seq_file,$species,$infile,$cov,$pid,$vertrna,$refseq,$outdir,$user,$pass,$host,$port,$dbname) = @_;
 
   my %cdnas;
   my %EMBL_ids;
@@ -135,14 +135,14 @@ sub find_reasons {
   }
   close IN;
 
-  open(VERTRNA, "<", $vertrna) or die("can't read $vertrna\n");
+  open(VERTRNA, "<", $vertrna) or die ("can't read $vertrna\n");
 
   while (my $entry = <VERTRNA>)
   {
     if ($entry =~ /^>/){
       #extract & save id
       $entry =~ s/^>([\w\.\d]+)\s.*\n{1}?/$1\n/;
-      if (!$1){ die "\n$vertrna: unmatched id pattern:\n$entry\n"; }
+      if (!$1){ die ("\n$vertrna: unmatched id pattern:\n$entry\n"); }
       $EMBL_ids{$1} = 1;
     }
   }
@@ -225,30 +225,30 @@ sub find_reasons {
   }
 
   #or the gss list:
-  open(LIST, "<", $gss) or die("can't open gss list $gss");
-  my %gss_acc_list;
-  while (<LIST>){
-    my @tmp = split/\s+/, $_;
-    $gss_acc_list{$tmp[1]} = 1;
-  }
-  close LIST;
+  #open(LIST, "<", $gss) or die("can't open gss list $gss");
+  #my %gss_acc_list;
+  #while (<LIST>){
+  #  my @tmp = split/\s+/, $_;
+  #  $gss_acc_list{$tmp[1]} = 1;
+  #}
+  #close LIST;
 
-  my %gss_hits;
-  foreach my $k (keys %cdnas){ #because looping over cdnas - shouldn't delete as you go along - have to do after
-    if ($k=~/(\w+)\./){
-      my $acc = $1;
-      if (exists $gss_acc_list{$acc}){
-        $gss_hits{$k} = 1;
-      }
-    }
-  }
+  #my %gss_hits;
+  #foreach my $k (keys %cdnas){ #because looping over cdnas - shouldn't delete as you go along - have to do after
+  #  if ($k=~/(\w+)\./){
+  #    my $acc = $1;
+  #    if (exists $gss_acc_list{$acc}){
+  #      $gss_hits{$k} = 1;
+  #    }
+  #  }
+  #}
   #now loop through ones on gss_list:
-  foreach my $sv (keys %gss_hits){
-    if (exists $cdnas{$sv}){
-      delete $cdnas{$sv}; #gss taking precedence over kill list
-      $cdnas{$sv}{"GSS sequence"} = 1;
-    }
-  }
+  #foreach my $sv (keys %gss_hits){
+  #  if (exists $cdnas{$sv}){
+  #    delete $cdnas{$sv}; #gss taking precedence over kill list
+  #    $cdnas{$sv}{"GSS sequence"} = 1;
+  #  }
+  #}
 
   #print out details about these missing sequences - possible reasons they are missing:
 

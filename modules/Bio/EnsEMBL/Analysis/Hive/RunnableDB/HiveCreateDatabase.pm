@@ -47,7 +47,7 @@ sub param_defaults {
       create_type => '',
       source_db => '',
       target_db => '',
-
+      
       # used by create_type = 'clone'
       script_path => '~/enscode/ensembl-analysis/scripts/clone_database.ksh',
 
@@ -177,13 +177,13 @@ sub copy_db {
     $self->check_db_string($self->param('target_db'));
     $target_string = $self->param('target_db');
   }
-
+  
   my @source_string_at_split = split('@',$source_string);
   my $source_dbname = shift(@source_string_at_split);
   my @source_string_colon_split = split(':',shift(@source_string_at_split));
   my $source_host = shift(@source_string_colon_split);
   my $source_port = shift(@source_string_colon_split);
-
+  
   my @target_string_at_split = split('@',$target_string);
   my $target_dbname = shift(@target_string_at_split);
   my @target_string_colon_split = split(':',shift(@target_string_at_split));
@@ -349,7 +349,7 @@ sub dump_database {
   my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file,$ignore_dna, $compress) = @_;
 
   print "\nDumping database $dbname"."@"."$dbhost:$dbport...\n";
-
+  
   my $command;
   if (!$dbpass) { # dbpass for read access can be optional
   	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser ";
@@ -381,6 +381,10 @@ sub dump_database {
   else {
     $command .= " $dbname > $db_file";
   }
+  if ($ignore_dna) {
+  	$command .= " --ignore-table=".$dbname.".dna ";
+  }
+  $command .= " $dbname > $db_file";
 
   if (system($command)) {
     $self->throw("The dump was not completed. Please, check the command or that you have enough disk space in the output path $db_file as well as writing permission.");
