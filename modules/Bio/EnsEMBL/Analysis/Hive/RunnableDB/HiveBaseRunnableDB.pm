@@ -676,4 +676,32 @@ sub _create_temporary_file {
 }
 
 
+=head2 _create_temporary_file
+
+ Arg [1]    : (optional) int, secs to sleep
+ Description: Generic post_cleanup implementation. Note that this is designed to get
+              runnable dbs to sleep for a specified amount of time (default is 5 secs)
+              before finishing. We needed this because we have found issues during the
+              with downstream jobs starting before the write from the upstream job is
+              actually fully written to disk. This can have unusual effects in terms of
+              creating situations where input is missing and the job silently fails
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub post_cleanup {
+  my ($self,$sleep_time) = @_;
+
+  if(defined($sleep_time)) {
+    unless($sleep_time =~ /^[0-9]+$/) {
+      $self->throw("Value passed in for sleep time was not an positive integer or zero. Value: ".$sleep_time);
+    }
+    sleep($sleep_time);
+  } else {
+    sleep(5);
+  }
+
+}
+
 1;
