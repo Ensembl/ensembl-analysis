@@ -106,7 +106,7 @@ sub run {
   my $outdir = File::Spec->catfile($self->outdir, $filename);
 
   # run STAR
-  my $command = $self->program." --runMode alignReads --genomeDir ".$self->genome." --readFilesIn $fastq $fastqpair --outFileNamePrefix $outdir $options --outTmpDir ".$self->workdir;
+  my $command = $self->program." --twopassMode Basic --runMode alignReads --genomeDir ".$self->genome." --readFilesIn $fastq $fastqpair --outFileNamePrefix $outdir $options --outTmpDir ".$self->workdir;
   $self->warning("Command: $command\n");
   if (system($command)) {
       $self->throw("Error aligning $fastq $fastqpair\nError code: $?\n");
