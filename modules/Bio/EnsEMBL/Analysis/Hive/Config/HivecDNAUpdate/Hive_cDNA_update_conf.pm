@@ -354,7 +354,7 @@ sub pipeline_analyses {
     {
       # there should probably be a check here to make sure that we get roughly the number of retired sequences we expect
       -logic_name => 'load_new_cdnas',
-      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadcDNAs',
+      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadUpdatecDNAs',
       -parameters => {
         cdna_file => $self->o('output_path').'/'.$self->o('cdna_file_name').'.clipped',
         species => '#wide_species#',
@@ -382,7 +382,7 @@ sub pipeline_analyses {
     },
     {
       -logic_name => 'load_cdnas',
-      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadcDNAs',
+      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadUpdatecDNAs',
       -parameters => {
         cdna_file => $self->o('output_path').'/'.$self->o('cdna_file_name').'.clipped',
         species => '#wide_species#',

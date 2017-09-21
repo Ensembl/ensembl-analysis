@@ -381,10 +381,6 @@ sub dump_database {
   else {
     $command .= " $dbname > $db_file";
   }
-  if ($ignore_dna) {
-  	$command .= " --ignore-table=".$dbname.".dna ";
-  }
-  $command .= " $dbname > $db_file";
 
   if (system($command)) {
     $self->throw("The dump was not completed. Please, check the command or that you have enough disk space in the output path $db_file as well as writing permission.");
