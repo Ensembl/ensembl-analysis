@@ -267,8 +267,7 @@ sub project_exon {
 # projection and frameshifts the whole thing. Non met start issue?
 
   my $exon_align_slices = $self->param('_exon_align_slices')->{$exon->dbID};
-
-  unless($exon_align_slices) {
+  if (scalar(@{$exon_align_slices}) <= 0) {
     return 0;
   }
 
