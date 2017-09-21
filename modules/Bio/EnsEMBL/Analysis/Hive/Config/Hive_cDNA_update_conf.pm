@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,15 +22,12 @@ package Hive_cDNA_update_conf;
 
 use strict;
 use warnings;
-use feature 'say';
+
+use File::Spec::Functions qw(catfile);
 
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
 use parent ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;           # Allow this particular config to use conditional dataflow and INPUT_PLUS
-
-my %taxon_id;
-$taxon_id {"human"} = 9606;
-$taxon_id {"mouse"} = 10090;
 
 sub default_options {
   my ($self) = @_;
@@ -45,21 +42,17 @@ sub default_options {
 #                                                                        #
 ##########################################################################
     
-    'recipient_email'            => '', # email address where reports will be sent
+    'recipient_email'            => $ENV{HIVE_EMAIL}, # email address where reports will be sent
 
     'species'                    => '', # either mouse or human
 
     'ensembl_release' => '', # What release are you doing this for?
 
-    'gb_user' => '', # username used as prefix for dbs
-
-    'complete_update' => '', # set this as 1 or 0. Usually we'll probably only be adding alignments from new cDNAs and removing retired ones so you want to set this to 0
-
-    'create_type' => '', # should be 'clone' if you're doing a complete update or 'copy' if you're doing a partial one
+    'complete_update' => 0, # set this as 1 or 0. Usually we'll probably only be adding alignments from new cDNAs and removing retired ones so you want to set this to 0
 
     'cdna_batch_size' => 1,
 
-    'pipeline_name' => '',
+    'pipeline_name' => $self->o('species').'_cdna_update_'.$self->o('ensembl_release'),
 
     # Database connection info:
     'pipe_dbname' => '',
@@ -74,23 +67,12 @@ sub default_options {
     'output_db_name' => '',
     'output_db_port' => '',
 
-    'killlist_db_name' => 'gb_kill_list',
-    'killlist_db_server' => 'mysql-ens-genebuild-prod-6.ebi.ac.uk',
-    'killlist_db_port' => '4532',
-
     # details of the last cdna db (eg. on livemirror)
     'old_cdna_db_name' => '',
-    'old_cdna_db_server' => '',
-    'old_cdna_db_port' => '',
-
-    'production_db_name' => 'ensembl_production',
-    'production_db_server' => 'mysql-ensembl-mirror.ebi.ac.uk',
-    'production_db_port' => '4240',
-
     'output_path' => '', # output directory you want to place downloaded files and log files
 
-    'refseq_path' => '', # Where you'd like to store the RefSeq data to be downloaded, usually just the same as output_path
-    'refseq_file' => '', # The name of the refseq file, eg. refseq_mouse.fa
+    'refseq_path' => $self->o('output_path'), # Where you'd like to store the RefSeq data to be downloaded, usually just the same as output_path
+    'refseq_file' => catfile($self->o('refseq_path'), 'refseq_'.$self->o('species').'.fa'), # The name of the refseq file, eg. refseq_mouse.fa
 
     'genome_file' => '', #The softmasked genome file for either human or mouse
 
@@ -107,29 +89,27 @@ sub default_options {
 #                                                                        #
 ##########################################################################
 
-    'ensembl_repo_root'          => $ENV{ENSCODE},
-
     'default_queue'              => 'production-rh7',
 
     'exonerate_batch_size'       => '50',
 
     'exonerate_time_limit'       => '2h',
 
-    'fastasplit_random_path'     => '/nfs/ensembl/bin/fastasplit_random',
+    'fastasplit_random_path'     => catfile($self->o('binary_base'), 'fastasplit_random'),
 
     'cdna_file_name'             => 'cdna_update',
 
-    'user'			 => 'ensro',
-    'user_r'                     => 'ensro',
-    'user_w'                     => 'ensadmin',
+    'user'                     => 'ensadmin',
     'password'                   => '',
+    'user_r'                     => 'ensro',
+    'password_r'                 => undef,
 
     'cdna_query_dir_name'        => 'cdna_temp',
 
     'refseq_ftp'                 => 'ftp://ftp.ncbi.nlm.nih.gov/refseq/release/vertebrate_mammalian/',
 
-    'retired_cdnas_file'         => '#wide_output_dir#/cdna_update.retired',
-    'genes_to_delete'            => '#wide_output_dir#/genes_to_delete.ids',
+    'retired_cdnas_file'         => catfile('#wide_output_dir#', 'cdna_update.retired'),
+    'genes_to_delete'            => catfile('#wide_output_dir#', 'genes_to_delete.ids'),
 
     'many_hits_dir'              => 'many_hits',
     'cdna_table_name'            => 'cdna_sequences',
@@ -143,44 +123,43 @@ sub default_options {
     'optimise_mem'               => '11900',
     'download_mem'               => '8000',
 
-    'exonerate_path'             => '/nfs/ensembl/bin/exonerate-0.9.0/exonerate',
+    'exonerate_path'             => catfile($self->o('software_base'), 'opt', 'exonerate09', 'bin', 'exonerate'),
     'exonerate_pid'              => '97',
     'exonerate_cov'              => '90',
 
-    'clone_db_script_path'       => $self->o('ensembl_repo_root').'/ensembl-analysis/scripts/clone_database.ksh',
+    'optimize_script'            => catfile($self->o('enscode_root_dir').'', 'ensembl-analysis', 'scripts', 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
 
-    'optimize_script'            => $self->o('ensembl_repo_root').'/ensembl-analysis/scripts/genebuild/load_external_db_ids_and_optimize_af.pl',
+    'polyA_script'               => catfile($self->o('enscode_root_dir').'', 'ensembl-pipeline', 'scripts', 'EST', 'new_polyA_clipping.pl'),
 
-    'polyA_script'               => $self->o('ensembl_repo_root').'/ensembl-pipeline/scripts/EST/new_polyA_clipping.pl',
+    'delete_genes_script'        => catfile($self->o('enscode_root_dir').'', 'ensembl-analysis', 'scripts', 'genebuild', 'delete_genes.pl'),
 
-    'delete_genes_script'        => $self->o('ensembl_repo_root').'/ensembl-analysis/scripts/genebuild/delete_genes.pl',
+    'populate_production_script' => catfile($self->o('enscode_root_dir').'', 'ensembl-production', 'scripts', 'production_database', 'populate_production_db_tables.pl'),
 
-    'populate_production_script' => $self->o('ensembl_repo_root').'/ensembl-production/scripts/production_database/populate_production_db_tables.pl',
+    'findN_script'               => catfile($self->o('enscode_root_dir').'', 'ensembl-pipeline', 'scripts', 'cDNA_update', 'find_N.pl'),
 
-    'findN_script'               => $self->o('ensembl_repo_root').'/ensembl-pipeline/scripts/cDNA_update/find_N.pl',
+    'analysis_desc_script'       => catfile($self->o('enscode_root_dir').'', 'ensembl-production', 'scripts', 'production_database', 'populate_analysis_description.pl'),
 
-    'analysis_desc_script'       => $self->o('ensembl_repo_root').'/ensembl-production/scripts/production_database/populate_analysis_description.pl',
+    'meta_level_script'          => catfile($self->o('enscode_root_dir').'', 'ensembl', 'misc-scripts', 'meta_levels.pl'),
 
-    'meta_level_script'          => $self->o('ensembl_repo_root').'/ensembl/misc-scripts/meta_levels.pl',
+    'meta_coord_script'          => catfile($self->o('enscode_root_dir').'', 'ensembl', 'misc-scripts', 'meta_coord', 'update_meta_coord.pl'),
 
-    'meta_coord_script'          => $self->o('ensembl_repo_root').'/ensembl/misc-scripts/meta_coord/update_meta_coord.pl',
+    'old_cdna_db_server' => 'mysql-ensembl-mirror',
+    'old_cdna_db_port' => '4240',
 
-    'driver'                     => 'mysql',
+    'killlist_db_name' => 'gb_kill_list',
+    'killlist_db_server' => 'mysql-ens-genebuild-prod-6.ebi.ac.uk',
+    'killlist_db_port' => '4532',
 
-    'pipeline_db' => {
-      -dbname => $self->o('pipe_dbname'),
-      -host => $self->o('pipe_db_server'),
-      -port => $self->o('pipe_db_port'),
-      -user => $self->o('user_w'),
-      -pass => $self->o('password'),
-      -driver => $self->o('driver'),
-    },
+    'production_db_name' => 'ensembl_production',
+    'production_db_server' => 'mysql-ens-sta-1',
+    'production_db_port' => '4519',
 
     'production_db' => {
       -dbname => $self->o('production_db_name'),
       -host => $self->o('production_db_server'),
       -port => $self->o('production_db_port'),
       -user => $self->o('user_r'),
+      -pass => $self->o('password_r'),
     },
  
     'output_db' => {
@@ -189,13 +168,7 @@ sub default_options {
       -port => $self->o('output_db_port'),
       -user => $self->o('user_w'),
       -pass => $self->o('password'),
-    },
-
-    'dna_db' => {
-      -dbname => $self->o('dna_dbname'),
-      -host => $self->o('dna_db_server'),
-      -port => $self->o('dna_db_port'),
-      -user => $self->o('user_r'),
+      -pass => $self->o('password_r'),
     },
 
     'killlist_db' => {
@@ -203,6 +176,7 @@ sub default_options {
       -host => $self->o('killlist_db_server'),
       -port => $self->o('killlist_db_port'),
       -user => $self->o('user_r'),
+      -pass => $self->o('password_r'),
     },
 
     'old_cdna_db' => {
@@ -210,6 +184,7 @@ sub default_options {
       -host => $self->o('old_cdna_db_server'),
       -port => $self->o('old_cdna_db_port'),
       -user => $self->o('user_r'),
+      -pass => $self->o('password_r'),
     },
   };
 }
@@ -232,6 +207,11 @@ sub pipeline_create_commands {
 sub pipeline_analyses {
   my ($self) = @_;
 
+  my %taxon_id = (
+    human => 9606,
+    mouse => 10090,
+  );
+
   return [
     {
       # need to make sure the database actually copies as if it doesn't the job does appear to complete according to eHive
@@ -241,10 +221,10 @@ sub pipeline_analyses {
         source_db => $self->o('old_cdna_db'),
         target_db => $self->o('output_db'),
         #create_type => WHEN ('#complete_update#' => 'clone', ELSE 'copy'),
-        create_type => $self->o('create_type'),
+        create_type => $self->o('complete_update') == 1 ? 'clone' : 'copy',
         script_path => '#wide_clone_script#',
         pass_w => $self->o('password'),
-        user_w => $self->o('user_w'),
+        user_w => $self->o('user'),
         user_r => $self->o('user_r'),
       },
       -rc_name => 'default',
@@ -424,10 +404,10 @@ sub pipeline_analyses {
         logic_name => 'cdna_update',
         timer => $self->o('exonerate_time_limit'),
         module => 'HiveExonerate2Genes_cdna',
-        config_settings => $self->get_config_settings('exonerate_cdna','exonerate'),
-        #%{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate')},
+        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_cdnaupdate')},
+        exonerate_pid => $self->o('exonerate_pid'),
+        exonerate_cov => $self->o('exonerate_cov'),
         query_seq_dir => $self->o('output_path').'/'.$self->o('cdna_query_dir_name'),
-        stdout_file => '#wide_output_dir#/exonerate_1.out',
         GENOMICSEQS => '#wide_genome_file#',
         PROGRAM => '#wide_exonerate#',
         SOFT_MASKED_REPEATS => $self->o('repeat_masking_logic_names'),
@@ -468,10 +448,10 @@ sub pipeline_analyses {
         logic_name => 'cdna_update',
         timer => $self->o('exonerate_time_limit'),
         module => 'HiveExonerate2Genes_cdna',
-        config_settings => $self->get_config_settings('exonerate_cdna','exonerate'),
-        #%{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate')},
+        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_cdnaupdate_loose')},
+        exonerate_pid => $self->o('exonerate_pid'),
+        exonerate_cov => $self->o('exonerate_cov'),
         query_seq_dir => '#wide_output_dir#/'.$self->o('cdna_query_dir_name'),
-        stdout_file => '#wide_output_dir#/exonerate_himem.out',
         GENOMICSEQS => '#wide_genome_file#',
         PROGRAM => '#wide_exonerate#',
         SOFT_MASKED_REPEATS => $self->o('repeat_masking_logic_names'),
@@ -579,7 +559,7 @@ sub pipeline_analyses {
       -parameters => {
         #gss => '#wide_gss_file#',
         seq_file => '#wide_output_dir#/missing_cdnas.fasta',
-        user => $self->o('user_w'),
+        user => $self->o('user'),
         pass => $self->o('password'),
         host => $self->o('output_db_server'),
         port => $self->o('output_db_port'),
@@ -762,12 +742,6 @@ sub pipeline_wide_parameters {
 
 sub resource_classes {
   my $self = shift;
-  # Note that this builds resource requests off some of the variables at the top. Works off the idea
-  # that the references all get put on one server and the pipe db is on another
-  #my $pipe_db_server = $self->default_options()->{'pipe_db_server'};
-  #my $dna_db_server = $self->default_options()->{'dna_db_server'};
-  #my $exonerate_output_db_server = $self->default_options()->{'exonerate_output_db_server'};
-  #my $killlist_db_server = $self->default_options()->{'killlist_db_server'};
 
   my $default_queue = $self->default_options()->{'default_queue'}; 
 
@@ -778,59 +752,17 @@ sub resource_classes {
   my $optimise_mem = $self->default_options()->{'optimise_mem'};
   my $download_mem = $self->default_options()->{'download_mem'};
 
-  # the following are for tokens
-  #my $pipe_db_server_number;
-  #my $dna_db_server_number;
-  #my $exonerate_output_db_server_number;
-  #my $killlist_db_server_number;
-
-  #my $num_tokens = $self->default_options()->{'num_tokens'};
-
-  #unless($pipe_db_server =~ /(\d+)$/) {
-  #  die "Failed to parse the server number out of the pipeline db server name. This is needed for setting tokens\n".
-  #      "pipe_db_server: ".$pipe_db_server;
-  #}
-
-  #$pipe_db_server_number = $1;
-
-  #unless($dna_db_server =~ /(\d+)$/) {
-  #  die "Failed to parse the server number out of the pipeline db server name. This is needed for setting tokens\n".
-  #      "dna_db_server: ".$dna_db_server;
-  #}
-
-  #$dna_db_server_number = $1;
-
-  #unless($exonerate_output_db_server =~ /(\d+)$/) {
-  #  die "Failed to parse the server number out of the pipeline db server name. This is needed for setting tokens\n".
-  #      "exonerate_output_db_server: ".$exonerate_output_db_server;
-  #}
-
-  #$exonerate_output_db_server_number = $1;
-
-  #unless($killlist_db_server=~ /(\d+)$/) {
-  #  die "Failed to parse the server number out of the pipeline db server name. This is needed for setting tokens\n".
-  #      "killlist_db_server: ".$killlist_db_server;
-  #}
-
-  #$killlist_db_server_number = $1;
-
-  #unless($num_tokens) {
-  #  die "num_tokens is uninitialised or zero. num_tokens needs to be present in default_options and not zero\n".
-  #      "num_tokens: ".$num_tokens;
-  #}
   return {
     'default' => { LSF => '-q '.$default_queue.' -M'.$default_mem.' -R"select[mem>'.$default_mem.'] '.
                           'rusage[mem='.$default_mem.']"'},
 
-    'exonerate' => { LSF => '-q '.$default_queue.' -W 1:00 -M'.$exonerate_mem.' -R"select[mem>'.$exonerate_mem.'] '.
+    'exonerate' => { LSF => '-q '.$default_queue.' -M'.$exonerate_mem.' -R"select[mem>'.$exonerate_mem.'] '.
                             'rusage[mem='.$exonerate_mem.']"'},
 
-    #'exonerate' => { LSF => '-q '.$default_queue.' -W 1 '},
-
-    'exonerate_himem' => { LSF => '-q '.$default_queue.' -W 2:00 -M'.$exonerate_high_mem.' -R"select[mem>'.$exonerate_high_mem.'] '.
+    'exonerate_himem' => { LSF => '-q '.$default_queue.' -M'.$exonerate_high_mem.' -R"select[mem>'.$exonerate_high_mem.'] '.
                            'rusage[mem='.$exonerate_high_mem.']"'},
 
-    'exonerate_2' => { LSF => '-q '.$default_queue.' -W 1:00 -M'.$exonerate_retry_mem.' -R"select[mem>'.$exonerate_retry_mem.'] '.
+    'exonerate_2' => { LSF => '-q '.$default_queue.' -M'.$exonerate_retry_mem.' -R"select[mem>'.$exonerate_retry_mem.'] '.
                               'rusage[mem='.$exonerate_retry_mem.']"'},
 
     'optimise' => { LSF => '-q '.$default_queue.' -M'.$optimise_mem.' -R"select[mem>'.$optimise_mem.'] '.
@@ -841,129 +773,5 @@ sub resource_classes {
   }
 }
 
-
-sub get_config_settings {
-  # Shift in the group name (a hash that has a collection of logic name hashes and a default hash)
-  # Shift in the logic name of the specific analysis
-  my $self = shift;
-  my $config_group = shift;
-  my $config_logic_name = shift;
-
-  # And additional hash keys will be stored in here
-  my @additional_configs = @_;
-
-  # Return a ref to the master hash for the group using the group name
-  my $config_group_hash = $self->master_config_settings($config_group);
-  unless(defined($config_group_hash)) {
-    die "You have asked for a group name in master_config_settings that doesn't exist. Group name:\n".$config_group;
-  }
-  # Final hash is the hash reference that gets returned. It is important to note that the keys added have
-  # priority based on the call to this subroutine, with priority from left to right. Keys assigned to
-  # $config_logic_name will have most priority, then keys in any additional hashes, then keys from the
-  # default hash. A default hash key will never override a $config_logic_name key
-  my $final_hash;
-
-  # Add keys from the logic name hash
-  my $config_logic_name_hash = $config_group_hash->{$config_logic_name};
-  unless(defined($config_logic_name_hash)) {
-    die "You have asked for a logic name hash that doesn't exist in the group you specified.\n".
-        "Group name:\n".$config_group."\nLogic name:\n".$config_logic_name;
-  }
-  $final_hash = $self->add_keys($config_logic_name_hash,$final_hash);
-
-  # Add keys from any additional hashes passed in, keys that are already present will not be overriden
-  foreach my $additional_hash (@additional_configs) {
-    my $config_additional_hash = $config_group_hash->{$additional_hash};
-    $final_hash = $self->add_keys($config_additional_hash,$final_hash);
-  }
-
-  # Default is always loaded and has the lowest key value priority
-  my $config_default_hash = $config_group_hash->{'Default'};
-  $final_hash = $self->add_keys($config_default_hash,$final_hash);
-
-  return($final_hash);
-}
-
-sub add_keys {
-  my ($self,$hash_to_add,$final_hash) = @_;
-
-  foreach my $key (keys(%$hash_to_add)) {
-    unless(exists($final_hash->{$key})) {
-      $final_hash->{$key} = $hash_to_add->{$key};
-    }
-  }
-  return($final_hash);
-}
-
-sub master_config_settings {
-  my ($self,$config_group) = @_;
-  my $master_config_settings = {
-    exonerate_cdna => {
-      Default => {
-        IIDREGEXP           => '(\d+):(\d+)',
-        OPTIONS             => '--model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE',
-        COVERAGE_BY_ALIGNED => 0,
-        QUERYTYPE           => 'dna',
-        GENOMICSEQS         => $self->o('genome_file'),
-        PROGRAM             => $self->o('exonerate_path'),
-        SOFT_MASKED_REPEATS => $self->o('repeat_masking_logic_names'),
-      },
-      exonerate => {
-        COVERAGE_BY_ALIGNED => 1,
-        FILTER => {
-          OBJECT => 'Bio::EnsEMBL::Analysis::Tools::CdnaUpdateTranscriptFilter',
-          PARAMETERS => {
-            -best_in_genome => 0,
-            -coverage => $self->o('exonerate_cov'),
-            -percent_id => $self->o('exonerate_pid'),
-            -reject_processed_pseudos => 1,
-            -verbosity => 1,
-          }
-        },
-        KILL_TYPE => undef,
-        USE_KILL_LIST => 0,
-        OPTIONS => '--model est2genome --forwardcoordinates FALSE --maxintron 100000 --softmasktarget FALSE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14',
-      },
-      exonerate_2 => {
-        COVERAGE_BY_ALIGNED => 1,
-        FILTER => {
-          OBJECT => 'Bio::EnsEMBL::Analysis::Tools::CdnaUpdateTranscriptFilter',
-          PARAMETERS => {
-            -best_in_genome => 10,
-            -coverage => $self->o('exonerate_cov'),
-            -percent_id => $self->o('exonerate_pid'),
-            -reject_processed_pseudos => 1,
-            -verbosity => 1,
-          }
-        },
-        KILL_TYPE => undef,
-        OPTIONS => '--model est2genome --forwardcoordinates FALSE --maxintron 100000 --softmasktarget FALSE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14',
-      },
-
-      # it looks like the filter option is set, along with killlist, for the second run of the cdna update in the original code
-      # I need to therefore look into this - probably best to set in the hash of the analysis in the config settings using killlist_cdna, exonerate etc.
-      # so I set the filter => 1 here and then use the appropriate name in the config settings. However as this is only done in the second run I need to
-      # think more carefully about how I want to run exonertae - no jobs are failing due to mem. cdna_update_2 analysis seems to be about more than
-      # just an increase in mem so I think I need another exonerate run after to do what the rest of cdna_update_2 does 
-      killlist_cdna => {
-        KILLLISTDB          => $self->o('killlist_db'),
-        USE_KILL_LIST       => 1,
-        KILL_TYPE           => 'cdna',
-        KILL_LIST_FILTER    => {
-          -only_mol_type        => 'cdna',
-          -user_id              => undef,
-          -from_source_species  => undef,
-          -before_date          => undef,
-          -having_status        => undef,
-          -reasons              => [],
-          -for_analyses         => [],
-          -for_species          => [],
-          -for_external_db_ids  => [],
-        },
-      },
-    },
-  };
-  return($master_config_settings->{$config_group});
-}
 
 1;
