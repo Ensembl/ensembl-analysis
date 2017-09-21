@@ -349,8 +349,8 @@ sub project_exon {
   }
 
   my $cesar_command = "python2.7 CESAR/CESAR.py ".$outfile_path." ".$extra_commands."--clade human > ".$outfile_path.".ces";
-  if(system($cesar_command)) {
-    return(0);
+  if (system($cesar_command)) {
+    $self->throw("cesar command FAILED: ".$cesar_command."\n");
   }
 
   $self->files_to_delete($outfile_path.".ces");
