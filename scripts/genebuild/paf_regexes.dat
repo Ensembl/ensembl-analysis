@@ -24,7 +24,6 @@
 '^[A-Z][A-Z][A-Z][0-9][0-9][0-9][0-9][0-9]$'	protein_id
 '^[A-Z][A-Z][A-Z][0-9][0-9][0-9][0-9][0-9]\.[0-9]*$'	protein_id
 '^gi\|.*\|(gb|emb|dbj)\|.*\|'	protein_id
-<<<<<<< HEAD
 '^ENSG[0-9]{11}\.*[0-9]*$'	Ens_Hs_gene
 '^ENST[0-9]{11}\.*[0-9]*$'	Ens_Hs_transcript
 '^ENSP[0-9]{11}\.*[0-9]*$'	Ens_Hs_translation
@@ -64,47 +63,6 @@
 '^ENSTTRT[0-9]{11}\.*[0-9]*$'	Ens_Tt_transcript
 '^ENSTTRP[0-9]{11}\.*[0-9]*$'	Ens_Tt_translation
 '^ENSTRUP[0-9]{11}\.*[0-9]*$'	Ens_Fr_translation
-=======
-'^ENSG[0-9]{11}$'	Ens_Hs_gene
-'^ENST[0-9]{11}$'	Ens_Hs_transcript
-'^ENSP[0-9]{11}$'	Ens_Hs_translation
-'^ENSMUSG[0-9]{11}$'	Ens_Mm_gene
-'^ENSMUST[0-9]{11}$'	Ens_Mm_transcript
-'^ENSMUSP[0-9]{11}$'	Ens_Mm_translation
-'^ENSECAG[0-9]{11}$'	Ens_Ec_gene
-'^ENSECAT[0-9]{11}$'	Ens_Ec_transcript
-'^ENSECAP[0-9]{11}$'	Ens_Ec_translation
-'^ENSBTAG[0-9]{11}$'	Ens_Bt_gene
-'^ENSBTAT[0-9]{11}$'	Ens_Bt_transcript
-'^ENSBTAP[0-9]{11}$'	Ens_Bt_translation
-'^ENSCAFG[0-9]{11}$'	Ens_Cf_gene
-'^ENSCAFT[0-9]{11}$'	Ens_Cf_transcript
-'^ENSCAFP[0-9]{11}$'	Ens_Cf_translation
-'^ENSGALG[0-9]{11}$'	Ens_Gg_gene
-'^ENSGALT[0-9]{11}$'	Ens_Gg_transcript
-'^ENSGALP[0-9]{11}$'	Ens_Gg_translation
-'^ENSRNOG[0-9]{11}$'	Ens_Rn_gene
-'^ENSRNOP[0-9]{11}$'	Ens_Rn_translation
-'^ENSRNOT[0-9]{11}$'	Ens_Rn_transcript
-'^ENSMODG[0-9]{11}$'	Ens_Md_gene
-'^ENSORLG[0-9]{11}$'	Ens_Ol_gene
-'^ENSDART[0-9]{11}$'	Ens_Dr_transcript
-'^ENSDARP[0-9]{11}$'	Ens_Dr_translation
-'^ENSGACP[0-9]{11}$'	Ens_Ga_translation
-'^ENSSSCP[0-9]{11}$'	Ens_Ss_translation
-'^ENSMGAG[0-9]{11}$'	Ens_Mg_gene
-'^ENSMGAT[0-9]{11}$'	Ens_Mg_transcript
-'^ENSMGAP[0-9]{11}$'	Ens_Mg_translation
-'^ENSTGUT[0-9]{11}$'	Ens_Tg_transcript
-'^ENSTGUP[0-9]{11}$'	Ens_Tg_translation
-'^ENSSTOT[0-9]{11}$'	Ens_St_transcript
-'^ENSFCAT[0-9]{11}$'	Ens_Fc_transcript
-'^ENSFCAP[0-9]{11}$'	Ens_Fc_translation
-'^ENSTTRG[0-9]{11}$'	Ens_Tt_gene
-'^ENSTTRT[0-9]{11}$'	Ens_Tt_transcript
-'^ENSTTRP[0-9]{11}$'	Ens_Tt_translation
-'^ENSTRUP[0-9]{11}$'	Ens_Fr_translation
->>>>>>> dev/hive_cdna
 '^GSTEN.*'	Genoscope_pred_translation
 '^NEWSINF.*'	IMCB_Tr_gene
 '^NC_[0-9]{6}$'	RefSeq_genomic
@@ -121,11 +79,7 @@
 '^gi\|.*\|ref\|XP'	RefSeq_peptide_predicted
 '^NR_[0-9]{6}$'	RefSeq_rna
 '^NR_[0-9]{6}\.[0-9]+$'	RefSeq_rna
-<<<<<<< HEAD
 '^OTTDARP[0-9]{11}\.*[0-9]*$'	Vega_translation
-=======
-'^OTTDARP[0-9]{11}$'	Vega_translation
->>>>>>> dev/hive_cdna
 '^CE[0-9]{5}$'	wormpep_id
 '^cr01\..*wum.*'	Renamei pepTODO
 '^JAM_'	Xenopus_Jamboree
@@ -143,9 +97,5 @@
 '^SelU[a-d]$'	TakRub_seleno_annotation
 '^f[A-Z].*'	TakRub_annotation
 '^Fugu.*'	TakRub_annotation
-<<<<<<< HEAD
 '^ENSACAP[0-9]{11}\.*[0-9]*$'	Ens_Ac_translation
 '^IMGT$'	IMGT/GENE_DB
-=======
-'^ENSACAP[0-9]{11}$'	Ens_Ac_translation
->>>>>>> dev/hive_cdna
