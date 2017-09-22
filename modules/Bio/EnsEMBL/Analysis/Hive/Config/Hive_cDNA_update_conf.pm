@@ -80,8 +80,7 @@ sub default_options {
 
     'refseq_version' => '', # look at the refseq home page to get the latest version, this will go into the cDNA database
 
-    'exonerate_version' => 'exonerate-0.9.0', # This is unlikely to change any time soon
-
+    'exonerate_path'             => catfile($self->o('software_base'), 'opt', 'exonerate09', 'bin', 'exonerate'),
 
 ##########################################################################
 #                                                                        #
@@ -123,24 +122,19 @@ sub default_options {
     'optimise_mem'               => '11900',
     'download_mem'               => '8000',
 
-    'exonerate_path'             => catfile($self->o('software_base'), 'opt', 'exonerate09', 'bin', 'exonerate'),
     'exonerate_pid'              => '97',
     'exonerate_cov'              => '90',
+    'exonerate_version' => '0.9.0', # This is unlikely to change any time soon
 
+    'polyA_script'               => catfile($self->o('enscode_root_dir').'', 'ensembl-analysis', 'scripts', 'cdna_update', 'polyA_clipping.pl'),
+    'delete_genes_script'        => catfile($self->o('enscode_root_dir').'', 'ensembl-analysis', 'scripts', 'genebuild', 'delete_genes.pl'),
+    'findN_script'               => catfile($self->o('enscode_root_dir').'', 'ensembl-analysis', 'scripts', 'cdna_update', 'find_N.pl'),
     'optimize_script'            => catfile($self->o('enscode_root_dir').'', 'ensembl-analysis', 'scripts', 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
 
-    'polyA_script'               => catfile($self->o('enscode_root_dir').'', 'ensembl-pipeline', 'scripts', 'EST', 'new_polyA_clipping.pl'),
-
-    'delete_genes_script'        => catfile($self->o('enscode_root_dir').'', 'ensembl-analysis', 'scripts', 'genebuild', 'delete_genes.pl'),
-
+    'analysis_desc_script'       => catfile($self->o('enscode_root_dir').'', 'ensembl-production', 'scripts', 'production_database', 'populate_analysis_description.pl'),
     'populate_production_script' => catfile($self->o('enscode_root_dir').'', 'ensembl-production', 'scripts', 'production_database', 'populate_production_db_tables.pl'),
 
-    'findN_script'               => catfile($self->o('enscode_root_dir').'', 'ensembl-pipeline', 'scripts', 'cDNA_update', 'find_N.pl'),
-
-    'analysis_desc_script'       => catfile($self->o('enscode_root_dir').'', 'ensembl-production', 'scripts', 'production_database', 'populate_analysis_description.pl'),
-
     'meta_level_script'          => catfile($self->o('enscode_root_dir').'', 'ensembl', 'misc-scripts', 'meta_levels.pl'),
-
     'meta_coord_script'          => catfile($self->o('enscode_root_dir').'', 'ensembl', 'misc-scripts', 'meta_coord', 'update_meta_coord.pl'),
 
     'old_cdna_db_server' => 'mysql-ensembl-mirror',
