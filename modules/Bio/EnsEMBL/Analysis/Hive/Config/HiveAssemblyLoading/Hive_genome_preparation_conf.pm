@@ -98,6 +98,8 @@ sub default_options {
 'contigs_source' => 'ncbi',
 'primary_assembly_dir_name' => 'Primary_Assembly',
 
+'ensembl_release' => $ENV{ENSEMBL_RELEASE},
+
 ########################
 # db info
 ########################
@@ -123,7 +125,7 @@ sub default_options {
   -host   => 'ens-staging1',
   -port   => 3306,
   -user   => 'ensro',
-  -dbname => 'ensembl_production',
+  -dbname => 'ensembl_production_'.$self->o('ensembl_release'),
 },
 
 'taxonomy_db' => {

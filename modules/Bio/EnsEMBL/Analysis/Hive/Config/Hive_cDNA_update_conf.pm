@@ -46,7 +46,7 @@ sub default_options {
 
     'species'                    => '', # either mouse or human
 
-    'ensembl_release' => '', # What release are you doing this for?
+    'ensembl_release' => $ENV{ENSEMBL_RELEASE}, # What release are you doing this for?
 
     'complete_update' => 0, # set this as 1 or 0. Usually we'll probably only be adding alignments from new cDNAs and removing retired ones so you want to set this to 0
 
@@ -144,7 +144,7 @@ sub default_options {
     'killlist_db_server' => 'mysql-ens-genebuild-prod-6.ebi.ac.uk',
     'killlist_db_port' => '4532',
 
-    'production_db_name' => 'ensembl_production',
+    'production_db_name' => 'ensembl_production_'.$self->o('ensembl_release'),
     'production_db_server' => 'mysql-ens-sta-1',
     'production_db_port' => '4519',
 

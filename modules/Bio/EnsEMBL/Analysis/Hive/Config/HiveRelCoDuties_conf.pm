@@ -145,7 +145,7 @@ sub default_options {
             -driver => $self->o('staging2_db', '-driver'),
         },
         production_db => {
-            -dbname => 'ensembl_production',
+            -dbname => 'ensembl_production_'.$self->o('release'),
             -host   => $self->o('staging1_db', '-host'),
             -port   => $self->o('staging1_db', '-port'),
             -user   => $self->o('user_r'),

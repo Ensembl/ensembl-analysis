@@ -187,6 +187,8 @@ sub default_options {
 'user' => 'ensro',
 'killlist_dbname' => 'gb_kill_list',
 
+'ensembl_release' => $ENV{ENSEMBL_RELEASE},
+
 'pipeline_db' => {
   -dbname => $self->o('farm_user_name').'_'.$self->o('species_name').'_pipe',
   -host   => $self->o('pipe_db_server'),
@@ -293,7 +295,7 @@ sub default_options {
   -host   => 'ens-staging1',
   -port   => 3306,
   -user   => 'ensro',
-  -dbname => 'ensembl_production',
+  -dbname => 'ensembl_production_'.$self->o('ensembl_release'),
 },
 
 'taxonomy_db' => {
