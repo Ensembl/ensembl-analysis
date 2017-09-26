@@ -915,79 +915,8 @@ sub send_email {
 sub align_proteins {
   my ($source_protein_seq,$target_protein_seq) = @_;
 
-  my $align_input_file = "/tmp/align_".$$.".fa";
-  my $align_output_file = "/tmp/align_".$$.".aln";
-
-  open(INPUT,">".$align_input_file);
-  say INPUT ">query";
-  say INPUT $source_protein_seq;
-  say INPUT ">target";
-  say INPUT $target_protein_seq;
-  close INPUT;
-
-  my $align_program_path = 'muscle';
-
-  my $cmd = $align_program_path." -in ".$align_input_file." -out ".$align_output_file;
-  my $result = system($cmd);
-
-  if ($result) {
-    throw("Got a non-zero exit code from alignment. Command line used:\n".$cmd);
-  }
-
-  my $file = "";
-  open(ALIGN,$align_output_file);
-  while (<ALIGN>) {
-    $file .= $_;
-  }
-  close ALIGN;
-
-  if ($file !~ /\>.+\n(([^>]+\n)+)\>.+\n(([^>]+\n)+)/) {
-    throw("Could not parse the alignment file for the alignment sequences. Alignment file: ".$align_output_file);
-  }
-
-  my $aligned_source_protein_seq = $1;
-  my $aligned_target_protein_seq = $3;
-
-  $aligned_source_protein_seq =~ s/\n//g;
-  $aligned_target_protein_seq =~ s/\n//g;
-
-  `rm $align_input_file`;
-  `rm $align_output_file`;
-
-  # Work out coverage
-  my $coverage;
-  my $temp = $aligned_target_protein_seq;
-  my $projected_gap_count = $temp =~ s/\-//g;
-  my $ungapped_source_protein_seq = $aligned_source_protein_seq;
-  $ungapped_source_protein_seq  =~ s/\-//g;
-
-  if (length($ungapped_source_protein_seq) == 0) {
-    $coverage = 0;
-  } else {
-    $coverage = 100-(($projected_gap_count/length($ungapped_source_protein_seq))*100);
-  }
-
-  # Work out percent identity
-  my $match_count = 0;
-  my $aligned_positions = 0;
-  for (my $j = 0; $j < length($aligned_source_protein_seq); $j++) {
-    my $char_query = substr($aligned_source_protein_seq,$j,1);
-    my $char_target = substr($aligned_target_protein_seq,$j,1);
-    if ($char_query eq '-' || $char_target  eq '-') {
-      next;
-    }
-    if ($char_query eq $char_target) {
-      $match_count++;
-    }
-    $aligned_positions++;
-  }
-
-  if ($aligned_positions <= 0) {
-    throw("Pairwise alignment between the query protein sequence and the target protein sequence shows zero aligned positions. Something has gone wrong.");
-  }
-  my $percent_id = ($match_count/$aligned_positions)*100;
-  $coverage = sprintf "%.2f", $coverage;
-  $percent_id = sprintf "%.2f", $percent_id;
+  my (undef,undef,$coverage,$percent_id) = align_proteins_with_alignment($source_protein_seq,$target_protein_seq);
+  
   return ($coverage,$percent_id);
 }
 
@@ -999,7 +928,7 @@ sub align_proteins {
   Function  : It aligns the source protein sequence to the target protein sequence to
               calculate the coverage and the percent identity of the source against the target.
   Returntype: List containing (aligned_source_protein_seq,aligned_target_protein_seq,coverage,percent_identity) i.e. (82.7%,91.22%)
-  Examples  : align_proteins("ADCDA","ADCTM");
+  Examples  : align_proteins_with_alignment("ADCDA","ADCTM");
   
 =cut
 
