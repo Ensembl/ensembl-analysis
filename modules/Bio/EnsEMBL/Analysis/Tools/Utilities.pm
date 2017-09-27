@@ -81,6 +81,7 @@ our @EXPORT_OK = qw(
               hrdb_get_dba
               convert_to_ucsc_name
               align_proteins
+              align_proteins_with_alignment
               locate_executable
               first_upper_case
               execute_with_wait
