@@ -187,6 +187,8 @@ sub fetch_input {
   # set up the query (est/cDNA/protein)
   ##########################################
   my $iid_type = $self->param('iid_type');
+  my $timer = $self->param('timer');
+  #$timer = parse_timer($timer);
   my ($query_file,$chunk_number,$chunk_total);
   unless($iid_type) {
     $self->throw("You haven't provided an input id type. Need to provide one via the 'iid_type' param");
@@ -275,7 +277,8 @@ sub fetch_input {
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
               -biotypes => $biotypes_hash,
-              %parameters,
+              -timer => $timer,
+               %parameters,
               );
 
       if (ref($query_file) eq 'ARRAY') {
@@ -299,9 +302,25 @@ sub run {
   foreach my $runnable (@{$self->runnable}){
     # This is to catch the closing exonerate errors, which we currently have no actual solution for
     # It seems to be more of a problem with the exonerate code itself
-    $runnable->run;
+    $self->runnable_failed(0);
+    eval {
+      $runnable->run;
+    };
 
-    push ( @results, @{$runnable->output} );
+    if($@) {
+      my $except = $@;
+      $self->runnable_failed(1);
+      if($except =~ /Error closing exonerate command/) {
+        warn("Error closing exonerate command, this input id was not analysed successfully:\n".$self->input_id);
+      } elsif($except =~ /still running after your timer/) {
+        warn("Exonerate took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
+        $self->param('_branch_to_flow_to_on_fail',-2);
+      } else {
+        $self->warning("Issue with running Exonerate, will dataflow input id on branch -3. Exception:\n".$except);
+      }
+    } else {
+      push ( @results, @{$runnable->output} );
+    }
   }
   if ($self->USE_KILL_LIST) {
     unlink $self->filtered_query_file;
@@ -322,32 +341,43 @@ sub write_output {
 
   my $outdb = $self->hrdb_get_con('target_db');
   my $gene_adaptor = $outdb->get_GeneAdaptor;
-
-  my @output = @{$self->param('output_genes')};
-  $self->param('output_genes',undef);
-  my $fails = 0;
-  my $total = 0;
-
-  if (scalar(@output) == 0){
+  if($self->runnable_failed == 1) {
+    # Flow out on -2 or -3 based on how the failure happened
+    my $failure_branch_code = $self->param('_branch_to_flow_to_on_fail');
     my $output_hash = {};
     $output_hash->{'iid'} = $self->param('iid');
-    $self->dataflow_output_id($output_hash,2);
-  }
-  else {
-    foreach my $gene (@output){
-      empty_Gene($gene);
-      eval {
-        $gene_adaptor->store($gene);
-      };
-      if ($@){
-        $self->warning("Unable to store gene!!\n$@");
-        $fails++;
+    $self->dataflow_output_id($output_hash,$failure_branch_code);
+  } else {
+    # Store results as normal
+    my @output = @{$self->param('output_genes')};
+    $self->param('output_genes',undef);
+    my $fails = 0;
+    my $total = 0;
+
+    if (scalar(@output) == 0){
+      my $output_hash = {};
+      $output_hash->{'iid'} = $self->param('iid');
+      $self->dataflow_output_id($output_hash,2);
+    } else {
+      foreach my $gene (@output){
+        empty_Gene($gene);
+        eval {
+          $gene_adaptor->store($gene);
+        };
+        if ($@){
+          $self->warning("Unable to store gene!!\n$@");
+          $fails++;
+        }
+        $total++;
       }
-      $total++;
-    }
-    if ($fails > 0){
-      $self->throw("Not all genes could be written successfully " .
+      if ($fails > 0){
+        $self->throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
+      }
+      if($self->files_to_delete()) {
+        my $files_to_delete = $self->files_to_delete();
+        `rm $files_to_delete`;
+      }
     }
   }
 }
@@ -413,6 +443,14 @@ sub make_genes{
 }
 
 ############################################################
+
+sub runnable_failed {
+  my ($self,$runnable_failed) = @_;
+  if (defined $runnable_failed) {
+    $self->param('_runnable_failed',$runnable_failed);
+  }
+  return ($self->param('_runnable_failed'));
+}
 
 sub get_chr_names{
   my ($self) = @_;

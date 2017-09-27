@@ -21,7 +21,7 @@ use warnings;
 use feature 'say';
 
 
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
+#use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -97,7 +97,7 @@ sub find_many_hits {
   }
 
   if ($many_hits_flag) {
-    print(  "\nIt might be worth investigating these sequences to "
+     $self->throw ("\nIt might be worth investigating these sequences to "
           . "see whether these are likely to be genuine hits.\n"
           . "If we don't want them in the database you "
           . "should add them to the kill list\n\n" );

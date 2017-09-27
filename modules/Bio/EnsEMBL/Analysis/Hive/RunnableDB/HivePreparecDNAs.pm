@@ -21,7 +21,7 @@ use warnings;
 use feature 'say';
 
 
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
+#use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -36,7 +36,7 @@ sub run {
 
   my $query_hash = $self->param('prepare_seqs');
   my $output_path = $query_hash->{'dest_dir'};
-  my $gss_file = $query_hash->{'gss_file'};
+  #my $gss_file = $query_hash->{'gss_file'};
   my $embl_file = $query_hash->{'embl_file'};
   my $refseq_file = $query_hash->{'refseq_file'};
   my $polyA_script = $query_hash->{'polyA_script'};
@@ -45,11 +45,11 @@ sub run {
 
   $self->fix_headers($embl_file,$refseq_file,$output_path,$cdna_file,$species);
 
-  $self->remove_kill_list_object($cdna_file,$output_path,$gss_file);
+  $self->remove_kill_list_object($cdna_file,$output_path);
   say "Finished removing kill-list objects";
 
   print $output_path, "\n";
-  $self->polyA_clipping($polyA_script,$cdna_file,$output_path,$gss_file);
+  $self->polyA_clipping($polyA_script,$cdna_file,$output_path);
   say "Finished clipping polyA tails";
 
   return 1;
@@ -64,27 +64,27 @@ sub fix_headers {
   my ($self,$embl_file,$refseq_file,$output_path,$cdna_file,$species) = @_;
   local $/ = "\n>";
   open( CF, ">", $output_path . "/" . $cdna_file ) or die "can't create $cdna_file\n";
-  #open( EF, "<", $output_path . "/" . $embl_file ) or die "can't read $embl_file\n";
+  open( EF, "<", $output_path . "/" . $embl_file ) or die "can't read $embl_file\n";
   
   my $header;
 
   # read EMBL file
-  #while ( my $entry = <EF> ) {
-  #  # Need this to include the first record when using $/='\n>'
-  #  $entry =~ s/^>//;
-  #  # Extract & save id
-  #  $entry =~ s/^([\w\.\d]+)\s.*\n{1}?/$1\n/;
-  #  if ( !$1 ) {
-  #     say "\nunmatched id pattern:\n$entry";
-  #  }
-  #  # Re-write fasta entry
-  #  $entry =~ s/\>//g;
-  #  print CF '>' . $entry;
-  #}
-  #close(EF);
+  while ( my $entry = <EF> ) {
+    # Need this to include the first record when using $/='\n>'
+    $entry =~ s/^>//;
+    # Extract & save id
+    $entry =~ s/^([\w\.\d]+)\s.*\n{1}?/$1\n/;
+    if ( !$1 ) {
+       say "\nunmatched id pattern:\n$entry";
+    }
+    # Re-write fasta entry
+    $entry =~ s/\>//g;
+    print CF '>' . $entry;
+  }
+  close(EF);
   # Just to avoid a missing \n
-  #print CF "\n";
-  #print("\nRead EMBL file.\n");
+  print CF "\n";
+  print("\nRead EMBL file.\n");
 
   # Read RefSeq file
   open( RF, "<", $output_path . "/" . $refseq_file ) or die "can't read $refseq_file\n";
@@ -92,9 +92,9 @@ sub fix_headers {
     # Need this to include the first record when using $/='\n>'
     # we're not using 'predicted' XM entries for now
     $entry =~ s/^>//;
-    if ( $entry =~ m/^gi.+ref\|(NM_.+)\| Homo sapiens.*/ ) {
+    if ( $entry =~ m/^ref\|(NM_.+)\| Homo sapiens.*/ || $entry =~ m/^ref\|(NM_.+)\| Mus musculus.*/ ) {
       $header = $1;
-    } elsif ( $entry =~ m/^gi.+ref\|(NR_.+)\| Homo sapiens.*/ ) {
+    } elsif ( $entry =~ m/^ref\|(NR_.+)\| Homo sapiens.*/ || $entry =~ m/^ref\|(NR_.+)\| Mus musculus.*/ ) {
       $header = $1;
     } else {
       next;
@@ -102,7 +102,7 @@ sub fix_headers {
     $entry =~ s/\>//g;
     if ($header) {
       # Reduce header to accession number
-      $entry =~ s/^gi.+\n{1}?/$header\n/g;
+      $entry =~ s/^ref.+\n{1}?/$header\n/g;
       print CF '>' . $entry;
     }
   }
@@ -112,18 +112,18 @@ sub fix_headers {
 }
 
 sub remove_kill_list_object {
-  my ($self,$newfile,$output_path,$GSS) = @_;
+  my ($self,$newfile,$output_path) = @_;
   require Bio::EnsEMBL::KillList::KillList;
   my $kill_list_object = Bio::EnsEMBL::KillList::KillList->new( -TYPE => 'cdna_update' );
   my %kill_list = %{ $kill_list_object->get_kill_list() };
 
-  open( LIST, "<", $GSS ) or die "can't open gss list $GSS";
-  my %gss;
-  while (<LIST>) {
-    my @tmp = split /\s+/, $_;
-    $gss{ $tmp[1] } = 1;
-  }
-  close LIST;
+  #open( LIST, "<", $GSS ) or die "can't open gss list $GSS";
+  #my %gss;
+  #while (<LIST>) {
+  #  my @tmp = split /\s+/, $_;
+  #  $gss{ $tmp[1] } = 1;
+  #}
+  #close LIST;
 
   # Go through file removing any seqs which appear on the kill list
   local $/ = "\n>";
@@ -143,7 +143,7 @@ sub remove_kill_list_object {
     if ( $tmp[0] =~ /(\w+)\./ ) {
       $acc = $1;
     }
-    if ( ( !exists $kill_list{$acc} ) && ( !exists $gss{$acc} ) ) {
+    if ((!exists $kill_list{$acc})) {# && ( !exists $gss{$acc} ) ) {
       print OUT ">$_";
     }
   }
@@ -160,15 +160,15 @@ sub polyA_clipping {
   # Clip ployA tails
   print("\nPerforming polyA clipping...\n");
   my $newfile3 = $output_path . "/" . $trim_file. ".clipped";
-  my $cmd = "perl \$" . $POLYA_CLIPPING . " " ;
-  $cmd.="-errfile $output_path/polyA.err ";
+  my $cmd = "perl " . $POLYA_CLIPPING . " " ;
+  $cmd.="-readfile " . $output_path . "/" . $trim_file . ".seqs -outfile " . $output_path . "/" . $trim_file . ".clipped" ;
   #if ( $MIN_LENGTH ) {
   #   $cmd.="-min_length $MIN_LENGTH ";
   #}
-  $cmd .=  $output_path . "/" . $trim_file . " " . $newfile3;
+  #$cmd .=  $output_path . "/" . $trim_file . " " . $newfile3;
 
-  $cmd = 'bsub -I -q yesterday -M1000 -R"select[mem>1000] rusage[mem=1000]" "'.$cmd.'"';
-  print $cmd, "\n";
+  #$cmd = 'bsub -I -q yesterday -M1000 -R"select[mem>1000] rusage[mem=1000]" "'.$cmd.'"';
+  #print $cmd, "\n";
 
   system($cmd);
   #  die"Couldn't clip file.$@\n";
