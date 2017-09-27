@@ -1386,7 +1386,7 @@ sub pipeline_analyses {
                                                                             g.biotype LIKE "TR\_%")
                                          ',
                                          'UPDATE gene g SET g.biotype=REPLACE(g.biotype,"_","_D_")
-                                                                     WHERE (g.description LIKE "%diversity%")
+                                                                     WHERE (g.description LIKE "%diversity%" or g.description LIKE "T cell receptor beta, D%")
                                                                            AND
                                                                            (g.biotype LIKE "IG\_%" OR
                                                                             g.biotype LIKE "TR\_%")
