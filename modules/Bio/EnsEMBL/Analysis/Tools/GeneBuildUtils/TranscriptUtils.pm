@@ -60,7 +60,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(print_Exon clone
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::IntronUtils qw(intron_length_less_than_maximum get_splice_sites);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(seq_region_coord_string id empty_Object);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils qw (print_Evidence clone_Evidence);
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile align_proteins_with_alignment);
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Translation;
@@ -123,6 +123,7 @@ our @EXPORT_OK = qw(
              trim_cds_to_whole_codons
              Transcript_info
              has_polyA_signal
+             set_alignment_supporting_features
             );
 
 
@@ -3025,6 +3026,290 @@ sub has_polyA_signal {
   $regex =~ 'A[AG]TA{3}.{0,30}$' if ($lenient);
 
   return $transcript->end_Exon->seq->seq =~ /$regex/;
+}
+
+=head2 set_alignment_supporting_features
+
+ Arg [1]    : Bio::EnsEMBL::Transcript object
+ Arg [2]    : string. Alignment query DNA sequence.
+ Arg [3]    : string. Alignment target DNA sequence.
+ Description: 
+  This sets supporting features for all exons. It does this by comparing all non-split codons in the exons to their corresponding positions in the alignment.
+  For each non-split codon, it makes a feature pair where the start and end are the codon start and end and the
+  hit start and end is the position of the corresponding query sequence amino acid in the UNGAPPED version of the
+  query sequence. So it 1) Finds the codon in the alignment 2) Finds the index of the corresponding query amino acid in the unaligned query.
+  Once codons that have support have had the corresponding hit start and end worked out, it then joins then together
+  It does this in a simple way, as the proto feature pairs are already in codon by codon order it just looks at consecutive ones and checks that they are from adjacent codons. If they are it then checks if the hit end of the first is directly beside the hit start of the second. If they are then the left proto-feature pair is deleted and the right one is extended to encompass the left one. This repeats for as long as possible to build maximum lenght feature pairs
+  In the cases where there is a gap in the query, there will be no proto SF for the corresponding codon.
+  In the case where there is a gap in the target (genome), the hit start and hit ends will not be side by side and thus not joined together.
+  By following this an exon might have several feature pairs, some might be side by side and unjoined, some might be on either side of codons with no feature pairs. Often there is just one long feature pair covering all non-split codons in the exon.
+  All of the feature pairs on an exon are then passing into a single object (DnaPepAlignFeature). By doing this the API will automatically work out the cigar strings for each exon. By looking at gaps between the feature pairs and at feature pairs that are adjacent but the hit end/start are not adjacent it will model the indels across the exon.
+  For the transcript supporting feature you need to add every individual feature pair into an array ref and add to a DnaPepAlignFeature.
+ Returntype : N/A
+ Exceptions : Throws if Arg[1] is not a Bio::EnsEMBL::Transcript object
+
+=cut
+
+sub set_alignment_supporting_features {
+  my ($transcript,$query_seq,$target_seq) = @_;
+
+  if (!($transcript->isa('Bio::EnsEMBL::Transcript'))) {
+    throw('You need to pass a Bio::EnsEMBL::Transcript object not a "'.ref($transcript).'"')
+  }
+
+  # This will store all feature pairs in the end so that they can be added as a transcript supporting feature
+  my $all_exon_supporting_features = [];
+
+  my $coverage;
+  my $percent_id;
+  ($query_seq,$target_seq,$coverage,$percent_id) = align_proteins_with_alignment($query_seq,$target_seq);
+
+  # Add a stop to the alignment seqs. Basically this will allow me to ignore the final codon (which is a stop)
+  $query_seq .= '*';
+  $target_seq .= '*';
+
+  say "";
+  say "------------------------------------------------";
+  say "NEW TRANSCRIPT";
+  say "------------------------------------------------";
+
+  my $codon_index= 0;
+  my $exons = $transcript->get_all_Exons();
+  my $i=0;
+  for($i=0; $i<scalar(@{$exons}); $i++) {
+    my $proto_supporting_features = [];
+    my $exon = $$exons[$i];
+    my $exon_seq = $exon->seq->seq();
+    my @nucleotide_array = split('',$exon_seq);
+    my $phase = $exon->phase();
+    my $end_phase = $exon->end_phase();
+    my $start_index = 0;
+
+    say "";
+    say "------------------------------------------------";
+    say "NEW EXON";
+    say "------------------------------------------------";
+    say "FM2 ESTART: ".$exon->start;
+    say "FM2 EEND: ".$exon->end;
+    say "FM2 ESTRAND: ".$exon->strand;
+    say "FM2 EPHASE: ".$exon->phase;
+    say "FM2 EENDPHASE: ".$exon->end_phase;
+
+    # If the phase is not 0 then the first codon is a split one. The phase is then number of bases missing from
+    # the codon. so if you take the phase from 3 you get the number of bases in the split codon
+    if($phase) {
+      $start_index += (3 - $phase);
+    }
+
+    my @unjoined_feature_pairs = ();
+    for(my $k=$start_index; $k<scalar(@nucleotide_array); $k+=3) {
+
+     # Ending on a split codon, so increase the index and finish the loop
+     if($k+2 >= scalar(@nucleotide_array)) {
+        $codon_index++;
+        say "FM2 SKIPPING SPLIT CODON";
+        last;
+      }
+
+      my $target_start;
+      my $target_end;
+      if($exon->strand == 1) {
+         $target_start = $exon->start + $k;
+         $target_end = $target_start + 2;
+      } else {
+        $target_start = $exon->end - $k - 2;
+        $target_end = $target_start + 2;
+      }
+
+      # Now need to look at the alignment index for this codon. If there is a gap in the query sequence at that index
+      # then the codon should be skipped. If it isn't a gap at that codon position then
+      my $codon_alignment_index = find_codon_alignment_index($codon_index,$target_seq);
+
+      my $query_char = substr($query_seq,$codon_alignment_index,1);
+      my $target_char = substr($target_seq,$codon_alignment_index,1);
+      if($query_char eq '-') {
+        say "FM2 TSTART: ".$target_start;
+        say "FM2 TEND: ".$target_end;
+        say "FM2 CODON INDEX: ".$codon_index;
+        say "FM2 CODON ALIGNMENT INDEX: ".$codon_alignment_index;
+        say "FM2 CODON CHARS: '".$nucleotide_array[$k].$nucleotide_array[$k+1].$nucleotide_array[$k+2]."'";
+        say "FM2 ALIGNMENT CHARS: '".$query_char."'='".$target_char."'";
+        say "FM2 SKIPPING CODON BECAUSE OF ALIGMENT GAP";
+        $codon_index++;
+        next;
+      } elsif(($codon_alignment_index == length($query_seq)-1) && $query_char eq '*' && $target_char eq '*') {
+        say "FM2 LAST CODON IS STOP SO SKIPPING";
+        next;
+      }
+
+      my $hit_start = find_hit_start($codon_alignment_index,$query_seq);
+      my $hit_end = $hit_start;
+
+      say "FM2 TSTART: ".$target_start;
+      say "FM2 TEND: ".$target_end;
+      say "FM2 HSTART: ".$hit_start;
+      say "FM2 HEND: ".$hit_end;
+      say "FM2 CODON INDEX: ".$codon_index;
+      say "FM2 CODON ALIGNMENT INDEX: ".$codon_alignment_index;
+      say "FM2 CODON CHARS: '".$nucleotide_array[$k].$nucleotide_array[$k+1].$nucleotide_array[$k+2]."'";
+      say "FM2 ALIGNMENT CHARS: '".$query_char."'---'".$target_char."'";
+      $codon_index++;
+
+      push(@{$proto_supporting_features},{'tstart' => $target_start,
+                                          'tend'   => $target_end,
+                                          'hstart' => $hit_start,
+                                          'hend'   =>$hit_end});
+    }
+
+    say "\nQUERY:\n".$query_seq;
+    say "\nTARGET:\n".$target_seq;
+
+   my $joined_supporting_features = join_supporting_features($proto_supporting_features,$exon->strand);
+   my $exon_feature_pairs = [];
+   foreach my $joined_feature (@{$joined_supporting_features}) {
+     my $feature_pair = Bio::EnsEMBL::FeaturePair->new(
+                                                        -start      => $joined_feature->{'tstart'},
+                                                        -end        => $joined_feature->{'tend'},
+                                                        -strand     => $exon->strand,
+                                                        -hseqname   => $transcript->{'accession'},
+                                                        -hstart     => $joined_feature->{'hstart'},
+                                                        -hend       => $joined_feature->{'hend'},
+                                                        -hcoverage  => $coverage,
+                                                        -percent_id => $percent_id,
+                                                        -slice      => $exon->slice,
+                                                        -analysis   => $transcript->analysis);
+     say "FM2 ADD SUPPORTING EVIDENCE START: ".$feature_pair->start;
+     say "FM2 ADD SUPPORTING EVIDENCE END: ".$feature_pair->end;
+     push(@{$exon_feature_pairs},$feature_pair);
+     push(@{$all_exon_supporting_features},$feature_pair);
+   }
+
+    if(scalar(@{$exon_feature_pairs})) {
+      my $final_exon_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $exon_feature_pairs);
+       $exon->add_supporting_features($final_exon_supporting_features);
+    } else {
+      warning("No supporting features added for exon.\nExon start: ".$exon->start."\nExon end: ".$exon->end);
+    }
+
+  }
+
+  my $transcript_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $all_exon_supporting_features);
+  $transcript->add_supporting_features($transcript_supporting_features);
+
+}
+
+sub find_codon_alignment_index {
+  my ($codon_index,$align_seq) = @_;
+
+  my $align_index = -1;
+  my $char_count = 0;
+  for(my $j=0; $j<length($align_seq); $j++) {
+    my $char = substr($align_seq,$j,1);
+
+    if($char eq '-') {
+      next;
+    }
+
+    if($char_count == $codon_index) {
+      $align_index = $j;
+      last;
+    }
+
+    $char_count++;
+
+  }
+
+  # For the last codon
+  if($align_index == -1 && $char_count == $codon_index) {
+    $align_index = length($align_seq) - 1;
+  }
+
+  unless($align_index >= 0) {
+    throw("Did not find the alignment index for the codon");
+  }
+
+  return($align_index);
+}
+
+sub find_hit_start {
+  my ($alignment_index,$align_seq) = @_;
+
+  my $sub_seq = substr($align_seq,0,$alignment_index + 1);
+  $sub_seq =~ s/\-//g;
+
+  my $hit_start = length($sub_seq);
+
+  return($hit_start);
+}
+
+sub join_supporting_features {
+  my ($proto_supporting_features,$strand) = @_;
+
+  # At this point all supporting features for the exon have been built on a per codon basis. Before making
+  # a feature pair we want to combine adjacent supporting features. If both the genomic end of the left
+  # feature matches the genomic start - 1 of the next then they can be joined if the hit end of the first
+  # is hit start - 1 of the next
+
+  my $joined_supporting_features = [];
+  if($strand == 1) {
+    for(my $i=0; $i<scalar(@{$proto_supporting_features})-1; $i++) {
+      my $left_proto = $$proto_supporting_features[$i];
+      my $right_proto = $$proto_supporting_features[$i+1];
+
+      if($left_proto->{'tend'} == ($right_proto->{'tstart'} - 1)) {
+        if($left_proto->{'hend'} == ($right_proto->{'hstart'} - 1)) {
+          # If this is the case then the codons and hits are contiguous and so they can be joined
+          $right_proto->{'tstart'} = $left_proto->{'tstart'};
+          $right_proto->{'hstart'} = $left_proto->{'hstart'};
+          $$proto_supporting_features[$i] = 0;
+          $$proto_supporting_features[$i+1] = $right_proto;
+        }
+      }
+    }
+  } else {
+    for(my $i=scalar(@{$proto_supporting_features})-1; $i>0; $i--) {
+      my $left_proto = $$proto_supporting_features[$i];
+      my $right_proto = $$proto_supporting_features[$i-1];
+
+      say "FM2 PROTO LTS: ".$left_proto->{'tstart'};
+      say "FM2 PROTO LTE: ".$left_proto->{'tend'}; 
+      say "FM2 PROTO LHS: ".$left_proto->{'hstart'};
+      say "FM2 PROTO LHE: ".$left_proto->{'hend'};
+      say "FM2 PROTO RTS: ".$right_proto->{'tstart'};
+      say "FM2 PROTO RTE: ".$right_proto->{'tend'};
+      say "FM2 PROTO RHS: ".$right_proto->{'hstart'};
+      say "FM2 PROTO RHE: ".$right_proto->{'hend'};
+
+      if($left_proto->{'tend'} == ($right_proto->{'tstart'} - 1)) {
+        if($left_proto->{'hend'} == ($right_proto->{'hstart'} + 1)) {
+          # If this is the case then the codons and hits are contiguous and so they can be joined
+          $right_proto->{'tstart'} = $left_proto->{'tstart'};
+          $right_proto->{'hstart'} = $left_proto->{'hstart'};
+          $$proto_supporting_features[$i] = 0;
+          $$proto_supporting_features[$i-1] = $right_proto;
+        }
+      }
+    }
+  }
+  foreach my $proto_sf (@{$proto_supporting_features}) {
+    if($proto_sf) {
+      say "FM2 JOINED TSTART: ".$proto_sf->{'tstart'};
+      say "FM2 JOINED TEND: ".$proto_sf->{'tend'};
+      say "FM2 JOINED HSTART: ".$proto_sf->{'hstart'};
+      say "FM2 JOINED HEND: ".$proto_sf->{'hend'};
+
+      # If it's the negative strand then swap the start and end of the hit
+      if($strand == -1) {
+        my $temp = $proto_sf->{'hstart'};
+        $proto_sf->{'hstart'} = $proto_sf->{'hend'};
+        $proto_sf->{'hend'} = $temp;
+      }
+      push(@{$joined_supporting_features},$proto_sf);
+    }
+  }
+
+  return($joined_supporting_features);
+
 }
 
 1;
