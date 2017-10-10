@@ -20,10 +20,9 @@ use strict;
 use warnings;
 use feature 'say';
 
+use Bio::EnsEMBL::KillList::KillList;
 
-#use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
-
 
 
 sub fetch_input {
@@ -36,7 +35,6 @@ sub run {
 
   my $query_hash = $self->param('prepare_seqs');
   my $output_path = $query_hash->{'dest_dir'};
-  #my $gss_file = $query_hash->{'gss_file'};
   my $embl_file = $query_hash->{'embl_file'};
   my $refseq_file = $query_hash->{'refseq_file'};
   my $polyA_script = $query_hash->{'polyA_script'};
@@ -113,7 +111,7 @@ sub fix_headers {
 
 sub remove_kill_list_object {
   my ($self,$newfile,$output_path) = @_;
-  require Bio::EnsEMBL::KillList::KillList;
+
   my $kill_list_object = Bio::EnsEMBL::KillList::KillList->new( -TYPE => 'cdna_update' );
   my %kill_list = %{ $kill_list_object->get_kill_list() };
 
@@ -162,29 +160,8 @@ sub polyA_clipping {
   my $newfile3 = $output_path . "/" . $trim_file. ".clipped";
   my $cmd = "perl " . $POLYA_CLIPPING . " " ;
   $cmd.="-readfile " . $output_path . "/" . $trim_file . ".seqs -outfile " . $output_path . "/" . $trim_file . ".clipped" ;
-  #if ( $MIN_LENGTH ) {
-  #   $cmd.="-min_length $MIN_LENGTH ";
-  #}
-  #$cmd .=  $output_path . "/" . $trim_file . " " . $newfile3;
-
-  #$cmd = 'bsub -I -q yesterday -M1000 -R"select[mem>1000] rusage[mem=1000]" "'.$cmd.'"';
-  #print $cmd, "\n";
 
   system($cmd);
-  #  die"Couldn't clip file.$@\n";
-  #}
-
-  # Split fasta files, store into CHUNKDIR
-#    print("Splitting fasta file.\n");
-#    $cmd = "$FASTA_SPLIT $newfile3 $CHUNK $chunkDIR";
-#    if ( system($cmd) ) {
-#        die "Couldn't split file.$@\n";
-#    }
-
-    # Isolate biggest sequences
-#    check_chunksizes();
-
-#    print "\nChopped up the file.\n";
 }
 
 1;

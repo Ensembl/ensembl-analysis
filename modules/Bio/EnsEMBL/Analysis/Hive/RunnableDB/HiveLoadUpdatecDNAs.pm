@@ -111,12 +111,9 @@ sub fetch_input {
     my ($header) = $parser->getHeader() =~ /(\S+).*/;
     my $sequence = $parser->getSequence();
 
-    if ($seen_cdna {$header}) {
-      delete $seen_cdna {$header};
+    if (exists $seen_cdna{$header}) {
+      delete $seen_cdna{$header};
     } else {
-      my $output_hash = {};
-      $output_hash->{'iid'} = $header;
-
       my $db_row = [{
         'accession'  => $header,
         'seq'        => $sequence,
@@ -125,7 +122,6 @@ sub fetch_input {
       $table_adaptor->store($db_row);
 
       push(@iids, $header);
-      delete $seen_cdna {$header};
     }
   }
   # now get a list of the retired genes

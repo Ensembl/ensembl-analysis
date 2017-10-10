@@ -154,7 +154,7 @@ sub concat_refseq {
                                    );
 
       while (my $seq = $seq_file->next_seq) {
-        if ($seq->desc =~ /$binomial/) {
+        if ($seq->id =~ /^N[MR]_/ and $seq->desc =~ /$binomial/) {
           $seqout->write_seq($seq);
         }
       }
