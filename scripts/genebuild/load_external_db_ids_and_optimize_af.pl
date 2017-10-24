@@ -177,7 +177,7 @@ foreach my $type (@types) {
             throw("Could not dump $type table\n");
         }
         # check
-        $num_fixed = int(`wc -l $dumped_file | awk '{print \$1}'`);
+        $num_fixed = line_count($dumped_file);
         if ($num_ori != $num_fixed) {
           throw("The number of '$type' rows ($num_ori) does not match the number of dumped features ($num_fixed).");
         } else {
@@ -214,7 +214,7 @@ foreach my $type (@types) {
 
         print("Output files: $cfg_file and $cfg_log_file\n") if ($verbose);
 
-        my $num_logic_names = int(`grep Analysis $cfg_file | sort | uniq | wc -l | awk '{print \$1}'`);
+        my $num_logic_names = line_count("grep Analysis $cfg_file | sort | uniq | ");
         my $num_all_matched = int(`grep -c "GOOD - All acc matched a regular expression" $cfg_log_file`);
 
         if ($num_logic_names <= 0) {
@@ -236,7 +236,7 @@ foreach my $type (@types) {
         if (system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -q -e'SELECT * FROM $type where external_db_id IS NOT NULL and external_db_id != 0' >> $dump_fixed")) {
             throw("Could not dump $type rows where external_db_id is not null\n");
         }
-        $num_fixed = int(`wc -l $dump_fixed | awk '{print \$1}'`);
+        $num_fixed = line_count($dump_fixed);
         if ($num_ori != $num_fixed) {
             throw("The number of '$type' rows ($num_ori) does not match the number of external DB ID fixed features ($num_fixed).");
         } else {
@@ -264,7 +264,7 @@ foreach my $type (@types) {
         push(@files_to_delete, $tsf_dumped_file);
 # check
         my $num_tsf = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e"SELECT count(*) FROM transcript_supporting_feature WHERE feature_type = '$type'"`);
-        my $num_dumped_tsf = int(`wc -l $tsf_dumped_file | awk '{print \$1}'`);
+        my $num_dumped_tsf = line_count($tsf_dumped_file);
         if ($num_tsf != $num_dumped_tsf) {
           throw("The number of 'transcript_supporting_feature' rows ($num_tsf) does not match the number of dumped features ($num_dumped_tsf).");
         } else {
@@ -280,7 +280,7 @@ foreach my $type (@types) {
         push(@files_to_delete, $sf_dumped_file);
 # check
         my $num_sf = int(`mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e"SELECT count(*) FROM supporting_feature WHERE feature_type = '$type'"`);
-        my $num_dumped_sf = int(`wc -l $sf_dumped_file | awk '{print \$1}'`);
+        my $num_dumped_sf = line_count($sf_dumped_file);
         if ($num_sf != $num_dumped_sf) {
           throw("The number of 'supporting_feature' rows ($num_sf) does not match the number of dumped features ($num_dumped_sf).");
         } else {
@@ -294,10 +294,12 @@ foreach my $type (@types) {
         print("\n===== SORT $synonyms{$type} FILES =====\n") if ($verbose);
 
         print("\nSorting $dumped_file...\n") if ($verbose);
-        `sort -u $dumped_file > $dumped_file.unique`;
+        if (system("sort -u $dumped_file > $dumped_file.unique")) {
+          throw("Failed sorting $dumped_file.unique");
+        }
         push(@files_to_delete, $dumped_file.'.unique');
 
-        my $num_sorted_dumped = int(`wc -l $dumped_file.unique | awk '{print \$1}'`);
+        my $num_sorted_dumped = line_count("$dumped_file.unique");
         if ($num_sorted_dumped != $num_fixed) {
           throw("The number of sorted dumped features ($num_sorted_dumped) does not match the number of dumped features ($num_fixed) for $dumped_file.unique and $dumped_file");
         } else {
@@ -306,10 +308,12 @@ foreach my $type (@types) {
         }
 
         print("\nSorting $dumped_file.unique by seq_region_id, seq_region_start and seq_region_end...\n") if ($verbose);
-        `sort -nk2 -nk3 -nk4 $dumped_file.unique > $dumped_file.unique.sorted`;
+        if (system("sort -nk2 -nk3 -nk4 $dumped_file.unique > $dumped_file.unique.sorted")) {
+          throw("Failed sorting $dumped_file.unique.sorted");
+        }
         push(@files_to_delete, $dumped_file.'.unique.sorted');
 
-        my $num_resorted_dumped = int(`wc -l $dumped_file.unique.sorted | awk '{print \$1}'`);
+        my $num_resorted_dumped = line_count("$dumped_file.unique.sorted");
         if ($num_resorted_dumped != $num_sorted_dumped) {
           throw("The number of resorted dumped features ($num_resorted_dumped) does not match the number of sorted dumped features ($num_sorted_dumped) for $dumped_file.unique.sorted and $dumped_file.unique");
         } else {
@@ -335,7 +339,7 @@ foreach my $type (@types) {
         push(@files_to_delete, $fixed_tsf_file, $fixed_sf_file);
 # checks
         print("Checking tsf supporting evidence links...\n") if ($verbose);
-        my $num_fixed_tsf = int(`wc -l $fixed_tsf_file | awk '{print \$1}'`);
+        my $num_fixed_tsf = line_count($fixed_tsf_file);
         if ($num_fixed_tsf != $num_resorted_dumped) {
           throw("The number of fixed resorted dumped features ($num_fixed_tsf) does not match the number of resorted dumped features ($num_resorted_dumped) for $fixed_tsf_file and $dumped_file.unique.sorted");
         } else {
@@ -343,7 +347,7 @@ foreach my $type (@types) {
           print("Output file: $fixed_tsf_file\n") if ($verbose);
         }
 
-        my $num_tsf_fixed_tsf = int(`wc -l $tsf_fixed_tsf_file | awk '{print \$1}'`);
+        my $num_tsf_fixed_tsf = line_count($tsf_fixed_tsf_file);
         if ($num_tsf_fixed_tsf != $num_dumped_tsf) {
           throw("The number of fixed resorted dumped features ($num_tsf_fixed_tsf) does not match the number of resorted dumped features ($num_dumped_tsf) for $tsf_fixed_tsf_file and $tsf_dumped_file");
         } else {
@@ -353,10 +357,12 @@ foreach my $type (@types) {
         push(@files_to_delete, $tsf_fixed_tsf_file);
 
         print("\nFixing sf supporting evidence links...\n") if ($verbose);
-        `perl $fix_supporting_evidence_script -outdaf $fixed_sf_file -outsf $sf_fixed_sf_file -indaf $dumped_file.unique.sorted -insf $sf_dumped_file`;
+        if (system("perl $fix_supporting_evidence_script -outdaf $fixed_sf_file -outsf $sf_fixed_sf_file -indaf $dumped_file.unique.sorted -insf $sf_dumped_file")) {
+          throw("Could not execute $fix_supporting_evidence_script");
+        }
 # checks
         print("Checking sf supporting evidence links...\n") if ($verbose);
-        my $num_fixed_sf = int(`wc -l $fixed_sf_file | awk '{print \$1}'`);
+        my $num_fixed_sf = line_count($fixed_sf_file);
         if ($num_fixed_sf != $num_resorted_dumped) {
           throw("The number of fixed resorted dumped features ($num_fixed_sf) does not match the number of resorted dumped features ($num_resorted_dumped) for $fixed_sf_file and $dumped_file.unique.sorted");
         } else {
@@ -364,7 +370,7 @@ foreach my $type (@types) {
           print("Output file: $fixed_sf_file\n") if ($verbose);
         }
 
-        my $num_sf_fixed_sf = int(`wc -l $sf_fixed_sf_file | awk '{print \$1}'`);
+        my $num_sf_fixed_sf = line_count($sf_fixed_sf_file);
         if ($num_sf_fixed_sf != $num_dumped_sf) {
           throw("The number of fixed resorted dumped features ($num_sf_fixed_sf) does not match the number of dumped features ($num_dumped_sf) for $sf_fixed_sf_file and $sf_dumped_file");
         } else {
@@ -375,11 +381,17 @@ foreach my $type (@types) {
 
 # additional check
         print("\nChecking $fixed_tsf_file and $fixed_sf_file...\n") if ($verbose);
-        my $comm_check = int(`comm -12 $fixed_tsf_file $fixed_sf_file | wc -l | awk '{print \$1}'`);
+        my $comm_check = line_count("comm -12 $fixed_tsf_file $fixed_sf_file | ");
         if ($comm_check != $num_resorted_dumped) {
           throw("The files $fixed_tsf_file and $fixed_sf_file are not identical");
         } else {
           print("The files $fixed_tsf_file and $fixed_sf_file are identical. Great!\n") if ($verbose);
+        }
+
+        print("\n===== REPLACING ALL NULL WITH \\N =====\n") if ($verbose);
+        # sf and tsf file for the protein_align_feature table are the same
+        if (system("sed -i 's/NULL/\\\\N/g' $fixed_sf_file")) {
+            throw("Failed to replace NULL values");
         }
 # =====================================
 # DUMP dna_align_feature RELATIONSHIPS
@@ -394,7 +406,7 @@ foreach my $type (@types) {
         }
         push(@files_to_delete, $check_sf_old);
 
-        my $num_sf_old = int(`wc -l $check_sf_old | awk '{print \$1}'`);
+        my $num_sf_old = line_count($check_sf_old);
         if ($num_sf_old != $num_sf_fixed_sf) {
           throw("The $type - SF - exon relationships dump failed. Output file: $check_sf_old");
         } else {
@@ -408,17 +420,18 @@ foreach my $type (@types) {
         }
         push(@files_to_delete, $check_tsf_old);
 
-        my $num_tsf_old = int(`wc -l $check_tsf_old | awk '{print \$1}'`);
+        my $num_tsf_old = line_count($check_tsf_old);
         if ($num_tsf_old != $num_tsf_fixed_tsf) {
           throw("The $type - TSF - transcript relationships dump failed. Output file: $check_tsf_old");
         } else {
           print("The $type - TSF - transcript relationships were dumped successfully. Output file: $check_tsf_old\n") if ($verbose);
         }
+
 # ================================
 # TRUNCATE dna_align_feature table
 # ================================
 
-        print("\n===== TRUNCATE $type TABLE =====\n") if ($verbose);
+        print("\n===== TRUNCATE $type TABLE =====\n");
 
         if (system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -e 'TRUNCATE TABLE $type'")) {
           throw("The $type table truncation failed.");
@@ -440,12 +453,7 @@ foreach my $type (@types) {
 # LOAD SORTED FILES INTO DATABASE
 # ===============================
 
-        print("\n===== REPLACING ALL NULL WITH \\N =====\n") if ($verbose);
-        # sf and tsf file for the protein_align_feature table are the same
-        if (system("sed -i 's/NULL/\\\\N/g' $fixed_sf_file")) {
-            throw("Failed to replace NULL values");
-        }
-        print("\n===== LOAD SORTED FILES INTO DATABASE =====\n") if ($verbose);
+        print("\n===== LOAD SORTED FILES INTO DATABASE =====\n");
         print("\nLoading $fixed_sf_file...\n") if ($verbose);
         if (system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -e\"LOAD DATA LOCAL INFILE '$fixed_sf_file' INTO TABLE $type\"")) {
             throw("Failed to load $type table\n");
@@ -492,10 +500,10 @@ foreach my $type (@types) {
         }
         push(@files_to_delete, $check_sf_new);
 
-        if (`diff $check_sf_old $check_sf_new` eq "") {
-          print("$check_sf_old is the same as $check_sf_new. Great!\n") if ($verbose);
-        } else {
+        if (system("diff -q $check_sf_old $check_sf_new")) {
           throw("The $type optimization failed since $check_sf_old is different from $check_sf_new");
+        } else {
+          print("$check_sf_old is the same as $check_sf_new. Great!\n") if ($verbose);
         }
 
         print("\nChecking $type to tsf, tsf to transcript...\n") if ($verbose);
@@ -506,10 +514,10 @@ foreach my $type (@types) {
         }
         push(@files_to_delete, $check_tsf_new);
 
-        if (`diff $check_tsf_old $check_tsf_new` eq "") {
-          print("$check_tsf_old is the same as $check_tsf_new. Great!\n") if ($verbose);
-        } else {
+        if (system("diff $check_tsf_old $check_tsf_new")) {
           throw("The $type optimization failed since $check_tsf_old is different from $check_tsf_new");
+        } else {
+          print("$check_tsf_old is the same as $check_tsf_new. Great!\n") if ($verbose);
         }
 
         print("\nThe $type table optimization finished SUCCESSFULLY.\n");
@@ -538,6 +546,18 @@ elsif ($clean) {
 #-------
 # END
 #-------
+
+sub line_count {
+  my ($file) = @_;
+
+  my $count = 0;
+  open(RH, "$file") || throw("Could not open '$file'");
+  while(<RH>) {
+    ++$count;
+  }
+  close(RH) || throw("Could not open '$file'");
+  return $count;
+}
 
 sub usage {
     print <<EOF
