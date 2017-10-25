@@ -280,7 +280,7 @@ sub get_best_transcript {
       foreach my $exon (@{$genewise_transcript->get_all_Exons}) {
         push(@sfs, @{$exon->get_all_supporting_features});
       }
-      my $new_tsf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@sfs);
+      my $new_tsf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@sfs, -align_type => 'ensembl');
       $genewise_transcript->add_supporting_features($new_tsf);
       $self->warning("GOOD MATCH!! The GeneWise protein match the original protein $accession");
       display_alignment('GENEWISE', $transcript_genewise, 'ORIGIN', $transcript_ori, $SEQ_DISPLAY_LENGTH) if ($self->debug > 2);

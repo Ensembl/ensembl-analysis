@@ -1816,9 +1816,9 @@ sub add_dna_align_features_by_hitname_and_analysis {
       my @features = @{$group_features_by_hitname_and_analysis{$logic_name}{$hseqname}};
       my $f;
       if ($feature_isa eq "Bio::EnsEMBL::DnaDnaAlignFeature") {
-        $f = Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@features);
+        $f = Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@features, -align_type => 'ensembl');
       } elsif ($feature_isa eq "Bio::EnsEMBL::DnaPepAlignFeature") {
-      	$f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@features);
+        $f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@features, -align_type => 'ensembl');
       } else {
       	throw("Cannot create feature. Unknown feature isa.");
       }

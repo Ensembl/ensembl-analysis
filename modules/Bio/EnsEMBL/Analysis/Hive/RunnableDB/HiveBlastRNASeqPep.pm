@@ -339,7 +339,7 @@ sub add_supporting_features {
       # make a transcript supporting feature
       my $coverage = sprintf("%.3f",( $hlen / length($tran->translation->seq) ) * 100);
 
-      my $tsf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@filtered_best);
+      my $tsf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@filtered_best, -align_type => 'ensembl');
       # hijack percent_id - not going to use it
       $tsf->percent_id(  $coverage ) ;
       $tsf->analysis($tran->analysis);

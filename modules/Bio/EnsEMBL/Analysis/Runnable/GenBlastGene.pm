@@ -523,7 +523,7 @@ sub set_supporting_features {
    }
 
     if(scalar(@{$exon_feature_pairs})) {
-      my $final_exon_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $exon_feature_pairs);
+      my $final_exon_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $exon_feature_pairs, -align_type => 'ensembl');
        $exon->add_supporting_features($final_exon_supporting_features);
     } else {
       warning("No supporting features added for exon.\nExon start: ".$exon->start."\nExon end: ".$exon->end);
@@ -531,7 +531,7 @@ sub set_supporting_features {
 
   }
 
-  my $transcript_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $all_exon_supporting_features);
+  my $transcript_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $all_exon_supporting_features, -align_type => 'ensembl');
   $transcript->add_supporting_features($transcript_supporting_features);
 
 }

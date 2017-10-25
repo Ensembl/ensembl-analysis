@@ -861,7 +861,8 @@ sub merge_transcripts {
    #
 
 
-  my $dna_align_feat = Bio::EnsEMBL::DnaDnaAlignFeature->new (-features =>[$feat_pair] , 
+  my $dna_align_feat = Bio::EnsEMBL::DnaDnaAlignFeature->new (-features =>[$feat_pair] ,
+                                                              -align_type => 'ensembl',
                                                               -analysis => $merge_exon->analysis ) ; 
                     
 
