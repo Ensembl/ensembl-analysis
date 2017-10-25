@@ -63,125 +63,121 @@ sub default_options {
         # inherit other stuff from the base class
         %{ $self->SUPER::default_options() },
         ensembl_release => 91, # Use it on the commandline: -ensembl_release XX
-        pass_r => undef, # (optional) Use it on the command line: -password mysql_ro_password
-        user_r => 'ensro',
-        human_gencode_version => '27', # Use it on the command line: -human_gencode_version XX
-        mouse_gencode_version => 'M16', # Use it on the command line: -password mysql_rw_password
-        do_human => 0,
-        do_mouse => 1,
-        do_pig => 0,
-        do_chimpanzee => 1,
-        do_rat => 0,
-        do_zebrafish => 0,
+        human_gencode_version => '25', # Use it on the command line: -human_gencode_version XX
+        mouse_gencode_version => 'M14', # Use it on the command line: -password mysql_rw_password
+        enscode_root_dir => '', #path to your perl modules
 #################
 #        Everything below should not need modification
 #################
         pipeline_name => 'tsl_appris_'.$self->o('ensembl_release'),
-        enscode_root_dir => '', #path to your perl modules
+
+        production_db_host => 'mysql-ens-sta-1',
+        production_db_port => 4519,
+        production_db_user => 'ensro',
+        production_db_password => undef,
+        production_db_driver => $self->o('hive_driver'),
+
+        data_db_host => $self->o('production_db_host'),
+        data_db_port => $self->o('production_db_port'),
+        data_db_user => $self->o('user'),
+        data_db_password => $self->o('password'),
+        data_db_driver => $self->o('production_db_driver'),
+
         ensembl_analysis_dir => catdir($self->o('enscode_root_dir'), 'ensembl-analysis'),
         production_dir => catdir($self->o('enscode_root_dir'), 'ensembl-production'),
-        human_cs_version => '38',
-        mouse_cs_version => '38',
-        human_cs_name => 'GRCh'.$self->o('human_cs_version'),
-        mouse_cs_name => 'GRCm'.$self->o('mouse_cs_version'),
+
+        do_human => 1,
+        do_mouse => 1,
+        do_pig => 1,
+        do_chimpanzee => 1,
+        do_rat => 1,
+        do_zebrafish => 1,
+
         human_alias => 'homo_sapiens',
+        human_cs_name => 'GRCh'.$self->o('human_cs_version'),
+        human_cs_version => '38',
+
         mouse_alias => 'mus_musculus',
+        mouse_cs_name => 'GRCm'.$self->o('mouse_cs_version'),
+        mouse_cs_version => '38',
+
+        rat_alias => 'rattus_norvegicus',
         rat_cs_name => 'Rnor_6.0',
         rat_cs_version => 6,
+
+        zebrafish_alias => 'danio_rerio',
         zebrafish_cs_name => 'GRCz10',
         zebrafish_cs_version => 10,
-        chimpanzee_cs_name => 'CHIMP2.1.4',
+
+        chimpanzee_alias => 'pan_troglotydes',
+        chimpanzee_cs_name => 'CHIMP3.0',
         chimpanzee_cs_version => 3,
+
+        pig_alias => 'sus_scrofa',
         pig_cs_name => 'Sscrofa11.1',
         pig_cs_version => 111,
-        rat_alias => 'rattus_norvegicus',
-        zebrafish_alias => 'danio_rerio',
-        chimpanzee_alias => 'pan_troglotydes',
-        pig_alias => 'sus_scrofa',
+
         tsl_ftp_base => 'http://hgwdev.cse.ucsc.edu/~markd/gencode/tsl-handoff',
         appris_ftp_base => 'http://apprisws.bioinfo.cnio.es/forEnsembl',
 
         load_tsl_script => catfile($self->o('ensembl_analysis_dir'), 'scripts', 'Merge', 'import_transcript_support_levels.pl'),
         load_appris_script => catfile($self->o('ensembl_analysis_dir'), 'scripts', 'Merge', 'import_appris.pl'),
 
-        staging1_db => {
-            -host   => 'mysql-ens-sta-1',
-            -port   => 4519,
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('hive_driver'),
+        production_db => {
+            -dbname => 'ensembl_production_'.$self->o('ensembl_release'),
+            -host   => $self->o('production_db_host'),
+            -port   => $self->o('production_db_port'),
+            -user   => $self->o('production_db_user'),
+            -pass   => $self->o('production_db_password'),
+            -driver => $self->o('production_db_driver'),
         },
         human_ensembl_db => {
             -dbname => $self->o('human_alias').'_core_'.$self->o('ensembl_release').'_'.$self->o('human_cs_version'),
-            -host   => $self->o('staging1_db', '-host'),
-            -port   => $self->o('staging1_db', '-port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver   => $self->o('staging1_db', '-driver'),
+            -host   => $self->o('data_db_host'),
+            -port   => $self->o('data_db_port'),
+            -user   => $self->o('data_db_user'),
+            -pass   => $self->o('data_db_password'),
+            -driver   => $self->o('data_db_driver'),
         },
         mouse_ensembl_db => {
             -dbname => $self->o('mouse_alias').'_core_'.$self->o('ensembl_release').'_'.$self->o('mouse_cs_version'),
-            -host   => $self->o('staging1_db', '-host'),
-            -port   => $self->o('staging1_db', '-port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('staging1_db', '-driver'),
-        },
-        human_refseq_db => {
-            -dbname => $self->o('human_alias').'_otherfeatures_'.$self->o('ensembl_release').'_'.$self->o('human_cs_version'),
-            -host   => $self->o('staging1_db', '-host'),
-            -port   => $self->o('staging1_db', '-port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('staging1_db', '-driver'),
-        },
-        mouse_refseq_db => {
-            -dbname => $self->o('mouse_alias').'_otherfeatures_'.$self->o('ensembl_release').'_'.$self->o('mouse_cs_version'),
-            -host   => $self->o('staging1_db', '-host'),
-            -port   => $self->o('staging1_db', '-port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('staging1_db', '-driver'),
-        },
-        production_db => {
-            -dbname => 'ensembl_production_'.$self->o('ensembl_release'),
-            -host   => $self->o('staging1_db', '-host'),
-            -port   => $self->o('staging1_db', '-port'),
-            -user   => $self->o('user_r'),
-            -pass   => $self->o('pass_r'),
-            -driver => $self->o('staging1_db', '-driver'),
+            -host   => $self->o('data_db_host'),
+            -port   => $self->o('data_db_port'),
+            -user   => $self->o('data_db_user'),
+            -pass   => $self->o('data_db_password'),
+            -driver => $self->o('data_db_driver'),
         },
         zebrafish_ensembl_db => {
             -dbname => $self->o('zebrafish_alias').'_core_'.$self->o('ensembl_release').'_'.$self->o('zebrafish_cs_version'),
-            -host   => $self->o('staging1_db', '-host'),
-            -port   => $self->o('staging1_db', '-port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('staging1_db', '-driver'),
+            -host   => $self->o('data_db_host'),
+            -port   => $self->o('data_db_port'),
+            -user   => $self->o('data_db_user'),
+            -pass   => $self->o('data_db_password'),
+            -driver => $self->o('data_db_driver'),
         },
         rat_ensembl_db => {
             -dbname => $self->o('rat_alias').'_core_'.$self->o('ensembl_release').'_'.$self->o('rat_cs_version'),
-            -host   => $self->o('staging1_db', '-host'),
-            -port   => $self->o('staging1_db', '-port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('staging1_db', '-driver'),
+            -host   => $self->o('data_db_host'),
+            -port   => $self->o('data_db_port'),
+            -user   => $self->o('data_db_user'),
+            -pass   => $self->o('data_db_password'),
+            -driver => $self->o('data_db_driver'),
         },
         pig_ensembl_db => {
             -dbname => $self->o('pig_alias').'_core_'.$self->o('ensembl_release').'_'.$self->o('pig_cs_version'),
-            -host   => $self->o('staging1_db', '-host'),
-            -port   => $self->o('staging1_db', '-port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('staging1_db', '-driver'),
+            -host   => $self->o('data_db_host'),
+            -port   => $self->o('data_db_port'),
+            -user   => $self->o('data_db_user'),
+            -pass   => $self->o('data_db_password'),
+            -driver => $self->o('data_db_driver'),
         },
         chimpanzee_ensembl_db => {
             -dbname => $self->o('chimpanzee_alias').'_core_'.$self->o('ensembl_release').'_'.$self->o('chimpanzee_cs_version'),
-            -host   => $self->o('staging1_db', '-host'),
-            -port   => $self->o('staging1_db', '-port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('staging1_db', '-driver'),
+            -host   => $self->o('data_db_host'),
+            -port   => $self->o('data_db_port'),
+            -user   => $self->o('data_db_user'),
+            -pass   => $self->o('data_db_password'),
+            -driver => $self->o('data_db_driver'),
         },
     };
 }
@@ -311,7 +307,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => 'default',
       -parameters => {
-          cmd => 'wget -P'.catfile($self->o('working_dir'), 'appris_'.$self->o('ensembl_release')).' -qq "'.$self->o('appris_ftp_base').'/#species_alias#.#cs_name#.e'.$self->o('ensembl_release').'appris_data.principal.txt"',
+          cmd => 'wget -P'.catfile($self->o('working_dir'), 'appris_'.$self->o('ensembl_release')).' -qq "'.$self->o('appris_ftp_base').'/#species_alias#.#cs_name#.e'.$self->o('ensembl_release').'.appris_data.principal.txt"',
           return_codes_2_branches => {'8' => 2},
       },
       -flow_into => {
@@ -332,7 +328,7 @@ sub pipeline_analyses {
             ' -p #expr(#target_db#->{-pass})expr#'.
             ' -cs_version #cs_name#'.
             ' -write -verbose'.
-            ' -infile '.catfile($self->o('working_dir'), 'appris_'.$self->o('ensembl_release'), '#species_alias#.#cs_name#.e'.$self->o('ensembl_release').'appris_data.principal.txt'),
+            ' -infile '.catfile($self->o('working_dir'), 'appris_'.$self->o('ensembl_release'), '#species_alias#.#cs_name#.e'.$self->o('ensembl_release').'.appris_data.principal.txt'),
       },
     },
 
