@@ -120,6 +120,7 @@ sub create_feature{
         -external_db_id => $external_db_id,
         -hcoverage => $hcoverage,
         -cigar_string => $cigar_string,
+        -align_type => 'ensembl',
        );
   $feature->slice($slice);
   $feature->hseqname($hseqname);
@@ -140,6 +141,7 @@ sub create_feature_from_gapped_pieces{
                                      -analysis => $analysis,
                                      -external_db_id => $external_db_id,
                                      -hcoverage => $hcoverage,
+                                     -align_type => 'ensembl',
                                     );
   $feature->slice($slice);
   $feature->hseqname($hseqname);
