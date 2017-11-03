@@ -45,7 +45,8 @@ use File::Spec::Functions qw(splitpath file_name_is_absolute catfile);
 use File::Path qw(make_path);
 
 use Bio::EnsEMBL::Analysis::Runnable::Aspera;
-use Net::FTP;
+use File::Fetch;
+use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError) ;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -57,7 +58,8 @@ sub param_defaults {
     %{$self->SUPER::param_defaults},
     use_perl => 1,
     aspera_user => 'era-fasp',
-    aspera_host => 'ftp.sra.ebi.ac.uk'
+    aspera_host => 'ftp.sra.ebi.ac.uk',
+    uncompress => 1,
   }
 }
 
@@ -72,7 +74,7 @@ sub fetch_input {
   }
 
   my $client;
-  my $url = $self->param('target');
+  my $url = $self->param('url');
   if ($download_method eq 'aspera') {
     $client = Bio::EnsEMBL::Analysis::Runnable::Aspera->new();
     $client->options($self->param('commandline_params'));
@@ -83,29 +85,12 @@ sub fetch_input {
       $url = $self->param('aspera_user').'@'.$url;
       $url =~ s/\//:\//;
     }
-    $self->param('urls', $url);
-    $client->output($output_dir);
-  }
-  elsif ($self->param('use_perl')) {
-    if ($download_method eq 'ftp') {
-      my @path = split('/', $url);
-      my $host = $path[2];
-      my $file = pop(@path);
-      $client = Net::FTP->new($host);
-      $client->login;
-      foreach my $dir (@path[3..$#path]) {
-        $client->cwd($dir) || $self->throw('could not go in '.$dir);
-      }
-      $self->param('urls', $file);
-      $self->param('options', catfile($output_dir, $file));
-
-    }
-    elsif ($download_method eq 'http') {
-      $self->throw('http method not implemented yet');
-    }
+    $client->source($url);
+    $client->target($output_dir);
   }
   else {
-    $self->throw('Method not implemented yet for wget/curl');
+    $client = File::Fetch->new(uri => $url) || $self->throw('Could not create a fetcher for '.$url);
+    $self->param('options', [to => $output_dir]);
   }
   $self->param('client', $client);
 }
@@ -114,11 +99,22 @@ sub run {
   my ($self) = @_;
 
   my $client = $self->param('client');
-  my $file = $client->get($self->param('urls'), ($self->param_is_defined('options') ? $self->param('options'): undef));
+  my $file = $client->fetch(($self->param_is_defined('options') ? @{$self->param('options')}: undef));
   $self->check_file($file);
+  $file = $self->uncompress($file) if ($self->param('uncompress'));
   $self->output([$file]);
 }
 
+
+sub uncompress {
+  my ($self, $file) = @_;
+
+  my ($output) = $file =~ /^(\S+)\.\w+$/;
+  anyuncompress $file => $output
+    or $self->throw("anyuncompress failed: $AnyUncompressError");
+  unlink $file;
+  return $output;
+}
 
 sub check_file {
   my ($self, $file) = @_;

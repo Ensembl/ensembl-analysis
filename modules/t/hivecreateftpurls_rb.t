@@ -19,48 +19,42 @@ use warnings;
 use File::Spec::Functions qw(catfile);
 use Bio::EnsEMBL::Hive::Utils::Test qw(standaloneJob);
 use Test::Most;
+use Net::FTP;
 
-my $expected_dataflow = [{filename => catfile($ENV{PWD}, 'README')}];
-
-sub cleaning {
-  unlink catfile($ENV{PWD}, 'README');
+my $version = 0;
+my $client = Net::FTP->new('ftp.ebi.ac.uk');
+$client->login;
+$client->cwd('pub/databases/embl/release/doc') || die('could not go into some dir');
+foreach my $file ($client->ls) {
+  if ($file =~ /Release_(\d+)/) {
+    $version = $1;
+    last;
+  }
 }
+$client->quit;
+die('Cannot get ENA version, cannot test the module ') unless ($version);
 
-use_ok('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData');
+
+my $base_url = 'ftp://ftp.ebi.ac.uk/pub/databases/embl';
+my @expected_dataflow;
+foreach my $index (1..9) {
+  push(@expected_dataflow, {url => $base_url.'/release/std/rel_std_hum_0'.$index."_r$version.dat.gz"});
+}
+push(@expected_dataflow, {url => $base_url."/release/std/rel_htc_hum_01_r$version.dat.gz"});
+
+use_ok('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateFTPURLs');
 
 standaloneJob(
-	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
-	{ # input param hash
-		'url'     => 'ftp://ftp.ensembl.org/pub/release-90/README',
-		'download_method'     => 'ftp',
-    'md5sum' => '2a3ea6c67b0bf0a1cc72c5b15c73b931',
-    'output_dir' => $ENV{PWD},
+	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateFTPURLs',
+	{
+		'base_url'     => $base_url,
+		'file_list'     => ['release/std/rel_std_hum_0*', 'release/std/rel_htc_hum_0*'],
 	},
 	[ # list of events to test for (just 1 event in this case)
 		[ # start event
 			'DATAFLOW', # event to test for (could be WARNING)
-			$expected_dataflow, # expected data flowed out
+			\@expected_dataflow, # expected data flowed out
 			2 # dataflow branch
 		], # end event
 	]
 );
-
-standaloneJob(
-	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
-	{ # input param hash
-		'url'     => 'ftp://ftp.ensembl.org/pub/release-90/README',
-		'download_method'     => 'ftp',
-    'output_dir' => $ENV{PWD},
-	},
-	[ # list of events to test for (just 1 event in this case)
-		[ # start event
-			'DATAFLOW', # event to test for (could be WARNING)
-			$expected_dataflow, # expected data flowed out
-			2 # dataflow branch
-		], # end event
-	]
-);
-
-done_testing();
-
-cleaning();

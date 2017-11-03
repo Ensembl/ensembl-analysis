@@ -174,12 +174,12 @@ sub _master_config {
           -coverage => '#exonerate_cov#',
           -percent_id => '#exonerate_pid#',
           -reject_processed_pseudos => 1,
-          -verbosity => 1,
+          -verbosity => 2,
         }
       },
       KILL_TYPE => undef,
       USE_KILL_LIST => 0,
-      OPTIONS => '--model est2genome --forwardcoordinates FALSE --maxintron 100000 --softmasktarget FALSE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14',
+      OPTIONS => '--model est2genome --forwardcoordinates FALSE --maxintron 100000 --softmasktarget TRUE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14',
     },
     exonerate_cdnaupdate_loose => {
       COVERAGE_BY_ALIGNED => 1,
@@ -190,11 +190,11 @@ sub _master_config {
           -coverage => '#exonerate_cov#',
           -percent_id => '#exonerate_pid#',
           -reject_processed_pseudos => 1,
-          -verbosity => 1,
+          -verbosity => 2,
         }
       },
       KILL_TYPE => undef,
-      OPTIONS => '--model est2genome --forwardcoordinates FALSE --maxintron 400000 --softmasktarget FALSE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14',
+      OPTIONS => '--model est2genome --forwardcoordinates FALSE --maxintron 400000 --bestn 10 --softmasktarget FALSE --exhaustive FALSE  --score 500 --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14',
     },
     exonerate => {
       COVERAGE_BY_ALIGNED => 1,

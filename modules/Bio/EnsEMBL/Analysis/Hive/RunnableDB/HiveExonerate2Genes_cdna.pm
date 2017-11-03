@@ -68,14 +68,27 @@ use warnings ;
 use strict;
 use feature 'say';
 
+use Bio::EnsEMBL::Hive::DBSQL::DataflowRuleAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::KillList::KillList;
+use Bio::EnsEMBL::UnmappedObject;
 use Bio::SeqIO;
 use Bio::Seq;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    unaligned_to_unmapped => 0,
+  }
+}
+
 
 sub fetch_input {
   my($self) = @_;
@@ -287,8 +300,11 @@ sub fetch_input {
       else {
         $runnable->query_file($query_file);
       }
+      $runnable->_verbose($self->debug);
       $self->runnable($runnable);
   }
+
+  $self->throw("Can't run - no runnable objects") unless ($self->runnable);
 
 }
 
@@ -297,26 +313,18 @@ sub run {
   my ($self) = @_;
   my @results;
 
-  $self->throw("Can't run - no runnable objects") unless ($self->runnable);
-
   foreach my $runnable (@{$self->runnable}){
-    # This is to catch the closing exonerate errors, which we currently have no actual solution for
-    # It seems to be more of a problem with the exonerate code itself
-    $self->runnable_failed(0);
     eval {
       $runnable->run;
     };
 
     if($@) {
       my $except = $@;
-      $self->runnable_failed(1);
-      if($except =~ /Error closing exonerate command/) {
-        warn("Error closing exonerate command, this input id was not analysed successfully:\n".$self->input_id);
-      } elsif($except =~ /still running after your timer/) {
-        warn("Exonerate took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
-        $self->param('_branch_to_flow_to_on_fail',-2);
+      if($except =~ /still running after your timer/) {
+        $self->dataflow_output_id({iid => $self->param('iid')}, Bio::EnsEMBL::Hive::DBSQL::DataflowRuleAdaptor::branch_name_2_code('RUNLIMIT'));
+        $self->complete_early("Exonerate took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch 'RUN_LIMIT'. Exception:\n".$except);
       } else {
-        $self->warning("Issue with running Exonerate, will dataflow input id on branch -3. Exception:\n".$except);
+        $self->throw("Issue with running Exonerate:\n".$except);
       }
     } else {
       push ( @results, @{$runnable->output} );
@@ -324,15 +332,21 @@ sub run {
   }
   if ($self->USE_KILL_LIST) {
     unlink $self->filtered_query_file;
-    # print "Removed temporary query file ".$self->filtered_query_file."\n";
   }
-  if ($self->filter) {
-    my $filtered_transcripts = $self->filter->filter_results(\@results);
+  if ($self->filter and @results) {
+    my ($filtered_transcripts, $unmapped) = $self->filter->filter_results(\@results);
     @results = @$filtered_transcripts;
+    if (@$unmapped) {
+      my @unmapped_objects;
+      foreach my $unmapped_object (@$unmapped) {
+        my $id = $unmapped_object->identifier;
+        push(@unmapped_objects, $unmapped_object) unless (grep {$_->{accession} eq $id} @results);
+      }
+      $self->param('unmapped_objects', \@unmapped_objects) if (@unmapped_objects);
+    }
   }
 
-  my @genes = $self->make_genes(@results);
-  $self->param('output_genes',\@genes);
+  $self->output($self->make_genes(\@results));
 }
 
 
@@ -341,57 +355,58 @@ sub write_output {
 
   my $outdb = $self->hrdb_get_con('target_db');
   my $gene_adaptor = $outdb->get_GeneAdaptor;
-  if($self->runnable_failed == 1) {
-    # Flow out on -2 or -3 based on how the failure happened
-    my $failure_branch_code = $self->param('_branch_to_flow_to_on_fail');
-    my $output_hash = {};
-    $output_hash->{'iid'} = $self->param('iid');
-    $self->dataflow_output_id($output_hash,$failure_branch_code);
-  } else {
-    # Store results as normal
-    my @output = @{$self->param('output_genes')};
-    $self->param('output_genes',undef);
-    my $fails = 0;
-    my $total = 0;
+  my $analysis = $self->analysis;
+  my $output = $self->output;
+  my $fails = 0;
+  my $total = 0;
 
-    if (scalar(@output) == 0){
-      my $output_hash = {};
-      $output_hash->{'iid'} = $self->param('iid');
-      $self->dataflow_output_id($output_hash,2);
-    } else {
-      foreach my $gene (@output){
-        empty_Gene($gene);
-        eval {
-          $gene_adaptor->store($gene);
-        };
-        if ($@){
-          $self->warning("Unable to store gene!!\n$@");
-          $fails++;
-        }
-        $total++;
+  if (scalar(@$output) == 0){
+    my $iids;
+    if ($self->param_is_defined('unmapped_objects')) {
+      my $unmapped = $self->param('unmapped_objects');
+      foreach my $iid (@{$self->param('iid')}) {
+        push(@$iids, $iid) unless (grep {$_->identifier eq $iid} @$unmapped);
       }
-      if ($fails > 0){
-        $self->throw("Not all genes could be written successfully " .
-          "($fails fails out of $total)");
+    }
+    else {
+      $iids = $self->param('iid');
+    }
+    $self->dataflow_output_id({iid => $iids}, $self->param('_branch_to_flow_to')) if ($iids);
+  } else {
+    foreach my $gene (@$output){
+      empty_Gene($gene);
+      eval {
+        $gene_adaptor->store($gene);
+      };
+      if ($@){
+        $self->warning("Unable to store gene!!\n$@");
+        $fails++;
       }
-      if($self->files_to_delete()) {
-        my $files_to_delete = $self->files_to_delete();
-        `rm $files_to_delete`;
-      }
+      $total++;
+    }
+    if ($fails){
+      $self->throw("Not all genes could be written successfully " .
+        "($fails fails out of $total)");
+    }
+  }
+  if ($self->param_is_defined('unmapped_objects')) {
+    my $unmapped_adaptor = $outdb->get_UnmappedObjectAdaptor;
+    foreach my $unmapped_object (@{$self->param('unmapped_objects')}) {
+      $unmapped_adaptor->store($unmapped_object);
     }
   }
 }
 
 
 sub make_genes{
-  my ($self,@transcripts) = @_;
+  my ($self, $transcripts) = @_;
 
   my (@genes);
 
   my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
   my %genome_slices;
 
-  foreach my $tran ( @transcripts ){
+  foreach my $tran ( @$transcripts ){
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->analysis($self->analysis);
     $gene->biotype($self->analysis->logic_name);
@@ -439,7 +454,7 @@ sub make_genes{
     $gene->add_Transcript($tran);
     push( @genes, $gene);
   }
-  return @genes;
+  return \@genes;
 }
 
 ############################################################

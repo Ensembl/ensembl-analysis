@@ -87,7 +87,7 @@ use strict;
 
 =cut
 
-use Bio::EnsEMBL::Analysis::Tools::PolyAClipping;
+use Bio::EnsEMBL::Analysis::Tools::PolyAClipping qw(clip_if_necessary);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::Seq;
 use Bio::SeqIO;

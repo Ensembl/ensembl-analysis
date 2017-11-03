@@ -18,10 +18,11 @@
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB;
 
 use strict;
+use warnings;
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Hive::Utils ('destringify');
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba create_file_name is_slice_name);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name);
 use feature 'say';
 
 use parent ('Bio::EnsEMBL::Hive::Process');
@@ -522,6 +523,11 @@ sub create_analysis {
     else {
       $logic_name = $self->input_job->analysis->logic_name;
     }
+    if ($self->param_is_defined('analysis_params')) {
+      while( my ($key, $value) = each %{$self->param('analysis_params')}) {
+        $extra_params->{$key} = $value;
+      }
+    }
     my $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $logic_name, %$extra_params);
     if ($add_module) {
       my $module;
@@ -561,7 +567,8 @@ sub  hrdb_get_dba {
                             $connection_info->{-dbname},
                             $connection_info->{-port},
                             $connection_info->{-user});
-    if ($self->{_gb_cache}->{'_cache_lastlogicname'} ne $self->input_job->analysis->logic_name) {
+    if (exists $self->{_gb_cache}->{'_cache_lastlogicname'}
+        and $self->{_gb_cache}->{'_cache_lastlogicname'} ne $self->input_job->analysis->logic_name) {
       delete $self->{_gb_cache};
     }
     if (!exists $self->{_gb_cache}->{'_cache_dba_'.$uniq_id}) {
@@ -673,6 +680,27 @@ sub _create_temporary_file {
 
   $self->param($name, create_file_name($stem, $suffix, $dir));
   return $self->param($name)->filename;
+}
+
+
+=head2 post_cleanup
+
+ Arg [1]    : None
+ Description: If a module use post_cleanup it needs to call this first
+              otherwise the DBAdaptor cache will not be reset which might
+              cause problems
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub post_cleanup {
+  my ($self) = @_;
+
+  foreach my $key (keys %{$self->{_gb_cache}}) {
+    next if ($key eq '_cache_lastlogicname');
+    $self->{_gb_cache}->{$key}->clear_caches;
+  }
 }
 
 
