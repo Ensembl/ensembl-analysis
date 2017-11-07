@@ -183,6 +183,9 @@ sub fetch_input {
               -annotation_file => $self->QUERYANNOTATION ? $self->QUERYANNOTATION : undef,
               %parameters,
               );
+    if ($self->debug) {
+      $runnable->_verbose(1);
+    }
     if (ref($query_file) eq 'ARRAY') {
       $runnable->query_seqs($query_file);
     }

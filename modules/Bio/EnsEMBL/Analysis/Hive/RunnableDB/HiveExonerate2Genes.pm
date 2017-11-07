@@ -257,6 +257,7 @@ sub fetch_input {
       else {
         $runnable->query_file($query_file);
       }
+      $runnable->_verbose($self->debug) if ($self->debug);
       $self->runnable($runnable);
   }
 
