@@ -57,7 +57,7 @@ sub fetch_input {
   ##########################################
 
   $self->create_analysis;
-  my ($slice_name, $accession) = $self->input_id =~ /^(.*)::([^:]+)$/;
+  my ($slice_name, $accession) = $self->input_id =~ /^(.*):+([^:]+)$/;
   $self->query_acc($accession);
   #repeat masking logic names
   $self->throw("Repeat logic names are not in an array") if(!(ref($self->SOFT_MASKED_REPEATS) eq "ARRAY"));
