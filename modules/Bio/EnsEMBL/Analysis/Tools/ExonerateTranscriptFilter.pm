@@ -84,25 +84,25 @@ sub new{
 
   if (defined ($min_coverage)) {
     $self->min_coverage($min_coverage);
-  } elsif ( !defined($self->min_coverage) ) {
+  } else {
     warn("\n\tmin_coverage not set, setting it to zero (0)!\n\n$!");
     $self->min_coverage(0);
   }
   if (defined ($min_percent)) {
     $self->min_percent($min_percent);
-  } elsif (!defined($self->min_percent)) {
+  } else {
     warn("\n\tmin_percent not set, setting it to zero (0)!\n\n$!");
     $self->min_percent(0);
   }
   if (defined ($best_in_genome)) {
     $self->best_in_genome($best_in_genome);
-  } elsif (!defined($self->best_in_genome)) {
+  } else {
     warn("\n\tbest_in_genome not set, setting it to one (1)!\n\n$!");
     $self->best_in_genome(1);
   }
   if (defined ($rpp)) {
     $self->reject_processed_pseudos($rpp);
-  } elsif (!defined($self->reject_processed_pseudos)) {
+  } else {
     warn("\n\treject_processed_pseudos, setting it to one (1)!\n\n$!");
     $self->reject_processed_pseudos(1);
   }
