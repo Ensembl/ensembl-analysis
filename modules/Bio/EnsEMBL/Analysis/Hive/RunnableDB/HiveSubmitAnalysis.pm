@@ -123,7 +123,7 @@ sub fetch_input {
       } elsif($iid_type eq 'feature_id') {
         $self->feature_id($dba);
       } else {
-        $self->throw('You have not specified one of the recognised operation types');
+        $self->throw('You have not specified one of the recognised operation types: '.$iid_type);
       }
   }
 }
