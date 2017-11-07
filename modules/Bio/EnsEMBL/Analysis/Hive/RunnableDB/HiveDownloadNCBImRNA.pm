@@ -60,7 +60,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults()},
-    base_url => 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils',
+    base_url => 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils',
     search_url => 'esearch.fcgi',
     fetch_url => 'efetch.fcgi',
     ncbidb => 'nucleotide',
