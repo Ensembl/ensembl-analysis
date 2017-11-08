@@ -229,6 +229,7 @@ sub pipeline_analyses {
     );
     @default_tickets = (
       'Update ENSEMBL_RELEASE to '.$self->o('ensembl_release').' in genebuild.sh',
+      'Delete databases from previous release from mysql-ens-vertannot-staging',
       'Clean old healthchecks before handover',
       'Human cDNA update release '.$self->o('ensembl_release'),
       'Mouse cDNA update release '.$self->o('ensembl_release'),
@@ -908,7 +909,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => 'default',
       -parameters => {
-          cmd => 'perl '.$self->o('check_datafiles_script').' -release '.$self->o('ensembl_release').' -host #host# -user #user# -port #port# -datafile_dir '.$self->o('webdev_nfs').' --force_samtools_binary --samtools_binary '.$self->o('samtools').' 1>/dev/null',
+          cmd => 'perl '.$self->o('check_datafiles_script').' -release '.$self->o('ensembl_release').' -host #host# -user #user# -port #port# -datafile_dir '.$self->o('webdev_nfs').' -group rnaseq --force_samtools_binary --samtools_binary '.$self->o('samtools').' 1>/dev/null',
       },
       -flow_into => {
           1 => ['comment_check_datafile_jira'],
