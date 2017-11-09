@@ -80,7 +80,8 @@ sub default_options {
 'mouse_core_db_port' => '',
 
 # Ensembl production database details
-'production_db_name' => 'ensembl_production',
+'ensembl_release'    => $ENV{ENSEMBL_RELEASE},
+'production_db_name' => 'ensembl_production_'.$self->o('ensembl_release'),
 'production_db_host' => '',
 'production_db_port' => '',
 

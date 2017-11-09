@@ -47,7 +47,7 @@ sub param_defaults {
       create_type => '',
       source_db => '',
       target_db => '',
-
+      
       # used by create_type = 'clone'
       script_path => '~/enscode/ensembl-analysis/scripts/clone_database.ksh',
 
@@ -93,6 +93,8 @@ sub create_db {
     $self->core_only_db();
   } elsif($create_type eq 'backup') {
     $self->make_backup();
+  } elsif($create_type eq 'dna_db') {
+    $self->create_dna_db();
   } else {
     $self->throw("You have specified a create type of ".$create_type.", however this is not supported by the module");
   }
@@ -130,8 +132,14 @@ sub clone_db {
     $self->check_db_string($self->param('target_db'));
     $target_string = $self->param('target_db');
   }
+  my $target_user = $self->param('target_db')->{'-user'};
+  my $target_pass = $self->param('target_db')->{'-pass'};
+  if (!$target_pass) {
+    $target_user = $self->param_required('user_w');
+    $target_pass = $self->param_required('pass_w');
+  }
 
-  my $command = "ksh ".$self->param('script_path')." -f -l -s ".$source_string.' -r '.$self->param('source_db')->{'-user'}." -t ".$target_string.' -w '.$self->param('target_db')->{'-user'}.' -P '.$self->param('target_db')->{'-pass'};
+  my $command = "ksh ".$self->param('script_path')." -f -l -s ".$source_string.' -r '.$self->param('source_db')->{'-user'}." -t ".$target_string.' -w '.$target_user.' -P '.$target_pass;
   say "COMMAND: ".$command;
 
   my $exit_code = system($command);
@@ -177,13 +185,13 @@ sub copy_db {
     $self->check_db_string($self->param('target_db'));
     $target_string = $self->param('target_db');
   }
-
+  
   my @source_string_at_split = split('@',$source_string);
   my $source_dbname = shift(@source_string_at_split);
   my @source_string_colon_split = split(':',shift(@source_string_at_split));
   my $source_host = shift(@source_string_colon_split);
   my $source_port = shift(@source_string_colon_split);
-
+  
   my @target_string_at_split = split('@',$target_string);
   my $target_dbname = shift(@target_string_at_split);
   my @target_string_colon_split = split(':',shift(@target_string_at_split));
@@ -194,9 +202,9 @@ sub copy_db {
     $self->drop_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
   }
 
-  $self->dump_database($source_host,$source_port,$self->param('user_w'),$self->param('pass_w'),$source_dbname,$self->param('db_dump_file'),$self->param('ignore_dna'));
+  $self->dump_database($self->param('source_db'), $self->param('db_dump_file'), $self->param('ignore_dna'));
   $self->create_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
-  $self->load_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname,$self->param('db_dump_file'));
+  $self->load_database($self->param('target_db'), $self->param('db_dump_file'));
   $self->remove_file($self->param('db_dump_file'));
 }
 
@@ -293,25 +301,12 @@ sub make_backup {
   }
 
   my $source_db = $self->param('source_db');
-  my $user_w = $self->param('user_w');
-  my $pass_w = $self->param('pass_w');
-  my $ignore_dna = 0;
-  if($self->param('ignore_dna')) {
-     $ignore_dna = 1;
-   }
 
   my $dump_file = $self->param('output_path')."/".$self->param('backup_name');
-  my $source_host = $source_db->{'-host'};
-  my $source_port = $source_db->{'-port'};
-  my $source_dbname = $source_db->{'-dbname'};
 
-  $self->dump_database($source_host,
-                       $source_port,
-                       $user_w,
-                       $pass_w,
-                       $source_dbname,
+  $self->dump_database($source_db,
                        $dump_file,
-                       $ignore_dna,
+                       $self->param('ignore_dna'),
                        1);
 }
 
@@ -346,10 +341,21 @@ sub check_db_string {
 
 sub dump_database {
 
-  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file,$ignore_dna, $compress) = @_;
+  my ($self, $db, $db_file, $ignore_dna, $compress, $tables) = @_;
 
+  my $dbhost = $db->{'-host'};
+  my $dbport = $db->{'-port'};
+  my $dbpass = $db->{'-pass'};
+  my $dbuser = $db->{'-user'};
+  my $dbname = $db->{'-dbname'};
   print "\nDumping database $dbname"."@"."$dbhost:$dbport...\n";
-
+  
+  if ($self->param_is_defined('user_w')) {
+    $dbuser = $self->param('user_w');
+  }
+  if ($self->param_is_defined('pass_w')) {
+    $dbpass = $self->param('pass_w');
+  }
   my $command;
   if (!$dbpass) { # dbpass for read access can be optional
   	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser ";
@@ -357,29 +363,33 @@ sub dump_database {
   	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser -p$dbpass";
   }
   # Check the max_allowed_packet before dumping tables
-  my $check_cmd = $command;
-  $check_cmd =~ s/dump/admin/;
   my $max_allowed_packet;
-  open(RH, $check_cmd.' variables |') || $self->throw("Coudl not execute command: $check_cmd variables");
+  my $checkcmd = $command;
+  $checkcmd =~ s/dump/admin/;
+  open(RH, $checkcmd.' variables |') || $self->throw("Coudl not execute command: $checkcmd variables");
   while(<RH>) {
     if (/max_allowed_packet\D+(\d+)/) {
       $max_allowed_packet = $1;
       last;
     }
   }
-  close(RH) || $self->throw("Could not close: $check_cmd variables");
+  close(RH) || $self->throw("Could not close: $checkcmd variables");
   if ($max_allowed_packet) {
     $command .= ' --max_allowed_packet '.$max_allowed_packet;
   }
   if ($ignore_dna) {
   	$command .= " --ignore-table=".$dbname.".dna ";
   }
+  $command .= " $dbname";
+  if ($tables and @$tables) {
+    $command .= ' '.join(' ', @$tables);
+  }
   if ($compress) {
     # If pipefail is not set your command can fail without telling you
-    $command = "set -o pipefail; $command $dbname | gzip > $db_file.gz";
+    $command = "set -o pipefail; $command | gzip > $db_file.gz";
   }
   else {
-    $command .= " $dbname > $db_file";
+    $command .= " > $db_file";
   }
 
   if (system($command)) {
@@ -400,7 +410,20 @@ sub create_database {
 }
 
 sub load_database {
-  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname,$db_file) = @_;
+  my ($self, $db, $db_file) = @_;
+
+  my $dbhost = $db->{'-host'};
+  my $dbport = $db->{'-port'};
+  my $dbpass = $db->{'-pass'};
+  my $dbuser = $db->{'-user'};
+  my $dbname = $db->{'-dbname'};
+
+  if ($self->param_is_defined('user_w')) {
+    $dbuser = $self->param('user_w');
+  }
+  if ($self->param_is_defined('pass_w')) {
+    $dbpass = $self->param('pass_w');
+  }
   print "\nLoading file $db_file into database $dbname"."@"."$dbhost:$dbport...\n";
   if (system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname < $db_file")) {
     $self->throw("The database loading process failed. Please, check that you have access to the file $db_file and the database you are trying to write to.");
@@ -428,8 +451,41 @@ sub remove_file {
   }
 }
 
-1;
 
+sub create_dna_db {
+  my ($self) = @_;
+
+  $self->clone_db;
+  $self->dump_database($self->param('source_db'), $self->param('db_dump_file'), 0, 0, ['dna', 'repeat_feature', 'repeat_consensus']);
+  $self->load_database($self->param('target_db'), $self->param('db_dump_file'));
+}
+
+sub max_allowed_packet {
+  my ($self, $max_allowed_packet) = @_;
+
+  if (defined $max_allowed_packet) {
+    $self->param('max_allowed_packet', $max_allowed_packet);
+  }
+  elsif (!$self->param_is_defined('max_allowed_packet')) {
+    open(RH, 'mysqldump variables |') || $self->throw("Coudl not execute command: mysqldump variables");
+    while(<RH>) {
+      if (/max_allowed_packet\D+(\d+)/) {
+        $max_allowed_packet = $1;
+        last;
+      }
+    }
+    close(RH) || $self->throw("Could not close: mysqldump variables");
+    $self->param('max_allowed_packet', $max_allowed_packet);
+  }
+  if ($self->param_is_defined('max_allowed_packet')) {
+    return $self->param('max_allowed_packet');
+  }
+  else {
+    return;
+  }
+}
+
+1;
 
 
 

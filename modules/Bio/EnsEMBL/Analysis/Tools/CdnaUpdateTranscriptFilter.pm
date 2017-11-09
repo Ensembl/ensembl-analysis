@@ -45,6 +45,7 @@ use warnings;
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::UnmappedObject;
 
 
 
@@ -113,6 +114,8 @@ sub filter_results {
   my @good_matches;  
   my %matches;
   my $printing = $self->verbosity;
+  my @rejected;
+  my $analysis = $transcripts->[0]->analysis;
 
 TRAN:
   
@@ -121,9 +124,8 @@ TRAN:
     my $percent_id  = $self->_get_transcript_percent_id($transcript);
 
 	#identify the longest intron
-	my @exons = @{$transcript->get_all_Exons()};
-	my $num_exons = scalar @exons;
-	my @sorted_exons = sort {$a->start <=> $b->start} @exons;
+	my @sorted_exons = sort {$a->start <=> $b->start} @{$transcript->get_all_Exons()};
+	my $num_exons = scalar @sorted_exons;
 	my $max_intron = 0;
 	my $short_intron = 0; #flag to check that not all introns are long
 	
@@ -251,7 +253,17 @@ TRAN:
 	    	 && ! $is_spliced) {
 	      $accept = 'NO';
 	      if ($printing){
-		  	 print  "rpp $query_id\n"; 
+		      print  "rpp $query_id\n";
+          if ($printing == 2) {
+            push(@rejected, Bio::EnsEMBL::UnmappedObject->new(
+             -type => 'cDNA',
+             -identifier => $query_id,
+             -summary => 'Processed pseudogene',
+             -full_desc => 'Rejected as a processed pseudogene because there are multiple-exon hits with the same coverage which have been rejected for other reasons',
+             -target_score => $count,
+             -analysis => $analysis,
+            ));
+          }
 		  }
 		}
 		elsif (($short_intron == 0) && ($num_exons > 1)){
@@ -259,6 +271,16 @@ TRAN:
 			$accept = 'NO';
 			if ($printing){
 			  print "only long introns $query_id\n";
+        if ($printing == 2) {
+          push(@rejected, Bio::EnsEMBL::UnmappedObject->new(
+           -type => 'cDNA',
+           -identifier => $query_id,
+           -summary => 'All long introns',
+           -full_desc => 'Every intron in these hits is of length 250000-400000bp, we require at least one intron to be shorter than 250000bp',
+           -target_score => $count,
+           -analysis => $analysis,
+          )) if ($count == 1);
+        }
 			}
 		}
 		#Only accept long intron hits with very high coverage and percent_id
@@ -285,6 +307,25 @@ TRAN:
 				$accept = 'NO';
 				if ($printing){
 				  print "reject: intron $max_intron coverage $coverage \%id $percent_id $query_id\n";
+          if ($printing == 2) {
+            my $summary = 'Low coverage with long intron';
+            my $full_desc = 'Hits containing introns longer than 250000bp are rejected if coverage is less than 98% - see query_score for coverage';
+            my $score = $coverage;
+            if ($percent_id < 98) {
+              $summary = 'Low percent_id with long intron';
+              $full_desc = 'Hits containing introns longer than 250000bp are rejected if percentage identity is less than 98% - see query_score for percent_id';
+              $score = $percent_id;
+            }
+            push(@rejected, Bio::EnsEMBL::UnmappedObject->new(
+             -type => 'cDNA',
+             -identifier => $query_id,
+             -summary => $summary,
+             -full_desc => $full_desc,
+             -target_score => $count,
+             -analysis => $analysis,
+             -query_score => $score,
+            )) if ($count == 1);
+          }
 				}
 			}	
 		}else{
@@ -297,6 +338,25 @@ TRAN:
 		$accept = 'NO';
  		if ($printing){
 		  print "max_coverage $max_coverage coverage $coverage \%id $percent_id $query_id\n"; 
+      if ($printing == 2) {
+        my $summary = 'Low coverage';
+        my $full_desc = 'Coverage of the best alignment is less than 90% - see query_score for coverage';
+        my $score = $coverage;
+        if ($percent_id < $self->min_percent) {
+          $summary = 'Low percent_id';
+          $full_desc = 'Percentage identity of the best alignment is less than 97% - see query_score for percent_id';
+          $score = $percent_id;
+        }
+        push(@rejected, Bio::EnsEMBL::UnmappedObject->new(
+         -type => 'cDNA',
+         -identifier => $query_id,
+         -summary => $summary,
+         -full_desc => $full_desc,
+         -target_score => $count,
+         -query_score => $score,
+         -analysis => $analysis,
+        )) if ($count == 1);
+      }
 		}
 
 	  }
@@ -337,7 +397,7 @@ TRAN:
       }
     }
   }
-  return \@good_matches;
+  return(\@good_matches, \@rejected);
 
 }
 
@@ -347,12 +407,9 @@ sub _get_transcript_coverage {
   my ($self,$tran) = @_;
   if (@{$tran->get_all_supporting_features} and
       defined $tran->get_all_supporting_features->[0]->hcoverage) {
-    my ($evi) = @{$tran->get_all_supporting_features};
-    return $evi->hcoverage;
+    return $tran->get_all_supporting_features->[0]->hcoverage;
   } else {
-    my @exons = @{$tran->get_all_Exons};
-    my ($evi) = @{$exons[0]->get_all_supporting_features};
-    return $evi->score;
+    return $tran->get_all_Exons->[0]->get_all_supporting_features->score;
   }
 }
 
@@ -361,13 +418,12 @@ sub _get_transcript_coverage {
 sub _get_transcript_percent_id {
   my ($self,$tran) = @_;
 
-  my ($sf);
+  my $sf;
 
   if (@{$tran->get_all_supporting_features}) {
-    ($sf) = @{$tran->get_all_supporting_features};
+    $sf = $tran->get_all_supporting_features->[0];
   } else {
-    my @exons = @{$tran->get_all_Exons};
-    ($sf) = @{$exons[0]->get_all_supporting_features};    
+    $sf = $tran->get_all_Exons->[0]->get_all_supporting_features->[0];
   }
 
   return $sf->percent_id;
@@ -378,13 +434,12 @@ sub _get_transcript_percent_id {
 sub _get_transcript_evidence_id {
   my ($self,$tran) = @_;
 
-  my ($sf);
+  my $sf;
 
   if (@{$tran->get_all_supporting_features}) {
-    ($sf) = @{$tran->get_all_supporting_features};
+    $sf = $tran->get_all_supporting_features->[0];
   } else {
-    my @exons = @{$tran->get_all_Exons};
-    ($sf) = @{$exons[0]->get_all_supporting_features};    
+    $sf = $tran->get_all_Exons->[0]->get_all_supporting_features->[0];
   }
   
   return $sf->hseqname;
