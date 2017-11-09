@@ -58,3 +58,5 @@ standaloneJob(
 		], # end event
 	]
 );
+
+done_testing();
