@@ -20,10 +20,13 @@ use File::Spec::Functions qw(catfile);
 use Bio::EnsEMBL::Hive::Utils::Test qw(standaloneJob);
 use Test::Most;
 
-my $expected_dataflow = [{filename => catfile($ENV{PWD}, 'README')}];
+my $output_dir = exists $ENV{WORK_DIR} ? $ENV{WORK_DIR} : $ENV{PWD};
+my $expected_dataflow = [{filename => catfile($output_dir, 'README')}];
+my $expected_dataflow_gzip = [{filename => catfile($output_dir, 'unmapped_reason.txt')}];
 
 sub cleaning {
-  unlink catfile($ENV{PWD}, 'README');
+  unlink catfile($output_dir, 'README');
+  unlink catfile($output_dir, 'unmapped_reason.txt');
 }
 
 use_ok('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData');
@@ -31,10 +34,11 @@ use_ok('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData');
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
 	{ # input param hash
-		'target'     => 'ftp://ftp.ensembl.org/pub/release-90/README',
+		'url'     => 'ftp://ftp.ensembl.org/pub/release-90/README',
 		'download_method'     => 'ftp',
     'md5sum' => '2a3ea6c67b0bf0a1cc72c5b15c73b931',
-    'output_dir' => $ENV{PWD},
+    'output_dir' => $output_dir,
+    'uncompress' => 0,
 	},
 	[ # list of events to test for (just 1 event in this case)
 		[ # start event
@@ -48,14 +52,31 @@ standaloneJob(
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
 	{ # input param hash
-		'target'     => 'ftp://ftp.ensembl.org/pub/release-90/README',
+		'url'     => 'ftp://ftp.ensembl.org/pub/release-90/README',
 		'download_method'     => 'ftp',
-    'output_dir' => $ENV{PWD},
+    'output_dir' => $output_dir,
+    'uncompress' => 0,
 	},
 	[ # list of events to test for (just 1 event in this case)
 		[ # start event
 			'DATAFLOW', # event to test for (could be WARNING)
 			$expected_dataflow, # expected data flowed out
+			2 # dataflow branch
+		], # end event
+	]
+);
+
+standaloneJob(
+	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
+	{ # input param hash
+		'url'     => 'ftp://ftp.ensembl.org/pub/current_mysql/ailuropoda_melanoleuca_core_90_1/unmapped_reason.txt.gz',
+		'download_method'     => 'ftp',
+    'output_dir' => $output_dir,
+	},
+	[ # list of events to test for (just 1 event in this case)
+		[ # start event
+			'DATAFLOW', # event to test for (could be WARNING)
+			$expected_dataflow_gzip, # expected data flowed out
 			2 # dataflow branch
 		], # end event
 	]
