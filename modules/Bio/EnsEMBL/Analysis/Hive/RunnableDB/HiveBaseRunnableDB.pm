@@ -69,7 +69,12 @@ sub run {
   $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
   foreach my $runnable(@{$self->runnable}){
     $runnable->run;
-    $self->output($runnable->output);
+    if ($self->can('filter_results')) {
+      $self->output($self->filter_results($runnable->output));
+    }
+    else {
+      $self->output($runnable->output);
+    }
   }
   return $self->output;
 }
