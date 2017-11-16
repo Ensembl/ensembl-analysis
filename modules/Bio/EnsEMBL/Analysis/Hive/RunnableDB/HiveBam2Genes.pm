@@ -60,6 +60,8 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     stranded_read => 0,
+    _repeat_libs => ['dust', 'trf'],
+    _repeats_allowed => 0.95,
   }
 }
 
@@ -108,6 +110,30 @@ sub fetch_input {
                 ));
 }
 
+sub filter_results {
+  my ($self, $results) = @_;
+
+  $self->throw('You did not pass an array ref but a '.ref($results)) unless (ref($results) eq 'ARRAY');
+  my @filtered_results;
+  my $repeat_libs = $self->param('_repeat_libs');
+  my $repeats_allowed = $self->param('_repeats_allowed');
+  foreach my $gene (@$results) {
+    if (@{$gene->get_all_Exons} == 1) {
+      my $masked_slice = $gene->feature_Slice->get_repeatmasked_seq($repeat_libs);
+      my $N_count = $masked_slice->seq =~ tr/N/N/;
+      if ($N_count > $masked_slice->length*$repeats_allowed) {
+        $self->warning('Too many simple (TRF/dust) repeats, not storing single exon gene');
+      }
+      else {
+        push(@filtered_results, $gene);
+      }
+    }
+    else {
+      push(@filtered_results, $gene);
+    }
+  }
+  return \@filtered_results;
+}
 
 =head2 write_output
 
