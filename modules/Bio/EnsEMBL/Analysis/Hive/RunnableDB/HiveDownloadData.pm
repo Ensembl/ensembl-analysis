@@ -81,9 +81,9 @@ sub fetch_input {
     if (file_name_is_absolute($url)) {
       $url = $self->param('aspera_user').'@'.$self->param('aspera_host').':'.$url;
     }
-    elsif ($url =~ /^[^@]+\// and $url !~ /:\//) {
+    elsif ($url =~ /^[^@]+\//) {
       $url = $self->param('aspera_user').'@'.$url;
-      $url =~ s/\//:\//;
+      $url =~ s/\//:\// if ($url !~ /:\//);
     }
     $client->source($url);
     $client->target($output_dir);
