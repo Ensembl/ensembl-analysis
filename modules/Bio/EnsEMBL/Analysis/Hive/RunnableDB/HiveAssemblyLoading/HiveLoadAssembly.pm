@@ -219,7 +219,7 @@ sub write_output {
     }
     my $mapping_string = $assembly_mapping->[0]->[0];
     $mapping_string =~ s/contig/scaffold/;
-    $assembly_mapping->[2]->[0] = $mapping_string.$scaffold_cs->version;
+    $assembly_mapping->[2]->[0] = $mapping_string.':'.$scaffold_cs->version;
     if (!defined $assembly_mapping->[1]) {
       $mapping_string = $assembly_mapping->[0]->[0];
       $mapping_string =~ s/chromosome/scaffold/;
