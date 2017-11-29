@@ -35,7 +35,6 @@ use warnings;
 use strict;
 use feature 'say';
 use Data::Dumper;
-#use File::chdir;
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 
@@ -45,7 +44,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
 use Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns calculate_exon_phases);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns calculate_exon_phases set_alignment_supporting_features);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(align_proteins);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -190,7 +189,21 @@ sub write_output {
   my $genes = $self->output_genes();
   foreach my $gene (@{$genes}) {
     say "Storing gene: ".$gene->start.":".$gene->end.":".$gene->strand;
+    
+foreach my $t (@{$gene->get_all_Transcripts()}) {
+  my $num_sf = scalar(@{$t->get_all_supporting_features()});
+  print($num_sf." supporting features for a transcript\n");
+}    
+
     empty_Gene($gene);
+    
+say "gene emptied";    
+    
+foreach my $t (@{$gene->get_all_Transcripts()}) {
+  my $num_sf = scalar(@{$t->get_all_supporting_features()});
+  print($num_sf." supporting features for a transcript\n");
+}        
+    
     $gene_adaptor->store($gene);
   }
 
@@ -231,8 +244,11 @@ sub build_transcripts {
          
 print("exon slice name is:".$exon->slice()->name()."\n");
 print("projected exon slice name is:".$projected_exon->slice()->name()."\n");
-         
-          push(@{$projected_exon_set},$projected_exon);
+          if ($projected_exon->start() <= $projected_exon->end()) {
+            push(@{$projected_exon_set},$projected_exon);
+          } else {
+            print("Projected exon start > end.");
+          }
 
         } else {
           print("Projected exon on a different seq region or strand: ".$projected_exon->stable_id()."\n");
@@ -267,17 +283,20 @@ print("projected exon slice name is:".$projected_exon->slice()->name()."\n");
     # Set the phases
     calculate_exon_phases($projected_transcript, 0);
 
-    say "Transcript translation:\n".$transcript->translation->seq;
-    say "Projected transcript translation:\n".$projected_transcript->translation->seq;
+    # Set the exon and transcript supporting features
+    set_alignment_supporting_features($projected_transcript,$transcript->translation()->seq(),$projected_transcript->translation()->seq());
 
-    my ($coverage,$percent_id) = align_proteins($transcript->translation->seq,$projected_transcript->translation->seq);
+    say "Transcript translation:\n".$transcript->translation()->seq();
+    say "Projected transcript translation:\n".$projected_transcript->translation()->seq();
+
+    my ($coverage,$percent_id) = align_proteins($transcript->translation()->seq(),$projected_transcript->translation()->seq());
 
    $projected_transcript->source($coverage);
    $projected_transcript->biotype($percent_id);
-   $projected_transcript->description(">orig\n".$transcript->translation->seq."\n>proj\n".$projected_transcript->translation->seq);
+   $projected_transcript->description(">orig\n".$transcript->translation()->seq()."\n>proj\n".$projected_transcript->translation()->seq());
 
-   say "PROJECTED EXON SEQ:\n".$projected_transcript->seq->seq;
-   say "TRANSCRIPT EXON SEQ:\n".$transcript->translateable_seq;
+   say "PROJECTED EXON SEQ:\n".$projected_transcript->seq()->seq();
+   say "TRANSCRIPT EXON SEQ:\n".$transcript->translateable_seq();
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->add_Transcript($projected_transcript);
     $gene->analysis($analysis);
@@ -540,21 +559,23 @@ sub parse_exon {
     $self->throw("Couldn't retrieve a slice for: ".$proj_exon_slice_name);
   }
 
-  my $proj_exon = new Bio::EnsEMBL::Exon(
-      -START     => $start_coord,
-      -END       => $end_coord,
-      -STRAND    => $strand,
-      -SLICE     => $proj_slice,
-      -ANALYSIS  => $source_exon->analysis,
-      -STABLE_ID => $source_exon->stable_id.".".$source_exon->version,
-      -VERSION   => 1,
+  my $proj_exon;
+  if ($start_coord <= $end_coord+1) {
+    $proj_exon = new Bio::EnsEMBL::Exon(
+        -START     => $start_coord,
+        -END       => $end_coord,
+        -STRAND    => $strand,
+        -SLICE     => $proj_slice,
+        -ANALYSIS  => $source_exon->analysis,
+        -STABLE_ID => $source_exon->stable_id.".".$source_exon->version,
+        -VERSION   => 1,
     );
-
-  say "Proj exon slice: ".$proj_exon->slice->name;
-  say "Proj exon seq: ".$proj_exon->seq->seq;
-
-  return($proj_exon);
-
+    say "Proj exon slice: ".$proj_exon->slice->name;
+    say "Proj exon seq: ".$proj_exon->seq->seq;
+  } else {
+    say "Start is not less than or equal to end+1. Exon skipped.";
+  }
+  return ($proj_exon);
 }
 
 sub analyse_alignment {
