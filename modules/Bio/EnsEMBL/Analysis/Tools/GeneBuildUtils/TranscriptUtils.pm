@@ -71,7 +71,6 @@ use Bio::SeqIO;
 
 use POSIX qw/ceil/;
 
-
 our @EXPORT_OK = qw(
              all_exons_are_valid
              are_phases_consistent
@@ -546,7 +545,7 @@ sub calculate_exon_phases {
     while($exons[-1] != $tr->end_Exon) {
       pop @exons;
     }
-    
+
     # set phase of for first coding exon
     my $cds_len = $exons[0]->length;
     if ($tr->start == 1) {
@@ -3031,8 +3030,8 @@ sub has_polyA_signal {
 =head2 set_alignment_supporting_features
 
  Arg [1]    : Bio::EnsEMBL::Transcript object
- Arg [2]    : string. Alignment query DNA sequence.
- Arg [3]    : string. Alignment target DNA sequence.
+ Arg [2]    : string. Alignment query protein sequence.
+ Arg [3]    : string. Alignment target protein sequence.
  Description: 
   This sets supporting features for all exons. It does this by comparing all non-split codons in the exons to their corresponding positions in the alignment.
   For each non-split codon, it makes a feature pair where the start and end are the codon start and end and the
@@ -3059,6 +3058,9 @@ sub set_alignment_supporting_features {
 
   # This will store all feature pairs in the end so that they can be added as a transcript supporting feature
   my $all_exon_supporting_features = [];
+  
+  # Keep track of the previous feature pair so features not in order can be discarded
+  my $prev_feature_pair;
 
   my $coverage;
   my $percent_id;
@@ -3077,10 +3079,12 @@ sub set_alignment_supporting_features {
   my $exons = $transcript->get_all_Exons();
   my $i=0;
   for($i=0; $i<scalar(@{$exons}); $i++) {
+
     my $proto_supporting_features = [];
     my $exon = $$exons[$i];
     my $exon_seq = $exon->seq->seq();
-    my @nucleotide_array = split('',$exon_seq);
+    my @nucleotide_array = split('',$exon_seq);    
+
     my $phase = $exon->phase();
     my $end_phase = $exon->end_phase();
     my $start_index = 0;
@@ -3101,12 +3105,11 @@ sub set_alignment_supporting_features {
       $start_index += (3 - $phase);
     }
 
-    my @unjoined_feature_pairs = ();
     for(my $k=$start_index; $k<scalar(@nucleotide_array); $k+=3) {
 
      # Ending on a split codon, so increase the index and finish the loop
      if($k+2 >= scalar(@nucleotide_array)) {
-        $codon_index++;
+        $codon_index++;        
         say "FM2 SKIPPING SPLIT CODON";
         last;
       }
@@ -3127,6 +3130,27 @@ sub set_alignment_supporting_features {
 
       my $query_char = substr($query_seq,$codon_alignment_index,1);
       my $target_char = substr($target_seq,$codon_alignment_index,1);
+
+      # check whether the selenocysteine exon attribute was added by the HiveCesar2 module
+      if (exists($exon->{'selenocysteine'})) {
+
+        if (substr($query_seq,$codon_alignment_index,3) eq 'NNN' and
+            substr($target_seq,$codon_alignment_index,3) eq 'TGA') {
+
+          my $seq_edit = Bio::EnsEMBL::SeqEdit->new(
+                                       -CODE    => '_selenocysteine',
+                                       -NAME    => 'Selenocysteine',
+                                       -DESC    => 'Selenocysteine',
+                                       -START   => $k/3,
+                                       -END     => $k/3,
+                                       -ALT_SEQ => 'U' # 1-letter code for selenocysteine amino acid Sec
+                                       );
+          my $translation = $transcript->translation();
+          $translation->add_Attributes($seq_edit->get_Attribute());
+        }
+
+      }
+
       if($query_char eq '-') {
         say "FM2 TSTART: ".$target_start;
         say "FM2 TEND: ".$target_end;
@@ -3137,14 +3161,13 @@ sub set_alignment_supporting_features {
         say "FM2 SKIPPING CODON BECAUSE OF ALIGMENT GAP";
         $codon_index++;
         next;
-      } elsif(($codon_alignment_index == length($query_seq)-1) && $query_char eq '*' && $target_char eq '*') {
+      } elsif(($codon_alignment_index >= length($query_seq)-1) && $query_char eq '*' && $target_char eq '*') {
         say "FM2 LAST CODON IS STOP SO SKIPPING";
-        next;
+        last;
       }
 
       my $hit_start = find_hit_start($codon_alignment_index,$query_seq);
       my $hit_end = $hit_start;
-
       say "FM2 TSTART: ".$target_start;
       say "FM2 TEND: ".$target_end;
       say "FM2 HSTART: ".$hit_start;
@@ -3161,41 +3184,64 @@ sub set_alignment_supporting_features {
                                           'hend'   =>$hit_end});
     }
 
-    say "\nQUERY:\n".$query_seq;
-    say "\nTARGET:\n".$target_seq;
-
-   my $joined_supporting_features = join_supporting_features($proto_supporting_features,$exon->strand);
-   my $exon_feature_pairs = [];
-   foreach my $joined_feature (@{$joined_supporting_features}) {
-     my $feature_pair = Bio::EnsEMBL::FeaturePair->new(
+    my $joined_supporting_features = join_supporting_features($proto_supporting_features,$exon->strand);
+    my $exon_feature_pairs = [];
+    foreach my $joined_feature (@{$joined_supporting_features}) {
+      my $feature_pair = Bio::EnsEMBL::FeaturePair->new(
                                                         -start      => $joined_feature->{'tstart'},
                                                         -end        => $joined_feature->{'tend'},
                                                         -strand     => $exon->strand,
-                                                        -hseqname   => $transcript->{'accession'},
+                                                        -hseqname   => $transcript->stable_id(),#$transcript->{'accession'},
                                                         -hstart     => $joined_feature->{'hstart'},
                                                         -hend       => $joined_feature->{'hend'},
                                                         -hcoverage  => $coverage,
                                                         -percent_id => $percent_id,
                                                         -slice      => $exon->slice,
                                                         -analysis   => $transcript->analysis);
-     say "FM2 ADD SUPPORTING EVIDENCE START: ".$feature_pair->start;
-     say "FM2 ADD SUPPORTING EVIDENCE END: ".$feature_pair->end;
-     push(@{$exon_feature_pairs},$feature_pair);
-     push(@{$all_exon_supporting_features},$feature_pair);
-   }
+      say "FM2 ADD SUPPORTING EVIDENCE START: ".$feature_pair->start;
+      say "FM2 ADD SUPPORTING EVIDENCE END: ".$feature_pair->end;
+      say "ADD SUPPORTING EVIDENCE hSTART: ".$feature_pair->hstart;
+      say "ADD SUPPORTING EVIDENCE hEND: ".$feature_pair->hend;
 
-    if(scalar(@{$exon_feature_pairs})) {
-      my $final_exon_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $exon_feature_pairs);
-       $exon->add_supporting_features($final_exon_supporting_features);
-    } else {
-      warning("No supporting features added for exon.\nExon start: ".$exon->start."\nExon end: ".$exon->end);
+      push(@{$exon_feature_pairs},$feature_pair);
+      if (scalar(@{$exon_feature_pairs})) {
+        my $final_exon_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $exon_feature_pairs);
+        $exon->add_supporting_features($final_exon_supporting_features);
+      } else {
+        warning("No supporting features added for exon.\nExon start: ".$exon->start."\nExon end: ".$exon->end);
+      }
+      
+      # exon feature pairs which are not in order compared to the previous feature in the previous exon
+      # will not be added to all exon supporting features to make the transcript supporting evidence
+      # because the Core API assumes that both all seq region coordinates and hit sequence coordinates will
+      # be in order but this would not be the case here
+      if ($prev_feature_pair) {
+        if (($feature_pair->start() < $prev_feature_pair->end() and $feature_pair->strand() == 1) or
+            ($feature_pair->end() > $prev_feature_pair->start() and $feature_pair->strand() == -1)) {
+          # if features are not sorted, do not add them
+          warning("Feature pair not in order. Added to exon supporting features but not added to transcript supporting features.");
+          next;
+        } else {
+          push(@{$all_exon_supporting_features},$feature_pair);
+        }
+      } else {
+        push(@{$all_exon_supporting_features},$feature_pair);
+      }
+      $prev_feature_pair = $feature_pair;
     }
-
   }
 
-  my $transcript_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $all_exon_supporting_features);
-  $transcript->add_supporting_features($transcript_supporting_features);
+  if (scalar(@$all_exon_supporting_features) > 0) {
+    my $transcript_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $all_exon_supporting_features);
 
+    if ($transcript_supporting_features) {
+      $transcript->add_supporting_features($transcript_supporting_features);
+    } else {
+      warning("There are some all_exon_supporting_features but no $transcript_supporting_features for transcript ".$transcript->dbID()." ".$transcript->stable_id());
+    }
+  } else {
+    warning("There are no all_exon_supporting_features and, therefore, no transcript_supporting_features for transcript ".$transcript->dbID()." ".$transcript->stable_id());
+  }
 }
 
 sub find_codon_alignment_index {
@@ -3204,8 +3250,8 @@ sub find_codon_alignment_index {
   my $align_index = -1;
   my $char_count = 0;
   for(my $j=0; $j<length($align_seq); $j++) {
-    my $char = substr($align_seq,$j,1);
 
+    my $char = substr($align_seq,$j,1);
     if($char eq '-') {
       next;
     }
@@ -3223,7 +3269,6 @@ sub find_codon_alignment_index {
   if($align_index == -1 && $char_count == $codon_index) {
     $align_index = length($align_seq) - 1;
   }
-
   unless($align_index >= 0) {
     throw("Did not find the alignment index for the codon");
   }
