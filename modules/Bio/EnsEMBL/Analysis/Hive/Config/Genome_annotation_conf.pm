@@ -1403,7 +1403,7 @@ sub pipeline_analyses {
                          target_db => $self->o('projection_source_db'),
                          feature_id => 1,
                          feature_type => 'transcript',
-                         feature_restriction => 'protein_coding',
+                         feature_restriction => 'projection',
                        },
 
         -flow_into => {
