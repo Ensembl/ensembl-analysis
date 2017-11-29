@@ -549,7 +549,9 @@ sub calculate_exon_phases {
     my $cds_len = $exons[0]->length;
     if ($tr->start == 1) {
       $exons[0]->phase($start_phase);
-      $cds_len += $start_phase;
+      if ($start_phase > 0) {
+        $cds_len += $start_phase;
+      }
     } else {
       $cds_len -= ($tr->start - 1);
     }
