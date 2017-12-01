@@ -34,7 +34,7 @@ my $verbose;
 # genome bits
 my @default_ensembl_genetypes = ('IG_C_gene', 'IG_D_gene', 'IG_J_gene', 'IG_LV_gene', 'Mt_rRNA', 'Mt_tRNA', 'processed_pseudogene', 'protein_coding', 'pseudogene');
 my @genetypes = ();
-my @default_merged_genetypes = ('3prime_overlapping_ncrna', 'antisense', 'IG_C_gene', 'IG_D_gene', 'IG_J_gene', 'IG_LV_gene','IG_V_gene', 'IG_V_pseudogene', 'lincRNA', 'miRNA', 'misc_RNA', 'Mt_rRNA', 'Mt_tRNA', 'non_coding', 'polymorphic_pseudogene', 'processed_pseudogene', 'processed_transcript', 'protein_coding', 'pseudogene', 'rRNA', 'sense_intronic', 'sense_overlapping', 'snoRNA', 'snRNA', 'TR_V_gene', 'TR_V_pseudogene');
+my @default_merged_genetypes = ('3prime_overlapping_ncrna', 'antisense_RNA', 'IG_C_gene', 'IG_D_gene', 'IG_J_gene', 'IG_LV_gene','IG_V_gene', 'IG_V_pseudogene', 'lincRNA', 'miRNA', 'misc_RNA', 'Mt_rRNA', 'Mt_tRNA', 'non_coding', 'polymorphic_pseudogene', 'processed_pseudogene', 'processed_transcript', 'protein_coding', 'pseudogene', 'rRNA', 'sense_intronic', 'sense_overlapping', 'snoRNA', 'snRNA', 'TR_V_gene', 'TR_V_pseudogene');
 my @merged_genetypes = ();
 
 
