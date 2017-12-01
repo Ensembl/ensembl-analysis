@@ -168,7 +168,7 @@ my $known_biotypes = {
                      'snoRNA'                             => 'noncoding',
                      'snRNA'                              => 'noncoding',
                      'miRNA'                              => 'noncoding',
-                     'antisense'                          => 'noncoding',
+                     'antisense_RNA'                      => 'noncoding',
                      'Mt_tRNA'                            => 'noncoding',
                      'Mt_rRNA'                            => 'noncoding',
                      'sense_intronic'                     => 'noncoding',
@@ -179,7 +179,7 @@ my $known_biotypes = {
                      'scaRNA'                             => 'noncoding_second_choice',
                      'scRNA'                              => 'noncoding_second_choice',
                      'sRNA'                               => 'noncoding_second_choice',
-                     'vaultRNA'                           => 'noncoding_second_choice',
+                     'vault_RNA'                          => 'noncoding_second_choice',
                      'processed_transcript'               => 'noncoding_second_choice',
                      'misc_RNA'                           => 'noncoding_second_choice',
                      '3prime_overlapping_ncRNA'           => 'noncoding_second_choice',
@@ -957,14 +957,14 @@ length in the basic set.(if there is more than 1 of these too, I get the first I
 2) Non - coding transcripts
 
 a)We have preference to these transcript biotypes :
- "antisense", "Mt_tRNA","Mt_rRNA" , "rRNA" ,"snoRNA" , "snRNA", "miRNA"
+ "antisense_RNA", "Mt_tRNA","Mt_rRNA" , "rRNA" ,"snoRNA" , "snRNA", "miRNA"
  If we have these biotypes, in full-length transcripts we put them ALL
 in the basic set.
 
 
 b)If we don't get any of these,  we check these biotypes:
 
-"antisense", "Mt_tRNA", "Mt_rRNA","rRNA" , "snoRNA" ,"snRNA",
+"antisense_RNA", "Mt_tRNA", "Mt_rRNA","rRNA" , "snoRNA" ,"snRNA",
 "processed_transcript", "lincRNA" ,
 "3prime_overlapping_ncrna","non_coding" ,
 "sense_intronic" ,"sense_overlapping", "miRNA" , "misc_RNA"
@@ -1003,7 +1003,7 @@ If there were no transcripts meeting the above criteria, then the largest non-co
 It no transcripts were included by either the above criteria, the longest problem transcript is included.
 Non-coding transcript categorization: Non-coding transcripts are categorized using their biotype and the following criteria:
 
-well characterized: antisense, Mt_rRNA, Mt_tRNA, miRNA, rRNA, snRNA, snoRNA
+well characterized: antisense_RNA, Mt_rRNA, Mt_tRNA, miRNA, rRNA, snRNA, snoRNA
 poorly characterized: 3prime_overlapping_ncrna, lincRNA, misc_RNA, non_coding, processed_transcript, sense_intronic, sense_overlapping
 
 =cut
