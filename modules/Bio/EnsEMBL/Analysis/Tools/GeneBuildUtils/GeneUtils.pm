@@ -69,6 +69,7 @@ use vars qw (@ISA  @EXPORT);
              fully_load_Gene
              get_one2one_orth_for_gene_in_other_species
              get_one2one_homology_for_gene_in_other_species  
+             get_readthroughs_count 
              get_single_Exon_Genes 
              get_multi_Exon_Genes
              get_transcript_with_longest_CDS
@@ -657,6 +658,26 @@ sub convert_to_single_transcript_gene {
   return \@single_transcript_genes;
 }
 
+=head2 get_readthroughs_count
 
+  Arg [1]   : Bio::EnsEMBL::Gene 
+  Function  : returns the number of transcripts having a readthrough transcript attribute
+  Returntype: int
+  Exceptions: none
+  Example   : $num_readthrough_transcripts = get_readthroughs_count($gene)
+
+=cut
+
+sub get_readthroughs_count { 
+  my ($gene) = @_; 
+
+  my $readthrough_transcripts = 0;
+  foreach my $t (@{$gene->get_all_Transcripts()}) {
+    if (scalar(@{$t->get_all_Attributes('readthrough_tra')}) > 0) {
+      $readthrough_transcripts++;
+    }
+  }
+  return $readthrough_transcripts;
+}
 
 1; 
