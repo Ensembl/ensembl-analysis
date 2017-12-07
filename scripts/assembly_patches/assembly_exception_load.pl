@@ -436,7 +436,7 @@ MAP: while(<MAPPER>){
 
         if ($out =~ /no match/) {
           print "Could not get seq_region_id for $contig trying eutils\n";
-          $out = system("wget -o $contig.wget.log -O $contig.fa 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=$contig&rettype=fasta&retmode=text' > ./$contig.fa");
+          $out = system("wget -o $contig.wget.log -O $contig.fa 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=$contig&rettype=fasta&retmode=text' > ./$contig.fa");
         } else {
           open (CONTIGFILE, ">$contig.fa");
           print CONTIGFILE $out;
