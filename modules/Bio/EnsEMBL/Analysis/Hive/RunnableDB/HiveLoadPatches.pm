@@ -341,9 +341,9 @@ sub load_patches() {
 #GCA_000001405.20
   my $patches_filepath = $output_dir."/patches.sql";
 
-  my $ass_acc = (split('_',(split('/',$ftp_dir))[8]))[0]."_".
-                (split('_',(split('/',$ftp_dir))[8]))[1];
-  my $ass_name = (split('_',(split('/',$ftp_dir))[8]))[2];
+  my $ass_acc = (split('_',(split('/',$ftp_dir))[9]))[0]."_".
+                (split('_',(split('/',$ftp_dir))[9]))[1];
+  my $ass_name = (split('_',(split('/',$ftp_dir))[9]))[2];
 
   run_command('perl $ENSEMBL_ANALYSIS/scripts/assembly_patches/assembly_exception_load.pl '."-user $user -pass $pass -host $host -port $port -dbname $name -mapping $output_dir/alt.scaf.agp -txt $alt_scaffold_filepath -patchtype $output_dir/patch_type -assembly_name $ass_name -assembly_acc $ass_acc -coord_system scaffold -sql_file $patches_filepath","Creating the file $patches_filepath that will be used to load the patches into the database...");
 
