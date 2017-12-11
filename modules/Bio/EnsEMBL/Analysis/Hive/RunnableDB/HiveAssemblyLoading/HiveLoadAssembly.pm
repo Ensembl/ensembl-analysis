@@ -97,6 +97,7 @@ sub run {
       my %component_ids;
       my $mapping_delimiter = '|';
       my @rows;
+
       open(FH, $file) or $self->throw("Can't open $file");
       while(<FH>) {
         next if /^\#/;
@@ -106,10 +107,12 @@ sub run {
         #CM000686.1  28215812  28388853  244 F AC006991.3  1 173042  +
         #cb25.fpc4250	119836	151061	13	W	c004100191.Contig2	1	31226	+
         #cb25.fpc4250	151062	152023	14	N	962	fragment	yes
-        my ($a_name_init, $a_start, $a_end, $ordinal, $type, $c_name, $c_start,
+       say "FERGAL: ".$_;
+
+       my ($a_name_init, $a_start, $a_end, $ordinal, $type, $c_name, $c_start,
             $c_end, $ori) = split;
 
-        if($type and ($type ne 'N' || $type ne 'U')) {
+        if($type and ($type ne 'N' && $type ne 'U')) {
           my $strand = 1;
           $strand = -1 if ($ori eq '-');
 

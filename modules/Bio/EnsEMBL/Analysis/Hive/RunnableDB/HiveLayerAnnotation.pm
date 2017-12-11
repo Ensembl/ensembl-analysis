@@ -43,6 +43,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLayerAnnotation;
 
 use warnings ;
 use strict;
+use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
@@ -83,6 +84,7 @@ sub fetch_input {
     if($dna_dba) {
       $dba->dnadb($dna_dba);
     }
+    say "FERGAL DB NAME: ".$dba->dbc->dbname;
 
     my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param('iid'));
     my $tlslice = $dba->get_SliceAdaptor->fetch_by_region($slice->coord_system->name,
@@ -90,6 +92,7 @@ sub fetch_input {
 
     foreach my $layer (@{$self->layers}) {
       foreach my $tp (@{$layer->biotypes}) {
+        say "FERGAL TP: ".$tp;
         foreach my $g (@{$slice->get_all_Genes_by_type($tp, undef, 1)}) {
           $found_input_genes = 1;
           $g = $g->transfer($tlslice);

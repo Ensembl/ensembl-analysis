@@ -311,7 +311,7 @@ sub pipeline_analyses {
         -rc_name => '1GB',
         -parameters => {
           study_accession => $self->o('study_accession'),
-        }
+        },
         -input_ids => [{
           alignment_bam_file => catfile('#wide_merge_dir#', '#assembly_name#_#rnaseq_data_provider#_merged.1.bam'),
           assembly_name => $self->o('assembly_name'),
@@ -785,7 +785,7 @@ sub pipeline_analyses {
       },
       {
         -logic_name => 'check_and_delete_broken_duplicated',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRemoveDuplicatedObjects',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRemoveBrokenAndDuplicatedObjects',
         -parameters => {
                          target_db => $self->o('rough_db'),
                          check_support => 0,

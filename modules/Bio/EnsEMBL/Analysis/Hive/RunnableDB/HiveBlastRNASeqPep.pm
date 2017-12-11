@@ -60,6 +60,9 @@ use Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep;
 use Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene attach_Analysis_to_Gene attach_Slice_to_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(align_proteins);
+use Bio::EnsEMBL::IO::Parser::Fasta;
+use Data::Dumper;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast');
 
@@ -211,6 +214,9 @@ sub run {
             }
         }
         $self->add_supporting_features($runnable->transcript,$runnable->output);
+#        if($self->param('calculate_coverage_and_pid')) {
+          $self->realign_results($self->output);
+#        }
     }
     return 1;
 }
@@ -570,3 +576,44 @@ sub failed_genes {
 }
 
 1;
+
+
+
+sub realign_results {
+  my ($self,$genes) = @_;
+
+  foreach my $gene (@{$genes}) {
+    foreach my $transcript (@{$gene->get_all_Transcripts}) {
+      my $sfs = $transcript->get_all_supporting_features;
+      unless(scalar(@$sfs)) {
+        next;
+      }
+
+      my $sf = ${$sfs}[0];
+      my $hit_name = $sf->hseqname;
+      my $original_seq;
+
+      my $uniprot_db = ${$self->param('uniprot_index')}[0];
+      my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($uniprot_db);
+
+      while($parser->next()) {
+        my ($accession) = $parser->getHeader =~ /^(\S+)/;
+        if($accession eq $hit_name) {
+          $original_seq = $parser->getSequence;
+          last;
+        }
+      }
+
+      unless($original_seq) {
+        $self->throw("Was not able to find the original sequence in the blast db for realignment.".
+                     "\nOriginal seq: ".$hit_name."\nBlast db location: ".$uniprot_db);
+      }
+
+      my ($coverage,$percent_id) = align_proteins($original_seq,$transcript->translation->seq);
+      foreach my $sf (@{$sfs}) {
+        $sf->hcoverage($coverage);
+        $sf->percent_id($percent_id);
+      }
+    }
+  }
+}

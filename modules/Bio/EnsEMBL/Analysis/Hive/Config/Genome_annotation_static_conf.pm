@@ -2423,9 +2423,9 @@ sub pipeline_analyses {
                          iid_type => 'feature_id',
                          feature_type => 'transcript',
                          feature_restriction => 'projection',
-                         allowed_biotypes => {
-                                               'protein_coding' => 1,
-                                             },
+                         biotypes => {
+                                       'protein_coding' => 1,
+                                     },
                          batch_size => 500,
                        },
 

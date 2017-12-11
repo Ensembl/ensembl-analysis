@@ -246,6 +246,10 @@ sub run {
 #                      };
                   }
                   $line{sample_name} = $line{dev_stage} || $line{cellType} || $line{organismPart} || $line{sample_alias} || $line{description};
+
+                  if($line{sample_name} eq 'terminal') {
+                     $line{sample_name} = $line{tissue_type};
+                  }
                   $ua->default_headers($dh);
                   $samples{$sample} = \%line;
                 }

@@ -106,10 +106,14 @@ sub fetch_input {
     my %classification;
     if($self->param('classification_type') eq 'standard') {
       %classification = (
-        95 => [95, 95],
-        80 => [80, 80],
-        50 => [50, 50],
-        0 => [0, 0],
+        '95_95' => [95, 95],
+        '95_80' => [95, 80],
+        '90_80' => [90, 80],
+        '80_60' => [80, 60],
+        '70_60' => [70, 60],
+        '50_50' => [50, 50],
+        '50_25' => [50, 25],
+        '0_0' => [0, 0],
       );
       $self->param('classification', \%classification);
     } else {

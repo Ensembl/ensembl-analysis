@@ -180,7 +180,7 @@ sub clean_genes {
           push(@{$transcript_ids_to_remove},$transcript->dbID);
         } else {
           # Keep things with excellent alignments, self proteins and swiss prot good alignments
-          unless($transcript->biotype =~ /.+\_95$/ || $transcript->biotype =~ /^self.+/ || $transcript->biotype =~ /.+_sp_80$/) {
+          unless($transcript->biotype =~ /.+\_95_90$/ || $transcript->biotype =~ /^self.+/ || $transcript->biotype =~ /.+_95_95$/ || $transcript->biotype =~ /.+_95_80$/ || $transcript->biotype =~ /.+_95_70$/ || $transcript->biotype =~ /.+_90_90$/) {
             # For everything else unless there is UTR flag for deletion
             unless(scalar(@{$transcript->get_all_five_prime_UTRs}) || scalar(@{$transcript->get_all_three_prime_UTRs})) {
               say "Found single exon or frameshift intron only gene for removal due to biotype and lack of UTR: ".$transcript->dbID.", ".$transcript->biotype;
