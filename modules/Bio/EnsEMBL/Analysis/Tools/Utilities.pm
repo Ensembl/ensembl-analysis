@@ -81,6 +81,7 @@ our @EXPORT_OK = qw(
               hrdb_get_dba
               convert_to_ucsc_name
               align_proteins
+              align_proteins_with_alignment
               locate_executable
               first_upper_case
               execute_with_wait
@@ -915,6 +916,26 @@ sub send_email {
 sub align_proteins {
   my ($source_protein_seq,$target_protein_seq) = @_;
 
+  my (undef,undef,$coverage,$percent_id) = align_proteins_with_alignment($source_protein_seq,$target_protein_seq);
+  
+  return ($coverage,$percent_id);
+}
+
+=head2 align_proteins_with_alignment
+
+  Arg [0]   : source protein sequence
+  Arg [1]   : target protein sequence
+  
+  Function  : It aligns the source protein sequence to the target protein sequence to
+              calculate the coverage and the percent identity of the source against the target.
+  Returntype: List containing (aligned_source_protein_seq,aligned_target_protein_seq,coverage,percent_identity) i.e. (82.7%,91.22%)
+  Examples  : align_proteins_with_alignment("ADCDA","ADCTM");
+  
+=cut
+
+sub align_proteins_with_alignment {
+  my ($source_protein_seq,$target_protein_seq) = @_;
+
   my $align_input_file = "/tmp/align_".$$.".fa";
   my $align_output_file = "/tmp/align_".$$.".aln";
 
@@ -988,7 +1009,7 @@ sub align_proteins {
   my $percent_id = ($match_count/$aligned_positions)*100;
   $coverage = sprintf "%.2f", $coverage;
   $percent_id = sprintf "%.2f", $percent_id;
-  return ($coverage,$percent_id);
+  return ($aligned_source_protein_seq,$aligned_target_protein_seq,$coverage,$percent_id);
 }
 
 =head2 hrdb_get_dba
