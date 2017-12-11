@@ -45,7 +45,7 @@ sub default_options {
     'email_address'             => '' || $ENV{HIVE_EMAIL}, #!!!!!!!!!!!
     'genebuilder_id'            => '' || $ENV{GENEBUILDER_ID}, #!!!!!!!!!!!
     'release_number'            => '', #!!!!!!!!!!! (you can put whatever here if you're not sure)
-    'enscode_root_dir'          => '', #!!!!!!!!!!! git repo checkouts
+    'enscode_root_dir'          => '' || $ENV{ENSCODE},  #!!!!!!!!!!! git repo checkouts
     'repbase_logic_name'        => '', #!!!!!!!!!!!!!!!!! repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'repbase_library'           => '', #!!!!!!!!!!!!!!!!! repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'species_name'              => '', #!!!!!!!!!!!!!!!!! e.g. mus_musculus

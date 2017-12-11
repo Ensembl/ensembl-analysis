@@ -25,10 +25,20 @@ my $assembly_accessions;
 open(IN,$config_file);
 while(<IN>) {
     my $line = $_;
-    if($line =~ /^ *(.+) *\= *(.+) */) {
+
+    $line =~ s/\s//g;
+    if($line =~ /^(.+)\=(.+)/) {
       my $key = $1;
       my $value = $2;
       say "Found key/value pair: ".$key." => ".$value;
+
+      # Note that in the ini file the key for write user is user_w for clarity, but in the actual
+      # hive config it's user (since hive expects a user key). This is just a substitution to account
+      # for this
+      if($key eq 'user_w') {
+        $key = 'user';
+      }
+
       $general_hash->{$key} = $value;
     }elsif($line eq "\n") {
 	# Skip
@@ -242,6 +252,12 @@ sub clade_settings {
       'repbase_library'    => 'rodents',
       'repbase_logic_name' => 'rodents',
       'uniprot_set'        => 'rodents_basic',
+    },
+
+    'mammals' => {
+      'repbase_library'    => 'mammals',
+      'repbase_logic_name' => 'mammals',
+      'uniprot_set'        => 'mammals_basic',
     },
   };
 
