@@ -753,7 +753,11 @@ sub feature_restriction {
 sub assess_projection_transcript {
   my ($self,$current_transcript) = @_;
 
-  my $biotypes = $self->param_required('allowed_biotypes');
+  unless(ref($current_transcript) eq "Bio::EnsEMBL::Transcript") {
+    $self->throw("The assess_projection_transcript subroutine expects a transcript object. Found object type: ".ref($current_transcript));
+  }
+
+  my $biotypes = $self->param_required('biotypes');
   my $feature_restricted = 0;
   unless($biotypes->{$current_transcript->biotype()}) {
     $feature_restricted = 1;
