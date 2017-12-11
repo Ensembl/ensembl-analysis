@@ -162,6 +162,7 @@ sub fetch_input {
           open(FH, "$fh") || $self->throw("Could not open $fh");
           while(<FH>) {
             next if (/^#|^\s*$/);
+            chomp;
             push(@{$data{$file}}, [split("\t", $_)]);
             ++$data_counter;
           }
