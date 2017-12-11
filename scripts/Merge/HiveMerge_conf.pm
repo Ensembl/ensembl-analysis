@@ -233,7 +233,7 @@ sub default_options {
     'genebuilder_set'            => 'self_patch',
 
     # executable paths
-    'repeatmasker_path' => $self->o('software_path').'/linuxbrew/Cellar/repeatmasker/4.0.5_2/bin/RepeatMasker',
+    'repeatmasker_path' => $self->o('software_path').'/linuxbrew/bin/RepeatMasker',
     'dust_path' => $self->o('software_path').'/linuxbrew/bin/tcdust',
     'trf_path' => $self->o('software_path').'/linuxbrew/bin/trf',
     'eponine_java_path' => $self->o('software_path').'/jenv/shims/java',
