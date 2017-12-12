@@ -133,7 +133,7 @@ sub fetch_input{
     (
      '-genes'             => \@genes,
      '-analysis'          => $self->analysis,
-     '-PS_MULTI_EXON_DIR' => $self->param('config_settings')->{PS_MULTI_EXON_DIR},
+     '-PS_MULTI_EXON_DIR' => $self->param('PS_MULTI_EXON_DIR'),
     );
 
   $self->runnable($runnable);
