@@ -54,13 +54,11 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 use Net::FTP;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Getopt::Long;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use File::Basename;
 use File::Find;
 use List::Util qw(sum);
@@ -165,6 +163,7 @@ sub download_patches() {
 # download the 5 patches files from the ftp_path (ie 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA_.../GCA_...assembly_structure/PATCHES/alt_scaffolds'):
 # alt.scaf.agp.gz, alt.scaf.fna.gz, alt_scaffold_placement.txt, patch_type and assembly_report.txt
 # to the local directory 'local_dir'
+ my ($self) = @_;
 
   my ($ftp_path,$local_dir) = @_;
 
@@ -177,7 +176,7 @@ sub download_patches() {
   my $cmd = "wget --no-proxy ".$wget_verbose." -r -nH --cut-dirs=".$numDirs." --reject *.rm.out.gz --reject *.asn --reject *.gff -P ".$local_dir." ".$ftp_path;
   my $return = system($cmd);
   if ($return) {
-    throw("Could not download the AGP, FASTA and info files. Commandline used:\n".$cmd);
+    $self->throw("Could not download the AGP, FASTA and info files. Commandline used:\n".$cmd);
   }
 
   # get the name of the directory where the assembly report file is
@@ -190,7 +189,7 @@ sub download_patches() {
   my $link  = $ftp_path."/../../../".$ass_report_dir."_assembly_report.txt";
 
   if (system("wget ".$wget_verbose." -nH -P ".$local_dir." ".$ftp_path."/../../../".$ass_report_dir."_assembly_report.txt -O ".$local_dir."/assembly_report.txt")) {
-    throw("Could not download *_assembly_report.txt file from ".$ftp_path."/../../../ to ".$local_dir.". Please, check that both paths are valid.");
+    $self->throw("Could not download *_assembly_report.txt file from ".$ftp_path."/../../../ to ".$local_dir.". Please, check that both paths are valid.");
   }
   else {
     print("Assembly report file was downloaded\n");
@@ -199,7 +198,7 @@ sub download_patches() {
   # check if the 5 files were downloaded
   my $num_files = int(`find $local_dir -type f | wc -l`);
   if ($num_files != 5) {
-    throw("Files were not downloaded successfully from ".$ftp_path." to ".$local_dir.". Please, check that both paths are valid and your output path has not been used before.");
+    $self->throw("Files were not downloaded successfully from ".$ftp_path." to ".$local_dir.". Please, check that both paths are valid and your output path has not been used before.");
   } else {
     print("$num_files files were downloaded\n");
   }
@@ -207,7 +206,7 @@ sub download_patches() {
   $cmd = "gunzip $local_dir/*.gz";
   $return = system($cmd);
   if ($return) {
-    throw("Could not gunzip the .gz files. Commandline used:\n".$cmd);
+    $self->throw("Could not gunzip the .gz files. Commandline used:\n".$cmd);
   } else {
   	print("Files gunzipped successfully\n");
   }
