@@ -432,10 +432,7 @@ MAP: while(<MAPPER>){
 
       if(!defined($cmp_seq_id)){
         print "Could not get seq_region_id for $contig trying eutils\n";
-        my $out = system("wget -o $contig.wget.log -O $contig.fa 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=$contig&rettype=fasta&retmode=text' > ./$contig.fa");
-        open (CONTIGFILE, ">$contig.fa");
-        print CONTIGFILE $out;
-        close (CONTIGFILE);
+        die "failed to fetch $contig" unless ( system("wget -o $contig.wget.log -O $contig.fa 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=$contig&rettype=fasta&retmode=text'"));
 
         my $contig_seq ="";
         open(FA,"<./$contig.fa") || die "Could not open file ./$contig.fa\n";
