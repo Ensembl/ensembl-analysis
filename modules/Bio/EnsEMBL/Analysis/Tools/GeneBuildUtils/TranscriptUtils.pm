@@ -122,6 +122,7 @@ our @EXPORT_OK = qw(
              trim_cds_to_whole_codons
              Transcript_info
              has_polyA_signal
+             set_alignment_supporting_features
             );
 
 
