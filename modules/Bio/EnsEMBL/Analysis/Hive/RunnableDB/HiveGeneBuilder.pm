@@ -48,7 +48,7 @@ use feature 'say';
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_support empty_Gene print_Gene_Transcript_and_Exons);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_ovewrite empty_Gene print_Gene_Transcript_and_Exons);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils 
   qw(are_strands_consistent are_phases_consistent calculate_exon_phases
      is_not_folded all_exons_are_valid intron_lengths_all_less_than_maximum);
@@ -145,26 +145,7 @@ sub write_output{
   my $sucessful_count = 0;
   logger_info("WRITE OUTPUT have ".@{$self->output}." genes to write");
   foreach my $gene (@{$self->output}){
-    my $attach = 0;
-    if(!$gene->analysis){
-      my $attach = 1;
-      attach_Analysis_to_Gene_no_support($gene, $self->analysis);
-    }
-    if($attach == 0){
-    TRANSCRIPT:foreach my $transcript(@{$gene->get_all_Transcripts}){
-        if(!$transcript->analysis){
-          attach_Analysis_to_Gene_no_support($gene, $self->analysis);
-          last TRANSCRIPT;
-        }
-      }
-    }
-
-    foreach my $transcript ( @{ $gene->get_all_Transcripts() } ) 
-    {
-      $transcript->load ;
-      $transcript->dbID(0);
-    }
-
+    attach_Analysis_to_Gene_no_ovewrite($gene, $self->analysis);
     empty_Gene($gene);
     eval{
       $ga->store($gene);
