@@ -259,6 +259,18 @@ sub validate_Transcript{
       last EXON;
     }
   }
+  if (@$exons > 3 and $transcript->translation and $transcript->translation->length < 100) {
+    my $sum = 0;
+    my $max = 0;
+    foreach my $exon (@$exons) {
+      $sum += $exon->length;
+      $max = $exon->length if ($max < $exon->length);
+    }
+    if ($max < 50 and ($sum/@$exons < 20)) {
+      print "Transcript has only small exons ";
+      ++$is_valid;
+    }
+  }
   if(contains_internal_stops($transcript)) {
     print "Transcript contains internal stops. ";
     $is_valid++;
