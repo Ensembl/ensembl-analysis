@@ -172,6 +172,8 @@ sub default_options {
 #                                                                        #
 ##########################################################################
 
+        maxintron => 200000,
+
         blast_db_port => $self->o('data_db_port'),
         blast_db_user => $self->o('user'),
         blast_db_password => $self->o('password'),
@@ -711,6 +713,7 @@ sub pipeline_analyses {
                          max_transcript => 1000000,
                          batch_size => 10000,
                          bam_file => '#wide_merge_dir#/merged.bam',
+                         maxintron => $self->o('maxintron'),
                        },
         -rc_name    => '2GB_introns',
         -flow_into => {
