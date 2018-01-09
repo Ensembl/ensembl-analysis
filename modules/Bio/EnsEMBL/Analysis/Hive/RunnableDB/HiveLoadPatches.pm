@@ -186,14 +186,22 @@ sub download_patches() {
   $ass_report_dir = pop(@ftp_path_array);
   $ass_report_dir = pop(@ftp_path_array);
 
-  my $link  = $ftp_path."/../../../".$ass_report_dir."_assembly_report.txt";
+  # my $link  = $ftp_path."/../../../".$ass_report_dir."_assembly_report.txt";
+  # ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/635/GCA_000001635.8_GRCm38.p6/GCA_000001635.8_GRCm38.p6_assembly_report.txt
+  my $link = 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/635/GCA_000001635.8_GRCm38.p6/GCA_000001635.8_GRCm38.p6_assembly_report.txt';
 
-  if (system("wget ".$wget_verbose." -nH -P ".$local_dir." ".$ftp_path."/../../../".$ass_report_dir."_assembly_report.txt -O ".$local_dir."/assembly_report.txt")) {
-    $self->throw("Could not download *_assembly_report.txt file from ".$ftp_path."/../../../ to ".$local_dir.". Please, check that both paths are valid.");
+  if (system("wget ".$wget_verbose." -nH -P ".$local_dir." ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/635/GCA_000001635.8_GRCm38.p6/GCA_000001635.8_GRCm38.p6_assembly_report.txt -O ".$local_dir."/assembly_report.txt")) {
+       $self->throw("Could not download *_assembly_report.txt file from ".$ftp_path."/../../../ to ".$local_dir.". Please, check that both paths are valid.");
   }
   else {
-    print("Assembly report file was downloaded\n");
+       print("Assembly report file was downloaded\n");
   }
+ # if (system("wget ".$wget_verbose." -nH -P ".$local_dir." ".$ftp_path."/../../../".$ass_report_dir."_assembly_report.txt -O ".$local_dir."/assembly_report.txt")) {
+ #   $self->throw("Could not download *_assembly_report.txt file from ".$ftp_path."/../../../ to ".$local_dir.". Please, check that both paths are valid.");
+ # }
+ # else {
+ #   print("Assembly report file was downloaded\n");
+ # }
   
   # check if the 5 files were downloaded
   my $num_files = int(`find $local_dir -type f | wc -l`);
@@ -284,8 +292,8 @@ sub remove_patches_on_patches() {
   my $cmd = "IFS=\$'\\n';
              set -f;
              for line in `cat $alt_scaffold_file`; do
-               PARENTACCorNAME=`echo \$line | awk '{if(\$2 == \"Primary\") {print \$8} else {if(\$7 == \"parent_acc\") {print \$7} else {print \$6}}}'`;
-               ACC=`echo \$line | awk '{if(\$2 == \"Primary\") {print \$5} else {print \$4}}'`;
+               PARENTACCorNAME=`echo \$line | awk '{if(\$2 == \"C57BL/6J\") {print \$7} else {if(\$7 == \"parent_acc\") {print \$7} else {print \$6}}}'`;
+               ACC=`echo \$line | awk '{if(\$2 == \"C57BL/6J\") {print \$4} else {print \$4}}'`;
                RES=`mysql -u$user \\
                           -p$pass \\
                           -h$host \\
