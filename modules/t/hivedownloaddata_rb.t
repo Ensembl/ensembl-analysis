@@ -69,7 +69,7 @@ standaloneJob(
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
 	{ # input param hash
-		'url'     => 'ftp://ftp.ensembl.org/pub/current_mysql/ailuropoda_melanoleuca_core_90_1/unmapped_reason.txt.gz',
+		'url'     => 'ftp://ftp.ensembl.org/pub/release-90/mysql/ailuropoda_melanoleuca_core_90_1/unmapped_reason.txt.gz',
 		'download_method'     => 'ftp',
     'output_dir' => $output_dir,
 	},
