@@ -501,7 +501,7 @@ sub make_gene{
   $gene->biotype("miRNA")  if($type =~ /miRNA;/);
   $gene->biotype("CRISPR")      if($type =~ /CRISPR;/);
   #$gene->biotype("lncRNA")      if($type =~ /lncRNA;/);
-  $gene->biotype("antisense_RNA")   if($type =~ /antisense;/);
+  $gene->biotype("antisense")   if($type =~ /antisense;/);
   $gene->biotype("antitoxin")   if($type =~ /antitoxin;/);
   $gene->biotype("ribozyme")    if($type =~ /ribozyme;/);
 
