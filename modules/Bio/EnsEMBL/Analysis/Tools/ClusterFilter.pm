@@ -48,7 +48,6 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use vars qw (@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Root);
 
 
 
