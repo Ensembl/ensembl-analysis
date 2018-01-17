@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2017] EMBL-European Bioinformatics Institute
+Copyright [2016-2018] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -87,27 +87,13 @@ sub default_options {
         mouse_cs_name => 'GRCm'.$self->o('mouse_cs_version'),
         human_alias => 'homo_sapiens',
         mouse_alias => 'mus_musculus',
-        rat_cs_name => 'Rnor_6.0',
-        zebrafish_cs_name => 'GRCz10',
-        chimpanzee_cs_name => 'CHIMP2.1.4',
-        pig_cs_name => 'Sscrofa11.1',
-        rat_alias => 'rattus_norvegicus',
-        zebrafish_alias => 'danio_rerio',
-        chimpanzee_alias => 'pan_troglotydes',
-        pig_alias => 'sus_scrofa',
         samtools => catfile($self->o('binary_base'), 'samtools'), # It might be better to give the absolute path, but I think it's ok
         webdev_nfs => '/nfs/production/panda/ensembl/production/ensemblftp/data_files',
-        blastdb_basedir => $ENV{BLASTDB_DIR}, # This can be anywhere, the path created $BLASTDB_DIR/RefSeq_XX_XX has to be given to the person running the cDNA update
-        refseq_ftp_basedir => 'ftp://ftp.ncbi.nlm.nih.gov/refseq',
-        tsl_ftp_base => 'http://hgwdev.cse.ucsc.edu/~markd/gencode/tsl-handoff',
-        appris_ftp_base => 'http://apprisws.bioinfo.cnio.es/forEnsembl',
 
         check_datafiles_script => catfile($self->o('production_dir'), 'scripts', 'datafiles', 'check_datafiles.pl'),
         compare_gencode_refseq_script => catfile($self->o('ensembl_analysis_dir'), 'scripts', 'Merge', 'compare_gencode_refseq_genes.pl'),
         overlap_gencode_refseq_script => catfile($self->o('ensembl_analysis_dir'), 'scripts', 'refseq', 'ens_refseq_comparison.pl'),
         label_gencode_basic_script => catfile($self->o('ensembl_analysis_dir'), 'scripts', 'Merge', 'label_gencode_basic_transcripts.pl'),
-        load_tsl_script => catfile($self->o('ensembl_analysis_dir'), 'scripts', 'Merge', 'import_transcript_support_levels.pl'),
-        load_appris_script => catfile($self->o('ensembl_analysis_dir'), 'scripts', 'Merge', 'import_appris.pl'),
         update_gencode_version => catfile($self->o('ensembl_analysis_dir'), 'scripts', 'Merge', 'create_gencode_web_data_patch.pl'),
 
         query_delete_attributes => ['DELETE FROM transcript_attrib WHERE attrib_type_id = 510'],
@@ -166,38 +152,6 @@ sub default_options {
             -pass   => $self->o('pass_r'),
             -driver => $self->o('staging1_db', '-driver'),
         },
-        zebrafish_ensembl_db => {
-            -dbname => $self->o('zebrafish_alias').'_core_'.$self->o('ensembl_release').'_10',
-            -host   => $self->o('pre_staging1_db', '-host'),
-            -port   => $self->o('pre_staging1_db', '-port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('pre_staging1_db', '-driver'),
-        },
-        rat_ensembl_db => {
-            -dbname => $self->o('rat_alias').'_core_'.$self->o('ensembl_release').'_6',
-            -host   => $self->o('pre_staging1_db', '-host'),
-            -port   => $self->o('pre_staging1_db', '-port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('pre_staging1_db', '-driver'),
-        },
-        pig_ensembl_db => {
-            -dbname => $self->o('pig_alias').'_core_'.$self->o('ensembl_release').'_111',
-            -host   => $self->o('pre_staging1_db', '-host'),
-            -port   => $self->o('pre_staging1_db', '-port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('pre_staging1_db', '-driver'),
-        },
-        chimpanzee_ensembl_db => {
-            -dbname => $self->o('chimpanzee_alias').'_core_'.$self->o('ensembl_release').'_214',
-            -host   => $self->o('pre_staging1_db', '-host'),
-            -port   => $self->o('pre_staging1_db', '-port'),
-            -user   => $self->o('user'),
-            -pass   => $self->o('password'),
-            -driver => $self->o('pre_staging1_db', '-driver'),
-        },
     };
 }
 
@@ -222,8 +176,6 @@ sub pipeline_analyses {
     %jira_tickets = (
       release_ticket_name  => 'Genebuild Relco release '.$self->o('ensembl_release'),
       species_ticket_name  => 'GENCODE scripts release '.$self->o('ensembl_release'),
-      tsl_ticket_name      => 'TSL scripts release '.$self->o('ensembl_release'),
-      appris_ticket_name   => 'APPRIS scripts release '.$self->o('ensembl_release'),
       datafile_ticket_name => 'Check data_file scripts release '.$self->o('ensembl_release'),
       base64 => encode_base64url($user.':'.$password),
     );
@@ -240,18 +192,10 @@ sub pipeline_analyses {
       }
     }
   }
-  my @tsl_list;
-  my @appris_list;
   my @refseq_list;
   foreach my $species ('human', 'mouse') {
     if ($self->o('do_'.$species)) {
       push(@refseq_list, [$species, $self->o($species.'_ensembl_db'), $self->o($species.'_cs_name'), $self->o($species.'_refseq_db'), "refseq_${species}_import"]);
-      push(@tsl_list, [$species, $self->o($species.'_cs_name'), $self->o($species.'_gencode_version'), $self->o($species.'_ensembl_db')]);
-    }
-  }
-  foreach my $species ('human', 'mouse', 'pig', 'zebrafish', 'chimpanzee', 'rat') {
-    if ($self->o('do_'.$species)) {
-      push(@appris_list, [$species, first_upper_case($self->o($species.'_alias')), $self->o($species.'_cs_name'), $self->o($species.'_ensembl_db')]);
     }
   }
   my @analysis = (
@@ -321,7 +265,7 @@ sub pipeline_analyses {
           cmd => 'mkdir #working_dir#',
       },
       -flow_into => {
-          '1' => ['create_species_jira', 'create_tsl_jira', 'create_appris_jira', 'create_datafile_jira'],
+          '1' => ['create_species_jira', 'create_datafile_jira'],
       },
     },
 
@@ -637,239 +581,6 @@ sub pipeline_analyses {
         ticket_name => $jira_tickets{species_ticket_name},
         base64 => $jira_tickets{base64},
         comment => 'Ensembl Refseq overlap done for #species# #cs_name#',
-      },
-    },
-
-    {
-      -logic_name => 'create_tsl_jira',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::JiraTicket',
-      -rc_name => 'default',
-      -parameters => {
-        cmd => 'create',
-        type => 'Sub-task',
-        ticket_name => $jira_tickets{tsl_ticket_name},
-        base64 => $jira_tickets{base64},
-        parent => $jira_tickets{release_ticket_name},
-        assignee => 'self',
-      },
-      -flow_into => {
-          1 => ['create_tsl_directory'],
-      },
-    },
-
-    {
-      -logic_name => 'create_tsl_directory',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -rc_name => 'default',
-      -parameters => {
-        cmd => 'EXIT_CODE=1; if [ -e "'.$self->o('working_dir').'/TSL_'.$self->o('ensembl_release').'" ] ;then EXIT_CODE=4; else mkdir "'.$self->o('working_dir').'/TSL_'.$self->o('ensembl_release').'"; EXIT_CODE=$?; fi; exit $EXIT_CODE',
-        return_codes_2_branches => {4 => 2},
-      },
-      -flow_into => {
-        1 => ['create_tsl_species_input'],
-      },
-    },
-
-    {
-      -logic_name => 'create_tsl_species_input',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-      -rc_name => 'default',
-      -parameters => {
-          inputlist => \@tsl_list,
-          column_names => ['species', 'cs_name', 'gencode_version', 'target_db'],
-      },
-      -flow_into => {
-        2 => ['download_tsl'],
-      },
-    },
-
-    {
-      -logic_name => 'download_tsl',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -rc_name => 'default',
-      -parameters => {
-          cmd => 'cd '.catfile($self->o('working_dir'), 'TSL_'.$self->o('ensembl_release')).'; wget -qq "'.$self->o('tsl_ftp_base').'/gencode.v#gencode_version#.transcriptionSupportLevel.tsv.gz"; gunzip gencode.v#gencode_version#.transcriptionSupportLevel.tsv.gz',
-      },
-      -flow_into => {
-        1 => ['comment_tsl_download_jira'],
-      },
-    },
-
-    {
-      -logic_name => 'comment_tsl_download_jira',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::JiraTicket',
-      -rc_name => 'default',
-      -parameters => {
-        cmd => 'comment',
-        type => 'Sub-task',
-        ticket_name => $jira_tickets{tsl_ticket_name},
-        base64 => $jira_tickets{base64},
-        comment => 'TSL file downloaded for #species# #cs_name# GENCODE version: #gencode_version#',
-      },
-      -flow_into => {
-        1 => ['backup_tsl_db'],
-      },
-    },
-
-    {
-      -logic_name => 'backup_tsl_db',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -rc_name => 'default',
-      -parameters => {
-        cmd => 'copy_databases.sh '.$self->o('staging1_db', '-host').' #expr(#target_db#->{-host})expr# #expr(#target_db#->{-dbname})expr#',
-      },
-      -flow_into => {
-        1 => ['load_tsl'],
-      },
-    },
-
-    {
-      -logic_name => 'load_tsl',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -rc_name => 'default',
-      -parameters => {
-        cmd => 'perl '.$self->o('load_tsl_script').
-          ' -h #expr(#target_db#->{-host})expr#'.
-          ' -D #expr(#target_db#->{-dbname})expr#'.
-          ' -P #expr(#target_db#->{-port})expr#'.
-          ' -u #expr(#target_db#->{-user})expr#'.
-          ' -p #expr(#target_db#->{-pass})expr#'.
-          ' -path #cs_name#'.
-          ' -write -verbose'.
-          ' -file '.catfile($self->o('working_dir'), 'TSL_'.$self->o('ensembl_release'), 'gencode.v#gencode_version#.transcriptionSupportLevel.tsv'),
-      },
-      -flow_into => {
-        1 => ['comment_tsl_loaded_jira'],
-      },
-    },
-
-    {
-      -logic_name => 'comment_tsl_loaded_jira',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::JiraTicket',
-      -rc_name => 'default',
-      -parameters => {
-        cmd => 'comment',
-        type => 'Sub-task',
-        ticket_name => $jira_tickets{tsl_ticket_name},
-        base64 => $jira_tickets{base64},
-        comment => 'TSL loaded for #species# #cs_name# GENCODE version: #gencode_version#',
-      },
-    },
-
-    {
-      -logic_name => 'create_appris_jira',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::JiraTicket',
-      -rc_name => 'default',
-      -parameters => {
-        cmd => 'create',
-        type => 'Sub-task',
-        ticket_name => $jira_tickets{appris_ticket_name},
-        base64 => $jira_tickets{base64},
-        parent => $jira_tickets{release_ticket_name},
-        assignee => 'self',
-      },
-      -flow_into => {
-        1 => ['create_appris_directory'],
-      },
-    },
-
-    {
-      -logic_name => 'create_appris_directory',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -rc_name => 'default',
-      -parameters => {
-          cmd => 'EXIT_CODE=1; if [ -e "'.catdir($self->o('working_dir'), 'appris_'.$self->o('ensembl_release')).'" ] ;then EXIT_CODE=4; else mkdir "'.catdir($self->o('working_dir'), 'appris_'.$self->o('ensembl_release')).'"; EXIT_CODE=$?; fi; exit $EXIT_CODE',
-          return_codes_2_branches => {4 => 2},
-      },
-      -flow_into => {
-          '1' => ['create_appris_species_input'],
-      },
-    },
-
-    {
-      -logic_name => 'create_appris_species_input',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-      -rc_name => 'default',
-      -parameters => {
-          inputlist => \@appris_list,
-          column_names => ['species', 'species_alias', 'cs_name', 'target_db'],
-      },
-      -flow_into => {
-          '2' => ['download_appris'],
-      },
-    },
-
-    {
-      -logic_name => 'download_appris',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -rc_name => 'default',
-      -parameters => {
-          cmd => 'wget -P'.catfile($self->o('working_dir'), 'appris_'.$self->o('ensembl_release')).' -qq "'.$self->o('appris_ftp_base').'/#species_alias#.#cs_name#.e'.$self->o('ensembl_release').'appris_data.principal.txt"',
-          return_codes_2_branches => {'8' => 2},
-      },
-      -flow_into => {
-          '1' => ['comment_appris_downloaded_jira'],
-      },
-    },
-
-    {
-      -logic_name => 'comment_appris_downloaded_jira',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::JiraTicket',
-      -rc_name => 'default',
-      -parameters => {
-        cmd => 'comment',
-        type => 'Sub-task',
-        ticket_name => $jira_tickets{appris_ticket_name},
-        base64 => $jira_tickets{base64},
-        comment => 'Appris file downloaded for #species# #cs_name#',
-      },
-      -flow_into => {
-        1 => ['copy_appris'],
-      }
-    },
-
-    {
-      -logic_name => 'copy_appris',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -rc_name => 'default',
-      -parameters => {
-        cmd => 'copy_databases.sh '.$self->o('staging1_db', '-host').' #expr(#target_db#->{-host})expr# #expr(#target_db#->{-dbname})expr#',
-      },
-      -flow_into => {
-        1 => ['load_appris'],
-      },
-    },
-
-    {
-      -logic_name => 'load_appris',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -rc_name => 'default',
-      -parameters => {
-          cmd => 'perl '.$self->o('load_appris_script').
-            ' -h #expr(#target_db#->{-host})expr#'.
-            ' -D #expr(#target_db#->{-dbname})expr#'.
-            ' -P #expr(#target_db#->{-port})expr#'.
-            ' -u #expr(#target_db#->{-user})expr#'.
-            ' -p #expr(#target_db#->{-pass})expr#'.
-            ' -cs_version #cs_name#'.
-            ' -write -verbose'.
-            ' -infile '.catfile($self->o('working_dir'), 'appris_'.$self->o('ensembl_release'), '#species_alias#.#cs_name#.e'.$self->o('ensembl_release').'appris_data.principal.txt'),
-      },
-      -flow_into => {
-        1 => ['comment_appris_loaded_jira'],
-      }
-    },
-
-    {
-      -logic_name => 'comment_appris_loaded_jira',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::JiraTicket',
-      -rc_name => 'default',
-      -parameters => {
-        cmd => 'comment',
-        type => 'Sub-task',
-        ticket_name => $jira_tickets{appris_ticket_name},
-        base64 => $jira_tickets{base64},
-        comment => 'Appris loaded for #species# #cs_name#',
       },
     },
 

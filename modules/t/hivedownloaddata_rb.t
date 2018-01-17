@@ -1,6 +1,6 @@
 #!/usr/env perl
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ standaloneJob(
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
 	{ # input param hash
-		'url'     => 'ftp://ftp.ensembl.org/pub/current_mysql/ailuropoda_melanoleuca_core_90_1/unmapped_reason.txt.gz',
+		'url'     => 'ftp://ftp.ensembl.org/pub/release-90/mysql/ailuropoda_melanoleuca_core_90_1/unmapped_reason.txt.gz',
 		'download_method'     => 'ftp',
     'output_dir' => $output_dir,
 	},
