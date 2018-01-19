@@ -116,19 +116,19 @@ my $sourcehost   = '';
 my $sourceuser   = 'ensro';
 my $sourcedbname = '';
 my $sourcepass   = undef;
-my $sourceport   = 3306;
+my $sourceport   = '';
 
 my $outhost   = '';
 my $outuser   = '';
 my $outpass   = '';
 my $outdbname = undef;
-my $outport   = 3306;
+my $outport   = '';
 
 my $dnahost   = '';
 my $dnauser   = 'ensro';
 my $dnapass   = '';
 my $dnadbname = undef;
-my $dnaport   = 3306;
+my $dnaport   = '';
 
 my $in_config_name;
 my $out_config_name;
@@ -520,6 +520,17 @@ sub check_transform {
       }
     } ## end foreach my $new_transc ( @{...})
   } ## end foreach my $old_transc ( @{...})
+
+  # add a check to check of empty introns (ISE) in every new transcript:
+  foreach my $new_transc ( @{$new_transcripts} ) {
+     my $empty_ISE = 0;
+     foreach my $ise(@{$new_transc->get_all_IntronSupportingEvidence}){
+        if (!defined $ise) {
+          $empty_ISE = 1;
+        }
+      }
+    $new_transc -> flush_IntronSupportingEvidence() if ( $empty_ISE ==1 ) ;
+  }
 
   return 1;
 } ## end sub check_transform
