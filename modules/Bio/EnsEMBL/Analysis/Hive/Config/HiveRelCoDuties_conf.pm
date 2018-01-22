@@ -170,10 +170,11 @@ sub pipeline_analyses {
 
   my %jira_tickets;
   my @default_tickets;
-  if ($self->o('use_jira')) {
-    my $user = $self->o('jira_user');
-    my $password = $self->o('jira_password');
+  if ($self->o('use_jira') eq '1') {
+    my $user = $self->default_options->{'jira_user'};
+    my $password = $self->default_options->{'jira_password'};
     %jira_tickets = (
+      version_ticket_name => 'Update release ENSEMBL_RELEASE in genebuild.sh to '.$self->o('ensembl_release'),
       release_ticket_name  => 'Genebuild Relco release '.$self->o('ensembl_release'),
       species_ticket_name  => 'GENCODE scripts release '.$self->o('ensembl_release'),
       datafile_ticket_name => 'Check data_file scripts release '.$self->o('ensembl_release'),
@@ -223,7 +224,7 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'create',
         type => 'Sub-task',
-        ticket_name => 'Update release ENSEMBL_RELEASE in genebuild.sh to '.$self->o('ensembl_release'),
+        ticket_name => $jira_tickets{version_ticket_name},
         parent => $jira_tickets{release_ticket_name},
         base64 => $jira_tickets{base64},
         assignee => 'self',
