@@ -90,8 +90,9 @@ sub param_defaults {
                              PARAMETERS => {
                                -coverage => 50,
                                -percent_id => 50,
-                           },
-    }
+                             },
+                           }
+   }
 }
 
 sub fetch_input {
