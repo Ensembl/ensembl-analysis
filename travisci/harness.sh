@@ -1,13 +1,21 @@
 #!/bin/bash
-export PERL5LIB=$PWD/bioperl-live-bioperl-release-1-2-3:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/ensembl-hive/modules:$PWD/ensembl-io/modules:$PWD/bioperl-live:$PWD/bioperl-run/lib:$PWD/ensembl-56/modules:$PWD/GIFTS/modules
+export PERL5LIB=$PWD/bioperl-live-bioperl-release-1-2-3:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/ensembl-hive/modules:$PWD/ensembl-io/modules:$PWD/bioperl-live:$PWD/bioperl-run/lib:$PWD/ensembl-56/modules:$PWD/ensembl-test/modules
 
 export WORK_DIR=$PWD
+
+if [ "$DB" = 'mysql' ]; then
+    (cd modules/t && ln -sf MultiTestDB.conf.mysql MultiTestDB.conf)
+elif [ "$DB" = 'sqlite' ]; then
+    (cd modules/t && ln -sf MultiTestDB.conf.SQLite MultiTestDB.conf)
+else
+    echo "Don't know about DB '$DB'"
+    exit 1;
+fi
 
 echo "Running test suite"
 echo "Using $PERL5LIB"
 rt=0
 if [ "$COVERALLS" = 'true' ]; then
-  export PERL5LIB=$PERL5LIB:$PWD/ensembl-test/modules
   PERL5OPT='-MDevel::Cover=+ignore,bioperl,+ignore,ensembl-test' perl $PWD/ensembl-test/scripts/runtests.pl -verbose $PWD/modules/t $SKIP_TESTS
 else
   # just test the basic syntax for all the scripts and modules - start by renaming example modules
@@ -49,7 +57,6 @@ else
 #  Exonerate2Array.pm as it is a FuncGen module
 #  ExonerateRefinedCloneEnds.pm as we have a newer module for the clone ends
 #  SWEmbl.pm, InputSet.pm has been removed from ensembl-funcgen and it doesn't affect us
-#  M=( "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm" "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" )
   M=( "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateRefinedCloneEnds.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/ExonerateClones.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" \
@@ -60,12 +67,20 @@ else
       printf " - \e[33m%s\n\e[0m" "${M[$S]}"
       RES=${RES}" ! -name `basename ${M[$S]}`"
   done
+  M=( "Bio/EnsEMBL/Analysis/Hive/RunnableDB/HiveLoadPDBProteinFeatures.pm" \
+  "Bio/EnsEMBL/Analysis/Runnable/MakePDBProteinFeatures.pm" )
+  printf "\e[31mWe will not test:\e[0m\n - \e[33m%s\e[0m\n" "PDB modules as long as GIFTS repo is not public"
+  for S in `seq 0 $((${#M[@]}-1))`; do
+      printf " - \e[33m%s\n\e[0m" "${M[$S]}"
+      RES=${RES}" ! -name `basename ${M[$S]}`"
+  done
   find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" `echo "$RES"` | xargs -i perl -c {}
   EXIT_CODE=$?
   if [ "$EXIT_CODE" -ne 0 ]; then
       rt=$EXIT_CODE
   fi
-  find modules/t -type f -name "*.t" | xargs -i perl {}
+  export EHIVE_ROOT_DIR=$PWD/ensembl-hive
+  perl $PWD/ensembl-test/scripts/runtests.pl -verbose $PWD/modules/t $SKIP_TESTS
   EXIT_CODE=$?
   if [ "$EXIT_CODE" -ne 0 ]; then
       rt=$EXIT_CODE
