@@ -31,3 +31,4 @@ a.out
 *.o
 *.obj
 *.class
+modules/t/MultiTestDB.conf
