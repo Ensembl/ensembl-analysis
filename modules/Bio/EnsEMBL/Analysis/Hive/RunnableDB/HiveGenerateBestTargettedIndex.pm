@@ -75,6 +75,11 @@ sub fetch_input {
     }
   }
   $genbank_parser->close;
+  if ($self->param_is_defined('protein_files')) {
+    foreach my $file (@{$self->param('protein_files')}) {
+      $self->throw('Could not find '.$file) unless (-e $file);
+    }
+  }
   $self->output(\@seqs);
 }
 
@@ -130,7 +135,9 @@ sub _get_uniprot_accession {
   if ($response->is_success) {
     my $result = $response->content;
     while($result =~ /(\w+)\s+(\d+)\s+(\S+)/mgc) {
-     $missing{$3} = "$1.$2";
+     foreach my $acc (split(',', $3)) {
+       $missing{$acc} = "$1.$2";
+     }
     }
   }
   else {
@@ -145,9 +152,28 @@ sub _get_uniprot_accession {
 sub write_output {
   my ($self) = @_;
 
+  my %seen;
   my $fasta_file = Bio::SeqIO->new(-format => 'fasta', -file => '>'.$self->param('fasta_filename'));
   foreach my $seq (@{$self->output}) {
     $fasta_file->write_seq($seq);
+    $seen{$seq->id} = 1;
+  }
+  if ($self->param_is_defined('protein_files')) {
+    foreach my $file (@{$self->param('protein_files')}) {
+      my $protein_file = Bio::SeqIO->new(-format => 'fasta', -file => $file);
+      while (my $seq = $protein_file->next_seq) {
+        my $id = $seq->id;
+        if ($id =~ s/\w{2}\|(\w+)\|\w+.*/$1/) {
+          $seq->desc =~ /SV=(\d+)/;
+          $id .= '.'.$1;
+          $seq->id($id);
+          $seq->desc('');
+        }
+        next if (exists $seen{$seq->id});
+        $fasta_file->write_seq($seq);
+        $seen{$seq->id} = 1;
+      }
+    }
   }
   $fasta_file->close;
 }
