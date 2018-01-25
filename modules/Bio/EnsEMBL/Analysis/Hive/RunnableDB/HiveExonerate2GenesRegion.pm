@@ -599,11 +599,11 @@ sub PROGRAM {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('program', $value);
+    $self->param('PROGRAM', $value);
   }
 
-  if ($self->param_is_defined('program')) {
-    return $self->param('program');
+  if ($self->param_is_defined('PROGRAM')) {
+    return $self->param('PROGRAM');
   } else {
     return;
   }
