@@ -167,7 +167,6 @@ sub fetch_input {
     $self->throw("No MethodLinkSpeciesSet for :\n" .$self->param('method_link_type') . "\n" .$source_species . "\n" .$target_species);
   }
 
-  my $dna_fragment = $compara_dba->get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($source_genome_db,$gene->slice->seq_region_name);
   my $genomic_align_block_adaptor = $compara_dba->get_GenomicAlignBlockAdaptor;
   my $exon_region_padding = $self->param('exon_region_padding');
   foreach my $exon (@unique_translateable_exons) {
