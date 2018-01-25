@@ -200,7 +200,6 @@ sub remove_readthrough {
   my @processed_genes;
   foreach my $gene (@$genes) {
     print "GENE\n";
-    print_Gene($gene);
     my @transcripts = sort {($a->end-$a->start) <=> ($b->end-$b->start)} @{$gene->get_all_Transcripts};
     if (scalar(@transcripts) > 2) {
       print "MORE THAN 2 TRANSCRIPTS\n";

@@ -47,7 +47,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRemoveDuplicateGenes;
 
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
 
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
