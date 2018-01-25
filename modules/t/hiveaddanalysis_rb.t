@@ -55,12 +55,27 @@ my $analysis = $db->get_AnalysisAdaptor->fetch_by_logic_name($logic_name);
 cmp_ok($analysis->logic_name, 'eq', $logic_name, 'Checking analysis present with source_type "list"');
 
 my $registry = 'Bio::EnsEMBL::Registry';
-$registry->load_registry_from_db(
-  -host   => 'ensembldb.ensembl.org',
-  -port   => 3306,
-  -user   => 'anonymous',
-  -species => 'sus_scrofa',
-);
+eval {
+  $registry->load_registry_from_db(
+    -host   => 'ensembldb.ensembl.org',
+    -port   => 3306,
+    -user   => 'anonymous',
+    -species => 'sus_scrofa',
+  );
+};
+if ($@) {
+# Because the branching happens earlier I need to put this piece of code
+# to make sure that we connect to the latest release. It is OK because
+# the analysis table is unlikely to change
+  $@ =~ /Ensembl API version\s+=\s+(\d+)/;
+  $registry->load_registry_from_db(
+    -host   => 'ensembldb.ensembl.org',
+    -port   => 3306,
+    -user   => 'anonymous',
+    -species => 'sus_scrofa',
+    -db_version => $1-1,
+  );
+}
 my $core_db = $registry->get_DBAdaptor('sus_scrofa', 'Core');
 my %source_db = (
   -dbname => $core_db->dbc->dbname,
