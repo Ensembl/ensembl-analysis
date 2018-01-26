@@ -66,7 +66,7 @@ sub create_row_data {
   my $biotype = 'mRNA';
   my $date = strftime "%Y/%m/%d", localtime;
 #  return [{accession => $accession, seq => $parser->getSequence, source => $source, biotype => $biotype, date => $date}];
-  return [{accession => $accession, seq => $parser->getSequence, source => $source, date => $date}];
+  return [{accession => $accession, seq => $parser->getSequence, source_db => $source, biotype => $biotype, date => $date}];
 }
 
 1;
