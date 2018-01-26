@@ -842,9 +842,11 @@ sub filter {
   if ($val) {
     $self->param('_transcript_filter',$val);
   }
-  elsif ($self->param_is_defined('FILTER')) {
-    $self->require_module($self->param('FILTER')->{OBJECT});
-    $self->param('_transcript_filter', $self->param('FILTER')->{OBJECT}->new(%{$self->param('FILTER')->{FILTER_PARAMS}}));
+  elsif (!$self->param_is_defined('_transcript_filter')
+    and $self->param_is_defined('FILTER')
+    and exists $self->param('FILTER')->{OBJECT}) {
+    my $module = $self->require_module($self->param('FILTER')->{OBJECT});
+    $self->param('_transcript_filter', $module->new(%{$self->param('FILTER')->{PARAMETERS}}));
   }
   if ($self->param_is_defined('_transcript_filter')) {
     return $self->param('_transcript_filter');
