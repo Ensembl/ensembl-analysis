@@ -67,6 +67,7 @@ sub default_options {
     'stable_id_prefix'          => '',
     'stable_id_start'           => '0',
     'uniprot_db_dir'            => 'uniprot_2017_04', # e.g. 'uniprot_2017_04'
+    'vertrna_version'           => 132,
     'mirBase_fasta'             => 'human_mirnas.fa',
     'ig_tr_fasta_file'          => 'human_ig_tr.fa',
 
@@ -184,9 +185,9 @@ sub default_options {
 # BLAST db paths
 ########################
     'base_blast_db_path'        => '' || $ENV{BLASTDB_DIR},
-    'uniprot_entry_loc'         => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_db_dir'), '/entry_loc'),
-    'uniprot_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_db_dir'), '/uniprot_vertebrate'),
-    'vertrna_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'vertrna', '131/embl_vertrna-1'),
+    'uniprot_entry_loc'         => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_db_dir'), 'entry_loc'),
+    'uniprot_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_db_dir'), 'uniprot_vertebrate'),
+    'vertrna_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'vertrna', $self->o('vertrna_version'), 'embl_vertrna-1'),
     'unigene_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'unigene', 'unigene'),
     'mito_index_path'           => undef, # Set this path only if you don't want to use the GCF report and if you haven't set 'mt_accession' '/nfs/production/panda/ensembl/genebuild/blastdb/refseq_mitochondria_set/mito_index.txt',
     'ncrna_blast_path'          => catfile($self->o('base_blast_db_path'), 'ncrna', 'ncrna_2016_05'),
@@ -263,18 +264,18 @@ sub default_options {
     'dust_path' => catfile($self->o('binary_base'), 'dustmasker'),
     'trf_path' => catfile($self->o('binary_base'), 'trf'),
     'eponine_java_path' => '/nfs/software/ensembl/latest/jenv/shims/java',
-    'eponine_jar_path' => '/nfs/software/ensembl/latest/linuxbrew/Cellar/eponine/1.0/libexec/eponine-scan.jar',
+    'eponine_jar_path' => catfile($self->o('software_base_path'), 'opt', 'eponine', 'libexec', 'eponine-scan.jar'),
     'cpg_path' => catfile($self->o('binary_base'), 'cpg_lh'),
     'trnascan_path' => catfile($self->o('binary_base'), 'tRNAscan-SE'),
     'repeatmasker_path' => catfile($self->o('binary_base'), 'RepeatMasker'),
     'genscan_path' => catfile($self->o('binary_base'), 'genscan'),
-    'genscan_matrix_path' => '/nfs/software/ensembl/latest/linuxbrew/share/HumanIso.smat',
+    'genscan_matrix_path' => catfile($self->o('software_base_path'), 'share', 'HumanIso.smat'),
     'uniprot_blast_exe_path' => catfile($self->o('binary_base'), 'blastp'),
     'blastn_exe_path' => catfile($self->o('binary_base'), 'blastn'),
     'vertrna_blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
     'unigene_blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
-    'exonerate_path'         => '/nfs/software/ensembl/latest/linuxbrew/opt/exonerate09/bin/exonerate',
-    'cmsearch_exe_path'    => '/nfs/production/panda/ensembl/leanne/programs/infernal/infernal-1.0/src/cmsearch',
+    'exonerate_path'         => catfile($self->o('software_base_path'), 'opt', 'exonerate09', 'bin', 'exonerate'),
+    'cmsearch_exe_path'    => catfile($self->o('software_base_path'), 'opt', 'infernal10', 'bin', 'cmsearch'),
 
     'uniprot_genblast_batch_size' => 15,
     'uniprot_table_name'          => 'uniprot_sequences',
@@ -597,22 +598,9 @@ sub pipeline_create_commands {
     # inheriting database and hive tables' creation
       @{$self->SUPER::pipeline_create_commands},
 
-      $self->db_cmd('CREATE TABLE '.$self->o('uniprot_table_name').' ('.
-                    'accession varchar(50) NOT NULL,'.
-                    'source_db varchar(50) NOT NULL,'.
-                    'pe_level varchar(50) NOT NULL,'.
-                    'biotype varchar(255) NOT NULL,'.
-                    'group_name varchar(255) NOT NULL,'.
-                    'seq text NOT NULL,'.
-                    'PRIMARY KEY (accession))'),
+      $self->hive_data_table('protein', $self->o('uniprot_table_name')),
 
-      $self->db_cmd('CREATE TABLE '.$self->o('refseq_cdna_table_name').' ('.
-                    'accession varchar(50) NOT NULL,'.
-                    'source_db varchar(50) NOT NULL,'.
-                    'biotype varchar(25) NOT NULL,'.
-                    'date varchar(50) NOT NULL,'.
-                    'seq text NOT NULL,'.
-                    'PRIMARY KEY (accession))'),
+      $self->hive_data_table('refseq', $self->o('refseq_cdna_table_name')),
 
       $self->db_cmd('CREATE TABLE '.$self->o('realign_table_name').' ('.
                     'accession varchar(50) NOT NULL,'.
@@ -749,7 +737,7 @@ sub pipeline_analyses {
                          'enscode_root_dir'          => $self->o('enscode_root_dir'),
                          'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
                        },
-        -rc_name    => 'default',
+        -rc_name    => '4GB',
         -flow_into  => {
                          1 => ['load_assembly_info'],
                        },
@@ -763,7 +751,6 @@ sub pipeline_analyses {
         -parameters => {
                          'target_db'                 => $self->o('reference_db'),
                          'output_path'               => $self->o('output_path'),
-                         'enscode_root_dir'          => $self->o('enscode_root_dir'),
                          'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
                        },
 
@@ -812,9 +799,7 @@ sub pipeline_analyses {
                                               'genebuild.projection_source_db'          => $self->default_options->{'projection_source_db_name'},
                                               'provider.name'                           => $self->o('provider_name'),
                                               'provider.url'                            => $self->o('provider_url'),
-                                              'repeat.analysis'                         => 'repeatmask_repbase_'.$self->o('repbase_logic_name'),
-                                              'repeat.analysis'                         => 'dust',
-                                              'repeat.analysis'                         => 'trf',
+                                              'repeat.analysis'                         => ['repeatmask_repbase_'.$self->o('repbase_logic_name'), 'dust', 'trf'],
                                               'species.production_name'                 => $self->o('production_name'),
                                               'species.taxonomy_id'                     => $self->default_options->{'taxon_id'},
                                             }
@@ -857,16 +842,9 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'load_refseq_synonyms',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadRefSeqSynonyms',
         -parameters => {
-                         cmd => 'perl '.$self->o('refseq_synonyms_script_path').
-                                      ' -species '.$self->o('species_name').
-                                      ' -dbuser '.$self->o('user').
-                                      ' -dbpass '.$self->o('password').
-                                      ' -dbhost '.$self->o('reference_db','-host').
-                                      ' -dbport '.$self->o('reference_db','-port').
-                                      ' -dbname '.$self->o('reference_db','-dbname').
-                                      ' -workdir '.$self->o('output_path').'/refseq_import/',
+                         'target_db'        => $self->o('reference_db'),
                        },
         -rc_name => 'default',
         -flow_into  => {
@@ -3026,7 +3004,7 @@ sub pipeline_analyses {
                                 ' feature_id=dna_align_feature_id where feature_type="dna_align_feature";'.
                                 ' DELETE supporting_feature from supporting_feature join dna_align_feature on feature_id=dna_align_feature_id where'.
                                 ' feature_type="dna_align_feature";'.
-                                ' TRUNCATE dna_align_feature;',
+                                ' TRUNCATE dna_align_feature;\'',
                       },
         -rc_name    => 'default',
         -flow_into => {
@@ -4487,21 +4465,21 @@ sub resource_classes {
     'default_himem' => { LSF => $self->lsf_resource_builder('production-rh7', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'repeatmasker' => { LSF => $self->lsf_resource_builder('production-rh7', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'repeatmasker_rebatch' => { LSF => $self->lsf_resource_builder('production-rh7', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'simple_features' => { LSF => $self->lsf_resource_builder('production-rh7', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 20'},
-    'genscan' => { LSF => $self->lsf_resource_builder('production-rh7', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 120'},
-    'refseq_cdna' => { LSF => $self->lsf_resource_builder('production-rh7', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 120'},
-    'refseq_cdna_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 120'},
-    'genscan_short' => { LSF => $self->lsf_resource_builder('production-rh7', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 60'},
+    'simple_features' => { LSF => $self->lsf_resource_builder('production-rh7', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    'genscan' => { LSF => $self->lsf_resource_builder('production-rh7', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    'refseq_cdna' => { LSF => $self->lsf_resource_builder('production-rh7', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    'refseq_cdna_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    'genscan_short' => { LSF => $self->lsf_resource_builder('production-rh7', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'blast' => { LSF => $self->lsf_resource_builder('production-rh7', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'blast_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'rfam_blast' => { LSF => $self->lsf_resource_builder('production-rh7', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'rfam_blast_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'genblast' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genblast_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'project_transcripts' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_coding_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 120'},
+    'project_transcripts' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_coding_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'refseq_import' => { LSF => $self->lsf_resource_builder('production-rh7', 9900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'layer_annotation' => { LSF => $self->lsf_resource_builder('production-rh7', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 200'},
-    'genebuilder' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]).' -W 200'},
+    'layer_annotation' => { LSF => $self->lsf_resource_builder('production-rh7', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    'genebuilder' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'transcript_finalisation' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'filter' => { LSF => $self->lsf_resource_builder('production-rh7', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
   }

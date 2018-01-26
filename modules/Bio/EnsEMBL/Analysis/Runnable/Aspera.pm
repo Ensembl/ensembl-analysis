@@ -44,7 +44,8 @@ use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_verbosity logger_info);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(locate_executable execute_with_wait);
-use File::Spec::Functions qw(catfile);
+
+use File::Spec::Functions qw(catfile splitpath);
 
 
 =head2 new
@@ -113,6 +114,12 @@ sub sshkey {
     else {
       throw('Could not find ssh key file '.$file);
     }
+    if ($self->options) {
+      $self->options =~ s/-i \S+/-i $file/;
+    }
+    else {
+      $self->options('-i '.$file);
+    }
   }
   return $self->{_sshkey_file};
 }
@@ -123,53 +130,54 @@ sub options {
 
   if ($options) {
     $self->{_options} = $options;
+    if ($self->sshkey and $options !~ /-i \S+/) {
+      $self->{_options} .= ' -i '.$self->sshkey;
+    }
   }
   return $self->{_options};
 }
 
 
-sub input {
-  my ($self, $input) = @_;
+sub source {
+  my ($self, $source) = @_;
 
-  if ($input) {
-    $self->{_input} = $input;
+  if ($source) {
+    $self->{_source} = $source;
   }
-  return $self->{_input};
+  return $self->{_source};
 }
 
 
-sub output {
-  my ($self, $output) = @_;
+sub target {
+  my ($self, $target) = @_;
 
-  if ($output) {
-    $self->{_output} = $output;
+  if ($target) {
+    $self->{_target} = $target;
   }
-  return $self->{_output};
+  return $self->{_target};
 }
 
-sub get {
-  my ($self, $input, $output) = @_;
+sub fetch {
+  my ($self, $source, $target) = @_;
 
-  $input = $self->input unless ($input);
-  $output = $self->output unless ($output);
-  throw("Could not find $output") unless (-e $output);
+  $source = $self->source unless ($source);
+  $target = $self->target unless ($target);
+  throw("Could not find $target") unless (-e $target);
   my $options = $self->options;
-  $options .= ' -i '.$self->sshkey if ($self->sshkey and $options != /-i \S+/);
-  my $cmd = $self->program.' '.$self->options.' '.$input.' '.$output;
+  my $cmd = $self->program.' '.$self->options.' '.$source.' '.$target;
   execute_with_wait($cmd);
-  my (undef, undef, $file) = splitpath($input);
-  my (undef, $dir, undef) = splitpath($output);
-  return catfile($dir, $file);
+  my (undef, undef, $file) = splitpath($source);
+  return catfile($target, $file);
 }
 
 
 sub put {
-  my ($self, $input, $output) = @_;
+  my ($self, $source, $target) = @_;
 
-  $input = $self->input unless ($input);
-  $output = $self->output unless ($output);
-  throw("Could not find $input") unless (-e $input);
-  my $cmd = $self->program.' '.$self->options.' '.$input.' '.$output;
+  $source = $self->source unless ($source);
+  $target = $self->target unless ($target);
+  throw("Could not find $source") unless (-e $source);
+  my $cmd = $self->program.' '.$self->options.' '.$source.' '.$target;
   execute_with_wait($cmd);
 }
 

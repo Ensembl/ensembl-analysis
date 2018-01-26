@@ -79,6 +79,7 @@ our @EXPORT_OK = qw(
              attach_Slice_to_Transcript
              attach_Analysis_to_Transcript
              attach_Analysis_to_Transcript_no_support
+             attach_Analysis_to_Transcript_no_overwrite
              calculate_exon_phases
              clone_Transcript
              coding_coverage
@@ -1818,9 +1819,9 @@ sub add_dna_align_features_by_hitname_and_analysis {
       my @features = @{$group_features_by_hitname_and_analysis{$logic_name}{$hseqname}};
       my $f;
       if ($feature_isa eq "Bio::EnsEMBL::DnaDnaAlignFeature") {
-        $f = Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@features);
+        $f = Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@features, -align_type => 'ensembl');
       } elsif ($feature_isa eq "Bio::EnsEMBL::DnaPepAlignFeature") {
-      	$f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@features);
+        $f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@features, -align_type => 'ensembl');
       } else {
       	throw("Cannot create feature. Unknown feature isa.");
       }
@@ -2193,6 +2194,9 @@ sub attach_Analysis_to_Transcript{
   foreach my $sf(@{$transcript->get_all_supporting_features}){
     $sf->analysis($analysis);
   }
+  foreach my $sf (@{$transcript->get_all_IntronSupportingEvidence}){
+    $sf->analysis($analysis);
+  }
   foreach my $exon(@{$transcript->get_all_Exons}){
     $exon->analysis($analysis);
     foreach my $sf(@{$exon->get_all_supporting_features}){
@@ -2203,6 +2207,38 @@ sub attach_Analysis_to_Transcript{
 sub attach_Analysis_to_Transcript_no_support{
   my ($transcript, $analysis) = @_;
   $transcript->analysis($analysis);
+}
+
+=head2 attach_Analysis_to_Transcript_no_overwrite
+
+ Arg [1]    : Bio::EnsEMBL::Transcript
+ Arg [2]    : Bio::EnsEMBL::Analysis
+ Description: Attach Arg[2] to Arg[1] and all supporting evidence and exons
+              unless the object already has an analysis
+              This is usefull if your databases analysis table are not synchronised
+ Returntype : None
+ Exceptions : Throws if Arg[2] is not a Bio::EnsEMBL::Analysis
+
+=cut
+
+sub attach_Analysis_to_Transcript_no_overwrite {
+  my ($transcript, $analysis) = @_;
+
+  throw('You need a Bio::EnsEMBL::Analysis object not a "'.ref($analysis).'"')
+    unless ($analysis and ref($analysis) eq 'Bio::EnsEMBL::Analysis');
+  $transcript->analysis($analysis) unless ($transcript->analysis);
+  foreach my $sf (@{$transcript->get_all_supporting_features}) {
+    $sf->analysis($analysis) unless ($sf->analysis);
+  }
+  foreach my $sf (@{$transcript->get_all_IntronSupportingEvidence}){
+    $sf->analysis($analysis) unless ($sf->analysis);
+  }
+  foreach my $exon (@{$transcript->get_all_Exons}) {
+    $exon->analysis($analysis) unless ($exon->analysis);
+    foreach my $sf (@{$exon->get_all_supporting_features}) {
+      $sf->analysis($analysis) unless ($sf->analysis);
+    }
+  }
 }
 
 sub fully_load_Transcript{

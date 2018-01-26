@@ -368,11 +368,11 @@ sub parse_results{
       @pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
       my $only_transcript_to_keep = pop  @pseudo_trans;
       foreach my $pseudo_transcript (@pseudo_trans) {
-	my $blessed = $self->_remove_transcript_from_gene($gene,$pseudo_transcript);
-	if ( $blessed ) {
-	  print STDERR "Blessed transcript " . $pseudo_transcript->display_id . 
-	    " is a retro transcript \n";
-	}
+        my $blessed = $self->_remove_transcript_from_gene($gene,$pseudo_transcript);
+	    if ( $blessed ) {
+	      print STDERR "Blessed transcript " . $pseudo_transcript->display_id . 
+	       " is a retro transcript \n";
+	    }
       }
 
       my $new_gene = Bio::EnsEMBL::Gene->new();
@@ -404,6 +404,56 @@ sub parse_results{
   }
   return 1; 
 }
+
+
+
+=head2 _remove_transcript_from_gene
+
+  Args       : Bio::EnsEMBL::Gene object , Bio::EnsEMBL::Transcript object
+  Description: steves method for removing unwanted transcripts from genes
+  Returntype : scalar
+
+=cut
+
+=head2 _remove_transcript_from_gene
+
+  Args       : Bio::EnsEMBL::Gene object , Bio::EnsEMBL::Transcript object
+  Description: steves method for removing unwanted transcripts from genes
+  Returntype : scalar
+
+=cut
+
+sub _remove_transcript_from_gene {
+  my ($self, $gene, $trans_to_del)  = @_;
+  # check to see if it is a blessed transcript first
+  return 'BLESSED' if $self->BLESSED_BIOTYPES->{$trans_to_del->biotype};
+  my @newtrans;
+  foreach my $trans (@{$gene->get_all_Transcripts}) {
+    if ($trans != $trans_to_del) {
+      push @newtrans,$trans;
+    }
+  }
+
+  # The naughty bit!
+  $gene->{_transcript_array} = [];
+
+  foreach my $trans (@newtrans) {
+    $gene->add_Transcript($trans);
+  }
+
+  return;
+}
+
+
+
+sub BLESSED_BIOTYPES{
+  my ($self, $arg) = @_;
+  if($arg){
+    $self->param('BLESSED_BIOTYPES',$arg);
+  }
+  return $self->param('BLESSED_BIOTYPES');
+}
+
 
 
 

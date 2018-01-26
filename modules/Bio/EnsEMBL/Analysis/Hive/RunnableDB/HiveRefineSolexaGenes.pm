@@ -430,6 +430,7 @@ sub bam_2_intron_features {
             -score =>  $id_list{$key},
             -hseqname => "$name",
             -cigar_string => $length ."M",
+            -align_type => 'ensembl',
         );
         my $canonical = 1;
 # figure out if its cannonical or not
@@ -700,6 +701,7 @@ sub dna_2_intron_features {
             -score =>  $id_list{$key},
             -hseqname => $name,
             -cigar_string => $length ."M",
+            -align_type => 'ensembl',
         );
         push @ifs , $if;
     }

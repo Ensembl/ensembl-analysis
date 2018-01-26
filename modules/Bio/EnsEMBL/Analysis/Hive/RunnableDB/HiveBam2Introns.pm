@@ -226,6 +226,7 @@ sub get_aligner_options {
     my $options =  '--showsugar false --showvulgar false --showalignment false --ryo "RESULT: %S %pi %ql %tl %g %V\n" '.
                 '--model est2genome --forwardcoordinates false '.
                 '--softmasktarget '.($self->param('mask') ? 'true' : 'false').' --exhaustive false --percent 80 '.
+                '--maxintron '.$self->param('maxintron').' '.
                 '--dnahspthreshold 70 --minintron 20 --dnawordlen '.$self->param('word_length').' -i -12 --bestn 1';
     $options .= ' --saturatethreshold '.$self->param('saturate_threshold') if ($self->param_is_defined('saturate_threshold'));
     return $options;

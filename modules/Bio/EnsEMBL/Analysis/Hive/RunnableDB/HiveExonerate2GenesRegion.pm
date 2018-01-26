@@ -57,7 +57,7 @@ sub fetch_input {
   ##########################################
 
   $self->create_analysis;
-  my ($slice_name, $accession) = $self->input_id =~ /^(.*)::([^:]+)$/;
+  my ($slice_name, $accession) = $self->input_id =~ /^(.*):+([^:]+)$/;
   $self->query_acc($accession);
   #repeat masking logic names
   $self->throw("Repeat logic names are not in an array") if(!(ref($self->SOFT_MASKED_REPEATS) eq "ARRAY"));
@@ -183,6 +183,9 @@ sub fetch_input {
               -annotation_file => $self->QUERYANNOTATION ? $self->QUERYANNOTATION : undef,
               %parameters,
               );
+    if ($self->debug) {
+      $runnable->_verbose(1);
+    }
     if (ref($query_file) eq 'ARRAY') {
       $runnable->query_seqs($query_file);
     }
@@ -596,11 +599,11 @@ sub PROGRAM {
   my ($self,$value) = @_;
 
   if (defined $value) {
-    $self->param('program', $value);
+    $self->param('PROGRAM', $value);
   }
 
-  if ($self->param_is_defined('program')) {
-    return $self->param('program');
+  if ($self->param_is_defined('PROGRAM')) {
+    return $self->param('PROGRAM');
   } else {
     return;
   }

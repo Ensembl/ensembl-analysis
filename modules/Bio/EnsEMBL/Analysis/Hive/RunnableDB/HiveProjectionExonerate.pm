@@ -94,7 +94,7 @@ sub fetch_input {
       }
       $transcript_seq = $transcript->seq->seq;
     }
-    my $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db);
+    my $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba);
     my $transcript_header = $transcript->stable_id.'.'.$transcript->version;
     my $transcript_seq_object = Bio::Seq->new(-display_id => $transcript_header, -seq => $transcript_seq);
     $self->make_runnables($transcript_seq_object, $transcript_slices, $input_id, $annotation_features);
@@ -117,10 +117,25 @@ sub run {
       $self->warning("Issue with running exonerate, will dataflow input id on branch -3. Exception:\n".$except);
       $self->param('_branch_to_flow_on_fail', -3);
     } else {
+      # Store original transcript id for realignment later. Should implement a cleaner solution at some point
       foreach my $output (@{$runnable->output}) {
         $output->{'_old_transcript_id'} = $runnable->{'_transcript_id'};
       }
-      $self->output($runnable->output);
+
+      # If the transcript has bee projected to multiple places then select the best one in terms of combined coverage and
+      # percent identity but also any that fall within 5 percent of this value
+      my $preliminary_transcripts = $runnable->output;
+      my $selected_transcripts;
+      unless(scalar(@{$preliminary_transcripts})) {
+        next;
+      }
+
+      if(scalar(@{$preliminary_transcripts}) == 1) {
+        $selected_transcripts = $preliminary_transcripts;
+      } else {
+        $selected_transcripts = $self->select_best_transcripts($preliminary_transcripts);
+      }
+      $self->output($selected_transcripts);
     }
   }
 
@@ -181,13 +196,28 @@ sub runnable_failed {
 
 
 sub process_transcript {
-  my ($self,$transcript,$compara_dba,$mlss,$source_genome_db) = @_;
+  my ($self,$transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba) = @_;
 
   my $max_cluster_gap_length = $self->max_cluster_gap_length($transcript);
   say "Max align gap: ".$max_cluster_gap_length;
   my $all_target_genomic_aligns = [];
   my $exons = $transcript->get_all_Exons;
+  my $exon_region_padding = $self->param('exon_region_padding');
   foreach my $exon (@{$exons}) {
+##    my $exon_padded_start = $exon->seq_region_start - $exon_region_padding;
+##   if($exon_padded_start < 0) {
+##      $exon_padded_start = 0;
+##    }
+
+##    my $exon_padded_end = $exon->seq_region_end + $exon_region_padding;
+##    if($exon_padded_end > $transcript->slice->length) {
+##      $exon_padded_end = $transcript->slice->length;
+##    }
+
+##    my $slice_adaptor = $source_transcript_dba->get_SliceAdaptor();
+##    my $exon_slice = $slice_adaptor->fetch_by_region($exon->slice->coord_system_name, $exon->slice->seq_region_name, $exon_padded_start, $exon_padded_end);
+
+
     my $exon_region_padding = $self->param('exon_region_padding');
     my $exon_padded_start = $exon->start - $exon_region_padding;
     my $exon_padded_end = $exon->end + $exon_region_padding;
@@ -200,11 +230,13 @@ sub process_transcript {
 
     my $dna_fragments = $compara_dba->get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($source_genome_db,$exon->slice->seq_region_name);
     my $genomic_align_block_adaptor = $compara_dba->get_GenomicAlignBlockAdaptor;
-    my $genomic_align_block = $genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_DnaFrag($mlss,$dna_fragments,$exon_padded_start,$exon_padded_end);
+    my $genomic_align_blocks = $genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_DnaFrag($mlss,$dna_fragments,$exon_padded_start,$exon_padded_end);
+##    my $genomic_align_blocks = $genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_Slice($mlss, $exon_slice);
 
-    foreach my $genomic_align_block (@$genomic_align_block) {
-      my $source_genomic_align = $genomic_align_block->reference_genomic_align;
+    foreach my $genomic_align_block (@$genomic_align_blocks) {
+##      my $restricted_genomic_align_block = $genomic_align_block->restrict_between_reference_positions($exon_padded_start, $exon_padded_end);
       push(@{$all_target_genomic_aligns},@{$genomic_align_block->get_all_non_reference_genomic_aligns});
+##      push(@{$all_target_genomic_aligns},@{$restricted_genomic_align_block->get_all_non_reference_genomic_aligns});
     }
   }
 
@@ -342,6 +374,45 @@ sub unique_genomic_aligns {
 }
 
 
+
+sub select_best_transcripts {
+  my ($self,$preliminary_transcripts) = @_;
+
+  my $selected_transcripts = [];
+  my $best_score = 0;
+  foreach my $preliminary_transcript (@{$preliminary_transcripts}) {
+    my @tsfs = @{$preliminary_transcript->get_all_supporting_features};
+    my $cov = $tsfs[0]->hcoverage;
+    my $pid = $tsfs[0]->percent_id;
+    my $combined_score = $cov + $pid;
+    if($combined_score > $best_score) {
+      $best_score = $combined_score;
+    }
+    $preliminary_transcript->{'combined_score'} = $combined_score;
+  }
+
+  unless($best_score) {
+    $self->throw('Issue with calculating the best score from projection result set. This should not happen.');
+  }
+
+  # At this point we know the highest value in terms of combined percent identity and coverage. Now
+  # we want all transcripts that fall within 5 percent of this value
+  foreach my $preliminary_transcript (@{$preliminary_transcripts}) {
+    my $combined_score = $preliminary_transcript->{'combined_score'};
+    if($combined_score/$best_score >= 0.95) {
+      push(@{$selected_transcripts},$preliminary_transcript);
+    }
+  }
+
+  unless(scalar(@{$selected_transcripts})) {
+    $self->throw("No transcripts selected in select_best_transcripts, something went wrong");
+  }
+
+  return($selected_transcripts);
+
+}
+
+
 sub filter_transcript {
   my ($self,$transcript) = @_;
 
@@ -370,6 +441,7 @@ sub filter_transcript {
   } # end if($transcript->translation)
   return(0);
 }
+
 
 sub create_annotation_features {
   my ($self,$transcript) = @_;

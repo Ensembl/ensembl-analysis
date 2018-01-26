@@ -59,7 +59,7 @@ sub fetch_input {
   my $self = shift;
 
   $self->param_required('sequence_file');
-  $self->param_required('table_name');
+  $self->param_required('sequence_table_name');
   $self->require_module($self->get_module_name($self->param('filetype')));
   my $parser = $self->get_module_name($self->param('filetype'))->open($self->param('sequence_file'));
   $self->param('seq_parser', $parser);
@@ -123,17 +123,18 @@ sub run {
 sub write_output {
   my $self = shift;
 
-  my $table_name = $self->param('table_name');
+  my $table_name = $self->param_required('sequence_table_name');
   my $parser = $self->param('seq_parser');
 
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
   $table_adaptor->table_name($table_name);
 
+  my $branch_to_flow_to = $self->param('_branch_to_flow_to');
   while($parser->next()) {
     my $row = $self->create_row_data($parser);
     $table_adaptor->store($row);
 
-    $self->dataflow_output_id({iid => [$row->[0]->{accession}]}, 2);
+    $self->dataflow_output_id({iid => [$row->[0]->{accession}]}, $branch_to_flow_to);
   }
 }
 

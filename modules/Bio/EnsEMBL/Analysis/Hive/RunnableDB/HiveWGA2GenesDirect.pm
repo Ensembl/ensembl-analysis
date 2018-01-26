@@ -237,6 +237,7 @@ sub project_transcripts {
 
   foreach my $source_transcript (@$source_transcripts) {
      my $successfully_projected = 0;
+     my $preliminary_transcripts = [];
      eval {
       local $SIG{ALRM} = sub { die "alarm clock restart" };
       alarm $timer; #schedule alarm in '$timer' seconds
@@ -276,11 +277,11 @@ sub project_transcripts {
         my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t', -VALUE => $source_transcript->stable_id.".".$source_transcript->version);
         $proj_transcript->add_Attributes($parent_attribute);
         $proj_transcript->stable_id($source_transcript->stable_id);
-        push(@{$result_transcripts}, $proj_transcript);
+        push(@{$preliminary_transcripts}, $proj_transcript);
         $successfully_projected = 1;
-      }
+      } # end foreach my $chain
       alarm 0; #reset alarm
-    };
+    }; # end eval
 
     if($@ && $@ !~ /alarm clock restart/) {
       say "Projection failed for transcript ".$source_transcript->dbID." because of time limit on timer param";
@@ -288,8 +289,22 @@ sub project_transcripts {
 
     unless($successfully_projected) {
       push(@{$failed_transcripts}, $source_transcript->dbID);
+      next;
     }
-  }
+
+    # Pick the best transcript and any others that are within 5 percent of the combined coverage and identity of the best
+    my $selected_transcripts;
+    if(scalar(@{$preliminary_transcripts}) == 1) {
+      $selected_transcripts = $preliminary_transcripts;
+    } else {
+      $selected_transcripts = $self->select_best_transcripts($preliminary_transcripts);
+    }
+
+    foreach my $selected_transcript (@{$selected_transcripts}) {
+      push(@{$result_transcripts},$selected_transcript);
+    }
+
+  } # end foreach my $source_transcript
 
   if ($self->TRANSCRIPT_FILTER){
     $result_transcripts = $self->filter->filter_results($result_transcripts);
@@ -432,6 +447,43 @@ sub realign_translation {
     }
     $projected_transcript->add_Exon($exon);
   }
+
+}
+
+sub select_best_transcripts {
+  my ($self,$preliminary_transcripts) = @_;
+
+  my $selected_transcripts = [];
+  my $best_score = 0;
+  foreach my $preliminary_transcript (@{$preliminary_transcripts}) {
+    my @tsfs = @{$preliminary_transcript->get_all_supporting_features};
+    my $cov = $tsfs[0]->hcoverage;
+    my $pid = $tsfs[0]->percent_id;
+    my $combined_score = $cov + $pid;
+    if($combined_score > $best_score) {
+      $best_score = $combined_score;
+    }
+    $preliminary_transcript->{'combined_score'} = $combined_score;
+  }
+
+  unless($best_score) {
+    $self->throw('Issue with calculating the best score from projection result set. This should not happen.');
+  }
+
+  # At this point we know the highest value in terms of combined percent identity and coverage. Now
+  # we want all transcripts that fall within 5 percent of this value
+  foreach my $preliminary_transcript (@{$preliminary_transcripts}) {
+    my $combined_score = $preliminary_transcript->{'combined_score'};
+    if($combined_score/$best_score >= 0.95) {
+      push(@{$selected_transcripts},$preliminary_transcript);
+    }
+  }
+
+  unless(scalar(@{$selected_transcripts})) {
+    $self->throw("No transcripts selected in select_best_transcripts, something went wrong");
+  }
+
+  return($selected_transcripts);
 
 }
 

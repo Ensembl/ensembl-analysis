@@ -70,7 +70,12 @@ sub run {
   $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
   foreach my $runnable(@{$self->runnable}){
     $runnable->run;
-    $self->output($runnable->output);
+    if ($self->can('filter_results')) {
+      $self->output($self->filter_results($runnable->output));
+    }
+    else {
+      $self->output($runnable->output);
+    }
   }
   return $self->output;
 }
@@ -685,23 +690,38 @@ sub _create_temporary_file {
 
 =head2 post_cleanup
 
- Arg [1]    : None
+ Arg [1]    : (optional) int, secs to sleep
  Description: If a module use post_cleanup it needs to call this first
               otherwise the DBAdaptor cache will not be reset which might
-              cause problems
+              cause problems.
+              Generic post_cleanup implementation. Note that this is designed to get
+              runnable dbs to sleep for a specified amount of time (default is 5 secs)
+              before finishing. We needed this because we have found issues during the
+              with downstream jobs starting before the write from the upstream job is
+              actually fully written to disk. This can have unusual effects in terms of
+              creating situations where input is missing and the job silently fails
  Returntype : None
  Exceptions : None
 
 =cut
 
 sub post_cleanup {
-  my ($self) = @_;
+  my ($self,$sleep_time) = @_;
 
   foreach my $key (keys %{$self->{_gb_cache}}) {
     next if ($key eq '_cache_lastlogicname');
     $self->{_gb_cache}->{$key}->clear_caches;
   }
-}
 
+  if(defined($sleep_time)) {
+    unless($sleep_time =~ /^[0-9]+$/) {
+      $self->throw("Value passed in for sleep time was not an positive integer or zero. Value: ".$sleep_time);
+    }
+    sleep($sleep_time);
+  } else {
+    sleep(5);
+  }
+
+}
 
 1;

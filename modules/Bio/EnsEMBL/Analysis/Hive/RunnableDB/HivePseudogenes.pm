@@ -85,12 +85,6 @@ use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 use Bio::EnsEMBL::Analysis::Runnable::Pseudogene;
-use Bio::EnsEMBL::DBSQL::DBConnection;
-use Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor;
-use Bio::EnsEMBL::Pipeline::Flag;
-#use Bio::EnsEMBL::Analysis::Config::Databases qw(DATABASES DNA_DBNAME);
-#use Bio::EnsEMBL::Analysis::Config::Pseudogene;
-#use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 

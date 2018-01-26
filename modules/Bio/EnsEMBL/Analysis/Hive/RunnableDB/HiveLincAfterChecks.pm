@@ -42,16 +42,11 @@ Check the final lincRNA dataset and classify or suggests a classification for ea
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincAfterChecks;
         
 use warnings;
-use vars qw(@ISA);
 use strict;
-use Data::Dumper;
 
-use feature 'say';
 use File::Basename;
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use Bio::EnsEMBL::Analysis::Tools::LincRNA qw(get_genes_of_biotypes) ;  
 use Bio::EnsEMBL::Analysis;
-use Bio::EnsEMBL::Funcgen::DBSQL::DBAdaptor;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 

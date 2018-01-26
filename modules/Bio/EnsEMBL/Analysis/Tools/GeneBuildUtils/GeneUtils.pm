@@ -61,6 +61,7 @@ use vars qw (@ISA  @EXPORT);
              attach_Slice_to_Gene
              attach_Analysis_to_Gene
              attach_Analysis_to_Gene_no_support
+             attach_Analysis_to_Gene_no_ovewrite
              clone_Gene 
              compute_6frame_translations
              convert_to_single_transcript_gene
@@ -80,7 +81,7 @@ use vars qw (@ISA  @EXPORT);
             );
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(print_Transcript clone_Transcript get_evidence_ids attach_Slice_to_Transcript fully_load_Transcript empty_Transcript attach_Analysis_to_Transcript attach_Analysis_to_Transcript_no_support print_Transcript_and_Exons);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(print_Transcript clone_Transcript get_evidence_ids attach_Slice_to_Transcript fully_load_Transcript empty_Transcript attach_Analysis_to_Transcript attach_Analysis_to_Transcript_no_support attach_Analysis_to_Transcript_no_overwrite print_Transcript_and_Exons);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(run_translate add_ORF_to_transcript compute_6frame_translations_for_transcript); 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw (id seq_region_coord_string empty_Object);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils;
@@ -529,6 +530,31 @@ sub attach_Analysis_to_Gene_no_support{
     attach_Analysis_to_Transcript_no_support($transcript, $analysis);
   }
 }
+
+
+=head2 attach_Analysis_to_Gene_no_ovewrite
+
+ Arg [1]    : Bio::EnsEMBL::Gene
+ Arg [2]    : Bio::EnsEMBL::Analysis
+ Description: Attach a Arg[2] to Arg[1] and its sub objects like transcripts
+              unless the analysis is already set
+ Returntype : None
+ Exceptions : Throws if Arg[2] is not a Bio::EnsEMBL::Analysis
+
+=cut
+
+sub attach_Analysis_to_Gene_no_ovewrite {
+  my ($gene, $analysis) = @_;
+
+  throw('You need a Bio::EnsEMBL::Analysis object not a "'.ref($analysis).'"')
+    unless ($analysis and ref($analysis) eq 'Bio::EnsEMBL::Analysis');
+  $gene->analysis($analysis) unless ($gene->analysis);
+  foreach my $transcript (@{$gene->get_all_Transcripts}) {
+    attach_Analysis_to_Transcript_no_overwrite($transcript, $analysis);
+  }
+}
+
+
 =head2 fully_load_Gene
 
   Arg [1]   : Bio::EnsEMBL::Gene

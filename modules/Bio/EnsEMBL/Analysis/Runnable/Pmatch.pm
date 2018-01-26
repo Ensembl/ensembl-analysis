@@ -222,7 +222,7 @@ sub parse_results {
                                       $hit->query, 
                                       $self->query, 
                                       $self->analysis);
-    my $paf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => [$fp]);
+    my $paf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => [$fp], -align_type => 'ensembl');
     $self->output([$paf]);
   }
 }

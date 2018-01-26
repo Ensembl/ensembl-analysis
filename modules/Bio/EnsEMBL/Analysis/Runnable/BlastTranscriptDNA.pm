@@ -284,7 +284,7 @@ sub align_hits_to_query {
     # Take the pieces for each exon and make gapped feature
     foreach my $ex ( keys %exon_hash ) {
       my $dna_align_feature = Bio::EnsEMBL::DnaDnaAlignFeature->new
-        (-features => $exon_hash{$ex});
+        (-features => $exon_hash{$ex}, -align_type => 'ensembl');
       $self->output([$dna_align_feature]);
     }
   }

@@ -54,10 +54,11 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep;
 
 use warnings ;
 use strict;
+use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep;
 use Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene attach_Analysis_to_Gene attach_Slice_to_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast');
@@ -77,16 +78,28 @@ sub fetch_input {
 
   $self->throw("No input id") unless defined($self->input_id);
 
-#  $self->create_analysis(1, {-db_file => join(',', @{$self->param('uniprot_index')}), -program_file => $self->param('blast_program')});
   $self->create_analysis(1);
   $self->analysis->parameters($self->param('commandline_params')) if ($self->param_is_defined('commandline_params'));
-  $self->hrdb_set_con($self->get_database_by_name('dna_db'), 'dna_db');
-  $self->hrdb_set_con($self->get_database_by_name($self->OUTPUT_DB, $self->hrdb_get_con('dna_db')), 'output_db');
-  my $slice = $self->fetch_sequence($self->input_id, $self->hrdb_get_con('dna_db'));
-  $self->query($slice);
-  my $sa = $self->hrdb_get_con('output_db')->get_SliceAdaptor;
-  my $chr_slice = $sa->fetch_by_region('toplevel',$slice->seq_region_name);
-  $self->param('toplevel_slice', $chr_slice);
+
+
+  my $input_dba = $self->hrdb_get_dba($self->param('input_db'));
+  my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
+
+  $self->hrdb_set_con($input_dba,'input_db');
+  $self->hrdb_set_con($output_dba,'output_db');
+
+  my $input_sa = $input_dba->get_SliceAdaptor();
+  my $input_slice = $input_sa->fetch_by_name($self->input_id);
+  $self->query($input_slice);
+
+  my $output_sa = $output_dba->get_SliceAdaptor;
+  my $output_slice = $output_sa->fetch_by_region('toplevel',$input_slice->seq_region_name);
+  unless($output_slice) {
+    $self->throw("Could not fetch an output slice from the output db. Slice name: ".$input_slice->seq_region_name);
+  } else {
+    say "Fetched output slice: ".$output_slice->name();
+  }
+  $self->param('toplevel_slice',$output_slice);
 
   my $parser = $self->make_parser;
   my $filter;
@@ -95,21 +108,28 @@ sub fetch_input {
     $filter = $self->make_filter;
   }
 
-  my $ga = $self->get_database_by_name($self->MODEL_DB)->get_GeneAdaptor;
-  $ga->db->dnadb($self->hrdb_get_con('dna_db'));
-  my $genes;
-  my $logicname = $self->LOGICNAME;
-  if ( $logicname) {
-    $genes = $ga->fetch_all_by_Slice($self->query, $logicname, 1);
-  } else {
-    $genes =  $ga->fetch_all_by_Slice($self->query,undef,1);
+  my $logicname = $self->param('logic_name');
+
+  my $genes = $input_slice->get_all_Genes($logicname);
+  unless(scalar(@$genes)) {
+    $self->warning("Found no input genes for ".$self->input_id." of type ".$self->LOGICNAME.
+                   "\nAnalysis dbID: ".$self->analysis->dbID.
+                   "\nSlice db name: ".$input_slice->adaptor->dbc->dbname);
+    $self->complete_early('No genes to process');
   }
-  print "Found " .  scalar(@$genes) . " genes ";
-  if (  $logicname ) {
-    print " of type " . $logicname . "\n";
+
+  print "Found ".scalar(@$genes)." genes";
+  if ($logicname) {
+    print " of type ".$logicname."\n";
   } else {
     print "\n";
   }
+
+  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+  $input_dba->dnadb($dna_dba);
+  $output_dba->dnadb($dna_dba);
+  $self->hrdb_set_con($dna_dba,'dna_db');
+
   if ($self->param_is_defined('create_translation') and $self->param('create_translation')) {
     foreach my $gene (@$genes) {
       foreach my $tran (@{$gene->get_all_Transcripts}) {
@@ -117,6 +137,7 @@ sub fetch_input {
       }
     }
   }
+
   foreach my $gene (@$genes) {
       foreach my $tran (@{$gene->get_all_Transcripts}) {
           $store_genes{$tran->dbID} = $gene;
@@ -135,7 +156,9 @@ sub fetch_input {
                               %{$self->BLAST_PARAMS},
                               ));
               }
-          }
+          } else {
+            $self->warning("No translation found for refine gene with dbID: ".$gene->dbID);
+	  }
       }
   }
   $self->genes_by_tran_id(\%store_genes);
@@ -165,16 +188,23 @@ sub run {
         if(my $err = $@){
             chomp $err;
 
+            $self->warning($err);
             # only match '"ABC_DEFGH"' and not all possible throws
             if ($err =~ /^\"([A-Z_]{1,40})\"$/i) {
-                my $code = $1;
-                # treat VOID errors in a special way; they are really just
-                # BLASTs way of saying "won't bother searching because
-                # won't find anything"
+              my $code = $1;
+              # treat VOID errors in a special way; they are really just
+              # BLASTs way of saying "won't bother searching because
+              # won't find anything"
 
-                if ($code ne 'VOID') {
-                    $self->throw("Blast::run failed $@");
-                }
+              if ($code ne 'VOID') {
+                $self->throw("Blast::run failed $@");
+              }
+              my $failed_transcript_id = $runnable->transcript()->dbID;
+              my $failed_gene = $self->genes_by_tran_id->{$failed_transcript_id};
+	      unless($failed_gene) {
+                $self->throw("Could not fetch failed gene from the initial gene hash. Something has gone wrong. Hash transcript dbID checked: ".$failed_transcript_id);
+	      }
+              $self->failed_genes($failed_gene);
             }
             elsif ($err) {
                 $self->throw("Blast Runnable returned unrecognised error string: $err");
@@ -309,7 +339,7 @@ sub add_supporting_features {
       # make a transcript supporting feature
       my $coverage = sprintf("%.3f",( $hlen / length($tran->translation->seq) ) * 100);
 
-      my $tsf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@filtered_best);
+      my $tsf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@filtered_best, -align_type => 'ensembl');
       # hijack percent_id - not going to use it
       $tsf->percent_id(  $coverage ) ;
       $tsf->analysis($tran->analysis);
@@ -350,8 +380,10 @@ sub write_output {
 
   my $fails = 0;
   my $total = 0;
+  my $analysis = $self->analysis;
   foreach my $gene (@{$self->output}){
-    #$gene->analysis($self->analysis);
+    attach_Slice_to_Gene($gene,$self->param('toplevel_slice'));
+    attach_Analysis_to_Gene($gene,$analysis);
     empty_Gene($gene);
     eval {
       $gene_adaptor->store($gene);
@@ -363,9 +395,36 @@ sub write_output {
     }
     $total++;
   }
+
+  my $runnable_failed_genes = $self->failed_genes;
+  foreach my $gene (@{$runnable_failed_genes}) {
+    my $failed_biotype = $gene->biotype()."_failed";
+    my $failed_source = $gene->source()."_failed";
+    $gene->biotype($failed_biotype);
+    $gene->source($failed_source);
+
+    empty_Gene($gene);
+    eval {
+      $gene_adaptor->store($gene);
+    };
+    if ($@){
+      $self->warning("Unable to store gene!!\n");
+      print STDERR "$@\n";
+      $fails++;
+    }
+    $total++;
+  }
+
   if ($fails > 0) {
     $self->throw("Not all genes could be written successfully " .
           "($fails fails out of $total)");
+  }
+
+  my $total_input_genes = scalar(keys(%{$self->genes_by_tran_id()}));
+  my $success_percent = $total / $total_input_genes * 100;
+  if($total_input_genes >= 10 && $success_percent <= 90) {
+    $self->throw("The number of output genes differs too much from the number of input genes\n".
+                 "Total input: ".$total_input_genes."\nTotal output: ".$total);
   }
 }
 
@@ -493,6 +552,21 @@ sub INDEX {
     my ($self,$value) = @_;
 
     return $self->param('indicate_index');
+}
+
+
+sub failed_genes {
+  my ($self,$value) = @_;
+
+  unless($self->param('_failed_genes')) {
+    $self->param('_failed_genes',[])
+  }
+
+  if($value) {
+    push(@{$self->param('_failed_genes')},$value)
+  }
+
+  return $self->param('_failed_genes');
 }
 
 1;

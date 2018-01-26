@@ -408,7 +408,7 @@ sub add_utr_evidence {
       my @sfs = grep {$_->isa('Bio::EnsEMBL::DnaDnaAlignFeature')} @{$exon->get_all_supporting_features};
       if (scalar(@sfs)) {
         foreach my $sf (@sfs) {
-          my $dnaalignfeature = Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => [$sf->ungapped_features]);
+          my $dnaalignfeature = Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => [$sf->ungapped_features], -align_type => 'ensembl');
           push(@new_sfs, $dnaalignfeature);
         }
       }

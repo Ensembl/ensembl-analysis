@@ -54,16 +54,6 @@ sub _master_config {
       GENOMICSEQS         => '#genome_file#',
       PROGRAM             => '#exonerate_path#',
       SOFT_MASKED_REPEATS => '#repeat_libraries#', # This should be an arrayref
-      FILTER => {
-        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::CdnaUpdateTranscriptFilter',
-        PARAMETERS => {
-          -best_in_genome => 0,
-          -coverage => 50,
-          -percent_id => 50,
-          -reject_processed_pseudos => 1,
-          -verbosity => 1,
-        }
-      },
       KILL_TYPE => undef,
       USE_KILL_LIST => 0,
     },
@@ -129,6 +119,13 @@ sub _master_config {
     exonerate_protein => {
       IIDREGEXP => '(\d+):(\d+)',
       OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1 --maxintron 50000',
+      COVERAGE_BY_ALIGNED => 0,
+      QUERYTYPE           => 'protein',
+    },
+
+    exonerate_protein_recover => {
+      IIDREGEXP => '(\d+):(\d+)',
+      OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1',
       COVERAGE_BY_ALIGNED => 0,
       QUERYTYPE           => 'protein',
     },
@@ -325,20 +322,19 @@ sub _master_config {
     },
     cdna2genome => {
         COVERAGE_BY_ALIGNED => 1,
-        OPTIONS => "--model cdna2genome --forwardcoordinates FALSE ".
-        "--softmasktarget TRUE --exhaustive FALSE  ".
-        "--score 500 --saturatethreshold 100 ".
-        "--dnahspthreshold 60 --dnawordlen 15 --bestn 10",
-        FILTER => { OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-          PARAMETERS => { -coverage => 50,
-            -percent_id => 50,
-            -best_in_genome => 0,
+        OPTIONS => '--model cdna2genome --forwardcoordinates FALSE '.
+                   '--softmasktarget TRUE --exhaustive FALSE '.
+                   '--score 500 --saturatethreshold 100 '.
+                   '--dnawordlen 15 --codonwordlen 15 '.
+                   '--dnahspthreshold 60 --bestn 10',
+        FILTER => {
+          OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::Filter::cDNA2GenomeTranscriptFilter',
+          PARAMETERS => {
+            -coverage => 50,
+            -percent_id => 90,
+            -best_in_genome => 1,
             -reject_processed_pseudos => 1,
           },
-        },
-        SEQFETCHER_PARAMS     => {
-          #dir containing indicate index of prepared cdna sequence collection
-          -db => ['/lustre/scratch110/ensembl/db8/builds/rat/Rnor_6.0/cdna2genome/index/'],
         },
     },
     exonerate_cov_per_sub => {
@@ -351,6 +347,22 @@ sub _master_config {
         PARAMETERS => {
           -coverage   => '#exonerate_cdna_cov#',
           -percent_id => '#exonerate_cdna_pid#',
+        },
+      },
+    },
+    cdna_est2genome => {
+      IIDREGEXP           => '(\d+):(\d+)',
+      OPTIONS             => ' --model est2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --saturatethreshold 100 --dnahspthreshold 60 --dnawordlen 14 --score 500',
+      COVERAGE_BY_ALIGNED => 1,
+      QUERYTYPE           => 'dna',
+      FILTER => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -coverage   => '#exonerate_cdna_cov#',
+          -percent_id => '#exonerate_cdna_pid#',
+          -best_in_genome => 1,
+          -reject_processed_pseudos => 1,
+          -verbosity => 1,
         },
       },
     },

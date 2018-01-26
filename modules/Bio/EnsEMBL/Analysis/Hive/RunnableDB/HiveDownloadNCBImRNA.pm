@@ -60,7 +60,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults()},
-    base_url => 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils',
+    base_url => 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils',
     search_url => 'esearch.fcgi',
     fetch_url => 'efetch.fcgi',
     ncbidb => 'nucleotide',
@@ -137,7 +137,7 @@ sub run {
  Arg [1]    : None
  Description: Fetch the data from the search history using efetch and store the data in
               the file 'output_file'. It flows the filename of the written file on
-              channel 2, 'cdna_file'.
+              channel 2, 'iid'.
  Returntype : None
  Exceptions : Throws if it cannot write the file
 
@@ -162,7 +162,7 @@ sub write_output {
 
   }
   close(WH) || $self->throw('Could not close '.$self->param('output_file'));
-  $self->dataflow_output_id({iid => $self->param('output_file'), sequence_file => $self->param('output_file'), iid_type => 'filename'}, $self->param('_branch_to_flow_to'));
+  $self->dataflow_output_id({iid => $self->param('output_file')}, $self->param('_branch_to_flow_to'));
 }
 
 1;

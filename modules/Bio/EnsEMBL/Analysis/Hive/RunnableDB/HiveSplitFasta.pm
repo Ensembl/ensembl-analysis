@@ -46,6 +46,7 @@ sub param_defaults {
     'unique_file_names'       => 0,      # Ensure that output file names are unique across all directories?
     'delete_original_file'    => 0,      # After splitting, delete original fasta file?
     'append_filename'         => 0,      # If you want to append the basename as a directory set it to 1, useful if you have many files to process
+    column_names => ['split_file'],
   };
   
 }

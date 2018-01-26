@@ -170,7 +170,7 @@ sub write_output{
       $rf_adaptor->store($feature);
     };
     if ($@){
-      throw("RunnableDB:store failed, failed to write ".$feature." to ".
+      $self->throw("RunnableDB:store failed, failed to write ".$feature." to ".
             "the database $@");
     }
   }
