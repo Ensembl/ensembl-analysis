@@ -92,6 +92,7 @@ sub fetch_input {
     my %analysis_hash = (BEST_SCORE => 'best', SINGLE_EXON_MODEL => 'single', INTRON_OVERLAP_THRESHOLD => $merged_iot);
     $analysis_hash{OTHER_ISOFORMS} = $self->param('other_isoforms').'_merged' if ($self->param_is_defined('other_isoforms'));
     $analysis_hash{BAD_MODELS} = $self->param('bad_models').'_merged' if ($self->param_is_defined('bad_models'));
+    $analysis_hash{INTRONS_LOGIC_NAME} = $self->param('introns_logic_name') if ($self->param_is_defined('introns_logic_name'));
     push(@output_ids, [File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_merged.conf'), [{FILE => $self->param('wide_intron_bam_file').'.bam', GROUPNAME => [], DEPTH => 0, MIXED_BAM => 0}], $self->param('wide_species').'_merged_rnaseq', \%analysis_hash]);
   $self->param('analyses', \@output_ids);
   $self->param('database_file', File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_database.conf'));
@@ -184,6 +185,7 @@ sub generate_config_file {
             CONSLIMS    => [ "1.0" ],
             NONCONSLIMS => [ "1.0" ],
             RESTART_NONCONSLIM => "-1.0",
+            INTRONS_LOGIC_NAME => $analysis->[2],
           },
           $analysis->[2] => $analysis->[3],
         }

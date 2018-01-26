@@ -105,6 +105,7 @@ sub param_defaults {
     store_datafile => 1,
     _index_ext => 'bai',
     _file_ext => 'bam',
+    _logic_name_ext => 'bam',
   }
 }
 
@@ -133,14 +134,7 @@ sub fetch_input {
     }
     my $outname = $self->param_is_defined('sample_name') ? $self->param('sample_name') : 'merged';
     if (!$self->param_is_defined('logic_name')) {
-      my $aligner = $self->param('wide_short_read_aligner');
-      if ($aligner =~ /star/i) {
-        $aligner = 'star';
-      }
-      else {
-        $aligner = 'bwa';
-      }
-      $self->analysis->logic_name($self->param('wide_species').'_'.$aligner.'_'.$outname);
+      $self->analysis->logic_name($self->param('wide_species').'_'.$outname.'_rnaseq_'.$self->param('_logic_name_ext'));
     }
     if (!$self->param_is_defined('alignment_bam_file')) {
       $self->param('alignment_bam_file', File::Spec->catfile($self->param('wide_merge_dir'),

@@ -54,7 +54,7 @@ sub default_options {
         'user'     => '',
         'password' => '',
         'port'     => '',
-        'species'  => '',
+        'species'  => '', # It MUST be the scientific name so the analyses are created correctly
         'assembly_name' => '',
         'email' => '', # Add your email so you can be notified when a bam file is removed
 
@@ -333,7 +333,7 @@ sub pipeline_analyses {
         },
         -flow_into => {
             '1->A' => ['create_rnaseq_genome_file'],
-            'A->1' => ['parse_summary_file'],
+            'A->1' => ['create_rough_db'],
         },
   },
  {
@@ -355,6 +355,21 @@ sub pipeline_analyses {
             cmd => 'if [ ! -e "#wide_genome_file#.ann" ]; then #wide_short_read_aligner# index -a bwtsw #wide_genome_file#;fi',
         },
   },
+  {
+    -logic_name => 'create_rough_db',
+    -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+    -parameters => {
+                     source_db => $self->o('dna_db'),
+                     target_db => $self->o('rough_db'),
+                     create_type => $self->o('create_type'),
+                     script_path => $self->o('clone_db_script_path'),
+                   },
+    -meadow_type => '1GB',
+    -flow_into => {
+      1 => [ 'parse_summary_file'],
+    },
+  },
+
  {
       -logic_name => 'parse_summary_file',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveParseCsvIntoTable',
@@ -404,7 +419,7 @@ sub pipeline_analyses {
   {
       -logic_name => 'create_header_files',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -meadow_type => 'LOCAL',
+        -meadow_type => '1GB',
         -parameters => {
             cmd => 'if [ ! -e "#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h" ]; then printf "'.$header_line.'" > #wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h; fi',
         },
@@ -473,44 +488,6 @@ sub pipeline_analyses {
             },
         -rc_name    => '10GB',
       },
-      {
-        -logic_name => 'create_rough_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('rough_db'),
-                         create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
-                       },
-        -meadow_type => 'LOCAL',
-        -input_ids => [{}],
-      },
-
-      {
-        -logic_name => 'create_refine_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('refine_db'),
-                         create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
-                       },
-        -meadow_type => 'LOCAL',
-        -input_ids => [{}],
-      },
-
-      {
-        -logic_name => 'create_blast_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('blast_db'),
-                         create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
-                       },
-        -meadow_type => 'LOCAL',
-        -input_ids => [{}],
-      },
 
             {
         -logic_name => 'merged_tissue_file',
@@ -529,7 +506,7 @@ sub pipeline_analyses {
                          options       => 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT',
                          # target_db is the database where we will write the files in the data_file table
                          # You can use store_datafile => 0, if you don't want to store the output file
-                         target_db => $self->o('blast_db'),
+                         target_db => $self->o('rough_db'),
                          assembly_name => $self->o('assembly_name'),
                          rnaseq_data_provider => $self->o('rnaseq_data_provider'),
                          disconnect_jobs => 1,
@@ -556,16 +533,51 @@ sub pipeline_analyses {
                          options       => 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT',
                          # target_db is the database where we will write the files in the data_file table
                          # You can use store_datafile => 0, if you don't want to store the output file
-                         target_db => $self->o('blast_db'),
+                         target_db => $self->o('rough_db'),
                          assembly_name => $self->o('assembly_name'),
                          rnaseq_data_provider => $self->o('rnaseq_data_provider'),
                          disconnect_jobs => 1,
                        },
         -rc_name    => '3GB_multithread',
         -flow_into => {
-                        1 => ['create_header_intron'],
+                        1 => ['create_analyses_type_job'],
                       },
       },
+            {
+              -logic_name => 'create_analyses_type_job',
+              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+              -rc_name    => '1GB',
+              -parameters => {
+                inputlist => ['gene', 'daf', 'ise'],
+                column_names => ['type'],
+              },
+              -flow_into => {
+                '2->A' => [ 'create_analyses_job'],
+                'A->1' => ['create_header_intron'],
+              },
+            },
+            {
+              -logic_name => 'create_analyses_job',
+              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+              -rc_name    => '1GB',
+              -parameters => {
+                inputquery => q/SELECT DISTINCT(CONCAT('{"-logic_name" => "#species#_', LOWER(SM), '_rnaseq_#type#"}')) FROM csv_data/,
+                column_names => ['analyses'],
+                species => $self->o('species'),
+              },
+              -flow_into => {
+                2 => [ 'create_analyses'],
+              },
+            },
+            {
+              -logic_name => 'create_analyses',
+              -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
+              -rc_name    => '1GB',
+              -parameters => {
+                source_type => 'list',
+                target_db => $self->o('rough_db'),
+              },
+            },
             {
         -logic_name => 'create_header_intron',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -616,10 +628,9 @@ sub pipeline_analyses {
                          logic_name => 'rough_transcripts',
                          output_db    => $self->o('rough_db'),
                          dna_db    => $self->o('dna_db'),
-                         alignment_bam_file => '#wide_merge_dir#/merged.bam',
                          min_length => 300,
                          min_exons  =>   1,
-                         max_intron_length => 200000,
+                         max_intron_length => $self->o('maxintron'),
                          min_single_exon_length => 1000,
                          min_span   =>   1.5,
                          paired => $self->o('paired'),
@@ -640,10 +651,9 @@ sub pipeline_analyses {
                          logic_name => 'rough_transcripts',
                          output_db    => $self->o('rough_db'),
                          dna_db    => $self->o('dna_db'),
-                         alignment_bam_file => '#wide_merge_dir#/merged.bam',
                          min_length => 300,
                          min_exons  =>   1,
-                         max_intron_length => 200000,
+                         max_intron_length => $self->o('maxintron'),
                          min_single_exon_length => 1000,
                          min_span   =>   1.5,
                          paired => $self->o('paired'),
@@ -664,10 +674,9 @@ sub pipeline_analyses {
                          logic_name => 'rough_transcripts',
                          output_db    => $self->o('rough_db'),
                          dna_db    => $self->o('dna_db'),
-                         alignment_bam_file => '#wide_merge_dir#/merged.bam',
                          min_length => 300,
                          min_exons  =>   1,
-                         max_intron_length => 200000,
+                         max_intron_length => $self->o('maxintron'),
                          min_single_exon_length => 1000,
                          min_span   =>   1.5,
                          paired => $self->o('paired'),
@@ -712,7 +721,6 @@ sub pipeline_analyses {
                          fullseq   => 1,
                          max_transcript => 1000000,
                          batch_size => 10000,
-                         bam_file => '#wide_merge_dir#/merged.bam',
                          maxintron => $self->o('maxintron'),
                        },
         -rc_name    => '2GB_introns',
@@ -740,7 +748,6 @@ sub pipeline_analyses {
                          fullseq   => 1,
                          max_transcript => 1000000,
                          batch_size => 10000,
-                         bam_file => '#wide_merge_dir#/merged.bam',
                        },
         -rc_name    => '5GB_introns',
         -flow_into => {
@@ -767,7 +774,6 @@ sub pipeline_analyses {
                          fullseq   => 1,
                          max_transcript => 1000000,
                          batch_size => 10000,
-                         bam_file => '#wide_merge_dir#/merged.bam',
                        },
         -rc_name    => '10GB_introns',
         -flow_into => {
@@ -784,7 +790,7 @@ sub pipeline_analyses {
                          disconnect_jobs => 1,
                        },
         -rc_name    => '2GB',
-        -flow_into => ['create_ccode_config'],
+        -flow_into => ['check_and_delete_broken_duplicated'],
       },
       {
         -logic_name => 'check_and_delete_broken_duplicated',
@@ -794,6 +800,31 @@ sub pipeline_analyses {
                          check_support => 0,
                        },
         -rc_name    => '4GB',
+        -flow_into => ['create_refine_db'],
+      },
+      {
+        -logic_name => 'create_refine_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('refine_db'),
+                         create_type => $self->o('create_type'),
+                         script_path => $self->o('clone_db_script_path'),
+                       },
+        -meadow_type => '1GB',
+        -flow_into => ['create_blast_db'],
+      },
+
+      {
+        -logic_name => 'create_blast_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('blast_db'),
+                         create_type => $self->o('create_type'),
+                         script_path => $self->o('clone_db_script_path'),
+                       },
+        -meadow_type => '1GB',
         -flow_into => ['create_ccode_config'],
       },
       {
@@ -822,7 +853,7 @@ sub pipeline_analyses {
                      filter_on_overlap => 0,
                      # minimum size for an intron
                      min_intron_size  => 30,
-                     max_intron_size  => 200000,
+                     max_intron_size  => $self->o('maxintron'),
                      # biotype to give to single exon models if left blank single exons are ignored
                      # minimum single exon size (bp)
                      min_single_exon => 1000,
@@ -887,7 +918,6 @@ sub pipeline_analyses {
                     },
                 },
                 -rc_name => '2GB_refine',
-                -wait_for => ['create_refine_db'],
                 -flow_into => {
                     1 => ['blast_rnaseq'],
                     -1 => {'refine_genes_20GB' => {iid => '#iid#', config_file => '#config_file#', logic_name => '#logic_name#'}},
@@ -925,7 +955,6 @@ sub pipeline_analyses {
             commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40',
                       },
         -rc_name => '2GB_blast',
-        -wait_for => ['create_blast_db'],
       },
     );
     foreach my $analyses (@analysis) {
