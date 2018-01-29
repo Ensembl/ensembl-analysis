@@ -806,7 +806,7 @@ sub pipeline_analyses {
         -logic_name => 'create_refine_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
-                         source_db => $self->o('dna_db'),
+                         source_db => $self->o('rough_db'),
                          target_db => $self->o('refine_db'),
                          create_type => $self->o('create_type'),
                          script_path => $self->o('clone_db_script_path'),
@@ -819,7 +819,7 @@ sub pipeline_analyses {
         -logic_name => 'create_blast_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
-                         source_db => $self->o('dna_db'),
+                         source_db => $self->o('refine_db'),
                          target_db => $self->o('blast_db'),
                          create_type => $self->o('create_type'),
                          script_path => $self->o('clone_db_script_path'),
