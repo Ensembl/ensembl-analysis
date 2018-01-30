@@ -95,7 +95,7 @@ sub default_options {
 # 'rnaseq_summary_file' should always be set. If 'taxon_id' or 'study_accession' are not undef
 # they will be used to retrieve the information from ENA and to create the csv file. In this case,
 # 'file_columns' and 'summary_file_delimiter' should not be changed unless you know what you are doing
-        'rnaseq_summary_file' => '', # You need to specify the full path to your csv summary file
+        'rnaseq_summary_file' => catfile($self->o('output_dir'), $self->o('pipeline_name').'.csv'), # You need to specify the full path to your csv summary file
         'taxon_id' => undef,
         'study_accession' => undef,
         # Use this option to change the delimiter for your summary data
@@ -453,7 +453,7 @@ sub pipeline_analyses {
         -logic_name => 'bwa2bam',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA2BAM',
         -parameters => {
-                         sampe_options => '-A -a 200000',
+                         sampe_options => '-A -a '.$self->o('maxintron'),
                          samse_options => '',
                          min_paired => $self->o('read_min_paired'),
                          min_mapped => $self->o('read_min_mapped'),
@@ -474,7 +474,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA2BAM',
         -can_be_empty => 1,
         -parameters => {
-                         sampe_options => '-A -a 200000',
+                         sampe_options => '-A -a '.$self->o('maxintron'),
                          samse_options => '',
                          min_paired => $self->o('read_min_paired'),
                          min_mapped => $self->o('read_min_mapped'),
