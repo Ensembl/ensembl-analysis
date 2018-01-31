@@ -308,28 +308,28 @@ sub pipeline_analyses {
     my $header_line = create_header_line($self->default_options->{'file_columns'});
     my @analysis = (
  {
-      -logic_name => 'downloading_csv',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+      -logic_name => 'checking_file_path',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -rc_name => '1GB',
         -parameters => {
-          study_accession => $self->o('study_accession'),
-        }
+            cmd => 'EXIT_CODE=0; for F in #wide_short_read_aligner# #wide_samtools# '.join (' ', $self->o('splicing_aligner'), $self->o('clone_db_script_path'), $self->o('sequence_dump_script'), $self->o('blastp')).'; do which "$F"; if [ "$?" == 1 ]; then EXIT_CODE=1;fi; done; for D in #wide_output_dir# #wide_input_dir# #wide_merge_dir# #wide_output_sam_dir# `dirname #wide_genome_file#`; do mkdir -p "$D"; done; exit $EXIT_CODE',
+        },
         -input_ids => [{
           alignment_bam_file => catfile('#wide_merge_dir#', '#assembly_name#.#rnaseq_data_provider#.merged.1.bam'),
           assembly_name => $self->o('assembly_name'),
           inputfile => $self->o('rnaseq_summary_file'),
           }],
         -flow_into => {
-            1 => ['checking_file_path'],
+            1 => ['downloading_csv'],
         },
   },
-
  {
-      -logic_name => 'checking_file_path',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -logic_name => 'downloading_csv',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
         -rc_name => '1GB',
         -parameters => {
-            cmd => 'EXIT_CODE=0; for F in #wide_short_read_aligner# #wide_samtools# '.join (' ', $self->o('splicing_aligner'), $self->o('clone_db_script_path'), $self->o('sequence_dump_script'), $self->o('blastp')).'; do which "$F"; if [ "$?" == 1 ]; then EXIT_CODE=1;fi; done; for D in #wide_output_dir# #wide_input_dir# #wide_merge_dir# #wide_output_sam_dir# `dirname #wide_genome_file#`; do mkdir -p "$D"; done; exit $EXIT_CODE',
+          study_accession => $self->o('study_accession'),
+          taxon_id => $self->o('taxon_id'),
         },
         -flow_into => {
             '1->A' => ['create_rnaseq_genome_file'],
@@ -602,7 +602,6 @@ sub pipeline_analyses {
                          top_level => 1,
                          target_db => $self->o('rough_db'),
                        },
-        -wait_for => ['create_rough_db'],
         -flow_into => {
                         2 => {'dispatch_toplevel' => {'iid' => '#iid#', alignment_bam_file => '#filename#'}},
                       },
@@ -794,7 +793,7 @@ sub pipeline_analyses {
       },
       {
         -logic_name => 'check_and_delete_broken_duplicated',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRemoveDuplicatedObjects',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRemoveBrokenAndDuplicatedObjects',
         -parameters => {
                          target_db => $self->o('rough_db'),
                          check_support => 0,
