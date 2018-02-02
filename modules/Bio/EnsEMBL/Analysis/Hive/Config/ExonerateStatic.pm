@@ -133,6 +133,21 @@ sub _master_config {
       QUERYTYPE           => 'protein',
     },
 
+    exonerate_protein_pseudo => {
+      IIDREGEXP => '(\d+):(\d+)',
+      OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1 --maxintron 100000 --minintron 1 --frameshift 10',
+      COVERAGE_BY_ALIGNED => 0,
+      QUERYTYPE           => 'protein',
+      FILTER  => {
+        OBJECT => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+        PARAMETERS => {
+          -coverage => 70,
+          -percent_id => 25,
+        },
+      },
+    },
+
+
     exonerate_protein_human_patch => {
       IIDREGEXP => '(\d+):(\d+)',
       OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive TRUE --bestn 5 --maxintron 50000 --minintron 20',
