@@ -747,6 +747,7 @@ sub pipeline_analyses {
                          fullseq   => 1,
                          max_transcript => 1000000,
                          batch_size => 10000,
+                         maxintron => $self->o('maxintron'),
                        },
         -rc_name    => '5GB_introns',
         -flow_into => {
@@ -773,6 +774,7 @@ sub pipeline_analyses {
                          fullseq   => 1,
                          max_transcript => 1000000,
                          batch_size => 10000,
+                         maxintron => $self->o('maxintron'),
                        },
         -rc_name    => '10GB_introns',
         -flow_into => {
