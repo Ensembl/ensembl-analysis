@@ -364,7 +364,7 @@ sub pipeline_analyses {
                      create_type => $self->o('create_type'),
                      script_path => $self->o('clone_db_script_path'),
                    },
-    -meadow_type => '1GB',
+    -rc_name => '1GB',
     -flow_into => {
       1 => [ 'parse_summary_file'],
     },
@@ -419,7 +419,7 @@ sub pipeline_analyses {
   {
       -logic_name => 'create_header_files',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -meadow_type => '1GB',
+        -rc_name => '1GB',
         -parameters => {
             cmd => 'if [ ! -e "#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h" ]; then printf "'.$header_line.'" > #wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h; fi',
         },
@@ -810,7 +810,7 @@ sub pipeline_analyses {
                          create_type => $self->o('create_type'),
                          script_path => $self->o('clone_db_script_path'),
                        },
-        -meadow_type => '1GB',
+        -rc_name => '1GB',
         -flow_into => ['create_blast_db'],
       },
 
@@ -823,7 +823,7 @@ sub pipeline_analyses {
                          create_type => $self->o('create_type'),
                          script_path => $self->o('clone_db_script_path'),
                        },
-        -meadow_type => '1GB',
+        -rc_name => '1GB',
         -flow_into => ['create_ccode_config'],
       },
       {
