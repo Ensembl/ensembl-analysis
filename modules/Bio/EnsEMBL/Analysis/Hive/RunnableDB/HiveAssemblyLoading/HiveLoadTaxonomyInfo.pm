@@ -105,7 +105,9 @@ sub load_taxonomy {
             ' -u '.$target_user.
             ' -p '.$target_pass.
             ' -d '.$target_dbname.
-            ' -P '.$target_port;
+            ' -P '.$target_port.
+            ' -release '.$ENV{ENSEMBL_RELEASE};
+
   if ($self->param_is_defined('production_db')) {
     $cmd .= ' -mh '.$self->param('production_db')->{-host}.
             ' -mu '.$self->param('production_db')->{-user}.
