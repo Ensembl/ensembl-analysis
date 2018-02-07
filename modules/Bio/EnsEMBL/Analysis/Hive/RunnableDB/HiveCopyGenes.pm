@@ -266,10 +266,9 @@ sub filter_on_overlap {
 
     if($overlap_filter_type eq 'genomic_overlap') {
       if($filter_on_strand && $output_gene->strand == $gene->strand) {
-        say "FM2 not copying: ".$gene->dbID.":".$gene->start.":".$gene->end.":".$gene->strand." ".$output_gene->dbID.":".$output_gene->start.":".$output_gene->end.":".$output_gene->strand;
 	next;
       }
-      if($gene->start <= $output_gene->end && $output_gene->start <= $gene->end) {
+      if($gene->seq_region_start <= $output_gene->seq_region_end && $output_gene->seq_region_start <= $gene->seq_region_end) {
 	return(0);
       }
     } elsif($overlap_filter_type eq 'exon_overlap') {
