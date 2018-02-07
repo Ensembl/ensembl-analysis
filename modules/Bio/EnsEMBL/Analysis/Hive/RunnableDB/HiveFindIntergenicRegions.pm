@@ -54,12 +54,12 @@ sub fetch_input {
   $self->query($slice);
 
   my $input_gene_coords = $self->calculate_input_gene_coords($input_gene_dbs);
-  if($self->param('utr_addition_filter')) {
-    # If the result has been filtered then don't pass on an input id
-    unless($input_gene_coords) {
-      $self->input_job->autoflow(0);
-      $self->complete_early('No potential UTR to process');
-    }
+
+  # We've seen in some cases there isn't an upstream filter in terms of the jobs coming into this
+  # there are sometimes regions without genes passed in. This will be a catch all filter for those
+  unless(scalar(@$input_gene_coords)) {
+    $self->input_job->autoflow(0);
+    $self->complete_early('No gene coordinates to process');
   }
 
   $self->input_gene_coords($input_gene_coords);
