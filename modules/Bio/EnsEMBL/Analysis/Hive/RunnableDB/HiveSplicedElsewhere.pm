@@ -74,7 +74,7 @@ use warnings ;
 use strict;
 use feature 'say';
 
-use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes;
+use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes qw(_remove_transcript_from_gene);
 use Bio::EnsEMBL::Analysis::Runnable::HiveSplicedElsewhere;
 use Bio::EnsEMBL::Analysis::Runnable::BaseExonerate; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
@@ -477,10 +477,5 @@ sub pseudo_genes {
   }
   return $self->param('_pseudo_gene');
 }
-
-#sub get_adaptor {
-#  my ($self) = @_;
-#  return($self->hrdb_get_con('output_db'));
-#}
 
 1;

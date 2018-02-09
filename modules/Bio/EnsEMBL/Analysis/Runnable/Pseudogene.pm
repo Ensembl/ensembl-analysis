@@ -268,10 +268,27 @@ GENE: foreach my $gene (@genes) {
 
       $num++;
 
+      # Notes on the below:
+      # Looking at the various tests, they seem to have been added over time and some are odd
+      # They were likely designed when there were many very low quality assemblies
+      # The very first check was designed to basically almost never call anything that had
+      # even a remotely real looking intron a pseudogene. The very first part of the conditional
+      # checks that whether the total intron length is > 5K, which it usually be if there is a
+      # real intron since the average intron length of a coding transcript in human is 6K
+      # The next test was probably the first one created, if all introns are frameshift then
+      # it's a pseudogene. That is sensible
+      # I added the next one. Now that assemblies are generally higher quality, if there are
+      # two or more frameshifts then it should be a pseudogene
+      # Then there are checks for things covered in repeats, an inderterminate test that I'm
+      # too lazy to try and describe and looks a bit odd. Then some checks on cases where there
+      # is only one real intron and it has protein features on it. Finally some checks on single
+      # exon transcripts
+      # This really needs to be completely re-written at some point
+
       #transcript tests
 
       #CALL PSEUDOGENE IF AT LEAST 80% COVERAGE OF INTRONS BY REPEATS
-      #AT LEAST 1 F/S EXON AND 1 REAL EXON (?)
+      #AT LEAST 1 F/S EXON AND 1 REAL INTRON
       #TOTAL INTRON LENGTH < 5K
 
       if (   $evidence->{'total_intron_len'} < $self->PS_MAX_INTRON_LENGTH
@@ -293,6 +310,14 @@ GENE: foreach my $gene (@genes) {
 
       if (   $evidence->{'num_introns'}
           && $evidence->{'frameshift_introns'} == $evidence->{'num_introns'} )
+      {
+        push @{ $trans_type{'pseudo'} }, $transcript;
+        next TRANS;
+      }
+
+
+      #LOTS OF FRAMESHIFTS - it is a pseudogene
+      if ($evidence->{'frameshift_introns'} > $self->MAX_FRAMESHIFT_INTRONS)
       {
         push @{ $trans_type{'pseudo'} }, $transcript;
         next TRANS;

@@ -91,7 +91,10 @@ sub _master_config {
                # configs for the introns in repeats test
 
                # introns longer than the following are considered "real"
-               PS_FRAMESHIFT_INTRON_LENGTH => 9,
+               PS_FRAMESHIFT_INTRON_LENGTH => 50,
+               # This is used to set a limit on the allowed number of frameshift introns before something is
+               # definitely called a pseudogene
+               MAX_FRAMESHIFT_INTRONS  => 1,
                # total length of introns
                PS_MAX_INTRON_LENGTH   => '5000',
                # Types of repeats to run the anaysis with
@@ -100,7 +103,12 @@ sub _master_config {
                PS_MAX_INTRON_COVERAGE => '80',
                # max allowed exon coverage with the above repeats
                PS_MAX_EXON_COVERAGE   => '99',
+               # This is used in a few places. It generally flags things that look a bit dodgy cos they
+               # have a frameshift, but unless it only has one intron there are other test needed before
+               # classing something with a single frameshift as a pseudogene
                PS_NUM_FRAMESHIFT_INTRONS  => 1,
+               # This is used to decided how many real introns are needed before reducing the strictness in
+               # terms of something being protein coding as opposed to a pseudogene
                PS_NUM_REAL_INTRONS  => 1,
                # biotype of genes to check
                PS_BIOTYPE  => 'protein_coding',
