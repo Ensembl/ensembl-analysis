@@ -1366,7 +1366,7 @@ sub pipeline_analyses {
                                                                      WHERE (g.description LIKE "%variable%" OR
                                                                             g.description LIKE "%variant%" OR
                                                                             g.description LIKE "%ighv%" OR
-                                                                            g.description LIKE "%immunog.%V.%pseudogene%")
+                                                                            g.description LIKE "%immunog.%V.%pseudogene%" OR
                                                                             g.description LIKE "%receptor%V%segment%" OR
                                                                             g.description LIKE "%TCR%gamma%V%segment%" )
                                                                            AND
