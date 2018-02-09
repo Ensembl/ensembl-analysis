@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -170,8 +170,8 @@ sub empty_Object{
   my ($object, $include_stable_id, $new_analysis) = @_;
   $object->adaptor(undef);
   $object->dbID(undef);
-  $object->stable_id(undef) if($object->can("stable_id") && 
-                               $include_stable_id);
+  $object->stable_id(undef) if($include_stable_id &&
+                               $object->can("stable_id"));
   if ($new_analysis and $object->can('analysis')) {
       $object->analysis($new_analysis);
   }

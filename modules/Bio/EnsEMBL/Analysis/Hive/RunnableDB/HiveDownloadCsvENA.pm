@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2017] EMBL-European Bioinformatics Institute
+Copyright [2016-2018] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -134,14 +134,22 @@ sub run {
             %fields_index = map { $_ => $index++} split('\t', $line);
           }
           else {
-            next if ($line =~ / infected /); # I do not want to do that but I don't think we have a choice
+            next if ($line =~ / infected | [iIu]mmune| challenge |tomi[zs]ed/); # I do not want to do that but I don't think we have a choice
+            next if ($line =~ /[Mm]i\w{0,3}RNA|lncRNA|circRNA|small RNA/); # I do not want to do that but I don't think we have a choice
             my @row = split("\t", $line);
             my $read_length = $self->param('_read_length');
+            my $nominal_length = 0;
+            my $calculated_length = 0;
             if ($row[$fields_index{nominal_length}]) {
-              $read_length = $row[$fields_index{nominal_length}];
+              $nominal_length = $row[$fields_index{nominal_length}];
+              $read_length = $nominal_length;
             }
-            elsif ($row[$fields_index{base_count}] and $row[$fields_index{read_count}]) {
-              $read_length = $row[$fields_index{base_count}]/$row[$fields_index{read_count}];
+            if ($row[$fields_index{base_count}] and $row[$fields_index{read_count}]) {
+              $calculated_length = $row[$fields_index{base_count}]/$row[$fields_index{read_count}];
+              $read_length = $calculated_length;
+            }
+            if ($nominal_length != $calculated_length and $nominal_length != 0 and $calculated_length != 0) {
+              $self->warning("${row[$fields_index{run_accession}]} NOMINAL $nominal_length CALC $calculated_length");
             }
             if ($row[$fields_index{library_layout}] eq 'PAIRED') {
               $read_length /= 2;
@@ -245,11 +253,7 @@ sub run {
 #                        $eutil->get_Response(-cb => sub {($data) = @_});
 #                      };
                   }
-                  $line{sample_name} = $line{dev_stage} || $line{cellType} || $line{organismPart} || $line{sample_alias} || $line{description};
 
-                  if($line{sample_name} eq 'terminal') {
-                     $line{sample_name} = $line{tissue_type};
-                  }
                   $ua->default_headers($dh);
                   $samples{$sample} = \%line;
                 }
@@ -267,6 +271,38 @@ sub run {
     }
   }
   if (keys %csv_data) {
+    foreach my $project (keys %csv_data) {
+      my %dev_stages;
+      my %celltypes;
+      foreach my $sample (keys %{$csv_data{$project}}) {
+        next unless (exists $samples{$sample});
+#        if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
+        if (exists $samples{$sample}->{dev_stage}) {
+          next if ($samples{$sample}->{dev_stage} eq 'sexually immature stage');
+          $dev_stages{$samples{$sample}->{dev_stage}} = 1;
+        }
+      }
+      if (scalar(keys(%dev_stages)) > 1) {
+        foreach my $sample (keys %{$csv_data{$project}}) {
+          next unless (exists $samples{$sample});
+          if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
+            $samples{$sample}->{sample_name} = $samples{$sample}->{dev_stage};
+          }
+          else {
+            $self->throw('No dev stages for '.$sample);
+          }
+        }
+      }
+      else {
+        foreach my $sample (keys %{$csv_data{$project}}) {
+          next unless (exists $samples{$sample});
+          $samples{$sample}->{sample_name} = $samples{$sample}->{cellType} || $samples{$sample}->{organismPart} || $samples{$sample}->{sample_alias} || $samples{$sample}->{description};
+          if (!$samples{$sample}->{sample_name}) {
+            $self->throw('No dev stages for '.$sample);
+          }
+        }
+      }
+    }
     $self->output([\%csv_data, \%samples]);
   }
   else {
@@ -306,7 +342,10 @@ sub write_output {
     foreach my $sample (keys %{$study}) {
       next unless (exists $samples->{$sample});
       foreach my $experiment (@{$study->{$sample}}) {
-        foreach my $file (split(';', $experiment->{fastq_file})) {
+        my @files = split(';', $experiment->{fastq_file});
+        my @checksums = split(';', $experiment->{fastq_md5});
+        my $index = 0;
+        foreach my $file (@files) {
           my (undef, undef, $filename) = splitpath($file);
           my $sample_name = $samples->{$sample}->{sample_name};
           $sample_name =~ s/\s+-\s+\w+:\w+$//;
@@ -330,7 +369,7 @@ sub write_output {
             $sample,
             $description,
           );
-          push(@output_ids, {url => $file, download_method => $download_method, checksum => $experiment->{fastq_md5}});
+          push(@output_ids, {url => $file, download_method => $download_method, checksum => $checksums[$index++]});
         }
       }
     }

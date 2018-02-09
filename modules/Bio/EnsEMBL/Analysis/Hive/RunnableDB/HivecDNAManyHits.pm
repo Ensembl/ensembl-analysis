@@ -21,89 +21,61 @@ use warnings;
 use feature 'say';
 
 
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
-use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba);
+use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
 
 
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    threshold => 20,
+    column_names => ['iid'],
+  }
+}
 
 sub fetch_input {
   my $self = shift;
-  return 1;
-}
 
-sub run {
-  my ($self) = shift;
-
-  my $output_path = $self->param('dest_dir') . '/' . $self->param('file_dir');
-  my $qdb = $self->param('query_db');
-
-  $self->find_many_hits($qdb);
-
-  return 1;
-}
-
-sub write_output {
-  my $self = shift;
-  return 1;
-}
-
-sub find_many_hits {
-  my ($self,$cdna_db) = @_;
-
-  # Mysql queries involving temporary tables
-  my $dbhost = $cdna_db->{'-host'};
-  my $dbport = $cdna_db->{'-port'};
-  my $dbuser = $cdna_db->{'-user'};
-  my $dbname = $cdna_db->{'-dbname'};
-  my $dbpass = $cdna_db->{'-pass'};
-
-  my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-                                                 -host    => $dbhost,
-                                                 -port    => $dbport,
-                                                 -user    => $dbuser,
-                                                 -dbname  => $dbname,
-                                                 -pass    => $dbpass,
-                                                 );
-
-  # Make a table containing each transcript matching a cDNA
-  my $sql1 =
-    (   "CREATE temporary table tmp1 "
-      . "SELECT hit_name, exon_transcript.transcript_id "
-      . "FROM dna_align_feature, supporting_feature, exon_transcript "
-      . "WHERE dna_align_feature_id = feature_id "
-      . "AND supporting_feature.exon_id = exon_transcript.exon_id "
-      . "GROUP by hit_name, exon_transcript.transcript_id" );
-
-  my $q1 = $db->dbc()->prepare($sql1) or croak("Sql error 1.\n$!");
-  $q1->execute();
-
-  # Group these to find the number of hits per cDNA
-  my $sql2 = (  "CREATE temporary table tmp2 SELECT hit_name, "
-              . "count(*) as hits FROM tmp1 GROUP by hit_name" );
-
-  my $q2 = $db->dbc()->prepare($sql2) or croak("Sql error 2.\n$!");
-  $q2->execute();
-
-  # Examine those which hit more than 20 places
-  my $sql3 = ("SELECT * FROM tmp2 WHERE hits > 20 ORDER by hits desc");
-
-  my $q3 = $db->dbc()->prepare($sql3) or croak("Sql error 3\n$!");
-  $q3->execute();
-
-  my $many_hits_flag = 0;
-  while ( my ( $cdna, $hits ) = $q3->fetchrow_array ) {
-    print "$cdna\t$hits\n";
-    $many_hits_flag = 1;
+  my $db = hrdb_get_dba($self->param_required('target_db'));
+  my $slice_adaptor = $db->get_SliceAdaptor;
+  my %hit_names;
+  foreach my $slice (@{$slice_adaptor->fetch_all('toplevel', undef, 1)}) {
+    foreach my $transcript (@{$slice->get_all_Transcripts}) {
+      ++$hit_names{$transcript->get_all_supporting_features->[0]->hseqname};
+    }
   }
-
-  if ($many_hits_flag) {
-    print(  "\nIt might be worth investigating these sequences to "
-          . "see whether these are likely to be genuine hits.\n"
-          . "If we don't want them in the database you "
-          . "should add them to the kill list\n\n" );
+  my @many_hits;
+  my $threshold = $self->param('threshold');
+  foreach my $key (keys %hit_names) {
+    push(@many_hits, $key) if ($hit_names{$key} > $threshold);
   }
-} ## end sub find_many_hits
+  if (@many_hits) {
+    if ($self->param_is_defined('old_db')) {
+      my $old_db = hrdb_get_dba($self->param_required('old_db'));
+      my $transcript_adaptor = $old_db->get_TranscriptAdaptor;
+      my @to_process;
+      $threshold *= .90;
+      foreach my $hitname (@many_hits) {
+        my $transcripts = $transcript_adaptor->fetch_all_by_transcript_supporting_evidence($hitname, 'dna_align_feature');
+        push(@to_process, $hitname) unless (scalar(@$transcripts) > $threshold);
+      }
+      if (@to_process) {
+        $self->param('inputlist', \@to_process);
+      }
+      else {
+        $self->complete_early(scalar(@many_hits).' cDNAs had more than '.$self->param('threshold').' hits but were already in the previous database');
+      }
+    }
+    else {
+      $self->param('inputlist', \@many_hits);
+    }
+  }
+  else {
+    $self->complete_early("No cDNAs had more than $threshold hits");
+  }
+}
 
 
 1;
-

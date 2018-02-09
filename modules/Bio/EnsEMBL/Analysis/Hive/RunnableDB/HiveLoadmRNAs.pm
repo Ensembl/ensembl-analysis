@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2017] EMBL-European Bioinformatics Institute
+Copyright [2016-2018] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ sub create_row_data {
   my $biotype = 'mRNA';
   my $date = strftime "%Y/%m/%d", localtime;
 #  return [{accession => $accession, seq => $parser->getSequence, source => $source, biotype => $biotype, date => $date}];
-  return [{accession => $accession, seq => $parser->getSequence, source => $source, date => $date}];
+  return [{accession => $accession, seq => $parser->getSequence, source_db => $source, biotype => $biotype, date => $date}];
 }
 
 1;

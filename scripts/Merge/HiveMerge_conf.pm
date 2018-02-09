@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,10 +64,10 @@ sub default_options {
     'password' => $self->o('pass_w'),
 
     # output directory. The merge will write log files here. The directory must not already exist.
-    'output_dir' => '/hps/nobackup/production/ensembl/...',
+    'output_dir' => '/path/to/nobackup/production/ensembl/...',
 
     # name of the directory where the vega checks reports will be written. This directory must not be neither output_dir nor a subdirectory of output_dir.
-    'reports_dir' => '/hps/nobackup/production/ensembl/...',
+    'reports_dir' => '/path/to/nobackup/production/ensembl/...',
 
     # email to send the vega checks reports to
     'vega_checks_reports_email' => '@ebi.ac.uk',
@@ -129,7 +129,7 @@ sub default_options {
     'assembly_path' => 'GRCh38',
 
     # full path to uniprot file to be used for the script which assigns the external DB IDs and optimises the align feature tables
-    'uniprot_file' => '/hps/nobackup/production/ensembl/genebuild/blastdb/uniprot/uniprot_20XX_XX/entry_loc',
+    'uniprot_file' => '/path/to/nobackup/production/ensembl/genebuild/blastdb/uniprot/uniprot_20XX_XX/entry_loc',
 
     # full path to your local copy of the ensembl-analysis git repository
     'ensembl_analysis_base' => '$ENSCODE/ensembl-analysis',
@@ -185,10 +185,10 @@ sub default_options {
     'species_name' => '',             # 'homo_sapiens' or 'mus_musculus'
     
     # BLAST db paths
-    'uniprot_blast_db_path'     => '/hps/nobackup/production/ensembl/genebuild/blastdb/uniprot/uniprot_20XX_XX/uniprot_vertebrate',
-    'uniprot_index'             => '/hps/nobackup/production/ensembl/genebuild/blastdb/uniprot/uniprot_20XX_XX/entry_loc',
-    'vertrna_blast_db_path'     => '/hps/nobackup/production/ensembl/genebuild/blastdb/vertrna/XXX/embl_vertrna-1',
-    'unigene_blast_db_path'     => '/hps/nobackup/production/ensembl/genebuild/blastdb/unigene/unigene',
+    'uniprot_blast_db_path'     => '/path/to/nobackup/production/ensembl/genebuild/blastdb/uniprot/uniprot_20XX_XX/uniprot_vertebrate',
+    'uniprot_index'             => '/path/to/nobackup/production/ensembl/genebuild/blastdb/uniprot/uniprot_20XX_XX/entry_loc',
+    'vertrna_blast_db_path'     => '/path/to/nobackup/production/ensembl/genebuild/blastdb/vertrna/XXX/embl_vertrna-1',
+    'unigene_blast_db_path'     => '/path/to/nobackup/production/ensembl/genebuild/blastdb/unigene/unigene',
     
     # alignment annotation on patches
     'taxon_id'             => 'XXXX', # '9606' for human
@@ -196,9 +196,12 @@ sub default_options {
     'genblast_name'        => 'XXX_genblast_XXX', # genblast database
     'genblast_host'        => $self->o('default_host'),
     'exonerate_settings'   => 'exonerate_protein_XXX_patch', # exonerate settings to use from ExonerateStatic
+    'exonerate_settings_retry' => 'exonerate_protein_human_patch_non_exhaustive', # exonerate settings to use from ExonerateStatic for the retry
     'exonerate_name'        => 'XXX_exonerate_XXX', # genblast database
     'exonerate_host'        => $self->o('default_host'),
     'cdna_name'             => '', # latest cdna db on live-mirror
+    'cdna_host'             => '',
+    'cdna_port'             => '',
     'layering_name'        => 'XXX_layering_XXX',
     'layering_host'        => $self->o('default_host'),
     'utr_name'        => 'XXX_utr_XXX',
@@ -209,7 +212,13 @@ sub default_options {
     'pseudogene_host'        => $self->o('default_host'),
     'patch_geneset_name'        => 'XXX_patch_XXX',
     'patch_geneset_host'        => $self->o('default_host'),
+
+    'killlist_name'        => '', # kill list database
+    'killlist_host'        => '',
+    'killlist_port'        => '',
+
     'homology_models_path' => $self->o('output_dir').'/homology_models/',
+    'software_path' => '/path/to/software/ensembl/.../', # path to the directory where your software directories "linuxbrew" (for repeatmasker, tcdust, etc.) and "jenv" (for java) are located
 
     ##
     # You shouldn't need to change anything below this line
@@ -220,23 +229,25 @@ sub default_options {
                              'dust'],
     'repeat_masking_logic_names' => ['repeatmask_repbase_'.$self->o('repeatmasker_library')],
     'uniprot_set'                => 'self_patch',
+    'layer_annotation_set'       => 'self_patch',
+    'genebuilder_set'            => 'self_patch',
 
     # executable paths
-    'repeatmasker_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/repeatmasker/4.0.5/bin/RepeatMasker',
-    'dust_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/tcdust',
-    'trf_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/trf',
-    'eponine_java_path' => '/nfs/software/ensembl/RHEL7/jenv/shims/java',
-    'eponine_jar_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/eponine/1.0/libexec/eponine-scan.jar',
-    'cpg_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/cpg_lh',
-    'trnascan_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/tRNAscan-SE',
-    'genscan_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/genscan',
-    'genscan_matrix_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/share/HumanIso.smat',
-    'uniprot_blast_exe_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/blastp',
-    'vertrna_blast_exe_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/tblastn',
-    'unigene_blast_exe_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/tblastn',
-    'exonerate_path'         => '/nfs/software/ensembl/RHEL7/linuxbrew/opt/exonerate09/bin/exonerate',
-    'cmsearch_exe_path'    => '/nfs/software/ensembl/RHEL7/linuxbrew/Cellar/infernal10/1.0/bin/cmsearch',
-    'genblast_path'        => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/genblast',
+    'repeatmasker_path' => $self->o('software_path').'/linuxbrew/bin/RepeatMasker',
+    'dust_path' => $self->o('software_path').'/linuxbrew/bin/tcdust',
+    'trf_path' => $self->o('software_path').'/linuxbrew/bin/trf',
+    'eponine_java_path' => $self->o('software_path').'/jenv/shims/java',
+    'eponine_jar_path' => $self->o('software_path').'/linuxbrew/Cellar/eponine/1.0/libexec/eponine-scan.jar',
+    'cpg_path' => $self->o('software_path').'/linuxbrew/bin/cpg_lh',
+    'trnascan_path' => $self->o('software_path').'/linuxbrew/bin/tRNAscan-SE',
+    'genscan_path' => $self->o('software_path').'/linuxbrew/bin/genscan',
+    'genscan_matrix_path' => $self->o('software_path').'/linuxbrew/share/HumanIso.smat',
+    'uniprot_blast_exe_path' => $self->o('software_path').'/linuxbrew/bin/blastp',
+    'vertrna_blast_exe_path' => $self->o('software_path').'/linuxbrew/bin/tblastn',
+    'unigene_blast_exe_path' => $self->o('software_path').'/linuxbrew/bin/tblastn',
+    'exonerate_path'         => $self->o('software_path').'/linuxbrew/opt/exonerate09/bin/exonerate',
+    'cmsearch_exe_path'    => $self->o('software_path').'/linuxbrew/Cellar/infernal10/1.0/bin/cmsearch',
+    'genblast_path'        => $self->o('software_path').'/linuxbrew/bin/genblast',
 
     'layering_input_gene_dbs' => [$self->o('exonerate_db')],
     'utr_gene_dbs' => {
@@ -264,10 +275,6 @@ sub default_options {
     'exonerate_cov'              => '80', # Cut-off for coverage
     'exonerate_calculate_coverage_and_pid' => '1',
     'exonerate_region_padding' => 15000,#1000
-
-    'killlist_name'        => 'gb_kill_list', # genblast database
-    'killlist_host'        => 'mysql-ens-genebuild-prod-6.ebi.ac.uk',
-    'killlist_port'        => '4532',
 
     'genome_file' => $self->o('output_dir')."/genome_dumps/".$self->o('species_name')."_softmasked_toplevel.fa",
 
@@ -451,8 +458,8 @@ sub default_options {
 
     # cdna database
     'cdna_db' => {
-                   -host   => 'ens-livemirror',
-                   -port   => $self->o('default_port'),
+                   -host   => $self->o('cdna_host'),
+                   -port   => $self->o('cdna_port'),
                    -user   => $self->o('user_r'),
                    -pass   => $self->o('pass_r'),
                    -dbname => $self->o('cdna_name'),
@@ -1379,7 +1386,7 @@ sub pipeline_analyses {
                                                                             g.biotype LIKE "TR\_%")
                                          ',
                                          'UPDATE gene g SET g.biotype=REPLACE(g.biotype,"_","_D_")
-                                                                     WHERE (g.description LIKE "%diversity%")
+                                                                     WHERE (g.description LIKE "%diversity%" or g.description LIKE "T cell receptor beta, D%")
                                                                            AND
                                                                            (g.biotype LIKE "IG\_%" OR
                                                                             g.biotype LIKE "TR\_%")
@@ -2508,6 +2515,40 @@ sub pipeline_analyses {
                                exonerate_pid => $self->o('exonerate_pid'),
                                exonerate_cov => $self->o('exonerate_cov'),
                             },
+              -flow_into => {
+                              -1 => ['exonerate_retry'],
+                              -2 => ['exonerate_retry'],
+                              -3 => ['exonerate_retry'],
+                            },
+              -failed_job_tolerance => 0.5,
+            },
+
+            {
+              -logic_name => 'exonerate_retry',
+              -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
+              -rc_name    => 'normal_1900_120',
+              -can_be_empty => 1,
+              -parameters => {
+                               sequence_table_name => $self->o('uniprot_table_name'),
+                               iid_type => 'feature_id',
+                               feature_type => 'transcript',
+                               transcript_db => $self->o('genblast_db'),
+                               region_padding => $self->o('exonerate_region_padding'),
+                               use_genblast_best_in_genome => 0,
+                               dna_db => $self->o('core_db'),
+                               target_db => $self->o('exonerate_db'),
+                               logic_name => 'exonerate',
+                               module     => 'HiveExonerate2Genes',
+                               
+                               %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic',$self->default_options()->{'exonerate_settings_retry'})},
+                               GENOMICSEQS         => $self->o('genome_file'),
+                               PROGRAM             => $self->o('exonerate_path'),
+                               SOFT_MASKED_REPEATS => $self->o('repeat_masking_logic_names'),
+                               query_seq_dir => $self->o('homology_models_path').'/'.$self->o('uniprot_query_dir_name'),
+                               calculate_coverage_and_pid => $self->o('exonerate_calculate_coverage_and_pid'),
+                               exonerate_pid => $self->o('exonerate_pid'),
+                               exonerate_cov => $self->o('exonerate_cov'),
+                            },
             },
 
             {
@@ -2607,7 +2648,7 @@ sub pipeline_analyses {
                          TARGETDB_REF => $self->o('layering_db'),
                          SOURCEDB_REFS => $self->o('layering_input_gene_dbs'),
                          FILTER => 'Bio::EnsEMBL::Analysis::Tools::CodingExonOverlapFilter',
-                         LAYERS => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic','self_patch',undef,'ARRAY'),
+                         LAYERS => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic',$self->default_options->{'layer_annotation_set'},undef,'ARRAY'),
                        },
         -rc_name    => 'normal_3900_200',
         -flow_into  => {
@@ -2678,9 +2719,9 @@ sub pipeline_analyses {
                          logic_name => 'ensembl',
                          module     => 'HiveGeneBuilder',
                          INPUT_GENES => {
-                           'input_db' => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GenebuilderStatic','self_patch',undef,'ARRAY'),
+                           'input_db' => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GenebuilderStatic',$self->default_options->{'genebuilder_set'},undef,'ARRAY'),
                          },
-                         OUTPUT_BIOTYPE => 'ensembl',
+                         OUTPUT_BIOTYPE => 'protein_coding',
                          MAX_TRANSCRIPTS_PER_CLUSTER => 10,
                          MIN_SHORT_INTRON_LEN => 7, #introns shorter than this seem
                          #to be real frame shifts and shoudn't be ignored
@@ -2688,6 +2729,14 @@ sub pipeline_analyses {
                          BLESSED_BIOTYPES => {
                                               'ccds_gene' => 1,
                                               'Blessed_UTR_Genes' => 1,
+                                              'IG_C_gene' => 1,
+                                              'IG_J_gene' => 1,
+                                              'IG_V_gene' => 1,
+                                              'IG_D_gene' => 1,
+                                              'TR_C_gene' => 1,
+                                              'TR_J_gene' => 1,
+                                              'TR_V_gene' => 1,
+                                              'TR_D_gene' => 1,
                                              },
                          #the biotypes of the best genes always to be kept
                          MAX_EXON_LENGTH => 20000,
@@ -2768,7 +2817,9 @@ sub pipeline_analyses {
         -logic_name => 'format_blast_db',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'xdformat -n '.$self->o('output_dir').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta'
+                         cmd => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then '.
+                                '  makeblastdb -dbtype nucl -in '.$self->o('output_dir').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta; '.
+                                'else xdformat -n '.$self->o('output_dir').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta;fi'
                        },
          -rc_name => 'default',
      },

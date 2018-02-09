@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,8 +71,6 @@ use Bio::SeqIO;
 
 use POSIX qw/ceil/;
 
-use Data::Dumper;
-
 our @EXPORT_OK = qw(
              all_exons_are_valid
              are_phases_consistent
@@ -81,6 +79,7 @@ our @EXPORT_OK = qw(
              attach_Slice_to_Transcript
              attach_Analysis_to_Transcript
              attach_Analysis_to_Transcript_no_support
+             attach_Analysis_to_Transcript_no_overwrite
              calculate_exon_phases
              clone_Transcript
              coding_coverage
@@ -1824,9 +1823,9 @@ sub add_dna_align_features_by_hitname_and_analysis {
       my @features = @{$group_features_by_hitname_and_analysis{$logic_name}{$hseqname}};
       my $f;
       if ($feature_isa eq "Bio::EnsEMBL::DnaDnaAlignFeature") {
-        $f = Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@features);
+        $f = Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@features, -align_type => 'ensembl');
       } elsif ($feature_isa eq "Bio::EnsEMBL::DnaPepAlignFeature") {
-      	$f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@features);
+        $f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@features, -align_type => 'ensembl');
       } else {
       	throw("Cannot create feature. Unknown feature isa.");
       }
@@ -2204,6 +2203,9 @@ sub attach_Analysis_to_Transcript{
   foreach my $sf(@{$transcript->get_all_supporting_features}){
     $sf->analysis($analysis);
   }
+  foreach my $sf (@{$transcript->get_all_IntronSupportingEvidence}){
+    $sf->analysis($analysis);
+  }
   foreach my $exon(@{$transcript->get_all_Exons}){
     $exon->analysis($analysis);
     foreach my $sf(@{$exon->get_all_supporting_features}){
@@ -2214,6 +2216,38 @@ sub attach_Analysis_to_Transcript{
 sub attach_Analysis_to_Transcript_no_support{
   my ($transcript, $analysis) = @_;
   $transcript->analysis($analysis);
+}
+
+=head2 attach_Analysis_to_Transcript_no_overwrite
+
+ Arg [1]    : Bio::EnsEMBL::Transcript
+ Arg [2]    : Bio::EnsEMBL::Analysis
+ Description: Attach Arg[2] to Arg[1] and all supporting evidence and exons
+              unless the object already has an analysis
+              This is usefull if your databases analysis table are not synchronised
+ Returntype : None
+ Exceptions : Throws if Arg[2] is not a Bio::EnsEMBL::Analysis
+
+=cut
+
+sub attach_Analysis_to_Transcript_no_overwrite {
+  my ($transcript, $analysis) = @_;
+
+  throw('You need a Bio::EnsEMBL::Analysis object not a "'.ref($analysis).'"')
+    unless ($analysis and ref($analysis) eq 'Bio::EnsEMBL::Analysis');
+  $transcript->analysis($analysis) unless ($transcript->analysis);
+  foreach my $sf (@{$transcript->get_all_supporting_features}) {
+    $sf->analysis($analysis) unless ($sf->analysis);
+  }
+  foreach my $sf (@{$transcript->get_all_IntronSupportingEvidence}){
+    $sf->analysis($analysis) unless ($sf->analysis);
+  }
+  foreach my $exon (@{$transcript->get_all_Exons}) {
+    $exon->analysis($analysis) unless ($exon->analysis);
+    foreach my $sf (@{$exon->get_all_supporting_features}) {
+      $sf->analysis($analysis) unless ($sf->analysis);
+    }
+  }
 }
 
 sub fully_load_Transcript{
@@ -3111,8 +3145,12 @@ sub set_alignment_supporting_features {
     say "FM2 ESTRAND: ".$exon->strand;
     say "FM2 EPHASE: ".$exon->phase;
     say "FM2 EENDPHASE: ".$exon->end_phase;
+<<<<<<< HEAD
 #say "exon seq (nucleotide array): ".$exon_seq;
 #say "nucleotide array length:".scalar(@nucleotide_array);
+=======
+
+>>>>>>> dev/hive_master
     # If the phase is not 0 then the first codon is a split one. The phase is then number of bases missing from
     # the codon. so if you take the phase from 3 you get the number of bases in the split codon
     if($phase) {
@@ -3123,6 +3161,7 @@ sub set_alignment_supporting_features {
 
      # Ending on a split codon, so increase the index and finish the loop
      if($k+2 >= scalar(@nucleotide_array)) {
+<<<<<<< HEAD
 #say "CODON INDEX WILL INCREASE: ".length($query_seq)." ".$codon_index." ".$nucleotide_array[$k].$nucleotide_array[$k+1].$nucleotide_array[$k+2];
         $codon_index++;        
         say "FM2 SKIPPING SPLIT CODON";
@@ -3130,6 +3169,10 @@ sub set_alignment_supporting_features {
 #say "k: ".$nucleotide_array[$k];
 #say "k+1: ".$nucleotide_array[$k+1];
 #say "k+2: ".$nucleotide_array[$k+2];
+=======
+        $codon_index++;        
+        say "FM2 SKIPPING SPLIT CODON";
+>>>>>>> dev/hive_master
         last;
       }
 
@@ -3149,6 +3192,7 @@ sub set_alignment_supporting_features {
 
       my $query_char = substr($query_seq,$codon_alignment_index,1);
       my $target_char = substr($target_seq,$codon_alignment_index,1);
+<<<<<<< HEAD
       #my $last_seleno_index = 0;
       
 print("===codon_alignment_index: ".$codon_alignment_index."\n");
@@ -3164,6 +3208,15 @@ print("===seleno exists\n");
 
           #$last_seleno_index = index($target_seq,"C",$last_seleno_index);
 print("===seleno seqedit start and end: ".($k/3)."\n");
+=======
+
+      # check whether the selenocysteine exon attribute was added by the HiveCesar2 module
+      if (exists($exon->{'selenocysteine'})) {
+
+        if (substr($query_seq,$codon_alignment_index,3) eq 'NNN' and
+            substr($target_seq,$codon_alignment_index,3) eq 'TGA') {
+
+>>>>>>> dev/hive_master
           my $seq_edit = Bio::EnsEMBL::SeqEdit->new(
                                        -CODE    => '_selenocysteine',
                                        -NAME    => 'Selenocysteine',
@@ -3178,6 +3231,7 @@ print("===seleno seqedit start and end: ".($k/3)."\n");
 
       }
 
+<<<<<<< HEAD
 #say "length query seq: ".length($query_seq);
 #say "length target seq: ".length($target_seq);      
 
@@ -3185,6 +3239,11 @@ print("===seleno seqedit start and end: ".($k/3)."\n");
         say "FM2 TSTART: ".$target_start;
         say "FM2 TEND: ".$target_end;
 #say "CODON INDEX WILL INCREASE: ".length($query_seq)." ".$codon_index." ".$codon_alignment_index." ".$nucleotide_array[$k].$nucleotide_array[$k+1].$nucleotide_array[$k+2]." ".$query_char." ".$target_char;
+=======
+      if($query_char eq '-') {
+        say "FM2 TSTART: ".$target_start;
+        say "FM2 TEND: ".$target_end;
+>>>>>>> dev/hive_master
         say "FM2 CODON INDEX: ".$codon_index;
         say "FM2 CODON ALIGNMENT INDEX: ".$codon_alignment_index;
         say "FM2 CODON CHARS: '".$nucleotide_array[$k].$nucleotide_array[$k+1].$nucleotide_array[$k+2]."'";
@@ -3194,12 +3253,19 @@ print("===seleno seqedit start and end: ".($k/3)."\n");
         next;
       } elsif(($codon_alignment_index >= length($query_seq)-1) && $query_char eq '*' && $target_char eq '*') {
         say "FM2 LAST CODON IS STOP SO SKIPPING";
+<<<<<<< HEAD
         last;#next;
+=======
+        last;
+>>>>>>> dev/hive_master
       }
 
       my $hit_start = find_hit_start($codon_alignment_index,$query_seq);
       my $hit_end = $hit_start;
+<<<<<<< HEAD
 #say "CODON INDEX WILL INCREASE: ".length($query_seq)." ".$codon_index." ".$codon_alignment_index." ".$nucleotide_array[$k].$nucleotide_array[$k+1].$nucleotide_array[$k+2]." ".$query_char." ".$target_char;
+=======
+>>>>>>> dev/hive_master
       say "FM2 TSTART: ".$target_start;
       say "FM2 TEND: ".$target_end;
       say "FM2 HSTART: ".$hit_start;
@@ -3279,15 +3345,21 @@ print("===seleno seqedit start and end: ".($k/3)."\n");
 sub find_codon_alignment_index {
   my ($codon_index,$align_seq) = @_;
 
+<<<<<<< HEAD
 #print("codon index is: $codon_index\n");
 #print("align_seq is:\n$align_seq\n");
 
+=======
+>>>>>>> dev/hive_master
   my $align_index = -1;
   my $char_count = 0;
   for(my $j=0; $j<length($align_seq); $j++) {
 
     my $char = substr($align_seq,$j,1);
+<<<<<<< HEAD
 #print("j: $j length align_seq: ".length($align_seq)." char: $char char_count: $char_count codon_index $codon_index align_index: $align_index\n");
+=======
+>>>>>>> dev/hive_master
     if($char eq '-') {
       next;
     }
@@ -3305,7 +3377,10 @@ sub find_codon_alignment_index {
   if($align_index == -1 && $char_count == $codon_index) {
     $align_index = length($align_seq) - 1;
   }
+<<<<<<< HEAD
 #print("OUT length align_seq: ".length($align_seq)." char_count: $char_count codon_index $codon_index align_index: $align_index\n");
+=======
+>>>>>>> dev/hive_master
   unless($align_index >= 0) {
     throw("Did not find the alignment index for the codon");
   }

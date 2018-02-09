@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,8 +50,8 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(transfer_supporting_evidence Exon_info);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(Transcript_info print_Transcript_and_Exons);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw (Gene_info);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(Transcript_info print_Transcript_and_Exons print_Transcript);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw (Gene_info print_Gene);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
 
@@ -165,6 +165,7 @@ sub run {
   #first gene cluster
   my $initial_genes = $self->cluster_into_Genes($pruned_transcripts, $coding_only);
   #print "Have ".@$initial_genes." initial gene structures\n";
+  $initial_genes = $self->remove_readthrough($initial_genes);
   #prune redundant cds
   $self->prune_redundant_CDS($initial_genes);
   #prune redundant transcripts
@@ -178,6 +179,154 @@ sub run {
   $self->output($pruned_genes);
   #print "Have ".@$final_genes." final gene clusters\n";
   #return output
+}
+
+
+=head2 remove_readthrough
+
+ Arg [1]    : Arrayref of Bio::EnsEMBL::Gene
+ Description: Try to remove possible readthrough genes by checking transcripts which
+              overlap two or more transcripts which do not overlap each other. If the
+              candidate readthrough does not overlap all exons from each transcript,
+              it is removed from the set of transcripts.
+ Returntype : Arrayref of Bio::EnsEMBL::Gene
+ Exceptions : None
+
+=cut
+
+sub remove_readthrough {
+  my ($self, $genes) = @_;
+
+  my @processed_genes;
+  foreach my $gene (@$genes) {
+    print "GENE\n";
+    my @transcripts = sort {($a->end-$a->start) <=> ($b->end-$b->start)} @{$gene->get_all_Transcripts};
+    if (scalar(@transcripts) > 2) {
+      print "MORE THAN 2 TRANSCRIPTS\n";
+      my @clusters;
+      my @multi_cluster;
+      foreach my $transcript (@transcripts) {
+        print 'WORKING ', $transcript->display_id, "\n";
+        my $cluster_index = 0;
+        foreach my $cluster (@clusters) {
+          if ($cluster->{start} < $transcript->end and $cluster->{end} > $transcript->start) {
+            push(@{$cluster->{transcripts}}, $transcript);
+            print 'CLUSTER ADD ', $cluster->{start}, ' ', $cluster->{end}, ' ', scalar(@{$cluster->{transcripts}}), "\n";
+            push(@{$transcript->{cluster}}, $cluster_index);
+          }
+          ++$cluster_index;
+        }
+        if (!exists $transcript->{cluster}) {
+          push(@clusters, {start => $transcript->start, end => $transcript->end, transcripts => [$transcript]});
+          $transcript->{cluster} = [$cluster_index];
+          print 'CLUSTER NEW ', $clusters[-1]->{start}, ' ', $clusters[-1]->{end}, ' ', scalar(@{$clusters[-1]->{transcripts}}), "\n";
+        }
+        elsif (@{$transcript->{cluster}} > 1) {
+          push(@multi_cluster, $transcript);
+          print $transcript->display_id, ' has ', @{$transcript->{cluster}}, " overlap\n";
+          print_Transcript($transcript);
+        }
+      }
+      if (@multi_cluster) {
+        print "MULTI\n";
+        $gene->flush_Transcripts;
+        my %to_remove;
+        foreach my $readthrough (@multi_cluster) {
+          print "POSSIBLE READTHROUGH ", $readthrough->display_id, "\n";
+          foreach my $cluster (@clusters) {
+            if ($cluster->{start} < $readthrough->end and $cluster->{end} > $readthrough->start) {
+              my $readthrough_exons = $readthrough->get_all_Exons;
+              foreach my $transcript (@{$cluster->{transcripts}}) {
+                next if ($transcript == $readthrough or @{$transcript->{cluster}} > 1);
+                print "AGAINST ", $transcript->display_id, "\n";
+                my $overlap = 0;
+                my $num_exon = @{$transcript->get_all_Exons};
+                foreach my $exon1 (@{$transcript->get_all_Exons}) {
+                  foreach my $exon2 (@$readthrough_exons) {
+                    if ($exon1->overlaps_local($exon2)) {
+                      ++$overlap;
+                      if ($num_exon == 1) {
+                        my $start = $exon1->start > $exon2->start ? $exon1->start : $exon2->start;
+                        my $end = $exon1->end > $exon2->end ? $exon2->end : $exon1->end;
+                        --$overlap if (($end-$start) < ($exon1->length/20));
+                      }
+                      last;
+                    }
+                  }
+                }
+                if ($overlap != $num_exon) {
+                  $to_remove{$readthrough} = -1;
+                  print "TO REMOVE $overlap $num_exon\n";
+                  print_Transcript($readthrough);
+                }
+              }
+            }
+          }
+          if (!exists $to_remove{$readthrough}) {
+            print "JOIN\n";
+            my $cluster_indexes = $readthrough->{cluster};
+            my $cluster = $clusters[$cluster_indexes->[0]];
+            for (my $index = 1; $index < @$cluster_indexes; $index++) {
+              next if ($cluster_indexes->[$index] == $cluster_indexes->[0]);
+              print "INDEX $index\n";
+              foreach my $transcript (@{$clusters[$cluster_indexes->[$index]]->{transcripts}}) {
+                print "INDEX C ", $cluster_indexes->[$index], "\n";
+                next if ($transcript == $readthrough);
+                my $add = 1;
+                if (@{$transcript->{cluster}} > 1) {
+                  foreach my $rindex (@{$transcript->{cluster}}) {
+                    if ($rindex == $cluster_indexes->[0]) {
+                      $add = 0;
+                      print "ALREADY IN CLUSTER\n";
+                    }
+                    if ($rindex == $cluster_indexes->[$index]) {
+                      print "INDEX CHANGED $rindex";
+                      $rindex = $cluster_indexes->[0];
+                      print " $rindex\n";
+                    }
+                  }
+                }
+                if ($add) {
+                  print 'ADDING ', $transcript->display_id, "\n";
+                  push(@{$cluster->{transcripts}}, $transcript);
+                }
+              }
+              print "DELETING CLUSTER INDEX ", $cluster_indexes->[$index], ' ', $clusters[$cluster_indexes->[$index]]->{start}, ' ', $clusters[$cluster_indexes->[$index]]->{end}, "\n";
+              delete $clusters[$cluster_indexes->[$index]]->{transcripts};
+            }
+          }
+        }
+        foreach my $cluster (@clusters) {
+          print 'WORKING ON CLUSTER ', $cluster->{start}, ' ', $cluster->{end}, "\n";
+          if (exists $cluster->{transcripts} and @{$cluster->{transcripts}}) {
+            if (@{$gene->get_all_Transcripts}) {
+              print "MAKE GENE\n";
+              $gene = Bio::EnsEMBL::Gene->new();
+            }
+            foreach my $transcript (@{$cluster->{transcripts}}) {
+#            $gene->add_Transcript($transcript) unless (exists $to_remove{$transcript});
+              if (exists $to_remove{$transcript}) {
+                print "REMOVING ", $transcript->display_id, "\n";
+              }
+              else {
+                print 'ADDING TO GENE', $transcript->display_id, "\n";
+                $gene->add_Transcript($transcript);
+              }
+            }
+            throw("NO TRANSCRIPT") unless ($gene->get_all_Transcripts);
+            push(@processed_genes, $gene);
+          }
+          else {
+            print $cluster->{start}.' '.$cluster->{end}.' transcripts empty', "\n";
+          }
+        }
+        next;
+      }
+    }
+            throw("WEIRD NO TRANSCRIPT") unless ($gene->get_all_Transcripts);
+    push(@processed_genes, $gene);
+  }
+  return \@processed_genes;
 }
 
 sub get_Transcripts {
@@ -925,8 +1074,7 @@ sub make_shared_exons_unique {
 sub prune_Exons {
   my ($self, $gene) = @_;
   my @unique_Exons;
-  my $transcripts = $gene->get_all_Transcripts;
-  foreach my $tran (@$transcripts) {
+  foreach my $tran (@{$gene->get_all_Transcripts}) {
     my @newexons;
     foreach my $exon (@{$tran->get_all_Exons}) {
       my $found;
@@ -961,7 +1109,6 @@ sub prune_Exons {
     foreach my $exon (@newexons) {
       $tran->add_Exon($exon);
     }
-    $gene->add_Transcript($tran);
   }
   return $gene;
 }

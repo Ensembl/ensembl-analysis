@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -143,7 +143,7 @@ my %allowed_combos = (
                                                 'TEC',
                                                 'artifact'],
        'unprocessed_pseudogene'             => ['unprocessed_pseudogene'],
-       'vaultrna'                           => ['vaultrna']
+       'vaultRNA'                           => ['vaultRNA']
      },
 
      'ensembl_extension' => { # additional allowed gene-transcript biotypes combination after the merge
@@ -315,7 +315,7 @@ my %allowed_combos = (
                                                 'bidirectional_promoter_lncrna',
                                                 'snorna',
                                                 'mirna',
-                                                'vaultrna',
+                                                'vaultRNA',
                                                 'pirna',
                                                 'rrna',
                                                 'trna',
@@ -438,7 +438,7 @@ my %biotype_groups = (
                                                 'unprocessed_pseudogene',
                                                 'TEC',
                                                 'artifact',
-                                                'vaultrna'],
+                                                'vaultRNA'],
        'transcript_non_coding'              => ['3prime_overlapping_ncrna',
                                                 'antisense',
                                                 'disrupted_domain',
@@ -477,7 +477,7 @@ my %biotype_groups = (
                                                 'unprocessed_pseudogene',
                                                 'TEC',
                                                 'artifact',
-                                                'vaultrna'] },
+                                                'vaultRNA'] },
      'vega' => {
         'Protein_coding'                     => ['protein_coding'],
         'lncRNAs'                            => ['3prime_overlapping_ncRNA',

@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2017] EMBL-European Bioinformatics Institute
+Copyright [2016-2018] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ sub param_defaults {
     %{$self->SUPER::param_defaults()},
     target_db => undef,
     update_genes => 0,
-    full_support_biotype => 'top', # We will concat this value to the previous biotype
+    full_support_suffix => 'top', # We will concat this value to the previous biotype
   }
 }
 
@@ -94,7 +94,7 @@ sub run {
 
   my $intron_adaptor = $self->hrdb_get_con('intron_db')->get_DnaAlignFeatureAdaptor;
   my %good_introns;
-  my $full_support_biotype = $self->param('full_support_biotype');
+  my $full_support_suffix = $self->param('full_support_suffix');
   foreach my $gene (@{$self->output}) {
     my %introns;
     foreach my $transcript (@{$gene->get_all_Transcripts}) {
@@ -122,8 +122,8 @@ sub run {
       }
       if ($intron_count == $good_intron_count) {
         print STDERR 'Gene ', $gene->display_id, " updated\n";
-        $transcript->biotype($transcript->biotype.'_'.$full_support_biotype);
-        $gene->biotype($transcript->biotype.'_'.$full_support_biotype);
+        $gene->biotype($transcript->biotype.'_'.$full_support_suffix);
+        $transcript->biotype($transcript->biotype.'_'.$full_support_suffix);
       }
       else {
         print STDERR 'Gene ', $gene->display_id, ' not fully supported', "\n";

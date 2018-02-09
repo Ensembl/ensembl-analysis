@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,28 @@ use warnings;
 use base ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
 
 
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Returns the default parameters:
+               _ln_gene_ext => 'gene',
+               _ln_introns_ext => 'daf',
+ Returntype : Hash ref
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    _ln_gene_ext => 'gene',
+    _ln_introns_ext => 'daf',
+  }
+}
+
+
 =head2 fetch_input
 
  Arg [1]    : None
@@ -40,6 +62,8 @@ sub fetch_input {
     my $self = shift;
 
     my @output_ids;
+    my $gene_ext = $self->param('_ln_gene_ext');
+    my $introns_ext = $self->param('_ln_introns_ext');
     if ($self->param('single_tissue')) {
         my $table_adaptor = $self->db->get_NakedTableAdaptor;
         $table_adaptor->table_name($self->param('csvfile_table'));
@@ -49,10 +73,10 @@ sub fetch_input {
             $tissue_hash{$result->{$self->param('sample_column')}}->{$result->{$self->param('sample_id_column')}} = 1;
         }
         foreach my $key (keys %tissue_hash) {
-            push(@output_ids, [$self->param('iid'), [{file => $self->param('wide_intron_bam_file').'.bam', groupname => [keys %{$tissue_hash{$key}}], depth => 0, mixed_bam => 0}], $self->param('wide_species').'_'.$key.'_rnaseq', $self->param('wide_species').'_'.$key.'_introns', "best_$key", "single_$key", '', '']);
+            push(@output_ids, [$self->param('iid'), [{file => $self->param('wide_intron_bam_file').'.bam', groupname => [keys %{$tissue_hash{$key}}], depth => 0, mixed_bam => 0}], $self->param('wide_species').'_'.$key.'_rnaseq_'.$gene_ext, $self->param('wide_species').'_'.$key.'_rnaseq_'.$introns_ext, "best_$key", "single_$key", '', '']);
         }
     }
-    push(@output_ids, [$self->param('iid'), [{file => $self->param('wide_intron_bam_file').'.bam', groupname => [], depth => 0, mixed_bam => 0}], $self->param('wide_species').'_merged_rnaseq', $self->param('wide_species').'_merged_introns', "best", "single", '', '']);
+    push(@output_ids, [$self->param('iid'), [{file => $self->param('wide_intron_bam_file').'.bam', groupname => [], depth => 0, mixed_bam => 0}], $self->param('wide_species').'_merged_rnaseq_'.$gene_ext, $self->param('wide_species').'_merged_rnaseq_'.$introns_ext, "best", "single", '', '']);
     $self->param('inputlist', \@output_ids);
     $self->param('column_names', ['iid', 'intron_bam_files', 'logic_name', 'introns_logic_name', 'best_score', 'single_exon_model', 'other_isoforms', 'bad_models']);
 }

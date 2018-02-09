@@ -1,191 +1,190 @@
-#!/usr/bin/env perl
+=head1 LICENSE
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016-2018] EMBL-European Bioinformatics Institute
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+=head1 CONTACT
+
+Please email comments or questions to the public Ensembl
+developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
+
+Questions may also be sent to the Ensembl help desk at
+<http://www.ensembl.org/Help/Contact>.
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePreparecDNAs
+
+=head1 SYNOPSIS
+
+
+=head1 DESCRIPTION
+
+
+=cut
 
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePreparecDNAs;
 
 use strict;
 use warnings;
-use feature 'say';
 
+use Bio::SeqIO;
 
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters are:
+               format => 'fasta',
+               _suffix => 'cleaned', # Extension added to the new file created
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    format => 'fasta',
+    _suffix => 'cleaned',
+  }
+}
+
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Check few parameters and set the output file name to be <input filename>.<_suffix>
+ Returntype : None
+ Exceptions : Throws if 'data_type' is not set or not equal to 'ena' or 'refseq'
+              Throws if 'description_filter' is not set when data_type = refseq
+              Throws if 'filename' does not exist
+              Throws if 'filename'.'_suffix' exists
+
+=cut
 
 sub fetch_input {
-  my $self = shift;
-  return 1;
+  my ($self) = @_;
+
+  my $data_type = $self->param_required('data_type');
+  if ($data_type eq 'refseq') {
+    $self->param_required('description_filter');
+  }
+  elsif ($data_type ne 'ena') {
+    $self->throw('Cannot process data from '.$data_type);
+  }
+  my $source_file = $self->param_required('filename');
+  $self->throw('File does not exist') unless (-e $source_file);
+  my $new_file = $source_file.'.'.$self->param('_suffix');
+  $self->throw("File $new_file exists") if (-e $new_file);
+  $self->param('target_file', $new_file);
 }
+
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Parse the input file and write only the sequence which
+              satisfy the filters. At the moment we only take NM_ and NR_
+              from RefSeq for the species specified in 'description_filter'.
+              We only take mRNA from the ENA.
+              If no sequence is kept, no file is created and dataflow is stopped
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub run {
-  my ($self) = shift;
+  my ($self) = @_;
 
-  my $query_hash = $self->param('prepare_seqs');
-  my $output_path = $query_hash->{'dest_dir'};
-  my $gss_file = $query_hash->{'gss_file'};
-  my $embl_file = $query_hash->{'embl_file'};
-  my $refseq_file = $query_hash->{'refseq_file'};
-  my $polyA_script = $query_hash->{'polyA_script'};
-  my $cdna_file = $query_hash->{'cdna_file'};
-  my $species = $query_hash->{'species'};
-
-  $self->fix_headers($embl_file,$refseq_file,$output_path,$cdna_file,$species);
-
-  $self->remove_kill_list_object($cdna_file,$output_path,$gss_file);
-  say "Finished removing kill-list objects";
-
-  print $output_path, "\n";
-  $self->polyA_clipping($polyA_script,$cdna_file,$output_path,$gss_file);
-  say "Finished clipping polyA tails";
-
-  return 1;
+  my $method = '_is_'.$self->param('data_type').'_sequence_ok';
+  my $source = Bio::SeqIO->new(-format => $self->param('format'), -file => $self->param('filename'));
+  my $target = Bio::SeqIO->new(-format => 'fasta', -file => '>'.$self->param('target_file'));
+  my $seq_count = 0;
+  my $filter = $self->param_is_defined('description_filter') ? $self->param('description_filter') : undef;
+  while(my $seq = $source->next_seq) {
+    if ($self->$method($seq, $filter)) {
+      $seq->id($seq->id.'.'.$seq->version) if ($seq->version);
+      $target->write_seq($seq);
+      ++$seq_count;
+    }
+  }
+  if ($seq_count) {
+    $self->output([$self->param('target_file')]);
+  }
+  else {
+    unlink $self->param('target_file');
+    $self->input_job->autoflow(0);
+    $self->complete_early('No sequence to write to file');
+  }
 }
+
+
+=head2 _is_refseq_sequence_ok
+
+ Arg [1]    : Bio::Seq, the sequence to test
+ Arg [2]    : String $regex, a regex to test on the description of the sequence
+ Description: Return 1 if the sequence is a NM|NR and from the species specified in Arg[2].
+              Otherwise return 0
+ Returntype : Boolean
+ Exceptions : None
+
+=cut
+
+sub _is_refseq_sequence_ok {
+  my ($self, $seq, $filter) = @_;
+
+  return ($seq->id =~ /N[MR]_/ and $seq->desc =~ /$filter/);
+}
+
+
+=head2 _is_ena_sequence_ok
+
+ Arg [1]    : Bio::Seq, the sequence to test
+ Description: Return 1 if the sequence is a mRNA, otherwise return 0
+ Returntype : Boolean
+ Exceptions : None
+
+=cut
+
+sub _is_ena_sequence_ok {
+  my ($self, $seq) = @_;
+
+  return $seq->molecule eq 'mRNA';
+}
+
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Write into branch '_branch_to_flow_to' the name of the file containing
+              cDNA sequences as 'filename'
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub write_output {
-  my $self = shift;
-  return 1;
+  my ($self) = @_;
+
+  $self->dataflow_output_id([{filename => $self->output->[0]}], $self->param('_branch_to_flow_to'));
 }
 
-sub fix_headers {
-  my ($self,$embl_file,$refseq_file,$output_path,$cdna_file,$species) = @_;
-  local $/ = "\n>";
-  open( CF, ">", $output_path . "/" . $cdna_file ) or die "can't create $cdna_file\n";
-  #open( EF, "<", $output_path . "/" . $embl_file ) or die "can't read $embl_file\n";
-  
-  my $header;
-
-  # read EMBL file
-  #while ( my $entry = <EF> ) {
-  #  # Need this to include the first record when using $/='\n>'
-  #  $entry =~ s/^>//;
-  #  # Extract & save id
-  #  $entry =~ s/^([\w\.\d]+)\s.*\n{1}?/$1\n/;
-  #  if ( !$1 ) {
-  #     say "\nunmatched id pattern:\n$entry";
-  #  }
-  #  # Re-write fasta entry
-  #  $entry =~ s/\>//g;
-  #  print CF '>' . $entry;
-  #}
-  #close(EF);
-  # Just to avoid a missing \n
-  #print CF "\n";
-  #print("\nRead EMBL file.\n");
-
-  # Read RefSeq file
-  open( RF, "<", $output_path . "/" . $refseq_file ) or die "can't read $refseq_file\n";
-  while ( my $entry = <RF> ) {
-    # Need this to include the first record when using $/='\n>'
-    # we're not using 'predicted' XM entries for now
-    $entry =~ s/^>//;
-    if ( $entry =~ m/^gi.+ref\|(NM_.+)\| Homo sapiens.*/ ) {
-      $header = $1;
-    } elsif ( $entry =~ m/^gi.+ref\|(NR_.+)\| Homo sapiens.*/ ) {
-      $header = $1;
-    } else {
-      next;
-    }
-    $entry =~ s/\>//g;
-    if ($header) {
-      # Reduce header to accession number
-      $entry =~ s/^gi.+\n{1}?/$header\n/g;
-      print CF '>' . $entry;
-    }
-  }
-  print "read RefSeq file.\n";
-  close(RF);
-  close(CF);
-}
-
-sub remove_kill_list_object {
-  my ($self,$newfile,$output_path,$GSS) = @_;
-  require Bio::EnsEMBL::KillList::KillList;
-  my $kill_list_object = Bio::EnsEMBL::KillList::KillList->new( -TYPE => 'cdna_update' );
-  my %kill_list = %{ $kill_list_object->get_kill_list() };
-
-  open( LIST, "<", $GSS ) or die "can't open gss list $GSS";
-  my %gss;
-  while (<LIST>) {
-    my @tmp = split /\s+/, $_;
-    $gss{ $tmp[1] } = 1;
-  }
-  close LIST;
-
-  # Go through file removing any seqs which appear on the kill list
-  local $/ = "\n>";
-
-  my $newfile2 = $newfile . ".seqs";
-  open( SEQS, "<", $output_path . "/" . $newfile )
-    or die "Can't open seq file $newfile";
-  open( OUT, ">", $output_path . "/" . $newfile2 )
-    or die"Can't open seq file $newfile2";
-  while (<SEQS>) {
-    s/>//g;
-
-    my @tmp = split /\n/, $_;
-
-    # Store the accession number
-    my $acc;
-    if ( $tmp[0] =~ /(\w+)\./ ) {
-      $acc = $1;
-    }
-    if ( ( !exists $kill_list{$acc} ) && ( !exists $gss{$acc} ) ) {
-      print OUT ">$_";
-    }
-  }
-  local $/ = "\n";
-  close OUT;
-  close SEQS;
-  return $newfile2;
-} 
-
-# Clipping the polyA tail
-sub polyA_clipping {
-  my ($self,$POLYA_CLIPPING,$trim_file,$output_path) = @_;
-
-  # Clip ployA tails
-  print("\nPerforming polyA clipping...\n");
-  my $newfile3 = $output_path . "/" . $trim_file. ".clipped";
-  my $cmd = "perl \$" . $POLYA_CLIPPING . " " ;
-  $cmd.="-errfile $output_path/polyA.err ";
-  #if ( $MIN_LENGTH ) {
-  #   $cmd.="-min_length $MIN_LENGTH ";
-  #}
-  $cmd .=  $output_path . "/" . $trim_file . " " . $newfile3;
-
-  $cmd = 'bsub -I -q yesterday -M1000 -R"select[mem>1000] rusage[mem=1000]" "'.$cmd.'"';
-  print $cmd, "\n";
-
-  system($cmd);
-  #  die"Couldn't clip file.$@\n";
-  #}
-
-  # Split fasta files, store into CHUNKDIR
-#    print("Splitting fasta file.\n");
-#    $cmd = "$FASTA_SPLIT $newfile3 $CHUNK $chunkDIR";
-#    if ( system($cmd) ) {
-#        die "Couldn't split file.$@\n";
-#    }
-
-    # Isolate biggest sequences
-#    check_chunksizes();
-
-#    print "\nChopped up the file.\n";
-}
 
 1;
-

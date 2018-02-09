@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -120,6 +120,7 @@ sub create_feature{
         -external_db_id => $external_db_id,
         -hcoverage => $hcoverage,
         -cigar_string => $cigar_string,
+        -align_type => 'ensembl',
        );
   $feature->slice($slice);
   $feature->hseqname($hseqname);
@@ -140,6 +141,7 @@ sub create_feature_from_gapped_pieces{
                                      -analysis => $analysis,
                                      -external_db_id => $external_db_id,
                                      -hcoverage => $hcoverage,
+                                     -align_type => 'ensembl',
                                     );
   $feature->slice($slice);
   $feature->hseqname($hseqname);

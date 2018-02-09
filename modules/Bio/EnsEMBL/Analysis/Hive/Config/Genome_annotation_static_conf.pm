@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2017] EMBL-European Bioinformatics Institute
+Copyright [2016-2018] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -173,6 +173,7 @@ sub default_options {
     'otherfeatures_db_port'        => $self->o('databases_port'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
+    'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
     'staging_1_db_server'          => 'mysql-ens-sta-1',
     'staging_1_port'               => 4519,
 
@@ -566,7 +567,7 @@ sub default_options {
       -port   => $self->o('staging_1_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
-      -dbname => 'ensembl_production',
+      -dbname => 'ensembl_production_'.$self->o('ensembl_release'),
       -driver => $self->o('hive_driver'),
     },
 

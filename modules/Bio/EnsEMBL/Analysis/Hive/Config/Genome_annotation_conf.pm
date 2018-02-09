@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2017] EMBL-European Bioinformatics Institute
+Copyright [2016-2018] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -187,6 +187,8 @@ sub default_options {
 'user' => 'ensro',
 'killlist_dbname' => 'gb_kill_list',
 
+'ensembl_release' => $ENV{ENSEMBL_RELEASE},
+
 'pipeline_db' => {
   -dbname => $self->o('farm_user_name').'_'.$self->o('species_name').'_pipe',
   -host   => $self->o('pipe_db_server'),
@@ -293,7 +295,7 @@ sub default_options {
   -host   => 'ens-staging1',
   -port   => 3306,
   -user   => 'ensro',
-  -dbname => 'ensembl_production',
+  -dbname => 'ensembl_production_'.$self->o('ensembl_release'),
 },
 
 'taxonomy_db' => {

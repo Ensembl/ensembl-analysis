@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -290,7 +290,7 @@ foreach my $proj_gene (@projected_genes){
       #is the ref (parent) gene in the alt_allele_group table? 
       # Yes it is, so we are adding a member (gene) to an exisitn alt_allele_group
       # fetch the alt_allele_group
-      my $alt_allele_group = $aaga->fetch_Group_by_Gene_dbID($orig_gene->dbID);
+      my $alt_allele_group = $aaga->fetch_by_gene_id($orig_gene->dbID);
       my $member_found = 0;
       foreach my $allele (@{$alt_allele_group->get_all_members}) {
         my ($gene_id,$type) = @$allele;

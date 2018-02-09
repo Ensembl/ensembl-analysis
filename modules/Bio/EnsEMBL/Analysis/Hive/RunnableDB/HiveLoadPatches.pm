@@ -54,13 +54,11 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 use Net::FTP;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Getopt::Long;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use File::Basename;
 use File::Find;
 use List::Util qw(sum);
@@ -165,6 +163,7 @@ sub download_patches() {
 # download the 5 patches files from the ftp_path (ie 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA_.../GCA_...assembly_structure/PATCHES/alt_scaffolds'):
 # alt.scaf.agp.gz, alt.scaf.fna.gz, alt_scaffold_placement.txt, patch_type and assembly_report.txt
 # to the local directory 'local_dir'
+ my ($self) = @_;
 
   my ($ftp_path,$local_dir) = @_;
 
@@ -177,7 +176,7 @@ sub download_patches() {
   my $cmd = "wget --no-proxy ".$wget_verbose." -r -nH --cut-dirs=".$numDirs." --reject *.rm.out.gz --reject *.asn --reject *.gff -P ".$local_dir." ".$ftp_path;
   my $return = system($cmd);
   if ($return) {
-    throw("Could not download the AGP, FASTA and info files. Commandline used:\n".$cmd);
+    $self->throw("Could not download the AGP, FASTA and info files. Commandline used:\n".$cmd);
   }
 
   # get the name of the directory where the assembly report file is
@@ -187,19 +186,27 @@ sub download_patches() {
   $ass_report_dir = pop(@ftp_path_array);
   $ass_report_dir = pop(@ftp_path_array);
 
-  my $link  = $ftp_path."/../../../".$ass_report_dir."_assembly_report.txt";
+  # my $link  = $ftp_path."/../../../".$ass_report_dir."_assembly_report.txt";
+  # ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/635/GCA_000001635.8_GRCm38.p6/GCA_000001635.8_GRCm38.p6_assembly_report.txt
+  my $link = 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/635/GCA_000001635.8_GRCm38.p6/GCA_000001635.8_GRCm38.p6_assembly_report.txt';
 
-  if (system("wget ".$wget_verbose." -nH -P ".$local_dir." ".$ftp_path."/../../../".$ass_report_dir."_assembly_report.txt -O ".$local_dir."/assembly_report.txt")) {
-    throw("Could not download *_assembly_report.txt file from ".$ftp_path."/../../../ to ".$local_dir.". Please, check that both paths are valid.");
+  if (system("wget ".$wget_verbose." -nH -P ".$local_dir." ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/635/GCA_000001635.8_GRCm38.p6/GCA_000001635.8_GRCm38.p6_assembly_report.txt -O ".$local_dir."/assembly_report.txt")) {
+       $self->throw("Could not download *_assembly_report.txt file from ".$ftp_path."/../../../ to ".$local_dir.". Please, check that both paths are valid.");
   }
   else {
-    print("Assembly report file was downloaded\n");
+       print("Assembly report file was downloaded\n");
   }
+ # if (system("wget ".$wget_verbose." -nH -P ".$local_dir." ".$ftp_path."/../../../".$ass_report_dir."_assembly_report.txt -O ".$local_dir."/assembly_report.txt")) {
+ #   $self->throw("Could not download *_assembly_report.txt file from ".$ftp_path."/../../../ to ".$local_dir.". Please, check that both paths are valid.");
+ # }
+ # else {
+ #   print("Assembly report file was downloaded\n");
+ # }
   
   # check if the 5 files were downloaded
   my $num_files = int(`find $local_dir -type f | wc -l`);
   if ($num_files != 5) {
-    throw("Files were not downloaded successfully from ".$ftp_path." to ".$local_dir.". Please, check that both paths are valid and your output path has not been used before.");
+    $self->throw("Files were not downloaded successfully from ".$ftp_path." to ".$local_dir.". Please, check that both paths are valid and your output path has not been used before.");
   } else {
     print("$num_files files were downloaded\n");
   }
@@ -207,7 +214,7 @@ sub download_patches() {
   $cmd = "gunzip $local_dir/*.gz";
   $return = system($cmd);
   if ($return) {
-    throw("Could not gunzip the .gz files. Commandline used:\n".$cmd);
+    $self->throw("Could not gunzip the .gz files. Commandline used:\n".$cmd);
   } else {
   	print("Files gunzipped successfully\n");
   }
@@ -285,8 +292,8 @@ sub remove_patches_on_patches() {
   my $cmd = "IFS=\$'\\n';
              set -f;
              for line in `cat $alt_scaffold_file`; do
-               PARENTACCorNAME=`echo \$line | awk '{if(\$2 == \"Primary\") {print \$8} else {if(\$7 == \"parent_acc\") {print \$7} else {print \$6}}}'`;
-               ACC=`echo \$line | awk '{if(\$2 == \"Primary\") {print \$5} else {print \$4}}'`;
+               PARENTACCorNAME=`echo \$line | awk '{if(\$2 == \"C57BL/6J\") {print \$7} else {if(\$7 == \"parent_acc\") {print \$7} else {print \$6}}}'`;
+               ACC=`echo \$line | awk '{if(\$2 == \"C57BL/6J\") {print \$4} else {print \$4}}'`;
                RES=`mysql -u$user \\
                           -p$pass \\
                           -h$host \\
@@ -341,9 +348,9 @@ sub load_patches() {
 #GCA_000001405.20
   my $patches_filepath = $output_dir."/patches.sql";
 
-  my $ass_acc = (split('_',(split('/',$ftp_dir))[8]))[0]."_".
-                (split('_',(split('/',$ftp_dir))[8]))[1];
-  my $ass_name = (split('_',(split('/',$ftp_dir))[8]))[2];
+  my $ass_acc = (split('_',(split('/',$ftp_dir))[9]))[0]."_".
+                (split('_',(split('/',$ftp_dir))[9]))[1];
+  my $ass_name = (split('_',(split('/',$ftp_dir))[9]))[2];
 
   run_command('perl $ENSEMBL_ANALYSIS/scripts/assembly_patches/assembly_exception_load.pl '."-user $user -pass $pass -host $host -port $port -dbname $name -mapping $output_dir/alt.scaf.agp -txt $alt_scaffold_filepath -patchtype $output_dir/patch_type -assembly_name $ass_name -assembly_acc $ass_acc -coord_system scaffold -sql_file $patches_filepath","Creating the file $patches_filepath that will be used to load the patches into the database...");
 

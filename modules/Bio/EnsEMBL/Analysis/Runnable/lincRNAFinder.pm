@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -125,8 +125,9 @@ sub run{
     # print scalar(@{ $new_gene->get_all_Transcripts} ) ." translations found for gene " . Gene_info($rg) . "::::" . $rg->display_id() . "\n";  # " seq_region: " . $rg->seq_region_name . " start: " . $rg->seq_region_start . " end: " . $rg->seq_region_end . " strand: " . $rg->seq_region_strand . " \n" ; 
 
     if (!defined $new_gene->get_all_Transcripts) {
-      throw("  Could not compute translation for cDNA: gene dbID ". $rg->dbID . " " . $rg->seq_region_name . " " . 
-             $rg->seq_region_start . " " . $rg->seq_region_end ) ;
+      throw('  Could not compute translation for cDNA: gene dbID '. $rg->dbID . ' ' . $rg->seq_region_name . ' ' .
+             $rg->seq_region_start . ' ' . $rg->seq_region_end.' '.$rg->length) unless ($rg->length < 200);
+      warning('Shorter than 200 bp '.$rg->dbID.' '.$rg->seq_region_name.' '.$rg->seq_region_start.' '.$rg->seq_region_end);
       next RG;
       $rg->biotype('gene_WITHOUT_translation');
       push @genes_withOUT_translations, $rg ; 

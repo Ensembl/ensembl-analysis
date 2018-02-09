@@ -46,15 +46,10 @@ Find RNAseq models that don't overlap with protein coding (models) predictions a
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNAFinder;
 
 use warnings;
-use vars qw(@ISA);
 use strict;
 
-use Bio::EnsEMBL::Hive::Utils ('destringify');
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Runnable::lincRNAFinder;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Utils::Argument qw (rearrange);
-use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils	qw(id coord_string lies_inside_of_slice);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 use Bio::EnsEMBL::Analysis::Tools::LincRNA qw(get_genes_of_biotypes_by_db_hash_ref) ;  

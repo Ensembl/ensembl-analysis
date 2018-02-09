@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,11 @@
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB;
 
 use strict;
+use warnings;
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Hive::Utils ('destringify');
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba create_file_name is_slice_name);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name);
 use feature 'say';
 
 use parent ('Bio::EnsEMBL::Hive::Process');
@@ -69,7 +70,12 @@ sub run {
   $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
   foreach my $runnable(@{$self->runnable}){
     $runnable->run;
-    $self->output($runnable->output);
+    if ($self->can('filter_results')) {
+      $self->output($self->filter_results($runnable->output));
+    }
+    else {
+      $self->output($runnable->output);
+    }
   }
   return $self->output;
 }
@@ -522,6 +528,11 @@ sub create_analysis {
     else {
       $logic_name = $self->input_job->analysis->logic_name;
     }
+    if ($self->param_is_defined('analysis_params')) {
+      while( my ($key, $value) = each %{$self->param('analysis_params')}) {
+        $extra_params->{$key} = $value;
+      }
+    }
     my $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $logic_name, %$extra_params);
     if ($add_module) {
       my $module;
@@ -561,7 +572,8 @@ sub  hrdb_get_dba {
                             $connection_info->{-dbname},
                             $connection_info->{-port},
                             $connection_info->{-user});
-    if ($self->{_gb_cache}->{'_cache_lastlogicname'} ne $self->input_job->analysis->logic_name) {
+    if (exists $self->{_gb_cache}->{'_cache_lastlogicname'}
+        and $self->{_gb_cache}->{'_cache_lastlogicname'} ne $self->input_job->analysis->logic_name) {
       delete $self->{_gb_cache};
     }
     if (!exists $self->{_gb_cache}->{'_cache_dba_'.$uniq_id}) {
@@ -676,10 +688,13 @@ sub _create_temporary_file {
 }
 
 
-=head2 _create_temporary_file
+=head2 post_cleanup
 
  Arg [1]    : (optional) int, secs to sleep
- Description: Generic post_cleanup implementation. Note that this is designed to get
+ Description: If a module use post_cleanup it needs to call this first
+              otherwise the DBAdaptor cache will not be reset which might
+              cause problems.
+              Generic post_cleanup implementation. Note that this is designed to get
               runnable dbs to sleep for a specified amount of time (default is 5 secs)
               before finishing. We needed this because we have found issues during the
               with downstream jobs starting before the write from the upstream job is
@@ -692,6 +707,11 @@ sub _create_temporary_file {
 
 sub post_cleanup {
   my ($self,$sleep_time) = @_;
+
+  foreach my $key (keys %{$self->{_gb_cache}}) {
+    next if ($key eq '_cache_lastlogicname');
+    $self->{_gb_cache}->{$key}->clear_caches;
+  }
 
   if(defined($sleep_time)) {
     unless($sleep_time =~ /^[0-9]+$/) {

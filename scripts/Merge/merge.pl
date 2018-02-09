@@ -10,7 +10,7 @@ use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene get_readthroughs_count);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(exon_overlap features_overlap overlap_length remove_short_frameshift_introns print_Transcript_and_Exons);
 
 my ( $opt_host_secondary, $opt_port_secondary,
@@ -932,6 +932,12 @@ SECONDARY_GENE:
          $secondary_gene, $secondary_transcript
     ) = ( $tuple->[0], $tuple->[1], $tuple->[2], $tuple->[3] );
 
+    # skip readthrough genes (defined as g containing any t having a 'readthrough_tra' attribute)
+    if (get_readthroughs_count($primary_gene) > 0) {
+      print("Not copying ".$secondary_transcript->stable_id()." into ".$primary_gene->stable_id()." because it contains readthrough transcripts\n.");
+      next;
+    }
+
     my $key = $secondary_transcript->dbID();
 
     if ( exists( $merged_secondary_transcripts{$key} ) ) {
@@ -964,7 +970,7 @@ SECONDARY_GENE:
       	my $exon_non_overlap = abs($secondary_transcript->length()-$primary_transcript->length());
         my $overlap_score = $exon_overlap-$exon_non_overlap;
 
-        if ( $overlap_score > $distinct_transcripts_to_copy{$key}[4] ) {
+        if ($overlap_score > $distinct_transcripts_to_copy{$key}[4]) {
           if ($is_conflicting) {
             printf( "Will choose to copy %s (%d) into %s (%d) " .
                       "due to larger exon overlap (%dbp > %dbp)\n",

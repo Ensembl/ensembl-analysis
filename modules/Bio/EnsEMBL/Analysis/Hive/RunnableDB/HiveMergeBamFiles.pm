@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,6 +105,7 @@ sub param_defaults {
     store_datafile => 1,
     _index_ext => 'bai',
     _file_ext => 'bam',
+    _logic_name_ext => 'bam',
   }
 }
 
@@ -126,18 +127,14 @@ sub fetch_input {
     my ($self) = @_;
 
     $self->create_analysis;
-    my $db = $self->get_database_by_name('target_db');
-    $self->hrdb_set_con($db, 'target_db');
+    if ($self->param('store_datafile')) {
+      my $db = $self->get_database_by_name('target_db');
+      $db->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
+      $self->hrdb_set_con($db, 'target_db');
+    }
     my $outname = $self->param_is_defined('sample_name') ? $self->param('sample_name') : 'merged';
     if (!$self->param_is_defined('logic_name')) {
-      my $aligner = $self->param('wide_short_read_aligner');
-      if ($aligner =~ /star/i) {
-        $aligner = 'star';
-      }
-      else {
-        $aligner = 'bwa';
-      }
-      $self->analysis->logic_name($self->param('wide_species').'_'.$aligner.'_'.$outname);
+      $self->analysis->logic_name($self->param('wide_species').'_'.$outname.'_rnaseq_'.$self->param('_logic_name_ext'));
     }
     if (!$self->param_is_defined('alignment_bam_file')) {
       $self->param('alignment_bam_file', File::Spec->catfile($self->param('wide_merge_dir'),
@@ -200,7 +197,6 @@ sub fetch_input {
             -use_threading => $self->param('use_threading'),
             ));
     }
-    $self->hrdb_set_con($self->get_database_by_name('target_db'), 'target_db');
 }
 
 
@@ -260,6 +256,7 @@ sub store_filename_into_datafile {
   my ($self) = @_;
 
   my $db = $self->hrdb_get_con('target_db');
+  $db->dbc->disconnect_when_inactive(0);
   my $analysis_adaptor = $db->get_AnalysisAdaptor;
   my $analysis = $analysis_adaptor->fetch_by_logic_name($self->analysis->logic_name);
   if (!$analysis) {

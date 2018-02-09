@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,9 +37,7 @@ sub param_defaults {
     %{$self->SUPER::param_defaults},
     min_seq_length => 50,
     column_names => ['iid'],
-    output_file => undef, # by default we do not write the file it's need for targetted at the moment
     skip_Xs => undef, # We only remove data with too many X in targetted, the value should be 5
-    delete_file => 1, # Delete the output_file if it exists
   }
 }
 
@@ -72,12 +70,6 @@ sub fetch_input {
   my @iids;
   my @seqs;
   my $skip_X = $self->param('skip_Xs');
-  my $output_file = $self->param('output_file');
-  if ($output_file) {
-    unlink $output_file if ($self->param('delete_file') and -e $output_file);
-    $self->param('iid', $output_file);
-    $output_file = Bio::SeqIO->new(-format => 'fasta', -file => ">$output_file");
-  }
   foreach my $file_path (@$files) {
     $self->throw("The input id doesn't exist, offending path:\n$file_path")
       unless(-e $file_path);
@@ -140,9 +132,6 @@ sub fetch_input {
                        }];
           $table_adaptor->store($db_row);
           push(@iids, $versioned_accession);
-          if ($output_file) {
-            $output_file->write_seq(Bio::Seq->new(-id => $versioned_accession, -seq => $seq));
-          }
         }
       }
     }

@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@ sub fetch_input {
       } elsif($iid_type eq 'feature_id') {
         $self->feature_id($dba);
       } else {
-        $self->throw('You have not specified one of the recognised operation types');
+        $self->throw('You have not specified one of the recognised operation types: '.$iid_type);
       }
   }
 }

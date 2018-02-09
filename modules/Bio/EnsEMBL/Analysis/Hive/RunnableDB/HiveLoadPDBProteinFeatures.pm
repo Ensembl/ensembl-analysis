@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -179,7 +179,11 @@ sub write_output {
   $self->insert_protein_features();
   
   # insert the Ensembl-PDB links into the pdb_ens table in the GIFTS database
-  $self->insert_pdb_ens();
+  $self->insert_pdb_ens($self->param('giftsdb_name'),
+                        $self->param('giftsdb_host'),
+                        $self->param('giftsdb_user'),
+                        $self->param('giftsdb_pass'),
+                        $self->param('giftsdb_port'));
 
   return 1;
 }

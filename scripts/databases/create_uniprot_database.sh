@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,11 +28,12 @@ HIVE_PASS=''
 HIVE_PORT=3306
 EHIVE_DRIVER="mysql" # This should not change unless you know what you are doing
 
-BASE_UNIPROT_PATH=$BLASTDB_DIR/uniprot
-ENSEMBL_BASE=$ENSCODE
+USAGE=0
 INIT_PIPE=1
 RUN_PIPE=1
-while getopts "s:d:h:u:p:P:RI" o; do
+BASE_UNIPROT_PATH="$BLASTDB_DIR/uniprot"
+ENSEMBL_BASE=$ENSCODE
+while getopts "s:d:h:u:p:P:IR" o; do
     case $o in
         d ) BASE_UNIPROT_PATH=$OPTARG;;
         s ) ENSEMBL_BASE=$OPTARG;;
@@ -47,6 +48,20 @@ while getopts "s:d:h:u:p:P:RI" o; do
 done
 export EMBL2FASTA_SCRIPT="$ENSEMBL_BASE/ensembl-analysis/scripts/databases/embl2fasta.pl"
 export PROCESS_ISOFORMS_SCRIPT="$ENSEMBL_BASE/ensembl-analysis/scripts/databases/process_uniprot_isoforms.pl"
+
+if [ $USAGE -eq 1 ]; then
+  echo "You should not need to change anything, it should by default init the pipeline and start running it."
+  echo "  d Destination directory, default is $BLASTDB_DIR/uniprot"
+  echo "  s Base directory where your Perl API are, default is $ENSCODE"
+  echo "  h Host server for the Hive pipeline database"
+  echo "  u User name for the Hive pipeline database"
+  echo "  p Password for the Hive pipeline database"
+  echo "  P Port for the Hive pipeline database, default is 3306"
+  echo "  I To only run the init script"
+  echo "  R To only run the pipeline"
+  echo
+  exit 1
+fi
 
 ###
 ## You should only change values above this line.

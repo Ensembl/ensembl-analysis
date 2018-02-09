@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2017] EMBL-European Bioinformatics Institute
+Copyright [2016-2018] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -98,6 +98,8 @@ sub default_options {
 'contigs_source' => 'ncbi',
 'primary_assembly_dir_name' => 'Primary_Assembly',
 
+'ensembl_release' => $ENV{ENSEMBL_RELEASE},
+
 ########################
 # db info
 ########################
@@ -123,7 +125,7 @@ sub default_options {
   -host   => 'ens-staging1',
   -port   => 3306,
   -user   => 'ensro',
-  -dbname => 'ensembl_production',
+  -dbname => 'ensembl_production_'.$self->o('ensembl_release'),
 },
 
 'taxonomy_db' => {

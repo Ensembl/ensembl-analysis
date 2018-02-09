@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -222,7 +222,7 @@ sub write_output {
     }
     my $mapping_string = $assembly_mapping->[0]->[0];
     $mapping_string =~ s/contig/scaffold/;
-    $assembly_mapping->[2]->[0] = $mapping_string.$scaffold_cs->version;
+    $assembly_mapping->[2]->[0] = $mapping_string.':'.$scaffold_cs->version;
     if (!defined $assembly_mapping->[1]) {
       $mapping_string = $assembly_mapping->[0]->[0];
       $mapping_string =~ s/chromosome/scaffold/;

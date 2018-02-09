@@ -68,14 +68,27 @@ use warnings ;
 use strict;
 use feature 'say';
 
+use Bio::EnsEMBL::Hive::DBSQL::DataflowRuleAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::KillList::KillList;
+use Bio::EnsEMBL::UnmappedObject;
 use Bio::SeqIO;
 use Bio::Seq;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    unaligned_to_unmapped => 0,
+  }
+}
+
 
 sub fetch_input {
   my($self) = @_;
@@ -187,6 +200,8 @@ sub fetch_input {
   # set up the query (est/cDNA/protein)
   ##########################################
   my $iid_type = $self->param('iid_type');
+  my $timer = $self->param('timer');
+  #$timer = parse_timer($timer);
   my ($query_file,$chunk_number,$chunk_total);
   unless($iid_type) {
     $self->throw("You haven't provided an input id type. Need to provide one via the 'iid_type' param");
@@ -275,7 +290,8 @@ sub fetch_input {
               -query_chunk_number => $chunk_number ? $chunk_number : undef,
               -query_chunk_total => $chunk_total ? $chunk_total : undef,
               -biotypes => $biotypes_hash,
-              %parameters,
+              -timer => $timer,
+               %parameters,
               );
 
       if (ref($query_file) eq 'ARRAY') {
@@ -284,8 +300,11 @@ sub fetch_input {
       else {
         $runnable->query_file($query_file);
       }
+      $runnable->_verbose($self->debug);
       $self->runnable($runnable);
   }
+
+  $self->throw("Can't run - no runnable objects") unless ($self->runnable);
 
 }
 
@@ -294,26 +313,40 @@ sub run {
   my ($self) = @_;
   my @results;
 
-  $self->throw("Can't run - no runnable objects") unless ($self->runnable);
-
   foreach my $runnable (@{$self->runnable}){
-    # This is to catch the closing exonerate errors, which we currently have no actual solution for
-    # It seems to be more of a problem with the exonerate code itself
-    $runnable->run;
+    eval {
+      $runnable->run;
+    };
 
-    push ( @results, @{$runnable->output} );
+    if($@) {
+      my $except = $@;
+      if($except =~ /still running after your timer/) {
+        $self->dataflow_output_id({iid => $self->param('iid')}, Bio::EnsEMBL::Hive::DBSQL::DataflowRuleAdaptor::branch_name_2_code('RUNLIMIT'));
+        $self->complete_early("Exonerate took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch 'RUN_LIMIT'. Exception:\n".$except);
+      } else {
+        $self->throw("Issue with running Exonerate:\n".$except);
+      }
+    } else {
+      push ( @results, @{$runnable->output} );
+    }
   }
   if ($self->USE_KILL_LIST) {
     unlink $self->filtered_query_file;
-    # print "Removed temporary query file ".$self->filtered_query_file."\n";
   }
-  if ($self->filter) {
-    my $filtered_transcripts = $self->filter->filter_results(\@results);
+  if ($self->filter and @results) {
+    my ($filtered_transcripts, $unmapped) = $self->filter->filter_results(\@results);
     @results = @$filtered_transcripts;
+    if (@$unmapped) {
+      my @unmapped_objects;
+      foreach my $unmapped_object (@$unmapped) {
+        my $id = $unmapped_object->identifier;
+        push(@unmapped_objects, $unmapped_object) unless (grep {$_->{accession} eq $id} @results);
+      }
+      $self->param('unmapped_objects', \@unmapped_objects) if (@unmapped_objects);
+    }
   }
 
-  my @genes = $self->make_genes(@results);
-  $self->param('output_genes',\@genes);
+  $self->output($self->make_genes(\@results));
 }
 
 
@@ -322,19 +355,25 @@ sub write_output {
 
   my $outdb = $self->hrdb_get_con('target_db');
   my $gene_adaptor = $outdb->get_GeneAdaptor;
-
-  my @output = @{$self->param('output_genes')};
-  $self->param('output_genes',undef);
+  my $analysis = $self->analysis;
+  my $output = $self->output;
   my $fails = 0;
   my $total = 0;
 
-  if (scalar(@output) == 0){
-    my $output_hash = {};
-    $output_hash->{'iid'} = $self->param('iid');
-    $self->dataflow_output_id($output_hash,2);
-  }
-  else {
-    foreach my $gene (@output){
+  if (scalar(@$output) == 0){
+    my $iids;
+    if ($self->param_is_defined('unmapped_objects')) {
+      my $unmapped = $self->param('unmapped_objects');
+      foreach my $iid (@{$self->param('iid')}) {
+        push(@$iids, $iid) unless (grep {$_->identifier eq $iid} @$unmapped);
+      }
+    }
+    else {
+      $iids = $self->param('iid');
+    }
+    $self->dataflow_output_id({iid => $iids}, $self->param('_branch_to_flow_to')) if ($iids);
+  } else {
+    foreach my $gene (@$output){
       empty_Gene($gene);
       eval {
         $gene_adaptor->store($gene);
@@ -345,23 +384,29 @@ sub write_output {
       }
       $total++;
     }
-    if ($fails > 0){
+    if ($fails){
       $self->throw("Not all genes could be written successfully " .
-          "($fails fails out of $total)");
+        "($fails fails out of $total)");
+    }
+  }
+  if ($self->param_is_defined('unmapped_objects')) {
+    my $unmapped_adaptor = $outdb->get_UnmappedObjectAdaptor;
+    foreach my $unmapped_object (@{$self->param('unmapped_objects')}) {
+      $unmapped_adaptor->store($unmapped_object);
     }
   }
 }
 
 
 sub make_genes{
-  my ($self,@transcripts) = @_;
+  my ($self, $transcripts) = @_;
 
   my (@genes);
 
   my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
   my %genome_slices;
 
-  foreach my $tran ( @transcripts ){
+  foreach my $tran ( @$transcripts ){
     my $gene = Bio::EnsEMBL::Gene->new();
     $gene->analysis($self->analysis);
     $gene->biotype($self->analysis->logic_name);
@@ -409,10 +454,18 @@ sub make_genes{
     $gene->add_Transcript($tran);
     push( @genes, $gene);
   }
-  return @genes;
+  return \@genes;
 }
 
 ############################################################
+
+sub runnable_failed {
+  my ($self,$runnable_failed) = @_;
+  if (defined $runnable_failed) {
+    $self->param('_runnable_failed',$runnable_failed);
+  }
+  return ($self->param('_runnable_failed'));
+}
 
 sub get_chr_names{
   my ($self) = @_;

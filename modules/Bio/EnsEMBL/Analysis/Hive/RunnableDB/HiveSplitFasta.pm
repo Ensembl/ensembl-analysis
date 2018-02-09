@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2017] EMBL-European Bioinformatics Institute
+Copyright [2016-2018] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ sub param_defaults {
     'unique_file_names'       => 0,      # Ensure that output file names are unique across all directories?
     'delete_original_file'    => 0,      # After splitting, delete original fasta file?
     'append_filename'         => 0,      # If you want to append the basename as a directory set it to 1, useful if you have many files to process
+    column_names => ['split_file'],
   };
   
 }

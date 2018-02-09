@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -237,10 +237,10 @@ sub parse_results {
         eval{
           if ($self->query_type eq 'protein') {
             $supp_feature =
-                Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@exon_feature_pairs);
+                Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@exon_feature_pairs, -align_type => 'ensembl');
           } else {
             $supp_feature = 
-                Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@exon_feature_pairs);
+                Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@exon_feature_pairs, -align_type => 'ensembl');
           }
         };
         if ($@){
@@ -268,10 +268,10 @@ sub parse_results {
     eval{
       if ($self->query_type eq 'protein') {
         $t_supp_feat =
-            Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@tran_feature_pairs);
+            Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@tran_feature_pairs, -align_type => 'ensembl');
       } else {
         $t_supp_feat = 
-            Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@tran_feature_pairs);
+            Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => \@tran_feature_pairs, -align_type => 'ensembl');
       }
     };
     if ($@) {
@@ -296,6 +296,7 @@ sub parse_results {
       calculate_exon_phases($transcript, 0);
 
 
+      $transcript->analysis($self->analysis);
       push @transcripts, [$score, $transcript];
     }
   }

@@ -3,7 +3,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -257,6 +257,7 @@ sub fetch_input {
       else {
         $runnable->query_file($query_file);
       }
+      $runnable->_verbose($self->debug) if ($self->debug);
       $self->runnable($runnable);
   }
 
@@ -841,9 +842,11 @@ sub filter {
   if ($val) {
     $self->param('_transcript_filter',$val);
   }
-  elsif ($self->param_is_defined('FILTER')) {
-    $self->require_module($self->param('FILTER')->{OBJECT});
-    $self->param('_transcript_filter', $self->param('FILTER')->{OBJECT}->new(%{$self->param('FILTER')->{FILTER_PARAMS}}));
+  elsif (!$self->param_is_defined('_transcript_filter')
+    and $self->param_is_defined('FILTER')
+    and exists $self->param('FILTER')->{OBJECT}) {
+    my $module = $self->require_module($self->param('FILTER')->{OBJECT});
+    $self->param('_transcript_filter', $module->new(%{$self->param('FILTER')->{PARAMETERS}}));
   }
   if ($self->param_is_defined('_transcript_filter')) {
     return $self->param('_transcript_filter');

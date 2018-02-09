@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016-2018] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,10 +17,12 @@ limitations under the License.
 
 =cut
 
-package HiveLincRNA;
+package HiveLincRNA_conf;
 
 use strict;
 use warnings;
+
+use File::Spec::Functions qw(catfile);
 
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
 
@@ -28,8 +31,8 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 sub default_options {
   my ($self) = @_;
+
   return {
-# inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
 
 ######################################################
@@ -42,29 +45,39 @@ sub default_options {
 # Pipe and ref db info
 ########################
 
-# you will need to have a source with registry creation! 
+# you will need to have a source with registry creation!
 # check https://www.ebi.ac.uk/seqdb/confluence/pages/viewpage.action?pageId=39822808
-    'pipeline_name' => 'lincRNA_Pipe_Month20XX',
-    'species' => '', # your species name ie microcebus_murinus
-    'pipe_dbname' => join('_', $self->o('dbowner'), $self->o('species'), $self->o('pipeline_name')),
-    'pipe_db_server' => '', # NOTE! used to generate tokens in the resource_classes sub below
-     dna_dbname => '', # what's your dna db name 
-    'dna_db_server' => '', # where is your dna db?  NOTE! used to generate tokens in the resource_classes sub below
-    'user' => '',
-    'password' => '',
+    pipeline_name => '',
+
+    out_dir => '',  # DO NOT FORGET to set your output dir.
+
+    assembly_name => '',
+    species => '', # your species name ie microcebus_murinus
+    release_number => 92,
+
+    pipe_dbname => join('_', $self->o('dbowner'), $self->o('species'), $self->o('pipeline_name')),
+    pipe_db_server => '', # NOTE! used to generate tokens in the resource_classes sub below
+    dna_dbname => '', # what's your dna db name
+    dna_db_server => '', # where is your dna db?  NOTE! used to generate tokens in the resource_classes sub below
+    user => '',
+    password => '',
     user_r => '',
     pass_r => undef,
-    port => 3306,
+    port => 4533,
+    dna_db_port => 4528,
 
-    cdna_db_host => '', # where is your RNAseq db? Where are your models? 
+    cdna_db_host => '', # where is your RNAseq db? Where are your models?
+    cdna_db_port => 4530, # where is your RNAseq db? Where are your models?
     cdna_db_dbname => '', # what's the name of your RNAseq db? Where are your models?
 
-    protein_coding_host => '', # where is your core db? Where are your models?
-    protein_coding_dbname => '', 
-    
-    # this is the output db. The results of all steps will be stored here! 
+    protein_coding_db_host => '', # where is your core db? Where are your models?
+    protein_coding_db_port => 4530, # where is your core db? Where are your models?
+    protein_coding_db_dbname => '',
+
+    # this is the output db. The results of all steps will be stored here!
     lincRNA_db_host => '',
-    lincRNA_db_dbname => '',
+    lincRNA_db_port => 4529,
+    lincRNA_db_dbname => $self->o('dbowner').'_'.$self->o('species').'_lincrna_'.$self->o('release_number'),
 
     # this is for human regulation data
     regulation_db_host => '',
@@ -73,8 +86,6 @@ sub default_options {
     # this is the output db after regulation data. The final results of regulation step will be stored here!
     regulation_debug_db_host => '',
     regulation_debug_db_dbname => '',
-
-    assembly_name => '',
 
 ######################################################
 #
@@ -89,21 +100,20 @@ sub default_options {
 # SPLIT PROTEOME File
 ########################
 
-    'max_seqs_per_file' => 20, 
-    'max_seq_length_per_file' => 20000, # Maximum sequence length in a file 
+    'max_seqs_per_file' => 20,
+    'max_seq_length_per_file' => 20000, # Maximum sequence length in a file
     'max_files_per_directory' => 1000, # Maximum number of files in a directory
     'max_dirs_per_directory'  => $self->o('max_files_per_directory'),
-    'out_dir' => '',  # DO NOT FORGET to set your output dir. 
-    'file_translations' => $self->o('out_dir').'/hive_dump_translations.fasta',  
-    
+    'file_translations' => catfile($self->o('out_dir'), 'hive_dump_translations.fasta'),
+
 ########################
-# FINAL Checks parameters - Update biotypes to lincRNA, antisense, sense, problem ... 
+# FINAL Checks parameters - Update biotypes to lincRNA, antisense, sense, problem ...
 ########################
-    
-    'file_for_length' => $self->o('out_dir').'/check_lincRNA_length.out',  # list of genes that are smaller than 200bp, if any 
-    'file_for_biotypes' => $self->o('out_dir').'/check_lincRNA_need_to_update_biotype_antisense.out', # mysql queries that will apply or not in your dataset (check update_database) and will update biotypes
-     update_database => 'yes', # Do you want to apply the suggested biotypes? yes or no. 
-    'file_for_introns_support' => $self->o('out_dir').'/check_lincRNA_Introns_supporting_evidence.out', # for debug 
+
+    'file_for_length' => catfile($self->o('out_dir'), 'check_lincRNA_length.out'),  # list of genes that are smaller than 200bp, if any
+    'file_for_biotypes' => catfile($self->o('out_dir'), 'check_lincRNA_need_to_update_biotype_antisense.out'), # mysql queries that will apply or not in your dataset (check update_database) and will update biotypes
+     update_database => 'yes', # Do you want to apply the suggested biotypes? yes or no.
+    'file_for_introns_support' => catfile($self->o('out_dir'), 'check_lincRNA_Introns_supporting_evidence.out'), # for debug
 
 ########################
 # Interproscan
@@ -112,18 +122,16 @@ sub default_options {
 # species       => [],
 
 # Release 20 November 2014, InterProScan 5:version 5.8-49 using InterPro version 49.0 data
-    interproscan_exe => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/interproscan.sh',
+    interproscan_exe => catfile($self->o('binary_base'), 'interproscan.sh'),
     interproscan_lookup_applications => [
       'PfamA',           # pfam
     ],
-    required_externalDb => [
-    ],
 
-    required_analysis => [
+    analyses => [
       {
-        'logic_name'    => 'pfam',
-        'db'            => 'Pfam',
-        'db_version'    => '27.0',
+        '-logic_name'    => 'pfam',
+        '-db'            => 'Pfam',
+        '-db_version'    => '27.0',
       },
     ],
 
@@ -134,21 +142,21 @@ sub default_options {
 # NOTE! the dbname for each species is generated in the pipeline itself by setup_assembly_loading_pipeline
     'cdna_db' => {
       -host   => $self->o('cdna_db_host'),
-      -port   => $self->o('port'),
+      -port   => $self->o('cdna_db_port'),
       -user   => $self->o('user_r'),
       -dbname => $self->o('cdna_db_dbname'),
     },
 
     'source_protein_coding_db' => {
-      -host   => $self->o('protein_coding_host'),
-      -port   => $self->o('port'),
+      -host   => $self->o('protein_coding_db_host'),
+      -port   => $self->o('protein_coding_db_port'),
       -user   => $self->o('user_r'),
-      -dbname => $self->o('protein_coding_dbname'),
+      -dbname => $self->o('protein_coding_db_dbname'),
     },
 
     'lincRNA_output_db' => {
       -host   => $self->o('lincRNA_db_host'),
-      -port   => $self->o('port'),
+      -port   => $self->o('lincRNA_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -dbname => $self->o('lincRNA_db_dbname'),
@@ -172,14 +180,6 @@ sub default_options {
   };
 }
 
-sub pipeline_create_commands {
-    my ($self) = @_;
-    return [
-    # inheriting database and hive tables' creation
-      @{$self->SUPER::pipeline_create_commands},
-    ];
-}
-
 
 ## See diagram for pipeline structure
 sub pipeline_analyses {
@@ -191,29 +191,33 @@ sub pipeline_analyses {
 # Set up before lincRNA ANALYSES
 ##############################################################################
     {
-      -logic_name      => 'create_output_db_job',
-      -module          => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+      -logic_name => 'create_lincRNA_output_db',
       -max_retry_count => 0,
-      -parameters      => {
-                            inputlist   => [[$self->o('lincRNA_output_db')]] ,   # [$self->o('regulation_reform_db')]],
-                            column_names => ['target_db'],
-                         },
-      -rc_name         => 'default',
-      -flow_into => {
-        '2->A' => ['create_lincRNA_output_db'],
-        'A->1' => ['PrePipelineChecks'],
-      },
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+      -parameters => {
+                       source_db   => $self->o('dna_db'),
+                       user_r      => $self->o('user_r'),
+                       user_w      => $self->o('lincRNA_output_db','-user'),
+                       pass_w      => $self->o('lincRNA_output_db','-pass'),
+                       create_type => 'clone',
+                       script_path => $self->o('clone_db_script_path'),
+                       target_db => $self->o('lincRNA_output_db')
+                     },
+      -rc_name    => 'default',
       -input_ids => [{}],
+      -flow_into => {
+        '1' => ['PrePipelineChecks'],
+      },
     },
 
     {
       -logic_name      => 'PrePipelineChecks',
-      -module          => 'Bio::EnsEMBL::Hive::RunnableDB::InterProScan::PrePipelineChecks',
+      -module          => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
       -max_retry_count => 0,
       -parameters      => {
-                            required_analysis   => $self->o('required_analysis'),
-                            required_externalDb => $self->o('required_externalDb'),
-                            species     => $self->o('species'),
+                            analyses   => $self->o('analyses'),
+                            target_db  => $self->o('lincRNA_output_db'),
+                            source_type => 'list',
                          },
       -rc_name         => 'default',
       -flow_into => {
@@ -221,33 +225,19 @@ sub pipeline_analyses {
       },
     },
     {
-      -logic_name => 'create_lincRNA_output_db',
-      -max_retry_count => 0,
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-      -parameters => {
-                       source_db   => $self->o('dna_db'),
-                       user_r      => 'ensro'  ,
-                       user_w      => $self->o('lincRNA_output_db','-user') ,
-                       pass_w      => $self->o('lincRNA_output_db','-pass') ,
-                       create_type => 'clone',
-                       script_path => $self->o('clone_db_script_path'),
-                     },
-      -rc_name    => 'default',
-    },
-
-    {
       -logic_name => 'create_toplevel_slices',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
       -parameters => {
                          target_db => $self->o('dna_db'),
                          coord_system_name => 'toplevel',
                          iid_type => 'slice',
-                         include_non_reference => 0,
-                         top_level => 1,
-                         slice_size => 2000000,  # this is for the size of the slice
+                         feature_constraint => 1,
+                         feature_type => 'gene',
+                         feature_dbs => [$self->o('source_protein_coding_db'), $self->o('lincRNA_output_db')],
                        },
       -flow_into => {
-                       2 => ['Hive_LincRNARemoveDuplicateGenes'],
+                       '2->A' => ['Hive_LincRNARemoveDuplicateGenes'],
+                       'A->1' => ['Hive_LincRNAAftCheck_pi'],
                       },
       -rc_name    => 'default',
     },
@@ -256,8 +246,7 @@ sub pipeline_analyses {
       -logic_name => 'Hive_LincRNARemoveDuplicateGenes',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRemoveDuplicateGenes',
       -max_retry_count => 1,
-      -hive_capacity => 200,
-      -batch_size    => 100,      
+      -batch_size    => 100,
       -parameters => {
                          logic_name => 'Hive_LincRNARemoveDuplicateGenes_t',
                          module => 'Hive_LincRNARemoveDuplicateGenes_1',
@@ -266,7 +255,7 @@ sub pipeline_analyses {
                          lincRNA_output_db => $self->o('lincRNA_output_db'),
                          reference_db => $self->o('dna_db'),
                          cdna_db => $self->o('cdna_db'),
-                         biotype_output => $self->o('biotype_output') ,
+                         biotype_output => $self->o('biotype_output'),
                       },
       -rc_name    => 'normal_4600',
       -flow_into => {
@@ -280,8 +269,7 @@ sub pipeline_analyses {
 
     {
       -logic_name => 'Hive_LincRNAFinder',
-      -hive_capacity => 200,
-      -batch_size    => 100,      
+      -batch_size    => 100,
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNAFinder',
       -max_retry_count => 1,
       -parameters => {
@@ -293,13 +281,12 @@ sub pipeline_analyses {
                        reference_db => $self->o('dna_db'),
                     },
       -rc_name    => 'normal_4600',
-     # -wait_for   => ['Hive_LincRNARemoveDuplicateGenes'], 
       -flow_into => {
                       1  => ['HiveDumpTranslations'],
                      -1 => ['Hive_LincRNAFinder_himem'],
                     },
     },
-    
+
     {
       -logic_name => 'Hive_LincRNAFinder_himem',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNAFinder',
@@ -319,27 +306,16 @@ sub pipeline_analyses {
                       1  => ['HiveDumpTranslations'],
                     },
     },
-    
+
     {
       -logic_name => 'HiveDumpTranslations',
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDumpTranslations',
       -batch_size    => 100,
       -parameters => {
-                        dump_translations_path => $self->o('enscode_root_dir').'/ensembl-analysis/scripts/protein/',
-                        dump_translations_name => 'dump_translations.pl',
-                        # dump_translations.pl script parameters
-                        # logic => 'HiveDumpTranslations_test',
-                        sourcehost => $self->o('lincRNA_output_db','-host'),
-                        sourceuser => $self->o('lincRNA_output_db','-user'),
-                        sourceport => $self->o('lincRNA_output_db','-port'),
-                        sourcepass => $self->o('lincRNA_output_db','-pass'),
-                        sourcedbname => $self->o('lincRNA_output_db','-dbname'),
-                        dnahost => $self->o('dna_db','-host'),
-                        dnadbname => $self->o('dna_db','-dbname'),
-                        dnauser => $self->o('dna_db','-user'),
-                        dnapass => $self->o('pass_r'),
-                        dnaport => $self->o('dna_db','-port'),
-                        file => $self->o('file_translations') ,
+                        dump_translations_script => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'protein', 'dump_translations.pl'),
+                        source_db => $self->o('lincRNA_output_db'),
+                        dna_db => $self->o('dna_db'),
+                        file => $self->o('file_translations'),
                      },
       -rc_name    => 'normal_1500_db',
       -flow_into => {
@@ -352,7 +328,7 @@ sub pipeline_analyses {
        -logic_name => 'SplitDumpFiles',
        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSplitFasta',
        -parameters => {
-                        fasta_file              => $self->o('file_translations') ,
+                        fasta_file              => $self->o('file_translations'),
                         out_dir                 => $self->o('out_dir'),
                         max_seqs_per_file       => $self->o('max_seqs_per_file'),
                         max_seq_length_per_file => $self->o('max_seq_length_per_file'),
@@ -369,7 +345,6 @@ sub pipeline_analyses {
     {
       -logic_name    => 'RunI5Lookup',
       -module        => 'Bio::EnsEMBL::Hive::RunnableDB::InterProScan::RunI5',
-      -hive_capacity => 250,
       -batch_size    => 10,
       -parameters    => {
                            protein_file              => '#split_file#',
@@ -384,19 +359,18 @@ sub pipeline_analyses {
     {
       -logic_name    => 'StoreFeatures',
       -max_retry_count => 1,
+      -batch_size    => 100,
       -module        => 'Bio::EnsEMBL::Hive::RunnableDB::InterProScan::StoreFeatures',
       -parameters    => {
       	                   species     => $self->o('species'),
                       	},
-      -hive_capacity => 50,
       -rc_name => 'normal_1500_db',
-    }, 
+    },
 
     {
       -logic_name => 'Hive_LincRNAEvaluator',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNAEvaluator',
       -max_retry_count => 0,
-      -hive_capacity => 100,
       -batch_size    => 150,
       -parameters => {
                          logic_name => 'Hive_LincRNAEvaluator_test',
@@ -408,27 +382,8 @@ sub pipeline_analyses {
                          source_cdna_db => $self->o('cdna_db'),
                       },
       -rc_name    => 'normal_4600',
-    }, 
+    },
 
-
-     # for human in case there are regulation feature data. 
-     # {
-     #   -logic_name => 'Hive_LincRNARegulation',
-     #   -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNARegulationFeatures',
-     #   -max_retry_count => 1,
-     #   -parameters => {
-     #                    logic_name => 'HiveLincRNA_RegFeat',
-     #                    module => 'HiveLincRNAReg',
-     #                    config_settings => $self->get_config_settings('HiveLincRNAReg', 'HiveLincRNAReg_1'),
-     #                    lincRNA_output_db => $self->default_options->{lincRNA_output_db},
-     #                    regulation_db => $self->o('regulation_db'), 
-     #                    regulation_reform_db => $self->o('regulation_reform_db'),
-     #                    reference_db => $self->o('reference_db'),
-     #                 },
-     #   -rc_name    => 'default', 
-     # }, 
-
-   
 
     {
       -logic_name => 'Hive_LincRNAAftCheck_pi',
@@ -438,30 +393,19 @@ sub pipeline_analyses {
                          module => 'HiveLincAfterChecks',
                          config_settings => $self->get_config_settings('HiveLincRNA_checks', 'HiveLincRNA_checks_1'),
                          lincRNA_output_db => $self->o('lincRNA_output_db'),
-                         reference_db => $self->o('dna_db'),                         
+                         reference_db => $self->o('dna_db'),
                          source_cdna_db => $self->o('cdna_db'),
-                         file_l => $self->o('file_for_length') ,
-                         file_is => $self->o('file_for_introns_support') , 
-                         file_b => $self->o('file_for_biotypes') , 
+                         file_l => $self->o('file_for_length'),
+                         file_is => $self->o('file_for_introns_support'),
+                         file_b => $self->o('file_for_biotypes'),
                          assembly_name => $self->o('assembly_name'),
                          update_database => $self->o('update_database'),
                       },
       -rc_name    => 'normal_7900',
-      -input_ids => [{}],
-      -wait_for   => ['Hive_LincRNAEvaluator'], 
-    }, 
-  ]; 
-} 
-
-
-
-sub pipeline_wide_parameters {
-    my ($self) = @_;
-
-    return {
-        %{ $self->SUPER::pipeline_wide_parameters() },  # inherit other stuff from the base class
-    };
+    },
+  ];
 }
+
 
 # override the default method, to force an automatic loading of the registry in all workers
 sub beekeeper_extra_cmdline_options {
@@ -470,22 +414,17 @@ sub beekeeper_extra_cmdline_options {
 }
 
 
-
-
 sub resource_classes {
       my $self = shift;
           return {
-            'default' => { 'LSF' => $self->lsf_resource_builder('normal',900,[$self->default_options->{pipe_db_server}]) },
-            'normal_1500' => { 'LSF' => $self->lsf_resource_builder('normal',1500,[$self->default_options->{pipe_db_server}]) },
-            'normal_1500_db' => { 'LSF' => $self->lsf_resource_builder('normal',1500,[$self->default_options->{pipe_db_server}, $self->default_options->{lincRNA_db_host}, $self->default_options->{dna_db_server}]) },
-            'normal_4600' => { 'LSF' => $self->lsf_resource_builder('normal',4600,[$self->default_options->{pipe_db_server}, $self->default_options->{lincRNA_db_host}, $self->default_options->{dna_db_server}, $self->default_options->{cdna_db_host}, $self->default_options->{protein_coding_host}])  },
-            'normal_7900' => { 'LSF' => $self->lsf_resource_builder('normal',7900,[$self->default_options->{pipe_db_server}, $self->default_options->{lincRNA_db_host}, $self->default_options->{dna_db_server}, $self->default_options->{cdna_db_host}, $self->default_options->{protein_coding_host}]) },
-            'normal_18000' => { 'LSF' => $self->lsf_resource_builder('normal',18000,[$self->default_options->{pipe_db_server}, $self->default_options->{lincRNA_db_host}, $self->default_options->{dna_db_server}, $self->default_options->{cdna_db_host}, $self->default_options->{protein_coding_host}]) },
-            'local' => {'LOCAL' => ''},
+            'default' => { 'LSF' => $self->lsf_resource_builder('production-rh7',900,[$self->default_options->{pipe_db_server}]) },
+            'normal_1500' => { 'LSF' => $self->lsf_resource_builder('production-rh7',1500,[$self->default_options->{pipe_db_server}]) },
+            'normal_1500_db' => { 'LSF' => $self->lsf_resource_builder('production-rh7',1500,[$self->default_options->{pipe_db_server}, $self->default_options->{lincRNA_db_host}, $self->default_options->{dna_db_server}]) },
+            'normal_4600' => { 'LSF' => $self->lsf_resource_builder('production-rh7',4600,[$self->default_options->{pipe_db_server}, $self->default_options->{lincRNA_db_host}, $self->default_options->{dna_db_server}, $self->default_options->{cdna_db_host}, $self->default_options->{protein_coding_host}])  },
+            'normal_7900' => { 'LSF' => $self->lsf_resource_builder('production-rh7',7900,[$self->default_options->{pipe_db_server}, $self->default_options->{lincRNA_db_host}, $self->default_options->{dna_db_server}, $self->default_options->{cdna_db_host}, $self->default_options->{protein_coding_host}]) },
+            'normal_18000' => { 'LSF' => $self->lsf_resource_builder('production-rh7',18000,[$self->default_options->{pipe_db_server}, $self->default_options->{lincRNA_db_host}, $self->default_options->{dna_db_server}, $self->default_options->{cdna_db_host}, $self->default_options->{protein_coding_host}]) },
                 }
 }
-
-#            'normal_12000' => { 'LSF' => $self->lsf_resource_builder('normal',12000,[$self->default_options->{'lincRNA_output_db'}]) },
 
 
 sub get_config_settings {
@@ -648,8 +587,8 @@ sub master_config_settings {
                                    # validation DB, put down "fetch_all_biotypes" as the biotype, for it is an alias accepted by BaseGeneBuild
                                    # RunnableDB.
 
-                                   # SOURCE_PROTEIN_CODING_DB => ['rRNA'] ,
-                                   source_protein_coding_db => ['protein_coding'] ,
+                                   # SOURCE_PROTEIN_CODING_DB => ['rRNA'],
+                                   source_protein_coding_db => ['protein_coding'],
                                  },
 
 
@@ -769,41 +708,41 @@ sub master_config_settings {
 
   	},
   },
-  
 
 
-  # this could be used only for human and mouse. 
+
+  # this could be used only for human and mouse.
   HiveLincRNAReg=> {
-    HiveLincRNAReg_1 => { 
+    HiveLincRNAReg_1 => {
 
-                  EFG_FEATURE_DB    => 'regulation_db', 
-                  EFG_FEATURE_NAMES => ['H3K4me3','H3K36me3'], 
-                  OUTPUT_DB => $self->default_options->{lincRNA_output_db}, 
-                  BIOTYPE_TO_CHECK => 'lincRNA_pass_Eval_no_pfam', 
-                  
-                  EXTEND_EFG_FEATURES => 500, # make efg features longer! 
-                  
-                  CHECK_CDNA_OVERLAP_WITH_BOTH_K4_K36 => 1, 
+                  EFG_FEATURE_DB    => 'regulation_db',
+                  EFG_FEATURE_NAMES => ['H3K4me3','H3K36me3'],
+                  OUTPUT_DB => $self->default_options->{lincRNA_output_db},
+                  BIOTYPE_TO_CHECK => 'lincRNA_pass_Eval_no_pfam',
 
-                  CHECK_CDNA_OVERLAP_WITH_MULTI_K36 => 1, 
+                  EXTEND_EFG_FEATURES => 500, # make efg features longer!
+
+                  CHECK_CDNA_OVERLAP_WITH_BOTH_K4_K36 => 1,
+
+                  CHECK_CDNA_OVERLAP_WITH_MULTI_K36 => 1,
 
                   WRITE_DEBUG_OUTPUT => 1,     # Set this to "0" to turn off debugging.
                   DEBUG_OUTPUT_DB    => 'regulation_reform_db',    # where debug output (if any) will be written to
-                  OUTPUT_BIOTYPE_OVERLAP => 'lincRNA_withReg', 
-                  OUTPUT_BIOTYPE_NOT_OVERLAP => 'lincRNA_withOutReg', 
+                  OUTPUT_BIOTYPE_OVERLAP => 'lincRNA_withReg',
+                  OUTPUT_BIOTYPE_NOT_OVERLAP => 'lincRNA_withOutReg',
 
                   # logic_name for H3 features which do NOT cluster with cDNA/RNASeq models or protein_coding genes:
-                  DEBUG_LG_EFG_UNCLUSTERED  => 'efg_NO_cdna_update_NO_pc', 
-                                                                               
-                  # logic_name for H3 features which cluster with cDNA/RNASeq models checked to be not overlapping with protein_coding genes:                                           
+                  DEBUG_LG_EFG_UNCLUSTERED  => 'efg_NO_cdna_update_NO_pc',
+
+                  # logic_name for H3 features which cluster with cDNA/RNASeq models checked to be not overlapping with protein_coding genes:
                   DEBUG_LG_EFG_CLUSTERING_WITH_CDNA => 'efg_cluster_non_pc_cdna_update',
-    },	
+    },
   },
-  
-  
-  
-  
-  
+
+
+
+
+
   HiveLincRNA_checks=> {
     HiveLincRNA_checks_1 => {
     	            Final_BIOTYPE_TO_CHECK  => 'lincRNA_pass_Eval_no_pfam',

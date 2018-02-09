@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2017] EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -225,7 +225,7 @@ sub align_hits_to_query {
     # Take the pieces for each exon and make gapped feature
     foreach my $ex ( keys %exon_hash ) {
       my $dna_align_feature = Bio::EnsEMBL::DnaPepAlignFeature->new
-        (-features => $exon_hash{$ex});
+        (-features => $exon_hash{$ex}, -align_type => 'ensembl');
       push(@output, $dna_align_feature);
     }
   }
