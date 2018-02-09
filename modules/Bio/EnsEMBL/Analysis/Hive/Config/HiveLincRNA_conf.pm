@@ -53,7 +53,7 @@ sub default_options {
 
     assembly_name => '',
     species => '', # your species name ie microcebus_murinus
-    release_number => 92,
+    release_number => , # for example: 92
 
     pipe_dbname => join('_', $self->o('dbowner'), $self->o('species'), $self->o('pipeline_name')),
     pipe_db_server => '', # NOTE! used to generate tokens in the resource_classes sub below
@@ -61,23 +61,24 @@ sub default_options {
     dna_db_server => '', # where is your dna db?  NOTE! used to generate tokens in the resource_classes sub below
     user => '',
     password => '',
-    user_r => '',
+    user_r => 'ensro',
     pass_r => undef,
-    port => 4533,
-    dna_db_port => 4528,
+    port => ,
+    dna_db_port => ,
 
     cdna_db_host => '', # where is your RNAseq db? Where are your models?
-    cdna_db_port => 4530, # where is your RNAseq db? Where are your models?
+    cdna_db_port => , # where is your RNAseq db? Where are your models?
     cdna_db_dbname => '', # what's the name of your RNAseq db? Where are your models?
 
     protein_coding_db_host => '', # where is your core db? Where are your models?
-    protein_coding_db_port => 4530, # where is your core db? Where are your models?
+    protein_coding_db_port => , # where is your core db? Where are your models?
     protein_coding_db_dbname => '',
 
     # this is the output db. The results of all steps will be stored here!
+    # !!! THIS OUTPUT DB NEEDS TO BE IN REGISTRY too !!! 
     lincRNA_db_host => '',
-    lincRNA_db_port => 4529,
-    lincRNA_db_dbname => $self->o('dbowner').'_'.$self->o('species').'_lincrna_'.$self->o('release_number'),
+    lincRNA_db_port => ,
+    lincRNA_db_dbname => $self->o('dbowner').'_'.$self->o('species').'_lincrna_3Gen_out_'.$self->o('release_number'),   
 
     # this is for human regulation data
     regulation_db_host => '',
@@ -94,12 +95,15 @@ sub default_options {
 ######################################################
 
     'biotype_output' => 'rnaseq',
-
+    'clone_db_script_path'   => $ENV{GITBASE}.'/ensembl-analysis/scripts/clone_database.ksh',
+    'remove_duplicates_script_path' => $ENV{GITBASE}.'/ensembl-analysis/scripts/find_and_remove_duplicates.pl',
+    'enscode_root_dir' => $ENV{GITBASE} , 
+    'binary_base' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/',
 
 ########################
 # SPLIT PROTEOME File
 ########################
-
+    'dump_biotypes_to_check_domain' => 'lincRNA_finder_2round', # this should be the same as the output biotype of lincRNA finder
     'max_seqs_per_file' => 20,
     'max_seq_length_per_file' => 20000, # Maximum sequence length in a file
     'max_files_per_directory' => 1000, # Maximum number of files in a directory
@@ -119,19 +123,33 @@ sub default_options {
 # Interproscan
 ########################
 
-# species       => [],
+    # species       => [],
+    interproscan_version => '5.26-65.0',
+    interproscan_exe     => 'interproscan.sh',
+    run_interproscan     => 1,
+    interproscan_applications => ['Pfam'], 
 
-# Release 20 November 2014, InterProScan 5:version 5.8-49 using InterPro version 49.0 data
-    interproscan_exe => catfile($self->o('binary_base'), 'interproscan.sh'),
-    interproscan_lookup_applications => [
-      'PfamA',           # pfam
-    ],
+    # Delete rows in tables connected to the existing analysis
+    linked_tables => ['protein_feature', 'object_xref'],
 
+    # Retrieve analysis descriptions from the production database;
+    # the supplied registry file will need the relevant server details.
+    production_lookup => 1,
+
+    # Remove existing analyses; if =0 then existing analyses
+    # will remain, with the logic_name suffixed by '_bkp'.
+    delete_existing => 1,
+    
+    run_seg=> 0, 
+    
     analyses => [
       {
-        '-logic_name'    => 'pfam',
-        '-db'            => 'Pfam',
-        '-db_version'    => '27.0',
+        'logic_name'    => 'pfam',
+        'db'            => 'Pfam',
+        'db_version'    => '31.0',
+        'ipscan_name'   => 'Pfam',
+        'ipscan_xml'    => 'PFAM',
+        'ipscan_lookup' => 1,
       },
     ],
 
@@ -206,24 +224,42 @@ sub pipeline_analyses {
       -rc_name    => 'default',
       -input_ids => [{}],
       -flow_into => {
-        '1' => ['PrePipelineChecks'],
+        '1->A' => ['AnalysisFactory'],
+        'A->1' => ['create_toplevel_slices'],
       },
     },
 
+    { -logic_name        => 'AnalysisFactory',
+      -module            => 'Bio::EnsEMBL::Production::Pipeline::ProteinFeatures::AnalysisFactory',
+      -max_retry_count   => 1,
+      -analysis_capacity => 20,
+      -parameters        => {
+                              analyses => $self->o('analyses'),
+                              run_seg  => $self->o('run_seg'),
+                            },
+      -flow_into         => {
+                              '2' => ['AnalysisSetup'],
+                            },
+      -meadow_type       => 'LOCAL',
+    }, 
+
     {
-      -logic_name      => 'PrePipelineChecks',
-      -module          => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
-      -max_retry_count => 0,
-      -parameters      => {
-                            analyses   => $self->o('analyses'),
-                            target_db  => $self->o('lincRNA_output_db'),
-                            source_type => 'list',
-                         },
-      -rc_name         => 'default',
-      -flow_into => {
-        '1' => ['create_toplevel_slices'],
-      },
+      -logic_name        => 'AnalysisSetup',
+      -module            => 'Bio::EnsEMBL::Production::Pipeline::Common::AnalysisSetup',
+      -max_retry_count   => 0,
+      -parameters        => {
+                              db_backup_required => 0,
+                              db_backup_file     => catfile($self->o('out_dir'), '#species#', 'pre_pipeline_bkp.sql.gz'),
+                              delete_existing    => $self->o('delete_existing'),
+                              linked_tables      => $self->o('linked_tables'),
+                              production_lookup  => $self->o('production_lookup'),
+                              program            => $self->o('interproscan_version'),
+                              species            => $self->o('species'),
+                            },
+      -meadow_type       => 'LOCAL',
     },
+    
+
     {
       -logic_name => 'create_toplevel_slices',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
@@ -236,8 +272,7 @@ sub pipeline_analyses {
                          feature_dbs => [$self->o('source_protein_coding_db'), $self->o('lincRNA_output_db')],
                        },
       -flow_into => {
-                       '2->A' => ['Hive_LincRNARemoveDuplicateGenes'],
-                       'A->1' => ['Hive_LincRNAAftCheck_pi'],
+                       '2' => ['Hive_LincRNARemoveDuplicateGenes'],
                       },
       -rc_name    => 'default',
     },
@@ -259,7 +294,8 @@ sub pipeline_analyses {
                       },
       -rc_name    => 'normal_4600',
       -flow_into => {
-        1 => ['Hive_LincRNAFinder'],
+                       '1->A' => ['Hive_LincRNAFinder'],
+                       'A->1' => ['Hive_LincRNAEvaluator'],
       }
     },
 
@@ -282,7 +318,7 @@ sub pipeline_analyses {
                     },
       -rc_name    => 'normal_4600',
       -flow_into => {
-                      1  => ['HiveDumpTranslations'],
+                      1 => ['HiveDumpTranslations'],
                      -1 => ['Hive_LincRNAFinder_himem'],
                     },
     },
@@ -307,6 +343,12 @@ sub pipeline_analyses {
                     },
     },
 
+
+###############################################################################
+## INTERPROSCAN
+###############################################################################
+
+    
     {
       -logic_name => 'HiveDumpTranslations',
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDumpTranslations',
@@ -316,11 +358,12 @@ sub pipeline_analyses {
                         source_db => $self->o('lincRNA_output_db'),
                         dna_db => $self->o('dna_db'),
                         file => $self->o('file_translations'),
+                        db_id => '1',
+                        biotype => $self->o('dump_biotypes_to_check_domain'),
                      },
       -rc_name    => 'normal_1500_db',
       -flow_into => {
-                     '2->A' => ['SplitDumpFiles'],
-                     'A->1' => ['Hive_LincRNAEvaluator'],
+                     2 => ['SplitDumpFiles'],
                     },
      },
 
@@ -337,42 +380,52 @@ sub pipeline_analyses {
                        },
        -rc_name    => 'normal_1500',
        -flow_into     => {
-          2 => ['RunI5Lookup'],
+                        2 => ['InterProScanLocal'],
        }
     },
 
-     ### Here begins the running InterproScan
     {
-      -logic_name    => 'RunI5Lookup',
-      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::InterProScan::RunI5',
-      -batch_size    => 10,
-      -parameters    => {
-                           protein_file              => '#split_file#',
-                           run_mode                  => 'lookup',
-                           interproscan_exe          => $self->o('interproscan_exe'),
-                           interproscan_applications => $self->o('interproscan_lookup_applications'),
-                         },
-      -rc_name       => 'normal_1500',
-      -flow_into     => ['StoreFeatures'],
+      -logic_name        => 'InterProScanLocal',
+      -module            => 'Bio::EnsEMBL::Production::Pipeline::ProteinFeatures::InterProScan',
+      -hive_capacity     => 50,
+      -batch_size        => 1,
+      -max_retry_count   => 1,
+      -can_be_empty      => 1,
+      -parameters        =>
+      {
+        input_file                => '#split_file#',
+        run_mode                  => 'local',
+        interproscan_exe          => $self->o('interproscan_exe'),
+        interproscan_applications => $self->o('interproscan_applications'),
+        run_interproscan          => $self->o('run_interproscan'),
+      },
+      -rc_name           => 'normal_7900',
+      -flow_into         => ['StoreProteinFeatures'],
     },
 
     {
-      -logic_name    => 'StoreFeatures',
-      -max_retry_count => 1,
-      -batch_size    => 100,
-      -module        => 'Bio::EnsEMBL::Hive::RunnableDB::InterProScan::StoreFeatures',
-      -parameters    => {
-      	                   species     => $self->o('species'),
-                      	},
-      -rc_name => 'normal_1500_db',
+      -logic_name        => 'StoreProteinFeatures',
+      -module            => 'Bio::EnsEMBL::Production::Pipeline::ProteinFeatures::StoreProteinFeatures',
+      -analysis_capacity => 1,
+      -batch_size        => 250,
+      -max_retry_count   => 1,
+      -parameters        => {
+                              analyses        => $self->o('analyses'),
+                              species         => $self->o('species'),
+                            },
+      -rc_name           => 'normal_1500_db',
     },
 
+
+###############################################################################
+### LAST PART - CHECK DOMAINs - UPDATE models - DELETE duplications
+################################################################################
     {
-      -logic_name => 'Hive_LincRNAEvaluator',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNAEvaluator',
+      -logic_name   => 'Hive_LincRNAEvaluator',
+      -module       => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNAEvaluator',
       -max_retry_count => 0,
-      -batch_size    => 150,
-      -parameters => {
+      -batch_size   => 150,
+      -parameters   => {
                          logic_name => 'Hive_LincRNAEvaluator_test',
                          module => 'HiveLincRNAEvaluator',
                          config_settings => $self->get_config_settings('HiveLincRNAEvaluator', 'Hive_lincRNAEvaluator_1'),
@@ -381,10 +434,34 @@ sub pipeline_analyses {
                          reference_db => $self->o('dna_db'),
                          source_cdna_db => $self->o('cdna_db'),
                       },
-      -rc_name    => 'normal_4600',
+      -rc_name        => 'normal_4600', 
+      -flow_into      => {
+      	                 2 => ['delete_duplicate_genes'],
+                      },
+     },
+
+    {
+      -logic_name => 'delete_duplicate_genes',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+                       cmd => "perl ".$self->o('remove_duplicates_script_path')
+                               ." -dbhost ".$self->o('lincRNA_output_db','-host')
+                               ." -dbuser ".$self->o('user')
+                               ." -dbpass ".$self->o('password')
+                               ." -dbname ".$self->o('lincRNA_output_db','-dbname')
+                               ." -dbport ".$self->o('lincRNA_output_db','-port')
+                               ." -dnadbhost ".$self->o('dna_db','-host')
+                               ." -dnadbuser ".$self->o('user_r')
+                               ." -dnadbname ".$self->o('dna_db','-dbname')
+                               ." -dnadbport ".$self->o('dna_db','-port'),
+                     },
+      -max_retry_count => 0,
+      -rc_name => 'default',
+      -input_ids => [{}],
+      -flow_into      => ['Hive_LincRNAAftCheck_pi'],
+       -wait_for   => ['Hive_LincRNAEvaluator'],
     },
-
-
+    
     {
       -logic_name => 'Hive_LincRNAAftCheck_pi',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincAfterChecks',

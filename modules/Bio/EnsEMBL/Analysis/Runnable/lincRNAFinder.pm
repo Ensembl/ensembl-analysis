@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 =head1 CONTACT
 
   Please email comments or questions to the public Ensembl
@@ -26,6 +27,8 @@
 =cut
 
 =head1 NAME
+
+
 
 Bio::EnsEMBL::Analysis::Runnable::lincRNAFinder - 
 
@@ -46,8 +49,6 @@ use warnings;
 use vars   qw(@ISA);
 
 use Bio::EnsEMBL::Analysis::Runnable;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
-use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(transfer_supporting_evidence Exon_info); # I don't think we need this... but need to check. 
@@ -121,13 +122,15 @@ sub run{
   RG: for my $rg( @unclust_efg ) {
  	# WARNING: when stand specific models this should be only against 3 frames of correct strand... 
     my $new_gene = compute_6frame_translations($rg);  # compute_translation() # 
-    # print " translations found for gene " . Gene_info($rg) . "::::" . $rg->display_id() . "\n"; 
-    # print scalar(@{ $new_gene->get_all_Transcripts} ) ." translations found for gene " . Gene_info($rg) . "::::" . $rg->display_id() . "\n";  # " seq_region: " . $rg->seq_region_name . " start: " . $rg->seq_region_start . " end: " . $rg->seq_region_end . " strand: " . $rg->seq_region_strand . " \n" ; 
+    $new_gene->biotype("pre_finder_round1");  
+    # print " translations found for gene " . Gene_info($rg) . "::" . $rg->display_id() . "\n"; 
+    print scalar(@{ $new_gene->get_all_Transcripts} ) ." translations found for old gene " . Gene_info($rg) . "::" . $rg->display_id() . "\n";  # " seq_region: " . $rg->seq_region_name . " start: " . $rg->seq_region_start . " end: " . $rg->seq_region_end . " strand: " . $rg->seq_region_strand . " \n" ;
+    print scalar(@{ $new_gene->get_all_Transcripts} ) ." translations found for new gene " . Gene_info($new_gene) . "::" . $new_gene->display_id() . "\n";  # " seq_region: " . $rg->seq_region_name . " start: " . $rg->seq_region_start . " end: " . $rg->seq_region_end . " strand: " . $rg->seq_region_strand . " \n" ; 
 
     if (!defined $new_gene->get_all_Transcripts) {
-      throw('  Could not compute translation for cDNA: gene dbID '. $rg->dbID . ' ' . $rg->seq_region_name . ' ' .
+      $self->throw('  Could not compute translation for cDNA: gene dbID '. $rg->dbID . ' ' . $rg->seq_region_name . ' ' .
              $rg->seq_region_start . ' ' . $rg->seq_region_end.' '.$rg->length) unless ($rg->length < 200);
-      warning('Shorter than 200 bp '.$rg->dbID.' '.$rg->seq_region_name.' '.$rg->seq_region_start.' '.$rg->seq_region_end);
+      $self->warning('Shorter than 200 bp '.$rg->dbID.' '.$rg->seq_region_name.' '.$rg->seq_region_start.' '.$rg->seq_region_end);
       next RG;
       $rg->biotype('gene_WITHOUT_translation');
       push @genes_withOUT_translations, $rg ; 
@@ -203,7 +206,7 @@ sub filter_genes_with_long_translations {
        $max_trans_length_ratio =  $self->maximum_translation_length_ratio; 
        print "-- your MAXIMUM_TRANSLATION_LENGTH_RATIO is: " . $max_trans_length_ratio . "\n";
      } else {  
-       throw("translation-length-to-transcript length ratio > 100 does not make sense.\n"); 
+       $self->throw("translation-length-to-transcript length ratio > 100 does not make sense.\n"); 
      } 
    }else { 
      $max_trans_length_ratio = 100 ; 
@@ -252,7 +255,6 @@ sub filter_genes_with_long_translations {
 
 =cut
 
-
 sub result_set{
   my ($self, $result_set) = @_;
   if(!$self->{'result_set'}){
@@ -260,7 +262,7 @@ sub result_set{
   }
   if($result_set){
     if(ref($result_set) ne 'ARRAY'){
-      throw('Must pass RunnableDB:result_set an array ref not a '.$result_set);
+      $self->throw('Must pass RunnableDB:result_set an array ref not a '.$result_set);
     }
     push(@{$self->{'result_set'}}, @$result_set);
   }

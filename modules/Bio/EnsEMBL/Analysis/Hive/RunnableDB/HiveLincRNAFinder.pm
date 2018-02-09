@@ -1,7 +1,7 @@
-
 =head1 LICENSE
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -171,7 +171,7 @@ sub post_cleanup {
     my $gene_adaptor = $dba->get_GeneAdaptor;
     foreach my $gene (@{$self->param('fail_delete_features')}) {
       eval {
-        print "DEBUG::cleaning-removing gene, something didn't go as should... \n"; 
+        print "cleaning-removing gene as something didn't go as should... \n"; 
         $gene_adaptor->remove($gene);
       };
       if ($@) {

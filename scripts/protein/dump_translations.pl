@@ -79,6 +79,7 @@ my $db_id     = 0;
 my $file;
 my $slicename;
 my $verbose;
+my $biotypeToFetch; # dump translations of only this biotype 
 
 GetOptions(
     'dbhost|host|h=s'    => \$dbhost,
@@ -95,6 +96,7 @@ GetOptions(
     'db_id!'      => \$db_id,
     'file=s'      => \$file,
     'slicename=s' => \$slicename,
+    'biotype=s'   => \$biotypeToFetch,
     'verbose'     => \$verbose,
 ) or die("Couldn't get options");
 
@@ -166,7 +168,11 @@ my $gene_list;
 
 if (defined $slicename) {
     my $slice = $db->get_SliceAdaptor->fetch_by_name($slicename);
-    $gene_list = $slice->get_all_Genes;
+    if (defined $biotypeToFetch) {
+    	$gene_list = $slice->get_all_Genes_by_type($biotypeToFetch); 
+    } else {
+        $gene_list = $slice->get_all_Genes; 
+    }
 }
 else {
     my $gene_adaptor = $db->get_GeneAdaptor();

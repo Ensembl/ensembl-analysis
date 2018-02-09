@@ -1,6 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +27,9 @@
 =cut
 
 =head1 NAME
+
+
+
 
 Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDumpTranslations
 
@@ -131,6 +135,18 @@ sub fetch_input {
     $file .= '_'.$self->param('iid').'.'.$self->param('file_extension');
   }
   $command .= " -file ".$file;
+  if ($self->param_is_defined('db_id'))
+  {
+  	$command .= " -db_id"; 
+  }
+  if ($self->param_is_defined('stable_id'))
+  {
+  	$command .= " -stable_id"; 
+  }
+  if ($self->param_is_defined('biotype')) {
+  	$command .= " -biotype " .$self->param('biotype');
+  }
+  
   $self->output([$file]);
   print $command, "\n";
   $self->param('command', $command);

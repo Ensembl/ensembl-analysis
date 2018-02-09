@@ -1,4 +1,7 @@
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+=head1 LICENSE
+
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,6 +14,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <http://www.ensembl.org/Help/Contact>.
+
+=cut
 
 =head1 NAME
 
@@ -87,14 +101,6 @@ sub get_genes_of_biotypes_by_db_hash_ref {
          print  "fetching ALL biotypes for slice out of db $db_hash_key :\n" ; 
          my $genes = $slice->get_all_Genes(undef,undef,1) ; 
          push @genes_to_fetch, @$genes;
-         # print how many genes per biotype
-         # my %tmp ; 
-         # for ( @$genes ) {  
-         #   $tmp{$_->biotype}++; 
-         # }  
-         # foreach ( keys %tmp ) {  
-         #   print  "found $_ $tmp{$_}\n" ; 
-         # }  
          print scalar(@genes_to_fetch) . " genes fetched in total\n";
     } else { 
       foreach my $biotype  ( @biotypes_to_fetch ) { 

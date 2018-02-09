@@ -1367,6 +1367,8 @@ sub pipeline_analyses {
                                                                             g.description LIKE "%variant%" OR
                                                                             g.description LIKE "%ighv%" OR
                                                                             g.description LIKE "%immunog.%V.%pseudogene%")
+                                                                            g.description LIKE "%receptor%V%segment%" OR
+                                                                            g.description LIKE "%TCR%gamma%V%segment%" )
                                                                            AND
                                                                            (g.biotype LIKE "IG\_%" OR
                                                                             g.biotype LIKE "TR\_%")
@@ -1378,7 +1380,8 @@ sub pipeline_analyses {
                                                                             g.biotype LIKE "TR\_%")
                                          ',
                                          'UPDATE gene g SET g.biotype=REPLACE(g.biotype,"_","_J_")
-                                                                     WHERE (g.description LIKE "%joining%")
+                                                                     WHERE (g.description LIKE "%joining%" OR
+                                                                            g.description LIKE "%TCR-alpha%J%segment%" )
                                                                            AND
                                                                            (g.description NOT LIKE "%constant%")
                                                                            AND
@@ -1386,7 +1389,8 @@ sub pipeline_analyses {
                                                                             g.biotype LIKE "TR\_%")
                                          ',
                                          'UPDATE gene g SET g.biotype=REPLACE(g.biotype,"_","_D_")
-                                                                     WHERE (g.description LIKE "%diversity%" or g.description LIKE "T cell receptor beta, D%")
+                                                                     WHERE (g.description LIKE "%diversity%" OR 
+                                                                            g.description LIKE "T cell receptor beta, D%")
                                                                            AND
                                                                            (g.biotype LIKE "IG\_%" OR
                                                                             g.biotype LIKE "TR\_%")

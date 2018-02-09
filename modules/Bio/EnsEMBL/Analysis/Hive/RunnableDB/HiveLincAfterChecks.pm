@@ -1,5 +1,7 @@
 =head1 LICENSE
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 
 =head1 CONTACT
 
@@ -43,7 +46,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincAfterChecks;
         
 use warnings;
 use strict;
-
 use File::Basename;
 use Bio::EnsEMBL::Analysis::Tools::LincRNA qw(get_genes_of_biotypes) ;  
 use Bio::EnsEMBL::Analysis;
@@ -52,32 +54,32 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
 sub fetch_input {
-	my ($self) = @_;
-	$self->hive_set_config;
+  my ($self) = @_;
+  $self->hive_set_config;
   $self->param_required('file_l'); 
   $self->param_required('file_b'); 
   $self->param_required('assembly_name');
   $self->param_required('update_database');
 
-	# get genes from lincRNA database
-	my $set_db  = $self->hrdb_get_dba( $self->param('lincRNA_output_db') );
-	my $dna_dba = $self->hrdb_get_dba( $self->param('reference_db') ); 
+  # get genes from lincRNA database
+  my $set_db  = $self->hrdb_get_dba( $self->param('lincRNA_output_db') );
+  my $dna_dba = $self->hrdb_get_dba( $self->param('reference_db') ); 
   $set_db->dnadb($dna_dba);
   $self->hrdb_set_con($set_db, 'lincRNA_output_db');
-	my $biotype_lincRNA =   $self->Final_BIOTYPE_TO_CHECK;  
-	my $dbName_to_check = 'lincRNA_output_db';
-	my $genes_to_check  = $self->get_genes_of_biotypes($biotype_lincRNA, $dbName_to_check);
+  my $biotype_lincRNA =   $self->Final_BIOTYPE_TO_CHECK;  
+  my $dbName_to_check = 'lincRNA_output_db';
+  my $genes_to_check  = $self->get_genes_of_biotypes($biotype_lincRNA, $dbName_to_check);
 
-	# get genes from core database
+  # get genes from core database
   my $core_dba = $self->hrdb_get_dba( $self->param('reference_db') );  
   $core_dba->dnadb($dna_dba);
   $self->hrdb_set_con($core_dba, 'reference_db');
   my $biotype_core = 'fetch_all_biotypes'; 
   my $core_to_check = 'reference_db'; 
- 	my $genes_from_core   = $self->get_genes_of_biotypes($biotype_core, $core_to_check);
- 	
-	print "### " . "fetch input :: biotype: $biotype_lincRNA has number of lincRNA genes to check: " . scalar(@$genes_to_check) . "\n";
-	print "### " . "fetch input :: biotype: $biotype_core number of core genes to check: " . scalar(@$genes_from_core) . "\n";
+  my $genes_from_core   = $self->get_genes_of_biotypes($biotype_core, $core_to_check);
+  
+  print "### " . "fetch input :: biotype: $biotype_lincRNA has number of lincRNA genes to check: " . scalar(@$genes_to_check) . "\n";
+  print "### " . "fetch input :: biotype: $biotype_core number of core genes to check: " . scalar(@$genes_from_core) . "\n";
 	
   $self->param('lincRNA_genes', $genes_to_check);
   $self->param('core_genes', $genes_from_core);
@@ -90,10 +92,9 @@ sub run {
 
   my $genes_to_process = $self->param('lincRNA_genes');
   my $standard_geneset = $self->param('core_genes');
-	my $output_file_l = $self->param('file_l');
-	my $output_file_b = $self->param('file_b');
-
-	my $short_genes = $self->check_length_of_genes($output_file_l, $genes_to_process);
+  my $output_file_l = $self->param('file_l');
+  my $output_file_b = $self->param('file_b');
+  my $short_genes = $self->check_length_of_genes($output_file_l, $genes_to_process);
   my $biotypes_updates = $self->update_biotypes($output_file_b, $genes_to_process );
   
   return 1;
@@ -110,8 +111,8 @@ sub write_output {
 #### Functions ###
 
 sub check_length_of_genes {
-	my ( $self, $output_file, $genes_to_process) = @_;
-	my @genes_to_fetch;
+  my ( $self, $output_file, $genes_to_process) = @_;
+  my @genes_to_fetch;
   my $count =0;
   my $how_many = 0;
   print "### my output file for length info about the genes is: $output_file \n";
@@ -120,7 +121,7 @@ sub check_length_of_genes {
   	my $gl_length = $g->length ;
     my $exons_count = check_number_of_exons($g); 
     if ( ( $gl_length < 200 ) or ($exons_count < 2) ) { 
-    	$how_many = $how_many+1; 
+      $how_many = $how_many+1; 
       my $some_id = ""; 
       if ($g->stable_id()) {
         $some_id = $g->stable_id(); 
@@ -136,7 +137,7 @@ sub check_length_of_genes {
 
 
 sub check_number_of_exons {
-	my ( $hgene) = shift;
+  my ( $hgene) = shift;
   my @exons = @{ $hgene->get_all_Exons }; 
   my $how_many_exons = scalar(@exons);
   return $how_many_exons; 
@@ -144,10 +145,10 @@ sub check_number_of_exons {
 
 
 sub update_biotypes {
-	my ( $self, $output_file, $lincRNA_geneset) = @_;
+  my ( $self, $output_file, $lincRNA_geneset) = @_;
 
   open (MYFILE_B, ">" , $output_file) or die "Couldn't open: $!"; 
-	my $assembly_version = $self->param('assembly_name');
+  my $assembly_version = $self->param('assembly_name');
   my $core_db = $self->hrdb_get_con('reference_db'); 
   my $core_db_adaptor = $core_db->get_SliceAdaptor;
   foreach my $g_lincRNA ( @{ $lincRNA_geneset } ) {
@@ -168,7 +169,7 @@ sub update_biotypes {
       	  if ($g_lincRNA->strand ne $g_core->strand) {
             # print "### " . $g_lincRNA->dbID . " " . $g_lincRNA->seq_region_start . " " . $g_lincRNA->seq_region_end . " " . $g_lincRNA->seq_region_name . " " . $g_lincRNA->biotype  . " gBiotype:" . $g_core->biotype  .  " linc_strand: " . $g_lincRNA->strand . " gStrand: " . $g_core->strand  .  " antisense\n";
             $tmp_biotype = "antisense"; 
-        	} else {
+          } else {
             # print "### " . $g_lincRNA->dbID . " " . $g_lincRNA->seq_region_start . " " . $g_lincRNA->seq_region_end . " " . $g_lincRNA->seq_region_name . " " . $g_lincRNA->biotype  . " gBiotype:" . $g_core->biotype  .  " linc_strand: " . $g_lincRNA->strand . " gStrand: " . $g_core->strand  .  " senseANDneedsAttention\n";      		
             $tmp_biotype = "sense"; 
       	  }
@@ -178,15 +179,15 @@ sub update_biotypes {
         }
       }
     } else {
-    	# in case there are more than 2 genes in that region. 
-    	my $count_protein_coding_overlaps = 0;
+      # in case there are more than 2 genes in that region. 
+      my $count_protein_coding_overlaps = 0;
       foreach my $g_core (@{ $slice_to_check->get_all_Genes } ) {	  
         if ($g_core->biotype eq "protein_coding" ) {  
-        	$protein_switch = 1 +$protein_switch; # there is a protein_coding, if more than one, requires attention! 
+          $protein_switch = 1 +$protein_switch; # there is a protein_coding, if more than one, requires attention! 
       	  if ($g_lincRNA->strand ne $g_core->strand) {
             print "### " . $g_lincRNA->dbID . " " . $g_lincRNA->seq_region_start . " " . $g_lincRNA->seq_region_end . " " . $g_lincRNA->seq_region_name . " " . $g_lincRNA->biotype  . " gBiotype:" . $g_core->biotype  .  " linc_strand: " . $g_lincRNA->strand . " gStrand: " . $g_core->strand  .  " antisense\n";
             $tmp_biotype = "antisense";
-        	} else {
+          } else {
             print "### " . $g_lincRNA->dbID . " " . $g_lincRNA->seq_region_start . " " . $g_lincRNA->seq_region_end . " " . $g_lincRNA->seq_region_name . " " . $g_lincRNA->biotype  . " gBiotype:" . $g_core->biotype  .  " linc_strand: " . $g_lincRNA->strand . " gStrand: " . $g_core->strand  .  " senseANDneedsAttention\n";      		
             $tmp_biotype = "sense";
       	  }

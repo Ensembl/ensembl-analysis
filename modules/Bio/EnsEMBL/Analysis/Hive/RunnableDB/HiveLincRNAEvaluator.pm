@@ -1,5 +1,7 @@
 =head1 LICENSE
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,7 +49,6 @@ use Data::Dumper;
 use Bio::EnsEMBL::Hive::Utils ('destringify'); 
 use Bio::EnsEMBL::Analysis; 
 use Bio::EnsEMBL::Analysis::Runnable::lincRNAEvaluator; 
-use Bio::EnsEMBL::Analysis::Tools::Logger; 
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice); 
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils; 
@@ -96,7 +97,7 @@ sub fetch_input{
   $runnable->exclude_single_exon_lincRNAs($self->EXCLUDE_SINGLE_EXON_LINCRNAS);  #####at6 added 3 Mar
   $runnable->exclude_artefact_two_exon_lincRNAs($self->EXCLUDE_ARTEFACT_TWO_EXON_LINCRNAS);  ####at6 added 3 Mar
 
-  $self->single_runnable($runnable);     
+  $self->single_runnable($runnable);  
   # not using RunnableDB SUPER class method "runnable" as the method stores runnable objects in an array.
   # the SUPER "run" method in RunnableDB then loops through the runnables.  As we are implementing the
   # 'run' method specifically for lincRNAEvaluator anyway, we might as well skip the array looping. 
@@ -113,7 +114,6 @@ sub run {
   #
 
   print  "\n Running GeneBuilder for " . scalar(@{$self->single_runnable->unclustered_ncrnas}). " unclustered lincRNAs...\n";  
-
   my $gb = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder->new(
           -query => $self->query,
           -analysis => $self->analysis,
@@ -180,7 +180,7 @@ sub run {
 sub write_output{
   my ($self) = @_; 
 
-  $self->create_analysis;
+  # $self->create_analysis;
   print  "\nWRITING RESULTS IN OUTPUT DB and/or VALIDATION DB... " . "\n";
   # update genes in the source db which cluster with processed_transcripts or lincRNAs
   # (if requested in the config file)
@@ -271,6 +271,23 @@ sub write_output{
 
     ## I will create a new gene without translations and only one transcript to be stored under different analysis ##
     # Make an analysis object (used later for storing stuff in the db)
+
+    my $analysis = Bio::EnsEMBL::Analysis->new(
+                                           -logic_name => $logic_name_to_be,
+                                           -displayable => 1
+                                           );
+
+    my $analysis_adaptor = $dba->get_AnalysisAdaptor();
+    # check if the logic name present in my database or if I need to create a new analysis_id, logic_name etc...
+    if ($analysis_adaptor->fetch_by_logic_name($logic_name_to_be) ) {
+    }else {
+        print "# will store the analysis, since it is not exist \n";
+        my $description = $logic_name_to_be ;
+        my $display_label = $logic_name_to_be;
+        $analysis->description($description) if $description;
+        $analysis->display_label($display_label) if $display_label;
+        $analysis_adaptor->store($analysis);
+    }
     
     my $tag      = $gene->display_id; 
     my $gene_linc = Bio::EnsEMBL::Gene->new( 
