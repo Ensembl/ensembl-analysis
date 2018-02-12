@@ -398,6 +398,7 @@ sub pipeline_analyses {
         interproscan_exe          => $self->o('interproscan_exe'),
         interproscan_applications => $self->o('interproscan_applications'),
         run_interproscan          => $self->o('run_interproscan'),
+        species                   => $self->('species'),
       },
       -rc_name           => 'normal_7900',
       -flow_into         => ['StoreProteinFeatures'],
