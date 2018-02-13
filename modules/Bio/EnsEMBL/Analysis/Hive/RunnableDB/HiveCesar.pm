@@ -43,7 +43,7 @@ into NNN triplets to make the best possible aligment.
 
 =head1 OPTIONS
 
--iid                  gene_id from the source_db corresponding to the
+-iid                  gene_id or array of gene_id from the source_db corresponding to the
 gene to be projected from the source_dna_db to the target_dna_db.
 -output_path          Path where the output files will be stored.
 -source_dna_db        Ensembl database containing the DNA sequences that
@@ -121,9 +121,6 @@ sub fetch_input {
     system("mkdir -p ".$self->param('output_path'));
   }
 
-  # if CESAR2.0 fails this will get -1 value so the module does not write anything and exits.
-  #$self->param('himem_required') = 0;
-
   my @input_id = ();
   if (reftype($self->param('iid')) eq "ARRAY") {
     @input_id = @{$self->param('iid')};
@@ -145,8 +142,7 @@ sub fetch_input {
   $self->hrdb_set_con($target_transcript_dba,'target_transcript_db');
 
   # Define the compara db
-  my $compara_dba =
-$self->hrdb_get_dba($self->param('compara_db'),undef,'Compara');
+  my $compara_dba = $self->hrdb_get_dba($self->param('compara_db'),undef,'Compara');
   $self->hrdb_set_con($compara_dba,'compara_db');
 
   # Get the genome db adpator
@@ -191,8 +187,6 @@ $self->hrdb_get_dba($self->param('compara_db'),undef,'Compara');
   foreach my $ii (@input_id) {
 
     my $gene = $source_transcript_dba->get_GeneAdaptor->fetch_by_dbID($ii);
-    $self->parent_genes($gene);
-
     my @unique_translateable_exons = $self->get_unique_translateable_exons($gene);
     my $exon_align_slices;
     my $genomic_align_block_adaptor = $compara_dba->get_GenomicAlignBlockAdaptor();
@@ -209,21 +203,14 @@ $self->hrdb_get_dba($self->param('compara_db'),undef,'Compara');
       }
 
       my $slice_adaptor = $source_dna_dba->get_SliceAdaptor();
-      my $exon_slice =
-$slice_adaptor->fetch_by_region($exon->slice->coord_system_name,
-$exon->slice->seq_region_name, $exon_padded_start, $exon_padded_end);
+      my $exon_slice = $slice_adaptor->fetch_by_region($exon->slice->coord_system_name,$exon->slice->seq_region_name, $exon_padded_start, $exon_padded_end);
 
-      my $genomic_align_blocks =
-$genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_Slice($mlss,
-$exon_slice);
+      my $genomic_align_blocks = $genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_Slice($mlss,$exon_slice);
       my $exon_slices = [];
       foreach my $genomic_align_block (@{$genomic_align_blocks}) {
-        my $restricted_gab =
-$genomic_align_block->restrict_between_reference_positions($exon_padded_start,
-$exon_padded_end);
+        my $restricted_gab = $genomic_align_block->restrict_between_reference_positions($exon_padded_start,$exon_padded_end);
         if ($restricted_gab) {
-          foreach my $genomic_align ( @{
-$restricted_gab->get_all_non_reference_genomic_aligns() } ) {
+          foreach my $genomic_align ( @{$restricted_gab->get_all_non_reference_genomic_aligns() } ) {
             my $genomic_align_slice = $genomic_align->get_Slice();
             push(@{$exon_slices},$genomic_align_slice);
             say "GAS NAME: ".$genomic_align_slice->name;
@@ -233,8 +220,15 @@ $restricted_gab->get_all_non_reference_genomic_aligns() } ) {
       }
       $exon_align_slices->{$exon->dbID} = $exon_slices;
     }
-    $self->unique_translateable_exons(\@unique_translateable_exons);
-    $self->exon_align_slices($exon_align_slices);
+    
+    if (\@unique_translateable_exons and $exon_align_slices and $gene) {
+      $self->parent_genes($gene);
+      $self->unique_translateable_exons(\@unique_translateable_exons);
+      $self->exon_align_slices($exon_align_slices);
+    } else {
+      $self->warning("Gene ".$gene->dbID()."( ".$gene->stable_id()." ) does not have unique_translateable_exons or exon_align_slices.");
+    }
+
   } # foreach my $ii
 
   # check that each gene has a set of unique translateable exons and exon align slices
@@ -258,7 +252,7 @@ sub run {
 
     my $himem_required = 0;
 
-    foreach my $exon (@{$exons}) {
+    foreach my $exon (@{$exons}) {   
       my $projected_exon = $self->project_exon($exon,$gene_index);
       if ($projected_exon == -1) {
         # it will be retried in the himem analysis
@@ -277,8 +271,7 @@ sub run {
     if (!$himem_required) {
       $self->build_transcripts($projected_exons,$gene_index);
     }
-    say "Had a total of ".$fail_count."/".scalar(@{$exons})." failed exon
-projections for gene ".$gene->dbID();
+    say "Had a total of ".$fail_count."/".scalar(@{$exons})." failed exon projections for gene ".$gene->dbID();
     $gene_index++;
   }
 }
@@ -401,8 +394,7 @@ sub build_transcripts {
     }
 
     say "Transcript translation:\n".$transcript->translation()->seq();
-    say "Projected transcript
-translation:\n".$projected_transcript->translation()->seq();
+    say "Projected transcript translation:\n".$projected_transcript->translation()->seq();
 
     my ($coverage,$percent_id) = (0,0);
     if ($projected_transcript->translation()->seq()) {
@@ -410,8 +402,7 @@ translation:\n".$projected_transcript->translation()->seq();
     }
     $projected_transcript->source($coverage);
     $projected_transcript->biotype($percent_id);
-  
-$projected_transcript->description(">orig\n".$transcript->translation()->seq()."\n>proj\n".$projected_transcript->translation()->seq());
+    $projected_transcript->description(">orig\n".$transcript->translation()->seq()."\n>proj\n".$projected_transcript->translation()->seq());
 
     # filter out transcripts below given pid and cov
     if ($self->TRANSCRIPT_FILTER) {
@@ -456,8 +447,7 @@ sub project_exon {
     say "Split coding base start: ".lc($split_codon);
     $seq = lc($split_codon).substr($seq,1);
   } else {
-    $self->throw("Unexpected phase found for exon ".$exon->stable_id."
-(".$exon->dbID()."): ".$phase);
+    $self->throw("Unexpected phase found for exon ".$exon->stable_id." (".$exon->dbID()."): ".$phase);
   }
 
   # Find 3' split codon and lowercase bases
@@ -472,15 +462,13 @@ sub project_exon {
     say "Split coding base end: ".lc($split_codon);
     $seq = substr($seq,0,length($seq)-2).lc($split_codon);
   } else {
-    $self->throw("Unexpected end phase found for exon
-".$exon->stable_id." (".$exon->dbID()."): ".$end_phase);
+    $self->throw("Unexpected end phase found for exon ".$exon->stable_id." (".$exon->dbID()."): ".$end_phase);
   }
 
   # remove bases from the 3' end in case the sequence is not multiple of 3
   while (($seq =~ tr/ACGT//)%3 != 0) {
     $seq = substr($seq,0,length($seq)-1);
-    say("Removed last base because the end phase is -1 and the sequence
-is not multiple of 3.");
+    say("Removed last base because the end phase is -1 and the sequence is not multiple of 3.");
   }
 
   # replace TGA stops/selenocysteines with NNN so CESAR2.0 makes it match with anything
@@ -500,12 +488,9 @@ is not multiple of 3.");
            $i+$i_step < length($seq)) { # ignore the last stop codon
          # selenocysteine stop found needs to be replaced with cysteine
          $seq = substr($seq,0,$i)."NNN".substr($seq,$i+3);
-         $exon->{'selenocysteine'} = $i; # create new exon attribute to
-store the start of the selenocysteine
+         $exon->{'selenocysteine'} = $i; # create new exon attribute to store the start of the selenocysteine
 
-         $self->warning("Potential selenocysteine/TGA stop codon found
-at position $i (including lower case flanks). Exon
-".$exon->stable_id().". Sequence (including lower case flanks): $seq");
+         $self->warning("Potential selenocysteine/TGA stop codon found at position $i (including lower case flanks). Exon ".$exon->stable_id().". Sequence (including lower case flanks): $seq");
        }
     }
   }
@@ -546,11 +531,9 @@ at position $i (including lower case flanks). Exon
   }
 
   chdir $self->param('cesar_path');
-  my $cesar_command = $self->param('cesar_path')."/cesar
-".$outfile_path." ".$extra_commands."--clade human ";
+  my $cesar_command = $self->param('cesar_path')."/cesar ".$outfile_path." ".$extra_commands."--clade human ";
   if ($self->param('cesar_mem')) {
-    $cesar_command .= "--max-memory ".$self->param('cesar_mem'); # set
-max mem in GB
+    $cesar_command .= "--max-memory ".$self->param('cesar_mem'); # set max mem in GB
   }
 
   say $cesar_command;
@@ -562,13 +545,11 @@ max mem in GB
 
   if ($cesar_output =~ /The memory consumption is limited/) {
     my $output_hash = {};
-    #$output_hash->{'iid'} = $self->param('iid');
-    $output_hash->{'iid'} = push(@{$output_hash->{'iid'}},@{$self->parent_genes()}[$gene_index]->dbID());
+    push(@{$output_hash->{'iid'}},@{$self->parent_genes()}[$gene_index]->dbID());
 
     $self->dataflow_output_id($output_hash,-1);
-    $self->warning("cesar command FAILED and it will be passed to
-cesar_himem: ".$cesar_command."\n");
-say "projected exon will return -1";
+    $self->warning("cesar command FAILED and it will be passed to cesar_himem: ".$cesar_command.". Gene ID: ".@{$self->parent_genes()}[$gene_index]->dbID()."\n");
+    say "projected exon will return -1";
     return (-1);
   } elsif ($cesar_output =~ /CRITICAL/) {
     $self->throw("cesar command FAILED: ".$cesar_command."\n");
@@ -594,8 +575,7 @@ say "projected exon will return -1";
       for (my $i = 0; $i < length($projected_exon_seq); $i += $i_step) {
         my $base_1 = substr($projected_exon_seq,$i,1);
         if ($base_1 !~ /[acgt]/) {
-          # we have reached the first (upper case or -) base of the exon
-sequence
+          # we have reached the first (upper case or -) base of the exon sequence
           $i_step = 3;
         }
         if ($i_step == 3) {
@@ -619,7 +599,8 @@ sequence
 
 sub parse_exon {
   my ($self,$source_exon,$projected_outfile_path) = @_;
- 
+print("===parse exon: exon is ".$source_exon->stable_id()."\n");
+print("===projected_outfile_path: ".$projected_outfile_path."\n");
   open(IN,$projected_outfile_path);
   my @projection_array = <IN>;
   close IN;
@@ -968,8 +949,7 @@ EXON: foreach my $exon (@$exons) {
     $exon_index++;
   }
 
-  print("Removing overlapping projected exons... After:
-".scalar(@{$no_overlap_exons})." exons.\n");
+  print("Removing overlapping projected exons... After: ".scalar(@{$no_overlap_exons})." exons.\n");
 
   return $no_overlap_exons;
 }
@@ -1027,5 +1007,3 @@ $self->filter($self->TRANSCRIPT_FILTER->{OBJECT}->new(%{$self->TRANSCRIPT_FILTER
 }
 
 1;
-
-
