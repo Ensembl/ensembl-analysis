@@ -32,7 +32,7 @@ Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar
 
 =head1 DESCRIPTION
 
-HiveCesar fetches the gene corresponding to gene_id in source_db,
+HiveCesar fetches the genes corresponding to the given array of gene_id or a single gene_id in source_db,
 projects its exons based on the given Compara lastz alignment and the
 CESAR2.0 aligner and builds single-transcript genes from these
 projections to be written to target_db while filtering out the specified
