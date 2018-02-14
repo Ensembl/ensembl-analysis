@@ -110,7 +110,7 @@ sub default_options {
         zebrafish_cs_version => 11,
 
         chimpanzee_alias => 'pan_troglotydes',
-        chimpanzee_cs_name => 'CHIMP3.0',
+        chimpanzee_cs_name => 'Pan_tro_3.0',
         chimpanzee_cs_version => 3,
 
         pig_alias => 'sus_scrofa',
