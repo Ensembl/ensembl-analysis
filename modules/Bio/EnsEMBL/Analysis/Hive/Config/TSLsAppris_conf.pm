@@ -106,8 +106,8 @@ sub default_options {
         rat_cs_version => 6,
 
         zebrafish_alias => 'danio_rerio',
-        zebrafish_cs_name => 'GRCz10',
-        zebrafish_cs_version => 10,
+        zebrafish_cs_name => 'GRCz11',
+        zebrafish_cs_version => 11,
 
         chimpanzee_alias => 'pan_troglotydes',
         chimpanzee_cs_name => 'CHIMP3.0',
