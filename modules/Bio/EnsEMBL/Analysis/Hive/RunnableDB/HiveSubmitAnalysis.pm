@@ -132,7 +132,7 @@ sub fetch_input {
 =head2 create_slice_ids
 
  Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
- Description: Create input ids based on slices using a Bio::EnsEMBL::Pipeline::Hive::HiveInputIDFactory
+ Description: Create input ids based on slices
               It stores the input ids in 'inputlist'
  Returntype : None
  Exceptions : None

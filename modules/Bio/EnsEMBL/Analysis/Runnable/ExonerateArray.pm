@@ -39,7 +39,7 @@ $database  = a full path location for the directory containing the target (genom
 $exonerate = a location for the binary,
 $options   = a string with options ,
 
-  my $runnable = Bio::EnsEMBL::Pipeline::Runnable::ExonerateArray->new(
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateArray->new(
 								       -db            =>$db,
 								       -query_seqs    => \@sequences,
 								       -program       => $exonerate,

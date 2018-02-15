@@ -140,18 +140,14 @@ sub write_output{
 
 =head2 make_seqfetcher
 
- Title   : make_seqfetcher
- Usage   :
- Function: if $index exists,
-           returns a Bio::EnsEMBL::Pipeline::SeqFetcher::Getseqs, otherwise throws
- Example :
- Returns : Bio::DB::RandomAccessI
- Args    : $indexname - string
-
+ Arg [1]    : Arrayref of String, indexes to be used
+ Arg [2]    : String, class of the indexer, usually Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher
+ Description: Returns the initialised indexer
+ Returntype : Bio::DB::RandomAccessI
+ Exceptions : Throws if Arg[1] does not exist
+              Throws if Arg[2] does not exist
 
 =cut
-
-
 
 sub make_seqfetcher {
   my ( $self, $index, $seqfetcher_class ) = @_;

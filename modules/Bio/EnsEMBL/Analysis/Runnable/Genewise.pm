@@ -27,12 +27,12 @@
 
 =head1 NAME
   
-Bio::EnsEMBL::Pipeline::Runnable::GeneWise - aligns protein hits to genomic sequence
+Bio::EnsEMBL::Analysis::Runnable::GeneWise - aligns protein hits to genomic sequence
 
 =head1 SYNOPSIS
 
     # Initialise the genewise module  
-    my $genewise = new  Bio::EnsEMBL::Pipeline::Runnable::Genewise  (
+    my $genewise = new  Bio::EnsEMBL::Analysis::Runnable::Genewise(
         'genomic'  => $genomic,
 	'protein'  => $protein,
         'memory'   => $memory);
