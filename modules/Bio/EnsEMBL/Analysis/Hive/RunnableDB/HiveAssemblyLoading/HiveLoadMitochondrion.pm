@@ -119,7 +119,7 @@ sub run {
   my $port = $target_db->{'-port'};
   my $dbname = $target_db->{'-dbname'};
 
-  my $cmd =  "perl ".$enscode_dir."/ensembl-pipeline/scripts/DataConversion/mitochondria/load_mitochondria.pl".
+  my $cmd =  'perl '.catfile($enscode_dir, 'ensembl-analysis', 'scripts', 'refseq', 'load_mitochondria.pl').
              " -dbhost ".$host.
              " -dbuser ".$user.
              " -dbport ".$port.
