@@ -102,7 +102,6 @@ sub run {
   my $toplevel;
   my $chromosome_flag = "";
   my $scaffold_flag = "";
-  my $contig_flag = " -contig ".$mt_accession;
   if($self->param('chromosomes_present')) {
     $toplevel = "chromosome";
     $chromosome_flag = " -chromosome  MT";
@@ -128,7 +127,6 @@ sub run {
              $chromosome_flag.
              " -name MT".
              $scaffold_flag.
-             $contig_flag.
              " -toplevel ".$toplevel.
              " -gene_type protein_coding".
              " -trna_type Mt_tRNA".
