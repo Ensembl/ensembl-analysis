@@ -62,7 +62,6 @@ sub default_options {
     %{ $self->SUPER::default_options() },
     'pipeline_name'   => $self->o('production_name').'_intron_check', #!!!!!!!!!!! What you want hive to call the pipeline, not the db name itself
     'production_name' => '',
-    'release_number'  => 92, #!!!!!!!!!!! (you can put whatever here if you're not sure)
 
     'user_r'   => '', #!!!!!!!!!!!
     'user'     => '', #!!!!!!!!!!!
@@ -72,7 +71,7 @@ sub default_options {
     'pipe_db_server' => $self->o('host'),
     'pipe_db_port'   => $self->o('port'),
 
-    'dna_dbname'    => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
+    'dna_db_name'    => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
     'dna_db_server' => $self->o('data_dbs_server'),
     'dna_db_port'   => $self->o('data_dbs_port'),
 

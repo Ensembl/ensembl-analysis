@@ -70,10 +70,10 @@ sub default_options {
     'reports_dir' => '/path/to/nobackup/production/ensembl/...',
 
     # email to send the vega checks reports to
-    'vega_checks_reports_email' => '@ebi.ac.uk',
+    'vega_checks_reports_email' => $self->o('email_address'),
 
     # email to send the missing CCDS report to
-    'ccds_report_email' => '@ebi.ac.uk',
+    'ccds_report_email' => $self->o('email_address'),
 
     # name of the files containing the temporary original vega and ensembl database dumps
     'vega_tmp_filename' => 'vegadump.tmp',
@@ -132,7 +132,7 @@ sub default_options {
     'uniprot_file' => '/path/to/nobackup/production/ensembl/genebuild/blastdb/uniprot/uniprot_20XX_XX/entry_loc',
 
     # full path to your local copy of the ensembl-analysis git repository
-    'ensembl_analysis_base' => '$ENSCODE/ensembl-analysis',
+    'ensembl_analysis_base' => catdir($self->o('enscode_root_dir'), 'ensembl-analysis'),
 
     # database parameters
     'default_port' => 4527, # default port to be used for all databases except the original vega db provided by the Vega team
@@ -162,7 +162,7 @@ sub default_options {
     'production_name' => '',
     'production_port' => '',
 
-    'pipe_dbname' => '', # pipeline db, automatically created
+    'pipe_db_name' => '', # pipeline db, automatically created
 
     'vega_name' => '', # vega database to be used for the merge
 
@@ -192,7 +192,6 @@ sub default_options {
     
     # alignment annotation on patches
     'taxon_id'             => 'XXXX', # '9606' for human
-    'clone_db_script_path' => "$ENSCODE/ensembl-analysis/scripts/clone_database.ksh",
     'genblast_name'        => 'XXX_genblast_XXX', # genblast database
     'genblast_host'        => $self->o('default_host'),
     'exonerate_settings'   => 'exonerate_protein_XXX_patch', # exonerate settings to use from ExonerateStatic
@@ -280,12 +279,12 @@ sub default_options {
 
     ## Required by HiveBaseConfig_conf
     #core_db (not required in the merge process, leave blank)
-    'core_dbname' => '',
+    'core_db_name' => '',
     'core_db_server' => '',
     'port' => '',
     #'user_r' => '',
     #dna_db (not required in the merge process, leave blank)
-    'dna_dbname' => '',
+    'dna_db_name' => '',
     'dna_db_server' => '',
     #'port' => '',
     #'user_r' => '',
@@ -297,6 +296,7 @@ sub default_options {
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('original_ensembl_name'),
+                    -driver    => $self->o('hive_driver')
     },
 
     # vega database provided by the Vega team
@@ -306,6 +306,7 @@ sub default_options {
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('original_vega_name'),
+                    -driver    => $self->o('hive_driver')
     },
 
     # ensembl database to be used for the merge
@@ -315,6 +316,7 @@ sub default_options {
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
                     -dbname    => $self->o('ensembl_name'),
+                    -driver    => $self->o('hive_driver')
     },
 
     # ccds database containing the CCDS gene set
@@ -324,6 +326,7 @@ sub default_options {
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('ccds_name'),
+                    -driver    => $self->o('hive_driver')
     },
 
     # previous core database (available on ens-staging or ens-livemirror)
@@ -333,6 +336,7 @@ sub default_options {
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('prevcore_name'),
+                    -driver    => $self->o('hive_driver')
     },
     'db_conn' => 'mysql://'.$self->o('user_r').'@'.$self->o('prevcore_host').':'.$self->o('prevcore_port'),
 
@@ -342,8 +346,8 @@ sub default_options {
                     -port      => $self->o('pipe_port'),
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
-                    -dbname    => $self->o('pipe_dbname'),
-                    -driver    => "mysql",
+                    -dbname    => $self->o('pipe_db_name'),
+                    -driver    => $self->o('hive_driver')
     },
 
     # vega database to be used for the merge
@@ -473,6 +477,7 @@ sub default_options {
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('production_name'),
+                    -driver    => $self->o('hive_driver')
     },
 
   };

@@ -45,7 +45,6 @@ sub default_options {
 ##########################################################################
 
     'species'         => '', # either mus_musculus or homo_sapiens
-    'ensembl_release' => $ENV{ENSEMBL_RELEASE}, # What release are you doing this for?
     'strategy'        => 'update', # set this to update or complete. Update will just align the new cDNAs, complete will realign all of them
     'password'        => '',
 
@@ -57,8 +56,8 @@ sub default_options {
     'output_db_port'   => 4529,
 
     # details of the last cdna db (eg. on livemirror)
-    'core_db_name' => $self->o('species').'_core_'.$self->o('ensembl_release').'-'.$self->o('coord_system_version'),
-    'old_cdna_db_name' => $self->o('species').'_cdna_'.$self->o('ensembl_release').'-'.$self->o('coord_system_version'), # This works because production copies the old DB and patch the schema on staging
+    'core_db_name' => $self->o('species').'_core_'.$self->o('release_number').'-'.$self->o('coord_system_version'),
+    'old_cdna_db_name' => $self->o('species').'_cdna_'.$self->o('release_number').'-'.$self->o('coord_system_version'), # This works because production copies the old DB and patch the schema on staging
 
     'dna_db_server' => 'mysql-ens-genebuild-prod-2',
     'dna_db_port'   => 4528,
@@ -74,18 +73,16 @@ sub default_options {
 #                                                                        #
 ##########################################################################
 
-    'pipeline_name' => $self->o('species').'_cdna_update_'.$self->o('ensembl_release'),
+    'pipeline_name' => $self->o('species').'_cdna_update_'.$self->o('release_number'),
     'coord_system_version' => 38,
 
-    'recipient_email' => $ENV{HIVE_EMAIL}, # email address where reports will be sent
-
     'dna_dbname'    => $self->o('dbowner').'_'.$self->o('core_db_name'),
-    'output_db_name'   => $self->o('dbowner').'_'.$self->o('species').'_cdna_'.$self->o('ensembl_release').'-'.$self->o('coord_system_version'),
+    'output_db_name'   => $self->o('dbowner').'_'.$self->o('species').'_cdna_'.$self->o('release_number').'-'.$self->o('coord_system_version'),
 
     'hive_capacity' => 100,
     'default_queue'              => 'production-rh7',
 
-    'output_path' => catdir($self->o('base_output_dir'), $self->o('species'), $self->o('ensembl_release')), # output directory you want to place downloaded files and log files
+    'output_path' => catdir($self->o('base_output_dir'), $self->o('species'), $self->o('release_number')), # output directory you want to place downloaded files and log files
     'genome_file' => catfile($self->o('output_path'), 'genome', $self->o('species').'_softmasked_toplevel.fa'), #The softmasked genome file for either homo_sapiens or mus_musculus
     'repeat_masking_logic_names' => ['dust', 'repeatmask_repbase_'.$self->o('species')], # the repeatmask logic name(s) of the analyses used in the genebuild
 
@@ -127,11 +124,10 @@ sub default_options {
     'meta_level_script'          => catfile($self->o('enscode_root_dir').'', 'ensembl', 'misc-scripts', 'meta_levels.pl'),
     'meta_coord_script'          => catfile($self->o('enscode_root_dir').'', 'ensembl', 'misc-scripts', 'meta_coord', 'update_meta_coord.pl'),
 
-    'killlist_db_name' => 'gb_kill_list',
     'killlist_db_server' => 'mysql-ens-genebuild-prod-6.ebi.ac.uk',
     'killlist_db_port' => 4532,
 
-    'production_db_name' => 'ensembl_production_'.$self->o('ensembl_release'),
+    'production_db_name' => 'ensembl_production_'.$self->o('release_number'),
     'production_db_server' => 'mysql-ens-sta-1',
     'production_db_port' => 4519,
 
@@ -600,7 +596,7 @@ sub pipeline_analyses {
       -logic_name => 'comparison_report',
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::TextfileByEmail',
       -parameters => {
-        email => $self->o('recipient_email'),
+        email => $self->o('email_address'),
         subject => 'AUTOMATED REPORT: cDNA update database comparison',
         text => 'Please find below the counts for each toplevel seq_region for the current and the previous cDNA updates:',
         file => '#wide_output_dir#/comparison.out',,

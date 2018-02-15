@@ -72,7 +72,7 @@ sub default_options {
     'port'     => '',
     'host'     => '',
 
-    'dna_dbname'    => '',
+    'dna_db_name'    => '',
     'dna_db_server' => '',
     'dna_db_port'   => '',
 

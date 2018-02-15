@@ -40,9 +40,6 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
-'farm_user_name' => '', # for ref db prefix
-'genebuilder_id' => '', # for meta table
-'enscode_root_dir' => '', # git repo checkouts
 'output_path' => '', # path to dir to write output to
 'ftp_link_file' => '', # path to file containing NCBI ftp links
 'repeatmasker_library' => '', # repbase library to use
@@ -52,13 +49,12 @@ sub default_options {
 # Pipe and ref db info
 ########################
 'pipeline_name' => '',
-'pipe_dbname' => '',
+'pipe_db_name' => '',
 'pipe_db_server' => '', # NOTE! used to generate tokens in the resource_classes sub below
 'reference_db_server' => '', # NOTE! used to generate tokens in the resource_classes sub below
 'user' => '',
 'password' => '',
 'port' => 3306,
-'driver' => 'mysql',
 'num_tokens' => 10,
 
 ########################
@@ -109,8 +105,8 @@ sub default_options {
   -port   => $self->o('port'),
   -user   => $self->o('user'),
   -pass   => $self->o('password'),
-  -dbname => $self->o('pipe_dbname'),
-  -driver => $self->o('driver'),
+  -dbname => $self->o('pipe_db_name'),
+  -driver => $self->o('hive_driver'),
 },
 
 # NOTE! the dbname for each species is generated in the pipeline itself by setup_assembly_loading_pipeline
@@ -119,6 +115,7 @@ sub default_options {
   -port   => $self->o('port'),
   -user   => $self->o('user'),
   -pass   => $self->o('password'),
+  -driver => $self->o('hive_driver'),
 },
 
 'production_db' => {
@@ -126,6 +123,7 @@ sub default_options {
   -port   => 3306,
   -user   => 'ensro',
   -dbname => 'ensembl_production_'.$self->o('ensembl_release'),
+  -driver => $self->o('hive_driver'),
 },
 
 'taxonomy_db' => {
@@ -133,6 +131,7 @@ sub default_options {
   -port   => 3306,
   -user   => 'ensro',
   -dbname => 'ncbi_taxonomy',
+  -driver => $self->o('hive_driver'),
 },
 
 
@@ -176,7 +175,7 @@ sub pipeline_analyses {
         -logic_name => 'setup_assembly_loading_pipeline',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveSetupAssemblyPipeline',
         -parameters => {
-                         farm_user_name => $self->o('farm_user_name'),
+                         farm_user_name => $self->o('dbowner'),
                          genebuilder_id => $self->o('genebuilder_id'),
                          enscode_root_dir => $self->o('enscode_root_dir'),
                          output_path => $self->o('output_path'),

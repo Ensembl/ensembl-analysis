@@ -38,14 +38,9 @@ sub default_options {
 # Variable settings- You change these!!!
 #
 ######################################################
-    use_tokens => 0,
 ########################
 # Misc setup info
 ########################
-    'email_address'             => '' || $ENV{HIVE_EMAIL}, #!!!!!!!!!!!
-    'genebuilder_id'            => '' || $ENV{GENEBUILDER_ID}, #!!!!!!!!!!!
-    'release_number'            => '', #!!!!!!!!!!! (you can put whatever here if you're not sure)
-    'enscode_root_dir'          => '' || $ENV{ENSCODE},  #!!!!!!!!!!! git repo checkouts
     'repbase_logic_name'        => '', #!!!!!!!!!!!!!!!!! repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'repbase_library'           => '', #!!!!!!!!!!!!!!!!! repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'species_name'              => '', #!!!!!!!!!!!!!!!!! e.g. mus_musculus
@@ -94,24 +89,24 @@ sub default_options {
     # The following might not be known in advance, since the come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
     # If they are not needed (i.e. no projection or rnaseq) then leave them as is
-    'projection_lastz_dbname'      => 'PROJECTION_LASTZ_DBNAME',
+    'projection_lastz_db_name'      => 'PROJECTION_LASTZ_DBNAME',
     'projection_lastz_db_server'   => 'PROJECTION_LASTZ_SERVER',
     'projection_lastz_db_port'     => 'PROJECTION_LASTZ_PORT',
-    'rnaseq_refine_dbname'         => 'RNASEQ_REFINE_DBNAME',
+    'rnaseq_refine_db_name'         => 'RNASEQ_REFINE_DBNAME',
     'rnaseq_refine_db_server'      => 'RNASEQ_REFINE_SERVER',
     'rnaseq_refine_db_port'        => 'RNASEQ_REFINE_PORT',
-    'rnaseq_blast_dbname'          => 'RNASEQ_BLAST_DBNAME',
+    'rnaseq_blast_db_name'          => 'RNASEQ_BLAST_DBNAME',
     'rnaseq_blast_db_server'       => 'RNASEQ_BLAST_SERVER',
     'rnaseq_blast_db_port'         => 'RNASEQ_BLAST_PORT',
 
     'provider_name'                => 'Ensembl',
     'provider_url'                 => 'www.ensembl.org',
 
-    'pipe_dbname'                  => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
-    'dna_dbname'                   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
+    'pipe_db_name'                  => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
+    'dna_db_name'                   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
     'port'                         => $self->o('pipe_db_port'),
 
-    'reference_dbname'             => $self->o('dna_dbname'),
+    'reference_db_name'             => $self->o('dna_db_name'),
     'reference_db_server'          => $self->o('dna_db_server'),
     'reference_db_port'            => $self->o('dna_db_port'),
 
@@ -242,7 +237,6 @@ sub default_options {
     'repeat_logic_names'          => ['repeatmask_repbase_'.$self->o('repbase_logic_name'),'dust'],
     'homology_models_path'        => catdir($self->o('output_path'),'homology_models'),
     'load_fasta_script_path'        => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'load_fasta_to_db_table.pl'),
-    'clone_db_script_path'      => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
     'refseq_synonyms_script_path' => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'refseq', 'load_refseq_synonyms.pl'),
     'refseq_import_script_path'   => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'refseq', 'parse_ncbi_gff3.pl'),
     'loading_report_script'     => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'report_genome_prep_stats.pl'),
@@ -354,10 +348,8 @@ sub default_options {
 ########################
 # db info
 ########################
-    'killlist_dbname' => 'gb_kill_list',
-
     'reference_db' => {
-      -dbname => $self->o('reference_dbname'),
+      -dbname => $self->o('reference_db_name'),
       -host   => $self->o('reference_db_server'),
       -port   => $self->o('reference_db_port'),
       -user   => $self->o('user'),
@@ -448,7 +440,7 @@ sub default_options {
     },
 
     'projection_lastz_db' => {
-      -dbname => $self->o('projection_lastz_dbname'),
+      -dbname => $self->o('projection_lastz_db_name'),
       -host   => $self->o('projection_lastz_db_server'),
       -port   => $self->o('projection_lastz_db_port'),
       -user   => $self->o('user_r'),
@@ -475,7 +467,7 @@ sub default_options {
     },
 
     'rnaseq_refine_db' => {
-      -dbname => $self->o('rnaseq_refine_dbname'),
+      -dbname => $self->o('rnaseq_refine_db_name'),
       -host   => $self->o('rnaseq_refine_db_server'),
       -port   => $self->o('rnaseq_refine_db_port'),
       -user   => $self->o('user_r'),
@@ -483,7 +475,7 @@ sub default_options {
     },
 
     'rnaseq_blast_db' => {
-      -dbname => $self->o('rnaseq_blast_dbname'),
+      -dbname => $self->o('rnaseq_blast_db_name'),
       -host   => $self->o('rnaseq_blast_db_server'),
       -port   => $self->o('rnaseq_blast_db_port'),
       -user   => $self->o('user_r'),
@@ -554,7 +546,7 @@ sub default_options {
     },
 
     'killlist_db' => {
-      -dbname => $self->o('killlist_dbname'),
+      -dbname => $self->o('killlist_db_name'),
       -host   => $self->o('killlist_db_server'),
       -port   => $self->o('killlist_db_port'),
       -user   => $self->o('user_r'),

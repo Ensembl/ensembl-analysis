@@ -58,11 +58,11 @@ sub default_options {
         'assembly_name' => '',
         'email' => '', # Add your email so you can be notified when a bam file is removed
 
-        'pipe_dbname'   => $self->o('dbowner').'_'.$self->o('pipeline_name').'_hive',
-        'dna_dbname'    => '',
-        'blast_dbname'  => $self->o('dbowner').'_'.$self->o('pipeline_name').'_'.$self->o('species').'_blast',
-        'refine_dbname' => $self->o('dbowner').'_'.$self->o('pipeline_name').'_'.$self->o('species').'_refine',
-        'rough_dbname'  => $self->o('dbowner').'_'.$self->o('pipeline_name').'_'.$self->o('species').'_rough',
+        'pipe_db_name'   => $self->o('dbowner').'_'.$self->o('pipeline_name').'_hive',
+        'dna_db_name'    => '',
+        'blast_db_name'  => $self->o('dbowner').'_'.$self->o('pipeline_name').'_'.$self->o('species').'_blast',
+        'refine_db_name' => $self->o('dbowner').'_'.$self->o('pipeline_name').'_'.$self->o('species').'_refine',
+        'rough_db_name'  => $self->o('dbowner').'_'.$self->o('pipeline_name').'_'.$self->o('species').'_rough',
 
         'pipe_db_server'   => '',
         'dna_db_server'    => '',
@@ -81,10 +81,6 @@ sub default_options {
         'genome_file'     => 'genome/genome.fa',
         'use_ucsc_naming' => 0,
 
-        'enscode_root_dir'     => $ENV{ENSCODE}, #!!!!!!!!!!! git repo checkouts
-        'software_base_path'   => $ENV{LINUXBREW_HOME},
-        'binary_base'          => catdir($self->o('software_base_path'), 'bin'),
-        'clone_db_script_path' => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
         'sequence_dump_script' => catfile($self->o('enscode_root_dir'),'ensembl-analysis', 'scripts', 'sequence_dump.pl'),
         'create_type' => 'clone',
 
@@ -190,7 +186,7 @@ sub default_options {
         databases_to_delete => ['blast_db', 'refine_db', 'rough_db'],
 
         'blast_db' => {
-                           -dbname => $self->o('blast_dbname'),
+                           -dbname => $self->o('blast_db_name'),
                            -host   => $self->o('blast_db_server'),
                            -port   => $self->o('blast_db_port'),
                            -user   => $self->o('blast_db_user'),
@@ -199,7 +195,7 @@ sub default_options {
                          },
 
         'refine_db' => {
-                           -dbname => $self->o('refine_dbname'),
+                           -dbname => $self->o('refine_db_name'),
                            -host   => $self->o('refine_db_server'),
                            -port   => $self->o('refine_db_port'),
                            -user   => $self->o('refine_db_user'),
@@ -208,7 +204,7 @@ sub default_options {
                         },
 
         'rough_db' => {
-                           -dbname => $self->o('rough_dbname'),
+                           -dbname => $self->o('rough_db_name'),
                            -host   => $self->o('rough_db_server'),
                            -port   => $self->o('rough_db_port'),
                            -user   => $self->o('rough_db_user'),
@@ -341,7 +337,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -rc_name => '1GB',
         -parameters => {
-            cmd => 'if [ ! -s "#wide_genome_file#" ]; then perl '.$self->o('sequence_dump_script').' -dbhost '.$self->o('dna_db_server').' -dbuser '.$self->o('dna_db_user').' -dbport '.$self->o('dna_db_port').' -dbname '.$self->o('dna_dbname').' -coord_system_name '.$self->o('assembly_name').' -toplevel -onefile -header rnaseq -filename #wide_genome_file#;fi',
+            cmd => 'if [ ! -s "#wide_genome_file#" ]; then perl '.$self->o('sequence_dump_script').' -dbhost '.$self->o('dna_db_server').' -dbuser '.$self->o('dna_db_user').' -dbport '.$self->o('dna_db_port').' -dbname '.$self->o('dna_db_name').' -coord_system_name '.$self->o('assembly_name').' -toplevel -onefile -header rnaseq -filename #wide_genome_file#;fi',
         },
         -flow_into => {
             1 => [ 'index_genome_file'],

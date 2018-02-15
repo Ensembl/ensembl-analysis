@@ -14,29 +14,27 @@ sub default_options {
         # inherit other stuff from the base class
 	    %{ $self->SUPER::default_options() },
 
-'enscode_root_dir' => '/path/to/enscode/',
 'cesar_path' => '/path/to/CESAR2.0/',
 'user' => 'READ_USER',
 'user_r' => 'READ_USER',
 'user_w' => 'WRITE_USER',
 'password' => 'WRITE_PASS',
-'driver' => 'mysql',
+'driver' => $self->o('hive_driver'),
 'method_link_type' => 'LASTZ_NET', # no need to modify this
-'clone_db_script_path' => $self->o('enscode_root_dir').'/ensembl-analysis/scripts/clone_database.ksh', # no need to modify this
 
 # database details for the eHive pipe database
 'server1' => '',
 'port1' => '',
-'pipeline_dbname' => 'USER_SPECIES_NAME2_cesar_pipe_RELEASE_ASSEMBLY', # this db will be created
+'pipeline_db_name' => 'USER_SPECIES_NAME2_cesar_pipe_RELEASE_ASSEMBLY', # this db will be created
 
 # database details for the other databases
 'server2' => '',
 'port2' => '',
-'compara_dbname' => 'USER_SPECIES_NAME2_lastz_RELEASE_ASSEMBLY', # compara db containing the lastz alignments
-'source_dna_dbname' => 'USER_SPECIES_NAME1_core_RELEASE_ASSEMBLY', # core db containing the dna for the gene set to be projected
-'source_transcript_dbname' => 'USER_SPECIES_NAME1_core_RELEASE_ASSEMBLY', # core db containing the gene set to be projected
-'projection_dna_dbname' => 'USER_SPECIES_NAME2_core_RELEASE_ASSEMBLY', # core db containing the dna for the projected gene set
-'projection_dbname' => 'USER_SPECIES_NAME2_cesar_RELEASE_ASSEMBLY', # core db which will be created to store the projected gene set
+'compara_db_name' => 'USER_SPECIES_NAME2_lastz_RELEASE_ASSEMBLY', # compara db containing the lastz alignments
+'source_dna_db_name' => 'USER_SPECIES_NAME1_core_RELEASE_ASSEMBLY', # core db containing the dna for the gene set to be projected
+'source_transcript_db_name' => 'USER_SPECIES_NAME1_core_RELEASE_ASSEMBLY', # core db containing the gene set to be projected
+'projection_dna_db_name' => 'USER_SPECIES_NAME2_core_RELEASE_ASSEMBLY', # core db containing the dna for the projected gene set
+'projection_db_name' => 'USER_SPECIES_NAME2_cesar_RELEASE_ASSEMBLY', # core db which will be created to store the projected gene set
 
 'output_path' => '/path/to/cesar_output',
 
@@ -44,7 +42,7 @@ sub default_options {
 
         'pipeline_db' => {
           # connection parameters
-            -dbname => $self->o('pipeline_dbname'),
+            -dbname => $self->o('pipeline_db_name'),
             -host   => $self->o('server1'),
             -port   => $self->o('port1'),
             -user   => $self->o('user_w'),
@@ -53,28 +51,28 @@ sub default_options {
         },
 
         'source_dna_db' => {
-                            -dbname => $self->o('source_dna_dbname'),
+                            -dbname => $self->o('source_dna_db_name'),
                             -host   => $self->o('server2'),
                             -port   => $self->o('port2'),
                             -user   => $self->o('user'),
                           },
 
         'source_transcript_db' => {
-                            -dbname => $self->o('source_transcript_dbname'),
+                            -dbname => $self->o('source_transcript_db_name'),
                             -host   => $self->o('server2'),
                             -port   => $self->o('port2'),
                             -user   => $self->o('user'),
                           },
 
         'projection_dna_db' => {
-                            -dbname => $self->o('projection_dna_dbname'),
+                            -dbname => $self->o('projection_dna_db_name'),
                             -host   => $self->o('server2'),
                             -port   => $self->o('port2'),
                             -user   => $self->o('user'),
                           },
 
         'projection_db' => {
-                            -dbname => $self->o('projection_dbname'),
+                            -dbname => $self->o('projection_db_name'),
                             -host   => $self->o('server2'),
                             -port   => $self->o('port2'),
                             -user   => $self->o('user_w'),
@@ -82,7 +80,7 @@ sub default_options {
                           },
 
          'compara_db' => {
-                            -dbname => $self->o('compara_dbname'),
+                            -dbname => $self->o('compara_db_name'),
                             -host   => $self->o('server2'),
                             -port   => $self->o('port2'),
                             -user   => $self->o('user'),

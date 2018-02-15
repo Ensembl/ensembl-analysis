@@ -73,16 +73,16 @@ sub default_options {
     'imgt_table_name'     => 'protein_sequences',
     'sequence_batch_size' => 1,
 
-    'imgt_dbname'    => $self->o('dbowner').'_'.$self->o('pipeline_name').'_imgt',
+    'imgt_db_name'    => $self->o('dbowner').'_'.$self->o('pipeline_name').'_imgt',
     'imgt_db_server' => '',
     'imgt_db_port'   => 4529,
 
-    'dna_dbname'    => '',
+    'dna_db_name'    => '',
     'dna_db_server' => '',
     'dna_db_port'   => '',
 
     'imgt_db' => {
-      -dbname => $self->o('imgt_dbname'),
+      -dbname => $self->o('imgt_db_name'),
       -host   => $self->o('imgt_db_server'),
       -port   => $self->o('imgt_db_port'),
       -user   => $self->o('user'),
