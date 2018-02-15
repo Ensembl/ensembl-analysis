@@ -288,41 +288,10 @@ sub run {
     if($self->SINGLE_EXON) {
       $self->spliced_elsewhere_ids($runnable->single_exon_genes);
     }
-#    if($self->INDETERMINATE) {
-#      $self->store_ids( $runnable->indeterminate_genes, $self->PSILC_LOGIC_NAME );
-#    }
   }
   return 1;
 }
 
-=head2 store_ids
-
-Arg [none] :
-  Description: stores gene dbIDS of genes being held back for further analyses
-  Returntype : scalar
-  Exceptions : throws if it cannot open the file
-  Caller     : general
-
-=cut
-
-#sub store_ids {
-#  my ($self, $id_list,$analysis_name) = @_;
-
-#  my $flag_adaptor = Bio::EnsEMBL::Pipeline::DBSQL::FlagAdaptor->new($self->hrdb_get_con('output_db'));
-#  my $analysis = $self->analysis();
-
-  # What do you do if the analysis thing isnt found?
-#  return 0 unless (scalar(@{$id_list} >0));
-#  foreach my $id(@{$id_list}){
-#    my $flag = Bio::EnsEMBL::Pipeline::Flag->new(
-#						 '-type'         => 'gene',
-#						 '-ensembl_id'   => $id,
-#						 '-goalAnalysis' => $analysis,
-#						);
-#    $flag_adaptor->store($flag);
-#  }
-#  return;
-#}
 
 =head2 lazy_load
 
