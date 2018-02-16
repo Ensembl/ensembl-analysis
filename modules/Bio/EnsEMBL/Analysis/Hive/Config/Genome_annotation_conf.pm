@@ -17,7 +17,7 @@ limitations under the License.
 
 =cut
 
-package Genome_annotation_static_conf;
+package Genome_annotation_conf;
 
 use strict;
 use warnings;
@@ -41,25 +41,25 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
-    'repbase_logic_name'        => '', #!!!!!!!!!!!!!!!!! repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
-    'repbase_library'           => '', #!!!!!!!!!!!!!!!!! repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
-    'species_name'              => '', #!!!!!!!!!!!!!!!!! e.g. mus_musculus
-    'production_name'           => '',
-    'taxon_id'                  => '', #!!!!!!!!!!!!!!!!! should be in the assembly report file
-    'uniprot_set'               => '', #!!!!!!!!!!!!!!!!! Check sub uniprot_clade_download below for suitable set
-    'output_path'               => '', # Lustre output dir
-    'wgs_id'                    => '', #!!!!!!!!!!!!!! Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
-    'assembly_name'             => '', #!!!!!!!!!!!!!! Name (as it appears in the assembly report file)
-    'assembly_accession'        => '', #!!!!!!!!!!!!!! GCA
-    'assembly_refseq_accession' => '', #!!!!!!!!!!!!!! GCF
+    'repbase_logic_name'        => 'thibaut', #!!!!!!!!!!!!!!!!! repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
+    'repbase_library'           => 'thibaut', #!!!!!!!!!!!!!!!!! repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
+    'species_name'              => 'thibaut', #!!!!!!!!!!!!!!!!! e.g. mus_musculus
+    'production_name'           => 'thibaut',
+    'taxon_id'                  => 'thibaut', #!!!!!!!!!!!!!!!!! should be in the assembly report file
+    'uniprot_set'               => 'primates_basic', #!!!!!!!!!!!!!!!!! Check sub uniprot_clade_download below for suitable set
+    'output_path'               => 'thibaut', # Lustre output dir
+    'wgs_id'                    => 'thibaut', #!!!!!!!!!!!!!! Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
+    'assembly_name'             => 'thibaut', #!!!!!!!!!!!!!! Name (as it appears in the assembly report file)
+    'assembly_accession'        => 'thibaut', #!!!!!!!!!!!!!! GCA
+    'assembly_refseq_accession' => 'thibaut', #!!!!!!!!!!!!!! GCF
     'mt_accession'              => undef, # This should be set to undef unless you know what you are doing
     'skip_projection'           => 0, # Will skip projection process if 1
     'skip_rnaseq'               => 0, # Will skip rnaseq blast db formatting if 1
     'skip_ncrna'                => 0, # Will skip ncrna process if 1
     'skip_cleaning'             => 0, # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => 0,
-    'mapping_db'                => '',
-    'stable_id_prefix'          => '',
+    'mapping_db'                => 'thibaut',
+    'stable_id_prefix'          => 'thibaut',
     'stable_id_start'           => '0',
     'uniprot_db_dir'            => 'uniprot_2017_04', # e.g. 'uniprot_2017_04'
     'vertrna_version'           => 132,
@@ -69,20 +69,20 @@ sub default_options {
 ########################
 # Pipe and ref db info
 ########################
-    'pipeline_name'                => '', #!!!!!!!!!!! What you want hive to call the pipeline, not the db name itself
-    'user_r'                       => '', #!!!!!!!!!!!
-    'user'                         => '', #!!!!!!!!!!!
-    'password'                     => '', #!!!!!!!!!!!
+    'pipeline_name'                => 'annotation_config_test', #!!!!!!!!!!! What you want hive to call the pipeline, not the db name itself
+    'user_r'                       => 'ensro', #!!!!!!!!!!!
+    'user'                         => 'ensadmin', #!!!!!!!!!!!
+    'password'                     => 'ensembl', #!!!!!!!!!!!
 
-    'pipe_db_server'               => '', #!!!!!!!!!!!
-    'databases_server'             => '', #!!!!!!!!!!!
-    'dna_db_server'                => '', #!!!!!!!!!!!
+    'pipe_db_server'               => 'mysql-ens-genebuild-prod-1', #!!!!!!!!!!!
+    'databases_server'             => 'mysql-ens-genebuild-prod-1', #!!!!!!!!!!!
+    'dna_db_server'                => 'mysql-ens-genebuild-prod-1', #!!!!!!!!!!!
 
-    'pipe_db_port'                 => '', #!!!!!!!!!!!
-    'databases_port'               => '', #!!!!!!!!!!!
-    'dna_db_port'                  => '', #!!!!!!!!!!!
+    'pipe_db_port'                 => '4527', #!!!!!!!!!!!
+    'databases_port'               => '4527', #!!!!!!!!!!!
+    'dna_db_port'                  => '4527', #!!!!!!!!!!!
 
-    'projection_source_db_name'    => '', # This is generally a pre-existing db, like the current human/mouse core for example
+    'projection_source_db_name'    => 'homo_sapiens_core_91_38', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_server'  => 'mysql-ensembl-mirror',
     'projection_source_db_port'    => 4240,
 
@@ -179,12 +179,11 @@ sub default_options {
 ########################
 # BLAST db paths
 ########################
-    'base_blast_db_path'        => '' || $ENV{BLASTDB_DIR},
+    'base_blast_db_path'        => $ENV{BLASTDB_DIR},
     'uniprot_entry_loc'         => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_db_dir'), 'entry_loc'),
     'uniprot_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_db_dir'), 'uniprot_vertebrate'),
     'vertrna_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'vertrna', $self->o('vertrna_version'), 'embl_vertrna-1'),
     'unigene_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'unigene', 'unigene'),
-    'mito_index_path'           => undef, # Set this path only if you don't want to use the GCF report and if you haven't set 'mt_accession' '/nfs/production/panda/ensembl/genebuild/blastdb/refseq_mitochondria_set/mito_index.txt',
     'ncrna_blast_path'          => catfile($self->o('base_blast_db_path'), 'ncrna', 'ncrna_2016_05'),
     'ig_tr_blast_path'          => catfile($self->o('base_blast_db_path'), 'ig_tr_genes'),
 
@@ -236,14 +235,21 @@ sub default_options {
 
     'repeat_logic_names'          => ['repeatmask_repbase_'.$self->o('repbase_logic_name'),'dust'],
     'homology_models_path'        => catdir($self->o('output_path'),'homology_models'),
-    'load_fasta_script_path'        => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'load_fasta_to_db_table.pl'),
-    'refseq_synonyms_script_path' => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'refseq', 'load_refseq_synonyms.pl'),
-    'refseq_import_script_path'   => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'refseq', 'parse_ncbi_gff3.pl'),
-    'loading_report_script'     => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'report_genome_prep_stats.pl'),
-    'remove_duplicates_script_path' => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts','find_and_remove_duplicates.pl'),
-    repeat_types_script => catfile($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts', 'repeats', 'repeat-types.pl'),
-    meta_coord_script => catfile($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts', 'meta_coord', 'update_meta_coord.pl'),
-    meta_levels_script => catfile($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts', 'meta_levels.pl'),
+
+    ensembl_analysis_script       => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
+    load_fasta_script_path        => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_fasta_to_db_table.pl'),
+    refseq_synonyms_script_path   => catfile($self->o('ensembl_analysis_script'), 'refseq', 'load_refseq_synonyms.pl'),
+    refseq_import_script_path     => catfile($self->o('ensembl_analysis_script'), 'refseq', 'parse_ncbi_gff3.pl'),
+    loading_report_script         => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'report_genome_prep_stats.pl'),
+    remove_duplicates_script_path => catfile($self->o('ensembl_analysis_script'), 'find_and_remove_duplicates.pl'),
+    load_optimise_script          => catfile($self->o('ensembl_analysis_script'), 'load_external_db_ids_and_optimize_af.pl'),
+
+    ensembl_misc_script => catdir($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts'),
+    repeat_types_script => catfile($self->o('ensembl_misc_script'), 'repeats', 'repeat-types.pl'),
+    meta_coord_script   => catfile($self->o('ensembl_misc_script'), 'meta_coord', 'update_meta_coord.pl'),
+    meta_levels_script  => catfile($self->o('ensembl_misc_script'), 'meta_levels.pl'),
+    frameshift_attrib_script => catfile($self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl'),
+    select_canonical_script  => catfile($self->o('ensembl_misc_script'), 'select_canonical_transcripts.pl'),
 
 ########################
 # Extra db settings
@@ -257,7 +263,7 @@ sub default_options {
     'blast_type' => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     'dust_path' => catfile($self->o('binary_base'), 'dustmasker'),
     'trf_path' => catfile($self->o('binary_base'), 'trf'),
-    'eponine_java_path' => '/nfs/software/ensembl/latest/jenv/shims/java',
+    'eponine_java_path' => catfile($self->o('binary_base'), 'java'),
     'eponine_jar_path' => catfile($self->o('software_base_path'), 'opt', 'eponine', 'libexec', 'eponine-scan.jar'),
     'cpg_path' => catfile($self->o('binary_base'), 'cpg_lh'),
     'trnascan_path' => catfile($self->o('binary_base'), 'tRNAscan-SE'),
@@ -782,18 +788,18 @@ sub pipeline_analyses {
                          'meta_key_list' => {
                                               'assembly.accession'                      => $self->o('assembly_accession'),
                                               'assembly.coverage_depth'                 => 'high',
-                                              'assembly.default'                        => $self->default_options->{'assembly_name'},
-                                              'assembly.name'                           => $self->default_options->{'assembly_name'},
+                                              'assembly.default'                        => $self->o('assembly_name'),
+                                              'assembly.name'                           => $self->o('assembly_name'),
                                               'assembly.web_accession_source'           => 'NCBI',
                                               'assembly.web_accession_type'             => 'GenBank Assembly ID',
                                               'genebuild.id'                            => $self->o('genebuilder_id'),
                                               'genebuild.method'                        => 'full_genebuild',
-                                              'genebuild.projection_source_db'          => $self->default_options->{'projection_source_db_name'},
+                                              'genebuild.projection_source_db'          => $self->o('projection_source_db_name'),
                                               'provider.name'                           => $self->o('provider_name'),
                                               'provider.url'                            => $self->o('provider_url'),
                                               'repeat.analysis'                         => ['repeatmask_repbase_'.$self->o('repbase_logic_name'), 'dust', 'trf'],
                                               'species.production_name'                 => $self->o('production_name'),
-                                              'species.taxonomy_id'                     => $self->default_options->{'taxon_id'},
+                                              'species.taxonomy_id'                     => $self->o('taxon_id'),
                                             }
                        },
         -rc_name    => 'default',
@@ -819,6 +825,11 @@ sub pipeline_analyses {
                        },
       },
 
+###############################################################################
+#
+# REFSEQ ANNOTATION
+#
+###############################################################################
       {
         -logic_name => 'fan_refseq_import',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -844,41 +855,15 @@ sub pipeline_analyses {
                        },
       },
 
-      {
-        -logic_name => 'load_mitochondrion',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadMitochondrion',
-        -parameters => {
-                         'target_db'                 => $self->o('reference_db'),
-                         'output_path'               => $self->o('output_path'),
-                         'enscode_root_dir'          => $self->o('enscode_root_dir'),
-                         'mito_index_path'           => $self->o('mito_index_path'),
-                         'species_name'              => $self->o('species_name'),
-                         'mt_accession'              => $self->o('mt_accession'),
-                      },
-        -rc_name    => 'default',
-
-        -flow_into => {
-                        '1->A' => ['create_10mb_slice_ids'],
-                        'A->1' => ['genome_prep_sanity_checks'],
-                      },
-
-      },
-
-
-###############################################################################
-#
-# REFSEQ ANNOTATION
-#
-###############################################################################
 
       {
         -logic_name => 'download_refseq_gff',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData',
         -parameters => {
-                         cmd => 'mkdir -p '.catdir($self->o('output_path'), 'refseq_import').';'.
-                                'wget -O '.catfile($self->o('output_path'), 'refseq_import', 'refseq.gff.gz').' '.$self->o('refseq_import_ftp_path').';'.
-                                'gunzip '.catfile($self->o('output_path'), 'refseq_import', 'refseq.gff.gz'),
-                       },
+          output_dir => catdir($self->o('output_path'), 'refseq_import'),
+          url => $self->o('refseq_import_ftp_path'),
+          download_method => 'ftp',
+        },
         -rc_name => 'default',
         -flow_into  => {
                          1 => ['create_refseq_db'],
@@ -923,12 +908,28 @@ sub pipeline_analyses {
       },
 
 
+      {
+        -logic_name => 'load_mitochondrion',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadMitochondrion',
+        -parameters => {
+          'target_db'        => $self->o('reference_db'),
+          'output_path'      => $self->o('output_path'),
+          'enscode_root_dir' => $self->o('enscode_root_dir'),
+          'species_name'     => $self->o('species_name'),
+          'mt_accession'     => $self->o('mt_accession'),
+        },
+        -rc_name    => 'default',
+        -flow_into  => {
+          '1->A' => ['create_10mb_slice_ids'],
+          'A->1' => ['genome_prep_sanity_checks'],
+        },
+      },
+
 ###############################################################################
 #
 # REPEATMASKER ANALYSES
 #
 ###############################################################################
-
       {
         # Create 10mb toplevel slices, these will be split further for repeatmasker
         -logic_name => 'create_10mb_slice_ids',
@@ -2038,16 +2039,11 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'update_ig_tr_hitnames',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                        cmd => 'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('ig_tr_db','-host').
-                                ' -P'.$self->o('ig_tr_db','-port').
-                                ' -D'.$self->o('ig_tr_db','-dbname').
-                                ' -e \'UPDATE protein_align_feature set hit_name="IMGT";\'',
-                      },
+          sql => 'UPDATE protein_align_feature set hit_name = "IMGT"',
+          db_conn => $self->o('ig_tr_db'),
+        },
         -rc_name    => 'default',
         -flow_into => {
                         '1' => ['ig_tr_sanity_checks'],
@@ -2067,285 +2063,8 @@ sub pipeline_analyses {
 
         -rc_name    => '1.5GB',
         -flow_into => {
-                        1 => ['create_ncrna_db'],
-                      },
-
-      },
-
-
-      {
-        -logic_name => 'create_ncrna_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('ncrna_db'),
-                         create_type => 'clone',
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
-                         user => $self->o('user'),
-                         pass_w => $self->o('password'),
-                       },
-        -rc_name    => 'default',
-        -flow_into => {
-                        '1->A' => ['fan_ncrna'],
-                        'A->1' => ['create_projection_realign_db'],
-                      },
-
-      },
-
-
-      {
-        -logic_name => 'fan_ncrna',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                         cmd => 'if [ "#skip_ncrna#" -ne "0" ]; then exit 42; else exit 0;fi',
-                         return_codes_2_branches => {'42' => 2},
-                       },
-        -rc_name => 'default',
-        -flow_into  => {
-                          '1->A' => ['create_small_rna_slice_ids'],
-                          'A->1' => ['ncrna_sanity_checks'],
-                       },
-      },
-
-
-      {
-        -logic_name => 'create_small_rna_slice_ids',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-                         coord_system_name => 'toplevel',
-                         iid_type => 'slice',
-                         slice_size => 1000000,
-                         top_level => 1,
-                         target_db => $self->o('dna_db'),
-                         batch_slice_ids => 1,
-                         batch_target_size => 2000000,
-                      },
-        -flow_into => {
-                       '2->A' => ['mirna_blast','rfam_blast'],
-                       'A->1' => ['filter_ncrnas'],
-                      },
-        -rc_name    => 'default',
-      },
-
-
-      {
-        -logic_name => 'rfam_blast',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRfam',
-        -parameters => {
-                         repeat_logic_names => ['dust'],
-                         repeat_db => $self->o('dna_db'),
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->default_options->{'dna_db'},
-                         logic_name => 'rfamblast',
-                         module     => 'HiveBlastRfam',
-                         blast_db_path => $self->o('ncrna_blast_path')."/filtered.fasta",
-                         blast_exe_path => $self->o('blastn_exe_path'),
-                         commandline_params => ' -num_threads 3 -word_size 12 -num_alignments 5000  -num_descriptions 5000 -max_hsps 1 ',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastRFam', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
-                         timer => '3h',
-                       },
-       -flow_into => {
-                       '-1' => ['rebatch_rfam'],
-                       '-2' => ['rebatch_rfam'],
-                     },
-       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-       -rc_name    => 'rfam_blast',
-      },
-
-
-      {
-        -logic_name => 'rebatch_rfam',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-                         target_db => $self->o('dna_db'),
-                         iid_type => 'rebatch_and_resize_slices',
-                         slice_size => 100000,
-                         batch_target_size => 100000,
-                       },
-       -flow_into => {
-                       '2' => ['rfam_blast_retry'],
-                     },
-       -rc_name    => 'default',
-       -can_be_empty  => 1,
-      },
-
-
-      {
-        -logic_name => 'rfam_blast_retry',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRfam',
-        -parameters => {
-                         repeat_logic_names => ['dust'],
-                         repeat_db => $self->o('dna_db'),
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->default_options->{'dna_db'},
-                         logic_name => 'rfamblast',
-                         module     => 'HiveBlastRfam',
-                         blast_db_path => $self->o('ncrna_blast_path')."/filtered.fasta",
-                         blast_exe_path => $self->o('blastn_exe_path'),
-                         commandline_params => ' -num_threads 3 -word_size 12 -num_alignments 5000  -num_descriptions 5000 -max_hsps 1 ',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastRFam', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
-                         timer => '1h',
-                       },
-       -flow_into => {
-                       '-1' => ['failed_rfam_blast_job'],
-                       '-2' => ['failed_rfam_blast_job'],
-                     },
-       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-       -rc_name    => 'rfam_blast_retry',
-       -can_be_empty  => 1,
-      },
-
-
-      {
-        -logic_name => 'failed_rfam_blast_job',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {
-                       },
-        -rc_name          => 'default',
-        -can_be_empty  => 1,
-      },
-
-
-      {
-        -logic_name => 'mirna_blast',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastmiRNA',
-        -parameters => {
-                         repeat_logic_names => ['dust'],
-                         repeat_db => $self->o('dna_db'),
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->default_options->{'dna_db'},
-                         logic_name => 'blastmirna',
-                         module     => 'HiveBlastmiRNA',
-                         blast_db_path => $self->o('ncrna_blast_path') . '/' . $self->o('mirBase_fasta') ,
-                         blast_exe_path => $self->o('blastn_exe_path'),
-                         commandline_params => ' -num_threads 3 ',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastmiRBase', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
-                         timer => '2h',
-                       },
-
-        -flow_into => {
-                        '-1' => ['rebatch_mirna'],
-                        '-2' => ['rebatch_mirna'],
-                      },
-        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -rc_name    => 'blast',
-      },
-
-
-      {
-        -logic_name => 'rebatch_mirna',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-                         target_db => $self->o('dna_db'),
-                         iid_type => 'rebatch_and_resize_slices',
-                         slice_size => 100000,
-                         batch_target_size => 100000,
-                       },
-       -flow_into => {
-                       '2' => ['mirna_blast_retry'],
-                     },
-       -rc_name    => 'default',
-       -can_be_empty  => 1,
-      },
-
-
-      {
-        -logic_name => 'mirna_blast_retry',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastmiRNA',
-        -parameters => {
-                         repeat_logic_names => ['dust'],
-                         repeat_db => $self->o('dna_db'),
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->default_options->{'dna_db'},
-                         logic_name => 'blastmirna',
-                         module     => 'HiveBlastmiRNA',
-                         blast_db_path => $self->o('ncrna_blast_path') . '/' . $self->o('mirBase_fasta') ,
-                         blast_exe_path => $self->o('blastn_exe_path'),
-                         commandline_params => ' -num_threads 3 ',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastmiRBase', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
-                         timer => '1h',
-                       },
-
-        -flow_into => {
-                        '-1' => ['failed_mirna_blast_job'],
-                        '-2' => ['failed_mirna_blast_job'],
-                      },
-        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -rc_name    => 'blast_retry',
-      },
-
-
-      {
-        -logic_name => 'failed_mirna_blast_job',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {
-                       },
-        -rc_name          => 'default',
-        -can_be_empty  => 1,
-      },
-
-
-      {
-        -logic_name => 'filter_ncrnas',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFilterncRNAs',
-        -parameters => {
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'filter_ncrnas',
-                         module     => 'HiveFilterncRNAs',
-                       },
-        -rc_name    => 'filter',
-        -flow_into => {
-                        '2' => ['run_mirna'],
-                        '3' => ['run_infernal'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'run_mirna',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivemiRNA',
-        -parameters => {
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'ncrna',
-                         module     => 'HivemiRNA',
-                         blast_db_dir_path => $self->o('ncrna_blast_path').'/all_mirnas.embl',
-                       },
-        -batch_size => 20,
-        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -rc_name    => 'filter',
-      },
-
-
-      {
-        -logic_name => 'run_infernal',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveInfernal',
-        -parameters => {
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'ncrna',
-                         module     => 'HiveInfernal',
-                         cmsearch_exe_path => $self->o('cmsearch_exe_path'),
-                         blast_db_dir_path => $self->o('ncrna_blast_path').'/',
-                       },
-        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -rc_name    => 'transcript_finalisation',
-      },
-
-
-      {
-        -logic_name => 'ncrna_sanity_checks',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
-        -parameters => {
-                         target_db => $self->o('ncrna_db'),
-                         sanity_check_type => 'gene_db_checks',
-                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'ncrna'},
-                       },
-
-        -rc_name    => '4GB',
+          1 => ['create_projection_coding_db'],
+        },
       },
 
 ########################################################################
@@ -2354,57 +2073,37 @@ sub pipeline_analyses {
 #
 ########################################################################
       {
-        -logic_name => 'create_projection_realign_db',
+        -logic_name => 'create_projection_coding_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('projection_realign_db'),
-                         create_type => 'clone',
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
-                         user => $self->o('user'),
-                         pass_w => $self->o('password'),
-                       },
+          source_db   => $self->o('dna_db'),
+          target_db   => $self->o('projection_coding_db'),
+          create_type => 'clone',
+          script_path => $self->o('clone_db_script_path'),
+          user_r      => $self->o('user_r'),
+          user        => $self->o('user'),
+          pass_w      => $self->o('password'),
+        },
         -rc_name    => 'default',
-        -flow_into => {
-                        '1->A' => ['fan_projection'],
-                        'A->1' => ['create_rnaseq_for_layer_db'],
-                      },
+        -flow_into  => {
+          '1->A' => ['fan_projection'],
+          'A->1' => ['cluster_ig_tr_genes'],
+        },
       },
 
 
       {
         -logic_name => 'fan_projection',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'if [ "#skip_projection#" -ne "0" ]; then exit 42; else exit 0;fi',
-                         return_codes_2_branches => {'42' => 2},
-                       },
-        -rc_name => 'default',
-        -flow_into  => {
-                          '1->A' => ['create_projection_coding_db'],
-                          'A->1' => ['semaphore_realign'],
-                       },
-      },
-
-
-      {
-        -logic_name => 'create_projection_coding_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('projection_coding_db'),
-                         create_type => 'clone',
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
-                         user => $self->o('user'),
-                         pass_w => $self->o('password'),
-                       },
+          cmd => 'if [ "#skip_projection#" -ne "0" ]; then exit 42; else exit 0;fi',
+          return_codes_2_branches => {'42' => 2},
+        },
         -rc_name    => 'default',
-        -flow_into => {
-                        '1->A' => ['create_projection_coding_input_ids'],
-                        'A->1' => ['classify_projection_coding_models'],
-                      },
+        -flow_into  => {
+          '1->A' => ['create_projection_coding_input_ids'],
+          'A->1' => ['classify_projection_coding_models'],
+        },
       },
 
 
@@ -2412,21 +2111,19 @@ sub pipeline_analyses {
         -logic_name => 'create_projection_coding_input_ids',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
-                         target_db => $self->o('projection_source_db'),
-                         iid_type => 'feature_id',
-                         feature_type => 'transcript',
-                         feature_restriction => 'projection',
-                         biotypes => {
-                                       'protein_coding' => 1,
-                                     },
-                         batch_size => 500,
-                       },
-
+          target_db           => $self->o('projection_source_db'),
+          iid_type            => 'feature_id',
+          feature_type        => 'transcript',
+          feature_restriction => 'projection',
+          biotypes            => {
+            'protein_coding' => 1,
+          },
+          batch_size          => 500,
+        },
+        -rc_name    => '4GB',
         -flow_into => {
-                        2 => ['project_coding_transcripts'],
-                      },
-
-         -rc_name    => '4GB',
+          2 => ['project_coding_transcripts'],
+        },
       },
 
 
@@ -2434,33 +2131,32 @@ sub pipeline_analyses {
         -logic_name => 'project_coding_transcripts',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
         -parameters => {
-                         logic_name => 'project_transcripts',
-                         module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
-                         source_dna_db         => $self->default_options()->{'projection_source_db'},
-                         target_dna_db         => $self->o('dna_db'),
-                         source_transcript_db  => $self->default_options()->{'projection_source_db'},
-                         target_transcript_db   => $self->o('projection_coding_db'),
-                         compara_db            => $self->o('projection_lastz_db'),
-                         method_link_type => 'LASTZ_NET',
-                         max_exon_readthrough_dist => 15,
-                         TRANSCRIPT_FILTER => {
-                           OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-                           PARAMETERS => {
-                             -coverage => $self->o('projection_cov'),
-                             -percent_id => $self->o('projection_pid'),
-                           },
-                         },
-                         iid_type => 'feature_id',
-                         feature_type => 'transcript',
-                         calculate_coverage_and_pid => $self->o('projection_calculate_coverage_and_pid'),
-                         max_internal_stops => $self->o('projection_max_internal_stops'),
-                         timer => '30m',
-                       },
-
+          logic_name => 'project_transcripts',
+          module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
+          source_dna_db         => $self->default_options()->{'projection_source_db'},
+          target_dna_db         => $self->o('dna_db'),
+          source_transcript_db  => $self->default_options()->{'projection_source_db'},
+          target_transcript_db   => $self->o('projection_coding_db'),
+          compara_db            => $self->o('projection_lastz_db'),
+          method_link_type => 'LASTZ_NET',
+          max_exon_readthrough_dist => 15,
+          TRANSCRIPT_FILTER => {
+            OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+            PARAMETERS => {
+              -coverage => $self->o('projection_cov'),
+              -percent_id => $self->o('projection_pid'),
+            },
+          },
+          iid_type => 'feature_id',
+          feature_type => 'transcript',
+          calculate_coverage_and_pid => $self->o('projection_calculate_coverage_and_pid'),
+          max_internal_stops => $self->o('projection_max_internal_stops'),
+          timer => '30m',
+        },
         -flow_into => {
-                        -3 => ['failed_projection_coding_jobs'],
-                      },
-        -rc_name          => 'project_transcripts',
+          -3 => ['failed_projection_coding_jobs'],
+        },
+        -rc_name    => 'project_transcripts',
         -batch_size => 100,
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
       },
@@ -2469,9 +2165,8 @@ sub pipeline_analyses {
       {
         -logic_name => 'failed_projection_coding_jobs',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {
-                       },
-        -rc_name          => 'default',
+        -parameters => {},
+        -rc_name    => 'default',
         -can_be_empty  => 1,
         -failed_job_tolerance => 100,
       },
@@ -2481,32 +2176,35 @@ sub pipeline_analyses {
         -logic_name => 'classify_projection_coding_models',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
         -parameters => {
-                         skip_analysis => $self->o('skip_projection'),
-                         classification_type => 'standard',
-                         update_gene_biotype => 1,
-                         target_db => $self->o('projection_coding_db'),
-                       },
+          skip_analysis => $self->o('skip_projection'),
+          classification_type => 'standard',
+          update_gene_biotype => 1,
+          target_db => $self->o('projection_coding_db'),
+        },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['fix_unalgined_protein_hit_names'],
-                      },
+          '1->A' => ['fix_unaligned_protein_hit_names'],
+          'A->1' => ['create_projection_realign_db'],
+        },
       },
 
 
       {
-        -logic_name => 'fix_unalgined_protein_hit_names',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
+        -logic_name => 'fix_unaligned_protein_hit_names',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                               'db_conn'    => $self->o('projection_coding_db'),
-                                input_query => 'UPDATE protein_align_feature join transcript_supporting_feature on feature_id = protein_align_feature_id '.
-                                               'join transcript using(transcript_id) SET hit_name = stable_id; '.
-                                               'UPDATE protein_align_feature join supporting_feature on feature_id = protein_align_feature_id '.
-                                               'join exon_transcript using(exon_id) join transcript using(transcript_id) SET hit_name = stable_id;',
-                       },
+          db_conn    => $self->o('projection_coding_db'),
+          sql => [
+            'UPDATE protein_align_feature JOIN transcript_supporting_feature ON feature_id = protein_align_feature_id'.
+              ' JOIN transcript USING(transcript_id) SET hit_name = stable_id',
+            'UPDATE protein_align_feature JOIN supporting_feature ON feature_id = protein_align_feature_id'.
+              ' JOIN exon_transcript USING(exon_id) JOIN transcript USING(transcript_id) SET hit_name = stable_id',
+          ],
+        },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['projection_coding_sanity_checks'],
-                      },
+          1 => ['projection_coding_sanity_checks'],
+        },
       },
 
 
@@ -2514,24 +2212,32 @@ sub pipeline_analyses {
         -logic_name => 'projection_coding_sanity_checks',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
         -parameters => {
-                         target_db => $self->o('projection_coding_db'),
-                         sanity_check_type => 'gene_db_checks',
-                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'projection_coding'},
-                       },
-
+          target_db => $self->o('projection_coding_db'),
+          sanity_check_type => 'gene_db_checks',
+          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
+            'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'projection_coding'},
+        },
         -rc_name    => '4GB',
       },
 
 
       {
-        -logic_name => 'semaphore_realign',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {},
+        -logic_name => 'create_projection_realign_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+          source_db => $self->o('dna_db'),
+          target_db => $self->o('projection_realign_db'),
+          create_type => 'clone',
+          script_path => $self->o('clone_db_script_path'),
+          user_r => $self->o('user_r'),
+          user => $self->o('user'),
+          pass_w => $self->o('password'),
+        },
+        -rc_name    => 'default',
         -flow_into => {
-                       '1->A' => ['create_ids_for_evaluate_projection'],
-                       'A->1' => ['update_realign_biotypes'],
-                      },
+          '1->A' => ['create_ids_for_evaluate_projection'],
+          'A->1' => ['update_realign_biotypes'],
+        },
       },
 
 
@@ -2539,15 +2245,15 @@ sub pipeline_analyses {
         -logic_name => 'create_ids_for_evaluate_projection',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
-                         target_db => $self->o('projection_coding_db'),
-                         iid_type => 'feature_id',
-                         feature_type => 'transcript',
-                         batch_size => 500,
-                       },
-        -flow_into => {
-                        2 => ['evaluate_coding_transcripts'],
-                      },
+          target_db => $self->o('projection_coding_db'),
+          iid_type => 'feature_id',
+          feature_type => 'transcript',
+          batch_size => 500,
+        },
         -rc_name    => 'default',
+        -flow_into => {
+          2 => ['evaluate_coding_transcripts'],
+        },
       },
 
 
@@ -2555,17 +2261,17 @@ sub pipeline_analyses {
         -logic_name => 'evaluate_coding_transcripts',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionRealignment',
         -parameters => {
-                         dna_db => $self->o('dna_db'),
-                         projection_db => $self->o('projection_coding_db'),
-                         projection_source_db => $self->o('projection_source_db'),
-                         projection_realign_db => $self->o('projection_realign_db'),
-                         protein_table_name => $self->o('realign_table_name'),
-                         max_feature_issues => $self->o('max_projection_structural_issues'),
-                       },
+          dna_db => $self->o('dna_db'),
+          projection_db => $self->o('projection_coding_db'),
+          projection_source_db => $self->o('projection_source_db'),
+          projection_realign_db => $self->o('projection_realign_db'),
+          protein_table_name => $self->o('realign_table_name'),
+          max_feature_issues => $self->o('max_projection_structural_issues'),
+        },
         -rc_name    => 'default',
         -flow_into  => {
-                         2 => ['realign_projection'],
-                       },
+          2 => ['realign_projection'],
+        },
       },
 
 
@@ -2573,54 +2279,55 @@ sub pipeline_analyses {
         -logic_name => 'realign_projection',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenBlast',
         -parameters => {
-                         iid_type => 'projection_transcript_id',
-                         sequence_table_name => 'projection_source_sequences',
-                         projection_padding => 0,
-                         dna_db => $self->o('dna_db'),
-                         target_db => $self->o('projection_realign_db'),
-                         projection_db => $self->o('projection_coding_db'),
-                         logic_name => 'genblast',
-                         module => 'HiveGenblast',
-                         genblast_path => $self->o('genblast_path'),
-                         commandline_params => $genblast_params{$self->o('blast_type').'_projection'},
-                         query_seq_dir => $self->o('homology_models_path'),
-                         max_rank => 1,
-                         genblast_pid => $self->o('genblast_pid'),
-                         blast_eval => $self->o('genblast_eval'),
-                         blast_cov => $self->o('genblast_cov'),
-                         timer => '30m',
-                       },
+          iid_type => 'projection_transcript_id',
+          sequence_table_name => 'projection_source_sequences',
+          projection_padding => 0,
+          dna_db => $self->o('dna_db'),
+          target_db => $self->o('projection_realign_db'),
+          projection_db => $self->o('projection_coding_db'),
+          logic_name => 'genblast',
+          module => 'HiveGenblast',
+          genblast_path => $self->o('genblast_path'),
+          commandline_params => $genblast_params{$self->o('blast_type').'_projection'},
+          query_seq_dir => $self->o('homology_models_path'),
+          max_rank => 1,
+          genblast_pid => $self->o('genblast_pid'),
+          blast_eval => $self->o('genblast_eval'),
+          blast_cov => $self->o('genblast_cov'),
+          timer => '30m',
+        },
         -rc_name    => 'default',
         -flow_into  => {
-                         -1 => ['failed_realignments'],
-                         -2 => ['failed_realignments'],
-                         -3 => ['failed_realignments'],
-                       },
+          -1 => ['failed_realignments'],
+          -2 => ['failed_realignments'],
+          -3 => ['failed_realignments'],
+        },
       },
 
 
       {
         -logic_name => 'failed_realignments',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {
-                       },
-        -rc_name          => 'default',
+        -parameters => {},
+        -rc_name    => 'default',
         -can_be_empty  => 1,
       },
 
 
       {
         -logic_name => 'update_realign_biotypes',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                               'db_conn'    => $self->o('projection_realign_db'),
-                                input_query => 'UPDATE gene set biotype="realign";'.
-                                               'UPDATE transcript set biotype="realign";',
-                       },
+          db_conn    => $self->o('projection_realign_db'),
+          sql => [
+            'UPDATE gene SET biotype = "realign"',
+            'UPDATE transcript SET biotype = "realign"',
+          ],
+        },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['classify_realigned_models'],
-                      },
+          1 => ['classify_realigned_models'],
+        },
       },
 
 
@@ -2628,14 +2335,14 @@ sub pipeline_analyses {
         -logic_name => 'classify_realigned_models',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
         -parameters => {
-                         classification_type => 'standard',
-                         update_gene_biotype => 1,
-                         target_db => $self->o('projection_realign_db'),
-                       },
+          classification_type => 'standard',
+          update_gene_biotype => 1,
+          target_db => $self->o('projection_realign_db'),
+        },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['realign_sanity_checks'],
-                      },
+          1 => ['realign_sanity_checks'],
+        },
       },
 
 
@@ -2688,20 +2395,10 @@ sub pipeline_analyses {
                        },
 
         -flow_into => {
-                        1 => ['semaphore_project_lincrnas','semaphore_project_pseudogenes','semaphore_project_ig_tr'],
+                        1 => ['generate_projection_lincrna_ids','generate_projection_pseudogene_ids','generate_projection_ig_tr_ids'],
                       },
       },
 
-
-      {
-        -logic_name => 'semaphore_project_lincrnas',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {},
-        -flow_into => {
-                       '1->A' => ['generate_projection_lincrna_ids'],
-                       'A->1' => ['project_lincrna_sanity_checks'],
-                      },
-      },
 
       {
         -logic_name => 'generate_projection_lincrna_ids',
@@ -2717,7 +2414,8 @@ sub pipeline_analyses {
                          batch_size => 100,
         },
         -flow_into => {
-                        2 => ['run_project_lincrnas'],
+                       '2->A' => ['run_project_lincrnas'],
+                       'A->1' => ['project_lincrna_sanity_checks'],
                       },
         -rc_name    => 'default',
       },
@@ -2728,9 +2426,9 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate',
         -parameters => {
                          'logic_name'                 => 'project_lincrna',
-                         'source_dna_db'              => $self->default_options->{'projection_source_db'},
+                         'source_dna_db'              => $self->o('projection_source_db'),
                          'target_dna_db'              => $self->o('dna_db'),
-                         'source_db'                  => $self->default_options->{'projection_source_db'},
+                         'source_db'                  => $self->o('projection_source_db'),
                          'target_db'                  => $self->o('projection_lincrna_db'),
                          'compara_db'                 => $self->o('projection_lastz_db'),
                          'method_link_type'           => 'LASTZ_NET',
@@ -2760,17 +2458,6 @@ sub pipeline_analyses {
 
 
       {
-        -logic_name => 'semaphore_project_pseudogenes',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {},
-        -flow_into => {
-                       '1->A' => ['generate_projection_pseudogene_ids'],
-                       'A->1' => ['project_pseudogene_sanity_checks'],
-                      },
-      },
-
-
-      {
         -logic_name => 'generate_projection_pseudogene_ids',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
@@ -2786,7 +2473,8 @@ sub pipeline_analyses {
                          batch_size => 100,
         },
         -flow_into => {
-                        2 => ['run_project_pseudogenes'],
+                       '2->A' => ['run_project_pseudogenes'],
+                       'A->1' => ['project_pseudogene_sanity_checks'],
         },
         -rc_name    => 'default',
       },
@@ -2797,9 +2485,9 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate',
         -parameters => {
                          'logic_name'                 => 'project_pseudogene',
-                         'source_dna_db'              => $self->default_options->{'projection_source_db'},
+                         'source_dna_db'              => $self->o('projection_source_db'),
                          'target_dna_db'              => $self->o('dna_db'),
-                         'source_db'                  => $self->default_options->{'projection_source_db'},
+                         'source_db'                  => $self->o('projection_source_db'),
                          'target_db'                  => $self->o('projection_pseudogene_db'),
                          'compara_db'                 => $self->o('projection_lastz_db'),
                          'method_link_type'           => 'LASTZ_NET',
@@ -2829,17 +2517,6 @@ sub pipeline_analyses {
 
 
       {
-        -logic_name => 'semaphore_project_ig_tr',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {},
-        -flow_into => {
-                       '1->A' => ['generate_projection_ig_tr_ids'],
-                       'A->1' => ['project_ig_tr_sanity_checks'],
-                      },
-      },
-
-
-      {
         -logic_name => 'generate_projection_ig_tr_ids',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
@@ -2860,7 +2537,8 @@ sub pipeline_analyses {
                          batch_size => 100,
         },
         -flow_into => {
-                        2 => ['run_project_ig_tr'],
+                       '2->A' => ['run_project_ig_tr'],
+                       'A->1' => ['project_ig_tr_sanity_checks'],
         },
         -rc_name    => 'default',
       },
@@ -2871,9 +2549,9 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate',
         -parameters => {
                          'logic_name'                 => 'project_ig_tr',
-                         'source_dna_db'              => $self->default_options->{'projection_source_db'},
+                         'source_dna_db'              => $self->o('projection_source_db'),
                          'target_dna_db'              => $self->o('dna_db'),
-                         'source_db'                  => $self->default_options->{'projection_source_db'},
+                         'source_db'                  => $self->o('projection_source_db'),
                          'target_db'                  => $self->o('ig_tr_db'),
                          'compara_db'                 => $self->o('projection_lastz_db'),
                          'method_link_type'           => 'LASTZ_NET',
@@ -2901,29 +2579,62 @@ sub pipeline_analyses {
         -rc_name    => '1.5GB',
       },
 
+
+      {
+        -logic_name => 'cluster_ig_tr_genes',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCollapseIGTR',
+        -parameters => {
+                         target_db => $self->o('ig_tr_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'ig_tr_gene',
+                         logic_names_to_cluster => ['ig_tr_gene','ig_tr_gene_not_best'],
+                       },
+        -rc_name    => 'genblast',
+        -flow_into => {
+                        1 => ['update_ig_tr_biotypes'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'update_ig_tr_biotypes',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn => $self->o('ig_tr_db'),
+          sql => [
+            'UPDATE transcript JOIN analysis USING(analysis_id) SET biotype = CONCAT(biotype, "_pre_collapse")'.
+              ' WHERE logic_name != "ig_tr_collapse"',
+            'UPDATE gene JOIN transcript USING(gene_id) SET gene.biotype = transcript.biotype',
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
+          1 => ['create_rnaseq_for_layer_db'],
+        },
+      },
+
 ############################################################################
 #
 # RNA-seq analyses
 #
 ############################################################################
-
       {
         -logic_name => 'create_rnaseq_for_layer_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('rnaseq_for_layer_db'),
-                         create_type => 'clone',
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
-                         user => $self->o('user'),
-                         pass_w => $self->o('password'),
-                       },
+          source_db => $self->o('dna_db'),
+          target_db => $self->o('rnaseq_for_layer_db'),
+          create_type => 'clone',
+          script_path => $self->o('clone_db_script_path'),
+          user_r => $self->o('user_r'),
+          user => $self->o('user'),
+          pass_w => $self->o('password'),
+        },
         -rc_name    => 'default',
         -flow_into => {
-                        '1->A' => ['fan_rnaseq_for_layer_db'],
-                        'A->1' => ['cluster_ig_tr_genes'],
-                      },
+          '1->A' => ['fan_rnaseq_for_layer_db'],
+          'A->1' => ['create_layering_output_db'],
+        },
       },
 
 
@@ -2936,8 +2647,8 @@ sub pipeline_analyses {
                        },
         -rc_name => 'default',
         -flow_into  => {
-                          1 => ['copy_rnaseq_blast_db'],
-                       },
+          1 => ['copy_rnaseq_blast_db'],
+        },
       },
 
 
@@ -2963,18 +2674,15 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'update_rnaseq_for_layer_biotypes',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                        cmd => 'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('rnaseq_for_layer_db','-host').
-                                ' -P'.$self->o('rnaseq_for_layer_db','-port').
-                                ' -D'.$self->o('rnaseq_for_layer_db','-dbname').
-                                ' -e \'UPDATE gene set biotype="rnaseq_merged" where biotype in ("best","single","other_merged");'.
-                                ' UPDATE gene set biotype="rnaseq_tissue" where biotype != "rnaseq_merged";'.
-                                ' UPDATE transcript join gene using(gene_id) set transcript.biotype=gene.biotype;\'',
-                      },
+          db_conn => $self->o('rnaseq_for_layer_db'),
+          sql => [
+            'UPDATE gene SET biotype = "rnaseq_merged" WHERE biotype IN ("best","single","other_merged")',
+            'UPDATE gene SET biotype = "rnaseq_tissue" WHERE biotype != "rnaseq_merged"',
+            'UPDATE transcript JOIN gene USING(gene_id) SET transcript.biotype = gene.biotype',
+          ],
+        },
         -rc_name    => 'default',
         -flow_into => {
                         '1' => ['remove_rnaseq_for_layer_daf_features'],
@@ -2984,20 +2692,15 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'remove_rnaseq_for_layer_daf_features',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                        cmd => 'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('rnaseq_for_layer_db','-host').
-                                ' -P'.$self->o('rnaseq_for_layer_db','-port').
-                                ' -D'.$self->o('rnaseq_for_layer_db','-dbname').
-                                ' -e \'DELETE transcript_supporting_feature from transcript_supporting_feature join dna_align_feature on'.
-                                ' feature_id=dna_align_feature_id where feature_type="dna_align_feature";'.
-                                ' DELETE supporting_feature from supporting_feature join dna_align_feature on feature_id=dna_align_feature_id where'.
-                                ' feature_type="dna_align_feature";'.
-                                ' TRUNCATE dna_align_feature;\'',
-                      },
+          db_conn => $self->o('rnaseq_for_layer_db'),
+          sql => [
+            'TRUNCATE dna_align_feature',
+            'DELETE transcript_supporting_feature FROM transcript_supporting_feature WHERE feature_type = "dna_align_feature"',
+            'DELETE supporting_feature FROM supporting_feature WHERE feature_type = "dna_align_feature"',
+          ],
+        },
         -rc_name    => 'default',
         -flow_into => {
                         '1' => ['classify_rnaseq_for_layer_models'],
@@ -3036,48 +2739,11 @@ sub pipeline_analyses {
         -rc_name    => '4GB',
       },
 
-
 ############################################################################
 #
 # Finalisation analyses
 #
 ############################################################################
-      {
-        -logic_name => 'cluster_ig_tr_genes',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCollapseIGTR',
-        -parameters => {
-                         target_db => $self->o('ig_tr_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'ig_tr_gene',
-                         logic_names_to_cluster => ['ig_tr_gene','ig_tr_gene_not_best'],
-                       },
-        -rc_name    => 'genblast',
-        -flow_into => {
-                        1 => ['update_ig_tr_biotypes'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'update_ig_tr_biotypes',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                         cmd => 'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('ig_tr_db','-host').
-                                ' -P'.$self->o('ig_tr_db','-port').
-                                ' -D'.$self->o('ig_tr_db','-dbname').
-                                ' -e \'UPDATE transcript join analysis using(analysis_id) set biotype=concat(biotype,"_pre_collapse")'.
-                                ' where logic_name != "ig_tr_collapse"; UPDATE gene join transcript using(gene_id) set gene.biotype=transcript.biotype;\'',
-                       },
-        -rc_name    => 'default',
-        -flow_into => {
-                        1 => ['create_layering_output_db'],
-                      },
-      },
-
-
       {
         -logic_name => 'create_layering_output_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
@@ -3199,29 +2865,10 @@ sub pipeline_analyses {
         -hive_capacity => $self->hive_capacity_classes->{'hc_medium'},
         -rc_name    => 'transcript_finalisation',
         -flow_into => {
-                        2 => ['cluster_input_genes'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'cluster_input_genes',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClusterSourceGenes',
-        -parameters => {
-                         logic_name => 'cluster_input_genes',
-                         dna_db => $self->o('dna_db'),
-                         input_gene_dbs => $self->o('utr_gene_dbs'),
-                         allowed_input_sets => undef,
-                         iid_type => 'slice',
-                       },
-        -batch_size => 10,
-        -hive_capacity => $self->hive_capacity_classes->{'hc_medium'},
-        -rc_name    => 'transcript_finalisation',
-        -flow_into => {
                         2 => ['run_utr_addition'],
                       },
-
       },
+
 
       {
         -logic_name => 'run_utr_addition',
@@ -3238,6 +2885,7 @@ sub pipeline_analyses {
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
         -rc_name    => 'transcript_finalisation',
      },
+
 
      {
         -logic_name => 'genebuilder',
@@ -3357,9 +3005,9 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes',
         -parameters => {
                          input_gene_db => $self->o('genebuilder_db'),
-                         repeat_db => $self->default_options->{'dna_db'},
+                         repeat_db => $self->o('dna_db'),
                          output_db => $self->o('pseudogene_db'),
-                         dna_db => $self->default_options->{'dna_db'},
+                         dna_db => $self->o('dna_db'),
                          logic_name => 'pseudogenes',
                          module     => 'HivePseudogenes',
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
@@ -3404,9 +3052,9 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSplicedElsewhere',
         -parameters => {
                          input_gene_db => $self->o('genebuilder_db'),
-                         repeat_db => $self->default_options->{'dna_db'},
+                         repeat_db => $self->o('dna_db'),
                          output_db => $self->o('pseudogene_db'),
-                         dna_db => $self->default_options->{'dna_db'},
+                         dna_db => $self->o('dna_db'),
                          logic_name => 'spliced_elsewhere',
                          module     => 'HiveSplicedElsewhere',
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
@@ -3439,17 +3087,14 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'restore_ig_tr_biotypes',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                         cmd => 'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('final_geneset_db','-host').
-                                ' -P'.$self->o('final_geneset_db','-port').
-                                ' -D'.$self->o('final_geneset_db','-dbname').
-                                ' -e \'UPDATE gene join transcript using(gene_id) set gene.biotype=transcript.biotype where'.
-                                ' transcript.biotype like "IG\_%" or transcript.biotype like "TR\_%";\'',
-                       },
+          db_conn => $self->o('final_geneset_db'),
+          sql => [
+            'UPDATE gene JOIN transcript USING(gene_id) SET gene.biotype = transcript.biotype'.
+              ' WHERE transcript.biotype LIKE "IG\_%" OR transcript.biotype LIKE "TR\_%"',
+          ],
+        },
         -rc_name    => 'default',
         -flow_into => {
                         1 => ['update_rnaseq_ise_logic_names'],
@@ -3459,16 +3104,13 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'update_rnaseq_ise_logic_names',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                         cmd => 'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('final_geneset_db','-host').
-                                ' -P'.$self->o('final_geneset_db','-port').
-                                ' -D'.$self->o('final_geneset_db','-dbname').
-                                ' -e \'UPDATE analysis set logic_name=CONCAT(logic_name,"_ise") where logic_name like "%\_rnaseq"\'',
-                       },
+          db_conn => $self->o('final_geneset_db'),
+          sql => [
+            'UPDATE analysis SET logic_name = CONCAT(logic_name, "_ise") WHERE logic_name LIKE "%\_rnaseq"',
+          ],
+        },
         -rc_name    => 'default',
         -flow_into => {
                         1 => ['run_cleaner'],
@@ -3504,26 +3146,309 @@ sub pipeline_analyses {
                         dbuser => $self->o('user'),
                         dbpass => $self->o('password'),
                         dbport => $self->o('final_geneset_db','-port'),
-                        transcript_ids_file => $self->o('output_path').'/clean_genes/transcript_ids_to_remove.txt',
-                        delete_transcripts_path => $self->o('enscode_root_dir').'/ensembl-analysis/scripts/genebuild/',
-                        delete_genes_path => $self->o('enscode_root_dir').'/ensembl-analysis/scripts/genebuild/',
+                        transcript_ids_file => catfile($self->o('output_path'), 'clean_genes', 'transcript_ids_to_remove.txt'),
+                        delete_transcripts_path => catdir($self->o('ensembl_analysis_script'), 'genebuild'),
+                        delete_genes_path => catdir($self->o('enscode_root_dir'), 'genebuild'),
                         delete_transcripts_script_name => 'delete_transcripts.pl',
                         delete_genes_script_name => 'delete_genes.pl',
-                        output_path => $self->o('output_path').'/clean_genes/',
+                        output_path => catdir($self->o('output_path'), 'clean_genes'),
                         output_file_name => 'delete_transcripts.out',
                       },
         -max_retry_count => 0,
         -flow_into => {
-                        '1' => ['transfer_ncrnas'],
-                      },
+          '1->A' => ['fan_ncrna'],
+          'A->1' => ['dummy_projected_lincrna_pseudos'],
+        },
      },
+
+############################################################################
+#
+# ncRNA pipeline
+#
+############################################################################
+      {
+        -logic_name => 'fan_ncrna',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'if [ "#skip_ncrna#" -ne "0" ]; then exit 42; else exit 0;fi',
+                         return_codes_2_branches => {'42' => 2},
+                       },
+        -rc_name => 'default',
+        -flow_into  => {
+          1 => ['create_ncrna_db'],
+        },
+      },
+
+
+      {
+        -logic_name => 'create_ncrna_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('ncrna_db'),
+                         create_type => 'clone',
+                         script_path => $self->o('clone_db_script_path'),
+                         user_r => $self->o('user_r'),
+                         user => $self->o('user'),
+                         pass_w => $self->o('password'),
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                          '1->A' => ['create_small_rna_slice_ids'],
+                          'A->1' => ['ncrna_sanity_checks'],
+                      },
+
+      },
+
+
+      {
+        -logic_name => 'create_small_rna_slice_ids',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         coord_system_name => 'toplevel',
+                         iid_type => 'slice',
+                         slice_size => 1000000,
+                         top_level => 1,
+                         target_db => $self->o('dna_db'),
+                         batch_slice_ids => 1,
+                         batch_target_size => 2000000,
+                      },
+        -flow_into => {
+                       '2->A' => ['mirna_blast','rfam_blast'],
+                       'A->1' => ['filter_ncrnas'],
+                      },
+        -rc_name    => 'default',
+      },
+
+
+      {
+        -logic_name => 'rfam_blast',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRfam',
+        -parameters => {
+                         repeat_logic_names => ['dust'],
+                         repeat_db => $self->o('dna_db'),
+                         output_db => $self->o('ncrna_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'rfamblast',
+                         module     => 'HiveBlastRfam',
+                         blast_db_path => $self->o('ncrna_blast_path')."/filtered.fasta",
+                         blast_exe_path => $self->o('blastn_exe_path'),
+                         commandline_params => ' -num_threads 3 -word_size 12 -num_alignments 5000  -num_descriptions 5000 -max_hsps 1 ',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastRFam', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
+                         timer => '3h',
+                       },
+       -flow_into => {
+                       '-1' => ['rebatch_rfam'],
+                       '-2' => ['rebatch_rfam'],
+                     },
+       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+       -rc_name    => 'rfam_blast',
+      },
+
+
+      {
+        -logic_name => 'rebatch_rfam',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('dna_db'),
+                         iid_type => 'rebatch_and_resize_slices',
+                         slice_size => 100000,
+                         batch_target_size => 100000,
+                       },
+       -flow_into => {
+                       '2' => ['rfam_blast_retry'],
+                     },
+       -rc_name    => 'default',
+       -can_be_empty  => 1,
+      },
+
+
+      {
+        -logic_name => 'rfam_blast_retry',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRfam',
+        -parameters => {
+                         repeat_logic_names => ['dust'],
+                         repeat_db => $self->o('dna_db'),
+                         output_db => $self->o('ncrna_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'rfamblast',
+                         module     => 'HiveBlastRfam',
+                         blast_db_path => $self->o('ncrna_blast_path')."/filtered.fasta",
+                         blast_exe_path => $self->o('blastn_exe_path'),
+                         commandline_params => ' -num_threads 3 -word_size 12 -num_alignments 5000  -num_descriptions 5000 -max_hsps 1 ',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastRFam', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
+                         timer => '1h',
+                       },
+       -flow_into => {
+                       '-1' => ['failed_rfam_blast_job'],
+                       '-2' => ['failed_rfam_blast_job'],
+                     },
+       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+       -rc_name    => 'rfam_blast_retry',
+       -can_be_empty  => 1,
+      },
+
+
+      {
+        -logic_name => 'failed_rfam_blast_job',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name          => 'default',
+        -can_be_empty  => 1,
+      },
+
+
+      {
+        -logic_name => 'mirna_blast',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastmiRNA',
+        -parameters => {
+                         repeat_logic_names => ['dust'],
+                         repeat_db => $self->o('dna_db'),
+                         output_db => $self->o('ncrna_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'blastmirna',
+                         module     => 'HiveBlastmiRNA',
+                         blast_db_path => $self->o('ncrna_blast_path') . '/' . $self->o('mirBase_fasta') ,
+                         blast_exe_path => $self->o('blastn_exe_path'),
+                         commandline_params => ' -num_threads 3 ',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastmiRBase', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
+                         timer => '2h',
+                       },
+
+        -flow_into => {
+                        '-1' => ['rebatch_mirna'],
+                        '-2' => ['rebatch_mirna'],
+                      },
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -rc_name    => 'blast',
+      },
+
+
+      {
+        -logic_name => 'rebatch_mirna',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('dna_db'),
+                         iid_type => 'rebatch_and_resize_slices',
+                         slice_size => 100000,
+                         batch_target_size => 100000,
+                       },
+       -flow_into => {
+                       '2' => ['mirna_blast_retry'],
+                     },
+       -rc_name    => 'default',
+       -can_be_empty  => 1,
+      },
+
+
+      {
+        -logic_name => 'mirna_blast_retry',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastmiRNA',
+        -parameters => {
+                         repeat_logic_names => ['dust'],
+                         repeat_db => $self->o('dna_db'),
+                         output_db => $self->o('ncrna_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'blastmirna',
+                         module     => 'HiveBlastmiRNA',
+                         blast_db_path => $self->o('ncrna_blast_path') . '/' . $self->o('mirBase_fasta') ,
+                         blast_exe_path => $self->o('blastn_exe_path'),
+                         commandline_params => ' -num_threads 3 ',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastmiRBase', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
+                         timer => '1h',
+                       },
+
+        -flow_into => {
+                        '-1' => ['failed_mirna_blast_job'],
+                        '-2' => ['failed_mirna_blast_job'],
+                      },
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -rc_name    => 'blast_retry',
+      },
+
+
+      {
+        -logic_name => 'failed_mirna_blast_job',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name          => 'default',
+        -can_be_empty  => 1,
+      },
+
+
+      {
+        -logic_name => 'filter_ncrnas',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFilterncRNAs',
+        -parameters => {
+                         output_db => $self->o('ncrna_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'filter_ncrnas',
+                         module     => 'HiveFilterncRNAs',
+                       },
+        -rc_name    => 'filter',
+        -flow_into => {
+                        '2' => ['run_mirna'],
+                        '3' => ['run_infernal'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'run_mirna',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivemiRNA',
+        -parameters => {
+                         output_db => $self->o('ncrna_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'ncrna',
+                         module     => 'HivemiRNA',
+                         blast_db_dir_path => $self->o('ncrna_blast_path').'/all_mirnas.embl',
+                       },
+        -batch_size => 20,
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -rc_name    => 'filter',
+      },
+
+
+      {
+        -logic_name => 'run_infernal',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveInfernal',
+        -parameters => {
+                         output_db => $self->o('ncrna_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'ncrna',
+                         module     => 'HiveInfernal',
+                         cmsearch_exe_path => $self->o('cmsearch_exe_path'),
+                         blast_db_dir_path => $self->o('ncrna_blast_path').'/',
+                       },
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -rc_name    => 'transcript_finalisation',
+      },
+
+
+      {
+        -logic_name => 'ncrna_sanity_checks',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
+        -parameters => {
+                         target_db => $self->o('ncrna_db'),
+                         sanity_check_type => 'gene_db_checks',
+                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
+                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'ncrna'},
+                       },
+
+        -rc_name    => '4GB',
+        -flow_into => {
+          1 => ['transfer_ncrnas'],
+        },
+      },
 
 
      {
        -logic_name => 'transfer_ncrnas',
        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
        -parameters => {
-                        cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl-analysis/scripts/genebuild/copy_genes.pl'.
+                        cmd => 'perl '.catfile($self->o('ensembl_analysis_script'), 'genebuild', 'copy_genes.pl').
                                      ' -sourcehost '.$self->o('ncrna_db','-host').
                                      ' -sourceuser '.$self->o('user_r').
                                      ' -sourceport '.$self->o('ncrna_db','-port').
@@ -3540,10 +3465,22 @@ sub pipeline_analyses {
                                      ' -all'
                       },
         -rc_name => 'default',
-        -flow_into => {
-                        '1->A' => ['fan_transfer_projected_genes'],
-                        'A->1' => ['delete_duplicate_genes'],
-                      },
+     },
+
+############################################################################
+#
+# Transfer projected lincRNA and pseudogenes
+#
+############################################################################
+     {
+       -logic_name => 'dummy_projected_lincrna_pseudos',
+       -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+       -parameters => {},
+       -rc_name => 'default',
+       -flow_into  => {
+         '1->A' => ['fan_transfer_projected_genes'],
+         'A->1' => ['delete_duplicate_genes'],
+       },
      },
 
 
@@ -3551,14 +3488,13 @@ sub pipeline_analyses {
        -logic_name => 'fan_transfer_projected_genes',
        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
        -parameters => {
-                        cmd => 'if [ "#skip_projection#" -ne "0" ]; then exit 42; else exit 0;fi',
-                        return_codes_2_branches => {'42' => 2},
-                       },
+         cmd => 'if [ "#skip_projection#" -ne 0 ]; then exit 42; else exit 0;fi', # To enable this part, replace -1 with 0
+         return_codes_2_branches => {'42' => 2},
+       },
        -rc_name => 'default',
        -flow_into  => {
-                         '1->A' => ['create_projected_lincrna_ids_to_copy'],
-                         'A->1' => ['create_projected_pseudogene_ids_to_copy'],
-                      },
+         1 => ['create_projected_lincrna_ids_to_copy'],
+       },
      },
 
 
@@ -3572,8 +3508,35 @@ sub pipeline_analyses {
                         batch_size   => 500,
                      },
        -flow_into => {
-                      '2' => ['transfer_projected_lincrnas'],
-                     },
+         '2->A' => ['transfer_projected_lincrnas'],
+         'A->1' => ['create_projected_pseudogene_ids_to_copy'],
+       },
+       -rc_name    => 'default',
+     },
+
+
+     {
+       -logic_name => 'transfer_projected_lincrnas',
+       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes',
+       -parameters => {
+         copy_genes_directly => 1,
+         source_db => $self->o('projection_lincrna_db'),
+         dna_db => $self->o('dna_db'),
+         target_db => $self->o('final_geneset_db'),
+         filter_on_overlap => 1,
+         filter_on_strand  => 0,
+         overlap_filter_type => 'genomic_overlap',
+         filter_against_biotypes => {
+           protein_coding => 1,
+           IG_C_gene => 1,
+           IG_V_gene => 1,
+           TR_C_gene => 1,
+           TR_J_gene => 1,
+           TR_V_gene => 1,
+           processed_pseudogene => 1,
+           pseudogene => 1,
+         },
+       },
        -rc_name    => 'default',
      },
 
@@ -3592,32 +3555,6 @@ sub pipeline_analyses {
                      },
        -rc_name    => 'default',
      },
-
-
-     {
-       -logic_name => 'transfer_projected_lincrnas',
-       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes',
-       -parameters => {
-                        copy_genes_directly => 1,
-                        source_db => $self->o('projection_lincrna_db'),
-                        dna_db => $self->o('dna_db'),
-                        target_db => $self->o('final_geneset_db'),
-                        filter_on_overlap => 1,
-                        filter_on_strand  => 0,
-                        overlap_filter_type => 'genomic_overlap',
-                        filter_against_biotypes => {
-                                                     protein_coding => 1,
-                                                     IG_C_gene => 1,
-                                                     IG_V_gene => 1,
-                                                     TR_C_gene => 1,
-                                                     TR_J_gene => 1,
-                                                     TR_V_gene => 1,
-                                                     processed_pseudogene => 1,
-                                                     pseudogene => 1,
-                                                   },
-                      },
-       -rc_name    => 'default',
-      },
 
 
       {
@@ -3722,33 +3659,31 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'update_biotypes_and_analyses',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                         cmd => 'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('reference_db','-host').
-                                ' -P'.$self->o('reference_db','-port').
-                                ' -D'.$self->o('reference_db','-dbname').
-                                ' -e \'UPDATE gene set biotype = "protein_coding" where biotype = "ensembl";'.
-                                ' UPDATE gene set analysis_id = (SELECT analysis_id from analysis where logic_name = "ensembl")'.
-                                ' WHERE analysis_id in (SELECT analysis_id from analysis where logic_name in'.
-                                ' ("spliced_elsewhere","pseudogenes","genblast","project_transcripts","project_pseudogene","project_lincrna"));'.
-                                ' UPDATE transcript join gene using(gene_id) set transcript.biotype = gene.biotype;'.
-                                ' UPDATE transcript join gene using(gene_id) set transcript.analysis_id = gene.analysis_id;'.
-                                ' INSERT into analysis (created,logic_name,db) values (now(),"other_protein","uniprot");'.
-                                ' INSERT into analysis (created,logic_name,db) values (now(),"projected_transcript","'.$self->o('projection_source_db_name').'");'.
-                                ' UPDATE protein_align_feature set analysis_id ='.
-                                ' (SELECT analysis_id from analysis where logic_name = "projected_transcript") where analysis_id ='.
-                                ' (SELECT analysis_id from analysis where logic_name = "project_transcripts");'.
-                                ' UPDATE protein_align_feature set analysis_id ='.
-                                ' (SELECT analysis_id from analysis where logic_name = "other_protein") where analysis_id not in'.
-                                ' (SELECT analysis_id from analysis where logic_name in ("uniprot","projected_transcript"));'.
-                                ' UPDATE dna_align_feature set analysis_id ='.
-                                ' (SELECT analysis_id from analysis where logic_name = "projected_transcript") where analysis_id in'.
-                                ' (SELECT analysis_id from analysis where logic_name in ("project_lincrna","project_pseudogene"));'.
-                                ' UPDATE repeat_feature set seq_region_start=1 where seq_region_start < 1;\'',
-                       },
+          db_conn => $self->o('reference_db'),
+          sql => [
+            'UPDATE gene SET biotype = "protein_coding" WHERE biotype = "ensembl"',
+            'UPDATE gene SET analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "ensembl")'.
+              ' WHERE analysis_id IN'.
+              ' (SELECT analysis_id FROM analysis'.
+              ' WHERE logic_name IN ("spliced_elsewhere","pseudogenes","genblast","project_transcripts","project_pseudogene","project_lincrna"))',
+            'UPDATE transcript JOIN gene USING(gene_id) SET transcript.biotype = gene.biotype',
+            'UPDATE transcript JOIN gene USING(gene_id) SET transcript.analysis_id = gene.analysis_id',
+            'INSERT into analysis (created,logic_name,db) VALUES (NOW(),"other_protein","uniprot")',
+            'INSERT into analysis (created,logic_name,db) VALUES (NOW(),"projected_transcript","'.$self->o('projection_source_db_name').'")',
+            'UPDATE protein_align_feature SET analysis_id ='.
+              '(SELECT analysis_id FROM analysis WHERE logic_name = "projected_transcript") WHERE analysis_id ='.
+              '(SELECT analysis_id FROM analysis WHERE logic_name = "project_transcripts")',
+            'UPDATE protein_align_feature SET analysis_id ='.
+              '(SELECT analysis_id FROM analysis WHERE logic_name = "other_protein") WHERE analysis_id NOT IN'.
+              '(SELECT analysis_id FROM analysis WHERE logic_name IN ("uniprot","projected_transcript"))',
+            'UPDATE dna_align_feature SET analysis_id ='.
+              '(SELECT analysis_id FROM analysis WHERE logic_name = "projected_transcript") WHERE analysis_id IN'.
+              '(SELECT analysis_id FROM analysis WHERE logic_name IN ("project_lincrna","project_pseudogene"))',
+            'UPDATE repeat_feature SET seq_region_start = 1 WHERE seq_region_start < 1',
+          ],
+        },
         -rc_name    => 'default',
         -flow_into => {
                         1 => ['set_meta_coords'],
@@ -3760,7 +3695,7 @@ sub pipeline_analyses {
         -logic_name => 'set_meta_coords',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/meta_coord/update_meta_coord.pl'.
+                         cmd => 'perl '.$self->o('meta_coord_script').
                                 ' -user '.$self->o('user').
                                 ' -pass '.$self->o('password').
                                 ' -host '.$self->o('reference_db','-host').
@@ -3778,7 +3713,7 @@ sub pipeline_analyses {
         -logic_name => 'set_meta_levels',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/meta_levels.pl'.
+                         cmd => 'perl '.$self->o('meta_levels_script').
                                 ' -user '.$self->o('user').
                                 ' -pass '.$self->o('password').
                                 ' -host '.$self->o('reference_db','-host').
@@ -3793,7 +3728,7 @@ sub pipeline_analyses {
         -logic_name => 'set_frameshift_introns',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/frameshift_transcript_attribs.pl'.
+                         cmd => 'perl '.$self->o('frameshift_attrib_script').
                                 ' -user '.$self->o('user').
                                 ' -pass '.$self->o('password').
                                 ' -host '.$self->o('reference_db','-host').
@@ -3808,7 +3743,7 @@ sub pipeline_analyses {
         -logic_name => 'set_canonical_transcripts',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/canonical_transcripts/select_canonical_transcripts.pl'.
+                         cmd => 'perl '.$self->o('select_canonical_script').
                                 ' -dbuser '.$self->o('user').
                                 ' -dbpass '.$self->o('password').
                                 ' -dbhost '.$self->o('reference_db','-host').
@@ -3823,21 +3758,17 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'null_columns',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                         cmd => 'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('reference_db','-host').
-                                ' -P'.$self->o('reference_db','-port').
-                                ' -D'.$self->o('reference_db','-dbname').
-                                ' -e \'UPDATE gene set stable_id=NULL;'.
-                                ' UPDATE transcript set stable_id=NULL;'.
-                                ' UPDATE translation set stable_id=NULL;'.
-                                ' UPDATE exon set stable_id=NULL;'.
-                                ' UPDATE protein_align_feature set external_db_id=NULL;'.
-                                ' UPDATE dna_align_feature set external_db_id=NULL;\'',
-                       },
+          db_conn => $self->o('reference_db'),
+          sql => [
+            'UPDATE transcript set stable_id = NULL',
+            'UPDATE translation set stable_id = NULL',
+            'UPDATE exon set stable_id = NULL',
+            'UPDATE protein_align_feature set external_db_id = NULL',
+            'UPDATE dna_align_feature set external_db_id = NULL',
+          ],
+        },
         -rc_name    => 'default',
         -flow_into => {
                         1 => ['run_stable_ids'],
@@ -3872,7 +3803,7 @@ sub pipeline_analyses {
                          'user_w'           => $self->o('user'),
                          'pass_w'           => $self->o('password'),
                          'create_type'      => 'backup',
-                         'output_path'      => $self->o('output_path')."/core_db_bak/",
+                         'output_path'      => catdir($self->o('output_path'), 'core_db_bak'),
                          'backup_name'      => 'core_bak_post_stable_id.sql',
                        },
         -rc_name    => 'default',
@@ -3884,8 +3815,8 @@ sub pipeline_analyses {
         -logic_name => 'load_external_db_ids_and_optimise_af_tables',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl-analysis/scripts/genebuild/load_external_db_ids_and_optimize_af.pl'.
-                                ' -output_path '.$self->o('output_path').'/optimise/'.
+                         cmd => 'perl '.$self->o('load_optimise_script').
+                                ' -output_path '.catdir($self->o('output_path'), 'optimise').
                                 ' -uniprot_filename '.$self->o('uniprot_entry_loc').
                                 ' -dbuser '.$self->o('user').
                                 ' -dbpass '.$self->o('password').
@@ -3908,73 +3839,50 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'clean_unused_analyses',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                         cmd => 'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('reference_db','-host').
-                                ' -P'.$self->o('reference_db','-port').
-                                ' -D'.$self->o('reference_db','-dbname').
-                                ' -e \'DELETE from analysis_description where analysis_id in'.
-                                ' (SELECT analysis_id from analysis where logic_name in'.
-                                ' ("spliced_elsewhere","pseudogenes","genblast","project_pseudogene",'.
-                                ' "project_lincrna","project_transcripts","ig_tr_collapse"));'.
-                                ' DELETE from analysis where logic_name in'.
-                                ' ("spliced_elsewhere","pseudogenes","genblast","project_pseudogene",'.
-			        ' "project_lincrna","project_transcripts","ig_tr_collapse");\'',
-                       },
+          db_conn => $self->o('reference_db'),
+          sql => [
+            'DELETE FROM analysis_description WHERE analysis_id IN'.
+              ' (SELECT analysis_id FROM analysis WHERE logic_name IN'.
+              ' ("spliced_elsewhere","pseudogenes","genblast","project_pseudogene",'.
+              ' "project_lincrna","project_transcripts","ig_tr_collapse"))',
+            'DELETE FROM analysis WHERE logic_name IN'.
+              ' ("spliced_elsewhere","pseudogenes","genblast","project_pseudogene",'.
+              ' "project_lincrna","project_transcripts","ig_tr_collapse")',
+          ],
+        },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['update_rnaseq_analyses'],
+                        1 => ['drop_backup_tables_job'],
                       },
       },
 
 
       {
-        -logic_name => 'update_rnaseq_analyses',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -logic_name => 'drop_backup_tables_job',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
         -parameters => {
-                         cmd => 'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('reference_db','-host').
-                                ' -P'.$self->o('reference_db','-port').
-                                ' -D'.$self->o('reference_db','-dbname').
-                                ' -e \'UPDATE analysis set logic_name=replace(logic_name,"_rnaseq","_rnaseq_ise")'.
-                                ' WHERE logic_name like "'.$self->o('species_name').'%_rnaseq";\'',
-                       },
+          inputquery => 'SHOW TABLES LIKE "%bak%"',
+          column_names => ['table'],
+          db_conn =>$self->o('reference_db'),
+        },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['drop_backup_tables'],
-                      },
+          '2->A' => ['drop_backup_tables'],
+          'A->1' => ['core_gene_set_sanity_checks'],
+        },
       },
 
 
       {
         -logic_name => 'drop_backup_tables',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                         cmd => 'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('reference_db','-host').
-                                ' -P'.$self->o('reference_db','-port').
-                                ' -D'.$self->o('reference_db','-dbname').
-                                ' -e \'show tables like "%bak%";\' '.
-                                '| xargs -I "@@" echo '.
-                                'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('reference_db','-host').
-                                ' -P'.$self->o('reference_db','-port').
-                                ' -D'.$self->o('reference_db','-dbname').
-                                ' -e \'DROP TABLE @@";\'',
-                       },
+          sql => 'DROP TABLE #table#',
+          db_conn =>$self->o('reference_db'),
+        },
         -rc_name    => 'default',
-        -flow_into => {
-                        1 => ['core_gene_set_sanity_checks'],
-                      },
       },
 
 
@@ -4080,42 +3988,26 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'update_otherfeatures_db',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                         cmd => 'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('otherfeatures_db','-host').
-                                ' -P'.$self->o('otherfeatures_db','-port').
-                                ' -D'.$self->o('otherfeatures_db','-dbname').
-                                ' -e \'UPDATE analysis set db_version="#assembly_refseq_accession#";'.
-                                ' UPDATE analysis set db_file="#assembly_refseq_accession#";'.
-                                ' UPDATE dna_align_feature set analysis_id = (SELECT analysis_id from analysis where logic_name="cdna_alignment") where'.
-                                ' analysis_id = (SELECT analysis_id from analysis where logic_name="refseq_cdna");'.
-                                ' UPDATE gene set analysis_id = (SELECT analysis_id from analysis where logic_name="cdna_alignment") where'.
-                                ' analysis_id = (SELECT analysis_id from analysis where logic_name="refseq_cdna");'.
-                                ' UPDATE transcript join gene using(gene_id) set transcript.analysis_id=gene.analysis_id;'.
-                                ' DELETE analysis_description from analysis_description join analysis using(analysis_id)'.
-                                ' where logic_name not in ("refseq_import","cdna_alignment");'.
-                                ' DELETE from analysis where logic_name not in ("refseq_import","cdna_alignment");'.
-                                ' DELETE from meta where meta_key like "%\.level";'.
-                                ' DELETE from meta where meta_key like "provider\.%";'.
-                                ' DELETE from meta where meta_key like "assembly.web_accession%";'.
-                                ' DELETE from meta where meta_key like "removed_evidence_flag\.%";'.
-                                ' DELETE from meta where meta_key like "marker\.%";'.
-                                ' DELETE from meta where meta_key = "repeat.analysis";'.
-                                ' DELETE from meta where meta_key in'.
-                                ' ("genebuild.last_geneset_update","genebuild.method","genebuild.projection_source_db","genebuild.start_date");'.
-                                ' INSERT into meta (species_id,meta_key,meta_value) values (1,"genebuild.last_otherfeatures_update",now());'.
-                                ' UPDATE gene set biotype = "cdna" WHERE analysis_id ='.
-                                ' (SELECT analysis_id from analysis where logic_name = "cdna_alignment");'.
-                                ' UPDATE transcript set biotype = "cdna" WHERE analysis_id ='.
-                                ' (SELECT analysis_id from analysis where logic_name = "cdna_alignment");'.
-                                ' UPDATE transcript join transcript_supporting_feature using(transcript_id)'.
-                                ' join dna_align_feature on feature_id = dna_align_feature_id set stable_id = hit_name;'.
-                                ' UPDATE gene join transcript using(gene_id) set gene.stable_id = transcript.stable_id'.
-                                ' WHERE gene.analysis_id = (SELECT analysis_id from analysis where logic_name = "cdna_alignment");\'',
-                       },
+          db_conn => $self->o('otherfeatures_db'),
+          sql => [
+            'DELETE analysis_description FROM analysis_description join analysis using(analysis_id)'.
+              ' WHERE logic_name NOT IN ("refseq_import","cdna_alignment")',
+            'DELETE FROM analysis WHERE logic_name NOT IN ("refseq_import","cdna_alignment")',
+            'DELETE FROM meta WHERE meta_key LIKE "%.level"',
+            'DELETE FROM meta WHERE meta_key LIKE "provider.%"',
+            'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
+            'DELETE FROM meta WHERE meta_key LIKE "removed_evidence_flag.%"',
+            'DELETE FROM meta WHERE meta_key LIKE "marker.%"',
+            'DELETE FROM meta WHERE meta_key = "repeat.analysis"',
+            'DELETE FROM meta WHERE meta_key IN'.
+              ' ("genebuild.last_geneset_update","genebuild.method","genebuild.projection_source_db","genebuild.start_date")',
+            'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
+            'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id)'.
+              ' JOIN dna_align_feature ON feature_id = dna_align_feature_id SET stable_id = hit_name',
+          ],
+        },
         -rc_name    => 'default',
         -flow_into => {
                         1 => ['set_otherfeatures_meta_coords'],
@@ -4127,7 +4019,7 @@ sub pipeline_analyses {
         -logic_name => 'set_otherfeatures_meta_coords',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/meta_coord/update_meta_coord.pl'.
+                         cmd => 'perl '.$self->o('meta_coord_script').
                                 ' -user '.$self->o('user').
                                 ' -pass '.$self->o('password').
                                 ' -host '.$self->o('otherfeatures_db','-host').
@@ -4145,7 +4037,7 @@ sub pipeline_analyses {
         -logic_name => 'set_otherfeatures_meta_levels',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/meta_levels.pl'.
+                         cmd => 'perl '.$self->o('meta_levels_script').
                                 ' -user '.$self->o('user').
                                 ' -pass '.$self->o('password').
                                 ' -host '.$self->o('otherfeatures_db','-host').
@@ -4161,7 +4053,7 @@ sub pipeline_analyses {
         -logic_name => 'set_otherfeatures_frameshift_introns',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/frameshift_transcript_attribs.pl'.
+                         cmd => 'perl '.$self->o('frameshift_attrib_script').
                                 ' -user '.$self->o('user').
                                 ' -pass '.$self->o('password').
                                 ' -host '.$self->o('otherfeatures_db','-host').
@@ -4177,7 +4069,7 @@ sub pipeline_analyses {
         -logic_name => 'set_otherfeatures_canonical_transcripts',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/canonical_transcripts/select_canonical_transcripts.pl'.
+                         cmd => 'perl '.$self->o('select_canonical_script').
                                 ' -dbuser '.$self->o('user').
                                 ' -dbpass '.$self->o('password').
                                 ' -dbhost '.$self->o('otherfeatures_db','-host').
@@ -4196,16 +4088,13 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'null_otherfeatures_columns',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                         cmd => 'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('otherfeatures_db','-host').
-                                ' -P'.$self->o('otherfeatures_db','-port').
-                                ' -D'.$self->o('otherfeatures_db','-dbname').
-                                ' -e \'UPDATE dna_align_feature set external_db_id=NULL;\'',
-                       },
+          db_conn => $self->o('otherfeatures_db'),
+          sql => [
+            'UPDATE dna_align_feature SET external_db_id = NULL',
+          ],
+        },
         -rc_name    => 'default',
         -flow_into => {
                         1 => ['load_external_db_ids_and_optimise_otherfeatures'],
@@ -4217,7 +4106,7 @@ sub pipeline_analyses {
         -logic_name => 'load_external_db_ids_and_optimise_otherfeatures',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl-analysis/scripts/genebuild/load_external_db_ids_and_optimize_af.pl'.
+                         cmd => 'perl '.$self->o('load_optimise_script').
                                 ' -output_path '.$self->o('output_path').'/optimise_otherfeatures/'.
                                 ' -uniprot_filename '.$self->o('uniprot_entry_loc').
                                 ' -dbuser '.$self->o('user').
@@ -4309,7 +4198,7 @@ sub pipeline_analyses {
         -logic_name => 'run_rnaseq_final_db_script',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl-analysis/scripts/RNASeq/make_rnaseq_handover_db.pl'.
+                         cmd => 'perl '.catfile($self->o('ensembl_analysis_script').'RNASeq', 'make_rnaseq_handover_db.pl').
                                 ' -blastdbuser '.$self->o('user').
                                 ' -blastdbpass '.$self->o('password').
                                 ' -blastdbhost '.$self->o('rnaseq_final_db','-host').
@@ -4333,7 +4222,7 @@ sub pipeline_analyses {
         -logic_name => 'set_rnaseq_final_meta_coords',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/meta_coord/update_meta_coord.pl'.
+                         cmd => 'perl '.$self->o('meta_coord_script').
                                 ' -user '.$self->o('user').
                                 ' -pass '.$self->o('password').
                                 ' -host '.$self->o('rnaseq_final_db','-host').
@@ -4351,7 +4240,7 @@ sub pipeline_analyses {
         -logic_name => 'set_rnaseq_final_meta_levels',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl/misc-scripts/meta_levels.pl'.
+                         cmd => 'perl '.$self->o('meta_levels_script').
                                 ' -user '.$self->o('user').
                                 ' -pass '.$self->o('password').
                                 ' -host '.$self->o('rnaseq_final_db','-host').
@@ -4365,16 +4254,13 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'null_rnaseq_final_columns',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                         cmd => 'mysql '.
-                                ' -u'.$self->o('user').
-                                ' -p'.$self->o('password').
-                                ' -h'.$self->o('rnaseq_final_db','-host').
-                                ' -P'.$self->o('rnaseq_final_db','-port').
-                                ' -D'.$self->o('rnaseq_final_db','-dbname').
-                                ' -e \'UPDATE dna_align_feature set external_db_id=NULL;\'',
-                       },
+          db_conn => $self->o('rnaseq_final_db'),
+          sql => [
+            'UPDATE dna_align_feature SET external_db_id = NULL',
+          ],
+        },
         -rc_name    => 'default',
         -flow_into => {
                         1 => ['optimise_rnaseq_final'],
@@ -4386,7 +4272,7 @@ sub pipeline_analyses {
         -logic_name => 'optimise_rnaseq_final',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('enscode_root_dir').'/ensembl-analysis/scripts/genebuild/load_external_db_ids_and_optimize_af.pl'.
+                         cmd => 'perl '.$self->o('load_optimise_script').
                                 ' -output_path '.$self->o('output_path').'/optimise_rnaseq_final/'.
                                 ' -uniprot_filename '.$self->o('uniprot_entry_loc').
                                 ' -dbuser '.$self->o('user').
