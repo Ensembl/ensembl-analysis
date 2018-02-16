@@ -70,13 +70,11 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 use Net::FTP;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Getopt::Long;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use File::Basename;
 use File::Find;
 use List::Util qw(sum);
@@ -221,7 +219,7 @@ sub methionine_to_stop_codon {
   my $num_correct_ids = $num_ids - $num_wrong_ids;
 
   # Check that $num_wrong_ids is similar to the previous release one (if previous release exists).
-  warning("Methionine to stop codon check: Please check manually that the number of wrong transcripts $num_wrong_ids is similar to the one in previous release (if exists). Some of the previous releases numbers are: e71: 29260; e70: 29381 e69: 56594; e68: 53703");
+  $self->warning("Methionine to stop codon check: Please check manually that the number of wrong transcripts $num_wrong_ids is similar to the one in previous release (if exists). Some of the previous releases numbers are: e71: 29260; e70: 29381 e69: 56594; e68: 53703");
 }
 
 sub set_ncrna_host_gene_attribute {

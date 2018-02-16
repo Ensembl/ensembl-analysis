@@ -58,7 +58,6 @@ use warnings;
 use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Runnable::BlastRfam;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Tools::FilterBPlite;
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');

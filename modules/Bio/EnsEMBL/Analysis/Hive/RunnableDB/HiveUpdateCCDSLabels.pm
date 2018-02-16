@@ -62,7 +62,6 @@ use Getopt::Long;
 use File::Basename;
 use File::Find;
 use List::Util qw(sum);
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use Bio::EnsEMBL::DBEntry;
 
 sub param_defaults {
@@ -261,7 +260,7 @@ sub insert_ccds_labels {
       if ($ccds_translation) {
         $ccds_translation_seq = $ccds_translation->seq();
       } else {
-        throw($ccds_transcript->stable_id()." does not have a translation");
+        $self->throw($ccds_transcript->stable_id()." does not have a translation");
       }
 
       # check if any overlapping transcript matches ccds and add attribute and feature
@@ -272,7 +271,7 @@ sub insert_ccds_labels {
         if ($output_translation) {
           $output_translation_seq = $output_translation->seq();
         } else {
-      	  throw($output_transcript->stable_id()." does not have a translation");
+          $self->throw($output_transcript->stable_id()." does not have a translation");
         }
 
         my @translateable_exons = @{$output_transcript->get_all_translateable_Exons()};
@@ -311,7 +310,7 @@ sub add_ccds_transcript_attrib {
   my ($attrib_type_id,$newcode,$name,$description) = $attribute_adaptor->fetch_by_code($attrib_code);
   
   if (!$attrib_type_id) {
-    throw("Unable to fetch attrib_type with code $attrib_code");
+    $self->throw("Unable to fetch attrib_type with code $attrib_code");
   }
 
   my $ccds_attribute = Bio::EnsEMBL::Attribute->new(
