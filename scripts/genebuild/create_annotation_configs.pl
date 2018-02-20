@@ -243,6 +243,12 @@ sub clade_settings {
       'repbase_logic_name' => 'rodents',
       'uniprot_set'        => 'rodents_basic',
     },
+
+    'mammals' => {
+      'repbase_library'    => 'mammals',
+      'repbase_logic_name' => 'mammals',
+      'uniprot_set'        => 'mammals_basic',
+    },
   };
 
   unless($clade_settings->{$clade}) {
