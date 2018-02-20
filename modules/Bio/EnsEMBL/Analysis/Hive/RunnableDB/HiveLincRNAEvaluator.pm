@@ -276,8 +276,8 @@ sub write_output{
                                            -logic_name => $logic_name_to_be,
                                            -displayable => 1
                                            );
-
     my $analysis_adaptor = $dba->get_AnalysisAdaptor();
+
     # check if the logic name present in my database or if I need to create a new analysis_id, logic_name etc...
     if ($analysis_adaptor->fetch_by_logic_name($logic_name_to_be) ) {
     }else {
@@ -295,8 +295,7 @@ sub write_output{
                                        -biotype => $biotype_to_use, 
                                        -strand  => $strand_to_use, 
                                        );
-
-    # print_Gene_Transcript_and_Exons($gene); # if check
+    # print_Gene_Transcript_and_Exons($gene_linc); # if check
     
     foreach my $tr (@t) {
       my $exs      = []; # new array of exons
