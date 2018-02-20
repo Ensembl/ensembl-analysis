@@ -482,8 +482,9 @@ sub _master_config {
      }, # primates_basic
   }, # final_core_checks
 
-  );
+ }
+);
   return $config{$key};
-}
 
+}
 1;
