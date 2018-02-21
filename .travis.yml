@@ -71,16 +71,16 @@ script: "./travisci/harness.sh"
 
 matrix:
   exclude:
-    - "5.26"
-      - COVERALLS=false DB=mysql OLDPERL=true
-    - "5.22"
-      - COVERALLS=false DB=mysql OLDPERL=true
-    - "5.18"
-      - COVERALLS=false DB=mysql OLDPERL=true
-    - "5.14"
-      - COVERALLS=false DB=mysql OLDPERL=true
-    - "5.10"
-      - COVERALLS=false DB=mysql OLDPERL=false
+    - perl: "5.26"
+      env: COVERALLS=false DB=mysql OLDPERL=true
+    - perl: "5.22"
+      env: COVERALLS=false DB=mysql OLDPERL=true
+    - perl: "5.18"
+      env: COVERALLS=false DB=mysql OLDPERL=true
+    - perl: "5.14"
+      env: COVERALLS=false DB=mysql OLDPERL=true
+    - perl: "5.10"
+      env: COVERALLS=false DB=mysql OLDPERL=false
 
 notifications:
   email:
