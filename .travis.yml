@@ -40,7 +40,7 @@ before_install:
     - wget https://github.com/bioperl/bioperl-live/archive/bioperl-release-1-2-3.zip
     - unzip bioperl-release-1-2-3.zip
     - git clone --branch release-1-6-924 --depth 1 https://github.com/bioperl/bioperl-live.git
-    - git clone --branch release-1-6 --depth 1 https://github.com/bioperl/bioperl-run.git
+    - git clone --branch release-1-6-9 --depth 1 https://github.com/bioperl/bioperl-run.git
     - wget https://github.com/samtools/htslib/releases/download/1.3.2/htslib-1.3.2.tar.bz2
     - tar -jxvf htslib-1.3.2.tar.bz2
     - cd htslib-1.3.2 && make CFLAGS="-g -O2 -fPIC"
