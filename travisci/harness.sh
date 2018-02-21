@@ -74,6 +74,14 @@ else
       printf " - \e[33m%s\n\e[0m" "${M[$S]}"
       RES=${RES}" ! -name `basename ${M[$S]}`"
   done
+  if [ "$OLDPERL" = 'true' ];then
+    M=( "Bio/EnsEMBL/Analysis/Hive/Config/TSLsAppris_conf.pm" \
+    "Bio/EnsEMBL/Analysis/Hive/Config/HiveRelCoDuties_conf.pm" )
+    for S in `seq 0 $((${#M[@]}-1))`; do
+        printf " - \e[33m%s\n\e[0m" "${M[$S]}"
+        RES=${RES}" ! -name `basename ${M[$S]}`"
+    done
+  fi
   find $PWD/modules -type f -name "*.pm" ! -path "*Finished*" `echo "$RES"` | xargs -i perl -c {}
   EXIT_CODE=$?
   if [ "$EXIT_CODE" -ne 0 ]; then

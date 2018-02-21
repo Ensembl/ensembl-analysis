@@ -11,7 +11,8 @@ services:
   - mysql
 
 env:
-  - COVERALLS=false DB=mysql
+  - COVERALLS=false DB=mysql OLDPERL=false
+  - COVERALLS=false DB=mysql OLDPERL=true
 
 sudo: false
 
@@ -67,6 +68,19 @@ install:
     - cp -r ensembl/modules/t/test-genome-DBs/homo_sapiens/core modules/t/test-genome-DBs/homo_sapiens/core
  
 script: "./travisci/harness.sh"
+
+matrix:
+  exclude:
+    - "5.26"
+      - COVERALLS=false DB=mysql OLDPERL=true
+    - "5.22"
+      - COVERALLS=false DB=mysql OLDPERL=true
+    - "5.18"
+      - COVERALLS=false DB=mysql OLDPERL=true
+    - "5.14"
+      - COVERALLS=false DB=mysql OLDPERL=true
+    - "5.10"
+      - COVERALLS=false DB=mysql OLDPERL=false
 
 notifications:
   email:
