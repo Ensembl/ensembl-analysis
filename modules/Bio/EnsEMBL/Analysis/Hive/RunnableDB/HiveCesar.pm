@@ -63,6 +63,7 @@ Compara lastz alignments.
 exons to be projected.
 -cesar_path           Path to the directory containing the CESAR2.0
 binary to be run (excluding the binary filename).
+-canonical            If set to 1, then only the canonical transcript for each gene will be fetched from the source db.
 -TRANSCRIPT_FILTER    Hash containing the parameters required to apply
 to the projected transcript to exclude some of them. Default to
 ExonerateTranscriptFilter pid,cov 50,50 although note that the actual
@@ -104,6 +105,7 @@ sub param_defaults {
       method_link_type => 'LASTZ_NET',
       exon_region_padding => 50,
       cesar_path => '',
+      canonical => 0,
       TRANSCRIPT_FILTER => {
                              OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
                              PARAMETERS => {
@@ -187,7 +189,7 @@ sub fetch_input {
   foreach my $ii (@input_id) {
 
     my $gene = $source_transcript_dba->get_GeneAdaptor->fetch_by_dbID($ii);
-    my @unique_translateable_exons = $self->get_unique_translateable_exons($gene);
+    my @unique_translateable_exons = $self->get_unique_translateable_exons($gene,$self->param('canonical'));
     my $exon_align_slices;
     my $genomic_align_block_adaptor = $compara_dba->get_GenomicAlignBlockAdaptor();
     my $exon_region_padding = $self->param('exon_region_padding');
@@ -780,7 +782,7 @@ sub target_slices {
 }
 
 sub get_unique_translateable_exons {
-  my ($self,$gene) = @_;
+  my ($self,$gene,$canonical) = @_;
 
   my $translateable_exons = {};
   unless($gene->biotype eq 'protein_coding') {
@@ -788,8 +790,13 @@ sub get_unique_translateable_exons {
       $self->complete_early('Gene does not have protein_coding biotype!');
   }
 
-  my $transcripts = $gene->get_all_Transcripts();
-  foreach my $transcript (@{$transcripts}) {
+  my @transcripts = ();
+  if ($canonical) {
+    push(@transcripts,$gene->canonical_transcript());
+  } else {
+    @transcripts = @{$gene->get_all_Transcripts()};
+  }
+  foreach my $transcript (@transcripts) {
     unless($transcript->biotype eq 'protein_coding') {
       next;
     }
