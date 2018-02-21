@@ -138,44 +138,44 @@ sub _master_config {
       }, # genblast
       'ig_tr' => {
         'logic_names' => {
-          'ig_tr_gene'          => 40,
+          'ig_tr_gene'          => 80,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                 => 20,
-          'TR_'                 => 20,
+          'IG_'                 => 100,
+          'TR_'                 => 5,
         }, # biotypes
       }, # ig_tr
       'projection_coding' => {
         'logic_names' => {
-          'project_transcripts' => 30000,
+          'project_transcripts' => 51000,
         }, # logic_names
         'biotypes' =>    {
-          'projection'          => 30000,
+          'projection'          => 51000,
         }, # biotypes
       }, # projection_coding
       'projection_lincrna' => {
         'logic_names' => {
-          'project_lincrna' => 2000,
+          'project_lincrna' => 40,
         }, # logic_names
       }, # projection_lincrna
       'projection_pseudogene' => {
         'logic_names' => {
-          'project_pseudogene' => 2000,
+          'project_pseudogene' => 3900,
         }, # logic_names
       }, # projection_pseudogene
       'projection_ig_tr' => {
         'logic_names' => {
-          'project_ig_tr' => 50,
+          'project_ig_tr' => 80,
         }, # logic_names
       }, # projection_ig_tr
       'realign' => {
         'logic_names' => {
           # Would actually prefer an upper limit on realign as opposed to a lower limit
-          'project_transcripts'  => 20000,
-          'genblast'             => 1000,
+          'project_transcripts'  => 40000,
+          'genblast'             => 9000,
         }, # logic_names
         'biotypes' =>    {
-          'realign'             => 20000,
+          'realign'             => 50000,
         }, # biotypes
       }, # realign
       'rnaseq_blast' =>  {
@@ -482,8 +482,9 @@ sub _master_config {
      }, # primates_basic
   }, # final_core_checks
 
-  );
+ }
+);
   return $config{$key};
-}
 
+}
 1;
