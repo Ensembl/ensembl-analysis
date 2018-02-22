@@ -1,5 +1,5 @@
 #!/bin/bash
-export PERL5LIB=$PWD/bioperl-live:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/ensembl-hive/modules:$PWD/ensembl-io/modules:$PWD/bioperl-live-bioperl-release-1-2-3:$PWD/bioperl-run/lib:$PWD/ensembl-56/modules:$PWD/ensembl-test/modules
+export PERL5LIB=$PWD/bioperl-live:$PWD/ensembl/modules:$PWD/ensembl-external/modules:$PWD/modules:$PWD/scripts:$PWD/scripts/buildchecks:$PWD/ensembl-compara/modules:$PWD/ensembl-funcgen/modules:$PWD/ensembl-killlist/modules:$PWD/ensembl-pipeline/scripts:$PWD/ensembl-pipeline/modules:$PWD/ensembl-hive/modules:$PWD/ensembl-io/modules:$PWD/bioperl-live-bioperl-release-1-2-3:$PWD/bioperl-run/lib:$PWD/ensembl-56/modules:$PWD/GIFTS/modules:$PWD/ensembl-test/modules
 
 export WORK_DIR=$PWD
 
@@ -63,13 +63,6 @@ else
   "Bio/EnsEMBL/Analysis/RunnableDB/Funcgen/SWEmbl.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" )
   printf "\e[31mWe will not test:\e[0m\n - \e[33m%s\e[0m\n" "Annacode modules"
-  for S in `seq 0 $((${#M[@]}-1))`; do
-      printf " - \e[33m%s\n\e[0m" "${M[$S]}"
-      RES=${RES}" ! -name `basename ${M[$S]}`"
-  done
-  M=( "Bio/EnsEMBL/Analysis/Hive/RunnableDB/HiveLoadPDBProteinFeatures.pm" \
-  "Bio/EnsEMBL/Analysis/Runnable/MakePDBProteinFeatures.pm" )
-  printf "\e[31mWe will not test:\e[0m\n - \e[33m%s\e[0m\n" "PDB modules as long as GIFTS repo is not public"
   for S in `seq 0 $((${#M[@]}-1))`; do
       printf " - \e[33m%s\n\e[0m" "${M[$S]}"
       RES=${RES}" ! -name `basename ${M[$S]}`"
