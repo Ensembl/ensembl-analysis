@@ -76,6 +76,7 @@ else
   done
   if [ "$OLDPERL" = 'true' ];then
     M=( "Bio/EnsEMBL/Analysis/Hive/Config/TSLsAppris_conf.pm" \
+    "Bio/EnsEMBL/Analysis/Hive/Config/UniProtDB_conf.pm" \
     "Bio/EnsEMBL/Analysis/Hive/Config/HiveRelCoDuties_conf.pm" )
     for S in `seq 0 $((${#M[@]}-1))`; do
         printf " - \e[33m%s\n\e[0m" "${M[$S]}"
