@@ -88,6 +88,7 @@ our @EXPORT_OK = qw(
               execute_with_timer
               parse_timer
               is_slice_name
+              get_database_from_registry
               );
 
 
@@ -1304,6 +1305,54 @@ sub is_slice_name {
     my ($string) = @_;
 
     return $string =~ /^[^:]+:[^:]+:[^:]+:\d+:\d+:(1|-1)$/;
+}
+
+
+=head2 get_database_from_registry
+
+ Arg [1]    : String species name
+ Arg [2]    : String type of the database, default is 'Core'
+ Description: Use the Bio::EnsEMBL::Registry to get a database for the species
+              Arg[1] of type Arg[2].
+              If the databases are not released yet, it uses the databases
+              from the previous release.
+              This could be dangerous but needed in some cases.
+              This method is for the test of modules
+ Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Exceptions : None
+
+=cut
+
+sub get_database_from_registry {
+  my ($species, $type) = @_;
+
+  $type = 'Core' unless ($type);
+  my $registry = 'Bio::EnsEMBL::Registry';
+  my %hash = (
+    -host => 'ensembldb.ensembl.org',
+    -port => 3306,
+    -user => 'anonymous',
+  );
+  if ($species) {
+    $hash{'-species'} = $species;
+  }
+  $registry->load_registry_from_db(
+    %hash,
+  );
+  my $db;
+  eval {
+    $db = $registry->get_DBAdaptor($species, $type);
+  };
+  if ($@) {
+# Because the branching happens earlier I need to put this piece of code
+# to make sure that we connect to the latest release.
+    $registry->load_registry_from_db(
+      %hash,
+      -db_version => Bio::EnsEMBL::ApiVersion->software_version-1,
+    );
+    $db = $registry->get_DBAdaptor($species, $type);
+  }
+  return $db;
 }
 
 1;
