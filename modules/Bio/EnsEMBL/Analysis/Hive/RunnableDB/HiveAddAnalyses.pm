@@ -130,6 +130,12 @@ sub fetch_input {
     if (@$analysis_data) {
       foreach my $analysis_hash (@$analysis_data) {
         $self->throw("'$analysis_hash' is not a hashref") unless (ref($analysis_hash) eq 'HASH');
+        foreach my $key (keys %$analysis_hash) {
+          if ($key !~ /^-/) {
+            $analysis_hash->{"-$key"} = $analysis_hash->{$key};
+            delete $analysis_hash->{$key};
+          }
+        }
       }
       $self->param('analysis_data', $analysis_data);
     }
