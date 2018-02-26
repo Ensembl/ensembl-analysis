@@ -66,7 +66,6 @@ use Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds;
 use Bio::EnsEMBL::Analysis::Config::ExonerateCloneEnds;
 use Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher;
 use Bio::SeqIO;
-use Bio::DB::Flat::OBDAIndex;
 use Bio::Seq;
 
 use vars qw(@ISA);
