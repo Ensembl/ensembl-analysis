@@ -549,9 +549,6 @@ sub calculate_exon_phases {
 
     # set phase of for first coding exon
     my $cds_len = $exons[0]->length;
-print("cds_len is: ".$cds_len."\n");
-print("tr->start is: ".$tr->start."\n");
-print("start_phase: ".$start_phase."\n");
     if ($tr->start == 1) {
       $exons[0]->phase($start_phase);
       if ($start_phase > 0) {
@@ -560,9 +557,7 @@ print("start_phase: ".$start_phase."\n");
     } else {
       $cds_len -= ($tr->start - 1);
     }
-print("cds_len is: ".$cds_len."\n");
     $exons[0]->end_phase($cds_len % 3);
-print("exons[0]->end_phase: ".$exons[0]->end_phase()."\n");
     # set phase for internal coding exons      
     for(my $i=1; $i < @exons; $i++) {
       $exons[$i]->phase($exons[$i-1]->end_phase);
