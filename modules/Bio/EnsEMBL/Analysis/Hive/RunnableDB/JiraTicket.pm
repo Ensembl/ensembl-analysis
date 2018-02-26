@@ -129,7 +129,7 @@ sub fetch_input {
     $self->param('jira_base_url', $self->param('jira_base_url').'/') unless ($self->param('jira_base_url') =~ '/$');
   }
   else {
-    $self->throw('"ticket_name" does not exist. If you do not want to use JIRA, set "ticket_name" to undef');
+    $self->complete_early('"ticket_name" does not exist.');
   }
 }
 
