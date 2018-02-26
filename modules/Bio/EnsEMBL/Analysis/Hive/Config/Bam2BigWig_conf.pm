@@ -45,7 +45,7 @@ md5sum.txt.1
 
 =cut
 
-package Bam2BigWig_conf;
+package Bio::EnsEMBL::Analysis::Hive::Config::Bam2BigWig_conf;
 
 use strict;
 use warnings;
@@ -95,17 +95,17 @@ sub pipeline_analyses {
       -logic_name => 'create_directory',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'mkdir -p #output_dir#',
+          cmd => 'mkdir -p #output_dir#; which lfs &> /dev/null; if [ $? -eq 0 ]; then lfs getstripe #output_dir# &> /dev/null; if [ $? -eq 0 ];then lfs setstripe -c -1 #output_dir#;fi;fi',
         },
         -rc_name => 'default',
         -input_ids => [{}],
         -flow_into  => {
-          1 => ['create_isoseq_files'],
+          1 => ['create_bam_file_job'],
         },
     },
 
     {
-      -logic_name => 'create_isoseq_files',
+      -logic_name => 'create_bam_file_job',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -parameters => {
         inputcmd => 'cd #input_dir#; ls *.bam',
