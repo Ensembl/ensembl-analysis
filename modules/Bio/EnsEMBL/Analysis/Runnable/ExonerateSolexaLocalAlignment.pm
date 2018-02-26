@@ -60,7 +60,7 @@ use strict;
 
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature;
-use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
+use Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher;
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -106,7 +106,7 @@ sub run {
     # read the exonerate align feature config file and get the 
     # location of the chunks 
     my $queryseqs = $config->{"EXONERATE_ALIGNFEAT_CONFIG"}->{uc($analysis)}{"QUERYSEQS"};
-    my $seqfetcher =Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new
+    my $seqfetcher =Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher->new
       ( -db => ["$queryseqs/../index"],
 	-format => 'fasta'
       );
