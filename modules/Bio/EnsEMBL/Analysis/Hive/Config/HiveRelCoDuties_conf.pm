@@ -63,7 +63,7 @@ sub default_options {
         # inherit other stuff from the base class
         %{ $self->SUPER::default_options() },
         use_jira => 1,
-        ensembl_release => 87, # Use it on the commandline: -ensembl_release XX
+        ensembl_release => $ENV{ENSEMBL_RELEASE}, # Use it on the commandline: -ensembl_release XX
         #working_dir => '', # Use it on the command line or uncomment: -working_dir /path/to/my/scratch/relco_duties_87
         #user => '', # Use it on the command line or uncomment: -user mysql_rw_user
         #password => '', # Use it on the command line or uncomment: -password mysql_rw_password
@@ -89,6 +89,7 @@ sub default_options {
         mouse_cs_name => 'GRCm'.$self->o('mouse_cs_version'),
         human_alias => 'homo_sapiens',
         mouse_alias => 'mus_musculus',
+        binary_base => catdir($ENV{LINUXBREW_HOME}, 'bin'),
         samtools => catfile($self->o('binary_base'), 'samtools'), # It might be better to give the absolute path, but I think it's ok
         webdev_nfs => '/nfs/production/panda/ensembl/production/ensemblftp/data_files',
 
@@ -135,7 +136,7 @@ sub default_options {
             -host   => $self->o('pre_staging1_db', '-host'),
             -port   => $self->o('pre_staging1_db', '-port'),
             -user   => $self->o('user'),
-            -pass   => $self->o('pass'),
+            -pass   => $self->o('password'),
             -driver => $self->o('pre_staging1_db', '-driver'),
         },
         mouse_refseq_db => {
@@ -143,7 +144,7 @@ sub default_options {
             -host   => $self->o('pre_staging1_db', '-host'),
             -port   => $self->o('pre_staging1_db', '-port'),
             -user   => $self->o('user'),
-            -pass   => $self->o('pass'),
+            -pass   => $self->o('password'),
             -driver => $self->o('pre_staging1_db', '-driver'),
         },
         production_db => {
@@ -327,7 +328,7 @@ sub pipeline_analyses {
         comment => 'Back up done for #species# #cs_name#',
       },
       -flow_into => {
-          1 => ['create_top_level_input_ids', 'label_gencode_basic', 'otherfeature_comparison_attributes_round1'],
+          1 => ['create_top_level_input_ids', 'label_gencode_basic', 'remove_comparison_attributes_core'],
       },
     },
 
@@ -431,7 +432,50 @@ sub pipeline_analyses {
     },
 
     {
-      -logic_name => 'otherfeature_comparison_attributes_round1',
+      -logic_name => 'remove_comparison_attributes_core',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -rc_name => 'default',
+      -parameters => {
+          db_conn => '#target_db#',
+          sql => $self->o('query_delete_attributes'),
+      },
+      -flow_into => {
+        1 => ['remove_comparison_attributes_otherfeatures'],
+      }
+    },
+
+    {
+      -logic_name => 'remove_comparison_attributes_otherfeatures',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -rc_name => 'default',
+      -parameters => {
+          db_conn => '#refseq_db#',
+          sql => $self->o('query_delete_attributes'),
+      },
+      -flow_into => {
+        1 => ['comparison_top_levels_ids'],
+      }
+    },
+ 
+    {
+      -logic_name => 'comparison_top_levels_ids',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+      -rc_name    => 'default',
+      -parameters => {
+        iid_type => 'slice',
+        coord_system_name => 'chromosome',
+        slice => 1,
+        include_non_reference => 1,
+        top_level => 1,
+      },
+      -flow_into => {
+        '2->A' => {'comparison_attributes_core_otherfeature' => {'iid' => '#iid#', species => '#species#', target_db => '#target_db#', refseq_db => '#refseq_db#', cs_name => '#cs_name#', refseq_logicname => '#refseq_logicname#'}},
+        'A->1' => ['comment_overlap_jira'],
+      },
+    },
+
+    {
+      -logic_name => 'comparison_attributes_core_otherfeature',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => 'default',
       -parameters => {
@@ -439,7 +483,8 @@ sub pipeline_analyses {
             ' -primary_host #expr(#target_db#->{-host})expr#'.
             ' -primary_dbname #expr(#target_db#->{-dbname})expr#'.
             ' -primary_port #expr(#target_db#->{-port})expr#'.
-            ' -primary_user '.$self->o('user_r').
+            ' -primary_pass #expr(#target_db#->{-pass})expr#'.
+            ' -primary_user #expr(#target_db#->{-user})expr#'.
             ' -secondary_host #expr(#refseq_db#->{-host})expr#'.
             ' -secondary_dbname #expr(#refseq_db#->{-dbname})expr#'.
             ' -secondary_port #expr(#refseq_db#->{-port})expr#'.
@@ -451,33 +496,19 @@ sub pipeline_analyses {
             ' -dna_dbname #expr(#target_db#->{-dbname})expr#'.
             ' -primary_set_name #primary_set_name#'.
             ' -secondary_set_name #secondary_set_name#'.
-            ' -outfile_dir '.$self->o('working_dir'),
+            ' -outfile_dir '.$self->o('working_dir').
+            ' -iid #iid#'.
+            ' -write',
           primary_set_name => 'Ensembl',
           secondary_set_name => 'RefSeq',
       },
       -flow_into => {
-        1 => ['comment_overlap_round1_jira'],
+        1 => ['comparison_attributes_otherfeature_core'],
       }
     },
 
     {
-      -logic_name => 'comment_overlap_round1_jira',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::JiraTicket',
-      -rc_name => 'default',
-      -parameters => {
-        cmd => 'comment',
-        type => 'Sub-task',
-        ticket_name => $jira_tickets{species_ticket_name},
-        base64 => $jira_tickets{base64},
-        comment => 'Ensembl Refseq overlap round 1 done for #species# #cs_name#',
-      },
-      -flow_into => {
-        1 => ['otherfeature_comparison_attributes_round2'],
-      }
-    },
-
-    {
-      -logic_name => 'otherfeature_comparison_attributes_round2',
+      -logic_name => 'comparison_attributes_otherfeature_core',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => 'default',
       -parameters => {
@@ -485,7 +516,8 @@ sub pipeline_analyses {
             ' -primary_host #expr(#refseq_db#->{-host})expr#'.
             ' -primary_dbname #expr(#refseq_db#->{-dbname})expr#'.
             ' -primary_port #expr(#refseq_db#->{-port})expr#'.
-            ' -primary_user '.$self->o('user_r').
+            ' -primary_user #expr(#refseq_db#->{-user})expr#'.
+            ' -primary_pass #expr(#refseq_db#->{-pass})expr#'.
             ' -primary_logic_name refseq_import'.
             ' -secondary_host #expr(#target_db#->{-host})expr#'.
             ' -secondary_dbname #expr(#target_db#->{-dbname})expr#'.
@@ -497,81 +529,12 @@ sub pipeline_analyses {
             ' -dna_port #expr(#target_db#->{-port})expr#'.
             ' -primary_set_name #primary_set_name#'.
             ' -secondary_set_name #secondary_set_name#'.
-            ' -outfile_dir '.$self->o('working_dir'),
+            ' -outfile_dir '.$self->o('working_dir').
+            ' -iid #iid#'.
+            ' -write',
           primary_set_name => 'RefSeq',
           secondary_set_name => 'Ensembl',
       },
-      -flow_into => {
-        1 => ['comment_overlap_round2_jira'],
-      }
-    },
-
-    {
-      -logic_name => 'comment_overlap_round2_jira',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::JiraTicket',
-      -rc_name => 'default',
-      -parameters => {
-        cmd => 'comment',
-        type => 'Sub-task',
-        ticket_name => $jira_tickets{species_ticket_name},
-        base64 => $jira_tickets{base64},
-        comment => 'Ensembl Refseq overlap round 2 done for #species# #cs_name#',
-      },
-      -flow_into => {
-        1 => ['remove_attributes_round1'],
-      }
-    },
-
-    {
-      -logic_name => 'remove_attributes_round1',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -rc_name => 'default',
-      -parameters => {
-          db_conn => '#target_db#',
-          sql => $self->o('query_delete_attributes'),
-      },
-      -flow_into => {
-        1 => ['remove_attributes_round2'],
-      }
-    },
-
-    {
-      -logic_name => 'remove_attributes_round2',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -rc_name => 'default',
-      -parameters => {
-          db_conn => '#refseq_db#',
-          sql => $self->o('query_delete_attributes'),
-      },
-      -flow_into => {
-        1 => ['load_attributes_round1'],
-      }
-    },
-
-    {
-      -logic_name => 'load_attributes_round1',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
-      -rc_name => 'default',
-      -parameters => {
-          db_conn => '#target_db#',
-          query => catfile($self->o('working_dir'), '#expr(#target_db#->{-dbname})expr#.sql'),
-      },
-      -flow_into => {
-        1 => ['load_attributes_round2'],
-      }
-    },
-
-    {
-      -logic_name => 'load_attributes_round2',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
-      -rc_name => 'default',
-      -parameters => {
-          db_conn => '#refseq_db#',
-          query => catfile($self->o('working_dir'), '#expr(#refseq_db#->{-dbname})expr#.sql'),
-      },
-      -flow_into => {
-        1 => ['comment_overlap_jira'],
-      }
     },
 
     {
