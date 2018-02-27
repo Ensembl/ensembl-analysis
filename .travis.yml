@@ -62,9 +62,8 @@ install:
     - cpanm --notest Readonly
 # Needed for test needing connection to a DB
     - cp travisci/MultiTestDB.conf.mysql modules/t/MultiTestDB.conf.mysql
-    - mkdir -p modules/t/test-genome-DBs/homo_sapiens/core
-    - cp -r ensembl/modules/t/test-genome-DBs/homo_sapiens/core/ modules/t/test-genome-DBs/homo_sapiens/core/
-    - find modules/t/test-genome-DBs/homo_sapiens/core
+    - mkdir -p modules/t/test-genome-DBs/homo_sapiens
+    - cp -r ensembl/modules/t/test-genome-DBs/homo_sapiens/core modules/t/test-genome-DBs/homo_sapiens
 
 script: "./travisci/harness.sh"
 
