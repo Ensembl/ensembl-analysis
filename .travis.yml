@@ -64,6 +64,7 @@ install:
     - cp travisci/MultiTestDB.conf.mysql modules/t/MultiTestDB.conf.mysql
     - mkdir -p modules/t/test-genome-DBs/homo_sapiens/core
     - cp -r ensembl/modules/t/test-genome-DBs/homo_sapiens/core modules/t/test-genome-DBs/homo_sapiens/core
+    - ls modules/t/test-genome-DBs/homo_sapiens/core
 
 script: "./travisci/harness.sh"
 
