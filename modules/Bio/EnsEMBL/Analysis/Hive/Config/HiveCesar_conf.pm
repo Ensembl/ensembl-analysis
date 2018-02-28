@@ -131,8 +131,9 @@ sub pipeline_analyses {
                          iid_type => 'feature_id',
                          batch_size => 20,
                          feature_type => 'gene',
-                         feature_restriction => 'projection',
-                         allowed_biotypes => {'protein_coding' => 1},
+                         #feature_restriction => 'projection',
+                         feature_restriction => 'biotype',
+                         biotypes => {'protein_coding' => 1},
                        },
 
         -flow_into => {
@@ -154,13 +155,14 @@ sub pipeline_analyses {
                          'method_link_type' => $self->o('method_link_type'),
                          'exon_region_padding' => 50,
                          'cesar_path' => $self->o('cesar_path'),
-                         TRANSCRIPT_FILTER => {
-                           OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-                           PARAMETERS => {
-                             -coverage => 50,
-                             -percent_id => 50,
-                           },
-                         },
+                         #TRANSCRIPT_FILTER => {
+                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+                         #  PARAMETERS => {
+                         #    -coverage => 50,
+                         #    -percent_id => 50,
+                         #  },
+                         #},
+                         canonical => 1,
                        },
         -rc_name    => 'default',
         -analysis_capacity => 300,
@@ -183,13 +185,14 @@ sub pipeline_analyses {
                          'exon_region_padding' => 50,
                          'cesar_path' => $self->o('cesar_path'),
                          'cesar_mem' => '20', # mem in GB to be used by cesar (parameter --max-memory)
-                         TRANSCRIPT_FILTER => {
-                           OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-                           PARAMETERS => {
-                             -coverage => 50,
-                             -percent_id => 50,
-                           },
-                         },
+                         #TRANSCRIPT_FILTER => {
+                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+                         #  PARAMETERS => {
+                         #    -coverage => 50,
+                         #    -percent_id => 50,
+                         #  },
+                         #},
+                         canonical => 1,
                        },
         -rc_name    => 'default_20GB',
         -analysis_capacity => 300,
