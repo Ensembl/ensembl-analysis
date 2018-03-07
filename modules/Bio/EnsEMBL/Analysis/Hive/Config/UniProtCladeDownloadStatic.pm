@@ -365,7 +365,7 @@ sub _master_config {
                               exclude_id => ['#taxon_id#'],
                               compress   => 0,
                               pe_level   => [1,2],
-                            }
+                            },
                mammals_pe12 => {
                                  file_name  => 'mammals_pe12.fasta',
                                  taxon_id   => $taxon_ids->{'mammals_taxon_id'},
