@@ -120,6 +120,28 @@ sub _master_config {
        # protein align features
        'uniprot'                     => [3005772,'protein align'],
      },
+     
+     'bird_basic' => {
+       # repeats
+       'dust'                        => [1392556,'repeat'],
+       'repeatmask_repbase_mammals' =>  [1765829,'repeat'],
+       'trf'                         => [248970,'repeat'],
+
+       # simple features
+       'cpg'                         => [9846,'simple'],
+       'trnascan'                    => [328,'simple'],
+       'eponine'                     => [14000,'simple'],
+
+       # prediction transcripts
+       'genscan'                     => [43449,'prediction transcript'],
+
+       # dna align features
+       'unigene'                     => [3306419,'dna align'],
+       'vertrna'                     => [4000000,'dna align'],
+
+       # protein align features
+       'uniprot'                     => [3005772,'protein align'],
+     },
   },
 
   'gene_db_checks' => {
@@ -138,44 +160,44 @@ sub _master_config {
       }, # genblast
       'ig_tr' => {
         'logic_names' => {
-          'ig_tr_gene'          => 80,
+          'ig_tr_gene'          => 40,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                 => 100,
-          'TR_'                 => 5,
+          'IG_'                 => 20,
+          'TR_'                 => 20,
         }, # biotypes
       }, # ig_tr
       'projection_coding' => {
         'logic_names' => {
-          'project_transcripts' => 51000,
+          'project_transcripts' => 30000,
         }, # logic_names
         'biotypes' =>    {
-          'projection'          => 51000,
+          'projection'          => 30000,
         }, # biotypes
       }, # projection_coding
       'projection_lincrna' => {
         'logic_names' => {
-          'project_lincrna' => 40,
+          'project_lincrna' => 2000,
         }, # logic_names
       }, # projection_lincrna
       'projection_pseudogene' => {
         'logic_names' => {
-          'project_pseudogene' => 3900,
+          'project_pseudogene' => 2000,
         }, # logic_names
       }, # projection_pseudogene
       'projection_ig_tr' => {
         'logic_names' => {
-          'project_ig_tr' => 80,
+          'project_ig_tr' => 50,
         }, # logic_names
       }, # projection_ig_tr
       'realign' => {
         'logic_names' => {
           # Would actually prefer an upper limit on realign as opposed to a lower limit
-          'project_transcripts'  => 40000,
-          'genblast'             => 9000,
+          'project_transcripts'  => 20000,
+          'genblast'             => 1000,
         }, # logic_names
         'biotypes' =>    {
-          'realign'             => 50000,
+          'realign'             => 20000,
         }, # biotypes
       }, # realign
       'rnaseq_blast' =>  {
