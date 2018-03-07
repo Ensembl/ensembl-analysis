@@ -62,6 +62,8 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadPDBProteinFeatures;
 use strict;
 use warnings;
 
+# Bio::DB::HTS::Faidx used in Bio::EnsEMBL::GIFTS::DB needs Perl 5.14.2
+use 5.014002;
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 use Bio::EnsEMBL::Analysis::Runnable::MakePDBProteinFeatures;

@@ -106,13 +106,13 @@ sub param_defaults {
       exon_region_padding => 50,
       cesar_path => '',
       canonical => 0,
-      TRANSCRIPT_FILTER => {
-                             OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-                             PARAMETERS => {
-                               -coverage => 50,
-                               -percent_id => 50,
-                             },
-                           }
+      #TRANSCRIPT_FILTER => {
+      #                       OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+      #                       PARAMETERS => {
+      #                         -coverage => 50,
+      #                         -percent_id => 50,
+      #                       },
+      #                     }
    }
 }
 
@@ -363,8 +363,6 @@ sub build_transcripts {
     my $t_seq_edit;
     foreach my $proj_exon (@{$no_overlap_projected_exon_set}) {
       foreach my $proj_exon_seq_edit (@{$proj_exon->{'seq_edits'}}) {
-       #print("proj exon seq edit\n");
-        #print Dumper($proj_exon_seq_edit);
         
         # need to recalculate the start and end relative to the transcript coordinates
         # instead of the exon coordinates
@@ -404,7 +402,8 @@ sub build_transcripts {
     }
     $projected_transcript->source($coverage);
     $projected_transcript->biotype($percent_id);
-    $projected_transcript->description(">orig\n".$transcript->translation()->seq()."\n>proj\n".$projected_transcript->translation()->seq());
+    $projected_transcript->description("stable_id of source: ".$transcript->stable_id());
+    #$projected_transcript->description(">orig\n".$transcript->translation()->seq()."\n>proj\n".$projected_transcript->translation()->seq());
 
     # filter out transcripts below given pid and cov
     if ($self->TRANSCRIPT_FILTER) {
@@ -419,6 +418,11 @@ sub build_transcripts {
           say "The projected transcript has been filtered out because its pid and cov are too low.";
         }
       }
+    } else {
+      my $gene = Bio::EnsEMBL::Gene->new();
+      $gene->add_Transcript($projected_transcript);
+      $gene->analysis($analysis);
+      $self->output_genes($gene);
     }
   }
 }
@@ -468,7 +472,7 @@ sub project_exon {
   }
 
   # remove bases from the 3' end in case the sequence is not multiple of 3
-  while (($seq =~ tr/ACGT//)%3 != 0) {
+  while (($seq =~ tr/ACGTN//)%3 != 0) {
     $seq = substr($seq,0,length($seq)-1);
     say("Removed last base because the end phase is -1 and the sequence is not multiple of 3.");
   }
@@ -477,7 +481,7 @@ sub project_exon {
   my $i_step = 1;
   for (my $i = 0; $i < length($seq); $i += $i_step) {
     my $base_1 = substr($seq,$i,1);
-    if ($base_1 !~ /[acgt]/) {
+    if ($base_1 !~ /[acgtn]/) {
       # we have reached the first (upper case or -) base of the exon sequence
       $i_step = 3;
     }
@@ -559,7 +563,7 @@ sub project_exon {
     open(FCES,'>',$fces_name_tmp) or die $!;
     print FCES $cesar_output;
     close(FCES);
-    system("grep -v WARNING $fces_name_tmp | sed '\$d' > $fces_name"); # remove CESAR2.0 warnings and last empty line
+    system("grep -v WARNING $fces_name_tmp > $fces_name"); # remove CESAR2.0 warnings
   }
 
   $self->files_to_delete($fces_name_tmp);
@@ -601,14 +605,14 @@ sub project_exon {
 
 sub parse_exon {
   my ($self,$source_exon,$projected_outfile_path) = @_;
-print("===parse exon: exon is ".$source_exon->stable_id()."\n");
-print("===projected_outfile_path: ".$projected_outfile_path."\n");
+
   open(IN,$projected_outfile_path);
   my @projection_array = <IN>;
   close IN;
 
-  if ($projection_array[-1] eq '') {
-
+  # remove last line if blank and not corresponding to the last sequence
+  if ($projection_array[-1] =~ /^\$/ and $projection_array[-3] =~ /^>/) {
+    pop(@projection_array);
   }
 
   my $reference_exon_header = shift(@projection_array);
@@ -746,7 +750,7 @@ sub make_seq_edits {
   # count the number of lowercase bases before the start of the actual (uppercase) target sequence
   my $num_lowercase_left_flank = 0;
   my $target_seq_copy = $target_seq;
-  if ($target_seq_copy =~ m/([acgt]+)[ACGT-]+/g) {
+  if ($target_seq_copy =~ m/([acgtn]+)[ACGTN-]+/g) {
     $num_lowercase_left_flank = length($1);
   }
 
