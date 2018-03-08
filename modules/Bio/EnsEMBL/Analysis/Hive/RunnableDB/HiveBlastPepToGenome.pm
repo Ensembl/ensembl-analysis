@@ -91,7 +91,6 @@ sub fetch_input{
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
 
   if($dna_dba) {
-    $repeat_dba->dnadb($dna_dba);
     $output_dba->dnadb($dna_dba);
   }
 
