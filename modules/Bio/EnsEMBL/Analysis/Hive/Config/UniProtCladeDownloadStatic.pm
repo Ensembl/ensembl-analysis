@@ -389,6 +389,38 @@ sub _master_config {
                             format    => 'fasta',
                           },
               },
+
+
+     havana_human_blast => {
+
+       human_pe12 => {
+                       file_name => 'human_pe12.fasta',
+                       taxon_id  => $taxon_ids->{'human_taxon_id'},
+                       dest_dir  => '#output_path#',
+                       compress  => 0,
+                       pe_level  => [1,2],
+                     },
+
+       primates_pe12 => {
+                          file_name => 'primates_pe12.fasta',
+                          taxon_id  => $taxon_ids->{'primates_taxon_id'},
+                          exclude_id => [$taxon_ids->{'human_taxon_id'}],
+                          dest_dir  => '#output_path#',
+                          compress  => 0,
+                          pe_level  => [1,2],
+                        },
+
+       mammals_pe12 => {
+                         file_name  => 'mammals_pe12.fasta',
+                         taxon_id   => $taxon_ids->{'mammals_taxon_id'},
+                         exclude_id => [$taxon_ids->{'primates_taxon_id'}],
+                         dest_dir   => '#output_path#',
+                        compress   => 0,
+                         pe_level   => [1,2],
+                       },
+
+     },
+
   );
   return $config{$key};
 }
