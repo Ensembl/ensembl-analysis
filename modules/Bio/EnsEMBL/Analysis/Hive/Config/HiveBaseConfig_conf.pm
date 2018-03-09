@@ -49,6 +49,7 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
                 databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
                 password_r => undef,
 
+                ensembl_release => $ENV{ENSEMBL_RELEASE},
                 genebuilder_id => $ENV{GENEBUILDER_ID} || 0,
                 email => $ENV{HIVE_EMAIL},
                 enscode_root_dir => $ENV{ENSCODE},
@@ -90,7 +91,7 @@ sub default_options {
         databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
         password_r => undef,
 
-        release_number => $ENV{ENSEMBL_RELEASE},
+        ensembl_release => $ENV{ENSEMBL_RELEASE},
         genebuilder_id => $ENV{GENEBUILDER_ID} || 0,
         email_address => $ENV{HIVE_EMAIL},
         enscode_root_dir => $ENV{ENSCODE},
