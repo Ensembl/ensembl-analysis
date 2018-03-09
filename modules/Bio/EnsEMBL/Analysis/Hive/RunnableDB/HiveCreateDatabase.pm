@@ -307,7 +307,7 @@ sub create_database {
   my ($self, $db) = @_;
 
   my ($dbhost, $dbport, $dbname, $dbuser, $dbpass) = $self->db_connection_details($db);
-  return "mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -e'CREATE DATABASE $dbname'";
+  return "mysql -h$dbhost -P$dbport -u$dbuser".($dbpass ? " -p$dbpass " : " ")."-e'CREATE DATABASE $dbname'";
 }
 
 
@@ -348,7 +348,7 @@ sub drop_database {
 
   my ($dbhost, $dbport, $dbname, $dbuser, $dbpass) = $self->db_connection_details($db);
   $self->warning("Dropping existing database if it exists $dbname"."@"."$dbhost:$dbport...");
-  return "mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -e 'DROP DATABASE IF EXISTS $dbname'";
+  return "mysql -h$dbhost -P$dbport -u$dbuser".($dbpass ? " -p$dbpass " : " ")."-e 'DROP DATABASE IF EXISTS $dbname'";
 }
 
 
