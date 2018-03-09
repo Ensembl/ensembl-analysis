@@ -133,7 +133,6 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('exonerate_db'),
         create_type => $self->o('create_type'),
-        script_path => $self->o('clone_db_script_path'),
       },
       -rc_name => 'default',
       -input_ids => [{cdna_file => $self->o('cdna_file')}],

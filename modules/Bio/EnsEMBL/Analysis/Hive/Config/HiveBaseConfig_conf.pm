@@ -54,7 +54,6 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
                 enscode_root_dir => $ENV{ENSCODE},
                 software_base_path => $ENV{LINUXBREW_HOME},
                 binary_base => catdir($self->o('software_base_path'), 'bin'),
-                clone_db_script_path => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
 
                 # Usefull if you want to use one server for all your databases, not great but ok
                 data_db_server => $self->o('host'),
@@ -97,7 +96,6 @@ sub default_options {
         enscode_root_dir => $ENV{ENSCODE},
         software_base_path => $ENV{LINUXBREW_HOME},
         binary_base => catdir($self->o('software_base_path'), 'bin'),
-        clone_db_script_path => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
 
         data_db_server => $self->o('host'),
         data_db_port => $self->o('port'),

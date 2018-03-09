@@ -159,10 +159,6 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('cdna_db'),
         create_type => 'clone',
-        script_path => $self->o('clone_db_script_path'),
-        user_r => $self->o('user_r'),
-        user_w => $self->o('user'),
-        pass_w => $self->o('password'),
       },
       -rc_name    => 'default',
       -flow_into => {
@@ -179,10 +175,6 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('genewise_db'),
         create_type => 'clone',
-        script_path => $self->o('clone_db_script_path'),
-        user_r => $self->o('user_r'),
-        user => $self->o('user'),
-        pass_w => $self->o('password'),
       },
       -rc_name    => 'default',
       -flow_into => {
@@ -519,10 +511,6 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('cdna2genome_db'),
         create_type => 'clone',
-        script_path => $self->o('clone_db_script_path'),
-        user_r => $self->o('user_r'),
-        user_w => $self->o('user'),
-        pass_w => $self->o('password'),
       },
       -rc_name    => 'default',
       -flow_into => {

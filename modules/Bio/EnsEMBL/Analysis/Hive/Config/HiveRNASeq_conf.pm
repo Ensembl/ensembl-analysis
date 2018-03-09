@@ -308,7 +308,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -rc_name => '1GB',
         -parameters => {
-            cmd => 'EXIT_CODE=0; for F in #wide_short_read_aligner# #wide_samtools# '.join (' ', $self->o('splicing_aligner'), $self->o('clone_db_script_path'), $self->o('sequence_dump_script'), $self->o('blastp')).'; do which "$F"; if [ "$?" == 1 ]; then EXIT_CODE=1;fi; done; for D in #wide_output_dir# #wide_input_dir# #wide_merge_dir# #wide_output_sam_dir# `dirname #wide_genome_file#`; do mkdir -p "$D"; done; exit $EXIT_CODE',
+            cmd => 'EXIT_CODE=0; for F in #wide_short_read_aligner# #wide_samtools# '.join (' ', $self->o('splicing_aligner'), $self->o('sequence_dump_script'), $self->o('blastp')).'; do which "$F"; if [ "$?" == 1 ]; then EXIT_CODE=1;fi; done; for D in #wide_output_dir# #wide_input_dir# #wide_merge_dir# #wide_output_sam_dir# `dirname #wide_genome_file#`; do mkdir -p "$D"; done; exit $EXIT_CODE',
         },
         -input_ids => [{
           alignment_bam_file => catfile('#wide_merge_dir#', '#assembly_name#.#rnaseq_data_provider#.merged.1.bam'),
@@ -358,7 +358,6 @@ sub pipeline_analyses {
                      source_db => $self->o('dna_db'),
                      target_db => $self->o('rough_db'),
                      create_type => $self->o('create_type'),
-                     script_path => $self->o('clone_db_script_path'),
                    },
     -rc_name => '1GB',
     -flow_into => {
@@ -806,8 +805,6 @@ sub pipeline_analyses {
                          source_db => $self->o('rough_db'),
                          target_db => $self->o('refine_db'),
                          create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
                        },
         -rc_name => '1GB',
         -flow_into => ['create_blast_db'],
@@ -820,8 +817,6 @@ sub pipeline_analyses {
                          source_db => $self->o('refine_db'),
                          target_db => $self->o('blast_db'),
                          create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
                        },
         -rc_name => '1GB',
         -flow_into => ['create_ccode_config'],

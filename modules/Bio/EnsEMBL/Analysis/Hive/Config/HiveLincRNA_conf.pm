@@ -210,11 +210,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
       -parameters => {
                        source_db   => $self->o('dna_db'),
-                       user_r      => $self->o('user_r'),
-                       user_w      => $self->o('lincRNA_output_db','-user'),
-                       pass_w      => $self->o('lincRNA_output_db','-pass'),
                        create_type => 'clone',
-                       script_path => $self->o('clone_db_script_path'),
                        target_db => $self->o('lincRNA_output_db')
                      },
       -rc_name    => 'default',
