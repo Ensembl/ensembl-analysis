@@ -56,8 +56,8 @@ sub default_options {
     'output_db_port'   => 4529,
 
     # details of the last cdna db (eg. on livemirror)
-    'core_db_name' => $self->o('species').'_core_'.$self->o('release_number').'-'.$self->o('coord_system_version'),
-    'old_cdna_db_name' => $self->o('species').'_cdna_'.$self->o('release_number').'-'.$self->o('coord_system_version'), # This works because production copies the old DB and patch the schema on staging
+    'core_db_name' => $self->o('species').'_core_'.$self->o('release_number').'_'.$self->o('coord_system_version'),
+    'old_cdna_db_name' => $self->o('species').'_cdna_'.$self->o('release_number').'_'.$self->o('coord_system_version'), # This works because production copies the old DB and patch the schema on staging
 
     'dna_db_server' => 'mysql-ens-genebuild-prod-2',
     'dna_db_port'   => 4528,
@@ -76,8 +76,8 @@ sub default_options {
     'pipeline_name' => $self->o('species').'_cdna_update_'.$self->o('release_number'),
     'coord_system_version' => 38,
 
-    'dna_dbname'    => $self->o('dbowner').'_'.$self->o('core_db_name'),
-    'output_db_name'   => $self->o('dbowner').'_'.$self->o('species').'_cdna_'.$self->o('release_number').'-'.$self->o('coord_system_version'),
+    'dna_db_name'    => $self->o('dbowner').'_'.$self->o('core_db_name'),
+    'output_db_name'   => $self->o('dbowner').'_'.$self->o('species').'_cdna_'.$self->o('release_number').'_'.$self->o('coord_system_version'),
 
     'hive_capacity' => 100,
     'default_queue'              => 'production-rh7',
