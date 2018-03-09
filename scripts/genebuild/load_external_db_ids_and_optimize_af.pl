@@ -119,10 +119,12 @@ foreach my $script ($fix_supporting_evidence_script, $test_regex_script, $assign
 }
 
 
-print("\nhost: $dbhost\n") if ($verbose);
-print("port: $dbport\n") if ($verbose);
-print("name: $dbname\n") if ($verbose);
-print("uniprot file: $uniprot_filename\n") if ( $verbose && !$no_external_db ) ;
+if ($verbose) {
+  print("\nhost: $dbhost\n");
+  print("port: $dbport\n");
+  print("name: $dbname\n");
+  print("uniprot file: $uniprot_filename\n") if (!$no_external_db and $do_paf) ;
+}
 
 my @files_to_delete;
 
@@ -233,8 +235,10 @@ foreach my $type (@types) {
         }
 
         print "\nAssigning external DB IDs to your ", uc($human_readable{$type}), "...\n" if ($verbose);
-        if (system("perl $assign_db_id_script -masterhost $prod_dbhost -masterport $prod_dbport -masterdbname $prod_dbname -masteruser $prod_dbuser -host $dbhost -port $dbport -user $dbuser -pass $dbpass -dbname $dbname -conf $cfg_file -feature_type $moltype{$type} -dumpdir $output_path -update_only_null_rows -uniprot_filename $uniprot_filename")) {
-            throw("Could not execute $assign_db_id_script\n");
+        my $assign_command = "perl $assign_db_id_script -masterhost $prod_dbhost -masterport $prod_dbport -masterdbname $prod_dbname -masteruser $prod_dbuser -host $dbhost -port $dbport -user $dbuser -pass $dbpass -dbname $dbname -conf $cfg_file -feature_type $moltype{$type} -dumpdir $output_path -update_only_null_rows";
+        $assign_command .= " -uniprot_filename $uniprot_filename" if ($type eq 'protein_align_feature');
+        if (system($assign_command)) {
+            throw("Could not execute $assign_command\n");
         }
 
 # check
