@@ -20,7 +20,7 @@ use strict;
 use Getopt::Long qw(:config no_ignore_case);
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Bio::DB::Flat::OBDAIndex;
+use Bio::DB::Flat::BinarySearch;
 use Bio::SeqIO;
 
 my (
@@ -82,7 +82,7 @@ my %biotypes = (
 
                
 
-my $index = new Bio::DB::Flat::OBDAIndex(-index_dir => $index_dir,
+my $index = new Bio::DB::Flat::BinarySearch(-index_dir => $index_dir,
                                          -dbname    => $index_file,
                                          -format    => 'IMGT_embl',
                                             );

@@ -40,6 +40,7 @@ package Bio::EnsEMBL::Analysis::Hive::Config::TSLsAppris_conf;
 use strict;
 use warnings;
 
+use 5.014000;
 use File::Spec::Functions qw(catfile catdir);
 use MIME::Base64 qw(encode_base64url);
 
@@ -106,11 +107,11 @@ sub default_options {
         rat_cs_version => 6,
 
         zebrafish_alias => 'danio_rerio',
-        zebrafish_cs_name => 'GRCz10',
-        zebrafish_cs_version => 10,
+        zebrafish_cs_name => 'GRCz11',
+        zebrafish_cs_version => 11,
 
         chimpanzee_alias => 'pan_troglotydes',
-        chimpanzee_cs_name => 'CHIMP3.0',
+        chimpanzee_cs_name => 'Pan_tro_3.0',
         chimpanzee_cs_version => 3,
 
         pig_alias => 'sus_scrofa',

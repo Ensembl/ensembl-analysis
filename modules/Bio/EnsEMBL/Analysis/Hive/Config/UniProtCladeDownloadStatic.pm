@@ -89,6 +89,7 @@ sub _master_config {
                    'rodents_taxon_id'  => '9989',
                    'vert_taxon_id'     => '7742',
                    'fish_taxon_id'     => '7898',
+                   'aves_taxon_id'     => '8782',
                  };
   my %config = (
     default => {},
@@ -327,6 +328,53 @@ sub _master_config {
                             },
 
              },
+    bird_basic => {
+              self_pe12 =>{
+                            file_name => 'self_pe12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                          },
+              self_pe3 =>{
+                            file_name => 'self_pe3.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [3],
+                          },
+              human_pe12 => {
+                              file_name => 'human_pe12.fasta',
+                              taxon_id  => $taxon_ids->{'human_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+               vert_pe12 => {
+                              file_name  => 'vert_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'vert_taxon_id'},
+                              exclude_id => [$taxon_ids->{'mammals_taxon_id'}, $taxon_ids->{aves_taxon_id}],
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+               bird_pe12 => {
+                              file_name  => 'aves_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'aves_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              exclude_id => ['#taxon_id#'],
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+               mammals_pe12 => {
+                                 file_name  => 'mammals_pe12.fasta',
+                                 taxon_id   => $taxon_ids->{'mammals_taxon_id'},
+                                 exclude_id => [$taxon_ids->{'human_taxon_id'}],
+                                 dest_dir   => '#output_path#',
+                                 compress   => 0,
+                                 pe_level   => [1,2],
+                               },
+             },
 
     fish_basic => {
               self_pe12 =>{
@@ -389,6 +437,38 @@ sub _master_config {
                             format    => 'fasta',
                           },
               },
+
+
+     havana_human_blast => {
+
+       human_pe12 => {
+                       file_name => 'human_pe12.fasta',
+                       taxon_id  => $taxon_ids->{'human_taxon_id'},
+                       dest_dir  => '#output_path#',
+                       compress  => 0,
+                       pe_level  => [1,2],
+                     },
+
+       primates_pe12 => {
+                          file_name => 'primates_pe12.fasta',
+                          taxon_id  => $taxon_ids->{'primates_taxon_id'},
+                          exclude_id => [$taxon_ids->{'human_taxon_id'}],
+                          dest_dir  => '#output_path#',
+                          compress  => 0,
+                          pe_level  => [1,2],
+                        },
+
+       mammals_pe12 => {
+                         file_name  => 'mammals_pe12.fasta',
+                         taxon_id   => $taxon_ids->{'mammals_taxon_id'},
+                         exclude_id => [$taxon_ids->{'primates_taxon_id'}],
+                         dest_dir   => '#output_path#',
+                        compress   => 0,
+                         pe_level   => [1,2],
+                       },
+
+     },
+
   );
   return $config{$key};
 }

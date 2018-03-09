@@ -57,7 +57,7 @@ use strict;
 
 use Bio::EnsEMBL::Analysis::RunnableDB::BlastTranscriptPep;
 use Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep;
-use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
+use Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher;
 use Bio::EnsEMBL::Analysis::RunnableDB::BaseGeneBuild;
 use Bio::EnsEMBL::Analysis::Config::GeneBuild::BlastRNASeqPep;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
@@ -299,7 +299,7 @@ sub add_supporting_features {
       $tsf[0]->analysis($tran->analysis);
       print STDERR "coverage $coverage\n";
       # calculate the hcoverage
-      my $seqfetcher =Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new
+      my $seqfetcher =Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher->new
 	( -db => [$self->INDEX],
 	  -format => 'fasta'
 	);

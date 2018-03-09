@@ -364,7 +364,7 @@ sub pipeline_analyses {
                      create_type => $self->o('create_type'),
                      script_path => $self->o('clone_db_script_path'),
                    },
-    -meadow_type => '1GB',
+    -rc_name => '1GB',
     -flow_into => {
       1 => [ 'parse_summary_file'],
     },
@@ -419,7 +419,7 @@ sub pipeline_analyses {
   {
       -logic_name => 'create_header_files',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -meadow_type => '1GB',
+        -rc_name => '1GB',
         -parameters => {
             cmd => 'if [ ! -e "#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h" ]; then printf "'.$header_line.'" > #wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h; fi',
         },
@@ -747,6 +747,7 @@ sub pipeline_analyses {
                          fullseq   => 1,
                          max_transcript => 1000000,
                          batch_size => 10000,
+                         maxintron => $self->o('maxintron'),
                        },
         -rc_name    => '5GB_introns',
         -flow_into => {
@@ -773,6 +774,7 @@ sub pipeline_analyses {
                          fullseq   => 1,
                          max_transcript => 1000000,
                          batch_size => 10000,
+                         maxintron => $self->o('maxintron'),
                        },
         -rc_name    => '10GB_introns',
         -flow_into => {
@@ -809,8 +811,9 @@ sub pipeline_analyses {
                          target_db => $self->o('refine_db'),
                          create_type => $self->o('create_type'),
                          script_path => $self->o('clone_db_script_path'),
+                         user_r => $self->o('user_r'),
                        },
-        -meadow_type => '1GB',
+        -rc_name => '1GB',
         -flow_into => ['create_blast_db'],
       },
 
@@ -822,8 +825,9 @@ sub pipeline_analyses {
                          target_db => $self->o('blast_db'),
                          create_type => $self->o('create_type'),
                          script_path => $self->o('clone_db_script_path'),
+                         user_r => $self->o('user_r'),
                        },
-        -meadow_type => '1GB',
+        -rc_name => '1GB',
         -flow_into => ['create_ccode_config'],
       },
       {

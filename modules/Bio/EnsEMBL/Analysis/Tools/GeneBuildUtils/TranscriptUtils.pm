@@ -3179,7 +3179,6 @@ sub set_alignment_supporting_features {
       my $query_char = substr($query_seq,$codon_alignment_index,1);
       my $target_char = substr($target_seq,$codon_alignment_index,1);
 
-
       # check whether the selenocysteine exon attribute was added by the HiveCesar2 module
       if (exists($exon->{'selenocysteine'})) {
 
@@ -3318,7 +3317,6 @@ sub find_codon_alignment_index {
   if($align_index == -1 && $char_count == $codon_index) {
     $align_index = length($align_seq) - 1;
   }
-
   unless($align_index >= 0) {
     throw("Did not find the alignment index for the codon");
   }

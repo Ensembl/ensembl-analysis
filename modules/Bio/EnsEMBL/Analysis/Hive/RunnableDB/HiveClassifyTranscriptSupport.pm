@@ -106,14 +106,14 @@ sub fetch_input {
     my %classification;
     if($self->param('classification_type') eq 'standard') {
       %classification = (
-        '95_95' => [95, 95],
-        '95_80' => [95, 80],
-        '90_80' => [90, 80],
-        '80_60' => [80, 60],
-        '70_60' => [70, 60],
-        '50_50' => [50, 50],
-        '50_25' => [50, 25],
-        '0_0' => [0, 0],
+        '1' => [95, 95],
+        '2' => [95, 80],
+        '3' => [90, 80],
+        '4' => [80, 60],
+        '5' => [70, 60],
+        '6' => [50, 50],
+        '7' => [50, 25],
+        '8' => [0, 0],
       );
       $self->param('classification', \%classification);
     } else {
@@ -174,11 +174,14 @@ sub write_output {
       'SET t.biotype = CONCAT(tcb.biotype, ?) WHERE hcoverage >= ? AND perc_ident >= ? '.
       'AND tsf.feature_type = "'.$self->param('feature_type').'"');
   my $classification = $self->param('classification');
-  foreach my $key (sort {$a <=> $b} keys %{$classification}) {
-    $sth->bind_param(1, '_'.$key);
-    $sth->bind_param(2, $classification->{$key}->[0]);
-    $sth->bind_param(3, $classification->{$key}->[1]);
-    $sth->execute();
+
+  if($self->param('classification_type') eq 'standard') {
+    foreach my $key (sort {$a <=> $b} keys %{$classification}) {
+      $sth->bind_param(1, '_'.$key);
+      $sth->bind_param(2, $classification->{$key}->[0]);
+      $sth->bind_param(3, $classification->{$key}->[1]);
+      $sth->execute();
+    }
   }
 
 # I am putting this (and the gene backup code) because at the moment the core api doesn't allow us to get transcripts

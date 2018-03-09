@@ -258,13 +258,13 @@ sub write_output{
   my $sucessful_count = 0 ; 
   my $analysis = $self->analysis;
   foreach my $gene(@genes_to_write){ 
-    my $logic_name_to_be = "lincRNA_set_test_3"; 
+    my $logic_name_to_be = "Hive_LincRNAEvaluator"; 
     my @t = @{ $gene->get_all_Transcripts}; 
     my $strand_to_use  =  $gene->strand;    
     my $biotype_to_use = "empty_something_is_wrong"; 
     if ( $gene->biotype eq $self->FINAL_OUTPUT_BIOTYPE ) {
       $biotype_to_use = $gene->biotype ; 
-      $logic_name_to_be = "final_biotype_set"; 
+      # $logic_name_to_be = "passEval_to_final_check"; # I don't think there is a need to change the logic_name
     } else {
       $biotype_to_use = $t[0]->biotype ;
     }
@@ -276,8 +276,8 @@ sub write_output{
                                            -logic_name => $logic_name_to_be,
                                            -displayable => 1
                                            );
-
     my $analysis_adaptor = $dba->get_AnalysisAdaptor();
+
     # check if the logic name present in my database or if I need to create a new analysis_id, logic_name etc...
     if ($analysis_adaptor->fetch_by_logic_name($logic_name_to_be) ) {
     }else {
@@ -295,8 +295,7 @@ sub write_output{
                                        -biotype => $biotype_to_use, 
                                        -strand  => $strand_to_use, 
                                        );
-
-    # print_Gene_Transcript_and_Exons($gene); # if check
+    # print_Gene_Transcript_and_Exons($gene_linc); # if check
     
     foreach my $tr (@t) {
       my $exs      = []; # new array of exons
@@ -330,7 +329,9 @@ sub write_output{
     }
 
     # $gene_linc->status(undef); 
-    $gene_linc->analysis($self->analysis);   
+
+    # CHECK THIS AGAIN: we are going to have a different analysis for the output of this module. 
+    # $gene_linc->analysis($self->analysis);   
     empty_Gene($gene_linc, 1);
     eval{
       $lincrna_ga->store($gene_linc);

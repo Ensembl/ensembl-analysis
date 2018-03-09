@@ -117,10 +117,11 @@ sub check_length_of_genes {
   my $how_many = 0;
   print "### my output file for length info about the genes is: $output_file \n";
   open (MYFILE, ">" , $output_file) or die "Couldn't open: $!"; 
+  print MYFILE "## WARNING stable_id(orGeneDisplayID) gl_length exons_count \n";
   foreach my $g ( @{ $genes_to_process } ) {
   	my $gl_length = $g->length ;
     my $exons_count = check_number_of_exons($g); 
-    if ( ( $gl_length < 200 ) or ($exons_count < 2) ) { 
+    if ( ( $gl_length < 200 ) or ($exons_count < 3) ) { 
       $how_many = $how_many+1; 
       my $some_id = ""; 
       if ($g->stable_id()) {
@@ -128,7 +129,9 @@ sub check_length_of_genes {
       }else {
         $some_id = $g->display_id;
       } 
-      print MYFILE "WARNING:: $some_id :: $gl_length :: $exons_count \n";
+      print MYFILE "## WARNING $some_id $gl_length $exons_count \n";
+      my $tmp_biotype = "putative_truncated_lincRNA";
+      print MYFILE "UPDATE gene, transcript SET transcript.biotype=\'$tmp_biotype\' , gene.biotype=\'$tmp_biotype\' WHERE gene.gene_id = $some_id AND gene.gene_id = transcript.gene_id ;\n"; 
     }
   }
   close MYFILE;
