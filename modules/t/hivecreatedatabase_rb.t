@@ -46,6 +46,9 @@ my $enscode_root_dir;
 if (exists $ENV{ENSCODE}) {
   $enscode_root_dir = $ENV{ENSCODE};
 }
+else {
+  $enscode_root_dir = cwd();
+}
 foreach my $path ($enscode_root_dir, cwd(), catdir(cwd(), updir()), catdir(cwd(), updir(), updir(), updir())) {
   if (-d catdir($path, 'ensembl')) {
     $enscode_root_dir = $path;

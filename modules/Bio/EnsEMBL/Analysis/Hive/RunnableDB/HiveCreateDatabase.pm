@@ -465,7 +465,7 @@ sub get_client_cmd {
     return "psql -w -h $dbhost -p $dbport -U $dbuser -D $dbname"
   }
   else {
-    return "mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D $dbname";
+    return "mysql -h$dbhost -P$dbport -u$dbuser".($dbpass ? " -p$dbpass " : " ")."-D $dbname";
   }
 }
 
