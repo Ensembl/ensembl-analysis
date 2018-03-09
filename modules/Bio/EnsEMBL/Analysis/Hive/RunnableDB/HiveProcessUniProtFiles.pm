@@ -25,9 +25,6 @@ use File::Spec::Functions qw(splitpath);
 use Bio::EnsEMBL::IO::Parser::Fasta;
 use Bio::EnsEMBL::KillList::KillList;
 
-use Bio::SeqIO;
-use Bio::Seq;
-
 use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
 
 sub param_defaults {
@@ -97,6 +94,9 @@ sub fetch_input {
           ($source_db, $accession, $pe_level, $sequence_version) = ($1, $2, $3, $4);
           $versioned_accession = $accession.'.'.$sequence_version;
           $last_pe = $pe_level;
+          if ($seq =~ /U/) {
+            $source_db = 'seleno';
+          }
         }
         elsif ($header =~ /^([sptr]{2})\|([^\|]+-\d+)\|/) {
 # If you ask for isoforms, the first sequence has the PE level
