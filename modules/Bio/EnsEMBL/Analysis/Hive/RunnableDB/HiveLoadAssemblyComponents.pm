@@ -184,7 +184,7 @@ sub write_output {
   my $meta_adaptor = $db->get_MetaContainerAdaptor;
   my $string = '|';
   if ($self->param('multiple_mapping')) {
-    $assembly_mapping = '#';
+    $string = '#';
   }
   $meta_adaptor->store_key_value('assembly.mapping',
     $asm_coordinate_system->name.':'.$asm_coordinate_system->version.$string.
@@ -229,7 +229,7 @@ sub write_output {
   }
   $sth->finish();
   $self->dataflow_output_id({accessions => $self->param('contigs_to_download')}, $self->param('_branch_to_flow_to'))
-    if ($self->param_is_defined('contigs_to_download');
+    if ($self->param_is_defined('contigs_to_download'));
 }
 
 
