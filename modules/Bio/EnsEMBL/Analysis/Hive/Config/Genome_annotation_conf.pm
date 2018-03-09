@@ -41,38 +41,40 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
-    'repbase_logic_name'        => 'thibaut', #!!!!!!!!!!!!!!!!! repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
-    'repbase_library'           => 'thibaut', #!!!!!!!!!!!!!!!!! repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
-    'species_name'              => 'thibaut', #!!!!!!!!!!!!!!!!! e.g. mus_musculus
-    'production_name'           => 'thibaut',
-    'taxon_id'                  => 'thibaut', #!!!!!!!!!!!!!!!!! should be in the assembly report file
-    'uniprot_set'               => 'primates_basic', #!!!!!!!!!!!!!!!!! Check sub uniprot_clade_download below for suitable set
-    'output_path'               => 'thibaut', # Lustre output dir
-    'wgs_id'                    => 'thibaut', #!!!!!!!!!!!!!! Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
-    'assembly_name'             => 'thibaut', #!!!!!!!!!!!!!! Name (as it appears in the assembly report file)
-    'assembly_accession'        => 'thibaut', #!!!!!!!!!!!!!! GCA
-    'assembly_refseq_accession' => 'thibaut', #!!!!!!!!!!!!!! GCF
+    'repbase_logic_name'        => '', #!!!!!!!!!!!!!!!!! repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
+    'repbase_library'           => '', #!!!!!!!!!!!!!!!!! repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
+    'release_number'            => '' || $self->o('ensembl_release'),
+    'species_name'              => '', #!!!!!!!!!!!!!!!!! e.g. mus_musculus
+    'production_name'           => '',
+    'taxon_id'                  => 7998, #!!!!!!!!!!!!!!!!! should be in the assembly report file
+    'uniprot_set'               => '', #!!!!!!!!!!!!!!!!! Check sub uniprot_clade_download below for suitable set
+    'output_path'               => '', # Lustre output dir
+    'wgs_id'                    => '', #!!!!!!!!!!!!!! Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
+    'assembly_name'             => '', #!!!!!!!!!!!!!! Name (as it appears in the assembly report file)
+    'assembly_accession'        => '', #!!!!!!!!!!!!!! GCA
+    'assembly_refseq_accession' => '', #!!!!!!!!!!!!!! GCF
     'mt_accession'              => undef, # This should be set to undef unless you know what you are doing
     'skip_projection'           => 0, # Will skip projection process if 1
     'skip_rnaseq'               => 0, # Will skip rnaseq blast db formatting if 1
     'skip_ncrna'                => 0, # Will skip ncrna process if 1
     'skip_cleaning'             => 0, # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => 0,
-    'mapping_db'                => 'thibaut',
-    'stable_id_prefix'          => 'thibaut',
+    'mapping_db'                => '',
+    'stable_id_prefix'          => '',
     'stable_id_start'           => '0',
-    'uniprot_db_dir'            => 'uniprot_2017_04', # e.g. 'uniprot_2017_04'
-    'vertrna_version'           => 132,
+    'uniprot_db_dir'            => 'uniprot_2018_01', # e.g. 'uniprot_2017_04'
+    'vertrna_version'           => 134,
+    load_toplevel_only          => 1,
     'mirBase_fasta'             => 'human_mirnas.fa',
     'ig_tr_fasta_file'          => 'human_ig_tr.fa',
 
 ########################
 # Pipe and ref db info
 ########################
-    'pipeline_name'                => 'annotation_config_test', #!!!!!!!!!!! What you want hive to call the pipeline, not the db name itself
-    'user_r'                       => 'ensro', #!!!!!!!!!!!
-    'user'                         => 'ensadmin', #!!!!!!!!!!!
-    'password'                     => 'ensembl', #!!!!!!!!!!!
+    'pipeline_name'                => '', #!!!!!!!!!!! What you want hive to call the pipeline, not the db name itself
+    'user_r'                       => '', #!!!!!!!!!!!
+    'user'                         => '', #!!!!!!!!!!!
+    'password'                     => '', #!!!!!!!!!!!
 
     'pipe_db_server'               => 'mysql-ens-genebuild-prod-1', #!!!!!!!!!!!
     'databases_server'             => 'mysql-ens-genebuild-prod-1', #!!!!!!!!!!!
@@ -89,13 +91,13 @@ sub default_options {
     # The following might not be known in advance, since the come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
     # If they are not needed (i.e. no projection or rnaseq) then leave them as is
-    'projection_lastz_db_name'      => 'PROJECTION_LASTZ_DBNAME',
+    'projection_lastz_db_name'     => 'PROJECTION_LASTZ_DBNAME',
     'projection_lastz_db_server'   => 'PROJECTION_LASTZ_SERVER',
     'projection_lastz_db_port'     => 'PROJECTION_LASTZ_PORT',
-    'rnaseq_refine_db_name'         => 'RNASEQ_REFINE_DBNAME',
+    'rnaseq_refine_db_name'        => 'RNASEQ_REFINE_DBNAME',
     'rnaseq_refine_db_server'      => 'RNASEQ_REFINE_SERVER',
     'rnaseq_refine_db_port'        => 'RNASEQ_REFINE_PORT',
-    'rnaseq_blast_db_name'          => 'RNASEQ_BLAST_DBNAME',
+    'rnaseq_blast_db_name'         => 'RNASEQ_BLAST_DBNAME',
     'rnaseq_blast_db_server'       => 'RNASEQ_BLAST_SERVER',
     'rnaseq_blast_db_port'         => 'RNASEQ_BLAST_PORT',
 
