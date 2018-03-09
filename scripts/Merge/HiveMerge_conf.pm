@@ -23,7 +23,7 @@ use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;           # Allow this par
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
-use File::Spec::Functions;
+use File::Spec::Functions qw(catfile catdir);
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
 use Env qw(ENSCODE);
@@ -70,10 +70,10 @@ sub default_options {
     'reports_dir' => '/path/to/nobackup/production/ensembl/...',
 
     # email to send the vega checks reports to
-    'vega_checks_reports_email' => '@ebi.ac.uk',
+    'vega_checks_reports_email' => $self->o('email_address'),
 
     # email to send the missing CCDS report to
-    'ccds_report_email' => '@ebi.ac.uk',
+    'ccds_report_email' => $self->o('email_address'),
 
     # name of the files containing the temporary original vega and ensembl database dumps
     'vega_tmp_filename' => 'vegadump.tmp',
@@ -104,7 +104,7 @@ sub default_options {
     'core_genes_for_deletion_filename' => 'core_genes_for_deletion.ids',
 
     # name of the file containing the dump of the core database after the merge
-    'backup_dump_core_db_after_merge_filename' => 'backup_dump_core_db_after_merge.sql',
+    'backup_dump_core_db_after_merge_filename' => 'backup_dump_core_db_after_merge.sql.gz',
 
     # name of the files containing the list of missing CCDS before copying the missing CCDS into the Ensembl db
     'ensembl_missing_ccds_filename1' => 'ensembl_missing_ccds_1.txt',
@@ -132,7 +132,7 @@ sub default_options {
     'uniprot_file' => '/path/to/nobackup/production/ensembl/genebuild/blastdb/uniprot/uniprot_20XX_XX/entry_loc',
 
     # full path to your local copy of the ensembl-analysis git repository
-    'ensembl_analysis_base' => '$ENSCODE/ensembl-analysis',
+    'ensembl_analysis_base' => catdir($self->o('enscode_root_dir'), 'ensembl-analysis'),
 
     # database parameters
     'default_port' => 4527, # default port to be used for all databases except the original vega db provided by the Vega team
@@ -162,7 +162,7 @@ sub default_options {
     'production_name' => '',
     'production_port' => '',
 
-    'pipe_dbname' => '', # pipeline db, automatically created
+    'pipe_db_name' => '', # pipeline db, automatically created
 
     'vega_name' => '', # vega database to be used for the merge
 
@@ -192,7 +192,6 @@ sub default_options {
     
     # alignment annotation on patches
     'taxon_id'             => 'XXXX', # '9606' for human
-    'clone_db_script_path' => "$ENSCODE/ensembl-analysis/scripts/clone_database.ksh",
     'genblast_name'        => 'XXX_genblast_XXX', # genblast database
     'genblast_host'        => $self->o('default_host'),
     'exonerate_settings'   => 'exonerate_protein_XXX_patch', # exonerate settings to use from ExonerateStatic
@@ -280,12 +279,12 @@ sub default_options {
 
     ## Required by HiveBaseConfig_conf
     #core_db (not required in the merge process, leave blank)
-    'core_dbname' => '',
+    'core_db_name' => '',
     'core_db_server' => '',
     'port' => '',
     #'user_r' => '',
     #dna_db (not required in the merge process, leave blank)
-    'dna_dbname' => '',
+    'dna_db_name' => '',
     'dna_db_server' => '',
     #'port' => '',
     #'user_r' => '',
@@ -297,6 +296,7 @@ sub default_options {
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('original_ensembl_name'),
+                    -driver    => $self->o('hive_driver')
     },
 
     # vega database provided by the Vega team
@@ -306,6 +306,7 @@ sub default_options {
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('original_vega_name'),
+                    -driver    => $self->o('hive_driver')
     },
 
     # ensembl database to be used for the merge
@@ -315,6 +316,7 @@ sub default_options {
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
                     -dbname    => $self->o('ensembl_name'),
+                    -driver    => $self->o('hive_driver')
     },
 
     # ccds database containing the CCDS gene set
@@ -324,6 +326,7 @@ sub default_options {
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('ccds_name'),
+                    -driver    => $self->o('hive_driver')
     },
 
     # previous core database (available on ens-staging or ens-livemirror)
@@ -333,6 +336,7 @@ sub default_options {
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('prevcore_name'),
+                    -driver    => $self->o('hive_driver')
     },
     'db_conn' => 'mysql://'.$self->o('user_r').'@'.$self->o('prevcore_host').':'.$self->o('prevcore_port'),
 
@@ -342,8 +346,8 @@ sub default_options {
                     -port      => $self->o('pipe_port'),
                     -user      => $self->o('user_w'),
                     -pass      => $self->o('pass_w'),
-                    -dbname    => $self->o('pipe_dbname'),
-                    -driver    => "mysql",
+                    -dbname    => $self->o('pipe_db_name'),
+                    -driver    => $self->o('hive_driver')
     },
 
     # vega database to be used for the merge
@@ -473,6 +477,7 @@ sub default_options {
                     -user      => $self->o('user_r'),
                     -pass      => $self->o('pass_r'),
                     -dbname    => $self->o('production_name'),
+                    -driver    => $self->o('hive_driver')
     },
 
   };
@@ -617,10 +622,7 @@ sub pipeline_analyses {
               	                create_type => 'copy',
                                 source_db => $self->o('original_vega_db'),
                                 target_db => $self->o('vega_db'),
-                                pass_w => $self->o('pass_w'),
-                                user_w => $self->o('user_w'),
                                 db_dump_file => $self->o('output_dir').'/'.$self->o('vega_tmp_filename'),
-                                #ignore_dna => 1, # the vega db does not have any dna
                              },
              -flow_into => { 1 => ['list_toplevel_for_vega_checks_before'] },
             },
@@ -1780,14 +1782,12 @@ sub pipeline_analyses {
             
             {
               -logic_name => 'backup_dump_core_db_after_merge',
-              -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::DatabaseDumper',
               -parameters => {
-                                create_type => 'backup',
-                                source_db => $self->o('core_db'),
-                                backup_name => $self->o('backup_dump_core_db_after_merge_filename'),
-                                pass_w => $self->o('pass_w'),
-                                user_w => $self->o('user_w'),
-                                output_path => $self->o('output_dir'),
+                               src_db_conn => $self->o('core_db'),
+                               output_file => catfile($self->o('output_dir'), $self->o('backup_dump_core_db_after_merge_filename')),
+                               table_list => ['dna'],
+                               exclude_list => 1,
                              },
               -flow_into => { 1 => WHEN ('#patch_update#' => ['stop_for_sid_hcs_and_gencode_qc'])},
             },
@@ -2297,7 +2297,6 @@ sub pipeline_analyses {
                                source_db => $self->o('ro_core_db'),
                                target_db => $self->o('genblast_db'),
                                create_type => 'clone',
-                               script_path => $self->o('clone_db_script_path'),
                              },
               -rc_name    => 'default',
               -max_retry_count => 0,
@@ -2467,10 +2466,6 @@ sub pipeline_analyses {
                                source_db => $self->o('ro_core_db'),
                                target_db => $self->o('exonerate_db'),
                                create_type => 'clone',
-                               script_path => $self->o('clone_db_script_path'),
-                               user_r => $self->o('user_r'),
-                               user_w => $self->o('user_w'),
-                               pass_w => $self->o('pass_w'),
                              },
               -rc_name    => 'default',
               -flow_into => {
@@ -2582,7 +2577,6 @@ sub pipeline_analyses {
                          source_db => $self->o('ro_core_db'),
                          target_db => $self->o('layering_db'),
                          create_type => 'clone',
-                         script_path => $self->o('clone_db_script_path'),
                        },
         -rc_name    => 'default',
         -flow_into => {
@@ -2597,7 +2591,6 @@ sub pipeline_analyses {
                          source_db => $self->o('ro_core_db'),
                          target_db => $self->o('utr_db'),
                          create_type => 'clone',
-                         script_path => $self->o('clone_db_script_path'),
                        },
         -rc_name    => 'default',
         -flow_into => {
@@ -2612,7 +2605,6 @@ sub pipeline_analyses {
                          source_db => $self->o('ro_core_db'),
                          target_db => $self->o('genebuilder_db'),
                          create_type => 'clone',
-                         script_path => $self->o('clone_db_script_path'),
                        },
         -rc_name    => 'default',
         -flow_into => {
@@ -2759,7 +2751,6 @@ sub pipeline_analyses {
                          source_db => $self->o('ro_core_db'),
                          target_db => $self->o('pseudogene_db'),
                          create_type => 'clone',
-                         script_path => $self->o('clone_db_script_path'),
                        },
         -rc_name    => 'default',
         -flow_into => {
@@ -2853,10 +2844,6 @@ sub pipeline_analyses {
                          source_db => $self->o('pseudogene_db'),
                          target_db => $self->o('patch_geneset_db'),
                          create_type => 'copy',
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
-                         user_w => $self->o('user_w'),
-                         pass_w => $self->o('pass_w'),
                        },
         -rc_name    => 'default',
      },

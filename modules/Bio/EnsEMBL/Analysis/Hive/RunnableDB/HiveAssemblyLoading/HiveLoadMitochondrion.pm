@@ -102,7 +102,6 @@ sub run {
   my $toplevel;
   my $chromosome_flag = "";
   my $scaffold_flag = "";
-  my $contig_flag = " -contig ".$mt_accession;
   if($self->param('chromosomes_present')) {
     $toplevel = "chromosome";
     $chromosome_flag = " -chromosome  MT";
@@ -119,7 +118,7 @@ sub run {
   my $port = $target_db->{'-port'};
   my $dbname = $target_db->{'-dbname'};
 
-  my $cmd =  "perl ".$enscode_dir."/ensembl-pipeline/scripts/DataConversion/mitochondria/load_mitochondria.pl".
+  my $cmd =  'perl '.catfile($enscode_dir, 'ensembl-analysis', 'scripts', 'refseq', 'load_mitochondria.pl').
              " -dbhost ".$host.
              " -dbuser ".$user.
              " -dbport ".$port.
@@ -128,7 +127,6 @@ sub run {
              $chromosome_flag.
              " -name MT".
              $scaffold_flag.
-             $contig_flag.
              " -toplevel ".$toplevel.
              " -gene_type protein_coding".
              " -trna_type Mt_tRNA".

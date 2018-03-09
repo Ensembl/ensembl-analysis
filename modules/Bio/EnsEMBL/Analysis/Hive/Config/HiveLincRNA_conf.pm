@@ -53,11 +53,10 @@ sub default_options {
 
     assembly_name => '',
     species => '', # your species name ie microcebus_murinus
-    release_number => , # for example: 92
 
-    pipe_dbname => join('_', $self->o('dbowner'), $self->o('species'), $self->o('pipeline_name')),
+    pipe_db_name => join('_', $self->o('dbowner'), $self->o('species'), $self->o('pipeline_name')),
     pipe_db_server => '', # NOTE! used to generate tokens in the resource_classes sub below
-    dna_dbname => '', # what's your dna db name
+    dna_db_name => '', # what's your dna db name
     dna_db_server => '', # where is your dna db?  NOTE! used to generate tokens in the resource_classes sub below
     user => '',
     password => '',
@@ -68,25 +67,25 @@ sub default_options {
 
     cdna_db_host => '', # where is your RNAseq db? Where are your models?
     cdna_db_port => , # where is your RNAseq db? Where are your models?
-    cdna_db_dbname => '', # what's the name of your RNAseq db? Where are your models?
+    cdna_db_name => '', # what's the name of your RNAseq db? Where are your models?
 
     protein_coding_db_host => '', # where is your core db? Where are your models?
     protein_coding_db_port => , # where is your core db? Where are your models?
-    protein_coding_db_dbname => '',
+    protein_coding_db_name => '',
 
     # this is the output db. The results of all steps will be stored here!
     # !!! THIS OUTPUT DB NEEDS TO BE IN REGISTRY too !!! 
     lincRNA_db_host => '',
     lincRNA_db_port => ,
-    lincRNA_db_dbname => $self->o('dbowner').'_'.$self->o('species').'_lincrna_3Gen_out_'.$self->o('release_number'),   
+    lincRNA_db_name => $self->o('dbowner').'_'.$self->o('species').'_lincrna_3Gen_out_'.$self->o('release_number'),
 
     # this is for human regulation data
     regulation_db_host => '',
-    regulation_db_dbname => '',
+    regulation_db_name => '',
 
     # this is the output db after regulation data. The final results of regulation step will be stored here!
     regulation_debug_db_host => '',
-    regulation_debug_db_dbname => '',
+    regulation_debug_db_name => '',
 
 ######################################################
 #
@@ -95,10 +94,7 @@ sub default_options {
 ######################################################
 
     'biotype_output' => 'rnaseq',
-    'clone_db_script_path'   => $ENV{GITBASE}.'/ensembl-analysis/scripts/clone_database.ksh',
-    'remove_duplicates_script_path' => $ENV{GITBASE}.'/ensembl-analysis/scripts/find_and_remove_duplicates.pl',
-    'enscode_root_dir' => $ENV{GITBASE} , 
-    'binary_base' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/',
+    'remove_duplicates_script_path' => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'find_and_remove_duplicates.pl'),
 
 ########################
 # SPLIT PROTEOME File
@@ -162,14 +158,14 @@ sub default_options {
       -host   => $self->o('cdna_db_host'),
       -port   => $self->o('cdna_db_port'),
       -user   => $self->o('user_r'),
-      -dbname => $self->o('cdna_db_dbname'),
+      -dbname => $self->o('cdna_db_name'),
     },
 
     'source_protein_coding_db' => {
       -host   => $self->o('protein_coding_db_host'),
       -port   => $self->o('protein_coding_db_port'),
       -user   => $self->o('user_r'),
-      -dbname => $self->o('protein_coding_db_dbname'),
+      -dbname => $self->o('protein_coding_db_name'),
     },
 
     'lincRNA_output_db' => {
@@ -177,7 +173,7 @@ sub default_options {
       -port   => $self->o('lincRNA_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
-      -dbname => $self->o('lincRNA_db_dbname'),
+      -dbname => $self->o('lincRNA_db_name'),
       -driver => $self->o('pipeline_db', '-driver'),
     },
 
@@ -185,7 +181,7 @@ sub default_options {
       -host   => $self->o('regulation_db_host'),
       -port   => $self->o('port'),
       -user   => $self->o('user_r'),
-      -dbname => $self->o('regulation_db_dbname'),
+      -dbname => $self->o('regulation_db_name'),
     },
 
     'regulation_reform_db' => {
@@ -193,7 +189,7 @@ sub default_options {
       -port   => $self->o('port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
-      -dbname => $self->o('regulation_debug_db_dbname'),
+      -dbname => $self->o('regulation_debug_db_name'),
     },
   };
 }
@@ -214,11 +210,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
       -parameters => {
                        source_db   => $self->o('dna_db'),
-                       user_r      => $self->o('user_r'),
-                       user_w      => $self->o('lincRNA_output_db','-user'),
-                       pass_w      => $self->o('lincRNA_output_db','-pass'),
                        create_type => 'clone',
-                       script_path => $self->o('clone_db_script_path'),
                        target_db => $self->o('lincRNA_output_db')
                      },
       -rc_name    => 'default',

@@ -39,7 +39,6 @@ sub default_options {
 # CHANGE STUFF HERE                                                      #
 #                                                                        #
 ##########################################################################
-        'enscode_root_dir'           => '',
         'output_path'                => '',
         'pipeline_name'              => '',
         'release_number'             => '',
@@ -49,20 +48,20 @@ sub default_options {
         'password'                   => '',
         'port'                       => '',
 
-        'pipe_dbname'                => '',
-        'reference_dbname'           => '',
-        'dna_dbname'                 => '',
-        'genblast_dbname'            => '',
-        'projection_dbname'          => '', # If you have projection models
-        'cdna_dbname'                => '',
-        'rnaseq_dbname'              => '',
-        'layering_dbname'            => '',
-        'utr_source_dbname'          => '',
-        'utr_output_dbname'          => '',
-        'genebuilder_dbname'         => '',
-        'pseudo_dbname'              => '',
-        'ncrna_dbname'               => '',
-        'final_geneset_dbname'       => '',
+        'pipe_db_name'                => '',
+        'reference_db_name'           => '',
+        'dna_db_name'                 => '',
+        'genblast_db_name'            => '',
+        'projection_db_name'          => '', # If you have projection models
+        'cdna_db_name'                => '',
+        'rnaseq_db_name'              => '',
+        'layering_db_name'            => '',
+        'utr_source_db_name'          => '',
+        'utr_output_db_name'          => '',
+        'genebuilder_db_name'         => '',
+        'pseudo_db_name'              => '',
+        'ncrna_db_name'               => '',
+        'final_geneset_db_name'       => '',
 
 
         'pipe_db_server'             => '',
@@ -107,7 +106,6 @@ sub default_options {
 
 
 # Misc stuff
-'clone_db_script_path'  => '/nfs/users/nfs_f/fm2/enscode/ensembl-analysis/scripts/clone_database.ksh',
 
 'create_type' => 'clone',
 'driver' => 'mysql',
@@ -117,7 +115,7 @@ sub default_options {
 
 # DBs, these are all set with info above
 'pipeline_db' => {
-                   -dbname => $self->o('pipe_dbname'),
+                   -dbname => $self->o('pipe_db_name'),
                    -host   => $self->o('pipe_db_server'),
                    -port   => $self->o('port'),
                    -user   => $self->o('user_w'),
@@ -126,21 +124,21 @@ sub default_options {
                  },
 
 'reference_db' => {
-                    -dbname => $self->o('reference_dbname'),
+                    -dbname => $self->o('reference_db_name'),
                     -host   => $self->o('reference_db_server'),
                     -port   => $self->o('port'),
                     -user   => $self->o('user_r'),
                   },
 
 'dna_db' => {
-              -dbname => $self->o('dna_dbname'),
+              -dbname => $self->o('dna_db_name'),
               -host   => $self->o('dna_db_server'),
               -port   => $self->o('port'),
               -user   => $self->o('user_r'),
             },
 
 'genblast_db' => {
-  -dbname => $self->o('genblast_dbname'),
+  -dbname => $self->o('genblast_db_name'),
   -host   => $self->o('genblast_db_server'),
   -port   => $self->o('port'),
   -user   => $self->o('user_w'),
@@ -149,7 +147,7 @@ sub default_options {
 
 
 'projection_db' => {
-  -dbname => $self->o('projection_dbname'),
+  -dbname => $self->o('projection_db_name'),
   -host   => $self->o('projection_db_server'),
   -port   => $self->o('port'),
   -user   => $self->o('user_w'),
@@ -157,7 +155,7 @@ sub default_options {
 },
 
 'cdna_db' => {
-  -dbname => $self->o('cdna_dbname'),
+  -dbname => $self->o('cdna_db_name'),
   -host   => $self->o('cdna_db_server'),
   -port   => $self->o('port'),
   -user   => $self->o('user_w'),
@@ -165,7 +163,7 @@ sub default_options {
 },
 
          'rnaseq_db' => {
-           -dbname => $self->o('rnaseq_dbname'),
+           -dbname => $self->o('rnaseq_db_name'),
            -host   => $self->o('rnaseq_db_server'),
            -port   => $self->o('port'),
            -user   => $self->o('user_w'),
@@ -173,7 +171,7 @@ sub default_options {
         },
 
         'layering_db' => {
-                           -dbname => $self->o('layering_dbname'),
+                           -dbname => $self->o('layering_db_name'),
                            -host   => $self->o('layering_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user_w'),
@@ -181,14 +179,14 @@ sub default_options {
                          },
 
         'utr_source_db' => {
-                           -dbname => $self->o('utr_source_dbname'),
+                           -dbname => $self->o('utr_source_db_name'),
                            -host   => $self->o('utr_source_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user_r'),
                         },
 
         'utr_output_db' => {
-                           -dbname => $self->o('utr_output_dbname'),
+                           -dbname => $self->o('utr_output_db_name'),
                            -host   => $self->o('utr_output_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user_w'),
@@ -196,7 +194,7 @@ sub default_options {
                         },
 
         'genebuilder_db' => {
-                              -dbname => $self->o('genebuilder_dbname'),
+                              -dbname => $self->o('genebuilder_db_name'),
                               -host   => $self->o('genebuilder_db_server'),
                               -port   => $self->o('port'),
                               -user   => $self->o('user_w'),
@@ -205,7 +203,7 @@ sub default_options {
 
 
         'pseudo_db' => {
-                                -dbname => $self->o('pseudo_dbname'),
+                                -dbname => $self->o('pseudo_db_name'),
                                 -host   => $self->o('pseudo_db_server'),
                                 -port   => $self->o('port'),
                                 -user   => $self->o('user_w'),
@@ -213,7 +211,7 @@ sub default_options {
                               },
 
         'ncrna_db' => {
-                                -dbname => $self->o('ncrna_dbname'),
+                                -dbname => $self->o('ncrna_db_name'),
                                 -host   => $self->o('ncrna_db_server'),
                                 -port   => $self->o('port'),
                                 -user   => $self->o('user_w'),
@@ -221,7 +219,7 @@ sub default_options {
                               },
 
         'final_geneset_db' => {
-                                -dbname => $self->o('final_geneset_dbname'),
+                                -dbname => $self->o('final_geneset_db_name'),
                                 -host   => $self->o('final_geneset_db_server'),
                                 -port   => $self->o('port'),
                                 -user   => $self->o('user_w'),
@@ -253,10 +251,6 @@ sub pipeline_analyses {
                          source_db => $self->o('reference_db'),
                          target_db => $self->o('layering_db'),
                          create_type => 'clone',
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
-                         user_w => $self->o('user_w'),
-                         pass_w => $self->o('password'),
                        },
         -rc_name    => 'default',
         -input_ids => [{}],
@@ -272,10 +266,6 @@ sub pipeline_analyses {
                          source_db => $self->o('reference_db'),
                          target_db => $self->o('utr_output_db'),
                          create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
-                         user_w => $self->o('user_w'),
-                         pass_w => $self->o('password'),
                        },
         -rc_name    => 'default',
         -flow_into => {
@@ -290,10 +280,6 @@ sub pipeline_analyses {
                          source_db => $self->o('reference_db'),
                          target_db => $self->o('genebuilder_db'),
                          create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
-                         user_w => $self->o('user_w'),
-                         pass_w => $self->o('password'),
                        },
         -rc_name    => 'default',
         -flow_into => {
@@ -414,10 +400,6 @@ sub pipeline_analyses {
                          source_db => $self->o('reference_db'),
                          target_db => $self->o('pseudo_db'),
                          create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
-                         user_w => $self->o('user_w'),
-                         pass_w => $self->o('password'),
                        },
         -rc_name    => 'default',
         -flow_into => {
@@ -507,10 +489,6 @@ sub pipeline_analyses {
                          source_db => $self->o('pseudo_db'),
                          target_db => $self->o('final_geneset_db'),
                          create_type => 'copy',
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
-                         user_w => $self->o('user_w'),
-                         pass_w => $self->o('password'),
                        },
         -rc_name    => 'default',
         -flow_into => {

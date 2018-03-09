@@ -45,12 +45,12 @@ sub default_options {
         'password'                   => '',
         'port'                       => '',
 
-        'pipe_dbname'                => '',
-        'reference_dbname'           => '',
-        'dna_dbname'                 => '',
-        'genblast_output_dbname'     => '',
-        'genewise_output_dbname'     => '',
-        'exonerate_output_dbname'    => '',
+        'pipe_db_name'                => '',
+        'reference_db_name'           => '',
+        'dna_db_name'                 => '',
+        'genblast_output_db_name'     => '',
+        'genewise_output_db_name'     => '',
+        'exonerate_output_db_name'    => '',
 
 
         'pipe_db_server'             => '',
@@ -63,7 +63,6 @@ sub default_options {
         'output_path'                => '',
         'genome_file'             => '',
 
-        'clone_db_script_path'       => '',
         'repeat_masking_logic_names' => [],
 
 
@@ -76,7 +75,6 @@ sub default_options {
 
         'seqs_per_chunk'             => 25,
         'fastasplit_random_path'     => '/software/ensembl/bin/fastasplit_random',
-        'killlist_dbname'            => 'gb_kill_list',
 
 
         'genblast_path'              => 'genblast',
@@ -98,7 +96,7 @@ sub default_options {
         'user' => 'ensro',
 
         'pipeline_db' => {
-            -dbname => $self->o('pipe_dbname'),
+            -dbname => $self->o('pipe_db_name'),
             -host   => $self->o('pipe_db_server'),
             -port   => $self->o('port'),
             -user   => $self->o('user_w'),
@@ -107,21 +105,21 @@ sub default_options {
         },
 
         'reference_db' => {
-                            -dbname => $self->o('reference_dbname'),
+                            -dbname => $self->o('reference_db_name'),
                             -host   => $self->o('reference_db_server'),
                             -port   => $self->o('port'),
                             -user   => $self->o('user_r'),
                           },
 
         'dna_db' => {
-                      -dbname => $self->o('dna_dbname'),
+                      -dbname => $self->o('dna_db_name'),
                       -host   => $self->o('dna_db_server'),
                       -port   => $self->o('port'),
                       -user   => $self->o('user_r'),
                     },
 
         'genblast_output_db' => {
-                           -dbname => $self->o('genblast_output_dbname'),
+                           -dbname => $self->o('genblast_output_db_name'),
                            -host   => $self->o('genblast_output_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user_w'),
@@ -129,7 +127,7 @@ sub default_options {
                          },
 
         'genewise_output_db' => {
-                           -dbname => $self->o('genewise_output_dbname'),
+                           -dbname => $self->o('genewise_output_db_name'),
                            -host   => $self->o('genewise_output_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user_w'),
@@ -137,7 +135,7 @@ sub default_options {
                         },
 
         'exonerate_output_db' => {
-                           -dbname => $self->o('exonerate_output_dbname'),
+                           -dbname => $self->o('exonerate_output_db_name'),
                            -host   => $self->o('exonerate_output_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user_w'),
@@ -146,7 +144,7 @@ sub default_options {
 
 
         'killlist_db' => {
-                           -dbname    => $self->o('killlist_dbname'),
+                           -dbname    => $self->o('killlist_db_name'),
                            -host      => $self->o('killlist_db_server'),
                            -port      => $self->o('port'),
                            -user      => $self->o('user_r'),
@@ -263,7 +261,6 @@ sub pipeline_analyses {
                          source_db => $self->o('reference_db'),
                          target_db => $self->o('genblast_output_db'),
                          create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
                        },
         -rc_name    => 'default',
         -input_ids => [{}],
@@ -276,7 +273,6 @@ sub pipeline_analyses {
                          source_db => $self->o('reference_db'),
                          target_db => $self->o('exonerate_output_db'),
                          create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
                        },
         -rc_name    => 'default',
         -input_ids => [{}],

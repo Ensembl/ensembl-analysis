@@ -22,8 +22,8 @@ This base config should be used by all pipeline created for the ensembl-annotati
 =head1 METHODS
 
 default_options: returns the default options from HiveGeneric_conf and it adds pipeline_db,
-  dna_db and use_tokens. The inheriting class needs to specify; pipe_dbname, pipe_db_server,
-  port, user, password, reference_dbname, reference_db_server, user_r, dna_dbname, dna_db_server
+  dna_db and use_tokens. The inheriting class needs to specify; pipe_db_name, pipe_db_server,
+  port, user, password, reference_db_name, reference_db_server, user_r, dna_db_name, dna_db_server
 
 lsf_resource_builder: returns the parameters string for LSF meadow_type
 
@@ -49,22 +49,26 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
                 databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
                 password_r => undef,
 
+                ensembl_release => $ENV{ENSEMBL_RELEASE},
+                genebuilder_id => $ENV{GENEBUILDER_ID} || 0,
+                email => $ENV{HIVE_EMAIL},
                 enscode_root_dir => $ENV{ENSCODE},
                 software_base_path => $ENV{LINUXBREW_HOME},
                 binary_base => catdir($self->o('software_base_path'), 'bin'),
-                clone_db_script_path => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
 
-                data_dbs_server => $self->o('host'),
-                data_dbs_port => $self->o('port'),
-                data_dbs_user => $self->o('user'),
-                data_dbs_password => $self->o('password'),
+                # Usefull if you want to use one server for all your databases, not great but ok
+                data_db_server => $self->o('host'),
+                data_db_port => $self->o('port'),
+                data_db_user => $self->o('user'),
+                data_db_password => $self->o('password'),
+                data_db_driver => $self->o('hive_driver'),
 
                 dna_db_port => $self->o('port'),
                 dna_db_user => $self->o('user_r'),
                 dna_db_password => $self->o('password_r'),
                 dna_db_driver => $self->o('hive_driver'),
 
-                pipe_dbname => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+                pipe_db_name => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
                 pipe_db_port => $self->o('port'),
                 pipe_db_user => $self->o('user'),
                 pipe_db_password => $self->o('password'),
@@ -87,15 +91,18 @@ sub default_options {
         databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
         password_r => undef,
 
+        ensembl_release => $ENV{ENSEMBL_RELEASE},
+        genebuilder_id => $ENV{GENEBUILDER_ID} || 0,
+        email_address => $ENV{HIVE_EMAIL},
         enscode_root_dir => $ENV{ENSCODE},
         software_base_path => $ENV{LINUXBREW_HOME},
         binary_base => catdir($self->o('software_base_path'), 'bin'),
-        clone_db_script_path => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
 
-        data_dbs_server => $self->o('host'),
-        data_dbs_port => $self->o('port'),
-        data_dbs_user => $self->o('user'),
-        data_dbs_password => $self->o('password'),
+        data_db_server => $self->o('host'),
+        data_db_port => $self->o('port'),
+        data_db_user => $self->o('user'),
+        data_db_password => $self->o('password'),
+        data_db_driver => $self->o('hive_driver'),
 
         dna_db_server => $self->o('host'),
         dna_db_port => $self->o('port'),
@@ -103,15 +110,17 @@ sub default_options {
         dna_db_password => $self->o('password_r'),
         dna_db_driver => $self->o('hive_driver'),
 
-        pipe_dbname => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+        pipe_db_name => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
         pipe_db_server => $self->o('host'),
         pipe_db_port => $self->o('port'),
         pipe_db_user => $self->o('user'),
         pipe_db_password => $self->o('password'),
         pipe_db_driver => $self->o('hive_driver'),
 
+        killlist_db_name => 'gb_kill_list',
+
         'pipeline_db' => {
-            -dbname => $self->o('pipe_dbname'),
+            -dbname => $self->o('pipe_db_name'),
             -host   => $self->o('pipe_db_server'),
             -port   => $self->o('pipe_db_port'),
             -user   => $self->o('pipe_db_user'),
@@ -120,7 +129,7 @@ sub default_options {
         },
 
         'dna_db' => {
-            -dbname => $self->o('dna_dbname'),
+            -dbname => $self->o('dna_db_name'),
             -host   => $self->o('dna_db_server'),
             -port   => $self->o('dna_db_port'),
             -user   => $self->o('dna_db_user'),

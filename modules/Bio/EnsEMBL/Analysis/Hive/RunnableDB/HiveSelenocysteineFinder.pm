@@ -71,7 +71,6 @@ sub param_defaults {
     minimum_identity => 95,
     coverage_threshold => 90,
     biotype => 'seleno',
-    update => 0,
   }
 }
 
@@ -85,9 +84,6 @@ sub fetch_input {
   my $dnadb = $self->get_database_by_name('dna_db');
   my $db = $self->get_database_by_name('target_db', $dnadb);
   $self->hrdb_set_con($db, 'target_db');
-  if ($self->param_is_defined('source_db')) {
-    $self->hrdb_set_con($self->get_database_by_name('source_db', $dnadb), 'source_db');
-  }
   my $analysis = $self->create_analysis;
 
   my $querys;
@@ -299,7 +295,6 @@ sub write_output {
   my ($self) = @_;
 
   my $gene_adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
-  my $update = $self->param('update');
   my $analysis = $self->analysis;
   my $biotype = $self->param('biotype');
   foreach my $transcript (@{$self->output}) {

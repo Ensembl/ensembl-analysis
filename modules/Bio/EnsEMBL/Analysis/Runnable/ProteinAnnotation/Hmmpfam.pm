@@ -24,7 +24,7 @@ Bio::EnsEMBL::Analysis::Runnable::Protein::Hmmpfam
   my $query = new Bio::Seq(-file   => $queryfile,
 			   -format => 'Fasta');
 
-  my $hmm =  Bio::EnsEMBL::Pipeline::Runnable::Protein::Hmmpfam->new 
+  my $hmm =  Bio::EnsEMBL::Analysis::Runnable::Protein::Hmmpfam->new
     ('-query'          => $query,
      '-program'        => 'hmmpfam' or '/usr/local/pubseq/bin/hmmpfam',
      '-database'       => '/data/Pfam_ls');
