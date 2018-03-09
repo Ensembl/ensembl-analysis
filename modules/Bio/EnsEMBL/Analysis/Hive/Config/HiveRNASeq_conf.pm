@@ -77,6 +77,7 @@ sub default_options {
         'output_dir' => '', #You need to specify the full path to the directory where your output files will be written
         'merge_dir'  => '', #You can specify a full path to the directory where your BAM files will be, default is <output_dir>
         'sam_dir'    => '', #You can specify a full path to the directory where your SAM files will be, default is <output_dir>/SAM
+        'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
         'genome_file'     => 'genome/genome.fa',
         'use_ucsc_naming' => 0,
@@ -328,7 +329,7 @@ sub pipeline_analyses {
           taxon_id => $self->o('taxon_id'),
         },
         -flow_into => {
-            '1->A' => ['create_rnaseq_genome_file'],
+            '1->A' => ['create_rnaseq_genome_file', 'create_fastq_download_jobs'],
             'A->1' => ['create_rough_db'],
         },
   },
@@ -351,6 +352,27 @@ sub pipeline_analyses {
             cmd => 'if [ ! -e "#wide_genome_file#.ann" ]; then #wide_short_read_aligner# index -a bwtsw #wide_genome_file#;fi',
         },
   },
+
+  {
+   -logic_name => 'create_fastq_download_jobs',
+   -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateFastqDownloadJobs',
+   -parameters => {
+     inputfile => $self->o('rnaseq_summary_file'),
+   },
+   -flow_into => {
+     1 => {'download_RNASeq_fastqs' => {'iid' => '#iid#'}},
+   },
+  },
+
+  {
+    -logic_name => 'download_RNASeq_fastqs',
+    -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadRNASeqFastqs',
+    -parameters =>{
+      ftp_base_url => $self->o('rnaseq_ftp_base'),
+      input_dir => $self->o('input_dir'),
+    },
+  },
+
   {
     -logic_name => 'create_rough_db',
     -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
@@ -454,7 +476,7 @@ sub pipeline_analyses {
                          min_mapped => $self->o('read_min_mapped'),
                          header_file => '#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h',
                          bam_prefix => $self->o('read_id_tag'),
-                         email => $self->o('email'),
+                         email => $self->o('email_address'),
                          disconnect_jobs => 1,
                        },
         -flow_into => {
@@ -475,7 +497,7 @@ sub pipeline_analyses {
                          min_mapped => $self->o('read_min_mapped'),
                          header_file => '#wide_output_dir#/#'.$self->o('read_id_tag').'#_header.h',
                          bam_prefix => $self->o('read_id_tag'),
-                         email => $self->o('email'),
+                         email => $self->o('email_address'),
                          disconnect_jobs => 1,
                        },
         -flow_into => {
