@@ -43,14 +43,14 @@ cmp_ok(Bio::EnsEMBL::Analysis::Tools::Utilities::parse_timer('54'), '==', 54, 'C
 cmp_ok(Bio::EnsEMBL::Analysis::Tools::Utilities::execute_with_wait('sleep 2'), '==', 1, 'Cheking "execute_with_wait" with sleep');
 my $time = time;
 eval {
-  Bio::EnsEMBL::Analysis::Tools::Utilities::execute_with_wait('sleep t &> /dev/null', undef, 2);
+  Bio::EnsEMBL::Analysis::Tools::Utilities::execute_with_wait('sleep t 2&>1 /dev/null', undef, 2);
 };
 $time = time()-$time;
 cmp_ok($time, '>=', 2, 'Checking "execute_with_wait" fails and wait using the time in parameters');
 cmp_ok($time, '<', 10, 'Checking "execute_with_wait" fails and wait using the time in parameters');
 $time = time;
 eval {
-  Bio::EnsEMBL::Analysis::Tools::Utilities::execute_with_wait('sleep t &> /dev/null', 'Doh', 2);
+  Bio::EnsEMBL::Analysis::Tools::Utilities::execute_with_wait('sleep t 2&>1 /dev/null', 'Doh', 2);
 };
 $time = time()-$time;
 cmp_ok($time, '>=', 2, 'Checking "execute_with_wait" fails and wait');

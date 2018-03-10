@@ -284,7 +284,7 @@ sub dump_database {
   if ($db_file) {
     if ($compress) {
       # If pipefail is not set your command can fail without telling you
-      $command = "set -o pipefail || 0; $command | gzip > $db_file.gz";
+      $command = "$command | gzip > $db_file.gz";
     }
     else {
       $command .= " > $db_file";
