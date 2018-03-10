@@ -99,7 +99,7 @@ sub run {
     run_command("mkdir -p ".$self->param('output_dir'),"Create output path.");
   }
 
-  my @gene_ids_to_copy = get_unprocessed_genes($self->param('processed_genes_filename'),
+  my @gene_ids_to_copy = $self->get_unprocessed_genes($self->param('processed_genes_filename'),
                                                $self->param('output_dir'),
                                                $self->param('host_secondary'),
                                                $self->param('port_secondary'),
@@ -125,7 +125,7 @@ sub write_output {
 }
 
 sub get_unprocessed_genes() {
-  my ($filename,$output_dir,$dbhost,$dbport,$user,$pass,$dbname,$include,$exclude) = @_;  
+  my ($self, $filename,$output_dir,$dbhost,$dbport,$user,$pass,$dbname,$include,$exclude) = @_;
   
   my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(-dbname => $dbname,
                                               -host   => $dbhost,
