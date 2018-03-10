@@ -140,13 +140,13 @@ sub run {
   # print the number of the only step executed
   print("Only the step number ".$self->param('only')." will be executed.\n") if ($self->param('only') > 0);
 
-  readthrough_transcripts_tagged($self->param('dbhost'),
+  $self->readthrough_transcripts_tagged($self->param('dbhost'),
                                  $self->param('dbport'),
                                  $self->param('dbuser'),
                                  $self->param('dbpass'),
                                  $self->param('dbname')) if ($self->param('skip') < 1 or $self->param('only') == 1);
 
-  methionine_to_stop_codon($self->param('dbhost'),
+  $self->methionine_to_stop_codon($self->param('dbhost'),
                            $self->param('dbport'),
                            $self->param('dbuser'),
                            $self->param('dbpass'),
@@ -157,19 +157,19 @@ sub run {
                            $self->param('check_vega_met_stop_dir'),
                            $self->param('output_path')) if ($self->param('skip') < 2 or $self->param('only') == 2);
 
-  set_ncrna_host_gene_attribute($self->param('dbhost'),
+  $self->set_ncrna_host_gene_attribute($self->param('dbhost'),
                                 $self->param('dbport'),
                                 $self->param('dbuser'),
                                 $self->param('dbpass'),
                                 $self->param('dbname')) if ($self->param('skip') < 3 or $self->param('only') == 3);
 
-  truncate_tsf_table($self->param('dbhost'),
+  $self->truncate_tsf_table($self->param('dbhost'),
                      $self->param('dbport'),
                      $self->param('dbuser'),
                      $self->param('dbpass'),
                      $self->param('dbname')) if ($self->param('skip') < 4 or $self->param('only') == 4);
 
-  add_attribute_to_GAGE_cluster($self->param('dbhost'),
+  $self->add_attribute_to_GAGE_cluster($self->param('dbhost'),
                                 $self->param('dbport'),
                                 $self->param('dbuser'),
                                 $self->param('dbpass'),
@@ -184,7 +184,7 @@ sub write_output {
 }
 
 sub readthrough_transcripts_tagged {
-  my ($dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
+  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
 
   my $readthrough_transcripts_sql = "update transcript_attrib ta, transcript t set ta.attrib_type_id = (select attrib_type_id from attrib_type where code = 'readthrough_tra') where (ta.value like '%read%through%') and ta.transcript_id = t.transcript_id;";
 
@@ -199,7 +199,7 @@ sub readthrough_transcripts_tagged {
 }
 
 sub methionine_to_stop_codon {
-  my ($dbhost,$dbport,$dbuser,$dbpass,$dbname,$dnadbhost,$dnadbport,$dnadbname,$check_vega_met_stop_dir,$output_path) = @_;
+  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname,$dnadbhost,$dnadbport,$dnadbname,$check_vega_met_stop_dir,$output_path) = @_;
 
   my $ids_file = "$output_path/havana_coding_transcript_ids.txt";
   my $full_ids_file = "$output_path/full_length_havana_coding_transcript_ids.txt";
@@ -223,7 +223,7 @@ sub methionine_to_stop_codon {
 }
 
 sub set_ncrna_host_gene_attribute {
-  my ($dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
+  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
 
   my $ncrna_host_sql = "update gene_attrib ga, gene g set ga.attrib_type_id = (select attrib_type_id from attrib_type where code = 'ncrna_host') where ga.gene_id = g.gene_id and (value like 'transcribed%' or value = 'ncrna_host');";
   my $check_sql_1 = "select count(*) from gene_attrib where (value like 'transcribed%' or value = 'ncrna_host');";
@@ -240,7 +240,7 @@ sub set_ncrna_host_gene_attribute {
 }
 
 sub truncate_tsf_table {
-  my ($dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
+  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
 
   my $tsf_bak_name = "tsf_bak_".time();
 
@@ -256,7 +256,7 @@ sub truncate_tsf_table {
 }
 
 sub add_attribute_to_GAGE_cluster {
-  my ($dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
+  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
 
 
   my $num_att = run_command("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e\"select count(*) from transcript,gene_attrib ga where value = 'gene_cluster_GAGE' and transcript.gene_id=ga.gene_id;\"",

@@ -131,7 +131,7 @@ sub fetch_input {
         $self->param('db_dump_file', create_file_name('source_db'));
       }
       push(@commands,
-        'set -o pipefail;'.$self->dump_database($self->param('source_db'), undef, 0, 0, ['dna', 'repeat_feature', 'repeat_consensus']).' | '.
+        $self->dump_database($self->param('source_db'), undef, 0, 0, ['dna', 'repeat_feature', 'repeat_consensus']).' | '.
         $self->load_database($self->param('target_db')));
     }
   }
@@ -141,7 +141,7 @@ sub fetch_input {
     }
     push(@commands, $self->create_database($self->param_required('target_db')));
     push(@commands,
-      'set -o pipefail;'.$self->dump_database($self->param('source_db'), undef, $self->param('ignore_dna')).' | '.
+      $self->dump_database($self->param('source_db'), undef, $self->param('ignore_dna')).' | '.
       $self->load_database($self->param('target_db')));
     my $cmd = $self->reset_autoincrement($self->param('target_db'));
     push(@commands, $cmd) if ($cmd);
@@ -177,7 +177,7 @@ sub run {
   my $self = shift;
 
   foreach my $cmd (@{$self->param('commands')}) {
-    execute_with_wait($cmd);
+    $self->run_system_command($cmd);
   }
 }
 
@@ -224,8 +224,8 @@ sub clone_database {
   my $base_target_cmd = "mysql -h $target_dbhost -P $target_dbport -u $target_dbuser -D $target_dbname";
   $base_target_cmd .= ' -p'.$target_dbpass if ($target_dbpass);
   my @commands = (
-    "set -o pipefail; $base_source_cmd --no-data $source_dbname | $base_target_cmd",
-    join(' ', 'set -o pipefail;', $base_source_cmd, $source_dbname, @$vital_tables, '|',$base_target_cmd),
+    "$base_source_cmd --no-data $source_dbname | $base_target_cmd",
+    join(' ', $base_source_cmd, $source_dbname, @$vital_tables, '|',$base_target_cmd),
   );
   return \@commands;
 }
@@ -283,7 +283,7 @@ sub dump_database {
   if ($db_file) {
     if ($compress) {
       # If pipefail is not set your command can fail without telling you
-      $command = "set -o pipefail; $command | gzip > $db_file.gz";
+      $command = "$command | gzip > $db_file.gz";
     }
     else {
       $command .= " > $db_file";
@@ -306,7 +306,7 @@ sub create_database {
   my ($self, $db) = @_;
 
   my ($dbhost, $dbport, $dbname, $dbuser, $dbpass) = $self->db_connection_details($db);
-  return "mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -e'CREATE DATABASE $dbname'";
+  return "mysql -h$dbhost -P$dbport -u$dbuser".($dbpass ? " -p$dbpass " : " ")."-e'CREATE DATABASE $dbname'";
 }
 
 
@@ -347,7 +347,7 @@ sub drop_database {
 
   my ($dbhost, $dbport, $dbname, $dbuser, $dbpass) = $self->db_connection_details($db);
   $self->warning("Dropping existing database if it exists $dbname"."@"."$dbhost:$dbport...");
-  return "mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -e 'DROP DATABASE IF EXISTS $dbname'";
+  return "mysql -h$dbhost -P$dbport -u$dbuser".($dbpass ? " -p$dbpass " : " ")."-e 'DROP DATABASE IF EXISTS $dbname'";
 }
 
 
