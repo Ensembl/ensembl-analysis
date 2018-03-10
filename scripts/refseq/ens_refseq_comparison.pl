@@ -444,7 +444,7 @@ sub make_exon_string {
     $exons = $transcript->get_all_translateable_Exons();
   }
   my $exon_string;
-  foreach my $exon (@{$translateable_exons}) {
+  foreach my $exon (@{$exons}) {
     $exon_string .= $exon->start.':'.$exon->end.':';
   }
 
