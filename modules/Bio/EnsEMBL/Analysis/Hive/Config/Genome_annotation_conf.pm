@@ -758,7 +758,7 @@ sub pipeline_analyses {
         -logic_name => 'download_assembly_fasta',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData',
         -parameters => {
-          output_path => $self->o('output_path'),
+          output_dir => $self->o('output_path'),
           download_method => 'ftp',
         },
         -rc_name    => 'default',
