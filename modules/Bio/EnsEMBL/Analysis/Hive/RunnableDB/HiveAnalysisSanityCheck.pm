@@ -108,8 +108,8 @@ sub gene_db_checks {
 
   # Note the check will be done on the transcript level for now as that's where we typically label biotypes
   my $transcript_adaptor = $genome_prep_dba->get_TranscriptAdaptor();
-  unless($logic_names || $biotypes) {
-    $self->throw("No entries for either logic_names or biotypes where found in the min_allowed_feature_counts hash");
+  unless($biotypes) {
+    $self->throw("No entries for biotypes where found in the min_allowed_feature_counts hash");
   }
 
   # Count the transcripts per logic name
@@ -117,23 +117,36 @@ sub gene_db_checks {
 
   # Count all the biotypes once, since there's no biotype constraint for transcript adaptors
   my $observed_biotype_counts = {};
-  my $observed_logic_name_counts = {};
-
+  
   foreach my $transcript (@{$transcripts}) {
     my $biotype = $transcript->biotype;
-    my $logic_name = $transcript->analysis->logic_name;
     if($observed_biotype_counts->{$biotype}) {
       $observed_biotype_counts->{$biotype}++;
     } else {
       $observed_biotype_counts->{$biotype} = 1;
     }
-    if($observed_logic_name_counts->{$logic_name}) {
-      $observed_logic_name_counts->{$logic_name}++;
-    } else {
-      $observed_logic_name_counts->{$logic_name} = 1;
-    }
   }
 
+  # Note the check will be done on the gene level for now as that's where we typically label logic names
+  my $gene_adaptor = $genome_prep_dba->get_GeneAdaptor();
+  unless($logic_names) {
+      $self->throw("No entries for logic_names where found in the min_allowed_feature_counts hash");
+  }
+
+  # Count the genes per logic name
+  my $genes = $gene_adaptor->fetch_all();
+
+  # Count all the logic names once
+   my $observed_logic_name_counts = {};
+
+  foreach my $gene (@{$genes}) {
+      my $logic_name = $gene->analysis->logic_name;
+      if($observed_logic_name_counts->{$logic_name}) {
+	  $observed_logic_name_counts->{$logic_name}++;
+      } else {
+	  $observed_logic_name_counts->{$logic_name} = 1;
+      }
+  }
   say "Checking logic names:";
   foreach my $logic_name (keys(%{$logic_names})) {
 
