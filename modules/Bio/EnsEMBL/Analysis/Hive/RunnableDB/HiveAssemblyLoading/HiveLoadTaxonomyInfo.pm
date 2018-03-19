@@ -105,7 +105,7 @@ sub load_taxonomy {
             ' -u '.$target_user.
             ' -p '.$target_pass.
             ' -d '.$target_dbname.
-            ' -P '.$target_port; # release not needed by script osagie 19/03/2018.
+            ' -P '.$target_port; # release not needed 
             # ' -release '.$ENV{ENSEMBL_RELEASE};
 
   if ($self->param_is_defined('production_db')) {
