@@ -41,7 +41,7 @@ sub fetch_input {
     my $target_db = $self->get_database_by_name('target_db');
     my $cs_adaptor = $target_db->get_CoordSystemAdaptor;
     my $cs_rank1 = $cs_adaptor->fetch_by_rank(1);
-    if ($cs_rank1->name eq 'chromosome') {
+    if ($cs_rank1->name eq 'primary_assembly' or $cs_rank1->name eq 'chromosome') {
       $self->param('chromosomes_present', 1);
     }
   }
@@ -103,7 +103,7 @@ sub run {
   my $chromosome_flag = "";
   my $scaffold_flag = "";
   if($self->param('chromosomes_present')) {
-    $toplevel = "chromosome";
+    $toplevel = "primary_assembly";
     $chromosome_flag = " -chromosome  MT";
     $scaffold_flag = " -scaffold ".$mt_accession;
   } else {
