@@ -39,7 +39,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadGenomeSequences;
 
 use strict;
 use warnings;
-
+use feature 'say';
 use File::Spec::Functions qw(catfile);
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 use Bio::EnsEMBL::IO::Parser::Fasta;
@@ -173,7 +173,7 @@ sub write_output {
         $sequence_adaptor->store($slice->get_seq_region_id, \$seq_clean);
       }
       else {
-        $sequence_adaptor->store($slice->get_seq_region_id, \$parser->getSequence);
+        $sequence_adaptor->store($slice->get_seq_region_id, $parser->getSequence);
       }
       ++$region_count;
     }
