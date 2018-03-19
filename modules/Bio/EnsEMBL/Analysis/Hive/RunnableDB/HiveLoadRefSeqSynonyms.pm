@@ -140,9 +140,10 @@ sub fetch_input {
   my $fh = $ftpclient->get(sprintf("%s_%s_assembly_report.txt", $ncbi_assembly_accession, $assembly_name));
   if ($fh) {
     open(FH, "$fh") || $self->throw("Could not open $fh");
-    while(<FH>) {
-      next if (/^#|^\s*$/);
-      my @line = split("\t", $_);
+    while(my $line = <FH>) {
+      next if ($line =~ /^#|^\s*$/);
+      $line =~ s/\R$//;
+      my @line = split("\t", $line);
       my $cs = 'scaffold';
       $cs = 'chromosome' if ($line[1] eq 'assembled-molecule');
       push(@{$data{$cs}}, [$line[4], $line[6]]);
@@ -160,10 +161,10 @@ sub fetch_input {
         my $fh = $ftpclient->get($files{$file});
         if ($fh) {
           open(FH, "$fh") || $self->throw("Could not open $fh");
-          while(<FH>) {
-            next if (/^#|^\s*$/);
-            chomp;
-            push(@{$data{$file}}, [split("\t", $_)]);
+          while(my $line = <FH>) {
+            next if ($line =~ /^#|^\s*$/);
+            $line =~ s/\R$//;
+            push(@{$data{$file}}, [split("\t", $line)]);
             ++$data_counter;
           }
           close(FH) || $self->throw("Could not close $fh");

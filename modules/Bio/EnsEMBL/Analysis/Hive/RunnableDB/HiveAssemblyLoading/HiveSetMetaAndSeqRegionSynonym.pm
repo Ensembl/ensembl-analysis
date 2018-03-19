@@ -305,13 +305,13 @@ sub set_seq_region_synonyms {
       }
       close(IN) || $self->throw("Could not close $file");
       if($insert_count == 0 && ($na_count != $line_count)) {
-        $self->throw("The insert/update count after parsing ".$file." was 0, this is probably wrong. File used:\n".$file);
+        $self->warning("The insert/update count after parsing ".$file." was 0, this is probably wrong. File used:\n".$file);
       }
       say "\nInserted into seq_region_synonym and updated seq_region based on ".$file.". Total inserts/updates: ".$insert_count;
       say "You will need to update the external_db_id for the synonyms of scaffold or contigs!\n";
     }
     else {
-      $self->throw("Could not find $filename file. No synonyms loaded. Expected location:\n".$file)
+      $self->warning("Could not find $filename file. No synonyms loaded. Expected location:\n".$file)
         unless ($filename eq 'chr2acc' and $self->param('chromosomes_present'));
     }
   }
