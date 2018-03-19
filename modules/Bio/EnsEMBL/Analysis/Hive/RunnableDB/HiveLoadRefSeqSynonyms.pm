@@ -95,96 +95,103 @@ sub fetch_input {
   my ($self) = @_;
 
   $self->create_analysis;
-  $self->hrdb_set_con($self->get_database_by_name('target_db'), 'target_db');
+  my $db = $self->get_database_by_name('target_db');
+  $self->hrdb_set_con($db, 'target_db');
   my $assembly_name;
   if ($self->param_is_defined('assembly_name')) {
     $assembly_name = $self->param('assembly_name');
   }
   else {
-    $assembly_name = $self->hrdb_get_con('target_db')->get_MetaContainer->single_value_by_key('assembly.name');
+    $assembly_name = $db->get_MetaContainer->single_value_by_key('assembly.name');
   }
   $self->throw('Could not get assembly_name') unless ($assembly_name);
-  my $refseq_db_id = $self->hrdb_get_con('target_db')->get_DBEntryAdaptor->get_external_db_id($self->param('external_db'));
-  if ($refseq_db_id) {
-    $self->param('external_db_id', $refseq_db_id);
+  my $primary_assembly_cs = $db->get_CoordSystemAdaptor->fetch_by_name('primary_assembly', $assembly_name);
+  if ($primary_assembly_cs) {
+    $self->complete_early('You have the "primary_assembly" coordinate system so your synonyms should already be in your database');
   }
   else {
-    $self->throw('Could not fetch the dbID for '.$self->param('external_db'));
-  }
-  my $ncbi_assembly_accession = $self->param_required('assembly_refseq_accession');
-  my $ftpclient = Net::FTP->new($self->param('ncbi_ftp_host')) or $self->throw("Can't open ".$self->param('ncbi_ftp_host'));
-  $ftpclient->login($self->param('ncbi_ftp_user'), $self->param('ncbi_ftp_passwd')) or $self->throw("Can't log ".$self->param('ncbi_ftp_user').' in');
-  
-  my $counter = 0;
-  my $data_counter = 0;
-  my %data;
-  my %files = (
-    chromosome => 'chr2acc',
-    scaffold => 'scaffold_localID2acc',
-    contig => 'component_localID2acc',
-  );
-  my %found_files = (
-    chromosome => 0,
-    scaffold => 0,
-    contig => 0,
-  );
-  foreach my $dir ('genomes',
-                   'all',
-                   substr($ncbi_assembly_accession, 0, 3),
-                   substr($ncbi_assembly_accession, 4, 3),
-                   substr($ncbi_assembly_accession, 7, 3),
-                   substr($ncbi_assembly_accession, 10, 3),
-                   sprintf("%s_%s", $ncbi_assembly_accession, $assembly_name)) {
-    $ftpclient->cwd($dir) || $self->throw("Could not got into $dir");
-  }
-  my $fh = $ftpclient->get(sprintf("%s_%s_assembly_report.txt", $ncbi_assembly_accession, $assembly_name));
-  if ($fh) {
-    open(FH, "$fh") || $self->throw("Could not open $fh");
-    while(my $line = <FH>) {
-      next if ($line =~ /^#|^\s*$/);
-      $line =~ s/\R$//;
-      my @line = split("\t", $line);
-      my $cs = 'scaffold';
-      $cs = 'chromosome' if ($line[1] eq 'assembled-molecule');
-      push(@{$data{$cs}}, [$line[4], $line[6]]);
+    my $refseq_db_id = $db->get_DBEntryAdaptor->get_external_db_id($self->param('external_db'));
+    if ($refseq_db_id) {
+      $self->param('external_db_id', $refseq_db_id);
     }
-    close(FH) || $self->throw("Could not close $fh");
-    ++$counter;
-    unlink($fh);
-  }
-  foreach my $dir ('.',
-                   sprintf("%s_%s_assembly_structure", $ncbi_assembly_accession, $assembly_name),
-                   'Primary_Assembly',
-                   'assembled_chromosomes') {
-    if ($ftpclient->cwd($dir)) {
-      foreach my $file (keys %files) {
-        my $fh = $ftpclient->get($files{$file});
-        if ($fh) {
-          open(FH, "$fh") || $self->throw("Could not open $fh");
-          while(my $line = <FH>) {
-            next if ($line =~ /^#|^\s*$/);
-            $line =~ s/\R$//;
-            push(@{$data{$file}}, [split("\t", $line)]);
-            ++$data_counter;
+    else {
+      $self->throw('Could not fetch the dbID for '.$self->param('external_db'));
+    }
+    my $ncbi_assembly_accession = $self->param_required('assembly_refseq_accession');
+    my $ftpclient = Net::FTP->new($self->param('ncbi_ftp_host')) or $self->throw("Can't open ".$self->param('ncbi_ftp_host'));
+    $ftpclient->login($self->param('ncbi_ftp_user'), $self->param('ncbi_ftp_passwd')) or $self->throw("Can't log ".$self->param('ncbi_ftp_user').' in');
+
+    my $counter = 0;
+    my $data_counter = 0;
+    my %data;
+    my %files = (
+      chromosome => 'chr2acc',
+      scaffold => 'scaffold_localID2acc',
+      contig => 'component_localID2acc',
+    );
+    my %found_files = (
+      chromosome => 0,
+      scaffold => 0,
+      contig => 0,
+    );
+    foreach my $dir ('genomes',
+                     'all',
+                     substr($ncbi_assembly_accession, 0, 3),
+                     substr($ncbi_assembly_accession, 4, 3),
+                     substr($ncbi_assembly_accession, 7, 3),
+                     substr($ncbi_assembly_accession, 10, 3),
+                     sprintf("%s_%s", $ncbi_assembly_accession, $assembly_name)) {
+      $ftpclient->cwd($dir) || $self->throw("Could not got into $dir");
+    }
+    my $fh = $ftpclient->get(sprintf("%s_%s_assembly_report.txt", $ncbi_assembly_accession, $assembly_name));
+    if ($fh) {
+      open(FH, "$fh") || $self->throw("Could not open $fh");
+      while(my $line = <FH>) {
+        next if ($line =~ /^#|^\s*$/);
+        $line =~ s/\R$//;
+        my @line = split("\t", $line);
+        my $cs = 'scaffold';
+        $cs = 'chromosome' if ($line[1] eq 'assembled-molecule');
+        push(@{$data{$cs}}, [$line[4], $line[6]]);
+      }
+      close(FH) || $self->throw("Could not close $fh");
+      ++$counter;
+      unlink($fh);
+    }
+    foreach my $dir ('.',
+                     sprintf("%s_%s_assembly_structure", $ncbi_assembly_accession, $assembly_name),
+                     'Primary_Assembly',
+                     'assembled_chromosomes') {
+      if ($ftpclient->cwd($dir)) {
+        foreach my $file (keys %files) {
+          my $fh = $ftpclient->get($files{$file});
+          if ($fh) {
+            open(FH, "$fh") || $self->throw("Could not open $fh");
+            while(my $line = <FH>) {
+              next if ($line =~ /^#|^\s*$/);
+              $line =~ s/\R$//;
+              push(@{$data{$file}}, [split("\t", $line)]);
+              ++$data_counter;
+            }
+            close(FH) || $self->throw("Could not close $fh");
+            ++$counter;
+            unlink($fh);
+            ++$found_files{$file};
           }
-          close(FH) || $self->throw("Could not close $fh");
-          ++$counter;
-          unlink($fh);
-          ++$found_files{$file};
         }
       }
     }
+    my $found_file_count = 0;
+    foreach my $file (keys %found_files) {
+      $self->throw("You have a problem with $file as it has been found ${$files{$file}} times")
+        if ($found_files{$file} > 1);
+      $found_file_count += $found_files{$file};
+    }
+    $self->throw("No files were found") unless ($found_file_count);
+    $self->throw("No accession was found") unless ($counter);
+    $self->param('synonym_count', $data_counter);
+    $self->param('synonyms', \%data);
   }
-  my $found_file_count = 0;
-  foreach my $file (keys %found_files) {
-    $self->throw("You have a problem with $file as it has been found ${$files{$file}} times")
-      if ($found_files{$file} > 1);
-    $found_file_count += $found_files{$file};
-  }
-  $self->throw("No files were found") unless ($found_file_count);
-  $self->throw("No accession was found") unless ($counter);
-  $self->param('synonym_count', $data_counter);
-  $self->param('synonyms', \%data);
 }
 
 
