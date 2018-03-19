@@ -1026,7 +1026,7 @@ sub pipeline_analyses {
                                       ' -host '.$self->o('refseq_db','-host').
                                       ' -port '.$self->o('refseq_db','-port').
                                       ' -dbname '.$self->o('refseq_db','-dbname').
-                                      ' -infile '.$self->o('output_path').'/refseq_import/refseq.gff',
+                                      ' -infile '.$self->o('output_path').'/refseq_import/#assembly_refseq_accession#_#assembly_name#_genomic.gff',
                        },
         -rc_name => 'refseq_import',
       },
