@@ -90,12 +90,12 @@ sub post_cleanup {
   # Sleep and output a new job for this analysis
   my $sleep_length_hours = $self->param('sleep_length_hours');
   unless($sleep_length_hours) {
-    $sleep_length_hours = 1;
+    $sleep_length_hours = 24;
   }
 
   ceil($sleep_length_hours);
   say "Going to sleep for ".$sleep_length_hours." hours...";
-  sleep($sleep_length_hours * 600);
+  sleep($sleep_length_hours * 3600);
 
   say "Seeding new run id for this analysis...";
   my $run_id = $self->param('iid');
