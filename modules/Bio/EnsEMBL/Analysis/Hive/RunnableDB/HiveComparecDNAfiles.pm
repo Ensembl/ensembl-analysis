@@ -21,7 +21,6 @@ use warnings;
 use feature 'say';
 
 
-#use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 #use Bio::EnsEMBL::IO::Parser::Fasta;
 #use Bio::Phylo::Parsers::Fasta;
 use Bio::SeqIO;

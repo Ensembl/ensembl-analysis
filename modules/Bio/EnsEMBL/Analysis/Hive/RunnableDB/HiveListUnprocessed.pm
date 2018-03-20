@@ -46,13 +46,11 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 use Net::FTP;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Getopt::Long;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use File::Basename;
 use File::Find;
 use List::Util qw(sum);
@@ -101,7 +99,7 @@ sub run {
     run_command("mkdir -p ".$self->param('output_dir'),"Create output path.");
   }
 
-  my @gene_ids_to_copy = get_unprocessed_genes($self->param('processed_genes_filename'),
+  my @gene_ids_to_copy = $self->get_unprocessed_genes($self->param('processed_genes_filename'),
                                                $self->param('output_dir'),
                                                $self->param('host_secondary'),
                                                $self->param('port_secondary'),
@@ -127,7 +125,7 @@ sub write_output {
 }
 
 sub get_unprocessed_genes() {
-  my ($filename,$output_dir,$dbhost,$dbport,$user,$pass,$dbname,$include,$exclude) = @_;  
+  my ($self, $filename,$output_dir,$dbhost,$dbport,$user,$pass,$dbname,$include,$exclude) = @_;
   
   my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(-dbname => $dbname,
                                               -host   => $dbhost,
@@ -164,7 +162,7 @@ sub get_unprocessed_genes() {
       }
   }
   else {
-      warning("$output_dir/$filename does not exists, check that it's OK!\n");
+      $self->warning("$output_dir/$filename does not exists, check that it's OK!\n");
   }
   
   return keys(%genes_to_copy);

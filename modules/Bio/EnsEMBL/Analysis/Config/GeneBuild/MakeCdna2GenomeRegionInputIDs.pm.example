@@ -40,7 +40,7 @@ use vars qw( %Config );
       ANNOTATION            => undef,#path to annotation file
       #if specified will check that the accession's sequence can be found in the index
       #if accession is not present in index, no input ID will be created
-      SEQFETCHER_OBJECT     => 'Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher',
+      SEQFETCHER_OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher',
       SEQFETCHER_PARAMS     => {
         -db => ['/path/to/dir/containing/index/'],
       },

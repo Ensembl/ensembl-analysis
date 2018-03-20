@@ -47,14 +47,58 @@ sub new {
 
  Title    : name
  Usage    : $name = $obj->name();
- Function : returns the name of the Sbjct 
- Example  : 
- Returns  : name of the Sbjct 
+ Function : gets/sets the name of the Sbjct
+ Example  :
+ Returns  : name of the Sbjct
  Args     :
 
 =cut
 
-sub name {shift->{'NAME'}}
+sub name {
+  my ($self,$name) = @_;
+  if($name) {
+    $self->{'NAME'} = $name;
+  }
+  return($self->{'NAME'});
+}
+
+=head2 query_name
+
+ Title    : query_name
+ Usage    : $query_name = $obj->query_name();
+ Function : returns the name of the query sequence
+ Example  :
+ Returns  : name of the query
+ Args     :
+
+=cut
+
+sub query_name {
+ my ($self) = @_;
+ return($self->{'PARENT'}->{'QUERY'});
+}
+
+
+=head2 slice_name
+
+ Title    : slice_name
+ Usage    : $slice_name = $obj->slice_name();
+ Function : getter/setter for the name of the slice
+ Example  :
+ Returns  : name of the slice
+ Args     :
+
+=cut
+
+sub slice_name {
+  my ($self,$slice_name) = @_;
+  if($slice_name) {
+    $self->{'SLICE_NAME'} = $slice_name;
+  }
+  return($self->{'SLICE_NAME'});
+}
+
+
 
 =head2 nextFeaturePair
 

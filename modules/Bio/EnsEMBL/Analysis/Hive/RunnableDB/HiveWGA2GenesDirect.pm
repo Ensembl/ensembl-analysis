@@ -137,7 +137,13 @@ sub fetch_input {
 
   foreach my $input_id (@$input_ids) {
     my $transcript = $source_transcript_dba->get_TranscriptAdaptor->fetch_by_dbID($input_id);
-    say "Processing transcript: ".$transcript->dbID;
+    
+    if ($self->param('canonical') and !($transcript->is_canonical())) {
+      say "Skipping transcript because it is not canonical and the parameter 'canonical' is 1.";
+      next;
+    } else {
+      say "Processing transcript: ".$transcript->dbID;
+    }
 
     #########
     # get the compara data: MethodLinkSpeciesSet, reference DnaFrag,

@@ -264,8 +264,8 @@ sub post_blast_filter{
     Title   :   seqfetcher
     Usage   :   $self->seqfetcher($seqfetcher)
     Function:   Get/set method for SeqFetcher
-    Returns :   Bio::EnsEMBL::Analysis::SeqFetcher object
-    Args    :   Bio::EnsEMBL::Pipeline::SeqFetcher object
+    Returns :   Bio::EnsEMBL::Analysis::Tools::SeqFetcher object
+    Args    :   Bio::EnsEMBL::Analysis::Tools::SeqFetcher object
 
 =cut
 
@@ -273,7 +273,7 @@ sub seqfetcher {
   my( $self, $value ) = @_;    
   if ($value) {
     throw("BlastMiniGenewise, seqfetcher must be a ".
-          "Bio::EnsEMBL::Pipeline::SeqFetcher") 
+          "Bio::EnsEMBL::Analysis::Tools::SeqFetcher")
       unless ($value->isa("Bio::DB::RandomAccessI"));
     $self->{'_seqfetcher'} = $value;
   }

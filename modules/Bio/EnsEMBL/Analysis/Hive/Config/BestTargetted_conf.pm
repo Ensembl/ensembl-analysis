@@ -54,14 +54,13 @@ sub default_options {
     %{$self->SUPER::default_options()},
     species_name => '',
     production_name => '',
-    release_number => '',
     taxon_id => 0,
 
     output_path => '',
 
     repeatmasker_library => '',
 
-    dna_dbname   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
+    dna_db_name   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
     dna_db_server => '',
     dna_db_port   => 3306,
 
@@ -80,8 +79,6 @@ sub default_options {
     cdna2genome_db_server => $self->o('datas_db_server'),
     cdna2genome_db_port   => $self->o('datas_db_port'),
 
-    email_address => $ENV{HIVE_EMAIL}, #This is for the user agent when querying Uniprot so they can email you if you cause problems
-
     indicate_path  => catfile($self->o('binary_base'), 'indicate'),
     pmatch_path  => catfile($self->o('binary_base'), 'pmatch'),
     exonerate_path => catfile($self->o('software_base_path'), 'opt', 'exonerate09', 'bin', 'exonerate'),
@@ -99,7 +96,6 @@ sub default_options {
 ###
     killlist_db_server => 'mysql-ens-genebuild-prod-6',
     killlist_db_port   => '4532',
-    killlist_db_name   => 'gb_kill_list',
 
     exonerate_logic_name => 'exonerate',
     ncbi_query => 'txid'.$self->o('taxon_id').'[Organism:noexp]+AND+biomol_mrna[PROP]',
@@ -163,10 +159,6 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('cdna_db'),
         create_type => 'clone',
-        script_path => $self->o('clone_db_script_path'),
-        user_r => $self->o('user_r'),
-        user_w => $self->o('user'),
-        pass_w => $self->o('password'),
       },
       -rc_name    => 'default',
       -flow_into => {
@@ -183,10 +175,6 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('genewise_db'),
         create_type => 'clone',
-        script_path => $self->o('clone_db_script_path'),
-        user_r => $self->o('user_r'),
-        user => $self->o('user'),
-        pass_w => $self->o('password'),
       },
       -rc_name    => 'default',
       -flow_into => {
@@ -523,10 +511,6 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('cdna2genome_db'),
         create_type => 'clone',
-        script_path => $self->o('clone_db_script_path'),
-        user_r => $self->o('user_r'),
-        user_w => $self->o('user'),
-        pass_w => $self->o('password'),
       },
       -rc_name    => 'default',
       -flow_into => {

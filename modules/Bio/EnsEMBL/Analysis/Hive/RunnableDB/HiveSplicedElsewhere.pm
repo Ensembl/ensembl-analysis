@@ -78,7 +78,6 @@ use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes qw(_remove_transcr
 use Bio::EnsEMBL::Analysis::Runnable::HiveSplicedElsewhere;
 use Bio::EnsEMBL::Analysis::Runnable::BaseExonerate; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
-use Bio::EnsEMBL::Utils::Exception qw(warning);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(clone_Transcript);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -382,7 +381,7 @@ sub parse_results{
       $new_gene->biotype($self->param('RETRO_TYPE'));
       if ( defined $self->param('KEEP_TRANS_BIOTYPE')
            && $self->param('KEEP_TRANS_BIOTYPE') == 1 ) {
-          warning("keeping original transcript biotype " . $only_transcript_to_keep->biotype() .
+          $self->warning("keeping original transcript biotype " . $only_transcript_to_keep->biotype() .
                 " instead of setting it to " . $self->param('RETRO_TYPE'). "\n");
       } else {
         $new_transcript->biotype($self->param('RETRO_TYPE'));
@@ -461,7 +460,7 @@ sub lazy_load {
   my ($self, $gene) = @_;
   if ($gene){
     unless ($gene->isa("Bio::EnsEMBL::Gene")){
-      throw("gene is not a Bio::EnsEMBL::Gene, it is a $gene");
+      $self->throw("gene is not a Bio::EnsEMBL::Gene, it is a $gene");
     }
     foreach my $trans(@{$gene->get_all_Transcripts}){
       my $transl = $trans->translation;

@@ -94,7 +94,7 @@ use vars qw(%Config);
       SEQFETCHER_DIR => '/data/blastdb/Ensembl/Human/human_proteins_Jan07/protein_index',
 
       # You need an earlier version of BioPerl for this
-      SEQFETCHER_OBJECT =>  'Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher',
+      SEQFETCHER_OBJECT =>  'Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher',
 
       # Add the biotypes of your targetted genes here. 
       # Note that you'll have to add to your protein index all protein_seqs for any 

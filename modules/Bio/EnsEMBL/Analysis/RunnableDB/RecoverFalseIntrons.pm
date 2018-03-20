@@ -114,7 +114,7 @@ use Bio::EnsEMBL::Pipeline::SeqFetcher::Pfetch;
 use Bio::EnsEMBL::Registry;  
 use IO::String;
 use Bio::SeqIO; 
-use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
+use Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher;
 use Bio::EnsEMBL::Analysis::Runnable::BestTargetted; 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils; 
 use Bio::EnsEMBL::Analysis ; 
@@ -454,7 +454,7 @@ sub fetch_input {
 
 ################
 
-    my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new(
+    my $seqfetcher = Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher->new(
                                                                                   -db     => [("/lustre/blastdb/Ensembl/uniprot_index/")], 
                                                                                   -format  => 'fasta', 
                                                                                  );

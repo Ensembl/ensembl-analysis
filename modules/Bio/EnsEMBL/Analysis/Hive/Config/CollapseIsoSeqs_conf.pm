@@ -72,7 +72,7 @@ sub default_options {
     'port'     => '',
     'host'     => '',
 
-    'dna_dbname'    => '',
+    'dna_db_name'    => '',
     'dna_db_server' => '',
     'dna_db_port'   => '',
 
@@ -192,7 +192,6 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('collapse_db'),
         create_type => $self->o('create_type'),
-        script_path => $self->o('clone_db_script_path'),
       },
       -rc_name => 'default',
       -input_ids => [{}],
@@ -209,7 +208,6 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('blast_db'),
         create_type => $self->o('create_type'),
-        script_path => $self->o('clone_db_script_path'),
       },
       -rc_name => 'default',
       -max_retry_count => 0,
@@ -224,7 +222,6 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('check_db'),
         create_type => $self->o('create_type'),
-        script_path => $self->o('clone_db_script_path'),
       },
       -rc_name => 'default',
       -max_retry_count => 0,

@@ -22,7 +22,6 @@ use strict;
 use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -53,7 +52,7 @@ sub run {
     my $output_genes = $self->build_single_transcript_genes();
     $self->output_genes($output_genes);
   } else {
-    warning("No genes found for the following input_id:\n".$self->input_id);
+    $self->warning("No genes found for the following input_id:\n".$self->input_id);
   }
   return 1;
 }
@@ -131,7 +130,7 @@ sub build_single_transcript_genes {
       }
 
       unless($transcript->stable_id()) {
-        warning("Transcript must have a stable id for the next step, skipping transcript");
+        $self->warning("Transcript must have a stable id for the next step, skipping transcript");
         next;
       }
 

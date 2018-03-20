@@ -40,6 +40,7 @@ package Bio::EnsEMBL::Analysis::Hive::Config::TSLsAppris_conf;
 use strict;
 use warnings;
 
+use 5.014000;
 use File::Spec::Functions qw(catfile catdir);
 use MIME::Base64 qw(encode_base64url);
 

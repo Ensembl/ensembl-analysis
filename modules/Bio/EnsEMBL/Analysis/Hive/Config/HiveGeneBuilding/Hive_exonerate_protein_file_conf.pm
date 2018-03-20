@@ -40,13 +40,13 @@ sub default_options {
 ############################################################################
 
         'pipeline_name'              => '',
-        'pipe_dbname'                => '',
+        'pipe_db_name'                => '',
         'pipe_db_server'             => '',
 
-        'reference_dbname'           => '', # This should be a core db with DNA
+        'reference_db_name'           => '', # This should be a core db with DNA
         'reference_db_server'        => '',
 
-        'exonerate_output_dbname'    => '', # This will be created for you automatically
+        'exonerate_output_db_name'    => '', # This will be created for you automatically
         'exonerate_output_db_server' => '',
 
         'user_w'                     => '',
@@ -61,7 +61,6 @@ sub default_options {
         'protein_file'               => '',
         'genome_file'                => '',
 
-        'enscode_dir'                => '',
         'repeat_masking_logic_names' => [], # e.g ['repeatmask_repbase_baboon','dust']
 
 
@@ -73,7 +72,6 @@ sub default_options {
 
         'create_type'                          => 'clone',
         'num_tokens'                           => '10',
-        'clone_db_script_path'                 => $self->o('enscode_dir').'/ensembl-analysis/scripts/clone_database.ksh',
         'user'                                 => 'ensro',
         'driver'                               => 'mysql',
         'protein_table_name'                   => 'protein_sequences',
@@ -90,12 +88,12 @@ sub default_options {
             -port   => $self->o('port'),
             -user   => $self->o('user_w'),
             -pass   => $self->o('password'),
-            -dbname => $self->o('pipe_dbname'),
+            -dbname => $self->o('pipe_db_name'),
             -driver => $self->o('driver'),
         },
 
         'reference_db' => {
-                            -dbname => $self->o('reference_dbname'),
+                            -dbname => $self->o('reference_db_name'),
                             -host   => $self->o('reference_db_server'),
                             -port   => $self->o('port'),
                             -user   => $self->o('user_r'),
@@ -103,14 +101,14 @@ sub default_options {
                           },
 
         'dna_db' => {
-                      -dbname => $self->o('reference_dbname'),
+                      -dbname => $self->o('reference_db_name'),
                       -host   => $self->o('reference_db_server'),
                       -port   => $self->o('port'),
                       -user   => $self->o('user_r'),
                     },
 
         'exonerate_output_db' => {
-                                   -dbname => $self->o('exonerate_output_dbname'),
+                                   -dbname => $self->o('exonerate_output_db_name'),
                                    -host   => $self->o('exonerate_output_db_server'),
                                    -port   => $self->o('port'),
                                    -user   => $self->o('user_w'),
@@ -160,10 +158,6 @@ sub pipeline_analyses {
                          source_db => $self->o('reference_db'),
                          target_db => $self->o('exonerate_output_db'),
                          create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
-                         user_r => $self->o('user_r'),
-                         user_w => $self->o('user_w'),
-                         pass_w => $self->o('password'),
                        },
         -rc_name    => 'default',
         -input_ids => [{}],

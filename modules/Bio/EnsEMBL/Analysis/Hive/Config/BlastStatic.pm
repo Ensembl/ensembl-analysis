@@ -145,6 +145,22 @@ sub _master_config {
                              -database_type => 'dna',
                            },
           },
+
+      BlastUniProtToGenome => {
+        BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBlastGenome',
+        PARSER_PARAMS => {
+                           -regex => '^\s*(\w+\W\d+)',
+                           -query_type => 'dna',
+                           -database_type => 'pep',
+                           -threshold_type => 'PVALUE',
+                           -threshold => 0.00001,
+                         },
+        BLAST_FILTER => 'Bio::EnsEMBL::Analysis::Tools::FeatureFilter',
+        FILTER_PARAMS => {
+                           -prune => 1,
+                         },
+      },
+
   );
   return $config{$key};
 }

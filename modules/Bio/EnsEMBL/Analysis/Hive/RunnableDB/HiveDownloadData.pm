@@ -74,7 +74,7 @@ sub fetch_input {
   }
 
   my $client;
-  my $url = $self->param('url');
+  my $url = $self->param_required('url');
   if ($download_method eq 'aspera') {
     $client = Bio::EnsEMBL::Analysis::Runnable::Aspera->new();
     $client->options($self->param('commandline_params'));

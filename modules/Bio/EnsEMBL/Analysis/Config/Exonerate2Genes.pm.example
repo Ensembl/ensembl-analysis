@@ -122,7 +122,7 @@ use vars qw( %Config );
         #Note: if QUERYSEQS is defined and it is a directory containing a 
         #file whose name matches the second half of the input ID (after ::), 
         #it will use that file, not the specified index
-        SEQFETCHER_OBJECT     => 'Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher',
+        SEQFETCHER_OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher',
         SEQFETCHER_PARAMS     => {
           -db => ['/path/to/dir/containing/index/'],
         },

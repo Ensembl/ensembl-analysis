@@ -22,6 +22,7 @@ package CCDSDatabaseCreation_conf;
 use strict;
 use warnings;
 
+use File::Spec::Functions;
 use base ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
 use POSIX 'strftime';
@@ -43,21 +44,11 @@ sub default_options {
 # /path/to/ensembl/genebuild/env/genebuild.sh which defines the variable BIOPERL_LIB
 'genebuild_environment_file' => '',
 
-# Your genebuilder's ID (refer to genebuilders' documentation if you are a genebuilder. If not, 0 is fine.
-# This is just to record who produced this database.
-'genebuild_id' => 0,
-
-# email to send the completion email to
-'email' => '@ebi.ac.uk',
-
 # main working directory which will contain the code and data (must not exist)
 'ccds_update_dir'  => '/path/to/scratch/ccds_database_creation_'.$self->o('YYYY_MM'),
 
 # warehouse directory for backup (must not exist)
 'warehouse_dir'    => '/path/to/warehouse/ccds_database_creation_'.$self->o('YYYY_MM'),
-
-# username of the person running the pipeline, used as a prefix for the databases which will be created
-'username'         => 'MYUSERNAME',
 
 # CCDS FTP parameters for the CCDS data downloading step
 'ccds_ftp_user'    => '',
@@ -66,7 +57,7 @@ sub default_options {
 'ccds_ftp_filename'=> 'CCDS.*.tar.gz',
 
 # Directory that contains the CCDS scripts required by the analyses of this pipeline.
-'ccds_scripts_dir'   => '$ENSEMBL_ANALYSIS/scripts/ccds',
+'ccds_scripts_dir'   => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'ccds'),
 
 # previous/latest Ensembl release number
 'release' => 0, # Example: 90
@@ -80,8 +71,7 @@ sub default_options {
 'mouse_core_db_port' => '',
 
 # Ensembl production database details
-'ensembl_release'    => $ENV{ENSEMBL_RELEASE},
-'production_db_name' => 'ensembl_production_'.$self->o('ensembl_release'),
+'production_db_name' => 'ensembl_production_'.$self->o('release_number'),
 'production_db_host' => '',
 'production_db_port' => '',
 
@@ -127,12 +117,12 @@ sub default_options {
 'code_dir'         => $self->o('ccds_update_dir').'/code',
 'docfile'          => $self->o('ccds_update_dir').'/CCDSDatabaseCreation_'.$self->o('YYYY_MM').'.txt',
 
-'driver'            => 'mysql',
+'driver'            => $self->o('hive_driver'),
 
  # Databases
 
 'pipeline_db' => {
-  -dbname => $self->o('username').'_ccdsdatabasecreation_pipeline_'.$self->o('YYYY_MM'),
+  -dbname => $self->o('dbowner').'_ccdsdatabasecreation_pipeline_'.$self->o('YYYY_MM'),
   -host   => $self->o('pipeline_db_host'),
   -port   => $self->o('pipeline_db_port'),
   -user   => $self->o('user_w'),
@@ -141,7 +131,7 @@ sub default_options {
 },
 
 'ccds_track_db' => {
-  -dbname => $self->o('username').'_cdstrack_'.$self->o('YYYY_MM'),
+  -dbname => $self->o('dbowner').'_cdstrack_'.$self->o('YYYY_MM'),
   -host   => $self->o('ccds_track_db_host'),
   -port   => $self->o('ccds_track_db_port'),
   -user   => $self->o('user_w'),
@@ -149,7 +139,7 @@ sub default_options {
 },
 
 'ccds_human_db' => {
-  -dbname => $self->o('username').'_human_cdsonly_'.$self->o('YYYY_MM'),
+  -dbname => $self->o('dbowner').'_human_cdsonly_'.$self->o('YYYY_MM'),
   -host   => $self->o('ccds_human_db_host'),
   -port   => $self->o('ccds_human_db_port'),
   -user   => $self->o('user_w'),
@@ -157,7 +147,7 @@ sub default_options {
 },
 
 'ccds_mouse_db' => {
-  -dbname => $self->o('username').'_mouse_cdsonly_'.$self->o('YYYY_MM'),
+  -dbname => $self->o('dbowner').'_mouse_cdsonly_'.$self->o('YYYY_MM'),
   -host   => $self->o('ccds_mouse_db_host'),
   -port   => $self->o('ccds_mouse_db_port'),
   -user   => $self->o('user_w'),
@@ -432,9 +422,6 @@ sub pipeline_analyses {
                                 create_type => 'copy',
                                 source_db => $self->o('human_core_db'),
                                 target_db => $self->o('ccds_human_db'),
-                                pass_w => $self->o('pass_w'),
-                                user_w => $self->o('user_w'),
-                                user_r => $self->o('user_r'),
                                 db_dump_file => $self->o('backups_dir').'/human_core_db.tmp',
                              },
              -flow_into => { 1 => ['create_mouse_ccds_db'] },
@@ -448,9 +435,6 @@ sub pipeline_analyses {
                                 create_type => 'copy',
                                 source_db => $self->o('mouse_core_db'),
                                 target_db => $self->o('ccds_mouse_db'),
-                                pass_w => $self->o('pass_w'),
-                                user_w => $self->o('user_w'),
-                                user_r => $self->o('user_r'),
                                 db_dump_file => $self->o('backups_dir').'/mouse_core_db.tmp',
                              },
              -flow_into => { 1 => ['truncate_human_external_db'] },
@@ -668,7 +652,7 @@ sub pipeline_analyses {
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
         -parameters => {
                          db_conn     =>  $self->o('ccds_human_db'),
-                         input_query => 'UPDATE meta SET meta_value='.$self->o('genebuild_id').
+                         input_query => 'UPDATE meta SET meta_value='.$self->o('genebuilder_id').
                                         '            WHERE meta_key="genebuild.id";'.
                                         'UPDATE meta SET meta_value="'.$self->o('YYYY_MM_DD').'" '.
                                         '            WHERE meta_key="genebuild.initial_release_date";'.
@@ -685,7 +669,7 @@ sub pipeline_analyses {
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
         -parameters => {
                          db_conn     =>  $self->o('ccds_mouse_db'),
-                         input_query => 'UPDATE meta SET meta_value='.$self->o('genebuild_id').
+                         input_query => 'UPDATE meta SET meta_value='.$self->o('genebuilder_id').
                                         '            WHERE meta_key="genebuild.id";'.
                                         'UPDATE meta SET meta_value="'.$self->o('YYYY_MM_DD').'" '.
                                         '            WHERE meta_key="genebuild.initial_release_date";'.
@@ -770,7 +754,7 @@ sub pipeline_analyses {
         -logic_name => 'email',
         -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::TextfileByEmail',
         -parameters => {
-                         email => $self->o('email'),
+                         email => $self->o('email_address'),
                          subject => 'AUTOMATED EMAIL: CCDS databases creation finished',
                          text => 'The following CCDS databases have been created: '.
                                  $self->o('ccds_human_db','-dbname').'@'.

@@ -36,458 +36,484 @@ use warnings;
 use feature 'say';
 
 use File::Basename;
+use File::Path qw(make_path);
+use File::Spec::Functions qw(catfile);
+
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name execute_with_wait);
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
-use Data::Dumper;
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters
+               ignore_dna => 0, # if set to 1, the dna table won't be dumped
+               force_drop => 0,
+               _lock_tables => 'true', # can be true or false but should not be changed unless you have problems
+               tables_to_reset => [
+                 'analysis',
+                 'gene',
+                 'transcript',
+                 'translation',
+                 'exon',
+                 'dna_align_feature',
+                 'protein_align_feature',
+                 'intron_supporting_evidence',
+               ],
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
 
 sub param_defaults {
-    return {
+  my ($self) = @_;
 
-      # used by all create types
-      create_type => '',
-      source_db => '',
-      target_db => '',
-      
-      # used by create_type = 'clone'
-      script_path => '~/enscode/ensembl-analysis/scripts/clone_database.ksh',
-
-      # used by create_type = 'copy'
-      db_dump_file => "/tmp/source_db_".time().".tmp",
-      pass_w => '',
-      user_w => '',
-      ignore_dna => 0, # if set to 1, the dna table won't be dumped
-    }
+  return {
+    %{$self->SUPER::param_defaults},
+    ignore_dna => 0, # if set to 1, the dna table won't be dumped
+    _lock_tables => 'true', # can be true or false but should not be changed unless you have problems
+    force_drop => 0,
+    tables_to_reset => [
+      'analysis',
+      'gene',
+      'transcript',
+      'translation',
+      'exon',
+      'dna_align_feature',
+      'protein_align_feature',
+      'intron_supporting_evidence',
+    ],
+    vital_tables => vital_tables(),
+  }
 }
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Check that 'create_type' has been specified. These are the type allowed:
+                clone
+                dna_db
+                copy
+                core_only
+                backup DEPRECATED, please use Bio::EnsEMBL::Hive::RunnableDB::DatabaseDumper with "src_db_conn" and "output_file"
+              If 'db_dump_file' is specified, creates the directory
+              If 'output_path' is specified and does not exist, creates the directory
+ Returntype : None
+ Exceptions : Throws if 'create_type' is not specified
+
+=cut
 
 sub fetch_input {
   my $self = shift;
-  return 1;
+
+  my $create_type = $self->param_required('create_type');
+  if ($self->param_is_defined('db_dump_file')) {
+    my $dump_dir = dirname($self->param('db_dump_file'));
+    make_path($dump_dir);
+  }
+  if ($self->param_is_defined('output_path')) {
+    if (! -e $self->param('output_path')) {
+      make_path($self->param('output_path'));
+    }
+  }
+  my @commands;
+  if($self->param('force_drop')) {
+    push(@commands, $self->drop_database($self->param('target_db')));
+  }
+
+  if ($create_type eq 'clone' or $create_type eq 'dna_db') {
+    push(@commands, $self->create_database($self->param_required('target_db')));
+    push(@commands, @{$self->clone_database($self->param_required('source_db'), $self->param_required('target_db'))});
+    my $cmd = $self->reset_autoincrement($self->param('target_db'));
+    push(@commands, $cmd) if ($cmd);
+    if($create_type eq 'dna_db') {
+      if (not $self->param_is_defined('db_dump_file')) {
+        $self->param('db_dump_file', create_file_name('source_db'));
+      }
+      push(@commands,
+        $self->dump_database($self->param('source_db'), undef, 0, 0, ['dna', 'repeat_feature', 'repeat_consensus']).' | '.
+        $self->load_database($self->param('target_db')));
+    }
+  }
+  elsif ($create_type eq 'copy') {
+    if (not $self->param_is_defined('db_dump_file')) {
+      $self->param('db_dump_file', create_file_name('source_db'));
+    }
+    push(@commands, $self->create_database($self->param_required('target_db')));
+    push(@commands,
+      $self->dump_database($self->param('source_db'), undef, $self->param('ignore_dna')).' | '.
+      $self->load_database($self->param('target_db')));
+    my $cmd = $self->reset_autoincrement($self->param('target_db'));
+    push(@commands, $cmd) if ($cmd);
+  }
+  elsif($create_type eq 'core_only') {
+    my $table_file = catfile($self->param_required('enscode_root_dir'), 'ensembl', 'sql', 'table.sql');
+    $self->throw("You have specified a create type of core_only but the path from enscode_root_dir to the table file is incorrect:\n$table_file")
+      unless(-e $table_file);
+    push(@commands, $self->create_database($self->param_required('target_db')));
+    push(@commands, $self->load_database($self->param('target_db'), $table_file));
+  }
+  elsif($create_type eq 'backup') {
+    $self->warning('Create type "backup" is deprecated, please use Bio::EnsEMBL::Hive::RunnableDB::DatabaseDumper instead with "src_db_conn" and "output_file"');
+    my $dump_file = catfile($self->param_required('output_path'), $self->param_required('backup_name'));
+    push(@commands, $self->dump_database($self->param_required('source_db'), $dump_file, $self->param('ignore_dna'), 1));
+  }
+  else {
+    $self->throw("You have specified a create type of ".$create_type.", however this is not supported by the module");
+  }
+  $self->param('commands', \@commands);
 }
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Run all the command generated in fetch_input
+ Returntype : None
+ Exceptions : Throws if one of the command fails
+
+=cut
 
 sub run {
   my $self = shift;
 
-  unless(defined($self->param('create_type'))) {
-    $self->throw("You have not defined a create_type flag in you parameters hash! You must provide a create_type (e.g. 'clone')");
+  foreach my $cmd (@{$self->param('commands')}) {
+    $self->run_system_command($cmd);
   }
-
-  $self->create_db();
-
-  return 1;
 }
+
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: If 'db_dump_file' is defined, delete the file if it still exists
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub write_output {
   my $self = shift;
 
-  return 1;
-}
-
-sub create_db {
-  my $self = shift;
-  my $create_type = $self->param('create_type');
-  if($create_type eq 'clone') {
-    $self->clone_db();
-  } elsif ($create_type eq 'copy') {
-    $self->copy_db();
-  } elsif($create_type eq 'core_only') {
-    $self->core_only_db();
-  } elsif($create_type eq 'backup') {
-    $self->make_backup();
-  } elsif($create_type eq 'dna_db') {
-    $self->create_dna_db();
-  } else {
-    $self->throw("You have specified a create type of ".$create_type.", however this is not supported by the module");
-  }
-
-}
-
-sub clone_db {
-  my $self = shift;
-
-  unless($self->param('source_db') && $self->param('target_db')) {
-    $self->throw("You have specified a create type of clone but you don't have both a source_db and target_db specified in your config");
-  }
-
-  unless($self->param('script_path')) {
-    $self->throw("You have specified a create type of clone but you don't have the script_path set in your config, e.g.:\n".
-          "~/enscode/ensembl-personal/genebuilders/scripts/clone_database.ksh");
-  }
-
-  unless(-e $self->param('script_path')) {
-    $self->throw("The path to the clone script you have specified does not exist. Path:\n".$self->param('script_path'));
-  }
-
-  my $source_string;
-  my $target_string;
-  if(ref($self->param('source_db')) eq 'HASH') {
-    $source_string = $self->convert_hash_to_db_string($self->param('source_db'));
-  } else {
-    $self->check_db_string($self->param('source_db'));
-    $source_string = $self->param('source_db');
-  }
-
-  if(ref($self->param('target_db')) eq 'HASH') {
-    $target_string = $self->convert_hash_to_db_string($self->param('target_db'));
-  } else {
-    $self->check_db_string($self->param('target_db'));
-    $target_string = $self->param('target_db');
-  }
-  my $target_user = $self->param('target_db')->{'-user'};
-  my $target_pass = $self->param('target_db')->{'-pass'};
-  if (!$target_pass) {
-    $target_user = $self->param_required('user_w');
-    $target_pass = $self->param_required('pass_w');
-  }
-
-  my $command = "ksh ".$self->param('script_path')." -f -l -s ".$source_string.' -r '.$self->param('source_db')->{'-user'}." -t ".$target_string.' -w '.$target_user.' -P '.$target_pass;
-  say "COMMAND: ".$command;
-
-  my $exit_code = system($command);
-  if($exit_code) {
-    $self->throw("The clone script exited with a non-zero exit code (did the target_db already exist?): ".$exit_code);
-  }
-
-}
-
-sub copy_db {
-  my $self = shift;
-
-  if (not $self->param('source_db') or not $self->param('target_db')) {
-    $self->throw("You have specified a create type of copy but you don't have both a source_db and target_db specified in your config.");
-  }
-
-  if (not $self->param('user_w') or not $self->param('pass_w')) {
-    $self->throw("You have specified a create type of copy but you haven't specified the user_w and pass_w.\n");
-  }
-
-  if (not $self->param('db_dump_file')) {
-    $self->throw("You have specified a create type of copy but you haven't specified a db_dump_file which will be used as a temporary file.");
-  } else {
-  	my $dump_dir = dirname($self->param('db_dump_file'));
-  	`mkdir -p $dump_dir`;
-  	if (!(-e $dump_dir)) {
-      $self->throw("Couldn't create $dump_dir directory.");
-  	}
-  }
-
-  my $source_string;
-  my $target_string;
-  if (ref($self->param('source_db')) eq 'HASH') {
-    $source_string = $self->convert_hash_to_db_string($self->param('source_db'));
-  } else {
-    $self->check_db_string($self->param('source_db'));
-    $source_string = $self->param('source_db');
-  }
-
-  if (ref($self->param('target_db')) eq 'HASH') {
-    $target_string = $self->convert_hash_to_db_string($self->param('target_db'));
-  } else {
-    $self->check_db_string($self->param('target_db'));
-    $target_string = $self->param('target_db');
-  }
-  
-  my @source_string_at_split = split('@',$source_string);
-  my $source_dbname = shift(@source_string_at_split);
-  my @source_string_colon_split = split(':',shift(@source_string_at_split));
-  my $source_host = shift(@source_string_colon_split);
-  my $source_port = shift(@source_string_colon_split);
-  
-  my @target_string_at_split = split('@',$target_string);
-  my $target_dbname = shift(@target_string_at_split);
-  my @target_string_colon_split = split(':',shift(@target_string_at_split));
-  my $target_host = shift(@target_string_colon_split);
-  my $target_port = shift(@target_string_colon_split);
-
-  if($self->param('force_drop')) {
-    $self->drop_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
-  }
-
-  $self->dump_database($self->param('source_db'), $self->param('db_dump_file'), $self->param('ignore_dna'));
-  $self->create_database($target_host,$target_port,$self->param('user_w'),$self->param('pass_w'),$target_dbname);
-  $self->load_database($self->param('target_db'), $self->param('db_dump_file'));
-  $self->remove_file($self->param('db_dump_file'));
-}
-
-sub core_only_db {
-  my $self = shift;
-
-  unless ($self->param('target_db')) {
-    $self->throw("You have specified a create type of core_only but you don't have a target_db specified in your config.");
-  }
-
-  unless($self->param('user_w') && $self->param('pass_w')) {
-    $self->throw("You have specified a create type of core_only but you haven't specified the user_w and pass_w.\n");
-  }
-
-  unless($self->param('enscode_root_dir')) {
-    $self->throw("You have specified a create type of core_only but you haven't specified the enscode_root_dir path\n");
-  }
-
-  my $table_file = $self->param('enscode_root_dir')."/ensembl/sql/table.sql";
-  unless(-e $table_file) {
-    $self->throw("You have specified a create type of core_only but the path from enscode_root_dir to the table file is incorrect:\n".
-          $self->param('enscode_root_dir')."/ensembl/sql/table.sql");
-  }
-
-  my $target_string;
-  if (ref($self->param('target_db')) eq 'HASH') {
-    $target_string = $self->convert_hash_to_db_string($self->param('target_db'));
-  } else {
-    $self->check_db_string($self->param('target_db'));
-    $target_string = $self->param('target_db');
-  }
-
-  my @target_string_at_split = split('@',$target_string);
-  my $target_dbname = shift(@target_string_at_split);
-  my @target_string_colon_split = split(':',shift(@target_string_at_split));
-  my $target_host = shift(@target_string_colon_split);
-  my $target_port = shift(@target_string_colon_split);
-  my $target_user = $self->param('user_w');
-  my $target_pass = $self->param('pass_w');
-
-  my $command;
-  # Create the empty db
-  if($target_port) {
-    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -P".$target_port." -e 'CREATE DATABASE ".$target_dbname."'";
-  } else {
-    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -e 'CREATE DATABASE ".$target_dbname."'";
-  }
-  say "COMMAND: ".$command;
-
-  my $exit_code = system($command);
-  if($exit_code) {
-    $self->throw("The create database command exited with a non-zero exit code: ".$exit_code);
-  }
-
-  # Load core tables
-  if($target_port) {
-    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -P".$target_port." -D".$target_dbname." < ".$table_file;
-  } else {
-    $command = "mysql -h".$target_host." -u".$target_user." -p".$target_pass." -D".$target_dbname." < ".$table_file;
-  }
-  $exit_code = system($command);
-  if($exit_code) {
-    $self->throw("The load tables command exited with a non-zero exit code: ".$exit_code);
-  }
-
-}
-
-sub make_backup {
-  my $self = shift;
-
-  unless ($self->param('source_db')) {
-    $self->throw("You have specified a create type of backup but you don't have a source_db specified in your config.");
-  }
-
-  unless ($self->param('user_w') && $self->param('pass_w')) {
-    $self->throw("You have specified a create type of backup but you haven't specified the user_w and pass_w, these are".
-                 " sometimes needed for dumping dbs with views");
-  }
-
-  unless ($self->param('output_path')) {
-    $self->throw("You have specified a create type of backup but you don't have an output_path param set");
-  }
-
-  unless ($self->param('backup_name')) {
-    $self->throw("You have specified a create type of backup but haven't specified a file name with the backup_name param");
-  }
-
-  unless (-e $self->param('output_path')) {
-    my $cmd = "mkdir -p ".$self->param('output_path');
-    my $return = system($cmd);
-    if($return) {
-      $self->throw("The output path specified did not exist and mkdir -p failed to create it. Commandline used:\n".$cmd);
-    }
-  }
-
-  my $source_db = $self->param('source_db');
-
-  my $dump_file = $self->param('output_path')."/".$self->param('backup_name');
-
-  $self->dump_database($source_db,
-                       $dump_file,
-                       $self->param('ignore_dna'),
-                       1);
-}
-
-sub convert_hash_to_db_string {
-  my ($self,$connection_info) = @_;
-
-  unless(defined($connection_info->{'-dbname'}) && defined($connection_info->{'-host'})) {
-    $self->throw("You have passed in a hash as your db info however the hash is missing either the dbname or host key,".
-          " both are required if a hash is being passed in");
-  }
-
-  my $port = $connection_info->{'-port'};
-
-  my $db_string;
-  $db_string = $connection_info->{'-dbname'}.'@'.$connection_info->{'-host'};
-  if(defined($port)) {
-    $db_string .= ':'.$port;
-  }
-
-  $self->check_db_string($db_string);
-  return($db_string);
-}
-
-sub check_db_string {
-  my ($self,$db_string) = @_;
-
-  unless($db_string =~ /[^\@]+\@[^\:]+\:\d+/ || $db_string =~ /[^\@]+\@[^\:]+/) {
-    $self->throw("Parsing check on the db string failed.\ndb string:\n".$db_string.
-          "\nExpected format:\nmy_db_name\@myserver:port or my_db_name\@myserver");
+  if ($self->param_is_defined('db_dump_file') and -e $self->param_is_defined('db_dump_file')) {
+    unlink $self->param_is_defined('db_dump_file');
   }
 }
+
+
+=head2 clone_database
+
+ Arg [1]    : Hashref source db connection details
+ Arg [2]    : Hashref target db connection details
+ Description: Creates the commands to:
+               dump the schema from Arg[1] and load it into Arg[2]
+               dump the data from the vital tables in 'vital_tables' from Arg[1] and load it into Arg[2]
+ Returntype : Arrayref of String
+ Exceptions : None
+
+=cut
+
+sub clone_database {
+  my ($self, $source_db, $target_db) = @_;
+
+  my $do_lock = $self->param('_lock_tables');
+  my $vital_tables = $self->param('vital_tables');
+  my ($source_dbhost, $source_dbport, $source_dbname, $source_dbuser, $source_dbpass) = $self->db_connection_details($source_db);
+  my ($target_dbhost, $target_dbport, $target_dbname, $target_dbuser, $target_dbpass) = $self->db_connection_details($target_db);
+  my $base_source_cmd = "mysqldump --lock-tables=$do_lock -h $source_dbhost -P $source_dbport -u $source_dbuser";
+  $base_source_cmd .= ' -p'.$source_dbpass if ($source_dbpass);
+  my $base_target_cmd = "mysql -h $target_dbhost -P $target_dbport -u $target_dbuser -D $target_dbname";
+  $base_target_cmd .= ' -p'.$target_dbpass if ($target_dbpass);
+  my @commands = (
+    "$base_source_cmd --no-data $source_dbname | $base_target_cmd",
+    join(' ', $base_source_cmd, $source_dbname, @$vital_tables, '|',$base_target_cmd),
+  );
+  return \@commands;
+}
+
+
+=head2 dump_database
+
+ Arg [1]    : Hashref connection details
+ Arg [1]    : String filename
+ Arg [1]    : Boolean true to ignore the dna table
+ Arg [1]    : Boolean true to compress the file using gzip
+ Arg [1]    : Arrayref a list of tables to dump
+ Description: Create the command to dump a database. It will also check
+              the value for max_allowed_packet to set it corrrectly if
+              needed
+ Returntype : String
+ Exceptions : Throws if it cannot get the max_allowed_packet variable
+
+=cut
 
 sub dump_database {
 
   my ($self, $db, $db_file, $ignore_dna, $compress, $tables) = @_;
 
-  my $dbhost = $db->{'-host'};
-  my $dbport = $db->{'-port'};
-  my $dbpass = $db->{'-pass'};
-  my $dbuser = $db->{'-user'};
-  my $dbname = $db->{'-dbname'};
-  print "\nDumping database $dbname"."@"."$dbhost:$dbport...\n";
-  
-  if ($self->param_is_defined('user_w')) {
-    $dbuser = $self->param('user_w');
-  }
-  if ($self->param_is_defined('pass_w')) {
-    $dbpass = $self->param('pass_w');
-  }
-  my $command;
-  if (!$dbpass) { # dbpass for read access can be optional
-  	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser ";
-  } else {
-  	$command = "mysqldump -h$dbhost -P$dbport -u$dbuser -p$dbpass";
-  }
-  # Check the max_allowed_packet before dumping tables
-  my $max_allowed_packet;
-  my $checkcmd = $command;
-  $checkcmd =~ s/dump/admin/;
-  open(RH, $checkcmd.' variables |') || $self->throw("Coudl not execute command: $checkcmd variables");
-  while(<RH>) {
-    if (/max_allowed_packet\D+(\d+)/) {
-      $max_allowed_packet = $1;
-      last;
-    }
-  }
-  close(RH) || $self->throw("Could not close: $checkcmd variables");
-  if ($max_allowed_packet) {
-    $command .= ' --max_allowed_packet '.$max_allowed_packet;
+  my ($dbhost, $dbport, $dbname, $dbuser, $dbpass) = $self->db_connection_details($db);
+
+  my $command = "mysqldump -h$dbhost -P$dbport -u$dbuser ";
+  if ($dbpass) { # dbpass for read access can be optional
+    $command .= " -p$dbpass";
   }
   if ($ignore_dna) {
-  	$command .= " --ignore-table=".$dbname.".dna ";
-  }
-  $command .= " $dbname";
-  if ($tables and @$tables) {
-    $command .= ' '.join(' ', @$tables);
-  }
-  if ($compress) {
-    # If pipefail is not set your command can fail without telling you
-    $command = "set -o pipefail; $command | gzip > $db_file.gz";
+    $command .= " --ignore-table=".$dbname.".dna ";
   }
   else {
-    $command .= " > $db_file";
-  }
-
-  if (system($command)) {
-    $self->throw("The dump was not completed. Please, check the command or that you have enough disk space in the output path $db_file as well as writing permission.");
-  } else {
-    print("The database dump was completed successfully into file $db_file\n");
-  }
-}
-
-sub create_database {
-  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
-  print "Creating database $dbname"."@"."$dbhost:$dbport...\n";
-  if (system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -e'CREATE DATABASE $dbname' ")) {
-    $self->throw("Couldn't create database  $dbname"."@"."$dbhost:$dbport. Please, check that it does not exist and you have write access to be able to perform this operation.");
-  } else {
-    print("Database $dbname"."@"."$dbhost:$dbport created successfully.\n");
-  }
-}
-
-sub load_database {
-  my ($self, $db, $db_file) = @_;
-
-  my $dbhost = $db->{'-host'};
-  my $dbport = $db->{'-port'};
-  my $dbpass = $db->{'-pass'};
-  my $dbuser = $db->{'-user'};
-  my $dbname = $db->{'-dbname'};
-
-  if ($self->param_is_defined('user_w')) {
-    $dbuser = $self->param('user_w');
-  }
-  if ($self->param_is_defined('pass_w')) {
-    $dbpass = $self->param('pass_w');
-  }
-  print "\nLoading file $db_file into database $dbname"."@"."$dbhost:$dbport...\n";
-  if (system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname < $db_file")) {
-    $self->throw("The database loading process failed. Please, check that you have access to the file $db_file and the database you are trying to write to.");
-  } else {
-    print("\nThe database loading process was completed successfully from file $db_file into $dbname.\n");
-  }
-}
-
-sub drop_database {
-  my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
-  print "\nDropping existing database if it exists $dbname"."@"."$dbhost:$dbport...\n";
-  system("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -e 'DROP DATABASE $dbname'");
-}
-
-sub remove_file {
-  my ($self, $db_file) = @_;
-
-  if (-e $db_file) {
-  	print "Deleting file $db_file\n";
-  	if (system("rm -f $db_file")) {
-      $self->throw("Couldn't delete file $db_file");
-  	} else {
-  	  print "File $db_file has been deleted.\n";
-  	}
-  }
-}
-
-
-sub create_dna_db {
-  my ($self) = @_;
-
-  $self->clone_db;
-  $self->dump_database($self->param('source_db'), $self->param('db_dump_file'), 0, 0, ['dna', 'repeat_feature', 'repeat_consensus']);
-  $self->load_database($self->param('target_db'), $self->param('db_dump_file'));
-}
-
-sub max_allowed_packet {
-  my ($self, $max_allowed_packet) = @_;
-
-  if (defined $max_allowed_packet) {
-    $self->param('max_allowed_packet', $max_allowed_packet);
-  }
-  elsif (!$self->param_is_defined('max_allowed_packet')) {
-    open(RH, 'mysqldump variables |') || $self->throw("Coudl not execute command: mysqldump variables");
+    # Check the max_allowed_packet before dumping tables
+    my $max_allowed_packet;
+    my $checkcmd = $command;
+    $checkcmd =~ s/dump/admin/;
+    open(RH, $checkcmd.' variables |') || $self->throw("Could not execute command: $checkcmd variables");
     while(<RH>) {
       if (/max_allowed_packet\D+(\d+)/) {
         $max_allowed_packet = $1;
         last;
       }
     }
-    close(RH) || $self->throw("Could not close: mysqldump variables");
-    $self->param('max_allowed_packet', $max_allowed_packet);
+    close(RH) || $self->throw("Could not close: $checkcmd variables");
+    if ($max_allowed_packet) {
+      $command .= ' --max_allowed_packet '.$max_allowed_packet;
+    }
   }
-  if ($self->param_is_defined('max_allowed_packet')) {
-    return $self->param('max_allowed_packet');
+  $command .= " $dbname";
+  if ($tables and @$tables) {
+    $command .= ' '.join(' ', @$tables);
+  }
+  if ($db_file) {
+    if ($compress) {
+      # If pipefail is not set your command can fail without telling you
+      $command = "$command | gzip > $db_file.gz";
+    }
+    else {
+      $command .= " > $db_file";
+    }
+  }
+  return $command;
+}
+
+
+=head2 create_database
+
+ Arg [1]    : Hashref connection details
+ Description: Create the command to create a new database
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub create_database {
+  my ($self, $db) = @_;
+
+  my ($dbhost, $dbport, $dbname, $dbuser, $dbpass) = $self->db_connection_details($db);
+  return "mysql -h$dbhost -P$dbport -u$dbuser".($dbpass ? " -p$dbpass " : " ")."-e'CREATE DATABASE $dbname'";
+}
+
+
+=head2 load_database
+
+ Arg [1]    : Hashref connection detailes
+ Arg [2]    : String filename
+ Description: Create the command to load data into the database
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub load_database {
+  my ($self, $db, $db_file) = @_;
+
+  my $base_cmd = $self->get_client_cmd($self->db_connection_details($db));
+  if ($db_file) {
+    return "$base_cmd < $db_file";
   }
   else {
+    return $base_cmd;
+  }
+}
+
+
+=head2 drop_database
+
+ Arg [1]    : Hashref connection details
+ Description: Create the command to drop the database given in Arg[1]
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub drop_database {
+  my ($self, $db) = @_;
+
+  my ($dbhost, $dbport, $dbname, $dbuser, $dbpass) = $self->db_connection_details($db);
+  $self->warning("Dropping existing database if it exists $dbname"."@"."$dbhost:$dbport...");
+  return "mysql -h$dbhost -P$dbport -u$dbuser".($dbpass ? " -p$dbpass " : " ")."-e 'DROP DATABASE IF EXISTS $dbname'";
+}
+
+
+=head2 remove_file
+
+ Arg [1]    : String filename
+ Description: Remove the dump file if it still exists
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub remove_file {
+  my ($self, $db_file) = @_;
+
+  if (-e $db_file) {
+    print "Deleting file $db_file\n";
+    unlink $db_file;
+  }
+}
+
+
+=head2 reset_autoincrement
+
+ Arg [1]    : Hashref connection details
+ Description: Command to eset the auto increment on a series of tables with 'tables_to_reset'.
+              The default array ref should be enough
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub reset_autoincrement {
+  my ($self, $db) = @_;
+
+  if (@{$self->param('tables_to_reset')}) {
+    my $query;
+    foreach my $table (@{$self->param('tables_to_reset')}) {
+      $query .= "ALTER TABLE $table AUTO_INCREMENT = 1;";
+    }
+    my $base_cmd = $self->get_client_cmd($self->db_connection_details($db));
+    return "$base_cmd -e '$query'";
+  }
+  else {
+    $self->warning('You have no tables you want to reset AUTO_INCREMENT, strange...');
     return;
   }
 }
 
+
+=head2 db_connection_details
+
+ Arg [1]    : Hashref
+ Arg [2]    : Boolean true if read only user
+ Description: Getter for the connection details of a database.
+              If Arg[2] is true, dbuser will be 'user_r' if defined and dbpass
+              will be undef unless 'pass_r' is defined.
+              Otherwise dbuser is 'user_w' if defined and dbpass is 'pass_w' if
+              defined.
+ Returntype : Array dbhost, dbport, dbname, dbuser, dbpass, driver
+ Exceptions : None
+
+=cut
+
+sub db_connection_details {
+  my ($self, $db, $read_only) = @_;
+
+  my $dbhost = $db->{'-host'};
+  my $dbport = $db->{'-port'};
+  my $dbuser = $db->{'-user'};
+  my $dbpass = $db->{'-pass'};
+  my $dbname = $db->{'-dbname'};
+  if ($read_only) {
+    if ($self->param_is_defined('user_r')) {
+      $dbuser = $self->param('user_r');
+    }
+    $dbpass = undef;
+    if ($self->param_is_defined('pass_r')) {
+      $dbpass = $self->param('pass_r');
+    }
+  }
+  else {
+    if ($self->param_is_defined('user_w')) {
+      $dbuser = $self->param('user_w');
+    }
+    if ($self->param_is_defined('pass_w')) {
+      $dbpass = $self->param('pass_w');
+    }
+  }
+   return $dbhost, $dbport, $dbname, $dbuser, $dbpass, (exists $db->{'-driver'} && $db->{'-driver'} ? $db->{'-driver'} : 'mysql');
+}
+
+
+=head2 get_client_cmd
+
+ Arg [1]    : String host
+ Arg [2]    : Int port
+ Arg [3]    : String dbname
+ Arg [4]    : String user
+ Arg [5]    : String password
+ Arg [6]    : String driver
+ Description: Create the CLI command to be fed for create the real command
+              The aim is to be able to get the correct command based on
+              the driver
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub get_client_cmd {
+  my ($self, $dbhost, $dbport, $dbname, $dbuser, $dbpass, $driver) = @_;
+
+  my $binary = 'mysql';
+  if ($driver eq 'postgres') {
+    return "psql -w -h $dbhost -p $dbport -U $dbuser -D $dbname"
+  }
+  else {
+    return "mysql -h$dbhost -P$dbport -u$dbuser".($dbpass ? " -p$dbpass " : " ")."-D $dbname";
+  }
+}
+
+
+=head2 vital_tables
+
+ Arg [1]    : None
+ Description: Getter of the tables that need to be synchronised between databases
+              It can be used as a standalone method
+              At the moment the tables are:
+                analysis
+                analysis_description
+                assembly
+                assembly_exception
+                attrib_type
+                coord_system
+                external_db
+                meta
+                misc_set
+                seq_region
+                seq_region_attrib
+                seq_region_synonym
+                karyotype
+                mapping_set
+                seq_region_mapping
+ Returntype : Arrayref
+ Exceptions : None
+
+=cut
+
+sub vital_tables {
+  return [
+    'analysis',
+    'analysis_description',
+    'assembly',
+    'assembly_exception',
+    'attrib_type',
+    'coord_system',
+    'external_db',
+    'meta',
+    'misc_set',
+    'seq_region',
+    'seq_region_attrib',
+    'seq_region_synonym',
+    'karyotype',
+    'mapping_set',
+    'seq_region_mapping',
+  ];
+}
+
 1;
-
-
-
-
-

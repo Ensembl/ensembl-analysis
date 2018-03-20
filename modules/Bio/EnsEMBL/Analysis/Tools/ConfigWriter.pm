@@ -214,7 +214,7 @@ sub write_config {
     local $Data::Dumper::Deepcopy = 1;
     local $Data::Dumper::Sortkeys = \&_sort_keys;
     my $config_hash = Dumper($self->config);
-    $config_hash =~ s/^\$VAR1 = {(.*)};/%Config = ($1);/s;
+    $config_hash =~ s/^\$VAR1 = \{(.*)\};/%Config = ($1);/s;
     $config_hash =~ s/'([^']+)' =>/$1 =>/gs;
     $config_hash =~ s/'(\d+)'/$1/gs;
     $config_hash =~ s/'undef'/undef/gs;

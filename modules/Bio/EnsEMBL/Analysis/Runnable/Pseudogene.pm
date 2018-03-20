@@ -1271,6 +1271,13 @@ sub PS_PSEUDO_TYPE{
   return $self->{'PS_PSEUDO_TYPE'};
 } 
 
+sub MAX_FRAMESHIFT_INTRONS{
+    my ($self, $arg) = @_;
+    if(defined $arg){
+	$self->{'MAX_FRAMESHIFT_INTRONS'} = $arg;
+    }
+    return $self->{'MAX_FRAMESHIFT_INTRONS'};
+}
 sub KEEP_TRANS_BIOTYPE{
   my ($self, $arg) = @_;
   if(defined $arg){

@@ -98,6 +98,50 @@ sub _master_config {
        # protein align features
        'uniprot'                     => [3000000,'protein align'],
      },
+
+     'mammals_basic' => {
+       # repeats
+       'dust'                        => [1392556,'repeat'],
+       'repeatmask_repbase_mammals' =>  [1765829,'repeat'],
+       'trf'                         => [248970,'repeat'],
+
+       # simple features
+       'cpg'                         => [9846,'simple'],
+       'trnascan'                    => [328,'simple'],
+       'eponine'                     => [14000,'simple'],
+
+       # prediction transcripts
+       'genscan'                     => [43449,'prediction transcript'],
+
+       # dna align features
+       'unigene'                     => [3306419,'dna align'],
+       'vertrna'                     => [4000000,'dna align'],
+
+       # protein align features
+       'uniprot'                     => [3005772,'protein align'],
+     },
+     
+     'bird_basic' => {
+       # repeats
+       'dust'                        => [1392556,'repeat'],
+       'repeatmask_repbase_mammals' =>  [1765829,'repeat'],
+       'trf'                         => [248970,'repeat'],
+
+       # simple features
+       'cpg'                         => [9846,'simple'],
+       'trnascan'                    => [328,'simple'],
+       'eponine'                     => [14000,'simple'],
+
+       # prediction transcripts
+       'genscan'                     => [43449,'prediction transcript'],
+
+       # dna align features
+       'unigene'                     => [3306419,'dna align'],
+       'vertrna'                     => [4000000,'dna align'],
+
+       # protein align features
+       'uniprot'                     => [3005772,'protein align'],
+     },
   },
 
   'gene_db_checks' => {
@@ -267,44 +311,44 @@ sub _master_config {
       }, # genblast
       'ig_tr' => {
         'logic_names' => {
-          'ig_tr_gene'          => 40,
+          'ig_tr_gene'          => 80,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                 => 20,
-          'TR_'                 => 20,
+          'IG_'                 => 100,
+          'TR_'                 => 5,
         }, # biotypes
       }, # ig_tr
       'projection_coding' => {
         'logic_names' => {
-          'project_transcripts' => 30000,
+          'project_transcripts' => 51000,
         }, # logic_names
         'biotypes' =>    {
-          'projection'          => 30000,
+          'projection'          => 51000,
         }, # biotypes
       }, # projection_coding
       'projection_lincrna' => {
         'logic_names' => {
-          'project_lincrna' => 2000,
+          'project_lincrna' => 40,
         }, # logic_names
       }, # projection_lincrna
       'projection_pseudogene' => {
         'logic_names' => {
-          'project_pseudogene' => 2000,
+          'project_pseudogene' => 3900,
         }, # logic_names
       }, # projection_pseudogene
       'projection_ig_tr' => {
         'logic_names' => {
-          'project_ig_tr' => 50,
+          'project_ig_tr' => 80,
         }, # logic_names
       }, # projection_ig_tr
       'realign' => {
         'logic_names' => {
           # Would actually prefer an upper limit on realign as opposed to a lower limit
-          'project_transcripts'  => 20000,
-          'genblast'             => 1000,
+          'project_transcripts'  => 40000,
+          'genblast'             => 9000,
         }, # logic_names
         'biotypes' =>    {
-          'realign'             => 20000,
+          'realign'             => 50000,
         }, # biotypes
       }, # realign
       'rnaseq_blast' =>  {
@@ -401,6 +445,43 @@ sub _master_config {
         }, # biotypes
       }, # core
     }, # primates_basic
+    'mammals_basic' => {
+	'genblast' => {
+	    'logic_names' => {
+          'genblast'            => 190000,
+          'genblast_not_best'   => 103000,
+	    }, # logic_names
+	    'biotypes' =>    {
+          'human_pe12_'         => 40000,
+          'mouse_pe12_'      => 60000,
+          'mammals_pe12_'       => 210000,
+	  'vert_pe12_'       => 145000,
+	    }, # biotypes
+	}, # genblast
+	'ig_tr' => {
+	    'logic_names' => {
+          'ig_tr_gene'          => 200,
+	    }, # logic_names
+	    'biotypes' =>    {
+          'IG_'                 => 800,
+          'TR_'                 => 40,
+	    }, # biotypes
+	}, # ig_tr
+	'ncrna' => {
+	    'logic_names' => {
+          'ncrna' => 2800,
+	    }, # logic_names
+	    'biotypes' =>    {
+          'miRNA'               => 200,
+          'misc_RNA'            => 300,
+          'ribozyme'            => 5,
+          'rRNA'                => 190,
+          'scaRNA'              => 20,
+          'snoRNA'              => 200,
+          'snRNA'               => 1000,
+	    }, # biotypes
+	}, # ncrna
+	# mammals_basic
     otherfeatures => {
       'logic_names' => {
         'cdna_alignment'         => 20000,
@@ -423,8 +504,9 @@ sub _master_config {
      }, # primates_basic
   }, # final_core_checks
 
-  );
+ }
+);
   return $config{$key};
-}
 
+}
 1;

@@ -125,6 +125,7 @@ Dust repeats into to separate files
 
 use warnings ;
 use strict;
+use feature 'say';
 use Getopt::Long qw(:config no_ignore_case);
 use Data::Dumper;
 use File::Spec;
@@ -168,6 +169,7 @@ my $mask;
 my $help;
 my $padded_nonref;
 my $patch_only = 0;
+my $alt_as_scaffolds = 0;
 
 GetOptions( 'dbhost|host|h:s'               => \$host,
             'dbport|port|P:n'               => \$port,
@@ -196,6 +198,7 @@ GetOptions( 'dbhost|host|h:s'               => \$host,
             'onefile!'               => \$single_file,
             'filename=s'             => \$filename,
             'patch_only!'            => \$patch_only,
+            'alt_as_scaffolds!'      => \$alt_as_scaffolds,
             'help!'                  => \$help,
 ) or ( $help = 1 );
 
@@ -331,14 +334,18 @@ if($human_female) {
 # but no Locus Reference Genomic (LRG) sequences
 ###############################################################################
 my $sa = $db->get_SliceAdaptor;
-my $slices =
-    $sa->fetch_all(
-      $coord_system_name,
-      $coord_system_version,
-      $non_ref,
-      $include_duplicates,
-      undef
-      );
+my $slices;
+if ($alt_as_scaffolds) {
+  $slices = fetch_alts_as_scaffolds($db,$sa,$coord_system_name,$coord_system_version);
+} else {
+  $slices = $sa->fetch_all(
+                            $coord_system_name,
+                            $coord_system_version,
+                            $non_ref,
+                            $include_duplicates,
+                            undef,
+                          );
+}
 ################################################################################
 
 ################################################################################
@@ -556,4 +563,46 @@ sub _build_complete_PAR_padded_chrY {
     throw($message);
   }
 
+}
+
+
+=head2 fetch_alts_as_scaffolds
+
+  Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
+  Arg [2]    : Bio::EnsEMBL::DBSQL::SliceAdaptor
+  Arg [3]    : Coord system name
+  Arg [4]    : Coord system version
+  Example    : $slices = fetch_alts_as_scaffolds($slice_adaptor,$coord_system_name,$coord_system_version);
+  Description: We are likely moving to a system where we no longer have the patches represented as pseudochromosomes and instead
+               they'll just be scaffolds. This would be good for many reasons. Until then this method will allow for dumping of
+               the sequence in a way that will mimic our future plans by replacing toplevel alts with the underlying scaffold
+  Returntype : Listref of Bio::EnsEMBL::Slice
+  Exceptions : die if the slice is not found
+  Caller     : main method
+  Status     : at risk
+
+=cut
+sub fetch_alts_as_scaffolds {
+  my ($db,$sa,$coord_system_name,$coord_system_version) = @_;
+
+  my  $slices = $sa->fetch_all(
+                                $coord_system_name,
+                                $coord_system_version,
+                                0,
+                              );
+
+  # This query is really only designed for human, but it will probably work on other thing. This will homefully be removed when we switch to representing alts as scaffolds
+  my $query = "select distinct(seq_region_id) from seq_region where coord_system_id=(select coord_system_id from coord_system where name='scaffold' and version='".$coord_system_version.
+              "') and seq_region_id in (select cmp_seq_region_id from assembly where asm_seq_region_id in (select seq_region_id from assembly_exception where exc_type != 'PAR'));";
+
+  my $sth = $db->dbc->prepare($query);
+  $sth->execute();
+  while (my $seq_region_id = $sth->fetchrow_array) {
+    my $slice = $sa->fetch_by_seq_region_id($seq_region_id);
+    unless($slice) {
+      die "Could not find slice for the following seq_region_id: ".$seq_region_id;
+    }
+    push(@{$slices},$slice);
+  }
+  return($slices);
 }

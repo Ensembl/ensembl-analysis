@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +27,7 @@
 =cut
 
 =head1 NAME
+
 
 Bio::EnsEMBL::Analysis::RunnableDB::HiveRemoveDuplicateGenes - 
 
@@ -70,7 +72,7 @@ sub fetch_input{
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder->new(
           -query => $self->query,
           -analysis => $self->analysis,
-          -genes => $lincrna_genes, #  \@genes_for_build, 
+          -genes => $lincrna_genes,  
           -output_biotype =>  $output_biotype, 
           -max_transcripts_per_cluster => 20, 
           -min_short_intron_len => 1,
@@ -105,7 +107,7 @@ sub write_output{
   print  "***HAVE ". scalar(@genes_to_write) ." GENE(S) TO WRITE IN TOTAL (INCLUDING VALID AND REJECTED lincRNAs).\n";  
 
   my $sucessful_count = 0 ; 
-  my $logic_name_to_be = "lincRNA_set_test_3";
+  my $logic_name_to_be = "lincRNA_noDuplication";
   ## I will create a new gene without translations and only one transcript to be stored under different analysis ##
   # Make an analysis object (used later for storing stuff in the db)
   my $analysis = Bio::EnsEMBL::Analysis->new(

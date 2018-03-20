@@ -64,9 +64,8 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::RunnableDB;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateCloneEnds;
 use Bio::EnsEMBL::Analysis::Config::ExonerateCloneEnds;
-use Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher;
+use Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher;
 use Bio::SeqIO;
-use Bio::DB::Flat::OBDAIndex;
 use Bio::Seq;
 
 use vars qw(@ISA);
@@ -89,7 +88,7 @@ sub fetch_input {
 
   my $seqFetchDB = $self->SEQFETCHDB;
 
-  my $seqfetcher = Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher->new(
+  my $seqfetcher = Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher->new(
                                -db      => [($seqFetchDB)],
                                -format  => 'fasta', );
 

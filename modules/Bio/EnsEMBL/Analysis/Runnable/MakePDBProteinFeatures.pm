@@ -48,6 +48,8 @@ package Bio::EnsEMBL::Analysis::Runnable::MakePDBProteinFeatures;
 use warnings;
 use strict;
 
+# Bio::DB::HTS::Faidx used in Bio::EnsEMBL::GIFTS::DB needs Perl 5.14.2
+use 5.014002;
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use Bio::EnsEMBL::GIFTS::DB qw(fetch_latest_uniprot_enst_perfect_matches);

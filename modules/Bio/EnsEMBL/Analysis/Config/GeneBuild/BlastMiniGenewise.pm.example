@@ -103,7 +103,7 @@ use vars qw( %Config );
              POST_GENEWISE_MASK => 1,
              REPEATMASKING => [],
              SOFTMASKING => 0,
-             SEQFETCHER_OBJECT => 'Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher',
+             SEQFETCHER_OBJECT => 'Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher',
              SEQFETCHER_PARAMS => {},
              USE_KILL_LIST => 1,
              LIMIT_TO_FEATURE_RANGE => undef,
@@ -214,7 +214,7 @@ use vars qw( %Config );
                 GENE_BASED_MASKING => 0,
 
                 REPEATMASKING => [],
-                SEQFETCHER_OBJECT => 'Bio::EnsEMBL::Pipeline::SeqFetcher::OBDAIndexSeqFetcher',
+                SEQFETCHER_OBJECT => 'Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher',
                 SEQFETCHER_PARAMS =>{
                                      -db => ['/path/to/index/file']
                                     },
