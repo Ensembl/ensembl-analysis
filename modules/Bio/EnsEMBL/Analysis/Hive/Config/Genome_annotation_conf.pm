@@ -3514,119 +3514,7 @@ sub pipeline_analyses {
 
         -rc_name    => '4GB',
         -flow_into => {
-                        1 => ['create_pseudogene_db'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'create_pseudogene_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('pseudogene_db'),
-                         create_type => 'clone',
-                       },
-        -rc_name    => 'default',
-        -flow_into => {
-                        1 => ['create_pseudogene_ids'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'create_pseudogene_ids',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-                         target_db => $self->o('genebuilder_db'),
-                         iid_type => 'feature_id',
-                         feature_type => 'gene',
-                      },
-        -flow_into => {
-                       '2->A' => ['pseudogenes'],
-                       'A->1' => ['create_final_geneset_db'],
-                      },
-        -rc_name    => 'default',
-      },
-
-
-      {
-        -logic_name => 'pseudogenes',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes',
-        -parameters => {
-                         input_gene_db => $self->o('genebuilder_db'),
-                         repeat_db => $self->o('dna_db'),
-                         output_db => $self->o('pseudogene_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'pseudogenes',
-                         module     => 'HivePseudogenes',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
-                         PS_MULTI_EXON_DIR       => $self->o('output_path').'/pseudogenes/multi_exon_dir/',
-                       },
-        -batch_size => 20,
-        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -rc_name    => 'transcript_finalisation',
-        -flow_into => {
-                       2 => ['spliced_elsewhere'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'concat_blast_db',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                         cmd => 'for i in '.$self->o('output_path').'/pseudogenes/multi_exon_dir/multi_exon_seq*.fasta;'.
-                                'do cat $i >> '.$self->o('output_path').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta;'.
-                                'done'
-                       },
-         -rc_name => 'default',
-         -wait_for => ['pseudogenes'],
-         -input_ids => [{}],
-         -flow_into => { 1 => ['format_blast_db'] },
-      },
-
-
-      {
-        -logic_name => 'format_blast_db',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                         cmd => 'if [ "'.$self->o('blast_type').'" = "ncbi" ];then makeblastdb -dbtype nucl -in '.$self->o('output_path').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta; else xdformat -n '.$self->o('output_path').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta;fi'
-                       },
-         -rc_name => 'default',
-      },
-
-
-      {
-        -logic_name => 'spliced_elsewhere',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSplicedElsewhere',
-        -parameters => {
-                         input_gene_db => $self->o('genebuilder_db'),
-                         repeat_db => $self->o('dna_db'),
-                         output_db => $self->o('pseudogene_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'spliced_elsewhere',
-                         module     => 'HiveSplicedElsewhere',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
-                         PS_MULTI_EXON_DIR       => $self->o('output_path').'/pseudogenes/multi_exon_dir/',
-                       },
-        -rc_name          => 'transcript_finalisation',
-        -can_be_empty  => 1,
-        -wait_for => ['format_blast_db'],
-      },
-
-
-      {
-        -logic_name => 'create_final_geneset_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('pseudogene_db'),
-                         target_db => $self->o('final_geneset_db'),
-                         create_type => 'copy',
-                       },
-        -rc_name    => 'default',
-        -flow_into => {
-                        '1' => ['restore_ig_tr_biotypes'],
+                        1 => ['restore_ig_tr_biotypes'],
                       },
       },
 
@@ -3643,7 +3531,95 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['update_rnaseq_ise_logic_names'],
+                        1 => ['create_pseudogene_db'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'create_pseudogene_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('pseudogene_db'),
+                         create_type => 'clone',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['pseudogenes'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'pseudogenes',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes',
+        -parameters => {
+                         single_multi_file => 1,
+                         output_path => $self->o('output_path').'/pseudogenes/',
+                         input_gene_db => $self->o('genebuilder_db'),
+                         repeat_db => $self->default_options->{'dna_db'},
+                         output_db => $self->o('pseudogene_db'),
+                         dna_db => $self->default_options->{'dna_db'},
+                         logic_name => 'pseudogenes',
+                         module     => 'HivePseudogenes',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
+                       },
+
+	     -rc_name    => 'default_himem',
+	     -flow_into => {
+			    1 => ['format_blast_db'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'format_blast_db',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'if [ "'.$self->o('blast_type').
+                                '" = "ncbi" ];then makeblastdb -dbtype nucl -in '.
+			        $self->o('output_path').'/pseudogenes/all_multi_exon_genes.fasta;'.
+	                        ' else xdformat -n '.$self->o('output_path').'/pseudogenes/all_multi_exon_genes.fasta;fi'
+		       },
+         -rc_name => 'default',
+         -flow_into => {
+                         1 => ['spliced_elsewhere'],
+                       },
+      },
+
+
+      {
+        -logic_name => 'spliced_elsewhere',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSplicedElsewhere',
+        -parameters => {
+                         multi_exon_db_path => $self->o('output_path').'/pseudogenes/',
+                         input_gene_db => $self->o('genebuilder_db'),
+                         repeat_db => $self->default_options->{'dna_db'},
+                         output_db => $self->o('pseudogene_db'),
+                         dna_db => $self->default_options->{'dna_db'},
+                         logic_name => 'spliced_elsewhere',
+                         module     => 'HiveSplicedElsewhere',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
+                       },
+        -rc_name          => 'default_himem',
+        -flow_into => {
+                        1 => ['create_final_geneset_db'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'create_final_geneset_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('pseudogene_db'),
+                         target_db => $self->o('final_geneset_db'),
+                         create_type => 'copy',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        '1' => ['update_rnaseq_ise_logic_names'],
                       },
       },
 
@@ -3662,6 +3638,7 @@ sub pipeline_analyses {
                         1 => ['run_cleaner'],
                       },
       },
+
 
       {
         -logic_name => 'run_cleaner',
