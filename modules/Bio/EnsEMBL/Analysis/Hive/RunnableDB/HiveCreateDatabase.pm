@@ -177,7 +177,9 @@ sub run {
   my $self = shift;
 
   foreach my $cmd (@{$self->param('commands')}) {
-    $self->run_system_command($cmd);
+    if ($self->run_system_command($cmd)) {
+      $self->throw("Could not execute '$cmd'");
+    }
   }
 }
 
@@ -217,7 +219,7 @@ sub clone_database {
 
   my $do_lock = $self->param('_lock_tables');
   my $vital_tables = $self->param('vital_tables');
-  my ($source_dbhost, $source_dbport, $source_dbname, $source_dbuser, $source_dbpass) = $self->db_connection_details($source_db);
+  my ($source_dbhost, $source_dbport, $source_dbname, $source_dbuser, $source_dbpass) = $self->db_connection_details($source_db, 1);
   my ($target_dbhost, $target_dbport, $target_dbname, $target_dbuser, $target_dbpass) = $self->db_connection_details($target_db);
   my $base_source_cmd = "mysqldump --lock-tables=$do_lock -h $source_dbhost -P $source_dbport -u $source_dbuser";
   $base_source_cmd .= ' -p'.$source_dbpass if ($source_dbpass);
@@ -227,6 +229,7 @@ sub clone_database {
     "$base_source_cmd --no-data $source_dbname | $base_target_cmd",
     join(' ', $base_source_cmd, $source_dbname, @$vital_tables, '|',$base_target_cmd),
   );
+
   return \@commands;
 }
 
