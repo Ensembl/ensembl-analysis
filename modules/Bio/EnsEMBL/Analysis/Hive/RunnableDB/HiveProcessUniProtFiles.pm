@@ -67,6 +67,11 @@ sub fetch_input {
   my @iids;
   my @seqs;
   my $skip_X = $self->param('skip_Xs');
+  my $write_file = 0;
+  if ($self->param_is_defined('output_file')) {
+    $write_file = 1;
+    open(FH, '>'.$self->param('output_file')) || $self->throw('Could not open '.$self->param('output_file'));
+  }
   foreach my $file_path (@$files) {
     $self->throw("The input id doesn't exist, offending path:\n$file_path")
       unless(-e $file_path);
@@ -107,6 +112,7 @@ sub fetch_input {
         elsif ($header =~ /^(\w+\.\d+)/) {
           $versioned_accession = $1;
           next if ($versioned_accession =~ /^XP_/);
+          ($accession) = $versioned_accession =~ /^(.+)\.\d+$/;
           if ($versioned_accession =~ /^NP_/) {
             $source_db = 'refseq';
           }
@@ -131,10 +137,14 @@ sub fetch_input {
                           'seq'        => $seq,
                        }];
           $table_adaptor->store($db_row);
+          print FH ">$versioned_accession\n$seq\n" if ($write_file);
           push(@iids, $versioned_accession);
         }
       }
     }
+  }
+  if ($self->param_is_defined('output_file')) {
+    close(FH) || $self->throw('Could not close '.$self->param('output_file'));
   }
 
   $self->warning("Total sequences: $input_seq_count\nSequences below $min_seq_length: $below_min_length_count\nKilled sequences: $killed_count\nStored sequences: ".scalar(@iids)."\n");
