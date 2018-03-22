@@ -307,6 +307,7 @@ sub _master_config {
             {
               ID         => 'LAYER3',
               BIOTYPES   => [
+                             'realign_3',
                              'rnaseq_tissue_2',
                              'rnaseq_tissue_3',
                              'human_pe12_sp_1',
@@ -323,6 +324,7 @@ sub _master_config {
             {
               ID         => 'LAYER4',
               BIOTYPES   => [
+                             'realign_4',
                              'self_pe3_sp_1',
                              'self_pe3_tr_1',
                              'human_pe12_tr_2',
@@ -440,6 +442,7 @@ sub _master_config {
              {
               ID         => 'LAYER3',
               BIOTYPES   => [
+                             'realign_3',
                              'rnaseq_tissue_2',
                              'rnaseq_tissue_3',
                              'fish_pe12_sp_1',
@@ -454,6 +457,7 @@ sub _master_config {
             {
               ID         => 'LAYER4',
               BIOTYPES   => [
+                             'realign_4',
                              'fish_pe12_sp_3',
                              'fish_pe12_tr_3',
                              'human_pe12_sp_1',
