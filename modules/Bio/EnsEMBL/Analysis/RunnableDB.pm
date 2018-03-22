@@ -3,7 +3,7 @@ package Bio::EnsEMBL::Analysis::RunnableDB;
 
 # Ensembl module for Bio::EnsEMBL::Analysis::RunnableDB
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");

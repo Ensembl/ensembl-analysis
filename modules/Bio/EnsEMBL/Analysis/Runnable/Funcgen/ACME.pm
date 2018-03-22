@@ -1,4 +1,4 @@
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,7 +37,7 @@ table in the eFG database
 
 =head1 LICENCE
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
