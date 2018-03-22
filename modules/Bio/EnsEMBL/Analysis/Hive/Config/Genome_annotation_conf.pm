@@ -42,48 +42,46 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
-    'repbase_logic_name'        => '', #!!!!!!!!!!!!!!!!! repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
-    'repbase_library'           => '', #!!!!!!!!!!!!!!!!! repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
+    'pipeline_name'             => '', # What you want hive to call the pipeline, not the db name itself
+    'user_r'                    => '', # read only db user
+    'user'                      => '', # write db user
+    'password'                  => '', # password for write db user
+    'pipe_db_server'            => '', # host for pipe db
+    'databases_server'          => '', # host for general output dbs
+    'dna_db_server'             => '', # host for dna db
+    'pipe_db_port'              => '', # port for pipeline host
+    'databases_port'            => '', # port for general output db host
+    'dna_db_port'               => '', # prot for dna db host
+    'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
+    'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'release_number'            => '' || $self->o('ensembl_release'),
-    'species_name'              => '', #!!!!!!!!!!!!!!!!! e.g. mus_musculus
-    'production_name'           => '',
-    'taxon_id'                  => 7998, #!!!!!!!!!!!!!!!!! should be in the assembly report file
-    'uniprot_set'               => '', #!!!!!!!!!!!!!!!!! Check sub uniprot_clade_download below for suitable set
-    'output_path'               => '', # Lustre output dir
-    'wgs_id'                    => '', #!!!!!!!!!!!!!! Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
-    'assembly_name'             => '', #!!!!!!!!!!!!!! Name (as it appears in the assembly report file)
-    'assembly_accession'        => '', #!!!!!!!!!!!!!! GCA
-    'assembly_refseq_accession' => '', #!!!!!!!!!!!!!! GCF
-    'mt_accession'              => undef, # This should be set to undef unless you know what you are doing
+    'species_name'              => '', # e.g. mus_musculus
+    'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    'taxon_id'                  => '', # should be in the assembly report file
+    'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
+    'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
+    'wgs_id'                    => '', # Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
+    'assembly_name'             => '', # Name (as it appears in the assembly report file)
+    'assembly_accession'        => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
+    'assembly_refseq_accession' => '', # Versioned GCF accession, e.g. GCF_001857705.1
+    'stable_id_prefix'          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
+    'stable_id_start'           => '0', # When mapping is not required this is usually set to 0
+    'load_toplevel_only'        => 1, # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
     'skip_projection'           => 0, # Will skip projection process if 1
-    'skip_rnaseq'               => 0, # Will skip rnaseq blast db formatting if 1
+    'skip_rnaseq'               => 0, # Will skip rnaseq analyses if 1
     'skip_ncrna'                => 0, # Will skip ncrna process if 1
     'skip_cleaning'             => 0, # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
-    'mapping_required'          => 0,
-    'mapping_db'                => '',
-    'stable_id_prefix'          => '',
-    'stable_id_start'           => '0',
-    'uniprot_db_dir'            => 'uniprot_2018_01', # e.g. 'uniprot_2017_04'
-    'vertrna_version'           => 134,
-    load_toplevel_only          => 1,
-    'mirBase_fasta'             => 'human_mirnas.fa',
-    'ig_tr_fasta_file'          => 'human_ig_tr.fa',
+    'mapping_required'          => 0, # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
+    'mapping_db'                => undef, # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
+    'uniprot_db_dir'            => 'uniprot_2018_01', # What UniProt data dir to use for various analyses
+    'vertrna_version'           => 134, # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
+    'mirBase_fasta'             => 'human_mirnas.fa', # What mirBase file to use. It is currently best to use on with the most appropriate set for your species
+    'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
+    'mt_accession'              => undef, # This should be set to undef unless you know what you are doing
 
 ########################
 # Pipe and ref db info
 ########################
-    'pipeline_name'                => '', #!!!!!!!!!!! What you want hive to call the pipeline, not the db name itself
-    'user_r'                       => '', #!!!!!!!!!!!
-    'user'                         => '', #!!!!!!!!!!!
-    'password'                     => '', #!!!!!!!!!!!
-
-    'pipe_db_server'               => 'mysql-ens-genebuild-prod-1', #!!!!!!!!!!!
-    'databases_server'             => 'mysql-ens-genebuild-prod-1', #!!!!!!!!!!!
-    'dna_db_server'                => 'mysql-ens-genebuild-prod-1', #!!!!!!!!!!!
-
-    'pipe_db_port'                 => '4527', #!!!!!!!!!!!
-    'databases_port'               => '4527', #!!!!!!!!!!!
-    'dna_db_port'                  => '4527', #!!!!!!!!!!!
 
     'projection_source_db_name'    => 'homo_sapiens_core_91_38', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_server'  => 'mysql-ensembl-mirror',
