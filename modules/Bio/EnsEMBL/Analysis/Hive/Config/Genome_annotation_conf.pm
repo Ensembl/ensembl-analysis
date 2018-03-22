@@ -42,48 +42,46 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
-    'repbase_logic_name'        => '', #!!!!!!!!!!!!!!!!! repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
-    'repbase_library'           => '', #!!!!!!!!!!!!!!!!! repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
+    'pipeline_name'             => '', # What you want hive to call the pipeline, not the db name itself
+    'user_r'                    => '', # read only db user
+    'user'                      => '', # write db user
+    'password'                  => '', # password for write db user
+    'pipe_db_server'            => '', # host for pipe db
+    'databases_server'          => '', # host for general output dbs
+    'dna_db_server'             => '', # host for dna db
+    'pipe_db_port'              => '', # port for pipeline host
+    'databases_port'            => '', # port for general output db host
+    'dna_db_port'               => '', # prot for dna db host
+    'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
+    'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'release_number'            => '' || $self->o('ensembl_release'),
-    'species_name'              => '', #!!!!!!!!!!!!!!!!! e.g. mus_musculus
-    'production_name'           => '',
-    'taxon_id'                  => 7998, #!!!!!!!!!!!!!!!!! should be in the assembly report file
-    'uniprot_set'               => '', #!!!!!!!!!!!!!!!!! Check sub uniprot_clade_download below for suitable set
-    'output_path'               => '', # Lustre output dir
-    'wgs_id'                    => '', #!!!!!!!!!!!!!! Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
-    'assembly_name'             => '', #!!!!!!!!!!!!!! Name (as it appears in the assembly report file)
-    'assembly_accession'        => '', #!!!!!!!!!!!!!! GCA
-    'assembly_refseq_accession' => '', #!!!!!!!!!!!!!! GCF
-    'mt_accession'              => undef, # This should be set to undef unless you know what you are doing
+    'species_name'              => '', # e.g. mus_musculus
+    'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    'taxon_id'                  => '', # should be in the assembly report file
+    'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
+    'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
+    'wgs_id'                    => '', # Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
+    'assembly_name'             => '', # Name (as it appears in the assembly report file)
+    'assembly_accession'        => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
+    'assembly_refseq_accession' => '', # Versioned GCF accession, e.g. GCF_001857705.1
+    'stable_id_prefix'          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
+    'stable_id_start'           => '0', # When mapping is not required this is usually set to 0
+    'load_toplevel_only'        => 1, # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
     'skip_projection'           => 0, # Will skip projection process if 1
-    'skip_rnaseq'               => 0, # Will skip rnaseq blast db formatting if 1
+    'skip_rnaseq'               => 0, # Will skip rnaseq analyses if 1
     'skip_ncrna'                => 0, # Will skip ncrna process if 1
     'skip_cleaning'             => 0, # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
-    'mapping_required'          => 0,
-    'mapping_db'                => '',
-    'stable_id_prefix'          => '',
-    'stable_id_start'           => '0',
-    'uniprot_db_dir'            => 'uniprot_2018_01', # e.g. 'uniprot_2017_04'
-    'vertrna_version'           => 134,
-    load_toplevel_only          => 1,
-    'mirBase_fasta'             => 'human_mirnas.fa',
-    'ig_tr_fasta_file'          => 'human_ig_tr.fa',
+    'mapping_required'          => 0, # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
+    'mapping_db'                => undef, # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
+    'uniprot_db_dir'            => 'uniprot_2018_01', # What UniProt data dir to use for various analyses
+    'vertrna_version'           => 134, # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
+    'mirBase_fasta'             => 'human_mirnas.fa', # What mirBase file to use. It is currently best to use on with the most appropriate set for your species
+    'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
+    'mt_accession'              => undef, # This should be set to undef unless you know what you are doing
 
 ########################
 # Pipe and ref db info
 ########################
-    'pipeline_name'                => '', #!!!!!!!!!!! What you want hive to call the pipeline, not the db name itself
-    'user_r'                       => '', #!!!!!!!!!!!
-    'user'                         => '', #!!!!!!!!!!!
-    'password'                     => '', #!!!!!!!!!!!
-
-    'pipe_db_server'               => 'mysql-ens-genebuild-prod-1', #!!!!!!!!!!!
-    'databases_server'             => 'mysql-ens-genebuild-prod-1', #!!!!!!!!!!!
-    'dna_db_server'                => 'mysql-ens-genebuild-prod-1', #!!!!!!!!!!!
-
-    'pipe_db_port'                 => '4527', #!!!!!!!!!!!
-    'databases_port'               => '4527', #!!!!!!!!!!!
-    'dna_db_port'                  => '4527', #!!!!!!!!!!!
 
     'projection_source_db_name'    => 'homo_sapiens_core_91_38', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_server'  => 'mysql-ensembl-mirror',
@@ -3514,119 +3512,7 @@ sub pipeline_analyses {
 
         -rc_name    => '4GB',
         -flow_into => {
-                        1 => ['create_pseudogene_db'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'create_pseudogene_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('pseudogene_db'),
-                         create_type => 'clone',
-                       },
-        -rc_name    => 'default',
-        -flow_into => {
-                        1 => ['create_pseudogene_ids'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'create_pseudogene_ids',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-                         target_db => $self->o('genebuilder_db'),
-                         iid_type => 'feature_id',
-                         feature_type => 'gene',
-                      },
-        -flow_into => {
-                       '2->A' => ['pseudogenes'],
-                       'A->1' => ['create_final_geneset_db'],
-                      },
-        -rc_name    => 'default',
-      },
-
-
-      {
-        -logic_name => 'pseudogenes',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes',
-        -parameters => {
-                         input_gene_db => $self->o('genebuilder_db'),
-                         repeat_db => $self->o('dna_db'),
-                         output_db => $self->o('pseudogene_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'pseudogenes',
-                         module     => 'HivePseudogenes',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
-                         PS_MULTI_EXON_DIR       => $self->o('output_path').'/pseudogenes/multi_exon_dir/',
-                       },
-        -batch_size => 20,
-        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -rc_name    => 'transcript_finalisation',
-        -flow_into => {
-                       2 => ['spliced_elsewhere'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'concat_blast_db',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                         cmd => 'for i in '.$self->o('output_path').'/pseudogenes/multi_exon_dir/multi_exon_seq*.fasta;'.
-                                'do cat $i >> '.$self->o('output_path').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta;'.
-                                'done'
-                       },
-         -rc_name => 'default',
-         -wait_for => ['pseudogenes'],
-         -input_ids => [{}],
-         -flow_into => { 1 => ['format_blast_db'] },
-      },
-
-
-      {
-        -logic_name => 'format_blast_db',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                         cmd => 'if [ "'.$self->o('blast_type').'" = "ncbi" ];then makeblastdb -dbtype nucl -in '.$self->o('output_path').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta; else xdformat -n '.$self->o('output_path').'/pseudogenes/multi_exon_dir/all_multi_exon_genes.fasta;fi'
-                       },
-         -rc_name => 'default',
-      },
-
-
-      {
-        -logic_name => 'spliced_elsewhere',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSplicedElsewhere',
-        -parameters => {
-                         input_gene_db => $self->o('genebuilder_db'),
-                         repeat_db => $self->o('dna_db'),
-                         output_db => $self->o('pseudogene_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'spliced_elsewhere',
-                         module     => 'HiveSplicedElsewhere',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
-                         PS_MULTI_EXON_DIR       => $self->o('output_path').'/pseudogenes/multi_exon_dir/',
-                       },
-        -rc_name          => 'transcript_finalisation',
-        -can_be_empty  => 1,
-        -wait_for => ['format_blast_db'],
-      },
-
-
-      {
-        -logic_name => 'create_final_geneset_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('pseudogene_db'),
-                         target_db => $self->o('final_geneset_db'),
-                         create_type => 'copy',
-                       },
-        -rc_name    => 'default',
-        -flow_into => {
-                        '1' => ['restore_ig_tr_biotypes'],
+                        1 => ['restore_ig_tr_biotypes'],
                       },
       },
 
@@ -3643,7 +3529,95 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['update_rnaseq_ise_logic_names'],
+                        1 => ['create_pseudogene_db'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'create_pseudogene_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('pseudogene_db'),
+                         create_type => 'clone',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['pseudogenes'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'pseudogenes',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes',
+        -parameters => {
+                         single_multi_file => 1,
+                         output_path => $self->o('output_path').'/pseudogenes/',
+                         input_gene_db => $self->o('genebuilder_db'),
+                         repeat_db => $self->default_options->{'dna_db'},
+                         output_db => $self->o('pseudogene_db'),
+                         dna_db => $self->default_options->{'dna_db'},
+                         logic_name => 'pseudogenes',
+                         module     => 'HivePseudogenes',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
+                       },
+
+	     -rc_name    => 'default_himem',
+	     -flow_into => {
+			    1 => ['format_blast_db'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'format_blast_db',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'if [ "'.$self->o('blast_type').
+                                '" = "ncbi" ];then makeblastdb -dbtype nucl -in '.
+			        $self->o('output_path').'/pseudogenes/all_multi_exon_genes.fasta;'.
+	                        ' else xdformat -n '.$self->o('output_path').'/pseudogenes/all_multi_exon_genes.fasta;fi'
+		       },
+         -rc_name => 'default',
+         -flow_into => {
+                         1 => ['spliced_elsewhere'],
+                       },
+      },
+
+
+      {
+        -logic_name => 'spliced_elsewhere',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSplicedElsewhere',
+        -parameters => {
+                         multi_exon_db_path => $self->o('output_path').'/pseudogenes/',
+                         input_gene_db => $self->o('genebuilder_db'),
+                         repeat_db => $self->default_options->{'dna_db'},
+                         output_db => $self->o('pseudogene_db'),
+                         dna_db => $self->default_options->{'dna_db'},
+                         logic_name => 'spliced_elsewhere',
+                         module     => 'HiveSplicedElsewhere',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
+                       },
+        -rc_name          => 'default_himem',
+        -flow_into => {
+                        1 => ['create_final_geneset_db'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'create_final_geneset_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('pseudogene_db'),
+                         target_db => $self->o('final_geneset_db'),
+                         create_type => 'copy',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        '1' => ['update_rnaseq_ise_logic_names'],
                       },
       },
 
@@ -3662,6 +3636,7 @@ sub pipeline_analyses {
                         1 => ['run_cleaner'],
                       },
       },
+
 
       {
         -logic_name => 'run_cleaner',

@@ -47,16 +47,7 @@ sub fetch_input {
   $self->hrdb_set_con($input_dba,'input_db');
   $input_dba->dnadb($dna_dba);
 
-
-#  my $input_id = $self->param('iid');
-#  my $input_id_type = $self->param('iid_type');
-
-  # If the input is an array of gene ids then loop through them and fetch them from the input db
- # if($input_id_type eq 'slice') {
-  $self->load_genes();#($input_id);
-  #} else {
-  #  $self->throw("You have selected an input id type using iid_type that is not supported by the module. Offending type: ".$input_id_type);
- # }
+  $self->load_genes();
 
   my $output_path = $self->param('output_path');
   unless(-e $output_path) {
@@ -97,8 +88,6 @@ sub load_genes {
   my ($self) = @_;
 
   my $dba = $self->hrdb_get_con('input_db');
-#  my $slice_adaptor = $dba->get_SliceAdaptor();
-#  my $slice = $slice_adaptor->fetch_by_name($input_id);
   my $gene_adaptor = $dba->get_GeneAdaptor();
   my $genes = $gene_adaptor->fetch_all();#_by_Slice($slice);
   $self->genes_to_qc($genes);
@@ -178,25 +167,13 @@ sub clean_genes {
         if($self->single_exon_within_intron($transcript)) {
           say "Found single exon or frameshift intron only gene within another gene, will remove: ".$transcript->dbID.", ".$transcript->biotype;
           push(@{$transcript_ids_to_remove},$transcript->dbID);
-        } else {
-          # Keep things with excellent alignments, self proteins and swiss prot good alignments
-          unless($transcript->biotype =~ /.+\_95_90$/ || $transcript->biotype =~ /^self.+/ || $transcript->biotype =~ /.+_95_95$/ || $transcript->biotype =~ /.+_95_80$/ || $transcript->biotype =~ /.+_95_70$/ || $transcript->biotype =~ /.+_90_90$/) {
-            # For everything else unless there is UTR flag for deletion
-            unless(scalar(@{$transcript->get_all_five_prime_UTRs}) || scalar(@{$transcript->get_all_three_prime_UTRs})) {
-              say "Found single exon or frameshift intron only gene for removal due to biotype and lack of UTR: ".$transcript->dbID.", ".$transcript->biotype;
-              push(@{$transcript_ids_to_remove},$transcript->dbID);
-            }
-          }
         }
       }
     } elsif(($gene->end - $gene->start + 1) <= $tiny_gene_size) {
       foreach my $transcript (@{$transcripts}) {
-        unless($transcript->biotype =~ /.+\_95$/) {
-          # Unless there is UTR flag for deletion
-          unless(scalar(@{$transcript->get_all_five_prime_UTRs}) || scalar(@{$transcript->get_all_three_prime_UTRs})) {
-            say "Found tiny gene that does not have a 95/95 alignment: ".$transcript->dbID.", ".$transcript->biotype;
-            push(@{$transcript_ids_to_remove},$transcript->dbID);
-          }
+        unless(scalar(@{$transcript->get_all_five_prime_UTRs}) || scalar(@{$transcript->get_all_three_prime_UTRs})) {
+          say "Found tiny gene that does not have a 95/95 alignment: ".$transcript->dbID.", ".$transcript->biotype;
+          push(@{$transcript_ids_to_remove},$transcript->dbID);
         }
       }
     }
