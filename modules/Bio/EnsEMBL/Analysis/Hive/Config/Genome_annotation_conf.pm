@@ -1753,7 +1753,7 @@ sub pipeline_analyses {
         -logic_name => 'process_homology_selenocysteine',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSelenocysteineFinder',
         -parameters => {
-          target_db => $self->o('genewise_db'),
+          target_db => $self->o('genblast_db'),
           dna_db => $self->o('dna_db'),
           genome => $self->o('genome_file'),
           exonerate => $self->o('exonerate_path'),
@@ -1902,7 +1902,7 @@ sub pipeline_analyses {
       -rc_name    => 'default',
       -flow_into => {
         '1->A' => ['create_genewise_db', 'download_mRNA', 'download_selenocysteines'],
-        'A->1' => ['generate_besttargetted_index'],
+        'A->1' => ['create_besttargetted_db'],
       },
     },
 
@@ -1944,7 +1944,7 @@ sub pipeline_analyses {
         taxon_id => $self->o('taxon_id'),
         multi_query_download => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::UniProtCladeDownloadStatic', 'self_isoforms_12'),
         output_path => $self->o('targetted_path'),
-        fan_branch_code => 1,
+        _branch_to_flow_to => 1,
       },
       -rc_name          => 'default',
       -flow_into => {
@@ -2006,7 +2006,7 @@ sub pipeline_analyses {
       -logic_name => 'indicate_proteome',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => '#indicate_path# -d #indicate_dir# -f #proteome# -o proteome_index -p singleWordParser',
+        cmd => '#indicate_path# -d #indicate_dir# -f #proteome# -i proteome_index -p singleWordParser',
         indicate_path => $self->o('indicate_path'),
         proteome => 'proteome.fa',
         indicate_dir => $self->o('targetted_path'),
@@ -2409,6 +2409,19 @@ sub pipeline_analyses {
         sequence_table_name => $self->o('uniprot_table_name'),
       },
       -rc_name          => 'default',
+    },
+    {
+      -logic_name => 'create_besttargetted_db',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+      -parameters => {
+        source_db => $self->o('dna_db'),
+        target_db => $self->o('best_targeted_db'),
+        create_type => 'clone',
+      },
+      -rc_name    => 'default',
+      -flow_into => {
+        1 => ['generate_besttargetted_index'],
+      },
     },
     {
       -logic_name => 'generate_besttargetted_index',
