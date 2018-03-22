@@ -69,8 +69,13 @@ sub default_options {
         blast_type        => 'ncbi', # Should be either 'ncbi' or 'wu'
         slack_token       => $ENV{SLACK_GENEBUILD},
         slack_hook_url    => 'https://hooks.slack.com/services/'.$self->o('slack_token'),
-        embl2fasta_script => $ENV{'EMBL2FASTA_SCRIPT'} || catfile($ENV{ENSCODE}, 'ensembl-analysis', 'scripts', 'databases', 'embl2fasta.pl'),
+        embl2fasta_script => $ENV{'EMBL2FASTA_SCRIPT'} || catfile($ENV{ENSCODE}, 'ensembl-analysis', 'scripts', 'databases', 'EMBL2fasta.pl'),
         process_isoforms_script => $ENV{'PROCESS_ISOFORMS_SCRIPT'} || catfile($ENV{ENSCODE}, 'ensembl-analysis', 'scripts', 'databases', 'process_uniprot_isoforms.pl'),
+        kill_list_host => '',
+        kill_list_port => '',
+        kill_list_user => '',
+        kill_list_pass => '',
+        kill_list_dbname => '',
     };
 }
 
@@ -347,7 +352,12 @@ sub pipeline_analyses {
           -logic_name => 'embl2fasta',
           -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
           -parameters => {
-            cmd => 'perl #embl2fasta_script# #uniprot_dir#/#input_file#.dat',
+            cmd => 'perl #embl2fasta_script# -embl #uniprot_dir#/#input_file#.dat -format swiss'.
+              ' -kill_list_host '.$self->o('kill_list_host').
+              ' -kill_list_port '.$self->o('kill_list_port').
+              ' -kill_list_user '.$self->o('kill_list_user').
+              ' -kill_list_pass '.$self->o('kill_list_pass').
+              ' -kill_list_dbname '.$self->o('kill_list_dbname'),
           },
           -analysis_capacity  => 5,
           -flow_into => {
