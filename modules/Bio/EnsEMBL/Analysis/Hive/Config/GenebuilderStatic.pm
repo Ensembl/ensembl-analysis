@@ -170,6 +170,8 @@ sub _master_config {
     mammals_basic => [
                              'realign_1',
                              'realign_2',
+                             'realign_3',
+                             'realign_4',
                              'rnaseq_merged_1',
                              'rnaseq_merged_2',
                              'rnaseq_merged_3',
@@ -225,6 +227,8 @@ sub _master_config {
     fish_basic => [
                              'realign_1',
                              'realign_2',
+                             'realign_3',
+                             'realign_4',
                              'rnaseq_merged_1',
                              'rnaseq_merged_2',
                              'rnaseq_merged_3',
