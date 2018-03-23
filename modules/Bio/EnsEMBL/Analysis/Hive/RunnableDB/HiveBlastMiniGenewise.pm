@@ -81,6 +81,7 @@ sub fetch_input{
   $self->create_analysis;
   my $dna_db = $self->get_database_by_name('dna_db');
   $self->hrdb_set_con($dna_db, 'dna_db');
+  
   $self->query($self->fetch_sequence($self->parse_input_id, $self->get_database_by_name('source_db', $dna_db), $self->REPEATMASKING, $self->SOFTMASKING));
   my %hit_list;
 
@@ -88,13 +89,13 @@ sub fetch_input{
   my $feature_count = 0;
   my %protein_count;
   foreach my $logic_name(@{$self->PAF_LOGICNAMES}){
-    #print "LOGIC NAME : ",$logic_name, ' $ ', $self->paf_slice->get_seq_region_id, "\n";
+    # print "LOGIC NAME : ",$logic_name, ' $ ', $self->paf_slice->get_seq_region_id, "\n";
     my $features = $self->query->get_all_ProteinAlignFeatures($logic_name, $self->PAF_MIN_SCORE_THRESHOLD);
     my %unique;
     foreach my $feature(@$features){
       $unique{$feature->hseqname} = 1;
     }
-    #print "****HAVE ".@$features." features with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD."  with ".keys(%unique)." unique hit names from ".$self->paf_slice->adaptor->dbc->dbname."*****\n";
+    # print "****HAVE ".@$features." features with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD."  with ".keys(%unique)." unique hit names from ".$self->paf_slice->adaptor->dbc->dbname."*****\n";
     logger_info("HAVE ".@$features." with ".$logic_name." and min score ".$self->PAF_MIN_SCORE_THRESHOLD);
     $feature_count += scalar(@$features);
     my $ids_to_ignore = {};
@@ -602,7 +603,6 @@ sub write_output{
   logger_info("WRITE OUTPUT have ".@{$self->output}." genes to write");
 
   foreach my $gene(@{$self->output}){
-
     my $attach = 0;
     if(!$gene->analysis){
       my $attach = 1;
@@ -610,7 +610,7 @@ sub write_output{
     }
     if($attach == 0){
     TRANSCRIPT:foreach my $transcript(@{$gene->get_all_Transcripts}){
-        if(!$transcript->analysis){
+        if(!$transcript->analysis->dbID){
           attach_Analysis_to_Gene($gene, $self->analysis);
           last TRANSCRIPT;
         }
@@ -746,7 +746,7 @@ sub paf_source_db{
   if(!$self->param_is_defined('paf_source_db')){
     my $db = $self->get_dbadaptor($self->PAF_SOURCE_DB);
     if ( $db->dnadb ) {
-       $db->dnadb->disconnect_when_inactive(1);
+       $db->dnadb->dbc->disconnect_when_inactive(1);
     }
     $self->param('paf_source_db', $db);
   }
@@ -762,7 +762,7 @@ sub gene_source_db{
     if (@{$self->BIOTYPES_TO_MASK}) {
       my $db = $self->get_dbadaptor($self->GENE_SOURCE_DB);
       if ( $db->dnadb ) {
-         $db->dnadb->disconnect_when_inactive(1);
+         $db->dnadb->dbc->disconnect_when_inactive(1);
       }
       $self->param('gene_source_db', $db);
     }
@@ -794,7 +794,7 @@ sub paf_slice{
     $self->param('paf_slice', $slice);
   }
   if (!$self->param_is_defined('paf_slice')){
-    my $slice = $self->fetch_sequence($self->quey->name, $self->paf_source_db,
+    my $slice = $self->fetch_sequence($self->query->name, $self->paf_source_db,
                                       $self->REPEATMASKING);
     $self->param('paf_slice', $slice);
   }
@@ -808,7 +808,7 @@ sub gene_slice{
     $self->param('gene_slice', $slice);
   }
   if (!$self->param_is_defined('gene_slice')){
-    my $slice = $self->fetch_sequence($self->quey->name, $self->gene_source_db,
+    my $slice = $self->fetch_sequence($self->query->name, $self->gene_source_db,
                                       $self->REPEATMASKING);
     $self->param('gene_slice', $slice);
   }
@@ -822,7 +822,7 @@ sub output_slice{
     $self->param('output_slice', $slice);
   }
   if (!$self->param_is_defined('output_slice')){
-    my $slice = $self->fetch_sequence($self->quey->name, $self->output_db);
+    my $slice = $self->fetch_sequence($self->query->name, $self->output_db);
     $self->param('output_slice', $slice);
   }
   return $self->param('output_slice');
