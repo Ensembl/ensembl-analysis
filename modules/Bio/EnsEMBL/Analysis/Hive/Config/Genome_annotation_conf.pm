@@ -2006,10 +2006,11 @@ sub pipeline_analyses {
       -logic_name => 'indicate_proteome',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => '#indicate_path# -d #indicate_dir# -f #proteome# -i proteome_index -p singleWordParser',
+        cmd => '#indicate_path# -d #indicate_dir# -f #proteome# -i #proteome_index# -p singleWordParser',
         indicate_path => $self->o('indicate_path'),
         proteome => 'proteome.fa',
         indicate_dir => $self->o('targetted_path'),
+        proteome_index => $self->o('targetted_path').'proteome_index',
       },
       -rc_name => 'default',
       -flow_into => {
