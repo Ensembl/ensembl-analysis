@@ -603,24 +603,12 @@ sub write_output{
   logger_info("WRITE OUTPUT have ".@{$self->output}." genes to write");
 
   foreach my $gene(@{$self->output}){
-    my $attach = 0;
-    if(!$gene->analysis){
-      my $attach = 1;
-      attach_Analysis_to_Gene($gene, $self->analysis);
-    }
-    if($attach == 0){
-    TRANSCRIPT:foreach my $transcript(@{$gene->get_all_Transcripts}){
-        if(!$transcript->analysis->dbID){
-          attach_Analysis_to_Gene($gene, $self->analysis);
-          last TRANSCRIPT;
-        }
-      }
-    }
+    attach_Analysis_to_Gene($gene, $self->analysis);
     eval{
       $ga->store($gene);
     };
     if($@){
-      $self->warning("Failed to write gene ".id($gene)." ".coord_string($gene)." $@");
+      $self->warning("Failed to write gene--".id($gene)."--".coord_string($gene)." $@");
     }else{
       $sucessful_count++;
       logger_info("STORED GENE ".$gene->dbID);
