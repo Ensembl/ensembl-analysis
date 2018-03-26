@@ -95,7 +95,7 @@ sub post_cleanup {
 
   ceil($sleep_length_hours);
   say "Going to sleep for ".$sleep_length_hours." hours...";
-  sleep($sleep_length_hours * 3600);
+  sleep($sleep_length_hours * 60);
 
   say "Seeding new run id for this analysis...";
   my $run_id = $self->param('iid');
@@ -114,6 +114,7 @@ sub find_gcas_to_process {
   my $gca_dir = catfile($base_repeat_dir,'GCA');
   my $species_dir = catfile($base_repeat_dir,'species');
   foreach my $gca (@{$inital_gca_list}) {
+    say "Checking ".$gca;
     $gca =~ /^(GCA\_\d{9})\.(\d+)$/;
     my $chain = $1;
     my $version = $2;

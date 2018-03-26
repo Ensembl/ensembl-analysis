@@ -116,7 +116,7 @@ sub fetch_gca_by_constraints {
            " contig_N50 >= ? AND total_length >= ? AND assembly_level = ?";
 
     unless($level eq 'contig') {
-      $sql .= " AND scaffold_N50 >= ?";
+      $sql .= " AND (scaffold_N50 >= ? || scaffold_N50 IS NULL)";
     }
 
     my $sth = $self->dbc->prepare($sql);
