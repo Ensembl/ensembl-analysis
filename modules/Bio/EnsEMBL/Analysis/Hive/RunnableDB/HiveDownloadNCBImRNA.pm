@@ -170,17 +170,19 @@ sub write_output {
   close(WH) || $self->throw('Could not close '.$self->param('output_file'));
 
   # check the number of sequences that you have saved: 
-  my $count = 0;
-  open(CN, '<'.$self->param('output_file')) || $self->throw('Could not open '.$self->param('output_file'));
-  while( <CN> ){
-    chomp $_;
-    if($_=~ /^>/ ) {
-      $count++; 
+  if ($self->param('output_file')  =~ /.fa$/ ) {
+    my $count = 0;
+    open(CN, '<'.$self->param('output_file')) || $self->throw('Could not open '.$self->param('output_file'));
+    while( <CN> ){
+      chomp $_;
+      if($_=~ /^>/ ) {
+        $count++; 
+      }
     }
-  }
-  close(CN) || $self->throw('Could not close '.$self->param('output_file'));
-  if ($count!=$self->param('count')) {
-    $self->throw('Sequences in output file are ' . $count . '- while you should have: ' . $self->param('count') . "\n".$response->status_line ); 
+    close(CN) || $self->throw('Could not close '.$self->param('output_file'));
+    if ($count!=$self->param('count')) {
+      $self->throw('Sequences in output file are ' . $count . '- while you should have: ' . $self->param('count') . "\n".$response->status_line ); 
+    }
   }
   $self->dataflow_output_id({iid => $self->param('output_file')}, $self->param('_branch_to_flow_to'));
 }
