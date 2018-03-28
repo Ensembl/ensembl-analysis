@@ -213,15 +213,15 @@ sub _master_config {
       }, # rnaseq_blast
       'layer' => {
         'biotypes' =>    {
-          'IG_'                  => 20,
-          'TR_'                  => 20,
-          'human_pe12_'          => 10000,
+          'IG_'                  => 0,
+          'TR_'                  => 0,
+          'human_pe12_'          => 0,
           'mouse_pe12_'       => 15000,
-          'vert_pe12_'       => 15000,
-          'mammals_pe12_'        => 10000,
-          'realign_'             => 30000,
-          'rnaseq_merged_'       => 5000,
-          'rnaseq_tissue_'       => 100,
+          'vert_pe12_'       => 300,
+          'mammals_pe12_'        => 12000,
+          'realign_'             => 0,
+          'rnaseq_merged_'       => 10000,
+          'rnaseq_tissue_'       => 149000,
         }, # biotypes
       }, # layer
       'genebuilder' => {
@@ -286,7 +286,7 @@ sub _master_config {
           'TR_'                  => 20,
           'protein_coding'       => 25000,
           'pseudogene'           => 50,
-          'processed_pseudogene' => 50,
+          'processed_pseudogene' => 0,
           'miRNA'                => 500,
           'misc_RNA'             => 1000,
           'ribozyme'             => 0,
@@ -434,7 +434,7 @@ sub _master_config {
           'TR_'                  => 20,
           'protein_coding'       => 25000,
           'pseudogene'           => 50,
-          'processed_pseudogene' => 50,
+          'processed_pseudogene' => 0,
           'miRNA'                => 500,
           'misc_RNA'             => 1000,
           'ribozyme'             => 0,
@@ -510,3 +510,5 @@ sub _master_config {
 
 }
 1;
+
+

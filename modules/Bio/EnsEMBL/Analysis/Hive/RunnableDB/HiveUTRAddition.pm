@@ -127,8 +127,6 @@ sub fetch_input {
 
   $self->param_required('utr_biotype_priorities'); # Checking that the Hash is set, it will be accessed with $self->biotype_priorities
 
-  my $allowed_input_sets = $self->param_required('allowed_input_sets');
-
   my $input_id = $self->param('iid');
 
   if($self->param('iid_type') eq 'slice') {

@@ -117,7 +117,6 @@ sub gene_db_checks {
 
   # Count all the biotypes once, since there's no biotype constraint for transcript adaptors
   my $observed_biotype_counts = {};
-  
   foreach my $transcript (@{$transcripts}) {
     my $biotype = $transcript->biotype;
     if($observed_biotype_counts->{$biotype}) {
@@ -126,7 +125,6 @@ sub gene_db_checks {
       $observed_biotype_counts->{$biotype} = 1;
     }
   }
-
   # Note the check will be done on the gene level for now as that's where we typically label logic names
   my $gene_adaptor = $genome_prep_dba->get_GeneAdaptor();
   unless($logic_names) {
@@ -142,11 +140,13 @@ sub gene_db_checks {
   foreach my $gene (@{$genes}) {
       my $logic_name = $gene->analysis->logic_name;
       if($observed_logic_name_counts->{$logic_name}) {
-	  $observed_logic_name_counts->{$logic_name}++;
+
+          $observed_logic_name_counts->{$logic_name}++;
       } else {
-	  $observed_logic_name_counts->{$logic_name} = 1;
+          $observed_logic_name_counts->{$logic_name} = 1;
       }
-  }
+   } 
+  
   say "Checking logic names:";
   foreach my $logic_name (keys(%{$logic_names})) {
 
@@ -216,3 +216,4 @@ sub count_features {
 }
 
 1;
+

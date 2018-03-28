@@ -307,6 +307,7 @@ sub _master_config {
             {
               ID         => 'LAYER3',
               BIOTYPES   => [
+                             'realign_3',
                              'rnaseq_tissue_2',
                              'rnaseq_tissue_3',
                              'human_pe12_sp_1',
@@ -323,6 +324,7 @@ sub _master_config {
             {
               ID         => 'LAYER4',
               BIOTYPES   => [
+                             'realign_4',
                              'self_pe3_sp_1',
                              'self_pe3_tr_1',
                              'human_pe12_tr_2',
@@ -440,6 +442,7 @@ sub _master_config {
              {
               ID         => 'LAYER3',
               BIOTYPES   => [
+                             'realign_3',
                              'rnaseq_tissue_2',
                              'rnaseq_tissue_3',
                              'fish_pe12_sp_1',
@@ -454,6 +457,7 @@ sub _master_config {
             {
               ID         => 'LAYER4',
               BIOTYPES   => [
+                             'realign_4',
                              'fish_pe12_sp_3',
                              'fish_pe12_tr_3',
                              'human_pe12_sp_1',
@@ -874,10 +878,128 @@ sub _master_config {
               DISCARD    => 0,
             },
     ],
+    cat => [ { ID         => 'LAYER1', BIOTYPES   => [ 'IG_C_gene', 'IG_J_gene', 'IG_V_gene', 'IG_D_gene', 'TR_C_gene', 'TR_J_gene', 'TR_V_gene', 'TR_D_gene', ], DISCARD    => 0, }, { ID         => 'LAYER2', BIOTYPES   => [ 'realign_1', 'realign_2', 'rnaseq_merged_1', 'rnaseq_merged_2', 'rnaseq_merged_3', 'rnaseq_tissue_1', 'self_pe12_sp_1', 'self_pe12_sp_2', ], FILTER_AGAINST => ['LAYER1'], DISCARD    => 0, }, { ID         => 'LAYER3', BIOTYPES   => [ 'rnaseq_tissue_2', 'rnaseq_tissue_3', 'human_pe12_sp_1', 'mouse_pe12_sp_1', 'mammals_pe12_sp_1', ], FILTER_AGAINST => ['LAYER1','LAYER2'], DISCARD    => 0, }, { ID         => 'LAYER4', BIOTYPES   => [ 'self_pe3_sp_1', 'self_pe3_tr_1', 'human_pe12_sp_2', 'mouse_pe12_sp_2', ], FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'], DISCARD    => 0, }, { ID         => 'LAYER5', BIOTYPES   => [ 'mammals_pe12_sp_2', 'human_pe12_sp_3', 'mouse_pe12_sp_3', 'vert_pe12_sp_1', ], FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'], DISCARD    => 0, }, { ID         => 'LAYER6', BIOTYPES   => [ 'rnaseq_merged_4', 'mammals_pe12_sp_3', 'vert_pe12_sp_3', ], FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'], DISCARD    => 0, }, { ID         => 'LAYER7', BIOTYPES   => [ 'human_pe12_sp_4', 'mouse_pe12_sp_4', 'rnaseq_merged_5', 'rnaseq_tissue_5', 'human_pe12_sp_5', 'mouse_pe12_sp_5', ], FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'], DISCARD    => 0, }, { ID         => 'LAYER8', BIOTYPES   => [ 'human_pe12_tr_5', 'mouse_pe12_tr_5', 'mammals_pe12_sp_4', 'mammals_pe12_tr_4', 'vert_pe12_sp_4', 'vert_pe12_tr_4', 'realign_5', 'human_pe12_tr_2', 'self_pe12_tr_1', 'self_pe12_tr_2', 'human_pe12_tr_1', 'mouse_pe12_tr_1', 'mammals_pe12_tr_1', 'mouse_pe12_tr_2', 'mammals_pe12_tr_2', 'human_pe12_tr_3', 'mouse_pe12_tr_3', 'vert_pe12_tr_1', 'mammals_pe12_tr_3', 'vert_pe12_tr_3', 'human_pe12_tr_4', 'mouse_pe12_tr_4', ], FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'], DISCARD    => 0, }, ],
   );
   return $config{$key};
 }
 
+genebuild1 [{'BIOTYPES' => ['IG_C_gene','IG_J_gene','IG_V_gene','IG_D_gene','TR_C_gene','TR_J_gene','TR_V_gene','TR_D_gene'],'DISCARD' => 0,'ID' => 'LAYER1'},{'BIOTYPES' => ['realign_1','realign_2','rnaseq_merged_1','rnaseq_merged_2','rnaseq_merged_3','rnaseq_tissue_1','self_pe12_sp_1','self_pe12_tr_1','self_pe12_sp_2','self_pe12_tr_2'],'DISCARD' => 0,'FILTER_AGAINST' => ['LAYER1'],'ID' => 'LAYER2'},{'BIOTYPES' => ['rnaseq_tissue_2','rnaseq_tissue_3','human_pe12_sp_1','human_pe12_tr_1','mouse_pe12_sp_1','mouse_pe12_tr_1','mammals_pe12_sp_1','mammals_pe12_tr_1'],'DISCARD' => 0,'FILTER_AGAINST' => ['LAYER1','LAYER2'],'ID' => 'LAYER3'},{'BIOTYPES' => ['self_pe3_sp_1','self_pe3_tr_1','human_pe12_tr_2','human_pe12_sp_2','mouse_pe12_sp_2','mouse_pe12_tr_2'],'DISCARD' => 0,'FILTER_AGAINST' => ['LAYER1','LAYER2','LAYER3'],'ID' => 'LAYER4'},{'BIOTYPES' => ['mammals_pe12_sp_2','mammals_pe12_tr_2','human_pe12_sp_3','human_pe12_tr_3','mouse_pe12_sp_3','mouse_pe12_tr_3','vert_pe12_sp_1','vert_pe12_tr_1'],'DISCARD' => 0,'FILTER_AGAINST' => ['LAYER1','LAYER2','LAYER3','LAYER4'],'ID' => 'LAYER5'},{'BIOTYPES' => ['rnaseq_merged_4','mammals_pe12_sp_3','mammals_pe12_tr_3','vert_pe12_sp_3','vert_pe12_tr_3'],'DISCARD' => 0,'FILTER_AGAINST' => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'],'ID' => 'LAYER6'},{'BIOTYPES' => ['human_pe12_sp_4','human_pe12_tr_4','mouse_pe12_sp_4','mouse_pe12_tr_4','rnaseq_merged_5','rnaseq_tissue_5','human_pe12_sp_5','mouse_pe12_sp_5'],'DISCARD' => 0,'FILTER_AGAINST' => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],'ID' => 'LAYER7'},{'BIOTYPES' => ['human_pe12_tr_5','mouse_pe12_tr_5','mammals_pe12_sp_4','mammals_pe12_tr_4','vert_pe12_sp_4','vert_pe12_tr_4','realign_5'],'DISCARD' => 0,'FILTER_AGAINST' => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'],'ID' => 'LAYER8'}]
 
 1;
-
+count(*) | biotype           |
++----------+-------------------+
+|     2576 | human_pe12_sp_1   |
+|     4596 | human_pe12_sp_2   |
+|      490 | human_pe12_sp_3   |
+|     5667 | human_pe12_sp_4   |
+|      445 | human_pe12_sp_5   |
+|     2072 | human_pe12_sp_6   |
+|       36 | human_pe12_sp_7   |
+|     4672 | human_pe12_tr_1   |
+|     9508 | human_pe12_tr_2   |
+|     1880 | human_pe12_tr_3   |
+|    12295 | human_pe12_tr_4   |
+|     1513 | human_pe12_tr_5   |
+|     3619 | human_pe12_tr_6   |
+|       58 | human_pe12_tr_7   |
+|     6505 | mammals_pe12_sp_1 |
+|    11501 | mammals_pe12_sp_2 |
+|     1282 | mammals_pe12_sp_3 |
+|    12724 | mammals_pe12_sp_4 |
+|     1288 | mammals_pe12_sp_5 |
+|     4495 | mammals_pe12_sp_6 |
+|       85 | mammals_pe12_sp_7 |
+|    33263 | mammals_pe12_tr_1 |
+|    53077 | mammals_pe12_tr_2 |
+|     7228 | mammals_pe12_tr_3 |
+|    69721 | mammals_pe12_tr_4 |
+|     5797 | mammals_pe12_tr_5 |
+|    20746 | mammals_pe12_tr_6 |
+|      254 | mammals_pe12_tr_7 |
+|     3353 | mouse_pe12_sp_1   |
+|     7834 | mouse_pe12_sp_2   |
+|      868 | mouse_pe12_sp_3   |
+|     8694 | mouse_pe12_sp_4   |
+|      731 | mouse_pe12_sp_5   |
+|     3171 | mouse_pe12_sp_6   |
+|       48 | mouse_pe12_sp_7   |
+|     4920 | mouse_pe12_tr_1   |
+|    12158 | mouse_pe12_tr_2   |
+|     2018 | mouse_pe12_tr_3   |
+|    17439 | mouse_pe12_tr_4   |
+|     1615 | mouse_pe12_tr_5   |
+|     6071 | mouse_pe12_tr_6   |
+|      126 | mouse_pe12_tr_7   |
+|      137 | self_pe12_sp_1    |
+|       26 | self_pe12_sp_2    |
+|        7 | self_pe12_sp_3    |
+|       45 | self_pe12_sp_4    |
+|        8 | self_pe12_sp_5    |
+|       23 | self_pe12_sp_6    |
+|      372 | self_pe12_tr_1    |
+|       95 | self_pe12_tr_2    |
+|       63 | self_pe12_tr_3    |
+|      172 | self_pe12_tr_4    |
+|       12 | self_pe12_tr_5    |
+|       86 | self_pe12_tr_6    |
+|        5 | self_pe12_tr_7    |
+|       34 | self_pe3_sp_1     |
+|        2 | self_pe3_sp_2     |
+|        1 | self_pe3_sp_3     |
+|        4 | self_pe3_sp_4     |
+|        1 | self_pe3_sp_5     |
+|        6 | self_pe3_sp_6     |
+|     5422 | self_pe3_tr_1     |
+|     1453 | self_pe3_tr_2     |
+|      520 | self_pe3_tr_3     |
+|     3766 | self_pe3_tr_4     |
+|      368 | self_pe3_tr_5     |
+|     1845 | self_pe3_tr_6     |
+|       60 | self_pe3_tr_7     |
+|      945 | vert_pe12_sp_1    |
+|     3333 | vert_pe12_sp_2    |
+|      498 | vert_pe12_sp_3    |
+|     8282 | vert_pe12_sp_4    |
+|      665 | vert_pe12_sp_5    |
+|     3160 | vert_pe12_sp_6    |
+|      123 | vert_pe12_sp_7    |
+|     5599 | vert_pe12_tr_1    |
+|    26035 | vert_pe12_tr_2    |
+|     4127 | vert_pe12_tr_3    |
+|    76690 | vert_pe12_tr_4    |
+|     6548 | vert_pe12_tr_5    |
+|    30028 | vert_pe12_tr_6    |
+|      758 | vert_pe12_tr_7
+| count(*) | biotype                |
++----------+------------------------+
+|        9 | IG_C_gene              |
+|       15 | IG_V_gene              |
+|        2 | TR_C_gene              |
+|        4 | TR_J_gene              |
+|        7 | TR_V_gene              |
+ count(*) | biotype         |
++----------+-----------------+
+|     7433 | rnaseq_merged   |
+|     4285 | rnaseq_merged_1 |
+|      666 | rnaseq_merged_2 |
+|      796 | rnaseq_merged_3 |
+|     1109 | rnaseq_merged_4 |
+|      588 | rnaseq_merged_5 |
+|     1014 | rnaseq_merged_6 |
+|      121 | rnaseq_merged_7 |
+|     1433 | rnaseq_merged_8 |
+|    41686 | rnaseq_tissue   |
+|    96666 | rnaseq_tissue_1 |
+|    10711 | rnaseq_tissue_2 |
+|    14707 | rnaseq_tissue_3 |
+|    24220 | rnaseq_tissue_4 |
+|    15399 | rnaseq_tissue_5 |
+|    32485 | rnaseq_tissue_6 |
+|     2699 | rnaseq_tissue_7 |
+|    66589 | rnaseq_tissue_8
+count(*) | biotype    |
++----------+------------+
+|       20 | realign_0  |
+|     9016 | realign_50 |
+|    24861 | realign_80 |
+|    17496 | realign_95 |

@@ -66,6 +66,7 @@ package Bio::EnsEMBL::Analysis::Runnable::Pseudogene;
 
 use warnings ;
 use strict;
+use feature 'say';
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Feature;
@@ -118,7 +119,8 @@ sub new {
        $PS_MULTI_EXON_DIR,    $BLESSED_BIOTYPES,
        $PS_PSEUDO_TYPE,       $PS_BIOTYPE,
        $KEEP_TRANS_BIOTYPE,   $PS_REPEAT_TYPE,
-       $DEBUG )
+       $DEBUG,                $MAX_FRAMESHIFT_INTRONS,
+       $single_multi_file,)
     = rearrange( [ qw(
         GENES
         REPEAT_FEATURES
@@ -138,7 +140,9 @@ sub new {
         PS_BIOTYPE
         KEEP_TRANS_BIOTYPE
         PS_REPEAT_TYPE
-        DEBUG)
+        DEBUG
+        MAX_FRAMESHIFT_INTRONS
+        single_multi_file)
     ],
     @args );
 
@@ -161,6 +165,8 @@ sub new {
   $self->PS_BIOTYPE($PS_BIOTYPE);
   $self->PS_REPEAT_TYPE($PS_REPEAT_TYPE);
   $self->DEBUG($DEBUG);
+  $self->MAX_FRAMESHIFT_INTRONS($MAX_FRAMESHIFT_INTRONS);
+  $self->single_multi_file($single_multi_file);
   return $self;
 } ## end sub new
 
@@ -178,7 +184,7 @@ sub run {
   my ($self) = @_;
   $self->test_genes;
   $self->summary;
-  if ($self->SINGLE_EXON){
+  if ($self->SINGLE_EXON && !$self->single_multi_file){
     # Write out multiple exon genes for making into blast db for Spliced_elsewhere, 1 at end specifies not to delete these files
     my $filename = $self->create_filename('multi_exon_seq','fasta',$self->PS_MULTI_EXON_DIR, 1);
     $self->write_seq_array($self->multi_exon_genes,$filename);
@@ -602,6 +608,7 @@ sub transcript_evidence {
                                     -END    => $exon->start - 1,
                                     -STRAND => $exon->strand,
                                     -SLICE  => $exon->slice );
+
       if ( $intron->length > $self->PS_FRAMESHIFT_INTRON_LENGTH ) {
         $n_real_intron++;
       } else {
@@ -1269,7 +1276,7 @@ sub PS_PSEUDO_TYPE{
     $self->{'PS_PSEUDO_TYPE'} = $arg;
   }
   return $self->{'PS_PSEUDO_TYPE'};
-} 
+}
 
 sub MAX_FRAMESHIFT_INTRONS{
     my ($self, $arg) = @_;
@@ -1278,6 +1285,8 @@ sub MAX_FRAMESHIFT_INTRONS{
     }
     return $self->{'MAX_FRAMESHIFT_INTRONS'};
 }
+
+
 sub KEEP_TRANS_BIOTYPE{
   my ($self, $arg) = @_;
   if(defined $arg){
@@ -1300,6 +1309,15 @@ sub DEBUG{
     $self->{'DEBUG'} = $arg;
   }
   return $self->{'DEBUG'};
+}
+
+
+sub single_multi_file {
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->{'_single_multi_file'} = $arg;
+  }
+  return $self->{'_single_multi_file'};
 }
 
 

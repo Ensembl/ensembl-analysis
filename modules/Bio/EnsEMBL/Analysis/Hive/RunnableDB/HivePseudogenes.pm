@@ -1,13 +1,14 @@
 =head1 LICENSE
 
 # Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# 
+#Copyright [2016-2018] EMBL-European Bioinformatics Institute
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -123,47 +124,78 @@ sub fetch_input {
   $self->hrdb_set_con($repeat_dba,'repeat_db');
   $self->hrdb_set_con($output_dba,'output_db');
 
-#  my $results = [];    # array ref to store the output
-  my $repeat_blocks;
-#  my %homolog_hash;
-#  my @transferred_genes;
-
-  my $repeat_slice_adaptor = $repeat_dba->get_SliceAdaptor;
-  my $gene_id = $self->param('iid');
   my $gene_adaptor = $input_dba->get_GeneAdaptor;
-  my $gene = $gene_adaptor->fetch_by_dbID($gene_id);
+  my $genes = $gene_adaptor->fetch_all();
+  $self->genes($genes);
+
+  return 1;
+} ## end sub fetch_input
+
+
+sub run {
+  my ($self) = @_;
+
+  my $genes = $self->genes();
+  unless(scalar(@$genes)) {
+    $self->throw("No genes to input to module");
+  }
+
+  my $output_path = $self->param_required('output_path');
+  open(OUT,">".$output_path."/all_multi_exon_genes.fasta");
+  my $repeat_dba = $self->hrdb_get_con('repeat_db');
+  my $repeat_slice_adaptor = $repeat_dba->get_SliceAdaptor();
+  foreach my $gene (@$genes) {
+    say "Processing gene: ".$gene->dbID();
+
+    # Skip things that are not explicitly protein coding
+    if($gene->biotype ne 'protein_coding') {
+      "Say skipping gene ".$gene->dbID." with biotype ".$gene->biotype;
+      $self->output([$gene]);
+      next;
+    }
+
+    my $runnable = $self->make_runnable($gene,$repeat_slice_adaptor);
+    $runnable->run();
+    $self->output($runnable->output());
+
+    if($self->SINGLE_EXON) {
+      if(scalar(@{$gene->get_all_Exons}) == 1) {
+        say "Will analyse ".$gene->dbID." in spliced elsewhere";
+      } else {
+        my $transcripts = $gene->get_all_Transcripts;
+        foreach my $transcript (@$transcripts) {
+          say OUT ">".$transcript->dbID;
+          say OUT $transcript->translateable_seq();
+        }
+      }
+    }
+  }
+  close OUT;
+}
+
+sub make_runnable {
+  my ($self,$gene,$repeat_slice_adaptor) = @_;
+
   my $gene_slice = $gene->slice();
+  my $repeat_blocks;
+
 
   # due to offset with repeat features
   my $toplevel_slice = $repeat_slice_adaptor->fetch_by_region( 'toplevel', $gene_slice->seq_region_name);
   my $transferred_gene = $gene->transfer($toplevel_slice);
   my $repeat_slice = $repeat_slice_adaptor->fetch_by_region('toplevel', $gene_slice->seq_region_name,$transferred_gene->start,$transferred_gene->end);
 
-  say "Repeat slice name: ".$repeat_slice->name;
-
-  $self->query($gene_slice);
   my @feats = @{$repeat_slice->get_all_RepeatFeatures};
   @feats = map { $_->transfer($toplevel_slice) } @feats;
   my $blocks = $self->get_all_repeat_blocks(\@feats);
   # make hash of repeat blocks using the gene as the key
   $repeat_blocks->{$transferred_gene} = $blocks;
 
-  $self->genes([$transferred_gene]);
-  $self->repeat_blocks($repeat_blocks);
-  $self->make_runnable;
-
-  return 1;
-} ## end sub fetch_input
-
-
-sub make_runnable {
-  my ($self) = @_;
-
   my $runnable =
     Bio::EnsEMBL::Analysis::Runnable::Pseudogene->new(
            -analysis                    => $self->analysis,
-           -genes                       => $self->genes,
-           -repeat_features             => $self->repeat_blocks,
+           -genes                       => [$transferred_gene],
+           -repeat_features             => $repeat_blocks,
            -PS_REPEAT_TYPES             => $self->PS_REPEAT_TYPES,
            -PS_FRAMESHIFT_INTRON_LENGTH => $self->PS_FRAMESHIFT_INTRON_LENGTH,
            -PS_MAX_INTRON_LENGTH        => $self->PS_MAX_INTRON_LENGTH,
@@ -180,8 +212,11 @@ sub make_runnable {
            -KEEP_TRANS_BIOTYPE          => $self->KEEP_TRANS_BIOTYPE,
            -PS_BIOTYPE                  => $self->PS_BIOTYPE,
            -PS_REPEAT_TYPE              => $self->PS_REPEAT_TYPE,
-           -DEBUG                       => $self->DEBUG,);
-  $self->runnable($runnable);
+           -DEBUG                       => $self->DEBUG,
+           -MAX_FRAMESHIFT_INTRONS      => $self->MAX_FRAMESHIFT_INTRONS,
+           -single_multi_file           => $self->param('single_multi_file'));
+
+  return($runnable);
 } ## end sub make_runnable
 
 
@@ -191,7 +226,7 @@ sub make_runnable {
   Description: merges repeats into blocks for each gene
   Returntype : array of Seq_Feature blocks;
 
-=cut 
+=cut
 
 sub get_all_repeat_blocks {
   my ( $self, $repeat_ref ) = @_;
@@ -254,43 +289,8 @@ sub write_output {
     $gene_adaptor->store($gene);
   }
 
-  my $spliced_elsewhere_ids = $self->spliced_elsewhere_ids();
-  if($spliced_elsewhere_ids) {
-    foreach my $id (@{$spliced_elsewhere_ids}) {
-      my $output_hash = {};
-      $output_hash->{'iid'} = $id;
-      $self->dataflow_output_id($output_hash,2);
-    }
-  }
-
   return 1;
 } ## end sub write_output
-
-
-=head2 run
-
-  Args       : none
-  Description: overrides runnableDb run method to allow gene objects to be validated 
-before runnning the runnable
-  Returntype : scalar
-
-=cut 
-
-sub run {
-  my ($self) = @_;
-  foreach my $runnable ( @{ $self->runnable } ) {
-    unless($runnable->isa("Bio::EnsEMBL::Analysis::Runnable")) {
-      $self->throw("Runnable module not set");
-    }
-
-    $runnable->run();
-    $self->output($runnable->output);
-    if($self->SINGLE_EXON) {
-      $self->spliced_elsewhere_ids($runnable->single_exon_genes);
-    }
-  }
-  return 1;
-}
 
 
 =head2 lazy_load
@@ -326,7 +326,7 @@ sub lazy_load {
   Description: steves method for removing unwanted transcripts from genes
   Returntype : scalar
 
-=cut 
+=cut
 
 sub _remove_transcript_from_gene {
   my ($self, $gene, $trans_to_del)  = @_;
@@ -378,6 +378,7 @@ sub transcript_to_keep {
 
 sub genes {
   my ($self, $genes) = @_;
+
   if ($genes) {
     foreach my $gene (@{$genes}) {
       unless  ($gene->isa("Bio::EnsEMBL::Gene")){
@@ -472,22 +473,6 @@ sub ignored_genes {
   return $self->param('_ignored_gene');
 }
 
-
-sub spliced_elsewhere_ids {
-  my ($self, $spliced_elsewhere_genes) = @_;
-  unless($self->param_is_defined('_spliced_elsewhere_ids')) {
-    $self->param('_spliced_elsewhere_ids',[]);
-  }
-
-  if($spliced_elsewhere_genes) {
-    foreach my $dbID (@{$spliced_elsewhere_genes}) {
-      push @{$self->param('_spliced_elsewhere_ids')},$dbID;
-    }
-  }
-  return $self->param('_spliced_elsewhere_ids');
-}
-
-#==================================================================
 
 sub PS_INPUT_DATABASE{
   my ($self, $arg) = @_;
@@ -869,6 +854,15 @@ sub KEEP_TRANS_BIOTYPE{
     $self->param('KEEP_TRANS_BIOTYPE',$arg);
   }
   return $self->param('KEEP_TRANS_BIOTYPE');
+}
+
+
+sub MAX_FRAMESHIFT_INTRONS {
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->param('MAX_FRAMESHIFT_INTRONS',$arg);
+  }
+  return $self->param('MAX_FRAMESHIFT_INTRONS');
 }
 
 1;
