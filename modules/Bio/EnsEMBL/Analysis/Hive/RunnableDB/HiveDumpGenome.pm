@@ -26,6 +26,12 @@ use File::Path qw(make_path);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+sub param_defaults {
+    return {
+      alt_as_scaffolds => 0,
+    }
+}
+
 sub fetch_input {
   my $self = shift;
 
@@ -86,6 +92,7 @@ sub run {
 
   $cmd .= $repeat_string if ($repeat_string);
   $cmd .= ' -dbpass '.$db_info->{-pass} if ($db_info->{-pass});
+  $cmd .= ' -alt_as_scaffolds ' if ($self->param('alt_as_scaffolds'));
 
   if($self->param('patch_only')) {
     $cmd .= " -patch_only ";
