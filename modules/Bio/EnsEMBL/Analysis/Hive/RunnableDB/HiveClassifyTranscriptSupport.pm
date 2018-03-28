@@ -176,7 +176,7 @@ sub write_output {
   my $classification = $self->param('classification');
 
   if($self->param('classification_type') eq 'standard') {
-    foreach my $key (sort {$a <=> $b} keys %{$classification}) {
+    foreach my $key (sort {$b <=> $a} keys %{$classification}) {
       $sth->bind_param(1, '_'.$key);
       $sth->bind_param(2, $classification->{$key}->[0]);
       $sth->bind_param(3, $classification->{$key}->[1]);
