@@ -59,7 +59,7 @@ use warnings;
 
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(empty_Object);
-
+use Bio::EnsEMBL::Hive::Utils qw(destringify);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -109,7 +109,7 @@ sub fetch_input {
   my ($self) = @_;
 
   my $source = $self->param_required('source_type');
-  my $analysis_data = eval($self->param_required('analyses'));
+  my $analysis_data = $self->param_required('analyses');
   my $target_db = $self->get_database_by_name('target_db');
   $self->hrdb_set_con($target_db, 'target_db');
   if ($source eq 'db') {
@@ -127,8 +127,11 @@ sub fetch_input {
     }
   }
   elsif ($source eq 'list') {
-    if ($analysis_data) {
-      foreach my $analysis_hash ($analysis_data) {
+   if (ref($analysis_data) ne "ARRAY"){
+      $analysis_data = [destringify ($analysis_data)];
+   }
+    if (@$analysis_data) {
+      foreach my $analysis_hash (@$analysis_data) {
         $self->throw("'$analysis_hash' is not a hashref") unless (ref($analysis_hash) eq 'HASH');
         foreach my $key (keys %$analysis_hash) {
           if ($key !~ /^-/) {
@@ -166,7 +169,7 @@ sub run {
   if ($self->param_is_defined('analysis_data')) {
     my @analyses;
 
-    foreach my $hash (eval{$self->param('analysis_data')}) {
+    foreach my $hash (@{$self->param('analysis_data')}) {
       push(@analyses, Bio::EnsEMBL::Analysis->new(%$hash));
     }
     $self->output(\@analyses);
