@@ -55,21 +55,20 @@ sub default_options {
         'port'                       => '',
         species    => '',
 
-        'pipe_dbname'                => $ENV{USER}.'_'.$self->o('pipeline_name').'_hive',
-        'dna_dbname'                 => '',
-        'blast_output_dbname'     => $ENV{USER}.'_'.$self->o('pipeline_name').'_'.$self->o('species').'_blast',
-        'refine_output_dbname'     => $ENV{USER}.'_'.$self->o('pipeline_name').'_'.$self->o('species').'_refine',
-        'rough_output_dbname'    => $ENV{USER}.'_'.$self->o('pipeline_name').'_'.$self->o('species').'_rough',
+        'pipe_db_name'                => $self->o('dbowner').'_'.$self->o('pipeline_name').'_hive',
+        'dna_db_name'                 => '',
+        'blast_db_name'     => $self->o('dbowner').'_'.$self->o('pipeline_name').'_'.$self->o('species').'_blast',
+        'refine_db_name'     => $self->o('dbowner').'_'.$self->o('pipeline_name').'_'.$self->o('species').'_refine',
+        'rough_db_name'    => $self->o('dbowner').'_'.$self->o('pipeline_name').'_'.$self->o('species').'_rough',
 
         'pipe_db_server'             => '',
         'dna_db_server'              => '',
-        'blast_output_db_server'  => '',
-        'refine_output_db_server'  => '',
-        'rough_output_db_server' => '',
+        'blast_db_server'  => '',
+        'refine_db_server'  => '',
+        'rough_db_server' => '',
         'genome_file'                => 'genome/genome.fa',
         'use_ucsc_naming' => 0,
 
-        'clone_db_script_path'       => $ENV{ENSCODE}.'/ensembl-analysis/scripts/clone_database.ksh',
         'create_type'       => 'clone',
         'rnaseq_summary_file'         => '',
 
@@ -149,25 +148,25 @@ sub default_options {
 ##########################################################################
 
         sam_attributes => 'NH HI AS MD XS',
-        'blast_output_db' => {
-                           -dbname => $self->o('blast_output_dbname'),
-                           -host   => $self->o('blast_output_db_server'),
+        'blast_db' => {
+                           -dbname => $self->o('blast_db_name'),
+                           -host   => $self->o('blast_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user'),
                            -pass   => $self->o('password'),
                          },
 
-        'refine_output_db' => {
-                           -dbname => $self->o('refine_output_dbname'),
-                           -host   => $self->o('refine_output_db_server'),
+        'refine_db' => {
+                           -dbname => $self->o('refine_db_name'),
+                           -host   => $self->o('refine_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user'),
                            -pass   => $self->o('password'),
                         },
 
-        'rough_output_db' => {
-                           -dbname => $self->o('rough_output_dbname'),
-                           -host   => $self->o('rough_output_db_server'),
+        'rough_db' => {
+                           -dbname => $self->o('rough_db_name'),
+                           -host   => $self->o('rough_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user'),
                            -pass   => $self->o('password'),
@@ -259,7 +258,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -rc_name => '1GB',
         -parameters => {
-            cmd => 'EXIT_CODE=0; for F in #wide_short_read_aligner# #wide_samtools# '.join (' ', $self->o('splicing_aligner'), $self->o('clone_db_script_path'), $self->o('sequence_dump_script'), $self->o('blastp')).'; do which "$F"; if [ "$?" == 1 ]; then EXIT_CODE=1;fi; done; for D in #wide_output_dir# #wide_input_dir# #wide_merge_dir# #wide_output_sam_dir# `dirname #wide_genome_file#`; do mkdir -p "$D"; done; exit $EXIT_CODE',
+            cmd => 'EXIT_CODE=0; for F in #wide_short_read_aligner# #wide_samtools# '.join (' ', $self->o('splicing_aligner'), $self->o('sequence_dump_script'), $self->o('blastp')).'; do which "$F"; if [ "$?" == 1 ]; then EXIT_CODE=1;fi; done; for D in #wide_output_dir# #wide_input_dir# #wide_merge_dir# #wide_output_sam_dir# `dirname #wide_genome_file#`; do mkdir -p "$D"; done; exit $EXIT_CODE',
         },
         -input_ids => [{}],
         -flow_into => {
@@ -272,7 +271,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -rc_name => '1GB',
         -parameters => {
-            cmd => 'if [ ! -e "#wide_genome_file#" ]; then perl '.$self->o('sequence_dump_script').' -dbhost '.$self->o('dna_db_server').' -dbuser '.$self->o('user_r').' -dbport '.$self->o('port').' -dbname '.$self->o('dna_dbname').' -coord_system_name '.$self->o('assembly_name').' -toplevel -onefile -header rnaseq -filename #wide_genome_file#;fi; if [ ! -e ',
+            cmd => 'if [ ! -e "#wide_genome_file#" ]; then perl '.$self->o('sequence_dump_script').' -dbhost '.$self->o('dna_db_server').' -dbuser '.$self->o('user_r').' -dbport '.$self->o('port').' -dbname '.$self->o('dna_db_name').' -coord_system_name '.$self->o('assembly_name').' -toplevel -onefile -header rnaseq -filename #wide_genome_file#;fi; if [ ! -e ',
         },
         -flow_into => {
             1 => [ 'index_genome_file'],
@@ -364,39 +363,36 @@ sub pipeline_analyses {
         -rc_name    => '60GB_multithread',
       },
       {
-        -logic_name => 'create_rough_output_db',
+        -logic_name => 'create_rough_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
                          source_db => $self->o('dna_db'),
-                         target_db => $self->o('rough_output_db'),
+                         target_db => $self->o('rough_db'),
                          create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
                        },
         -meadow_type => 'LOCAL',
         -input_ids => [{}],
       },
 
       {
-        -logic_name => 'create_refine_output_db',
+        -logic_name => 'create_refine_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
                          source_db => $self->o('dna_db'),
-                         target_db => $self->o('refine_output_db'),
+                         target_db => $self->o('refine_db'),
                          create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
                        },
         -meadow_type => 'LOCAL',
         -input_ids => [{}],
       },
 
       {
-        -logic_name => 'create_blast_output_db',
+        -logic_name => 'create_blast_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
                          source_db => $self->o('dna_db'),
-                         target_db => $self->o('blast_output_db'),
+                         target_db => $self->o('blast_db'),
                          create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
                        },
         -meadow_type => 'LOCAL',
         -input_ids => [{}],
@@ -474,9 +470,9 @@ sub pipeline_analyses {
                          slice => 1,
                          include_non_reference => 0,
                          top_level => 1,
-                         target_db => $self->o('rough_output_db'),
+                         target_db => $self->o('rough_db'),
                        },
-        -wait_for => ['create_rough_output_db'],
+        -wait_for => ['create_rough_db'],
         -flow_into => {
                         2 => {'dispatch_toplevel' => {'iid' => '#iid#', alignment_bam_file => '#filename#'}},
                       },
@@ -500,7 +496,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Genes',
         -parameters => {
                          logic_name => 'rough_transcripts',
-                         output_db    => $self->o('rough_output_db'),
+                         output_db    => $self->o('rough_db'),
                          dna_db    => $self->o('dna_db'),
                          alignment_bam_file => '#wide_merge_dir#/merged.bam',
                          min_length => 300,
@@ -524,7 +520,7 @@ sub pipeline_analyses {
         -can_be_empty => 1,
         -parameters => {
                          logic_name => 'rough_transcripts',
-                         output_db    => $self->o('rough_output_db'),
+                         output_db    => $self->o('rough_db'),
                          dna_db    => $self->o('dna_db'),
                          alignment_bam_file => '#wide_merge_dir#/merged.bam',
                          min_length => 300,
@@ -548,7 +544,7 @@ sub pipeline_analyses {
         -can_be_empty => 1,
         -parameters => {
                          logic_name => 'rough_transcripts',
-                         output_db    => $self->o('rough_output_db'),
+                         output_db    => $self->o('rough_db'),
                          dna_db    => $self->o('dna_db'),
                          alignment_bam_file => '#wide_merge_dir#/merged.bam',
                          min_length => 300,
@@ -574,7 +570,7 @@ sub pipeline_analyses {
                          slice => 1,
                          include_non_reference => 0,
                          top_level => 1,
-                         target_db => $self->o('rough_output_db'),
+                         target_db => $self->o('rough_db'),
                        },
         -flow_into => {
                         2 => ['create_refine_genes_jobs'],
@@ -600,9 +596,9 @@ sub pipeline_analyses {
         -logic_name => 'refine_genes',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
         -parameters => {
-               input_db => $self->o('rough_output_db'),
+               input_db => $self->o('rough_db'),
                dna_db => $self->o('dna_db'),
-               output_db => $self->o('refine_output_db'),
+               output_db => $self->o('refine_db'),
                # write the intron features into the OUTPUT_DB along with the models
                write_introns => 1,
                # maximum number of times to loop when building all possible paths through the transcript
@@ -649,7 +645,7 @@ sub pipeline_analyses {
                        },
 
         -rc_name          => '2GB_refine',
-        -wait_for => ['create_refine_output_db'],
+        -wait_for => ['create_refine_db'],
         -flow_into => {
                         1 => ['blast_rnaseq'],
                         -1 => ['refine_genes_5GB'],
@@ -661,9 +657,9 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
         -can_be_empty => 1,
         -parameters => {
-               input_db => $self->o('rough_output_db'),
+               input_db => $self->o('rough_db'),
                dna_db => $self->o('dna_db'),
-               output_db => $self->o('refine_output_db'),
+               output_db => $self->o('refine_db'),
                # write the intron features into the OUTPUT_DB along with the models
                write_introns => 1,
                # maximum number of times to loop when building all possible paths through the transcript
@@ -728,7 +724,7 @@ sub pipeline_analyses {
                          slice_size => 10000000,
                          include_non_reference => 0,
                          top_level => 1,
-                         target_db => $self->o('refine_output_db'),
+                         target_db => $self->o('refine_db'),
                        },
 
         -flow_into => {
@@ -740,9 +736,9 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
         -can_be_empty => 1,
         -parameters => {
-               input_db => $self->o('rough_output_db'),
+               input_db => $self->o('rough_db'),
                dna_db => $self->o('dna_db'),
-               output_db => $self->o('refine_output_db'),
+               output_db => $self->o('refine_db'),
                # write the intron features into the OUTPUT_DB along with the models
                write_introns => 1,
                # maximum number of times to loop when building all possible paths through the transcript
@@ -800,9 +796,9 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
         -can_be_empty => 1,
         -parameters => {
-               input_db => $self->o('rough_output_db'),
+               input_db => $self->o('rough_db'),
                dna_db => $self->o('dna_db'),
-               output_db => $self->o('refine_output_db'),
+               output_db => $self->o('refine_db'),
                # write the intron features into the OUTPUT_DB along with the models
                write_introns => 1,
                # maximum number of times to loop when building all possible paths through the transcript
@@ -859,9 +855,9 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
         -can_be_empty => 1,
         -parameters => {
-               input_db => $self->o('rough_output_db'),
+               input_db => $self->o('rough_db'),
                dna_db => $self->o('dna_db'),
-               output_db => $self->o('refine_output_db'),
+               output_db => $self->o('refine_db'),
                # write the intron features into the OUTPUT_DB along with the models
                write_introns => 1,
                # maximum number of times to loop when building all possible paths through the transcript
@@ -917,9 +913,9 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRefineSolexaGenes',
         -can_be_empty => 1,
         -parameters => {
-               input_db => $self->o('rough_output_db'),
+               input_db => $self->o('rough_db'),
                dna_db => $self->o('dna_db'),
-               output_db => $self->o('refine_output_db'),
+               output_db => $self->o('refine_db'),
                # write the intron features into the OUTPUT_DB along with the models
                write_introns => 1,
                # maximum number of times to loop when building all possible paths through the transcript
@@ -976,8 +972,8 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
         -parameters => {
 
-            input_db => $self->o('refine_output_db'),
-            output_db => $self->o('blast_output_db'),
+            input_db => $self->o('refine_db'),
+            output_db => $self->o('blast_db'),
             dna_db => $self->o('dna_db'),
 
             # path to index to fetch the sequence of the blast hit to calculate % coverage
@@ -988,7 +984,7 @@ sub pipeline_analyses {
             commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->default_options->{'use_threads'}.' -hitdist=40' : '-p blastp -A 40',
                       },
         -rc_name => '2GB_blast',
-        -wait_for => ['create_blast_output_db'],
+        -wait_for => ['create_blast_db'],
       },
     );
     foreach my $analyses (@analysis) {
@@ -1003,26 +999,26 @@ sub resource_classes {
     return {
         %{ $self->SUPER::resource_classes() },  # inherit other stuff from the base class
       '1GB' => { LSF => $self->lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}])},
-      '1GB_rough' => { LSF => $self->lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}])},
-      '2GB_rough' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}])},
-      '5GB_rough' => { LSF => $self->lsf_resource_builder('long', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}])},
-      '15GB_rough' => { LSF => $self->lsf_resource_builder('long', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}])},
-      '2GB_blast' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refine_output_db_server'}, $self->default_options->{'blast_output_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
+      '1GB_rough' => { LSF => $self->lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
+      '2GB_rough' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
+      '5GB_rough' => { LSF => $self->lsf_resource_builder('long', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
+      '15GB_rough' => { LSF => $self->lsf_resource_builder('long', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
+      '2GB_blast' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refine_db_server'}, $self->default_options->{'blast_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
       '2GB' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}])},
       '4GB' => { LSF => $self->lsf_resource_builder('normal', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}])},
       '5GB' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}])},
-      '2GB_introns' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}])},
-      '2GB_refine' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_output_db_server'}])},
-      '5GB_introns' => { LSF => $self->lsf_resource_builder('long', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}])},
-      '10GB_introns' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}])},
+      '2GB_introns' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
+      '2GB_refine' => { LSF => $self->lsf_resource_builder('normal', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
+      '5GB_introns' => { LSF => $self->lsf_resource_builder('long', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
+      '10GB_introns' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
       '3GB_multithread' => { LSF => $self->lsf_resource_builder('long', 3000, [$self->default_options->{'pipe_db_server'}], undef, $self->default_options->{'use_threads'})},
       '5GB_multithread' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
       '10GB_multithread' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
       '20GB_multithread' => { LSF => $self->lsf_resource_builder('long', 20000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
       '5GB' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}])},
       '10GB' => { LSF => $self->lsf_resource_builder('long', 10000, [$self->default_options->{'pipe_db_server'}])},
-      '5GB_refine' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_output_db_server'}])},
-      '20GB_refine' => { LSF => $self->lsf_resource_builder('normal', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_output_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_output_db_server'}])},
+      '5GB_refine' => { LSF => $self->lsf_resource_builder('normal', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
+      '20GB_refine' => { LSF => $self->lsf_resource_builder('normal', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
     };
 }
 

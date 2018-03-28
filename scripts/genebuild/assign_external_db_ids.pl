@@ -1,4 +1,18 @@
 #!/usr/bin/env perl
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 #
 # script to add external_db_ids to the hit_names
@@ -81,7 +95,7 @@ $| = 1;
 #
 # do some checks on the config before proceeding
 #
-if(!$host || !$dbname || !$conf_file || !$feature_type || !$dump_dir || !$full_path_to_uniprot){
+if(!$host || !$dbname || !$conf_file || !$feature_type || !$dump_dir){
   die "Please define at least host, dbname, conf_file, feature_type, uniprot_filename and dumpdir.\n";
 }
 if ($feature_type ne "protein" && $feature_type ne "dna") {
@@ -90,8 +104,10 @@ if ($feature_type ne "protein" && $feature_type ne "dna") {
 unless ( -e $dump_dir ) {
    die "HEY ! Your dump dir $dump_dir does not exist.\nTRY :    mkdir -p $dump_dir  \n" ;
 }
-unless ( -e $full_path_to_uniprot ) {
-   die "HEY ! Your uniprot_filename $full_path_to_uniprot does not exist. \n" ;
+
+if ($feature_type eq 'protein') {
+  die('You need to provide a UniProtKB accession list like /some/path/uniprot_2018_01/entry_loc') unless ($full_path_to_uniprot);
+  die("HEY ! Your uniprot_filename $full_path_to_uniprot does not exist.\n") unless ( -e $full_path_to_uniprot );
 }
 
 #

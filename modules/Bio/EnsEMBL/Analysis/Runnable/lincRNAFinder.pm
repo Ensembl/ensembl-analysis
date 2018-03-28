@@ -228,7 +228,7 @@ sub filter_genes_with_long_translations {
        my $ratio = sprintf('%.1f',$tl_length*100 /  $tr_length);
        if ( $ratio > $max_trans_length_ratio ) { 
          # The cDNA "genes" have no usable display IDs, hence not printing any in the next line:
-         print "LONG_TRANSLATION: " .  $g   .  " cDNA has translation-length to transcript-length ratio ($ratio) higher than max. value allowed in config ($max_trans_length_ratio).\n";
+         print "LONG_TRANSLATION: " .  Gene_info($g)   .  "  translation-length to transcript-length ratio ($ratio) higher than max. value allowed in config ($max_trans_length_ratio).\n";
          my $analysis =Bio::EnsEMBL::Analysis->new(
                                        -logic_name => 'long_translation_cDNA' ,
                                        );

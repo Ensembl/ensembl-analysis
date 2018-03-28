@@ -117,7 +117,6 @@ sub gene_db_checks {
 
   # Count all the biotypes once, since there's no biotype constraint for transcript adaptors
   my $observed_biotype_counts = {};
-
   foreach my $transcript (@{$transcripts}) {
     my $biotype = $transcript->biotype;
     if($observed_biotype_counts->{$biotype}) {
@@ -126,7 +125,6 @@ sub gene_db_checks {
       $observed_biotype_counts->{$biotype} = 1;
     }
   }
-
   # Note the check will be done on the gene level for now as that's where we typically label logic names
   my $gene_adaptor = $genome_prep_dba->get_GeneAdaptor();
   unless($logic_names) {
@@ -142,11 +140,13 @@ sub gene_db_checks {
   foreach my $gene (@{$genes}) {
       my $logic_name = $gene->analysis->logic_name;
       if($observed_logic_name_counts->{$logic_name}) {
+
           $observed_logic_name_counts->{$logic_name}++;
       } else {
           $observed_logic_name_counts->{$logic_name} = 1;
       }
    } 
+  
   say "Checking logic names:";
   foreach my $logic_name (keys(%{$logic_names})) {
 
@@ -216,5 +216,4 @@ sub count_features {
 }
 
 1;
-#'human_pe12_sp_1', 'human_pe12_sp_2', 'human_pe12_sp_3', 'human_pe12_sp_4', 'human_pe12_sp_5', 'human_pe12_tr_1', 'human_pe12_tr_2', 'human_pe12_tr_3', 'human_pe12_tr_4', 'human_pe12_tr_5', 'IG_C_gene', 'IG_V_gene', 'mammals_pe12_sp_1', 'mammals_pe12_sp_2', 'mammals_pe12_sp_3', 'mammals_pe12_sp_4', 'mammals_pe12_tr_1', 'mammals_pe12_tr_2', 'mammals_pe12_tr_3', 'mammals_pe12_tr_4', 'mouse_pe12_sp_1', 'mouse_pe12_sp_2', 'mouse_pe12_sp_3', 'mouse_pe12_sp_4', 'mouse_pe12_sp_5', 'mouse_pe12_tr_1', 'mouse_pe12_tr_2', 'mouse_pe12_tr_3', 'mouse_pe12_tr_4', 'mouse_pe12_tr_5', 'realign_1', 'realign_2', 'realign_5', 'rnaseq_merged_1', 'rnaseq_merged_2', 'rnaseq_merged_3', 'rnaseq_merged_4', 'rnaseq_merged_5', 'rnaseq_tissue_1', 'rnaseq_tissue_2', 'rnaseq_tissue_3', 'rnaseq_tissue_5', 'self_pe12_sp_1', 'self_pe12_sp_2', 'self_pe12_tr_1', 'self_pe12_tr_2', 'self_pe3_sp_1', 'self_pe3_tr_1', 'TR_C_gene', 'TR_J_gene', 'TR_V_gene', 'vert_pe12_sp_3', 'vert_pe12_sp_4', 'vert_pe12_tr_1', 'vert_pe12_tr_3', 'vert_pe12_tr_4',
-#'
+

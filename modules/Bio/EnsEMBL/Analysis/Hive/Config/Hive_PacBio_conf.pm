@@ -47,7 +47,7 @@ sub default_options {
 ##########################################################################
 
     'pipeline_name' => '',
-    'pipe_dbname'   => $self->o('dbowner').'_'.$self->o('pipeline_name').'_hive',
+    'pipe_db_name'   => $self->o('dbowner').'_'.$self->o('pipeline_name').'_hive',
 
     'host'     => '',
     'user_r'   => '',
@@ -55,7 +55,7 @@ sub default_options {
     'password' => '',
     'port'     => '',
 
-    'dna_dbname'    => '',
+    'dna_db_name'    => '',
     'dna_db_server' => '',
     'dna_db_port'   => '',
 
@@ -84,8 +84,6 @@ sub default_options {
 
     'create_type'                => 'clone',
 
-    'killlist_dbname'           => 'gb_kill_list',
-
     'exonerate_db' => {
       -dbname => $self->o('exonerate_db_name'),
       -host => $self->o('exonerate_db_server'),
@@ -96,7 +94,7 @@ sub default_options {
     },
 
     'killlist_db' => {
-      -dbname => $self->o('killlist_dbname'),
+      -dbname => $self->o('killlist_db_name'),
       -host   => $self->o('killlist_db_server'),
       -port   => $self->o('killlist_db_port'),
       -user   => $self->o('user_r'),
@@ -135,7 +133,6 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('exonerate_db'),
         create_type => $self->o('create_type'),
-        script_path => $self->o('clone_db_script_path'),
       },
       -rc_name => 'default',
       -input_ids => [{cdna_file => $self->o('cdna_file')}],

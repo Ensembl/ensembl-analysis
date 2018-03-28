@@ -1,4 +1,4 @@
-#!/usr/env perl
+#!/usr/bin/env perl
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
@@ -23,7 +23,7 @@ use Bio::EnsEMBL::Test::MultiTestDB;
 
 use Bio::EnsEMBL::Hive::Utils::Test qw(standaloneJob);
 
-use Bio::EnsEMBL::Registry;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_database_from_registry);
 
 use_ok('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses');
 
@@ -54,31 +54,7 @@ standaloneJob(
 my $analysis = $db->get_AnalysisAdaptor->fetch_by_logic_name($logic_name);
 cmp_ok($analysis->logic_name, 'eq', $logic_name, 'Checking analysis present with source_type "list"');
 
-my $registry = 'Bio::EnsEMBL::Registry';
-$registry->load_registry_from_db(
-  -host   => 'ensembldb.ensembl.org',
-  -port   => 3306,
-  -user   => 'anonymous',
-  -species => 'sus_scrofa',
-);
-my $core_db;
-eval {
-  $core_db = $registry->get_DBAdaptor('sus_scrofa', 'Core');
-};
-if ($@) {
-# Because the branching happens earlier I need to put this piece of code
-# to make sure that we connect to the latest release. It is OK because
-# the analysis table is unlikely to change
-  $@ =~ /Ensembl API version\s+=\s+(\d+)/;
-  $registry->load_registry_from_db(
-    -host   => 'ensembldb.ensembl.org',
-    -port   => 3306,
-    -user   => 'anonymous',
-    -species => 'sus_scrofa',
-    -db_version => $1-1,
-  );
-  $core_db = $registry->get_DBAdaptor('sus_scrofa', 'Core');
-}
+my $core_db = get_database_from_registry('sus_scrofa', 'Core');
 my %source_db = (
   -dbname => $core_db->dbc->dbname,
   -host   => $core_db->dbc->host,

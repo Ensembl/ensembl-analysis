@@ -62,7 +62,6 @@ use Getopt::Long;
 use File::Basename;
 use File::Find;
 use List::Util qw(sum);
-use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 use Bio::EnsEMBL::DBEntry;
 
 sub param_defaults {
@@ -117,7 +116,7 @@ sub run {
   $self->param_required('output_filename');
 
   # insert ccds_transcript attributes and CCDS transcripts as supporting features
-  my @missing_ccds = insert_ccds_labels($self->param('chromosome'),
+  my @missing_ccds = $self->insert_ccds_labels($self->param('chromosome'),
                                         $self->param('assembly_path'),
                                         $self->param('ccds_dbname'),
                                         $self->param('ccds_host'),
@@ -146,7 +145,8 @@ sub run {
 sub insert_ccds_labels {
 # Deletes the existing ccds attributes 'ccds_transcript', the CCDS dna_align_features and the CCDS transcript xrefs on the specified chromosome or top-level sequence or all top-level sequences.
 # Inserts a ccds_transcript attribute, a CCDS transcript as supporting feature and a CCDS transcript xref into the output database for each transcript whose CDS and translation match a CCDS transcript in the CCDS database.
-  my ($chromosome,
+  my ($self,
+      $chromosome,
       $assembly_path,
       $ccds_dbname,
       $ccds_host,
@@ -261,7 +261,7 @@ sub insert_ccds_labels {
       if ($ccds_translation) {
         $ccds_translation_seq = $ccds_translation->seq();
       } else {
-        throw($ccds_transcript->stable_id()." does not have a translation");
+        $self->throw($ccds_transcript->stable_id()." does not have a translation");
       }
 
       # check if any overlapping transcript matches ccds and add attribute and feature
@@ -272,16 +272,16 @@ sub insert_ccds_labels {
         if ($output_translation) {
           $output_translation_seq = $output_translation->seq();
         } else {
-      	  throw($output_transcript->stable_id()." does not have a translation");
+          $self->throw($output_transcript->stable_id()." does not have a translation");
         }
 
         my @translateable_exons = @{$output_transcript->get_all_translateable_Exons()};
 
         if (features_are_same(\@translateable_exons,$ccds_transcript->get_all_translateable_Exons())) {
           if ($output_translation_seq eq $ccds_translation_seq) {
-            add_ccds_transcript_attrib($output_dba,$output_transcript,$ccds_transcript->stable_id());
-            add_ccds_supporting_feature($output_dba,$ccds_transcript,$output_transcript);
-            add_ccds_transcript_xref($output_dba,$ccds_transcript,$output_transcript);
+            $self->add_ccds_transcript_attrib($output_dba,$output_transcript,$ccds_transcript->stable_id());
+            $self->add_ccds_supporting_feature($output_dba,$ccds_transcript,$output_transcript);
+            $self->add_ccds_transcript_xref($output_dba,$ccds_transcript,$output_transcript);
             $ccds_found = 1;
           }
         }
@@ -304,14 +304,14 @@ sub write_output {
 
 sub add_ccds_transcript_attrib {
 # Inserts a 'ccds_transcript' attribute into the transcript 'transcript' whose value is the CCDS stable id 'ccds_stable_id'
-  my ($db_adaptor,$transcript,$ccds_stable_id) = @_;
+  my ($self, $db_adaptor,$transcript,$ccds_stable_id) = @_;
   
   my $attribute_adaptor = $db_adaptor->get_AttributeAdaptor();
   my $attrib_code = 'ccds_transcript';
   my ($attrib_type_id,$newcode,$name,$description) = $attribute_adaptor->fetch_by_code($attrib_code);
   
   if (!$attrib_type_id) {
-    throw("Unable to fetch attrib_type with code $attrib_code");
+    $self->throw("Unable to fetch attrib_type with code $attrib_code");
   }
 
   my $ccds_attribute = Bio::EnsEMBL::Attribute->new(
@@ -326,7 +326,7 @@ sub add_ccds_transcript_attrib {
 
 sub add_ccds_supporting_feature {
 # Inserts a ccds transcript supporting feature (including dna align feature) associated with the transcript 'transcript' whose hit name and the rest of its parameters are based on the CCDS 'ccds_transcript'
-  my ($dba,$ccds_transcript,$transcript) = @_;
+  my ($self, $dba,$ccds_transcript,$transcript) = @_;
 
   my @exon_features;
   my @features;
@@ -372,7 +372,7 @@ sub add_ccds_supporting_feature {
 
 sub add_ccds_transcript_xref {
 # Inserts a ccds transcript xref associated with the transcript 'transcript' whose display_label and the rest of its parameters are based on the CCDS 'ccds_transcript'
-  my ($db_adaptor,$ccds_transcript,$transcript) = @_;
+  my ($self, $db_adaptor,$ccds_transcript,$transcript) = @_;
   
   my $dbe_adaptor = $db_adaptor->get_DBEntryAdaptor();
   my ($sid_without_version,$sid_version) = split(/\./,$ccds_transcript->stable_id());

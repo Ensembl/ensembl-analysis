@@ -23,6 +23,7 @@ use feature 'say';
 use Time::Piece;
 
 use File::Spec::Functions qw (catfile catdir);
+use Bio::EnsEMBL::Hive::Utils qw(destringify);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -32,6 +33,9 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
  Description: Default parameters
                 chromosomes_present => 0,
                 has_mitochondria => 0,
+                chromosome_level => 'chromosome',
+                scaffold_level => 'scaffold',
+                contig_level => 'contig',
  Returntype : Hashref, the default parameter for this module
  Exceptions : None
 
@@ -128,12 +132,11 @@ sub write_output {
   my $self = shift;
 
 # This code should get the upstream input and add 'mt_accession' and 'chromosomes_present' if needed
-  my $job_params = eval($self->input_job->input_id);
+  my $job_params = destringify($self->input_job->input_id);
   if ($self->param_is_defined('mt_accession')) {
     $job_params->{mt_accession} = $self->param('mt_accession');
   }
-  $self->dataflow_output_id($job_params, 1);
-  return 1;
+  $self->input_job->input_id($job_params);
 }
 
 
@@ -203,8 +206,8 @@ sub set_meta {
     }
   }
 
-  my $date = localtime->strftime('%Y-%m');
-  $meta_adaptor->store_key_value('genebuild.start_date', $date."-Ensembl");
+  my $date = localtime->strftime('%Y-%m-Ensembl');
+  $meta_adaptor->store_key_value('genebuild.start_date', $date);
 
   unless(-e $path_to_files."/assembly_report.txt") {
     $self->throw("Could not find the assembly_report.txt file. Path checked:\n".$path_to_files."/assembly_report.txt");
@@ -302,13 +305,13 @@ sub set_seq_region_synonyms {
       }
       close(IN) || $self->throw("Could not close $file");
       if($insert_count == 0 && ($na_count != $line_count)) {
-        $self->throw("The insert/update count after parsing ".$file." was 0, this is probably wrong. File used:\n".$file);
+        $self->warning("The insert/update count after parsing ".$file." was 0, this is probably wrong. File used:\n".$file);
       }
       say "\nInserted into seq_region_synonym and updated seq_region based on ".$file.". Total inserts/updates: ".$insert_count;
       say "You will need to update the external_db_id for the synonyms of scaffold or contigs!\n";
     }
     else {
-      $self->throw("Could not find $filename file. No synonyms loaded. Expected location:\n".$file)
+      $self->warning("Could not find $filename file. No synonyms loaded. Expected location:\n".$file)
         unless ($filename eq 'chr2acc' and $self->param('chromosomes_present'));
     }
   }

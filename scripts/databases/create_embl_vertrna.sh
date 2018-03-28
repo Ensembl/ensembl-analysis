@@ -15,10 +15,7 @@
 # limitations under the License.
 
 BASE_ENA_FTP="ftp://ftp.ebi.ac.uk/pub/databases/ena/sequence/release/std"
-VERTRNA_VERSION=0
 VERTRNADIR="$BLASTDB_DIR/vertrna"
-VERTRNA_VERSION=`ls $VERTRNADIR | sort -nr | head -n 1`
-VERTRNA_VERSION=$((VERTRNA_VERSION+1))
 VERTRNA_FILE="embl_vertrna-1"
 BLAST_TYPE="ncbi"
 ENSEMBL_BASE=$ENSCODE
@@ -27,6 +24,7 @@ USAGE=0
 INIT_PIPE=1
 RUN_PIPE=1
 EHIVE_DRIVER="mysql" # This should not change unless you know what you are doing
+VERTRNA_VERSION=`wget -nv --spider ${BASE_ENA_FTP%std}/doc/Release_* |& grep File | sed 's/File .Release_\([0-9]\+\).*/\1/'`
 
 while getopts "f:s:b:v:d:e:h:u:p:P:IR" o; do
     case $o in

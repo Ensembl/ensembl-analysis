@@ -1,6 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+#Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,7 +59,6 @@ use warnings;
 use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Runnable::BlastRfam;
-use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Analysis::Tools::FilterBPlite;
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');

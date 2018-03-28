@@ -23,6 +23,7 @@ use feature 'say';
 
 use File::Spec::Functions qw(catfile file_name_is_absolute);
 use File::Path qw(make_path);
+use LWP::UserAgent;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -43,7 +44,7 @@ sub fetch_input {
     my $url = $self->param('query_url');
     if ($url !~ /http|ftp/) {
       $url = $self->param('base_url').$url;
-      $url .= '"' unless ($url =~ /"$/);
+      #$url .= '"' unless ($url =~ /"$/);
     }
     my $filename = $self->param_required('file_name');
     if (!file_name_is_absolute($filename)) {
@@ -84,27 +85,42 @@ sub fetch_input {
 sub run {
   my $self = shift;
 
-  # This is a bit lazy, originally this was designed to work with a single query
-  # but now I also want it to work with multiple files. I'm going to put that into
-  # the if and the else will retain the original single file logic
   my @iids;
   foreach my $query (@{$self->param_required('query_url')}) {
     my $query_url = $query->{url};
     my $filename = $query->{file_name};
     say "Downloading:\n$query_url\n";
 
-    my $get_cmd = 'wget -q -O - ';
-    if(system("$get_cmd $query_url > $filename")) {
-      $self->throw("The wget query ended in an non-zero exit code:\n'$query_url'\n");
+    my $agent = LWP::UserAgent->new(agent => "libwww-perl");
+    my $response = $agent->get($query_url);
+
+    while (my $wait = $response->header('Retry-After')) {
+      print STDERR "Waiting ($wait)...\n";
+      sleep $wait;
+      $response = $agent->get($response->base());
     }
 
-    if($filename =~ s/\.gz$//) {
-      my $gunzip_command = "gunzip $filename.gz";
-      if(system($gunzip_command)) {
-        $self->throw("gunzip on file ended in an non-zero exit code:\n$gunzip_command\n");
+    if ($response->is_success()) {
+      if (open(my $fh,'>',$filename)) {
+        print $fh $response->content();
+        close $fh;
+      } else {
+        $self->throw("Could not open file $filename\n");
       }
+      
+      if ($filename =~ s/\.gz$//) {
+        my $gunzip_command = "gunzip $filename.gz";
+        if (system($gunzip_command)) {
+          $self->throw("gunzip on file ended in an non-zero exit code:\n$gunzip_command\n");
+        }
+      }
+      push(@iids, $filename);
+      
+    } elsif ($response->status_line() =~ /404 Not Found/) {
+        $self->warning('Failed, got '.$response->status_line().' for '.$response->request()->uri()." . It's likely that this sequence has been deleted. Fine. \n");
+    } else {
+      $self->throw('Failed, got '.$response->status_line().' for '.$response->request()->uri()."\n");
     }
-    push(@iids, $filename);
   }
   $self->output(\@iids);
   say "Finished downloading UniProt files";

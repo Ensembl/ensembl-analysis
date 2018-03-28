@@ -71,7 +71,6 @@ sub param_defaults {
     minimum_identity => 95,
     coverage_threshold => 90,
     biotype => 'seleno',
-    update => 0,
   }
 }
 
@@ -85,9 +84,6 @@ sub fetch_input {
   my $dnadb = $self->get_database_by_name('dna_db');
   my $db = $self->get_database_by_name('target_db', $dnadb);
   $self->hrdb_set_con($db, 'target_db');
-  if ($self->param_is_defined('source_db')) {
-    $self->hrdb_set_con($self->get_database_by_name('source_db', $dnadb), 'source_db');
-  }
   my $analysis = $self->create_analysis;
 
   my $querys;
@@ -161,8 +157,16 @@ sub run {
       $self->create_target_file('selenocysteine', 'fa');
       my $sub_slice = $self->param('target_file');
       my $fasta_serial = Bio::EnsEMBL::Utils::IO::FASTASerializer->new($sub_slice);
-      my $gene_slice = $transcript->slice->sub_Slice($transcript->seq_region_start-$padding, $transcript->seq_region_end+$padding);
+      
+      my $transcript_slice_start_temp = $transcript->seq_region_start-$padding;
+      $transcript_slice_start_temp = 1 if ($transcript_slice_start_temp<1); 
+      my $transcript_slice_end_temp = $transcript->seq_region_end+$padding;
+      my $transcript_seq_region_length = $transcript->slice->seq_region_length();
+      $transcript_slice_end_temp = $transcript_seq_region_length if ($transcript_slice_end_temp>$transcript_seq_region_length);  
+      
+      my $gene_slice = $transcript->slice->sub_Slice($transcript_slice_start_temp, $transcript_slice_end_temp);
       $fasta_serial->print_Seq($gene_slice);
+
       my $exonerate_runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
           -program => $runnable->program,
           -analysis => $runnable->analysis,
@@ -180,7 +184,13 @@ sub run {
           my $genewise_padding = 2*$self->param('padding');
 # For all our transcripts we try to find the genomic position of the start so we can change TGA to TGC
 # Then we can use GeneWise to predict a model.
-          my $genewise_slice = $transcript->slice->sub_Slice($exonerate_transcript->seq_region_start-$genewise_padding, $exonerate_transcript->seq_region_end+$genewise_padding);
+
+          my $genewise_slice_start_temp = $exonerate_transcript->seq_region_start-$genewise_padding;
+          $genewise_slice_start_temp = 1 if ($genewise_slice_start_temp<1); 
+          my $genewise_slice_end_temp = $exonerate_transcript->seq_region_end+$genewise_padding;
+          my $gene_seq_region_length = $transcript->slice->seq_region_length();
+          $genewise_slice_end_temp = $gene_seq_region_length if ($genewise_slice_end_temp>$gene_seq_region_length);  
+          my $genewise_slice = $transcript->slice->sub_Slice($genewise_slice_start_temp, $genewise_slice_end_temp);
           my $genewise_sequence = $self->mutate_dna($exonerate_transcript, $genewise_slice);
           if ($genewise_sequence) {
 # A Slice with its sequence manually modified can't use the SequenceAdaptor.
@@ -299,7 +309,6 @@ sub write_output {
   my ($self) = @_;
 
   my $gene_adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
-  my $update = $self->param('update');
   my $analysis = $self->analysis;
   my $biotype = $self->param('biotype');
   foreach my $transcript (@{$self->output}) {
@@ -360,7 +369,7 @@ sub mutate_dna {
   my $sequence_length = 0;
   my $index = 0;
   my $dna = $slice->seq;
-
+  
   foreach my $exon (@{$transcript->get_all_Exons}) {
     last unless (defined $selenocysteines->[$index]);
     $sequence_length += $exon->length;

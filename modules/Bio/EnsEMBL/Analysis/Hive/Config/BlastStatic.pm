@@ -1,6 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+#Copyright [2016-2018] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -145,6 +146,22 @@ sub _master_config {
                              -database_type => 'dna',
                            },
           },
+
+      BlastUniProtToGenome => {
+        BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBlastGenome',
+        PARSER_PARAMS => {
+                           -regex => '^\s*(\w+\W\d+)',
+                           -query_type => 'dna',
+                           -database_type => 'pep',
+                           -threshold_type => 'PVALUE',
+                           -threshold => 0.00001,
+                         },
+        BLAST_FILTER => 'Bio::EnsEMBL::Analysis::Tools::FeatureFilter',
+        FILTER_PARAMS => {
+                           -prune => 1,
+                         },
+      },
+
   );
   return $config{$key};
 }

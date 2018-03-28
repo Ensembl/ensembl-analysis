@@ -46,16 +46,16 @@ sub default_options {
         'password'                  => '',
         'port'                      => '',
 
-        'pipe_dbname'               => '',
-        'reference_dbname'          => '',
-        'dna_dbname'                => '',
-        'genblast_dbname'           => '',
-        'genewise_dbname'           => '',
-        'exonerate_dbname'          => '',
-        'rnaseq_dbname'             => '',
-        'projection_dbname'         => '',
-        'initial_cluster_dbname'    => '',
-        'final_geneset_dbname'      => '',
+        'pipe_db_name'               => '',
+        'reference_db_name'          => '',
+        'dna_db_name'                => '',
+        'genblast_db_name'           => '',
+        'genewise_db_name'           => '',
+        'exonerate_db_name'          => '',
+        'rnaseq_db_name'             => '',
+        'projection_db_name'         => '',
+        'initial_cluster_db_name'    => '',
+        'final_geneset_db_name'      => '',
 
         'pipe_db_server'            => '',
         'reference_db_server'       => '',
@@ -67,8 +67,6 @@ sub default_options {
         'projection_db_server'      => '',
         'initial_cluster_db_server' => '',
         'final_geneset_db_server'   => '',
-
-        'clone_db_script_path' => '',
 
         'single_exon_support_penalty' => 2,
 
@@ -114,7 +112,7 @@ sub default_options {
         'driver' => 'mysql',
 
         'pipeline_db' => {
-            -dbname => $self->o('pipe_dbname'),
+            -dbname => $self->o('pipe_db_name'),
             -host   => $self->o('pipe_db_server'),
             -port   => $self->o('port'),
             -user   => $self->o('user_w'),
@@ -123,56 +121,56 @@ sub default_options {
         },
 
         'reference_db' => {
-                            -dbname => $self->o('reference_dbname'),
+                            -dbname => $self->o('reference_db_name'),
                             -host   => $self->o('reference_db_server'),
                             -port   => $self->o('port'),
                             -user   => $self->o('user_r'),
                           },
 
         'dna_db' => {
-                      -dbname => $self->o('dna_dbname'),
+                      -dbname => $self->o('dna_db_name'),
                       -host   => $self->o('dna_db_server'),
                       -port   => $self->o('port'),
                       -user   => $self->o('user_r'),
                     },
 
         'genblast_db' => {
-                           -dbname => $self->o('genblast_dbname'),
+                           -dbname => $self->o('genblast_db_name'),
                            -host   => $self->o('genblast_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user_r'),
                          },
 
         'genewise_db' => {
-                           -dbname => $self->o('genewise_dbname'),
+                           -dbname => $self->o('genewise_db_name'),
                            -host   => $self->o('genewise_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user_r'),
                         },
 
         'exonerate_db' => {
-                           -dbname => $self->o('exonerate_dbname'),
+                           -dbname => $self->o('exonerate_db_name'),
                            -host   => $self->o('exonerate_db_server'),
                            -port   => $self->o('port'),
                            -user   => $self->o('user_r'),
                          },
 
         'projection_db' => {
-                            -dbname => $self->o('projection_dbname'),
+                            -dbname => $self->o('projection_db_name'),
                             -host   => $self->o('projection_db_server'),
                             -port   => $self->o('port'),
                             -user   => $self->o('user_r'),
                           },
 
         'rnaseq_db' => {
-                            -dbname => $self->o('rnaseq_dbname'),
+                            -dbname => $self->o('rnaseq_db_name'),
                             -host   => $self->o('rnaseq_db_server'),
                             -port   => $self->o('port'),
                             -user   => $self->o('user_r'),
                           },
 
         'initial_cluster_db' => {
-                                 -dbname => $self->o('initial_cluster_dbname'),
+                                 -dbname => $self->o('initial_cluster_db_name'),
                                  -host   => $self->o('initial_cluster_db_server'),
                                  -port   => $self->o('port'),
                                  -user   => $self->o('user_w'),
@@ -180,7 +178,7 @@ sub default_options {
                                },
 
          'final_geneset_db' => {
-                                -dbname => $self->o('final_geneset_dbname'),
+                                -dbname => $self->o('final_geneset_db_name'),
                             -host   => $self->o('final_geneset_db_server'),
                             -port   => $self->o('port'),
                             -user   => $self->o('user_w'),
@@ -212,7 +210,6 @@ sub pipeline_analyses {
                          source_db => $self->o('reference_db'),
                          target_db => $self->o('initial_cluster_db'),
                          create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
                        },
         -rc_name    => 'default',
         -input_ids => [{}],
@@ -225,7 +222,6 @@ sub pipeline_analyses {
                          source_db => $self->o('reference_db'),
                          target_db => $self->o('final_geneset_db'),
                          create_type => $self->o('create_type'),
-                         script_path => $self->o('clone_db_script_path'),
                        },
         -rc_name    => 'default',
         -input_ids => [{}],

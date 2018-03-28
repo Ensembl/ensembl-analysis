@@ -57,10 +57,14 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
               the classification hash
               classification is the hash that will help build the sql queries. The standard
               classification is:
-                95 => [95, 95],
-                80 => [80, 80],
-                50 => [50, 50],
-                0 => [0, 0],
+                '1' => [95, 95],
+                '2' => [95, 80],
+                '3' => [90, 80],
+                '4' => [80, 60],
+                '5' => [70, 60],
+                '6' => [50, 50],
+                '7' => [50, 25],
+                '8' => [0, 0],
               The key will be concatenated to the biotype with an underscore, the first element
               is the coverage, the second element is the percentage of identity
  Returntype : Hashref

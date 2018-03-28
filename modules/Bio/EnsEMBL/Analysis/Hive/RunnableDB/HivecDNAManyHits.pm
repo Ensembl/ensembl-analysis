@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+#Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +33,7 @@ sub param_defaults {
     %{$self->SUPER::param_defaults},
     threshold => 20,
     column_names => ['iid'],
+    many_hits_process_threshod => .90,
   }
 }
 
@@ -56,7 +58,7 @@ sub fetch_input {
       my $old_db = hrdb_get_dba($self->param_required('old_db'));
       my $transcript_adaptor = $old_db->get_TranscriptAdaptor;
       my @to_process;
-      $threshold *= .90;
+      $threshold *= $self->param('many_hits_process_threshod');
       foreach my $hitname (@many_hits) {
         my $transcripts = $transcript_adaptor->fetch_all_by_transcript_supporting_evidence($hitname, 'dna_align_feature');
         push(@to_process, $hitname) unless (scalar(@$transcripts) > $threshold);

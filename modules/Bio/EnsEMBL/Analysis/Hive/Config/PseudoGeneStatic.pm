@@ -91,10 +91,10 @@ sub _master_config {
                # configs for the introns in repeats test
 
                # introns longer than the following are considered "real"
-               PS_FRAMESHIFT_INTRON_LENGTH => 50,
+               PS_FRAMESHIFT_INTRON_LENGTH => 75,
                # This is used to set a limit on the allowed number of frameshift introns before something is
                # definitely called a pseudogene
-               MAX_FRAMESHIFT_INTRONS  => 1,
+               MAX_FRAMESHIFT_INTRONS  => 2,
                # total length of introns
                PS_MAX_INTRON_LENGTH   => '5000',
                # Types of repeats to run the anaysis with
