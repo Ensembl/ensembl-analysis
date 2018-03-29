@@ -24,13 +24,50 @@ use feature 'say';
 use File::Spec::Functions;
 use File::Path qw(make_path);
 
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters
+               alt_as_scaffolds => 0, # Dump the haplotypes and patches as scaffold instead of chromosome if 1
+               patch_only => 0, # Only dump that patches if set to 1
+               lfs_stripe => 0, # The lfs stripe value, 0 disable it, -1 for all or > 0 for fine setting
+               lfs_options => undef, # If they are more settings you want to give to  lfs setstripe
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
 sub param_defaults {
-    return {
-      alt_as_scaffolds => 0,
-    }
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    alt_as_scaffolds => 0,
+    patch_only => 0,
+    lfs_stripe => 0,
+    lfs_options => undef,
+  }
 }
+
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Check that the paremeters are set and create the output directory if needed. If 'lfs_stripe'
+              is different from 0, it stripes the directory based on the 'lfs_stripe' value.
+ Returntype : None
+ Exceptions : Throws if 'target_db' is not set
+              Throws if 'species_name' is not set
+              Throws if 'output_path' is not set
+              Throws if 'coord_system_name' is not set
+              Throws if 'enscode_root_dir' is not set
+
+=cut
 
 sub fetch_input {
   my $self = shift;
@@ -44,11 +81,15 @@ sub fetch_input {
     $self->throw("species_name not passed into parameters hash. You need to specify what species you're working on with 'species_name'");
   }
 
-  if ($self->param('output_path')) {
+  if ($self->param_is_defined('output_path')) {
     my $output_path = $self->param('output_path');
     if (!-e $output_path) {
       make_path($output_path);
-      `lfs setstripe -c -1 $output_path`;
+    }
+    if ($self->param('lfs_stripe')) {
+      my $lfs_command = 'lfs setstripe -c '.$self->param('lfs_stripe');
+      $lfs_command .= ' '.$self->param('lfs_options') if ($self->param('lfs_options'));
+      execute_with_wait("$lfs_command $output_path");
     }
   }
   else {
@@ -65,6 +106,19 @@ sub fetch_input {
 
   return 1;
 }
+
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Create the command line for the dump script.
+              It add the masking options if 'repeat_logic_names' has values in its arrayref
+              Uses 'alt_as_scaffolds' to know how to dump hapoltypes and patches if needed
+              Uses 'patch_only' to know which sequence to dump
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub run {
   my $self = shift;
@@ -100,12 +154,18 @@ sub run {
 
   say "Running command:\n".$cmd;
 
-  if (system($cmd)) {
-    $self->throw("Command to dump the genome failed. Commandline used:\n".$cmd);
-  }
-
-  return 1;
+  execute_with_wait($cmd);
 }
+
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Nothing to do store in the database
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub write_output {
   my $self = shift;
