@@ -32,7 +32,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-    base_url => '"http://www.uniprot.org/uniprot/?query=',
+    base_url => 'http://www.uniprot.org/uniprot/?query=',
     format => 'fasta',
   }
 }
@@ -44,7 +44,6 @@ sub fetch_input {
     my $url = $self->param('query_url');
     if ($url !~ /http|ftp/) {
       $url = $self->param('base_url').$url;
-      #$url .= '"' unless ($url =~ /"$/);
     }
     my $filename = $self->param_required('file_name');
     if (!file_name_is_absolute($filename)) {
