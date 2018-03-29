@@ -81,8 +81,8 @@ sub post_genome_preparation {
                            'protein align' => $genome_prep_dba->get_ProteinAlignFeatureAdaptor(),
                          };
 
-  my $feature_counts = {};
   my $previous_feature_type = "";
+  my $error_string = '';
   foreach my $logic_name (sort {$logic_names->{$a}->[1] cmp $logic_names->{$b}->[1]} keys %{$logic_names}) {
     my ($min_count,$feature_type) = @{$logic_names->{$logic_name}};
     if($feature_type ne $previous_feature_type) {
@@ -92,8 +92,11 @@ sub post_genome_preparation {
     my $observed_count = $self->count_features($logic_name,$feature_adaptors->{$feature_type});
     say "Count for ".$logic_name.": ".$observed_count;
     unless($observed_count >= $min_count) {
-      $self->throw("Observed value was too low for ".$logic_name.", min allowed: ".$min_count.", observed: ".$observed_count);
+      $error_string .= "Observed value was too low for $logic_name, min allowed: $min_count, observed: $observed_count\n";
     }
+  }
+  if ($error_string) {
+    $self->throw($error_string);
   }
 }
 
