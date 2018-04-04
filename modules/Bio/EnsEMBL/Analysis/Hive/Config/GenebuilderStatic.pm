@@ -222,6 +222,7 @@ sub _master_config {
                              'vert_pe12_sp_4',
                              'vert_pe12_tr_4',
                              'realign_5',
+                             'realign_6',
     ],
 
     fish_basic => [
@@ -293,6 +294,7 @@ sub _master_config {
                              'mammals_pe12_tr_5',
                              'vert_pe12_sp_5',
                              'vert_pe12_tr_5',
+                             'realign_6',
                              'realign_5',
     ],
 
