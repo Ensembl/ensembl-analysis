@@ -360,7 +360,7 @@ sub pipeline_analyses {
      inputfile => $self->o('rnaseq_summary_file'),
    },
    -flow_into => {
-     1 => {'download_RNASeq_fastqs' => {'iid' => '#iid#'}},
+     2 => {'download_RNASeq_fastqs' => {'iid' => '#iid#'}},
    },
   },
 
@@ -578,12 +578,12 @@ sub pipeline_analyses {
               -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
               -rc_name    => '1GB',
               -parameters => {
-                inputquery => q/SELECT DISTINCT(CONCAT('{"-logic_name" => "#species#_', LOWER(SM), '_rnaseq_#type#"}')) FROM csv_data/,
-                column_names => ['analyses'],
+                inputquery => q/SELECT DISTINCT(CONCAT('#species#_', LOWER(SM), '_rnaseq_#type#')) FROM csv_data/,
+                column_names => ['logic_name'],
                 species => $self->o('species'),
               },
               -flow_into => {
-                2 => [ 'create_analyses'],
+                2 => {'create_analyses' => {analyses => [{'-logic_name' => '#logic_name#'}]}},
               },
             },
             {
