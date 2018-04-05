@@ -1,3 +1,4 @@
+
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
@@ -105,8 +106,8 @@ sub load_taxonomy {
             ' -u '.$target_user.
             ' -p '.$target_pass.
             ' -d '.$target_dbname.
-            ' -P '.$target_port; # release not needed 
-            # ' -release '.$ENV{ENSEMBL_RELEASE};
+            ' -P '.$target_port. 
+            ' -rel '.$ENV{ENSEMBL_RELEASE};
 
   if ($self->param_is_defined('production_db')) {
     $cmd .= ' -mh '.$self->param('production_db')->{-host}.
