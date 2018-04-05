@@ -2330,14 +2330,18 @@ sub all_exons_are_valid{
 
 sub evidence_coverage_greater_than_minimum{
   my ($transcript, $evidence, $min_coverage) = @_;
-  warning ("There has been no evidence passed in for ".Transcript_info($transcript).
-           "Assumung coverage is fine") if(!$evidence);
-  return 1 if(!$evidence);
-  my $coverage = evidence_coverage($transcript, $evidence);
-  warning(Transcript_info($transcript)." based on ".$evidence->id." has too ".
-          "low coverage ".$coverage." of the evidence") 
-    unless($coverage > $min_coverage);
-  return 0 unless($coverage > $min_coverage);
+  if ($evidence) {
+    my $coverage = evidence_coverage($transcript, $evidence);
+    if (!($coverage > $min_coverage)) {
+      warning(Transcript_info($transcript)." based on ".$evidence->id." has too ".
+            "low coverage ".$coverage." of the evidence");
+    return 0;
+    }
+  }
+  else {
+    warning ("There has been no evidence passed in for ".Transcript_info($transcript).
+             "Assuming coverage is fine");
+  }
   return 1;
 }
 
