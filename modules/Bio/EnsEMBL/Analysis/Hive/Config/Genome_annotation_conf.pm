@@ -198,8 +198,6 @@ sub default_options {
     'genome_file'               => catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name').'_softmasked_toplevel.fa'),
     'primary_assembly_dir_name' => 'Primary_Assembly',
     'refseq_cdna_calculate_coverage_and_pid' => '0',
-    'refseq_cdna_table_name'    => 'refseq_sequences',
-    'refseq_cdna_batch_size'    => 10,
     'contigs_source'            => 'ena',
 
 
@@ -313,6 +311,9 @@ sub default_options {
     'exonerate_cdna_pid' => '95', # Cut-off for percent id
     'exonerate_cdna_cov' => '50', # Cut-off for coverage
 
+    'cdna_selection_pid' => '97', # Cut-off for percent id for selecting the cDNAs
+    'cdna_selection_cov' => '90', # Cut-off for coverage for selecting the cDNAs
+
 # Best targetted stuff
     exonerate_logic_name => 'exonerate',
     ncbi_query => 'txid'.$self->o('taxon_id').'[Organism:noexp]+AND+biomol_mrna[PROP]',
@@ -322,6 +323,10 @@ sub default_options {
     exonerate_protein_pid => 95,
     exonerate_protein_cov => 50,
     cdna2genome_region_padding => 2000,
+    exonerate_max_intron => 200000,
+
+    best_targetted_min_coverage => 50, # This is to avoid having models based on fragment alignment and low identity
+    best_targetted_min_identity => 50, # This is to avoid having models based on fragment alignment and low identity
 
 
 # Max internal stops for projected transcripts
@@ -644,7 +649,7 @@ sub pipeline_create_commands {
 
       $self->hive_data_table('protein', $self->o('uniprot_table_name')),
 
-      $self->hive_data_table('refseq', $self->o('refseq_cdna_table_name')),
+      $self->hive_data_table('refseq', $self->o('cdna_table_name')),
 
       $self->db_cmd('CREATE TABLE '.$self->o('realign_table_name').' ('.
                     'accession varchar(50) NOT NULL,'.
@@ -1991,13 +1996,11 @@ sub pipeline_analyses {
         sequence_table_name => $self->o('uniprot_table_name'),
         dna_db => $self->o('dna_db'),
         target_db => $self->o('genewise_db'),
-        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_cov_per_sub')},
-        GENOMICSEQS         => $self->o('genome_file'),
-        PROGRAM             => $self->o('exonerate_path'),
-        SOFT_MASKED_REPEATS => $self->o('repeat_logic_names'),
+        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_protein')},
+        genome_file      => $self->o('genome_file'),
+        exonerate_path   => $self->o('exonerate_path'),
+        repeat_libraries => $self->o('repeat_logic_names'),
         calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
-        exonerate_cdna_pid => $self->o('exonerate_protein_pid'),
-        exonerate_cdna_cov => $self->o('exonerate_protein_cov'),
       },
       -rc_name          => 'exonerate',
     },
@@ -2010,7 +2013,7 @@ sub pipeline_analyses {
         indicate_path => $self->o('indicate_path'),
         proteome => 'proteome.fa',
         indicate_dir => $self->o('targetted_path'),
-        proteome_index => $self->o('targetted_path').'proteome_index',
+        proteome_index => catdir($self->o('targetted_path'), 'proteome_index'),
       },
       -rc_name => 'default',
       -flow_into => {
@@ -2070,7 +2073,7 @@ sub pipeline_analyses {
         iid_type => 'feature_region',
         feature_type => 'protein_align_feature',
         target_db        => $self->o('genewise_db'),
-        logic_name => 'bestpmatch',
+        logic_name => ['bestpmatch'],
         coord_system_name => 'toplevel',
       },
       -rc_name      => 'default',
@@ -2083,11 +2086,13 @@ sub pipeline_analyses {
       -logic_name => 'targetted_genewise_gtag',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastMiniGenewise',
       -parameters => {
+        source_db => $self->o('genewise_db'),
         target_db => $self->o('genewise_db'),
         killlist_db => $self->o('killlist_db'),
         dna_db => $self->o('dna_db'),
         gtag => 0, # 0 is for gtag, 1 is for non canonical
         biotype => 'gw_gtag',
+        max_intron_length => 200000,
         seqfetcher_index => [catfile($self->o('targetted_path'), 'proteome_index')],
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise')},
       },
@@ -2098,11 +2103,13 @@ sub pipeline_analyses {
       -logic_name => 'targetted_genewise_nogtag',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastMiniGenewise',
       -parameters => {
+        source_db => $self->o('genewise_db'),
         target_db => $self->o('genewise_db'),
         killlist_db => $self->o('killlist_db'),
         dna_db => $self->o('dna_db'),
         gtag => 1, # 0 is for gtag, 1 is for non canonical
         biotype => 'gw_nogtag',
+        max_intron_length => 200000,
         seqfetcher_index => [catfile($self->o('targetted_path'), 'proteome_index')],
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise')},
       },
@@ -2119,6 +2126,7 @@ sub pipeline_analyses {
         dna_db => $self->o('dna_db'),
         biotype => 'gw_exo',
         seqfetcher_index => [catfile($self->o('targetted_path'), 'proteome_index')],
+        max_intron_length => 700000,
         program_file => $self->o('exonerate_path'),
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_exonerate')},
       },
@@ -2162,7 +2170,7 @@ sub pipeline_analyses {
       -logic_name => 'load_cdna_file',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadmRNAs',
       -parameters => {
-        table_name => $self->o('cdna_table_name'),
+        sequence_table_name => $self->o('cdna_table_name'),
         filetype => 'fasta',
         sequence_file => $self->o('cdna_file').'.clipped',
       },
@@ -2179,14 +2187,14 @@ sub pipeline_analyses {
       -rc_name    => 'exonerate',
       -parameters => {
         iid_type => 'db_seq',
-        query_table_name => $self->o('cdna_table_name'),
+        sequence_table_name => $self->o('cdna_table_name'),
         dna_db => $self->o('dna_db'),
         target_db => $self->o('cdna_db'),
         logic_name => $self->o('exonerate_logic_name'),
-        GENOMICSEQS         => $self->o('genome_file'),
-        PROGRAM             => $self->o('exonerate_path'),
-        SOFT_MASKED_REPEATS => $self->o('repeat_logic_names'),
-        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_cov_per_bestn_sub')},
+        genome_file      => $self->o('genome_file'),
+        exonerate_path   => $self->o('exonerate_path'),
+        repeat_libraries => $self->o('repeat_logic_names'),
+        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','cdna_est2genome')},
         exonerate_cdna_pid => 50,
         exonerate_cdna_cov => 50,
         calculate_coverage_and_pid => 0,
@@ -2205,14 +2213,14 @@ sub pipeline_analyses {
       -rc_name    => 'exonerate_6G',
       -parameters => {
         iid_type => 'db_seq',
-        query_table_name => $self->o('cdna_table_name'),
+        sequence_table_name => $self->o('cdna_table_name'),
         dna_db => $self->o('dna_db'),
         target_db => $self->o('cdna_db'),
         logic_name => $self->o('exonerate_logic_name'),
-        GENOMICSEQS         => $self->o('genome_file'),
-        PROGRAM             => $self->o('exonerate_path'),
-        SOFT_MASKED_REPEATS => $self->o('repeat_logic_names'),
-        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_cov_per_bestn_sub')},
+        genome_file      => $self->o('genome_file'),
+        exonerate_path   => $self->o('exonerate_path'),
+        repeat_libraries => $self->o('repeat_logic_names'),
+        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','cdna_est2genome')},
         exonerate_cdna_pid => 50,
         exonerate_cdna_cov => 50,
         calculate_coverage_and_pid => 0,
@@ -2280,7 +2288,9 @@ sub pipeline_analyses {
         dna_db => $self->o('dna_db'),
         source_db => $self->o('cdna_db'),
         logic_name => $self->o('species_name').'_cdna',
-        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','cdna_selection')},
+        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','cdna_est2genome')},
+        exonerate_cdna_pid => $self->o('cdna_selection_pid'),
+        exonerate_cdna_cov => $self->o('cdna_selection_cov'),
       },
       -rc_name => 'default',
       -analysis_capacity => 5,
@@ -2319,13 +2329,13 @@ sub pipeline_analyses {
       -parameters => {
         iid_type => 'db_seq',
         dna_db => $self->o('dna_db'),
-        query_table_name => $self->o('cdna_table_name'),
+        sequence_table_name => $self->o('cdna_table_name'),
         source_db => $self->o('cdna_db'),
         target_db => $self->o('cdna2genome_db'),
         logic_name => 'cdna2genome',
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','cdna2genome')},
         calculate_coverage_and_pid => 1,
-        program => $self->o('exonerate_annotation'),
+        exonerate_path => $self->o('exonerate_annotation'),
         annotation_file => $self->o('annotation_file'),
         SOFT_MASKED_REPEATS => $self->o('repeat_logic_names'),
       },
@@ -2342,7 +2352,7 @@ sub pipeline_analyses {
       -parameters => {
         iid_type => 'db_seq',
         dna_db => $self->o('dna_db'),
-        query_table_name => $self->o('cdna_table_name'),
+        sequence_table_name => $self->o('cdna_table_name'),
         source_db => $self->o('cdna_db'),
         target_db => $self->o('cdna2genome_db'),
         logic_name => 'cdna2genome',
@@ -2351,7 +2361,7 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => 1,
         program => $self->o('exonerate_annotation'),
         annotation_file => $self->o('annotation_file'),
-        SOFT_MASKED_REPEATS => $self->o('repeat_logic_names'),
+        repeat_libraries => $self->o('repeat_logic_names'),
       },
       -batch_size => 10,
     },
@@ -2375,8 +2385,8 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadUniProtFiles',
       -parameters => {
         taxon_id => $self->o('taxon_id'),
-        multi_query_download => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::UniProtCladeDownloadStatic', 'selenocysteine'),
-        dest_dir => $self->o('targetted_path'),
+        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::UniProtCladeDownloadStatic', 'selenocysteine')},
+        output_path => $self->o('targetted_path'),
       },
       -rc_name          => 'default',
       -flow_into => {
@@ -2430,7 +2440,7 @@ sub pipeline_analyses {
       -parameters => {
         source_db        => $self->o('cdna2genome_db'),
         seqfetcher_index => [catfile($self->o('targetted_path'), 'proteome_index')],
-        fasta_file => catfile($self->o('targetted_path'), 'best_targetted.fa'),
+        fasta_filename => catfile($self->o('targetted_path'), 'best_targetted.fa'),
         email => $self->o('email_address'),
         genbank_file => $self->o('cdna_file'),
         files => [catfile($self->o('targetted_path'), 'proteome.fa')],
@@ -2481,11 +2491,14 @@ sub pipeline_analyses {
         source_db => { protein_db => $self->o('genewise_db'), cdna2genome_db => $self->o('cdna2genome_db')},
         SEQFETCHER_DIR => [catfile($self->o('targetted_path'), 'proteome_index'),
         catfile($self->o('targetted_path'), 'best_targetted_index')],
+        SEQFETCHER_OBJECT => 'Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher',
         INPUT_DATA_FROM_DBS  => {
-          protein_db => ['seleno_self', 'gw_gtag', 'gw_nogtag', 'gw_exo'],
+          protein_db => ['seleno_self', 'gw_gtag', 'gw_nogtag', 'gw_exo', 'targetted_exonerate'],
           cdna2genome_db => ['cdna2genome', 'edited'],
         },
-        BIOTYPES => ['seleno_self', 'cdna2genome', 'edited', 'gw_gtag', 'gw_nogtag', 'gw_exo'], # sorted list, preferred is first
+        BIOTYPES => ['seleno_self', 'cdna2genome', 'edited', 'gw_gtag', 'gw_nogtag', 'gw_exo', 'targetted_exonerate'], # sorted list, preferred is first
+        protein_min_coverage => $self->o('best_targetted_min_coverage'),
+        protein_min_identity => $self->o('best_targetted_min_identity'),
       },
       -rc_name          => 'exonerate',
     },
