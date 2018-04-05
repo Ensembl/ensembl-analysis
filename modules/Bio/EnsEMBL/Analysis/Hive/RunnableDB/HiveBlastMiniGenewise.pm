@@ -78,6 +78,7 @@ sub param_defaults {
 sub fetch_input{
   my ($self) = @_;
 
+  logger_verbosity('ON') if ($self->debug);
   $self->create_analysis;
   my $dna_db = $self->get_database_by_name('dna_db');
   $self->hrdb_set_con($dna_db, 'dna_db');
