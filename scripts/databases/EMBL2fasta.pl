@@ -39,7 +39,7 @@ my $kill_list_pass;
 my $kill_list_dbname = 'gb_kill_list';
 my $kill_protein = 0;
 my $format = 'embl';
-my $reason_why = 'enseml_tr_1';
+my $reason_why = 'ensembl_tr_1';
 my $username = $ENV{USER};
 
 &GetOptions (
@@ -113,7 +113,7 @@ while (my $seq = $eh->next_seq) {
       my @objects = $annot_collection->get_Annotations('seq_update');
       my $sequence_version = $objects[0]->value || 1;
       $seq->version($sequence_version); # BioPerl uses the entry accession...
-      if ($kill_protein) {
+      if ($kill_protein and $seq->namespace eq 'TrEMBL') {
         my @evidence = $annot_collection->get_Annotations('evidence');
         if (@evidence and substr($evidence[0]->value, 0, 1) == 1) {
           foreach my $annotation ($annot_collection->get_Annotations('comment')) {

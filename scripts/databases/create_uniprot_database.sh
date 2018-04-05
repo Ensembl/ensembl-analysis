@@ -38,7 +38,7 @@ INIT_PIPE=1
 RUN_PIPE=1
 BASE_UNIPROT_PATH="$BLASTDB_DIR/uniprot"
 ENSEMBL_BASE=$ENSCODE
-while getopts "s:d:h:u:p:P:IR" o; do
+while getopts "s:d:h:u:p:P:IRj:k:l:m:n:" o; do
     case $o in
         d ) BASE_UNIPROT_PATH=$OPTARG;;
         s ) ENSEMBL_BASE=$OPTARG;;
@@ -46,12 +46,17 @@ while getopts "s:d:h:u:p:P:IR" o; do
         u ) HIVE_USER=$OPTARG;;
         p ) HIVE_PASS=$OPTARG;;
         P ) HIVE_PORT=$OPTARG;;
+        j ) KILL_HOST=$OPTARG;;
+        k ) KILL_USER=$OPTARG;;
+        l ) KILL_PASS=$OPTARG;;
+        m ) KILL_PORT=$OPTARG;;
+        n ) KILL_DBNAME=$OPTARG;;
         I ) RUN_PIPE=0;;
         R ) INIT_PIPE=0;;
         * ) USAGE=1;;
     esac
 done
-export EMBL2FASTA_SCRIPT="$ENSEMBL_BASE/ensembl-analysis/scripts/databases/embl2fasta.pl"
+export EMBL2FASTA_SCRIPT="$ENSEMBL_BASE/ensembl-analysis/scripts/databases/EMBL2fasta.pl"
 export PROCESS_ISOFORMS_SCRIPT="$ENSEMBL_BASE/ensembl-analysis/scripts/databases/process_uniprot_isoforms.pl"
 
 if [ $USAGE -eq 1 ]; then
@@ -62,6 +67,11 @@ if [ $USAGE -eq 1 ]; then
   echo "  u User name for the Hive pipeline database"
   echo "  p Password for the Hive pipeline database"
   echo "  P Port for the Hive pipeline database, default is 3306"
+  echo "  j Host server for the kill list database, default to Hive host"
+  echo "  k User name for the kill list database, default to Hive user"
+  echo "  l Password for the kill list database, default to Hive password"
+  echo "  m Port for the Hive pipeline database, default to Hive port"
+  echo "  n Name of the kill list database, default is gb_kill_list"
   echo "  I To only run the init script"
   echo "  R To only run the pipeline"
   echo

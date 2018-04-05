@@ -49,7 +49,7 @@ if [ $USAGE -eq 1 ];then
     By default the script will initialise the pipeline and run the pipeline.
     Available options are:
        -f FTP URL for for the ENA website, default is $BASE_ENA_FTP
-       -s Script to parse the EMBL file into FASTA, ensembl-analysis/scripts/databases/embl2fasta.pl
+       -s Script to parse the EMBL file into FASTA, ensembl-analysis/scripts/databases/EMBL2fasta.pl
        -b Blast type, ncbi or wu, default is ncbi
        -v Version of ENA
        -d Output directory, you will need to set the version, deafult is $BLASTDB_DIR/vertrna/[version]
