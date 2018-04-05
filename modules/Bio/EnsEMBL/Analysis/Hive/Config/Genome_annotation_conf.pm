@@ -1656,6 +1656,20 @@ sub pipeline_analyses {
                          file => $self->o('output_path').'/loading_report.txt',
                        },
         -rc_name => 'default',
+        -flow_into => {
+          1 =>['repeat_masker_coverage'],
+        },
+      },
+      {
+        -logic_name => 'repeat_masker_coverage',
+        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRepeatCoverage',
+        -parameters => {
+          source_db => $self->o('reference_db'),
+          repeat_logic_names => $self->o('repeat_logic_names'),
+          coord_system_version => '#assembly_name#',
+          email => $self->o('email_address'),
+        },
+        -rc_name => 'default',
       },
 
      {
