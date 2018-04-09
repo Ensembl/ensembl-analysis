@@ -356,6 +356,7 @@ sub _master_config {
              {
               ID         => 'LAYER6',
               BIOTYPES   => [
+                             'realign_5',
                              'rnaseq_merged_4',
                              'mammals_pe12_sp_3',
                              'mammals_pe12_tr_3',
@@ -369,6 +370,7 @@ sub _master_config {
              {
               ID         => 'LAYER7',
               BIOTYPES   => [
+                             'realign_6',
                              'human_pe12_sp_4',
                              'human_pe12_tr_4',
                              'mouse_pe12_sp_4',
@@ -391,7 +393,6 @@ sub _master_config {
                              'mammals_pe12_tr_4',
                              'vert_pe12_sp_4',
                              'vert_pe12_tr_4',
-                             'realign_5',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'],
               DISCARD    => 0,
@@ -491,6 +492,7 @@ sub _master_config {
              {
               ID         => 'LAYER6',
               BIOTYPES   => [
+                             'realign_5',
                              'human_pe12_sp_3',
                              'human_pe12_tr_3',
                              'mouse_pe12_sp_3',
@@ -510,6 +512,7 @@ sub _master_config {
              {
               ID         => 'LAYER7',
               BIOTYPES   => [
+                             'realign_6',
                              'fish_pe12_sp_4',
                              'fish_pe12_tr_4',
                              'human_pe12_sp_4',

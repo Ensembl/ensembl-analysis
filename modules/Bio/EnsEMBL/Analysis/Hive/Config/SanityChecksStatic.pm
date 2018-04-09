@@ -468,61 +468,7 @@ sub _master_config {
         }, # biotypes
       }, # core
     }, # primates_basic
-#    These are hashes, cannot have the same key twice in the same level
-#    I updated the one above using the lowest values and
-#    kept this one just in case
-#    'mammals_basic' => {
-#      'genblast' => {
-#        'logic_names' => {
-#          'genblast'            => 190000,
-#            'genblast_not_best'   => 103000,
-#        }, # logic_names
-#        'biotypes' =>    {
-#          'human_pe12_'         => 40000,
-#            'mouse_pe12_'      => 60000,
-#            'mammals_pe12_'       => 210000,
-#            'vert_pe12_'       => 145000,
-#        }, # biotypes
-#      }, # genblast
-#      'ig_tr' => {
-#        'logic_names' => {
-#          'ig_tr_gene'          => 200,
-#        }, # logic_names
-#        'biotypes' =>    {
-#          'IG_'                 => 800,
-#            'TR_'                 => 40,
-#        }, # biotypes
-#      }, # ig_tr
-#      'ncrna' => {
-#        'logic_names' => {
-#          'ncrna' => 2800,
-#        }, # logic_names
-#        'biotypes' =>    {
-#          'miRNA'               => 200,
-#            'misc_RNA'            => 300,
-#            'ribozyme'            => 5,
-#            'rRNA'                => 190,
-#            'scaRNA'              => 20,
-#            'snoRNA'              => 200,
-#            'snRNA'               => 1000,
-#        }, # biotypes
-#      }, # ncrna
-#
-#      otherfeatures => {
-#        'logic_names' => {
-#          'cdna_alignment'         => 20000,
-#            'refseq_import'          => 30000,
-#        },
-#          'biotypes' => {
-#            'cdna'                   => 20000,
-#          },
-#      }, # otherfeatures
-#      rnaseq_final => {
-#        'biotypes' => {
-#          'protein_coding'         => 5000,
-#        },
-#      }, # rnaseq_final
-#    }, # mammals_basic
+
     'fish_basic' => {
       'genblast' => {
         'logic_names' => {

@@ -198,6 +198,8 @@ sub _master_config {
                              'realign_2',
                              'realign_3',
                              'realign_4',
+                             'realign_5',
+                             'realign_6',
                              'rnaseq_merged_1',
                              'rnaseq_merged_2',
                              'rnaseq_merged_3',
@@ -247,7 +249,6 @@ sub _master_config {
                              'mouse_pe12_tr_5',
                              'vert_pe12_sp_4',
                              'vert_pe12_tr_4',
-                             'realign_5',
     ],
 
     fish_basic => [
@@ -269,6 +270,8 @@ sub _master_config {
                              'realign_2',
                              'realign_3',
                              'realign_4',
+                             'realign_5',
+                             'realign_6',
                              'rnaseq_merged_1',
                              'rnaseq_merged_2',
                              'rnaseq_merged_3',
@@ -333,7 +336,6 @@ sub _master_config {
                              'mammals_pe12_tr_5',
                              'vert_pe12_sp_5',
                              'vert_pe12_tr_5',
-                             'realign_5',
     ],
 
     fish_complete => [
