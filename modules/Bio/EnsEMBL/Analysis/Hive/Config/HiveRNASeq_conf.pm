@@ -935,7 +935,7 @@ sub pipeline_analyses {
                 },
                 -rc_name => '2GB_refine',
                 -flow_into => {
-                    1 => ['blast_rnaseq'],
+                    1 => ['create_gene_id_input_ids'],
                     -1 => {'refine_genes_20GB' => {iid => '#iid#', config_file => '#config_file#', logic_name => '#logic_name#'}},
                 },
           },
@@ -950,10 +950,26 @@ sub pipeline_analyses {
                 },
                 -rc_name => '20GB_refine',
                 -flow_into => {
-                    1 => ['blast_rnaseq'],
+                    1 => ['create_gene_id_input_ids'],
                 },
           },
 
+        {
+          -logic_name => 'create_gene_id_input_ids',
+          -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+          -rc_name    => '1GB',
+          -parameters => {
+            iid_type => 'feature_id',
+            coord_system_name => 'toplevel',
+            target_db => $self->o('refine_db'),
+            feature_logic_names => ['#logic_name#'],
+            feature_type => 'gene',
+            batch_size => 100,
+          },
+          -flow_into => {
+            2 => ['blast_rnaseq'],
+          },
+        },
       {
         -logic_name => 'blast_rnaseq',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
@@ -962,7 +978,7 @@ sub pipeline_analyses {
             input_db => $self->o('refine_db'),
             output_db => $self->o('blast_db'),
             dna_db => $self->o('dna_db'),
-
+            iid_type => 'object_id',
             # path to index to fetch the sequence of the blast hit to calculate % coverage
             indicate_index => $self->o('uniprotindex'),
             uniprot_index => [$self->o('uniprotdb')],

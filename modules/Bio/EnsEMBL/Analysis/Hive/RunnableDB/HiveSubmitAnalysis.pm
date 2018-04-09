@@ -73,6 +73,7 @@ sub param_defaults {
         table_column_name => 'accession',
         logic_name => [],
         column_names => ['iid'],
+        feature_restriction => undef,
     }
 }
 
@@ -547,10 +548,8 @@ sub feature_region {
   my @input_ids;
   my $feature_type = $self->param_required('feature_type');
   my $slices;
-  if ($self->param_is_defined('iid')) {
-    if (is_slice_name($self->param('iid'))) {
-      $slices = [$dba->get_SliceAdaptor->fetch_by_name($self->param('iid'))];
-    }
+  if ($self->param_is_defined('iid') and is_slice_name($self->param('iid'))) {
+    $slices = [$dba->get_SliceAdaptor->fetch_by_name($self->param('iid'))];
   }
   else {
     $slices = $dba->get_SliceAdaptor->fetch_all($self->param('coord_system_name'));
@@ -676,11 +675,16 @@ sub feature_id {
   my $output_id_array = [];
   my $type = $self->param_required('feature_type');
 
-#  my $logic_names = $self->param('logic_name');
-  my $logic_names = $self->param('feature_logic_names');
+  my $logic_names = [undef];
+  if ($self->param_is_defined('feature_logic_names')) {
+    $logic_names = $self->param('feature_logic_names');
+  }
+  else {
+    $self->warning("No logic names passed in using 'feature_logic_names' param, so will fetch all features");
+  }
   # feature_restriction is a way to do specific restrictions that aren't easy to model. One example is 'protein_coding'
   # which will check if the feature hash a translation
-  my $feature_restriction = $self->param('feature_restriction');
+  my $feature_restriction = $self->param_is_defined('feature_restriction') ? $self->param('feature_restriction') : undef;
   my $feature_adaptor;
 
   if($type eq 'transcript') {
@@ -691,20 +695,18 @@ sub feature_id {
     $self->throw("The feature type you requested is not supported in the code yet. Feature type:\n".$type);
   }
 
-  my $features= [];
-  if($logic_names) {
-    foreach my $logic_name (@$logic_names) {
-      push(@{$features},@{$feature_adaptor->fetch_all_by_logic_name($logic_name)});
-    }
-  } else {
-    $self->warning("No logic names passed in using 'feature_logic_names' param, so will fetch all features");
-    push(@{$features},@{$feature_adaptor->fetch_all()});
+  my $slices;
+  if ($self->param_is_defined('iid') and is_slice_name($self->param('iid'))) {
+    $slices = [$dba->get_SliceAdaptor->fetch_by_name($self->param('iid'))];
   }
-
-  foreach my $feature (@{$features}) {
-    unless($self->feature_restriction($feature,$type,$feature_restriction)) {
-      my $db_id = $feature->dbID();
-      push(@{$output_id_array},$db_id);
+  else {
+    $slices = $dba->get_SliceAdaptor->fetch_all($self->param('coord_system_name'));
+  }
+  foreach my $slice (@$slices) {
+    foreach my $logic_name (@$logic_names) {
+      foreach my $feature (@{$feature_adaptor->fetch_all_by_Slice($slice, $logic_name)}) {
+        push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
+      }
     }
   }
 
