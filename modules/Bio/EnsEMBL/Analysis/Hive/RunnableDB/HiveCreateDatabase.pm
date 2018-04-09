@@ -177,6 +177,7 @@ sub run {
   my $self = shift;
 
   foreach my $cmd (@{$self->param('commands')}) {
+    print STDERR $cmd, "\n" if ($self->debug);
     if ($self->run_system_command($cmd)) {
       $self->throw("Could not execute '$cmd'");
     }
