@@ -530,9 +530,31 @@ sub pipeline_analyses {
                        },
         -rc_name    => '3GB_multithread',
         -flow_into => {
-            1 => [ ':////accu?filename=[]' ],
+            1 => ['create_analyses_type_job', ':////accu?filename=[]' ],
             },
       },
+            {
+              -logic_name => 'create_analyses_type_job',
+              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+              -rc_name    => '1GB',
+              -parameters => {
+                inputlist => ['gene', 'daf', 'ise'],
+                column_names => ['type'],
+                species => $self->o('species'),
+              },
+              -flow_into => {
+                2 => {'create_analyses' => {analyses => [{'-logic_name' => '#species#_#sample_name#_rnaseq_#type#'}]}},
+              },
+            },
+            {
+              -logic_name => 'create_analyses',
+              -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
+              -rc_name    => '1GB',
+              -parameters => {
+                source_type => 'list',
+                target_db => $self->o('rough_db'),
+              },
+            },
             {
         -logic_name => 'merged_bam_file',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMergeBamFiles',
@@ -557,44 +579,9 @@ sub pipeline_analyses {
                        },
         -rc_name    => '3GB_multithread',
         -flow_into => {
-                        1 => ['create_analyses_type_job'],
+                        1 => ['create_header_intron'],
                       },
       },
-            {
-              -logic_name => 'create_analyses_type_job',
-              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-              -rc_name    => '1GB',
-              -parameters => {
-                inputlist => ['gene', 'daf', 'ise'],
-                column_names => ['type'],
-              },
-              -flow_into => {
-                '2->A' => [ 'create_analyses_job'],
-                'A->1' => ['create_header_intron'],
-              },
-            },
-            {
-              -logic_name => 'create_analyses_job',
-              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-              -rc_name    => '1GB',
-              -parameters => {
-                inputquery => q/SELECT DISTINCT(CONCAT('#species#_', LOWER(SM), '_rnaseq_#type#')) FROM csv_data/,
-                column_names => ['logic_name'],
-                species => $self->o('species'),
-              },
-              -flow_into => {
-                2 => {'create_analyses' => {analyses => [{'-logic_name' => '#logic_name#'}]}},
-              },
-            },
-            {
-              -logic_name => 'create_analyses',
-              -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
-              -rc_name    => '1GB',
-              -parameters => {
-                source_type => 'list',
-                target_db => $self->o('rough_db'),
-              },
-            },
             {
         -logic_name => 'create_header_intron',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
