@@ -321,7 +321,7 @@ sub put_Genes {
         }
       }
     }
-    throw("Failed putting gene of type " . $gene->biotype . "\n");
+    throw("Failed putting gene of type " . $gene->biotype . ' '. $gene->db->dbc->dbname."\n");
   }
 }
 
