@@ -3068,7 +3068,7 @@ sub has_polyA_signal {
     unless ($transcript->isa('Bio::EnsEMBL::Transcript'));
 
   my $regex = 'A{2}TA{3}.{10,30}$';
-  $regex =~ 'A[AG]TA{3}.{0,30}$' if ($lenient);
+  $regex = 'A[AT]TA{3}.{0,30}$' if ($lenient);
 
   return $transcript->end_Exon->seq->seq =~ /$regex/;
 }
