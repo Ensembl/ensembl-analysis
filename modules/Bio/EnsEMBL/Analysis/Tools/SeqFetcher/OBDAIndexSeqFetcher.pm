@@ -107,7 +107,7 @@ sub new {
 
     # the db_name is the last name in the path
     my $db_name = pop( @path );
-    if ( $db_name =~/(\S+)\.fa/){
+    if ( $db_name =~/(\S+)\.fa[a-z]*$/){
       $db_name = $1;
     }
 
