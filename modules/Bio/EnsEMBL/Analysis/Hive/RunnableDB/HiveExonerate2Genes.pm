@@ -107,13 +107,19 @@ sub fetch_input {
   }
 
   if($iid_type eq 'db_seq') {
-    $querys = $self->get_query_seqs($self->param('iid'));
+    $querys = $self->get_query_seqs($self->input_id_array);
     if ($self->param('sequence_table_name') =~ /protein/) {
       $self->peptide_seq($querys->[0]->seq);
     }
     $self->calculate_coverage_and_pid($self->param('calculate_coverage_and_pid'));
     @db_files = ($self->GENOMICSEQS);
-  } elsif($iid_type eq 'feature_region') {
+  }
+  elsif ($iid_type eq 'flat_seq') {
+    $querys = $self->get_flat_query_seqs($self->input_id_array);
+    $self->calculate_coverage_and_pid($self->param('calculate_coverage_and_pid'));
+    @db_files = ($self->GENOMICSEQS);
+  }
+  elsif($iid_type eq 'feature_region') {
     my $feature_region_id = $self->param('iid');
     my ($slice,$accession_array) = $self->parse_feature_region_id($feature_region_id);
     $querys = $self->get_query_seqs($accession_array);
@@ -905,6 +911,33 @@ sub filter_killed_entries {
     }
   }
   return \@sequences;
+}
+
+sub get_flat_query_seqs {
+  my ($self, $accession_array) = @_;
+
+  my $class = $self->require_module($self->SEQFETCHER_OBJECT);
+  my $seqfetcher_indexes = $self->param_required('seqfetcher_index');
+  $seqfetcher_indexes = [$seqfetcher_indexes] unless (ref($seqfetcher_indexes) eq 'ARRAY');
+  my $fetcher = $class->new(-db => $seqfetcher_indexes);
+
+  my %biotypes_hash;
+  my @query_sequences;
+  foreach my $accession (@{$accession_array}) {
+    my $seq = $fetcher->get_Seq_by_acc($accession);
+    unless($seq) {
+      $self->throw('Did not find an entry in '.$self->param('seqfetcher_index')." matching the accession:\n".$accession);
+    }
+
+    $biotypes_hash{$accession} = $seq->alphabet;
+
+    push(@query_sequences, $seq);
+#    push(@query_sequences, Bio::Seq->new(-display_id => $accession, -seq => $seq));
+  }
+
+  $self->get_biotype(\%biotypes_hash);
+
+  return \@query_sequences;
 }
 
 sub get_query_seqs {
