@@ -95,7 +95,7 @@ sub post_cleanup {
 
   ceil($sleep_length_hours);
   say "Going to sleep for ".$sleep_length_hours." hours...";
-  sleep($sleep_length_hours * 60);
+  sleep($sleep_length_hours * 3600);
 
   say "Seeding new run id for this analysis...";
   my $run_id = $self->param('iid');
