@@ -78,6 +78,17 @@ use Bio::Seq;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    projection_padding => 50000,
+  }
+}
+
+
 sub fetch_input {
   my($self) = @_;
 
@@ -146,20 +157,11 @@ sub fetch_input {
       $self->throw("The feature_type you passed in is not supported! Type:\n".$feature_type);
     }
   } elsif($iid_type eq 'projection_transcript_id') {
-       my @iid = @{$self->param("iid")};
-       my $transcript_dba = $self->hrdb_get_dba($self->param('transcript_db'));
-       my $projection_transcript_id = $iid[0];
-       my $projection_protein_accession = $iid[1];
+       my ($projection_transcript_id, $projection_protein_accession) = @{$self->param('iid')};
+       my $transcript_dba = $self->hrdb_get_dba($self->param('transcript_db'), $dna_dba);
        my $padding = $self->param("projection_padding");
 
-       unless(defined($padding)) {
-         $padding = 50000;
-       }
-
-       if($dna_dba) {
-         $transcript_dba->dnadb($dna_dba);
-       }
-        $self->hrdb_set_con($transcript_dba,'transcript_db');
+       $self->hrdb_set_con($transcript_dba,'transcript_db');
 
        my ($slice,$accession_array) = $self->get_transcript_region($projection_transcript_id);
        $query_seq = $self->get_query_seq($accession_array);
