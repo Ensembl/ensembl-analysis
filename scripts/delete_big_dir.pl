@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,8 +21,9 @@
 =head1 DESCRIPTION
 
 This script take a single argument, the full path to a dir to remove and then removes all
-files and subdirs before finally removing the dir itself. This is designed to removed very
-complex subdir structures or dirs with a very large number of files in them
+files and subdirs before finally removing the dir itself. This is designed to remove very
+complex subdir structures or dirs with a very large number of files in them. Perl is much
+faster at this kind of task than rm or rsync to an empty dir
 
 =cut
 
