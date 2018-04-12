@@ -31,7 +31,7 @@ sub default_options {
 'pipe_db_name'           => '',
 'pipe_db_server'         => '',
 'pipe_db_port'           => '',
-'dna_dbname'             => '',
+'dna_db_name'            => '',
 'dna_db_server'          => '',
 'dna_db_port'            => '',
 'blast_output_dbname'    => '',
@@ -71,7 +71,7 @@ sub default_options {
 },
 
 'dna_db' => {
-  -dbname => $self->o('dna_dbname'),
+  -dbname => $self->o('dna_db_name'),
   -host   => $self->o('dna_db_server'),
   -port   => $self->o('dna_db_port'),
   -user   => $self->o('user_r'),

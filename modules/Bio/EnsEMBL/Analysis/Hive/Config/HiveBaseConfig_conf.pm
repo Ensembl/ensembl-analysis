@@ -67,7 +67,7 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
 
                 dna_db_server => $self->o('host'),
                 dna_db_host => $self->o('dna_db_server'), # dna_db_server will be deprecated
-                dna_db_name => $self->o('dna_dbname'), # dna_dbname will be deprecated
+                dna_db_name => undef,
                 dna_db_port => $self->o('port'),
                 dna_db_user => $self->o('user_r'),
                 dna_db_password => $self->o('password_r'),
@@ -118,7 +118,7 @@ sub default_options {
 
         dna_db_server => $self->o('host'),
         dna_db_host => $self->o('dna_db_server'),
-        dna_db_name => $self->o('dna_dbname'),
+        dna_db_name => undef,
         dna_db_port => $self->o('port'),
         dna_db_user => $self->o('user_r'),
         dna_db_password => $self->o('password_r'),
