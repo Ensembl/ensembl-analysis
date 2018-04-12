@@ -40,6 +40,7 @@ use warnings;
 use feature 'say';
 use File::Spec::Functions;
 
+use Bio::EnsEMBL::Hive::Utils qw(destringify);
 use Bio::EnsEMBL::IO::Parser::Fasta;
 use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -76,11 +77,22 @@ sub run {
 
 sub write_output {
   my ($self) = @_;
+
+  my $job_params = destringify($self->input_job->input_id());
+  my $total_consensi_files_processed = $self->total_consensi_files_processed();
+  $job_params->{'run_count'} = $total_consensi_files_processed;
+  $self->dataflow_output_id($job_params,1);
 }
 
 
 sub process_assembly_files {
   my ($self,$full_path,$output_file,$assembly_output_path) = @_;
+
+  unless(-d $assembly_output_path) {
+    if(system('mkdir -p '.$assembly_output_path)) {
+      $self->throw("Could not make assembly output dir. Path used:\n".$assembly_output_path);
+    }
+  }
 
   my $assembly_run_hash;
   my $total_consensi_files_processed = 0;
@@ -137,6 +149,7 @@ sub process_assembly_files {
     $self->throw("Only found ".$total_consensi_files_processed." files, required ".$self->param_required('min_consensi_files'));
   }
 
+  $self->total_consensi_files_processed($total_consensi_files_processed);
 }
 
 
@@ -218,4 +231,12 @@ sub split_gca {
   return($chain,$version);
 }
 
+sub total_consensi_files_processed {
+  my ($self,$val) = @_;
+  if($val) {
+    $self->param('_total_consensi_files_processed',$val);
+  }
+
+  return($self->param('_total_consensi_files_processed'));
+}
 1;

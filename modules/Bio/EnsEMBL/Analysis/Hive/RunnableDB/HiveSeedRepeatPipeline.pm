@@ -64,7 +64,7 @@ sub run {
   say "Fetching GCAs by constraints...";
   my $inital_gca_list       = $assembly_registry_dba->fetch_gca_by_constraints($min_contig_n50,$min_scaffold_n50,$min_total_length,undef,$max_version_only);
   say "Processing GCAs to determine what to process...";
-  my $gcas_to_process       = $self->find_gcas_to_process($inital_gca_list);
+  my $gcas_to_process       = $self->find_gcas_to_process($inital_gca_list,$assembly_registry_dba);
   $self->gcas_to_process($gcas_to_process);
 }
 
@@ -73,14 +73,12 @@ sub write_output {
   my $self = shift;
 
   my $gcas_to_process = $self->gcas_to_process();
-
   say "Preparing to flow output ids for downstream processing...";
   # First output the new jobs
   foreach my $gca (@{$gcas_to_process}) {
     my $processing_hash->{'iid'} = $gca;
     $self->dataflow_output_id($processing_hash,2);
   }
-
 }
 
 
@@ -107,26 +105,41 @@ sub post_cleanup {
 
 
 sub find_gcas_to_process {
-  my ($self,$inital_gca_list) = @_;
+  my ($self,$inital_gca_list,$assembly_registry_dba) = @_;
 
   my $gcas_to_process = [];
-  my $base_repeat_dir = $self->param_required('base_repeat_dir');
-  my $gca_dir = catfile($base_repeat_dir,'GCA');
-  my $species_dir = catfile($base_repeat_dir,'species');
-  foreach my $gca (@{$inital_gca_list}) {
-    say "Checking ".$gca;
-    $gca =~ /^(GCA\_\d{9})\.(\d+)$/;
-    my $chain = $1;
-    my $version = $2;
 
-    my $full_gca_path = catfile($gca_dir,$chain,$version);
-    unless(-e $full_gca_path) {
-      my $result = system('mkdir -p '.$full_gca_path);
-      if($result) {
-        $self->throw("Could not write output dir to path: ".$full_gca_path);
-      }
-      push(@{$gcas_to_process},$gca);
+  my $table_adaptor = $self->db->get_NakedTableAdaptor();
+  $table_adaptor->table_name('run_records');
+
+  my $existing_accessions = $table_adaptor->fetch_all(undef, undef, undef,'accession');
+  my $existing_accessions_hash;
+  foreach my $existing_accession (@{$existing_accessions}) {
+    $existing_accessions_hash->{$existing_accession} = 1;
+  }
+
+  my $run_count = 0;
+  foreach my $gca (@{$inital_gca_list}) {
+    if($existing_accessions_hash->{$gca}) {
+      next;
     }
+
+    my $species_name = $assembly_registry_dba->fetch_species_name_by_gca($gca);
+    $species_name = lc($species_name);
+    $species_name =~ s/ +$//; # This is an issue in the assembly registry db that needs fixing
+    $species_name =~ s/ +/\_/g;
+
+    unless($species_name) {
+      $self->throw("Could not find species name for the GCA in the assembly registry. GCA used: ".$gca);
+    }
+
+    my $insert_row = [{'accession'    => $gca,
+                       'species_name' => $species_name,
+                       'run_count'    => $run_count,
+                       'status'       => 'in_progress'}];
+
+    $table_adaptor->store($insert_row);
+    push(@{$gcas_to_process},$gca);
   } # end foreach my $gca
 
   return($gcas_to_process);
