@@ -14,62 +14,66 @@ sub default_options {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
 
-'farm_user_name'        => '', # for output_db prefix
-'user_r'                => '',
-'user_w'                => '',
-'password'              => '',
+# Things to set
+'user_r'                      => '',
+'user_w'                      => '',
+'password'                    => '',
 
-'base_repeat_dir'         => '',
-'repeatmodeler_path'      => '',
+'base_repeat_dir'             => '',
+'repeatmodeler_path'          => '',
 
-'pipeline_name'         => '',
-'pipe_db_server'        => '',
-'port'                  => '',
+'pipe_db_server'              => '',
+'port'                        => '',
 
-'assembly_registry_dbname'    => 'do1_stable_id_space_assembly_registry',
-'assembly_registry_db_server' => $ENV{GBS5},
-'assembly_registry_db_port'   => $ENV{GBP5},
+'assembly_registry_dbname'    => '',
+'assembly_registry_db_server' => '',
+'assembly_registry_db_port'   => '',
 
-'min_contig_n50'          => 20000,
-'min_scaffold_n50'        => 0,
-'min_total_length'        => 500000000,
-'sleep_length_hours'      => 1,
+# Variables (with suggested values)
+'min_contig_n50'              => 20000, # min contig n50 to process
+'min_scaffold_n50'            => 0, # min scaffold n50 to process
+'min_total_length'            => 500000000, # min amount of total sequence
+'sleep_length_hours'          => 1, # How long to sleep between checking for new assemblies
+'min_consensi_files'          => 5, # Min number of repeatmodeler runs for an assembly before proceeding
+'repeatmodeler_run_count'     => 10, # Number of runs of repeatmodeler per assembly
+'num_cores'                   => 10, # Number of cores for BLAST phase of repeatmodeler
 
-'base_output_path'        => catfile($self->o('base_repeat_dir'),'pipeline_output_dir'),
-'min_consensi_files'      => 5,
+# Mostly constant stuff
+'farm_user_name'              => 'genebuilder',
+'pipeline_name'               => 'vertebrate_repeatmodeler',
+'ncbi_base_ftp'               => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all',
+'base_output_path'            => catfile($self->o('base_repeat_dir'),'pipeline_output_dir'),
+'binary_base'                 => '/nfs/software/ensembl/RHEL7/linuxbrew/bin',
+'default_mem'                 => '2900',
+'default_himem'               => '20000',
+'user'                        => $self->o('user_w'),
+'dna_db_name'                 => '', # Leave blank, just needs to be present
+'assembly_registry_db'        => {
+                                   -dbname => $self->o('assembly_registry_dbname'),
+                                   -host   => $self->o('assembly_registry_db_server'),
+                                   -port   => $self->o('assembly_registry_db_port'),
+                                   -user   => $self->o('user_r'),
+                                   -driver => $self->o('hive_driver'),
+                                 },
 
-'repeatmodeler_run_count' => 10,
-'num_cores'               => 10,
-
-'ncbi_base_ftp'           => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all',
-
-'base_output_path'        => catfile($self->o('base_repeat_dir'),'pipeline_output_dir'),
-'binary_base'           => '/nfs/software/ensembl/RHEL7/linuxbrew/bin',
-'default_mem'           => '2900',
-'default_himem'         => '20000',
-
-'user'                  => $self->o('user_w'),
-'dna_db_name'           => '',
-
-'assembly_registry_db' => {
-              -dbname => $self->o('assembly_registry_dbname'),
-              -host   => $self->o('assembly_registry_db_server'),
-              -port   => $self->o('assembly_registry_db_port'),
-              -user   => $self->o('user_r'),
-              -driver => $self->o('hive_driver'),
-            },
-
- } # end return
+  } # end return
 } # end default_options
 
 
 sub pipeline_create_commands {
-    my ($self) = @_;
-    return [
+  my ($self) = @_;
+  return [
+    @{$self->SUPER::pipeline_create_commands},
     # inheriting database and hive tables' creation
-	    @{$self->SUPER::pipeline_create_commands},
-    ];
+    $self->db_cmd('CREATE TABLE run_records ('.
+                  'accession varchar(50) NOT NULL,'.
+                  'species_name varchar(100) NOT NULL,'.
+                  'run_count int NOT NULL,'.
+                  'status varchar(50) NOT NULL,'.
+                  'PRIMARY KEY (accession))'),
+  ];
 } # end pipeline_create_commands
+
 
 
 sub pipeline_analyses {
@@ -116,7 +120,8 @@ sub pipeline_analyses {
       -logic_name => 'build_repeatmodeler_db',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-                      cmd => 'sleep 30; cd #path_to_genomic_fasta# && '.$self->o('repeatmodeler_path').'/BuildDatabase -name repeatmodeler_db -engine ncbi #path_to_genomic_fasta#/genomic.fna',
+                      cmd => 'sleep 180; cd #path_to_genomic_fasta# && '.$self->o('repeatmodeler_path').
+                             '/BuildDatabase -name repeatmodeler_db -engine ncbi #path_to_genomic_fasta#/genomic.fna',
                      },
       -rc_name    => 'default_himem',
       -max_retry_count => 1,
@@ -143,7 +148,8 @@ sub pipeline_analyses {
       -logic_name => 'run_repeatmodeler',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-                       cmd => 'sleep 30; cd #repeatmodeler_run_dir# && '.$self->o('repeatmodeler_path').'/RepeatModeler -engine ncbi -pa '.$self->o('num_cores').' -database #path_to_genomic_fasta#/repeatmodeler_db',
+                       cmd => 'sleep 180; cd #repeatmodeler_run_dir# && '.$self->o('repeatmodeler_path').
+                              '/RepeatModeler -engine ncbi -pa '.$self->o('num_cores').' -database #path_to_genomic_fasta#/repeatmodeler_db',
                      },
       -rc_name    => 'default_himem',
       -max_retry_count => 1,
@@ -175,6 +181,22 @@ sub pipeline_analyses {
                      },
 
       -rc_name    => 'default',
+      -flow_into  => {
+                       '1' => ['update_run_count_table'],
+                     },
+    },
+
+
+    {
+      -logic_name => 'update_run_count_table',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+                       db_conn => $self->o('pipeline_db'),
+                         sql => ['UPDATE run_records set run_count=#run_count# WHERE accession="#iid#"',
+                                 'UPDATE run_records set status="complete" WHERE accession="#iid#"'],
+                     },
+      -max_retry_count => 0,
+      -rc_name => 'default',
       -flow_into  => {
                        '1' => ['delete_output_dir'],
                      },
