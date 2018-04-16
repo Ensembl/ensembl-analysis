@@ -70,7 +70,7 @@ sub set_toplevel {
   my $dbpass = $target_db->{'-pass'};
   my $dbname = $target_db->{'-dbname'};
 
-  my $cmd = 'perl '.catfile($enscode_dir, 'ensembl-analysis', 'scripts', 'assembly_Loading', 'set_toplevel.pl').
+  my $cmd = 'perl '.catfile($enscode_dir, 'ensembl-analysis', 'scripts', 'assembly_loading', 'set_toplevel.pl').
             " -dbhost ".$dbhost.
             " -dbuser ".$dbuser.
             " -dbpass ".$dbpass.
