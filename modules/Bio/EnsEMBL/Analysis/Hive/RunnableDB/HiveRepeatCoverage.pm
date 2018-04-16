@@ -42,7 +42,7 @@ use warnings;
 
 use Bio::EnsEMBL::Analysis::Tools::RepeatCoverage qw(get_genes get_repeat_blocks get_masked_stats);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
-
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command send_email);
 
 =head2 param_defaults
 
