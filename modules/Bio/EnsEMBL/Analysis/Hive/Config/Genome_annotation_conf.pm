@@ -3562,7 +3562,7 @@ sub pipeline_analyses {
         -logic_name => 'restore_ig_tr_biotypes',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-          db_conn => $self->o('final_geneset_db'),
+          db_conn => $self->o('genebuilder_db'),
           sql => [
             'UPDATE gene JOIN transcript USING(gene_id) SET gene.biotype = transcript.biotype'.
               ' WHERE transcript.biotype LIKE "IG\_%" OR transcript.biotype LIKE "TR\_%"',
