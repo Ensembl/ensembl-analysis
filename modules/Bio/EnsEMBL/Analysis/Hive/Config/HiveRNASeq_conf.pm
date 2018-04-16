@@ -530,7 +530,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => '3GB_multithread',
         -flow_into => {
-            1 => ['create_analyses_type_job', ':////accu?filename=[]' ],
+            1 => ['create_analyses_type_job', '?accu_name=filename&accu_address=[]&accu_input_variable=alignment_bam_file' ],
             },
       },
             {
@@ -579,7 +579,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => '3GB_multithread',
         -flow_into => {
-                        1 => ['create_header_intron'],
+                        2 => ['create_header_intron'],
                       },
       },
             {

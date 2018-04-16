@@ -168,7 +168,7 @@ sub fetch_input {
         if ($self->param('store_datafile')) {
           $self->store_filename_into_datafile;
         }
-        $self->dataflow_output_id({filename => $abs_filename}, 1);
+        $self->dataflow_output_id({filename => $abs_filename}, $self->param('_branch_to_flow_to'));
         # Finally tell Hive that we've finished processing
         $self->complete_early('There is only one file to process');
     }
@@ -236,7 +236,7 @@ sub write_output {
     if ($self->param('store_datafile')) {
       $self->store_filename_into_datafile;
     }
-    $self->dataflow_output_id({filename => $self->output->[0]}, 1);
+    $self->dataflow_output_id({filename => $self->output->[0]}, $self->param('_branch_to_flow_to')); 
 }
 
 
