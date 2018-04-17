@@ -287,12 +287,17 @@ if ($slice->is_chromosome) {
             $max_attrib = $attrib->value if ($max_attrib < $attrib->value);
         }
     }
-    push my @rank,
-      Bio::EnsEMBL::Attribute->new(
-                    -CODE        => 'karyotype_rank',
-                    -VALUE       => ++$max_attrib );
-    print "Karyotype rank for the mitochondrion: $max_attrib\n";
-    $attrib_adaptor->store_on_Slice( $slice, \@rank ) unless (defined $answer and ($answer eq 'n' or $answer eq 'N'));
+    if ($max_attrib) {
+      push my @rank,
+        Bio::EnsEMBL::Attribute->new(
+                      -CODE        => 'karyotype_rank',
+                      -VALUE       => ++$max_attrib );
+      print "Karyotype rank for the mitochondrion: $max_attrib\n";
+      $attrib_adaptor->store_on_Slice( $slice, \@rank ) unless (defined $answer and ($answer eq 'n' or $answer eq 'N'));
+    }
+    else {
+      print "NOT adding karyotype rank as it would be 1\n";
+    }
 }
 
 #########################################
@@ -637,15 +642,11 @@ sub load_db(){
     print "dbID = $dbid\n" if $MIT_DEBUG;
     my $stored_gene = $output_db->get_GeneAdaptor->fetch_by_dbID($dbid);
   }
-  my $geneset_date = sprintf("%d-%02s", (localtime->year()+1900), localtime->mon);
+  my $geneset_date = sprintf("%d-%02d", (localtime->year()+1900), localtime->mon);
   my $last_geneset_update = $meta_container->single_value_by_key('genebuild.last_geneset_update');
   if ($last_geneset_update) {
       $meta_container->update_key_value('genebuild.last_geneset_update', $geneset_date);
       print STDOUT "Meta key last_geneset_update was $last_geneset_update changed to $geneset_date\n";
-  }
-  else {
-      $meta_container->store_key_value('genebuild.last_geneset_update', $geneset_date);
-      print STDOUT "Setting meta key last_geneset_update to $geneset_date\n";
   }
   return 0;
 }
@@ -670,7 +671,7 @@ sub get_chromosomes {
   }
   else {
     my $comments = join(' ', @{$genbank_parser->get_raw_comment});
-    if ($comments =~ /reference\s+sequence\s+[a-z ]+([A-Z]{2}\d+)./) {
+    if ($comments =~ /reference\s+sequence\s+[a-z ]+([A-Z]{1,2}\d+)./) {
       $assembly{$clone} = $1;
     }
   }
@@ -679,7 +680,7 @@ sub get_chromosomes {
   }
   else {
     my $comments = join(' ', @{$genbank_parser->get_raw_comment});
-    if ($comments =~ /reference\s+sequence\s+[a-z ]+([A-Z]{2}\d+)./) {
+    if ($comments =~ /reference\s+sequence\s+[a-z ]+([A-Z]{1,2}\d+)./) {
       $assembly{$contig} = $1;
     }
   }
