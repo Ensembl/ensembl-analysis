@@ -368,7 +368,7 @@ sub pipeline_analyses {
         -logic_name => 'classify_genblast',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
         -parameters => {
-                         classification_type => 'standard',
+                         classification_type => 'gifts',
                          update_gene_biotype => 1,
                          target_db => $self->o('genblast_db'),
                        },
