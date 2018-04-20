@@ -84,7 +84,7 @@ sub default_options {
 'genblast_eval'              => $self->o('blast_type') eq 'wu' ? '1e-20' : '1e-1',
 'genblast_cov'               => '0.5',
 'genblast_pid'               => '50',
-'genblast_max_rank'          => '5',
+'genblast_max_rank'          => '1',
 'blast_type'                 => 'ncbi',
 
         'pipeline_db' => {
