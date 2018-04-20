@@ -120,6 +120,18 @@ sub fetch_input {
         '8' => [0, 0],
       );
       $self->param('classification', \%classification);
+    } elsif ($self->param('classification_type') eq 'gifts') {
+      %classification = (
+        '1' => [100,100],
+        '2' => [97,97],
+        '3' => [95,95],
+        '4' => [90,90],
+        '5' => [80,90],
+        '6' => [80,80],
+        '7' => [70,70],
+        '8' => [50,50],
+        '9' => [0,0]
+      );
     } else {
       $self->throw('Unrecognised classification type, the default is "standard". Classification type passed in: '.$self->param('classification_type'));
     }
