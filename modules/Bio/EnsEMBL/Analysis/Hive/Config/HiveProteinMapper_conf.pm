@@ -200,7 +200,7 @@ sub pipeline_analyses {
         -rc_name    => 'default',
         -flow_into  => {
                          '1->A' => ['list_unmapped_uniprot_accessions'],
-                         'A->1' => ['classify_genblast'],
+                         'A->1' => ['remove_batch_filename_accession_from_biotype'],
                        },
       },
 
@@ -349,6 +349,19 @@ sub pipeline_analyses {
         -rc_name          => 'default',
         -can_be_empty  => 1,
         -failed_job_tolerance => 100,
+      },
+
+      {
+        -logic_name => 'remove_batch_filename_accession_from_biotype',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+                         db_conn => $self->o('genblast_db'),
+                         sql => ['UPDATE transcript SET biotype=substr(biotype,-2,2)']
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['classify_genblast'],
+                      },
       },
 
       {
