@@ -15,6 +15,7 @@ sub default_options {
     %{ $self->SUPER::default_options() },
 
 # Things to set
+'farm_user_name'              => '',
 'user_r'                      => '',
 'user_w'                      => '',
 'password'                    => '',
@@ -39,7 +40,6 @@ sub default_options {
 'num_cores'                   => 10, # Number of cores for BLAST phase of repeatmodeler
 
 # Mostly constant stuff
-'farm_user_name'              => 'genebuilder',
 'pipeline_name'               => 'vertebrate_repeatmodeler',
 'ncbi_base_ftp'               => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all',
 'base_output_path'            => catfile($self->o('base_repeat_dir'),'pipeline_output_dir'),
@@ -56,7 +56,10 @@ sub default_options {
                                    -driver => $self->o('hive_driver'),
                                  },
 
-  } # end return
+
+
+
+ } # end return
 } # end default_options
 
 
@@ -120,8 +123,7 @@ sub pipeline_analyses {
       -logic_name => 'build_repeatmodeler_db',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-                      cmd => 'sleep 180; cd #path_to_genomic_fasta# && '.$self->o('repeatmodeler_path').
-                             '/BuildDatabase -name repeatmodeler_db -engine ncbi #path_to_genomic_fasta#/genomic.fna',
+                      cmd => 'sleep 120; cd #path_to_genomic_fasta# && '.$self->o('repeatmodeler_path').'/BuildDatabase -name repeatmodeler_db -engine ncbi #path_to_genomic_fasta#/genomic.fna',
                      },
       -rc_name    => 'default_himem',
       -max_retry_count => 1,
@@ -148,8 +150,7 @@ sub pipeline_analyses {
       -logic_name => 'run_repeatmodeler',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-                       cmd => 'sleep 180; cd #repeatmodeler_run_dir# && '.$self->o('repeatmodeler_path').
-                              '/RepeatModeler -engine ncbi -pa '.$self->o('num_cores').' -database #path_to_genomic_fasta#/repeatmodeler_db',
+                       cmd => 'sleep 120; cd #repeatmodeler_run_dir# && '.$self->o('repeatmodeler_path').'/RepeatModeler -engine ncbi -pa '.$self->o('num_cores').' -database #path_to_genomic_fasta#/repeatmodeler_db',
                      },
       -rc_name    => 'default_himem',
       -max_retry_count => 1,
