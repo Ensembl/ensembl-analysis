@@ -108,7 +108,7 @@ sub fetch_input {
 
   if (!$self->param('classification')) {
     my %classification;
-    if($self->param('classification_type') eq 'standard') {
+    if ($self->param('classification_type') eq 'standard') {
       %classification = (
         '1' => [95, 95],
         '2' => [95, 80],
@@ -132,6 +132,7 @@ sub fetch_input {
         '8' => [50,50],
         '9' => [0,0]
       );
+      $self->param('classification', \%classification);
     } else {
       $self->throw('Unrecognised classification type, the default is "standard". Classification type passed in: '.$self->param('classification_type'));
     }
@@ -191,7 +192,8 @@ sub write_output {
       'AND tsf.feature_type = "'.$self->param('feature_type').'"');
   my $classification = $self->param('classification');
 
-  if($self->param('classification_type') eq 'standard') {
+  if ($self->param('classification_type') eq 'standard' or
+      $self->param('classification_type') eq 'gifts') {
     foreach my $key (sort {$b <=> $a} keys %{$classification}) {
       $sth->bind_param(1, '_'.$key);
       $sth->bind_param(2, $classification->{$key}->[0]);
