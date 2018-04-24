@@ -230,7 +230,7 @@ sub create_config {
 
   my $config_string = "";
   my $past_default_options = 0;
-  open(CONFIG,$ENV{ENSCODE}."/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_static_conf.pm");
+  open(CONFIG,$ENV{ENSCODE}."/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_conf.pm");
   while(my $line = <CONFIG>) {
     if($line =~ /sub pipeline_create_commands/) {
       $past_default_options = 1;
@@ -275,6 +275,13 @@ sub clade_settings {
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
     },
+
+    'fish_teleost' => {
+      'repbase_library'    => 'Teleostei',
+      'repbase_logic_name' => 'teleost',
+      'uniprot_set'        => 'fish_basic',
+    },
+
   };
 
   unless($clade_settings->{$clade}) {

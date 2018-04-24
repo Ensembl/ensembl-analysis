@@ -119,6 +119,9 @@ sub default_options {
     'genblast_db_server'           => $self->o('databases_server'),
     'genblast_db_port'             => $self->o('databases_port'),
 
+    'genblast_select_db_server'    => $self->o('databases_server'),
+    'genblast_select_db_port'      => $self->o('databases_port'),
+
     'ig_tr_db_server'              => $self->o('databases_server'),
     'ig_tr_db_port'                => $self->o('databases_port'),
 
@@ -414,6 +417,17 @@ sub default_options {
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
     },
+
+
+    'genblast_select_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_gensel_'.$self->o('release_number'),
+      -host   => $self->o('genblast_select_db_server'),
+      -port   => $self->o('genblast_select_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
 
     'ig_tr_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_igtr_'.$self->o('release_number'),
@@ -1704,6 +1718,20 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -wait_for => ['format_softmasked_toplevel'],
+        -flow_into => { 1 => ['create_genblast_select_output_db'] },
+      },
+
+
+      {
+        -logic_name => 'create_genblast_select_output_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('genblast_select_db'),
+                         create_type => 'clone',
+                       },
+        -rc_name    => 'default',
+        -wait_for => ['format_softmasked_toplevel'],
         -flow_into => {
                         '1->A' => ['download_uniprot_files'],
                         'A->1' => ['classify_genblast_models'],
@@ -1896,6 +1924,100 @@ sub pipeline_analyses {
                        },
 
         -rc_name    => '4GB',
+        -flow_into => { 1 => ['create_genblast_slices'] },
+      },
+
+
+      {
+        -logic_name => 'create_genblast_slices',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('dna_db'),
+                         iid_type => 'slice',
+                         slice_size => 10000000,
+                         coord_system_name => 'toplevel',
+                         include_non_reference => 0,
+                         top_level => 1,
+                         # These options will create only slices that have a gene on the slice in one of the feature dbs
+                         feature_constraint => 1,
+                         feature_type => 'gene',
+                         feature_dbs => [$self->o('genblast_db')],
+                      },
+        -flow_into => {
+                       '2->A' => ['genblast_select'],
+                       'A->1' => ['update_genblast_select_biotypes'],
+                      },
+
+        -rc_name    => 'default',
+      },
+
+
+      {
+        -logic_name => 'genblast_select',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.catfile($self->o('ensembl_analysis_script'), 'genebuild', 'pick_best_alt_transcripts.pl').
+                                     ' -slice_name #iid#'.
+                                     ' -source_host '.$self->o('genblast_db','-host').
+                                     ' -source_user '.$self->o('user_r').
+                                     ' -source_port '.$self->o('genblast_db','-port').
+                                     ' -source_dbname '.$self->o('genblast_db','-dbname').
+                                     ' -dna_user '.$self->o('user_r').
+                                     ' -dna_host '.$self->o('dna_db','-host').
+                                     ' -dna_port '.$self->o('dna_db','-port').
+                                     ' -dna_dbname '.$self->o('dna_db','-dbname').
+                                     ' -out_user '.$self->o('user').
+                                     ' -out_pass '.$self->o('password').
+                                     ' -out_host '.$self->o('genblast_select_db','-host').
+                                     ' -out_port '.$self->o('genblast_select_db','-port').
+                                     ' -out_dbname '.$self->o('genblast_select_db','-dbname')
+                      },
+        -rc_name => '4GB',
+     },
+
+
+      {
+        -logic_name => 'update_genblast_select_biotypes',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn => $self->o('genblast_select_db'),
+          sql => [
+            'UPDATE gene set biotype="genblast_select"',' UPDATE transcript set biotype="genblast_select"'
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into  => {
+                         1 => ['classify_genblast_select_models'],
+                       },
+      },
+
+
+      {
+        -logic_name => 'classify_genblast_select_models',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
+        -parameters => {
+                         classification_type => 'standard',
+                         update_gene_biotype => 1,
+                         target_db => $self->o('genblast_select_db'),
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['genblast_select_sanity_checks'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'genblast_select_sanity_checks',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
+        -parameters => {
+                         target_db => $self->o('genblast_db'),
+                         sanity_check_type => 'gene_db_checks',
+                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
+                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'genblast_select'},
+                       },
+
+        -rc_name    => '4GB',
         -flow_into => {
                         '1->A' => ['create_cdna_db'],
                         'A->1' => ['create_ig_tr_db'],
@@ -2019,6 +2141,7 @@ sub pipeline_analyses {
       -rc_name          => 'exonerate',
     },
 
+
     {
       -logic_name => 'indicate_proteome',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -2034,6 +2157,8 @@ sub pipeline_analyses {
         '1' => ['generate_pmatch_jobs'],
       },
     },
+
+
     {
       -logic_name => 'generate_pmatch_jobs',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
