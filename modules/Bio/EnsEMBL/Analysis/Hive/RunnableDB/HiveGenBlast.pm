@@ -209,7 +209,7 @@ sub write_output{
     my $analysis = $self->analysis;
     my $not_best_analysis = new Bio::EnsEMBL::Analysis(-logic_name => $analysis->logic_name()."_not_best",
                                                        -module     => $analysis->module);
-    foreach my $transcript ($self->output) {
+    foreach my $transcript (@{$self->output}) {
       $transcript->analysis($analysis);
       my $accession = $transcript->{'accession'};
       $transcript->biotype($self->get_biotype->{$accession});
