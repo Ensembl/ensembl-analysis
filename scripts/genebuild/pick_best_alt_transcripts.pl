@@ -28,6 +28,8 @@ my $out_pass   = '';
 
 
 my $slice_name = ''; # e.g. 'primary_assembly:Astyanax_mexicanus-2.0:23:1:20000000:1'
+my $select_most_supported_transcripts = 1;
+my $source_type = 'protein';
 
 my $options = GetOptions ("source_user=s"   => \$source_user,
                           "source_host=s"   => \$source_host,
