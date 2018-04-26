@@ -270,7 +270,7 @@ sub run {
     }
 
     if (!$himem_required) {
-      $self->build_transcripts($projected_exons,$gene_index);
+      $self->build_transcripts($projected_exons,$gene_index,$self->param('canonical'));
     }
     say "Had a total of ".$fail_count."/".scalar(@{$exons})." failed exon projections for gene ".$gene->dbID();
     $gene_index++;
@@ -293,7 +293,7 @@ sub write_output {
 }
 
 sub build_transcripts {
-  my ($self,$projected_exons,$gene_index) = @_;
+  my ($self,$projected_exons,$gene_index,$canonical) = @_;
 
   my $analysis = Bio::EnsEMBL::Analysis->new(
                                               -logic_name => 'cesar',
@@ -304,8 +304,16 @@ sub build_transcripts {
 
   my $gene = @{$self->parent_genes}[$gene_index];
   say "Source gene SID: ".$gene->stable_id;
-  my $transcripts = $gene->get_all_Transcripts();
-  foreach my $transcript (@{$transcripts}) {
+
+  #my $transcripts = $gene->get_all_Transcripts();
+  my @transcripts = ();  
+  if ($canonical) {
+    push(@transcripts,$gene->canonical_transcript());
+  } else {
+    @transcripts = @{$gene->get_all_Transcripts()};
+  }
+  
+  foreach my $transcript (@transcripts) {
     unless($transcript->biotype eq 'protein_coding') {
       next;
     }
@@ -315,16 +323,24 @@ sub build_transcripts {
     my $projected_exon_set = [];
     my $current_projected_exons_seq_region_name = 0; # this is to skip the projected exons whose slice seq region name is
                                                      # different from the first projected exon slice seq region name
+    my $current_projected_exons_seq_region_strand = 0; # this is to skip the projected exons whose slice seq region strand is
+                                                       # different from the first projected exon slice seq region strand
     foreach my $exon (@{$exons}) {
       say "Checking for exon ".$exon->stable_id;
       my $projected_exon = $projected_exons->{$exon->dbID};
       if ($projected_exon) {
+#print("IF PROJECTED EXON\n");       
         if (!$current_projected_exons_seq_region_name) {
           $current_projected_exons_seq_region_name = $projected_exon->seq_region_name();
         }
-        if (($projected_exon->seq_region_strand() eq $transcript->seq_region_strand()) and
+        if (!$current_projected_exons_seq_region_strand) {
+          $current_projected_exons_seq_region_strand = $projected_exon->seq_region_strand();
+        }
+        
+        if (#($projected_exon->seq_region_strand() eq $transcript->seq_region_strand()) and
+            ($projected_exon->seq_region_strand() eq $current_projected_exons_seq_region_strand) and
             ($projected_exon->seq_region_name() eq $current_projected_exons_seq_region_name)) {
-
+#print("Projected exon belongs to same seq region and strand\n");
           if ($projected_exon->start() <= $projected_exon->end()) {
             push(@{$projected_exon_set},$projected_exon);
           } else {
@@ -332,12 +348,19 @@ sub build_transcripts {
           }
 
         } else {
-          print("Projected exon on a different seq region or strand: ".$projected_exon->stable_id()."\n");
+          print("Projected exon on a different seq region or strand: ".$projected_exon->stable_id().
+                " Projected exon strand: ".$projected_exon->seq_region_strand().
+                " Projected exon seq region name: ".$projected_exon->seq_region_name().
+                " Transcript seq region strand: ".$transcript->seq_region_strand().
+                " Current projected exons seq region name: ".$current_projected_exons_seq_region_name.
+                " Current projected exons seq region strand: ".$current_projected_exons_seq_region_strand.
+                "\n");
         }
       }
     }
 
     unless(scalar(@{$projected_exon_set}) > 0) {
+#print("Projected exon set is zero\n");
       next;
     }
 
@@ -397,6 +420,7 @@ sub build_transcripts {
 
     my ($coverage,$percent_id) = (0,0);
     if ($projected_transcript->translation()->seq()) {
+print("Projected transcript translation has a seq\n");
       ($coverage,$percent_id) = align_proteins($transcript->translate()->seq(),$projected_transcript->translate()->seq());
     }
     $projected_transcript->source($coverage);
@@ -404,25 +428,38 @@ sub build_transcripts {
     $projected_transcript->description("stable_id of source: ".$transcript->stable_id());
     #$projected_transcript->description(">orig\n".$transcript->translation()->seq()."\n>proj\n".$projected_transcript->translation()->seq());
 
-    # filter out transcripts below given pid and cov
-    if ($self->TRANSCRIPT_FILTER) {
-      if (scalar(@{$projected_transcript->get_all_supporting_features()}) > 0) {
-        $transcripts = $self->filter->filter_results([$projected_transcript]);
-        if (scalar(@$transcripts) > 0) {
+    # do not store transcripts containing stops
+    #if ($projected_transcript->translate()) {
+    #  my $projected_transcript_translate_seq = $projected_transcript->translate()->seq();
+    #  my $num_stops = $projected_transcript_translate_seq =~ s/\*/\*/g;
+    #  if ($num_stops > 0) {
+    #    say "The projected transcript has been filtered out because its translation contains stops (".$num_stops." stops).";
+    #  } else {
+        # filter out transcripts below given pid and cov
+        if ($self->TRANSCRIPT_FILTER) {
+#print("TRANSCRIPT FILTER defined\n");
+          if (scalar(@{$projected_transcript->get_all_supporting_features()}) > 0) {
+            my $filtered_transcripts = $self->filter->filter_results([$projected_transcript]);
+            if (scalar(@$filtered_transcripts) > 0) {
+              my $gene = Bio::EnsEMBL::Gene->new();
+              $gene->add_Transcript($projected_transcript);
+              $gene->analysis($analysis);
+              $self->output_genes($gene);
+            } else {
+              say "The projected transcript has been filtered out because its pid and cov are too low.";
+            }
+          }
+        } else {
+#print("TRANSCRIPT FILTER NOT defined\n");
           my $gene = Bio::EnsEMBL::Gene->new();
           $gene->add_Transcript($projected_transcript);
           $gene->analysis($analysis);
           $self->output_genes($gene);
-        } else {
-          say "The projected transcript has been filtered out because its pid and cov are too low.";
         }
-      }
-    } else {
-      my $gene = Bio::EnsEMBL::Gene->new();
-      $gene->add_Transcript($projected_transcript);
-      $gene->analysis($analysis);
-      $self->output_genes($gene);
-    }
+    #  }
+    #} else {
+      say "The projected transcript does not translate.";
+    #}
   }
 }
 
@@ -726,8 +763,8 @@ sub parse_exon {
     # add a 'seq_edits' attribute to the proj_exon object
     # to store the seq edits that will be added to the transcript
     # when the transcript is built
-    my @seq_edits = make_seq_edits($source_seq,$proj_seq);
-    $proj_exon->{'seq_edits'} = \@seq_edits;
+    #my @seq_edits = make_seq_edits($source_seq,$proj_seq);
+    #$proj_exon->{'seq_edits'} = \@seq_edits;
   } else {
     say "Start is not less than or equal to end+1. Exon skipped.";
   }
@@ -738,7 +775,7 @@ sub make_seq_edits {
   # It returns an array of SeqEdit objects for the target sequence to make
   # the insertions for the alignment gaps between the source and target sequences
   # created for an alignment between two dna sequence in cesar output format ie string containing acgtACGT-.
-  # A SeqEdit object is added to the array for each substring of any number of "-".
+  # A SeqEdit object is added to the array for each substring of any number of "-" not multiple of 3.
   # Inserted bases are taken from the source sequence.
 
   my ($source_seq,$target_seq) = @_;
@@ -754,7 +791,6 @@ sub make_seq_edits {
   }
 
   while ($target_seq =~ /(\-+)/g) {
-
     $acumm_gap_length += length($1);
     my $start = pos($target_seq)+1-$acumm_gap_length-$num_lowercase_left_flank;
     my $end = $start-1;

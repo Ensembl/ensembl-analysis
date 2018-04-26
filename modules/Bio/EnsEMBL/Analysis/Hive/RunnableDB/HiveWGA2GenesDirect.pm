@@ -480,7 +480,8 @@ sub select_best_transcripts {
   # we want all transcripts that fall within 5 percent of this value
   foreach my $preliminary_transcript (@{$preliminary_transcripts}) {
     my $combined_score = $preliminary_transcript->{'combined_score'};
-    if($combined_score/$best_score >= 0.95) {
+    #if($combined_score/$best_score >= 0.95) {
+    if ($combined_score/$best_score >= 1 and scalar(@{$selected_transcripts}) == 0) { 
       push(@{$selected_transcripts},$preliminary_transcript);
     }
   }

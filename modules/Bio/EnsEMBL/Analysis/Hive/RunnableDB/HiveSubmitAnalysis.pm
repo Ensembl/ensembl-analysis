@@ -34,6 +34,7 @@ use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
  Description: It allows the definition of default parameters for all inherting module.
               These are the default values:
                include_non_reference => 0,
+               feature_id_include_non_reference => 1,
                include_duplicates => 0,
                include_lrg => 0, #This one should never be used but it's here for compatibility
                mitochondrion => 0,
@@ -58,6 +59,7 @@ sub param_defaults {
     return {
         %{$self->SUPER::param_defaults},
         include_non_reference => 0,
+        feature_id_include_non_reference => 1,
         include_duplicates => 0,
         include_lrg => 0, #This one should never be used but it's here for compatibility
         mitochondrion => 0,
@@ -548,8 +550,10 @@ sub feature_region {
   my @input_ids;
   my $feature_type = $self->param_required('feature_type');
   my $slices;
-  if ($self->param_is_defined('iid') and is_slice_name($self->param('iid'))) {
-    $slices = [$dba->get_SliceAdaptor->fetch_by_name($self->param('iid'))];
+  if ($self->param_is_defined('iid')) {
+    if (is_slice_name($self->param('iid'))) {
+      $slices = [$dba->get_SliceAdaptor->fetch_by_name($self->param('iid'))];
+    }
   }
   else {
     $slices = $dba->get_SliceAdaptor->fetch_all($self->param('coord_system_name'));
