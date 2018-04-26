@@ -91,7 +91,7 @@ foreach my $initial_gene (@{$initial_genes}) {
     throw("Found a multi-transcript gene with dbID ".$initial_gene->dbID.". The script is built for single transcript genes");
   }
 
-  my $initial_transcript = shift($transcripts);
+  my $initial_transcript = shift(@{$transcripts});
   # Skip transcripts that look dodgy because of frameshift or small introns
   if($initial_transcript->biotype =~ /\_pe3\_/ || $initial_transcript->biotype =~ /\_del$/ || $initial_transcript->biotype =~ /old\_/ ||
      $initial_transcript->biotype =~ /\_sub\_/ || $initial_transcript->biotype =~ /\_int\_/) {
