@@ -83,10 +83,8 @@ cmp_ok(@{$sth->fetchall_arrayref}, '>=', 73, 'Checking all tables loaded');
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
 	{
-    create_type => 'backup',
-    source_db => \%target_db,
-    output_path => cwd(),
-    backup_name => $test_dbname.'.sql',
+          src_db_conn => \%target_db,
+          output_file => catfile(cwd(),$test_dbname.'.sql'),
 	},
 );
 my $gzip = catfile(cwd(), $test_dbname.'.sql.gz');
