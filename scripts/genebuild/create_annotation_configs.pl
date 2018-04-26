@@ -18,6 +18,7 @@ use warnings;
 use strict;
 use feature 'say';
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use Net::FTP;
 use Data::Dumper;
 
@@ -26,6 +27,13 @@ my $config_file = $ARGV[0];
 my $ftphost = "ftp.ncbi.nlm.nih.gov";
 my $ftpuser = "anonymous";
 my $ftppassword = "";
+
+my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
+  -host    => $ENV{GBS5},
+  -port    => $ENV{GBP5},
+  -user    => 'ensro',
+  -dbname  => 'do1_stable_id_space_assembly_registry');
+
 my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -port    => 4240,
   -user    => 'ensro',
@@ -106,6 +114,11 @@ foreach my $accession (@accession_array) {
   unless($accession =~ /GCA_([\d]{3})([\d]{3})([\d]{3})\.\d+/) {
     die "Found an assembly accession that did not match the regex. Offending accession: ".$accession;
   }
+
+  # Get stable id prefix
+  my $stable_id_prefix = $assembly_registry->fetch_stable_id_prefix_by_gca($accession);
+  say "Fetched the following stable id prefix for ".$accession.": ".$stable_id_prefix;
+  $assembly_hash->{'stable_id_prefix'} = $stable_id_prefix;
 
   my $assembly_ftp_path = $ftp_base_dir.'GCA/'.$1.'/'.$2.'/'.$3.'/';
   my $full_assembly_path;

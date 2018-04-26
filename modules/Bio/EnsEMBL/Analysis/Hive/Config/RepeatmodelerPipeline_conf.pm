@@ -14,6 +14,11 @@ sub default_options {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
 
+# Handy SQL for looking at failed or passed on repeatmodeler jobs:
+# select count(*),substring(data, 12,15) as failed from job join analysis_data on analysis_data_id=replace(input_id,'_extended_data_id ','') 
+# where analysis_id=(select analysis_id from analysis_base where logic_name='run_repeatmodeler') and status in ('FAILED','PASSED_ON') group by failed;
+
+
 # Things to set
 'farm_user_name'              => '',
 'user_r'                      => '',

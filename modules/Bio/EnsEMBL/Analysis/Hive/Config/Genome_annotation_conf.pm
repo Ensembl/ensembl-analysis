@@ -303,6 +303,8 @@ sub default_options {
     'genblast_cov'      => '0.5',
     'genblast_pid'      => '50',
     'genblast_max_rank' => '5',
+    'genblast_flag_small_introns' => 1,
+    'genblast_flag_subpar_models' => 1,
 
     'ig_tr_table_name'    => 'ig_tr_sequences',
     'ig_tr_genblast_cov'  => '0.8',
@@ -1833,6 +1835,8 @@ sub pipeline_analyses {
                          timer => '2h',
                          blast_eval => $self->o('genblast_eval'),
                          blast_cov  => $self->o('genblast_cov'),
+                         flag_small_introns => $self->o('genblast_flag_small_introns'),
+                         flag_subpar_models => $self->o('genblast_flag_subpar_models'),
                        },
         -rc_name    => 'genblast',
         -flow_into => {
@@ -1875,6 +1879,8 @@ sub pipeline_analyses {
                          timer => '1h',
                          blast_eval => $self->o('genblast_eval'),
                          blast_cov  => $self->o('genblast_cov'),
+                         flag_small_introns => $self->o('genblast_flag_small_introns'),
+                         flag_subpar_models => $self->o('genblast_flag_subpar_models'),
                        },
         -rc_name          => 'genblast_retry',
         -can_be_empty  => 1,

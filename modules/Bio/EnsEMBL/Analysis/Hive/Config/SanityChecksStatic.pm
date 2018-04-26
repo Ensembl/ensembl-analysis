@@ -120,7 +120,7 @@ sub _master_config {
        # protein align features
        'uniprot'                     => [3005772,'protein align'],
      },
-     
+
      'bird_basic' => {
        # repeats
        'dust'                        => [1392556,'repeat'],
@@ -171,6 +171,11 @@ sub _master_config {
           'mammals_pe12_'       => 100000,
         }, # biotypes
       }, # genblast
+      'genblast_select' => {
+        'biotypes' =>    {
+          'genblast_select_' => 10000,
+        }, # biotypes
+      }, # genblast_select
       'ig_tr' => {
         'logic_names' => {
           'ig_tr_gene'          => 40,
@@ -332,6 +337,11 @@ sub _master_config {
           'mammals_pe12_'       => 100000,
         }, # biotypes
       }, # genblast
+      'genblast_select' => {
+        'biotypes' =>    {
+          'genblast_select_' => 10000,
+        }, # biotypes
+      }, # genblast_select
       'ig_tr' => {
         'logic_names' => {
           'ig_tr_gene'          => 80,
@@ -481,6 +491,11 @@ sub _master_config {
           'vert_pe12_' => 40000,
         }, # biotypes
       }, # genblast
+      'genblast_select' => {
+        'biotypes' =>    {
+          'genblast_select_' => 10000,
+        }, # biotypes
+      }, # genblast_select
       'ig_tr' => {
         'logic_names' => {
           'ig_tr_gene'          => 40,
