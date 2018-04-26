@@ -76,23 +76,8 @@ $db->dbc->do("use $test_dbname");
 my $sth = $db->dbc->prepare('SHOW TABLES');
 $sth->execute();
 cmp_ok(@{$sth->fetchall_arrayref}, '>=', 73, 'Checking all tables loaded');
-
-###
-# Testing create_type backup
-###
-standaloneJob(
-	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-	{
-          src_db_conn => \%target_db,
-          output_file => catfile(cwd(),$test_dbname.'.sql'),
-	},
-);
-my $gzip = catfile(cwd(), $test_dbname.'.sql.gz');
-ok(-e $gzip, "Testing backup file exists");
-ok(-s $gzip, 'Testing backup file is not null');
-my @stat = stat($gzip);
-cmp_ok($stat[7], '>=', 7000, 'Checking file has data');
 $db->dbc->do("DROP DATABASE $test_dbname");
+
 
 ###
 # Testing create_type clone
