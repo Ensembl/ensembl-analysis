@@ -154,7 +154,7 @@ sub fetch_input {
     push(@commands, $self->load_database($self->param('target_db'), $table_file));
   }
   elsif($create_type eq 'backup') {
-    $self->warning('Create type "backup" is deprecated, please use Bio::EnsEMBL::Hive::RunnableDB::DatabaseDumper instead with "src_db_conn" and "output_file"');
+#    $self->warning('Create type "backup" is deprecated, please use Bio::EnsEMBL::Hive::RunnableDB::DatabaseDumper instead with "src_db_conn" and "output_file"');
     my $dump_file = catfile($self->param_required('output_path'), $self->param_required('backup_name'));
     push(@commands, $self->dump_database($self->param_required('source_db'), $dump_file, $self->param('ignore_dna'), 1));
   }
