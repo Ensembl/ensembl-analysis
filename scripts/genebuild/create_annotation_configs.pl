@@ -17,7 +17,9 @@
 use warnings;
 use strict;
 use feature 'say';
+use File::Spec::Functions;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use Net::FTP;
 use Data::Dumper;
 
@@ -26,6 +28,13 @@ my $config_file = $ARGV[0];
 my $ftphost = "ftp.ncbi.nlm.nih.gov";
 my $ftpuser = "anonymous";
 my $ftppassword = "";
+
+my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
+  -host    => $ENV{GBS5},
+  -port    => $ENV{GBP5},
+  -user    => 'ensro',
+  -dbname  => 'do1_stable_id_space_assembly_registry');
+
 my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -port    => 4240,
   -user    => 'ensro',
@@ -107,6 +116,11 @@ foreach my $accession (@accession_array) {
     die "Found an assembly accession that did not match the regex. Offending accession: ".$accession;
   }
 
+  # Get stable id prefix
+  my $stable_id_prefix = $assembly_registry->fetch_stable_id_prefix_by_gca($accession);
+  say "Fetched the following stable id prefix for ".$accession.": ".$stable_id_prefix;
+  $assembly_hash->{'stable_id_prefix'} = $stable_id_prefix;
+
   my $assembly_ftp_path = $ftp_base_dir.'GCA/'.$1.'/'.$2.'/'.$3.'/';
   my $full_assembly_path;
   my $assembly_name;
@@ -129,6 +143,16 @@ foreach my $accession (@accession_array) {
   $assembly_hash->{'assembly_name'} = $assembly_name;
 
   parse_assembly_report($ftp,$general_hash,$assembly_hash,$accession,$assembly_name,$full_assembly_path,$output_path);
+
+  # Get repeatmodeler library path if one exists
+  my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$assembly_hash->{'species_name'},$assembly_hash->{'species_name'}.'.repeatmodeler.fa');
+  if(-e $repeatmodeler_file) {
+    say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+    $assembly_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+  } else {
+    say "Did not find an repeatmodeler species library for ".$assembly_hash->{'species_name'}." on path:\n".$assembly_hash->{'species_name'};
+  }
+
   create_config($assembly_hash);
 
   chdir($assembly_hash->{'output_path'});
@@ -206,7 +230,13 @@ sub parse_assembly_report {
   }
 
   $assembly_hash->{'taxon_id'} = $taxon_id;
-  $assembly_hash->{'assembly_refseq_accession'} = $refseq_accession;
+
+  if($refseq_accession) {
+    $assembly_hash->{'assembly_refseq_accession'} = $refseq_accession;
+  } else {
+    say "Found no RefSeq accession for this assembly";
+  }
+
   $assembly_hash->{'assembly_level'} = $assembly_level;
   $assembly_hash->{'wgs_id'} = $wgs_id;
   $assembly_hash->{'species_name'} = $species_name;
@@ -230,7 +260,7 @@ sub create_config {
 
   my $config_string = "";
   my $past_default_options = 0;
-  open(CONFIG,$ENV{ENSCODE}."/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_static_conf.pm");
+  open(CONFIG,$ENV{ENSCODE}."/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_conf.pm");
   while(my $line = <CONFIG>) {
     if($line =~ /sub pipeline_create_commands/) {
       $past_default_options = 1;
@@ -275,6 +305,19 @@ sub clade_settings {
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
     },
+
+    'fish_teleost' => {
+      'repbase_library'    => 'Teleostei',
+      'repbase_logic_name' => 'teleost',
+      'uniprot_set'        => 'fish_basic',
+    },
+
+    'distant_vertebrate' => {
+      'repbase_library'    => 'vertebrates',
+      'repbase_logic_name' => 'vertebrates',
+      'uniprot_set'        => 'distant_vertebrate',
+    },
+
   };
 
   unless($clade_settings->{$clade}) {

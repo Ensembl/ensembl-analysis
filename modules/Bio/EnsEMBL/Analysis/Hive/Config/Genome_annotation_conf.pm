@@ -54,6 +54,7 @@ sub default_options {
     'dna_db_port'               => '', # prot for dna db host
     'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
+    'repeatmodeler_library'     => '', # This should be the path to a custom repeat library, leave blank if none exists
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
@@ -118,6 +119,9 @@ sub default_options {
 
     'genblast_db_server'           => $self->o('databases_server'),
     'genblast_db_port'             => $self->o('databases_port'),
+
+    'genblast_select_db_server'    => $self->o('databases_server'),
+    'genblast_select_db_port'      => $self->o('databases_port'),
 
     'ig_tr_db_server'              => $self->o('databases_server'),
     'ig_tr_db_port'                => $self->o('databases_port'),
@@ -300,6 +304,8 @@ sub default_options {
     'genblast_cov'      => '0.5',
     'genblast_pid'      => '50',
     'genblast_max_rank' => '5',
+    'genblast_flag_small_introns' => 1,
+    'genblast_flag_subpar_models' => 1,
 
     'ig_tr_table_name'    => 'ig_tr_sequences',
     'ig_tr_genblast_cov'  => '0.8',
@@ -414,6 +420,17 @@ sub default_options {
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
     },
+
+
+    'genblast_select_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_gensel_'.$self->o('release_number'),
+      -host   => $self->o('genblast_select_db_server'),
+      -port   => $self->o('genblast_select_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
 
     'ig_tr_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_igtr_'.$self->o('release_number'),
@@ -1073,15 +1090,14 @@ sub pipeline_analyses {
                          batch_target_size => 10000000,
                        },
         -flow_into => {
-                        '2' => ['semaphore_10mb_slices'],
+                         '2'    => ['semaphore_10mb_slices'],
                       },
-
       },
 
 
       {
          # Wait for repeatmasker to complete all the sub slices for a 10mb slice before passing to dust
-         -logic_name => 'semaphore_10mb_slices',
+        -logic_name => 'semaphore_10mb_slices',
          -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
          -parameters => {},
          -flow_into => {
@@ -1102,7 +1118,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                        '2' => ['run_repeatmasker'],
+                        '2' => ['run_repeatmasker','fan_repeatmodeler'],
                       },
       },
 
@@ -1111,7 +1127,7 @@ sub pipeline_analyses {
         -logic_name => 'run_repeatmasker',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
         -parameters => {
-                         timer_batch => '3h',
+                         timer_batch => '5h',
                          target_db => $self->o('reference_db'),
                          logic_name => 'repeatmask_repbase_'.$self->o('repbase_logic_name'),
                          module => 'HiveRepeatMasker',
@@ -1148,7 +1164,7 @@ sub pipeline_analyses {
         -logic_name => 'run_repeatmasker_small_batch',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
         -parameters => {
-                         timer_batch => '1h',
+                         timer_batch => '2h',
                          target_db => $self->o('reference_db'),
                          logic_name => 'repeatmask_repbase_'.$self->o('repbase_logic_name'),
                          module => 'HiveRepeatMasker',
@@ -1173,6 +1189,87 @@ sub pipeline_analyses {
         -rc_name          => 'default',
         -can_be_empty  => 1,
       },
+
+
+      {
+        -logic_name => 'fan_repeatmodeler',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'if [ -n "'.$self->o('repeatmodeler_library').'" ]; then exit 0; else exit 42;fi',
+          return_codes_2_branches => {'42' => 2},
+        },
+        -rc_name    => 'default',
+        -flow_into  => { '1' => ['run_repeatmsker_repeatmodeler'] },
+      },
+
+
+      {
+        -logic_name => 'run_repeatmsker_repeatmodeler',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
+        -parameters => {
+                         timer_batch => '3h',
+                         target_db => $self->o('reference_db'),
+                         logic_name => 'repeatmask_repeatmodeler',
+                         module => 'HiveRepeatMasker',
+                         repeatmasker_path => $self->o('repeatmasker_path'),
+                         commandline_params => '-nolow -lib "'.$self->o('repeatmodeler_library').'" -engine "'.$self->o('repeatmasker_engine').'"',
+                       },
+        -rc_name    => 'repeatmasker',
+        -flow_into => {
+                        '-1' => ['rebatch_repeatmasker_repeatmodeler'],
+                        '-2' => ['rebatch_repeatmasker_repeatmodeler'],
+                      },
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      },
+
+
+      {
+        -logic_name => 'rebatch_repeatmasker_repeatmodeler',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('dna_db'),
+                         iid_type => 'rebatch_and_resize_slices',
+                         slice_size => 100000,
+                         batch_target_size => 10000,
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        '2' => ['run_repeatmasker_repeatmodeler_small_batch'],
+                      },
+        -can_be_empty  => 1,
+      },
+
+
+      {
+        -logic_name => 'run_repeatmasker_repeatmodeler_small_batch',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
+        -parameters => {
+                         timer_batch => '1h',
+                         target_db => $self->o('reference_db'),
+                         logic_name => 'repeatmask_repeatmodeler',
+                         module => 'HiveRepeatMasker',
+                         repeatmasker_path => $self->o('repeatmasker_path'),
+                         commandline_params => '-nolow -lib "'.$self->o('repeatmodeler_library').'" -engine "'.$self->o('repeatmasker_engine').'"',
+                       },
+        -rc_name    => 'repeatmasker_rebatch',
+        -flow_into => {
+                         -1 => ['failed_repeatmasker_repeatmodeler_batches'],
+                         -2 => ['failed_repeatmasker_repeatmodeler_batches'],
+                      },
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -can_be_empty  => 1,
+      },
+
+
+      {
+        -logic_name => 'failed_repeatmasker_repeatmodeler_batches',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name          => 'default',
+        -can_be_empty  => 1,
+      },
+
 
 
       {
@@ -1704,6 +1801,19 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -wait_for => ['format_softmasked_toplevel'],
+        -flow_into => { 1 => ['create_genblast_select_output_db'] },
+      },
+
+
+      {
+        -logic_name => 'create_genblast_select_output_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('genblast_select_db'),
+                         create_type => 'clone',
+                       },
+        -rc_name    => 'default',
         -flow_into => {
                         '1->A' => ['download_uniprot_files'],
                         'A->1' => ['classify_genblast_models'],
@@ -1805,6 +1915,8 @@ sub pipeline_analyses {
                          timer => '2h',
                          blast_eval => $self->o('genblast_eval'),
                          blast_cov  => $self->o('genblast_cov'),
+                         flag_small_introns => $self->o('genblast_flag_small_introns'),
+                         flag_subpar_models => $self->o('genblast_flag_subpar_models'),
                        },
         -rc_name    => 'genblast',
         -flow_into => {
@@ -1847,6 +1959,8 @@ sub pipeline_analyses {
                          timer => '1h',
                          blast_eval => $self->o('genblast_eval'),
                          blast_cov  => $self->o('genblast_cov'),
+                         flag_small_introns => $self->o('genblast_flag_small_introns'),
+                         flag_subpar_models => $self->o('genblast_flag_subpar_models'),
                        },
         -rc_name          => 'genblast_retry',
         -can_be_empty  => 1,
@@ -1893,6 +2007,100 @@ sub pipeline_analyses {
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
                                                                              'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'genblast'},
+                       },
+
+        -rc_name    => '4GB',
+        -flow_into => { 1 => ['create_genblast_slices'] },
+      },
+
+
+      {
+        -logic_name => 'create_genblast_slices',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('dna_db'),
+                         iid_type => 'slice',
+                         slice_size => 10000000,
+                         coord_system_name => 'toplevel',
+                         include_non_reference => 0,
+                         top_level => 1,
+                         # These options will create only slices that have a gene on the slice in one of the feature dbs
+                         feature_constraint => 1,
+                         feature_type => 'gene',
+                         feature_dbs => [$self->o('genblast_db')],
+                      },
+        -flow_into => {
+                       '2->A' => ['genblast_select'],
+                       'A->1' => ['update_genblast_select_biotypes'],
+                      },
+
+        -rc_name    => 'default',
+      },
+
+
+      {
+        -logic_name => 'genblast_select',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.catfile($self->o('ensembl_analysis_script'), 'genebuild', 'pick_best_alt_transcripts.pl').
+                                     ' -slice_name #iid#'.
+                                     ' -source_host '.$self->o('genblast_db','-host').
+                                     ' -source_user '.$self->o('user_r').
+                                     ' -source_port '.$self->o('genblast_db','-port').
+                                     ' -source_dbname '.$self->o('genblast_db','-dbname').
+                                     ' -dna_user '.$self->o('user_r').
+                                     ' -dna_host '.$self->o('dna_db','-host').
+                                     ' -dna_port '.$self->o('dna_db','-port').
+                                     ' -dna_dbname '.$self->o('dna_db','-dbname').
+                                     ' -out_user '.$self->o('user').
+                                     ' -out_pass '.$self->o('password').
+                                     ' -out_host '.$self->o('genblast_select_db','-host').
+                                     ' -out_port '.$self->o('genblast_select_db','-port').
+                                     ' -out_dbname '.$self->o('genblast_select_db','-dbname')
+                      },
+        -rc_name => '4GB',
+     },
+
+
+      {
+        -logic_name => 'update_genblast_select_biotypes',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn => $self->o('genblast_select_db'),
+          sql => [
+            'UPDATE gene set biotype="genblast_select"',' UPDATE transcript set biotype="genblast_select"'
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into  => {
+                         1 => ['classify_genblast_select_models'],
+                       },
+      },
+
+
+      {
+        -logic_name => 'classify_genblast_select_models',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
+        -parameters => {
+                         classification_type => 'standard',
+                         update_gene_biotype => 1,
+                         target_db => $self->o('genblast_select_db'),
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['genblast_select_sanity_checks'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'genblast_select_sanity_checks',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
+        -parameters => {
+                         target_db => $self->o('genblast_db'),
+                         sanity_check_type => 'gene_db_checks',
+                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
+                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'genblast_select'},
                        },
 
         -rc_name    => '4GB',
@@ -2019,6 +2227,7 @@ sub pipeline_analyses {
       -rc_name          => 'exonerate',
     },
 
+
     {
       -logic_name => 'indicate_proteome',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -2034,6 +2243,8 @@ sub pipeline_analyses {
         '1' => ['generate_pmatch_jobs'],
       },
     },
+
+
     {
       -logic_name => 'generate_pmatch_jobs',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
@@ -2071,7 +2282,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBestPmatch',
       -parameters => {
         source_db => $self->o('genewise_db'),
-        target_db => $self->o('genewise_db'),
+        target_db => $self->default_options->{'genewise_db'},
         PMATCH_LOGIC_NAME => ['pmatch'],
         MIN_COVERAGE => 50,
       },
@@ -2488,7 +2699,7 @@ sub pipeline_analyses {
         feature_constraint => 1,
         feature_type => 'gene',
         top_level => 1,
-        feature_dbs => [$self->o('genewise_db'), $self->o('cdna2genome_db')],
+        feature_dbs => [$self->default_options->{'genewise_db'}, $self->o('cdna2genome_db')],
       },
       -rc_name      => 'default',
       -flow_into => {

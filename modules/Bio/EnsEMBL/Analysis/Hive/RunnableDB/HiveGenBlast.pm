@@ -192,7 +192,6 @@ sub run {
 =cut
 
 
-
 sub write_output{
   my ($self) = @_;
 
@@ -206,12 +205,11 @@ sub write_output{
     $output_hash->{'iid'} = $self->param('iid');
     $self->dataflow_output_id($output_hash,$failure_branch_code);
   } else {
-    # Store results as normal
-    my @output = @{$self->output};
+    # Store results, first flag models that are considerably worse than the top hit for each protein
     my $analysis = $self->analysis;
     my $not_best_analysis = new Bio::EnsEMBL::Analysis(-logic_name => $analysis->logic_name()."_not_best",
                                                        -module     => $analysis->module);
-    foreach my $transcript (@output) {
+    foreach my $transcript (@{$self->output}) {
       $transcript->analysis($analysis);
       my $accession = $transcript->{'accession'};
       $transcript->biotype($self->get_biotype->{$accession});
@@ -223,6 +221,10 @@ sub write_output{
         $transcript->analysis($analysis);
       }
 
+      if($self->param('flag_small_introns') && $self->avg_intron_size($transcript)) {
+        $transcript->biotype($transcript->biotype()."_int");
+      }
+
       empty_Transcript($transcript);
       my $gene = Bio::EnsEMBL::Gene->new();
       $gene->analysis($transcript->analysis);
@@ -230,6 +232,11 @@ sub write_output{
       $gene->biotype($gene->analysis->logic_name);
       $gene->add_Transcript($transcript);
       $adaptor->store($gene);
+    }
+
+    # Now label anything stored that is subpar in terms of score compared to the top ranked hit
+    if($self->param('flag_subpar_models')) {
+      $self->flag_subpar_models($self->output);
     }
   }
 
@@ -326,6 +333,84 @@ sub test_translates {
     $result = 1;
   }
   return $result;
+}
+
+
+
+sub flag_subpar_models {
+  my ($self,$transcripts) = @_;
+
+  my $transcript_adaptor = $self->hrdb_get_con('target_db')->get_TranscriptAdaptor;
+  my $uniprot_hitname_hash = {};
+
+  # Store all the combined coverage and pid scores under hitname, then transcript dbID
+  # This gives a hash with all the transcript ids for a hit name and their combined scores
+  foreach my $transcript (@{$transcripts}) {
+    my $sf = shift(@{$transcript->get_all_supporting_features});
+    my $hitname = $sf->hseqname;
+    $uniprot_hitname_hash->{$hitname}->{$transcript->dbID} = ($sf->percent_id + $sf->hcoverage);
+  }
+
+  # Work out the top scoring hit for each hitname and then mark anything under that for relabelling
+  my @ids_to_relabel = ();
+  foreach my $uniprot_protein (keys(%{$uniprot_hitname_hash})) {
+    my $transcript_ids = $uniprot_hitname_hash->{$uniprot_protein};
+    my $top_score = 0;
+    foreach my $transcript_id (keys(%{$transcript_ids})) {
+      my $combined_score = $transcript_ids->{$transcript_id};
+      if($combined_score > $top_score) {
+        $top_score = $combined_score;
+      }
+    }
+
+    foreach my $transcript_id (keys(%{$transcript_ids})) {
+      my $combined_score = $transcript_ids->{$transcript_id};
+      unless($combined_score >= ($top_score - (($top_score * 5) / 100))) {
+        push(@ids_to_relabel,$transcript_id);
+      }
+    }
+  }
+
+  # Fetch the transcript and relabel
+  foreach my $id_to_relabel (@ids_to_relabel) {
+    my $transcript = $transcript_adaptor->fetch_by_dbID($id_to_relabel);
+    $transcript->biotype($transcript->biotype.'_sub');
+    $transcript_adaptor->update($transcript);
+  }
+}
+
+
+sub avg_intron_size {
+  my ($self,$transcript) = @_;
+
+  my $short_length = 75;
+  my $max_short = 2;
+  my $introns = $transcript->get_all_Introns();
+  my $total_introns = scalar(@$introns);
+  my $total_length = 0;
+  my $total_short = 0;
+  foreach my $intron (@$introns) {
+    my $length = $intron->length();
+    $total_length += $length;
+    if($length < $short_length) {
+      $total_short++;
+    }
+  }
+
+  if($total_introns) {
+    my $avg_length = $total_length / $total_introns;
+    if($avg_length < $short_length) {
+      say "Transcript avg intron length too short: ".$transcript->dbID." ".$avg_length." ".$total_short;
+      return 1;
+    } elsif($total_short > $max_short) {
+      say "Too many short introns: ".$transcript->dbID." ".$avg_length." ".$total_short;
+      return 1;
+    } else {
+      return 0;
+    }
+  } else {
+    return 0;
+  }
 }
 
 

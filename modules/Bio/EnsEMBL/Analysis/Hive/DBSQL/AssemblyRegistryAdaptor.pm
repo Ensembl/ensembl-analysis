@@ -190,6 +190,7 @@ sub fetch_species_name_by_gca {
   return($species_name);
 }
 
+
 sub fetch_assembly_name_by_gca {
   my ($self,$chain_version,$type) = @_;
 
@@ -215,6 +216,27 @@ sub fetch_assembly_name_by_gca {
 
   return($assembly_name);
 }
+
+
+sub fetch_stable_id_prefix_by_gca {
+  my ($self,$chain_version,$type) = @_;
+
+  my ($chain,$version) = $self->split_gca($chain_version);
+
+  my $sql = "SELECT species_prefix FROM assembly WHERE chain=? and version=?";
+  my $sth = $self->dbc->prepare($sql);
+  $sth->bind_param(1,$chain);
+  $sth->bind_param(2,$version);
+  $sth->execute();
+
+  my $stable_id_prefix = $sth->fetchrow();
+  unless($stable_id_prefix) {
+    $self->throw("Could not find stable id prefix for assembly with chain ".$chain." and version ".$version);
+  }
+
+  return($stable_id_prefix);
+}
+
 
 sub split_gca {
   my ($self,$chain_version) = @_;
