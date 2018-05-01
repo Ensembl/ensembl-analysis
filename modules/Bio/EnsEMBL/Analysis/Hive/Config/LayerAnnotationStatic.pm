@@ -642,16 +642,15 @@ sub _master_config {
              {
               ID         => 'LAYER1',
               BIOTYPES   => [
-                             'rnaseq_merged_1',
-                             'rnaseq_merged_2',
-                             'rnaseq_merged_90_70',
-                             'rnaseq_merged_90_60',
-                             'rnaseq_tissue_90_70',
-                             'rnaseq_tissue_90_60',
-                             'rnaseq_merged_80_50',
-                             'rnaseq_tissue_80_50',
-                             'rnaseq_tissue_1',
-                             'rnaseq_tissue_2',
+                             'IG_C_gene',
+                             'IG_J_gene',
+                             'IG_V_gene',
+                             'IG_D_gene',
+                             'TR_C_gene',
+                             'TR_J_gene',
+                             'TR_V_gene',
+                             'TR_D_gene',
+                             'seleno_self',
                             ],
               DISCARD    => 0,
             },
@@ -660,31 +659,59 @@ sub _master_config {
              {
               ID         => 'LAYER2',
               BIOTYPES   => [
-                              'genblast_1',
-                              'genblast_2',
-                              'genblast_90_70',
-                              'genblast_90_60',
-                            ],
+                              'cdna2genome',
+                              'edited',
+                              'gw_gtag',
+                              'gw_nogtag',
+                              'gw_exo',
+                              'rnaseq_merged_1',
+                              'rnaseq_merged_2',
+                              'rnaseq_merged_3',
+                              'rnaseq_tissue_1',
+                              'rnaseq_tissue_2',
+                              'rnaseq_tissue_3',
+                              'genblast_select_1',
+                              'genblast_select_2',
+                              'vert_pe12_sp_1',
+                              'vert_pe12_sp_2',
+                              'realign_1',
+                              'realign_2',
+                              'self_pe12_sp_1',
+                              'self_pe12_sp_2',
+                              'self_pe12_tr_1',
+                              'self_pe12_tr_2',
+                           ],
               FILTER_AGAINST => ['LAYER1'],
 
               DISCARD    => 0,
             },
 
+
             {
               ID         => 'LAYER3',
               BIOTYPES   => [
-                              'rnaseq_merged_70_40',
-                              'rnaseq_tissue_70_40',
-                              'genblast_80_50'
+                              'rnaseq_merged_4',
+                              'rnaseq_tissue_4',
+                              'genblast_select_3',
+                              'vert_pe12_sp_3',
+                              'vert_pe12_tr_1',
+                              'vert_pe12_tr_2',
+                              'realign_3',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2'],
               DISCARD    => 0,
             },
 
+
             {
               ID         => 'LAYER4',
               BIOTYPES   => [
-                              'genblast_70_30',
+                              'rnaseq_merged_5',
+                              'rnaseq_tissue_5',
+                              'genblast_select_4',
+                              'vert_pe12_sp_4',
+                              'vert_pe12_tr_3',
+                              'realign_4',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
               DISCARD    => 0,
@@ -694,7 +721,12 @@ sub _master_config {
             {
               ID         => 'LAYER5',
               BIOTYPES   => [
-                              'genblast_60_20'
+                              'rnaseq_merged_6',
+                              'rnaseq_tissue_6',
+                              'genblast_select_5',
+                              'vert_pe12_sp_5',
+                              'vert_pe12_tr_4',
+                              'realign_5',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
               DISCARD    => 0,
@@ -703,8 +735,10 @@ sub _master_config {
              {
               ID         => 'LAYER6',
               BIOTYPES   => [
-                             'rnaseq_merged_50_25',
-                             'rnaseq_tissue_50_25',
+                              'genblast_select_6',
+                              'vert_pe12_sp_6',
+                              'realign_6',
+                              'vert_pe12_tr_6',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'],
               DISCARD    => 0,
@@ -713,9 +747,12 @@ sub _master_config {
              {
               ID         => 'LAYER7',
               BIOTYPES   => [
-                              'genblast_0_0',
-                              'rnaseq_tissue_0_0',
-                              'rnaseq_merged_0_0',
+                              'rnaseq_merged_7',
+                              'rnaseq_tissue_7',
+                              'genblast_select_7',
+                              'vert_pe12_sp_7',
+                              'realign_7',
+                              'vert_pe12_tr_7',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
               DISCARD    => 0,
@@ -875,7 +912,7 @@ sub _master_config {
               FILTER_AGAINST => ['LAYER1','LAYER2'],
               DISCARD    => 0,
             },
-            
+
             {
               ID         => 'LAYER4',
               BIOTYPES   => [
@@ -886,7 +923,7 @@ sub _master_config {
               DISCARD    => 0,
             },
     ],
-    cat => [ { ID         => 'LAYER1', BIOTYPES   => [ 'IG_C_gene', 'IG_J_gene', 'IG_V_gene', 'IG_D_gene', 'TR_C_gene', 'TR_J_gene', 'TR_V_gene', 'TR_D_gene', ], DISCARD    => 0, }, { ID         => 'LAYER2', BIOTYPES   => [ 'realign_1', 'realign_2', 'rnaseq_merged_1', 'rnaseq_merged_2', 'rnaseq_merged_3', 'rnaseq_tissue_1', 'self_pe12_sp_1', 'self_pe12_sp_2', ], FILTER_AGAINST => ['LAYER1'], DISCARD    => 0, }, { ID         => 'LAYER3', BIOTYPES   => [ 'rnaseq_tissue_2', 'rnaseq_tissue_3', 'human_pe12_sp_1', 'mouse_pe12_sp_1', 'mammals_pe12_sp_1', ], FILTER_AGAINST => ['LAYER1','LAYER2'], DISCARD    => 0, }, { ID         => 'LAYER4', BIOTYPES   => [ 'self_pe3_sp_1', 'self_pe3_tr_1', 'human_pe12_sp_2', 'mouse_pe12_sp_2', ], FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'], DISCARD    => 0, }, { ID         => 'LAYER5', BIOTYPES   => [ 'mammals_pe12_sp_2', 'human_pe12_sp_3', 'mouse_pe12_sp_3', 'vert_pe12_sp_1', ], FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'], DISCARD    => 0, }, { ID         => 'LAYER6', BIOTYPES   => [ 'rnaseq_merged_4', 'mammals_pe12_sp_3', 'vert_pe12_sp_3', ], FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'], DISCARD    => 0, }, { ID         => 'LAYER7', BIOTYPES   => [ 'human_pe12_sp_4', 'mouse_pe12_sp_4', 'rnaseq_merged_5', 'rnaseq_tissue_5', 'human_pe12_sp_5', 'mouse_pe12_sp_5', ], FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'], DISCARD    => 0, }, { ID         => 'LAYER8', BIOTYPES   => [ 'human_pe12_tr_5', 'mouse_pe12_tr_5', 'mammals_pe12_sp_4', 'mammals_pe12_tr_4', 'vert_pe12_sp_4', 'vert_pe12_tr_4', 'realign_5', 'human_pe12_tr_2', 'self_pe12_tr_1', 'self_pe12_tr_2', 'human_pe12_tr_1', 'mouse_pe12_tr_1', 'mammals_pe12_tr_1', 'mouse_pe12_tr_2', 'mammals_pe12_tr_2', 'human_pe12_tr_3', 'mouse_pe12_tr_3', 'vert_pe12_tr_1', 'mammals_pe12_tr_3', 'vert_pe12_tr_3', 'human_pe12_tr_4', 'mouse_pe12_tr_4', ], FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'], DISCARD    => 0, }, ],
+
   );
   return $config{$key};
 }

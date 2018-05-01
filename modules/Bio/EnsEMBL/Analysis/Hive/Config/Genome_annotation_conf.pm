@@ -54,6 +54,7 @@ sub default_options {
     'dna_db_port'               => '', # prot for dna db host
     'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
+    'repeatmodeler_library'     => '', # This should be the path to a custom repeat library, leave blank if none exists
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
@@ -1089,15 +1090,14 @@ sub pipeline_analyses {
                          batch_target_size => 10000000,
                        },
         -flow_into => {
-                        '2' => ['semaphore_10mb_slices'],
+                         '2'    => ['semaphore_10mb_slices'],
                       },
-
       },
 
 
       {
          # Wait for repeatmasker to complete all the sub slices for a 10mb slice before passing to dust
-         -logic_name => 'semaphore_10mb_slices',
+        -logic_name => 'semaphore_10mb_slices',
          -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
          -parameters => {},
          -flow_into => {
@@ -1118,7 +1118,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                        '2' => ['run_repeatmasker'],
+                        '2' => ['run_repeatmasker','fan_repeatmodeler'],
                       },
       },
 
@@ -1127,7 +1127,7 @@ sub pipeline_analyses {
         -logic_name => 'run_repeatmasker',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
         -parameters => {
-                         timer_batch => '3h',
+                         timer_batch => '5h',
                          target_db => $self->o('reference_db'),
                          logic_name => 'repeatmask_repbase_'.$self->o('repbase_logic_name'),
                          module => 'HiveRepeatMasker',
@@ -1164,7 +1164,7 @@ sub pipeline_analyses {
         -logic_name => 'run_repeatmasker_small_batch',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
         -parameters => {
-                         timer_batch => '1h',
+                         timer_batch => '2h',
                          target_db => $self->o('reference_db'),
                          logic_name => 'repeatmask_repbase_'.$self->o('repbase_logic_name'),
                          module => 'HiveRepeatMasker',
@@ -1189,6 +1189,87 @@ sub pipeline_analyses {
         -rc_name          => 'default',
         -can_be_empty  => 1,
       },
+
+
+      {
+        -logic_name => 'fan_repeatmodeler',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'if [ -n "'.$self->o('repeatmodeler_library').'" ]; then exit 0; else exit 42;fi',
+          return_codes_2_branches => {'42' => 2},
+        },
+        -rc_name    => 'default',
+        -flow_into  => { '1' => ['run_repeatmsker_repeatmodeler'] },
+      },
+
+
+      {
+        -logic_name => 'run_repeatmsker_repeatmodeler',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
+        -parameters => {
+                         timer_batch => '3h',
+                         target_db => $self->o('reference_db'),
+                         logic_name => 'repeatmask_repeatmodeler',
+                         module => 'HiveRepeatMasker',
+                         repeatmasker_path => $self->o('repeatmasker_path'),
+                         commandline_params => '-nolow -lib "'.$self->o('repeatmodeler_library').'" -engine "'.$self->o('repeatmasker_engine').'"',
+                       },
+        -rc_name    => 'repeatmasker',
+        -flow_into => {
+                        '-1' => ['rebatch_repeatmasker_repeatmodeler'],
+                        '-2' => ['rebatch_repeatmasker_repeatmodeler'],
+                      },
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      },
+
+
+      {
+        -logic_name => 'rebatch_repeatmasker_repeatmodeler',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('dna_db'),
+                         iid_type => 'rebatch_and_resize_slices',
+                         slice_size => 100000,
+                         batch_target_size => 10000,
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        '2' => ['run_repeatmasker_repeatmodeler_small_batch'],
+                      },
+        -can_be_empty  => 1,
+      },
+
+
+      {
+        -logic_name => 'run_repeatmasker_repeatmodeler_small_batch',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
+        -parameters => {
+                         timer_batch => '1h',
+                         target_db => $self->o('reference_db'),
+                         logic_name => 'repeatmask_repeatmodeler',
+                         module => 'HiveRepeatMasker',
+                         repeatmasker_path => $self->o('repeatmasker_path'),
+                         commandline_params => '-nolow -lib "'.$self->o('repeatmodeler_library').'" -engine "'.$self->o('repeatmasker_engine').'"',
+                       },
+        -rc_name    => 'repeatmasker_rebatch',
+        -flow_into => {
+                         -1 => ['failed_repeatmasker_repeatmodeler_batches'],
+                         -2 => ['failed_repeatmasker_repeatmodeler_batches'],
+                      },
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -can_be_empty  => 1,
+      },
+
+
+      {
+        -logic_name => 'failed_repeatmasker_repeatmodeler_batches',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name          => 'default',
+        -can_be_empty  => 1,
+      },
+
 
 
       {
@@ -1733,7 +1814,6 @@ sub pipeline_analyses {
                          create_type => 'clone',
                        },
         -rc_name    => 'default',
-        -wait_for => ['format_softmasked_toplevel'],
         -flow_into => {
                         '1->A' => ['download_uniprot_files'],
                         'A->1' => ['classify_genblast_models'],
@@ -2202,7 +2282,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBestPmatch',
       -parameters => {
         source_db => $self->o('genewise_db'),
-        target_db => $self->o('genewise_db'),
+        target_db => $self->default_options->{'genewise_db'},
         PMATCH_LOGIC_NAME => ['pmatch'],
         MIN_COVERAGE => 50,
       },
@@ -2619,7 +2699,7 @@ sub pipeline_analyses {
         feature_constraint => 1,
         feature_type => 'gene',
         top_level => 1,
-        feature_dbs => [$self->o('genewise_db'), $self->o('cdna2genome_db')],
+        feature_dbs => [$self->default_options->{'genewise_db'}, $self->o('cdna2genome_db')],
       },
       -rc_name      => 'default',
       -flow_into => {

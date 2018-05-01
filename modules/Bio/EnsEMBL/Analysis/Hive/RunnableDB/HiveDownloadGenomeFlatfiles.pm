@@ -67,7 +67,7 @@ sub run {
 
   my $assembly_registry_dba = $self->hrdb_get_con('assembly_registry_db');
   my $assembly_name = $assembly_registry_dba->fetch_assembly_name_by_gca($gca);
-  $assembly_name =~ s/[ \/\%\+]/\_/g;
+  $assembly_name =~ s/[ \/\%\+]+/\_/g;
 
   my $assembly_dir_name = $gca."_".$assembly_name;
   my $fasta_file_name = $assembly_dir_name.'_genomic.fna.gz';

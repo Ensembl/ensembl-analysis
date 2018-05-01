@@ -17,6 +17,7 @@
 use warnings;
 use strict;
 use feature 'say';
+use File::Spec::Functions;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use Net::FTP;
@@ -142,6 +143,16 @@ foreach my $accession (@accession_array) {
   $assembly_hash->{'assembly_name'} = $assembly_name;
 
   parse_assembly_report($ftp,$general_hash,$assembly_hash,$accession,$assembly_name,$full_assembly_path,$output_path);
+
+  # Get repeatmodeler library path if one exists
+  my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$assembly_hash->{'species_name'},$assembly_hash->{'species_name'}.'.repeatmodeler.fa');
+  if(-e $repeatmodeler_file) {
+    say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+    $assembly_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+  } else {
+    say "Did not find an repeatmodeler species library for ".$assembly_hash->{'species_name'}." on path:\n".$assembly_hash->{'species_name'};
+  }
+
   create_config($assembly_hash);
 
   chdir($assembly_hash->{'output_path'});
@@ -219,7 +230,13 @@ sub parse_assembly_report {
   }
 
   $assembly_hash->{'taxon_id'} = $taxon_id;
-  $assembly_hash->{'assembly_refseq_accession'} = $refseq_accession;
+
+  if($refseq_accession) {
+    $assembly_hash->{'assembly_refseq_accession'} = $refseq_accession;
+  } else {
+    say "Found no RefSeq accession for this assembly";
+  }
+
   $assembly_hash->{'assembly_level'} = $assembly_level;
   $assembly_hash->{'wgs_id'} = $wgs_id;
   $assembly_hash->{'species_name'} = $species_name;
@@ -293,6 +310,12 @@ sub clade_settings {
       'repbase_library'    => 'Teleostei',
       'repbase_logic_name' => 'teleost',
       'uniprot_set'        => 'fish_basic',
+    },
+
+    'distant_vertebrate' => {
+      'repbase_library'    => 'vertebrates',
+      'repbase_logic_name' => 'vertebrates',
+      'uniprot_set'        => 'distant_vertebrate',
     },
 
   };
