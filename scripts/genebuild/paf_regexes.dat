@@ -98,4 +98,4 @@
 '^f[A-Z].*'	TakRub_annotation
 '^Fugu.*'	TakRub_annotation
 '^ENSACAP[0-9]{11}\.*[0-9]*$'	Ens_Ac_translation
-'^IMGT$'	IMGT/GENE_DB
+'^IMGT.*$'	IMGT/GENE_DB

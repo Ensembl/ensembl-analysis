@@ -2762,6 +2762,7 @@ sub pipeline_analyses {
                                 ." -fasta_file ".$self->o('ig_tr_blast_path')."/".$self->o('ig_tr_fasta_file')
                                 ." -sequence_table_name ".$self->o('ig_tr_table_name')
                                 ." -create_table 1",
+                                ."-force_uniq_hitnames 1",
                        },
 
          -rc_name => 'default',
@@ -2876,7 +2877,7 @@ sub pipeline_analyses {
         -logic_name => 'update_ig_tr_hitnames',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-          sql => 'UPDATE protein_align_feature set hit_name = "IMGT"',
+          sql => 'UPDATE protein_align_feature set hit_name = concat("IMGT_", hit_name) where hit_name not like "%ENS%";',
           db_conn => $self->o('ig_tr_db'),
         },
         -rc_name    => 'default',
