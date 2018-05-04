@@ -94,11 +94,18 @@ my $verbose = "yes";
 
 sub new {
   my ($class,@args) = @_;
-  my $self = $class->SUPER::new(@args);
-  my ($queries,$thresholds) = rearrange(['QUERIES'], @args);
+#  my $self = $class->SUPER::new(@args);
+#  my ($queries,$thresholds) = rearrange(['QUERIES'], @args);
+#  $self->queries($queries); 
+#  $self->throw("miRNA: dying because cannot find database".$self->analysis->db_file."\n")
+#    unless (-e $self->analysis->db_file);
+  
+  my ($outdir, $queries,$thresholds) = rearrange(['OUTPUT_DIR', 'QUERIES'], @args);
   $self->queries($queries); 
-  $self->throw("miRNA: dying because cannot find database".$self->analysis->db_file."\n")
+  $self->throw("miRNA: dying because cannot find database ".$self->analysis->db_file."\n")
     unless (-e $self->analysis->db_file);
+  $self->outdir($outdir)
+
   return $self;
 }
 
@@ -140,7 +147,7 @@ sub run{
       $RNAfold->run;
       # get the final structure encoded by run length
       my $structure = $RNAfold->encoded_str;
-      next DAF unless ($RNAfold->score < -20);
+      # next DAF unless ($RNAfold->score < -20); # uncommented to report all MFEs from RNAFold, hard threshold no longer needed - osagie 10/2017
       next DAF unless ($RNAfold->structure);
       $self->display_stuff($daf,$RNAfold->structure,$align,$RNAfold->score) if $verbose;
       # create the gene
@@ -238,7 +245,7 @@ sub run_analysis{
       }
     # is the mature alignment of high enough percent identity?
     # also no gaps in the mature alignment
-    unless ( $align->get_SimpleAlign->overall_percentage_identity >= 90 )
+    unless ( $align->get_SimpleAlign->overall_percentage_identity >= 80 ) 
       {
 #	print "rejecting ".$daf->p_value." cos of aligned ID\n";
 	next;
@@ -404,6 +411,12 @@ sub display_stuff{
     print STDERR substr($daf->seq,$align->start-1,$align->end-$align->start+1);
     print STDERR "\nMirna position = ".$align->start." ". $align->end."\n";
   }
+
+  my $fn = $self->outdir . "/rna_fold_results.txt";
+  open(FH, '>>', $fn) or die "Could not write to $fn ; please check basedir exists";
+  print FH "chr" . $daf->seq_region_name . "\t" . $daf->seq_region_start . "\t" . $daf->seq_region_end . "\t" .
+    "chr" . $daf->seq_region_name . ":" . $daf->seq_region_start . "-" . $daf->seq_region_end . "\t" . $score . "\t" .
+    ($daf->strand > 0 ? "+" : "-") . "\t" . $daf->dbID . "\n";
 }
 
 ##################################################################################
@@ -471,5 +484,17 @@ sub output{
     push(@{$self->{'output'}}, $output);
   }
   return $self->{'output'};
+}
+
+sub outdir {
+  my ($self,$value) = @_;
+  if (defined $value) {
+    $self->{'_outdir'} = $value;
+  }
+  if (exists($self->{'_outdir'})) {
+    return $self->{'_outdir'};
+  } else {
+    return undef;
+  }
 }
 1;

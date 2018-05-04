@@ -91,7 +91,7 @@ sub fetch_input{
   # The output db should be the one that the dafs to check have been written to
   my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-
+  my $output_dir = $self->param('output_dir');
 
   if($dna_dba) {
     $output_dba->dnadb($dna_dba);
@@ -118,6 +118,7 @@ sub fetch_input{
     (
      -queries => \%families,
      -analysis => $self->analysis,
+     -output_dir => $output_dir,
     );
   $self->runnable($runnable);
 }
