@@ -2765,8 +2765,8 @@ sub pipeline_analyses {
                                 ." -dbport ".$self->o('pipeline_db','-port')
                                 ." -fasta_file ".$self->o('ig_tr_blast_path')."/".$self->o('ig_tr_fasta_file')
                                 ." -sequence_table_name ".$self->o('ig_tr_table_name')
-                                ." -create_table 1",
-                                ."-force_uniq_hitnames 1",
+                                ." -create_table 1"
+                                ." -force_uniq_hitnames 1",
                        },
 
          -rc_name => 'default',
