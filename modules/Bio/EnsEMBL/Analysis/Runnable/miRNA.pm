@@ -94,7 +94,7 @@ my $verbose = "yes";
 
 sub new {
   my ($class,@args) = @_;
-#  my $self = $class->SUPER::new(@args);
+  my $self = $class->SUPER::new(@args);
 #  my ($queries,$thresholds) = rearrange(['QUERIES'], @args);
 #  $self->queries($queries); 
 #  $self->throw("miRNA: dying because cannot find database".$self->analysis->db_file."\n")
@@ -104,7 +104,7 @@ sub new {
   $self->queries($queries); 
   $self->throw("miRNA: dying because cannot find database ".$self->analysis->db_file."\n")
     unless (-e $self->analysis->db_file);
-  $self->outdir($outdir)
+  $self->outdir($outdir);
 
   return $self;
 }
