@@ -120,7 +120,7 @@ then
 fi
 
 # run rfc model
-python ${CODEBASE}/FilterDafs.py $MODEL $SCALER $WORKING_DIR
+/nfs/production/panda/ensembl/genebuild/bin/python ${CODEBASE}/FilterDafs.py $MODEL $SCALER $WORKING_DIR
 
 if $DELETE_FLAG
 then
