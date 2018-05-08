@@ -698,11 +698,11 @@ sub pipeline_analyses {
 
     my %genblast_params = (
       wu    => '-P wublast -gff -e #blast_eval# -c #blast_cov#',
-      ncbi  => '-P blast -gff -e #blast_eval# -c #blast_cov# -W 3 -rl 5000',
+      ncbi  => '-P blast -gff -e #blast_eval# -c #blast_cov# -W 3 -rl 5000 -softmask -scodon 50 -i 30 -x 10 -n 30 -d 200000 -g T',
       wu_genome    => '-P wublast -gff -e #blast_eval# -c #blast_cov#',
-      ncbi_genome  => '-P blast -gff -e #blast_eval# -c #blast_cov# -W 3 -rl 5000 -softmask',
+      ncbi_genome  => '-P blast -gff -e #blast_eval# -c #blast_cov# -W 3 -rl 5000 -softmask -scodon 50 -i 30 -x 10 -n 30 -d 200000 -g T',
       wu_projection    => '-P wublast -gff -e #blast_eval# -c #blast_cov# -n 100 -rl 5000 -x 5 ',
-      ncbi_projection  => '-P blast -gff -e #blast_eval# -c #blast_cov# -W 3 -rl 5000',
+      ncbi_projection  => '-P blast -gff -e #blast_eval# -c #blast_cov# -W 3 -rl 5000 -scodon 50 -i 30 -x 10 -n 30 -d 200000 -g T',
       );
     my %commandline_params = (
       'ncbi' => '-num_threads 3 -window_size 40',
