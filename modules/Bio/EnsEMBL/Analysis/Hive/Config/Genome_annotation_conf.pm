@@ -2510,6 +2510,8 @@ sub pipeline_analyses {
       },
       -rc_name    => 'default',
     },
+
+
     {
       -logic_name => 'apply_threshold',
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSelectGeneOnFilter',
@@ -2528,6 +2530,8 @@ sub pipeline_analyses {
         '1' => ['create_cdna2genome_slices'],
       },
     },
+
+
     {
       -logic_name => 'create_cdna2genome_slices',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
@@ -2535,7 +2539,7 @@ sub pipeline_analyses {
         target_db => $self->o('cdna_db'),
         iid_type => 'feature_region',
         feature_type => 'gene',
-        logic_name => [$self->o('exonerate_logic_name')],
+        logic_name => [$self->o('species_name').'_cdna'],
         coord_system_name => 'toplevel',
         include_non_reference => 0,
         top_level => 1,
@@ -2551,6 +2555,8 @@ sub pipeline_analyses {
 
       -rc_name    => 'default',
     },
+
+
     {
       -logic_name => 'cdna2genome',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2GenesRegion',
