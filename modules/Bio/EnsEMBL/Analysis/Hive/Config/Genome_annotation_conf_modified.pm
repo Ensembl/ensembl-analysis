@@ -4125,7 +4125,7 @@ sub pipeline_analyses {
                          dna_db => $self->o('dna_db'),
                          logic_name => 'blastmirna',
                          module     => 'HiveBlastmiRNA',
-                         blast_db_path => $self->o('mirna_blast_pathh') . '/' . $self->o('mirBase_fasta') ,
+                         blast_db_path => $self->o('mirna_blast_path') . '/' . $self->o('mirBase_fasta') ,
                          blast_exe_path => $self->o('blastn_exe_path'),
                          commandline_params => ' -num_threads 3 ',
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastmiRBase', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
@@ -4182,7 +4182,21 @@ sub pipeline_analyses {
         -batch_size => 20,
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
         -rc_name    => 'filter',
-        -flow_into  => { '1->A' => ['dump_features', 'dump_genome'], 'A->1' => ['filter_mirnas']},
+        -flow_into  => { '1->A' => ['dump_repeats', 'dump_features', 'dump_genome'], 'A->1' => ['filter_mirnas']},
+      },
+
+      {
+        -logic_name => 'dump_repeats',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                    cmd => "perl " . $self->o('mirna_analysis_script') . "/repeats_dump.pl " .
+                            $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number') . " " .
+                            $self->o('dna_db_server') . " " .
+                            $self->o('dna_db_port') . " " .
+                            $self->o('user_r') . " " .
+                            $self->o('output_path') . " blastmirna",
+                      },
+       -rc_name => 'filter',
       },
 
       {
@@ -4190,9 +4204,9 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
                          cmd => "perl " . $self->o('mirna_analysis_script') . "/dump_prefilter_features.pl " .
-                                $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number') . " " .
-                                $self->o('dna_db_server') . " " .
-                                $self->o('dna_db_port') . " " .
+                                $self->o('dbowner').'_'.$self->o('production_name').'_ncrna_'.$self->o('release_number') . " " .
+                                $self->o('ncrna_db_server') . " " .
+                                $self->o('ncrna_db_port') . " " .
                                 $self->o('user_r') . " " .
                                 $self->o('output_path') . " blastmirna",
                         },
@@ -4207,7 +4221,8 @@ sub pipeline_analyses {
                                   $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number') . "-dbport " .
                                   $self->o('dna_db_port') . " -dbuser " .
                                   $self->o('user_r') . " -coord_system_name toplevel -mask -mask_repeat RepeatMask -output_dir " .
-                                  $self->o('output_path') . " -filename genome.fasta -softmask -onefile -header rnaseq",
+                                  $self->o('output_path') . " -softmask -onefile -header rnaseq -filename " .
+                                  $self->o('output_path') . "/genome.fasta ",
                       },
          -rc_name   => 'filter',           
                                   
