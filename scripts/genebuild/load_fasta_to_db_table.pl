@@ -33,6 +33,7 @@ my $dbpass = '';
 my $fasta_file = "";
 my $sequence_table_name;
 my $create_table = 1;
+my $force_uniq = 0;
 
 my $result = GetOptions ("user|dbuser|u=s"      => \$dbuser,
                          "host|dbhost|h=s"      => \$dbhost,
@@ -41,7 +42,8 @@ my $result = GetOptions ("user|dbuser|u=s"      => \$dbuser,
                          "dbpass|pass|p=s"  => \$dbpass,
                          "fasta_file=s"   => \$fasta_file,
                          "sequence_table_name=s" => \$sequence_table_name,
-                         "create_table!" => \$create_table);
+                         "create_table!" => \$create_table,
+                         "force_uniq_hitnames!" => \$force_uniq);
 
 
 # Now connect to the pipe db
@@ -49,13 +51,26 @@ my $url = 'mysql://'.$dbuser.':'.$dbpass.'@'.$dbhost.':'.$dbport.'/'.$dbname;
 my $db = Bio::EnsEMBL::Hive::DBSQL::DBAdaptor->new(-url => $url);
 
 if($create_table) {
-  my $sth_create_table = $db->dbc->prepare('CREATE table '.$sequence_table_name.' ('.
-					   'accession int NOT NULL AUTO_INCREMENT,'.
-                                           'biotype varchar(255),'.
-                                           'hit_name varchar(255),'.
-                                           'seq text NOT NULL,'.
-                                           'PRIMARY KEY (accession))');
-  $sth_create_table->execute();
+  if($force_uniq){
+    my $sth_create_table = $db->dbc->prepare('CREATE table '.$sequence_table_name.' ('.
+					     'accession varchar(255),'.
+					     'biotype varchar(255),'.
+					     'hit_name varchar(255),'.
+					     'source varchar(255),'.
+					     'seq text NOT NULL,'.
+					     'PRIMARY KEY (accession))');
+    $sth_create_table->execute();
+  }
+  else{
+    my $sth_create_table = $db->dbc->prepare('CREATE table '.$sequence_table_name.' ('.
+                                             'accession int NOT NULL AUTO_INCREMENT,'.
+                                             'biotype varchar(255),'.
+                                             'hit_name varchar(255),'.
+                                             'source varchar(255),'.
+                                             'seq text NOT NULL,'.
+                                             'PRIMARY KEY (accession))');
+    $sth_create_table->execute();
+  }
 }
 
 
@@ -66,17 +81,41 @@ my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($fasta_file);
 my $header;
 my $seq;
 
+my %uniq_accessions;
+
 while($parser->next()) {
   $header = $parser->getHeader();
   $seq = $parser->getSequence();
-  my ($biotype,$hit_name) = split('\|',$header);
+  my ($biotype,$hit_name,$source) = split('\|',$header);
 
-  my $db_row = [{
-                  'biotype'    => $biotype,
-                  'hit_name'   => $hit_name,
-                  'seq'        => $seq,
-               }];
-  $table_adaptor->store($db_row);
+  if($force_uniq){
+    my $accession = $hit_name;
+    if(exists $uniq_accessions{$accession}){
+      $uniq_accessions{$accession} += 1;
+      $accession = $accession ."_". ($uniq_accessions{$accession});
+    }
+    else{
+      $uniq_accessions{$accession} = 1;
+    }
+
+    my $db_row = [{
+                    'accession'  => $accession,
+                    'biotype'    => $biotype,
+                    'hit_name'   => $hit_name,
+                    'source'     => $source,
+                    'seq'        => $seq,
+                   }];
+    $table_adaptor->store($db_row);
+  }
+
+  else{
+    my $db_row = [{
+                    'biotype'    => $biotype,
+                    'hit_name'   => $hit_name,
+    		    'source'     => $source,
+                    'seq'        => $seq,
+                 }];
+    $table_adaptor->store($db_row);
+  }
 }
-
 exit;
