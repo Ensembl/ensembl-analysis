@@ -15,7 +15,7 @@ my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
 
 # dump repeat features
 my $rfa = $db->get_RepeatFeatureAdaptor();
-$fn = $working_dir . "/repeats.bed";
+my $fn = $working_dir . "/repeats.bed";
 open(FH, '>', $fn) or die "Could not write to $fn";
 
 my @repeats = @{ $rfa->fetch_all() };
