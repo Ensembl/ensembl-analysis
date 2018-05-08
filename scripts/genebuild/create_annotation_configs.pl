@@ -17,17 +17,30 @@
 use warnings;
 use strict;
 use feature 'say';
+
+use Getopt::Long qw(:config no_ignore_case);
 use File::Spec::Functions;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use Net::FTP;
 use Data::Dumper;
 
-my $config_file = $ARGV[0];
+
+my $config_file;
+my $config_only = 0;
 
 my $ftphost = "ftp.ncbi.nlm.nih.gov";
 my $ftpuser = "anonymous";
 my $ftppassword = "";
+
+
+GetOptions('config_file:s' => \$config_file,
+           'config_only!'  => \$config_only,
+          );
+
+unless(-e $config_file) {
+  die "Could not find the config file. Path used:\n".$config_file;
+}
 
 my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
   -host    => $ENV{GBS5},
@@ -106,7 +119,9 @@ $general_hash->{'uniprot_set'} = $uniprot_set;
 
 my $ftp_base_dir = '/genomes/all/';
 
-open(LOOP_CMD,">".$general_hash->{'output_path'}."/beekeeper_cmds.txt");
+unless($config_only) {
+  open(LOOP_CMD,">".$general_hash->{'output_path'}."/beekeeper_cmds.txt");
+}
 
 foreach my $accession (@accession_array) {
   my $assembly_hash = {};
@@ -155,25 +170,29 @@ foreach my $accession (@accession_array) {
 
   create_config($assembly_hash);
 
-  chdir($assembly_hash->{'output_path'});
-  my $cmd = "init_pipeline.pl Genome_annotation_conf.pm -hive_force_init 1";
-  my $result = `$cmd`;
-  unless($result =~ /beekeeper.+\-sync/) {
-    die "Failed to run init_pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd;
-  }
+  unless($config_only) {
+    chdir($assembly_hash->{'output_path'});
+    my $cmd = "init_pipeline.pl Genome_annotation_conf.pm -hive_force_init 1";
+    my $result = `$cmd`;
+    unless($result =~ /beekeeper.+\-sync/) {
+      die "Failed to run init_pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd;
+    }
 
-  my $sync_command = $&;
-  my $return = system($sync_command);
-  if($return) {
-    die "Failed to sync the pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd;
-  }
+    my $sync_command = $&;
+    my $return = system($sync_command);
+    if($return) {
+      die "Failed to sync the pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd;
+    }
 
-  my $loop_command = $sync_command;
-  $loop_command =~ s/sync/loop \-sleep 0.3/;
-  say LOOP_CMD $loop_command;
+    my $loop_command = $sync_command;
+    $loop_command =~ s/sync/loop \-sleep 0.3/;
+    say LOOP_CMD $loop_command;
+  }
 }
 
-close(LOOP_CMD);
+unless($config_only) {
+  close(LOOP_CMD);
+}
 
 exit;
 
@@ -215,8 +234,14 @@ sub parse_assembly_report {
 
   }
 
-  unless($taxon_id && $assembly_level && $wgs_id) {
+  unless($taxon_id && $assembly_level) {
     die "Failed to fully parse the assembly report file";
+  }
+
+  if(exists($general_hash->{'load_toplevel_only'}) && $general_hash->{'load_toplevel_only'} == 0) {
+    unless($wgs_id) {
+      die "Need the wgs id as the load_toplevel_only flag was set to 0. Failed to find the id in the report file";
+    }
   }
 
   my $sth = $ncbi_taxonomy->dbc->prepare("SELECT name from ncbi_taxa_name where taxon_id=? and name_class='scientific name'");
@@ -310,6 +335,7 @@ sub clade_settings {
       'repbase_library'    => 'Teleostei',
       'repbase_logic_name' => 'teleost',
       'uniprot_set'        => 'fish_basic',
+      'ig_tr_fasta_file'   => 'fish_ig_tr.fa',
     },
 
     'distant_vertebrate' => {
