@@ -162,7 +162,7 @@ sub run {
   my $self = shift;
 
   my ($type_hash, $genes) = @{make_types_hash_with_genes($self->donor_genes, $self->acceptor_genes, 'donor', 'acceptor')};
-  say "FM2 UTR ".scalar(@$genes);
+
   my ($clusters, $unclustered) = cluster_Genes($genes, $type_hash);
   my @genes;
   foreach my $cluster (@$clusters) {
@@ -276,10 +276,13 @@ sub add_utr {
         }
       }
     }
-    say "Added UTR to single exon transcript";
-    $modified_acceptor_transcript_single_exon->biotype($acceptor_transcript->biotype);
-    $self->add_transcript_supporting_features($modified_acceptor_transcript_single_exon,$acceptor_transcript);
-    $transcript = $modified_acceptor_transcript_single_exon;
+
+    if($modified_acceptor_transcript_single_exon) {
+      say "Added UTR to single exon transcript";
+      $modified_acceptor_transcript_single_exon->biotype($acceptor_transcript->biotype);
+      $self->add_transcript_supporting_features($modified_acceptor_transcript_single_exon,$acceptor_transcript);
+      $transcript = $modified_acceptor_transcript_single_exon;
+    }
   }
   else {
 
