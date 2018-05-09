@@ -74,7 +74,7 @@ sub default_options {
     'skip_cleaning'             => 0, # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => 0, # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
     'mapping_db'                => undef, # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
-    'uniprot_db_dir'            => 'uniprot_2018_01', # What UniProt data dir to use for various analyses
+    'uniprot_db_dir'            => 'uniprot_2018_02', # What UniProt data dir to use for various analyses
     'vertrna_version'           => 134, # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
     'mirBase_fasta'             => 'all_mirnas.fa', # What mirBase file to use. It is currently best to use on with the most appropriate set for your species
     'rfc_scaler'                => 'filter_dafs_rfc_scaler_human.pkl',
@@ -365,7 +365,9 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
-    'repeatmasker_engine' => 'crossmatch',
+    'repeatmasker_engine'       => 'crossmatch',
+    'masking_timer_long'        => '5h',
+    'masking_timer_short'       => '2h',
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # No option below this mark should be modified
@@ -1131,7 +1133,7 @@ sub pipeline_analyses {
         -logic_name => 'run_repeatmasker',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
         -parameters => {
-                         timer_batch => '5h',
+                         timer_batch => $self->o('masking_timer_long'),
                          target_db => $self->o('reference_db'),
                          logic_name => 'repeatmask_repbase_'.$self->o('repbase_logic_name'),
                          module => 'HiveRepeatMasker',
@@ -1168,7 +1170,7 @@ sub pipeline_analyses {
         -logic_name => 'run_repeatmasker_small_batch',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
         -parameters => {
-                         timer_batch => '2h',
+                         timer_batch => $self->o('masking_timer_short'),
                          target_db => $self->o('reference_db'),
                          logic_name => 'repeatmask_repbase_'.$self->o('repbase_logic_name'),
                          module => 'HiveRepeatMasker',
@@ -1211,7 +1213,7 @@ sub pipeline_analyses {
         -logic_name => 'run_repeatmsker_repeatmodeler',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
         -parameters => {
-                         timer_batch => '3h',
+                         timer_batch => $self->o('masking_timer_long'),
                          target_db => $self->o('reference_db'),
                          logic_name => 'repeatmask_repeatmodeler',
                          module => 'HiveRepeatMasker',
@@ -1248,7 +1250,7 @@ sub pipeline_analyses {
         -logic_name => 'run_repeatmasker_repeatmodeler_small_batch',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
         -parameters => {
-                         timer_batch => '1h',
+                         timer_batch => $self->o('masking_timer_short'),
                          target_db => $self->o('reference_db'),
                          logic_name => 'repeatmask_repeatmodeler',
                          module => 'HiveRepeatMasker',

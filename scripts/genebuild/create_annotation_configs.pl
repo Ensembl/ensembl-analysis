@@ -112,10 +112,10 @@ unless($clade) {
       "clade=primates";
 }
 
-my ($repbase_library,$repbase_logic_name,$uniprot_set) = clade_settings($clade);
-$general_hash->{'repbase_library'} = $repbase_library;
-$general_hash->{'repbase_logic_name'} = $repbase_logic_name;
-$general_hash->{'uniprot_set'} = $uniprot_set;
+my $clade_hash = clade_settings($clade);
+foreach my $key (keys(%{$clade_hash})) {
+  $general_hash->{$key} = $clade_hash->{$key};
+}
 
 my $ftp_base_dir = '/genomes/all/';
 
@@ -135,6 +135,11 @@ foreach my $accession (@accession_array) {
   my $stable_id_prefix = $assembly_registry->fetch_stable_id_prefix_by_gca($accession);
   say "Fetched the following stable id prefix for ".$accession.": ".$stable_id_prefix;
   $assembly_hash->{'stable_id_prefix'} = $stable_id_prefix;
+
+  # Get stable id start
+  my $stable_id_start = $assembly_registry->fetch_stable_id_start_by_gca($accession);
+  say "Fetched the following stable id start for ".$accession.": ".$stable_id_start;
+  $assembly_hash->{'stable_id_start'} = $stable_id_start;
 
   my $assembly_ftp_path = $ftp_base_dir.'GCA/'.$1.'/'.$2.'/'.$3.'/';
   my $full_assembly_path;
@@ -290,6 +295,11 @@ sub create_config {
     if($line =~ /sub pipeline_create_commands/) {
       $past_default_options = 1;
     } elsif($past_default_options == 0) {
+      if($line =~ /SUPER\:\:default_options/) {
+        if($assembly_hash->{'dbowner'}) {
+          $line .= "'dbowner' => '".$assembly_hash->{'dbowner'}."',";
+        }
+      }
       if($line =~ /\'([^\']+)\'\s*\=\>\s*('[^\']*\')/) {
         my $conf_key = $1;
         my $conf_val = $2;
@@ -332,16 +342,20 @@ sub clade_settings {
     },
 
     'fish_teleost' => {
-      'repbase_library'    => 'Teleostei',
-      'repbase_logic_name' => 'teleost',
-      'uniprot_set'        => 'fish_basic',
-      'ig_tr_fasta_file'   => 'fish_ig_tr.fa',
+      'repbase_library'     => 'Teleostei',
+      'repbase_logic_name'  => 'teleost',
+      'uniprot_set'         => 'fish_basic',
+      'ig_tr_fasta_file'    => 'fish_ig_tr.fa',
+      'masking_timer_long'  => '6h',
+      'masking_timer_short' => '3h',
     },
 
     'distant_vertebrate' => {
       'repbase_library'    => 'vertebrates',
       'repbase_logic_name' => 'vertebrates',
       'uniprot_set'        => 'distant_vertebrate',
+      'masking_timer_long'  => '6h',
+      'masking_timer_short' => '3h',
     },
 
   };
@@ -350,14 +364,6 @@ sub clade_settings {
     die "Could not find the clade specified in the clade_settings hash. Clade specified: ".$clade;
   }
 
-  my $repbase_library = $clade_settings->{$clade}->{'repbase_library'};
-  my $repbase_logic_name = $clade_settings->{$clade}->{'repbase_logic_name'};
-  my $uniprot_set = $clade_settings->{$clade}->{'uniprot_set'};
-
-  unless($repbase_library && $repbase_logic_name && $uniprot_set) {
-    die "Issues with the settings for the ".$clade." settings hash, some info is missing";
-  }
-
-  return($repbase_library,$repbase_logic_name,$uniprot_set);
+  return($clade_settings->{$clade});
 }
 

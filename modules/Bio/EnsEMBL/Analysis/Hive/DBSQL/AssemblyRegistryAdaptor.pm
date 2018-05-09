@@ -238,6 +238,33 @@ sub fetch_stable_id_prefix_by_gca {
 }
 
 
+sub fetch_stable_id_start_by_gca {
+  my ($self,$chain_version,$type) = @_;
+
+  my ($chain,$version) = $self->split_gca($chain_version);
+
+  my $sql = "SELECT stable_id_space_id FROM assembly WHERE chain=? and version=?";
+  my $sth = $self->dbc->prepare($sql);
+  $sth->bind_param(1,$chain);
+  $sth->bind_param(2,$version);
+  $sth->execute();
+
+  my $stable_id_space = $sth->fetchrow();
+  unless($stable_id_space) {
+    $self->throw("Could not find stable id space for assembly with chain ".$chain." and version ".$version);
+  }
+
+  $sql = "SELECT stable_id_space_start FROM stable_id_space WHERE stable_id_space_id=?";
+  $sth = $self->dbc->prepare($sql);
+  $sth->bind_param(1,$stable_id_space);
+  $sth->execute();
+
+  my ($stable_id_space_start) = $sth->fetchrow();
+
+  return($stable_id_space_start);
+}
+
+
 sub split_gca {
   my ($self,$chain_version) = @_;
 
