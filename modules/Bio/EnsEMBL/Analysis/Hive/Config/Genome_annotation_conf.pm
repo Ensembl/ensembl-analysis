@@ -211,6 +211,7 @@ sub default_options {
 
     'layering_input_gene_dbs' => [
                                    $self->o('genblast_db'),
+                                   $self->o('genblast_select_db'),
                                    $self->o('rnaseq_for_layer_db'),
                                    $self->o('projection_coding_db'),
                                    $self->o('ig_tr_db'),
@@ -3933,8 +3934,8 @@ sub pipeline_analyses {
                         dbpass => $self->o('password'),
                         dbport => $self->o('final_geneset_db','-port'),
                         transcript_ids_file => catfile($self->o('output_path'), 'clean_genes', 'transcript_ids_to_remove.txt'),
-                        delete_transcripts_path => catdir($self->o('ensembl_analysis_script'), 'genebuild'),
-                        delete_genes_path => catdir($self->o('enscode_root_dir'), 'genebuild'),
+                        delete_transcripts_path => catdir($self->o('ensembl_analysis_script'), 'genebuild/'),
+                        delete_genes_path => catdir($self->o('ensembl_analysis_script'), 'genebuild/'),
                         delete_transcripts_script_name => 'delete_transcripts.pl',
                         delete_genes_script_name => 'delete_genes.pl',
                         output_path => catdir($self->o('output_path'), 'clean_genes'),
