@@ -74,7 +74,7 @@ sub default_options {
     'skip_cleaning'             => 0, # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => 0, # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
     'mapping_db'                => undef, # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
-    'uniprot_db_dir'            => 'uniprot_2018_02', # What UniProt data dir to use for various analyses
+    'uniprot_db_dir'            => 'uniprot_2018_04', # What UniProt data dir to use for various analyses
     'vertrna_version'           => 134, # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
     'mirBase_fasta'             => 'all_mirnas.fa', # What mirBase file to use. It is currently best to use on with the most appropriate set for your species
     'rfc_scaler'                => 'filter_dafs_rfc_scaler_human.pkl',
@@ -3943,10 +3943,35 @@ sub pipeline_analyses {
                       },
         -max_retry_count => 0,
         -flow_into => {
-          '1->A' => ['fan_ncrna'],
-          'A->1' => ['dummy_projected_lincrna_pseudos'],
+          '1' => ['delete_duplicate_genes'],
         },
      },
+
+
+
+     {
+       -logic_name => 'delete_duplicate_genes',
+       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+       -parameters => {
+                        cmd => "perl ".$self->o('remove_duplicates_script_path')
+                               ." -dbhost ".$self->o('final_geneset_db','-host')
+                               ." -dbuser ".$self->o('user')
+                               ." -dbpass ".$self->o('password')
+                               ." -dbname ".$self->o('final_geneset_db','-dbname')
+                               ." -dbport ".$self->o('final_geneset_db','-port')
+                               ." -dnadbhost ".$self->o('dna_db','-host')
+                               ." -dnadbuser ".$self->o('user_r')
+                               ." -dnadbname ".$self->o('dna_db','-dbname')
+                               ." -dnadbport ".$self->o('dna_db','-port'),
+                     },
+        -max_retry_count => 0,
+        -rc_name => 'default',
+        -flow_into => {
+                        '1->A' => ['fan_ncrna'],
+                        'A->1' => ['final_db_sanity_checks'],
+                      },
+      },
+
 
 ############################################################################
 #
@@ -4234,8 +4259,7 @@ sub pipeline_analyses {
                                   $self->o('output_path') . " -softmask -onefile -header rnaseq -filename " .
                                   $self->o('output_path') . "/genome.fasta ",
                       },
-         -rc_name   => 'filter',           
-                                  
+         -rc_name   => 'filter',
       },
 
       {
@@ -4254,7 +4278,7 @@ sub pipeline_analyses {
                                   $self->o('user') . ":" . $self->o('password'),
                         },
         -rc_name   => 'filter',
-        
+
       },
 
 
@@ -4319,139 +4343,116 @@ sub pipeline_analyses {
 # Transfer projected lincRNA and pseudogenes
 #
 ############################################################################
-     {
-       -logic_name => 'dummy_projected_lincrna_pseudos',
-       -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-       -parameters => {},
-       -rc_name => 'default',
-       -flow_into  => {
-         '1->A' => ['fan_transfer_projected_genes'],
-         'A->1' => ['delete_duplicate_genes'],
-       },
-     },
-
-
-     {
-       -logic_name => 'fan_transfer_projected_genes',
-       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-       -parameters => {
-         cmd => 'if [ "#skip_projection#" -ne -1 ]; then exit 42; else exit 0;fi', # To enable this part, replace -1 with 0
-         return_codes_2_branches => {'42' => 2},
-       },
-       -rc_name => 'default',
-       -flow_into  => {
-         1 => ['create_projected_lincrna_ids_to_copy'],
-       },
-     },
-
-
-     {
-       -logic_name => 'create_projected_lincrna_ids_to_copy',
-       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-       -parameters => {
-                        target_db    => $self->o('projection_lincrna_db'),
-                        iid_type     => 'feature_id',
-                        feature_type => 'gene',
-                        batch_size   => 500,
-                     },
-       -flow_into => {
-         '2->A' => ['transfer_projected_lincrnas'],
-         'A->1' => ['create_projected_pseudogene_ids_to_copy'],
-       },
-       -rc_name    => 'default',
-     },
-
-
-     {
-       -logic_name => 'transfer_projected_lincrnas',
-       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes',
-       -parameters => {
-         copy_genes_directly => 1,
-         source_db => $self->o('projection_lincrna_db'),
-         dna_db => $self->o('dna_db'),
-         target_db => $self->o('final_geneset_db'),
-         filter_on_overlap => 1,
-         filter_on_strand  => 0,
-         overlap_filter_type => 'genomic_overlap',
-         filter_against_biotypes => {
-           protein_coding => 1,
-           IG_C_gene => 1,
-           IG_V_gene => 1,
-           TR_C_gene => 1,
-           TR_J_gene => 1,
-           TR_V_gene => 1,
-           processed_pseudogene => 1,
-           pseudogene => 1,
-         },
-       },
-       -rc_name    => 'default',
-     },
-
-
-     {
-       -logic_name => 'create_projected_pseudogene_ids_to_copy',
-       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-       -parameters => {
-                        target_db    => $self->o('projection_pseudogene_db'),
-                        iid_type     => 'feature_id',
-                        feature_type => 'gene',
-                        batch_size   => 500,
-                      },
-       -flow_into => {
-                       '2' => ['transfer_projected_pseudogenes'],
-                     },
-       -rc_name    => 'default',
-     },
-
-
-      {
-        -logic_name => 'transfer_projected_pseudogenes',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes',
-        -parameters => {
-                         copy_genes_directly => 1,
-                         source_db => $self->o('projection_pseudogene_db'),
-                         dna_db => $self->o('dna_db'),
-                         target_db => $self->o('final_geneset_db'),
-                         filter_on_overlap => 1,
-                         filter_on_strand  => 1,
-                         overlap_filter_type => 'genomic_overlap',
-                         filter_against_biotypes => {
-                                                      protein_coding => 1,
-                                                      IG_C_gene => 1,
-                                                      IG_V_gene => 1,
-                                                      TR_C_gene => 1,
-                                                      TR_J_gene => 1,
-                                                      TR_V_gene => 1,
-                                                      processed_pseudogene => 1,
-                                                      pseudogene => 1,
-                                                      lincRNA => 1,
-                                                    },
-                       },
-        -rc_name    => 'default',
-      },
-
-
-     {
-       -logic_name => 'delete_duplicate_genes',
-       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-       -parameters => {
-                        cmd => "perl ".$self->o('remove_duplicates_script_path')
-                               ." -dbhost ".$self->o('final_geneset_db','-host')
-                               ." -dbuser ".$self->o('user')
-                               ." -dbpass ".$self->o('password')
-                               ." -dbname ".$self->o('final_geneset_db','-dbname')
-                               ." -dbport ".$self->o('final_geneset_db','-port')
-                               ." -dnadbhost ".$self->o('dna_db','-host')
-                               ." -dnadbuser ".$self->o('user_r')
-                               ." -dnadbname ".$self->o('dna_db','-dbname')
-                               ." -dnadbport ".$self->o('dna_db','-port'),
-                     },
-        -max_retry_count => 0,
-        -rc_name => 'default',
-        -flow_into => {
-                        '1' => ['final_db_sanity_checks'],
-                      },
-      },
+#     {
+#       -logic_name => 'dummy_projected_lincrna_pseudos',
+#       -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+#       -parameters => {},
+#       -rc_name => 'default',
+#       -flow_into  => {
+#         '1->A' => ['fan_transfer_projected_genes'],
+#         'A->1' => ['delete_duplicate_genes'],
+#       },
+#     },
+#
+#
+#     {
+#       -logic_name => 'fan_transfer_projected_genes',
+#       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+#       -parameters => {
+#         cmd => 'if [ "#skip_projection#" -ne -1 ]; then exit 42; else exit 0;fi', # To enable this part, replace -1 with 0
+#         return_codes_2_branches => {'42' => 2},
+#       },
+#       -rc_name => 'default',
+#       -flow_into  => {
+#         1 => ['create_projected_lincrna_ids_to_copy'],
+#       },
+#     },
+#
+#
+#     {
+#       -logic_name => 'create_projected_lincrna_ids_to_copy',
+#       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+#       -parameters => {
+#                        target_db    => $self->o('projection_lincrna_db'),
+#                        iid_type     => 'feature_id',
+#                        feature_type => 'gene',
+#                        batch_size   => 500,
+#                     },
+#       -flow_into => {
+#         '2->A' => ['transfer_projected_lincrnas'],
+#         'A->1' => ['create_projected_pseudogene_ids_to_copy'],
+#       },
+#       -rc_name    => 'default',
+#     },
+#
+#
+#     {
+#       -logic_name => 'transfer_projected_lincrnas',
+#       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes',
+#       -parameters => {
+#         copy_genes_directly => 1,
+#         source_db => $self->o('projection_lincrna_db'),
+#         dna_db => $self->o('dna_db'),
+#         target_db => $self->o('final_geneset_db'),
+#         filter_on_overlap => 1,
+#         filter_on_strand  => 0,
+#         overlap_filter_type => 'genomic_overlap',
+#         filter_against_biotypes => {
+#           protein_coding => 1,
+#           IG_C_gene => 1,
+#           IG_V_gene => 1,
+#           TR_C_gene => 1,
+#           TR_J_gene => 1,
+#           TR_V_gene => 1,
+#           processed_pseudogene => 1,
+#           pseudogene => 1,
+#         },
+#       },
+#       -rc_name    => 'default',
+#     },
+#
+#
+#     {
+#       -logic_name => 'create_projected_pseudogene_ids_to_copy',
+#       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+#       -parameters => {
+#                        target_db    => $self->o('projection_pseudogene_db'),
+#                        iid_type     => 'feature_id',
+#                        feature_type => 'gene',
+#                        batch_size   => 500,
+#                      },
+#       -flow_into => {
+#                       '2' => ['transfer_projected_pseudogenes'],
+#                     },
+#       -rc_name    => 'default',
+#     },
+#
+#
+#      {
+#        -logic_name => 'transfer_projected_pseudogenes',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes',
+#        -parameters => {
+#                         copy_genes_directly => 1,
+#                         source_db => $self->o('projection_pseudogene_db'),
+#                         dna_db => $self->o('dna_db'),
+#                         target_db => $self->o('final_geneset_db'),
+#                         filter_on_overlap => 1,
+#                         filter_on_strand  => 1,
+#                         overlap_filter_type => 'genomic_overlap',
+#                         filter_against_biotypes => {
+#                                                      protein_coding => 1,
+#                                                      IG_C_gene => 1,
+#                                                      IG_V_gene => 1,
+#                                                      TR_C_gene => 1,
+#                                                      TR_J_gene => 1,
+#                                                      TR_V_gene => 1,
+#                                                      processed_pseudogene => 1,
+#                                                      pseudogene => 1,
+#                                                      lincRNA => 1,
+#                                                    },
+#                       },
+#        -rc_name    => 'default',
+#      },
 
 
       {
