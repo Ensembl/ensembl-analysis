@@ -160,7 +160,7 @@ sub run {
   my $self = shift;
 
   my ($type_hash, $genes) = make_types_hash_with_genes($self->donor_genes, $self->acceptor_genes, 'donor', 'acceptor');
-  my ($clusters, $unclustered) = cluster_Genes($type_hash, $genes);
+  my ($clusters, $unclustered) = cluster_Genes($genes, $type_hash);
   my @genes;
   foreach my $cluster (@$clusters) {
     my $donor_transcripts;
