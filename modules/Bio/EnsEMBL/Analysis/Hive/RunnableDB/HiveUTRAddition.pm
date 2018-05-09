@@ -141,6 +141,8 @@ sub fetch_input {
 
   my $donor_genes = $self->filter_input_genes($self->param_required('donor_dbs'), $self->param('allowed_input_sets'));
 
+  say "Found ".scalar(@$acceptor_genes)." acceptor genes";
+  say "Found ".scalar(@$donor_genes)." donor genes";
   $self->acceptor_genes($acceptor_genes);
   $self->donor_genes($donor_genes);
 }
@@ -159,7 +161,8 @@ sub fetch_input {
 sub run {
   my $self = shift;
 
-  my ($type_hash, $genes) = make_types_hash_with_genes($self->donor_genes, $self->acceptor_genes, 'donor', 'acceptor');
+  my ($type_hash, $genes) = @{make_types_hash_with_genes($self->donor_genes, $self->acceptor_genes, 'donor', 'acceptor')};
+  say "FM2 UTR ".scalar(@$genes);
   my ($clusters, $unclustered) = cluster_Genes($genes, $type_hash);
   my @genes;
   foreach my $cluster (@$clusters) {
