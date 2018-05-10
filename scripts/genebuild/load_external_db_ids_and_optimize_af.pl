@@ -554,37 +554,41 @@ foreach my $type (@types) {
           throw("could not execute $query");
         }
       }
-
-      my $cmd = 'perl '.$ise_script
-          .' -indaf '.$ise_name
-          .' -insf '.$tise_name
-          .' -outdaf '.$ise_name.'.fixed'
-          .' -outsf '.$tise_name.'.fixed';
-      if ($collapse_ise) {
-        my $analysis_id = `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e "SELECT analysis_id FROM analysis WHERE logic_name LIKE '%merged_rnaseq_ise'"`;
-        if ($analysis_id and $analysis_id > 0) {
-          $cmd .= "-analysis_id $analysis_id";
-        }
-        else {
-          throw('Failed to get analysis_id for "%merged_rnaseq_ise"');
-        }
-      }
-      if (system($cmd)) {
-        throw('Could not prepare ISEs');
-      }
-      foreach my $table ('intron_supporting_evidence', 'transcript_intron_supporting_evidence') {
-        foreach my $query ("TRUNCATE $table", "LOAD DATA LOCAL INFILE \"".catfile($output_path, $table.'.dat.fixed')."\" INTO TABLE $table") {
-          if (system("mysql -NB -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -e '$query'")) {
-            throw("could not execute $query");
+      if (-s $ise_name) {
+        my $cmd = 'perl '.$ise_script
+            .' -indaf '.$ise_name
+            .' -insf '.$tise_name
+            .' -outdaf '.$ise_name.'.fixed'
+            .' -outsf '.$tise_name.'.fixed';
+        if ($collapse_ise) {
+          my $analysis_id = `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e "SELECT analysis_id FROM analysis WHERE logic_name LIKE '%merged_rnaseq_ise'"`;
+          if ($analysis_id and $analysis_id > 0) {
+            $cmd .= "-analysis_id $analysis_id";
+          }
+          else {
+            throw('Failed to get analysis_id for "%merged_rnaseq_ise"');
           }
         }
+        if (system($cmd)) {
+          throw('Could not prepare ISEs');
+        }
+        foreach my $table ('intron_supporting_evidence', 'transcript_intron_supporting_evidence') {
+          foreach my $query ("TRUNCATE $table", "LOAD DATA LOCAL INFILE \"".catfile($output_path, $table.'.dat.fixed')."\" INTO TABLE $table") {
+            if (system("mysql -NB -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -e '$query'")) {
+              throw("could not execute $query");
+            }
+          }
+        }
+        my $query = "'SELECT t.seq_region_id, t.seq_region_start, t.seq_region_end, t.seq_region_strand, i.seq_region_id, i.seq_region_start, i.seq_region_end, i.seq_region_strand FROM transcript t LEFT JOIN transcript_intron_supporting_evidence tise ON t.transcript_id = tise.transcript_id LEFT JOIN intron_supporting_evidence i ON tise.intron_supporting_evidence_id = i.intron_supporting_evidence_id' | sort -nk1 -nk2 -nk3 -nk4 > ".$check_new_name;
+        if (system("mysql -NB -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -e $query")) {
+          throw("could not execute $query");
+        }
+        if (system("diff -q $check_old_name $check_new_name")) {
+          throw("Optimising ISE failed, you may need to reload $ise_name and $tise_name before restarting");
+        }
       }
-      my $query = "'SELECT t.seq_region_id, t.seq_region_start, t.seq_region_end, t.seq_region_strand, i.seq_region_id, i.seq_region_start, i.seq_region_end, i.seq_region_strand FROM transcript t LEFT JOIN transcript_intron_supporting_evidence tise ON t.transcript_id = tise.transcript_id LEFT JOIN intron_supporting_evidence i ON tise.intron_supporting_evidence_id = i.intron_supporting_evidence_id' | sort -nk1 -nk2 -nk3 -nk4 > ".$check_new_name;
-      if (system("mysql -NB -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -e $query")) {
-        throw("could not execute $query");
-      }
-      if (system("diff -q $check_old_name $check_new_name")) {
-        throw("Optimising ISE failed, you may need to reload $ise_name and $tise_name before restarting");
+      else {
+        warning("The intron_supporting_evidence table is empty");
       }
     }
 
