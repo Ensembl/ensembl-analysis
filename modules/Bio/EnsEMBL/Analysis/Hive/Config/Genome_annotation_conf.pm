@@ -3193,17 +3193,20 @@ sub pipeline_analyses {
                         },
          -rc_name   => 'filter',
       },
+
+
       {
         -logic_name => 'dump_genome',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
                           cmd => "perl " . $self->o('mirna_analysis_script') . "/sequence_dump.pl -dbhost " .
                                   $self->o('dna_db_server') . " -dbname  " .
-                                  $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number') . "-dbport " .
-                                  $self->o('dna_db_port') . " -dbuser " .
-                                  $self->o('user_r') . " -coord_system_name toplevel -mask -mask_repeat RepeatMask -output_dir " .
-                                  $self->o('output_path') . " -softmask -onefile -header rnaseq -filename " .
-                                  $self->o('output_path') . "/genome.fasta ",
+                                  $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number') . " -dbport " .
+                                  $self->o('dna_db_port')." -dbuser ".
+                                  $self->o('user_r')." -coord_system_name toplevel -mask -mask_repeat ".
+                                  "repeatmask_repbase_".$self->o('repbase_logic_name')." -output_dir ".$self->o('output_path').
+                                  " -softmask -onefile -header rnaseq -filename ".$self->o('output_path')."/genome.fasta;".
+                                  " sed -i 's/>/>chr/g' ".$self->o('output_path')."/genome.fasta",
                       },
          -rc_name   => 'filter',
       },
