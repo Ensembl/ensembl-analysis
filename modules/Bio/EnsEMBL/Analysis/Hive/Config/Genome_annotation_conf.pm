@@ -2911,10 +2911,358 @@ sub pipeline_analyses {
                        },
 
         -rc_name    => '1.5GB',
+
         -flow_into => {
-          1 => ['create_projection_coding_db'],
+                        '1->A' => ['fan_ncrna'],
+                        'A->1' => ['create_projection_coding_db'],
+                      },
+      },
+
+
+############################################################################
+#
+# ncRNA pipeline
+#
+############################################################################
+      {
+        -logic_name => 'fan_ncrna',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'if [ "#skip_ncrna#" -ne "0" ]; then exit 42; else exit 0;fi',
+                         return_codes_2_branches => {'42' => 2},
+                       },
+        -rc_name => 'default',
+        -flow_into  => {
+          1 => ['create_ncrna_db'],
         },
       },
+
+
+      {
+        -logic_name => 'create_ncrna_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('ncrna_db'),
+                         create_type => 'clone',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                          '1->A' => ['create_small_rna_slice_ids'],
+                          'A->1' => ['ncrna_sanity_checks'],
+                      },
+
+      },
+
+
+      {
+        -logic_name => 'create_small_rna_slice_ids',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         coord_system_name => 'toplevel',
+                         iid_type => 'slice',
+                         slice_size => 1000000,
+                         top_level => 1,
+                         target_db => $self->o('dna_db'),
+                         batch_slice_ids => 1,
+                         batch_target_size => 2000000,
+                      },
+        -flow_into => {
+                       '2->A' => ['mirna_blast','rfam_blast'],
+                       'A->1' => ['filter_ncrnas'],
+                      },
+        -rc_name    => 'default',
+      },
+
+
+      {
+        -logic_name => 'rfam_blast',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRfam',
+        -parameters => {
+                         repeat_logic_names => ['dust'],
+                         repeat_db => $self->o('dna_db'),
+                         output_db => $self->o('ncrna_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'rfamblast',
+                         module     => 'HiveBlastRfam',
+                         blast_db_path => $self->o('ncrna_blast_path')."/filtered.fasta",
+                         blast_exe_path => $self->o('blastn_exe_path'),
+                         commandline_params => ' -num_threads 3 -word_size 12 -num_alignments 5000  -num_descriptions 5000 -max_hsps 1 ',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastRFam', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
+                         timer => '3h',
+                       },
+       -flow_into => {
+                       '-1' => ['rebatch_rfam'],
+                       '-2' => ['rebatch_rfam'],
+                     },
+       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+       -rc_name    => 'rfam_blast',
+      },
+
+
+      {
+        -logic_name => 'rebatch_rfam',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('dna_db'),
+                         iid_type => 'rebatch_and_resize_slices',
+                         slice_size => 100000,
+                         batch_target_size => 100000,
+                       },
+       -flow_into => {
+                       '2' => ['rfam_blast_retry'],
+                     },
+       -rc_name    => 'default',
+       -can_be_empty  => 1,
+      },
+
+
+      {
+        -logic_name => 'rfam_blast_retry',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRfam',
+        -parameters => {
+                         repeat_logic_names => ['dust'],
+                         repeat_db => $self->o('dna_db'),
+                         output_db => $self->o('ncrna_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'rfamblast',
+                         module     => 'HiveBlastRfam',
+                         blast_db_path => $self->o('ncrna_blast_path')."/filtered.fasta",
+                         blast_exe_path => $self->o('blastn_exe_path'),
+                         commandline_params => ' -num_threads 3 -word_size 12 -num_alignments 5000  -num_descriptions 5000 -max_hsps 1 ',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastRFam', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
+                         timer => '1h',
+                       },
+       -flow_into => {
+                       '-1' => ['failed_rfam_blast_job'],
+                       '-2' => ['failed_rfam_blast_job'],
+                     },
+       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+       -rc_name    => 'rfam_blast_retry',
+       -can_be_empty  => 1,
+      },
+
+
+      {
+        -logic_name => 'failed_rfam_blast_job',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name          => 'default',
+        -can_be_empty  => 1,
+      },
+
+
+      {
+        -logic_name => 'mirna_blast',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastmiRNA',
+        -parameters => {
+                         repeat_logic_names => ['dust'],
+                         repeat_db => $self->o('dna_db'),
+                         output_db => $self->o('ncrna_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'blastmirna',
+                         module     => 'HiveBlastmiRNA',
+                         blast_db_path => $self->o('mirna_blast_path') . '/' . $self->o('mirBase_fasta') ,
+                         blast_exe_path => $self->o('blastn_exe_path'),
+                         commandline_params => ' -num_threads 3 ',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastmiRBase', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
+                         timer => '2h',
+                       },
+
+        -flow_into => {
+                        '-1' => ['rebatch_mirna'],
+                        '-2' => ['rebatch_mirna'],
+                      },
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -rc_name    => 'blast',
+      },
+
+
+      {
+        -logic_name => 'rebatch_mirna',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('dna_db'),
+                         iid_type => 'rebatch_and_resize_slices',
+                         slice_size => 100000,
+                         batch_target_size => 100000,
+                       },
+       -flow_into => {
+                       '2' => ['mirna_blast_retry'],
+                     },
+       -rc_name    => 'default',
+       -can_be_empty  => 1,
+      },
+
+
+      {
+        -logic_name => 'mirna_blast_retry',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastmiRNA',
+        -parameters => {
+                         repeat_logic_names => ['dust'],
+                         repeat_db => $self->o('dna_db'),
+                         output_db => $self->o('ncrna_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'blastmirna',
+                         module     => 'HiveBlastmiRNA',
+                         blast_db_path => $self->o('mirna_blast_path') . '/' . $self->o('mirBase_fasta') ,
+                         blast_exe_path => $self->o('blastn_exe_path'),
+                         commandline_params => ' -num_threads 3 ',
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastmiRBase', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
+                         timer => '1h',
+                       },
+
+        -flow_into => {
+                        '-1' => ['failed_mirna_blast_job'],
+                        '-2' => ['failed_mirna_blast_job'],
+                      },
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -rc_name    => 'blast_retry',
+      },
+
+
+      {
+        -logic_name => 'failed_mirna_blast_job',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name          => 'default',
+        -can_be_empty  => 1,
+      },
+
+
+      {
+        -logic_name => 'filter_ncrnas',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFilterncRNAs',
+        -parameters => {
+                         output_db => $self->o('ncrna_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'filter_ncrnas',
+                         module     => 'HiveFilterncRNAs',
+                       },
+        -rc_name    => 'filter',
+        -flow_into => {
+                        '2' => ['run_mirna'],
+                        '3' => ['run_infernal'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'run_mirna',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivemiRNA',
+        -parameters => {
+                         output_db => $self->o('ncrna_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'ncrna',
+                         module     => 'HivemiRNA',
+                         blast_db_dir_path => $self->o('mirna_blast_path').'/all_mirnas.embl',
+                         output_dir => $self->o('output_path'),
+                       },
+        -batch_size => 20,
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -rc_name    => 'filter',
+        -flow_into  => { '1->A' => ['dump_repeats', 'dump_features', 'dump_genome'], 'A->1' => ['filter_mirnas']},
+      },
+
+      {
+        -logic_name => 'dump_repeats',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                    cmd => "perl " . $self->o('mirna_analysis_script') . "/repeats_dump.pl " .
+                            $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number') . " " .
+                            $self->o('dna_db_server') . " " .
+                            $self->o('dna_db_port') . " " .
+                            $self->o('user_r') . " " .
+                            $self->o('output_path') . " blastmirna",
+                      },
+       -rc_name => 'filter',
+      },
+
+      {
+        -logic_name => 'dump_features',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => "perl " . $self->o('mirna_analysis_script') . "/dump_prefilter_features.pl " .
+                                $self->o('dbowner').'_'.$self->o('production_name').'_ncrna_'.$self->o('release_number') . " " .
+                                $self->o('ncrna_db_server') . " " .
+                                $self->o('ncrna_db_port') . " " .
+                                $self->o('user_r') . " " .
+                                $self->o('output_path') . " blastmirna",
+                        },
+         -rc_name   => 'filter',
+      },
+
+
+      {
+        -logic_name => 'dump_genome',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                          cmd => "perl " . $self->o('mirna_analysis_script') . "/sequence_dump.pl -dbhost " .
+                                  $self->o('dna_db_server') . " -dbname  " .
+                                  $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number') . " -dbport " .
+                                  $self->o('dna_db_port')." -dbuser ".
+                                  $self->o('user_r')." -coord_system_name toplevel -mask -mask_repeat ".
+                                  "repeatmask_repbase_".$self->o('repbase_logic_name')." -output_dir ".$self->o('output_path').
+                                  " -softmask -onefile -header rnaseq -filename ".$self->o('output_path')."/genome.fasta;".
+                                  " sed -i 's/>/>chr/g' ".$self->o('output_path')."/genome.fasta",
+                      },
+         -rc_name   => 'filter',
+      },
+
+      {
+        -logic_name => 'filter_mirnas',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                          cmd => "sh " . $self->o('mirna_analysis_script') . "/FilterMiRNAs.sh -d " .
+                                  $self->o('output_path') . "/blastmirna_dafs.bed -r " .
+                                  $self->o('output_path') . "/repeats.bed -g " .
+                                  $self->o('output_path') . "/genome.fasta -w " .
+                                  $self->o('output_path') . " -m " .
+                                  $self->o('mirna_blast_path') . "/rfc_filters/" . $self->o('rfc_model') . " -s " .
+                                  $self->o('mirna_blast_path') . "/rfc_filters/" . $self->o('rfc_scaler') . " -c " .
+                                  $self->o('ncrna_db_server') . ":" . $self->o('ncrna_db_port') . ":" . 
+                                  $self->o('dbowner').'_'.$self->o('production_name').'_ncrna_'.$self->o('release_number') . ":" .
+                                  $self->o('user') . ":" . $self->o('password'),
+                        },
+        -rc_name   => 'filter',
+
+      },
+
+
+      {
+        -logic_name => 'run_infernal',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveInfernal',
+        -parameters => {
+                         output_db => $self->o('ncrna_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'ncrna',
+                         module     => 'HiveInfernal',
+                         cmsearch_exe_path => $self->o('cmsearch_exe_path'),
+                         blast_db_dir_path => $self->o('ncrna_blast_path').'/',
+                       },
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -rc_name    => 'transcript_finalisation',
+      },
+
+
+      {
+        -logic_name => 'ncrna_sanity_checks',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
+        -parameters => {
+                         target_db => $self->o('ncrna_db'),
+                         sanity_check_type => 'gene_db_checks',
+                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
+                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'ncrna'},
+                       },
+
+        -rc_name    => '4GB',
+#        -flow_into => {
+#          1 => ['transfer_ncrnas'],
+#        },
+      },
+
 
 ########################################################################
 #
@@ -3967,352 +4315,9 @@ sub pipeline_analyses {
         -max_retry_count => 0,
         -rc_name => 'default',
         -flow_into => {
-                        '1->A' => ['fan_ncrna'],
-                        'A->1' => ['final_db_sanity_checks'],
-                      },
-      },
-
-
-############################################################################
-#
-# ncRNA pipeline
-#
-############################################################################
-      {
-        -logic_name => 'fan_ncrna',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                         cmd => 'if [ "#skip_ncrna#" -ne "0" ]; then exit 42; else exit 0;fi',
-                         return_codes_2_branches => {'42' => 2},
-                       },
-        -rc_name => 'default',
-        -flow_into  => {
-          1 => ['create_ncrna_db'],
-        },
-      },
-
-
-      {
-        -logic_name => 'create_ncrna_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('ncrna_db'),
-                         create_type => 'clone',
-                       },
-        -rc_name    => 'default',
-        -flow_into => {
-                          '1->A' => ['create_small_rna_slice_ids'],
-                          'A->1' => ['ncrna_sanity_checks'],
-                      },
-
-      },
-
-
-      {
-        -logic_name => 'create_small_rna_slice_ids',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-                         coord_system_name => 'toplevel',
-                         iid_type => 'slice',
-                         slice_size => 1000000,
-                         top_level => 1,
-                         target_db => $self->o('dna_db'),
-                         batch_slice_ids => 1,
-                         batch_target_size => 2000000,
-                      },
-        -flow_into => {
-                       '2->A' => ['mirna_blast','rfam_blast'],
-                       'A->1' => ['filter_ncrnas'],
-                      },
-        -rc_name    => 'default',
-      },
-
-
-      {
-        -logic_name => 'rfam_blast',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRfam',
-        -parameters => {
-                         repeat_logic_names => ['dust'],
-                         repeat_db => $self->o('dna_db'),
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'rfamblast',
-                         module     => 'HiveBlastRfam',
-                         blast_db_path => $self->o('ncrna_blast_path')."/filtered.fasta",
-                         blast_exe_path => $self->o('blastn_exe_path'),
-                         commandline_params => ' -num_threads 3 -word_size 12 -num_alignments 5000  -num_descriptions 5000 -max_hsps 1 ',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastRFam', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
-                         timer => '3h',
-                       },
-       -flow_into => {
-                       '-1' => ['rebatch_rfam'],
-                       '-2' => ['rebatch_rfam'],
-                     },
-       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-       -rc_name    => 'rfam_blast',
-      },
-
-
-      {
-        -logic_name => 'rebatch_rfam',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-                         target_db => $self->o('dna_db'),
-                         iid_type => 'rebatch_and_resize_slices',
-                         slice_size => 100000,
-                         batch_target_size => 100000,
-                       },
-       -flow_into => {
-                       '2' => ['rfam_blast_retry'],
-                     },
-       -rc_name    => 'default',
-       -can_be_empty  => 1,
-      },
-
-
-      {
-        -logic_name => 'rfam_blast_retry',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRfam',
-        -parameters => {
-                         repeat_logic_names => ['dust'],
-                         repeat_db => $self->o('dna_db'),
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'rfamblast',
-                         module     => 'HiveBlastRfam',
-                         blast_db_path => $self->o('ncrna_blast_path')."/filtered.fasta",
-                         blast_exe_path => $self->o('blastn_exe_path'),
-                         commandline_params => ' -num_threads 3 -word_size 12 -num_alignments 5000  -num_descriptions 5000 -max_hsps 1 ',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastRFam', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
-                         timer => '1h',
-                       },
-       -flow_into => {
-                       '-1' => ['failed_rfam_blast_job'],
-                       '-2' => ['failed_rfam_blast_job'],
-                     },
-       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-       -rc_name    => 'rfam_blast_retry',
-       -can_be_empty  => 1,
-      },
-
-
-      {
-        -logic_name => 'failed_rfam_blast_job',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {
-                       },
-        -rc_name          => 'default',
-        -can_be_empty  => 1,
-      },
-
-
-      {
-        -logic_name => 'mirna_blast',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastmiRNA',
-        -parameters => {
-                         repeat_logic_names => ['dust'],
-                         repeat_db => $self->o('dna_db'),
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'blastmirna',
-                         module     => 'HiveBlastmiRNA',
-                         blast_db_path => $self->o('mirna_blast_path') . '/' . $self->o('mirBase_fasta') ,
-                         blast_exe_path => $self->o('blastn_exe_path'),
-                         commandline_params => ' -num_threads 3 ',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastmiRBase', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
-                         timer => '2h',
-                       },
-
-        -flow_into => {
-                        '-1' => ['rebatch_mirna'],
-                        '-2' => ['rebatch_mirna'],
-                      },
-        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -rc_name    => 'blast',
-      },
-
-
-      {
-        -logic_name => 'rebatch_mirna',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-                         target_db => $self->o('dna_db'),
-                         iid_type => 'rebatch_and_resize_slices',
-                         slice_size => 100000,
-                         batch_target_size => 100000,
-                       },
-       -flow_into => {
-                       '2' => ['mirna_blast_retry'],
-                     },
-       -rc_name    => 'default',
-       -can_be_empty  => 1,
-      },
-
-
-      {
-        -logic_name => 'mirna_blast_retry',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastmiRNA',
-        -parameters => {
-                         repeat_logic_names => ['dust'],
-                         repeat_db => $self->o('dna_db'),
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'blastmirna',
-                         module     => 'HiveBlastmiRNA',
-                         blast_db_path => $self->o('mirna_blast_path') . '/' . $self->o('mirBase_fasta') ,
-                         blast_exe_path => $self->o('blastn_exe_path'),
-                         commandline_params => ' -num_threads 3 ',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastmiRBase', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
-                         timer => '1h',
-                       },
-
-        -flow_into => {
-                        '-1' => ['failed_mirna_blast_job'],
-                        '-2' => ['failed_mirna_blast_job'],
-                      },
-        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -rc_name    => 'blast_retry',
-      },
-
-
-      {
-        -logic_name => 'failed_mirna_blast_job',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {
-                       },
-        -rc_name          => 'default',
-        -can_be_empty  => 1,
-      },
-
-
-      {
-        -logic_name => 'filter_ncrnas',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFilterncRNAs',
-        -parameters => {
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'filter_ncrnas',
-                         module     => 'HiveFilterncRNAs',
-                       },
-        -rc_name    => 'filter',
-        -flow_into => {
-                        '2' => ['run_mirna'],
-                        '3' => ['run_infernal'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'run_mirna',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivemiRNA',
-        -parameters => {
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'ncrna',
-                         module     => 'HivemiRNA',
-                         blast_db_dir_path => $self->o('mirna_blast_path').'/all_mirnas.embl',
-                         output_dir => $self->o('output_path'),
-                       },
-        -batch_size => 20,
-        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -rc_name    => 'filter',
-        -flow_into  => { '1->A' => ['dump_repeats', 'dump_features', 'dump_genome'], 'A->1' => ['filter_mirnas']},
-      },
-
-      {
-        -logic_name => 'dump_repeats',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                    cmd => "perl " . $self->o('mirna_analysis_script') . "/repeats_dump.pl " .
-                            $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number') . " " .
-                            $self->o('dna_db_server') . " " .
-                            $self->o('dna_db_port') . " " .
-                            $self->o('user_r') . " " .
-                            $self->o('output_path') . " blastmirna",
-                      },
-       -rc_name => 'filter',
-      },
-
-      {
-        -logic_name => 'dump_features',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                         cmd => "perl " . $self->o('mirna_analysis_script') . "/dump_prefilter_features.pl " .
-                                $self->o('dbowner').'_'.$self->o('production_name').'_ncrna_'.$self->o('release_number') . " " .
-                                $self->o('ncrna_db_server') . " " .
-                                $self->o('ncrna_db_port') . " " .
-                                $self->o('user_r') . " " .
-                                $self->o('output_path') . " blastmirna",
-                        },
-         -rc_name   => 'filter',
-      },
-      {
-        -logic_name => 'dump_genome',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                          cmd => "perl " . $self->o('mirna_analysis_script') . "/sequence_dump.pl -dbhost " .
-                                  $self->o('dna_db_server') . " -dbname  " .
-                                  $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number') . "-dbport " .
-                                  $self->o('dna_db_port') . " -dbuser " .
-                                  $self->o('user_r') . " -coord_system_name toplevel -mask -mask_repeat RepeatMask -output_dir " .
-                                  $self->o('output_path') . " -softmask -onefile -header rnaseq -filename " .
-                                  $self->o('output_path') . "/genome.fasta ",
-                      },
-         -rc_name   => 'filter',
-      },
-
-      {
-        -logic_name => 'filter_mirnas',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                          cmd => "sh " . $self->o('mirna_analysis_script') . "/FilterMiRNAs.sh -d " .
-                                  $self->o('output_path') . "/blastmirna_dafs.bed -r " .
-                                  $self->o('output_path') . "/repeats.bed -g " .
-                                  $self->o('output_path') . "/genome.fasta -w " .
-                                  $self->o('output_path') . " -m " .
-                                  $self->o('mirna_blast_path') . "/rfc_filters/" . $self->o('rfc_model') . " -s " .
-                                  $self->o('mirna_blast_path') . "/rfc_filters/" . $self->o('rfc_scaler') . " -c " .
-                                  $self->o('ncrna_db_server') . ":" . $self->o('ncrna_db_port') . ":" . 
-                                  $self->o('dbowner').'_'.$self->o('production_name').'_ncrna_'.$self->o('release_number') . ":" .
-                                  $self->o('user') . ":" . $self->o('password'),
-                        },
-        -rc_name   => 'filter',
-
-      },
-
-
-      {
-        -logic_name => 'run_infernal',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveInfernal',
-        -parameters => {
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'ncrna',
-                         module     => 'HiveInfernal',
-                         cmsearch_exe_path => $self->o('cmsearch_exe_path'),
-                         blast_db_dir_path => $self->o('ncrna_blast_path').'/',
-                       },
-        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -rc_name    => 'transcript_finalisation',
-      },
-
-
-      {
-        -logic_name => 'ncrna_sanity_checks',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
-        -parameters => {
-                         target_db => $self->o('ncrna_db'),
-                         sanity_check_type => 'gene_db_checks',
-                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'ncrna'},
-                       },
-
-        -rc_name    => '4GB',
-        -flow_into => {
           1 => ['transfer_ncrnas'],
         },
-      },
+     },
 
 
      {
@@ -4336,6 +4341,9 @@ sub pipeline_analyses {
                                      ' -all'
                       },
         -rc_name => 'default',
+        -flow_into => {
+                        '1' => ['final_db_sanity_checks'],
+                      },
      },
 
 ############################################################################
