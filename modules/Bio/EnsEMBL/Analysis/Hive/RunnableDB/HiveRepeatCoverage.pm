@@ -186,7 +186,13 @@ sub run {
 sub write_output {
   my ($self) = @_;
 
-  my $msg = sprintf("Total bases = %d\nTotal masked = %d\t( %.2f%% masked)\n", $self->param('bases'), $self->param('masked'), $self->param('repeats_ratio'));
+  my $msg = "Analyses:";
+  my $repeats = $self->param_required('repeat_logic_names');
+  foreach my $repeattype (@$repeats) {
+    $msg .= " ".$repeattype;
+  }
+
+  $msg .= sprintf("\nTotal bases = %d\nTotal masked = %d\t( %.2f%% masked)\n", $self->param('bases'), $self->param('masked'), $self->param('repeats_ratio'));
   if ($self->param_is_defined('genes')) {
     $msg .= "Total genes = ".$self->param('genes')."\nTotal genes overlapped = ".$self->param('genes_overlapped')."\n";
   }
