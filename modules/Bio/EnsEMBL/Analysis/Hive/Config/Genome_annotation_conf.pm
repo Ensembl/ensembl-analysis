@@ -244,6 +244,7 @@ sub default_options {
     'min_toplevel_slice_length'   => 250,
 
     'repeat_logic_names'          => ['repeatmask_repbase_'.$self->o('repbase_logic_name'),'dust'],
+    'repeatmodeler_logic_name'    => 'repeatmask_repeatmodeler',
     'homology_models_path'        => catdir($self->o('output_path'),'homology_models'),
 
     targetted_path => catdir($self->o('output_path'), 'targetted'),
@@ -1253,7 +1254,7 @@ sub pipeline_analyses {
         -parameters => {
                          timer_batch => $self->o('masking_timer_short'),
                          target_db => $self->o('reference_db'),
-                         logic_name => 'repeatmask_repeatmodeler',
+                         logic_name => $self->o('repeatmodeler_logic_name'),
                          module => 'HiveRepeatMasker',
                          repeatmasker_path => $self->o('repeatmasker_path'),
                          commandline_params => '-nolow -lib "'.$self->o('repeatmodeler_library').'" -engine "'.$self->o('repeatmasker_engine').'"',
@@ -1764,6 +1765,8 @@ sub pipeline_analyses {
           1 =>['repeat_masker_coverage'],
         },
       },
+
+
       {
         -logic_name => 'repeat_masker_coverage',
         -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRepeatCoverage',
@@ -1774,7 +1777,25 @@ sub pipeline_analyses {
           email => $self->o('email_address'),
         },
         -rc_name => 'default',
+        -flow_into => {
+          1 =>['repeatmodeler_coverage'],
+        },
       },
+
+
+      {
+        -logic_name => 'repeatmodeler_coverage',
+        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRepeatCoverage',
+        -parameters => {
+          source_db => $self->o('reference_db'),
+          repeat_logic_names => [$self->o('repeatmodeler_logic_name')],
+          coord_system_version => '#assembly_name#',
+          email => $self->o('email_address'),
+        },
+        -rc_name => 'default',
+      },
+
+
 
      {
         -logic_name => 'set_repeat_types',

@@ -52,6 +52,6 @@ putative_stem_loops_df = pd.read_csv(putative_stem_loops, sep="\t", index_col = 
 merged = pd.merge(putative_stem_loops_df, removed_dafs, left_index = True, right_index = True, how = "inner")
 
 merged.drop_duplicates(inplace=True)
-merged['G'].to_csv("mirnas_to_delete.txt", header=False, index=False)
+merged['G'].to_csv(working_dir + "mirnas_to_delete.txt", header=False, index=False)
 
 
