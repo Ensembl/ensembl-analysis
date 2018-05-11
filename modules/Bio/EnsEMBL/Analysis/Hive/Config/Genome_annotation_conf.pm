@@ -67,15 +67,15 @@ sub default_options {
     'assembly_refseq_accession' => '', # Versioned GCF accession, e.g. GCF_001857705.1
     'stable_id_prefix'          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
     'stable_id_start'           => '0', # When mapping is not required this is usually set to 0
-    'load_toplevel_only'        => 1, # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
-    'skip_projection'           => 0, # Will skip projection process if 1
-    'skip_rnaseq'               => 0, # Will skip rnaseq analyses if 1
-    'skip_ncrna'                => 0, # Will skip ncrna process if 1
-    'skip_cleaning'             => 0, # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
-    'mapping_required'          => 0, # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
+    'load_toplevel_only'        => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
+    'skip_projection'           => '0', # Will skip projection process if 1
+    'skip_rnaseq'               => '0', # Will skip rnaseq analyses if 1
+    'skip_ncrna'                => '0', # Will skip ncrna process if 1
+    'skip_cleaning'             => '0', # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
+    'mapping_required'          => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
     'mapping_db'                => undef, # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
     'uniprot_db_dir'            => 'uniprot_2018_04', # What UniProt data dir to use for various analyses
-    'vertrna_version'           => 134, # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
+    'vertrna_version'           => '134', # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
     'mirBase_fasta'             => 'all_mirnas.fa', # What mirBase file to use. It is currently best to use on with the most appropriate set for your species
     'rfc_scaler'                => 'filter_dafs_rfc_scaler_human.pkl',
     'rfc_model'                 => 'filter_dafs_rfc_model_human.pkl',
@@ -88,7 +88,7 @@ sub default_options {
 
     'projection_source_db_name'    => 'homo_sapiens_core_91_38', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_server'  => 'mysql-ensembl-mirror',
-    'projection_source_db_port'    => 4240,
+    'projection_source_db_port'    => '4240',
 
     # The following might not be known in advance, since the come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
@@ -179,7 +179,7 @@ sub default_options {
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
     'staging_1_db_server'          => 'mysql-ens-sta-1',
-    'staging_1_port'               => 4519,
+    'staging_1_port'               => '4519',
 
 
     databases_to_delete => ['reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_coding_db', 'projection_realign_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db'],
@@ -253,7 +253,7 @@ sub default_options {
 
     ensembl_analysis_script       => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     remove_duplicates_script_path => catfile($self->o('ensembl_analysis_script'), 'find_and_remove_duplicates.pl'),
-    load_optimise_script          => catfile($self->o('ensembl_analysis_script'), 'load_external_db_ids_and_optimize_af.pl'),
+    load_optimise_script          => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
     prepare_cdnas_script          => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'prepare_cdnas.pl'),
     load_fasta_script_path        => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_fasta_to_db_table.pl'),
     loading_report_script         => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'report_genome_prep_stats.pl'),
