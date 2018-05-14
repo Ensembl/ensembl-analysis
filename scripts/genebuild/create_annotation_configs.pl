@@ -20,6 +20,7 @@ use feature 'say';
 
 use Getopt::Long qw(:config no_ignore_case);
 use File::Spec::Functions;
+use File::Basename;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use Net::FTP;
@@ -120,7 +121,8 @@ foreach my $key (keys(%{$clade_hash})) {
 my $ftp_base_dir = '/genomes/all/';
 
 unless($config_only) {
-  open(LOOP_CMD,">".$general_hash->{'output_path'}."/beekeeper_cmds.txt");
+  my $unique_file_name = basename($config_file).".cmds";
+  open(LOOP_CMD,">".$general_hash->{'output_path'}."/".$unique_file_name);
 }
 
 foreach my $accession (@accession_array) {
