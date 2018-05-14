@@ -215,6 +215,7 @@ sub default_options {
                                    $self->o('rnaseq_for_layer_db'),
                                    $self->o('projection_coding_db'),
                                    $self->o('ig_tr_db'),
+                                   $self->o('best_targeted_db'),
                                  ],
 
     utr_donor_dbs => [
@@ -1207,12 +1208,12 @@ sub pipeline_analyses {
           return_codes_2_branches => {'42' => 2},
         },
         -rc_name    => 'default',
-        -flow_into  => { '1' => ['run_repeatmsker_repeatmodeler'] },
+        -flow_into  => { '1' => ['run_repeatmasker_repeatmodeler'] },
       },
 
 
       {
-        -logic_name => 'run_repeatmsker_repeatmodeler',
+        -logic_name => 'run_repeatmasker_repeatmodeler',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveRepeatMasker',
         -parameters => {
                          timer_batch => $self->o('masking_timer_long'),
@@ -2542,7 +2543,7 @@ sub pipeline_analyses {
       -parameters => {
         dna_db => $self->o('dna_db'),
         source_db => $self->o('cdna_db'),
-        logic_name => $self->o('species_name').'_cdna',
+        logic_name => 'cdna_alignment',
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','cdna_est2genome')},
         exonerate_cdna_pid => $self->o('cdna_selection_pid'),
         exonerate_cdna_cov => $self->o('cdna_selection_cov'),
@@ -2563,7 +2564,7 @@ sub pipeline_analyses {
         target_db => $self->o('cdna_db'),
         iid_type => 'feature_region',
         feature_type => 'gene',
-        logic_name => [$self->o('species_name').'_cdna'],
+        logic_name => ['cdna_alignment'],
         coord_system_name => 'toplevel',
         include_non_reference => 0,
         top_level => 1,
@@ -4815,12 +4816,31 @@ sub pipeline_analyses {
                          create_type => 'copy',
                        },
         -rc_name    => 'default',
+        -flow_into  => {
+                         1 => ['update_cdna_analyses'],
+                       },
+      },
 
+
+
+      {
+        -logic_name => 'update_cdna_analyses',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn => $self->o('otherfeatures_db'),
+          sql => [
+            'UPDATE transcript join gene using(gene_id) set transcript.analysis_id=gene.analysis_id',
+            'UPDATE gene set biotype="cdna"',
+            'UPDATE transcript set biotype="cdna"',
+          ],
+        },
+        -rc_name    => 'default',
         -flow_into => {
                         '1->A' => ['create_refseq_import_ids_to_copy'],
                         'A->1' => ['update_otherfeatures_db'],
                       },
       },
+
 
 
       {
