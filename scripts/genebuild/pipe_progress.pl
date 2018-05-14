@@ -35,14 +35,17 @@ sub assess_db {
 
   my $query_base = "mysql -uensro -hmysql-ens-genebuild-prod-".$db_number.".ebi.ac.uk -P".$db_port." ".$db_name." -NB -e ";
   my @analyses = @{checkpoint_analyses($pipeline_type)};
-  foreach my $analysis (@analyses) {
+  my $analyses_count = scalar(@analyses);
+  for(my $i=0; $i < $analyses_count; $i++) {
+    my $analysis = $analyses[$i];
     my ($logic_name,$message) = split(/\:/,$analysis);
     my $analysis_query = $query_base."\"select status from job join analysis_base using(analysis_id) where logic_name='".$logic_name."'\"";
     my $status = `$analysis_query`;
     chomp($status);
     if($status eq "DONE") {
+      my $checkpoint_index = $analyses_count - $i;
       say $db_name.":";
-      say "Checkpoint: ".$message." (".$logic_name.")";
+      say "Checkpoint ".$checkpoint_index." of ".$analyses_count.": ".$message." (".$logic_name.")";
       last;
     }
   }
