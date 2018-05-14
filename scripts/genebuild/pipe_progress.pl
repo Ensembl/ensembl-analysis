@@ -23,6 +23,7 @@ for(my $db_number = 1; $db_number <= 7; $db_number++) {
   my $matched_db_list .= `$query_db`;
   my @matched_dbs = split(/\n/,$matched_db_list);
   foreach my $matched_db (@matched_dbs) {
+    say $matched_db.":";
     assess_db($matched_db,$db_number,$db_port,$pipeline_type);
   }
   $db_port++;
@@ -36,6 +37,9 @@ sub assess_db {
   my $query_base = "mysql -uensro -hmysql-ens-genebuild-prod-".$db_number.".ebi.ac.uk -P".$db_port." ".$db_name." -NB -e ";
   my @analyses = @{checkpoint_analyses($pipeline_type)};
   my $analyses_count = scalar(@analyses);
+  unless($analyses_count) {
+    say "No checkpoint reached"
+  }
   for(my $i=0; $i < $analyses_count; $i++) {
     my $analysis = $analyses[$i];
     my ($logic_name,$message) = split(/\:/,$analysis);
@@ -44,7 +48,6 @@ sub assess_db {
     chomp($status);
     if($status eq "DONE") {
       my $checkpoint_index = $analyses_count - $i;
-      say $db_name.":";
       say "Checkpoint ".$checkpoint_index." of ".$analyses_count.": ".$message." (".$logic_name.")";
       last;
     }
@@ -119,6 +122,7 @@ sub checkpoint_analyses {
              'download_uniprot_files:about to start genblast',
              'genome_prep_sanity_checks:genome prep complete',
              'load_toplevel_sequences:toplevel loaded',
+             'create_core_db:empty core db created',
           ]);
   }
 

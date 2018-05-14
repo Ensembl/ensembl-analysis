@@ -2619,7 +2619,7 @@ sub pipeline_analyses {
         module     => 'HiveExonerate2Genes',
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','cdna2genome')},
         calculate_coverage_and_pid => 1,
-        program => $self->o('exonerate_annotation'),
+        exonerate_path => $self->o('exonerate_annotation'),
         annotation_file => $self->o('annotation_file'),
         repeat_libraries => $self->o('repeat_logic_names'),
       },
