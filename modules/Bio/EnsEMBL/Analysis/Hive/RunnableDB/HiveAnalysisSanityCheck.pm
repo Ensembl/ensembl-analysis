@@ -26,7 +26,7 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my $self = shift;
 
-  if($self->param('skip_check')) {
+  if(1) {
     $self->complete_early('Skip check flag is enabled, so no check will be carried out');
   }
   $self->param_required('sanity_check_type');
