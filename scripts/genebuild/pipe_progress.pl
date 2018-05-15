@@ -14,18 +14,32 @@ my $db_pattern;
 my $headline_only = 0;
 my $pipeline_type = 'main';
 my $db_hash;
+my $db_owner_file = '/hps/nobackup2/production/ensembl/genebuild/production/fish/db_ownership.txt';
+
 GetOptions('db_pattern:s'    => \$db_pattern,
            'headline_only!'  => \$headline_only,
+           'db_owner_file:s' => \$db_owner_file,
            'pipeline_type:s' => \$pipeline_type,);
 
 my $db_port = 4527;
 my $matched_db_list = "";
+my $db_owners;
+
+if(-e $db_owner_file) {
+  open(IN,$db_owner_file);
+  while(<IN>) {
+    my $line = $_;
+    my ($db_name,$owner) = split(' ',$line);
+    $db_owners->{$db_name} = $owner;
+  }
+}
+
 for(my $db_number = 1; $db_number <= 7; $db_number++) {
   my $query_db = "mysql -uensro -hmysql-ens-genebuild-prod-".$db_number.".ebi.ac.uk -P".$db_port." -NB -e \"show databases like '".$db_pattern."%'\"";
   my $matched_db_list .= `$query_db`;
   my @matched_dbs = split(/\n/,$matched_db_list);
   foreach my $matched_db (@matched_dbs) {
-    assess_db($matched_db,$db_number,$db_port,$pipeline_type);
+    assess_db($matched_db,$db_number,$db_port,$pipeline_type,$db_owners);
   }
   $db_port++;
 }
@@ -33,7 +47,7 @@ for(my $db_number = 1; $db_number <= 7; $db_number++) {
 exit;
 
 sub assess_db {
-  my ($db_name,$db_number,$db_port,$pipeline_type) = @_;
+  my ($db_name,$db_number,$db_port,$pipeline_type,$db_owners) = @_;
 
   my $headline = $db_name.": ";
   my $message = "";
@@ -57,7 +71,6 @@ sub assess_db {
     }
   }
 
-#  my $job_status_query = $query_base."\"select count(*),status from job where status in ('FAILED','READY','RUN') group by status order by status\"";
   my $job_status_query = $query_base."\"select count(*),status from job group by status order by status\"";
   my $jobs = `$job_status_query`;
 
@@ -122,6 +135,12 @@ sub assess_db {
     $headline .= "DOWNTIME WARNING (last job finished ".$time_diff." hours ago)";
   } else {
     $headline .= "RUNNING (".$last_completed_logic_name.")";
+  }
+
+  if($db_owners->{$db_name}) {
+    $headline .= " --> ".$db_owners->{$db_name};
+  } else {
+    $headline .= " --> owner unknown";
   }
 
   say $headline;
