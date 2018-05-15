@@ -55,9 +55,6 @@ my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -host    => 'mysql-ensembl-mirror',
   -dbname  => 'ncbi_taxonomy');
 
-my $ftp = Net::FTP->new($ftphost) or die "Can't open $ftphost\n";
-$ftp->login($ftpuser, $ftppassword) or die "Can't log $ftpuser in\n";
-
 my $general_hash = {};
 my $assembly_accessions;
 
@@ -146,6 +143,9 @@ foreach my $accession (@accession_array) {
   my $assembly_ftp_path = $ftp_base_dir.'GCA/'.$1.'/'.$2.'/'.$3.'/';
   my $full_assembly_path;
   my $assembly_name;
+
+  my $ftp = Net::FTP->new($ftphost) or die "Can't open $ftphost\n";
+  $ftp->login($ftpuser, $ftppassword) or die "Can't log $ftpuser in\n";
   $ftp->cwd($assembly_ftp_path);
   my @ftp_dir_contents = $ftp->ls;
   foreach my $entry (@ftp_dir_contents) {
