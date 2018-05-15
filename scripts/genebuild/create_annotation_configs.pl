@@ -33,10 +33,14 @@ my $config_only = 0;
 my $ftphost = "ftp.ncbi.nlm.nih.gov";
 my $ftpuser = "anonymous";
 my $ftppassword = "";
+my $assembly_registry_host = $ENV{GBS5};
+my $assembly_registry_port = $ENV{GBP5};
 
 
 GetOptions('config_file:s' => \$config_file,
            'config_only!'  => \$config_only,
+           'assembly_registry_host:s' => \$assembly_registry_host,
+           'assembly_registry_port:s' => \$assembly_registry_port,
           );
 
 unless(-e $config_file) {
@@ -44,8 +48,8 @@ unless(-e $config_file) {
 }
 
 my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
-  -host    => $ENV{GBS5},
-  -port    => $ENV{GBP5},
+  -host    => $assembly_registry_host,
+  -port    => $assembly_registry_port,
   -user    => 'ensro',
   -dbname  => 'do1_stable_id_space_assembly_registry');
 
@@ -58,7 +62,7 @@ my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 my $general_hash = {};
 my $assembly_accessions;
 
-open(IN,$config_file);
+open(IN,$config_file) || die("Could not open $config_file");
 while(<IN>) {
     my $line = $_;
 
@@ -82,7 +86,7 @@ while(<IN>) {
       say "Line format not recognised. Skipping line:\n".$line;
     }
 }
-close IN;
+close IN || die("Could not close $config_file");
 
 $assembly_accessions = $general_hash->{'assembly_accessions'};
 $assembly_accessions =~ /\[(.+)\]/;
@@ -119,7 +123,7 @@ my $ftp_base_dir = '/genomes/all/';
 
 unless($config_only) {
   my $unique_file_name = basename($config_file).".cmds";
-  open(LOOP_CMD,">".$general_hash->{'output_path'}."/".$unique_file_name);
+  open(LOOP_CMD,">".$general_hash->{'output_path'}."/".$unique_file_name) || die("Could not open $unique_file_name");
 }
 
 foreach my $accession (@accession_array) {
@@ -156,7 +160,7 @@ foreach my $accession (@accession_array) {
   }
 
   unless($full_assembly_path && $assembly_name) {
-    die "Issue finding ftp path for the following GCA: ".$accession;
+    die "Issue finding ftp path for the following GCA: $accession $assembly_ftp_path";
   }
 
   say "Setting assembly name for ".$accession." to ".$assembly_name;
@@ -198,7 +202,7 @@ foreach my $accession (@accession_array) {
 }
 
 unless($config_only) {
-  close(LOOP_CMD);
+  close(LOOP_CMD) || die("Could not close the cmd file");
 }
 
 exit;
@@ -217,7 +221,7 @@ sub parse_assembly_report {
   my $refseq_accession;
   my $assembly_level;
   my $wgs_id;
-  open($report_file_handle, '>', \$report_file_content);
+  open($report_file_handle, '>', \$report_file_content) || die("could not open $report_file_name");
 
   unless($ftp->get($report_file_name, $report_file_handle)) {
     die "Failed to retrieve the assembly report file: ", $ftp->message;
@@ -292,7 +296,7 @@ sub create_config {
 
   my $config_string = "";
   my $past_default_options = 0;
-  open(CONFIG,$ENV{ENSCODE}."/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_conf.pm");
+  open(CONFIG,$ENV{ENSCODE}."/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_conf.pm") || die("Could not open the config file");
   while(my $line = <CONFIG>) {
     if($line =~ /sub pipeline_create_commands/) {
       $past_default_options = 1;
@@ -314,12 +318,12 @@ sub create_config {
 
     $config_string .= $line;
   }
-  close(CONFIG);
+  close(CONFIG) || die("CouLd not close the config file");
 
   $config_string =~ s/package Genome_annotation_static_conf/package Genome_annotation_conf/;
-  open(OUT_CONFIG,">".$output_path."/Genome_annotation_conf.pm");
+  open(OUT_CONFIG,">".$output_path."/Genome_annotation_conf.pm") || die("Could not open the config file for writing");
   print OUT_CONFIG $config_string;
-  close OUT_CONFIG;
+  close OUT_CONFIG || die("Could not close the config file for writing");
 }
 
 sub clade_settings {
