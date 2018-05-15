@@ -63,6 +63,7 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     replace_ambiguous_bases => 0,
+    load_mitochondrion => 0,
   }
 }
 
@@ -158,8 +159,10 @@ sub write_output {
   my $replace_ambiguous_bases = $self->param('replace_ambiguous_bases');
   my $coord_system = $self->param('coord_system');
   my $coord_system_name = $coord_system->name;
+  my $has_mitochondrion = 0;
   while ($parser->next) {
     my ($first, $second) = $parser->getHeader =~ /^\w*\|([A-Za-z0-9.]+)|^([A-Za-z0-9.]+)/;
+    $has_mitochondrion = 1 if ($parser->getHeader =~ /mitochondrion/);
     my $accession = $first || $second;
     my $slice = $slice_adaptor->fetch_by_region($coord_system_name, $accession);
     if ($slice) {
@@ -181,6 +184,9 @@ sub write_output {
       $self->warning("Did not found $accession in database");
     }
     ++$seq_count;
+  }
+  if (!$self->param('load_mitochondrion') and $has_mitochondrion) {
+    --$seq_count;
   }
   if ($region_count != $seq_count) {
     $self->warning("You have a different number of sequence in your file and in your database: $seq_count !! $region_count");
