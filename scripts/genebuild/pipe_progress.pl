@@ -77,7 +77,7 @@ sub assess_db {
   $message .= "Status of jobs:";
   $message .= $jobs;
   if($jobs =~ /FAILED/) {
-    $headline .= "FAILED (";
+    $headline .= "ISSUE FAILED (";
     $message .= "Warning: found failed jobs in the pipeline db!!!!!!!!!\n";
     $message .= "Failed analyses:";
     my $failed_analyses_query = $query_base."\"select logic_name,count(*) from job join analysis_base using(analysis_id) where ".
@@ -125,14 +125,14 @@ sub assess_db {
   chop $highest_aa_breakdown;
   $message .= "Highest analysis id active: ".$highest_active_analysis.$highest_aa_breakdown."\n";
 
-  if($headline =~ /\: FAILED/) {
+  if($headline =~ /\: ISSUE FAILED/) {
     # No need to add anything in this case
   } elsif($highest_active_analysis) {
     $headline .= "RUNNING (".$highest_active_analysis.")";
   } elsif($last_completed_logic_name eq 'create_projection_coding_db') {
     $headline .= "READY FOR PROJECTION";
   } elsif($message =~ /Warning.+hours have passed since a job completed/) {
-    $headline .= "DOWNTIME WARNING (last job finished ".$time_diff." hours ago)";
+    $headline .= "ISSUE DOWNTIME (last job finished ".$time_diff." hours ago)";
   } else {
     $headline .= "RUNNING (".$last_completed_logic_name.")";
   }
