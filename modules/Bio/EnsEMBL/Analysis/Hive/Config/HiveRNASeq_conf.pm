@@ -590,18 +590,19 @@ sub pipeline_analyses {
                          cmd => '#wide_samtools# view -H #filename# | grep -v @SQ | grep -v @HD > #wide_output_dir#/merged_header.h',
                        },
         -flow_into => {
-            '1->A' => [ 'create_top_level_input_ids'],
+            '1->A' => [ 'create_25mb_slice_input_ids'],
             'A->1' => ['sam2bam'],
             },
       },
             {
-        -logic_name => 'create_top_level_input_ids',
+        -logic_name => 'create_25mb_slice_input_ids',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -rc_name    => '1GB',
         -parameters => {
                          iid_type => 'slice',
                          coord_system_name => 'toplevel',
                          slice => 1,
+                         slice_size => 25000000,
                          include_non_reference => 0,
                          top_level => 1,
                          target_db => $self->o('rough_db'),
