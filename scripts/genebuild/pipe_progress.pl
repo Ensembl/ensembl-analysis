@@ -127,13 +127,13 @@ sub assess_db {
 
   if($headline =~ /\: ISSUE FAILED/) {
     # No need to add anything in this case
-  } elsif($highest_active_analysis) {
-    $headline .= "RUNNING (".$highest_active_analysis.")";
   } elsif($last_completed_logic_name eq 'create_projection_coding_db') {
     $headline .= "READY FOR PROJECTION";
   } elsif($message =~ /Warning.+hours have passed since a job completed/) {
     $headline .= "ISSUE DOWNTIME (last job finished ".$time_diff." hours ago)";
-  } else {
+  } elsif($highest_active_analysis) {
+    $headline .= "RUNNING (".$highest_active_analysis.")";
+  }   else {
     $headline .= "RUNNING (".$last_completed_logic_name.")";
   }
 
