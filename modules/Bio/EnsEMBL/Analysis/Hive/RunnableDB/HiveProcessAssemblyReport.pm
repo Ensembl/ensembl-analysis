@@ -241,11 +241,16 @@ sub run {
     elsif ($line =~ /^\w/) {
       my @data = split("\t", $line);
       if (!$load_non_nuclear and $data[7] eq 'non-nuclear') {
-        if ($self->param_is_defined('mt_accession')) {
-          $self->warning('MT accession are different, using the one from the file')
-            if ($data[6] ne $self->param('mt_accession'));
+        if ($data[1] eq 'assembled-molecule' and $data[6] =~ /^NC/) {
+          if ($self->param_is_defined('mt_accession')) {
+            $self->warning('MT accession are different, using the one from the file')
+              if ($data[6] ne $self->param('mt_accession'));
+          }
+          $self->param('mt_accession', $data[6]);
         }
-        $self->param('mt_accession', $data[6]);
+        else {
+          $self->warning($data[0].' is a non nuclear sequence');
+        }
       }
       else {
         my $seq_region_name = $data[4];
