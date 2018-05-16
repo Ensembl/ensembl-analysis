@@ -1408,7 +1408,6 @@ sub pipeline_analyses {
         -logic_name => 'run_trnascan',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveTRNAScan',
         -parameters => {
-                         dna_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
                          logic_name => 'trnascan',
                          module => 'HiveTRNAScan',
