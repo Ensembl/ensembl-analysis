@@ -2220,20 +2220,7 @@ sub pipeline_analyses {
       },
       -rc_name          => 'default',
       -flow_into => {
-        '1' => ['indicate_proteome', 'generate_exonerate_jobs'],
-      },
-    },
-    {
-      -logic_name => 'generate_exonerate_jobs',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-      -parameters => {
-        iid_type => 'sequence_accession',
-        sequence_table_name => $self->o('uniprot_table_name'),
-        batch_size => 1,
-        constraint => 'biotype IN ("self_pe12_sp", "self_pe12_tr", "self_isoforms_12_sp", "self_isoforms_12_tr", "ncbi_self_refseq")',
-      },
-      -rc_name      => 'default',
-      -flow_into => {
+        1 => ['indicate_proteome'],
         2 => ['targetted_exonerate'],
       },
     },
