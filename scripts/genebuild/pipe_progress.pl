@@ -81,7 +81,7 @@ sub assess_db {
   $message .= $jobs;
   if($jobs =~ /FAILED/) {
     $headline .= "ISSUE FAILED (";
-    $message .= "Warning: found failed jobs in the pipeline db!!!!!!!!!\n";
+    $message .= "\e\[31mWarning: found failed jobs in the pipeline db!!!!!!!!!\e\[0m\n";
     $message .= "Failed analyses:";
     my $failed_analyses_query = $query_base."\"select logic_name,count(*) from job join analysis_base using(analysis_id) where ".
                                 "status='FAILED' group by logic_name\"";
@@ -109,7 +109,7 @@ sub assess_db {
   my $time_diff = `$time_diff_query`;
   chomp($time_diff);
   if($time_diff >= 5) {
-    $message .= "Warning: ".$time_diff." hours have passed since a job completed!!!!!!!!!!\n";
+    $message .= "\e\[31mWarning: ".$time_diff." hours have passed since a job completed!!!!!!!!!!\e\[0m\n";
   }
 
   my $highest_active_analysis_query = $query_base."\"select distinct(logic_name) from job join analysis_base using(analysis_id) where ".
