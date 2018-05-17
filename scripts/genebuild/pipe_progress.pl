@@ -95,6 +95,14 @@ sub assess_db {
     }
     chop($headline);
     $headline .= ")";
+    my $beekeeper_running = `$query_base "SELECT TIMEDIFF(NOW(), MAX(when_updated)) < MAKETIME(0,10,0) FROM analysis_stats"`;
+    if ($beekeeper_running =~ /^1/) {
+      $message .= " Beekeeper is \e\[32mRUNNING\e\[0m\n";
+    }
+    else {
+      $message .= " Beekeeper has \e\[31mSTOPPED\e\[0m\n";
+    }
+
   }
 
   my $last_completed_job_query = $query_base."\"select when_completed,logic_name from job join analysis_base using(analysis_id) where ".
