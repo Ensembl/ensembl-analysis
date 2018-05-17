@@ -14,11 +14,13 @@ my $db_pattern;
 my $headline_only = 0;
 my $pipeline_type = 'main';
 my $db_hash;
+my $user;
 my $db_owner_file = '/hps/nobackup2/production/ensembl/genebuild/production/fish/db_ownership.txt';
 
 GetOptions('db_pattern:s'    => \$db_pattern,
            'headline_only!'  => \$headline_only,
            'db_owner_file:s' => \$db_owner_file,
+           'user:s'          => \$user,
            'pipeline_type:s' => \$pipeline_type,);
 
 my $db_port = 4527;
@@ -39,6 +41,7 @@ for(my $db_number = 1; $db_number <= 7; $db_number++) {
   my $matched_db_list .= `$query_db`;
   my @matched_dbs = split(/\n/,$matched_db_list);
   foreach my $matched_db (@matched_dbs) {
+    next if ($user and (!exists $db_owners->{$matched_db} or $db_owners->{$matched_db} ne $user));
     assess_db($matched_db,$db_number,$db_port,$pipeline_type,$db_owners);
   }
   $db_port++;
