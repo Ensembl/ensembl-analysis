@@ -2677,7 +2677,8 @@ sub pipeline_analyses {
       },
       -rc_name    => 'default',
       -flow_into => {
-        1 => ['generate_besttargetted_index'],
+        '1->A' => ['generate_besttargetted_index'],
+        'A->1' => ['generate_besttargetted_jobs'],
       },
     },
     {
@@ -2706,9 +2707,6 @@ sub pipeline_analyses {
         indicate_dir => $self->o('targetted_path'),
       },
       -rc_name => 'default',
-      -flow_into => {
-        1 => ['generate_besttargetted_jobs'],
-      },
     },
     {
       -logic_name => 'generate_besttargetted_jobs',
