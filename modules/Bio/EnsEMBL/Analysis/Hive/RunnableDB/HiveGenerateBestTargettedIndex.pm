@@ -53,7 +53,9 @@ use parent qw(Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB);
 sub fetch_input {
   my ($self) = @_;
 
+  $self->complete_early("Could not find any cdnas") unless (-e $self->param_required('genbank_file'));
   my $genbank_parser = Bio::EnsEMBL::IO::Parser::Genbank->open($self->param_required('genbank_file'));
+
   $self->param('seqfetcher', Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher->new( -db => $self->param_required('seqfetcher_index')));
   $self->param_required('fasta_filename');
   my $dba = $self->get_database_by_name('source_db');
