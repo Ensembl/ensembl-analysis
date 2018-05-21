@@ -16,11 +16,14 @@ my $pipeline_type = 'main';
 my $db_hash;
 my $user;
 my $db_owner_file = '/hps/nobackup2/production/ensembl/genebuild/production/fish/db_ownership.txt';
+my $only_failed = 0;
+
 
 GetOptions('db_pattern:s'    => \$db_pattern,
            'headline_only!'  => \$headline_only,
            'db_owner_file:s' => \$db_owner_file,
            'user:s'          => \$user,
+           'failed_only!'    => \$only_failed,
            'pipeline_type:s' => \$pipeline_type,);
 
 my $db_port = 4527;
@@ -42,7 +45,7 @@ for(my $db_number = 1; $db_number <= 7; $db_number++) {
   my @matched_dbs = split(/\n/,$matched_db_list);
   foreach my $matched_db (@matched_dbs) {
     next if ($user and (!exists $db_owners->{$matched_db} or $db_owners->{$matched_db} ne $user));
-    assess_db($matched_db,$db_number,$db_port,$pipeline_type,$db_owners);
+    assess_db($matched_db,$db_number,$db_port,$pipeline_type,$db_owners, $only_failed);
   }
   $db_port++;
 }
@@ -50,10 +53,12 @@ for(my $db_number = 1; $db_number <= 7; $db_number++) {
 exit;
 
 sub assess_db {
-  my ($db_name,$db_number,$db_port,$pipeline_type,$db_owners) = @_;
+  my ($db_name,$db_number,$db_port,$pipeline_type,$db_owners, $only_failed) = @_;
 
   my $headline = $db_name.": ";
   my $message = "";
+  my $print_msg = 1;
+  $print_msg = 0 if ($only_failed);
   my $query_base = "mysql -uensro -hmysql-ens-genebuild-prod-".$db_number.".ebi.ac.uk -P".$db_port." ".$db_name." -NB -e ";
   my @analyses = @{checkpoint_analyses($pipeline_type)};
   my $analyses_count = scalar(@analyses);
@@ -80,8 +85,8 @@ sub assess_db {
   $message .= "Status of jobs:";
   $message .= $jobs;
   if($jobs =~ /FAILED/) {
-    $headline .= "ISSUE FAILED (";
-    $message .= "\e\[31mWarning: found failed jobs in the pipeline db!!!!!!!!!\e\[0m\n";
+    $headline .= "\e\[31mISSUE FAILED\e\[0m (";
+    $message .= "Warning: found failed jobs in the pipeline db!!!!!!!!!\n";
     $message .= "Failed analyses:";
     my $failed_analyses_query = $query_base."\"select logic_name,count(*) from job join analysis_base using(analysis_id) where ".
                                 "status='FAILED' group by logic_name\"";
@@ -102,6 +107,7 @@ sub assess_db {
     else {
       $message .= " Beekeeper has \e\[31mSTOPPED\e\[0m\n";
     }
+    $print_msg = 1;
 
   }
 
@@ -115,37 +121,39 @@ sub assess_db {
 
   my $time_diff_query = $query_base."\"select time_to_sec(timediff(now(), max(when_completed) )) / 3600 from job\"";
   my $time_diff = `$time_diff_query`;
-  chomp($time_diff);
-  if($time_diff >= 5) {
-    $message .= "\e\[31mWarning: ".$time_diff." hours have passed since a job completed!!!!!!!!!!\e\[0m\n";
-  }
+  if ($time_diff !~ /NULL/) {
+    chomp($time_diff);
+    if($time_diff >= 5) {
+      $message .= "\e\[33mWarning\e\[0m: ".$time_diff." hours have passed since a job completed!!!!!!!!!!\n";
+    }
 
-  my $highest_active_analysis_query = $query_base."\"select distinct(logic_name) from job join analysis_base using(analysis_id) where ".
-                                      "analysis_id=(select max(analysis_id) from job where status in ('RUN'))\"";
-  my $highest_active_analysis = `$highest_active_analysis_query`;
-  chomp $highest_active_analysis;
-  my $highest_aa_breakdown_query = $query_base."\"select count(*),status from job join analysis_base using(analysis_id) where ".
-                                   "logic_name='".$highest_active_analysis."' group by status\"";
-  my $highest_aa = `$highest_aa_breakdown_query`;
-  my @highest_aa_array = split('\n',$highest_aa);
-  my $highest_aa_breakdown = "";
-  foreach my $row (@highest_aa_array) {
-    my ($count,$status) = split('\t',$row);
-    $highest_aa_breakdown .= " ".$count." ".$status.",";
-  }
-  chop $highest_aa_breakdown;
-  $message .= "Highest analysis id active: ".$highest_active_analysis.$highest_aa_breakdown."\n";
+    my $highest_active_analysis_query = $query_base."\"select distinct(logic_name) from job join analysis_base using(analysis_id) where ".
+                                        "analysis_id=(select max(analysis_id) from job where status in ('RUN'))\"";
+    my $highest_active_analysis = `$highest_active_analysis_query`;
+    chomp $highest_active_analysis;
+    my $highest_aa_breakdown_query = $query_base."\"select count(*),status from job join analysis_base using(analysis_id) where ".
+                                     "logic_name='".$highest_active_analysis."' group by status\"";
+    my $highest_aa = `$highest_aa_breakdown_query`;
+    my @highest_aa_array = split('\n',$highest_aa);
+    my $highest_aa_breakdown = "";
+    foreach my $row (@highest_aa_array) {
+      my ($count,$status) = split('\t',$row);
+      $highest_aa_breakdown .= " ".$count." ".$status.",";
+    }
+    chop $highest_aa_breakdown;
+    $message .= "Highest analysis id active: ".$highest_active_analysis.$highest_aa_breakdown."\n";
 
-  if($headline =~ /\: ISSUE FAILED/) {
-    # No need to add anything in this case
-  } elsif($last_completed_logic_name eq 'create_projection_coding_db') {
-    $headline .= "READY FOR PROJECTION";
-  } elsif($message =~ /Warning.+hours have passed since a job completed/) {
-    $headline .= "ISSUE DOWNTIME (last job finished ".$time_diff." hours ago)";
-  } elsif($highest_active_analysis) {
-    $headline .= "RUNNING (".$highest_active_analysis.")";
-  }   else {
-    $headline .= "RUNNING (".$last_completed_logic_name.")";
+    if($headline =~ /ISSUE FAILED/) {
+      # No need to add anything in this case
+    } elsif($last_completed_logic_name eq 'create_projection_coding_db') {
+      $headline .= "\e\[32mREADY FOR PROJECTION\e\[0m";
+    } elsif($message =~ /Warning.+hours have passed since a job completed/) {
+      $headline .= " ISSUE DOWNTIME (last job finished ".$time_diff." hours ago)";
+    } elsif($highest_active_analysis) {
+      $headline .= " RUNNING (".$highest_active_analysis.")";
+    }   else {
+      $headline .= " RUNNING (".$last_completed_logic_name.")";
+    }
   }
 
   if($db_owners->{$db_name}) {
@@ -154,9 +162,11 @@ sub assess_db {
     $headline .= " --> owner unknown";
   }
 
-  say $headline;
-  unless($headline_only) {
-    say $message;
+  if ($print_msg) {
+    say $headline;
+    unless($headline_only) {
+      say $message;
+    }
   }
 }
 
