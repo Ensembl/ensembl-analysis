@@ -289,7 +289,6 @@ sub run {
             $samples{$sample}->{sample_name} = $samples{$sample}->{dev_stage};
           }
           else {
-            next;
             $self->throw('No dev stages for '.$sample);
           }
         }

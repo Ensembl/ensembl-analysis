@@ -145,7 +145,7 @@ sub assess_db {
 
   if($headline =~ /ISSUE FAILED/) {
     # No need to add anything in this case
-  } elsif($last_completed_logic_name eq 'create_projection_coding_db') {
+  } elsif($last_completed_logic_name && $last_completed_logic_name eq 'create_projection_coding_db') {
     $headline .= "\e\[32mREADY FOR PROJECTION\e\[0m";
   } elsif($message =~ /Warning.+hours have passed since a job completed/) {
     $headline .= " ISSUE DOWNTIME (last job finished ".$time_diff." hours ago)";
