@@ -30,6 +30,7 @@ use Data::Dumper;
 my $config_file;
 my $config_only = 0;
 
+my $base_guihive = 'http://guihive.ebi.ac.uk:8080';
 my $ftphost = "ftp.ncbi.nlm.nih.gov";
 my $ftpuser = "anonymous";
 my $ftppassword = "";
@@ -197,6 +198,13 @@ foreach my $accession (@accession_array) {
 
     my $loop_command = $sync_command;
     $loop_command =~ s/sync/loop \-sleep 0.3/;
+    my ($ehive_url) = $sync_command =~ /url\s+(\S+)/;
+    my ($driver, $user, $password, $host, $port, $dbname) = $ehive_url =~ /^(\w+)[:\/]+(\w*):(\w+)@([^:]+):(\d+)\/(\w+)$/;
+    if ($password) {
+      $password = '&passwd=xxxxx';
+    }
+    say LOOP_CMD "#GuiHive: $base_guihive/?driver=$driver&username=$user&host=$host&port=$port&dbname=$dbname$password";
+    say LOOP_CMD "export EHIVE_URL=$ehive_url";
     say LOOP_CMD $loop_command;
   }
 }
