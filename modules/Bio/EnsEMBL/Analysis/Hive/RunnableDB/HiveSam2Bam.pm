@@ -63,6 +63,18 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my ($self) = @_;
 
+  my $sam_dir = $self->param('wide_output_sam_dir');
+  my $sam_files = [];
+  unless(open(SAM_FIND,"lfs find ".$sam_dir." -type f -name '*.sam' |")) {
+    $self->throw("Could not run lsf find on the sam dir. Sam dir:\n".$sam_dir);
+  }
+
+  while(my $path = <SAM_FIND>) {
+    chomp($path);
+    push(@{$sam_files},$path);
+  }
+  close SAM_FIND;
+
   my $program = $self->param('wide_samtools');
   $self->throw("Samtools program not defined in analysis \n") unless (defined $program);
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Sam2Bam->new
@@ -70,7 +82,7 @@ sub fetch_input {
      -analysis => $self->create_analysis,
      -header   => $self->param('headerfile'),
      -program  => $program,
-     -samfiles => $self->param('filename'),
+     -samfiles => $sam_files,
      -bamfile  => $self->param('wide_intron_bam_file'),
      -genome   => $self->param('wide_genome_file'),
     );

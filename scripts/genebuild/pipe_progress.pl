@@ -121,39 +121,38 @@ sub assess_db {
 
   my $time_diff_query = $query_base."\"select time_to_sec(timediff(now(), max(when_completed) )) / 3600 from job\"";
   my $time_diff = `$time_diff_query`;
-  if ($time_diff !~ /NULL/) {
-    chomp($time_diff);
-    if($time_diff >= 5) {
-      $message .= "\e\[33mWarning\e\[0m: ".$time_diff." hours have passed since a job completed!!!!!!!!!!\n";
-    }
+  chomp($time_diff);
+  if(!($time_diff eq 'NULL') && $time_diff >= 5) {
+    $message .= "\e\[33mWarning\e\[0m: ".$time_diff." hours have passed since a job completed!!!!!!!!!!\n";
+  }
 
-    my $highest_active_analysis_query = $query_base."\"select distinct(logic_name) from job join analysis_base using(analysis_id) where ".
-                                        "analysis_id=(select max(analysis_id) from job where status in ('RUN'))\"";
-    my $highest_active_analysis = `$highest_active_analysis_query`;
-    chomp $highest_active_analysis;
-    my $highest_aa_breakdown_query = $query_base."\"select count(*),status from job join analysis_base using(analysis_id) where ".
-                                     "logic_name='".$highest_active_analysis."' group by status\"";
-    my $highest_aa = `$highest_aa_breakdown_query`;
-    my @highest_aa_array = split('\n',$highest_aa);
-    my $highest_aa_breakdown = "";
-    foreach my $row (@highest_aa_array) {
-      my ($count,$status) = split('\t',$row);
-      $highest_aa_breakdown .= " ".$count." ".$status.",";
-    }
-    chop $highest_aa_breakdown;
-    $message .= "Highest analysis id active: ".$highest_active_analysis.$highest_aa_breakdown."\n";
 
-    if($headline =~ /ISSUE FAILED/) {
-      # No need to add anything in this case
-    } elsif($last_completed_logic_name eq 'create_projection_coding_db') {
-      $headline .= "\e\[32mREADY FOR PROJECTION\e\[0m";
-    } elsif($message =~ /Warning.+hours have passed since a job completed/) {
-      $headline .= " ISSUE DOWNTIME (last job finished ".$time_diff." hours ago)";
-    } elsif($highest_active_analysis) {
-      $headline .= " RUNNING (".$highest_active_analysis.")";
-    }   else {
-      $headline .= " RUNNING (".$last_completed_logic_name.")";
-    }
+  my $highest_active_analysis_query = $query_base."\"select distinct(logic_name) from job join analysis_base using(analysis_id) where ".
+                                      "analysis_id=(select max(analysis_id) from job where status in ('RUN'))\"";
+  my $highest_active_analysis = `$highest_active_analysis_query`;
+  chomp $highest_active_analysis;
+  my $highest_aa_breakdown_query = $query_base."\"select count(*),status from job join analysis_base using(analysis_id) where ".
+                                   "logic_name='".$highest_active_analysis."' group by status\"";
+  my $highest_aa = `$highest_aa_breakdown_query`;
+  my @highest_aa_array = split('\n',$highest_aa);
+  my $highest_aa_breakdown = "";
+  foreach my $row (@highest_aa_array) {
+    my ($count,$status) = split('\t',$row);
+    $highest_aa_breakdown .= " ".$count." ".$status.",";
+  }
+  chop $highest_aa_breakdown;
+  $message .= "Highest analysis id active: ".$highest_active_analysis.$highest_aa_breakdown."\n";
+
+  if($headline =~ /ISSUE FAILED/) {
+    # No need to add anything in this case
+  } elsif($last_completed_logic_name eq 'create_projection_coding_db') {
+    $headline .= "\e\[32mREADY FOR PROJECTION\e\[0m";
+  } elsif($message =~ /Warning.+hours have passed since a job completed/) {
+    $headline .= " ISSUE DOWNTIME (last job finished ".$time_diff." hours ago)";
+  } elsif($highest_active_analysis) {
+    $headline .= " RUNNING (".$highest_active_analysis.")";
+  }   else {
+    $headline .= " RUNNING (".$last_completed_logic_name.")";
   }
 
   if($db_owners->{$db_name}) {

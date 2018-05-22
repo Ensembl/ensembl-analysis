@@ -452,7 +452,7 @@ sub pipeline_analyses {
             -1 => [ 'bwa_failed' ],
             -2 => [ 'bwa_failed' ],
             },
-        -rc_name    => '5GB_multithread',
+        -rc_name    => '10GB_multithread',
       },
             {
         -logic_name => 'bwa_failed',
@@ -464,7 +464,7 @@ sub pipeline_analyses {
         -flow_into => {
             1 => [ ':////accu?fastq=[]' ],
             },
-        -rc_name    => '10GB_multithread',
+        -rc_name    => '20GB_multithread',
       },
             {
         -logic_name => 'bwa2bam',
@@ -481,13 +481,13 @@ sub pipeline_analyses {
                        },
         -flow_into => {
             1 => [ ':////accu?filename=[]' ],
-            -1 => {'bwa2bam_10GB' => { fastq => '#fastq#', is_paired => '#is_paired#', $self->o('read_id_tag') => '#'.$self->o('read_id_tag').'#'}},
-            -2 => {'bwa2bam_10GB' => { fastq => '#fastq#', is_paired => '#is_paired#', $self->o('read_id_tag') => '#'.$self->o('read_id_tag').'#'}},
+            -1 => {'bwa2bam_20GB' => { fastq => '#fastq#', is_paired => '#is_paired#', $self->o('read_id_tag') => '#'.$self->o('read_id_tag').'#'}},
+            -2 => {'bwa2bam_20GB' => { fastq => '#fastq#', is_paired => '#is_paired#', $self->o('read_id_tag') => '#'.$self->o('read_id_tag').'#'}},
             },
-        -rc_name    => '5GB',
+        -rc_name    => '10GB',
       },
             {
-        -logic_name => 'bwa2bam_10GB',
+        -logic_name => 'bwa2bam_20GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA2BAM',
         -can_be_empty => 1,
         -parameters => {
@@ -503,7 +503,7 @@ sub pipeline_analyses {
         -flow_into => {
             1 => [ ':////accu?filename=[]' ],
             },
-        -rc_name    => '10GB',
+        -rc_name    => '20GB',
       },
 
             {
@@ -1006,7 +1006,8 @@ sub resource_classes {
       '10GB_multithread' => { LSF => $self->lsf_resource_builder($self->default_options->{long_queue}, 10000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
       '20GB_multithread' => { LSF => $self->lsf_resource_builder($self->default_options->{long_queue}, 20000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
       '5GB' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 5000, [$self->default_options->{'pipe_db_server'}])},
-      '10GB' => { LSF => $self->lsf_resource_builder($self->default_options->{long_queue}, 10000, [$self->default_options->{'pipe_db_server'}])},
+      '10GB' => { LSF => $self->lsf_resource_builder($self->default_options->{normal}, 10000, [$self->default_options->{'pipe_db_server'}])},
+      '20GB' => { LSF => $self->lsf_resource_builder($self->default_options->{long_queue}, 20000, [$self->default_options->{'pipe_db_server'}])},
       '5GB_refine' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
       '20GB_refine' => { LSF => $self->lsf_resource_builder($self->default_options->{normal_queue}, 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
     };

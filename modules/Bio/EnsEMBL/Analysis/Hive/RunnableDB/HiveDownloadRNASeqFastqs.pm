@@ -49,6 +49,11 @@ sub write_output {
   my $fastq = $self->param('iid');
   my $path = $self->param('input_dir');
   my $srr;
+
+  if(-e $path.'/'.$fastq) {
+    $self->complete_early('Input file already exists, will not download');
+  }
+
   if ($fastq =~ m/_/){
     $srr = (split /_/, $fastq)[0];
   }

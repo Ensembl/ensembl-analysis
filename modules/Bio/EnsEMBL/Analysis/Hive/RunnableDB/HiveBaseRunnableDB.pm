@@ -613,7 +613,7 @@ sub  hrdb_get_dba {
 
 sub get_database_by_name {
     my ($self, $name, $dna_db, $alternative_class) = @_;
-
+    say "FERGAL NAME: ".$name;
     return $self->hrdb_get_dba(destringify($self->param($name)), $dna_db, $alternative_class);
 }
 
