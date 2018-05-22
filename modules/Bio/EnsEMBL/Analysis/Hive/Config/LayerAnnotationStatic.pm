@@ -109,8 +109,8 @@ sub _master_config {
                              'gw_gtag',
                              'gw_nogtag',
                              'gw_exo',
-                             'realign_1',
-                             'realign_2',
+                             'projection_1',
+                             'projection_2',
                              'rnaseq_merged_1',
                              'rnaseq_merged_2',
                              'rnaseq_tissue_1',
@@ -141,8 +141,8 @@ sub _master_config {
                              'primates_pe12_tr_2',
                              'mammals_pe12_sp_2',
                              'mammals_pe12_tr_2',
-                             'realign_3',
-                             'realign_4',
+                             'projection_3',
+                             'projection_4',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2'],
               DISCARD    => 0,
@@ -153,8 +153,8 @@ sub _master_config {
               BIOTYPES   => [
                              'genblast_select_3',
                              'genblast_select_4',
-                             'realign_5',
-                             'realign_6',
+                             'projection_5',
+                             'projection_6',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
               DISCARD    => 0,
@@ -194,7 +194,7 @@ sub _master_config {
 
              {
               ID         => 'LAYER2',
-              BIOTYPES   => ['realign_95',
+              BIOTYPES   => ['projection_95',
                              'rnaseq_95',
                              'rnaseq_80',
                              'self_pe12_sp_95',
@@ -226,7 +226,7 @@ sub _master_config {
 
              {
               ID         => 'LAYER4',
-              BIOTYPES   => ['realign_80',
+              BIOTYPES   => ['projection_80',
                              'mouse_pe12_sp_80',
                              'rodents_pe12_sp_80',
                              'human_pe12_sp_80',
@@ -263,7 +263,7 @@ sub _master_config {
 
              {
               ID         => 'LAYER7',
-              BIOTYPES   => ['realign_50',
+              BIOTYPES   => ['projection_50',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
               DISCARD    => 0,
@@ -297,8 +297,8 @@ sub _master_config {
                              'gw_gtag',
                              'gw_nogtag',
                              'gw_exo',
-                             'realign_1',
-                             'realign_2',
+                             'projection_1',
+                             'projection_2',
                              'rnaseq_merged_1',
                              'rnaseq_merged_2',
                              'rnaseq_merged_3',
@@ -316,7 +316,7 @@ sub _master_config {
             {
               ID         => 'LAYER3',
               BIOTYPES   => [
-                             'realign_3',
+                             'projection_3',
                              'rnaseq_tissue_2',
                              'rnaseq_tissue_3',
                              'human_pe12_sp_1',
@@ -333,7 +333,7 @@ sub _master_config {
             {
               ID         => 'LAYER4',
               BIOTYPES   => [
-                             'realign_4',
+                             'projection_4',
                              'self_pe3_sp_1',
                              'self_pe3_tr_1',
                              'human_pe12_tr_2',
@@ -365,7 +365,7 @@ sub _master_config {
              {
               ID         => 'LAYER6',
               BIOTYPES   => [
-                             'realign_5',
+                             'projection_5',
                              'rnaseq_merged_4',
                              'mammals_pe12_sp_3',
                              'mammals_pe12_tr_3',
@@ -379,7 +379,7 @@ sub _master_config {
              {
               ID         => 'LAYER7',
               BIOTYPES   => [
-                             'realign_6',
+                             'projection_6',
                              'human_pe12_sp_4',
                              'human_pe12_tr_4',
                              'mouse_pe12_sp_4',
@@ -434,8 +434,8 @@ sub _master_config {
                              'gw_gtag',
                              'gw_nogtag',
                              'gw_exo',
-                             'realign_1',
-                             'realign_2',
+                             'projection_1',
+                             'projection_2',
                              'rnaseq_merged_1',
                              'rnaseq_merged_2',
                              'rnaseq_merged_3',
@@ -454,7 +454,7 @@ sub _master_config {
              {
               ID         => 'LAYER3',
               BIOTYPES   => [
-                             'realign_3',
+                             'projection_3',
                              'rnaseq_tissue_2',
                              'rnaseq_tissue_3',
                              'fish_pe12_sp_1',
@@ -471,7 +471,7 @@ sub _master_config {
             {
               ID         => 'LAYER4',
               BIOTYPES   => [
-                             'realign_4',
+                             'projection_4',
                              'fish_pe12_sp_3',
                              'fish_pe12_tr_3',
                              'human_pe12_sp_1',
@@ -507,7 +507,7 @@ sub _master_config {
              {
               ID         => 'LAYER6',
               BIOTYPES   => [
-                             'realign_5',
+                             'projection_5',
                              'human_pe12_sp_3',
                              'human_pe12_tr_3',
                              'mouse_pe12_sp_3',
@@ -527,7 +527,7 @@ sub _master_config {
              {
               ID         => 'LAYER7',
               BIOTYPES   => [
-                             'realign_6',
+                             'projection_6',
                              'fish_pe12_sp_4',
                              'fish_pe12_tr_4',
                              'human_pe12_sp_4',
@@ -593,8 +593,8 @@ sub _master_config {
                              'gw_gtag',
                              'gw_nogtag',
                              'gw_exo',
-                             'realign_95',
-                             'realign_80',
+                             'projection_95',
+                             'projection_80',
                              'rnaseq_95',
                              'rnaseq_80',
                              'self_pe12_sp_95',
@@ -638,7 +638,7 @@ sub _master_config {
                              'mammals_pe12_tr_95',
                              'mammals_pe12_sp_80',
                              'mammals_pe12_tr_80',
-                             'realign_50',
+                             'projection_50',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
               DISCARD    => 0,
@@ -683,8 +683,8 @@ sub _master_config {
                               'genblast_select_2',
                               'vert_pe12_sp_1',
                               'vert_pe12_sp_2',
-                              'realign_1',
-                              'realign_2',
+                              'projection_1',
+                              'projection_2',
                               'self_pe12_sp_1',
                               'self_pe12_sp_2',
                               'self_pe12_tr_1',
@@ -705,7 +705,7 @@ sub _master_config {
                               'vert_pe12_sp_3',
                               'vert_pe12_tr_1',
                               'vert_pe12_tr_2',
-                              'realign_3',
+                              'projection_3',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2'],
               DISCARD    => 0,
@@ -720,7 +720,7 @@ sub _master_config {
                               'genblast_select_4',
                               'vert_pe12_sp_4',
                               'vert_pe12_tr_3',
-                              'realign_4',
+                              'projection_4',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
               DISCARD    => 0,
@@ -735,7 +735,7 @@ sub _master_config {
                               'genblast_select_5',
                               'vert_pe12_sp_5',
                               'vert_pe12_tr_4',
-                              'realign_5',
+                              'projection_5',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
               DISCARD    => 0,
@@ -746,7 +746,7 @@ sub _master_config {
               BIOTYPES   => [
                               'genblast_select_6',
                               'vert_pe12_sp_6',
-                              'realign_6',
+                              'projection_6',
                               'vert_pe12_tr_6',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'],
@@ -760,7 +760,7 @@ sub _master_config {
                               'rnaseq_tissue_7',
                               'genblast_select_7',
                               'vert_pe12_sp_7',
-                              'realign_7',
+                              'projection_7',
                               'vert_pe12_tr_7',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
@@ -778,8 +778,8 @@ sub _master_config {
                              'gw_gtag',
                              'gw_nogtag',
                              'gw_exo',
-                             'realign_1',
-                             'realign_2',
+                             'projection_1',
+                             'projection_2',
                              'rnaseq_merged_1',
                              'rnaseq_merged_2',
                              'rnaseq_merged_3',
@@ -883,7 +883,7 @@ sub _master_config {
                              'mammals_pe12_tr_5',
                              'vert_pe12_sp_5',
                              'vert_pe12_tr_5',
-                             'realign_5',
+                             'projection_5',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
               DISCARD    => 0,
