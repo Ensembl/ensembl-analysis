@@ -17,6 +17,7 @@ package Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils;
 
 use strict;
 use warnings;
+use feature 'say';
 use Exporter;
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning
@@ -580,6 +581,18 @@ sub validate_Translation_coords{
 sub create_Translation {
   my ($exons, $genomic_start, $genomic_end) = @_;
 
+  unless(scalar(@{$exons})) {
+    throw("No exons passed in");
+  }
+
+  unless($genomic_start && $genomic_start >= 1) {
+    throw("Genomic start needs to be a value >= 1");
+  }
+
+  unless($genomic_end && $genomic_end >= 1) {
+    throw("Genomic end needs to be a value >= 1");
+  }
+
   my $translation = Bio::EnsEMBL::Translation->new();
   foreach my $exon (@$exons) {
     if ($genomic_start >= $exon->seq_region_start and $genomic_start <= $exon->seq_region_end) {
@@ -588,8 +601,8 @@ sub create_Translation {
         $translation->start($genomic_start-$exon->seq_region_start+1);
       }
       else {
-        $translation->end_Exon($exon);
-        $translation->end($exon->seq_region_end-$genomic_start+1);
+        $translation->start_Exon($exon);
+        $translation->start($exon->seq_region_end-$genomic_start+1);
       }
     }
     if ($genomic_end >= $exon->seq_region_start and $genomic_end <= $exon->seq_region_end) {
@@ -598,11 +611,28 @@ sub create_Translation {
         $translation->end($genomic_end-$exon->seq_region_start+1);
       }
       else {
-        $translation->start_Exon($exon);
-        $translation->start($exon->seq_region_end-$genomic_end+1);
+        $translation->end_Exon($exon);
+        $translation->end($exon->seq_region_end-$genomic_end+1);
       }
     }
   }
+
+  unless($translation->start) {
+    throw("Failed to set a translation start");
+  }
+
+  unless($translation->end) {
+    throw("Failed to set a translation end");
+  }
+
+  unless($translation->start_Exon) {
+    throw("Failed to set a start exon");
+  }
+
+  unless($translation->end_Exon) {
+    throw("Failed to set a end exon");
+  }
+
   return $translation;
 }
 
