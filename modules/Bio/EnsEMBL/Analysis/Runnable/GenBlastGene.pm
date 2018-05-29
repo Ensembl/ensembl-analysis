@@ -398,6 +398,10 @@ sub set_supporting_features {
   }
   close(GENBLAST_REPORT);
 
+  unless($query_seq && $target_seq) {
+    throw("Did not retrieve query and target sequence from the report file");
+  }
+
   my $coverage;
   my $percent_id;
   ($query_seq,$target_seq,$coverage,$percent_id) = $self->realign_translation($query_seq,$target_seq);
