@@ -927,7 +927,7 @@ sub pipeline_analyses {
           'enscode_root_dir' => $self->o('enscode_root_dir'),
           'primary_assembly_dir_name' => $self->o('primary_assembly_dir_name'),
         },
-        -rc_name => '1.5GB',
+        -rc_name => '2GB',
         -flow_into => {
           1 => ['load_meta_info_full'],
         },
@@ -2916,7 +2916,7 @@ sub pipeline_analyses {
                                                                              'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'ig_tr'},
                        },
 
-        -rc_name    => '1.5GB',
+        -rc_name    => '2GB',
 
         -flow_into => {
                         '1->A' => ['fan_ncrna'],
@@ -3317,7 +3317,7 @@ sub pipeline_analyses {
           biotypes            => {
             'protein_coding' => 1,
           },
-          batch_size          => 500,
+          batch_size          => 100,
         },
         -rc_name    => '4GB',
         -flow_into => {
@@ -3767,7 +3767,7 @@ sub pipeline_analyses {
 #                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
 #                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'projection_ig_tr'},
 #                       },
-#        -rc_name    => '1.5GB',
+#        -rc_name    => '2GB',
 #      },
 
 
@@ -3984,7 +3984,7 @@ sub pipeline_analyses {
                          # These options will create only slices that have a gene on the slice in one of the feature dbs
                          feature_constraint => 1,
                          feature_type => 'gene',
-                         feature_dbs => [$self->o('genblast_db'),$self->o('projection_realign_db'),$self->o('rnaseq_for_layer_db')],
+                         feature_dbs => [$self->o('genblast_db'),$self->o('projection_coding_db'),$self->o('rnaseq_for_layer_db')],
                       },
         -flow_into => {
                        '2->A' => ['layer_annotation'],
@@ -4017,7 +4017,7 @@ sub pipeline_analyses {
                          # interference, but are not written to the final database
                          LAYERS => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic', $self->default_options->{'uniprot_set'}, undef, 'ARRAY'),
                        },
-        -rc_name    => 'layer_annotation',
+        -rc_name    => '2GB',
         -flow_into  => {
                          '1->A' => ['split_slices_on_intergenic'],
                          'A->1' => ['genebuilder'],
@@ -4034,7 +4034,7 @@ sub pipeline_analyses {
                        },
         -batch_size => 100,
         -hive_capacity => $self->hive_capacity_classes->{'hc_medium'},
-        -rc_name    => 'transcript_finalisation',
+        -rc_name    => '1GB',
         -flow_into => {
                         2 => ['run_utr_addition'],
                       },
@@ -4055,7 +4055,7 @@ sub pipeline_analyses {
                        },
         -batch_size => 20,
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -rc_name    => 'transcript_finalisation',
+        -rc_name    => '6GB',
      },
 
 
@@ -4094,7 +4094,7 @@ sub pipeline_analyses {
                          # the current standard way is to cluster only on coding exons
                          CODING_ONLY => 1,
                        },
-        -rc_name    => 'transcript_finalisation',
+        -rc_name    => '4GB',
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
       },
 
@@ -4613,7 +4613,7 @@ sub pipeline_analyses {
                                 ' -dbname '.$self->o('reference_db','-dbname').
                                 ' -coord toplevel -write'
                        },
-        -rc_name => '1.5GB',
+        -rc_name => '2GB',
         -flow_into => { 1 => ['null_columns'] },
       },
 
@@ -4952,7 +4952,7 @@ sub pipeline_analyses {
                                 ' -dnadbname '.$self->o('dna_db','-dbname').
                                 ' -coord toplevel -write'
                        },
-        -rc_name => '1.5GB',
+        -rc_name => '2GB',
         -flow_into => { 1 => ['populate_production_tables_otherfeatures'] },
       },
 
@@ -5287,8 +5287,10 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    '1.5GB' => { LSF => $self->lsf_resource_builder('production-rh7', 1500, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '1GB' => { LSF => $self->lsf_resource_builder('production-rh7', 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '2GB' => { LSF => $self->lsf_resource_builder('production-rh7', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '4GB' => { LSF => $self->lsf_resource_builder('production-rh7', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '6GB' => { LSF => $self->lsf_resource_builder('production-rh7', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '8GB' => { LSF => $self->lsf_resource_builder('production-rh7', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '16GB' => { LSF => $self->lsf_resource_builder('production-rh7', 16000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'default' => { LSF => $self->lsf_resource_builder('production-rh7', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
@@ -5306,7 +5308,7 @@ sub resource_classes {
     'rfam_blast_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'genblast' => { LSF => $self->lsf_resource_builder('production-rh7', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genblast_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'project_transcripts' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_coding_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    'project_transcripts' => { LSF => $self->lsf_resource_builder('production-rh7', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_coding_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'refseq_import' => { LSF => $self->lsf_resource_builder('production-rh7', 9900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'layer_annotation' => { LSF => $self->lsf_resource_builder('production-rh7', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genebuilder' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
