@@ -329,7 +329,7 @@ sub default_options {
 
 # Best targetted stuff
     exonerate_logic_name => 'exonerate',
-    ncbi_query => 'txid'.$self->o('taxon_id').'[Organism:noexp]+AND+biomol_mrna[PROP]',
+    ncbi_query => '((txid'.$self->o('taxon_id').'[Organism:noexp]+AND+biomol_mrna[PROP]))  NOT "tsa"[Properties]', 
 
     cdna_table_name    => 'cdna_sequences',
     target_exonerate_calculate_coverage_and_pid => 0,
