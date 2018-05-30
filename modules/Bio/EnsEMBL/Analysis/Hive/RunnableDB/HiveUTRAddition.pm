@@ -231,6 +231,7 @@ sub add_utr {
 
   my $allow_partial_match = $self->param('allow_partial_match');
 
+  # This code won't work with the current set of acceptor biotypes
   if(exists $self->biotype_priorities->{$acceptor_transcript->biotype}) {
     if ($self->biotype_priorities->{$acceptor_transcript->biotype} == 1 or
         (exists $self->biotype_priorities->{$acceptor_transcript->biotype} and
@@ -241,6 +242,10 @@ sub add_utr {
 
   # Putting this in as the module is not working correctly for models that have UTR already
   if($acceptor_transcript->five_prime_utr || $acceptor_transcript->three_prime_utr) {
+    # Trim the short read 3 prime UTRs
+    if($acceptor_transcript->biotype =~ /^rnaseq/ && $acceptor_transcript->three_prime_utr) {
+      $self->trim_3prime_utr_short_read($acceptor_transcript);
+    }
     return $acceptor_transcript;
   }
 
@@ -258,7 +263,7 @@ sub add_utr {
       my $priority = $self->biotype_priorities()->{$donor_transcript->biotype};
       unless($priority) {
         $self->warning("Transcript biotype was not found in the biotype priorities hash or biotype was set to 0 priority. Skipping.".
-            "Biotype: ".$donor_transcript->biotype);
+                       "Biotype: ".$donor_transcript->biotype);
         next;
       }
 
@@ -274,11 +279,15 @@ sub add_utr {
           say "A longer or higher UTR donor has been found, selecting as current UTR donor";
           $modified_acceptor_transcript_single_exon = $new_transcript_single_exon;
           $modified_acceptor_transcript_single_exon->{'priority'} = $priority;
+          $modified_acceptor_transcript_single_exon->{'donor_5prime_biotype'} = $donor_transcript->biotype;
+          $modified_acceptor_transcript_single_exon->{'donor_3prime_biotype'} = $donor_transcript->biotype;
         }
       } else {
         $modified_acceptor_transcript_single_exon = $self->add_single_exon_utr($acceptor_transcript,$donor_transcript);
         if($modified_acceptor_transcript_single_exon) {
           $modified_acceptor_transcript_single_exon->{'priority'} = $priority;
+          $modified_acceptor_transcript_single_exon->{'donor_5prime_biotype'} = $donor_transcript->biotype;
+          $modified_acceptor_transcript_single_exon->{'donor_3prime_biotype'} = $donor_transcript->biotype;
         }
       }
     }
@@ -289,9 +298,7 @@ sub add_utr {
       $self->add_transcript_supporting_features($modified_acceptor_transcript_single_exon,$acceptor_transcript);
       $transcript = $modified_acceptor_transcript_single_exon;
     }
-  }
-  else {
-
+  } else {
     my $introns_acceptor = $acceptor_transcript->get_all_Introns();
     my ($cds_intron_string_a, $count_introns_a) = $self->generate_intron_string($introns_acceptor, $acceptor_transcript->coding_region_start, $acceptor_transcript->coding_region_end);
 
@@ -366,11 +373,13 @@ sub add_utr {
           say "A longer or higher UTR donor has been found, selecting as current 5' UTR";
           $modified_acceptor_transcript_5prime = $new_transcript_5prime;
           $modified_acceptor_transcript_5prime->{'priority'} = $priority;
+          $modified_acceptor_transcript_5prime->{'donor_5prime_biotype'} = $donor_transcript->biotype;
         }
       } else {
         $modified_acceptor_transcript_5prime = $self->add_five_prime_utr($acceptor_transcript,$donor_transcript,$introns_acceptor,$introns_b,$cds_intron_string_a,$intron_string_b);
         if($modified_acceptor_transcript_5prime) {
           $modified_acceptor_transcript_5prime->{'priority'} = $priority;
+          $modified_acceptor_transcript_5prime->{'donor_5prime_biotype'} = $donor_transcript->biotype;
         }
       }
 
@@ -386,18 +395,20 @@ sub add_utr {
           say "A longer UTR donor has been found, selecting as current 3' UTR";
           $modified_acceptor_transcript_3prime = $new_transcript_3prime;
           $modified_acceptor_transcript_3prime->{'priority'} = $priority;
+          $modified_acceptor_transcript_3prime->{'donor_3prime_biotype'} = $donor_transcript->biotype;
         }
       } else {
         $modified_acceptor_transcript_3prime = $self->add_three_prime_utr($acceptor_transcript,$donor_transcript,$introns_acceptor,$introns_b,$cds_intron_string_a,$intron_string_b);
         if($modified_acceptor_transcript_3prime) {
           $modified_acceptor_transcript_3prime->{'priority'} = $priority;
+          $modified_acceptor_transcript_3prime->{'donor_3prime_biotype'} = $donor_transcript->biotype;
         }
       }
     } # End else
   } # End foreach my $donor_transcript
 
-# At this point we either have the final UTR on both ends, the final on one end only or no UTR. The tricky situation is when UTR has been added
-# to both ends. In this case we have to merge both transcripts into a single transcript
+  # At this point we either have the final UTR on both ends, the final on one end only or no UTR. The tricky situation is when UTR has been added
+  # to both ends. In this case we have to merge both transcripts into a single transcript
   if($modified_acceptor_transcript_5prime && $modified_acceptor_transcript_3prime) {
     say "Added both 5' and 3' UTR. Creating final joined transcript: ";
     my $joined_transcript = $self->join_transcripts($modified_acceptor_transcript_5prime,$modified_acceptor_transcript_3prime);
@@ -418,6 +429,13 @@ sub add_utr {
     say "No UTR added to transcript";
     $transcript = $acceptor_transcript;
   }
+
+  # For the 3prime UTR for short read data there is an issue with long tails, this is some basic code to cut those
+  if(($modified_acceptor_transcript_3prime && $modified_acceptor_transcript_3prime->{'donor_3prime_biotype'} eq 'rnaseq') ||
+     ($modified_acceptor_transcript_single_exon && $modified_acceptor_transcript_single_exon->{'donor_3prime_biotype'} eq 'rnaseq')) {
+    $transcript = $self->trim_3prime_utr_short_read($transcript);
+  }
+
   $self->look_for_both($transcript);
   calculate_exon_phases($transcript, 0);
   return $transcript;
@@ -1887,6 +1905,87 @@ sub filter_input_genes {
   return \@genes;
 }
 
+
+sub trim_3prime_utr_short_read {
+  my ($self,$transcript) = @_;
+
+
+  # Only going to use the most common nuclear PAS signal
+  my $pas_signal = 'AATAAA';
+  my $cleavage_signal = 'CA';
+  my $max_no_cleavage = 1000;
+
+  unless($transcript->three_prime_utr) {
+    $self->warning("The trim_3prime_utr_short_read was called on a transcript with no 3 prime UTR. Nothing to trim");
+  }
+
+  my $exons = $transcript->get_all_Exons;
+  my $final_exon = ${$exons}[$#{$exons}];
+  my $translation_end_exon = $transcript->translation->end_Exon;
+
+  my $coding_offset = 0;
+  my $final_exon_seq = $final_exon->seq->seq;
+  if($final_exon->start == $translation_end_exon->start) {
+    $coding_offset = $transcript->translation->end;
+  }
+
+  my $found_pas = 0;
+  my $pas_start = 0;
+  my $pas_end = 0;
+  my $cleavage_site = 0;
+  while($final_exon_seq =~ /$pas_signal/g && !$found_pas) {
+    # Set to 1 base offset for ease
+    $pas_start = $-[0] + 1;
+    $pas_end =  $+[0];
+
+    if($pas_start <= $coding_offset) {
+      next;
+    }
+
+    say "Found PAS signal in final exon seq at the following coords: ".$pas_start."..".$pas_end;
+    $found_pas = 1;
+    last;
+  }
+
+  if($found_pas) {
+    # There are 15-30bp between the end of the pas signal and the cleavage site
+    # as pas_end is already shifted to 1bp offset, just add 14
+    my $post_pas_seq = substr($final_exon_seq,$pas_end + 14,15);
+    say $post_pas_seq;
+    if($post_pas_seq =~ /CA/) {
+      $cleavage_site = $pas_end + 14 + $+[0];
+      say "Cleavage site found within 15-30bp range of PAS signal";
+      say $cleavage_site;
+    } else {
+      $cleavage_site = $pas_end + 30;
+      say "Cleavage site not found within 15-30bp range of PAS signal, setting to 30bp downstream:";
+      say $cleavage_site;
+    }
+  } else {
+    if((length($final_exon_seq) - $coding_offset) > $max_no_cleavage) {
+      $cleavage_site = $coding_offset + $max_no_cleavage;
+    }
+    say "Could not find PAS signal in 3' UTR, will use max_no_cleavage as a cut-off:";
+    say $cleavage_site;
+  }
+
+  if($cleavage_site >= length($final_exon_seq)) {
+    say "Not cleaving as proposed cleavage site is at or over the end of the final exon";
+    return($transcript);
+  }
+
+  if($cleavage_site) {
+    if($final_exon->strand == 1 && $cleavage_site > $coding_offset) {
+      $final_exon->end($final_exon->start + $cleavage_site - 1);
+      $transcript->end($final_exon->end);
+    } elsif($final_exon->strand == -1 && $cleavage_site > $coding_offset) {
+      $final_exon->start($final_exon->end - $cleavage_site + 1);
+      $transcript->start($final_exon->start);
+    }
+  }
+
+  return($transcript);
+}
 
 =head2 acceptor_genes
 
