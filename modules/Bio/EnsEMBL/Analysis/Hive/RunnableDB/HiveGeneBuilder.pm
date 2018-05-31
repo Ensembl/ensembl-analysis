@@ -82,6 +82,13 @@ use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
  # return $self;
 #}
 
+sub param_defaults {
+    return {
+      post_filter_genes => '1',
+    }
+}
+
+
 
 
 sub fetch_input{
