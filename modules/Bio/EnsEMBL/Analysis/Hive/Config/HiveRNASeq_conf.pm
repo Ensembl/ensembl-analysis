@@ -877,7 +877,7 @@ sub pipeline_analyses {
                          batch_size => 10000,
                          maxintron => $self->o('maxintron'),
                        },
-        -rc_name    => '20GB_introns',
+        -rc_name    => '50GB_introns',
         -analysis_capacity => 500,
         -flow_into => {
                         1 => [':////accu?filename=[]'],

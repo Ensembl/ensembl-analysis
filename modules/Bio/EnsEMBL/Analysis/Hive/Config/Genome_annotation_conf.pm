@@ -1720,7 +1720,7 @@ sub pipeline_analyses {
         -flow_into =>  {
                          1 => ['backup_core_db'],
                        },
-        -rc_name    => '16GB',
+        -rc_name    => '15GB',
      },
 
      {
@@ -4055,7 +4055,29 @@ sub pipeline_analyses {
                        },
         -batch_size => 20,
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -rc_name    => '6GB',
+        -rc_name    => '3GB',
+        -flow_into => {
+                        -1 => ['run_utr_addition_10GB'],
+                      },
+
+     },
+
+
+      {
+        -logic_name => 'run_utr_addition_10GB',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveUTRAddition',
+        -parameters => {
+                         logic_name => 'utr_addition',
+                         dna_db => $self->o('dna_db'),
+                         donor_dbs => $self->o('utr_donor_dbs'),
+                         acceptor_dbs => $self->o('utr_acceptor_dbs'),
+                         utr_biotype_priorities => $self->o('utr_biotype_priorities'),
+                         target_db => $self->o('utr_db'),
+                         iid_type => 'slice',
+                       },
+        -batch_size => 20,
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -rc_name    => '10GB',
      },
 
 
@@ -4184,7 +4206,7 @@ sub pipeline_analyses {
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
                        },
 
-	     -rc_name    => 'default_himem',
+	     -rc_name    => '10GB',
 	     -flow_into => {
 			    1 => ['format_blast_db'],
                       },
@@ -5289,10 +5311,16 @@ sub resource_classes {
   return {
     '1GB' => { LSF => $self->lsf_resource_builder('production-rh7', 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '2GB' => { LSF => $self->lsf_resource_builder('production-rh7', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '3GB' => { LSF => $self->lsf_resource_builder('production-rh7', 3000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '4GB' => { LSF => $self->lsf_resource_builder('production-rh7', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '5GB' => { LSF => $self->lsf_resource_builder('production-rh7', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '6GB' => { LSF => $self->lsf_resource_builder('production-rh7', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '7GB' => { LSF => $self->lsf_resource_builder('production-rh7', 7000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '8GB' => { LSF => $self->lsf_resource_builder('production-rh7', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '16GB' => { LSF => $self->lsf_resource_builder('production-rh7', 16000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '9GB' => { LSF => $self->lsf_resource_builder('production-rh7', 9000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '10GB' => { LSF => $self->lsf_resource_builder('production-rh7', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '15GB' => { LSF => $self->lsf_resource_builder('production-rh7', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '20GB' => { LSF => $self->lsf_resource_builder('production-rh7', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'default' => { LSF => $self->lsf_resource_builder('production-rh7', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'default_himem' => { LSF => $self->lsf_resource_builder('production-rh7', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'repeatmasker' => { LSF => $self->lsf_resource_builder('production-rh7', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
