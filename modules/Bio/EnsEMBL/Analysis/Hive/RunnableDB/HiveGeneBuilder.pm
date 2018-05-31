@@ -56,7 +56,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(exon_length_less
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils 
   qw(validate_Translation_coords contains_internal_stops print_Translation print_peptide);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
-
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils qw(make_types_hash_with_genes cluster_Genes);
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -137,6 +137,19 @@ sub fetch_input{
 };
 
 
+sub run {
+  my ($self) = @_;
+  my $runnable = shift(@{$self->runnable()});
+  $runnable->run;
+  my $initial_genes = $runnable->output;
+  if($self->param('post_filter_genes')) {
+    my $output_genes = $self->post_filter_genes($initial_genes);
+    $self->output($output_genes);
+  } else {
+    $self->output($initial_genes);
+  }
+}
+
 sub write_output{
   my ($self) = @_;
 
@@ -161,6 +174,153 @@ sub write_output{
     $self->throw("Failed to write some genes");
   }
 }
+
+sub post_filter_genes {
+  my ($self,$genes) = @_;
+
+  # This has a few jobs to do
+  # 1: find genes where there are multiple transcripts that don't really agree, with very little useful info
+  #    This comes out of genblast mainly where it should build a single exon model but tries too hard to find
+  #    start/end codons and then builds a 2/3 exon model with spurious terminal exons. We want to reduce these
+  #    sites down to a single transcript
+  # 2: trim the UTR in cases where the UTR of one gene extends into the coding region of another
+  # 3: look for genes in strange places. For example small genes that are in introns of other genes
+  # 4: look at overlapping genblast select models and if they are significantly more exon rich than the model
+  #    they over lap we want to add in the genblast select model and then rerun genebuilder
+
+  # 1: Remove short, suspect transcripts (leaving only the best scoring one if it removes everything)
+  $genes = $self->remove_bad_transcripts($genes);
+
+  # Haven't implemented the rest yet
+
+  # 2: Remove UTR exons that cover the coding exons of another gene (where the whole exon is non-coding)
+  #$genes = $self->trim_overlapping_utr($genes);
+
+  # 3: Find genblast_select models
+  #$genes = $self->recover_genblast_select($genes);
+  return($genes);
+}
+
+
+sub remove_bad_transcripts {
+  my ($self,$genes) = @_;
+
+  my $suspect_exon_count = 3;
+  my $suspect_exon_size = 30;
+
+  my $filtered_genes = [];
+  foreach my $gene (@$genes) {
+    my $transcripts = $gene->get_all_Transcripts();
+    if(scalar(@$transcripts) == 1) {
+      push(@$filtered_genes,$gene);
+      next;
+    }
+
+    # First count the frequency of the exons
+    my $unique_exon_data;
+    my $transcript_index = 0;
+    foreach my $transcript (@$transcripts) {
+      my $exons = $transcript->get_all_Exons();
+      foreach my $exon (@$exons) {
+        my $exon_string = ":".$exon->start.":".$exon->end.":";
+        unless($unique_exon_data->{$exon_string}) {
+          $unique_exon_data->{$exon_string} = 1;
+        } else {
+          $unique_exon_data->{$exon_string}++;
+	}
+      } # end foreach my $exon
+    } # end  foreach my $transcript
+
+    my $transcripts_to_keep = [];
+    my $highest_score = 0;
+    my $highest_scoring_transcript;
+    # Now loop back through the transcript to find suspect ones
+    foreach my $transcript (@$transcripts) {
+      # If we've found a transcript with UTR then assume it's okay
+      if($transcript->five_prime_utr || $transcript->three_prime_utr) {
+        push(@{$transcripts_to_keep},$transcript);
+        next;
+      }
+
+      my $exons = $transcript->get_all_Exons;
+      my $exon_count = scalar(@$exons);
+      # When there's more than the suspect exon count then assume it's okay
+      if($exon_count > $suspect_exon_count) {
+        push(@{$transcripts_to_keep},$transcript);
+        next;
+      }
+
+      # Now we should a transcript that at least has some dodgy characteristics
+      # We need to further investigate to decide if there is actually an issue
+      my $unique_exon_count = 0;
+      foreach my $exon (@$exons) {
+        my $exon_string = ":".$exon->start.":".$exon->end.":";
+        unless($unique_exon_data->{$exon_string} > 1) {
+          $unique_exon_count++;
+        }
+      }
+
+      # At this point if we have 2 or more unique exons it implies the transcript
+      # is very unusual and should probably be flagged for removal. I haven't thought
+      # of a decent system for why we would keep it other than it being the best scoring
+      # transcript in the scenario that all transcripts would be removed
+      my $transcript_score = $self->transcript_score($transcript);
+      if($transcript_score >= $highest_score) {
+        $highest_scoring_transcript = $transcript;
+        $highest_score = $transcript_score;
+      }
+
+      my $unique_fraction = $unique_exon_count / $exon_count;
+      if($unique_fraction >= 0.5) {
+        say "Skipping transcript because it has ".$suspect_exon_count." or fewer exons and ".$unique_exon_count." are unique";
+        next;
+      }
+
+      push(@{$transcripts_to_keep},$transcript);
+    } # end 2nd foreach my $transcript
+
+    # If we're going to remove all the transcript then we should at least keep the highest scoring one
+    if(scalar(@$transcripts_to_keep) == 0) {
+      say "Post filtering would remove all transcripts, keeping higest scoring transcript";
+      push(@{$transcripts_to_keep},$highest_scoring_transcript);
+    }
+
+    my $new_gene = new Bio::EnsEMBL::Gene;
+    $new_gene->source($gene->source);
+    $new_gene->biotype($gene->biotype);
+
+    unless(scalar(@$transcripts_to_keep)) {
+      $self->throw("In post filtering no transcripts were kept for current gene, this is not right");
+    }
+
+    foreach my $transcript (@$transcripts_to_keep) {
+      $new_gene->add_Transcript($transcript);
+    }
+
+    push(@$filtered_genes,$new_gene);
+  } # end foreach my $gene
+
+  unless(scalar(@$filtered_genes) == scalar(@$genes)) {
+    $self->throw("The count of the filtered genes (".scalar(@$filtered_genes).") did not match the count of the original set (".scalar(@$genes).")");
+  }
+
+  return($filtered_genes);
+}
+
+
+sub transcript_score {
+  my ($self,$transcript) = @_;
+
+  my $tsf = pop(@{$transcript->get_all_supporting_features});
+  unless($tsf) {
+    return(0);
+  }
+
+  my $combined_cov_pid = $tsf->hcoverage + $tsf->percent_id;
+  return($combined_cov_pid);
+
+}
+
 
 #sub output_db{
 #  my ($self, $db) = @_;
