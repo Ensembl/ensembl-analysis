@@ -149,8 +149,18 @@ sub run {
   my $runnable = shift(@{$self->runnable()});
   $runnable->run;
   my $initial_genes = $runnable->output;
+  say "Found ".scalar(@$initial_genes)." in initial runnable output";
+  unless(scalar(@$initial_genes)) {
+    $self->warning("No initial set of output genes created");
+    return;
+  }
+
   if($self->param('post_filter_genes')) {
     my $output_genes = $self->post_filter_genes($initial_genes);
+    unless(scalar(@$output_genes)) {
+      $self->throw("The output genes array is empty after running filter genes. This should not happen");
+    }
+    say "Found ".scalar(@$output_genes)." after post filtering";
     $self->output($output_genes);
   } else {
     $self->output($initial_genes);

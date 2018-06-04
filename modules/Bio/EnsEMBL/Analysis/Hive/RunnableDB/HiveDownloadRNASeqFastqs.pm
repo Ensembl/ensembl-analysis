@@ -83,6 +83,10 @@ sub write_output {
     }
   }
 
+  unless(-e $path.'/'.$fastq) {
+    $self->throw("Did not find the fastq file on the expected path. Path:\n".$path."/".$fastq);
+  }
+
 }
 
 1;

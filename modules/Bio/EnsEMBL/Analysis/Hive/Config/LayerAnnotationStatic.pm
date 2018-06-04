@@ -115,6 +115,10 @@ sub _master_config {
                              'rnaseq_merged_2',
                              'rnaseq_tissue_1',
                              'rnaseq_tissue_2',
+                             'rnaseq_merged_3',
+                             'rnaseq_merged_4',
+                             'rnaseq_tissue_3',
+                             'rnaseq_tissue_4',
                              'self_pe12_sp_1',
                              'self_pe12_tr_1',
                              'self_pe12_sp_2',
@@ -131,8 +135,7 @@ sub _master_config {
             {
               ID         => 'LAYER3',
               BIOTYPES   => [
-                             'genblast_select_1',
-                             'genblast_select_2',
+
                              'mammals_pe12_sp_1',
                              'mammals_pe12_tr_1',
                              'human_pe12_sp_2',
@@ -151,8 +154,10 @@ sub _master_config {
             {
               ID         => 'LAYER4',
               BIOTYPES   => [
-                             'genblast_select_3',
-                             'genblast_select_4',
+                             'rnaseq_merged_5',
+                             'rnaseq_merged_5',
+                             'rnaseq_tissue_6',
+                             'rnaseq_tissue_6',
                              'projection_5',
                              'projection_6',
                             ],
@@ -163,8 +168,10 @@ sub _master_config {
             {
               ID         => 'LAYER5',
               BIOTYPES   => [
-                             'genblast_select_5',
-                             'genblast_select_6',
+                             'rnaseq_merged_7',
+                             'rnaseq_merged_7',
+                             'rnaseq_tissue_7',
+                             'rnaseq_tissue_7',
                              'human_pe12_sp_6',
                              'human_pe12_tr_6',
                             ],

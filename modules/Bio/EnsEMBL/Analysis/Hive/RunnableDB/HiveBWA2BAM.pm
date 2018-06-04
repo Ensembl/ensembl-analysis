@@ -125,8 +125,8 @@ sub write_output {
     if ($output->[2]) {
       $text .= '\nThe number of paired reads is below the threshold of '.$self->param('min_paired').': '.$output->[2];
     }
-    send_email($self->param('email'), $self->param('email'), 'Low RNA-seq mapping for '.$output->[0], $text);
-    $self->input_id->autoflow(0);
+    send_email($self->param('email'), $self->param('email'), '[genebuild rnaseq pipeline] '.$output->[0]." low mapping", $text);
+    $self->input_job->autoflow(0);
   }
 }
 
