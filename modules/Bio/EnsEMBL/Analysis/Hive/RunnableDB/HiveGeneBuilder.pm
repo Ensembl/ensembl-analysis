@@ -51,12 +51,12 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_ovewrite empty_Gene print_Gene_Transcript_and_Exons);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils 
   qw(are_strands_consistent are_phases_consistent calculate_exon_phases
-     is_not_folded all_exons_are_valid intron_lengths_all_less_than_maximum);
+     is_not_folded all_exons_are_valid intron_lengths_all_less_than_maximum exon_overlap features_overlap overlap_length);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(exon_length_less_than_maximum);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils 
   qw(validate_Translation_coords contains_internal_stops print_Translation print_peptide);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
-use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils qw(make_types_hash_with_genes cluster_Genes);
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils qw(cluster_Genes_by_coding_exon_overlap);
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -84,7 +84,9 @@ use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub param_defaults {
     return {
-      post_filter_genes => '1',
+      post_filter_genes          => '1',
+      recovery_overlap_threshold => 0.9,
+      skip_readthrough_check => 0,
     }
 }
 
@@ -136,6 +138,7 @@ sub fetch_input{
           -max_short_intron_len => $self->MAX_SHORT_INTRON_LEN,
           -blessed_biotypes => $self->BLESSED_BIOTYPES,
           -coding_only => $self->CODING_ONLY,
+          -skip_readthrough_check => $self->param('skip_readthrough_check'),
          );
 
 
@@ -195,26 +198,26 @@ sub write_output{
 sub post_filter_genes {
   my ($self,$genes) = @_;
 
-  # This has a few jobs to do
-  # 1: find genes where there are multiple transcripts that don't really agree, with very little useful info
-  #    This comes out of genblast mainly where it should build a single exon model but tries too hard to find
-  #    start/end codons and then builds a 2/3 exon model with spurious terminal exons. We want to reduce these
-  #    sites down to a single transcript
-  # 2: trim the UTR in cases where the UTR of one gene extends into the coding region of another
-  # 3: look for genes in strange places. For example small genes that are in introns of other genes
-  # 4: look at overlapping genblast select models and if they are significantly more exon rich than the model
-  #    they over lap we want to add in the genblast select model and then rerun genebuilder
+  # 1: Find longer models to fix split genes and extend modles from set of recovery dbs
+  #    The downsides of this method is that it may join genes by accident. Also it could
+  #    add extra transcripts where the difference is relatively minor. However, if the
+  #    input recovery set is good then this will work well at fixing common issues with
+  #    splitting genes due to layer annotation
+  $genes = $self->recover_long_models($genes);
 
-  # 1: Remove short, suspect transcripts (leaving only the best scoring one if it removes everything)
+  # 2: Remove short, suspect transcripts (leaving only the best scoring one if it removes everything)
+  #    This will collapse stuff down at each position in terms of 1, 2 or 3 exon models. These models
+  #    are most likely to be spurious. The script will remove these models in genes where they have
+  #    >= 50 percent unique exons. In general works will with no obvious downside, unless there are
+  #    true low exon models with a majority of unique exon structures (unlikely though)
   $genes = $self->remove_bad_transcripts($genes);
 
   # Haven't implemented the rest yet
 
-  # 2: Remove UTR exons that cover the coding exons of another gene (where the whole exon is non-coding)
+  # 3: Remove UTR exons that cover the coding exons of another gene (where the whole exon is non-coding)
   #$genes = $self->trim_overlapping_utr($genes);
 
-  # 3: Find genblast_select models
-  #$genes = $self->recover_genblast_select($genes);
+  # 4: look for genes in strange places. For example small genes that are in introns of other genes
   return($genes);
 }
 
@@ -338,6 +341,158 @@ sub transcript_score {
 
 }
 
+
+sub recover_long_models {
+  my ($self,$genebuilder_genes) = @_;
+
+  my $output_genes = [];
+
+  my $recovery_dbs = $self->param_required('recovery_dbs');
+  my $recovery_genes = [];
+  say "Preparing to recover gene models";
+  foreach my $db_info (@$recovery_dbs) {
+    say "Fetching genes for ".$db_info->{'-dbname'};
+    my $genes = $self->hrdb_get_dba($db_info)->get_GeneAdaptor->fetch_all_by_Slice($self->query);
+    say "Found ".scalar(@$genes)." genes to consider for recovery";
+    push(@$recovery_genes,@$genes);
+  }
+
+  say "Combining recovery genes under a single biotype";
+  foreach my $recovery_gene (@$recovery_genes) {
+    $recovery_gene->biotype('recovery');
+  }
+
+  my $types_hash;
+  $types_hash->{'genebuilder'} = [$self->OUTPUT_BIOTYPE];
+  $types_hash->{'recovery'} = ['recovery'];
+
+  say "Clustering genebuilder genes with recovery genes...";
+  my ($clusters, $unclustered) = cluster_Genes_by_coding_exon_overlap([@$genebuilder_genes,@$recovery_genes],$types_hash);
+  say "...finished clustering genes for recovery";
+
+  say "Found ".scalar(@$clusters)." clusters";
+  say "Found ".scalar(@$unclustered)." unclustered genes, will not change";
+
+  foreach my $unclustered (@$unclustered) {
+     my $unclustered_genes = $unclustered->get_Genes_by_Set('genebuilder');
+     foreach my $unclustered_gene (@$unclustered_genes) {
+       push(@$output_genes,$unclustered_gene);
+     }
+  }
+
+  foreach my $cluster (@$clusters) {
+    my $recovery_cluster_genes = $cluster->get_Genes_by_Set('recovery');
+    my $genebuilder_cluster_genes = $cluster->get_Genes_by_Set('genebuilder');
+
+    say "In cluster:";
+    say "  Recovery genes: ".scalar(@$recovery_cluster_genes);
+    say "  Genebuilder genes: ".scalar(@$genebuilder_cluster_genes);
+    my $genebuilder_input_genes;
+    $genebuilder_input_genes = $self->assess_recovery_overlap($recovery_cluster_genes,$genebuilder_cluster_genes);
+
+    if(scalar(@$genebuilder_input_genes)) {
+      say "Inputting ".scalar(@$genebuilder_input_genes)." single transcript genes to new genebuilder run";
+      say "Running genebuilder...";
+      my $runnable = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder->new(
+                      -query => $self->query,
+                      -analysis => $self->analysis,
+                      -genes => $genebuilder_input_genes,
+                      -output_biotype => $self->OUTPUT_BIOTYPE,
+                      -max_transcripts_per_cluster => $self->MAX_TRANSCRIPTS_PER_CLUSTER,
+                      -min_short_intron_len => $self->MIN_SHORT_INTRON_LEN,
+                      -max_short_intron_len => $self->MAX_SHORT_INTRON_LEN,
+                      -blessed_biotypes => $self->BLESSED_BIOTYPES,
+                      -coding_only => $self->CODING_ONLY,
+                      -skip_readthrough_check => 1,
+                     );
+
+      $runnable->run;
+      say "Created ".scalar(@{$runnable->output})." output genes";
+      push(@$output_genes,@{$runnable->output});
+    } else {
+      say "Not adding models from recovery set so will not run genebuilder again on cluster genes";
+      push(@$output_genes,@$genebuilder_cluster_genes);
+    }
+
+  }
+  return($output_genes);
+}
+
+
+sub make_single_transcript_genes {
+  my ($self,$genes) = @_;
+
+  my $single_transcript_genes =[];
+
+  foreach my $gene (@$genes) {
+    my $transcripts = $gene->get_all_Transcripts;
+    foreach my $transcript (@$transcripts) {
+      my $new_gene = new Bio::EnsEMBL::Gene;
+      $new_gene->source($gene->source);
+      $new_gene->biotype($gene->biotype);
+      $new_gene->add_Transcript($transcript);
+      push(@$single_transcript_genes,$new_gene);
+    } # end foreach my $transcript
+  } # end foreach my $gene
+
+  return($single_transcript_genes);
+}
+
+
+sub assess_recovery_overlap {
+  my ($self,$recovery_genes,$genebuilder_genes) = @_;
+
+  my $output_genes = [];
+
+  # Just in case we make multi transcript recovery genes in future, pass it through the single transcript gene method
+  my $single_transcript_recovert_genes = $self->make_single_transcript_genes($recovery_genes);
+  foreach my $recovery_gene (@$single_transcript_recovert_genes) {
+    my $recovery_transcript = shift(@{$recovery_gene->get_all_Transcripts()});
+    my $passed_overlap = 0;
+    foreach my $genebuilder_gene (@$genebuilder_genes) {
+      my $genebuilder_transcripts = $genebuilder_gene->get_all_Transcripts();
+      foreach my $genebuilder_transcript (@$genebuilder_transcripts) {
+        if($self->pass_overlap($recovery_transcript,$genebuilder_transcript)) {
+          $passed_overlap = 1;
+	}
+      }
+    }
+
+    unless($passed_overlap) {
+      push(@$output_genes,@$genebuilder_genes);
+      push(@$output_genes,$recovery_gene);
+    }
+  }
+
+  $output_genes = $self->make_single_transcript_genes($output_genes);
+  return($output_genes);
+}
+
+sub pass_overlap {
+  my ($self,$recovery_transcript,$genebuilder_transcript) = @_;
+
+  my $pass_overlap = 0;
+  my $overlap_threshold = $self->param_required('recovery_overlap_threshold');
+  my $exon_overlap = exon_overlap($recovery_transcript,$genebuilder_transcript);
+  say "Exon overlap: ".$exon_overlap;
+  say "Rec Trans: ".$recovery_transcript->seq_region_start.":".$recovery_transcript->seq_region_end.":".
+                    $recovery_transcript->strand.":".$recovery_transcript->length;
+  say "Genb Trans: ".$genebuilder_transcript->seq_region_start.":".$genebuilder_transcript->seq_region_end.":".
+                     $genebuilder_transcript->strand.":".$genebuilder_transcript->length;
+
+  my $exon_non_overlap = abs($recovery_transcript->length()-$genebuilder_transcript->length());
+  my $overlap_score = $exon_overlap - $exon_non_overlap;
+
+  my $overlap_fraction = $exon_overlap / $recovery_transcript->length;
+  say "Overlap fraction: ".$overlap_fraction;
+  say "Overlap score: ".$overlap_score;
+
+  if($overlap_fraction >= $overlap_threshold) {
+    $pass_overlap = 1;
+  }
+
+  return($pass_overlap);
+}
 
 #sub output_db{
 #  my ($self, $db) = @_;
