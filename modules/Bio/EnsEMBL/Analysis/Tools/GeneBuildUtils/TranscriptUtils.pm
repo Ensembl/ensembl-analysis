@@ -1479,10 +1479,17 @@ sub replace_stops_with_introns{
 #              }
                
               if ($fp_left->end >= $fp_left->start) {
-                push @ug_left, $fp_left;
+                if ($feature_isa eq "Bio::EnsEMBL::DnaPepAlignFeature") {
+                  # only push if the length if multiple of 3
+                  if ($fp_left->length() % 3 == 0) {
+                    push @ug_left, $fp_left;
+                  }
+                } else {
+                  push @ug_left, $fp_left;
+                }
               }
               if ($fp_right->end >= $fp_right->start) {
-                if ($feature_isa == "Bio::EnsEMBL::DnaPepAlignFeature") {
+                if ($feature_isa eq "Bio::EnsEMBL::DnaPepAlignFeature") {
                   # only push if the length if multiple of 3
                   if ($fp_right->length() % 3 == 0) {
                     push @ug_right, $fp_right;
