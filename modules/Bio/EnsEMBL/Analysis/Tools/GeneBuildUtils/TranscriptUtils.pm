@@ -1482,7 +1482,14 @@ sub replace_stops_with_introns{
                 push @ug_left, $fp_left;
               }
               if ($fp_right->end >= $fp_right->start) {
-                push @ug_right, $fp_right;
+                if ($feature_isa == "Bio::EnsEMBL::DnaPepAlignFeature") {
+                  # only push if the length if multiple of 3
+                  if ($fp_right->length() % 3 == 0) {
+                    push @ug_right, $fp_right;
+                  }
+                } else {
+                  push @ug_right, $fp_right;
+                }
               }
             }
 
