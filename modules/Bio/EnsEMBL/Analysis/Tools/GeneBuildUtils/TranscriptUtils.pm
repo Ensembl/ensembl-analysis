@@ -1217,7 +1217,7 @@ sub replace_stops_with_introns{
 
   my $newtranscript = clone_Transcript($transcript);
   my @exons = @{$newtranscript->get_all_Exons};
-  my $pep = $newtranscript->translate->seq;
+  my $pep = $newtranscript->translate->seq if ($newtranscript->translate());
   #print 'DEBUG: peptide: ', $pep, "\n";
   my $removed_exon_count = 0;
   # gaps adjacent to internal stop codons - skip
