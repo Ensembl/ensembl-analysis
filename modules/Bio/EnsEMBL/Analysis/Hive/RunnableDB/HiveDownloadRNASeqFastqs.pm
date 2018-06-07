@@ -78,7 +78,7 @@ sub write_output {
     my @err2 = `$cmd2 2>&1`;
     foreach my $line2 (@err2){
       if ($line2 =~ m/No such directory/){
-        say "fucked mate";
+        say "Cannot find fastq file to download";
       }
     }
   }
