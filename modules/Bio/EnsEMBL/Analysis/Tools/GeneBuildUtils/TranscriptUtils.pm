@@ -1217,7 +1217,7 @@ sub replace_stops_with_introns{
 
   my $newtranscript = clone_Transcript($transcript);
   my @exons = @{$newtranscript->get_all_Exons};
-  my $pep = $newtranscript->translate->seq;
+  my $pep = $newtranscript->translate->seq if ($newtranscript->translate());
   #print 'DEBUG: peptide: ', $pep, "\n";
   my $removed_exon_count = 0;
   # gaps adjacent to internal stop codons - skip
@@ -1479,10 +1479,24 @@ sub replace_stops_with_introns{
 #              }
                
               if ($fp_left->end >= $fp_left->start) {
-                push @ug_left, $fp_left;
+                if ($feature_isa eq "Bio::EnsEMBL::DnaPepAlignFeature") {
+                  # only push if the length if multiple of 3
+                  if ($fp_left->length() % 3 == 0) {
+                    push @ug_left, $fp_left;
+                  }
+                } else {
+                  push @ug_left, $fp_left;
+                }
               }
               if ($fp_right->end >= $fp_right->start) {
-                push @ug_right, $fp_right;
+                if ($feature_isa eq "Bio::EnsEMBL::DnaPepAlignFeature") {
+                  # only push if the length if multiple of 3
+                  if ($fp_right->length() % 3 == 0) {
+                    push @ug_right, $fp_right;
+                  }
+                } else {
+                  push @ug_right, $fp_right;
+                }
               }
             }
 
@@ -3251,12 +3265,6 @@ sub set_alignment_supporting_features {
       say "ADD SUPPORTING EVIDENCE hEND: ".$feature_pair->hend;
 
       push(@{$exon_feature_pairs},$feature_pair);
-      if (scalar(@{$exon_feature_pairs})) {
-        my $final_exon_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $exon_feature_pairs);
-        $exon->add_supporting_features($final_exon_supporting_features);
-      } else {
-        warning("No supporting features added for exon.\nExon start: ".$exon->start."\nExon end: ".$exon->end);
-      }
       
       # exon feature pairs which are not in order compared to the previous feature in the previous exon
       # will not be added to all exon supporting features to make the transcript supporting evidence
@@ -3275,6 +3283,13 @@ sub set_alignment_supporting_features {
         push(@{$all_exon_supporting_features},$feature_pair);
       }
       $prev_feature_pair = $feature_pair;
+    }
+    
+    if (scalar(@{$exon_feature_pairs})) {
+      my $final_exon_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $exon_feature_pairs);
+      $exon->add_supporting_features($final_exon_supporting_features);
+    } else {
+      warning("No supporting features added for exon.\nExon start: ".$exon->start."\nExon end: ".$exon->end);
     }
   }
 

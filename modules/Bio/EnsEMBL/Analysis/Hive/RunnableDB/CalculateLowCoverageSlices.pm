@@ -53,11 +53,11 @@ sub param_defaults {
     window_jump          => 10000,
     window_size          => 250000,
     min_slice_split_size => 5000000,
-    min_depth            => 25,
+    min_depth            => 50,
     min_cov              => 500,
     base_length          => 1000000,
-    max_slice_size       => 15000000,
-    slice_overlap        => 5000000,
+    max_slice_size       => 5000000,
+    slice_overlap        => 2500000,
     sample_count         => 1,
     data_flow_branch     => 2,
   }
@@ -85,7 +85,9 @@ sub fetch_input {
   }
 
   unless(scalar(@$slices)) {
-    $self->throw("Found no slices from the input array");
+    $self->warning("Found no slices from the input array");
+    $self->input_job->autoflow(0);
+    $self->complete_early('There are no slices to process');
   }
 
   $self->input_slices($slices);
@@ -122,7 +124,7 @@ sub run {
     foreach my $output_slice (@$output_slices) {
       say "Created: ".$output_slice->name;
     }
-
+    push(@$output_slices,$slice);
   } # end foreach my $slice (@$slices) {
 
 
