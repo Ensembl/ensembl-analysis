@@ -64,9 +64,8 @@ exons to be projected.
 -cesar_path           Path to the directory containing the CESAR2.0
 binary to be run (excluding the binary filename).
 -canonical            If set to 1, then only the canonical transcript for each gene will be fetched from the source db.
--common_slice         If set to 1, all the transcripts projected from the same gene will be put on the same slice based
-                      on the most common seq region name and min and max coordinates covering them. The projected transcripts
-                      on the other slices will be discarded.
+-canonical_or_longest If set to 1, then only the canonical transcript for each gene will be projected. If the projection is not done successfully, the next transcript having the longest translation will be projected until there is a successful projection.
+-common_slice         If set to 1, all the transcripts projected from the same gene will be put on the same slice (and gene) based on the most common seq region name and min and max coordinates covering them. The projected transcripts on the other slices will be discarded. If set to 0 (default), the projected transcripts will be used to make single-transcript genes.
 -TRANSCRIPT_FILTER    Hash containing the parameters required to apply
 to the projected transcript to exclude some of them. Default to
 ExonerateTranscriptFilter pid,cov 50,50 although note that the actual
@@ -109,6 +108,7 @@ sub param_defaults {
       transcript_region_padding => 50,
       cesar_path => '',
       canonical => 0,
+      canonical_or_longest => 0,
       common_slice => 0,
       #TRANSCRIPT_FILTER => {
       #                       OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
@@ -348,7 +348,7 @@ say "skipping transcript on -1 strand";
     }
 
     if (!$himem_required) {
-      $self->build_gene(\@projected_transcripts,$gene_index,$self->param('canonical'));
+      $self->build_gene(\@projected_transcripts,$gene_index,$self->param('canonical'),$self->param('canonical_or_longest'));
     }
     
     say "Had a total of ".$fail_count."/".scalar(@{$transcripts})." failed transcript projections for gene ".$gene->dbID();
@@ -372,7 +372,7 @@ sub write_output {
 }
 
 sub build_gene {
-  my ($self,$projected_transcripts,$gene_index,$canonical) = @_;
+  my ($self,$projected_transcripts,$gene_index,$canonical,$canonical_or_longest) = @_;
 
   if (scalar(@$projected_transcripts) > 0) {
     my $analysis = Bio::EnsEMBL::Analysis->new(
@@ -382,15 +382,42 @@ sub build_gene {
 
     say "Building genes from projected transcripts";
 
-    my $projected_gene = @{$self->parent_genes}[$gene_index];
-    $projected_gene->flush_Transcripts();
-    say "Source gene SID: ".$projected_gene->stable_id();
+    my $gene = @{$self->parent_genes}[$gene_index];
+    say "Source gene SID: ".$gene->stable_id();
 
-    if ($self->param('common_slice')) {
-      $self->set_common_slice($projected_transcripts);
+    my @projected_transcripts_for_gene = ();  
+    if ($canonical_or_longest) {
+   
+      # sort transcripts by translation length
+      my @projected_transcripts_sorted = sort {$b->translation()->length() <=> $a->translation()->length()} @$projected_transcripts;
+    
+      # give maximum priority to the canonical transcript by swapping it to the first element
+      my $t_index = 0;
+      my $num_transcripts = scalar(@projected_transcripts_sorted);
+      my $canonical_t_sid = $gene->canonical_transcript()->stable_id();
+    
+      while ($t_index < $num_transcripts) {
+        my $curr_t = $projected_transcripts_sorted[$t_index];
+        if ($curr_t->stable_id() eq $canonical_t_sid) {
+           # canonical transcript projection found
+          unshift @projected_transcripts_for_gene,$curr_t;
+        } else {
+          push(@projected_transcripts_for_gene,$curr_t);
+        }
+        $t_index++;
+      }
+
+    } else {
+      @projected_transcripts_for_gene = @$projected_transcripts;
     }
 
-    foreach my $projected_transcript (@$projected_transcripts) {
+    if ($self->param('common_slice')) {
+      $self->set_common_slice(\@projected_transcripts_for_gene);
+    }
+
+    my $projected_gene = $gene->flush_Transcripts();
+
+TRANSCRIPT: foreach my $projected_transcript (@projected_transcripts_for_gene) {
       # do not store transcripts containing stops
       #if ($projected_transcript->translate()) {
       #  my $projected_transcript_translate_seq = $projected_transcript->translate()->seq();
@@ -406,14 +433,22 @@ sub build_gene {
               if (scalar(@$filtered_transcripts) > 0) {
                
                 if ($self->param('common_slice')) {
+                  # only one projected gene per source gene is built
                   $projected_gene->add_Transcript($projected_transcript);
                   $projected_gene->analysis($analysis);
                   $self->output_genes($projected_gene);
+                  if ($canonical_or_longest) {
+                    # only one projected transcript per projected gene
+                    last TRANSCRIPT;
+                  }
+
                 } else {
-                  my $single_transcript_gene = Bio::EnsEMBL::Gene->new();
-                  $single_transcript_gene->add_Transcript($projected_transcript);
-                  $single_transcript_gene->analysis($analysis);
-                  $self->output_genes($single_transcript_gene);
+                  # multiple projected single-transcript genes per source gene is built
+                  $self->output_single_transcript_gene($projected_transcript,$analysis);
+                  if ($canonical_or_longest) {
+                    # only one projected gene per source gene is built
+                    last TRANSCRIPT;
+                  }
                 }
                 
               } else {
@@ -424,14 +459,21 @@ sub build_gene {
 #print("TRANSCRIPT FILTER NOT defined\n");
           
             if ($self->param('common_slice')) {
+              # only one projected gene per source gene is built
               $projected_gene->add_Transcript($projected_transcript);
               $projected_gene->analysis($analysis);
               $self->output_genes($projected_gene);
+              if ($canonical_or_longest) {
+                # only one projected gene per source gene is built
+                last TRANSCRIPT;
+              }
             } else {
-              my $single_transcript_gene = Bio::EnsEMBL::Gene->new();
-              $single_transcript_gene->add_Transcript($projected_transcript);
-              $single_transcript_gene->analysis($analysis);
-              $self->output_genes($single_transcript_gene);
+              # multiple projected single-transcript genes per source gene is built
+              $self->output_single_transcript_gene($projected_transcript,$analysis);
+              if ($canonical_or_longest) {
+                # only one projected gene per source gene is built
+                last TRANSCRIPT;
+              }
             }
 
           }
@@ -473,11 +515,6 @@ sub set_common_slice {
     $common_regions{$projected_transcript->seq_region_name()} += 1;
 print "foreach my proj t set common slice\n";
   }
-
-    use Data::Dumper;
-    # simple procedural interface
-    print Dumper(%common_regions);
-
 
   my $most_common_seq_region_name = largest_value_mem(\%common_regions);
   
@@ -1306,6 +1343,15 @@ $self->filter($self->TRANSCRIPT_FILTER->{OBJECT}->new(%{$self->TRANSCRIPT_FILTER
   else {
     return;
   }
+}
+
+sub output_single_transcript_gene {
+  my ($self,$projected_transcript,$analysis) = @_;
+
+  my $gene = Bio::EnsEMBL::Gene->new();
+  $gene->add_Transcript($projected_transcript);
+  $gene->analysis($analysis);
+  $self->output_genes($gene);
 }
 
 1;
