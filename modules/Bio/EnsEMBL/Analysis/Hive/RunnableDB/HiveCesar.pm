@@ -64,6 +64,7 @@ exons to be projected.
 -cesar_path           Path to the directory containing the CESAR2.0
 binary to be run (excluding the binary filename).
 -canonical            If set to 1, then only the canonical transcript for each gene will be fetched from the source db.
+-canonical_or_longest If set to 1, then only the canonical transcript for each gene will be projected. If the projection is not done successfully, the next transcript having the longest translation will be projected until there is a successful projection.
 -TRANSCRIPT_FILTER    Hash containing the parameters required to apply
 to the projected transcript to exclude some of them. Default to
 ExonerateTranscriptFilter pid,cov 50,50 although note that the actual
@@ -105,6 +106,7 @@ sub param_defaults {
       exon_region_padding => 50,
       cesar_path => '',
       canonical => 0,
+      canonical_or_longest => 0,
       max_intron_length => 200000,
       max_transcript_length => 5000000,
       #TRANSCRIPT_FILTER => {
@@ -272,7 +274,7 @@ sub run {
     }
 
     if (!$himem_required) {
-      $self->build_transcripts($projected_exons,$gene_index,$self->param('canonical'));
+      $self->build_transcripts($projected_exons,$gene_index,$self->param('canonical'),$self->param('canonical_or_longest'));
     }
     say "Had a total of ".$fail_count."/".scalar(@{$exons})." failed exon projections for gene ".$gene->dbID();
     $gene_index++;
@@ -295,7 +297,7 @@ sub write_output {
 }
 
 sub build_transcripts {
-  my ($self,$projected_exons,$gene_index,$canonical) = @_;
+  my ($self,$projected_exons,$gene_index,$canonical,$canonical_or_longest) = @_;
 
   my $analysis = Bio::EnsEMBL::Analysis->new(
                                               -logic_name => 'cesar',
@@ -310,10 +312,39 @@ sub build_transcripts {
   my @transcripts = ();  
   if ($canonical) {
     push(@transcripts,$gene->canonical_transcript());
+  } elsif ($canonical_or_longest) {
+   
+    my @all_transcripts = ();
+    foreach my $t (@{$gene->get_all_Transcripts()}) {
+      if ($t->translation()) {
+        push(@all_transcripts,$t);
+      }
+    }
+   
+    # sort transcripts by translation length
+    my @all_transcripts_sorted = sort {$b->translation()->length() <=> $a->translation()->length()} @all_transcripts;
+    
+    # give maximum priority to the canonical transcript by swapping it to the first element
+    my $t_index = 0;
+    my $num_transcripts = scalar(@all_transcripts_sorted);
+    my $canonical_t = $gene->canonical_transcript();
+    my $canonical_found = 0;
+    
+    while ($t_index < $num_transcripts and !($canonical_found)) {
+      my $curr_t = $all_transcripts_sorted[$t_index];
+      if ($curr_t eq $canonical_t) {
+        unshift @transcripts,$curr_t;
+        $canonical_found = 1;
+      } else {
+        push(@transcripts,$curr_t);
+      }
+      $t_index++;
+    }
+
   } else {
     @transcripts = @{$gene->get_all_Transcripts()};
   }
-  
+
 TRANSCRIPT: foreach my $transcript (@transcripts) {
     unless($transcript->biotype eq 'protein_coding') {
       next;
@@ -480,19 +511,21 @@ print("Projected transcript translation has a seq\n");
         if (scalar(@{$projected_transcript->get_all_supporting_features()}) > 0) {
           my $filtered_transcripts = $self->filter->filter_results([$projected_transcript]);
           if (scalar(@$filtered_transcripts) > 0) {
-            my $gene = Bio::EnsEMBL::Gene->new();
-            $gene->add_Transcript($projected_transcript);
-            $gene->analysis($analysis);
-            $self->output_genes($gene);
+            $self->output_single_transcript_gene($projected_transcript,$analysis);
+            if ($canonical_or_longest) {
+              # only one transcript per gene is projected
+              last TRANSCRIPT;
+            }
           } else {
             say "The projected transcript has been filtered out because its pid and cov are too low.";
           }
         }
       } else {
-        my $gene = Bio::EnsEMBL::Gene->new();
-        $gene->add_Transcript($projected_transcript);
-        $gene->analysis($analysis);
-        $self->output_genes($gene);
+        $self->output_single_transcript_gene($projected_transcript,$analysis,$canonical_or_longest);
+        if ($canonical_or_longest) {
+          # only one transcript per gene is projected
+          last TRANSCRIPT;
+        }
       }
     } else {
       say "The projected transcript does not translate.";
@@ -715,7 +748,7 @@ sub parse_exon {
   # >projected
   # tg------aa
   # which we are going to discard.
-  my $num_proj_seq_exonic_bases = $proj_seq =~ tr/\ACGTNYKWMSRDVHBX//;
+  my $num_proj_seq_exonic_bases = $proj_seq =~ tr/ACGTNYKWMSRDVHBX//;
 
   if (scalar(@projection_array) > 0) {
     $self->warning("Output file has more than one projection. The projection having fewer gaps will be chosen. Exon: ".$source_exon->stable_id);
@@ -1113,6 +1146,15 @@ $self->filter($self->TRANSCRIPT_FILTER->{OBJECT}->new(%{$self->TRANSCRIPT_FILTER
   else {
     return;
   }
+}
+
+sub output_single_transcript_gene {
+  my ($self,$projected_transcript,$analysis) = @_;
+
+  my $gene = Bio::EnsEMBL::Gene->new();
+  $gene->add_Transcript($projected_transcript);
+  $gene->analysis($analysis);
+  $self->output_genes($gene);
 }
 
 1;
