@@ -7,7 +7,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-     http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,7 +35,7 @@ Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadRNASeqFastqs
 
 =cut
 
-package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadRNASeqFastqs;
+package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCalculateReadLength;
 
 use warnings;
 use strict;
@@ -45,48 +45,36 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub write_output {
   my ($self) = @_;
-  my $ftp_base_url = $self->param('ftp_base_url');
   my $fastq = $self->param('iid');
   my $path = $self->param('input_dir');
-  my $srr;
+  my @output_ids;
 
-  if(-e $path.'/'.$fastq) {
-    $self->complete_early('Input file already exists, will not download');
+  if(!-e $path.'/'.$fastq) {
+    say $path.'/'.$fastq.' does not exist';
   }
 
-  if ($fastq =~ m/_/){
-    $srr = (split /_/, $fastq)[0];
-  }
-  else{
-    $srr = (split /\./, $fastq)[0];
-  }
-  my $first = substr $srr, 0, 6;
-  my $second = '00'.(substr $srr, -1, 1);
+  my $read_length_cmd="zcat $path/$fastq| awk \'{if(NR%4==2) print length(\$1)}\' | sort -n | uniq -c";
+  my @read_lengths=`$read_length_cmd`;
 
-  my $cmd = 'wget '. $ftp_base_url.'/'.$first.'/'.$second.'/'.$srr.'/'.$fastq.' -P '.$path;
-  my $cmd2 = 'wget '. $ftp_base_url.'/'.$first.'/'.$srr.'/'.$fastq.' -P '.$path;
+  my $max = 0;
+  my $read_length=0;
 
-  my $trigger = 0;
-  my @err = `$cmd 2>&1`;
-  foreach my $line (@err){
-    if ($line =~ m/No such directory/){
-      $trigger = 1;
+  foreach my $length_line (@read_lengths){
+    my @line_array = split(/ /, $length_line);
+    if ($line_array[0] > $max){
+      $max = $line_array[0];
+      $read_length = $line_array[1];
     }
   }
 
-  if ($trigger){
-    my @err2 = `$cmd2 2>&1`;
-    foreach my $line2 (@err2){
-      if ($line2 =~ m/No such directory/){
-        say "Cannot find fastq file to download";
-      }
-    }
-  }
+  say $fastq."  READ LENGTH: ".$read_length;
 
-  unless(-e $path.'/'.$fastq) {
-    $self->throw("Did not find the fastq file on the expected path. Path:\n".$path."/".$fastq);
-  }
+  my $table_adaptor = $self->db->get_NakedTableAdaptor;
+  $table_adaptor->table_name($self->param('read_length_table'));
 
+  my $insert_row = [{'fastq'         => $fastq,
+                      'read_length'  => $read_length}];
+
+  $table_adaptor->store($insert_row);
 }
-
 1;

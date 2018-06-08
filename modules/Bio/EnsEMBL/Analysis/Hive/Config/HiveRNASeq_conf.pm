@@ -88,6 +88,7 @@ sub default_options {
 
         'summary_file_delimiter' => '\t', # Use this option to change the delimiter for your summary data file
         'summary_csv_table' => 'csv_data',
+        'read_length_table' => 'read_length',
         'rnaseq_data_provider' => 'ENA', #It will be set during the pipeline or it will use this value
 
         'genome_file'  => 'genome/genome.fa', # Leave this as genome/genome.fa to automatically dump the genome
@@ -284,6 +285,11 @@ sub pipeline_create_commands {
     # inheriting database and hive tables' creation
       @{$self->SUPER::pipeline_create_commands},
       $self->db_cmd('CREATE TABLE '.$self->o('summary_csv_table')." ($tables)"),
+
+      $self->db_cmd('CREATE TABLE '.$self->o('read_length_table').' ('.
+                    'fastq varchar(50) NOT NULL,'.
+                    'read_length int(50) NOT NULL,'.
+                    'PRIMARY KEY (fastq))'),
     ];
 }
 
@@ -375,12 +381,24 @@ sub pipeline_analyses {
    },
   },
 
-		    {
+                    {
     -logic_name => 'download_RNASeq_fastqs',
     -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadRNASeqFastqs',
     -parameters =>{
       ftp_base_url => $self->o('rnaseq_ftp_base'),
       input_dir => $self->o('input_dir'),
+    },
+   -flow_into => {
+     1 => ['get_read_lengths'],
+   },
+  },
+
+		    {
+    -logic_name => 'get_read_lengths',
+    -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCalculateReadLength',
+    -parameters =>{
+      input_dir => $self->o('input_dir'),
+      read_length_table => $self->o('read_length_table'),
     },
   },
 
@@ -464,6 +482,7 @@ sub pipeline_analyses {
             delimiter => $self->o('summary_file_delimiter'),
             csvfile_table => $self->o('summary_csv_table'),
             pairing_regex => $self->o('pairing_regex'),
+            read_length_table => $self->o('read_length_table'),
         },
         -flow_into => {
             '2->A' => [ 'create_tissue_jobs'],

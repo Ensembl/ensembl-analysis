@@ -63,9 +63,28 @@ sub write_output {
                 $input_id->{is_mate_1} = 0;
             }
         }
+
+#get read_length from the read_length table
+	my $length_table_adaptor = $self->db->get_NakedTableAdaptor;
+	$length_table_adaptor->table_name($self->param('read_length_table'));
+
+	my $split_fastq = $input_id->{filename};
+	$split_fastq =~ m/([A-Z0-9]+)_.*([0-9]\.fastq\.gz)/;
+	my $fastq = $1."_".$2;
+	my $db_row = $length_table_adaptor->fetch_by_dbID($fastq);
+	my $read_length = $db_row->{read_length};
+
+	$input_id->{read_length} = $read_length;
+#finish get read_length from table
+
         foreach my $key (keys %$input_id) {
           $input_id->{$key} =~ tr /:\t/ /;
         }
+	use Data::Dumper;
+	print Dumper $input_id;
+
+        my $table_adaptor = $self->db->get_NakedTableAdaptor;
+        $table_adaptor->table_name($self->param('csvfile_table'));
         $table_adaptor->store([$input_id]);
         $keyword_hash{$input_id->{$self->param('sample_column')}} = 1;
     }
