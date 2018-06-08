@@ -674,6 +674,8 @@ sub pipeline_analyses {
                          batch_target_size => 1000000,
                          include_non_reference => 0,
                          top_level => 1,
+                         slice_size => 5000000,
+                         slice_overlaps => 2500000,
                          target_db => $self->o('rough_db'),
                        },
         -flow_into => {
