@@ -100,13 +100,15 @@ sub fetch_input {
   $counters->{'start'} = 0;
   $counters->{'offset'} = 0;
   $counters->{'start_exon'} = 0;
-  my $stable_id = $self->input_id;
 
-  unless($stable_id) {
+  unless($self->param('iid')) {
     $self->warning("Found no stable id in the input id. Completing early");
     $self->input_job->autoflow(0);
     $self->complete_early('No genes to process');
   }
+
+  my $stable_id = $self->input_id;
+
 
   # check for batch info in the input id
   if ( $self->input_id =~ /(\S+):(\d+):(\d+):(\d+)/ ) {
