@@ -90,6 +90,14 @@ sub _master_config {
                    'vert_taxon_id'     => '7742',
                    'fish_taxon_id'     => '7898',
                    'aves_taxon_id'     => '8782',
+
+# Non vert
+                   'flies_taxon_id'      => '7147',
+                   'drosophila_taxon_id' => '7227',
+                   'housefly_taxon_id'   => '7370',
+                   'pisum_taxon_id'      => '7029',
+                   'gambiae_taxon_id'    => '7165',
+                   'aegypti_taxon_id'    => '7159',
                  };
   my %config = (
     default => {},
@@ -445,6 +453,71 @@ sub _master_config {
                              pe_level  => [1,2],
                            },
              },
+
+          flies_basic => {
+              self_pe12 =>{
+                            file_name => 'self_pe12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                          },
+
+              drosophila_pe12 => {
+                              file_name => 'drosophila_pe12.fasta',
+                              taxon_id  => $taxon_ids->{' drosophila_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+
+              housefly_pe12 => {
+                              file_name  => 'housefly_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'housefly_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+
+              gambiae_pe12 => {
+                              file_name  => 'gambiae_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'gambiae_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+
+
+              aegypti_pe12 => {
+                              file_name  => 'aegypti_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'aegypti_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+
+
+              pisum_pe12 => {
+                              file_name  => 'pisum_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'pisum_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+
+
+               flies_pe12 => {
+                                 file_name  => 'flies_pe12.fasta',
+                                 taxon_id   => $taxon_ids->{'flies_taxon_id'},
+                                 exclude_id => ['#taxon_id#',$taxon_ids->{'drosophila_taxon_id'},$taxon_ids->{'housefly_taxon_id'},
+                                                $taxon_ids->{'gambiae_taxon_id'},$taxon_ids->{'aegypti_taxon_id'},$taxon_ids->{'pisum_taxon_id'}],
+                                 dest_dir   => '#output_path#',
+                                 compress   => 0,
+                                 pe_level   => [1,2],
+                               },
+
+             },
+
 
 
              selenocysteine => {

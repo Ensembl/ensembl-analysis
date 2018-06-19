@@ -120,6 +120,16 @@ sub fetch_input {
         '8' => [0, 0],
       );
       $self->param('classification', \%classification);
+    } elsif ($self->param('classification_type') eq 'fish') {
+      %classification = (
+       '1' => [95, 90],
+       '2' => [90, 80],
+       '3' => [90, 60],
+       '4' => [90, 40],
+       '5' => [80, 20],
+       '6' => [60, 20],
+       '7' => [0, 0],
+      );
     } elsif ($self->param('classification_type') eq 'gifts') {
       %classification = (
         '1' => [100,100],
@@ -193,6 +203,7 @@ sub write_output {
   my $classification = $self->param('classification');
 
   if ($self->param('classification_type') eq 'standard' or
+      $self->param('classification_type') eq 'fish' or
       $self->param('classification_type') eq 'gifts') {
     foreach my $key (sort {$b <=> $a} keys %{$classification}) {
       $sth->bind_param(1, '_'.$key);
