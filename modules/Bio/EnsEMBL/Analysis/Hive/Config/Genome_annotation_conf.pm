@@ -73,6 +73,7 @@ sub default_options {
     'skip_ncrna'                => '0', # Will skip ncrna process if 1
     'skip_cleaning'             => '0', # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
+    'use_repeatmodeler_to_mask' => '0',
     'mapping_db'                => undef, # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
     'uniprot_db_dir'            => 'uniprot_2018_04', # What UniProt data dir to use for various analyses
     'vertrna_version'           => '134', # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
@@ -81,7 +82,7 @@ sub default_options {
     'rfc_model'                 => 'filter_dafs_rfc_model_human.pkl',
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
     'mt_accession'              => undef, # This should be set to undef unless you know what you are doing
-
+    'custom_toplevel_file_path' => undef, # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
 ########################
 # Pipe and ref db info
 ########################
@@ -244,7 +245,6 @@ sub default_options {
 
     'min_toplevel_slice_length'   => 250,
 
-    'repeat_logic_names'          => ['repeatmask_repbase_'.$self->o('repbase_logic_name'),'dust'],
     'repeatmodeler_logic_name'    => 'repeatmask_repeatmodeler',
     'homology_models_path'        => catdir($self->o('output_path'),'homology_models'),
 
@@ -694,6 +694,10 @@ sub pipeline_wide_parameters {
     skip_rnaseq => $self->o('skip_rnaseq'),
     skip_ncrna => $self->o('skip_ncrna'),
     load_toplevel_only => $self->o('load_toplevel_only'),
+    repeat_logic_names => $self->default_options->{'use_repeatmodeler_to_mask'} ? ['repeatmask_repbase_'.$self->o('repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'] :
+                                                                                  ['repeatmask_repbase_'.$self->o('repbase_logic_name'),'dust'],
+
+
   }
 }
 
@@ -734,6 +738,7 @@ sub pipeline_analyses {
                          'create_type'      => 'core_only',
                        },
         -rc_name    => 'default',
+
         -flow_into  => {
                          1 => ['populate_production_tables'],
                        },
@@ -758,8 +763,10 @@ sub pipeline_analyses {
                          'production_db'    => $self->o('production_db'),
                        },
         -rc_name    => 'default',
+
         -flow_into  => {
-                         1 => WHEN ('#load_toplevel_only#' => ['process_assembly_info'],
+                         1 => WHEN ('#load_toplevel_only# == 1' => ['process_assembly_info'],
+                                    '#load_toplevel_only# == 2' => ['custom_load_toplevel'],
                               ELSE ['download_assembly_info']),
                        },
       },
@@ -791,6 +798,50 @@ sub pipeline_analyses {
           download_method => 'ftp',
         },
         -rc_name    => 'default',
+      },
+
+
+     {
+        -logic_name => 'custom_load_toplevel',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'assembly_loading', 'load_seq_region.pl').
+			              ' -dbhost '.$self->o('reference_db_server').
+                                      ' -dbuser '.$self->o('user').
+                                      ' -dbpass '.$self->o('password').
+                                      ' -dbport '.$self->o('reference_db_port').
+                                      ' -dbname '.$self->o('reference_db_name').
+                                      ' -coord_system_version '.$self->o('assembly_name').
+	                              ' -default_version'.
+                                      ' -coord_system_name primary_assembly'.
+                                      ' -rank 2'.
+                                      ' -fasta_file '. $self->o('custom_toplevel_file_path').
+                                      ' -sequence_level'.
+                                      ' -noverbose',
+                       },
+        -rc_name => '4GB',
+        -flow_into => {
+          1 => ['custom_set_toplevel'],
+        },
+      },
+
+
+     {
+        -logic_name => 'custom_set_toplevel',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'assembly_loading', 'set_toplevel.pl').
+                                      ' -dbhost '.$self->o('reference_db_server').
+                                      ' -dbuser '.$self->o('user').
+                                      ' -dbpass '.$self->o('password').
+                                      ' -dbport '.$self->o('reference_db_port').
+                                      ' -dbname '.$self->o('reference_db_name'),
+			       },
+        -rc_name => 'default',
+        -flow_into => {
+                        '1->A' => ['create_10mb_slice_ids'],
+                        'A->1' => ['genome_prep_sanity_checks'],
+                      },
       },
 
 
@@ -1291,7 +1342,7 @@ sub pipeline_analyses {
                          'output_path'          => $self->o('output_path')."/genome_dumps/",
                          'enscode_root_dir'     => $self->o('enscode_root_dir'),
                          'species_name'         => $self->o('species_name'),
-                         'repeat_logic_names'   => $self->o('repeat_logic_names'),
+                         'repeat_logic_names'   => '#repeat_logic_names#',
                        },
         -input_ids => [{}],
         -wait_for => ['run_dust'],
@@ -1772,7 +1823,7 @@ sub pipeline_analyses {
         -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRepeatCoverage',
         -parameters => {
           source_db => $self->o('reference_db'),
-          repeat_logic_names => $self->o('repeat_logic_names'),
+          repeat_logic_names => '#repeat_logic_names#',
           coord_system_version => '#assembly_name#',
           email => $self->o('email_address'),
         },
@@ -2236,7 +2287,7 @@ sub pipeline_analyses {
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_protein')},
         genome_file      => $self->o('genome_file'),
         exonerate_path   => $self->o('exonerate_path'),
-        repeat_libraries => $self->o('repeat_logic_names'),
+        repeat_libraries => '#repeat_logic_names#',
         calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
       },
       -rc_name          => 'exonerate',
@@ -2433,7 +2484,7 @@ sub pipeline_analyses {
         logic_name => $self->o('exonerate_logic_name'),
         genome_file      => $self->o('genome_file'),
         exonerate_path   => $self->o('exonerate_path'),
-        repeat_libraries => $self->o('repeat_logic_names'),
+        repeat_libraries => '#repeat_logic_names#',
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','cdna_est2genome')},
         exonerate_cdna_pid => 50,
         exonerate_cdna_cov => 50,
@@ -2459,7 +2510,7 @@ sub pipeline_analyses {
         logic_name => $self->o('exonerate_logic_name'),
         genome_file      => $self->o('genome_file'),
         exonerate_path   => $self->o('exonerate_path'),
-        repeat_libraries => $self->o('repeat_logic_names'),
+        repeat_libraries => '#repeat_logic_names#',
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','cdna_est2genome')},
         exonerate_cdna_pid => 50,
         exonerate_cdna_cov => 50,
@@ -2583,7 +2634,7 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => 1,
         exonerate_path => $self->o('exonerate_annotation'),
         annotation_file => $self->o('annotation_file'),
-        SOFT_MASKED_REPEATS => $self->o('repeat_logic_names'),
+        SOFT_MASKED_REPEATS => '#repeat_logic_names#',
       },
       -batch_size => 10,
       -flow_into => {
@@ -2607,7 +2658,7 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => 1,
         exonerate_path => $self->o('exonerate_annotation'),
         annotation_file => $self->o('annotation_file'),
-        repeat_libraries => $self->o('repeat_logic_names'),
+        repeat_libraries => '#repeat_logic_names#',
       },
       -batch_size => 10,
     },
