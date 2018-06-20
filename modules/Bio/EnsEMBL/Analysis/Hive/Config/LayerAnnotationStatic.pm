@@ -702,6 +702,9 @@ sub _master_config {
                              'fish_pe12_tr_2',
                              'fish_pe12_sp_3',
                              'fish_pe12_tr_3',
+                             'projection_1',
+                             'projection_2',
+                             'projection_3',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2'],
               DISCARD    => 0,
@@ -718,6 +721,8 @@ sub _master_config {
                              'human_pe12_tr_4',
                              'fish_pe12_sp_4',
                              'fish_pe12_tr_4',
+                             'projection_4',
+                             'projection_5',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
               DISCARD    => 0,
@@ -731,6 +736,7 @@ sub _master_config {
                              'human_pe12_tr_5',
                              'fish_pe12_sp_5',
                              'fish_pe12_tr_5',
+
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
               DISCARD    => 0,
@@ -739,6 +745,12 @@ sub _master_config {
              {
               ID         => 'LAYER6',
               BIOTYPES   => [
+                             'mammals_pe12_sp_1',
+                             'mammals_pe12_tr_1',
+                             'mammals_pe12_sp_2',
+                             'mammals_pe12_tr_2',
+                             'mammals_pe12_sp_3',
+                             'mammals_pe12_tr_3',
                              'rnaseq_merged_6',
                              'rnaseq_tissue_6',
                             ],
@@ -749,25 +761,43 @@ sub _master_config {
              {
               ID         => 'LAYER7',
               BIOTYPES   => [
-                             'human_pe12_sp_6',
-                             'human_pe12_tr_6',
-                             'fish_pe12_sp_6',
-                             'fish_pe12_tr_6',
+                             'vert_pe12_sp_1',
+                             'vert_pe12_tr_1',
+                             'vert_pe12_sp_2',
+                             'vert_pe12_tr_2',
+                             'vert_pe12_sp_3',
+                             'vert_pe12_tr_3',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
               DISCARD    => 0,
             },
 
-             {
+
+            {
               ID         => 'LAYER8',
               BIOTYPES   => [
-                             'projection_1',
-                             'projection_2',
-                             'projection_3',
-                             'projection_4',
-                             'projection_5',
+                             'mammals_pe12_sp_4',
+                             'mammals_pe12_tr_4',
+                             'mammals_pe12_sp_5',
+                             'mammals_pe12_tr_5',
+                             'vert_pe12_sp_4',
+                             'vert_pe12_tr_4',
+                             'vert_pe12_sp_5',
+                             'vert_pe12_tr_5',
+                             'human_pe12_sp_6',
+                             'human_pe12_tr_6',
+                             'fish_pe12_sp_6',
+                             'fish_pe12_tr_6',
                              'projection_6',
-                             'projection_7',
+                             'genblast_select_6',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'],
+              DISCARD    => 0,
+            },
+
+             {
+              ID         => 'LAYER9',
+              BIOTYPES   => [
                              'fish_pe12_sp_int_1',
                              'fish_pe12_tr_int_1',
                              'human_pe12_sp_int_1',
@@ -796,7 +826,7 @@ sub _master_config {
                              'human_pe12_tr_int_6',
 
                             ],
-              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7','LAYER8'],
               DISCARD    => 0,
             },
 
