@@ -3167,8 +3167,8 @@ sub set_alignment_supporting_features {
 
     for(my $k=$start_index; $k<scalar(@nucleotide_array); $k+=3) {
 
-     # Ending on a split codon, so increase the index and finish the loop
-     if($k+2 >= scalar(@nucleotide_array)) {
+      # Ending on a split codon, so increase the index and finish the loop
+      if ($k+2 >= scalar(@nucleotide_array)) {
         $codon_index++;        
         say "Skipping split codon";
 
@@ -3188,6 +3188,10 @@ sub set_alignment_supporting_features {
       # Now need to look at the alignment index for this codon. If there is a gap in the query sequence at that index
       # then the codon should be skipped. If it isn't a gap at that codon position then
       my $codon_alignment_index = find_codon_alignment_index($codon_index,$target_seq);
+      if ($codon_alignment_index == -1) {
+        say "Skipping not found codon";
+        last;
+      }
 
       my $query_char = substr($query_seq,$codon_alignment_index,1);
       my $target_char = substr($target_seq,$codon_alignment_index,1);
@@ -3332,7 +3336,8 @@ sub find_codon_alignment_index {
     $align_index = length($align_seq) - 1;
   }
   unless($align_index >= 0) {
-    throw("Did not find the alignment index for the codon");
+    #throw("Did not find the alignment index for the codon");
+    warning("Did not find the alignment index for the codon");
   }
 
   return($align_index);
