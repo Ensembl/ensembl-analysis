@@ -964,7 +964,8 @@ sub align_proteins_with_alignment {
   close ALIGN;
 
   if ($file !~ /\>.+\n(([^>]+\n)+)\>.+\n(([^>]+\n)+)/) {
-    throw("Could not parse the alignment file for the alignment sequences. Alignment file: ".$align_output_file);
+    warning("Could not parse the alignment file for the alignment sequences. Alignment file: ".$align_output_file);
+    return (undef,undef,0,0);
   }
 
   my $aligned_source_protein_seq = $1;
