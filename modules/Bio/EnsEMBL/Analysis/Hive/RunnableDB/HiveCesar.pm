@@ -218,8 +218,8 @@ sub fetch_input {
           foreach my $genomic_align ( @{$restricted_gab->get_all_non_reference_genomic_aligns() } ) {
             my $genomic_align_slice = $genomic_align->get_Slice();
             push(@{$exon_slices},$genomic_align_slice);
-            say "GAS NAME: ".$genomic_align_slice->name;
-            say "GAS SEQ: ".$genomic_align_slice->seq;
+            #say "GAS NAME: ".$genomic_align_slice->name;
+            #say "GAS SEQ: ".$genomic_align_slice->seq;
           }
         }
       }
@@ -397,21 +397,33 @@ TRANSCRIPT: foreach my $transcript (@transcripts) {
     
     # some exons could have been projected on to the same region
     # keep the longest one
+    # and sort them
+    
+    sub sort_by_start {
+      # a sort subroutine, expect $a and $b
+      if ($a->start() < $b->start()) { -1 } elsif ($a->start() > $b->start()) { 1 } else { 0 }
+    }
 
     my $no_overlap_projected_exon_set = remove_overlapping_exons($projected_exon_set);
+    my @sorted_no_overlap_projected_exon_set = sort sort_by_start @$no_overlap_projected_exon_set;
+    my @final_sorted_no_overlap_projected_exon_set = @sorted_no_overlap_projected_exon_set;
 
-    my $projected_transcript = Bio::EnsEMBL::Transcript->new(-exons => $no_overlap_projected_exon_set,
+    if ($current_projected_exons_seq_region_strand == -1) {
+      @final_sorted_no_overlap_projected_exon_set = reverse(@sorted_no_overlap_projected_exon_set);
+    }
+
+    my $projected_transcript = Bio::EnsEMBL::Transcript->new(-exons => \@final_sorted_no_overlap_projected_exon_set,
                                                              -analysis => $analysis,
                                                              -stable_id => $transcript->stable_id.".".$transcript->version,
                                                              -slice => $transcript_slice);
-    say "Transcript SID: ".$projected_transcript->stable_id;
-    say "Transcript start: ".$transcript->seq_region_start;
-    say "Transcript end: ".$transcript->seq_region_end;
-    say "Transcript exon count: ".scalar(@{$no_overlap_projected_exon_set});
+    #say "Transcript SID: ".$projected_transcript->stable_id;
+    #say "Transcript start: ".$transcript->seq_region_start;
+    #say "Transcript end: ".$transcript->seq_region_end;
+    #say "Transcript exon count: ".scalar(@{$no_overlap_projected_exon_set});
 
     # add the exon seq_edits to the transcript
     my $t_seq_edit;
-    foreach my $proj_exon (@{$no_overlap_projected_exon_set}) {
+    foreach my $proj_exon (@final_sorted_no_overlap_projected_exon_set) {
       foreach my $proj_exon_seq_edit (@{$proj_exon->{'seq_edits'}}) {
         
         # need to recalculate the start and end relative to the transcript coordinates
@@ -426,8 +438,8 @@ TRANSCRIPT: foreach my $transcript (@transcripts) {
         $projected_transcript->add_Attributes($t_seq_edit->get_Attribute());
       }
     }
-    my $start_exon = ${$no_overlap_projected_exon_set}[0];
-    my $end_exon = ${$no_overlap_projected_exon_set}[$#{$no_overlap_projected_exon_set}];
+    my $start_exon = $final_sorted_no_overlap_projected_exon_set[0];
+    my $end_exon = $final_sorted_no_overlap_projected_exon_set[$#{\@final_sorted_no_overlap_projected_exon_set}];
     my $translation = Bio::EnsEMBL::Translation->new();
     $translation->start_Exon($start_exon);
     $translation->start(1);
@@ -439,16 +451,14 @@ TRANSCRIPT: foreach my $transcript (@transcripts) {
     calculate_exon_phases($projected_transcript,$transcript->translation()->start_Exon()->phase());
 
     # Set the exon and transcript supporting features
-    if ($projected_transcript->translation()->seq()) { 
-      set_alignment_supporting_features($projected_transcript,$transcript->translation()->seq(),$projected_transcript->translation()->seq());
-    }
+    set_alignment_supporting_features($projected_transcript,$transcript->translation()->seq(),$projected_transcript->translation()->seq());
 
-    say "Transcript translation:\n".$transcript->translation()->seq();
-    say "Projected transcript translation:\n".$projected_transcript->translation()->seq();
+    #say "Transcript translation:\n".$transcript->translation()->seq();
+    #say "Projected transcript translation:\n".$projected_transcript->translation()->seq();
 
     my ($coverage,$percent_id) = (0,0);
     if ($projected_transcript->translation()->seq()) {
-print("Projected transcript translation has a seq\n");
+#print("Projected transcript translation has a seq\n");
       ($coverage,$percent_id) = align_proteins($transcript->translate()->seq(),$projected_transcript->translate()->seq());
     }
     $projected_transcript->source($coverage);
@@ -485,7 +495,8 @@ print("Projected transcript translation has a seq\n");
         eval {
           $projected_transcript_without_stops = replace_stops_with_introns($projected_transcript,1);
         };
-        if ($@ =~ /The edited transcript is shorter than allowed/) {
+        if ($@ =~ /The edited transcript is shorter than allowed/ or
+            $@ =~ /The edited transcript has a longer translation than the original/) {
           $self->warning($@);
         } elsif ($@) {
           $self->throw($@);
@@ -616,7 +627,7 @@ sub project_exon {
   # replace any base different from A,C,G,T with N
   $seq =~ tr/ykwmsrdvhbxYKWMSRDVHBX/nnnnnnnnnnnNNNNNNNNNNN/;
 
-  say "S2: ".$seq;
+  #say "S2: ".$seq;
   my $rand = int(rand(10000));
   # Note as each accession will occur in only one file, there should be no problem using the first one
   my $outfile_path = $self->param('output_path')."/cesar_".$$."_".$exon->stable_id."_".$rand.".fasta";
@@ -691,9 +702,9 @@ sub project_exon {
   $self->files_to_delete($fces_name_tmp);
   $self->files_to_delete($fces_name);
   my $projected_exon = $self->parse_exon($exon,$fces_name);
-#  while(my $file_to_delete = shift(@{$self->files_to_delete})) {
-#    system('rm '.$file_to_delete);
-#  }
+  while(my $file_to_delete = shift(@{$self->files_to_delete})) {
+    system('rm '.$file_to_delete);
+  }
 
   if ($projected_exon) {   
     my $projected_exon_seq = $projected_exon->seq()->seq();
@@ -749,8 +760,13 @@ sub parse_exon {
   # tg------aa
   # which we are going to discard.
   my $num_proj_seq_exonic_bases = $proj_seq =~ tr/ACGTNYKWMSRDVHBX//;
-
-  if (scalar(@projection_array) > 0) {
+  
+  if ($num_proj_seq_exonic_bases == 3 and
+     (($proj_seq =~ /TAA/) or ($proj_seq =~ /TAG/) or ($proj_seq =~ /TGA/))) {
+    say "The projected exon sequence does not have any actual exonic sequence except a stop. Exon skipped.";
+    return;
+  }
+  elsif (scalar(@projection_array) > 0) {
     $self->warning("Output file has more than one projection. The projection having fewer gaps will be chosen. Exon: ".$source_exon->stable_id);
 
     # there are sometimes empty results which need to be skipped
@@ -811,16 +827,16 @@ sub parse_exon {
     $strand = $strand * -1;
   }
 
-  say "FM2 EXON SLICE START: ".$start_coord;
-  say "FM2 EXON SLICE END: ".$end_coord;
+  #say "FM2 EXON SLICE START: ".$start_coord;
+  #say "FM2 EXON SLICE END: ".$end_coord;
 
   $proj_seq =~ /([atgc]*)([\-ATGCN]+)([atgc]*)/;
 
   my $proj_left_flank = $1;
   my $proj_right_flank = $3;
 
-  say "FM2 LLF: ".length($proj_left_flank);
-  say "FM2 LRF: ".length($proj_right_flank);
+  #say "FM2 LLF: ".length($proj_left_flank);
+  #say "FM2 LRF: ".length($proj_right_flank);
   if($strand == -1) {
     $start_coord += length($proj_right_flank);
   } else {
@@ -833,8 +849,8 @@ sub parse_exon {
     $end_coord -= length($proj_right_flank);
   }
 
-  say "FM2 START: ".$start_coord;
-  say "FM2 END: ".$end_coord;
+  #say "FM2 START: ".$start_coord;
+  #say "FM2 END: ".$end_coord;
 
   $proj_exon_slice_name .= join(":",($start_coord,$end_coord,$strand));
   my $slice_adaptor = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor();
@@ -966,14 +982,14 @@ sub make_alignment_mapper {
   my $mapper = Bio::EnsEMBL::Mapper->new($FROM_CS_NAME,
                                          $TO_CS_NAME);
 
-  say "FM2 ALIGN MAP: ".ref($gen_al_blocks);
+  #say "FM2 ALIGN MAP: ".ref($gen_al_blocks);
   foreach my $bl (@$gen_al_blocks) {
     foreach my $ugbl (@{$bl->get_all_ungapped_GenomicAlignBlocks}) {
       my ($from_bl) = $ugbl->reference_genomic_align;
       my ($to_bl)   = @{$ugbl->get_all_non_reference_genomic_aligns};
 
-      say "FM2 from_bl: ".$from_bl->dnafrag_start.":".$from_bl->dnafrag_end;
-      say "FM2 to_bl: ".$to_bl->dnafrag_start.":".$to_bl->dnafrag_end;
+      #say "FM2 from_bl: ".$from_bl->dnafrag_start.":".$from_bl->dnafrag_end;
+      #say "FM2 to_bl: ".$to_bl->dnafrag_start.":".$to_bl->dnafrag_end;
       $mapper->add_map_coordinates($from_bl->dnafrag->name,
                                    $from_bl->dnafrag_start,
                                    $from_bl->dnafrag_end,
@@ -1057,7 +1073,7 @@ sub remove_overlapping_exons {
 # and it will not be part of the returned array reference of exons
   my ($exons) = shift;
 
-  print("Removing overlapping projected exons... Before: ".scalar(@$exons)." exons.\n");
+  #print("Removing overlapping projected exons... Before: ".scalar(@$exons)." exons.\n");
 
   my @discarded_exon_indexes = ();
   my $exon1_index = 0;
@@ -1091,7 +1107,7 @@ EXON: foreach my $exon (@$exons) {
     $exon_index++;
   }
 
-  print("Removing overlapping projected exons... After: ".scalar(@{$no_overlap_exons})." exons.\n");
+  #print("Removing overlapping projected exons... After: ".scalar(@{$no_overlap_exons})." exons.\n");
 
   return $no_overlap_exons;
 }
