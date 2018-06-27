@@ -70,7 +70,6 @@ package Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher;
 use warnings ;
 use strict;
 use Bio::DB::RandomAccessI;
-use Bio::Seq;
 use Bio::DB::Flat::BinarySearch;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -364,13 +363,17 @@ sub get_entry_by_acc {
   }
 
   my @entries;
-  my @seqfetchers = $self->_seqfetcher;
   foreach my $seqfetcher (@{$self->_seqfetcher}) {
     eval {
      $entry = $seqfetcher->get_entry_by_id($acc);
     };
     if ( $@ ) {
-      warning("problem fetching entry for $acc\n$@\n");
+      if ($@ =~ /file was not parsed properly, record size is empty/) {
+        throw("$@");
+      }
+      else {
+        warning("problem fetching entry for $acc\n$@\n");
+      }
     }
   }
   return $entry;
