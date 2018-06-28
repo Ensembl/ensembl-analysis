@@ -108,7 +108,7 @@ sub fetch_input {
 
   if (!$self->param('classification')) {
     my %classification;
-    if ($self->param('classification_type') eq 'standard') {
+    if ($self->param('classification_type') eq 'standard_old') {
       %classification = (
         '1' => [95, 95],
         '2' => [95, 80],
@@ -120,7 +120,7 @@ sub fetch_input {
         '8' => [0, 0],
       );
       $self->param('classification', \%classification);
-    } elsif ($self->param('classification_type') eq 'fish') {
+    } elsif ($self->param('classification_type') eq 'standard') {
       %classification = (
        '1' => [95, 90],
        '2' => [90, 80],
@@ -130,6 +130,7 @@ sub fetch_input {
        '6' => [60, 20],
        '7' => [0, 0],
       );
+      $self->param('classification', \%classification);
     } elsif ($self->param('classification_type') eq 'gifts') {
       %classification = (
         '1' => [100,100],
