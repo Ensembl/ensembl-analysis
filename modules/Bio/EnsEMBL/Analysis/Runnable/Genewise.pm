@@ -388,7 +388,7 @@ sub parse_genewise_output {
       my ($exon, @sfs) = ($entry->{ex}, @{$entry->{sf}});
           
       if (@sfs) {
-        my $align = new Bio::EnsEMBL::DnaPepAlignFeature(-features => \@sfs);
+        my $align = new Bio::EnsEMBL::DnaPepAlignFeature(-features => \@sfs, -align_type => 'ensembl');
         $align->seqname($self->query->id);
         $align->score(100);
         $exon->add_supporting_features($align);    

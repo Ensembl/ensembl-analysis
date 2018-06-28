@@ -107,9 +107,16 @@ sub build_runnables {
 
   my %unfiltered_partitioned_features;
  
+  my $long_intron = 0;
   my $hseqname;
+  my $previous_end = 0;
+  my $max_intron = $self->max_intron;
   foreach my $raw_feat (@features){
     push (@{$unfiltered_partitioned_features{$raw_feat->hseqname}}, $raw_feat);
+    if ($previous_end) {
+      $long_intron = 1 if ($raw_feat->start-$previous_end > $max_intron);
+    }
+    $previous_end = $raw_feat->end;
     $hseqname = $raw_feat->hseqname;
   }
   
@@ -276,6 +283,33 @@ print "Multi-gene code has turned itself on.\nProtein sequence is $seqname\nGeno
 	$runnable_featids{$seqname}++;
       }
     
+    }
+    elsif($long_intron) {
+      my $previous_end = 0;
+      my $max_intron = $self->max_intron;
+      my @features_cluster;
+      foreach my $feature (@features) {
+        if ($previous_end) {
+          if ($feature->start-$previous_end > $max_intron) {
+            my $runnable = $self->make_object($self->genomic_sequence, \@features_cluster,
+                                                    $features_cluster[0]->start, $features_cluster[-1]->end);
+            push (@runnables, $runnable);
+            $runnable_featids{$seqname}++;
+            @features_cluster = ($feature);
+            $previous_end = $feature->end;
+            print $runnable_featids{$seqname}, ' ', $features_cluster[0]->start, ' ', $features_cluster[-1]->end, "\n";
+          }
+        }
+        $previous_end = $feature->end;
+        push(@features_cluster, $feature);
+      }
+      if (@features_cluster) {
+        my $runnable = $self->make_object($self->genomic_sequence, \@features_cluster,
+                                                $features_cluster[0]->start, $features_cluster[-1]->end);
+        push (@runnables, $runnable);
+        $runnable_featids{$seqname}++;
+            print $runnable_featids{$seqname}, ' ', $features_cluster[0]->start, ' ', $features_cluster[-1]->end, "\n";
+      }
     }else{
       # This is what we do when we dont have multiple genes
       # in our genomic fragment.  This is "Normal mode".
@@ -643,6 +677,27 @@ sub check_repeated {
   }
 
   return $self->{'_check_repeated'};
+}
+
+
+=head2 max_intron
+
+    Title   :   max_intron
+    Usage   :   $self->max_intron(1)
+    Function:   Get/Set method for max_intron
+    Returns :   0 (Off) or 1 (On)
+    Args    :   0 (Off) or 1 (On)
+
+=cut
+
+sub max_intron {
+  my( $self, $value ) = @_;
+
+  if ($value) {
+    $self->{'_max_intron'} = $value;
+  }
+
+  return $self->{'_max_intron'};
 }
 
 

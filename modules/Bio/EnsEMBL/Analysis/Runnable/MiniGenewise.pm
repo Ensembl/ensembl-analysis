@@ -59,9 +59,7 @@ Internal methods are usually preceded with a _
 package Bio::EnsEMBL::Analysis::Runnable::MiniGenewise;
 
 use warnings ;
-use vars qw(@ISA);
 use strict;
-use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::Runnable::Genewise;
 use Bio::EnsEMBL::Analysis::Tools::MiniSeq;
@@ -75,7 +73,8 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::EvidenceUtils
   qw(create_feature_from_gapped_pieces);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(Transcript_info);
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable );
+
+use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
 
 
@@ -108,8 +107,6 @@ sub new {
   throw("MiniGenewise needs a peptide sequence") unless($self->protein_sequence);
   throw("MiniGenewise needs an array of features")
     unless($self->features && scalar(@{$self->features}));
-
-  print "Dumper: ".Dumper($self->analysis());
 
   return $self;
 }
