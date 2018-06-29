@@ -296,6 +296,13 @@ GENE: foreach my $gene (@genes) {
       #CALL PSEUDOGENE IF AT LEAST 80% COVERAGE OF INTRONS BY REPEATS
       #AT LEAST 1 F/S EXON AND 1 REAL INTRON
       #TOTAL INTRON LENGTH < 5K
+      if($transcript->biotype =~ /^rnaseq/) {
+        push(@{$trans_type{'real'}},$transcript);
+        if(scalar(@{$transcript->get_all_Exons}) < $self->PS_MIN_EXONS) {
+          push(@{ $trans_type{'not_multi_exon'} },$transcript);
+        }
+        next TRANS;
+      }
 
       if (   $evidence->{'total_intron_len'} < $self->PS_MAX_INTRON_LENGTH
           && $evidence->{'frameshift_introns'} >=
