@@ -203,7 +203,7 @@ sub post_filter_genes {
   #    add extra transcripts where the difference is relatively minor. However, if the
   #    input recovery set is good then this will work well at fixing common issues with
   #    splitting genes due to layer annotation
-  $genes = $self->recover_long_models($genes);
+#  $genes = $self->recover_long_models($genes);
 
   # 2: Remove short, suspect transcripts (leaving only the best scoring one if it removes everything)
   #    This will collapse stuff down at each position in terms of 1, 2 or 3 exon models. These models
