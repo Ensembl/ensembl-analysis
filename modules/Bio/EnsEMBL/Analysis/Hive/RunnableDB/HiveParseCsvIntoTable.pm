@@ -23,6 +23,26 @@ use warnings;
 use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
 
 
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Defaults parameters for the module
+               _sample_column_size => 50, #Trying to detect using DBI otherwise it should be set to the value of the 'sample_name' column to be effective
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    _sample_column_size => 50,
+  }
+}
+
+
 =head2 write_output
 
  Arg [1]    : None
@@ -44,8 +64,18 @@ sub write_output {
     my %id_check;
     my $table_adaptor = $self->db->get_NakedTableAdaptor;
     $table_adaptor->table_name($self->param('csvfile_table'));
+    my $db_column_info = $table_adaptor->dbc->db_handle->column_info(undef, undef, $self->param('csvfile_table'), $self->param('sample_column'));
+    my $sample_column_size = $self->param('_sample_column_size');
+    if ($db_column_info) {
+      my $info = $db_column_info->fetchall_arrayref();
+      $sample_column_size = $info->[0]->[6];
+      $self->say_with_header($info->[0]->[6]);
+    }
     foreach my $input_id (@{$self->param('output_ids')}) {
         $input_id->{$self->param('sample_column')} =~ tr/ :\t/_/;
+        if (length($input_id->{$self->param('sample_column')}) > $sample_column_size) {
+          $self->throw('Sample '.$input_id->{$self->param('sample_column')}.' from '.$self->param('sample_column')." is bigger than $sample_column_size");
+        }
         if (exists $id_check{$input_id->{ID}}) {
           ++$id_check{$input_id->{ID}};
           $self->throw("You should only have one or two file with the same ID") if ($id_check{$input_id->{ID}} > 2);
@@ -80,8 +110,6 @@ sub write_output {
         foreach my $key (keys %$input_id) {
           $input_id->{$key} =~ tr /:\t/ /;
         }
-	use Data::Dumper;
-	print Dumper $input_id;
 
         my $table_adaptor = $self->db->get_NakedTableAdaptor;
         $table_adaptor->table_name($self->param('csvfile_table'));
