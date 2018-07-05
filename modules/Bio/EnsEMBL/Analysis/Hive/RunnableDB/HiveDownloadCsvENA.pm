@@ -73,9 +73,9 @@ sub fetch_input {
   $self->param_required('inputfile');
   if (-e $self->param('inputfile')) {
     $self->complete_early("'inputfile' exists so I will use that");
-  } elsif ($self->param_is_defined('study_accession')) {
+  } elsif ($self->param_is_defined('study_accession') and $self->param('study_accession')) {
     $self->_populate_query($self->param('study_accession'), 'study_accession=%s');
-  } elsif ($self->param_is_defined('taxon_id')) {
+  } elsif ($self->param_is_defined('taxon_id') and $self->param('taxon_id')) {
     $self->_populate_query($self->param('taxon_id'), 'tax_eq(%s) AND instrument_platform=ILLUMINA AND library_source=TRANSCRIPTOMIC');
   } else {
     $self->throw('"inputfile" does not exist and neither "study_accession" nor "taxon_id" were defined');
@@ -118,6 +118,7 @@ sub run {
     my $ua = LWP::UserAgent->new;
     $ua->env_proxy;
     my $url = join('&', $self->param('ena_base_url'), 'query="'.$query.'"', $self->param('files_domain'), 'fields='.$self->param('files_fields'));
+    $self->say_with_header($url);
     my $response = $ua->get($url);
     my $fastq_file = 'fastq_'.$self->param('download_method');
     if ($response->is_success) {
@@ -205,7 +206,7 @@ sub run {
                   );
                   my $dh = $ua->default_headers;
                   $ua->default_header('Content-Type' => 'application/json');
-                  my $biosd = $ua->get('http://www.ebi.ac.uk/biosamples/api/samples/'.$sample);
+                  my $biosd = $ua->get('http://www.ebi.ac.uk/biosamples/samples/'.$sample);
                   if ($biosd->is_success) {
                     $content = $biosd->decoded_content();
                     my $json = JSON::PP->new();
