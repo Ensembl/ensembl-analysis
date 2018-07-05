@@ -1074,7 +1074,7 @@ sub pipeline_analyses {
             batch_size => 50,
           },
           -flow_into => {
-            2 => ['blast_rnaseq'],
+            2 => {'blast_rnaseq' => {iid => '#iid#', logic_name => '#logic_name#'}},
           },
         },
 		    {
