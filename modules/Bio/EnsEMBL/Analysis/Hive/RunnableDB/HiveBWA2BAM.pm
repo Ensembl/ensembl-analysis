@@ -47,8 +47,29 @@ use strict;
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(send_email);
 use Bio::EnsEMBL::Analysis::Runnable::BWA2BAM;
+use File::Spec::Functions qw(catfile);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Returns the default parameters
+               _branch_to_flow_to => 1, it has to be the same branch as your accumulator and the branch the receiving job is
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    _branch_to_flow_to => 1,
+  }
+}
 
 
 =head2 fetch_input
@@ -112,7 +133,7 @@ sub fetch_input {
 =head2 write_output
 
  Arg [1]    : None
- Description: Dataflow the absolute name of the BAM file, accessible via $self->param('filename') on branch 1
+ Description: Dataflow the absolute name of the BAM file, accessible via $self->param('filename') on branch '_branch_to_flow_to'
               If the number of mapped reads and of paired reads are below the minimal, it sends an email
               but do not flow the data
  Returntype : None
@@ -125,14 +146,15 @@ sub write_output {
 
   my $output = $self->output;
   if (scalar(@$output) == 1) {
-    $self->dataflow_output_id({filename => $output->[0]}, 1);
+    $self->dataflow_output_id({filename => $output->[0]}, $self->param('_branch_to_flow_to'));
   }
   else {
-    my $text = 'The number of mapped reads is below the threshold of '.$self->param('min_mapped').': '.$output->[1];
+    my $text = 'For '.$output->[0].":\nThe number of mapped reads is below the threshold of ".$self->param('min_mapped').': '.$output->[1];
     if ($output->[2]) {
-      $text .= '\nThe number of paired reads is below the threshold of '.$self->param('min_paired').': '.$output->[2];
+      $text .= "\nThe number of paired reads is below the threshold of ".$self->param('min_paired').': '.$output->[2];
     }
-    send_email($self->param('email'), $self->param('email'), '[genebuild rnaseq pipeline] '.$output->[0]." low mapping", $text);
+    send_email($self->param('email'), $self->param('email'), '[genebuild rnaseq pipeline] '.$self->param('ID').' '.$self->param('SM').' low mapping', $text);
+    $self->warning($text);
     $self->input_job->autoflow(0);
   }
 }
