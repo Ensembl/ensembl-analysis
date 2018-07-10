@@ -80,7 +80,7 @@ sub default_options {
 #                                                                        #
 ##########################################################################
 
-    'seqfetcher_index' => 'Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher',
+    'seqfetcher_object' => 'Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher',
     'isoseq_table_name'            => 'cdna_sequences',
     'batch_size'            => '100',
     'calculate_coverage_and_pid' => 0,
@@ -93,8 +93,8 @@ sub default_options {
       -dbname => $self->o('target_db_name'),
       -host => $self->o('target_db_host'),
       -port => $self->o('target_db_port'),
-      -user => $self->o('user'),
-      -pass => $self->o('password'),
+      -user => $self->o('target_db_user'),
+      -pass => $self->o('target_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
@@ -117,11 +117,6 @@ sub pipeline_create_commands {
   # inheriting database and hive tables' creation
     @{$self->SUPER::pipeline_create_commands},
     $self->hive_data_table('refseq', $self->o('isoseq_table_name')),
-#    $self->db_cmd('CREATE TABLE '.$self->o('isoseq_table_name').' ('.
-#      'accession varchar(40) NOT NULL,'.
-#      'seq text NOT NULL,'.
-#      'biotype varchar(40) NOT NULL,'.
-#      'PRIMARY KEY (accession))'),
   ];
 }
 
@@ -187,7 +182,7 @@ sub pipeline_analyses {
     },
     {
       -logic_name => 'exonerate',
-      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
+      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveIsoseqs2Genes',
       -parameters => {
         iid_type => $self->o('index_type'),
         dna_db => $self->o('dna_db'),
@@ -200,15 +195,26 @@ sub pipeline_analyses {
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_cov_per_bestn_sub')},
       },
       -flow_into => {
-        2 => [ 'exonerate_second_run' ],
         -1 => ['exonerate_himem'],
       },
       -rc_name => 'exonerate',
       -batch_size => $self->o('exonerate_batch_size'),
     },
     {
+      -logic_name => 'split_batch',
+      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+      -parameters => {
+        iid_type => 'rechunk',
+        batch_size => 1,
+      },
+      -rc_name => 'exonerate_himem',
+      -flow_into => {
+        2 => {'exonerate_himem' => {'iid' => '#iid#', 'seqfetcher_index' => '#seqfetcher_index#'}},
+      },
+    },
+    {
       -logic_name => 'exonerate_himem',
-      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
+      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveIsoseqs2Genes',
       -parameters => {
         iid_type => $self->o('index_type'),
         dna_db => $self->o('dna_db'),
@@ -220,27 +226,7 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => $self->o('calculate_coverage_and_pid'),
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_cov_per_bestn_sub')},
       },
-      -flow_into => {
-        2 => ['exonerate_second_run'],
-      },
       -rc_name => 'exonerate_himem',
-      -can_be_empty => 1,
-    },
-    {
-      -logic_name => 'exonerate_second_run',
-      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
-      -parameters => {
-        iid_type => $self->o('index_type'),
-        dna_db => $self->o('dna_db'),
-        target_db => $self->o('target_db'),
-        logic_name => 'isoseq',
-        exonerate_cdna_cov => 90,
-        exonerate_cdna_pid => 95,
-        exonerate_bestn => 1,
-        calculate_coverage_and_pid => $self->o('calculate_coverage_and_pid'),
-        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_cov_per_bestn_loose_sub')},
-      },
-      -rc_name => 'exonerate_2',
       -can_be_empty => 1,
     },
   );
@@ -259,7 +245,7 @@ sub pipeline_wide_parameters {
     genome_file         => $self->o('genome_file'),
     exonerate_path      => $self->o('exonerate_path'),
     SOFT_MASKED_REPEATS => $self->o('repeat_masking_logic_names'),
-    SEQFETCHER_OBJECT   => $self->o('seqfetcher_index'),
+    SEQFETCHER_OBJECT   => $self->o('seqfetcher_object'),
   };
 }
 
@@ -270,7 +256,6 @@ sub resource_classes {
     'default' => { LSF => $self->lsf_resource_builder('production-rh7', 900, [$self->default_options->{'pipe_db_server'}]) },
     'exonerate' => { LSF => [$self->lsf_resource_builder('production-rh7', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_output_db_server'}, $self->default_options->{'dna_db_server'}]) , '-life_span 18000']},
     'exonerate_himem' => { LSF => [$self->lsf_resource_builder('production-rh7', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_output_db_server'}, $self->default_options->{'dna_db_server'}]) , '-life_span 18000']},
-    'exonerate_2' => { LSF => [$self->lsf_resource_builder('production-rh7', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_output_db_server'}, $self->default_options->{'dna_db_server'}]) , '-life_span 18000']},
   }
 }
 

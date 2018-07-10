@@ -116,8 +116,10 @@ sub default_options {
 ##########################################################################
 
     run_meta_analysis_capacity => 4,
-    meta_hive_capacity => 1000,
+    meta_hive_capacity => 100,
     create_type => 'clone',
+    guihive_server => 'http://guihive.ebi.ac.uk',
+    guihive_port => 8080,
 
     collapse_db => {
       -dbname => $self->o('collapse_db_name'),
@@ -166,17 +168,12 @@ sub pipeline_analyses {
 
   my @input_ids;
   my @isoseq_dbs;
-  my $guihiveserver = $self->o('guihive_server');
-  my $guihiveport = $self->o('guihive_port');
   foreach my $file (@{$self->default_options->{'input_files'}}) {
     my $dbname = $file;
     $dbname =~ s/\.\w+$//;
-    push(@isoseq_dbs, $self->create_database_hash(undef, undef, $self->o('user'), $self->o('password'), $self->o('dbowner').'_'.$dbname.'_pacbio'));
-    my $pipedb = $self->create_database_hash(undef, undef, $self->o('user'), $self->o('password'), $self->o('dbowner').'_'.$dbname.'_hive');
-    my $url = sprintf("%s://%s:%s@%s:%d/%s", $pipedb->{-driver}, $pipedb->{-user}, $pipedb->{-pass}, $pipedb->{-host}, $pipedb->{-port}, $pipedb->{-dbname});
-    $url =~ s/:/\// if ($pipedb->{-driver} eq 'sqlite');
-    my $guiurl = sprintf("<a rel='external' href='http://%s:%s/?driver=%s&username=%s&passwd=%s&host=%s&port=%d&dbname=%s>guihive</a>", $pipedb->{-driver}, $pipedb->{-user}, $pipedb->{-pass}, $pipedb->{-host}, $pipedb->{-port}, $pipedb->{-dbname});
-    push(@input_ids, [catfile($self->o('input_dir'), $file), $isoseq_dbs[-1], $pipedb, $url, $dbname]);
+    push(@isoseq_dbs, $self->create_database_hash(undef, undef, $self->o('user'), $self->o('password'), lc($self->o('dbowner').'_'.$self->o('species_name').'_'.$dbname.'_pacbio')));
+    my ($pipedb, $url, $guiurl) = $self->get_meta_db_information($dbname);
+    push(@input_ids, [$pipedb, $url, $dbname, $guiurl, catfile($self->o('input_dir'), $file), $isoseq_dbs[-1]]);
   }
 
   return [
@@ -184,7 +181,7 @@ sub pipeline_analyses {
       -logic_name => 'create_file_jobs',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -parameters => {
-        column_names => ['filename', 'target_db', 'meta_pipeline_db', 'ehive_url', 'pipeline_name', 'external_link'],
+        column_names => ['meta_pipeline_db', 'ehive_url', 'pipeline_name', 'external_link', 'filename', 'target_db'],
         inputlist => \@input_ids,
       },
       -rc_name => 'default',
@@ -211,29 +208,16 @@ sub pipeline_analyses {
       -rc_name      => 'default',
       -max_retry_count => 1,
       -flow_into => {
-        1 => ['sync_alignment_pipelines'],
-      },
-    },
-
-    {
-      -logic_name => 'sync_alignment_pipelines',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'perl '.$self->o('hive_beekeeper_script').' -url #ehive_url# -sync',
-      },
-      -rc_name      => 'default',
-      -max_retry_count => 1,
-      -flow_into => {
         1 => ['run_alignment_pipelines'],
       },
     },
 
     {
       -logic_name => 'run_alignment_pipelines',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMetaPipelineRun',
       -parameters => {
-        cmd => 'perl '.$self->o('hive_beekeeper_script').' -url #ehive_url# -loop #commandline_params#',
-        commandline_params => '-can_respecialize 1',
+        commandline_params => '-can_respecialize',
+        beekeeper_script => $self->o('hive_beekeeper_script'),
       },
       -rc_name      => 'default',
       -max_retry_count => 1,
