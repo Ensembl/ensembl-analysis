@@ -43,6 +43,8 @@ It also populates the "pdb_ens" table in the GIFTS database with similar data.
 
 -giftsdb_name   GIFTS database name.
 
+-giftsdb_schema GIFTS database schema.
+
 -giftsdb_host   GIFTS database host.
 
 -giftsdb_port   GIFTS database port.
@@ -53,7 +55,7 @@ It also populates the "pdb_ens" table in the GIFTS database with similar data.
 
 =head1 EXAMPLE USAGE
 
-standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadPDBProteinFeatures -ftp_path ftp://ftp.ebi.ac.uk/pub/databases/msd/sifts/flatfiles/tsv/pdb_chain_uniprot.tsv.gz -output_path OUTPUT_PATH -core_dbhost genebuild3 -core_dbport 4500 -core_dbname carlos_homo_sapiens_core_89_test -core_dbuser *** -core_dbpass *** -cs_version GRCh38 -giftsdb_name GIFTS_NAME -giftsdb_host GIFTS_HOST -giftsdb GIFTS_HOST -giftsdb_port GIFTS_PORT -giftsdb_user GIFTS_USER -giftsdb_pass GIFTS_PASS 
+standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadPDBProteinFeatures -ftp_path ftp://ftp.ebi.ac.uk/pub/databases/msd/sifts/flatfiles/tsv/pdb_chain_uniprot.tsv.gz -output_path OUTPUT_PATH -core_dbhost genebuild3 -core_dbport 4500 -core_dbname carlos_homo_sapiens_core_89_test -core_dbuser *** -core_dbpass *** -cs_version GRCh38 -giftsdb_name GIFTS_NAME -giftsdb_schema GIFTS_SCHEMA -giftsdb_host GIFTS_HOST -giftsdb GIFTS_HOST -giftsdb_port GIFTS_PORT -giftsdb_user GIFTS_USER -giftsdb_pass GIFTS_PASS 
 
 =cut
 
@@ -76,7 +78,7 @@ use File::Find;
 use List::Util qw(sum);
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
-use Bio::EnsEMBL::GIFTS::DB qw(get_gifts_dba get_gifts_dbc store_pdb_ens);
+use Bio::EnsEMBL::GIFTS::DB qw(get_gifts_dbc store_pdb_ens);
 
 sub param_defaults {
     return {
@@ -90,6 +92,7 @@ sub param_defaults {
       cs_version => undef,
       species => undef,
       giftsdb_name => undef,
+      giftsdb_schema => undef,
       giftsdb_host => undef,
       giftsdb_user => undef,
       giftsdb_pass => undef,
@@ -110,6 +113,7 @@ sub fetch_input {
   $self->param_required('cs_version');
   $self->param_required('species');
   $self->param_required('giftsdb_name');
+  $self->param_required('giftsdb_schema');
   $self->param_required('giftsdb_host');
   $self->param_required('giftsdb_user');
   $self->param_required('giftsdb_pass');
@@ -135,14 +139,14 @@ sub fetch_input {
                    '-dbname' => $self->param('core_dbname'),
   ) or die('Failed to connect to the core database.');
 
-  my $gifts_dba = get_gifts_dba($self->param('giftsdb_name'),
+  my $gifts_dbc = get_gifts_dbc($self->param('giftsdb_name'),
+                                $self->param('giftsdb_schema'),
                                 $self->param('giftsdb_host'),
                                 $self->param('giftsdb_user'),
                                 $self->param('giftsdb_pass'),
                                 $self->param('giftsdb_port'));
 
   $self->hrdb_set_con($core_dba,"core");
-  $self->hrdb_set_con($gifts_dba,"gifts");
 
   # download the PDB file from the FTP
   my $pdb_filepath = $self->download_pdb_file($self->param('ftp_path'),
@@ -154,7 +158,7 @@ sub fetch_input {
                                             -displayable => '1',
                                             -description => 'Protein features based on the PDB-UniProt mappings found in the EMBL-EBI PDB SIFTS data and the UniProt-ENSP mappings found in the GIFTS database.'),
     -core_dba => $self->hrdb_get_con("core"),
-    -gifts_dba => $self->hrdb_get_con("gifts"),
+    -gifts_dbc => $gifts_dbc,
     -pdb_filepath => $pdb_filepath,
     -species => $self->param('species'),
     -cs_version => $self->param('cs_version')
@@ -266,9 +270,9 @@ sub insert_pdb_ens() {
 # insert the Ensembl-PDB links into the pdb_ens table in the GIFTS database
 
   my $self = shift;
-  my ($giftsdb_name,$giftsdb_host,$giftsdb_user,$giftsdb_pass,$giftsdb_port) = @_;
+  my ($giftsdb_name,$giftsdb_schema,$giftsdb_host,$giftsdb_user,$giftsdb_pass,$giftsdb_port) = @_;
 
-  my $gifts_dbc = get_gifts_dbc($giftsdb_name,$giftsdb_host,$giftsdb_user,$giftsdb_pass,$giftsdb_port);
+  my $gifts_dbc = get_gifts_dbc($giftsdb_name,$giftsdb_schema,$giftsdb_host,$giftsdb_user,$giftsdb_pass,$giftsdb_port);
   my $core_dba = $self->hrdb_get_con("core");
   my $core_ta = $core_dba->get_TranscriptAdaptor();
   
