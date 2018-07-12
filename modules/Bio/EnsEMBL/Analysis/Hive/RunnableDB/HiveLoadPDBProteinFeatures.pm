@@ -186,6 +186,7 @@ sub write_output {
   
   # insert the Ensembl-PDB links into the pdb_ens table in the GIFTS database
   $self->insert_pdb_ens($self->param('giftsdb_name'),
+                        $self->param('giftsdb_schema'),
                         $self->param('giftsdb_host'),
                         $self->param('giftsdb_user'),
                         $self->param('giftsdb_pass'),
