@@ -82,6 +82,7 @@ use Bio::EnsEMBL::GIFTS::DB qw(get_gifts_dbc store_pdb_ens);
 
 sub param_defaults {
     return {
+      %{$self->SUPER::param_defaults},
       ftp_path => undef,
       output_path => undef,
       core_dbhost => undef,
