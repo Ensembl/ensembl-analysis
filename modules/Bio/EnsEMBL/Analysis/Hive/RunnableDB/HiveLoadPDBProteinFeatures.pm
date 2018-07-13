@@ -81,6 +81,8 @@ use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
 use Bio::EnsEMBL::GIFTS::DB qw(get_gifts_dbc store_pdb_ens);
 
 sub param_defaults {
+    my ($self) = @_;
+ 
     return {
       %{$self->SUPER::param_defaults},
       ftp_path => undef,
