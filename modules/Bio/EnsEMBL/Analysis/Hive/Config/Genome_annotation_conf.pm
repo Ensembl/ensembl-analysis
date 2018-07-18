@@ -4370,33 +4370,10 @@ sub pipeline_analyses {
                       },
         -max_retry_count => 0,
         -flow_into => {
-          '1' => ['delete_duplicate_genes'],
-        },
-     },
-
-
-
-     {
-       -logic_name => 'delete_duplicate_genes',
-       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-       -parameters => {
-                        cmd => "perl ".$self->o('remove_duplicates_script_path')
-                               ." -dbhost ".$self->o('final_geneset_db','-host')
-                               ." -dbuser ".$self->o('user')
-                               ." -dbpass ".$self->o('password')
-                               ." -dbname ".$self->o('final_geneset_db','-dbname')
-                               ." -dbport ".$self->o('final_geneset_db','-port')
-                               ." -dnadbhost ".$self->o('dna_db','-host')
-                               ." -dnadbuser ".$self->o('user_r')
-                               ." -dnadbname ".$self->o('dna_db','-dbname')
-                               ." -dnadbport ".$self->o('dna_db','-port'),
-                     },
-        -max_retry_count => 0,
-        -rc_name => 'default',
-        -flow_into => {
           1 => ['transfer_ncrnas'],
         },
      },
+
 
 
      {
@@ -4421,9 +4398,35 @@ sub pipeline_analyses {
                       },
         -rc_name => 'default',
         -flow_into => {
+          '1' => ['delete_duplicate_genes'],
+        },
+     },
+
+
+
+     {
+       -logic_name => 'delete_duplicate_genes',
+       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+       -parameters => {
+                        cmd => "perl ".$self->o('remove_duplicates_script_path')
+                               ." -dbhost ".$self->o('final_geneset_db','-host')
+                               ." -dbuser ".$self->o('user')
+                               ." -dbpass ".$self->o('password')
+                               ." -dbname ".$self->o('final_geneset_db','-dbname')
+                               ." -dbport ".$self->o('final_geneset_db','-port')
+                               ." -dnadbhost ".$self->o('dna_db','-host')
+                               ." -dnadbuser ".$self->o('user_r')
+                               ." -dnadbname ".$self->o('dna_db','-dbname')
+                               ." -dnadbport ".$self->o('dna_db','-port'),
+                     },
+        -max_retry_count => 0,
+        -rc_name => 'default',
+        -flow_into => {
                         '1' => ['final_db_sanity_checks'],
                       },
      },
+
+
 
 ############################################################################
 #

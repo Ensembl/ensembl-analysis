@@ -465,7 +465,7 @@ sub _master_config {
 
               drosophila_pe12 => {
                               file_name => 'drosophila_pe12.fasta',
-                              taxon_id  => $taxon_ids->{' drosophila_taxon_id'},
+                              taxon_id  => $taxon_ids->{'drosophila_taxon_id'},
                               dest_dir  => '#output_path#',
                               compress  => 0,
                               pe_level  => [1,2],
