@@ -50,9 +50,10 @@ sub default_options {
 ##########################################################################
         'dbowner'         => '',
         'release'         => '',
-        'base_output_dir' => '',
+        'base_dir'           => '', # base_output_dir is created with <base_dir>/<species>/<assembly_accession>
         'species'         => '', # It MUST be the scientific name so the analyses are created correctly
         'assembly_name'   => '',
+        'assembly_accession' => '',
         'email'           => '', # Add your email so you can be notified when a bam file is removed
 
         'pipeline_name'   => '',
@@ -92,6 +93,7 @@ sub default_options {
         'rnaseq_data_provider' => 'ENA', #It will be set during the pipeline or it will use this value
 
         'genome_file'  => 'genome/genome.fa', # Leave this as genome/genome.fa to automatically dump the genome
+        'base_output_dir' => catdir($self->o('species'), $self->o('assembly_accession'), 'rnaseq'),
         'input_dir'    => catdir($self->o('base_output_dir'),'input'),
         'output_dir'   => catdir($self->o('base_output_dir'),'output'),
         'merge_dir'    => catdir($self->o('base_output_dir'),'merge'),
@@ -400,37 +402,10 @@ sub pipeline_analyses {
       input_dir => $self->o('input_dir'),
       read_length_table => $self->o('read_length_table'),
     },
+   -flow_into => {
+      1 => ['split_fastq_files'],
+   },
   },
-
-		    {
-    -logic_name => 'create_rough_db',
-    -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-    -parameters => {
-                     source_db => $self->o('dna_db'),
-                     target_db => $self->o('rough_db'),
-                     create_type => $self->o('create_type'),
-                   },
-    -rc_name => '1GB',
-    -flow_into => {
-      '1->A' => ['seed_split_fastq'],
-      'A->1' => ['backup_original_csv'],
-    },
-  },
-
-
-		    {
-    -logic_name => 'seed_split_fastq',
-    -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateFastqDownloadJobs',
-    -parameters => {
-      inputfile => '#wide_rnaseq_summary_file#',
-    },
-    -flow_into => {
-      2 => {'split_fastq_files' => {'iid' => '#iid#'}},
-    },
-  },
-
-
-
 		    {
 
         -logic_name => 'split_fastq_files',
@@ -443,6 +418,20 @@ sub pipeline_analyses {
                        },
 
       },
+
+		    {
+    -logic_name => 'create_rough_db',
+    -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+    -parameters => {
+                     source_db => $self->o('dna_db'),
+                     target_db => $self->o('rough_db'),
+                     create_type => $self->o('create_type'),
+                   },
+    -rc_name => '1GB',
+    -flow_into => {
+      1 => ['backup_original_csv'],
+    },
+  },
 
 
 		    {
@@ -933,6 +922,7 @@ sub pipeline_analyses {
                          source_db => $self->o('rough_db'),
                          target_db => $self->o('refine_db'),
                          create_type => $self->o('create_type'),
+                         extra_data_tables => ['data_file'],
                        },
         -rc_name => '1GB',
         -flow_into => ['create_blast_db'],
@@ -945,6 +935,7 @@ sub pipeline_analyses {
                          source_db => $self->o('refine_db'),
                          target_db => $self->o('blast_db'),
                          create_type => $self->o('create_type'),
+                         extra_data_tables => ['data_file'],
                        },
         -rc_name => '1GB',
         -flow_into => ['create_ccode_config'],
