@@ -509,11 +509,28 @@ sub _master_config {
                flies_pe12 => {
                                  file_name  => 'flies_pe12.fasta',
                                  taxon_id   => $taxon_ids->{'flies_taxon_id'},
-                                 exclude_id => ['#taxon_id#',$taxon_ids->{'drosophila_taxon_id'},$taxon_ids->{'housefly_taxon_id'},
-                                                $taxon_ids->{'gambiae_taxon_id'},$taxon_ids->{'aegypti_taxon_id'},$taxon_ids->{'pisum_taxon_id'}],
+                                 exclude_id => [$taxon_ids->{'drosophila_taxon_id'},$taxon_ids->{'housefly_taxon_id'},
+                                                $taxon_ids->{'gambiae_taxon_id'},$taxon_ids->{'aegypti_taxon_id'}],
                                  dest_dir   => '#output_path#',
                                  compress   => 0,
                                  pe_level   => [1,2],
+                               },
+
+               hemiptera_pe12 => {
+                                    file_name  => 'hemiptera_pe12.fasta',
+                                    taxon_id   => $taxon_ids->{'flies_taxon_id'},
+                                   exclude_id => ['#taxon_id#',$taxon_ids->{'pisum_taxon_id'}],
+                                 dest_dir   => '#output_path#',
+                                 compress   => 0,
+                                 pe_level   => [1,2],
+                               },
+
+               hemiptera_pe3 => {
+                                  file_name  => 'hemiptera_pe3.fasta',
+                                  taxon_id   => $taxon_ids->{'flies_taxon_id'},
+                                  dest_dir   => '#output_path#',
+                                  compress   => 0,
+                                  pe_level   => [3],
                                },
 
              },
