@@ -147,7 +147,7 @@ sub _master_config {
                                         },
          FILTER_PARAMS => {
                            -max_exon_length => '20000',
-                           -multi_exon_min_coverage => '25',
+                           -multi_exon_min_coverage => '40',
                            -single_exon_min_coverage => '80',
                            -max_intron_length => '#max_intron_length#',
                            -min_split_coverage => 95,
@@ -196,12 +196,12 @@ sub _master_config {
          OUTPUT_DB => '#target_db#',
          OUTPUT_BIOTYPE => '#biotype#',
          EXONERATE_PARAMETERS => {
-                                  -options => '--model protein2genome --bestn 1 --maxintron 700000'
+                                  -options => '--model protein2genome --bestn 1 --maxintron #max_intron_length#'
                                  },
 
          FILTER_PARAMS => {
                            -max_exon_length => '20000',
-                           -multi_exon_min_coverage => '25',
+                           -multi_exon_min_coverage => '40',
                            -single_exon_min_coverage => '80',
                            -max_intron_length => '#max_intron_length#',
                            -min_split_coverage => 95,

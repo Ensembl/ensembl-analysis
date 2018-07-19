@@ -43,6 +43,10 @@ use warnings;
 
 use LWP::UserAgent;
 use File::Spec::Functions;
+use File::Basename qw(dirname);
+use File::Path qw(make_path);
+
+use Bio::SeqIO;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -66,7 +70,7 @@ sub param_defaults {
     ncbidb => 'nucleotide',
     filetype => 'fasta',
     filemode => 'text',
-    batch_size => 500,
+    batch_size => 5000,
     http_proxy => undef,
     _input_id_name => 'query',
   }
@@ -87,6 +91,11 @@ sub fetch_input {
 
   $self->param_required('output_file');
   my $url = $self->param('base_url').'/'.$self->param('search_url').'?db='.$self->param('ncbidb').'&term='.$self->input_id.'&usehistory=y';
+
+  if (!-d dirname($self->param('output_file')) ) {
+    print  "DEBUG:: to check" . $self->param('output_file') . "\n"; 
+    make_path(dirname($self->param('output_file')));
+  }
 
   my $ua = LWP::UserAgent->new();
   $self->param('connector', $ua);
@@ -145,23 +154,35 @@ sub run {
 
 sub write_output {
   my $self = shift;
-
   my $ua = $self->param('connector');
   my $fetch_url = $self->param('base_url').'/'.$self->param('fetch_url').'?db='.$self->param('ncbidb').'&WebEnv='.$self->param('webenv').'&query_key='.$self->param('querykey');
   my $datatype = '&retmax='.$self->param('batch_size').'&rettype='.$self->param('filetype').'&retmode='.$self->param('filemode');
-  my $response;
   open(WH, '>'.$self->param('output_file')) || $self->throw('Could not open '.$self->param('output_file'));
   for (my $start = 0; $start < $self->param('count'); $start += $self->param('batch_size')) {
-          $response = $ua->get($fetch_url.'&retstart='.$start.$datatype);
-          if ($response->is_success) {
-            print WH $response->decoded_content;
-          }
-          else {
-            $self->throw('Could not retrieve data for '.$self->input_id."\n".$response->status_line);
-          }
-
+    my $response = $ua->get($fetch_url.'&retstart='.$start.$datatype);
+    while($response->code == 502) {
+      $response = $ua->get($fetch_url.'&retstart='.$start.$datatype);
+    }
+    if ($response->is_success) {
+      print WH $response->decoded_content;
+    }
+    else {
+      $self->throw('Could not retrieve data for '.$fetch_url.'&retstart='.$start.$datatype."\n".$response->status_line);
+    }
   }
   close(WH) || $self->throw('Could not close '.$self->param('output_file'));
+
+  # check the number of sequences that you have saved: 
+  my $count = 0;
+  my $format = $self->param('filetype');
+  $format = 'genbank' if ($format eq 'gb');
+  my $parser = Bio::SeqIO->new( -format => $format, -file => $self->param('output_file'));
+  while ($parser->next_seq) {
+    ++$count;
+  }
+  if ($count!=$self->param('count')) {
+    $self->throw('Sequences in output file are ' . $count . '- while you should have: ' . $self->param('count'));
+  }
   $self->dataflow_output_id({iid => $self->param('output_file')}, $self->param('_branch_to_flow_to'));
 }
 

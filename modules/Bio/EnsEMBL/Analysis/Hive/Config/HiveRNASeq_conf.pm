@@ -360,7 +360,7 @@ sub pipeline_analyses {
      inputfile => $self->o('rnaseq_summary_file'),
    },
    -flow_into => {
-     1 => {'download_RNASeq_fastqs' => {'iid' => '#iid#'}},
+     2 => {'download_RNASeq_fastqs' => {'iid' => '#iid#'}},
    },
   },
 
@@ -530,9 +530,31 @@ sub pipeline_analyses {
                        },
         -rc_name    => '3GB_multithread',
         -flow_into => {
-            1 => [ ':////accu?filename=[]' ],
+            1 => ['create_analyses_type_job', '?accu_name=filename&accu_address=[]&accu_input_variable=alignment_bam_file' ],
             },
       },
+            {
+              -logic_name => 'create_analyses_type_job',
+              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+              -rc_name    => '1GB',
+              -parameters => {
+                inputlist => ['gene', 'daf', 'ise'],
+                column_names => ['type'],
+                species => $self->o('species'),
+              },
+              -flow_into => {
+                2 => {'create_analyses' => {analyses => [{'-logic_name' => '#species#_#sample_name#_rnaseq_#type#'}]}},
+              },
+            },
+            {
+              -logic_name => 'create_analyses',
+              -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
+              -rc_name    => '1GB',
+              -parameters => {
+                source_type => 'list',
+                target_db => $self->o('rough_db'),
+              },
+            },
             {
         -logic_name => 'merged_bam_file',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMergeBamFiles',
@@ -557,44 +579,9 @@ sub pipeline_analyses {
                        },
         -rc_name    => '3GB_multithread',
         -flow_into => {
-                        1 => ['create_analyses_type_job'],
+                        2 => ['create_header_intron'],
                       },
       },
-            {
-              -logic_name => 'create_analyses_type_job',
-              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-              -rc_name    => '1GB',
-              -parameters => {
-                inputlist => ['gene', 'daf', 'ise'],
-                column_names => ['type'],
-              },
-              -flow_into => {
-                '2->A' => [ 'create_analyses_job'],
-                'A->1' => ['create_header_intron'],
-              },
-            },
-            {
-              -logic_name => 'create_analyses_job',
-              -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-              -rc_name    => '1GB',
-              -parameters => {
-                inputquery => q/SELECT DISTINCT(CONCAT('{"-logic_name" => "#species#_', LOWER(SM), '_rnaseq_#type#"}')) FROM csv_data/,
-                column_names => ['analyses'],
-                species => $self->o('species'),
-              },
-              -flow_into => {
-                2 => [ 'create_analyses'],
-              },
-            },
-            {
-              -logic_name => 'create_analyses',
-              -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
-              -rc_name    => '1GB',
-              -parameters => {
-                source_type => 'list',
-                target_db => $self->o('rough_db'),
-              },
-            },
             {
         -logic_name => 'create_header_intron',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -935,7 +922,7 @@ sub pipeline_analyses {
                 },
                 -rc_name => '2GB_refine',
                 -flow_into => {
-                    1 => ['blast_rnaseq'],
+                    1 => ['create_gene_id_input_ids'],
                     -1 => {'refine_genes_20GB' => {iid => '#iid#', config_file => '#config_file#', logic_name => '#logic_name#'}},
                 },
           },
@@ -950,10 +937,26 @@ sub pipeline_analyses {
                 },
                 -rc_name => '20GB_refine',
                 -flow_into => {
-                    1 => ['blast_rnaseq'],
+                    1 => ['create_gene_id_input_ids'],
                 },
           },
 
+        {
+          -logic_name => 'create_gene_id_input_ids',
+          -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+          -rc_name    => '1GB',
+          -parameters => {
+            iid_type => 'feature_id',
+            coord_system_name => 'toplevel',
+            target_db => $self->o('refine_db'),
+            feature_logic_names => ['#logic_name#'],
+            feature_type => 'gene',
+            batch_size => 100,
+          },
+          -flow_into => {
+            2 => ['blast_rnaseq'],
+          },
+        },
       {
         -logic_name => 'blast_rnaseq',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
@@ -962,7 +965,7 @@ sub pipeline_analyses {
             input_db => $self->o('refine_db'),
             output_db => $self->o('blast_db'),
             dna_db => $self->o('dna_db'),
-
+            iid_type => 'object_id',
             # path to index to fetch the sequence of the blast hit to calculate % coverage
             indicate_index => $self->o('uniprotindex'),
             uniprot_index => [$self->o('uniprotdb')],

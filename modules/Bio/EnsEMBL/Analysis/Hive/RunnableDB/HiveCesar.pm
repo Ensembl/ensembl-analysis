@@ -64,6 +64,7 @@ exons to be projected.
 -cesar_path           Path to the directory containing the CESAR2.0
 binary to be run (excluding the binary filename).
 -canonical            If set to 1, then only the canonical transcript for each gene will be fetched from the source db.
+-canonical_or_longest If set to 1, then only the canonical transcript for each gene will be projected. If the projection is not done successfully, the next transcript having the longest translation will be projected until there is a successful projection.
 -TRANSCRIPT_FILTER    Hash containing the parameters required to apply
 to the projected transcript to exclude some of them. Default to
 ExonerateTranscriptFilter pid,cov 50,50 although note that the actual
@@ -105,6 +106,9 @@ sub param_defaults {
       exon_region_padding => 50,
       cesar_path => '',
       canonical => 0,
+      canonical_or_longest => 0,
+      max_intron_length => 200000,
+      max_transcript_length => 5000000,
       #TRANSCRIPT_FILTER => {
       #                       OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
       #                       PARAMETERS => {
@@ -270,7 +274,7 @@ sub run {
     }
 
     if (!$himem_required) {
-      $self->build_transcripts($projected_exons,$gene_index);
+      $self->build_transcripts($projected_exons,$gene_index,$self->param('canonical'),$self->param('canonical_or_longest'));
     }
     say "Had a total of ".$fail_count."/".scalar(@{$exons})." failed exon projections for gene ".$gene->dbID();
     $gene_index++;
@@ -293,7 +297,7 @@ sub write_output {
 }
 
 sub build_transcripts {
-  my ($self,$projected_exons,$gene_index) = @_;
+  my ($self,$projected_exons,$gene_index,$canonical,$canonical_or_longest) = @_;
 
   my $analysis = Bio::EnsEMBL::Analysis->new(
                                               -logic_name => 'cesar',
@@ -304,8 +308,44 @@ sub build_transcripts {
 
   my $gene = @{$self->parent_genes}[$gene_index];
   say "Source gene SID: ".$gene->stable_id;
-  my $transcripts = $gene->get_all_Transcripts();
-  foreach my $transcript (@{$transcripts}) {
+
+  my @transcripts = ();  
+  if ($canonical) {
+    push(@transcripts,$gene->canonical_transcript());
+  } elsif ($canonical_or_longest) {
+   
+    my @all_transcripts = ();
+    foreach my $t (@{$gene->get_all_Transcripts()}) {
+      if ($t->translation()) {
+        push(@all_transcripts,$t);
+      }
+    }
+   
+    # sort transcripts by translation length
+    my @all_transcripts_sorted = sort {$b->translation()->length() <=> $a->translation()->length()} @all_transcripts;
+    
+    # give maximum priority to the canonical transcript by swapping it to the first element
+    my $t_index = 0;
+    my $num_transcripts = scalar(@all_transcripts_sorted);
+    my $canonical_t = $gene->canonical_transcript();
+    my $canonical_found = 0;
+    
+    while ($t_index < $num_transcripts and !($canonical_found)) {
+      my $curr_t = $all_transcripts_sorted[$t_index];
+      if ($curr_t eq $canonical_t) {
+        unshift @transcripts,$curr_t;
+        $canonical_found = 1;
+      } else {
+        push(@transcripts,$curr_t);
+      }
+      $t_index++;
+    }
+
+  } else {
+    @transcripts = @{$gene->get_all_Transcripts()};
+  }
+
+TRANSCRIPT: foreach my $transcript (@transcripts) {
     unless($transcript->biotype eq 'protein_coding') {
       next;
     }
@@ -315,16 +355,21 @@ sub build_transcripts {
     my $projected_exon_set = [];
     my $current_projected_exons_seq_region_name = 0; # this is to skip the projected exons whose slice seq region name is
                                                      # different from the first projected exon slice seq region name
+    my $current_projected_exons_seq_region_strand = 0; # this is to skip the projected exons whose slice seq region strand is
+                                                       # different from the first projected exon slice seq region strand
     foreach my $exon (@{$exons}) {
       say "Checking for exon ".$exon->stable_id;
       my $projected_exon = $projected_exons->{$exon->dbID};
-      if ($projected_exon) {
+      if ($projected_exon) {     
         if (!$current_projected_exons_seq_region_name) {
           $current_projected_exons_seq_region_name = $projected_exon->seq_region_name();
         }
-        if (($projected_exon->seq_region_strand() eq $transcript->seq_region_strand()) and
+        if (!$current_projected_exons_seq_region_strand) {
+          $current_projected_exons_seq_region_strand = $projected_exon->seq_region_strand();
+        }
+        
+        if (($projected_exon->seq_region_strand() eq $current_projected_exons_seq_region_strand) and
             ($projected_exon->seq_region_name() eq $current_projected_exons_seq_region_name)) {
-
           if ($projected_exon->start() <= $projected_exon->end()) {
             push(@{$projected_exon_set},$projected_exon);
           } else {
@@ -332,7 +377,13 @@ sub build_transcripts {
           }
 
         } else {
-          print("Projected exon on a different seq region or strand: ".$projected_exon->stable_id()."\n");
+          print("Projected exon on a different seq region or strand: ".$projected_exon->stable_id().
+                " Projected exon strand: ".$projected_exon->seq_region_strand().
+                " Projected exon seq region name: ".$projected_exon->seq_region_name().
+                " Transcript seq region strand: ".$transcript->seq_region_strand().
+                " Current projected exons seq region name: ".$current_projected_exons_seq_region_name.
+                " Current projected exons seq region strand: ".$current_projected_exons_seq_region_strand.
+                "\n");
         }
       }
     }
@@ -397,6 +448,7 @@ sub build_transcripts {
 
     my ($coverage,$percent_id) = (0,0);
     if ($projected_transcript->translation()->seq()) {
+print("Projected transcript translation has a seq\n");
       ($coverage,$percent_id) = align_proteins($transcript->translate()->seq(),$projected_transcript->translate()->seq());
     }
     $projected_transcript->source($coverage);
@@ -404,31 +456,86 @@ sub build_transcripts {
     $projected_transcript->description("stable_id of source: ".$transcript->stable_id());
     #$projected_transcript->description(">orig\n".$transcript->translation()->seq()."\n>proj\n".$projected_transcript->translation()->seq());
 
-    # filter out transcripts below given pid and cov
-    if ($self->TRANSCRIPT_FILTER) {
-      if (scalar(@{$projected_transcript->get_all_supporting_features()}) > 0) {
-        $transcripts = $self->filter->filter_results([$projected_transcript]);
-        if (scalar(@$transcripts) > 0) {
-          my $gene = Bio::EnsEMBL::Gene->new();
-          $gene->add_Transcript($projected_transcript);
-          $gene->analysis($analysis);
-          $self->output_genes($gene);
-        } else {
-          say "The projected transcript has been filtered out because its pid and cov are too low.";
+    # only store transcripts which translate
+    if ($projected_transcript->translate()) {
+     
+      # only store transcripts whose length <= 5,000,000 bases
+      if (abs($projected_transcript->seq_region_end()-$projected_transcript->seq_region_start()) > $self->param('max_transcript_length')) {
+        say "The projected transcript has been filtered out because its length is greater than the maximum transcript length of ".$self->param('max_transcript_length')." bases.";
+        next TRANSCRIPT;
+      }
+      
+      # only store transcripts whose individual intron lengths <= 200,000 bases
+      foreach my $intron (@{$projected_transcript->get_all_Introns()}) {
+        if ($intron->length() > $self->param('max_intron_length')) {
+          say "The projected transcript has been filtered out because it contains an intron whose length is greater than the maximum intron length of ".$self->param('max_intron_length')." bases.";
+          next TRANSCRIPT;
+        }
+      }
+     
+      # only store transcripts with 0 or 1 stops
+      my $projected_transcript_translate_seq = $projected_transcript->translate()->seq();
+      my $num_stops = $projected_transcript_translate_seq =~ s/\*/\*/g;
+      if ($num_stops > 1) {
+        say "The projected transcript has been filtered out because its translation contains stops (".$num_stops." stops).";
+        next TRANSCRIPT;
+      } elsif ($num_stops == 1) {
+        my $projected_transcript_without_stops;
+        
+        eval {
+          $projected_transcript_without_stops = replace_stops_with_introns($projected_transcript,1);
+        };
+        if ($@ =~ /The edited transcript is shorter than allowed/) {
+          $self->warning($@);
+        } elsif ($@) {
+          $self->throw($@);
+        }
+        
+        my $projected_transcript_without_stops_translate_seq = "";
+        if ($projected_transcript_without_stops and $projected_transcript_without_stops->translate()) {
+          $projected_transcript_without_stops_translate_seq = $projected_transcript_without_stops->translate()->seq();
+        }
+        my $num_stops_without_stops = $projected_transcript_without_stops_translate_seq =~ s/\*/\*/g;
+        
+        if ($num_stops_without_stops != 0) {
+          say "The projected transcript has been filtered out because its translation contains stops after replacing 1 stop with an intron.";
+          next TRANSCRIPT;
+        } elsif ($projected_transcript_without_stops_translate_seq ne "") {
+          say "The projected transcript has been accepted after replacing 1 stop with an intron.";
+          $projected_transcript = $projected_transcript_without_stops;
+        }
+      }
+
+      # filter out transcripts below given pid and cov
+      if ($self->TRANSCRIPT_FILTER) {
+        if (scalar(@{$projected_transcript->get_all_supporting_features()}) > 0) {
+          my $filtered_transcripts = $self->filter->filter_results([$projected_transcript]);
+          if (scalar(@$filtered_transcripts) > 0) {
+            $self->output_single_transcript_gene($projected_transcript,$analysis);
+            if ($canonical_or_longest) {
+              # only one transcript per gene is projected
+              last TRANSCRIPT;
+            }
+          } else {
+            say "The projected transcript has been filtered out because its pid and cov are too low.";
+          }
+        }
+      } else {
+        $self->output_single_transcript_gene($projected_transcript,$analysis,$canonical_or_longest);
+        if ($canonical_or_longest) {
+          # only one transcript per gene is projected
+          last TRANSCRIPT;
         }
       }
     } else {
-      my $gene = Bio::EnsEMBL::Gene->new();
-      $gene->add_Transcript($projected_transcript);
-      $gene->analysis($analysis);
-      $self->output_genes($gene);
+      say "The projected transcript does not translate.";
     }
   }
 }
 
 sub project_exon {
   my ($self,$exon,$gene_index) = @_;
-  #my $exon_align_slices = $self->param('_exon_align_slices')->{$exon->dbID};
+
   my $exon_align_slices = @{$self->exon_align_slices()}[$gene_index]->{$exon->dbID};
   if (scalar(@{$exon_align_slices}) <= 0) {
     return 0;
@@ -487,18 +594,28 @@ sub project_exon {
     if ($i_step == 3) {
       my $base_2 = substr($seq,$i+1,1);
       my $base_3 = substr($seq,$i+2,1);
-       if ($base_1 eq "T" and
-           $base_2 eq "G" and
-           $base_3 eq "A" and
-           $i+$i_step < length($seq)) { # ignore the last stop codon
-         # selenocysteine stop found needs to be replaced with cysteine
-         $seq = substr($seq,0,$i)."NNN".substr($seq,$i+3);
-         $exon->{'selenocysteine'} = $i; # create new exon attribute to store the start of the selenocysteine
+        if ($base_1 eq "T" and
+            $base_2 eq "G" and
+            $base_3 eq "A" and
+            $i+$i_step < length($seq)) { # ignore the last stop codon
+          # selenocysteine stop found needs to be replaced with cysteine
+          $seq = substr($seq,0,$i)."NNN".substr($seq,$i+3);
+          $exon->{'selenocysteine'} = $i; # create new exon attribute to store the start of the selenocysteine
 
-         $self->warning("Potential selenocysteine/TGA stop codon found at position $i (including lower case flanks). Exon ".$exon->stable_id().". Sequence (including lower case flanks): $seq");
-       }
-    }
+          $self->warning("Potential selenocysteine/TGA stop codon found at position $i (including lower case flanks). Exon ".$exon->stable_id().". Sequence (including lower case flanks): $seq");
+        } elsif ( ($base_1 eq "T" and
+                   $base_2 eq "A" and
+                   ($base_3 eq "A" or $base_3 eq "G")) and
+                  $i+$i_step < length($seq) ) { # ignore the last stop codon
+          $self->warning("Stop codon TAA or TAG found in reference. Exon ".$exon->stable_id()." skipped.");
+          return (0);
+        }
+     }
   }
+  
+  # replace any base different from A,C,G,T with N
+  $seq =~ tr/ykwmsrdvhbxYKWMSRDVHBX/nnnnnnnnnnnNNNNNNNNNNN/;
+
   say "S2: ".$seq;
   my $rand = int(rand(10000));
   # Note as each accession will occur in only one file, there should be no problem using the first one
@@ -516,12 +633,18 @@ sub project_exon {
   foreach my $exon_align_slice (@{$exon_align_slices}) {
     say $exon->stable_id.": ".$exon_align_slice->name();
     say OUT ">".$exon_align_slice->name();
+    
+    my $exon_align_slice_seq = $exon_align_slice->seq();
+    
+    # replace any base different from A,C,G,T with N
+    $exon_align_slice_seq =~ tr/ykwmsrdvhbxYKWMSRDVHBX/nnnnnnnnnnnNNNNNNNNNNN/;
+    
     if($exon->strand == -1) {
-      my $temp_seq = reverse($exon_align_slice->seq());
+      my $temp_seq = reverse($exon_align_slice_seq);
       $temp_seq =~ tr/atgcATGC/tacgTACG/;
       say OUT $temp_seq;
     } else {
-      say OUT $exon_align_slice->seq();
+      say OUT $exon_align_slice_seq;
     }
   }
   close OUT;
@@ -619,13 +742,21 @@ sub parse_exon {
   my $slice_name = shift(@projection_array);
   my $proj_seq = shift(@projection_array);
 
+  # CESAR sometimes produces projected exon sequences with no actual exonic sequence like 
+  # >reference
+  # agACACATaa
+  # >projected
+  # tg------aa
+  # which we are going to discard.
+  my $num_proj_seq_exonic_bases = $proj_seq =~ tr/ACGTNYKWMSRDVHBX//;
+
   if (scalar(@projection_array) > 0) {
     $self->warning("Output file has more than one projection. The projection having fewer gaps will be chosen. Exon: ".$source_exon->stable_id);
 
     # there are sometimes empty results which need to be skipped
     chomp($source_seq);
     chomp($proj_seq);
-    while (length($source_seq) <= 0 and length($proj_seq) <= 0) {
+    while (length($source_seq) <= 0 and length($proj_seq) <= 0 and $num_proj_seq_exonic_bases <= 0) {
       $reference_exon_header = shift(@projection_array);
       $source_seq = shift(@projection_array);
       $slice_name = shift(@projection_array);
@@ -660,6 +791,9 @@ sub parse_exon {
         printf("Chosen slice name $slice_name and projected sequence:\n$proj_seq\n");
       }
     }
+  } elsif ($num_proj_seq_exonic_bases <= 0) {
+    say "The projected exon sequence does not have any actual exonic sequence. Exon skipped.";
+    return;
   }
 
   unless($slice_name =~ /^>(.+\:.+\:.+\:)(.+)\:(.+)\:(.+)$/) {
@@ -680,24 +814,23 @@ sub parse_exon {
   say "FM2 EXON SLICE START: ".$start_coord;
   say "FM2 EXON SLICE END: ".$end_coord;
 
-  $source_seq =~ /( *)([\-atgcnATGCN]+)( *)/;
+  $proj_seq =~ /([atgc]*)([\-ATGCN]+)([atgc]*)/;
 
-  my $source_left_flank = $1;
-  my $source_align = $2;
-  my $source_right_flank = $3;
+  my $proj_left_flank = $1;
+  my $proj_right_flank = $3;
 
-  say "FM2 LLF: ".length($source_left_flank);
-  say "FM2 LRF: ".length($source_right_flank);
+  say "FM2 LLF: ".length($proj_left_flank);
+  say "FM2 LRF: ".length($proj_right_flank);
   if($strand == -1) {
-    $start_coord += length($source_right_flank);
+    $start_coord += length($proj_right_flank);
   } else {
-    $start_coord += length($source_left_flank);
+    $start_coord += length($proj_left_flank);
   }
 
   if($strand == -1) {
-    $end_coord -= length($source_left_flank);
+    $end_coord -= length($proj_left_flank);
   } else {
-    $end_coord -= length($source_right_flank);
+    $end_coord -= length($proj_right_flank);
   }
 
   say "FM2 START: ".$start_coord;
@@ -726,8 +859,8 @@ sub parse_exon {
     # add a 'seq_edits' attribute to the proj_exon object
     # to store the seq edits that will be added to the transcript
     # when the transcript is built
-    my @seq_edits = make_seq_edits($source_seq,$proj_seq);
-    $proj_exon->{'seq_edits'} = \@seq_edits;
+    #my @seq_edits = make_seq_edits($source_seq,$proj_seq);
+    #$proj_exon->{'seq_edits'} = \@seq_edits;
   } else {
     say "Start is not less than or equal to end+1. Exon skipped.";
   }
@@ -738,7 +871,7 @@ sub make_seq_edits {
   # It returns an array of SeqEdit objects for the target sequence to make
   # the insertions for the alignment gaps between the source and target sequences
   # created for an alignment between two dna sequence in cesar output format ie string containing acgtACGT-.
-  # A SeqEdit object is added to the array for each substring of any number of "-".
+  # A SeqEdit object is added to the array for each substring of any number of "-" not multiple of 3.
   # Inserted bases are taken from the source sequence.
 
   my ($source_seq,$target_seq) = @_;
@@ -754,7 +887,6 @@ sub make_seq_edits {
   }
 
   while ($target_seq =~ /(\-+)/g) {
-
     $acumm_gap_length += length($1);
     my $start = pos($target_seq)+1-$acumm_gap_length-$num_lowercase_left_flank;
     my $end = $start-1;
@@ -1014,6 +1146,15 @@ $self->filter($self->TRANSCRIPT_FILTER->{OBJECT}->new(%{$self->TRANSCRIPT_FILTER
   else {
     return;
   }
+}
+
+sub output_single_transcript_gene {
+  my ($self,$projected_transcript,$analysis) = @_;
+
+  my $gene = Bio::EnsEMBL::Gene->new();
+  $gene->add_Transcript($projected_transcript);
+  $gene->analysis($analysis);
+  $self->output_genes($gene);
 }
 
 1;

@@ -118,7 +118,7 @@ sub _master_config {
 
     exonerate_protein => {
       IIDREGEXP => '(\d+):(\d+)',
-      OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1 --maxintron 50000',
+      OPTIONS   => '--model protein2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --bestn 1',
       COVERAGE_BY_ALIGNED => 0,
       QUERYTYPE           => 'protein',
     },
@@ -376,7 +376,6 @@ sub _master_config {
           -percent_id => '#exonerate_cdna_pid#',
           -best_in_genome => 1,
           -reject_processed_pseudos => 1,
-          -verbosity => 1,
         },
       },
     },

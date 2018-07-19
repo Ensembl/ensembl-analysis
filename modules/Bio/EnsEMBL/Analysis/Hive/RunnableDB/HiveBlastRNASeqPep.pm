@@ -67,6 +67,17 @@ use Data::Dumper;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveBlast');
 
 
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+#    iid_type => 'object_id',
+    iid_type => 'slice',
+    calculate_coverage_and_pid => 1,
+  }
+}
+
 =head2 fetch_input
 
  Arg [1]    : None
@@ -91,41 +102,47 @@ sub fetch_input {
   $self->hrdb_set_con($input_dba,'input_db');
   $self->hrdb_set_con($output_dba,'output_db');
 
-  my $input_sa = $input_dba->get_SliceAdaptor();
-  my $input_slice = $input_sa->fetch_by_name($self->input_id);
-  $self->query($input_slice);
+  my $genes;
+  if ($self->param('iid_type') eq 'slice') {
+    my $logicname = $self->param('logic_name');
+    my $input_sa = $input_dba->get_SliceAdaptor();
+    my $input_slice = $input_sa->fetch_by_name($self->input_id);
 
-  my $output_sa = $output_dba->get_SliceAdaptor;
-  my $output_slice = $output_sa->fetch_by_region('toplevel',$input_slice->seq_region_name);
-  unless($output_slice) {
-    $self->throw("Could not fetch an output slice from the output db. Slice name: ".$input_slice->seq_region_name);
-  } else {
-    say "Fetched output slice: ".$output_slice->name();
+    $genes = $input_slice->get_all_Genes($self->param_is_defined('logic_name') ? $self->param('logic_name') : undef);
+    if ($input_slice->start != 1) {
+      my $toplevel = $input_sa->fetch_by_region('toplevel', $input_slice->seq_region_name);
+      foreach my $gene (@$genes) {
+        print STDERR $gene->dbID, "\n";
+        $gene = $gene->transfer($toplevel);
+      }
+    }
   }
-  $self->param('toplevel_slice',$output_slice);
+  elsif ($self->param('iid_type') eq 'object_id') {
+    my $gene_adaptor = $input_dba->get_GeneAdaptor;
+    foreach my $id (@{$self->input_id}) {
+      push(@$genes, $gene_adaptor->fetch_by_dbID($id));
+    }
+  }
+  if (@$genes) {
+    print 'Found '.scalar(@$genes).' genes';
+    if ($self->param_is_defined('logic_name')) {
+      print ' of logic_name ', $self->param('logic_name'), "\n";
+    } else {
+      print "\n";
+    }
+  }
+  else {
+    $self->warning('Found no input genes for '.$self->input_id.' of type '.$self->LOGICNAME.
+                   "\nAnalysis dbID: ".$self->analysis->dbID.
+                   "\nSlice db name: ".$input_dba->dbc->dbname);
+    $self->complete_early('No genes to process');
+  }
 
   my $parser = $self->make_parser;
   my $filter;
   my %store_genes;
   if($self->BLAST_FILTER){
     $filter = $self->make_filter;
-  }
-
-  my $logicname = $self->param('logic_name');
-
-  my $genes = $input_slice->get_all_Genes($logicname);
-  unless(scalar(@$genes)) {
-    $self->warning("Found no input genes for ".$self->input_id." of type ".$self->LOGICNAME.
-                   "\nAnalysis dbID: ".$self->analysis->dbID.
-                   "\nSlice db name: ".$input_slice->adaptor->dbc->dbname);
-    $self->complete_early('No genes to process');
-  }
-
-  print "Found ".scalar(@$genes)." genes";
-  if ($logicname) {
-    print " of type ".$logicname."\n";
-  } else {
-    print "\n";
   }
 
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
@@ -146,11 +163,10 @@ sub fetch_input {
           $store_genes{$tran->dbID} = $gene;
           if ($tran->translation) {
               $tran->translation->seq;
-#              foreach my $db (split ',', ($self->analysis->db_file)) {
               foreach my $db (@{$self->param('uniprot_index')}) {
                   $self->runnable(Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep->new(
                               -transcript     => $tran,
-                              -query          => $self->query,
+                              -query          => $tran->slice,
                               -program        => $self->param('blast_program'),
                               -parser         => $parser,
                               -filter         => $filter,
@@ -214,9 +230,6 @@ sub run {
             }
         }
         $self->add_supporting_features($runnable->transcript,$runnable->output);
-#        if($self->param('calculate_coverage_and_pid')) {
-          $self->realign_results($self->output);
-#        }
     }
     return 1;
 }
@@ -234,23 +247,20 @@ sub run {
 
 sub add_supporting_features {
   my ($self,$transcript,$features) = @_;
-  my %gene_store = %{$self->genes_by_tran_id};
   my @output;
   my %feature_hash;
   my %name_hash;
   my @best;
-  my $gene = $gene_store{$transcript->dbID};
+  my $gene = $self->genes_by_tran_id->{$transcript->dbID};
    $self->throw("Gene not found using id " .$transcript->dbID ."\n")
     unless $gene;
   print "Got gene " . $gene->stable_id ."\n";
-  my $chr_slice = $self->param('toplevel_slice');
   my $transcripts = $gene->get_all_Transcripts;
   $gene->flush_Transcripts;
   foreach my $tran ( @$transcripts ) {
-    $tran = $tran->transfer($chr_slice);
     # order them by name
     foreach my $f ( @$features ) {
-      push(@{$name_hash{$f->hseqname}}, $f->transfer($chr_slice));
+      push(@{$name_hash{$f->hseqname}}, $f);
     }
     # get the lowest eval and highest score for each protein
     foreach my $name (  keys %name_hash ) {
@@ -342,23 +352,31 @@ sub add_supporting_features {
       	  push @filtered_best,$f;
 	}
       }
-      # make a transcript supporting feature
-      my $coverage = sprintf("%.3f",( $hlen / length($tran->translation->seq) ) * 100);
-
       my $tsf = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@filtered_best, -align_type => 'ensembl');
-      # hijack percent_id - not going to use it
-      $tsf->percent_id(  $coverage ) ;
       $tsf->analysis($tran->analysis);
-      print STDERR "coverage $coverage\n";
-      # calculate the hcoverage
       my $seqfetcher = Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher->new(
         -db => [$self->INDEX],
         -format => 'fasta'
       );
       my $seq = $seqfetcher->get_Seq_by_acc($tsf->hseqname);
+      $self->throw('Could not find sequence '.$tsf->hseqname.' in '.$self->INDEX) unless ($seq);
+      # make a transcript supporting feature
+      my $coverage = sprintf("%.3f",( $hlen / length($tran->translation->seq) ) * 100);
+      # calculate the hcoverage
       my $hcoverage =  sprintf("%.3f",( $hlen / length($seq->seq) ) * 100);
+      # hijack score - not going to use it
+      $tsf->score(  $coverage ) ;
       $tsf->hcoverage(  $hcoverage ) ;
-      print STDERR "hcoverage $hcoverage\n";
+      if ($self->param('calculate_coverage_and_pid')) {
+        my ($real_coverage, $percent_id) = align_proteins($seq->seq, $transcript->translation->seq);
+        $tsf->hcoverage($real_coverage);
+        $tsf->percent_id($percent_id);
+        print STDERR "coverage $real_coverage\nidentity $percent_id\n";
+      }
+      else {
+        $tsf->identity($coverage);
+      }
+      print STDERR "coverage $coverage\nhcoverage $hcoverage\n";
       $tran->add_supporting_features($tsf);
     }
     $gene->add_Transcript($tran);
@@ -388,7 +406,6 @@ sub write_output {
   my $total = 0;
   my $analysis = $self->analysis;
   foreach my $gene (@{$self->output}){
-    attach_Slice_to_Gene($gene,$self->param('toplevel_slice'));
     attach_Analysis_to_Gene($gene,$analysis);
     empty_Gene($gene);
     eval {

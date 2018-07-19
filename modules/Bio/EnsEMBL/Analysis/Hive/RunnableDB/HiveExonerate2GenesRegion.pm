@@ -204,7 +204,7 @@ sub output_query_file {
   my $table_adaptor = $self->db->get_NakedTableAdaptor();
 
   # table name here should probably be changed to something more general
-  $table_adaptor->table_name('cdna_sequences');
+  $table_adaptor->table_name($self->param('sequence_table_name'));
 
 
 #  my $output_dir = $self->param('query_seq_dir');

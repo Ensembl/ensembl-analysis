@@ -45,7 +45,7 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
  Arg [1]    : None
  Description: It returns a hashref containing the default options for HiveGeneric_conf
                 use_tokens => 0,
-                drop_databases => 0, # This should never be changed in any config file, only use it on the commandline
+                drop_databases => 0, # ONLY USE THIS PARAMETER ON THE COMMAND LINE
                 databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
                 password_r => undef,
 
@@ -58,20 +58,31 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
 
                 # Usefull if you want to use one server for all your databases, not great but ok
                 data_db_server => $self->o('host'),
+                data_db_host => $self->o('data_db_server'), # data_dbs_server will be deprecated
                 data_db_port => $self->o('port'),
                 data_db_user => $self->o('user'),
                 data_db_password => $self->o('password'),
                 data_db_driver => $self->o('hive_driver'),
+                data_db_pass => $self->o('data_db_password'), # data_dbs_password will be deprecated
 
+                dna_db_server => $self->o('host'),
+                dna_db_host => $self->o('dna_db_server'), # dna_db_server will be deprecated
+                dna_db_name => undef,
                 dna_db_port => $self->o('port'),
                 dna_db_user => $self->o('user_r'),
                 dna_db_password => $self->o('password_r'),
+                dna_db_pass => $self->o('dna_db_password'), # dna_db_password will be deprecated
                 dna_db_driver => $self->o('hive_driver'),
+                dna_db_host => $self->o('dna_db_host'),
 
-                pipe_db_name => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+                pipe_dbname => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+                pipe_db_name => $self->o('pipe_dbname'), # pipe_dbname will be deprecated
+                pipe_db_server => $self->o('host'),
+                pipe_db_host => $self->o('pipe_db_server'), # pipe_db_server will be deprecated
                 pipe_db_port => $self->o('port'),
                 pipe_db_user => $self->o('user'),
                 pipe_db_password => $self->o('password'),
+                pipe_db_pass => $self->o('pipe_db_password'), # pipe_db_password will be deprecated
                 pipe_db_driver => $self->o('hive_driver'),
               and two DB connection hash: pipeline_db and dna_db
  Returntype : Hashref
@@ -85,9 +96,8 @@ sub default_options {
         # inherit other stuff from the base class
         %{ $self->SUPER::default_options() },
 
-#        At the moment, we want to use tokens
         use_tokens => 0,
-        drop_databases => 0, # This should never be changed in any config file, only use it on the commandline
+        drop_databases => 0, # ONLY USE THIS PARAMETER ON THE COMMAND LINE
         databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
         password_r => undef,
 
@@ -99,41 +109,49 @@ sub default_options {
         binary_base => catdir($self->o('software_base_path'), 'bin'),
 
         data_db_server => $self->o('host'),
+        data_db_host => $self->o('data_db_server'),
         data_db_port => $self->o('port'),
         data_db_user => $self->o('user'),
         data_db_password => $self->o('password'),
         data_db_driver => $self->o('hive_driver'),
+        data_db_pass => $self->o('data_db_password'),
 
         dna_db_server => $self->o('host'),
+        dna_db_host => $self->o('dna_db_server'),
+        dna_db_name => undef,
         dna_db_port => $self->o('port'),
         dna_db_user => $self->o('user_r'),
         dna_db_password => $self->o('password_r'),
+        dna_db_pass => $self->o('dna_db_password'),
         dna_db_driver => $self->o('hive_driver'),
 
-        pipe_db_name => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+        pipe_dbname => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+        pipe_db_name => $self->o('pipe_dbname'),
         pipe_db_server => $self->o('host'),
+        pipe_db_host => $self->o('pipe_db_server'),
         pipe_db_port => $self->o('port'),
         pipe_db_user => $self->o('user'),
         pipe_db_password => $self->o('password'),
+        pipe_db_pass => $self->o('pipe_db_password'),
         pipe_db_driver => $self->o('hive_driver'),
 
         killlist_db_name => 'gb_kill_list',
 
         'pipeline_db' => {
             -dbname => $self->o('pipe_db_name'),
-            -host   => $self->o('pipe_db_server'),
+            -host   => $self->o('pipe_db_host'),
             -port   => $self->o('pipe_db_port'),
             -user   => $self->o('pipe_db_user'),
-            -pass   => $self->o('pipe_db_password'),
+            -pass   => $self->o('pipe_db_pass'),
             -driver => $self->o('pipe_db_driver'),
         },
 
         'dna_db' => {
             -dbname => $self->o('dna_db_name'),
-            -host   => $self->o('dna_db_server'),
+            -host   => $self->o('dna_db_host'),
             -port   => $self->o('dna_db_port'),
             -user   => $self->o('dna_db_user'),
-            -pass   => $self->o('dna_db_password'),
+            -pass   => $self->o('dna_db_pass'),
             -driver => $self->o('dna_db_driver'),
         },
     };
@@ -279,6 +297,88 @@ sub lsf_resource_builder {
       }
     }
     return $lsf_requirement.' -R"select['.join(', ', @lsf_select).'] rusage['.join(', ', @lsf_rusage).'] '.$extra_requirements.'"';
+}
+
+
+=head2 create_database_hash
+
+ Arg [1]    : String host
+ Arg [2]    : Int port
+ Arg [3]    : String user name
+ Arg [4]    : String password
+ Arg [5]    : String dbname
+ Arg [6]    : String driver
+ Description: Create a database hash based on parameters given
+              or using get_server_port_lists to randomly assign
+              the location of the database
+ Returntype : Hashref db connection details
+ Exceptions : None
+
+=cut
+
+sub create_database_hash {
+  my ($self, $host, $port, $user, $password, $dbname, $driver) = @_;
+
+  my ($server_list, $port_list) = $self->get_server_port_lists;
+  my $random = int(rand(@$server_list));
+  my %dbconn = (
+   -host => $host || $server_list->[$random],
+   -port => $port || $port_list->[$random],
+   -user => $user || $self->o('user'),
+   -pass => $password || $self->o('password'),
+   -dbname => $dbname || lc($self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe'),
+   -driver => $driver || $self->o('hive_driver'),
+ );
+ $self->warning("Your dbname has upper case character, it might cause problems, ".$dbconn{'-dbname'})
+   if ($dbconn{'-dbname'} =~ /[[:upper:]]/);
+  return \%dbconn;
+}
+
+
+=head2 get_server_port_lists
+
+ Arg [1]    : None
+ Description: Create 2 listes, one for the hosts and another for the ports
+              They have to be synchronised to be able to fetch the port of
+              a server in the port list with the index of the server in the
+              hosts list
+ Returntype : Array of two array ref
+ Exceptions : None
+
+=cut
+
+sub get_server_port_lists {
+  my ($self) = @_;
+
+  my @server_list;
+  my @port_list;
+  foreach my $i (1..7) {
+    push(@server_list, 'mysql-ens-genebuild-prod-'.$i);
+    push(@port_list, 4526+$i);
+  }
+  return \@server_list, \@port_list;
+}
+
+
+sub get_meta_db_information {
+  my ($self, $dbname, $extra_name) = @_;
+
+  if (!$extra_name) {
+    if (exists $self->default_options->{'species_name'}) {
+      $extra_name = '_'.$self->o('species_name');
+    }
+    else {
+      $extra_name = '';
+    }
+  }
+  my $guihiveserver = $self->o('guihive_server');
+  $guihiveserver = "http://$guihiveserver" unless ($guihiveserver =~ /^http/);
+  my $guihiveport = $self->o('guihive_port');
+  my $pipedb = $self->create_database_hash(undef, undef, $self->o('user'), $self->o('password'), lc($self->o('dbowner').'_'.$self->o('species_name').'_'.$dbname.'_hive'));
+  my $url = sprintf("%s://%s:%s@%s:%d/%s", $pipedb->{'-driver'}, $pipedb->{'-user'}, $pipedb->{'-pass'}, $pipedb->{'-host'}, $pipedb->{'-port'}, $pipedb->{'-dbname'});
+  $url =~ s/:/\// if ($pipedb->{-driver} eq 'sqlite');
+  my $guiurl = sprintf("<a target='_blank' href='%s:%s/?driver=%s&username=%s&passwd=%s&host=%s&port=%d&dbname=%s'>guihive</a>", $guihiveserver, $guihiveport, $pipedb->{'-driver'}, $pipedb->{'-user'}, $pipedb->{'-pass'}, $pipedb->{'-host'}, $pipedb->{'-port'}, $pipedb->{'-dbname'});
+  return $pipedb, $url, $guiurl;
 }
 
 1;

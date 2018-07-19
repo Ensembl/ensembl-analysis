@@ -185,16 +185,16 @@ sub run {
   my $flagstat_results = $samtools->flagstat($sorted_bam.'.bam', 1);
   $self->throw('Got '.$flagstat_results->[0]." reads in flagstat rather than $total_reads in fastq - something went wrong\n")
     unless ($flagstat_results->[0] == $total_reads);
-  if (($self->min_mapped > $flagstat_results->[1]) or ($fastqpair and $self->min_paired > $flagstat_results->[2])) {
+  my @output = ($sorted_bam.'.bam');
+  if (($fastqpair and $self->min_paired > $flagstat_results->[2] and $self->min_mapped > $flagstat_results->[1])
+     or (!$fastqpair and $self->min_mapped > $flagstat_results->[1])) {
     warning("Mappings for $sorted_bam.bam is bad:\n".
             'Min mapped '.$self->min_mapped.': '.$flagstat_results->[1]."\n".
             'Min paired '.$self->min_paired.': '.$flagstat_results->[2]."\n"
             );
-    $self->output([$sorted_bam.'.bam', $flagstat_results->[1], $flagstat_results->[2]]);
+    push(@output, $flagstat_results->[1], $flagstat_results->[2]);
   }
-  else {
-    $self->output([$sorted_bam.'.bam']);
-  }
+  $self->output(\@output);
 
   #if the BAM file has been sorted and indexed OK delete the original BAM file that was generated
   $self->files_to_delete("$outdir/$outfile"."_unsorted.bam");

@@ -32,7 +32,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-    base_url => '"http://www.uniprot.org/uniprot/?query=',
+    base_url => 'http://www.uniprot.org/uniprot/?query=',
     format => 'fasta',
   }
 }
@@ -44,7 +44,6 @@ sub fetch_input {
     my $url = $self->param('query_url');
     if ($url !~ /http|ftp/) {
       $url = $self->param('base_url').$url;
-      #$url .= '"' unless ($url =~ /"$/);
     }
     my $filename = $self->param_required('file_name');
     if (!file_name_is_absolute($filename)) {
@@ -225,7 +224,7 @@ sub build_query {
   }
 
   $compress .= '&include=yes' if (exists $query_params->{isoforms} and $query_params->{isoforms});
-  $full_query .= $pe_string.$taxonomy_string.$exclude_string.$fragment_string.$mito.'&compress='.$compress.'&format='.$format.'"';
+  $full_query .= $pe_string.$taxonomy_string.$exclude_string.$fragment_string.$mito.'&compress='.$compress.'&format='.$format;
   if (!-d $query_params->{dest_dir}) {
     make_path($query_params->{dest_dir});
   }

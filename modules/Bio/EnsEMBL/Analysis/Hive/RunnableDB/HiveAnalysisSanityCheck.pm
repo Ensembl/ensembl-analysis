@@ -26,7 +26,7 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my $self = shift;
 
-  if($self->param('skip_check')) {
+  if(1) {
     $self->complete_early('Skip check flag is enabled, so no check will be carried out');
   }
   $self->param_required('sanity_check_type');
@@ -81,8 +81,8 @@ sub post_genome_preparation {
                            'protein align' => $genome_prep_dba->get_ProteinAlignFeatureAdaptor(),
                          };
 
-  my $feature_counts = {};
   my $previous_feature_type = "";
+  my $error_string = '';
   foreach my $logic_name (sort {$logic_names->{$a}->[1] cmp $logic_names->{$b}->[1]} keys %{$logic_names}) {
     my ($min_count,$feature_type) = @{$logic_names->{$logic_name}};
     if($feature_type ne $previous_feature_type) {
@@ -92,8 +92,11 @@ sub post_genome_preparation {
     my $observed_count = $self->count_features($logic_name,$feature_adaptors->{$feature_type});
     say "Count for ".$logic_name.": ".$observed_count;
     unless($observed_count >= $min_count) {
-      $self->throw("Observed value was too low for ".$logic_name.", min allowed: ".$min_count.", observed: ".$observed_count);
+      $error_string .= "Observed value was too low for $logic_name, min allowed: $min_count, observed: $observed_count\n";
     }
+  }
+  if ($error_string) {
+    $self->throw($error_string);
   }
 }
 
@@ -117,7 +120,6 @@ sub gene_db_checks {
 
   # Count all the biotypes once, since there's no biotype constraint for transcript adaptors
   my $observed_biotype_counts = {};
-  
   foreach my $transcript (@{$transcripts}) {
     my $biotype = $transcript->biotype;
     if($observed_biotype_counts->{$biotype}) {
@@ -142,11 +144,12 @@ sub gene_db_checks {
   foreach my $gene (@{$genes}) {
       my $logic_name = $gene->analysis->logic_name;
       if($observed_logic_name_counts->{$logic_name}) {
-	  $observed_logic_name_counts->{$logic_name}++;
+          $observed_logic_name_counts->{$logic_name}++;
       } else {
-	  $observed_logic_name_counts->{$logic_name} = 1;
+          $observed_logic_name_counts->{$logic_name} = 1;
       }
-  }
+   }
+
   say "Checking logic names:";
   foreach my $logic_name (keys(%{$logic_names})) {
 
@@ -216,3 +219,4 @@ sub count_features {
 }
 
 1;
+

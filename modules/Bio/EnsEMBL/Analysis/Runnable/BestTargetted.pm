@@ -87,13 +87,13 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(clone_Transcript identical_Transcripts);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(align_proteins);
 
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning info );
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use vars qw(@ISA);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
+use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
 
 
@@ -103,7 +103,7 @@ sub new {
   my $self = $class->SUPER::new(@args);
 
     
-  my( $biotypes, $seqfetcher, $verbose, $genes, $keep_single_analysis, $cluster_on_coding_exons ) = 
+  my( $biotypes, $seqfetcher, $verbose, $genes, $keep_single_analysis, $cluster_on_coding_exons, $min_identity, $min_coverage ) =
       rearrange([qw(
                      BIOTYPES 
                      SEQFETCHER
@@ -111,6 +111,8 @@ sub new {
                      GENES
                      KEEP_SINGLE_ANALYSIS
                      CLUSTER_ON_CODING_EXONS
+                     MIN_IDENTITY
+                     MIN_COVERAGE
                     )], @args);
 
   $self->seqfetcher($seqfetcher) if defined $seqfetcher;
@@ -119,6 +121,8 @@ sub new {
   $self->all_genes($genes) if defined $genes;
   $self->keep_single_analysis($keep_single_analysis) if defined $keep_single_analysis;
   $self->cluster_on_coding_exons($cluster_on_coding_exons) if defined $cluster_on_coding_exons;
+  $self->min_coverage($min_coverage || 0);
+  $self->min_identity($min_identity || 0);
 
   return $self ; 
 }
@@ -888,16 +892,25 @@ sub check_gene {
 
       # print "index name ".$self->seqfetcher->index_name."\n"; # prints /lustre/work1/ensembl/ba1/cow4/Seq/BestTargetted_proteome_final/proteome.fa
        
+
+      # check for a translation
+      if (!defined($transcript->translation)) {
+        print STDERR "Transcript with dbID ".$transcript->dbID." does not translate.\n";
+        $pass_checks = 0;
+      }
+      else {
+        my ($original_seq) = $entry_obj1 =~ /^>\S+.*\n(\w+)/;
+        my ($coverage, $identity) = align_proteins($original_seq, $transcript->translation->seq);
+        warning("$coverage $identity");
+        if ($coverage < $self->min_coverage and $identity < $self->min_identity) {
+          print STDERR "Transcript with dbID ".$transcript->dbID." has low coverage $coverage and identity $identity\n";
+          $pass_checks = 0;
+        }
+      }
     } else {
       print STDERR "Transcript with dbID ".$transcript->dbID.
            " has ".scalar(@tsfs)." tsfs. ".
            "Should only have one transcript_supporting_feature\n";
-      $pass_checks = 0;
-    }
-
-    # check for a translation
-    if (!defined($transcript->translation)) {
-      print STDERR "Transcript with dbID ".$transcript->dbID." does not translate.\n";
       $pass_checks = 0;
     }
   }
@@ -1079,6 +1092,26 @@ sub cluster_on_coding_exons {
   }
 
   return $self->{_bt_cluster_on_coding_exons};
+}
+
+sub min_coverage {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_bt_min_coverage} = $val;
+  }
+
+  return $self->{_bt_min_coverage};
+}
+
+sub min_identity {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_bt_min_identity} = $val;
+  }
+
+  return $self->{_bt_min_identity};
 }
 
 ##########################################

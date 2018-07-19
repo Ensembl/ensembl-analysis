@@ -59,7 +59,7 @@ use warnings;
 
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(empty_Object);
-
+use Bio::EnsEMBL::Hive::Utils qw(destringify);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -127,6 +127,9 @@ sub fetch_input {
     }
   }
   elsif ($source eq 'list') {
+   if (ref($analysis_data) ne "ARRAY"){
+      $analysis_data = [destringify ($analysis_data)];
+   }
     if (@$analysis_data) {
       foreach my $analysis_hash (@$analysis_data) {
         $self->throw("'$analysis_hash' is not a hashref") unless (ref($analysis_hash) eq 'HASH');
@@ -165,6 +168,7 @@ sub run {
 
   if ($self->param_is_defined('analysis_data')) {
     my @analyses;
+
     foreach my $hash (@{$self->param('analysis_data')}) {
       push(@analyses, Bio::EnsEMBL::Analysis->new(%$hash));
     }

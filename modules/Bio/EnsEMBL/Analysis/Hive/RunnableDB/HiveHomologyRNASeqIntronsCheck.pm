@@ -84,7 +84,7 @@ sub fetch_input {
     $genes = $slice->get_all_Genes(undef, undef, 1);
   }
   $self->hrdb_set_con($self->get_database_by_name('intron_db', $dna_db), 'intron_db');
-  print STDERR 'Fetched ', scalar(@$genes), "\n";
+  $self->say_with_header('Fetched '.scalar(@$genes));
   $self->output($genes);
 }
 
@@ -121,12 +121,12 @@ sub run {
         }
       }
       if ($intron_count == $good_intron_count) {
-        print STDERR 'Gene ', $gene->display_id, " updated\n";
-        $gene->biotype($transcript->biotype.'_'.$full_support_suffix);
+        $self->say_with_header('Gene '.$gene->display_id.' updated');
+        $gene->biotype($gene->biotype.'_'.$full_support_suffix);
         $transcript->biotype($transcript->biotype.'_'.$full_support_suffix);
       }
       else {
-        print STDERR 'Gene ', $gene->display_id, ' not fully supported', "\n";
+        $self->say_with_header('Gene '.$gene->display_id.' not fully supported');
       }
     }
   }

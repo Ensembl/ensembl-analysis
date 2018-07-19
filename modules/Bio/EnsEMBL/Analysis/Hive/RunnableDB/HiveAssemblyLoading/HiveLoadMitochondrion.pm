@@ -42,7 +42,7 @@ sub fetch_input {
     my $cs_adaptor = $target_db->get_CoordSystemAdaptor;
     my $cs_rank1 = $cs_adaptor->fetch_by_rank(1);
     if ($cs_rank1->name eq 'primary_assembly' or $cs_rank1->name eq 'chromosome') {
-      $self->param('chromosomes_present', 1);
+      $self->param('chromosomes_present', $cs_rank1->name);
     }
   }
 
@@ -99,11 +99,11 @@ sub run {
     $self->throw("Could not fine species accession in the index file")
       unless ($mt_accession);
   }
-  my $toplevel;
+  my $toplevel = 'chromosome';
   my $chromosome_flag = "";
   my $scaffold_flag = "";
   if($self->param('chromosomes_present')) {
-    $toplevel = "primary_assembly";
+    $toplevel = 'primary_assembly' if ($self->param('chromosomes_present') eq 'primary_assembly');
     $chromosome_flag = " -chromosome  MT";
     $scaffold_flag = " -scaffold ".$mt_accession;
   } else {

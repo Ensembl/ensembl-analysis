@@ -177,7 +177,10 @@ sub run {
   my $self = shift;
 
   foreach my $cmd (@{$self->param('commands')}) {
-    $self->run_system_command($cmd);
+    print STDERR $cmd, "\n" if ($self->debug);
+    if ($self->run_system_command($cmd)) {
+      $self->throw("Could not execute '$cmd'");
+    }
   }
 }
 
@@ -217,7 +220,7 @@ sub clone_database {
 
   my $do_lock = $self->param('_lock_tables');
   my $vital_tables = $self->param('vital_tables');
-  my ($source_dbhost, $source_dbport, $source_dbname, $source_dbuser, $source_dbpass) = $self->db_connection_details($source_db);
+  my ($source_dbhost, $source_dbport, $source_dbname, $source_dbuser, $source_dbpass) = $self->db_connection_details($source_db, 1);
   my ($target_dbhost, $target_dbport, $target_dbname, $target_dbuser, $target_dbpass) = $self->db_connection_details($target_db);
   my $base_source_cmd = "mysqldump --lock-tables=$do_lock -h $source_dbhost -P $source_dbport -u $source_dbuser";
   $base_source_cmd .= ' -p'.$source_dbpass if ($source_dbpass);
@@ -227,6 +230,7 @@ sub clone_database {
     "$base_source_cmd --no-data $source_dbname | $base_target_cmd",
     join(' ', $base_source_cmd, $source_dbname, @$vital_tables, '|',$base_target_cmd),
   );
+
   return \@commands;
 }
 
@@ -250,7 +254,7 @@ sub dump_database {
 
   my ($self, $db, $db_file, $ignore_dna, $compress, $tables) = @_;
 
-  my ($dbhost, $dbport, $dbname, $dbuser, $dbpass) = $self->db_connection_details($db);
+  my ($dbhost, $dbport, $dbname, $dbuser, $dbpass) = $self->db_connection_details($db, 1);
 
   my $command = "mysqldump -h$dbhost -P$dbport -u$dbuser ";
   if ($dbpass) { # dbpass for read access can be optional
@@ -423,8 +427,8 @@ sub db_connection_details {
   if ($read_only) {
     if ($self->param_is_defined('user_r')) {
       $dbuser = $self->param('user_r');
+      $dbpass = undef;
     }
-    $dbpass = undef;
     if ($self->param_is_defined('pass_r')) {
       $dbpass = $self->param('pass_r');
     }

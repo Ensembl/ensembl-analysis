@@ -252,6 +252,17 @@ sub input_id {
 }
 
 
+sub input_id_array {
+  my ($self) = @_;
+
+  if (ref($self->input_id) eq 'ARRAY') {
+    return $self->input_id;
+  }
+  else {
+    return [$self->input_id];
+  }
+}
+
 =head2 hrdb_set_con
 
  Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor

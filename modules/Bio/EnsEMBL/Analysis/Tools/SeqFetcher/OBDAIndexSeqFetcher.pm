@@ -107,7 +107,7 @@ sub new {
 
     # the db_name is the last name in the path
     my $db_name = pop( @path );
-    if ( $db_name =~/(\S+)\.fa/){
+    if ( $db_name =~/(\S+)\.fa[a-z]*$/){
       $db_name = $1;
     }
 
@@ -145,7 +145,7 @@ sub _seqfetcher{
   if ( $fetcher ){
     push( @{ $self->{'_seqfetcher'} }, $fetcher);
   }
-  return @{ $self->{'_seqfetcher'} };
+  return $self->{'_seqfetcher'};
 }
 
 
@@ -192,9 +192,8 @@ sub get_Seq_by_acc {
   }
 
   my $seq;
-  my @seqfetchers = $self->_seqfetcher;
   my $have_secondary;
-  foreach my $seqfetcher (@seqfetchers){
+  foreach my $seqfetcher (@{$self->_seqfetcher}){
     $have_secondary = 1 if($seqfetcher->secondary_namespaces);
     eval{
       # note that this only works for OBDAIndex.pm
@@ -217,7 +216,7 @@ sub get_Seq_by_acc {
     warning("OBDAIndexSeqFetcher: could not find sequence for primary key $acc in index ".$self->index_name." $f:$l\n") if(!$have_secondary);
 
   FETCHER:
-    foreach my $seqfetcher ( $self->_seqfetcher ){
+    foreach my $seqfetcher (@{$self->_seqfetcher}){
 
       my @secondary_namespaces = $seqfetcher->secondary_namespaces;
       foreach my $name ( @secondary_namespaces ){
@@ -290,9 +289,8 @@ sub get_Seq_by_secondary {
   }
 
   my @seqs;
-  my @seqfetchers = $self->_seqfetcher;
 
-  foreach my $seqfetcher (@seqfetchers){
+  foreach my $seqfetcher (@{$self->_seqfetcher}){
 
     eval{
       # this returns potentially an array of Bio::Seq
@@ -341,10 +339,9 @@ sub index_name{
 sub secondary_namespaces {
   my ($self) = @_;
 
-  my @seqfetchers = $self->_seqfetcher;
   my @secondary_namespaces = undef;
 
-  foreach my $seqfetcher (@seqfetchers) {
+  foreach my $seqfetcher (@{$self->_seqfetcher}) {
     if ($seqfetcher->secondary_namespaces) {
       push @secondary_namespaces, $seqfetcher->secondary_namespaces;
     }
@@ -368,7 +365,7 @@ sub get_entry_by_acc {
 
   my @entries;
   my @seqfetchers = $self->_seqfetcher;
-  foreach my $seqfetcher (@seqfetchers) {
+  foreach my $seqfetcher (@{$self->_seqfetcher}) {
     eval {
      $entry = $seqfetcher->get_entry_by_id($acc);
     };

@@ -175,7 +175,7 @@ sub load_seq_regions {
     $self->throw("Could not locate contigs file. Expected to find here:\n".$contigs_file_path);
   }
 
-  my $base_cmd = 'perl '.catfile($enscode_dir, 'ensembl-assembly', 'scripts', 'assembly_loading', 'load_seq_region.pl').
+  my $base_cmd = 'perl '.catfile($enscode_dir, 'ensembl-analysis', 'scripts', 'assembly_loading', 'load_seq_region.pl').
             ' -dbhost '.$dbhost.
             ' -dbuser '.$dbuser.
             ' -dbpass '.$dbpass.

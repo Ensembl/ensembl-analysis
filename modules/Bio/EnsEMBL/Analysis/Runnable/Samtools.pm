@@ -233,10 +233,10 @@ sub flagstat {
       if ($stat and /^\s*(\d+).*in total/) {
           $output[0] = $1;
       }
-      elsif ($stat and /^\s*(\d+).*mapped\s+\(/) {
+      elsif ($stat and /^\s*\d+.*mapped\s+\(\s*([0-9\.]+)\s*%/) {
           $output[1] = $1;
       }
-      elsif ($stat and /\s*(\d+).*properly paired \(/) {
+      elsif ($stat and /\s*\d+.*properly paired \(\s*([0-9\.]+)\s*%/) {
           $output[2] = $1;
       }
       else {

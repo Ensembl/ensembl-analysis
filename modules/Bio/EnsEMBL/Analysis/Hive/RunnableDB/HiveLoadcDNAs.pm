@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+#Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +20,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadcDNAs;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::IO::Parser::Fasta;
+use Bio::SeqIO;
 use Bio::EnsEMBL::Analysis::Tools::PolyAClipping qw(clip_if_necessary);
 
 use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
@@ -32,6 +33,8 @@ sub param_defaults {
     sequence_biotype => 'cdna',
     column_names => ['iid'],
     sequence_table_name => 'cdna_sequences',
+    iid_type  => 'db_seq',
+    format => 'fasta',
   }
 }
 
@@ -40,34 +43,46 @@ sub fetch_input {
   my $self = shift;
 
   my $process_polyA = 0;
-  my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($self->param_required('cdna_file'));
+  my $parser = Bio::SeqIO->new(-format => $self->param('format'), -file => $self->param_required('cdna_file'));
   if ($self->param_is_defined('process_polyA') and $self->param('process_polyA')) {
     $process_polyA = 1;
   }
-  my $header;
-  my $seq;
   my $biotype = $self->param('sequence_biotype');
 
-  my $table_adaptor = $self->db->get_NakedTableAdaptor();
-  $table_adaptor->table_name($self->param('sequence_table_name'));
+  my $adaptor;
+  my $write_to_file = $self->param('iid_type') eq 'db_seq' ? 0 : 1;
+  if ($write_to_file) {
+    $adaptor = Bio::SeqIO->new(-format => 'fasta', -file => '>'.$self->param_required('output_file'));
+  }
+  else {
+    $adaptor = $self->db->get_NakedTableAdaptor();
+    $adaptor->table_name($self->param('sequence_table_name'));
+  }
 
   my @iids;
-  while($parser->next()) {
-    $header = $parser->getHeader();
-    $seq = $parser->getSequence();
-    $header =~ s/(\S+).*/$1/;
+  while(my $bioseq = $parser->next_seq) {
+    my $header = $bioseq->id;
     if ($process_polyA) {
-      my $bioseq = Bio::Seq->new(-id => $header, -seq => $seq);
       ($bioseq, undef, undef) = clip_if_necessary($bioseq);
-      $seq = $bioseq->seq;
+      if (!$bioseq) {
+        $self->warning('Sequence full of polyA for '.$header);
+        next;
+      }
     }
 
-    my $db_row = [{
-      'accession'  => $header,
-      'seq'        => $seq,
-      'biotype'    => $biotype,
-    }];
-    $table_adaptor->store($db_row);
+    $header =~ s/^\w*\|\w*\|//;
+    if ($write_to_file) {
+      $bioseq->id($header);
+      $adaptor->write_seq($bioseq);
+    }
+    else {
+      my $db_row = [{
+        'accession'  => $header,
+        'seq'        => $bioseq->seq,
+        'biotype'    => $biotype,
+      }];
+      $adaptor->store($db_row);
+    }
     push(@iids, $header);
   }
   $self->param('inputlist', \@iids);

@@ -110,6 +110,12 @@ sub fetch_input{
      -genes             => \@genes,
      -cluster_on_coding_exons => $self->CLUSTER_ON_CODING_EXONS,
     );
+    if ($self->param_is_defined('protein_min_coverage')) {
+      $runnable->min_coverage($self->param('protein_min_coverage'));
+    }
+    if ($self->param_is_defined('protein_min_identity')) {
+      $runnable->min_identity($self->param('protein_min_identity'));
+    }
   $self->runnable($runnable);
 #  my @genes = @{ $slice->get_all_Genes($self->PRIMARY_LOGICNAME) }  ;
 #  print "\nGot ".scalar(@genes)." genes from primary logic_name\n";

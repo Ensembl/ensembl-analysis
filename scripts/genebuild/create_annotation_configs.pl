@@ -17,28 +17,52 @@
 use warnings;
 use strict;
 use feature 'say';
+
+use Getopt::Long qw(:config no_ignore_case);
+use File::Spec::Functions;
+use File::Basename;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use Net::FTP;
 use Data::Dumper;
 
-my $config_file = $ARGV[0];
+
+my $config_file;
+my $config_only = 0;
 
 my $ftphost = "ftp.ncbi.nlm.nih.gov";
 my $ftpuser = "anonymous";
 my $ftppassword = "";
+my $assembly_registry_host = $ENV{GBS5};
+my $assembly_registry_port = $ENV{GBP5};
+
+
+GetOptions('config_file:s' => \$config_file,
+           'config_only!'  => \$config_only,
+           'assembly_registry_host:s' => \$assembly_registry_host,
+           'assembly_registry_port:s' => \$assembly_registry_port,
+          );
+
+unless(-e $config_file) {
+  die "Could not find the config file. Path used:\n".$config_file;
+}
+
+my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
+  -host    => $assembly_registry_host,
+  -port    => $assembly_registry_port,
+  -user    => 'ensro',
+  -dbname  => 'do1_stable_id_space_assembly_registry');
+
 my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -port    => 4240,
   -user    => 'ensro',
   -host    => 'mysql-ensembl-mirror',
   -dbname  => 'ncbi_taxonomy');
 
-my $ftp = Net::FTP->new($ftphost) or die "Can't open $ftphost\n";
-$ftp->login($ftpuser, $ftppassword) or die "Can't log $ftpuser in\n";
-
 my $general_hash = {};
 my $assembly_accessions;
 
-open(IN,$config_file);
+open(IN,$config_file) || die("Could not open $config_file");
 while(<IN>) {
     my $line = $_;
 
@@ -62,7 +86,7 @@ while(<IN>) {
       say "Line format not recognised. Skipping line:\n".$line;
     }
 }
-close IN;
+close IN || die("Could not close $config_file");
 
 $assembly_accessions = $general_hash->{'assembly_accessions'};
 $assembly_accessions =~ /\[(.+)\]/;
@@ -90,14 +114,17 @@ unless($clade) {
       "clade=primates";
 }
 
-my ($repbase_library,$repbase_logic_name,$uniprot_set) = clade_settings($clade);
-$general_hash->{'repbase_library'} = $repbase_library;
-$general_hash->{'repbase_logic_name'} = $repbase_logic_name;
-$general_hash->{'uniprot_set'} = $uniprot_set;
+my $clade_hash = clade_settings($clade);
+foreach my $key (keys(%{$clade_hash})) {
+  $general_hash->{$key} = $clade_hash->{$key};
+}
 
 my $ftp_base_dir = '/genomes/all/';
 
-open(LOOP_CMD,">".$general_hash->{'output_path'}."/beekeeper_cmds.txt");
+unless($config_only) {
+  my $unique_file_name = basename($config_file).".cmds";
+  open(LOOP_CMD,">".$general_hash->{'output_path'}."/".$unique_file_name) || die("Could not open $unique_file_name");
+}
 
 foreach my $accession (@accession_array) {
   my $assembly_hash = {};
@@ -107,9 +134,22 @@ foreach my $accession (@accession_array) {
     die "Found an assembly accession that did not match the regex. Offending accession: ".$accession;
   }
 
+  # Get stable id prefix
+  my $stable_id_prefix = $assembly_registry->fetch_stable_id_prefix_by_gca($accession);
+  say "Fetched the following stable id prefix for ".$accession.": ".$stable_id_prefix;
+  $assembly_hash->{'stable_id_prefix'} = $stable_id_prefix;
+
+  # Get stable id start
+  my $stable_id_start = $assembly_registry->fetch_stable_id_start_by_gca($accession);
+  say "Fetched the following stable id start for ".$accession.": ".$stable_id_start;
+  $assembly_hash->{'stable_id_start'} = $stable_id_start;
+
   my $assembly_ftp_path = $ftp_base_dir.'GCA/'.$1.'/'.$2.'/'.$3.'/';
   my $full_assembly_path;
   my $assembly_name;
+
+  my $ftp = Net::FTP->new($ftphost) or die "Can't open $ftphost\n";
+  $ftp->login($ftpuser, $ftppassword) or die "Can't log $ftpuser in\n";
   $ftp->cwd($assembly_ftp_path);
   my @ftp_dir_contents = $ftp->ls;
   foreach my $entry (@ftp_dir_contents) {
@@ -120,7 +160,7 @@ foreach my $accession (@accession_array) {
   }
 
   unless($full_assembly_path && $assembly_name) {
-    die "Issue finding ftp path for the following GCA: ".$accession;
+    die "Issue finding ftp path for the following GCA: $accession $assembly_ftp_path";
   }
 
   say "Setting assembly name for ".$accession." to ".$assembly_name;
@@ -129,27 +169,41 @@ foreach my $accession (@accession_array) {
   $assembly_hash->{'assembly_name'} = $assembly_name;
 
   parse_assembly_report($ftp,$general_hash,$assembly_hash,$accession,$assembly_name,$full_assembly_path,$output_path);
+
+  # Get repeatmodeler library path if one exists
+  my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$assembly_hash->{'species_name'},$assembly_hash->{'species_name'}.'.repeatmodeler.fa');
+  if(-e $repeatmodeler_file) {
+    say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+    $assembly_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+  } else {
+    say "Did not find an repeatmodeler species library for ".$assembly_hash->{'species_name'}." on path:\n".$assembly_hash->{'species_name'};
+  }
+
   create_config($assembly_hash);
 
-  chdir($assembly_hash->{'output_path'});
-  my $cmd = "init_pipeline.pl Genome_annotation_conf.pm -hive_force_init 1";
-  my $result = `$cmd`;
-  unless($result =~ /beekeeper.+\-sync/) {
-    die "Failed to run init_pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd;
-  }
+  unless($config_only) {
+    chdir($assembly_hash->{'output_path'});
+    my $cmd = "init_pipeline.pl Genome_annotation_conf.pm -hive_force_init 1";
+    my $result = `$cmd`;
+    unless($result =~ /beekeeper.+\-sync/) {
+      die "Failed to run init_pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd;
+    }
 
-  my $sync_command = $&;
-  my $return = system($sync_command);
-  if($return) {
-    die "Failed to sync the pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd;
-  }
+    my $sync_command = $&;
+    my $return = system($sync_command);
+    if($return) {
+      die "Failed to sync the pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd;
+    }
 
-  my $loop_command = $sync_command;
-  $loop_command =~ s/sync/loop \-sleep 0.3/;
-  say LOOP_CMD $loop_command;
+    my $loop_command = $sync_command;
+    $loop_command =~ s/sync/loop \-sleep 0.3/;
+    say LOOP_CMD $loop_command;
+  }
 }
 
-close(LOOP_CMD);
+unless($config_only) {
+  close(LOOP_CMD) || die("Could not close the cmd file");
+}
 
 exit;
 
@@ -167,7 +221,7 @@ sub parse_assembly_report {
   my $refseq_accession;
   my $assembly_level;
   my $wgs_id;
-  open($report_file_handle, '>', \$report_file_content);
+  open($report_file_handle, '>', \$report_file_content) || die("could not open $report_file_name");
 
   unless($ftp->get($report_file_name, $report_file_handle)) {
     die "Failed to retrieve the assembly report file: ", $ftp->message;
@@ -191,8 +245,14 @@ sub parse_assembly_report {
 
   }
 
-  unless($taxon_id && $assembly_level && $wgs_id) {
+  unless($taxon_id && $assembly_level) {
     die "Failed to fully parse the assembly report file";
+  }
+
+  if(exists($general_hash->{'load_toplevel_only'}) && $general_hash->{'load_toplevel_only'} == 0) {
+    unless($wgs_id) {
+      die "Need the wgs id as the load_toplevel_only flag was set to 0. Failed to find the id in the report file";
+    }
   }
 
   my $sth = $ncbi_taxonomy->dbc->prepare("SELECT name from ncbi_taxa_name where taxon_id=? and name_class='scientific name'");
@@ -206,7 +266,13 @@ sub parse_assembly_report {
   }
 
   $assembly_hash->{'taxon_id'} = $taxon_id;
-  $assembly_hash->{'assembly_refseq_accession'} = $refseq_accession;
+
+  if($refseq_accession) {
+    $assembly_hash->{'assembly_refseq_accession'} = $refseq_accession;
+  } else {
+    say "Found no RefSeq accession for this assembly";
+  }
+
   $assembly_hash->{'assembly_level'} = $assembly_level;
   $assembly_hash->{'wgs_id'} = $wgs_id;
   $assembly_hash->{'species_name'} = $species_name;
@@ -230,11 +296,16 @@ sub create_config {
 
   my $config_string = "";
   my $past_default_options = 0;
-  open(CONFIG,$ENV{ENSCODE}."/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_static_conf.pm");
+  open(CONFIG,$ENV{ENSCODE}."/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_conf.pm") || die("Could not open the config file");
   while(my $line = <CONFIG>) {
     if($line =~ /sub pipeline_create_commands/) {
       $past_default_options = 1;
     } elsif($past_default_options == 0) {
+      if($line =~ /SUPER\:\:default_options/) {
+        if($assembly_hash->{'dbowner'}) {
+          $line .= "'dbowner' => '".$assembly_hash->{'dbowner'}."',";
+        }
+      }
       if($line =~ /\'([^\']+)\'\s*\=\>\s*('[^\']*\')/) {
         my $conf_key = $1;
         my $conf_val = $2;
@@ -247,12 +318,12 @@ sub create_config {
 
     $config_string .= $line;
   }
-  close(CONFIG);
+  close(CONFIG) || die("CouLd not close the config file");
 
   $config_string =~ s/package Genome_annotation_static_conf/package Genome_annotation_conf/;
-  open(OUT_CONFIG,">".$output_path."/Genome_annotation_conf.pm");
+  open(OUT_CONFIG,">".$output_path."/Genome_annotation_conf.pm") || die("Could not open the config file for writing");
   print OUT_CONFIG $config_string;
-  close OUT_CONFIG;
+  close OUT_CONFIG || die("Could not close the config file for writing");
 }
 
 sub clade_settings {
@@ -275,20 +346,30 @@ sub clade_settings {
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
     },
+
+    'fish_teleost' => {
+      'repbase_library'     => 'Teleostei',
+      'repbase_logic_name'  => 'teleost',
+      'uniprot_set'         => 'fish_basic',
+      'ig_tr_fasta_file'    => 'fish_ig_tr.fa',
+      'masking_timer_long'  => '6h',
+      'masking_timer_short' => '3h',
+    },
+
+    'distant_vertebrate' => {
+      'repbase_library'    => 'vertebrates',
+      'repbase_logic_name' => 'vertebrates',
+      'uniprot_set'        => 'distant_vertebrate',
+      'masking_timer_long'  => '6h',
+      'masking_timer_short' => '3h',
+    },
+
   };
 
   unless($clade_settings->{$clade}) {
     die "Could not find the clade specified in the clade_settings hash. Clade specified: ".$clade;
   }
 
-  my $repbase_library = $clade_settings->{$clade}->{'repbase_library'};
-  my $repbase_logic_name = $clade_settings->{$clade}->{'repbase_logic_name'};
-  my $uniprot_set = $clade_settings->{$clade}->{'uniprot_set'};
-
-  unless($repbase_library && $repbase_logic_name && $uniprot_set) {
-    die "Issues with the settings for the ".$clade." settings hash, some info is missing";
-  }
-
-  return($repbase_library,$repbase_logic_name,$uniprot_set);
+  return($clade_settings->{$clade});
 }
 

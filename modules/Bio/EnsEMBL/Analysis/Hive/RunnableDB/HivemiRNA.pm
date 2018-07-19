@@ -1,6 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+#Copyright [2016-2018] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -90,7 +91,7 @@ sub fetch_input{
   # The output db should be the one that the dafs to check have been written to
   my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
   my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-
+  my $output_dir = $self->param('output_dir');
 
   if($dna_dba) {
     $output_dba->dnadb($dna_dba);
@@ -117,6 +118,7 @@ sub fetch_input{
     (
      -queries => \%families,
      -analysis => $self->analysis,
+     -output_dir => $output_dir,
     );
   $self->runnable($runnable);
 }

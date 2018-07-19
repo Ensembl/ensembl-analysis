@@ -127,8 +127,6 @@ sub fetch_input {
 
   $self->param_required('utr_biotype_priorities'); # Checking that the Hash is set, it will be accessed with $self->biotype_priorities
 
-  my $allowed_input_sets = $self->param_required('allowed_input_sets');
-
   my $input_id = $self->param('iid');
 
   if($self->param('iid_type') eq 'slice') {
@@ -143,6 +141,8 @@ sub fetch_input {
 
   my $donor_genes = $self->filter_input_genes($self->param_required('donor_dbs'), $self->param('allowed_input_sets'));
 
+  say "Found ".scalar(@$acceptor_genes)." acceptor genes";
+  say "Found ".scalar(@$donor_genes)." donor genes";
   $self->acceptor_genes($acceptor_genes);
   $self->donor_genes($donor_genes);
 }
@@ -161,8 +161,9 @@ sub fetch_input {
 sub run {
   my $self = shift;
 
-  my ($type_hash, $genes) = make_types_hash_with_genes($self->donor_genes, $self->acceptor_genes, 'donor', 'acceptor');
-  my ($clusters, $unclustered) = cluster_Genes($type_hash, $genes);
+  my ($type_hash, $genes) = @{make_types_hash_with_genes($self->donor_genes, $self->acceptor_genes, 'donor', 'acceptor')};
+
+  my ($clusters, $unclustered) = cluster_Genes($genes, $type_hash);
   my @genes;
   foreach my $cluster (@$clusters) {
     my $donor_transcripts;
@@ -275,10 +276,13 @@ sub add_utr {
         }
       }
     }
-    say "Added UTR to single exon transcript";
-    $modified_acceptor_transcript_single_exon->biotype($acceptor_transcript->biotype);
-    $self->add_transcript_supporting_features($modified_acceptor_transcript_single_exon,$acceptor_transcript);
-    $transcript = $modified_acceptor_transcript_single_exon;
+
+    if($modified_acceptor_transcript_single_exon) {
+      say "Added UTR to single exon transcript";
+      $modified_acceptor_transcript_single_exon->biotype($acceptor_transcript->biotype);
+      $self->add_transcript_supporting_features($modified_acceptor_transcript_single_exon,$acceptor_transcript);
+      $transcript = $modified_acceptor_transcript_single_exon;
+    }
   }
   else {
 
