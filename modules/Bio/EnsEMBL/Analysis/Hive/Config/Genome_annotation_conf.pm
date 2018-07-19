@@ -2231,7 +2231,7 @@ sub pipeline_analyses {
       },
       -rc_name    => 'default',
       -flow_into => {
-        '1->A' => ['create_genewise_db', 'download_mRNA', 'download_selenocysteines'],
+        '1->A' => ['create_genewise_db', 'download_mRNA'],
         'A->1' => ['create_besttargetted_db'],
       },
     },
@@ -2246,6 +2246,7 @@ sub pipeline_analyses {
       },
       -rc_name    => 'default',
       -flow_into => {
+        1 => ['download_selenocysteines'],
         '1->A' => ['download_uniprot_self', 'download_refseq_self'],
         'A->1' => ['load_self'],
       },
