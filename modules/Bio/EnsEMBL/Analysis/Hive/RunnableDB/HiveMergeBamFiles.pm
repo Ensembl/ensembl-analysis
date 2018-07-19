@@ -90,6 +90,8 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
                store_datafile => 1, store the file name in data_file
                _index_ext => 'bai',
                _file_ext => 'bam',
+               _logic_name_ext => 'bam', This is for the data_file table
+               _branch_to_flow_to => 1, This has to be the same as the accumulatorj
  Returntype : Hashref, containing all default parameters
  Exceptions : None
 

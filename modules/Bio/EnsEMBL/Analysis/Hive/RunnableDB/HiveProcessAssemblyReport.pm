@@ -123,7 +123,7 @@ sub fetch_input {
   my %external_db_ids;
   my $external_db_adaptor = $db->get_DBEntryAdaptor;
   foreach my $external_db ('INSDC', 'RefSeq_genomic', 'UCSC') {
-    $external_db_ids{$external_db} = $external_db_adaptor->get_external_db_id($external_db);
+    $external_db_ids{$external_db} = $external_db_adaptor->get_external_db_id($external_db, undef, 1);
   }
   $self->param('_external_db_ids', \%external_db_ids);
   my ($id, $code, $name, $desc) = @{$db->get_AttributeAdaptor->fetch_by_code('toplevel')};

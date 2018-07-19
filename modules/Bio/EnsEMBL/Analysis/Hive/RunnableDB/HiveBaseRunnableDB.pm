@@ -19,11 +19,11 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB;
 
 use strict;
 use warnings;
+
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Hive::Utils ('destringify');
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name);
-use feature 'say';
 
 use parent ('Bio::EnsEMBL::Hive::Process');
 
@@ -35,6 +35,8 @@ use parent ('Bio::EnsEMBL::Hive::Process');
                _input_id_name => 'iid',
                disconnect_jobs => 0,
                _branch_to_flow_to => 2,
+               _branch_to_flow_to_on_fail => -3,
+               _output => [],
  Returntype : Hashref, containing all default parameters
  Exceptions : None
 
@@ -618,7 +620,7 @@ sub  hrdb_get_dba {
 
 sub get_database_by_name {
     my ($self, $name, $dna_db, $alternative_class) = @_;
-    say "FERGAL NAME: ".$name;
+
     return $self->hrdb_get_dba(destringify($self->param($name)), $dna_db, $alternative_class);
 }
 

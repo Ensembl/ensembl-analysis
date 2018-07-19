@@ -85,8 +85,8 @@ sub fetch_input {
     $self->output(\@seqs);
   }
   else {
-    $self->complete_early("Could not find any cdnas");
     $self->input_job->autoflow(0);
+    $self->complete_early("Could not find any cdnas");
   }
 }
 

@@ -152,8 +152,8 @@ sub fetch_input {
     $self->param('inputlist', \@iids);
   }
   else {
-    $self->complete_early('No sequences have been stored or written to file');
     $self->input_id->autoflow(0);
+    $self->complete_early('No sequences have been stored or written to file');
   }
 }
 

@@ -113,8 +113,8 @@ sub fetch_input {
     }
   }
   else {
-    $self->complete_early('No selenoprotein to use');
     $self->input_job->autoflow(0);
+    $self->complete_early('No selenoprotein to use');
   }
 }
 
