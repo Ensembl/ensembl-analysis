@@ -185,6 +185,7 @@ sub run {
                   $header = $line;
                 }
                 else {
+                  $self->say_with_header($line);
                   my @row = split("\t", $line);
                   my %line = (
                     center_name => $row[$fields_index{center_name}],
@@ -216,40 +217,31 @@ sub run {
                       $self->warning("Removed $sample from the set as it has immunization value: ".$data->{characteristics}->{immunization}->[0]->{text});
                       next SAMPLE;
                     }
-                    $line{dev_stage} = $data->{characteristics}->{developmentalStage}->[0]->{text}
-                      if (exists $data->{characteristics}->{developmentalStage});
+                    $line{dev_stage} = $data->{characteristics}->{'development stage'}->[0]->{text}
+                      if (exists $data->{characteristics}->{'development stage'});
                     $line{status} = $data->{characteristics}->{healthStatusAtCollection}->[0]->{text}
                       if (exists $data->{characteristics}->{healthStatusAtCollection});
-                    $line{age} = join(' ', $data->{characteristics}->{animalAgeAtCollection}->[0]->{text},
-                                 $data->{characteristics}->{animalAgeAtCollection}->[0]->{unit})
-                      if (exists $data->{characteristics}->{animalAgeAtCollection});
-                    if (exists $data->{characteristics}->{organismPart}) {
-                      $line{organismPart} = $data->{characteristics}->{organismPart}->[0]->{text};
-                      $line{uberon} = $data->{characteristics}->{organismPart}->[0]->{ontologyTerms}->[-1];
+                    if (exists $data->{characteristics}->{age}) {
+                      $line{age} = $data->{characteristics}->{age}->[0]->{text};
+                      if (exists $data->{characteristics}->{age}->[0]->{unit}) {
+                        $line{age} .= ' '.$data->{characteristics}->{age}->[0]->{unit};
+                      }
+                    }
+                    if (exists $data->{characteristics}->{tissue}) {
+                      $line{organismPart} = $data->{characteristics}->{tissue}->[0]->{text};
+                      if (exists $data->{characteristics}->{tissue}->[0]->{ontologyTerms}) {
+                        $line{uberon} = $data->{characteristics}->{tissue}->[0]->{ontologyTerms}->[-1];
+                      }
                     }
                     elsif (exists $data->{characteristics}->{cellType}) {
                       $line{cellType} = $data->{characteristics}->{cellType}->[0]->{text};
-                      $line{uberon} = $data->{characteristics}->{cellType}->[0]->{ontologyTerms}->[-1];
+                      if (exists $data->{characteristics}->{cellType}->[0]->{ontologyTerms}) {
+                        $line{uberon} = $data->{characteristics}->{cellType}->[0]->{ontologyTerms}->[-1];
+                      }
                     }
                   }
                   else {
                     $self->warning("Could not connect to BioSample with $sample");
-#                    my $eutil = Bio::DB::EUtilities->new (
-#                      -eutil => 'esearch',
-#                      -term => $sample,
-#                      -db => 'biosample',
-#                      -retmax => 3,
-#                      -usehistory => 'y',
-#                    );
-#                    my @histories = $eutil->get_Histories;
-#                    foreach my $hist (@histories) {
-#                      $eutil->set_parameters(-eutil => 'efetch',
-#                        -history => $hist,
-#                        -retmode => 'text');
-#                      my $data;
-#                      eval {
-#                        $eutil->get_Response(-cb => sub {($data) = @_});
-#                      };
                   }
 
                   $ua->default_headers($dh);
@@ -274,8 +266,8 @@ sub run {
       my %celltypes;
       foreach my $sample (keys %{$csv_data{$project}}) {
         next unless (exists $samples{$sample});
-#        if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
-        if (exists $samples{$sample}->{dev_stage}) {
+        if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
+#        if (exists $samples{$sample}->{dev_stage}) {
           next if ($samples{$sample}->{dev_stage} eq 'sexually immature stage');
           $dev_stages{$samples{$sample}->{dev_stage}} = 1;
         }
@@ -287,7 +279,7 @@ sub run {
             $samples{$sample}->{sample_name} = $samples{$sample}->{dev_stage};
           }
           else {
-            $self->throw('No dev stages for '.$sample);
+            $self->throw('No dev stages for '.$sample.' "'.join('", "', keys %dev_stages).'"');
           }
         }
       }
