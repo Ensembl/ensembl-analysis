@@ -455,7 +455,6 @@ sub write_output {
   if ($self->param_is_defined('assembly_refseq_accession')) {
     $job_params->{assembly_refseq_accession} = $self->param('assembly_refseq_accession');
   }
-  $self->input_job->input_id($job_params);
   if ($toplevel_as_sequence_levels) {
     $self->dataflow_output_id(
       {
@@ -469,6 +468,7 @@ sub write_output {
     $self->dataflow_output_id($self->param('agp_files'), $self->param('_agp_branch'));
     $self->dataflow_output_id($self->param('fasta_files'), $self->param('_branch_to_flow_to'));
   }
+  $self->dataflow_output_id($job_params, Bio::EnsEMBL::Hive::DBSQL::DataFlowRuleAdaptor::branch_name_2_code('MAIN'));
 }
 
 
