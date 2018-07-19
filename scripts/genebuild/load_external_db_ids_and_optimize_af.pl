@@ -561,12 +561,12 @@ foreach my $type (@types) {
             .' -outdaf '.$ise_name.'.fixed'
             .' -outsf '.$tise_name.'.fixed';
         if ($collapse_ise) {
-          my $analysis_id = `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e "SELECT analysis_id FROM analysis WHERE logic_name LIKE '%blast_rnaseq_ise'"`;
+          my $analysis_id = `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e "SELECT analysis_id FROM analysis WHERE logic_name LIKE '%merged_rnaseq_ise'"`;
           if ($analysis_id and $analysis_id > 0) {
             $cmd .= " -analysis_id $analysis_id";
           }
           else {
-            throw('Failed to get analysis_id for "%blast_rnaseq_ise"');
+            throw('Failed to get analysis_id for "%merged_rnaseq_ise"');
           }
         }
         if (system($cmd)) {

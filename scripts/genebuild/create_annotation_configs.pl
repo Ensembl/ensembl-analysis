@@ -135,6 +135,7 @@ foreach my $accession (@accession_array) {
     die "Found an assembly accession that did not match the regex. Offending accession: ".$accession;
   }
 
+
   # Get stable id prefix
   my $stable_id_prefix = $assembly_registry->fetch_stable_id_prefix_by_gca($accession);
   say "Fetched the following stable id prefix for ".$accession.": ".$stable_id_prefix;
@@ -170,6 +171,11 @@ foreach my $accession (@accession_array) {
   $assembly_hash->{'assembly_name'} = $assembly_name;
 
   parse_assembly_report($ftp,$general_hash,$assembly_hash,$accession,$assembly_name,$full_assembly_path,$output_path);
+
+  # Add in the species url by uppercasing the first letter of the species name
+  my $species_url = $assembly_hash->{'species_name'};
+  $species_url = ucfirst($species_url);
+  $assembly_hash->{'species_url'} = $species_url;
 
   # Get repeatmodeler library path if one exists
   my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$assembly_hash->{'species_name'},$assembly_hash->{'species_name'}.'.repeatmodeler.fa');
