@@ -83,7 +83,7 @@ sub default_options {
     'rfc_scaler'                => 'filter_dafs_rfc_scaler_human.pkl',
     'rfc_model'                 => 'filter_dafs_rfc_model_human.pkl',
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
-    'mt_accession'              => undef, # This should be set to undef unless you know what you are doing
+    'mt_accession'              => undef, # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
     'custom_toplevel_file_path' => undef, # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
 
@@ -1145,7 +1145,6 @@ sub pipeline_analyses {
           'output_path'      => $self->o('output_path'),
           'enscode_root_dir' => $self->o('enscode_root_dir'),
           'species_name'     => $self->o('species_name'),
-          'mt_accession'     => $self->o('mt_accession'),
         },
         -rc_name    => 'default',
         -flow_into  => {
