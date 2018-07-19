@@ -176,7 +176,6 @@ sub split_fastq {
   my $split_fastq_files = [];
   my $count = 0;
   my $increment = 0;
-  my $out_buffer = "";
   my $file_path = catfile($dir,$file_name);
   say "FERGAL 1";
   say "FERGAL 1 PATH: ".$file_path;
@@ -191,40 +190,33 @@ sub split_fastq {
     }
   }
 
+  my $new_output_file = $sample_name.'_'.$increment.$remainder.'_split';
+  my $max_total_reads = $self->param('max_total_reads');
+  open(OUT_FASTQ, '>'.catfile($dir, $new_output_file)) || $self->throw('Could not open output file for writing. Path used: '.catfile($dir, $new_output_file));
+  push(@{$split_fastq_files}, $new_output_file);
   while(my $line = <IN_FASTQ>) {
-    if($count > 0 && $count % $max_lines_per_split == 0) {
-      my $new_output_file = $sample_name."_".$increment.$remainder."_split";
-      my $new_output_file_path = catfile($dir,$new_output_file);
-      unless(open(OUT_FASTQ,">".$new_output_file_path)) {
-        $self->throw("Could not open output file for writing. Path used: ".$new_output_file_path);
-      }
-      print OUT_FASTQ $out_buffer;
-      close OUT_FASTQ;
-      push(@{$split_fastq_files},$new_output_file);
-      $out_buffer = "";
-      $increment++;
-
+    print OUT_FASTQ $line;
+    ++$count;
+    if($count == $max_total_reads) {
       # If it has gone over the read limit at this point then we just cut here. Not a great system in general, sub sampling would be better
       # but should work fine in most cases
-      if($count >= $self->param_required('max_total_reads')) {
-        $self->warning("The read count from the fastq has passed the max allowed number of reads. Will not read further. Max total reads:\n".$self->param_required('max_total_reads'));
-        last;
-      }
+      $self->warning("The read count from the fastq has passed the max allowed number of reads. Will not read further.\nMax total reads: $max_total_reads");
+      last;
     }
-    $out_buffer .= $line;
-    $count++;
+    elsif($count && $count % $max_lines_per_split == 0) {
+      close(OUT_FASTQ) || $self->throw("Could not close the fastq file ".catfile($dir, $sample_name.'_'.$increment.$remainder.'_split'));
+      ++$increment;
+      my $new_output_file = $sample_name.'_'.$increment.$remainder.'_split';
+      open(OUT_FASTQ, '>'.catfile($dir, $new_output_file)) || $self->throw('Could not open output file for writing. Path used: '.catfile($dir, $new_output_file));
+      push(@{$split_fastq_files},$new_output_file);
+    }
   }
   close IN_FASTQ;
+  close(OUT_FASTQ) || $self->throw("Could not close the fastq file");
 
-  if($out_buffer) {
-    my $new_output_file = $sample_name."_".$increment.$remainder."_split";
-    my $new_output_file_path = catfile($dir,$new_output_file);
-    unless(open(OUT_FASTQ,">".$new_output_file_path)) {
-      $self->throw("Could not open output file for writing. Path used: ".$new_output_file_path);
-    }
-    print OUT_FASTQ $out_buffer;
-    close OUT_FASTQ;
-    push(@{$split_fastq_files},$new_output_file_path);
+  if(-z catfile($dir, $split_fastq_files->[-1])) {
+    my $empty_file = pop(@$split_fastq_files);
+    unlink catfile($dir, $empty_file) || $self->throw('Could not delete empty file '.$empty_file);
   }
   return($split_fastq_files);
 }
