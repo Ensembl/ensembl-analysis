@@ -148,7 +148,14 @@ sub fetch_input {
   }
 
   $self->warning("Total sequences: $input_seq_count\nSequences below $min_seq_length: $below_min_length_count\nKilled sequences: $killed_count\nStored sequences: ".scalar(@iids)."\n");
-  $self->param('inputlist', \@iids);
+
+  if (@iids) {
+    $self->param('inputlist', \@iids);
+  }
+  else {
+    $self->input_job->autoflow(0);
+    $self->complete_early('No sequences have been stored or written to file');
+  }
 }
 
 1;

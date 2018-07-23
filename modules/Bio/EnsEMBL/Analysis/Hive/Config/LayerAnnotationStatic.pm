@@ -882,6 +882,217 @@ sub _master_config {
 
     ],
 
+    flies_basic => [
+
+            {
+              ID         => 'LAYER1',
+              BIOTYPES   => [
+                              'IG_C_gene',
+                              'IG_J_gene',
+                              'IG_V_gene',
+                              'IG_D_gene',
+                              'TR_C_gene',
+                              'TR_J_gene',
+                              'TR_V_gene',
+                              'TR_D_gene',
+                              'seleno_self',
+                            ],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER2',
+              BIOTYPES   => [
+                             'cdna2genome',
+                             'edited',
+                             'gw_gtag',
+                             'gw_nogtag',
+                             'gw_exo',
+                             'projection_1',
+                             'projection_2',
+                             'rnaseq_merged_1',
+                             'rnaseq_merged_2',
+                             'rnaseq_tissue_1',
+                             'rnaseq_tissue_2',
+                             'rnaseq_merged_3',
+                             'rnaseq_merged_4',
+                             'rnaseq_tissue_3',
+                             'rnaseq_tissue_4',
+                             'self_pe12_sp_1',
+                             'self_pe12_tr_1',
+                             'self_pe12_sp_2',
+                             'self_pe12_tr_2',
+                             'human_pe12_sp_1',
+                             'human_pe12_tr_1',
+                             'primates_pe12_sp_1',
+                             'primates_pe12_tr_1',
+                            ],
+              FILTER_AGAINST => ['LAYER1'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER3',
+              BIOTYPES   => [
+
+                             'mammals_pe12_sp_1',
+                             'mammals_pe12_tr_1',
+                             'human_pe12_sp_2',
+                             'human_pe12_tr_2',
+                             'primates_pe12_sp_2',
+                             'primates_pe12_tr_2',
+                             'mammals_pe12_sp_2',
+                             'mammals_pe12_tr_2',
+                             'projection_3',
+                             'projection_4',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER4',
+              BIOTYPES   => [
+                             'rnaseq_merged_5',
+                             'rnaseq_merged_5',
+                             'rnaseq_tissue_6',
+                             'rnaseq_tissue_6',
+                             'projection_5',
+                             'projection_6',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER5',
+              BIOTYPES   => [
+                             'rnaseq_merged_7',
+                             'rnaseq_merged_7',
+                             'rnaseq_tissue_7',
+                             'rnaseq_tissue_7',
+                             'human_pe12_sp_6',
+                             'human_pe12_tr_6',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
+              DISCARD    => 0,
+            },
+
+    ],
+
+
+    hemiptera_basic => [
+             {
+               ID         => 'LAYER1',
+               BIOTYPES   => [
+                               'IG_C_gene',
+                               'IG_J_gene',
+                               'IG_V_gene',
+                               'IG_D_gene',
+                               'TR_C_gene',
+                               'TR_J_gene',
+                               'TR_V_gene',
+                               'TR_D_gene',
+                               'seleno_self',
+                             ],
+               DISCARD    => 0,
+             },
+
+            {
+              ID         => 'LAYER2',
+              BIOTYPES   => [
+                             'cdna2genome',
+                             'edited',
+                             'gw_gtag',
+                             'gw_nogtag',
+                             'gw_exo',
+                             'rnaseq_merged_1',
+                             'rnaseq_merged_2',
+                             'rnaseq_merged_3',
+                             'rnaseq_merged_4',
+                             'rnaseq_merged_5',
+                             'rnaseq_merged_6',
+                             'rnaseq_merged_7',
+                             'rnaseq_tissue_1',
+                             'rnaseq_tissue_2',
+                             'rnaseq_tissue_3',
+                             'rnaseq_tissue_4',
+                             'rnaseq_tissue_5',
+                             'rnaseq_tissue_6',
+                             'rnaseq_tissue_7',
+                             'self_pe12_sp_1',
+                             'self_pe12_tr_1',
+                             'self_pe12_sp_2',
+                             'self_pe12_tr_2',
+                            ],
+              FILTER_AGAINST => ['LAYER1'],
+              DISCARD    => 0,
+            },
+
+             {
+              ID         => 'LAYER3',
+              BIOTYPES   => [
+                             'self_pe12_sp_3',
+                             'self_pe12_tr_3',
+                             'self_pe12_sp_4',
+                             'self_pe12_tr_4',
+                             'hemiptera_pe12_sp_1',
+                             'pisum_pe12_sp_1',
+                             'drosophila_sp_1',
+                             'flies_sp_1',
+                             'hemiptera_pe12_sp_2',
+                             'pisum_pe12_sp_2',
+                             'drosophila_sp_2',
+                             'flies_sp_2',
+                             'hemiptera_pe12_sp_3',
+                             'pisum_pe12_sp_3',
+                             'drosophila_sp_3',
+                             'flies_sp_3',
+                             'hemiptera_pe12_sp_4',
+                             'pisum_pe12_sp_4',
+                             'drosophila_sp_4',
+                             'flies_sp_4',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2'],
+              DISCARD    => 0,
+            },
+
+            {
+              ID         => 'LAYER4',
+              BIOTYPES   => [
+                             'hemiptera_pe12_tr_1',
+                             'pisum_pe12_tr_1',
+                             'drosophila_tr_1',
+                             'flies_tr_1',
+                             'hemiptera_pe12_tr_2',
+                             'pisum_pe12_tr_2',
+                             'drosophila_tr_2',
+                             'flies_tr_2',
+                             'hemiptera_pe12_tr_3',
+                             'pisum_pe12_tr_3',
+                             'drosophila_tr_3',
+                             'flies_tr_3',
+                             'hemiptera_pe12_tr_4',
+                             'pisum_pe12_tr_4',
+                             'drosophila_tr_4',
+                             'flies_tr_4',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
+              DISCARD    => 0,
+            },
+
+
+            {
+              ID         => 'LAYER5',
+              BIOTYPES   => [
+                              'rnaseq_merged',
+                              'rnaseq_tissue',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
+              DISCARD    => 0,
+            },
+
+    ],
 
     self_patch => [
             {
