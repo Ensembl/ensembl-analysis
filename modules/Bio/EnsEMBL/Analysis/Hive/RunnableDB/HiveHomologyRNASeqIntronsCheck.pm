@@ -90,13 +90,10 @@ sub fetch_input {
     $genes = $slice->get_all_Genes(undef, undef, 1);
   }
   $self->hrdb_set_con($self->get_database_by_name('intron_db', $dna_db), 'intron_db');
-<<<<<<< Updated upstream
-  $self->say_with_header('Fetched '.scalar(@$genes));
-  $self->output($genes);
-=======
+
   print STDERR 'Fetched ', scalar(@$genes), "\n";
+  $self->say_with_header('Fetched '.scalar(@$genes));
   $self->input_genes($genes);
->>>>>>> Stashed changes
 }
 
 
