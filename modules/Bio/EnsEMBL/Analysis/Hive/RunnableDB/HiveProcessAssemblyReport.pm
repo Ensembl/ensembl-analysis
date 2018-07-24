@@ -123,7 +123,7 @@ sub fetch_input {
   my %external_db_ids;
   my $external_db_adaptor = $db->get_DBEntryAdaptor;
   foreach my $external_db ('INSDC', 'RefSeq_genomic', 'UCSC') {
-    $external_db_ids{$external_db} = $external_db_adaptor->get_external_db_id($external_db);
+    $external_db_ids{$external_db} = $external_db_adaptor->get_external_db_id($external_db, undef, 1);
   }
   $self->param('_external_db_ids', \%external_db_ids);
   my ($id, $code, $name, $desc) = @{$db->get_AttributeAdaptor->fetch_by_code('toplevel')};
@@ -241,11 +241,16 @@ sub run {
     elsif ($line =~ /^\w/) {
       my @data = split("\t", $line);
       if (!$load_non_nuclear and $data[7] eq 'non-nuclear') {
-        if ($self->param_is_defined('mt_accession')) {
-          $self->warning('MT accession are different, using the one from the file')
-            if ($data[6] ne $self->param('mt_accession'));
+        if ($data[1] eq 'assembled-molecule' and $data[6] =~ /^NC/) {
+          if ($self->param_is_defined('mt_accession')) {
+            $self->warning('MT accession are different, using the one from the file')
+              if ($data[6] ne $self->param('mt_accession'));
+          }
+          $self->param('mt_accession', $data[6]);
         }
-        $self->param('mt_accession', $data[6]);
+        else {
+          $self->warning($data[0].' is a non nuclear sequence');
+        }
       }
       else {
         my $seq_region_name = $data[4];
@@ -450,7 +455,6 @@ sub write_output {
   if ($self->param_is_defined('assembly_refseq_accession')) {
     $job_params->{assembly_refseq_accession} = $self->param('assembly_refseq_accession');
   }
-  $self->input_job->input_id($job_params);
   if ($toplevel_as_sequence_levels) {
     $self->dataflow_output_id(
       {
@@ -464,6 +468,7 @@ sub write_output {
     $self->dataflow_output_id($self->param('agp_files'), $self->param('_agp_branch'));
     $self->dataflow_output_id($self->param('fasta_files'), $self->param('_branch_to_flow_to'));
   }
+  $self->dataflow_output_id($job_params, Bio::EnsEMBL::Hive::DBSQL::DataFlowRuleAdaptor::branch_name_2_code('MAIN'));
 }
 
 

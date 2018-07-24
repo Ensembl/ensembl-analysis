@@ -71,16 +71,13 @@ sub fetch_input {
   my ($self) = @_;
 
   $self->param_required('inputfile');
-  if ($self->param_is_defined('study_accession')) {
-    $self->_populate_query($self->param('study_accession'), 'study_accession=%s');
-  }
-  elsif ($self->param_is_defined('taxon_id')) {
-    $self->_populate_query($self->param('taxon_id'), 'tax_eq(%s) AND instrument_platform=ILLUMINA AND library_source=TRANSCRIPTOMIC');
-  }
-  elsif (-e $self->param('inputfile')) {
+  if (-e $self->param('inputfile')) {
     $self->complete_early("'inputfile' exists so I will use that");
-  }
-  else {
+  } elsif ($self->param_is_defined('study_accession') and $self->param('study_accession')) {
+    $self->_populate_query($self->param('study_accession'), 'study_accession=%s');
+  } elsif ($self->param_is_defined('taxon_id') and $self->param('taxon_id')) {
+    $self->_populate_query($self->param('taxon_id'), 'tax_eq(%s) AND instrument_platform=ILLUMINA AND library_source=TRANSCRIPTOMIC');
+  } else {
     $self->throw('"inputfile" does not exist and neither "study_accession" nor "taxon_id" were defined');
   }
 }
@@ -121,6 +118,7 @@ sub run {
     my $ua = LWP::UserAgent->new;
     $ua->env_proxy;
     my $url = join('&', $self->param('ena_base_url'), 'query="'.$query.'"', $self->param('files_domain'), 'fields='.$self->param('files_fields'));
+    $self->say_with_header($url);
     my $response = $ua->get($url);
     my $fastq_file = 'fastq_'.$self->param('download_method');
     if ($response->is_success) {
@@ -187,6 +185,7 @@ sub run {
                   $header = $line;
                 }
                 else {
+                  $self->say_with_header($line);
                   my @row = split("\t", $line);
                   my %line = (
                     center_name => $row[$fields_index{center_name}],
@@ -208,7 +207,7 @@ sub run {
                   );
                   my $dh = $ua->default_headers;
                   $ua->default_header('Content-Type' => 'application/json');
-                  my $biosd = $ua->get('http://www.ebi.ac.uk/biosamples/api/samples/'.$sample);
+                  my $biosd = $ua->get('http://www.ebi.ac.uk/biosamples/samples/'.$sample);
                   if ($biosd->is_success) {
                     $content = $biosd->decoded_content();
                     my $json = JSON::PP->new();
@@ -218,40 +217,31 @@ sub run {
                       $self->warning("Removed $sample from the set as it has immunization value: ".$data->{characteristics}->{immunization}->[0]->{text});
                       next SAMPLE;
                     }
-                    $line{dev_stage} = $data->{characteristics}->{developmentalStage}->[0]->{text}
-                      if (exists $data->{characteristics}->{developmentalStage});
+                    $line{dev_stage} = $data->{characteristics}->{'development stage'}->[0]->{text}
+                      if (exists $data->{characteristics}->{'development stage'});
                     $line{status} = $data->{characteristics}->{healthStatusAtCollection}->[0]->{text}
                       if (exists $data->{characteristics}->{healthStatusAtCollection});
-                    $line{age} = join(' ', $data->{characteristics}->{animalAgeAtCollection}->[0]->{text},
-                                 $data->{characteristics}->{animalAgeAtCollection}->[0]->{unit})
-                      if (exists $data->{characteristics}->{animalAgeAtCollection});
-                    if (exists $data->{characteristics}->{organismPart}) {
-                      $line{organismPart} = $data->{characteristics}->{organismPart}->[0]->{text};
-                      $line{uberon} = $data->{characteristics}->{organismPart}->[0]->{ontologyTerms}->[-1];
+                    if (exists $data->{characteristics}->{age}) {
+                      $line{age} = $data->{characteristics}->{age}->[0]->{text};
+                      if (exists $data->{characteristics}->{age}->[0]->{unit}) {
+                        $line{age} .= ' '.$data->{characteristics}->{age}->[0]->{unit};
+                      }
+                    }
+                    if (exists $data->{characteristics}->{tissue}) {
+                      $line{organismPart} = $data->{characteristics}->{tissue}->[0]->{text};
+                      if (exists $data->{characteristics}->{tissue}->[0]->{ontologyTerms}) {
+                        $line{uberon} = $data->{characteristics}->{tissue}->[0]->{ontologyTerms}->[-1];
+                      }
                     }
                     elsif (exists $data->{characteristics}->{cellType}) {
                       $line{cellType} = $data->{characteristics}->{cellType}->[0]->{text};
-                      $line{uberon} = $data->{characteristics}->{cellType}->[0]->{ontologyTerms}->[-1];
+                      if (exists $data->{characteristics}->{cellType}->[0]->{ontologyTerms}) {
+                        $line{uberon} = $data->{characteristics}->{cellType}->[0]->{ontologyTerms}->[-1];
+                      }
                     }
                   }
                   else {
                     $self->warning("Could not connect to BioSample with $sample");
-#                    my $eutil = Bio::DB::EUtilities->new (
-#                      -eutil => 'esearch',
-#                      -term => $sample,
-#                      -db => 'biosample',
-#                      -retmax => 3,
-#                      -usehistory => 'y',
-#                    );
-#                    my @histories = $eutil->get_Histories;
-#                    foreach my $hist (@histories) {
-#                      $eutil->set_parameters(-eutil => 'efetch',
-#                        -history => $hist,
-#                        -retmode => 'text');
-#                      my $data;
-#                      eval {
-#                        $eutil->get_Response(-cb => sub {($data) = @_});
-#                      };
                   }
 
                   $ua->default_headers($dh);
@@ -276,8 +266,8 @@ sub run {
       my %celltypes;
       foreach my $sample (keys %{$csv_data{$project}}) {
         next unless (exists $samples{$sample});
-#        if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
-        if (exists $samples{$sample}->{dev_stage}) {
+        if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
+#        if (exists $samples{$sample}->{dev_stage}) {
           next if ($samples{$sample}->{dev_stage} eq 'sexually immature stage');
           $dev_stages{$samples{$sample}->{dev_stage}} = 1;
         }
@@ -289,7 +279,7 @@ sub run {
             $samples{$sample}->{sample_name} = $samples{$sample}->{dev_stage};
           }
           else {
-            $self->throw('No dev stages for '.$sample);
+            $self->throw('No dev stages for '.$sample.' "'.join('", "', keys %dev_stages).'"');
           }
         }
       }
@@ -306,8 +296,8 @@ sub run {
     $self->output([\%csv_data, \%samples]);
   }
   else {
-    $self->complete_early('Could not find any data for this job');
     $self->input_job->autoflow(0);
+    $self->complete_early('Could not find any data for this job');
   }
 }
 

@@ -68,7 +68,7 @@ sub fetch_input {
   my @seqs;
   my $skip_X = $self->param('skip_Xs');
   my $write_file = 0;
-  if ($self->param_is_defined('output_file')) {
+  if ($self->param_is_defined('output_file') and $self->param('output_file')) {
     $write_file = 1;
     open(FH, '>'.$self->param('output_file')) || $self->throw('Could not open '.$self->param('output_file'));
   }
@@ -111,7 +111,7 @@ sub fetch_input {
         }
         elsif ($header =~ /^(\w+\.\d+)/) {
           $versioned_accession = $1;
-          next if ($versioned_accession =~ /^XP_/);
+          next if ($versioned_accession =~ /^[YX]P_/);
           ($accession) = $versioned_accession =~ /^(.+)\.\d+$/;
           if ($versioned_accession =~ /^NP_/) {
             $source_db = 'refseq';
@@ -143,7 +143,7 @@ sub fetch_input {
       }
     }
   }
-  if ($self->param_is_defined('output_file')) {
+  if ($write_file) {
     close(FH) || $self->throw('Could not close '.$self->param('output_file'));
   }
 
@@ -153,7 +153,10 @@ sub fetch_input {
     $self->param('inputlist', \@iids);
   }
   else {
-    $self->input_job->autoflow(0);
+    if ($write_file and -e $self->param('output_file')) {
+      unlink $self->param('output_file');
+    }
+    $self->input_id->autoflow(0);
     $self->complete_early('No sequences have been stored or written to file');
   }
 }

@@ -168,7 +168,7 @@ sub run {
   $self->files_to_delete("$outdir/$filename.sai");
   if ($fastqpair) {
     $sai_fastq_files = "$outdir/$filename.sai $outdir/$pairfilename.sai $fastq $fastqpair";
-    $self->files_to_delete("$outdir/$pairfilename.sai");
+#    $self->files_to_delete("$outdir/$pairfilename.sai");
   }
 
   $command = join(' ', $program, $method, $readgroup, $self->genome, $sai_fastq_files, '|', $samtools->make_commandline('view', '-b -S', $outdir.'/'.$outfile.'_unsorted.bam', '-'));

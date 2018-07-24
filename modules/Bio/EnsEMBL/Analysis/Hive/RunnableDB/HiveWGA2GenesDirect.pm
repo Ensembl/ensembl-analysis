@@ -60,13 +60,8 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Analysis_
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(parse_timer);
 
-use Bio::SeqIO;
-use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
-use Bio::EnsEMBL::Analysis::Tools::ClusterFilter;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns);
-use Data::Dumper;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -191,57 +186,12 @@ sub fetch_input {
 sub run {
   my ($self) = @_;
 
-  my $result_transcripts = [];
-  my $source_transcripts = $self->source_transcripts();
-  push(@{$result_transcripts}, $self->project_transcripts($source_transcripts, $result_transcripts));
-  say "At the end of RUN, we had ", scalar(@{$result_transcripts}), " transcripts";
-}
-
-sub write_output {
-  my ($self) = @_;
-
-  my $transcript_count = 0;
-  my $target_transcript_dbc = $self->hrdb_get_con('target_transcript_db');
-  my $target_gene_adaptor = $target_transcript_dbc->get_GeneAdaptor();
-  my $failure_branch_code = -3;
-
-  foreach my $transcript (@{$self->output}) {
-    $transcript->analysis($self->analysis);
-    $transcript->biotype('projection');
-    empty_Transcript($transcript);
-
-    my $gene = Bio::EnsEMBL::Gene->new();
-    $gene->biotype('projection');
-
-    $gene->add_Transcript($transcript);
-    attach_Slice_to_Gene($gene, $transcript->slice);
-    attach_Analysis_to_Gene($gene, $self->analysis);
-    $target_gene_adaptor->store($gene);
-    $transcript_count++;
-  }
-
-  my $output_hash = {};
-  my $failed_transcript_ids = $self->param('_failed');
-  foreach my $failed_transcript_id (@$failed_transcript_ids) {
-    $output_hash->{'iid'} = [$failed_transcript_id];
-    $self->dataflow_output_id($output_hash, $failure_branch_code);
-  }
-  if (scalar @$failed_transcript_ids ) {
-    $output_hash->{'iid'} = $failed_transcript_ids;
-    $self->dataflow_output_id($output_hash, $failure_branch_code);
-  }
-
-  return 1;
-
-}
-
-sub project_transcripts {
-  my ($self, $source_transcripts, $result_transcripts)= @_;
+  my @result_transcripts;
   my $timer = $self->param('timer');
   $timer = parse_timer($timer);
   my $failed_transcripts = [];
 
-  foreach my $source_transcript (@$source_transcripts) {
+  foreach my $source_transcript (@{$self->source_transcripts}) {
      my $successfully_projected = 0;
      my $preliminary_transcripts = [];
      eval {
@@ -307,20 +257,56 @@ sub project_transcripts {
     }
 
     foreach my $selected_transcript (@{$selected_transcripts}) {
-      push(@{$result_transcripts},$selected_transcript);
+      push(@result_transcripts, $selected_transcript);
     }
 
   } # end foreach my $source_transcript
 
   if ($self->TRANSCRIPT_FILTER){
-    $result_transcripts = $self->filter->filter_results($result_transcripts);
+    $self->output($self->filter->filter_results(\@result_transcripts));
+  }
+  else {
+    $self->output(\@result_transcripts);
   }
 
-  $self->output($result_transcripts);
   $self->param('_failed', $failed_transcripts);
-
-  return $result_transcripts;
+  say "At the end of RUN, we had ", scalar(@{$self->output}), " transcripts";
 }
+
+sub write_output {
+  my ($self) = @_;
+
+  my $transcript_count = 0;
+  my $target_transcript_dbc = $self->hrdb_get_con('target_transcript_db');
+  my $target_gene_adaptor = $target_transcript_dbc->get_GeneAdaptor();
+  my $failure_branch_code = $self->param('_branch_to_flow_to_on_fail');
+
+  foreach my $transcript (@{$self->output}) {
+    $transcript->analysis($self->analysis);
+    $transcript->biotype('projection');
+    empty_Transcript($transcript);
+
+    my $gene = Bio::EnsEMBL::Gene->new();
+    $gene->biotype('projection');
+
+    $gene->add_Transcript($transcript);
+    attach_Slice_to_Gene($gene, $transcript->slice);
+    attach_Analysis_to_Gene($gene, $self->analysis);
+    $target_gene_adaptor->store($gene);
+    $transcript_count++;
+  }
+
+  my $output_hash = {};
+  my $failed_transcript_ids = $self->param('_failed');
+  foreach my $failed_transcript_id (@$failed_transcript_ids) {
+    $output_hash->{'iid'} = [$failed_transcript_id];
+    $self->dataflow_output_id($output_hash, $failure_branch_code);
+  }
+
+  return 1;
+
+}
+
 
 sub runnable_failed {
   my ($self,$runnable_failed) = @_;

@@ -186,7 +186,10 @@ sub run {
 sub write_output {
   my ($self) = @_;
 
-  my $msg = "Analyses:";
+  my $db = $self->get_database_by_name('source_db');
+  my $dbc = $db->dbc;
+  my $dbname = $dbc->dbname;
+  my $msg = $dbname."\nAnalyses:";
   my $repeats = $self->param_required('repeat_logic_names');
   foreach my $repeattype (@$repeats) {
     $msg .= " ".$repeattype;

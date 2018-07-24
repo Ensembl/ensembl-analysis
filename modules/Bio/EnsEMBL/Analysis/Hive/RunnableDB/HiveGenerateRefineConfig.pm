@@ -223,8 +223,8 @@ sub fetch_input {
     ]);
   }
   elsif (@output_ids == 0) {
-    $self->complete_early('Not enough tissue samples to work on');
     $self->input_job->autoflow(0);
+    $self->complete_early('Not enough tissue samples to work on');
   }
   $self->param('analyses', \@output_ids);
   $self->param('database_file', File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_database.conf'));

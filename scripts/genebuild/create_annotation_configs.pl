@@ -30,6 +30,7 @@ use Data::Dumper;
 my $config_file;
 my $config_only = 0;
 
+my $base_guihive = 'http://guihive.ebi.ac.uk:8080';
 my $ftphost = "ftp.ncbi.nlm.nih.gov";
 my $ftpuser = "anonymous";
 my $ftppassword = "";
@@ -134,6 +135,7 @@ foreach my $accession (@accession_array) {
     die "Found an assembly accession that did not match the regex. Offending accession: ".$accession;
   }
 
+
   # Get stable id prefix
   my $stable_id_prefix = $assembly_registry->fetch_stable_id_prefix_by_gca($accession);
   say "Fetched the following stable id prefix for ".$accession.": ".$stable_id_prefix;
@@ -170,6 +172,11 @@ foreach my $accession (@accession_array) {
 
   parse_assembly_report($ftp,$general_hash,$assembly_hash,$accession,$assembly_name,$full_assembly_path,$output_path);
 
+  # Add in the species url by uppercasing the first letter of the species name
+  my $species_url = $assembly_hash->{'species_name'};
+  $species_url = ucfirst($species_url);
+  $assembly_hash->{'species_url'} = $species_url;
+
   # Get repeatmodeler library path if one exists
   my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$assembly_hash->{'species_name'},$assembly_hash->{'species_name'}.'.repeatmodeler.fa');
   if(-e $repeatmodeler_file) {
@@ -197,6 +204,13 @@ foreach my $accession (@accession_array) {
 
     my $loop_command = $sync_command;
     $loop_command =~ s/sync/loop \-sleep 0.3/;
+    my ($ehive_url) = $sync_command =~ /url\s+(\S+)/;
+    my ($driver, $user, $password, $host, $port, $dbname) = $ehive_url =~ /^(\w+)[:\/]+(\w*):(\w+)@([^:]+):(\d+)\/(\w+)$/;
+    if ($password) {
+      $password = '&passwd=xxxxx';
+    }
+    say LOOP_CMD "#GuiHive: $base_guihive/?driver=$driver&username=$user&host=$host&port=$port&dbname=$dbname$password";
+    say LOOP_CMD "export EHIVE_URL=$ehive_url";
     say LOOP_CMD $loop_command;
   }
 }

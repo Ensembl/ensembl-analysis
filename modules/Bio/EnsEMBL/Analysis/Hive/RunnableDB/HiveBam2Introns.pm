@@ -63,12 +63,34 @@ use File::Path qw(make_path);
 use Bio::Seq;
 use Bio::DB::HTS;
 
+use Bio::EnsEMBL::Hive::DBSQL::DataflowRuleAdaptor;
+
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Analysis::Runnable::Bam2Introns;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Returns the default parameters
+               _branch_for_accumulators => Bio::EnsEMBL::Hive::DBSQL::DataflowRuleAdaptor::branch_name_2_code('MAIN'), Usually 1
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    _branch_for_accumulators => Bio::EnsEMBL::Hive::DBSQL::DataflowRuleAdaptor::branch_name_2_code('MAIN'),
+  }
+}
 
 
 =head2 fetch_input
@@ -100,7 +122,16 @@ sub fetch_input {
   $counters->{'start'} = 0;
   $counters->{'offset'} = 0;
   $counters->{'start_exon'} = 0;
+
+  unless($self->param('iid')) {
+    $self->warning("Found no stable id in the input id. Completing early");
+    $self->input_job->autoflow(0);
+    $self->complete_early('No genes to process');
+  }
+
   my $stable_id = $self->input_id;
+
+
   # check for batch info in the input id
   if ( $self->input_id =~ /(\S+):(\d+):(\d+):(\d+)/ ) {
     $stable_id = $1;
@@ -259,7 +290,8 @@ sub run {
 =head2 write_output
 
   Arg [1]   : None
-  Function  : Write the alignments in SAM format and dataflow the new input ids via 'iid' on branch 2
+  Function  : Write the alignments in SAM format and dataflow the new input ids via 'iid' on branch '_branch_to_flow_to'
+              and dataflow the name of the sam file on branch '_branch_for_accumulators'
   Returntype: 1
   Exceptions: Throws if the feature cannot be stored
 
@@ -302,7 +334,7 @@ sub write_output {
       print SAM '@EOF';
       close SAM;
       if ($line_count) {
-          $self->dataflow_output_id([{filename => $filename}], 1);
+          $self->dataflow_output_id([{filename => $filename}], $self->param('_branch_for_accumulators'));
       }
       else {
           $self->input_job->autoflow(0);
@@ -313,7 +345,7 @@ sub write_output {
       $self->input_job->autoflow(0);
   }
   if ($self->param_is_defined('iids')) {
-      $self->dataflow_output_id($self->param('iids'), 2);
+      $self->dataflow_output_id($self->param('iids'), $self->param('_branch_to_flow_to'));
   }
 }
 
