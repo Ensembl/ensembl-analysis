@@ -5389,8 +5389,8 @@ sub pipeline_analyses {
         -parameters => {
                          db_conn => $self->o('rnaseq_refine_db'),
                          input_query => 'SELECT * FROM dna_align_feature',
-                         command_out => q(sort -nk2 -nk3 -nk4 | sed 's/NULL/\\N/g'),
-                         output_file => $self->o('rnaseq_daf_introns_file'),
+                         command_out => q(sort -nk2 -nk3 -nk4 | sed 's/NULL/\\N/g' > #daf_file#),
+                         daf_file => $self->o('rnaseq_daf_introns_file'),
                        },
         -rc_name => 'default',
         -flow_into => {
@@ -5404,7 +5404,8 @@ sub pipeline_analyses {
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
         -parameters => {
                          db_conn => $self->o('rnaseq_final_db'),
-                         input_file => $self->o('rnaseq_daf_introns_file'),
+                         input_query => 'LOAD DATA LOCAL INFILE "#daf_file#" INTO TABLE dna_align_feature',
+                         daf_file => $self->o('rnaseq_daf_introns_file'),
                        },
         -rc_name => 'default',
         -flow_into => {
