@@ -563,7 +563,7 @@ foreach my $type (@types) {
         if ($collapse_ise) {
           my $analysis_id = `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e "SELECT analysis_id FROM analysis WHERE logic_name LIKE '%merged_rnaseq_ise'"`;
           if ($analysis_id and $analysis_id > 0) {
-            $cmd .= "-analysis_id $analysis_id";
+            $cmd .= " -analysis_id $analysis_id";
           }
           else {
             throw('Failed to get analysis_id for "%merged_rnaseq_ise"');

@@ -158,22 +158,30 @@ sub clean_genes {
         next;
       }
 
-      if(scalar(@{$transcript->get_all_Exons}) == 1 || $transcript->{'_contains_only_frameshift_introns'}) {
-        # There are a few things we can consider to either keep or delete single exon genes. They are:
-        # 1) biotype, at this point we have the biotypes classified based on hit coverage and percent id, so only take the best ones
-        # 2) utr, if there is utr present then this gives some extra confidence in an model and could override the biotype decision
-        # 3) location, if the model is in the intron of a gene on the same strand then we will almost always want to delete it. The
-        #    only case we wouldn't would be if the intron of the other gene looked dodgy (but this can be tricky to assess)
+#      if(scalar(@{$transcript->get_all_Exons}) == 1 || $transcript->{'_contains_only_frameshift_introns'}) {
+#        # There are a few things we can consider to either keep or delete single exon genes. They are:
+#        # 1) biotype, at this point we have the biotypes classified based on hit coverage and percent id, so only take the best ones
+#        # 2) utr, if there is utr present then this gives some extra confidence in an model and could override the biotype decision
+#        # 3) location, if the model is in the intron of a gene on the same strand then we will almost always want to delete it. The
+#        #    only case we wouldn't would be if the intron of the other gene looked dodgy (but this can be tricky to assess)
+#
+ #       if($self->single_exon_within_intron($transcript)) {
+ #         say "Found single exon or frameshift intron only gene within another gene, will remove: ".$transcript->dbID.", ".$transcript->biotype;
+ #         push(@{$transcript_ids_to_remove},$transcript->dbID);
+ #       }
+ #     }
+ #   } elsif(($gene->end - $gene->start + 1) <= $tiny_gene_size) {
+ #     foreach my $transcript (@{$transcripts}) {
+ #       unless(scalar(@{$transcript->get_all_five_prime_UTRs}) || scalar(@{$transcript->get_all_three_prime_UTRs})) {
+ #         say "Found tiny gene that does not have a 95/95 alignment: ".$transcript->dbID.", ".$transcript->biotype;
+ #         push(@{$transcript_ids_to_remove},$transcript->dbID);
+ #       }
+ #     }
 
-        if($self->single_exon_within_intron($transcript)) {
-          say "Found single exon or frameshift intron only gene within another gene, will remove: ".$transcript->dbID.", ".$transcript->biotype;
-          push(@{$transcript_ids_to_remove},$transcript->dbID);
-        }
-      }
-    } elsif(($gene->end - $gene->start + 1) <= $tiny_gene_size) {
-      foreach my $transcript (@{$transcripts}) {
-        unless(scalar(@{$transcript->get_all_five_prime_UTRs}) || scalar(@{$transcript->get_all_three_prime_UTRs})) {
-          say "Found tiny gene that does not have a 95/95 alignment: ".$transcript->dbID.", ".$transcript->biotype;
+      my $logic_name = $transcript->analysis->logic_name();
+      if($logic_name =~ /^genblast/ && scalar(@{$transcript->get_all_Exons()}) <= 3) {
+        if($self->check_protein_models($transcript)) {
+          say "Found protein model with weak supporting evidence: ".$transcript->dbID.", ".$transcript->biotype;
           push(@{$transcript_ids_to_remove},$transcript->dbID);
         }
       }
@@ -572,6 +580,69 @@ sub generate_exon_string {
   print "\n";
 
   return($exon_string);
+}
+
+
+sub check_protein_models {
+  my ($self,$transcript) = @_;
+
+  if(scalar(@{$transcript->get_all_five_prime_UTRs}) || scalar(@{$transcript->get_all_three_prime_UTRs})) {
+    return(0);
+  }
+
+  my $supporting_features = $transcript->get_all_supporting_features();
+  unless(scalar(@$supporting_features)) {
+    say "Transcript has no supporting features to assess, looking at exons";
+    my $translation = $transcript->translation->seq;
+    my $exons = $transcript->get_all_Exons;
+    my $all_exon_supporting_features = [];
+
+    my $coverage;
+    my $hit_name;
+    # Loop till an exon supporting feature is found
+    foreach my $exon (@$exons) {
+      my $exon_supporting_features = $exon->get_all_supporting_features;
+      if(scalar(@$exon_supporting_features)) {
+        $coverage = ${$exon_supporting_features}[0]->hcoverage;
+        $hit_name = ${$exon_supporting_features}[0]->hseqname;
+        last;
+      }
+    }
+
+    # If an exon supporting feature is found, base decision on that
+    if($coverage) {
+      if($coverage < 75 && $translation !~ /^M/) {
+       say "Removing transcript ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$hit_name.":".$coverage;
+       say "Translation:\n".$translation;
+       return(1);
+      } else {
+        return(0);
+      }
+    }
+
+    my $biotype = $transcript->biotype;
+    $biotype =~ /\_(\d+)$/;
+    my $classification = $1;
+    if($classification <= 4) {
+      return(0);
+    } else {
+      say "Removing based on classification: ".$biotype;
+      return(1);
+    }
+  }
+
+  my $supporting_feature = shift(@$supporting_features);
+  my $coverage = $supporting_feature->hcoverage;
+  my $translation = $transcript->translation->seq;
+  my $hit_name = $supporting_feature->hseqname;
+  if($coverage < 75 && $translation !~ /^M/) {
+    say "Removing transcript ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$hit_name.":".$coverage;
+    say "Translation:\n".$translation;
+    return(1);
+  }
+
+  return(0);
+
 }
 
 1;

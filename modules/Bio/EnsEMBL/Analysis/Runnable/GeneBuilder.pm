@@ -62,9 +62,9 @@ sub new {
   #print "In GeneBuilder constructor with super class" . ref($class) . "\n";
   my $self = $class->SUPER::new(@args);
   my($genes, $blessed_biotypes, $max_transcript_number,
-     $min_short_intron_len, $max_short_intron_len,$output_biotype, $coding_only) = 
+     $min_short_intron_len, $max_short_intron_len,$output_biotype, $coding_only, $skip_readthrough_check) =
     rearrange([qw(GENES BLESSED_BIOTYPES MAX_TRANSCRIPTS_PER_CLUSTER
-                  MIN_SHORT_INTRON_LEN MAX_SHORT_INTRON_LEN OUTPUT_BIOTYPE CODING_ONLY)], @args);
+                  MIN_SHORT_INTRON_LEN MAX_SHORT_INTRON_LEN OUTPUT_BIOTYPE CODING_ONLY SKIP_READTHROUGH_CHECK)], @args);
   # print "HERE ARE THE ARGS: ", join("  ",@args),"\n";
   # print "HERE I AM: ", $min_short_intron_len,"\t", $max_short_intron_len,"\n";
 
@@ -83,6 +83,7 @@ sub new {
   $self->max_short_intron_len($max_short_intron_len);
   $self->output_biotype($output_biotype);
   $self->coding_only($coding_only) ;
+  $self->skip_readthrough_check($skip_readthrough_check);
 
   #data sanity
   warning("Strange running the Genebuilder without any genes") 
@@ -147,6 +148,15 @@ sub coding_only {
   return $self->{'coding_only'} ;
 }
 
+
+sub skip_readthrough_check {
+  my ($self, $arg) = @_ ;
+  if ($arg) {
+    $self->{'skip_readthrough_check'} = $arg ;
+  }
+  return $self->{'skip_readthrough_check'} ;
+}
+
 sub run {
   my ($self) = @_;
   my $transcripts = $self->get_Transcripts;
@@ -165,7 +175,9 @@ sub run {
   #first gene cluster
   my $initial_genes = $self->cluster_into_Genes($pruned_transcripts, $coding_only);
   #print "Have ".@$initial_genes." initial gene structures\n";
-  $initial_genes = $self->remove_readthrough($initial_genes);
+  unless($self->skip_readthrough_check) {
+    $initial_genes = $self->remove_readthrough($initial_genes);
+  }
   #prune redundant cds
   $self->prune_redundant_CDS($initial_genes);
   #prune redundant transcripts

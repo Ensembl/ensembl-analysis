@@ -1032,7 +1032,7 @@ sub split_Transcript{
         }
       }
       if (@ugs) {
-        my $newf = $sf->new(-features => \@ugs) if(@ugs);
+        my $newf = $sf->new(-features => \@ugs, -align_type => 'ensembl') if(@ugs);
         $stran->add_supporting_features($newf);
       }
     }

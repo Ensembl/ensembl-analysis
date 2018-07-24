@@ -19,11 +19,11 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB;
 
 use strict;
 use warnings;
+
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Hive::Utils ('destringify');
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name);
-use feature 'say';
 
 use parent ('Bio::EnsEMBL::Hive::Process');
 
@@ -35,6 +35,8 @@ use parent ('Bio::EnsEMBL::Hive::Process');
                _input_id_name => 'iid',
                disconnect_jobs => 0,
                _branch_to_flow_to => 2,
+               _branch_to_flow_to_on_fail => -3,
+               _output => [],
  Returntype : Hashref, containing all default parameters
  Exceptions : None
 
@@ -94,12 +96,17 @@ sub run {
 sub output {
   my ($self, $output) = @_;
 
+  unless($self->param_is_defined('_output')) {
+    $self->param('_output',[]);
+  }
+
   if($output){
     if(ref($output) ne 'ARRAY'){
       $self->throw('Must pass RunnableDB:output an array ref not a '.$output);
     }
     push(@{$self->param('_output')}, @$output);
   }
+
   return $self->param('_output');
 }
 

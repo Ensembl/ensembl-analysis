@@ -139,7 +139,7 @@ sub fetch_input {
   my $acceptor_genes = $self->filter_input_genes($self->param_required('acceptor_dbs'), $self->param('allowed_input_sets'));
   $self->complete_early('No genes found in the acceptor databases') unless (@$acceptor_genes);
 
-  my $donor_genes = $self->filter_input_genes($self->param_required('donor_dbs'), $self->param('allowed_input_sets'));
+  my $donor_genes = $self->filter_input_genes($self->param_required('donor_dbs'), $self->param('allowed_input_sets'),1);
 
   say "Found ".scalar(@$acceptor_genes)." acceptor genes";
   say "Found ".scalar(@$donor_genes)." donor genes";
@@ -174,14 +174,19 @@ sub run {
       my $acceptor_transcripts = $gene->get_all_Transcripts;
       $gene->flush_Transcripts;
       foreach my $acceptor_transcript (@$acceptor_transcripts) {
-        my $transcript = $self->add_utr($acceptor_transcript, $donor_transcripts);
-        $gene->add_Transcript($transcript);
+        if($acceptor_transcript->translate->seq =~ /\*/) {
+          $self->warning("Transcript with dbID ".$acceptor_transcript->dbID." has a stop codon in the translation. Skipping UTR addition");
+          $gene->add_Transcript($acceptor_transcript);
+	} else {
+          my $transcript = $self->add_utr($acceptor_transcript, $donor_transcripts);
+          $gene->add_Transcript($transcript);
+        }
       }
       push(@genes, $gene);
     }
   }
   foreach my $single_cluster (@$unclustered) {
-    foreach my $single_gene (@{$single_cluster->get_Genes}) {
+    foreach my $single_gene (@{$single_cluster->get_Genes_by_Set('acceptor')}) {
       foreach my $transcript (@{$single_gene->get_all_Transcripts}) {
         calculate_exon_phases($transcript, 0);
       }
@@ -231,6 +236,7 @@ sub add_utr {
 
   my $allow_partial_match = $self->param('allow_partial_match');
 
+  # This code won't work with the current set of acceptor biotypes
   if(exists $self->biotype_priorities->{$acceptor_transcript->biotype}) {
     if ($self->biotype_priorities->{$acceptor_transcript->biotype} == 1 or
         (exists $self->biotype_priorities->{$acceptor_transcript->biotype} and
@@ -238,6 +244,16 @@ sub add_utr {
       return $acceptor_transcript;
     }
   }
+
+  # Putting this in as the module is not working correctly for models that have UTR already
+  if($acceptor_transcript->five_prime_utr || $acceptor_transcript->three_prime_utr) {
+    # Trim the short read 3 prime UTRs
+    if($acceptor_transcript->biotype =~ /^rnaseq/ && $acceptor_transcript->three_prime_utr) {
+      $self->trim_3prime_utr_short_read($acceptor_transcript);
+    }
+    return $acceptor_transcript;
+  }
+
   my $modified_acceptor_transcript_5prime;
   my $modified_acceptor_transcript_3prime;
   my $transcript;
@@ -252,7 +268,7 @@ sub add_utr {
       my $priority = $self->biotype_priorities()->{$donor_transcript->biotype};
       unless($priority) {
         $self->warning("Transcript biotype was not found in the biotype priorities hash or biotype was set to 0 priority. Skipping.".
-            "Biotype: ".$donor_transcript->biotype);
+                       "Biotype: ".$donor_transcript->biotype);
         next;
       }
 
@@ -268,11 +284,15 @@ sub add_utr {
           say "A longer or higher UTR donor has been found, selecting as current UTR donor";
           $modified_acceptor_transcript_single_exon = $new_transcript_single_exon;
           $modified_acceptor_transcript_single_exon->{'priority'} = $priority;
+          $modified_acceptor_transcript_single_exon->{'donor_5prime_biotype'} = $donor_transcript->biotype;
+          $modified_acceptor_transcript_single_exon->{'donor_3prime_biotype'} = $donor_transcript->biotype;
         }
       } else {
         $modified_acceptor_transcript_single_exon = $self->add_single_exon_utr($acceptor_transcript,$donor_transcript);
         if($modified_acceptor_transcript_single_exon) {
           $modified_acceptor_transcript_single_exon->{'priority'} = $priority;
+          $modified_acceptor_transcript_single_exon->{'donor_5prime_biotype'} = $donor_transcript->biotype;
+          $modified_acceptor_transcript_single_exon->{'donor_3prime_biotype'} = $donor_transcript->biotype;
         }
       }
     }
@@ -283,9 +303,7 @@ sub add_utr {
       $self->add_transcript_supporting_features($modified_acceptor_transcript_single_exon,$acceptor_transcript);
       $transcript = $modified_acceptor_transcript_single_exon;
     }
-  }
-  else {
-
+  } else {
     my $introns_acceptor = $acceptor_transcript->get_all_Introns();
     my ($cds_intron_string_a, $count_introns_a) = $self->generate_intron_string($introns_acceptor, $acceptor_transcript->coding_region_start, $acceptor_transcript->coding_region_end);
 
@@ -330,7 +348,7 @@ sub add_utr {
       my ($intron_string_b, $count_introns_b) = $self->generate_intron_string($introns_b, $acceptor_transcript->coding_region_start, $acceptor_transcript->coding_region_end);
 
 # Unless we have a match of the cds intron coords of the target to the introns coords of the donor, return 0
-      unless($intron_string_b =~ $cds_intron_string_a) {
+      unless($intron_string_b =~ /\:$cds_intron_string_a/ || $intron_string_b =~ /^$cds_intron_string_a/) {
         say "\n-----------------------------------------------------------------------";
         say "Acceptor CDS introns coords do not match a set in the donor transcript:";
         say $cds_intron_string_a." (acceptor intron coords)";
@@ -360,11 +378,13 @@ sub add_utr {
           say "A longer or higher UTR donor has been found, selecting as current 5' UTR";
           $modified_acceptor_transcript_5prime = $new_transcript_5prime;
           $modified_acceptor_transcript_5prime->{'priority'} = $priority;
+          $modified_acceptor_transcript_5prime->{'donor_5prime_biotype'} = $donor_transcript->biotype;
         }
       } else {
         $modified_acceptor_transcript_5prime = $self->add_five_prime_utr($acceptor_transcript,$donor_transcript,$introns_acceptor,$introns_b,$cds_intron_string_a,$intron_string_b);
         if($modified_acceptor_transcript_5prime) {
           $modified_acceptor_transcript_5prime->{'priority'} = $priority;
+          $modified_acceptor_transcript_5prime->{'donor_5prime_biotype'} = $donor_transcript->biotype;
         }
       }
 
@@ -380,18 +400,20 @@ sub add_utr {
           say "A longer UTR donor has been found, selecting as current 3' UTR";
           $modified_acceptor_transcript_3prime = $new_transcript_3prime;
           $modified_acceptor_transcript_3prime->{'priority'} = $priority;
+          $modified_acceptor_transcript_3prime->{'donor_3prime_biotype'} = $donor_transcript->biotype;
         }
       } else {
         $modified_acceptor_transcript_3prime = $self->add_three_prime_utr($acceptor_transcript,$donor_transcript,$introns_acceptor,$introns_b,$cds_intron_string_a,$intron_string_b);
         if($modified_acceptor_transcript_3prime) {
           $modified_acceptor_transcript_3prime->{'priority'} = $priority;
+          $modified_acceptor_transcript_3prime->{'donor_3prime_biotype'} = $donor_transcript->biotype;
         }
       }
     } # End else
   } # End foreach my $donor_transcript
 
-# At this point we either have the final UTR on both ends, the final on one end only or no UTR. The tricky situation is when UTR has been added
-# to both ends. In this case we have to merge both transcripts into a single transcript
+  # At this point we either have the final UTR on both ends, the final on one end only or no UTR. The tricky situation is when UTR has been added
+  # to both ends. In this case we have to merge both transcripts into a single transcript
   if($modified_acceptor_transcript_5prime && $modified_acceptor_transcript_3prime) {
     say "Added both 5' and 3' UTR. Creating final joined transcript: ";
     my $joined_transcript = $self->join_transcripts($modified_acceptor_transcript_5prime,$modified_acceptor_transcript_3prime);
@@ -412,6 +434,13 @@ sub add_utr {
     say "No UTR added to transcript";
     $transcript = $acceptor_transcript;
   }
+
+  # For the 3prime UTR for short read data there is an issue with long tails, this is some basic code to cut those
+  if(($modified_acceptor_transcript_3prime && $modified_acceptor_transcript_3prime->{'donor_3prime_biotype'} eq 'rnaseq') ||
+     ($modified_acceptor_transcript_single_exon && $modified_acceptor_transcript_single_exon->{'donor_3prime_biotype'} eq 'rnaseq')) {
+    $transcript = $self->trim_3prime_utr_short_read($transcript);
+  }
+
   $self->look_for_both($transcript);
   calculate_exon_phases($transcript, 0);
   return $transcript;
@@ -683,7 +712,24 @@ sub add_five_prime_utr {
   }
   print "\n";
 
-  my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+  my $genomic_start;
+  my $genomic_end;
+  if($transcript_a->strand == 1) {
+    $genomic_start = ($transcript_a->translation->start_Exon->seq_region_start + $transcript_a->translation->start - 1);
+    $genomic_end = ($transcript_a->translation->end_Exon->seq_region_start + $transcript_a->translation->end - 1);
+  } else {
+    $genomic_start = ($transcript_a->translation->start_Exon->seq_region_end - $transcript_a->translation->start + 1);
+    $genomic_end = ($transcript_a->translation->end_Exon->seq_region_end - $transcript_a->translation->end + 1);
+  }
+
+ # my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+
+  my $final_translation = create_Translation($final_exons, $genomic_start, $genomic_end);
+
+  unless ($final_translation) {
+    $self->throw("Failed to create a final translation");
+  }
+
   say "Old translation start: ".$transcript_a->translation->start;
   say "New translation start: ".$final_translation->start;
   foreach my $seq_edit (@{$transcript_a->translation->get_all_SeqEdits}) {
@@ -699,7 +745,7 @@ sub add_five_prime_utr {
   my $big_utr_length = 50000;
   my $max_no_intron_extension = 5000;
   my $max_average_5_prime_intron_length = 35000;
-  
+
   my $modified_transcript_length = $modified_transcript->seq_region_end() - $modified_transcript->seq_region_start();
   my $transcript_a_length = $transcript_a->seq_region_end() - $transcript_a->seq_region_start();
   my $added_length = $modified_transcript_length - $transcript_a_length;  
@@ -738,6 +784,7 @@ sub add_five_prime_utr {
   $modified_transcript->biotype($transcript_a->biotype);
   $modified_transcript->slice($transcript_a->slice());
   $modified_transcript->translation($final_translation);
+
   calculate_exon_phases($modified_transcript, 0);
 
 
@@ -941,7 +988,17 @@ sub add_three_prime_utr {
 #    $$final_exons[$i]->add_supporting_features(@{$supporting_features_b});
 #  }
 
-  my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+  my $genomic_start;
+  my $genomic_end;
+  if($transcript_a->strand == 1) {
+    $genomic_start = ($transcript_a->translation->start_Exon->seq_region_start + $transcript_a->translation->start - 1);
+    $genomic_end = ($transcript_a->translation->end_Exon->seq_region_start + $transcript_a->translation->end - 1);
+  } else {
+    $genomic_start = ($transcript_a->translation->start_Exon->seq_region_end - $transcript_a->translation->start + 1);
+    $genomic_end = ($transcript_a->translation->end_Exon->seq_region_end - $transcript_a->translation->end + 1);
+  }
+
+  my $final_translation = create_Translation($final_exons, $genomic_start, $genomic_end);
   foreach my $seq_edit (@{$transcript_a->translation->get_all_SeqEdits}) {
     $final_translation->add_Attributes($seq_edit->get_Attribute);
   }
@@ -1115,7 +1172,17 @@ sub add_single_exon_utr {
     return(0);
   }
 
-  my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+  my $genomic_start;
+  my $genomic_end;
+  if($transcript_a->strand == 1) {
+    $genomic_start = ($transcript_a->translation->start_Exon->seq_region_start + $transcript_a->translation->start - 1);
+    $genomic_end = ($transcript_a->translation->end_Exon->seq_region_start + $transcript_a->translation->end - 1);
+  } else {
+    $genomic_start = ($transcript_a->translation->start_Exon->seq_region_end - $transcript_a->translation->start + 1);
+    $genomic_end = ($transcript_a->translation->end_Exon->seq_region_end - $transcript_a->translation->end + 1);
+  }
+
+  my $final_translation = create_Translation($final_exons, $genomic_start, $genomic_end);
   foreach my $seq_edit (@{$transcript_a->translation->get_all_SeqEdits}) {
     $final_translation->add_Attributes($seq_edit->get_Attribute);
   }
@@ -1133,6 +1200,7 @@ sub add_single_exon_utr {
   print "\n";
 
   calculate_exon_phases($modified_transcript, 0);
+
   my $modified_translation = $modified_transcript->translation();
   say "\n";
   say "Acceptor original sequence:\n".$transcript_a->seq->seq;
@@ -1225,8 +1293,18 @@ sub join_transcripts {
     $seen{$exon->seq_region_start.':'.$exon->seq_region_end} = 1;
   }
 
+  my $genomic_start;
+  my $genomic_end;
+  if($transcript_a->strand == 1) {
+    $genomic_start = ($transcript_a->translation->start_Exon->seq_region_start + $transcript_a->translation->start - 1);
+    $genomic_end = ($transcript_a->translation->end_Exon->seq_region_start + $transcript_a->translation->end - 1);
+  } else {
+    $genomic_start = ($transcript_a->translation->start_Exon->seq_region_end - $transcript_a->translation->start + 1);
+    $genomic_end = ($transcript_a->translation->end_Exon->seq_region_end - $transcript_a->translation->end + 1);
+  }
+
   # The translation is the same, but still need to modify the translation so that it has the correct start and end exon
-  my $translation = create_Translation(\@unique_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+  my $translation = create_Translation(\@unique_exons, $genomic_start, $genomic_end);
   foreach my $seq_edit (@{$transcript_a->translation->get_all_SeqEdits}) {
     $translation->add_Attributes($seq_edit->get_Attribute);
   }
@@ -1236,6 +1314,7 @@ sub join_transcripts {
   $joined_transcript->biotype($transcript_a->biotype);
   $joined_transcript->slice($transcript_a->slice());
   $joined_transcript->translation($translation);
+
   calculate_exon_phases($joined_transcript, 0);
 
   say "Joined exon coords:";
@@ -1274,7 +1353,8 @@ sub join_transcripts {
 sub generate_intron_string {
   my ($self,$intron_array, $seq_region_start, $seq_region_end) = @_;
 
-  my $intron_string = "";
+#  my $intron_string = ":";
+my $intron_string = "";
   my $count = 0;
   print STDERR 'GENERATING: ';
   foreach my $intron (@{$intron_array}) {
@@ -1376,7 +1456,6 @@ sub look_for_both {
                   my $testseq = substr($cdna_seq,$coding_start-4,3);
                   if ($testseq eq "ATG") {
                           print_Translation($trans) if(1);
-
                           my @coords = $trans->cdna2genomic($coding_start-3,$coding_start-1);
                           my $new_start;
                           my $new_end;
@@ -1415,18 +1494,18 @@ sub look_for_both {
 
                             my $newstartexon;
                             foreach my $exon (@{$trans->get_all_Exons}) {
-                              if ($exon->end >= $new_start && $exon->start <= $new_start) {
-                                    $newstartexon = $exon;
-                                        last;
-                                  }
+                              if ($exon->seq_region_end >= $new_start && $exon->seq_region_start <= $new_start) {
+                                $newstartexon = $exon;
+                                last;
+                              }
                             }
 
-                            if ($newstartexon == $tln->start_Exon) {
 
+                            if ($newstartexon == $tln->start_Exon) {
                               if ($tln->start_Exon->strand == 1) {
-                                    $tln->start($new_start - $tln->start_Exon->start + 1);
+                                    $tln->start($new_start - $tln->start_Exon->seq_region_start + 1);
                                   } else {
-                                        $tln->start($tln->start_Exon->end - $new_end + 1);
+                                        $tln->start($tln->start_Exon->seq_region_end - $new_end + 1);
                                       }
 
                                 # NAUGHTY, but hey I should have to do this - I've changed the translation after all
@@ -1477,9 +1556,9 @@ sub look_for_both {
                                 # TODO evidence
 
                               if ($copynewstartexon->strand == 1) {
-                                    $tln->start($new_start - $copynewstartexon->start + 1);
+                                    $tln->start($new_start - $copynewstartexon->seq_region_start + 1);
                                   } else {
-                                        $tln->start($copynewstartexon->end - $new_end + 1);
+                                        $tln->start($copynewstartexon->seq_region_end - $new_end + 1);
                                       }
 
                                 # Replace exons in transcript, and fix phases
@@ -1625,7 +1704,7 @@ sub look_for_both {
 
                             my $newendexon;
                           foreach my $exon (@{$trans->get_all_Exons}) {
-                            if ($exon->end >= $new_start && $exon->start <= $new_start) {
+                            if ($exon->seq_region_end >= $new_start && $exon->seq_region_start <= $new_start) {
                                     $newendexon = $exon;
                                           last;
                                   }
@@ -1633,9 +1712,9 @@ sub look_for_both {
 
                           if ($newendexon == $tln->end_Exon) {
                             if ($tln->end_Exon->strand == 1) {
-                                    $tln->end($new_end - $tln->end_Exon->start + 1);
+                                    $tln->end($new_end - $tln->end_Exon->seq_region_start + 1);
                                   } else {
-                                          $tln->end($tln->end_Exon->end - $new_start + 1);
+                                          $tln->end($tln->end_Exon->seq_region_end - $new_start + 1);
                                         }
 
                                 # NAUGHTY, but hey I should have to do this - I've changed the translation after all
@@ -1686,11 +1765,11 @@ sub look_for_both {
                                 # TODO evidence
 
                             if ($copynewendexon->strand == 1) {
-                                    $tln->end($new_end - $copynewendexon->start + 1);
+                                    $tln->end($new_end - $copynewendexon->seq_region_start + 1);
                                   } else {
-                                          $tln->end($copynewendexon->end - $new_start + 1 );
+                                          $tln->end($copynewendexon->seq_region_end - $new_start + 1 );
 
-                                                my $tercodon = $copynewendexon->seq->subseq($copynewendexon->end - $new_start-1, $copynewendexon->end - $new_start +1);
+                                                my $tercodon = $copynewendexon->seq->subseq($copynewendexon->seq_region_end - $new_start-1, $copynewendexon->seq_region_end - $new_start +1);
                                                 #reverse($tercodon);
                                                 #$tercodon =~ tr /ACGT/TGCA/;
 
@@ -1781,7 +1860,7 @@ sub look_for_both {
 =cut
 
 sub filter_input_genes {
-  my ($self, $gene_source_dbs, $allowed_transcript_sets) = @_;
+  my ($self, $gene_source_dbs, $allowed_transcript_sets,$standardise_biotypes) = @_;
 
   my @genes;
   my $slice = $self->query;
@@ -1789,6 +1868,7 @@ sub filter_input_genes {
   foreach my $db_conn (@$gene_source_dbs) {
     my $db_adaptor = $self->hrdb_get_dba($db_conn);
     my $gene_adaptor = $db_adaptor->get_GeneAdaptor();
+    my $dbname = $db_conn->{'-dbname'};
 
     if($allowed_transcript_sets) {
       foreach my $logic_name (keys %$allowed_transcript_sets) {
@@ -1803,12 +1883,114 @@ sub filter_input_genes {
       }
     }
     else {
-      push(@genes, @{$gene_adaptor->fetch_all_by_Slice($slice, undef, 1)});
+      my $donor_genes = $gene_adaptor->fetch_all_by_Slice($slice, undef, 1);
+      # This should not have to be done in general, however there is a fix because
+      # we have a very large number of assemblies in production and the pipelines
+      # will not work without this fix
+      if($standardise_biotypes) {
+        foreach my $gene (@$donor_genes) {
+          my $biotype = "";
+          if($dbname =~ /\_cdna\_/) {
+            $biotype = "cdna";
+          } elsif($dbname =~ /\_rnaseq\_/) {
+            $biotype = "rnaseq";
+          } else {
+            $self->throw("Found an unexpected dbname type for the donor db. Name: ".$dbname);
+          }
+          $gene->biotype($biotype);
+          my $transcripts = $gene->get_all_Transcripts();
+          foreach my $transcript (@$transcripts) {
+            $transcript->biotype($biotype);
+          }
+        }
+      }
+      push(@genes, @{$donor_genes});
     }
   }
   return \@genes;
 }
 
+
+sub trim_3prime_utr_short_read {
+  my ($self,$transcript) = @_;
+
+
+  # Only going to use the most common nuclear PAS signal
+  my $pas_signal = 'AATAAA';
+  my $cleavage_signal = 'CA';
+  my $max_no_cleavage = 1000;
+
+  unless($transcript->three_prime_utr) {
+    $self->warning("The trim_3prime_utr_short_read was called on a transcript with no 3 prime UTR. Nothing to trim");
+  }
+
+  my $exons = $transcript->get_all_Exons;
+  my $final_exon = ${$exons}[$#{$exons}];
+  my $translation_end_exon = $transcript->translation->end_Exon;
+
+  my $coding_offset = 0;
+  my $final_exon_seq = $final_exon->seq->seq;
+  if($final_exon->start == $translation_end_exon->start) {
+    $coding_offset = $transcript->translation->end;
+  }
+
+  my $found_pas = 0;
+  my $pas_start = 0;
+  my $pas_end = 0;
+  my $cleavage_site = 0;
+  while($final_exon_seq =~ /$pas_signal/g && !$found_pas) {
+    # Set to 1 base offset for ease
+    $pas_start = $-[0] + 1;
+    $pas_end =  $+[0];
+
+    if($pas_start <= $coding_offset) {
+      next;
+    }
+
+    say "Found PAS signal in final exon seq at the following coords: ".$pas_start."..".$pas_end;
+    $found_pas = 1;
+    last;
+  }
+
+  if($found_pas) {
+    # There are 15-30bp between the end of the pas signal and the cleavage site
+    # as pas_end is already shifted to 1bp offset, just add 14
+    my $post_pas_seq = substr($final_exon_seq,$pas_end + 14,15);
+    say $post_pas_seq;
+    if($post_pas_seq =~ /CA/) {
+      $cleavage_site = $pas_end + 14 + $+[0];
+      say "Cleavage site found within 15-30bp range of PAS signal";
+      say $cleavage_site;
+    } else {
+      $cleavage_site = $pas_end + 30;
+      say "Cleavage site not found within 15-30bp range of PAS signal, setting to 30bp downstream:";
+      say $cleavage_site;
+    }
+  } else {
+    if((length($final_exon_seq) - $coding_offset) > $max_no_cleavage) {
+      $cleavage_site = $coding_offset + $max_no_cleavage;
+    }
+    say "Could not find PAS signal in 3' UTR, will use max_no_cleavage as a cut-off:";
+    say $cleavage_site;
+  }
+
+  if($cleavage_site >= length($final_exon_seq)) {
+    say "Not cleaving as proposed cleavage site is at or over the end of the final exon";
+    return($transcript);
+  }
+
+  if($cleavage_site) {
+    if($final_exon->strand == 1 && $cleavage_site > $coding_offset) {
+      $final_exon->end($final_exon->start + $cleavage_site - 1);
+      $transcript->end($final_exon->end);
+    } elsif($final_exon->strand == -1 && $cleavage_site > $coding_offset) {
+      $final_exon->start($final_exon->end - $cleavage_site + 1);
+      $transcript->start($final_exon->start);
+    }
+  }
+
+  return($transcript);
+}
 
 =head2 acceptor_genes
 

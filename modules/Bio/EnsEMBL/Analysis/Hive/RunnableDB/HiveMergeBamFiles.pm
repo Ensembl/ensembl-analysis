@@ -90,6 +90,8 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
                store_datafile => 1, store the file name in data_file
                _index_ext => 'bai',
                _file_ext => 'bam',
+               _logic_name_ext => 'bam', This is for the data_file table
+               _branch_to_flow_to => 1, This has to be the same as the accumulatorj
  Returntype : Hashref, containing all default parameters
  Exceptions : None
 
@@ -140,14 +142,32 @@ sub fetch_input {
       $self->param('alignment_bam_file', File::Spec->catfile($self->param('wide_merge_dir'),
         join('.', $self->param_required('assembly_name'), $self->param_required('rnaseq_data_provider'), $outname, $self->param('bam_version'), $self->param('_file_ext'))));
     }
-    if (scalar(@{$self->param('filename')}) == 0) {
-        $self->throw('You did not specify input files for '.$self->analysis->logic_name);
+
+    unless($self->param('filename')) {
+      $self->warning('You did not have input files for '.$self->analysis->logic_name);
+      $self->input_job->autoflow(0);
+      $self->complete_early('There are no files to process');
     }
-    elsif (scalar(@{$self->param('filename')}) == 1 and $self->param('options') !~ /-b /) {
+
+    my @initial_input_files = @{$self->param('filename')};
+    my @processed_input_files = ();
+    foreach my $input_file (@initial_input_files) {
+      if($input_file) {
+        push(@processed_input_files,$input_file);
+      }
+    }
+
+    if (scalar(@processed_input_files) == 0) {
+        $self->warning('You did not have input files for '.$self->analysis->logic_name);
+        $self->input_job->autoflow(0);
+        $self->complete_early('There are no files to process');
+    }
+
+    elsif (scalar(@processed_input_files) == 1 and $self->param('options') !~ /-b /) {
         # In samtools merge you can specify a file with a list of files using -b
         # In other cases I just want to push the filename but I don't need to run the BAM merge
         # First pushing the filename
-        my $abs_filename = $self->param('filename')->[0];
+        my $abs_filename = $processed_input_files[0];
         if (-e File::Spec->catfile($self->param('wide_merge_dir'), $abs_filename)) {
             $abs_filename = File::Spec->catfile($self->param('wide_merge_dir'), $abs_filename);
         }
@@ -181,7 +201,7 @@ sub fetch_input {
             -options => $self->param('options'),
             -analysis => $self->analysis,
             -output_file => $self->param('alignment_bam_file'),
-            -input_files => $self->param('filename'),
+            -input_files => \@processed_input_files,
             -use_threading => $self->param('use_threading'),
             -samtools => $self->param('wide_samtools') || 'samtools',
             ));
@@ -193,7 +213,7 @@ sub fetch_input {
             -options => $self->param('options'),
             -analysis => $self->analysis,
             -output_file => $self->param('alignment_bam_file'),
-            -input_files => $self->param('filename'),
+            -input_files => \@processed_input_files,
             -use_threading => $self->param('use_threading'),
             ));
     }

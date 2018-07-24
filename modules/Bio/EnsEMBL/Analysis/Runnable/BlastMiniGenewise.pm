@@ -84,12 +84,12 @@ sub new {
   my $self = $class->SUPER::new(@args);
   my( $ids, $seqfetcher, $minigenewise_options, $check_repeated, 
       $full_seq,$exonerate,$exonerate_path, $exonerate_options, $genewise_options, 
-      $blast_parser, $blast_filter, $post_filter, $score_cutoff, $blastdb, $mmg_options) = 
+      $blast_parser, $blast_filter, $post_filter, $score_cutoff, $blastdb, $mmg_options, $max_intron) =
         rearrange([qw(IDS SEQFETCHER MINIGENEWISE_OPTIONS
                       CHECK_REPEATED FULLSEQ EXONERATE EXONERATE_PATH 
                       EXONERATE_OPTIONS GENEWISE_OPTIONS BLAST_PARSER
                       BLAST_FILTER POST_BLAST_FILTER SCORE_CUTOFF BLASTDB 
-                      MULTIMINIGENEWISE_OPTIONS)], @args);
+                      MULTIMINIGENEWISE_OPTIONS MAX_INTRON)], @args);
 
   ####SETTING DEFAULTS#####
   $self->check_repeated(1);
@@ -111,6 +111,7 @@ sub new {
   $self->post_blast_filter($post_filter);
   $self->score_cutoff($score_cutoff);
   $self->blastdb($blastdb);
+  $self->max_intron($max_intron || 5000000);
   #note this is a default but due to the nature of it defaulting to on this
   #way is needed
   throw("No query sequence input")    unless ($self->query);

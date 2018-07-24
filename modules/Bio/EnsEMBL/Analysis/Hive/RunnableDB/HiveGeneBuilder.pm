@@ -51,12 +51,12 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_ovewrite empty_Gene print_Gene_Transcript_and_Exons);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils 
   qw(are_strands_consistent are_phases_consistent calculate_exon_phases
-     is_not_folded all_exons_are_valid intron_lengths_all_less_than_maximum);
+     is_not_folded all_exons_are_valid intron_lengths_all_less_than_maximum exon_overlap features_overlap overlap_length);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(exon_length_less_than_maximum);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils 
   qw(validate_Translation_coords contains_internal_stops print_Translation print_peptide);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
-
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils qw(cluster_Genes_by_coding_exon_overlap cluster_Genes);
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -81,6 +81,15 @@ use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
  # $self->read_and_check_config($GENEBUILDER_CONFIG_BY_LOGIC);
  # return $self;
 #}
+
+sub param_defaults {
+    return {
+      post_filter_genes          => '1',
+      recovery_overlap_threshold => 0.9,
+      skip_readthrough_check => 0,
+    }
+}
+
 
 
 
@@ -129,6 +138,7 @@ sub fetch_input{
           -max_short_intron_len => $self->MAX_SHORT_INTRON_LEN,
           -blessed_biotypes => $self->BLESSED_BIOTYPES,
           -coding_only => $self->CODING_ONLY,
+          -skip_readthrough_check => $self->param('skip_readthrough_check'),
          );
 
 
@@ -136,6 +146,29 @@ sub fetch_input{
 
 };
 
+
+sub run {
+  my ($self) = @_;
+  my $runnable = shift(@{$self->runnable()});
+  $runnable->run;
+  my $initial_genes = $runnable->output;
+  say "Found ".scalar(@$initial_genes)." in initial runnable output";
+  unless(scalar(@$initial_genes)) {
+    $self->warning("No initial set of output genes created");
+    return;
+  }
+
+  if($self->param('post_filter_genes')) {
+    my $output_genes = $self->post_filter_genes($initial_genes);
+    unless(scalar(@$output_genes)) {
+      $self->throw("The output genes array is empty after running filter genes. This should not happen");
+    }
+    say "Found ".scalar(@$output_genes)." after post filtering";
+    $self->output($output_genes);
+  } else {
+    $self->output($initial_genes);
+  }
+}
 
 sub write_output{
   my ($self) = @_;
@@ -160,6 +193,378 @@ sub write_output{
   if($sucessful_count != @{$self->output}){
     $self->throw("Failed to write some genes");
   }
+}
+
+sub post_filter_genes {
+  my ($self,$genes) = @_;
+
+  # 1: Find longer models to fix split genes and extend modles from set of recovery dbs
+  #    The downsides of this method is that it may join genes by accident. Also it could
+  #    add extra transcripts where the difference is relatively minor. However, if the
+  #    input recovery set is good then this will work well at fixing common issues with
+  #    splitting genes due to layer annotation
+#  $genes = $self->recover_long_models($genes);
+
+  # 2: Remove short, suspect transcripts (leaving only the best scoring one if it removes everything)
+  #    This will collapse stuff down at each position in terms of 1, 2 or 3 exon models. These models
+  #    are most likely to be spurious. The script will remove these models in genes where they have
+  #    >= 50 percent unique exons. In general works will with no obvious downside, unless there are
+  #    true low exon models with a majority of unique exon structures (unlikely though)
+  $genes = $self->remove_bad_transcripts($genes);
+
+  # Haven't implemented the rest yet
+
+  # 3: Remove UTR exons that cover the coding exons of another gene (where the whole exon is non-coding)
+  #    Currently disabled as I haven't finished it and haven't come up with a good solution other than
+  #    brute force looping through all the exons
+  #$genes = $self->trim_utr_overlapping_cds($genes);
+
+  # 4: Look for genes in strange places. For example small genes that are in introns of other genes
+  #    Not implemented yet. Sometimes tricky as terminal exons are often misaligned. Might be worth
+  #    ignoring any introns bordering a terminal exon when deciding if a gene lies in the intron of another
+
+  return($genes);
+}
+
+
+sub remove_bad_transcripts {
+  my ($self,$genes) = @_;
+
+  my $suspect_exon_count = 3;
+  my $suspect_exon_size = 30;
+
+  my $filtered_genes = [];
+  foreach my $gene (@$genes) {
+    my $transcripts = $gene->get_all_Transcripts();
+    if(scalar(@$transcripts) == 1) {
+      push(@$filtered_genes,$gene);
+      next;
+    }
+
+    # First count the frequency of the exons
+    my $unique_exon_data;
+    my $transcript_index = 0;
+    foreach my $transcript (@$transcripts) {
+      my $exons = $transcript->get_all_Exons();
+      foreach my $exon (@$exons) {
+        my $exon_string = ":".$exon->start.":".$exon->end.":";
+        unless($unique_exon_data->{$exon_string}) {
+          $unique_exon_data->{$exon_string} = 1;
+        } else {
+          $unique_exon_data->{$exon_string}++;
+	}
+      } # end foreach my $exon
+    } # end  foreach my $transcript
+
+    my $transcripts_to_keep = [];
+    my $highest_score = 0;
+    my $highest_scoring_transcript;
+    # Now loop back through the transcript to find suspect ones
+    foreach my $transcript (@$transcripts) {
+      # If we've found a transcript with UTR then assume it's okay
+      if($transcript->five_prime_utr || $transcript->three_prime_utr) {
+        push(@{$transcripts_to_keep},$transcript);
+        next;
+      }
+
+      my $exons = $transcript->get_all_Exons;
+      my $exon_count = scalar(@$exons);
+      # When there's more than the suspect exon count then assume it's okay
+      if($exon_count > $suspect_exon_count) {
+        push(@{$transcripts_to_keep},$transcript);
+        next;
+      }
+
+      # Now we should a transcript that at least has some dodgy characteristics
+      # We need to further investigate to decide if there is actually an issue
+      my $unique_exon_count = 0;
+      foreach my $exon (@$exons) {
+        my $exon_string = ":".$exon->start.":".$exon->end.":";
+        unless($unique_exon_data->{$exon_string} > 1) {
+          $unique_exon_count++;
+        }
+      }
+
+      # At this point if we have 2 or more unique exons it implies the transcript
+      # is very unusual and should probably be flagged for removal. I haven't thought
+      # of a decent system for why we would keep it other than it being the best scoring
+      # transcript in the scenario that all transcripts would be removed
+      my $transcript_score = $self->transcript_score($transcript);
+      if($transcript_score >= $highest_score) {
+        $highest_scoring_transcript = $transcript;
+        $highest_score = $transcript_score;
+      }
+
+      my $unique_fraction = $unique_exon_count / $exon_count;
+      if($unique_fraction >= 0.5) {
+        say "Skipping transcript because it has ".$suspect_exon_count." or fewer exons and ".$unique_exon_count." are unique";
+        next;
+      }
+
+      push(@{$transcripts_to_keep},$transcript);
+    } # end 2nd foreach my $transcript
+
+    # If we're going to remove all the transcript then we should at least keep the highest scoring one
+    if(scalar(@$transcripts_to_keep) == 0) {
+      say "Post filtering would remove all transcripts, keeping higest scoring transcript";
+      push(@{$transcripts_to_keep},$highest_scoring_transcript);
+    }
+
+    my $new_gene = new Bio::EnsEMBL::Gene;
+    $new_gene->source($gene->source);
+    $new_gene->biotype($gene->biotype);
+
+    unless(scalar(@$transcripts_to_keep)) {
+      $self->throw("In post filtering no transcripts were kept for current gene, this is not right");
+    }
+
+    foreach my $transcript (@$transcripts_to_keep) {
+      $new_gene->add_Transcript($transcript);
+    }
+
+    push(@$filtered_genes,$new_gene);
+  } # end foreach my $gene
+
+  unless(scalar(@$filtered_genes) == scalar(@$genes)) {
+    $self->throw("The count of the filtered genes (".scalar(@$filtered_genes).") did not match the count of the original set (".scalar(@$genes).")");
+  }
+
+  return($filtered_genes);
+}
+
+
+sub transcript_score {
+  my ($self,$transcript) = @_;
+
+  my $tsf = pop(@{$transcript->get_all_supporting_features});
+  unless($tsf) {
+    return(0);
+  }
+
+  my $combined_cov_pid = $tsf->hcoverage + $tsf->percent_id;
+  return($combined_cov_pid);
+
+}
+
+
+sub recover_long_models {
+  my ($self,$genebuilder_genes) = @_;
+
+  my $output_genes = [];
+
+  my $recovery_dbs = $self->param_required('recovery_dbs');
+  my $recovery_genes = [];
+  say "Preparing to recover gene models";
+  foreach my $db_info (@$recovery_dbs) {
+    say "Fetching genes for ".$db_info->{'-dbname'};
+    my $genes = $self->hrdb_get_dba($db_info)->get_GeneAdaptor->fetch_all_by_Slice($self->query);
+    say "Found ".scalar(@$genes)." genes to consider for recovery";
+    push(@$recovery_genes,@$genes);
+  }
+
+  say "Combining recovery genes under a single biotype";
+  foreach my $recovery_gene (@$recovery_genes) {
+    $recovery_gene->biotype('recovery');
+  }
+
+  my $types_hash;
+  $types_hash->{'genebuilder'} = [$self->OUTPUT_BIOTYPE];
+  $types_hash->{'recovery'} = ['recovery'];
+
+  say "Clustering genebuilder genes with recovery genes...";
+  my ($clusters, $unclustered) = cluster_Genes_by_coding_exon_overlap([@$genebuilder_genes,@$recovery_genes],$types_hash);
+  say "...finished clustering genes for recovery";
+
+  say "Found ".scalar(@$clusters)." clusters";
+  say "Found ".scalar(@$unclustered)." unclustered genes, will not change";
+
+  foreach my $unclustered (@$unclustered) {
+     my $unclustered_genes = $unclustered->get_Genes_by_Set('genebuilder');
+     foreach my $unclustered_gene (@$unclustered_genes) {
+       push(@$output_genes,$unclustered_gene);
+     }
+  }
+
+  foreach my $cluster (@$clusters) {
+    my $recovery_cluster_genes = $cluster->get_Genes_by_Set('recovery');
+    my $genebuilder_cluster_genes = $cluster->get_Genes_by_Set('genebuilder');
+
+    say "In cluster:";
+    say "  Recovery genes: ".scalar(@$recovery_cluster_genes);
+    say "  Genebuilder genes: ".scalar(@$genebuilder_cluster_genes);
+    my $genebuilder_input_genes;
+    $genebuilder_input_genes = $self->assess_recovery_overlap($recovery_cluster_genes,$genebuilder_cluster_genes);
+
+    if(scalar(@$genebuilder_input_genes)) {
+      say "Inputting ".scalar(@$genebuilder_input_genes)." single transcript genes to new genebuilder run";
+      say "Running genebuilder...";
+      my $runnable = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder->new(
+                      -query => $self->query,
+                      -analysis => $self->analysis,
+                      -genes => $genebuilder_input_genes,
+                      -output_biotype => $self->OUTPUT_BIOTYPE,
+                      -max_transcripts_per_cluster => $self->MAX_TRANSCRIPTS_PER_CLUSTER,
+                      -min_short_intron_len => $self->MIN_SHORT_INTRON_LEN,
+                      -max_short_intron_len => $self->MAX_SHORT_INTRON_LEN,
+                      -blessed_biotypes => $self->BLESSED_BIOTYPES,
+                      -coding_only => $self->CODING_ONLY,
+                      -skip_readthrough_check => 1,
+                     );
+      $runnable->run;
+      say "Created ".scalar(@{$runnable->output})." output genes";
+      push(@$output_genes,@{$runnable->output});
+    } else {
+      say "Not adding models from recovery set so will not run genebuilder again on cluster genes";
+      push(@$output_genes,@$genebuilder_cluster_genes);
+    }
+
+  }
+  return($output_genes);
+}
+
+
+sub assess_recovery_overlap {
+  my ($self,$recovery_genes,$genebuilder_genes) = @_;
+
+  my $output_genes = [];
+
+  # Just in case we make multi transcript recovery genes in future, pass it through the single transcript gene method
+  my $single_transcript_recovery_genes = $self->make_single_transcript_genes($recovery_genes);
+  foreach my $recovery_gene (@$single_transcript_recovery_genes) {
+    my $recovery_transcript = shift(@{$recovery_gene->get_all_Transcripts()});
+    my $passed_overlap = 0;
+    foreach my $genebuilder_gene (@$genebuilder_genes) {
+      my $genebuilder_transcripts = $genebuilder_gene->get_all_Transcripts();
+      foreach my $genebuilder_transcript (@$genebuilder_transcripts) {
+        if($self->pass_overlap($recovery_transcript,$genebuilder_transcript)) {
+          $passed_overlap = 1;
+	}
+      }
+    }
+
+    unless($passed_overlap) {
+      push(@$output_genes,$recovery_gene);
+    }
+  }
+
+  push(@$output_genes,@$genebuilder_genes);
+  $output_genes = $self->make_single_transcript_genes($output_genes);
+  return($output_genes);
+}
+
+
+sub make_single_transcript_genes {
+  my ($self,$genes) = @_;
+
+  my $single_transcript_genes =[];
+
+  foreach my $gene (@$genes) {
+    my $transcripts = $gene->get_all_Transcripts;
+    foreach my $transcript (@$transcripts) {
+      my $new_gene = new Bio::EnsEMBL::Gene;
+      $new_gene->source($gene->source);
+      $new_gene->biotype($gene->biotype);
+      $new_gene->add_Transcript($transcript);
+      push(@$single_transcript_genes,$new_gene);
+    } # end foreach my $transcript
+  } # end foreach my $gene
+
+  return($single_transcript_genes);
+}
+
+
+sub pass_overlap {
+  my ($self,$recovery_transcript,$genebuilder_transcript) = @_;
+
+  my $pass_overlap = 0;
+  my $overlap_threshold = $self->param_required('recovery_overlap_threshold');
+  my $exon_overlap = exon_overlap($recovery_transcript,$genebuilder_transcript);
+  say "Exon overlap: ".$exon_overlap;
+  say "Rec Trans: ".$recovery_transcript->seq_region_start.":".$recovery_transcript->seq_region_end.":".
+                    $recovery_transcript->strand.":".$recovery_transcript->length;
+  say "Genb Trans: ".$genebuilder_transcript->seq_region_start.":".$genebuilder_transcript->seq_region_end.":".
+                     $genebuilder_transcript->strand.":".$genebuilder_transcript->length;
+
+  my $exon_non_overlap = abs($recovery_transcript->length()-$genebuilder_transcript->length());
+  my $overlap_score = $exon_overlap - $exon_non_overlap;
+
+  my $overlap_fraction = $exon_overlap / $recovery_transcript->length;
+  say "Overlap fraction: ".$overlap_fraction;
+  say "Overlap score: ".$overlap_score;
+
+  if($overlap_fraction >= $overlap_threshold) {
+    $pass_overlap = 1;
+  }
+
+  return($pass_overlap);
+}
+
+
+sub trim_utr_overlapping_cds {
+  my ($self,$genebuilder_genes) = @_;
+
+  my $output_genes = [];
+
+
+  my $types_hash;
+  $types_hash->{'genes'} = [$self->OUTPUT_BIOTYPE];
+
+  say "Clustering genebuilder genes to check UTRs...";
+  my ($clusters, $unclustered) = cluster_Genes($genebuilder_genes,$types_hash);
+  say "...finished clustering genes";
+
+  say "Found ".scalar(@$clusters)." clusters";
+  say "Found ".scalar(@$unclustered)." unclustered genes, will not change";
+
+  foreach my $unclustered (@$unclustered) {
+     my $unclustered_genes = $unclustered->get_Genes();
+     foreach my $unclustered_gene (@$unclustered_genes) {
+       push(@$output_genes,$unclustered_gene);
+     }
+  }
+
+  foreach my $cluster (@$clusters) {
+    my $cluster_genes = $cluster->get_Genes();
+
+    for(my $i=0; $i<scalar(@$cluster_genes)-1; $i++) {
+      my $gene_a = ${$cluster_genes}[$i];
+      for(my $j=$i+1; $j<scalar(@$cluster_genes); $j++) {
+        my $gene_b = ${$cluster_genes}[$j];
+        ($gene_a,$gene_b) = $self->compare_utr_exons($gene_a,$gene_b)
+      }
+      push(@$output_genes,$gene_a);
+    }
+    # Push the last gene as for $i runs up to the second last
+    push(@$output_genes,${$cluster_genes}[$#$cluster_genes]);
+  }
+
+  $self->throw("FERGAL TESTING");
+  return($output_genes);
+}
+
+
+sub compare_utr_exons {
+#  my ($self,$gene_a,$gene_b) = @_;
+
+#  say "Comparing the following genes:";
+#  say "  Gene A: ".$gene_a->seq_region_start.":".$gene_a->seq_region_end.":".$gene_a->strand;
+#  say "  Gene B: ".$gene_b->seq_region_start.":".$gene_b->seq_region_end.":".$gene_b->strand;
+
+#  my $transcripts_a = $gene_a->get_all_Transcripts();
+ # my $transcripts_b = $gene_b->get_all_Transcripts();
+#  foreach my $transcript_a (@$transcripts_a) {
+#    my $exons_a = $transcript_a->get_all_Exons();
+#    my $coding_exons_a = $transcript_a->get_all_translateable_Exons();
+#    my $indices_to_remove
+#    foreach my $transcript_b (@$transcripts_b) {
+#      unless($transcript_a->five_prime_utr || $transcript_a->three_prime_utr || $transcript_b->five_prime_utr || $transcript_b->three_prime_utr) {
+ #       next;
+ #     }
+ #     # Need to think up a proper algorithm for this
+ #   }
+ # }
+
+#  return($gene_a,$gene_b);
 }
 
 #sub output_db{

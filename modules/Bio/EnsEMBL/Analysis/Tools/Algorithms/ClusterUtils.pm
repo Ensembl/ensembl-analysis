@@ -195,7 +195,7 @@ sub make_types_hash {
        }
     }
     if ( @intersection > 0 ) {
-      throw ( " there are biotypes you try to cluster wich are in both gene sets - this is unhealthy ....\n")  ;
+      warn("There are biotypes you try to cluster which are in both gene sets. This is fine is it is expected\n")  ;
     }
     return \%types_hash;
 } 
