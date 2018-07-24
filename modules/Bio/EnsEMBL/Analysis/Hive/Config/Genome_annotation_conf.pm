@@ -125,6 +125,9 @@ sub default_options {
     'genblast_select_db_server'    => $self->o('databases_server'),
     'genblast_select_db_port'      => $self->o('databases_port'),
 
+    'genblast_rnaseq_support_db_server'  => $self->o('databases_server'),
+    'genblast_rnaseq_support_db_port'    => $self->o('databases_port'),
+
     'ig_tr_db_server'              => $self->o('databases_server'),
     'ig_tr_db_port'                => $self->o('databases_port'),
 
@@ -435,6 +438,15 @@ sub default_options {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_gensel_'.$self->o('release_number'),
       -host   => $self->o('genblast_select_db_server'),
       -port   => $self->o('genblast_select_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    'genblast_rnaseq_support_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_rnaseq_'.$self->o('release_number'),
+      -host   => $self->o('genblast_rnaseq_support_db_server'),
+      -port   => $self->o('genblast_rnaseq_support_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -3836,7 +3848,7 @@ sub pipeline_analyses {
         -rc_name    => 'default',
         -flow_into => {
           '1->A' => ['fan_rnaseq_for_layer_db'],
-          'A->1' => ['create_layering_output_db'],
+          'A->1' => ['create_genblast_rnaseq_output_db'],
         },
       },
 
@@ -3936,6 +3948,72 @@ sub pipeline_analyses {
                        },
 
         -rc_name    => '4GB',
+      },
+
+
+      {
+        -logic_name => 'create_genblast_rnaseq_output_db',
+        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('genblast_rnaseq_output_db'),
+                         create_type => 'clone',
+                       },
+        -rc_name => 'default',
+        -flow_into => {
+          '1->A' => ['fan_genblast_rnaseq_support'],
+          'A->1' => ['create_layering_output_db'],
+        },
+      },
+
+
+      {
+        -logic_name => 'fan_genblast_rnaseq_support',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'if [ "#skip_rnaseq#" -ne "0" ]; then exit 42; else exit 0;fi',
+                         return_codes_2_branches => {'42' => 2},
+                       },
+        -rc_name => 'default',
+        -flow_into  => {
+          1 => ['create_genblast_rnaseq_slice_ids'],
+        },
+      },
+
+
+     {
+        # Create 10mb toplevel slices, these will be split further for repeatmasker
+        -logic_name => 'create_genblast_rnaseq_slice_ids',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db  => $self->o('dna_db'),
+                         coord_system_name => 'toplevel',
+                         iid_type => 'slice',
+                         include_non_reference => 0,
+                         top_level => 1,
+                         min_slice_length => 0,
+                       },
+        -rc_name => 'default',
+        -flow_into => {
+                        '2' => ['genblast_rnaseq_support'],
+                      },
+     },
+
+
+    {
+        -logic_name => 'genblast_rnaseq_support',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
+        -parameters => {
+                         dna_db => $self->o('dna_db'),
+                         source_db => $self->o('genblast_db'),
+                         intron_db => $self->o('rnaseq_refine_db'),
+                         target_db => $self->o('genblast_rnaseq_support_db'),
+                         logic_name => 'genblast_rnaseq_support',
+                         classify_by_count => 1,
+                         update_genes => 0,
+                         module => 'HiveHomologyRNASeqIntronsCheck',
+                       },
+        -rc_name => '4GB',
       },
 
 ############################################################################
