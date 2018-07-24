@@ -5038,9 +5038,11 @@ sub pipeline_analyses {
         -parameters => {
           db_conn => $self->o('otherfeatures_db'),
           sql => [
+            'UPDATE gene, analysis SET gene.analysis_id = analysis.analysis_id WHERE analysis.logic_name = "cdna_alignment"',
             'UPDATE transcript join gene using(gene_id) set transcript.analysis_id=gene.analysis_id',
             'UPDATE gene set biotype="cdna"',
             'UPDATE transcript set biotype="cdna"',
+            'UPDATE dna_align_feature, analysis SET dna_align_feature.analysis_id = analysis.analysis_id WHERE analysis.logic_name = "cdna_alignment"',
           ],
         },
         -rc_name    => 'default',
