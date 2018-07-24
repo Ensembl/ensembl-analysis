@@ -4868,7 +4868,7 @@ sub pipeline_analyses {
                                 ' -prod_dbport '.$self->o('production_db','-port').
                                 ' -ise -core'
                        },
-        -max_retry_count => 1,
+        -max_retry_count => 0,
         -rc_name => '8GB',
         -flow_into => {
                         1 => ['clean_unused_analyses'],
@@ -5232,7 +5232,7 @@ sub pipeline_analyses {
                                 ' -prod_dbport '.$self->o('production_db','-port').
                                 ' -verbose'
                        },
-        -max_retry_count => 1,
+        -max_retry_count => 0,
         -rc_name => '4GB',
         -flow_into => {
                         1 => ['otherfeatures_sanity_checks'],
@@ -5463,7 +5463,7 @@ sub pipeline_analyses {
                                 ' -prod_dbport '.$self->o('production_db','-port').
                                 ' -nodaf -ise'
                        },
-        -max_retry_count => 1,
+        -max_retry_count => 0,
         -rc_name => '4GB',
         -flow_into => {
                         1 => ['rnaseq_final_gene_sanity_checks'],
