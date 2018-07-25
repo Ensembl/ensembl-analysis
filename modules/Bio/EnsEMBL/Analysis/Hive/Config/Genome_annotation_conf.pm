@@ -5322,6 +5322,7 @@ sub pipeline_analyses {
                           'DELETE FROM meta WHERE meta_key IN ("genebuild.method","genebuild.projection_source_db","genebuild.start_date","repeat.analysis")',
                           'UPDATE gene JOIN transcript USING(gene_id) SET canonical_transcript_id = transcript_id',
                           'UPDATE transcript JOIN translation USING(transcript_id) SET canonical_translation_id = translation_id',
+                          'UPDATE intron_supporting_evidence ise, analysis a1, analysis a2 SET ise.analysis_id = a2.analysis_id WHERE ise.analysis_id = a1.analysis_id AND a2.logic_name = REPLACE(a1.logic_name, "rnaseq_gene", "rnaseq_ise")',
                          ],
                          uniprot_version => $self->o('uniprot_db_dir'),
                        },
@@ -5388,7 +5389,7 @@ sub pipeline_analyses {
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
         -parameters => {
                          db_conn => $self->o('rnaseq_refine_db'),
-                         input_query => 'SELECT * FROM dna_align_feature',
+                         input_query => 'SELECT daf.* FROM dna_align_feature daf, analysis a WHERE daf.analysis_id = a.analysis_id AND a.logic_name != "rough_transcripts"',
                          command_out => q(sort -nk2 -nk3 -nk4 | sed 's/NULL/\\N/g' > #daf_file#),
                          daf_file => $self->o('rnaseq_daf_introns_file'),
                        },
