@@ -76,7 +76,7 @@ use File::Find;
 use List::Util qw(sum);
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
-use Bio::EnsEMBL::GIFTS::DB qw(get_gifts_dba get_gifts_dbc store_pdb_ens);
+use Bio::EnsEMBL::GIFTS::DB qw(get_gifts_dbc store_pdb_ens);
 
 sub param_defaults {
     return {
