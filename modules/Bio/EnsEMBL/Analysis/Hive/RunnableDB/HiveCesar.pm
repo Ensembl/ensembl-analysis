@@ -64,6 +64,9 @@ exons to be projected.
 -cesar_path           Path to the directory containing the CESAR2.0
 binary to be run (excluding the binary filename).
 -canonical            If set to 1, then only the canonical transcript for each gene will be fetched from the source db.
+-common_slice         If set to 1, all the transcripts projected from the same gene will be put on the same slice based
+                      on the most common seq region name and min and max coordinates covering them. The projected transcripts
+                      on the other slices will be discarded.
 -TRANSCRIPT_FILTER    Hash containing the parameters required to apply
 to the projected transcript to exclude some of them. Default to
 ExonerateTranscriptFilter pid,cov 50,50 although note that the actual
@@ -106,6 +109,7 @@ sub param_defaults {
       transcript_region_padding => 50,
       cesar_path => '',
       canonical => 0,
+      common_slice => 0,
       #TRANSCRIPT_FILTER => {
       #                       OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
       #                       PARAMETERS => {
@@ -322,7 +326,7 @@ sub run {
 my $transcript_align_slice = @{$self->transcript_align_slices()}[$gene_index]->{$transcript->dbID()};  
 my $transcript_align_slice_strand = substr($transcript_align_slice->name(),-2);  
   
-if ($transcript->strand() == -1 or $transcript_align_slice_strand == -1) {
+if ($transcript->strand() == -1 or $transcript_align_slice_strand eq "-1") {
 say "skipping transcript on -1 strand";
   next;
 }     
@@ -370,49 +374,129 @@ sub write_output {
 sub build_gene {
   my ($self,$projected_transcripts,$gene_index,$canonical) = @_;
 
-  my $analysis = Bio::EnsEMBL::Analysis->new(
-                                              -logic_name => 'cesar',
-                                              -module => 'HiveCesar',
-                                            );
+  if (scalar(@$projected_transcripts) > 0) {
+    my $analysis = Bio::EnsEMBL::Analysis->new(
+                                                -logic_name => 'cesar',
+                                                -module => 'HiveCesar',
+                                              );
 
-  say "Building genes from projected transcripts";
+    say "Building genes from projected transcripts";
 
-  my $projected_gene = @{$self->parent_genes}[$gene_index];
-  $projected_gene->flush_Transcripts();
-  say "Source gene SID: ".$projected_gene->stable_id();
+    my $projected_gene = @{$self->parent_genes}[$gene_index];
+    $projected_gene->flush_Transcripts();
+    say "Source gene SID: ".$projected_gene->stable_id();
 
-  foreach my $projected_transcript (@$projected_transcripts) {
-    # do not store transcripts containing stops
-    #if ($projected_transcript->translate()) {
-    #  my $projected_transcript_translate_seq = $projected_transcript->translate()->seq();
-    #  my $num_stops = $projected_transcript_translate_seq =~ s/\*/\*/g;
-    #  if ($num_stops > 0) {
-    #    say "The projected transcript has been filtered out because its translation contains stops (".$num_stops." stops).";
-    #  } else {
-        # filter out transcripts below given pid and cov
-        if ($self->TRANSCRIPT_FILTER) {
+    if ($self->param('common_slice')) {
+      $self->set_common_slice($projected_transcripts);
+    }
+
+    foreach my $projected_transcript (@$projected_transcripts) {
+      # do not store transcripts containing stops
+      #if ($projected_transcript->translate()) {
+      #  my $projected_transcript_translate_seq = $projected_transcript->translate()->seq();
+      #  my $num_stops = $projected_transcript_translate_seq =~ s/\*/\*/g;
+      #  if ($num_stops > 0) {
+      #    say "The projected transcript has been filtered out because its translation contains stops (".$num_stops." stops).";
+      #  } else {
+          # filter out transcripts below given pid and cov
+          if ($self->TRANSCRIPT_FILTER) {
 #print("TRANSCRIPT FILTER defined\n");
-          if (scalar(@{$projected_transcript->get_all_supporting_features()}) > 0) {
-            my $filtered_transcripts = $self->filter->filter_results([$projected_transcript]);
-            if (scalar(@$filtered_transcripts) > 0) {
+            if (scalar(@{$projected_transcript->get_all_supporting_features()}) > 0) {
+              my $filtered_transcripts = $self->filter->filter_results([$projected_transcript]);
+              if (scalar(@$filtered_transcripts) > 0) {
+               
+                if ($self->param('common_slice')) {
+                  $projected_gene->add_Transcript($projected_transcript);
+                  $projected_gene->analysis($analysis);
+                  $self->output_genes($projected_gene);
+                } else {
+                  my $single_transcript_gene = Bio::EnsEMBL::Gene->new();
+                  $single_transcript_gene->add_Transcript($projected_transcript);
+                  $single_transcript_gene->analysis($analysis);
+                  $self->output_genes($single_transcript_gene);
+                }
+                
+              } else {
+                say "The projected transcript has been filtered out because its pid and cov are too low.";
+              }
+            }
+          } else {
+#print("TRANSCRIPT FILTER NOT defined\n");
+          
+            if ($self->param('common_slice')) {
               $projected_gene->add_Transcript($projected_transcript);
               $projected_gene->analysis($analysis);
               $self->output_genes($projected_gene);
             } else {
-              say "The projected transcript has been filtered out because its pid and cov are too low.";
+              my $single_transcript_gene = Bio::EnsEMBL::Gene->new();
+              $single_transcript_gene->add_Transcript($projected_transcript);
+              $single_transcript_gene->analysis($analysis);
+              $self->output_genes($single_transcript_gene);
             }
+
           }
-        } else {
-#print("TRANSCRIPT FILTER NOT defined\n");
-          $projected_gene->add_Transcript($projected_transcript);
-          $projected_gene->analysis($analysis);
-          $self->output_genes($projected_gene);
-        }
-    #  }
-    #} else {
-      #say "The projected gene does not translate.";
-    #}
+      #  }
+      #} else {
+        #say "The projected gene does not translate.";
+      #}
+    }
   }
+}
+
+sub largest_value_mem {
+# it returns the key containing the largest value in a given hash
+  my $hash = shift;
+  my ($key,@keys) = keys %$hash;
+  my ($big,@vals) = values %$hash;
+
+  for (0 .. $#keys) {
+    if ($vals[$_] > $big) {
+      $big = $vals[$_];
+      $key = $keys[$_];
+    }
+  }
+  $key
+}
+
+sub set_common_slice {
+# it sets the same slice for all transcripts so they can be added
+# to the same gene later based on the most common seq region name
+# and minimum and maximum transcript coordinates for that seq region name
+  my ($self,$projected_transcripts) = @_;
+
+  my %common_regions;
+  my $min = 9999999999999999;
+  my $max = 0;
+  my $sa = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor(); 
+
+  foreach my $projected_transcript (@$projected_transcripts) {
+    $common_regions{$projected_transcript->seq_region_name()} += 1;
+print "foreach my proj t set common slice\n";
+  }
+
+    use Data::Dumper;
+    # simple procedural interface
+    print Dumper(%common_regions);
+
+
+  my $most_common_seq_region_name = largest_value_mem(\%common_regions);
+  
+print "MOST:".$most_common_seq_region_name."\n";
+
+  foreach my $projected_transcript (@$projected_transcripts) {
+    if ($projected_transcript->seq_region_name() eq $most_common_seq_region_name) {
+      $min = min($projected_transcript->seq_region_start(),$min);
+      $max = max($projected_transcript->seq_region_end(),$max);
+    }
+  }
+
+  my $common_slice = $sa->fetch_by_region(undef,$most_common_seq_region_name,$min,$max);
+
+  foreach my $projected_transcript (@$projected_transcripts) {
+    $projected_transcript->slice($common_slice);
+  }
+
+  print("Common slice set to: ".$common_slice->name()."\n");
 }
 
 sub project_transcript {
