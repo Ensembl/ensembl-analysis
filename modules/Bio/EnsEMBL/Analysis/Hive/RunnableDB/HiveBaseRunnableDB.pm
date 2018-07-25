@@ -37,6 +37,7 @@ use parent ('Bio::EnsEMBL::Hive::Process');
                _branch_to_flow_to => 2,
                _branch_to_flow_to_on_fail => -3,
                _output => [],
+               skip_analysis => 0, # If you want to skip the analysis, the feature needs to be implemented in the module
  Returntype : Hashref, containing all default parameters
  Exceptions : None
 
@@ -52,6 +53,7 @@ sub param_defaults {
         _branch_to_flow_to => 2,
         _branch_to_flow_to_on_fail => -3,
         _output => [],
+        skip_analysis => 0,
     }
 }
 

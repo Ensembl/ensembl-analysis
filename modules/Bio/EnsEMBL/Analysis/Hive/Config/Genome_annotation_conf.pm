@@ -275,9 +275,7 @@ sub default_options {
     meta_levels_script         => catfile($self->o('ensembl_misc_script'), 'meta_levels.pl'),
     frameshift_attrib_script   => catfile($self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl'),
     select_canonical_script    => catfile($self->o('ensembl_misc_script'),'canonical_transcripts', 'select_canonical_transcripts.pl'),
-    generate_stable_ids_script => catfile($self->o('ensembl_misc_script'), 'generate_stable_ids.pl'),
 
-    rnaseq_stable_id_file => catfile($self->o('output_path'), 'rnaseq_stable_ids.sql'),
     rnaseq_daf_introns_file => catfile($self->o('output_path'), 'rnaseq_daf_introns.dat'),
 
 ########################
@@ -5336,32 +5334,16 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'generate_rnaseq_stable_ids',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::SetStableIDs',
         -parameters => {
-                         cmd => 'perl '.$self->o('generate_stable_ids_script').
-                                ' -user '.$self->o('rnaseq_final_db','-user').
-                                ' -pass '.$self->o('rnaseq_final_db','-pass').
-                                ' -host '.$self->o('rnaseq_final_db','-host').
-                                ' -port '.$self->o('rnaseq_final_db','-port').
-                                ' -dbname '.$self->o('rnaseq_final_db','-dbname').
-                                ' -start RNASEQ > #query_file#',
-                          query_file => $self->o('rnaseq_stable_id_file'),
+                         enscode_root_dir => $self->o('enscode_root_dir'),
+                         mapping_required => 0,
+                         target_db => $self->o('rnaseq_final_db'),
+                         id_start => 'RNASEQ',
+                         output_path => $self->o('output_path'),
+                         _stable_id_file => 'rnaseq_stable_ids.sql',
                        },
-        -rc_name => 'default',
-        -flow_into => {
-                        1 => ['load_rnaseq_stable_ids'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'load_rnaseq_stable_ids',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
-        -parameters => {
-                         db_conn => $self->o('rnaseq_final_db'),
-                         input_file => $self->o('rnaseq_stable_id_file'),
-                       },
-        -rc_name => 'default',
+        -rc_name    => 'default',
         -flow_into => {
                         1 => ['populate_production_tables_rnaseq_final'],
                       },

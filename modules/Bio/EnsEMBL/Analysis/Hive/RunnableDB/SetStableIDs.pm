@@ -19,9 +19,21 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::SetStableIDs;
 use strict;
 use warnings;
 use feature 'say';
-use Data::Dumper;
+
+use File::Spec::Functions qw(catfile);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    _stable_id_file => 'stable_ids.sql',
+  }
+}
+
 
 sub fetch_input {
   my $self = shift;
@@ -46,14 +58,33 @@ sub run {
 sub write_output {
   my ($self) = @_;
 
-  return 1;
+  my $stable_id_file = catfile($self->param('output_path'), $self->param('_stable_id_file'));
+  if (-s $stable_id_file) {
+    my $target_db = $self->param('target_db');
+    my $cmd = 'mysql -u'.$target_db->{'-user'}.
+           ' -p'.$target_db->{'-pass'}.
+           ' -h'.$target_db->{'-host'}.
+           ' -P'.$target_db->{'-port'}.
+           ' -D'.$target_db->{'-dbname'}.
+           ' < '.$stable_id_file;
+
+    execute_with_wait($cmd);
+  }
+  else {
+    $self->throw("Could not find stable id file $stable_id_file");
+  }
 }
 
 
 sub run_stable_id_mapping {
   my ($self) = @_;
 
-
+  if ($self->param('skip_analysis')) {
+    $self->warning('You asked for stable id mapping but you also are skipping it. Do not forget it needs to be done');
+  }
+  else {
+    $self->throw('You asked for stable id mapping but it has not been implemented. You can set "skip_analysis" to 1 if stable id mapping has been run');
+  }
 }
 
 sub generate_stable_ids {
@@ -67,23 +98,8 @@ sub generate_stable_ids {
             ' -host '.$target_db->{'-host'}.
             ' -port '.$target_db->{'-port'}.
             ' -dbname '.$target_db->{'-dbname'}.
-            ' -start '.$start.' > '.$self->param('output_path').'/stable_ids.sql';
-  my $result = system($cmd);
-  if($result) {
-    $self->throw("The stable id generation script failed. Commandline used:\n".$cmd);
-  }
-
-  $cmd = 'mysql -u'.$target_db->{'-user'}.
-         ' -p'.$target_db->{'-pass'}.
-         ' -h'.$target_db->{'-host'}.
-         ' -P'.$target_db->{'-port'}.
-         ' -D'.$target_db->{'-dbname'}.
-         ' < '.$self->param('output_path').'/stable_ids.sql';
-  $result = system($cmd);
-  if($result) {
-    $self->throw("Loading stable ids failed. Commandline used:\n".$cmd);
-  }
-
+            ' -start '.$start.' > '.catfile($self->param('output_path'), $self->param('_stable_id_file'));
+  execute_with_wait($cmd);
 }
 
 1;
