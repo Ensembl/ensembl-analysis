@@ -171,6 +171,7 @@ sub default_options {
 
     'ncrna_db_server'              => $self->o('databases_server'),
     'ncrna_db_port'                => $self->o('databases_port'),
+    ncrna_db_name                  => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_ncrna_'.$self->o('release_number'),
 
     'final_geneset_db_server'      => $self->o('databases_server'),
     'final_geneset_db_port'        => $self->o('databases_port'),
@@ -210,12 +211,14 @@ sub default_options {
 #
 ######################################################
 
-    'genome_file'               => catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name').'_softmasked_toplevel.fa'),
+    genome_dumps                => catdir($self->o('output_path'), 'genome_dumps'),
+    genome_file                 => catfile($self->o('genome_dumps'), $self->o('species_name').'_softmasked_toplevel.fa'),
+    rnaseq_genome_file          => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
     'primary_assembly_dir_name' => 'Primary_Assembly',
     'refseq_cdna_calculate_coverage_and_pid' => '0',
     'contigs_source'            => 'ena',
 
-
+    full_repbase_logic_name => "repeatmask_repbase_".$self->o('repbase_logic_name'),
 
     'layering_input_gene_dbs' => [
                                    $self->o('genblast_db'),
@@ -255,6 +258,7 @@ sub default_options {
     'repeatmodeler_logic_name'    => 'repeatmask_repeatmodeler',
     'homology_models_path'        => catdir($self->o('output_path'),'homology_models'),
 
+    ncrna_dir => catdir($self->o('output_path'), 'ncrna'),
     targetted_path => catdir($self->o('output_path'), 'targetted'),
     cdna_file      => catfile($self->o('targetted_path'), 'cdnas'),
     annotation_file => $self->o('cdna_file').'.annotation',
@@ -267,7 +271,8 @@ sub default_options {
     loading_report_script         => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'report_genome_prep_stats.pl'),
     refseq_synonyms_script_path   => catfile($self->o('ensembl_analysis_script'), 'refseq', 'load_refseq_synonyms.pl'),
     refseq_import_script_path     => catfile($self->o('ensembl_analysis_script'), 'refseq', 'parse_ncbi_gff3.pl'),
-    'mirna_analysis_script'       => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'sncrna'),
+    sequence_dump_script          => catfile($self->o('ensembl_analysis_script'), 'sequence_dump.pl'),
+    mirna_analysis_script         => catdir($self->o('ensembl_analysis_script'), 'genebuild', 'sncrna'),
 
     ensembl_misc_script        => catdir($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts'),
     repeat_types_script        => catfile($self->o('ensembl_misc_script'), 'repeats', 'repeat-types.pl'),
@@ -616,7 +621,7 @@ sub default_options {
     },
 
     'ncrna_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_ncrna_'.$self->o('release_number'),
+      -dbname => $self->o('ncrna_db_name'),
       -host   => $self->o('ncrna_db_server'),
       -port   => $self->o('ncrna_db_port'),
       -user   => $self->o('user'),
@@ -708,8 +713,8 @@ sub pipeline_wide_parameters {
     skip_rnaseq => $self->o('skip_rnaseq'),
     skip_ncrna => $self->o('skip_ncrna'),
     load_toplevel_only => $self->o('load_toplevel_only'),
-    wide_repeat_logic_names => $self->default_options->{'use_repeatmodeler_to_mask'} ? ['repeatmask_repbase_'.$self->o('repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'] :
-                                                                                       ['repeatmask_repbase_'.$self->o('repbase_logic_name'),'dust'],
+    wide_repeat_logic_names => $self->default_options->{'use_repeatmodeler_to_mask'} ? [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'] :
+                                                                                       [$self->o('full_repbase_logic_name'),'dust'],
 
 
   }
@@ -910,7 +915,7 @@ sub pipeline_analyses {
               '(1, "provider.name", "'.$self->o('provider_name').'"),'.
               '(1, "provider.url", "'.$self->o('provider_url').'"),'.
               '(1, "species.production_name", "'.$self->o('production_name').$self->o('production_name_modifier').'"),'.
-              '(1, "repeat.analysis", "repeatmask_repbase_'.$self->o('repbase_logic_name').'"),'.
+              '(1, "repeat.analysis", "'.$self->o('full_repbase_logic_name').'"),'.
               '(1, "repeat.analysis", "dust"),'.
               '(1, "repeat.analysis", "trf")',
           ],
@@ -1041,7 +1046,7 @@ sub pipeline_analyses {
             'genebuild.projection_source_db' => $self->default_options->{'projection_source_db_name'},
             'provider.name' => $self->o('provider_name'),
             'provider.url' => $self->o('provider_url'),
-            'repeat.analysis' => ['repeatmask_repbase_'.$self->o('repbase_logic_name'), 'dust', 'trf'],
+            'repeat.analysis' => [$self->o('full_repbase_logic_name'), 'dust', 'trf'],
             'species.production_name' => $self->o('production_name'),
             'species.taxonomy_id' => $self->default_options->{'taxon_id'},
           }
@@ -1223,7 +1228,7 @@ sub pipeline_analyses {
         -parameters => {
                          timer_batch => $self->o('masking_timer_long'),
                          target_db => $self->o('reference_db'),
-                         logic_name => 'repeatmask_repbase_'.$self->o('repbase_logic_name'),
+                         logic_name => $self->o('full_repbase_logic_name'),
                          module => 'HiveRepeatMasker',
                          repeatmasker_path => $self->o('repeatmasker_path'),
                          commandline_params => '-nolow -species "'.$self->o('repbase_library').'" -engine "'.$self->o('repeatmasker_engine').'"',
@@ -1260,7 +1265,7 @@ sub pipeline_analyses {
         -parameters => {
                          timer_batch => $self->o('masking_timer_short'),
                          target_db => $self->o('reference_db'),
-                         logic_name => 'repeatmask_repbase_'.$self->o('repbase_logic_name'),
+                         logic_name => $self->o('full_repbase_logic_name'),
                          module => 'HiveRepeatMasker',
                          repeatmasker_path => $self->o('repeatmasker_path'),
                          commandline_params => '-nolow -species "'.$self->o('repbase_library').'" -engine "'.$self->o('repeatmasker_engine').'"',
@@ -1373,7 +1378,7 @@ sub pipeline_analyses {
         -parameters => {
                          'coord_system_name'    => 'toplevel',
                          'target_db'            => $self->o('reference_db'),
-                         'output_path'          => $self->o('output_path')."/genome_dumps/",
+                         'output_path'          => $self->o('genome_dumps'),
                          'enscode_root_dir'     => $self->o('enscode_root_dir'),
                          'species_name'         => $self->o('species_name'),
                          'repeat_logic_names'   => '#wide_repeat_logic_names#',
@@ -1392,7 +1397,7 @@ sub pipeline_analyses {
         -logic_name => 'format_softmasked_toplevel',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmask -in '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa.asnb;makeblastdb -in '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa -dbtype nucl -parse_seqids -mask_data '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.catfile($self->o('output_path'), 'genome_dumps', $self->o('species_name')).'_softmasked_toplevel.fa;fi',
+                         'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmask -in '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa.asnb;makeblastdb -in '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa -dbtype nucl -parse_seqids -mask_data '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa;fi',
                        },
         -rc_name    => 'default_himem',
       },
@@ -1544,7 +1549,7 @@ sub pipeline_analyses {
                          module => 'HiveGenscan',
                          genscan_path => $self->o('genscan_path'),
                          genscan_matrix_path => $self->o('genscan_matrix_path'),
-                         repeat_masking_logic_names => ['repeatmask_repbase_'.$self->o('repbase_logic_name')],
+                         repeat_masking_logic_names => [$self->o('full_repbase_logic_name')],
                        },
         -rc_name    => 'genscan',
         -flow_into => {
@@ -1586,7 +1591,7 @@ sub pipeline_analyses {
                          module => 'HiveGenscan',
                          genscan_path => $self->o('genscan_path'),
                          genscan_matrix_path => $self->o('genscan_matrix_path'),
-                         repeat_masking_logic_names => ['repeatmask_repbase_'.$self->o('repbase_logic_name')],
+                         repeat_masking_logic_names => [$self->o('full_repbase_logic_name')],
                        },
         -rc_name    => 'genscan',
         -flow_into => {
@@ -1648,7 +1653,7 @@ sub pipeline_analyses {
                          sequence_type => 'peptide',
                          prediction_transcript_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
-                         repeat_masking_logic_names => ['repeatmask_repbase_'.$self->o('repbase_logic_name')], # not sure if this is used
+                         repeat_masking_logic_names => [$self->o('full_repbase_logic_name')], # not sure if this is used
                          blast_db_path => $self->o('uniprot_blast_db_path'),
                          blast_exe_path => $self->o('uniprot_blast_exe_path'),
                          commandline_params => $commandline_params{$self->o('blast_type')},
@@ -1696,7 +1701,7 @@ sub pipeline_analyses {
                          sequence_type => 'peptide',
                          prediction_transcript_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
-                         repeat_masking_logic_names => ['repeatmask_repbase_'.$self->o('repbase_logic_name')], # not sure if this is used
+                         repeat_masking_logic_names => [$self->o('full_repbase_logic_name')], # not sure if this is used
                          blast_db_path => $self->o('uniprot_blast_db_path'),
                          blast_exe_path => $self->o('uniprot_blast_exe_path'),
                          commandline_params => $commandline_params{$self->o('blast_type')},
@@ -1729,7 +1734,7 @@ sub pipeline_analyses {
                          sequence_type => 'dna',
                          prediction_transcript_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
-                         repeat_masking_logic_names => ['repeatmask_repbase_'.$self->o('repbase_logic_name')], # not sure if this is used
+                         repeat_masking_logic_names => [$self->o('full_repbase_logic_name')], # not sure if this is used
                          blast_db_path => $self->o('vertrna_blast_db_path'),
                          blast_exe_path => $self->o('vertrna_blast_exe_path'),
                          commandline_params => $commandline_params{$self->o('blast_type')},
@@ -1761,7 +1766,7 @@ sub pipeline_analyses {
                          sequence_type => 'dna',
                          prediction_transcript_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
-                         repeat_masking_logic_names => ['repeatmask_repbase_'.$self->o('repbase_logic_name')], # not sure if this is used
+                         repeat_masking_logic_names => [$self->o('full_repbase_logic_name')], # not sure if this is used
                          blast_db_path => $self->o('unigene_blast_db_path'),
                          blast_exe_path => $self->o('unigene_blast_exe_path'),
                          commandline_params => $commandline_params{$self->o('blast_type')},
@@ -3020,7 +3025,7 @@ sub pipeline_analyses {
         -logic_name => 'fan_ncrna',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'if [ "#skip_ncrna#" -ne "0" ]; then exit 42; else exit 0;fi',
+                         cmd => 'if [ "#skip_ncrna#" -ne "0" ]; then exit 42; else mkdir -p '.$self->o('ncrna_dir').'; exit 0;fi',
                          return_codes_2_branches => {'42' => 2},
                        },
         -rc_name => 'default',
@@ -3077,7 +3082,7 @@ sub pipeline_analyses {
                          dna_db => $self->o('dna_db'),
                          logic_name => 'rfamblast',
                          module     => 'HiveBlastRfam',
-                         blast_db_path => $self->o('ncrna_blast_path')."/filtered.fasta",
+                         blast_db_path => catfile($self->o('ncrna_blast_path'), 'filtered.fasta'),
                          blast_exe_path => $self->o('blastn_exe_path'),
                          commandline_params => ' -num_threads 3 -word_size 12 -num_alignments 5000  -num_descriptions 5000 -max_hsps 1 ',
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastRFam', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
@@ -3119,7 +3124,7 @@ sub pipeline_analyses {
                          dna_db => $self->o('dna_db'),
                          logic_name => 'rfamblast',
                          module     => 'HiveBlastRfam',
-                         blast_db_path => $self->o('ncrna_blast_path')."/filtered.fasta",
+                         blast_db_path => catfile($self->o('ncrna_blast_path'), 'filtered.fasta'),
                          blast_exe_path => $self->o('blastn_exe_path'),
                          commandline_params => ' -num_threads 3 -word_size 12 -num_alignments 5000  -num_descriptions 5000 -max_hsps 1 ',
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastRFam', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
@@ -3155,7 +3160,7 @@ sub pipeline_analyses {
                          dna_db => $self->o('dna_db'),
                          logic_name => 'blastmirna',
                          module     => 'HiveBlastmiRNA',
-                         blast_db_path => $self->o('mirna_blast_path') . '/' . $self->o('mirBase_fasta') ,
+                         blast_db_path => catfile($self->o('mirna_blast_path'), $self->o('mirBase_fasta')),
                          blast_exe_path => $self->o('blastn_exe_path'),
                          commandline_params => ' -num_threads 3 ',
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastmiRBase', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
@@ -3249,8 +3254,8 @@ sub pipeline_analyses {
                          dna_db => $self->o('dna_db'),
                          logic_name => 'ncrna',
                          module     => 'HivemiRNA',
-                         blast_db_dir_path => $self->o('mirna_blast_path').'/all_mirnas.embl',
-                         output_dir => $self->o('output_path'),
+                         blast_db_dir_path => catfile($self->o('mirna_blast_path'), 'all_mirnas.embl'),
+                         output_dir => $self->o('ncrna_dir'),
                        },
         -batch_size => 20,
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
@@ -3262,12 +3267,12 @@ sub pipeline_analyses {
         -logic_name => 'dump_repeats',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                    cmd => "perl " . $self->o('mirna_analysis_script') . "/repeats_dump.pl " .
-                            $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_core_'.$self->o('release_number') . " " .
+                    cmd => 'perl '.catfile($self->o('mirna_analysis_script'), 'repeats_dump.pl').' '.
+                            $self->o('dna_db_name'). " " .
                             $self->o('dna_db_server') . " " .
                             $self->o('dna_db_port') . " " .
                             $self->o('user_r') . " " .
-                            $self->o('output_path') . " blastmirna",
+                            $self->o('ncrna_dir').' blastmirna',
                       },
        -rc_name => 'filter',
       },
@@ -3276,12 +3281,12 @@ sub pipeline_analyses {
         -logic_name => 'dump_features',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => "perl " . $self->o('mirna_analysis_script') . "/dump_prefilter_features.pl " .
-                                $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_ncrna_'.$self->o('release_number') . " " .
+                         cmd => 'perl '.catfile($self->o('mirna_analysis_script'), 'dump_prefilter_features.pl').' '.
+                                $self->o('ncrna_db_name'). " " .
                                 $self->o('ncrna_db_server') . " " .
                                 $self->o('ncrna_db_port') . " " .
                                 $self->o('user_r') . " " .
-                                $self->o('output_path') . " blastmirna",
+                                $self->o('ncrna_dir').' blastmirna',
                         },
          -rc_name   => 'filter',
       },
@@ -3291,14 +3296,12 @@ sub pipeline_analyses {
         -logic_name => 'dump_genome',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                          cmd => "perl " . $self->o('mirna_analysis_script') . "/sequence_dump.pl -dbhost " .
-                                  $self->o('dna_db_server') . " -dbname  " .
-                                  $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_core_'.$self->o('release_number') . " -dbport " .
-                                  $self->o('dna_db_port')." -dbuser ".
-                                  $self->o('user_r')." -coord_system_name toplevel -mask -mask_repeat ".
-                                  "repeatmask_repbase_".$self->o('repbase_logic_name')." -output_dir ".$self->o('output_path').
-                                  " -softmask -onefile -header rnaseq -filename ".$self->o('output_path')."/genome.fasta;".
-                                  " sed -i 's/>/>chr/g' ".$self->o('output_path')."/genome.fasta",
+                          cmd => 'perl '.$self->o('sequence_dump_script').' -dbhost '.$self->o('dna_db_server')
+                                  .' -dbname  '.$self->o('dna_db_name').' -dbport '.$self->o('dna_db_port')
+                                  .' -dbuser '.$self->o('user_r')
+                                  .' -coord_system_name toplevel -mask -mask_repeat '.$self->o('full_repbase_logic_name')
+                                  .' -output_dir '.$self->o('genome_dumps')
+                                  .' -softmask -onefile -header rnaseq -filename '.$self->o('rnaseq_genome_file'),
                       },
          -rc_name   => 'filter',
       },
@@ -3307,16 +3310,15 @@ sub pipeline_analyses {
         -logic_name => 'filter_mirnas',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                          cmd => "sh " . $self->o('mirna_analysis_script') . "/FilterMiRNAs.sh -d " .
-                                  $self->o('output_path') . "/blastmirna_dafs.bed -r " .
-                                  $self->o('output_path') . "/repeats.bed -g " .
-                                  $self->o('output_path') . "/genome.fasta -w " .
-                                  $self->o('output_path') . " -m " .
-                                  $self->o('mirna_blast_path') . "/rfc_filters/" . $self->o('rfc_model') . " -s " .
-                                  $self->o('mirna_blast_path') . "/rfc_filters/" . $self->o('rfc_scaler') . " -c " .
-                                  $self->o('ncrna_db_server') . ":" . $self->o('ncrna_db_port') . ":" . 
-                                  $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_ncrna_'.$self->o('release_number') . ":" .
-                                  $self->o('user') . ":" . $self->o('password'),
+                          cmd => 'sh '.catfile($self->o('mirna_analysis_script'), 'FilterMiRNAs.sh')
+                                  .' -d '.catfile($self->o('ncrna_dir'), 'blastmirna_dafs.bed')
+                                  .' -r '.catfile($self->o('ncrna_dir'), 'repeats.bed')
+                                  .' -g '.catfile($self->o('ncrna_dir'), 'genome.fasta')
+                                  .' -w '.$self->o('ncrna_dir')
+                                  .' -m '.catfile($self->o('mirna_blast_path'), 'rfc_filters', $self->o('rfc_model'))
+                                  .' -s '.catfile($self->o('mirna_blast_path'), 'rfc_filters', $self->o('rfc_scaler'))
+                                  .' -c '.$self->o('ncrna_db_server').":".$self->o('ncrna_db_port').":".$self->o('ncrna_db_name').":"
+                                  .$self->o('user').":".$self->o('password'),
                         },
         -rc_name   => 'filter',
 
@@ -3332,7 +3334,7 @@ sub pipeline_analyses {
                          logic_name => 'ncrna',
                          module     => 'HiveInfernal',
                          cmsearch_exe_path => $self->o('cmsearch_exe_path'),
-                         blast_db_dir_path => $self->o('ncrna_blast_path').'/',
+                         blast_db_dir_path => $self->o('ncrna_blast_path'),
                        },
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
         -rc_name    => 'transcript_finalisation',

@@ -25,9 +25,9 @@ foreach my $daf (@dafs){
 	my $strand = $daf->strand() > 0 ? "+" : "-";
 
 
-	print FH "chr" . $daf->seq_region_name(), "\t",
+	print FH $daf->seq_region_name(), "\t",
 		$daf->seq_region_start(), "\t",
-		$daf->seq_region_end(), "\tchr",
+		$daf->seq_region_end(), "\t",
 		$daf->seq_region_name(), ":",
 		$daf->seq_region_start(), "-",
 		$daf->seq_region_end(), "\t",
@@ -51,7 +51,7 @@ close(FH);
 #
 #foreach my $repeat (@repeats){
 #  my $strand = $repeat->strand() > 0 ? "+" : "-";
-#  print FH "chr" . $repeat->seq_region_name(), "\t",
+#  print FH $repeat->seq_region_name(), "\t",
 #    $repeat->seq_region_start(), "\t",
 #    $repeat->seq_region_end(), "\t",
 #    $strand, "\n";
@@ -71,9 +71,9 @@ foreach my $gene (@genes){
     my $strand = $gene->strand() > 0 ? "+" : "-";
 
 
-      print FH "chr" . $gene->seq_region_name(), "\t",
+      print FH $gene->seq_region_name(), "\t",
           $gene->seq_region_start(), "\t",
-          $gene->seq_region_end(), "\tchr",
+          $gene->seq_region_end(), "\t",
           $gene->seq_region_name(), ":",
           $gene->seq_region_start(), "-",
           $gene->seq_region_end(), "\t0\t",
