@@ -49,7 +49,7 @@ sub default_options {
     'pipe_db_server'            => '', # host for pipe db
     'databases_server'          => '', # host for general output dbs
     'dna_db_server'             => '', # host for dna db
-    'pipe_db_port'              => '', # port for pipeline host
+    'pipe_db_port'              => 3306, # port for pipeline host
     'databases_port'            => '', # port for general output db host
     'dna_db_port'               => '', # prot for dna db host
     'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
@@ -1290,7 +1290,7 @@ sub pipeline_analyses {
                                       ' -host '.$self->o('refseq_db','-host').
                                       ' -port '.$self->o('refseq_db','-port').
                                       ' -dbname '.$self->o('refseq_db','-dbname').
-                                      ' -infile '.$self->o('output_path').'/refseq_import/#assembly_refseq_accession#_#assembly_name#_genomic.gff',
+                                      ' -infile '.catfile($self->o('output_path'), 'refseq_import', '#assembly_refseq_accession#_#assembly_name#_genomic.gff'),
                        },
         -rc_name => 'refseq_import',
       },
@@ -1979,7 +1979,7 @@ sub pipeline_analyses {
                                 ' -port '.$self->o('dna_db','-port').
                                 ' -dbname '.$self->o('dna_db','-dbname').
                                 ' -report_type assembly_loading'.
-                                ' > '.$self->o('output_path').'/loading_report.txt'
+                                ' > '.catfile($self->o('output_path'), 'loading_report.txt'),
                        },
          -rc_name => 'default',
          -flow_into => { 1 => ['set_repeat_types','email_loading_report'] },
@@ -1992,7 +1992,7 @@ sub pipeline_analyses {
                          email => $self->o('email_address'),
                          subject => 'AUTOMATED REPORT: assembly loading and feature annotation for '.$self->o('dna_db','-dbname').' completed',
                          text => 'Assembly loading and feature annotation have completed for '.$self->o('dna_db','-dbname').". Basic stats can be found below",
-                         file => $self->o('output_path').'/loading_report.txt',
+                         file => catfile($self->o('output_path'), 'loading_report.txt'),
                        },
         -rc_name => 'default',
         -flow_into => {
