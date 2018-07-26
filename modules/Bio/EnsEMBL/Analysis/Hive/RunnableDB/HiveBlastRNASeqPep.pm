@@ -96,10 +96,10 @@ sub fetch_input {
   $self->analysis->parameters($self->param('commandline_params')) if ($self->param_is_defined('commandline_params'));
 
 
-  my $input_dba = $self->hrdb_get_dba($self->param('input_db'));
+  my $input_dba = $self->hrdb_get_dba($self->param('source_db'));
   my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
 
-  $self->hrdb_set_con($input_dba,'input_db');
+  $self->hrdb_set_con($input_dba,'source_db');
   $self->hrdb_set_con($output_dba,'output_db');
 
   my $genes;
@@ -520,15 +520,15 @@ sub genes_by_tran_id {
 sub OUTPUT_DB {
     my ($self) = @_;
 
-    return 'output_db';
+    return 'target_db';
 }
 
 
 =head2 MODEL_DB
 
  Arg [1]    : None
- Description: Getter for the name of the output database, default is 'input_db'
- Returntype : String 'input_db'
+ Description: Getter for the name of the output database, default is source_db'
+ Returntype : String source_db'
  Exceptions : None
 
 =cut
@@ -536,7 +536,7 @@ sub OUTPUT_DB {
 sub MODEL_DB {
     my ($self) = @_;
 
-    return 'input_db';
+    return 'source_db';
 }
 
 

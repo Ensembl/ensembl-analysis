@@ -49,7 +49,10 @@ use Bio::EnsEMBL::Utils::Slice qw(split_Slices);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub param_defaults {
+  my ($self) = @_;
+
   return {
+    %{$self->SUPER::param_defaults},
     window_jump          => 10000,
     window_size          => 250000,
     min_slice_split_size => 5000000,
@@ -132,18 +135,17 @@ sub run {
       say "Pre output: ".$output_slice->name;
     }
 
-  $self->output_slices($output_slices);
+  $self->output($output_slices);
 }
 
 
 sub write_output {
   my ($self) = @_;
 
-  my $output_slices = $self->output_slices();
-  foreach my $output_slice (@$output_slices) {
+  foreach my $output_slice (@{$self->output}) {
     my $output_hash->{'iid'} = $output_slice->name;
     $output_hash->{'alignment_bam_file'} = $self->param('alignment_bam_file');
-    $self->dataflow_output_id($output_hash,$self->param('data_flow_branch'));
+    $self->dataflow_output_id($output_hash, $self->param('_branch_to_flow_to'));
   }
 
 }
@@ -244,17 +246,6 @@ sub input_slices {
   }
 
   return($self->param('_input_slices'));
-}
-
-
-sub output_slices {
-  my ($self,$slices) = @_;
-
-  if($slices) {
-    $self->param('_output_slices',$slices);
-  }
-
-  return($self->param('_output_slices'));
 }
 
 

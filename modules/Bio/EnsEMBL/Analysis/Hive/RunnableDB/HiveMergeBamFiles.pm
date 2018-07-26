@@ -136,10 +136,10 @@ sub fetch_input {
     }
     my $outname = $self->param_is_defined('sample_name') ? $self->param('sample_name') : 'merged';
     if (!$self->param_is_defined('logic_name')) {
-      $self->analysis->logic_name($self->param('wide_species').'_'.$outname.'_rnaseq_'.$self->param('_logic_name_ext'));
+      $self->analysis->logic_name($self->param('species').'_'.$outname.'_rnaseq_'.$self->param('_logic_name_ext'));
     }
     if (!$self->param_is_defined('alignment_bam_file')) {
-      $self->param('alignment_bam_file', File::Spec->catfile($self->param('wide_merge_dir'),
+      $self->param('alignment_bam_file', File::Spec->catfile($self->param('output_dir'),
         join('.', $self->param_required('assembly_name'), $self->param_required('rnaseq_data_provider'), $outname, $self->param('bam_version'), $self->param('_file_ext'))));
     }
 
@@ -168,11 +168,8 @@ sub fetch_input {
         # In other cases I just want to push the filename but I don't need to run the BAM merge
         # First pushing the filename
         my $abs_filename = $processed_input_files[0];
-        if (-e File::Spec->catfile($self->param('wide_merge_dir'), $abs_filename)) {
-            $abs_filename = File::Spec->catfile($self->param('wide_merge_dir'), $abs_filename);
-        }
-        elsif (-e File::Spec->catfile($self->param('wide_output_dir'), $abs_filename)) {
-            $abs_filename = File::Spec->catfile($self->param('wide_output_dir'), $abs_filename);
+        if (-e File::Spec->catfile($self->param('input_dir'), $abs_filename)) {
+            $abs_filename = File::Spec->catfile($self->param('input_dir'), $abs_filename);
         }
         $self->throw($abs_filename.' is not an absolute path!') unless (File::Spec->file_name_is_absolute($abs_filename));
         if ($self->param('rename_file')) {
@@ -203,13 +200,13 @@ sub fetch_input {
             -output_file => $self->param('alignment_bam_file'),
             -input_files => \@processed_input_files,
             -use_threading => $self->param('use_threading'),
-            -samtools => $self->param('wide_samtools') || 'samtools',
+            -samtools => $self->param('samtools') || 'samtools',
             ));
     }
     else {
         $self->require_module('Bio::EnsEMBL::Analysis::Runnable::SamtoolsMerge');
         $self->runnable(Bio::EnsEMBL::Analysis::Runnable::SamtoolsMerge->new(
-            -program => $self->param('wide_samtools') || 'samtools',
+            -program => $self->param('samtools') || 'samtools',
             -options => $self->param('options'),
             -analysis => $self->analysis,
             -output_file => $self->param('alignment_bam_file'),
@@ -263,7 +260,7 @@ sub write_output {
 =head2 store_filename_into_datafile
 
  Arg [1]    : None
- Description: It uses 'wide_species', 'sample_name' or merged to create a logic_name
+ Description: It uses 'species', 'sample_name' or merged to create a logic_name
               such as chicken_bwa_brain, store the analysis in the 'target_db' if
               it does not exists then store the filename in the datafile table
               If 'logic_name' is specified in the parameters, the value is used

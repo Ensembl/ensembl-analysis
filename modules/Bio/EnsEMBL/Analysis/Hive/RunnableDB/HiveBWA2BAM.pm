@@ -86,14 +86,14 @@ sub fetch_input {
   my ($self) = @_;
 
   if ($self->param_is_defined('fastq')) {
-    my $program = $self->param('wide_short_read_aligner');
+    my $program = $self->param('short_read_aligner');
     $self->throw("BWA program not defined in analysis\n") unless (defined $program);
     my $fastqfile;
     my $fastqpair;
 
     my $method = $self->param('is_paired') ? ' sampe '.$self->param('sampe_options') : ' samse '.$self->param('samse_options');
     foreach my $fastq (@{$self->param('fastq')}) {
-        my $abs_filename = catfile($self->param('wide_input_dir'), $fastq->{filename});
+        my $abs_filename = catfile($self->param('input_dir'), $fastq->{filename});
         $self->throw("Fastq file $abs_filename not found\n") unless (-e $abs_filename);
         if ($fastq->{is_mate_1} == 1) {
             $fastqfile = $abs_filename;
@@ -111,9 +111,9 @@ sub fetch_input {
        -fastq      => $fastqfile,
        -fastqpair  => $fastqpair,
        -options    => $method,
-       -outdir     => $self->param('wide_output_dir'),
-       -genome     => $self->param('wide_genome_file'),
-       -samtools => $self->param('wide_samtools'),
+       -outdir     => $self->param('output_dir'),
+       -genome     => $self->param('genome_file'),
+       -samtools => $self->param('samtools'),
        -header => $self->param('header_file'),
        -min_mapped => $self->param('min_mapped'),
        -min_paired => $self->param('min_paired'),

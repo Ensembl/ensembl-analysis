@@ -88,7 +88,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-    _branch_for_accumulators => Bio::EnsEMBL::Hive::DBSQL::DataflowRuleAdaptor::branch_name_2_code('MAIN'),
+    _branch_for_accumulators => 'MAIN',
   }
 }
 
@@ -102,7 +102,7 @@ sub param_defaults {
               than 'max_transcript'.
               If there is more reads in the region than 'batch_size', it will create a new set of input ids
               in the format: <stable_id>:<start_exon>:<batch_size>:<offset>
-              If your genome use UCSC style names (chr1,...), set 'wide_use_ucsc_naming' to 1
+              If your genome use UCSC style names (chr1,...), set 'use_ucsc_naming' to 1
  Returntype : None
  Exceptions : Throws if the BAM file 'bam_file' does not exist
 
@@ -115,7 +115,7 @@ sub fetch_input {
   $self->throw('Your bam file "'.$self->param('bam_file').'" does not exist!') unless (-e $self->param('bam_file'));
   my $dna_db = $self->get_database_by_name('dna_db');
   $self->hrdb_set_con($dna_db, 'dna_db');
-  my $gene_db = $self->get_database_by_name('input_db', $dna_db);
+  my $gene_db = $self->get_database_by_name('source_db', $dna_db);
   my $gene_adaptor = $gene_db->get_GeneAdaptor;
   my $slice_adaptor = $dna_db->get_SliceAdaptor;
   my $counters;
@@ -153,7 +153,7 @@ sub fetch_input {
   my $bam = Bio::DB::HTSfile->open($self->param('bam_file'));
   my $header = $bam->header_read();
   my $seq_region_name = $rough->seq_region_name;
-  if ($self->param('wide_use_ucsc_naming')) {
+  if ($self->param('use_ucsc_naming')) {
       $seq_region_name = convert_to_ucsc_name($seq_region_name, $rough->slice);
   }
   my ($tid, $start, $end) = $header->parse_region($seq_region_name);
@@ -313,7 +313,7 @@ sub write_output {
       # figure out a directory structure based on the stable ids
       if ( $iid =~ /^\w+\d+(\d)(\d)(\d)(\d)(\d\d)$/ ) {
         # make the directory structure
-        $path = File::Spec->catdir($self->param('wide_output_sam_dir'), $1, $2, $3, $4);
+        $path = File::Spec->catdir($self->param('output_dir'), $1, $2, $3, $4);
         make_path($path);
         $filename = File::Spec->catfile($path, $self->input_id.'.sam');
       }
@@ -425,7 +425,7 @@ sub convert_to_sam {
   $line .= $feature->hseqname ."\t";
   $line .= "$flag\t";
   my $seq_region_name = $feature->seq_region_name;
-  $seq_region_name = convert_to_ucsc_name($seq_region_name, $self->param('query')) if ($self->param('wide_use_ucsc_naming'));
+  $seq_region_name = convert_to_ucsc_name($seq_region_name, $self->param('query')) if ($self->param('use_ucsc_naming'));
   $line .= $seq_region_name ."\t";
   $line .=  $feature->seq_region_start ."\t";
   $line .= "0\t";
