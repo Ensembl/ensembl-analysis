@@ -220,10 +220,10 @@ say "transcript index: ".$debug_transcript_index++;
       }
 
       my $slice_adaptor = $source_dna_dba->get_SliceAdaptor();
-      my $transcript_slice = $slice_adaptor->fetch_by_region($transcript->slice()->coord_system_name(),$transcript->slice()->seq_region_name(),$transcript_padded_start,$transcript_padded_end);
+      my $transcript_slice = $slice_adaptor->fetch_by_region($transcript->slice()->coord_system_name(),$transcript->slice()->seq_region_name(),$transcript_padded_start,$transcript_padded_end,$transcript->seq_region_strand());
 
 say "------------transcript slice: ".$transcript_slice->coord_system_name()." ".$transcript_slice->name()."\n"."length of transcript slice seq: ".length($transcript_slice->seq());
-#sleep(5);
+
       my $genomic_align_blocks = $genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_Slice($mlss,$transcript_slice);
       my $transcript_slices = [];
       
@@ -231,9 +231,6 @@ say "------------transcript slice: ".$transcript_slice->coord_system_name()." ".
       
       foreach my $genomic_align_block (@{$genomic_align_blocks}) {
         my $gab = $genomic_align_block->restrict_between_reference_positions($transcript_padded_start,$transcript_padded_end);
-        
-#my $gab_slice = $restricted_gab->slice();
-#print("restricted genomic align block slice: ".$gab_slice->name()." ".$gab_slice->seq_region_start()." ".$gab_slice->seq_region_end()." ".$gab_slice->seq_region_name()."\n"."length of gab slice seq: ".length($gab_slice->seq())." block group id,level id: ".$restricted_gab->group_id().",".$restricted_gab->level_id()."\n");        
         if ($gab) {
           my $gab_group_id = $gab->group_id();
           foreach my $genomic_align (@{$gab->get_all_non_reference_genomic_aligns()}) {
@@ -250,9 +247,7 @@ say "------------transcript slice: ".$transcript_slice->coord_system_name()." ".
                                                                  $genomic_align_slice->end());
             $transcript_group_id_seq_region_names->{$gab_group_id} = $genomic_align_slice->seq_region_name();
             $transcript_group_id_seq_region_strands->{$gab_group_id} = $genomic_align_slice->strand();
-            
-            #push(@{$transcript_slices},$genomic_align_slice);
-#say "GAS gab id: ".$genomic_align->genomic_align_block_id();
+
             say "GAS NAME: ".$genomic_align_slice->name();
             say "GAS START: ".$genomic_align_slice->start();
             say "GAS END: ".$genomic_align_slice->end();
@@ -275,17 +270,6 @@ say "------------transcript slice: ".$transcript_slice->coord_system_name()." ".
                                                   $transcript_group_id_min_starts->{$longest_group_id},
                                                   $transcript_group_id_max_ends->{$longest_group_id},
                                                   $transcript_group_id_seq_region_strands->{$longest_group_id});
-say "===SOURCE TRANSCRIPT SLICE: ".$transcript_slice->name()." length: ".$transcript_slice->length()."\nSeq:\n".$transcript_slice->seq();
-say "===TARGET TRANSCRIPT SLICE: ".$target_transcript_slice->name()." length: ".$target_transcript_slice->length()."\nSeq:\n".$target_transcript_slice->seq();
-
-my $transcript_align_slice_strand = substr($target_transcript_slice->name(),-2);
-if ($transcript_align_slice_strand eq "-1") { # check if strand is -1
-  my $temp_seq = reverse($target_transcript_slice->seq());
-  $temp_seq =~ tr/atgcATGC/tacgTACG/;
-  
-  say "===TARGET TRANSCRIPT SLICE: ".$target_transcript_slice->name()." length: ".$target_transcript_slice->length()."\nSeq reversed:\n".$temp_seq;
-}
-
         $transcript_align_slices->{$transcript->dbID()} = $target_transcript_slice;
       }
     }
@@ -321,17 +305,7 @@ sub run {
     my $himem_required = 0;
 
     foreach my $transcript (@{$transcripts}) {
-     
-     
-my $transcript_align_slice = @{$self->transcript_align_slices()}[$gene_index]->{$transcript->dbID()};  
-my $transcript_align_slice_strand = substr($transcript_align_slice->name(),-2);  
-  
-if ($transcript->strand() == -1 or $transcript_align_slice_strand eq "-1") {
-say "skipping transcript on -1 strand";
-  next;
-}     
-     
-     
+
       my $projected_transcript = $self->project_transcript($transcript,$gene_index);
       if ($projected_transcript == -1) {
         # it will be retried in the himem analysis
@@ -365,9 +339,14 @@ sub write_output {
 
   my $genes = $self->output_genes();
   foreach my $gene (@{$genes}) {
-    say "Storing gene: ".$gene->start.":".$gene->end.":".$gene->strand;
-    empty_Gene($gene);    
-    $gene_adaptor->store($gene);
+    my $transcript = @{$gene->get_all_Transcripts}[0]; # any transcript
+    if (!($gene_adaptor->fetch_by_transcript_stable_id($transcript->stable_id()))) {
+      say "Storing gene: ".$gene->start.":".$gene->end.":".$gene->strand;
+      empty_Gene($gene);    
+      $gene_adaptor->store($gene);
+    } else {
+      say "NOT storing gene because it has already been stored: ".$gene->start.":".$gene->end.":".$gene->strand." Transcript stable ID used to fetch gene: ".$transcript->stable_id();
+    }
   }
 }
 
@@ -427,7 +406,6 @@ TRANSCRIPT: foreach my $projected_transcript (@projected_transcripts_for_gene) {
       #  } else {
           # filter out transcripts below given pid and cov
           if ($self->TRANSCRIPT_FILTER) {
-#print("TRANSCRIPT FILTER defined\n");
             if (scalar(@{$projected_transcript->get_all_supporting_features()}) > 0) {
               my $filtered_transcripts = $self->filter->filter_results([$projected_transcript]);
               if (scalar(@$filtered_transcripts) > 0) {
@@ -456,8 +434,6 @@ TRANSCRIPT: foreach my $projected_transcript (@projected_transcripts_for_gene) {
               }
             }
           } else {
-#print("TRANSCRIPT FILTER NOT defined\n");
-          
             if ($self->param('common_slice')) {
               # only one projected gene per source gene is built
               $projected_gene->add_Transcript($projected_transcript);
@@ -477,10 +453,6 @@ TRANSCRIPT: foreach my $projected_transcript (@projected_transcripts_for_gene) {
             }
 
           }
-      #  }
-      #} else {
-        #say "The projected gene does not translate.";
-      #}
     }
   }
 }
@@ -513,12 +485,9 @@ sub set_common_slice {
 
   foreach my $projected_transcript (@$projected_transcripts) {
     $common_regions{$projected_transcript->seq_region_name()} += 1;
-print "foreach my proj t set common slice\n";
   }
 
   my $most_common_seq_region_name = largest_value_mem(\%common_regions);
-  
-print "MOST:".$most_common_seq_region_name."\n";
 
   foreach my $projected_transcript (@$projected_transcripts) {
     if ($projected_transcript->seq_region_name() eq $most_common_seq_region_name) {
@@ -532,27 +501,17 @@ print "MOST:".$most_common_seq_region_name."\n";
   foreach my $projected_transcript (@$projected_transcripts) {
     $projected_transcript->slice($common_slice);
   }
-
-  print("Common slice set to: ".$common_slice->name()."\n");
 }
 
 sub project_transcript {
   my ($self,$transcript,$gene_index) = @_;
 
-  #my $transcript_align_slices = @{$self->transcript_align_slices()}[$gene_index]->{$transcript->dbID()};
   my $transcript_align_slice = @{$self->transcript_align_slices()}[$gene_index]->{$transcript->dbID()};  
-  my $transcript_align_slice_strand = substr($transcript_align_slice->name(),-2);
 
   if (!$transcript_align_slice) {
     $self->warning("transcript_align_slice is empty for transcript dbID ".$transcript->dbID()." (stable ID ".$transcript->stable_id_version()." ) gene index: ".$gene_index);
     return 0;
   }
-
-  #if (!$transcript_align_slices) {
-  #  return 0;
-  #} elsif (scalar(@{$transcript_align_slices}) <= 0) {
-  #  return 0;
-  #}
 
   # set output filename
   my $rand = int(rand(10000));
@@ -638,8 +597,6 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
     
     # replace any base different from A,C,G,T with N
     $seq =~ tr/ykwmsrdvhbxYKWMSRDVHBX/nnnnnnnnnnnNNNNNNNNNNN/;
-    
-    say "S2: ".$seq;
 
     say OUT ">".$transcript->stable_id()."_".$exon->stable_id();
     say OUT $seq;
@@ -657,18 +614,8 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
     
     # replace any base different from A,C,G,T with N
     $transcript_align_slice_seq =~ tr/ykwmsrdvhbxRYKWMSDVHBX/nnnnnnnnnnnNNNNNNNNNNN/;
-    
-    #if ($transcript->strand() == -1) {
-    
-    # transcript align slice already comes reversed from the Compara API
-    #if ($transcript_align_slice_strand eq "-1") { # check if strand is -1
-    #  my $temp_seq = reverse($transcript_align_slice_seq);
-    #  $temp_seq =~ tr/atgcATGC/tacgTACG/;
-    #  say OUT $temp_seq;
-    #} else {
-      say OUT $transcript_align_slice_seq;
-    #}
-  #}
+    say OUT $transcript_align_slice_seq;
+
   close OUT;
 
   chdir $self->param('cesar_path');
@@ -778,72 +725,29 @@ sub parse_transcript {
   my $transcript_end_coord = $3;
   my $original_proj_transcript_strand = $4;
   my $strand = $original_proj_transcript_strand;
-  
-  # Reverse the strand if the slice of the source transcript is on the negative strand
-  # (in these cases we have reverse complemented the slice sequence when projecting)
-  #if ($source_transcript->strand == -1) {
-  #  $strand = $strand * -1;
-  #}
-  
+
   $source_seq =~ /( *)([\-atgcnATGCN ]+[-atgcnATGCN]+)( *)/;
   
   my $transcript_left_flank = $1;
   my $source_transcript_align = $2;
   my $transcript_right_flank = $3;
   my $exon_offset_from_start = 0;
+  
+  $exon_offset_from_start = length($transcript_left_flank);
 
-say "transcript_left_flank: ".$transcript_left_flank;
-say "source_transcript_align: ".$source_transcript_align;
-say "transcript_right_flank: ".$transcript_right_flank;
-
-
-say "orig proj_transcript_slice_name: ".$proj_transcript_slice_name;
-
-  if ($strand == 1) {
-    #$transcript_start_coord += length($transcript_left_flank);
-    #$transcript_end_coord -= length($transcript_right_flank);
-    $exon_offset_from_start = length($transcript_left_flank);
-  } else {
-    #$transcript_start_coord += length($transcript_right_flank);
-    #$transcript_end_coord -= length($transcript_left_flank);
-    
-    #$exon_offset_from_start = length($transcript_right_flank);
-    $exon_offset_from_start = length($transcript_left_flank);
-  }
-
-  #$proj_transcript_slice_name .= join(":",($transcript_start_coord,$transcript_end_coord,$strand));
   $proj_transcript_slice_name .= join(":",($transcript_start_coord,$transcript_end_coord,$original_proj_transcript_strand));
   my $slice_adaptor = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor();
-  
-say "proj_transcript_slice_name: ".$proj_transcript_slice_name;
 
-  #my $proj_transcript_slice = $slice_adaptor->fetch_by_name($proj_transcript_slice_name)->seq_region_Slice();
   my $proj_transcript_slice = $slice_adaptor->fetch_by_name($proj_transcript_slice_name);
-
-say "proj_transcript_slice start: ".$proj_transcript_slice->start();
-say "proj_transcript_slice end: ".$proj_transcript_slice->end();
 
   if (!($proj_transcript_slice)) {
     $self->throw("Couldn't retrieve a slice for transcript: ".$proj_transcript_slice_name);
   }
 
-  # parse the projected exons
-  
-  #my @exon_sequences = ($transcript_align =~ /([\-atgcnATGCN]+)/g);
-
-  #if (scalar(@exon_sequences) != scalar(@{$source_transcript->get_all_translateable_Exons()})) {
-  #  # CESAR2.0 can merge exons in some cases so these numbers are allowed to differ
-  #  $self->warning("The number of projected exons is different from the number of source transcript exons.");
-  #}
-
   $proj_seq =~ tr/\-//d;
-say "proj_seq without dashes: ".$proj_seq;
 
   my @projected_exons = ();
 
-  #foreach my $exon_sequence (@exon_sequences) {
-  #foreach my $exon_sequence ($transcript_align =~ /([\-atgcnATGCN]+)/g) {
-   #while ($source_transcript_align =~ /([\-atgcnATGCN]+)/g) {
     while ($proj_seq =~ /([ATGCN]+)/g) {
     
      my $exon_sequence = $1;
@@ -854,26 +758,11 @@ say "proj_seq without dashes: ".$proj_seq;
      my $exon_start;
      my $exon_end;
      my $proj_transcript_slice_length = length($proj_transcript_slice->seq());
-say "proj_transcript_slice_length is: ".$proj_transcript_slice_length;
-say "strand is: ".$strand;
-     if ($strand == -1) {
-say "strand is -1";
-       $exon_start = $proj_transcript_slice_length-($+[0]-1); # -1 because $+[] gives the index of the character following the match, not the last character of the match.
-       $exon_end = $proj_transcript_slice_length-($-[0]);
-     } else {
-say "strand is NOT -1";
+
        $exon_start = $-[0]+1; # +1 because exon coordinates start at 1 for Exon objects
        $exon_end = $+[0]+1-1; # +1 because exon coordinates start at 1 for Exon objects
                               # -1 because $+[] gives the index of the character following the match, not the last character of the match.
-     }
 
-say "ex seq: ".$exon_sequence;
-say "exon_start: ".$exon_start;
-say "exon_end: ".$exon_end;
-say "exon_offset_from_start: ".$exon_offset_from_start;
-say "original_proj_transcript_strand: ".$original_proj_transcript_strand;
-say "proj_transcript_slice-seq:\n".$proj_transcript_slice->seq();
-say "proj_transcript_slice-strand:\n".$proj_transcript_slice->strand();
     push(@projected_exons,
          new Bio::EnsEMBL::Exon(-START     => $exon_start,#+$exon_offset_from_start,#+$proj_transcript_slice->start(),
                                 -END       => $exon_end,#-1,#+$exon_offset_from_start,#+$proj_transcript_slice->start(), # $+[] gives the index of the character following the match, not the last character of the match.
@@ -884,40 +773,11 @@ say "proj_transcript_slice-strand:\n".$proj_transcript_slice->strand();
                                 -VERSION   => 1));
   }
 
-#  if ($original_proj_transcript_strand == -1) {
-#    # the exon order is reversed 
-#    @projected_exons = reverse(@projected_exons);
-#  }
-
   my $projected_transcript = Bio::EnsEMBL::Transcript->new(-exons => \@projected_exons,
                                                            -analysis => $source_transcript->analysis(),
                                                            -stable_id => $source_transcript->stable_id_version(),
                                                            -strand => 1,#$original_proj_transcript_strand,
                                                            -slice => $proj_transcript_slice);
-  
-  say "projected_transcript slice name: ".$proj_transcript_slice->name;
-  say "projected_transcript SID: ".$projected_transcript->stable_id;
-  say "projected_transcript sr start: ".$projected_transcript->seq_region_start;
-  say "projected_transcript sr end: ".$projected_transcript->seq_region_end;
-  say "projected_transcript start: ".$projected_transcript->start;
-  say "projected_transcript end: ".$projected_transcript->end;
-  say "projected_transcript strand: ".$projected_transcript->strand;
-  say "projected_transcript exon count: ".scalar(@projected_exons);
-
-# DEBUG
-foreach my $ex (@{$source_transcript->get_all_translateable_Exons()}) {
-  say "source exon start: ".$ex->seq_region_start();
-  say "source exon end: ".$ex->seq_region_end();
-  say "source exon strand: ".$ex->seq_region_strand();
-  say "source exon seq:\n".$ex->seq()->seq();
-}
-
-foreach my $ex (@{$projected_transcript->get_all_Exons()}) {
-  say "projected exon start: ".$ex->seq_region_start();
-  say "projected exon end: ".$ex->seq_region_end();
-  say "projected exon strand: ".$ex->seq_region_strand();
-  say "projected exon seq:\n".$ex->seq()->seq();
-}
 
   my $translation = Bio::EnsEMBL::Translation->new();
   $translation->start_Exon($projected_exons[0]);
@@ -939,10 +799,8 @@ foreach my $ex (@{$projected_transcript->get_all_Exons()}) {
 
   my ($coverage,$percent_id) = (0,0);
   if ($projected_transcript->translation()->seq()) {
-print("Projected transcript translation has a seq\n");
     ($coverage,$percent_id) = align_proteins($source_transcript->translate()->seq(),$projected_transcript->translate()->seq());
   }
-say "pid high " if ($percent_id > 70);
   $projected_transcript->source($coverage);
   $projected_transcript->biotype($percent_id);
   $projected_transcript->description("stable_id of source: ".$source_transcript->stable_id());
@@ -955,131 +813,6 @@ say "pid high " if ($percent_id > 70);
 
   return ($projected_transcript);
 }
-
-#sub parse_exon {
-#  my ($self,$source_exon,$projected_outfile_path) = @_;
-#
-#  
-#
-#  my $reference_exon_header = shift(@projection_array);
-#  my $source_seq =  shift(@projection_array);
-#  my $slice_name = shift(@projection_array);
-#  my $proj_seq = shift(@projection_array);
-#
-#  if (scalar(@projection_array) > 0) {
-#    $self->warning("Output file has more than one projection. The projection having fewer gaps will be chosen. Exon: ".$source_exon->stable_id);
-#
-#    # there are sometimes empty results which need to be skipped
-#    chomp($source_seq);
-#    chomp($proj_seq);
-#    while (length($source_seq) <= 0 and length($proj_seq) <= 0) {
-#      $reference_exon_header = shift(@projection_array);
-#      $source_seq = shift(@projection_array);
-#      $slice_name = shift(@projection_array);
-#      $proj_seq = shift(@projection_array);
-#      chomp($source_seq);
-#      chomp($proj_seq);
-#      printf("Chosen slice name $slice_name and projected sequence:\n$proj_seq due to empty results found before.\n");
-#    }
-#
-#    my $next_reference_exon_header;
-#    my $next_source_seq;
-#    my $next_slice_name;
-#    my $next_proj_seq;
-#    while (scalar(@projection_array) > 0) {
-#      $next_reference_exon_header = shift(@projection_array);
-#      $next_source_seq = shift(@projection_array);
-#      $next_slice_name = shift(@projection_array);
-#      $next_proj_seq = shift(@projection_array);
-#
-#      chomp($next_proj_seq);
-#      chomp($next_source_seq);
-#      if (($next_proj_seq =~ tr/\-//) < ($proj_seq =~ tr/\-//) and
-#          (length($source_seq) > 0) and (length($proj_seq) > 0)  
-#         ) {
-#        # if the number of gaps in the next projected sequence represented by the character '-'
-#        # is lower than the current selection number of gaps then select the next projected sequence
-#        # unless the next projected sequence is empty (it can happen)
-#        $proj_seq = $next_proj_seq;
-#        $slice_name = $next_slice_name;
-#        $source_seq = $next_source_seq;
-#        $reference_exon_header = $next_reference_exon_header;
-#        printf("Chosen slice name $slice_name and projected sequence:\n$proj_seq\n");
-#      }
-#    }
-#  }
-#
-#  unless($slice_name =~ /^>(.+\:.+\:.+\:)(.+)\:(.+)\:(.+)$/) {
-#    $self->throw("Couldn't parse the header to get the slice name. Header: ".$slice_name);
-#  }
-#
-#  my $proj_exon_slice_name = $1;
-#  my $start_coord = $2;
-#  my $end_coord = $3;
-#  my $strand = $4;
-#
-#  # Reverse the strand if the slice of the source exon is on the negative strand (in these cases we have reverse complemented
-#  # the slice sequence when projecting)
-#  if($source_exon->strand == -1) {
-#    $strand = $strand * -1;
-#  }
-#
-#  say "FM2 EXON SLICE START: ".$start_coord;
-#  say "FM2 EXON SLICE END: ".$end_coord;
-#
-#  $source_seq =~ /( *)([\-atgcnATGCN]+)( *)/;
-#
-#  my $source_left_flank = $1;
-#  my $source_align = $2;
-#  my $source_right_flank = $3;
-#
-#  say "FM2 LLF: ".length($source_left_flank);
-#  say "FM2 LRF: ".length($source_right_flank);
-#  if($strand == -1) {
-#    $start_coord += length($source_right_flank);
-#  } else {
-#    $start_coord += length($source_left_flank);
-#  }
-#
-#  if($strand == -1) {
-#    $end_coord -= length($source_left_flank);
-#  } else {
-#    $end_coord -= length($source_right_flank);
-#  }
-#
-#  say "FM2 START: ".$start_coord;
-#  say "FM2 END: ".$end_coord;
-#
-#  $proj_exon_slice_name .= join(":",($start_coord,$end_coord,$strand));
-#  my $slice_adaptor = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor();
-#
-#  my $proj_slice = $slice_adaptor->fetch_by_name($proj_exon_slice_name)->seq_region_Slice;
-#  unless($proj_slice) {
-#    $self->throw("Couldn't retrieve a slice for: ".$proj_exon_slice_name);
-#  }
-#
-#  my $proj_exon;
-#  if ($start_coord <= $end_coord+1) {
-#    $proj_exon = new Bio::EnsEMBL::Exon(
-#        -START     => $start_coord,
-#        -END       => $end_coord,
-#        -STRAND    => $strand,
-#        -SLICE     => $proj_slice,
-#        -ANALYSIS  => $source_exon->analysis,
-#        -STABLE_ID => $source_exon->stable_id.".".$source_exon->version,
-#        -VERSION   => 1,
-#    );
-#
-#    # add a 'seq_edits' attribute to the proj_exon object
-#    # to store the seq edits that will be added to the transcript
-#    # when the transcript is built
-#    #my @seq_edits = make_seq_edits($source_seq,$proj_seq);
-#    #$proj_exon->{'seq_edits'} = \@seq_edits;
-#  } else {
-#    say "Start is not less than or equal to end+1. Exon skipped.";
-#  }
-#  return ($proj_exon);
-#}
 
 sub make_seq_edits {
   # It returns an array of SeqEdit objects for the target sequence to make
@@ -1163,14 +896,11 @@ sub make_alignment_mapper {
   my $mapper = Bio::EnsEMBL::Mapper->new($FROM_CS_NAME,
                                          $TO_CS_NAME);
 
-  say "FM2 ALIGN MAP: ".ref($gen_al_blocks);
   foreach my $bl (@$gen_al_blocks) {
     foreach my $ugbl (@{$bl->get_all_ungapped_GenomicAlignBlocks}) {
       my ($from_bl) = $ugbl->reference_genomic_align;
       my ($to_bl)   = @{$ugbl->get_all_non_reference_genomic_aligns};
 
-      say "FM2 from_bl: ".$from_bl->dnafrag_start.":".$from_bl->dnafrag_end;
-      say "FM2 to_bl: ".$to_bl->dnafrag_start.":".$to_bl->dnafrag_end;
       $mapper->add_map_coordinates($from_bl->dnafrag->name,
                                    $from_bl->dnafrag_start,
                                    $from_bl->dnafrag_end,
