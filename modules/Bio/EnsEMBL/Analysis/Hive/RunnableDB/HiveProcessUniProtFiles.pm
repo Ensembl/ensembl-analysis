@@ -136,7 +136,17 @@ sub fetch_input {
                           'group_name' => $group_name,
                           'seq'        => $seq,
                        }];
-          $table_adaptor->store($db_row);
+          eval {
+            $table_adaptor->store($db_row);
+          };
+
+          if($@) {
+            my $except = $@;
+            unless($except =~ /Duplicate entry/) {
+              $self->throw("Issue strong the following accession: ".$versioned_accession."\n".$except);
+	    }
+          }
+
           print FH ">$versioned_accession\n$seq\n" if ($write_file);
           push(@iids, $versioned_accession);
         }
@@ -156,7 +166,7 @@ sub fetch_input {
     if ($write_file and -e $self->param('output_file')) {
       unlink $self->param('output_file');
     }
-    $self->input_id->autoflow(0);
+    $self->input_job->autoflow(0);
     $self->complete_early('No sequences have been stored or written to file');
   }
 }

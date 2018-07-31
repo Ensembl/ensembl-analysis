@@ -93,6 +93,7 @@ sub _master_config {
 
 # Non vert
                    'flies_taxon_id'      => '7147',
+                   'hemiptera_taxon_id'  => '7524',
                    'drosophila_taxon_id' => '7227',
                    'housefly_taxon_id'   => '7370',
                    'pisum_taxon_id'      => '7029',
@@ -454,7 +455,7 @@ sub _master_config {
                            },
              },
 
-          flies_basic => {
+          hemiptera_basic => {
               self_pe12 =>{
                             file_name => 'self_pe12.fasta',
                             taxon_id  => '#taxon_id#',
@@ -518,7 +519,7 @@ sub _master_config {
 
                hemiptera_pe12 => {
                                     file_name  => 'hemiptera_pe12.fasta',
-                                    taxon_id   => $taxon_ids->{'flies_taxon_id'},
+                                    taxon_id   => $taxon_ids->{'hemiptera_taxon_id'},
                                    exclude_id => ['#taxon_id#',$taxon_ids->{'pisum_taxon_id'}],
                                  dest_dir   => '#output_path#',
                                  compress   => 0,
@@ -527,7 +528,7 @@ sub _master_config {
 
                hemiptera_pe3 => {
                                   file_name  => 'hemiptera_pe3.fasta',
-                                  taxon_id   => $taxon_ids->{'flies_taxon_id'},
+                                  taxon_id   => $taxon_ids->{'hemiptera_taxon_id'},
                                   dest_dir   => '#output_path#',
                                   compress   => 0,
                                   pe_level   => [3],
