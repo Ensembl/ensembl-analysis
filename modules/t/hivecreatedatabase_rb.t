@@ -140,17 +140,53 @@ my $data = $sth->fetchall_arrayref;
 cmp_ok($data->[0]->[0], '==', 1, 'Checking autoincrement is reset to lower value');
 $db->dbc->do("DROP DATABASE $test_dbname");
 
+my %extra_tables = %cloned_tables;
+$extra_tables{protein_feature} = 1;
+standaloneJob(
+	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+	{
+    create_type => 'clone',
+    source_db => \%source_db,
+    target_db => \%target_db,
+    extra_data_tables => ['protein_feature'],
+	},
+);
+$db->dbc->do("use $test_dbname");
+$sth = $db->dbc->prepare('SHOW TABLES');
+$sth->execute();
+$cloned_count = 0;
+$empty_count = 0;
+foreach my $table (@$tables) {
+  my $query = 'SELECT COUNT(*) FROM '.$table->[0];
+  $sth = $db->dbc->prepare($query);
+  $sth->execute();
+  my $data = $sth->fetchall_arrayref;
+  if (exists $extra_tables{$table->[0]}) {
+    if ($data->[0]->[0] > 0) {
+      ++$cloned_count;
+    }
+    else {
+      $db->dbc->do('use '.$db->dbc->dbname);
+      my $old_sth = $db->dbc->prepare($query);
+      $sth->execute();
+      my $old_data = $sth->fetchall_arrayref;
+      if ($old_data->[0]->[0] == $data->[0]->[0]) {
+        ++$cloned_count;
+      }
+      $db->dbc->do("use $test_dbname");
+    }
+  }
+  elsif ($data->[0]->[0] == 0) {
+    ++$empty_count;
+  }
+}
+cmp_ok($cloned_count, '==', scalar(keys %extra_tables), 'Checking vital tables are populated');
+cmp_ok($empty_count+$cloned_count, '==', scalar(@$tables), 'Checking all other tables are empty');
+$db->dbc->do("DROP DATABASE $test_dbname");
+
 ###
 # Testing create_type dna_db
 ###
-%source_db = (
-  -dbname => $db->dbc->dbname,
-  -host   => $db->dbc->host,
-  -port   => $db->dbc->port,
-  -user   => $db->dbc->user,
-  -pass   => $db->dbc->pass,
-  -driver => $db->dbc->driver,
-);
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
 	{
