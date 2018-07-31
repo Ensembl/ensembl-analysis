@@ -221,7 +221,7 @@ sub clone_database {
   my $do_lock = $self->param('_lock_tables');
   my $vital_tables = $self->param('vital_tables');
   if ($self->param_is_defined('extra_data_tables') and $self->param('extra_data_tables')) {
-    $self->throw('You should give an array ref for your extra tables to dump') unless (ref($self->param('extra_data_tables') eq 'ARRAY'));
+    $self->throw('You should give an array ref for your extra tables to dump') unless (ref($self->param('extra_data_tables')) eq 'ARRAY');
     push(@$vital_tables, @{$self->param('extra_data_tables')});
   }
   my ($source_dbhost, $source_dbport, $source_dbname, $source_dbuser, $source_dbpass) = $self->db_connection_details($source_db, 1);
