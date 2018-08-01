@@ -53,23 +53,23 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
  Arg [1]    : None
  Description: Default options:
-								feature_type => 'gene',
-								check_support => 1,
-								coord_system => 'toplevel',
+               feature_type => 'gene',
+               check_support => 1,
+               coord_system => 'toplevel',
  Returntype : Hashref
  Exceptions : None
 
 =cut
 
 sub param_defaults {
-	my ($self) = @_;
+  my ($self) = @_;
 
-	return {
-		%{$self->SUPER::param_defaults},
-		feature_type => 'gene',
-		check_support => 1,
-		coord_system => 'toplevel',
-	}
+  return {
+    %{$self->SUPER::param_defaults},
+      feature_type => 'gene',
+      check_support => 1,
+      coord_system => 'toplevel',
+  }
 }
 
 
@@ -83,32 +83,32 @@ sub param_defaults {
 =cut
 
 sub fetch_input {
-	my ($self) = @_;
+  my ($self) = @_;
 
-	my $db = $self->get_database_by_name('target_db');
-	my $slice_adaptor = $db->get_SliceAdaptor;
-	my $slices;
-	if ($self->param_is_defined('iid')) {
-		$slices = [$slice_adaptor->fetch_by_name($self->param('iid'))];
-	}
-	else {
-		$slices = $slice_adaptor->fetch_all($self->param('coord_system'));
-	}
-	my @objects;
-	if ($self->param('feature_type') eq 'gene') {
-		foreach my $slice (@$slices) {
-			push(@objects, sort {$a->start <=> $b->start || $b->end <=> $a->end} @{$slice->get_all_Genes(undef, undef, 1)});
-		}
-	}
-	elsif ($self->param('feature_type') eq 'prediction') {
-		foreach my $slice (@$slices) {
-			push(@objects, sort {$a->start <=> $b->start || $b->end <=> $a->end} @{$slice->get_all_PredictionTranscripts(undef, 1)});
-		}
-	}
-	else {
-		$self->throw('Unknown feature_type "'.$self->param('feature_type').'", you may want to create a method process_'.$self->param('feature_type').' in '.__PACKAGE__);
-	}
-	$self->param('objects', \@objects);
+  my $db = $self->get_database_by_name('target_db');
+  my $slice_adaptor = $db->get_SliceAdaptor;
+  my $slices;
+  if ($self->param_is_defined('iid')) {
+    $slices = [$slice_adaptor->fetch_by_name($self->param('iid'))];
+  }
+  else {
+    $slices = $slice_adaptor->fetch_all($self->param('coord_system'));
+  }
+  my @objects;
+  if ($self->param('feature_type') eq 'gene') {
+    foreach my $slice (@$slices) {
+      push(@objects, sort {$a->start <=> $b->start || $b->end <=> $a->end} @{$slice->get_all_Genes(undef, undef, 1)});
+    }
+  }
+  elsif ($self->param('feature_type') eq 'prediction') {
+    foreach my $slice (@$slices) {
+      push(@objects, sort {$a->start <=> $b->start || $b->end <=> $a->end} @{$slice->get_all_PredictionTranscripts(undef, 1)});
+    }
+  }
+  else {
+    $self->throw('Unknown feature_type "'.$self->param('feature_type').'", you may want to create a method process_'.$self->param('feature_type').' in '.__PACKAGE__);
+  }
+  $self->param('objects', \@objects);
 }
 
 
@@ -122,13 +122,14 @@ sub fetch_input {
 =cut
 
 sub run {
-	my ($self) = @_;
+  my ($self) = @_;
 
-	my $objects = $self->param('objects');
-	my %objects_to_delete;
-	my $method = 'process_'.$self->param('feature_type');
-  my $has_features = 'is_ok_'.$self->param('feature_type');
-	for (my $i = 0; $i < @$objects; $i++) {
+  my $objects = $self->param('objects');
+  my %objects_to_delete;
+  my $feature_type = $self->param('feature_type');
+  my $method = 'process_'.$feature_type;
+  my $has_features = 'is_ok_'.$feature_type;
+  for (my $i = 0; $i < @$objects; $i++) {
     if ($self->$has_features($objects->[$i])) {
       for (my $j = $i+1; $j < @$objects; $j++) {
         if ($self->$has_features($objects->[$j])) {
@@ -136,7 +137,7 @@ sub run {
             if ($objects->[$i]->end < $objects->[$j]->start) {
               last;
             }
-            elsif ($objects->[$i]->start == $objects->[$j]->end) {
+            elsif ($objects->[$i]->start == $objects->[$j]->start and $objects->[$i]->end == $objects->[$j]->end) {
               my $result = $self->$method($objects->[$i], $objects->[$j]);
               if ($result) {
                 if ($result == $objects->[$i]) {
@@ -149,7 +150,7 @@ sub run {
                 }
               }
               else {
-                $self->warning($self->param('feature_type').' objects '.$objects->[$i]->display_id.' and '.$objects->[$j]->display_id.' have the same coordinates but does not seem to be the same objects');
+                $self->warning($feature_type.' objects '.$objects->[$i]->display_id.' and '.$objects->[$j]->display_id.' have the same coordinates but does not seem to be the same objects');
               }
             }
           }
@@ -165,8 +166,8 @@ sub run {
     else {
       $objects_to_delete{$objects->[$i]->dbID} = $objects->[$i];
     }
-	}
-	$self->output([values %objects_to_delete]);
+  }
+  $self->output([values %objects_to_delete]);
 }
 
 
@@ -180,11 +181,11 @@ sub run {
 =cut
 
 sub write_output {
-	my ($self) = @_;
+  my ($self) = @_;
 
-	foreach my $object (@{$self->output}) {
+  foreach my $object (@{$self->output}) {
     $object->adaptor->remove($object) if ($object->dbID);
-	}
+  }
 }
 
 
@@ -200,35 +201,35 @@ sub write_output {
 =cut
 
 sub process_gene {
-	my ($self, $gene_i, $gene_j) = @_;
+  my ($self, $gene_i, $gene_j) = @_;
 
-	my $i_transcripts = $gene_i->get_all_Transcripts;
-	my $j_transcripts = $gene_j->get_all_Transcripts;
-	if (scalar(@$i_transcripts) and scalar(@$j_transcripts)) {
-		for (my $m = 0; $m < @$i_transcripts; $m++) {
-			my $hashkey_m = hashkey_Object($i_transcripts->[$m]->get_all_Exons);
-			for (my $n = 0; $n < @$j_transcripts; $n++) {
-				my $hashkey_n = hashkey_Object($j_transcripts->[$n]->get_all_Exons);
-				if ($hashkey_n eq $hashkey_m) {
-					if ($self->param('check_support')) {
-						my $support_m = join(':', grep {$_->hit_name} sort {$a->hit_name cmp $b->hit_name} @{$i_transcripts->[$m]->get_all_supporting_evidences});
-						my $support_n = join(':', grep {$_->hit_name} sort {$a->hit_name cmp $b->hit_name} @{$j_transcripts->[$n]->get_all_supporting_evidences});
-						if ($support_n eq $support_m) {
-							return $gene_j;
-						}
-					}
-					else {
-						return $gene_j;
-					}
-				}
-			}
-		}
-	}
-	else {
-		return $gene_i unless (scalar(@$i_transcripts));
-		return $gene_j unless (scalar(@$j_transcripts));
-	}
-	return; #Not sure it's needed but it should do the work
+  my $i_transcripts = $gene_i->get_all_Transcripts;
+  my $j_transcripts = $gene_j->get_all_Transcripts;
+  if (scalar(@$i_transcripts) and scalar(@$j_transcripts)) {
+    for (my $m = 0; $m < @$i_transcripts; $m++) {
+      my $hashkey_m = hashkey_Object($i_transcripts->[$m]->get_all_Exons);
+      for (my $n = 0; $n < @$j_transcripts; $n++) {
+        my $hashkey_n = hashkey_Object($j_transcripts->[$n]->get_all_Exons);
+        if ($hashkey_n eq $hashkey_m) {
+          if ($self->param('check_support')) {
+            my $support_m = join(':', grep {$_->hit_name} sort {$a->hit_name cmp $b->hit_name} @{$i_transcripts->[$m]->get_all_supporting_features});
+            my $support_n = join(':', grep {$_->hit_name} sort {$a->hit_name cmp $b->hit_name} @{$j_transcripts->[$n]->get_all_supporting_features});
+            if ($support_n eq $support_m) {
+              return $gene_j;
+            }
+          }
+          else {
+            return $gene_j;
+          }
+        }
+      }
+    }
+  }
+  else {
+    return $gene_i unless (scalar(@$i_transcripts));
+    return $gene_j unless (scalar(@$j_transcripts));
+  }
+  return; #Not sure it's needed but it should do the work
 }
 
 
@@ -280,19 +281,19 @@ sub is_ok_gene {
 =cut
 
 sub process_prediction {
-	my ($self, $gene_i, $gene_j) = @_;
+  my ($self, $gene_i, $gene_j) = @_;
 
-	my $exon_i = $gene_i->get_all_Exons;
-	my $exon_j = $gene_j->get_all_Exons;
-	if (scalar(@$exon_i) and scalar(@$exon_j)) {
-		if (hashkey_Object($exon_i) eq hashkey_Object($exon_j)) {
-			return $gene_j;
-		}
-	}
-	else {
-		return $gene_i unless (scalar(@$exon_i));
-		return $gene_j unless (scalar(@$exon_j));
-	}
+  my $exon_i = $gene_i->get_all_Exons;
+  my $exon_j = $gene_j->get_all_Exons;
+  if (scalar(@$exon_i) and scalar(@$exon_j)) {
+    if (hashkey_Object($exon_i) eq hashkey_Object($exon_j)) {
+      return $gene_j;
+    }
+  }
+  else {
+    return $gene_i unless (scalar(@$exon_i));
+    return $gene_j unless (scalar(@$exon_j));
+  }
 }
 
 
@@ -321,4 +322,5 @@ sub is_ok_prediction {
   }
   return 1;
 }
+#
 1;
