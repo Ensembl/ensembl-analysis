@@ -55,6 +55,7 @@ sub default_options {
     'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'repeatmodeler_library'     => '', # This should be the path to a custom repeat library, leave blank if none exists
+    'rnaseq_summary_file'       => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
@@ -370,7 +371,6 @@ sub default_options {
     # they will be used to retrieve the information from ENA and to create the csv file. In this case,
     # 'file_columns' and 'summary_file_delimiter' should not be changed unless you know what you are doing
     'study_accession'        => '',
-    'rnaseq_summary_file'    => catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'),
 
     'max_reads_per_split' => 2500000, # This sets the number of reads to split the fastq files on
     'max_total_reads'     => 200000000, # This is the total number of reads to allow from a single, unsplit file
@@ -3457,7 +3457,7 @@ sub pipeline_analyses {
                           cmd => 'sh '.catfile($self->o('mirna_analysis_script'), 'FilterMiRNAs.sh')
                                   .' -d '.catfile($self->o('ncrna_dir'), 'blastmirna_dafs.bed')
                                   .' -r '.catfile($self->o('ncrna_dir'), 'repeats.bed')
-                                  .' -g '.catfile($self->o('ncrna_dir'), 'genome.fasta')
+                                  .' -g '.$self->o('rnaseq_genome_file')
                                   .' -w '.$self->o('ncrna_dir')
                                   .' -m '.catfile($self->o('mirna_blast_path'), 'rfc_filters', $self->o('rfc_model'))
                                   .' -s '.catfile($self->o('mirna_blast_path'), 'rfc_filters', $self->o('rfc_scaler'))
@@ -3559,7 +3559,7 @@ sub pipeline_analyses {
               $self->o('output_dir'),
               $self->o('input_dir'),
               $self->o('merge_dir')
-              ).'; do lfs getdirstripe -q $D > /dev/null; if [ $? -eq 0 ]; then lfs setstripe -c -1 #D;fi;done;fi',
+              ).'; do lfs getdirstripe -q $D > /dev/null; if [ $? -eq 0 ]; then lfs setstripe -c -1 $D;fi;done;fi',
         },
         -flow_into => {
           1 => ['downloading_csv'],

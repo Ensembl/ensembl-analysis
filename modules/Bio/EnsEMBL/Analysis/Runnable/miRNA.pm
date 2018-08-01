@@ -380,7 +380,7 @@ sub display_stuff{
   my %miRNAs = %{$self->miRNAs};
   my $description = $miRNAs{$daf->hseqname}->display_id;
   ($all_mature,$status) = $self->get_mature($daf);
-  print STDERR "DAF ".$daf->dbID." chr ".$daf->seq_region_name." ".$daf->seq_region_start." ".$daf->seq_region_end."\n";
+  print STDERR "DAF ".$daf->dbID." ".$daf->seq_region_name." ".$daf->seq_region_start." ".$daf->seq_region_end."\n";
   foreach my $mature (@$all_mature){
     print STDERR $daf->hseqname." $description miRNA at ".$mature->{'start'}." ".$mature->{'end'}."\n ";
   }
@@ -414,8 +414,8 @@ sub display_stuff{
 
   my $fn = $self->outdir . "/rna_fold_results.txt";
   open(FH, '>>', $fn) or die "Could not write to $fn ; please check basedir exists";
-  print FH "chr" . $daf->seq_region_name . "\t" . $daf->seq_region_start . "\t" . $daf->seq_region_end . "\t" .
-    "chr" . $daf->seq_region_name . ":" . $daf->seq_region_start . "-" . $daf->seq_region_end . "\t" . $score . "\t" .
+  print FH $daf->seq_region_name . "\t" . $daf->seq_region_start . "\t" . $daf->seq_region_end . "\t" .
+    $daf->seq_region_name . ":" . $daf->seq_region_start . "-" . $daf->seq_region_end . "\t" . $score . "\t" .
     ($daf->strand > 0 ? "+" : "-") . "\t" . $daf->dbID . "\n";
 }
 

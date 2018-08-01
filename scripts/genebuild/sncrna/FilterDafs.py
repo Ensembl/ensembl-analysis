@@ -16,7 +16,6 @@ mfe_path = working_dir + "/rna_fold_results.txt"
 putative_stem_loops = working_dir + "/identified_mirnas.bed"
 
 scaler = joblib.load(scaler_path)
-# scaler = StandardScaler()
 model = joblib.load(model_path)
 
 dafs = pd.read_csv(dafs_path, sep = "\t", index_col=3, names = list("ABCDEFGHIJKL"))
@@ -24,11 +23,8 @@ dafs.sort_index(inplace=True)
 
 mfe = pd.read_csv(mfe_path, sep="\t", index_col=3, names=list("ABCDEFG"))
 
-print(dafs.head())
-print(mfe.head())
 mfe.sort_index(inplace=True)
 temp_df = pd.merge(dafs, pd.DataFrame(mfe['E']), left_index=True, right_index=True, how="inner")
-print(temp_df.head())
 temp_df.rename(columns={'E_x':'old_score', 'G':'mir_id', 'H':'blast_evalue', 'I':'pid', 'J':'cigar', 'K':'repeat_coverage', 
                    'L':'gc_perc', 'E_y':'mfe'}, inplace=True)
 
@@ -49,9 +45,11 @@ df.to_csv(working_dir + "/labelled_dafs.tsv", sep="\t")
 
 ########################### db ids
 putative_stem_loops_df = pd.read_csv(putative_stem_loops, sep="\t", index_col = 3, names=list("ABCDEFG"))
-merged = pd.merge(putative_stem_loops_df, removed_dafs, left_index = True, right_index = True, how = "inner")
+removed_dafs['coords'] = removed_dafs.index.astype(str)
+putative_stem_loops_df['coords'] = putative_stem_loops_df.index.astype(str)
 
-merged.drop_duplicates(inplace=True)
-merged['G'].to_csv(working_dir + "mirnas_to_delete.txt", header=False, index=False)
+merged = pd.merge(putative_stem_loops_df, removed_dafs, left_on = 'coords', right_on = 'coords', how="inner")
+merged.drop_duplicates(subset='coords',inplace=True)
+merged['G'].to_csv(working_dir + "/mirnas_to_delete.txt", header=False, index=False)
 
 

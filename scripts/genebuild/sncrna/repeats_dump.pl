@@ -41,7 +41,7 @@ foreach my $slice (@{ $sa->fetch_all( 'toplevel') }){
   $slice_name = $slice->seq_region_name();
   foreach my $repeat (@{ $rfa->fetch_all_by_Slice($slice) }){
     my $strand = $repeat->strand() > 0 ? "+" : "-";
-    print FH "chr" . $slice_name, "\t",
+    print FH $slice_name, "\t",
       $repeat->seq_region_start(), "\t",
       $repeat->seq_region_end(), "\t",
       $strand, "\n";
