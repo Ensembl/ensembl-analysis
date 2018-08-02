@@ -390,11 +390,18 @@ sub build_gene {
       @projected_transcripts_for_gene = @$projected_transcripts;
     }
 
+    my $projected_transcripts_on_common_slice;
     if ($self->param('common_slice')) {
-      $self->set_common_slice(\@projected_transcripts_for_gene);
+      $projected_transcripts_on_common_slice = $self->set_common_slice(\@projected_transcripts_for_gene);
     }
 
-    my $projected_gene = $gene->flush_Transcripts();
+    if ($projected_transcripts_on_common_slice) {
+      @projected_transcripts_for_gene = @$projected_transcripts_on_common_slice;
+    }
+
+    #my $projected_gene = $gene->flush_Transcripts();
+    my $projected_gene = Bio::EnsEMBL::Gene->new();
+    $projected_gene->stable_id($gene->stable_id());
 
 TRANSCRIPT: foreach my $projected_transcript (@projected_transcripts_for_gene) {
       # do not store transcripts containing stops
@@ -473,11 +480,15 @@ sub largest_value_mem {
 }
 
 sub set_common_slice {
-# it sets the same slice for all transcripts so they can be added
-# to the same gene later based on the most common seq region name
+# it sets the same slice for all transcripts on the same seq region
+# so they can be added to the same gene later
+# based on the most common seq region name
 # and minimum and maximum transcript coordinates for that seq region name
+# It returns a new array containing the transcripts on the same slice only
+# after having discarded the transcripts on other seq regions
   my ($self,$projected_transcripts) = @_;
 
+  my @projected_transcripts_on_common_slice = ();
   my %common_regions;
   my $min = 9999999999999999;
   my $max = 0;
@@ -493,6 +504,7 @@ sub set_common_slice {
     if ($projected_transcript->seq_region_name() eq $most_common_seq_region_name) {
       $min = min($projected_transcript->seq_region_start(),$min);
       $max = max($projected_transcript->seq_region_end(),$max);
+      push(@projected_transcripts_on_common_slice,$projected_transcript);
     }
   }
 
@@ -501,6 +513,8 @@ sub set_common_slice {
   foreach my $projected_transcript (@$projected_transcripts) {
     $projected_transcript->slice($common_slice);
   }
+
+  return \@projected_transcripts_on_common_slice;
 }
 
 sub project_transcript {
@@ -773,45 +787,52 @@ sub parse_transcript {
                                 -VERSION   => 1));
   }
 
-  my $projected_transcript = Bio::EnsEMBL::Transcript->new(-exons => \@projected_exons,
-                                                           -analysis => $source_transcript->analysis(),
-                                                           -stable_id => $source_transcript->stable_id_version(),
-                                                           -strand => 1,#$original_proj_transcript_strand,
-                                                           -slice => $proj_transcript_slice);
+  if (scalar(@projected_exons) > 0) {
 
-  my $translation = Bio::EnsEMBL::Translation->new();
-  $translation->start_Exon($projected_exons[0]);
-  $translation->start(1);
-  $translation->end_Exon($projected_exons[-1]);
-  $translation->end($projected_exons[-1]->length());
-  $projected_transcript->translation($translation);
+    my $projected_transcript = Bio::EnsEMBL::Transcript->new(-exons => \@projected_exons,
+                                                             -analysis => $source_transcript->analysis(),
+                                                             -stable_id => $source_transcript->stable_id_version(),
+                                                             -strand => 1,#$original_proj_transcript_strand,
+                                                             -slice => $proj_transcript_slice);
 
-  # Set the phases  
-  calculate_exon_phases($projected_transcript,$source_transcript->translation()->start_Exon()->phase());
+    my $translation = Bio::EnsEMBL::Translation->new();
+    $translation->start_Exon($projected_exons[0]);
+    $translation->start(1);
+    $translation->end_Exon($projected_exons[-1]);
+    $translation->end($projected_exons[-1]->length());
+    $projected_transcript->translation($translation);
 
-  # Set the exon and transcript supporting features
-  if ($projected_transcript->translation()->seq()) { 
-    set_alignment_supporting_features($projected_transcript,$source_transcript->translation()->seq(),$projected_transcript->translation()->seq());
+    # Set the phases  
+    calculate_exon_phases($projected_transcript,$source_transcript->translation()->start_Exon()->phase());
+
+    # Set the exon and transcript supporting features
+    if ($projected_transcript->translation()->seq()) { 
+      set_alignment_supporting_features($projected_transcript,$source_transcript->translation()->seq(),$projected_transcript->translation()->seq());
+    }
+
+    say "Transcript translation:\n".$source_transcript->translation()->seq();
+    say "Projected transcript translation:\n".$projected_transcript->translation()->seq();
+
+    my ($coverage,$percent_id) = (0,0);
+    if ($projected_transcript->translation()->seq()) {
+      ($coverage,$percent_id) = align_proteins($source_transcript->translate()->seq(),$projected_transcript->translate()->seq());
+    }
+    $projected_transcript->source($coverage);
+    $projected_transcript->biotype($percent_id);
+    $projected_transcript->description("stable_id of source: ".$source_transcript->stable_id());
+
+    # add a 'seq_edits' attribute to the proj_exon object
+    # to store the seq edits that will be added to the transcript
+    # when the transcript is built
+    #my @seq_edits = make_seq_edits($source_seq,$proj_seq);
+    #$proj_exon->{'seq_edits'} = \@seq_edits;
+
+    return ($projected_transcript);
+  } else {
+    # no exons projected after parsing
+    $self->warning("No exons projected after parsing. Source transcript ".$source_transcript->stable_id()." skipped.");
+    return 0;
   }
-
-  say "Transcript translation:\n".$source_transcript->translation()->seq();
-  say "Projected transcript translation:\n".$projected_transcript->translation()->seq();
-
-  my ($coverage,$percent_id) = (0,0);
-  if ($projected_transcript->translation()->seq()) {
-    ($coverage,$percent_id) = align_proteins($source_transcript->translate()->seq(),$projected_transcript->translate()->seq());
-  }
-  $projected_transcript->source($coverage);
-  $projected_transcript->biotype($percent_id);
-  $projected_transcript->description("stable_id of source: ".$source_transcript->stable_id());
-
-  # add a 'seq_edits' attribute to the proj_exon object
-  # to store the seq edits that will be added to the transcript
-  # when the transcript is built
-  #my @seq_edits = make_seq_edits($source_seq,$proj_seq);
-  #$proj_exon->{'seq_edits'} = \@seq_edits;
-
-  return ($projected_transcript);
 }
 
 sub make_seq_edits {
