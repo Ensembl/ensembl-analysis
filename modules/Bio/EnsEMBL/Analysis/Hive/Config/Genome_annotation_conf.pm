@@ -385,7 +385,7 @@ sub default_options {
     'output_dir'   => catdir($self->o('rnaseq_dir'),'output'),
     'merge_dir'    => catdir($self->o('rnaseq_dir'),'merge'),
     'sam_dir'      => catdir($self->o('rnaseq_dir'),'sams'),
-    header_file => catfile($self->o('rnaseq_dir'), '#'.$self->o('read_id_tag').'#_header.h'),
+    header_file => catfile($self->o('output_dir'), '#'.$self->o('read_id_tag').'#_header.h'),
 
     'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
@@ -3914,7 +3914,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -rc_name    => '1GB',
         -parameters => {
-          cmd => $self->o('samtools_path').' view -H #filename# | grep -v @SQ | grep -v @HD > '.catfile($self->o('rnaseq_dir'), 'merged_header.h'),
+          cmd => $self->o('samtools_path').' view -H #filename# | grep -v @SQ | grep -v @HD > '.catfile($self->o('output_dir'),'merged_header.h'),
         },
         -flow_into => {
           '1->A' => [ 'create_toplevel_input_ids'],
@@ -4343,7 +4343,7 @@ sub pipeline_analyses {
           iid_type => 'object_id',
           # path to index to fetch the sequence of the blast hit to calculate % coverage
           indicate_index => $self->o('indicate_uniprot_index'),
-          uniprot_index => [$self->o('rnaseq_blast_db')],
+          uniprot_index => [$self->o('uniprot_blast_db_path')],
           blast_program => $self->o('uniprot_blast_exe_path'),
           %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
           commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40',

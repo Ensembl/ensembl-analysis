@@ -95,9 +95,8 @@ sub fetch_input {
   $self->create_analysis(1);
   $self->analysis->parameters($self->param('commandline_params')) if ($self->param_is_defined('commandline_params'));
 
-
   my $input_dba = $self->hrdb_get_dba($self->param('source_db'));
-  my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
+  my $output_dba = $self->hrdb_get_dba($self->param('target_db'));
 
   $self->hrdb_set_con($input_dba,'source_db');
   $self->hrdb_set_con($output_dba,'output_db');
