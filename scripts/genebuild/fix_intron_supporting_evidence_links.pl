@@ -59,8 +59,9 @@ open(ISE, $daf_infile) || die("Could not open $daf_infile");
 while (<ISE>) {
   my @line = split("\t", $_);
   $line[1] = $analysis_id if ($analysis_id);
-  if (exists $seen{$line[6]}) {
-    if ($seen{$line[6]} >= $line[7]) {
+  my $uid = $line[1].':'.$line[6];
+  if (exists $seen{$uid}) {
+    if ($seen{$uid} >= $line[7]) {
       $to_replace{$line[0]} = $to_keep{$line[6]};
 #      print STDERR $line[0], ' -> ', $to_replace{$line[0]}, "\n";
     }
@@ -77,7 +78,7 @@ while (<ISE>) {
 #    print STDERR $to_keep{$line[6]}, "\n";
     push(@new_lines, \@line);
   }
-  $seen{$line[6]} = $line[7];
+  $seen{$uid} = $line[7];
 }
 close(ISE) || die("Could not close file $daf_infile");
 local $, = "\t";
