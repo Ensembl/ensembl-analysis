@@ -389,7 +389,7 @@ sub default_options {
     'refseq_base_ftp'         => $self->o('ncbi_base_ftp').'/#expr(substr(#assembly_refseq_accession#, 0, 3))expr#/#expr(substr(#assembly_refseq_accession#, 4, 3))expr#/#expr(substr(#assembly_refseq_accession#, 7, 3))expr#/#expr(substr(#assembly_refseq_accession#, 10, 3))expr#/#assembly_refseq_accession#_#assembly_name#',
     'refseq_import_ftp_path'  => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_genomic.gff.gz',
     'refseq_mrna_ftp_path'    => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_rna.fna.gz',
-
+    'refseq_report_ftp_path' => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_assembly_report.txt',
 ##################################
 # Memory settings for the analyses
 ##################################
@@ -1081,6 +1081,8 @@ sub pipeline_analyses {
         -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadRefSeqSynonyms',
         -parameters => {
                          'target_db'        => $self->o('reference_db'),
+			 'output_dir'       => $self->o('output_path'),
+			 'url'              => $self->o('refseq_report_ftp_path'),
                        },
         -rc_name => 'default',
         -flow_into  => {
