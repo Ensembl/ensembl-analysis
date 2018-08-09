@@ -49,12 +49,11 @@ sub default_options {
     'pipe_db_server'            => '', # host for pipe db
     'databases_server'          => '', # host for general output dbs
     'dna_db_server'             => '', # host for dna db
-    'pipe_db_port'              => 3306, # port for pipeline host
+    'pipe_db_port'              => '', # port for pipeline host
     'databases_port'            => '', # port for general output db host
     'dna_db_port'               => '', # prot for dna db host
     'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
-    'repeatmodeler_library'     => '', # This should be the path to a custom repeat library, leave blank if none exists
     'rnaseq_summary_file'       => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
@@ -70,13 +69,12 @@ sub default_options {
     'species_url'               => '', # sets species.url meta key
     'species_division'          => 'EnsemblVertebrates', # sets species.division meta key
     'stable_id_start'           => '0', # When mapping is not required this is usually set to 0
-    'load_toplevel_only'        => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
+    'skip_post_repeat_analyses' => '0', # Will everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
     'skip_projection'           => '0', # Will skip projection process if 1
     'skip_rnaseq'               => '0', # Will skip rnaseq analyses if 1
     'skip_ncrna'                => '0', # Will skip ncrna process if 1
     'skip_cleaning'             => '0', # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
-    'use_repeatmodeler_to_mask' => '0',
     'mapping_db'                => undef, # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
     'uniprot_db_dir'            => 'uniprot_2018_04', # What UniProt data dir to use for various analyses
     'vertrna_version'           => '134', # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
@@ -85,8 +83,14 @@ sub default_options {
     'rfc_model'                 => 'filter_dafs_rfc_model_human.pkl',
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
     'mt_accession'              => undef, # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
-    'custom_toplevel_file_path' => undef, # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
+
+    # Keys for custom loading, only set/modify if that's what you're doing
+    'load_toplevel_only'        => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
+    'custom_toplevel_file_path' => undef, # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
+    'repeatmodeler_library'     => '', # This should be the path to a custom repeat library, leave blank if none exists
+    'use_repeatmodeler_to_mask' => '0', # Setting this will include the repeatmodeler library in the masking process
+
 
 ########################
 # Pipe and ref db info
@@ -830,6 +834,7 @@ sub pipeline_wide_parameters {
 
   return {
     %{$self->SUPER::pipeline_wide_parameters},
+    skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),
     skip_projection => $self->o('skip_projection'),
     skip_rnaseq => $self->o('skip_rnaseq'),
     skip_ncrna => $self->o('skip_ncrna'),
@@ -1585,13 +1590,27 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'simple_features',
         -flow_into => {
-                         1 => ['run_eponine'],
-                        -1 => ['run_eponine'],
-                        -2 => ['run_eponine'],
+                         1 => ['fan_post_repeat_analyses'],
+                        -1 => ['fan_post_repeat_analyses'],
+                        -2 => ['fan_post_repeat_analyses'],
                       },
        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
        -batch_size => 20,
       },
+
+
+      {
+        # This will skip downstream analyses like cpg, eponine, genscan etc. if the flag is set
+        -logic_name => 'fan_post_repeat_analyses',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'if [ "#skip_post_repeat_analyses#" -ne "0" ]; then exit 42; else exit 0;fi',
+          return_codes_2_branches => {'42' => 2},
+        },
+        -rc_name    => 'default',
+        -flow_into  => { '1' => ['run_eponine'] },
+      },
+
 
 
       {
