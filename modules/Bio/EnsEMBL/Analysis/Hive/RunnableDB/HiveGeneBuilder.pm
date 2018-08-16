@@ -87,6 +87,7 @@ sub param_defaults {
       post_filter_genes          => '1',
       recovery_overlap_threshold => 0.9,
       skip_readthrough_check => 0,
+      load_all_biotypes => 1,
     }
 }
 
@@ -118,7 +119,11 @@ sub fetch_input{
 
 
   #fetch genes
-  $self->get_Genes;
+  if($self->param('load_all_biotypes')) {
+    $self->input_genes($slice->get_all_Genes());
+  } else {
+    $self->get_Genes;
+  }
 
   #print "Have ".@{$self->input_genes}." genes to cluster\n";
   #filter genes
