@@ -63,6 +63,7 @@ sub param_defaults {
     %{$self->SUPER::param_defaults},
     projection_padding => 50000,
     timer => '2h',
+    flag_subpar_models => 0,
   }
 }
 
