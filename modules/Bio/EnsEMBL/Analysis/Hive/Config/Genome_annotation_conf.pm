@@ -261,6 +261,7 @@ sub default_options {
                                      'TR_C_gene' => 1,
                                      'TR_D_gene' => 1,
                                      'TR_V_gene' => 1,
+                                     'lncRNA'    => 1,
                                    },
 
     'min_toplevel_slice_length'   => 250,
@@ -336,7 +337,7 @@ sub default_options {
     'genblast_pid'      => '30',
     'genblast_max_rank' => '5',
     'genblast_flag_small_introns' => 1,
-    'genblast_flag_subpar_models' => 1,
+    'genblast_flag_subpar_models' => 0,
 
     'ig_tr_table_name'    => 'ig_tr_sequences',
     'ig_tr_genblast_cov'  => '0.8',
@@ -5380,7 +5381,6 @@ sub pipeline_analyses {
                       },
       },
 
-
       {
         -logic_name => 'create_final_geneset_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
@@ -5391,7 +5391,40 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                        '1' => ['update_rnaseq_ise_logic_names'],
+                        '1' => ['update_lncrna_biotypes'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'update_lncrna_biotypes',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn => $self->o('final_geneset_db'),
+          sql => [
+            'UPDATE transcript SET biotype="pre_lncRNA" WHERE biotype IN ("rnaseq_merged","rnaseq_tissue")',
+            'UPDATE gene JOIN transcript USING(gene_id) SET gene.biotype="pre_lncRNA" WHERE transcript.biotype="pre_lncRNA"',
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['filter_lncrnas'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'filter_lncrnas',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFilterlncRNAs',
+        -parameters => {
+                         input_gene_db => $self->o('final_geneset_db'),
+                         dna_db => $self->default_options->{'dna_db'},
+                         logic_name => 'filter_lncrnas',
+                         module     => 'HiveFilterlncRNAs',
+                       },
+        -rc_name          => 'default_himem',
+        -flow_into => {
+                        1 => ['update_rnaseq_ise_logic_names'],
                       },
       },
 
