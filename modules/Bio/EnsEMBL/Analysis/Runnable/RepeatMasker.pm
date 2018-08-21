@@ -123,7 +123,7 @@ sub run_analysis{
   my $cmd = $self->program." ";
   $cmd .= $self->options." " if($self->options);
   $cmd .= $self->queryfile;
-  print "Running analysis ".$cmd."\n";
+  print "Running analysis '$cmd'\n";
 
   # Set HOME before running RepeatMasker, to move the cache directory.
   # When unconfigured, does nothing.
