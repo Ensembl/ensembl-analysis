@@ -76,7 +76,7 @@ sub default_options {
     'skip_cleaning'             => '0', # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
     'mapping_db'                => undef, # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
-    'uniprot_db_dir'            => 'uniprot_2018_04', # What UniProt data dir to use for various analyses
+    'uniprot_version'            => 'uniprot_2018_04', # What UniProt data dir to use for various analyses
     'vertrna_version'           => '134', # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
     'mirBase_fasta'             => 'all_mirnas.fa', # What mirBase file to use. It is currently best to use on with the most appropriate set for your species
     'rfc_scaler'                => 'filter_dafs_rfc_scaler_human.pkl',
@@ -205,15 +205,15 @@ sub default_options {
 # BLAST db paths
 ########################
     'base_blast_db_path'        => $ENV{BLASTDB_DIR},
-    'uniprot_entry_loc'         => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_db_dir'), 'entry_loc'),
-    'uniprot_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_db_dir'), 'uniprot_vertebrate'),
+    'uniprot_entry_loc'         => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc'),
+    'uniprot_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'uniprot_vertebrate'),
     'vertrna_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'vertrna', $self->o('vertrna_version'), 'embl_vertrna-1'),
     'unigene_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'unigene', 'unigene'),
     'ncrna_blast_path'          => catfile($self->o('base_blast_db_path'), 'ncrna', 'ncrna_2016_05'),
     'mirna_blast_path'          => catfile($self->o('base_blast_db_path'), 'ncrna', 'mirbase_22'),
     'ig_tr_blast_path'          => catfile($self->o('base_blast_db_path'), 'ig_tr_genes'),
-    'rnaseq_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_db_dir'), 'PE12_vertebrata'), # Blast database for comparing the final models to.
-    'indicate_uniprot_index' => catdir($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_db_dir'), 'PE12_vertebrata_index'), # Indicate Index for the blast database.
+    'rnaseq_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata'), # Blast database for comparing the final models to.
+    'indicate_uniprot_index' => catdir($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index'), # Indicate Index for the blast database.
 
 ######################################################
 #
@@ -292,7 +292,7 @@ sub default_options {
     frameshift_attrib_script   => catfile($self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl'),
     select_canonical_script    => catfile($self->o('ensembl_misc_script'),'canonical_transcripts', 'select_canonical_transcripts.pl'),
 
-    rnaseq_daf_introns_file => catfile($self->o('output_path'), 'rnaseq_daf_introns.dat'),
+    rnaseq_daf_introns_file => catfile($self->o('output_dir'), 'rnaseq_daf_introns.dat'),
 
 ########################
 # Extra db settings
@@ -646,7 +646,7 @@ sub default_options {
     },
 
     'rnaseq_final_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_rnaseq_final_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_rnaseq_'.$self->o('release_number'),
       -host   => $self->o('rnaseq_final_db_server'),
       -port   => $self->o('rnaseq_final_db_port'),
       -user   => $self->o('user'),
@@ -655,7 +655,7 @@ sub default_options {
     },
 
     'rnaseq_blast_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_rnaseqblast_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_rnaseq_blast_'.$self->o('release_number'),
       -host   => $self->o('rnaseq_blast_db_server'),
       -port   => $self->o('rnaseq_blast_db_port'),
       -user   => $self->o('user'),
@@ -3874,7 +3874,7 @@ sub pipeline_analyses {
         },
         -rc_name    => '3GB_multithread',
         -flow_into => {
-          1 => ['create_analyses_type_job', '?accu_name=filename&accu_address=[]&accu_input_variable=alignment_bam_file' ],
+          1 => ['create_analyses_type_job', '?accu_name=filename&accu_address=[]&accu_input_variable=alignment_bam_file'],
         },
       },
       {
@@ -3887,11 +3887,11 @@ sub pipeline_analyses {
           species => $self->o('species_name'),
         },
         -flow_into => {
-          2 => {'create_analyses' => {analyses => [{'-logic_name' => '#species#_#sample_name#_rnaseq_#type#'}]}},
+          2 => {'create_rnaseq_tissue_analyses' => {analyses => [{'-logic_name' => '#species#_#sample_name#_rnaseq_#type#'}]}},
         },
       },
       {
-        -logic_name => 'create_analyses',
+        -logic_name => 'create_rnaseq_tissue_analyses',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
         -rc_name    => '1GB',
         -parameters => {
@@ -3928,7 +3928,30 @@ sub pipeline_analyses {
         },
         -rc_name    => '5GB_merged_multithread',
         -flow_into => {
+          1 => ['create_merge_analyses_type_job'],
           2 => ['create_header_intron'],
+        },
+      },
+      {
+        -logic_name => 'create_merge_analyses_type_job',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+        -rc_name    => '1GB',
+        -parameters => {
+          inputlist => ['gene', 'daf', 'ise'],
+          column_names => ['type'],
+          species => $self->o('species_name'),
+        },
+        -flow_into => {
+          2 => {'create_rnaseq_merge_analyses' => {analyses => [{'-logic_name' => '#species#_merged_rnaseq_#type#'}]}},
+        },
+      },
+      {
+        -logic_name => 'create_rnaseq_merge_analyses',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
+        -rc_name    => '1GB',
+        -parameters => {
+          source_type => 'list',
+          target_db => $self->o('rnaseq_rough_db'),
         },
       },
       {
@@ -3936,7 +3959,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -rc_name    => '1GB',
         -parameters => {
-          cmd => $self->o('samtools_path').' view -H #filename# | grep -v @SQ | grep -v @HD > '.catfile($self->o('output_dir'),'merged_header.h'),
+          cmd => $self->o('samtools_path').' view -H #filename# | grep -v @SQ | grep -v @HD > '.catfile($self->o('rnaseq_dir'),'merged_header.h'),
         },
         -flow_into => {
           '1->A' => [ 'create_toplevel_input_ids'],
@@ -4180,7 +4203,7 @@ sub pipeline_analyses {
         -logic_name => 'sam2bam',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSam2Bam',
         -parameters => {
-          headerfile => catfile($self->o('output_dir'), 'merged_header.h'),
+          headerfile => catfile($self->o('rnaseq_dir'), 'merged_header.h'),
           disconnect_jobs => 1,
           samtools => $self->o('samtools_path'),
           intron_bam_file => catfile($self->o('output_dir'), 'introns'),
@@ -6326,7 +6349,8 @@ sub pipeline_analyses {
                           'TRUNCATE dna_align_feature',
                           'DELETE FROM transcript_supporting_feature WHERE feature_type = "dna_align_feature"',
                           'DELETE FROM supporting_feature WHERE feature_type = "dna_align_feature"',
-                          'INSERT IGNORE INTO analysis (logic_name, module, created, db_version) VALUES ("other_protein", "HiveBlastRNAseq", NOW(), "#uniprot_version#")',
+                          'DELETE FROM analysis WHERE logic_name NOT LIKE "%rnaseq%"',
+                          'INSERT INTO analysis (logic_name, module, created, db_version) VALUES ("other_protein", "HiveBlastRNAseq", NOW(), "#uniprot_version#")',
                           'UPDATE protein_align_feature paf, analysis a SET paf.analysis_id = a.analysis_id WHERE a.logic_name = "other_protein"',
                           'DELETE FROM meta WHERE meta_key LIKE "provider\.%"',
                           'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
@@ -6336,8 +6360,12 @@ sub pipeline_analyses {
                           'UPDATE gene JOIN transcript USING(gene_id) SET canonical_transcript_id = transcript_id',
                           'UPDATE transcript JOIN translation USING(transcript_id) SET canonical_translation_id = translation_id',
                           'UPDATE intron_supporting_evidence ise, analysis a1, analysis a2 SET ise.analysis_id = a2.analysis_id WHERE ise.analysis_id = a1.analysis_id AND a2.logic_name = REPLACE(a1.logic_name, "rnaseq_gene", "rnaseq_ise")',
+                          'UPDATE gene SET source = "ensembl", biotype = "protein_coding", stable_id = NULL',
+                          'UPDATE transcript SET source = "ensembl", biotype = "protein_coding", stable_id = NULL',
+                          'UPDATE translation SET stable_id = NULL',
+                          'UPDATE exon SET stable_id = NULL',
                          ],
-                         uniprot_version => $self->o('uniprot_db_dir'),
+                         uniprot_version => $self->o('uniprot_version'),
                        },
         -rc_name    => 'default',
 
@@ -6387,8 +6415,9 @@ sub pipeline_analyses {
         -parameters => {
                          db_conn => $self->o('rnaseq_refine_db'),
                          input_query => 'SELECT daf.* FROM dna_align_feature daf, analysis a WHERE daf.analysis_id = a.analysis_id AND a.logic_name != "rough_transcripts"',
-                         command_out => q(sort -nk2 -nk3 -nk4 | sed 's/NULL/\\N/g' > #daf_file#),
+                         command_out => q(sort -nk2 -nk3 -nk4 | sed 's/NULL/\\N/g;s/^[0-9]\+/\\N/' > #daf_file#),
                          daf_file => $self->o('rnaseq_daf_introns_file'),
+                         prepend => ['-NB', '-q'],
                        },
         -rc_name => 'default',
         -flow_into => {
@@ -6451,7 +6480,7 @@ sub pipeline_analyses {
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
                          cmd => 'perl '.$self->o('load_optimise_script').
-                                ' -output_path '.$self->o('output_path').'/optimise_rnaseq_final/'.
+                                ' -output_path '.catfile($self->o('rnaseq_dir'), 'optimise_rnaseq_final').
                                 ' -uniprot_filename '.$self->o('uniprot_entry_loc').
                                 ' -dbuser '.$self->o('user').
                                 ' -dbpass '.$self->o('password').
@@ -6465,7 +6494,7 @@ sub pipeline_analyses {
                                 ' -nodaf -ise'
                        },
         -max_retry_count => 0,
-        -rc_name => '4GB',
+        -rc_name => '8GB',
         -flow_into => {
                         1 => ['rnaseq_final_gene_sanity_checks'],
                       },
