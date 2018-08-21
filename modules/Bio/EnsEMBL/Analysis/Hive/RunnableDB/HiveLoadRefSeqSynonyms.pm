@@ -140,7 +140,7 @@ sub fetch_input {
 
   }
   else {
-    my $refseq_db_id = $db->get_DBEntryAdaptor->get_external_db_id($self->param('external_db'));
+    my $refseq_db_id = $db->get_DBEntryAdaptor->get_external_db_id($self->param('external_db'), undef, 1);
     if ($refseq_db_id) {
       $self->param('external_db_id', $refseq_db_id);
     }
@@ -200,8 +200,14 @@ sub fetch_input {
             while(my $line = <FH>) {
               next if ($line =~ /^#|^\s*$/);
               $line =~ s/\R$//;
-              push(@{$data{$file}}, [split("\t", $line)]);
-              ++$data_counter;
+              my @synonyms = split("\t", $line);
+              if ($synonyms[0] and $synonyms[0] ne 'na' and $synonyms[1] and $synonyms[1] ne 'na') {
+                push(@{$data{$file}}, \@synonyms);
+                ++$data_counter;
+              }
+              else {
+                $self->say_with_header('No correct synonyms '.$line);
+              }
             }
             close(FH) || $self->throw("Could not close $fh");
             ++$counter;
@@ -261,24 +267,20 @@ sub write_output {
   my $counter = 0;
   foreach my $coord_system (keys %$data) {
     foreach my $synonyms (@{$data->{$coord_system}}) {
-      if ($synonyms->[0] and $synonyms->[1]) {
-        if ($synonyms->[0] ne 'na') {
-          my $slice = $slice_adaptor->fetch_by_region($coord_system, $synonyms->[1]);
-          if (!$slice) {
-            ++$counter;
-            $slice = $slice_adaptor->fetch_by_region($coord_system, $synonyms->[0]);
-            $self->throw('The slice '.$synonyms->[0].' with synonym '.$synonyms->[1].' does not exist on '.$coord_system)
-              unless ($slice);
-            $slice->add_synonym($synonyms->[1], $external_db_id);
-            $slice->adaptor->update($slice);
-          }
-# We also count it if it already exists
-          ++$counter;
+      my $slice = $slice_adaptor->fetch_by_region($coord_system, $synonyms->[1]);
+      if (!$slice) {
+        $slice = $slice_adaptor->fetch_by_region($coord_system, $synonyms->[0]);
+        if ($slice) {
+          $slice->add_synonym($synonyms->[1], $external_db_id);
+          $slice->adaptor->update($slice);
+          $self->say_with_header('Added '.$synonyms->[1].' to '.$synonyms->[0]);
+        }
+        else {
+          $self->warning('The slice '.$synonyms->[0].' with synonym '.$synonyms->[1].' does not exist on '.$coord_system);
         }
       }
-      else {
-        $self->throw('There is a problem with '.$synonyms->[0].' '.$synonyms->[1]);
-      }
+# We also count it if it already exists
+      ++$counter;
     }
   }
   $self->throw("You are missing some synonyms: $counter instead of ".$self->param('synonym_count'))
