@@ -66,7 +66,7 @@ sub default_options {
     'assembly_accession'        => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
     'assembly_refseq_accession' => '', # Versioned GCF accession, e.g. GCF_001857705.1
     'stable_id_prefix'          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
-    'species_url'               => '', # sets species.url meta key
+    'species_url'               => ucfirst($self->o('production_name').$self->o('production_name_modifier')), # sets species.url meta key
     'species_division'          => 'EnsemblVertebrates', # sets species.division meta key
     'stable_id_start'           => '0', # When mapping is not required this is usually set to 0
     'skip_post_repeat_analyses' => '0', # Will everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
@@ -1197,7 +1197,7 @@ sub pipeline_analyses {
             'provider.name' => $self->o('provider_name'),
             'provider.url' => $self->o('provider_url'),
             'repeat.analysis' => [$self->o('full_repbase_logic_name'), 'dust', 'trf'],
-            'species.production_name' => $self->o('production_name'),
+            'species.production_name' => $self->o('production_name').$self->o('production_name_modifier'),
             'species.taxonomy_id' => $self->default_options->{'taxon_id'},
           }
         },
@@ -6257,7 +6257,7 @@ sub pipeline_analyses {
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
                          cmd => 'perl '.$self->o('load_optimise_script').
-                                ' -output_path '.$self->o('output_path').'/optimise_otherfeatures/'.
+                                ' -output_path '.catdir($self->o('output_path'), 'optimise_otherfeatures').
                                 ' -uniprot_filename '.$self->o('uniprot_entry_loc').
                                 ' -dbuser '.$self->o('user').
                                 ' -dbpass '.$self->o('password').
