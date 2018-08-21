@@ -334,7 +334,7 @@ sub create_config {
   }
   close(CONFIG) || die("CouLd not close the config file");
 
-  $config_string =~ s/package Genome_annotation_static_conf/package Genome_annotation_conf/;
+  $config_string =~ s/^\s*package [^;]+/package Genome_annotation_conf/;
   open(OUT_CONFIG,">".$output_path."/Genome_annotation_conf.pm") || die("Could not open the config file for writing");
   print OUT_CONFIG $config_string;
   close OUT_CONFIG || die("Could not close the config file for writing");

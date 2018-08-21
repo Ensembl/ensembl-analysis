@@ -17,7 +17,7 @@ limitations under the License.
 
 =cut
 
-package Genome_annotation_conf;
+package Bio::EnsEMBL::Analysis::Hive::Config::Genome_annotation_conf;
 
 use strict;
 use warnings;
