@@ -106,6 +106,9 @@ sub param_defaults {
 sub fetch_input {
   my $self = shift;
 
+  if ($self->param_is_defined('skip_analysis') and $self->param('skip_analysis')) {
+    $self->complete_early('You asked to sip the analysis');
+  }
   my $create_type = $self->param_required('create_type');
   if ($self->param_is_defined('db_dump_file')) {
     my $dump_dir = dirname($self->param('db_dump_file'));
