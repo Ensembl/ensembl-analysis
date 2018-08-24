@@ -357,7 +357,13 @@ sub pad_exons {
 sub make_gene {
     my ($self,$exon_ref) = @_;
     # we are making reverse strand genes so the exons need to be in the reverse order
-    my @exons = sort { $b->start <=>  $a->start } @$exon_ref;
+    my @exons;
+    if ($exon_ref->[0]->strand == 1) {
+      @exons = sort { $a->start <=>  $b->start } @$exon_ref;
+    }
+    else {
+      @exons = sort { $b->start <=>  $a->start } @$exon_ref;
+    }
     my $tran =  new Bio::EnsEMBL::Transcript(-EXONS => \@exons);
     $tran->analysis($self->analysis);
     my ($gene) = @{convert_to_genes(($tran),$self->analysis)};
