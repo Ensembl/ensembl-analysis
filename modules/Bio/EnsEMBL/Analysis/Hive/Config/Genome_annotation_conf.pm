@@ -842,7 +842,7 @@ sub pipeline_wide_parameters {
     skip_rnaseq => $self->o('skip_rnaseq'),
     skip_ncrna => $self->o('skip_ncrna'),
     load_toplevel_only => $self->o('load_toplevel_only'),
-    wide_repeat_logic_names => $self->default_options->{'use_repeatmodeler_to_mask'} ? [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'] :
+    wide_repeat_logic_names => $self->o('use_repeatmodeler_to_mask') ? [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'] :
                                                                                        [$self->o('full_repbase_logic_name'),'dust'],
 
 
@@ -1189,18 +1189,18 @@ sub pipeline_analyses {
           'meta_key_list' => {
             'assembly.accession' => $self->o('assembly_accession'),
             'assembly.coverage_depth' => 'high',
-            'assembly.default' => $self->default_options->{'assembly_name'},
-            'assembly.name' => $self->default_options->{'assembly_name'},
+            'assembly.default' => $self->o('assembly_name'),
+            'assembly.name' => $self->o('assembly_name'),
             'assembly.web_accession_source' => 'NCBI',
             'assembly.web_accession_type' => 'GenBank Assembly ID',
             'genebuild.id' => $self->o('genebuilder_id'),
             'genebuild.method' => 'full_genebuild',
-            'genebuild.projection_source_db' => $self->default_options->{'projection_source_db_name'},
+            'genebuild.projection_source_db' => $self->o('projection_source_db_name'),
             'provider.name' => $self->o('provider_name'),
             'provider.url' => $self->o('provider_url'),
             'repeat.analysis' => [$self->o('full_repbase_logic_name'), 'dust', 'trf'],
             'species.production_name' => $self->o('production_name').$self->o('production_name_modifier'),
-            'species.taxonomy_id' => $self->default_options->{'taxon_id'},
+            'species.taxonomy_id' => $self->o('taxon_id'),
           }
         },
         -rc_name => 'default',
@@ -1972,7 +1972,7 @@ sub pipeline_analyses {
                          target_db => $self->o('dna_db'),
                          sanity_check_type => 'genome_preparation_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'genome_preparation_checks')->{$self->default_options->{'uniprot_set'}},
+                                                                             'genome_preparation_checks')->{$self->o('uniprot_set')},
                        },
 
         -flow_into =>  {
@@ -2112,7 +2112,7 @@ sub pipeline_analyses {
         -logic_name => 'download_uniprot_files',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadUniProtFiles',
         -parameters => {
-                         multi_query_download => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::UniProtCladeDownloadStatic', $self->default_options->{'uniprot_set'}),
+                         multi_query_download => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::UniProtCladeDownloadStatic', $self->o('uniprot_set')),
                          taxon_id => $self->o('taxon_id'),
                          output_path => $self->o('homology_models_path'),
                        },
@@ -2292,7 +2292,7 @@ sub pipeline_analyses {
                          target_db => $self->o('genblast_db'),
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'genblast'},
+                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'genblast'},
                        },
 
         -rc_name    => '4GB',
@@ -2386,7 +2386,7 @@ sub pipeline_analyses {
                          target_db => $self->o('genblast_db'),
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'genblast_select'},
+                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'genblast_select'},
                        },
 
         -rc_name    => '4GB',
@@ -2556,7 +2556,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBestPmatch',
       -parameters => {
         source_db => $self->o('genewise_db'),
-        target_db => $self->default_options->{'genewise_db'},
+        target_db => $self->o('genewise_db'),
         PMATCH_LOGIC_NAME => ['pmatch'],
         MIN_COVERAGE => 50,
       },
@@ -2977,7 +2977,7 @@ sub pipeline_analyses {
         feature_constraint => 1,
         feature_type => 'gene',
         top_level => 1,
-        feature_dbs => [$self->default_options->{'genewise_db'}, $self->o('cdna2genome_db')],
+        feature_dbs => [$self->o('genewise_db'), $self->o('cdna2genome_db')],
       },
       -rc_name      => 'default',
       -flow_into => {
@@ -3172,7 +3172,7 @@ sub pipeline_analyses {
                          target_db => $self->o('ig_tr_db'),
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'ig_tr'},
+                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'ig_tr'},
                        },
 
         -rc_name    => '2GB',
@@ -3516,7 +3516,7 @@ sub pipeline_analyses {
                          target_db => $self->o('ncrna_db'),
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'ncrna'},
+                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'ncrna'},
                        },
 
         -rc_name    => '4GB',
@@ -4630,7 +4630,7 @@ sub pipeline_analyses {
           target_db => $self->o('projection_coding_db'),
           sanity_check_type => 'gene_db_checks',
           min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-            'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'projection_coding'},
+            'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_coding'},
         },
         -rc_name    => '4GB',
       },
@@ -4765,7 +4765,7 @@ sub pipeline_analyses {
 #                         target_db => $self->o('projection_realign_db'),
 #                         sanity_check_type => 'gene_db_checks',
 #                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-#                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'realign'},
+#                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'realign'},
 #                       },
 #
 #        -rc_name    => '4GB',
@@ -4855,7 +4855,7 @@ sub pipeline_analyses {
 #                         target_db => $self->o('projection_lincrna_db'),
 #                         sanity_check_type => 'gene_db_checks',
 #                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-#                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'projection_lincrna'},
+#                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_lincrna'},
 #                       },
 #        -rc_name    => '4GB',
 #      },
@@ -4914,7 +4914,7 @@ sub pipeline_analyses {
 #                         target_db => $self->o('projection_pseudogene_db'),
 #                         sanity_check_type => 'gene_db_checks',
 #                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-#                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'projection_pseudogene'},
+#                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_pseudogene'},
 #                       },
 #        -rc_name    => '4GB',
 #      },
@@ -4978,7 +4978,7 @@ sub pipeline_analyses {
 #                         target_db => $self->o('ig_tr_db'),
 #                         sanity_check_type => 'gene_db_checks',
 #                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-#                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'projection_ig_tr'},
+#                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_ig_tr'},
 #                       },
 #        -rc_name    => '2GB',
 #      },
@@ -5175,7 +5175,7 @@ sub pipeline_analyses {
                          # are only retained if they do not "interfere" with genes from
                          # higher layers. Genes in "Discard" layers are when assessing
                          # interference, but are not written to the final database
-                         LAYERS => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic', $self->default_options->{'uniprot_set'}, undef, 'ARRAY'),
+                         LAYERS => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic', $self->o('uniprot_set'), undef, 'ARRAY'),
                        },
         -rc_name    => '2GB',
         -flow_into  => {
@@ -5252,7 +5252,7 @@ sub pipeline_analyses {
                          module     => 'HiveGeneBuilder',
                          INPUT_GENES => {
                            'input_db' => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GenebuilderStatic',
-                                                               $self->default_options->{'uniprot_set'}, undef, 'ARRAY'),
+                                                               $self->o('uniprot_set'), undef, 'ARRAY'),
                          },
                          OUTPUT_BIOTYPE => 'protein_coding',
                          MAX_TRANSCRIPTS_PER_CLUSTER => 10,
@@ -5290,7 +5290,7 @@ sub pipeline_analyses {
                          target_db => $self->o('layering_db'),
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'layer'},
+                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'layer'},
                        },
 
         -rc_name    => '4GB',
@@ -5309,7 +5309,7 @@ sub pipeline_analyses {
                          target_db => $self->o('genebuilder_db'),
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'genebuilder'},
+                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'genebuilder'},
                        },
 
         -rc_name    => '4GB',
@@ -5358,9 +5358,9 @@ sub pipeline_analyses {
                          single_multi_file => 1,
                          output_path => $self->o('output_path').'/pseudogenes/',
                          input_gene_db => $self->o('genebuilder_db'),
-                         repeat_db => $self->default_options->{'dna_db'},
+                         repeat_db => $self->o('dna_db'),
                          output_db => $self->o('pseudogene_db'),
-                         dna_db => $self->default_options->{'dna_db'},
+                         dna_db => $self->o('dna_db'),
                          logic_name => 'pseudogenes',
                          module     => 'HivePseudogenes',
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
@@ -5395,9 +5395,9 @@ sub pipeline_analyses {
         -parameters => {
                          multi_exon_db_path => $self->o('output_path').'/pseudogenes/',
                          input_gene_db => $self->o('genebuilder_db'),
-                         repeat_db => $self->default_options->{'dna_db'},
+                         repeat_db => $self->o('dna_db'),
                          output_db => $self->o('pseudogene_db'),
-                         dna_db => $self->default_options->{'dna_db'},
+                         dna_db => $self->o('dna_db'),
                          logic_name => 'spliced_elsewhere',
                          module     => 'HiveSplicedElsewhere',
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
@@ -5445,7 +5445,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFilterlncRNAs',
         -parameters => {
                          input_gene_db => $self->o('final_geneset_db'),
-                         dna_db => $self->default_options->{'dna_db'},
+                         dna_db => $self->o('dna_db'),
                          logic_name => 'filter_lncrnas',
                          module     => 'HiveFilterlncRNAs',
                        },
@@ -5695,7 +5695,7 @@ sub pipeline_analyses {
                          target_db => $self->o('final_geneset_db'),
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'final'},
+                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'final'},
                        },
 
         -rc_name    => '4GB',
@@ -6014,7 +6014,7 @@ sub pipeline_analyses {
                          target_db => $self->o('reference_db'),
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'core'},
+                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'core'},
                        },
 
         -rc_name    => '4GB',
