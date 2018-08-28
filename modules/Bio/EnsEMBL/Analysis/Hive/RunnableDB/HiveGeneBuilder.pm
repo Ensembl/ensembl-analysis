@@ -128,7 +128,7 @@ sub fetch_input{
   #print "Have ".@{$self->input_genes}." genes to cluster\n";
   #filter genes
 
-  my @filtered_genes = @{$self->filter_genes($self->input_genes)};
+  my $filtered_genes = $self->filter_genes($self->input_genes);
   #print "Have ".@filtered_genes." filtered genes\n";
   #create genebuilder runnable
 
@@ -136,7 +136,7 @@ sub fetch_input{
     ->new(
           -query => $self->query,
           -analysis => $self->analysis,
-          -genes => \@filtered_genes,
+          -genes => $filtered_genes,
           -output_biotype => $self->OUTPUT_BIOTYPE,
           -max_transcripts_per_cluster => $self->MAX_TRANSCRIPTS_PER_CLUSTER,
           -min_short_intron_len => $self->MIN_SHORT_INTRON_LEN,
@@ -238,103 +238,81 @@ sub remove_bad_transcripts {
   my $suspect_exon_count = 3;
   my $suspect_exon_size = 30;
 
-  my $filtered_genes = [];
   foreach my $gene (@$genes) {
     my $transcripts = $gene->get_all_Transcripts();
-    if(scalar(@$transcripts) == 1) {
-      push(@$filtered_genes,$gene);
-      next;
-    }
+    if (scalar(@$transcripts) > 1) {
+      $gene->flush_Transcripts;
+      # First count the frequency of the exons
+      my $unique_exon_data;
+      my $transcript_index = 0;
+      foreach my $transcript (@$transcripts) {
+        my $exons = $transcript->get_all_Exons();
+        foreach my $exon (@$exons) {
+          my $exon_string = ":".$exon->start.":".$exon->end.":";
+          if (exists $unique_exon_data->{$exon_string}) {
+            $unique_exon_data->{$exon_string}++;
+          } else {
+            $unique_exon_data->{$exon_string} = 1;
+          }
+        } # end foreach my $exon
+      } # end  foreach my $transcript
 
-    # First count the frequency of the exons
-    my $unique_exon_data;
-    my $transcript_index = 0;
-    foreach my $transcript (@$transcripts) {
-      my $exons = $transcript->get_all_Exons();
-      foreach my $exon (@$exons) {
-        my $exon_string = ":".$exon->start.":".$exon->end.":";
-        unless($unique_exon_data->{$exon_string}) {
-          $unique_exon_data->{$exon_string} = 1;
-        } else {
-          $unique_exon_data->{$exon_string}++;
-	}
-      } # end foreach my $exon
-    } # end  foreach my $transcript
-
-    my $transcripts_to_keep = [];
-    my $highest_score = 0;
-    my $highest_scoring_transcript;
-    # Now loop back through the transcript to find suspect ones
-    foreach my $transcript (@$transcripts) {
-      # If we've found a transcript with UTR then assume it's okay
-      if($transcript->five_prime_utr || $transcript->three_prime_utr) {
-        push(@{$transcripts_to_keep},$transcript);
-        next;
-      }
-
-      my $exons = $transcript->get_all_Exons;
-      my $exon_count = scalar(@$exons);
-      # When there's more than the suspect exon count then assume it's okay
-      if($exon_count > $suspect_exon_count) {
-        push(@{$transcripts_to_keep},$transcript);
-        next;
-      }
-
-      # Now we should a transcript that at least has some dodgy characteristics
-      # We need to further investigate to decide if there is actually an issue
-      my $unique_exon_count = 0;
-      foreach my $exon (@$exons) {
-        my $exon_string = ":".$exon->start.":".$exon->end.":";
-        unless($unique_exon_data->{$exon_string} > 1) {
-          $unique_exon_count++;
+      my $highest_score = 0;
+      my $highest_scoring_transcript;
+      # Now loop back through the transcript to find suspect ones
+      foreach my $transcript (@$transcripts) {
+        # If we've found a transcript with UTR then assume it's okay
+        if($transcript->five_prime_utr || $transcript->three_prime_utr) {
+          $gene->add_Transcript($transcript);
+          next;
         }
+
+        my $exons = $transcript->get_all_Exons;
+        my $exon_count = scalar(@$exons);
+        # When there's more than the suspect exon count then assume it's okay
+        if($exon_count > $suspect_exon_count) {
+          $gene->add_Transcript($transcript);
+          next;
+        }
+
+        # Now we should a transcript that at least has some dodgy characteristics
+        # We need to further investigate to decide if there is actually an issue
+        my $unique_exon_count = 0;
+        foreach my $exon (@$exons) {
+          if ($unique_exon_data->{":".$exon->start.":".$exon->end.":"} == 1) {
+            $unique_exon_count++;
+          }
+        }
+
+        # At this point if we have 2 or more unique exons it implies the transcript
+        # is very unusual and should probably be flagged for removal. I haven't thought
+        # of a decent system for why we would keep it other than it being the best scoring
+        # transcript in the scenario that all transcripts would be removed
+        my $transcript_score = $self->transcript_score($transcript);
+        if($transcript_score >= $highest_score) {
+          $highest_scoring_transcript = $transcript;
+          $highest_score = $transcript_score;
+        }
+
+        my $unique_fraction = $unique_exon_count / $exon_count;
+        if($unique_fraction >= 0.5) {
+          say "Skipping transcript because it has ".$suspect_exon_count." or fewer exons and ".$unique_exon_count." are unique";
+        }
+        else {
+          $gene->add_Transcript($transcript);
+        }
+
+      } # end 2nd foreach my $transcript
+
+      # If we're going to remove all the transcript then we should at least keep the highest scoring one
+      if(scalar(@{$gene->get_all_Transcripts}) == 0) {
+        say "Post filtering would remove all transcripts, keeping higest scoring transcript";
+        $gene->add_Transcript($highest_scoring_transcript);
       }
-
-      # At this point if we have 2 or more unique exons it implies the transcript
-      # is very unusual and should probably be flagged for removal. I haven't thought
-      # of a decent system for why we would keep it other than it being the best scoring
-      # transcript in the scenario that all transcripts would be removed
-      my $transcript_score = $self->transcript_score($transcript);
-      if($transcript_score >= $highest_score) {
-        $highest_scoring_transcript = $transcript;
-        $highest_score = $transcript_score;
-      }
-
-      my $unique_fraction = $unique_exon_count / $exon_count;
-      if($unique_fraction >= 0.5) {
-        say "Skipping transcript because it has ".$suspect_exon_count." or fewer exons and ".$unique_exon_count." are unique";
-        next;
-      }
-
-      push(@{$transcripts_to_keep},$transcript);
-    } # end 2nd foreach my $transcript
-
-    # If we're going to remove all the transcript then we should at least keep the highest scoring one
-    if(scalar(@$transcripts_to_keep) == 0) {
-      say "Post filtering would remove all transcripts, keeping higest scoring transcript";
-      push(@{$transcripts_to_keep},$highest_scoring_transcript);
-    }
-
-    my $new_gene = new Bio::EnsEMBL::Gene;
-    $new_gene->source($gene->source);
-    $new_gene->biotype($gene->biotype);
-
-    unless(scalar(@$transcripts_to_keep)) {
-      $self->throw("In post filtering no transcripts were kept for current gene, this is not right");
-    }
-
-    foreach my $transcript (@$transcripts_to_keep) {
-      $new_gene->add_Transcript($transcript);
-    }
-
-    push(@$filtered_genes,$new_gene);
-  } # end foreach my $gene
-
-  unless(scalar(@$filtered_genes) == scalar(@$genes)) {
-    $self->throw("The count of the filtered genes (".scalar(@$filtered_genes).") did not match the count of the original set (".scalar(@$genes).")");
+    } # end foreach my $gene
   }
 
-  return($filtered_genes);
+  return $genes;
 }
 
 
