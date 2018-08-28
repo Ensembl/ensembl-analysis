@@ -94,6 +94,7 @@ sub fetch_input {
     if ($group eq 'core_handover') {
       push(@$methods_list, qw(
         supporting_evidence_sanity
+        coding_supporting_evidence_presence
       ));
     }
     elsif ($group eq 'otherfeatures_handover') {
@@ -105,6 +106,12 @@ sub fetch_input {
         rnaseq_analysis_sanity
         data_file_sanity
         intron_supporting_evidence_sanity
+      ));
+    }
+    elsif ($group eq 'protein_cdna') {
+      push(@$methods_list, qw(
+        supporting_evidence_sanity
+        supporting_evidence_presence
       ));
     }
     else {
@@ -243,6 +250,87 @@ sub analyze_tables {
 }
 
 
+=head2 coding_supporting_evidence_presence
+
+ Arg [1]    : None
+ Description: Checks that all coding transcript has a transcript supporting evidence
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub coding_supporting_evidence_presence {
+  my ($self) = @_;
+
+  my @sql_queries = (
+    'SELECT t.* FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id WHERE t.biotype NOT LIKE "%RNA" AND tsf.transcript_id IS NULL',
+  );
+
+  my $hc_db = $self->hrdb_get_con('hc_db');
+  my $dbc = $hc_db->dbc;
+  my $max_lines = 5;
+  my $failed = 0;
+  foreach my $query (@sql_queries) {
+    my $sth = $dbc->prepare($query);
+    $sth->execute;
+    my $count = 0;
+    my $msg = '';
+    foreach my $row (@{$sth->fetchall_arrayref}) {
+      $msg .= join("\t", @$row) if ($count++ < $max_lines);
+    }
+    if ($count) {
+      $self->say_with_header("$count rows where it should be 0. You should rerun this query: $query");
+      $failed = 1;
+    }
+  }
+  if ($failed) {
+    $self->output(['coding_supporting_evidence_presence']);
+  }
+}
+
+
+=head2 supporting_evidence_presence
+
+ Arg [1]    : None
+ Description: Check that all transcripts and all exons have a supporting evidence
+              This is useful for protein based alignemnt or cDNAs based alignment.
+              Some transcriptomic sets will not have them
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub supporting_evidence_presence {
+  my ($self) = @_;
+
+  my @sql_queries = (
+    'SELECT t.* FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id WHERE tsf.transcript_id IS NULL',
+    'SELECT e.* FROM exon e LEFT JOIN supporting_feature sf ON e.exon_id = sf.exon_id WHERE sf.exon_id IS NULL',
+  );
+
+  my $hc_db = $self->hrdb_get_con('hc_db');
+  my $dbc = $hc_db->dbc;
+  my $max_lines = 5;
+  my $failed = 0;
+  foreach my $query (@sql_queries) {
+    my $sth = $dbc->prepare($query);
+    $sth->execute;
+    my $count = 0;
+    my $msg = '';
+    foreach my $row (@{$sth->fetchall_arrayref}) {
+      $msg .= join("\t", @$row) if ($count++ < $max_lines);
+    }
+    if ($count) {
+      $self->say_with_header("$count rows where it should be 0. You should rerun this query: $query");
+      $failed = 1;
+    }
+  }
+  if ($failed) {
+    $self->output(['supporting_evidence_presence']);
+  }
+}
+
+
 =head2 supporting_evidence_sanity
 
  Arg [1]    : None
@@ -256,8 +344,6 @@ sub supporting_evidence_sanity {
   my ($self) = @_;
 
   my @sql_queries = (
-    'SELECT t.* FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id WHERE tsf.transcript_id IS NULL',
-    'SELECT e.* FROM exon e LEFT JOIN supporting_feature sf ON e.exon_id = sf.exon_id WHERE sf.exon_id IS NULL',
     'SELECT t.transcript_id, t.seq_region_id, daf.seq_region_id FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id LEFT JOIN dna_align_feature daf ON daf.dna_align_feature_id = tsf.feature_id WHERE tsf.feature_type = "dna_align_feature" AND t.seq_region_id != daf.seq_region_id',
     'SELECT t.transcript_id, t.seq_region_id, paf.seq_region_id FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id LEFT JOIN protein_align_feature paf ON paf.protein_align_feature_id = tsf.feature_id WHERE tsf.feature_type = "protein_align_feature" AND t.seq_region_id != paf.seq_region_id',
     'SELECT t.transcript_id, t.seq_region_id, ise.seq_region_id FROM transcript t LEFT JOIN transcript_intron_supporting_evidence tsf ON t.transcript_id = tsf.transcript_id LEFT JOIN intron_supporting_evidence ise ON ise.intron_supporting_evidence_id = tsf.intron_supporting_evidence_id WHERE t.seq_region_id != ise.seq_region_id',
@@ -302,7 +388,7 @@ sub intron_supporting_evidence_sanity {
   my ($self) = @_;
 
   my @sql_queries = (
-    'SELECT t.* FROM transcript t LEFT JOIN transcript_intron_supporting_evidence tise ON t.transcript_id = tise.transcript_id WHERE tise.transcript_id IS NULL',
+    'SELECT tise.* FROM transcript_intron_supporting_evidence tise LEFT JOIN transcript t ON t.transcript_id = tise.transcript_id WHERE t.transcript_id IS NULL',
   );
 
   my $hc_db = $self->hrdb_get_con('hc_db');
@@ -496,7 +582,6 @@ sub data_file_sanity {
   }
   my $production_name = $self->param_is_defined('production_name') ? $self->param('production_name') : undef;
   foreach my $data_file (@{$datafile_adaptor->fetch_all}) {
-    $self->say_with_header($data_file->analysis);
     if ($data_file->analysis and $data_file->analysis->logic_name =~ /_rnaseq_bam$/) {
       if ($production_name) {
         my ($dln) = $data_file->name =~ /\.([^.]+)\.\d+$/;
