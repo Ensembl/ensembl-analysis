@@ -4496,7 +4496,7 @@ sub pipeline_analyses {
                          target_db => $self->o('rnaseq_for_layer_db'),
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'gene_db_checks')->{$self->default_options->{'uniprot_set'}}->{'rnaseq_blast'},
+                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'rnaseq_blast'},
                        },
 
         -rc_name    => '4GB',
