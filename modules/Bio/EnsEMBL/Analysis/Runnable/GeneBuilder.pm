@@ -211,19 +211,19 @@ sub remove_readthrough {
 
   my @processed_genes;
   foreach my $gene (@$genes) {
-    print "GENE\n";
+#    print "GENE\n";
     my @transcripts = sort {($a->end-$a->start) <=> ($b->end-$b->start)} @{$gene->get_all_Transcripts};
     if (scalar(@transcripts) > 2) {
-      print "MORE THAN 2 TRANSCRIPTS\n";
+#      print "MORE THAN 2 TRANSCRIPTS\n";
       my @clusters;
       my @multi_cluster;
       foreach my $transcript (@transcripts) {
-        print 'WORKING ', $transcript->display_id, "\n";
+#        print 'WORKING ', $transcript->display_id, "\n";
         my $cluster_index = 0;
         foreach my $cluster (@clusters) {
           if ($cluster->{start} < $transcript->end and $cluster->{end} > $transcript->start) {
             push(@{$cluster->{transcripts}}, $transcript);
-            print 'CLUSTER ADD ', $cluster->{start}, ' ', $cluster->{end}, ' ', scalar(@{$cluster->{transcripts}}), "\n";
+#            print 'CLUSTER ADD ', $cluster->{start}, ' ', $cluster->{end}, ' ', scalar(@{$cluster->{transcripts}}), "\n";
             push(@{$transcript->{cluster}}, $cluster_index);
           }
           ++$cluster_index;
@@ -231,26 +231,26 @@ sub remove_readthrough {
         if (!exists $transcript->{cluster}) {
           push(@clusters, {start => $transcript->start, end => $transcript->end, transcripts => [$transcript]});
           $transcript->{cluster} = [$cluster_index];
-          print 'CLUSTER NEW ', $clusters[-1]->{start}, ' ', $clusters[-1]->{end}, ' ', scalar(@{$clusters[-1]->{transcripts}}), "\n";
+#          print 'CLUSTER NEW ', $clusters[-1]->{start}, ' ', $clusters[-1]->{end}, ' ', scalar(@{$clusters[-1]->{transcripts}}), "\n";
         }
         elsif (@{$transcript->{cluster}} > 1) {
           push(@multi_cluster, $transcript);
-          print $transcript->display_id, ' has ', @{$transcript->{cluster}}, " overlap\n";
-          print_Transcript($transcript);
+#          print $transcript->display_id, ' has ', @{$transcript->{cluster}}, " overlap\n";
+#          print_Transcript($transcript);
         }
       }
       if (@multi_cluster) {
-        print "MULTI\n";
+#        print "MULTI\n";
         $gene->flush_Transcripts;
         my %to_remove;
         foreach my $readthrough (@multi_cluster) {
-          print "POSSIBLE READTHROUGH ", $readthrough->display_id, "\n";
+#          print "POSSIBLE READTHROUGH ", $readthrough->display_id, "\n";
           foreach my $cluster (@clusters) {
             if ($cluster->{start} < $readthrough->end and $cluster->{end} > $readthrough->start) {
               my $readthrough_exons = $readthrough->get_all_Exons;
               foreach my $transcript (@{$cluster->{transcripts}}) {
                 next if ($transcript == $readthrough or @{$transcript->{cluster}} > 1);
-                print "AGAINST ", $transcript->display_id, "\n";
+#                print "AGAINST ", $transcript->display_id, "\n";
                 my $overlap = 0;
                 my $num_exon = @{$transcript->get_all_Exons};
                 foreach my $exon1 (@{$transcript->get_all_Exons}) {
@@ -268,60 +268,60 @@ sub remove_readthrough {
                 }
                 if ($overlap != $num_exon) {
                   $to_remove{$readthrough} = -1;
-                  print "TO REMOVE $overlap $num_exon\n";
+#                  print "TO REMOVE $overlap $num_exon\n";
                   print_Transcript($readthrough);
                 }
               }
             }
           }
           if (!exists $to_remove{$readthrough}) {
-            print "JOIN\n";
+#            print "JOIN\n";
             my $cluster_indexes = $readthrough->{cluster};
             my $cluster = $clusters[$cluster_indexes->[0]];
             for (my $index = 1; $index < @$cluster_indexes; $index++) {
               next if ($cluster_indexes->[$index] == $cluster_indexes->[0]);
-              print "INDEX $index\n";
+#              print "INDEX $index\n";
               foreach my $transcript (@{$clusters[$cluster_indexes->[$index]]->{transcripts}}) {
-                print "INDEX C ", $cluster_indexes->[$index], "\n";
+#                print "INDEX C ", $cluster_indexes->[$index], "\n";
                 next if ($transcript == $readthrough);
                 my $add = 1;
                 if (@{$transcript->{cluster}} > 1) {
                   foreach my $rindex (@{$transcript->{cluster}}) {
                     if ($rindex == $cluster_indexes->[0]) {
                       $add = 0;
-                      print "ALREADY IN CLUSTER\n";
+#                      print "ALREADY IN CLUSTER\n";
                     }
                     if ($rindex == $cluster_indexes->[$index]) {
-                      print "INDEX CHANGED $rindex";
+#                      print "INDEX CHANGED $rindex";
                       $rindex = $cluster_indexes->[0];
-                      print " $rindex\n";
+#                      print " $rindex\n";
                     }
                   }
                 }
                 if ($add) {
-                  print 'ADDING ', $transcript->display_id, "\n";
+#                  print 'ADDING ', $transcript->display_id, "\n";
                   push(@{$cluster->{transcripts}}, $transcript);
                 }
               }
-              print "DELETING CLUSTER INDEX ", $cluster_indexes->[$index], ' ', $clusters[$cluster_indexes->[$index]]->{start}, ' ', $clusters[$cluster_indexes->[$index]]->{end}, "\n";
+#              print "DELETING CLUSTER INDEX ", $cluster_indexes->[$index], ' ', $clusters[$cluster_indexes->[$index]]->{start}, ' ', $clusters[$cluster_indexes->[$index]]->{end}, "\n";
               delete $clusters[$cluster_indexes->[$index]]->{transcripts};
             }
           }
         }
         foreach my $cluster (@clusters) {
-          print 'WORKING ON CLUSTER ', $cluster->{start}, ' ', $cluster->{end}, "\n";
+#          print 'WORKING ON CLUSTER ', $cluster->{start}, ' ', $cluster->{end}, "\n";
           if (exists $cluster->{transcripts} and @{$cluster->{transcripts}}) {
             if (@{$gene->get_all_Transcripts}) {
-              print "MAKE GENE\n";
+#              print "MAKE GENE\n";
               $gene = Bio::EnsEMBL::Gene->new();
             }
             foreach my $transcript (@{$cluster->{transcripts}}) {
 #            $gene->add_Transcript($transcript) unless (exists $to_remove{$transcript});
               if (exists $to_remove{$transcript}) {
-                print "REMOVING ", $transcript->display_id, "\n";
+#                print "REMOVING ", $transcript->display_id, "\n";
               }
               else {
-                print 'ADDING TO GENE', $transcript->display_id, "\n";
+#                print 'ADDING TO GENE', $transcript->display_id, "\n";
                 $gene->add_Transcript($transcript);
               }
             }
@@ -329,7 +329,7 @@ sub remove_readthrough {
             push(@processed_genes, $gene);
           }
           else {
-            print $cluster->{start}.' '.$cluster->{end}.' transcripts empty', "\n";
+#            print $cluster->{start}.' '.$cluster->{end}.' transcripts empty', "\n";
           }
         }
         next;
