@@ -942,36 +942,9 @@ sub pipeline_analyses {
                        },
       },
 
-
-      {
-        # Download the files and dir structure from the NCBI ftp site. Uses the link to a species in the ftp_link_file
-        -logic_name => 'process_assembly_info',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessAssemblyReport',
-        -parameters => {
-          full_ftp_path => $self->o('assembly_ftp_path'),
-          output_path   => $self->o('output_path'),
-          target_db     => $self->o('reference_db'),
-        },
-        -rc_name    => 'default',
-        -flow_into  => {
-          '2->A' => ['download_assembly_fasta'],
-          'A->1' => ['load_toplevel_sequences'],
-        },
-      },
-
-
-      {
-        # Download the files and dir structure from the NCBI ftp site. Uses the link to a species in the ftp_link_file
-        -logic_name => 'download_assembly_fasta',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData',
-        -parameters => {
-          output_dir => $self->o('output_path'),
-          download_method => 'ftp',
-        },
-        -rc_name    => 'default',
-      },
-
-
+####
+# Loading custom assembly where the user provide a FASTA file, probably a repeat library
+####
      {
         -logic_name => 'custom_load_toplevel',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -985,7 +958,7 @@ sub pipeline_analyses {
                                       ' -coord_system_version '.$self->o('assembly_name').
 	                              ' -default_version'.
                                       ' -coord_system_name primary_assembly'.
-                                      ' -rank 2'.
+                                      ' -rank 1'.
                                       ' -fasta_file '. $self->o('custom_toplevel_file_path').
                                       ' -sequence_level'.
                                       ' -noverbose',
@@ -1021,15 +994,47 @@ sub pipeline_analyses {
         -parameters => {
           db_conn => $self->o('reference_db'),
           sql => [
-            'insert into meta (species_id,meta_key,meta_value) values (1,"assembly.default","'.$self->o('assembly_name').'")',
-            'insert into meta (species_id,meta_key,meta_value) values (1,"assembly.name","'.$self->o('assembly_name').'")'
+            'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"assembly.default","'.$self->o('assembly_name').'")',
+            'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"assembly.name","'.$self->o('assembly_name').'")'
+            'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"species.taxonomy_id","'.$self->o('taxon_id').'")'
           ],
         },
         -rc_name    => 'default',
         -flow_into => {
-                        '1->A' => ['create_10mb_slice_ids'],
-                        'A->1' => ['genome_prep_sanity_checks'],
-                      },
+          1 => ['load_meta_info'],
+        },
+      },
+
+
+####
+# Loading assembly with only the toplevel sequences loaded, it fetches the data from INSDC databases
+####
+      {
+        # Download the files and dir structure from the NCBI ftp site. Uses the link to a species in the ftp_link_file
+        -logic_name => 'process_assembly_info',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessAssemblyReport',
+        -parameters => {
+          full_ftp_path => $self->o('assembly_ftp_path'),
+          output_path   => $self->o('output_path'),
+          target_db     => $self->o('reference_db'),
+        },
+        -rc_name    => 'default',
+        -flow_into  => {
+          '2->A' => ['download_assembly_fasta'],
+          'A->1' => ['load_toplevel_sequences'],
+        },
+      },
+
+
+      {
+        # Download the files and dir structure from the NCBI ftp site. Uses the link to a species in the ftp_link_file
+        -logic_name => 'download_assembly_fasta',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData',
+        -parameters => {
+          output_dir => $self->o('output_path'),
+          download_method => 'ftp',
+        },
+        -rc_name    => 'default',
       },
 
 
@@ -1068,6 +1073,7 @@ sub pipeline_analyses {
               '(1, "provider.url", "'.$self->o('provider_url').'"),'.
               '(1, "species.production_name", "'.$self->o('production_name').$self->o('production_name_modifier').'"),'.
               '(1, "repeat.analysis", "'.$self->o('full_repbase_logic_name').'"),'.
+              ($self->o('use_repeatmodeler_to_mask') ? '(1, "repeat.analysis", "'.$self->o('repeatmodeler_logic_name').'"),': '').
               '(1, "repeat.analysis", "dust"),'.
               '(1, "repeat.analysis", "trf")',
           ],
@@ -1078,6 +1084,9 @@ sub pipeline_analyses {
                        },
       },
 
+####
+# Loading assembly with the full assembly representation, it fetches data from INSDC databases
+####
       {
 #       Download the files and dir structure from the NCBI ftp site. Uses the link to a species in the ftp_link_file
         -logic_name => 'download_assembly_info',
