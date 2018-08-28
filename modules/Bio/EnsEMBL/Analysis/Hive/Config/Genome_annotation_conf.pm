@@ -2981,7 +2981,8 @@ sub pipeline_analyses {
       },
       -rc_name      => 'default',
       -flow_into => {
-        2 => ['best_targetted'],
+        '2->A' => ['best_targetted'],
+        'A->1' => ['best_targetted_healthchecks'],
       },
     },
     {
@@ -3004,6 +3005,18 @@ sub pipeline_analyses {
         protein_min_identity => $self->o('best_targetted_min_identity'),
       },
       -rc_name          => 'exonerate',
+    },
+
+    {
+      -logic_name => 'best_targetted_healthchecks',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHealthcheck',
+      -parameters => {
+        input_db => $self->o('best_targeted_db'),
+        species  => $self->o('species_name'),
+        group    => 'protein_cdna',
+      },
+      -max_retry_count => 0,
+      -rc_name    => 'default',
     },
 
 
