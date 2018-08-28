@@ -153,8 +153,8 @@ sub default_options {
     'rnaseq_for_layer_db_server'   => $self->o('databases_server'),
     'rnaseq_for_layer_db_port'     => $self->o('databases_port'),
 
-    'rnaseq_final_db_server'       => $self->o('databases_server'),
-    'rnaseq_final_db_port'         => $self->o('databases_port'),
+    'rnaseq_db_server'             => $self->o('databases_server'),
+    'rnaseq_db_port'               => $self->o('databases_port'),
 
     'rnaseq_rough_db_server'       => $self->o('databases_server'),
     'rnaseq_rough_db_port'         => $self->o('databases_port'),
@@ -647,10 +647,10 @@ sub default_options {
       -driver => $self->o('hive_driver'),
     },
 
-    'rnaseq_final_db' => {
+    'rnaseq_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_rnaseq_'.$self->o('release_number'),
-      -host   => $self->o('rnaseq_final_db_server'),
-      -port   => $self->o('rnaseq_final_db_port'),
+      -host   => $self->o('rnaseq_db_server'),
+      -port   => $self->o('rnaseq_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -3611,11 +3611,11 @@ sub pipeline_analyses {
           cmd => 'if [ ! -s "'.$self->o('rnaseq_genome_file').'" ]; then perl '.$self->o('sequence_dump_script').' -dbhost '.$self->o('dna_db_server').' -dbuser '.$self->o('dna_db_user').' -dbport '.$self->o('dna_db_port').' -dbname '.$self->o('dna_db_name').' -coord_system_name '.$self->o('assembly_name').' -toplevel -onefile -header rnaseq -filename '.$self->o('rnaseq_genome_file').';fi',
         },
         -flow_into => {
-          1 => [ 'index_genome_file'],
+          1 => [ 'index_rnaseq_genome_file'],
         },
       },
       {
-        -logic_name => 'index_genome_file',
+        -logic_name => 'index_rnaseq_genome_file',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -rc_name => '5GB',
         -parameters => {
@@ -4390,7 +4390,7 @@ sub pipeline_analyses {
           iid_type => 'object_id',
           # path to index to fetch the sequence of the blast hit to calculate % coverage
           indicate_index => $self->o('indicate_uniprot_index'),
-          uniprot_index => [$self->o('uniprot_blast_db_path')],
+          uniprot_index => [$self->o('rnaseq_blast_db_path')],
           blast_program => $self->o('uniprot_blast_exe_path'),
           %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
           commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40',
@@ -5462,7 +5462,7 @@ sub pipeline_analyses {
         -parameters => {
           db_conn => $self->o('final_geneset_db'),
           sql => [
-            'UPDATE analysis SET logic_name = CONCAT(logic_name, "_ise") WHERE logic_name LIKE "%\_rnaseq"',
+            'UPDATE analysis SET logic_name = REPLACE(logic_name, "_rnaseq_gene", "_rnaseq_ise")',
           ],
         },
         -rc_name    => 'default',
@@ -6034,8 +6034,9 @@ sub pipeline_analyses {
                          enscode_root_dir => $self->o('enscode_root_dir'),
                        },
         -rc_name    => 'default',
+        -max_retry_count => 0,
         -flow_into => {
-                        1 => ['fan_otherfeatures_db','fan_rnaseq_final_db'],
+                        1 => ['fan_otherfeatures_db','fan_rnaseq_db'],
                       },
       },
 
@@ -6305,13 +6306,14 @@ sub pipeline_analyses {
           species          => $self->o('species_name'),
           group            => 'otherfeatures_handover',
         },
+        -max_retry_count => 0,
 
         -rc_name    => '4GB',
       },
 
 
       {
-        -logic_name => 'fan_rnaseq_final_db',
+        -logic_name => 'fan_rnaseq_db',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
                          cmd => 'if [ "#skip_rnaseq#" -ne "0" ]; then exit 42; else exit 0;fi',
@@ -6319,18 +6321,18 @@ sub pipeline_analyses {
                        },
         -rc_name => 'default',
         -flow_into  => {
-                          1 => ['create_rnaseq_final_db'],
+                          1 => ['create_rnaseq_db'],
                        },
 
       },
 
 
       {
-        -logic_name => 'create_rnaseq_final_db',
+        -logic_name => 'create_rnaseq_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
                          source_db => $self->o('rnaseq_blast_db'),
-                         target_db => $self->o('rnaseq_final_db'),
+                         target_db => $self->o('rnaseq_db'),
                          create_type => 'copy',
                        },
         -rc_name    => 'default',
@@ -6345,7 +6347,7 @@ sub pipeline_analyses {
         -logic_name => 'prepare_rnaseq_meta_data',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                         db_conn => $self->o('rnaseq_final_db'),
+                         db_conn => $self->o('rnaseq_db'),
                          sql => [
                           'TRUNCATE dna_align_feature',
                           'DELETE FROM transcript_supporting_feature WHERE feature_type = "dna_align_feature"',
@@ -6382,23 +6384,23 @@ sub pipeline_analyses {
         -parameters => {
                          enscode_root_dir => $self->o('enscode_root_dir'),
                          mapping_required => 0,
-                         target_db => $self->o('rnaseq_final_db'),
+                         target_db => $self->o('rnaseq_db'),
                          id_start => 'RNASEQ',
                          output_path => $self->o('output_path'),
                          _stable_id_file => 'rnaseq_stable_ids.sql',
                        },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['populate_production_tables_rnaseq_final'],
+                        1 => ['populate_production_tables_rnaseq'],
                       },
       },
 
 
       {
-        -logic_name => 'populate_production_tables_rnaseq_final',
+        -logic_name => 'populate_production_tables_rnaseq',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HivePopulateProductionTables',
         -parameters => {
-                         'target_db'        => $self->o('rnaseq_final_db'),
+                         'target_db'        => $self->o('rnaseq_db'),
                          'output_path'      => $self->o('output_path'),
                          'enscode_root_dir' => $self->o('enscode_root_dir'),
                          'production_db'    => $self->o('production_db'),
@@ -6431,63 +6433,63 @@ sub pipeline_analyses {
         -logic_name => 'load_daf_introns',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
         -parameters => {
-                         db_conn => $self->o('rnaseq_final_db'),
+                         db_conn => $self->o('rnaseq_db'),
                          input_query => 'LOAD DATA LOCAL INFILE "#daf_file#" INTO TABLE dna_align_feature',
                          daf_file => $self->o('rnaseq_daf_introns_file'),
                        },
         -rc_name => 'default',
         -flow_into => {
-                        1 => ['set_rnaseq_final_meta_coords'],
+                        1 => ['set_rnaseq_meta_coords'],
                       },
       },
 
 
       {
-        -logic_name => 'set_rnaseq_final_meta_coords',
+        -logic_name => 'set_rnaseq_meta_coords',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
                          cmd => 'perl '.$self->o('meta_coord_script').
                                 ' -user '.$self->o('user').
                                 ' -pass '.$self->o('password').
-                                ' -host '.$self->o('rnaseq_final_db','-host').
-                                ' -port '.$self->o('rnaseq_final_db','-port').
-                                ' -dbpattern '.$self->o('rnaseq_final_db','-dbname')
+                                ' -host '.$self->o('rnaseq_db','-host').
+                                ' -port '.$self->o('rnaseq_db','-port').
+                                ' -dbpattern '.$self->o('rnaseq_db','-dbname')
                        },
         -rc_name => 'default',
         -flow_into => {
-                        1 => ['set_rnaseq_final_meta_levels'],
+                        1 => ['set_rnaseq_meta_levels'],
                       },
       },
 
 
       {
-        -logic_name => 'set_rnaseq_final_meta_levels',
+        -logic_name => 'set_rnaseq_meta_levels',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
                          cmd => 'perl '.$self->o('meta_levels_script').
                                 ' -user '.$self->o('user').
                                 ' -pass '.$self->o('password').
-                                ' -host '.$self->o('rnaseq_final_db','-host').
-                                ' -port '.$self->o('rnaseq_final_db','-port').
-                                ' -dbname '.$self->o('rnaseq_final_db','-dbname')
+                                ' -host '.$self->o('rnaseq_db','-host').
+                                ' -port '.$self->o('rnaseq_db','-port').
+                                ' -dbname '.$self->o('rnaseq_db','-dbname')
                        },
         -rc_name => 'default',
-        -flow_into => { 1 => ['optimise_rnaseq_final'] },
+        -flow_into => { 1 => ['optimise_rnaseq'] },
       },
 
 
       {
-        -logic_name => 'optimise_rnaseq_final',
+        -logic_name => 'optimise_rnaseq',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
                          cmd => 'perl '.$self->o('load_optimise_script').
-                                ' -output_path '.catfile($self->o('rnaseq_dir'), 'optimise_rnaseq_final').
+                                ' -output_path '.catfile($self->o('rnaseq_dir'), 'optimise_rnaseq').
                                 ' -uniprot_filename '.$self->o('uniprot_entry_loc').
                                 ' -dbuser '.$self->o('user').
                                 ' -dbpass '.$self->o('password').
-                                ' -dbport '.$self->o('rnaseq_final_db','-port').
-                                ' -dbhost '.$self->o('rnaseq_final_db','-host').
-                                ' -dbname '.$self->o('rnaseq_final_db','-dbname').
+                                ' -dbport '.$self->o('rnaseq_db','-port').
+                                ' -dbhost '.$self->o('rnaseq_db','-host').
+                                ' -dbname '.$self->o('rnaseq_db','-dbname').
                                 ' -prod_dbuser '.$self->o('user_r').
                                 ' -prod_dbhost '.$self->o('production_db','-host').
                                 ' -prod_dbname '.$self->o('production_db','-dbname').
@@ -6497,16 +6499,16 @@ sub pipeline_analyses {
         -max_retry_count => 0,
         -rc_name => '8GB',
         -flow_into => {
-                        1 => ['rnaseq_final_gene_sanity_checks'],
+                        1 => ['rnaseq_gene_sanity_checks'],
                       },
       },
 
 
       {
-        -logic_name => 'rnaseq_final_gene_sanity_checks',
+        -logic_name => 'rnaseq_gene_sanity_checks',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
         -parameters => {
-                         target_db => $self->o('rnaseq_final_db'),
+                         target_db => $self->o('rnaseq_db'),
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
                                                                              'gene_db_checks')->{'rnaseq_final'},
@@ -6666,6 +6668,9 @@ sub pipeline_analyses {
                        'Files\n-----\n',
         },
         -rc_name => 'default',
+        -flow_into  => {
+          1 => ['rnaseq_healthchecks'],
+        },
       },
 
 
@@ -6673,10 +6678,11 @@ sub pipeline_analyses {
         -logic_name => 'rnaseq_healthchecks',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHealthcheck',
         -parameters => {
-          input_db => $self->o('rnaseq_final_db'),
+          input_db => $self->o('rnaseq_db'),
           species  => $self->o('species_name'),
           group    => 'rnaseq_handover',
         },
+        -max_retry_count => 0,
 
         -rc_name    => '4GB',
       },
