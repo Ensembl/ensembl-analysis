@@ -165,6 +165,9 @@ sub default_options {
     'rnaseq_blast_db_server'       => $self->o('databases_server'),
     'rnaseq_blast_db_port'         => $self->o('databases_port'),
 
+    'lincrna_db_server'            => $self->o('databases_server'),
+    'lincrna_db_port'              => $self->o('databases_port'),
+
     'layering_db_server'           => $self->o('databases_server'),
     'layering_db_port'             => $self->o('databases_port'),
 
@@ -199,7 +202,7 @@ sub default_options {
     'staging_1_port'               => '4519',
 
 
-    databases_to_delete => ['reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_coding_db', 'projection_realign_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db'],
+    databases_to_delete => ['reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_coding_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db', 'lincrna_db', 'otherfeatures_db', 'rnaseq_db'],#, 'projection_realign_db'
 
 ########################
 # BLAST db paths
@@ -327,6 +330,7 @@ sub default_options {
     picard_lib_jar => catfile($self->o('software_base_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
     bwa_path => catfile($self->o('software_base_path'), 'opt', 'bwa-051mt', 'bin', 'bwa'), #You may need to specify the full path to the bwa binary
     refine_ccode_exe => catfile($self->o('binary_base'), 'RefineSolexaGenes'), #You may need to specify the full path to the RefineSolexaGenes binary
+    interproscan_exe => catfile($self->o('binary_base'), 'interproscan.sh'),
     bedtools => catfile($self->o('binary_base'), 'bedtools'),
     bedGraphToBigWig => catfile($self->o('binary_base'), 'bedGraphToBigWig'),
 
@@ -438,6 +442,64 @@ sub default_options {
     # will vary depending on how your data looks.
     ####################################################################
     file_columns => ['SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS'],
+
+
+# lincRNA pipeline stuff
+    'lncrna_dir' => catdir($self->o('output_path'), 'lincrna'),
+    registry_file => catfile($self->o('lncrna_dir'), 'registry.pm'),
+    'file_translations' => catfile($self->o('lncrna_dir'), 'hive_dump_translations.fasta'),
+    'file_for_length' => catfile($self->o('lncrna_dir'), 'check_lincRNA_length.out'),  # list of genes that are smaller than 200bp, if any
+    'file_for_biotypes' => catfile($self->o('lncrna_dir'), 'check_lincRNA_need_to_update_biotype_antisense.out'), # mysql queries that will apply or not in your dataset (check update_database) and will update biotypes
+    'file_for_introns_support' => catfile($self->o('lncrna_dir'), 'check_lincRNA_Introns_supporting_evidence.out'), # for debug
+    biotype_output => 'rnaseq',
+    lncrna_protein_coding_set => [
+      'rnaseq_merged_1',
+      'rnaseq_merged_2',
+      'rnaseq_merged_3',
+      'rnaseq_merged_4',
+      'rnaseq_merged_5',
+      'rnaseq_tissue_1',
+      'rnaseq_tissue_2',
+      'rnaseq_tissue_3',
+      'rnaseq_tissue_4',
+      'rnaseq_tissue_5',
+    ],
+
+########################
+# SPLIT PROTEOME File
+########################
+    'max_seqs_per_file' => 20,
+    'max_seq_length_per_file' => 20000, # Maximum sequence length in a file
+    'max_files_per_directory' => 1000, # Maximum number of files in a directory
+    'max_dirs_per_directory'  => $self->o('max_files_per_directory'),
+
+########################
+# FINAL Checks parameters - Update biotypes to lincRNA, antisense, sense, problem ...
+########################
+
+     update_database => 'yes', # Do you want to apply the suggested biotypes? yes or no.
+
+########################
+# Interproscan
+########################
+    required_externalDb => '',
+    interproscan_lookup_applications => [
+      'PfamA',
+    ],
+    required_externalDb => [],
+    pathway_sources => [],
+    required_analysis => [
+      {
+        'logic_name'    => 'pfam',
+        'db'            => 'Pfam',
+        'db_version'    => '31.0',
+        'ipscan_name'   => 'Pfam',
+        'ipscan_xml'    => 'PFAM',
+        'ipscan_lookup' => 1,
+      },
+    ],
+
+
 
 
 # Max internal stops for projected transcripts
@@ -683,6 +745,15 @@ sub default_options {
       -driver => $self->o('hive_driver'),
     },
 
+    lincrna_db => {
+      -host   => $self->o('lincrna_db_server'),
+      -port   => $self->o('lincrna_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_lincrna_'.$self->o('release_number'),
+      -driver => $self->o('hive_driver'),
+    },
+
     'layering_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_layer_'.$self->o('release_number'),
       -host   => $self->o('layering_db_server'),
@@ -828,6 +899,35 @@ sub pipeline_create_commands {
                     'fastq varchar(50) NOT NULL,'.
                     'read_length int(50) NOT NULL,'.
                     'PRIMARY KEY (fastq))'),
+'mkdir -p '.$self->o('lncrna_dir'),
+"cat <<EOF > ".$self->o('registry_file')."
+{
+package reg;
+
+Bio::EnsEMBL::DBSQL::DBAdaptor->new(
+-host => '".$self->o('lincrna_db', '-host')."',
+-port => ".$self->o('lincrna_db', '-port').",
+-user => '".$self->o('lincrna_db', '-user')."',
+-pass => '".$self->o('lincrna_db', '-pass')."',
+-dbname => '".$self->o('lincrna_db', '-dbname')."',
+-species => '".$self->o('species_name')."',
+-WAIT_TIMEOUT => undef,
+-NO_CACHE => undef,
+-VERBOSE => '1',
+);
+
+Bio::EnsEMBL::DBSQL::DBAdaptor->new(
+-host => '".$self->o('production_db', '-host')."',
+-port => ".$self->o('production_db', '-port').",
+-user => '".$self->o('production_db', '-user')."',
+-dbname => '".$self->o('production_db', '-dbname')."',
+-species => 'multi',
+-group => 'production'
+);
+
+1;
+}
+EOF",
     ];
 }
 
@@ -4501,14 +4601,292 @@ sub pipeline_analyses {
         -logic_name => 'rnaseq_for_layer_sanity_checks',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
         -parameters => {
-                         skip_check => $self->o('skip_rnaseq'),
                          target_db => $self->o('rnaseq_for_layer_db'),
                          sanity_check_type => 'gene_db_checks',
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
                                                                              'gene_db_checks')->{$self->o('uniprot_set')}->{'rnaseq_blast'},
                        },
+        -flow_into => {
+          1 => ['create_lincrna_db'],
+        },
 
         -rc_name    => '4GB',
+      },
+      {
+        -logic_name => 'create_lincrna_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                           source_db => $self->o('rnaseq_for_layer_db'),
+                           target_db => $self->o('lincrna_db'),
+                           create_type => 'clone',
+                       },
+        -rc_name    => 'default',
+        -max_retry_count => 0,
+        -flow_into => {
+          '1' => ['create_pfam_analysis'],
+        },
+      },
+
+      {
+        -logic_name => 'create_pfam_analysis',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
+        -rc_name    => '1GB',
+        -parameters => {
+          source_type => 'list',
+          target_db => $self->o('rnaseq_rough_db'),
+          analyses => $self->o('required_analysis'),
+        },
+        -flow_into => {
+          '1' => ['create_lincrna_toplevel_slices'],
+        },
+      },
+      {
+        -logic_name => 'create_lincrna_toplevel_slices',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                           target_db => $self->o('dna_db'),
+                           coord_system_name => 'toplevel',
+                           iid_type => 'slice',
+                           include_non_reference => 0,
+                           top_level => 1,
+                           slice_size => 2000000,  # this is for the size of the slice
+                         },
+        -flow_into => {
+          '2->A' => ['Hive_LincRNARemoveDuplicateGenes'],
+          'A->1' => ['delete_duplicate_lincrna_genes'],
+
+        },
+        -rc_name    => 'default',
+      },
+
+      {
+        -logic_name => 'Hive_LincRNARemoveDuplicateGenes',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRemoveDuplicateGenes',
+        -max_retry_count => 1,
+        -hive_capacity => 200,
+        -batch_size    => 100,
+        -parameters => {
+          RNA_DB => {
+            'cdna_db' => ['fetch_all_biotypes'],  # fetch_all_biotypes for all biotypes
+          },
+          output_db => $self->o('lincrna_db'),
+          dna_db => $self->o('dna_db'),
+          cdna_db => $self->o('rnaseq_refine_db'),
+          biotype_output => $self->o('biotype_output'),
+        },
+        -rc_name    => '5GB',
+        -flow_into => {
+          1 => ['Hive_LincRNAFinder'],
+        }
+      },
+
+##############################################################################
+# LincRNA ANALYSES
+##############################################################################
+
+      {
+        -logic_name => 'Hive_LincRNAFinder',
+        -hive_capacity => 200,
+        -batch_size    => 100,
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNAFinder',
+        -max_retry_count => 1,
+        -parameters => {
+          NEW_SET_1_CDNA => {
+            'output_db'  => ['fetch_all_biotypes'],
+          },
+          NEW_SET_2_PROT  => {
+            'protein_coding_db' => ['fetch_all_biotypes'],
+          },
+          FIND_SINGLE_EXON_LINCRNA_CANDIDATES => 1000, # I don't want single exon candidates!
+          CDNA_CODING_GENE_CLUSTER_IGNORE_STRAND => 1,
+          MAXIMUM_TRANSLATION_LENGTH_RATIO => 99,
+          MAX_TRANSLATIONS_PER_GENE => 20,
+          OUTPUT_DB => 'lincrna_db',
+          OUTPUT_BIOTYPE => 'lincRNA_finder_2round',
+          WRITE_DEBUG_OUTPUT => 0,     # Set this to "0" to turn off debugging OR to "1000" to set it on.
+          DEBUG_OUTPUT_DB    => 'output_db',    # where debug output (if any) will be written to
+          protein_coding_db => $self->o('rnaseq_for_layer_db'),
+          output_db => $self->o('lincrna_db'),
+          dna_db => $self->o('dna_db'),
+        },
+        -rc_name    => '5GB',
+        -flow_into => {
+                        1  => ['HiveDumpTranslations'],
+                       -1 => ['Hive_LincRNAFinder_himem'],
+                      },
+      },
+
+      {
+        -logic_name => 'Hive_LincRNAFinder_himem',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNAFinder',
+        -batch_size => 5,
+        -parameters => {
+          NEW_SET_1_CDNA => {
+            'output_db'  => ['fetch_all_biotypes'],
+          },
+          NEW_SET_2_PROT  => {
+            'protein_coding_db' => ['fetch_all_biotypes'],
+          },
+          FIND_SINGLE_EXON_LINCRNA_CANDIDATES => 1000, # I don't want single exon candidates!
+            CDNA_CODING_GENE_CLUSTER_IGNORE_STRAND => 1,
+          MAXIMUM_TRANSLATION_LENGTH_RATIO => 99,
+          MAX_TRANSLATIONS_PER_GENE => 20,
+          OUTPUT_DB => 'lincrna_db',
+          OUTPUT_BIOTYPE => 'lincRNA_finder_2round',
+          WRITE_DEBUG_OUTPUT => 0,     # Set this to "0" to turn off debugging OR to "1000" to set it on.
+          DEBUG_OUTPUT_DB    => 'output_db',    # where debug output (if any) will be written to
+          protein_coding_db => $self->o('rnaseq_for_layer_db'),
+          output_db => $self->o('lincrna_db'),
+          dna_db => $self->o('dna_db'),
+        },
+        -rc_name    => '20GB',
+        -can_be_empty  => 1,
+        -flow_into => {
+                        1  => ['HiveDumpTranslations'],
+                      },
+      },
+
+      {
+        -logic_name => 'HiveDumpTranslations',
+        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDumpTranslations',
+        -batch_size    => 100,
+        -parameters => {
+                          dump_translations_script => catfile($self->o('ensembl_analysis_script'), 'protein', 'dump_translations.pl'),
+                          dna_db => $self->o('dna_db'),
+                          source_db => $self->o('lincrna_db'),
+                          file => $self->o('file_translations'),
+                       },
+        -rc_name    => '2GB',
+        -flow_into => {
+                       '2->A' => ['SplitDumpFiles'],
+                       'A->1' => ['Hive_LincRNAEvaluator'],
+                      },
+       },
+       {
+         -logic_name => 'SplitDumpFiles',
+         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSplitFasta',
+         -parameters => {
+                          fasta_file              => $self->o('file_translations'),
+                          out_dir                 => $self->o('lncrna_dir'),
+                          max_seqs_per_file       => $self->o('max_seqs_per_file'),
+                          max_seq_length_per_file => $self->o('max_seq_length_per_file'),
+                          max_files_per_directory => $self->o('max_files_per_directory'),
+                          max_dirs_per_directory  => $self->o('max_dirs_per_directory'),
+                         },
+         -rc_name    => '2GB',
+         -flow_into     => {
+            2 => ['RunI5Lookup'],
+         }
+      },
+
+       ### Here begins the running InterproScan
+      {
+        -logic_name    => 'RunI5Lookup',
+        -module        => 'Bio::EnsEMBL::Production::Pipeline::ProteinFeatures::InterProScan',
+        -hive_capacity => 250,
+        -batch_size    => 10,
+        -parameters    => {
+                             input_file                => '#split_file#',
+                             run_mode                  => 'lookup',
+                             interproscan_exe          => $self->o('interproscan_exe'),
+                             interproscan_applications => $self->o('interproscan_lookup_applications'),
+                             run_interproscan          => 1,
+                             escape_branch             => -1,
+                           },
+        -rc_name       => '6GB_registry',
+        -flow_into     => ['StoreProteinFeatures'],
+      },
+
+      {
+        -logic_name    => 'StoreProteinFeatures',
+        -max_retry_count => 1,
+        -module        => 'Bio::EnsEMBL::Production::Pipeline::ProteinFeatures::StoreProteinFeatures',
+        -parameters    => {
+                             species             => $self->o('species_name'),
+                             required_externalDb => $self->o('required_externalDb'),
+                            analyses        => $self->o('required_analysis'),
+                            pathway_sources => $self->o('pathway_sources'),
+                          },
+        -hive_capacity => 50,
+        -rc_name => '6GB_registry',
+      },
+
+
+      {
+        -logic_name => 'Hive_LincRNAEvaluator',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincRNAEvaluator',
+        -max_retry_count => 0,
+        -hive_capacity => 100,
+        -batch_size    => 150,
+        -parameters => {
+                           LINCRNA_DB => {
+                                            output_db => ['lincRNA_finder_2round'],
+                                         },
+                           VALIDATION_DBS => {
+                                            protein_coding_db => ['protein_coding'],
+                                          },
+                           EXCLUDE_SINGLE_EXON_LINCRNAS => 1000,
+                           MAX_FRAMESHIFT_INTRON_LEN => 9,
+                           EXCLUDE_ARTEFACT_TWO_EXON_LINCRNAS => 0,
+                           MAX_TRANSCRIPTS_PER_CLUSTER => 3,
+                           FINAL_OUTPUT_BIOTYPE => "lincRNA_pass_Eval_no_pfam",
+                           FINAL_OUTPUT_DB      => 'lincrna_db',
+                           MARK_OVERLAPPED_PROC_TRANS_IN_VALIDATION_DB => 10000, # no validation db check for now. if you say yes here, you have to change the following parameters about validation
+                           PROC_TRANS_HAVANA_LOGIC_NAME_STRING => 'havana',
+                           OVERLAPPED_GENES_NEW_MERGED_LOGIC_NAME => 'ensembl_havana_gene',
+                           UPDATE_SOURCE_DB => 'lincrna_db',
+                           WRITE_LINCRNAS_WHICH_CLUSTER_WITH_PROC_TRANS => 1,
+                           MARK_EXISTING_LINCRNA_IN_VALIDATION_DB => 1,
+                           WRITE_LINCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS => 1,
+                           WRITE_REJECTED_NCRNAS => 1,
+                           protein_coding_db => $self->o('rnaseq_for_layer_db'),
+                           output_db => $self->o('lincrna_db'),
+                           dna_db => $self->o('dna_db'),
+                           cdna_db => $self->o('rnaseq_refine_db'),
+                        },
+        -rc_name    => '5GB',
+
+       },
+
+
+       {
+         -logic_name => 'delete_duplicate_lincrna_genes',
+         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+         -parameters => {
+                          cmd => "perl ".$self->o('remove_duplicates_script_path')
+                                 ." -dbhost ".$self->o('lincrna_db','-host')
+                                 ." -dbuser ".$self->o('user')
+                                 ." -dbpass ".$self->o('password')
+                                 ." -dbname ".$self->o('lincrna_db','-dbname')
+                                 ." -dbport ".$self->o('lincrna_db','-port')
+                                 ." -dnadbhost ".$self->o('dna_db','-host')
+                                 ." -dnadbuser ".$self->o('user_r')
+                                 ." -dnadbname ".$self->o('dna_db','-dbname')
+                                 ." -dnadbport ".$self->o('dna_db','-port'),
+                       },
+          -max_retry_count => 0,
+          -rc_name => 'default',
+          -flow_into     => {
+            1 => ['Hive_LincRNAAftCheck_pi'],
+          },
+
+        },
+
+
+      {
+        -logic_name => 'Hive_LincRNAAftCheck_pi',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLincAfterChecks',
+        -parameters => {
+                           Final_BIOTYPE_TO_CHECK  => 'lincRNA_pass_Eval_no_pfam',
+                           output_db => $self->o('lincrna_db'),
+                           dna_db => $self->o('dna_db'),
+                           file_l => $self->o('file_for_length'),
+                           file_is => $self->o('file_for_introns_support'),
+                           file_b => $self->o('file_for_biotypes'),
+                           assembly_name => $self->o('assembly_name'),
+                           update_database => $self->o('update_database'),
+                        },
+        -rc_name    => '8GB',
       },
 
 
@@ -6731,6 +7109,7 @@ sub resource_classes {
     '4GB' => { LSF => $self->lsf_resource_builder('production-rh7', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '5GB' => { LSF => $self->lsf_resource_builder('production-rh7', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '6GB' => { LSF => $self->lsf_resource_builder('production-rh7', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '6GB_registry' => { LSF => [$self->lsf_resource_builder('production-rh7', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]},
     '7GB' => { LSF => $self->lsf_resource_builder('production-rh7', 7000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '8GB' => { LSF => $self->lsf_resource_builder('production-rh7', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '9GB' => { LSF => $self->lsf_resource_builder('production-rh7', 9000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},

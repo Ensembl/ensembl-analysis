@@ -76,13 +76,13 @@ use vars qw (@ISA  @EXPORT);
 =cut
 
 sub get_genes_of_biotypes_by_db_hash_ref { 
-  my ($self, $href) = @_;
-  my %dbnames_2_biotypes = %$href ; 
-  my @genes_to_fetch;  
-  foreach my $db_hash_key ( keys %dbnames_2_biotypes )  {
-    my @biotypes_to_fetch = @{$dbnames_2_biotypes{$db_hash_key}};  
+  my ($self, $dbnames_2_biotypes) = @_;
+  my @genes_to_fetch;
+  print STDERR $dbnames_2_biotypes, "\n";
+  foreach my $db_hash_key ( keys %$dbnames_2_biotypes )  {
+    my @biotypes_to_fetch = @{$dbnames_2_biotypes->{$db_hash_key}};
     my $set_db = $self->hrdb_get_dba($self->param($db_hash_key));
-    my $dna_dba = $self->hrdb_get_dba($self->param('reference_db'));
+    my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
     if($dna_dba) {
       $set_db->dnadb($dna_dba);
     }
@@ -135,7 +135,7 @@ sub get_genes_of_biotypes {
 	my ( $self, $hbiotype, $dbName ) = @_;
 	my @genes_to_fetch;
 	my $set_db  = $self->hrdb_get_con($dbName);
-  my $dna_dba = $self->hrdb_get_dba($self->param('reference_db'));
+  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
   if($dna_dba) {
     $set_db->dnadb($dna_dba);
   }

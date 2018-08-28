@@ -63,23 +63,27 @@ sub fetch_input{
   my ($self) = @_;
 
   # set up config
-  $self->hive_set_config; 
+  $self->create_analysis;
   # get all candidates lincRNA 
   my $lincrna_genes = $self->get_genes_of_biotypes_by_db_hash_ref($self->RNA_DB);
-  print  "We have ". scalar(@$lincrna_genes) . " multi_transcript lincRNA candidates from RNAseq stage.\n" ;  
-  $self->param_required('biotype_output'); 
-  my $output_biotype = $self->param('biotype_output');    
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder->new(
-          -query => $self->query,
-          -analysis => $self->analysis,
-          -genes => $lincrna_genes,  
-          -output_biotype =>  $output_biotype, 
-          -max_transcripts_per_cluster => 20, 
-          -min_short_intron_len => 1,
-          -max_short_intron_len => 15,
-          -blessed_biotypes => {} , 
-         );
-  $self->runnable($runnable);
+  if (@$lincrna_genes) {
+    $self->say_with_header('We have '.scalar(@$lincrna_genes).' multi_transcript lincRNA candidates from RNAseq stage.');
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder->new(
+            -query => $self->query,
+            -analysis => $self->analysis,
+            -genes => $lincrna_genes,
+            -output_biotype => $self->param_required('biotype_output'),
+            -max_transcripts_per_cluster => 20,
+            -min_short_intron_len => 1,
+            -max_short_intron_len => 15,
+            -blessed_biotypes => {},
+           );
+    $self->runnable($runnable);
+  }
+  else {
+    $self->input_job->autoflow(0);
+    $self->complete_early('There is no gene to process');
+  }
 }
 
 
@@ -100,9 +104,9 @@ sub write_output{
   my ($self) = @_; 
 
   print  "\nWRITING RESULTS IN OUTPUT DB... " . "\n";
-  my $dba = $self->hrdb_get_dba($self->param('lincRNA_output_db'));
-  $self->hrdb_set_con($dba,'lincRNA_output_db');
-  my $lincrna_ga  = $self->hrdb_get_con('lincRNA_output_db')->get_GeneAdaptor;
+  my $dba = $self->hrdb_get_dba($self->param('output_db'));
+  $self->hrdb_set_con($dba,'output_db');
+  my $lincrna_ga  = $self->hrdb_get_con('output_db')->get_GeneAdaptor;
   my @genes_to_write = @{$self->output}; 
   print  "***HAVE ". scalar(@genes_to_write) ." GENE(S) TO WRITE IN TOTAL (INCLUDING VALID AND REJECTED lincRNAs).\n";  
 
@@ -150,7 +154,7 @@ sub post_cleanup {
   my $self = shift;
   
   if ($self->param_is_defined('fail_delete_features')) {
-    my $dba = $self->hrdb_get_con('lincRNA_output_db');
+    my $dba = $self->hrdb_get_con('output_db');
     my $gene_adaptor = $dba->get_GeneAdaptor;
     foreach my $gene (@{$self->param('fail_delete_features')}) {
       eval {
@@ -170,52 +174,17 @@ sub post_cleanup {
 sub check_if_all_stored_correctly { 
   my ($self, $href) = @_; 
 
-  my $set_db = $self->hrdb_get_dba($self->param('lincRNA_output_db')); 
-  my $dna_dba = $self->hrdb_get_dba($self->param('reference_db')); 
+  my $set_db = $self->hrdb_get_dba($self->param('output_db'));
+  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
   if($dna_dba) { 
     $set_db->dnadb($dna_dba); 
   } 
   
   my $test_id = $self->param('iid'); 
-  my $slice = $self->fetch_sequence($test_id, $set_db, undef, undef, 'lincRNA_output_db')  ; 
+  my $slice = $self->fetch_sequence($test_id, $set_db, undef, undef, 'output_db');
   print  "check if all genes are fine!! \n" ; 
   my $genes = $slice->get_all_Genes(undef,undef,1) ; 
 	return "yes"; 
-}
-
-
-# HIVE check
-sub hive_set_config {
-  my $self = shift;
-
-  # Throw is these aren't present as they should both be defined
-  unless($self->param_is_defined('logic_name') && $self->param_is_defined('module')) {
-    $self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, ".
-          "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB ".
-          "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to ".
-          "write the genes to and this should also include the module name even if it isn't strictly necessary"
-         );
-  }
-
-  # Make an analysis object and set it, this will allow the module to write to the output db
-  my $analysis = new Bio::EnsEMBL::Analysis(
-                                             -logic_name => $self->param('logic_name'),
-                                             -module => $self->param('module'),
-                                           );
-  $self->analysis($analysis);
-
-  # Now loop through all the keys in the parameters hash and set anything that can be set
-  my $config_hash = $self->param('config_settings');
-  foreach my $config_key (keys(%{$config_hash})) {
-    if(defined &$config_key) {
-      $self->$config_key($config_hash->{$config_key});
-    } else {
-      $self->throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does ".
-            "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending ".
-            "key:\n".$config_key
-           );
-    }
-	}
 }
 
 

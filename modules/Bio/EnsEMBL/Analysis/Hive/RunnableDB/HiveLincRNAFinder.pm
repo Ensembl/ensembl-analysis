@@ -75,7 +75,7 @@ sub fetch_input {
 
   # This call will set the config file parameters. Note this will set REFGB (which overrides the
   # value in $self->db and OUTDB
-	$self->hive_set_config;
+	$self->create_analysis;
 
 	# get cdnas and convert them to single transcript genes. The convert_to_single_transcript_gene located: ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/GeneUtils.pm
 	my $new_cdna = $self->get_genes_of_biotypes_by_db_hash_ref( $self->NEW_SET_1_CDNA );
@@ -104,10 +104,10 @@ sub fetch_input {
 
 sub write_output {
 	my ($self) = @_;
-	my $dba = $self->hrdb_get_dba( $self->param('lincRNA_output_db') );
-	$self->hrdb_set_con( $dba, 'lincRNA_output_db' );
+	my $dba = $self->hrdb_get_dba( $self->param('output_db') );
+	$self->hrdb_set_con( $dba, 'output_db' );
 
-	my $adaptor = $self->hrdb_get_con('lincRNA_output_db')->get_GeneAdaptor;
+	my $adaptor = $self->hrdb_get_con('output_db')->get_GeneAdaptor;
 	print "Final output is: \n"; 
 	print "have " . @{ $self->output } . " genes to write\n";
 
@@ -167,7 +167,7 @@ sub post_cleanup {
   my $self = shift;
   
   if ($self->param_is_defined('fail_delete_features')) {
-    my $dba = $self->hrdb_get_con('lincRNA_output_db');
+    my $dba = $self->hrdb_get_con('output_db');
     my $gene_adaptor = $dba->get_GeneAdaptor;
     foreach my $gene (@{$self->param('fail_delete_features')}) {
       eval {
@@ -203,14 +203,14 @@ sub post_cleanup {
 sub check_if_all_stored_correctly { 
   my ($self) = @_; 
 
-  my $set_db = $self->hrdb_get_dba($self->param('lincRNA_output_db')); 
-  my $dna_dba = $self->hrdb_get_dba($self->param('reference_db')); 
+  my $set_db = $self->hrdb_get_dba($self->param('output_db'));
+  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
   if($dna_dba) { 
     $set_db->dnadb($dna_dba); 
   } 
   
   my $test_id = $self->param('iid'); 
-  my $slice = $self->fetch_sequence($test_id, $set_db, undef, undef, 'lincRNA_output_db')  ; 
+  my $slice = $self->fetch_sequence($test_id, $set_db);
   print  "check if all genes are fine!! \n" ; 
   my $genes = $slice->get_all_Genes(undef,undef,1) ; 
 	return "yes"; 
@@ -218,41 +218,6 @@ sub check_if_all_stored_correctly {
 
 
 
-# HIVE check
-sub hive_set_config {
-	my $self = shift;
-
-	# Throw is these aren't present as they should both be defined
-	unless ( $self->param_is_defined('logic_name')
-		&& $self->param_is_defined('module') )
-	{
-		$self->throw("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, "
-				. "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB "
-				. "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to "
-				. "write the genes to and this should also include the module name even if it isn't strictly necessary"
-		);
-	}
-
-  # Make an analysis object and set it, this will allow the module to write to the output db
-	my $analysis = new Bio::EnsEMBL::Analysis(
-		-logic_name => $self->param('logic_name'),
-		-module     => $self->param('module'),
-	);
-	$self->analysis($analysis);
-
-  # Now loop through all the keys in the parameters hash and set anything that can be set
-	my $config_hash = $self->param('config_settings');
-	foreach my $config_key ( keys( %{$config_hash} ) ) {
-		if ( defined &$config_key ) {
-			$self->$config_key( $config_hash->{$config_key} );
-		}
-		else {
-			throw("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does "
-					. "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending "
-					. "key:\n" . $config_key );
-		}
-	}
-}
 
 =head2  
 
