@@ -89,7 +89,14 @@ sub fetch_input {
   my $slice_adaptor = $db->get_SliceAdaptor;
   my $slices;
   if ($self->param_is_defined('iid')) {
-    $slices = [$slice_adaptor->fetch_by_name($self->param('iid'))];
+    if (ref($self->param('iid')) eq 'ARRAY') {
+      foreach my $iid (@{$self->param('iid')}) {
+        push(@$slices, $slice_adaptor->fetch_by_name($iid));
+      }
+    }
+    else {
+      $slices = [$slice_adaptor->fetch_by_name($self->param('iid'))];
+    }
   }
   else {
     $slices = $slice_adaptor->fetch_all($self->param('coord_system'));
@@ -108,7 +115,13 @@ sub fetch_input {
   else {
     $self->throw('Unknown feature_type "'.$self->param('feature_type').'", you may want to create a method process_'.$self->param('feature_type').' in '.__PACKAGE__);
   }
-  $self->param('objects', \@objects);
+  if (@objects) {
+    $self->param('objects', \@objects);
+  }
+  else {
+    $self->input_job->autoflow($self->param('_auto_flow'));
+    $self->complete_early('No objects to process');
+  }
 }
 
 
@@ -184,6 +197,7 @@ sub write_output {
   my ($self) = @_;
 
   foreach my $object (@{$self->output}) {
+    $object->load if ($object->can('load'));
     $object->adaptor->remove($object) if ($object->dbID);
   }
 }
