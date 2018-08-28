@@ -4000,10 +4000,20 @@ sub pipeline_analyses {
           target_db => $self->o('rnaseq_rough_db'),
         },
         -flow_into => {
-          2 => {'split_on_low_coverage' => {'iid' => '#iid#', alignment_bam_file => '#filename#'}},
+          2 => {'fan_before_bam2introns' => {'iid' => '#iid#', alignment_bam_file => '#filename#'}},
         },
       },
 
+      {
+        -logic_name => 'fan_before_bam2introns', # Hopefully this can be removed when the new Bam2Genes module is ready
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {},
+        -rc_name    => '1GB',
+        -flow_into => {
+          '1->A' => ['split_on_low_coverage'],
+          'A->1' => ['check_and_delete_broken_duplicated'],
+        }
+      },
 
       {
         -logic_name => 'split_on_low_coverage',
@@ -4054,7 +4064,6 @@ sub pipeline_analyses {
         },
         -rc_name    => '2GB_rough',
         -flow_into => {
-          1 => ['create_bam2introns_input_ids'],
           -1 => {'rough_transcripts_5GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
           -2 => {'rough_transcripts_5GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
         },
@@ -4078,7 +4087,6 @@ sub pipeline_analyses {
         },
         -rc_name    => '5GB_rough',
         -flow_into => {
-          1 => ['create_bam2introns_input_ids'],
           -1 => {'rough_transcripts_15GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
           -2 => {'rough_transcripts_15GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
         },
@@ -4101,6 +4109,16 @@ sub pipeline_analyses {
           use_ucsc_naming => $self->o('use_ucsc_naming'),
         },
         -rc_name    => '15GB_rough',
+      },
+
+      {
+        -logic_name => 'check_and_delete_broken_duplicated',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRemoveBrokenAndDuplicatedObjects',
+        -parameters => {
+          target_db => $self->o('rnaseq_rough_db'),
+          check_support => 0,
+        },
+        -rc_name    => '5GB',
         -flow_into => {
           1 => ['create_bam2introns_input_ids'],
         },
@@ -4223,16 +4241,6 @@ sub pipeline_analyses {
           samtools => $self->o('samtools_path'),
           intron_bam_file => catfile($self->o('output_dir'), 'introns'),
           genome_file => $self->o('rnaseq_genome_file'),
-        },
-        -rc_name    => '5GB',
-        -flow_into => ['check_and_delete_broken_duplicated'],
-      },
-      {
-        -logic_name => 'check_and_delete_broken_duplicated',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRemoveBrokenAndDuplicatedObjects',
-        -parameters => {
-          target_db => $self->o('rnaseq_rough_db'),
-          check_support => 0,
         },
         -rc_name    => '5GB',
         -flow_into => ['create_refine_db'],
@@ -4468,7 +4476,6 @@ sub pipeline_analyses {
         -logic_name => 'classify_rnaseq_for_layer_models',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
         -parameters => {
-                         skip_analysis => $self->o('skip_rnaseq'),
                          update_gene_biotype => 1,
                          classification_type => 'standard',
                          target_db => $self->o('rnaseq_for_layer_db'),
