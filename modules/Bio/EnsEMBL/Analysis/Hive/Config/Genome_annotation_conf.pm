@@ -6523,9 +6523,9 @@ sub pipeline_analyses {
         -logic_name => 'create_bam_file_job',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
         -parameters => {
-          inputcmd => 'cd #input_dir#; ls *.bam',
+          inputcmd => 'cd #working_dir#; ls *.bam',
           column_names => ['bam_file'],
-          input_dir => $self->o('merge_dir'),
+          working_dir => $self->o('merge_dir'),
         },
         -rc_name => 'default',
         -flow_into  => {
@@ -6538,9 +6538,9 @@ sub pipeline_analyses {
         -logic_name => 'create_chromosome_file',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => '#samtools# view -H '.catfile('#input_dir#', '#bam_file#').q( | grep \@SQ |cut -f2,3 | sed 's/[SL]N://g' > ).catfile('#output_dir#', '#bam_file#.txt'),
-          samtools => $self->o('samtools'),
-          input_dir => $self->o('merge_dir'),
+          cmd => '#samtools# view -H '.catfile('#working_dir#', '#bam_file#').q( | grep \@SQ |cut -f2,3 | sed 's/[SL]N://g' > ).catfile('#working_dir#', '#bam_file#.txt'),
+          samtools => $self->o('samtools_path'),
+          working_dir => $self->o('merge_dir'),
         },
         -rc_name => '3GB',
         -flow_into  => {
@@ -6552,9 +6552,9 @@ sub pipeline_analyses {
         -logic_name => 'bam2bedgraph',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => '#bedtools# genomecov -ibam '.catfile('#input_dir#', '#bam_file#').' -bg -split | LC_COLLATE=C sort -k1,1 -k2,2n > '.catfile('#output_dir#', '#bam_file#.bg'),
+          cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split | LC_COLLATE=C sort -k1,1 -k2,2n > '.catfile('#working_dir#', '#bam_file#.bg'),
           bedtools => $self->o('bedtools'),
-          input_dir => $self->o('merge_dir'),
+          working_dir => $self->o('merge_dir'),
         },
         -rc_name => '3GB',
         -flow_into  => {
@@ -6567,9 +6567,9 @@ sub pipeline_analyses {
         -logic_name => 'bam2bedgraph_himem',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => '#bedtools# genomecov -ibam '.catfile('#input_dir#', '#bam_file#').' -bg -split | LC_COLLATE=C sort -k1,1 -k2,2n > '.catfile('#output_dir#', '#bam_file#.bg'),
+          cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split | LC_COLLATE=C sort -k1,1 -k2,2n > '.catfile('#working_dir#', '#bam_file#.bg'),
           bedtools => $self->o('bedtools'),
-          input_dir => $self->o('merge_dir'),
+          working_dir => $self->o('merge_dir'),
         },
         -rc_name => '8GB',
         -flow_into  => {
@@ -6581,9 +6581,9 @@ sub pipeline_analyses {
         -logic_name => 'bedgrap2bigwig',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => '#bedGraphToBigWig# '.catfile('#output_dir#', '#bam_file#.bg').' '.catfile('#output_dir#', '#bam_file#.txt').' '.catfile('#output_dir#', '#bam_file#.bw'),
+          cmd => '#bedGraphToBigWig# '.catfile('#working_dir#', '#bam_file#.bg').' '.catfile('#working_dir#', '#bam_file#.txt').' '.catfile('#working_dir#', '#bam_file#.bw'),
           bedGraphToBigWig => $self->o('bedGraphToBigWig'),
-          output_dir => $self->o('merge_dir'),
+          working_dir => $self->o('merge_dir'),
         },
         -rc_name => '3GB',
         -flow_into  => {
@@ -6596,9 +6596,9 @@ sub pipeline_analyses {
         -logic_name => 'bedgrap2bigwig_himem',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => '#bedGraphToBigWig# '.catfile('#output_dir#', '#bam_file#.bg').' '.catfile('#output_dir#', '#bam_file#.txt').' '.catfile('#output_dir#', '#bam_file#.bw'),
+          cmd => '#bedGraphToBigWig# '.catfile('#working_dir#', '#bam_file#.bg').' '.catfile('#working_dir#', '#bam_file#.txt').' '.catfile('#working_dir#', '#bam_file#.bw'),
           bedGraphToBigWig => $self->o('bedGraphToBigWig'),
-          output_dir => $self->o('merge_dir'),
+          working_dir => $self->o('merge_dir'),
         },
         -rc_name => '8GB',
         -flow_into  => {
@@ -6610,8 +6610,8 @@ sub pipeline_analyses {
         -logic_name => 'clean_bg_files',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'rm  '.catfile('#output_dir#', '#bam_file#.bg').' '.catfile('#output_dir#', '#bam_file#.txt'),
-          output_dir => $self->o('merge_dir'),
+          cmd => 'rm  '.catfile('#working_dir#', '#bam_file#.bg').' '.catfile('#working_dir#', '#bam_file#.txt'),
+          working_dir => $self->o('merge_dir'),
         },
         -rc_name => 'default',
         -flow_into  => {
@@ -6623,8 +6623,8 @@ sub pipeline_analyses {
         -logic_name => 'md5_sum',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'cd #output_dir#;md5sum #bam_file#.bw #bam_file# #bam_file#.bai > #bam_file#.md5',
-          output_dir => $self->o('merge_dir'),
+          cmd => 'cd #working_dir#;md5sum #bam_file#.bw #bam_file# #bam_file#.bai > #bam_file#.md5',
+          working_dir => $self->o('merge_dir'),
         },
         -rc_name => 'default',
       },
@@ -6633,8 +6633,8 @@ sub pipeline_analyses {
         -logic_name => 'concat_md5_sum',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'cat '.catfile('#output_dir#', '*md5').' > '.catfile('#output_dir#', 'md5sum.txt.1'),
-          output_dir => $self->o('merge_dir'),
+          cmd => 'cat '.catfile('#working_dir#', '*md5').' > '.catfile('#working_dir#', 'md5sum.txt.1'),
+          working_dir => $self->o('merge_dir'),
         },
         -rc_name => 'default',
         -flow_into  => {
@@ -6646,8 +6646,8 @@ sub pipeline_analyses {
         -logic_name => 'clean_concat_md5_sum',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'rm '.catfile('#output_dir#', '*md5'),
-          output_dir => $self->o('merge_dir'),
+          cmd => 'rm '.catfile('#working_dir#', '*md5'),
+          working_dir => $self->o('merge_dir'),
         },
         -rc_name => 'default',
         -flow_into  => {
@@ -6659,8 +6659,9 @@ sub pipeline_analyses {
         -logic_name => 'create_readme',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'cd #output_dir#;FILES=($(ls *.bam));printf "#free_text#" | sed "s/NUM/$((${#FILES[*]}-1))/g;s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" > README.1; IFS=$\'\n\';echo "${FILES[*]}" >> README.1',
-          output_dir => $self->o('merge_dir'),
+          cmd => 'cd #working_dir#;FILES=($(ls *.bam));printf "#free_text#" | sed "s/NUM/$((${#FILES[*]}-1))/g;s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" > README.1; IFS=$\'\n\';echo "${FILES[*]}" >> README.1',
+          working_dir => $self->o('merge_dir'),
+          species_name  => $self->o('species_name'),
           free_text => 'Note\n------\n\n'.
                        'The RNASeq data for #species_name# consists of NUM individual samples and one merged set containing all NUM samples.\n\n'.
                        'All files have an index file (.bai) and a BigWig file (.bw) which contains the coverage information.\n\n'.
