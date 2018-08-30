@@ -78,7 +78,6 @@ use vars qw (@ISA  @EXPORT);
 sub get_genes_of_biotypes_by_db_hash_ref { 
   my ($self, $dbnames_2_biotypes) = @_;
   my @genes_to_fetch;
-  print STDERR $dbnames_2_biotypes, "\n";
   foreach my $db_hash_key ( keys %$dbnames_2_biotypes )  {
     my @biotypes_to_fetch = @{$dbnames_2_biotypes->{$db_hash_key}};
     my $set_db = $self->hrdb_get_dba($self->param($db_hash_key));
