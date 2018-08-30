@@ -76,6 +76,8 @@ sub fetch_input {
   # This call will set the config file parameters. Note this will set REFGB (which overrides the
   # value in $self->db and OUTDB
 	$self->create_analysis;
+	my $dba = $self->hrdb_get_dba( $self->param('output_db') );
+	$self->hrdb_set_con( $dba, 'output_db' );
 
 	# get cdnas and convert them to single transcript genes. The convert_to_single_transcript_gene located: ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Tools/GeneBuildUtils/GeneUtils.pm
 	my $new_cdna = $self->get_genes_of_biotypes_by_db_hash_ref( $self->NEW_SET_1_CDNA );
@@ -104,119 +106,27 @@ sub fetch_input {
 
 sub write_output {
 	my ($self) = @_;
-	my $dba = $self->hrdb_get_dba( $self->param('output_db') );
-	$self->hrdb_set_con( $dba, 'output_db' );
 
 	my $adaptor = $self->hrdb_get_con('output_db')->get_GeneAdaptor;
 	print "Final output is: \n"; 
 	print "have " . @{ $self->output } . " genes to write\n";
 
-	my $sucessful_count = 0;
   my $analysis = $self->analysis;
   GENE: foreach my $gene ( @{ $self->output } ) {
 		if ( !defined $gene->get_all_Transcripts ) {
 			$self->throw(" gene does not have any transcripts ....\n");
 		}
-
-		my @tr     = @{ $gene->get_all_Transcripts };
-		my $max_ex = 0;
-		for (@tr) {
-			$_->analysis( $analysis );
-		}
-
+    empty_Gene($gene);
+    attach_Analysis_to_Gene($gene, $analysis);
 		$gene->biotype( $self->OUTPUT_BIOTYPE );
-		$gene->analysis( $analysis );
-		eval { 
-			$adaptor->store($gene); 
-		};
-
-		if ($@) {
-			$self->warning( "Failed to write gene " . id($gene) . " "	. coord_string($gene)	. " $@" );
-		}
-		else {
-			$sucessful_count++;
-		}
+    $adaptor->store($gene);
 	}
-
-	if ( $sucessful_count != @{ $self->output } ) {
-		$self->throw("Failed to write some genes");
-	}
-
-  # this check was added because I had problems with few genes that didn't stored and the job didn't died! mysql kind of thing! 
-  eval{
-    my $check = $self->check_if_all_stored_correctly(); 
-    print "check result: " . $check . " -- " . $sucessful_count ." genes written to FINAL OUTPUT DB " . $dba->dbc->dbname . "\n" ; # . $self->output_db->dbname . " @ ". $self->output_db->host . "\n"  ;   
-    if($sucessful_count != @{ $self->output } ) { 
-      $self->throw("Failed to write some genes");
-    }
-  };
-  if($@){
-  	print "You have a problem with those genes, they didn't stored successfully, I will try to delete them and rerun the job: \n "; 
-  	foreach my $g_t(@{ $self->output }){ 
-  		print $g_t->dbID . "\n";  	
-  	}
-    $self->param('fail_delete_features', \@{ $self->output });
-    $self->throw($@);
-  }
-
-	print "Final: " . $sucessful_count	. " genes written to " . " @ \n";
 }
-
-# post_cleanup will clean your entries if your full job didn't finish fine. Usefull! 
-sub post_cleanup {
-  my $self = shift;
-  
-  if ($self->param_is_defined('fail_delete_features')) {
-    my $dba = $self->hrdb_get_con('output_db');
-    my $gene_adaptor = $dba->get_GeneAdaptor;
-    foreach my $gene (@{$self->param('fail_delete_features')}) {
-      eval {
-        print "cleaning-removing gene as something didn't go as should... \n"; 
-        $gene_adaptor->remove($gene);
-      };
-      if ($@) {
-        $self->throw('Could not cleanup the mess for these dbIDs: '.join(', ', @{$self->param('fail_delete_features')}));
-      }
-    }
-  }
-  return 1;
-}
-
-=head2 read_and_check_config
-
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::lincRNAFinder
-  Arg [2]   : hashref from config file
-  Function  : call the superclass method to set all the varibles and carry
-  out some sanity checking
-  Returntype: N/A
-  Exceptions: throws if certain key variables aren't set properly
-  Example   : 
-
-=cut
 
 
 #######
 #CHECKS
 #######
-
-# this function checks if everything stored successfully 
-sub check_if_all_stored_correctly { 
-  my ($self) = @_; 
-
-  my $set_db = $self->hrdb_get_dba($self->param('output_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  if($dna_dba) { 
-    $set_db->dnadb($dna_dba); 
-  } 
-  
-  my $test_id = $self->param('iid'); 
-  my $slice = $self->fetch_sequence($test_id, $set_db);
-  print  "check if all genes are fine!! \n" ; 
-  my $genes = $slice->get_all_Genes(undef,undef,1) ; 
-	return "yes"; 
-}
-
-
 
 
 =head2  
@@ -310,27 +220,5 @@ sub FIND_SINGLE_EXON_LINCRNA_CANDIDATES {
 	return $self->param('FIND_SINGLE_EXON_LINCRNA_CANDIDATES');
 }
 
-sub create_analysis_object {
-	my ( $self, $logic_name ) = @_;
-	# need to create analysis object first
-	my $analysis = Bio::EnsEMBL::Analysis->new( -logic_name => $logic_name, );
-	return $analysis;
-}
-
-sub memory_i_am_using {
-	print "DEBUG::MEMORY:: ";
-	require Carp;
-	my $size = `ps -p $$ -h -o size`;
-	print "$size \n";
-}
-
-# use vars '$AUTOLOAD';
-# sub AUTOLOAD {
-#  my ($self,$val) = @_;
-#  (my $routine_name=$AUTOLOAD)=~s/.*:://; #trim package name
-#  $self->{$routine_name}=$val if defined $val ;
-#  return $self->{$routine_name} ;
-# }
-# sub DESTROY {} # required due to AUTOLOAD
 
 1;

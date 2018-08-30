@@ -160,17 +160,13 @@ sub cap_number_of_translations_per_gene {
   GENES: for my $g ( @$genes_with_6f_translations ) {
     my $transcripts = $g->get_all_Transcripts;
     if (defined $self->max_translations_stored_per_gene and @$transcripts > $self->max_translations_stored_per_gene) {
-      my $mgt = new Bio::EnsEMBL::Gene();
-      for my $lt (splice sort {$a->translate->length <=> $a->translate->length} @$transcripts, 0, $self->max_translations_stored_per_gene) {
-        $mgt->add_Transcript($lt);
+      $g->flush_Transcripts;
+      my @sorted_t = sort {$a->translate->length <=> $a->translate->length} @$transcripts;
+      for my $lt (splice @sorted_t, 0, $self->max_translations_stored_per_gene) {
+        $g->add_Transcript($lt);
       }
-      $mgt->biotype($g->biotype);
-      $mgt->source($g->source);
-      push @capped_longest_genes , $mgt;
     }
-    else {
-      push(@capped_longest_genes, $g);
-    }
+    push(@capped_longest_genes, $g);
   }   
   return \@capped_longest_genes; 
 } 
@@ -289,14 +285,6 @@ sub filter_cdna_genes_by_exon_count {
   }   
   return ( \@single_exon, \@multi_exon );
 } 
-
-sub memory_i_am_using { 
-  print "DEBUG::MEMORY:: " ; 
-  require Carp ;
-  my $size = `ps -p $$ -o size`;
-  print "$size \n";
-}
-
 
 # it is not nice, but it is working 
 use vars '$AUTOLOAD';
