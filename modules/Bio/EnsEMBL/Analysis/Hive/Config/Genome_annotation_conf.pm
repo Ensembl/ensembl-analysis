@@ -452,7 +452,7 @@ sub default_options {
     'file_for_biotypes' => catfile($self->o('lncrna_dir'), 'check_lincRNA_need_to_update_biotype_antisense.out'), # mysql queries that will apply or not in your dataset (check update_database) and will update biotypes
     'file_for_introns_support' => catfile($self->o('lncrna_dir'), 'check_lincRNA_Introns_supporting_evidence.out'), # for debug
     biotype_output => 'rnaseq',
-    lncrna_protein_coding_set => [
+    lincrna_protein_coding_set => [
       'rnaseq_merged_1',
       'rnaseq_merged_2',
       'rnaseq_merged_3',
@@ -4630,7 +4630,7 @@ sub pipeline_analyses {
       {
         -logic_name => 'create_pfam_analysis',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
-        -rc_name    => '1GB',
+        -rc_name    => 'default',
         -parameters => {
           source_type => 'list',
           target_db => $self->o('rnaseq_rough_db'),
@@ -4695,7 +4695,7 @@ sub pipeline_analyses {
             'output_db'  => ['fetch_all_biotypes'],
           },
           NEW_SET_2_PROT  => {
-            'protein_coding_db' => ['fetch_all_biotypes'],
+            'protein_coding_db' => $self->o('lincrna_protein_coding_set'),
           },
           FIND_SINGLE_EXON_LINCRNA_CANDIDATES => 1000, # I don't want single exon candidates!
           CDNA_CODING_GENE_CLUSTER_IGNORE_STRAND => 1,
@@ -4725,7 +4725,7 @@ sub pipeline_analyses {
             'output_db'  => ['fetch_all_biotypes'],
           },
           NEW_SET_2_PROT  => {
-            'protein_coding_db' => ['fetch_all_biotypes'],
+            'protein_coding_db' => $self->o('lincrna_protein_coding_set'),
           },
           FIND_SINGLE_EXON_LINCRNA_CANDIDATES => 1000, # I don't want single exon candidates!
             CDNA_CODING_GENE_CLUSTER_IGNORE_STRAND => 1,
@@ -4819,31 +4819,31 @@ sub pipeline_analyses {
         -hive_capacity => 100,
         -batch_size    => 150,
         -parameters => {
-                           LINCRNA_DB => {
-                                            output_db => ['lincRNA_finder_2round'],
-                                         },
-                           VALIDATION_DBS => {
-                                            protein_coding_db => ['protein_coding'],
-                                          },
-                           EXCLUDE_SINGLE_EXON_LINCRNAS => 1000,
-                           MAX_FRAMESHIFT_INTRON_LEN => 9,
-                           EXCLUDE_ARTEFACT_TWO_EXON_LINCRNAS => 0,
-                           MAX_TRANSCRIPTS_PER_CLUSTER => 3,
-                           FINAL_OUTPUT_BIOTYPE => "lincRNA_pass_Eval_no_pfam",
-                           FINAL_OUTPUT_DB      => 'lincrna_db',
-                           MARK_OVERLAPPED_PROC_TRANS_IN_VALIDATION_DB => 10000, # no validation db check for now. if you say yes here, you have to change the following parameters about validation
-                           PROC_TRANS_HAVANA_LOGIC_NAME_STRING => 'havana',
-                           OVERLAPPED_GENES_NEW_MERGED_LOGIC_NAME => 'ensembl_havana_gene',
-                           UPDATE_SOURCE_DB => 'lincrna_db',
-                           WRITE_LINCRNAS_WHICH_CLUSTER_WITH_PROC_TRANS => 1,
-                           MARK_EXISTING_LINCRNA_IN_VALIDATION_DB => 1,
-                           WRITE_LINCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS => 1,
-                           WRITE_REJECTED_NCRNAS => 1,
-                           protein_coding_db => $self->o('rnaseq_for_layer_db'),
-                           output_db => $self->o('lincrna_db'),
-                           dna_db => $self->o('dna_db'),
-                           cdna_db => $self->o('rnaseq_refine_db'),
-                        },
+          LINCRNA_DB => {
+            output_db => ['lincRNA_finder_2round'],
+          },
+          VALIDATION_DBS => {
+            protein_coding_db => $self->o('lincrna_protein_coding_set'),
+          },
+          EXCLUDE_SINGLE_EXON_LINCRNAS => 1000,
+          MAX_FRAMESHIFT_INTRON_LEN => 9,
+          EXCLUDE_ARTEFACT_TWO_EXON_LINCRNAS => 0,
+          MAX_TRANSCRIPTS_PER_CLUSTER => 3,
+          FINAL_OUTPUT_BIOTYPE => "lincRNA_pass_Eval_no_pfam",
+          FINAL_OUTPUT_DB      => 'lincrna_db',
+          MARK_OVERLAPPED_PROC_TRANS_IN_VALIDATION_DB => 10000, # no validation db check for now. if you say yes here, you have to change the following parameters about validation
+          PROC_TRANS_HAVANA_LOGIC_NAME_STRING => 'havana',
+          OVERLAPPED_GENES_NEW_MERGED_LOGIC_NAME => 'ensembl_havana_gene',
+          UPDATE_SOURCE_DB => 'lincrna_db',
+          WRITE_LINCRNAS_WHICH_CLUSTER_WITH_PROC_TRANS => 1,
+          MARK_EXISTING_LINCRNA_IN_VALIDATION_DB => 1,
+          WRITE_LINCRNAS_WHICH_CLUSTER_WITH_EXISTING_LINCRNAS => 1,
+          WRITE_REJECTED_NCRNAS => 1,
+          protein_coding_db => $self->o('rnaseq_for_layer_db'),
+          output_db => $self->o('lincrna_db'),
+          dna_db => $self->o('dna_db'),
+          cdna_db => $self->o('rnaseq_refine_db'),
+        },
         -rc_name    => '5GB',
 
        },
