@@ -468,7 +468,7 @@ sub write_output {
     $self->dataflow_output_id($self->param('agp_files'), $self->param('_agp_branch'));
     $self->dataflow_output_id($self->param('fasta_files'), $self->param('_branch_to_flow_to'));
   }
-  $self->dataflow_output_id($job_params, Bio::EnsEMBL::Hive::DBSQL::DataFlowRuleAdaptor::branch_name_2_code('MAIN'));
+  $self->dataflow_output_id($job_params, 'MAIN');
 }
 
 

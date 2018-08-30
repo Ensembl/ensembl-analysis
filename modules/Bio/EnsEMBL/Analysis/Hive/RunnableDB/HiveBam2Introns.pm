@@ -63,8 +63,6 @@ use File::Path qw(make_path);
 use Bio::Seq;
 use Bio::DB::HTS;
 
-use Bio::EnsEMBL::Hive::DBSQL::DataflowRuleAdaptor;
-
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Analysis::Runnable::Bam2Introns;
@@ -77,7 +75,7 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
  Arg [1]    : None
  Description: Returns the default parameters
-               _branch_for_accumulators => Bio::EnsEMBL::Hive::DBSQL::DataflowRuleAdaptor::branch_name_2_code('MAIN'), Usually 1
+               _branch_for_accumulators => 'MAIN', Usually 1
  Returntype : Hashref
  Exceptions : None
 
