@@ -76,8 +76,8 @@ sub default_options {
     'skip_cleaning'             => '0', # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
     'mapping_db'                => undef, # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
-    'uniprot_version'            => 'uniprot_2018_04', # What UniProt data dir to use for various analyses
-    'vertrna_version'           => '134', # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
+    'uniprot_version'            => 'uniprot_2018_07', # What UniProt data dir to use for various analyses
+    'vertrna_version'           => '136', # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
     'mirBase_fasta'             => 'all_mirnas.fa', # What mirBase file to use. It is currently best to use on with the most appropriate set for your species
     'rfc_scaler'                => 'filter_dafs_rfc_scaler_human.pkl',
     'rfc_model'                 => 'filter_dafs_rfc_model_human.pkl',
