@@ -5652,13 +5652,13 @@ sub pipeline_analyses {
         -logic_name => 'genebuilder',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGeneBuilder',
         -parameters => {
-                         layering_output_db => $self->o('utr_db'),
-                         genebuilder_output_db => $self->o('genebuilder_db'),
+                         source_db => $self->o('utr_db'),
+                         target_db => $self->o('genebuilder_db'),
                          dna_db     => $self->o('dna_db'),
                          logic_name => 'ensembl',
                          module     => 'HiveGeneBuilder',
                          INPUT_GENES => {
-                           'input_db' => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GenebuilderStatic',
+                           source_db => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GenebuilderStatic',
                                                                $self->o('uniprot_set'), undef, 'ARRAY'),
                          },
                          OUTPUT_BIOTYPE => 'protein_coding',

@@ -97,18 +97,10 @@ sub param_defaults {
 sub fetch_input{
   my ($self) = @_;
 
-  my $input_dba = $self->hrdb_get_dba($self->param('layering_output_db'));
-  my $output_dba = $self->hrdb_get_dba($self->param('genebuilder_output_db'));
+  my $dna_dba = $self->get_database_by_name('dna_db');
+  my $input_dba = $self->get_database_by_name('source_db', $dna_dba);
+  my $output_dba = $self->get_database_by_name('target_db', $dna_dba);
 
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-
-
-  if($dna_dba) {
-    $input_dba->dnadb($dna_dba);
-    $output_dba->dnadb($dna_dba);
-  }
-
-  $self->hrdb_set_con($input_dba,'input_db');
   $self->hrdb_set_con($output_dba,'output_db');
 
   $self->create_analysis;
