@@ -316,17 +316,26 @@ sub remove_bad_transcripts {
 }
 
 
+=head2 transcript_score
+
+ Arg [1]    : Bio::EnsEMBL::Transcript
+ Description: Calculate a score for Arg[1] which is the sum of the percentage
+              of identity with the hit coverage from each supporting feature.
+              It selects the best score if there is more than one supporting
+              features.
+ Returntype : Int
+ Exceptions : None
+
+=cut
+
 sub transcript_score {
   my ($self,$transcript) = @_;
 
-  my $tsf = pop(@{$transcript->get_all_supporting_features});
-  unless($tsf) {
-    return(0);
+  my $combined_cov_pid = 0;
+  foreach my $tsf (@{$transcript->get_all_supporting_features}) {
+    $combined_cov_pid = $tsf->hcoverage + $tsf->percent_id if ($tsf->hcoverage + $tsf->percent_id > $combined_cov_pid);
   }
-
-  my $combined_cov_pid = $tsf->hcoverage + $tsf->percent_id;
-  return($combined_cov_pid);
-
+  return $combined_cov_pid;
 }
 
 
