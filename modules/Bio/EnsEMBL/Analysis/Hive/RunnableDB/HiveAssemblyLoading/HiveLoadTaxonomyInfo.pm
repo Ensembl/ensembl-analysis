@@ -83,7 +83,7 @@ sub fetch_input {
   if ($self->param('skip_analysis')) {
     $self->complete_early('Skipping the analysis');
   }
-  my $taxonomy_script = catfile($self->param_required('enscode_root_dir').'ensembl-production', 'scripts', 'production_database', 'populate_species_meta.pl');
+  my $taxonomy_script = catfile($self->param_required('enscode_root_dir'), 'ensembl-production', 'scripts', 'production_database', 'populate_species_meta.pl');
   my $target_db = $self->param_required('target_db');
   my $cmd = 'perl '.$taxonomy_script.
             ' -h '.$target_db->{'-host'}.
