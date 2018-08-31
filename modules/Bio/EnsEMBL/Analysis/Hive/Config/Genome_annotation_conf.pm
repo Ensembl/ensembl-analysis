@@ -302,6 +302,7 @@ sub default_options {
 ########################
 
     'num_tokens' => 10,
+    mysql_dump_options => '--max_allowed_packet=400MB',
 
 ########################
 # Executable paths
@@ -2097,6 +2098,7 @@ sub pipeline_analyses {
         -parameters => {
                          src_db_conn => $self->o('dna_db'),
                          output_file => catfile($self->o('output_path'), 'core_bak.sql.gz'),
+                         dump_options => $self->o('mysql_dump_options'),
                        },
         -rc_name    => 'default',
         -flow_into => { 1 => ['assembly_loading_report'] },
@@ -6289,6 +6291,7 @@ sub pipeline_analyses {
         -parameters => {
                          src_db_conn => $self->o('dna_db'),
                          output_file => catfile($self->o('output_path'), 'core_post_stable_idsbak.sql.gz'),
+                         dump_options => $self->o('mysql_dump_options'),
                        },
         -rc_name    => 'default',
         -flow_into => { 1 => ['load_external_db_ids_and_optimise_af_tables'] },
