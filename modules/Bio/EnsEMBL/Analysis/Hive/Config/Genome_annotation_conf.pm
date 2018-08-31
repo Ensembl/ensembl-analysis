@@ -1405,12 +1405,14 @@ sub pipeline_analyses {
                                       ' -dnahost '.$self->o('dna_db','-host').
                                       ' -dnadbname '.$self->o('dna_db','-dbname').
                                       ' -dnaport '.$self->o('dna_db','-port').
+                                      ' -dnauser '.$self->o('dna_db','-user').
                                       ' -user '.$self->o('user').
                                       ' -pass '.$self->o('password').
                                       ' -host '.$self->o('refseq_db','-host').
                                       ' -port '.$self->o('refseq_db','-port').
                                       ' -dbname '.$self->o('refseq_db','-dbname').
-                                      ' -infile '.catfile($self->o('output_path'), 'refseq_import', '#assembly_refseq_accession#_#assembly_name#_genomic.gff'),
+                                      ' -write'.
+                                      ' -file '.catfile($self->o('output_path'), 'refseq_import', '#assembly_refseq_accession#_#assembly_name#_genomic.gff'),
                        },
         -rc_name => 'refseq_import',
       },
