@@ -197,7 +197,8 @@ LINE: while ($gff_parser->next) {
   my $attributes = $gff_parser->get_attributes;
   if (exists $attributes->{Parent}) {
     my $parent = $attributes->{Parent};
-    if ($type eq 'exon' and !exists $do_not_process{$parent}) {
+    if ($type eq 'exon') {
+      next if (exists $do_not_process{$parent});
       my $exon = Bio::EnsEMBL::Exon->new();
       $exon->slice($slice);
       $exon->analysis($analysis);
@@ -697,7 +698,7 @@ sub add_xrefs {
       my ($dbname, $symbol, $third) = split(':', $xref);
       if ($third) {
         info("External database $dbname has ':' in its id: $symbol, taken from $xref")
-          unless ($symbol eq 'HGNC');
+          unless ($symbol eq 'HGNC' or $symbol eq 'MGI');
         $symbol .= ':'.$third;
       }
       next if (exists $unknowndbs{$dbname});
