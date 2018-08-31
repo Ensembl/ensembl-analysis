@@ -445,7 +445,7 @@ sub write_output {
   $meta_adaptor->store_key_value('assembly.default', $self->param('assembly_name'));
   $meta_adaptor->store_key_value('assembly.name', $self->param('assembly_name'));
   $meta_adaptor->store_key_value('assembly.web_accession_source', 'NCBI');
-  $meta_adaptor->store_key_value('assembly.web_accession_type', 'GenBank Assembly ID');
+  $meta_adaptor->store_key_value('assembly.web_accession_type', 'INSDC Assembly ID');
 
 # Not sure it will properly add the new values, hopefully it will and not cause problems
   my $job_params = destringify($self->input_job->input_id);
