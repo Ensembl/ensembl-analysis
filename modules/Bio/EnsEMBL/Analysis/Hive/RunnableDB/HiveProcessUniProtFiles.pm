@@ -100,9 +100,6 @@ sub fetch_input {
           ($source_db, $accession, $pe_level, $sequence_version) = ($1, $2, $3, $4);
           $versioned_accession = $accession.'.'.$sequence_version;
           $last_pe = $pe_level;
-          if ($seq =~ /U/) {
-            $source_db = 'seleno';
-          }
         }
         elsif ($header =~ /^([sptr]{2})\|([^\|]+-\d+)\|/) {
 # If you ask for isoforms, the first sequence has the PE level
@@ -125,6 +122,9 @@ sub fetch_input {
         else {
           $self->throw("Matched a header but couldn't parse it fully. Expect to find sp/tr, accession, ".
                        "pe level and sequence version. Offending header:\n".$header);
+        }
+        if ($seq =~ /U/) {
+          $source_db = 'seleno';
         }
         if(exists($kill_list->{$accession})) {
           say "Removing ".$accession." as it is present in kill list";
