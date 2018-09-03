@@ -522,54 +522,62 @@ sub in_file {
   my $display_id = $cdna->accession_number;
   $display_id .= '.'.$cdna->version if ($cdna->version);
   for my $feat_object ($cdna->get_SeqFeatures) {
-    next unless $feat_object->primary_tag eq "CDS";
-    $has_cds = 1;
-    my $start = $feat_object->start;
-    my $end = $feat_object->end;
-    my $strand = $strand_converter{$feat_object->strand};
-    if ($low_pe) {
-      print STDERR 'PE_low for ', $display_id, "\n";
-      $pe_low++;
-      $write_cdna = 0;
-    }
-    elsif($feat_object->location->isa('Bio::Location::Fuzzy')) {
-      print STDERR "Partial cds $display_id";
-      if ($feat_object->location->start_pos_type ne 'EXACT') {
-        print STDERR "\t", $feat_object->location->start_pos_type, ' ', $feat_object->location->start;
+    if ($feat_object->primary_tag eq 'CDS') {
+      $has_cds = 1;
+      if ($feat_object->has_tag('pseudo')) {
+        print STDERR "Pseudogene $display_id\t DISCARDING\n";
+        $write_cdna = 0;
       }
-      if ($feat_object->location->end_pos_type ne 'EXACT') {
-        print STDERR "\t", $feat_object->location->end_pos_type, ' ', $feat_object->location->end;
-      }
-      print STDERR "\tDISCARDING\n";
-      $partial_cds++;
-      $write_cdna = 0;
-    }
-    elsif ($strand && defined $start && defined $end) {
-      my $cdslength = $feat_object->length;
-      $string = $display_id."\t".$strand."\t".$start."\t".$cdslength;
-      if ( defined $clip_end ) {
-        if ( $clip_end eq "tail" ) {
-          if ( $cdslength < $end ) {
-            print STDERR "Clipped off too many bases from the tail: $display_id\n";
-            $do_substr = $end;
-          }
+      else {
+        my $start = $feat_object->start;
+        my $end = $feat_object->end;
+        my $strand = $strand_converter{$feat_object->strand};
+        if ($low_pe) {
+          print STDERR 'PE_low for ', $display_id, "\n";
+          $pe_low++;
+          $write_cdna = 0;
         }
-        elsif ( $clip_end eq "head" ) {
-          if ( $start - $num_bases_removed < 0 ) {
-            print STDERR "Clipped off too many bases from the head: $display_id\n";
-            $do_substr = $start - 1;
-            $string    = "$display_id\t$strand\t1\t$cdslength";
+        elsif($feat_object->location->isa('Bio::Location::Fuzzy')) {
+          print STDERR "Partial cds $display_id";
+          if ($feat_object->location->start_pos_type ne 'EXACT') {
+            print STDERR "\t", $feat_object->location->start_pos_type, ' ', $feat_object->location->start;
           }
-          else {
-            $string  = "$display_id\t$strand\t" . ( $start - $num_bases_removed ) . "\t$cdslength";
+          if ($feat_object->location->end_pos_type ne 'EXACT') {
+            print STDERR "\t", $feat_object->location->end_pos_type, ' ', $feat_object->location->end;
           }
+          print STDERR "\tDISCARDING\n";
+          $partial_cds++;
+          $write_cdna = 0;
+        }
+        elsif ($strand && defined $start && defined $end) {
+          my $cdslength = $feat_object->length;
+          $string = $display_id."\t".$strand."\t".$start."\t".$cdslength;
+          if ( defined $clip_end ) {
+            if ( $clip_end eq "tail" ) {
+              if ( $cdslength < $end ) {
+                print STDERR "Clipped off too many bases from the tail: $display_id\n";
+                $do_substr = $end;
+              }
+            }
+            elsif ( $clip_end eq "head" ) {
+              if ( $start - $num_bases_removed < 0 ) {
+                print STDERR "Clipped off too many bases from the head: $display_id\n";
+                $do_substr = $start - 1;
+                $string    = "$display_id\t$strand\t1\t$cdslength";
+              }
+              else {
+                $string  = "$display_id\t$strand\t" . ( $start - $num_bases_removed ) . "\t$cdslength";
+              }
+            }
+          }
+          $write_cdna = 1;
+        }
+        else {
+          print STDERR "Parse_problem $display_id\n";
+          $parse_problem++;
         }
       }
-      $write_cdna = 1;
-    }
-    else {
-      print STDERR "Parse_problem $display_id\n";
-      $parse_problem++;
+      last;
     }
   }
   if (!$has_cds) {
