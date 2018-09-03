@@ -19,17 +19,20 @@ use strict;
 use feature 'say';
 
 use Getopt::Long qw(:config no_ignore_case);
-use File::Spec::Functions;
+use File::Spec::Functions qw(catfile splitdir catdir updir);
 use File::Basename;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use Net::FTP;
+use Cwd qw(realpath);
 use Data::Dumper;
 
+use JSON;
 
 my $config_file;
 my $config_only = 0;
 
+my $total_running_workers_max = 200;
 my $base_guihive = 'http://guihive.ebi.ac.uk:8080';
 my $ftphost = "ftp.ncbi.nlm.nih.gov";
 my $ftpuser = "anonymous";
@@ -125,6 +128,47 @@ my $ftp_base_dir = '/genomes/all/';
 unless($config_only) {
   my $unique_file_name = basename($config_file).".cmds";
   open(LOOP_CMD,">".$general_hash->{'output_path'}."/".$unique_file_name) || die("Could not open $unique_file_name");
+}
+
+$total_running_workers_max = $general_hash->{total_running_workers_max} if (exists $general_hash->{total_running_workers_max});
+my @path = splitdir(realpath($0));
+while (my ($dir) = pop @path) {
+  print $dir, "\n";
+  if ($dir eq 'ensembl-analysis') {
+    last;
+  }
+}
+my $enscode_directory = catdir(@path);
+my $hive_directory;
+if (-d catdir($enscode_directory, 'ensembl-hive')) {
+  $hive_directory = catdir($enscode_directory, 'ensembl-hive');
+}
+elsif (-d catdir($enscode_directory, updir, 'ensembl-hive')) {
+  $hive_directory = catdir($enscode_directory, updir, 'ensembl-hive');
+}
+if ($hive_directory) {
+  my $json = '';
+  open(JH, catfile($hive_directory, 'hive_config.json')) || die ('Could not open '.catfile($hive_directory, 'hive_config.json'));
+  while(<JH>) {
+    chomp;
+    $json .= $_;
+  }
+  close(JH) || die ('Could not open '.catfile($hive_directory, 'hive_config.json'));
+  my $json_decoder = JSON->new->relaxed;
+  my $json_data = $json_decoder->decode($json);
+  if (exists $json_data->{Meadow}->{LSF}->{TotalRunningWorkersMax}) {
+    $json_data->{Meadow}->{LSF}->{TotalRunningWorkersMax} = $total_running_workers_max;
+  }
+  if (exists $json_data->{Meadow}->{LSF}->{EBI}->{TotalRunningWorkersMax}) {
+    $json_data->{Meadow}->{LSF}->{EBI}->{TotalRunningWorkersMax} = $total_running_workers_max;
+  }
+  open(JH, '>'.catfile($hive_directory, 'hive_config.json')) || die ('Could not open '.catfile($hive_directory, 'hive_config.json'));
+  $json_decoder->pretty(1);
+  print JH $json_decoder->encode($json_data);
+  close(JH) || die ('Could not open '.catfile($hive_directory, 'hive_config.json'));
+}
+else {
+  print "Cannot change the TotalRunningWorkersMax in you hive_config.json\n";
 }
 
 foreach my $accession (@accession_array) {
