@@ -1119,40 +1119,11 @@ sub pipeline_analyses {
           output_path   => $self->o('output_path'),
           target_db     => $self->o('reference_db'),
         },
-        -rc_name    => 'default',
-        -flow_into  => {
-          '2->A' => ['download_assembly_fasta'],
-          'A->1' => ['load_toplevel_sequences'],
-        },
-      },
-
-
-      {
-        # Download the files and dir structure from the NCBI ftp site. Uses the link to a species in the ftp_link_file
-        -logic_name => 'download_assembly_fasta',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData',
-        -parameters => {
-          output_dir => $self->o('output_path'),
-          download_method => 'ftp',
-        },
-        -rc_name    => 'default',
-      },
-
-
-      {
-        # Load the contigs into each reference db
-        -logic_name => 'load_toplevel_sequences',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadGenomeSequences',
-        -parameters => {
-          target_db   => $self->o('reference_db'),
-          output_path => $self->o('output_path'),
-        },
         -rc_name    => '4GB',
         -flow_into  => {
-                         1 => ['load_meta_info'],
-                       },
+          1 => ['load_meta_info'],
+        },
       },
-
 
       {
         # Load some meta info and seq_region_synonyms
