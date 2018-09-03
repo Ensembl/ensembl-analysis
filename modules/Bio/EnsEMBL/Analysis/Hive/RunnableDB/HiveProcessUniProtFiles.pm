@@ -80,6 +80,7 @@ sub fetch_input {
 
     my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($file_path);
 
+    my $last_pe = 2;
     while($parser->next()) {
       $input_seq_count++;
       my $seq = $parser->getSequence();
@@ -94,7 +95,7 @@ sub fetch_input {
         if ($seq =~ /(B|J|Z)/) {
           $self->warning("You have a $1 for $header, this may cause problems");
         }
-        my ($source_db, $accession, $pe_level, $sequence_version, $versioned_accession, $last_pe);
+        my ($source_db, $accession, $pe_level, $sequence_version, $versioned_accession);
         if ($header =~ /^([^\|]+)\|([^\|]+)\|.+ PE\=([1-5]) SV\=(\d+)/) {
           ($source_db, $accession, $pe_level, $sequence_version) = ($1, $2, $3, $4);
           $versioned_accession = $accession.'.'.$sequence_version;
@@ -115,6 +116,7 @@ sub fetch_input {
           ($accession) = $versioned_accession =~ /^(.+)\.\d+$/;
           if ($versioned_accession =~ /^NP_/) {
             $source_db = 'refseq';
+            $pe_level = 2;
           }
           else {
             $source_db = 'uniprot';
