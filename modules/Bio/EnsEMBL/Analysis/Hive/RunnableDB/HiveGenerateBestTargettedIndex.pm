@@ -82,7 +82,12 @@ sub fetch_input {
         $self->throw('Could not find '.$file) unless (-e $file);
       }
     }
-    $self->output(\@seqs);
+    if (@seqs) {
+      $self->output(\@seqs);
+    }
+    else {
+      $self->warning('Strange, you do not seem to have any full length cdna');
+    }
   }
   else {
     $self->input_job->autoflow(0);
@@ -129,7 +134,7 @@ sub _get_uniprot_accession {
   my ($self, $params, $seqs) = @_;
 
   $params->{query} = join(' ', map {$_->desc} @$seqs);
-  my $query_url = 'http://www.uniprot.org/uploadlists/';
+  my $query_url = 'https://www.uniprot.org/uploadlists/';
   my $ua = LWP::UserAgent->new(agent => 'libwwww-perl '.$self->param('email'));
   $ua->env_proxy();
   push(@{$ua->requests_redirectable}, 'POST');
@@ -139,7 +144,7 @@ sub _get_uniprot_accession {
     sleep $wait;
     $response = $ua->get($response->base);
   }
-  if ($response->is_success) {
+  if ($response->is_success and $response->content =~ /^Entry/) {
     my $result = $response->content;
     while($result =~ /(\w+)\s+(\d+)\s+(\S+)/mgc) {
      foreach my $acc (split(',', $3)) {
@@ -148,7 +153,7 @@ sub _get_uniprot_accession {
     }
   }
   else {
-    $self->throw($response->status_line.' for '.$response->request->uri);
+    $self->throw($response->status_line.' for '.$response->request->uri."\n".$response->content);
   }
   foreach my $seq (@$seqs) {
     $seq->desc($missing{$seq->desc}) if (exists $missing{$seq->desc});
