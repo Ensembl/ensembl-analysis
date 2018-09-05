@@ -44,9 +44,27 @@ use JSON::PP;
 use LWP::UserAgent;
 use File::Spec::Functions qw(splitpath);
 
-#use Bio::DB::EUtilities;
-
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters for the analysis
+               ena_base_url => 'http://www.ebi.ac.uk/ena/data/warehouse/search?display=report',
+               files_domain => 'domain=read&result=read_run',
+               files_fields => 'run_accession,study_accession,experiment_accession,sample_accession,secondary_sample_accession,instrument_platform,instrument_model,library_layout,library_strategy,nominal_length,read_count,base_count,fastq_ftp,fastq_aspera,fastq_md5,library_source,library_selection,center_name,study_alias,experiment_alias,experiment_title,study_title',
+               sample_domain => 'domain=sample&result=sample',
+               sample_fields => 'accession,secondary_sample_accession,bio_material,cell_line,cell_type,collected_by,collection_date,country,cultivar,culture_collection,description,dev_stage,ecotype,environmental_sample,first_public,germline,identified_by,isolate,isolation_source,location,mating_type,serotype,serovar,sex,submitted_sex,specimen_voucher,strain,sub_species,sub_strain,tissue_lib,tissue_type,variety,tax_id,scientific_name,sample_alias,center_name,protocol_label,project_name,investigation_type,experimental_factor,sample_collection,sequencing_method',
+               download_method => 'ftp',
+               separator => '\t',
+               _read_length => 1, # This is a default that should not exist. Some data do not have the read count and base count
+               _centre_name => 'ENA',
+               print_all_info => 0, # It will print all the sample information in the description instead of a selection, good to use when checking the CSV file
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
 
 sub param_defaults {
   my ($self) = @_;
@@ -58,14 +76,25 @@ sub param_defaults {
     files_fields => 'run_accession,study_accession,experiment_accession,sample_accession,secondary_sample_accession,instrument_platform,instrument_model,library_layout,library_strategy,nominal_length,read_count,base_count,fastq_ftp,fastq_aspera,fastq_md5,library_source,library_selection,center_name,study_alias,experiment_alias,experiment_title,study_title',
     sample_domain => 'domain=sample&result=sample',
     sample_fields => 'accession,secondary_sample_accession,bio_material,cell_line,cell_type,collected_by,collection_date,country,cultivar,culture_collection,description,dev_stage,ecotype,environmental_sample,first_public,germline,identified_by,isolate,isolation_source,location,mating_type,serotype,serovar,sex,submitted_sex,specimen_voucher,strain,sub_species,sub_strain,tissue_lib,tissue_type,variety,tax_id,scientific_name,sample_alias,center_name,protocol_label,project_name,investigation_type,experimental_factor,sample_collection,sequencing_method',
-    use_developmental_stages => 0,
     download_method => 'ftp',
     separator => '\t',
-    _read_length => 1, # This is a default that should not exist. Some data do not have the read count and base count
+    _read_length => 1,
     _centre_name => 'ENA',
+    print_all_info => 0,
   }
 }
 
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Create the query to be based on 'study_accession' or 'taxon_id'.
+              An array of values can be given.
+              If the 'inputfile' already exists, it will complete early
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub fetch_input {
   my ($self) = @_;
@@ -109,6 +138,18 @@ sub _populate_query {
   }
 }
 
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Query ENA to find all possibles project that could be used for the RNASeq pipeline
+              It will avoid samples which are for non coding RNA analyses or if the individual was
+              infected, immunised,...
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub run {
   my ($self) = @_;
 
@@ -132,6 +173,7 @@ sub run {
             %fields_index = map { $_ => $index++} split('\t', $line);
           }
           else {
+            # if these two checks below are removed, more time might be needed to prepare the CSV file
             next if ($line =~ / infected | [iIu]mmune| challenge |tomi[zs]ed/); # I do not want to do that but I don't think we have a choice
             next if ($line =~ /[Mm]i\w{0,3}RNA|lncRNA|circRNA|small RNA/); # I do not want to do that but I don't think we have a choice
             my @row = split("\t", $line);
@@ -301,6 +343,7 @@ sub run {
   }
 }
 
+
 =head2 write_output
 
  Arg [1]    : None
@@ -339,14 +382,21 @@ sub write_output {
           my (undef, undef, $filename) = splitpath($file);
           my $sample_name = $samples->{$sample}->{sample_name};
           $sample_name =~ s/\s+-\s+\w+:\w+$//;
-          $sample_name =~ tr/ :\t/_/;
+          $sample_name =~ s/[[:space:][:punct:]]+/_/g;
+          $sample_name =~ s/_{2,}/_/g;
+          $sample_name =~ s/^_|_$//g;
           my $description = sprintf("%s, %s%s",
             $experiment->{study_title},
             $experiment->{experiment_title},
             $samples->{$sample}->{cell_type} ? ', '.$samples->{$sample}->{cell_type} : '', );
+          if ($self->param('print_all_info')) {
+            foreach my $field (values %{$samples->{$sample}}) {
+              $description .= ';'.$field if ($field);
+            }
+          }
           $description =~ tr/:\t/ /;
           print FH sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s, %s, %s\n",
-            $sample_name,
+            lc($sample_name),
             $experiment->{run_accession},
             $experiment->{library_layout} eq 'PAIRED' ? 1 : 0,
             $filename,
