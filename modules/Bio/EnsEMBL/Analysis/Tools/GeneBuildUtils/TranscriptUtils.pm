@@ -1020,9 +1020,6 @@ sub split_Transcript{
         }
       }
     }
-    if ($stran->translation) {
-      #$stran = trim_cds_to_whole_codons($stran);
-    }
     foreach my $sf (@{$transcript->get_all_supporting_features}) {
       my @ugs;
       foreach my $ug ($sf->ungapped_features) {
@@ -1032,15 +1029,14 @@ sub split_Transcript{
         }
       }
       if (@ugs) {
-        my $newf = $sf->new(-features => \@ugs, -align_type => 'ensembl') if(@ugs);
+        my $newf = $sf->new(-features => \@ugs, -align_type => 'ensembl');
         $stran->add_supporting_features($newf);
       }
     }
     push @processed, $stran;
   }
 
-  my $info = "split_Transcript Returning " . scalar(@processed) . " transcripts";
-  logger_info($info);
+  logger_info('split_Transcript Returning ' . scalar(@processed) . ' transcripts');
   return \@processed;
 }
 
