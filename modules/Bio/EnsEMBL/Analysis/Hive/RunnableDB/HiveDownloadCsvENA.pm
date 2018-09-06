@@ -323,6 +323,9 @@ sub run {
           else {
             $self->throw('No dev stages for '.$sample.' "'.join('", "', keys %dev_stages).'"');
           }
+          if ($samples{$sample}->{sex}) {
+            $samples{$sample}->{sample_name} = $samples{$sample}->{sex}.'_'.$samples{$sample}->{sample_name};
+          }
         }
       }
       else {
@@ -330,7 +333,10 @@ sub run {
           next unless (exists $samples{$sample});
           $samples{$sample}->{sample_name} = $samples{$sample}->{cellType} || $samples{$sample}->{organismPart} || $samples{$sample}->{sample_alias} || $samples{$sample}->{description};
           if (!$samples{$sample}->{sample_name}) {
-            $self->throw('No dev stages for '.$sample);
+            $self->throw('No sample name for '.$sample);
+          }
+          if ($samples{$sample}->{sex}) {
+            $samples{$sample}->{sample_name} = $samples{$sample}->{sex}.'_'.$samples{$sample}->{sample_name};
           }
         }
       }
