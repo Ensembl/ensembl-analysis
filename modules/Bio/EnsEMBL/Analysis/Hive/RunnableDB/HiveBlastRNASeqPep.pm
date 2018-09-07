@@ -444,7 +444,7 @@ sub write_output {
 
   my $total_input_genes = scalar(keys(%{$self->genes_by_tran_id()}));
   my $success_percent = $total / $total_input_genes * 100;
-  if($total_input_genes >= 20 && $success_percent <= 90) {
+  if($total_input_genes >= 20 && $success_percent <= 80) {
     $self->throw("The number of output genes differs too much from the number of input genes\n".
                  "Total input: ".$total_input_genes."\nTotal output: ".$total);
   }
