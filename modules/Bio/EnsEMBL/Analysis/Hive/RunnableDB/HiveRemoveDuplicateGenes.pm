@@ -137,7 +137,6 @@ sub write_output{
                                          -logic_name => $logic_name_to_be,
                                          -displayable => 1
                                          );
-  my $slice = $self->query;
   foreach my $gene (@$genes_to_write) {
     empty_Gene($gene);
     $gene->analysis($analysis);

@@ -46,27 +46,11 @@ package Bio::EnsEMBL::Analysis::Runnable::lincRNAFinder;
 
 use strict;  
 use warnings;
-use vars   qw(@ISA);
 
-use Bio::EnsEMBL::Analysis::Runnable;
-use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils; 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(transfer_supporting_evidence Exon_info); # I don't think we need this... but need to check. 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(Transcript_info print_Transcript_and_Exons);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(compute_6frame_translations Gene_info) ; 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils; 
-use Bio::EnsEMBL::Registry; 
 
-
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
-
-
-
-sub new{
-  my ($class,@args) = @_;
-  my $self = $class->SUPER::new(@args); 
-  return $self;
-} 
+use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
 
 sub run{
