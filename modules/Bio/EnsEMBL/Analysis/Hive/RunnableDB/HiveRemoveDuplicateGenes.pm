@@ -95,13 +95,31 @@ sub run {
   my $self = shift; 
  
   print  "\nCOLLAPSING RNAseq models (removing duplications) BY GENEBUILDER. \n Afterwards feed lincRNA pipeline.\n";
-  my $tmp = $self->runnable->[0]; 
-  print  "\n 1. Running GeneBuilder for " . scalar( @{$tmp->input_genes} ). " RNAseq models...\n";  
   foreach my $runnable (@{$self->runnable}) {
+    print "\n 1. Running GeneBuilder for ".scalar(@{$runnable->input_genes})." RNAseq models...\n";
     $runnable->run;
-    $self->output($runnable->output);
-    print "Number of collapsed models: " . scalar(@{$self->output}) . "\n"; 
+    my @genes;
+    foreach my $gene (@{$runnable->output}) {
+      my $transcripts = $gene->get_all_Transcripts;
+      $gene->flush_Transcripts;
+      foreach my $transcript (@$transcripts) {
+        if ($transcript->length < 200) {
+          $self->say_with_header($transcript->display_id.' is smaller than 200 bp');
+        }
+        else {
+          $gene->add_Transcript($transcript);
+        }
+      }
+      if (@{$gene->get_all_Transcripts}) {
+        push(@genes, $gene);
+      }
+      else {
+        $self->say_with_header($gene->display_id.' has been removed has it has no transcript after the filter on length');
+      }
+    }
+    $self->output(\@genes);
   }
+  print 'Number of collapsed models: '.scalar(@{$self->output})."\n";
 }
 
 sub write_output{

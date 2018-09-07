@@ -122,9 +122,8 @@ sub run{
     print scalar(@{ $rg->get_all_Transcripts} ) ." translations found for old gene " . Gene_info($rg) . "::" . $rg->display_id() . "\n";  # " seq_region: " . $rg->seq_region_name . " start: " . $rg->seq_region_start . " end: " . $rg->seq_region_end . " strand: " . $rg->seq_region_strand . " \n" ;
 
     if (!defined $new_gene->get_all_Transcripts) {
-      $self->throw('  Could not compute translation for cDNA: gene dbID '. $rg->dbID . ' ' . $rg->seq_region_name . ' ' .
-             $rg->seq_region_start . ' ' . $rg->seq_region_end.' '.$rg->length) unless ($rg->length < 200);
-      $self->warning('Shorter than 200 bp '.$rg->dbID.' '.$rg->seq_region_name.' '.$rg->seq_region_start.' '.$rg->seq_region_end);
+      $self->warning('  Could not compute translation for cDNA: gene dbID '. $rg->dbID . ' ' . $rg->seq_region_name . ' ' .
+             $rg->seq_region_start . ' ' . $rg->seq_region_end.' '.$rg->length);
       next RG;
       $rg->biotype('gene_WITHOUT_translation');
       push @genes_withOUT_translations, $rg ; 
