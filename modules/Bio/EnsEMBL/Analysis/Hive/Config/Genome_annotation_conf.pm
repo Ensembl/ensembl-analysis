@@ -1425,6 +1425,7 @@ sub pipeline_analyses {
                          batch_slice_ids => 1,
                          batch_target_size => 10000000,
                        },
+        -rc_name    => '2GB',
         -flow_into => {
                          '2'    => ['semaphore_10mb_slices'],
                       },
