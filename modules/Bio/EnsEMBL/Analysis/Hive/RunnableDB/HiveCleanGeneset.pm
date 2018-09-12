@@ -1,58 +1,73 @@
-#!/usr/bin/env perl
+=head1 LICENSE
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-#Copyright [2016-2018] EMBL-European Bioinformatics Institute
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016-2018] EMBL-European Bioinformatics Institute
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+=head1 CONTACT
+
+Please email comments or questions to the public Ensembl
+developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
+
+Questions may also be sent to the Ensembl help desk at
+<http://www.ensembl.org/Help/Contact>.
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCleanGeneset
+
+=head1 SYNOPSIS
+
+
+=head1 DESCRIPTION
+
+Clean te geneset to remove really bad transcripts which have small introns
+or single exon models in an intron
+
+=cut
 
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCleanGeneset;
 
 use strict;
 use warnings;
 use feature 'say';
-use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene attach_Slice_to_Gene);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
+
+use File::Spec::Functions qw(catfile);
+use File::Path qw(make_path);
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
-use Data::Dumper;
 
 
 sub fetch_input {
   my $self = shift;
-  my $test_case = 0;
 
   if($self->param('skip_analysis')) {
     $self->complete_early('Skip analysis flag is enabled, so no cleaning will occur');
   }
 
-  my $analysis = Bio::EnsEMBL::Analysis->new(
-                                              -logic_name => $self->param('logic_name'),
-                                              -module => $self->param('module'),
-                                            );
-  $self->analysis($analysis);
+  $self->create_analysis;
 
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  $self->hrdb_set_con($dna_dba,'dna_db');
+  my $dna_dba = $self->get_database_by_name('dna_db');
 
-  my $input_dba = $self->hrdb_get_dba($self->param('input_db'));
+  my $input_dba = $self->get_database_by_name('input_db', $dna_dba);
   $self->hrdb_set_con($input_dba,'input_db');
-  $input_dba->dnadb($dna_dba);
 
   $self->load_genes();
 
-  my $output_path = $self->param('output_path');
+  my $output_path = $self->param_required('output_path');
   unless(-e $output_path) {
-    system("mkdir -p ".$output_path);
+    make_path($output_path);
   }
 
   my $blessed_biotypes = $self->param('blessed_biotypes');
@@ -75,12 +90,12 @@ sub write_output {
   my $self = shift;
 
   my $transcript_ids_to_remove = $self->transcript_ids_to_remove();
-  my $output_file = $self->param('output_path')."/transcript_ids_to_remove.txt";
-  open(OUT,">".$output_file);
+  my $output_file = catfile($self->param('output_path'), 'transcript_ids_to_remove.txt');
+  open(OUT, ">$output_file") || $self->throw("Could not open $output_file for writing");
   foreach my $id (@{$transcript_ids_to_remove}) {
     say OUT $id;
   }
-  close OUT;
+  close(OUT) || $self->throw("Could not open $output_file for writing");
 
   return 1;
 }
