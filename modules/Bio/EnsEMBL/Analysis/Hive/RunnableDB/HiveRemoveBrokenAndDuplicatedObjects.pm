@@ -197,8 +197,10 @@ sub write_output {
   my ($self) = @_;
 
   foreach my $object (@{$self->output}) {
-    $object->load if ($object->can('load'));
-    $object->adaptor->remove($object) if ($object->dbID);
+    if ($object->dbID) {
+      $object->load if ($object->can('load'));
+      $object->adaptor->remove($object);
+    }
   }
 }
 

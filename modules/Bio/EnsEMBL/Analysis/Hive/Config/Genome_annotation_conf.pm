@@ -4204,6 +4204,7 @@ sub pipeline_analyses {
           check_support => 0,
         },
         -rc_name    => '5GB',
+        -analysis_capacity => 1, # Because there is slice overlap, having parallel jobs can cause problems
         -flow_into => {
           1 => ['create_bam2introns_input_ids'],
         },
