@@ -39,12 +39,14 @@ my $ftpuser = "anonymous";
 my $ftppassword = "";
 my $assembly_registry_host = $ENV{GBS5};
 my $assembly_registry_port = $ENV{GBP5};
+my $force_init = 0;
 
 
 GetOptions('config_file:s' => \$config_file,
            'config_only!'  => \$config_only,
            'assembly_registry_host:s' => \$assembly_registry_host,
            'assembly_registry_port:s' => \$assembly_registry_port,
+           'force_init!' => \$force_init,
           );
 
 unless(-e $config_file) {
@@ -147,6 +149,7 @@ elsif (-d catdir($enscode_directory, updir, 'ensembl-hive')) {
   $hive_directory = catdir($enscode_directory, updir, 'ensembl-hive');
 }
 if ($hive_directory) {
+  print "Your hive directory is $hive_directory\n";
   my $json = '';
   open(JH, catfile($hive_directory, 'hive_config.json')) || die ('Could not open '.catfile($hive_directory, 'hive_config.json'));
   while(<JH>) {
@@ -234,7 +237,20 @@ foreach my $accession (@accession_array) {
 
   unless($config_only) {
     chdir($assembly_hash->{'output_path'});
-    my $cmd = "init_pipeline.pl Genome_annotation_conf.pm -hive_force_init 1";
+    my $cmd;
+    if ($hive_directory) {
+      $cmd = 'perl '.catfile($hive_directory, 'scripts', 'init_pipeline.pl');
+    }
+    else {
+      print "WARNING using init_pipeline.pl from your PATH, may not be the same as your PERL5LIB\n";
+      $cmd = 'init_pipeline.pl';
+    }
+    if ($force_init) {
+      $cmd .= ' Genome_annotation_conf.pm -hive_force_init 1';
+    }
+    else {
+      $cmd .= ' Genome_annotation_conf.pm';
+    }
     my $result = `$cmd`;
     unless($result =~ /beekeeper.+\-sync/) {
       die "Failed to run init_pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd;
