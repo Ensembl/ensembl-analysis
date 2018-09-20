@@ -4074,30 +4074,29 @@ sub pipeline_analyses {
         -rc_name    => '1GB',
         -parameters => {
           iid_type => 'slice',
-          coord_system_name => 'toplevel',
-          slice => 1,
           batch_slice_ids => 1,
           batch_target_size => 1000000,
-          include_non_reference => 0,
-          top_level => 1,
+          target_db => $self->o('rnaseq_rough_db'),
+        },
+        -flow_into => {
+          2 => {'create_overlapping_slices' => {'iid' => '#iid#', alignment_bam_file => '#filename#'}},
+        },
+      },
+
+      {
+        -logic_name => 'create_overlapping_slices', # Hopefully this can be removed when the new Bam2Genes module is ready
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -rc_name    => '1GB',
+        -parameters => {
+          iid_type => 'split_slice',
           slice_size => 5000000,
           slice_overlaps => 2500000,
           target_db => $self->o('rnaseq_rough_db'),
         },
         -flow_into => {
-          2 => {'fan_before_bam2introns' => {'iid' => '#iid#', alignment_bam_file => '#filename#'}},
-        },
-      },
-
-      {
-        -logic_name => 'fan_before_bam2introns', # Hopefully this can be removed when the new Bam2Genes module is ready
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {},
-        -rc_name    => '1GB',
-        -flow_into => {
-          '1->A' => ['split_on_low_coverage'],
+          '2->A' => {'split_on_low_coverage' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
           'A->1' => ['check_and_delete_broken_duplicated'],
-        }
+        },
       },
 
       {

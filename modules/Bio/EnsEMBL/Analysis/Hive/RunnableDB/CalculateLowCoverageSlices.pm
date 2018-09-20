@@ -81,6 +81,9 @@ sub fetch_input {
   my $slice_adaptor = $dna_dba->get_SliceAdaptor();
   my $slices = [];
   my $slice_names = $self->param_required('iid');
+  if (ref($slice_names) ne 'ARRAY') {
+    $slice_names = [$slice_names];
+  }
   foreach my $slice_name (@$slice_names) {
     say "Initial slice name: ".$slice_name;
     my $slice = $slice_adaptor->fetch_by_name($slice_name);

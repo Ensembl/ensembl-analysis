@@ -415,6 +415,8 @@ sub convert_slice_to_feature_ids {
 
  Arg [1]    : None
  Description: Split the slice given in 'iid' in smaller chunks given by 'slice_size'
+              If 'iid' is an arrayref, it considers that it is small enough and does
+              not split the slices.
               It stores the input ids in 'inputlist'
  Returntype : None
  Exceptions : Throws if 'iid' is not defined
@@ -429,11 +431,20 @@ sub split_slice {
     $self->throw('Slice size must be >= 0. Currently '.$self->param('slice_size'));
   }
 
-  my $sa = $dba->get_SliceAdaptor;
-  my $slices = split_Slices([$sa->fetch_by_name($self->param_required('iid'))], $self->param('slice_size'), $self->param('slice_overlaps'));
-  my @input_ids = map {$_->name} @$slices;
+  my $iid = $self->param_required('iid');
+  if (ref($iid) eq 'ARRAY' and @$iid > 1) {
+    $self->param('inputlist', [[$iid]]);
+  }
+  else {
+    my $sa = $dba->get_SliceAdaptor;
+    if (ref($iid) eq 'ARRAY') {
+      $iid = $iid->[0];
+    }
+    my $slices = split_Slices([$sa->fetch_by_name($iid)], $self->param('slice_size'), $self->param('slice_overlaps'));
+    my @input_ids = map {$_->name} @$slices;
 
-  $self->param('inputlist', \@input_ids);
+    $self->param('inputlist', \@input_ids);
+  }
 }
 
 
