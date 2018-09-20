@@ -2119,7 +2119,7 @@ sub pipeline_analyses {
           coord_system_version => '#assembly_name#',
           email => $self->o('email_address'),
         },
-        -rc_name => 'default',
+        -rc_name => '4GB',
         -flow_into => {
           1 =>['repeatmodeler_coverage'],
         },
@@ -2135,7 +2135,7 @@ sub pipeline_analyses {
           coord_system_version => '#assembly_name#',
           email => $self->o('email_address'),
         },
-        -rc_name => 'default',
+        -rc_name => '4GB',
       },
 
 
@@ -2613,7 +2613,7 @@ sub pipeline_analyses {
         iid_type => 'slice',
         top_level => 1,
       },
-      -rc_name      => 'default',
+      -rc_name      => '2GB',
       -flow_into => {
         '2->A' => ['pmatch'],
         'A->1' => ['bestpmatch'],
