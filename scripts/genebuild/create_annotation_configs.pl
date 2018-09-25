@@ -421,6 +421,14 @@ sub clade_settings {
       'uniprot_set'        => 'mammals_basic',
     },
 
+    'reptiles' => {
+      'repbase_library'    => 'Reptilia',
+      'repbase_logic_name' => 'reptiles',
+      'uniprot_set'        => 'reptiles_basic',
+      'masking_timer_long'  => '6h',
+      'masking_timer_short' => '3h',
+    },
+
     'fish_teleost' => {
       'repbase_library'     => 'Teleostei',
       'repbase_logic_name'  => 'teleost',

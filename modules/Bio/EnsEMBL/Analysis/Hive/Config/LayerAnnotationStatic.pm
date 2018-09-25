@@ -375,8 +375,21 @@ sub _master_config {
               DISCARD    => 0,
             },
 
-             {
+
+            {
               ID         => 'LAYER6',
+              BIOTYPES   => [
+                             'mammals_pe12_sp_3',
+                             'mammals_pe12_tr_3',
+                             'mammals_pe12_sp_4',
+                             'mammals_pe12_tr_4',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'],
+              DISCARD    => 0,
+            },
+
+             {
+              ID         => 'LAYER7',
               BIOTYPES   => [
                              'rnaseq_merged_6',
                              'rnaseq_tissue_6',
@@ -405,16 +418,6 @@ sub _master_config {
                              'mammals_pe12_sp_int_4',
                              'mammals_pe12_tr_int_4',
                            ],
-              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'],
-              DISCARD    => 0,
-            },
-
-             {
-              ID         => 'LAYER7',
-              BIOTYPES   => [
-                             'rnaseq_merged_7',
-                             'rnaseq_tissue_7',
-                            ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
               DISCARD    => 0,
             },
@@ -422,10 +425,20 @@ sub _master_config {
              {
               ID         => 'LAYER8',
               BIOTYPES   => [
+                             'rnaseq_merged_7',
+                             'rnaseq_tissue_7',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'],
+              DISCARD    => 0,
+            },
+
+             {
+              ID         => 'LAYER9',
+              BIOTYPES   => [
                               'rnaseq_merged',
                               'rnaseq_tissue',
                             ],
-              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7','LAYER8'],
               DISCARD    => 0,
             },
 
@@ -1066,6 +1079,214 @@ sub _master_config {
                               'vert_pe12_tr_7',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
+              DISCARD    => 0,
+            },
+
+    ],
+
+
+  reptiles_basic => [
+		  {
+               ID         => 'LAYER1',
+               BIOTYPES   => [
+                               'IG_C_gene',
+                               'IG_J_gene',
+                               'IG_V_gene',
+                               'IG_D_gene',
+                               'TR_C_gene',
+                               'TR_J_gene',
+                               'TR_V_gene',
+                               'TR_D_gene',
+                               'seleno_self',
+                             ],
+               DISCARD    => 0,
+             },
+
+
+		  {
+              ID         => 'LAYER2',
+              BIOTYPES   => [
+                             'cdna2genome',
+                             'edited',
+                             'gw_gtag',
+                             'gw_nogtag',
+                             'gw_exo',
+                             'rnaseq_merged_1',
+                             'rnaseq_merged_2',
+                             'rnaseq_merged_3',
+                             'rnaseq_merged_4',
+                             'rnaseq_tissue_1',
+                             'rnaseq_tissue_2',
+                             'rnaseq_tissue_3',
+                             'rnaseq_tissue_4',
+                             'self_pe12_sp_1',
+                             'self_pe12_tr_1',
+                             'self_pe12_sp_2',
+                             'self_pe12_tr_2',
+                            ],
+              FILTER_AGAINST => ['LAYER1'],
+              DISCARD    => 0,
+            },
+
+
+           {
+              ID         => 'LAYER3',
+              BIOTYPES   => [
+                             'projection_1',
+                             'projection_2',
+                             'rnaseq_merged_5',
+                             'rnaseq_tissue_5',
+                             'reptiles_pe12_sp_1',
+                             'reptiles_pe12_tr_1',
+                             'reptiles_pe12_tr_2',
+                             'reptiles_pe12_sp_2',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2'],
+              DISCARD    => 0,
+           },
+
+           {
+              ID         => 'LAYER4',
+              BIOTYPES   => [
+                             'human_pe12_sp_1',
+                             'human_pe12_tr_1',
+                             'human_pe12_tr_2',
+                             'human_pe12_sp_2',
+                             'aves_pe12_sp_1',
+                             'aves_pe12_tr_1',
+                             'aves_pe12_tr_2',
+                             'aves_pe12_sp_2',
+                             'amphibians_sp_1',
+                             'amphibians_tr_1',
+                             'amphibians_sp_2',
+                             'amphibians_tr_2',
+                             'reptiles_sp_3',
+                             'reptiles_tr_3',
+                             'reptiles_sp_4',
+                             'reptiles_tr_4',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
+              DISCARD    => 0,
+            },
+
+           {
+              ID         => 'LAYER5',
+              BIOTYPES   => [
+                             'projection_3',
+                             'projection_4',
+                             'mammals_pe12_sp_1',
+                             'mammals_pe12_tr_1',
+                             'mammals_pe12_sp_2',
+                             'mammals_pe12_tr_2',
+                             'self_pe3_sp_1',
+                             'self_pe3_tr_1',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
+              DISCARD    => 0,
+            },
+
+
+	   {
+              ID         => 'LAYER6',
+              BIOTYPES   => [
+                             'human_pe12_sp_3',
+                             'human_pe12_tr_3',
+                             'human_pe12_sp_4',
+                             'human_pe12_tr_4',
+                             'aves_pe12_sp_3',
+                             'aves_pe12_tr_3',
+                             'aves_pe12_sp_4',
+                             'aves_pe12_tr_4',
+                             'amphibians_sp_3',
+                             'amphibians_tr_3',
+                             'amphibians_sp_4',
+                             'amphibians_tr_4',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'],
+              DISCARD    => 0,
+            },
+
+
+	   {
+              ID         => 'LAYER7',
+              BIOTYPES   => [
+                             'mammals_pe12_sp_3',
+                             'mammals_pe12_tr_3',
+                             'mammals_pe12_sp_4',
+                             'mammals_pe12_tr_4',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
+              DISCARD    => 0,
+            },
+
+
+            {
+              ID         => 'LAYER8',
+              BIOTYPES   => [
+                             'rnaseq_merged_6',
+                             'rnaseq_tissue_6',
+                             'human_pe12_sp_int_1',
+                             'human_pe12_tr_int_1',
+                             'human_pe12_sp_int_2',
+                             'human_pe12_tr_int_2',
+                             'human_pe12_sp_int_3',
+                             'human_pe12_tr_int_3',
+                             'human_pe12_sp_int_4',
+                             'human_pe12_tr_int_4',
+                             'amphibians_pe12_sp_int_1',
+                             'amphibians_pe12_tr_int_1',
+                             'amphibians_pe12_sp_int_2',
+                             'amphibians_pe12_tr_int_2',
+                             'amphibians_pe12_sp_int_3',
+                             'amphibians_pe12_tr_int_3',
+                             'amphibians_pe12_sp_int_4',
+                             'amphibians_pe12_tr_int_4',
+                             'aves_pe12_sp_int_1',
+                             'aves_pe12_tr_int_1',
+                             'aves_pe12_sp_int_2',
+                             'aves_pe12_tr_int_2',
+                             'aves_pe12_sp_int_3',
+                             'aves_pe12_tr_int_3',
+                             'aves_pe12_sp_int_4',
+                             'aves_pe12_tr_int_4',
+                             'reptiles_pe12_sp_int_1',
+                             'reptiles_pe12_tr_int_1',
+                             'reptiles_pe12_sp_int_2',
+                             'reptiles_pe12_tr_int_2',
+                             'reptiles_pe12_sp_int_3',
+                             'reptiles_pe12_tr_int_3',
+                             'reptiles_pe12_sp_int_4',
+                             'reptiles_pe12_tr_int_4',
+                             'mammals_pe12_sp_int_1',
+                             'mammals_pe12_tr_int_1',
+                             'mammals_pe12_sp_int_2',
+                             'mammals_pe12_tr_int_2',
+                             'mammals_pe12_sp_int_3',
+                             'mammals_pe12_tr_int_3',
+                             'mammals_pe12_sp_int_4',
+                             'mammals_pe12_tr_int_4',
+                           ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'],
+              DISCARD    => 0,
+            },
+
+           {
+              ID         => 'LAYER9',
+              BIOTYPES   => [
+                             'rnaseq_merged_7',
+                             'rnaseq_tissue_7',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7','LAYER8'],
+              DISCARD    => 0,
+            },
+
+		  {
+              ID         => 'LAYER10',
+              BIOTYPES   => [
+                              'rnaseq_merged',
+                              'rnaseq_tissue',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7','LAYER8','LAYER9'],
               DISCARD    => 0,
             },
 

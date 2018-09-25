@@ -262,6 +262,9 @@ sub _master_config {
                              'vert_pe12_tr_4',
     ],
 
+    reptiles_basic => [
+    ],
+
     fish_basic => [
                              'IG_C_gene',
                              'IG_J_gene',
