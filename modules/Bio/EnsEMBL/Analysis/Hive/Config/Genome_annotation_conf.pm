@@ -66,7 +66,7 @@ sub default_options {
     'assembly_accession'        => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
     'assembly_refseq_accession' => '', # Versioned GCF accession, e.g. GCF_001857705.1
     'stable_id_prefix'          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
-    'species_url'               => ucfirst($self->o('production_name').$self->o('production_name_modifier')), # sets species.url meta key
+    'species_url'               => $self->o('production_name').$self->o('production_name_modifier'), # sets species.url meta key
     'species_division'          => 'EnsemblVertebrates', # sets species.division meta key
     'stable_id_start'           => '0', # When mapping is not required this is usually set to 0
     'skip_post_repeat_analyses' => '0', # Will everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
@@ -1154,7 +1154,7 @@ sub pipeline_analyses {
           sql => [
             'INSERT INTO meta (species_id, meta_key, meta_value) VALUES '.
               '(1, "species.stable_id_prefix", "'.$self->o('stable_id_prefix').'"),'.
-              '(1, "species.url", "'.$self->o('species_url').'"),'.
+              '(1, "species.url", "'.ucfirst($self->o('species_url')).'"),'.
               '(1, "species.division", "'.$self->o('species_division').'"),'.
               '(1, "genebuild.initial_release_date", NULL),'.
               '(1, "assembly.coverage_depth", "high"),'.
