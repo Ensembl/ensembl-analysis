@@ -92,7 +92,7 @@ sub run {
   my ($self) = @_;
 
   $self->{'pdb_info'} = $self->parse_pdb_file();
-  $self->{'perfect_matches'} = fetch_latest_uniprot_enst_perfect_matches($self->{'gifts_dbc'},$self->{'species'},$self->{'cs_version'});
+  $self->{'perfect_matches'} = fetch_latest_uniprot_enst_perfect_matches($self->{'cs_version'});
   $self->make_protein_features();
 
   return 1;
