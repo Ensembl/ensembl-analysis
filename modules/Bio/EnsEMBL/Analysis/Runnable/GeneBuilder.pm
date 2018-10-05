@@ -96,6 +96,9 @@ sub input_genes {
   my ($self, $arg) = @_;
   if($arg){
     $self->{'input_genes'} = $arg;
+    if (exists $self->{transcripts}) {
+      $self->{transcripts} = undef;
+    }
   }
   return $self->{'input_genes'};
 }
@@ -269,7 +272,7 @@ sub remove_readthrough {
                 if ($overlap != $num_exon) {
                   $to_remove{$readthrough} = -1;
 #                  print "TO REMOVE $overlap $num_exon\n";
-                  print_Transcript($readthrough);
+#                  print_Transcript($readthrough);
                 }
               }
             }

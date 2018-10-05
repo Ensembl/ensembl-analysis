@@ -66,7 +66,7 @@ sub default_options {
     'assembly_accession'        => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
     'assembly_refseq_accession' => '', # Versioned GCF accession, e.g. GCF_001857705.1
     'stable_id_prefix'          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
-    'species_url'               => ucfirst($self->o('production_name').$self->o('production_name_modifier')), # sets species.url meta key
+    'species_url'               => $self->o('production_name').$self->o('production_name_modifier'), # sets species.url meta key
     'species_division'          => 'EnsemblVertebrates', # sets species.division meta key
     'stable_id_start'           => '0', # When mapping is not required this is usually set to 0
     'skip_post_repeat_analyses' => '0', # Will everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
@@ -426,6 +426,8 @@ sub default_options {
     read_id_tag => 'ID',
 
     use_threads => 3,
+    rnaseq_merge_threads => 12,
+    rnaseq_merge_type => 'samtools',
     read_min_paired => 50,
     read_min_mapped => 50,
     other_isoforms => 'other', # If you don't want isoforms, set this to undef
@@ -991,6 +993,24 @@ sub pipeline_analyses {
       'wu' => '-cpus 3 -hitdist 40',
       'legacy_ncbi' => '-a 3 -A 40',
       );
+    my %bam_merge_parameters = (
+      picard => {
+        java       => 'java',
+        java_options  => '-Xmx2g',
+        # Path to MergeSamFiles.jar
+        picard_lib    => $self->o('picard_lib_jar'),
+        # Use this default options for Picard: 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT'
+        # You will need to change the options if you want to use samtools for merging
+        options       => 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT',
+        # If 0, do not use multithreading, faster but can use more memory.
+        # If > 0, tells how many cpu to use for samtools or just to use multiple cpus for picard
+        use_threading => $self->o('use_threads'),
+      },
+      samtools => {
+        options => '',
+        use_threading => $self->o('rnaseq_merge_threads'),
+      },
+    );
     my $header_line = create_header_line($self->default_options->{'file_columns'});
 
     return [
@@ -1153,7 +1173,7 @@ sub pipeline_analyses {
           sql => [
             'INSERT INTO meta (species_id, meta_key, meta_value) VALUES '.
               '(1, "species.stable_id_prefix", "'.$self->o('stable_id_prefix').'"),'.
-              '(1, "species.url", "'.$self->o('species_url').'"),'.
+              '(1, "species.url", "'.ucfirst($self->o('species_url')).'"),'.
               '(1, "species.division", "'.$self->o('species_division').'"),'.
               '(1, "genebuild.initial_release_date", NULL),'.
               '(1, "assembly.coverage_depth", "high"),'.
@@ -3959,17 +3979,7 @@ sub pipeline_analyses {
         -logic_name => 'merged_tissue_file',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMergeBamFiles',
         -parameters => {
-          java       => 'java',
-          java_options  => '-Xmx2g',
-          # If 0, do not use multithreading, faster but can use more memory.
-          # If > 0, tells how many cpu to use for samtools or just to use multiple cpus for picard
-          use_threading => $self->o('use_threads'),
-
-          # Path to MergeSamFiles.jar
-          picard_lib    => $self->o('picard_lib_jar'),
-          # Use this default options for Picard: 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT'
-          # You will need to change the options if you want to use samtools for merging
-          options       => 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT',
+          %{$bam_merge_parameters{$self->o('rnaseq_merge_type')}},
           # target_db is the database where we will write the files in the data_file table
           # You can use store_datafile => 0, if you don't want to store the output file
           target_db => $self->o('rnaseq_rough_db'),
@@ -4012,17 +4022,7 @@ sub pipeline_analyses {
         -logic_name => 'merged_bam_file',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMergeBamFiles',
         -parameters => {
-          java       => 'java',
-          java_options  => '-Xmx2g',
-          # If 0, do not use multithreading, faster but can use more memory.
-          # If > 0, tells how many cpu to use for samtools or just to use multiple cpus for picard
-          use_threading => $self->o('use_threads'),
-
-          # Path to MergeSamFiles.jar
-          picard_lib    => $self->o('picard_lib_jar'),
-          # Use this default options for Picard: 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT'
-          # You will need to change the options if you want to use samtools for merging
-          options       => 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT',
+          %{$bam_merge_parameters{$self->o('rnaseq_merge_type')}},
           # target_db is the database where we will write the files in the data_file table
           # You can use store_datafile => 0, if you don't want to store the output file
           target_db => $self->o('rnaseq_rough_db'),

@@ -603,6 +603,8 @@ sub add_five_prime_utr {
     push(@{$final_exons},$out_exon);
   }
 
+  my $translation_start = $transcript_a->translation->start;
+  my $translation_end = $transcript_a->translation->end;
   # If the donor exon is shorter (or the same length), then just make the acceptor boundry exon the start exon and add
   # all the other ones
   if(($strand == 1 && ($merge_exon_candidate_b->start >= $merge_exon_candidate_a->start)) ||
@@ -658,19 +660,15 @@ sub add_five_prime_utr {
                                              -SLICE     => $merge_exon_candidate_b->slice,
                                              -ANALYSIS  => $self->analysis,
                                              -PHASE     => -1,
-                                             -END_PHASE => $merge_exon_candidate_a->phase);
+                                             -END_PHASE => $merge_exon_candidate_a->end_phase);
 
     my $supporting_features_a = $merge_exon_candidate_a->get_all_supporting_features();
     $merge_exon->add_supporting_features(@{$supporting_features_a});
 
     push(@{$final_exons},$merge_exon);
 
-
-    my $new_translation_start;
-    if($strand == 1) {
-      $new_translation_start = $transcript_a->translation->start + ($merge_exon_candidate_a->start - $merge_exon_candidate_b->start);
-    } else {
-      $new_translation_start = $transcript_a->translation->start + ($merge_exon_candidate_b->end - $merge_exon_candidate_a->end);
+    if ($merge_exon_candidate_a->phase > 0) {
+      $translation_start += $merge_exon_candidate_a->phase == 1 ? 2 : 1;
     }
 
     # Add the remaining exons
@@ -715,11 +713,11 @@ sub add_five_prime_utr {
   my $genomic_start;
   my $genomic_end;
   if($transcript_a->strand == 1) {
-    $genomic_start = ($transcript_a->translation->start_Exon->seq_region_start + $transcript_a->translation->start - 1);
-    $genomic_end = ($transcript_a->translation->end_Exon->seq_region_start + $transcript_a->translation->end - 1);
+    $genomic_start = ($transcript_a->translation->start_Exon->seq_region_start + $translation_start - 1);
+    $genomic_end = ($transcript_a->translation->end_Exon->seq_region_start + $translation_end - 1);
   } else {
-    $genomic_start = ($transcript_a->translation->start_Exon->seq_region_end - $transcript_a->translation->start + 1);
-    $genomic_end = ($transcript_a->translation->end_Exon->seq_region_end - $transcript_a->translation->end + 1);
+    $genomic_start = ($transcript_a->translation->start_Exon->seq_region_end - $translation_start + 1);
+    $genomic_end = ($transcript_a->translation->end_Exon->seq_region_end - $translation_end + 1);
   }
 
  # my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
@@ -788,15 +786,28 @@ sub add_five_prime_utr {
   calculate_exon_phases($modified_transcript, 0);
 
 
+  my $old_translation = $transcript_a->translation->seq;
+  my $new_translation = $modified_transcript->translate->seq;
   say "\n";
   say "Acceptor original sequence:\n".$transcript_a->seq->seq;
+  say "Acceptor original translateable seq:\n".$transcript_a->translateable_seq();
   say "Acceptor current sequence:\n".$modified_transcript->seq->seq;
-  say "Acceptor original translation:\n".$transcript_a->translation->seq;
-  say "Acceptor current translation (from translateable seq):\n".$modified_transcript->translate->seq;
+  say "Acceptor current translateable seq:\n".$modified_transcript->translateable_seq();
+  say "Acceptor original translation:\n".$old_translation;
+  say "Acceptor current translation (from translateable seq):\n".$new_translation;
   say "Acceptor current translation (from translation object string):\n".$modified_transcript->translation->seq;
 
   unless($transcript_a->translation->seq eq $modified_transcript->translate->seq && $modified_transcript->translate->seq eq $modified_transcript->translation->seq) {
-    $self->throw("There is an issue with the translation after UTR was added. Check above for the sequences, all three should match");
+    $old_translation =~ s/^X//;
+    say "Acceptor original translation:\n".$old_translation;
+    say "Acceptor current  translation:\n".$new_translation;
+    if ($old_translation eq $new_translation && $modified_transcript->translate->seq eq $new_translation) {
+      $transcript_a->translation->start($transcript_a->translation->start+($transcript_a->start_Exon->phase == 1 ? 2 : 1));
+      $transcript_a->start_Exon->phase(0);
+    }
+    else {
+      $self->throw("There is an issue with the translation after UTR was added. Check above for the sequences, all three should match")
+    }
   }
 
   $transcript_a->{'5_prime_utr'} = $self->biotype_priorities->{$transcript_b->biotype};
@@ -1054,17 +1065,23 @@ sub add_three_prime_utr {
 
 
   my $modified_translation = $modified_transcript->translation();
+  my $old_translation = $transcript_a->translation->seq;
+  my $new_translation = $modified_transcript->translate->seq;
   say "\n";
   say "Acceptor original sequence:\n".$transcript_a->seq->seq;
   say "Acceptor original translateable seq:\n".$transcript_a->translateable_seq();
   say "Acceptor current sequence:\n".$modified_transcript->seq->seq;
   say "Acceptor current translateable seq:\n".$modified_transcript->translateable_seq();
-  say "Acceptor original translation:\n".$transcript_a->translation->seq;
-  say "Acceptor current translation (from translateable seq):\n".$modified_transcript->translate->seq;
+  say "Acceptor original translation:\n".$old_translation;
+  say "Acceptor current translation (from translateable seq):\n".$new_translation;
   say "Acceptor current translation (from translation object string):\n".$modified_transcript->translation->seq;
 
-  unless($transcript_a->translation->seq eq $modified_transcript->translate->seq && $modified_transcript->translate->seq eq $modified_transcript->translation->seq) {
-    $self->throw("There is an issue with the translation after UTR was added. Check above for the sequences, all three should match");
+  unless($old_translation eq $new_translation && $modified_transcript->translate->seq eq $new_translation) {
+    $old_translation =~ s/^X//;
+    say "Acceptor original translation:\n".$old_translation;
+    say "Acceptor current  translation:\n".$new_translation;
+    $self->throw("There is an issue with the translation after UTR was added. Check above for the sequences, all three should match")
+      unless ($old_translation eq $new_translation && $modified_transcript->translate->seq eq $new_translation);
   }
 
   $transcript_a->{'3_prime_utr'} = 1;

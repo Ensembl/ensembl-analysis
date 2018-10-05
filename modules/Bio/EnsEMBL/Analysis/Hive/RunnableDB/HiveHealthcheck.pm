@@ -317,12 +317,23 @@ sub supporting_evidence_presence {
     $sth->execute;
     my $count = 0;
     my $msg = '';
+    my $small_exon = 0;
     foreach my $row (@{$sth->fetchall_arrayref}) {
-      $msg .= join("\t", @$row) if ($count++ < $max_lines);
+      if ($row->[3]-$row->[2]+1 > 3) {
+        $msg .= join("\t", @$row) if ($count++ < $max_lines);
+      }
+      else {
+        $small_exon = 1;
+      }
     }
     if ($count) {
-      $self->say_with_header("$count rows where it should be 0. You should rerun this query: $query");
-      $failed = 1;
+      if ($small_exon) {
+        $self->say_with_header("$count exons smaller than 3bp do not have a supporting evidence but it is OK");
+      }
+      else {
+        $self->say_with_header("$count rows where it should be 0. You should rerun this query: $query");
+        $failed = 1;
+      }
     }
   }
   if ($failed) {

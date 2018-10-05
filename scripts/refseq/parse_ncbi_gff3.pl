@@ -379,26 +379,28 @@ GENE: foreach my $gene (@genes) {
         foreach my $transcript (@{$gene->get_all_Transcripts}) {
           if (!$transcript->translation) {
             my $cds_transcript = shift @cds;
-            my $cds = $cds_transcript->translation;
-            if ($transcript->start > $cds->start) {
-              if ($transcript->start_Exon->seq_region_end > $cds->start) {
-                $transcript->start_Exon->move($cds->start, $transcript->start_Exon->end);
-                $transcript->recalculate_coordinates;
+            if ($cds_transcript) {
+              my $cds = $cds_transcript->translation;
+              if ($transcript->start > $cds->start) {
+                if ($transcript->start_Exon->seq_region_end > $cds->start) {
+                  $transcript->start_Exon->move($cds->start, $transcript->start_Exon->end);
+                  $transcript->recalculate_coordinates;
+                }
+                else {
+                  $cds->start($transcript->start);
+                }
               }
-              else {
-                $cds->start($transcript->start);
+              if ($transcript->seq_region_end < $cds->end) {
+                if ($transcript->end_Exon->seq_region_end < $cds->end) {
+                  $transcript->end_Exon->move($transcript->end_Exon->start, $cds->end);
+                  $transcript->recalculate_coordinates;
+                }
+                else {
+                  $cds->end($transcript->end);
+                }
               }
+              $transcript->translation($cds);
             }
-            if ($transcript->seq_region_end < $cds->end) {
-              if ($transcript->end_Exon->seq_region_end < $cds->end) {
-                $transcript->end_Exon->move($transcript->end_Exon->start, $cds->end);
-                $transcript->recalculate_coordinates;
-              }
-              else {
-                $cds->end($transcript->end);
-              }
-            }
-            $transcript->translation($cds);
           }
         }
       }
