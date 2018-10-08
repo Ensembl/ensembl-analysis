@@ -836,7 +836,7 @@ sub default_options {
       -port   => $self->o('staging_1_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
-      -dbname => 'ensembl_production_'.$self->o('ensembl_release'),
+      -dbname => 'ensembl_production_#wide_ensembl_release#',
       -driver => $self->o('hive_driver'),
     },
 
@@ -952,8 +952,7 @@ sub pipeline_wide_parameters {
     load_toplevel_only => $self->o('load_toplevel_only'),
     wide_repeat_logic_names => $self->o('use_repeatmodeler_to_mask') ? [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'] :
                                                                                        [$self->o('full_repbase_logic_name'),'dust'],
-
-
+    wide_ensembl_release => $self->o('ensembl_release'),
   }
 }
 
