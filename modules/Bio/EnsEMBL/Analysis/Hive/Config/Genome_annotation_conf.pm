@@ -87,6 +87,7 @@ sub default_options {
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
 
     # Keys for custom loading, only set/modify if that's what you're doing
+    'skip_genscan_blasts'       => '1',
     'load_toplevel_only'        => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
     'custom_toplevel_file_path' => undef, # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
     'repeatmodeler_library'     => '', # This should be the path to a custom repeat library, leave blank if none exists
@@ -1830,7 +1831,7 @@ sub pipeline_analyses {
         -flow_into => {
                         # No need to semaphore the jobs with issues as the blast analyses work off prediction transcript
                         # ids from slices that genscan succeeds on. So passing small slices in and ignore failed slices is fine
-                        1 => ['create_prediction_transcript_ids'],
+                        1 => ['fan_genscan_blasts'],
                         -1 => ['decrease_genscan_slice_size'],
                         -2 => ['decrease_genscan_slice_size'],
                         -3 => ['decrease_genscan_slice_size'],
@@ -1870,7 +1871,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'genscan',
         -flow_into => {
-                        1 => ['create_prediction_transcript_ids'],
+                        1 => ['fan_genscan_blasts'],
                         -1 => ['failed_genscan_slices'],
                         -2 => ['failed_genscan_slices'],
                         -3 => ['failed_genscan_slices'],
@@ -1888,6 +1889,19 @@ sub pipeline_analyses {
                        },
         -rc_name          => 'default',
         -can_be_empty  => 1,
+      },
+
+
+      {
+        # This will skip downstream analyses like cpg, eponine, genscan etc. if the flag is set
+        -logic_name => 'fan_genscan_blasts',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'if [ "#skip_genscan_blasts#" -ne "0" ]; then exit 42; else exit 0;fi',
+          return_codes_2_branches => {'42' => 2},
+        },
+        -rc_name    => 'default',
+        -flow_into  => { '1' => ['create_prediction_transcript_ids'] },
       },
 
 
