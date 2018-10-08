@@ -1896,7 +1896,7 @@ sub pipeline_analyses {
         -logic_name => 'fan_genscan_blasts',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'if [ "#skip_genscan_blasts#" -ne "0" ]; then exit 42; else exit 0;fi',
+          cmd => 'if [ "'.$self->o('skip_genscan_blasts').'" -ne "0" ]; then exit 42; else exit 0;fi',
           return_codes_2_branches => {'42' => 2},
         },
         -rc_name    => 'default',
