@@ -993,24 +993,6 @@ sub pipeline_analyses {
       'wu' => '-cpus 3 -hitdist 40',
       'legacy_ncbi' => '-a 3 -A 40',
       );
-    my %bam_merge_parameters = (
-      picard => {
-        java       => 'java',
-        java_options  => '-Xmx2g',
-        # Path to MergeSamFiles.jar
-        picard_lib    => $self->o('picard_lib_jar'),
-        # Use this default options for Picard: 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT'
-        # You will need to change the options if you want to use samtools for merging
-        options       => 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT',
-        # If 0, do not use multithreading, faster but can use more memory.
-        # If > 0, tells how many cpu to use for samtools or just to use multiple cpus for picard
-        use_threading => $self->o('use_threads'),
-      },
-      samtools => {
-        options => '',
-        use_threading => $self->o('rnaseq_merge_threads'),
-      },
-    );
     my $header_line = create_header_line($self->default_options->{'file_columns'});
 
     return [
@@ -3979,7 +3961,7 @@ sub pipeline_analyses {
         -logic_name => 'merged_tissue_file',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMergeBamFiles',
         -parameters => {
-          %{$bam_merge_parameters{$self->o('rnaseq_merge_type')}},
+          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BamMergeStatic', $self->o('rnaseq_merge_type'))},
           # target_db is the database where we will write the files in the data_file table
           # You can use store_datafile => 0, if you don't want to store the output file
           target_db => $self->o('rnaseq_rough_db'),
@@ -4022,7 +4004,7 @@ sub pipeline_analyses {
         -logic_name => 'merged_bam_file',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMergeBamFiles',
         -parameters => {
-          %{$bam_merge_parameters{$self->o('rnaseq_merge_type')}},
+          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BamMergeStatic', $self->o('rnaseq_merge_type'))},
           # target_db is the database where we will write the files in the data_file table
           # You can use store_datafile => 0, if you don't want to store the output file
           target_db => $self->o('rnaseq_rough_db'),
