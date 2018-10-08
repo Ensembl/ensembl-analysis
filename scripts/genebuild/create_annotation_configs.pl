@@ -423,6 +423,12 @@ sub clade_settings {
       'uniprot_set'        => 'mammals_basic',
     },
 
+    'birds' => {
+      'repbase_library'    => 'Birds',
+      'repbase_logic_name' => 'birds',
+      'uniprot_set'        => 'birds_basic',
+    },
+
     'reptiles' => {
       'repbase_library'    => 'Reptilia',
       'repbase_logic_name' => 'reptiles',
