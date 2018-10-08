@@ -135,7 +135,6 @@ unless($config_only) {
 $total_running_workers_max = $general_hash->{total_running_workers_max} if (exists $general_hash->{total_running_workers_max});
 my @path = splitdir(realpath($0));
 while (my ($dir) = pop @path) {
-  print $dir, "\n";
   if ($dir eq 'ensembl-analysis') {
     last;
   }
@@ -257,6 +256,9 @@ foreach my $accession (@accession_array) {
     }
 
     my $sync_command = $&;
+    if ($hive_directory) {
+      $sync_command = 'perl '.catdir($hive_directory, 'scripts').catfile('','').$sync_command; # The crazy catfile in the middle is to get the path separator
+    }
     my $return = system($sync_command);
     if($return) {
       die "Failed to sync the pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd;
