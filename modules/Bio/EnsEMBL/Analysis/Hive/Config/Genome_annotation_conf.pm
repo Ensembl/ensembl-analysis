@@ -905,7 +905,8 @@ sub pipeline_create_commands {
                     'PRIMARY KEY (fastq))'),
 
 # Commenting out lincRNA pfam pipeline commands until we put that bit back in
-#'mkdir -p '.$self->o('lncrna_dir'),
+'mkdir -p '.$self->o('rnaseq_dir'),
+
 #"cat <<EOF > ".$self->o('registry_file')."
 #{
 #package reg;
