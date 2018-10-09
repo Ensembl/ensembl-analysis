@@ -59,11 +59,8 @@ sub new {
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ($core_dba,$gifts_dba,$pdb_filepath,$species,$cs_version) = rearrange([qw(core_dba gifts_dba pdb_filepath species cs_version)],@args);
+    my ($core_dba,$pdb_filepath,$species,$cs_version) = rearrange([qw(core_dba pdb_filepath species cs_version)],@args);
 
-    $self->{'core_dba'} = $core_dba;
-    $self->{'gifts_dba'} = $gifts_dba;
-    $self->{'gifts_dbc'} = $gifts_dba->dbc();
     $self->{'pdb_filepath'} = $pdb_filepath;
     $self->{'species'} = $species;
     $self->{'cs_version'} = $cs_version;
