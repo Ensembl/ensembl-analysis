@@ -48,6 +48,9 @@ sub _master_config {
 
   my %config = (
     default => {
+      # If 0, do not use multithreading, faster but can use more memory.
+      # If > 0, tells how many cpu to use for samtools or just to use multiple cpus for picard
+      use_threading => '#use_threads#',
     },
     picard => {
       java       => 'java',
@@ -57,13 +60,9 @@ sub _master_config {
       # Use this default options for Picard: 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT'
       # You will need to change the options if you want to use samtools for merging
       options       => 'MAX_RECORDS_IN_RAM=20000000 CREATE_INDEX=true SORT_ORDER=coordinate ASSUME_SORTED=true VALIDATION_STRINGENCY=LENIENT',
-      # If 0, do not use multithreading, faster but can use more memory.
-      # If > 0, tells how many cpu to use for samtools or just to use multiple cpus for picard
-      use_threading => '#use_threads#',
     },
     samtools => {
       options => '',
-      use_threading => '#rnaseq_merge_threads#',
     },
   );
 

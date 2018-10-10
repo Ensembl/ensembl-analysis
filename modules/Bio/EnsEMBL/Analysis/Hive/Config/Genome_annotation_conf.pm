@@ -42,6 +42,7 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
+    'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name'             => '', # What you want hive to call the pipeline, not the db name itself
     'user_r'                    => '', # read only db user
     'user'                      => '', # write db user
@@ -86,6 +87,7 @@ sub default_options {
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
 
     # Keys for custom loading, only set/modify if that's what you're doing
+    'skip_genscan_blasts'       => '1',
     'load_toplevel_only'        => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
     'custom_toplevel_file_path' => undef, # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
     'repeatmodeler_library'     => '', # This should be the path to a custom repeat library, leave blank if none exists
@@ -330,7 +332,7 @@ sub default_options {
     samtools_path => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
     picard_lib_jar => catfile($self->o('software_base_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
     bwa_path => catfile($self->o('software_base_path'), 'opt', 'bwa-051mt', 'bin', 'bwa'), #You may need to specify the full path to the bwa binary
-    refine_ccode_exe => catfile($self->o('binary_base'), 'RefineSolexaGenes'), #You may need to specify the full path to the RefineSolexaGenes binary
+    refine_ccode_exe => '/nfs/production/panda/ensembl/genebuild/bin/RefineSolexaGenes-0.3.6-91' || catfile($self->o('binary_base'), 'RefineSolexaGenes'), #You may need to specify the full path to the RefineSolexaGenes binary
     interproscan_exe => catfile($self->o('binary_base'), 'interproscan.sh'),
     bedtools => catfile($self->o('binary_base'), 'bedtools'),
     bedGraphToBigWig => catfile($self->o('binary_base'), 'bedGraphToBigWig'),
@@ -834,7 +836,7 @@ sub default_options {
       -port   => $self->o('staging_1_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
-      -dbname => 'ensembl_production_'.$self->o('ensembl_release'),
+      -dbname => 'ensembl_production_#wide_ensembl_release#',
       -driver => $self->o('hive_driver'),
     },
 
@@ -904,7 +906,8 @@ sub pipeline_create_commands {
                     'PRIMARY KEY (fastq))'),
 
 # Commenting out lincRNA pfam pipeline commands until we put that bit back in
-#'mkdir -p '.$self->o('lncrna_dir'),
+'mkdir -p '.$self->o('rnaseq_dir'),
+
 #"cat <<EOF > ".$self->o('registry_file')."
 #{
 #package reg;
@@ -949,8 +952,7 @@ sub pipeline_wide_parameters {
     load_toplevel_only => $self->o('load_toplevel_only'),
     wide_repeat_logic_names => $self->o('use_repeatmodeler_to_mask') ? [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'] :
                                                                                        [$self->o('full_repbase_logic_name'),'dust'],
-
-
+    wide_ensembl_release => $self->o('ensembl_release'),
   }
 }
 
@@ -1828,7 +1830,7 @@ sub pipeline_analyses {
         -flow_into => {
                         # No need to semaphore the jobs with issues as the blast analyses work off prediction transcript
                         # ids from slices that genscan succeeds on. So passing small slices in and ignore failed slices is fine
-                        1 => ['create_prediction_transcript_ids'],
+                        1 => ['fan_genscan_blasts'],
                         -1 => ['decrease_genscan_slice_size'],
                         -2 => ['decrease_genscan_slice_size'],
                         -3 => ['decrease_genscan_slice_size'],
@@ -1868,7 +1870,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'genscan',
         -flow_into => {
-                        1 => ['create_prediction_transcript_ids'],
+                        1 => ['fan_genscan_blasts'],
                         -1 => ['failed_genscan_slices'],
                         -2 => ['failed_genscan_slices'],
                         -3 => ['failed_genscan_slices'],
@@ -1886,6 +1888,19 @@ sub pipeline_analyses {
                        },
         -rc_name          => 'default',
         -can_be_empty  => 1,
+      },
+
+
+      {
+        # This will skip downstream analyses like cpg, eponine, genscan etc. if the flag is set
+        -logic_name => 'fan_genscan_blasts',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'if [ "'.$self->o('skip_genscan_blasts').'" -ne "0" ]; then exit 42; else exit 0;fi',
+          return_codes_2_branches => {'42' => 2},
+        },
+        -rc_name    => 'default',
+        -flow_into  => { '1' => ['create_prediction_transcript_ids'] },
       },
 
 
@@ -2654,7 +2669,7 @@ sub pipeline_analyses {
         MAX_INTRON_LENGTH => 50000,
         OPTIONS => '-T 20', # set threshold to 14 for more sensitive search
       },
-      -rc_name          => 'default',
+      -rc_name          => '2GB',
     },
     {
 
@@ -2666,7 +2681,7 @@ sub pipeline_analyses {
         PMATCH_LOGIC_NAME => ['pmatch'],
         MIN_COVERAGE => 50,
       },
-      -rc_name          => 'default',
+      -rc_name          => '2GB',
       -flow_into => {
         1 => ['generate_targetted_jobs'],
       },
@@ -3972,6 +3987,8 @@ sub pipeline_analyses {
           output_dir => $self->o('merge_dir'),
           input_dir => $self->o('output_dir'),
           samtools => $self->o('samtools_path'),
+          picard_lib_jar => $self->o('picard_lib_jar'),
+          use_threads => $self->o('rnaseq_merge_threads'),
         },
         -rc_name    => '3GB_multithread',
         -flow_into => {
@@ -4016,6 +4033,8 @@ sub pipeline_analyses {
           output_dir => $self->o('merge_dir'),
           input_dir => $self->o('merge_dir'),
           samtools => $self->o('samtools_path'),
+          picard_lib_jar => $self->o('picard_lib_jar'),
+          use_threads => $self->o('rnaseq_merge_threads'),
         },
         -rc_name    => '5GB_merged_multithread',
         -flow_into => {
