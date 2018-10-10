@@ -3987,6 +3987,8 @@ sub pipeline_analyses {
           output_dir => $self->o('merge_dir'),
           input_dir => $self->o('output_dir'),
           samtools => $self->o('samtools_path'),
+          picard_lib_jar => $self->o('picard_lib_jar'),
+          use_threads => $self->o('rnaseq_merge_threads'),
         },
         -rc_name    => '3GB_multithread',
         -flow_into => {
@@ -4031,6 +4033,8 @@ sub pipeline_analyses {
           output_dir => $self->o('merge_dir'),
           input_dir => $self->o('merge_dir'),
           samtools => $self->o('samtools_path'),
+          picard_lib_jar => $self->o('picard_lib_jar'),
+          use_threads => $self->o('rnaseq_merge_threads'),
         },
         -rc_name    => '5GB_merged_multithread',
         -flow_into => {
