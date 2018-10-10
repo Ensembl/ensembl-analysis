@@ -2669,7 +2669,7 @@ sub pipeline_analyses {
         MAX_INTRON_LENGTH => 50000,
         OPTIONS => '-T 20', # set threshold to 14 for more sensitive search
       },
-      -rc_name          => 'default',
+      -rc_name          => '2GB',
     },
     {
 
@@ -2681,7 +2681,7 @@ sub pipeline_analyses {
         PMATCH_LOGIC_NAME => ['pmatch'],
         MIN_COVERAGE => 50,
       },
-      -rc_name          => 'default',
+      -rc_name          => '2GB',
       -flow_into => {
         1 => ['generate_targetted_jobs'],
       },
