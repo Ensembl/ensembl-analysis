@@ -63,6 +63,8 @@ sub default_options {
         # inherit other stuff from the base class
         %{ $self->SUPER::default_options() },
         use_jira => 1,
+        jira_user => '' || $ENV{JIRA_USER},
+        jira_password => '' || $ENV{JIRA_PASS},
         ensembl_release => $ENV{ENSEMBL_RELEASE}, # Use it on the commandline: -ensembl_release XX
         #working_dir => '', # Use it on the command line or uncomment: -working_dir /path/to/my/scratch/relco_duties_87
         #user => '', # Use it on the command line or uncomment: -user mysql_rw_user
@@ -93,6 +95,9 @@ sub default_options {
         samtools => catfile($self->o('binary_base'), 'samtools'), # It might be better to give the absolute path, but I think it's ok
         webdev_nfs => '/nfs/production/panda/ensembl/production/ensemblftp/data_files',
 
+        enscode_root_dir => $ENV{ENSCODE},
+        ensembl_analysis_dir => catdir($self->o('enscode_root_dir'), 'ensembl-analysis'),
+        production_dir => catdir($self->o('enscode_root_dir'), 'ensembl-production'),
         check_datafiles_script => catfile($self->o('production_dir'), 'scripts', 'datafiles', 'check_datafiles.pl'),
         compare_gencode_refseq_script => catfile($self->o('ensembl_analysis_dir'), 'scripts', 'Merge', 'compare_gencode_refseq_genes.pl'),
         overlap_gencode_refseq_script => catfile($self->o('ensembl_analysis_dir'), 'scripts', 'refseq', 'ens_refseq_comparison.pl'),
@@ -173,9 +178,9 @@ sub pipeline_analyses {
 
   my %jira_tickets;
   my @default_tickets;
+  my $user = $self->o('jira_user');
+  my $password = $self->o('jira_password');
   if ($self->o('use_jira') eq '1') {
-    my $user = $self->default_options->{'jira_user'};
-    my $password = $self->default_options->{'jira_password'};
     %jira_tickets = (
       version_ticket_name => 'Update release ENSEMBL_RELEASE in genebuild.sh to '.$self->o('ensembl_release'),
       release_ticket_name  => 'Genebuild Relco release '.$self->o('ensembl_release'),
