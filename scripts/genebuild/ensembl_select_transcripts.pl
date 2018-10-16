@@ -760,10 +760,3 @@ sub transcript_sorter {
   @output_array = sort { $input_hash{$b} <=> $input_hash{$a} } keys %input_hash;
   return $output_array[0];
 }
-
-sub get_top_keys {
-  my ($query, $input_hash_ref) = @_;
-  my %input_hash = %$input_hash_ref;
-  my @output_array = grep { $input_hash{$_} eq $input_hash{$query} } keys %input_hash;
-  return @output_array;
-}
