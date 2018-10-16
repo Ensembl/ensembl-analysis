@@ -51,7 +51,6 @@ my $outdbhost = '';
 my $outdbport = '';
 
 # The following options need to be specified - 0 for no 1 for yes
-my $create_new_db = 0;
 my $write_to_db = 0;
 my $download_data = 1;
 my $use_kill_list = 0;
@@ -91,10 +90,6 @@ my $alert_file2 = $outdir.'/multiple_transcripts_variants_'.$ensembl_version.'.t
 # The following are biotypes that we'll consider for the canonical transcripts. This list can be updated as needed.
 my @allowed_biotypes = ('protein_coding','TR_V_gene','TR_J_gene','TR_D_gene','TR_C_gene','IG_D_gene','IG_J_gene','IG_V_gene','IG_C_gene');
 
-if ($create_new_db && ($use_kill_list || $use_keep_list)) {
-  throw("ERROR: You cannot choose to use a kill list or keep list if you're also creating a new database as the new databse will not have either of these tables populated.\n");
-}
-
 GetOptions(
   "dbuser|user|u=s" => \$dbuser,          # string
   "dbhost|host|h=s" => \$dbhost,          # string
@@ -119,7 +114,6 @@ GetOptions(
   "outdbname=s" => \$outdbname,           # string
   "outpass=s" => \$outdbpass,             # string
   "write_to_db" => \$write_to_db,         # numeric
-  "create_new_db" => \$create_new_db,     # numeric
 );
 
 
@@ -169,22 +163,6 @@ my $aa = $coredb->get_AttributeAdaptor();
 
 # make the output directory
 system ("mkdir -p $outdir");
-
-# if the data are being written to a new db then clone it
-if ($create_new_db) {
-  say "Creating database: ".$outdbname."@".$outdbhost.":".$outdbport;
-  my $create_command = "ksh ".$clone_db_script." -l -s ".$dbname."@".$dbhost.":".$dbport." -r ".$dbuser." -t ".$outdbname."@".$outdbhost.":".$outdbport." -w ".$outdbuser." -P ".$outdbpass;
-  my $exit_code = system($create_command);
-  if($exit_code) {
-    throw("The clone script exited with a non-zero exit code. The database may already exist. Make sure that you've specified the correct options with regards to writing to a creating a new db: ".$exit_code);
-  }
-  my $kill_table_create = $outdb->dbc->prepare("CREATE TABLE transcript_kill_list (gene_stable_id VARCHAR(20), transcript_stable_id VARCHAR(20), reason TEXT)");
-  $kill_table_create->execute();
-  $kill_table_create->finish;
-  my $keep_table_create = $outdb->dbc->prepare("CREATE TABLE transcript_keep_list (gene_stable_id VARCHAR(20), transcript_stable_id VARCHAR(20), reason TEXT)");
-  $keep_table_create->execute();
-  $keep_table_create->finish;
-}
 
 # assign the kill list transcripts
 my %kill_transcript;
