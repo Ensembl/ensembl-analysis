@@ -35,8 +35,9 @@ sub param_defaults {
     input_biotype  => 'pre_lncRNA',
     output_biotype => 'lncRNA',
     # lncRNAs can be kept based on passing either min sequence or min exon cutoffs
+    min_sequence => 200,
     min_exons => 3,
-    min_sequence => 1000,
+    min_sequence_if_less_min_exons => 1000,
 
     # Genebuilder options for collapse
     max_transcripts_per_cluster => 5,
@@ -156,12 +157,26 @@ sub filter_lncrnas {
   my $dba = $self->hrdb_get_con('input_gene_db');
   my $gene_adaptor = $dba->get_GeneAdaptor();
   foreach my $gene (@{$genes}) {
-    my $biotype = $gene->biotype;
-    my $transcripts = $gene->get_all_Transcripts;
-    my $remove = 1;
-    foreach my $transcript (@{$transcripts}) {
-      unless($self->remove_gene($transcript)) {
-        $remove = 0;
+    my $remove = 0;
+    # First look for any overlapping same stranded protein coding genes, if there is any overlap then we remove the gene
+    my $overlapping_genes = $gene->get_overlapping_Genes(1);
+    foreach my $overlapping_gene (@$overlapping_genes) {
+      if($overlapping_gene->biotype eq 'protein_coding') {
+        say "Removing gene due to stranded overlap";
+        $remove = 1;
+        last;
+      }
+    }
+
+    # This is skipped if we have found overlap
+    unless($remove) {
+      # In here we will loop through the transcripts, if any of the transcripts pass the checks then we will just keep the gene
+      $remove = 1;
+      my $transcripts = $gene->get_all_Transcripts();
+      foreach my $transcript (@{$transcripts}) {
+        unless($self->remove_gene($transcript)) {
+          $remove = 0;
+        }
       }
     }
 
@@ -228,20 +243,16 @@ sub collapse_remaining_lncrnas {
 sub remove_gene {
   my ($self,$transcript) = @_;
 
-  my $min_seq_size = $self->param_required('min_sequence');
+  my $min_sequence_if_less_min_exons = $self->param_required('min_sequence_if_less_min_exons');
   my $min_exon_count = $self->param_required('min_exons');
   my $exons = $transcript->get_all_Exons;
-  if(scalar(@$exons) >= $min_exon_count) {
+
+  # If the transcript is below the smallest allowed size for a lncRNA (currently 200bp) then mark as bad
+  if($transcript->length < $self->param_required('min_sequence_size')) {
+    return(1);
+  } elsif(scalar(@$exons) >= $min_exon_count) {
     return(0);
-  } elsif($transcript->length >= $min_seq_size) {
-    my $overlapping_genes = $transcript->get_overlapping_Genes(1);
-    if($overlapping_genes) {
-      foreach my $gene (@$overlapping_genes) {
-        if($gene->biotype ne $self->param('input_biotype')) {
-          return(1);
-        }
-      }
-    }
+  } elsif($transcript->length >= $min_sequence_if_less_min_exons) {
     return(0);
   } else {
     return(1);

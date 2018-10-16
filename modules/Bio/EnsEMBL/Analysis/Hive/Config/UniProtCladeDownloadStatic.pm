@@ -338,7 +338,7 @@ sub _master_config {
                             },
 
              },
-    bird_basic => {
+    birds_basic => {
               self_pe12 =>{
                             file_name => 'self_pe12.fasta',
                             taxon_id  => '#taxon_id#',
@@ -360,14 +360,6 @@ sub _master_config {
                               compress  => 0,
                               pe_level  => [1,2],
                             },
-               vert_pe12 => {
-                              file_name  => 'vert_pe12.fasta',
-                              taxon_id   => $taxon_ids->{'vert_taxon_id'},
-                              exclude_id => [$taxon_ids->{'mammals_taxon_id'}, $taxon_ids->{aves_taxon_id}],
-                              dest_dir   => '#output_path#',
-                              compress   => 0,
-                              pe_level   => [1,2],
-                            },
                bird_pe12 => {
                               file_name  => 'aves_pe12.fasta',
                               taxon_id   => $taxon_ids->{'aves_taxon_id'},
@@ -384,6 +376,14 @@ sub _master_config {
                                  compress   => 0,
                                  pe_level   => [1,2],
                                },
+              reptiles_pe12 => {
+                              file_name  => 'reptiles_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'reptiles_taxon_id'},
+                              exclude_id => ['#taxon_id#',$taxon_ids->{'aves_taxon_id'}],
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
              },
 
     fish_basic => {
