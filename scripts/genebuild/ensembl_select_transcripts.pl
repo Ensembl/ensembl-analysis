@@ -162,10 +162,6 @@ my $aa = $coredb->get_AttributeAdaptor();
 # make the output directory
 system ("mkdir -p $outdir");
 
-# Now assign transcripts if the keep list is being used
-my %keep_transcript;
-my %keep_reason;
-
 # get the gene names
 say "Retrieving gene names";
 my %xref;
@@ -712,12 +708,6 @@ for my $gene ( keys %gene_hash_array ) {
       $description{$gene} .= ". Highest scoring transcript encompasses all of gene's pathogenic variants.";
     } elsif ($number_variants{$gene} == $number_variants{$highest_no_variants{$gene}}) {
       $description{$gene} .= ". $highest_no_variants{$gene} contains all of gene's pathogenic variants.";
-    } 
-    # if the keep list has a transcript assigned to a gene then we want to overwrite the canonical with it
-    if ($keep_transcript{$gene}) {
-      $canonical{$gene} = $keep_transcript{$gene};
-      $description{$gene} = "Canonical over-written by keep list: " . $keep_reason{$gene}; 
-      print LOGFILE "The transcript " . $keep_transcript{$gene} . " was assigned to " . $gene . " in the transcript_keep_list table\n";
     }
 
     # print the canonicals into a file
