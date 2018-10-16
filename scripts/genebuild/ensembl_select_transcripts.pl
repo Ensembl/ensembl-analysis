@@ -44,11 +44,11 @@ my $download_data = 1;
 my $reward_refseq_match = 1;
 
 # The weighting of the sources depends on whether or not you want to give extra reward to transcripts with a RefSeq match
-my $appris_weight;
-my $tsl_weight;
-my $uniprot_weight;
-my $refseq_canonical_weight;
-my $refseq_match_weight;
+my $appris_weight = 11;
+my $tsl_weight = 10;
+my $uniprot_weight = 2;
+my $refseq_canonical_weight = 4;
+my $refseq_match_weight = 0;
 
 if ($reward_refseq_match) {
   $appris_weight = 13;
@@ -56,12 +56,6 @@ if ($reward_refseq_match) {
   $uniprot_weight = 2;
   $refseq_canonical_weight = 9;
   $refseq_match_weight = 4;
-} else {
-  $appris_weight = 11;
-  $tsl_weight = 10;
-  $uniprot_weight = 2;
-  $refseq_canonical_weight = 4;
-  $refseq_match_weight = 0;
 }
 
 my $length_fraction = 0.75;
