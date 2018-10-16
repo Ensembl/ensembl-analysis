@@ -117,29 +117,11 @@ my $aa = $coredb->get_AttributeAdaptor();
 # make the output directory
 system ("mkdir -p $outdir");
 
-# get the gene names
+# get the gene names from the core db
 my %xref = %{get_gene_names($coredb)};
 
 # get the appris P1s, P2s and P3s from the core db
-say "Retrieving APPRIS data";
-my %appris;
-my $appris_select = $coredb->dbc->prepare("SELECT DISTINCT t.stable_id, ta.value FROM gene g JOIN transcript t ON g.gene_id = t.gene_id LEFT JOIN transcript_attrib \
-                                           ta ON t.transcript_id = ta.transcript_id LEFT JOIN translation tn ON ta.transcript_id = tn.transcript_id WHERE ta.value IN \
-                                           ('principal1','principal2','principal3') AND ta.attrib_type_id = 427 AND tn.translation_id IS NOT NULL");
-$appris_select->execute();
-
-while (my $appris_row = $appris_select->fetchrow_arrayref()){
-  my ($appris_transcript, $value) = @$appris_row;
-  if ($value eq 'principal1') {
-    $appris{$appris_transcript} = 1;
-  } elsif ($value eq 'principal2') {
-    $appris{$appris_transcript} = 2;
-  } elsif ($value eq 'principal3') {
-    $appris{$appris_transcript} = 3;
-  }
-}
-$appris_select->finish;
-
+my %appris = %{get_appris_data($coredb)};
 
 # get the TSL1s from the core db
 say "Retrieving TSL data";
@@ -687,7 +669,7 @@ sub download_data {
 }
 
 sub get_gene_names {
-# it returns a hashref of hash whose keys store the gene stable ID and whose values store the display label from the core xrefs
+# it returns a hashref of a hash whose keys store the gene stable ID and whose values store the display label from the core xrefs
   my $coredb = shift();
   
   my %xref;
@@ -705,6 +687,34 @@ sub get_gene_names {
   $xref_select->finish();
   
   return \%xref;
+}
+
+sub get_appris_data {
+# it returns a hashref of a hash whose keys store the transcript stable ID and whose values store 0, 1, 2 or 3 depending on
+# the APPRIS principal isoform value ('principal1', 'principal2', 'principal3' or none of them)
+  my $coredb = shift();
+  
+  say "Retrieving APPRIS data";
+
+  my %appris;
+  my $appris_select = $coredb->dbc->prepare("SELECT DISTINCT t.stable_id, ta.value FROM gene g JOIN transcript t ON g.gene_id = t.gene_id LEFT JOIN transcript_attrib \
+                                           ta ON t.transcript_id = ta.transcript_id LEFT JOIN translation tn ON ta.transcript_id = tn.transcript_id WHERE ta.value IN \
+                                           ('principal1','principal2','principal3') AND ta.attrib_type_id = 427 AND tn.translation_id IS NOT NULL");
+  $appris_select->execute();
+
+  while (my $appris_row = $appris_select->fetchrow_arrayref()){
+    my ($appris_transcript,$value) = @$appris_row;
+    if ($value eq 'principal1') {
+      $appris{$appris_transcript} = 1;
+    } elsif ($value eq 'principal2') {
+      $appris{$appris_transcript} = 2;
+    } elsif ($value eq 'principal3') {
+      $appris{$appris_transcript} = 3;
+    }
+  }
+  $appris_select->finish;
+  
+  return \%appris;
 }
 
 # return only unique entries in an array
