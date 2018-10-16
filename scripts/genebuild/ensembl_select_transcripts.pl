@@ -118,17 +118,7 @@ my $aa = $coredb->get_AttributeAdaptor();
 system ("mkdir -p $outdir");
 
 # get the gene names
-say "Retrieving gene names";
-my %xref;
-my $xref_select = $coredb->dbc->prepare("SELECT DISTINCT g.stable_id, display_label FROM gene g LEFT JOIN object_xref ox ON g.gene_id = ox.ensembl_id JOIN xref x \
-                                         ON x.xref_id = ox.xref_id LEFT JOIN transcript t ON t.gene_id = ox.ensembl_id LEFT JOIN translation tn ON t.transcript_id = tn.transcript_id \
-                                         WHERE t.source IN ('ensembl','havana','ensembl_havana') AND tn.stable_id IS NOT NULL AND external_db_id = 1100");
-$xref_select->execute();
-while (my $xref_row = $xref_select->fetchrow_arrayref()){
-  my ($gene_id, $label) = @$xref_row;
-  $xref{$gene_id} = $label;
-}
-$xref_select->finish;
+my %xref = %{get_gene_names($coredb)};
 
 # get the appris P1s, P2s and P3s from the core db
 say "Retrieving APPRIS data";
@@ -694,6 +684,27 @@ sub download_data {
   # parse the uniprot info
   say "Parsing UniProt files";
   system ("grep 'ENST' $outdir/HUMAN_9606_idmapping.dat > $outdir/ENST_uniprot_mapping.out");
+}
+
+sub get_gene_names {
+# it returns a hashref of hash whose keys store the gene stable ID and whose values store the display label from the core xrefs
+  my $coredb = shift();
+  
+  my %xref;
+  
+  say "Retrieving gene names";
+
+  my $xref_select = $coredb->dbc->prepare("SELECT DISTINCT g.stable_id, display_label FROM gene g LEFT JOIN object_xref ox ON g.gene_id = ox.ensembl_id JOIN xref x \
+                                         ON x.xref_id = ox.xref_id LEFT JOIN transcript t ON t.gene_id = ox.ensembl_id LEFT JOIN translation tn ON t.transcript_id = tn.transcript_id \
+                                         WHERE t.source IN ('ensembl','havana','ensembl_havana') AND tn.stable_id IS NOT NULL AND external_db_id = 1100");
+  $xref_select->execute();
+  while (my $xref_row = $xref_select->fetchrow_arrayref()){
+    my ($gene_id,$label) = @$xref_row;
+    $xref{$gene_id} = $label;
+  }
+  $xref_select->finish();
+  
+  return \%xref;
 }
 
 # return only unique entries in an array
