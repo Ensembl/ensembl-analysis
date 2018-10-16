@@ -44,14 +44,7 @@ my $vardbuser = 'READ_USER';
 my $vardbhost = '';
 my $vardbport = '';
 
-my $outdbname = 'homo_sapiens_select_'.$ensembl_version.'_38';
-my $outdbuser = 'WRITE_USER';
-my $outdbpass = 'WRITE_PASS';
-my $outdbhost = '';
-my $outdbport = '';
-
 # The following options need to be specified - 0 for no 1 for yes
-my $write_to_db = 0;
 my $download_data = 1;
 my $reward_refseq_match = 1;
 
@@ -106,12 +99,6 @@ GetOptions(
   "varhost=s" => \$vardbhost,             # string
   "varport=i" => \$vardbport,             # numeric
   "vardbname=s" => \$vardbname,           # string
-  "outuser=s" => \$outdbuser,             # string
-  "outhost=s" => \$outdbhost,             # string
-  "outport=i" => \$outdbport,             # numeric
-  "outdbname=s" => \$outdbname,           # string
-  "outpass=s" => \$outdbpass,             # string
-  "write_to_db" => \$write_to_db,         # numeric
 );
 
 
@@ -142,14 +129,6 @@ my $vardb = new Bio::EnsEMBL::Variation::DBSQL::DBAdaptor(
   -port => $vardbport,
   -user => $vardbuser,
   -dbname => $vardbname,
-);
-
-my $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-  -host => $outdbhost,
-  -port => $outdbport,
-  -user => $outdbuser,
-  -dbname => $outdbname,
-  -pass => $outdbpass,
 );
 
 my $vfa = $vardb->get_VariationFeatureAdaptor();
@@ -728,22 +707,6 @@ for my $gene ( keys %gene_hash_array ) {
   }
 }
 close (CAN_FILE);
-
-# And now store each of the relevant transcripts in the output db with the relevant biotypes
-if ($write_to_db) {
-  say "Writing pathogenic transcripts to the db";
-  write_transcripts_to_db ($dbname, $dbuser, $dbhost, $dbport, $dnadbname, $dnadbuser, $dnadbhost, $dnadbport, $outdbname, $outdbuser, $outdbpass, $outdbhost, $outdbport, \%trans_ordered_by_variants, "pathogenic_variant_coverage_".$ensembl_version);
-  print LOGFILE "\nPathogenic variant transcripts have been stored in the DB\n";
-
-  say "Writing coding exon coverage transcript to the db";
-  write_transcripts_to_db ($dbname, $dbuser, $dbhost, $dbport, $dnadbname, $dnadbuser, $dnadbhost, $dnadbport, $outdbname, $outdbuser, $outdbpass, $outdbhost, $outdbport, \%trans_ordered_by_exons, "coding_exon_coverage_".$ensembl_version);
-  print LOGFILE "\nCoding-exon coverage transcripts have been stored in the DB\n";
-
-  say "Canonical transcripts stored";
-  write_transcripts_to_db ($dbname, $dbuser, $dbhost, $dbport, $dnadbname, $dnadbuser, $dnadbhost, $dnadbport, $outdbname, $outdbuser, $outdbpass, $outdbhost, $outdbport, \%canonical, "reference_canonical_".$ensembl_version);
-  print LOGFILE "\nCanonical transcripts have been storedin the DB\n";
-}
-
 close (LOGFILE);
 
 exit;
@@ -799,66 +762,6 @@ sub coverage_sorter {
     }
   }
   return @final_transcript_list;
-}
-
-# this takes the database to be written to, the set of transcripts being copied
-# and the biotype of those transcripts and writes them to the output db
-# currently the subroutine creates the db adaptors so as to cut down on the time connected to the server. This is just
-# a short term solution, really the process should be carried out on slices
-sub write_transcripts_to_db {
-  my ($dbname, $dbuser, $dbhost, $dbport, $dnadbname, $dnadbuser, $dnadbhost, $dnadbport, $outdbname, $outdbuser, $outdbpass, $outdbhost, $outdbport, $transcript_list, $biotype) = @_;
-  my $output_database = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-    -host => $outdbhost,
-    -port => $outdbport,
-    -user => $outdbuser,
-    -dbname => $outdbname,
-    -pass => $outdbpass,
-  );
-
-  my $input_database = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-    -host => $dbhost,
-    -port => $dbport,
-    -user => $dbuser,
-    -dbname => $dbname,
-  );
-
-  my $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-    -host => $dnadbhost,
-    -port => $dnadbport,
-    -user => $dnadbuser,
-    -dbname => $dnadbname,
-  );  
-
-  $input_database->dnadb($dnadb);
-  my $core_ta = $input_database->get_TranscriptAdaptor();
-  my $core_ga = $input_database->get_GeneAdaptor();
-  my $outga = $output_database->get_GeneAdaptor();
-  my %transcript_hash = %$transcript_list;
-  foreach my $gene_id (keys %transcript_hash) {
-    my $gene_entry = $core_ga->fetch_by_stable_id($gene_id);
-    $gene_entry->stable_id($gene_id);
-    $gene_entry->biotype($biotype);
-    $gene_entry->analysis($gene_entry->analysis);
-    # if the biotype is canonical then the values aren't arrays
-    if ($biotype =~ /reference_canonical/) {
-      my $transcript = $transcript_hash{$gene_id};
-      my $entry = $core_ta->fetch_by_stable_id($transcript);
-      $entry->load();
-      $entry->biotype($biotype);
-      empty_Transcript($entry);   
-      $gene_entry->add_Transcript($entry);
-      $outga->store($gene_entry);
-    } elsif (scalar @{ $transcript_hash{$gene_id} } > 1) {
-      foreach my $transcript (@{ $transcript_hash{$gene_id} } ) { 
-        my $entry = $core_ta->fetch_by_stable_id($transcript);
-        $entry->load();
-        $entry->biotype($biotype);
-        empty_Transcript($entry);
-        $gene_entry->add_Transcript($entry);
-      }
-      $outga->store($gene_entry);
-    }
-  }
 }
 
 sub transcript_sorter {
