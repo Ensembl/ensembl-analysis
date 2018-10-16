@@ -140,24 +140,8 @@ my %hgnc = parse_hgnc_data($outdir);
 my ($refseq_canonical_ref,$refseq_match_ref,$refseq_canonical_match_ref) = parse_refseq_data($outdir,$otherfdb);
 my (%refseq_canonical,%refseq_match,%refseq_canonical_match) = (%{$refseq_canonical_ref},%{$refseq_match_ref},%{$refseq_canonical_match_ref});
 
-say "Processing UniProt data";
-my %uniprot;
-
-open (UNI_MAPPING, $outdir.'/ENST_uniprot_mapping.out');
-
-while (my $line = <UNI_MAPPING>) {
-  my ($uniprot,$desc,$transcript) = split (/\s+/, $line);
-  chomp $transcript;
-
-  if ($uniprot =~ /-/) {
-    if ($uniprot =~ /-1$/) {
-      $uniprot{$transcript} = 1;
-    }
-  } else {
-    $uniprot{$transcript} = 1;
-  }
-}
-close (UNI_MAPPING);
+# parse the UniProt data
+my %uniprot = %{parse_uniprot_data($outdir)};
 
 # open a log file for output messgaes
 open (LOGFILE, ">$log_file");
@@ -747,6 +731,31 @@ sub parse_refseq_data {
   $refseq_select->finish();
   
   return (\%refseq_canonical,\%refseq_match,\%refseq_canonical_match);
+}
+
+sub parse_uniprot_data {
+  my $outdir = shift();
+
+  say "Parsing the UniProt data";
+  my %uniprot;
+
+  open (UNI_MAPPING, $outdir.'/ENST_uniprot_mapping.out');
+
+  while (my $line = <UNI_MAPPING>) {
+    my ($uniprot,$desc,$transcript) = split (/\s+/,$line);
+    chomp $transcript;
+
+    if ($uniprot =~ /-/) {
+      if ($uniprot =~ /-1$/) {
+        $uniprot{$transcript} = 1;
+      }
+    } else {
+      $uniprot{$transcript} = 1;
+    }
+  }
+  close (UNI_MAPPING);
+  
+  return \%uniprot;
 }
 
 # return only unique entries in an array
