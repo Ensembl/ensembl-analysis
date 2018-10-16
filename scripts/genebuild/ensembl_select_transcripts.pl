@@ -124,17 +124,7 @@ my %xref = %{get_gene_names($coredb)};
 my %appris = %{get_appris_data($coredb)};
 
 # get the TSL1s from the core db
-say "Retrieving TSL data";
-my %tsl;
-my $tsl_select = $coredb->dbc->prepare("SELECT DISTINCT t.stable_id AS transcript_stable_id FROM gene g JOIN transcript t ON g.gene_id = t.gene_id LEFT JOIN transcript_attrib \
-                                        ta ON t.transcript_id = ta.transcript_id LEFT JOIN translation tn ON ta.transcript_id = tn.transcript_id WHERE ta.value = 'tsl1' AND \
-                                        ta.attrib_type_id = 428 AND tn.translation_id is NOT NULL");
-$tsl_select->execute();
-while (my $tsl_transcript = $tsl_select->fetchrow()){
-  $tsl{$tsl_transcript} = 1;
-}
-$tsl_select->finish;
-
+my %tsl = %{get_tsl1($coredb)};
 
 # get the Ensembl canonicals
 say "Getting existing canonical data";
@@ -715,6 +705,24 @@ sub get_appris_data {
   $appris_select->finish;
   
   return \%appris;
+}
+
+sub get_tsl1 {
+
+  my $coredb = shift();
+  
+  say "Retrieving TSL data";
+  my %tsl;
+  my $tsl_select = $coredb->dbc->prepare("SELECT DISTINCT t.stable_id AS transcript_stable_id FROM gene g JOIN transcript t ON g.gene_id = t.gene_id LEFT JOIN transcript_attrib \
+                                        ta ON t.transcript_id = ta.transcript_id LEFT JOIN translation tn ON ta.transcript_id = tn.transcript_id WHERE ta.value = 'tsl1' AND \
+                                        ta.attrib_type_id = 428 AND tn.translation_id is NOT NULL");
+  $tsl_select->execute();
+  while (my $tsl_transcript = $tsl_select->fetchrow()){
+    $tsl{$tsl_transcript} = 1;
+  }
+  $tsl_select->finish();
+  
+  return \%tsl;
 }
 
 # return only unique entries in an array
