@@ -53,7 +53,6 @@ my $outdbport = '';
 # The following options need to be specified - 0 for no 1 for yes
 my $write_to_db = 0;
 my $download_data = 1;
-my $use_keep_list = 0;
 my $reward_refseq_match = 1;
 
 # The weighting of the sources depends on whether or not you want to give extra reward to transcripts with a RefSeq match
@@ -170,25 +169,6 @@ my %kill_reason;
 # Now assign transcripts if the keep list is being used
 my %keep_transcript;
 my %keep_reason;
-
-if ($use_keep_list) {
-  say "Retrieving data from keep list";
-  my $keep_select = $outdb->dbc->prepare("SELECT gene_stable_id, transcript_stable_id, reason FROM transcript_keep_list");
-  $keep_select->execute();
-  while (my $keep_row = $keep_select->fetchrow_arrayref()){
-    my ($gene_id, $transcript_id, $reason) = @$keep_row;
-
-    # check there are no duplicate rows
-    if ($keep_transcript{$gene_id}) {
-      throw("ERROR: Duplicate entries for $gene_id in the keep list. Either remove one of them or avoid using the keep list.\n");
-    } else {
-      chomp $reason;
-      $keep_transcript{$gene_id} = $transcript_id;
-      $keep_reason{$gene_id} = $reason;
-    }
-  }
-  $keep_select->finish;
-}
 
 # get the gene names
 say "Retrieving gene names";
