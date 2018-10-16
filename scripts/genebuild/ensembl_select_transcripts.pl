@@ -126,17 +126,8 @@ my %appris = %{get_appris_data($coredb)};
 # get the TSL1s from the core db
 my %tsl = %{get_tsl1($coredb)};
 
-# get the Ensembl canonicals
-say "Getting existing canonical data";
-my %ensembl_canonical;
-my $ensembl_select = $coredb->dbc->prepare("SELECT DISTINCT t.stable_id AS transcript_stable_id FROM gene g JOIN transcript t ON g.canonical_transcript_id = t.transcript_id \
-                                           LEFT JOIN translation tn ON t.transcript_id = tn.transcript_id WHERE tn.stable_id IS NOT NULL AND g.source IN \
-                                           ('ensembl','ensembl_havana','havana')");
-$ensembl_select->execute();
-while (my $ensembl_transcript = $ensembl_select->fetchrow()){
-  $ensembl_canonical{$ensembl_transcript} = 1;
-}
-$ensembl_select->finish;
+# get the Ensembl canonical transcript stable IDs
+my %ensembl_canonical = %{get_canonical_transcript_sids($coredb)};
 
 if ($download_data) {
   download_data($outdir);
@@ -708,7 +699,8 @@ sub get_appris_data {
 }
 
 sub get_tsl1 {
-
+# it returns a hashref of a hash whose keys store the transcript stable ID and whose values store 0 or 1 depending on
+# whether or not the corresponding transcript is labelled as a TSL1
   my $coredb = shift();
   
   say "Retrieving TSL data";
@@ -724,6 +716,25 @@ sub get_tsl1 {
   
   return \%tsl;
 }
+
+sub get_canonical_transcript_sids {
+# it returns a hashref of a hash whose keys store the transcript stable ID and whose values store 0 or 1 depending on
+# whether or not the corresponding transcript is labelled as a canonical transcript
+  my $coredb = shift();
+  
+  say "Getting Ensembl canonical transcripts";
+  my %ensembl_canonical;
+  my $ensembl_select = $coredb->dbc->prepare("SELECT DISTINCT t.stable_id AS transcript_stable_id FROM gene g JOIN transcript t ON g.canonical_transcript_id = t.transcript_id \
+                                           LEFT JOIN translation tn ON t.transcript_id = tn.transcript_id WHERE tn.stable_id IS NOT NULL AND g.source IN \
+                                           ('ensembl','ensembl_havana','havana')");
+  $ensembl_select->execute();
+  while (my $ensembl_transcript = $ensembl_select->fetchrow()){
+    $ensembl_canonical{$ensembl_transcript} = 1;
+  }
+  $ensembl_select->finish;
+  return \%ensembl_canonical;
+}
+
 
 # return only unique entries in an array
 sub uniq {
