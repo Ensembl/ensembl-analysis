@@ -9,7 +9,6 @@
 use strict;
 use warnings;
 use feature 'say';
-use Data::Dumper;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Variation::DBSQL::DBAdaptor;
 use Getopt::Long qw(:config no_ignore_case);
@@ -110,7 +109,6 @@ my $vardb = new Bio::EnsEMBL::Variation::DBSQL::DBAdaptor(
 );
 
 my $vfa = $vardb->get_VariationFeatureAdaptor();
-say "DUMPER: ".Dumper($vfa);
 my $sa = $coredb->get_SliceAdaptor();
 my $ta = $coredb->get_TranscriptAdaptor();
 my $ga = $coredb->get_GeneAdaptor();
