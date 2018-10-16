@@ -752,11 +752,3 @@ sub coverage_sorter {
   }
   return @final_transcript_list;
 }
-
-sub transcript_sorter {
-  my ($output_array_ref, $input_hash_ref) = @_;
-  my @output_array = @$output_array_ref;
-  my %input_hash = %$input_hash_ref;
-  @output_array = sort { $input_hash{$b} <=> $input_hash{$a} } keys %input_hash;
-  return $output_array[0];
-}
