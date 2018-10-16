@@ -133,48 +133,12 @@ if ($download_data) {
   download_data($outdir);
 }
 
-# parse HGNC info
+# parse the HGNC info
 my %hgnc = parse_hgnc_data($outdir);
 
-say "Parsing RefSeq info";
-my %refseq_canonical;
-my %refseq_match;
-my %refseq_canonical_match;
-
-open (REFSEQ, $outdir.'/refseq_variant1.out');
-
-# go through the refseq isoform 1 file and add the accession to a hash
-while (my $line = <REFSEQ>) {
-  my ($a, $b) = split (/>/, $line);
-  my @refseq_line = split (/\s+/, $b);
-  $refseq_canonical {$refseq_line[0]} = 1;
-}
-
-close (REFSEQ);
-
-say "Retrieving RefSeq attribute data";
-my $refseq_select = $otherfdb->dbc->prepare("SELECT DISTINCT stable_id, value FROM transcript t, transcript_attrib ta, attrib_type at WHERE t.transcript_id = ta.transcript_id AND \
-                                            ta.attrib_type_id = at.attrib_type_id AND ta.attrib_type_id = 510");
-$refseq_select->execute();
-while (my $refseq_row = $refseq_select->fetchrow_arrayref()){
-  my ($refseq_acc, $ensembl_ids) = @$refseq_row;
-
-  my @ens_ids = split (/:/, $ensembl_ids);
-  pop @ens_ids;
-  foreach my $stable_id (@ens_ids) {
-    unless (exists $refseq_canonical_match {$stable_id}) {
-      if (exists $refseq_canonical {$refseq_acc}) {
-        $refseq_canonical_match {$stable_id} = $refseq_acc;
-      } else {
-        unless (exists $refseq_match {$stable_id}) {
-          $refseq_match {$stable_id} = $refseq_acc;
-        }
-      }
-    }
-  }
-}
-$refseq_select->finish;
-
+# parse the RefSeq data
+my ($refseq_canonical_ref,$refseq_match_ref,$refseq_canonical_match_ref) = parse_refseq_data($outdir,$otherfdb);
+my (%refseq_canonical,%refseq_match,%refseq_canonical_match) = (%{$refseq_canonical_ref},%{$refseq_match_ref},%{$refseq_canonical_match_ref});
 
 say "Processing UniProt data";
 my %uniprot;
@@ -740,6 +704,49 @@ sub parse_hgnc_data {
   }
   close (HGNC);
   return \%hgnc;
+}
+
+sub parse_refseq_data {
+  my ($outdir,$otherfdb) = @_;
+  
+  my %refseq_canonical;
+  my %refseq_match;
+  my %refseq_canonical_match;
+
+  say "Parsing RefSeq data";
+
+  open (REFSEQ, $outdir.'/refseq_variant1.out');
+
+  # go through the refseq isoform 1 file and add the accession to a hash
+  while (my $line = <REFSEQ>) {
+    my ($a, $b) = split (/>/, $line);
+    my @refseq_line = split (/\s+/, $b);
+    $refseq_canonical {$refseq_line[0]} = 1;
+  }
+  close (REFSEQ);
+
+  say "Retrieving RefSeq attribute data";
+  my $refseq_select = $otherfdb->dbc->prepare("SELECT DISTINCT stable_id, value FROM transcript t, transcript_attrib ta, attrib_type at WHERE t.transcript_id = ta.transcript_id AND \
+                                            ta.attrib_type_id = at.attrib_type_id AND ta.attrib_type_id = 510");
+  $refseq_select->execute();
+  while (my $refseq_row = $refseq_select->fetchrow_arrayref()){
+    my ($refseq_acc,$ensembl_ids) = @$refseq_row;
+
+    my @ens_ids = split(/:/,$ensembl_ids);
+    pop(@ens_ids);
+    foreach my $stable_id (@ens_ids) {
+      if (!(exists $refseq_canonical_match {$stable_id})) {
+        if (exists $refseq_canonical {$refseq_acc}) {
+          $refseq_canonical_match {$stable_id} = $refseq_acc;
+        } elsif (!(exists $refseq_match {$stable_id})) {
+            $refseq_match {$stable_id} = $refseq_acc;
+        }
+      }
+    }
+  }
+  $refseq_select->finish();
+  
+  return (\%refseq_canonical,\%refseq_match,\%refseq_canonical_match);
 }
 
 # return only unique entries in an array
