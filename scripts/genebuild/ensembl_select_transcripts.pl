@@ -185,30 +185,7 @@ while (my $ensembl_transcript = $ensembl_select->fetchrow()){
 $ensembl_select->finish;
 
 if ($download_data) {
-
-  # get the HGNC accessions
-  say "Downloading HGNC accessions";
-  system ("bsub -J HGNC_download wget ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/hgnc_complete_set.txt -P $outdir");
-
-  # get RefSeq canonicals
-  say "Downloading RefSeq canonicals";
-  system ("bsub -J refseq_download wget ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/mRNA_Prot/*rna.fna* -P $outdir");
-
-  # get the UniProt canonicals
-  say "Downloading UniProt canonicals";
-  system ("bsub -J uniprot_download wget ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/HUMAN_9606_idmapping.dat.gz -P $outdir");
-
-  # unzip all the gz files
-  say "Unzipping downloaded files";
-  system ("bsub -w 'done(HGNC_download) && done(refseq_download) && done(uniprot_download)' -K gunzip $outdir/*gz");
-
-  # parse refseq info
-  say "Parsing RefSeq variant info";
-  system ("grep 'variant 1,' $outdir/*fna > $outdir/refseq_variant1.out");
-
-  # parse the uniprot info
-  say "Parsing UniProt files";
-  system ("grep 'ENST' $outdir/HUMAN_9606_idmapping.dat > $outdir/ENST_uniprot_mapping.out");
+  download_data($outdir);
 }
 
 # parse HGNC info
@@ -698,6 +675,34 @@ exit;
 #################
 #  SUBROUTINES  #
 #################
+
+sub download_data {
+  my $outdir = shift();
+ 
+  # get the HGNC accessions
+  say "Downloading HGNC accessions";
+  system ("bsub -J HGNC_download wget ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/hgnc_complete_set.txt -P $outdir");
+
+  # get RefSeq canonicals
+  say "Downloading RefSeq canonicals";
+  system ("bsub -J refseq_download wget ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/mRNA_Prot/*rna.fna* -P $outdir");
+
+  # get the UniProt canonicals
+  say "Downloading UniProt canonicals";
+  system ("bsub -J uniprot_download wget ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/HUMAN_9606_idmapping.dat.gz -P $outdir");
+
+  # unzip all the gz files
+  say "Unzipping downloaded files";
+  system ("bsub -w 'done(HGNC_download) && done(refseq_download) && done(uniprot_download)' -K gunzip $outdir/*gz");
+
+  # parse refseq info
+  say "Parsing RefSeq variant info";
+  system ("grep 'variant 1,' $outdir/*fna > $outdir/refseq_variant1.out");
+
+  # parse the uniprot info
+  say "Parsing UniProt files";
+  system ("grep 'ENST' $outdir/HUMAN_9606_idmapping.dat > $outdir/ENST_uniprot_mapping.out");
+}
 
 # return only unique entries in an array
 sub uniq {
