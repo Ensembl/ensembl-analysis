@@ -25,6 +25,7 @@ addons:
 
 before_install:
     - git clone --depth 1 https://github.com/Ensembl/ensembl.git
+    - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-variation.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-external.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-killlist.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-pipeline.git
