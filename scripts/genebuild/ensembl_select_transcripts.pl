@@ -16,10 +16,6 @@ use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
 
-#my $registry = 'Bio::EnsEMBL::Registry';
-#$registry->load_registry_from_db(-host => 'ensembldb.ensembl.org', -user => 'anonymous');
-#$registry->set_reconnect_when_lost(1);
-
 my $ensembl_version = 94;
 my $outdir = '/path/to/output_dir/';
 
@@ -167,14 +163,9 @@ my $outdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 my $vfa = $vardb->get_VariationFeatureAdaptor();
 say "DUMPER: ".Dumper($vfa);
 my $sa = $coredb->get_SliceAdaptor();
-#my $vfa = $registry->get_adaptor('homo_sapiens', 'variation', 'variationfeature');
-#my $sa = $registry->get_adaptor('homo_sapiens', 'core', 'slice');
 my $ta = $coredb->get_TranscriptAdaptor();
 my $ga = $coredb->get_GeneAdaptor();
 my $aa = $coredb->get_AttributeAdaptor();
-
-#$ta->dbc->disconnect_if_idle;
-#$ga->dbc->disconnect_if_idle;
 
 # make the output directory
 system ("mkdir -p $outdir");
@@ -463,7 +454,6 @@ foreach my $slice (@$slices) {
   my $genes = $slice->get_all_Genes();
 foreach my $generef (@$genes) {
   my $gene = $generef->stable_id();
-#  my $generef = $ga->fetch_by_stable_id($gene);
   my @transcripts = @{$generef->get_all_Transcripts()};
   my @coding_transcripts;
   my @coding_trans_ids;
@@ -548,11 +538,9 @@ foreach my $generef (@$genes) {
     # print into the ALERT files if more than 1 transcript is needed for coverage
     if (scalar (@pathogenic_transcripts) > 1) {
       print ALERT_FILE2 $gene, ":\t@pathogenic_transcripts\n";
-      #$trans_ordered_by_variants{$gene} = [@pathogenic_transcripts];
     }
     if (scalar (@exon_transcripts) > 1) {
       print ALERT_FILE1 $gene, ":\t@exon_transcripts\n";
-      #$trans_ordered_by_exons{$gene} = [@exon_transcripts];
     }
   }
   foreach my $coding_transcript(@{$gene_hash_array{$gene}}) {
@@ -561,16 +549,11 @@ foreach my $generef (@$genes) {
 }
 } # @$slices
 
-#$genes_select->finish;
-
 say "Finished processing genes";
 
 close (GENEFILE);
-
 close (ALERT_FILE1);
-
 close (ALERT_FILE2);
-
 
 # now for each gene create an array ordered according to length and another according to score and compare
 # then assign the canonical based on the outcome
@@ -664,7 +647,6 @@ for my $gene ( keys %gene_hash_array ) {
     # throw a warning if one hasn't been assigned at this stage
     unless ($canonical{$gene}) {
       print "ERROR: canonical for $gene not yet defined\n";
-      #throw("ERROR: canonical for $gene not yet defined\n");
     }
 
     # Now check if there are other transcripts belonging to the gene that have the same score
@@ -733,10 +715,6 @@ for my $gene ( keys %gene_hash_array ) {
       # only if the undecided array is defined do we want to do this
       if (scalar(@undecided == 1 )) {
         print "ERROR: There's only 1 undecided canonical for $gene at this stage, there should be more!\n";
-#        throw("ERROR: There's only 1 undecided canonical for $gene at this stage, there should be more!\n");
-#      } elsif (scalar(@undecided == 0 )) {
-#        throw("ERROR: There are no undecided canonicals for $gene at this stage, this shouldn't happen!\n");
-#        print "ERROR: There are no undecided canonicals for $gene at this stage, this shouldn't happen!\n";
       } elsif (scalar(@undecided > 1)) {
         my @ensembl_hits;
         foreach my $hit (@undecided) {
@@ -789,7 +767,6 @@ for my $gene ( keys %gene_hash_array ) {
     }
     if ($number_variants{$gene} == 0) {
       $high_variants = "N/A";
-    #} elsif (@{$gene_hash_array{$gene}} == 1) { # if there's only a single transcript for the gene
     } elsif ($number_variants{$gene} == $number_variants{$canonical{$gene}}) {
       $description{$gene} .= ". Canonical transcript encompasses all of gene's pathogenic variants.";
     } elsif ($number_variants{$gene} == $number_variants{$highest_scoring_trans{$gene}}) {
@@ -926,11 +903,8 @@ sub write_transcripts_to_db {
 
   $input_database->dnadb($dnadb);
   my $core_ta = $input_database->get_TranscriptAdaptor();
-  #$core_ta->dbc->disconnect_if_idle;
   my $core_ga = $input_database->get_GeneAdaptor();
-  #$core_ga->dbc->disconnect_if_idle;
   my $outga = $output_database->get_GeneAdaptor();
-  #$outga->dbc->disconnect_if_idle;
   my %transcript_hash = %$transcript_list;
   foreach my $gene_id (keys %transcript_hash) {
     my $gene_entry = $core_ga->fetch_by_stable_id($gene_id);
