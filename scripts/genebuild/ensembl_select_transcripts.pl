@@ -162,10 +162,6 @@ my $aa = $coredb->get_AttributeAdaptor();
 # make the output directory
 system ("mkdir -p $outdir");
 
-# assign the kill list transcripts
-my %kill_transcript;
-my %kill_reason;
-
 # Now assign transcripts if the keep list is being used
 my %keep_transcript;
 my %keep_reason;
@@ -403,9 +399,7 @@ foreach my $generef (@$genes) {
   my @coding_trans_ids;
 
   foreach my $element (@transcripts) {
-    if (exists $kill_transcript{$gene} && $kill_transcript{$gene} eq $element->stable_id) {
-      print LOGFILE $element->stable_id . "has been removed from gene $gene due to its presence in the transcript_kill_list table: $kill_reason{$gene}\n";
-    } elsif (grep $_ eq ($element->biotype), @allowed_biotypes) { # check the transcript has a biotype in the allowed list of biotypes
+    if (grep $_ eq ($element->biotype), @allowed_biotypes) { # check the transcript has a biotype in the allowed list of biotypes
       push(@coding_transcripts, $element);
     }
   }
