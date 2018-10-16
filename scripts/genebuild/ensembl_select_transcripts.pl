@@ -134,18 +134,7 @@ if ($download_data) {
 }
 
 # parse HGNC info
-say "Parsing HGNC info";
-my %hgnc;
-open (HGNC, $outdir.'/hgnc_complete_set.txt');
-
-while (my $line = <HGNC>) {
-  my @line = split (/\t/, $line);
-  if ($line[19]) {
-    $hgnc{$line[19]} = $line[0];
-  }
-}
-close (HGNC);
-
+my %hgnc = parse_hgnc_data($outdir);
 
 say "Parsing RefSeq info";
 my %refseq_canonical;
@@ -735,12 +724,29 @@ sub get_canonical_transcript_sids {
   return \%ensembl_canonical;
 }
 
+sub parse_hgnc_data {
+# it parses the HGNC data downloaded into the corresponding file in the 'outdir' directory
+  my $outdir = shift();
+  
+  say "Parsing HGNC info";
+  my %hgnc;
+  open (HGNC,$outdir.'/hgnc_complete_set.txt');
+
+  while (my $line = <HGNC>) {
+    my @line = split (/\t/, $line);
+    if ($line[19]) {
+      $hgnc{$line[19]} = $line[0];
+    }
+  }
+  close (HGNC);
+  return \%hgnc;
+}
 
 # return only unique entries in an array
 sub uniq {
   my %temp_hash = map { $_, 0 } @_;
   return keys %temp_hash;
-} 
+}
 
 # The following subroutine takes as input the transcript list, 2 hashes you wish to sort by
 # a value which should be the number of expected exons or variants
