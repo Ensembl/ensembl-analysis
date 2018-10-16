@@ -53,7 +53,6 @@ my $outdbport = '';
 # The following options need to be specified - 0 for no 1 for yes
 my $write_to_db = 0;
 my $download_data = 1;
-my $use_kill_list = 0;
 my $use_keep_list = 0;
 my $reward_refseq_match = 1;
 
@@ -167,19 +166,6 @@ system ("mkdir -p $outdir");
 # assign the kill list transcripts
 my %kill_transcript;
 my %kill_reason;
-
-if ($use_kill_list) {
-  say "Retrieving data from kill list";
-  my $kill_select = $outdb->dbc->prepare("SELECT gene_stable_id, transcript_stable_id, reason FROM transcript_kill_list");
-  $kill_select->execute();
-  while (my $kill_row = $kill_select->fetchrow_arrayref()){
-    my ($gene_id, $transcript_id, $reason) = @$kill_row;
-    chomp $reason;
-    $kill_transcript{$gene_id} = $transcript_id;
-    $kill_reason{$gene_id} = $reason;
-  }
-  $kill_select->finish;
-}
 
 # Now assign transcripts if the keep list is being used
 my %keep_transcript;
