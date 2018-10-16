@@ -29,11 +29,6 @@ my $dbpass = 'WRITE_PASS';
 my $dbhost = '';
 my $dbport = '';
 
-my $dnadbname = 'homo_sapiens_core_'.$ensembl_version.'_38';
-my $dnadbuser = 'READ_USER';
-my $dnadbhost = '';
-my $dnadbport = '';
-
 my $otherfdbname = 'homo_sapiens_otherfeatures_'.$ensembl_version.'_38';
 my $otherfdbuser = 'READ_USER';
 my $otherfdbhost = '';
@@ -87,10 +82,6 @@ GetOptions(
   "dbport|port|P=i" => \$dbport,          # numeric
   "dbpass|pass|p=s" => \$dbpass,          # string
   "dbname|db|D=s" => \$dbname,            # string
-  "dnadbuser|dna_user=s" => \$dnadbuser,  # string
-  "dnadbhost|dna_host=s" => \$dnadbhost,  # string
-  "dnadbport|dna_port=i" => \$dnadbport,  # numeric
-  "dnadbname|dna_db=s" => \$dnadbname,    # string
   "otherfuser=s" => \$otherfdbuser,       # string
   "otherfhost=s" => \$otherfdbhost,       # string
   "otherfport=i" => \$otherfdbport,       # numeric
@@ -108,13 +99,6 @@ my $coredb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -user => $dbuser,
   -dbname => $dbname,
   -pass => $dbpass,
-);
-
-my $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-  -host => $dnadbhost,
-  -port => $dnadbport,
-  -user => $dnadbuser,
-  -dbname => $dnadbname,
 );
 
 my $otherfdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
