@@ -60,7 +60,6 @@ if ($reward_refseq_match) {
 my $length_fraction = 0.75;
 
 my $log_file = $outdir.'/transcript_selection.log';
-my $gene_file = $outdir.'/all_genes_transcripts.txt';
 my $canonicals_file = $outdir.'/canonicals.txt';
 my $alert_file1 = $outdir.'/multiple_transcripts_exons_'.$ensembl_version.'.txt';
 my $alert_file2 = $outdir.'/multiple_transcripts_variants_'.$ensembl_version.'.txt';
@@ -150,11 +149,6 @@ open (LOGFILE, ">$log_file");
 say "Processing genes";
 
 # Now assign the scores
-# Print a file containing all the genes and transcripts
-open (GENEFILE, ">$gene_file");
-
-print GENEFILE "#gene_stable_id\tgene_coding_exons\tgene_pathogenic_variants\tgene_biotype\ttranscript_stable_id\ttrans_coding_exons\ttrans_pathogenic_variants\ttranscript_length\tchromosome\tgene_start\tgene_end\tstrand\ttranscript_score\tregion\n";
-
 my $genes_select = $coredb->dbc->prepare("SELECT DISTINCT g.gene_id, g.stable_id, g.biotype, sr.name, g.seq_region_start, g.seq_region_end, g.seq_region_strand, exc_type FROM gene g JOIN transcript t ON g.gene_id = t.gene_id \
                                          JOIN seq_region sr ON g.seq_region_id = sr.seq_region_id LEFT JOIN assembly_exception ae ON g.seq_region_id = ae.seq_region_id LEFT \
                                          JOIN translation tn ON t.transcript_id = tn.transcript_id WHERE t.source IN ('ensembl','havana','ensembl_havana') AND tn.stable_id IS NOT NULL");
@@ -299,15 +293,11 @@ foreach my $generef (@$genes) {
       print ALERT_FILE1 $gene, ":\t@exon_transcripts\n";
     }
   }
-  foreach my $coding_transcript(@{$gene_hash_array{$gene}}) {
-    print GENEFILE $gene, "\t", scalar (@{$coding_exons{$gene}}), "\t", scalar (@{$pathogenic_variants{$gene}}), "\t", $biotype{$gene}, "\t", $coding_transcript, "\t", scalar (@{$coding_exons{$coding_transcript}}), "\t", scalar (@{$pathogenic_variants{$coding_transcript}}), "\t", $length{$coding_transcript}, "\t", $chromosome{$gene}, "\t", $start{$gene}, "\t", $end{$gene}, "\t", $strand{$gene}, "\t", $trans_score{$coding_transcript}, "\t", $region{$gene}, "\n";
-  }
 }
 } # @$slices
 
 say "Finished processing genes";
 
-close (GENEFILE);
 close (ALERT_FILE1);
 close (ALERT_FILE2);
 
