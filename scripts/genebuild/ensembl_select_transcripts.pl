@@ -555,7 +555,6 @@ sub download_data {
 
   # unzip all the gz files
   say "Unzipping downloaded files";
-  sleep(3);
   system ("bsub -w 'done(HGNC_download) && done(refseq_download) && done(uniprot_download)' -K gunzip $outdir/*gz");
 
   # parse refseq info
