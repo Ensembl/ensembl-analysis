@@ -127,7 +127,7 @@ if ($download_data) {
 }
 
 # parse the HGNC info
-my %hgnc = parse_hgnc_data($outdir);
+my %hgnc = %{parse_hgnc_data($outdir)};
 
 # parse the RefSeq data
 my ($refseq_canonical_ref,$refseq_match_ref,$refseq_canonical_match_ref) = parse_refseq_data($outdir,$otherfdb);
