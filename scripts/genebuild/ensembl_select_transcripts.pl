@@ -15,25 +15,24 @@ use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
 
-my $ensembl_version = 94;
 my $outdir = '/path/to/output_dir/';
 
 # If you are making an output db
 my $clone_db_script = '/path/to/clone_database.ksh';
 
 
-my $dbname = 'homo_sapiens_core_'.$ensembl_version.'_38';
+my $dbname = 'homo_sapiens_core_XX_38';
 my $dbuser = 'WRITE_USER';
 my $dbpass = 'WRITE_PASS';
 my $dbhost = '';
 my $dbport = '';
 
-my $otherfdbname = 'homo_sapiens_otherfeatures_'.$ensembl_version.'_38';
+my $otherfdbname = 'homo_sapiens_otherfeatures_XX_38';
 my $otherfdbuser = 'READ_USER';
 my $otherfdbhost = '';
 my $otherfdbport = '';
 
-my $vardbname = 'homo_sapiens_variation_'.$ensembl_version.'_38';
+my $vardbname = 'homo_sapiens_variation_XX_38';
 my $vardbuser = 'READ_USER';
 my $vardbhost = '';
 my $vardbport = '';
@@ -61,8 +60,8 @@ my $length_fraction = 0.75;
 
 my $log_file = $outdir.'/transcript_selection.log';
 my $canonicals_file = $outdir.'/canonicals.txt';
-my $alert_file1 = $outdir.'/multiple_transcripts_exons_'.$ensembl_version.'.txt';
-my $alert_file2 = $outdir.'/multiple_transcripts_variants_'.$ensembl_version.'.txt';
+my $alert_file1 = $outdir.'/multiple_transcripts_exons.txt';
+my $alert_file2 = $outdir.'/multiple_transcripts_variants.txt';
 
 
 # The following are biotypes that we'll consider for the canonical transcripts. This list can be updated as needed.
