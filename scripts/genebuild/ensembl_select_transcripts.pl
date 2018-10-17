@@ -17,10 +17,6 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Tran
 
 my $outdir = '/path/to/output_dir/';
 
-# If you are making an output db
-my $clone_db_script = '/path/to/clone_database.ksh';
-
-
 my $dbname = 'homo_sapiens_core_XX_38';
 my $dbuser = 'WRITE_USER';
 my $dbpass = 'WRITE_PASS';
