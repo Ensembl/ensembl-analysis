@@ -54,31 +54,30 @@ if ($reward_refseq_match) {
 
 my $length_fraction = 0.75;
 
-my $log_file = $outdir.'/transcript_selection.log';
-my $canonicals_file = $outdir.'/canonicals.txt';
-my $alert_file1 = $outdir.'/multiple_transcripts_exons.txt';
-my $alert_file2 = $outdir.'/multiple_transcripts_variants.txt';
-
-
 # The following are biotypes that we'll consider for the canonical transcripts. This list can be updated as needed.
 my @allowed_biotypes = ('protein_coding','TR_V_gene','TR_J_gene','TR_D_gene','TR_C_gene','IG_D_gene','IG_J_gene','IG_V_gene','IG_C_gene');
 
 GetOptions(
-  "dbuser|user|u=s" => \$dbuser,          # string
-  "dbhost|host|h=s" => \$dbhost,          # string
-  "dbport|port|P=i" => \$dbport,          # numeric
-  "dbpass|pass|p=s" => \$dbpass,          # string
-  "dbname|db|D=s" => \$dbname,            # string
-  "otherfuser=s" => \$otherfdbuser,       # string
-  "otherfhost=s" => \$otherfdbhost,       # string
-  "otherfport=i" => \$otherfdbport,       # numeric
-  "otherfdbname=s" => \$otherfdbname,     # string
-  "varuser=s" => \$vardbuser,             # string
-  "varhost=s" => \$vardbhost,             # string
-  "varport=i" => \$vardbport,             # numeric
-  "vardbname=s" => \$vardbname,           # string
+  'outdir=s' => \$outdir,                 # string
+  'dbuser|user|u=s' => \$dbuser,          # string
+  'dbhost|host|h=s' => \$dbhost,          # string
+  'dbport|port|P=i' => \$dbport,          # numeric
+  'dbpass|pass|p=s' => \$dbpass,          # string
+  'dbname|db|D=s' => \$dbname,            # string
+  'otherfuser=s' => \$otherfdbuser,       # string
+  'otherfhost=s' => \$otherfdbhost,       # string
+  'otherfport=i' => \$otherfdbport,       # numeric
+  'otherfdbname=s' => \$otherfdbname,     # string
+  'varuser=s' => \$vardbuser,             # string
+  'varhost=s' => \$vardbhost,             # string
+  'varport=i' => \$vardbport,             # numeric
+  'vardbname=s' => \$vardbname,           # string
 );
 
+my $log_file = $outdir.'/transcript_selection.log';
+my $canonicals_file = $outdir.'/canonicals.txt';
+my $alert_file1 = $outdir.'/multiple_transcripts_exons.txt';
+my $alert_file2 = $outdir.'/multiple_transcripts_variants.txt';
 
 my $coredb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -host => $dbhost,
@@ -109,7 +108,7 @@ my $ga = $coredb->get_GeneAdaptor();
 my $aa = $coredb->get_AttributeAdaptor();
 
 # make the output directory
-system ("mkdir -p $outdir");
+system("mkdir -p $outdir");
 
 # get the gene names from the core db
 my %xref = %{get_gene_names($coredb)};
