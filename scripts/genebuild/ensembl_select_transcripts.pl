@@ -351,12 +351,12 @@ for my $gene ( keys %gene_hash_array ) {
     @high_variant_keys = grep { $variants_hash{$_} eq $variants_hash{$highest_no_variants{$gene}} } keys %variants_hash;
 
     # a list of the transcripts sorted by their corresponding lengths
-    my @transcript_lengths = sort {$length{$b} <=> $length{$a}} values %{$gene_hash_array{$gene}};
+    my @transcript_lengths = sort {$length{$b} <=> $length{$a}} values @{$gene_hash_array{$gene}};
     $longest_trans{$gene} = $transcript_lengths[0];
     @longest_keys = grep { $length_hash{$_} eq $length_hash{$longest_trans{$gene}} } keys %length_hash;
 
     # a list of the transcripts sorted by their corresponding scores
-    my @scores = sort {$trans_score{$b} <=> $trans_score{$a}} values %{$gene_hash_array{$gene}};
+    my @scores = sort {$trans_score{$b} <=> $trans_score{$a}} values @{$gene_hash_array{$gene}};
     $highest_scoring_trans{$gene} = $scores[0];
     @high_score_keys = grep { $score_hash{$_} eq $score_hash{$highest_scoring_trans{$gene}} } keys %score_hash;
 
