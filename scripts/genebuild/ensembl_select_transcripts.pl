@@ -164,9 +164,7 @@ my %gene_hash_array;
 
 my %number_variants;
 my %coding_exons;
-
 my %pathogenic_variants;
-my %transcript_set;
 
 my %trans_ordered_by_variants;
 my %trans_ordered_by_exons;
@@ -328,7 +326,6 @@ for my $gene ( keys %gene_hash_array ) {
   my %score_hash;
   my %variants_hash;
   my %coding_exons_hash;
-  my @coding_exons_array;
 
   # If there's no hgnc_id then set this to be a hyphen
   unless (exists $hgnc{$gene}){
@@ -420,7 +417,6 @@ for my $gene ( keys %gene_hash_array ) {
       # I need to put in a check if the @new_scores array contains either 1 hit or no hits
       my @appris2;
       my @appris3;
-      my @appris_hits;
       my @undecided;
 
       foreach my $hit (@new_scores) {
