@@ -1,10 +1,40 @@
-#!/usr/bin/env perl
+=head1 LICENSE
 
-# NB:
-# We had a method to take the transcript as canonical if it contains all coding exons in the gene
-# however, this is not a good idea as transcripts with transposable elements that may actually prevent
-# them from being transcribed or translated, or are completely on existent, will automatically 
-# get chosen over what could be much better candidates. It is available in previous git commits
+# Copyright [2017-2018] EMBL-European Bioinformatics Institute
+#
+# Licensed under the Apache License,Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <http://www.ensembl.org/Help/Contact>.
+
+=cut
+
+=head1 NAME
+
+ensembl_select_transcripts.pl -
+
+=head1 DESCRIPTION
+
+  This script selects a "select" transcript for each protein-coding-like gene based on the weighting of
+  APPRIS, TSL, UniProt, RefSeq and Ensembl variants data. It stores the "select" transcripts in both a text file "select.txt"
+  and in the input genes database as a gene attribute "select_transcript" containing the "select" transcript stable ID for each gene. 
+
+=cut
 
 use strict;
 use warnings;
@@ -75,7 +105,7 @@ GetOptions(
 );
 
 my $log_file = $outdir.'/transcript_selection.log';
-my $canonicals_file = $outdir.'/canonicals.txt';
+my $select_file = $outdir.'/select.txt';
 my $alert_file1 = $outdir.'/multiple_transcripts_exons.txt';
 my $alert_file2 = $outdir.'/multiple_transcripts_variants.txt';
 
@@ -302,9 +332,9 @@ my %highest_no_variants;
 my %description;
 my %highest_no_coding_exons;
 
-say "Assigning canonicals";
-open (CAN_FILE, ">$canonicals_file");
-print CAN_FILE "#gene_id\tnumber_gene_variants\tgene_name\thgnc_acc\tgene_biotype\treference_canonical\tnumber_trans_variants\ttrans_length\tchr\tstart\tend\tstrand\tregion\tscore\thighest_scoring\tlongest\tmost_variants\tdescription\n";
+say "Assigning select transcripts";
+open (SELECT_FILE, ">$select_file");
+print SELECT_FILE "#gene_id\tnumber_gene_variants\tgene_name\thgnc_acc\tgene_biotype\treference_canonical\tnumber_trans_variants\ttrans_length\tchr\tstart\tend\tstrand\tregion\tscore\thighest_scoring\tlongest\tmost_variants\tdescription\n";
 
 for my $gene ( keys %gene_hash_array ) {
   my @trans_ordered_by_variants;
@@ -389,7 +419,7 @@ for my $gene ( keys %gene_hash_array ) {
     # Now check if there are other transcripts belonging to the gene that have the same score
     # If they do then check if they are at least 75% of the length of the longest transcript
     # if there's still more than 1 then check if any are APPRIS P2s:
-    #  - if only 1 is then set it as canonical
+    #  - if only 1 is then set it as select
     #  - if more than 1 is then check Ensembl canonicals (explained below)
     #  - If none are then go to APPRIS P3s
     # APPRIS P3s:
@@ -512,8 +542,8 @@ for my $gene ( keys %gene_hash_array ) {
       $description{$gene} .= ". $highest_no_variants{$gene} contains all of gene's pathogenic variants.";
     }
 
-    # print the canonicals into a file
-    print CAN_FILE $gene, "\t", $number_variants{$gene}, "\t", $name, "\t", $hgnc{$gene}, "\t", $biotype{$gene}, "\t", $canonical{$gene}, "\t", $number_variants{$canonical{$gene}}, "\t", $length{$canonical{$gene}}, "\t", $chromosome{$gene}, "\t", $start{$gene}, "\t", $end{$gene}, "\t", $strand{$gene}, "\t", $region{$gene}, "\t", $trans_score{$canonical{$gene}}, "\t", $high_score, "\t", $longest, "\t", $high_variants, "\t", $description{$gene}, "\n";
+    # print the select transcripts into a file
+    print SELECT_FILE $gene, "\t", $number_variants{$gene}, "\t", $name, "\t", $hgnc{$gene}, "\t", $biotype{$gene}, "\t", $canonical{$gene}, "\t", $number_variants{$canonical{$gene}}, "\t", $length{$canonical{$gene}}, "\t", $chromosome{$gene}, "\t", $start{$gene}, "\t", $end{$gene}, "\t", $strand{$gene}, "\t", $region{$gene}, "\t", $trans_score{$canonical{$gene}}, "\t", $high_score, "\t", $longest, "\t", $high_variants, "\t", $description{$gene}, "\n";
     
     # store a gene attribute called "select_transcript" to store the "select" transcript
     my $gene_object = $ga->fetch_by_stable_id($gene);
@@ -529,7 +559,7 @@ for my $gene ( keys %gene_hash_array ) {
     print LOGFILE "No protein-coding canonical transcript defined for $gene\n"; 
   }
 }
-close (CAN_FILE);
+close (SELECT_FILE);
 close (LOGFILE);
 
 exit;
