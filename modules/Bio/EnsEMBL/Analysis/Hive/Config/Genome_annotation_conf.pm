@@ -237,7 +237,7 @@ sub default_options {
 
     'layering_input_gene_dbs' => [
                                    $self->o('genblast_db'),
-                                   $self->o('genblast_select_db'),
+                                   $self->o('genblast_rnaseq_support_db'),
                                    $self->o('rnaseq_for_layer_db'),
                                    $self->o('projection_coding_db'),
                                    $self->o('ig_tr_db'),
