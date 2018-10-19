@@ -216,9 +216,8 @@ sub run {
 
 
   if ($self->annotation_features) {
-    my $annot_file = $self->workdir . "/exonerate_a.$$";
-    open F, ">$annot_file" or 
-        throw "Could not open temp $annot_file for writing";
+    my $annot_file = $self->create_filename("exonerate_a");
+    $self->annotation_file($annot_file);
     foreach my $id (keys %{$self->annotation_features}) {
       my $f = $self->annotation_features->{$id};
       printf(F "%s %s %d %d\n", 
@@ -228,9 +227,7 @@ sub run {
              $f->length);
       
     } 
-    close(F);
-    $self->files_to_delete($annot_file);
-    $self->annotation_file($annot_file);
+    close($annot_file) || throw('Could not close annotation file for writing');
   } elsif ($self->annotation_file) {
     my %feats;
     open F, $self->annotation_file or 
@@ -243,47 +240,20 @@ sub run {
                                                 -end     => $3 + $4 - 1); 
       };      
     }
-    close(F);
+    close(F) || throw('Could not close supplied annotation file for reading');
     $self->annotation_features(\%feats);
   }
 
 
   if ($self->query_seqs) {
     # Write query sequences to file if necessary
-    #my $query_file = $self->create_filename('exonerate_q', 'fa');
     my $query_file = write_seqfile($self->query_seqs);
-    
-    #my $seqout = 
-    #  Bio::SeqIO->new(
-    #    '-format' => 'fasta',
-    #    '-file'     => ">$query_file"
-    #  );
-    #  
-    #foreach my $seq ( @{$self->query_seqs} ) {
-    #  $seqout->write_seq($seq);
-    #}
-    
-    # register the file for deletion
-    $self->files_to_delete($query_file);
     $self->query_file($query_file);
   }
 
   if ($self->target_seqs) {
     # Write query sequences to file if necessary
-    #my $target_file = $self->create_filename('exonerate_t', 'fa');
     my $target_file = write_seqfile($self->target_seqs);
-    #my $seqout = 
-    #  Bio::SeqIO->new(
-    #    '-format' => 'fasta',
-    #    '-file'     => ">$target_file"
-    #  );
-    #  
-    #foreach my $seq ( @{$self->target_seqs} ) {
-    #  $seqout->write_seq($seq);
-    #}
-    
-    # register the file for deletion
-    $self->files_to_delete($target_file);
     $self->target_file($target_file);
   }
 
@@ -310,7 +280,6 @@ sub run {
     sleep 30;
     throw ("Error closing exonerate command: $? : $!");
   }
-  $self->delete_files;
 
   return 1;
 }
