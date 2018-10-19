@@ -1649,7 +1649,7 @@ sub pipeline_analyses {
         -flow_into => {
           1 => ['format_softmasked_toplevel'],
         },
-        -rc_name    => '3G',
+        -rc_name    => '3GB',
       },
 
 
@@ -1660,7 +1660,7 @@ sub pipeline_analyses {
         -parameters => {
                          'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmask -in '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa.asnb;makeblastdb -in '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa -dbtype nucl -parse_seqids -mask_data '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa;fi',
                        },
-        -rc_name    => '3G',
+        -rc_name    => '3GB',
       },
 
 ###############################################################################
@@ -2265,7 +2265,7 @@ sub pipeline_analyses {
                          batch_size => $self->o('uniprot_genblast_batch_size'),
                          sequence_table_name => $self->o('uniprot_table_name'),
                        },
-        -rc_name      => '3G',
+        -rc_name      => '3GB',
         -flow_into => {
                         2 => ['genblast'],
                         1 => ['create_seleno_homology_jobs'],
@@ -2619,7 +2619,7 @@ sub pipeline_analyses {
         repeat_libraries => '#wide_repeat_logic_names#',
         calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
       },
-      -rc_name          => '3G',
+      -rc_name          => '3GB',
     },
 
 
@@ -2716,7 +2716,7 @@ sub pipeline_analyses {
         seqfetcher_index => [catfile($self->o('targetted_path'), 'proteome_index')],
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise')},
       },
-      -rc_name          => '3G',
+      -rc_name          => '3GB',
     },
     {
 
@@ -2733,7 +2733,7 @@ sub pipeline_analyses {
         seqfetcher_index => [catfile($self->o('targetted_path'), 'proteome_index')],
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise')},
       },
-      -rc_name          => '3G',
+      -rc_name          => '3GB',
     },
     {
 
@@ -2750,7 +2750,7 @@ sub pipeline_analyses {
         program_file => $self->o('exonerate_path'),
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_exonerate')},
       },
-      -rc_name          => '3G',
+      -rc_name          => '3GB',
     },
     {
       -logic_name => 'download_mRNA',
@@ -2804,7 +2804,7 @@ sub pipeline_analyses {
     {
       -logic_name => 'exonerate',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
-      -rc_name    => '3G',
+      -rc_name    => '3GB',
       -parameters => {
         iid_type => 'db_seq',
         sequence_table_name => $self->o('cdna_table_name'),
@@ -2830,7 +2830,7 @@ sub pipeline_analyses {
     {
       -logic_name => 'exonerate_retry',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
-      -rc_name    => '6G',
+      -rc_name    => '6GB',
       -parameters => {
         iid_type => 'db_seq',
         sequence_table_name => $self->o('cdna_table_name'),
@@ -2951,7 +2951,7 @@ sub pipeline_analyses {
     {
       -logic_name => 'cdna2genome',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2GenesRegion',
-      -rc_name    => '3G',
+      -rc_name    => '3GB',
       -parameters => {
         iid_type => 'db_seq',
         dna_db => $self->o('dna_db'),
@@ -2974,7 +2974,7 @@ sub pipeline_analyses {
     {
       -logic_name => 'cdna2genome_himem',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2GenesRegion',
-      -rc_name    => '6G',
+      -rc_name    => '6GB',
       -parameters => {
         iid_type => 'db_seq',
         dna_db => $self->o('dna_db'),
@@ -3127,7 +3127,7 @@ sub pipeline_analyses {
         protein_min_coverage => $self->o('best_targetted_min_coverage'),
         protein_min_identity => $self->o('best_targetted_min_identity'),
       },
-      -rc_name          => '3G',
+      -rc_name          => '3GB',
     },
 
     {
@@ -3990,7 +3990,7 @@ sub pipeline_analyses {
           picard_lib_jar => $self->o('picard_lib_jar'),
           use_threads => $self->o('rnaseq_merge_threads'),
         },
-        -rc_name    => '3GB_multithread',
+        -rc_name    => '3GB_merged_multithread',
         -flow_into => {
           1 => ['create_analyses_type_job', '?accu_name=filename&accu_address=[]&accu_input_variable=alignment_bam_file'],
         },
@@ -5797,7 +5797,7 @@ sub pipeline_analyses {
                          module     => 'HiveSplicedElsewhere',
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
                        },
-        -rc_name          => '3G',
+        -rc_name          => '3GB',
         -flow_into => {
                         1 => ['create_final_geneset_db'],
                       },
@@ -5844,7 +5844,7 @@ sub pipeline_analyses {
                          logic_name => 'filter_lncrnas',
                          module     => 'HiveFilterlncRNAs',
                        },
-        -rc_name          => '3G',
+        -rc_name          => '3GB',
         -flow_into => {
                         1 => ['change_biotype_for_weak_cds'],
                       },
