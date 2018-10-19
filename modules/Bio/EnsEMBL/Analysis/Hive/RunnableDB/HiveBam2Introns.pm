@@ -87,6 +87,7 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     _branch_for_accumulators => 'MAIN',
+    _stored_features => {},
   }
 }
 
@@ -145,7 +146,6 @@ sub fetch_input {
   # is calculated as the Exonerate word length - number of matches you
   # might expect by chance ie 1 in 4
   my $missmatch = $self->param('word_length') - int($self->param('word_length') / 4);
-  $self->param('min_missmatch', $missmatch);
   print "Ignoring reads with < $missmatch mismatches\n";
   my @reads;
   my $bam = Bio::DB::HTSfile->open($self->param('bam_file'));
@@ -173,7 +173,7 @@ sub fetch_input {
     $counters->{'last_start'} = 0;
     my %split_points;
     $exon_start = $counters->{'start'} if ($counters->{'start'} && $counters->{'start_exon'} == $i);
-    my @callback_data = ($self, $i, $exon_start, $rough->stable_id, \@reads, \@iids, $counters, $self->param('seq_hash'));
+    my @callback_data = ($missmatch, $i, $exon_start, $rough->stable_id, \@reads, \@iids, $counters, $self->param('seq_hash'));
     $bam_index->fetch($bam, $tid, $exon_start-1, $exon->end-1, \&_process_reads, \@callback_data);
   }
   if (  scalar(@reads) == 0 ) {
@@ -262,29 +262,6 @@ sub get_aligner_options {
 }
 
 
-=head2 run
-
- Arg [1]    : None
- Description: Run exonerate on the genomic sequence using only the reads with missmatches.
- Returntype : None
- Exceptions : None
-
-=cut
-
-sub run {
-  my ($self) = @_;
-  $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
-  $self->throw("Can't run - no runnable objects") unless ( $self->runnable );
-  my ($runnable) = @{$self->runnable};
-  $runnable->run;
-  my $features = $runnable->output;
-# It is not in the Runnable because it needs to do DB calls to get the sequence
-# Might be worth to get the sequence in fetch_input then do some Perl substr
-  my $genomic_features = $self->process_features($features);
-  $self->output($genomic_features);
-}
-
-
 =head2 write_output
 
   Arg [1]   : None
@@ -319,25 +296,13 @@ sub write_output {
         $self->throw("Input id $iid structure not recognised should be something like BAMG00000002548\n");
       }
       open ( SAM ,">$filename" ) or $self->throw("Cannot open file for writing $filename\n");
-      my $seq_hash = $self->param('seq_hash');
-      my $line_count = 0;
-      foreach my $feature ( @$output ) {
-          my $line = $self->convert_to_sam($feature, $seq_hash);
-          if ($line) {
-              print SAM $line;
-              $line_count++;
-          }
+      foreach my $line ( @$output ) {
+        print SAM $line;
       }
       # write an end of file marker so we can test that the job didnt die when writing
       print SAM '@EOF';
-      close SAM;
-      if ($line_count) {
-          $self->dataflow_output_id([{filename => $filename}], $self->param('_branch_for_accumulators'));
-      }
-      else {
-          $self->input_job->autoflow(0);
-          unlink $filename || $self->warning("Could not remove empty SAM file $filename");
-      }
+      close(SAM) || $self->throw("Could not close $filename after writing SAM data");
+      $self->dataflow_output_id([{filename => $filename}], $self->param('_branch_for_accumulators'));
   }
   else {
       $self->input_job->autoflow(0);
@@ -367,10 +332,7 @@ sub convert_to_sam {
   # I will have a go at reversing them
   #$feature->hstrand($feature->hstrand * -1);
   # strip off the :NC of the end of the seq names
-  my $tmp = $feature->hseqname;
-  $tmp   =~ s/:NC$//;
-  $feature->hseqname($tmp);
-  my $feature_seq = $seq_hash->{$tmp};
+  my $feature_seq = $seq_hash->{$feature->hseqname};
   $self->throw("cannot find sequence for " . $feature->hseqname ."\n")
     unless $feature_seq;
   my $seq = "*";
@@ -492,7 +454,7 @@ sub check_cigar_length{
 }
 
 
-=head2 process_features
+=head2 filter_results
 
   Arg [1]   : array ref of Bio::EnsEMBL::DnaDnaAlignFeature
   Function  : Uses cdna2genome to convert the ungapped align
@@ -503,7 +465,7 @@ sub check_cigar_length{
 
 =cut
 
-sub process_features {
+sub filter_results {
     my ( $self, $flist ) = @_;
 
 # first do all the standard processing, adding a slice and analysis etc.
@@ -511,6 +473,7 @@ sub process_features {
 
     my @dafs;
     my $trans = $self->rough;
+    my $seq_hash = $self->param('seq_hash');
     my $transcript_strand = $trans->strand;
 # I hate to do that but let's uses Perl's features...
     my $splice_in_splice_limit = scalar(@$flist);
@@ -561,7 +524,8 @@ sub process_features {
             }
           }
         }
-        push(@dafs, @{$self->build_dna_align_features($f, \@features)});
+        my $line = $self->build_dna_align_features(\@features, $seq_hash);
+        push(@dafs, $line) if ($line);
     }
     $self->warning('Too many reads have splice site in their exons, something in wrong as these exons should not be spliced '.$splice_in_splice_found.'/'.$splice_in_splice_limit)
       if ($splice_in_splice_limit/100 < $splice_in_splice_found);
@@ -580,26 +544,11 @@ sub process_features {
 =cut
 
 sub build_dna_align_features {
-    my ($self, $f, $features) = @_;
+    my ($self, $features, $seq_hash) = @_;
 
-    my @dafs;
     my @features = sort { $a->start <=> $b->start } @$features;
     my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@features);
-# corect for hstart end bug
-#    $feat->hstart($f->hstart);
-#    $feat->hend($f->hend);
-    $feat->analysis($self->analysis);
-# transfer the original sequence of the read
-    $feat->{"_feature_seq"} = $f->{"_feature_seq"};
-# dont store the same feature twice because it aligns to a different transcript in the same gene.
-#    my $unique_id = join(':', $feat->seq_region_name, $feat->start, $feat->end, $feat->strand, $feat->hseqname);
-    my $unique_id = join(':', $feat->seq_region_name, $feat->seq_region_start, $feat->seq_region_end, $feat->strand, $feat->hseqname);
-    unless ($self->stored_features($unique_id)){
-        push @dafs,$feat;
-# keep tabs on it so you don't store it again.
-        $self->stored_features($unique_id,1);
-    }
-    return \@dafs;
+    return $self->convert_to_sam($feat, $seq_hash);
 }
 
 
@@ -669,20 +618,14 @@ sub fullslice {
 =cut
 
 sub stored_features {
-  my ($self,$key,$value) = @_;
+  my ($self, $key) = @_;
 
   return unless defined ($key);
 
-  if (!$self->param_is_defined('_stored_features')) {
-    $self->param('_stored_features', {});
-  }
-  if (defined $value) {
-    $self->param('_stored_features')->{$key} = $value;
-  }
-
-  if ($self->param_is_defined('_stored_features') and exists($self->param('_stored_features')->{$key})) {
+  if (exists($self->param('_stored_features')->{$key})) {
     return $self->param('_stored_features')->{$key};
   } else {
+    $self->param('_stored_features')->{$key} = 1;
     return;
   }
 }
@@ -708,10 +651,10 @@ sub stored_features {
 sub _process_reads {
     my ($read, $callbackdata) = @_;
 
-    my ($self, $i, $exon_start, $stable_id, $reads, $iids, $counters, $seq_hash) = @$callbackdata;
+    my ($min_missmatch, $i, $exon_start, $stable_id, $reads, $iids, $counters, $seq_hash) = @$callbackdata;
     return if ($counters->{'stop_loop'});
     my $missmatch  = $read->get_tag_values('NM');
-    return unless ($missmatch and $missmatch >= $self->param('min_missmatch'));
+    return unless ($missmatch and $missmatch >= $min_missmatch);
     # get rid of any reads that might start before our start point
     return if (!$read->start or ($i == $counters->{'start_exon'} and $read->start < $exon_start));
     $counters->{'read_count'} ++;
