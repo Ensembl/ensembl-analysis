@@ -4336,8 +4336,9 @@ sub pipeline_analyses {
           samtools => $self->o('samtools_path'),
           intron_bam_file => catfile($self->o('output_dir'), 'introns'),
           genome_file => $self->o('rnaseq_genome_file'),
+          use_threading => $self->o('use_threads'),
         },
-        -rc_name    => '5GB',
+        -rc_name    => '5GB_multithread',
         -flow_into => ['create_refine_db'],
       },
       {
