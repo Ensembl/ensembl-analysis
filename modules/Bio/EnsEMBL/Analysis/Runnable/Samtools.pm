@@ -377,7 +377,7 @@ sub reheader {
   throw("Could not find $source_bam") unless (-e $source_bam);
   throw("Could not find $header") unless (-e $header);
   warning("Will overwrite $target_bam") if (-e $target_bam);
-  execute_with_wait($self->program." $header $source_bam > $target_bam");
+  execute_with_wait($self->program." reheader $header $source_bam > $target_bam");
 }
 
 1;
