@@ -344,7 +344,6 @@ sub run {
     $self->output([\%csv_data, \%samples]);
   }
   else {
-    $self->input_job->autoflow(0);
     $self->complete_early('Could not find any data for this job');
   }
 }

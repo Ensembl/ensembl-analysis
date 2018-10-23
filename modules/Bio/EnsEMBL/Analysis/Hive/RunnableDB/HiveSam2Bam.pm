@@ -74,6 +74,7 @@ sub fetch_input {
        -samfiles => $self->param('filename'),
        -bamfile  => $self->param('intron_bam_file'),
        -genome   => $self->param('genome_file'),
+       -use_threading => $self->param('use_threading'),
       );
     $self->runnable($runnable);
   }
@@ -81,24 +82,6 @@ sub fetch_input {
     $self->input_id->autoflow(0);
     $self->complete_early('You do not have any SAM files');
   }
-}
-
-
-=head2 run
-
-  Arg [1]   : None
-  Function  : Overrides run as we want to disconnect from the database as the job will last at least 30 minutes
-  Returntype: None
-  Exceptions: None
-
-=cut
-
-sub run {
-  my ($self) = @_;
-  $self->throw("Can't run - no runnable objects") unless ( $self->runnable );
-  $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
-  my ($runnable) = @{$self->runnable};
-  $runnable->run;
 }
 
 

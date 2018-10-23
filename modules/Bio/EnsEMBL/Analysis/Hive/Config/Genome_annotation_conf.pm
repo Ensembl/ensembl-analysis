@@ -237,7 +237,7 @@ sub default_options {
 
     'layering_input_gene_dbs' => [
                                    $self->o('genblast_db'),
-                                   $self->o('genblast_select_db'),
+                                   $self->o('genblast_rnaseq_support_db'),
                                    $self->o('rnaseq_for_layer_db'),
                                    $self->o('projection_coding_db'),
                                    $self->o('ig_tr_db'),
@@ -1649,7 +1649,7 @@ sub pipeline_analyses {
         -flow_into => {
           1 => ['format_softmasked_toplevel'],
         },
-        -rc_name    => 'default_himem',
+        -rc_name    => '3GB',
       },
 
 
@@ -1660,7 +1660,7 @@ sub pipeline_analyses {
         -parameters => {
                          'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmask -in '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa.asnb;makeblastdb -in '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa -dbtype nucl -parse_seqids -mask_data '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa;fi',
                        },
-        -rc_name    => 'default_himem',
+        -rc_name    => '3GB',
       },
 
 ###############################################################################
@@ -2265,7 +2265,7 @@ sub pipeline_analyses {
                          batch_size => $self->o('uniprot_genblast_batch_size'),
                          sequence_table_name => $self->o('uniprot_table_name'),
                        },
-        -rc_name      => 'default_himem',
+        -rc_name      => '3GB',
         -flow_into => {
                         2 => ['genblast'],
                         1 => ['create_seleno_homology_jobs'],
@@ -2619,7 +2619,7 @@ sub pipeline_analyses {
         repeat_libraries => '#wide_repeat_logic_names#',
         calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
       },
-      -rc_name          => 'exonerate',
+      -rc_name          => '3GB',
     },
 
 
@@ -2716,7 +2716,7 @@ sub pipeline_analyses {
         seqfetcher_index => [catfile($self->o('targetted_path'), 'proteome_index')],
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise')},
       },
-      -rc_name          => 'exonerate',
+      -rc_name          => '3GB',
     },
     {
 
@@ -2733,7 +2733,7 @@ sub pipeline_analyses {
         seqfetcher_index => [catfile($self->o('targetted_path'), 'proteome_index')],
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise')},
       },
-      -rc_name          => 'exonerate',
+      -rc_name          => '3GB',
     },
     {
 
@@ -2750,7 +2750,7 @@ sub pipeline_analyses {
         program_file => $self->o('exonerate_path'),
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_exonerate')},
       },
-      -rc_name          => 'exonerate',
+      -rc_name          => '3GB',
     },
     {
       -logic_name => 'download_mRNA',
@@ -2804,7 +2804,7 @@ sub pipeline_analyses {
     {
       -logic_name => 'exonerate',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
-      -rc_name    => 'exonerate',
+      -rc_name    => '3GB',
       -parameters => {
         iid_type => 'db_seq',
         sequence_table_name => $self->o('cdna_table_name'),
@@ -2830,7 +2830,7 @@ sub pipeline_analyses {
     {
       -logic_name => 'exonerate_retry',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
-      -rc_name    => 'exonerate_6G',
+      -rc_name    => '6GB',
       -parameters => {
         iid_type => 'db_seq',
         sequence_table_name => $self->o('cdna_table_name'),
@@ -2951,7 +2951,7 @@ sub pipeline_analyses {
     {
       -logic_name => 'cdna2genome',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2GenesRegion',
-      -rc_name    => 'exonerate',
+      -rc_name    => '3GB',
       -parameters => {
         iid_type => 'db_seq',
         dna_db => $self->o('dna_db'),
@@ -2974,7 +2974,7 @@ sub pipeline_analyses {
     {
       -logic_name => 'cdna2genome_himem',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2GenesRegion',
-      -rc_name    => 'exonerate_6G',
+      -rc_name    => '6GB',
       -parameters => {
         iid_type => 'db_seq',
         dna_db => $self->o('dna_db'),
@@ -3127,7 +3127,7 @@ sub pipeline_analyses {
         protein_min_coverage => $self->o('best_targetted_min_coverage'),
         protein_min_identity => $self->o('best_targetted_min_identity'),
       },
-      -rc_name          => 'exonerate',
+      -rc_name          => '3GB',
     },
 
     {
@@ -3397,7 +3397,7 @@ sub pipeline_analyses {
                        '-2' => ['rebatch_rfam'],
                      },
        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-       -rc_name    => 'rfam_blast',
+       -rc_name    => 'blast',
       },
 
 
@@ -3439,7 +3439,7 @@ sub pipeline_analyses {
                        '-2' => ['failed_rfam_blast_job'],
                      },
        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-       -rc_name    => 'rfam_blast_retry',
+       -rc_name    => 'blast_retry',
        -can_be_empty  => 1,
       },
 
@@ -3990,7 +3990,7 @@ sub pipeline_analyses {
           picard_lib_jar => $self->o('picard_lib_jar'),
           use_threads => $self->o('rnaseq_merge_threads'),
         },
-        -rc_name    => '3GB_multithread',
+        -rc_name    => '3GB_merged_multithread',
         -flow_into => {
           1 => ['create_analyses_type_job', '?accu_name=filename&accu_address=[]&accu_input_variable=alignment_bam_file'],
         },
@@ -4156,7 +4156,7 @@ sub pipeline_analyses {
           paired => $self->o('paired'),
           use_ucsc_naming => $self->o('use_ucsc_naming'),
         },
-        -rc_name    => '2GB_rough',
+        -rc_name    => '2GB',
         -flow_into => {
           -1 => {'rough_transcripts_5GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
           -2 => {'rough_transcripts_5GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
@@ -4179,7 +4179,7 @@ sub pipeline_analyses {
           paired => $self->o('paired'),
           use_ucsc_naming => $self->o('use_ucsc_naming'),
         },
-        -rc_name    => '5GB_rough',
+        -rc_name    => '5GB',
         -flow_into => {
           -1 => {'rough_transcripts_15GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
           -2 => {'rough_transcripts_15GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
@@ -4202,7 +4202,7 @@ sub pipeline_analyses {
           paired => $self->o('paired'),
           use_ucsc_naming => $self->o('use_ucsc_naming'),
         },
-        -rc_name    => '15GB_rough',
+        -rc_name    => '15GB',
       },
 
       {
@@ -4231,7 +4231,7 @@ sub pipeline_analyses {
           create_stable_ids => 1,
           stable_id_prefix => 'RNASEQ',
         },
-        -rc_name    => '1GB_rough',
+        -rc_name    => '1GB',
         -batch_size => 100,
         -flow_into => {
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#alignment_bam_file#'}},
@@ -4258,7 +4258,7 @@ sub pipeline_analyses {
           use_ucsc_naming => $self->o('use_ucsc_naming'),
           output_dir => $self->o('sam_dir'),
         },
-        -rc_name    => '2GB_introns',
+        -rc_name    => '2GB',
         -analysis_capacity => 500,
         -batch_size => 100,
         -flow_into => {
@@ -4320,7 +4320,7 @@ sub pipeline_analyses {
           use_ucsc_naming => $self->o('use_ucsc_naming'),
           output_dir => $self->o('sam_dir'),
         },
-        -rc_name    => '50GB_introns',
+        -rc_name    => '50GB',
         -analysis_capacity => 500,
         -flow_into => {
           1 => [':////accu?filename=[]'],
@@ -4336,8 +4336,9 @@ sub pipeline_analyses {
           samtools => $self->o('samtools_path'),
           intron_bam_file => catfile($self->o('output_dir'), 'introns'),
           genome_file => $self->o('rnaseq_genome_file'),
+          use_threading => $self->o('use_threads'),
         },
-        -rc_name    => '5GB',
+        -rc_name    => '5GB_multithread',
         -flow_into => ['create_refine_db'],
       },
       {
@@ -4459,7 +4460,7 @@ sub pipeline_analyses {
             42 => 2,
           },
         },
-        -rc_name => '2GB_refine',
+        -rc_name => '2GB_multithread',
         -flow_into => {
           1 => ['create_gene_id_input_ids'],
           -1 => {'refine_genes_20GB' => {iid => '#iid#', config_file => '#config_file#', logic_name => '#logic_name#'}},
@@ -4474,7 +4475,7 @@ sub pipeline_analyses {
             42 => 2,
           },
         },
-        -rc_name => '20GB_refine',
+        -rc_name => '20GB_multithread',
         -flow_into => {
           1 => ['create_gene_id_input_ids'],
         },
@@ -4511,7 +4512,7 @@ sub pipeline_analyses {
           %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
           commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40',
         },
-        -rc_name => '2GB_blast',
+        -rc_name => 'blast',
       },
 
 
@@ -5796,7 +5797,7 @@ sub pipeline_analyses {
                          module     => 'HiveSplicedElsewhere',
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
                        },
-        -rc_name          => 'default_himem',
+        -rc_name          => '3GB',
         -flow_into => {
                         1 => ['create_final_geneset_db'],
                       },
@@ -5843,7 +5844,7 @@ sub pipeline_analyses {
                          logic_name => 'filter_lncrnas',
                          module     => 'HiveFilterlncRNAs',
                        },
-        -rc_name          => 'default_himem',
+        -rc_name          => '3GB',
         -flow_into => {
                         1 => ['change_biotype_for_weak_cds'],
                       },
@@ -7131,18 +7132,13 @@ sub resource_classes {
     '75GB' => { LSF => $self->lsf_resource_builder('production-rh7', 75000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '100GB' => { LSF => $self->lsf_resource_builder('production-rh7', 100000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'default' => { LSF => $self->lsf_resource_builder('production-rh7', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'default_himem' => { LSF => $self->lsf_resource_builder('production-rh7', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'repeatmasker' => { LSF => $self->lsf_resource_builder('production-rh7', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'repeatmasker_rebatch' => { LSF => $self->lsf_resource_builder('production-rh7', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'simple_features' => { LSF => $self->lsf_resource_builder('production-rh7', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genscan' => { LSF => $self->lsf_resource_builder('production-rh7', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'refseq_cdna' => { LSF => $self->lsf_resource_builder('production-rh7', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'refseq_cdna_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genscan_short' => { LSF => $self->lsf_resource_builder('production-rh7', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'blast' => { LSF => $self->lsf_resource_builder('production-rh7', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'blast_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
-    'rfam_blast' => { LSF => $self->lsf_resource_builder('production-rh7', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
-    'rfam_blast_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'genblast' => { LSF => $self->lsf_resource_builder('production-rh7', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genblast_retry' => { LSF => $self->lsf_resource_builder('production-rh7', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'project_transcripts' => { LSF => $self->lsf_resource_builder('production-rh7', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_coding_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
@@ -7151,26 +7147,12 @@ sub resource_classes {
     'genebuilder' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'transcript_finalisation' => { LSF => $self->lsf_resource_builder('production-rh7', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'filter' => { LSF => $self->lsf_resource_builder('production-rh7', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'exonerate' => { LSF => $self->lsf_resource_builder('production-rh7', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'exonerate_6G' => { LSF => $self->lsf_resource_builder('production-rh7', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '1GB_rough' => { LSF => $self->lsf_resource_builder('production-rh7', 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
-    '2GB_rough' => { LSF => $self->lsf_resource_builder('production-rh7', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
-    '5GB_rough' => { LSF => $self->lsf_resource_builder('production-rh7', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
-    '15GB_rough' => { LSF => $self->lsf_resource_builder('production-rh7', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}])},
-    '2GB_blast' => { LSF => $self->lsf_resource_builder('production-rh7', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refine_db_server'}, $self->default_options->{'blast_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
-    '2GB_introns' => { LSF => $self->lsf_resource_builder('production-rh7', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
-    '2GB_refine' => { LSF => $self->lsf_resource_builder('production-rh7', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
-    '5GB_introns' => { LSF => $self->lsf_resource_builder('production-rh7', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
-    '10GB_introns' => { LSF => $self->lsf_resource_builder('production-rh7', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
-    '20GB_introns' => { LSF => $self->lsf_resource_builder('production-rh7', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
-    '50GB_introns' => { LSF => $self->lsf_resource_builder('production-rh7', 50000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}])},
-    '3GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh7', 3000, [$self->default_options->{'pipe_db_server'}], undef, $self->default_options->{'use_threads'})},
-    '5GB_merged_multithread' => { LSF => $self->lsf_resource_builder('production-rh7', 5000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}))},
+    '2GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh7', 2000, [$self->default_options->{'pipe_db_server'}], undef, $self->default_options->{'use_threads'})},
+    '3GB_merged_multithread' => { LSF => $self->lsf_resource_builder('production-rh7', 3000, [$self->default_options->{'pipe_db_server'}], undef, $self->default_options->{'rnaseq_merge_threads'})},
+    '5GB_merged_multithread' => { LSF => $self->lsf_resource_builder('production-rh7', 5000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'rnaseq_merge_threads'}))},
     '5GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh7', 5000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
     '10GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh7', 10000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
     '20GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh7', 20000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
-    '5GB_refine' => { LSF => $self->lsf_resource_builder('production-rh7', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
-    '20GB_refine' => { LSF => $self->lsf_resource_builder('production-rh7', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'rough_db_server'}, $self->default_options->{'dna_db_server'}, $self->default_options->{'refine_db_server'}])},
   }
 }
 
