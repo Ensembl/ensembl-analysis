@@ -53,6 +53,8 @@ package Bio::EnsEMBL::Analysis::Runnable::Sam2Bam;
 use warnings ;
 use strict;
 
+use File::Copy qw(mv);
+
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
@@ -78,14 +80,15 @@ use parent ('Bio::EnsEMBL::Analysis::Runnable');
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($header, $samfiles, $bamfile, $genome) = rearrange([qw(HEADER SAMFILES BAMFILE GENOME)],@args);
-  $self->throw("You have no files to work on\n") unless (scalar(eval(@$samfiles)));
+  my ($header, $samfiles, $bamfile, $genome, $use_threads) = rearrange([qw(HEADER SAMFILES BAMFILE GENOME USE_THREADING)],@args);
+  $self->throw("You have no files to work on\n") unless (scalar(@$samfiles));
   $self->samfiles($samfiles);
   $self->headerfile($header);
   $self->throw("You must define an output file\n")  unless $bamfile;
   $self->bamfile($bamfile);
   $self->throw("You must define a genome file\n")  unless $genome;
   $self->genome($genome);
+  $self->use_threads($use_threads);
   return $self;
 }
 
@@ -104,84 +107,64 @@ sub run {
   my $program = $self->program;
   my $samtools = Bio::EnsEMBL::Analysis::Runnable::Samtools->new(
                         -program => $program,
+                        -use_threading => $self->use_threads,
                         );
   my $count = 0;
   my @fails;
   # next make all the sam files into one big sam flie
   open (BAM ,">$bamfile.sam" ) or $self->throw("Cannot open sam file for merging $bamfile.sam");
+  if ($self->headerfile and $samtools->version) {
+     open(HH, $self->headerfile) || $self->throw('Could not open header file for reading');
+     while(<HH>) {
+       print BAM $_;
+     }
+     close(HH) || $self->throw('Could not close header file after reading');
+  }
   foreach my $file ( @{$self->samfiles} ) {
     my $line;
     open ( SAM ,"$file") or $self->throw("Cannot open file '$file'\n");
     my $line_count = 0;
     while (<SAM>) {
-      # 1st file copy the header all the others just copy the data
-      if ($_ =~ /^(\@\w+)/) {
+      if ($_ =~ /^\@\w+/) {
         $line = $_;
       }
       else {
         chomp;
-        print BAM "$_\n";
+        print BAM $_, "\n";
         $line_count++;
       }
     }
-    close(SAM) || $self->throw("Failed closing '$file'\n");
+    close(SAM) || $self->throw("Failed closing '$file'");
     $count++;
     push @fails,$file  unless ( $line eq '@EOF' or $line_count == 0 );
-    #last if $count >= 100;
   }
   close(BAM) || $self->throw("Failed closing sam file for merging $bamfile.sam");
   print "Merged $count files\n";
   if ( scalar(@fails) > 0 ) {
     $self->throw(join("\n", 'The following sam files failed to complete, you need to run them again', @fails));
   }
-  my $fh;
   # now call sam tools to do the conversion.
   # is the genome file indexed?
   # might want to check if it's already indexed first
-  my $command = "$program faidx " . $self->genome ;
-  unless ( -e (  $self->genome.".fai" ) ) {
-    print "Indexing genome file\n";
-    print STDERR "$command \n";
-    system("$command 2> /tmp/sam2bam_index.err");
-    open  ( $fh,"/tmp/sam2bam_index.err" ) or die ("Cannot find STDERR from fasta indexing\n");
-    # write output
-    while(<$fh>){
-      print STDERR "INDEX $_";
-      $self->throw('Samtools failed to index '.$self->genome) if ($_ =~ /fail/ or $_ =~ /abort/ or $_ =~ /truncated/ )
-     }
-     close($fh) || $self->throw("Cannot close STDERR from fasta indexing");
-     $self->files_to_delete("/tmp/sam2bam/index.err");
+  if (!-e $self->genome.'.fai') {
+    $samtools->index_genome($self->genome);
   }
 
-  $command = "$program view -b -h -S -T " . $self->genome ." $bamfile.sam >  $bamfile" . "_unsorted.bam ";
-  print STDERR "$command \n";
-  system("$command 2> /tmp/sam2bam_view.err");
-  open  ( $fh,"/tmp/sam2bam_view.err" ) or die ("Cannot find STDERR from samtools view\n");
-  # write output
-  while(<$fh>){
-    print STDERR "IMPORT $_";
-    $self->throw('Samtools failed to created an unsorted bam file '.$bamfile.'_unsorted.bam') if ($_ =~ /fail/ or $_ =~ /abort/ or $_ =~ /truncated/ )
-  }
-  close($fh) || $self->throw("Cannot close STDERR from samtools view");
-  $self->files_to_delete($bamfile.'.sam');
-  $self->files_to_delete("/tmp/sam2bam_view.err");
+  $samtools->run_command('view', '-b -h -S -T '.$self->genome, $bamfile.'_unsorted.bam', "$bamfile.sam");
 
   # add readgroup info if there is any
-  if ( $self->headerfile ) {
+  if ($self->headerfile and !$samtools->version) {
     # dump out the sequence header
-     $command = "$program view  -H   $bamfile" . "_unsorted.bam > $bamfile.header";
-     print STDERR "$command \n";
-     system("$command");
-     $command = " cat " . $self->headerfile ." >>  $bamfile.header  ";
-     print STDERR "$command \n";
-     system("$command");
-     $command = "$program reheader   $bamfile.header $bamfile" . "_unsorted.bam > $bamfile.fixed_header.bam";
-     print STDERR "$command \n";
-     system("$command");
-     $self->files_to_delete("/tmp/sam2bam_reheader.err");
-     $command = "mv  $bamfile.fixed_header.bam $bamfile"."_unsorted.bam ";
-     print STDERR "$command \n";
-     system("$command");
+    $samtools->run_command('view', '-H', "$bamfile.header", $bamfile.'_unsorted.bam');
+    open(FH, $self->headerfile) || throw('Could not open '.$self->headerfile);
+    open(WH, '>>', "$bamfile.header") || throw("Could not open $bamfile.header for appending");
+    while(<FH>) {
+      print WH $_;
+    }
+    close(WH) || throw("Could not close $bamfile.header for appending");
+    close(FH) || throw('Could not close '.$self->headerfile);
+    $samtools->reheader("$bamfile.header", $bamfile.'_unsorted.bam', "$bamfile.fixed_header.bam");
+    mv("$bamfile.fixed_header.bam", "$bamfile"."_unsorted.bam");
   }
 
   $samtools->sort($bamfile, $bamfile.'_unsorted.bam');
@@ -219,7 +202,7 @@ sub headerfile {
   if (exists($self->{'_headerfile'})) {
     return $self->{'_headerfile'};
   } else {
-    return undef;
+    return;
   }
 }
 
@@ -244,7 +227,7 @@ sub samfiles {
   if (exists($self->{'_samfiles'})) {
     return $self->{'_samfiles'};
   } else {
-    return undef;
+    return;
   }
 }
 
@@ -268,7 +251,7 @@ sub bamfile {
   if (exists($self->{'_bamfile'})) {
     return $self->{'_bamfile'};
   } else {
-    return undef;
+    return;
   }
 }
 
@@ -293,7 +276,30 @@ sub genome {
   if (exists($self->{'_genome'})) {
     return $self->{'_genome'};
   } else {
-    return undef;
+    return;
+  }
+}
+
+=head2 use_threads
+
+ Arg [1]    : (optional) Int
+ Description: Getter/setter
+ Returntype : Int
+ Exceptions : None
+
+=cut
+
+sub use_threads {
+  my ($self, $value) = @_;
+
+  if (defined $value) {
+    $self->{'_use_threads'} = $value;
+  }
+
+  if (exists($self->{'_use_threads'})) {
+    return $self->{'_use_threads'};
+  } else {
+    return;
   }
 }
 
