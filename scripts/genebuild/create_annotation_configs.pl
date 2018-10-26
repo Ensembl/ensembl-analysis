@@ -56,7 +56,7 @@ my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistr
   -host    => $assembly_registry_host,
   -port    => $assembly_registry_port,
   -user    => 'ensro',
-  -dbname  => 'do1_stable_id_space_assembly_registry');
+  -dbname  => 'gb_assembly_registry');
 
 my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -port    => 4240,
