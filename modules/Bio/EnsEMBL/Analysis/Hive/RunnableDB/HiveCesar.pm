@@ -341,7 +341,8 @@ sub write_output {
     my $transcript = @{$gene->get_all_Transcripts}[0]; # any transcript
     if (!($gene_adaptor->fetch_by_transcript_stable_id($transcript->stable_id()))) {
       say "Storing gene: ".$gene->start.":".$gene->end.":".$gene->strand." (g.start:g.end:g.strand). Transcript stable ID used to fetch gene: ".$transcript->stable_id();
-      empty_Gene($gene);    
+      empty_Gene($gene);
+      $gene->biotype('projection');
       $gene_adaptor->store($gene);
     } else {
       say "NOT storing gene because it has already been stored: ".$gene->start.":".$gene->end.":".$gene->strand."(g.start,g.end,g.strand). Transcript stable ID used to fetch gene: ".$transcript->stable_id();
