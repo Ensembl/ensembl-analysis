@@ -108,7 +108,7 @@ sub fetch_input {
 
   if (!$self->param('classification')) {
     my %classification;
-    if ($self->param('classification_type') eq 'standard') {
+    if ($self->param('classification_type') eq 'standard_old') {
       %classification = (
         '1' => [95, 95],
         '2' => [95, 80],
@@ -118,6 +118,17 @@ sub fetch_input {
         '6' => [50, 50],
         '7' => [50, 25],
         '8' => [0, 0],
+      );
+      $self->param('classification', \%classification);
+    } elsif ($self->param('classification_type') eq 'standard') {
+      %classification = (
+       '1' => [95, 90],
+       '2' => [90, 80],
+       '3' => [90, 60],
+       '4' => [90, 40],
+       '5' => [80, 20],
+       '6' => [60, 20],
+       '7' => [0, 0],
       );
       $self->param('classification', \%classification);
     } elsif ($self->param('classification_type') eq 'gifts') {
@@ -193,6 +204,7 @@ sub write_output {
   my $classification = $self->param('classification');
 
   if ($self->param('classification_type') eq 'standard' or
+      $self->param('classification_type') eq 'fish' or
       $self->param('classification_type') eq 'gifts') {
     foreach my $key (sort {$b <=> $a} keys %{$classification}) {
       $sth->bind_param(1, '_'.$key);

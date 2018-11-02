@@ -1,58 +1,73 @@
-#!/usr/bin/env perl
+=head1 LICENSE
 
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-#Copyright [2016-2018] EMBL-European Bioinformatics Institute
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016-2018] EMBL-European Bioinformatics Institute
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+=head1 CONTACT
+
+Please email comments or questions to the public Ensembl
+developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
+
+Questions may also be sent to the Ensembl help desk at
+<http://www.ensembl.org/Help/Contact>.
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCleanGeneset
+
+=head1 SYNOPSIS
+
+
+=head1 DESCRIPTION
+
+Clean te geneset to remove really bad transcripts which have small introns
+or single exon models in an intron
+
+=cut
 
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCleanGeneset;
 
 use strict;
 use warnings;
 use feature 'say';
-use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene attach_Slice_to_Gene);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
+
+use File::Spec::Functions qw(catfile);
+use File::Path qw(make_path);
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
-use Data::Dumper;
 
 
 sub fetch_input {
   my $self = shift;
-  my $test_case = 0;
 
   if($self->param('skip_analysis')) {
     $self->complete_early('Skip analysis flag is enabled, so no cleaning will occur');
   }
 
-  my $analysis = Bio::EnsEMBL::Analysis->new(
-                                              -logic_name => $self->param('logic_name'),
-                                              -module => $self->param('module'),
-                                            );
-  $self->analysis($analysis);
+  $self->create_analysis;
 
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  $self->hrdb_set_con($dna_dba,'dna_db');
+  my $dna_dba = $self->get_database_by_name('dna_db');
 
-  my $input_dba = $self->hrdb_get_dba($self->param('input_db'));
+  my $input_dba = $self->get_database_by_name('input_db', $dna_dba);
   $self->hrdb_set_con($input_dba,'input_db');
-  $input_dba->dnadb($dna_dba);
 
   $self->load_genes();
 
-  my $output_path = $self->param('output_path');
+  my $output_path = $self->param_required('output_path');
   unless(-e $output_path) {
-    system("mkdir -p ".$output_path);
+    make_path($output_path);
   }
 
   my $blessed_biotypes = $self->param('blessed_biotypes');
@@ -75,12 +90,12 @@ sub write_output {
   my $self = shift;
 
   my $transcript_ids_to_remove = $self->transcript_ids_to_remove();
-  my $output_file = $self->param('output_path')."/transcript_ids_to_remove.txt";
-  open(OUT,">".$output_file);
+  my $output_file = catfile($self->param('output_path'), 'transcript_ids_to_remove.txt');
+  open(OUT, ">$output_file") || $self->throw("Could not open $output_file for writing");
   foreach my $id (@{$transcript_ids_to_remove}) {
     say OUT $id;
   }
-  close OUT;
+  close(OUT) || $self->throw("Could not open $output_file for writing");
 
   return 1;
 }
@@ -158,22 +173,30 @@ sub clean_genes {
         next;
       }
 
-      if(scalar(@{$transcript->get_all_Exons}) == 1 || $transcript->{'_contains_only_frameshift_introns'}) {
-        # There are a few things we can consider to either keep or delete single exon genes. They are:
-        # 1) biotype, at this point we have the biotypes classified based on hit coverage and percent id, so only take the best ones
-        # 2) utr, if there is utr present then this gives some extra confidence in an model and could override the biotype decision
-        # 3) location, if the model is in the intron of a gene on the same strand then we will almost always want to delete it. The
-        #    only case we wouldn't would be if the intron of the other gene looked dodgy (but this can be tricky to assess)
+#      if(scalar(@{$transcript->get_all_Exons}) == 1 || $transcript->{'_contains_only_frameshift_introns'}) {
+#        # There are a few things we can consider to either keep or delete single exon genes. They are:
+#        # 1) biotype, at this point we have the biotypes classified based on hit coverage and percent id, so only take the best ones
+#        # 2) utr, if there is utr present then this gives some extra confidence in an model and could override the biotype decision
+#        # 3) location, if the model is in the intron of a gene on the same strand then we will almost always want to delete it. The
+#        #    only case we wouldn't would be if the intron of the other gene looked dodgy (but this can be tricky to assess)
+#
+ #       if($self->single_exon_within_intron($transcript)) {
+ #         say "Found single exon or frameshift intron only gene within another gene, will remove: ".$transcript->dbID.", ".$transcript->biotype;
+ #         push(@{$transcript_ids_to_remove},$transcript->dbID);
+ #       }
+ #     }
+ #   } elsif(($gene->end - $gene->start + 1) <= $tiny_gene_size) {
+ #     foreach my $transcript (@{$transcripts}) {
+ #       unless(scalar(@{$transcript->get_all_five_prime_UTRs}) || scalar(@{$transcript->get_all_three_prime_UTRs})) {
+ #         say "Found tiny gene that does not have a 95/95 alignment: ".$transcript->dbID.", ".$transcript->biotype;
+ #         push(@{$transcript_ids_to_remove},$transcript->dbID);
+ #       }
+ #     }
 
-        if($self->single_exon_within_intron($transcript)) {
-          say "Found single exon or frameshift intron only gene within another gene, will remove: ".$transcript->dbID.", ".$transcript->biotype;
-          push(@{$transcript_ids_to_remove},$transcript->dbID);
-        }
-      }
-    } elsif(($gene->end - $gene->start + 1) <= $tiny_gene_size) {
-      foreach my $transcript (@{$transcripts}) {
-        unless(scalar(@{$transcript->get_all_five_prime_UTRs}) || scalar(@{$transcript->get_all_three_prime_UTRs})) {
-          say "Found tiny gene that does not have a 95/95 alignment: ".$transcript->dbID.", ".$transcript->biotype;
+      my $logic_name = $transcript->analysis->logic_name();
+      if($logic_name =~ /^genblast/ && scalar(@{$transcript->get_all_Exons()}) <= 3) {
+        if($self->check_protein_models($transcript)) {
+          say "Found protein model with weak supporting evidence: ".$transcript->dbID.", ".$transcript->biotype;
           push(@{$transcript_ids_to_remove},$transcript->dbID);
         }
       }
@@ -572,6 +595,69 @@ sub generate_exon_string {
   print "\n";
 
   return($exon_string);
+}
+
+
+sub check_protein_models {
+  my ($self,$transcript) = @_;
+
+  if(scalar(@{$transcript->get_all_five_prime_UTRs}) || scalar(@{$transcript->get_all_three_prime_UTRs})) {
+    return(0);
+  }
+
+  my $supporting_features = $transcript->get_all_supporting_features();
+  unless(scalar(@$supporting_features)) {
+    say "Transcript has no supporting features to assess, looking at exons";
+    my $translation = $transcript->translation->seq;
+    my $exons = $transcript->get_all_Exons;
+    my $all_exon_supporting_features = [];
+
+    my $coverage;
+    my $hit_name;
+    # Loop till an exon supporting feature is found
+    foreach my $exon (@$exons) {
+      my $exon_supporting_features = $exon->get_all_supporting_features;
+      if(scalar(@$exon_supporting_features)) {
+        $coverage = ${$exon_supporting_features}[0]->hcoverage;
+        $hit_name = ${$exon_supporting_features}[0]->hseqname;
+        last;
+      }
+    }
+
+    # If an exon supporting feature is found, base decision on that
+    if($coverage) {
+      if($coverage < 75 && $translation !~ /^M/) {
+       say "Removing transcript ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$hit_name.":".$coverage;
+       say "Translation:\n".$translation;
+       return(1);
+      } else {
+        return(0);
+      }
+    }
+
+    my $biotype = $transcript->biotype;
+    $biotype =~ /\_(\d+)$/;
+    my $classification = $1;
+    if($classification <= 4) {
+      return(0);
+    } else {
+      say "Removing based on classification: ".$biotype;
+      return(1);
+    }
+  }
+
+  my $supporting_feature = shift(@$supporting_features);
+  my $coverage = $supporting_feature->hcoverage;
+  my $translation = $transcript->translation->seq;
+  my $hit_name = $supporting_feature->hseqname;
+  if($coverage < 75 && $translation !~ /^M/) {
+    say "Removing transcript ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$hit_name.":".$coverage;
+    say "Translation:\n".$translation;
+    return(1);
+  }
+
+  return(0);
+
 }
 
 1;

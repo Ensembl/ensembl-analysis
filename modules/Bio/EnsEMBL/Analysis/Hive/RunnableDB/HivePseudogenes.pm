@@ -106,9 +106,10 @@ sub fetch_input {
 
   $self->create_analysis;
 
-  unless(-e $self->PS_MULTI_EXON_DIR) {
-    system("mkdir -p ".$self->PS_MULTI_EXON_DIR);
+  unless(-e $self->param_required('output_path')) {
+    system("mkdir -p ".$self->param('output_path'));
   }
+
   my $input_dba = $self->hrdb_get_dba($self->param('input_gene_db'));
   my $repeat_dba = $self->hrdb_get_dba($self->param('repeat_db'));
   my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
@@ -140,8 +141,11 @@ sub run {
     $self->throw("No genes to input to module");
   }
 
-  my $output_path = $self->param_required('output_path');
-  open(OUT,">".$output_path."/all_multi_exon_genes.fasta");
+  my $output_path = $self->param('output_path');
+  unless(open(OUT,">".$output_path."/all_multi_exon_genes.fasta")) {
+    $self->throw("Could not create all_multi_exon_genes.fasta for writing. Path used:\n".$output_path."/all_multi_exon_genes.fasta")
+  }
+
   my $repeat_dba = $self->hrdb_get_con('repeat_db');
   my $repeat_slice_adaptor = $repeat_dba->get_SliceAdaptor();
   foreach my $gene (@$genes) {

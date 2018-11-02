@@ -37,9 +37,9 @@ Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenerateRefineConfig
     sample_column => $self->o('read_group_tag'),
     sample_id_column => $self->o('read_id_tag'),
     csvfile_table => $self->o('summary_csv_table'),
-    input_db => $self->o('rough_db'),
+    source_db => $self->o('rough_db'),
     dna_db => $self->o('dna_db'),
-    output_db => $self->o('refine_db'),
+    target_db => $self->o('refine_db'),
     # write the intron features into the OUTPUT_DB along with the models
     write_introns => 1,
     # maximum number of times to loop when building all possible paths through the transcript
@@ -178,7 +178,7 @@ sub fetch_input {
           $tissue_hash{lc($result->{$self->param('sample_column')})}->{$result->{$self->param('sample_id_column')}} = 1;
       }
       foreach my $key (keys %tissue_hash) {
-        my $base_logic_name = $self->param('wide_species').'_'.$key.'_rnaseq';
+        my $base_logic_name = $self->param('species').'_'.$key.'_rnaseq';
         next unless ($analysis_adaptor->fetch_by_logic_name($base_logic_name."_$gene_suffix"));
         my %analysis_hash = (BEST_SCORE => "best_$key", SINGLE_EXON_MODEL => "single_$key", INTRON_OVERLAP_THRESHOLD => $default_iot);
         $analysis_hash{OTHER_ISOFORMS} = $self->param('other_isoforms').'_'.$key if ($self->param_is_defined('other_isoforms'));
@@ -186,9 +186,9 @@ sub fetch_input {
         $analysis_hash{INTRONS_LOGIC_NAME} = $base_logic_name."_$intron_suffix" if ($intron_suffix);
         $analysis_hash{ISE_LOGIC_NAME} = $base_logic_name."_$ise_suffix" if ($ise_suffix);
         push(@output_ids, [
-          File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_'.$key.'.conf'),
+          File::Spec->catfile($self->param('output_dir'), $self->param('species').'_'.$key.'.conf'),
           [
-            {FILE => $self->param('wide_intron_bam_file').'.bam',
+            {FILE => $self->param('intron_bam_file').'.bam',
             GROUPNAME => [keys %{$tissue_hash{$key}}],
             DEPTH => 0,
             MIXED_BAM => 0}
@@ -204,16 +204,16 @@ sub fetch_input {
        $merged_iot = $tissue_count*$default_iot;
   }
   if (@output_ids > 1) {
-    my $merged_logic_name = $self->param('wide_species').'_'.$merged_name.'_rnaseq';
+    my $merged_logic_name = $self->param('species').'_'.$merged_name.'_rnaseq';
     my %analysis_hash = (BEST_SCORE => 'best', SINGLE_EXON_MODEL => 'single', INTRON_OVERLAP_THRESHOLD => $merged_iot);
     $analysis_hash{OTHER_ISOFORMS} = $self->param('other_isoforms').'_'.$merged_name if ($self->param_is_defined('other_isoforms'));
     $analysis_hash{BAD_MODELS} = $self->param('bad_models').'_merged' if ($self->param_is_defined('bad_models'));
     $analysis_hash{INTRONS_LOGIC_NAME} = $merged_logic_name."_$intron_suffix" if ($intron_suffix);
     $analysis_hash{ISE_LOGIC_NAME} = $merged_logic_name."_$ise_suffix" if ($ise_suffix);
     push(@output_ids, [
-      File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species')."_$merged_name.conf"),
+      File::Spec->catfile($self->param('output_dir'), $self->param('species')."_$merged_name.conf"),
       [
-        {FILE => $self->param('wide_intron_bam_file').'.bam',
+        {FILE => $self->param('intron_bam_file').'.bam',
         GROUPNAME => [],
         DEPTH => 0,
         MIXED_BAM => 0}
@@ -223,11 +223,11 @@ sub fetch_input {
     ]);
   }
   elsif (@output_ids == 0) {
-    $self->complete_early('Not enough tissue samples to work on');
     $self->input_job->autoflow(0);
+    $self->complete_early('Not enough tissue samples to work on');
   }
   $self->param('analyses', \@output_ids);
-  $self->param('database_file', File::Spec->catfile($self->param('wide_output_dir'), $self->param('wide_species').'_database.conf'));
+  $self->param('database_file', File::Spec->catfile($self->param('output_dir'), $self->param('species').'_database.conf'));
 }
 
 
@@ -293,8 +293,8 @@ sub _generate_databases_file {
   my %config_file = (
     DATABASES => {
       REFERENCE_DB => $self->param('dna_db'),
-      ROUGH_DB => $self->param('input_db'),
-      REFINED_DB => $self->param('output_db'),
+      ROUGH_DB => $self->param('source_db'),
+      REFINED_DB => $self->param('target_db'),
     },
     DNA_DBNAME => "REFERENCE_DB",
   );

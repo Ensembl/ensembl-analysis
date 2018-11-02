@@ -246,12 +246,12 @@ sub pipeline_analyses {
       -logic_name => 'create_readme',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'cd #output_dir#;FILES=($(ls *.bam));echo "#free_text#" | sed "s/NUM/$((${#FILES[*]}-1))/g;s/ \([a-z]\)\([a-z]\+_)/ \U\1\E\2/;s/_/ /g" > README.1; IFS=$\'\n\';echo "${FILES[*]}" >> README.1',
-          free_text => '"Note\n------\n\n'.
+          cmd => 'cd #output_dir#;FILES=($(ls *.bam));printf "#free_text#" | sed "s/NUM/$((${#FILES[*]}-1))/g;s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" > README.1; IFS=$\'\n\';echo "${FILES[*]}" >> README.1',
+          free_text => 'Note\n------\n\n'.
                        'The RNASeq data for #species_name# consists of NUM individual samples and one merged set containing all NUM samples.\n\n'.
                        'All files have an index file (.bai).\n\n'.
                        'Use the md5sum.txt file to check the integrity of the downloaded files.\n\n'.
-                       'Files\n-----\n"',
+                       'Files\n-----\n',
         },
         -rc_name => 'default',
     },

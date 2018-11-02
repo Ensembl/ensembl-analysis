@@ -55,27 +55,27 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my ($self) = @_;
-  $self->hive_set_config;
+  $self->create_analysis;
   $self->param_required('file_l'); 
   $self->param_required('file_b'); 
   $self->param_required('assembly_name');
   $self->param_required('update_database');
 
   # get genes from lincRNA database
-  my $set_db  = $self->hrdb_get_dba( $self->param('lincRNA_output_db') );
-  my $dna_dba = $self->hrdb_get_dba( $self->param('reference_db') ); 
+  my $set_db  = $self->hrdb_get_dba( $self->param('output_db') );
+  my $dna_dba = $self->hrdb_get_dba( $self->param('dna_db') );
   $set_db->dnadb($dna_dba);
-  $self->hrdb_set_con($set_db, 'lincRNA_output_db');
+  $self->hrdb_set_con($set_db, 'output_db');
   my $biotype_lincRNA =   $self->Final_BIOTYPE_TO_CHECK;  
-  my $dbName_to_check = 'lincRNA_output_db';
+  my $dbName_to_check = 'output_db';
   my $genes_to_check  = $self->get_genes_of_biotypes($biotype_lincRNA, $dbName_to_check);
 
   # get genes from core database
-  my $core_dba = $self->hrdb_get_dba( $self->param('reference_db') );  
+  my $core_dba = $self->hrdb_get_dba( $self->param('dna_db') ); 
   $core_dba->dnadb($dna_dba);
-  $self->hrdb_set_con($core_dba, 'reference_db');
+  $self->hrdb_set_con($core_dba, 'dna_db');
   my $biotype_core = 'fetch_all_biotypes'; 
-  my $core_to_check = 'reference_db'; 
+  my $core_to_check = 'dna_db';
   my $genes_from_core   = $self->get_genes_of_biotypes($biotype_core, $core_to_check);
   
   print "### " . "fetch input :: biotype: $biotype_lincRNA has number of lincRNA genes to check: " . scalar(@$genes_to_check) . "\n";
@@ -152,7 +152,7 @@ sub update_biotypes {
 
   open (MYFILE_B, ">" , $output_file) or die "Couldn't open: $!"; 
   my $assembly_version = $self->param('assembly_name');
-  my $core_db = $self->hrdb_get_con('reference_db'); 
+  my $core_db = $self->hrdb_get_con('dna_db');
   my $core_db_adaptor = $core_db->get_SliceAdaptor;
   foreach my $g_lincRNA ( @{ $lincRNA_geneset } ) {
   	my $protein_switch = 0; # this is in case there are many genes that overlap with the lincRNA
@@ -215,7 +215,7 @@ sub update_biotypes {
 
   # update the biotypes with the mysql queries... if the user is fine with it! 
   if ( $self->param('update_database') eq "yes" ) {
-    my $db_lincRNA_out = $self->hrdb_get_dba( $self->param('lincRNA_output_db') ); 
+    my $db_lincRNA_out = $self->hrdb_get_dba( $self->param('output_db') );
     my $command_to_upload = 'mysql -h  ' . $db_lincRNA_out->dbc->host . ' -P ' . $db_lincRNA_out->dbc->port .' -u ' . $db_lincRNA_out->dbc->user . ' -p' . $db_lincRNA_out->dbc->password . '  ' . $db_lincRNA_out->dbc->dbname . ' < ' .  $output_file ; 
     print "I will apply the suggested changes to the database... " . $command_to_upload . "\n"; 
     $self->throw("can't update the biotypes check the file: ". $output_file)
@@ -230,48 +230,6 @@ sub update_biotypes {
 
 #### Standard Functions ###
 
-=head2 hive_set_config 
-
-  Function  : loop through parameters and set them. All parameters of basic config (config_settings) will be accessible via param
-  Returntype:  
-
-=cut
-
-sub hive_set_config {
-	my $self = shift;
-
-	# Throw is these aren't present as they should both be defined
-	unless ( $self->param_is_defined('logic_name')
-		&& $self->param_is_defined('module') )
-	{
-		warn("You must define 'logic_name' and 'module' in the parameters hash of your analysis in the pipeline config file, "
-				. "even if they are already defined in the analysis hash itself. This is because the hive will not allow the runnableDB "
-				. "to read values of the analysis hash unless they are in the parameters hash. However we need to have a logic name to "
-				. "write the genes to and this should also include the module name even if it isn't strictly necessary"
-		);
-	}
-
-  # Make an analysis object and set it, this will allow the module to write to the output db
-	my $analysis = new Bio::EnsEMBL::Analysis(
-		-logic_name => $self->param('logic_name'),
-		-module     => $self->param('module'),
-	);
-	$self->analysis($analysis);
-
-  # Now loop through all the keys in the parameters hash and set anything that can be set
-	my $config_hash = $self->param('config_settings');
-	foreach my $config_key ( keys( %{$config_hash} ) ) {
-		if ( defined &$config_key ) {
-			$self->$config_key( $config_hash->{$config_key} );
-		}
-		else {
-			warn("You have a key defined in the config_settings hash (in the analysis hash in the pipeline config) that does "
-					. "not have a corresponding getter/setter subroutine. Either remove the key or add the getter/setter. Offending "
-					. "key:\n"
-					. $config_key );
-		}
-	}
-}
 
 sub Final_BIOTYPE_TO_CHECK{
   my ($self, $arg) = @_;

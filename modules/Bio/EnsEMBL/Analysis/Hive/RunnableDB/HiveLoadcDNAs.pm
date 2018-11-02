@@ -21,7 +21,6 @@ use strict;
 use warnings;
 
 use Bio::SeqIO;
-use Bio::EnsEMBL::IO::Parser::Fasta;
 use Bio::EnsEMBL::Analysis::Tools::PolyAClipping qw(clip_if_necessary);
 
 use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
@@ -35,6 +34,7 @@ sub param_defaults {
     column_names => ['iid'],
     sequence_table_name => 'cdna_sequences',
     iid_type  => 'db_seq',
+    format => 'fasta',
   }
 }
 
@@ -43,12 +43,10 @@ sub fetch_input {
   my $self = shift;
 
   my $process_polyA = 0;
-  my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($self->param_required('cdna_file'));
+  my $parser = Bio::SeqIO->new(-format => $self->param('format'), -file => $self->param_required('cdna_file'));
   if ($self->param_is_defined('process_polyA') and $self->param('process_polyA')) {
     $process_polyA = 1;
   }
-  my $header;
-  my $seq;
   my $biotype = $self->param('sequence_biotype');
 
   my $adaptor;
@@ -62,23 +60,25 @@ sub fetch_input {
   }
 
   my @iids;
-  while($parser->next()) {
-    $header = $parser->getHeader();
-    $seq = $parser->getSequence();
-    $header =~ s/(\S+).*/$1/;
-    my $bioseq = Bio::Seq->new(-id => $header, -seq => $seq);
+  while(my $bioseq = $parser->next_seq) {
+    my $header = $bioseq->id;
     if ($process_polyA) {
       ($bioseq, undef, undef) = clip_if_necessary($bioseq);
-      $seq = $bioseq->seq;
+      if (!$bioseq) {
+        $self->warning('Sequence full of polyA for '.$header);
+        next;
+      }
     }
 
+    $header =~ s/^\w*\|\w*\|//;
     if ($write_to_file) {
+      $bioseq->id($header);
       $adaptor->write_seq($bioseq);
     }
     else {
       my $db_row = [{
         'accession'  => $header,
-        'seq'        => $seq,
+        'seq'        => $bioseq->seq,
         'biotype'    => $biotype,
       }];
       $adaptor->store($db_row);

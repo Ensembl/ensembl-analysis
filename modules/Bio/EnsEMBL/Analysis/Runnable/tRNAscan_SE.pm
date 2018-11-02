@@ -54,6 +54,7 @@ package Bio::EnsEMBL::Analysis::Runnable::tRNAscan_SE;
 
 use strict;
 use warnings;
+use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
@@ -132,6 +133,12 @@ sub parse_results{
       $start = $end;
       $end = $temp_end;
     }
+
+    unless($start =~ /^\d+$/ && $end =~ /^\d+$/) {
+      warning("The start and end were not integers, something went wrong. Skipping");
+      next;
+   }
+
     my $sf = $ff->create_simple_feature($start, $end, $strand, $score,
                                         $display_label, 
                                         $name, $self->query);

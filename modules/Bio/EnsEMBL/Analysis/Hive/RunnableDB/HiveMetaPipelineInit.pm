@@ -85,6 +85,8 @@ sub fetch_input {
 
   my $url = $self->param_required('ehive_url');
   my $pipeline_db = $self->param_required('meta_pipeline_db');
+  $self->throw('Your pipeline dbname should be all lowercase, not '.$pipeline_db->{'-dbname'})
+    if ($pipeline_db->{'-dbname'} =~ /[[:upper:]]/);
   $self->throw('"hive_init_script" does not exist: '.$self->param('hive_init_script'))
     unless (-e $self->param('hive_init_script'));
   my $dna_db;
@@ -100,11 +102,13 @@ sub fetch_input {
     '-port', $pipeline_db->{'-port'},
     '-user', $pipeline_db->{'-user'},
     '-password', $pipeline_db->{'-pass'},
-    '-pipe_dbname', $pipeline_db->{'-dbname'},
+    '-pipe_db_name', $pipeline_db->{'-dbname'},
     '-pipeline_name', $self->param_required('pipeline_name'));
   push(@cmd, '-enscode_root_dir', $self->param('enscode_root_dir'))
     if ($self->param_is_defined('enscode_root_dir'));
   if ($dna_db) {
+    $self->warning('Your dna dbname has upper case character, it might cause problems, '.$dna_db->{'-dbname'})
+      if ($dna_db->{'-dbname'} =~ /[[:upper:]]/);
     push(@cmd, '-dna_db_name', $dna_db->{'-dbname'});
     push(@cmd, '-dna_db_host', $dna_db->{'-host'});
     push(@cmd, '-dna_db_port', $dna_db->{'-port'});
@@ -113,6 +117,8 @@ sub fetch_input {
   }
   foreach my $db_title (@{$self->param('databases')}) {
     my $db = $self->param($db_title);
+    $self->warning("Your $db_title dbname has upper case character, it might cause problems, ".$db->{'-dbname'})
+      if ($db->{'-dbname'} =~ /[[:upper:]]/);
     push(@cmd, '-'.$db_title.'_name', $db->{'-dbname'});
     push(@cmd, '-'.$db_title.'_host', $db->{'-host'});
     push(@cmd, '-'.$db_title.'_port', $db->{'-port'});

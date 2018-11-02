@@ -226,7 +226,7 @@ my $output_db =
 
 my $meta_container = $output_db->get_MetaContainer();
 if ($genbank_parser->get_taxon_id != $meta_container->get_taxonomy_id) {
-  throw('Your taxon ids differ: '.$meta_container->get_taxonomy_id.' and '.$genbank_parser->get_taxonomy_id);
+  throw('Your taxon ids differ: '.$meta_container->get_taxonomy_id.' and '.$genbank_parser->get_taxon_id);
 }
 
 ###########################################

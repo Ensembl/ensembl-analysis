@@ -106,6 +106,9 @@ sub param_defaults {
 sub fetch_input {
   my $self = shift;
 
+  if ($self->param_is_defined('skip_analysis') and $self->param('skip_analysis')) {
+    $self->complete_early('You asked to sip the analysis');
+  }
   my $create_type = $self->param_required('create_type');
   if ($self->param_is_defined('db_dump_file')) {
     my $dump_dir = dirname($self->param('db_dump_file'));
@@ -177,7 +180,7 @@ sub run {
   my $self = shift;
 
   foreach my $cmd (@{$self->param('commands')}) {
-    print STDERR $cmd, "\n" if ($self->debug);
+    $self->say_with_header($cmd);
     if ($self->run_system_command($cmd)) {
       $self->throw("Could not execute '$cmd'");
     }
@@ -211,7 +214,7 @@ sub write_output {
                dump the schema from Arg[1] and load it into Arg[2]
                dump the data from the vital tables in 'vital_tables' from Arg[1] and load it into Arg[2]
  Returntype : Arrayref of String
- Exceptions : None
+ Exceptions : Throw if 'extra_data_tables' is defined but not an arrayref
 
 =cut
 
@@ -220,6 +223,10 @@ sub clone_database {
 
   my $do_lock = $self->param('_lock_tables');
   my $vital_tables = $self->param('vital_tables');
+  if ($self->param_is_defined('extra_data_tables') and $self->param('extra_data_tables')) {
+    $self->throw('You should give an array ref for your extra tables to dump') unless (ref($self->param('extra_data_tables')) eq 'ARRAY');
+    push(@$vital_tables, @{$self->param('extra_data_tables')});
+  }
   my ($source_dbhost, $source_dbport, $source_dbname, $source_dbuser, $source_dbpass) = $self->db_connection_details($source_db, 1);
   my ($target_dbhost, $target_dbport, $target_dbname, $target_dbuser, $target_dbpass) = $self->db_connection_details($target_db);
   my $base_source_cmd = "mysqldump --lock-tables=$do_lock -h $source_dbhost -P $source_dbport -u $source_dbuser";
@@ -441,7 +448,7 @@ sub db_connection_details {
       $dbpass = $self->param('pass_w');
     }
   }
-   return $dbhost, $dbport, $dbname, $dbuser, $dbpass, (exists $db->{'-driver'} && $db->{'-driver'} ? $db->{'-driver'} : 'mysql');
+  return $dbhost, $dbport, $dbname, $dbuser, $dbpass, ((exists $db->{'-driver'} && $db->{'-driver'}) ? $db->{'-driver'} : 'mysql');
 }
 
 

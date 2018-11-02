@@ -15,6 +15,24 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
+=head1 CONTACT
+
+  Please email comments or questions to the public Ensembl
+  developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
+
+  Questions may also be sent to the Ensembl help desk at
+  <http://www.ensembl.org/Help/Contact>.
+
+=cut
+
+=head1 NAME
+
+HiveProteinMapper_conf.pm -
+
+=head1 DESCRIPTION
+
+  This pipeline maps the unmapped UniProt proteins from the GIFTS database into a core-like genblast database.
+
 =cut
 
 package HiveProteinMapper_conf;
@@ -45,8 +63,8 @@ sub default_options {
 'driver' => 'mysql',
 'clone_db_script_path' => $self->o('enscode_root_dir').'/ensembl-analysis/scripts/clone_database.ksh', # no need to modify this
 
-'species_name' => 'human',
-'repeat_logic_names' => ['repeatmask_repbase_human','dust'],
+'species_name' => '', # human, mouse, etc.
+'repeat_logic_names' => ['repeatmask_repbase_[species_name]','dust'],
 
 # database details for the eHive pipe database
 'server1' => '',
@@ -55,9 +73,12 @@ sub default_options {
 
 # database details for the GIFTS database
 'gifts_dbname' => '',
+'gifts_dbschema' => '', # to be used directly in the query because JobFactory does not support PostgreSQL with schemas
 'gifts_dbserver' => '',
 'gifts_dbport' => '',
 'gifts_dbuser' => '',# read-only user
+'gifts_dbpass' => '',# read-only pass
+'gifts_dbdriver' => 'Pg',
 
 # database details for the killlist database
 'killlist_dbname' => '',
@@ -73,7 +94,7 @@ sub default_options {
 'output_path' => '',
 'homology_models_path'       => $self->o('output_path').'/homology_models',
 
-'uniprot_tax_id'             => 9606,
+'uniprot_tax_id'             => , # 9606, 10090, etc
 'uniprot_index_name'         => 'uniprot_index',
 'uniprot_db_name'            => 'uniprot_db',
 'uniprot_query_dir_name'     => 'uniprot_temp',
@@ -117,6 +138,8 @@ sub default_options {
                             -host   => $self->o('gifts_dbserver'),
                             -port   => $self->o('gifts_dbport'),
                             -user   => $self->o('gifts_dbuser'),
+                            -pass   => $self->o('gifts_dbpass'),
+                            -driver => $self->o('gifts_dbdriver'),
                           },
         'killlist_db' =>  {
                             -dbname => $self->o('killlist_dbname'),
@@ -209,12 +232,20 @@ sub pipeline_analyses {
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
         -parameters => {
                           db_conn => $self->o('gifts_db'),
-                          inputquery => "SELECT uniprot_acc ".
-                                        "FROM uniprot_unmapped ".
-                                        "WHERE uniprot_tax_id=".$self->o('uniprot_tax_id')." ".
-                                        "  AND mapping_history_id=(SELECT max(mapping_history_id) ".
-                                                                  "FROM uniprot_unmapped ".
-                                                                  "WHERE uniprot_tax_id=".$self->o('uniprot_tax_id').")",
+                          inputquery => "SET search_path TO ".$self->o('gifts_dbschema').";".
+                                        "SELECT uniprot_acc ".
+                                        "FROM uniprot_entry u,uniprot_entry_history ueh,release_mapping_history rmh ".
+                                        "WHERE u.uniprot_tax_id=rmh.uniprot_taxid ".
+                                        "  AND ueh.uniprot_id=u.uniprot_id ".
+                                        "  AND ueh.release_version=rmh.uniprot_release ".
+                                        "  AND rmh.release_mapping_history_id=(SELECT max(release_mapping_history_id) ".
+                                                                             " FROM release_mapping_history ".
+                                                                             " WHERE uniprot_taxid=".$self->o('uniprot_tax_id').") ".
+                                        "  AND u.uniprot_id NOT IN (SELECT m.uniprot_id FROM mapping m, mapping_history mh ".
+                                                                  " WHERE m.mapping_id=mh.mapping_id ".
+                                                                  " AND mh.release_mapping_history_id=(SELECT max(release_mapping_history_id) ".
+                                                                                                     " FROM release_mapping_history ".
+                                                                                                     " WHERE uniprot_taxid=".$self->o('uniprot_tax_id')."))",
                           step => 100, # 100 is the maximum limit for the Uniprot query which is run in "download_uniprot_files"
                        },
                        -flow_into => { '2->A' => { 'download_uniprot_files' => {'iid' => '#_range_list#'}},

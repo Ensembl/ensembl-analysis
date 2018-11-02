@@ -345,55 +345,58 @@ sub convert_slice_to_feature_ids {
   my $feature_type = $self->param_required('feature_type');
   my $template_sql = 'UPDATE %s SET stable_id = CONCAT("'.$self->param('stable_id_prefix').'%s", LPAD(%s_id, 11, 0)) WHERE seq_region_id = %d';
 
+  my $adaptor;
+  my $feature_denominator;
+  my $id_method;
+  if ($self->param_is_defined('use_stable_ids') and $self->param('use_stable_ids')) {
+    $id_method = 'stable_id';
+  }
+  else {
+    $id_method = 'dbID';
+  }
+  my $batch_size = 0;
+  my $logic_names = $self->param('logic_name');
   if($feature_type eq 'prediction_transcript') {
-    # Note that the way feature ids work for the analyses PTs have been updated to arrayrefs for batching purposes. I am going to modify this
-    # to take that into account and allow batching. When the other analyses that use feature ids are updated then this change can be applied
-    # generically to the gene features as well
-    my $slice_names = $self->param_required('iid');
-    my $sa = $dba->get_SliceAdaptor();
-    foreach my $slice_name (@{$slice_names}) {
-      my $slice = $sa->fetch_by_name($slice_name);
-      if ($self->param_is_defined('create_stable_ids')) {
-        my $sqlquery = sprintf($template_sql, $feature_type, 'X', $feature_type, $slice->get_seq_region_id);
-        my $sth = $dba->dbc->prepare($sqlquery);
-        $sth->execute();
-      }
-
-      my $pta = $dba->get_PredictionTranscriptAdaptor;
-      my $logic_names = $self->param('logic_name');
-      if (!ref($logic_names) || scalar(@$logic_names) == 0 ) {
-        $logic_names = ['genscan'];
-      }
-      foreach my $logic_name (@$logic_names) {
-        my $pts = $pta->fetch_all_by_Slice($slice, $logic_name);
-        foreach my $pt (@{$pts}) {
-          push(@{$output_id_array},$pt->dbID());
-        }
-      }
+    $adaptor = $dba->get_PredictionTranscriptAdaptor;
+    $feature_denominator = 'X';
+    $batch_size = $self->param_required('batch_size');
+    if (!ref($logic_names) || scalar(@$logic_names) == 0 ) {
+      $logic_names = ['genscan'];
     }
-    $self->param('inputlist', $self->_chunk_input_ids($self->param_required('batch_size'), $output_id_array));
   } elsif($feature_type eq 'gene') {
-    my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param_required('iid'));
-    if ($self->param_is_defined('create_stable_ids')) {
-        my $sqlquery = sprintf($template_sql, $feature_type, 'G', $feature_type, $slice->get_seq_region_id);
-        my $sth = $dba->dbc->prepare($sqlquery);
-        $sth->execute();
+    $adaptor = $dba->get_GeneAdaptor;
+    $feature_denominator = 'G';
+    if (!ref($logic_names) || scalar(@$logic_names) == 0 ) {
+      $logic_names = [undef];
     }
-    my $ga = $dba->get_GeneAdaptor;
-    my $logic_names = $self->param('logic_name');
-
-    my $use_stable_ids = $self->param_is_defined('use_stable_ids');
-    foreach my $logic_name (@$logic_names) {
-      my $genes = $ga->fetch_all_by_Slice($slice, $logic_name);
-      foreach my $gene_feature (@{$genes}) {
-        push(@{$output_id_array}, ($use_stable_ids ? $gene_feature->stable_id : $gene_feature->dbID()));
-      }
-    }
-    $self->param('inputlist', $output_id_array);
   } else {
     $self->throw("The feature_type you provided is not currently supported by the code.\nfeature_type: $feature_type");
   }
+  my $slice_names = $self->param_required('iid');
+  if (!ref($slice_names)) {
+    $slice_names = [$slice_names];
+  }
+  my $sa = $dba->get_SliceAdaptor();
+  foreach my $slice_name (@{$slice_names}) {
+    my $slice = $sa->fetch_by_name($slice_name);
+    if ($self->param_is_defined('create_stable_ids') and $self->param('create_stable_ids')) {
+      my $sqlquery = sprintf($template_sql, $feature_type, $feature_denominator, $feature_type, $slice->get_seq_region_id);
+      my $sth = $dba->dbc->prepare($sqlquery);
+      $sth->execute();
+    }
 
+    foreach my $logic_name (@$logic_names) {
+      foreach my $feature (@{$adaptor->fetch_all_by_Slice($slice, $logic_name)}) {
+        push(@{$output_id_array}, $feature->$id_method);
+      }
+    }
+  }
+  if ($batch_size) {
+    $self->param('inputlist', $self->_chunk_input_ids($batch_size, $output_id_array));
+  }
+  else {
+    $self->param('inputlist', $output_id_array);
+  }
 }
 
 
@@ -412,6 +415,8 @@ sub convert_slice_to_feature_ids {
 
  Arg [1]    : None
  Description: Split the slice given in 'iid' in smaller chunks given by 'slice_size'
+              If 'iid' is an arrayref, it considers that it is small enough and does
+              not split the slices.
               It stores the input ids in 'inputlist'
  Returntype : None
  Exceptions : Throws if 'iid' is not defined
@@ -426,11 +431,20 @@ sub split_slice {
     $self->throw('Slice size must be >= 0. Currently '.$self->param('slice_size'));
   }
 
-  my $sa = $dba->get_SliceAdaptor;
-  my $slices = split_Slices([$sa->fetch_by_name($self->param_required('iid'))], $self->param('slice_size'), $self->param('slice_overlaps'));
-  my @input_ids = map {$_->name} @$slices;
+  my $iid = $self->param_required('iid');
+  if (ref($iid) eq 'ARRAY' and @$iid > 1) {
+    $self->param('inputlist', [[$iid]]);
+  }
+  else {
+    my $sa = $dba->get_SliceAdaptor;
+    if (ref($iid) eq 'ARRAY') {
+      $iid = $iid->[0];
+    }
+    my $slices = split_Slices([$sa->fetch_by_name($iid)], $self->param('slice_size'), $self->param('slice_overlaps'));
+    my @input_ids = map {$_->name} @$slices;
 
-  $self->param('inputlist', \@input_ids);
+    $self->param('inputlist', \@input_ids);
+  }
 }
 
 

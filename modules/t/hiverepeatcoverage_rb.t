@@ -47,7 +47,7 @@ standaloneJob(
 	[ # list of events to test for (just 1 event in this case)
 		[ # start event
 			'WARNING', # event to test for (could be WARNING)
-			"Total bases = 62842997\nTotal masked = 504576\t( 0.80% masked)\n", # expected data flowed out
+			$db->dbc->dbname . "\nAnalyses: RepeatMask\nTotal bases = 62842997\nTotal masked = 504576\t( 0.80% masked)\n", # expected data flowed out
 		], # end event
 		[ # start event
 			'DATAFLOW', # event to test for (could be WARNING)

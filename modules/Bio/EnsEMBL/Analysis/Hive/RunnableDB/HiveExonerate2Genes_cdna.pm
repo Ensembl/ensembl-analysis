@@ -69,7 +69,6 @@ use warnings ;
 use strict;
 use feature 'say';
 
-use Bio::EnsEMBL::Hive::DBSQL::DataflowRuleAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
@@ -322,7 +321,7 @@ sub run {
     if($@) {
       my $except = $@;
       if($except =~ /still running after your timer/) {
-        $self->dataflow_output_id({iid => $self->param('iid')}, Bio::EnsEMBL::Hive::DBSQL::DataflowRuleAdaptor::branch_name_2_code('RUNLIMIT'));
+        $self->dataflow_output_id({iid => $self->param('iid')}, 'RUNLIMIT');
         $self->complete_early("Exonerate took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch 'RUN_LIMIT'. Exception:\n".$except);
       } else {
         $self->throw("Issue with running Exonerate:\n".$except);

@@ -67,7 +67,7 @@ sub run {
 
   my $assembly_registry_dba = $self->hrdb_get_con('assembly_registry_db');
   my $assembly_name = $assembly_registry_dba->fetch_assembly_name_by_gca($gca);
-  $assembly_name =~ s/[ \/\%\+]/\_/g;
+  $assembly_name =~ s/[ \/\%\+]+/\_/g;
 
   my $assembly_dir_name = $gca."_".$assembly_name;
   my $fasta_file_name = $assembly_dir_name.'_genomic.fna.gz';
@@ -94,7 +94,13 @@ sub run {
 
   my $sed_result = system('sed -i "s/\([a-z]\+\)/\U\1\E/g" '.$output_dir.'/genomic.fna');
   if($sed_result) {
-    $self->throw("Failed to uppercase genomic fna file. Commandline used:\nsed -i sed -i 's/\([a-z]\+\)/\U\1\E/g' ".$output_dir."/genomic.fna");
+    $self->throw("Failed to uppercase genomic fna file. Commandline used:\nsed -i 's/\([a-z]\+\)/\U\1\E/g' ".$output_dir."/genomic.fna");
+  }
+
+  # Need to sub out "D", "V", "H", and "B" with "N"
+  $sed_result = system('sed -i "/^[^>]/s/[DBVH]/N/g" '.$output_dir.'/genomic.fna');
+  if($sed_result) {
+    $self->throw("Failed to run non-standard base removal command. Commandline used:\nsed -i '/^[^>]/s/[DBVH]/N/g' ".$output_dir."/genomic.fna");
   }
 
   $self->path_to_genomic_fasta($output_dir);

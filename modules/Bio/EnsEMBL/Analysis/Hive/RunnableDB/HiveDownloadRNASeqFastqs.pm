@@ -49,6 +49,11 @@ sub write_output {
   my $fastq = $self->param('iid');
   my $path = $self->param('input_dir');
   my $srr;
+
+  if(-e $path.'/'.$fastq) {
+    $self->complete_early('Input file already exists, will not download');
+  }
+
   if ($fastq =~ m/_/){
     $srr = (split /_/, $fastq)[0];
   }
@@ -58,24 +63,23 @@ sub write_output {
   my $first = substr $srr, 0, 6;
   my $second = '00'.(substr $srr, -1, 1);
 
-  my $cmd = 'wget '. $ftp_base_url.'/'.$first.'/'.$second.'/'.$srr.'/'.$fastq.' -P '.$path;
-  my $cmd2 = 'wget '. $ftp_base_url.'/'.$first.'/'.$srr.'/'.$fastq.' -P '.$path;
-
-  my $trigger = 0;
-  my @err = `$cmd 2>&1`;
-  foreach my $line (@err){
-    if ($line =~ m/No such directory/){
-      $trigger = 1;
+  my $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$second/$srr/$fastq",  '-P', $path]);
+  if ($res) {
+    $res >>= 8;
+    if ($res == 8) {
+      $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$srr/$fastq",  '-P', $path]);
+      if ($res) {
+        $res >>= 8;
+        $self->throw("Could not download file $fastq error code is $res");
+      }
+    }
+    elsif ($res) {
+      $self->throw("wget died with error code $res");
     }
   }
 
-  if ($trigger){
-    my @err2 = `$cmd2 2>&1`;
-    foreach my $line2 (@err2){
-      if ($line2 =~ m/No such directory/){
-        say "fucked mate";
-      }
-    }
+  unless(-e $path.'/'.$fastq) {
+    $self->throw("Did not find the fastq file on the expected path. Path:\n".$path."/".$fastq);
   }
 
 }

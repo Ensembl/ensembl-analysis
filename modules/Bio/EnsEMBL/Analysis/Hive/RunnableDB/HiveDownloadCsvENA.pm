@@ -44,9 +44,27 @@ use JSON::PP;
 use LWP::UserAgent;
 use File::Spec::Functions qw(splitpath);
 
-#use Bio::DB::EUtilities;
-
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters for the analysis
+               ena_base_url => 'http://www.ebi.ac.uk/ena/data/warehouse/search?display=report',
+               files_domain => 'domain=read&result=read_run',
+               files_fields => 'run_accession,study_accession,experiment_accession,sample_accession,secondary_sample_accession,instrument_platform,instrument_model,library_layout,library_strategy,nominal_length,read_count,base_count,fastq_ftp,fastq_aspera,fastq_md5,library_source,library_selection,center_name,study_alias,experiment_alias,experiment_title,study_title',
+               sample_domain => 'domain=sample&result=sample',
+               sample_fields => 'accession,secondary_sample_accession,bio_material,cell_line,cell_type,collected_by,collection_date,country,cultivar,culture_collection,description,dev_stage,ecotype,environmental_sample,first_public,germline,identified_by,isolate,isolation_source,location,mating_type,serotype,serovar,sex,submitted_sex,specimen_voucher,strain,sub_species,sub_strain,tissue_lib,tissue_type,variety,tax_id,scientific_name,sample_alias,center_name,protocol_label,project_name,investigation_type,experimental_factor,sample_collection,sequencing_method',
+               download_method => 'ftp',
+               separator => '\t',
+               _read_length => 1, # This is a default that should not exist. Some data do not have the read count and base count
+               _centre_name => 'ENA',
+               print_all_info => 0, # It will print all the sample information in the description instead of a selection, good to use when checking the CSV file
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
 
 sub param_defaults {
   my ($self) = @_;
@@ -58,29 +76,37 @@ sub param_defaults {
     files_fields => 'run_accession,study_accession,experiment_accession,sample_accession,secondary_sample_accession,instrument_platform,instrument_model,library_layout,library_strategy,nominal_length,read_count,base_count,fastq_ftp,fastq_aspera,fastq_md5,library_source,library_selection,center_name,study_alias,experiment_alias,experiment_title,study_title',
     sample_domain => 'domain=sample&result=sample',
     sample_fields => 'accession,secondary_sample_accession,bio_material,cell_line,cell_type,collected_by,collection_date,country,cultivar,culture_collection,description,dev_stage,ecotype,environmental_sample,first_public,germline,identified_by,isolate,isolation_source,location,mating_type,serotype,serovar,sex,submitted_sex,specimen_voucher,strain,sub_species,sub_strain,tissue_lib,tissue_type,variety,tax_id,scientific_name,sample_alias,center_name,protocol_label,project_name,investigation_type,experimental_factor,sample_collection,sequencing_method',
-    use_developmental_stages => 0,
     download_method => 'ftp',
     separator => '\t',
-    _read_length => 1, # This is a default that should not exist. Some data do not have the read count and base count
+    _read_length => 1,
     _centre_name => 'ENA',
+    print_all_info => 0,
   }
 }
 
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Create the query to be based on 'study_accession' or 'taxon_id'.
+              An array of values can be given.
+              If the 'inputfile' already exists, it will complete early
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub fetch_input {
   my ($self) = @_;
 
   $self->param_required('inputfile');
-  if ($self->param_is_defined('study_accession')) {
-    $self->_populate_query($self->param('study_accession'), 'study_accession=%s');
-  }
-  elsif ($self->param_is_defined('taxon_id')) {
-    $self->_populate_query($self->param('taxon_id'), 'tax_eq(%s) AND instrument_platform=ILLUMINA AND library_source=TRANSCRIPTOMIC');
-  }
-  elsif (-e $self->param('inputfile')) {
+  if (-e $self->param('inputfile')) {
     $self->complete_early("'inputfile' exists so I will use that");
-  }
-  else {
+  } elsif ($self->param_is_defined('study_accession') and $self->param('study_accession')) {
+    $self->_populate_query($self->param('study_accession'), 'study_accession=%s');
+  } elsif ($self->param_is_defined('taxon_id') and $self->param('taxon_id')) {
+    $self->_populate_query($self->param('taxon_id'), 'tax_eq(%s) AND instrument_platform=ILLUMINA AND library_source=TRANSCRIPTOMIC');
+  } else {
     $self->throw('"inputfile" does not exist and neither "study_accession" nor "taxon_id" were defined');
   }
 }
@@ -112,6 +138,18 @@ sub _populate_query {
   }
 }
 
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Query ENA to find all possibles project that could be used for the RNASeq pipeline
+              It will avoid samples which are for non coding RNA analyses or if the individual was
+              infected, immunised,...
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub run {
   my ($self) = @_;
 
@@ -121,6 +159,7 @@ sub run {
     my $ua = LWP::UserAgent->new;
     $ua->env_proxy;
     my $url = join('&', $self->param('ena_base_url'), 'query="'.$query.'"', $self->param('files_domain'), 'fields='.$self->param('files_fields'));
+    $self->say_with_header($url);
     my $response = $ua->get($url);
     my $fastq_file = 'fastq_'.$self->param('download_method');
     if ($response->is_success) {
@@ -134,6 +173,7 @@ sub run {
             %fields_index = map { $_ => $index++} split('\t', $line);
           }
           else {
+            # if these two checks below are removed, more time might be needed to prepare the CSV file
             next if ($line =~ / infected | [iIu]mmune| challenge |tomi[zs]ed/); # I do not want to do that but I don't think we have a choice
             next if ($line =~ /[Mm]i\w{0,3}RNA|lncRNA|circRNA|small RNA/); # I do not want to do that but I don't think we have a choice
             my @row = split("\t", $line);
@@ -187,6 +227,7 @@ sub run {
                   $header = $line;
                 }
                 else {
+                  $self->say_with_header($line);
                   my @row = split("\t", $line);
                   my %line = (
                     center_name => $row[$fields_index{center_name}],
@@ -208,7 +249,7 @@ sub run {
                   );
                   my $dh = $ua->default_headers;
                   $ua->default_header('Content-Type' => 'application/json');
-                  my $biosd = $ua->get('http://www.ebi.ac.uk/biosamples/api/samples/'.$sample);
+                  my $biosd = $ua->get('http://www.ebi.ac.uk/biosamples/samples/'.$sample);
                   if ($biosd->is_success) {
                     $content = $biosd->decoded_content();
                     my $json = JSON::PP->new();
@@ -218,40 +259,31 @@ sub run {
                       $self->warning("Removed $sample from the set as it has immunization value: ".$data->{characteristics}->{immunization}->[0]->{text});
                       next SAMPLE;
                     }
-                    $line{dev_stage} = $data->{characteristics}->{developmentalStage}->[0]->{text}
-                      if (exists $data->{characteristics}->{developmentalStage});
+                    $line{dev_stage} = $data->{characteristics}->{'development stage'}->[0]->{text}
+                      if (exists $data->{characteristics}->{'development stage'});
                     $line{status} = $data->{characteristics}->{healthStatusAtCollection}->[0]->{text}
                       if (exists $data->{characteristics}->{healthStatusAtCollection});
-                    $line{age} = join(' ', $data->{characteristics}->{animalAgeAtCollection}->[0]->{text},
-                                 $data->{characteristics}->{animalAgeAtCollection}->[0]->{unit})
-                      if (exists $data->{characteristics}->{animalAgeAtCollection});
-                    if (exists $data->{characteristics}->{organismPart}) {
-                      $line{organismPart} = $data->{characteristics}->{organismPart}->[0]->{text};
-                      $line{uberon} = $data->{characteristics}->{organismPart}->[0]->{ontologyTerms}->[-1];
+                    if (exists $data->{characteristics}->{age}) {
+                      $line{age} = $data->{characteristics}->{age}->[0]->{text};
+                      if (exists $data->{characteristics}->{age}->[0]->{unit}) {
+                        $line{age} .= ' '.$data->{characteristics}->{age}->[0]->{unit};
+                      }
+                    }
+                    if (exists $data->{characteristics}->{tissue}) {
+                      $line{organismPart} = $data->{characteristics}->{tissue}->[0]->{text};
+                      if (exists $data->{characteristics}->{tissue}->[0]->{ontologyTerms}) {
+                        $line{uberon} = $data->{characteristics}->{tissue}->[0]->{ontologyTerms}->[-1];
+                      }
                     }
                     elsif (exists $data->{characteristics}->{cellType}) {
                       $line{cellType} = $data->{characteristics}->{cellType}->[0]->{text};
-                      $line{uberon} = $data->{characteristics}->{cellType}->[0]->{ontologyTerms}->[-1];
+                      if (exists $data->{characteristics}->{cellType}->[0]->{ontologyTerms}) {
+                        $line{uberon} = $data->{characteristics}->{cellType}->[0]->{ontologyTerms}->[-1];
+                      }
                     }
                   }
                   else {
                     $self->warning("Could not connect to BioSample with $sample");
-#                    my $eutil = Bio::DB::EUtilities->new (
-#                      -eutil => 'esearch',
-#                      -term => $sample,
-#                      -db => 'biosample',
-#                      -retmax => 3,
-#                      -usehistory => 'y',
-#                    );
-#                    my @histories = $eutil->get_Histories;
-#                    foreach my $hist (@histories) {
-#                      $eutil->set_parameters(-eutil => 'efetch',
-#                        -history => $hist,
-#                        -retmode => 'text');
-#                      my $data;
-#                      eval {
-#                        $eutil->get_Response(-cb => sub {($data) = @_});
-#                      };
                   }
 
                   $ua->default_headers($dh);
@@ -276,8 +308,8 @@ sub run {
       my %celltypes;
       foreach my $sample (keys %{$csv_data{$project}}) {
         next unless (exists $samples{$sample});
-#        if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
-        if (exists $samples{$sample}->{dev_stage}) {
+        if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
+#        if (exists $samples{$sample}->{dev_stage}) {
           next if ($samples{$sample}->{dev_stage} eq 'sexually immature stage');
           $dev_stages{$samples{$sample}->{dev_stage}} = 1;
         }
@@ -289,7 +321,10 @@ sub run {
             $samples{$sample}->{sample_name} = $samples{$sample}->{dev_stage};
           }
           else {
-            $self->throw('No dev stages for '.$sample);
+            $self->throw('No dev stages for '.$sample.' "'.join('", "', keys %dev_stages).'"');
+          }
+          if ($samples{$sample}->{sex}) {
+            $samples{$sample}->{sample_name} = $samples{$sample}->{sex}.'_'.$samples{$sample}->{sample_name};
           }
         }
       }
@@ -298,7 +333,10 @@ sub run {
           next unless (exists $samples{$sample});
           $samples{$sample}->{sample_name} = $samples{$sample}->{cellType} || $samples{$sample}->{organismPart} || $samples{$sample}->{sample_alias} || $samples{$sample}->{description};
           if (!$samples{$sample}->{sample_name}) {
-            $self->throw('No dev stages for '.$sample);
+            $self->throw('No sample name for '.$sample);
+          }
+          if ($samples{$sample}->{sex}) {
+            $samples{$sample}->{sample_name} = $samples{$sample}->{sex}.'_'.$samples{$sample}->{sample_name};
           }
         }
       }
@@ -306,10 +344,11 @@ sub run {
     $self->output([\%csv_data, \%samples]);
   }
   else {
-    $self->complete_early('Could not find any data for this job');
     $self->input_job->autoflow(0);
+    $self->complete_early('Could not find any data for this job');
   }
 }
+
 
 =head2 write_output
 
@@ -349,14 +388,21 @@ sub write_output {
           my (undef, undef, $filename) = splitpath($file);
           my $sample_name = $samples->{$sample}->{sample_name};
           $sample_name =~ s/\s+-\s+\w+:\w+$//;
-          $sample_name =~ tr/ :\t/_/;
+          $sample_name =~ s/[[:space:][:punct:]]+/_/g;
+          $sample_name =~ s/_{2,}/_/g;
+          $sample_name =~ s/^_|_$//g;
           my $description = sprintf("%s, %s%s",
             $experiment->{study_title},
             $experiment->{experiment_title},
             $samples->{$sample}->{cell_type} ? ', '.$samples->{$sample}->{cell_type} : '', );
+          if ($self->param('print_all_info')) {
+            foreach my $field (values %{$samples->{$sample}}) {
+              $description .= ';'.$field if ($field);
+            }
+          }
           $description =~ tr/:\t/ /;
           print FH sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s, %s, %s\n",
-            $sample_name,
+            lc($sample_name),
             $experiment->{run_accession},
             $experiment->{library_layout} eq 'PAIRED' ? 1 : 0,
             $filename,

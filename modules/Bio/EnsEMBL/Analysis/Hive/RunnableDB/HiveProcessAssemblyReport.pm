@@ -46,8 +46,12 @@ use File::Fetch;
 use File::Temp;
 use File::Spec::Functions qw(catfile splitpath catdir);
 use File::Path qw(make_path);
+use Digest::MD5;
+use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError) ;
 
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
+
+use Bio::EnsEMBL::IO::Parser::Fasta;
 
 use Bio::EnsEMBL::Slice;
 use Bio::EnsEMBL::CoordSystem;
@@ -62,6 +66,9 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
  Description: Default parameters
                toplevel_as_sequence_levels => 1,
                _report_name => '#assembly_accession#_#assembly_name#_assembly_report.txt',
+               _md5checksum_name => 'md5checksums.txt',
+               _genome_file_name => '#assembly_accession#_#assembly_name#_genomic.fna',
+               _genome_zip_ext => '.gz',
                _molecule_relations => {
                  'assembled-molecule' => 'chromosome',
                  'unplaced-scaffold' => 'scaffold',
@@ -72,6 +79,7 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
                ftp_pass => undef,
                load_non_nuclear => 0,
                _agp_branch => 3,
+               _coord_systems => {},
  Returntype : Hashref
  Exceptions : None
 
@@ -85,6 +93,8 @@ sub param_defaults {
     toplevel_as_sequence_levels => 1,
     _report_name => '#assembly_accession#_#assembly_name#_assembly_report.txt',
     _md5checksum_name => 'md5checksums.txt',
+    _genome_file_name => '#assembly_accession#_#assembly_name#_genomic.fna',
+    _genome_zip_ext => '.gz',
     _molecule_relations => {
       'assembled-molecule' => 'chromosome',
       'unplaced-scaffold' => 'scaffold',
@@ -95,6 +105,7 @@ sub param_defaults {
     ftp_pass => undef,
     load_non_nuclear => 0,
     _agp_branch => 3,
+    _coord_systems => {},
   }
 }
 
@@ -123,7 +134,7 @@ sub fetch_input {
   my %external_db_ids;
   my $external_db_adaptor = $db->get_DBEntryAdaptor;
   foreach my $external_db ('INSDC', 'RefSeq_genomic', 'UCSC') {
-    $external_db_ids{$external_db} = $external_db_adaptor->get_external_db_id($external_db);
+    $external_db_ids{$external_db} = $external_db_adaptor->get_external_db_id($external_db, undef, 1);
   }
   $self->param('_external_db_ids', \%external_db_ids);
   my ($id, $code, $name, $desc) = @{$db->get_AttributeAdaptor->fetch_by_code('toplevel')};
@@ -154,6 +165,10 @@ sub fetch_input {
   $fetcher->fetch(to => $report_dir);
   $fetcher = File::Fetch->new(uri => $self->param_required('full_ftp_path').'/'.$self->param('_md5checksum_name'));
   $fetcher->fetch(to => $report_dir);
+  if ($self->param('toplevel_as_sequence_levels')) {
+    $fetcher = File::Fetch->new(uri => $self->param_required('full_ftp_path').'/'.$self->param('_genome_file_name').$self->param('_genome_zip_ext'));
+    $fetcher->fetch(to => $report_dir);
+  }
 }
 
 
@@ -241,11 +256,16 @@ sub run {
     elsif ($line =~ /^\w/) {
       my @data = split("\t", $line);
       if (!$load_non_nuclear and $data[7] eq 'non-nuclear') {
-        if ($self->param_is_defined('mt_accession')) {
-          $self->warning('MT accession are different, using the one from the file')
-            if ($data[6] ne $self->param('mt_accession'));
+        if ($data[1] eq 'assembled-molecule' and $data[6] =~ /^NC/) {
+          if ($self->param_is_defined('mt_accession')) {
+            $self->warning('MT accession are different, using the one from the file')
+              if ($data[6] ne $self->param('mt_accession'));
+          }
+          $self->param('mt_accession', $data[6]);
         }
-        $self->param('mt_accession', $data[6]);
+        else {
+          $self->warning($data[0].' is a non nuclear sequence');
+        }
       }
       else {
         my $seq_region_name = $data[4];
@@ -271,11 +291,12 @@ sub run {
         my $slice = Bio::EnsEMBL::Slice->new(
           -seq_region_name => $seq_region_name,
           -start => 1,
-          -end => $data[8],
+          -end => $data[8] eq 'na' ? 1 : $data[8],
           -coord_system => $coord_system,
         );
         # This is not great but the easiest
         $slice->{karyotype_rank} = $karyotype_attribute if ($karyotype_attribute);
+        $slice->{_gb_insdc_name} = $data[4];
         if ($data[4] eq $seq_region_name) {
           push(@{$slice->{add_synonym}}, [$data[0], undef]);
         }
@@ -302,7 +323,19 @@ sub run {
   }
   close(MH) || $self->throw('Cannot close md5checksum file');
   if ($one_system) {
-    $self->param('genome_checksum', $checksum{$self->param('assembly_accession').'_'.$self->param('assembly_name').'_genomic.fna.gz'});
+    $self->say_with_header('Checking genome file');
+    my $file = catfile($self->param('output_path'), $self->param('_genome_file_name').$self->param('_genome_zip_ext'));
+    my $digest = Digest::MD5->new();
+    open(my $fh, $file) || $self->throw('Could not open '.$file);
+    binmode $fh;
+    my $md5sum = $digest->addfile($fh)->hexdigest;
+    close($fh) || $self->throw('Could not close '.$file);
+    $self->throw('MD5 not as expected '.$checksum{$self->param('_genome_file_name').$self->param('_genome_zip_ext')}.' but '.$md5sum)
+      unless ($md5sum eq $checksum{$self->param('_genome_file_name').$self->param('_genome_zip_ext')});
+    my ($output) = $file =~ /^(\S+)\.\w+$/;
+    anyuncompress $file => $output
+      or $self->throw("anyuncompress failed: $AnyUncompressError");
+    unlink $file;
   }
   else {
     if (@dirs) {
@@ -401,23 +434,51 @@ sub write_output {
   foreach my $coord_system (values %{$self->param('_coord_systems')}) {
     $coord_system_adaptor->store($coord_system);
   }
-  my $slice_adator = $db->get_SliceAdaptor;
+  my $slice_adaptor = $db->get_SliceAdaptor;
   my $attribute_adator = $db->get_AttributeAdaptor;
   my $toplevel_attribute = $self->param('toplevel_attribute');
   my $toplevel_as_sequence_levels = $self->param('toplevel_as_sequence_levels');
+  my $genome_file;
+  if ($toplevel_as_sequence_levels) {
+    $genome_file = Bio::EnsEMBL::IO::Parser::Fasta->open(catfile($self->param('output_path'), $self->param('_genome_file_name')));
+  }
+  my %sequences;
   foreach my $slice (@{$self->output}) {
     if ($toplevel_as_sequence_levels) {
-      my $seq = 'N'x$slice->length;
-      $slice_adator->store($slice, \$seq);
+      my $insdc_name = $slice->{_gb_insdc_name};
+      my $seq;
+      if (exists $sequences{$insdc_name}) {
+        $seq = $sequences{$insdc_name};
+        delete $sequences{$insdc_name};
+      }
+      else {
+        while ($genome_file->next) {
+          $genome_file->getHeader =~ /^(\S+)/;
+          if ($insdc_name eq $1) {
+            $seq = uc($genome_file->getSequence);
+            last;
+          }
+          else {
+            $sequences{$1} = uc($genome_file->getSequence);
+          }
+        }
+      }
+      if ($slice->length <= 1) {
+        my %new_slice = %$slice;
+        $new_slice{end} = length($seq);
+        $new_slice{seq_region_length} = $new_slice{end};
+        $slice = Bio::EnsEMBL::Slice->new_fast(\%new_slice);
+      }
+      $slice_adaptor->store($slice, \$seq);
     }
     else {
-      $slice_adator->store($slice);
+      $slice_adaptor->store($slice);
     }
     if (exists $slice->{add_synonym}) {
       foreach my $synonym_data (@{$slice->{add_synonym}}) {
         $slice->add_synonym(@$synonym_data);
       }
-      $slice_adator->update($slice);
+      $slice_adaptor->update($slice);
     }
     if (exists $slice->{karyotype_rank}) {
       $attribute_adator->store_on_Slice($slice, [$slice->{karyotype_rank}]);
@@ -440,7 +501,7 @@ sub write_output {
   $meta_adaptor->store_key_value('assembly.default', $self->param('assembly_name'));
   $meta_adaptor->store_key_value('assembly.name', $self->param('assembly_name'));
   $meta_adaptor->store_key_value('assembly.web_accession_source', 'NCBI');
-  $meta_adaptor->store_key_value('assembly.web_accession_type', 'GenBank Assembly ID');
+  $meta_adaptor->store_key_value('assembly.web_accession_type', 'INSDC Assembly ID');
 
 # Not sure it will properly add the new values, hopefully it will and not cause problems
   my $job_params = destringify($self->input_job->input_id);
@@ -450,20 +511,11 @@ sub write_output {
   if ($self->param_is_defined('assembly_refseq_accession')) {
     $job_params->{assembly_refseq_accession} = $self->param('assembly_refseq_accession');
   }
-  $self->input_job->input_id($job_params);
-  if ($toplevel_as_sequence_levels) {
-    $self->dataflow_output_id(
-      {
-        url => $self->param('full_ftp_path').'/'.$self->param('assembly_accession').'_'.$self->param('assembly_name').'_genomic.fna.gz',
-        md5sum => $self->param('genome_checksum'),
-      },
-      $self->param('_branch_to_flow_to')
-    );
-  }
-  else {
+  if (!$toplevel_as_sequence_levels) {
     $self->dataflow_output_id($self->param('agp_files'), $self->param('_agp_branch'));
     $self->dataflow_output_id($self->param('fasta_files'), $self->param('_branch_to_flow_to'));
   }
+  $self->dataflow_output_id($job_params, 'MAIN');
 }
 
 
@@ -481,9 +533,6 @@ sub write_output {
 sub get_coord_system {
   my ($self, $type, $no_chromosome) = @_;
 
-  if (!$self->param_is_defined('_coord_systems')) {
-    $self->param('_coord_systems', {});
-  }
   if (!exists $self->param('_coord_systems')->{$type}) {
     my $rank = 1;
     $rank = 2 if ($type eq 'scaffold' and !$no_chromosome);

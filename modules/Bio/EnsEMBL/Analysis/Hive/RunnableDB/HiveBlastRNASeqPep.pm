@@ -95,11 +95,10 @@ sub fetch_input {
   $self->create_analysis(1);
   $self->analysis->parameters($self->param('commandline_params')) if ($self->param_is_defined('commandline_params'));
 
+  my $input_dba = $self->hrdb_get_dba($self->param('source_db'));
+  my $output_dba = $self->hrdb_get_dba($self->param('target_db'));
 
-  my $input_dba = $self->hrdb_get_dba($self->param('input_db'));
-  my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
-
-  $self->hrdb_set_con($input_dba,'input_db');
+  $self->hrdb_set_con($input_dba,'source_db');
   $self->hrdb_set_con($output_dba,'output_db');
 
   my $genes;
@@ -445,7 +444,7 @@ sub write_output {
 
   my $total_input_genes = scalar(keys(%{$self->genes_by_tran_id()}));
   my $success_percent = $total / $total_input_genes * 100;
-  if($total_input_genes >= 10 && $success_percent <= 90) {
+  if($total_input_genes >= 20 && $success_percent <= 80) {
     $self->throw("The number of output genes differs too much from the number of input genes\n".
                  "Total input: ".$total_input_genes."\nTotal output: ".$total);
   }
@@ -520,15 +519,15 @@ sub genes_by_tran_id {
 sub OUTPUT_DB {
     my ($self) = @_;
 
-    return 'output_db';
+    return 'target_db';
 }
 
 
 =head2 MODEL_DB
 
  Arg [1]    : None
- Description: Getter for the name of the output database, default is 'input_db'
- Returntype : String 'input_db'
+ Description: Getter for the name of the output database, default is source_db'
+ Returntype : String source_db'
  Exceptions : None
 
 =cut
@@ -536,7 +535,7 @@ sub OUTPUT_DB {
 sub MODEL_DB {
     my ($self) = @_;
 
-    return 'input_db';
+    return 'source_db';
 }
 
 
@@ -593,44 +592,3 @@ sub failed_genes {
 }
 
 1;
-
-
-
-sub realign_results {
-  my ($self,$genes) = @_;
-
-  foreach my $gene (@{$genes}) {
-    foreach my $transcript (@{$gene->get_all_Transcripts}) {
-      my $sfs = $transcript->get_all_supporting_features;
-      unless(scalar(@$sfs)) {
-        next;
-      }
-
-      my $sf = ${$sfs}[0];
-      my $hit_name = $sf->hseqname;
-      my $original_seq;
-
-      my $uniprot_db = ${$self->param('uniprot_index')}[0];
-      my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($uniprot_db);
-
-      while($parser->next()) {
-        my ($accession) = $parser->getHeader =~ /^(\S+)/;
-        if($accession eq $hit_name) {
-          $original_seq = $parser->getSequence;
-          last;
-        }
-      }
-
-      unless($original_seq) {
-        $self->throw("Was not able to find the original sequence in the blast db for realignment.".
-                     "\nOriginal seq: ".$hit_name."\nBlast db location: ".$uniprot_db);
-      }
-
-      my ($coverage,$percent_id) = align_proteins($original_seq,$transcript->translation->seq);
-      foreach my $sf (@{$sfs}) {
-        $sf->hcoverage($coverage);
-        $sf->percent_id($percent_id);
-      }
-    }
-  }
-}

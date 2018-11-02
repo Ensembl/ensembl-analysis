@@ -63,18 +63,24 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my ($self) = @_;
 
-  my $program = $self->param('wide_samtools');
-  $self->throw("Samtools program not defined in analysis \n") unless (defined $program);
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Sam2Bam->new
-    (
-     -analysis => $self->create_analysis,
-     -header   => $self->param('headerfile'),
-     -program  => $program,
-     -samfiles => $self->param('filename'),
-     -bamfile  => $self->param('wide_intron_bam_file'),
-     -genome   => $self->param('wide_genome_file'),
-    );
-  $self->runnable($runnable);
+  if (@{$self->param_required('filename')} > 0) {
+    my $program = $self->param('samtools');
+    $self->throw("Samtools program not defined in analysis \n") unless (defined $program);
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::Sam2Bam->new
+      (
+       -analysis => $self->create_analysis,
+       -header   => $self->param('headerfile'),
+       -program  => $program,
+       -samfiles => $self->param('filename'),
+       -bamfile  => $self->param('intron_bam_file'),
+       -genome   => $self->param('genome_file'),
+      );
+    $self->runnable($runnable);
+  }
+  else {
+    $self->input_id->autoflow(0);
+    $self->complete_early('You do not have any SAM files');
+  }
 }
 
 

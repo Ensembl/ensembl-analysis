@@ -92,7 +92,7 @@ sub get_config_settings {
 
   # Return a ref to the master hash for the group using the group name
   my $config = $self->_master_config('default');
-  if ($config_group) {
+  if ($config_group and $config_group !~ /^#.*#$/) {
     my $config_group_hash = $self->_master_config($config_group);
     throw("You have asked for a group name in _master_config of ".ref($self)." that doesn't exist. Group name:\n".$config_group)
       unless($config_group_hash);
@@ -164,7 +164,7 @@ sub get_array_config_settings {
   my ($self, $config_group, $additional_array) = @_;
 
   my $config = $self->_master_config('default');
-  if ($config_group) {
+  if ($config_group and $config_group !~ /^#.*#$/) {
     my $config_group_array = $self->_master_config($config_group);
     throw("You have asked for a group name in _master_config ".ref($self)." that doesn't exist. Group name:\n".$config_group)
       unless($config_group_array);

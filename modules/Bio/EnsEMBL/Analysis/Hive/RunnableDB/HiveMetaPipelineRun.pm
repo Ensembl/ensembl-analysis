@@ -39,6 +39,9 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMetaPipelineRun;
 
 use strict;
 use warnings;
+
+use File::Basename;
+use File::Spec::Functions qw(catfile);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -52,6 +55,8 @@ sub param_defaults {
     action => 'loop', # this can be loop, run, 
     _input_id_name => 'target_db',
     perl_path => 'perl',
+    beekeeper_script => 'beekeeper.pl',
+    tweak_script => 'tweak_pipeline.pl',
   }
 }
 
@@ -90,6 +95,19 @@ sub pre_cleanup {
 
 # I need to execute fetch_input to set base_cmd and it's also doing some checks
   $self->fetch_input;
+  if ($self->param_is_defined('reset_excluded')) {
+    my $reset_cmd = $self->param('tweak_script');
+    if (-e $self->param('tweak_script')) {
+      $reset_cmd = $self->param('perl_path')." $reset_cmd";
+    }
+    else {
+      if (-e $self->param('beekeeper_script')) {
+        my $directory = dirname($self->param('beekeeper_script'));
+        $reset_cmd = $self->param('perl_path').' '.catfile($directory, $reset_cmd);
+      }
+    }
+    execute_with_wait("$reset_cmd -url ".$self->param_required('ehive_url')." -SET 'analysis[".$self->param_required('reset_excluded')."].is_excluded=0'");
+  }
   execute_with_wait($self->param('base_cmd').' -unkwn');
   execute_with_wait($self->param('base_cmd').' -reset_failed_jobs');
 }

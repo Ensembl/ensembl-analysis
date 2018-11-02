@@ -700,6 +700,14 @@ sub parse_transcript {
   my $slice_name = shift(@projection_array);
   my $proj_seq = shift(@projection_array);
 
+  # CESAR sometimes produces projected exon sequences with no actual exonic sequence like 
+  # >reference
+  # agACACATaa
+  # >projected
+  # tg------aa
+  # which we are going to discard.
+  my $num_proj_seq_exonic_bases = $proj_seq =~ tr/ACGTNYKWMSRDVHBX//;
+
   if (scalar(@projection_array) > 0) {
     $self->throw("Output file has more than one projection. The projection having fewer gaps will be chosen. Transcript: ".$source_transcript->stable_id());
   }

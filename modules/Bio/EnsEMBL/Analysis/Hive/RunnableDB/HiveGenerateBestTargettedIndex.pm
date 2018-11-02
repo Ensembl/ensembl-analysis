@@ -53,34 +53,46 @@ use parent qw(Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB);
 sub fetch_input {
   my ($self) = @_;
 
-  my $genbank_parser = Bio::EnsEMBL::IO::Parser::Genbank->open($self->param_required('genbank_file'));
-  $self->param('seqfetcher', Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher->new( -db => $self->param_required('seqfetcher_index')));
-  $self->param_required('fasta_filename');
-  my $dba = $self->get_database_by_name('source_db');
-  my $adaptor = $dba->get_DnaAlignFeatureAdaptor;
-  my %accessions;
-  foreach my $f (@{$adaptor->fetch_all}) {
-    next if (exists $accessions{$f->hseqname});
-    $accessions{$f->hseqname} = 1;
-  }
-  my @seqs;
-  while($genbank_parser->next) {
-    my $cdna_accession = $genbank_parser->get_sequence_name;
-    next unless (exists $accessions{$cdna_accession});
-    foreach my $feature (@{$genbank_parser->get_features}) {
-      if ($feature->{header} eq 'CDS' and exists $feature->{translation}) {
-        push(@seqs, Bio::Seq->new(-id => $cdna_accession, -desc => $feature->{protein_id}->[0], -seq => join('', @{$feature->{translation}})));
-        last;
+  if (-e $self->param_required('genbank_file')) {
+    my $genbank_parser = Bio::EnsEMBL::IO::Parser::Genbank->open($self->param_required('genbank_file'));
+
+    $self->param('seqfetcher', Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher->new( -db => $self->param_required('seqfetcher_index')));
+    $self->param_required('fasta_filename');
+    my $dba = $self->get_database_by_name('source_db');
+    my $adaptor = $dba->get_DnaAlignFeatureAdaptor;
+    my %accessions;
+    foreach my $f (@{$adaptor->fetch_all}) {
+      next if (exists $accessions{$f->hseqname});
+      $accessions{$f->hseqname} = 1;
+    }
+    my @seqs;
+    while($genbank_parser->next) {
+      my $cdna_accession = $genbank_parser->get_sequence_name;
+      next unless (exists $accessions{$cdna_accession});
+      foreach my $feature (@{$genbank_parser->get_features}) {
+        if ($feature->{header} eq 'CDS' and exists $feature->{translation}) {
+          push(@seqs, Bio::Seq->new(-id => $cdna_accession, -desc => $feature->{protein_id}->[0], -seq => join('', @{$feature->{translation}})));
+          last;
+        }
       }
     }
-  }
-  $genbank_parser->close;
-  if ($self->param_is_defined('protein_files')) {
-    foreach my $file (@{$self->param('protein_files')}) {
-      $self->throw('Could not find '.$file) unless (-e $file);
+    $genbank_parser->close;
+    if ($self->param_is_defined('protein_files')) {
+      foreach my $file (@{$self->param('protein_files')}) {
+        $self->throw('Could not find '.$file) unless (-e $file);
+      }
+    }
+    if (@seqs) {
+      $self->output(\@seqs);
+    }
+    else {
+      $self->warning('Strange, you do not seem to have any full length cdna');
     }
   }
-  $self->output(\@seqs);
+  else {
+    $self->input_job->autoflow(0);
+    $self->complete_early("Could not find any cdnas");
+  }
 }
 
 
@@ -122,7 +134,7 @@ sub _get_uniprot_accession {
   my ($self, $params, $seqs) = @_;
 
   $params->{query} = join(' ', map {$_->desc} @$seqs);
-  my $query_url = 'http://www.uniprot.org/uploadlists/';
+  my $query_url = 'https://www.uniprot.org/uploadlists/';
   my $ua = LWP::UserAgent->new(agent => 'libwwww-perl '.$self->param('email'));
   $ua->env_proxy();
   push(@{$ua->requests_redirectable}, 'POST');
@@ -132,7 +144,7 @@ sub _get_uniprot_accession {
     sleep $wait;
     $response = $ua->get($response->base);
   }
-  if ($response->is_success) {
+  if ($response->is_success and $response->content =~ /^Entry/) {
     my $result = $response->content;
     while($result =~ /(\w+)\s+(\d+)\s+(\S+)/mgc) {
      foreach my $acc (split(',', $3)) {
@@ -141,7 +153,7 @@ sub _get_uniprot_accession {
     }
   }
   else {
-    $self->throw($response->status_line.' for '.$response->request->uri);
+    $self->throw($response->status_line.' for '.$response->request->uri."\n".$response->content);
   }
   foreach my $seq (@$seqs) {
     $seq->desc($missing{$seq->desc}) if (exists $missing{$seq->desc});

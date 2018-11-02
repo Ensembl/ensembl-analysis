@@ -318,70 +318,65 @@ sub run{
   my ($fhash,$ids) = $self->get_all_features_by_id;
   my $failed_count = 0;
   my @output;
- ID:foreach my $id(@$ids){
+  foreach my $id(@$ids){
     my $features = $fhash->{$id};
     #printf STDERR "MMG doing $id (%d feats)\n", scalar(@$features);
-    my @forward;
-    my @reverse;
     my $peptide_sequence = $self->get_Sequence($features->[0]->hseqname);
-    warning($id." has produced no peptide sequence from ".$self->seqfetcher)
-      if(!$peptide_sequence);
-    $failed_count++ if(!$peptide_sequence);
-    foreach my $feature(@$features){
-      if($feature->strand == -1){
-        push(@reverse, $feature);
-      }elsif($feature->strand == 1){
-        push(@forward, $feature);
-      }else{
-        throw("MultiMiniGenewise ".$feature." from id ".$id.
-              " seems to have no strand defined");
-      }
-    }   
-    
-    logger_info("MMG have ".@forward." forward strand features and ".@reverse.
-                " reverse strand features\n");
-    my $slice = $self->query;
-    if($self->cluster_end){
-      #print "MMG making subseq based on ".$self->cluster_start." ".$self->cluster_end." from ".$self->query->name."\n";
-      my $string_seq = ('N' x ($self->cluster_start - 1)) .
-        $self->query->subseq($self->cluster_start, $self->cluster_end) .
-          ('N' x ($self->query->length - ($self->cluster_end)));
-      $slice = Bio::EnsEMBL::Slice->new 
-        (
-         -seq => $string_seq,
-         -seq_region_name  => $self->query->seq_region_name,
-         -start => $self->query->start,
-         -end => $self->query->end,
-         -coord_system => $self->query->coord_system,
-        );
-    }else{
-      #print "MMG using whole query ".$self->query->name."\n";
+    if (!$peptide_sequence) {
+      warning($id.' has produced no peptide sequence from '.$self->seqfetcher);
+      $failed_count++;
     }
-    my $forward_output = $self->run_MiniGenewise(\@forward, $slice, 
-                                                 $peptide_sequence) 
-      if(@forward >= 1);
-    $self->output($forward_output);
-    my $reverse_output = $self->run_MiniGenewise(\@reverse, $slice,
-                                                 $peptide_sequence)
-      if(@reverse >= 1);
-    $self->output($reverse_output);
-    push(@output, @$forward_output) if($forward_output);
-    push(@output, @$reverse_output) if($reverse_output);
+    else {
+      my @forward;
+      my @reverse;
+
+      foreach my $feature(@$features) {
+        if ($feature->strand == -1) {
+          push(@reverse, $feature);
+        }
+        elsif ($feature->strand == 1) {
+          push(@forward, $feature);
+        }
+        else {
+          throw("MultiMiniGenewise $feature from id $id seems to have no strand defined");
+        }
+      }
+
+      logger_info('MMG have '.@forward.' forward strand features and '.@reverse." reverse strand features\n");
+      my $slice = $self->query;
+      if ($self->cluster_end) {
+        print "MMG making subseq based on ".$self->cluster_start." ".$self->cluster_end." from ".$self->query->name."\n";
+        my $string_seq = ('N' x ($self->cluster_start - 1)).
+          $self->query->subseq($self->cluster_start, $self->cluster_end).
+            ('N' x ($self->query->length - ($self->cluster_end)));
+        $slice = Bio::EnsEMBL::Slice->new(
+           -seq => $string_seq,
+           -seq_region_name  => $self->query->seq_region_name,
+           -start => $self->query->start,
+           -end => $self->query->end,
+           -coord_system => $self->query->coord_system,
+          );
+      }else{
+        print "MMG using whole query ".$self->query->name."\n";
+      }
+      if (@forward >= 1) {
+        my $forward_output = $self->run_MiniGenewise(\@forward, $slice, $peptide_sequence);
+        $self->output($forward_output);
+      }
+      if (@reverse >= 1) {
+        my $reverse_output = $self->run_MiniGenewise(\@reverse, $slice, $peptide_sequence);
+        $self->output($reverse_output);
+      }
+    }
+  }
+  if ($failed_count == @$ids) {
+    throw("Can't find any sequences for the ".@$ids.' ids which match '.
+          $self->query->name);
   }
   if($self->cluster_end){
     foreach my $output(@{$self->output}){
       attach_Slice_to_Transcript($output, $self->query);
     }
-  }
-  my $count = 1;
-  foreach my $output(@{$self->output}){
-    #print "MMG output $count ".$output->start." ".$output->end." ".$output->strand." ".@{$output->get_all_Exons}."\n";
-    $count++;
-  }
-  #$self->output(\@output);
-  if($failed_count == @$ids){
-    throw("Can't find any sequences for the ".@$ids." ids which match ".
-          $self->query->name); 
   }
   return 1;
 }

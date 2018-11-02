@@ -112,6 +112,7 @@ sub populate_production_db_tables {
             " -mh ".$production_host.
             " -md ".$production_dbname.
             " -mu ".$production_user.
+            " -dB ".
             " -dp ".$dump_path;
 
   if($target_port) {

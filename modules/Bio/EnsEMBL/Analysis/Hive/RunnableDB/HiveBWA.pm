@@ -45,6 +45,8 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA;
 
 use warnings ;
 use strict;
+
+use File::Spec::Functions qw(catfile);
 use Bio::EnsEMBL::Analysis::Runnable::BWA;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -53,8 +55,8 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 =head2 fetch_input
 
  Arg [1]    : None
- Description: Create a Bio::EnsEMBL::Analysis::Runnable::BWA using 'filename' as input for BWA ('wide_short_read_aligner')
-              to run of the genome specified in 'wide_genome_file'
+ Description: Create a Bio::EnsEMBL::Analysis::Runnable::BWA using 'filename' as input for BWA ('short_read_aligner')
+              to run of the genome specified in 'genome_file'
  Returntype : None
  Exceptions : None
 
@@ -62,17 +64,17 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my ($self) = @_;
-  my $filename =  $self->param('wide_input_dir') ."/" .$self->param('filename');
+  my $filename = catfile($self->param('input_dir'), $self->param('filename'));
   $self->throw("Fastq file  $filename not found\n") unless ( -e $filename );
-  my $program = $self->param('wide_short_read_aligner');
+  my $program = $self->param('short_read_aligner');
   $self->throw("BWA program not defined in analysis \n") unless (defined $program);
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::BWA->new
     (
      -analysis => $self->create_analysis,
      -program  => $program,
      -options  => $self->param('short_read_aligner_options'),
-     -outdir   => $self->param('wide_output_dir'),
-     -genome   => $self->param('wide_genome_file'),
+     -outdir   => $self->param('output_dir'),
+     -genome   => $self->param('genome_file'),
      -fastq    => $filename,
     );
   $self->runnable($runnable);

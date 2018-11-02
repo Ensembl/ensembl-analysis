@@ -194,4 +194,5 @@ mysqldump --host=${opt_source.dbhost} --port=${opt_source.dbport} \
   seq_region_synonym \
   karyotype \
   mapping_set \
+  data_file \
   seq_region_mapping | $( eval ${output_cmd} )

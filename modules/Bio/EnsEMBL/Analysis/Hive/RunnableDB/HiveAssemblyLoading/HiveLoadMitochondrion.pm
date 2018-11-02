@@ -50,20 +50,14 @@ sub fetch_input {
     make_path($self->param('output_path'));
   }
 
-  if ($self->param_is_defined('mt_accession')) {
+  if ($self->param_is_defined('mt_accession') and $self->param('mt_accession')) {
     chdir($self->param('output_path'));
     my $fetcher = File::Fetch->new(uri => 'http://www.ncbi.nlm.nih.gov/nuccore/'.$self->param('mt_accession'));
     $self->param('mt_filename', $fetcher->fetch());
   }
-  elsif ($self->param_is_defined('mito_index_path')) {
-    $self->throw("mito_index_path not passed into parameters hash. You need to specify where the index of mito accession is")
-      unless (-e $self->param('mito_index_path'));
-  }
   else {
     $self->complete_early('No mitochondria for this species');
   }
-
-  return 1;
 }
 
 sub run {
@@ -71,34 +65,10 @@ sub run {
 
   my $species_name = $self->param('species_name');
   my $output_path = $self->param('output_path');
-  my $mito_index = $self->param('mito_index_path');
   my $enscode_dir = $self->param('enscode_root_dir');
 
-  my $mt_filename;
-  my $mt_accession;
-  if ($self->param_is_defined('mt_filename')) {
-    $mt_filename = $self->param('mt_filename');
-    $mt_accession = $self->param('mt_accession');
-  }
-  else {
-    $self->throw("Could not locate the mito index on the path provided. Path:\n".$mito_index)
-      unless (-e $mito_index);
-    open(IN, $mito_index) || $self->throw("Could not open $mito_index");
-    while(<IN>) {
-      my ($accession,$index_species_name) = split('=',$_);
-      chomp $index_species_name;
-      if($index_species_name eq $species_name) {
-        say "Found mito accession for ".$species_name.": ".$accession;
-        $mt_filename = catfile($output_path, $accession.'.gb');
-        $mt_accession = $accession;
-        last;
-      }
-    }
-    close(IN) || $self->throw("Could not close $mito_index");
-
-    $self->throw("Could not fine species accession in the index file")
-      unless ($mt_accession);
-  }
+  my $mt_filename = $self->param('mt_filename');
+  my $mt_accession = $self->param('mt_accession');
   my $toplevel = 'chromosome';
   my $chromosome_flag = "";
   my $scaffold_flag = "";

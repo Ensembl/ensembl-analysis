@@ -41,6 +41,7 @@ use strict;
 use warnings;
 
 use Net::FTP;
+use File::Fetch;
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -107,10 +108,39 @@ sub fetch_input {
   $self->throw('Could not get assembly_name') unless ($assembly_name);
   my $primary_assembly_cs = $db->get_CoordSystemAdaptor->fetch_by_name('primary_assembly', $assembly_name);
   if ($primary_assembly_cs) {
-    $self->complete_early('You have the "primary_assembly" coordinate system so your synonyms should already be in your database');
+# if the coord_system is 'primary_assembly' the refseq synonyms should have been imported during 'process_assembly_info', however, there are cases where the refseq synonyms have been updated but this is not reflected in the NCBI assembly report (i.e. can be found in GCF but not in GCA): in this case download the GCF assembly report and load synonyms from there 
+    my $assembly_refseq_accession = $self->param_required('assembly_refseq_accession');
+
+    my $refseq_ftp_url = $self->param('url');
+    my $client = File::Fetch->new(uri => $refseq_ftp_url) || $self->throw('Could not create a fetcher for '.$refseq_ftp_url);
+    $self->param('options', [to => $self->param('output_dir')]);
+
+    my $file = $client->fetch(($self->param_is_defined('options') ? @{$self->param('options')}: undef));
+
+    my $data_counter = 0;
+    my %data;
+
+    if ($file) {
+      open(FH, "$file") || $self->throw("Could not open $file");
+      while(my $line = <FH>) {
+        next if ($line =~ /^#|^\s*$/);
+        $line =~ s/\R$//;
+        my @line = split("\t", $line);
+        my $cs = 'primary_assembly';
+	if ($line[6] ne "na"){
+	  push(@{$data{$cs}}, [$line[4], $line[6]]);
+	  ++$data_counter;
+	}
+      }
+      close(FH) || $self->throw("Could not close $file");
+      unlink($file);
+    }
+    $self->param('synonym_count', $data_counter);
+    $self->param('synonyms', \%data);
+
   }
   else {
-    my $refseq_db_id = $db->get_DBEntryAdaptor->get_external_db_id($self->param('external_db'));
+    my $refseq_db_id = $db->get_DBEntryAdaptor->get_external_db_id($self->param('external_db'), undef, 1);
     if ($refseq_db_id) {
       $self->param('external_db_id', $refseq_db_id);
     }
@@ -170,8 +200,14 @@ sub fetch_input {
             while(my $line = <FH>) {
               next if ($line =~ /^#|^\s*$/);
               $line =~ s/\R$//;
-              push(@{$data{$file}}, [split("\t", $line)]);
-              ++$data_counter;
+              my @synonyms = split("\t", $line);
+              if ($synonyms[0] and $synonyms[0] ne 'na' and $synonyms[1] and $synonyms[1] ne 'na') {
+                push(@{$data{$file}}, \@synonyms);
+                ++$data_counter;
+              }
+              else {
+                $self->say_with_header('No correct synonyms '.$line);
+              }
             }
             close(FH) || $self->throw("Could not close $fh");
             ++$counter;
@@ -231,24 +267,20 @@ sub write_output {
   my $counter = 0;
   foreach my $coord_system (keys %$data) {
     foreach my $synonyms (@{$data->{$coord_system}}) {
-      if ($synonyms->[0] and $synonyms->[1]) {
-        if ($synonyms->[0] ne 'na') {
-          my $slice = $slice_adaptor->fetch_by_region($coord_system, $synonyms->[1]);
-          if (!$slice) {
-            ++$counter;
-            $slice = $slice_adaptor->fetch_by_region($coord_system, $synonyms->[0]);
-            $self->throw('The slice '.$synonyms->[0].' with synonym '.$synonyms->[1].' does not exist on '.$coord_system)
-              unless ($slice);
-            $slice->add_synonym($synonyms->[1], $external_db_id);
-            $slice->adaptor->update($slice);
-          }
-# We also count it if it already exists
-          ++$counter;
+      my $slice = $slice_adaptor->fetch_by_region($coord_system, $synonyms->[1]);
+      if (!$slice) {
+        $slice = $slice_adaptor->fetch_by_region($coord_system, $synonyms->[0]);
+        if ($slice) {
+          $slice->add_synonym($synonyms->[1], $external_db_id);
+          $slice->adaptor->update($slice);
+          $self->say_with_header('Added '.$synonyms->[1].' to '.$synonyms->[0]);
+        }
+        else {
+          $self->warning('The slice '.$synonyms->[0].' with synonym '.$synonyms->[1].' does not exist on '.$coord_system);
         }
       }
-      else {
-        $self->throw('There is a problem with '.$synonyms->[0].' '.$synonyms->[1]);
-      }
+# We also count it if it already exists
+      ++$counter;
     }
   }
   $self->throw("You are missing some synonyms: $counter instead of ".$self->param('synonym_count'))

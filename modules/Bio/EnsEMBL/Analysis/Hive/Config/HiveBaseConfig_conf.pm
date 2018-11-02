@@ -326,9 +326,11 @@ sub create_database_hash {
    -port => $port || $port_list->[$random],
    -user => $user || $self->o('user'),
    -pass => $password || $self->o('password'),
-   -dbname => $dbname || $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+   -dbname => $dbname || lc($self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe'),
    -driver => $driver || $self->o('hive_driver'),
  );
+ $self->warning("Your dbname has upper case character, it might cause problems, ".$dbconn{'-dbname'})
+   if ($dbconn{'-dbname'} =~ /[[:upper:]]/);
   return \%dbconn;
 }
 
@@ -355,6 +357,28 @@ sub get_server_port_lists {
     push(@port_list, 4526+$i);
   }
   return \@server_list, \@port_list;
+}
+
+
+sub get_meta_db_information {
+  my ($self, $dbname, $extra_name) = @_;
+
+  if (!$extra_name) {
+    if (exists $self->default_options->{'species_name'}) {
+      $extra_name = '_'.$self->o('species_name');
+    }
+    else {
+      $extra_name = '';
+    }
+  }
+  my $guihiveserver = $self->o('guihive_server');
+  $guihiveserver = "http://$guihiveserver" unless ($guihiveserver =~ /^http/);
+  my $guihiveport = $self->o('guihive_port');
+  my $pipedb = $self->create_database_hash(undef, undef, $self->o('user'), $self->o('password'), lc($self->o('dbowner').'_'.$self->o('species_name').'_'.$dbname.'_hive'));
+  my $url = sprintf("%s://%s:%s@%s:%d/%s", $pipedb->{'-driver'}, $pipedb->{'-user'}, $pipedb->{'-pass'}, $pipedb->{'-host'}, $pipedb->{'-port'}, $pipedb->{'-dbname'});
+  $url =~ s/:/\// if ($pipedb->{-driver} eq 'sqlite');
+  my $guiurl = sprintf("<a target='_blank' href='%s:%s/?driver=%s&username=%s&passwd=%s&host=%s&port=%d&dbname=%s'>guihive</a>", $guihiveserver, $guihiveport, $pipedb->{'-driver'}, $pipedb->{'-user'}, $pipedb->{'-pass'}, $pipedb->{'-host'}, $pipedb->{'-port'}, $pipedb->{'-dbname'});
+  return $pipedb, $url, $guiurl;
 }
 
 1;

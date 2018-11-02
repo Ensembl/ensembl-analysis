@@ -37,7 +37,7 @@ It will first create blocks from overlapping reads which represent possible exon
 it will link these blocks by using pairing information if it is available or by
 using a predefined "proto-transcript" length when it uses single reads.
 The "proto-transcripts" will be stored in an Ensembl database.
-If your genome file is using UCSC naming, ie. chr1, set 'wide_use_ucsc_naming' to 1
+If your genome file is using UCSC naming, ie. chr1, set 'use_ucsc_naming' to 1
 
 =cut
 
@@ -71,7 +71,7 @@ sub param_defaults {
  Description: It will fetch the sequence based on the input_id, retrieve all alignments
                overlapping the region and create the "exon" blocks. Because the alignment
                is made on the whole genome, we need to provide the runnable with a full length
-               slice. If your genome use UCSC style names (chr1,...), set 'wide_use_ucsc_naming' to 1
+               slice. If your genome use UCSC style names (chr1,...), set 'use_ucsc_naming' to 1
  Returntype : None
  Exceptions : None
 
@@ -82,7 +82,7 @@ sub fetch_input {
 
     my $reference_db = $self->get_database_by_name('dna_db');
     my $slice_adaptor = $reference_db->get_SliceAdaptor;
-    $self->hrdb_set_con($self->get_database_by_name('output_db'), 'output_db');
+    $self->hrdb_set_con($self->get_database_by_name('target_db'), 'target_db');
 
     my $slice = $self->fetch_sequence($self->input_id, $reference_db);
     if ($self->param('disconnect_jobs')) {
@@ -147,7 +147,7 @@ sub filter_results {
 sub write_output{
     my ($self) = @_;
 
-    my $outdb = $self->hrdb_get_con('output_db');
+    my $outdb = $self->hrdb_get_con('target_db');
     my $gene_adaptor = $outdb->get_GeneAdaptor;
 
     my $fails = 0;
@@ -186,7 +186,7 @@ sub write_output{
 sub exon_cluster {
     my ($self, $slice, $bam) = @_;
     print STDERR "CLUSTER EXON\n";
-    my $seq_region_name = $self->param('wide_use_ucsc_naming') ? convert_to_ucsc_name($slice->seq_region_name, $slice) : $slice->seq_region_name;
+    my $seq_region_name = $self->param('use_ucsc_naming') ? convert_to_ucsc_name($slice->seq_region_name, $slice) : $slice->seq_region_name;
     my $region = $seq_region_name.':'.$slice->start.'-'.$slice->end;
     # BWA has been run on whole genome. If the slice is not starting at 1, the Core API
     # will shift the coordinate of our clusters which is wrong

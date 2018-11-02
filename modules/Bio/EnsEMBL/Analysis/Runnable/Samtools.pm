@@ -155,7 +155,9 @@ sub _base_command {
 
   my $cmd = $self->program.' '.$command;
   $cmd .= ' '.join(' ', @options) if (defined $options[0]);
-  $cmd .= ' -@ '.$self->use_threading if ($self->use_threading);
+  if ($self->version) {
+    $cmd .= ' -@ '.$self->use_threading if ($self->use_threading);
+  }
   return $cmd.' ';
 }
 
@@ -200,7 +202,7 @@ sub index {
   my ($self, $file, $options) = @_;
 
   $options = '' unless (defined $options);
-  my $cmd = join(' ', $self->program, 'index', $options, $file);
+  my $cmd = join(' ', $self->_base_command('index', $options), $file);
   logger_info($cmd);
   execute_with_wait($cmd, $file.' indexing failed');
 }
@@ -224,7 +226,7 @@ sub index {
 sub flagstat {
   my ($self, $file, $stat) = @_;
 
-  my $cmd = join(' ', $self->program, 'flagstat', $file);
+  my $cmd = join(' ', $self->_base_command( 'flagstat'), $file);
   my @output;
   open(CMD, $cmd.' 2>&1 | ') || throw("Could not open command $cmd");
   while(<CMD>) {
