@@ -63,8 +63,6 @@ corresponding to the target species the input gene_id will be projected to.
 of the source and target species.
 -method_link_type     Default to 'LASTZ_NET' so it works with the
 Compara lastz alignments.
--exon_region_padding  Default to 50 to add 50 bases at each side of the
-exons to be projected.
 -cesar_path           Path to the directory containing the CESAR2.0
 binary to be run (excluding the binary filename).
 -canonical            If set to 1, then only the canonical transcript for each gene will be fetched from the source db.
