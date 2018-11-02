@@ -70,6 +70,7 @@ binary to be run (excluding the binary filename).
 -canonical            If set to 1, then only the canonical transcript for each gene will be fetched from the source db.
 -canonical_or_longest If set to 1, then only the canonical transcript for each gene will be projected. If the projection is not done successfully, the next transcript having the longest translation will be projected until there is a successful projection.
 -common_slice         If set to 1, all the transcripts projected from the same gene will be put on the same slice (and gene) based on the most common seq region name and min and max coordinates covering them. The projected transcripts on the other slices will be discarded. If set to 0 (default), the projected transcripts will be used to make single-transcript genes.
+-max_stops            Only the transcripts whose translations contain a number of stops equal to or less than max_stops will be stored.  Default 0 (translations with stops are not allowed by default).
 -TRANSCRIPT_FILTER    Hash containing the parameters required to apply
 to the projected transcript to exclude some of them. Default to
 ExonerateTranscriptFilter pid,cov 50,50 although note that the actual
@@ -114,6 +115,7 @@ sub param_defaults {
       canonical => 0,
       canonical_or_longest => 0,
       common_slice => 0,
+      max_stops => 0,
       #TRANSCRIPT_FILTER => {
       #                       OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
       #                       PARAMETERS => {
@@ -404,12 +406,12 @@ sub build_gene {
 
 TRANSCRIPT: foreach my $projected_transcript (@projected_transcripts_for_gene) {
       # do not store transcripts containing stops
-      #if ($projected_transcript->translate()) {
-      #  my $projected_transcript_translate_seq = $projected_transcript->translate()->seq();
-      #  my $num_stops = $projected_transcript_translate_seq =~ s/\*/\*/g;
-      #  if ($num_stops > 0) {
-      #    say "The projected transcript has been filtered out because its translation contains stops (".$num_stops." stops).";
-      #  } else {
+      if ($projected_transcript->translate()) {
+        my $projected_transcript_translate_seq = $projected_transcript->translate()->seq();
+        my $num_stops = $projected_transcript_translate_seq =~ s/\*/\*/g;
+        if ($num_stops > $self->param('max_stops')) {
+          say "The projected transcript has been filtered out because its translation contains more than the maximum number of stops (".$num_stops." stops, the maximum is ".$self->param('max_stops')." stops).";
+        } else {
           # filter out transcripts below given pid and cov
           if ($self->TRANSCRIPT_FILTER) {
             if (scalar(@{$projected_transcript->get_all_supporting_features()}) > 0) {
@@ -456,10 +458,11 @@ TRANSCRIPT: foreach my $projected_transcript (@projected_transcripts_for_gene) {
                 # only one projected gene per source gene is built
                 last TRANSCRIPT;
               }
-            }
-
-          }
-    }
+            } # end else common_slice
+          } # end else TRANSCRIPT_FILTER
+        } # end else num_stops > 0
+      } # end if project_transcript->translate
+    } # end foreach TRANSCRIPT
   }
 }
 
