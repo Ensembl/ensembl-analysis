@@ -37,8 +37,12 @@ projects its exons based on the given Compara lastz alignment and the
 CESAR2.0 aligner and builds single-transcript genes from these
 projections to be written to target_db while filtering out the specified
 transcripts by applying the filter in TRANSCRIPT_FILTER.
-seqEdits and selenocysteine attributes are inserted in order to deal
-with alignment gaps and seleno-like TGA stops which will be converted
+
+#not done, under review
+#seqEdits are inserted in order to deal with alignment gaps
+
+Selenocysteine attributes are inserted in order to deal
+with seleno-like TGA stops which will be converted
 into NNN triplets to make the best possible aligment.
 
 =head1 OPTIONS
@@ -198,8 +202,6 @@ sub fetch_input {
     my $genomic_align_block_adaptor = $compara_dba->get_GenomicAlignBlockAdaptor();
     my $transcript_region_padding = $self->param('transcript_region_padding');
 
-my $debug_transcript_index = 0;
-
     foreach my $transcript (@unique_translateable_transcripts) {
      
       my $transcript_group_id_lengths = {};
@@ -207,8 +209,7 @@ my $debug_transcript_index = 0;
       my $transcript_group_id_max_ends = {};
       my $transcript_group_id_seq_region_names = {};
       my $transcript_group_id_seq_region_strands = {};
-     
-say "transcript index: ".$debug_transcript_index++;     
+   
       my $transcript_padded_start = $transcript->start()-$transcript_region_padding;
       if ($transcript_padded_start < 0) {
         $transcript_padded_start = 0;
@@ -222,13 +223,11 @@ say "transcript index: ".$debug_transcript_index++;
       my $slice_adaptor = $source_dna_dba->get_SliceAdaptor();
       my $transcript_slice = $slice_adaptor->fetch_by_region($transcript->slice()->coord_system_name(),$transcript->slice()->seq_region_name(),$transcript_padded_start,$transcript_padded_end,$transcript->seq_region_strand());
 
-say "------------transcript slice: ".$transcript_slice->coord_system_name()." ".$transcript_slice->name()."\n"."length of transcript slice seq: ".length($transcript_slice->seq());
+      say "---transcript slice: ".$transcript_slice->coord_system_name()." ".$transcript_slice->name()."\n"."length of transcript slice seq: ".length($transcript_slice->seq());
 
       my $genomic_align_blocks = $genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_Slice($mlss,$transcript_slice);
       my $transcript_slices = [];
-      
-      
-      
+
       foreach my $genomic_align_block (@{$genomic_align_blocks}) {
         my $gab = $genomic_align_block->restrict_between_reference_positions($transcript_padded_start,$transcript_padded_end);
         if ($gab) {
@@ -341,11 +340,11 @@ sub write_output {
   foreach my $gene (@{$genes}) {
     my $transcript = @{$gene->get_all_Transcripts}[0]; # any transcript
     if (!($gene_adaptor->fetch_by_transcript_stable_id($transcript->stable_id()))) {
-      say "Storing gene: ".$gene->start.":".$gene->end.":".$gene->strand;
+      say "Storing gene: ".$gene->start.":".$gene->end.":".$gene->strand." (g.start:g.end:g.strand). Transcript stable ID used to fetch gene: ".$transcript->stable_id();
       empty_Gene($gene);    
       $gene_adaptor->store($gene);
     } else {
-      say "NOT storing gene because it has already been stored: ".$gene->start.":".$gene->end.":".$gene->strand." Transcript stable ID used to fetch gene: ".$transcript->stable_id();
+      say "NOT storing gene because it has already been stored: ".$gene->start.":".$gene->end.":".$gene->strand."(g.start,g.end,g.strand). Transcript stable ID used to fetch gene: ".$transcript->stable_id();
     }
   }
 }
@@ -534,7 +533,7 @@ sub project_transcript {
   $self->files_to_delete($outfile_path);
 
   open(OUT,">".$outfile_path);
-
+  my $exon_index = 0;
 EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
     my $seq = $exon->seq->seq();
     my $phase = $exon->phase();
@@ -543,32 +542,36 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
     my $start_coord;
     my $end_coord;
 
-    # Find 5' split codon and lowercase bases
+    # Find 5' split codon and lower case bases
     if ($phase == 0 or $phase == -1) {
       ;
     } elsif($phase == 1) {
       my $split_codon = substr($seq,0,2);
       say "Split coding base start: ".lc($split_codon);
       $seq = lc($split_codon).substr($seq,2);
+      $transcript->{$exon_index}->{'five_split_codon'} = $split_codon;
     } elsif($phase == 2) {
       my $split_codon = substr($seq,0,1);
       say "Split coding base start: ".lc($split_codon);
       $seq = lc($split_codon).substr($seq,1);
+      $transcript->{$exon_index}->{'five_split_codon'} = $split_codon;
     } else {
       $self->throw("Unexpected phase found for exon ".$exon->stable_id." (".$exon->dbID()."): ".$phase);
     }
 
-    # Find 3' split codon and lowercase bases
+    # Find 3' split codon and lower case bases
     if ($end_phase == 0 or $end_phase == -1) {
       ;
     } elsif($end_phase == 1) {
       my $split_codon = substr($seq,length($seq)-1);
       say "Split coding base end: ".lc($split_codon);
       $seq = substr($seq,0,length($seq)-1).lc($split_codon);
+      $transcript->{$exon_index}->{'three_split_codon'} = $split_codon;
     } elsif($end_phase == 2) {
       my $split_codon = substr($seq,length($seq)-2);
       say "Split coding base end: ".lc($split_codon);
       $seq = substr($seq,0,length($seq)-2).lc($split_codon);
+      $transcript->{$exon_index}->{'three_split_codon'} = $split_codon;
     } else {
       $self->throw("Unexpected end phase found for exon ".$exon->stable_id." (".$exon->dbID()."): ".$end_phase);
     }
@@ -578,6 +581,8 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
       $seq = substr($seq,0,length($seq)-1);
       say("Removed last base because the end phase is -1 and the sequence is not multiple of 3.");
     }
+
+    $exon_index++; # the exon index is only used to record the split codons for each exon
 
     # replace TGA stops/selenocysteines with NNN so CESAR2.0 makes it match with anything
     my $i_step = 1;
@@ -620,15 +625,14 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
   # References are the exons (together with their reading frame) that you want to align to the query sequence.
   say OUT "#";
 
-  #foreach my $transcript_align_slice (@{$transcript_align_slices}) {
-    say $transcript->stable_id().": ".$transcript_align_slice->name();
-    say OUT ">".$transcript_align_slice->name();
+  say $transcript->stable_id().": ".$transcript_align_slice->name();
+  say OUT ">".$transcript_align_slice->name();
     
-    my $transcript_align_slice_seq = $transcript_align_slice->seq();
+  my $transcript_align_slice_seq = $transcript_align_slice->seq();
     
-    # replace any base different from A,C,G,T with N
-    $transcript_align_slice_seq =~ tr/ykwmsrdvhbxRYKWMSDVHBX/nnnnnnnnnnnNNNNNNNNNNN/;
-    say OUT $transcript_align_slice_seq;
+  # replace any base different from A,C,G,T with N
+  $transcript_align_slice_seq =~ tr/ykwmsrdvhbxRYKWMSDVHBX/nnnnnnnnnnnNNNNNNNNNNN/;
+  say OUT $transcript_align_slice_seq;
 
   close OUT;
 
@@ -669,37 +673,7 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
 #    system('rm '.$file_to_delete);
 #  }
 
-
-#LOOP THROUGH TRANSCRIPT EXONS AND MATCH THEN TO THE PROJECTED EXON
   if ($projected_transcript) {
-      
-   
-#    
-#    foreach my $projected_exon ($projected_transcript->get_all_Exons()) {  
-#      my $projected_exon_seq = $projected_exon->seq()->seq();
-#      # find selenocysteines
-#      if ($exon->{'selenocysteine'}) {
-#        my $i_step = 1;
-#        for (my $i = 0; $i < length($projected_exon_seq); $i += $i_step) {
-#          my $base_1 = substr($projected_exon_seq,$i,1);
-#          if ($base_1 !~ /[acgt]/) {
-#            # we have reached the first (upper case or -) base of the exon sequence
-#            $i_step = 3;
-#          }
-#          if ($i_step == 3) {
-#            my $base_2 = substr($projected_exon_seq,$i+1,1);
-#            my $base_3 = substr($projected_exon_seq,$i+2,1);
-#             if ($base_1 eq "T" and
-#                 $base_2 eq "G" and
-#                 $base_3 eq "A" and
-#                 ($exon->{'selenocysteine'} == $i) and
-#                 $i+$i_step < length($seq)) { # ignore the last stop codon
-#               $projected_exon->{'selenocysteine'} = $i;
-#             }
-#          }
-#        }
-#      }
-#    }
     return ($projected_transcript);
   } else {
     return (0);
@@ -708,7 +682,7 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
 
 sub parse_transcript {
   my ($self,$source_transcript,$projected_outfile_path) = @_;
-  
+
   open(IN,$projected_outfile_path);
   my @projection_array = <IN>;
   close IN;
@@ -740,7 +714,7 @@ sub parse_transcript {
   my $original_proj_transcript_strand = $4;
   my $strand = $original_proj_transcript_strand;
 
-  $source_seq =~ /( *)([\-atgcnATGCN ]+[-atgcnATGCN]+)( *)/;
+  $source_seq =~ /( *)([\-atgcnATGCN> ]+[-atgcnATGCN>]+)( *)/; # '>' means do not expect a splice site in the query because the intron has been deleted, annotate as one composite exon
   
   my $transcript_left_flank = $1;
   my $source_transcript_align = $2;
@@ -758,41 +732,316 @@ sub parse_transcript {
     $self->throw("Couldn't retrieve a slice for transcript: ".$proj_transcript_slice_name);
   }
 
-  $proj_seq =~ tr/\-//d;
+  # I have to store the source sequence exons as they appear in the alignment file
+  # so I can compare the split codons from the source and the projected sequence later on.
+  my @source_exons = ();
+  my $exon_index = 0;
+  while ($source_seq =~ /([atgcn]*)([\-ATGCN>]+)([atgcn]*)/g) { # source exon sequences contain split codon bases as lower case bases
+
+    # Find split codons in the alignment file as CESAR might have changed them compared to the ones in the fasta file
+    $source_transcript->{$exon_index}->{'alignment_five_split_codon'} = $1;
+    $source_transcript->{$exon_index}->{'alignment_three_split_codon'} = $3;
+
+    push(@source_exons,$1.$2.$3);
+    $exon_index++;
+  }
 
   my @projected_exons = ();
+  my $source_exon_index = 0;
+  my $accum_proj_seq_gap_length = 0;
 
-    while ($proj_seq =~ /([ATGCN]+)/g) {
+PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
     
-     my $exon_sequence = $1;
-     
-     # @- and @+ are the start and end positions of the last match.
-     # $-[0] and $+[0] are the entire pattern.
-     # $-[N] and $+[N] are the $N submatches.
-     my $exon_start;
-     my $exon_end;
-     my $proj_transcript_slice_length = length($proj_transcript_slice->seq());
+    my $proj_exon_sequence = $1;
 
-       $exon_start = $-[0]+1; # +1 because exon coordinates start at 1 for Exon objects
-       $exon_end = $+[0]+1-1; # +1 because exon coordinates start at 1 for Exon objects
-                              # -1 because $+[] gives the index of the character following the match, not the last character of the match.
+    # @- and @+ are the start and end positions of the last match.
+    # $-[0] and $+[0] are the entire pattern.
+    # $-[N] and $+[N] are the $N submatches.
+    my $exon_start = $-[0]+1; # +1 because exon coordinates start at 1 for Exon objects
+    my $exon_end = $+[0]+1-1; # +1 because exon coordinates start at 1 for Exon objects
+                          # -1 because $+[] gives the index of the character following the match, not the last character of the match.
 
-    push(@projected_exons,
-         new Bio::EnsEMBL::Exon(-START     => $exon_start,#+$exon_offset_from_start,#+$proj_transcript_slice->start(),
-                                -END       => $exon_end,#-1,#+$exon_offset_from_start,#+$proj_transcript_slice->start(), # $+[] gives the index of the character following the match, not the last character of the match.
-                                -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
-                                -SLICE     => $proj_transcript_slice,
-                                -ANALYSIS  => $source_transcript->analysis(),
-                                -STABLE_ID => $source_transcript->stable_id_version(),
-                                -VERSION   => 1));
-  }
+    if ($proj_exon_sequence =~ /^\-+\-+$/) {
+      # skip projected exon sequences which only contain '-'
+      say "Skipping projected exon sequence because it only contains '-'. File: ".$projected_outfile_path;
+      $source_exon_index = 0;
+      next PROJSEQ;
+    }
+
+    $accum_proj_seq_gap_length = substr($proj_seq,0,$exon_start-1) =~ tr/\-//;
+    $exon_start -= $accum_proj_seq_gap_length;
+                          
+    my $base_index_offset = $exon_start;
+    my $original_exon_start = $exon_start;
+    my $still_first = 1; # boolean to indicate whether we are still going through a gap before
+                         # finding the first valid codon within an exon
+
+    my $end_gap_length = 0;
+    if ($proj_exon_sequence =~ /[ACGT]*(\-+)$/) {
+      $end_gap_length = length($1);
+    }
+
+    $accum_proj_seq_gap_length = substr($proj_seq,0,$exon_end) =~ tr/\-//;
+    $exon_end -= $accum_proj_seq_gap_length;
+
+    # find the source exon sequence which corresponds to the current projected sequence
+    my $source_exon_sequence = $source_exons[$source_exon_index];
+    while (length($proj_exon_sequence) != length($source_exon_sequence) and
+           $source_exon_index < @source_exons) {
+      say "Source exon sequence and projected exon sequence lengths IN THE ALIGNMENT (including '-') do not match. Source exon index: ".$source_exon_index.". Skipping source exon. File: ".$projected_outfile_path;
+      $source_exon_index++;
+      $source_exon_sequence = $source_exons[$source_exon_index];
+    }
+
+    #say "proj exon sequence length: ".length($proj_exon_sequence);
+    #say "source exon sequence length: ".length($source_exon_sequence);
+   
+    if (length($proj_exon_sequence) != length($source_exon_sequence)) {
+      $self->warning("Source exon sequence not found for current projected sequence ".$proj_exon_sequence.". Projected exon not added to the projected transcript. File: ".$projected_outfile_path);
+      $source_exon_index = 0;
+      next PROJSEQ;
+    } else {
+      # source exon sequence found for current projected sequence
+      my @source_exon_sequence_arr = split('',$source_exon_sequence);
+      my @proj_exon_sequence_arr = split('',$proj_exon_sequence);
+      #say "source exon sequence: ".$source_exon_sequence;
+      #say "proj_exon_sequence exon sequence: ".$proj_exon_sequence;
+      
+      # get the split codon at the 3' end so we can use its length to know
+      # when to stop looping through the codons
+      my $source_split_codon_3 = "";
+      my $source_split_codon_3_length = 0;
+      if ($source_transcript->{$source_exon_index}) {
+        if ($source_transcript->{$source_exon_index}->{'alignment_three_split_codon'}) {
+          $source_split_codon_3 = $source_transcript->{$source_exon_index}->{'alignment_three_split_codon'};
+          $source_split_codon_3_length = length($source_split_codon_3);
+        }
+      }
+
+      my $current_codons_in_gap_count = 0;
+      my $exon_made = 0;
+      my $exon_made_dash_count = 0;
+      my $split_codon_exon_made = 0;
+      my $previous_exon_end = 0;
+      my $current_proj_seq_gap_length = 0;
+      my $base_index = 0;
+      CODON: while ($base_index < @source_exon_sequence_arr-$end_gap_length) {
+
+        if ($source_exon_sequence_arr[$base_index] eq ">") {
+          # there is a fixed-length gap of arbitrary length of 19 bases like ">" in the source and "-" in the projected
+          # sequence inserted by CESAR to represent a merged/composite exon.
+          # The gap has to be skipped since it would change the phase otherwise.
+          $base_index += 19;
+          say "Merged/composite exon fixed-length gap of 19 '>' found and skipped.";
+          next CODON;
+        }
+
+        if ($base_index == 0) {
+          # first codon in the exon
+          if ($source_transcript->{$source_exon_index}) { # if the source exon contained any split codon
+            if ($source_transcript->{$source_exon_index}->{'alignment_five_split_codon'}) { # if the source exon contained a split codon at the 5' end
+              my $source_split_codon_5_length = length($source_transcript->{$source_exon_index}->{'alignment_five_split_codon'});
+              $base_index += $source_split_codon_5_length;
+              
+              my $next_codon_string = $proj_exon_sequence_arr[$base_index].$proj_exon_sequence_arr[$base_index+1].$proj_exon_sequence_arr[$base_index+2];
+              my $dash_count = $next_codon_string =~ tr/\-//;
+              if ($dash_count) {
+                say "New exon made after the first codon because there is a gap after the split codon.";
+                $split_codon_exon_made = 1;
+                push(@projected_exons,
+                     new Bio::EnsEMBL::Exon(-START     => $exon_start,#+$exon_offset_from_start,#+$proj_transcript_slice->start(),
+                                            -END       => $exon_start-1+$source_split_codon_5_length,#-1,#+$exon_offset_from_start,#+$proj_transcript_slice->start(), # $+[] gives the index of the character following the match, not the last character of the match.
+                                            -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
+                                            -SLICE     => $proj_transcript_slice,
+                                            -ANALYSIS  => $source_transcript->analysis(),
+                                            -STABLE_ID => $source_transcript->stable_id_version(),
+                                            -VERSION   => 1));
+               
+                $exon_start += $source_split_codon_5_length; # exon_start will be ready for next new exon within the current exon or to be greater than the end meaning no more exons should be made
+              }
+              $still_first = 0;
+              next CODON;
+            }
+          }
+
+          my $codon_string = $proj_exon_sequence_arr[$base_index].$proj_exon_sequence_arr[$base_index+1].$proj_exon_sequence_arr[$base_index+2];
+
+          my $dash_count = $codon_string =~ tr/\-//;
+          my $current_proj_seq_gap_length = substr($proj_exon_sequence,0,$base_index+1-1) =~ tr/\-//;
+
+          if ($dash_count) {
+            # skip the codon to keep the phase
+
+            if ($current_codons_in_gap_count == 0) {
+             
+              if ($dash_count == 1 or $dash_count == 2) {
+                ;
+              }
+            } else {
+              # going through a gap in the projected sequence
+              $exon_start += (3-$dash_count); # any base in the gap which is not forming a complete 3-base codon
+                                              # will be skipped to be part of an intron
+              $current_codons_in_gap_count++;
+            }
+          } else { # no more dashes so there is no gap
+                    
+            if ($current_codons_in_gap_count) {
+              # the gap just finished 
+              $current_codons_in_gap_count = 0;
+              
+              my $previous_codon_string = $proj_exon_sequence_arr[$base_index-3].$proj_exon_sequence_arr[$base_index-2].$proj_exon_sequence_arr[$base_index-1];
+              my $previous_dash_count = $previous_codon_string =~ tr/\-//;
+              
+              if (!$exon_made and ($previous_dash_count == 1 or $previous_dash_count == 2)) {
+                say "New exon made at the end of the gap because no exon was made and codon dash count is 1 or 2.";
+                push(@projected_exons,
+                     new Bio::EnsEMBL::Exon(-START     => $exon_start,
+                                            -END       => $exon_end,
+                                            -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
+                                            -SLICE     => $proj_transcript_slice,
+                                            -ANALYSIS  => $source_transcript->analysis(),
+                                            -STABLE_ID => $source_transcript->stable_id_version(),
+                                            -VERSION   => 1));
+                $exon_start = $base_index_offset+$base_index-$current_proj_seq_gap_length;
+                
+                $original_exon_start = $exon_start;
+              } elsif ($exon_made and ($previous_dash_count == 1 or $previous_dash_count == 2)) {
+                say "Not making exon at the end of the gap because the exon was already made at the beginning.";           
+              } else {
+                # exon not made neither at the beginning nor at the end of the gap because it is multiple of 3
+                $exon_end = $previous_exon_end;
+                say "Not making exon neither at the beginning nor at the end of the gap because it is multiple of 3."; 
+              }            
+              $exon_made = 0;
+              $exon_made_dash_count = 0;
+            }
+          }
+          
+        } elsif ($base_index+3 >= length($source_exon_sequence)-$end_gap_length) {
+          # last codon in the exon
+
+          $exon_end = $base_index_offset+$base_index;
+          
+          my $last_codon_length = length($source_exon_sequence)-$end_gap_length-$base_index;
+          if ($last_codon_length % 3 != $source_split_codon_3_length) {
+            $exon_end += $source_split_codon_3_length;
+          } else {
+            $exon_end += $last_codon_length-1; 
+          }
+          my $current_proj_seq_gap_length = substr($proj_exon_sequence,0,$base_index+1-1) =~ tr/\-//;
+          $exon_end -= $current_proj_seq_gap_length;
+
+        } else {
+          # any other codon between the first one and the last one
+          my $codon_string = $proj_exon_sequence_arr[$base_index].$proj_exon_sequence_arr[$base_index+1].$proj_exon_sequence_arr[$base_index+2];
+          my $dash_count = $codon_string =~ tr/\-//;
+          my $current_proj_seq_gap_length = substr($proj_exon_sequence,0,$base_index+1-1) =~ tr/\-//;
+          if ($dash_count) {
+            # skip the codon to keep the phase
+
+            if ($current_codons_in_gap_count == 0) {
+              # if this is the first codon in the gap and the number of '-' is not 3, then make a new exon
+
+              # we keep what the exon_end should be in case we need to make a new exon
+              # we won't need to make a new exon if all the gap codons have 3 '-'
+              # we will make a new exon if the first codon has 1 or 2 '-' or
+              # the last codon has 1 or 2 '-'
+              $previous_exon_end = $exon_end;
+              $exon_end = $base_index_offset+$base_index-1-$current_proj_seq_gap_length;
+              
+              if (($dash_count == 1 or $dash_count == 2) and
+                  (!$still_first) and (!$split_codon_exon_made)) {
+                say "New exon made at the beginning of the gap because dash count is 1 or 2.";
+                push(@projected_exons,
+                     new Bio::EnsEMBL::Exon(-START     => $exon_start,
+                                            -END       => $exon_end,
+                                            -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
+                                            -SLICE     => $proj_transcript_slice,
+                                            -ANALYSIS  => $source_transcript->analysis(),
+                                            -STABLE_ID => $source_transcript->stable_id_version(),
+                                            -VERSION   => 1));
+                $exon_made = 1;
+                $exon_made_dash_count = $dash_count;
+                $exon_start = $exon_end+4-$dash_count;
+                $original_exon_start = $exon_start;
+
+              } elsif ($still_first) {
+                $exon_start += (3-$dash_count); # any base in the gap which is not forming a complete 3-base codon
+                                                # will be skipped to be part of an intron
+              }
+              $current_codons_in_gap_count++;
+
+            } else {
+              # going through a gap in the projected sequence
+              $exon_start += (3-$dash_count); # any base in the gap which is not forming a complete 3-base codon
+                                                # will be skipped to be part of an intron
+                             
+              $current_codons_in_gap_count++;
+            }
+          } else { # no more dashes so there is no gap
+            
+            $still_first = 0;
+               
+            if ($current_codons_in_gap_count) {
+              # the gap just finished 
+              $current_codons_in_gap_count = 0;
+              
+              my $previous_codon_string = $proj_exon_sequence_arr[$base_index-3].$proj_exon_sequence_arr[$base_index-2].$proj_exon_sequence_arr[$base_index-1];
+              my $previous_dash_count = $previous_codon_string =~ tr/\-//;
+              
+              if (!$exon_made and ($previous_dash_count == 1 or $previous_dash_count == 2) and $still_first) {
+                # exon_start <= exon_end means that we are skipping a gap at the beginning of the exon so we haven't reached
+                # the first actual codon yet, so no need to make any new exon in this case
+
+                say "New exon made at the end of the gap because no exon was made and dash count is 1 or 2.";
+                push(@projected_exons,
+                     new Bio::EnsEMBL::Exon(-START     => $exon_start,#+$exon_offset_from_start,#+$proj_transcript_slice->start(),
+                                            -END       => $exon_end,#-1,#+$exon_offset_from_start,#+$proj_transcript_slice->start(), # $+[] gives the index of the character following the match, not the last character of the match.
+                                            -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
+                                            -SLICE     => $proj_transcript_slice,
+                                            -ANALYSIS  => $source_transcript->analysis(),
+                                            -STABLE_ID => $source_transcript->stable_id_version(),
+                                            -VERSION   => 1));
+                $exon_start = $base_index_offset+$base_index-$current_proj_seq_gap_length;               
+                $original_exon_start = $exon_start;
+              } elsif ($exon_made and ($previous_dash_count == 1 or $previous_dash_count == 2)) {
+                say "Not making exon at the end of the gap because the exon was already made at the beginning.";           
+              } else {
+                # exon not made neither at the beginning nor at the end of the gap because it is multiple of 3
+                $exon_end = $previous_exon_end;
+                say "Not making exon neither at the beginning nor at the end of the gap because it is multiple of 3."; 
+              }
+              $exon_made = 0;
+              $exon_made_dash_count = 0;
+            }
+          }
+        }
+        $base_index += 3;
+      } # end while codon
+    } # end else length($proj_exon_sequence) != length($source_exon_sequence
+
+    if ($exon_start <= $exon_end) {
+      push(@projected_exons,
+        new Bio::EnsEMBL::Exon(-START     => $exon_start,
+                               -END       => $exon_end,
+                               -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
+                               -SLICE     => $proj_transcript_slice,
+                               -ANALYSIS  => $source_transcript->analysis(),
+                               -STABLE_ID => $source_transcript->stable_id_version(),
+                               -VERSION   => 1));
+    } else {
+      say "exon_start is greater than exon_end, not making final exon at the end. This should follow a single-codon exon formed by a split codon. Source transcript: ".$source_transcript->stable_id_version()." Projected exon sequence: ".$proj_seq;
+    }
+
+    $source_exon_index++;
+  } # end while PROJSEQ
 
   if (scalar(@projected_exons) > 0) {
 
     my $projected_transcript = Bio::EnsEMBL::Transcript->new(-exons => \@projected_exons,
                                                              -analysis => $source_transcript->analysis(),
                                                              -stable_id => $source_transcript->stable_id_version(),
-                                                             -strand => 1,#$original_proj_transcript_strand,
+                                                             -strand => 1,
                                                              -slice => $proj_transcript_slice);
 
     my $translation = Bio::EnsEMBL::Translation->new();
