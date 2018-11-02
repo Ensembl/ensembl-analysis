@@ -3,6 +3,8 @@
 '^HAE[LK][0-9]{8}$'	EMBL
 '^gi\|.*\|(gb|emb|dbj)\|.*\|'	EMBL
 '^HAE[LK][0-9]{8}$'	EMBL
+'^HAE[LK][0-9]{8}.[0-9]$'	EMBL
+'^ERR[0-9]*.[0-9]*$'	EMBL
 '^[A-Z][0-9]{5}$'	EMBL
 '^[A-Z][0-9]{5}\.[0-9]*$'	EMBL
 '^CCDS[1-9][0-9]*$'	CCDS
