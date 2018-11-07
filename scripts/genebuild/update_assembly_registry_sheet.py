@@ -61,10 +61,10 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
   existing_annotations_dict = {}
 
   # This ordering needs to match the ordering of the query on the assembly db 
-  assembly_db_columns = ['species_name','common_name','chain','version','class','contig_N50','assembly_level','assembly_date','refseq_accession','genome_rep']
+  assembly_db_columns = ['species_name','common_name','chain','version','class','contig_N50','assembly_level','assembly_date','refseq_accession','assembly_name','genome_rep']
 
   # This ordering needs to match the ordering of the columns on the sheet
-  assembly_sheet_columns = ['GCA','Clade','Species name','Common name','Contig N50','Assembly level','Assembly date','RefSeq accession','Genebuilder','Status',
+  assembly_sheet_columns = ['GCA','Clade','Species name','Common name','Contig N50','Assembly level','Assembly date','Assembly name','RefSeq accession','Genebuilder','Status',
                             'Expected release','Grant','Notes','Filter: Max version','Filter: Genome rep','Filter: N50','Filter: Non-human']
    
   # This makes a dict for the db on the versioned GCA and also makes a dict to track the highest
@@ -118,6 +118,7 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
     assembly_level = assembly_row[assembly_db_columns.index('assembly_level')]
     assembly_date = assembly_row[assembly_db_columns.index('assembly_date')]
     refseq_accession = assembly_row[assembly_db_columns.index('refseq_accession')]
+    assembly_name = assembly_row[assembly_db_columns.index('assembly_name')]
     genome_rep = assembly_row[assembly_db_columns.index('genome_rep')]
     gca = make_gca(chain,version)
     annotation_status = 'Not started'
@@ -165,6 +166,7 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
       sheet_filter_version_val = sheet_row[sheet_filter_version_index]
       sheet_filter_N50_val = sheet_row[sheet_filter_N50_index]
       sheet_refseq_accession_index = assembly_sheet_columns.index('RefSeq accession')
+      sheet_assembly_name_index = assembly_sheet_columns.index('Assembly name')
       sheet_refseq_accession_val = sheet_row[sheet_refseq_accession_index]
 
 
@@ -204,7 +206,13 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
         update_cell_val(assembly_sheet,row_update_index,sheet_refseq_accession_index,refseq_accession)
         time.sleep(3)
 
-
+      if not assembly_name is None and assembly_name != sheet_assembly_name_val:
+        # Add/update the RefSeq accession
+        print("Updating Assembly name for: " + gca)
+        row_update_index = assembly_sheet.find(gca).row
+        update_cell_val(assembly_sheet,row_update_index,sheet_assembly_name_index,assembly_name)
+        time.sleep(3)
+      
 def make_gca(chain,version):
   gca = chain + '.' + str(version)
   return gca
@@ -231,7 +239,7 @@ if __name__ == '__main__':
   parser.add_argument('-wsn','--worksheet_name', help='The name of the Google Sheets worksheet', required=True)
   parser.add_argument('-gsc','--gsheets_credentials', help='Path to a Google Sheets credentials JSON file for authentication', required=True)
   args = parser.parse_args()
-  assembly_db_query = 'SELECT species_name,common_name,chain,version,class,contig_N50,assembly_level,assembly_date,refseq_accession,genome_rep FROM assembly JOIN meta USING(assembly_id) JOIN species_space_log using(species_id)'
+  assembly_db_query = 'SELECT species_name,common_name,chain,version,class,contig_N50,assembly_level,assembly_date,refseq_accession,assembly_name,genome_rep FROM assembly JOIN meta USING(assembly_id) JOIN species_space_log using(species_id)'
   assembly_db_database = args.assembly_db_dbname
   assembly_db_host = args.assembly_db_host
   assembly_db_port = args.assembly_db_port
