@@ -776,6 +776,36 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
       say "Skipping projected exon sequence because it only contains '-'. File: ".$projected_outfile_path;
       $source_exon_index = 0;
       next PROJSEQ;
+    } elsif ($proj_exon_sequence =~ /(^\-*)[ATGCNatgcn]+(\-*$)/) {
+      # ignore any number of '-' which would change the phase at the beginning and at the end of the sequence
+      
+      if (length($1) % 3 == 1) {
+        # ignore 1 '-' at the beginning to keep the phase
+        say "Ignoring 1 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name File: ".$projected_outfile_path;
+        $source_exons[$source_exon_index] = substr($source_exons[$source_exon_index],1);
+        $proj_exon_sequence = substr($proj_exon_sequence,1);
+        $exon_start += 1;
+      } elsif (length($1) % 3 == 2) {
+        # ignore 2 '-' at the beginning to keep the phase
+        say "Ignoring 2 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name File: ".$projected_outfile_path;
+        $source_exons[$source_exon_index] = substr($source_exons[$source_exon_index],2);
+        $proj_exon_sequence = substr($proj_exon_sequence,2);
+        $exon_start += 2;
+      }
+
+      if (length($2) % 3 == 1) {
+        # ignore 1 '-' at the end to keep the phase
+        say "Ignoring 1 '-' at the end of the exon to keep the phase. $proj_transcript_slice_name File: ".$projected_outfile_path;
+        $source_exons[$source_exon_index] = substr($source_exons[$source_exon_index],0,-1);
+        $proj_exon_sequence = substr($proj_exon_sequence,0,-1);
+        $exon_end -= 1;
+      } elsif (length($2) % 3 == 2) {
+        # ignore 2 '-' at the end to keep the phase
+        say "Ignoring 2 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name File: ".$projected_outfile_path;
+        $source_exons[$source_exon_index] = substr($source_exons[$source_exon_index],0,-2);
+        $proj_exon_sequence = substr($proj_exon_sequence,0,-2);
+        $exon_end -= 2;
+      }
     }
 
     $accum_proj_seq_gap_length = substr($proj_seq,0,$exon_start-1) =~ tr/\-//;
