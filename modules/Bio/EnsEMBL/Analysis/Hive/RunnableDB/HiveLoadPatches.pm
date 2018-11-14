@@ -306,13 +306,10 @@ sub remove_patches_on_patches() {
                                 AND seq_region_id NOT IN (SELECT seq_region_id
                                                           FROM assembly_exception
                                                           WHERE exc_type IN (\\\"PATCH_NOVEL\\\",\\\"PATCH_FIX\\\",\\\"HAP\\\"));\"`;
-               if [[ ( \$RES == 1 ) && ( \$ACC != \"KV766194.1\" ) ]] || [ \$PARENTACCorNAME == \"parent_acc\" ]; then echo \$line >> $alt_scaffold_file_fixed ; else echo \$ACC >> $alt_scaffold_file_seqs_to_remove; fi;
+               if [ \$RES == 1 ] || [ \$PARENTACCorNAME == \"parent_acc\" ]; then echo \$line >> $alt_scaffold_file_fixed ; else echo \$ACC >> $alt_scaffold_file_seqs_to_remove; fi;
              done";
 
   run_command($cmd,"Removing patches on patches from file $alt_scaffold_file...");
-
-  $cmd = "echo 'KV766194.1' >> $alt_scaffold_file_seqs_to_remove";
-  run_command($cmd,"Removing patches on patches from file $alt_scaffold_file... Adding manually the patch whose associated contig is too big for the database as it exceeds the max_allowed_packet_bytes when loading its sequence...");
 
   #$cmd = "grep -v ^# $alt_scaffold_file | awk '{if (\$2 != \"Primary\") print \$4}' | cat > $alt_scaffold_file_seqs_to_remove";
   #run_command($cmd,"Getting the list of patch sequences to remove from the fasta file $alt_scaffold_fna_file...");
