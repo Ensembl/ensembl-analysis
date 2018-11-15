@@ -125,6 +125,9 @@ sub fetch_input {
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::MakePDBProteinFeatures->new(
     -analysis => new Bio::EnsEMBL::Analysis(-logic_name => 'sifts_import',
+                                            -db => 'sifts',
+                                            #-db_version => , it will be populated in the MakePDBProteinFeatures module when parsing the file
+                                            -db_file => $pdb_filepath,
                                             -display_label => 'SIFTS import',
                                             -displayable => '1',
                                             -description => 'Protein features based on the PDB-UniProt mappings found in the EMBL-EBI PDB SIFTS data and the UniProt-ENSP mappings found in the GIFTS database.'),
