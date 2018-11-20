@@ -413,7 +413,7 @@ sub clade_settings {
     'rodents' => {
       'repbase_library'    => 'rodents',
       'repbase_logic_name' => 'rodents',
-      'uniprot_set'        => 'rodents_basic',
+      'uniprot_set'        => 'mammals_basic',
     },
 
     'mammals' => {
