@@ -127,7 +127,7 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
 
     # If the row does not exist then add it in with the filtering info
     if not gca in existing_sheet_dict:
-      new_row = [gca,clade,species_name,common_name,contig_N50,assembly_level,assembly_date.strftime('%Y-%m-%d'),refseq_accession,'Not assigned',annotation_status,'','Not assigned','']
+      new_row = [gca,clade,species_name,common_name,contig_N50,assembly_level,assembly_date.strftime('%Y-%m-%d'),assembly_name,refseq_accession,'Not assigned',annotation_status,'','Not assigned','']
 
       # This section sets various filters
       if version == max_version_dict[chain]:
@@ -168,7 +168,7 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
       sheet_refseq_accession_index = assembly_sheet_columns.index('RefSeq accession')
       sheet_assembly_name_index = assembly_sheet_columns.index('Assembly name')
       sheet_refseq_accession_val = sheet_row[sheet_refseq_accession_index]
-
+      sheet_assembly_name_val = sheet_row[sheet_assembly_name_index]
 
       if clade != sheet_clade_val:
         # Update the classification
