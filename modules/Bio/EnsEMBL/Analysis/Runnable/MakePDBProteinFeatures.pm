@@ -197,6 +197,9 @@ sub make_protein_features() {
     } # if ensts
   } # foreach my pdb_line
   
+  if (scalar(@pfs) <= 0) {
+    $self->throw("Could not make any protein feature.");
+  }
   $self->output(\@pfs);
 }
 

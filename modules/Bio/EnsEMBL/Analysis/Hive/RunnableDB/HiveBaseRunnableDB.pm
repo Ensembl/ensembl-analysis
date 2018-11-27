@@ -94,6 +94,10 @@ sub run {
 sub output {
   my ($self, $output) = @_;
 
+  unless($self->param_is_defined('_output')) {
+    $self->param('_output',[]);
+  }
+
   if($output){
     if(ref($output) ne 'ARRAY'){
       $self->throw('Must pass RunnableDB:output an array ref not a '.$output);
