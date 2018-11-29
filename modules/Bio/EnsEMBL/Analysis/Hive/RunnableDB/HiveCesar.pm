@@ -269,7 +269,12 @@ sub fetch_input {
                                                   $transcript_group_id_min_starts->{$longest_group_id},
                                                   $transcript_group_id_max_ends->{$longest_group_id},
                                                   $transcript_group_id_seq_region_strands->{$longest_group_id});
-        $transcript_align_slices->{$transcript->dbID()} = $target_transcript_slice;
+        
+        #if ($transcript->length() <= $target_transcript_slice->length()) {
+          $transcript_align_slices->{$transcript->dbID()} = $target_transcript_slice;
+        #} else {
+        #  $self->warning("Skipping transcript ".$transcript->dbID()."( ".$transcript->stable_id()." ) because its length (sum of exons length) is greater than the target transcript slice length.");
+        #}
       }
     }
     
