@@ -263,7 +263,7 @@ sub coding_supporting_evidence_presence {
   my ($self) = @_;
 
   my @sql_queries = (
-    'SELECT t.* FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id WHERE t.biotype NOT LIKE "%RNA" AND t.biotype NOT LIKE "ribozyme" AND t.biotype NOT LIKE "IG%" AND t.biotype NOT LIKE "TR%" AND tsf.transcript_id IS NULL',
+		     'SELECT t.* FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id LEFT JOIN analysis a ON t.analysis_id = a.analysis_id WHERE t.biotype NOT LIKE "%RNA" AND t.biotype NOT LIKE "ribozyme" AND t.biotype NOT LIKE "IG%" AND t.biotype NOT LIKE "TR%" AND tsf.transcript_id IS NULL AND a.logic_name NOT LIKE "mt_genbank_import"',
   );
 
   my $hc_db = $self->hrdb_get_con('hc_db');
