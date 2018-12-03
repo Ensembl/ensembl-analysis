@@ -5857,7 +5857,7 @@ sub pipeline_analyses {
         -parameters => {
           db_conn => $self->o('final_geneset_db'),
           sql => [
-            'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id) JOIN protein_align_feature ON feature_id=protein_align_feature_id SET biotype="low_coverage" WHERE feature_type="protein_align_feature" AND hcoverage < 50',
+            'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id) JOIN protein_align_feature ON feature_id=protein_align_feature_id SET biotype="low_coverage" WHERE feature_type="protein_align_feature" AND hcoverage < 50 AND biotype<>"pseudogenes"',
             'UPDATE gene JOIN transcript USING(gene_id) SET gene.biotype="low_coverage" WHERE transcript.biotype="low_coverage"',
           ],
         },
