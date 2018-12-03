@@ -279,16 +279,17 @@ sub default_options {
     cdna_file      => catfile($self->o('targetted_path'), 'cdnas'),
     annotation_file => $self->o('cdna_file').'.annotation',
 
-    ensembl_analysis_script       => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
-    remove_duplicates_script_path => catfile($self->o('ensembl_analysis_script'), 'find_and_remove_duplicates.pl'),
-    load_optimise_script          => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
-    prepare_cdnas_script          => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'prepare_cdnas.pl'),
-    load_fasta_script_path        => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_fasta_to_db_table.pl'),
-    loading_report_script         => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'report_genome_prep_stats.pl'),
-    refseq_synonyms_script_path   => catfile($self->o('ensembl_analysis_script'), 'refseq', 'load_refseq_synonyms.pl'),
-    refseq_import_script_path     => catfile($self->o('ensembl_analysis_script'), 'refseq', 'parse_ncbi_gff3.pl'),
-    sequence_dump_script          => catfile($self->o('ensembl_analysis_script'), 'sequence_dump.pl'),
-    mirna_analysis_script         => catdir($self->o('ensembl_analysis_script'), 'genebuild', 'sncrna'),
+    ensembl_analysis_script           => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
+    remove_duplicates_script_path     => catfile($self->o('ensembl_analysis_script'), 'find_and_remove_duplicates.pl'),
+    flag_potential_pseudogenes_script => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'flag_potential_pseudogenes.pl'),
+    load_optimise_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
+    prepare_cdnas_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'prepare_cdnas.pl'),
+    load_fasta_script_path            => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_fasta_to_db_table.pl'),
+    loading_report_script             => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'report_genome_prep_stats.pl'),
+    refseq_synonyms_script_path       => catfile($self->o('ensembl_analysis_script'), 'refseq', 'load_refseq_synonyms.pl'),
+    refseq_import_script_path         => catfile($self->o('ensembl_analysis_script'), 'refseq', 'parse_ncbi_gff3.pl'),
+    sequence_dump_script              => catfile($self->o('ensembl_analysis_script'), 'sequence_dump.pl'),
+    mirna_analysis_script             => catdir($self->o('ensembl_analysis_script'), 'genebuild', 'sncrna'),
 
     ensembl_misc_script        => catdir($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts'),
     repeat_types_script        => catfile($self->o('ensembl_misc_script'), 'repeats', 'repeat-types.pl'),
@@ -4990,7 +4991,7 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into => {
-          1 => ['fix_unaligned_protein_hit_names'],
+          1 => ['flag_problematic_projections'],
 #          When the realign part is fix, the line above needs to be deleted and the lines below uncommented
 #          All analysis below create_projection_realign_db need to be uncommented too
 #          '1->A' => ['fix_unaligned_protein_hit_names'],
@@ -5000,11 +5001,37 @@ sub pipeline_analyses {
 
 
       {
-        -logic_name => 'fix_unaligned_protein_hit_names',
+        -logic_name => 'flag_problematic_projections',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.$self->o('flag_potential_pseudogenes_script').
+                                ' -host '.$self->o('projection_coding_db','-host').
+                                ' -port '.$self->o('projection_coding_db','-port').
+                                ' -user_w '.$self->o('projection_coding_db','-user').
+                                ' -pass '.$self->o('projection_coding_db','-pass').
+                                ' -dbname '.$self->o('projection_coding_db','-dbname').
+                                ' -dna_host '.$self->o('dna_db','-host').
+                                ' -dna_port '.$self->o('dna_db','-port').
+                                ' -user_r '.$self->o('dna_db','-user').
+                                ' -dna_dbname '.$self->o('dna_db','-dbname'),
+                       },
+        -rc_name => 'default',
+        -flow_into  => {
+          1 => ['fix_projection_db_issues'],
+        },
+      },
+
+
+      {
+        # This will fix issues when proteins that were too long for MUSCLE alignment didn't have proper ENST accessions
+        # Will also update the transcript table to match the gene table once the pseudo/canon genes are tagged in the
+        # previous analysis
+        -logic_name => 'fix_projection_db_issues',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
           db_conn    => $self->o('projection_coding_db'),
           sql => [
+            'UPDATE gene JOIN transcript USING(gene_id) SET transcript.biotype=gene.biotype',
             'UPDATE protein_align_feature JOIN transcript_supporting_feature ON feature_id = protein_align_feature_id'.
               ' JOIN transcript USING(transcript_id) SET hit_name = stable_id',
             'UPDATE protein_align_feature JOIN supporting_feature ON feature_id = protein_align_feature_id'.
@@ -5475,6 +5502,27 @@ sub pipeline_analyses {
                          module => 'HiveHomologyRNASeqIntronsCheck',
                        },
         -rc_name => '4GB',
+        -flow_into => {
+                        '-1' => ['genblast_rnaseq_support_himem'],
+                      },
+
+     },
+
+
+     {
+        -logic_name => 'genblast_rnaseq_support_himem',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
+        -parameters => {
+                         dna_db => $self->o('dna_db'),
+                         source_db => $self->o('genblast_db'),
+                         intron_db => $self->o('rnaseq_refine_db'),
+                         target_db => $self->o('genblast_rnaseq_support_db'),
+                         logic_name => 'genblast_rnaseq_support',
+                         classify_by_count => 1,
+                         update_genes => 0,
+                         module => 'HiveHomologyRNASeqIntronsCheck',
+                       },
+        -rc_name => '8GB',
       },
 
 ############################################################################
@@ -5572,7 +5620,7 @@ sub pipeline_analyses {
                          # interference, but are not written to the final database
                          LAYERS => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic', $self->o('uniprot_set'), undef, 'ARRAY'),
                        },
-        -rc_name    => '2GB',
+        -rc_name    => '4GB',
         -flow_into  => {
                          '1->A' => ['split_slices_on_intergenic'],
                          'A->1' => ['genebuilder'],
@@ -5857,7 +5905,7 @@ sub pipeline_analyses {
         -parameters => {
           db_conn => $self->o('final_geneset_db'),
           sql => [
-            'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id) JOIN protein_align_feature ON feature_id=protein_align_feature_id SET biotype="low_coverage" WHERE feature_type="protein_align_feature" AND hcoverage < 50',
+            'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id) JOIN protein_align_feature ON feature_id=protein_align_feature_id SET biotype="low_coverage" WHERE feature_type="protein_align_feature" AND hcoverage < 50 AND biotype not like "pseudo%"',
             'UPDATE gene JOIN transcript USING(gene_id) SET gene.biotype="low_coverage" WHERE transcript.biotype="low_coverage"',
           ],
         },
