@@ -332,10 +332,11 @@ sub default_options {
     samtools_path => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
     picard_lib_jar => catfile($self->o('software_base_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
     bwa_path => catfile($self->o('software_base_path'), 'opt', 'bwa-051mt', 'bin', 'bwa'), #You may need to specify the full path to the bwa binary
-    refine_ccode_exe => '/nfs/production/panda/ensembl/genebuild/bin/RefineSolexaGenes-0.3.6-91' || catfile($self->o('binary_base'), 'RefineSolexaGenes'), #You may need to specify the full path to the RefineSolexaGenes binary
+    refine_ccode_exe => catfile($self->o('binary_base'), 'RefineSolexaGenes'), #You may need to specify the full path to the RefineSolexaGenes binary
     interproscan_exe => catfile($self->o('binary_base'), 'interproscan.sh'),
     bedtools => catfile($self->o('binary_base'), 'bedtools'),
     bedGraphToBigWig => catfile($self->o('binary_base'), 'bedGraphToBigWig'),
+    'cesar_path' => '/path/to/CESAR2.0/',
 
     'uniprot_genblast_batch_size' => 15,
     'uniprot_table_name'          => 'uniprot_sequences',
@@ -4907,7 +4908,7 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into  => {
-          '1->A' => ['create_projection_coding_input_ids'],
+          '1->A' => ['create_projection_coding_input_ids','create_projection_coding_input_ids_for_cesar'],
           'A->1' => ['classify_projection_coding_models'],
         },
       },
@@ -4977,6 +4978,95 @@ sub pipeline_analyses {
         -failed_job_tolerance => 100,
       },
 
+      {
+        -logic_name => 'create_projection_coding_input_ids_for_cesar',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+          target_db           => $self->o('projection_source_db'),
+          iid_type            => 'feature_id',
+          feature_type        => 'gene',
+          feature_restriction => 'biotype',
+          feature_id_include_non_reference => 0,
+          biotypes            => {
+            'protein_coding' => 1,
+          },
+          batch_size          => 20,
+        },
+        -rc_name    => '2GB',
+        -flow_into => {
+          2 => ['project_coding_transcripts_cesar'],
+        },
+      },
+
+      {
+        -logic_name => 'project_coding_transcripts_cesar',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
+        -parameters => {
+                         'output_path' => $self->o('output_path')."/project_exons/",
+                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
+                         'source_db' => $self->default_options()->{'projection_source_db'},
+                         'target_dna_db' => $self->o('dna_db'),
+                         'target_db' => $self->o('projection_coding_db'),
+                         'compara_db' => $self->o('projection_lastz_db'),
+                         'method_link_type' => 'LASTZ_NET',
+                         'cesar_path' => $self->o('cesar_path'),
+                         #TRANSCRIPT_FILTER => {
+                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+                         #  PARAMETERS => {
+                         #    -coverage => 50,
+                         #    -percent_id => 50,
+                         #  },
+                         #},
+                         'canonical_or_longest' => 0,
+                       },
+        -rc_name    => '2GB',
+        -analysis_capacity => 300,
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -max_retry_count => 1,
+        -flow_into => {
+                        -1 => ['project_coding_transcripts_cesar_himem'],
+                      },
+      },
+
+      {
+        -logic_name => 'project_coding_transcripts_cesar_himem',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
+        -parameters => {
+                         'output_path' => $self->o('output_path')."/project_exons/",
+                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
+                         'source_db' => $self->default_options()->{'projection_source_db'},
+                         'target_dna_db' => $self->o('dna_db'),
+                         'target_db' => $self->o('projection_coding_db'),
+                         'compara_db' => $self->o('projection_lastz_db'),
+                         'method_link_type' => 'LASTZ_NET',
+                         'cesar_path' => $self->o('cesar_path'),
+                         'cesar_mem' => '20', # mem in GB to be used by cesar (parameter --max-memory)
+                         #TRANSCRIPT_FILTER => {
+                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+                         #  PARAMETERS => {
+                         #    -coverage => 50,
+                         #    -percent_id => 50,
+                         #  },
+                         #},
+                         'canonical_or_longest' => 0,
+                       },
+        -rc_name    => '20GB',
+        -analysis_capacity => 300,
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -max_retry_count => 1,
+        -flow_into => {
+          -3 => ['failed_projection_coding_jobs_cesar'],
+        },
+      },
+
+      {
+        -logic_name => 'failed_projection_coding_jobs_cesar',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {},
+        -rc_name    => 'default',
+        -can_be_empty  => 1,
+        -failed_job_tolerance => 100,
+      },
 
       {
         -logic_name => 'classify_projection_coding_models',

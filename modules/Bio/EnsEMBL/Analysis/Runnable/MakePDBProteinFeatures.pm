@@ -116,6 +116,12 @@ sub parse_pdb_file() {
     if ($line =~ /^#/) {
     # parse SIFTS release date
       (undef,$sifts_release_date) = split(/\s+/,$line);
+      
+      # set db_version to the SIFTS release date
+      my $analysis = $self->analysis();
+      $analysis->db_version($sifts_release_date);
+      $self->analysis($analysis);
+      
     } else {
     # parse a PDB-UniProt line
       my ($pdb,$chain,$sp_primary,$res_beg,$res_end,undef,undef,$sp_beg,$sp_end) = split(/\s+/,$line);

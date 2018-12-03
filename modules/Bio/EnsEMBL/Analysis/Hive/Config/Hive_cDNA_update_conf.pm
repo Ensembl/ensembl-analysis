@@ -43,29 +43,32 @@ sub default_options {
 # CHANGE STUFF HERE                                                      #
 #                                                                        #
 ##########################################################################
-
+    'release_number'  => '', # What release are you doing this for?
     'species'         => '', # either mus_musculus or homo_sapiens
     'strategy'        => 'update', # set this to update or complete. Update will just align the new cDNAs, complete will realign all of them
     'password'        => '',
 
+    'base_output_dir' => '',
+
+    'refseq_version'  => 90, # look at the refseq home page to get the latest version, this will go into the cDNA database
+    'ena_version'     => 136,  # look at the EBI ENA home page - or news
+
     # Database connection info:
-    'pipe_db_server' => 'mysql-ens-genebuild-prod-7',
-    'pipe_db_port'   => 4533,
+    'pipe_db_server'  => 'mysql-ens-genebuild-prod-7',
+    'pipe_db_port'    => 4533,
 
     'output_db_server' => 'mysql-ens-genebuild-prod-3',
     'output_db_port'   => 4529,
 
     # details of the last cdna db (eg. on livemirror)
-    'core_db_name' => $self->o('species').'_core_'.$self->o('release_number').'_'.$self->o('coord_system_version'),
+    'core_db_name'     => $self->o('species').'_core_'.$self->o('release_number').'_'.$self->o('coord_system_version'),
     'old_cdna_db_name' => $self->o('species').'_cdna_'.$self->o('release_number').'_'.$self->o('coord_system_version'), # This works because production copies the old DB and patch the schema on staging
 
     'dna_db_server' => 'mysql-ens-genebuild-prod-2',
     'dna_db_port'   => 4528,
+    'dna_db_user'   => 'ensadmin',
+    'dna_db_pass'   => $self->o('password'), 
 
-    'base_output_dir' => '',
-
-    'refseq_version' => 84, # look at the refseq home page to get the latest version, this will go into the cDNA database
-    'ena_version' => 133,
 
 ##########################################################################
 #                                                                        #
