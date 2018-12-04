@@ -79,9 +79,7 @@ sub default_options {
     'mapping_db'                => undef, # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
     'uniprot_version'            => 'uniprot_2018_07', # What UniProt data dir to use for various analyses
     'vertrna_version'           => '136', # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
-    'mirBase_fasta'             => 'all_mirnas.fa', # What mirBase file to use. It is currently best to use on with the most appropriate set for your species
-    'rfc_scaler'                => 'filter_dafs_rfc_scaler_human.pkl',
-    'rfc_model'                 => 'filter_dafs_rfc_model_human.pkl',
+
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
     'mt_accession'              => undef, # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
@@ -92,6 +90,26 @@ sub default_options {
     'custom_toplevel_file_path' => undef, # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
     'repeatmodeler_library'     => '', # This should be the path to a custom repeat library, leave blank if none exists
     'use_repeatmodeler_to_mask' => '0', # Setting this will include the repeatmodeler library in the masking process
+
+########################
+## Small ncRNAs params
+#########################
+    'mirBase_fasta'             => 'all_mirnas.fa', # What mirBase file to use. It is currently best to use on with the most appropriate set for your species
+    'rfc_scaler'                => 'filter_dafs_rfc_scaler_human.pkl',
+    'rfc_model'                 => 'filter_dafs_rfc_model_human.pkl',
+    
+    # Clade-based filtering on rfam accessions
+    # Rfam db details should stay constant but check periodically
+    'rfam_user' => 'rfamro',
+    'rfam_dbname' => 'Rfam',
+    'rfam_host' => 'mysql-rfam-public.ebi.ac.uk',
+    'rfam_port' => 4497,
+
+    'rfam_path' => catfile($self->o('base_blast_db_path'), 'ncrna', 'Rfam_14.0'),
+    'rfam_seeds' => $self->o('rfam_path') . "/Rfam.seed",
+    'rfam_cm' => $self->o('rfam_path') . "/Rfam.cm",
+    'filtered_rfam_cm' => $self->o('output_path') . '/Rfam.cm',
+    'clade' => $self->o('repbase_logic_name'),
 
 
 ########################
@@ -289,7 +307,7 @@ sub default_options {
     refseq_synonyms_script_path       => catfile($self->o('ensembl_analysis_script'), 'refseq', 'load_refseq_synonyms.pl'),
     refseq_import_script_path         => catfile($self->o('ensembl_analysis_script'), 'refseq', 'parse_ncbi_gff3.pl'),
     sequence_dump_script              => catfile($self->o('ensembl_analysis_script'), 'sequence_dump.pl'),
-    mirna_analysis_script             => catdir($self->o('ensembl_analysis_script'), 'genebuild', 'sncrna'),
+    sncrna_analysis_script             => catdir($self->o('ensembl_analysis_script'), 'genebuild', 'sncrna'),
 
     ensembl_misc_script        => catdir($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts'),
     repeat_types_script        => catfile($self->o('ensembl_misc_script'), 'repeats', 'repeat-types.pl'),
@@ -3350,12 +3368,68 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                          '1->A' => ['create_small_rna_slice_ids'],
-                          'A->1' => ['ncrna_sanity_checks'],
+                          '1->A' => ['dump_genome', 'dump_repeats', 'fetch_rfam_accessions'],
+                          'A->1' => ['create_small_rna_slice_ids'],
                       },
 
       },
 
+      {
+        -logic_name => 'dump_repeats',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                    cmd => 'perl '.catfile($self->o('sncrna_analysis_script'), 'repeats_dump.pl').' '.
+                            $self->o('dna_db_name'). " " .
+                            $self->o('dna_db_server') . " " .
+                            $self->o('dna_db_port') . " " .
+                            $self->o('user_r') . " " .
+                            $self->o('ncrna_dir').' blastmirna',
+                      },
+       -rc_name => 'filter',
+      },
+
+
+      {
+        -logic_name => 'dump_genome',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                          cmd => 'perl '.$self->o('sequence_dump_script').' -dbhost '.$self->o('dna_db_server')
+                                  .' -dbname  '.$self->o('dna_db_name').' -dbport '.$self->o('dna_db_port')
+                                  .' -dbuser '.$self->o('user_r')
+                                  .' -coord_system_name toplevel -mask -mask_repeat '.$self->o('full_repbase_logic_name')
+                                  .' -output_dir '.$self->o('genome_dumps')
+                                  .' -softmask -onefile -header rnaseq -filename '.$self->o('rnaseq_genome_file'),
+                      },
+         -rc_name   => 'filter',
+      },
+
+      {
+        -logic_name => 'fetch_rfam_accessions',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+            cmd => "perl " . $self->o('sncrna_analysis_script') . "/fetch_rfam_accessions.pl " .
+                    " -h " . $self->o('rfam_host') . 
+                    " -u " . $self->o('rfam_user') .
+                    " -p " . $self->o('rfam_port') .
+                    " -d " . $self->o('rfam_dbname') .
+                    " -c " . $self->o('clade') .
+                    " -o " . $self->o('output_path'),
+        },
+        -rc_name => 'default',
+        -flow_into => { '1' => 'extract_rfam_cm'},
+      },
+
+      {
+        -logic_name => 'extract_rfam_cm',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+            cmd => "perl " . $self->o('sncrna_analysis_script') . "/filter_cm.pl " .
+                             $self->o('rfam_cm') . ' ' .
+                             $self->o('output_path') . '/accessions.txt ' .
+                             $self->o('output_path'),
+        },
+        -rc_name => 'filter',
+      },
 
       {
         -logic_name => 'create_small_rna_slice_ids',
@@ -3370,88 +3444,28 @@ sub pipeline_analyses {
                          batch_target_size => 2000000,
                       },
         -flow_into => {
-                       '2->A' => ['mirna_blast','rfam_blast'],
+                       '2->A' => ['mirna_blast','run_cmsearch'],
                        'A->1' => ['filter_ncrnas'],
                       },
         -rc_name    => 'default',
       },
 
-
       {
-        -logic_name => 'rfam_blast',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRfam',
+        -logic_name => 'run_cmsearch',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCMSearch',
         -parameters => {
-                         repeat_logic_names => ['dust'],
-                         repeat_db => $self->o('dna_db'),
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'rfamblast',
-                         module     => 'HiveBlastRfam',
-                         blast_db_path => catfile($self->o('ncrna_blast_path'), 'filtered.fasta'),
-                         blast_exe_path => $self->o('blastn_exe_path'),
-                         commandline_params => ' -num_threads 3 -word_size 12 -num_alignments 5000  -num_descriptions 5000 -max_hsps 1 ',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastRFam', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
-                         timer => '3h',
-                       },
-       -flow_into => {
-                       '-1' => ['rebatch_rfam'],
-                       '-2' => ['rebatch_rfam'],
-                     },
-       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-       -rc_name    => 'blast',
-      },
-
-
-      {
-        -logic_name => 'rebatch_rfam',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-                         target_db => $self->o('dna_db'),
-                         iid_type => 'rebatch_and_resize_slices',
-                         slice_size => 100000,
-                         batch_target_size => 100000,
-                       },
-       -flow_into => {
-                       '2' => ['rfam_blast_retry'],
-                     },
-       -rc_name    => 'default',
-       -can_be_empty  => 1,
-      },
-
-
-      {
-        -logic_name => 'rfam_blast_retry',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRfam',
-        -parameters => {
-                         repeat_logic_names => ['dust'],
-                         repeat_db => $self->o('dna_db'),
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'rfamblast',
-                         module     => 'HiveBlastRfam',
-                         blast_db_path => catfile($self->o('ncrna_blast_path'), 'filtered.fasta'),
-                         blast_exe_path => $self->o('blastn_exe_path'),
-                         commandline_params => ' -num_threads 3 -word_size 12 -num_alignments 5000  -num_descriptions 5000 -max_hsps 1 ',
-                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastRFam', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
-                         timer => '1h',
-                       },
-       -flow_into => {
-                       '-1' => ['failed_rfam_blast_job'],
-                       '-2' => ['failed_rfam_blast_job'],
-                     },
-       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-       -rc_name    => 'blast_retry',
-       -can_be_empty  => 1,
-      },
-
-
-      {
-        -logic_name => 'failed_rfam_blast_job',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {
-                       },
-        -rc_name          => 'default',
-        -can_be_empty  => 1,
+                    output_db => $self->o('ncrna_db'),
+                    dna_db => $self->o('dna_db'),
+                    logic_name => 'ncrna',
+                    module     => 'HiveCMSearch',
+                    cmsearch_exe_path => $self->o('cmsearch_exe_path'),
+                    rfam_seeds => $self->o('rfam_seeds'),
+                    rfam_cm => $self->o('filtered_rfam_cm'),
+                    blast_db_dir_path => $self->o('ncrna_blast_path').'/',
+                    output_dir => $self->o('output_path'),
+        },
+        -hive_capacity => 900,
+        -rc_name    => 'transcript_finalisation',
       },
 
 
@@ -3545,8 +3559,9 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'filter',
         -flow_into => {
-                        '2' => ['run_mirna'],
-                        '3' => ['run_infernal'],
+                        '2->A' => ['run_mirna'],
+                        'A->1' => ['dump_features'],
+                        #'3' => ['run_infernal'],
                       },
       },
 
@@ -3565,28 +3580,15 @@ sub pipeline_analyses {
         -batch_size => 20,
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
         -rc_name    => 'filter',
-        -flow_into  => { '1->A' => ['dump_repeats', 'dump_features', 'dump_genome'], 'A->1' => ['filter_mirnas']},
+        #-flow_into  => { '1->A' => ['dump_repeats', 'dump_features', 'dump_genome'], 'A->1' => ['filter_mirnas']},
       },
 
-      {
-        -logic_name => 'dump_repeats',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                    cmd => 'perl '.catfile($self->o('mirna_analysis_script'), 'repeats_dump.pl').' '.
-                            $self->o('dna_db_name'). " " .
-                            $self->o('dna_db_server') . " " .
-                            $self->o('dna_db_port') . " " .
-                            $self->o('user_r') . " " .
-                            $self->o('ncrna_dir').' blastmirna',
-                      },
-       -rc_name => 'filter',
-      },
-
+      
       {
         -logic_name => 'dump_features',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.catfile($self->o('mirna_analysis_script'), 'dump_prefilter_features.pl').' '.
+                         cmd => 'perl '.catfile($self->o('sncrna_analysis_script'), 'dump_prefilter_features.pl').' '.
                                 $self->o('ncrna_db_name'). " " .
                                 $self->o('ncrna_db_server') . " " .
                                 $self->o('ncrna_db_port') . " " .
@@ -3594,28 +3596,15 @@ sub pipeline_analyses {
                                 $self->o('ncrna_dir').' blastmirna',
                         },
          -rc_name   => 'filter',
+         -flow_into => {'1' => 'filter_mirnas'},
       },
 
-
-      {
-        -logic_name => 'dump_genome',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                          cmd => 'perl '.$self->o('sequence_dump_script').' -dbhost '.$self->o('dna_db_server')
-                                  .' -dbname  '.$self->o('dna_db_name').' -dbport '.$self->o('dna_db_port')
-                                  .' -dbuser '.$self->o('user_r')
-                                  .' -coord_system_name toplevel -mask -mask_repeat '.$self->o('full_repbase_logic_name')
-                                  .' -output_dir '.$self->o('genome_dumps')
-                                  .' -softmask -onefile -header rnaseq -filename '.$self->o('rnaseq_genome_file'),
-                      },
-         -rc_name   => 'filter',
-      },
 
       {
         -logic_name => 'filter_mirnas',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                          cmd => 'sh '.catfile($self->o('mirna_analysis_script'), 'FilterMiRNAs.sh')
+                          cmd => 'sh '.catfile($self->o('sncrna_analysis_script'), 'FilterMiRNAs.sh')
                                   .' -d '.catfile($self->o('ncrna_dir'), 'blastmirna_dafs.bed')
                                   .' -r '.catfile($self->o('ncrna_dir'), 'repeats.bed')
                                   .' -g '.$self->o('rnaseq_genome_file')
@@ -3626,23 +3615,8 @@ sub pipeline_analyses {
                                   .$self->o('user').":".$self->o('password'),
                         },
         -rc_name   => 'filter',
+        -flow_into => {'1' => 'ncrna_sanity_checks' },
 
-      },
-
-
-      {
-        -logic_name => 'run_infernal',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveInfernal',
-        -parameters => {
-                         output_db => $self->o('ncrna_db'),
-                         dna_db => $self->o('dna_db'),
-                         logic_name => 'ncrna',
-                         module     => 'HiveInfernal',
-                         cmsearch_exe_path => $self->o('cmsearch_exe_path'),
-                         blast_db_dir_path => $self->o('ncrna_blast_path'),
-                       },
-        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -rc_name    => 'transcript_finalisation',
       },
 
 
