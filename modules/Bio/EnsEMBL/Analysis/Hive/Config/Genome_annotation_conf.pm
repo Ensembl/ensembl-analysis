@@ -344,7 +344,7 @@ sub default_options {
     'unigene_blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
     genewise_path => catfile($self->o('binary_base'), 'genewise'),
     'exonerate_path'         => catfile($self->o('software_base_path'), 'opt', 'exonerate09', 'bin', 'exonerate'),
-    'cmsearch_exe_path'    => catfile($self->o('software_base_path'), 'opt', 'infernal10', 'bin', 'cmsearch'),
+    'cmsearch_exe_path'    => catfile($self->o('software_base_path'), 'bin', 'cmsearch'), # #'opt', 'infernal10', 'bin', 'cmsearch'),
     indicate_path  => catfile($self->o('binary_base'), 'indicate'),
     pmatch_path  => catfile($self->o('binary_base'), 'pmatch'),
     exonerate_annotation => catfile($self->o('binary_base'), 'exonerate'),
