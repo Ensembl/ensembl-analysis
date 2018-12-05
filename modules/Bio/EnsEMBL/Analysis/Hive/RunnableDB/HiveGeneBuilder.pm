@@ -86,7 +86,7 @@ sub param_defaults {
     return {
       post_filter_genes          => '1',
       recovery_overlap_threshold => 0.9,
-      skip_readthrough_check => 0,
+      skip_readthrough_check => 1,
       load_all_biotypes => 1,
     }
 }
