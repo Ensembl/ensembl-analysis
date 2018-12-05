@@ -287,7 +287,7 @@ sub dump_database {
       $command .= ' --max_allowed_packet '.$max_allowed_packet;
     }
   }
-  $command .= " $dbname";
+  $command .= ' --lock-tables='.$self->param('_lock_tables')." $dbname";
   if ($tables and @$tables) {
     $command .= ' '.join(' ', @$tables);
   }
