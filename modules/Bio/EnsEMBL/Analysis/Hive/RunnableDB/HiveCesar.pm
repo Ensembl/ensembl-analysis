@@ -68,6 +68,7 @@ binary to be run (excluding the binary filename).
 -canonical            If set to 1, then only the canonical transcript for each gene will be fetched from the source db.
 -canonical_or_longest If set to 1, then only the canonical transcript for each gene will be projected. If the projection is not done successfully, the next transcript having the longest translation will be projected until there is a successful projection.
 -common_slice         If set to 1, all the transcripts projected from the same gene will be put on the same slice (and gene) based on the most common seq region name and min and max coordinates covering them. The projected transcripts on the other slices will be discarded. If set to 0 (default), the projected transcripts will be used to make single-transcript genes.
+-stops2introns        Number of stops within a translation which will be replaces with introns. Default 0.
 -max_stops            Only the transcripts whose translations contain a number of stops equal to or less than max_stops will be stored.  Default 0 (translations with stops are not allowed by default).
 -TRANSCRIPT_FILTER    Hash containing the parameters required to apply
 to the projected transcript to exclude some of them. Default to
@@ -96,6 +97,8 @@ qw(replace_stops_with_introns
    set_alignment_supporting_features                                                                  
    features_overlap);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(align_proteins);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns);
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub param_defaults {
@@ -113,6 +116,7 @@ sub param_defaults {
       canonical => 0,
       canonical_or_longest => 0,
       common_slice => 0,
+      stops2introns => 0,
       max_stops => 0,
       #TRANSCRIPT_FILTER => {
       #                       OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
@@ -1099,29 +1103,38 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
     # Set the phases  
     calculate_exon_phases($projected_transcript,$source_transcript->translation()->start_Exon()->phase());
 
-    # Set the exon and transcript supporting features
-    if ($projected_transcript->translation()->seq()) { 
-      set_alignment_supporting_features($projected_transcript,$source_transcript->translation()->seq(),$projected_transcript->translation()->seq());
+    if ($self->param('stops2introns') > 0 and $projected_transcript->translation()->seq()) {
+      $projected_transcript = replace_stops_with_introns($projected_transcript,$self->param('stops2introns'));
     }
 
-    say "Transcript translation:\n".$source_transcript->translation()->seq();
-    say "Projected transcript translation:\n".$projected_transcript->translation()->seq();
+    if ($projected_transcript) {
+      # Set the exon and transcript supporting features
+      if ($projected_transcript->translation()->seq()) { 
+        set_alignment_supporting_features($projected_transcript,$source_transcript->translation()->seq(),$projected_transcript->translation()->seq());
+      }
 
-    my ($coverage,$percent_id) = (0,0);
-    if ($projected_transcript->translation()->seq()) {
-      ($coverage,$percent_id) = align_proteins($source_transcript->translate()->seq(),$projected_transcript->translate()->seq());
+      say "Transcript translation:\n".$source_transcript->translation()->seq();
+      say "Projected transcript translation:\n".$projected_transcript->translation()->seq();
+
+      my ($coverage,$percent_id) = (0,0);
+      if ($projected_transcript->translation()->seq()) {
+        ($coverage,$percent_id) = align_proteins($source_transcript->translate()->seq(),$projected_transcript->translate()->seq());
+      }
+      $projected_transcript->source($coverage);
+      $projected_transcript->biotype($percent_id);
+      $projected_transcript->description("stable_id of source: ".$source_transcript->stable_id());
+
+      # add a 'seq_edits' attribute to the proj_exon object
+      # to store the seq edits that will be added to the transcript
+      # when the transcript is built
+      #my @seq_edits = make_seq_edits($source_seq,$proj_seq);
+      #$proj_exon->{'seq_edits'} = \@seq_edits;
+
+      return ($projected_transcript);
+    } else { # replace_stops_with_introns returns zero if translation contains stop codon adjacent to gap
+      $self->warning("Transcript with internal stop codon next to gapped sequence. Source transcript ".$source_transcript->stable_id()." skipped.");
+      return 0;
     }
-    $projected_transcript->source($coverage);
-    $projected_transcript->biotype($percent_id);
-    $projected_transcript->description("stable_id of source: ".$source_transcript->stable_id());
-
-    # add a 'seq_edits' attribute to the proj_exon object
-    # to store the seq edits that will be added to the transcript
-    # when the transcript is built
-    #my @seq_edits = make_seq_edits($source_seq,$proj_seq);
-    #$proj_exon->{'seq_edits'} = \@seq_edits;
-
-    return ($projected_transcript);
   } else {
     # no exons projected after parsing
     $self->warning("No exons projected after parsing. Source transcript ".$source_transcript->stable_id()." skipped.");
