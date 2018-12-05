@@ -184,6 +184,9 @@ sub run {
             my $calculated_length = 0;
 
             if ($self->param('paired_end_only')){
+	      my $third_file = "ftp[^_]*\.fastq\.gz\;ftp";
+	      $row[$fields_index{$fastq_file}] =~ s/$third_file/ftp/; # sometimes a third combined fastq file exists (it has single end naming format) - discard it
+
               next if ($row[$fields_index{library_layout}] eq 'SINGLE'); # don't include single end reads
 	      next if ($row[$fields_index{$fastq_file}] !~ m/.*_1\.fastq\.gz.*_2\.fastq\.gz/);# this will throw out the paired end data that is stored in a single file, i.e. it looks like single end data to a regex
             }
