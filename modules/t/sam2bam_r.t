@@ -77,7 +77,7 @@ close(RH) || die("Could not close $genomefile.tmp");
 close(WH) || die("Could not close $genomefile");
 unlink $genomefile.'.tmp';
 
-my $bam_url = 'ftp://ftp.ensembl.org/pub/current_data_files/gallus_gallus/Gallus_gallus-5.0/rnaseq/Gallus_gallus-5.0.Roslin.merged.1.bam';
+my $bam_url = 'http://ftp.ensembl.org/pub/current_data_files/gallus_gallus/Gallus_gallus-5.0/rnaseq/Gallus_gallus-5.0.Roslin.merged.1.bam';
 my $command = "$samtools view -H $bam_url";
 my @headers;
 my $header_lcount = 0;
