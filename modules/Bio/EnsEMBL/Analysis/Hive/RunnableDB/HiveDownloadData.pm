@@ -99,8 +99,6 @@ sub run {
   my ($self) = @_;
 
   my $client = $self->param('client');
-  $client->error(1);
-  $File::Fetch::DEBUG = 1;
   my $file = $client->fetch(($self->param_is_defined('options') ? @{$self->param('options')}: undef));
   $self->check_file($file);
   $file = $self->uncompress($file) if ($self->param('uncompress'));

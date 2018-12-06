@@ -46,10 +46,7 @@ standaloneJob(
 			$expected_dataflow, # expected data flowed out
 			2 # dataflow branch
 		], # end event
-	],
-  {
-    debug => 1,
-  }
+	]
 );
 
 standaloneJob(
@@ -66,10 +63,7 @@ standaloneJob(
 			$expected_dataflow, # expected data flowed out
 			2 # dataflow branch
 		], # end event
-	],
-  {
-    debug => 1,
-  }
+	]
 );
 
 standaloneJob(
@@ -85,10 +79,7 @@ standaloneJob(
 			$expected_dataflow_gzip, # expected data flowed out
 			2 # dataflow branch
 		], # end event
-	],
-  {
-    debug => 1,
-  }
+	]
 );
 
 done_testing();
