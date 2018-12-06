@@ -146,8 +146,44 @@ sub run{
   Returntype : scalar
 
 =cut
-
 sub write_output{
+  my ($self) = @_;
+
+  my $mirna_db_ids = $self->final_mirna_db_ids();
+
+  my $mirna_batch = [];
+  my $mirna_batch_size = 1000;
+  my $batch_count = 0;
+  my $output_hash = {};
+  my $mirna_branch_code = 2;
+
+  # Should put these into a single sub that takes in the ids, the branch code and the batch size at some point
+  foreach my $output_id (@{$mirna_db_ids}) {
+    if($batch_count == $mirna_batch_size) {
+      $output_hash = {};
+      $output_hash->{'iid'} = $mirna_batch;
+      $self->dataflow_output_id($output_hash,$mirna_branch_code);
+      $mirna_batch = [];
+      push(@{$mirna_batch},$output_id);
+      $batch_count = 1;
+    } else {
+      push(@{$mirna_batch},$output_id);
+      $batch_count++;
+    }
+  }
+
+  # Send out last batch
+  if(scalar(@{$mirna_batch})) {
+    $output_hash = {};
+    $output_hash->{'iid'} = $mirna_batch;
+    $self->dataflow_output_id($output_hash,$mirna_branch_code);
+  }
+
+
+  return 1;
+}
+
+sub write_output_deprecated{
   my ($self) = @_;
 
   my $mirna_db_ids = $self->final_mirna_db_ids();
