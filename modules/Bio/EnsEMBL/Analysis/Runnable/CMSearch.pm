@@ -163,10 +163,10 @@ sub filter_results{
 	my @filtered;
 	foreach my $result (@$results){
 		my $rfam = $result->{'query'};
-		if (exists(%{$cm_models}->{$rfam})){
-			my $threshold = %{$cm_models}->{$rfam}->{-threshold};
-      my $min_length = %{$cm_models}->{$rfam}->{-length} - 5;
-      my $max_length = %{$cm_models}->{$rfam}->{-maxlength};
+		if (exists($cm_models->{$rfam})){
+			my $threshold = $cm_models->{$rfam}->{-threshold};
+      my $min_length = $cm_models->{$rfam}->{-length} - 5;
+      my $max_length = $cm_models->{$rfam}->{-maxlength};
       my $mapping_length = abs($result->{'end'} - $result->{'start'});
 
       # although not included in RefSeq filters, additional filters that consider sizes and score_to_size ratios can be applied
