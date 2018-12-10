@@ -22,7 +22,7 @@ use Getopt::Long;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
 
-# Connection to the target DB
+# Connection to Rfam DB
 my $host = 'mysql-rfam-public.ebi.ac.uk';
 my $port = '4497';
 my $user = 'rfamro';
@@ -41,32 +41,47 @@ my $clade;
             'c|clade=s'       => \$clade,
         );
 
-my $query = "
-SELECT 
-  rfam_acc 
-FROM 
-  (SELECT DISTINCT f.rfam_acc, f.rfam_id, f.type, f.description, f.gathering_cutoff, f.trusted_cutoff 
-FROM 
-  full_region fr, rfamseq rf, taxonomy tx, family f 
-WHERE 
-  rf.ncbi_id = tx.ncbi_id AND 
-  f.rfam_acc = fr.rfam_acc AND 
-  fr.rfamseq_acc = rf.rfamseq_acc AND 
-  LOWER(tx.tax_string) LIKE '%$clade%' AND 
-  (f.type LIKE '%snRNA%' OR 
-    f.type LIKE '%rRNA%' OR 
-    LOWER(f.rfam_id) LIKE '%rnase%' OR 
-    LOWER(f.rfam_id) LIKE '%vault%' OR 
-    LOWER(f.rfam_id) LIKE '%y_rna%' OR 
-    f.rfam_id LIKE '%Metazoa_SRP%') AND 
-    is_significant = 1) AS TEMP
-  WHERE
-    rfam_id NOT LIKE '%bacteria%' AND 
-    rfam_id NOT LIKE '%archaea%' AND 
-    rfam_id NOT LIKE '%microsporidia%'
-";
-
-my $command = "mysql -u $user -h $host -P $port -D $dbname -NB -e \" $query \" > " . $output_dir . "/accessions.txt";
+my $command = "mysql -u $user -h $host -P $port -D $dbname -NB -e \"" . construct_rfamdb_query($clade) . "\" > " . $output_dir . "/accessions.txt";
 
 system($command);
+
+# check accessions file and default to rfams for vertebrates if empty
+$command = "wc -l " . $output_dir . "/accessions.txt | awk '{print $1}'";
+
+my $fs = system($command);
+
+$command = "mysql -u $user -h $host -P $port -D $dbname -NB -e \"" . construct_rfamdb_query('vertebrata') . "\" > " . $output_dir . "/accessions.txt" if $fs < 1;
+
+system($command);
+
+sub construct_rfamdb_query {
+    my ( $clade ) = @_;
+
+    my $query = "
+    SELECT 
+      rfam_acc 
+    FROM 
+      (SELECT DISTINCT f.rfam_acc, f.rfam_id, f.type, f.description, f.gathering_cutoff, f.trusted_cutoff 
+    FROM 
+      full_region fr, rfamseq rf, taxonomy tx, family f 
+    WHERE 
+      rf.ncbi_id = tx.ncbi_id AND 
+      f.rfam_acc = fr.rfam_acc AND 
+      fr.rfamseq_acc = rf.rfamseq_acc AND 
+      LOWER(tx.tax_string) LIKE '%$clade%' AND 
+      (f.type LIKE '%snRNA%' OR 
+      f.type LIKE '%rRNA%' OR 
+      LOWER(f.rfam_id) LIKE '%rnase%' OR 
+      LOWER(f.rfam_id) LIKE '%vault%' OR 
+      LOWER(f.rfam_id) LIKE '%y_rna%' OR 
+      f.rfam_id LIKE '%Metazoa_SRP%') AND 
+      is_significant = 1) AS TEMP
+    WHERE
+      rfam_id NOT LIKE '%bacteria%' AND 
+      rfam_id NOT LIKE '%archaea%' AND 
+      rfam_id NOT LIKE '%microsporidia%'
+    ";
+
+    return $query;
+}
 
