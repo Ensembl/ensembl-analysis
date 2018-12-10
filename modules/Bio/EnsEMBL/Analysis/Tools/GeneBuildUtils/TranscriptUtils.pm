@@ -1264,12 +1264,11 @@ sub replace_stops_with_introns{
       foreach my $exon (@exons) {
         #print 'DEBUG: ', $exon->rank($newtranscript), ' $$ ', $exon->seq->seq, "\n";
         # NOTE that at this point the stop will always lie on a translateable exon
-        if ($stop->start > $exon->start and $stop->end < $exon->end) {
+        if ($stop->start() > $exon->seq_region_start() and $stop->end() < $exon->seq_region_end()) {
           # This stop lies _completely_ within an exon and not on its
           # boundary. We therefore can split the exon into two UNLESS
           # (the stop starts at the start of the translation OR
           #  the stop ends at the end of the translation)
-
           if ( ($transcript->translation->start_Exon->start == $exon->start and
                 $transcript->translation->genomic_start() == $stop->start and
                 $transcript->strand == 1)
@@ -1282,7 +1281,7 @@ sub replace_stops_with_introns{
 
             $translation_start_shift += 3; # translation start and end are "stranded", no need to look at strand
             print("The stop starts at the start of the translation within an exon, not boundary.\n");
-
+            
             push @new_exons,$exon; # exon not changed but translation start will be shifted
             next;
 
@@ -1310,30 +1309,28 @@ sub replace_stops_with_introns{
             if ($transcript->translation->end_Exon->start == $exon->start) {
               # and this is the last translateable exon
               if ($transcript->strand == 1) {
-                $translation_end_shift -= ($stop->end-$exon->start+1); # translation start and end are "stranded"
+                $translation_end_shift -= ($stop->end()-$exon->seq_region_start()+1); # translation start and end are "stranded"
               } else {
-                $translation_end_shift -= ($exon->end-$stop->start+1);
+                $translation_end_shift -= ($exon->seq_region_end()-$stop->start()+1);
               }
             }
           }
 
           print("---I am NOT a boundary stop\n");
-
           my $exon_left = Bio::EnsEMBL::Exon->
               new(-slice     => $exon->slice,
                   -start     => $exon->start,
-                  -end       => $stop->start - 1,
+                  -end       => $exon->start+($stop->start()-$exon->seq_region_start())-1,
                   -strand    => $exon->strand,
                   -phase     => $exon->strand < 0 ? 0 : $exon->phase,
                   -end_phase => $exon->strand < 0 ? $exon->end_phase  :0);
           my $exon_right = Bio::EnsEMBL::Exon->
               new(-slice     => $exon->slice,
-                  -start     => $stop->end + 1,
+                  -start     => $exon_left->end()+4,
                   -end       => $exon->end,
                   -strand    => $exon->strand,
                   -phase     => $exon->strand < 0 ? $exon->phase : 0,
                   -end_phase => $exon->strand < 0 ? 0 : $exon->end_phase);
-
           my @sfs = @{$exon->get_all_supporting_features}; 
           my (@ug_left, @ug_right);
 
@@ -1527,15 +1524,14 @@ sub replace_stops_with_introns{
               push @new_exons, $exon_right;
             }
           }
-        } elsif($stop->start == $exon->start && $stop->end == $exon->end) {
-
+        } elsif($stop->start() <= $exon->seq_region_start() && $stop->end() >= $exon->seq_region_end()) {
           warning("Exon is a stop codon, removing the exon");
 
           # This will later be added to the end_exon_index to account for the removed
           # exon or exons. This works on the test case and seems sensible, but is
           # difficult to thoroughly test.
           $end_exon_shift -= 1;
-        } elsif ($stop->start == $exon->start) {
+        } elsif ($stop->start() == $exon->seq_region_start()) {
           # stop lies at the start of the exon
           print("---stop lies at the start of the exon\n");
           # note that +3 has been replaced with $stop->end-$stop->start+1 to
@@ -1556,7 +1552,6 @@ sub replace_stops_with_introns{
             # this is the last translateable exon on the forward strand
             $translation_end_shift -= $stop->end-$stop->start+1;
           }
-
           push @new_exons, $exon;
           # I'm removing the call to the truncate sub because it still needs work, sometimes it truncates things
           # it doesn't need to. As we are short on time the simplist thing is to just use the old way, which is
@@ -1565,7 +1560,7 @@ sub replace_stops_with_introns{
 #          my $new_exon = truncate_exon_features($exon,$newtranscript->analysis,0);
 #          push @new_exons, $new_exon;
 
-        } elsif ($stop->end == $exon->end ) {
+        } elsif ($stop->end() == $exon->seq_region_end()) {
           # stop lies at the end of the exon
           print("---stop lies at the end of the exon\n");
           # note that +3 has been replaced with $stop->end-$stop->start+1 to
@@ -1585,7 +1580,6 @@ sub replace_stops_with_introns{
             # this is the last translateable exon on the reverse strand
             $translation_end_shift -= $stop->end-$stop->start+1;
           }
-
           push @new_exons, $exon;
           # I'm removing the call to the truncate sub because it still needs work, sometimes it truncates things
           # it doesn't need to. As we are short on time the simplist thing is to just use the old way, which is
@@ -1674,7 +1668,10 @@ sub replace_stops_with_introns{
   $newtranscript->translation($translation);
 
   my $old_transl_len = $transcript->translate->length();
-  my $new_transl_len = $newtranscript->translate->length();
+  my $new_transl_len = 0;
+  if ($newtranscript->translate()) {
+    $new_transl_len = $newtranscript->translate()->length();
+  }
 
   # The first case to test for is if the edited translation is longer than the original, this shouldn't happen
   if($new_transl_len > $old_transl_len) {
@@ -1704,7 +1701,8 @@ sub replace_stops_with_introns{
   # Hopefully at this point the removal of the stops is okay.
   else {
     print "Original translation has length ".$old_transl_len." but edited translation has length ".$new_transl_len.
-          "\n>original\n".$transcript->translate->seq."\n>edited\n".$newtranscript->translate->seq."\n";
+          "\n>original\n".$transcript->translate->seq."\n>edited\n";
+    print $newtranscript->translate->seq."\n" if ($newtranscript->translate());
   }
 
   # add xrefs from old translation to new translation
