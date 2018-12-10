@@ -1103,8 +1103,22 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
     # Set the phases  
     calculate_exon_phases($projected_transcript,$source_transcript->translation()->start_Exon()->phase());
 
-    if ($self->param('stops2introns') > 0 and $projected_transcript->translation()->seq()) {
-      $projected_transcript = replace_stops_with_introns($projected_transcript,$self->param('stops2introns'));
+    if ($self->param('stops2introns') > 0 and $projected_transcript->translate() and $projected_transcript->translate()->seq()) {
+
+      my $projected_transcript_translate_seq = $projected_transcript->translate()->seq();
+      my $num_stops = $projected_transcript_translate_seq =~ s/\*/\*/g;
+      say $projected_transcript->stable_id()." : number of stops before replacing up to ".$self->param('stops2introns')." stops with introns: ".$num_stops;
+      
+      my $projected_transcript_after_replaced_stops = replace_stops_with_introns($projected_transcript,$self->param('stops2introns'));
+      # if there are more stops than the stops2introns value then 'replace_stops_with_introns'
+      # returns 0 so we want to use the original projected_transcript
+      if ($projected_transcript_after_replaced_stops and $projected_transcript_after_replaced_stops->translate()) {
+        $projected_transcript = $projected_transcript_after_replaced_stops;
+      }
+
+      $projected_transcript_translate_seq = $projected_transcript->translate()->seq();
+      $num_stops = $projected_transcript_translate_seq =~ s/\*/\*/g;
+      say $projected_transcript->stable_id()." : number of stops after replacing up to ".$self->param('stops2introns')." stops with introns: ".$num_stops;
     }
 
     if ($projected_transcript) {
