@@ -44,27 +44,28 @@ use Bio::EnsEMBL::Variation::DBSQL::DBAdaptor;
 use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
+use Utilities;
 
-my $outdir = '/path/to/output_dir/';
+my $outdir = '/DataStuff/CARSScripts/';
 
-my $dbname = 'homo_sapiens_core_XX_38';
-my $dbuser = 'WRITE_USER';
-my $dbpass = 'WRITE_PASS';
-my $dbhost = '';
-my $dbport = '';
+my $dbname = 'homo_sapiens_core_94_38';
+my $dbuser = 'ensro';
+my $dbpass = '';
+my $dbhost = 'mysql-ensembl-mirror.ebi.ac.uk';
+my $dbport = '4240';
 
-my $otherfdbname = 'homo_sapiens_otherfeatures_XX_38';
-my $otherfdbuser = 'READ_USER';
-my $otherfdbhost = '';
-my $otherfdbport = '';
+my $otherfdbname = 'homo_sapiens_otherfeatures_94_38';
+my $otherfdbuser = 'ensro';
+my $otherfdbhost = 'mysql-ensembl-mirror.ebi.ac.uk';
+my $otherfdbport = '4240';
 
-my $vardbname = 'homo_sapiens_variation_XX_38';
-my $vardbuser = 'READ_USER';
-my $vardbhost = '';
-my $vardbport = '';
+my $vardbname = 'homo_sapiens_variation_94_38';
+my $vardbuser = 'ensro';
+my $vardbhost = 'mysql-ensembl-mirror.ebi.ac.uk';
+my $vardbport = '4240';
 
 # The following options need to be specified - 0 for no 1 for yes
-my $download_data = 1;
+my $download_data = 0;
 my $reward_refseq_match = 1;
 
 # The weighting of the sources depends on whether or not you want to give extra reward to transcripts with a RefSeq match
@@ -184,6 +185,9 @@ print ALERT_FILE1 "List of genes for which more than 1 transcript is required to
 open (ALERT_FILE2, ">$alert_file2");
 print ALERT_FILE2 "List of genes for which more than 1 transcript is required to cover all the coding pathogenic variants\n";
 
+my $fname = "DataFiles/transcript_IDs.txt";
+open (T_ID, ">$fname") || die "File not opened";
+
 my %gene_hash_array;
 
 my %number_variants;
@@ -208,6 +212,7 @@ while (my $gene_row= $genes_select->fetchrow_arrayref()){
   $gene_id {$gene} = $gene_id;
   $biotype{$gene} = $g_bt;
   $chromosome{$gene} = $g_chr;
+#  print "***chromosome : ",$chromosome{$gene}, "\t";
   $start{$gene} = $g_start;
   $end{$gene} = $g_end;
   $strand{$gene} = $g_strand;
@@ -220,18 +225,33 @@ while (my $gene_row= $genes_select->fetchrow_arrayref()){
 $genes_select->finish;
 
 my $slices = $sa->fetch_all('toplevel');
+print "\n***slice", @$slices[1],"\n";
 my $slice_count = scalar(@$slices);
 my $processing_count = 0;
 foreach my $slice (@$slices) {
+if (index($slice->name,"chromosome:GRCh38:22")!= -1){
   $processing_count++;
   say "Processing slice: ".$slice->name." (".$processing_count."/".$slice_count.")";
   my $genes = $slice->get_all_Genes();
+  
+my $tcount = 0;
+my $gene_count = 0;
+my %all_gene_scores;
+my @sorted_averages;
+my @gene_scores_mat;
+my @gene_scores_for_box = ();
+
 foreach my $generef (@$genes) {
   my $gene = $generef->stable_id();
+  #print $generef->external_name(),"\n";
+  $gene_count++;
+  # print "Gene Stable ID :", $generef->stable_id(), "\n";
   my @transcripts = @{$generef->get_all_Transcripts()};
   my @coding_transcripts;
   my @coding_trans_ids;
-
+  my @averageArray;
+  my @tscript_stableIDs;
+  my $flag_coding_gene = 0; #false
   foreach my $element (@transcripts) {
     if (grep $_ eq ($element->biotype), @allowed_biotypes) { # check the transcript has a biotype in the allowed list of biotypes
       push(@coding_transcripts, $element);
@@ -241,10 +261,17 @@ foreach my $generef (@$genes) {
   my @gene_exons;
   my @gene_variants;
   unless ($coding_exons{$gene}) {
+    #print "Gene Stable ID :", $gene, "\n";
+    
     foreach my $transcript (@coding_transcripts) {
+      $flag_coding_gene = 'true';
       my $trans = $transcript->stable_id;
+      print $generef->external_name(),"\n";
+      #print T_ID $trans,"\n";
       my $score = 0;
       push (@coding_trans_ids, $trans);
+      push ( @averageArray, intropolis_scoring($transcript) );
+      push ( @tscript_stableIDs, $trans);
 
       if (exists $appris{$trans}) {
         if ($appris{$trans} == 1) {
@@ -294,7 +321,22 @@ foreach my $generef (@$genes) {
       $pathogenic_variants{$trans} = [uniq(@trans_variants)];
       $number_variants{$trans} = scalar (@{$pathogenic_variants{$trans}});
     }
+    if($flag_coding_gene eq 'true'){      
+        #print 'n', ++$tcount, "<- c(";
+        @sorted_averages = Utilities::normalizeArray(@averageArray);
+        #print "\nScores normalized ... \n";
+        $all_gene_scores{$tcount} = [@sorted_averages];
+        push ( @gene_scores_mat, [ @sorted_averages ] );
+        #print "\nIn Hash:", ++$tcount,". ",$all_gene_scores{$tcount},"\n";
+       for ( my $i = 0; $i< scalar(@sorted_averages); $i++ ){
+            #print "trans score before increment : $trans_score{$tscript_stableIDs[$i]} \n";
+            $trans_score{$tscript_stableIDs[$i]} += ($sorted_averages[$i]*10);
+            #print "trans score after increment : $trans_score{$tscript_stableIDs[$i]} \n";
+        }
+    }
+    $flag_coding_gene = 0;
   }
+
   $coding_exons{$gene} = [uniq(@gene_exons)];
   $pathogenic_variants{$gene} = [uniq(@gene_variants)];
   $number_variants{$gene} = scalar (@{$pathogenic_variants{$gene}});
@@ -316,6 +358,35 @@ foreach my $generef (@$genes) {
     }
   }
 }
+
+print "\nMaking 2d matrices for scores\n";
+
+
+#make 2D array from HashMap 
+my $i = 0;
+# my $j = 0;
+# foreach my $key ( keys %all_gene_scores){
+#     $gene_scores_mat[$i++] = $all_gene_scores{$key};
+#     print "Iteration : $i\n";
+# }
+
+# make transpose of the matrice. 
+for my $row (@gene_scores_mat) {
+  for my $column (0 .. $#{$row}) {
+    push(@{$gene_scores_for_box[$column]}, $row->[$column]);
+    $i++;
+    print "Iteration : $i \n";
+  }
+}
+
+for my $new_row (@gene_scores_for_box) {
+  for my $new_col (@{$new_row}) {
+      print $new_col, ", ";
+  }
+  print "\n";
+}
+print "\nGene count : ", $gene_count, "\n";
+} # end if
 } # @$slices
 
 say "Finished processing genes";
@@ -553,7 +624,7 @@ for my $gene ( keys %gene_hash_array ) {
                                                      -VALUE => $canonical{$gene});
     my @attributes = ();
     push(@attributes,$select_attrib);
-    $aa->store_on_Gene($gene_object,\@attributes);
+    #$aa->store_on_Gene($gene_object,\@attributes);
     print LOGFILE "Transcript ".$canonical{$gene}." stored as select transcript for gene ".$gene." in the core database.\n";
   } else {
     print LOGFILE "No protein-coding canonical transcript defined for $gene\n"; 
@@ -561,6 +632,7 @@ for my $gene ( keys %gene_hash_array ) {
 }
 close (SELECT_FILE);
 close (LOGFILE);
+close (T_ID);
 
 exit;
 
@@ -815,4 +887,59 @@ sub coverage_sorter {
     }
   }
   return @final_transcript_list;
+}
+
+sub intropolis_scoring {
+    my $transcript = shift();
+    
+    #print ("Transcript belongs to chromosome : ", $transcript->seq_region_name(),"\n");
+    my $chrNum = $transcript->seq_region_name();
+
+    #print ("transcript created\nTranscript start : ", $transcript->seq_region_start(),"\n");
+    my @introns = @{$transcript->get_all_Introns()};
+
+    #print ("Introns retreived ...\n");
+
+    my $totalIntrons = scalar (@introns);
+    #print ("Number of introns retreived : ", $totalIntrons ,"\n");
+    #print ($transcript->stable_id, "\t$totalIntrons");
+
+    my @scoresTranscript;
+    my $intronsNotInFile = 0;
+
+    for ( @introns){
+        my $intronStart = $_->seq_region_start()-1;
+        #print ("Intron start : ", $intronStart, "\n");
+
+        my $intronEnd = $_->seq_region_end();
+        #print ("Intron end : ", $intronEnd, "\n");
+
+        my @lines = `tabix DataFiles/coords.txt.gz chr$chrNum:$intronStart-$intronEnd | awk '\$2==$intronStart' | awk '\$3==$intronEnd' `;
+        #my @line = `tabix DataFiles/coords.txt.gz chr1:490985-633431 | awk '\$2==490985'`;
+    
+        #my $totalScore;
+        #print ("length of lines: ", scalar(@lines),"\n");
+        my $totalScore = 0;
+
+        for ( @lines ){
+            #print "entry : ", $_, "\n";
+            my @colomns = split(/\s+/,$_);
+            my $scores = $colomns[5];
+            my @scores = split (',',$scores);
+            #print "scores : ", $scores, "\n$scores[3]\nTotal Score:";
+            $totalScore = Utilities::sumNums(@scores);
+            push (@scoresTranscript, $totalScore);
+        }
+    }
+    
+    my $totalIntronScore = Utilities::sumNums( @scoresTranscript );
+    #print ("\t",$totalIntronScore); #"Total Score : "
+    my $aveScore = 0;
+
+    if ($totalIntronScore!=0){
+      $aveScore = $totalIntronScore/ $totalIntrons;
+      #print "Average Score for $totalIntrons : $aveScore\n";
+    }
+    #print ("\t$aveScore\tAver\n");
+    return $aveScore;
 }
