@@ -361,14 +361,7 @@ foreach my $generef (@$genes) {
 
 print "\nMaking 2d matrices for scores\n";
 
-
-#make 2D array from HashMap 
 my $i = 0;
-# my $j = 0;
-# foreach my $key ( keys %all_gene_scores){
-#     $gene_scores_mat[$i++] = $all_gene_scores{$key};
-#     print "Iteration : $i\n";
-# }
 
 # make transpose of the matrice. 
 for my $row (@gene_scores_mat) {
