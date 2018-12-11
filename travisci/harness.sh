@@ -63,8 +63,8 @@ else
   "Bio/EnsEMBL/Analysis/RunnableDB/Exonerate2Array.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/Funcgen/SWEmbl.pm" \
   "Bio/EnsEMBL/Analysis/RunnableDB/FilterGenes.pm" \
-  "scripts/genebuild/SupportingScripts/compareIntronsRS_CARS.pl" \
-  "scripts/genebuild/ensembl_select_transcripts.pl" )
+  "$PWD/scripts/genebuild/SupportingScripts/compareIntronsRS_CARS.pl" \
+  "$PWD/scripts/genebuild/ensembl_select_transcripts.pl" )
   printf "\e[31mWe will not test:\e[0m\n - \e[33m%s\e[0m\n" "Annacode modules"
   for S in `seq 0 $((${#M[@]}-1))`; do
       printf " - \e[33m%s\n\e[0m" "${M[$S]}"
