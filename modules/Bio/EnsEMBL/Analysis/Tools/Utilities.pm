@@ -1356,4 +1356,46 @@ sub get_database_from_registry {
   return $db;
 }
 
+=head2 sum_nums
+
+ Arg [1]    : Array of numbers
+ Description: 
+              Sum all the numbers of the array and return the total
+ Returntype : Int/Float
+ Exceptions : None
+
+=cut
+
+sub sum_nums {
+    my @array = @_;
+    my $total = 0;
+    foreach my $num ( @array ){
+        #print ($num, "\n");
+        $total += $num;
+    }
+    return $total;
+}
+
+=head2 normalize_array
+
+ Arg [1]    : Array of numbers
+ Description: Normalizes and sorts the array.
+ Returntype : Floating point array
+ Exceptions : None
+
+=cut
+
+sub normalize_array {
+    my @array = @_;
+    my $max = max @array;
+    my @normArray;
+    for (@array){
+        if ($_!=0){
+            push (@normArray, $_/$max);
+        }        
+    }
+    @normArray = sort {$b<=>$a} @normArray;
+    return @normArray;
+}
+
 1;
