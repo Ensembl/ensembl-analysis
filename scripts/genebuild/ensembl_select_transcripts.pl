@@ -44,6 +44,7 @@ use Bio::EnsEMBL::Variation::DBSQL::DBAdaptor;
 use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
+use Bio::EnsEMBL::Analysis::Tools::Utilities
 use Utilities;
 
 my $outdir = '/DataStuff/CARSScripts/';
@@ -249,7 +250,7 @@ foreach my $generef (@$genes) {
   my @transcripts = @{$generef->get_all_Transcripts()};
   my @coding_transcripts;
   my @coding_trans_ids;
-  my @averageArray;
+  my @average_array;
   my @tscript_stableIDs;
   my $flag_coding_gene = 0; #false
   foreach my $element (@transcripts) {
@@ -266,11 +267,11 @@ foreach my $generef (@$genes) {
     foreach my $transcript (@coding_transcripts) {
       $flag_coding_gene = 'true';
       my $trans = $transcript->stable_id;
-      print $generef->external_name(),"\n";
+      #print $generef->external_name(),"\n";
       #print T_ID $trans,"\n";
       my $score = 0;
       push (@coding_trans_ids, $trans);
-      push ( @averageArray, intropolis_scoring($transcript) );
+      push ( @average_array, intropolis_scoring($transcript) );
       push ( @tscript_stableIDs, $trans);
 
       if (exists $appris{$trans}) {
@@ -323,14 +324,14 @@ foreach my $generef (@$genes) {
     }
     if($flag_coding_gene eq 'true'){      
         #print 'n', ++$tcount, "<- c(";
-        @sorted_averages = Utilities::normalizeArray(@averageArray);
+        @sorted_averages = Utilities::normalize_array(@average_array);
         #print "\nScores normalized ... \n";
         $all_gene_scores{$tcount} = [@sorted_averages];
         push ( @gene_scores_mat, [ @sorted_averages ] );
         #print "\nIn Hash:", ++$tcount,". ",$all_gene_scores{$tcount},"\n";
        for ( my $i = 0; $i< scalar(@sorted_averages); $i++ ){
             #print "trans score before increment : $trans_score{$tscript_stableIDs[$i]} \n";
-            $trans_score{$tscript_stableIDs[$i]} += ($sorted_averages[$i]*10);
+            $trans_score{$tscript_stableIDs[$i]} += ($sorted_averages[$i]*55);
             #print "trans score after increment : $trans_score{$tscript_stableIDs[$i]} \n";
         }
     }
@@ -361,7 +362,14 @@ foreach my $generef (@$genes) {
 
 print "\nMaking 2d matrices for scores\n";
 
+
+#make 2D array from HashMap 
 my $i = 0;
+# my $j = 0;
+# foreach my $key ( keys %all_gene_scores){
+#     $gene_scores_mat[$i++] = $all_gene_scores{$key};
+#     print "Iteration : $i\n";
+# }
 
 # make transpose of the matrice. 
 for my $row (@gene_scores_mat) {
@@ -882,37 +890,46 @@ sub coverage_sorter {
   return @final_transcript_list;
 }
 
+=head2 function_name
+ 
+  Args       : Transcript to be scored with Intropolis
+  Example    : push ( @average_array, intropolis_scoring($transcript) );
+  Description: Takes as argument a transcript object and calculates the Intropolis score for all its introns. Returns the average over the total number of introns
+  Returntype : floating point 
+  Exceptions :
+  Caller     :
+  Status     : 
+ 
+=cut
+
 sub intropolis_scoring {
     my $transcript = shift();
     
     #print ("Transcript belongs to chromosome : ", $transcript->seq_region_name(),"\n");
-    my $chrNum = $transcript->seq_region_name();
+    my $chr_num = $transcript->seq_region_name();
 
     #print ("transcript created\nTranscript start : ", $transcript->seq_region_start(),"\n");
     my @introns = @{$transcript->get_all_Introns()};
 
     #print ("Introns retreived ...\n");
 
-    my $totalIntrons = scalar (@introns);
-    #print ("Number of introns retreived : ", $totalIntrons ,"\n");
-    #print ($transcript->stable_id, "\t$totalIntrons");
+    my $total_introns = scalar (@introns);
+    #print ("Number of introns retreived : ", $total_introns ,"\n");
+    #print ($transcript->stable_id, "\t$total_introns");
 
-    my @scoresTranscript;
-    my $intronsNotInFile = 0;
+    my @scores_transcript;
+    my $introns_not_in_file = 0;
 
     for ( @introns){
-        my $intronStart = $_->seq_region_start()-1;
-        #print ("Intron start : ", $intronStart, "\n");
+        my $intron_start = $_->seq_region_start()-1;
+        #print ("Intron start : ", $intron_start, "\n");
 
-        my $intronEnd = $_->seq_region_end();
-        #print ("Intron end : ", $intronEnd, "\n");
+        my $intron_end = $_->seq_region_end();
+        #print ("Intron end : ", $intron_end, "\n");
 
-        my @lines = `tabix DataFiles/coords.txt.gz chr$chrNum:$intronStart-$intronEnd | awk '\$2==$intronStart' | awk '\$3==$intronEnd' `;
-        #my @line = `tabix DataFiles/coords.txt.gz chr1:490985-633431 | awk '\$2==490985'`;
+        my @lines = `tabix DataFiles/coords.txt.gz chr$chr_num:$intron_start-$intron_end | awk '\$2==$intron_start' | awk '\$3==$intron_end' `;
     
-        #my $totalScore;
-        #print ("length of lines: ", scalar(@lines),"\n");
-        my $totalScore = 0;
+        my $total_score = 0;
 
         for ( @lines ){
             #print "entry : ", $_, "\n";
@@ -920,19 +937,19 @@ sub intropolis_scoring {
             my $scores = $colomns[5];
             my @scores = split (',',$scores);
             #print "scores : ", $scores, "\n$scores[3]\nTotal Score:";
-            $totalScore = Utilities::sumNums(@scores);
-            push (@scoresTranscript, $totalScore);
+            $total_score = Utilities::sum_nums(@scores);
+            push (@scores_transcript, $total_score);
         }
     }
     
-    my $totalIntronScore = Utilities::sumNums( @scoresTranscript );
-    #print ("\t",$totalIntronScore); #"Total Score : "
-    my $aveScore = 0;
+    my $total_intron_score = Utilities::sum_nums( @scores_transcript );
+    #print ("\t",$total_intronscore); #"Total Score : "
+    my $ave_score = 0;
 
-    if ($totalIntronScore!=0){
-      $aveScore = $totalIntronScore/ $totalIntrons;
-      #print "Average Score for $totalIntrons : $aveScore\n";
+    if ($total_intron_score!=0){
+      $ave_score = $total_intron_score/ $total_introns;
+      #print "Average Score for $total_introns : $aveScore\n";
     }
     #print ("\t$aveScore\tAver\n");
-    return $aveScore;
+    return $ave_score;
 }
