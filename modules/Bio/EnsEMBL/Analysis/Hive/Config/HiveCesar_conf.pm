@@ -184,8 +184,8 @@ sub pipeline_analyses {
                          'target_db' => $self->o('projection_db'),
                          'compara_db' => $self->o('compara_db'),
                          'method_link_type' => $self->o('method_link_type'),
-                         'exon_region_padding' => 50,
                          'cesar_path' => $self->o('cesar_path'),
+                         'cesar_mem' => '3', # mem in GB to be used by cesar (parameter --max-memory)
                          #TRANSCRIPT_FILTER => {
                          #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
                          #  PARAMETERS => {
@@ -193,17 +193,24 @@ sub pipeline_analyses {
                          #    -percent_id => 50,
                          #  },
                          #},
-                         canonical => 1,
+                         'canonical' => 0,
+                         'canonical_or_longest' => 0,
+                         'stops2introns' => 1,
                        },
         -rc_name    => 'default',
-        -analysis_capacity => 300,
+        -analysis_capacity => 100,
+        -max_retry_count => 1,
         -flow_into => {
-                        -1 => ['cesar_himem'],
+                        15 => ['cesar_15'],
+                        25 => ['cesar_25'],
+                        35 => ['cesar_35'],
+                        55 => ['cesar_65'],
+                        -1 => ['cesar_65'],
                       },
       },
 
       {
-        -logic_name => 'cesar_himem',
+        -logic_name => 'cesar_15',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
         -parameters => {
                          'output_path' => $self->o('output_path')."/project_exons/",
@@ -213,9 +220,8 @@ sub pipeline_analyses {
                          'target_db' => $self->o('projection_db'),
                          'compara_db' => $self->o('compara_db'),
                          'method_link_type' => $self->o('method_link_type'),
-                         'exon_region_padding' => 50,
                          'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '20', # mem in GB to be used by cesar (parameter --max-memory)
+                         'cesar_mem' => '15', # mem in GB to be used by cesar (parameter --max-memory)
                          #TRANSCRIPT_FILTER => {
                          #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
                          #  PARAMETERS => {
@@ -223,10 +229,125 @@ sub pipeline_analyses {
                          #    -percent_id => 50,
                          #  },
                          #},
-                         canonical => 1,
+                         'canonical' => 0,
+                         'canonical_or_longest' => 0,
+                         'stops2introns' => 1,
                        },
-        -rc_name    => 'default_20GB',
-        -analysis_capacity => 300,
+        -rc_name    => 'default_15GB',
+        -analysis_capacity => 100,
+        -max_retry_count => 1,
+        -can_be_empty  => 1,
+        -flow_into => {
+                        -1 => ['failed_cesar_himem'],
+                      },
+      },
+
+      {
+        -logic_name => 'cesar_25',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
+        -parameters => {
+                         'output_path' => $self->o('output_path')."/project_exons/",
+                         'source_dna_db' => $self->o('source_dna_db'),
+                         'target_dna_db' => $self->o('projection_dna_db'),
+                         'source_db' => $self->o('source_transcript_db'),
+                         'target_db' => $self->o('projection_db'),
+                         'compara_db' => $self->o('compara_db'),
+                         'method_link_type' => $self->o('method_link_type'),
+                         'cesar_path' => $self->o('cesar_path'),
+                         'cesar_mem' => '25', # mem in GB to be used by cesar (parameter --max-memory)
+                         #TRANSCRIPT_FILTER => {
+                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+                         #  PARAMETERS => {
+                         #    -coverage => 50,
+                         #    -percent_id => 50,
+                         #  },
+                         #},
+                         'canonical' => 0,
+                         'canonical_or_longest' => 0,
+                         'stops2introns' => 1,
+                       },
+        -rc_name    => 'default_25GB',
+        -analysis_capacity => 100,
+        -max_retry_count => 1,
+        -can_be_empty  => 1,
+        -flow_into => {
+                        -1 => ['failed_cesar_himem'],
+                      },
+      },
+
+      {
+        -logic_name => 'cesar_35',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
+        -parameters => {
+                         'output_path' => $self->o('output_path')."/project_exons/",
+                         'source_dna_db' => $self->o('source_dna_db'),
+                         'target_dna_db' => $self->o('projection_dna_db'),
+                         'source_db' => $self->o('source_transcript_db'),
+                         'target_db' => $self->o('projection_db'),
+                         'compara_db' => $self->o('compara_db'),
+                         'method_link_type' => $self->o('method_link_type'),
+                         'cesar_path' => $self->o('cesar_path'),
+                         'cesar_mem' => '35', # mem in GB to be used by cesar (parameter --max-memory)
+                         #TRANSCRIPT_FILTER => {
+                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+                         #  PARAMETERS => {
+                         #    -coverage => 50,
+                         #    -percent_id => 50,
+                         #  },
+                         #},
+                         'canonical' => 0,
+                         'canonical_or_longest' => 0,
+                         'stops2introns' => 1,
+                       },
+        -rc_name    => 'default_35GB',
+        -analysis_capacity => 100,
+        -max_retry_count => 1,
+        -can_be_empty  => 1,
+        -flow_into => {
+                        -1 => ['failed_cesar_himem'],
+                      },
+      },
+
+      {
+        -logic_name => 'cesar_65',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
+        -parameters => {
+                         'output_path' => $self->o('output_path')."/project_exons/",
+                         'source_dna_db' => $self->o('source_dna_db'),
+                         'target_dna_db' => $self->o('projection_dna_db'),
+                         'source_db' => $self->o('source_transcript_db'),
+                         'target_db' => $self->o('projection_db'),
+                         'compara_db' => $self->o('compara_db'),
+                         'method_link_type' => $self->o('method_link_type'),
+                         'cesar_path' => $self->o('cesar_path'),
+                         'cesar_mem' => '65', # mem in GB to be used by cesar (parameter --max-memory)
+                         #TRANSCRIPT_FILTER => {
+                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+                         #  PARAMETERS => {
+                         #    -coverage => 50,
+                         #    -percent_id => 50,
+                         #  },
+                         #},
+                         'canonical' => 0,
+                         'canonical_or_longest' => 0,
+                         'stops2introns' => 1,
+                       },
+        -rc_name    => 'default_65GB',
+        -analysis_capacity => 100,
+        -max_retry_count => 1,
+        -can_be_empty  => 1,
+        -flow_into => {
+                        -1 => ['failed_cesar_himem'],
+                      },
+      },
+
+      {
+        -logic_name => 'failed_cesar_himem',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name          => 'default',
+        -can_be_empty  => 1,
       },
     ];
   }
@@ -242,8 +363,11 @@ sub pipeline_wide_parameters {
 sub resource_classes {
     my $self = shift;
     return {
-      'default' => { LSF => '-M1900 -R"select[mem>1900] rusage[mem=1900]"' },
-      'default_20GB' => { LSF => '-M20000 -R"select[mem>20000] rusage[mem=20000]"' },
+      'default' => { LSF => '-M3000 -R"select[mem>3000] rusage[mem=3000]"' },
+      'default_15GB' => { LSF => '-M15000 -R"select[mem>15000] rusage[mem=15000]"' },
+      'default_25GB' => { LSF => '-M25000 -R"select[mem>25000] rusage[mem=25000]"' },
+      'default_35GB' => { LSF => '-M35000 -R"select[mem>35000] rusage[mem=35000]"' },
+      'default_65GB' => { LSF => '-M65000 -R"select[mem>65000] rusage[mem=65000]"' },
     }
   }
 
