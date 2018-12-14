@@ -660,12 +660,23 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
   my $fces_name_tmp = $outfile_path.".ces.tmp";
   my $fces_name = $outfile_path.".ces";
 
-  if ($cesar_output =~ /The memory consumption is limited/) {
+  if ($cesar_output =~ /Your attempt requires ([0-9]+)\./) {
+    # Parse error message from CESAR2.0 to retry the job according to the memory required:
+    # CRITICAL src/Cesar.c:117 main():  The memory consumption is limited to 20.0000 GB by default. Your attempt requires 73.6664 GB. You can change the limit via --max-memory.
     my $output_hash = {};
     push(@{$output_hash->{'iid'}},@{$self->parent_genes()}[$gene_index]->dbID());
 
-    $self->dataflow_output_id($output_hash,-1);
-    $self->warning("cesar command FAILED and it will be passed to cesar_himem: ".$cesar_command.". Gene ID: ".@{$self->parent_genes()}[$gene_index]->dbID()."\n");
+    if ($1 < 15) {
+      $self->dataflow_output_id($output_hash,15);
+    } elsif ($1 < 25) {
+      $self->dataflow_output_id($output_hash,25);
+    } elsif ($1 < 35) {
+      $self->dataflow_output_id($output_hash,35);
+    } else {
+      $self->dataflow_output_id($output_hash,55);
+    }
+    
+    $self->warning("cesar command FAILED and it will be passed to cesar_XXX: ".$cesar_command.". Gene ID: ".@{$self->parent_genes()}[$gene_index]->dbID()." CESAR output: ".$cesar_output."\n");
     say "projected exon will return -1";
     return (-1);
   } elsif ($cesar_output =~ /CRITICAL/) {
