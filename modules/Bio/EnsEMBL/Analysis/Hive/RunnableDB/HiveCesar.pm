@@ -666,18 +666,22 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
     my $output_hash = {};
     push(@{$output_hash->{'iid'}},@{$self->parent_genes()}[$gene_index]->dbID());
 
+    say "CESAR required memory estimate is greater than ".$1." GB.";
+
     if ($1 < 15) {
       $self->dataflow_output_id($output_hash,15);
     } elsif ($1 < 25) {
       $self->dataflow_output_id($output_hash,25);
     } elsif ($1 < 35) {
       $self->dataflow_output_id($output_hash,35);
+    } elsif ($1 < 80) {
+      $self->dataflow_output_id($output_hash,80);
     } else {
-      $self->dataflow_output_id($output_hash,55);
+      $self->dataflow_output_id($output_hash,-1);
     }
     
-    $self->warning("cesar command FAILED and it will be passed to cesar_XXX: ".$cesar_command.". Gene ID: ".@{$self->parent_genes()}[$gene_index]->dbID()." CESAR output: ".$cesar_output."\n");
-    say "projected exon will return -1";
+    $self->warning("cesar required memory estimate is greater than ".$1." GB. cesar command FAILED and it will be passed to either cesar_XXX or failed_cesar_himem: ".$cesar_command.". Gene ID: ".@{$self->parent_genes()}[$gene_index]->dbID()." CESAR output: ".$cesar_output."\n");
+    say "project_transcript will return -1";
     return (-1);
   } elsif ($cesar_output =~ /CRITICAL/) {
     $self->throw("cesar command FAILED: ".$cesar_command."\n");
