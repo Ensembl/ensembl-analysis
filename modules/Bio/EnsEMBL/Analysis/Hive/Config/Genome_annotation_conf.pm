@@ -3466,7 +3466,27 @@ sub pipeline_analyses {
         },
         -hive_capacity => 900,
         -rc_name    => 'transcript_finalisation',
+        -flow_into => { '-1' => 'run_cmsearch_highmem', '-2' => 'run_cmsearch_highmem'},
       },
+
+      {
+        -logic_name => 'run_cmsearch_highmem',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCMSearch',
+        -parameters => {
+                    output_db => $self->o('ncrna_db'),
+                    dna_db => $self->o('dna_db'),
+                    logic_name => 'ncrna',
+                    module     => 'HiveCMSearch',
+                    cmsearch_exe_path => $self->o('cmsearch_exe_path'),
+                    rfam_seeds => $self->o('rfam_seeds'),
+                    rfam_cm => $self->o('filtered_rfam_cm'),
+                    blast_db_dir_path => $self->o('ncrna_blast_path').'/',
+                    output_dir => $self->o('output_path'),
+        },
+        -hive_capacity => 900,
+        -rc_name    => '10GB',
+      },
+      }
 
 
       {
