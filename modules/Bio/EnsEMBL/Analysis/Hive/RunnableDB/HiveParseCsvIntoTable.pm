@@ -101,9 +101,14 @@ sub write_output {
 	my $split_fastq = $input_id->{filename};
 	$split_fastq =~ m/([A-Z0-9]+)_.*([0-9]\.fastq\.gz)/;
 	my $fastq = $1."_".$2;
+
+  if($1 eq ""){
+    $split_fastq =~ m/([a-zA-Z0-9]+)_.*([0-9]\.fq\.gz)/;
+    $fastq = $1."_".$2;
+  }
 	my $db_row = $length_table_adaptor->fetch_by_dbID($fastq);
 	my $read_length = $db_row->{read_length};
-
+  print("DEBUG:: $fastq \t $read_length \t $split_fastq \t $db_row->{DS}\n");
 	$input_id->{read_length} = $read_length;
 #finish get read_length from table
 

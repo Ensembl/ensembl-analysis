@@ -319,11 +319,18 @@ sub run {
       my %celltypes;
       foreach my $sample (keys %{$csv_data{$project}}) {
         next unless (exists $samples{$sample});
-        if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
+        eval {
+          if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
 #        if (exists $samples{$sample}->{dev_stage}) {
           next if ($samples{$sample}->{dev_stage} eq 'sexually immature stage');
           $dev_stages{$samples{$sample}->{dev_stage}} = 1;
-        }
+          }
+          };
+          if ($@) {
+            print("DEBUG:: " . $sample  . "\n");
+            next;
+          }
+
       }
       if (scalar(keys(%dev_stages)) > 1) {
         foreach my $sample (keys %{$csv_data{$project}}) {
@@ -342,13 +349,21 @@ sub run {
       else {
         foreach my $sample (keys %{$csv_data{$project}}) {
           next unless (exists $samples{$sample});
-          $samples{$sample}->{sample_name} = $samples{$sample}->{cellType} || $samples{$sample}->{organismPart} || $samples{$sample}->{sample_alias} || $samples{$sample}->{description};
-          if (!$samples{$sample}->{sample_name}) {
-            $self->throw('No sample name for '.$sample);
+          eval {
+            $samples{$sample}->{sample_name} = $samples{$sample}->{cellType} || $samples{$sample}->{organismPart} || $samples{$sample}->{sample_alias} || $samples{$sample}->{description};
+            if (!$samples{$sample}->{sample_name}) {
+              $self->throw('No sample name for '.$sample);
+            }
+            if ($samples{$sample}->{sex}) {
+              $samples{$sample}->{sample_name} = $samples{$sample}->{sex}.'_'.$samples{$sample}->{sample_name};
+            }
+          };
+
+          if ($@) {
+            print("DEBUG:: " . $sample  . "\n");
+            next;
           }
-          if ($samples{$sample}->{sex}) {
-            $samples{$sample}->{sample_name} = $samples{$sample}->{sex}.'_'.$samples{$sample}->{sample_name};
-          }
+
         }
       }
     }
@@ -395,6 +410,7 @@ sub write_output {
         my @checksums = split(';', $experiment->{fastq_md5});
         my $index = 0;
         foreach my $file (@files) {
+          eval {
           my (undef, undef, $filename) = splitpath($file);
           my $sample_name = $samples->{$sample}->{sample_name};
           $sample_name =~ s/\s+-\s+\w+:\w+$//;
@@ -426,6 +442,10 @@ sub write_output {
             $description,
           );
           push(@output_ids, {url => $file, download_method => $download_method, checksum => $checksums[$index++]});
+        };
+        if ($@) {
+          next;
+        }
         }
       }
     }
