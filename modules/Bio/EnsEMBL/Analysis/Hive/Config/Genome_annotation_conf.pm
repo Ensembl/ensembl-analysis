@@ -3088,7 +3088,7 @@ sub pipeline_analyses {
         fasta_filename => catfile($self->o('targetted_path'), 'best_targetted.fa'),
         email => $self->o('email_address'),
         genbank_file => $self->o('cdna_file'),
-        files => [catfile($self->o('targetted_path'), 'proteome.fa')],
+        protein_files => [catfile($self->o('targetted_path'), 'proteome.fa')],
       },
       -rc_name      => 'default',
       -flow_into => {
@@ -3486,7 +3486,6 @@ sub pipeline_analyses {
         -hive_capacity => 900,
         -rc_name    => '10GB',
       },
-      }
 
 
       {

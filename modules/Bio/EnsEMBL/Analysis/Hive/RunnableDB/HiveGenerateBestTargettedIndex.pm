@@ -144,12 +144,21 @@ sub _get_uniprot_accession {
     sleep $wait;
     $response = $ua->get($response->base);
   }
-  if ($response->is_success and $response->content =~ /^Entry/) {
-    my $result = $response->content;
-    while($result =~ /(\w+)\s+(\d+)\s+(\S+)/mgc) {
-     foreach my $acc (split(',', $3)) {
-       $missing{$acc} = "$1.$2";
-     }
+  if ($response->is_success ) {
+    if ($response->content =~ /^Entry/) {
+      my $result = $response->content;
+       while($result =~ /(\w+)\s+(\d+)\s+(\S+)/mgc) {
+        foreach my $acc (split(',', $3)) {
+          $missing{$acc} = "$1.$2";
+        }
+      }
+    }else{
+      my $uniparc_url = $response->request->uri;
+      $uniparc_url =~ s/uniprot\//uniparc\//;
+      my $uniparc_response = $ua->get($uniparc_url);
+      unless ($uniparc_response->is_success and $uniparc_response->content =~ /^Entry/) {
+        $self->throw($uniparc_response->status_line.' for '.$uniparc_response->request->uri."\n".$uniparc_response->content);
+      }
     }
   }
   else {
