@@ -37,6 +37,12 @@
   -stable_id  A boolean flag to indicate that the file specified in
               -idfile contains gene stable IDs.
   -all        A boolean flag to delete all genes in the db, no file needed
+  -update_stable_event Add the relevant rows into the mapping_session and
+              stable_id_event tables. It assumes that the name of the database
+              follows the Ensembl convention
+  -use_last_session This is usefull to delete a gene after a stable id mapping
+              has been run without having to rerun the mapping again.
+              Not recommended...
 =head1 EXAMPLES
 
   perl delete_genes.pl -dbhost my_host -dbuser ensadmin -dbpass **** \
@@ -68,6 +74,8 @@ my $pass;
 my $idfile;
 my $stable_id = 0;
 my $all = 0;
+my $update_stable_event = 0;
+my $use_last_session = 0;
 my $config_dbname;
 
 
@@ -79,6 +87,8 @@ GetOptions( 'dbhost|host|h:s'        => \$host,
             'idfile:s'        => \$idfile,
             'stable_id!'      => \$stable_id,
             'all!'      => \$all,
+            'update_stable_event!' => \$update_stable_event,
+            'use_last_session!' => \$use_last_session,
             'config_dbname:s' => \$config_dbname, );
 
 
@@ -99,6 +109,10 @@ if ($config_dbname) {
 }
 
 my $gene_adaptor = $db->get_GeneAdaptor;
+my $session_id;
+if ($update_stable_event) {
+  $session_id = get_mapping_session_id($db, $use_last_session);
+}
 
 if($idfile) {
 open(INFILE, "<$idfile") or die ("Can't read $idfile $! \n");
@@ -117,6 +131,9 @@ open(INFILE, "<$idfile") or die ("Can't read $idfile $! \n");
 
       # it seems that some xrefs might not be deleted when using this method
       # Could it be because the gene is lazy-loaded?
+      if ($update_stable_event) {
+        update_stable_event_data($gene, $session_id);
+      }
       $gene_adaptor->remove($gene);
       print STDERR "Deleted $gene_id\n";
     };
@@ -143,4 +160,95 @@ elsif($all) {
 
 else {
   die "No delete option was selected, either use -idfile or -all";
+}
+
+
+=head2 get_mapping_session_id
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Arg [2]    : Boolean
+ Description: Fetch the last session id from mapping_session.
+              If Arg[2] is true, simply use the latest session.
+              It will be created if it doesn't exist.
+              Otherwise create a new mapping session
+ Returntype : Int
+ Exceptions : Throws if the session id cannot be retrieved
+
+=cut
+
+sub get_mapping_session_id {
+  my ($db, $use_last_session) = @_;
+
+  my $session_id;
+  my $dbc = $db->dbc;
+  my $select_sth = $dbc->prepare('SELECT * FROM mapping_session ORDER BY mapping_session_id DESC LIMIT 1');
+  my @dbname = split('_', $dbc->dbname);
+  $dbname[-2]--; # we work on the assumption that it is a official Ensembl DB
+  my $last_dbname = join('_', @dbname);
+  if ($use_last_session) {
+    $select_sth->execute;
+    foreach my $row (@{$select_sth->fetchall_arrayref}) {
+      $session_id = $row->[0];
+    }
+  }
+  if (!$session_id) {
+    my $cs_version = $db->get_CoordSystemAdaptor->get_default_version;
+    my $insert_sth = $dbc->prepare(
+      'INSERT INTO mapping_session'.
+      ' (old_db_name, new_db_name, old_release, new_release, old_assembly, new_assembly, created)'.
+      ' VALUES (?, ?, ?, ?, ?, ?, NOW())'
+    );
+    $insert_sth->bind_param(1, join('_', @dbname));
+    $insert_sth->bind_param(2, $dbc->dbname);
+    $insert_sth->bind_param(3, $dbname[-2]);
+    $insert_sth->bind_param(4, $dbname[-2]+1);
+    $insert_sth->bind_param(5, $cs_version);
+    $insert_sth->bind_param(6, $cs_version);
+    $insert_sth->execute;
+    $select_sth->execute;
+    foreach my $row (@{$select_sth->fetchall_arrayref}) {
+      $session_id = $row->[0];
+    }
+  }
+  throw("'Could not retrieve a session id: '$session_id'") unless ($session_id and $session_id > 0);
+  return $session_id;
+}
+
+
+=head2 update_stable_event_data
+
+ Arg [1]    : Bio::EnsEMBL::Gene, it must have an adaptor
+ Arg [2]    : Int Session id
+ Description: Add the necesary rows to the stable_id_event
+              table for all translations, transcripts of the
+              gene and the gene itself.
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub update_stable_event_data {
+  my ($gene, $session_id) = @_;
+
+  my $set_sth = $gene->adaptor->db->dbc->prepare(
+    'INSERT INTO stable_id_event'.
+    ' (old_stable_id, old_version, mapping_session_id, type)'.
+    " VALUES (?, ?, $session_id, ?)"
+  );
+  foreach my $transcript (@{$gene->get_all_Transcripts}) {
+    if ($transcript->translation) {
+      $set_sth->bind_param(1, $transcript->translation->stable_id);
+      $set_sth->bind_param(2, $transcript->translation->version);
+      $set_sth->bind_param(3, 'translation');
+      $set_sth->execute;
+    }
+    $set_sth->bind_param(1, $transcript->stable_id);
+    $set_sth->bind_param(2, $transcript->version);
+    $set_sth->bind_param(3, 'transcript');
+    $set_sth->execute;
+  }
+  $set_sth->bind_param(1, $gene->stable_id);
+  $set_sth->bind_param(2, $gene->version);
+  $set_sth->bind_param(3, 'gene');
+  $set_sth->execute;
 }
