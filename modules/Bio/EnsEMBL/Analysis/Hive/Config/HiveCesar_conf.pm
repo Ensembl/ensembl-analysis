@@ -168,6 +168,7 @@ sub pipeline_analyses {
                          iid_type => 'feature_id',
                          batch_size => 20,
                          feature_type => 'gene',
+                         feature_id_include_non_reference => 0,
                          #feature_restriction => 'projection',
                          feature_restriction => 'biotype',
                          biotypes => {'protein_coding' => 1},
