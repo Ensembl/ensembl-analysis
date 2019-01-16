@@ -193,6 +193,7 @@ sub pipeline_analyses {
                          'method_link_type' => $self->o('method_link_type'),
                          'exon_region_padding' => 50,
                          'cesar_path' => $self->o('cesar_path'),
+                         'cesar_mem' => '3', # mem in GB to be used by cesar (parameter --max-memory)
                          #TRANSCRIPT_FILTER => {
                          #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
                          #  PARAMETERS => {
