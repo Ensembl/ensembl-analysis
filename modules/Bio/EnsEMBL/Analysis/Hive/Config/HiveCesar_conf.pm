@@ -51,6 +51,7 @@ sub default_options {
         # inherit other stuff from the base class
 	    %{ $self->SUPER::default_options() },
 
+'enscode_root_dir' => '/path/to/enscode/',
 'cesar_path' => '/path/to/CESAR2.0/',
 'user' => 'READ_USER',
 'user_r' => 'READ_USER',
@@ -58,6 +59,7 @@ sub default_options {
 'password' => 'WRITE_PASS',
 'driver' => $self->o('hive_driver'),
 'method_link_type' => 'LASTZ_NET', # no need to modify this
+'clone_db_script_path' => $self->o('enscode_root_dir').'/ensembl-analysis/scripts/clone_database.ksh', # no need to modify this
 
 # database details for the eHive pipe database
 'server1' => '',
@@ -141,7 +143,7 @@ sub pipeline_analyses {
 
     return [
 
-	    {
+      {
         -input_ids  => [ {} ],
         -logic_name => 'create_output_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
@@ -149,6 +151,10 @@ sub pipeline_analyses {
                          source_db => $self->o('projection_dna_db'),
                          target_db => $self->o('projection_db'),
                          create_type => 'clone',
+                         script_path => $self->o('clone_db_script_path'),
+                         user_r => $self->o('user_r'),
+                         user_w => $self->o('user_w'),
+                         pass_w => $self->o('password'),
                        },
         -rc_name    => 'default',
         -flow_into => { 1 => ['create_projection_input_ids'] },
