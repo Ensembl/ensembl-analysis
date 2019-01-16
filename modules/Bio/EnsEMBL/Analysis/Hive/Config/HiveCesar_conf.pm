@@ -206,7 +206,7 @@ sub pipeline_analyses {
                          'stops2introns' => 1,
                        },
         -rc_name    => 'default',
-        -analysis_capacity => 300,
+        -analysis_capacity => 100,
         -flow_into => {
                         -1 => ['cesar_himem'],
                       },
