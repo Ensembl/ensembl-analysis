@@ -1,5 +1,4 @@
 #!/usr/bin/env perl
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # Copyright [2016-2018] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -57,7 +56,7 @@ my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistr
   -host    => $assembly_registry_host,
   -port    => $assembly_registry_port,
   -user    => 'ensro',
-  -dbname  => 'do1_stable_id_space_assembly_registry');
+  -dbname  => 'gb_assembly_registry');
 
 my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -port    => 4240,
@@ -414,7 +413,7 @@ sub clade_settings {
     'rodents' => {
       'repbase_library'    => 'rodents',
       'repbase_logic_name' => 'rodents',
-      'uniprot_set'        => 'rodents_basic',
+      'uniprot_set'        => 'mammals_basic',
     },
 
     'mammals' => {
@@ -430,8 +429,8 @@ sub clade_settings {
     },
 
     'reptiles' => {
-      'repbase_library'    => 'Reptilia',
-      'repbase_logic_name' => 'reptiles',
+      'repbase_library'    => 'vertebrates',
+      'repbase_logic_name' => 'vertebrates',
       'uniprot_set'        => 'reptiles_basic',
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',

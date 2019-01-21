@@ -802,7 +802,7 @@ sub add_five_prime_utr {
     say "Acceptor original translation:\n".$old_translation;
     say "Acceptor current  translation:\n".$new_translation;
     if ($old_translation eq $new_translation && $modified_transcript->translate->seq eq $new_translation) {
-      $transcript_a->translation->start($transcript_a->translation->start+($transcript_a->start_Exon->phase == 1 ? 2 : 1));
+      $transcript_a->translation->start($transcript_a->translation->start+($transcript_a->start_Exon->phase > 0 and $transcript_a->start_Exon->phase == 1 ? 2 : 1));
       $transcript_a->start_Exon->phase(0);
     }
     else {

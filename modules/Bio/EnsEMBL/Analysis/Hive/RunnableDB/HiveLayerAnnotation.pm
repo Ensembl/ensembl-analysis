@@ -100,6 +100,7 @@ sub fetch_input {
         }
       }
     }
+    $dba->dbc->disconnect_if_idle();
   }
 
   # If there are no input genes then finish and don't flow

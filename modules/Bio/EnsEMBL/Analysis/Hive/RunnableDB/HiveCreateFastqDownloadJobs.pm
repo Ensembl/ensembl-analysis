@@ -41,8 +41,9 @@ sub write_output {
     my @output_ids;
     foreach my $fastq (@fastq_list){
       chomp $fastq;
-
-      push(@output_ids, {iid => $fastq})
+      if ($fastq ne ""){
+	push(@output_ids, {iid => $fastq})
+      }
     }
   $self->dataflow_output_id(\@output_ids, $self->param('fan_branch_code'));
   }
