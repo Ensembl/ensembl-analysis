@@ -207,10 +207,6 @@ sub write_output {
     $self->warning($msg)
   }
   
-  # there were cases where repeatmasker jobs failed, but reported successfull. 
-  if ($self->param('repeats_ratio') < 2 ) {   
-  	$self->throw('repeat coverage is very very low.'); 
-  }
   $self->dataflow_output_id({repeat_mask_coverage => $self->param('repeats_ratio')}, $self->param('_branch_to_flow_to'));
 }
 
