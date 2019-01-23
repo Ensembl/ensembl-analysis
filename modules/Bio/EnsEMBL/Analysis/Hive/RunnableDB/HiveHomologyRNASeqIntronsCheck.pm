@@ -103,6 +103,7 @@ sub run {
   my $intron_adaptor = $self->hrdb_get_con('intron_db')->get_DnaAlignFeatureAdaptor;
   my %good_introns;
   my $full_support_suffix = $self->param('full_support_suffix');
+
   foreach my $gene (@{$self->input_genes}) {
     my %introns;
     my $transcripts = $gene->get_all_Transcripts;
@@ -145,7 +146,7 @@ sub run {
           $transcript->biotype('genblast_rnaseq_top');
           $gene->biotype('genblast_rnaseq_top');
           $self->output([$gene]);
-	} elsif($intron_support_diff >= $high_count) {
+        } elsif($intron_support_diff >= $high_count) {
           $transcript->biotype('genblast_rnaseq_high');
           $gene->biotype('genblast_rnaseq_high');
           $self->output([$gene]);
@@ -173,6 +174,7 @@ sub run {
         else {
           $self->say_with_header('Gene '.$gene->display_id.' not fully supported');
         }
+        $self->output([$gene]);
       }
 
     } # End foreach my $transcript
