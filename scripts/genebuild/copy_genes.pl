@@ -150,6 +150,7 @@ my $clean_transcripts = 0;
 my $filter_on_overlap = 0;
 my $overlap_filter_type = 'genomic_overlap';
 my $filter_on_strand = 1;
+my $switch_coord_systems = 0;
 
 verbose('EXCEPTION');
 
@@ -185,7 +186,8 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'file:s'                               => \$infile,
             'filter_on_overlap:s'                  => \$filter_on_overlap,
             'overlap_filter_type:s'                => \$overlap_filter_type,
-            'filter_on_strand!'                    => \$filter_on_strand) ||
+            'filter_on_strand!'                    => \$filter_on_strand,
+            'switch_coord_systems!'                => \$switch_coord_systems) ||
   throw("Error while parsing command line options");
 
 if ($verbose) {
@@ -412,7 +414,13 @@ while (@gene_ids) {
     }
 
     if ( defined($gene) ) {
-      if ($filter_on_overlap) {
+      if ($switch_coord_systems) {
+        $gene = switch_coord_systems($gene,$outdb);
+        if($gene) {
+          empty_Gene($gene);
+          $outga->store($gene,1,0,$skip_exon_sf);
+        }
+      } elsif ($filter_on_overlap) {
         $gene = filter_on_overlap($gene,$overlap_filter_type,$outga);
         if($gene) {
           $outga->store($gene,1,0,$skip_exon_sf);
@@ -630,6 +638,26 @@ sub filter_on_overlap {
       throw("You have selected an unsupported overlap filter. Filter selected: ".$overlap_filter_type);
     }
   }
+
+  return($gene);
+}
+
+
+sub switch_coord_systens {
+  my ($gene,$outdb) = @_;
+
+  my $out_slice_adaptor = $outdb->get_SliceAdaptor();
+  my $gene_slice = $gene->slice;
+  my $gene_slice_name = $gene_slice->name;
+
+  my $out_slice = $out_slice_adaptor->fetch_by_name($gene_slice_name);
+
+  unless($out_slice->length == $gene_slice->length) {
+    throw("The length of the slice attached to the gene did not equal the slice with the same name on the output db:\n".
+          $gene_slice_name." (".$gene_slice->length.")\n".$out_slice->name." (".$out_slice->length.")");
+  }
+
+  $gene->attach_Slice_to_Gene($gene,$out_slice);
 
   return($gene);
 }
