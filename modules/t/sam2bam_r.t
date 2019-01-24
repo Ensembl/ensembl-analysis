@@ -28,7 +28,7 @@ use Bio::EnsEMBL::Analysis::Runnable::Sam2Bam;
 #Generating the data needed
 note('Preparing the data');
 my $accession = 'KQ759721.1';
-my $rest_url = "http://rest.ensembl.org/sequence/region/chicken/$accession?content-type=text/x-fasta";
+my $rest_url = "http://oct2018.rest.ensembl.org/sequence/region/chicken/$accession?content-type=text/x-fasta";
 my @samstring = (
 'ERR1298523.56710939/2	3	KQ759721.1	388	0	34M1330N66M	=	1	100	GGTGGGTTAGGGGTAGGGAAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGGTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGG	*	RG:Z:ERR1298523',
 'ERR1298571.10022360/1	3	KQ759721.1	1460	0	26M3382N35M1N5M1N22M78N12M	=	1	100	GCTTAGGGTTAGGGTTAGGGTTACGGTAGGGTTAGGGTTAGGATTAGGGTTAGGGTTAGGGTAGGGTAGGGTTAGGGTTAGCGTTAGGGGTTAGGGTTAG	*	RG:Z:ERR1298571',
@@ -77,7 +77,7 @@ close(RH) || die("Could not close $genomefile.tmp");
 close(WH) || die("Could not close $genomefile");
 unlink $genomefile.'.tmp';
 
-my $bam_url = 'http://ftp.ensembl.org/pub/current_data_files/gallus_gallus/Gallus_gallus-5.0/rnaseq/Gallus_gallus-5.0.Roslin.merged.1.bam';
+my $bam_url = 'http://ftp.ensembl.org/pub/release-94/bamcov/gallus_gallus/genebuild/Gallus_gallus-5.0.Roslin.merged.1.bam';
 my $command = "$samtools view -H $bam_url";
 my @headers;
 my $header_lcount = 0;
