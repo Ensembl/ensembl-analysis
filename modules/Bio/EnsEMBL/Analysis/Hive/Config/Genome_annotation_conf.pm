@@ -60,6 +60,7 @@ sub default_options {
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'taxon_id'                  => '', # should be in the assembly report file
+    'family_taxon_id'           => '', # Family level taxon id, used to get a family level csv file in case there is not enough species level transcriptomic data
     'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'wgs_id'                    => '', # Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
@@ -1018,7 +1019,7 @@ sub pipeline_analyses {
         },
 
         -flow_into => {
-           1 => ['create_core_db'],
+           1 => ['download_family_rnaseq_csv'],
          },
 
         -input_ids  => [
@@ -1028,6 +1029,22 @@ sub pipeline_analyses {
             assembly_refseq_accession => $self->o('assembly_refseq_accession'),
           },
         ]
+      },
+
+
+      {
+        -logic_name => 'download_family_rnaseq_csv',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+        -rc_name => '1GB',
+        -parameters => {
+          study_accession => $self->o('study_accession'),
+          taxon_id => $self->o('family_taxon_id'),
+          inputfile => $self->o('rnaseq_summary_file'),
+        },
+
+        -flow_into => {
+           1 => ['create_core_db'],
+         },
       },
 
 
