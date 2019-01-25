@@ -593,9 +593,15 @@ sub  hrdb_get_dba {
     my $uniq_id = join(':', $connection_info->{-host},
                             $connection_info->{-dbname},
                             $connection_info->{-port},
-                            $connection_info->{-user});
+                            $connection_info->{-user},
+                            $alternative_class || '');
     if (exists $self->{_gb_cache}->{'_cache_lastlogicname'}
         and $self->{_gb_cache}->{'_cache_lastlogicname'} ne $self->input_job->analysis->logic_name) {
+      # Might not be needed as the objects cold be destroyed when we delete the hash
+      foreach my $key (keys %{$self->{_gb_cache}}) {
+        next if ($key eq '_cache_lastlogicname');
+        $self->{_gb_cache}->{$key}->dbc->disconnect_when_inactive(1);
+      }
       delete $self->{_gb_cache};
     }
     if (!exists $self->{_gb_cache}->{'_cache_dba_'.$uniq_id}) {
