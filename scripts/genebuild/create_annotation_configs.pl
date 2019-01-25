@@ -1,6 +1,5 @@
 #!/usr/bin/env perl
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2017-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,13 +39,14 @@ my $ftppassword = "";
 my $assembly_registry_host = $ENV{GBS5};
 my $assembly_registry_port = $ENV{GBP5};
 my $force_init = 0;
-
+my $check_for_transcriptomic = 0;
 
 GetOptions('config_file:s' => \$config_file,
            'config_only!'  => \$config_only,
            'assembly_registry_host:s' => \$assembly_registry_host,
            'assembly_registry_port:s' => \$assembly_registry_port,
            'force_init!' => \$force_init,
+           'check_for_transcriptomic!' => \$check_for_transcriptomic,
           );
 
 unless(-e $config_file) {
@@ -57,7 +57,7 @@ my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistr
   -host    => $assembly_registry_host,
   -port    => $assembly_registry_port,
   -user    => 'ensro',
-  -dbname  => 'do1_stable_id_space_assembly_registry');
+  -dbname  => 'gb_assembly_registry');
 
 my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -port    => 4240,
@@ -261,8 +261,19 @@ foreach my $accession (@accession_array) {
     }
     my $return = system($sync_command);
     if($return) {
-      die "Failed to sync the pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd;
+      die "Failed to sync the pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$sync_command;
     }
+
+
+    if($check_for_transcriptomic) {
+      my $run_command = $sync_command;
+      $run_command =~ s/\-sync/\-run/;
+      my $return = system($run_command);
+      if($return) {
+        die "Failed to run a loop the pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$run_command;
+      }
+    }
+
 
     my $loop_command = $sync_command;
     $loop_command =~ s/sync/loop \-sleep 0.3/;
