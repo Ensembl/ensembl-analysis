@@ -78,6 +78,7 @@ use vars qw (@ISA  @EXPORT);
              print_Gene 
              print_Gene_Transcript_and_Exons
              prune_Exons
+             remove_Transcript_from_Gene
             );
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
@@ -705,5 +706,37 @@ sub get_readthroughs_count {
   }
   return $readthrough_transcripts;
 }
+
+
+=head2 remove_Transcript_from_Gene
+
+ Arg [1]    : Bio::EnsEMBL::Gene, gene to remove a transcript from
+ Arg [2]    : Bio::EnsEMBL::Transcript, transcript to remove from the gene
+ Arg [3]    : Hashref of String (optional), Hash of biotypes which are not to be removed
+ Description: Remove a transcript from a gene.
+              You should use this method if the objects are not in a database or if you
+              do not want the gene coordinates to be updated in the source database.
+              Otherwise you might want to use: $gene->remove_Transcript($transcript)
+ Returntype : Boolean, 1 if the transcript has been removed, 0 if the transcript is blessed
+ Exceptions : None
+
+=cut
+
+sub remove_Transcript_from_Gene {
+  my ($gene, $transcript_to_delete, $blessed_biotypes) = @_;
+
+  if ($blessed_biotypes and exists $blessed_biotypes->{$transcript_to_delete->biotype}) {
+    return 0;
+  }
+  my $transcripts = $gene->get_all_Transcripts;
+  $gene->flush_Transcripts;
+  foreach my $transcript (@$transcripts) {
+    if ($transcript != $transcript_to_delete) {
+      $gene->add_Transcript($transcript);
+    }
+  }
+  return 1;
+}
+
 
 1; 
