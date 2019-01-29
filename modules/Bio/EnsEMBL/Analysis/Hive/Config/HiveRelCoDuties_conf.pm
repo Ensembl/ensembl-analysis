@@ -376,6 +376,7 @@ sub pipeline_analyses {
             ' -refseqhost #expr(#refseq_db#->{-host})expr#'.
             ' -refsequser #expr(#refseq_db#->{-user})expr#'.
             ' -refseqport #expr(#refseq_db#->{-port})expr#'.
+            ' -refseqpass #expr(#refseq_db#->{-pass})expr#'.
             ' -refseqdbname #expr(#refseq_db#->{-dbname})expr#'.
             ' -coord_system_version #cs_name#'.
             ' -refseq_logicname #refseq_logicname#'.
@@ -501,7 +502,6 @@ sub pipeline_analyses {
             ' -dna_dbname #expr(#target_db#->{-dbname})expr#'.
             ' -primary_set_name #primary_set_name#'.
             ' -secondary_set_name #secondary_set_name#'.
-            ' -outfile_dir '.$self->o('working_dir').
             ' -iid #iid#'.
             ' -write',
           primary_set_name => 'Ensembl',
@@ -534,7 +534,6 @@ sub pipeline_analyses {
             ' -dna_port #expr(#target_db#->{-port})expr#'.
             ' -primary_set_name #primary_set_name#'.
             ' -secondary_set_name #secondary_set_name#'.
-            ' -outfile_dir '.$self->o('working_dir').
             ' -iid #iid#'.
             ' -write',
           primary_set_name => 'RefSeq',

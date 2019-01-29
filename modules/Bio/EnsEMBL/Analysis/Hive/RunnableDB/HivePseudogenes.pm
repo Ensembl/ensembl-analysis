@@ -82,15 +82,30 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes;
 use strict;
 use warnings;
 use feature 'say';
-use Data::Dumper;
 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Runnable::Pseudogene;
-use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
-our @EXPORT_OK = qw(_remove_transcript_from_gene);
 
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters for the module
+               _repeat_class => {},
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    _repeat_class => {},
+  }
+}
 =head2 fetch_input
 
   Title   :   fetch_input
@@ -121,60 +136,54 @@ sub fetch_input {
     $output_dba->dnadb($dna_dba);
   }
 
-  $self->hrdb_set_con($input_dba,'input_gene_db');
-  $self->hrdb_set_con($repeat_dba,'repeat_db');
   $self->hrdb_set_con($output_dba,'output_db');
+  my $slices = $input_dba->get_SliceAdaptor->fetch_all('toplevel');
+  foreach my $slice (@$slices) {
+    my $genes = $slice->get_all_Genes;
+    my $repeat_slice_adaptor = $repeat_dba->get_SliceAdaptor;
+    if (@$genes) {
+      foreach my $gene (@$genes) {
+        if ($gene->biotype eq 'protein_coding') {
+          $self->runnable($self->make_runnable($gene,$repeat_slice_adaptor));
+        }
+        else {
+          $self->warning('Skipping gene '.$gene->dbID.' with biotype '.$gene->biotype);
+          $self->output([$gene]);
+        }
+      }
+    }
+  }
 
-  my $gene_adaptor = $input_dba->get_GeneAdaptor;
-  my $genes = $gene_adaptor->fetch_all();
-  $self->genes($genes);
 
-  return 1;
 } ## end sub fetch_input
 
 
 sub run {
   my ($self) = @_;
 
-  my $genes = $self->genes();
-  unless(scalar(@$genes)) {
-    $self->throw("No genes to input to module");
-  }
-
   my $output_path = $self->param('output_path');
   unless(open(OUT,">".$output_path."/all_multi_exon_genes.fasta")) {
     $self->throw("Could not create all_multi_exon_genes.fasta for writing. Path used:\n".$output_path."/all_multi_exon_genes.fasta")
   }
 
-  my $repeat_dba = $self->hrdb_get_con('repeat_db');
-  my $repeat_slice_adaptor = $repeat_dba->get_SliceAdaptor();
-  foreach my $gene (@$genes) {
-    say "Processing gene: ".$gene->dbID();
-
-    # Skip things that are not explicitly protein coding
-    if($gene->biotype ne 'protein_coding') {
-      "Say skipping gene ".$gene->dbID." with biotype ".$gene->biotype;
-      $self->output([$gene]);
-      next;
-    }
-
-    my $runnable = $self->make_runnable($gene,$repeat_slice_adaptor);
-    $runnable->run();
-    $self->output($runnable->output());
-
+  foreach my $runnable (@{$self->runnable}) {
     if($self->SINGLE_EXON) {
-      if(scalar(@{$gene->get_all_Exons}) == 1) {
-        say "Will analyse ".$gene->dbID." in spliced elsewhere";
-      } else {
-        my $transcripts = $gene->get_all_Transcripts;
-        foreach my $transcript (@$transcripts) {
-          say OUT ">".$transcript->dbID;
-          say OUT $transcript->translateable_seq();
+      foreach my $gene (@{$runnable->genes}) {
+        if(scalar(@{$gene->get_all_Exons}) == 1) {
+          say "Will analyse ".$gene->dbID." in spliced elsewhere";
+        } else {
+          my $transcripts = $gene->get_all_Transcripts;
+          foreach my $transcript (@$transcripts) {
+            say OUT ">".$transcript->dbID;
+            say OUT $transcript->translateable_seq();
+          }
         }
       }
     }
+    $runnable->run();
+    $self->output($runnable->output());
   }
-  close OUT;
+  close(OUT) || $self->throw("Could not close $output_path/all_multi_exon_genes.fasta");
 }
 
 sub make_runnable {
@@ -183,22 +192,17 @@ sub make_runnable {
   my $gene_slice = $gene->slice();
   my $repeat_blocks;
 
-
   # due to offset with repeat features
-  my $toplevel_slice = $repeat_slice_adaptor->fetch_by_region( 'toplevel', $gene_slice->seq_region_name);
-  my $transferred_gene = $gene->transfer($toplevel_slice);
-  my $repeat_slice = $repeat_slice_adaptor->fetch_by_region('toplevel', $gene_slice->seq_region_name,$transferred_gene->start,$transferred_gene->end);
+  my $repeat_slice = $repeat_slice_adaptor->fetch_by_region('toplevel', $gene_slice->seq_region_name, $gene->seq_region_start, $gene->seq_region_end);
 
-  my @feats = @{$repeat_slice->get_all_RepeatFeatures};
-  @feats = map { $_->transfer($toplevel_slice) } @feats;
-  my $blocks = $self->get_all_repeat_blocks(\@feats);
+  my $blocks = $self->_get_all_repeat_blocks($repeat_slice, $gene_slice);
   # make hash of repeat blocks using the gene as the key
-  $repeat_blocks->{$transferred_gene} = $blocks;
+  $repeat_blocks->{$gene} = $blocks;
 
   my $runnable =
     Bio::EnsEMBL::Analysis::Runnable::Pseudogene->new(
            -analysis                    => $self->analysis,
-           -genes                       => [$transferred_gene],
+           -genes                       => [$gene],
            -repeat_features             => $repeat_blocks,
            -PS_REPEAT_TYPES             => $self->PS_REPEAT_TYPES,
            -PS_FRAMESHIFT_INTRON_LENGTH => $self->PS_FRAMESHIFT_INTRON_LENGTH,
@@ -224,31 +228,28 @@ sub make_runnable {
 } ## end sub make_runnable
 
 
-=head2 get_all_repeat_blocks
 
-  Args       : none
-  Description: merges repeats into blocks for each gene
-  Returntype : array of Seq_Feature blocks;
+=head2 _get_all_repeat_blocks
+
+ Arg [1]    : Bio::EnsEMBL::Slice, it needs to be able to fetch repeats
+ Arg [2]    : Bio::EnsEMBL::Slice, slice of the gene to process
+ Description: Fetch all the repeats from the database using only the ones
+              which are from the classes in PS_REPEAT_TYPES and creates
+              blocks of repeats for further analyses.
+ Returntype : Arrayref of Bio::EnsEMBL::Feature
+ Exceptions : None
 
 =cut
 
-sub get_all_repeat_blocks {
-  my ( $self, $repeat_ref ) = @_;
+sub _get_all_repeat_blocks {
+  my ($self, $repeat_slice, $gene_slice) = @_;
+
   my @repeat_blocks;
-  my @repeats = @{$repeat_ref};
-  @repeats = sort { $a->start <=> $b->start } @repeats;
+  my @repeats = sort {$a->start <=> $b->start} @{$repeat_slice->get_all_RepeatFeatures};
   my $curblock = undef;
 
 REPLOOP: foreach my $repeat (@repeats) {
-    my $rc  = $repeat->repeat_consensus;
-    my $use = 0;
-    foreach my $type ( @{ $self->PS_REPEAT_TYPES } ) {
-      if ( $rc->repeat_class =~ /$type/ ) {
-        $use = 1;
-        last;
-      }
-    }
-    next REPLOOP unless $use;
+    next REPLOOP unless ($self->_is_repeat_useable($repeat->repeat_consensus->repeat_class));
     if ( $repeat->start <= 0 ) {
       $repeat->start(1);
     }
@@ -265,9 +266,38 @@ REPLOOP: foreach my $repeat (@repeats) {
       push( @repeat_blocks, $curblock );
     }
   } ## end foreach my $repeat (@repeats)
-  @repeat_blocks = sort { $a->start <=> $b->start } @repeat_blocks;
+  @repeat_blocks = map { $_->transfer($gene_slice) } @repeat_blocks;
   return \@repeat_blocks;
 } ## end sub get_all_repeat_blocks
+
+
+=head2 _is_repeat_useable
+
+ Arg [1]    : String, name of the repeat class
+ Description: It checks against a chache and the list of repeats
+              which can produce pseudogenes to know if the repeat
+              should be checked against a gene.
+ Returntype : Boolean, 1 if the repeat should be used, 0 otherwise
+ Exceptions : None
+
+=cut
+
+sub _is_repeat_useable {
+  my ($self, $repeat_class) = @_;
+
+  if (exists $self->param('_repeat_class')->{$repeat_class}) {
+    return 1;
+  }
+
+  foreach my $type (@{$self->PS_REPEAT_TYPES}) {
+    if ($repeat_class =~ /$type/) {
+      $self->param('_repeat_class')->{$repeat_class} = 1;
+      return 1;
+    }
+  }
+  return 0;
+}
+
 
 =head2 write_output
 
@@ -311,7 +341,7 @@ sub lazy_load {
   my ($self, $gene) = @_;
   if ($gene){
     unless ($gene->isa("Bio::EnsEMBL::Gene")){
-      throw("gene is not a Bio::EnsEMBL::Gene, it is a $gene");
+      $self->throw("gene is not a Bio::EnsEMBL::Gene, it is a $gene");
     }
     foreach my $trans(@{$gene->get_all_Transcripts}){
       my $transl = $trans->translation; 
@@ -324,34 +354,6 @@ sub lazy_load {
   return $gene;
 }
 
-=head2 _remove_transcript_from_gene
-
-  Args       : Bio::EnsEMBL::Gene object , Bio::EnsEMBL::Transcript object
-  Description: steves method for removing unwanted transcripts from genes
-  Returntype : scalar
-
-=cut
-
-sub _remove_transcript_from_gene {
-  my ($self, $gene, $trans_to_del)  = @_;
-  # check to see if it is a blessed transcript first
-  return 'BLESSED' if $self->BLESSED_BIOTYPES->{$trans_to_del->biotype};
-  my @newtrans;
-  foreach my $trans (@{$gene->get_all_Transcripts}) {
-    if ($trans != $trans_to_del) {
-      push @newtrans,$trans;
-    }
-  }
-
-  # The naughty bit!
-  $gene->{_transcript_array} = [];
-
-  foreach my $trans (@newtrans) {
-    $gene->add_Transcript($trans);
-  }
-
-  return;
-}
 
 =head2 transcript_to_keep
 

@@ -89,6 +89,8 @@ our @EXPORT_OK = qw(
               parse_timer
               is_slice_name
               get_database_from_registry
+              get_biotype_groups
+              get_feature_name
               );
 
 
@@ -1363,6 +1365,72 @@ sub get_database_from_registry {
     $db = $registry->get_DBAdaptor($species, $type);
   }
   return $db;
+}
+
+
+=head2 get_biotype_groups
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor, your database should have a biotype table
+ Arg [2]    : String, database type, default to core
+ Description: Retrieve all biotypes for a certain database type from the biotype table
+              which is synchronised with the ensembl_production database.
+ Returntype : Hashref, key is biotype, value is biotype_group
+ Exceptions : Throws if Arg[1] is not a Bio::EnsEMBL::DBSQL::DBAdaptor
+
+=cut
+
+sub get_biotype_groups {
+  my ($db, $db_type) = @_;
+
+  $db_type = 'core' unless ($db_type);
+  throw('Bio::EnsEMBL::DBSQL::DBAdaptor needed, not '.ref($db)) unless (ref($db) eq 'Bio::EnsEMBL::DBSQL::DBAdaptor');
+  my %biotype2group;
+
+  # list all biotypes
+  # and tag them by the group they belong to
+  my $biotype_adaptor = $db->get_BiotypeAdaptor;
+  foreach my $biotype (@{$biotype_adaptor->fetch_all}) {
+    if ($biotype->{db_type} =~ /$db_type/ and $biotype->{db_type} !~ /$db_type\w+/) {
+      $biotype2group{$biotype->name} = $biotype->biotype_group;
+    }
+  }
+
+  return \%biotype2group;
+}
+
+=head2 get_feature_name
+
+ Arg [1]    : Bio::EnsEMBL::Transcript
+ Description: This method is mostly for the Ensembl RefSeq comparison scripts.
+              It will find the stable id for the feature. If it is an Ensembl
+              feature, it will return the stable id. If it is a RefSeq model
+              if will try to get the display_xref then the EntrezGene id. If it
+              cannot find anything it return the stable id which will be the id
+              in the GFF file
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub get_feature_name {
+  my ($feature) = @_;
+
+  my $name = $feature->stable_id;
+  if (!($name =~ /^ENS\w+/ or $name =~ /^[NX][MR]_\d+/)) {
+    if ($feature->display_xref) {
+      $name = $feature->display_xref->display_id;
+    }
+    if (!$name) {
+      my $dbentries = $feature->get_all_DBEntries('EntrezGene');
+      if (@$dbentries) {
+        $name = $dbentries->[0]->display_id;
+      }
+      if (!$name) {
+        $name = $feature->stable_id;
+      }
+    }
+  }
+  return $name;
 }
 
 1;

@@ -108,6 +108,53 @@ sub fetch_input{
   my $daf_adaptor = $output_dba->get_DnaAlignFeatureAdaptor;
 
 
+  my $mirna_filtered_ids = $self->filter_mirna_hits($output_dba,$daf_adaptor);
+
+
+  say "Filtered miRNA count: ".scalar(@{$mirna_filtered_ids});
+
+  $self->final_mirna_db_ids($mirna_filtered_ids);
+
+  return 1;
+}
+
+=head2 fetch_input
+
+  Title   :   fetch_input_deprecated // removed 12/2018
+  Usage   :   $self->fetch_input
+  Function:   Opens connections to the final gene build database to store the genes in.
+          :   Also opens connection to the genebuild DNA database to fetch DNA from.
+          :   Parses flags use as input_ids and fetches dna_align_features to run cmsearch
+          :   on.
+  Returns :   none
+  Args    :   none
+
+=cut
+
+sub fetch_input_deprecated{
+  my ($self)=@_;
+
+  my $analysis = new Bio::EnsEMBL::Analysis(
+                                             -logic_name => $self->param('logic_name'),
+                                             -module => $self->param('module'),
+                                           );
+  $self->analysis($analysis);
+
+
+  # The output db should be the one that the dafs to check have been written to
+  my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
+  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+
+
+  if($dna_dba) {
+    $output_dba->dnadb($dna_dba);
+  }
+
+  $self->hrdb_set_con($output_dba,'output_db');
+
+  my $daf_adaptor = $output_dba->get_DnaAlignFeatureAdaptor;
+
+
   my $rfam_filtered_ids = $self->filter_rfam_hits($output_dba,$daf_adaptor);
   my $mirna_filtered_ids = $self->filter_mirna_hits($output_dba,$daf_adaptor);
 
@@ -146,8 +193,44 @@ sub run{
   Returntype : scalar
 
 =cut
-
 sub write_output{
+  my ($self) = @_;
+
+  my $mirna_db_ids = $self->final_mirna_db_ids();
+
+  my $mirna_batch = [];
+  my $mirna_batch_size = 1000;
+  my $batch_count = 0;
+  my $output_hash = {};
+  my $mirna_branch_code = 2;
+
+  # Should put these into a single sub that takes in the ids, the branch code and the batch size at some point
+  foreach my $output_id (@{$mirna_db_ids}) {
+    if($batch_count == $mirna_batch_size) {
+      $output_hash = {};
+      $output_hash->{'iid'} = $mirna_batch;
+      $self->dataflow_output_id($output_hash,$mirna_branch_code);
+      $mirna_batch = [];
+      push(@{$mirna_batch},$output_id);
+      $batch_count = 1;
+    } else {
+      push(@{$mirna_batch},$output_id);
+      $batch_count++;
+    }
+  }
+
+  # Send out last batch
+  if(scalar(@{$mirna_batch})) {
+    $output_hash = {};
+    $output_hash->{'iid'} = $mirna_batch;
+    $self->dataflow_output_id($output_hash,$mirna_branch_code);
+  }
+
+
+  return 1;
+}
+
+sub write_output_deprecated{
   my ($self) = @_;
 
   my $mirna_db_ids = $self->final_mirna_db_ids();

@@ -686,8 +686,16 @@ sub run {
       }
       foreach my $transcript (@{$gene->get_all_Transcripts}) {
         compute_translation($transcript);
-        if ($transcript->end_Exon != $transcript->translation->end_Exon) {
-          $gene->biotype($NMD_biotype.(exists $gene->{nc_count} ? '_'.$gene->{nc_count} : '')) if (($transcript->translation->end_Exon->length-$transcript->translation->end) > 50);
+        if (defined($transcript->translation)) {
+          if ($transcript->end_Exon != $transcript->translation->end_Exon) {
+            $gene->biotype($NMD_biotype.(exists $gene->{nc_count} ? '_'.$gene->{nc_count} : '')) if (($transcript->translation->end_Exon->length-$transcript->translation->end) > 50);
+          }
+        } else {
+          if ( (scalar(@{$transcript->get_all_Exons}) <2) or ($transcript->length()<90) ) {
+            print STDERR "single exon without translation or short (less than 90bp) multiexon \n";
+          } else {
+            $self->throw('Multiexon_without_translation'); 
+          }
         }
       }
       push(@final_step, $gene);

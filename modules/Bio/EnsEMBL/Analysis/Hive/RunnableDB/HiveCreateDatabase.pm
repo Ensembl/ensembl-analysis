@@ -84,6 +84,8 @@ sub param_defaults {
       'intron_supporting_evidence',
     ],
     vital_tables => vital_tables(),
+    use_bash_pipefail => 1,
+    use_bash_errexit => 1,
   }
 }
 
@@ -179,9 +181,13 @@ sub fetch_input {
 sub run {
   my $self = shift;
 
+  my $command_options = {
+    use_bash_pipefail => $self->param('use_bash_pipefail'),
+    use_bash_errexit => $self->param('use_bash_errexit'),
+  };
   foreach my $cmd (@{$self->param('commands')}) {
     $self->say_with_header($cmd);
-    if ($self->run_system_command($cmd)) {
+    if ($self->run_system_command($cmd, $command_options)) {
       $self->throw("Could not execute '$cmd'");
     }
   }

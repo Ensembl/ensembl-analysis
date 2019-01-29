@@ -144,16 +144,38 @@ sub _get_uniprot_accession {
     sleep $wait;
     $response = $ua->get($response->base);
   }
-  if ($response->is_success and $response->content =~ /^Entry/) {
-    my $result = $response->content;
-    while($result =~ /(\w+)\s+(\d+)\s+(\S+)/mgc) {
-     foreach my $acc (split(',', $3)) {
-       $missing{$acc} = "$1.$2";
-     }
+  if ($response->is_success ) {
+    if ($response->content =~ /^Entry/) {
+      my $result = $response->content;
+      while($result =~ /(\w+)\s+(\d+)\s+(\S+)/mgc) {
+        foreach my $acc (split(',', $3)) {
+          $missing{$acc} = "$1.$2";
+        }
+      }
     }
-  }
-  else {
-    $self->throw($response->status_line.' for '.$response->request->uri."\n".$response->content);
+    else {
+      $response = $ua->post($query_url, $params);
+      my $url_edit = $response->request->uri; 
+      $url_edit =~ s/https:\/\/www.uniprot.org\/uniprot/https:\/\/www.uniprot.org\/uniparc/; 
+      my $new_response = $ua->post($url_edit); 
+      while (my $wait = $new_response->header('Retry-After')) {
+        sleep $wait;
+        $new_response = $ua->get($new_response->base);
+      }
+      if ($new_response->content =~ /^Entry/) {
+        my $result = $new_response->content;
+        while($result =~ /(\w+)\s+(\d+)\s+(\S+)/mgc) {
+          foreach my $acc (split(',', $3)) {
+            $missing{$acc} = "$1.$2";
+          }
+        }
+      }  
+      else {
+        # I tried hard to get this id but I failed. Check what is the issue. 
+      	$self->throw('Cannot find ids. The response is: '. $response->status_line.' for '.$response->request->uri.
+      	  ' and the content \n'. $response->content . '\n Also check ' . $url_edit . 'but nothing');
+      }
+    }
   }
   foreach my $seq (@$seqs) {
     $seq->desc($missing{$seq->desc}) if (exists $missing{$seq->desc});
