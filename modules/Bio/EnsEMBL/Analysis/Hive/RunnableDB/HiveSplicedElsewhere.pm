@@ -76,10 +76,9 @@ use warnings ;
 use strict;
 use feature 'say';
 
-use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes qw(_remove_transcript_from_gene);
 use Bio::EnsEMBL::Analysis::Runnable::HiveSplicedElsewhere;
 use Bio::EnsEMBL::Analysis::Runnable::BaseExonerate; 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene remove_Transcript_from_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(clone_Transcript);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -367,15 +366,12 @@ sub parse_results{
     unless (defined($trans_type{'real'})) {
       # if all transcripts are pseudo get label the gene as a pseudogene
       my $gene = $ga->fetch_by_transcript_id($trans_type{'pseudo'}[0]->dbID);
-      my @pseudo_trans = @{$gene->get_all_Transcripts};
-      @pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
+      my @pseudo_trans = sort {$a->length <=> $b->length} @{$gene->get_all_Transcripts};
       my $only_transcript_to_keep = pop  @pseudo_trans;
       foreach my $pseudo_transcript (@pseudo_trans) {
-        my $blessed = $self->_remove_transcript_from_gene($gene,$pseudo_transcript);
-	    if ( $blessed ) {
-	      print STDERR "Blessed transcript " . $pseudo_transcript->display_id . 
-	       " is a retro transcript \n";
-	    }
+        if (!remove_Transcript_from_Gene($gene, $pseudo_transcript, $self->BLESSED_BIOTYPES)) {
+          print STDERR "Blessed transcript ".$pseudo_transcript->display_id." is a retro transcript\n";
+        }
       }
 
       my $new_gene = Bio::EnsEMBL::Gene->new();
@@ -407,46 +403,6 @@ sub parse_results{
   }
   return 1; 
 }
-
-
-
-=head2 _remove_transcript_from_gene
-
-  Args       : Bio::EnsEMBL::Gene object , Bio::EnsEMBL::Transcript object
-  Description: steves method for removing unwanted transcripts from genes
-  Returntype : scalar
-
-=cut
-
-=head2 _remove_transcript_from_gene
-
-  Args       : Bio::EnsEMBL::Gene object , Bio::EnsEMBL::Transcript object
-  Description: steves method for removing unwanted transcripts from genes
-  Returntype : scalar
-
-=cut
-
-sub _remove_transcript_from_gene {
-  my ($self, $gene, $trans_to_del)  = @_;
-  # check to see if it is a blessed transcript first
-  return 'BLESSED' if $self->BLESSED_BIOTYPES->{$trans_to_del->biotype};
-  my @newtrans;
-  foreach my $trans (@{$gene->get_all_Transcripts}) {
-    if ($trans != $trans_to_del) {
-      push @newtrans,$trans;
-    }
-  }
-
-  # The naughty bit!
-  $gene->{_transcript_array} = [];
-
-  foreach my $trans (@newtrans) {
-    $gene->add_Transcript($trans);
-  }
-
-  return;
-}
-
 
 
 sub BLESSED_BIOTYPES{

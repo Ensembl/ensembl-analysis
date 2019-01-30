@@ -89,6 +89,8 @@ foreach my $initial_gene (@{$initial_genes}) {
   my $transcripts = $initial_gene->get_all_Transcripts();
   if(scalar(@$transcripts > 1)) {
     throw("Found a multi-transcript gene with dbID ".$initial_gene->dbID.". The script is built for single transcript genes");
+  }elsif(scalar(@$transcripts < 1)) {
+    throw("Found a gene with no transcripts, dbID ".$initial_gene->dbID."\n");
   }
 
   my $initial_transcript = shift(@{$transcripts});

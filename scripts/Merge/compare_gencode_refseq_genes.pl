@@ -67,7 +67,7 @@ use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Attribute;
 use Getopt::Long;
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(is_slice_name);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(is_slice_name get_biotype_groups);
 
 # ensembl genes and dna 
 my $ensemblhost;
@@ -81,18 +81,21 @@ my $refseqhost;
 my $refsequser; 
 my $refseqdbname;
 my $refseqport;  
+my $refseqpass;
 
 # dna genes
 my $dnahost;
 my $dnauser; 
 my $dnadbname; 
 my $dnaport;  
+my $dnapass;
 
 # biotype groupings
 my $productionhost; 
 my $productionuser; #'ensro';
 my $productionport; # 3306;
 my $productiondbname; # 'ensembl_production';
+my $productionpass;
 
 # output
 my $outfile = 'stdout';
@@ -128,15 +131,18 @@ $| = 1;
   'refseqhost:s'           => \$refseqhost,
   'refsequser:s'           => \$refsequser,
   'refseqport:s'           => \$refseqport,
+  'refseqpass:s'           => \$refseqpass,
   'refseqdbname:s'         => \$refseqdbname,
   'dnahost:s'              => \$dnahost,
   'dnauser:s'              => \$dnauser,
   'dnadbname:s'            => \$dnadbname,
   'dnaport:s'              => \$dnaport,
+  'dnapass:s'              => \$dnapass,
   'prodhost:s'              => \$productionhost,
   'produser:s'              => \$productionuser,
   'proddbname:s'            => \$productiondbname,
   'prodport:s'              => \$productionport,
+  'prodpass:s'              => \$productionpass,
   'coord_system_version:s' => \$coord_system_version,
   'refseq_logicname:s'     => \$refseq_logicname,
   'outfile:s'              => \$outfile,
@@ -184,8 +190,9 @@ my $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -user   => $dnauser,
   -port   => $dnaport,
   -dbname => $dnadbname,
+  -pass   => $dnapass,
+
 );
-my $dnasa   = $dnadb->get_SliceAdaptor();
 
 my $ensembldb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -host   => $ensemblhost,
@@ -196,7 +203,6 @@ my $ensembldb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 );
 $ensembldb->dnadb($dnadb);
 my $ensemblsa = $ensembldb->get_SliceAdaptor();
-my $ensemblga = $ensembldb->get_GeneAdaptor();
 my $ensemblaa = $ensembldb->get_AttributeAdaptor();
 
 my $refseqdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
@@ -204,6 +210,7 @@ my $refseqdb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -user   => $refsequser,
   -port   => $refseqport,
   -dbname => $refseqdbname,
+  -pass   => $refseqpass,
 );
 $refseqdb->dnadb($dnadb);
 my $refseqsa   = $refseqdb->get_SliceAdaptor();
@@ -229,23 +236,9 @@ if ($outfile && $outfile ne "stdout") {
 }
 
 # fetch biotype groupings
-my %ensembl_biotype_groups;
-my $sql = "select biotype_group,name from biotype where is_current=1 and object_type='gene' and db_type like '%core%' order by biotype_group,name";
-my $sth = $productiondb->dbc->prepare($sql);
-$sth->execute();
-while ( my ($biotype_group,$biotype_name) = $sth->fetchrow_array ) {
-  $ensembl_biotype_groups{$biotype_name} = $biotype_group;
-}
-$sth->finish();
+my $ensembl_biotype_groups = get_biotype_groups($ensembldb, 'core');
 
-my %refseq_biotype_groups;
-$sql = "select biotype_group,name from biotype where is_current=1 and object_type='gene' and db_type like '%otherfeatures%' order by biotype_group,name";
-$sth = $productiondb->dbc->prepare($sql);
-$sth->execute();
-while ( my ($biotype_group,$biotype_name) = $sth->fetchrow_array ) {
-  $refseq_biotype_groups{$biotype_name} = $biotype_group;
-}
-$sth->finish();
+my $refseq_biotype_groups = get_biotype_groups($ensembldb, 'otherfeatures');
 
 
 # # #
@@ -288,13 +281,13 @@ foreach my $ensembl_gene ( @ensembl_genes ) {
     print STDERR "FOUND $found refseq overlapping with ensembl stable_id ".$ensembl_gene->stable_id."\n";
     $num_ensembl_matched ++;
     foreach my $id (keys %$matches) {
-      if ($ensembl_biotype_groups{$ensembl_gene->biotype} eq $refseq_biotype_groups{$matches->{$id}->biotype}) {
-        print STDERR "  matching biotype ensembl ".$ensembl_gene->biotype." (".$ensembl_biotype_groups{$ensembl_gene->biotype} .
-                     ") vs refseq ".$matches->{$id}->biotype." (".$refseq_biotype_groups{$matches->{$id}->biotype}.")\n";
+      if ($ensembl_biotype_groups->{$ensembl_gene->biotype} eq $refseq_biotype_groups->{$matches->{$id}->biotype}) {
+        print STDERR "  matching biotype ensembl ".$ensembl_gene->biotype." (".$ensembl_biotype_groups->{$ensembl_gene->biotype} .
+                     ") vs refseq ".$matches->{$id}->biotype." (".$refseq_biotype_groups->{$matches->{$id}->biotype}.")\n";
         $attribute = make_attrib("Overlapping RefSeq Gene ID ".$matches->{$id}->stable_id." matches and has similar biotype of ".$matches->{$id}->biotype);
       }  else {
-        print STDERR "  nonmatched biotype ensembl ".$ensembl_gene->biotype." (".$ensembl_biotype_groups{$ensembl_gene->biotype} .
-                     ") vs refseq ".$matches->{$id}->biotype." (".$refseq_biotype_groups{$matches->{$id}->biotype}.")\n";
+        print STDERR "  nonmatched biotype ensembl ".$ensembl_gene->biotype." (".$ensembl_biotype_groups->{$ensembl_gene->biotype} .
+                     ") vs refseq ".$matches->{$id}->biotype." (".$refseq_biotype_groups->{$matches->{$id}->biotype}.")\n";
         $attribute = make_attrib("Overlapping RefSeq Gene ID ".$matches->{$id}->stable_id." matches but different biotype of ".$matches->{$id}->biotype);
       }
     }

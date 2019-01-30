@@ -177,7 +177,8 @@ sub run {
  Description: Create the message and send an email the specified address
               if 'email' is set. Other wise it write the result as a warning.
               It dataflows the repeats ratio on branch '_branch_to_flow_to'
-              with the key 'repeat_mask_coverage'.
+              with the key 'repeat_mask_coverage'. If there is something extreme, 
+              job will fail. 
  Returntype : None
  Exceptions : None
 
@@ -205,6 +206,7 @@ sub write_output {
   else {
     $self->warning($msg)
   }
+  
   $self->dataflow_output_id({repeat_mask_coverage => $self->param('repeats_ratio')}, $self->param('_branch_to_flow_to'));
 }
 

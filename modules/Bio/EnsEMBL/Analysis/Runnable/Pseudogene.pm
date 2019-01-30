@@ -76,6 +76,7 @@ use Bio::EnsEMBL::Utils::Exception;
 use Bio::EnsEMBL::Transcript; 
 use Bio::EnsEMBL::Gene ;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(clone_Transcript);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(remove_Transcript_from_Gene);
 use vars qw(@ISA);
 
 @ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
@@ -426,12 +427,8 @@ GENE: foreach my $gene (@genes) {
 # transcript_to_keep returns a blank value if the transcript has blessed status.
 
         foreach my $pseudo_transcript (@pseudo_trans) {
-          my $blessed =
-            $self->_remove_transcript_from_gene( $gene, $pseudo_transcript );
-          if ($blessed) {
-            print STDERR "Blessed transcript "
-              . $pseudo_transcript->display_id
-              . " is a pseudo transcript \n";
+          if (!remove_Transcript_from_Gene($gene, $pseudo_transcript, $self->BLESSED_BIOTYPES)) {
+            print STDERR "Blessed transcript ".$pseudo_transcript->display_id." is a retro transcript\n";
           }
         }
         my $new_gene = Bio::EnsEMBL::Gene->new();
@@ -504,11 +501,8 @@ GENE: foreach my $gene (@genes) {
            or $trans_type{'repeat'} )
       {
         foreach my $trans ( @{ $trans_type{'pseudo'} } ) {
-          my $blessed = $self->_remove_transcript_from_gene( $gene, $trans );
-          if ($blessed) {
-            print STDERR "Blessed transcript "
-              . $trans->display_id
-              . " is a pseudo transcript \n";
+          if (!remove_Transcript_from_Gene($gene, $trans, $self->BLESSED_BIOTYPES)) {
+            print STDERR "Blessed transcript ".$trans->display_id." is a pseudo transcript\n";
           }
         }
         $self->modified_genes($gene);
@@ -541,12 +535,8 @@ GENE: foreach my $gene (@genes) {
 
         #	$self->transcript_to_keep($only_transcript_to_keep);
         foreach my $pseudo_transcript (@pseudo_trans) {
-          my $blessed =
-            $self->_remove_transcript_from_gene( $gene, $pseudo_transcript );
-          if ($blessed) {
-            print STDERR "Blessed transcript "
-              . $pseudo_transcript->display_id
-              . " is covered with repeats \n";
+          if (!remove_Transcript_from_Gene($gene, $pseudo_transcript, $self->BLESSED_BIOTYPES)) {
+            print STDERR "Blessed transcript ".$pseudo_transcript->display_id." is covered with repeats\n";
           }
         }
         $gene->biotype( $self->PS_REPEAT_TYPE );
@@ -785,37 +775,6 @@ EXON: for ( my $i = 1 ; $i <= $#all_exons ; $i++ ) {
   return 1;
 } ## end sub protein_covered_intron
 
-=head2 _remove_transcript_from_gene
-
-  Args       : Bio::EnsEMBL::Gene object , Bio::EnsEMBL::Transcript object
-  Description: steves method for removing unwanted transcripts from genes
-  Returntype : scalar
-
-=cut 
-
-
-sub _remove_transcript_from_gene {
-  my ( $self, $gene, $trans_to_del ) = @_;
-  # transcript is blessed dont delete it
-  return 'BLESSED' if $self->BLESSED_BIOTYPES->{ $trans_to_del->biotype };
-
-  $self->discarded_transcripts($trans_to_del);
-  $trans_to_del->translation(undef);
-  my @newtrans;
-  foreach my $trans ( @{ $gene->get_all_Transcripts } ) {
-    if ( $trans != $trans_to_del ) {
-      push @newtrans, $trans;
-    }
-  }
-  # The naughty bit!
-  $gene->{_transcript_array} = [];
-
-  foreach my $trans (@newtrans) {
-    $gene->add_Transcript($trans);
-  }
-
-  return 0;
-}
 
 =head2 transcript_to_keep
 
@@ -948,24 +907,17 @@ sub write_seq_array{
  #                              -file => ">".$filename,
  #                              -format => 'Fasta',
  #                             );
-  open(OUT,">".$filename);
-  eval{
-    foreach my $gene (@{$genes}){
-      foreach my $transcript (@{$gene->get_all_Transcripts}){
-        next unless ( $transcript->translateable_seq );
+  open(OUT,">$filename") || throw("Could not open $filename");
+  foreach my $gene (@{$genes}){
+    foreach my $transcript (@{$gene->get_all_Transcripts}){
+      next unless ( $transcript->translateable_seq );
 #        $seqout->write_seq($transcript->seq);
-         my $header = ">".$transcript->dbID();
-         my $seq = $transcript->seq->seq();
-         print OUT $header."\n";
-         print OUT $seq."\n";
-      }
+       print OUT '>', $transcript->dbID, "\n";
+       print OUT $transcript->seq->seq, "\n";
     }
-  };
-  close OUT;
-
-  if($@){
-    $self->throw("FAILED to write to $filename Runnable:write_seq_file\n\n$@");
   }
+  close(OUT) || throw("Could not close $filename");
+
   return $filename;
 }
 

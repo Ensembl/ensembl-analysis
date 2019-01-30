@@ -341,6 +341,8 @@ sub pipeline_analyses {
       -parameters => {
         input_db => $self->o('collapse_db'),
         output_db => $self->o('blast_db'),
+        source_db => $self->o('collapse_db'),
+        target_db => $self->o('blast_db'),
         dna_db => $self->o('dna_db'),
 # path to index to fetch the sequence of the blast hit to calculate % coverage
         indicate_index => $self->o('uniprotindex'),
@@ -363,7 +365,8 @@ sub pipeline_analyses {
         input_db => $self->o('collapse_db'),
         output_db => $self->o('blast_db'),
         dna_db => $self->o('dna_db'),
-
+        source_db => $self->o('collapse_db'),
+        target_db => $self->o('blast_db'),
 # path to index to fetch the sequence of the blast hit to calculate % coverage
         indicate_index => $self->o('uniprotindex'),
         uniprot_index => [$self->o('uniprotdb')],

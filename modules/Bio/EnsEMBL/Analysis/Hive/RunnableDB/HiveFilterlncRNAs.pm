@@ -35,7 +35,7 @@ sub param_defaults {
     input_biotype  => 'pre_lncRNA',
     output_biotype => 'lncRNA',
     # lncRNAs can be kept based on passing either min sequence or min exon cutoffs
-    min_sequence => 200,
+    min_sequence_size => 200,
     min_exons => 3,
     min_sequence_if_less_min_exons => 1000,
 

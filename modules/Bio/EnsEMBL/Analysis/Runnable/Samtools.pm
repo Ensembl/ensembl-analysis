@@ -340,4 +340,44 @@ sub make_commandline {
   return $cmd;
 }
 
+
+=head2 index_genome
+
+ Arg [1]    : String, path to a fasta file containting the genome
+ Description: Index the genome using faidx
+ Returntype : None
+ Exceptions : Throws if Arg[1] does not exist
+              Throws if command fails
+
+=cut
+
+sub index_genome {
+  my ($self, $genome) = @_;
+
+  throw("Could not find genome: $genome") unless (-e $genome);
+  execute_with_wait($self->program." faidx $genome");
+}
+
+
+=head2 reheader
+
+ Arg [1]    : String, path to header file
+ Arg [2]    : String, source BAM file
+ Arg [3]    : String, path to target BAM file
+ Description: Use the reheader command from samtools to change the
+              header of a BAM file
+ Returntype : None
+ Exceptions : Throws if Arg[1] does not exist
+              Throws if Arg[2] does not exist
+
+=cut
+
+sub reheader {
+  my ($self, $header, $source_bam, $target_bam) = @_;
+  throw("Could not find $source_bam") unless (-e $source_bam);
+  throw("Could not find $header") unless (-e $header);
+  warning("Will overwrite $target_bam") if (-e $target_bam);
+  execute_with_wait($self->program." reheader $header $source_bam > $target_bam");
+}
+
 1;
