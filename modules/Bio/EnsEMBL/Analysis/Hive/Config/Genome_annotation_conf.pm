@@ -56,6 +56,7 @@ sub default_options {
     'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'rnaseq_summary_file'       => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
+    'rnaseq_summary_file_fam'   => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'_fam.csv'), # Set this if you have a pre-existing family level cvs file with the expected columns
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
@@ -98,7 +99,7 @@ sub default_options {
     'mirBase_fasta'             => 'all_mirnas.fa', # What mirBase file to use. It is currently best to use on with the most appropriate set for your species
     'rfc_scaler'                => 'filter_dafs_rfc_scaler_human.pkl',
     'rfc_model'                 => 'filter_dafs_rfc_model_human.pkl',
-    
+
     # Clade-based filtering on rfam accessions
     # Rfam db details should stay constant but check periodically
     'rfam_user' => 'rfamro',
@@ -1058,7 +1059,7 @@ sub pipeline_analyses {
         -parameters => {
           study_accession => $self->o('study_accession'),
           taxon_id => $self->o('family_taxon_id'),
-          inputfile => $self->o('rnaseq_summary_file'),
+          inputfile => $self->o('rnaseq_summary_file_fam'),
         },
 
         -flow_into => {
