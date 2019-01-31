@@ -61,6 +61,7 @@ sub default_options {
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'taxon_id'                  => '', # should be in the assembly report file
+    'species_taxon_id'          => '', # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
     'family_taxon_id'           => '', # Family level taxon id, used to get a family level csv file in case there is not enough species level transcriptomic data
     'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
@@ -1034,7 +1035,7 @@ sub pipeline_analyses {
         -rc_name => '1GB',
         -parameters => {
           study_accession => $self->o('study_accession'),
-          taxon_id => $self->o('taxon_id'),
+          taxon_id => $self->o('species_taxon_id'),
           inputfile => $self->o('rnaseq_summary_file'),
         },
 
