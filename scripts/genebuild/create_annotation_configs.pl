@@ -23,6 +23,7 @@ use File::Spec::Functions qw(catfile splitdir catdir updir);
 use File::Basename;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
+use Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor;
 use Net::FTP;
 use Cwd qw(realpath);
 use Data::Dumper;
@@ -37,8 +38,8 @@ my $base_guihive = 'http://guihive.ebi.ac.uk:8080';
 my $ftphost = "ftp.ncbi.nlm.nih.gov";
 my $ftpuser = "anonymous";
 my $ftppassword = "";
-my $assembly_registry_host = $ENV{GBS5};
-my $assembly_registry_port = $ENV{GBP5};
+my $assembly_registry_host = $ENV{GBS1};
+my $assembly_registry_port = $ENV{GBP1};
 my $force_init = 0;
 my $check_for_transcriptomic = 0;
 
@@ -59,6 +60,12 @@ my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistr
   -port    => $assembly_registry_port,
   -user    => 'ensro',
   -dbname  => 'gb_assembly_registry');
+
+my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
+  -host    => 'mysql-ensembl-mirror',
+  -port    => 4240,
+  -user    => 'ensro',
+  -dbname  => 'ncbi_taxonomy');
 
 my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -port    => 4240,
@@ -85,8 +92,14 @@ while(<IN>) {
       if($key eq 'user_w') {
         $key = 'user';
       }
-
-      $general_hash->{$key} = $value;
+      #Ignore clade settings from .ini file if set
+      if($key eq 'clade') {
+       # $key = 'user';
+       say "Warning: Ignoring clade value birds from .ini file";
+      }
+      else{
+        $general_hash->{$key} = $value;
+      }
     }elsif($line eq "\n") {
 	# Skip
     }else {
@@ -115,16 +128,16 @@ unless(-e $output_path) {
   system("mkdir -p ".$general_hash->{'output_path'});
 }
 
-my $clade = $general_hash->{'clade'};
-unless($clade) {
-  die "No clade selected. Need a clade to specify parameters. Format expected:\n".
-      "clade=primates";
-}
+#my $clade = $general_hash->{'clade'};
+#unless($clade) {
+ # die "No clade selected. Need a clade to specify parameters. Format expected:\n".
+  #    "clade=primates";
+#}
 
-my $clade_hash = clade_settings($clade);
-foreach my $key (keys(%{$clade_hash})) {
-  $general_hash->{$key} = $clade_hash->{$key};
-}
+#my $clade_hash = clade_settings($clade);
+#foreach my $key (keys(%{$clade_hash})) {
+ # $general_hash->{$key} = $clade_hash->{$key};
+#}
 
 my $ftp_base_dir = '/genomes/all/';
 
@@ -181,12 +194,20 @@ foreach my $accession (@accession_array) {
   unless($accession =~ /GCA_([\d]{3})([\d]{3})([\d]{3})\.\d+/) {
     die "Found an assembly accession that did not match the regex. Offending accession: ".$accession;
   }
-
-
+  
   # Get stable id prefix
   my $stable_id_prefix = $assembly_registry->fetch_stable_id_prefix_by_gca($accession);
   say "Fetched the following stable id prefix for ".$accession.": ".$stable_id_prefix;
   $assembly_hash->{'stable_id_prefix'} = $stable_id_prefix;
+
+   #Get clade
+     my $clade = $assembly_registry->fetch_clade_by_gca($accession);
+       say "Fetched the following clade for ".$accession.": ".$clade;
+   #      #Note: this is to assign repeat library settings for clades that do not have defined settings yet
+           if (($clade eq 'amphibians') || ($clade eq 'sharks') || ($clade eq 'vertebrates')){
+                $clade = 'distant_vertebrate';
+                  }
+                    $assembly_hash->{'clade'} = $clade;
 
   # Get stable id start
   my $stable_id_start = $assembly_registry->fetch_stable_id_start_by_gca($accession);
@@ -216,6 +237,12 @@ foreach my $accession (@accession_array) {
 
   $assembly_hash->{'assembly_accession'} = $accession;
   $assembly_hash->{'assembly_name'} = $assembly_name;
+  
+  #get settings per clade
+  my $clade_hash = clade_settings($clade);
+  foreach my $key (keys(%{$clade_hash})) {
+    $general_hash->{$key} = $clade_hash->{$key};
+  }
 
   parse_assembly_report($ftp,$general_hash,$assembly_hash,$accession,$assembly_name,$full_assembly_path,$output_path);
 
@@ -232,7 +259,7 @@ foreach my $accession (@accession_array) {
   } else {
     say "Did not find an repeatmodeler species library for ".$assembly_hash->{'species_name'}." on path:\n".$assembly_hash->{'species_name'};
   }
-
+  
   create_config($assembly_hash);
 
   unless($config_only) {
@@ -305,6 +332,8 @@ sub parse_assembly_report {
   my $report_file_content;
   my $report_file_handle;
   my $taxon_id;
+  my $family_taxon_id;
+  my $species_taxon_id;
   my $species_name;
   my $refseq_accession;
   my $assembly_level;
@@ -354,6 +383,24 @@ sub parse_assembly_report {
   }
 
   $assembly_hash->{'taxon_id'} = $taxon_id;
+ 
+ #use taxon id to retrieve family taxon id
+ #family taxon_id will be used to download family level rnaseq data
+  my $node_adaptor = $taxonomy_adaptor->get_TaxonomyNodeAdaptor();
+  my $taxon_node = $node_adaptor->fetch_by_taxon_id($taxon_id);  
+  foreach my $ancestor ( @{ $node_adaptor->fetch_ancestors($taxon_node)}){
+    #store family level taxon id
+     if ($ancestor->rank eq 'family'){
+        $family_taxon_id = $ancestor->taxon_id;
+        $assembly_hash->{'family_taxon_id'} = $family_taxon_id;
+     }
+    #store taxonomy at species level if species is a subspecies
+     elsif ($ancestor->rank eq 'species'){
+        $species_taxon_id = $ancestor->taxon_id;
+        $assembly_hash->{'species_taxon_id'} = $family_taxon_id;
+     }
+     else{}
+  }
 
   if($refseq_accession) {
     $assembly_hash->{'assembly_refseq_accession'} = $refseq_accession;
@@ -423,19 +470,25 @@ sub clade_settings {
       'uniprot_set'        => 'primates_basic',
     },
 
-    'rodents' => {
+    'rodentia' => {
       'repbase_library'    => 'rodents',
       'repbase_logic_name' => 'rodents',
       'uniprot_set'        => 'mammals_basic',
     },
 
-    'mammals' => {
+    'mammalia' => {
       'repbase_library'    => 'mammals',
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
     },
 
-    'birds' => {
+   'marsupials' => {
+      'repbase_library'    => 'mammals',
+      'repbase_logic_name' => 'mammals',
+      'uniprot_set'        => 'mammals_basic',
+    },
+
+    'aves' => {
       'repbase_library'    => 'Birds',
       'repbase_logic_name' => 'birds',
       'uniprot_set'        => 'birds_basic',
@@ -449,7 +502,7 @@ sub clade_settings {
       'masking_timer_short' => '3h',
     },
 
-    'fish_teleost' => {
+    'teleostei' => {
       'repbase_library'     => 'Teleostei',
       'repbase_logic_name'  => 'teleost',
       'uniprot_set'         => 'fish_basic',
