@@ -397,7 +397,7 @@ sub parse_assembly_report {
     #store taxonomy at species level if species is a subspecies
      elsif ($ancestor->rank eq 'species'){
         $species_taxon_id = $ancestor->taxon_id;
-        $assembly_hash->{'species_taxon_id'} = $family_taxon_id;
+        $assembly_hash->{'species_taxon_id'} = $species_taxon_id;
      }
      else{}
   }
