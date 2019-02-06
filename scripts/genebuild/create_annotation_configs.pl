@@ -390,7 +390,7 @@ sub parse_assembly_report {
   my $taxon_node = $node_adaptor->fetch_by_taxon_id($taxon_id);  
   foreach my $ancestor ( @{ $node_adaptor->fetch_ancestors($taxon_node)}){
     #store family level taxon id
-     if ($ancestor->rank eq 'family'){
+     if ($ancestor->rank eq 'genus'){
         $family_taxon_id = $ancestor->taxon_id;
         $assembly_hash->{'family_taxon_id'} = $family_taxon_id;
      }
