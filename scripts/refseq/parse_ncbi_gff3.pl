@@ -138,8 +138,34 @@ else {
 }
 
 my $codon_table = Bio::Tools::CodonTable->new;
-my $gff_parser = Bio::EnsEMBL::IO::Parser::GFF3->open($gff_file);
+my $gff_parser = Bio::EnsEMBL::IO::Parser::GFF3->open($gff_file, must_parse_metadata => 0);
 my %sequences;
+my $cs_rank2 = $db->get_CoordSystemAdaptor->fetch_by_rank(2);
+foreach my $slice (@{$sa->fetch_all('toplevel', undef, 1)}) {
+  my $refseq_synonyms = $slice->get_all_synonyms('RefSeq_genomic');
+  if (!@$refseq_synonyms) {
+    if ($cs_rank2) {
+      my $projection = $slice->project($cs_rank2->name, $cs_rank2->version);
+      if (@$projection and @$projection == 1) {
+        $slice = $projection->to_Slice;
+        $refseq_synonyms = $slice->get_all_synonyms('RefSeq_genomic');
+        if (!@$refseq_synonyms) {
+          warning('Could not find a RefSeq synonym for '.$slice->seq_region_name.' '.$cs_rank2->name);
+          next;
+        }
+      }
+      else {
+        warning('Could not project '.$slice->seq_region_name.' to '.$cs_rank2->name);
+        next;
+      }
+    }
+    else {
+      warning('Could not find a RefSeq synonym for '.$slice->seq_region_name.' on '.$slice->coord_system->name);
+      next;
+    }
+  }
+  $sequences{$refseq_synonyms->[0]->name} = $slice;
+}
 my %missing_sequences;
 my $MT_acc;
 my @par_regions;
