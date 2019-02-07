@@ -147,7 +147,7 @@ foreach my $slice (@{$sa->fetch_all('toplevel', undef, 1)}) {
     if ($cs_rank2) {
       my $projection = $slice->project($cs_rank2->name, $cs_rank2->version);
       if (@$projection and @$projection == 1) {
-        $slice = $projection->to_Slice;
+        $slice = $projection->[0]->to_Slice;
         $refseq_synonyms = $slice->get_all_synonyms('RefSeq_genomic');
         if (!@$refseq_synonyms) {
           warning('Could not find a RefSeq synonym for '.$slice->seq_region_name.' '.$cs_rank2->name);
