@@ -41,6 +41,7 @@ use strict;
 use warnings;
 
 use Bio::DB::HTS;
+use Bio::DB::HTS::Constants qw(FLAGS);
 
 use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::Transcript;
@@ -87,23 +88,11 @@ sub fetch_input {
     $self->dbc->disconnect_if_idle;
   }
   if ($slice) {
-    my $bam = Bio::DB::HTS->new(
-      -bam => $self->param_required('alignment_bam_file'),
-      -expand_flags => 1,
-    );
-#    my $seq_region_name = $self->param('use_ucsc_naming') ? convert_to_ucsc_name($slice->seq_region_name, $slice) : $slice->seq_region_name;
-#  print STDERR "Got seq region name\n";
-#    my $iterator = $bam->features(
-#      -iterator => 1,
-#      -type => 'match',
-#      -seq_id => $seq_region_name,
-#      -start => $slice->start,
-#      -end => $slice->end,
-#    );
-#  print STDERR "Got iterator\n";
-    if ($bam) {
+    my $bam = Bio::DB::HTS->new(-bam => $self->param_required('alignment_bam_file'));
+    my $bam_file = $bam->hts_file;
+    my $bam_index = $bam->hts_index;
+    if ($bam_file and $bam_index) {
       $self->create_analysis;
-      $self->param('bam_file', $bam);
       my $target_db = $self->get_database_by_name('output_db', $reference_db);
       $self->hrdb_set_con($target_db, 'target_db');
       #Coordinates are based on the full sequence so we need to make sure we have the full sequence in query
@@ -116,7 +105,10 @@ sub fetch_input {
         $slice->coord_system->version,
       ));
       my $seq_region_name = $self->param('use_ucsc_naming') ? convert_to_ucsc_name($slice->seq_region_name, $slice) : $slice->seq_region_name;
-      $self->param('region_to_fetch',  $seq_region_name.':'.$slice->start.'-'.$slice->end);
+      my ($tid, $zbased_start, $zbased_end) = $bam->header->parse_region($seq_region_name.':'.$slice->start.'-'.$slice->end);
+      $self->param('region_to_fetch', [$tid, $zbased_start, $zbased_end]);
+      $self->param('bam_file', $bam_file);
+      $self->param('bam_index', $bam_index);
     }
     else {
       $self->throw('Could not open bam to access the alignments');
@@ -132,43 +124,45 @@ sub run {
   my ($self) = @_;
 
   my $slice = $self->query;
-  my %stranded_clusters = ('-1' => [], '1' => []);
-  my $cluster_count = 1;
-  my $read_count = 0;
-  my $total_read_count = 0;
-  my $paired_data = $self->param('paired');
-  my $stranded_reads = $self->param('stranded_read'); # This should probably be a hash to make sure that we don't treat not strand reads in a group the wrong way...
-  # I can't give parameters to $bam->fetch() so it's easier to create the callback
-  # inside the method. Maybe with the low level method it's better.
-  my $bam = $self->param('bam_file');
-  my $analysis = $self->analysis;
   my $last_pairing = 0;
+  my $analysis = $self->analysis;
+  my $callback_data = {
+    -1 => [],
+    1 => [],
+    cluster_count => 1,
+    read_count => 0,
+    total_read_count => 0,
+    stranded_reads => $self->param('stranded_read'),
+    last_pairing => \$last_pairing,
+    analysis => $analysis,
+    slice => $slice,
+  };
+  my $bam_file = $self->param('bam_file');
+  my $bam_index = $self->param('bam_index');
   $self->say_with_header('Starting the loop');
   my $_process_reads = sub {
-    my $read = shift;
-    ++$total_read_count;
+    my ($read, $data) = @_;
+    ++$data->{total_read_count};
     # It seems we always get the unmmapped mate, so we need to remove it
-    return if ($read->unmapped or $read->get_tag_values('XS'));
-    ++$read_count;
+    return if ($read->unmapped);
+    ++$data->{read_count};
     my $query = $read->query;
-    my $name = $query->name;
     my $start  = $read->start;
     my $end    = $read->end;
     my $paired = $read->proper_pair;
-    my $strand = 1;
     my $real_strand = -1; # We are making sure that we are -1 if not stranded, which should probably be changed...
-    if ($stranded_reads) {
-        $strand = $read->strand;
-        $real_strand = $read->get_tag_values('FIRST_MATE') ? $strand*-1 : $strand;
+    if ($data->{stranded_reads}) {
+        $real_strand = $read->strand;
+        $real_strand *= -1 if (($read->flag & FLAGS->{FIRST_MATE}) != 0);
     }
-    my $exon_clusters = $stranded_clusters{$real_strand};
+    my $exon_clusters = $data->{$real_strand};
     for (my $index = @$exon_clusters-1; $index > -1; $index--) {
       my $exon_cluster = $exon_clusters->[$index];
       if ($exon_cluster->start <= $end and $exon_cluster->end >= $start) {
         $exon_cluster->end($end) if ($exon_cluster->end < $end);
         $exon_cluster->score($exon_cluster->score+1);
         if ($paired and $read->isize < 0) {
-          process_mate_pairs($read, $exon_cluster, $exon_clusters, $index, \$last_pairing);
+          process_mate_pairs($read, $exon_cluster, $exon_clusters, $index, $data->{last_pairing});
         }
         return;
       }
@@ -180,12 +174,12 @@ sub run {
       -start      => $start,
       -end        => $end,
       -strand     => $real_strand,
-      -slice      => $slice,
+      -slice      => $data->{slice},
       -hstart     => $query->start,
       -hend       => $query->end,
       -hstrand    => 1,
-      -hseqname   => $cluster_count++,
-      -analysis   => $analysis,
+      -hseqname   => $data->{cluster_count}++,
+      -analysis   => $data->{analysis},
       -cigar_string => '1M', # IT will be set properly later
       -align_type => 'ensembl',
     );
@@ -194,40 +188,24 @@ sub run {
     $feat->hcoverage(0);
     push(@$exon_clusters, $feat);
     if ($paired and $read->isize < 0) {
-      process_mate_pairs($read, $feat, $exon_clusters, scalar(@$exon_clusters)-1, \$last_pairing);
+      process_mate_pairs($read, $feat, $exon_clusters, scalar(@$exon_clusters)-1, $data->{last_pairing});
     }
   };
-  my $t = time;
-  $bam->fetch($self->param('region_to_fetch'), $_process_reads);
-  print STDERR 'PROCESS READS ', (time-$t), "\n";
-  $self->say_with_header("$total_read_count reads in the region, $read_count reads processed");
+  $self->say_with_header(join(' ', @{$self->param('region_to_fetch')}));
+  $bam_index->fetch($self->param('bam_file'), @{$self->param('region_to_fetch')}, $_process_reads, $callback_data);
+  $self->say_with_header($callback_data->{total_read_count}.' reads in the region, '.$callback_data->{read_count}.' reads processed');
   my @genes;
   my $max_intron_length = $self->param('max_intron_length');
-  if ($paired_data) {
-#    foreach my $stranded_exons (values %stranded_clusters) {
-#      if (@$stranded_exons) {
-#        foreach my $object (@$stranded_exons) {
-#          print STDERR $object->hseqname, ' ', $object->start, ' ', $object->end, ' ', $object->strand, "\n";
-#          if (exists $object->{links}) {
-#            foreach my $link (@{$object->{links}}) {
-#              print STDERR '   LINKS ', $link->hseqname, ' ', $link->start, ' ', $link->end, ' ', $link->strand, "\n";
-#            }
-#          }
-#        }
-#      }
-#    }
-    foreach my $stranded_exons (values %stranded_clusters) {
+  if ($self->param('paired')) {
+    foreach my $stranded_exons ($callback_data->{-1}, $callback_data->{1}) {
       if (@$stranded_exons) {
         my $clusters = [];
         my $cluster_index = -1;
         my %objects;
-        $t = time;
         foreach my $object (@$stranded_exons) {
-#          print STDERR 'WORKING ON ', $object->hseqname, ' ', $object->start, ' ', $object->end, ' ', $object->strand, "\n";
           $objects{$object->hseqname} = 1;
           if (exists $object->{links}) {
             foreach my $link (@{$object->{links}}) {
-#              print STDERR '   LINKS ', $link->hseqname, ' ', $link->start, ' ', $link->end, ' ', $link->strand, "\n";
             }
           }
           if ($object->hcoverage == 0) {
@@ -235,7 +213,6 @@ sub run {
               $cluster_index = @$clusters;
               my $tmp_index = process_link($object, $clusters, $cluster_index, '');
               if ($tmp_index != $cluster_index) {
-#                print STDERR 'ERROR Changed index for ', $object->start, ' ', $object->end, ' ', $cluster_index, ' to ', $tmp_index, "\n";
               }
             }
             else {
@@ -245,68 +222,42 @@ sub run {
             }
           }
         }
-#        print STDERR 'PROCESS LINKS ', (time-$t), "\n";
-        my $count = 0;
-#        my $i = 0;
-        $t = time;
         foreach my $cluster (@$clusters) {
-          $count += @$cluster;
-#          print STDERR "CLUSTER $i\n";
-#          ++$i;
-          foreach my $object (@$cluster) {
-#            print STDERR $object->hseqname, ' ', $object->start, ' ', $object->end, ' ', $object->strand, "\n";
-            ++$objects{$object->hseqname};
-          }
-        }
-        if (@$stranded_exons != $count) {
-          foreach my $key (keys %objects) {
-            if ($objects{$key} == 1) {
-#              print STDERR "MISSING $key\n";
+          if(@$cluster) {
+            my $transcript = Bio::EnsEMBL::Transcript->new();
+            foreach my $object (@$cluster) {
+              my $exon = Bio::EnsEMBL::Exon->new(
+                -slice => $object->slice,
+                -start => $object->start,
+                -end => $object->end,
+                -strand => $object->strand,
+                -analysis => $analysis,
+              );
+              $exon->phase(-1);
+              $exon->end_phase(-1);
+              $object->cigar_string($exon->length.'M');
+              $exon->add_supporting_features($object);
+              $transcript->add_Exon($exon);
             }
-            elsif ($objects{$key} > 2) {
-#              print STDERR "DUPLICATE $key\n";
+            if ($self->is_transcript_valid($transcript)) {
+              $transcript->analysis($analysis);
+              $transcript->biotype($analysis->logic_name);
+              my $gene = Bio::EnsEMBL::Gene->new();
+              $gene->add_Transcript($transcript);
+              $gene->analysis($analysis);
+              $gene->biotype($analysis->logic_name);
+              push(@genes, $gene);
+            }
+            else {
+              $self->say_with_header('Transcript without exons or invalid');
             }
           }
-#          print STDERR 'PROCESS CHECKS ', (time-$t), "\n";
-          $self->throw("WARNING SOMETHING WENT WRONG");
         }
-        print STDERR 'PROCESS CHECKS ', (time-$t), "\n";
-        $t = time;
-        foreach my $cluster (@$clusters) {
-          my $transcript = Bio::EnsEMBL::Transcript->new();
-          foreach my $object (@$cluster) {
-            my $exon = Bio::EnsEMBL::Exon->new(
-              -slice => $object->slice,
-              -start => $object->start,
-              -end => $object->end,
-              -strand => $object->strand,
-              -analysis => $analysis,
-            );
-            $exon->phase(-1);
-            $exon->end_phase(-1);
-            $object->cigar_string($exon->length.'M');
-            $exon->add_supporting_features($object);
-            $transcript->add_Exon($exon);
-          }
-          if ($transcript->start and $self->is_transcript_valid($transcript)) {
-            $transcript->analysis($analysis);
-            $transcript->biotype($analysis->logic_name);
-            my $gene = Bio::EnsEMBL::Gene->new();
-            $gene->add_Transcript($transcript);
-            $gene->analysis($analysis);
-            $gene->biotype($analysis->logic_name);
-            push(@genes, $gene);
-          }
-          else {
-            $self->say_with_header('Transcript without exons or invalid');
-          }
-        }
-        print STDERR 'PROCESS OBJECTS ', (time-$t), "\n";
       }
     }
   }
   else {
-    foreach my $stranded_exons (values %stranded_clusters) {
+    foreach my $stranded_exons ($callback_data->{-1}, $callback_data->{1}) {
       if (@$stranded_exons) {
         my @transcripts = (Bio::EnsEMBL::Transcript->new());
         foreach my $object (@$stranded_exons) {
@@ -360,7 +311,7 @@ sub process_mate_pairs {
 
   my $mate_start = $read->mate_start;
   my $mate_end = $read->mate_end;
-  my $name = $read->name;
+#  my $name = $read->name;
   if (!($mate_end >= $exon_cluster->start and $mate_start <= $exon_cluster->end)) {
     my $j = $index-1;
     if ($exon_clusters->[$$last_pairing]->start <= $mate_end and $exon_clusters->[$$last_pairing]->end >= $mate_start) {
