@@ -67,15 +67,16 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     source_logic_name => undef,
-    biotype_noPolyA => 'bad_O',
-    biotype_PolyA => 'good_O',
-    biotype_retained => 'retained_O',
-    biotype_NMD => 'nonsense_mediated_decay_O',
-    biotype_single => 'single_O',
+    biotype_noPolyA => 'bad',
+    biotype_PolyA => 'good',
+    biotype_retained => 'retained',
+    biotype_NMD => 'nonsense_mediated_decay',
+    biotype_single => 'single',
+    biotype_unclustered => 'low',
     exon_length_multiplier => 7,
     last_junction_length_modifier => 0.66,
     max_length_to_merge => 200,
-    max_overlength => 10, # Random value might be around 20
+    max_overlength => 20, # Random value might be around 20
     max_intron_wobble => 15,
     max_exon_wobble => 5,
   }
@@ -152,7 +153,7 @@ sub process_genes {
       my $first_exon_to_process = $transcript_to_process->start_Exon;
       my $last_exon_to_process = $transcript_to_process->end_Exon;
       my $strand = $good_transcript->strand;
-      my $previous_good_exon = $good_transcript->start_Exon;
+      my $first_good_exon = $good_transcript->start_Exon;
       foreach my $good_exon (@{$good_transcript->get_all_Exons}) {
         if (($strand == 1
             and $first_exon_to_process->end == $good_exon->end
@@ -162,8 +163,8 @@ sub process_genes {
             and $first_exon_to_process->start == $good_exon->start
             and $good_exon->end - $first_exon_to_process->end > $max_overlength
             and $good_exon != $good_transcript->start_Exon)) {
-          if ($previous_good_exon->length < 21 and $previous_good_exon == $good_transcript->start_Exon) {
-print STDERR ' T FRS ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_exon->seq_region_start, ' ', $good_exon->seq_region_end, ' ', $first_exon_to_process->seq_region_start, ' ', $first_exon_to_process->seq_region_end, ' ', $max_overlength, ' ', $hash_key_to_process, "\n";
+          if ($first_good_exon->length < 21 and $first_good_exon == $good_transcript->start_Exon) {
+            print STDERR ' T FRS ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_exon->seq_region_start, ' ', $good_exon->seq_region_end, ' ', $first_exon_to_process->seq_region_start, ' ', $first_exon_to_process->seq_region_end, ' ', $max_overlength, ' ', $hash_key_to_process, "\n";
           }
           elsif ($first_exon_to_process->length < $good_exon->length*$exon_length_multiplier) {
             print STDERR ' T LRS ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_exon->seq_region_start, ' ', $good_exon->seq_region_end, ' ', $first_exon_to_process->seq_region_start, ' ', $first_exon_to_process->seq_region_end, ' ', $max_overlength, ' ', $hash_key_to_process, "\n";
@@ -173,50 +174,57 @@ print STDERR ' T FRS ', $name_tp, ' ', $transcript_to_process->seq_region_start,
           }
           else {
             $gene_to_process->{retained} = 1;
-print STDERR ' T RS ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_exon->seq_region_start, ' ', $good_exon->seq_region_end, ' ', $first_exon_to_process->seq_region_start, ' ', $first_exon_to_process->seq_region_end, ' ', $max_overlength, ' ', $hash_key_to_process, "\n";
+            print STDERR ' T RS ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_exon->seq_region_start, ' ', $good_exon->seq_region_end, ' ', $first_exon_to_process->seq_region_start, ' ', $first_exon_to_process->seq_region_end, ' ', $max_overlength, ' ', $hash_key_to_process, "\n";
+            return 0;
           }
-          if (($strand == 1 and $last_exon_to_process->end < $good_transcript->end_Exon->start)
-              or ($strand == -1 and $last_exon_to_process->start > $good_transcript->end_Exon->end)) {
-            $gene_to_process->{partial} = 1;
-print STDERR ' T PARTIAL ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_exon->seq_region_start, ' ', $good_exon->seq_region_end, ' ', $first_exon_to_process->seq_region_start, ' ', $first_exon_to_process->seq_region_end, ' ', $max_overlength, ' ', $hash_key_to_process, "\n";
-          }
-          return 0;
         }
+      }
+      my $last_good_exon = $good_transcript->end_Exon;
+      if (($strand == 1 and $last_exon_to_process->end < $last_good_exon->start)
+          or ($strand == -1 and $last_exon_to_process->start > $last_good_exon->end)) {
+        $gene_to_process->{partial} = 1;
+        print STDERR ' T PARTIAL ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $last_good_exon->seq_region_start, ' ', $last_good_exon->seq_region_end, ' ', $last_exon_to_process->seq_region_start, ' ', $last_exon_to_process->seq_region_end, ' ', $max_overlength, ' ', $hash_key_to_process, "\n";
       }
       return 1;
     }
   }
   else {
 # Here we process the single exon models
-    my $good_last_exon = $good_transcript->end_Exon;
-    if ($good_last_exon->start < $transcript_to_process->end
-        and $good_last_exon->end > $transcript_to_process->start) {
-      if ($good_last_exon->strand == 1) {
-        if ($good_last_exon->start-$transcript_to_process->start < $max_overlength) {
-print STDERR ' T S ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($good_last_exon->start-$transcript_to_process->start), ' < ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
-          return 1;
+    if (@{$good_transcript->get_all_Exons} == 1) {
+      print STDERR ' T SOS ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
+      return 1;
+    }
+    else {
+      my $good_last_exon = $good_transcript->end_Exon;
+      if ($good_last_exon->start < $transcript_to_process->end
+          and $good_last_exon->end > $transcript_to_process->start) {
+        if ($good_last_exon->strand == 1) {
+          if ($good_last_exon->start-$transcript_to_process->start < $max_overlength) {
+  print STDERR ' T S ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($good_last_exon->start-$transcript_to_process->start), ' < ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
+            return 1;
+          }
+          else {
+            $gene_to_process->{retained} = 1; # Mark the gene as retained, might be a bit harsh
+  print STDERR ' T SR ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($good_last_exon->start-$transcript_to_process->start), ' > ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
+            return 0;
+          }
         }
         else {
-          $gene_to_process->{retained} = 1; # Mark the gene as retained, might be a bit harsh
-print STDERR ' T SR ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($good_last_exon->start-$transcript_to_process->start), ' > ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
-          return 0;
+          if ($transcript_to_process->end-$good_last_exon->end < $max_overlength) {
+  print STDERR ' T S ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($transcript_to_process->end-$good_last_exon->end), ' < ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
+            return 1;
+          }
+          else {
+            $gene_to_process->{retained} = 1; # Mark the gene as retained, might be a bit harsh
+  print STDERR ' T SR ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($transcript_to_process->end-$good_last_exon->end), ' < ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
+            return 0;
+          }
         }
       }
       else {
-        if ($transcript_to_process->end-$good_last_exon->end < $max_overlength) {
-print STDERR ' T S ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($transcript_to_process->end-$good_last_exon->end), ' < ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
-          return 1;
-        }
-        else {
-          $gene_to_process->{retained} = 1; # Mark the gene as retained, might be a bit harsh
-print STDERR ' T SR ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($transcript_to_process->end-$good_last_exon->end), ' < ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
-          return 0;
-        }
+  print STDERR ' T SB ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
+        return 0;
       }
-    }
-    else {
-print STDERR ' T SB ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
-      return 0;
     }
   }
 }
@@ -244,7 +252,7 @@ sub run {
   my ($clusters, $unclustered) = cluster_Genes($self->param('genes'), $self->get_hashtypes);
   print STDERR " Done\n";
   print STDERR 'Working on unclustered genes', "\n";
-  my $single_biotype = $self->param('biotype_single');
+  my $single_biotype = $self->param('biotype_unclustered');
   foreach my $cluster (@$unclustered) {
     foreach my $gene (@{$cluster->get_Genes}) {
       foreach my $transcript (@{$gene->get_all_Transcripts}) {
@@ -303,98 +311,10 @@ sub run {
             push(@{$good_gene->{full_genes}}, $gene_to_process);
             print STDERR ' T P ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', abs($good_transcript->end_Exon->length-$transcript_to_process->end_Exon->length), ' ', $good_gene->{full_length}, ' ', $hash_key_to_process, "\n";
           }
-#          my $transcript_to_process = $gene_to_process->get_all_Transcripts->[0]; # We know that we only have 1 transcript per gene
-#          my $hash_key_to_process = build_hashkey($transcript_to_process, 'intron');
-#          my $name_tp = $transcript_to_process->get_all_supporting_features->[0]->hseqname;
-#          if ($hash_key_to_process) { # If it is a single exon gene the hashkey will be empty
-#            if ($good_hashkey eq $hash_key_to_process) {
-#              $gene_to_process->{processed} = 1; # Mark the gene as processed
-#              ++$good_gene->{full_length}; # We want to keep the number of full length support
-#              push(@{$good_gene->{full_genes}}, $gene_to_process);
-#              print STDERR ' T P ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', abs($good_transcript->end_Exon->length-$transcript_to_process->end_Exon->length), ' ', $good_gene->{full_length}, ' ', $hash_key_to_process, "\n";
-#            }
-#            elsif ($good_hashkey =~ /$hash_key_to_process/) { # If the transcript is a fragment we want to add it to our model unless it might be a retained intron
-#              my $first_exon_to_process = $transcript_to_process->start_Exon;
-#              my $last_exon_to_process = $transcript_to_process->end_Exon;
-#              my $add_to_good_gene = 1;
-#              my $strand = $good_transcript->strand;
-#              my $previous_good_exon = $good_transcript->start_Exon;
-#              foreach my $good_exon (@{$good_transcript->get_all_Exons}) {
-#                if (($strand == 1
-#                    and $first_exon_to_process->end == $good_exon->end
-#                    and $good_exon->start - $first_exon_to_process->start > $max_overlength
-#                    and $good_exon != $good_transcript->start_Exon)
-#                  or ($strand == -1
-#                    and $first_exon_to_process->start == $good_exon->start
-#                    and $good_exon->end - $first_exon_to_process->end > $max_overlength
-#                    and $good_exon != $good_transcript->start_Exon)) {
-#                  $add_to_good_gene = 0;
-#                  if ($previous_good_exon->length < 21 and $previous_good_exon == $good_transcript->start_Exon) {
-#        print STDERR ' T FRS ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_exon->seq_region_start, ' ', $good_exon->seq_region_end, ' ', $first_exon_to_process->seq_region_start, ' ', $first_exon_to_process->seq_region_end, ' ', $max_overlength, ' ', $hash_key_to_process, "\n";
-#                  }
-#                  elsif ($first_exon_to_process->length < $good_exon->length*$exon_length_multiplier) {
-#                    print STDERR ' T LRS ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_exon->seq_region_start, ' ', $good_exon->seq_region_end, ' ', $first_exon_to_process->seq_region_start, ' ', $first_exon_to_process->seq_region_end, ' ', $max_overlength, ' ', $hash_key_to_process, "\n";
-#                  }
-#                  else {
-#                    $gene_to_process->{retained} = 1;
-#        print STDERR ' T RS ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_exon->seq_region_start, ' ', $good_exon->seq_region_end, ' ', $first_exon_to_process->seq_region_start, ' ', $first_exon_to_process->seq_region_end, ' ', $max_overlength, ' ', $hash_key_to_process, "\n";
-#                  }
-#                  if (($strand == 1 and $last_exon_to_process->end < $good_transcript->end_Exon->start)
-#                      or ($strand == -1 and $last_exon_to_process->start > $good_transcript->end_Exon->end)) {
-#                    $gene_to_process->{partial} = 1;
-#        print STDERR ' T PARTIAL ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_exon->seq_region_start, ' ', $good_exon->seq_region_end, ' ', $first_exon_to_process->seq_region_start, ' ', $first_exon_to_process->seq_region_end, ' ', $max_overlength, ' ', $hash_key_to_process, "\n";
-#                  }
-#                  last;
-#                }
-#              }
-#              if ($add_to_good_gene) {
-#                push(@{$good_gene->{genes}}, $gene_to_process);
-#                $gene_to_process->{processed} = 1; # Mark the gene as processed
-#        print STDERR ' T G ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, "\t", $hash_key_to_process, "\n";
-#              }
-#              else {
-#                push(@{$gene_to_process->{match}}, $good_gene); # Our models match except for the last exons, it can be used for scoring later
-#        print STDERR ' T M ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, "\t", $hash_key_to_process, "\n";
-#              }
-#            }
-#          }
-#          else {
-## Here we process the single exon models
-#            my $good_last_exon = $good_transcript->end_Exon;
-#            if ($good_last_exon->start < $transcript_to_process->end
-#                and $good_last_exon->end > $transcript_to_process->start) {
-#              if ($good_last_exon->strand == 1) {
-#                if ($good_last_exon->start-$transcript_to_process->start < $max_overlength) {
-#                  push(@{$good_gene->{genes}}, $gene_to_process);
-#                  $gene_to_process->{processed} = 1; # Mark the gene as processed
-#        print STDERR ' T S ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($good_last_exon->start-$transcript_to_process->start), ' < ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
-#                }
-#                else {
-#                  $gene_to_process->{retained} = 1; # Mark the gene as retained, might be a bit harsh
-#        print STDERR ' T SR ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($good_last_exon->start-$transcript_to_process->start), ' > ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
-#                }
-#              }
-#              else {
-#                if ($transcript_to_process->end-$good_last_exon->end < $max_overlength) {
-#                  push(@{$good_gene->{genes}}, $gene_to_process);
-#                  $gene_to_process->{processed} = 1; # Mark the gene as processed
-#        print STDERR ' T S ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($transcript_to_process->end-$good_last_exon->end), ' < ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
-#                }
-#                else {
-#                  $gene_to_process->{retained} = 1; # Mark the gene as retained, might be a bit harsh
-#        print STDERR ' T SR ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', ($transcript_to_process->end-$good_last_exon->end), ' < ', $max_overlength, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
-#                }
-#              }
-#            }
-#            else {
-#        print STDERR ' T SB ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, "\n";
-#            }
-#          }
         }
         push(@same_intron_structure, $good_gene);
       }
     }
-#    print_Gene_list(\@same_intron_structure);
     print STDERR "\n", ('-'x5), 'STEP REMOVING SPLICE SITE DIFFERENCE', "\n";
 # Now we are looking at the models to see if the difference in intron structure was caused by the error rate of the PacBio.
     # $$$$$$$$$$---------$$$$$$$
@@ -420,6 +340,7 @@ sub run {
         my $transcript_to_process = $same_intron_structure[$index_to_process]->get_all_Transcripts->[0];
         my $introns_to_process = $transcript_to_process->get_all_Introns;
         my $name_to_process = $transcript_to_process->get_all_supporting_features->[0]->hseqname;
+        print STDERR "COMPARING $good_name WITH $name_to_process\n";
         foreach my $good_intron (@$good_introns) {
           my $good_intron_key = $good_intron->start.':'.$good_intron->end;
           foreach my $intron_to_process (@$introns_to_process) {
@@ -428,6 +349,7 @@ sub run {
               last;
             }
             elsif ($good_intron->end > $intron_to_process->start and $good_intron->start < $intron_to_process->end) {
+              print STDERR "  INTRON OVERLAP\n";
               my $key_to_process = $intron_to_process->start.':'.$intron_to_process->end;
               my $good_prev = $good_intron->prev_Exon;
               my $good_next = $good_intron->next_Exon;
@@ -438,32 +360,32 @@ sub run {
                 if ($good_transcript->strand == 1 and abs($good_prev->end-$prev_to_process->end) < $max_intron_wobble) {
                   print STDERR "DEBUG MATCH INTRON WOBBLE $max_intron_wobble\n";
                   if ($good_splice_sites{$good_intron_key} > $good_splice_sites{$key_to_process}) {
-                    print STDERR $good_name, 'P ', $name_to_process, ' ', $prev_to_process->seq_region_end, ' ', $prev_to_process->end, ' ', $good_prev->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' P ', $name_to_process, ' ', $prev_to_process->seq_region_end, ' ', $prev_to_process->end, ' ', $good_prev->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $prev_to_process->{_gb_end} = $good_prev->end;
-                    print STDERR $good_name, 'N ', $name_to_process, ' ', $next_to_process->seq_region_end, ' ', $next_to_process->end, ' ', $good_next->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' N ', $name_to_process, ' ', $next_to_process->seq_region_end, ' ', $next_to_process->end, ' ', $good_next->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $next_to_process->{_gb_start} = $good_next->start;
                     ++$same_intron_structure[$index_to_process]->{to_process};
                   }
                   elsif ($good_splice_sites{$good_intron_key} < $good_splice_sites{$key_to_process}) {
-                    print STDERR $good_name, 'GP ', $name_to_process, ' ', $good_prev->seq_region_end, ' ', $good_prev->end, ' ', $prev_to_process->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' GP ', $name_to_process, ' ', $good_prev->seq_region_end, ' ', $good_prev->end, ' ', $prev_to_process->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $good_prev->{_gb_end} = $prev_to_process->end;
-                    print STDERR $good_name, 'GN ', $name_to_process, ' ', $good_next->seq_region_start, ' ', $good_next->start, ' ', $next_to_process->start, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' GN ', $name_to_process, ' ', $good_next->seq_region_start, ' ', $good_next->start, ' ', $next_to_process->start, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $good_next->{_gb_start} = $next_to_process->start;
                     ++$good_gene->{to_process};
                   }
                 }
                 elsif ($good_transcript->strand == -1 and abs($good_prev->start-$prev_to_process->start) < $max_intron_wobble) {
                   if ($good_splice_sites{$good_intron_key} > $good_splice_sites{$key_to_process}) {
-                    print STDERR $good_name, 'P ', $name_to_process, ' ', $prev_to_process->seq_region_start, ' ', $prev_to_process->start, ' ', $good_prev->start, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' P ', $name_to_process, ' ', $prev_to_process->seq_region_start, ' ', $prev_to_process->start, ' ', $good_prev->start, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $prev_to_process->{_gb_start} = $good_prev->start;
-                    print STDERR $good_name, 'N ', $name_to_process, ' ', $next_to_process->seq_region_end, ' ', $next_to_process->end, ' ', $good_next->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' N ', $name_to_process, ' ', $next_to_process->seq_region_end, ' ', $next_to_process->end, ' ', $good_next->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $next_to_process->{_gb_end} = $good_next->end;
                     ++$same_intron_structure[$index_to_process]->{to_process};
                   }
                   elsif ($good_splice_sites{$good_intron_key} < $good_splice_sites{$key_to_process}) {
-                    print STDERR $good_name, 'GP ', $name_to_process, ' ', $good_prev->seq_region_start, ' ', $good_prev->start, ' ', $prev_to_process->start, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' GP ', $name_to_process, ' ', $good_prev->seq_region_start, ' ', $good_prev->start, ' ', $prev_to_process->start, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $good_prev->{_gb_start} = $prev_to_process->start;
-                    print STDERR $good_name, 'GN ', $name_to_process, ' ', $good_next->seq_region_end, ' ', $good_next->end, ' ', $next_to_process->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' GN ', $name_to_process, ' ', $good_next->seq_region_end, ' ', $good_next->end, ' ', $next_to_process->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $good_next->{_gb_end} = $next_to_process->end;
                     ++$good_gene->{to_process};
                   }
@@ -474,12 +396,12 @@ sub run {
                 if ($good_prev->end != $prev_to_process->end and abs($good_prev->end-$prev_to_process->end) < $max_exon_wobble) {
                   print STDERR "DEBUG MATCH PREV EXON WOBBLE $max_exon_wobble\n";
                   if ($good_splice_sites{$good_intron_key} > $good_splice_sites{$key_to_process}) {
-                    print STDERR $good_name, 'P ', $name_to_process, ' ', $prev_to_process->seq_region_end, ' ', $prev_to_process->end, ' ', $good_prev->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' P ', $name_to_process, ' ', $prev_to_process->seq_region_end, ' ', $prev_to_process->end, ' ', $good_prev->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $prev_to_process->{_gb_end} = $good_prev->end;
                     ++$same_intron_structure[$index_to_process]->{to_process};
                   }
                   elsif ($good_splice_sites{$good_intron_key} < $good_splice_sites{$key_to_process}) {
-                    print STDERR $good_name, 'GP ', $name_to_process, ' ', $good_prev->seq_region_end, ' ', $good_prev->end, ' ', $prev_to_process->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' GP ', $name_to_process, ' ', $good_prev->seq_region_end, ' ', $good_prev->end, ' ', $prev_to_process->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $good_prev->{_gb_end} = $prev_to_process->end;
                     ++$good_gene->{to_process};
                   }
@@ -487,12 +409,12 @@ sub run {
                 elsif ($good_next->start != $next_to_process->start and abs($good_next->start-$next_to_process->start) < $max_exon_wobble) {
                   print STDERR "DEBUG MATCH NEXT EXON WOBBLE $max_exon_wobble\n";
                   if ($good_splice_sites{$good_intron_key} > $good_splice_sites{$key_to_process}) {
-                    print STDERR $good_name, 'N ', $name_to_process, ' ', $next_to_process->seq_region_start, ' ', $next_to_process->start, ' ', $good_next->start, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' N ', $name_to_process, ' ', $next_to_process->seq_region_start, ' ', $next_to_process->start, ' ', $good_next->start, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $next_to_process->{_gb_start} = $good_next->start;
                     ++$same_intron_structure[$index_to_process]->{to_process};
                   }
                   elsif ($good_splice_sites{$good_intron_key} < $good_splice_sites{$key_to_process}) {
-                    print STDERR $good_name, 'GN ', $name_to_process, ' ', $good_next->seq_region_start, ' ', $good_next->start, ' ', $next_to_process->start, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' GN ', $name_to_process, ' ', $good_next->seq_region_start, ' ', $good_next->start, ' ', $next_to_process->start, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $good_next->{_gb_start} = $next_to_process->start;
                     ++$good_gene->{to_process};
                   }
@@ -502,12 +424,12 @@ sub run {
                 if ($good_prev->start != $prev_to_process->start and abs($good_prev->start-$prev_to_process->start) < $max_exon_wobble) {
                   print STDERR "DEBUG MATCH PREV EXON WOBBLE $max_exon_wobble\n";
                   if ($good_splice_sites{$good_intron_key} > $good_splice_sites{$key_to_process}) {
-                    print STDERR $good_name, 'P ', $name_to_process, ' ', $prev_to_process->seq_region_start, ' ', $prev_to_process->start, ' ', $good_prev->start, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' P ', $name_to_process, ' ', $prev_to_process->seq_region_start, ' ', $prev_to_process->start, ' ', $good_prev->start, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $prev_to_process->{_gb_start} = $good_prev->start;
                     ++$same_intron_structure[$index_to_process]->{to_process};
                   }
                   elsif ($good_splice_sites{$good_intron_key} < $good_splice_sites{$key_to_process}) {
-                    print STDERR $good_name, 'GP ', $name_to_process, ' ', $good_prev->seq_region_start, ' ', $good_prev->start, ' ', $prev_to_process->start, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' GP ', $name_to_process, ' ', $good_prev->seq_region_start, ' ', $good_prev->start, ' ', $prev_to_process->start, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $good_prev->{_gb_start} = $prev_to_process->start;
                     ++$good_gene->{to_process};
                   }
@@ -515,15 +437,18 @@ sub run {
                 elsif ($good_prev->end != $prev_to_process->end and abs($good_prev->end-$prev_to_process->end) < $max_exon_wobble) {
                   print STDERR "DEBUG MATCH NEXT EXON WOBBLE $max_exon_wobble\n";
                   if ($good_splice_sites{$good_intron_key} > $good_splice_sites{$key_to_process}) {
-                    print STDERR $good_name, 'N ', $name_to_process, ' ', $prev_to_process->seq_region_end, ' ', $prev_to_process->end, ' ', $good_prev->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
+                    print STDERR $good_name, ' N ', $name_to_process, ' ', $prev_to_process->seq_region_end, ' ', $prev_to_process->end, ' ', $good_prev->end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                     $prev_to_process->{_gb_end} = $good_prev->end;
                     ++$same_intron_structure[$index_to_process]->{to_process};
                   }
                   elsif ($good_splice_sites{$good_intron_key} < $good_splice_sites{$key_to_process}) {
-                    print STDERR $good_name, 'GN ', $name_to_process, ' ', $good_prev->seq_region_end, ' ', $good_prev->end, ' ', $prev_to_process->end, "\n";
+                    print STDERR $good_name, ' GN ', $name_to_process, ' ', $good_prev->seq_region_end, ' ', $good_prev->end, ' ', $prev_to_process->end, "\n";
                     $good_prev->{_gb_end} = $prev_to_process->end;
                     ++$good_gene->{to_process};
                   }
+                }
+                else {
+                  print STDERR '  ', $good_name, ' AGAINST ', $name_to_process, ' ', $prev_to_process->seq_region_start, ' ', $prev_to_process->seq_region_start, ' ', $good_prev->seq_region_start, ' ', $good_prev->seq_region_end, ' ', $good_prev->seq_region_end, ' ', $prev_to_process->seq_region_end, ' ', $good_splice_sites{$good_intron_key}, ' ', $good_splice_sites{$key_to_process}, "\n";
                 }
               }
               last;
@@ -535,6 +460,7 @@ sub run {
     foreach my $gene (@same_intron_structure) {
       if (exists $gene->{to_process}) {
         foreach my $transcript (@{$gene->get_all_Transcripts}) {
+          print STDERR ' NEW GENE ', $transcript->get_all_supporting_features->[0], "\n";
           my @exons;
           foreach my $exon (@{$transcript->get_all_Exons}) {
             my $new_exon = clone_Exon($exon);
@@ -677,6 +603,7 @@ sub run {
     my $no_polyA_biotype = $self->param('biotype_noPolyA');
     my $polyA_biotype = $self->param('biotype_PolyA');
     my $NMD_biotype = $self->param('biotype_NMD');
+    my $single_exon = $self->param('biotype_single');
     foreach my $gene ( sort {$b->{full_length} <=> $a->{full_length}} @for_step4) {
       if ($gene->{polyA_signal}) {
         $gene->biotype($polyA_biotype.(exists $gene->{nc_count} ? '_'.$gene->{nc_count} : ''));
