@@ -654,7 +654,7 @@ GENE: foreach my $gene (@genes) {
   warning('Something is wrong with gene '.$gene->display_id) unless (check_gene($gene));
   print_gene($gene) if ($verbose);
   if ($write) {
-    if ($gene->slice->assembly_exception_type eq 'REF') {
+    if ($gene->slice->is_toplevel) {
       $ga->store($gene);
     }
     else {
