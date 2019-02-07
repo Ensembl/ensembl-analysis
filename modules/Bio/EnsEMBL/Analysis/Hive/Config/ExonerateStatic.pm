@@ -447,6 +447,57 @@ sub _master_config {
         },
       },
     },
+# This is coming from the IgSegBuilder configs: ensembl-config/human/GRCh37_ig/Bio/EnsEMBL/Analysis/Config/Exonerate2Genes.pm
+# Thibaut have modified it for the Hive pipeline
+    c_segment => {
+      QUERYTYPE => 'protein',
+      OPTIONS  => "--model protein2genome --softmasktarget FALSE --maxintron 5000 --forcegtag TRUE --bestn 5 ",
+      FILTER => {
+        OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::IgTranscriptFilter',
+        PARAMETERS => {
+          -minpercent   => 95,
+          -percentrange => 0,
+        },
+      },
+    },
+
+    d_segment =>  {
+      QUERYTYPE => 'protein',
+      OPTIONS  => "--model protein2genome --softmasktarget TRUE --maxintron 0 --gappedextension TRUE --bestn 1 ",
+      FILTER => {
+        OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::IgTranscriptFilter',
+        PARAMETERS => {
+          -minpercent  =>  95,
+          -percentrange => 0,
+        },
+      },
+    },
+
+    j_segment =>  {
+      QUERYTYPE => 'protein',
+      OPTIONS  => "--model protein2genome --softmasktarget TRUE --maxintron 0 --percent 90 --score 0 --bestn 5 ",
+      FILTER => {
+        OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::IgTranscriptFilter',
+        PARAMETERS => {
+          -minpercent   => 95,
+          -percentrange => 0,
+        },
+      },
+    },
+
+    v_segment => {
+      QUERYTYPE => 'protein',
+      # minintron set artificially low to 20 due to bug in exonerate;
+      # softmasktarget set to FALSE because some leader exons are low-complexity
+      OPTIONS  => "--model protein2genome --softmasktarget FALSE --maxintron 1000 --minintron 0 --bestn 5 ",
+      FILTER => {
+        OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::IgTranscriptFilter',
+        PARAMETERS => {
+          -minpercent   => 95,
+          -percentrange => 0,
+        },
+      },
+    },
   );
   return $config{$key};
 }
