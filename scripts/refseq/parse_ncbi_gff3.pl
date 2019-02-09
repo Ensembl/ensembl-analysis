@@ -343,6 +343,9 @@ LINE: while ($gff_parser->next) {
             }
           }
           $genes[$index]->add_Transcript($transcript);
+          if (exists $attributes->{tag} and $attributes->{tag} eq 'refseq_select') {
+            $genes[$index]->canonical_transcript($transcript);
+          }
           next LINE;
         }
       }
@@ -650,6 +653,8 @@ GENE: foreach my $gene (@genes) {
     $gene->add_Transcript($transcript);
     info('Was expecting gene '.$gene->stable_id.' '.$gene->biotype.' '.$gene->{__start}.' '.$gene->{__end}.' to have a transcript, I have added one...');
   }
+# Another way to do it is to check that the canonical transcript is a NM if the gene has NM and XM
+  $gene->canonical_transcript($gene->get_all_Transcripts->[0]) unless ($gene->canonical_transcript);
   $stats{gene}->{$gene->biotype}++;
   warning('Something is wrong with gene '.$gene->display_id) unless (check_gene($gene));
   print_gene($gene) if ($verbose);
