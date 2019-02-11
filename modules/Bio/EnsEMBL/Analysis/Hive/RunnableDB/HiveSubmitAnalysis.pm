@@ -712,7 +712,6 @@ sub feature_id {
   } else {
     $self->throw("The feature type you requested is not supported in the code yet. Feature type:\n".$type);
   }
-
   my $slices;
   if ($self->param_is_defined('iid') and is_slice_name($self->param('iid'))) {
     $slices = [$dba->get_SliceAdaptor->fetch_by_name($self->param('iid'))];
@@ -722,8 +721,20 @@ sub feature_id {
   }
   foreach my $slice (@$slices) {
     foreach my $logic_name (@$logic_names) {
-      foreach my $feature (@{$feature_adaptor->fetch_all_by_Slice($slice, $logic_name)}) {
-        push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
+        foreach my $feature (@{$feature_adaptor->fetch_all_by_Slice($slice, $logic_name)}) {
+          if($self->param_is_defined('exclude_biotype')) {
+            foreach my $biotype (@{$self->param('exclude_biotype')}){
+               if ($feature->biotype eq $biotype) {
+                   $self->warning("You've defined a biotype that is not allowed to be copied. Something is wrong");
+               }
+               else{
+                  push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
+               }
+           }
+         }
+         else{
+                  push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
+               }
       }
     }
   }
