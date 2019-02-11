@@ -61,7 +61,7 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
   existing_annotations_dict = {}
 
   # This ordering needs to match the ordering of the query on the assembly db 
-  assembly_db_columns = ['species_name','common_name','chain','version','class','contig_N50','assembly_level','assembly_date','refseq_accession','assembly_name','genome_rep']
+  assembly_db_columns = ['species_name','common_name','chain','version','clade','contig_N50','assembly_level','assembly_date','refseq_accession','assembly_name','genome_rep']
 
   # This ordering needs to match the ordering of the columns on the sheet
   assembly_sheet_columns = ['GCA','Clade','Species name','Common name','Contig N50','Assembly level','Assembly date','Assembly name','RefSeq accession','Genebuilder','Status',
@@ -113,7 +113,7 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
     chain = assembly_row[assembly_db_columns.index('chain')]
     chain.encode('ascii','ignore')
     version = assembly_row[assembly_db_columns.index('version')]
-    clade = assembly_row[assembly_db_columns.index('class')]
+    clade = assembly_row[assembly_db_columns.index('clade')]
     contig_N50 = assembly_row[assembly_db_columns.index('contig_N50')]
     assembly_level = assembly_row[assembly_db_columns.index('assembly_level')]
     assembly_date = assembly_row[assembly_db_columns.index('assembly_date')]
@@ -239,7 +239,7 @@ if __name__ == '__main__':
   parser.add_argument('-wsn','--worksheet_name', help='The name of the Google Sheets worksheet', required=True)
   parser.add_argument('-gsc','--gsheets_credentials', help='Path to a Google Sheets credentials JSON file for authentication', required=True)
   args = parser.parse_args()
-  assembly_db_query = 'SELECT species_name,common_name,chain,version,class,contig_N50,assembly_level,assembly_date,refseq_accession,assembly_name,genome_rep FROM assembly JOIN meta USING(assembly_id) JOIN species_space_log using(species_id)'
+  assembly_db_query = 'SELECT species_name,common_name,chain,version,clade,contig_N50,assembly_level,assembly_date,refseq_accession,assembly_name,genome_rep FROM assembly JOIN meta USING(assembly_id) JOIN species_space_log using(species_id)'
   assembly_db_database = args.assembly_db_dbname
   assembly_db_host = args.assembly_db_host
   assembly_db_port = args.assembly_db_port
