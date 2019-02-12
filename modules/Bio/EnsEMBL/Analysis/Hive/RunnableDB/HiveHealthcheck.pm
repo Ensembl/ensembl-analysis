@@ -59,6 +59,7 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     methods_list => [],
+    skip_analysis => 0,
   }
 }
 
@@ -80,6 +81,10 @@ sub param_defaults {
 
 sub fetch_input {
   my $self = shift;
+
+  if($self->param('skip_analysis')) {
+    $self->complete_early('Skip analysis flag is enabled, so no healthcheck will occur');
+  }
 
   my $group = $self->param_required('group');
   my $hc_db = $self->get_database_by_name('input_db');
