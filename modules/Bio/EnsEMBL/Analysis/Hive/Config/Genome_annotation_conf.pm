@@ -5774,7 +5774,7 @@ sub pipeline_analyses {
                        },
         -batch_size => 20,
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -rc_name    => '3GB',
+        -rc_name    => '5GB',
         -flow_into => {
                         -1 => ['run_utr_addition_10GB'],
                       },
@@ -5782,7 +5782,7 @@ sub pipeline_analyses {
      },
 
 
-      {
+     {
         -logic_name => 'run_utr_addition_10GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveUTRAddition',
         -parameters => {
@@ -5793,6 +5793,49 @@ sub pipeline_analyses {
                          utr_biotype_priorities => $self->o('utr_biotype_priorities'),
                          target_db => $self->o('utr_db'),
                          iid_type => 'slice',
+                       },
+        -batch_size => 20,
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -rc_name    => '10GB',
+        -flow_into => {
+                        -1 => ['run_utr_addition_30GB'],
+                      },
+     },
+
+
+     {
+        -logic_name => 'run_utr_addition_30GB',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveUTRAddition',
+        -parameters => {
+                         logic_name => 'utr_addition',
+                         dna_db => $self->o('dna_db'),
+                         donor_dbs => $self->o('utr_donor_dbs'),
+                         acceptor_dbs => $self->o('utr_acceptor_dbs'),
+                         utr_biotype_priorities => $self->o('utr_biotype_priorities'),
+                         target_db => $self->o('utr_db'),
+                         iid_type => 'slice',
+                       },
+        -batch_size => 20,
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -rc_name    => '30GB',
+        -flow_into => {
+                        -1 => ['utr_memory_failover'],
+                      },
+     },
+
+
+     {
+        -logic_name => 'utr_memory_failover',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveUTRAddition',
+        -parameters => {
+                         logic_name => 'utr_addition',
+                         dna_db => $self->o('dna_db'),
+                         donor_dbs => $self->o('utr_donor_dbs'),
+                         acceptor_dbs => $self->o('utr_acceptor_dbs'),
+                         utr_biotype_priorities => $self->o('utr_biotype_priorities'),
+                         target_db => $self->o('utr_db'),
+                         iid_type => 'slice',
+                         copy_only => 1,
                        },
         -batch_size => 20,
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
