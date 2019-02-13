@@ -56,13 +56,13 @@ sub default_options {
     'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'rnaseq_summary_file'       => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
-    'rnaseq_summary_file_fam'   => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'_fam.csv'), # Set this if you have a pre-existing family level cvs file with the expected columns
+    'rnaseq_summary_file_genus' => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'_gen.csv'), # Set this if you have a pre-existing genus level cvs file with the expected columns
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'taxon_id'                  => '', # should be in the assembly report file
     'species_taxon_id'          => '' || $self->o('taxon_id'), # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
-    'family_taxon_id'           => '' || $self->o('taxon_id'), # Family level taxon id, used to get a family level csv file in case there is not enough species level transcriptomic data
+    'genus_taxon_id'            => '' || $self->o('taxon_id'), # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
     'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'wgs_id'                    => '', # Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
@@ -1040,7 +1040,7 @@ sub pipeline_analyses {
         },
 
         -flow_into => {
-           1 => ['download_family_rnaseq_csv'],
+           1 => ['download_genus_rnaseq_csv'],
          },
 
         -input_ids  => [
@@ -1054,13 +1054,13 @@ sub pipeline_analyses {
 
 
       {
-        -logic_name => 'download_family_rnaseq_csv',
+        -logic_name => 'download_genus_rnaseq_csv',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
         -rc_name => '1GB',
         -parameters => {
           study_accession => $self->o('study_accession'),
-          taxon_id => $self->o('family_taxon_id'),
-          inputfile => $self->o('rnaseq_summary_file_fam'),
+          taxon_id => $self->o('genus_taxon_id'),
+          inputfile => $self->o('rnaseq_summary_file_genus'),
         },
 
         -flow_into => {

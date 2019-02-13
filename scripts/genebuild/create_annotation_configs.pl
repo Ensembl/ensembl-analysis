@@ -332,7 +332,7 @@ sub parse_assembly_report {
   my $report_file_content;
   my $report_file_handle;
   my $taxon_id;
-  my $family_taxon_id;
+  my $genus_taxon_id;
   my $species_taxon_id;
   my $species_name;
   my $refseq_accession;
@@ -383,16 +383,16 @@ sub parse_assembly_report {
   }
 
   $assembly_hash->{'taxon_id'} = $taxon_id;
- 
- #use taxon id to retrieve family taxon id
- #family taxon_id will be used to download family level rnaseq data
+
+ #use taxon id to retrieve genus taxon id
+ #genus taxon_id will be used to download genus level rnaseq data
   my $node_adaptor = $taxonomy_adaptor->get_TaxonomyNodeAdaptor();
-  my $taxon_node = $node_adaptor->fetch_by_taxon_id($taxon_id);  
+  my $taxon_node = $node_adaptor->fetch_by_taxon_id($taxon_id);
   foreach my $ancestor ( @{ $node_adaptor->fetch_ancestors($taxon_node)}){
-    #store family level taxon id
+    #store genus level taxon id
      if ($ancestor->rank eq 'genus'){
-        $family_taxon_id = $ancestor->taxon_id;
-        $assembly_hash->{'family_taxon_id'} = $family_taxon_id;
+        $genus_taxon_id = $ancestor->taxon_id;
+        $assembly_hash->{'genus_taxon_id'} = $genus_taxon_id;
      }
     #store taxonomy at species level if species is a subspecies
      elsif ($ancestor->rank eq 'species'){
