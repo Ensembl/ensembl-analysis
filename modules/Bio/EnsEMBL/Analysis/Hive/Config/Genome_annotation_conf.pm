@@ -5706,11 +5706,28 @@ sub pipeline_analyses {
                          feature_dbs => [$self->o('genblast_db'),$self->o('projection_coding_db'),$self->o('rnaseq_for_layer_db')],
                       },
         -flow_into => {
-                       '2->A' => ['layer_annotation'],
-                       'A->1' => ['layer_annotation_sanity_checks'],
+                       '2'    => ['split_slices_on_intergenic'],
                       },
 
         -rc_name    => 'default',
+      },
+
+
+      {
+        -logic_name => 'split_slices_on_intergenic',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFindIntergenicRegions',
+        -parameters => {
+                         dna_db => $self->o('dna_db'),
+                         input_gene_dbs => $self->o('layering_input_gene_dbs'),
+                         iid_type => 'slice',
+                       },
+        -batch_size => 100,
+        -hive_capacity => $self->hive_capacity_classes->{'hc_medium'},
+        -rc_name    => '5GB',
+        -flow_into => {
+                       '2->A' => ['layer_annotation'],
+                       'A->1' => ['layer_annotation_sanity_checks'],
+                      },
       },
 
 
@@ -5738,25 +5755,9 @@ sub pipeline_analyses {
                        },
         -rc_name    => '4GB',
         -flow_into  => {
-                         '1->A' => ['split_slices_on_intergenic'],
+                         '1->A' => ['run_utr_addition'],
                          'A->1' => ['genebuilder'],
                        },
-      },
-
-      {
-        -logic_name => 'split_slices_on_intergenic',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFindIntergenicRegions',
-        -parameters => {
-                         dna_db => $self->o('dna_db'),
-                         input_gene_dbs => $self->o('utr_acceptor_dbs'),
-                         iid_type => 'slice',
-                       },
-        -batch_size => 100,
-        -hive_capacity => $self->hive_capacity_classes->{'hc_medium'},
-        -rc_name    => '1GB',
-        -flow_into => {
-                        2 => ['run_utr_addition'],
-                      },
       },
 
 
