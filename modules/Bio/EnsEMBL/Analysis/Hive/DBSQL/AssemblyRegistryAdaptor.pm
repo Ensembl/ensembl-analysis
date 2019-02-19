@@ -253,25 +253,6 @@ sub fetch_stable_id_prefix_by_gca {
   return($stable_id_prefix);
 }
 
-sub fetch_clade_by_gca {
-  my ($self,$chain_version,$type) = @_;
-
-  my ($chain,$version) = $self->split_gca($chain_version);
-
-  my $sql = "SELECT clade FROM assembly WHERE chain=? and version=?";
-  my $sth = $self->dbc->prepare($sql);
-  $sth->bind_param(1,$chain);
-  $sth->bind_param(2,$version);
-  $sth->execute();
-
-  my $clade = $sth->fetchrow();
-  unless($clade) {
-    $self->throw("Could not find clade for assembly with chain ".$chain." and version ".$version);
-  }
-
-  return($clade);
-}
-
 sub fetch_stable_id_start_by_gca {
   my ($self,$chain_version,$type) = @_;
   my ($chain,$version) = $self->split_gca($chain_version);
