@@ -1,3 +1,4 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
@@ -56,6 +57,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns;
 
 use warnings ;
 use strict;
+use feature 'say';
 
 use File::Spec;
 use File::Path qw(make_path);
@@ -67,6 +69,7 @@ use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Analysis::Runnable::Bam2Introns;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -88,6 +91,7 @@ sub param_defaults {
     %{$self->SUPER::param_defaults},
     _branch_for_accumulators => 'MAIN',
     _stored_features => {},
+    timer => '5h',
   }
 }
 
@@ -128,8 +132,18 @@ sub fetch_input {
     $self->complete_early('No genes to process');
   }
 
-  my $stable_id = $self->input_id;
+  my $fasta_db;
+  if($self->param('use_genome_flatfile')) {
+    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
+      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+    }
 
+    setup_fasta(
+                 -FASTA => $self->param('genome_file'),
+               );
+  }
+
+  my $stable_id = $self->input_id;
 
   # check for batch info in the input id
   if ( $self->input_id =~ /(\S+):(\d+):(\d+):(\d+)/ ) {
@@ -176,11 +190,14 @@ sub fetch_input {
     my @callback_data = ($missmatch, $i, $exon_start, $rough->stable_id, \@reads, \@iids, $counters, $self->param('seq_hash'));
     $bam_index->fetch($bam, $tid, $exon_start-1, $exon->end-1, \&_process_reads, \@callback_data);
   }
+
+  # If we can't find reads to build introns with then stop
   if (  scalar(@reads) == 0 ) {
     $self->input_job->autoflow(0);
     $self->complete_early('No read with more than '.$missmatch.' missmatches');
   }
-  else {
+
+
   if ( scalar(@iids) > 0  && !$counters->{'start'} ) {
     # We want the original input_id job to finish before submitting the new input ids otherwise we may have problems
     print 'Making ',  scalar(@iids), ' New input ids from ', $counters->{'count'}, " reads\n";
@@ -192,8 +209,11 @@ sub fetch_input {
   my $slice = $slice_adaptor->fetch_by_region('toplevel',$rough->seq_region_name,$rough->start,$rough->end,$rough->strand);
   $self->param('query', $slice);
   if ( $fullseq && $rough->length < $self->param('max_transcript') ) {
+    # Note that if we are using 'use_genome_flatfile', then the slice->seq sub is overridden to pull from the genome file
+    # This will work with the normal masking options too
+    # If you are changing code here there is equivalent code to change in the else below this, which operates on exons
     if ( $self->param('mask') ) {
-      $queryseq = $slice->get_repeatmasked_seq(undef,1)->seq;
+      $queryseq = $slice->get_repeatmasked_seq($self->param_required('wide_repeat_logic_names'),1)->seq;
     }
     else {
       $queryseq = $slice->seq;
@@ -204,22 +224,27 @@ sub fetch_input {
     $self->fullslice(0);
     foreach my $exon ( @{$rough->get_all_Transcripts->[0]->get_all_Exons}) {
       my $slice = $exon->feature_Slice;
+      # Note that if we are using 'use_genome_flatfile', then the slice->seq sub is overridden to pull from the genome file
+      # This will work with the normal masking options too
+      # If you are changing code here there is equivalent code to change in the if above this, which operates on the full slice of the rough transcript
       if ( $self->param('mask') ) {
-        $queryseq .= $slice->get_repeatmasked_seq(undef,1)->seq;
+        $queryseq .= $slice->get_repeatmasked_seq($self->param_required('wide_repeat_logic_names'),1)->seq;
       }
       else {
         $queryseq .= $slice->seq;
       }
     }
   }
+
   my $masked_count = $queryseq =~ tr/atcgn/atcgn/;
   if (($masked_count/length($queryseq)) > .99) {
     $self->input_job->autoflow(0);
     $self->complete_early(sprintf("Highly repetitive sequence: %.2f%% masked", (($masked_count*100)/length($queryseq))));
   }
+
   my $seqio = Bio::Seq->new( -seq => $queryseq,
-                 -display_id => $rough->stable_id
-               );
+                             -display_id => $rough->stable_id
+                           );
   # set uo the runnable
   my $program = $self->param('program_file');
   $program = 'exonerate' unless $program;
@@ -235,8 +260,34 @@ sub fetch_input {
      -coverage     => $self->param('coverage'),
      -missmatch     => $self->param('missmatch'),
     );
+
+  $runnable->timer($self->param('timer'));
   $self->runnable($runnable);
+}
+
+
+sub run {
+  my ($self) = @_;
+  my $runnable = shift(@{$self->runnable});
+  $self->runnable_failed(0);
+  eval {
+    $runnable->run;
+  };
+
+  if($@) {
+    my $except = $@;
+    $self->runnable_failed(1);
+    if($except =~ /still running after your timer/) {
+      $self->warning("bam2introns took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
+      $self->param('_branch_to_flow_to_on_fail',-2);
+    } else {
+      $self->warning("Issue with running bam2introns, will dataflow input id on branch -3. Exception:\n".$except);
+      $self->param('_branch_to_flow_to_on_fail',-3);
+    }
+  } else {
+    $self->output($self->filter_results($runnable->output));
   }
+  return 1;
 }
 
 
@@ -274,6 +325,16 @@ sub get_aligner_options {
 
 sub write_output {
   my $self = shift;
+
+  # If a failure has happened then flow the input id on the appropriate branch
+  if($self->runnable_failed == 1) {
+    # Flow out on -2 or -3 based on how the failure happened
+    my $failure_branch_code = $self->param('_branch_to_flow_to_on_fail');
+    my $output_hash = {};
+    $output_hash->{'iid'} = $self->param('iid');
+    $self->dataflow_output_id($output_hash,$failure_branch_code);
+    return;
+  }
 
   my $output = $self->output;
   print "Got " .  scalar(@$output) ." genomic features \n";
@@ -704,6 +765,15 @@ sub _process_reads {
         }
         # otherwise figure out the ids for the rest of the batches
     }
+}
+
+
+sub runnable_failed {
+  my ($self,$runnable_failed) = @_;
+  if (defined $runnable_failed) {
+    $self->param('_runnable_failed',$runnable_failed);
+  }
+  return ($self->param('_runnable_failed'));
 }
 
 1;
