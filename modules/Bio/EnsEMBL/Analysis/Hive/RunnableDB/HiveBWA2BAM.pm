@@ -93,6 +93,12 @@ sub fetch_input {
 
     my $method = $self->param('is_paired') ? ' sampe '.$self->param('sampe_options') : ' samse '.$self->param('samse_options');
     foreach my $fastq (@{$self->param('fastq')}) {
+      print("DEBUG:: " . $fastq->{filename} . "\n");
+      if ($fastq->{filename} eq 'SRR7403834_7_2.fastq.gz_split'){
+            $self->input_job->autoflow(0);
+            $self->complete_early('There is no fastq files for this job');
+            next;
+      }
         my $abs_filename = catfile($self->param('input_dir'), $fastq->{filename});
         $self->throw("Fastq file $abs_filename not found\n") unless (-e $abs_filename);
         if ($fastq->{is_mate_1} == 1) {
@@ -102,6 +108,7 @@ sub fetch_input {
             $fastqpair = $abs_filename;
         }
     }
+    print("DEBUG:: $fastqfile \t $fastqpair \n");
     my $analysis = $self->create_analysis;
     $analysis->parameters('-use_threads => '.$self->param('use_threads')) if ($self->param_is_defined('use_threads'));
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::BWA2BAM->new

@@ -37,9 +37,14 @@ open(FH, '>', $fn) or die "Could not write to $fn";
 my $sa = $db->get_SliceAdaptor();
 my $slice_name;
 
+my $aa = $db->get_AnalysisAdaptor();
+my $analysis = $aa->fetch_by_logic_name('repeatmask_repeatmodeler');
+my $analysis_id = $analysis->dbID();
+
 foreach my $slice (@{ $sa->fetch_all( 'toplevel') }){
   $slice_name = $slice->seq_region_name();
-  foreach my $repeat (@{ $rfa->fetch_all_by_Slice($slice) }){
+  #foreach my $repeat (@{ $rfa->fetch_all_by_Slice($slice) }){
+  foreach my $repeat (@{ $rfa->fetch_all_by_Slice_constraint($slice, "analysis_id != $analysis_id") }){ 
     my $strand = $repeat->strand() > 0 ? "+" : "-";
     print FH $slice_name, "\t",
       $repeat->seq_region_start(), "\t",

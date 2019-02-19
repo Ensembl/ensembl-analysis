@@ -327,6 +327,7 @@ sub write_output {
   foreach my $analysis (@{$self->param('analyses')}) {
     push(@output_ids, {config_file => $analysis->[0], logic_name => $analysis->[2]});
   }
+  print("DEBUG: " . scalar @output_ids);
   $self->dataflow_output_id(\@output_ids, 2);
 }
 

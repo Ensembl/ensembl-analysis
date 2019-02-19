@@ -204,7 +204,16 @@ sub index {
   $options = '' unless (defined $options);
   my $cmd = join(' ', $self->_base_command('index', $options), $file);
   logger_info($cmd);
-  execute_with_wait($cmd, $file.' indexing failed');
+  eval {
+    execute_with_wait($cmd, $file.' indexing failed');
+  };
+  if ($@){
+    if($options =~ /-c/){
+      throw("Indexing failed $@");
+    }
+    $self->index($file, "-c $options");
+    print(">>> finished indexing BAM\n");
+  }
 }
 
 

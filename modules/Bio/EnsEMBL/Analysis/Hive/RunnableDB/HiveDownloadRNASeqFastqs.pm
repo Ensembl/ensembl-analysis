@@ -69,7 +69,7 @@ sub write_output {
     if ($res == 8) {
       $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$srr/$fastq",  '-P', $path]);
       if ($res) {
-        $res >>= 8;
+        # $res >>= 8;
         $self->throw("Could not download file $fastq error code is $res");
       }
     }

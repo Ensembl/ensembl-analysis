@@ -172,7 +172,8 @@ sub run {
   }
 
   $command = join(' ', $program, $method, $readgroup, $self->genome, $sai_fastq_files, '|', $samtools->make_commandline('view', '-b -S', $outdir.'/'.$outfile.'_unsorted.bam', '-'));
-  
+  print("DEBUG: $command \n");
+   
   execute_with_wait($command, 'Failed processing alignment: '.$command."\n$?\n");
 
   my $sorted_bam = $outdir.'/'.$outfile;
