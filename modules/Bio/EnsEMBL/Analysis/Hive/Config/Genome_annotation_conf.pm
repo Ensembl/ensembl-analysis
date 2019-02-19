@@ -3736,7 +3736,7 @@ sub pipeline_analyses {
               ).'; do lfs getdirstripe -q $D > /dev/null; if [ $? -eq 0 ]; then lfs setstripe -c -1 $D;fi;done;fi',
         },
         -flow_into => {
-          '1->A' => ['create_rnaseq_genome_file', 'create_fastq_download_jobs'],
+          '1->A' => ['create_rnaseq_genome_file','create_fastq_download_jobs'],
           'A->1' => ['create_rough_db'],
         },
       },
@@ -3752,12 +3752,25 @@ sub pipeline_analyses {
           1 => [ 'index_rnaseq_genome_file'],
         },
       },
+
       {
         -logic_name => 'index_rnaseq_genome_file',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -rc_name => '5GB',
         -parameters => {
           cmd => 'if [ ! -e "'.$self->o('rnaseq_genome_file').'.ann" ]; then '.$self->o('bwa_path').' index -a bwtsw '.$self->o('rnaseq_genome_file').';fi',
+        },
+        -flow_into => {
+          1 => [ 'create_faidx'],
+        },
+      },
+
+      {
+        -logic_name => 'create_faidx',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name => '5GB',
+        -parameters => {
+          cmd => 'if [ ! -e "'.$self->o('rnaseq_genome_file').'.fai" ]; then '.$self->o('samtools_path').' faidx '.$self->o('rnaseq_genome_file').';fi',
         },
       },
 
@@ -4285,17 +4298,22 @@ sub pipeline_analyses {
           maxintron => $self->o('maxintron'),
           use_ucsc_naming => $self->o('use_ucsc_naming'),
           output_dir => $self->o('sam_dir'),
+          use_genome_flatfile => 1,
+          genome_file => $self->o('rnaseq_genome_file'),
+          timer => '5h',
         },
-        -rc_name    => '2GB',
+        -rc_name    => '5GB',
         -analysis_capacity => 500,
         -batch_size => 100,
         -flow_into => {
           1 => [':////accu?filename=[]'],
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
           -1 => {'bam2introns_20GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
-          -2 => {'bam2introns_20GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
+          -2 => ['failed_bam2introns_jobs'],
+          -3 => ['failed_bam2introns_jobs'],
         },
       },
+
       {
         -logic_name => 'bam2introns_20GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns',
@@ -4316,7 +4334,9 @@ sub pipeline_analyses {
           maxintron => $self->o('maxintron'),
           use_ucsc_naming => $self->o('use_ucsc_naming'),
           output_dir => $self->o('sam_dir'),
-
+          use_genome_flatfile => 1,
+          genome_file => $self->o('rnaseq_genome_file'),
+          timer => '5h',
         },
         -rc_name    => '20GB',
         -analysis_capacity => 500,
@@ -4324,9 +4344,11 @@ sub pipeline_analyses {
           1 => [':////accu?filename=[]'],
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
           -1 => {'bam2introns_50GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
-          -2 => {'bam2introns_50GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
+          -2 => ['failed_bam2introns_jobs'],
+          -3 => ['failed_bam2introns_jobs'],
         },
       },
+
       {
         -logic_name => 'bam2introns_50GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns',
@@ -4347,14 +4369,30 @@ sub pipeline_analyses {
           maxintron => $self->o('maxintron'),
           use_ucsc_naming => $self->o('use_ucsc_naming'),
           output_dir => $self->o('sam_dir'),
+          use_genome_flatfile => 1,
+          genome_file => $self->o('rnaseq_genome_file'),
+          timer => '5h',
         },
         -rc_name    => '50GB',
         -analysis_capacity => 500,
         -flow_into => {
           1 => [':////accu?filename=[]'],
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
+          -1 => ['failed_bam2introns_jobs'],
+          -2 => ['failed_bam2introns_jobs'],
+          -3 => ['failed_bam2introns_jobs'],
         },
       },
+
+      {
+        -logic_name => 'failed_bam2introns_jobs',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name          => 'default',
+        -can_be_empty  => 1,
+      },
+
       {
         -logic_name => 'sam2bam',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSam2Bam',
