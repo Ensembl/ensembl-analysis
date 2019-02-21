@@ -70,7 +70,7 @@ my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
 my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -port    => 4240,
   -user    => 'ensro',
-  -host    => 'mysql-ensembl-mirror',
+  -host    => 'mysql-ens-mirror-1',
   -dbname  => 'ncbi_taxonomy');
 
 my $general_hash = {};
