@@ -62,7 +62,7 @@ my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistr
   -dbname  => 'gb_assembly_registry');
 
 my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
-  -host    => 'mysql-ensembl-mirror',
+  -host    => 'mysql-ens-mirror-1',
   -port    => 4240,
   -user    => 'ensro',
   -dbname  => 'ncbi_taxonomy');
