@@ -65,9 +65,9 @@ use feature 'say';
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Runnable::RepeatMasker;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(parse_timer);
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
-
-
 
 
 =head2 fetch_input
@@ -93,14 +93,29 @@ sub fetch_input{
 #  my $rfa = $dba->get_RepeatFeatureAdaptor;
 #  $self->get_adaptor($rfa);
 
-  if($self->param_is_defined('dna_db')) {
-    say "Attaching dna_db to output db adaptor";
+  if($self->param('use_genome_flatfile')) {
+    say "Ingoring dna table and using fasta file for sequence fetching";
+    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
+      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+    }
+    setup_fasta(
+                 -FASTA => $self->param_required('genome_file'),
+               );
+  } elsif($self->param('dna_db')) {
+    say "Attaching dna db to target";
     my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-
     $dba->dnadb($dna_dba);
   } else {
-    say "No dna_db param defined, so assuming target_db has dna";
+    say "Assuming the target db has dna";
   }
+
+#  if($self->param_is_defined('dna_db')) {
+#    say "Attaching dna_db to output db adaptor";
+#    my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+#    $dba->dnadb($dna_dba);
+#  } else {
+#    say "No dna_db param defined, so assuming target_db has dna";
+#  }
 
   $self->hrdb_set_con($dba,'target_db');
 
