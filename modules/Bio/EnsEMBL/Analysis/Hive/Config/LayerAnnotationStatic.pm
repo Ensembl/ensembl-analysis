@@ -538,7 +538,7 @@ sub _master_config {
               ID         => 'LAYER5',
               BIOTYPES   => [
 		             'rnaseq_merged_5',
-                             'rnaseq_tissue_5'
+                             'rnaseq_tissue_5',
                              'rnaseq_merged_6',
                              'rnaseq_tissue_6',
                              'human_pe12_sp_6',
