@@ -120,7 +120,7 @@ sub default_options {
 ########################
 
     'projection_source_db_name'    => 'homo_sapiens_core_91_38', # This is generally a pre-existing db, like the current human/mouse core for example
-    'projection_source_db_server'  => 'mysql-ensembl-mirror',
+    'projection_source_db_server'  => 'mysql-ens-mirror-1',
     'projection_source_db_port'    => '4240',
 
     # The following might not be known in advance, since the come from other pipelines
@@ -191,8 +191,11 @@ sub default_options {
     'lincrna_db_server'            => $self->o('databases_server'),
     'lincrna_db_port'              => $self->o('databases_port'),
 
-    'layering_db_server'           => $self->o('databases_server'),
-    'layering_db_port'             => $self->o('databases_port'),
+    # Layering is one of the most intesnive steps, so separating it off the main output server helps
+    # Have also set module to use flatfile seq retrieval, so even if it's on the same server as the
+    # core, the core should not be accessed
+    'layering_db_server'           => $self->o('dna_db_server'),
+    'layering_db_port'             => $self->o('dna_db_port'),
 
     'utr_db_server'                => $self->o('databases_server'),
     'utr_db_port'                  => $self->o('databases_port'),
@@ -249,7 +252,7 @@ sub default_options {
 
     genome_dumps                => catdir($self->o('output_path'), 'genome_dumps'),
     genome_file                 => catfile($self->o('genome_dumps'), $self->o('species_name').'_softmasked_toplevel.fa'),
-    rnaseq_genome_file          => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
+    faidx_genome_file          => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
     'primary_assembly_dir_name' => 'Primary_Assembly',
     'refseq_cdna_calculate_coverage_and_pid' => '0',
     'contigs_source'            => 'ena',
@@ -928,9 +931,10 @@ sub pipeline_create_commands {
                     'read_length int(50) NOT NULL,'.
                     'PRIMARY KEY (fastq))'),
 
-# Commenting out lincRNA pfam pipeline commands until we put that bit back in
-'mkdir -p '.$self->o('rnaseq_dir'),
+      'mkdir -p '.$self->o('rnaseq_dir'),
+      'mkdir -p '.$self->o('genome_dumps'),
 
+# Commenting out lincRNA pfam pipeline commands until we put that bit back in
 #"cat <<EOF > ".$self->o('registry_file')."
 #{
 #package reg;
@@ -1462,10 +1466,39 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into  => {
+          1 => ['create_faidx_genome_file'],
+        },
+      },
+
+
+      {
+        -logic_name => 'create_faidx_genome_file',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name => '1GB',
+        -parameters => {
+          cmd => 'if [ ! -s "'.$self->o('faidx_genome_file').'" ]; then perl '.$self->o('sequence_dump_script').' -dbhost '.$self->o('dna_db_server').' -dbuser '.$self->o('dna_db_user').' -dbport '.$self->o('dna_db_port').' -dbname '.$self->o('dna_db_name').' -coord_system_name '.$self->o('assembly_name').' -toplevel -onefile -header rnaseq -filename '.$self->o('faidx_genome_file').';fi',
+        },
+        -flow_into => {
+          1 => [ 'create_faidx'],
+        },
+      },
+
+
+      {
+        -logic_name => 'create_faidx',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name => '5GB',
+        -parameters => {
+          cmd => 'if [ ! -e "'.$self->o('faidx_genome_file').'.fai" ]; then '.$self->o('samtools_path').' faidx '.$self->o('faidx_genome_file').';fi',
+        },
+
+        -flow_into  => {
           '1->A' => ['create_10mb_slice_ids'],
           'A->1' => ['genome_prep_sanity_checks'],
         },
+
       },
+
 
 ###############################################################################
 #
@@ -1532,6 +1565,8 @@ sub pipeline_analyses {
                          module => 'HiveRepeatMasker',
                          repeatmasker_path => $self->o('repeatmasker_path'),
                          commandline_params => '-nolow -species "'.$self->o('repbase_library').'" -engine "'.$self->o('repeatmasker_engine').'"',
+                         use_genome_flatfile => 1,
+                         genome_file => $self->o('faidx_genome_file'),
                        },
         -rc_name    => 'repeatmasker',
         -flow_into => {
@@ -1569,6 +1604,8 @@ sub pipeline_analyses {
                          module => 'HiveRepeatMasker',
                          repeatmasker_path => $self->o('repeatmasker_path'),
                          commandline_params => '-nolow -species "'.$self->o('repbase_library').'" -engine "'.$self->o('repeatmasker_engine').'"',
+                         use_genome_flatfile => 1,
+                         genome_file => $self->o('faidx_genome_file'),
                        },
         -rc_name    => 'repeatmasker_rebatch',
         -flow_into => {
@@ -1612,6 +1649,8 @@ sub pipeline_analyses {
                          module => 'HiveRepeatMasker',
                          repeatmasker_path => $self->o('repeatmasker_path'),
                          commandline_params => '-nolow -lib "'.$self->o('repeatmodeler_library').'" -engine "'.$self->o('repeatmasker_engine').'"',
+                         use_genome_flatfile => 1,
+                         genome_file => $self->o('faidx_genome_file'),
                        },
         -rc_name    => 'repeatmasker',
         -flow_into => {
@@ -1649,6 +1688,8 @@ sub pipeline_analyses {
                          module => 'HiveRepeatMasker',
                          repeatmasker_path => $self->o('repeatmasker_path'),
                          commandline_params => '-nolow -lib "'.$self->o('repeatmodeler_library').'" -engine "'.$self->o('repeatmasker_engine').'"',
+                         use_genome_flatfile => 1,
+                         genome_file => $self->o('faidx_genome_file'),
                        },
         -rc_name    => 'repeatmasker_rebatch',
         -flow_into => {
@@ -1701,6 +1742,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => '3GB',
       },
+
 
 ###############################################################################
 #
@@ -2135,13 +2177,29 @@ sub pipeline_analyses {
                        },
 
         -flow_into =>  {
-                         1 => ['backup_core_db'],
+                         1 => ['set_repeat_types'],
                        },
         -rc_name    => '15GB',
      },
 
+
      {
-        # Creates a reference db for each species
+        -logic_name => 'set_repeat_types',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.$self->o('repeat_types_script').
+                                ' -user '.$self->o('reference_db', '-user').
+                                ' -pass '.$self->o('reference_db', '-pass').
+                                ' -host '.$self->o('reference_db','-host').
+                                ' -port '.$self->o('reference_db','-port').
+                                ' -dbpattern '.$self->o('reference_db','-dbname')
+                       },
+         -rc_name => 'default',
+         -flow_into => { 1 => ['backup_core_db'] },
+     },
+
+
+     {
         -logic_name => 'backup_core_db',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::DatabaseDumper',
         -parameters => {
@@ -2150,8 +2208,9 @@ sub pipeline_analyses {
                          dump_options => $self->o('mysql_dump_options'),
                        },
         -rc_name    => 'default',
-        -flow_into => { 1 => ['assembly_loading_report'] },
+        -flow_into => { 1 => ['assembly_loading_report','create_genblast_output_db'] },
       },
+
 
       {
         -logic_name => 'assembly_loading_report',
@@ -2211,23 +2270,6 @@ sub pipeline_analyses {
           email => $self->o('email_address'),
         },
         -rc_name => '4GB',
-      },
-
-
-
-     {
-        -logic_name => 'set_repeat_types',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                         cmd => 'perl '.$self->o('repeat_types_script').
-                                ' -user '.$self->o('reference_db', '-user').
-                                ' -pass '.$self->o('reference_db', '-pass').
-                                ' -host '.$self->o('reference_db','-host').
-                                ' -port '.$self->o('reference_db','-port').
-                                ' -dbpattern '.$self->o('reference_db','-dbname')
-                       },
-         -rc_name => 'default',
-         -flow_into => { 1 => ['create_genblast_output_db'] },
       },
 
 
@@ -3418,7 +3460,7 @@ sub pipeline_analyses {
                                   .' -dbuser '.$self->o('user_r')
                                   .' -coord_system_name toplevel -mask -mask_repeat '.$self->o('full_repbase_logic_name')
                                   .' -output_dir '.$self->o('genome_dumps')
-                                  .' -softmask -onefile -header rnaseq -filename '.$self->o('rnaseq_genome_file'),
+                                  .' -softmask -onefile -header rnaseq -filename '.$self->o('faidx_genome_file'),
                       },
          -rc_name   => 'filter',
       },
@@ -3646,7 +3688,7 @@ sub pipeline_analyses {
                           cmd => 'sh '.catfile($self->o('sncrna_analysis_script'), 'FilterMiRNAs.sh')
                                   .' -d '.catfile($self->o('ncrna_dir'), 'blastmirna_dafs.bed')
                                   .' -r '.catfile($self->o('ncrna_dir'), 'repeats.bed')
-                                  .' -g '.$self->o('rnaseq_genome_file')
+                                  .' -g '.$self->o('faidx_genome_file')
                                   .' -w '.$self->o('ncrna_dir')
                                   .' -m '.catfile($self->o('mirna_blast_path'), 'rfc_filters', $self->o('rfc_model'))
                                   .' -s '.catfile($self->o('mirna_blast_path'), 'rfc_filters', $self->o('rfc_scaler'))
@@ -3706,9 +3748,23 @@ sub pipeline_analyses {
                        },
         -rc_name => 'default',
         -flow_into  => {
+          1 => ['index_faidx_genome_file'],
+        },
+      },
+
+
+      {
+        -logic_name => 'index_faidx_genome_file',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name => '5GB',
+        -parameters => {
+          cmd => 'if [ ! -e "'.$self->o('faidx_genome_file').'.ann" ]; then '.$self->o('bwa_path').' index -a bwtsw '.$self->o('faidx_genome_file').';fi',
+        },
+        -flow_into  => {
           1 => ['checking_file_path'],
         },
       },
+
 
       {
         -logic_name => 'checking_file_path',
@@ -3736,43 +3792,11 @@ sub pipeline_analyses {
               ).'; do lfs getdirstripe -q $D > /dev/null; if [ $? -eq 0 ]; then lfs setstripe -c -1 $D;fi;done;fi',
         },
         -flow_into => {
-          '1->A' => ['create_rnaseq_genome_file','create_fastq_download_jobs'],
+          '1->A' => ['create_fastq_download_jobs'],
           'A->1' => ['create_rough_db'],
         },
       },
 
-      {
-        -logic_name => 'create_rnaseq_genome_file',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -rc_name => '1GB',
-        -parameters => {
-          cmd => 'if [ ! -s "'.$self->o('rnaseq_genome_file').'" ]; then perl '.$self->o('sequence_dump_script').' -dbhost '.$self->o('dna_db_server').' -dbuser '.$self->o('dna_db_user').' -dbport '.$self->o('dna_db_port').' -dbname '.$self->o('dna_db_name').' -coord_system_name '.$self->o('assembly_name').' -toplevel -onefile -header rnaseq -filename '.$self->o('rnaseq_genome_file').';fi',
-        },
-        -flow_into => {
-          1 => [ 'index_rnaseq_genome_file'],
-        },
-      },
-
-      {
-        -logic_name => 'index_rnaseq_genome_file',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -rc_name => '5GB',
-        -parameters => {
-          cmd => 'if [ ! -e "'.$self->o('rnaseq_genome_file').'.ann" ]; then '.$self->o('bwa_path').' index -a bwtsw '.$self->o('rnaseq_genome_file').';fi',
-        },
-        -flow_into => {
-          1 => [ 'create_faidx'],
-        },
-      },
-
-      {
-        -logic_name => 'create_faidx',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -rc_name => '5GB',
-        -parameters => {
-          cmd => 'if [ ! -e "'.$self->o('rnaseq_genome_file').'.fai" ]; then '.$self->o('samtools_path').' faidx '.$self->o('rnaseq_genome_file').';fi',
-        },
-      },
 
       {
         -logic_name => 'create_fastq_download_jobs',
@@ -3786,6 +3810,7 @@ sub pipeline_analyses {
           2 => {'download_RNASeq_fastqs' => {'iid' => '#filename#'}},
         },
       },
+
 
       {
         -logic_name => 'download_RNASeq_fastqs',
@@ -3923,7 +3948,7 @@ sub pipeline_analyses {
           disconnect_jobs => 1,
           short_read_aligner => $self->o('bwa_path'),
           input_dir => $self->o('input_dir'),
-          genome_file => $self->o('rnaseq_genome_file'),
+          genome_file => $self->o('faidx_genome_file'),
           output_dir => $self->o('output_dir'),
         },
         -flow_into => {
@@ -3941,7 +3966,7 @@ sub pipeline_analyses {
           disconnect_jobs => 1,
           short_read_aligner => $self->o('bwa_path'),
           input_dir => $self->o('input_dir'),
-          genome_file => $self->o('rnaseq_genome_file'),
+          genome_file => $self->o('faidx_genome_file'),
           output_dir => $self->o('output_dir'),
         },
         -flow_into => {
@@ -3963,7 +3988,7 @@ sub pipeline_analyses {
           disconnect_jobs => 1,
           short_read_aligner => $self->o('bwa_path'),
           input_dir => $self->o('input_dir'),
-          genome_file => $self->o('rnaseq_genome_file'),
+          genome_file => $self->o('faidx_genome_file'),
           output_dir => $self->o('output_dir'),
           samtools => $self->o('samtools_path'),
         },
@@ -3989,7 +4014,7 @@ sub pipeline_analyses {
           disconnect_jobs => 1,
           short_read_aligner => $self->o('bwa_path'),
           input_dir => $self->o('input_dir'),
-          genome_file => $self->o('rnaseq_genome_file'),
+          genome_file => $self->o('faidx_genome_file'),
           output_dir => $self->o('output_dir'),
           samtools => $self->o('samtools_path'),
         },
@@ -4299,7 +4324,7 @@ sub pipeline_analyses {
           use_ucsc_naming => $self->o('use_ucsc_naming'),
           output_dir => $self->o('sam_dir'),
           use_genome_flatfile => 1,
-          genome_file => $self->o('rnaseq_genome_file'),
+          genome_file => $self->o('faidx_genome_file'),
           timer => '5h',
         },
         -rc_name    => '5GB',
@@ -4335,7 +4360,7 @@ sub pipeline_analyses {
           use_ucsc_naming => $self->o('use_ucsc_naming'),
           output_dir => $self->o('sam_dir'),
           use_genome_flatfile => 1,
-          genome_file => $self->o('rnaseq_genome_file'),
+          genome_file => $self->o('faidx_genome_file'),
           timer => '5h',
         },
         -rc_name    => '20GB',
@@ -4370,7 +4395,7 @@ sub pipeline_analyses {
           use_ucsc_naming => $self->o('use_ucsc_naming'),
           output_dir => $self->o('sam_dir'),
           use_genome_flatfile => 1,
-          genome_file => $self->o('rnaseq_genome_file'),
+          genome_file => $self->o('faidx_genome_file'),
           timer => '5h',
         },
         -rc_name    => '50GB',
@@ -4401,7 +4426,7 @@ sub pipeline_analyses {
           disconnect_jobs => 1,
           samtools => $self->o('samtools_path'),
           intron_bam_file => catfile($self->o('output_dir'), 'introns'),
-          genome_file => $self->o('rnaseq_genome_file'),
+          genome_file => $self->o('faidx_genome_file'),
           use_threading => $self->o('use_threads'),
         },
         -rc_name    => '5GB_multithread',
@@ -5773,7 +5798,8 @@ sub pipeline_analyses {
         -logic_name => 'layer_annotation',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLayerAnnotation',
         -parameters => {
-                         dna_db     => $self->o('dna_db'),
+                         use_genome_flatfile => 1,
+                         genome_file => $self->o('faidx_genome_file'),
                          logic_name => 'layer_annotation',
                          module     => 'HiveLayerAnnotation',
                          TARGETDB_REF => $self->o('layering_db'),
@@ -5796,6 +5822,8 @@ sub pipeline_analyses {
                          '1->A' => ['run_utr_addition'],
                          'A->1' => ['genebuilder'],
                        },
+        -analysis_capacity => 200,
+        -batch_size => 50,
       },
 
 
