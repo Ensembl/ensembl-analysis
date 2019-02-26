@@ -2196,7 +2196,7 @@ sub print_gene_details {
 sub print_transcript_details {
   my ($self,$transcript) = @_;
 
-  say "Transcript:\n".$transcript->seq_region_start."..".$transcript->seq_region_end.":".$gene->strand;
+  say "Transcript:\n".$transcript->seq_region_start."..".$transcript->seq_region_end.":".$transcript->strand;
   my $exons = $transcript->get_all_Exons();
   my $exon_string = "";
   foreach my $exon (@$exons) {
