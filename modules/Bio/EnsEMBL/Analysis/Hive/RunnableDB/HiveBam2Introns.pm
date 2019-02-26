@@ -132,7 +132,6 @@ sub fetch_input {
     $self->complete_early('No genes to process');
   }
 
-  my $fasta_db;
   if($self->param('use_genome_flatfile')) {
     unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
       $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));

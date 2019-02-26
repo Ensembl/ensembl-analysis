@@ -57,6 +57,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils
   qw(validate_Translation_coords contains_internal_stops print_Translation print_peptide);
 use Bio::EnsEMBL::Analysis::Tools::Logger;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils qw(cluster_Genes_by_coding_exon_overlap cluster_Genes);
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -97,12 +98,23 @@ sub param_defaults {
 sub fetch_input{
   my ($self) = @_;
 
-  my $dna_dba = $self->get_database_by_name('dna_db');
-  my $input_dba = $self->get_database_by_name('source_db', $dna_dba);
-  my $output_dba = $self->get_database_by_name('target_db', $dna_dba);
+  my $input_dba = $self->get_database_by_name('source_db');
+  my $output_dba = $self->get_database_by_name('target_db');
+
+  if($self->param('use_genome_flatfile')) {
+    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
+      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+    }
+    setup_fasta(
+                 -FASTA => $self->param_required('genome_file'),
+               );
+  } else {
+    my $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
+    $input_dba->dnadb($dna_dba);
+    $output_dba->dnadb($dna_dba);
+  }
 
   $self->hrdb_set_con($output_dba,'output_db');
-
   $self->create_analysis;
 
   #fetch sequence
@@ -522,7 +534,6 @@ sub trim_utr_overlapping_cds {
     push(@$output_genes,${$cluster_genes}[$#$cluster_genes]);
   }
 
-  $self->throw("FERGAL TESTING");
   return($output_genes);
 }
 

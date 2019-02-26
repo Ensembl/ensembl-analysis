@@ -114,7 +114,7 @@ sub fetch_input {
     $self->runnable($runnable);
   }
   else {
-    $self->input_id->autoflow(0);
+    $self->input_job->autoflow(0);
     $self->complete_early('You do not have any SAM files');
   }
 }
