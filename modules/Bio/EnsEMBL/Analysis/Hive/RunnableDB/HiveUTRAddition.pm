@@ -69,6 +69,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(
                                                                        create_Translation
                                                                       );
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -117,10 +118,20 @@ sub fetch_input {
 
   $self->create_analysis;
 
-  my $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
-
   my $target_dba = $self->hrdb_get_dba($self->param_required('target_db'));
-  $target_dba->dnadb($dna_dba);
+  my $dna_dba;
+  if($self->param('use_genome_flatfile')) {
+    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
+      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+    }
+    setup_fasta(
+                 -FASTA => $self->param_required('genome_file'),
+               );
+  } else {
+    $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
+    $target_dba->dnadb($dna_dba);
+  }
+
   $self->hrdb_set_con($target_dba,'target_db');
 
   my $input_id_type = $self->param_required('iid_type');
@@ -130,7 +141,7 @@ sub fetch_input {
   my $input_id = $self->param('iid');
 
   if($self->param('iid_type') eq 'slice') {
-    $self->query($self->fetch_sequence($input_id, $dna_dba));
+    $self->query($self->fetch_sequence($input_id, $target_dba));
   } else {
     $self->throw("You must specify an input_id type in the config using the 'iid_type' parameter");
   }
@@ -143,6 +154,7 @@ sub fetch_input {
 
   say "Found ".scalar(@$acceptor_genes)." acceptor genes";
   say "Found ".scalar(@$donor_genes)." donor genes";
+
   $self->acceptor_genes($acceptor_genes);
   $self->donor_genes($donor_genes);
 }
@@ -249,7 +261,6 @@ sub add_utr {
   my ($self, $acceptor_transcript, $donor_transcripts) = @_;
 
   my $allow_partial_match = $self->param('allow_partial_match');
-
 
   my $modified_acceptor_transcript_5prime;
   my $modified_acceptor_transcript_3prime;
@@ -611,7 +622,7 @@ sub add_five_prime_utr {
   # If it is then calculate the average 5' intron length of the UTR. If this average is 5' intron length is > 35K then throw it out
   my $utr_intron_count = scalar(@{$final_exons}) - scalar(@{$exons_a});
   my $big_utr_length = 50000;
-  my $max_no_intron_extension = 5000;
+  my $max_no_intron_extension = 10000;
   my $max_average_5_prime_intron_length = 35000;
 
   my $modified_transcript_length = $modified_transcript->seq_region_end() - $modified_transcript->seq_region_start();
@@ -623,9 +634,10 @@ sub add_five_prime_utr {
     say "Max allowed genomic extension (for UTR with no introns): ".$max_no_intron_extension;
     say "Observed extension length: ".$added_length;
     return(0);
-  } elsif ($added_length > $big_utr_length) {
-      return 0;
-  }
+  } #elsif ($added_length > $big_utr_length) {
+    #say "Added UTR exceeds big UTR length";
+    #return 0;
+    #}
 
   $modified_transcript->analysis($transcript_a->analysis);
   $modified_transcript->biotype($transcript_a->biotype);
@@ -869,7 +881,7 @@ sub add_three_prime_utr {
   # If it is then calculate the average 3' intron length of the UTR. If this average is 3' intron length is > 25K then throw it out
   my $utr_intron_count = scalar(@{$final_exons}) - scalar(@{$exons_a});
   my $big_utr_length = 50000;
-  my $max_no_intron_extension = 5000;
+  my $max_no_intron_extension = 10000;
   my $max_average_3_prime_intron_length = 35000;
 
   my $modified_transcript_length = $modified_transcript->seq_region_end() - $modified_transcript->seq_region_start();
@@ -881,9 +893,9 @@ sub add_three_prime_utr {
     say "Max allowed genomic extension (for UTR with no introns): ".$max_no_intron_extension;
     say "Observed extension length: ".$added_length;
     return(0);
-  } elsif ($added_length > $big_utr_length) {
-      return 0;
-  }
+  } #elsif ($added_length > $big_utr_length) {
+    #  return 0;
+  #}
 
   $modified_transcript->analysis($transcript_a->analysis);
   $modified_transcript->biotype($transcript_a->biotype);
@@ -1200,13 +1212,13 @@ sub generate_intron_string {
 #  my $intron_string = ":";
 my $intron_string = "";
   my $count = 0;
-  print STDERR 'GENERATING: ';
+#  print STDERR 'GENERATING: ';
   foreach my $intron (@{$intron_array}) {
     ++$count if ($intron->seq_region_start < $seq_region_end and $intron->seq_region_end > $seq_region_start);
     my $start = $intron->start();
     my $end = $intron->end();
     $intron_string .= $start."..".$end.":";
-    print STDERR "(".$start."..".$end.")";
+#    print STDERR "(".$start."..".$end.")";
   }
 
   print "\n";
@@ -2136,7 +2148,6 @@ sub find_soft_match {
       $final_transcript->{'donor_3prime_biotype'} = $best_3_prime_match_transcript->{'donor_3prime_biotype'};
       return($final_transcript);
     }
-
   } # End foreach my $layer_transcripts
 
   # If we get to this point without anything having been returned it means we have either 5' or 3' or no UTR
@@ -2170,7 +2181,7 @@ sub print_gene_details {
   say "Gene:\n".$gene->seq_region_start."..".$gene->seq_region_end.":".$gene->strand;
   my $transcripts = $gene->get_all_Transcripts;
   foreach my $transcript (@$transcripts) {
-    say " Transcript:\n  ".$transcript->seq_region_start."..".$transcript->seq_region_end.":".$transcript->strand;
+    say "  Transcript:\n  ".$transcript->seq_region_start."..".$transcript->seq_region_end.":".$transcript->strand;
     my $exons = $transcript->get_all_Exons();
     my $exon_string = "";
     foreach my $exon (@$exons) {
@@ -2180,6 +2191,20 @@ sub print_gene_details {
     chop($exon_string);
     say "    Exons:\n    ".$exon_string;
   }
+}
+
+sub print_transcript_details {
+  my ($self,$transcript) = @_;
+
+  say "Transcript:\n".$transcript->seq_region_start."..".$transcript->seq_region_end.":".$gene->strand;
+  my $exons = $transcript->get_all_Exons();
+  my $exon_string = "";
+  foreach my $exon (@$exons) {
+    $exon_string .= '('.$exon->seq_region_start."..".$exon->seq_region_end.")..";
+  }
+  chop($exon_string);
+  chop($exon_string);
+  say "    Exons:\n    ".$exon_string;
 }
 
 
