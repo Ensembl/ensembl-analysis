@@ -85,6 +85,8 @@ use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Runnable::Pseudogene;
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -128,9 +130,16 @@ sub fetch_input {
   my $input_dba = $self->hrdb_get_dba($self->param('input_gene_db'));
   my $repeat_dba = $self->hrdb_get_dba($self->param('repeat_db'));
   my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
 
-  if($dna_dba) {
+  if($self->param('use_genome_flatfile')) {
+    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
+      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+    }
+    setup_fasta(
+                 -FASTA => $self->param_required('genome_file'),
+               );
+  } else {
+    my $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
     $input_dba->dnadb($dna_dba);
     $repeat_dba->dnadb($dna_dba);
     $output_dba->dnadb($dna_dba);

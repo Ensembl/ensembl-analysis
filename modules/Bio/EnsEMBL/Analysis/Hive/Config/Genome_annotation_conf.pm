@@ -70,6 +70,7 @@ sub default_options {
     'assembly_accession'        => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
     'assembly_refseq_accession' => '', # Versioned GCF accession, e.g. GCF_001857705.1
     'stable_id_prefix'          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
+    'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     'species_url'               => $self->o('production_name').$self->o('production_name_modifier'), # sets species.url meta key
     'species_division'          => 'EnsemblVertebrates', # sets species.division meta key
     'stable_id_start'           => '0', # When mapping is not required this is usually set to 0
@@ -261,7 +262,7 @@ sub default_options {
 
     'layering_input_gene_dbs' => [
                                    $self->o('genblast_db'),
-                                   $self->o('genblast_rnaseq_support_db'),
+#                                   $self->o('genblast_rnaseq_support_db'),
                                    $self->o('rnaseq_for_layer_db'),
                                    $self->o('projection_coding_db'),
                                    $self->o('ig_tr_db'),
@@ -324,6 +325,11 @@ sub default_options {
 
     rnaseq_daf_introns_file => catfile($self->o('output_dir'), 'rnaseq_daf_introns.dat'),
 
+    # Genes biotypes to ignore from the final db when copying to core
+    copy_biotypes_to_ignore => {
+                                 'low_coverage' => 1,
+                                 'CRISPR' => 1,
+                               },
 ########################
 # Extra db settings
 ########################
@@ -980,6 +986,8 @@ sub pipeline_wide_parameters {
     wide_repeat_logic_names => $self->o('use_repeatmodeler_to_mask') ? [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'] :
                                                                                        [$self->o('full_repbase_logic_name'),'dust'],
     wide_ensembl_release => $self->o('ensembl_release'),
+    use_genome_flatfile  => $self->o('use_genome_flatfile'),
+    genome_file          => $self->o('faidx_genome_file'),
   }
 }
 
@@ -2225,7 +2233,7 @@ sub pipeline_analyses {
                                 ' > '.catfile($self->o('output_path'), 'loading_report.txt'),
                        },
          -rc_name => 'default',
-         -flow_into => { 1 => ['set_repeat_types','email_loading_report'] },
+         -flow_into => { 1 => ['email_loading_report'] },
       },
 
       {
@@ -3748,19 +3756,6 @@ sub pipeline_analyses {
                        },
         -rc_name => 'default',
         -flow_into  => {
-          1 => ['index_faidx_genome_file'],
-        },
-      },
-
-
-      {
-        -logic_name => 'index_faidx_genome_file',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -rc_name => '5GB',
-        -parameters => {
-          cmd => 'if [ ! -e "'.$self->o('faidx_genome_file').'.ann" ]; then '.$self->o('bwa_path').' index -a bwtsw '.$self->o('faidx_genome_file').';fi',
-        },
-        -flow_into  => {
           1 => ['checking_file_path'],
         },
       },
@@ -3822,7 +3817,9 @@ sub pipeline_analyses {
         -flow_into => {
           1 => ['get_read_lengths'],
         },
+        -analysis_capacity => 50,
       },
+
 
       {
         -logic_name => 'get_read_lengths',
@@ -3835,8 +3832,9 @@ sub pipeline_analyses {
           1 => ['split_fastq_files'],
         },
       },
-      {
 
+
+      {
         -logic_name => 'split_fastq_files',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::SplitFastQFiles',
         -parameters => {
@@ -3845,8 +3843,8 @@ sub pipeline_analyses {
           'rnaseq_summary_file' => $self->o('rnaseq_summary_file'),
           'fastq_dir'           => $self->o('input_dir'),
         },
-
       },
+
 
       {
         -logic_name => 'create_rough_db',
@@ -5614,20 +5612,6 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into => {
-          1 => ['create_genblast_rnaseq_output_db'],
-        },
-      },
-
-      {
-        -logic_name => 'create_genblast_rnaseq_output_db',
-        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('genblast_rnaseq_support_db'),
-                         create_type => 'clone',
-                       },
-        -rc_name => 'default',
-        -flow_into => {
           '1->A' => ['fan_genblast_rnaseq_support'],
           'A->1' => ['create_layering_output_db'],
         },
@@ -5674,7 +5658,7 @@ sub pipeline_analyses {
                          dna_db => $self->o('dna_db'),
                          source_db => $self->o('genblast_db'),
                          intron_db => $self->o('rnaseq_refine_db'),
-                         target_db => $self->o('genblast_rnaseq_support_db'),
+                         target_db => $self->o('genblast_db'),
                          logic_name => 'genblast_rnaseq_support',
                          classify_by_count => 1,
                          update_genes => 0,
@@ -5695,7 +5679,7 @@ sub pipeline_analyses {
                          dna_db => $self->o('dna_db'),
                          source_db => $self->o('genblast_db'),
                          intron_db => $self->o('rnaseq_refine_db'),
-                         target_db => $self->o('genblast_rnaseq_support_db'),
+                         target_db => $self->o('genblast_db'),
                          logic_name => 'genblast_rnaseq_support',
                          classify_by_count => 1,
                          update_genes => 0,
@@ -5749,7 +5733,8 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['create_toplevel_slices'],
+                       '1->A' => ['create_toplevel_slices'],
+                       'A->1' => ['layer_annotation_sanity_checks'],
                       },
       },
 
@@ -5788,8 +5773,7 @@ sub pipeline_analyses {
         -hive_capacity => $self->hive_capacity_classes->{'hc_medium'},
         -rc_name    => '5GB',
         -flow_into => {
-                       '2->A' => ['layer_annotation'],
-                       'A->1' => ['layer_annotation_sanity_checks'],
+                       '2' => ['layer_annotation'],
                       },
       },
 
@@ -6399,7 +6383,7 @@ sub pipeline_analyses {
                          target_db    => $self->o('final_geneset_db'),
                          iid_type     => 'feature_id',
                          feature_type => 'gene',
-                         batch_size   => 500,
+                         batch_size   => 100,
                       },
         -flow_into => {
                        '2' => ['copy_genes_to_core'],
@@ -6417,6 +6401,7 @@ sub pipeline_analyses {
                          source_db => $self->o('final_geneset_db'),
                          dna_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
+                         copy_biotypes_to_ignore => $self->o('copy_biotypes_to_ignore'),
                        },
         -rc_name    => 'default',
       },
@@ -6429,6 +6414,7 @@ sub pipeline_analyses {
           db_conn => $self->o('reference_db'),
           sql => [
             'UPDATE gene SET biotype = "protein_coding" WHERE biotype = "ensembl"',
+            'UPDATE gene SET biotype = "vaultRNA" WHERE biotype = "Vault_RNA"',
             'UPDATE analysis set logic_name="cdna2genome" where logic_name="best_targetted"',
             'UPDATE gene SET analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "ensembl")'.
               ' WHERE analysis_id IN'.
