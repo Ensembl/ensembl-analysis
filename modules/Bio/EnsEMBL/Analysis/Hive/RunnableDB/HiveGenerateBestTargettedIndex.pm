@@ -79,7 +79,10 @@ sub fetch_input {
     $genbank_parser->close;
     if ($self->param_is_defined('protein_files')) {
       foreach my $file (@{$self->param('protein_files')}) {
-        $self->throw('Could not find '.$file) unless (-e $file);
+        #instead of throw, issue warning in the absence of a proteome.fa file. We can assume that there were no pe1 or 2 proteins for the species
+        ##This way, the pipeline continues without dying.
+        $self->warning('Could not find '.$file) unless (-e $file);
+         #$self->throw('Could not find '.$file) unless (-e $file);
       }
     }
     if (@seqs) {

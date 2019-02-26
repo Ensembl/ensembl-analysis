@@ -332,8 +332,12 @@ sub run {
             $samples{$sample}->{sample_name} = $samples{$sample}->{dev_stage};
           }
           else {
-            $self->throw('No dev stages for '.$sample.' "'.join('", "', keys %dev_stages).'"');
+            #instead of breaking pipeline, show warning where sample has no development stage
+            #use unknown for such cases
+            $self->warning('No dev stages for '.$sample.' "'.join('", "', keys %dev_stages).'"');
+            $samples{$sample}->{sample_name} = 'unknown';
           }
+
           if ($samples{$sample}->{sex}) {
             $samples{$sample}->{sample_name} = $samples{$sample}->{sex}.'_'.$samples{$sample}->{sample_name};
           }
