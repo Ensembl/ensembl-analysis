@@ -319,6 +319,10 @@ sub add_utr {
     my $cds_transcript = $self->create_cds_transcript($acceptor_transcript);
     my $utr_transcript = $self->find_soft_match($cds_transcript,$donor_transcripts);
     if($utr_transcript) {
+      unless($acceptor_transcript->translation->seq eq $utr_transcript->translation->seq) {
+        $self->throw("The new transcript has a different translation to the original.\nOriginal:\n".
+                     $acceptor_transcript->translation->seq."\nNew:\n".$utr_transcript->translation->seq);
+      }
       $utr_transcript->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($utr_transcript,$acceptor_transcript);
       $self->look_for_both($utr_transcript);

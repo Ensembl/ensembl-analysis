@@ -121,7 +121,6 @@ sub fetch_input{
   my $slice = $input_dba->get_SliceAdaptor->fetch_by_name($self->param('iid'));
   $self->query($slice);
 
-
   #fetch genes
   if($self->param('load_all_biotypes')) {
     $self->input_genes($slice->get_all_Genes());
@@ -167,6 +166,7 @@ sub run {
     return;
   }
 
+  
   if($self->param('post_filter_genes')) {
     my $output_genes = $self->post_filter_genes($initial_genes);
     unless(scalar(@$output_genes)) {
@@ -616,11 +616,21 @@ sub filter_genes{
   $genes = $self->input_genes if(!$genes);
   print "Have ".@$genes." to filter\n";
   my @filtered;
-  GENE:foreach my $gene(@$genes) {
+  GENE:foreach my $gene (@$genes) {
     #throw("Genebuilder only works with one gene one transcript structures")
     #  if(@{$gene->get_all_Transcripts} >= 2);
+    my $transcripts = $gene->get_all_Transcripts();
+    unless(scalar(@$transcripts)) {
+      $self->warning("Likely broken gene as no transcripts were recovered. Skipping");
+      next GENE;
+    }
     foreach my $transcript(@{$gene->get_all_Transcripts}) {
       my $exons = $transcript->get_all_Exons();
+      unless(scalar(@$exons)) {
+        $self->warning("Transcript doesn't have exons. Likely a failure during write. Skipping");
+        next GENE;
+      }
+
       if($self->validate_Transcript($transcript,$exons)) {
         push(@filtered, $gene);
         next GENE;
