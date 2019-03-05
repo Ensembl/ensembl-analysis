@@ -55,6 +55,10 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my ($self) = @_;
 
+  if($self->param('skip_analysis')) {
+    $self->complete_early('Skip check flag is enabled, so no check will be carried out');
+  }
+
   # This call will set the config file parameters. Note this will set REFGB (which overrides the
   # value in $self->db and OUTDB
   foreach my $i (qw(LAYERS SOURCEDB_REFS TARGETDB_REF FILTER)) {
