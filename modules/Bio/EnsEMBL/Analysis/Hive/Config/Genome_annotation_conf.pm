@@ -4222,13 +4222,15 @@ sub pipeline_analyses {
         },
         -rc_name    => '2GB',
         -flow_into => {
-          -1 => {'rough_transcripts_5GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
-          -2 => {'rough_transcripts_5GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
+          -1 => {'rough_transcripts_10GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
+          -2 => {'failed_rough_transcript_jobs' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
+          -3 => {'failed_rough_transcript_jobs' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
         },
       },
 
+
       {
-        -logic_name => 'rough_transcripts_5GB',
+        -logic_name => 'rough_transcripts_10GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Genes',
         -can_be_empty => 1,
         -parameters => {
@@ -4243,15 +4245,17 @@ sub pipeline_analyses {
           paired => $self->o('paired'),
           use_ucsc_naming => $self->o('use_ucsc_naming'),
         },
-        -rc_name    => '5GB',
+        -rc_name    => '10GB',
         -flow_into => {
-          -1 => {'rough_transcripts_15GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
-          -2 => {'rough_transcripts_15GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
+          -1 => {'rough_transcripts_30GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
+          -2 => {'failed_rough_transcript_jobs' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
+          -3 => {'failed_rough_transcript_jobs' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
         },
       },
 
+
       {
-        -logic_name => 'rough_transcripts_15GB',
+        -logic_name => 'rough_transcripts_30GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Genes',
         -can_be_empty => 1,
         -parameters => {
@@ -4266,8 +4270,24 @@ sub pipeline_analyses {
           paired => $self->o('paired'),
           use_ucsc_naming => $self->o('use_ucsc_naming'),
         },
-        -rc_name    => '15GB',
+        -rc_name    => '30GB',
+        -flow_into => {
+          -1 => {'failed_rough_transcript_jobs' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
+          -2 => {'failed_rough_transcript_jobs' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
+          -3 => {'failed_rough_transcript_jobs' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
+        },
       },
+
+
+      {
+        -logic_name => 'failed_rough_transcript_jobs',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name          => 'default',
+        -can_be_empty  => 1,
+      },
+
 
       {
         -logic_name => 'check_and_delete_broken_duplicated',
@@ -4326,8 +4346,7 @@ sub pipeline_analyses {
           timer => '5h',
         },
         -rc_name    => '5GB',
-        -analysis_capacity => 500,
-        -batch_size => 100,
+        -batch_size => 200,
         -flow_into => {
           1 => [':////accu?filename=[]'],
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
@@ -4336,6 +4355,7 @@ sub pipeline_analyses {
           -3 => ['failed_bam2introns_jobs'],
         },
       },
+
 
       {
         -logic_name => 'bam2introns_20GB',
@@ -4362,7 +4382,6 @@ sub pipeline_analyses {
           timer => '5h',
         },
         -rc_name    => '20GB',
-        -analysis_capacity => 500,
         -flow_into => {
           1 => [':////accu?filename=[]'],
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
@@ -4397,7 +4416,6 @@ sub pipeline_analyses {
           timer => '5h',
         },
         -rc_name    => '50GB',
-        -analysis_capacity => 500,
         -flow_into => {
           1 => [':////accu?filename=[]'],
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
