@@ -3787,7 +3787,7 @@ sub pipeline_analyses {
               ).'; do lfs getdirstripe -q $D > /dev/null; if [ $? -eq 0 ]; then lfs setstripe -c -1 $D;fi;done;fi',
         },
         -flow_into => {
-          '1->A' => ['create_fastq_download_jobs'],
+          '1->A' => ['create_fastq_download_jobs','index_rnaseq_genome_file'],
           'A->1' => ['create_rough_db'],
         },
       },
@@ -3842,6 +3842,16 @@ sub pipeline_analyses {
           'max_total_reads'     => $self->o('max_total_reads'),
           'rnaseq_summary_file' => $self->o('rnaseq_summary_file'),
           'fastq_dir'           => $self->o('input_dir'),
+        },
+      },
+
+
+     {
+        -logic_name => 'index_rnaseq_genome_file',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name => '5GB',
+        -parameters => {
+          cmd => 'if [ ! -e "'.$self->o('faidx_genome_file').'.ann" ]; then '.$self->o('bwa_path').' index -a bwtsw '.$self->o('faidx_genome_file').';fi',
         },
       },
 
