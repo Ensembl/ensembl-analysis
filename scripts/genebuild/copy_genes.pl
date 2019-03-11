@@ -101,6 +101,7 @@ with 'out' (--targetdbname is the same as --outdbname).
 
 use strict;
 use warnings;
+use feature 'say';
 
 use Carp;
 use Getopt::Long;
@@ -108,7 +109,7 @@ use Getopt::Long;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw( throw warning verbose);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw (attach_Slice_to_Gene empty_Gene clone_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
 
@@ -129,6 +130,12 @@ my $dnauser   = 'ensro';
 my $dnapass   = '';
 my $dnadbname = undef;
 my $dnaport   = '';
+my $targetdnahost   = '';
+my $targetdnauser   = 'ensro';
+my $targetdnapass   = '';
+my $targetdnadbname = undef;
+my $targetdnaport   = '';
+
 
 my $in_config_name;
 my $out_config_name;
@@ -151,7 +158,7 @@ my $filter_on_overlap = 0;
 my $overlap_filter_type = 'genomic_overlap';
 my $filter_on_strand = 1;
 my $switch_coord_systems = 0;
-
+my $target_coord_system = '';
 verbose('EXCEPTION');
 
 GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
@@ -170,6 +177,10 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'dnauser:s'                            => \$dnauser,
             'dnadbname:s'                          => \$dnadbname,
             'dnaport:n'                            => \$dnaport,
+            'targetdnahost:s'                      => \$targetdnahost,
+            'targetdnauser:s'                      => \$targetdnauser,
+            'targetdnadbname:s'                    => \$targetdnadbname,
+            'targetdnaport:n'                      => \$targetdnaport,
             'logic:s'                              => \$logic,
             'biotype:s'                            => \$biotype,
             'source:s'                             => \$source,
@@ -187,7 +198,8 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'filter_on_overlap:s'                  => \$filter_on_overlap,
             'overlap_filter_type:s'                => \$overlap_filter_type,
             'filter_on_strand!'                    => \$filter_on_strand,
-            'switch_coord_systems!'                => \$switch_coord_systems) ||
+            'switch_coord_systems!'                => \$switch_coord_systems,
+            'target_coord_system:s'                => \$target_coord_system) ||
   throw("Error while parsing command line options");
 
 if ($verbose) {
@@ -281,6 +293,14 @@ else {
                                         -dbname => $outdbname );
 }
 
+if($switch_coord_systems) {
+  my $targetdnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $targetdnahost,
+                                                        -user   => $targetdnauser,
+                                                        -port   => $targetdnaport,
+                                                        -dbname => $targetdnadbname );
+  $outdb->dnadb($targetdnadb);
+}
+
 my $ga = $sourcedb->get_GeneAdaptor();
 
 my @genes;
@@ -320,6 +340,8 @@ else {
 
 printf( "Got %d gene IDs\n", scalar(@gene_ids) );
 
+print "FERGAL DEBUG1\n";
+
 my $outga = $outdb->get_GeneAdaptor();
 my $analysis;
 if ( defined($logic) ) {
@@ -328,6 +350,7 @@ if ( defined($logic) ) {
     $analysis = Bio::EnsEMBL::Analysis->new( -logic_name => $logic, );
   }
 }
+print "FERGAL DEBUG2\n";
 
 my $genes_processed = 0;
 my $genes_stored    = 0;
@@ -343,6 +366,7 @@ while (@gene_ids) {
     }
   }
 
+print "FERGAL DEBUG3\n";
   my @genes;
 
   {
@@ -415,7 +439,7 @@ while (@gene_ids) {
 
     if ( defined($gene) ) {
       if ($switch_coord_systems) {
-        $gene = switch_coord_systems($gene,$outdb);
+        $gene = switch_coord_systems($gene,$outdb,$target_coord_system);
         if($gene) {
           empty_Gene($gene);
           $outga->store($gene,1,0,$skip_exon_sf);
@@ -643,21 +667,37 @@ sub filter_on_overlap {
 }
 
 
-sub switch_coord_systens {
-  my ($gene,$outdb) = @_;
+sub switch_coord_systems {
+  my ($gene,$outdb,$target_coord_system) = @_;
 
   my $out_slice_adaptor = $outdb->get_SliceAdaptor();
   my $gene_slice = $gene->slice;
   my $gene_slice_name = $gene_slice->name;
-
+  say "Initial slice name: ".$gene_slice_name;
+  $gene_slice_name =~ /([^:]+).+/;
+  my $source_coord_system = $1;
+  say "Found source coord system: ".$source_coord_system;
+  $gene_slice_name =~ s/$source_coord_system\:/$target_coord_system\:/;
+  say "Modified slice name: ".$gene_slice_name;
+  say "Coord system name: ".$gene->coord_system_name;
+#  die "TEST";
+#  $gene->coord_system_name($target_coord_system);
+#  $gene->adaptor($outdb->get_GeneAdaptor);
   my $out_slice = $out_slice_adaptor->fetch_by_name($gene_slice_name);
-
   unless($out_slice->length == $gene_slice->length) {
     throw("The length of the slice attached to the gene did not equal the slice with the same name on the output db:\n".
           $gene_slice_name." (".$gene_slice->length.")\n".$out_slice->name." (".$out_slice->length.")");
   }
 
-  $gene->attach_Slice_to_Gene($gene,$out_slice);
-
+  empty_Gene($gene);
+  $gene->adaptor($outdb);
+#  my $cloned_gene = clone_Gene($gene);
+#  my $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => "TEST");
+#  $cloned_gene->analysis($analysis);
+#  my $coord_system = $outdb->get_CoordSystemAdaptor->fetch_top_level();
+#  $out_slice->coord_system($coord_system);
+#  say "Cloned coord system name: ".$cloned_gene->coord_system_name;
+#  $gene->slice($out_slice);
+  attach_Slice_to_Gene($gene,$out_slice);
   return($gene);
 }
