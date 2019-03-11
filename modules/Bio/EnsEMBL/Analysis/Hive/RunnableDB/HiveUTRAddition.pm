@@ -44,7 +44,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveUTRAddition;
 use strict;
 use warnings;
 use feature 'say';
-use Devel::Leak;
 
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils qw(make_types_hash_with_genes cluster_Genes);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(
