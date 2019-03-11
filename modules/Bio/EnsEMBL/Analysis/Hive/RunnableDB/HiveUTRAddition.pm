@@ -97,7 +97,7 @@ sub param_defaults {
     min_size_5prime => 20,
     copy_only => 0, # This is for jobs that fail even with lots of mem. Just copy the genes without trying to add UTR
     validate_store => 1, # This will check that the final stored gene is identical to what's in memory
-    collapse_redudant_genes => 1,
+    collapse_redudant_genes => 0,
   }
 }
 
