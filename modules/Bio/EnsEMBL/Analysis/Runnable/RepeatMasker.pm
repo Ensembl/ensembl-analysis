@@ -130,7 +130,10 @@ sub run_analysis{
   # When unconfigured, does nothing.
   local $ENV{HOME} = $self->moved_home;
   print "  with HOME=$ENV{HOME} (for the cache)\n";
-
+  
+  if (not $self->timer) {
+     $self->timer('12h');
+  }
   my $remaining_time = execute_with_timer($cmd, $self->timer);
   $self->remaining_time($remaining_time);
 
