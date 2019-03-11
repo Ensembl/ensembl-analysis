@@ -97,7 +97,7 @@ sub param_defaults {
     min_size_5prime => 20,
     copy_only => 0, # This is for jobs that fail even with lots of mem. Just copy the genes without trying to add UTR
     validate_store => 1, # This will check that the final stored gene is identical to what's in memory
-    collapse_redudant_genes => 0,
+    collapse_redundant_genes => 0,
   }
 }
 
@@ -158,7 +158,7 @@ sub fetch_input {
   say "Found ".scalar(@$acceptor_genes)." acceptor genes";
   say "Found ".scalar(@$donor_genes)." donor genes";
 
-  if($self->param('collapse_redudant_genes')) {
+  if($self->param('collapse_redundant_genes')) {
      say "Removing redundant acceptors (will transfer supporting evidence)";
      $acceptor_genes = $self->remove_redundant_acceptors($acceptor_genes);
      say "Post filtering the acceptor count is: ".scalar(@$acceptor_genes);
