@@ -59,7 +59,7 @@ sub write_output {
     run_command("mkdir -p ".$dna_dir,"Create dna path.",0);
   }
 
-  open( dnaOUT, ">", $dna_dir . "/" . $slice->name . ".dna.fa" );
+  open( dnaOUT, ">", $dna_dir . "/" . $slice->name . ".fa" );
   my $dna_seq = $slice->seq;
 
   say dnaOUT ">".$slice->name."\n".$dna_seq;
