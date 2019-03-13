@@ -120,11 +120,12 @@ sub run {
      }
      close(HH) || $self->throw('Could not close header file after reading');
   }
+  my @sam = @{$self->samfiles};
   foreach my $file ( @{$self->samfiles} ) {
     my $line;
-    open ( SAM ,"$file") or $self->throw("Cannot open file '$file'\n");
-    my $line_count = 0;
-    while (<SAM>) {
+      open ( SAM ,"$file") or $self->throw("Cannot open file '$file'\n");
+      my $line_count = 0;
+      while (<SAM>) {
       if ($_ =~ /^\@\w+/) {
         $line = $_;
       }
@@ -133,10 +134,10 @@ sub run {
         print BAM $_, "\n";
         $line_count++;
       }
-    }
-    close(SAM) || $self->throw("Failed closing '$file'");
-    $count++;
-    push @fails,$file  unless ( $line eq '@EOF' or $line_count == 0 );
+     }
+      close(SAM) || $self->throw("Failed closing '$file'");
+      $count++;
+      push @fails,$file  unless ( $line eq '@EOF' or $line_count == 0 );
   }
   close(BAM) || $self->throw("Failed closing sam file for merging $bamfile.sam");
   print "Merged $count files\n";
