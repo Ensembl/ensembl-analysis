@@ -458,6 +458,13 @@ sub add_five_prime_utr {
 
   my $exons_a = $transcript_a->get_all_Exons();
   my $exons_b = $transcript_b->get_all_Exons();
+  foreach my $exon_b (@{$exons_b}) {
+    if($exon_b->start == 0) {
+      say "FERGAL DEBUG EXON 0: ".$transcript_b->dbID.":".$transcript_b->biotype;
+      $exon_b->start(1);
+    }
+  }
+
   my $merge_exon_candidate_a = ${$exons_a}[0];
   my $merge_exon_candidate_b = ${$exons_b}[$exon_merge_index_b];
 
@@ -625,7 +632,10 @@ sub add_five_prime_utr {
     $genomic_end = ($transcript_a->translation->end_Exon->seq_region_end - $translation_end + 1);
   }
 
- # my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
+  say "FERGAL GS: ".$genomic_start;
+  say "FERGAL GE: ".$genomic_end;
+
+# my $final_translation = create_Translation($final_exons, $transcript_a->translation->genomic_start, $transcript_a->translation->genomic_end);
 
   my $final_translation = create_Translation($final_exons, $genomic_start, $genomic_end);
 
@@ -865,9 +875,13 @@ sub add_three_prime_utr {
 #  say "Old translation start: ".$transcript_a->translation->start;
 #  say "New translation start: ".$final_translation->start;
 
-
-  say "\nOriginal exon coords:";
+  say "\nOriginal exon coords (A):";
   foreach my $exon (@{$exons_a}) {
+    print "(".$exon->start."..".$exon->end.")";
+  }
+
+  say "\nOriginal exon coords (B):";
+  foreach my $exon (@{$exons_b}) {
     print "(".$exon->start."..".$exon->end.")";
   }
 
@@ -2171,6 +2185,7 @@ sub find_soft_match {
       $final_transcript = $best_both_match_transcript;
       return($final_transcript);
     } elsif($best_5_prime_match_transcript && $best_3_prime_match_transcript) {
+ #     $final_transcript = $best_5_prime_match_transcript;
       $final_transcript = $self->join_transcripts($best_5_prime_match_transcript,$best_3_prime_match_transcript);
       $final_transcript->{'donor_5prime_biotype'} = $best_5_prime_match_transcript->{'donor_5prime_biotype'};
       $final_transcript->{'donor_3prime_biotype'} = $best_3_prime_match_transcript->{'donor_3prime_biotype'};
