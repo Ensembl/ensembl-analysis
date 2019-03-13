@@ -68,7 +68,7 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(
                                                                        print_Translation
                                                                        create_Translation
                                                                       );
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene validate_store);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -95,6 +95,8 @@ sub param_defaults {
     allowed_input_sets => undef,
     min_size_5prime => 20,
     copy_only => 0, # This is for jobs that fail even with lots of mem. Just copy the genes without trying to add UTR
+    validate_store => 1, # This will check that the final stored gene is identical to what's in memory
+    collapse_redundant_genes => 0,
   }
 }
 
@@ -155,8 +157,19 @@ sub fetch_input {
   say "Found ".scalar(@$acceptor_genes)." acceptor genes";
   say "Found ".scalar(@$donor_genes)." donor genes";
 
+  if($self->param('collapse_redundant_genes')) {
+     say "Removing redundant acceptors (will transfer supporting evidence)";
+     $acceptor_genes = $self->remove_redundant_acceptors($acceptor_genes);
+     say "Post filtering the acceptor count is: ".scalar(@$acceptor_genes);
+
+     say "Removing redundant donors (will consider priority and transfer supporting evidence)";
+     $donor_genes = $self->remove_redundant_donors($donor_genes);
+     say "Post filtering the donor count is: ".scalar(@$donor_genes);
+  }
+
   $self->acceptor_genes($acceptor_genes);
   $self->donor_genes($donor_genes);
+
 }
 
 
@@ -217,7 +230,6 @@ sub run {
       push(@genes, $single_gene);
     }
   }
-
   $self->output(\@genes);
 }
 
@@ -238,8 +250,15 @@ sub write_output {
 
   foreach my $gene (@{$self->output}){
     empty_Gene($gene);
-#    $self->print_gene_details($gene);
     $adaptor->store($gene);
+    my $stored_gene = $adaptor->fetch_by_dbID($gene->dbID);
+
+    if($self->param('validate_store')) {
+      my $validate_store = validate_store($gene,$stored_gene);
+      unless($validate_store) {
+        $self->throw("The stored gene and the gene in memory differed in some key features. Something went wrong on the store");
+      }
+    }
   }
 }
 
@@ -318,6 +337,7 @@ sub add_utr {
     say "Using soft intron matching for adding UTR";
     my $cds_transcript = $self->create_cds_transcript($acceptor_transcript);
     my $utr_transcript = $self->find_soft_match($cds_transcript,$donor_transcripts);
+
     if($utr_transcript) {
       unless($acceptor_transcript->translation->seq eq $utr_transcript->translation->seq) {
         $self->throw("The new transcript has a different translation to the original.\nOriginal:\n".
@@ -1990,7 +2010,10 @@ sub find_soft_match {
   my $best_both_match_transcript;
   my $best_both_match_score = 0;
 
-  my $acceptor_introns = $acceptor_transcript->get_all_CDS_Introns();
+  # As this is a CDS only transcript, calling get_all_Introns is fine. Calling get_all_CDS_Introns resulted in extreme memory usage as there
+  # is some sort of memory leak in the core API
+  my $acceptor_introns = $acceptor_transcript->get_all_Introns();
+
   my $acceptor_introns_count = scalar(@$acceptor_introns);
   unless($acceptor_introns_count) {
     $self->throw('Went into soft intron matching code for single exon acceptor, something went wrong');
@@ -1998,6 +2021,7 @@ sub find_soft_match {
   my $acceptor_introns_coord_hash = $self->build_feature_string_hash($acceptor_introns);
 
   my ($acceptor_cds_intron_string) = $self->generate_intron_string($acceptor_introns,$acceptor_transcript->coding_region_start,$acceptor_transcript->coding_region_end);
+
   foreach my $layer_transcripts (@$donor_layers) {
     foreach my $donor_transcript (@$layer_transcripts) {
       my $donor_priority = $self->biotype_priorities($donor_transcript->biotype);
@@ -2215,7 +2239,7 @@ sub print_transcript_details {
 sub create_cds_transcript {
   my ($self,$transcript) = @_;
 
-  my $cds_transcript = new Bio::EnsEMBL::Transcript;
+  my $cds_transcript = Bio::EnsEMBL::Transcript->new();
   my $cds_exons = $transcript->get_all_translateable_Exons;
   foreach my $cds_exon (@$cds_exons) {
     $cds_transcript->add_Exon($cds_exon);
@@ -2240,5 +2264,114 @@ sub create_cds_transcript {
   return($cds_transcript);
 }
 
+
+sub remove_redundant_acceptors {
+  my ($self,$genes) = @_;
+
+  my $output_genes = [];
+  my $transcript_strings = {};
+  foreach my $gene (@$genes) {
+    my $kept_transcript_count = 0;
+    my $transcripts = $gene->get_all_Transcripts();
+    foreach my $transcript (@$transcripts) {
+      my $transcript_string = $self->transcript_string($transcript);
+      if($transcript_strings->{$transcript_string}) {
+        $self->transfer_supporting_features($transcript,$transcript_strings->{$transcript_string})
+      } else {
+        $transcript_strings->{$transcript_string} = $transcript;
+        $kept_transcript_count++;
+      }
+    } # end foreach my $transcript
+    if($kept_transcript_count != 0) {
+      push(@$output_genes,$gene)
+    }
+  } # end foreach my $gene
+
+  return($output_genes);
+}
+
+
+sub transfer_supporting_features {
+  my ($self,$transcript1,$transcript2) = @_;
+
+  # This will transfer supporting evidence from transcript1 to transcript2
+  my $exons1 = $transcript1->get_all_Exons();
+  my $exons2 = $transcript2->get_all_Exons();
+
+  unless(scalar(@$exons1) == scalar(@$exons2)) {
+    $self->throw("Exon count differs between transcripts. Something is wrong as they should be identical");
+  }
+
+  for(my $i=0; $i<scalar(@$exons1); $i++) {
+    my $exon1 = $$exons1[$i];
+    my $exon2 = $$exons2[$i];
+    unless($exon1->start == $exon2->start && $exon1->end == $exon2->end && $exon1->strand == $exon2->strand) {
+      $self->throw("The exon coordinates do not match, something has gone wrong");
+    }
+    transfer_supporting_evidence($exon1,$exon2);
+  }
+
+  my $intron_supporting_features1 = $transcript1->get_all_IntronSupportingEvidence();
+  foreach my $intron_support (@{$intron_supporting_features1}) {
+    $transcript2->add_IntronSupportingEvidence($intron_support);
+  }
+}
+
+
+sub transcript_string {
+  my ($self,$transcript,$ignore_cds) = @_;
+
+  my $transcript_string = $transcript->start.":".$transcript->end.":".$transcript->strand.":";
+  unless($ignore_cds) {
+    $transcript_string .= $transcript->cdna_coding_end.":".$transcript->cdna_coding_end.":";
+  }
+  my $exons = $transcript->get_all_Exons();
+  my $exon_string = "";
+  foreach my $exon (@$exons) {
+    $exon_string .= ":".$exon->seq_region_start.":".$exon->seq_region_end.":";
+  }
+  $transcript_string .= $exon_string;
+  return($transcript_string);
+}
+
+
+sub remove_redundant_donors {
+  my ($self,$genes) = @_;
+
+  # Note the below code is not ideal as it will not remove redundant genes if they happen to appear later in the list than a
+  # identical gene with a worse priority. Most implementations I can think of to solve this are less than ideal so I am leaving
+  # for the moment
+  my $output_genes = [];
+  my $transcript_strings = {};
+  foreach my $gene (@$genes) {
+    my $kept_transcript_count = 0;
+    my $transcripts = $gene->get_all_Transcripts();
+    foreach my $transcript (@$transcripts) {
+      my $transcript_string = $self->transcript_string($transcript,1);
+      if($transcript_strings->{$transcript_string}) {
+        my $biotype1 = $transcript_strings->{$transcript_string}->biotype;
+        my $biotype2 = $transcript->biotype;
+        my $priority1 = $self->biotype_priorities($biotype1);
+        my $priority2 = $self->biotype_priorities($biotype2);
+        if($priority1 <= $priority2) {
+          $self->transfer_supporting_features($transcript,$transcript_strings->{$transcript_string});
+	} else {
+          # In this case we have a better priority for the current transcript, so we should transfer supporting evidence from
+          # the one in the hash to it, and then make it the one in the hash
+          $self->transfer_supporting_features($transcript_strings->{$transcript_string},$transcript);
+          $transcript_strings->{$transcript_string} = $transcript;
+          $kept_transcript_count++;
+        }
+      } else {
+        $transcript_strings->{$transcript_string} = $transcript;
+        $kept_transcript_count++;
+      }
+    } # end foreach my $transcript
+    if($kept_transcript_count != 0) {
+      push(@$output_genes,$gene)
+    }
+  } # end foreach my $gene
+  return($output_genes);
+}
 
 1;

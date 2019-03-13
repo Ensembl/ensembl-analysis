@@ -55,6 +55,10 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my ($self) = @_;
 
+  if($self->param('skip_analysis')) {
+    $self->complete_early('Skip check flag is enabled, so no check will be carried out');
+  }
+
   # This call will set the config file parameters. Note this will set REFGB (which overrides the
   # value in $self->db and OUTDB
   foreach my $i (qw(LAYERS SOURCEDB_REFS TARGETDB_REF FILTER)) {
@@ -87,11 +91,19 @@ sub fetch_input {
 
     my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param('iid'));
 
+    # Note I have re-written the below to no longer use get_all_Genes_by_Biotype as it causes a massive strain
+    # on cpu usage of the servers when many jobs are running at once
+    # The below is inefficient in terms of constantly looping through genes, but the overhead is negligable
+    # in comparison to the massive savings by not straining the servers. Still should rewrite to be more
+    # efficient and possibly consider changing our layering data structures in the static config to reflect this
+    my $genes = $slice->get_all_Genes();
     foreach my $layer (@{$self->layers}) {
       foreach my $tp (@{$layer->biotypes}) {
-        foreach my $g (@{$slice->get_all_Genes_by_type($tp, undef, 1)}) {
-          $found_input_genes = 1;
-          push @{$layer->genes}, $g;
+        foreach my $g (@{$genes}) {
+          if($g->biotype eq $tp) {
+            $found_input_genes = 1;
+            push @{$layer->genes}, $g;
+	  }
         }
       }
     }

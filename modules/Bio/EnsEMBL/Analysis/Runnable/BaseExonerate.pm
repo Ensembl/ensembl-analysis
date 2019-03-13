@@ -218,6 +218,8 @@ sub run {
   if ($self->annotation_features) {
     my $annot_file = $self->create_filename("exonerate_a");
     $self->annotation_file($annot_file);
+    open F, ">$annot_file" or 
+        throw "Could not open temp $annot_file for writing";
     foreach my $id (keys %{$self->annotation_features}) {
       my $f = $self->annotation_features->{$id};
       printf(F "%s %s %d %d\n", 
@@ -227,6 +229,8 @@ sub run {
              $f->length);
       
     } 
+    close(F);
+    $self->files_to_delete($annot_file);
     close($annot_file) || throw('Could not close annotation file for writing');
   } elsif ($self->annotation_file) {
     my %feats;
