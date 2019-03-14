@@ -58,6 +58,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns;
 use warnings ;
 use strict;
 use feature 'say';
+use Devel::Leak;
 
 use File::Spec;
 use File::Path qw(make_path);
@@ -113,6 +114,23 @@ sub param_defaults {
 
 sub fetch_input {
   my ($self) = @_;
+
+
+#my $handle; # apparently this doesn't need to be anything at all
+#my $leaveCount = 0;
+#  my $enterCount = Devel::Leak::NoteSV($handle);
+#print STDERR "ENTER: $enterCount SVs\n";
+
+#  ... code that may leak
+
+#  $leaveCount = Devel::Leak::CheckSV($handle);
+#print STDERR "\nLEAVE: $leaveCount SVs\n";
+
+
+  my $handle;
+  my $leaveCount = 0;
+#  my $enterCount = Devel::Leak::NoteSV($handle);
+#  print STDERR "ENTER1: $enterCount SVs\n";
   # do all the normal stuff
   # then get all the transcripts and exons
   $self->throw('Your bam file "'.$self->param('bam_file').'" does not exist!') unless (-e $self->param('bam_file'));
@@ -141,6 +159,13 @@ sub fetch_input {
                  -FASTA => $self->param('genome_file'),
                );
   }
+
+
+#  $leaveCount = Devel::Leak::CheckSV($handle);
+#  print STDERR "\nLEAVE1: $leaveCount SVs\n";
+
+#  $enterCount = Devel::Leak::NoteSV($handle);
+#  print STDERR "ENTER2: $enterCount SVs\n";
 
   my $stable_id = $self->input_id;
 
@@ -173,11 +198,24 @@ sub fetch_input {
   $counters->{'count'} = 0;
   $counters->{'batch'} = 0;
   $counters->{'batch_size'} = $self->param('batch_size');
+
+#  $leaveCount = Devel::Leak::CheckSV($handle);
+#  print STDERR "\nLEAVE2: $leaveCount SVs\n";
+
+
+#  $enterCount = Devel::Leak::NoteSV($handle);
+#  print STDERR "ENTER3: $enterCount SVs\n";
+
   my $exon = 0;
   my @exons = sort { $a->start <=> $b->start } @{$rough->get_all_Exons};
   my @iids;
   $counters->{'stop_loop'} = 0;
 
+#  $leaveCount = Devel::Leak::CheckSV($handle);
+#  print STDERR "\nLEAVE3: $leaveCount SVs\n";
+
+#  $enterCount = Devel::Leak::NoteSV($handle);
+#  print STDERR "ENTER3.1: $enterCount SVs\n";
   $self->param('seq_hash', {});
   for ( my $i = $counters->{'start_exon'} ; $i <= $#exons ; $i++ ){
     my $exon = $exons[$i];
@@ -189,6 +227,12 @@ sub fetch_input {
     my @callback_data = ($missmatch, $i, $exon_start, $rough->stable_id, \@reads, \@iids, $counters, $self->param('seq_hash'));
     $bam_index->fetch($bam, $tid, $exon_start-1, $exon->end-1, \&_process_reads, \@callback_data);
   }
+
+#  $leaveCount = Devel::Leak::CheckSV($handle);
+#  print STDERR "\nLEAVE3.1: $leaveCount SVs\n";
+
+#  $enterCount = Devel::Leak::NoteSV($handle);
+#  print STDERR "ENTER4: $enterCount SVs\n";
 
   # If we can't find reads to build introns with then stop
   if (  scalar(@reads) == 0 ) {
@@ -235,6 +279,12 @@ sub fetch_input {
     }
   }
 
+#  $leaveCount = Devel::Leak::CheckSV($handle);
+#  print STDERR "\nLEAVE4: $leaveCount SVs\n";
+#  $enterCount = Devel::Leak::NoteSV($handle);
+#  print STDERR "ENTER5: $enterCount SVs\n";
+
+
   my $masked_count = $queryseq =~ tr/atcgn/atcgn/;
   if (($masked_count/length($queryseq)) > .99) {
     $self->input_job->autoflow(0);
@@ -249,42 +299,106 @@ sub fetch_input {
   $program = 'exonerate' unless $program;
   $self->param('saturatethreshold', scalar(@reads)) unless ($self->param_is_defined('saturatethreshold'));
 
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
-     -analysis     => $self->create_analysis,
-     -program      => $program,
-     -basic_options => $self->get_aligner_options,
-     -target_seqs => [$seqio],
-     -query_seqs => \@reads,
-     -percent_id   => $self->param('percent_id'),
-     -coverage     => $self->param('coverage'),
-     -missmatch     => $self->param('missmatch'),
-    );
+  say "FERGAL DEBUG READS: ".scalar(@reads);
+  my @read_batch = ();
+  my $read_batch_size = 1000;
+  my $read_count = 0;
+  my $analysis = $self->create_analysis;
 
-  $runnable->timer($self->param('timer'));
-  $self->runnable($runnable);
+  if(1) {
+  while(my $read = pop(@reads)) {
+    $read_count++;
+    if($read_count && $read_count % $read_batch_size == 0) {
+      my @runnable_read_batch = @read_batch;
+      my $runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
+       -analysis     => $analysis,
+       -program      => $program,
+       -basic_options => $self->get_aligner_options,
+       -target_seqs => [$seqio],
+       -query_seqs => \@runnable_read_batch,
+       -percent_id   => $self->param('percent_id'),
+       -coverage     => $self->param('coverage'),
+       -missmatch     => $self->param('missmatch'),
+      );
+      $runnable->timer($self->param('timer'));
+      $self->runnable($runnable);
+      @read_batch = ();
+      push(@read_batch,$read);
+    } else {
+      push(@read_batch,$read);
+    }
+  }
+
+  if(scalar(@read_batch)) {
+    my @runnable_read_batch = @read_batch;
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
+       -analysis     => $analysis,
+       -program      => $program,
+       -basic_options => $self->get_aligner_options,
+       -target_seqs => [$seqio],
+       -query_seqs => \@runnable_read_batch,
+       -percent_id   => $self->param('percent_id'),
+       -coverage     => $self->param('coverage'),
+       -missmatch     => $self->param('missmatch'),
+      );
+    $runnable->timer($self->param('timer'));
+    $self->runnable($runnable);
+  }
+  } # end if test
+
+  else {
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
+       -analysis     => $analysis,
+       -program      => $program,
+       -basic_options => $self->get_aligner_options,
+       -target_seqs => [$seqio],
+       -query_seqs => \@reads,
+       -percent_id   => $self->param('percent_id'),
+       -coverage     => $self->param('coverage'),
+       -missmatch     => $self->param('missmatch'),
+      );
+    $runnable->timer($self->param('timer'));
+    $self->runnable($runnable);
+  }
+#  $leaveCount = Devel::Leak::CheckSV($handle);
+#  print STDERR "\nLEAVE5: $leaveCount SVs\n";
+
 }
 
 
 sub run {
-  my ($self) = @_;
-  my $runnable = shift(@{$self->runnable});
-  $self->runnable_failed(0);
-  eval {
-    $runnable->run;
-  };
 
-  if($@) {
-    my $except = $@;
-    $self->runnable_failed(1);
-    if($except =~ /still running after your timer/) {
-      $self->warning("bam2introns took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
-      $self->param('_branch_to_flow_to_on_fail',-2);
+  say "FERGAL DEBUG ENTER RUN";
+  my ($self) = @_;
+
+  while(my $runnable = pop(@{$self->runnable})) {
+#  my $runnable = shift(@{$self->runnable});
+    $self->runnable_failed(0);
+    eval {
+#      my $handle;
+#      my $leaveCount = 0;
+#      my $enterCount = Devel::Leak::NoteSV($handle);
+#      print STDERR "ENTER6: $enterCount SVs\n";
+      $runnable->run;
+#      $leaveCount = Devel::Leak::CheckSV($handle);
+#      print STDERR "\nLEAVE6: $leaveCount SVs\n";
+    };
+
+    if($@) {
+      my $except = $@;
+      $self->runnable_failed(1);
+      if($except =~ /still running after your timer/) {
+        $self->warning("bam2introns took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
+        $self->param('_branch_to_flow_to_on_fail',-2);
+      } else {
+        $self->warning("Issue with running bam2introns, will dataflow input id on branch -3. Exception:\n".$except);
+        $self->param('_branch_to_flow_to_on_fail',-3);
+      }
     } else {
-      $self->warning("Issue with running bam2introns, will dataflow input id on branch -3. Exception:\n".$except);
-      $self->param('_branch_to_flow_to_on_fail',-3);
+      say "FERGAL DEBUG RUN OUTPUT:".scalar(@{$runnable->output});
+      $self->output($self->filter_results($runnable->output));
     }
-  } else {
-    $self->output($self->filter_results($runnable->output));
+    say "FERGAL DEBUG END RUN";
   }
   return 1;
 }
@@ -324,6 +438,11 @@ sub get_aligner_options {
 
 sub write_output {
   my $self = shift;
+
+#  my $handle;
+#  my $leaveCount = 0;
+#  my $enterCount = Devel::Leak::NoteSV($handle);
+#  print STDERR "ENTER7: $enterCount SVs\n";
 
   # If a failure has happened then flow the input id on the appropriate branch
   if($self->runnable_failed == 1) {
@@ -370,6 +489,9 @@ sub write_output {
   if ($self->param_is_defined('iids')) {
       $self->dataflow_output_id($self->param('iids'), $self->param('_branch_to_flow_to'));
   }
+
+#  $leaveCount = Devel::Leak::CheckSV($handle);
+#  print STDERR "\nLEAVE7: $leaveCount SVs\n";
 }
 
 
