@@ -99,8 +99,14 @@ sub write_output {
 	$length_table_adaptor->table_name($self->param('read_length_table'));
 
 	my $split_fastq = $input_id->{filename};
-	$split_fastq =~ m/([A-Z0-9]+)_.*([0-9]\.fastq\.gz)/;
-	my $fastq = $1."_".$2;
+	my @split_parts = split /_/, $split_fastq;
+	my $suffix = $split_parts[-2];
+	my @prefix_parts = @split_parts[ 0..$#split_parts-3 ];
+	my $prefix = join '_', @prefix_parts;
+
+#	$split_fastq =~ m/([A-Z0-9]+)_.*([0-9]\.fastq\.gz)/;
+#	my $fastq = $1."_".$2;
+	my $fastq = $prefix."_".$suffix;
 	my $db_row = $length_table_adaptor->fetch_by_dbID($fastq);
 	my $read_length = $db_row->{read_length};
 
