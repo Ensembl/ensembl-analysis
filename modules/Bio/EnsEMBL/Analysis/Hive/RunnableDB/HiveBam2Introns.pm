@@ -93,6 +93,7 @@ sub param_defaults {
     _branch_for_accumulators => 'MAIN',
     _stored_features => {},
     timer => '5h',
+    flatfile_masked => 1,
   }
 }
 
@@ -134,11 +135,9 @@ sub fetch_input {
   # do all the normal stuff
   # then get all the transcripts and exons
   $self->throw('Your bam file "'.$self->param('bam_file').'" does not exist!') unless (-e $self->param('bam_file'));
-  my $dna_db = $self->get_database_by_name('dna_db');
-  $self->hrdb_set_con($dna_db, 'dna_db');
-  my $gene_db = $self->get_database_by_name('source_db', $dna_db);
+  my $dna_db;
+  my $gene_db = $self->get_database_by_name('source_db');
   my $gene_adaptor = $gene_db->get_GeneAdaptor;
-  my $slice_adaptor = $dna_db->get_SliceAdaptor;
   my $counters;
   $counters->{'start'} = 0;
   $counters->{'offset'} = 0;
@@ -158,7 +157,14 @@ sub fetch_input {
     setup_fasta(
                  -FASTA => $self->param('genome_file'),
                );
+  } elsif($self->param('dna_db')) {
+    $dna_db = $self->get_database_by_name('dna_db');
+    $self->hrdb_set_con($dna_db,'dna_db');
+    $gene_db->dnadb($dna_db);
+  } else {
+    $self->throw("You must provide either a flatfile or a dna db to read from");
   }
+
 
 
 #  $leaveCount = Devel::Leak::CheckSV($handle);
@@ -166,7 +172,7 @@ sub fetch_input {
 
 #  $enterCount = Devel::Leak::NoteSV($handle);
 #  print STDERR "ENTER2: $enterCount SVs\n";
-
+  my $slice_adaptor = $gene_db->get_SliceAdaptor;
   my $stable_id = $self->input_id;
 
   # check for batch info in the input id
@@ -176,6 +182,7 @@ sub fetch_input {
     $counters->{'start'} = $3;
     $counters->{'offset'} = $4;
   }
+
   my $rough = $gene_adaptor->fetch_by_stable_id($stable_id);
   $self->throw("Gene $stable_id not found \n") unless $rough;
     print 'Found model '.join(' ', $rough->stable_id, $rough->seq_region_name, $rough->start, $rough->end, $rough->strand)."\n";
@@ -256,7 +263,12 @@ sub fetch_input {
     # This will work with the normal masking options too
     # If you are changing code here there is equivalent code to change in the else below this, which operates on exons
     if ( $self->param('mask') ) {
-      $queryseq = $slice->get_repeatmasked_seq($self->param_required('wide_repeat_logic_names'),1)->seq;
+      # If we have a masked flatfile then use that, getting the repeats via the API kills the servers at scale
+      if($self->param('use_genome_flatfile') && $self->param('flatfile_masked')) {
+        $queryseq = $slice->seq(undef,undef,undef,1);
+      } else {
+        $queryseq = $slice->get_repeatmasked_seq($self->param_required('wide_repeat_logic_names'),1)->seq;
+      }
     }
     else {
       $queryseq = $slice->seq;
@@ -271,7 +283,12 @@ sub fetch_input {
       # This will work with the normal masking options too
       # If you are changing code here there is equivalent code to change in the if above this, which operates on the full slice of the rough transcript
       if ( $self->param('mask') ) {
-        $queryseq .= $slice->get_repeatmasked_seq($self->param_required('wide_repeat_logic_names'),1)->seq;
+        # If we have a masked flatfile then use that, getting the repeats via the API kills the servers at scale
+        if($self->param('use_genome_flatfile') && $self->param('flatfile_masked')) {
+          $queryseq .= $slice->seq(undef,undef,undef,1);
+        } else {
+          $queryseq .= $slice->get_repeatmasked_seq($self->param_required('wide_repeat_logic_names'),1)->seq;
+	}
       }
       else {
         $queryseq .= $slice->seq;

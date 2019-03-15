@@ -144,7 +144,9 @@ sub fetch_input {
 
 sub create_slice_ids {
   my ($self, $dba) = @_;
-
+use Data::Dumper;
+use feature 'say';
+#say "slice size is ", $self->param('slice_size');
   if ($self->param('slice_size') < 0) {
     $self->throw('Slice size must be >= 0. Currently '.$self->param('slice_size'));
   }
@@ -154,17 +156,19 @@ sub create_slice_ids {
   my $slices = $sa->fetch_all($self->param('coord_system_name'),
                               $self->param('coord_system_version'),
                               $self->param('include_non_reference'),
-                              $self->param('include_duplicates'),
-                              $self->param('include_lrg'));
-
+			      $self->param('include_duplicates'),
+			      $self->param('include_lrg'));
+my @input = map {$_->name} @$slices;
+say "slices from db are ", scalar(@input);
   if (!$self->param('mitochondrion')) {
     my $mt = $sa->fetch_by_region('toplevel', 'MT');
     if ($mt) {
+say "mt is ", $mt;
       my @ids = grep {$_->seq_region_name ne $mt->seq_region_name} @$slices;
       $slices = \@ids;
     }
+say "inside MT";
   }
-
   if ($self->param('iid_type') eq 'patch_slice') {
     my @pt = ('patch_novel', 'patch_fix');
     my @tmp_slices;
@@ -181,21 +185,30 @@ sub create_slice_ids {
 
   if($self->param('slice_size') > 0) {
     $slices = split_Slices($slices, $self->param_required('slice_size'), $self->param('slice_overlaps'));
+say "slice > 0";
   }
 
   if($self->param('min_slice_length')) {
     $slices = $self->filter_slice_on_size($slices);
+say "slice length is ", $self->param('min_slice_length');
   }
 
   if($self->param('feature_constraint')) {
     $slices = $self->filter_slice_on_features($slices, $dba);
+say "constraint is ", $self->param('feature_constraint');
   }
 
   if($self->param('batch_slice_ids')) {
+my @inpt = map {$_->name} @$slices;
+say "slices from db are ", scalar(@inpt);
     $slices = $self->batch_slice_ids($slices);
+#my @inp = map {$_->name} @$slices;
+#say "slices from db are ", scalar(@inp);
+    say "batch is ", Dumper($slices);
     $self->param('inputlist', $slices);
   } else {
     my @input_ids = map {$_->name} @$slices;
+   say "slices from db are ", Dumper(@input_ids);
     $self->param('inputlist', \@input_ids);
   }
 
@@ -936,17 +949,21 @@ sub filter_slice_on_size {
 sub batch_slice_ids {
   my ($self, $slices) = @_;
   my $batch_target_size = $self->param('batch_target_size');
-
+  
   my $all_batches = [];
   my $single_batch_array = [];
   my $total_length = 0;
-  # Sort shortest first
+  # Sort shortest firs
   foreach my $slice (sort { $a->length <=> $b->length } @$slices) {
     my $length = $slice->length;
     if($length + $total_length > $batch_target_size) {
-      push(@{$all_batches},[$single_batch_array]);
-      $single_batch_array = [];
-      $total_length = 0;
+      #this check handles rare cases where the shortest slice is > than the batch_target_size. if so, skip pushing to $all_batches array until $single_batch_array is populated with slice name
+      #this is to avoid creating an extra job without input id
+      if (scalar(@$single_batch_array)){
+         push(@{$all_batches},[$single_batch_array]);
+         $single_batch_array = [];
+         $total_length = 0;
+       }
     }
     push(@{$single_batch_array}, $slice->name);
     $total_length += $length;
