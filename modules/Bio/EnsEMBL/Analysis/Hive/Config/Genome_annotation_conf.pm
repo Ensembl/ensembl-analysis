@@ -251,9 +251,13 @@ sub default_options {
 #
 ######################################################
 
-    genome_dumps                => catdir($self->o('output_path'), 'genome_dumps'),
-    genome_file                 => catfile($self->o('genome_dumps'), $self->o('species_name').'_softmasked_toplevel.fa'),
-    faidx_genome_file          => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
+    genome_dumps                  => catdir($self->o('output_path'), 'genome_dumps'),
+    # This one is used by most analyses that run against a genome flatfile like exonerate, genblast etc. Has slice name style headers. Is softmasked
+    softmasked_genome_file        => catfile($self->o('genome_dumps'), $self->o('species_name').'_softmasked_toplevel.fa'),
+    # This one is used in replacement of the dna table in the core db, so where analyses override slice->seq. Has simple headers with just the seq_region name. Also used by bwa in the RNA-seq analyses. Not masked
+    faidx_genome_file             => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
+    # This one is a cross between the two above, it has the seq_region name header but is softmasked. It is used by things that would both want to skip using the dna table and also want to avoid the repeat_feature table, e.g. bam2introns
+    faidx_softmasked_genome_file  => catfile($self->o('genome_dumps'), $self->o('species_name').'_softmasked_toplevel.fa.reheader'),
     'primary_assembly_dir_name' => 'Primary_Assembly',
     'refseq_cdna_calculate_coverage_and_pid' => '0',
     'contigs_source'            => 'ena',
@@ -1746,11 +1750,40 @@ sub pipeline_analyses {
         -logic_name => 'format_softmasked_toplevel',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmask -in '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa.asnb;makeblastdb -in '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa -dbtype nucl -parse_seqids -mask_data '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.catfile($self->o('genome_dumps'), $self->o('species_name')).'_softmasked_toplevel.fa;fi',
+                         'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmask -in '.$self->o('softmasked_genome_file').' -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.$self->o('softmasked_genome_file').'.asnb;makeblastdb -in '.$self->o('softmasked_genome_file').' -dbtype nucl -parse_seqids -mask_data '.$self->o('softmasked_genome_file').'.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.$self->o('softmasked_genome_file').';fi',
                        },
         -rc_name    => '3GB',
+        -flow_into => {
+          1 => ['create_reheadered_softmasked_file'],
+        },
       },
 
+
+      {
+        -logic_name => 'create_reheadered_softmasked_file',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'convert_genome_dump.pl').
+                                      ' -conversion_type slice_name_to_seq_region_name'.
+                                      ' -input_file '.$self->o('softmasked_genome_file').
+                                      ' -output_file '.$self->o('faidx_softmasked_genome_file'),
+                       },
+        -rc_name => 'default',
+        -flow_into => {
+          1 => ['create_softmasked_faidx'],
+        },
+      },
+
+
+      {
+        -logic_name => 'create_softmasked_faidx',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+	     -rc_name => '5GB',
+	     -parameters => {
+          cmd => 'if [ ! -e "'.$self->o('faidx_softmasked_genome_file').'.fai" ]; then '.$self->o('samtools_path').' faidx '.$self->o('faidx_softmasked_genome_file').';fi',
+			     },
+
+      },
 
 ###############################################################################
 #
@@ -2380,7 +2413,7 @@ sub pipeline_analyses {
         -parameters => {
           target_db => $self->o('genblast_db'),
           dna_db => $self->o('dna_db'),
-          genome => $self->o('genome_file'),
+          genome => $self->o('softmasked_genome_file'),
           exonerate => $self->o('exonerate_path'),
           genewise => $self->o('genewise_path'),
           iid_type => 'db_seq',
@@ -2403,7 +2436,7 @@ sub pipeline_analyses {
                          logic_name => 'genblast',
                          module => 'HiveGenblast',
                          genblast_path => $self->o('genblast_path'),
-                         genblast_db_path => $self->o('genome_file'),
+                         genblast_db_path => $self->o('softmasked_genome_file'),
                          commandline_params => $genblast_params{$self->o('blast_type').'_genome'},
                          sequence_table_name => $self->o('uniprot_table_name'),
                          max_rank => $self->o('genblast_max_rank'),
@@ -2447,7 +2480,7 @@ sub pipeline_analyses {
                          logic_name => 'genblast',
                          module => 'HiveGenblast',
                          genblast_path => $self->o('genblast_path'),
-                         genblast_db_path => $self->o('genome_file'),
+                         genblast_db_path => $self->o('softmasked_genome_file'),
                          commandline_params => $genblast_params{$self->o('blast_type').'_genome'},
                          sequence_table_name => $self->o('uniprot_table_name'),
                          max_rank => $self->o('genblast_max_rank'),
@@ -2703,7 +2736,7 @@ sub pipeline_analyses {
         dna_db => $self->o('dna_db'),
         target_db => $self->o('genewise_db'),
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_protein')},
-        genome_file      => $self->o('genome_file'),
+        genome_file      => $self->o('softmasked_genome_file'),
         exonerate_path   => $self->o('exonerate_path'),
         repeat_libraries => '#wide_repeat_logic_names#',
         calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
@@ -2900,7 +2933,7 @@ sub pipeline_analyses {
         dna_db => $self->o('dna_db'),
         target_db => $self->o('cdna_db'),
         logic_name => $self->o('exonerate_logic_name'),
-        genome_file      => $self->o('genome_file'),
+        genome_file      => $self->o('softmasked_genome_file'),
         exonerate_path   => $self->o('exonerate_path'),
         repeat_libraries => '#wide_repeat_logic_names#',
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','cdna_est2genome')},
@@ -2926,7 +2959,7 @@ sub pipeline_analyses {
         dna_db => $self->o('dna_db'),
         target_db => $self->o('cdna_db'),
         logic_name => $self->o('exonerate_logic_name'),
-        genome_file      => $self->o('genome_file'),
+        genome_file      => $self->o('softmasked_genome_file'),
         exonerate_path   => $self->o('exonerate_path'),
         repeat_libraries => '#wide_repeat_logic_names#',
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','cdna_est2genome')},
@@ -3127,7 +3160,7 @@ sub pipeline_analyses {
       -parameters => {
         target_db => $self->o('genewise_db'),
         dna_db => $self->o('dna_db'),
-        genome => $self->o('genome_file'),
+        genome => $self->o('softmasked_genome_file'),
         biotype => 'seleno_self',
         exonerate => $self->o('exonerate_path'),
         genewise => $self->o('genewise_path'),
@@ -3301,7 +3334,7 @@ sub pipeline_analyses {
                          logic_name => 'ig_tr_gene',
                          module => 'HiveGenblast',
                          genblast_path => $self->o('genblast_path'),
-                         genblast_db_path => $self->o('genome_file'),
+                         genblast_db_path => $self->o('softmasked_genome_file'),
                          commandline_params => $genblast_params{$self->o('blast_type').'_genome'},
                          sequence_table_name => $self->o('ig_tr_table_name'),
                          max_rank => $self->o('ig_tr_genblast_max_rank'),
@@ -3344,7 +3377,7 @@ sub pipeline_analyses {
                          logic_name => 'genblast',
                          module => 'HiveGenblast',
                          genblast_path => $self->o('genblast_path'),
-                         genblast_db_path => $self->o('genome_file'),
+                         genblast_db_path => $self->o('softmasked_genome_file'),
                          commandline_params => $genblast_params{$self->o('blast_type').'_genome'},
                          sequence_table_name => $self->o('ig_tr_table_name'),
                          max_rank => $self->o('genblast_max_rank'),
@@ -4352,7 +4385,8 @@ sub pipeline_analyses {
           use_ucsc_naming => $self->o('use_ucsc_naming'),
           output_dir => $self->o('sam_dir'),
           use_genome_flatfile => 1,
-          genome_file => $self->o('faidx_genome_file'),
+          flatfile_masked => 1,
+          genome_file => $self->o('faidx_softmasked_genome_file'),
           timer => '5h',
         },
         -rc_name    => '5GB',
@@ -4388,7 +4422,8 @@ sub pipeline_analyses {
           use_ucsc_naming => $self->o('use_ucsc_naming'),
           output_dir => $self->o('sam_dir'),
           use_genome_flatfile => 1,
-          genome_file => $self->o('faidx_genome_file'),
+          flatfile_masked => 1,
+          genome_file => $self->o('faidx_softmasked_genome_file'),
           timer => '5h',
         },
         -rc_name    => '20GB',
@@ -4422,7 +4457,8 @@ sub pipeline_analyses {
           use_ucsc_naming => $self->o('use_ucsc_naming'),
           output_dir => $self->o('sam_dir'),
           use_genome_flatfile => 1,
-          genome_file => $self->o('faidx_genome_file'),
+          flatfile_masked => 1,
+          genome_file => $self->o('faidx_softmasked_genome_file'),
           timer => '5h',
         },
         -rc_name    => '50GB',
