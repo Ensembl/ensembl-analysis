@@ -2329,7 +2329,7 @@ sub pipeline_analyses {
                          create_type => 'clone',
                        },
         -rc_name    => 'default',
-        -wait_for => ['format_softmasked_toplevel'],
+        -wait_for => ['create_softmasked_faidx'],
         -flow_into => { 1 => ['create_genblast_select_output_db'] },
       },
 
