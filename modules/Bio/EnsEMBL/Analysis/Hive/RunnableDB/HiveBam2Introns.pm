@@ -58,7 +58,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns;
 use warnings ;
 use strict;
 use feature 'say';
-use Devel::Leak;
 
 use File::Spec;
 use File::Path qw(make_path);
