@@ -5870,7 +5870,6 @@ sub pipeline_analyses {
                          '1->A' => ['run_utr_addition'],
                          'A->1' => ['genebuilder'],
                        },
-        -analysis_capacity => 200,
         -batch_size => 50,
       },
 
