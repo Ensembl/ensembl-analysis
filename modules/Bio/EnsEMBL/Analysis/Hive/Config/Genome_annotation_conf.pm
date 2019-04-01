@@ -4932,8 +4932,21 @@ sub pipeline_analyses {
                        },
         -rc_name    => '3GB',
         -flow_into  => {
-          '1->A' => ['fan_projection'],
+          '1->A' => ['run_projections'],
           'A->1' => ['cluster_ig_tr_genes'],
+        },
+      },
+
+      {
+        -logic_name => 'run_projections',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'if [ "#skip_projection#" -ne "0" ]; then exit 42; else exit 0;fi',
+          return_codes_2_branches => {'42' => 2},
+        },
+        -rc_name    => 'default',
+        -flow_into  => {
+          '1' => ['fan_projection','cesar_fan_projection'],
         },
       },
 
@@ -4946,8 +4959,22 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into  => {
-          '1->A' => ['create_projection_coding_input_ids','cesar_create_projection_input_ids'],
-          'A->1' => ['classify_projection_coding_models','cesar_classify_projection_coding_models'],
+          '1->A' => ['create_projection_coding_input_ids'],
+          'A->1' => ['classify_projection_coding_models'],
+        },
+      },
+
+      {
+        -logic_name => 'cesar_fan_projection',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'if [ "#skip_projection#" -ne "0" ]; then exit 42; else exit 0;fi',
+          return_codes_2_branches => {'42' => 2},
+        },
+        -rc_name    => 'default',
+        -flow_into  => {
+          '1->A' => ['cesar_create_projection_input_ids'],
+          'A->1' => ['cesar_classify_projection_coding_models'],
         },
       },
 

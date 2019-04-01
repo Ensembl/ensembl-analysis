@@ -81,6 +81,7 @@ sub param_defaults {
     _read_length => 1,
     _centre_name => 'ENA',
     print_all_info => 0,
+    paired_end_only => 1, #by default, module will only add paired-end data to the csv, add "paired_end_only => 0" to pipeline config to include single end data 
   }
 }
 
@@ -176,10 +177,20 @@ sub run {
             # if these two checks below are removed, more time might be needed to prepare the CSV file
             next if ($line =~ / infected | [iIu]mmune| challenge |tomi[zs]ed/); # I do not want to do that but I don't think we have a choice
             next if ($line =~ /[Mm]i\w{0,3}RNA|lncRNA|circRNA|small RNA/); # I do not want to do that but I don't think we have a choice
+
             my @row = split("\t", $line);
             my $read_length = $self->param('_read_length');
             my $nominal_length = 0;
             my $calculated_length = 0;
+
+            if ($self->param('paired_end_only')){
+	      my $third_file = "ftp[^_]*\.fastq\.gz\;ftp";
+	      $row[$fields_index{$fastq_file}] =~ s/$third_file/ftp/; # sometimes a third combined fastq file exists (it has single end naming format) - discard it
+
+              next if ($row[$fields_index{library_layout}] eq 'SINGLE'); # don't include single end reads
+	      next if ($row[$fields_index{$fastq_file}] !~ m/.*_1\.fastq\.gz.*_2\.fastq\.gz/);# this will throw out the paired end data that is stored in a single file, i.e. it looks like single end data to a regex
+            }
+
             if ($row[$fields_index{nominal_length}]) {
               $nominal_length = $row[$fields_index{nominal_length}];
               $read_length = $nominal_length;
@@ -344,7 +355,6 @@ sub run {
     $self->output([\%csv_data, \%samples]);
   }
   else {
-    $self->input_job->autoflow(0);
     $self->complete_early('Could not find any data for this job');
   }
 }
