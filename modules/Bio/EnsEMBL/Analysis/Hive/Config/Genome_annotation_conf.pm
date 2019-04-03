@@ -869,7 +869,7 @@ sub default_options {
 
     'production_db' => {
       -host   => $self->o('production_db_server'),
-      -port   => $self->o('production_port'),
+      -port   => $self->o('production_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
       -dbname => 'ensembl_production_#wide_ensembl_release#',
@@ -878,7 +878,7 @@ sub default_options {
 
     'taxonomy_db' => {
       -host   => $self->o('production_db_server'),
-      -port   => $self->o('production_port'),
+      -port   => $self->o('production_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
       -dbname => 'ncbi_taxonomy',
@@ -5830,7 +5830,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFindIntergenicRegions',
         -parameters => {
                          dna_db => $self->o('dna_db'),
-                         input_gene_dbs => [@{$self->o('layering_input_gene_dbs')},$self->o('cdna_db')],
+                         input_gene_dbs => [@{$self->default_options->{'layering_input_gene_dbs'}},$self->default_options->{'cdna_db'}],
                          iid_type => 'slice',
                        },
         -batch_size => 100,
