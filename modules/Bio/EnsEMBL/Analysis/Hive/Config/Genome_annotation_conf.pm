@@ -225,8 +225,8 @@ sub default_options {
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
-    'staging_1_db_server'          => 'mysql-ens-sta-1',
-    'staging_1_port'               => '4519',
+    'production_db_server'         => 'mysql-ens-meta-prod-1',
+    'production_db_port'           => '4483',
 
 
     databases_to_delete => ['reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_coding_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db', 'lincrna_db', 'otherfeatures_db', 'rnaseq_db'],#, 'projection_realign_db'
@@ -868,8 +868,8 @@ sub default_options {
     },
 
     'production_db' => {
-      -host   => $self->o('staging_1_db_server'),
-      -port   => $self->o('staging_1_port'),
+      -host   => $self->o('production_db_server'),
+      -port   => $self->o('production_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
       -dbname => 'ensembl_production_#wide_ensembl_release#',
@@ -877,8 +877,8 @@ sub default_options {
     },
 
     'taxonomy_db' => {
-      -host   => $self->o('staging_1_db_server'),
-      -port   => $self->o('staging_1_port'),
+      -host   => $self->o('production_db_server'),
+      -port   => $self->o('production_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
       -dbname => 'ncbi_taxonomy',
