@@ -538,6 +538,8 @@ sub _master_config {
                              'rnaseq_tissue',
     ],
 
+    insects_basic => [],
+
     self_patch => [
                 'self_pe12_sp_95',
                 'self_pe12_sp_80',

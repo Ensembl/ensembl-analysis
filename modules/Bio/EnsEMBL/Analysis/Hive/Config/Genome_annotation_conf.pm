@@ -120,7 +120,7 @@ sub default_options {
 # Pipe and ref db info
 ########################
 
-    'projection_source_db_name'    => 'homo_sapiens_core_91_38', # This is generally a pre-existing db, like the current human/mouse core for example
+    'projection_source_db_name'    => 'homo_sapiens_core_96_38', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_server'  => 'mysql-ens-mirror-1',
     'projection_source_db_port'    => '4240',
 
