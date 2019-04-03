@@ -266,12 +266,12 @@ sub default_options {
 
     'layering_input_gene_dbs' => [
                                    $self->o('genblast_db'),
-#                                   $self->o('genblast_rnaseq_support_db'),
                                    $self->o('rnaseq_for_layer_db'),
                                    $self->o('projection_coding_db'),
                                    $self->o('ig_tr_db'),
                                    $self->o('best_targeted_db'),
                                  ],
+
 
     utr_donor_dbs => [
       $self->o('cdna_db'),
@@ -5830,7 +5830,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFindIntergenicRegions',
         -parameters => {
                          dna_db => $self->o('dna_db'),
-                         input_gene_dbs => $self->o('layering_input_gene_dbs'),
+                         input_gene_dbs => [@{$self->o('layering_input_gene_dbs')},$self->o('cdna_db')],
                          iid_type => 'slice',
                        },
         -batch_size => 100,
