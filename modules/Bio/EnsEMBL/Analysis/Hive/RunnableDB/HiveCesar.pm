@@ -97,7 +97,7 @@ qw(replace_stops_with_introns
    set_alignment_supporting_features                                                                  
    features_overlap);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(align_proteins);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns features_overlap);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -1100,19 +1100,37 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
     $source_exon_index++;
   } # end while PROJSEQ
 
+  # make sure that no exon overlaps another one
+  my @projected_exons_no_overlap = ();
+  if (scalar(@projected_exons) > 1) {
+    my $next_exon_index = 1;
+    foreach my $exon (@projected_exons) {
+      if ($next_exon_index > scalar(@projected_exons)-1) {
+        push(@projected_exons_no_overlap,$exon);
+        last;
+      }
+      if (!(features_overlap($exon,$projected_exons[$next_exon_index]))) {
+        push(@projected_exons_no_overlap,$exon);
+      }
+      $next_exon_index++;
+    }
+  } else { # there is only one exon
+    push(@projected_exons_no_overlap,$projected_exons[0]);
+  }
+
   if (scalar(@projected_exons) > 0) {
 
-    my $projected_transcript = Bio::EnsEMBL::Transcript->new(-exons => \@projected_exons,
+    my $projected_transcript = Bio::EnsEMBL::Transcript->new(-exons => \@projected_exons_no_overlap,
                                                              -analysis => $source_transcript->analysis(),
                                                              -stable_id => $source_transcript->stable_id_version(),
                                                              -strand => 1,
                                                              -slice => $proj_transcript_slice);
 
     my $translation = Bio::EnsEMBL::Translation->new();
-    $translation->start_Exon($projected_exons[0]);
+    $translation->start_Exon($projected_exons_no_overlap[0]);
     $translation->start(1);
-    $translation->end_Exon($projected_exons[-1]);
-    $translation->end($projected_exons[-1]->length());
+    $translation->end_Exon($projected_exons_no_overlap[-1]);
+    $translation->end($projected_exons_no_overlap[-1]->length());
     $projected_transcript->translation($translation);
 
     # Set the phases  
