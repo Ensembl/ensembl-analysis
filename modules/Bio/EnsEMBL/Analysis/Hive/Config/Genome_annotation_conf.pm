@@ -81,7 +81,7 @@ sub default_options {
     'skip_cleaning'             => '0', # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
     'mapping_db'                => undef, # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
-    'uniprot_version'            => 'uniprot_2018_07', # What UniProt data dir to use for various analyses
+    'uniprot_version'           => 'uniprot_2018_07', # What UniProt data dir to use for various analyses
     'vertrna_version'           => '136', # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
 
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
@@ -89,11 +89,13 @@ sub default_options {
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
 
     # Keys for custom loading, only set/modify if that's what you're doing
-    'skip_genscan_blasts'       => '1',
-    'load_toplevel_only'        => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
-    'custom_toplevel_file_path' => undef, # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
-    'repeatmodeler_library'     => '', # This should be the path to a custom repeat library, leave blank if none exists
-    'use_repeatmodeler_to_mask' => '0', # Setting this will include the repeatmodeler library in the masking process
+    'skip_genscan_blasts'          => '1',
+    'load_toplevel_only'           => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
+    'custom_toplevel_file_path'    => '', # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
+    'repeatmodeler_library'        => '', # This should be the path to a custom repeat library, leave blank if none exists
+    'use_repeatmodeler_to_mask'    => '0', # Setting this will include the repeatmodeler library in the masking process
+    'custom_protein_blastdb'       => '', # Path to a custom fasta protein db for blast. Headers should just be a single, non-weird accession. Used to validate RNA-seq ORFs
+    'custom_protein_blastdb_index' => '', # Path to an indicate index for a custom protein db for blast
 
 ########################
 ## Small ncRNAs params
@@ -236,14 +238,14 @@ sub default_options {
 ########################
     'base_blast_db_path'        => $ENV{BLASTDB_DIR},
     'uniprot_entry_loc'         => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc'),
-    'uniprot_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'uniprot_vertebrate'),
+    'uniprot_blast_db_path'     => $self->o('custom_protein_blastdb') || catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'uniprot_vertebrate'),
     'vertrna_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'vertrna', $self->o('vertrna_version'), 'embl_vertrna-1'),
     'unigene_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'unigene', 'unigene'),
     'ncrna_blast_path'          => catfile($self->o('base_blast_db_path'), 'ncrna', 'ncrna_2016_05'),
     'mirna_blast_path'          => catfile($self->o('base_blast_db_path'), 'ncrna', 'mirbase_22'),
     'ig_tr_blast_path'          => catfile($self->o('base_blast_db_path'), 'ig_tr_genes'),
-    'rnaseq_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata'), # Blast database for comparing the final models to.
-    'indicate_uniprot_index' => catdir($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index'), # Indicate Index for the blast database.
+    'rnaseq_blast_db_path'      => $self->o('custom_protein_blastdb') || catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata'), # Blast database for comparing the final models to.
+    'indicate_uniprot_index'    => $self->o('custom_protein_blastdb_index') || catdir($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index'), # Indicate Index for the blast database.
 
 ######################################################
 #
