@@ -1825,7 +1825,6 @@ sub _master_config {
                              'monocondylia_pe3_tr_3',
                              'monocondylia_pe3_sp_4',
                              'monocondylia_pe3_tr_4',
-                             'genblast_rnaseq_weak',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
               DISCARD    => 0,
