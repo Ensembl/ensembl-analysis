@@ -42,7 +42,6 @@ use warnings;
 
 use Net::FTP;
 use File::Fetch;
-
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
@@ -110,7 +109,13 @@ sub fetch_input {
   if ($primary_assembly_cs) {
 # if the coord_system is 'primary_assembly' the refseq synonyms should have been imported during 'process_assembly_info', however, there are cases where the refseq synonyms have been updated but this is not reflected in the NCBI assembly report (i.e. can be found in GCF but not in GCA): in this case download the GCF assembly report and load synonyms from there 
     my $assembly_refseq_accession = $self->param_required('assembly_refseq_accession');
-
+    my $refseq_db_id = $db->get_DBEntryAdaptor->get_external_db_id($self->param('external_db'), undef, 1);
+    if ($refseq_db_id) {
+      $self->param('external_db_id', $refseq_db_id);
+    }
+    else {
+      $self->throw('Could not fetch the dbID for '.$self->param('external_db'));
+    }
     my $refseq_ftp_url = $self->param('url');
     my $client = File::Fetch->new(uri => $refseq_ftp_url) || $self->throw('Could not create a fetcher for '.$refseq_ftp_url);
     $self->param('options', [to => $self->param('output_dir')]);
