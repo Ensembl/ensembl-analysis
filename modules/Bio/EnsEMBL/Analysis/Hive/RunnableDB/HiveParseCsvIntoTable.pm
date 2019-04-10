@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/Usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # Copyright [2016-2018] EMBL-European Bioinformatics Institute
@@ -98,16 +98,17 @@ sub write_output {
 	my $length_table_adaptor = $self->db->get_NakedTableAdaptor;
 	$length_table_adaptor->table_name($self->param('read_length_table'));
 
+	my $fastq;
 	my $split_fastq = $input_id->{filename};
 	if ($split_fastq =~ m/_split/){
 	  my @split_parts = split /_/, $split_fastq;
 	  my $suffix = $split_parts[-2];
 	  my @prefix_parts = @split_parts[ 0..$#split_parts-3 ];
 	  my $prefix = join '_', @prefix_parts;
-	  my $fastq = $prefix."_".$suffix;
+	  $fastq = $prefix."_".$suffix;
 	}
 	else{
-	  my fastq = $split_fastq;
+	  $fastq = $split_fastq;
 	}
 	my $db_row = $length_table_adaptor->fetch_by_dbID($fastq);
 	my $read_length = $db_row->{read_length};
