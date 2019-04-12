@@ -95,7 +95,7 @@ sub param_defaults {
     allowed_input_sets => undef,
     min_size_5prime => 20,
     copy_only => 0, # This is for jobs that fail even with lots of mem. Just copy the genes without trying to add UTR
-    validate_store => 1, # This will check that the final stored gene is identical to what's in memory
+    validate_store => 0, # This will check that the final stored gene is identical to what's in memory
     collapse_redundant_genes => 0,
   }
 }
@@ -251,9 +251,12 @@ sub write_output {
   foreach my $gene (@{$self->output}){
     empty_Gene($gene);
     $adaptor->store($gene);
-    my $stored_gene = $adaptor->fetch_by_dbID($gene->dbID);
 
+    # We had this because there was an issue with exons not being written. The problem would pop up when genebuilder failed
+    # Seems to have been linked to parts of transcripts being off the edge of slices. This has been fixed so this code is
+    # disabled by default to save server usage
     if($self->param('validate_store')) {
+      my $stored_gene = $adaptor->fetch_by_dbID($gene->dbID);
       my $validate_store = validate_store($gene,$stored_gene);
       unless($validate_store) {
         $self->throw("The stored gene and the gene in memory differed in some key features. Something went wrong on the store");
@@ -1784,6 +1787,7 @@ sub filter_input_genes {
     }
     else {
       my $donor_genes = $gene_adaptor->fetch_all_by_Slice($slice, undef, 1);
+
       # This should not have to be done in general, however there is a fix because
       # we have a very large number of assemblies in production and the pipelines
       # will not work without this fix
@@ -1806,6 +1810,7 @@ sub filter_input_genes {
       }
       push(@genes, @{$donor_genes});
     }
+    $db_adaptor->dbc->disconnect_if_idle();
   }
   return \@genes;
 }
