@@ -95,7 +95,14 @@ sub fetch_input {
     }
     close SAM_FIND;
   } else {
-    $sam_files = $self->param_required('filename');
+    # For failed jobs the accu table will have an undef value for the filename. This will break things
+    # later in the module, so we skip undef values here
+    my $initial_sam_files = $self->param_required('filename');
+    foreach my $sam_file (@$initial_sam_files) {
+      if($sam_file) {
+        push(@$sam_files,$sam_file);
+      }
+    }
   }
 
   if (scalar(@{$sam_files} > 0)) {
