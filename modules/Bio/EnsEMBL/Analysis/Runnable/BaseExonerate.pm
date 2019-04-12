@@ -67,7 +67,7 @@ use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile parse_timer);
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
@@ -209,11 +209,11 @@ sub new {
 Usage   :   $obj->run($workdir, $args)
 Function:   Runs exonerate script and puts the results into the file $self->results
             It calls $self->parse_results, and results are stored in $self->output
+
 =cut
 
 sub run {
   my ($self) = @_;
-
 
   if ($self->annotation_features) {
     my $annot_file = $self->create_filename("exonerate_a");
@@ -227,8 +227,7 @@ sub run {
              $f->strand < 0 ? "-" : "+",
              $f->start,
              $f->length);
-      
-    } 
+    }
     close(F);
     $self->files_to_delete($annot_file);
     close($annot_file) || throw('Could not close annotation file for writing');
@@ -242,7 +241,7 @@ sub run {
                                                 -strand  => $2 eq "-" ? -1 : 1,
                                                 -start   => $3,
                                                 -end     => $3 + $4 - 1); 
-      };      
+      };
     }
     close(F) || throw('Could not close supplied annotation file for reading');
     $self->annotation_features(\%feats);
@@ -270,19 +269,38 @@ sub run {
     ' --query "'  . $self->query_file .
     '" --target "' . $self->target_file.'"';
   $command .= " --annotation " . $self->annotation_file if $self->annotation_features;
-  
-  # Execute command and parse results
 
+  # Execute command and parse results
   print STDERR "Exonerate command : $command\n";
 
-  my $exo_fh;
-  open( $exo_fh, "$command |" ) or throw("Error opening exonerate command: $? : $!");
-  
-  $self->output($self->parse_results( $exo_fh ));
-  
-  if (!close( $exo_fh )) {
-    sleep 30;
-    throw ("Error closing exonerate command: $? : $!");
+  my $timer = $self->timer();
+  unless($timer) {
+    warning("No timer set, defaulting to 5h");
+    $timer = "5h";
+  }
+
+  my $realtimer = parse_timer($timer);
+  eval {
+    local $SIG{ALRM} = sub { die "alarm\n" };
+    alarm $timer; #schedule alarm in '$timer' seconds
+    my $exo_fh;
+    open( $exo_fh, "$command |" ) or throw("Error opening exonerate command: $? : $!");
+    $self->output($self->parse_results( $exo_fh ));
+
+    if (!close( $exo_fh )) {
+      sleep 30;
+      throw ("Error closing exonerate command: $? : $!");
+    }
+    alarm 0; #reset alarm
+  };
+
+  if ($@) {
+    if ($@ eq "alarm\n") {
+      throw("Your job was still running after your timer: ".$realtimer."\nCommand:\n".$command);
+    }
+    else {
+      throw($@);
+    }
   }
 
   return 1;
