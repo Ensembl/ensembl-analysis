@@ -43,23 +43,24 @@ sub default_options {
 # Misc setup info
 ########################
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
-    'pipeline_name'             => '', # What you want hive to call the pipeline, not the db name itself
+    'pipeline_name'             => '' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('ensembl_release'),
     'user_r'                    => '', # read only db user
     'user'                      => '', # write db user
     'password'                  => '', # password for write db user
+    'server_set'                => '', # What server set to user, e.g. set1
     'pipe_db_server'            => '', # host for pipe db
     'databases_server'          => '', # host for general output dbs
     'dna_db_server'             => '', # host for dna db
     'pipe_db_port'              => '', # port for pipeline host
     'databases_port'            => '', # port for general output db host
-    'dna_db_port'               => '', # prot for dna db host
+    'dna_db_port'               => '', # port for dna db host
     'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'rnaseq_summary_file'       => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
     'rnaseq_summary_file_genus' => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'_gen.csv'), # Set this if you have a pre-existing genus level cvs file with the expected columns
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
-    'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    'production_name'           => '' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'taxon_id'                  => '', # should be in the assembly report file
     'species_taxon_id'          => '' || $self->o('taxon_id'), # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
     'genus_taxon_id'            => '' || $self->o('taxon_id'), # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
@@ -71,7 +72,7 @@ sub default_options {
     'assembly_refseq_accession' => '', # Versioned GCF accession, e.g. GCF_001857705.1
     'stable_id_prefix'          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
     'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
-    'species_url'               => $self->o('production_name').$self->o('production_name_modifier'), # sets species.url meta key
+    'species_url'               => '' || $self->o('production_name').$self->o('production_name_modifier'), # sets species.url meta key
     'species_division'          => 'EnsemblVertebrates', # sets species.division meta key
     'stable_id_start'           => '0', # When mapping is not required this is usually set to 0
     'skip_post_repeat_analyses' => '0', # Will everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
@@ -80,12 +81,12 @@ sub default_options {
     'skip_ncrna'                => '0', # Will skip ncrna process if 1
     'skip_cleaning'             => '0', # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
-    'mapping_db'                => undef, # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
+    'mapping_db'                => '', # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
     'uniprot_version'           => 'uniprot_2018_07', # What UniProt data dir to use for various analyses
     'vertrna_version'           => '136', # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
 
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
-    'mt_accession'              => undef, # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
+    'mt_accession'              => '', # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
 
     # Keys for custom loading, only set/modify if that's what you're doing
@@ -151,9 +152,6 @@ sub default_options {
 
     'genblast_db_server'           => $self->o('databases_server'),
     'genblast_db_port'             => $self->o('databases_port'),
-
-    'genblast_select_db_server'    => $self->o('databases_server'),
-    'genblast_select_db_port'      => $self->o('databases_port'),
 
     'genblast_rnaseq_support_db_server'  => $self->o('databases_server'),
     'genblast_rnaseq_support_db_port'    => $self->o('databases_port'),
@@ -267,8 +265,9 @@ sub default_options {
     full_repbase_logic_name => "repeatmask_repbase_".$self->o('repbase_logic_name'),
 
     'layering_input_gene_dbs' => [
-                                   $self->o('genblast_db'),
-                                   $self->o('rnaseq_for_layer_db'),
+                                   $self->o('genblast_nr_db'),
+                                   $self->o('genblast_rnaseq_support_nr_db'),
+                                   $self->o('rnaseq_for_layer_nr_db'),
                                    $self->o('projection_coding_db'),
                                    $self->o('ig_tr_db'),
                                    $self->o('best_targeted_db'),
@@ -634,17 +633,28 @@ sub default_options {
     },
 
 
-    'genblast_select_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_gensel_'.$self->o('release_number'),
-      -host   => $self->o('genblast_select_db_server'),
-      -port   => $self->o('genblast_select_db_port'),
+    'genblast_nr_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_genblast_nr_'.$self->o('release_number'),
+      -host   => $self->o('genblast_db_server'),
+      -port   => $self->o('genblast_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
     },
 
+
     'genblast_rnaseq_support_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_rnaseq_'.$self->o('release_number'),
+      -host   => $self->o('genblast_rnaseq_support_db_server'),
+      -port   => $self->o('genblast_rnaseq_support_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+
+    'genblast_rnaseq_support_nr_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_rnaseq_nr_'.$self->o('release_number'),
       -host   => $self->o('genblast_rnaseq_support_db_server'),
       -port   => $self->o('genblast_rnaseq_support_db_port'),
       -user   => $self->o('user'),
@@ -745,6 +755,16 @@ sub default_options {
 
     'rnaseq_for_layer_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_rnaseq_layer_'.$self->o('release_number'),
+      -host   => $self->o('rnaseq_for_layer_db_server'),
+      -port   => $self->o('rnaseq_for_layer_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+
+    'rnaseq_for_layer_nr_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_rnaseq_layer_nr_'.$self->o('release_number'),
       -host   => $self->o('rnaseq_for_layer_db_server'),
       -port   => $self->o('rnaseq_for_layer_db_port'),
       -user   => $self->o('user'),
@@ -2330,19 +2350,6 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -wait_for => ['create_softmasked_faidx'],
-        -flow_into => { 1 => ['create_genblast_select_output_db'] },
-      },
-
-
-      {
-        -logic_name => 'create_genblast_select_output_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('genblast_select_db'),
-                         create_type => 'clone',
-                       },
-        -rc_name    => 'default',
         -flow_into => {
                         '1->A' => ['download_uniprot_files'],
                         'A->1' => ['classify_genblast_models'],
@@ -2539,107 +2546,61 @@ sub pipeline_analyses {
                        },
 
         -rc_name    => '4GB',
-        -flow_into => { 1 => ['create_genblast_slices'] },
-      },
-
-
-      {
-        -logic_name => 'create_genblast_slices',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-                         target_db => $self->o('dna_db'),
-                         iid_type => 'slice',
-                         slice_size => 10000000,
-                         coord_system_name => 'toplevel',
-                         include_non_reference => 0,
-                         top_level => 1,
-                         # These options will create only slices that have a gene on the slice in one of the feature dbs
-                         feature_constraint => 1,
-                         feature_type => 'gene',
-                         feature_dbs => [$self->o('genblast_db')],
-                      },
         -flow_into => {
-                       '2->A' => ['genblast_select'],
-                       'A->1' => ['update_genblast_select_biotypes'],
-                      },
-
-        -rc_name    => 'default',
-      },
-
-
-      {
-        -logic_name => 'genblast_select',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                         cmd => 'perl '.catfile($self->o('ensembl_analysis_script'), 'genebuild', 'pick_best_alt_transcripts.pl').
-                                     ' -slice_name #iid#'.
-                                     ' -source_host '.$self->o('genblast_db','-host').
-                                     ' -source_user '.$self->o('user_r').
-                                     ' -source_port '.$self->o('genblast_db','-port').
-                                     ' -source_dbname '.$self->o('genblast_db','-dbname').
-                                     ' -dna_user '.$self->o('user_r').
-                                     ' -dna_host '.$self->o('dna_db','-host').
-                                     ' -dna_port '.$self->o('dna_db','-port').
-                                     ' -dna_dbname '.$self->o('dna_db','-dbname').
-                                     ' -out_user '.$self->o('user').
-                                     ' -out_pass '.$self->o('password').
-                                     ' -out_host '.$self->o('genblast_select_db','-host').
-                                     ' -out_port '.$self->o('genblast_select_db','-port').
-                                     ' -out_dbname '.$self->o('genblast_select_db','-dbname')
-                      },
-        -rc_name => '4GB',
-     },
-
-
-      {
-        -logic_name => 'update_genblast_select_biotypes',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-        -parameters => {
-          db_conn => $self->o('genblast_select_db'),
-          sql => [
-            'UPDATE gene set biotype="genblast_select"',' UPDATE transcript set biotype="genblast_select"'
-          ],
-        },
-        -rc_name    => 'default',
-        -flow_into  => {
-                         1 => ['classify_genblast_select_models'],
-                       },
-      },
-
-
-      {
-        -logic_name => 'classify_genblast_select_models',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
-        -parameters => {
-                         classification_type => 'standard',
-                         update_gene_biotype => 1,
-                         target_db => $self->o('genblast_select_db'),
-                       },
-        -rc_name    => 'default',
-        -flow_into => {
-                        1 => ['genblast_select_sanity_checks'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'genblast_select_sanity_checks',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
-        -parameters => {
-                         target_db => $self->o('genblast_db'),
-                         sanity_check_type => 'gene_db_checks',
-                         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-                                                                             'gene_db_checks')->{$self->o('uniprot_set')}->{'genblast_select'},
-                       },
-
-        -rc_name    => '4GB',
-        -flow_into => {
-                        '1->A' => ['create_cdna_db'],
+                        '1->A' => ['create_cdna_db','create_genblast_nr_db'],
                         'A->1' => ['create_ig_tr_db'],
                       },
 
       },
 
+
+      {
+        -logic_name => 'create_genblast_nr_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('genblast_db'),
+                         target_db => $self->o('genblast_nr_db'),
+                         create_type => 'copy',
+                         force_drop => 1,
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        '1' => ['create_genblast_nr_slices'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'create_genblast_nr_slices',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db        => $self->o('dna_db'),
+                         coord_system_name => 'toplevel',
+                         iid_type => 'slice',
+                         slice_size => 20000000,
+                         include_non_reference => 0,
+                         top_level => 1,
+                         min_slice_length => $self->o('min_toplevel_slice_length'),
+                         batch_slice_ids => 1,
+                         batch_target_size => 20000000,
+                       },
+        -rc_name    => '2GB',
+        -flow_into => {
+                         '2'    => ['remove_redundant_genblast_genes'],
+                      },
+      },
+
+
+    {
+      -logic_name => 'remove_redundant_genblast_genes',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::RemoveRedundantGenes',
+      -parameters => {
+        target_db => $self->o('genblast_nr_db'),
+        target_type => 'biotype_priority',
+        layers => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic', $self->o('uniprot_set'), undef, 'ARRAY'),
+      },
+      -rc_name          => '5GB',
+    },
 
 ######################################################################################
 #
@@ -4490,6 +4451,7 @@ sub pipeline_analyses {
           intron_bam_file => catfile($self->o('output_dir'), 'introns'),
           genome_file => $self->o('faidx_genome_file'),
           use_threading => $self->o('use_threads'),
+          sam_dir => $self->o('sam_dir'),
         },
         -rc_name    => '5GB_multithread',
         -flow_into => ['create_refine_db'],
@@ -4746,12 +4708,65 @@ sub pipeline_analyses {
                          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
                                                                              'gene_db_checks')->{$self->o('uniprot_set')}->{'rnaseq_blast'},
                        },
+
+        -flow_into => {
+          1 => ['create_rnaseq_layer_nr_db'],
+        },
+
 #        -flow_into => {
 #          1 => ['create_lincrna_db'],
 #        },
 
         -rc_name    => '4GB',
       },
+
+
+      {
+        -logic_name => 'create_rnaseq_layer_nr_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('rnaseq_for_layer_db'),
+                         target_db => $self->o('rnaseq_for_layer_nr_db'),
+                         create_type => 'copy',
+                         force_drop => 1,
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        '1' => ['create_rnaseq_layer_nr_slices'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'create_rnaseq_layer_nr_slices',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db        => $self->o('dna_db'),
+                         coord_system_name => 'toplevel',
+                         iid_type => 'slice',
+                         slice_size => 20000000,
+                         include_non_reference => 0,
+                         top_level => 1,
+                         min_slice_length => $self->o('min_toplevel_slice_length'),
+                         batch_slice_ids => 1,
+                         batch_target_size => 20000000,
+                       },
+        -rc_name    => '2GB',
+        -flow_into => {
+                         '2'    => ['remove_redundant_rnaseq_layer_genes'],
+                      },
+      },
+
+
+    {
+      -logic_name => 'remove_redundant_rnaseq_layer_genes',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::RemoveRedundantGenes',
+      -parameters => {
+        target_db => $self->o('rnaseq_for_layer_nr_db'),
+        target_type => 'generic',
+      },
+      -rc_name          => '5GB',
+    },
 
 #      {
 #        -logic_name => 'create_lincrna_db',
@@ -5691,13 +5706,28 @@ sub pipeline_analyses {
                        },
         -rc_name => 'default',
         -flow_into  => {
-          1 => ['create_genblast_rnaseq_slice_ids'],
+         '1->A' => ['create_genblast_rnaseq_support_db'],
+         'A->1' => ['create_genblast_rnaseq_nr_db'],
         },
       },
 
 
      {
-        # Create 10mb toplevel slices, these will be split further for repeatmasker
+        -logic_name => 'create_genblast_rnaseq_support_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('genblast_rnaseq_support_db'),
+                         create_type => 'clone',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['create_genblast_rnaseq_slice_ids'],
+                      },
+     },
+
+
+     {
         -logic_name => 'create_genblast_rnaseq_slice_ids',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
@@ -5751,6 +5781,56 @@ sub pipeline_analyses {
                        },
         -rc_name => '8GB',
       },
+
+
+      {
+        -logic_name => 'create_genblast_rnaseq_nr_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('genblast_db'),
+                         target_db => $self->o('genblast_rnaseq_support_nr_db'),
+                         create_type => 'copy',
+                         force_drop => 1,
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        '1' => ['create_genblast_rnaseq_nr_slices'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'create_genblast_rnaseq_nr_slices',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db        => $self->o('dna_db'),
+                         coord_system_name => 'toplevel',
+                         iid_type => 'slice',
+                         slice_size => 20000000,
+                         include_non_reference => 0,
+                         top_level => 1,
+                         min_slice_length => $self->o('min_toplevel_slice_length'),
+                         batch_slice_ids => 1,
+                         batch_target_size => 20000000,
+                       },
+        -rc_name    => '2GB',
+        -flow_into => {
+                         '2'    => ['remove_redundant_genblast_rnaseq_genes'],
+                      },
+     },
+
+
+    {
+      -logic_name => 'remove_redundant_genblast_rnaseq_genes',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::RemoveRedundantGenes',
+      -parameters => {
+        target_db => $self->o('genblast_rnaseq_support_nr_db'),
+        target_type => 'biotype_priority',
+        layers => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic', $self->o('uniprot_set'), undef, 'ARRAY'),
+      },
+      -rc_name          => '5GB',
+    },
+
 
 ############################################################################
 #
