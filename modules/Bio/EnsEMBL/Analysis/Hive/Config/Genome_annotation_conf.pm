@@ -6857,10 +6857,10 @@ sub pipeline_analyses {
         -rc_name    => 'default',
         -max_retry_count => 0,
         -flow_into => {
-                        1 => ['fan_otherfeatures_db','fan_rnaseq_db'],
-                      },
-      },
-
+                        '1->A' => ['fan_otherfeatures_db', 'fan_rnaseq_db'],
+                        'A->1' => ['update_assembly_name'],},
+       },
+        
 
       {
         -logic_name => 'fan_otherfeatures_db',
@@ -7508,6 +7508,23 @@ sub pipeline_analyses {
 
         -rc_name    => '4GB',
       },
+     
+      { 
+        -logic_name => 'update_assembly_name',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => { 
+                         cmd => 'perl '.$self->o('assembly_name_script').
+                                ' -user '.$self->o('user').
+                                ' -pass '.$self->o('password').
+                                ' -host '.$self->o('reference_db','-host').
+                                ' -port '.$self->o('reference_db','-port').
+                                ' -dbname '.$self->o('reference_db','-dbname').
+                                ' -driver '.$self->o('hive_driver'),
+                                ' -assembly_accession '.$self->o('assembly_accession'),
+                                ' -assembly_name '.$self->o('assembly_name'),
+                       },
+        -rc_name => 'default',
+       },
 
     ];
 }
