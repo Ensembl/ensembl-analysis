@@ -282,7 +282,7 @@ sub run {
   my $realtimer = parse_timer($timer);
   eval {
     local $SIG{ALRM} = sub { die "alarm\n" };
-    alarm $timer; #schedule alarm in '$timer' seconds
+    alarm $realtimer;
     my $exo_fh;
     open( $exo_fh, "$command |" ) or throw("Error opening exonerate command: $? : $!");
     $self->output($self->parse_results( $exo_fh ));
