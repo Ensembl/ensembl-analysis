@@ -350,8 +350,6 @@ sub fetch_input {
 
 
 sub run {
-
-  say "FERGAL DEBUG ENTER RUN";
   my ($self) = @_;
 
   while(my $runnable = pop(@{$self->runnable})) {
@@ -362,13 +360,13 @@ sub run {
 
     if($@) {
       my $except = $@;
-      $self->runnable_failed(1);
       if($except =~ /still running after your timer/) {
         $self->warning("bam2introns took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
         $self->param('_branch_to_flow_to_on_fail',-2);
+        $self->runnable_failed(1);
       } else {
-        $self->warning("Issue with running bam2introns, will dataflow input id on branch -3. Exception:\n".$except);
-        $self->param('_branch_to_flow_to_on_fail',-3);
+        $self->throw("bam2introns failed, exception:\n".$except);
+#        $self->param('_branch_to_flow_to_on_fail',-3);
       }
     } else {
       $self->output($self->filter_results($runnable->output));
