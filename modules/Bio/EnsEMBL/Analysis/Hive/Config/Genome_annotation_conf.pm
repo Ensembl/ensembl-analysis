@@ -327,6 +327,7 @@ sub default_options {
     meta_levels_script         => catfile($self->o('ensembl_misc_script'), 'meta_levels.pl'),
     frameshift_attrib_script   => catfile($self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl'),
     select_canonical_script    => catfile($self->o('ensembl_misc_script'),'canonical_transcripts', 'select_canonical_transcripts.pl'),
+    assembly_name_script       => '',
 
     rnaseq_daf_introns_file => catfile($self->o('output_dir'), 'rnaseq_daf_introns.dat'),
 
@@ -6860,7 +6861,7 @@ sub pipeline_analyses {
                         '1->A' => ['fan_otherfeatures_db', 'fan_rnaseq_db'],
                         'A->1' => ['update_assembly_name'],},
        },
-        
+
 
       {
         -logic_name => 'fan_otherfeatures_db',
@@ -7508,8 +7509,9 @@ sub pipeline_analyses {
 
         -rc_name    => '4GB',
       },
-     
-      { 
+
+
+      {
         -logic_name => 'update_assembly_name',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => { 
