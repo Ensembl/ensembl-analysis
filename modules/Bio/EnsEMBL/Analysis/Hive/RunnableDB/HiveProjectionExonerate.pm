@@ -111,6 +111,7 @@ sub fetch_input {
 
   $self->param('_transcript_biotype',{});
   foreach my $input_id (@$input_ids) {
+
     my $transcript = $source_transcript_dba->get_TranscriptAdaptor->fetch_by_dbID($input_id);
     my $transcript_seq;
     my $biotype = $transcript->biotype;
@@ -459,7 +460,7 @@ sub filter_transcript {
   my $transcript_identity = $supporting_feature->percent_id;
 
   unless($transcript_identity >= $self->param_required('exonerate_percent_id') && $transcript_coverage >= $self->param_required('exonerate_coverage')) {
-    say "Transcript failed coverage and/or percent id filter, will not store";
+    print("Transcript failed coverage (".$self->param_required('exonerate_coverage').") and/or percent id (".$self->param_required('exonerate_percent_id').") filter, will not store. Transcript coverage and percent id are: ".$transcript_coverage." ".$transcript_identity."\n");
     return(1);
   }
 
@@ -472,7 +473,7 @@ sub filter_transcript {
     my $original_transcript = $self->hrdb_get_con('source_transcript_db')->get_TranscriptAdaptor->fetch_by_dbID($transcript->{'_old_transcript_id'});
     my ($translation_coverage,$translation_identity) = align_proteins($original_transcript->translation->seq, $transcript->translation->seq);
     unless($translation_identity >= $self->param_required('exonerate_percent_id') && $translation_coverage >= $self->param_required('exonerate_coverage')) {
-      say "Translation failed coverage and/or percent id filter, will not store";
+      print("Translation failed coverage (".$self->param_required('exonerate_coverage').") and/or percent id (".$self->param_required('exonerate_percent_id').") filter, will not store. Translation coverage and percent id are: ".$translation_coverage." ".$translation_identity."\n");
       return(1);
     }
   } # end if($transcript->translation)

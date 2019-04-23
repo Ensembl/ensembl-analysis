@@ -75,10 +75,6 @@ sub default_options {
         mouse_gencode_version => 'M15', # Use it on the command line: -password mysql_rw_password
         do_human => 0,
         do_mouse => 1,
-        do_pig => 0,
-        do_chimpanzee => 1,
-        do_rat => 0,
-        do_zebrafish => 0,
 #################
 #        Everything below should not need modification
 #################
@@ -189,9 +185,7 @@ sub pipeline_analyses {
       base64 => encode_base64url($user.':'.$password),
     );
     @default_tickets = (
-      'Update ENSEMBL_RELEASE to '.$self->o('ensembl_release').' in genebuild.sh',
       'Delete databases from previous release from mysql-ens-vertannot-staging',
-      'Clean old healthchecks before handover',
       'Human cDNA update release '.$self->o('ensembl_release'),
       'Mouse cDNA update release '.$self->o('ensembl_release'),
     );

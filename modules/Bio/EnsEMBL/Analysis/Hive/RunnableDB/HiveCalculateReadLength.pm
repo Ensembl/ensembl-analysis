@@ -60,6 +60,7 @@ sub write_output {
   my $read_length=0;
 
   foreach my $length_line (@read_lengths){
+    $length_line =~ s/^\s+//;
     my @line_array = split(/ /, $length_line);
     if ($line_array[0] > $max){
       $max = $line_array[0];

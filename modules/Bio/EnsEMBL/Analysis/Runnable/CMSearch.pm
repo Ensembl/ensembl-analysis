@@ -264,7 +264,6 @@ sub extract_rfam_mappings_tblout{
     $strand = $hit[9] eq "+" ? 1 : -1;
     $evalue = $hit[15];
     $score = $hit[14];
-	
     my $daf = Bio::EnsEMBL::DnaDnaAlignFeature->new(
 	    -slice          => $self->queries,
 	    -start          => $strand == 1 ? $start : $end,
@@ -505,10 +504,12 @@ sub make_gene{
     -cigar_string  => abs($end - $start) . "M",
     -hcoverage    => $RNAfold->score,
     );
+  
+  my $hit_name_id = $accession . "-" . $temp_id[2] . "/" . $daf->start . "-" . $daf->end;
 
   $daf = $new_daf;
   $daf->analysis($self->analysis);
-  $daf->hseqname(length($slice->name) > 39 ? substr($slice->name, 0, 39) : $slice->name);
+  $daf->hseqname($hit_name_id);
   $exon->add_supporting_features($daf);
   
   # transcripts
@@ -519,21 +520,6 @@ sub make_gene{
   $transcript->source("ensembl");
   my $gene = Bio::EnsEMBL::Gene->new;
   $gene->biotype($biotype);
-  
-  # OLD Biotypes
-  # $gene->biotype("misc_RNA");
-  # $gene->biotype("snRNA")  if($type =~ /^snRNA;/ );
-  # $gene->biotype("snoRNA") if($type =~ /^snRNA; snoRNA;/);
-  # $gene->biotype("scaRNA") if($type =~ /^snRNA; snoRNA; scaRNA;/);
-  # $gene->biotype("rRNA")   if($type =~ /rRNA;/);
-  # $gene->biotype("tRNA")   if($type =~ /tRNA;/);
-  # $gene->biotype("sRNA")   if($type =~ /sRNA;/);
-  # $gene->biotype("miRNA")  if($type =~ /miRNA;/);
-  # #$gene->biotype("CRISPR")      if($type =~ /CRISPR;/);
-  # #$gene->biotype("lncRNA")      if($type =~ /lncRNA;/);
-  # $gene->biotype("antisense")   if($type =~ /antisense;/);
-  # $gene->biotype("antitoxin")   if($type =~ /antitoxin;/);
-  # $gene->biotype("ribozyme")    if($type =~ /ribozyme;/);
 
   $gene->description($description->{'description'} ." [Source: RFAM;Acc:$accession]");
   print STDERR "Rfam_id $accession ".$description."\n"if $verbose;;
@@ -718,7 +704,6 @@ sub get_descriptions{
     }
   }
   close T;
-  #print("DEBUG:: descriptions_in_subroutine -> " . scalar(keys %descriptions) . "\n");
   return %descriptions if scalar(keys %descriptions) > 0;
   $self->throw("Unable to find descriptions");
   return undef;

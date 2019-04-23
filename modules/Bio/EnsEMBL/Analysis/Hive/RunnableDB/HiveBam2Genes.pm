@@ -50,6 +50,7 @@ use Bio::DB::HTS;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Analysis::Runnable::Bam2Genes;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -62,6 +63,7 @@ sub param_defaults {
     stranded_read => 0,
     _repeat_libs => ['dust', 'trf'],
     _repeats_allowed => 0.95,
+    timer => '5h',
   }
 }
 
@@ -78,37 +80,78 @@ sub param_defaults {
 =cut
 
 sub fetch_input {
-    my ($self) = @_;
+  my ($self) = @_;
 
-    my $reference_db = $self->get_database_by_name('dna_db');
-    my $slice_adaptor = $reference_db->get_SliceAdaptor;
-    $self->hrdb_set_con($self->get_database_by_name('target_db'), 'target_db');
+  my $reference_db = $self->get_database_by_name('dna_db');
+  my $slice_adaptor = $reference_db->get_SliceAdaptor;
+  $self->hrdb_set_con($self->get_database_by_name('target_db'), 'target_db');
 
-    my $slice = $self->fetch_sequence($self->input_id, $reference_db);
-    if ($self->param('disconnect_jobs')) {
-      $reference_db->dbc->disconnect_if_idle;
-      $self->dbc->disconnect_if_idle;
+  if($self->param('use_genome_flatfile')) {
+    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
+      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
     }
-    my $sam = Bio::DB::HTS->new(
-            -bam => $self->param('alignment_bam_file'),
-            -expand_flags => 1,
+    setup_fasta(
+                 -FASTA => $self->param('genome_file'),
+               );
+  }
+
+  my $slice = $self->fetch_sequence($self->input_id, $reference_db);
+  if ($self->param('disconnect_jobs')) {
+    $reference_db->dbc->disconnect_if_idle;
+    $self->dbc->disconnect_if_idle;
+  }
+
+  my $sam = Bio::DB::HTS->new(
+              -bam => $self->param('alignment_bam_file'),
+              -expand_flags => 1,
             );
-    $self->throw('Bam file ' . $self->param('alignment_bam_file') . "  not found \n") unless $sam;
-    $self->create_analysis;
-    my ($exon_clusters, $cluster_link, $full_slice) = $self->exon_cluster($slice, $sam);
-    $self->runnable(Bio::EnsEMBL::Analysis::Runnable::Bam2Genes->new(
-                -analysis => $self->analysis,
-                -query   => $full_slice,
-                -exon_clusters => $exon_clusters,
-                -cluster_data => $cluster_link,
-                -min_length => $self->param('min_length'),
-                -min_exons  =>  $self->param('min_exons'),
-                -paired => $self->param('paired'),
-                -max_intron_length => $self->param('max_intron_length'),
-                -min_single_exon_length => $self->param('min_single_exon_length'),
-                -min_span   => $self->param('min_span'),
-                ));
+
+  $self->throw('Bam file ' . $self->param('alignment_bam_file') . "  not found \n") unless $sam;
+  $self->create_analysis;
+  my ($exon_clusters, $cluster_link, $full_slice) = $self->exon_cluster($slice, $sam);
+
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Genes->new(
+                   -analysis => $self->analysis,
+                   -query   => $full_slice,
+                   -exon_clusters => $exon_clusters,
+                   -cluster_data => $cluster_link,
+                   -min_length => $self->param('min_length'),
+                   -min_exons  =>  $self->param('min_exons'),
+                   -paired => $self->param('paired'),
+                   -max_intron_length => $self->param('max_intron_length'),
+                   -min_single_exon_length => $self->param('min_single_exon_length'),
+                   -min_span   => $self->param('min_span'),
+                 );
+
+  $runnable->timer($self->param('timer'));
+  $self->runnable($runnable);
 }
+
+
+sub run {
+  my ($self) = @_;
+  my $runnable = shift(@{$self->runnable});
+  $self->runnable_failed(0);
+  eval {
+    $runnable->run;
+  };
+
+  if($@) {
+    my $except = $@;
+    $self->runnable_failed(1);
+    if($except =~ /still running after your timer/) {
+      $self->warning("bam2genes took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
+      $self->param('_branch_to_flow_to_on_fail',-2);
+    } else {
+      $self->warning("Issue with running bam2genes, will dataflow input id on branch -3. Exception:\n".$except);
+      $self->param('_branch_to_flow_to_on_fail',-3);
+    }
+  } else {
+    $self->output($self->filter_results($runnable->output));
+  }
+  return 1;
+}
+
 
 sub filter_results {
   my ($self, $results) = @_;
@@ -145,28 +188,38 @@ sub filter_results {
 =cut
 
 sub write_output{
-    my ($self) = @_;
+  my ($self) = @_;
 
-    my $outdb = $self->hrdb_get_con('target_db');
-    my $gene_adaptor = $outdb->get_GeneAdaptor;
+  # If a failure has happened then flow the input id on the appropriate branch
+  if($self->runnable_failed == 1) {
+    # Flow out on -2 or -3 based on how the failure happened
+    my $failure_branch_code = $self->param('_branch_to_flow_to_on_fail');
+    my $output_hash = {};
+    $output_hash->{'iid'} = $self->param('iid');
+    $self->dataflow_output_id($output_hash,$failure_branch_code);
+    return;
+  }
 
-    my $fails = 0;
-    my $total = 0;
+  my $outdb = $self->hrdb_get_con('target_db');
+  my $gene_adaptor = $outdb->get_GeneAdaptor;
 
-    $gene_adaptor->dbc->disconnect_when_inactive(0);
-    foreach my $gene ( @{$self->output} ) {
-        eval {
+  my $fails = 0;
+  my $total = 0;
+
+  $gene_adaptor->dbc->disconnect_when_inactive(0);
+  foreach my $gene ( @{$self->output} ) {
+    eval {
             $gene_adaptor->store($gene);
-        };
-        if ($@){
-            $self->warning("Unable to store gene!!\n$@");
-            print STDERR $gene->start ." " . $gene->end ."\n";
-            $fails++;
-        }
+         };
+    if ($@){
+       $self->warning("Unable to store gene!!\n$@");
+       print STDERR $gene->start ." " . $gene->end ."\n";
+       $fails++;
+     }
         $total++;
-    }
-    $self->throw("Not all genes could be written successfully ($fails fails out of $total)") if ($fails);
-    print STDERR "$total genes written after filtering\n";
+  }
+  $self->throw("Not all genes could be written successfully ($fails fails out of $total)") if ($fails);
+  print STDERR "$total genes written after filtering\n";
 }
 
 
@@ -279,6 +332,15 @@ sub exon_cluster {
     $bam->fetch($region, $_process_reads);
     print STDERR "Processed $read_count reads\n";
     return \%exons_hash, $cluster_data, $full_slice;
+}
+
+
+sub runnable_failed {
+  my ($self,$runnable_failed) = @_;
+  if (defined $runnable_failed) {
+    $self->param('_runnable_failed',$runnable_failed);
+  }
+  return ($self->param('_runnable_failed'));
 }
 
 1;

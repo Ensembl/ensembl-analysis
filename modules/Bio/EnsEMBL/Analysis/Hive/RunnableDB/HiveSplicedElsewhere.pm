@@ -76,11 +76,11 @@ use warnings ;
 use strict;
 use feature 'say';
 
-use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes qw(_remove_transcript_from_gene);
 use Bio::EnsEMBL::Analysis::Runnable::HiveSplicedElsewhere;
 use Bio::EnsEMBL::Analysis::Runnable::BaseExonerate; 
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene remove_Transcript_from_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(clone_Transcript);
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -108,9 +108,16 @@ sub fetch_input{
   my $input_dba = $self->hrdb_get_dba($self->param('input_gene_db'));
   my $repeat_dba = $self->hrdb_get_dba($self->param('repeat_db'));
   my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
 
-  if($dna_dba) {
+  if($self->param('use_genome_flatfile')) {
+    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
+      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+    }
+    setup_fasta(
+                 -FASTA => $self->param_required('genome_file'),
+               );
+  } else {
+    my $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
     $input_dba->dnadb($dna_dba);
     $repeat_dba->dnadb($dna_dba);
     $output_dba->dnadb($dna_dba);
@@ -119,7 +126,6 @@ sub fetch_input{
   $self->hrdb_set_con($input_dba,'input_gene_db');
   $self->hrdb_set_con($repeat_dba,'repeat_db');
   $self->hrdb_set_con($output_dba,'output_db');
-
 
   my $gene_adaptor = $input_dba->get_GeneAdaptor;
   my $initial_genes = $gene_adaptor->fetch_all();
@@ -367,15 +373,12 @@ sub parse_results{
     unless (defined($trans_type{'real'})) {
       # if all transcripts are pseudo get label the gene as a pseudogene
       my $gene = $ga->fetch_by_transcript_id($trans_type{'pseudo'}[0]->dbID);
-      my @pseudo_trans = @{$gene->get_all_Transcripts};
-      @pseudo_trans = sort {$a->length <=> $b->length} @pseudo_trans;
+      my @pseudo_trans = sort {$a->length <=> $b->length} @{$gene->get_all_Transcripts};
       my $only_transcript_to_keep = pop  @pseudo_trans;
       foreach my $pseudo_transcript (@pseudo_trans) {
-        my $blessed = $self->_remove_transcript_from_gene($gene,$pseudo_transcript);
-	    if ( $blessed ) {
-	      print STDERR "Blessed transcript " . $pseudo_transcript->display_id . 
-	       " is a retro transcript \n";
-	    }
+        if (!remove_Transcript_from_Gene($gene, $pseudo_transcript, $self->BLESSED_BIOTYPES)) {
+          print STDERR "Blessed transcript ".$pseudo_transcript->display_id." is a retro transcript\n";
+        }
       }
 
       my $new_gene = Bio::EnsEMBL::Gene->new();
@@ -407,46 +410,6 @@ sub parse_results{
   }
   return 1; 
 }
-
-
-
-=head2 _remove_transcript_from_gene
-
-  Args       : Bio::EnsEMBL::Gene object , Bio::EnsEMBL::Transcript object
-  Description: steves method for removing unwanted transcripts from genes
-  Returntype : scalar
-
-=cut
-
-=head2 _remove_transcript_from_gene
-
-  Args       : Bio::EnsEMBL::Gene object , Bio::EnsEMBL::Transcript object
-  Description: steves method for removing unwanted transcripts from genes
-  Returntype : scalar
-
-=cut
-
-sub _remove_transcript_from_gene {
-  my ($self, $gene, $trans_to_del)  = @_;
-  # check to see if it is a blessed transcript first
-  return 'BLESSED' if $self->BLESSED_BIOTYPES->{$trans_to_del->biotype};
-  my @newtrans;
-  foreach my $trans (@{$gene->get_all_Transcripts}) {
-    if ($trans != $trans_to_del) {
-      push @newtrans,$trans;
-    }
-  }
-
-  # The naughty bit!
-  $gene->{_transcript_array} = [];
-
-  foreach my $trans (@newtrans) {
-    $gene->add_Transcript($trans);
-  }
-
-  return;
-}
-
 
 
 sub BLESSED_BIOTYPES{

@@ -2191,10 +2191,10 @@ sub attach_Slice_to_Transcript{
   }
 
   foreach my $exon(@{$transcript->get_all_Exons}){
-    $exon->slice($slice);
     foreach my $sf(@{$exon->get_all_supporting_features}){
       $sf->slice($slice);
     }
+    $exon->slice($slice);
   }
 }
 

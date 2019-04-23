@@ -227,6 +227,11 @@ sub _master_config {
                              'gw_exo',
                              'projection_1',
                              'projection_2',
+		             'genblast_rnaseq_top',
+		             'genblast_rnaseq_high',
+		             'genblast_rnaseq_medium',
+		             'genblast_rnaseq_low',
+		             'genblast_rnaseq_weak',
                              'rnaseq_merged_1',
                              'rnaseq_merged_2',
                              'rnaseq_merged_3',
@@ -537,6 +542,8 @@ sub _master_config {
                              'rnaseq_merged',
                              'rnaseq_tissue',
     ],
+
+    insects_basic => [],
 
     self_patch => [
                 'self_pe12_sp_95',

@@ -21,6 +21,7 @@ import unicodedata
 import time
 import datetime
 import argparse
+#import traceback
 
 def fetch_db_data(query,database,host,port,user,password):
   try:
@@ -45,7 +46,7 @@ def fetch_db_data(query,database,host,port,user,password):
   return rows
 
 
-def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,assembly_sheet):
+def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,assembly_sheet,gettime,worksheet_name):
   # This method creates a dictionary for both the lists from the db and sheets and makes both
   # dicts key on the versioned GCA (which is unique). Once the dicts are generated keys in the
   # assembly db dict are compared to the keys in the sheets dict. If a key is not in the sheets
@@ -61,7 +62,7 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
   existing_annotations_dict = {}
 
   # This ordering needs to match the ordering of the query on the assembly db 
-  assembly_db_columns = ['species_name','common_name','chain','version','class','contig_N50','assembly_level','assembly_date','refseq_accession','assembly_name','genome_rep']
+  assembly_db_columns = ['species_name','common_name','chain','version','clade','contig_N50','assembly_level','assembly_date','refseq_accession','assembly_name','genome_rep']
 
   # This ordering needs to match the ordering of the columns on the sheet
   assembly_sheet_columns = ['GCA','Clade','Species name','Common name','Contig N50','Assembly level','Assembly date','Assembly name','RefSeq accession','Genebuilder','Status',
@@ -107,13 +108,35 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
   # should be added/updated
   # Note that currently a three second sleep is need to avoid exhausting the Sheets REST API quota
   for gca in assembly_db_dict:
+    #Check that time since last authentication is < 1hr
+    if(time.time() - gettime > 60* 59):#If greater than 1 hr, then re-authenticate
+        print("Updating time: " + gca)
+         # use creds to create a client to interact with the Google Drive API
+        scope = ['https://spreadsheets.google.com/feeds',
+           'https://www.googleapis.com/auth/drive']
+
+        creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
+        client = gspread.authorize(creds)
+        gettime = time.time()
+     # Find a workbook by name and open the first sheet
+     # Make sure you use the right name here.
+        assembly_sheet = client.open(worksheet_name).sheet1
+        #response = client.login()
+        #if response:
+          #  print ("Success line ")
+          #  print (response)
+           # return response
+        #else:
+         #   print ("Error line ")
+          #  print(response)
+       # gettime = time.time()#Get time of re-authentication
     assembly_row = assembly_db_dict[gca]
     species_name = assembly_row[assembly_db_columns.index('species_name')]
     common_name = assembly_row[assembly_db_columns.index('common_name')]
     chain = assembly_row[assembly_db_columns.index('chain')]
     chain.encode('ascii','ignore')
     version = assembly_row[assembly_db_columns.index('version')]
-    clade = assembly_row[assembly_db_columns.index('class')]
+    clade = assembly_row[assembly_db_columns.index('clade')]
     contig_N50 = assembly_row[assembly_db_columns.index('contig_N50')]
     assembly_level = assembly_row[assembly_db_columns.index('assembly_level')]
     assembly_date = assembly_row[assembly_db_columns.index('assembly_date')]
@@ -239,7 +262,7 @@ if __name__ == '__main__':
   parser.add_argument('-wsn','--worksheet_name', help='The name of the Google Sheets worksheet', required=True)
   parser.add_argument('-gsc','--gsheets_credentials', help='Path to a Google Sheets credentials JSON file for authentication', required=True)
   args = parser.parse_args()
-  assembly_db_query = 'SELECT species_name,common_name,chain,version,class,contig_N50,assembly_level,assembly_date,refseq_accession,assembly_name,genome_rep FROM assembly JOIN meta USING(assembly_id) JOIN species_space_log using(species_id)'
+  assembly_db_query = 'SELECT species_name,common_name,chain,version,clade,contig_N50,assembly_level,assembly_date,refseq_accession,assembly_name,genome_rep FROM assembly JOIN meta USING(assembly_id) JOIN species_space_log using(species_id)'
   assembly_db_database = args.assembly_db_dbname
   assembly_db_host = args.assembly_db_host
   assembly_db_port = args.assembly_db_port
@@ -263,13 +286,21 @@ if __name__ == '__main__':
            'https://www.googleapis.com/auth/drive']
 
   creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
+  #try:
   client = gspread.authorize(creds)
-
-  # Find a workbook by name and open the first sheet
-  # Make sure you use the right name here.
+     #get 
+  gettime = time.time()
+     # Find a workbook by name and open the first sheet
+     # Make sure you use the right name here.
   assembly_sheet = client.open(worksheet_name).sheet1
 
-  # Extract and print all of the values
+     # Extract and print all of the values
   existing_sheet_records = assembly_sheet.get_all_values()
 
-  update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,assembly_sheet)
+     #Check if access token has expired
+    # if creds.access_token_expired:
+        #re-authenticate
+  #      client.login() 
+  update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,assembly_sheet,gettime,worksheet_name)
+#  except Exception, e:
+ #    traceback.print_exc()

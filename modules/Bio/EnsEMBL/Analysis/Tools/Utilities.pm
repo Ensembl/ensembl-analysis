@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::Tools::Utilities
@@ -1037,17 +1038,26 @@ sub hrdb_get_dba {
   my ($connection_info, $dna_db, $alternative_class) = @_;
 
   my $dba;
+  my %params;
   if(ref($connection_info) eq 'HASH') {
     my $module_name = 'Bio::EnsEMBL::DBSQL::DBAdaptor';
     if ($alternative_class) {
-      $module_name = 'Bio::EnsEMBL::'.$alternative_class.'::DBSQL::DBAdaptor';
+      if ($alternative_class =~ /::/) {
+        $module_name = $alternative_class;
+        if ($alternative_class =~ /Vega/) {
+          $params{-GROUP} = 'vega';
+        }
+      }
+      else {
+        $module_name = 'Bio::EnsEMBL::'.$alternative_class.'::DBSQL::DBAdaptor';
+      }
       eval "use $module_name";
       if ($@) {
         throw("Cannot find module $module_name");
       }
     }
     eval {
-      $dba = $module_name->new(%$connection_info);
+      $dba = $module_name->new(%$connection_info, %params);
     };
 
     if($@) {

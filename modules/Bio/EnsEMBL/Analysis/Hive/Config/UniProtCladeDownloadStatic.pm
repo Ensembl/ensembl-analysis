@@ -100,6 +100,9 @@ sub _master_config {
                    'pisum_taxon_id'      => '7029',
                    'gambiae_taxon_id'    => '7165',
                    'aegypti_taxon_id'    => '7159',
+                   # Insects
+                   'dicondylia_taxon_id'   => '85512',
+                   'monocondylia_taxon_id' => '554674',
                  };
   my %config = (
     default => {},
@@ -423,6 +426,69 @@ sub _master_config {
              },
 
 
+          insects_basic => {
+              self_pe12 =>{
+                            file_name => 'self_pe12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                          },
+
+              dicondylia_pe12 => {
+                                   file_name  => 'dicondylia_pe12.fasta',
+                                   taxon_id   => $taxon_ids->{'dicondylia_taxon_id'},
+                                   exclude_id => ['#taxon_id#'],
+                                   dest_dir   => '#output_path#',
+                                   compress   => 0,
+                                   pe_level   => [1,2],
+                                 },
+
+
+              monocondylia_pe12 => {
+                                     file_name  => 'monocondylia_pe12.fasta',
+                                     taxon_id   => $taxon_ids->{'monocondylia_taxon_id'},
+                                     exclude_id => ['#taxon_id#'],
+                                     dest_dir   => '#output_path#',
+                                     compress   => 0,
+                                     pe_level   => [1,2],
+                                   },
+
+              self_pe3 =>{
+                           file_name => 'self_pe3.fasta',
+                           taxon_id  => '#taxon_id#',
+                           dest_dir  => '#output_path#',
+                           compress  => 0,
+                           pe_level  => [3],
+                         },
+
+              dicondylia_pe3 => {
+                                  file_name  => 'dicondylia_pe3.fasta',
+                                  taxon_id   => $taxon_ids->{'dicondylia_taxon_id'},
+                                  exclude_id => ['#taxon_id#'],
+                                  dest_dir   => '#output_path#',
+                                  compress   => 0,
+                                  pe_level   => [3],
+                                },
+
+
+              monocondylia_pe3 => {
+                                    file_name  => 'monocondylia_pe3.fasta',
+                                    taxon_id   => $taxon_ids->{'monocondylia_taxon_id'},
+                                    exclude_id => ['#taxon_id#'],
+                                    dest_dir   => '#output_path#',
+                                    compress   => 0,
+                                    pe_level   => [3],
+                                  },
+
+              human_pe12 => {
+                              file_name => 'human_pe12.fasta',
+                              taxon_id  => $taxon_ids->{'human_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+           },
 
            reptiles_basic => {
               self_pe12 =>{
