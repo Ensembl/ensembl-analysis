@@ -81,8 +81,6 @@ sub fetch_input{
   my ($self) = @_;
 
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
-  my $sfa = $dba->get_SimpleFeatureAdaptor();
-  $self->get_adaptor($sfa);
 
   if($self->param('use_genome_flatfile')) {
     say "Ingoring dna table and using fasta file for sequence fetching";
@@ -126,6 +124,7 @@ sub fetch_input{
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::tRNAscan_SE->new
     (
      -query     => $slice,
+     -slice     => $slice,
      -program   => $analysis->program_file,
      -analysis  => $analysis,
      %parameters,
@@ -137,24 +136,40 @@ sub fetch_input{
 }
 
 
-=head2 get_adaptor
+sub write_output {
+  my ($self) = @_;
 
-  Arg [1]   : Bio::EnsEMBL::Analysis::RunnableDB::tRNAscan_SE
-  Arg [2]   : Bio::EnsEMBL::DBSQL::SimpleFeatureAdaptor
-  Function  : get/set simple feature adaptor
-  Returntype: Bio::EnsEMBL::DBSQL::SimpleFeatureAdaptor
-  Exceptions: none
-  Example   :
+  my $dba = $self->hrdb_get_con('target_db');
+  my $gene_adaptor  = $dba->get_GeneAdaptor();
+  my $simple_feature_adaptor = $dba->get_SimpleFeatureAdaptor();
 
-=cut
+  my $analysis = $self->analysis();
 
-sub get_adaptor {
-  my ($self,$sfa) = @_;
-  if($sfa) {
-    $self->param('_sfa',$sfa);
+  foreach my $feature ( @{ $self->output() } ) {
+    $feature->analysis($analysis);
+
+    if (!defined( $feature->slice() ) ) {
+      $feature->slice( $self->query() );
+    }
+
+    $self->feature_factory->validate($feature);
+
+    if (ref($feature) eq "Bio::EnsEMBL::Gene") {
+      eval { $gene_adaptor->store($feature); };
+      if ($@) {
+        $self->throw("Failed to store gene '".$feature."' into database '".$gene_adaptor->dbc->dbname."': ".$@);
+      }
+    } elsif(ref($feature) eq "Bio::EnsEMBL::SimpleFeature") {
+      eval { $simple_feature_adaptor->store($feature); };
+      if ($@) {
+        $self->throw("Failed to store simple feature '".$feature."' into database '".$simple_feature_adaptor->dbc->dbname."': ".$@);
+      }
+    } else {
+      $self->throw("Expected output feature to be either Gene or SimpleFeature. Found: ".ref($feature));
+    }
   }
 
-  return($self->param('_sfa'));
-}
+  return 1;
+} ## end sub write_output
 
 1;

@@ -117,16 +117,18 @@ use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
 sub new{
   my ($class,@args) = @_;
   my $self = bless {},$class;
-  my ($query, $program, $options,
+  my ($query, $slice, $program, $options,
       $workdir, $bindir, $libdir,
       $datadir, $analysis) = rearrange
-        (['QUERY', 'PROGRAM', 'OPTIONS',
+        (['QUERY', 'SLICE', 'PROGRAM', 'OPTIONS',
           'WORKDIR', 'BINDIR', 'LIBDIR',
           'DATADIR', 'ANALYSIS'], @args);
   if(!$analysis){
     throw("Can't create a Runnable without an analysis object");
   }
+
   $self->query($query);
+  $self->slice($slice);
   $self->program($program);
   $self->options($options);
   $self->workdir($workdir);
@@ -846,7 +848,7 @@ sub remaining_time {
   Returntype: none
   Exceptions: throws as this method should be implemented by any child
   module
-  Example   : 
+  Example   :
 
 =cut
 
@@ -858,5 +860,26 @@ sub parse_results{
         "Runnable won't provide this functionality for you");
 }
 
+
+=head2 slice
+
+  Arg [1]   : Bio::EnsEMBL::Slice
+  Function  : Hold a reference to a slice associated with the runnable. Sometimes we will run many slices
+              across several runnables in one job, so associating the appropriate slice with the runnable is needed
+  Returntype: none
+  Exceptions:
+  module
+  Example   :
+
+=cut
+
+sub slice {
+  my ($self, $value) = @_;
+  if ($value) {
+    $self->{_slice} = $value;
+  }
+
+  return($self->{_slice});
+}
 
 1;
