@@ -86,7 +86,7 @@ sub default_options {
     'vertrna_version'           => '136', # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
 
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
-    'mt_accession'              => '', # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
+    'mt_accession'              => undef, # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
 
     # Keys for custom loading, only set/modify if that's what you're doing
@@ -95,8 +95,8 @@ sub default_options {
     'custom_toplevel_file_path'    => '', # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
     'repeatmodeler_library'        => '', # This should be the path to a custom repeat library, leave blank if none exists
     'use_repeatmodeler_to_mask'    => '0', # Setting this will include the repeatmodeler library in the masking process
-    'custom_protein_blastdb'       => '', # Path to a custom fasta protein db for blast. Headers should just be a single, non-weird accession. Used to validate RNA-seq ORFs
-    'custom_protein_blastdb_index' => '', # Path to an indicate index for a custom protein db for blast
+    'custom_protein_blastdb'       => undef, # Path to a custom fasta protein db for blast. Headers should just be a single, non-weird accession. Used to validate RNA-seq ORFs
+    'custom_protein_blastdb_index' => undef, # Path to an indicate index for a custom protein db for blast
 
 ########################
 ## Small ncRNAs params
