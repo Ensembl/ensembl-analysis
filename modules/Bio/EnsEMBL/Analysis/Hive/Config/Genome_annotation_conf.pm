@@ -373,7 +373,7 @@ sub default_options {
     interproscan_exe => catfile($self->o('binary_base'), 'interproscan.sh'),
     bedtools => catfile($self->o('binary_base'), 'bedtools'),
     bedGraphToBigWig => catfile($self->o('binary_base'), 'bedGraphToBigWig'),
-    'cesar_path' => catfile($self->o('binary_base'), 'cesar'),
+    'cesar_path' => '/nfs/production/panda/ensembl/carlos/enscode/CESAR2.0/', #catfile($self->o('binary_base'), 'cesar'),
 
     'uniprot_genblast_batch_size' => 15,
     'uniprot_table_name'          => 'uniprot_sequences',
