@@ -355,6 +355,8 @@ sub _master_config {
                              'vert_pe12_tr_int_6',
                              'human_pe12_sp_int_6',
                              'human_pe12_tr_int_6',
+		             'rnaseq_merged',
+		             'rnaseq_tissue',
     ],
 
     fish_complete => [

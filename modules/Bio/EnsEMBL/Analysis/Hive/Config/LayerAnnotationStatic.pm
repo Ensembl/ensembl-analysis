@@ -598,6 +598,8 @@ sub _master_config {
              {
               ID         => 'LAYER8',
               BIOTYPES   => [
+			     'rnaseq_merged',
+			     'rnaseq_tissue',
                              'fish_pe12_sp_int_1',
                              'fish_pe12_tr_int_1',
                              'mammals_pe12_sp_int_1',
