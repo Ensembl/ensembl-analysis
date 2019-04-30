@@ -95,8 +95,10 @@ sub default_options {
     'custom_toplevel_file_path'    => '', # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
     'repeatmodeler_library'        => '', # This should be the path to a custom repeat library, leave blank if none exists
     'use_repeatmodeler_to_mask'    => '0', # Setting this will include the repeatmodeler library in the masking process
-    'custom_protein_blastdb'       => undef, # Path to a custom fasta protein db for blast. Headers should just be a single, non-weird accession. Used to validate RNA-seq ORFs
-    'custom_protein_blastdb_index' => undef, # Path to an indicate index for a custom protein db for blast
+    'protein_blast_db'             => '' || catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata'), # Blast database for comparing the final models to.
+    'protein_blast_index'          => '' || catdir($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index'), # Indicate Index for the blast database.
+    'protein_entry_loc'            => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc'), # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
+
 
 ########################
 ## Small ncRNAs params
@@ -235,15 +237,11 @@ sub default_options {
 # BLAST db paths
 ########################
     'base_blast_db_path'        => $ENV{BLASTDB_DIR},
-    'uniprot_entry_loc'         => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc'),
-    'uniprot_blast_db_path'     => $self->o('custom_protein_blastdb') || catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'uniprot_vertebrate'),
     'vertrna_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'vertrna', $self->o('vertrna_version'), 'embl_vertrna-1'),
     'unigene_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'unigene', 'unigene'),
     'ncrna_blast_path'          => catfile($self->o('base_blast_db_path'), 'ncrna', 'ncrna_2016_05'),
     'mirna_blast_path'          => catfile($self->o('base_blast_db_path'), 'ncrna', 'mirbase_22'),
     'ig_tr_blast_path'          => catfile($self->o('base_blast_db_path'), 'ig_tr_genes'),
-    'rnaseq_blast_db_path'      => $self->o('custom_protein_blastdb') || catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata'), # Blast database for comparing the final models to.
-    'indicate_uniprot_index'    => $self->o('custom_protein_blastdb_index') || catdir($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index'), # Indicate Index for the blast database.
 
 ######################################################
 #
@@ -2085,7 +2083,7 @@ sub pipeline_analyses {
                          prediction_transcript_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
                          repeat_masking_logic_names => [$self->o('full_repbase_logic_name')], # not sure if this is used
-                         blast_db_path => $self->o('uniprot_blast_db_path'),
+                         blast_db_path => $self->o('protein_blast_db'),
                          blast_exe_path => $self->o('uniprot_blast_exe_path'),
                          commandline_params => $commandline_params{$self->o('blast_type')},
                          iid_type => 'feature_id',
@@ -2133,7 +2131,7 @@ sub pipeline_analyses {
                          prediction_transcript_db => $self->o('dna_db'),
                          target_db => $self->o('reference_db'),
                          repeat_masking_logic_names => [$self->o('full_repbase_logic_name')], # not sure if this is used
-                         blast_db_path => $self->o('uniprot_blast_db_path'),
+                         blast_db_path => $self->o('protein_blast_db'),
                          blast_exe_path => $self->o('uniprot_blast_exe_path'),
                          commandline_params => $commandline_params{$self->o('blast_type')},
                          iid_type => 'feature_id',
@@ -4622,8 +4620,8 @@ sub pipeline_analyses {
           dna_db => $self->o('dna_db'),
           iid_type => 'object_id',
           # path to index to fetch the sequence of the blast hit to calculate % coverage
-          indicate_index => $self->o('indicate_uniprot_index'),
-          uniprot_index => [$self->o('rnaseq_blast_db_path')],
+          indicate_index => $self->o('protein_blast_index'),
+          uniprot_index => [$self->o('protein_blast_db')],
           blast_program => $self->o('uniprot_blast_exe_path'),
           %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
           commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40',
@@ -6163,7 +6161,7 @@ sub pipeline_analyses {
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
                        },
 
-	     -rc_name    => '10GB',
+	     -rc_name    => '15GB',
 	     -flow_into => {
 			    1 => ['format_blast_db'],
                       },
@@ -6199,7 +6197,7 @@ sub pipeline_analyses {
                          module     => 'HiveSplicedElsewhere',
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
                        },
-        -rc_name          => '3GB',
+        -rc_name          => '5GB',
         -flow_into => {
                         1 => ['create_final_geneset_db'],
                       },
@@ -6637,7 +6635,7 @@ sub pipeline_analyses {
                                 ' -port '.$self->o('reference_db','-port').
                                 ' -dbpattern '.$self->o('reference_db','-dbname')
                        },
-        -rc_name => 'default',
+        -rc_name => '5GB',
         -flow_into => { 1 => ['set_canonical_transcripts'] },
       },
 
@@ -6716,7 +6714,7 @@ sub pipeline_analyses {
         -parameters => {
                          cmd => 'perl '.$self->o('load_optimise_script').
                                 ' -output_path '.catdir($self->o('output_path'), 'optimise').
-                                ' -uniprot_filename '.$self->o('uniprot_entry_loc').
+                                ' -uniprot_filename '.$self->o('protein_entry_loc').
                                 ' -dbuser '.$self->o('user').
                                 ' -dbpass '.$self->o('password').
                                 ' -dbport '.$self->o('reference_db','-port').
@@ -7083,7 +7081,7 @@ sub pipeline_analyses {
         -parameters => {
                          cmd => 'perl '.$self->o('load_optimise_script').
                                 ' -output_path '.catdir($self->o('output_path'), 'optimise_otherfeatures').
-                                ' -uniprot_filename '.$self->o('uniprot_entry_loc').
+                                ' -uniprot_filename '.$self->o('protein_entry_loc').
                                 ' -dbuser '.$self->o('user').
                                 ' -dbpass '.$self->o('password').
                                 ' -dbport '.$self->o('otherfeatures_db','-port').
@@ -7306,7 +7304,7 @@ sub pipeline_analyses {
         -parameters => {
                          cmd => 'perl '.$self->o('load_optimise_script').
                                 ' -output_path '.catfile($self->o('rnaseq_dir'), 'optimise_rnaseq').
-                                ' -uniprot_filename '.$self->o('uniprot_entry_loc').
+                                ' -uniprot_filename '.$self->o('protein_entry_loc').
                                 ' -dbuser '.$self->o('user').
                                 ' -dbpass '.$self->o('password').
                                 ' -dbport '.$self->o('rnaseq_db','-port').

@@ -659,6 +659,17 @@ sub _master_config {
               DISCARD    => 0,
             },
 
+            {
+              ID         => 'LAYER9',
+              BIOTYPES   => [
+                              'rnaseq_merged',
+                              'rnaseq_tissue',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7','LAYER8'],
+              DISCARD    => 0,
+            },
+
+
     ],
 
 
