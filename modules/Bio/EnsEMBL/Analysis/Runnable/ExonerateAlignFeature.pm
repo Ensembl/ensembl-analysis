@@ -79,10 +79,19 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 =cut
 
 sub parse_results {
-  my ( $self, $fh ) = @_;
-  
+  my ( $self, $input, $write_results ) = @_;
+
   my @features;
-  
+
+  my $fh;
+  if($write_results) {
+    unless(open($fh,$input)) {
+      throw("Could not open file: ".$input);
+     };
+  } else {
+    $fh = $input;
+  }
+
   while (<$fh>){
 
     next unless /^RESULT:/;
@@ -150,6 +159,9 @@ sub parse_results {
     }
   }
 
+  if($write_results) {
+    close IN;
+  }
   return \@features;
 }
 

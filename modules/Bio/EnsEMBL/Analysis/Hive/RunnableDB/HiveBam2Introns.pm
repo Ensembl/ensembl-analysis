@@ -94,6 +94,7 @@ sub param_defaults {
     timer => '5h',
     flatfile_masked => 1,
     batch_reads => 1,
+    write_to_file => 1,
   }
 }
 
@@ -302,6 +303,7 @@ sub fetch_input {
          -percent_id   => $self->param('percent_id'),
          -coverage     => $self->param('coverage'),
          -missmatch     => $self->param('missmatch'),
+         -write_to_file => $self->param('write_to_file'),
         );
         $runnable->timer($self->param('timer'));
         $self->runnable($runnable);
@@ -324,6 +326,7 @@ sub fetch_input {
          -percent_id   => $self->param('percent_id'),
          -coverage     => $self->param('coverage'),
          -missmatch     => $self->param('missmatch'),
+         -write_to_file => $self->param('write_to_file'),
         );
       $runnable->timer($self->param('timer'));
       $self->runnable($runnable);
@@ -342,6 +345,7 @@ sub fetch_input {
        -percent_id   => $self->param('percent_id'),
        -coverage     => $self->param('coverage'),
        -missmatch     => $self->param('missmatch'),
+       -write_to_file => $self->param('write_to_file'),
       );
     $runnable->timer($self->param('timer'));
     $self->runnable($runnable);

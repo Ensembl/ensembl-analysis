@@ -71,10 +71,11 @@ use parent ('Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature');
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($percent_id, $coverage, $missmatch) = rearrange( [qw(PERCENT_ID COVERAGE MISSMATCH)],@args );
+  my ($percent_id, $coverage, $missmatch, $write_to_file) = rearrange( [qw(PERCENT_ID COVERAGE MISSMATCH WRITE_TO_FILE)],@args );
   $self->PERCENT_ID($percent_id);
   $self->COVERAGE($coverage);
   $self->MISSMATCH($missmatch);
+  $self->write_to_file($write_to_file);
   return $self;
 }
 
@@ -210,6 +211,27 @@ sub COVERAGE {
   } else {
     return;
   }
+}
+
+
+=head2 write_to_file
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter, specifies that you want BaseExonerate to write the output to a file and not pipe directly into a filehandle
+              This is important for using a timer, since a timer doesn't seem to work with a filehandle pipe
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
+sub write_to_file {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_write_to_file'} = $value;
+  }
+
+  return($self->{'_write_to_file'});
 }
 
 1;

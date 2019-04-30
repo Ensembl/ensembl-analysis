@@ -58,6 +58,7 @@ package Bio::EnsEMBL::Analysis::Runnable::BaseExonerate;
 
 use warnings ;
 use strict;
+use feature 'say';
 
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Translation;
@@ -67,7 +68,7 @@ use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile parse_timer);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile parse_timer execute_with_timer);
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
@@ -215,6 +216,11 @@ Function:   Runs exonerate script and puts the results into the file $self->resu
 sub run {
   my ($self) = @_;
 
+  my $output_file = $self->create_filename();
+  $self->files_to_delete($output_file);
+
+  my $write_results = $self->write_to_file();
+
   if ($self->annotation_features) {
     my $annot_file = $self->create_filename("exonerate_a");
     $self->annotation_file($annot_file);
@@ -261,7 +267,6 @@ sub run {
   }
 
   # Build exonerate command
-
   my $command =
     $self->program . " " .$self->options .
     " --querytype "  . $self->query_type .
@@ -269,6 +274,7 @@ sub run {
     ' --query "'  . $self->query_file .
     '" --target "' . $self->target_file.'"';
   $command .= " --annotation " . $self->annotation_file if $self->annotation_features;
+  $command .= " > ".$output_file if $write_results;
 
   # Execute command and parse results
   print STDERR "Exonerate command : $command\n";
@@ -279,10 +285,10 @@ sub run {
     $timer = "5h";
   }
 
-  my $realtimer = parse_timer($timer);
-  eval {
-    local $SIG{ALRM} = sub { die "alarm\n" };
-    alarm $realtimer;
+  if($write_results) {
+    execute_with_timer($command, $self->timer);
+    $self->output($self->parse_results($output_file,$write_results));
+  } else {
     my $exo_fh;
     open( $exo_fh, "$command |" ) or throw("Error opening exonerate command: $? : $!");
     $self->output($self->parse_results( $exo_fh ));
@@ -291,18 +297,7 @@ sub run {
       sleep 30;
       throw ("Error closing exonerate command: $? : $!");
     }
-    alarm 0; #reset alarm
-  };
-
-  if ($@) {
-    if ($@ eq "alarm\n") {
-      throw("Your job was still running after your timer: ".$realtimer."\nCommand:\n".$command);
-    }
-    else {
-      throw($@);
-    }
-  }
-
+  } # end else
   return 1;
 }
 
