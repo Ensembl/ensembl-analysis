@@ -100,7 +100,6 @@ sub run {
     $self->throw("Could not find a corresponding line for ".$fastq_file_name." in the csv file:\n".$csv_file);
   }
 
-
   if($count_reads <= $self->param('max_reads_per_split')) {
     $self->for_csv_output($csv_entry);
     return;
@@ -139,12 +138,9 @@ sub run {
     my $split_sample_name = $1;
 
     my $new_csv_entry = $csv_entry;
-    say "FERGAL SAMPLE: ".$sample_name;
-    say "FERGAL SPLIT SAMPLE: ".$split_sample_name;
     unless($new_csv_entry =~ s/\t$sample_name\t/\t$split_sample_name\t/) {
       $self->throw("Failed to update the original sample name in the csv (".$fastq_file_name.") to the split sample name (".$split_file_name.")");
     }
-    say "FERGAL NEW: ".$new_csv_entry;
     unless($new_csv_entry =~ s/$fastq_file_name/\t$split_file_name\t/) {
       $self->throw("Failed to update the original file name in the csv (".$fastq_file_name.") to the split file name (".$split_file_name.")");
     }
@@ -177,8 +173,6 @@ sub split_fastq {
   my $count = 0;
   my $increment = 0;
   my $file_path = catfile($dir,$file_name);
-  say "FERGAL 1";
-  say "FERGAL 1 PATH: ".$file_path;
 
   if($file_name =~ /\.gz/) {
     unless(open(IN_FASTQ, "gunzip -c ".$file_path." |")) {
@@ -229,6 +223,24 @@ sub for_csv_output {
   }
 
   if($line) {
+    $line =~ s/[()]//g;
+
+    my @columns = split /\t/, $line;
+    #replace the centre name with 'ENA'
+    unless($line =~ s/\t$columns[7]\t/\tENA\t/) {
+      $self->throw("Failed to update the original centre name in the csv (".$columns[7].") to ENA");
+    }
+    #replace the long description with the project and sample ids
+    my @desc_parts = split / /, $columns[-1];
+    my $old_desc = $columns[-1];
+    chomp $old_desc;
+    my $new_desc = $desc_parts[0]." ".$desc_parts[1];
+    chomp $new_desc;
+
+    unless($line =~ s/$old_desc/$new_desc/) {
+      $self->throw("Failed to update the original description in the csv to shortened description ");
+    }
+
     push(@{$self->param('_for_csv_output')},$line);
   }
 

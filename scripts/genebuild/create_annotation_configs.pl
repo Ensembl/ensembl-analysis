@@ -34,6 +34,7 @@ use JSON;
 my $config_file;
 my $config_only = 0;
 my $custom_load = 0;
+my $early_load = 0;
 
 my $total_running_workers_max = 200;
 my $base_guihive = 'http://guihive.ebi.ac.uk:8080';
@@ -48,6 +49,7 @@ my $check_for_transcriptomic = 0;
 GetOptions('config_file:s' => \$config_file,
            'config_only!'  => \$config_only,
            'custom_load!'  => \$custom_load,
+	   'early_load!'   => \$early_load,
            'assembly_registry_host:s' => \$assembly_registry_host,
            'assembly_registry_port:s' => \$assembly_registry_port,
            'force_init!' => \$force_init,
@@ -95,7 +97,7 @@ while(<IN>) {
         $key = 'user';
       }
       #Ignore clade settings from .ini file if set
-      if($key eq 'clade' && !$custom_load) {
+      if($key eq 'clade' && !$custom_load && !$early_load) {
        # $key = 'user';
        say "Warning: Ignoring clade value from .ini file";
       }
@@ -202,21 +204,39 @@ foreach my $accession (@accession_array) {
   }
 
   # Get stable id prefix
-  my $stable_id_prefix = $assembly_registry->fetch_stable_id_prefix_by_gca($accession);
+  my $stable_id_prefix;
+  if ($general_hash->{'stable_id_prefix'}){
+    $stable_id_prefix = $general_hash->{'stable_id_prefix'};
+  }
+  else {
+    $stable_id_prefix = $assembly_registry->fetch_stable_id_prefix_by_gca($accession);
+  }
   say "Fetched the following stable id prefix for ".$accession.": ".$stable_id_prefix;
   $assembly_hash->{'stable_id_prefix'} = $stable_id_prefix;
 
-   #Get clade
-     my $clade = $assembly_registry->fetch_clade_by_gca($accession);
-       say "Fetched the following clade for ".$accession.": ".$clade;
-   #      #Note: this is to assign repeat library settings for clades that do not have defined settings yet
-           if (($clade eq 'amphibians') || ($clade eq 'sharks') || ($clade eq 'vertebrates')){
-                $clade = 'distant_vertebrate';
-                  }
-                    $assembly_hash->{'clade'} = $clade;
+  #Get clade
+  my $clade;
+  if ($general_hash->{'clade'}) {
+    $clade = $general_hash->{'clade'};
+  }
+  else {
+    $clade = $assembly_registry->fetch_clade_by_gca($accession);
+  }
+  say "Fetched the following clade for ".$accession.": ".$clade;
+  #      #Note: this is to assign repeat library settings for clades that do not have defined settings yet
+  if (($clade eq 'amphibians') || ($clade eq 'sharks') || ($clade eq 'vertebrates')){
+    $clade = 'distant_vertebrate';
+  }
+  $assembly_hash->{'clade'} = $clade;
 
   # Get stable id start
-  my $stable_id_start = $assembly_registry->fetch_stable_id_start_by_gca($accession);
+  my $stable_id_start;
+  if ($general_hash->{'stable_id_start'}>=0) {
+    $stable_id_start = $general_hash->{'stable_id_start'};
+  }
+  else {
+    $stable_id_start = $assembly_registry->fetch_stable_id_start_by_gca($accession);
+  }
   say "Fetched the following stable id start for ".$accession.": ".$stable_id_start;
   $assembly_hash->{'stable_id_start'} = $stable_id_start;
 

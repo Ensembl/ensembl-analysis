@@ -325,7 +325,7 @@ sub default_options {
     meta_levels_script         => catfile($self->o('ensembl_misc_script'), 'meta_levels.pl'),
     frameshift_attrib_script   => catfile($self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl'),
     select_canonical_script    => catfile($self->o('ensembl_misc_script'),'canonical_transcripts', 'select_canonical_transcripts.pl'),
-    assembly_name_script       => '',
+    assembly_name_script       => catfile($self->o('ensembl_analysis_script'), 'update_assembly_name.pl'),
 
     rnaseq_daf_introns_file => catfile($self->o('output_dir'), 'rnaseq_daf_introns.dat'),
 
@@ -371,7 +371,7 @@ sub default_options {
     interproscan_exe => catfile($self->o('binary_base'), 'interproscan.sh'),
     bedtools => catfile($self->o('binary_base'), 'bedtools'),
     bedGraphToBigWig => catfile($self->o('binary_base'), 'bedGraphToBigWig'),
-    'cesar_path' => '/path/to/CESAR2.0/',
+    'cesar_path' => catdir($self->o('software_base_path'),'opt','cesar','bin'),
 
     'uniprot_genblast_batch_size' => 15,
     'uniprot_table_name'          => 'uniprot_sequences',
