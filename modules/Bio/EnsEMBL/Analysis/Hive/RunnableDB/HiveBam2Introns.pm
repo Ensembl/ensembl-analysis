@@ -418,6 +418,7 @@ sub write_output {
     my $output_hash = {};
     $output_hash->{'iid'} = $self->param('iid');
     $self->dataflow_output_id($output_hash,$failure_branch_code);
+    $self->input_job->autoflow(0);
     return;
   }
 
