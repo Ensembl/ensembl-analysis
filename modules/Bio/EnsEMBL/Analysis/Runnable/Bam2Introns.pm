@@ -71,11 +71,12 @@ use parent ('Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature');
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($percent_id, $coverage, $missmatch, $write_to_file) = rearrange( [qw(PERCENT_ID COVERAGE MISSMATCH WRITE_TO_FILE)],@args );
+  my ($percent_id, $coverage, $missmatch, $write_to_file, $redundant_ids) = rearrange( [qw(PERCENT_ID COVERAGE MISSMATCH WRITE_TO_FILE REDUNDANT_IDS)],@args );
   $self->PERCENT_ID($percent_id);
   $self->COVERAGE($coverage);
   $self->MISSMATCH($missmatch);
   $self->write_to_file($write_to_file);
+  $self->redundant_ids($redundant_ids);
   return $self;
 }
 
@@ -232,6 +233,17 @@ sub write_to_file {
   }
 
   return($self->{'_write_to_file'});
+}
+
+
+sub redundant_ids {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_redundant_ids'} = $value;
+  }
+
+  return($self->{'_redundant_ids'});
 }
 
 1;
