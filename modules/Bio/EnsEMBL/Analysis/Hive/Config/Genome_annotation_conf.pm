@@ -7522,8 +7522,8 @@ sub pipeline_analyses {
                                 ' -host '.$self->o('reference_db','-host').
                                 ' -port '.$self->o('reference_db','-port').
                                 ' -dbname '.$self->o('reference_db','-dbname').
-                                ' -driver '.$self->o('hive_driver'),
-                                ' -assembly_accession '.$self->o('assembly_accession'),
+                                ' -driver '.$self->o('hive_driver').
+                                ' -assembly_accession '.$self->o('assembly_accession').
                                 ' -assembly_name '.$self->o('assembly_name'),
                        },
         -rc_name => 'default',
