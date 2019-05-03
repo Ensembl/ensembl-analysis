@@ -387,7 +387,6 @@ sub run {
   my ($self) = @_;
 
   while(my $runnable = pop(@{$self->runnable})) {
-    $self->runnable_failed(0);
     eval {
       $runnable->run;
     };
@@ -396,10 +395,11 @@ sub run {
       my $except = $@;
       if($except =~ /still running after your timer/) {
         $self->warning("bam2introns took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
-        $self->param('_branch_to_flow_to_on_fail',-2);
-        $self->runnable_failed(1);
         if($self->param('rebatch_failed') && scalar(@{$runnable->query_seqs}) > $self->param('rebatch_size')) {
           $self->rebatch_runnable($runnable);
+	} else{
+          $self->param('_branch_to_flow_to_on_fail',-2);
+          $self->runnable_failed(1);
 	}
       } else {
         $self->throw("bam2introns failed, exception:\n".$except);
@@ -451,37 +451,37 @@ sub write_output {
   my $output = $self->output;
   print "Got " .  scalar(@$output) ." genomic features \n";
   if (scalar(@$output)) {
-      # write to file
-      my $iid = $self->input_id;
-      # remove any batching info at the end
-      $iid =~ s/:\d+:\d+:\d+$//;
+    # write to file
+    my $iid = $self->input_id;
+    # remove any batching info at the end
+    $iid =~ s/:\d+:\d+:\d+$//;
 
-      my $path;
-      my $filename;
-      # figure out a directory structure based on the stable ids
-      if ( $iid =~ /^\w+\d+(\d)(\d)(\d)(\d)(\d\d)$/ ) {
-        # make the directory structure
-        $path = File::Spec->catdir($self->param('output_dir'), $1, $2, $3, $4);
-        make_path($path);
-        $filename = File::Spec->catfile($path, $self->input_id.'.sam');
-      }
-      else {
-        $self->throw("Input id $iid structure not recognised should be something like BAMG00000002548\n");
-      }
-      open ( SAM ,">$filename" ) or $self->throw("Cannot open file for writing $filename\n");
-      foreach my $line ( @$output ) {
-        print SAM $line;
-      }
-      # write an end of file marker so we can test that the job didnt die when writing
-      print SAM '@EOF';
-      close(SAM) || $self->throw("Could not close $filename after writing SAM data");
-      $self->dataflow_output_id([{filename => $filename}], $self->param('_branch_for_accumulators'));
+    my $path;
+    my $filename;
+    # figure out a directory structure based on the stable ids
+    if ( $iid =~ /^\w+\d+(\d)(\d)(\d)(\d)(\d\d)$/ ) {
+      # make the directory structure
+      $path = File::Spec->catdir($self->param('output_dir'), $1, $2, $3, $4);
+      make_path($path);
+      $filename = File::Spec->catfile($path, $self->input_id.'.sam');
+    }
+    else {
+      $self->throw("Input id $iid structure not recognised should be something like BAMG00000002548\n");
+    }
+    open ( SAM ,">$filename" ) or $self->throw("Cannot open file for writing $filename\n");
+    foreach my $line ( @$output ) {
+      print SAM $line;
+    }
+    # write an end of file marker so we can test that the job didnt die when writing
+    print SAM '@EOF';
+    close(SAM) || $self->throw("Could not close $filename after writing SAM data");
+    $self->dataflow_output_id([{filename => $filename}], $self->param('_branch_for_accumulators'));
   }
   else {
-      $self->input_job->autoflow(0);
+    $self->input_job->autoflow(0);
   }
   if ($self->param_is_defined('iids')) {
-      $self->dataflow_output_id($self->param('iids'), $self->param('_branch_to_flow_to'));
+    $self->dataflow_output_id($self->param('iids'), $self->param('_branch_to_flow_to'));
   }
 
   # If a failure has happened then flow the input id on the appropriate branch
@@ -491,6 +491,7 @@ sub write_output {
     my $output_hash = {};
     $output_hash->{'iid'} = $self->param('iid');
     $self->dataflow_output_id($output_hash,$failure_branch_code);
+    $self->input_job->autoflow(0);
   }
 }
 

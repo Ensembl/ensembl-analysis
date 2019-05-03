@@ -3665,7 +3665,7 @@ sub pipeline_analyses {
         #-flow_into  => { '1->A' => ['dump_repeats', 'dump_features', 'dump_genome'], 'A->1' => ['filter_mirnas']},
       },
 
-      
+
       {
         -logic_name => 'dump_features',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -4347,10 +4347,11 @@ sub pipeline_analyses {
           use_genome_flatfile => 1,
           flatfile_masked => 1,
           genome_file => $self->o('faidx_softmasked_genome_file'),
-          timer => '5h',
+          timer => '15m',
         },
         -rc_name    => '5GB',
         -batch_size => 200,
+        -analysis_capactiy => 500,
         -flow_into => {
           1 => [':////accu?filename=[]'],
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
@@ -4384,20 +4385,20 @@ sub pipeline_analyses {
           use_genome_flatfile => 1,
           flatfile_masked => 1,
           genome_file => $self->o('faidx_softmasked_genome_file'),
-          timer => '5h',
+          timer => '30m',
         },
         -rc_name    => '20GB',
         -flow_into => {
           1 => [':////accu?filename=[]'],
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
-          -1 => {'bam2introns_50GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
+          -1 => {'bam2introns_40GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
           -2 => ['failed_bam2introns_jobs'],
           -3 => ['failed_bam2introns_jobs'],
         },
       },
 
       {
-        -logic_name => 'bam2introns_50GB',
+        -logic_name => 'bam2introns_40GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns',
         -can_be_empty => 1,
         -parameters => {
@@ -4419,9 +4420,9 @@ sub pipeline_analyses {
           use_genome_flatfile => 1,
           flatfile_masked => 1,
           genome_file => $self->o('faidx_softmasked_genome_file'),
-          timer => '5h',
+          timer => '30m',
         },
-        -rc_name    => '50GB',
+        -rc_name    => '40GB',
         -flow_into => {
           1 => [':////accu?filename=[]'],
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
@@ -4455,7 +4456,9 @@ sub pipeline_analyses {
         -rc_name    => '5GB_multithread',
         -flow_into => ['create_refine_db'],
       },
-      {
+
+
+     {
         -logic_name => 'create_refine_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
@@ -7548,6 +7551,7 @@ sub resource_classes {
     '15GB' => { LSF => $self->lsf_resource_builder('production-rh74', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '20GB' => { LSF => $self->lsf_resource_builder('production-rh74', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '30GB' => { LSF => $self->lsf_resource_builder('production-rh74', 30000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '40GB' => { LSF => $self->lsf_resource_builder('production-rh74', 40000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '50GB' => { LSF => $self->lsf_resource_builder('production-rh74', 50000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '75GB' => { LSF => $self->lsf_resource_builder('production-rh74', 75000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '100GB' => { LSF => $self->lsf_resource_builder('production-rh74', 100000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
