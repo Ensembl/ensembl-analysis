@@ -58,6 +58,8 @@ sub default_options {
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'rnaseq_summary_file'       => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
     'rnaseq_summary_file_genus' => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'_gen.csv'), # Set this if you have a pre-existing genus level cvs file with the expected columns
+    'long_read_summary_file'    => '', # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
+    'long_read_fastq_dir'       => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/minimap2/pig_big_test/long_read/input/',
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
@@ -78,6 +80,7 @@ sub default_options {
     'skip_post_repeat_analyses' => '0', # Will everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
     'skip_projection'           => '0', # Will skip projection process if 1
     'skip_rnaseq'               => '0', # Will skip rnaseq analyses if 1
+    'skip_long_read'            => '1', # Will skip long read analyses if 1
     'skip_ncrna'                => '0', # Will skip ncrna process if 1
     'skip_cleaning'             => '0', # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
@@ -176,6 +179,18 @@ sub default_options {
     'projection_pseudogene_db_server' => $self->o('databases_server'),
     'projection_pseudogene_db_port'   => $self->o('databases_port'),
 
+    'long_read_initial_db_server'  => $self->o('databases_server'),
+    'long_read_initial_db_port'    => $self->o('databases_port'),
+
+    'long_read_blast_db_server'    => $self->o('databases_server'),
+    'long_read_blast_db_port'      => $self->o('databases_port'),
+
+    'long_read_collapse_db_server' => $self->o('databases_server'),
+    'long_read_collapse_db_port'   => $self->o('databases_port'),
+
+    'long_read_final_db_server'    => $self->o('databases_server'),
+    'long_read_final_db_port'      => $self->o('databases_port'),
+
     'rnaseq_for_layer_db_server'   => $self->o('databases_server'),
     'rnaseq_for_layer_db_port'     => $self->o('databases_port'),
 
@@ -269,12 +284,14 @@ sub default_options {
                                    $self->o('projection_coding_db'),
                                    $self->o('ig_tr_db'),
                                    $self->o('best_targeted_db'),
+                                   $self->o('long_read_final_db'),
                                  ],
 
 
     utr_donor_dbs => [
       $self->o('cdna_db'),
       $self->o('rnaseq_for_layer_db'),
+      $self->o('long_read_final_db'),
     ],
 
     utr_acceptor_dbs => [
@@ -344,6 +361,11 @@ sub default_options {
 ########################
 # Executable paths
 ########################
+    'minimap2_genome_index'  => $self->o('faidx_genome_file').'.mmi',
+    'minimap2_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/minimap2/minimap2',
+    'paftools_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/minimap2/misc/paftools.js',
+    'minimap2_batch_size'    => '5000',
+
     'blast_type' => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     'dust_path' => catfile($self->o('binary_base'), 'dustmasker'),
     'trf_path' => catfile($self->o('binary_base'), 'trf'),
@@ -435,10 +457,12 @@ sub default_options {
     'output_dir'   => catdir($self->o('rnaseq_dir'),'output'),
     'merge_dir'    => catdir($self->o('rnaseq_dir'),'merge'),
     'sam_dir'      => catdir($self->o('rnaseq_dir'),'sams'),
-    header_file => catfile($self->o('output_dir'), '#'.$self->o('read_id_tag').'#_header.h'),
+    'header_file'  => catfile($self->o('output_dir'), '#'.$self->o('read_id_tag').'#_header.h'),
 
     'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
+    'long_read_dir'       => catdir($self->o('output_path'),'long_read'),
+    'long_read_fastq_dir' => catdir($self->o('long_read_dir'),'input'),
     'use_ucsc_naming' => 0,
 
     # If your reads are unpaired you may want to run on slices to avoid
@@ -482,8 +506,8 @@ sub default_options {
     # This is just an example based on the file snippet shown below.  It
     # will vary depending on how your data looks.
     ####################################################################
-    file_columns => ['SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS'],
-
+    file_columns      => ['SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS'],
+    long_read_columns => ['sample','filename'],
 
 # lincRNA pipeline stuff
     'lncrna_dir' => catdir($self->o('output_path'), 'lincrna'),
@@ -695,6 +719,42 @@ sub default_options {
       -port   => $self->o('genewise_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    long_read_initial_db => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_lrinitial_'.$self->o('release_number'),
+      -host   => $self->o('long_read_initial_db_server'),
+      -port   => $self->o('long_read_initial_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    long_read_collapse_db => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_lrcollapse_'.$self->o('release_number'),
+      -host => $self->o('long_read_collapse_db_server'),
+      -port => $self->o('long_read_collapse_db_port'),
+      -user => $self->o('user'),
+      -pass => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    long_read_blast_db => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_lrblast_'.$self->o('release_number'),
+      -host => $self->o('long_read_blast_db_server'),
+      -port => $self->o('long_read_blast_db_port'),
+      -user => $self->o('user'),
+      -pass => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    long_read_final_db => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_lrfinal_'.$self->o('release_number'),
+      -host => $self->o('long_read_final_db_server'),
+      -port => $self->o('long_read_final_db_port'),
+      -user => $self->o('user'),
+      -pass => $self->o('password'),
       -driver => $self->o('hive_driver'),
     },
 
@@ -3735,7 +3795,7 @@ sub pipeline_analyses {
         -rc_name    => 'default',
         -flow_into => {
           '1->A' => ['fan_rnaseq_for_layer_db'],
-          'A->1' => ['create_projection_coding_db'],
+          'A->1' => ['create_long_read_db'],
         },
       },
 
@@ -4351,7 +4411,7 @@ sub pipeline_analyses {
         },
         -rc_name    => '5GB',
         -batch_size => 200,
-        -analysis_capactiy => 500,
+        -analysis_capacity => 500,
         -flow_into => {
           1 => [':////accu?filename=[]'],
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
@@ -5047,6 +5107,371 @@ sub pipeline_analyses {
 #        -rc_name    => '8GB',
 #      },
 
+
+########################################################################
+#
+# Minimap2 long read analyses
+#
+########################################################################
+
+
+      {
+        -logic_name => 'create_long_read_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+          source_db   => $self->o('dna_db'),
+          target_db   => $self->o('projection_coding_db'),
+          create_type => 'clone',
+        },
+        -rc_name    => 'default',
+        -flow_into  => {
+          '1->A' => ['fan_long_read'],
+          'A->1' => ['create_projection_coding_db'],
+        },
+      },
+
+
+      {
+        -logic_name => 'fan_long_read',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'if [ "#skip_long_read#" -ne "0" ]; then exit 42; else exit 0;fi',
+                         return_codes_2_branches => {'42' => 2},
+	},
+        -flow_into  => {
+          1 => ['create_long_read_dir'],
+	},
+        -rc_name => 'default',
+      },
+
+
+      {
+        -logic_name => 'create_long_read_dir',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name => '1GB',
+        -parameters => {
+          cmd => 'mkdir -p '.$self->o('long_read_fastq_dir'),
+        },
+        -flow_into => {
+          '1' => ['create_long_read_initial_db'],
+        },
+        -rc_name => 'default',
+      },
+
+
+      {
+        -logic_name => 'create_long_read_initial_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+	     -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('long_read_initial_db'),
+                         create_type => 'clone',
+                       },
+        -rc_name    => '1GB',
+        -flow_into => {
+                        '1' => ['create_minimap2_index'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'create_minimap2_index',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'if [ ! -e "'.$self->o('minimap2_genome_index').'" ]; then '.$self->o('minimap2_path').
+                 ' -d '.$self->o('minimap2_genome_index').' '.$self->o('faidx_genome_file').';fi',
+        },
+        -flow_into  => {
+         '1->A' => ['create_lr_fastq_download_jobs'],
+         'A->1' => ['create_collapse_db'],
+        },
+        -rc_name => '20GB',
+      },
+
+
+      {
+        -logic_name => 'create_lr_fastq_download_jobs',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+        -parameters => {
+          inputfile    => $self->o('long_read_summary_file'),
+          column_names => $self->o('long_read_columns'),
+          delimiter => '\t',
+        },
+        -flow_into => {
+          2 => {'download_long_read_fastq' => {'iid' => '#filename#'}},
+        },
+      },
+
+
+      {
+        -logic_name => 'download_long_read_fastq',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadRNASeqFastqs',
+        -parameters =>{
+          ftp_base_url => $self->o('rnaseq_ftp_base'),
+          input_dir => $self->o('long_read_fastq_dir'),
+          samtools_path => $self->o('samtools_path'),
+          decompress => 1,
+          create_faidx => 1,
+        },
+        -rc_name => '1GB',
+        -analysis_capacity => 50,
+        -flow_into => {
+          1 => {'generate_minimap2_jobs' => {'fastq_file' => $self->o('long_read_fastq_dir').'/'.'#fastq_file#'}},
+        },
+      },
+
+
+      {
+        -logic_name => 'generate_minimap2_jobs',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         iid_type => 'fastq_range',
+                         batch_size => $self->o('minimap2_batch_size'),
+                       },
+        -rc_name      => '2GB',
+        -flow_into => {
+                        2 => {'minimap2' => {'input_file' => '#fastq_file#','iid' => '#iid#'}},
+                      },
+      },
+
+
+      {
+        -logic_name => 'minimap2',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Minimap2',
+        -parameters => {
+                         genome_file => $self->o('faidx_genome_file'),
+                         minimap2_genome_index => $self->o('minimap2_genome_index'),
+                         minimap2_path => $self->o('minimap2_path'),
+                         paftools_path => $self->o('paftools_path'),
+                         target_db => $self->o('long_read_initial_db'),
+                         logic_name => 'minimap2',
+                         module     => 'Minimap2',
+                       },
+        -rc_name => '15GB',
+        -flow_into => {
+                        -1 => {'minimap2_himem' => {'input_file' => '#input_file#','iid' => '#iid#'}},
+                      },
+      },
+
+
+      {
+        -logic_name => 'minimap2_himem',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Minimap2',
+        -parameters => {
+                         genome_file => $self->o('faidx_genome_file'),
+                         minimap2_genome_index => $self->o('minimap2_genome_index'),
+                         minimap2_path => $self->o('minimap2_path'),
+                         paftools_path => $self->o('paftools_path'),
+                         target_db => $self->o('long_read_initial_db'),
+                         logic_name => 'minimap2',
+                         module     => 'Minimap2',
+                       },
+        -rc_name => '25GB',
+      },
+
+
+      {
+        -logic_name => 'create_collapse_db',
+        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+          source_db => $self->o('dna_db'),
+          target_db => $self->o('long_read_collapse_db'),
+          create_type => 'clone',
+         },
+         -rc_name => 'default',
+         -max_retry_count => 0,
+         -flow_into => {
+           1 => ['create_long_read_blast_db'],
+         }
+      },
+
+
+      {
+        -logic_name => 'create_long_read_blast_db',
+        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+          source_db => $self->o('dna_db'),
+          target_db => $self->o('long_read_blast_db'),
+          create_type => 'clone',
+        },
+        -rc_name => 'default',
+        -max_retry_count => 0,
+        -flow_into => {
+          1 => ['create_long_read_final_db'],
+        }
+      },
+
+
+      {
+        -logic_name => 'create_long_read_final_db',
+        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+          source_db => $self->o('dna_db'),
+          target_db => $self->o('long_read_final_db'),
+          create_type => 'clone',
+        },
+        -rc_name => 'default',
+        -max_retry_count => 0,
+        -flow_into => {
+          1 => ['generate_collapse_jobs'],
+        }
+      },
+
+
+      {
+        -logic_name => 'generate_collapse_jobs',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+          target_db        => $self->o('long_read_collapse_db'),
+          feature_dbs => [$self->o('long_read_initial_db')],
+          coord_system_name => 'toplevel',
+          iid_type => 'slice',
+          feature_constraint => 1,
+          feature_type => 'gene',
+          top_level => 1,
+        },
+        -rc_name      => 'default',
+        -max_retry_count => 1,
+        -flow_into => {
+          '2->A' => ['split_lr_slices_on_intergenic'],
+          'A->1' => ['classify_long_read_models'],
+        },
+      },
+
+      {
+        -logic_name => 'split_lr_slices_on_intergenic',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFindIntergenicRegions',
+        -parameters => {
+          dna_db => $self->o('dna_db'),
+          input_gene_dbs => [$self->o('long_read_initial_db')],
+          iid_type => 'slice',
+        },
+        -batch_size => 100,
+        -rc_name    => '5GB',
+        -flow_into => {
+          2 => ['collapse_transcripts'],
+        },
+      },
+
+
+      {
+        -logic_name => 'collapse_transcripts',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveTranscriptCoalescer',
+        -parameters => {
+          target_db        => $self->o('long_read_collapse_db'),
+          dna_db        => $self->o('dna_db'),
+          source_dbs        => [$self->o('long_read_initial_db')],
+          biotypes => ["isoseq","cdna"],
+        },
+        -rc_name      => '5GB',
+        -flow_into => {
+          1 => ['blast_long_read'],
+         -1 => ['collapse_transcripts_30GB'],
+        },
+      },
+
+
+      {
+        -logic_name => 'collapse_transcripts_30GB',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveTranscriptCoalescer',
+        -parameters => {
+          target_db        => $self->o('long_read_collapse_db'),
+          dna_db        => $self->o('dna_db'),
+          source_dbs        => [$self->o('long_read_initial_db')],
+          biotypes => ["isoseq","cdna"],
+        },
+        -rc_name      => '30GB',
+        -flow_into => {
+           1 => ['blast_long_read'],
+          -1 => ['failed_collapse'],
+        },
+      },
+
+      {
+        -logic_name => 'failed_collapse',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveTranscriptCoalescer',
+        -parameters => {
+          target_db         => $self->o('long_read_collapse_db'),
+          dna_db            => $self->o('dna_db'),
+          source_dbs        => [$self->o('long_read_initial_db')],
+          biotypes => ["isoseq","cdna"],
+          copy_only => 1,
+        },
+        -rc_name      => '10GB',
+        -flow_into => {
+          1 => ['blast_long_read'],
+        },
+      },
+
+
+      {
+        -logic_name => 'blast_long_read',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
+        -parameters => {
+          input_db => $self->o('long_read_collapse_db'),
+          output_db => $self->o('long_read_blast_db'),
+          source_db => $self->o('long_read_collapse_db'),
+          target_db => $self->o('long_read_blast_db'),
+          dna_db => $self->o('dna_db'),
+          indicate_index => $self->o('protein_blast_index'),
+          uniprot_index => [$self->o('protein_blast_db')],
+          blast_program => $self->o('uniprot_blast_exe_path'),
+          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
+          commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40 -seg no',
+        },
+        -rc_name => 'blast',
+        -flow_into => {
+          -1 => ['blast_long_read_10G'],
+          1 => ['intron_check'],
+        },
+      },
+
+
+      {
+        -logic_name => 'blast_long_read_10G',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
+        -parameters => {
+          input_db => $self->o('long_read_collapse_db'),
+          output_db => $self->o('long_read_blast_db'),
+          dna_db => $self->o('dna_db'),
+          source_db => $self->o('long_read_collapse_db'),
+          target_db => $self->o('long_read_blast_db'),
+          indicate_index => $self->o('protein_blast_index'),
+          uniprot_index => [$self->o('protein_blast_db')],
+          blast_program => $self->o('uniprot_blast_exe_path'),
+          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
+          commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40 -seg no',
+        },
+        -rc_name => 'blast10GB',
+        -flow_into => {
+          1 => ['intron_check'],
+        },
+      },
+
+
+      {
+        -logic_name => 'intron_check',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
+        -parameters => {
+          source_db => $self->o('long_read_blast_db'),
+          target_db => $self->o('long_read_final_db'),
+          intron_db => $self->o('rnaseq_refine_db'),
+          dna_db => $self->o('dna_db'),
+        },
+        -rc_name    => 'default',
+      },
+
+
+      {
+        -logic_name => 'classify_long_read_models',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
+        -parameters => {
+          classification_type => 'standard',
+          update_gene_biotype => 1,
+          target_db => $self->o('long_read_final_db'),
+        },
+        -rc_name    => 'default',
+      },
 
 ########################################################################
 #
@@ -7550,6 +7975,7 @@ sub resource_classes {
     '10GB' => { LSF => $self->lsf_resource_builder('production-rh74', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '15GB' => { LSF => $self->lsf_resource_builder('production-rh74', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '20GB' => { LSF => $self->lsf_resource_builder('production-rh74', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '25GB' => { LSF => $self->lsf_resource_builder('production-rh74', 25000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '30GB' => { LSF => $self->lsf_resource_builder('production-rh74', 30000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '40GB' => { LSF => $self->lsf_resource_builder('production-rh74', 40000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '50GB' => { LSF => $self->lsf_resource_builder('production-rh74', 50000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
@@ -7562,6 +7988,7 @@ sub resource_classes {
     'genscan' => { LSF => $self->lsf_resource_builder('production-rh74', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genscan_short' => { LSF => $self->lsf_resource_builder('production-rh74', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'blast' => { LSF => $self->lsf_resource_builder('production-rh74', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
+    'blast10GB' => { LSF => $self->lsf_resource_builder('production-rh74', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'blast_retry' => { LSF => $self->lsf_resource_builder('production-rh74', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'genblast' => { LSF => $self->lsf_resource_builder('production-rh74', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genblast_retry' => { LSF => $self->lsf_resource_builder('production-rh74', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
