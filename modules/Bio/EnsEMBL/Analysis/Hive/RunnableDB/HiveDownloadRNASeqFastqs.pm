@@ -43,6 +43,16 @@ use feature 'say';
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+	  %{$self->SUPER::param_defaults},
+    decompress => 0,
+    create_faidx => 0,
+  }
+}
+
 sub write_output {
   my ($self) = @_;
   my $ftp_base_url = $self->param('ftp_base_url');
@@ -51,6 +61,14 @@ sub write_output {
   my $srr;
 
   if(-e $path.'/'.$fastq) {
+    if($self->param('decompress')) {
+      $fastq = $self->decompress($path,$fastq);
+    }
+
+    if($self->param('create_faidx')) {
+      $self->create_faidx($path,$fastq);
+    }
+
     $self->complete_early('Input file already exists, will not download');
   }
 
@@ -82,6 +100,45 @@ sub write_output {
     $self->throw("Did not find the fastq file on the expected path. Path:\n".$path."/".$fastq);
   }
 
+  if($self->param('decompress')) {
+    $fastq = $self->decompress($path,$fastq);
+  }
+
+  if($self->param('create_faidx')) {
+    $self->create_faidx($path,$fastq);
+  }
+}
+
+sub decompress {
+  my ($self,$path,$fastq) = @_;
+  my $cmd = 'gunzip '.$path.'/'.$fastq;
+
+  # Remove this in case indexing in the code block after this one
+  if($fastq =~ s/\.gz$//) {
+    my $gunzip_res = system($cmd);
+    if($gunzip_res) {
+      $self->throw("Failed to decompress file. Command:\n".$cmd);
+    }
+  } else {
+    $self->warning("You selected decompress, but the file did not have a .gz extension, so will not try and decompress");
+  }
+
+  # Update these in case the extension was removed
+  $self->param('iid',$fastq);
+  $self->param('fastq_file',$fastq);
+
+  return($fastq);
+}
+
+
+sub create_faidx {
+  my ($self,$path,$fastq) = @_;
+
+  my $cmd = $self->param_required('samtools_path').' faidx '.$path.'/'.$fastq;
+  my $faidx_res = system($cmd);
+  if($faidx_res) {
+    $self->throw("Failed to index file. Command:\n".$cmd);
+  }
 }
 
 1;

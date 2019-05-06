@@ -47,7 +47,11 @@ use warnings;
 use strict;
 use feature 'say';
 
+use Bio::EnsEMBL::IO::Parser::Fasta;
+use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Analysis::Runnable::Minimap2;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name);
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -65,18 +69,31 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my ($self) = @_;
 
-  my $output_dba = $self->hrdb_get_dba($self->param('target_db'));
+  my $target_dba = $self->hrdb_get_dba($self->param('target_db'));
 
-  if($self->param('dna_db')) {
-    my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-    $output_dba->dnadb($dna_dba);
+  my $dna_dba;
+  if($self->param('use_genome_flatfile')) {
+    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
+      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+    }
+    setup_fasta(
+                 -FASTA => $self->param_required('genome_file'),
+               );
+  } else {
+    $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
+    $target_dba->dnadb($dna_dba);
   }
 
-  $self->hrdb_set_con($output_dba,'target_db');
+  $self->hrdb_set_con($target_dba,'target_db');
 
-  my $genome_file = $self->param('genome_file');
+  my $genome_file = $self->param_required('genome_file');
   unless(-e $genome_file) {
     $self->throw("Could not find the genome file. Path used:\n".$genome_file);
+  }
+
+  my $genome_index = $self->param_required('minimap2_genome_index');
+  unless(-e $genome_index) {
+    $self->throw("Could not find the genome index. Path used:\n".$genome_index);
   }
 
   my $input_file = $self->param('input_file');
@@ -84,6 +101,18 @@ sub fetch_input {
     $self->throw("Could not find the input file. Path used:\n".$input_file);
   }
 
+  my $input_range = shift(@{$self->param('iid')});
+  my $range_start = $$input_range[0];
+  my $range_end = $$input_range[1];
+
+  say "Creating tmp input file based on index range: ".$range_start."..".$range_end;
+  my $ranged_input_file = $self->create_input_file($input_file,$range_start,$range_end);
+  say "Finished creating input file";
+
+#  say "FERGAL RANGED DEBUG: ".$ranged_input_file;
+#  say "FERGAL RANGE DEBUG: ".$range_start."..".$range_end;
+#  sleep(60);
+#  $self->throw("DEBUG");
   my $program = $self->param('minimap2_path');
   my $paftools =  $self->param('paftools_path');
 
@@ -96,13 +125,14 @@ sub fetch_input {
   }
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2->new(
-       -analysis       => $self->create_analysis,
-       -program        => $program,
-       -paftools_path  => $paftools,
+       -analysis          => $self->create_analysis,
+       -program           => $program,
+       -paftools_path     => $paftools,
 #       -options        => $self->param('minimap2_options'),
-       -genome_file    => $genome_file,
-       -input_file     => $input_file,
-       -database_adaptor => $output_dba,
+       -genome_index      => $genome_index,
+       -input_file        => $ranged_input_file,
+       -database_adaptor  => $target_dba,
+       -delete_input_file => 1, # NB!! only set this when creating ranged files, not when using the original input file
     );
 
   $self->runnable($runnable);
@@ -124,10 +154,66 @@ sub write_output {
   my $gene_adaptor = $target_dba->get_GeneAdaptor();
 
   my $genes = $self->output();
+  say "Total genes to output: ".scalar(@$genes);
   foreach my $gene (@$genes) {
     $gene_adaptor->store($gene);
   }
 
 }
+
+
+sub create_input_file {
+  my ($self,$input_file,$start,$end) = @_;
+
+  my $output_file = $self->create_filename();
+  open(OUT,">".$output_file);
+  my $seq_count = `wc -l $input_file`;
+  chomp($seq_count);
+  $seq_count = $seq_count / 4;
+
+  unless($seq_count > 0) {
+    $self->throw("You have selected to generate a fasta range, but the fasta file doesn't have any headers. Path specified:\n".$input_file);
+  }
+
+  my $index = Bio::DB::HTS::Faidx->new($input_file);
+  my @seq_ids = $index->get_all_sequence_ids();
+  for(my $i=$start; $i<= $end; $i++) {
+    my $seq_id = $seq_ids[$i];
+    my $length = $index->length($seq_id);
+    my $location  = $seq_id.":1-".$length;
+    my $seq = $index->get_sequence_no_length($location);
+
+    say OUT ">".$seq_id;
+    say OUT $seq;
+  }
+
+
+#  my $counter = 0;
+#  my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($input_file);
+#  while($parser->next() && $counter <= $end) {
+#    if($counter < $start) {
+#      $counter++;
+#      next;
+#    }
+#    my $seq = $parser->getSequence();
+#    if(length($seq < 200)) {
+#      next;
+#    }
+#    my $header = $parser->getHeader();
+#    say OUT ">".$header;
+#    say OUT $seq;
+#    $counter++;
+#  }
+
+  close OUT;
+  return($output_file);
+}
+
+
+sub create_filename{
+  my ($self, $stem, $ext, $dir, $no_clean) = @_;
+  return create_file_name($stem, $ext, $dir, $no_clean);
+}
+
 
 1;

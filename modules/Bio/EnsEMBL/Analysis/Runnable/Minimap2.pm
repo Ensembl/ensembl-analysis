@@ -79,11 +79,12 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($genome_file, $input_file, $paftools_path, $database_adaptor) = rearrange([qw (GENOME_FILE INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR)],@args);
-  $self->genome_file($genome_file);
+  my ($genome_index, $input_file, $paftools_path, $database_adaptor, $delete_input_file) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR DELETE_INPUT_FILE)],@args);
+  $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->paftools_path($paftools_path);
   $self->database_adaptor($database_adaptor);
+  $self->delete_input_file($delete_input_file);
   return $self;
 }
 
@@ -99,11 +100,18 @@ sub new {
 sub run {
   my ($self) = @_;
 
-  my $output_file = $self->create_filename();
-  $self->files_to_delete($output_file);
+  my $file_name = $self->create_filename();
+  my $sam_file = $file_name.".sam";
+  my $bed_file = $file_name.".bed";
+  $self->files_to_delete($sam_file);
+  $self->files_to_delete($bed_file);
 
-  my $genome_file   = $self->genome_file;
+  my $genome_index  = $self->genome_index;
   my $input_file    = $self->input_file;
+  if($self->delete_input_file) {
+    $self->files_to_delete($input_file);
+  }
+
   my $paftools_path = $self->paftools_path;
   my $options       = $self->options;
 
@@ -112,22 +120,121 @@ sub run {
   }
 
   # run minimap2
-  my $command = $self->program." -N 1 -ax splice -uf -C5 ".$genome_file." ".$input_file." | ".$paftools_path." splice2bed - > ".$output_file;
-  $self->warning("Command:\n".$command."\n");
-  if (system($command)) {
+  my $minimap2_command = $self->program." --cs -N 1 -ax splice -uf -C5 ".$genome_index." ".$input_file." > ".$sam_file;
+  $self->warning("Command:\n".$minimap2_command."\n");
+  if(system($minimap2_command)) {
     $self->throw("Error running minimap2\nError code: $?\n");
   }
 
-  $self->output($self->parse_results($output_file));
+  my $percent_id_hash = {};
+  my $coverage_hash = {};
+  $self->parse_sam($sam_file,$percent_id_hash,$coverage_hash);
 
+  my $paftools_command = $paftools_path." splice2bed ".$sam_file." > ".$bed_file;
+  $self->warning("Command:\n".$paftools_command."\n");
+  if(system($paftools_command)) {
+    $self->throw("Error running paftools\nError code: $?\n");
+  }
+
+  $self->output($self->parse_results($bed_file,$percent_id_hash,$coverage_hash));
 }
 
 
+sub parse_sam {
+  my ($self,$sam_file,$percent_id_hash,$coverage_hash) = @_;
+
+  unless(open(IN,$sam_file)) {
+    $self->throw("Could not open the sam file for processing. Path:\n".$sam_file);
+  }
+
+  while(<IN>) {
+    my $line = $_;
+    if($line =~ /^@/) {
+      next;
+    }
+
+    my @results = split("\t",$line);
+    my $num_cols = scalar(@results);
+
+    # Column number is variable. Should probably just use one of the column identifiers that is always present
+    unless($num_cols >= 20) {
+      $self->warning("Unexpected number of result columns, skipping line. Line:\n".$line."Number of cols: ".$num_cols);
+      next;
+    }
+
+    my $read_name = $results[0];
+    # Sometimes this does not have any seq for some reason, so this value becomes 1 incorrectly. This
+    # is dealt with in the coverage calc later on. Really should look up the faidx for the seq if this
+    # col does not have it
+    my $seq_length = length($results[9]);
+
+    # The index of this varies because the columns vary with each result
+    my $cs;
+    for(my $i=0; $i<scalar(@results); $i++) {
+      if($results[$i] =~ /^cs\:Z\:/) {
+        $cs = $results[$i];
+        last;
+      }
+    }
+
+    unless($cs) {
+      $self->throw("CS column not parsed successfully. Line contents:\n".$line);
+    }
+
+    say "FERGAL DEBUG CS: ".$cs;
+
+    my $mismatch_count = () = $cs =~ /\*/gi;
+    my $match_count = 0;
+    while($cs =~ s/\:(\d+)//) {
+      $match_count += $1;
+    }
+
+    my $aligned_count = ($match_count + $mismatch_count);
+
+    say "FERGAL DEBUG MATCH COUNT: ".$match_count;
+    say "FERGAL DEBUG MISMATCH COUNT: ".$mismatch_count;
+    say "FERGAL DEBUG ALIGNED COUNT: ".$aligned_count;
+
+    my $percent_identity = 100 * ($match_count / $aligned_count);
+    $percent_identity = sprintf("%.2f",$percent_identity);
+
+    # Sometimes the read isn't included in the output for some reason. We could look it up in the file, though this could
+    # be a little slow if the file is big
+    # Will probably add this is later
+    if($aligned_count > $seq_length) {
+      $self->warning("The number of aligned bases listed in the cs:Z is greater than calculated seq length. Likely that the sequence ".
+                     "was not included in the sam (represented by *?). Will set to same value as aligned bases. This will make the coverage ".
+                     "100 percent. Seq column entry:\n".$results[9]);
+      $seq_length = $aligned_count;
+    }
+
+    my $coverage = 100 * ($aligned_count / $seq_length);
+    $coverage = sprintf("%.2f",$coverage);
+    unless(($percent_identity >= 0 && $percent_identity <= 100) &&
+           ($coverage >= 0 && $coverage <= 100)) {
+      $self->throw("Issue with coverage/percent id calculation. Got values outside of expected range.".
+                   "\nPercent id: ".$percent_identity."\nCoverage: ".$coverage."\nRead id: ".$read_name);
+    }
+
+    unless(exists $percent_id_hash->{$read_name}) {
+      $percent_id_hash->{$read_name} = $percent_identity;
+      $coverage_hash->{$read_name} = $coverage;
+    } else {
+      $self->warning("Found two result lines for a read. Only calculating percent id for the first one. ID: ".$read_name);
+    }
+  }
+  close IN;
+}
+
 sub parse_results {
-  my ($self,$output_file) = @_;
+  my ($self,$output_file,$percent_id_hash,$coverage_hash) = @_;
 
 # 13  0   84793   ENST00000380152.7   1000    +   0   84793   0,128,255   27  194,106,249,109,50,41,115,50,112,1116,4932,96,70,428,182,188,171,355,156,145,122,199,164,139,245,147,2105,  0,948,3603,9602,10627,10768,11025,13969,15445,16798,20791,29084,31353,39387,40954,42268,47049,47705,54928,55482,61196,63843,64276,64533,79215,81424,82688,
 
+  my $percent_id_cutoff = 98;
+  my $coverage_cutoff = 95;
+
+  say "Parsing minimap2 output";
   my $dba = $self->database_adaptor();
   my $slice_adaptor = $dba->get_SliceAdaptor();
   my $genes = [];
@@ -139,11 +246,26 @@ sub parse_results {
   open(IN,$output_file);
   while(<IN>) {
     my $line = $_;
+    say "Output:\n".$line;
     my @results = split("\t",$line);
+    my $hit_name = $results[3];
+    my $percent_identity = $percent_id_hash->{$hit_name};
+    my $coverage = $coverage_hash->{$hit_name};
+    unless($percent_identity >= $percent_id_cutoff) {
+      $self->warning("Percent id for the hit fails the cutoff.\nHit name: ".$hit_name."\nPercent id: ".$percent_identity.
+                     "\nCut-off: ".$percent_id_cutoff);
+      next;
+    }
+
+    unless($coverage >= $coverage_cutoff) {
+      $self->warning("Coverage for the hit fails the cutoff.\nHit name: ".$hit_name."\nCoverage: ".$coverage.
+                     "\nCut-off: ".$coverage_cutoff);
+      next;
+    }
+
     my $seq_region_name = $results[0];
     my $offset = $results[1];
     my $slice = $slice_adaptor->fetch_by_region('toplevel',$seq_region_name);
-    my $hit_name = $results[3];
     my $strand = $results[5];
     if($strand eq '+') {
       $strand = 1;
@@ -162,6 +284,11 @@ sub parse_results {
     for(my $i=0; $i<scalar(@block_sizes); $i++) {
       my $block_start = $offset + $block_starts[$i] + 1; # We need to convert to 1-based
       my $block_end = $block_start + $block_sizes[$i] - 1;
+      if($block_end < $block_start) {
+        $self->warning("Block end < block start due to a 0 length block size. Setting block end to block start");
+        $block_end = $block_start;
+      }
+
       my $exon = $self->create_exon($slice,$block_start,$block_end,$strand);
       unless($exon) {
         $self->throw("Tried to create an exon and failed: ".$seq_region_name.", ".$block_start.", ".$block_end.", ".$strand);
@@ -173,14 +300,18 @@ sub parse_results {
       @exons = reverse(@exons);
     }
 
-    my $gene = $self->create_gene(\@exons,$slice);
+    my $gene = $self->create_gene(\@exons,$slice,$hit_name);
+    # We aren't going to store a supporting feature, but we can store the coverage and percent id on the gene
+    $coverage = int($coverage);
+    $gene->version($coverage);
+    $gene->description($percent_identity);
     unless($self->filter_gene($gene)) {
-#      say "Pushing gene: ".$gene->start."..".$gene->end;
       push(@$genes,$gene);
     }
   }
   close IN;
 
+  say "Finished parsing output";
   return($genes);
 }
 
@@ -196,21 +327,33 @@ sub create_exon {
                                      -analysis  => $self->analysis,
                                      -slice     => $slice);
 
+#  if($exon_start > $exon_end) {
+#    $self->throw("FERGAL EXON S > E: ".$slice->name." ".$exon->start."..".$exon->end." ".$strand);
+#  }
 #  say "Created exon: ".$slice->name." (".$exon_start."..".$exon_end.":".$strand.")";
   return($exon);
 }
 
 
 sub create_gene {
-  my ($self,$exons,$slice) = @_;
+  my ($self,$exons,$slice,$hit_name) = @_;
 
   my $transcript = Bio::EnsEMBL::Transcript->new(-exons    => $exons,
                                                  -slice    => $slice,
                                                  -analysis => $self->analysis);
 
+#  if($transcript->start > $transcript->end) {
+#    $self->throw("FERGAL TRANSCRIPT S > E: ".$slice->name." ".$transcript->start."..".$transcript->end." ".$transcript->strand);
+#  }
+
   compute_translation($transcript);
   my $gene = Bio::EnsEMBL::Gene->new(-slice    => $slice,
                                      -analysis => $self->analysis);
+
+  $transcript->biotype('cdna');
+  $gene->biotype('cdna');
+  $transcript->stable_id($hit_name);
+  $gene->stable_id($hit_name);
 
   $gene->add_Transcript($transcript);
 
@@ -224,14 +367,14 @@ sub filter_gene {
 }
 
 
-sub genome_file {
+sub genome_index {
   my ($self, $val) = @_;
 
   if ($val) {
-    $self->{_genome_file} = $val;
+    $self->{_genome_index} = $val;
   }
 
-  return $self->{_genome_file};
+  return $self->{_genome_index};
 }
 
 
@@ -267,6 +410,17 @@ sub database_adaptor {
   }
 
   return $self->{_database_adaptor};
+}
+
+
+sub delete_input_file {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_delete_input_file} = $val;
+  }
+
+  return $self->{_delete_input_file};
 }
 
 1;

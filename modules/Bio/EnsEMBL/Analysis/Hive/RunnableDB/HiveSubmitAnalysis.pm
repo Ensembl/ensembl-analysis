@@ -105,6 +105,8 @@ sub fetch_input {
     $self->sequence_accession();
   } elsif($iid_type eq 'rechunk') {
     $self->rechunk_input_ids();
+  } elsif($iid_type eq 'fastq_range') {
+    $self->fastq_range($self->param_required('fastq_file'),$self->param_required('batch_size'));
   } else {
       $self->param('target_db', destringify($self->param('target_db'))) if (ref($self->param('target_db')) ne 'HASH');
       my $dba = hrdb_get_dba($self->param('target_db'));
@@ -265,6 +267,7 @@ sub create_chunk_ids {
       $chunk_array[$i] = $self->param('chunk_dir_name')."/".$chunk_array[$i];
     }
   }
+
   $self->param('inputlist', \@chunk_array);
 }
 
@@ -1023,6 +1026,57 @@ sub _padded_slice_coord {
   $start = 1 if ($start < 1);
   $end = $slice->end if ($end > $slice->end);
   return $start, $end;
+}
+
+
+=head2 fastq_range
+
+ Arg [1]    : Path to the fastq file
+ Arg [2]    : Batch size to split the sequences into
+ Description: Take in a fastq file and output ranges based on a batch size
+ Returntype : Array of Int, start and end of the index range
+ Exceptions : Fasta file doesn't exist
+              Fasta file has no headers
+
+=cut
+
+sub fastq_range {
+  my ($self,$fastq_file,$batch_size) = @_;
+
+  my $batch_array = [];
+  unless(-e $fastq_file) {
+    $self->throw("You have selected to generate a fastq range, but the fasta file doesn't exist. Path specified:\n".$fastq_file);
+  }
+
+  my $seq_count = `wc -l $fastq_file`;
+  chomp($seq_count);
+  $seq_count = $seq_count / 4;
+
+  unless($seq_count > 0) {
+    $self->throw("You have selected to generate a fastq range, but the fastq file doesn't have any headers. Path specified:\n".$fastq_file);
+  }
+
+  my $start = 0;
+  my $end = $start + $batch_size - 1;
+
+  if($end > $seq_count - 1) {
+    $end = $seq_count - 1;
+  }
+
+  push(@$batch_array,[$start,$end]);
+  while($end + $batch_size + 1 < $seq_count) {
+    $start = $end + 1;
+    $end = $start + $batch_size - 1;
+    push(@$batch_array,[$start,$end]);
+  }
+
+  if($end < $seq_count - 1) {
+    $start = $end + 1;
+    $end = $seq_count - 1;
+    push(@$batch_array,[$start,$end]);
+  }
+
+  $self->param('inputlist', $self->_chunk_input_ids(1, $batch_array));
 }
 
 1;
