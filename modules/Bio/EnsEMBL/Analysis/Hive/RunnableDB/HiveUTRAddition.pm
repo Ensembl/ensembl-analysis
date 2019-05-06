@@ -1794,7 +1794,7 @@ sub filter_input_genes {
       if($standardise_biotypes) {
         foreach my $gene (@$donor_genes) {
           my $biotype = "";
-          if($dbname =~ /\_cdna\_/) {
+          if($dbname =~ /\_cdna\_/ || $dbname =~ /\_lrfinal\_/) {
             $biotype = "cdna";
           } elsif($dbname =~ /\_rnaseq\_/) {
             $biotype = "rnaseq";
