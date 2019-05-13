@@ -17,6 +17,9 @@ sub default_options {
 
 'production_name'        => '', # The production name, including any modifiers
 'faidx_genome_file'      => '', # UNMASKED genome.fa file, should also have a .fai file in sam dir
+'long_read_summary_file' => '', # The csv file should have sample_name\tfile_name
+'long_read_fastq_dir'    => '', # Dir where the fastq files are (or where they will get downloaded to if they don't already exist)
+
 'dbowner'                => '' || $ENV{USER},
 'release_number'         => '' || $ENV{ENSEMBL_RELEASE},
 'dna_db_server'          => '',
@@ -25,6 +28,7 @@ sub default_options {
 'pipe_db_port'           => '',
 'databases_server'       => '',
 'databases_port'         => '',
+
 'user_r'                 => 'ensro',
 'user'                   => '',
 'password'               => '',
@@ -37,8 +41,6 @@ sub default_options {
 'paftools_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/minimap2/misc/paftools.js',
 'minimap2_batch_size'    => '5000',
 'rnaseq_ftp_base'        => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
-'long_read_summary_file' => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/minimap2/chicken/long_read/long_read.csv',
-'long_read_fastq_dir'    => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/minimap2/chicken/long_read/input/',
 'long_read_columns'      => ['sample','filename'],
 'skip_long_read'         => 0,
 
