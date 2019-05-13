@@ -116,6 +116,8 @@ sub fetch_input {
         # Not sure it's the correct call but Core has a split_Slice method
         # so it's better to use it
         $self->split_slice($dba);
+      } elsif($iid_type eq 'stranded_slice') {
+        $self->create_stranded_slice_ids($dba);
       } elsif($iid_type eq 'rebatch_and_resize_slices') {
         $self->rebatch_and_resize_slices($dba);
       } elsif($iid_type eq 'patch_slice') {
@@ -146,9 +148,7 @@ sub fetch_input {
 
 sub create_slice_ids {
   my ($self, $dba) = @_;
-use Data::Dumper;
-use feature 'say';
-#say "slice size is ", $self->param('slice_size');
+
   if ($self->param('slice_size') < 0) {
     $self->throw('Slice size must be >= 0. Currently '.$self->param('slice_size'));
   }
@@ -214,6 +214,32 @@ say "slices from db are ", scalar(@inpt);
     $self->param('inputlist', \@input_ids);
   }
 
+}
+
+
+=head2 create_stranded_slice_ids
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Description: Create input ids based on slices, creates two sets, one for each strand
+              It stores the input ids in 'inputlist'
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub create_stranded_slice_ids {
+  my ($self,$dba) = @_;
+
+  $self->create_slice_ids($dba);
+  my @slice_names = @{$self->param('inputlist')};
+  my @stranded_slice_names = ();
+  foreach my $slice_name (@slice_names) {
+    push(@stranded_slice_names,$slice_name);
+    my $stranded_slice_name = $slice_name;
+    $stranded_slice_name =~ s/\:[^:]+$/\:-1/;
+    push(@stranded_slice_names,$stranded_slice_name);
+  }
+  $self->param('inputlist',\@stranded_slice_names);
 }
 
 =head2 create_chunk_ids

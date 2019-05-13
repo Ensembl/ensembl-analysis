@@ -5148,9 +5148,9 @@ sub pipeline_analyses {
       {
         -logic_name => 'create_long_read_dir',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -rc_name => '1GB',
+        -rc_name => 'default',
         -parameters => {
-          cmd => 'mkdir -p '.$self->o('long_read_fastq_dir'),
+          cmd => 'if [ ! -e "'.$self->o('long_read_fastq_dir').'" ]; then mkdir -p '.$self->o('long_read_fastq_dir').';fi',
         },
         -flow_into => {
           '1' => ['create_long_read_initial_db'],
@@ -5325,7 +5325,7 @@ sub pipeline_analyses {
           target_db        => $self->o('long_read_collapse_db'),
           feature_dbs => [$self->o('long_read_initial_db')],
           coord_system_name => 'toplevel',
-          iid_type => 'slice',
+          iid_type => 'stranded_slice',
           feature_constraint => 1,
           feature_type => 'gene',
           top_level => 1,
@@ -5334,22 +5334,24 @@ sub pipeline_analyses {
         -max_retry_count => 1,
         -flow_into => {
           '2->A' => ['split_lr_slices_on_intergenic'],
-          'A->1' => ['classify_long_read_models'],
+	  'A->1' => ['classify_long_read_models'],
         },
       },
+
 
       {
         -logic_name => 'split_lr_slices_on_intergenic',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFindIntergenicRegions',
         -parameters => {
-          dna_db => $self->o('dna_db'),
+	  dna_db => $self->o('dna_db'),
           input_gene_dbs => [$self->o('long_read_initial_db')],
           iid_type => 'slice',
+          use_strand => 1,
         },
         -batch_size => 100,
         -rc_name    => '5GB',
         -flow_into => {
-          2 => ['collapse_transcripts'],
+          2 => {'collapse_transcripts' => {'slice_strand' => '#slice_strand#','iid' => '#iid#'}},
         },
       },
 
@@ -5358,21 +5360,23 @@ sub pipeline_analyses {
         -logic_name => 'collapse_transcripts',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveTranscriptCoalescer',
         -parameters => {
-          target_db        => $self->o('long_read_collapse_db'),
+	  target_db        => $self->o('long_read_collapse_db'),
           dna_db        => $self->o('dna_db'),
           source_dbs        => [$self->o('long_read_initial_db')],
           biotypes => ["isoseq","cdna"],
         },
         -rc_name      => '5GB',
         -flow_into => {
-          1 => ['blast_long_read'],
-         -1 => ['collapse_transcripts_30GB'],
+           1 => ['blast_long_read'],
+          -1 => {'collapse_transcripts_20GB' => {'slice_strand' => '#slice_strand#','iid' => '#iid#'}},
         },
+        -batch_size => 100,
+        -analysis_capacity => 1000,
       },
 
 
       {
-        -logic_name => 'collapse_transcripts_30GB',
+        -logic_name => 'collapse_transcripts_20GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveTranscriptCoalescer',
         -parameters => {
           target_db        => $self->o('long_read_collapse_db'),
@@ -5380,12 +5384,15 @@ sub pipeline_analyses {
           source_dbs        => [$self->o('long_read_initial_db')],
           biotypes => ["isoseq","cdna"],
         },
-        -rc_name      => '30GB',
+        -rc_name      => '20GB',
         -flow_into => {
-           1 => ['blast_long_read'],
-          -1 => ['failed_collapse'],
+          1 => {'blast_long_read' => {'slice_strand' => '#slice_strand#','iid' => '#iid#'}},
+         -1 => {'failed_collapse' => {'slice_strand' => '#slice_strand#','iid' => '#iid#'}},
         },
+        -batch_size => 10,
+        -analysis_capacity => 1000,
       },
+
 
       {
         -logic_name => 'failed_collapse',
@@ -5399,7 +5406,7 @@ sub pipeline_analyses {
         },
         -rc_name      => '10GB',
         -flow_into => {
-          1 => ['blast_long_read'],
+          1 => {'blast_long_read' => {'slice_strand' => '#slice_strand#','iid' => '#iid#'}},
         },
       },
 
@@ -5458,7 +5465,23 @@ sub pipeline_analyses {
           intron_db => $self->o('rnaseq_refine_db'),
           dna_db => $self->o('dna_db'),
         },
-        -rc_name    => 'default',
+        -rc_name    => '2GB',
+        -flow_into => {
+          1 => ['intron_check_10GB'],
+        },
+      },
+
+
+      {
+        -logic_name => 'intron_check_10GB',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
+        -parameters => {
+          source_db => $self->o('long_read_blast_db'),
+          target_db => $self->o('long_read_final_db'),
+          intron_db => $self->o('rnaseq_refine_db'),
+          dna_db => $self->o('dna_db'),
+        },
+        -rc_name    => '10GB',
       },
 
 

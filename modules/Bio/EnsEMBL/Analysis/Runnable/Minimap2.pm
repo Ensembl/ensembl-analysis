@@ -100,9 +100,8 @@ sub new {
 sub run {
   my ($self) = @_;
 
-  my $file_name = $self->create_filename();
-  my $sam_file = $file_name.".sam";
-  my $bed_file = $file_name.".bed";
+  my $sam_file = $self->create_filename(undef,'sam');
+  my $bed_file = $self->create_filename(undef,'bed');;
   $self->files_to_delete($sam_file);
   $self->files_to_delete($bed_file);
 
@@ -120,7 +119,7 @@ sub run {
   }
 
   # run minimap2
-  my $minimap2_command = $self->program." --cs -N 1 -ax splice -uf -C5 ".$genome_index." ".$input_file." > ".$sam_file;
+  my $minimap2_command = $self->program." --cs -N 1 -ax splice:hq -u b ".$genome_index." ".$input_file." > ".$sam_file;
   $self->warning("Command:\n".$minimap2_command."\n");
   if(system($minimap2_command)) {
     $self->throw("Error running minimap2\nError code: $?\n");
@@ -181,8 +180,6 @@ sub parse_sam {
       $self->throw("CS column not parsed successfully. Line contents:\n".$line);
     }
 
-    say "FERGAL DEBUG CS: ".$cs;
-
     my $mismatch_count = () = $cs =~ /\*/gi;
     my $match_count = 0;
     while($cs =~ s/\:(\d+)//) {
@@ -190,10 +187,6 @@ sub parse_sam {
     }
 
     my $aligned_count = ($match_count + $mismatch_count);
-
-    say "FERGAL DEBUG MATCH COUNT: ".$match_count;
-    say "FERGAL DEBUG MISMATCH COUNT: ".$mismatch_count;
-    say "FERGAL DEBUG ALIGNED COUNT: ".$aligned_count;
 
     my $percent_identity = 100 * ($match_count / $aligned_count);
     $percent_identity = sprintf("%.2f",$percent_identity);

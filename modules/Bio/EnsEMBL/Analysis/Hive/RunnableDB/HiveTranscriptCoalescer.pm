@@ -107,7 +107,11 @@ sub fetch_input {
     my $slice = $self->fetch_sequence($self->input_id, $db);
     if ($self->get_biotypes and scalar(@{$self->get_biotypes})) {
       foreach my $biotype (@{$self->get_biotypes}) {
-        foreach my $gene (@{$slice->get_all_Genes_by_type($biotype, $logic_name, 1)}) {
+#        foreach my $gene (@{$slice->get_all_Genes_by_type($biotype, $logic_name, 1)}) {
+        foreach my $gene (@{$slice->get_all_Genes_by_type($biotype, $logic_name)}) {
+          if($self->param('slice_strand') && $self->param('slice_strand') != $gene->strand) {
+            next;
+	  }
 #          foreach my $transcript (@{$gene->get_all_Transcripts}) {
 #            $transcript->load;
 #          }
@@ -116,7 +120,11 @@ sub fetch_input {
       }
     }
     else {
-      foreach my $gene ($slice->get_all_Genes($logic_name, undef, 1)) {
+#      foreach my $gene ($slice->get_all_Genes($logic_name, undef, 1)) {
+      foreach my $gene ($slice->get_all_Genes($logic_name)) {
+        if($self->param('slice_strand') && $self->param('slice_strand') != $gene->strand) {
+          next;
+	}
 #        foreach my $transcript (@{$gene->get_all_Transcripts}) {
 #          $transcript->load;
 #        }
@@ -521,6 +529,9 @@ sub run {
           $new_gene->{processed} = $gene->{processed} if (exists $gene->{processed});
           $new_gene->add_Transcript($new_transcript);
           $new_gene->biotype($new_transcript->biotype);
+          $new_gene->stable_id($gene->stable_id);
+          $new_gene->description($gene->description);
+          $new_gene->version($gene->version);
           push(@splice_site_difference, $new_gene);
         }
       }

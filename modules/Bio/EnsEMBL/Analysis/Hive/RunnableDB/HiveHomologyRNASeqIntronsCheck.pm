@@ -58,6 +58,7 @@ sub param_defaults {
     classify_medium => 4,
     classify_high => 6,
     classify_top => 8,
+    slice_strand => 0,
   }
 }
 
@@ -105,15 +106,27 @@ sub fetch_input {
   if ($self->param_is_defined('source_logic_name')) {
     if (ref($self->param('source_logic_name')) eq 'ARRAY') {
       foreach my $logic_name (@{$self->param('source_logic_name')}) {
-        push(@$genes, @{$slice->get_all_Genes($logic_name, undef, 1)});
+        push(@$genes, @{$slice->get_all_Genes($logic_name)});
       }
     }
     else {
-      $genes = $slice->get_all_Genes($self->param('source_logic_name'), undef, 1);
+      $genes = $slice->get_all_Genes($self->param('source_logic_name'));
     }
   }
   else {
-    $genes = $slice->get_all_Genes(undef, undef, 1);
+    $genes = $slice->get_all_Genes();
+  }
+
+  # If we have the slice_strand param set then we want to filter the genes based on the strand
+  if($self->param('slice_strand')) {
+    my $initial_genes = $genes;
+    $genes = [];
+    foreach my $gene (@{$initial_genes}) {
+      unless($self->param('slice_strand') == $gene->strand) {
+        next;
+      }
+      push(@$genes,$gene);
+    }
   }
 
   print STDERR 'Fetched ', scalar(@$genes), "\n";
