@@ -533,5 +533,26 @@ sub _verbose {
 }
 
 
+
+=head2 write_to_file
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter, specifies that you want BaseExonerate to write the output to a file and not pipe directly into a filehandle
+              This is important for using a timer, since a timer doesn't seem to work with a filehandle pipe
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
+sub write_to_file {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_write_to_file'} = $value;
+  }
+
+  return($self->{'_write_to_file'});
+}
+
 1;
 
