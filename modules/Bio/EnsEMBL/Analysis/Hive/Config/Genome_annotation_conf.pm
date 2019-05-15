@@ -5182,10 +5182,24 @@ sub pipeline_analyses {
                  ' -d '.$self->o('minimap2_genome_index').' '.$self->o('faidx_genome_file').';fi',
         },
         -flow_into  => {
+          1 => ['check_index_not_empty'],
+	},
+        -rc_name => '20GB',
+      },
+
+
+      {
+        -logic_name => 'check_index_not_empty',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'if [ -s "'.$self->o('minimap2_genome_index').'" ]; then exit 0; else exit 42;fi',
+                         return_codes_2_branches => {'42' => 2},
+	},
+        -flow_into  => {
          '1->A' => ['create_lr_fastq_download_jobs'],
          'A->1' => ['create_collapse_db'],
         },
-        -rc_name => '20GB',
+        -rc_name => 'default',
       },
 
 
