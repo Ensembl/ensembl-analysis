@@ -226,22 +226,15 @@ sub for_csv_output {
     $line =~ s/[()]//g;
 
     my @columns = split /\t/, $line;
-    #replace the centre name with 'ENA'
-    unless($line =~ s/\t$columns[7]\t/\tENA\t/) {
-      $self->throw("Failed to update the original centre name in the csv (".$columns[7].") to ENA");
-    }
-    #replace the long description with the project and sample ids
+    $columns[7] = "ENA";
+
     my @desc_parts = split / /, $columns[-1];
-    my $old_desc = $columns[-1];
-    chomp $old_desc;
     my $new_desc = $desc_parts[0]." ".$desc_parts[1];
     chomp $new_desc;
+    $columns[-1] = $new_desc;
 
-    unless($line =~ s/$old_desc/$new_desc/) {
-      $self->throw("Failed to update the original description in the csv to shortened description ");
-    }
-
-    push(@{$self->param('_for_csv_output')},$line);
+    my $new_line = join("\t",@columns);
+    push(@{$self->param('_for_csv_output')},$new_line);
   }
 
   return($self->param('_for_csv_output'));
