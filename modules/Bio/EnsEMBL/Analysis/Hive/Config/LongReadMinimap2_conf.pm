@@ -37,8 +37,8 @@ sub default_options {
 # Shouldn't need to set these
 'minimap2_genome_index'  => $self->o('faidx_genome_file').'.mmi',
 'use_genome_flatfile'    => 1,
-'minimap2_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/minimap2/minimap2',
-'paftools_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/minimap2/misc/paftools.js',
+'minimap2_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/minimap2',
+'paftools_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/misc/paftools.js',
 'minimap2_batch_size'    => '5000',
 'rnaseq_ftp_base'        => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
 'long_read_columns'      => ['sample','filename'],
