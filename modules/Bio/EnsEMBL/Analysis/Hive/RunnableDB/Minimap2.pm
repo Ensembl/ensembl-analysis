@@ -167,7 +167,7 @@ sub create_input_file {
 
   my $output_file = $self->create_filename();
   open(OUT,">".$output_file);
-  my $seq_count = `wc -l $input_file`;
+  my $seq_count = `wc -l $input_file | awk '{print \$1}'`;
   chomp($seq_count);
   $seq_count = $seq_count / 4;
 

@@ -134,6 +134,11 @@ sub decompress {
 sub create_faidx {
   my ($self,$path,$fastq) = @_;
 
+  if(-e $path.'/'.$fastq.'.fai') {
+    self->warning("You selected faidx, but the faidx exists, so will not try and create");
+    return;
+  }
+
   my $cmd = $self->param_required('samtools_path').' faidx '.$path.'/'.$fastq;
   my $faidx_res = system($cmd);
   if($faidx_res) {
