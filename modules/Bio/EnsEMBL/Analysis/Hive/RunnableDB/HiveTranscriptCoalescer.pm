@@ -39,6 +39,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveTranscriptCoalescer;
 
 use strict;
 use warnings;
+use feature 'say';
 
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::Transcript;
@@ -80,6 +81,9 @@ sub param_defaults {
     max_intron_wobble => 15,
     max_exon_wobble => 5,
     copy_only => 0,
+    reduce_large_clusters => 0,
+    reduce_gene_limit => 2000,
+    reduce_min_window_size => 25000,
   }
 }
 
@@ -101,45 +105,45 @@ sub fetch_input {
   my $dna_db = $self->get_database_by_name('dna_db');
   $self->hrdb_set_con($self->hrdb_get_dba($self->param_required('target_db'), $dna_db), 'target_db');
   my $logic_name = $self->param('source_logic_name');
-  my @genes;
+  my $genes;
   foreach my $input_db (@{$self->input_dbs}) {
     my $db = $self->hrdb_get_dba($input_db, $dna_db);
     my $slice = $self->fetch_sequence($self->input_id, $db);
     if ($self->get_biotypes and scalar(@{$self->get_biotypes})) {
       foreach my $biotype (@{$self->get_biotypes}) {
-#        foreach my $gene (@{$slice->get_all_Genes_by_type($biotype, $logic_name, 1)}) {
         foreach my $gene (@{$slice->get_all_Genes_by_type($biotype, $logic_name)}) {
           if($self->param('slice_strand') && $self->param('slice_strand') != $gene->strand) {
             next;
 	  }
-#          foreach my $transcript (@{$gene->get_all_Transcripts}) {
-#            $transcript->load;
-#          }
-          push(@genes, $gene);
+          push(@$genes, $gene);
         }
       }
     }
     else {
-#      foreach my $gene ($slice->get_all_Genes($logic_name, undef, 1)) {
       foreach my $gene ($slice->get_all_Genes($logic_name)) {
         if($self->param('slice_strand') && $self->param('slice_strand') != $gene->strand) {
           next;
 	}
-#        foreach my $transcript (@{$gene->get_all_Transcripts}) {
-#          $transcript->load;
-#        }
-        push(@genes, $gene);
+        push(@$genes, $gene);
       }
     }
   }
-  if (scalar(@genes)) {
-    print scalar(@genes), " genes to process\n";
-    $self->param('genes', \@genes);
+  if (scalar(@$genes)) {
+    print scalar(@$genes), " genes to process\n";
   }
+
   else {
     $self->input_job->autoflow(0);
     $self->complete_early('No genes to process');
   }
+
+  if($self->param('reduce_large_clusters') && scalar(@$genes) > $self->param('reduce_gene_limit')) {
+    say "Reducing genes as reduce_large_clusters flag is set and the gene limit is ".$self->param('reduce_gene_limit');
+    $genes = $self->reduce_genes($genes,$self->param('iid'));
+    say "Reduced genes count: ".scalar(@$genes);
+  }
+
+  $self->param('genes', $genes);
 }
 
 sub process_genes {
@@ -867,6 +871,161 @@ sub get_hashtypes {
   my ($self) = @_;
 
   return {good => $self->get_biotypes};
+}
+
+
+sub reduce_genes {
+  my ($self,$initial_genes,$slice_name) = @_;
+
+  # NOTE: this assumes one input gene db as it uses dbIDs heavily and that genes have only one transcript
+  my $reduced_genes = [];
+  my $total_gene_limit = $self->param('reduce_gene_limit');
+  my $window_size = $self->param('reduce_min_window_size');
+
+  # First make sure the genes in each bin are unique
+  say "Finding unique genes";
+  my $gene_strings = {};
+  my $unique_genes = [];
+  foreach my $gene (@$initial_genes) {
+    my $gene_string = $self->generate_gene_string($gene);
+    if($gene_strings->{$gene_string}) {
+      next;
+    } else {
+      $gene_strings->{$gene_string} = $gene->dbID;
+      push(@$unique_genes,$gene);
+    }
+  }
+  say "Total unique genes found: ".scalar(@$unique_genes);
+
+  unless($slice_name =~ /^[^:]+\:[^:]+\:[^:]+\:([^:]+)\:([^:]+)\:[^:]+$/) {
+    $self->throw("Malformed slice name, could not parse. Name: ".$slice_name);
+  }
+
+  my $slice_start = $1;
+  my $slice_end = $2;
+
+  my $gene_bins = [];
+  my $gene_bin_index = 0;
+  for(my $i=$slice_start; $i<$slice_end; $i+=($window_size+1)) {
+    unless(${$gene_bins}[$gene_bin_index]) {
+      ${$gene_bins}[$gene_bin_index] = [];
+    }
+
+    foreach my $gene (@$unique_genes) {
+      if($gene->seq_region_end >= $i && $gene->seq_region_end <= $i+$window_size) {
+        push(@{${$gene_bins}[$gene_bin_index]},$gene);
+      }
+    }
+    $gene_bin_index++;
+  }
+
+  my $avg_max_per_bin = int($total_gene_limit / scalar(@{$gene_bins}));
+  my $carry_over = 0;
+  my $processed_genes = {};
+  say "Total gene bins created: ".scalar(@{$gene_bins});
+  say "Allowed max genes per bin (excluding carry over between bins): ".$avg_max_per_bin;
+  for(my $i=0; $i<scalar(@{$gene_bins}); $i++) {
+    my $gene_bin = ${$gene_bins}[$i];
+    say "Processing gene bin, size: ".scalar(@$gene_bin);
+    # Check if the bin is smaller than the amount allowed per bin
+    my $gene_count = scalar(@$gene_bin);
+    if($gene_count <= ($avg_max_per_bin + $carry_over)) {
+      say "Gene count (including carry over) < allowed max genes. Adding entire bin. Gene count: ".$gene_count;
+      foreach my $gene (@$gene_bin) {
+        if($processed_genes->{$gene->dbID}) {
+          $gene_count--;
+          next;
+	} else {
+          $processed_genes->{$gene->dbID} = 1;
+	}
+        push(@$reduced_genes,$gene);
+      }
+      $carry_over = $carry_over + ($avg_max_per_bin - $gene_count);
+      # Just in case...
+      if($carry_over < 0) {
+        $carry_over = 0
+      }
+      next;
+    }
+
+    # At this point we have too many genes in the bin and need to figure out what to remove
+    # We want to sort them based on both begin unique and having the longest ORFs and most splicing complexity
+    # Should basically take 50 percent longest ORF and 50 percent most splicing complexity (accounting for overlap
+    # between the two sets)
+    my $total_genes_added = 0;
+    my $genes_ranked_orf = {};
+    my $genes_ranked_exons = {};
+    my $genes_dbIDs = {};
+
+    say "Gene bin was bigger than the max allowed size. Processing bin, size: ".scalar(@$gene_bin);
+    foreach my $gene (@$gene_bin) {
+      my $transcript = ${$gene->get_all_Transcripts}[0];
+      if($transcript->translation) {
+        $genes_ranked_orf->{$gene->dbID} = $transcript->translation->length;
+      } else {
+        $genes_ranked_orf->{$gene->dbID} = 0;
+      }
+
+      # This is techincally a number larger than the number of exons, but it's consistent for ranking purposes
+      $genes_ranked_exons->{$gene->dbID} = scalar(split(':',$self->generate_gene_string($gene)));
+
+      # This hash will just make it easier to fetch the genes we want later via the dbID
+      $genes_dbIDs->{$gene->dbID} = $gene;
+    }
+    say "Finished sorting genes based on ORFs and exons";
+
+    # This will be the max allowed per set. Will first fill on the orf then on the exons
+    my $max_per_set = int(($avg_max_per_bin+$carry_over)/2);
+    my $total_orf_added = 0;
+    my $total_exon_added = 0;
+
+    my @sorted_orf_ids = sort {$genes_ranked_orf->{$b} <=> $genes_ranked_orf->{$a}} keys(%$genes_ranked_orf);
+    my @sorted_exon_ids = sort {$genes_ranked_orf->{$b} <=> $genes_ranked_orf->{$a}} keys(%$genes_ranked_orf);
+
+    say "Adding genes based on ORF length";
+    for(my $i=0; $i<scalar(@sorted_orf_ids) && $total_orf_added <= $max_per_set; $i++) {
+      my $gene_id = $sorted_orf_ids[$i];
+      if($processed_genes->{$gene_id}) {
+        next;
+      }
+      push(@$reduced_genes,$genes_dbIDs->{$gene_id});
+      $total_orf_added++;
+    }
+    say "Total genes added based on ORF length: ".$total_orf_added;
+
+    say "Adding genes based on exon count";
+    for(my $i=0; $i<scalar(@sorted_exon_ids) && $total_exon_added <= $max_per_set; $i++) {
+      my $gene_id = $sorted_exon_ids[$i];
+      if($processed_genes->{$gene_id}) {
+        next;
+      }
+      push(@$reduced_genes,$genes_dbIDs->{$gene_id});
+      $total_exon_added++;
+    }
+    say "Total genes added based on exon count: ".$total_exon_added;
+
+    my $total_added = $total_orf_added + $total_exon_added;
+    $carry_over = $carry_over + ($avg_max_per_bin - $total_added);
+    # Just in case...
+    if($carry_over < 0) {
+      $carry_over = 0
+    }
+    say "Combined total: ".$total_added;
+  } # end for(my $i=0; $i<scalar(@{$gene_bins});
+  return($reduced_genes);
+}
+
+
+sub generate_gene_string {
+  my ($self,$gene) = @_;
+
+  my $gene_string = $gene->seq_region_name.":".$gene->strand.":";
+  my $exons = $gene->get_all_Exons();
+  foreach my $exon (@$exons) {
+    $gene_string .= $exon->start.":".$exon->end;
+  }
+
+  return($gene_string);
 }
 
 1;

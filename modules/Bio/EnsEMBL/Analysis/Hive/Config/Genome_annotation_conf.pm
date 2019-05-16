@@ -1067,6 +1067,7 @@ sub pipeline_wide_parameters {
     skip_projection => $self->o('skip_projection'),
     skip_rnaseq => $self->o('skip_rnaseq'),
     skip_ncrna => $self->o('skip_ncrna'),
+    skip_long_read => $self->o('skip_long_read'),
     load_toplevel_only => $self->o('load_toplevel_only'),
     wide_repeat_logic_names => $self->o('use_repeatmodeler_to_mask') ? [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'] :
                                                                                        [$self->o('full_repbase_logic_name'),'dust'],
@@ -3795,7 +3796,7 @@ sub pipeline_analyses {
         -rc_name    => 'default',
         -flow_into => {
           '1->A' => ['fan_rnaseq_for_layer_db'],
-          'A->1' => ['create_long_read_db'],
+          'A->1' => ['create_long_read_final_db'],
         },
       },
 
@@ -4658,6 +4659,7 @@ sub pipeline_analyses {
         },
       },
 
+
       {
         -logic_name => 'create_gene_id_input_ids',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
@@ -4674,6 +4676,8 @@ sub pipeline_analyses {
           2 => {'blast_rnaseq' => {iid => '#iid#', logic_name => '#logic_name#'}},
         },
       },
+
+
       {
         -logic_name => 'blast_rnaseq',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
@@ -5116,11 +5120,11 @@ sub pipeline_analyses {
 
 
       {
-        -logic_name => 'create_long_read_db',
+        -logic_name => 'create_long_read_final_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
           source_db   => $self->o('dna_db'),
-          target_db   => $self->o('projection_coding_db'),
+          target_db   => $self->o('long_read_final_db'),
           create_type => 'clone',
         },
         -rc_name    => 'default',
@@ -5311,22 +5315,6 @@ sub pipeline_analyses {
         -rc_name => 'default',
         -max_retry_count => 0,
         -flow_into => {
-          1 => ['create_long_read_final_db'],
-        }
-      },
-
-
-      {
-        -logic_name => 'create_long_read_final_db',
-        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-          source_db => $self->o('dna_db'),
-          target_db => $self->o('long_read_final_db'),
-          create_type => 'clone',
-        },
-        -rc_name => 'default',
-        -max_retry_count => 0,
-        -flow_into => {
           1 => ['generate_collapse_jobs'],
         }
       },
@@ -5378,6 +5366,7 @@ sub pipeline_analyses {
           dna_db        => $self->o('dna_db'),
           source_dbs        => [$self->o('long_read_initial_db')],
           biotypes => ["isoseq","cdna"],
+          reduce_large_clusters => 1,
         },
         -rc_name      => '5GB',
         -flow_into => {
@@ -5397,6 +5386,7 @@ sub pipeline_analyses {
           dna_db        => $self->o('dna_db'),
           source_dbs        => [$self->o('long_read_initial_db')],
           biotypes => ["isoseq","cdna"],
+          reduce_large_clusters => 1,
         },
         -rc_name      => '20GB',
         -flow_into => {

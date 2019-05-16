@@ -174,23 +174,39 @@ sub pipeline_analyses {
       },
 
 
+
+
       {
         -logic_name => 'create_minimap2_index',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'if [ ! -e "'.$self->o('minimap2_genome_index').'" ]; then '.$self->o('minimap2_path').' -d '.$self->o('minimap2_genome_index').' '.$self->o('faidx_genome_file').';fi',
+          cmd => 'if [ ! -e "'.$self->o('minimap2_genome_index').'" ]; then '.$self->o('minimap2_path').
+                 ' -d '.$self->o('minimap2_genome_index').' '.$self->o('faidx_genome_file').';fi',
         },
-
         -flow_into  => {
-         '1->A' => ['create_fastq_download_jobs'],
-         'A->1' => ['create_collapse_db'],
+          1 => ['check_index_not_empty'],
         },
         -rc_name => '20GB',
       },
 
 
       {
-        -logic_name => 'create_fastq_download_jobs',
+        -logic_name => 'check_index_not_empty',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'if [ -s "'.$self->o('minimap2_genome_index').'" ]; then exit 0; else exit 42;fi',
+                         return_codes_2_branches => {'42' => 2},
+        },
+        -flow_into  => {
+         '1->A' => ['create_lr_fastq_download_jobs'],
+         'A->1' => ['create_collapse_db'],
+        },
+        -rc_name => 'default',
+      },
+
+
+      {
+        -logic_name => 'create_lr_fastq_download_jobs',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
         -parameters => {
           inputfile    => $self->o('long_read_summary_file'),
@@ -199,7 +215,6 @@ sub pipeline_analyses {
         },
         -flow_into => {
           2 => {'download_long_read_fastq' => {'iid' => '#filename#'}},
-#          2 => {'download_long_read_fastq' => {'iid' => '#filename#','fastq_file' => '#filename#'}},
         },
       },
 
@@ -317,7 +332,7 @@ sub pipeline_analyses {
       }
     },
 
-	  {
+   {
       -logic_name => 'generate_collapse_jobs',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
       -parameters => {
@@ -353,37 +368,44 @@ sub pipeline_analyses {
       },
     },
 
-	  {
+
+    {
       -logic_name => 'collapse_transcripts',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveTranscriptCoalescer',
       -parameters => {
-        target_db        => $self->o('long_read_collapse_db'),
-        dna_db        => $self->o('dna_db'),
-        source_dbs        => [$self->o('long_read_initial_db')],
-        biotypes => ["isoseq","cdna"],
+		       target_db        => $self->o('long_read_collapse_db'),
+	               dna_db        => $self->o('dna_db'),
+                       source_dbs        => [$self->o('long_read_initial_db')],
+		       biotypes => ["isoseq","cdna"],
+		       reduce_large_clusters => 1,
       },
       -rc_name      => '5GB',
       -flow_into => {
-        1 => ['blast_long_read'],
-        -1 => {'collapse_transcripts_30GB' => {'slice_strand' => '#slice_strand#','iid' => '#iid#'}},
+         1 => ['blast_long_read'],
+        -1 => {'collapse_transcripts_20GB' => {'slice_strand' => '#slice_strand#','iid' => '#iid#'}},
       },
+      -batch_size => 100,
+      -analysis_capacity => 1000,
     },
 
 
     {
-      -logic_name => 'collapse_transcripts_30GB',
+      -logic_name => 'collapse_transcripts_20GB',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveTranscriptCoalescer',
       -parameters => {
         target_db        => $self->o('long_read_collapse_db'),
         dna_db        => $self->o('dna_db'),
         source_dbs        => [$self->o('long_read_initial_db')],
         biotypes => ["isoseq","cdna"],
+        reduce_large_clusters => 1,
       },
-      -rc_name      => '30GB',
+      -rc_name      => '20GB',
       -flow_into => {
-         1 => ['blast_long_read'],
-        -1 => {'failed_collapse' => {'slice_strand' => '#slice_strand#','iid' => '#iid#'}},
+        1 => {'blast_long_read' => {'slice_strand' => '#slice_strand#','iid' => '#iid#'}},
+       -1 => {'failed_collapse' => {'slice_strand' => '#slice_strand#','iid' => '#iid#'}},
       },
+      -batch_size => 10,
+      -analysis_capacity => 1000,
     },
 
 
