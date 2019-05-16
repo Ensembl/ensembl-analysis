@@ -320,9 +320,9 @@ sub create_exon {
                                      -analysis  => $self->analysis,
                                      -slice     => $slice);
 
-#  if($exon_start > $exon_end) {
-#    $self->throw("FERGAL EXON S > E: ".$slice->name." ".$exon->start."..".$exon->end." ".$strand);
-#  }
+  if($exon_start > $exon_end) {
+    $self->throw("Created an exon where the start > than the end, this shouldn't be possible: ".$slice->name." ".$exon->start."..".$exon->end." ".$strand);
+  }
 #  say "Created exon: ".$slice->name." (".$exon_start."..".$exon_end.":".$strand.")";
   return($exon);
 }
