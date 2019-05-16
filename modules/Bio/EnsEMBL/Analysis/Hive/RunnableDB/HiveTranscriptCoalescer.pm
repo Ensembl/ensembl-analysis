@@ -84,6 +84,7 @@ sub param_defaults {
     reduce_large_clusters => 0,
     reduce_gene_limit => 2000,
     reduce_min_window_size => 25000,
+    filter_overlapping_genes => 1,
   }
 }
 
@@ -140,7 +141,13 @@ sub fetch_input {
   if($self->param('reduce_large_clusters') && scalar(@$genes) > $self->param('reduce_gene_limit')) {
     say "Reducing genes as reduce_large_clusters flag is set and the gene limit is ".$self->param('reduce_gene_limit');
     $genes = $self->reduce_genes($genes,$self->param('iid'));
-    say "Reduced genes count: ".scalar(@$genes);
+    say "Reduced gene count: ".scalar(@$genes);
+  }
+
+  if($self->param('filter_overlapping_genes')) {
+    say "Filtering for small/single exon genes that overlap mutli exon ones";
+    $genes = $self->filter_overlapping_genes($genes);
+    say "Filtered gene count: ".scalar(@$genes);
   }
 
   $self->param('genes', $genes);
@@ -1015,6 +1022,69 @@ sub reduce_genes {
   return($reduced_genes);
 }
 
+
+sub filter_overlapping_genes {
+  my ($self,$initial_genes) = @_;
+
+  my $filtered_genes = [];
+  my $removal_index = {};
+  foreach my $gene (@$initial_genes) {
+    unless(scalar(@{$gene->get_all_Exons}) == 1) {
+      push(@$filtered_genes,$gene);
+      next;
+    }
+
+    my $overlapping_genes = $gene->get_overlapping_Genes;
+    unless(scalar(@$overlapping_genes)) {
+      push(@$filtered_genes,$gene);
+      next;
+    } else {
+      say "Found ".scalar(@$overlapping_genes)." overlapping genes";
+    }
+
+    my $flag_removal = 0;
+    foreach my $overlapping_gene (@$overlapping_genes) {
+      if($removal_index->{$overlapping_gene->dbID}) {
+        next;
+      }
+      my $exon_count = scalar(@{$overlapping_gene->get_all_Exons});
+      say "Overlapping model exon count: ".$exon_count;
+      unless($exon_count > 2) {
+        next;
+      }
+
+      if($gene->strand == $overlapping_gene->strand) {
+        say "Found an overlapping model on same strand with ".$exon_count." exons";
+        $flag_removal = 2;
+        last;
+      } else {
+        say "Found an overlapping model on opposite strand with ".$exon_count." exons";
+        $flag_removal = 1;
+      }
+    }
+
+    if($flag_removal == 2) {
+      $removal_index->{$gene->dbID} = 1;
+      next;
+    } elsif($flag_removal == 1) {
+      my $transcript = ${$gene->get_all_Transcripts()}[0];
+      unless($transcript->translation) {
+        $removal_index->{$gene->dbID} = 1;
+        next;
+      }
+
+      if($transcript->translation->length > 300) {
+        push(@$filtered_genes,$gene);
+      } else {
+        $removal_index->{$gene->dbID} = 1;
+        next;
+      }
+    } else {
+      push(@$filtered_genes,$gene);
+    }
+  }
+  return($filtered_genes);
+}
 
 sub generate_gene_string {
   my ($self,$gene) = @_;

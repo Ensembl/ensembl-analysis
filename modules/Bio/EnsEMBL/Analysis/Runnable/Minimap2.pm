@@ -59,6 +59,7 @@ use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Exon;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(is_canonical_splice);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
@@ -224,8 +225,10 @@ sub parse_results {
 
 # 13  0   84793   ENST00000380152.7   1000    +   0   84793   0,128,255   27  194,106,249,109,50,41,115,50,112,1116,4932,96,70,428,182,188,171,355,156,145,122,199,164,139,245,147,2105,  0,948,3603,9602,10627,10768,11025,13969,15445,16798,20791,29084,31353,39387,40954,42268,47049,47705,54928,55482,61196,63843,64276,64533,79215,81424,82688,
 
-  my $percent_id_cutoff = 98;
+  my $percent_id_cutoff = 95;
   my $coverage_cutoff = 95;
+  my $canonical_intron_cutoff = 0.8;
+  my $filter_single_exons = 1;
 
   say "Parsing minimap2 output";
   my $dba = $self->database_adaptor();
@@ -298,9 +301,25 @@ sub parse_results {
     $coverage = int($coverage);
     $gene->version($coverage);
     $gene->description($percent_identity);
-    unless($self->filter_gene($gene)) {
-      push(@$genes,$gene);
+
+    my $transcript = ${$gene->get_all_Transcripts}[0];
+    my $introns = $transcript->get_all_Introns;
+    my $intron_count = scalar(@$introns);
+    if($intron_count) {
+      my $canonical_count = 0;
+      foreach my $intron (@$introns) {
+        my ($is_canonical,$donor,$acceptor) = is_canonical_splice($intron,$slice_adaptor,$slice);
+        if($is_canonical) {
+          $canonical_count++;
+	}
+      }
+
+      # If it fails the canonical cutoff then we skip this gene
+      unless($canonical_count/$intron_count >= $canonical_intron_cutoff) {
+        next;
+      }
     }
+    push(@$genes,$gene);
   }
   close IN;
 
@@ -335,10 +354,6 @@ sub create_gene {
                                                  -slice    => $slice,
                                                  -analysis => $self->analysis);
 
-#  if($transcript->start > $transcript->end) {
-#    $self->throw("FERGAL TRANSCRIPT S > E: ".$slice->name." ".$transcript->start."..".$transcript->end." ".$transcript->strand);
-#  }
-
   compute_translation($transcript);
   my $gene = Bio::EnsEMBL::Gene->new(-slice    => $slice,
                                      -analysis => $self->analysis);
@@ -351,12 +366,6 @@ sub create_gene {
   $gene->add_Transcript($transcript);
 
   return($gene);
-}
-
-
-sub filter_gene {
-  my ($self) = @_;
-  return(0);
 }
 
 
