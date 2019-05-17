@@ -135,7 +135,7 @@ sub create_faidx {
   my ($self,$path,$fastq) = @_;
 
   if(-e $path.'/'.$fastq.'.fai') {
-    self->warning("You selected faidx, but the faidx exists, so will not try and create");
+    $self->warning("You selected faidx, but the faidx exists, so will not try and create");
     return;
   }
 
