@@ -56,7 +56,7 @@ sub default_options {
 
 'enscode_root_dir'      => '' || $ENV{ENSCODE_DIR}, # git repo checkouts
 
-'pipeline_name'         => '' || $self->o('production_name').'_'.$self->o('ensembl_release').'_lrminimap2',
+'pipeline_name'         => '' || $self->o('production_name').'_'.$self->o('release_number').'_lrminimap2',
 
 'binary_base'           => '/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/bin',
 'clone_db_script_path'  => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'clone_database.ksh'),
