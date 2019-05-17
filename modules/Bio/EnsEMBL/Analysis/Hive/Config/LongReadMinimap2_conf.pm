@@ -479,7 +479,23 @@ sub pipeline_analyses {
         intron_db => $self->o('refine_db'),
         dna_db => $self->o('dna_db'),
       },
-      -rc_name    => 'default',
+      -rc_name    => '2GB',
+      -flow_into => {
+        1 => ['intron_check_10GB'],
+      },
+    },
+
+
+    {
+      -logic_name => 'intron_check_10GB',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
+      -parameters => {
+        source_db => $self->o('long_read_blast_db'),
+        target_db => $self->o('long_read_final_db'),
+        intron_db => $self->o('refine_db'),
+        dna_db => $self->o('dna_db'),
+      },
+      -rc_name    => '10GB',
     },
 
 
