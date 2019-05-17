@@ -39,6 +39,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveTranscriptCoalescer;
 
 use strict;
 use warnings;
+use feature 'say';
 
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::Transcript;
@@ -79,6 +80,11 @@ sub param_defaults {
     max_overlength => 20, # Random value might be around 20
     max_intron_wobble => 15,
     max_exon_wobble => 5,
+    copy_only => 0,
+    reduce_large_clusters => 0,
+    reduce_gene_limit => 2000,
+    reduce_min_window_size => 25000,
+    filter_overlapping_genes => 1,
   }
 }
 
@@ -100,37 +106,51 @@ sub fetch_input {
   my $dna_db = $self->get_database_by_name('dna_db');
   $self->hrdb_set_con($self->hrdb_get_dba($self->param_required('target_db'), $dna_db), 'target_db');
   my $logic_name = $self->param('source_logic_name');
-  my @genes;
+  my $genes;
   foreach my $input_db (@{$self->input_dbs}) {
     my $db = $self->hrdb_get_dba($input_db, $dna_db);
     my $slice = $self->fetch_sequence($self->input_id, $db);
     if ($self->get_biotypes and scalar(@{$self->get_biotypes})) {
       foreach my $biotype (@{$self->get_biotypes}) {
-        foreach my $gene (@{$slice->get_all_Genes_by_type($biotype, $logic_name, 1)}) {
-          foreach my $transcript (@{$gene->get_all_Transcripts}) {
-            $transcript->load;
-          }
-          push(@genes, $gene);
+        foreach my $gene (@{$slice->get_all_Genes_by_type($biotype, $logic_name)}) {
+          if($self->param('slice_strand') && $self->param('slice_strand') != $gene->strand) {
+            next;
+	  }
+          push(@$genes, $gene);
         }
       }
     }
     else {
-      foreach my $gene ($slice->get_all_Genes($logic_name, undef, 1)) {
-        foreach my $transcript (@{$gene->get_all_Transcripts}) {
-          $transcript->load;
-        }
-        push(@genes, $gene);
+      foreach my $gene ($slice->get_all_Genes($logic_name)) {
+        if($self->param('slice_strand') && $self->param('slice_strand') != $gene->strand) {
+          next;
+	}
+        push(@$genes, $gene);
       }
     }
   }
-  if (scalar(@genes)) {
-    print scalar(@genes), " genes to process\n";
-    $self->param('genes', \@genes);
+  if (scalar(@$genes)) {
+    print scalar(@$genes), " genes to process\n";
   }
+
   else {
     $self->input_job->autoflow(0);
     $self->complete_early('No genes to process');
   }
+
+  if($self->param('reduce_large_clusters') && scalar(@$genes) > $self->param('reduce_gene_limit')) {
+    say "Reducing genes as reduce_large_clusters flag is set and the gene limit is ".$self->param('reduce_gene_limit');
+    $genes = $self->reduce_genes($genes,$self->param('iid'));
+    say "Reduced gene count: ".scalar(@$genes);
+  }
+
+  if($self->param('filter_overlapping_genes')) {
+    say "Filtering for small/single exon genes that overlap mutli exon ones";
+    $genes = $self->filter_overlapping_genes($genes);
+    say "Filtered gene count: ".scalar(@$genes);
+  }
+
+  $self->param('genes', $genes);
 }
 
 sub process_genes {
@@ -139,11 +159,19 @@ sub process_genes {
   my $max_overlength = $self->param('max_overlength');
   my $exon_length_multiplier = $self->param('exon_length_multiplier');
   my $good_transcript = $good_gene->get_all_Transcripts->[0]; # We know that we only have 1 transcript per gene
-  my $good_name = $good_transcript->get_all_supporting_features->[0]->hseqname;
+  my $good_name = "";
+  if(scalar(@{$good_transcript->get_all_supporting_features})) {
+    $good_name = $good_transcript->get_all_supporting_features->[0]->hseqname;
+  }
   my $good_hashkey = build_hashkey($good_transcript, 'intron');
   my $transcript_to_process = $gene_to_process->get_all_Transcripts->[0]; # We know that we only have 1 transcript per gene
   my $hash_key_to_process = build_hashkey($transcript_to_process, 'intron');
-  my $name_tp = $transcript_to_process->get_all_supporting_features->[0]->hseqname;
+
+  my $name_tp = "";
+  if(scalar(@{$transcript_to_process->get_all_supporting_features})) {
+    $name_tp = $transcript_to_process->get_all_supporting_features->[0]->hseqname;
+  }
+
   if ($hash_key_to_process) { # If it is a single exon gene the hashkey will be empty
     if ($good_hashkey eq $hash_key_to_process) {
       print STDERR ' T P ', $name_tp, ' ', $transcript_to_process->seq_region_start, ' ', $transcript_to_process->seq_region_end, ' ', abs($good_transcript->end_Exon->length-$transcript_to_process->end_Exon->length), ' ', $good_gene->{full_length}, ' ', $hash_key_to_process, "\n";
@@ -244,6 +272,17 @@ sub process_genes {
 sub run {
   my ($self) = @_;
 
+  if($self->param('copy_only')) {
+    my $genes = $self->param('genes');
+    foreach my $gene (@$genes) {
+      $gene->biotype('no_collapse');
+    }
+
+    $self->warning("Copy only mode selected, no attempts will be made to add collapse");
+    $self->output($self->param('genes'));
+    return;
+  }
+
   if ($self->param('disconnect_jobs')) {
     $self->dbc->disconnect_if_idle;
     $self->hrdb_get_con('target_db')->dnadb->dbc->disconnect_if_idle;
@@ -283,7 +322,12 @@ sub run {
       $good_gene->{full_length} = 1;
       next if (exists $good_gene->{processed});
       my $good_transcript = $good_gene->get_all_Transcripts->[0]; # We know that we only have 1 transcript per gene
-      my $good_name = $good_transcript->get_all_supporting_features->[0]->hseqname;
+
+      my $good_name = "";
+      if(scalar(@{$good_transcript->get_all_supporting_features})) {
+        $good_name = $good_transcript->get_all_supporting_features->[0]->hseqname;
+      }
+
       $good_gene->{polyA_signal} = rank_polyA_signal($good_transcript);
       if (exists $good_gene->{partial} and !$good_gene->{polyA_signal}) {
         compute_translation($good_transcript);
@@ -297,7 +341,12 @@ sub run {
         for (my $jndex = $index+1; $jndex < @to_process; $jndex++) {
           my $gene_to_process = $to_process[$jndex];
           my $transcript_to_process = $gene_to_process->get_all_Transcripts->[0]; # We know that we only have 1 transcript per gene
-          my $name_tp = $transcript_to_process->get_all_supporting_features->[0]->hseqname;
+
+          my $name_tp = "";
+	  if(scalar(@{$transcript_to_process->get_all_supporting_features})) {
+            $name_tp = $transcript_to_process->get_all_supporting_features->[0]->hseqname;
+          }
+
           my $hash_key_to_process = build_hashkey($transcript_to_process, 'intron');
           my $result = $self->process_genes($good_gene, $gene_to_process);
           if ($result == 1) {
@@ -335,11 +384,19 @@ sub run {
     foreach my $good_gene (sort {$a->start <=> $b->start || $b->end <=> $a->end} @same_intron_structure) {
       my $good_transcript = $good_gene->get_all_Transcripts->[0];
       my $good_introns = $good_transcript->get_all_Introns;
-      my $good_name = $good_transcript->get_all_supporting_features->[0]->hseqname;
+
+      my $good_name = "";
+      if(scalar(@{$good_transcript->get_all_supporting_features})) {
+        $good_name = $good_transcript->get_all_supporting_features->[0]->hseqname;
+      }
+
       for (my $index_to_process = $gene_index; $index_to_process < @same_intron_structure; $index_to_process++) {
         my $transcript_to_process = $same_intron_structure[$index_to_process]->get_all_Transcripts->[0];
         my $introns_to_process = $transcript_to_process->get_all_Introns;
-        my $name_to_process = $transcript_to_process->get_all_supporting_features->[0]->hseqname;
+        my $name_to_process = "";
+        if(scalar(@{$transcript_to_process->get_all_supporting_features})) {
+          $name_to_process = $transcript_to_process->get_all_supporting_features->[0]->hseqname;
+        }
         print STDERR "COMPARING $good_name WITH $name_to_process\n";
         foreach my $good_intron (@$good_introns) {
           my $good_intron_key = $good_intron->start.':'.$good_intron->end;
@@ -460,7 +517,12 @@ sub run {
     foreach my $gene (@same_intron_structure) {
       if (exists $gene->{to_process}) {
         foreach my $transcript (@{$gene->get_all_Transcripts}) {
-          print STDERR ' NEW GENE ', $transcript->get_all_supporting_features->[0], "\n";
+          my $sfs = $transcript->get_all_supporting_features;
+          my $sf;
+          if(scalar(@$sfs)) {
+            $sf = ${$sfs}[0];
+	  }
+          print STDERR ' NEW GENE ', $sf, "\n";
           my @exons;
           foreach my $exon (@{$transcript->get_all_Exons}) {
             my $new_exon = clone_Exon($exon);
@@ -469,13 +531,18 @@ sub run {
             push(@exons, $new_exon);
           }
           my $new_transcript = Bio::EnsEMBL::Transcript->new(-exons => \@exons);
-          $new_transcript->add_supporting_features($transcript->get_all_supporting_features->[0]);
+          if($sf) {
+            $new_transcript->add_supporting_features($sf);
+	  }
           my $new_gene = Bio::EnsEMBL::Gene->new();
           $new_gene->{polyA_signal} = $gene->{polyA_signal};
           $new_gene->{full_length} = $gene->{full_length};
           $new_gene->{processed} = $gene->{processed} if (exists $gene->{processed});
           $new_gene->add_Transcript($new_transcript);
           $new_gene->biotype($new_transcript->biotype);
+          $new_gene->stable_id($gene->stable_id);
+          $new_gene->description($gene->description);
+          $new_gene->version($gene->version);
           push(@splice_site_difference, $new_gene);
         }
       }
@@ -490,7 +557,11 @@ sub run {
       my $good_gene = $to_reprocess[$index];
       next if (exists $good_gene->{processed} and $good_gene->{processed} == 2);
       my $good_transcript = $good_gene->get_all_Transcripts->[0]; # We know that we only have 1 transcript per gene
-      my $good_name = $good_transcript->get_all_supporting_features->[0]->hseqname;
+      my $good_name = "";
+      if(scalar(@{$good_transcript->get_all_supporting_features})) {
+        $good_name = $good_transcript->get_all_supporting_features->[0]->hseqname;
+      }
+
       if (exists $good_gene->{partial}) {
         print STDERR ' PARTIAL GENE ', $good_name, ' ', $good_transcript->seq_region_start, ' ', $good_transcript->seq_region_end, ' ', $good_transcript->strand, ' ', $good_gene->{polyA_signal}, "\n";
       }
@@ -499,7 +570,11 @@ sub run {
       for (my $jndex = $index+1; $jndex < @to_reprocess; $jndex++) {
         my $gene_to_process = $to_reprocess[$jndex];
         my $transcript_to_process = $gene_to_process->get_all_Transcripts->[0]; # We know that we only have 1 transcript per gene
-        my $name_tp = $transcript_to_process->get_all_supporting_features->[0]->hseqname;
+        my $name_tp = "";
+	if(scalar(@{$transcript_to_process->get_all_supporting_features})) {
+          $name_tp = $transcript_to_process->get_all_supporting_features->[0]->hseqname;
+        }
+
         my $hash_key_to_process = build_hashkey($transcript_to_process, 'intron');
         my $result = $self->process_genes($good_gene, $gene_to_process);
         if ($result == 1) {
@@ -535,11 +610,20 @@ sub run {
       foreach my $intron (@$good_introns) {
         ++$good_gene->{nc_count} unless ($intron->is_splice_canonical);
       }
-      my $good_name = $good_transcript->get_all_supporting_features->[0]->hseqname;
+
+      my $good_name = "";
+      if(scalar(@{$good_transcript->get_all_supporting_features})) {
+        $good_name = $good_transcript->get_all_supporting_features->[0]->hseqname;
+      }
+
       GENE: foreach my $gene_to_process (@for_step4) {
         next if ($good_gene == $gene_to_process or exists $gene_to_process->{retained});
         my $transcript_to_process = $gene_to_process->get_all_Transcripts->[0];
-        my $name_tp = $transcript_to_process->get_all_supporting_features->[0]->hseqname;
+        my $name_tp = "";
+	if(scalar(@{$transcript_to_process->get_all_supporting_features})) {
+          $name_tp = $transcript_to_process->get_all_supporting_features->[0]->hseqname;
+        }
+
         my $exons_to_process = $transcript_to_process->get_all_Exons;
         my $first_exon = $transcript_to_process->start_Exon;
         my $last_exon = $transcript_to_process->end_Exon;
@@ -621,7 +705,7 @@ sub run {
           if ( (scalar(@{$transcript->get_all_Exons}) <2) or ($transcript->length()<90) ) {
             print STDERR "single exon without translation or short (less than 90bp) multiexon \n";
           } else {
-            $self->throw('Multiexon_without_translation'); 
+            $self->warning('Multiexon_without_translation');
           }
         }
       }
@@ -794,6 +878,224 @@ sub get_hashtypes {
   my ($self) = @_;
 
   return {good => $self->get_biotypes};
+}
+
+
+sub reduce_genes {
+  my ($self,$initial_genes,$slice_name) = @_;
+
+  # NOTE: this assumes one input gene db as it uses dbIDs heavily and that genes have only one transcript
+  my $reduced_genes = [];
+  my $total_gene_limit = $self->param('reduce_gene_limit');
+  my $window_size = $self->param('reduce_min_window_size');
+
+  # First make sure the genes in each bin are unique
+  say "Finding unique genes";
+  my $gene_strings = {};
+  my $unique_genes = [];
+  foreach my $gene (@$initial_genes) {
+    my $gene_string = $self->generate_gene_string($gene);
+    if($gene_strings->{$gene_string}) {
+      next;
+    } else {
+      $gene_strings->{$gene_string} = $gene->dbID;
+      push(@$unique_genes,$gene);
+    }
+  }
+  say "Total unique genes found: ".scalar(@$unique_genes);
+
+  unless($slice_name =~ /^[^:]+\:[^:]+\:[^:]+\:([^:]+)\:([^:]+)\:[^:]+$/) {
+    $self->throw("Malformed slice name, could not parse. Name: ".$slice_name);
+  }
+
+  my $slice_start = $1;
+  my $slice_end = $2;
+
+  my $gene_bins = [];
+  my $gene_bin_index = 0;
+  for(my $i=$slice_start; $i<$slice_end; $i+=($window_size+1)) {
+    unless(${$gene_bins}[$gene_bin_index]) {
+      ${$gene_bins}[$gene_bin_index] = [];
+    }
+
+    foreach my $gene (@$unique_genes) {
+      if($gene->seq_region_end >= $i && $gene->seq_region_end <= $i+$window_size) {
+        push(@{${$gene_bins}[$gene_bin_index]},$gene);
+      }
+    }
+    $gene_bin_index++;
+  }
+
+  my $avg_max_per_bin = int($total_gene_limit / scalar(@{$gene_bins}));
+  my $carry_over = 0;
+  my $processed_genes = {};
+  say "Total gene bins created: ".scalar(@{$gene_bins});
+  say "Allowed max genes per bin (excluding carry over between bins): ".$avg_max_per_bin;
+  for(my $i=0; $i<scalar(@{$gene_bins}); $i++) {
+    my $gene_bin = ${$gene_bins}[$i];
+    say "Processing gene bin, size: ".scalar(@$gene_bin);
+    # Check if the bin is smaller than the amount allowed per bin
+    my $gene_count = scalar(@$gene_bin);
+    if($gene_count <= ($avg_max_per_bin + $carry_over)) {
+      say "Gene count (including carry over) < allowed max genes. Adding entire bin. Gene count: ".$gene_count;
+      foreach my $gene (@$gene_bin) {
+        if($processed_genes->{$gene->dbID}) {
+          $gene_count--;
+          next;
+	} else {
+          $processed_genes->{$gene->dbID} = 1;
+	}
+        push(@$reduced_genes,$gene);
+      }
+      $carry_over = $carry_over + ($avg_max_per_bin - $gene_count);
+      # Just in case...
+      if($carry_over < 0) {
+        $carry_over = 0
+      }
+      next;
+    }
+
+    # At this point we have too many genes in the bin and need to figure out what to remove
+    # We want to sort them based on both begin unique and having the longest ORFs and most splicing complexity
+    # Should basically take 50 percent longest ORF and 50 percent most splicing complexity (accounting for overlap
+    # between the two sets)
+    my $total_genes_added = 0;
+    my $genes_ranked_orf = {};
+    my $genes_ranked_exons = {};
+    my $genes_dbIDs = {};
+
+    say "Gene bin was bigger than the max allowed size. Processing bin, size: ".scalar(@$gene_bin);
+    foreach my $gene (@$gene_bin) {
+      my $transcript = ${$gene->get_all_Transcripts}[0];
+      if($transcript->translation) {
+        $genes_ranked_orf->{$gene->dbID} = $transcript->translation->length;
+      } else {
+        $genes_ranked_orf->{$gene->dbID} = 0;
+      }
+
+      # This is techincally a number larger than the number of exons, but it's consistent for ranking purposes
+      $genes_ranked_exons->{$gene->dbID} = scalar(split(':',$self->generate_gene_string($gene)));
+
+      # This hash will just make it easier to fetch the genes we want later via the dbID
+      $genes_dbIDs->{$gene->dbID} = $gene;
+    }
+    say "Finished sorting genes based on ORFs and exons";
+
+    # This will be the max allowed per set. Will first fill on the orf then on the exons
+    my $max_per_set = int(($avg_max_per_bin+$carry_over)/2);
+    my $total_orf_added = 0;
+    my $total_exon_added = 0;
+
+    my @sorted_orf_ids = sort {$genes_ranked_orf->{$b} <=> $genes_ranked_orf->{$a}} keys(%$genes_ranked_orf);
+    my @sorted_exon_ids = sort {$genes_ranked_orf->{$b} <=> $genes_ranked_orf->{$a}} keys(%$genes_ranked_orf);
+
+    say "Adding genes based on ORF length";
+    for(my $i=0; $i<scalar(@sorted_orf_ids) && $total_orf_added <= $max_per_set; $i++) {
+      my $gene_id = $sorted_orf_ids[$i];
+      if($processed_genes->{$gene_id}) {
+        next;
+      }
+      push(@$reduced_genes,$genes_dbIDs->{$gene_id});
+      $total_orf_added++;
+    }
+    say "Total genes added based on ORF length: ".$total_orf_added;
+
+    say "Adding genes based on exon count";
+    for(my $i=0; $i<scalar(@sorted_exon_ids) && $total_exon_added <= $max_per_set; $i++) {
+      my $gene_id = $sorted_exon_ids[$i];
+      if($processed_genes->{$gene_id}) {
+        next;
+      }
+      push(@$reduced_genes,$genes_dbIDs->{$gene_id});
+      $total_exon_added++;
+    }
+    say "Total genes added based on exon count: ".$total_exon_added;
+
+    my $total_added = $total_orf_added + $total_exon_added;
+    $carry_over = $carry_over + ($avg_max_per_bin - $total_added);
+    # Just in case...
+    if($carry_over < 0) {
+      $carry_over = 0
+    }
+    say "Combined total: ".$total_added;
+  } # end for(my $i=0; $i<scalar(@{$gene_bins});
+  return($reduced_genes);
+}
+
+
+sub filter_overlapping_genes {
+  my ($self,$initial_genes) = @_;
+
+  my $filtered_genes = [];
+  my $removal_index = {};
+  foreach my $gene (@$initial_genes) {
+    unless(scalar(@{$gene->get_all_Exons}) == 1) {
+      push(@$filtered_genes,$gene);
+      next;
+    }
+
+    my $overlapping_genes = $gene->get_overlapping_Genes;
+    unless(scalar(@$overlapping_genes)) {
+      push(@$filtered_genes,$gene);
+      next;
+    } else {
+      say "Found ".scalar(@$overlapping_genes)." overlapping genes";
+    }
+
+    my $flag_removal = 0;
+    foreach my $overlapping_gene (@$overlapping_genes) {
+      if($removal_index->{$overlapping_gene->dbID}) {
+        next;
+      }
+      my $exon_count = scalar(@{$overlapping_gene->get_all_Exons});
+      say "Overlapping model exon count: ".$exon_count;
+      unless($exon_count > 2) {
+        next;
+      }
+
+      if($gene->strand == $overlapping_gene->strand) {
+        say "Found an overlapping model on same strand with ".$exon_count." exons";
+        $flag_removal = 2;
+        last;
+      } else {
+        say "Found an overlapping model on opposite strand with ".$exon_count." exons";
+        $flag_removal = 1;
+      }
+    }
+
+    if($flag_removal == 2) {
+      $removal_index->{$gene->dbID} = 1;
+      next;
+    } elsif($flag_removal == 1) {
+      my $transcript = ${$gene->get_all_Transcripts()}[0];
+      unless($transcript->translation) {
+        $removal_index->{$gene->dbID} = 1;
+        next;
+      }
+
+      if($transcript->translation->length > 300) {
+        push(@$filtered_genes,$gene);
+      } else {
+        $removal_index->{$gene->dbID} = 1;
+        next;
+      }
+    } else {
+      push(@$filtered_genes,$gene);
+    }
+  }
+  return($filtered_genes);
+}
+
+sub generate_gene_string {
+  my ($self,$gene) = @_;
+
+  my $gene_string = $gene->seq_region_name.":".$gene->strand.":";
+  my $exons = $gene->get_all_Exons();
+  foreach my $exon (@$exons) {
+    $gene_string .= $exon->start.":".$exon->end;
+  }
+
+  return($gene_string);
 }
 
 1;

@@ -28,6 +28,17 @@ use Bio::EnsEMBL::DBSQL::SliceAdaptor;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+sub param_defaults {
+    my $self = shift;
+
+    return {
+      %{$self->SUPER::param_defaults},
+      'use_strand'   => 0,
+      'slice_strand' => 0,
+    }
+}
+
+
 sub fetch_input {
   my $self = shift;
 
@@ -37,13 +48,22 @@ sub fetch_input {
   $self->hrdb_set_con($dba,'dna_db');
 
   my $input_id = $self->param('iid');
+  if($self->param('use_strand')) {
+    $input_id =~ /\:([^:]+)$/;
+    my $strand = $1;
+    unless($strand == 1 || $strand == -1) {
+      $self->throw("You have selected to use stranded info, but there was an issue parsing the strand off the slice name. Slice name: ".$input_id);
+    }
+    $self->param('slice_strand',$strand);
+    # Put the slice name back to normal now that the strand has been extracted
+    $input_id =~ s/\:[^:]+$/\:1/;
+  }
 
   unless($self->param('input_gene_dbs')) {
     $self->throw("You must specify an arrayref of input dbs via the 'input_gene_dbs' parameter");
   }
 
   my $slice;
-  my $cluster_strand;
   if($self->param('iid_type') eq 'slice') {
     $slice = $self->fetch_sequence($input_id,$dba);
   } else {
@@ -113,10 +133,12 @@ sub write_output {
 sub calculate_input_gene_coords {
   my ($self,$gene_source_dbs) = @_;
 
-
   my @sorted_start_end_coords = ();
   my @unsorted_start_end_coords = ();
   my $slice = $self->query;
+  my $use_strand = $self->param('use_strand');
+  my $strand = $self->param('slice_strand');
+
   my $skip_duplicates = {};
   my $filter = {};
   if (ref($gene_source_dbs) eq 'ARRAY') {
@@ -126,6 +148,10 @@ sub calculate_input_gene_coords {
       my $all_genes = $gene_adaptor->fetch_all_by_Slice($slice);
 
       foreach my $gene (@{$all_genes}) {
+        if($use_strand && ($gene->strand != $strand)) {
+          next;
+	}
+
         my $start = $gene->seq_region_start;
         my $end = $gene->seq_region_end;
         if($skip_duplicates->{$start.":".$end}) {
@@ -150,6 +176,10 @@ sub calculate_input_gene_coords {
       }
 
       foreach my $gene (@{$all_genes}) {
+        if($use_strand && ($gene->strand != $strand)) {
+          next;
+	}
+
         my $start = $gene->seq_region_start;
         my $end = $gene->seq_region_end;
         if($skip_duplicates->{$start.":".$end}) {

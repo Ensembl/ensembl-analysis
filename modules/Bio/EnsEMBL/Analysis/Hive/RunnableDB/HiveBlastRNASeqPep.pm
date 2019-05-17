@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 =pod
 
 =head1 NAME
@@ -72,9 +73,9 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-#    iid_type => 'object_id',
     iid_type => 'slice',
     calculate_coverage_and_pid => 1,
+    slice_strand => 0,
   }
 }
 
@@ -107,7 +108,19 @@ sub fetch_input {
     my $input_sa = $input_dba->get_SliceAdaptor();
     my $input_slice = $input_sa->fetch_by_name($self->input_id);
 
-    $genes = $input_slice->get_all_Genes($self->param_is_defined('logic_name') ? $self->param('logic_name') : undef);
+    # Filter on strand if the slice_strand param is set (it is 0 by default)
+    my $initial_genes = $input_slice->get_all_Genes($self->param_is_defined('logic_name') ? $self->param('logic_name') : undef);
+    foreach my $gene (@{$initial_genes}) {
+      if($self->param('slice_strand')) {
+        unless($gene->strand == $self->param('slice_strand')) {
+          next;
+        }
+        push(@$genes,$gene);
+      } else {
+        push(@$genes,$gene);
+      }
+    }
+
     if ($input_slice->start != 1) {
       my $toplevel = $input_sa->fetch_by_region('toplevel', $input_slice->seq_region_name);
       foreach my $gene (@$genes) {
