@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -532,6 +532,27 @@ sub _verbose {
   return $self->{_verbose};
 }
 
+
+
+=head2 write_to_file
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter, specifies that you want BaseExonerate to write the output to a file and not pipe directly into a filehandle
+              This is important for using a timer, since a timer doesn't seem to work with a filehandle pipe
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
+sub write_to_file {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_write_to_file'} = $value;
+  }
+
+  return($self->{'_write_to_file'});
+}
 
 1;
 

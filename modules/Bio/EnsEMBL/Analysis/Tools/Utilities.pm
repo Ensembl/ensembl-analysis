@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -92,6 +92,7 @@ our @EXPORT_OK = qw(
               get_database_from_registry
               get_biotype_groups
               get_feature_name
+              create_production_directory
               );
 
 
@@ -1432,6 +1433,45 @@ sub get_feature_name {
     }
   }
   return $name;
+}
+
+
+=head2 create_production_directory
+
+ Arg [1]    : String, path of the directory to create
+ Arg [2]    : Boolean (optiona), true to stripe the directory
+ Arg [3]    : Int (optional), Permissions to set, need to start with 0
+ Description: Create a directory in the filesystem. By default, it sets the
+              permissions to 2775 (rwxrwsrx). The permissions can be given
+              as Arg[3]. It will warn if the directory already exists but it
+              will change the permissions.
+              It is also possible to stripe the directory if it is created
+              in LFS.
+ Returntype : None
+ Exceptions : Throws if the path cannot be created
+              Throws is striping fails
+
+=cut
+
+sub create_production_directory {
+  my ($path, $do_lsf_stripe, $mode) = @_;
+
+  my $default_mode = 02775;
+  $mode ||= $default_mode;
+  if (-d $path) {
+    warning("'$path' exists, only changing permissions");
+  }
+  else {
+    mkdir $path;
+  }
+  chmod $mode, $path;
+  if ($do_lsf_stripe) {
+    if (!system("lfs getstripe $path")) {
+      if(system("lfs setstripe  -c -1 $path")) {
+        throw("Failed to stripe '$path'");
+      }
+    }
+  }
 }
 
 1;
