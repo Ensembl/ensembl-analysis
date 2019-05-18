@@ -528,6 +528,13 @@ sub run {
             my $new_exon = clone_Exon($exon);
             $new_exon->start($exon->{_gb_start}) if (exists $exon->{_gb_start});
             $new_exon->end($exon->{_gb_end}) if (exists $exon->{_gb_end});
+
+            if($new_exon->start > $new_exon->end) {
+              $self->warning("Modified exon start > end, reverting to original start and end");
+              $new_exon->start($exon->start);
+              $new_exon->end($exon->end);
+	    }
+
             push(@exons, $new_exon);
           }
           my $new_transcript = Bio::EnsEMBL::Transcript->new(-exons => \@exons);

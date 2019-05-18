@@ -54,7 +54,7 @@ use strict;
 use feature 'say';
 
 use File::Spec;
-
+use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Exon;
@@ -101,8 +101,9 @@ sub new {
 sub run {
   my ($self) = @_;
 
+  my $leftover_genes = [];
   my $sam_file = $self->create_filename(undef,'sam');
-  my $bed_file = $self->create_filename(undef,'bed');;
+  my $bed_file = $self->create_filename(undef,'bed');
   $self->files_to_delete($sam_file);
   $self->files_to_delete($bed_file);
 
@@ -136,7 +137,42 @@ sub run {
     $self->throw("Error running paftools\nError code: $?\n");
   }
 
-  $self->output($self->parse_results($bed_file,$percent_id_hash,$coverage_hash));
+  $self->output($self->parse_results($bed_file,$percent_id_hash,$coverage_hash,$leftover_genes));
+
+  # This is mostly a repeat of the above but on the reads that were filtered because they had a high non-canonical rate (but passed cov/identity)
+  # These could be samples where the reads where accidently reversed as was seen in pig
+#  if(scalar(@$leftover_genes)) {
+  say "Found ".scalar(@$leftover_genes)." leftover genes";
+  if(scalar(@$leftover_genes)) {
+    my $leftover_input_file = $self->create_filename(undef,'lo');
+    $self->create_leftover_input($leftover_genes,$leftover_input_file,$input_file);
+    $self->files_to_delete($leftover_input_file);
+
+    my $sam_lo_file = $self->create_filename(undef,'samlo');
+    my $bed_lo_file = $self->create_filename(undef,'bedlo');
+    $self->files_to_delete($sam_lo_file);
+    $self->files_to_delete($bed_lo_file);
+
+
+    my $minimap2_lo_command = $self->program." --cs -N 1 -ax splice:hq -uf ".$genome_index." ".$leftover_input_file." > ".$sam_lo_file;
+    $self->warning("Leftover command:\n".$minimap2_command."\n");
+    if(system($minimap2_lo_command)) {
+      $self->throw("Error running minimap2 leftover\nError code: $?\n");
+    }
+
+    my $percent_id_lo_hash = {};
+    my $coverage_lo_hash = {};
+    $self->parse_sam($sam_lo_file,$percent_id_lo_hash,$coverage_lo_hash);
+
+    my $paftools_command = $paftools_path." splice2bed ".$sam_lo_file." > ".$bed_lo_file;
+    $self->warning("Leftover command:\n".$paftools_command."\n");
+    if(system($paftools_command)) {
+      $self->throw("Error running paftools leftover\nError code: $?\n");
+    }
+
+    $self->output($self->parse_results($bed_lo_file,$percent_id_lo_hash,$coverage_lo_hash));
+  }
+
 }
 
 
@@ -221,7 +257,7 @@ sub parse_sam {
 }
 
 sub parse_results {
-  my ($self,$output_file,$percent_id_hash,$coverage_hash) = @_;
+  my ($self,$output_file,$percent_id_hash,$coverage_hash,$leftover_genes) = @_;
 
 # 13  0   84793   ENST00000380152.7   1000    +   0   84793   0,128,255   27  194,106,249,109,50,41,115,50,112,1116,4932,96,70,428,182,188,171,355,156,145,122,199,164,139,245,147,2105,  0,948,3603,9602,10627,10768,11025,13969,15445,16798,20791,29084,31353,39387,40954,42268,47049,47705,54928,55482,61196,63843,64276,64533,79215,81424,82688,
 
@@ -313,8 +349,12 @@ sub parse_results {
 	}
       }
 
-      # If it fails the canonical cutoff then we skip this gene
+      # If it fails the canonical cutoff then we skip this gene, but in case it's just a stranded issue we put onto the leftover pile
       unless($canonical_count/$intron_count >= $canonical_intron_cutoff) {
+        say "Gene fails canonical splice site cut-off";
+        if($leftover_genes) {
+          push(@$leftover_genes,$gene);
+	}
         next;
       }
     }
@@ -324,6 +364,35 @@ sub parse_results {
 
   say "Finished parsing output";
   return($genes);
+}
+
+
+
+sub create_leftover_input {
+  my ($self,$genes,$leftover_input_file,$original_input_file) = @_;
+
+  my $index = Bio::DB::HTS::Faidx->new($original_input_file);
+
+  my $read_ids = [];
+  foreach my $gene (@$genes) {
+    push(@$read_ids,$gene->stable_id);
+  }
+
+  unless(open(OUTLEFTOVER,">".$leftover_input_file)) {
+    $self->throw("Failed to open output file to use as input for leftover run");
+  }
+
+  foreach my $read_id (@$read_ids) {
+    my $length = $index->length($read_id);
+    my $location  = $read_id.":1-".$length;
+    my $seq = $index->get_sequence_no_length($location);
+    $seq = reverse($seq);
+    $seq =~ tr/atgcATGC/tacgTACG/;
+    say OUTLEFTOVER ">".$read_id;
+    say OUTLEFTOVER $seq;
+  }
+  close OUTLEFTOVER;
+
 }
 
 

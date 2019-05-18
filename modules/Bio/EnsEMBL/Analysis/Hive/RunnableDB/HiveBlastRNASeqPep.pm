@@ -102,7 +102,7 @@ sub fetch_input {
   $self->hrdb_set_con($input_dba,'source_db');
   $self->hrdb_set_con($output_dba,'output_db');
 
-  my $genes;
+  my $genes = [];
   if ($self->param('iid_type') eq 'slice') {
     my $logicname = $self->param('logic_name');
     my $input_sa = $input_dba->get_SliceAdaptor();
