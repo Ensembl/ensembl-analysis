@@ -39,6 +39,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA;
 
 use strict;
 use warnings;
+use feature 'say';
 
 use JSON::PP;
 use LWP::UserAgent;
@@ -318,6 +319,9 @@ sub run {
       my %dev_stages;
       my %celltypes;
       foreach my $sample (keys %{$csv_data{$project}}) {
+        unless($sample =~ /^SAMN/) {
+          next;
+	}
         next unless (exists $samples{$sample});
         if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
 #        if (exists $samples{$sample}->{dev_stage}) {
@@ -327,6 +331,9 @@ sub run {
       }
       if (scalar(keys(%dev_stages)) > 1) {
         foreach my $sample (keys %{$csv_data{$project}}) {
+          unless($sample =~ /^SAMN/) {
+            next;
+  	  }
           next unless (exists $samples{$sample});
           if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
             $samples{$sample}->{sample_name} = $samples{$sample}->{dev_stage};
@@ -345,6 +352,9 @@ sub run {
       }
       else {
         foreach my $sample (keys %{$csv_data{$project}}) {
+          unless($sample =~ /^SAMN/) {
+            next;
+  	  }
           next unless (exists $samples{$sample});
           $samples{$sample}->{sample_name} = $samples{$sample}->{cellType} || $samples{$sample}->{organismPart} || $samples{$sample}->{sample_alias} || $samples{$sample}->{description};
           if (!$samples{$sample}->{sample_name}) {
@@ -393,6 +403,9 @@ sub write_output {
   foreach my $study_accession (keys %{$data->[0]}) {
     my $study = $data->[0]->{$study_accession};
     foreach my $sample (keys %{$study}) {
+      unless($sample =~ /^SAMN/) {
+        next;
+      }
       next unless (exists $samples->{$sample});
       foreach my $experiment (@{$study->{$sample}}) {
         my @files = split(';', $experiment->{fastq_file});

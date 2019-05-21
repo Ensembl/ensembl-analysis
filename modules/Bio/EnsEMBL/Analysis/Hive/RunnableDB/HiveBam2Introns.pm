@@ -58,6 +58,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns;
 use warnings ;
 use strict;
 use feature 'say';
+use Data::Dumper;
 
 use File::Spec;
 use File::Path qw(make_path);
@@ -91,9 +92,14 @@ sub param_defaults {
     %{$self->SUPER::param_defaults},
     _branch_for_accumulators => 'MAIN',
     _stored_features => {},
-    timer => '5h',
+    timer => '15m',
     flatfile_masked => 1,
     batch_reads => 1,
+    write_to_file => 1,
+    read_range_padding => 200000,
+    rebatch_failed => 1,
+    rebatch_size => 10,
+    rebatch_timer => '5m',
   }
 }
 
@@ -218,18 +224,30 @@ sub fetch_input {
     $self->complete_early('No read with more than '.$missmatch.' missmatches');
   }
 
-
   if ( scalar(@iids) > 0  && !$counters->{'start'} ) {
     # We want the original input_id job to finish before submitting the new input ids otherwise we may have problems
     print 'Making ',  scalar(@iids), ' New input ids from ', $counters->{'count'}, " reads\n";
     $self->param('iids', \@iids);
   }
+
+  my $read_range_start = $counters->{'read_range_start'} - $self->param('read_range_padding');
+  my $read_range_end = $counters->{'read_range_end'} + $self->param('read_range_padding');
+  my $parent_slice = $rough->slice->seq_region_Slice;
+  if($read_range_start < 1) {
+    $read_range_start = 1;
+  }
+
+  if($read_range_end > $parent_slice->length) {
+    $read_range_end = $parent_slice->length;
+  }
+
   my $fullseq = $self->fullslice;
   my $queryseq;
   # get the fullseq if required
-  my $slice = $slice_adaptor->fetch_by_region('toplevel',$rough->seq_region_name,$rough->start,$rough->end,$rough->strand);
+  my $slice = $slice_adaptor->fetch_by_region('toplevel',$rough->seq_region_name,$read_range_start,$read_range_end,$rough->strand);
+
   $self->param('query', $slice);
-  if ( $fullseq && $rough->length < $self->param('max_transcript') ) {
+  if ( $fullseq && $slice->length < $self->param('max_transcript') ) {
     # Note that if we are using 'use_genome_flatfile', then the slice->seq sub is overridden to pull from the genome file
     # This will work with the normal masking options too
     # If you are changing code here there is equivalent code to change in the else below this, which operates on exons
@@ -285,11 +303,22 @@ sub fetch_input {
   my $read_batch_size = 1000;
   my $read_count = 0;
   my $analysis = $self->create_analysis;
+  my $redundant_ids = {};
+  my $unique_reads = {};
 
   # By splitting the reads into batches we can lower the memory footprint of run
   # The saturate threashold is not changed, but this should not have a negative effect
   if($self->param('batch_reads')) {
     while(my $read = pop(@reads)) {
+     unless($unique_reads->{$read->seq}) {
+       $unique_reads->{$read->seq} = $read->display_id;
+       $redundant_ids->{$read->display_id} = [];
+     } else {
+       my $parent_id = $unique_reads->{$read->seq};
+       push(@{$redundant_ids->{$parent_id}},$read->display_id);
+       next;
+     }
+
       $read_count++;
       if($read_count && $read_count % $read_batch_size == 0) {
         my @runnable_read_batch = @read_batch;
@@ -302,6 +331,8 @@ sub fetch_input {
          -percent_id   => $self->param('percent_id'),
          -coverage     => $self->param('coverage'),
          -missmatch     => $self->param('missmatch'),
+         -write_to_file => $self->param('write_to_file'),
+         -redundant_ids => $redundant_ids,
         );
         $runnable->timer($self->param('timer'));
         $self->runnable($runnable);
@@ -324,6 +355,8 @@ sub fetch_input {
          -percent_id   => $self->param('percent_id'),
          -coverage     => $self->param('coverage'),
          -missmatch     => $self->param('missmatch'),
+         -write_to_file => $self->param('write_to_file'),
+         -redundant_ids => $redundant_ids,
         );
       $runnable->timer($self->param('timer'));
       $self->runnable($runnable);
@@ -342,6 +375,7 @@ sub fetch_input {
        -percent_id   => $self->param('percent_id'),
        -coverage     => $self->param('coverage'),
        -missmatch     => $self->param('missmatch'),
+       -write_to_file => $self->param('write_to_file'),
       );
     $runnable->timer($self->param('timer'));
     $self->runnable($runnable);
@@ -353,7 +387,6 @@ sub run {
   my ($self) = @_;
 
   while(my $runnable = pop(@{$self->runnable})) {
-    $self->runnable_failed(0);
     eval {
       $runnable->run;
     };
@@ -362,8 +395,12 @@ sub run {
       my $except = $@;
       if($except =~ /still running after your timer/) {
         $self->warning("bam2introns took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
-        $self->param('_branch_to_flow_to_on_fail',-2);
-        $self->runnable_failed(1);
+        if($self->param('rebatch_failed') && scalar(@{$runnable->query_seqs}) > $self->param('rebatch_size')) {
+          $self->rebatch_runnable($runnable);
+	} else{
+          $self->param('_branch_to_flow_to_on_fail',-2);
+          $self->runnable_failed(1);
+	}
       } else {
         $self->throw("bam2introns failed, exception:\n".$except);
 #        $self->param('_branch_to_flow_to_on_fail',-3);
@@ -411,6 +448,42 @@ sub get_aligner_options {
 sub write_output {
   my $self = shift;
 
+  my $output = $self->output;
+  print "Got " .  scalar(@$output) ." genomic features \n";
+  if (scalar(@$output)) {
+    # write to file
+    my $iid = $self->input_id;
+    # remove any batching info at the end
+    $iid =~ s/:\d+:\d+:\d+$//;
+
+    my $path;
+    my $filename;
+    # figure out a directory structure based on the stable ids
+    if ( $iid =~ /^\w+\d+(\d)(\d)(\d)(\d)(\d\d)$/ ) {
+      # make the directory structure
+      $path = File::Spec->catdir($self->param('output_dir'), $1, $2, $3, $4);
+      make_path($path);
+      $filename = File::Spec->catfile($path, $self->input_id.'.sam');
+    }
+    else {
+      $self->throw("Input id $iid structure not recognised should be something like BAMG00000002548\n");
+    }
+    open ( SAM ,">$filename" ) or $self->throw("Cannot open file for writing $filename\n");
+    foreach my $line ( @$output ) {
+      print SAM $line;
+    }
+    # write an end of file marker so we can test that the job didnt die when writing
+    print SAM '@EOF';
+    close(SAM) || $self->throw("Could not close $filename after writing SAM data");
+    $self->dataflow_output_id([{filename => $filename}], $self->param('_branch_for_accumulators'));
+  }
+  else {
+    $self->input_job->autoflow(0);
+  }
+  if ($self->param_is_defined('iids')) {
+    $self->dataflow_output_id($self->param('iids'), $self->param('_branch_to_flow_to'));
+  }
+
   # If a failure has happened then flow the input id on the appropriate branch
   if($self->runnable_failed == 1) {
     # Flow out on -2 or -3 based on how the failure happened
@@ -419,43 +492,6 @@ sub write_output {
     $output_hash->{'iid'} = $self->param('iid');
     $self->dataflow_output_id($output_hash,$failure_branch_code);
     $self->input_job->autoflow(0);
-    return;
-  }
-
-  my $output = $self->output;
-  print "Got " .  scalar(@$output) ." genomic features \n";
-  if (scalar(@$output)) {
-      # write to file
-      my $iid = $self->input_id;
-      # remove any batching info at the end
-      $iid =~ s/:\d+:\d+:\d+$//;
-
-      my $path;
-      my $filename;
-      # figure out a directory structure based on the stable ids
-      if ( $iid =~ /^\w+\d+(\d)(\d)(\d)(\d)(\d\d)$/ ) {
-        # make the directory structure
-        $path = File::Spec->catdir($self->param('output_dir'), $1, $2, $3, $4);
-        make_path($path);
-        $filename = File::Spec->catfile($path, $self->input_id.'.sam');
-      }
-      else {
-        $self->throw("Input id $iid structure not recognised should be something like BAMG00000002548\n");
-      }
-      open ( SAM ,">$filename" ) or $self->throw("Cannot open file for writing $filename\n");
-      foreach my $line ( @$output ) {
-        print SAM $line;
-      }
-      # write an end of file marker so we can test that the job didnt die when writing
-      print SAM '@EOF';
-      close(SAM) || $self->throw("Could not close $filename after writing SAM data");
-      $self->dataflow_output_id([{filename => $filename}], $self->param('_branch_for_accumulators'));
-  }
-  else {
-      $self->input_job->autoflow(0);
-  }
-  if ($self->param_is_defined('iids')) {
-      $self->dataflow_output_id($self->param('iids'), $self->param('_branch_to_flow_to'));
   }
 }
 
@@ -799,6 +835,23 @@ sub _process_reads {
     my ($read, $callbackdata) = @_;
 
     my ($min_missmatch, $i, $exon_start, $stable_id, $reads, $iids, $counters, $seq_hash) = @$callbackdata;
+
+    if(defined $read->start) {
+      unless(exists $counters->{read_range_start}) {
+        $counters->{read_range_start} = $read->start;
+      } elsif($read->start < $counters->{read_range_start}) {
+        $counters->{read_range_start} =  $read->start;
+      }
+    }
+
+    if(defined $read->end) {
+      unless(exists $counters->{read_range_end}) {
+        $counters->{read_range_end} = $read->end;
+      } elsif($read->start > $counters->{read_range_end}) {
+        $counters->{read_range_end} =  $read->end;
+      }
+    }
+
     return if ($counters->{'stop_loop'});
     my $missmatch  = $read->get_tag_values('NM');
     return unless ($missmatch and $missmatch >= $min_missmatch);
@@ -860,6 +913,62 @@ sub runnable_failed {
     $self->param('_runnable_failed',$runnable_failed);
   }
   return ($self->param('_runnable_failed'));
+}
+
+
+sub rebatch_runnable {
+  my ($self,$runnable) = @_;
+
+  say "Rebatching runnable";
+  say "Current runnable count: ".scalar(@{$self->runnable});
+  my @reads = @{$runnable->query_seqs};
+  my $read_count = 0;
+  my @read_batch = ();
+  while(my $read = pop(@reads)) {
+    $read_count++;
+    if($read_count && $read_count % $self->param('rebatch_size') == 0) {
+      my @runnable_read_batch = @read_batch;
+      my $rebatch_runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
+           -analysis      => $runnable->analysis,
+           -program       => $runnable->program,
+           -basic_options => $self->get_aligner_options,
+           -target_seqs   => $runnable->target_seqs,
+           -query_seqs    => \@runnable_read_batch,
+           -percent_id    => $self->param('percent_id'),
+           -coverage      => $self->param('coverage'),
+           -missmatch     => $self->param('missmatch'),
+           -write_to_file => $self->param('write_to_file'),
+           -redundant_ids => $runnable->redundant_ids,
+         );
+      $rebatch_runnable->timer($self->param('rebatch_timer'));
+      $self->runnable($rebatch_runnable);
+      @read_batch = ();
+      push(@read_batch,$read);
+    } else {
+      push(@read_batch,$read);
+    }
+  }
+
+  # Process any remaining reads
+  if(scalar(@read_batch)) {
+    my @runnable_read_batch = @read_batch;
+    my $rebatch_runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
+         -analysis      => $runnable->analysis,
+         -program       => $runnable->program,
+         -basic_options => $self->get_aligner_options,
+         -target_seqs   => $runnable->target_seqs,
+         -query_seqs    => \@runnable_read_batch,
+         -percent_id    => $self->param('percent_id'),
+         -coverage      => $self->param('coverage'),
+         -missmatch     => $self->param('missmatch'),
+         -write_to_file => $self->param('write_to_file'),
+         -redundant_ids => $runnable->redundant_ids,
+       );
+    $rebatch_runnable->timer($self->param('rebatch_timer'));
+    $self->runnable($rebatch_runnable);
+  }
+
+  say "Rebatched runnable count: ".scalar(@{$self->runnable});
 }
 
 1;
