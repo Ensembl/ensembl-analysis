@@ -481,7 +481,7 @@ sub pipeline_analyses {
       },
       -rc_name    => '2GB',
       -flow_into => {
-        1 => ['intron_check_10GB'],
+        -1 => ['intron_check_10GB'],
       },
     },
 
