@@ -683,6 +683,13 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
     $self->warning("cesar required memory estimate is greater than ".$1." GB. cesar command FAILED and it will be passed to either cesar_XXX or failed_cesar_himem: ".$cesar_command.". Gene ID: ".@{$self->parent_genes()}[$gene_index]->dbID()." CESAR output: ".$cesar_output."\n");
     say "project_transcript will return -1";
     return (-1);
+  } elsif ($cesar_output =~ /Out of memory: 0 bytes/) {
+    my $output_hash = {};
+    push(@{$output_hash->{'iid'}},@{$self->parent_genes()}[$gene_index]->dbID());
+    $self->dataflow_output_id($output_hash,-1);
+    $self->warning("cesar command FAILED due to -Out of memory: 0 bytes- error: ".$cesar_command."\n". "The job will be passed to either cesar_XXX or failed_cesar_himem. Gene ID: ".@{$self->parent_genes()}[$gene_index]->dbID()." CESAR output: ".$cesar_output."\n");
+    say "project_transcript will return -1";
+    return (-1);
   } elsif ($cesar_output =~ /CRITICAL/) {
     $self->throw("cesar command FAILED: ".$cesar_command."\n");
   } else {
