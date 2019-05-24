@@ -1174,8 +1174,8 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
       if ($projected_transcript->translation()->seq()) {
         ($coverage,$percent_id) = align_proteins($source_transcript->translate()->seq(),$projected_transcript->translate()->seq());
       }
-      $projected_transcript->source($coverage);
-      $projected_transcript->biotype($percent_id);
+      $projected_transcript->source('ensembl');
+      $projected_transcript->biotype('projection');
       $projected_transcript->description("stable_id of source: ".$source_transcript->stable_id());
 
       # add a 'seq_edits' attribute to the proj_exon object
