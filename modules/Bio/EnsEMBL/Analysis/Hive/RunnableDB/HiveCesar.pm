@@ -925,8 +925,8 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
                                             -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
                                             -SLICE     => $proj_transcript_slice,
                                             -ANALYSIS  => $source_transcript->analysis(),
-                                            -STABLE_ID => $source_transcript->stable_id_version(),
-                                            -VERSION   => 1));
+                                            -STABLE_ID => $source_transcript->stable_id(),
+                                            -VERSION   => $source_transcript->version()));
                
                 $exon_start += $source_split_codon_5_length; # exon_start will be ready for next new exon within the current exon or to be greater than the end meaning no more exons should be made
               }
@@ -971,8 +971,8 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
                                             -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
                                             -SLICE     => $proj_transcript_slice,
                                             -ANALYSIS  => $source_transcript->analysis(),
-                                            -STABLE_ID => $source_transcript->stable_id_version(),
-                                            -VERSION   => 1));
+                                            -STABLE_ID => $source_transcript->stable_id(),
+                                            -VERSION   => $source_transcript->version()));
                 $exon_start = $base_index_offset+$base_index-$current_proj_seq_gap_length;
                 
                 $original_exon_start = $exon_start;
@@ -1029,8 +1029,8 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
                                             -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
                                             -SLICE     => $proj_transcript_slice,
                                             -ANALYSIS  => $source_transcript->analysis(),
-                                            -STABLE_ID => $source_transcript->stable_id_version(),
-                                            -VERSION   => 1));
+                                            -STABLE_ID => $source_transcript->stable_id(),
+                                            -VERSION   => $source_transcript->version()));
                 $exon_made = 1;
                 $exon_made_dash_count = $dash_count;
                 $exon_start = $exon_end+4-$dash_count;
@@ -1071,8 +1071,8 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
                                             -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
                                             -SLICE     => $proj_transcript_slice,
                                             -ANALYSIS  => $source_transcript->analysis(),
-                                            -STABLE_ID => $source_transcript->stable_id_version(),
-                                            -VERSION   => 1));
+                                            -STABLE_ID => $source_transcript->stable_id(),
+                                            -VERSION   => $source_transcript->version()));
                 $exon_start = $base_index_offset+$base_index-$current_proj_seq_gap_length;               
                 $original_exon_start = $exon_start;
               } elsif ($exon_made and ($previous_dash_count == 1 or $previous_dash_count == 2)) {
@@ -1098,8 +1098,8 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
                                -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
                                -SLICE     => $proj_transcript_slice,
                                -ANALYSIS  => $source_transcript->analysis(),
-                               -STABLE_ID => $source_transcript->stable_id_version(),
-                               -VERSION   => 1));
+                               -STABLE_ID => $source_transcript->stable_id(),
+                               -VERSION   => $source_transcript->version()));
     } else {
       say "exon_start is greater than exon_end, not making final exon at the end. This should follow a single-codon exon formed by a split codon. Source transcript: ".$source_transcript->stable_id_version()." Projected exon sequence: ".$proj_seq;
     }
@@ -1129,7 +1129,8 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
 
     my $projected_transcript = Bio::EnsEMBL::Transcript->new(-exons => \@projected_exons_no_overlap,
                                                              -analysis => $source_transcript->analysis(),
-                                                             -stable_id => $source_transcript->stable_id_version(),
+                                                             -stable_id => $source_transcript->stable_id(),
+                                                             -version => $source_transcript->version(),
                                                              -strand => 1,
                                                              -slice => $proj_transcript_slice);
 
