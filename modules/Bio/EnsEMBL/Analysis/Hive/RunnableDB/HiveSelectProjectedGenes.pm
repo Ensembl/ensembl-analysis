@@ -123,7 +123,7 @@ sub run {
         empty_Gene($selected_gene);
         
         $selected_gene->analysis($wga_t->analysis());
-        $selected_gene->biotype('projection');
+        $selected_gene->biotype($wga_t->biotype());
         empty_Transcript($wga_t);
         $selected_gene->add_Transcript($wga_t);
         push(@{$output_genes},$selected_gene);
@@ -134,7 +134,7 @@ sub run {
         empty_Gene($non_selected_gene);
         
         $non_selected_gene->analysis($cesar_t->analysis());
-        $non_selected_gene->biotype('projection_cesar');
+        $non_selected_gene->biotype($cesar_t->biotype().'_cesar');
         empty_Transcript($cesar_t);
         $non_selected_gene->add_Transcript($cesar_t);
         push(@{$output_genes},$non_selected_gene);
@@ -146,7 +146,7 @@ sub run {
         empty_Gene($selected_gene);
         
         $selected_gene->analysis($cesar_t->analysis());
-        $selected_gene->biotype('projection');
+        $selected_gene->biotype($cesar_t->biotype());
         empty_Transcript($cesar_t);
         $selected_gene->add_Transcript($cesar_t);
         push(@{$output_genes},$selected_gene);
@@ -157,7 +157,7 @@ sub run {
         empty_Gene($non_selected_gene);
         
         $non_selected_gene->analysis($wga_t->analysis());
-        $non_selected_gene->biotype('projection_wga');
+        $non_selected_gene->biotype($wga_t->biotype().'_wga');
         empty_Transcript($wga_t);
         $non_selected_gene->add_Transcript($wga_t);
         push(@{$output_genes},$non_selected_gene);
@@ -172,7 +172,7 @@ sub run {
       empty_Gene($selected_gene);
       
       $selected_gene->analysis($cesar_t->analysis());
-      $selected_gene->biotype('projection');
+      $selected_gene->biotype($cesar_t->biotype());
       empty_Transcript($cesar_t);
       $selected_gene->add_Transcript($cesar_t);
       push(@{$output_genes},$selected_gene);
@@ -189,7 +189,7 @@ sub run {
       empty_Gene($selected_gene);
       
       $selected_gene->analysis($wga_t->analysis());
-      $selected_gene->biotype('projection');
+      $selected_gene->biotype($wga_t->biotype());
       empty_Transcript($wga_t);
       $selected_gene->add_Transcript($wga_t);
       push(@{$output_genes},$selected_gene);
