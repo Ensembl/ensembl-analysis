@@ -122,6 +122,7 @@ sub run {
 
   # run minimap2
   my $minimap2_command = $self->program." --cs -N 1 -ax splice:hq -u b ".$genome_index." ".$input_file." > ".$sam_file;
+#  my $minimap2_command = $self->program." --cs -N 1 -ax splice -u f -k 9 -w 6 ".$genome_index." ".$input_file." > ".$sam_file;
   $self->warning("Command:\n".$minimap2_command."\n");
   if(system($minimap2_command)) {
     $self->throw("Error running minimap2\nError code: $?\n");
@@ -153,8 +154,8 @@ sub run {
     $self->files_to_delete($sam_lo_file);
     $self->files_to_delete($bed_lo_file);
 
-
     my $minimap2_lo_command = $self->program." --cs -N 1 -ax splice:hq -uf ".$genome_index." ".$leftover_input_file." > ".$sam_lo_file;
+#    my $minimap2_lo_command = $self->program." --cs -N 1 -ax splice -u f -k 9 -w 6 ".$genome_index." ".$leftover_input_file." > ".$sam_lo_file;
     $self->warning("Leftover command:\n".$minimap2_command."\n");
     if(system($minimap2_lo_command)) {
       $self->throw("Error running minimap2 leftover\nError code: $?\n");

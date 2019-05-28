@@ -56,6 +56,15 @@ use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    input_id_type => 'fastq_range',
+  }
+}
+
 =head2 fetch_input
 
  Arg [1]    : None
@@ -68,6 +77,56 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my ($self) = @_;
+
+  my $program = $self->param('minimap2_path');
+  my $paftools =  $self->param('paftools_path');
+
+  unless($program) {
+    $program = "minimap2";
+  }
+
+  unless($paftools) {
+    $paftools = "paftools.js";
+  }
+
+  my $genome_file = $self->param_required('genome_file');
+  unless(-e $genome_file) {
+    $self->throw("Could not find the genome file. Path used:\n".$genome_file);
+  }
+
+  my $genome_index = $self->param_required('minimap2_genome_index');
+  unless(-e $genome_index) {
+    $self->throw("Could not find the genome index. Path used:\n".$genome_index);
+  }
+
+  my $master_input_file = $self->param('input_file');
+  unless($self->param_required('input_id_type') eq "gene_id" || -e $master_input_file) {
+    $self->throw("Could not find the input file. Path used:\n".$master_input_file);
+  }
+
+  my $runnable_input_file = "";
+  my $delete_input_file = 0;
+  if($self->param_required('input_id_type') eq "fastq_range") {
+    my $input_range = shift(@{$self->param('iid')});
+    my $range_start = $$input_range[0];
+    my $range_end = $$input_range[1];
+
+    say "Creating tmp input file based on index range: ".$range_start."..".$range_end;
+    $runnable_input_file = $self->create_input_file($master_input_file,$range_start,$range_end);
+    say "Finished creating input file";
+    $delete_input_file = 1;
+  } elsif($self->param('input_id_type') eq "gene_id") {
+    my $source_gene_dba = $self->hrdb_get_dba($self->param_required('source_gene_db'));
+    my $source_gene_dna_dba = $self->hrdb_get_dba($self->param_required('source_gene_dna_db'));
+    $source_gene_dba->dnadb($source_gene_dna_dba);
+    say "Creating tmp input file based on gene ids...";
+    $runnable_input_file = $self->create_gene_input_file($self->param('iid'),$source_gene_dba);
+    say "Finished creating input file";
+    $delete_input_file = 1;
+  } else {
+    say "No input id type specified, will pass input file directly to runnable and will not delete";
+    $runnable_input_file = $master_input_file;
+  }
 
   my $target_dba = $self->hrdb_get_dba($self->param('target_db'));
 
@@ -86,53 +145,14 @@ sub fetch_input {
 
   $self->hrdb_set_con($target_dba,'target_db');
 
-  my $genome_file = $self->param_required('genome_file');
-  unless(-e $genome_file) {
-    $self->throw("Could not find the genome file. Path used:\n".$genome_file);
-  }
-
-  my $genome_index = $self->param_required('minimap2_genome_index');
-  unless(-e $genome_index) {
-    $self->throw("Could not find the genome index. Path used:\n".$genome_index);
-  }
-
-  my $input_file = $self->param('input_file');
-  unless(-e $input_file) {
-    $self->throw("Could not find the input file. Path used:\n".$input_file);
-  }
-
-  my $input_range = shift(@{$self->param('iid')});
-  my $range_start = $$input_range[0];
-  my $range_end = $$input_range[1];
-
-  say "Creating tmp input file based on index range: ".$range_start."..".$range_end;
-  my $ranged_input_file = $self->create_input_file($input_file,$range_start,$range_end);
-  say "Finished creating input file";
-
-#  say "FERGAL RANGED DEBUG: ".$ranged_input_file;
-#  say "FERGAL RANGE DEBUG: ".$range_start."..".$range_end;
-#  sleep(60);
-#  $self->throw("DEBUG");
-  my $program = $self->param('minimap2_path');
-  my $paftools =  $self->param('paftools_path');
-
-  unless($program) {
-    $program = "minimap2";
-  }
-
-  unless($paftools) {
-    $paftools = "paftools.js";
-  }
-
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2->new(
        -analysis          => $self->create_analysis,
        -program           => $program,
        -paftools_path     => $paftools,
-#       -options        => $self->param('minimap2_options'),
        -genome_index      => $genome_index,
-       -input_file        => $ranged_input_file,
+       -input_file        => $runnable_input_file,
        -database_adaptor  => $target_dba,
-       -delete_input_file => 1, # NB!! only set this when creating ranged files, not when using the original input file
+       -delete_input_file => $delete_input_file, # NB!! only set this when creating ranged files, not when using the original input file
     );
 
   $self->runnable($runnable);
@@ -162,6 +182,34 @@ sub write_output {
 }
 
 
+sub create_gene_input_file {
+  my ($self,$gene_ids,$gene_dba) = @_;
+
+  my $gene_adaptor = $gene_dba->get_GeneAdaptor();
+  my $output_file = $self->create_filename();
+  open(OUT,">".$output_file);
+  foreach my $gene_id (@$gene_ids) {
+    my $gene = $gene_adaptor->fetch_by_dbID($gene_id);
+    unless($gene) {
+      $self->throw("Found no gene in the gene source db for the following gene id: ".$gene_id);
+    }
+
+    my $accession = $gene->stable_id;
+    unless($accession) {
+      $accession = $gene_id;
+    }
+
+    my $transcript = ${$gene->get_all_Transcripts()}[0];
+    my $seq = $transcript->seq->seq;
+
+    say OUT ">".$accession;
+    say OUT $seq;
+  }
+  close OUT;
+  return($output_file);
+}
+
+
 sub create_input_file {
   my ($self,$input_file,$start,$end) = @_;
 
@@ -186,25 +234,6 @@ sub create_input_file {
     say OUT ">".$seq_id;
     say OUT $seq;
   }
-
-
-#  my $counter = 0;
-#  my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($input_file);
-#  while($parser->next() && $counter <= $end) {
-#    if($counter < $start) {
-#      $counter++;
-#      next;
-#    }
-#    my $seq = $parser->getSequence();
-#    if(length($seq < 200)) {
-#      next;
-#    }
-#    my $header = $parser->getHeader();
-#    say OUT ">".$header;
-#    say OUT $seq;
-#    $counter++;
-#  }
-
   close OUT;
   return($output_file);
 }
