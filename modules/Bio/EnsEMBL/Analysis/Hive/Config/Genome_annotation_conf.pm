@@ -5999,7 +5999,7 @@ sub pipeline_analyses {
                                 ' -user_r '.$self->o('dna_db','-user').
                                 ' -dna_dbname '.$self->o('dna_db','-dbname'),
                        },
-        -rc_name => 'default',
+        -rc_name => '5GB',
         -flow_into  => {
           1 => ['cesar_fix_projection_db_issues'],
         },
