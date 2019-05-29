@@ -93,6 +93,7 @@ sub get_content {
                                \"zmenu\": \"".$values_dict{'web_data_zmenu'}."\",
                                \"label_key\": \"".$values_dict{'web_data_label_key'}."\",
                                \"type\": \"rnaseq\",
+                               \"colour_key\": \"".$values_dict{'web_data_colour_key'}."\"
                                \"matrix\": {";
       if ($logic_type eq "rnaseq_bam") {
 	$content .=                         "\"group_order\": \"".$values_dict{'matrix_group_order'}."\","
@@ -120,17 +121,13 @@ sub get_content {
 
       my $server = 'http://production-services.ensembl.org';
       my $ext = '/production_db/api/analysisdescription';
-      my $response = $http->request('POST', $server.$ext, {
+      my $response = $http->request('PUT', $server.$ext, {
           headers => {
 		      'Content-type' => 'application/json',
 		      'Accept' => 'application/json'
 		     },
           content => $content
 							  });
-
-#      print $sample_name." ".$logic_type."\n";
-#      use Data::Dumper;
-#      print Dumper $response;
 
       print "\nFailed to add analyses descriptions for ".$sample_name."!\n" unless $response->{success};
     }
