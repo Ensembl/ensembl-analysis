@@ -62,6 +62,7 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     input_id_type => 'fastq_range',
+    canonical_only => 0,
   }
 }
 
@@ -194,16 +195,30 @@ sub create_gene_input_file {
       $self->throw("Found no gene in the gene source db for the following gene id: ".$gene_id);
     }
 
-    my $accession = $gene->stable_id;
-    unless($accession) {
-      $accession = $gene_id;
+
+    my $transcripts = [];
+    if($self->param('canonical_only')) {
+      push(@$transcripts,$gene->canonical_transcript);
+    } else {
+      $transcripts = $gene->get_all_Transcripts;
     }
 
-    my $transcript = ${$gene->get_all_Transcripts()}[0];
-    my $seq = $transcript->seq->seq;
+    foreach my $transcript (@$transcripts) {
+      my $accession = "";
+      if($transcript->stable_id) {
+        $accession = $transcript->stable_id.".".$transcript->version;
+       } else {
+        $accession = $transcript->dbID;
+      }
 
-    say OUT ">".$accession;
-    say OUT $seq;
+      unless($accession) {
+        $self->throw("Could not find a transcript accession (stable id or dbID) for a transcript from the following gene_id: ".$gene_id);
+      }
+
+      my $seq = $transcript->seq->seq;
+      say OUT ">".$accession;
+      say OUT $seq;
+    }
   }
   close OUT;
   return($output_file);
