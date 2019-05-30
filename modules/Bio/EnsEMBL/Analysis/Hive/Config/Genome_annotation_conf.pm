@@ -5810,16 +5810,16 @@ sub pipeline_analyses {
         -max_retry_count => 1,
         -failed_job_tolerance => 5,
         -flow_into => {
-                        15 => ['cesar_15'],
+                        10 => ['cesar_10'],
+                        20 => ['cesar_20'],
                         25 => ['cesar_25'],
-                        35 => ['cesar_35'],
-                        80 => ['cesar_80'],
-                        -1 => ['cesar_35'], # some jobs with batches still fail with -1, try cesar_35 (and then cesar_80) in these cases
+                        30 => ['cesar_30'],
+                        -1 => ['cesar_30'], # some jobs with batches still fail with -1, try cesar_30 in these cases
                       },
       },
 
       {
-        -logic_name => 'cesar_15',
+        -logic_name => 'cesar_10',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
         -parameters => {
                          'output_path' => $self->o('output_path')."/cesar_projection/",
@@ -5830,7 +5830,7 @@ sub pipeline_analyses {
                          'compara_db' => $self->o('projection_lastz_db'),
                          'method_link_type' => 'LASTZ_NET',
                          'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '15', # mem in GB to be used by cesar (parameter --max-memory)
+                         'cesar_mem' => '10', # mem in GB to be used by cesar (parameter --max-memory)
                          #TRANSCRIPT_FILTER => {
                          #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
                          #  PARAMETERS => {
@@ -5842,7 +5842,41 @@ sub pipeline_analyses {
                          'canonical_or_longest' => 1,
                          'stops2introns' => 1,
                        },
-        -rc_name    => '15GB',
+        -rc_name    => '10GB',
+        -analysis_capacity => 50,
+        -max_retry_count => 1,
+        -can_be_empty  => 1,
+        -failed_job_tolerance => 5,
+        -flow_into => {
+                        -1 => ['cesar_20'],
+                      },
+      },
+
+      {
+        -logic_name => 'cesar_20',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
+        -parameters => {
+                         'output_path' => $self->o('output_path')."/cesar_projection/",
+                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
+                         'target_dna_db' => $self->o('dna_db'),
+                         'source_db' => $self->o('projection_source_db'),
+                         'target_db' => $self->o('cesar_projection_coding_db'),
+                         'compara_db' => $self->o('projection_lastz_db'),
+                         'method_link_type' => 'LASTZ_NET',
+                         'cesar_path' => $self->o('cesar_path'),
+                         'cesar_mem' => '20', # mem in GB to be used by cesar (parameter --max-memory)
+                         #TRANSCRIPT_FILTER => {
+                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+                         #  PARAMETERS => {
+                         #    -coverage => 50,
+                         #    -percent_id => 50,
+                         #  },
+                         #},
+                         #'canonical' => 1,
+                         'canonical_or_longest' => 1,
+                         'stops2introns' => 1,
+                       },
+        -rc_name    => '20GB',
         -analysis_capacity => 50,
         -max_retry_count => 1,
         -can_be_empty  => 1,
@@ -5880,48 +5914,14 @@ sub pipeline_analyses {
         -analysis_capacity => 50,
         -max_retry_count => 1,
         -can_be_empty  => 1,
-        -failed_job_tolerance => 5,
-        -flow_into => {
-                        -1 => ['cesar_35'],
-                      },
-      },
-
-      {
-        -logic_name => 'cesar_35',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
-        -parameters => {
-                         'output_path' => $self->o('output_path')."/cesar_projection/",
-                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
-                         'target_dna_db' => $self->o('dna_db'),
-                         'source_db' => $self->o('projection_source_db'),
-                         'target_db' => $self->o('cesar_projection_coding_db'),
-                         'compara_db' => $self->o('projection_lastz_db'),
-                         'method_link_type' => 'LASTZ_NET',
-                         'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '35', # mem in GB to be used by cesar (parameter --max-memory)
-                         #TRANSCRIPT_FILTER => {
-                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-                         #  PARAMETERS => {
-                         #    -coverage => 50,
-                         #    -percent_id => 50,
-                         #  },
-                         #},
-                         #'canonical' => 1,
-                         'canonical_or_longest' => 1,
-                         'stops2introns' => 1,
-                       },
-        -rc_name    => '35GB',
-        -analysis_capacity => 50,
-        -max_retry_count => 1,
-        -can_be_empty  => 1,
         -failed_job_tolerance => 10,
         -flow_into => {
-                        -1 => ['cesar_80'],
+                        -1 => ['cesar_30'],
                       },
       },
 
       {
-        -logic_name => 'cesar_80',
+        -logic_name => 'cesar_30',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
         -parameters => {
                          'output_path' => $self->o('output_path')."/cesar_projection/",
@@ -5932,7 +5932,7 @@ sub pipeline_analyses {
                          'compara_db' => $self->o('projection_lastz_db'),
                          'method_link_type' => 'LASTZ_NET',
                          'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '80', # mem in GB to be used by cesar (parameter --max-memory)
+                         'cesar_mem' => '30', # mem in GB to be used by cesar (parameter --max-memory)
                          #TRANSCRIPT_FILTER => {
                          #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
                          #  PARAMETERS => {
@@ -5944,7 +5944,7 @@ sub pipeline_analyses {
                          'canonical_or_longest' => 1,
                          'stops2introns' => 1,
                        },
-        -rc_name    => '80GB',
+        -rc_name    => '30GB',
         -analysis_capacity => 50,
         -max_retry_count => 1,
         -can_be_empty  => 1,

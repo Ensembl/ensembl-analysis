@@ -668,14 +668,14 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
 
     say "CESAR required memory estimate is greater than ".$1." GB.";
 
-    if ($1 < 15) {
-      $self->dataflow_output_id($output_hash,15);
+    if ($1 < 10) {
+      $self->dataflow_output_id($output_hash,10);
+    } elsif ($1 < 20) {
+      $self->dataflow_output_id($output_hash,20);
     } elsif ($1 < 25) {
       $self->dataflow_output_id($output_hash,25);
-    } elsif ($1 < 35) {
-      $self->dataflow_output_id($output_hash,35);
-    } elsif ($1 < 80) {
-      $self->dataflow_output_id($output_hash,80);
+    } elsif ($1 < 30) {
+      $self->dataflow_output_id($output_hash,30);
     } else {
       $self->dataflow_output_id($output_hash,-1);
     }
