@@ -24,12 +24,13 @@ use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use feature 'say';
 
-my ($help, $input_file, $safe_mode);
+my ($help, $input_file, $safe_mode, $species_name);
 
 GetOptions(
 	   'help|h'       => \$help,
 	   'input_file=s' => \$input_file,
-	   'safe_mode' => \$safe_mode,
+	   'safe_mode'    => \$safe_mode,
+	   'species_name' => \$species_name,
 );
 
 die &helptext if ( $help );
@@ -88,15 +89,20 @@ sub get_content {
     else{
       $content = "{
                       \"web_data\": {
-                           \"colour_key\": \"".$values_dict{'web_data_colour_key'}."\",
                            \"data\": {
                                \"zmenu\": \"".$values_dict{'web_data_zmenu'}."\",
                                \"label_key\": \"".$values_dict{'web_data_label_key'}."\",
-                               \"type\": \"rnaseq\",
-                               \"colour_key\": \"".$values_dict{'web_data_colour_key'}."\"
+                               \"colour_key\": \"".$values_dict{'web_data_colour_key'}."\", 
+                               \"type\": \"rnaseq\",";
+      if ($logic_type eq "rnaseq_daf") {
+	$content .=           "
+                               \"additional_renderers\": ".$values_dict{'web_data_additional_renders'}.""
+      }
+      $content .=              "
                                \"matrix\": {";
       if ($logic_type eq "rnaseq_bam") {
-	$content .=                         "\"group_order\": \"".$values_dict{'matrix_group_order'}."\","
+	$content .=                         "
+                                           \"group_order\": \"".$values_dict{'matrix_group_order'}."\","
       }
       $content .=                           "
                                            \"column\": \"".$values_dict{'matrix_column'}."\",
@@ -121,7 +127,7 @@ sub get_content {
 
       my $server = 'http://production-services.ensembl.org';
       my $ext = '/production_db/api/analysisdescription';
-      my $response = $http->request('PUT', $server.$ext, {
+      my $response = $http->request('POST', $server.$ext, {
           headers => {
 		      'Content-type' => 'application/json',
 		      'Accept' => 'application/json'
@@ -163,15 +169,15 @@ sub get_values {
 		    );
 
   my %web_data_label_key = (
-		       'rnaseq_gene' => "RNASeq",
+		       'rnaseq_gene' => "RNASeq [biotype]",
 		       'rnaseq_bam'  => "RNASeq [biotype]",
 		       'rnaseq_daf'  => "",
 		    );
 
   my %web_data_additional_renders = (
 		       'rnaseq_gene' => "",
-	       	       'rnaseq_bam'  => "\[\"histogram\", \"Variable height\"\],",
-		       'rnaseq_daf'  => "",
+	       	       'rnaseq_bam'  => "",
+		       'rnaseq_daf'  => "\[\"histogram\", \"Variable height\"\],",
 		    );
 
   my %web_data_colour_key = (
