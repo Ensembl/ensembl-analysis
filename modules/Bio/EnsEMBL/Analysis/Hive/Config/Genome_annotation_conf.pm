@@ -58,8 +58,8 @@ sub default_options {
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'rnaseq_summary_file'       => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
     'rnaseq_summary_file_genus' => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'_gen.csv'), # Set this if you have a pre-existing genus level cvs file with the expected columns
-    'long_read_summary_file'    => '', # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
-    'long_read_fastq_dir'       => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/minimap2/pig_big_test/long_read/input/',
+    'long_read_summary_file'    => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'.long_read.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
+    'long_read_fastq_dir'       => '' || catdir($self->o('long_read_dir'),'input'),
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
@@ -368,8 +368,8 @@ sub default_options {
 # Executable paths
 ########################
     'minimap2_genome_index'  => $self->o('faidx_genome_file').'.mmi',
-    'minimap2_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/minimap2/minimap2',
-    'paftools_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/minimap2/misc/paftools.js',
+    'minimap2_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/minimap2',
+    'paftools_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/misc/paftools.js',
     'minimap2_batch_size'    => '5000',
 
     'blast_type' => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
@@ -458,12 +458,12 @@ sub default_options {
     'read_length_table' => 'read_length',
     'rnaseq_data_provider' => 'ENA', #It will be set during the pipeline or it will use this value
 
-    'rnaseq_dir' => catdir($self->o('output_path'), 'rnaseq'),
-    'input_dir'    => catdir($self->o('rnaseq_dir'),'input'),
-    'output_dir'   => catdir($self->o('rnaseq_dir'),'output'),
-    'merge_dir'    => catdir($self->o('rnaseq_dir'),'merge'),
-    'sam_dir'      => catdir($self->o('rnaseq_dir'),'sams'),
-    'header_file'  => catfile($self->o('output_dir'), '#'.$self->o('read_id_tag').'#_header.h'),
+    'rnaseq_dir'    => catdir($self->o('output_path'), 'rnaseq'),
+    'input_dir'     => catdir($self->o('rnaseq_dir'),'input'),
+    'output_dir'    => catdir($self->o('rnaseq_dir'),'output'),
+    'merge_dir'     => catdir($self->o('rnaseq_dir'),'merge'),
+    'sam_dir'       => catdir($self->o('rnaseq_dir'),'sams'),
+    'header_file'   => catfile($self->o('output_dir'), '#'.$self->o('read_id_tag').'#_header.h'),
 
     'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
@@ -1047,6 +1047,7 @@ sub pipeline_create_commands {
                     'PRIMARY KEY (fastq))'),
 
       'mkdir -p '.$self->o('rnaseq_dir'),
+      'mkdir -p '.$self->o('long_read_fastq_dir'),
       'mkdir -p '.$self->o('genome_dumps'),
 
 # Commenting out lincRNA pfam pipeline commands until we put that bit back in
@@ -5998,7 +5999,7 @@ sub pipeline_analyses {
                                 ' -user_r '.$self->o('dna_db','-user').
                                 ' -dna_dbname '.$self->o('dna_db','-dbname'),
                        },
-        -rc_name => 'default',
+        -rc_name => '5GB',
         -flow_into  => {
           1 => ['cesar_fix_projection_db_issues'],
         },
