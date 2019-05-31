@@ -24,13 +24,12 @@ use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use feature 'say';
 
-my ($help, $input_file, $safe_mode, $species_name);
+my ($help, $input_file, $safe_mode);
 
 GetOptions(
 	   'help|h'       => \$help,
 	   'input_file=s' => \$input_file,
 	   'safe_mode'    => \$safe_mode,
-	   'species_name' => \$species_name,
 );
 
 die &helptext if ( $help );
@@ -57,9 +56,10 @@ sub get_content {
       -host    => 'mysql-ens-vertannot-staging',
       -dbname  => $dbname);
 
-  my $sth_species = $db->dbc->prepare("select meta_value from meta where meta_key='species.production_name';");
+  my $sth_species = $db->dbc->prepare("select meta_value from meta where meta_key='species.scientific_name';");
   $sth_species->execute();
-  my $species_name = $sth_species->fetchrow;
+  my $species_name = lc $sth_species->fetchrow;
+  $species_name =~ s/ /_/g;
 
   my $sth_logic = $db->dbc->prepare("select logic_name from analysis");
   $sth_logic->execute;
@@ -92,7 +92,7 @@ sub get_content {
                            \"data\": {
                                \"zmenu\": \"".$values_dict{'web_data_zmenu'}."\",
                                \"label_key\": \"".$values_dict{'web_data_label_key'}."\",
-                               \"colour_key\": \"".$values_dict{'web_data_colour_key'}."\", 
+                               \"colour_key\": \"".$values_dict{'web_data_colour_key'}."\",
                                \"type\": \"rnaseq\",";
       if ($logic_type eq "rnaseq_daf") {
 	$content .=           "
