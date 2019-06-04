@@ -811,6 +811,10 @@ sub feature_restriction {
         }
       } elsif($restriction eq 'projection') {
         return($self->assess_projection_transcript($feature));
+      } elsif($restriction eq 'protein_canonical') {
+        unless($feature->is_canonical && $feature->biotype eq 'protein_coding') {
+          $feature_restricted = 1;
+        }
       } else {
         $self->throw("You've selected a features restriction type that is not recognised: ".$restriction);
       }

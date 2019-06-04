@@ -746,7 +746,7 @@ sub default_options {
     #
     #Default pairaligner config
     #
-    'skip_pairaligner_stats' => 0, #skip this module if set to 1
+    'skip_pairaligner_stats' => 1, #skip this module if set to 1
 
     'pair_aligner_method_link' => [1001, 'LASTZ_RAW'],
     'pair_aligner_logic_name' => 'LastZ',
