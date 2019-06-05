@@ -58,8 +58,9 @@ sub default_options {
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'rnaseq_summary_file'       => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
     'rnaseq_summary_file_genus' => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'_gen.csv'), # Set this if you have a pre-existing genus level cvs file with the expected columns
-    'long_read_summary_file'    => '', # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
-    'long_read_fastq_dir'       => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/minimap2/pig_big_test/long_read/input/',
+    'long_read_summary_file'    => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
+    'long_read_summary_file_genus' => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read_gen.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
+    'long_read_fastq_dir'       => '' || catdir($self->o('long_read_dir'),'input'),
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
@@ -462,7 +463,6 @@ sub default_options {
     'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
     'long_read_dir'       => catdir($self->o('output_path'),'long_read'),
-    'long_read_fastq_dir' => catdir($self->o('long_read_dir'),'input'),
     'use_ucsc_naming' => 0,
 
     # If your reads are unpaired you may want to run on slices to avoid
@@ -1159,6 +1159,40 @@ sub pipeline_analyses {
           study_accession => $self->o('study_accession'),
           taxon_id => $self->o('genus_taxon_id'),
           inputfile => $self->o('rnaseq_summary_file_genus'),
+        },
+
+        -flow_into => {
+           1 => ['download_long_read_csv'],
+         },
+      },
+
+
+      {
+        -logic_name => 'download_long_read_csv',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+        -rc_name => '1GB',
+        -parameters => {
+          study_accession => $self->o('study_accession'),
+          taxon_id => $self->o('species_taxon_id'),
+          inputfile => $self->o('long_read_summary_file'),
+          read_type => 'isoseq',
+        },
+
+        -flow_into => {
+           1 => ['download_genus_long_read_csv'],
+         },
+      },
+
+
+      {
+        -logic_name => 'download_genus_long_read_csv',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+        -rc_name => '1GB',
+        -parameters => {
+          study_accession => $self->o('study_accession'),
+          taxon_id => $self->o('genus_taxon_id'),
+          inputfile => $self->o('long_read_summary_file_genus'),
+          read_type => 'isoseq',
         },
 
         -flow_into => {
