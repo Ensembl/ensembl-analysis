@@ -507,7 +507,7 @@ sub default_options {
     # will vary depending on how your data looks.
     ####################################################################
     file_columns      => ['SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS'],
-    long_read_columns => ['sample','filename'],
+    long_read_columns => ['sample','filename','description'],
 
 # lincRNA pipeline stuff
     'lncrna_dir' => catdir($self->o('output_path'), 'lincrna'),

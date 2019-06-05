@@ -1075,7 +1075,10 @@ sub fastq_range {
   }
 
   my $seq_count = `wc -l $fastq_file`;
-  chomp($seq_count);
+  unless($seq_count =~ /^(\d+)/) {
+    $self->throw("Issue with getting the line count for the fastq file. Expected to match an interger as first value. Value returned: ".$seq_count);
+  }
+  $seq_count = $1;
   $seq_count = $seq_count / 4;
 
   unless($seq_count > 0) {
