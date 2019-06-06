@@ -1023,6 +1023,7 @@ sub pipeline_create_commands {
                     'PRIMARY KEY (fastq))'),
 
       'mkdir -p '.$self->o('rnaseq_dir'),
+      'mkdir -p '.$self->o('long_read_fastq_dir'),
       'mkdir -p '.$self->o('genome_dumps'),
 
 # Commenting out lincRNA pfam pipeline commands until we put that bit back in

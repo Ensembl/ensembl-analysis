@@ -47,6 +47,7 @@ use warnings;
 use strict;
 use feature 'say';
 
+use File::Basename;
 use Bio::EnsEMBL::IO::Parser::Fasta;
 use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Analysis::Runnable::Minimap2;
@@ -63,6 +64,7 @@ sub param_defaults {
     %{$self->SUPER::param_defaults},
     input_id_type => 'fastq_range',
     canonical_only => 0,
+    min_read_length => 300,
   }
 }
 
@@ -78,6 +80,8 @@ sub param_defaults {
 
 sub fetch_input {
   my ($self) = @_;
+
+  my $analysis = $self->create_analysis();
 
   my $program = $self->param('minimap2_path');
   my $paftools =  $self->param('paftools_path');
@@ -103,6 +107,21 @@ sub fetch_input {
   my $master_input_file = $self->param('input_file');
   unless($self->param_required('input_id_type') eq "gene_id" || -e $master_input_file) {
     $self->throw("Could not find the input file. Path used:\n".$master_input_file);
+  }
+
+  my $sample_file_name = basename($master_input_file);
+  my $csv_file = $self->param('long_read_summary_file');
+
+  my $find_sample_name_cmd = "grep '".$sample_file_name."' ".$csv_file." | awk '{print \$1}'";
+  my $sample_name = `$find_sample_name_cmd`;
+  chomp($sample_name);
+
+  my $logic_name = $sample_name."_long_read";
+  say "Setting logic_name to: ".$logic_name;
+  $analysis->logic_name($sample_name."_long_read");
+
+  unless($sample_name) {
+    $self->throw("Failed to find a sample name in the csv file for: ".$sample_file_name);
   }
 
   my $runnable_input_file = "";
@@ -147,7 +166,7 @@ sub fetch_input {
   $self->hrdb_set_con($target_dba,'target_db');
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2->new(
-       -analysis          => $self->create_analysis,
+       -analysis          => $analysis,
        -program           => $program,
        -paftools_path     => $paftools,
        -genome_index      => $genome_index,
@@ -243,9 +262,12 @@ sub create_input_file {
   for(my $i=$start; $i<= $end; $i++) {
     my $seq_id = $seq_ids[$i];
     my $length = $index->length($seq_id);
+    if($length < $self->param('min_read_length')) {
+      next;
+    }
+
     my $location  = $seq_id.":1-".$length;
     my $seq = $index->get_sequence_no_length($location);
-
     say OUT ">".$seq_id;
     say OUT $seq;
   }
