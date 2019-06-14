@@ -83,6 +83,7 @@ sub _master_config {
 
   my %config = (
     default => [],
+
     primates_basic => [
              {
                ID         => 'LAYER1',
@@ -109,6 +110,9 @@ sub _master_config {
                              'gw_gtag',
                              'gw_nogtag',
                              'gw_exo',
+                             'cdna_1',
+                             'cdna_2',
+                             'cdna_3',
                              'rnaseq_merged_1',
                              'rnaseq_merged_2',
                              'rnaseq_merged_3',
@@ -121,8 +125,7 @@ sub _master_config {
                              'self_pe12_tr_2',
                              'projection_1',
                              'projection_2',
-                             'projection_3',
-                            ],
+                             ],
               FILTER_AGAINST => ['LAYER1'],
               DISCARD    => 0,
             },
@@ -131,18 +134,12 @@ sub _master_config {
             {
               ID         => 'LAYER3',
               BIOTYPES   => [
+                             'cdna_4',
                              'rnaseq_merged_4',
                              'rnaseq_tissue_4',
                              'human_pe12_sp_1',
-                             'human_pe12_tr_1',
-                             'human_pe12_tr_2',
                              'human_pe12_sp_2',
-                             'primates_pe12_sp_1',
-                             'primates_pe12_tr_1',
-                             'primates_pe12_tr_2',
-                             'primates_pe12_sp_2',
                              'genblast_rnaseq_top',
-                             'projection_4',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2'],
               DISCARD    => 0,
@@ -151,15 +148,16 @@ sub _master_config {
             {
               ID         => 'LAYER4',
               BIOTYPES   => [
+                             'human_pe12_tr_1',
+                             'human_pe12_tr_2',
+                             'cdna_5',
                              'rnaseq_merged_5',
                              'rnaseq_tissue_5',
-                             'mammals_pe12_sp_1',
-                             'mammals_pe12_tr_1',
-                             'mammals_pe12_sp_2',
-                             'mammals_pe12_tr_2',
                              'self_pe3_sp_1',
                              'self_pe3_tr_1',
                              'genblast_rnaseq_high',
+                             'projection_3',
+                             'projection_4',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3'],
               DISCARD    => 0,
@@ -169,14 +167,6 @@ sub _master_config {
             {
               ID         => 'LAYER5',
               BIOTYPES   => [
-                             'human_pe12_sp_3',
-                             'human_pe12_tr_3',
-                             'primates_pe12_sp_3',
-                             'primates_pe12_tr_3',
-                             'human_pe12_sp_4',
-                             'human_pe12_tr_4',
-                             'primates_pe12_sp_4',
-                             'primates_pe12_tr_4',
                              'genblast_rnaseq_medium',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4'],
@@ -184,47 +174,12 @@ sub _master_config {
             },
 
 
-            {
+             {
               ID         => 'LAYER6',
               BIOTYPES   => [
-                             'mammals_pe12_sp_3',
-                             'mammals_pe12_tr_3',
-                             'mammals_pe12_sp_4',
-                             'mammals_pe12_tr_4',
-                            ],
-              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'],
-              DISCARD    => 0,
-            },
-
-             {
-              ID         => 'LAYER7',
-              BIOTYPES   => [
+                             'cdna_6',
                              'rnaseq_merged_6',
                              'rnaseq_tissue_6',
-                             'human_pe12_sp_int_1',
-                             'human_pe12_tr_int_1',
-                             'human_pe12_sp_int_2',
-                             'human_pe12_tr_int_2',
-                             'human_pe12_sp_int_3',
-                             'human_pe12_tr_int_3',
-                             'human_pe12_sp_int_4',
-                             'human_pe12_tr_int_4',
-                             'primates_pe12_sp_int_1',
-                             'primates_pe12_tr_int_1',
-                             'primates_pe12_sp_int_2',
-                             'primates_pe12_tr_int_2',
-                             'primates_pe12_sp_int_3',
-                             'primates_pe12_tr_int_3',
-                             'primates_pe12_sp_int_4',
-                             'primates_pe12_tr_int_4',
-                             'mammals_pe12_sp_int_1',
-                             'mammals_pe12_tr_int_1',
-                             'mammals_pe12_sp_int_2',
-                             'mammals_pe12_tr_int_2',
-                             'mammals_pe12_sp_int_3',
-                             'mammals_pe12_tr_int_3',
-                             'mammals_pe12_sp_int_4',
-                             'mammals_pe12_tr_int_4',
                              'projection_1_noncanon',
                              'projection_2_noncanon',
                              'projection_3_noncanon',
@@ -234,6 +189,17 @@ sub _master_config {
                              'projection_3_pseudo',
                              'projection_4_pseudo',
                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5'],
+              DISCARD    => 0,
+            },
+
+             {
+              ID         => 'LAYER7',
+              BIOTYPES   => [
+                             'cdna_7',
+                             'rnaseq_merged_7',
+                             'rnaseq_tissue_7',
+                            ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
               DISCARD    => 0,
             },
@@ -241,20 +207,11 @@ sub _master_config {
              {
               ID         => 'LAYER8',
               BIOTYPES   => [
-                             'rnaseq_merged_7',
-                             'rnaseq_tissue_7',
-                            ],
-              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'],
-              DISCARD    => 0,
-            },
-
-             {
-              ID         => 'LAYER9',
-              BIOTYPES   => [
+                              'cdna',
                               'rnaseq_merged',
                               'rnaseq_tissue',
                             ],
-              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7','LAYER8'],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'],
               DISCARD    => 0,
             },
 
@@ -287,6 +244,9 @@ sub _master_config {
                              'gw_gtag',
                              'gw_nogtag',
                              'gw_exo',
+                             'cdna_1',
+                             'cdna_2',
+                             'cdna_3',
                              'rnaseq_merged_1',
                              'rnaseq_merged_2',
                              'rnaseq_merged_3',
@@ -309,6 +269,7 @@ sub _master_config {
             {
               ID         => 'LAYER3',
               BIOTYPES   => [
+                             'cdna_4',
                              'rnaseq_merged_4',
                              'rnaseq_tissue_4',
                              'human_pe12_sp_1',
@@ -329,6 +290,7 @@ sub _master_config {
             {
               ID         => 'LAYER4',
               BIOTYPES   => [
+                             'cdna_5',
                              'rnaseq_merged_5',
                              'rnaseq_tissue_5',
                              'mammals_pe12_sp_1',
@@ -377,6 +339,7 @@ sub _master_config {
              {
               ID         => 'LAYER7',
               BIOTYPES   => [
+                             'cdna_6',
                              'rnaseq_merged_6',
                              'rnaseq_tissue_6',
                              'human_pe12_sp_int_1',
@@ -419,6 +382,7 @@ sub _master_config {
              {
               ID         => 'LAYER8',
               BIOTYPES   => [
+                             'cdna_7',
                              'rnaseq_merged_7',
                              'rnaseq_tissue_7',
                             ],
@@ -429,6 +393,7 @@ sub _master_config {
              {
               ID         => 'LAYER9',
               BIOTYPES   => [
+                              'cdna',
                               'rnaseq_merged',
                               'rnaseq_tissue',
                             ],
