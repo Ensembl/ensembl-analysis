@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -566,7 +566,14 @@ foreach my $type (@types) {
             $cmd .= " -analysis_id $analysis_id";
           }
           else {
-            throw('Failed to get analysis_id for "%merged_rnaseq_ise"');
+	    my $num_ise_analyses = `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e "SELECT count(*) FROM analysis WHERE logic_name LIKE '%_rnaseq_ise'"`;
+	    if ($num_ise_analyses == 1){
+	      my $ise_analysis_id = `mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e "SELECT analysis_id FROM analysis WHERE logic_name LIKE '%_rnaseq_ise'"`;
+	      $cmd .= " -analysis_id $analysis_id";
+	    }
+	    else{
+	      throw('Failed to get analysis_id for "%_rnaseq_ise"');
+	    }
           }
         }
         if (system($cmd)) {

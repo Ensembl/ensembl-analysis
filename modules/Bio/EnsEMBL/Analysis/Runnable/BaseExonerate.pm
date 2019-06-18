@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,6 +58,7 @@ package Bio::EnsEMBL::Analysis::Runnable::BaseExonerate;
 
 use warnings ;
 use strict;
+use feature 'say';
 
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Translation;
@@ -67,7 +68,7 @@ use Bio::EnsEMBL::DnaPepAlignFeature;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(write_seqfile parse_timer execute_with_timer);
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
@@ -209,14 +210,20 @@ sub new {
 Usage   :   $obj->run($workdir, $args)
 Function:   Runs exonerate script and puts the results into the file $self->results
             It calls $self->parse_results, and results are stored in $self->output
+
 =cut
 
 sub run {
   my ($self) = @_;
 
+  my $output_file = $self->create_filename();
+  $self->files_to_delete($output_file);
+
+  my $write_results = $self->write_to_file();
 
   if ($self->annotation_features) {
-    my $annot_file = $self->workdir . "/exonerate_a.$$";
+    my $annot_file = $self->create_filename("exonerate_a");
+    $self->annotation_file($annot_file);
     open F, ">$annot_file" or 
         throw "Could not open temp $annot_file for writing";
     foreach my $id (keys %{$self->annotation_features}) {
@@ -226,11 +233,10 @@ sub run {
              $f->strand < 0 ? "-" : "+",
              $f->start,
              $f->length);
-      
-    } 
+    }
     close(F);
     $self->files_to_delete($annot_file);
-    $self->annotation_file($annot_file);
+    close($annot_file) || throw('Could not close annotation file for writing');
   } elsif ($self->annotation_file) {
     my %feats;
     open F, $self->annotation_file or 
@@ -241,54 +247,26 @@ sub run {
                                                 -strand  => $2 eq "-" ? -1 : 1,
                                                 -start   => $3,
                                                 -end     => $3 + $4 - 1); 
-      };      
+      };
     }
-    close(F);
+    close(F) || throw('Could not close supplied annotation file for reading');
     $self->annotation_features(\%feats);
   }
 
 
   if ($self->query_seqs) {
     # Write query sequences to file if necessary
-    #my $query_file = $self->create_filename('exonerate_q', 'fa');
     my $query_file = write_seqfile($self->query_seqs);
-    
-    #my $seqout = 
-    #  Bio::SeqIO->new(
-    #    '-format' => 'fasta',
-    #    '-file'     => ">$query_file"
-    #  );
-    #  
-    #foreach my $seq ( @{$self->query_seqs} ) {
-    #  $seqout->write_seq($seq);
-    #}
-    
-    # register the file for deletion
-    $self->files_to_delete($query_file);
     $self->query_file($query_file);
   }
 
   if ($self->target_seqs) {
     # Write query sequences to file if necessary
-    #my $target_file = $self->create_filename('exonerate_t', 'fa');
     my $target_file = write_seqfile($self->target_seqs);
-    #my $seqout = 
-    #  Bio::SeqIO->new(
-    #    '-format' => 'fasta',
-    #    '-file'     => ">$target_file"
-    #  );
-    #  
-    #foreach my $seq ( @{$self->target_seqs} ) {
-    #  $seqout->write_seq($seq);
-    #}
-    
-    # register the file for deletion
-    $self->files_to_delete($target_file);
     $self->target_file($target_file);
   }
 
   # Build exonerate command
-
   my $command =
     $self->program . " " .$self->options .
     " --querytype "  . $self->query_type .
@@ -296,22 +274,30 @@ sub run {
     ' --query "'  . $self->query_file .
     '" --target "' . $self->target_file.'"';
   $command .= " --annotation " . $self->annotation_file if $self->annotation_features;
-  
-  # Execute command and parse results
+  $command .= " > ".$output_file if $write_results;
 
+  # Execute command and parse results
   print STDERR "Exonerate command : $command\n";
 
-  my $exo_fh;
-  open( $exo_fh, "$command |" ) or throw("Error opening exonerate command: $? : $!");
-  
-  $self->output($self->parse_results( $exo_fh ));
-  
-  if (!close( $exo_fh )) {
-    sleep 30;
-    throw ("Error closing exonerate command: $? : $!");
+  my $timer = $self->timer();
+  unless($timer) {
+    warning("No timer set, defaulting to 5h");
+    $timer = "5h";
   }
-  $self->delete_files;
 
+  if($write_results) {
+    execute_with_timer($command, $self->timer);
+    $self->output($self->parse_results($output_file,$write_results));
+  } else {
+    my $exo_fh;
+    open( $exo_fh, "$command |" ) or throw("Error opening exonerate command: $? : $!");
+    $self->output($self->parse_results( $exo_fh ));
+
+    if (!close( $exo_fh )) {
+      sleep 30;
+      throw ("Error closing exonerate command: $? : $!");
+    }
+  } # end else
   return 1;
 }
 
@@ -546,6 +532,27 @@ sub _verbose {
   return $self->{_verbose};
 }
 
+
+
+=head2 write_to_file
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter, specifies that you want BaseExonerate to write the output to a file and not pipe directly into a filehandle
+              This is important for using a timer, since a timer doesn't seem to work with a filehandle pipe
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
+sub write_to_file {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_write_to_file'} = $value;
+  }
+
+  return($self->{'_write_to_file'});
+}
 
 1;
 

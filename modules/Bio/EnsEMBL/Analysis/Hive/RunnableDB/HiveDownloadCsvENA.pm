@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2018] EMBL-European Bioinformatics Institute
+Copyright [2016-2019] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA;
 
 use strict;
 use warnings;
+use feature 'say';
 
 use JSON::PP;
 use LWP::UserAgent;
@@ -81,6 +82,7 @@ sub param_defaults {
     _read_length => 1,
     _centre_name => 'ENA',
     print_all_info => 0,
+    paired_end_only => 1, #by default, module will only add paired-end data to the csv, add "paired_end_only => 0" to pipeline config to include single end data 
   }
 }
 
@@ -105,7 +107,7 @@ sub fetch_input {
   } elsif ($self->param_is_defined('study_accession') and $self->param('study_accession')) {
     $self->_populate_query($self->param('study_accession'), 'study_accession=%s');
   } elsif ($self->param_is_defined('taxon_id') and $self->param('taxon_id')) {
-    $self->_populate_query($self->param('taxon_id'), 'tax_eq(%s) AND instrument_platform=ILLUMINA AND library_source=TRANSCRIPTOMIC');
+    $self->_populate_query($self->param('taxon_id'), 'tax_tree(%s) AND instrument_platform=ILLUMINA AND library_source=TRANSCRIPTOMIC');
   } else {
     $self->throw('"inputfile" does not exist and neither "study_accession" nor "taxon_id" were defined');
   }
@@ -176,10 +178,20 @@ sub run {
             # if these two checks below are removed, more time might be needed to prepare the CSV file
             next if ($line =~ / infected | [iIu]mmune| challenge |tomi[zs]ed/); # I do not want to do that but I don't think we have a choice
             next if ($line =~ /[Mm]i\w{0,3}RNA|lncRNA|circRNA|small RNA/); # I do not want to do that but I don't think we have a choice
+
             my @row = split("\t", $line);
             my $read_length = $self->param('_read_length');
             my $nominal_length = 0;
             my $calculated_length = 0;
+
+            if ($self->param('paired_end_only')){
+	      my $third_file = "ftp[^_]*\.fastq\.gz\;ftp";
+	      $row[$fields_index{$fastq_file}] =~ s/$third_file/ftp/; # sometimes a third combined fastq file exists (it has single end naming format) - discard it
+
+              next if ($row[$fields_index{library_layout}] eq 'SINGLE'); # don't include single end reads
+	      next if ($row[$fields_index{$fastq_file}] !~ m/.*_1\.fastq\.gz.*_2\.fastq\.gz/);# this will throw out the paired end data that is stored in a single file, i.e. it looks like single end data to a regex
+            }
+
             if ($row[$fields_index{nominal_length}]) {
               $nominal_length = $row[$fields_index{nominal_length}];
               $read_length = $nominal_length;
@@ -307,6 +319,9 @@ sub run {
       my %dev_stages;
       my %celltypes;
       foreach my $sample (keys %{$csv_data{$project}}) {
+        unless($sample =~ /^SAMN/) {
+          next;
+	}
         next unless (exists $samples{$sample});
         if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
 #        if (exists $samples{$sample}->{dev_stage}) {
@@ -316,13 +331,20 @@ sub run {
       }
       if (scalar(keys(%dev_stages)) > 1) {
         foreach my $sample (keys %{$csv_data{$project}}) {
+          unless($sample =~ /^SAMN/) {
+            next;
+  	  }
           next unless (exists $samples{$sample});
           if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
             $samples{$sample}->{sample_name} = $samples{$sample}->{dev_stage};
           }
           else {
-            $self->throw('No dev stages for '.$sample.' "'.join('", "', keys %dev_stages).'"');
+            #instead of breaking pipeline, show warning where sample has no development stage
+            #use unknown for such cases
+            $self->warning('No dev stages for '.$sample.' "'.join('", "', keys %dev_stages).'"');
+            $samples{$sample}->{sample_name} = 'unknown';
           }
+
           if ($samples{$sample}->{sex}) {
             $samples{$sample}->{sample_name} = $samples{$sample}->{sex}.'_'.$samples{$sample}->{sample_name};
           }
@@ -330,6 +352,9 @@ sub run {
       }
       else {
         foreach my $sample (keys %{$csv_data{$project}}) {
+          unless($sample =~ /^SAMN/) {
+            next;
+  	  }
           next unless (exists $samples{$sample});
           $samples{$sample}->{sample_name} = $samples{$sample}->{cellType} || $samples{$sample}->{organismPart} || $samples{$sample}->{sample_alias} || $samples{$sample}->{description};
           if (!$samples{$sample}->{sample_name}) {
@@ -344,7 +369,6 @@ sub run {
     $self->output([\%csv_data, \%samples]);
   }
   else {
-    $self->input_job->autoflow(0);
     $self->complete_early('Could not find any data for this job');
   }
 }
@@ -379,6 +403,9 @@ sub write_output {
   foreach my $study_accession (keys %{$data->[0]}) {
     my $study = $data->[0]->{$study_accession};
     foreach my $sample (keys %{$study}) {
+      unless($sample =~ /^SAMN/) {
+        next;
+      }
       next unless (exists $samples->{$sample});
       foreach my $experiment (@{$study->{$sample}}) {
         my @files = split(';', $experiment->{fastq_file});

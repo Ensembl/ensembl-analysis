@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2018] EMBL-European Bioinformatics Institute
+Copyright [2016-2019] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ use warnings;
 use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene fully_load_Gene);
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub param_defaults {
@@ -57,6 +58,7 @@ sub param_defaults {
     classify_medium => 4,
     classify_high => 6,
     classify_top => 8,
+    slice_strand => 0,
   }
 }
 
@@ -65,31 +67,67 @@ sub fetch_input {
   my ($self) = @_;
 
   $self->create_analysis;
-  my $dna_db = $self->get_database_by_name('dna_db');
-  my $source_db = $self->get_database_by_name('source_db', $dna_db);
+  my $source_db = $self->get_database_by_name('source_db');
+  my $intron_db = $self->get_database_by_name('intron_db');
+  my $target_db;
   if ($self->param('target_db')) {
-    $self->hrdb_set_con($self->get_database_by_name('target_db', $dna_db), 'target_db');
+     $target_db = $self->get_database_by_name('target_db');
   }
-  else {
+
+  if($self->param('use_genome_flatfile')) {
+    say "Ingoring dna table and using fasta file for sequence fetching";
+    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
+      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+    }
+    setup_fasta(
+                 -FASTA => $self->param_required('genome_file'),
+               );
+  } else {
+    say "Attaching dna db";
+    my $dna_dba = $self->get_database_by_name('dna_db');
+    $source_db->dnadb($dna_dba);
+    $intron_db->dnadb($dna_dba);
+    if($target_db) {
+      $target_db->dnadb($dna_dba);
+    }
+  }
+
+  if($target_db) {
+    $self->hrdb_set_con($target_db,'target_db');
+  } else {
     $self->hrdb_set_con($source_db, 'target_db');
     $self->param('update_genes', 1); # If people didn't specify a target_db, we update the biotype, otherwise they have to specify a target_db
   }
+
+  $self->hrdb_set_con($intron_db,'intron_db');
+
   my $slice = $source_db->get_SliceAdaptor->fetch_by_name($self->input_id);
   my $genes;
   if ($self->param_is_defined('source_logic_name')) {
     if (ref($self->param('source_logic_name')) eq 'ARRAY') {
       foreach my $logic_name (@{$self->param('source_logic_name')}) {
-        push(@$genes, @{$slice->get_all_Genes($logic_name, undef, 1)});
+        push(@$genes, @{$slice->get_all_Genes($logic_name)});
       }
     }
     else {
-      $genes = $slice->get_all_Genes($self->param('source_logic_name'), undef, 1);
+      $genes = $slice->get_all_Genes($self->param('source_logic_name'));
     }
   }
   else {
-    $genes = $slice->get_all_Genes(undef, undef, 1);
+    $genes = $slice->get_all_Genes();
   }
-  $self->hrdb_set_con($self->get_database_by_name('intron_db', $dna_db), 'intron_db');
+
+  # If we have the slice_strand param set then we want to filter the genes based on the strand
+  if($self->param('slice_strand')) {
+    my $initial_genes = $genes;
+    $genes = [];
+    foreach my $gene (@{$initial_genes}) {
+      unless($self->param('slice_strand') == $gene->strand) {
+        next;
+      }
+      push(@$genes,$gene);
+    }
+  }
 
   print STDERR 'Fetched ', scalar(@$genes), "\n";
   $self->say_with_header('Fetched '.scalar(@$genes));
@@ -103,6 +141,7 @@ sub run {
   my $intron_adaptor = $self->hrdb_get_con('intron_db')->get_DnaAlignFeatureAdaptor;
   my %good_introns;
   my $full_support_suffix = $self->param('full_support_suffix');
+
   foreach my $gene (@{$self->input_genes}) {
     my %introns;
     my $transcripts = $gene->get_all_Transcripts;
@@ -145,7 +184,7 @@ sub run {
           $transcript->biotype('genblast_rnaseq_top');
           $gene->biotype('genblast_rnaseq_top');
           $self->output([$gene]);
-	} elsif($intron_support_diff >= $high_count) {
+        } elsif($intron_support_diff >= $high_count) {
           $transcript->biotype('genblast_rnaseq_high');
           $gene->biotype('genblast_rnaseq_high');
           $self->output([$gene]);
@@ -173,6 +212,7 @@ sub run {
         else {
           $self->say_with_header('Gene '.$gene->display_id.' not fully supported');
         }
+        $self->output([$gene]);
       }
 
     } # End foreach my $transcript

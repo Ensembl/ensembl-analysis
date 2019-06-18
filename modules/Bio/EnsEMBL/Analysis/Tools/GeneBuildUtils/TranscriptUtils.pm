@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -2191,10 +2191,10 @@ sub attach_Slice_to_Transcript{
   }
 
   foreach my $exon(@{$transcript->get_all_Exons}){
-    $exon->slice($slice);
     foreach my $sf(@{$exon->get_all_supporting_features}){
       $sf->slice($slice);
     }
+    $exon->slice($slice);
   }
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessUniProtFiles;
 use strict;
 use warnings;
 use feature 'say';
-
+use Data::Dumper;
 use File::Spec::Functions qw(splitpath);
 use Bio::EnsEMBL::IO::Parser::Fasta;
 use Bio::EnsEMBL::KillList::KillList;
@@ -79,7 +79,6 @@ sub fetch_input {
     $group_name =~ s/\.\w+$//;
 
     my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($file_path);
-
     my $last_pe = 2;
     while($parser->next()) {
       $input_seq_count++;
@@ -148,7 +147,6 @@ sub fetch_input {
               $self->throw("Issue strong the following accession: ".$versioned_accession."\n".$except);
 	    }
           }
-
           print FH ">$versioned_accession\n$seq\n" if ($write_file);
           push(@iids, $versioned_accession);
         }
@@ -166,7 +164,8 @@ sub fetch_input {
   }
   else {
     if ($write_file and -e $self->param('output_file')) {
-      unlink $self->param('output_file');
+       #do not unlink file in order not to break generate_besttargetted_index
+       #unlink $self->param('output_file');
     }
     $self->input_job->autoflow(0);
     $self->complete_early('No sequences have been stored or written to file');

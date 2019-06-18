@@ -1,7 +1,7 @@
-#!/usr/bin/env perl
+#!/Usr/bin/env perl
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -98,9 +98,18 @@ sub write_output {
 	my $length_table_adaptor = $self->db->get_NakedTableAdaptor;
 	$length_table_adaptor->table_name($self->param('read_length_table'));
 
+	my $fastq;
 	my $split_fastq = $input_id->{filename};
-	$split_fastq =~ m/([A-Z0-9]+)_.*([0-9]\.fastq\.gz)/;
-	my $fastq = $1."_".$2;
+	if ($split_fastq =~ m/_split/){
+	  my @split_parts = split /_/, $split_fastq;
+	  my $suffix = $split_parts[-2];
+	  my @prefix_parts = @split_parts[ 0..$#split_parts-3 ];
+	  my $prefix = join '_', @prefix_parts;
+	  $fastq = $prefix."_".$suffix;
+	}
+	else{
+	  $fastq = $split_fastq;
+	}
 	my $db_row = $length_table_adaptor->fetch_by_dbID($fastq);
 	my $read_length = $db_row->{read_length};
 

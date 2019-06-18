@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,6 +60,8 @@ use feature 'say';
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 use Net::FTP;
@@ -110,20 +112,27 @@ sub run {
   my $self = shift;
 
   if($self->param('copy_genes_directly')) {
-     my $input_dba = $self->hrdb_get_dba($self->param('source_db'));
-     my $output_dba = $self->hrdb_get_dba($self->param('target_db'));
+    my $input_dba = $self->hrdb_get_dba($self->param('source_db'));
+    my $output_dba = $self->hrdb_get_dba($self->param('target_db'));
 
-     if($self->param('dna_db')) {
-       my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-       $input_dba->dnadb($dna_dba);
-       $output_dba->dnadb($dna_dba);
-     }
+    if($self->param('use_genome_flatfile')) {
+      unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
+        $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+      }
+      setup_fasta(
+                   -FASTA => $self->param_required('genome_file'),
+                 );
+    } else {
+      my $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
+      $input_dba->dnadb($dna_dba);
+      $output_dba->dnadb($dna_dba);
+    }
 
-     $self->hrdb_set_con($input_dba,'source_db');
-     $self->hrdb_set_con($output_dba,'target_db');
+    $self->hrdb_set_con($input_dba,'source_db');
+    $self->hrdb_set_con($output_dba,'target_db');
 
-     my $input_genes = $self->param('iid');
-     $self->copy_genes_directly($input_genes);
+    my $input_genes = $self->param('iid');
+    $self->copy_genes_directly($input_genes);
 
   } else {
     $self->param_required('sourcehost');
@@ -194,7 +203,11 @@ sub write_output {
       $self->throw("You have selected to copy genes directly based on the feature id but no genes were present in the output array, so something has went wrong");
     }
 
+    my $copy_biotypes_to_ignore = $self->param('copy_biotypes_to_ignore');
     foreach my $gene (@{$output_genes}) {
+      if($copy_biotypes_to_ignore && $copy_biotypes_to_ignore->{$gene->biotype}) {
+        next;
+      }
       empty_Gene($gene);
       $output_ga->store($gene);
     }

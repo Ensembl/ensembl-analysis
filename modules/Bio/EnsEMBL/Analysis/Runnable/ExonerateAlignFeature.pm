@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,6 +55,7 @@ package Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature;
 
 use warnings ;
 use strict;
+use feature 'say';
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable::BaseExonerate');
 use Bio::EnsEMBL::DnaDnaAlignFeature;
@@ -79,16 +80,26 @@ use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 =cut
 
 sub parse_results {
-  my ( $self, $fh ) = @_;
-  
+  my ( $self, $input, $write_results ) = @_;
+
   my @features;
-  
+  my $redundant_ids = $self->redundant_ids;
+
+  my $fh;
+  if($write_results) {
+    unless(open($fh,$input)) {
+      throw("Could not open file: ".$input);
+     };
+  } else {
+    $fh = $input;
+  }
+
   while (<$fh>){
 
     next unless /^RESULT:/;
 
     chomp;
-    
+
     my (
       $tag, $q_id, $q_start, $q_end, $q_strand, 
       $t_id, $t_start, $t_end, $t_strand, $score, 
@@ -148,8 +159,28 @@ sub parse_results {
     }else{
       warn "Clone end feature from probe :$q_id doesnt match well enough\n";
     }
+
+    say "FERGAL DEBUG QID: ".$q_id;
+    my @redundant_ids = @{$redundant_ids->{$q_id}};
+    if(scalar(@redundant_ids)) {
+      foreach my $id (@redundant_ids) {
+        my $feature = $self->make_feature(
+          $id, $q_length, $q_start, $q_end, $q_strand,
+          $t_id, $t_length, $t_start, $t_end, $t_strand,
+          $score, $perc_id, $cigar_string, $hcoverage , $gene_orientation);
+
+        if($feature){
+          push @features, $feature;
+        } else{
+          warn "Clone end feature from probe :$q_id doesnt match well enough\n";
+        }
+      } # end foreach my $id
+    } # end if(scalar(@redundant_ids
   }
 
+  if($write_results) {
+    close $fh;
+  }
   return \@features;
 }
 

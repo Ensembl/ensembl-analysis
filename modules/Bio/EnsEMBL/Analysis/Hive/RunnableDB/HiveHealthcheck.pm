@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2018] EMBL-European Bioinformatics Institute
+Copyright [2016-2019] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -59,6 +59,7 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     methods_list => [],
+    skip_analysis => 0,
   }
 }
 
@@ -80,6 +81,10 @@ sub param_defaults {
 
 sub fetch_input {
   my $self = shift;
+
+  if($self->param('skip_analysis')) {
+    $self->complete_early('Skip analysis flag is enabled, so no healthcheck will occur');
+  }
 
   my $group = $self->param_required('group');
   my $hc_db = $self->get_database_by_name('input_db');
@@ -263,7 +268,7 @@ sub coding_supporting_evidence_presence {
   my ($self) = @_;
 
   my @sql_queries = (
-    'SELECT t.* FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id WHERE t.biotype NOT LIKE "%RNA" AND tsf.transcript_id IS NULL',
+		     'SELECT t.* FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id LEFT JOIN analysis a ON t.analysis_id = a.analysis_id WHERE t.biotype NOT LIKE "%RNA" AND t.biotype NOT LIKE "ribozyme" AND t.biotype NOT LIKE "IG%" AND t.biotype NOT LIKE "TR%" AND tsf.transcript_id IS NULL AND a.logic_name NOT LIKE "mt_genbank_import" AND a.logic_name NOT LIKE "ncrna"',
   );
 
   my $hc_db = $self->hrdb_get_con('hc_db');

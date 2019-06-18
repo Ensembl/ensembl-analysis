@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2018] EMBL-European Bioinformatics Institute
+Copyright [2016-2019] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -168,6 +168,21 @@ sub fetch_input {
   my $intron_suffix = $self->param('_intron_suffix');
   my $ise_suffix = $self->param('_ise_suffix');
   my $analysis_adaptor = $self->get_database_by_name('target_db')->get_AnalysisAdaptor;
+  my $table_info_sth = $analysis_adaptor->dbc->db_handle->column_info(undef, $analysis_adaptor->dbc->dbname, 'gene', 'source');
+  my $source_size = 40;
+  my $biotype_size = 40;
+  if ($table_info_sth) {
+    my $column = $table_info_sth->fetchall_arrayref;
+    if (@$column) {
+      $source_size = $column->[0]->[6];
+    }
+    $table_info_sth = $analysis_adaptor->dbc->db_handle->column_info(undef, $analysis_adaptor->dbc->dbname, 'gene', 'biotype');
+    $column = $table_info_sth->fetchall_arrayref;
+    if (@$column) {
+      $biotype_size = $column->[0]->[6];
+    }
+  }
+  my %string_size_check;
   if ($self->param('single_tissue')) {
       my $tissue_count = 0;
       my $table_adaptor = $self->db->get_NakedTableAdaptor;
@@ -180,9 +195,47 @@ sub fetch_input {
       foreach my $key (keys %tissue_hash) {
         my $base_logic_name = $self->param('species').'_'.$key.'_rnaseq';
         next unless ($analysis_adaptor->fetch_by_logic_name($base_logic_name."_$gene_suffix"));
-        my %analysis_hash = (BEST_SCORE => "best_$key", SINGLE_EXON_MODEL => "single_$key", INTRON_OVERLAP_THRESHOLD => $default_iot);
-        $analysis_hash{OTHER_ISOFORMS} = $self->param('other_isoforms').'_'.$key if ($self->param_is_defined('other_isoforms'));
-        $analysis_hash{BAD_MODELS} = $self->param('bad_models').'_'.$key if ($self->param_is_defined('bad_models'));
+        my $best_key = "best_$key";
+        if (length($best_key) > $biotype_size) {
+          $best_key = substr($best_key, 0, 40);
+        }
+        if (exists $string_size_check{$best_key}) {
+          $self->throw("You should check your sample names, best_$key was too long but $best_key already exists");
+        }
+        else {
+          $string_size_check{$best_key} = 1;
+        }
+        my $single_key = "single_$key";
+        if (length($single_key) > $biotype_size) {
+          $single_key = substr($single_key, 0, 40);
+        }
+        if (exists $string_size_check{$single_key}) {
+          $self->throw("You should check your sample names, single_$key was too long but $single_key already exists");
+        }
+        else {
+          $string_size_check{$single_key} = 1;
+        }
+        my %analysis_hash = (BEST_SCORE => $best_key, SINGLE_EXON_MODEL => $single_key, INTRON_OVERLAP_THRESHOLD => $default_iot);
+        if ($self->param_is_defined('other_isoforms')) {
+          my $other_isoforms = $self->param('other_isoforms').'_'.$key;
+          $analysis_hash{OTHER_ISOFORMS} = length($other_isoforms) > $biotype_size ? substr($other_isoforms, 0, 40) : $other_isoforms;
+          if (exists $string_size_check{$other_isoforms}) {
+            $self->throw("You should check your sample names, $other_isoforms was too long but ".substr($other_isoforms, 0, 40).' already exists');
+          }
+          else {
+            $string_size_check{$other_isoforms} = 1;
+          }
+        }
+        if ($self->param_is_defined('bad_models')) {
+          my $bad_models = $self->param('bad_models').'_'.$key;
+          $analysis_hash{BAD_MODELS} = length($bad_models) > $biotype_size ? substr($bad_models, 0, 40) : $bad_models;
+          if (exists $string_size_check{$bad_models}) {
+            $self->throw("You should check your sample names, $bad_models was too long but ".substr($bad_models, 0, 40).' already exists');
+          }
+          else {
+            $string_size_check{$bad_models} = 1;
+          }
+        }
         $analysis_hash{INTRONS_LOGIC_NAME} = $base_logic_name."_$intron_suffix" if ($intron_suffix);
         $analysis_hash{ISE_LOGIC_NAME} = $base_logic_name."_$ise_suffix" if ($ise_suffix);
         push(@output_ids, [

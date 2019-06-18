@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,6 +105,8 @@ sub fetch_input {
     $self->sequence_accession();
   } elsif($iid_type eq 'rechunk') {
     $self->rechunk_input_ids();
+  } elsif($iid_type eq 'fastq_range') {
+    $self->fastq_range($self->param_required('fastq_file'),$self->param_required('batch_size'));
   } else {
       $self->param('target_db', destringify($self->param('target_db'))) if (ref($self->param('target_db')) ne 'HASH');
       my $dba = hrdb_get_dba($self->param('target_db'));
@@ -114,6 +116,8 @@ sub fetch_input {
         # Not sure it's the correct call but Core has a split_Slice method
         # so it's better to use it
         $self->split_slice($dba);
+      } elsif($iid_type eq 'stranded_slice') {
+        $self->create_stranded_slice_ids($dba);
       } elsif($iid_type eq 'rebatch_and_resize_slices') {
         $self->rebatch_and_resize_slices($dba);
       } elsif($iid_type eq 'patch_slice') {
@@ -154,17 +158,19 @@ sub create_slice_ids {
   my $slices = $sa->fetch_all($self->param('coord_system_name'),
                               $self->param('coord_system_version'),
                               $self->param('include_non_reference'),
-                              $self->param('include_duplicates'),
-                              $self->param('include_lrg'));
-
+			      $self->param('include_duplicates'),
+			      $self->param('include_lrg'));
+my @input = map {$_->name} @$slices;
+say "slices from db are ", scalar(@input);
   if (!$self->param('mitochondrion')) {
     my $mt = $sa->fetch_by_region('toplevel', 'MT');
     if ($mt) {
+say "mt is ", $mt;
       my @ids = grep {$_->seq_region_name ne $mt->seq_region_name} @$slices;
       $slices = \@ids;
     }
+say "inside MT";
   }
-
   if ($self->param('iid_type') eq 'patch_slice') {
     my @pt = ('patch_novel', 'patch_fix');
     my @tmp_slices;
@@ -181,24 +187,59 @@ sub create_slice_ids {
 
   if($self->param('slice_size') > 0) {
     $slices = split_Slices($slices, $self->param_required('slice_size'), $self->param('slice_overlaps'));
+say "slice > 0";
   }
 
   if($self->param('min_slice_length')) {
     $slices = $self->filter_slice_on_size($slices);
+say "slice length is ", $self->param('min_slice_length');
   }
 
   if($self->param('feature_constraint')) {
     $slices = $self->filter_slice_on_features($slices, $dba);
+say "constraint is ", $self->param('feature_constraint');
   }
 
   if($self->param('batch_slice_ids')) {
+my @inpt = map {$_->name} @$slices;
+say "slices from db are ", scalar(@inpt);
     $slices = $self->batch_slice_ids($slices);
+#my @inp = map {$_->name} @$slices;
+#say "slices from db are ", scalar(@inp);
+    say "batch is ", Dumper($slices);
     $self->param('inputlist', $slices);
   } else {
     my @input_ids = map {$_->name} @$slices;
+   say "slices from db are ", Dumper(@input_ids);
     $self->param('inputlist', \@input_ids);
   }
 
+}
+
+
+=head2 create_stranded_slice_ids
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
+ Description: Create input ids based on slices, creates two sets, one for each strand
+              It stores the input ids in 'inputlist'
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub create_stranded_slice_ids {
+  my ($self,$dba) = @_;
+
+  $self->create_slice_ids($dba);
+  my @slice_names = @{$self->param('inputlist')};
+  my @stranded_slice_names = ();
+  foreach my $slice_name (@slice_names) {
+    push(@stranded_slice_names,$slice_name);
+    my $stranded_slice_name = $slice_name;
+    $stranded_slice_name =~ s/\:[^:]+$/\:-1/;
+    push(@stranded_slice_names,$stranded_slice_name);
+  }
+  $self->param('inputlist',\@stranded_slice_names);
 }
 
 =head2 create_chunk_ids
@@ -252,6 +293,7 @@ sub create_chunk_ids {
       $chunk_array[$i] = $self->param('chunk_dir_name')."/".$chunk_array[$i];
     }
   }
+
   $self->param('inputlist', \@chunk_array);
 }
 
@@ -712,7 +754,6 @@ sub feature_id {
   } else {
     $self->throw("The feature type you requested is not supported in the code yet. Feature type:\n".$type);
   }
-
   my $slices;
   if ($self->param_is_defined('iid') and is_slice_name($self->param('iid'))) {
     $slices = [$dba->get_SliceAdaptor->fetch_by_name($self->param('iid'))];
@@ -722,8 +763,20 @@ sub feature_id {
   }
   foreach my $slice (@$slices) {
     foreach my $logic_name (@$logic_names) {
-      foreach my $feature (@{$feature_adaptor->fetch_all_by_Slice($slice, $logic_name)}) {
-        push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
+        foreach my $feature (@{$feature_adaptor->fetch_all_by_Slice($slice, $logic_name)}) {
+          if($self->param_is_defined('exclude_biotype')) {
+            foreach my $biotype (@{$self->param('exclude_biotype')}){
+               if ($feature->biotype eq $biotype) {
+                   $self->warning("You've defined a biotype that is not allowed to be copied. Something is wrong");
+               }
+               else{
+                  push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
+               }
+           }
+         }
+         else{
+                  push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
+               }
       }
     }
   }
@@ -925,17 +978,21 @@ sub filter_slice_on_size {
 sub batch_slice_ids {
   my ($self, $slices) = @_;
   my $batch_target_size = $self->param('batch_target_size');
-
+  
   my $all_batches = [];
   my $single_batch_array = [];
   my $total_length = 0;
-  # Sort shortest first
+  # Sort shortest firs
   foreach my $slice (sort { $a->length <=> $b->length } @$slices) {
     my $length = $slice->length;
     if($length + $total_length > $batch_target_size) {
-      push(@{$all_batches},[$single_batch_array]);
-      $single_batch_array = [];
-      $total_length = 0;
+      #this check handles rare cases where the shortest slice is > than the batch_target_size. if so, skip pushing to $all_batches array until $single_batch_array is populated with slice name
+      #this is to avoid creating an extra job without input id
+      if (scalar(@$single_batch_array)){
+         push(@{$all_batches},[$single_batch_array]);
+         $single_batch_array = [];
+         $total_length = 0;
+       }
     }
     push(@{$single_batch_array}, $slice->name);
     $total_length += $length;
@@ -995,6 +1052,57 @@ sub _padded_slice_coord {
   $start = 1 if ($start < 1);
   $end = $slice->end if ($end > $slice->end);
   return $start, $end;
+}
+
+
+=head2 fastq_range
+
+ Arg [1]    : Path to the fastq file
+ Arg [2]    : Batch size to split the sequences into
+ Description: Take in a fastq file and output ranges based on a batch size
+ Returntype : Array of Int, start and end of the index range
+ Exceptions : Fasta file doesn't exist
+              Fasta file has no headers
+
+=cut
+
+sub fastq_range {
+  my ($self,$fastq_file,$batch_size) = @_;
+
+  my $batch_array = [];
+  unless(-e $fastq_file) {
+    $self->throw("You have selected to generate a fastq range, but the fasta file doesn't exist. Path specified:\n".$fastq_file);
+  }
+
+  my $seq_count = `wc -l $fastq_file`;
+  chomp($seq_count);
+  $seq_count = $seq_count / 4;
+
+  unless($seq_count > 0) {
+    $self->throw("You have selected to generate a fastq range, but the fastq file doesn't have any headers. Path specified:\n".$fastq_file);
+  }
+
+  my $start = 0;
+  my $end = $start + $batch_size - 1;
+
+  if($end > $seq_count - 1) {
+    $end = $seq_count - 1;
+  }
+
+  push(@$batch_array,[$start,$end]);
+  while($end + $batch_size + 1 < $seq_count) {
+    $start = $end + 1;
+    $end = $start + $batch_size - 1;
+    push(@$batch_array,[$start,$end]);
+  }
+
+  if($end < $seq_count - 1) {
+    $start = $end + 1;
+    $end = $seq_count - 1;
+    push(@$batch_array,[$start,$end]);
+  }
+
+  $self->param('inputlist', $self->_chunk_input_ids(1, $batch_array));
 }
 
 1;

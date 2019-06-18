@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2018] EMBL-European Bioinformatics Institute
+Copyright [2016-2019] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@ sub default_options {
         # inherit other stuff from the base class
 	    %{ $self->SUPER::default_options() },
 
+'enscode_root_dir' => '/path/to/enscode/',
 'cesar_path' => '/path/to/CESAR2.0/',
 'user' => 'READ_USER',
 'user_r' => 'READ_USER',
@@ -58,6 +59,7 @@ sub default_options {
 'password' => 'WRITE_PASS',
 'driver' => $self->o('hive_driver'),
 'method_link_type' => 'LASTZ_NET', # no need to modify this
+'clone_db_script_path' => $self->o('enscode_root_dir').'/ensembl-analysis/scripts/clone_database.ksh', # no need to modify this
 
 # database details for the eHive pipe database
 'server1' => '',
@@ -141,7 +143,7 @@ sub pipeline_analyses {
 
     return [
 
-	    {
+      {
         -input_ids  => [ {} ],
         -logic_name => 'create_output_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
@@ -198,8 +200,8 @@ sub pipeline_analyses {
                          #    -percent_id => 50,
                          #  },
                          #},
-                         'canonical' => 0,
-                         'canonical_or_longest' => 0,
+                         #'canonical' => 1,
+                         'canonical_or_longest' => 1,
                          'stops2introns' => 1,
                        },
         -rc_name    => 'default',
@@ -234,8 +236,8 @@ sub pipeline_analyses {
                          #    -percent_id => 50,
                          #  },
                          #},
-                         'canonical' => 0,
-                         'canonical_or_longest' => 0,
+                         #'canonical' => 1,
+                         'canonical_or_longest' => 1,
                          'stops2introns' => 1,
                        },
         -rc_name    => 'default_15GB',
@@ -267,8 +269,8 @@ sub pipeline_analyses {
                          #    -percent_id => 50,
                          #  },
                          #},
-                         'canonical' => 0,
-                         'canonical_or_longest' => 0,
+                         #'canonical' => 1,
+                         'canonical_or_longest' => 1,
                          'stops2introns' => 1,
                        },
         -rc_name    => 'default_25GB',
@@ -300,8 +302,8 @@ sub pipeline_analyses {
                          #    -percent_id => 50,
                          #  },
                          #},
-                         'canonical' => 0,
-                         'canonical_or_longest' => 0,
+                         #'canonical' => 1,
+                         'canonical_or_longest' => 1,
                          'stops2introns' => 1,
                        },
         -rc_name    => 'default_35GB',
@@ -333,8 +335,8 @@ sub pipeline_analyses {
                          #    -percent_id => 50,
                          #  },
                          #},
-                         'canonical' => 0,
-                         'canonical_or_longest' => 0,
+                         #'canonical' => 1,
+                         'canonical_or_longest' => 1,
                          'stops2introns' => 1,
                        },
         -rc_name    => 'default_80GB',

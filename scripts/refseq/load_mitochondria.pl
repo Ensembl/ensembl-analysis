@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -226,6 +226,7 @@ my $output_db =
 
 my $meta_container = $output_db->get_MetaContainer();
 if ($genbank_parser->get_taxon_id != $meta_container->get_taxonomy_id) {
+  # comment out if you are sure you have the correct MT. it can happen
   throw('Your taxon ids differ: '.$meta_container->get_taxonomy_id.' and '.$genbank_parser->get_taxon_id);
 }
 

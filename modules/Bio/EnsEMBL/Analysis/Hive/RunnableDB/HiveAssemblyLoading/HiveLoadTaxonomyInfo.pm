@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2018] EMBL-European Bioinformatics Institute
+Copyright [2016-2019] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadT
 use strict;
 use warnings;
 
-use File::Spec::Functions qw(catfile);
+use Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -68,11 +68,12 @@ sub param_defaults {
 =head2 fetch_input
 
  Arg [1]    : None
- Description: Prepare the command to run the populate_species_meta.pl script. 'enscode_root_dir', 'target_db'
-              are required. You can also specify the 'production_db' and the 'taxonomy_db' if needed.
-              The 'ensembl_release' defaults to $ENV{ENSEMBL_RELEASE}
+ Description: Fetch the taxonomy id from the aprameter 'taxon_id' or from the 'target_db'
+              meta table. It will check that species.scientific_name and species.common_name
+              are set (it does not check their correctness).
+              The analysis can be skipped with the 'skip_analysis' flag.
  Returntype : None
- Exceptions : Throws if 'enscode_root_dir' is not set
+ Exceptions : Throws if 'taxonomy_db' is not set
               Throws if 'target_db' is not set
 
 =cut
@@ -83,51 +84,68 @@ sub fetch_input {
   if ($self->param('skip_analysis')) {
     $self->complete_early('Skipping the analysis');
   }
-  my $taxonomy_script = catfile($self->param_required('enscode_root_dir'), 'ensembl-production', 'scripts', 'production_database', 'populate_species_meta.pl');
-  my $target_db = $self->param_required('target_db');
-  my $cmd = 'perl '.$taxonomy_script.
-            ' -h '.$target_db->{'-host'}.
-            ' -u '.$target_db->{'-user'}.
-            ' -P '.$target_db->{'-port'}.
-            ' -d '.$target_db->{'-dbname'}.
-            ' -rel '.$self->param('ensembl_release');
-  $cmd .= ' -p '.$target_db->{'-pass'} if (defined $target_db->{'-pass'});
-
-  if ($self->param_is_defined('production_db')) {
-    my $production_db = $self->param('production_db');
-    $cmd .= ' -mh '.$production_db->{-host}.
-            ' -mu '.$production_db->{-user}.
-            ' -md '.$production_db->{-dbname}.
-            ' -mP '.$production_db->{-port};
-    $cmd .= ' -mp '.$production_db->{-pass} if (defined $production_db->{-pass});
+  else {
+    my $target_db = $self->get_database_by_name('target_db');
+    if (!($self->param_is_defined('taxon_id') and defined $self->param('taxon_id'))) {
+      my $taxon_id = $target_db->get_MetaContainer->get_taxonomy_id;
+      if ($taxon_id) {
+        $self->param('taxon_id', $taxon_id);
+      }
+      else {
+        $self->throw('No taxonomy id found in the Core database or in the parameter "taxon_id"');
+      }
+    }
+    my $value = $target_db->get_MetaContainer->get_scientific_name;
+    if ($value) {
+      $self->param('scientific_name', $value);
+    }
+    $value = $target_db->get_MetaContainer->get_common_name;
+    if ($value) {
+      $self->param('common_name', $value);
+    }
+    $self->say_with_header('Looking for taxonomy data for '.$self->param('taxon_id'));
+    my $taxonomy_db = $self->get_database_by_name('taxonomy_db', undef, 'Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor');
+    $self->say_with_header('Using '.$taxonomy_db->dbc->dbname.'@'.$taxonomy_db->dbc->host);
+    $self->hrdb_set_con($target_db, 'target_db');
+    $self->hrdb_set_con($taxonomy_db, 'taxonomy_db');
   }
-  if ($self->param_is_defined('taxonomy_db')) {
-    my $taxonomy_db = $self->param('taxonomy_db');
-    $cmd .= ' -th '.$taxonomy_db->{-host}.
-            ' -tu '.$taxonomy_db->{-user}.
-            ' -td '.$taxonomy_db->{-dbname}.
-            ' -tP '.$taxonomy_db->{-port};
-    $cmd .= ' -tp '.$taxonomy_db->{-pass} if (defined $taxonomy_db->{-pass});
-  }
-
-  $self->param('cmd', $cmd);
 }
-
 
 =head2 run
 
  Arg [1]    : None
- Description: Execute the command prepare in fetch_input
+ Description: Fetch the classification information from the 'taxonomy_db' database.
+              If 'species.scientific_name' or 'species.common_name' are not set, we
+              will attempt to fetch them.
  Returntype : None
- Exceptions : Throws if the command failed
+ Exceptions : None
 
 =cut
 
 sub run {
   my $self = shift;
 
-  if(system($self->param('cmd'))) {
-    $self->throw("The load_taxonomy script returned a non-zero exit value. Commandline used:\n".$self->param('cmd'));
+  my $node_adaptor = $self->hrdb_get_con('taxonomy_db')->get_TaxonomyNodeAdaptor;
+  my $node = $node_adaptor->fetch_by_taxon_id($self->param('taxon_id'));
+  if (!$self->param_is_defined('scientific_name')) {
+    my $scientific_name = $node->name('scientific name');
+    if ($scientific_name) {
+      $self->say_with_header($scientific_name);
+      $self->output([['species.scientific_name', $scientific_name]]);
+    }
+  }
+  if (!$self->param_is_defined('common_name')) {
+    my $common_name = $node->name('genbank common name');
+    if ($common_name) {
+      $self->say_with_header($common_name);
+      $self->output([['species.common_name', $common_name]]);
+    }
+  }
+  foreach my $ancestor ( @{ $node_adaptor->fetch_ancestors($node)}){
+    next if ($ancestor->rank eq 'genus');
+    $self->say_with_header($ancestor->name);
+    $self->output([['species.classification', $ancestor->name]]);
+    last if ($ancestor->rank eq 'superkingdom');
   }
 }
 
@@ -135,7 +153,7 @@ sub run {
 =head2 write_output
 
  Arg [1]    : None
- Description: Do nothing, can probably be removed
+ Description: Write the classification in the meta table
  Returntype : None
  Exceptions : None
 
@@ -144,7 +162,10 @@ sub run {
 sub write_output {
   my $self = shift;
 
-  return 1;
+  my $meta_adaptor = $self->hrdb_get_con('target_db')->get_MetaContainer;
+  foreach my $data (@{$self->output}) {
+    $meta_adaptor->store_key_value(@$data);
+  }
 }
 
 1;

@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2018] EMBL-European Bioinformatics Institute
+Copyright [2016-2019] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -75,10 +75,6 @@ sub default_options {
         mouse_gencode_version => 'M15', # Use it on the command line: -password mysql_rw_password
         do_human => 0,
         do_mouse => 1,
-        do_pig => 0,
-        do_chimpanzee => 1,
-        do_rat => 0,
-        do_zebrafish => 0,
 #################
 #        Everything below should not need modification
 #################
@@ -189,9 +185,7 @@ sub pipeline_analyses {
       base64 => encode_base64url($user.':'.$password),
     );
     @default_tickets = (
-      'Update ENSEMBL_RELEASE to '.$self->o('ensembl_release').' in genebuild.sh',
       'Delete databases from previous release from mysql-ens-vertannot-staging',
-      'Clean old healthchecks before handover',
       'Human cDNA update release '.$self->o('ensembl_release'),
       'Mouse cDNA update release '.$self->o('ensembl_release'),
     );
@@ -376,6 +370,7 @@ sub pipeline_analyses {
             ' -refseqhost #expr(#refseq_db#->{-host})expr#'.
             ' -refsequser #expr(#refseq_db#->{-user})expr#'.
             ' -refseqport #expr(#refseq_db#->{-port})expr#'.
+            ' -refseqpass #expr(#refseq_db#->{-pass})expr#'.
             ' -refseqdbname #expr(#refseq_db#->{-dbname})expr#'.
             ' -coord_system_version #cs_name#'.
             ' -refseq_logicname #refseq_logicname#'.
@@ -501,7 +496,6 @@ sub pipeline_analyses {
             ' -dna_dbname #expr(#target_db#->{-dbname})expr#'.
             ' -primary_set_name #primary_set_name#'.
             ' -secondary_set_name #secondary_set_name#'.
-            ' -outfile_dir '.$self->o('working_dir').
             ' -iid #iid#'.
             ' -write',
           primary_set_name => 'Ensembl',
@@ -534,7 +528,6 @@ sub pipeline_analyses {
             ' -dna_port #expr(#target_db#->{-port})expr#'.
             ' -primary_set_name #primary_set_name#'.
             ' -secondary_set_name #secondary_set_name#'.
-            ' -outfile_dir '.$self->o('working_dir').
             ' -iid #iid#'.
             ' -write',
           primary_set_name => 'RefSeq',

@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ use feature 'say';
 use File::Spec::Functions qw(catfile);
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning info);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_feature_name);
 use Getopt::Long qw(:config no_ignore_case);
 
 my $primarydbname = '';
@@ -312,16 +313,16 @@ foreach my $slice (@{$slices}) {
       if($whole_count == 5) {
         say "Match on all tests (coding). ".$secondary_set_name." transcript ".$secondary_transcript->stable_id." (".$secondary_transcript->dbID."), ".
             $primary_set_name." transcript ".$primary_transcript->stable_id." (".$primary_transcript->dbID.")" if ($debug);
-        push(@whole_structure_match_stable_ids, $secondary_transcript->stable_id);
+        push(@whole_structure_match_stable_ids, get_feature_name($secondary_transcript));
       } elsif((!$secondary_transcript_protein_coding && !$primary_protein_coding) && $whole_count == 2) {
         say "Match on all tests (non-coding). ".$secondary_set_name." transcript ".$secondary_transcript->stable_id." (".$secondary_transcript->dbID."), ".
             $primary_set_name." transcript ".$primary_transcript->stable_id." (".$primary_transcript->dbID.")" if ($debug);
-        push(@whole_structure_match_stable_ids, $secondary_transcript->stable_id);
+        push(@whole_structure_match_stable_ids, get_feature_name($secondary_transcript));
       } elsif(($secondary_transcript_protein_coding && $primary_protein_coding) && $protein_coding_count == 3) {
         say "Match on all CDS tests only (protein coding). ".$secondary_set_name." transcript ".$secondary_transcript->stable_id.
             " (".$secondary_transcript->dbID."), ".$primary_set_name." transcript ".$primary_transcript->stable_id." (".$primary_transcript->dbID.")" if ($debug);
         $protein_coding_only_match_count++;
-        push(@protein_coding_only_match_stable_ids, $secondary_transcript->stable_id);
+        push(@protein_coding_only_match_stable_ids, get_feature_name($secondary_transcript));
       }
 
     } # End foreach my $secondary_transcript

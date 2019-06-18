@@ -3,7 +3,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -305,28 +305,10 @@ sub write_output {
   my $outdb = $self->hrdb_get_con('target_db');
   my $gene_adaptor = $outdb->get_GeneAdaptor;
 
-  my @output = @{$self->param('output_genes')};
-  $self->param('output_genes',undef);
-  my $fails = 0;
-  my $total = 0;
-
-  foreach my $gene (@output){
+  foreach my $gene (@{$self->param('output_genes')}){
     empty_Gene($gene);
-    eval {
-      $gene_adaptor->store($gene);
-    };
-    if ($@){
-      $self->warning("Unable to store gene!!\n$@");
-      $fails++;
-    }
-    $total++;
+    $gene_adaptor->store($gene);
   }
-  if ($fails > 0) {
-    $self->throw("Not all genes could be written successfully " .
-          "($fails fails out of $total)");
-  }
-
-
 }
 
 

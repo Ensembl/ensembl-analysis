@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,6 +58,7 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Getopt::Long qw(:config no_ignore_case);
 use List::Util qw( min max );
 use Carp;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_biotype_groups);
 
 # this ewill help when debugging:
 $| = 1;
@@ -127,7 +128,7 @@ if ($write) {
 # # #
 # Connect to databases
 # # #
-my $production_db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
+my $production_db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
   -host   => $production_host,
   -user   => $production_user,
   -port   => $production_port,
@@ -297,23 +298,6 @@ foreach my $slice ( @slices ) {
   print STDERR "Slice ".$slice->seq_region_name." has genes $gene_cnt with $transc_cnt basic transcripts\n";
 }
 print STDERR "DONE!\n\n";
-
-sub get_biotype_groups {
-  my ($db) = @_;
-  my %biotype2group;
-
-  # list all biotypes
-  # and tag them by the group they belong to
-  my $sql = "select distinct name, biotype_group from biotype where is_current = 1 and object_type in ('gene','transcript') and db_type like '%core%' order by biotype_group,name;" ;
-  my $sth = $db->dbc->prepare($sql);
-  $sth->execute();
-  while ( my ($biotype_name,$biotype_group) = $sth->fetchrow_array ) {
-    $biotype2group{$biotype_name} = $biotype_group;
-  }
-  $sth->finish();
-
-  return \%biotype2group;
-}
 
 sub delete_old_attrib {
   my ($db, $code) = @_;

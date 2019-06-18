@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2018] EMBL-European Bioinformatics Institute
+Copyright [2016-2019] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -79,7 +79,10 @@ sub fetch_input {
     $genbank_parser->close;
     if ($self->param_is_defined('protein_files')) {
       foreach my $file (@{$self->param('protein_files')}) {
-        $self->throw('Could not find '.$file) unless (-e $file);
+        #instead of throw, issue warning in the absence of a proteome.fa file. We can assume that there were no pe1 or 2 proteins for the species
+        ##This way, the pipeline continues without dying.
+        $self->warning('Could not find '.$file) unless (-e $file);
+         #$self->throw('Could not find '.$file) unless (-e $file);
       }
     }
     if (@seqs) {
@@ -144,16 +147,38 @@ sub _get_uniprot_accession {
     sleep $wait;
     $response = $ua->get($response->base);
   }
-  if ($response->is_success and $response->content =~ /^Entry/) {
-    my $result = $response->content;
-    while($result =~ /(\w+)\s+(\d+)\s+(\S+)/mgc) {
-     foreach my $acc (split(',', $3)) {
-       $missing{$acc} = "$1.$2";
-     }
+  if ($response->is_success ) {
+    if ($response->content =~ /^Entry/) {
+      my $result = $response->content;
+      while($result =~ /(\w+)\s+(\d+)\s+(\S+)/mgc) {
+        foreach my $acc (split(',', $3)) {
+          $missing{$acc} = "$1.$2";
+        }
+      }
     }
-  }
-  else {
-    $self->throw($response->status_line.' for '.$response->request->uri."\n".$response->content);
+    else {
+      $response = $ua->post($query_url, $params);
+      my $url_edit = $response->request->uri; 
+      $url_edit =~ s/https:\/\/www.uniprot.org\/uniprot/https:\/\/www.uniprot.org\/uniparc/; 
+      my $new_response = $ua->post($url_edit); 
+      while (my $wait = $new_response->header('Retry-After')) {
+        sleep $wait;
+        $new_response = $ua->get($new_response->base);
+      }
+      if ($new_response->content =~ /^Entry/) {
+        my $result = $new_response->content;
+        while($result =~ /(\w+)\s+(\d+)\s+(\S+)/mgc) {
+          foreach my $acc (split(',', $3)) {
+            $missing{$acc} = "$1.$2";
+          }
+        }
+      }  
+      else {
+        # I tried hard to get this id but I failed. Check what is the issue. 
+      	$self->throw('Cannot find ids. The response is: '. $response->status_line.' for '.$response->request->uri.
+      	  ' and the content \n'. $response->content . '\n Also check ' . $url_edit . 'but nothing');
+      }
+    }
   }
   foreach my $seq (@$seqs) {
     $seq->desc($missing{$seq->desc}) if (exists $missing{$seq->desc});

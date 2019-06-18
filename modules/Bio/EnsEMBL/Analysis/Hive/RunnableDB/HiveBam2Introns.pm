@@ -1,7 +1,8 @@
+
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,6 +57,8 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns;
 
 use warnings ;
 use strict;
+use feature 'say';
+use Data::Dumper;
 
 use File::Spec;
 use File::Path qw(make_path);
@@ -67,6 +70,7 @@ use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Analysis::Runnable::Bam2Introns;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(convert_to_ucsc_name);
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -87,6 +91,15 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     _branch_for_accumulators => 'MAIN',
+    _stored_features => {},
+    timer => '15m',
+    flatfile_masked => 1,
+    batch_reads => 1,
+    write_to_file => 1,
+    read_range_padding => 200000,
+    rebatch_failed => 1,
+    rebatch_size => 10,
+    rebatch_timer => '5m',
   }
 }
 
@@ -108,14 +121,25 @@ sub param_defaults {
 
 sub fetch_input {
   my ($self) = @_;
+
+
+# Note the below code can be used in conjunction with importing Devel::Leak to check memory usage
+#my $handle; # apparently this doesn't need to be anything at all
+#my $leaveCount = 0;
+#  my $enterCount = Devel::Leak::NoteSV($handle);
+#print STDERR "ENTER: $enterCount SVs\n";
+
+#  ... code that may leak
+
+#  $leaveCount = Devel::Leak::CheckSV($handle);
+#print STDERR "\nLEAVE: $leaveCount SVs\n";
+
   # do all the normal stuff
   # then get all the transcripts and exons
   $self->throw('Your bam file "'.$self->param('bam_file').'" does not exist!') unless (-e $self->param('bam_file'));
-  my $dna_db = $self->get_database_by_name('dna_db');
-  $self->hrdb_set_con($dna_db, 'dna_db');
-  my $gene_db = $self->get_database_by_name('source_db', $dna_db);
+  my $dna_db;
+  my $gene_db = $self->get_database_by_name('source_db');
   my $gene_adaptor = $gene_db->get_GeneAdaptor;
-  my $slice_adaptor = $dna_db->get_SliceAdaptor;
   my $counters;
   $counters->{'start'} = 0;
   $counters->{'offset'} = 0;
@@ -127,8 +151,24 @@ sub fetch_input {
     $self->complete_early('No genes to process');
   }
 
-  my $stable_id = $self->input_id;
+  if($self->param('use_genome_flatfile')) {
+    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
+      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+    }
 
+    setup_fasta(
+                 -FASTA => $self->param('genome_file'),
+               );
+  } elsif($self->param('dna_db')) {
+    $dna_db = $self->get_database_by_name('dna_db');
+    $self->hrdb_set_con($dna_db,'dna_db');
+    $gene_db->dnadb($dna_db);
+  } else {
+    $self->throw("You must provide either a flatfile or a dna db to read from");
+  }
+
+  my $slice_adaptor = $gene_db->get_SliceAdaptor;
+  my $stable_id = $self->input_id;
 
   # check for batch info in the input id
   if ( $self->input_id =~ /(\S+):(\d+):(\d+):(\d+)/ ) {
@@ -137,6 +177,7 @@ sub fetch_input {
     $counters->{'start'} = $3;
     $counters->{'offset'} = $4;
   }
+
   my $rough = $gene_adaptor->fetch_by_stable_id($stable_id);
   $self->throw("Gene $stable_id not found \n") unless $rough;
     print 'Found model '.join(' ', $rough->stable_id, $rough->seq_region_name, $rough->start, $rough->end, $rough->strand)."\n";
@@ -145,7 +186,6 @@ sub fetch_input {
   # is calculated as the Exonerate word length - number of matches you
   # might expect by chance ie 1 in 4
   my $missmatch = $self->param('word_length') - int($self->param('word_length') / 4);
-  $self->param('min_missmatch', $missmatch);
   print "Ignoring reads with < $missmatch mismatches\n";
   my @reads;
   my $bam = Bio::DB::HTSfile->open($self->param('bam_file'));
@@ -160,6 +200,7 @@ sub fetch_input {
   $counters->{'count'} = 0;
   $counters->{'batch'} = 0;
   $counters->{'batch_size'} = $self->param('batch_size');
+
   my $exon = 0;
   my @exons = sort { $a->start <=> $b->start } @{$rough->get_all_Exons};
   my @iids;
@@ -173,27 +214,50 @@ sub fetch_input {
     $counters->{'last_start'} = 0;
     my %split_points;
     $exon_start = $counters->{'start'} if ($counters->{'start'} && $counters->{'start_exon'} == $i);
-    my @callback_data = ($self, $i, $exon_start, $rough->stable_id, \@reads, \@iids, $counters, $self->param('seq_hash'));
+    my @callback_data = ($missmatch, $i, $exon_start, $rough->stable_id, \@reads, \@iids, $counters, $self->param('seq_hash'));
     $bam_index->fetch($bam, $tid, $exon_start-1, $exon->end-1, \&_process_reads, \@callback_data);
   }
+
+  # If we can't find reads to build introns with then stop
   if (  scalar(@reads) == 0 ) {
     $self->input_job->autoflow(0);
     $self->complete_early('No read with more than '.$missmatch.' missmatches');
   }
-  else {
+
   if ( scalar(@iids) > 0  && !$counters->{'start'} ) {
     # We want the original input_id job to finish before submitting the new input ids otherwise we may have problems
     print 'Making ',  scalar(@iids), ' New input ids from ', $counters->{'count'}, " reads\n";
     $self->param('iids', \@iids);
   }
+
+  my $read_range_start = $counters->{'read_range_start'} - $self->param('read_range_padding');
+  my $read_range_end = $counters->{'read_range_end'} + $self->param('read_range_padding');
+  my $parent_slice = $rough->slice->seq_region_Slice;
+  if($read_range_start < 1) {
+    $read_range_start = 1;
+  }
+
+  if($read_range_end > $parent_slice->length) {
+    $read_range_end = $parent_slice->length;
+  }
+
   my $fullseq = $self->fullslice;
   my $queryseq;
   # get the fullseq if required
-  my $slice = $slice_adaptor->fetch_by_region('toplevel',$rough->seq_region_name,$rough->start,$rough->end,$rough->strand);
+  my $slice = $slice_adaptor->fetch_by_region('toplevel',$rough->seq_region_name,$read_range_start,$read_range_end,$rough->strand);
+
   $self->param('query', $slice);
-  if ( $fullseq && $rough->length < $self->param('max_transcript') ) {
+  if ( $fullseq && $slice->length < $self->param('max_transcript') ) {
+    # Note that if we are using 'use_genome_flatfile', then the slice->seq sub is overridden to pull from the genome file
+    # This will work with the normal masking options too
+    # If you are changing code here there is equivalent code to change in the else below this, which operates on exons
     if ( $self->param('mask') ) {
-      $queryseq = $slice->get_repeatmasked_seq(undef,1)->seq;
+      # If we have a masked flatfile then use that, getting the repeats via the API kills the servers at scale
+      if($self->param('use_genome_flatfile') && $self->param('flatfile_masked')) {
+        $queryseq = $slice->seq(undef,undef,undef,1);
+      } else {
+        $queryseq = $slice->get_repeatmasked_seq($self->param_required('wide_repeat_logic_names'),1)->seq;
+      }
     }
     else {
       $queryseq = $slice->seq;
@@ -204,39 +268,148 @@ sub fetch_input {
     $self->fullslice(0);
     foreach my $exon ( @{$rough->get_all_Transcripts->[0]->get_all_Exons}) {
       my $slice = $exon->feature_Slice;
+      # Note that if we are using 'use_genome_flatfile', then the slice->seq sub is overridden to pull from the genome file
+      # This will work with the normal masking options too
+      # If you are changing code here there is equivalent code to change in the if above this, which operates on the full slice of the rough transcript
       if ( $self->param('mask') ) {
-        $queryseq .= $slice->get_repeatmasked_seq(undef,1)->seq;
+        # If we have a masked flatfile then use that, getting the repeats via the API kills the servers at scale
+        if($self->param('use_genome_flatfile') && $self->param('flatfile_masked')) {
+          $queryseq .= $slice->seq(undef,undef,undef,1);
+        } else {
+          $queryseq .= $slice->get_repeatmasked_seq($self->param_required('wide_repeat_logic_names'),1)->seq;
+	}
       }
       else {
         $queryseq .= $slice->seq;
       }
     }
   }
+
   my $masked_count = $queryseq =~ tr/atcgn/atcgn/;
   if (($masked_count/length($queryseq)) > .99) {
     $self->input_job->autoflow(0);
     $self->complete_early(sprintf("Highly repetitive sequence: %.2f%% masked", (($masked_count*100)/length($queryseq))));
   }
+
   my $seqio = Bio::Seq->new( -seq => $queryseq,
-                 -display_id => $rough->stable_id
-               );
+                             -display_id => $rough->stable_id
+                           );
   # set uo the runnable
   my $program = $self->param('program_file');
   $program = 'exonerate' unless $program;
   $self->param('saturatethreshold', scalar(@reads)) unless ($self->param_is_defined('saturatethreshold'));
 
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
-     -analysis     => $self->create_analysis,
-     -program      => $program,
-     -basic_options => $self->get_aligner_options,
-     -target_seqs => [$seqio],
-     -query_seqs => \@reads,
-     -percent_id   => $self->param('percent_id'),
-     -coverage     => $self->param('coverage'),
-     -missmatch     => $self->param('missmatch'),
-    );
-  $self->runnable($runnable);
+  my @read_batch = ();
+  my $read_batch_size = 1000;
+  my $read_count = 0;
+  my $analysis = $self->create_analysis;
+  my $redundant_ids = {};
+  my $unique_reads = {};
+
+  # By splitting the reads into batches we can lower the memory footprint of run
+  # The saturate threashold is not changed, but this should not have a negative effect
+  if($self->param('batch_reads')) {
+    while(my $read = pop(@reads)) {
+     unless($unique_reads->{$read->seq}) {
+       $unique_reads->{$read->seq} = $read->display_id;
+       $redundant_ids->{$read->display_id} = [];
+     } else {
+       my $parent_id = $unique_reads->{$read->seq};
+       push(@{$redundant_ids->{$parent_id}},$read->display_id);
+       next;
+     }
+
+      $read_count++;
+      if($read_count && $read_count % $read_batch_size == 0) {
+        my @runnable_read_batch = @read_batch;
+        my $runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
+         -analysis     => $analysis,
+         -program      => $program,
+         -basic_options => $self->get_aligner_options,
+         -target_seqs => [$seqio],
+         -query_seqs => \@runnable_read_batch,
+         -percent_id   => $self->param('percent_id'),
+         -coverage     => $self->param('coverage'),
+         -missmatch     => $self->param('missmatch'),
+         -write_to_file => $self->param('write_to_file'),
+         -redundant_ids => $redundant_ids,
+        );
+        $runnable->timer($self->param('timer'));
+        $self->runnable($runnable);
+        @read_batch = ();
+        push(@read_batch,$read);
+      } else {
+        push(@read_batch,$read);
+      }
+    }
+
+    # Process any remaining reads
+    if(scalar(@read_batch)) {
+      my @runnable_read_batch = @read_batch;
+      my $runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
+         -analysis     => $analysis,
+         -program      => $program,
+         -basic_options => $self->get_aligner_options,
+         -target_seqs => [$seqio],
+         -query_seqs => \@runnable_read_batch,
+         -percent_id   => $self->param('percent_id'),
+         -coverage     => $self->param('coverage'),
+         -missmatch     => $self->param('missmatch'),
+         -write_to_file => $self->param('write_to_file'),
+         -redundant_ids => $redundant_ids,
+        );
+      $runnable->timer($self->param('timer'));
+      $self->runnable($runnable);
+    }
+  } # end if $self->param('batch_reads')
+
+  # This is the original functionality. It put everything in a single runnable but can lead to a memory
+  # spike in run
+  else {
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
+       -analysis     => $analysis,
+       -program      => $program,
+       -basic_options => $self->get_aligner_options,
+       -target_seqs => [$seqio],
+       -query_seqs => \@reads,
+       -percent_id   => $self->param('percent_id'),
+       -coverage     => $self->param('coverage'),
+       -missmatch     => $self->param('missmatch'),
+       -write_to_file => $self->param('write_to_file'),
+      );
+    $runnable->timer($self->param('timer'));
+    $self->runnable($runnable);
   }
+}
+
+
+sub run {
+  my ($self) = @_;
+
+  while(my $runnable = pop(@{$self->runnable})) {
+    eval {
+      $runnable->run;
+    };
+
+    if($@) {
+      my $except = $@;
+      if($except =~ /still running after your timer/) {
+        $self->warning("bam2introns took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
+        if($self->param('rebatch_failed') && scalar(@{$runnable->query_seqs}) > $self->param('rebatch_size')) {
+          $self->rebatch_runnable($runnable);
+	} else{
+          $self->param('_branch_to_flow_to_on_fail',-2);
+          $self->runnable_failed(1);
+	}
+      } else {
+        $self->throw("bam2introns failed, exception:\n".$except);
+#        $self->param('_branch_to_flow_to_on_fail',-3);
+      }
+    } else {
+      $self->output($self->filter_results($runnable->output));
+    }
+  }
+  return 1;
 }
 
 
@@ -262,29 +435,6 @@ sub get_aligner_options {
 }
 
 
-=head2 run
-
- Arg [1]    : None
- Description: Run exonerate on the genomic sequence using only the reads with missmatches.
- Returntype : None
- Exceptions : None
-
-=cut
-
-sub run {
-  my ($self) = @_;
-  $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
-  $self->throw("Can't run - no runnable objects") unless ( $self->runnable );
-  my ($runnable) = @{$self->runnable};
-  $runnable->run;
-  my $features = $runnable->output;
-# It is not in the Runnable because it needs to do DB calls to get the sequence
-# Might be worth to get the sequence in fetch_input then do some Perl substr
-  my $genomic_features = $self->process_features($features);
-  $self->output($genomic_features);
-}
-
-
 =head2 write_output
 
   Arg [1]   : None
@@ -301,49 +451,47 @@ sub write_output {
   my $output = $self->output;
   print "Got " .  scalar(@$output) ." genomic features \n";
   if (scalar(@$output)) {
-      # write to file
-      my $iid = $self->input_id;
-      # remove any batching info at the end
-      $iid =~ s/:\d+:\d+:\d+$//;
+    # write to file
+    my $iid = $self->input_id;
+    # remove any batching info at the end
+    $iid =~ s/:\d+:\d+:\d+$//;
 
-      my $path;
-      my $filename;
-      # figure out a directory structure based on the stable ids
-      if ( $iid =~ /^\w+\d+(\d)(\d)(\d)(\d)(\d\d)$/ ) {
-        # make the directory structure
-        $path = File::Spec->catdir($self->param('output_dir'), $1, $2, $3, $4);
-        make_path($path);
-        $filename = File::Spec->catfile($path, $self->input_id.'.sam');
-      }
-      else {
-        $self->throw("Input id $iid structure not recognised should be something like BAMG00000002548\n");
-      }
-      open ( SAM ,">$filename" ) or $self->throw("Cannot open file for writing $filename\n");
-      my $seq_hash = $self->param('seq_hash');
-      my $line_count = 0;
-      foreach my $feature ( @$output ) {
-          my $line = $self->convert_to_sam($feature, $seq_hash);
-          if ($line) {
-              print SAM $line;
-              $line_count++;
-          }
-      }
-      # write an end of file marker so we can test that the job didnt die when writing
-      print SAM '@EOF';
-      close SAM;
-      if ($line_count) {
-          $self->dataflow_output_id([{filename => $filename}], $self->param('_branch_for_accumulators'));
-      }
-      else {
-          $self->input_job->autoflow(0);
-          unlink $filename || $self->warning("Could not remove empty SAM file $filename");
-      }
+    my $path;
+    my $filename;
+    # figure out a directory structure based on the stable ids
+    if ( $iid =~ /^\w+\d+(\d)(\d)(\d)(\d)(\d\d)$/ ) {
+      # make the directory structure
+      $path = File::Spec->catdir($self->param('output_dir'), $1, $2, $3, $4);
+      make_path($path);
+      $filename = File::Spec->catfile($path, $self->input_id.'.sam');
+    }
+    else {
+      $self->throw("Input id $iid structure not recognised should be something like BAMG00000002548\n");
+    }
+    open ( SAM ,">$filename" ) or $self->throw("Cannot open file for writing $filename\n");
+    foreach my $line ( @$output ) {
+      print SAM $line;
+    }
+    # write an end of file marker so we can test that the job didnt die when writing
+    print SAM '@EOF';
+    close(SAM) || $self->throw("Could not close $filename after writing SAM data");
+    $self->dataflow_output_id([{filename => $filename}], $self->param('_branch_for_accumulators'));
   }
   else {
-      $self->input_job->autoflow(0);
+    $self->input_job->autoflow(0);
   }
   if ($self->param_is_defined('iids')) {
-      $self->dataflow_output_id($self->param('iids'), $self->param('_branch_to_flow_to'));
+    $self->dataflow_output_id($self->param('iids'), $self->param('_branch_to_flow_to'));
+  }
+
+  # If a failure has happened then flow the input id on the appropriate branch
+  if($self->runnable_failed == 1) {
+    # Flow out on -2 or -3 based on how the failure happened
+    my $failure_branch_code = $self->param('_branch_to_flow_to_on_fail');
+    my $output_hash = {};
+    $output_hash->{'iid'} = $self->param('iid');
+    $self->dataflow_output_id($output_hash,$failure_branch_code);
+    $self->input_job->autoflow(0);
   }
 }
 
@@ -367,10 +515,7 @@ sub convert_to_sam {
   # I will have a go at reversing them
   #$feature->hstrand($feature->hstrand * -1);
   # strip off the :NC of the end of the seq names
-  my $tmp = $feature->hseqname;
-  $tmp   =~ s/:NC$//;
-  $feature->hseqname($tmp);
-  my $feature_seq = $seq_hash->{$tmp};
+  my $feature_seq = $seq_hash->{$feature->hseqname};
   $self->throw("cannot find sequence for " . $feature->hseqname ."\n")
     unless $feature_seq;
   my $seq = "*";
@@ -492,7 +637,7 @@ sub check_cigar_length{
 }
 
 
-=head2 process_features
+=head2 filter_results
 
   Arg [1]   : array ref of Bio::EnsEMBL::DnaDnaAlignFeature
   Function  : Uses cdna2genome to convert the ungapped align
@@ -503,7 +648,7 @@ sub check_cigar_length{
 
 =cut
 
-sub process_features {
+sub filter_results {
     my ( $self, $flist ) = @_;
 
 # first do all the standard processing, adding a slice and analysis etc.
@@ -511,6 +656,7 @@ sub process_features {
 
     my @dafs;
     my $trans = $self->rough;
+    my $seq_hash = $self->param('seq_hash');
     my $transcript_strand = $trans->strand;
 # I hate to do that but let's uses Perl's features...
     my $splice_in_splice_limit = scalar(@$flist);
@@ -561,7 +707,8 @@ sub process_features {
             }
           }
         }
-        push(@dafs, @{$self->build_dna_align_features($f, \@features)});
+        my $line = $self->build_dna_align_features(\@features, $seq_hash);
+        push(@dafs, $line) if ($line);
     }
     $self->warning('Too many reads have splice site in their exons, something in wrong as these exons should not be spliced '.$splice_in_splice_found.'/'.$splice_in_splice_limit)
       if ($splice_in_splice_limit/100 < $splice_in_splice_found);
@@ -580,26 +727,11 @@ sub process_features {
 =cut
 
 sub build_dna_align_features {
-    my ($self, $f, $features) = @_;
+    my ($self, $features, $seq_hash) = @_;
 
-    my @dafs;
     my @features = sort { $a->start <=> $b->start } @$features;
     my $feat = new Bio::EnsEMBL::DnaDnaAlignFeature(-features => \@features);
-# corect for hstart end bug
-#    $feat->hstart($f->hstart);
-#    $feat->hend($f->hend);
-    $feat->analysis($self->analysis);
-# transfer the original sequence of the read
-    $feat->{"_feature_seq"} = $f->{"_feature_seq"};
-# dont store the same feature twice because it aligns to a different transcript in the same gene.
-#    my $unique_id = join(':', $feat->seq_region_name, $feat->start, $feat->end, $feat->strand, $feat->hseqname);
-    my $unique_id = join(':', $feat->seq_region_name, $feat->seq_region_start, $feat->seq_region_end, $feat->strand, $feat->hseqname);
-    unless ($self->stored_features($unique_id)){
-        push @dafs,$feat;
-# keep tabs on it so you don't store it again.
-        $self->stored_features($unique_id,1);
-    }
-    return \@dafs;
+    return $self->convert_to_sam($feat, $seq_hash);
 }
 
 
@@ -669,20 +801,14 @@ sub fullslice {
 =cut
 
 sub stored_features {
-  my ($self,$key,$value) = @_;
+  my ($self, $key) = @_;
 
   return unless defined ($key);
 
-  if (!$self->param_is_defined('_stored_features')) {
-    $self->param('_stored_features', {});
-  }
-  if (defined $value) {
-    $self->param('_stored_features')->{$key} = $value;
-  }
-
-  if ($self->param_is_defined('_stored_features') and exists($self->param('_stored_features')->{$key})) {
+  if (exists($self->param('_stored_features')->{$key})) {
     return $self->param('_stored_features')->{$key};
   } else {
+    $self->param('_stored_features')->{$key} = 1;
     return;
   }
 }
@@ -708,10 +834,27 @@ sub stored_features {
 sub _process_reads {
     my ($read, $callbackdata) = @_;
 
-    my ($self, $i, $exon_start, $stable_id, $reads, $iids, $counters, $seq_hash) = @$callbackdata;
+    my ($min_missmatch, $i, $exon_start, $stable_id, $reads, $iids, $counters, $seq_hash) = @$callbackdata;
+
+    if(defined $read->start) {
+      unless(exists $counters->{read_range_start}) {
+        $counters->{read_range_start} = $read->start;
+      } elsif($read->start < $counters->{read_range_start}) {
+        $counters->{read_range_start} =  $read->start;
+      }
+    }
+
+    if(defined $read->end) {
+      unless(exists $counters->{read_range_end}) {
+        $counters->{read_range_end} = $read->end;
+      } elsif($read->start > $counters->{read_range_end}) {
+        $counters->{read_range_end} =  $read->end;
+      }
+    }
+
     return if ($counters->{'stop_loop'});
     my $missmatch  = $read->get_tag_values('NM');
-    return unless ($missmatch and $missmatch >= $self->param('min_missmatch'));
+    return unless ($missmatch and $missmatch >= $min_missmatch);
     # get rid of any reads that might start before our start point
     return if (!$read->start or ($i == $counters->{'start_exon'} and $read->start < $exon_start));
     $counters->{'read_count'} ++;
@@ -761,6 +904,71 @@ sub _process_reads {
         }
         # otherwise figure out the ids for the rest of the batches
     }
+}
+
+
+sub runnable_failed {
+  my ($self,$runnable_failed) = @_;
+  if (defined $runnable_failed) {
+    $self->param('_runnable_failed',$runnable_failed);
+  }
+  return ($self->param('_runnable_failed'));
+}
+
+
+sub rebatch_runnable {
+  my ($self,$runnable) = @_;
+
+  say "Rebatching runnable";
+  say "Current runnable count: ".scalar(@{$self->runnable});
+  my @reads = @{$runnable->query_seqs};
+  my $read_count = 0;
+  my @read_batch = ();
+  while(my $read = pop(@reads)) {
+    $read_count++;
+    if($read_count && $read_count % $self->param('rebatch_size') == 0) {
+      my @runnable_read_batch = @read_batch;
+      my $rebatch_runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
+           -analysis      => $runnable->analysis,
+           -program       => $runnable->program,
+           -basic_options => $self->get_aligner_options,
+           -target_seqs   => $runnable->target_seqs,
+           -query_seqs    => \@runnable_read_batch,
+           -percent_id    => $self->param('percent_id'),
+           -coverage      => $self->param('coverage'),
+           -missmatch     => $self->param('missmatch'),
+           -write_to_file => $self->param('write_to_file'),
+           -redundant_ids => $runnable->redundant_ids,
+         );
+      $rebatch_runnable->timer($self->param('rebatch_timer'));
+      $self->runnable($rebatch_runnable);
+      @read_batch = ();
+      push(@read_batch,$read);
+    } else {
+      push(@read_batch,$read);
+    }
+  }
+
+  # Process any remaining reads
+  if(scalar(@read_batch)) {
+    my @runnable_read_batch = @read_batch;
+    my $rebatch_runnable = Bio::EnsEMBL::Analysis::Runnable::Bam2Introns->new(
+         -analysis      => $runnable->analysis,
+         -program       => $runnable->program,
+         -basic_options => $self->get_aligner_options,
+         -target_seqs   => $runnable->target_seqs,
+         -query_seqs    => \@runnable_read_batch,
+         -percent_id    => $self->param('percent_id'),
+         -coverage      => $self->param('coverage'),
+         -missmatch     => $self->param('missmatch'),
+         -write_to_file => $self->param('write_to_file'),
+         -redundant_ids => $runnable->redundant_ids,
+       );
+    $rebatch_runnable->timer($self->param('rebatch_timer'));
+    $self->runnable($rebatch_runnable);
+  }
+
+  say "Rebatched runnable count: ".scalar(@{$self->runnable});
 }
 
 1;

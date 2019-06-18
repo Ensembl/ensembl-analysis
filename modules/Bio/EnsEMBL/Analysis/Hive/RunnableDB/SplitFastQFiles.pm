@@ -1,6 +1,6 @@
 =head1 LICENSE
 
-Copyright [2018] EMBL-European Bioinformatics Institute
+Copyright [2018-2019] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -100,7 +100,6 @@ sub run {
     $self->throw("Could not find a corresponding line for ".$fastq_file_name." in the csv file:\n".$csv_file);
   }
 
-
   if($count_reads <= $self->param('max_reads_per_split')) {
     $self->for_csv_output($csv_entry);
     return;
@@ -139,12 +138,9 @@ sub run {
     my $split_sample_name = $1;
 
     my $new_csv_entry = $csv_entry;
-    say "FERGAL SAMPLE: ".$sample_name;
-    say "FERGAL SPLIT SAMPLE: ".$split_sample_name;
     unless($new_csv_entry =~ s/\t$sample_name\t/\t$split_sample_name\t/) {
       $self->throw("Failed to update the original sample name in the csv (".$fastq_file_name.") to the split sample name (".$split_file_name.")");
     }
-    say "FERGAL NEW: ".$new_csv_entry;
     unless($new_csv_entry =~ s/$fastq_file_name/\t$split_file_name\t/) {
       $self->throw("Failed to update the original file name in the csv (".$fastq_file_name.") to the split file name (".$split_file_name.")");
     }
@@ -177,8 +173,6 @@ sub split_fastq {
   my $count = 0;
   my $increment = 0;
   my $file_path = catfile($dir,$file_name);
-  say "FERGAL 1";
-  say "FERGAL 1 PATH: ".$file_path;
 
   if($file_name =~ /\.gz/) {
     unless(open(IN_FASTQ, "gunzip -c ".$file_path." |")) {
@@ -229,7 +223,18 @@ sub for_csv_output {
   }
 
   if($line) {
-    push(@{$self->param('_for_csv_output')},$line);
+    $line =~ s/[()]//g;
+
+    my @columns = split /\t/, $line;
+    $columns[7] = "ENA";
+
+    my @desc_parts = split / /, $columns[-1];
+    my $new_desc = $desc_parts[0]." ".$desc_parts[1];
+    chomp $new_desc;
+    $columns[-1] = $new_desc;
+
+    my $new_line = join("\t",@columns);
+    push(@{$self->param('_for_csv_output')},$new_line);
   }
 
   return($self->param('_for_csv_output'));

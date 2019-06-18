@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ use strict;
 use warnings;
 
 use Test::More;
+use File::Path qw(remove_tree);
 use File::Spec::Functions qw(devnull);
 
 use Bio::EnsEMBL::Test::TestUtils;
@@ -57,5 +58,15 @@ $time = time()-$time;
 cmp_ok($time, '>=', 2, 'Checking "execute_with_wait" fails and wait');
 cmp_ok($time, '<', 10, 'Checking "execute_with_wait" fails and wait using the time and message in parameters');
 cmp_ok($@, '=~', 'Doh', 'Checking "execute_with_wait" fails and wait using the time and message in parameters');
+
+my $directory = 'test_production';
+Bio::EnsEMBL::Analysis::Tools::Utilities::create_production_directory($directory);
+my @stat = stat($directory);
+cmp_ok(sprintf("%04o", $stat[2] & 07777), 'eq', '2775', 'Checking permissions for default production directory');
+remove_tree($directory);
+Bio::EnsEMBL::Analysis::Tools::Utilities::create_production_directory($directory, 0, 0777);
+@stat = stat($directory);
+cmp_ok(sprintf("%04o", $stat[2] & 07777), 'eq', '0777', 'Checking permissions set to 0777');
+remove_tree($directory);
 
 done_testing();

@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 =head1 NAME
 
 Bio::EnsEMBL::Analysis::Tools::Utilities
@@ -89,6 +90,9 @@ our @EXPORT_OK = qw(
               parse_timer
               is_slice_name
               get_database_from_registry
+              get_biotype_groups
+              get_feature_name
+              create_production_directory
               );
 
 
@@ -1035,17 +1039,26 @@ sub hrdb_get_dba {
   my ($connection_info, $dna_db, $alternative_class) = @_;
 
   my $dba;
+  my %params;
   if(ref($connection_info) eq 'HASH') {
     my $module_name = 'Bio::EnsEMBL::DBSQL::DBAdaptor';
     if ($alternative_class) {
-      $module_name = 'Bio::EnsEMBL::'.$alternative_class.'::DBSQL::DBAdaptor';
+      if ($alternative_class =~ /::/) {
+        $module_name = $alternative_class;
+        if ($alternative_class =~ /Vega/) {
+          $params{-GROUP} = 'vega';
+        }
+      }
+      else {
+        $module_name = 'Bio::EnsEMBL::'.$alternative_class.'::DBSQL::DBAdaptor';
+      }
       eval "use $module_name";
       if ($@) {
         throw("Cannot find module $module_name");
       }
     }
     eval {
-      $dba = $module_name->new(%$connection_info);
+      $dba = $module_name->new(%$connection_info, %params);
     };
 
     if($@) {
@@ -1354,6 +1367,111 @@ sub get_database_from_registry {
     $db = $registry->get_DBAdaptor($species, $type);
   }
   return $db;
+}
+
+
+=head2 get_biotype_groups
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor, your database should have a biotype table
+ Arg [2]    : String, database type, default to core
+ Description: Retrieve all biotypes for a certain database type from the biotype table
+              which is synchronised with the ensembl_production database.
+ Returntype : Hashref, key is biotype, value is biotype_group
+ Exceptions : Throws if Arg[1] is not a Bio::EnsEMBL::DBSQL::DBAdaptor
+
+=cut
+
+sub get_biotype_groups {
+  my ($db, $db_type) = @_;
+
+  $db_type = 'core' unless ($db_type);
+  throw('Bio::EnsEMBL::DBSQL::DBAdaptor needed, not '.ref($db)) unless (ref($db) eq 'Bio::EnsEMBL::DBSQL::DBAdaptor');
+  my %biotype2group;
+
+  # list all biotypes
+  # and tag them by the group they belong to
+  my $biotype_adaptor = $db->get_BiotypeAdaptor;
+  foreach my $biotype (@{$biotype_adaptor->fetch_all}) {
+    if ($biotype->{db_type} =~ /$db_type/ and $biotype->{db_type} !~ /$db_type\w+/) {
+      $biotype2group{$biotype->name} = $biotype->biotype_group;
+    }
+  }
+
+  return \%biotype2group;
+}
+
+=head2 get_feature_name
+
+ Arg [1]    : Bio::EnsEMBL::Transcript
+ Description: This method is mostly for the Ensembl RefSeq comparison scripts.
+              It will find the stable id for the feature. If it is an Ensembl
+              feature, it will return the stable id. If it is a RefSeq model
+              if will try to get the display_xref then the EntrezGene id. If it
+              cannot find anything it return the stable id which will be the id
+              in the GFF file
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub get_feature_name {
+  my ($feature) = @_;
+
+  my $name = $feature->stable_id;
+  if (!($name =~ /^ENS\w+/ or $name =~ /^[NX][MR]_\d+/)) {
+    if ($feature->display_xref) {
+      $name = $feature->display_xref->display_id;
+    }
+    if (!$name) {
+      my $dbentries = $feature->get_all_DBEntries('EntrezGene');
+      if (@$dbentries) {
+        $name = $dbentries->[0]->display_id;
+      }
+      if (!$name) {
+        $name = $feature->stable_id;
+      }
+    }
+  }
+  return $name;
+}
+
+
+=head2 create_production_directory
+
+ Arg [1]    : String, path of the directory to create
+ Arg [2]    : Boolean (optiona), true to stripe the directory
+ Arg [3]    : Int (optional), Permissions to set, need to start with 0
+ Description: Create a directory in the filesystem. By default, it sets the
+              permissions to 2775 (rwxrwsrx). The permissions can be given
+              as Arg[3]. It will warn if the directory already exists but it
+              will change the permissions.
+              It is also possible to stripe the directory if it is created
+              in LFS.
+ Returntype : None
+ Exceptions : Throws if the path cannot be created
+              Throws is striping fails
+
+=cut
+
+sub create_production_directory {
+  my ($path, $do_lsf_stripe, $mode) = @_;
+
+  my $default_mode = 02775;
+  $mode ||= $default_mode;
+  if (-d $path) {
+    warning("'$path' exists, only changing permissions");
+  }
+  else {
+    mkdir $path;
+  }
+  chmod $mode, $path;
+  if ($do_lsf_stripe) {
+    if (!system("lfs getstripe $path")) {
+      if(system("lfs setstripe  -c -1 $path")) {
+        throw("Failed to stripe '$path'");
+      }
+    }
+  }
 }
 
 1;

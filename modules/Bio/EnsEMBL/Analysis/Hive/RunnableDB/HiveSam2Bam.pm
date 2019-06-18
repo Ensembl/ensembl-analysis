@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,8 +47,27 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSam2Bam;
 use warnings ;
 use strict;
 use Bio::EnsEMBL::Analysis::Runnable::Sam2Bam;
+use feature 'say';
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: It allows the definition of default parameters for all inherting module.
+ Returntype : Hashref, containing all default parameters
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my ($self) = @_;
+  return {
+    %{$self->SUPER::param_defaults},
+    ignore_accu => 0,
+  }
+}
 
 
 =head2 fetch_input
@@ -63,7 +82,30 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my ($self) = @_;
 
-  if (@{$self->param_required('filename')} > 0) {
+  my $sam_files = [];
+  if($self->param('ignore_accu')) {
+    my $sam_dir = $self->param('sam_dir');
+    unless(open(SAM_FIND,"lfs find ".$sam_dir." -type f -name '*.sam' |")) {
+      $self->throw("Could not run lfs find on the sam dir. Sam dir:\n".$sam_dir);
+    }
+
+    while(my $path = <SAM_FIND>) {
+      chomp($path);
+      push(@{$sam_files},$path);
+    }
+    close SAM_FIND;
+  } else {
+    # For failed jobs the accu table will have an undef value for the filename. This will break things
+    # later in the module, so we skip undef values here
+    my $initial_sam_files = $self->param_required('filename');
+    foreach my $sam_file (@$initial_sam_files) {
+      if($sam_file) {
+        push(@$sam_files,$sam_file);
+      }
+    }
+  }
+
+  if (scalar(@{$sam_files} > 0)) {
     my $program = $self->param('samtools');
     $self->throw("Samtools program not defined in analysis \n") unless (defined $program);
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::Sam2Bam->new
@@ -71,34 +113,17 @@ sub fetch_input {
        -analysis => $self->create_analysis,
        -header   => $self->param('headerfile'),
        -program  => $program,
-       -samfiles => $self->param('filename'),
+       -samfiles => $sam_files,
        -bamfile  => $self->param('intron_bam_file'),
        -genome   => $self->param('genome_file'),
+       -use_threading => $self->param('use_threading'),
       );
     $self->runnable($runnable);
   }
   else {
-    $self->input_id->autoflow(0);
+    $self->input_job->autoflow(0);
     $self->complete_early('You do not have any SAM files');
   }
-}
-
-
-=head2 run
-
-  Arg [1]   : None
-  Function  : Overrides run as we want to disconnect from the database as the job will last at least 30 minutes
-  Returntype: None
-  Exceptions: None
-
-=cut
-
-sub run {
-  my ($self) = @_;
-  $self->throw("Can't run - no runnable objects") unless ( $self->runnable );
-  $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
-  my ($runnable) = @{$self->runnable};
-  $runnable->run;
 }
 
 

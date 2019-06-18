@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,10 +71,12 @@ use parent ('Bio::EnsEMBL::Analysis::Runnable::ExonerateAlignFeature');
 sub new {
   my ( $class, @args ) = @_;
   my $self = $class->SUPER::new(@args);
-  my ($percent_id, $coverage, $missmatch) = rearrange( [qw(PERCENT_ID COVERAGE MISSMATCH)],@args );
+  my ($percent_id, $coverage, $missmatch, $write_to_file, $redundant_ids) = rearrange( [qw(PERCENT_ID COVERAGE MISSMATCH WRITE_TO_FILE REDUNDANT_IDS)],@args );
   $self->PERCENT_ID($percent_id);
   $self->COVERAGE($coverage);
   $self->MISSMATCH($missmatch);
+  $self->write_to_file($write_to_file);
+  $self->redundant_ids($redundant_ids);
   return $self;
 }
 
@@ -210,6 +212,38 @@ sub COVERAGE {
   } else {
     return;
   }
+}
+
+
+=head2 write_to_file
+
+ Arg [1]    : (optional) Integer
+ Description: Getter/setter, specifies that you want BaseExonerate to write the output to a file and not pipe directly into a filehandle
+              This is important for using a timer, since a timer doesn't seem to work with a filehandle pipe
+ Returntype : Integer
+ Exceptions : None
+
+=cut
+
+sub write_to_file {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_write_to_file'} = $value;
+  }
+
+  return($self->{'_write_to_file'});
+}
+
+
+sub redundant_ids {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_redundant_ids'} = $value;
+  }
+
+  return($self->{'_redundant_ids'});
 }
 
 1;

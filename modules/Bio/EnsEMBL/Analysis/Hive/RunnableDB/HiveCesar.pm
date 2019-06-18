@@ -2,7 +2,7 @@
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the
 EMBL-European Bioinformatics Institute
-Copyright [2016-2018] EMBL-European Bioinformatics Institute
+Copyright [2016-2019] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ qw(replace_stops_with_introns
    set_alignment_supporting_features                                                                  
    features_overlap);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(align_proteins);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns features_overlap);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -668,19 +668,26 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
 
     say "CESAR required memory estimate is greater than ".$1." GB.";
 
-    if ($1 < 15) {
-      $self->dataflow_output_id($output_hash,15);
+    if ($1 < 10) {
+      $self->dataflow_output_id($output_hash,10);
+    } elsif ($1 < 20) {
+      $self->dataflow_output_id($output_hash,20);
     } elsif ($1 < 25) {
       $self->dataflow_output_id($output_hash,25);
-    } elsif ($1 < 35) {
-      $self->dataflow_output_id($output_hash,35);
-    } elsif ($1 < 80) {
-      $self->dataflow_output_id($output_hash,80);
+    } elsif ($1 < 30) {
+      $self->dataflow_output_id($output_hash,30);
     } else {
       $self->dataflow_output_id($output_hash,-1);
     }
     
     $self->warning("cesar required memory estimate is greater than ".$1." GB. cesar command FAILED and it will be passed to either cesar_XXX or failed_cesar_himem: ".$cesar_command.". Gene ID: ".@{$self->parent_genes()}[$gene_index]->dbID()." CESAR output: ".$cesar_output."\n");
+    say "project_transcript will return -1";
+    return (-1);
+  } elsif ($cesar_output =~ /Out of memory: 0 bytes/) {
+    my $output_hash = {};
+    push(@{$output_hash->{'iid'}},@{$self->parent_genes()}[$gene_index]->dbID());
+    $self->dataflow_output_id($output_hash,-1);
+    $self->warning("cesar command FAILED due to -Out of memory: 0 bytes- error: ".$cesar_command."\n". "The job will be passed to either cesar_XXX or failed_cesar_himem. Gene ID: ".@{$self->parent_genes()}[$gene_index]->dbID()." CESAR output: ".$cesar_output."\n");
     say "project_transcript will return -1";
     return (-1);
   } elsif ($cesar_output =~ /CRITICAL/) {
@@ -918,8 +925,8 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
                                             -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
                                             -SLICE     => $proj_transcript_slice,
                                             -ANALYSIS  => $source_transcript->analysis(),
-                                            -STABLE_ID => $source_transcript->stable_id_version(),
-                                            -VERSION   => 1));
+                                            -STABLE_ID => $source_transcript->stable_id(),
+                                            -VERSION   => $source_transcript->version()));
                
                 $exon_start += $source_split_codon_5_length; # exon_start will be ready for next new exon within the current exon or to be greater than the end meaning no more exons should be made
               }
@@ -964,8 +971,8 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
                                             -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
                                             -SLICE     => $proj_transcript_slice,
                                             -ANALYSIS  => $source_transcript->analysis(),
-                                            -STABLE_ID => $source_transcript->stable_id_version(),
-                                            -VERSION   => 1));
+                                            -STABLE_ID => $source_transcript->stable_id(),
+                                            -VERSION   => $source_transcript->version()));
                 $exon_start = $base_index_offset+$base_index-$current_proj_seq_gap_length;
                 
                 $original_exon_start = $exon_start;
@@ -1022,8 +1029,8 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
                                             -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
                                             -SLICE     => $proj_transcript_slice,
                                             -ANALYSIS  => $source_transcript->analysis(),
-                                            -STABLE_ID => $source_transcript->stable_id_version(),
-                                            -VERSION   => 1));
+                                            -STABLE_ID => $source_transcript->stable_id(),
+                                            -VERSION   => $source_transcript->version()));
                 $exon_made = 1;
                 $exon_made_dash_count = $dash_count;
                 $exon_start = $exon_end+4-$dash_count;
@@ -1064,8 +1071,8 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
                                             -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
                                             -SLICE     => $proj_transcript_slice,
                                             -ANALYSIS  => $source_transcript->analysis(),
-                                            -STABLE_ID => $source_transcript->stable_id_version(),
-                                            -VERSION   => 1));
+                                            -STABLE_ID => $source_transcript->stable_id(),
+                                            -VERSION   => $source_transcript->version()));
                 $exon_start = $base_index_offset+$base_index-$current_proj_seq_gap_length;               
                 $original_exon_start = $exon_start;
               } elsif ($exon_made and ($previous_dash_count == 1 or $previous_dash_count == 2)) {
@@ -1091,8 +1098,8 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
                                -STRAND    => 1, # the proj_transcript_slice is already on the reverse strand
                                -SLICE     => $proj_transcript_slice,
                                -ANALYSIS  => $source_transcript->analysis(),
-                               -STABLE_ID => $source_transcript->stable_id_version(),
-                               -VERSION   => 1));
+                               -STABLE_ID => $source_transcript->stable_id(),
+                               -VERSION   => $source_transcript->version()));
     } else {
       say "exon_start is greater than exon_end, not making final exon at the end. This should follow a single-codon exon formed by a split codon. Source transcript: ".$source_transcript->stable_id_version()." Projected exon sequence: ".$proj_seq;
     }
@@ -1100,19 +1107,38 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
     $source_exon_index++;
   } # end while PROJSEQ
 
+  # make sure that no exon overlaps another one
+  my @projected_exons_no_overlap = ();
+  if (scalar(@projected_exons) > 1) {
+    my $next_exon_index = 1;
+    foreach my $exon (@projected_exons) {
+      if ($next_exon_index > scalar(@projected_exons)-1) {
+        push(@projected_exons_no_overlap,$exon);
+        last;
+      }
+      if (!(features_overlap($exon,$projected_exons[$next_exon_index]))) {
+        push(@projected_exons_no_overlap,$exon);
+      }
+      $next_exon_index++;
+    }
+  } else { # there is only one exon
+    push(@projected_exons_no_overlap,$projected_exons[0]);
+  }
+
   if (scalar(@projected_exons) > 0) {
 
-    my $projected_transcript = Bio::EnsEMBL::Transcript->new(-exons => \@projected_exons,
+    my $projected_transcript = Bio::EnsEMBL::Transcript->new(-exons => \@projected_exons_no_overlap,
                                                              -analysis => $source_transcript->analysis(),
-                                                             -stable_id => $source_transcript->stable_id_version(),
+                                                             -stable_id => $source_transcript->stable_id(),
+                                                             -version => $source_transcript->version(),
                                                              -strand => 1,
                                                              -slice => $proj_transcript_slice);
 
     my $translation = Bio::EnsEMBL::Translation->new();
-    $translation->start_Exon($projected_exons[0]);
+    $translation->start_Exon($projected_exons_no_overlap[0]);
     $translation->start(1);
-    $translation->end_Exon($projected_exons[-1]);
-    $translation->end($projected_exons[-1]->length());
+    $translation->end_Exon($projected_exons_no_overlap[-1]);
+    $translation->end($projected_exons_no_overlap[-1]->length());
     $projected_transcript->translation($translation);
 
     # Set the phases  
@@ -1149,8 +1175,8 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
       if ($projected_transcript->translation()->seq()) {
         ($coverage,$percent_id) = align_proteins($source_transcript->translate()->seq(),$projected_transcript->translate()->seq());
       }
-      $projected_transcript->source($coverage);
-      $projected_transcript->biotype($percent_id);
+      $projected_transcript->source('ensembl');
+      $projected_transcript->biotype('projection');
       $projected_transcript->description("stable_id of source: ".$source_transcript->stable_id());
 
       # add a 'seq_edits' attribute to the proj_exon object

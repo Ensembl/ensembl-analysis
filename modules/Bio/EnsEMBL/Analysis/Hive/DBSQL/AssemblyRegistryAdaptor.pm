@@ -1,4 +1,4 @@
-# Copyright [2018] EMBL-European Bioinformatics Institute
+# Copyright [2018-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use strict;
 use warnings;
 use feature 'say';
-
 use parent ('Bio::EnsEMBL::DBSQL::DBAdaptor');
 
 sub fetch_all_gca {
@@ -59,6 +58,25 @@ sub fetch_all_gca {
   }
 
   return($output_array);
+}
+
+sub fetch_clade_by_gca {
+  my ($self,$chain_version,$type) = @_;
+
+  my ($chain,$version) = $self->split_gca($chain_version);
+
+  my $sql = "SELECT clade FROM assembly WHERE chain=? and version=?";
+  my $sth = $self->dbc->prepare($sql);
+  $sth->bind_param(1,$chain);
+  $sth->bind_param(2,$version);
+  $sth->execute();
+
+  my $clade = $sth->fetchrow();
+  unless($clade) {
+    $self->throw("Could not find clade for assembly with chain ".$chain." and version ".$version);
+  }
+
+  return($clade);
 }
 
 sub fetch_n50_by_gca {
@@ -227,7 +245,6 @@ sub fetch_stable_id_prefix_by_gca {
   $sth->bind_param(1,$chain);
   $sth->bind_param(2,$version);
   $sth->execute();
-
   my $stable_id_prefix = $sth->fetchrow();
   unless($stable_id_prefix) {
     $self->throw("Could not find stable id prefix for assembly with chain ".$chain." and version ".$version);
@@ -236,10 +253,8 @@ sub fetch_stable_id_prefix_by_gca {
   return($stable_id_prefix);
 }
 
-
 sub fetch_stable_id_start_by_gca {
   my ($self,$chain_version,$type) = @_;
-
   my ($chain,$version) = $self->split_gca($chain_version);
 
   my $sql = "SELECT stable_id_space_id FROM assembly WHERE chain=? and version=?";

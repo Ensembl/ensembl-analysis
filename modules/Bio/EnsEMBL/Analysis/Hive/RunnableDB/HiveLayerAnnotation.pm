@@ -1,14 +1,14 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
-# 
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -47,20 +47,17 @@ use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
-
 ###################################
 sub fetch_input {
-  my ($self) = @_;  
+  my ($self) = @_;
 
-#  my $dba = $self->hrdb_get_dba($self->param('target_db'));
-#  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-#  if($dna_dba) {
-#    $dba->dnadb($dna_dba);
-#  }
-#  $self->hrdb_set_con($dba,'target_db');
+  if($self->param('skip_analysis')) {
+    $self->complete_early('Skip check flag is enabled, so no check will be carried out');
+  }
 
   # This call will set the config file parameters. Note this will set REFGB (which overrides the
   # value in $self->db and OUTDB
@@ -70,36 +67,47 @@ sub fetch_input {
   $self->create_analysis;
 
   my $target_dba = $self->hrdb_get_dba($self->TARGETDB_REF);
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  if($dna_dba) {
+  my $dna_dba;
+  if($self->param('use_genome_flatfile')) {
+    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
+      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+    }
+    setup_fasta(
+                 -FASTA => $self->param_required('genome_file'),
+               );
+  } else {
+    $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
     $target_dba->dnadb($dna_dba);
   }
+
   $self->hrdb_set_con($target_dba,'target_db');
 
   my $found_input_genes = 0;
   foreach my $input_db (@{$self->SOURCEDB_REFS}) {
-
     my $dba = $self->hrdb_get_dba($input_db);
-    my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
     if($dna_dba) {
       $dba->dnadb($dna_dba);
     }
-    say "FERGAL DB NAME: ".$dba->dbc->dbname;
 
     my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param('iid'));
-    my $tlslice = $dba->get_SliceAdaptor->fetch_by_region($slice->coord_system->name,
-                                                          $slice->seq_region_name);
 
+    # Note I have re-written the below to no longer use get_all_Genes_by_Biotype as it causes a massive strain
+    # on cpu usage of the servers when many jobs are running at once
+    # The below is inefficient in terms of constantly looping through genes, but the overhead is negligable
+    # in comparison to the massive savings by not straining the servers. Still should rewrite to be more
+    # efficient and possibly consider changing our layering data structures in the static config to reflect this
+    my $genes = $slice->get_all_Genes();
     foreach my $layer (@{$self->layers}) {
       foreach my $tp (@{$layer->biotypes}) {
-        say "FERGAL TP: ".$tp;
-        foreach my $g (@{$slice->get_all_Genes_by_type($tp, undef, 1)}) {
-          $found_input_genes = 1;
-          $g = $g->transfer($tlslice);
-          push @{$layer->genes}, $g;
+        foreach my $g (@{$genes}) {
+          if($g->biotype eq $tp) {
+            $found_input_genes = 1;
+            push @{$layer->genes}, $g;
+	  }
         }
       }
     }
+    $dba->dbc->disconnect_if_idle();
   }
 
   # If there are no input genes then finish and don't flow
@@ -120,14 +128,10 @@ sub run {
 
   for(my $i=0; $i < @layers; $i++) {
     my $layer = $layers[$i];
-
     if ($layer->genes) {
       my @layer_genes = sort {$a->start <=> $b->start} @{$layer->genes};
-
       my @compare_genes;
-
       my %filter_against = map { $_ => 1 } @{$layer->filter_against};
-
       for(my $j = $i-1; $j>=0; $j--) {
         if (exists $filter_against{$layers[$j]->id} and
             @{$layers[$j]->genes}) {
@@ -159,27 +163,16 @@ sub write_output {
   my($self) = @_;
 
   my $target_dba = $self->hrdb_get_con('target_db');
-
-#$self->hrdb_get_dba($self->TARGETDB_REF);
-#  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-#  if($dna_dba) {
-#    $target_dba->dnadb($dna_dba);
-#  }
-
-
   my $g_adap = $target_dba->get_GeneAdaptor;
 
   # fully loading gene is required for the store to work
   # reliably. However, fully loading all genes to be stored
   # up front is expensive in memory. Therefore, load, store and
   # discard one gene at a time
-
   my $total = 0;
   my $fails = 0;
   foreach my $g (@{$self->output}) {
     fully_load_Gene($g);
-
-    # Putting this in to stop the wrong dbIDs being assigned
     empty_Gene($g);
     eval {
       $g_adap->store($g);

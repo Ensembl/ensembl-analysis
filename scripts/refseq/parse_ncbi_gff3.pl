@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -714,8 +714,15 @@ sub add_xrefs {
       $xrefs_hash->{$xref}->display_id($object->external_name) if ($object->isa('Bio::EnsEMBL::Gene'));
     }
     $object->add_DBEntry($xrefs_hash->{$xref});
-    if ($xrefs_hash->{$xref}->dbname eq 'Genbank' and $object->can('display_xref')) {
-      $object->display_xref($xrefs_hash->{$xref});
+    if ($object->can('display_xref')) {
+      if ($xrefs_hash->{$xref}->dbname eq 'Genbank') {
+        $object->display_xref($xrefs_hash->{$xref});
+      }
+      elsif ($object->isa('Bio::EnsEMBL::Gene') and $xrefs_hash->{$xref}->dbname eq 'EntrezGene') {
+        $object->display_xref($xrefs_hash->{$xref});
+        # This should not be hard coded but the API does not allow us to fetch the db display name
+        $object->description($object->description.' [Source:NCBI gene;Acc:'.$xrefs_hash->{$xref}->primary_id.']');
+      }
     }
   }
 }

@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -78,6 +78,8 @@ use vars qw (@ISA  @EXPORT);
              print_Gene 
              print_Gene_Transcript_and_Exons
              prune_Exons
+             remove_Transcript_from_Gene
+             validate_store
             );
 
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
@@ -706,4 +708,100 @@ sub get_readthroughs_count {
   return $readthrough_transcripts;
 }
 
-1; 
+
+=head2 remove_Transcript_from_Gene
+
+ Arg [1]    : Bio::EnsEMBL::Gene, gene to remove a transcript from
+ Arg [2]    : Bio::EnsEMBL::Transcript, transcript to remove from the gene
+ Arg [3]    : Hashref of String (optional), Hash of biotypes which are not to be removed
+ Description: Remove a transcript from a gene.
+              You should use this method if the objects are not in a database or if you
+              do not want the gene coordinates to be updated in the source database.
+              Otherwise you might want to use: $gene->remove_Transcript($transcript)
+ Returntype : Boolean, 1 if the transcript has been removed, 0 if the transcript is blessed
+ Exceptions : None
+
+=cut
+
+sub remove_Transcript_from_Gene {
+  my ($gene, $transcript_to_delete, $blessed_biotypes) = @_;
+
+  if ($blessed_biotypes and exists $blessed_biotypes->{$transcript_to_delete->biotype}) {
+    return 0;
+  }
+  my $transcripts = $gene->get_all_Transcripts;
+  $gene->flush_Transcripts;
+  foreach my $transcript (@$transcripts) {
+    if ($transcript != $transcript_to_delete) {
+      $gene->add_Transcript($transcript);
+    }
+  }
+  return 1;
+}
+
+
+=head2 validate_store
+
+ Arg [1]    : Bio::EnsEMBL::Gene, the gene you tried to store
+ Arg [2]    : Bio::EnsEMBL::Gene, the stored copy of the gene read from the output db via the dbID
+
+ Description: Compare a gene in memory to the stored copy of the gene in the output db. We have seen issues with
+              the API where sometimes the gene is incompletely stored, but this is not caught as an issue by the
+              core API.
+ Returntype : Boolean, 1 if the gene has been stored correctly (down to the exon level), 0 if it hasn't
+ Exceptions : None
+
+=cut
+
+sub validate_store {
+  my ($gene1, $gene2) = @_;
+
+  unless($gene1 && $gene2) {
+    warning("One or both of the input genes were not passed in");
+    return(0);
+  }
+
+  my $transcripts1 = $gene1->get_all_Transcripts();
+  my $transcripts2 = $gene2->get_all_Transcripts();
+  my $transcripts_count1 = scalar(@$transcripts1);
+  my $transcripts_count2 = scalar(@$transcripts2);
+
+  unless($transcripts_count1 && $transcripts_count2 && ($transcripts_count1 == $transcripts_count2)) {
+    warning("Transcript counts do not match between the gene in memory and the stored gene");
+    return(0);
+  }
+
+  for(my $i=0; $i<$transcripts_count1; $i++) {
+    my $transcript1 = $$transcripts1[$i];
+    my $transcript2 = $$transcripts2[$i];
+    my $exons1 = $transcript1->get_all_Exons();
+    my $exons2 = $transcript2->get_all_Exons();
+
+    my $exons_count1 = scalar(@$exons1);
+    my $exons_count2 = scalar(@$exons2);
+
+    unless($exons_count1 && $exons_count2 && ($exons_count1 == $exons_count2)) {
+      warning("Exon counts do not match between the gene in memory and the stored gene.\nStored transcript id: ".$transcript2->dbID."\n".
+              "Exon count in memory: ".$exons_count1."\nExon count in db: ".$exons_count2);
+      return(0);
+    }
+
+    if($transcript1->translation) {
+      unless($transcript2->translation) {
+        warning("The transcript in memory has a translation but the stored transcript does not");
+        return(0);
+      }
+
+      my $translation1 = $transcript1->translate->seq;
+      my $translation2 = $transcript2->translate->seq;
+      unless($translation1 eq $translation2) {
+        warning("The translation from the transcript in memory does not match the stored transcript.\nTranslation in memory:\n".$translation1.
+                "\nTranslation in db:\n".$translation2);
+        return(0);
+      }
+    }
+  }
+  return 1;
+}
+
+1;

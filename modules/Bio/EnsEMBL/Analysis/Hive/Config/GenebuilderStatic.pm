@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2018] EMBL-European Bioinformatics Institute
+Copyright [2016-2019] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -134,61 +134,6 @@ sub _master_config {
                              'human_pe12_tr_6',
     ],
 
-    rodents_basic => [
-                'IG_C_gene',
-                'IG_J_gene',
-                'IG_V_gene',
-                'IG_D_gene',
-                'TR_C_gene',
-                'TR_J_gene',
-                'TR_V_gene',
-                'TR_D_gene',
-                'seleno_self',
-                'cdna2genome',
-                'edited',
-                'gw_gtag',
-                'gw_nogtag',
-                'gw_exo',
-                'realign_80',
-                'realign_95',
-                'realign_50',
-                'self_pe12_sp_95',
-                'self_pe12_sp_80',
-                'self_pe12_tr_95',
-                'self_pe12_tr_80',
-                'self_pe3_tr_95',
-                'self_pe3_tr_80',
-                'rnaseq_95',
-                'rnaseq_80',
-                'mouse_pe12_sp_95',
-                'mouse_pe12_sp_80',
-                'mouse_pe12_tr_95',
-                'mouse_pe12_tr_80',
-                'vert_pe12_sp_95',
-                'vert_pe12_sp_80',
-                'vert_pe12_tr_80',
-                'vert_pe12_tr_95',
-                'rodents_pe12_sp_80',
-                'rodents_pe12_tr_80',
-                'rodents_pe12_tr_95',
-                'rodents_pe12_sp_95',
-                'human_pe12_sp_80',
-                'human_pe12_sp_95',
-                'human_pe12_tr_80',
-                'human_pe12_tr_95',
-                'rodents_pe3_sp_95',
-                'rodents_pe3_tr_80',
-                'rodents_pe3_tr_95',
-                'rodents_pe3_sp_80',
-                'rodents_pe45_sp_95',
-                'rodents_pe45_tr_80',
-                'rodents_pe45_tr_95',
-                'rodents_pe45_sp_80',
-                'mammals_pe12_sp_80',
-                'mammals_pe12_sp_95',
-                'mammals_pe12_tr_95',
-                'mammals_pe12_tr_80',
-    ],
 
     mammals_basic => [
                              'IG_C_gene',
@@ -282,6 +227,11 @@ sub _master_config {
                              'gw_exo',
                              'projection_1',
                              'projection_2',
+		             'genblast_rnaseq_top',
+		             'genblast_rnaseq_high',
+		             'genblast_rnaseq_medium',
+		             'genblast_rnaseq_low',
+		             'genblast_rnaseq_weak',
                              'rnaseq_merged_1',
                              'rnaseq_merged_2',
                              'rnaseq_merged_3',
@@ -405,6 +355,8 @@ sub _master_config {
                              'vert_pe12_tr_int_6',
                              'human_pe12_sp_int_6',
                              'human_pe12_tr_int_6',
+		             'rnaseq_merged',
+		             'rnaseq_tissue',
     ],
 
     fish_complete => [
@@ -592,6 +544,8 @@ sub _master_config {
                              'rnaseq_merged',
                              'rnaseq_tissue',
     ],
+
+    insects_basic => [],
 
     self_patch => [
                 'self_pe12_sp_95',

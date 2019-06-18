@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-#Copyright [2016-2018] EMBL-European Bioinformatics Institute
+#Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ sub param_defaults {
     input_biotype  => 'pre_lncRNA',
     output_biotype => 'lncRNA',
     # lncRNAs can be kept based on passing either min sequence or min exon cutoffs
-    min_sequence => 200,
+    min_sequence_size => 200,
     min_exons => 3,
     min_sequence_if_less_min_exons => 1000,
 
