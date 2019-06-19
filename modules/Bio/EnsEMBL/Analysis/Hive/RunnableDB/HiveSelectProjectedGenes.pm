@@ -23,7 +23,7 @@ Questions may also be sent to the Ensembl help desk at
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSelectProjectedGenes
 
 =cut
 
@@ -51,6 +51,7 @@ use feature 'say';
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
+use DBI qw(:sql_types);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -87,14 +88,14 @@ sub run {
   my $output_genes;
   my %discarded_wga;
 
-  # loop through all the cesar projected transcripts
-  foreach my $cesar_t (@{$cesar_ta->fetch_all()}) {
+  # loop through all cesar projected transcripts
+  foreach my $cesar_t (@{$cesar_ta->fetch_all_by_logic_name('cesar')}) {
     my $orig_cesar_sid = $cesar_t->stable_id();
     my $cesar_sid = $orig_cesar_sid;
     $cesar_sid =~ s/\..*//; # remove stable id version if present
     
     # fetch the equivalent wga projected transcript
-    my $wga_t = $wga_ta->fetch_by_stable_id($cesar_sid);
+    my $wga_t = fetch_transcript_by_stable_id_and_logic_name($wga_ta,$cesar_sid,'project_transcripts');
     
     if ($wga_t) {
       # select the best t between wga and cesar based on cov and pid
@@ -117,7 +118,7 @@ sub run {
       
       if ($wga_cov+$wga_pid > $cesar_cov+$cesar_pid) {
         # select wga if wga cov+pid is greater than cesar cov+pid
-        my $selected_gene = $wga_ga->fetch_by_transcript_stable_id($cesar_sid);
+        my $selected_gene = fetch_gene_by_transcript_stable_id_and_logic_name($wga_ga,$wga_ta,$cesar_sid,'project_transcripts');
         $selected_gene->flush_Transcripts();
         
         empty_Gene($selected_gene);
@@ -128,7 +129,7 @@ sub run {
         $selected_gene->add_Transcript($wga_t);
         push(@{$output_genes},$selected_gene);
         
-        my $non_selected_gene = $cesar_ga->fetch_by_transcript_stable_id($orig_cesar_sid);
+        my $non_selected_gene = fetch_gene_by_transcript_stable_id_and_logic_name($cesar_ga,$cesar_ta,$orig_cesar_sid,'cesar');
         $non_selected_gene->flush_Transcripts();
         
         empty_Gene($non_selected_gene);
@@ -140,7 +141,7 @@ sub run {
         push(@{$output_genes},$non_selected_gene);
       } else {
         # select cesar
-        my $selected_gene = $cesar_ga->fetch_by_transcript_stable_id($orig_cesar_sid);
+        my $selected_gene = fetch_gene_by_transcript_stable_id_and_logic_name($cesar_ga,$cesar_ta,$orig_cesar_sid,'cesar');
         $selected_gene->flush_Transcripts();
         
         empty_Gene($selected_gene);
@@ -151,7 +152,7 @@ sub run {
         $selected_gene->add_Transcript($cesar_t);
         push(@{$output_genes},$selected_gene);
         
-        my $non_selected_gene = $wga_ga->fetch_by_transcript_stable_id($cesar_sid);
+        my $non_selected_gene = fetch_gene_by_transcript_stable_id_and_logic_name($wga_ga,$wga_ta,$cesar_sid,'project_transcripts');
         $non_selected_gene->flush_Transcripts();
         
         empty_Gene($non_selected_gene);
@@ -166,7 +167,7 @@ sub run {
       
     } else {
       # no wga equivalent means cesar is selected
-      my $selected_gene = $cesar_ga->fetch_by_transcript_stable_id($orig_cesar_sid);
+      my $selected_gene = fetch_gene_by_transcript_stable_id_and_logic_name($cesar_ga,$cesar_ta,$orig_cesar_sid,'cesar');
       $selected_gene->flush_Transcripts();
       
       empty_Gene($selected_gene);
@@ -179,11 +180,11 @@ sub run {
     }
   }
   
-  # loop through all the wga projected transcripts to select the ones which did not have any cesar equivalent
-  foreach my $wga_t (@{$wga_ta->fetch_all()}) {
+  # loop through all wga projected transcripts to select the ones which did not have any cesar equivalent
+  foreach my $wga_t (@{$wga_ta->fetch_all_by_logic_name('project_transcripts')}) {
     my $wga_t_sid = $wga_t->stable_id();
     if (!(exists $discarded_wga{$wga_t_sid})) {
-      my $selected_gene = $wga_ga->fetch_by_transcript_stable_id($wga_t_sid);
+      my $selected_gene = fetch_gene_by_transcript_stable_id_and_logic_name($wga_ga,$wga_ta,$wga_t_sid,'project_transcripts');
       $selected_gene->flush_Transcripts();
       
       empty_Gene($selected_gene);
@@ -209,6 +210,26 @@ sub write_output {
     $gene_adaptor->store($output_gene);
   }
   return 1;
+}
+
+sub fetch_transcript_by_stable_id_and_logic_name {
+  my ($ta,$stable_id,$logic_name) = @_;
+
+  my $constraint = "t.stable_id = ? AND t.analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = ?) ";
+  $ta->bind_param_generic_fetch($stable_id,SQL_VARCHAR);
+  $ta->bind_param_generic_fetch($logic_name,SQL_VARCHAR);
+  my ($transcript) = @{$ta->generic_fetch($constraint)};
+  
+  return $transcript;
+}
+
+sub fetch_gene_by_transcript_stable_id_and_logic_name {
+  my ($ga,$ta,$stable_id,$logic_name) = @_;
+
+  my $transcript = fetch_transcript_by_stable_id_and_logic_name($ta,$stable_id,$logic_name);
+  my $gene = $ga->fetch_by_transcript_id($transcript->dbID());
+  
+  return $gene;
 }
 
 1;

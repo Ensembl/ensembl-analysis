@@ -132,7 +132,7 @@ sub fetch_input{
     # Note that we used to load dust repeats in older versions of the code. But this put a large strain on the servers at scale
     # and is not easy to make load from a flatfile without rewriting a reasonable amount of code. Given that our classifier
     # will later filter on dumped repeats, there is no real need for this and so now the code just fetches an unmasked slice
-    my $slice = $self->fetch_sequence($input_id);
+    my $slice = $self->fetch_sequence($input_id, $output_dba);
     unless ($slice->seq =~ /[CATG]{3}/) {
       say "The following slice is > 3bp after applying repeatmasking, will skip:";
       say $slice->name;
