@@ -29,7 +29,7 @@ my ($help, $input_file, $safe_mode);
 GetOptions(
 	   'help|h'       => \$help,
 	   'input_file=s' => \$input_file,
-	   'safe_mode' => \$safe_mode,
+	   'safe_mode'    => \$safe_mode,
 );
 
 die &helptext if ( $help );
@@ -56,9 +56,10 @@ sub get_content {
       -host    => 'mysql-ens-vertannot-staging',
       -dbname  => $dbname);
 
-  my $sth_species = $db->dbc->prepare("select meta_value from meta where meta_key='species.production_name';");
+  my $sth_species = $db->dbc->prepare("select meta_value from meta where meta_key='species.scientific_name';");
   $sth_species->execute();
-  my $species_name = $sth_species->fetchrow;
+  my $species_name = lc $sth_species->fetchrow;
+  $species_name =~ s/ /_/g;
 
   my $sth_logic = $db->dbc->prepare("select logic_name from analysis");
   $sth_logic->execute;
@@ -88,14 +89,20 @@ sub get_content {
     else{
       $content = "{
                       \"web_data\": {
-                           \"colour_key\": \"".$values_dict{'web_data_colour_key'}."\",
                            \"data\": {
                                \"zmenu\": \"".$values_dict{'web_data_zmenu'}."\",
                                \"label_key\": \"".$values_dict{'web_data_label_key'}."\",
-                               \"type\": \"rnaseq\",
+                               \"colour_key\": \"".$values_dict{'web_data_colour_key'}."\",
+                               \"type\": \"rnaseq\",";
+      if ($logic_type eq "rnaseq_daf") {
+	$content .=           "
+                               \"additional_renderers\": ".$values_dict{'web_data_additional_renders'}.""
+      }
+      $content .=              "
                                \"matrix\": {";
       if ($logic_type eq "rnaseq_bam") {
-	$content .=                         "\"group_order\": \"".$values_dict{'matrix_group_order'}."\","
+	$content .=                         "
+                                           \"group_order\": \"".$values_dict{'matrix_group_order'}."\","
       }
       $content .=                           "
                                            \"column\": \"".$values_dict{'matrix_column'}."\",
@@ -127,10 +134,6 @@ sub get_content {
 		     },
           content => $content
 							  });
-
-#      print $sample_name." ".$logic_type."\n";
-#      use Data::Dumper;
-#      print Dumper $response;
 
       print "\nFailed to add analyses descriptions for ".$sample_name."!\n" unless $response->{success};
     }
@@ -166,15 +169,15 @@ sub get_values {
 		    );
 
   my %web_data_label_key = (
-		       'rnaseq_gene' => "RNASeq",
+		       'rnaseq_gene' => "RNASeq [biotype]",
 		       'rnaseq_bam'  => "RNASeq [biotype]",
 		       'rnaseq_daf'  => "",
 		    );
 
   my %web_data_additional_renders = (
 		       'rnaseq_gene' => "",
-	       	       'rnaseq_bam'  => "\[\"histogram\", \"Variable height\"\],",
-		       'rnaseq_daf'  => "",
+	       	       'rnaseq_bam'  => "",
+		       'rnaseq_daf'  => "\[\"histogram\", \"Variable height\"\],",
 		    );
 
   my %web_data_colour_key = (

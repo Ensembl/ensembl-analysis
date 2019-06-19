@@ -120,7 +120,7 @@ sub fetch_input {
         '8' => [0, 0],
       );
       $self->param('classification', \%classification);
-    } elsif ($self->param('classification_type') eq 'standard') {
+    } elsif ($self->param('classification_type') eq 'standard' || $self->param('classification_type') eq 'long_read') {
       %classification = (
        '1' => [95, 90],
        '2' => [90, 80],
@@ -184,6 +184,7 @@ sub write_output {
 
   my $dbc = $self->hrdb_get_con('target_db')->dbc;
 
+
   my $sth = $dbc->prepare('CREATE table transcript_classify_bak like transcript');
   eval {
     $sth->execute();
@@ -194,6 +195,10 @@ sub write_output {
   else {
     $sth = $dbc->prepare('INSERT INTO transcript_classify_bak SELECT * FROM transcript');
     $sth->execute();
+  }
+
+  if($self->param('classification_type') eq 'long_read') {
+    $self->set_long_read_biotypes($dbc);
   }
 
   $sth = $dbc->prepare('UPDATE transcript t LEFT JOIN transcript_classify_bak tcb USING(transcript_id) '.
@@ -234,5 +239,21 @@ sub write_output {
     $sth->execute();
   }
 }
+
+
+sub set_long_read_biotypes {
+  my ($self,$dbc) = @_;
+
+  # Note that this is somewhat different to other modules where often the transcript biotypes are the most informative
+  # Here the gene biotypes are most informative. We want to update things to cdna where the biotype is one of our
+  # accepted biotypes. We then update the transcript table via the gene table
+  my $sth = $dbc->prepare('UPDATE gene SET biotype="cdna" WHERE biotype NOT LIKE "retained%" '.
+                          'AND biotype NOT LIKE "nonsense_mediated_decay%"');
+  $sth->execute();
+
+  $sth = $dbc->prepare('UPDATE transcript JOIN gene USING(gene_id) SET transcript.biotype=gene.biotype');
+  $sth->execute();
+}
+
 
 1;

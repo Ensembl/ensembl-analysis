@@ -57,6 +57,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastmiRNA;
 use strict;
 use warnings;
 use feature 'say';
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::Runnable::BlastmiRNA;
@@ -91,19 +92,25 @@ sub fetch_input{
                                            );
   $self->analysis($analysis);
 
-  my $repeat_dba = $self->hrdb_get_dba($self->param('repeat_db'));
-  my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
 
-  if($dna_dba) {
-    $repeat_dba->dnadb($dna_dba);
-    $output_dba->dnadb($dna_dba);
+  my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
+  my $dna_db;
+  if($self->param('use_genome_flatfile')) {
+    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
+      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+    }
+
+    setup_fasta(
+                 -FASTA => $self->param('genome_file'),
+	       );
+  } elsif($self->param('dna_db')) {
+    $dna_db = $self->get_database_by_name('dna_db');
+    $output_dba->dnadb($dna_db);
+  } else {
+    $self->throw("You must provide either a flatfile or a dna db to read from");
   }
 
-  $self->hrdb_set_con($repeat_dba,'repeat_db');
   $self->hrdb_set_con($output_dba,'output_db');
-
-  my $repeat_logic_names = $self->param('repeat_logic_names');
 
   my $blast_params = $self->param('BLAST_PARAMS');
   my $blast_filter = $self->param('BLAST_FILTER');
@@ -122,9 +129,10 @@ sub fetch_input{
 
   my $input_ids = $self->param('iid');
   foreach my $input_id (@{$input_ids}) {
-    # Note that traditionally the repeats are not loaded for some reason
-    my $slice = $self->fetch_sequence($input_id,$repeat_dba,$repeat_logic_names);
-
+    # Note that we used to load dust repeats in older versions of the code. But this put a large strain on the servers at scale
+    # and is not easy to make load from a flatfile without rewriting a reasonable amount of code. Given that our classifier
+    # will later filter on dumped repeats, there is no real need for this and so now the code just fetches an unmasked slice
+    my $slice = $self->fetch_sequence($input_id, $output_dba);
     unless ($slice->seq =~ /[CATG]{3}/) {
       say "The following slice is > 3bp after applying repeatmasking, will skip:";
       say $slice->name;

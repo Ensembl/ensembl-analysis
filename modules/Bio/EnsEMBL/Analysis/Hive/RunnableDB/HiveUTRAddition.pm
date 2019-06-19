@@ -2275,6 +2275,9 @@ sub create_cds_transcript {
   $translation->start(1);
   $translation->end_Exon($end_exon);
   $translation->end($end_exon->length());
+  foreach my $seq_edit (@{$transcript->translation->get_all_SeqEdits}) {
+    $translation->add_Attributes($seq_edit->get_Attribute);
+  }
   $cds_transcript->translation($translation);
   calculate_exon_phases($cds_transcript, 0);
 
