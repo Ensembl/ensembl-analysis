@@ -30,14 +30,14 @@ use Bio::EnsEMBL::Utils::CliHelper;
 use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
-my $assembly_registry_host = $ENV{GBS1};
-my $assembly_registry_port = $ENV{GBP1};
+#my $assembly_registry_host = $ENV{GBS1};
+#my $assembly_registry_port = $ENV{GBP1};
 
-my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
-  -host    => $assembly_registry_host,
-  -port    => $assembly_registry_port,
-  -user    => 'ensro',
-  -dbname  => 'gb_assembly_registry');
+#my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
+#  -host    => $assembly_registry_host,
+ # -port    => $assembly_registry_port,
+ # -user    => 'ensro',
+ # -dbname  => 'gb_assembly_registry');
 
 my ($self) = @_;
 #my $registry_assembly_name = $assembly_registry->fetch_assembly_name_by_gca($self->o('assembly_accession'));
@@ -56,6 +56,8 @@ my $driver = '';
 my $assembly_accession  = '';
 my $assembly_name = '';
 my $working_directory = '';
+my $registry_host = '';
+my $registry_port = '';
 
 GetOptions('dbname:s' => \$dbname,
            'host:s'  => \$host,
@@ -66,9 +68,15 @@ GetOptions('dbname:s' => \$dbname,
            'assembly_accession:s' => \$assembly_accession,
            'assembly_name:s' => \$assembly_name,
            'working_dir:s' => \$working_directory,
+           'registry_host:s' => \$registry_host,
+           'registry_port:s' => \$registry_port,
           );
 
-my $registry_assembly_name = $assembly_registry->fetch_assembly_name_by_gca($assembly_accession);
+my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
+  -host    => $registry_host,
+  -port    => $registry_port,
+  -user    => 'ensro',
+  -dbname  => 'gb_assembly_registry');
 
 my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -dbname => $dbname,
@@ -78,7 +86,10 @@ my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -pass   => $pass,
   -driver => $driver,
 );
-say "registry name is $registry_assembly_name and core name is $assembly_name";
+
+my $registry_assembly_name = $assembly_registry->fetch_assembly_name_by_gca($assembly_accession);
+
+#say "registry name is $registry_assembly_name and core name is $assembly_name";
 if ($registry_assembly_name eq $assembly_name){
    say "nothing to update";
 }

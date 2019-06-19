@@ -114,6 +114,7 @@ sub run {
   my $pairfilename;
   my $total_reads = 0;
   # count how many reads we have in the fasta file to start with
+  print "fastq pair is $fastqpair and fastq is $fastq\n";
   my $command;
   my $fh;
   if (-B $fastq) {
@@ -172,7 +173,7 @@ sub run {
   }
 
   $command = join(' ', $program, $method, $readgroup, $self->genome, $sai_fastq_files, '|', $samtools->make_commandline('view', '-b -S', $outdir.'/'.$outfile.'_unsorted.bam', '-'));
-  
+ print "command is $command\n"; 
   execute_with_wait($command, 'Failed processing alignment: '.$command."\n$?\n");
 
   my $sorted_bam = $outdir.'/'.$outfile;
