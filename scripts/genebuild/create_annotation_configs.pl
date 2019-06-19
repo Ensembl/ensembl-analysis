@@ -231,12 +231,15 @@ foreach my $accession (@accession_array) {
 
   # Get stable id start
   my $stable_id_start;
-  if ($general_hash->{'stable_id_start'}>=0) {
+  if (exists ($general_hash->{'stable_id_start'}) && $general_hash->{'stable_id_start'} >=0) {
     $stable_id_start = $general_hash->{'stable_id_start'};
   }
   else {
     $stable_id_start = $assembly_registry->fetch_stable_id_start_by_gca($accession);
   }
+ unless (defined($stable_id_start)) {
+   throw ("Could not find stable id start");
+ }
   say "Fetched the following stable id start for ".$accession.": ".$stable_id_start;
   $assembly_hash->{'stable_id_start'} = $stable_id_start;
 

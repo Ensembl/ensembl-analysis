@@ -132,7 +132,10 @@ sub default_options {
     'projection_source_db_server'  => 'mysql-ens-mirror-1',
     'projection_source_db_port'    => '4240',
 
-    # The following might not be known in advance, since the come from other pipelines
+    'assembly_registry_host'    => 'mysql-ens-genebuild-prod-1',
+    'assembly_registry_port'    => '4527',
+
+    # The following might not be known in advance, since they come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
     # If they are not needed (i.e. no projection or rnaseq) then leave them as is
     'projection_lastz_db_name'     => 'PROJECTION_LASTZ_DBNAME',
@@ -5909,7 +5912,7 @@ sub pipeline_analyses {
                          'canonical_or_longest' => 1,
                          'stops2introns' => 1,
                        },
-        -rc_name    => '35GB',
+        -rc_name    => '30GB',
         -analysis_capacity => 50,
         -max_retry_count => 1,
         -can_be_empty  => 1,
@@ -5943,7 +5946,7 @@ sub pipeline_analyses {
                          'canonical_or_longest' => 1,
                          'stops2introns' => 1,
                        },
-        -rc_name    => '80GB',
+        -rc_name    => '30GB',
         -analysis_capacity => 50,
         -max_retry_count => 1,
         -can_be_empty  => 1,
@@ -8253,7 +8256,7 @@ sub pipeline_analyses {
       {
         -logic_name => 'update_assembly_name',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => { 
+        -parameters => {
                          cmd => 'perl '.$self->o('assembly_name_script').
                                 ' -user '.$self->o('user').
                                 ' -pass '.$self->o('password').
@@ -8262,7 +8265,9 @@ sub pipeline_analyses {
                                 ' -dbname '.$self->o('reference_db','-dbname').
                                 ' -driver '.$self->o('hive_driver').
                                 ' -assembly_accession '.$self->o('assembly_accession').
-                                ' -assembly_name '.$self->o('assembly_name'),
+                                ' -assembly_name '.$self->o('assembly_name').
+                                ' -registry_host '.$self->o('assembly_registry_host').
+                                ' -registry_port '.$self->o('assembly_registry_port')
                        },
         -rc_name => 'default',
        },
