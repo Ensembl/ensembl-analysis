@@ -977,7 +977,7 @@ sub default_options {
       -port   => $self->o('production_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
-      -dbname => 'ensembl_production_#wide_ensembl_release#',
+      -dbname => 'ensembl_production',
       -driver => $self->o('hive_driver'),
     },
 
