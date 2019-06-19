@@ -1075,7 +1075,8 @@ sub fastq_range {
   }
 
   my $seq_count = `wc -l $fastq_file`;
-  chomp($seq_count);
+  $seq_count =~ /^(\d+)/;
+  $seq_count = $1;
   $seq_count = $seq_count / 4;
 
   unless($seq_count > 0) {
