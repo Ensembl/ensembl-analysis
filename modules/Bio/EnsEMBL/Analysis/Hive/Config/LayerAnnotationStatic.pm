@@ -1100,6 +1100,10 @@ sub _master_config {
                              'gw_gtag',
                              'gw_nogtag',
                              'gw_exo',
+                             'cdna_1',
+                             'cdna_2',
+                             'cdna_3',
+                             'cdna_4',
                              'rnaseq_merged_1',
                              'rnaseq_merged_2',
                              'rnaseq_merged_3',
@@ -1123,6 +1127,7 @@ sub _master_config {
               BIOTYPES   => [
                              'projection_1',
                              'projection_2',
+                             'cdna_5',
                              'rnaseq_merged_5',
                              'rnaseq_tissue_5',
                              'aves_pe12_sp_1',
@@ -1217,6 +1222,7 @@ sub _master_config {
                              'aves_pe12_tr_5',
                              'reptiles_sp_5',
                              'reptiles_tr_5',
+                             'cdna_6',
                              'rnaseq_merged_6',
                              'rnaseq_tissue_6',
                              'human_pe12_sp_int_1',
@@ -1267,6 +1273,7 @@ sub _master_config {
            {
               ID         => 'LAYER9',
               BIOTYPES   => [
+                             'cdna_7',
                              'rnaseq_merged_7',
                              'rnaseq_tissue_7',
                             ],
@@ -1277,6 +1284,7 @@ sub _master_config {
 		  {
               ID         => 'LAYER10',
               BIOTYPES   => [
+                              'cdna',
                               'rnaseq_merged',
                               'rnaseq_tissue',
                             ],
