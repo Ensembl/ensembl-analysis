@@ -21,8 +21,8 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor;
 
-#my $curr_release = $ENV{ENSEMBL_RELEASE};
-my $curr_release = 97;
+my $curr_release = $ENV{ENSEMBL_RELEASE};
+#my $curr_release = 97;
 my $prev_release = $curr_release - 1;
 
 # ---------------------- CURRENT COMPARA DATABASE ---------------------------------

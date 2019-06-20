@@ -25,8 +25,8 @@ use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
 
 # defaults
 #use Bio::EnsEMBL::ApiVersion;
-#my $current_release = $ENV{ENSEMBL_RELEASE};
-my $current_release = 97;
+my $current_release = $ENV{ENSEMBL_RELEASE};
+#my $current_release = 97;
 my $max_len = 100000;
 my $min_len = $max_len * 0.75;
 
