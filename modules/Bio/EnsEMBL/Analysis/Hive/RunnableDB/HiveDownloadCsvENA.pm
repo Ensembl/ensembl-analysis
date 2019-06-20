@@ -206,6 +206,8 @@ sub run {
             if ($row[$fields_index{library_layout}] eq 'PAIRED') {
               $read_length /= 2;
             }
+	    next if ($read_length < 75);
+
             my %line = (
               run_accession => $row[$fields_index{run_accession}],
               instrument_model => $row[$fields_index{instrument_model}],

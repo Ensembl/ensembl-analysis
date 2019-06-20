@@ -27,6 +27,7 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
       -dbname  => $dbname);
 
 open(OUT, '>', "./".$dbname."_update_ana_desc.sql");
+print OUT "USE ".$dbname.";\n";
 
 my $sth_logic = $db->dbc->prepare("select logic_name from analysis");
 $sth_logic->execute;
