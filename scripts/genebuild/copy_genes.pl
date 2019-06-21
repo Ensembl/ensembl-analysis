@@ -437,11 +437,15 @@ while (@gene_ids) {
         $gene = switch_coord_systems($gene, $outdb, $target_coord_system_version);
         if($gene) {
           $outga->store($gene,1,0,$skip_exon_sf);
+          ++$genes_stored;
+          --$genes_to_go;
         }
       } elsif ($filter_on_overlap) {
         $gene = filter_on_overlap($gene,$overlap_filter_type,$outga);
         if($gene) {
           $outga->store($gene,1,0,$skip_exon_sf);
+          ++$genes_stored;
+          --$genes_to_go;
         }
       } elsif (defined($merge)) {
         # check if there is any other gene on that region
@@ -466,16 +470,20 @@ while (@gene_ids) {
           }
           empty_Gene( $target_gene, 0, 0 );
           $outga->store($target_gene,1,0,$skip_exon_sf);
+          ++$genes_stored;
+          --$genes_to_go;
         } else {
           $outga->store($gene,1,0,$skip_exon_sf);
+          ++$genes_stored;
+          --$genes_to_go;
         }
 
       } else {
         empty_Gene( $gene, $remove_stable_ids, $remove_xrefs );
         $outga->store($gene,1,0,$skip_exon_sf);
+        ++$genes_stored;
+        --$genes_to_go;
       }
-      ++$genes_stored;
-      --$genes_to_go;
 
       if ($verbose) {
         printf( "Stored gene '%s'.  Done %d, %d left to go..\n",
