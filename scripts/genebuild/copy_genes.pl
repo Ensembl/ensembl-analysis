@@ -156,6 +156,7 @@ my $filter_on_overlap = 0;
 my $overlap_filter_type = 'genomic_overlap';
 my $filter_on_strand = 1;
 my $switch_coord_systems = 0;
+my $target_coord_system_version = undef;
 
 verbose('EXCEPTION');
 
@@ -196,6 +197,7 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'filter_on_overlap:s'                  => \$filter_on_overlap,
             'overlap_filter_type:s'                => \$overlap_filter_type,
             'switch_coord_systems!'                => \$switch_coord_systems,
+            'target_coord_system_version:s'        => \$target_coord_system_version,
             'filter_on_strand!'                    => \$filter_on_strand) ||
   throw("Error while parsing command line options");
 
@@ -432,7 +434,7 @@ while (@gene_ids) {
 
     if ( defined($gene) ) {
       if ($switch_coord_systems) {
-        $gene = switch_coord_systems($gene, $outdb);
+        $gene = switch_coord_systems($gene, $outdb, $target_coord_system_version);
         if($gene) {
           $outga->store($gene,1,0,$skip_exon_sf);
         }
@@ -663,6 +665,7 @@ sub filter_on_overlap {
 
  Arg [1]    : Bio::EnsEMBL::Gene, gene to move from one coordinate system to another
  Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor, target database
+ Arg [3]    : String (optional), coord system version from the target database
  Description: Move a gene from one coordinate system to another when the coordinate system
               version is the same but the coordinate space differ. For example if one of your
               database only has the primary_assembly coordinate system and the other database
@@ -674,21 +677,23 @@ sub filter_on_overlap {
 =cut
 
 sub switch_coord_systems {
-  my ($gene, $outdb) = @_;
+  my ($gene, $outdb, $target_coord_system_version) = @_;
 
   my $out_slice_adaptor = $outdb->get_SliceAdaptor();
   my $gene_slice = $gene->slice;
-  my $coord_systems = $outdb->get_CoordSystemAdaptor->fetch_all_by_version($gene_slice->coord_system->version);
+  my $coord_systems = $outdb->get_CoordSystemAdaptor->fetch_all_by_version($target_coord_system_version || $gene_slice->coord_system->version);
+  warning($gene->display_id.' '.$gene->biotype.' '.$gene_slice->name);
   if (@$coord_systems) {
     foreach my $coord_system (sort {$a->rank <=> $b->rank} @$coord_systems) {
       my $out_slice = $out_slice_adaptor->fetch_by_region(undef, $gene_slice->seq_region_name, undef, undef, undef, $coord_system->version);
       if ($out_slice and $out_slice->seq_region_length == $gene_slice->seq_region_length) {
         empty_Gene($gene);
         attach_Slice_to_Gene($gene,$out_slice);
+        warning($gene->display_id.' '.$gene->biotype.' '.$gene->slice->name);
         return $gene;
       }
     }
-    warning('Could not find the corresponding slice for '.$gene_slice->name.' to copy '.$gene->display_id.' into '.$outdb->dbc->dbname.'@'.$outdb->dbc->host);
+    warning('NOCOPY Could not find the corresponding slice for '.$gene_slice->name.' to copy '.$gene->display_id.' into '.$outdb->dbc->dbname.'@'.$outdb->dbc->host);
     return;
   }
   else {
