@@ -189,6 +189,7 @@ my $known_biotypes = {
                      'sense_intronic'                     => 'noncoding',
                      'sense_overlapping'                  => 'noncoding',
                      'lincRNA'                            => 'noncoding',
+                     'lncRNA'                             => 'noncoding',
                      'macro_lncRNA'                       => 'noncoding_second_choice',
                      'ribozyme'                           => 'noncoding_second_choice',
                      'scaRNA'                             => 'noncoding_second_choice',
