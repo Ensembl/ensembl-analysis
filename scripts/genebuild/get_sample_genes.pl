@@ -119,7 +119,8 @@ UPDATE meta set meta_value='".$sample_coord."' WHERE meta_key='sample.location_t
 UPDATE meta set meta_value='".$sample_gene->stable_id()."' WHERE meta_key='sample.gene_param');
 UPDATE meta set meta_value='".$sample_gene->external_name()."' WHERE meta_key='sample.gene_text');
 UPDATE meta set meta_value='".$sample_transcript->stable_id()."' WHERE meta_key='sample.transcript_param');
-UPDATE meta set meta_value='".$sample_transcript->external_name()."' WHERE meta_key='sample.transcript_text');"
+UPDATE meta set meta_value='".$sample_transcript->external_name()."' WHERE meta_key='sample.transcript_text');
+UPDATE meta set meta_value='".$sample_gene->external_name()."' WHERE meta_key='sample.search_text');"
 }
 
 #locations will now exist in meta as placholder info so replaces sql statesments with above ^
@@ -182,7 +183,8 @@ INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.location_
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_param', '".$sample_gene->stable_id()."');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_text', 'ensembl_gene');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_param', '".$sample_transcript->stable_id()."');
-INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_text', 'ensembl_transcript');"
+INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_text', 'ensembl_transcript');
+INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.search_text', 'ensembl_gene');"
 }
   else{
     print "No suitable transcripts found for ".$core_db;
