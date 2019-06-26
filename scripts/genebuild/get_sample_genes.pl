@@ -177,14 +177,14 @@ elsif ($core_db){
 
     open(OUT, '>', "./".$db_name."_placeholder_locations.sql");
 
-    print OUT "\nUSE ".$db_name.";
+    print OUT "USE ".$db_name.";
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.location_param', '".$sample_coord."');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.location_text', '".$sample_coord."');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_param', '".$sample_gene->stable_id()."');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_text', 'ensembl_gene');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_param', '".$sample_transcript->stable_id()."');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_text', 'ensembl_transcript');
-INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.search_text', 'ensembl_gene');"
+INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.search_text', 'ensembl_gene');\n"
 }
   else{
     print "No suitable transcripts found for ".$core_db;
