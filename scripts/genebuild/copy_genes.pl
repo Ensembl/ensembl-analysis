@@ -694,6 +694,10 @@ sub switch_coord_systems {
   if (@$coord_systems) {
     foreach my $coord_system (sort {$a->rank <=> $b->rank} @$coord_systems) {
       my $out_slice = $out_slice_adaptor->fetch_by_region(undef, $gene_slice->seq_region_name, undef, undef, undef, $coord_system->version);
+      if (!$out_slice) {
+        my ($seq_region_name) = $gene_slice->seq_region_name =~ /^([^.]+)/;
+        $out_slice = $out_slice_adaptor->fetch_by_region(undef, $seq_region_name, undef, undef, undef, $coord_system->version);
+      }
       if ($out_slice and $out_slice->seq_region_length == $gene_slice->seq_region_length) {
         empty_Gene($gene);
         attach_Slice_to_Gene($gene,$out_slice);
