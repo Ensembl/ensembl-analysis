@@ -108,7 +108,7 @@ use Getopt::Long;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw( throw warning verbose);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw (attach_Slice_to_Gene empty_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 use Bio::EnsEMBL::Analysis::Tools::Utilities;
 
@@ -129,6 +129,11 @@ my $dnauser   = 'ensro';
 my $dnapass   = '';
 my $dnadbname = undef;
 my $dnaport   = '';
+my $targetdnahost   = '';
+my $targetdnauser   = 'ensro';
+my $targetdnapass   = '';
+my $targetdnadbname = undef;
+my $targetdnaport   = '';
 
 my $in_config_name;
 my $out_config_name;
@@ -150,6 +155,8 @@ my $clean_transcripts = 0;
 my $filter_on_overlap = 0;
 my $overlap_filter_type = 'genomic_overlap';
 my $filter_on_strand = 1;
+my $switch_coord_systems = 0;
+my $target_coord_system_version = undef;
 
 verbose('EXCEPTION');
 
@@ -169,6 +176,10 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'dnauser:s'                            => \$dnauser,
             'dnadbname:s'                          => \$dnadbname,
             'dnaport:n'                            => \$dnaport,
+            'targetdnahost:s'                      => \$targetdnahost,
+            'targetdnauser:s'                      => \$targetdnauser,
+            'targetdnadbname:s'                    => \$targetdnadbname,
+            'targetdnaport:n'                      => \$targetdnaport,
             'logic:s'                              => \$logic,
             'biotype:s'                            => \$biotype,
             'source:s'                             => \$source,
@@ -185,6 +196,8 @@ GetOptions( 'inhost|sourcehost:s'                  => \$sourcehost,
             'file:s'                               => \$infile,
             'filter_on_overlap:s'                  => \$filter_on_overlap,
             'overlap_filter_type:s'                => \$overlap_filter_type,
+            'switch_coord_systems!'                => \$switch_coord_systems,
+            'target_coord_system_version:s'        => \$target_coord_system_version,
             'filter_on_strand!'                    => \$filter_on_strand) ||
   throw("Error while parsing command line options");
 
@@ -277,6 +290,14 @@ else {
                                         -pass   => $outpass,
                                         -port   => $outport,
                                         -dbname => $outdbname );
+}
+
+if($switch_coord_systems) {
+  my $targetdnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $targetdnahost,
+                                                        -user   => $targetdnauser,
+                                                        -port   => $targetdnaport,
+                                                        -dbname => $targetdnadbname );
+  $outdb->dnadb($targetdnadb);
 }
 
 my $ga = $sourcedb->get_GeneAdaptor();
@@ -412,10 +433,19 @@ while (@gene_ids) {
     }
 
     if ( defined($gene) ) {
-      if ($filter_on_overlap) {
+      if ($switch_coord_systems) {
+        $gene = switch_coord_systems($gene, $outdb, $target_coord_system_version);
+        if($gene) {
+          $outga->store($gene,1,0,$skip_exon_sf);
+          ++$genes_stored;
+          --$genes_to_go;
+        }
+      } elsif ($filter_on_overlap) {
         $gene = filter_on_overlap($gene,$overlap_filter_type,$outga);
         if($gene) {
           $outga->store($gene,1,0,$skip_exon_sf);
+          ++$genes_stored;
+          --$genes_to_go;
         }
       } elsif (defined($merge)) {
         # check if there is any other gene on that region
@@ -440,16 +470,20 @@ while (@gene_ids) {
           }
           empty_Gene( $target_gene, 0, 0 );
           $outga->store($target_gene,1,0,$skip_exon_sf);
+          ++$genes_stored;
+          --$genes_to_go;
         } else {
           $outga->store($gene,1,0,$skip_exon_sf);
+          ++$genes_stored;
+          --$genes_to_go;
         }
 
       } else {
         empty_Gene( $gene, $remove_stable_ids, $remove_xrefs );
         $outga->store($gene,1,0,$skip_exon_sf);
+        ++$genes_stored;
+        --$genes_to_go;
       }
-      ++$genes_stored;
-      --$genes_to_go;
 
       if ($verbose) {
         printf( "Stored gene '%s'.  Done %d, %d left to go..\n",
@@ -632,4 +666,49 @@ sub filter_on_overlap {
   }
 
   return($gene);
+}
+
+
+=head2 switch_coord_systems
+
+ Arg [1]    : Bio::EnsEMBL::Gene, gene to move from one coordinate system to another
+ Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor, target database
+ Arg [3]    : String (optional), coord system version from the target database
+ Description: Move a gene from one coordinate system to another when the coordinate system
+              version is the same but the coordinate space differ. For example if one of your
+              database only has the primary_assembly coordinate system and the other database
+              has chromosome, scaffold, contig.
+ Returntype : Bio::EnsEMBL::Gene or undef if the sequence in the source database cannot be found
+              in the target database
+ Exceptions : Throws if a coordinate system with the same version cannot be found
+
+=cut
+
+sub switch_coord_systems {
+  my ($gene, $outdb, $target_coord_system_version) = @_;
+
+  my $out_slice_adaptor = $outdb->get_SliceAdaptor();
+  my $gene_slice = $gene->slice;
+  my $coord_systems = $outdb->get_CoordSystemAdaptor->fetch_all_by_version($target_coord_system_version || $gene_slice->coord_system->version);
+  warning($gene->display_id.' '.$gene->biotype.' '.$gene_slice->name);
+  if (@$coord_systems) {
+    foreach my $coord_system (sort {$a->rank <=> $b->rank} @$coord_systems) {
+      my $out_slice = $out_slice_adaptor->fetch_by_region(undef, $gene_slice->seq_region_name, undef, undef, undef, $coord_system->version);
+      if (!$out_slice) {
+        my ($seq_region_name) = $gene_slice->seq_region_name =~ /^([^.]+)/;
+        $out_slice = $out_slice_adaptor->fetch_by_region(undef, $seq_region_name, undef, undef, undef, $coord_system->version);
+      }
+      if ($out_slice and $out_slice->seq_region_length == $gene_slice->seq_region_length) {
+        empty_Gene($gene);
+        attach_Slice_to_Gene($gene,$out_slice);
+        warning($gene->display_id.' '.$gene->biotype.' '.$gene->slice->name);
+        return $gene;
+      }
+    }
+    warning('NOCOPY Could not find the corresponding slice for '.$gene_slice->name.' to copy '.$gene->display_id.' into '.$outdb->dbc->dbname.'@'.$outdb->dbc->host);
+    return;
+  }
+  else {
+    throw('Could not find the coord system '.$gene_slice->coord_system->version.' in '.$outdb->dbc->dbname.'@'.$outdb->dbc->host);
+  }
 }
