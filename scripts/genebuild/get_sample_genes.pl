@@ -94,7 +94,7 @@ if ($reg_conf) {
 	if ($transcript->external_name()){
 	  my $supporting_features = $transcript->get_all_supporting_features;
 	  foreach my $support (@$supporting_features){
-	    if ($support->hcoverage() >= 99 && $support->percent_id() >= 75){
+	    if ($support->hcoverage() >= 50 && $support->percent_id() >= 75){
 	      $sample_transcript=$transcript;
 	      last;
 	    }
@@ -152,17 +152,17 @@ elsif ($core_db){
   $sth_longest->execute;
 
   my $sample_transcript;
-  while (my $seq_region_id = $sth_longest->fetchrow && !$sample_transcript){
+  LOOP: while (my $seq_region_id = $sth_longest->fetchrow_array) {
     my $region = $sa->fetch_by_seq_region_id($seq_region_id);
     my @transcripts = @{$region->get_all_Transcripts_by_type('protein_coding')};
 
   TRANSCRIPT:foreach my $transcript (@transcripts){
       my $supporting_features = $transcript->get_all_supporting_features;
       foreach my $support (@$supporting_features){
-	if ($support->hcoverage() >= 99 && $support->percent_id() >= 75){
-	  $sample_transcript=$transcript;
-	  last;
-	}
+        if ($support->hcoverage() >= 99 && $support->percent_id() >= 75){
+          $sample_transcript=$transcript;
+          last LOOP;
+        }
         else{
           next TRANSCRIPT;
         }
@@ -187,7 +187,7 @@ INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcrip
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.search_text', 'ensembl_gene');\n"
 }
   else{
-    print "No suitable transcripts found for ".$core_db;
+    print "No suitable transcripts found for $core_db\n";
   }
 }#end if core_db
 
