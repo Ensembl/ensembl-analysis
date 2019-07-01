@@ -631,7 +631,12 @@ GENE: foreach my $gene (values %genes) {
     }
     else {
       my $toplevel_gene = $gene->transform('toplevel');
-      $ga->store($toplevel_gene);
+      if ($toplevel_gene) {
+        $ga->store($toplevel_gene);
+      }
+      else {
+        throw('Could not project '.$gene->display_id.' from '.$gene->slice->name.' to toplevel');
+      }
     }
   }
 }
