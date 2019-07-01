@@ -68,6 +68,7 @@ my %nondisplaydb = (
 
 my %unknowndbs = (
   HPRD => 1,
+  Ensembl => 1,
 );
 &GetOptions (
             'h|host|dbhost=s'   => \$host,
