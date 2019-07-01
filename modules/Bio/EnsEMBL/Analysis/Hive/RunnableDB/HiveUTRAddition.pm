@@ -96,7 +96,7 @@ sub param_defaults {
     min_size_5prime => 20,
     copy_only => 0, # This is for jobs that fail even with lots of mem. Just copy the genes without trying to add UTR
     validate_store => 0, # This will check that the final stored gene is identical to what's in memory
-    collapse_redundant_genes => 0,
+    collapse_redundant_genes => 1,
   }
 }
 
@@ -191,6 +191,10 @@ sub run {
   if($self->param('copy_only')) {
     $self->warning("Copy only mode selected, no attempts will be made to add UTR. Acceptor genes will be copied unmodified into the output db");
     $self->output($self->acceptor_genes);
+    return;
+  }
+
+  unless(scalar(@{$self->acceptor_genes})) {
     return;
   }
 
@@ -349,7 +353,7 @@ sub add_utr {
       $utr_transcript->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($utr_transcript,$acceptor_transcript);
       $self->look_for_both($utr_transcript);
-      if($utr_transcript->three_prime_utr && $utr_transcript->{'donor_3prime_biotype'} eq 'rnaseq') {
+      if($utr_transcript->three_prime_utr && $utr_transcript->{'donor_3prime_biotype'} =~ /^rnaseq/) {
         $utr_transcript = $self->trim_3prime_utr_short_read($utr_transcript);
       }
       calculate_exon_phases($utr_transcript, 0);
@@ -1787,7 +1791,6 @@ sub filter_input_genes {
     }
     else {
       my $donor_genes = $gene_adaptor->fetch_all_by_Slice($slice, undef, 1);
-
       # This should not have to be done in general, however there is a fix because
       # we have a very large number of assemblies in production and the pipelines
       # will not work without this fix
@@ -1795,9 +1798,9 @@ sub filter_input_genes {
         foreach my $gene (@$donor_genes) {
           my $biotype = "";
           if($dbname =~ /\_cdna\_/ || $dbname =~ /\_lrfinal\_/) {
-            $biotype = "cdna";
+            $biotype = "cdna_donor";
           } elsif($dbname =~ /\_rnaseq\_/) {
-            $biotype = "rnaseq";
+            $biotype = "rnaseq_donor";
           } else {
             $self->throw("Found an unexpected dbname type for the donor db. Name: ".$dbname);
           }
@@ -1807,9 +1810,21 @@ sub filter_input_genes {
             $transcript->biotype($biotype);
           }
         }
-      }
-      push(@genes, @{$donor_genes});
-    }
+        push(@genes, @{$donor_genes});
+      } else {
+        my $direct_output_genes = [];
+        foreach my $gene (@$donor_genes) {
+          if($gene->biotype eq 'cdna' || $gene->biotype eq 'rnaseq_tissue' || $gene->biotype eq 'rnaseq_merged') {
+            push(@$direct_output_genes,$gene);
+          } else {
+            push(@genes,$gene);
+	  }
+	}
+        if(scalar(@$direct_output_genes)) {
+          $self->output($direct_output_genes);
+	}
+      } # end inner else
+    } # end outer else
     $db_adaptor->dbc->disconnect_if_idle();
   }
   return \@genes;
@@ -1952,7 +1967,7 @@ sub biotype_priorities {
   # 1 = cdna, 2 = rnaseq, 3 = other
   if($biotype =~ /^cdna/) {
    $biotype = 'cdna';
-  } elsif($biotype =~ /rnaseq/) {
+  } elsif($biotype =~ /^rnaseq/) {
     $biotype = 'rnaseq';
   } else {
     $biotype = 'other';
@@ -2299,7 +2314,7 @@ sub remove_redundant_acceptors {
     foreach my $transcript (@$transcripts) {
       my $transcript_string = $self->transcript_string($transcript);
       if($transcript_strings->{$transcript_string}) {
-        $self->transfer_supporting_features($transcript,$transcript_strings->{$transcript_string})
+#        $self->transfer_supporting_features($transcript,$transcript_strings->{$transcript_string})
       } else {
         $transcript_strings->{$transcript_string} = $transcript;
         $kept_transcript_count++;
@@ -2377,11 +2392,11 @@ sub remove_redundant_donors {
         my $priority1 = $self->biotype_priorities($biotype1);
         my $priority2 = $self->biotype_priorities($biotype2);
         if($priority1 <= $priority2) {
-          $self->transfer_supporting_features($transcript,$transcript_strings->{$transcript_string});
+#          $self->transfer_supporting_features($transcript,$transcript_strings->{$transcript_string});
 	} else {
           # In this case we have a better priority for the current transcript, so we should transfer supporting evidence from
           # the one in the hash to it, and then make it the one in the hash
-          $self->transfer_supporting_features($transcript_strings->{$transcript_string},$transcript);
+ #         $self->transfer_supporting_features($transcript_strings->{$transcript_string},$transcript);
           $transcript_strings->{$transcript_string} = $transcript;
           $kept_transcript_count++;
         }
