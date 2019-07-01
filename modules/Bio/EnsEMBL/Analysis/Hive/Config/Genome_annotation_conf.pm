@@ -167,14 +167,8 @@ sub default_options {
     'genewise_db_server'           => $self->o('databases_server'),
     'genewise_db_port'             => $self->o('databases_port'),
 
-    'projection_coding_db_server'  => $self->o('databases_server'),
-    'projection_coding_db_port'    => $self->o('databases_port'),
-
-    'cesar_projection_coding_db_server'  => $self->o('databases_server'),
-    'cesar_projection_coding_db_port'    => $self->o('databases_port'),
-    
-    'output_projection_db_server'  => $self->o('databases_server'),
-    'output_projection_db_port'    => $self->o('databases_port'),
+    'projection_db_server'  => $self->o('databases_server'),
+    'projection_db_port'    => $self->o('databases_port'),
 
     'projection_realign_db_server' => $self->o('databases_server'),
     'projection_realign_db_port'   => $self->o('databases_port'),
@@ -252,7 +246,7 @@ sub default_options {
     'production_db_port'           => '4483',
 
 
-    databases_to_delete => ['reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_coding_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db', 'lincrna_db', 'otherfeatures_db', 'rnaseq_db'],#, 'projection_realign_db'
+    databases_to_delete => ['reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_db', 'selected_projection_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db', 'lincrna_db', 'otherfeatures_db', 'rnaseq_db'],#, 'projection_realign_db'
 
 ########################
 # BLAST db paths
@@ -287,7 +281,7 @@ sub default_options {
                                    $self->o('genblast_nr_db'),
                                    $self->o('genblast_rnaseq_support_nr_db'),
                                    $self->o('rnaseq_for_layer_nr_db'),
-                                   $self->o('projection_coding_db'),
+                                   $self->o('selected_projection_db'),
                                    $self->o('ig_tr_db'),
                                    $self->o('best_targeted_db'),
                                    $self->o('long_read_final_db'),
@@ -764,28 +758,19 @@ sub default_options {
       -driver => $self->o('hive_driver'),
     },
 
-    'projection_coding_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_proj_coding_'.$self->o('release_number'),
-      -host   => $self->o('projection_coding_db_server'),
-      -port   => $self->o('projection_coding_db_port'),
+    'projection_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_proj_'.$self->o('release_number'),
+      -host   => $self->o('projection_db_server'),
+      -port   => $self->o('projection_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
     },
     
-    'cesar_projection_coding_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_cesar_proj_coding_'.$self->o('release_number'),
-      -host   => $self->o('cesar_projection_coding_db_server'),
-      -port   => $self->o('cesar_projection_coding_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
-      -driver => $self->o('hive_driver'),
-    },
-    
-    'projection_output_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_output_proj_'.$self->o('release_number'),
-      -host   => $self->o('output_projection_db_server'),
-      -port   => $self->o('output_projection_db_port'),
+    'selected_projection_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_sel_proj_'.$self->o('release_number'),
+      -host   => $self->o('projection_db_server'),
+      -port   => $self->o('projection_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -5155,7 +5140,7 @@ sub pipeline_analyses {
         -rc_name    => 'default',
         -flow_into  => {
           '1->A' => ['fan_long_read'],
-          'A->1' => ['create_projection_coding_db'],
+          'A->1' => ['create_selected_projection_db'],
         },
       },
 
@@ -5530,97 +5515,42 @@ sub pipeline_analyses {
 # Projection analyses
 #
 ########################################################################
+
       {
-        -logic_name => 'create_projection_coding_db',
+        -logic_name => 'create_selected_projection_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
           source_db   => $self->o('dna_db'),
-          target_db   => $self->o('projection_coding_db'),
+          target_db   => $self->o('selected_projection_db'),
           create_type => 'clone',
         },
         -rc_name    => 'default',
         -flow_into  => {
-          1 => ['create_projection_output_db'],
+          1 => ['create_projection_db'],
         },
       },
 
       {
-        -logic_name => 'create_projection_output_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-          source_db   => $self->o('dna_db'),
-          target_db   => $self->o('projection_output_db'),
-          create_type => 'clone',
-        },
-        -rc_name    => 'default',
-        -flow_into  => {
-          1 => ['cesar_create_output_db'],
-        },
-      },
-
-      {
-        -logic_name => 'cesar_create_output_db',
+        -logic_name => 'create_projection_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
                          source_db => $self->o('dna_db'),
-                         target_db => $self->o('cesar_projection_coding_db'),
+                         target_db => $self->o('projection_db'),
                          create_type => 'clone',
                          #script_path => $self->o('clone_db_script_path'),
                          #user_r => $self->o('user_r'),
                          #user_w => $self->o('user_w'),
                          #pass_w => $self->o('password'),
                        },
-        -rc_name    => '3GB',
-        -flow_into  => {
-          '1->A' => ['run_projections'],
-          'A->1' => ['select_projected_genes'],
-        },
-      },
-
-      {
-        -logic_name => 'run_projections',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => 'if [ "#skip_projection#" -ne "0" ]; then exit 42; else exit 0;fi',
-          return_codes_2_branches => {'42' => 2},
-        },
         -rc_name    => 'default',
         -flow_into  => {
-          '1' => ['fan_projection','cesar_fan_projection'],
+          '1->A' => ['cesar_create_projection_input_ids','wga_create_projection_input_ids'],
+          'A->1' => ['classify_projected_genes'],
         },
       },
 
       {
-        -logic_name => 'fan_projection',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => 'if [ "#skip_projection#" -ne "0" ]; then exit 42; else exit 0;fi',
-          return_codes_2_branches => {'42' => 2},
-        },
-        -rc_name    => 'default',
-        -flow_into  => {
-          '1->A' => ['create_projection_coding_input_ids'],
-          'A->1' => ['classify_projection_coding_models'],
-        },
-      },
-
-      {
-        -logic_name => 'cesar_fan_projection',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => 'if [ "#skip_projection#" -ne "0" ]; then exit 42; else exit 0;fi',
-          return_codes_2_branches => {'42' => 2},
-        },
-        -rc_name    => 'default',
-        -flow_into  => {
-          '1->A' => ['cesar_create_projection_input_ids'],
-          'A->1' => ['cesar_classify_projection_coding_models'],
-        },
-      },
-
-
-      {
-        -logic_name => 'create_projection_coding_input_ids',
+        -logic_name => 'wga_create_projection_input_ids',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
           target_db           => $self->o('projection_source_db'),
@@ -5634,13 +5564,13 @@ sub pipeline_analyses {
         },
         -rc_name    => '4GB',
         -flow_into => {
-          2 => ['project_coding_transcripts'],
+          2 => ['wga_project_transcripts'],
         },
       },
 
 
       {
-        -logic_name => 'project_coding_transcripts',
+        -logic_name => 'wga_project_transcripts',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
         -parameters => {
           logic_name => 'project_transcripts',
@@ -5648,7 +5578,7 @@ sub pipeline_analyses {
           source_dna_db         => $self->default_options()->{'projection_source_db'},
           target_dna_db         => $self->o('dna_db'),
           source_transcript_db  => $self->default_options()->{'projection_source_db'},
-          target_transcript_db   => $self->o('projection_coding_db'),
+          target_transcript_db   => $self->o('projection_db'),
           compara_db            => $self->o('projection_lastz_db'),
           method_link_type => 'LASTZ_NET',
           max_exon_readthrough_dist => 15,
@@ -5666,7 +5596,7 @@ sub pipeline_analyses {
           timer => '30m',
         },
         -flow_into => {
-          -3 => ['failed_projection_coding_jobs'],
+          -3 => ['wga_failed_projection'],
         },
         -rc_name    => 'project_transcripts',
         -batch_size => 100,
@@ -5675,90 +5605,12 @@ sub pipeline_analyses {
 
 
       {
-        -logic_name => 'failed_projection_coding_jobs',
+        -logic_name => 'wga_failed_projection',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
         -parameters => {},
         -rc_name    => 'default',
         -can_be_empty  => 1,
         -failed_job_tolerance => 100,
-      },
-
-
-      {
-        -logic_name => 'classify_projection_coding_models',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
-        -parameters => {
-          skip_analysis => $self->o('skip_projection'),
-          classification_type => 'standard',
-          update_gene_biotype => 1,
-          target_db => $self->o('projection_coding_db'),
-        },
-        -rc_name    => 'default',
-        -flow_into => {
-          1 => ['flag_problematic_projections'],
-#          When the realign part is fix, the line above needs to be deleted and the lines below uncommented
-#          All analysis below create_projection_realign_db need to be uncommented too
-#          '1->A' => ['fix_unaligned_protein_hit_names'],
-#          'A->1' => ['create_projection_realign_db'],
-        },
-      },
-
-
-      {
-        -logic_name => 'flag_problematic_projections',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                         cmd => 'perl '.$self->o('flag_potential_pseudogenes_script').
-                                ' -host '.$self->o('projection_coding_db','-host').
-                                ' -port '.$self->o('projection_coding_db','-port').
-                                ' -user_w '.$self->o('projection_coding_db','-user').
-                                ' -pass '.$self->o('projection_coding_db','-pass').
-                                ' -dbname '.$self->o('projection_coding_db','-dbname').
-                                ' -dna_host '.$self->o('dna_db','-host').
-                                ' -dna_port '.$self->o('dna_db','-port').
-                                ' -user_r '.$self->o('dna_db','-user').
-                                ' -dna_dbname '.$self->o('dna_db','-dbname'),
-                       },
-        -rc_name => 'default',
-        -flow_into  => {
-          1 => ['fix_projection_db_issues'],
-        },
-      },
-
-
-      {
-        # This will fix issues when proteins that were too long for MUSCLE alignment didn't have proper ENST accessions
-        # Will also update the transcript table to match the gene table once the pseudo/canon genes are tagged in the
-        # previous analysis
-        -logic_name => 'fix_projection_db_issues',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-        -parameters => {
-          db_conn    => $self->o('projection_coding_db'),
-          sql => [
-            'UPDATE gene JOIN transcript USING(gene_id) SET transcript.biotype=gene.biotype',
-            'UPDATE protein_align_feature JOIN transcript_supporting_feature ON feature_id = protein_align_feature_id'.
-              ' JOIN transcript USING(transcript_id) SET hit_name = stable_id',
-            'UPDATE protein_align_feature JOIN supporting_feature ON feature_id = protein_align_feature_id'.
-              ' JOIN exon_transcript USING(exon_id) JOIN transcript USING(transcript_id) SET hit_name = stable_id',
-          ],
-        },
-        -rc_name    => 'default',
-        -flow_into => {
-          1 => ['projection_coding_sanity_checks'],
-        },
-      },
-
-
-      {
-        -logic_name => 'projection_coding_sanity_checks',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
-        -parameters => {
-          target_db => $self->o('projection_coding_db'),
-          sanity_check_type => 'gene_db_checks',
-          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-            'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_coding'},
-        },
-        -rc_name    => '4GB',
       },
 
       {
@@ -5789,7 +5641,7 @@ sub pipeline_analyses {
                          'source_dna_db' => $self->default_options()->{'projection_source_db'},
                          'target_dna_db' => $self->o('dna_db'),
                          'source_db' => $self->o('projection_source_db'),
-                         'target_db' => $self->o('cesar_projection_coding_db'),
+                         'target_db' => $self->o('projection_db'),
                          'compara_db' => $self->o('projection_lastz_db'),
                          'method_link_type' => 'LASTZ_NET',
                          'cesar_path' => $self->o('cesar_path'),
@@ -5805,32 +5657,30 @@ sub pipeline_analyses {
                          'canonical_or_longest' => 1,
                          'stops2introns' => 1,
                        },
-        -rc_name    => 'default',
+        -rc_name    => '3GB',
         -analysis_capacity => 50,
         -max_retry_count => 1,
         -failed_job_tolerance => 5,
         -flow_into => {
-                        10 => ['cesar_10'],
-                        20 => ['cesar_20'],
-                        25 => ['cesar_25'],
+                        15 => ['cesar_15'],
                         30 => ['cesar_30'],
                         -1 => ['cesar_30'], # some jobs with batches still fail with -1, try cesar_30 in these cases
                       },
       },
 
       {
-        -logic_name => 'cesar_10',
+        -logic_name => 'cesar_15',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
         -parameters => {
                          'output_path' => $self->o('output_path')."/cesar_projection/",
                          'source_dna_db' => $self->default_options()->{'projection_source_db'},
                          'target_dna_db' => $self->o('dna_db'),
                          'source_db' => $self->o('projection_source_db'),
-                         'target_db' => $self->o('cesar_projection_coding_db'),
+                         'target_db' => $self->o('projection_db'),
                          'compara_db' => $self->o('projection_lastz_db'),
                          'method_link_type' => 'LASTZ_NET',
                          'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '10', # mem in GB to be used by cesar (parameter --max-memory)
+                         'cesar_mem' => '15', # mem in GB to be used by cesar (parameter --max-memory)
                          #TRANSCRIPT_FILTER => {
                          #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
                          #  PARAMETERS => {
@@ -5842,79 +5692,11 @@ sub pipeline_analyses {
                          'canonical_or_longest' => 1,
                          'stops2introns' => 1,
                        },
-        -rc_name    => '10GB',
+        -rc_name    => '15GB',
         -analysis_capacity => 50,
         -max_retry_count => 1,
         -can_be_empty  => 1,
         -failed_job_tolerance => 5,
-        -flow_into => {
-                        -1 => ['cesar_20'],
-                      },
-      },
-
-      {
-        -logic_name => 'cesar_20',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
-        -parameters => {
-                         'output_path' => $self->o('output_path')."/cesar_projection/",
-                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
-                         'target_dna_db' => $self->o('dna_db'),
-                         'source_db' => $self->o('projection_source_db'),
-                         'target_db' => $self->o('cesar_projection_coding_db'),
-                         'compara_db' => $self->o('projection_lastz_db'),
-                         'method_link_type' => 'LASTZ_NET',
-                         'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '20', # mem in GB to be used by cesar (parameter --max-memory)
-                         #TRANSCRIPT_FILTER => {
-                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-                         #  PARAMETERS => {
-                         #    -coverage => 50,
-                         #    -percent_id => 50,
-                         #  },
-                         #},
-                         #'canonical' => 1,
-                         'canonical_or_longest' => 1,
-                         'stops2introns' => 1,
-                       },
-        -rc_name    => '20GB',
-        -analysis_capacity => 50,
-        -max_retry_count => 1,
-        -can_be_empty  => 1,
-        -failed_job_tolerance => 5,
-        -flow_into => {
-                        -1 => ['cesar_25'],
-                      },
-      },
-
-      {
-        -logic_name => 'cesar_25',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
-        -parameters => {
-                         'output_path' => $self->o('output_path')."/cesar_projection/",
-                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
-                         'target_dna_db' => $self->o('dna_db'),
-                         'source_db' => $self->o('projection_source_db'),
-                         'target_db' => $self->o('cesar_projection_coding_db'),
-                         'compara_db' => $self->o('projection_lastz_db'),
-                         'method_link_type' => 'LASTZ_NET',
-                         'cesar_path' => $self->o('cesar_path'),
-                         'cesar_mem' => '25', # mem in GB to be used by cesar (parameter --max-memory)
-                         #TRANSCRIPT_FILTER => {
-                         #  OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
-                         #  PARAMETERS => {
-                         #    -coverage => 50,
-                         #    -percent_id => 50,
-                         #  },
-                         #},
-                         #'canonical' => 1,
-                         'canonical_or_longest' => 1,
-                         'stops2introns' => 1,
-                       },
-        -rc_name    => '25GB',
-        -analysis_capacity => 50,
-        -max_retry_count => 1,
-        -can_be_empty  => 1,
-        -failed_job_tolerance => 10,
         -flow_into => {
                         -1 => ['cesar_30'],
                       },
@@ -5928,7 +5710,7 @@ sub pipeline_analyses {
                          'source_dna_db' => $self->default_options()->{'projection_source_db'},
                          'target_dna_db' => $self->o('dna_db'),
                          'source_db' => $self->o('projection_source_db'),
-                         'target_db' => $self->o('cesar_projection_coding_db'),
+                         'target_db' => $self->o('projection_db'),
                          'compara_db' => $self->o('projection_lastz_db'),
                          'method_link_type' => 'LASTZ_NET',
                          'cesar_path' => $self->o('cesar_path'),
@@ -5950,12 +5732,12 @@ sub pipeline_analyses {
         -can_be_empty  => 1,
         -failed_job_tolerance => 10,
         -flow_into => {
-                        -1 => ['failed_cesar_himem'],
+                        -1 => ['cesar_failed_projection'],
                       },
       },
 
       {
-        -logic_name => 'failed_cesar_himem',
+        -logic_name => 'cesar_failed_projection',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
         -parameters => {
                        },
@@ -5965,17 +5747,17 @@ sub pipeline_analyses {
       },
 
       {
-        -logic_name => 'cesar_classify_projection_coding_models',
+        -logic_name => 'classify_projected_genes',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
         -parameters => {
           skip_analysis => $self->o('skip_projection'),
           classification_type => 'standard',
           update_gene_biotype => 1,
-          target_db => $self->o('cesar_projection_coding_db'),
+          target_db => $self->o('projection_db'),
         },
         -rc_name    => 'default',
         -flow_into => {
-          1 => ['cesar_flag_problematic_projections'],
+          1 => ['flag_problematic_projections'],
 #          When the realign part is fix, the line above needs to be deleted and the lines below uncommented
 #          All analysis below create_projection_realign_db need to be uncommented too
 #          '1->A' => ['fix_unaligned_protein_hit_names'],
@@ -5983,37 +5765,35 @@ sub pipeline_analyses {
         },
       },
 
-
       {
-        -logic_name => 'cesar_flag_problematic_projections',
+        -logic_name => 'flag_problematic_projections',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
                          cmd => 'perl '.$self->o('flag_potential_pseudogenes_script').
-                                ' -host '.$self->o('cesar_projection_coding_db','-host').
-                                ' -port '.$self->o('cesar_projection_coding_db','-port').
-                                ' -user_w '.$self->o('cesar_projection_coding_db','-user').
-                                ' -pass '.$self->o('cesar_projection_coding_db','-pass').
-                                ' -dbname '.$self->o('cesar_projection_coding_db','-dbname').
+                                ' -host '.$self->o('projection_db','-host').
+                                ' -port '.$self->o('projection_db','-port').
+                                ' -user_w '.$self->o('projection_db','-user').
+                                ' -pass '.$self->o('projection_db','-pass').
+                                ' -dbname '.$self->o('projection_db','-dbname').
                                 ' -dna_host '.$self->o('dna_db','-host').
                                 ' -dna_port '.$self->o('dna_db','-port').
                                 ' -user_r '.$self->o('dna_db','-user').
                                 ' -dna_dbname '.$self->o('dna_db','-dbname'),
                        },
-        -rc_name => '5GB',
+        -rc_name => 'default',
         -flow_into  => {
-          1 => ['cesar_fix_projection_db_issues'],
+          1 => ['fix_projection_db_issues'],
         },
       },
-
 
       {
         # This will fix issues when proteins that were too long for MUSCLE alignment didn't have proper ENST accessions
         # Will also update the transcript table to match the gene table once the pseudo/canon genes are tagged in the
         # previous analysis
-        -logic_name => 'cesar_fix_projection_db_issues',
+        -logic_name => 'fix_projection_db_issues',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-          db_conn    => $self->o('cesar_projection_coding_db'),
+          db_conn    => $self->o('projection_db'),
           sql => [
             'UPDATE gene JOIN transcript USING(gene_id) SET transcript.biotype=gene.biotype',
             'UPDATE protein_align_feature JOIN transcript_supporting_feature ON feature_id = protein_align_feature_id'.
@@ -6024,21 +5804,38 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into => {
-          1 => ['cesar_projection_coding_sanity_checks'],
+          1 => ['projection_sanity_checks'],
         },
       },
 
-
       {
-        -logic_name => 'cesar_projection_coding_sanity_checks',
+        -logic_name => 'projection_sanity_checks',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
         -parameters => {
-          target_db => $self->o('cesar_projection_coding_db'),
+          target_db => $self->o('projection_db'),
           sanity_check_type => 'gene_db_checks',
           min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
             'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_coding'},
         },
         -rc_name    => '4GB',
+        -flow_into => {
+                        1 => ['select_projected_genes'],
+                      },
+      },
+
+      {
+        -logic_name => 'select_projected_genes',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSelectProjectedGenes',
+        -parameters => {
+          wga_db   => $self->o('projection_db'),
+          cesar_db   => $self->o('projection_db'),
+          output_db => $self->o('selected_projection_db'),
+          dna_db => $self->o('dna_db'),
+        },
+        -rc_name    => '4GB',
+        -flow_into => {
+                        1 => ['cluster_ig_tr_genes'],
+                      },
       },
 
 #      When the realign part is fixed, uncomment the whole block
@@ -6062,7 +5859,7 @@ sub pipeline_analyses {
 #        -logic_name => 'create_ids_for_evaluate_projection',
 #        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
 #        -parameters => {
-#          target_db => $self->o('projection_coding_db'),
+#          target_db => $self->o('selected_projection_db'),
 #          iid_type => 'feature_id',
 #          feature_type => 'transcript',
 #          batch_size => 500,
@@ -6079,7 +5876,7 @@ sub pipeline_analyses {
 #        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionRealignment',
 #        -parameters => {
 #          dna_db => $self->o('dna_db'),
-#          projection_db => $self->o('projection_coding_db'),
+#          projection_db => $self->o('selected_projection_db'),
 #          projection_source_db => $self->o('projection_source_db'),
 #          projection_realign_db => $self->o('projection_realign_db'),
 #          protein_table_name => $self->o('realign_table_name'),
@@ -6101,7 +5898,7 @@ sub pipeline_analyses {
 #          projection_padding => 0,
 #          dna_db => $self->o('dna_db'),
 #          target_db => $self->o('projection_realign_db'),
-#          projection_db => $self->o('projection_coding_db'),
+#          projection_db => $self->o('selected_projection_db'),
 #          logic_name => 'genblast',
 #          module => 'HiveGenblast',
 #          genblast_path => $self->o('genblast_path'),
@@ -6389,21 +6186,6 @@ sub pipeline_analyses {
 #      },
 
       {
-        -logic_name => 'select_projected_genes',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSelectProjectedGenes',
-        -parameters => {
-          wga_db   => $self->o('projection_coding_db'),
-          cesar_db   => $self->o('cesar_projection_coding_db'),
-          output_db => $self->o('projection_output_db'),
-          dna_db => $self->o('dna_db'),
-        },
-        -rc_name    => '4GB',
-        -flow_into => {
-                        1 => ['cluster_ig_tr_genes'],
-                      },
-      },
-
-      {
         -logic_name => 'cluster_ig_tr_genes',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCollapseIGTR',
         -parameters => {
@@ -6636,7 +6418,7 @@ sub pipeline_analyses {
                          # These options will create only slices that have a gene on the slice in one of the feature dbs
                          feature_constraint => 1,
                          feature_type => 'gene',
-                         feature_dbs => [$self->o('genblast_db'),$self->o('projection_coding_db'),$self->o('rnaseq_for_layer_db')],
+                         feature_dbs => [$self->o('genblast_db'),$self->o('selected_projection_db'),$self->o('rnaseq_for_layer_db')],
                       },
         -flow_into => {
                        '2'    => ['split_slices_on_intergenic'],
@@ -8308,7 +8090,7 @@ sub resource_classes {
     'blast_retry' => { LSF => $self->lsf_resource_builder('production-rh74', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'genblast' => { LSF => $self->lsf_resource_builder('production-rh74', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genblast_retry' => { LSF => $self->lsf_resource_builder('production-rh74', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'project_transcripts' => { LSF => $self->lsf_resource_builder('production-rh74', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_coding_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    'project_transcripts' => { LSF => $self->lsf_resource_builder('production-rh74', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'refseq_import' => { LSF => $self->lsf_resource_builder('production-rh74', 9900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'layer_annotation' => { LSF => $self->lsf_resource_builder('production-rh74', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genebuilder' => { LSF => $self->lsf_resource_builder('production-rh74', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},

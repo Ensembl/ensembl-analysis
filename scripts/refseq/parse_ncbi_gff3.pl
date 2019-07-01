@@ -68,6 +68,7 @@ my %nondisplaydb = (
 
 my %unknowndbs = (
   HPRD => 1,
+  Ensembl => 1,
 );
 &GetOptions (
             'h|host|dbhost=s'   => \$host,
@@ -138,8 +139,34 @@ else {
 }
 
 my $codon_table = Bio::Tools::CodonTable->new;
-my $gff_parser = Bio::EnsEMBL::IO::Parser::GFF3->open($gff_file);
+my $gff_parser = Bio::EnsEMBL::IO::Parser::GFF3->open($gff_file, must_parse_metadata => 0);
 my %sequences;
+my $cs_rank2 = $db->get_CoordSystemAdaptor->fetch_by_rank(2);
+foreach my $slice (@{$sa->fetch_all('toplevel', undef, 1)}) {
+  my $refseq_synonyms = $slice->get_all_synonyms('RefSeq_genomic');
+  if (!@$refseq_synonyms) {
+    if ($cs_rank2) {
+      my $projection = $slice->project($cs_rank2->name, $cs_rank2->version);
+      if (@$projection and @$projection == 1) {
+        $slice = $projection->[0]->to_Slice;
+        $refseq_synonyms = $slice->get_all_synonyms('RefSeq_genomic');
+        if (!@$refseq_synonyms) {
+          warning('Could not find a RefSeq synonym for '.$slice->seq_region_name.' '.$cs_rank2->name);
+          next;
+        }
+      }
+      else {
+        warning('Could not project '.$slice->seq_region_name.' to '.$cs_rank2->name);
+        next;
+      }
+    }
+    else {
+      warning('Could not find a RefSeq synonym for '.$slice->seq_region_name.' on '.$slice->coord_system->name);
+      next;
+    }
+  }
+  $sequences{$refseq_synonyms->[0]->name} = $slice;
+}
 my %missing_sequences;
 my $MT_acc;
 my @par_regions;
@@ -157,7 +184,8 @@ foreach my $assemblyexception (@{$sa->db->get_AssemblyExceptionFeatureAdaptor->f
   $par_srid = $assemblyexception->slice->get_seq_region_id;
 }
 
-my @genes;
+my %genes;
+my %transcripts;
 my %do_not_process;
 LINE: while ($gff_parser->next) {
   my $seqname = $gff_parser->get_seqname;
@@ -206,94 +234,63 @@ LINE: while ($gff_parser->next) {
       $exon->end($end);
       $exon->strand($gff_parser->get_strand);
       $exon->stable_id($attributes->{ID});
-      for (my $index = @genes-1; $index > -1; $index--) {
-        if ($genes[$index]->get_all_Transcripts) {
-          foreach my $transcript (reverse @{$genes[$index]->get_all_Transcripts}) {
-            if ($transcript->stable_id eq $parent) {
-              $transcript->add_Exon($exon);
-              next LINE;
-            }
-          }
+      if (exists $transcripts{$parent}) {
+        $transcripts{$parent}->add_Exon($exon);
+      }
+      elsif (exists $genes{$parent}) {
+        my $transcript = Bio::EnsEMBL::Transcript->new();
+        $transcripts{$parent} = $transcript;
+        $transcript->analysis($analysis);
+        $transcript->strand($genes{$parent}->strand);
+        $transcript->biotype($genes{$parent}->biotype);
+        $transcript->stable_id($genes{$parent}->stable_id);
+        $transcript->source($genes{$parent}->source);
+        $transcript->description($genes{$parent}->description);
+        $transcript->{__start} = $genes{$parent}->{__start};
+        $transcript->{__end} = $genes{$parent}->{__end};
+        foreach my $dbentry (@{$genes{$parent}->get_all_DBEntries}) {
+          $transcript->add_DBEntry($dbentry);
         }
-        elsif ($genes[$index]->stable_id eq $parent) {
-          my $transcript;
-          if ($genes[$index]->get_all_Transcripts) {
-            foreach my $t (@{$genes[$index]->get_all_Transcripts}) {
-              if ($t->stable_id eq $parent) {
-                $transcript = $t;
-                last;
-              }
-            }
-          }
-          if (!$transcript) {
-            $transcript = Bio::EnsEMBL::Transcript->new();
-            $transcript->analysis($analysis);
-            $transcript->strand($genes[$index]->strand);
-            $transcript->biotype($genes[$index]->biotype);
-            $transcript->stable_id($genes[$index]->stable_id);
-            $transcript->source($genes[$index]->source);
-            $transcript->description($genes[$index]->description);
-            $transcript->{__start} = $genes[$index]->{__start};
-            $transcript->{__end} = $genes[$index]->{__end};
-            foreach my $dbentry (@{$genes[$index]->get_all_DBEntries}) {
-              $transcript->add_DBEntry($dbentry);
-            }
-            $transcript->display_xref($genes[$index]->display_xref);
-            info('You should have 1 transcript in this gene '.$genes[$index]->stable_id.' '.$genes[$index]->biotype);
-          }
-          $transcript->add_Exon($exon);
-          $genes[$index]->add_Transcript($transcript);
-        }
+        $transcript->display_xref($genes{$parent}->display_xref);
+        info('You should have 1 transcript in this gene '.$genes{$parent}->stable_id.' '.$genes{$parent}->biotype);
+        $transcript->add_Exon($exon);
+        $genes{$parent}->add_Transcript($transcript);
+      }
+      else {
+        throw('Missing transcript for '.$attributes->{ID}.' '.$start);
       }
     }
     elsif ($type eq 'CDS') {
-      for (my $index = @genes-1; $index > -1; $index--) {
-        if ($genes[$index]->get_all_Transcripts) {
-          foreach my $transcript (reverse @{$genes[$index]->get_all_Transcripts}) {
-            if ($transcript->stable_id eq $parent) {
-              process_cds($gff_parser, $genes[$index], $transcript, $attributes, $start, $end);
-              next LINE;
-            }
-          }
+      if (exists $transcripts{$parent}) {
+        process_cds($gff_parser, $transcripts{$parent}->{gene_object}, $transcripts{$parent}, $attributes, $start, $end);
+      }
+      elsif (exists $genes{$parent}) {
+        if (!exists $transcripts{$attributes->{ID}}) {
+          my $transcript = Bio::EnsEMBL::Transcript->new();
+          $transcripts{$attributes->{ID}} = $transcript;
+          $transcript->slice($slice);
+          $transcript->start($start);
+          $transcript->end($end);
+          $transcript->strand($gff_parser->get_strand);
+          $transcript->stable_id($attributes->{ID});
+          $transcript->{gene_object} = $genes{$parent};
+          $genes{$parent}->add_Transcript($transcript);
+          info('You should have 1 transcript in this gene '.$genes{$parent}->stable_id.' '.$genes{$parent}->biotype. ' '.$genes{$parent}->source);
+          process_cds($gff_parser, $genes{$parent}, $transcript, $attributes, $start, $end);
         }
-        if ($genes[$index]->stable_id eq $parent) {
-          my $transcript;
-          if ($genes[$index]->get_all_Transcripts) {
-            foreach my $t (@{$genes[$index]->get_all_Transcripts}) {
-              if ($t->translation and $t->translation->stable_id eq $attributes->{ID}) {
-                $transcript = $t;
-                last;
-              }
-            }
-          }
-          if (!$transcript) {
-            $transcript = Bio::EnsEMBL::Transcript->new();
-            $transcript->slice($slice);
-            $transcript->start($start);
-            $transcript->end($end);
-            $transcript->strand($gff_parser->get_strand);
-            $transcript->stable_id($attributes->{ID});
-            $genes[$index]->add_Transcript($transcript);
-            info('You should have 1 transcript in this gene '.$genes[$index]->stable_id.' '.$genes[$index]->biotype. ' '.$genes[$index]->source);
-          }
-          throw('Missing transcript for '.$attributes->{ID}.' '.$start) unless ($transcript);
-          process_cds($gff_parser, $genes[$index], $transcript, $attributes, $start, $end);
-          next LINE;
-        }
+      }
+      else {
+        throw('Missing transcript for '.$attributes->{ID}.' '.$start);
       }
     }
     elsif ($type eq 'miRNA') {
       $do_not_process{$attributes->{ID}} = 1;
     }
     else {
-      for (my $index = @genes-1; $index > -1; $index--) {
-        if ($genes[$index]->stable_id eq $parent) {
-          if ($genes[$index]->get_all_Transcripts) {
-            foreach my $t (@{$genes[$index]->get_all_Transcripts}) {
-              next LINE if ($t->stable_id eq $attributes->{ID});
-            }
-          }
+      if (!exists $transcripts{$attributes->{ID}}) {
+        if (exists $genes{$parent}) {
           my $transcript = Bio::EnsEMBL::Transcript->new();
+          $transcripts{$attributes->{ID}} = $transcript;
           $transcript->stable_id($attributes->{ID});
           $transcript->slice($slice);
           $transcript->analysis($analysis);
@@ -316,46 +313,46 @@ LINE: while ($gff_parser->next) {
               $transcript->add_Attributes($objects_attributes{($transcript->strand == 1 ? 'cds_end_NF' : 'cds_start_NF')})
             }
           }
-          $genes[$index]->add_Transcript($transcript);
-          next LINE;
+          $transcript->{gene_object} = $genes{$parent};
+          $genes{$parent}->add_Transcript($transcript);
+          if (exists $attributes->{tag} and $attributes->{tag} eq 'refseq_select') {
+            $genes{$parent}->canonical_transcript($transcript);
+          }
+        }
+        else {
+          throw('Could not find a gene for '.$attributes->{ID}.' '.$slice->seq_region_name.' '.$start.' '.$end.' '.$gff_parser->get_strand);
         }
       }
-      throw('Could not find a gene for '.$attributes->{ID}.' '.$slice->seq_region_name.' '.$start.' '.$end.' '.$gff_parser->get_strand);
     }
+  }
+  elsif ($type eq 'gene' or $type eq 'pseudogene') {
+    my $gene = Bio::EnsEMBL::Gene->new();
+    $gene->slice($slice);
+    $gene->analysis($analysis);
+    $gene->stable_id($attributes->{ID});
+    $gene->{__start} = $start;
+    $gene->{__end} = $end;
+    $gene->strand($gff_parser->get_strand);
+    $attributes->{gene_biotype} =~ s/(\w_)(region|segment)/IG_$1gene/;
+    $gene->biotype($attributes->{gene_biotype});
+    $gene->external_name($attributes->{Name});
+    $gene->description($gff_parser->decode_string($attributes->{description} || $attributes->{Name}));
+    $gene->source(split(',', $gff_parser->get_source));
+    if ($attributes->{Dbxref}) {
+      add_xrefs(\%xrefs, $attributes->{Dbxref}, $gene);
+    }
+    $genes{$attributes->{ID}} = $gene;
   }
   elsif ($type eq 'region') {
-    if (exists $attributes->{genome} and $attributes->{genome} =~ 'mitochondrion') {
+    if (exists $attributes->{genome} and $attributes->{genome} eq 'mitochondrion') {
       $MT_acc = $seqname;
-    }
-    if ($start != 1) {
-      $slice = $slice->sub_Slice($start, $end, 1);
-    }
-  }
-  else {
-    if ($type eq 'gene' or $type eq 'pseudogene') {
-      my $gene = Bio::EnsEMBL::Gene->new();
-      $gene->slice($slice);
-      $gene->analysis($analysis);
-      $gene->stable_id($attributes->{ID});
-      $gene->{__start} = $start;
-      $gene->{__end} = $end;
-      $gene->strand($gff_parser->get_strand);
-      $attributes->{gene_biotype} =~ s/(\w_)(region|segment)/IG_$1gene/;
-      $gene->biotype($attributes->{gene_biotype});
-      $gene->external_name($attributes->{Name});
-      $gene->description($gff_parser->decode_string($attributes->{description} || $attributes->{Name}));
-      $gene->source(split(',', $gff_parser->get_source));
-      if ($attributes->{Dbxref}) {
-        add_xrefs(\%xrefs, $attributes->{Dbxref}, $gene);
-      }
-      push(@genes, $gene);
     }
   }
 }
 $gff_parser->close;
 print "Finished processing GFF file\n";
 my %stats;
-GENE: foreach my $gene (@genes) {
+GENE: foreach my $gene (values %genes) {
   if ($gene->get_all_Transcripts) {
     if ($gene->biotype =~ /^IG_/) {
       my $transcripts = $gene->get_all_Transcripts;
@@ -624,16 +621,23 @@ GENE: foreach my $gene (@genes) {
     $gene->add_Transcript($transcript);
     info('Was expecting gene '.$gene->stable_id.' '.$gene->biotype.' '.$gene->{__start}.' '.$gene->{__end}.' to have a transcript, I have added one...');
   }
+# Another way to do it is to check that the canonical transcript is a NM if the gene has NM and XM
+  $gene->canonical_transcript($gene->get_all_Transcripts->[0]) unless ($gene->canonical_transcript);
   $stats{gene}->{$gene->biotype}++;
   warning('Something is wrong with gene '.$gene->display_id) unless (check_gene($gene));
   print_gene($gene) if ($verbose);
   if ($write) {
-    if ($gene->slice->assembly_exception_type eq 'REF') {
+    if ($gene->slice->is_toplevel) {
       $ga->store($gene);
     }
     else {
       my $toplevel_gene = $gene->transform('toplevel');
-      $ga->store($toplevel_gene);
+      if ($toplevel_gene) {
+        $ga->store($toplevel_gene);
+      }
+      else {
+        throw('Could not project '.$gene->display_id.' from '.$gene->slice->name.' to toplevel');
+      }
     }
   }
 }

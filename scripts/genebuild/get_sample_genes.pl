@@ -25,8 +25,8 @@ use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
 
 # defaults
 #use Bio::EnsEMBL::ApiVersion;
-#my $current_release = Bio::EnsEMBL::ApiVersion::software_version();
 my $current_release = $ENV{ENSEMBL_RELEASE};
+#my $current_release = 97;
 my $max_len = 100000;
 my $min_len = $max_len * 0.75;
 
@@ -94,7 +94,7 @@ if ($reg_conf) {
 	if ($transcript->external_name()){
 	  my $supporting_features = $transcript->get_all_supporting_features;
 	  foreach my $support (@$supporting_features){
-	    if ($support->hcoverage() >= 99 && $support->percent_id() >= 75){
+	    if ($support->hcoverage() >= 50 && $support->percent_id() >= 75){
 	      $sample_transcript=$transcript;
 	      last;
 	    }
@@ -114,13 +114,23 @@ if ($reg_conf) {
 	my $sample_coord=$sample_gene->seq_region_name().':'.$sample_gene->seq_region_start().'-'.$sample_gene->seq_region_end();
 
 	print OUT "\nUSE ".$db_name.";
-INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.location_param', '".$sample_coord."');
-INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.location_text', '".$sample_coord."');
-INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_param', '".$sample_gene->stable_id()."');
-INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_text', '".$sample_gene->external_name()."');
-INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_param', '".$sample_transcript->stable_id()."');
-INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_text', '".$sample_transcript->external_name()."');"
-    }
+UPDATE meta set meta_value='".$sample_coord."' WHERE meta_key='sample.location_param');
+UPDATE meta set meta_value='".$sample_coord."' WHERE meta_key='sample.location_text');
+UPDATE meta set meta_value='".$sample_gene->stable_id()."' WHERE meta_key='sample.gene_param');
+UPDATE meta set meta_value='".$sample_gene->external_name()."' WHERE meta_key='sample.gene_text');
+UPDATE meta set meta_value='".$sample_transcript->stable_id()."' WHERE meta_key='sample.transcript_param');
+UPDATE meta set meta_value='".$sample_transcript->external_name()."' WHERE meta_key='sample.transcript_text');
+UPDATE meta set meta_value='".$sample_gene->external_name()."' WHERE meta_key='sample.search_text');"
+}
+
+#locations will now exist in meta as placholder info so replaces sql statesments with above ^
+#INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.location_param', '".$sample_coord."');
+#INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.location_text', '".$sample_coord."');
+#INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_param', '".$sample_gene->stable_id()."');
+#INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_text', '".$sample_gene->external_name()."');
+#INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_param', '".$sample_transcript->stable_id()."');
+#INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_text', '".$sample_transcript->external_name()."');"
+
     else{
       print "No suitable transcripts found for ".$db_name;
     }
@@ -142,17 +152,17 @@ elsif ($core_db){
   $sth_longest->execute;
 
   my $sample_transcript;
-  while (my $seq_region_id = $sth_longest->fetchrow && !$sample_transcript){
+  LOOP: while (my $seq_region_id = $sth_longest->fetchrow_array) {
     my $region = $sa->fetch_by_seq_region_id($seq_region_id);
     my @transcripts = @{$region->get_all_Transcripts_by_type('protein_coding')};
 
   TRANSCRIPT:foreach my $transcript (@transcripts){
       my $supporting_features = $transcript->get_all_supporting_features;
       foreach my $support (@$supporting_features){
-	if ($support->hcoverage() >= 99 && $support->percent_id() >= 75){
-	  $sample_transcript=$transcript;
-	  last;
-	}
+        if ($support->hcoverage() >= 99 && $support->percent_id() >= 75){
+          $sample_transcript=$transcript;
+          last LOOP;
+        }
         else{
           next TRANSCRIPT;
         }
@@ -167,16 +177,17 @@ elsif ($core_db){
 
     open(OUT, '>', "./".$db_name."_placeholder_locations.sql");
 
-    print OUT "\nUSE ".$db_name.";
+    print OUT "USE ".$db_name.";
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.location_param', '".$sample_coord."');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.location_text', '".$sample_coord."');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_param', '".$sample_gene->stable_id()."');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_text', 'ensembl_gene');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_param', '".$sample_transcript->stable_id()."');
-INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_text', 'ensembl_transcript');"
+INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_text', 'ensembl_transcript');
+INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.search_text', 'ensembl_gene');\n"
 }
   else{
-    print "No suitable transcripts found for ".$core_db;
+    print "No suitable transcripts found for $core_db\n";
   }
 }#end if core_db
 

@@ -24,36 +24,30 @@ use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use feature 'say';
 
-my ($help, $input_file, $safe_mode);
+my ($help, $safe_mode, $dbname, $port, $host);
 
 GetOptions(
 	   'help|h'       => \$help,
-	   'input_file=s' => \$input_file,
 	   'safe_mode'    => \$safe_mode,
+	   'dbname=s'     => \$dbname,
+	   'port=s'       => \$port,
+	   'host=s'       => \$host,
 );
 
 die &helptext if ( $help );
 
-my @db_names;
-if ($input_file) {
-  open(IN, $input_file) || die("Could not open $input_file");
-  @db_names = <IN>;
-  close IN || die("Could not close $input_file");
-}
+say "Adding analysis decsriptions for logic name in database: ".$dbname;
+get_content($dbname, $port, $host);
 
-foreach my $dbname (@db_names){
-      say $dbname;
-      get_content($dbname);
-    }
 
 sub get_content {
-  my ($dbname) = @_;
+  my ($dbname, $port, $host) = @_;
   my $content;
 
   my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-      -port    => 4573,
+      -port    => $port,
       -user    => 'ensro',
-      -host    => 'mysql-ens-vertannot-staging',
+      -host    => $host,
       -dbname  => $dbname);
 
   my $sth_species = $db->dbc->prepare("select meta_value from meta where meta_key='species.scientific_name';");
@@ -218,7 +212,7 @@ sub helptext {
 
 IMPORTANT: it is strongly recommended that you run this in SAFE MODE and check the content before you run it as normal, i.e. before you POST any content
 
-Usage: perl add_rnaseq_analysis_descriptions.pl -input_file <list_rnaseq_dbs>
+Usage: perl add_rnaseq_analysis_descriptions.pl -dbname <rnaseq_dbname> -host <host> -port <port>
 
 Options: -safe_mode -> run the script without POSTing to the production database, i.e. print the content that would be POSTed when not run in safe mode
 
