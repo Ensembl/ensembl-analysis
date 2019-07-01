@@ -321,7 +321,7 @@ sub run {
       my %dev_stages;
       my %celltypes;
       foreach my $sample (keys %{$csv_data{$project}}) {
-        unless($sample =~ /^SAMN/) {
+        unless($sample =~ /^SAM/) {
           next;
 	}
         next unless (exists $samples{$sample});
@@ -333,7 +333,7 @@ sub run {
       }
       if (scalar(keys(%dev_stages)) > 1) {
         foreach my $sample (keys %{$csv_data{$project}}) {
-          unless($sample =~ /^SAMN/) {
+          unless($sample =~ /^SAM/) {
             next;
   	  }
           next unless (exists $samples{$sample});
@@ -354,7 +354,7 @@ sub run {
       }
       else {
         foreach my $sample (keys %{$csv_data{$project}}) {
-          unless($sample =~ /^SAMN/) {
+          unless($sample =~ /^SAM/) {
             next;
   	  }
           next unless (exists $samples{$sample});
@@ -405,7 +405,7 @@ sub write_output {
   foreach my $study_accession (keys %{$data->[0]}) {
     my $study = $data->[0]->{$study_accession};
     foreach my $sample (keys %{$study}) {
-      unless($sample =~ /^SAMN/) {
+      unless($sample =~ /^SAM/) {
         next;
       }
       next unless (exists $samples->{$sample});
