@@ -46,6 +46,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::Minimap2;
 use warnings;
 use strict;
 use feature 'say';
+use File::Basename;
 
 use Bio::EnsEMBL::IO::Parser::Fasta;
 use Bio::DB::HTS::Faidx;
@@ -54,6 +55,18 @@ use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    min_read_length => 200,
+  }
+}
+
 
 
 =head2 fetch_input
@@ -109,10 +122,6 @@ sub fetch_input {
   my $ranged_input_file = $self->create_input_file($input_file,$range_start,$range_end);
   say "Finished creating input file";
 
-#  say "FERGAL RANGED DEBUG: ".$ranged_input_file;
-#  say "FERGAL RANGE DEBUG: ".$range_start."..".$range_end;
-#  sleep(60);
-#  $self->throw("DEBUG");
   my $program = $self->param('minimap2_path');
   my $paftools =  $self->param('paftools_path');
 
@@ -124,8 +133,19 @@ sub fetch_input {
     $paftools = "paftools.js";
   }
 
+  my $analysis = $self->create_analysis;
+  my $sample_name = $self->get_sample_name($input_file,$self->param_required('long_read_summary_file'));
+  unless($sample_name) {
+    $sample_name = $self->get_sample_name($input_file,$self->param_required('long_read_summary_file_genus'));
+    unless($sample_name) {
+      $self->throw("Checked both the normal and genus csv files and failed to match the input file to a line, so could not retrieve the sample name");
+    }
+  }
+
+
+  $analysis->logic_name($sample_name."_isoseq");
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2->new(
-       -analysis          => $self->create_analysis,
+       -analysis          => $analysis,
        -program           => $program,
        -paftools_path     => $paftools,
 #       -options        => $self->param('minimap2_options'),
@@ -165,7 +185,10 @@ sub write_output {
 sub create_input_file {
   my ($self,$input_file,$start,$end) = @_;
 
+  my $min_read_length = $self->param_required('min_read_length');
   my $output_file = $self->create_filename();
+  my $final_seq_count = 0;
+
   open(OUT,">".$output_file);
   my $seq_count = `wc -l $input_file | awk '{print \$1}'`;
   chomp($seq_count);
@@ -180,32 +203,27 @@ sub create_input_file {
   for(my $i=$start; $i<= $end; $i++) {
     my $seq_id = $seq_ids[$i];
     my $length = $index->length($seq_id);
+
+    unless($length >= $min_read_length) {
+      $self->warning("Skipping read with seq_id ".$seq_id." as it is below the min read length (".$min_read_length.")");
+      next;
+    }
+
     my $location  = $seq_id.":1-".$length;
     my $seq = $index->get_sequence_no_length($location);
 
     say OUT ">".$seq_id;
     say OUT $seq;
+    $final_seq_count++;
+  }
+  close OUT;
+
+  if($final_seq_count == 0) {
+    $self->warning("No sequences were parsed from the input file. Possibly failed the minimum length constraint");
+    $self->input_job->autoflow(0);
+    $self->complete_early('No reads to process');
   }
 
-
-#  my $counter = 0;
-#  my $parser = Bio::EnsEMBL::IO::Parser::Fasta->open($input_file);
-#  while($parser->next() && $counter <= $end) {
-#    if($counter < $start) {
-#      $counter++;
-#      next;
-#    }
-#    my $seq = $parser->getSequence();
-#    if(length($seq < 200)) {
-#      next;
-#    }
-#    my $header = $parser->getHeader();
-#    say OUT ">".$header;
-#    say OUT $seq;
-#    $counter++;
-#  }
-
-  close OUT;
   return($output_file);
 }
 
@@ -215,5 +233,39 @@ sub create_filename{
   return create_file_name($stem, $ext, $dir, $no_clean);
 }
 
+
+sub get_sample_name {
+  my ($self,$input_file_path,$csv_file) = @_;
+
+  my $input_file = basename($input_file_path);
+  chomp($input_file);
+
+  say "Searching for string ".$input_file." in the following csv file:\n".$csv_file;
+
+  my $sample_name;
+
+  unless(open(IN,$csv_file)) {
+    $self->throw("Could not find the long read summary file to get the sample name. Path used:\n".$csv_file);
+  }
+
+
+  while(<IN>) {
+    my $line = $_;
+    unless($line =~ /$input_file/) {
+      next;
+    }
+
+    # Here we should have found the line, so the sample name should be in the first column
+    unless($line =~ /^([^\t]+)\t/) {
+      $self->throw("Tried to parse the sample name from corresponding line in the csv file but failed (parsing regex issue?). Line:\n".$line);
+    }
+
+    $sample_name = $1;
+    last;
+  }
+  close IN;
+
+  return($sample_name);
+}
 
 1;
