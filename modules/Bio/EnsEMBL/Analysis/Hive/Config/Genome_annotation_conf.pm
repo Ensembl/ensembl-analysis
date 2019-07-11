@@ -80,6 +80,7 @@ sub default_options {
     'stable_id_start'           => '0', # When mapping is not required this is usually set to 0
     'skip_post_repeat_analyses' => '0', # Will everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
     'skip_projection'           => '0', # Will skip projection process if 1
+    'skip_lastz'                => '0', # Will skip lastz if 1 (if skip_projection is enabled this is irrelevant)
     'skip_rnaseq'               => '0', # Will skip rnaseq analyses if 1
     'skip_long_read'            => '1', # Will skip long read analyses if 1
     'skip_ncrna'                => '0', # Will skip ncrna process if 1
