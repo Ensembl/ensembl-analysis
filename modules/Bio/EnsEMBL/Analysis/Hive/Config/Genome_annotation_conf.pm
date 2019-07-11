@@ -1373,7 +1373,7 @@ sub pipeline_analyses {
         -parameters => {
           study_accession => $self->o('study_accession'),
           taxon_id => $self->o('genus_taxon_id'),
-          inputfile => $sel>o('rnaseq_summary_file_genus'),
+          inputfile => $self->o('rnaseq_summary_file_genus'),
         },
 
         -flow_into => {
@@ -6792,6 +6792,8 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Minimap2',
         -parameters => {
                          genome_file => $self->o('faidx_genome_file'),
+                         long_read_summary_file => $self->o('long_read_summary_file'),
+                         long_read_summary_file_genus => $self->o('long_read_summary_file_genus'),
                          minimap2_genome_index => $self->o('minimap2_genome_index'),
                          minimap2_path => $self->o('minimap2_path'),
                          paftools_path => $self->o('paftools_path'),
@@ -6811,6 +6813,8 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Minimap2',
         -parameters => {
                          genome_file => $self->o('faidx_genome_file'),
+                         long_read_summary_file => $self->o('long_read_summary_file'),
+                         long_read_summary_file_genus => $self->o('long_read_summary_file_genus'),
                          minimap2_genome_index => $self->o('minimap2_genome_index'),
                          minimap2_path => $self->o('minimap2_path'),
                          paftools_path => $self->o('paftools_path'),
@@ -6833,25 +6837,25 @@ sub pipeline_analyses {
          -rc_name => 'default',
          -max_retry_count => 0,
          -flow_into => {
-           1 => ['create_long_read_blast_db'],
+           1 => ['generate_collapse_jobs'],
          }
       },
 
 
-      {
-        -logic_name => 'create_long_read_blast_db',
-        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-          source_db => $self->o('dna_db'),
-          target_db => $self->o('long_read_blast_db'),
-          create_type => 'clone',
-        },
-        -rc_name => 'default',
-        -max_retry_count => 0,
-        -flow_into => {
-          1 => ['generate_collapse_jobs'],
-        }
-      },
+#      {
+#        -logic_name => 'create_long_read_blast_db',
+#        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+#        -parameters => {
+#          source_db => $self->o('dna_db'),
+#          target_db => $self->o('long_read_blast_db'),
+#          create_type => 'clone',
+#        },
+#        -rc_name => 'default',
+#        -max_retry_count => 0,
+#        -flow_into => {
+#          1 => ['generate_collapse_jobs'],
+#        }
+#      },
 
 
       {
@@ -6954,9 +6958,9 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
         -parameters => {
           input_db => $self->o('long_read_collapse_db'),
-          output_db => $self->o('long_read_blast_db'),
+          output_db => $self->o('long_read_final_db'),
           source_db => $self->o('long_read_collapse_db'),
-          target_db => $self->o('long_read_blast_db'),
+          target_db => $self->o('long_read_final_db'),
           dna_db => $self->o('dna_db'),
           indicate_index => $self->o('protein_blast_index'),
           uniprot_index => [$self->o('protein_blast_db')],
@@ -6967,7 +6971,7 @@ sub pipeline_analyses {
         -rc_name => 'blast',
         -flow_into => {
           -1 => ['blast_long_read_10G'],
-          1 => ['intron_check'],
+#          1 => ['intron_check'],
         },
       },
 
@@ -6977,10 +6981,10 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
         -parameters => {
           input_db => $self->o('long_read_collapse_db'),
-          output_db => $self->o('long_read_blast_db'),
+          output_db => $self->o('long_read_final_db'),
           dna_db => $self->o('dna_db'),
           source_db => $self->o('long_read_collapse_db'),
-          target_db => $self->o('long_read_blast_db'),
+          target_db => $self->o('long_read_final_db'),
           indicate_index => $self->o('protein_blast_index'),
           uniprot_index => [$self->o('protein_blast_db')],
           blast_program => $self->o('uniprot_blast_exe_path'),
@@ -6988,46 +6992,46 @@ sub pipeline_analyses {
           commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40 -seg no',
         },
         -rc_name => 'blast10GB',
-        -flow_into => {
-          1 => ['intron_check'],
-        },
+#        -flow_into => {
+#          1 => ['intron_check'],
+#        },
       },
 
 
-      {
-        -logic_name => 'intron_check',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
-        -parameters => {
-          source_db => $self->o('long_read_blast_db'),
-          target_db => $self->o('long_read_final_db'),
-          intron_db => $self->o('rnaseq_refine_db'),
-          dna_db => $self->o('dna_db'),
-        },
-        -rc_name    => '2GB',
-        -flow_into => {
-          1 => ['intron_check_10GB'],
-        },
-      },
+#      {
+#        -logic_name => 'intron_check',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
+#        -parameters => {
+#          source_db => $self->o('long_read_blast_db'),
+#          target_db => $self->o('long_read_final_db'),
+#          intron_db => $self->o('rnaseq_refine_db'),
+#          dna_db => $self->o('dna_db'),
+#        },
+#        -rc_name    => '2GB',
+#        -flow_into => {
+#          1 => ['intron_check_10GB'],
+#        },
+#      },
 
 
-      {
-        -logic_name => 'intron_check_10GB',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
-        -parameters => {
-          source_db => $self->o('long_read_blast_db'),
-          target_db => $self->o('long_read_final_db'),
-          intron_db => $self->o('rnaseq_refine_db'),
-          dna_db => $self->o('dna_db'),
-        },
-        -rc_name    => '10GB',
-      },
+#      {
+#        -logic_name => 'intron_check_10GB',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
+#        -parameters => {
+#          source_db => $self->o('long_read_blast_db'),
+#          target_db => $self->o('long_read_final_db'),
+#          intron_db => $self->o('rnaseq_refine_db'),
+#          dna_db => $self->o('dna_db'),
+#        },
+#        -rc_name    => '10GB',
+#      },
 
 
       {
         -logic_name => 'classify_long_read_models',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
         -parameters => {
-          classification_type => 'standard',
+          classification_type => 'long_read',
           update_gene_biotype => 1,
           target_db => $self->o('long_read_final_db'),
         },
@@ -7515,6 +7519,23 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
+                        1 => ['update_lncrna_biotypes'],
+                      },
+      },
+
+
+      {
+        -logic_name => 'update_lncrna_biotypes',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn => $self->o('final_geneset_db'),
+          sql => [
+            'UPDATE transcript SET biotype="pre_lncRNA" WHERE biotype IN ("rnaseq_merged","rnaseq_tissue","cdna")',
+            'UPDATE gene JOIN transcript USING(gene_id) SET gene.biotype="pre_lncRNA" WHERE transcript.biotype="pre_lncRNA"',
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
                         1 => ['pseudogenes'],
                       },
       },
@@ -7577,6 +7598,7 @@ sub pipeline_analyses {
                       },
       },
 
+
       {
         -logic_name => 'create_final_geneset_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
@@ -7587,24 +7609,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                        '1' => ['update_lncrna_biotypes'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'update_lncrna_biotypes',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-        -parameters => {
-          db_conn => $self->o('final_geneset_db'),
-          sql => [
-            'UPDATE transcript SET biotype="pre_lncRNA" WHERE biotype IN ("rnaseq_merged","rnaseq_tissue")',
-            'UPDATE gene JOIN transcript USING(gene_id) SET gene.biotype="pre_lncRNA" WHERE transcript.biotype="pre_lncRNA"',
-          ],
-        },
-        -rc_name    => 'default',
-        -flow_into => {
-                        1 => ['filter_lncrnas'],
+                        '1' => ['filter_lncrnas'],
                       },
       },
 
@@ -8009,7 +8014,7 @@ sub pipeline_analyses {
                                 ' -port '.$self->o('reference_db','-port').
                                 ' -dbpattern '.$self->o('reference_db','-dbname')
                        },
-        -rc_name => '5GB',
+        -rc_name => '10GB',
         -flow_into => { 1 => ['set_canonical_transcripts'] },
       },
 
@@ -8025,7 +8030,7 @@ sub pipeline_analyses {
                                 ' -dbname '.$self->o('reference_db','-dbname').
                                 ' -coord toplevel -write'
                        },
-        -rc_name => '2GB',
+        -rc_name => '10GB',
         -flow_into => { 1 => ['null_columns'] },
       },
 
