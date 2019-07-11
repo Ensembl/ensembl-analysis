@@ -652,6 +652,8 @@ sub custom_load_data {
 sub init_pipeline {
     my ($assembly_hash,$hive_directory,$force_init,$fh) = @_;
 
+    my $reg_conf_path = catfile($assembly_hash->{'output_path'},$assembly_hash->{'accession'},"Databases.pm");
+
     chdir($assembly_hash->{'output_path'});
     my $cmd;
     if ($hive_directory) {
@@ -693,7 +695,7 @@ sub init_pipeline {
 
 
     my $loop_command = $sync_command;
-    $loop_command =~ s/sync/loop \-sleep 0.3/;
+    $loop_command =~ s/sync/loop \-reg_conf $reg_conf_path \-sleep 0.3/;
     my ($ehive_url) = $sync_command =~ /url\s+(\S+)/;
     my ($driver, $user, $password, $host, $port, $dbname) = $ehive_url =~ /^(\w+)[:\/]+(\w*):(\w+)@([^:]+):(\d+)\/(\w+)$/;
     if ($password) {
