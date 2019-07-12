@@ -29,13 +29,12 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 open(OUT, '>', "./".$dbname."_update_ana_desc.sql");
 print OUT "USE ".$dbname.";\n";
 
-my $sth_logic = $db->dbc->prepare("select logic_name from analysis");
+my $sth_logic = $db->dbc->prepare("select logic_name, analysis_id from analysis");
 $sth_logic->execute;
 my $http = HTTP::Tiny->new();
-while (my $logic_name = $sth_logic->fetchrow) {
-  my $sth_id = $db->dbc->prepare("select analysis_id from analysis where logic_name='$logic_name'");
-  $sth_id->execute;
-  my $analysis_id = $sth_id->fetchrow;
+while (my @analysis_data = $sth_logic->fetchrow) {
+  my $logic_name = $analysis_data[0];
+  my $analysis_id = $analysis_data[1];
 
   my $server = 'http://production-services.ensembl.org';
   my $ext = '/production_db/api/analysisdescription/';
