@@ -49,14 +49,19 @@ while (my $logic_name = $sth_logic->fetchrow) {
     my %hash = %$hash_ref;
 
     local $Data::Dumper::Terse = 1;
-    my $web_data = Dumper($hash{'web_data'});
-    $web_data =~ s/\R//g;
-    $web_data =~ s/\h+/ /g;
+    local $Data::Dumper::Indent = 0;
+    my $web_data = Dumper($hash{'web_data'}->{data});
+    if ($web_data eq 'undef') {
+      $web_data = "NULL";
+    }
+    else {
+      $web_data = '"'.$web_data.'"';
+    }
     my $desc = $hash{'description'};
     $desc =~ s/\'/\\\'/g;;
 
     say "Creating SQL command for the analysis description table for logic_name ".$logic_name;
-    my $insert = "INSERT INTO analysis_description (analysis_id, description, display_label, displayable, web_data) VALUES ('$analysis_id', '$desc', '$hash{'display_label'}', '$hash{'displayable'}', \"$web_data\");";
+    my $insert = "INSERT INTO analysis_description (analysis_id, description, display_label, displayable, web_data) VALUES ($analysis_id, '$desc', '$hash{'display_label'}', $hash{'displayable'}, $web_data);";
     print OUT $insert."\n";
 
   }
