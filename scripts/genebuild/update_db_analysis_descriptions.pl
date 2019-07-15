@@ -1,3 +1,19 @@
+#!/usr/bin/env perl
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 use warnings;
 use strict;
 use feature 'say';
@@ -29,13 +45,12 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 open(OUT, '>', "./".$dbname."_update_ana_desc.sql");
 print OUT "USE ".$dbname.";\n";
 
-my $sth_logic = $db->dbc->prepare("select logic_name from analysis");
+my $sth_logic = $db->dbc->prepare("select logic_name, analysis_id from analysis");
 $sth_logic->execute;
 my $http = HTTP::Tiny->new();
-while (my $logic_name = $sth_logic->fetchrow) {
-  my $sth_id = $db->dbc->prepare("select analysis_id from analysis where logic_name='$logic_name'");
-  $sth_id->execute;
-  my $analysis_id = $sth_id->fetchrow;
+while (my @analysis_data = $sth_logic->fetchrow) {
+  my $logic_name = $analysis_data[0];
+  my $analysis_id = $analysis_data[1];
 
   my $server = 'http://production-services.ensembl.org';
   my $ext = '/production_db/api/analysisdescription/';
@@ -49,14 +64,19 @@ while (my $logic_name = $sth_logic->fetchrow) {
     my %hash = %$hash_ref;
 
     local $Data::Dumper::Terse = 1;
-    my $web_data = Dumper($hash{'web_data'});
-    $web_data =~ s/\R//g;
-    $web_data =~ s/\h+/ /g;
+    local $Data::Dumper::Indent = 0;
+    my $web_data = Dumper($hash{'web_data'}->{data});
+    if ($web_data eq 'undef') {
+      $web_data = "NULL";
+    }
+    else {
+      $web_data = '"'.$web_data.'"';
+    }
     my $desc = $hash{'description'};
     $desc =~ s/\'/\\\'/g;;
 
     say "Creating SQL command for the analysis description table for logic_name ".$logic_name;
-    my $insert = "INSERT INTO analysis_description (analysis_id, description, display_label, displayable, web_data) VALUES ('$analysis_id', '$desc', '$hash{'display_label'}', '$hash{'displayable'}', \"$web_data\");";
+    my $insert = "INSERT INTO analysis_description (analysis_id, description, display_label, displayable, web_data) VALUES ($analysis_id, '$desc', '$hash{'display_label'}', $hash{'displayable'}, $web_data);";
     print OUT $insert."\n";
 
   }
