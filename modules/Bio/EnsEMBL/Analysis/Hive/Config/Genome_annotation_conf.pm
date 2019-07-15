@@ -78,6 +78,7 @@ sub default_options {
     'species_url'               => '' || $self->o('production_name').$self->o('production_name_modifier'), # sets species.url meta key
     'species_division'          => 'EnsemblVertebrates', # sets species.division meta key
     'stable_id_start'           => '0', # When mapping is not required this is usually set to 0
+    'skip_repeatmodeler'        => '0', # Skip using our repeatmodeler library for the species with repeatmasker, will still run standard repeatmasker
     'skip_post_repeat_analyses' => '0', # Will everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
     'skip_projection'           => '0', # Will skip projection process if 1
     'skip_lastz'                => '0', # Will skip lastz if 1 (if skip_projection is enabled this is irrelevant)
@@ -1973,7 +1974,7 @@ sub pipeline_analyses {
         -logic_name => 'fan_repeatmodeler',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'if [ -n "'.$self->o('repeatmodeler_library').'" ]; then exit 0; else exit 42;fi',
+          cmd => 'if [ -n "'.$self->o('repeatmodeler_library').'" ] && [ "#skip_repeatmodeler#" == "0" ]; then exit 0; else exit 42;fi',
           return_codes_2_branches => {'42' => 2},
         },
         -rc_name    => 'default',
@@ -5987,14 +5988,14 @@ sub pipeline_analyses {
         -flow_into => {
           1 => [':////accu?filename=[]'],
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
-          -1 => {'bam2introns_40GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
+          -1 => {'bam2introns_30GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
           -2 => ['failed_bam2introns_jobs'],
           -3 => ['failed_bam2introns_jobs'],
         },
       },
 
       {
-        -logic_name => 'bam2introns_40GB',
+        -logic_name => 'bam2introns_30GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns',
         -can_be_empty => 1,
         -parameters => {
@@ -6018,7 +6019,7 @@ sub pipeline_analyses {
           genome_file => $self->o('faidx_softmasked_genome_file'),
           timer => '30m',
         },
-        -rc_name    => '40GB',
+        -rc_name    => '30GB',
         -flow_into => {
           1 => [':////accu?filename=[]'],
           2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
