@@ -209,6 +209,7 @@ sub write_output {
   my $classification = $self->param('classification');
 
   if ($self->param('classification_type') eq 'standard' or
+      $self->param('classification_type') eq 'long_read' or
       $self->param('classification_type') eq 'fish' or
       $self->param('classification_type') eq 'gifts') {
     foreach my $key (sort {$b <=> $a} keys %{$classification}) {
