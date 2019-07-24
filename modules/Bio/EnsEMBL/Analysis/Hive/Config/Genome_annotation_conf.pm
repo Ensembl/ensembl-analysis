@@ -1286,6 +1286,8 @@ sub pipeline_wide_parameters {
     skip_rnaseq => $self->o('skip_rnaseq'),
     skip_ncrna => $self->o('skip_ncrna'),
     skip_long_read => $self->o('skip_long_read'),
+    skip_lastz => $self->o('skip_lastz'),
+    skip_repeatmodeler => $self->o('skip_repeatmodeler'),
     load_toplevel_only => $self->o('load_toplevel_only'),
     wide_repeat_logic_names => $self->o('use_repeatmodeler_to_mask') ? [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'] :
                                                                                        [$self->o('full_repbase_logic_name'),'dust'],
