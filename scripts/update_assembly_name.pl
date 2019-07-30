@@ -70,7 +70,7 @@ GetOptions('dbname:s' => \$dbname,
 
 my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
   -host    => 'mysql-ens-genebuild-prod-1',
-  -port    => '4527',
+  -port    => 4527,
   -user    => 'ensro',
   -dbname  => 'gb_assembly_registry');
 
