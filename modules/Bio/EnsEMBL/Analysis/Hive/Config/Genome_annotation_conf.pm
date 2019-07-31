@@ -1532,7 +1532,7 @@ sub pipeline_analyses {
           output_path   => $self->o('output_path'),
           target_db     => $self->o('reference_db'),
         },
-        -rc_name    => '4GB',
+        -rc_name    => '8GB',
         -flow_into  => {
           1 => ['load_meta_info'],
         },
