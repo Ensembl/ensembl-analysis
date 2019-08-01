@@ -5047,7 +5047,7 @@ sub pipeline_analyses {
                             $self->o('user_r') . " " .
                             $self->o('ncrna_dir').' blastmirna',
                       },
-       -rc_name => 'filter',
+       -rc_name => '6GB',
       },
 
 
