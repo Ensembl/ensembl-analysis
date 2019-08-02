@@ -56,9 +56,9 @@ my $driver = '';
 my $assembly_accession  = '';
 my $assembly_name = '';
 my $working_directory = '';
-my $registry_name = '';
+my $registry_host = '';
 my $registry_port = '';
-my $registry_db ='',
+my $registry_db ='';
 
 GetOptions('dbname:s' => \$dbname,
            'host:s'  => \$host,
