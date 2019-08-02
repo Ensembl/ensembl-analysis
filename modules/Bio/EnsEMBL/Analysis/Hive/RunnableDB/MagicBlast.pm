@@ -1,5 +1,6 @@
 =head1 LICENSE
 
+ Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
  Copyright [2016-2019] EMBL-European Bioinformatics Institute
 
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,18 +17,18 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Hive::RunnableDB::Star
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::MagicBlast
 
 =head1 SYNOPSIS
 
-my $runnableDB =  Bio::EnsEMBL::Analysis::Hive::RunnableDB::Star->new( );
+my $runnableDB =  Bio::EnsEMBL::Analysis::Hive::RunnableDB::MagicBlast->new( );
 
 $runnableDB->fetch_input();
 $runnableDB->run();
 
 =head1 DESCRIPTION
 
-This module uses Star to align fastq to a genomic sequence
+This module uses MagicBlast to align fastq to a genomic sequence
 
 =head1 CONTACT
 
@@ -41,13 +42,13 @@ This module uses Star to align fastq to a genomic sequence
 
 =cut
 
-package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveStar;
+package Bio::EnsEMBL::Analysis::Hive::RunnableDB::MagicBlast;
 
 use warnings;
 use strict;
 use feature 'say';
 
-use Bio::EnsEMBL::Analysis::Runnable::Star;
+use Bio::EnsEMBL::Analysis::Runnable::MagicBlast;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -66,7 +67,7 @@ sub param_defaults {
 =head2 fetch_input
 
  Arg [1]    : None
- Description: Fetch parameters for STAR
+ Description: Fetch parameters for MagicBlast
  Returntype : None
  Exceptions : Throws if 'filename' does not exist
               Throws if 'fastqpair' does not exist
@@ -98,16 +99,15 @@ sub fetch_input {
     }
 
     my $program = $self->param('short_read_aligner');
-    $self->throw("Star program not defined in analysis\n") unless (defined $program);
+    $self->throw("MagicBlast program not defined in analysis\n") unless (defined $program);
 
-    my $runnable = Bio::EnsEMBL::Analysis::Runnable::Star->new
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::MagicBlast->new
     (
      -analysis       => $self->create_analysis,
      -program        => $program,
      -options        => $self->param('short_read_aligner_options'),
      -outdir         => $self->param('output_dir'),
-     -genome_dir     => $self->param('genome_dir'),
-     -genome     => $self->param('genome_dir')."/Genome",
+     -genome         => $self->param('genome_file'),
      -sample_name    => $sample_id,
      -fastq          => $filepath1,
      -fastqpair      => $filepath2,
@@ -116,7 +116,6 @@ sub fetch_input {
     $self->runnable($runnable);
   }
 
- #  $self->throw("DEBUG");
 }
 
 
