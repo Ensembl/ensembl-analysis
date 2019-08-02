@@ -689,8 +689,8 @@ sub default_options {
     },
 
     'compara_window_size' => 10000,
-    'filter_duplicates_rc_name' => '1GB',
-    'filter_duplicates_himem_rc_name' => '8GB',
+    'filter_duplicates_rc_name' => '2GB_lastz',
+    'filter_duplicates_himem_rc_name' => '8GB_lastz',
 
    #
     #Default pair_aligner
@@ -3358,7 +3358,7 @@ sub pipeline_analyses {
                          cmd => 'if [ "#skip_lastz#" -ne "0" ]; then exit 42; else exit 0;fi',
                          return_codes_2_branches => {'42' => 2},
                        },
-        -rc_name => 'default',
+        -rc_name => '2GB_lastz',
         -flow_into  => {
           '1' => ['setup_lastz'],
         },
@@ -3382,7 +3382,7 @@ sub pipeline_analyses {
                          compara_db_url => 'mysql://'.$self->o('user').':'.$self->o('password').'@'.$self->o('compara_db_server').':'.$self->o('compara_db_port').'/'.$self->o('compara_db_name'),
                        },
 
-        -rc_name => 'default',
+        -rc_name => '2GB_lastz',
              -flow_into      => {
                              1 => {'get_species_list' => {'mlss_id' => '#mlss_id#', 'reg_conf' => '#reg_conf#'}},
                            },
@@ -3398,7 +3398,7 @@ sub pipeline_analyses {
                             'core_dbs' => undef,
                           },
 
-         -rc_name => '1GB',
+         -rc_name => '2GB_lastz',
          -flow_into      => {
                               1 => {'populate_new_database' => {'mlss_id' => '#mlss_id#', 'reg_conf' => '#reg_conf#'}},
                             },
@@ -3418,7 +3418,7 @@ sub pipeline_analyses {
          -flow_into => {
            1 => {'add_method_link_species_link_tag' => {'mlss_id' => '#mlss_id#', 'reg_conf' => '#reg_conf#'}},
          },
-         -rc_name => '1GB',
+         -rc_name => '2GB_lastz',
        },
 
 
@@ -3431,7 +3431,7 @@ sub pipeline_analyses {
             'INSERT INTO method_link_species_set_tag VALUES (#mlss_id#,"reference_species","'.$self->o('compara_ref_species').'")',
           ],
         },
-        -rc_name    => 'default',
+        -rc_name    => '2GB_lastz',
         -flow_into => {
           1 => {'parse_pair_aligner_conf' => {'mlss_id' => '#mlss_id#', 'reg_conf' => '#reg_conf#'}}
         },
@@ -3472,7 +3472,7 @@ sub pipeline_analyses {
                          7 => [ 'pairaligner_stats' ],
                          8 => [ 'healthcheck' ],
                        },
-         -rc_name => '1GB',
+         -rc_name => '2GB_lastz',
        },
 
 
@@ -3486,7 +3486,7 @@ sub pipeline_analyses {
          -flow_into => {
            2 => [ 'store_sequence' ],
          },
-         -rc_name => '2GB',
+         -rc_name => '2GB_lastz',
        },
 
 
@@ -3501,7 +3501,7 @@ sub pipeline_analyses {
          -flow_into => {
            -1 => [ 'store_sequence_again' ],
          },
-         -rc_name => '2GB',
+         -rc_name => '2GB_lastz',
        },
 
 
@@ -3514,7 +3514,7 @@ sub pipeline_analyses {
            'dump_min_chunk_size' => $self->o('dump_min_chunk_size'),
           },
           -can_be_empty  => 1,
-          -rc_name => '4GB',
+          -rc_name => '4GB_lastz',
        },
 
 
@@ -3530,7 +3530,7 @@ sub pipeline_analyses {
                          1 => [ 'check_no_partial_gabs' ],
                          2 => [ $self->o('pair_aligner_logic_name')  ],
                        },
-         -rc_name => '1GB',
+         -rc_name => '2GB_lastz',
        },
 
 
@@ -3546,7 +3546,7 @@ sub pipeline_analyses {
          -flow_into => {
                          -1 => [ $self->o('pair_aligner_logic_name') . '_himem1' ],  # MEMLIMIT
                        },
-         -rc_name => '2GB',
+         -rc_name => '2GB_lastz',
        },
 
 
@@ -3560,7 +3560,7 @@ sub pipeline_analyses {
          -wait_for   => [ 'create_pair_aligner_jobs'  ],
          -batch_size => $self->o('pair_aligner_batch_size'),
          -can_be_empty  => 1,
-         -rc_name => '8GB',
+         -rc_name => '8GB_lastz',
        },
 
 
@@ -3586,7 +3586,7 @@ sub pipeline_analyses {
          -flow_into => {
            1 => [ 'update_max_alignment_length_after_FD' ],
          },
-         -rc_name => '1GB',
+         -rc_name => '2GB_lastz',
        },
 
 
@@ -3598,7 +3598,7 @@ sub pipeline_analyses {
          -flow_into => {
            2 => { 'filter_duplicates' => INPUT_PLUS() },
          },
-         -rc_name => '1GB',
+         -rc_name => '2GB_lastz',
        },
 
 
@@ -3638,7 +3638,7 @@ sub pipeline_analyses {
           'quick' => $self->o('quick'),
         },
         -wait_for =>  [ 'create_filter_duplicates_jobs', 'filter_duplicates', 'filter_duplicates_himem' ],
-        -rc_name => '1GB',
+        -rc_name => '2GB_lastz',
       },
 
 
@@ -3653,7 +3653,7 @@ sub pipeline_analyses {
           2 => [ 'dump_large_nib_for_chains' ],
         },
         -wait_for  => ['update_max_alignment_length_after_FD' ],
-        -rc_name => '2GB',
+        -rc_name => '2GB_lastz',
       },
 
 
@@ -3669,7 +3669,7 @@ sub pipeline_analyses {
         -flow_into => {
           -1 => [ 'dump_large_nib_for_chains_himem' ],  # MEMLIMIT
         },
-        -rc_name => '2GB',
+        -rc_name => '2GB_lastz',
       },
 
 
@@ -3683,7 +3683,7 @@ sub pipeline_analyses {
         },
         -hive_capacity => 10,
         -can_be_empty  => 1,
-        -rc_name => '8GB',
+        -rc_name => '8GB_lastz',
       },
 
 
@@ -3697,7 +3697,7 @@ sub pipeline_analyses {
                         2 => [ 'alignment_chains' ],
         },
         -wait_for => [ 'no_chunk_and_group_dna', 'dump_large_nib_for_chains', 'dump_large_nib_for_chains_himem' ],
-        -rc_name => '2GB',
+        -rc_name => '2GB_lastz',
       },
 
 
@@ -3712,7 +3712,7 @@ sub pipeline_analyses {
           -1 => [ 'alignment_chains_himem' ],  # MEMLIMIT
         },
         -wait_for   => [ 'create_alignment_chains_jobs' ],
-        -rc_name => '2GB',
+        -rc_name => '2GB_lastz',
       },
 
 
@@ -3724,7 +3724,7 @@ sub pipeline_analyses {
         -parameters => $self->o('chain_parameters'),
         -can_be_empty  => 1,
         -max_retry_count => 10,
-        -rc_name => '8GB',
+        -rc_name => '8GB_lastz',
         -flow_into => {
           -1 => [ 'alignment_chains_super_himem' ],  # MEMLIMIT
          },
@@ -3741,7 +3741,7 @@ sub pipeline_analyses {
         -parameters => $self->o('chain_parameters'),
         -can_be_empty  => 1,
         -max_retry_count => 10,
-        -rc_name => '15GB',
+        -rc_name => '15GB_lastz',
         -wait_for => ['alignment_chains'],
          -can_be_empty  => 1,
       },
@@ -3753,7 +3753,7 @@ sub pipeline_analyses {
           1 => [ 'update_max_alignment_length_after_chain' ],
         },
         -wait_for =>  [ 'alignment_chains', 'alignment_chains_himem', 'alignment_chains_super_himem' ],
-        -rc_name => '1GB',
+        -rc_name => '2GB_lastz',
       },
 
 
@@ -3763,7 +3763,7 @@ sub pipeline_analyses {
         -parameters => {
           'quick' => $self->o('quick'),
         },
-        -rc_name => '1GB',
+        -rc_name => '2GB_lastz',
       },
 
 
@@ -3776,7 +3776,7 @@ sub pipeline_analyses {
           2 => [ 'alignment_nets' ],
         },
         -wait_for => [ 'update_max_alignment_length_after_chain', 'remove_inconsistencies_after_chain' ],
-        -rc_name => '1GB',
+        -rc_name => '2GB_lastz',
       },
 
 
@@ -3789,7 +3789,7 @@ sub pipeline_analyses {
         -flow_into => {
           -1 => [ 'alignment_nets_himem' ],  # MEMLIMIT
          },
-         -rc_name => '1GB',
+         -rc_name => '2GB_lastz',
       },
 
 
@@ -3803,7 +3803,7 @@ sub pipeline_analyses {
         -flow_into => {
           -1 => [ 'alignment_nets_hugemem' ],  # MEMLIMIT
         },
-        -rc_name => '4GB',
+        -rc_name => '4GB_lastz',
       },
 
 
@@ -3814,7 +3814,7 @@ sub pipeline_analyses {
         -module         => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::AlignmentNets',
         -parameters     => $self->o('net_parameters'),
         -can_be_empty   => 1,
-        -rc_name        => '8GB',
+        -rc_name        => '8GB_lastz',
       },
 
 
@@ -3825,7 +3825,7 @@ sub pipeline_analyses {
           1 => [ 'update_max_alignment_length_after_net' ],
         },
         -wait_for =>  [ 'alignment_nets', 'alignment_nets_himem', 'alignment_nets_hugemem', 'create_alignment_nets_jobs' ],    # Needed because of bi-directional netting: 2 jobs in create_alignment_nets_jobs can result in 1 job here
-        -rc_name => '1GB',
+        -rc_name => '2GB_lastz',
       },
 
 
@@ -3838,7 +3838,7 @@ sub pipeline_analyses {
           2 => { 'filter_duplicates_net' => INPUT_PLUS() },
         },
         -can_be_empty  => 1,
-        -rc_name => '2GB',
+        -rc_name => '2GB_lastz',
       },
 
 
@@ -3876,7 +3876,7 @@ sub pipeline_analyses {
 	    {
         -logic_name => 'update_max_alignment_length_after_net',
         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::UpdateMaxAlignmentLength',
-        -rc_name => '1GB',
+        -rc_name => '2GB_lastz',
         -wait_for =>  [ 'create_filter_duplicates_net_jobs', 'filter_duplicates_net', 'filter_duplicates_net_himem' ],
         -flow_into => [ 'set_internal_ids_collection' ],
       },
@@ -3898,7 +3898,7 @@ sub pipeline_analyses {
         -logic_name => 'set_internal_ids_slow',
         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::SetInternalIdsSlow',
         -analysis_capacity => 1,
-        -rc_name => '8GB',
+        -rc_name => '8GB_lastz',
       },
 
 	    {
@@ -3911,7 +3911,7 @@ sub pipeline_analyses {
           'max_percent_diff' => $self->o('patch_alignments') ? $self->o('max_percent_diff_patches') : $self->o('max_percent_diff'),
         },
         -wait_for => [ 'set_internal_ids_collection' ],
-        -rc_name => '1GB',
+        -rc_name => '2GB_lastz',
       },
 
 
@@ -3928,7 +3928,7 @@ sub pipeline_analyses {
           'output_dir' => $self->o('compara_feature_dir'),
         },
         -wait_for =>  [ 'healthcheck' ],
-        -rc_name => '2GB',
+        -rc_name => '2GB_lastz',
       },
 
 
@@ -7534,7 +7534,7 @@ sub pipeline_analyses {
         -logic_name => 'update_lncrna_biotypes',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-          db_conn => $self->o('final_geneset_db'),
+          db_conn => $self->o('genebuilder_db'),
           sql => [
             'UPDATE transcript SET biotype="pre_lncRNA" WHERE biotype IN ("rnaseq_merged","rnaseq_tissue","cdna")',
             'UPDATE gene JOIN transcript USING(gene_id) SET gene.biotype="pre_lncRNA" WHERE transcript.biotype="pre_lncRNA"',
@@ -8919,17 +8919,21 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    '1GB' => { LSF => [$self->lsf_resource_builder('production-rh74', 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]},
+    '1GB' => { LSF => $self->lsf_resource_builder('production-rh74', 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+'2GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]},
     '2GB' => { LSF => $self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '3GB' => { LSF => $self->lsf_resource_builder('production-rh74', 3000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '4GB' => { LSF => $self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+   '4GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]},  
+  '4GB' => { LSF => $self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '5GB' => { LSF => $self->lsf_resource_builder('production-rh74', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '6GB' => { LSF => $self->lsf_resource_builder('production-rh74', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '6GB_registry' => { LSF => [$self->lsf_resource_builder('production-rh74', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]},
     '7GB' => { LSF => $self->lsf_resource_builder('production-rh74', 7000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '8GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]},
     '8GB' => { LSF => $self->lsf_resource_builder('production-rh74', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '9GB' => { LSF => $self->lsf_resource_builder('production-rh74', 9000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '10GB' => { LSF => $self->lsf_resource_builder('production-rh74', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+   '15GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]},
     '15GB' => { LSF => $self->lsf_resource_builder('production-rh74', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '20GB' => { LSF => $self->lsf_resource_builder('production-rh74', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '25GB' => { LSF => $self->lsf_resource_builder('production-rh74', 25000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
