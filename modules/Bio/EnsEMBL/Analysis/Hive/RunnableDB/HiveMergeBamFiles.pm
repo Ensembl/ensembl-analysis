@@ -71,6 +71,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMergeBamFiles;
 
 use warnings ;
 use strict;
+use feature 'say';
 
 use File::Copy;
 use File::Spec;
@@ -108,6 +109,7 @@ sub param_defaults {
     _index_ext => 'bai',
     _file_ext => 'bam',
     _logic_name_ext => 'bam',
+    accu_key => 'filename',
   }
 }
 
@@ -129,6 +131,15 @@ sub fetch_input {
     my ($self) = @_;
 
     $self->create_analysis;
+    my $sample_name;
+    if($self->param('merge_star_tissues')) {
+      my %tmp = %{$self->param_required('tissue_data')};
+      my @tmp = keys(%tmp);
+      $sample_name = $tmp[0];
+      say "Tissue sample name: ".$sample_name;
+      $self->param('sample_name',$sample_name);
+    }
+
     if ($self->param('store_datafile')) {
       my $db = $self->get_database_by_name('target_db');
       $db->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
@@ -143,15 +154,27 @@ sub fetch_input {
         join('.', $self->param_required('assembly_name'), $self->param_required('rnaseq_data_provider'), $outname, $self->param('bam_version'), $self->param('_file_ext'))));
     }
 
-    unless($self->param('filename')) {
-      $self->warning('You did not have input files for '.$self->analysis->logic_name);
-      $self->input_job->autoflow(0);
-      $self->complete_early('There are no files to process');
+    my $accu_key = $self->param('accu_key');
+
+    my @initial_input_files = ();
+    if($self->param('direct_accu_access')) {
+      @initial_input_files = @{$self->direct_accu_access($accu_key)};
+    } elsif($self->param('merge_star_tissues')) {
+      my $files = $self->param('tissue_data')->{$sample_name};
+      @initial_input_files = @{$files};
+      say "Found ".scalar(@initial_input_files)." files for ".$sample_name;
+    } else {
+      unless($self->param($accu_key)) {
+        $self->warning('You did not have input files for '.$self->analysis->logic_name);
+        $self->input_job->autoflow(0);
+        $self->complete_early('There are no files to process');
+      }
+      @initial_input_files = @{$self->param($accu_key)};
     }
 
-    my @initial_input_files = @{$self->param('filename')};
     my @processed_input_files = ();
     foreach my $input_file (@initial_input_files) {
+      say "Input file: ".$input_file;
       if($input_file) {
         push(@processed_input_files,$input_file);
       }
@@ -289,6 +312,26 @@ sub store_filename_into_datafile {
   $datafile->absolute(0);
   $datafile->coord_system($coord_systems[0]);
   $db->get_DataFileAdaptor->store($datafile);
+}
+
+
+sub direct_accu_access {
+  my ($self,$accu_key) = @_;
+
+  my $filenames = [];
+  my $table_adaptor = $self->db->get_NakedTableAdaptor;
+  $table_adaptor->table_name('accu');
+
+  my $results = $table_adaptor->fetch_all();
+  foreach my $result (@$results) {
+    my $struct_name = $result->{'struct_name'};
+    if($struct_name eq $accu_key) {
+      my $filename = $result->{'value'};
+      $filename =~ s/\"//g;
+      push(@{$filenames},$filename);
+    }
+  }
+  return($filenames);
 }
 
 1;
