@@ -111,6 +111,10 @@ while(<IN>) {
     }
 }
 close IN || throw("Could not close $config_file");
+#setting registry db values
+$general_hash->{'registry_db_server'} = "mysql-ens-genebuild-prod-1";
+$general_hash->{'registry_db_port'} = 4527;
+$general_hash->{'registry_db_name'} = "gb_assembly_registry";
 
 unless($general_hash->{'output_path'}) {
   throw("Could not find an output path setting in the config. Expected setting".
@@ -695,7 +699,8 @@ sub init_pipeline {
 
 
     my $loop_command = $sync_command;
-    $loop_command =~ s/sync/loop \-reg_conf $reg_conf_path \-sleep 0.3/;
+   # $loop_command =~ s/sync/loop \-reg_conf $reg_conf_path \-sleep 0.3/;
+   $loop_command =~ s/sync/loop \-sleep 0.3/;
     my ($ehive_url) = $sync_command =~ /url\s+(\S+)/;
     my ($driver, $user, $password, $host, $port, $dbname) = $ehive_url =~ /^(\w+)[:\/]+(\w*):(\w+)@([^:]+):(\d+)\/(\w+)$/;
     if ($password) {
@@ -718,6 +723,8 @@ sub assign_server_info {
               databases_port    => 4529,
               dna_db_server  => "mysql-ens-genebuild-prod-2",
               dna_db_port    => 4528,
+       #       registry_db_server  => "mysql-ens-genebuild-prod-1",
+        #      registry_db_port    => 4527,
             },
 
     set2 => {
@@ -727,6 +734,8 @@ sub assign_server_info {
               databases_port    => 4531,
               dna_db_server  => "mysql-ens-genebuild-prod-6",
               dna_db_port    => 4532,
+          #    registry_db_server  => "mysql-ens-genebuild-prod-1",
+         #     registry_db_port    => 4527,
             },
   };
 

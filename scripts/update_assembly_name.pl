@@ -56,6 +56,9 @@ my $driver = '';
 my $assembly_accession  = '';
 my $assembly_name = '';
 my $working_directory = '';
+my $registry_name = '';
+my $registry_port = '';
+my $registry_db ='',
 
 GetOptions('dbname:s' => \$dbname,
            'host:s'  => \$host,
@@ -66,13 +69,17 @@ GetOptions('dbname:s' => \$dbname,
            'assembly_accession:s' => \$assembly_accession,
            'assembly_name:s' => \$assembly_name,
            'working_dir:s' => \$working_directory,
+           'registry_host:s' => \$registry_host,
+           'registry_port:s' => \$registry_port,
+           'registry_db:s' => \$registry_db,
           );
 
 my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
-  -host    => 'mysql-ens-genebuild-prod-1',
-  -port    => '4527',
+  -host    => $registry_host,
+  -port    => $registry_port,
   -user    => 'ensro',
-  -dbname  => 'gb_assembly_registry');
+  -dbname  => $registry_db,
+);
 
 my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -dbname => $dbname,
