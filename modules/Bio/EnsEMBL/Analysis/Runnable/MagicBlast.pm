@@ -1,6 +1,6 @@
 =head1 LICENSE
 
- Copyright [2016-2019] EMBL-European Bioinformatics Institute
+ Copyright [2019] EMBL-European Bioinformatics Institute
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -26,12 +26,12 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::Star
+Bio::EnsEMBL::Analysis::Runnable::MagicBlast
 
 =head1 SYNOPSIS
 
   my $runnable =
-    Bio::EnsEMBL::Analysis::Runnable::Star->new();
+    Bio::EnsEMBL::Analysis::Runnable::MagicBlast->new();
 
  $runnable->run;
  my @results = $runnable->output;
@@ -47,7 +47,7 @@ aligning on the exons. Some reads are aligned multiple times in the genome.
 =cut
 
 
-package Bio::EnsEMBL::Analysis::Runnable::Star;
+package Bio::EnsEMBL::Analysis::Runnable::MagicBlast;
 
 use warnings;
 use strict;
@@ -74,9 +74,8 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($decompress, $sam_attributes, $sample_id, $genome_dir, $threads) = rearrange([qw (DECOMPRESS RG_LINES SAMPLE_NAME GENOME_DIR THREADS)],@args);
-  $self->throw("Genome file must be indexed, '$genome_dir/SA' does not exist\n") unless (-e $genome_dir.'/SA');
-  $self->genome($genome_dir);
+  my ($decompress, $sam_attributes, $genome, $sample_id, $threads) = rearrange([qw (DECOMPRESS RG_LINES GENOME SAMPLE_NAME THREADS)],@args);
+  $self->genome($genome);
   $self->sample_id($sample_id);
   $self->threads($threads);
   return $self;
@@ -85,7 +84,7 @@ sub new {
 =head2 run
 
  Arg [1]    : None
- Description: Run Star to align reads to an indexed genome. The resulting output file will be stored in $self->output
+ Description: Run MagicBlast to align reads to an indexed genome. The resulting output file will be stored in $self->output
  Returntype : None
  Exceptions : None
 
@@ -99,17 +98,16 @@ sub run {
   my $fastqpair = $self->fastqpair;
   my $options = $self->options;
   my $threads = $self->threads();
-  my $out_dir = catfile($self->outdir, $sample_id);
-  my $tmp_dir = catfile($self->outdir, $sample_id."_tmp");
+  my $out_file = catfile($self->outdir, $sample_id.".sam");
 
-  # run STAR
-  my $command = $self->program." --runThreadN ".$threads." --twopassMode Basic --readFilesCommand zcat --runMode alignReads --genomeDir ".$self->genome." --readFilesIn ".$fastq." ".$fastqpair." --outFileNamePrefix ".$out_dir."_ ".$options." --outTmpDir ".$tmp_dir;
+  # run magicblast
+  my $command = $self->program." -num_threads ".$threads." -paired -infmt fastq -db ".$self->genome." -outfmt sam -query ".$fastq." -query_mate ".$fastqpair." -out ".$out_file;
 
   $self->warning("Command: $command\n");
   if (system($command)) {
       $self->throw("Error aligning $fastq $fastqpair\nCommandline used: $command\nError code: $?\n");
   }
-  $self->output([$out_dir.'_Aligned.out.sam']);
+  $self->output([$out_file]);
 }
 
 
