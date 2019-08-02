@@ -102,6 +102,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenerateRefineConfig;
 
 use strict;
 use warnings;
+use feature 'say';
 
 use File::Spec;
 
@@ -192,9 +193,12 @@ sub fetch_input {
       foreach my $result (@$results) {
           $tissue_hash{lc($result->{$self->param('sample_column')})}->{$result->{$self->param('sample_id_column')}} = 1;
       }
+
+
       foreach my $key (keys %tissue_hash) {
         my $base_logic_name = $self->param('species').'_'.$key.'_rnaseq';
-        next unless ($analysis_adaptor->fetch_by_logic_name($base_logic_name."_$gene_suffix"));
+ #       next unless ($analysis_adaptor->fetch_by_logic_name($base_logic_name."_$gene_suffix"));
+
         my $best_key = "best_$key";
         if (length($best_key) > $biotype_size) {
           $best_key = substr($best_key, 0, 40);
