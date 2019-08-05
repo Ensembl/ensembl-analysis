@@ -40,6 +40,19 @@ say "Adding analysis decsriptions for logic name in database: ".$dbname;
 get_content($dbname, $port, $host);
 
 
+=head2 get_content
+
+ Arg [1]    : String database name
+ Arg [2]    : Int server port
+ Arg [3]    : String server name
+ Description: Connect to the database to retrieve all rnaseq analyses, then check
+              that the logic_name does exist. If it does, no changes are needed
+              otherwise, add the web data and analysis description
+ Returntype : String data added to the production database
+ Exceptions : Throw if it fails to load the data
+
+=cut
+
 sub get_content {
   my ($dbname, $port, $host) = @_;
   my $content;
@@ -57,11 +70,14 @@ sub get_content {
 
   my $sth_logic = $db->dbc->prepare("select logic_name from analysis");
   $sth_logic->execute;
+  my $http_client = HTTP::Tiny->new;
+  my $server = 'http://production-services.ensembl.org';
+  my $ext = '/production_db/api/analysisdescription';
   my @rnaseq_logic_names = ();
   while (my $logic_name = $sth_logic->fetchrow) {
     if($logic_name =~ /\_rnaseq_gene$/ || $logic_name =~ /\_rnaseq_bam$/ || $logic_name =~ /\_rnaseq_daf$/ || $logic_name =~ /\_rnaseq_ise$/) {
-      push(@rnaseq_logic_names,$logic_name);
-      next;
+      my $response = $http_client->get("$server$ext/$logic_name");
+      push(@rnaseq_logic_names,$logic_name) unless ($response->{success});
     }
   }# end while
   foreach my $rnaseq_logic_name (@rnaseq_logic_names){
@@ -116,11 +132,7 @@ sub get_content {
       print "RUN IN SAFE MODE\nCONTENT:\n".$sample_name." ".$logic_type."\n".$content."\n";
     }
     else {
-      use HTTP::Tiny;
-      my $http = HTTP::Tiny->new();
-
-      my $server = 'http://production-services.ensembl.org';
-      my $ext = '/production_db/api/analysisdescription';
+      my $http = HTTP::Tiny->new;
       my $response = $http->request('POST', $server.$ext, {
           headers => {
 		      'Content-type' => 'application/json',
