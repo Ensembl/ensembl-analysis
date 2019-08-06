@@ -18,6 +18,7 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Getopt::Long;
 
 my ($dbname, $dbhost, $dbport, $dbuser, $dbpass, $mirnas_list);
 
@@ -36,6 +37,11 @@ my $db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
     -PASS => $dbpass,
 	-DRIVER => 'mysql',
 );
+
+my $command = "mysql -h $dbhost -P $dbport -u $dbuser -p$dbpass -D $dbname -e \"insert ignore into rnaproduct_type (code, name, description) values ('miRNA', 'Mature miRNAs', 'MiRBase annotated miRNA products mapped to identified stem-loops');
+alter table rnaproduct change created_date created_date datetime DEFAULT CURRENT_TIMESTAMP;\"";
+
+system($command);
 
 my $rpa = $db->get_RNAProductAdaptor();
 

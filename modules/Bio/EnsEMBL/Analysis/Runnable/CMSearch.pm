@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2018] EMBL-European Bioinformatics Institute
+# Copyright [2016-2019] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -480,7 +480,7 @@ sub make_gene{
     -display_id => $domain . "_" . $rel_end,
     -seq => $daf->seq,
    );
-
+  
   my $RNAfold = Bio::EnsEMBL::Analysis::Runnable::RNAFold->new
   (
     -analysis  => $self->analysis,
@@ -508,7 +508,15 @@ sub make_gene{
   my $hit_name_id = $accession . "-" . $temp_id[2] . "/" . $daf->start . "-" . $daf->end;
 
   $daf = $new_daf;
-  $daf->analysis($self->analysis);
+  my $daf_analysis = new Bio::EnsEMBL::Analysis(
+                      -logic_name => 'rfamcmsearch',
+                      -description => 'Identify RNA family homologs in genome using CMSearch',
+                      -module => $self->analysis->module,
+                      -program_file => 'cmsearch',
+                      -db_file => 'Rfam.cm',
+                      );
+
+  $daf->analysis($daf_analysis); #$daf->analysis($self->analysis);
   $daf->hseqname($hit_name_id);
   $exon->add_supporting_features($daf);
   
@@ -550,6 +558,10 @@ sub make_gene{
     push @attributes,$attribute;
   }
 
+  my $seq_uc = uc($daf->seq);
+  my $gc = ($seq_uc =~ tr/GC/gc/);
+  my $gc_perc = ( $gc / abs($end - $start) ) * 100;
+
   my $daf_path = $self->datadir . "/daf_metrics.tsv";
   open(FH, '>>', $daf_path) or die "Could not write to $daf_path";
   my $strand = $gene->strand > 0 ? "+" : "-";
@@ -564,6 +576,7 @@ sub make_gene{
             $daf->{'p_value'} . "\t" . 
             $RNAfold->score . "\t" . 
             $daf->{'score'} / abs($start - $end) . "\t" .
+            $gc_perc . "\t" .
             $gene->biotype . "\n";
   
   close(FH);

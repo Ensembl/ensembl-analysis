@@ -31,12 +31,15 @@ def collapse_mappings(alignments, working_dir):
                  .format(len(mappings)))
 
     # write_output
+    counter = 0
     with open(working_dir + "/mirna_coords.txt", 'w') as f:
         for target in mappings:
             target_size = abs(int(target.split(":")[2].split("-")[1]) - int(target.split(":")[2].split("-")[0]))
             for interval in mappings[target]:
                 arm = 5 if (target_size - min(interval)) > min(interval) else 3
                 f.write("{T}\t{S}\t{E}\t{A}\n".format(T=target, S=min(interval), E=max(interval), A=arm))
+                counter += 1
+    logging.info("Finished filtering mapped mature products - Number of distinct mature products: {}".format(counter))
 
 
 if __name__ == '__main__':
@@ -47,7 +50,7 @@ if __name__ == '__main__':
                         required=True, help="Output directory")
 
     args = parser.parse_args()
-    alignments = pd.read_csv(args.alignment, sep="\t", header=None)
+    alignments = pd.read_csv(args.alignment, sep="\t", usecols=range(12), header=None)
 
     logging.info("Finished reading SAM file - Number of alignments: {}"
                  .format(len(alignments)))

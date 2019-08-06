@@ -62,9 +62,9 @@ if (system($command)){
 }
 
 # map mature products to precursors
-my $options = " -p16 -v 1 -M 20 -k 5 --norc --best -f --sam --sam-nohead ";
+my $options = " -p16 -v 3 -M 20 -k 5 --norc --best -f --sam --sam-nohead ";
 
-$command = "bowtie $options $working_dir/precursors $working_dir/mature_mirnas.fa $working_dir/mature_mirnas.sam";
+$command = "bowtie $options $working_dir/precursors $working_dir/mature_mirnas.fa $working_dir/mature_mirnas_unfiltered.sam";
 
 print STDERR "Mapping miRBase mature miRNAs to pre-cursors >>> $command\n";
 
@@ -73,8 +73,20 @@ if (system($command)){
 }
 
 # filter alignments
-$command = "awk '$2 != 4{print $0}' $working_dir/mature_mirnas.sam > $working_dir/temp.sam; mv $working_dir/temp.sam $working_dir/mature_mirnas.sam";
 
-if (system($command)){
-    print STDERR "Error filtering SAM alignments \nError code: $?\n";
+$fn = "$working_dir/mature_mirnas_unfiltered.sam";
+my $fo = "$working_dir/mature_mirnas.sam";
+
+open(FH, '<', $fn) or die "Could not open $fn";
+open(FO, '>', $fo) or die "Could not open $fo for writing";
+while(<FH>){
+  my @contents = split /\t/, $_;
+
+  if($contents[1] ne '4'){
+    print FO $_;
+  }
 }
+
+close($fn);
+close($fo);
+

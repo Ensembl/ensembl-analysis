@@ -18,15 +18,16 @@ use strict;
 use warnings;
 
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Getopt::Long qw(:config no_ignore_case);
 
-my ($dbname, $dbhost, $dbport, $dbuser, $dna_dbname, $dna_dbhost, $dna_dbport, $dna_dbuser, $working_dir);
+my ($dbname, $dbhost, $dbport, $dbuser, $dna_dbname, $dna_dbhost, $dna_dbport, $dna_dbuser, $dna_dbpass, $working_dir);
 
 
 GetOptions( 'dbhost|host|h:s'        => \$dbhost,
             'dbport|port|p:n'        => \$dbport,
             'dbname|d:s'        => \$dbname,
             'dbuser|user|u:s'        => \$dbuser,
-            'dnadbhost|D:s' => \$dna_dbname,
+            'dnadbname|D:s' => \$dna_dbname,
             'dnadbport|P:n' => \$dna_dbport,
             'dnadbhost|H:s' => \$dna_dbhost,
             'dnadbuser|U:s' => \$dna_dbuser,
