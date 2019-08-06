@@ -80,6 +80,11 @@ my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 
 my $general_hash = {};
 
+#Adding registry details to hash for populating main config
+$general_hash->{registry_host} = $assembly_registry_host;
+$general_hash->{registry_port} = $assembly_registry_port;
+$general_hash->{registry_db} = $assembly_registry->{_dbc}->{_dbname};
+
 open(IN,$config_file) || throw("Could not open $config_file");
 while(<IN>) {
     my $line = $_;
