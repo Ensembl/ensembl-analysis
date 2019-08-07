@@ -17,8 +17,7 @@ limitations under the License.
 
 =cut
 
-package HiveSncRNA;
-
+package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMiRNAPipeline;
 
 use strict;
 use warnings;
@@ -40,24 +39,21 @@ sub default_options {
         # Variable settings- You change these!!!
         #
         ######################################################
-        ########################
-        # Misc setup info
-        ########################
         'dbowner'                                => '' || $ENV{EHIVE_USER} || $ENV{USER},
         'pipeline_name'                          => '',
         'user_r'                                 => 'ensro', # read only db user
         'user'                                   => 'ensadmin', # write db user
         'password'                               => '', # password for write db user
         'pipe_db_server'                         => '', # host for pipe db
-        'databases_server'                       => '', # host for general output dbs
+        'databases_server'                       => '', # host for output dbs
         'dna_db_server'                          => '', # host for dna db
         'pipe_db_port'                           => '', # port for pipeline host
-        'databases_port'                         => '', # port for general output db host
+        'databases_port'                         => '', # port for output db host
         'dna_db_port'                            => '', # port for dna db host
-
+        'dna_dbname'                             => '',
         'release_number'                         => '' || $self->o('ensembl_release'),
         'species_name'                           => '', # e.g. mus_musculus
-        'production_name'                        => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+        'production_name'                        => '', 
         'clade'                                  => '', # eg. rodents
         'uniprot_set'                            => 'mammals_basic',
         'output_path'                            => '',
@@ -67,7 +63,7 @@ sub default_options {
         ## Small ncRNAs params
         #########################
         'base_blast_db_path'                     => $ENV{BLASTDB_DIR},
-        'mirBase_fasta'                          => 'all_mirnas.fa', # What miRBase file to use, eg. /hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/mirbase_22/all_mirnas.{embl,fa,fa.nhr,fa.min,fa.nsq}
+        'mirBase_fasta'                          => 'all_mirnas.fa', 
         'mature_mirnas'                          => 'mature.fa',
         'rfc_scaler'                             => 'filter_dafs_rfc_scaler_human.pkl',
         'rfc_model'                              => 'filter_dafs_rfc_model_human.pkl',
@@ -79,17 +75,11 @@ sub default_options {
         # Pipe and ref db info
         ########################
         'pipe_db_name'                           => $self->o('dbowner') . '_' . $self->o('pipeline_name')  . '_pipe_' . $self->o('release_number'),
-        'dna_dbname'                             => '',
         'dna_db_name'                            => $self->o('dna_dbname'),
         'ncrna_db_server'                        => $self->o('databases_server'),
         'ncrna_db_port'                          => $self->o('databases_port'),
-        'ncrna_db_name'                          => $self->o('dbowner') . '_' . $self->o('species_name') . "_" .  $self->o('pipeline_name') . '_ncrna_' . $self->o('release_number'),
-
+        'ncrna_db_name'                          => $self->o('dbowner') . '_' . $self->o('species_name') . "_" .  $self->o('pipeline_name') . '_mirna_' . $self->o('release_number'),
         'ensembl_release'                        => $ENV{ENSEMBL_RELEASE},
-        'production_db_server'                   => 'mysql-ens-meta-prod-1',
-        'production_db_port'                     => '4483',
-        # BLAST db paths
-        ########################
         'base_blast_db_path'                     => $ENV{BLASTDB_DIR},
         'ncrna_blast_path'                       => catfile($self->o('base_blast_db_path'), 'ncrna', 'ncrna_2016_05'),
         'mirna_blast_path'                       => catfile($self->o('base_blast_db_path'), 'ncrna', 'mirbase_22'),
@@ -101,30 +91,18 @@ sub default_options {
         ######################################################
 
         genome_dumps                             => catdir($self->o('output_path'), 'genome_dumps'),
-        # This one is used by most analyses that run against a genome flatfile like exonerate, genblast etc. Has slice name style headers. Is softmasked
-        faidx_genome_file             => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
+        faidx_genome_file                        => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
         ncrna_dir                                => catdir($self->o('output_path'), 'ncrna'),
-
-        ensembl_analysis_script                  => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
+        ensembl_analysis_script                  => $ENV{ENSEMBL_ANALYSIS} . "/scripts/",
 
         sequence_dump_script                     => catfile($self->o('ensembl_analysis_script'), 'sequence_dump.pl'),
         sncrna_analysis_script                   => catdir($self->o('ensembl_analysis_script'), 'genebuild', 'sncrna'),
 
         num_tokens                               => 10,
         mysql_dump_options                       => '--max_allowed_packet=400MB',
-
-        ########################
-        # Executable paths
-        ########################
-        blast_type                               => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
-
-        trnascan_path                            => catfile($self->o('binary_base'), 'tRNAscan-SE'),
-        cmsearch_exe_path                        => catfile($self->o('software_base_path'), 'bin', 'cmsearch'), # #'opt', 'infernal10', 'bin', 'cmsearch'),
-
-        samtools_path                            => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
+        blast_type                               => 'ncbi', 
 
         bedtools                                 => catfile($self->o('binary_base'), 'bedtools'),
-        bedGraphToBigWig                         => catfile($self->o('binary_base'), 'bedGraphToBigWig'),
 
         ########################
         # db info
@@ -204,7 +182,7 @@ sub pipeline_analyses {
                 ' --release #wide_ensembl_release# -fix --oldest 94 --nointeractive --type core -verbose',
             },
             -flow_into  => {
-                '1->A' => [ 'dump_genome', 'dump_repeats', 'fetch_rfam_accessions' ],
+                '1->A' => [ 'dump_genome', 'dump_repeats' ],
                 'A->1' => [ 'create_small_rna_slice_ids' ],
             },
 
@@ -253,7 +231,7 @@ sub pipeline_analyses {
                 batch_target_size => 2000000,
             },
             -flow_into  => {
-                '2->A' => [ 'mirna_blast', 'run_cmsearch' ],
+                '2->A' => [ 'mirna_blast'],
                 'A->1' => [ 'filter_ncrnas' ],
             },
             -rc_name    => 'default',
