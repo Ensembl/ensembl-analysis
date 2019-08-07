@@ -54,6 +54,9 @@ sub default_options {
     'pipe_db_port'              => '', # port for pipeline host
     'databases_port'            => '', # port for general output db host
     'dna_db_port'               => '', # port for dna db host
+    'registry_host'             => '', # host for registry db
+    'registry_port'             => '', # port for registry db
+    'registry_db'               => '', # name for registry db
     'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'rnaseq_summary_file'       => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
@@ -8905,7 +8908,10 @@ sub pipeline_analyses {
                                 ' -dbname '.$self->o('reference_db','-dbname').
                                 ' -driver '.$self->o('hive_driver').
                                 ' -assembly_accession '.$self->o('assembly_accession').
-                                ' -assembly_name '.$self->o('assembly_name'),
+                                ' -assembly_name '.$self->o('assembly_name').
+                                ' -registry_host '.$self->o('registry_host').
+                                ' -registry_port '.$self->o('registry_port').
+                                ' -registry_db '.$self->o('registry_db'),
                        },
         -rc_name => 'default',
        },

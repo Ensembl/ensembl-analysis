@@ -58,6 +58,7 @@ my $assembly_name = '';
 my $working_directory = '';
 my $registry_host = '';
 my $registry_port = '';
+my $registry_db = '';
 
 GetOptions('dbname:s' => \$dbname,
            'host:s'  => \$host,
@@ -70,6 +71,7 @@ GetOptions('dbname:s' => \$dbname,
            'working_dir:s' => \$working_directory,
            'registry_host:s' => \$registry_host,
            'registry_port:s' => \$registry_port,
+           'registry_db:s' => \$registry_db,
           );
 
 my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
