@@ -364,7 +364,7 @@ sub default_options {
 ########################
 
     'num_tokens' => 10,
-    mysql_dump_options => '--max_allowed_packet=400MB',
+    mysql_dump_options => '--max_allowed_packet=1000MB',
 
 ########################
 # Executable paths
