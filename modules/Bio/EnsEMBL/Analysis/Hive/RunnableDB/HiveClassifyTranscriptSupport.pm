@@ -184,6 +184,9 @@ sub write_output {
 
   my $dbc = $self->hrdb_get_con('target_db')->dbc;
 
+  if($self->param('classification_type') eq 'long_read') {
+    $self->set_long_read_biotypes($dbc);
+  }
 
   my $sth = $dbc->prepare('CREATE table transcript_classify_bak like transcript');
   eval {
@@ -195,10 +198,6 @@ sub write_output {
   else {
     $sth = $dbc->prepare('INSERT INTO transcript_classify_bak SELECT * FROM transcript');
     $sth->execute();
-  }
-
-  if($self->param('classification_type') eq 'long_read') {
-    $self->set_long_read_biotypes($dbc);
   }
 
   $sth = $dbc->prepare('UPDATE transcript t LEFT JOIN transcript_classify_bak tcb USING(transcript_id) '.
