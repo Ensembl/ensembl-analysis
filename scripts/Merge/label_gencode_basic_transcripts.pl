@@ -485,7 +485,7 @@ sub returnBasicCodingAnnotation{ # i call it with a gene object and it returns a
           if($cdsLengthStoredTranscript < $cdsLengthTranscript){
             @cdsLongest=();
             push(@cdsLongest,$transcript);
-          }elsif($cdsLengthStoredTranscript == $cdsLengthStoredTranscript){
+          }elsif($cdsLengthStoredTranscript == $cdsLengthTranscript){
 
             push(@cdsLongest,$transcript);    # I end up having in this array all transcript object with same biggest cds length
           }
