@@ -80,7 +80,7 @@ my $coord_system_version;
 my $write; # boolean
 my $verbose; # boolean
 my $code = 'gencode_basic';
-my $MAX_TRANSCRIPT_LENGTH = '100000'; # the longest transcript in human was less than 10000 base pair long in e79
+my $MAX_TRANSCRIPT_LENGTH = '300000'; # the longest transcript in human is less than 206000 base pairs long in e98
 
 # use most recent
 my $production_dbname = 'ensembl_production';
