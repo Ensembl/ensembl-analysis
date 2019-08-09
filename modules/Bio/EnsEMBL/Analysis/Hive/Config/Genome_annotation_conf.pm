@@ -8759,7 +8759,7 @@ sub pipeline_analyses {
         -logic_name => 'bam2bedgraph',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split | LC_COLLATE=C sort -k1,1 -k2,2n > '.catfile('#working_dir#', '#bam_file#.bg'),
+          cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split > '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' ; LC_COLLATE=C sort -k1,1 -k2,2n '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' > '.catfile('#working_dir#', '#bam_file#.bg'),
           bedtools => $self->o('bedtools'),
           working_dir => $self->o('merge_dir'),
         },
@@ -8817,7 +8817,7 @@ sub pipeline_analyses {
         -logic_name => 'clean_bg_files',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'rm  '.catfile('#working_dir#', '#bam_file#.bg').' '.catfile('#working_dir#', '#bam_file#.txt'),
+          cmd => 'rm  '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' '.catfile('#working_dir#', '#bam_file#.bg').' '.catfile('#working_dir#', '#bam_file#.txt'),
           working_dir => $self->o('merge_dir'),
         },
         -rc_name => 'default',
