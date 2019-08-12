@@ -224,7 +224,11 @@ foreach my $accession (@accession_array) {
   }
   say "Fetched the following clade for ".$accession.": ".$clade;
   #      #Note: this is to assign repeat library settings for clades that do not have defined settings yet
-  if (($clade eq 'amphibians') || ($clade eq 'sharks') || ($clade eq 'vertebrates')){
+  if ($clade eq 'humans'){
+    $clade = 'primates';
+  }
+
+  if (($clade eq 'sharks') || ($clade eq 'vertebrates')){
     $clade = 'distant_vertebrate';
   }
   $assembly_hash->{'clade'} = $clade;
@@ -539,6 +543,14 @@ sub clade_settings {
       'repbase_library'    => 'vertebrates',
       'repbase_logic_name' => 'vertebrates',
       'uniprot_set'        => 'reptiles_basic',
+      'masking_timer_long'  => '6h',
+      'masking_timer_short' => '3h',
+    },
+
+    'amphibians' => {
+      'repbase_library'    => 'amphibians',
+      'repbase_logic_name' => 'amphibians',
+      'uniprot_set'        => 'amphibians_basic',
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',
     },
