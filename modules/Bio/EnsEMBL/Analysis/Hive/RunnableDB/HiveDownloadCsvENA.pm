@@ -106,7 +106,11 @@ sub fetch_input {
   if($self->param_required('read_type') eq 'isoseq') {
     $self->param('paired_end_only',0);
     $self->param('instrument_platform','PACBIO_SMRT'),
+  } elsif($self->param_required('read_type') eq 'nanopore') {
+    $self->param('paired_end_only',0);
+    $self->param('instrument_platform','OXFORD_NANOPORE'),
   }
+
   $self->param_required('inputfile');
   if (-e $self->param('inputfile')) {
     $self->complete_early("'inputfile' exists so I will use that");
@@ -451,6 +455,12 @@ sub write_output {
               $description,
             );
 	  } elsif($self->param('read_type') eq 'isoseq') {
+            print FH sprintf("%s\t%s\t%s\n",
+              lc($sample_name),
+              $filename,
+              $description,
+            );
+	  } elsif($self->param('read_type') eq 'nanopore') {
             print FH sprintf("%s\t%s\t%s\n",
               lc($sample_name),
               $filename,

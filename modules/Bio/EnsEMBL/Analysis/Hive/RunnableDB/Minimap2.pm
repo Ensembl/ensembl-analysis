@@ -64,6 +64,7 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     min_read_length => 200,
+    mapping_type => 'cdna',
   }
 }
 
@@ -109,7 +110,7 @@ sub fetch_input {
     $self->throw("Could not find the genome index. Path used:\n".$genome_index);
   }
 
-  my $input_file = $self->param('input_file');
+  my $input_file = $self->param('fastq_file');
   unless(-e $input_file) {
     $self->throw("Could not find the input file. Path used:\n".$input_file);
   }
@@ -119,7 +120,7 @@ sub fetch_input {
   my $range_end = $$input_range[1];
 
   say "Creating tmp input file based on index range: ".$range_start."..".$range_end;
-  my $ranged_input_file = $self->create_input_file($input_file,$range_start,$range_end);
+  my $ranged_input_file = $self->create_input_file($input_file,$range_start,$range_end); #$input_file;
   say "Finished creating input file";
 
   my $program = $self->param('minimap2_path');
@@ -143,11 +144,12 @@ sub fetch_input {
   }
 
 
-  $analysis->logic_name($sample_name."_isoseq");
+  $analysis->logic_name("minimap2");
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2->new(
        -analysis          => $analysis,
        -program           => $program,
        -paftools_path     => $paftools,
+       -mapping_type      => $self->param('mapping_type'),
 #       -options        => $self->param('minimap2_options'),
        -genome_index      => $genome_index,
        -input_file        => $ranged_input_file,
