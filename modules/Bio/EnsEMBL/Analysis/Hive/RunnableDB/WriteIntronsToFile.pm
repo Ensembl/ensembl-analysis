@@ -318,7 +318,7 @@ sub combine_files {
     close IN;
   }
 
-  open(OUT,">".$self->param_required('combined_file'));
+  open(OUT,">".$self->param_required('combined_intron_file'));
   foreach my $seq_region (keys(%$full_intron_hash)) {
     foreach my $type (keys(%{$full_intron_hash->{$seq_region}})) {
       my $line = $seq_region.":".$type.",";
