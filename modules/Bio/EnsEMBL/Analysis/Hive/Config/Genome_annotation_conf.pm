@@ -5504,7 +5504,7 @@ sub pipeline_analyses {
         },
         -flow_into => {
           '2->A' => [ 'create_tissue_jobs'],
-          'A->1' => [ 'fan_merge_analyses' ],
+          'A->1' => [ 'merged_bam_file' ],
         },
       },
       {
@@ -5672,21 +5672,6 @@ sub pipeline_analyses {
           target_db => $self->o('rnaseq_rough_db'),
         },
       },
-
-     {
-        -logic_name => 'fan_merge_analyses',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-	  cmd => "if [[ \$(cut -d\$'\\t' -f1 ".$self->o('rnaseq_summary_file')." | sort | uniq | wc -l) == 1 ]]; then exit 42; else exit 0;fi",
-          return_codes_2_branches => {'42' => 2},
-        },
-        -rc_name    => 'default',
-        -flow_into => {
-          1 => ['merged_bam_file'],
-          2 => ['create_header_intron'],
-        },
-      },
-
       {
         -logic_name => 'merged_bam_file',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMergeBamFiles',
@@ -5708,7 +5693,21 @@ sub pipeline_analyses {
         },
         -rc_name    => '5GB_merged_multithread',
         -flow_into => {
-          1 => ['create_merge_analyses_type_job'],
+          1 => ['fan_merge_analyses'],
+          2 => ['create_header_intron'],
+        },
+      },
+
+     {
+        -logic_name => 'fan_merge_analyses',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+	  cmd => "if [[ \$(cut -d\$'\\t' -f1 ".$self->o('rnaseq_summary_file')." | sort | uniq | wc -l) == 1 ]]; then exit 42; else exit 0;fi",
+          return_codes_2_branches => {'42' => 2},
+        },
+        -rc_name    => 'default',
+        -flow_into  => {
+	  1 => ['create_merge_analyses_type_job'],
         },
       },
 

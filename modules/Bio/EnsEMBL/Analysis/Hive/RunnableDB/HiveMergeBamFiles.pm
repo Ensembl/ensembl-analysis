@@ -128,14 +128,29 @@ sub param_defaults {
 sub fetch_input {
     my ($self) = @_;
 
-    $self->create_analysis;
+    my @initial_input_files = @{$self->param('filename')};
+    my @processed_input_files = ();
+    foreach my $input_file (@initial_input_files) {
+      if($input_file) {
+        push(@processed_input_files,$input_file);
+      }
+    }
+
+    # neither an analysis nor a merged file will be created if there is only 1 file to be merged
+    # In samtools merge you can specify a file with a list of files using -b
+    my $one_file_only = (scalar(@processed_input_files) == 1 and $self->param('options') !~ /-b /);
+
+    if (!$one_file_only) {
+      $self->create_analysis;
+    }
+    
     if ($self->param('store_datafile')) {
       my $db = $self->get_database_by_name('target_db');
       $db->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
       $self->hrdb_set_con($db, 'target_db');
     }
     my $outname = $self->param_is_defined('sample_name') ? $self->param('sample_name') : 'merged';
-    if (!$self->param_is_defined('logic_name')) {
+    if (!$self->param_is_defined('logic_name') and !$one_file_only) {
       $self->analysis->logic_name($self->param('species').'_'.$outname.'_rnaseq_'.$self->param('_logic_name_ext'));
     }
     if (!$self->param_is_defined('alignment_bam_file')) {
@@ -149,22 +164,13 @@ sub fetch_input {
       $self->complete_early('There are no files to process');
     }
 
-    my @initial_input_files = @{$self->param('filename')};
-    my @processed_input_files = ();
-    foreach my $input_file (@initial_input_files) {
-      if($input_file) {
-        push(@processed_input_files,$input_file);
-      }
-    }
-
     if (scalar(@processed_input_files) == 0) {
         $self->warning('You did not have input files for '.$self->analysis->logic_name);
         $self->input_job->autoflow(0);
         $self->complete_early('There are no files to process');
     }
 
-    elsif (scalar(@processed_input_files) == 1 and $self->param('options') !~ /-b /) {
-        # In samtools merge you can specify a file with a list of files using -b
+    elsif ($one_file_only) {
         # In other cases I just want to push the filename but I don't need to run the BAM merge
         # First pushing the filename
         my $abs_filename = $processed_input_files[0];
