@@ -427,7 +427,18 @@ sub giveMeBasicAnnotationTranscripts{  # as a parameter I give a gene object and
 
 }  #end of method!!!
 
-sub returnBasicCodingAnnotation{ # i call it with a gene object and it returns a reference of a list with the basic coding transcript objects of the gene
+=head2 returnBasicCodingAnnotation
+ 
+ Arg [1]    : Bio::EnsEMBL::Gene
+ Example    : $self->returnBasicCodingAnnotation($gene);
+ Description: It returns a reference to a list containing the basic coding transcript objects of the given gene.
+              Criteria to select the basic coding transcripts can be found at the end of this file.
+ Returntype : listref of Bio::EnsEMBL::Transcript
+ Exceptions : None.
+ 
+=cut
+
+sub returnBasicCodingAnnotation {
 
   my $gene=shift;
   my @transcripts=@{$gene->get_all_Transcripts};
