@@ -548,18 +548,21 @@ sub create_cds_transcript {
   $cds_transcript->biotype($transcript->biotype);
   $cds_transcript->analysis($transcript->analysis);
   $cds_transcript->slice($transcript->slice);
-  my $start_exon = ${$cds_exons}[0];
-  my $end_exon = ${$cds_exons}[scalar(@$cds_exons)-1];
-  my $translation = Bio::EnsEMBL::Translation->new();
-  $translation->start_Exon($start_exon);
-  $translation->start(1);
-  $translation->end_Exon($end_exon);
-  $translation->end($end_exon->length());
-  foreach my $seq_edit (@{$transcript->translation->get_all_SeqEdits}) {
-    $translation->add_Attributes($seq_edit->get_Attribute);
-  }
-  $cds_transcript->translation($translation);
-  calculate_exon_phases($cds_transcript, 0);
+
+
+  compute_translation($cds_transcript);
+#  my $start_exon = ${$cds_exons}[0];
+ # my $end_exon = ${$cds_exons}[scalar(@$cds_exons)-1];
+#  my $translation = Bio::EnsEMBL::Translation->new();
+#  $translation->start_Exon($start_exon);
+#  $translation->start(1);
+#  $translation->end_Exon($end_exon);
+#  $translation->end($end_exon->length());
+#  foreach my $seq_edit (@{$transcript->translation->get_all_SeqEdits}) {
+#    $translation->add_Attributes($seq_edit->get_Attribute);
+#  }
+#  $cds_transcript->translation($translation);
+#  calculate_exon_phases($cds_transcript, 0);
 
   $cds_transcript->{'5_prime_utr'} = 0;
   $cds_transcript->{'3_prime_utr'} = 0;
