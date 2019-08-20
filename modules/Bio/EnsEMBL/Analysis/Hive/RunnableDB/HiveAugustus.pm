@@ -31,8 +31,8 @@
 
 =head1 DESCRIPTION
 
-fetches sequence data from database an instantiates and runs the
-augustus runnable, this inherits from the Genscan runnableDB an as such doesnt
+fetches sequence data from database and instantiates and runs the
+augustus runnable, this inherits from the Genscan runnableDB and as such doesnt
 implement much itself
 
 =head1 CONTACT
@@ -46,22 +46,56 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAugustus;
 
 use strict;
 use warnings;
+use feature 'say';
+use Bio::Seq;
+use Bio::EnsEMBL::Utils::IO::FASTASerializer;
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
+use Bio::EnsEMBL::Analysis::Runnable::Finished::AugustusGene;
 
-use Bio::EnsEMBL::Analysis::Runnable::Finished::Augustus;
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
 
 sub fetch_input{
   my ($self) = @_;
 
   my $repeat_masking = $self->param('repeat_masking_logic_names');
+  my $soft_masking = $self->param('soft_matching');
+  my $write_dir = $self->param('write_dir');
 
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
+#  my $dba;
+  my $dna_db = $self->get_database_by_name('dna_db');
+  my $dba = $self->get_database_by_name('target_db', $dna_db);
   $self->hrdb_set_con($dba,'target_db');
 
-  my $input_id = $self->param('iid');
-  my $slice = $self->fetch_sequence($input_id,$dba,$repeat_masking);
-  $self->query($slice);
+  # if($self->param('use_genome_flatfile') ) {
+  #   say "Ingoring dna table and using fasta file for sequence fetching";
+  #   unless($self->param_required('genome_file') && -e $self->param('genome_file') ) {
+  #     $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
+  #   } 
+  #   setup_fasta(
+  #                -FASTA => $self->param_required('genome_file'),
+  #              );
 
+  # } 
+
+  # elsif($self->param('dna_db')) {
+  #   say "Attaching dna db to target";
+  #   my $dna_db = $self->get_database_by_name('dna_db');
+  #   $dba = $self->get_database_by_name('target_db', $dna_db);
+  #   $self->hrdb_set_con($dba,'target_db');
+  # } 
+
+  # else {
+  #   say "Assuming the target db has dna";
+  # }
+  
+
+  my $input_id = $self->param('iid');
+  print $input_id,"\n";
+  exit 1;
+  my $slice = $self->fetch_sequence($input_id, $dba, $repeat_masking, $soft_masking);
+  $self->query($slice);
 
   my $analysis = Bio::EnsEMBL::Analysis->new(
                                               -logic_name => $self->param('logic_name'),
@@ -71,31 +105,22 @@ sub fetch_input{
 
   $self->param('analysis',$analysis);
 
-
   my %parameters;
   if($self->parameters_hash){
     %parameters = %{$self->parameters_hash};
   }
 
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Finished::Augustus->new
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Finished::AugustusGene->new
                  (
-                   -query => $self->query,
-                   -program => $analysis->program_file,
-                   -analysis => $self->param('analysis'),
-                   -species => $self->param('species'),
+                    -query => $self->query,
+                    -program => $analysis->program_file,
+                    -analysis => $self->param('analysis'),
+                    -species => $self->param('species'),
+                    -workdir => $write_dir,
+                    -database_adaptor => $dba,
                  );
 
   $self->runnable($runnable);
-
-
-  my $seq = $self->query->seq;
-  if ($seq =~ /[CATG]{3}/) {
-     $self->input_is_void(0);
-  } else {
-     $self->input_is_void(1);
-     $self->warning("Need at least 3 nucleotides - maybe your sequence was fully repeatmasked ...");
-  }
-
   return 1;
 }
 
@@ -118,7 +143,7 @@ sub fetch_input{
 
 sub runnable_path{
   my ($self);
-  return "Bio::EnsEMBL::Analysis::Runnable::Finished::Augustus";
+  return "Bio::EnsEMBL::Analysis::Runnable::Finished::AugustusGene";
 }
 
 sub run {
@@ -132,30 +157,34 @@ sub run {
   return 1;
 }
 
-
-sub write_output {
+sub write_output{
   my ($self) = @_;
 
-  my $pt_adaptor = $self->hrdb_get_con('target_db')->get_PredictionTranscriptAdaptor;
-  my $analysis = $self->param('analysis');
+  my $adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
 
-  my $ff = $self->feature_factory;
-  foreach my $pt(@{ $self->output()}){
-    $pt->analysis($self->analysis);
-    $pt->slice($self->query) if(!$pt->slice);
-    print STDERR "Validate transcript ".$pt->seqname."\n";
-    # dismiss transcript with invalid translation
-    eval {
-      $ff->validate_prediction_transcript($pt, 1);
-    };
+  foreach my $transcript (@{$self->output}) {
 
-    if($@) {
-      $self->warning($@);
-      next;
-    }
-    $pt_adaptor->store($pt);
+    my $analysis = $self->analysis;
+    $transcript->analysis($analysis);
+
+    my $gene = Bio::EnsEMBL::Gene->new();
+
+    $gene->analysis($transcript->analysis);
+    $gene->biotype($gene->analysis->logic_name);
+    $gene->add_Transcript($transcript);
+
+    $adaptor->store($gene);
+
+   }
+  return 1;
+}
+
+sub get_biotype {
+  my ($self,$biotype_hash) = @_;
+  if($biotype_hash) {
+    $self->param('_biotype_hash',$biotype_hash);
   }
-
+  return($self->param('_biotype_hash'));
 }
 
 1;
