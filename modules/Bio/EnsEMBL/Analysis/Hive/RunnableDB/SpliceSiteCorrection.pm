@@ -65,10 +65,11 @@ sub param_defaults {
     %{$self->SUPER::param_defaults},
     small_intron_size       => 75,
     low_frequency           => 5,
-    modified_biotype        => 'consensus_test_fill2',
+    corrected_biotype       => 'corrected',
     write_unmodified        => 1,
     max_edit_distance       => 150,
     max_exon_fill_size      => 200,
+    max_exon_replace_edit_distance => 100,
   }
 }
 
@@ -138,7 +139,7 @@ sub fetch_input {
   # If we are dumping introns from genes the get the genes
   my $gene_adaptor = $input_dba->get_GeneAdaptor();
   my $gene_ids = $self->input_id();
-#  my $gene_ids = [452172];
+#  my $gene_ids = [418837];
 #  my $gene_ids = [9119,9131,9139,9172,9182,9196,9102,9092,9078,9145,9150,9185,9199,9212,9228,9177,9084,9189,9157,9161,9068,9116,9061,9223,9168,9106,9209,9242,9234,9244,9252,9259,9267,9278,9303,9110,9255,9300,9096,9250,9280,9275,9284,9305,9293,9296,9287,9281,9262,9269,9307,9311,9313,9315];
 
 #[152321,191593,335983,418549,476625,501718,514807,528341,541754,550290,579516,582704,686319,695595,781462,805692,967153,972464,1118530,1599461,1608539,1646414,1705278,1737221,1782047,1783899,1830429,1844336,1852328,1870146,1990768,1994550,1997624,2008687,2068075,2215030,2237975,2383891,2391931,2417694,2563586,2640779,2682217,2685952,2851353,2879898,3000065,3060100,3358157,3458780,3519714,3659976,3688045,3705367,3988568,4087111,4092329,4105083,4117409,4178548,4210508,4468133,4528428,4605799,4719473,4749936];
@@ -211,6 +212,9 @@ sub write_output {
   say "Finished processing. Preparing to write genes to db";
   foreach my $output_gene (@{$self->output}) {
     empty_Gene($output_gene);
+    # Decided for now to just give a biotype regardless of modification to make things easier
+    # with looking at the results
+    $output_gene->biotype($self->param('corrected_biotype'));
     $gene_adaptor->store($output_gene);
   }
 }
@@ -347,10 +351,10 @@ sub fix_introns {
   my $overlapping_hash_intron_types = {};
 
   foreach my $type_key (keys(%$hash_intron_types)) {
-    $overlapping_hash_intron_types->{$type_key} = $self->get_overlapping_introns($gene,$hash_intron_types->{$type_key});
+    $overlapping_hash_intron_types->{$type_key} = $self->get_overlapping_features($gene,$hash_intron_types->{$type_key});
   }
 
-  $overlapping_combined_hash = $self->get_overlapping_introns($gene,$combined_intron_hash->{$seq_region});
+  $overlapping_combined_hash = $self->get_overlapping_features($gene,$combined_intron_hash->{$seq_region});
 
   my $new_transcripts = [];
   foreach my $transcript (@$transcripts) {
@@ -466,7 +470,7 @@ sub fix_introns {
       my $new_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $exons);
       $new_transcript->slice($transcript->slice);
       $new_transcript->analysis($transcript->analysis);
-      $new_transcript->biotype($self->param_required('modified_biotype'));
+      $new_transcript->biotype($self->param_required('corrected_biotype'));
       $new_transcript->stable_id($transcript->stable_id);
       $new_transcript->version($transcript->version);
       compute_translation($new_transcript);
@@ -481,8 +485,8 @@ sub fix_introns {
     # Note this will modify the gene biotype if the original transcript biotype matches the modified biotype value
     # This could cause some confusion if the gene biotype differed from the transcript biotype, but if this were to
     # happen the confusion begins before this
-    if($new_transcript->biotype eq $self->param_required('modified_biotype')) {
-      $new_gene->biotype($self->param_required('modified_biotype'));
+    if($new_transcript->biotype eq $self->param_required('corrected_biotype')) {
+      $new_gene->biotype($self->param_required('corrected_biotype'));
     }
   }
 
@@ -529,14 +533,21 @@ sub fix_exons {
   my $overlapping_hash_intron_types = {};
 
   foreach my $type_key (keys(%$hash_intron_types)) {
-    $overlapping_hash_intron_types->{$type_key} = $self->get_overlapping_introns($gene,$hash_intron_types->{$type_key});
+    $overlapping_hash_intron_types->{$type_key} = $self->get_overlapping_features($gene,$hash_intron_types->{$type_key});
   }
 
-  $overlapping_combined_hash = $self->get_overlapping_introns($gene,$combined_intron_hash->{$seq_region});
+  $overlapping_combined_hash = $self->get_overlapping_features($gene,$combined_intron_hash->{$seq_region});
+
+  my $overlapping_combined_exon_hash = $self->get_overlapping_features($gene,$combined_exon_hash->{$seq_region});
 
   my $new_transcripts = [];
   foreach my $transcript (@$transcripts) {
     my $modified = 0;
+
+    # First bit looks at introns, specifically if smallish introns that are not frequently observered should
+    # be removed if there is evidence than an exon frequently overlaps it
+    # it is unlikely, though not impossible that a high frequency retained intron could remove a low frequency,
+    # small real, intron. But that would be highly unlikely, so doing this is very useful
     my $introns = $transcript->get_all_Introns();
     my $intron_index = 0;
     my $exons = $transcript->get_all_Exons();
@@ -563,24 +574,42 @@ sub fix_exons {
 
     } # foreach my $intron (@$introns)
 
+
+   say "DUMPER: ".Dumper($overlapping_combined_exon_hash);
+
+    my $new_exons = [];
+    foreach my $exon (@$exons) {
+      # If the previous step deleted exons, we need to check that the exon actually exists in the original array
+      if($exon) {
+        my $new_exon = $self->replace_low_frequency_exon($exon,$overlapping_combined_exon_hash);
+        $new_exon->phase(-1);
+        $new_exon->end_phase(-1);
+        push(@$new_exons,$new_exon);
+        if($new_exon->{'updated'}) {
+          $modified = 1;
+        }
+      }
+    }
+
+
     unless($modified) {
       say "The transcript was not modified";
       push(@$new_transcripts,$transcript);
     } else {
       say "The transcript was modified";
-      my $new_exons = [];
-      foreach my $exon (@$exons) {
-        if($exon) {
-          $exon->phase(-1);
-          $exon->end_phase(-1);
-          push(@$new_exons,$exon);
-	}
-      }
+#      my $new_exons = [];
+#      foreach my $exon (@$exons) {
+#        if($exon) {
+#          $exon->phase(-1);
+#          $exon->end_phase(-1);
+#          push(@$new_exons,$exon);
+#	}
+#      }
 
       my $new_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $new_exons);
       $new_transcript->slice($transcript->slice);
       $new_transcript->analysis($transcript->analysis);
-      $new_transcript->biotype($self->param_required('modified_biotype'));
+      $new_transcript->biotype($self->param_required('corrected_biotype'));
       $new_transcript->stable_id($transcript->stable_id);
       $new_transcript->version($transcript->version);
       compute_translation($new_transcript);
@@ -595,8 +624,8 @@ sub fix_exons {
     # Note this will modify the gene biotype if the original transcript biotype matches the modified biotype value
     # This could cause some confusion if the gene biotype differed from the transcript biotype, but if this were to
     # happen the confusion begins before this
-    if($new_transcript->biotype eq $self->param_required('modified_biotype')) {
-      $new_gene->biotype($self->param_required('modified_biotype'));
+    if($new_transcript->biotype eq $self->param_required('corrected_biotype')) {
+      $new_gene->biotype($self->param_required('corrected_biotype'));
     }
   }
 
@@ -652,6 +681,72 @@ sub remove_low_frequency_intron {
 }
 
 
+sub replace_low_frequency_exon {
+  my ($self,$exon,$exon_hash) = @_;
+
+  my $exon_string = $exon->seq_region_start.":".$exon->seq_region_end.":".$exon->strand;
+  my $low_frequency = $self->param_required('low_frequency');
+  my $max_edit_distance = $self->param_required('max_exon_replace_edit_distance');
+
+  say "FERGAL TO REPLACE EXON: ".$exon_string;
+  my $exon_count = 1;
+  if($exon_hash->{$exon_string}) {
+    $exon_count = $exon_hash->{$exon_string};
+  }
+
+  if($exon_count > $low_frequency) {
+    say "Exon is not low frequency, will not update";
+    return($exon);
+  }
+
+  my $best_exon_string;
+  my $best_exon_count = 0;
+  my $best_dist;
+  foreach my $exon_string (keys(%{$exon_hash})) {
+    say "FERGAL REPLACEMENT ES: ".$exon_string;
+    my ($start,$end,$strand) = split(':',$exon_string);
+    my $count = $exon_hash->{$exon_string};
+    my $dist_left = abs($start - $exon->seq_region_start);
+    my $dist_right = abs($end - $exon->seq_region_end);
+    say "FERGAL DL/DR".$dist_left." ".$dist_right;
+    if($dist_left <= $max_edit_distance && $dist_right <= $max_edit_distance) {
+       say "FERGAL WITHIN EDIT DIST";
+      if($count > $best_exon_count) {
+        $best_exon_count = $count;
+        $best_exon_string = $exon_string;
+        $best_dist = $dist_left + $dist_right;
+        say "FERGAL CURRENT BEST: ".$best_exon_string." ".$best_exon_count;
+      } elsif($count == $best_exon_count && ($dist_left + $dist_right) < $best_dist) {
+        $best_exon_count = $count;
+        $best_exon_string = $exon_string;
+        $best_dist = $dist_left + $dist_right;
+        say "FERGAL CURRENT BEST: ".$best_exon_string." ".$best_exon_count;
+      }
+    }
+  }
+
+  if($best_exon_string) {
+    my ($start,$end,$strand) = split(':',$best_exon_string);
+    my $new_exon = Bio::EnsEMBL::Exon->new(
+                                        -START  => $start,
+                                        -END    => $end,
+                                        -STRAND => $strand,
+                                        -SLICE  => $exon->slice,
+                                        -PHASE  => 0,
+                                        -END_PHASE => 0,
+                                      );
+    $new_exon->{'updated'} = 1;
+    say "Created new exon:";
+    $self->print_exon($new_exon);
+    say "Original low frequency exon:";
+    $self->print_exon($exon);
+    return($new_exon);
+  } else {
+    return($exon);
+  }
+}
+
+
 sub update_exon_boundaries {
   my ($self,$exon_left,$exon_right,$final_intron) = @_;
 
@@ -690,27 +785,27 @@ sub update_exon_boundaries {
 }
 
 
-sub get_overlapping_introns {
-  my ($self,$gene,$intron_hash) = @_;
+sub get_overlapping_features {
+  my ($self,$gene,$feature_hash) = @_;
 
-  my $overlapping_introns = {};
+  my $overlapping_features = {};
   my $gene_seq_region = $gene->seq_region_name();
   my $gene_strand = $gene->strand();
   my $gene_start = $gene->seq_region_start();
   my $gene_end = $gene->seq_region_end();
   my $low_frequency = $self->param_required('low_frequency');
-  foreach my $intron_string (keys(%{$intron_hash})) {
-    my ($start,$end,$strand) = split(':',$intron_string);
-    my $count = $intron_hash->{$intron_string};
+  foreach my $feature_string (keys(%{$feature_hash})) {
+    my ($start,$end,$strand) = split(':',$feature_string);
+    my $count = $feature_hash->{$feature_string};
     unless($strand == $gene_strand && $count > $low_frequency) {
       next;
     }
 
     if ($start <= $gene_end && $end >= $gene_start) {
-      $overlapping_introns->{$intron_string} = $count;
+      $overlapping_features->{$feature_string} = $count;
     }
   }
-  return($overlapping_introns);
+  return($overlapping_features);
 }
 
 
