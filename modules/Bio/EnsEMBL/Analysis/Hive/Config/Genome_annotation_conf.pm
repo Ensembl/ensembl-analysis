@@ -8773,7 +8773,7 @@ sub pipeline_analyses {
         -logic_name => 'bam2bedgraph_himem',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split | LC_COLLATE=C sort -k1,1 -k2,2n > '.catfile('#working_dir#', '#bam_file#.bg'),
+          cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split > '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' ; LC_COLLATE=C sort -k1,1 -k2,2n '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' > '.catfile('#working_dir#', '#bam_file#.bg'),
           bedtools => $self->o('bedtools'),
           working_dir => $self->o('merge_dir'),
         },
