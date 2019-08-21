@@ -121,11 +121,12 @@ sub fetch_input{
 
   foreach my $slice_name (@{$slice_array}) {
     my $slice = $self->fetch_sequence($slice_name,$dba);
-    my $runnable = Bio::EnsEMBL::Analysis::Runnable::tRNAscan_SE->new
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::tRNAScanGene->new
     (
      -query     => $slice,
      -slice     => $slice,
      -program   => $analysis->program_file,
+     -high_confidence_filter => $self->param_required('high_confidence_filter'),
      -analysis  => $analysis,
      %parameters,
     );

@@ -80,6 +80,9 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
+  my ($high_confidence_filter_path) = rearrange(['HIGH_CONFIDENCE_FILTER_PATH'], @args);
+  $self->high_confidence_filter_path($high_confidence_filter_path);
+
   ######################
   #SETTING THE DEFAULTS#
   ######################
@@ -130,10 +133,6 @@ sub run{
   $self->files_to_delete($secondary_structure_filename);
   $self->files_to_delete($filtered_results_prefix.".out");
   $self->files_to_delete($filtered_results_prefix.".ss");
-
-  say "FERGAL QUERY: ".$query_filename;
-  say "FERGAL INITIAL: ".$initial_results_filename;
-  say "FERGAL SS: ".$secondary_structure_filename;
 
   my $command = $program." ";
   $command .= $query_filename;
@@ -272,6 +271,17 @@ sub create_simple_feature {
   my $ff = $self->feature_factory;
   my $simple_feature = $ff->create_simple_feature($start,$end,$strand,$score,$display_label,$name,$self->query);
   return($simple_feature);
+}
+
+
+sub high_confidence_filter_path {
+  my ($self,$path) = @_;
+
+  if($path) {
+    $self->{'_high_confidence_filter_path'} = $path;
+  }
+
+  return($self->{'_high_confidence_filter_path'});
 }
 
 1;
