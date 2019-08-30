@@ -751,10 +751,7 @@ sub getScoreExonsCoverAndLength {
     }
   }
 
-  my $length_score_percentage = 0;
-  if ($transcript->length() > 0) {
-    $length_score_percentage = 1-1/$transcript->length();
-  }
+  my $length_score_percentage = 1-1/$transcript->length();
   my $score = $numExonsCovered+$length_score_percentage;
 
   return $score;
