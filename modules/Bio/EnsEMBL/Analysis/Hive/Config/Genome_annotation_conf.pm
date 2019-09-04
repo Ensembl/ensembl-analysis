@@ -499,6 +499,7 @@ sub default_options {
     read_id_tag => 'ID',
 
     use_threads => 3,
+    bam2bg_sort_threads => 3,
     rnaseq_merge_threads => 12,
     rnaseq_merge_type => 'samtools',
     read_min_paired => 50,
@@ -8773,11 +8774,15 @@ sub pipeline_analyses {
         -logic_name => 'bam2bedgraph_himem',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split > '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' ; LC_COLLATE=C sort -k1,1 -k2,2n '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' > '.catfile('#working_dir#', '#bam_file#.bg'),
-          bedtools => $self->o('bedtools'),
+          cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split > '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' ; '.
+	         'split -n2 -d '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' ; '.
+		 'LC_COLLATE=C sort --parallel='.$self->o('bam2bg_sort_threads').' -k1,1 -k2,2n '.catfile('#working_dir#', '#bam_file#.bg.unsorted00').' > '.catfile('#working_dir#', '#bam_file#.bg00').' ; '.
+		 'LC_COLLATE=C sort --parallel='.$self->o('bam2bg_sort_threads').' -k1,1 -k2,2n '.catfile('#working_dir#', '#bam_file#.bg.unsorted01').' > '.catfile('#working_dir#', '#bam_file#.bg01').' ; '.
+		 'LC_COLLATE=C sort -m --parallel='.$self->o('bam2bg_sort_threads').' -k1,1 -k2,2n '.catfile('#working_dir#', '#bam_file#.bg00').' '.catfile('#working_dir#', '#bam_file#.bg01').' > '.catfile('#working_dir#', '#bam_file#.bg'),
+	  bedtools => $self->o('bedtools'),
           working_dir => $self->o('merge_dir'),
         },
-        -rc_name => '8GB',
+        -rc_name => '75GB_multithread_sort',
         -flow_into  => {
           1 => ['bedgrap2bigwig_himem'],
         },
@@ -8816,7 +8821,7 @@ sub pipeline_analyses {
         -logic_name => 'clean_bg_files',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'rm  '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' '.catfile('#working_dir#', '#bam_file#.bg').' '.catfile('#working_dir#', '#bam_file#.txt'),
+          cmd => 'rm -f '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' '.catfile('#working_dir#', '#bam_file#.bg.unsorted00').' '.catfile('#working_dir#', '#bam_file#.bg.unsorted01').' '.catfile('#working_dir#', '#bam_file#.bg').' '.catfile('#working_dir#', '#bam_file#.bg00').' '.catfile('#working_dir#', '#bam_file#.bg01').' '.catfile('#working_dir#', '#bam_file#.txt'),
           working_dir => $self->o('merge_dir'),
         },
         -rc_name => 'default',
@@ -8971,6 +8976,7 @@ sub resource_classes {
     '5GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh74', 5000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
     '10GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh74', 10000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
     '20GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh74', 20000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
+    '75GB_multithread_sort' => { LSF => $self->lsf_resource_builder('production-rh74', 75000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'bam2bg_sort_threads'}+1))},
   }
 }
 
