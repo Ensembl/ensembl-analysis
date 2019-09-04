@@ -8775,7 +8775,7 @@ sub pipeline_analyses {
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
           cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split > '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' ; '.
-	         'split -n2 -d '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' ; '.
+	         'split -n l/2 -d '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' ; '.
 		 'LC_COLLATE=C sort --parallel='.$self->o('bam2bg_sort_threads').' -k1,1 -k2,2n '.catfile('#working_dir#', '#bam_file#.bg.unsorted00').' > '.catfile('#working_dir#', '#bam_file#.bg00').' ; '.
 		 'LC_COLLATE=C sort --parallel='.$self->o('bam2bg_sort_threads').' -k1,1 -k2,2n '.catfile('#working_dir#', '#bam_file#.bg.unsorted01').' > '.catfile('#working_dir#', '#bam_file#.bg01').' ; '.
 		 'LC_COLLATE=C sort -m --parallel='.$self->o('bam2bg_sort_threads').' -k1,1 -k2,2n '.catfile('#working_dir#', '#bam_file#.bg00').' '.catfile('#working_dir#', '#bam_file#.bg01').' > '.catfile('#working_dir#', '#bam_file#.bg'),
