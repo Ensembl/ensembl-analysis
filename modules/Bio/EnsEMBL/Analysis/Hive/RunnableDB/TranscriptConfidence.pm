@@ -360,12 +360,19 @@ sub intron_confidence {
   # This will unset if any transcript is multi exon
   $gene->{'is_single'} = 1;
   foreach my $transcript (@$transcripts) {
+    say "Transcript: ".$transcript->dbID()." ".$transcript->stable_id;
     # creating this because we're really only interested in cds introns and the API call for getting all cds introns
     # is exteremly costly cos of joins
+    unless($transcript->translateable_seq) {
+      say "Skipping transcript due to lack of translateable seq";
+      next;
+    }
+
     my $cds_transcript = $self->create_cds_transcript($transcript);
     my $introns = $cds_transcript->get_all_Introns();
     my $high_confidence = 1;
 
+     say "FERGAL PAST CDS";
     foreach my $intron (@$introns) {
      $gene->{'is_single'} = 0;
       my $intron_start = $intron->seq_region_start();
@@ -486,6 +493,11 @@ sub exon_confidence {
   foreach my $transcript (@$transcripts) {
     # creating this because we're really only interested in cds introns and the API call for getting all cds introns
     # is exteremly costly cos of joins
+    unless($transcript->translateable_seq) {
+      say "Skipping transcript due to lack of translateable seq";
+      next;
+    }
+
     my $cds_transcript = $self->create_cds_transcript($transcript);
     foreach my $exon (@{$cds_transcript->get_all_Exons()}) {
       if($exon->length > $max_cds_exon_size || $exon->length < $min_cds_exon_size) {

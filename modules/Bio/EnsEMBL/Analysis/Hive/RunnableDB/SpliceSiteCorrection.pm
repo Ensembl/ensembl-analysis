@@ -575,8 +575,6 @@ sub fix_exons {
     } # foreach my $intron (@$introns)
 
 
-   say "DUMPER: ".Dumper($overlapping_combined_exon_hash);
-
     my $new_exons = [];
     foreach my $exon (@$exons) {
       # If the previous step deleted exons, we need to check that the exon actually exists in the original array
