@@ -76,37 +76,40 @@ sub fetch_input {
   my ($self) = @_;
 
   say "Fetching input";
-  my $target_dba = $self->hrdb_get_dba($self->param('target_db'));
-  $self->hrdb_set_con($target_dba,'target_db');
+#  my $target_dba = $self->hrdb_get_dba($self->param('target_db'));
+#  $self->hrdb_set_con($target_dba,'target_db');
 }
 
 
 sub run {
   my ($self) = @_;
 
-  my $target_dba = $self->hrdb_get_con('target_db');
+  my $input_dbs = $self->param_required('input_dbs');
 
   my $seq_region_names = {};
   my $exon_string_hash = {};
-  my $seq_region_sql = "SELECT seq_region_id,name FROM seq_region";
-  my $sth = $target_dba->dbc->prepare($seq_region_sql);
-  $sth->execute();
-  while(my @seq_region_array = $sth->fetchrow_array) {
-    $seq_region_names->{$seq_region_array[0]} = $seq_region_array[1];
-  }
+  foreach my $input_id (@$input_dbs) {
+    my $target_dba = $self->hrdb_get_dba($input_id);
+    my $seq_region_sql = "SELECT seq_region_id,name FROM seq_region";
+    my $sth = $target_dba->dbc->prepare($seq_region_sql);
+    $sth->execute();
+    while(my @seq_region_array = $sth->fetchrow_array) {
+      $seq_region_names->{$seq_region_array[0]} = $seq_region_array[1];
+    }
 
-  my $exon_sql = "SELECT seq_region_start,seq_region_end,seq_region_strand,seq_region_id FROM exon";
-  $sth = $target_dba->dbc->prepare($exon_sql);
-  $sth->execute();
-  while(my @exon_array = $sth->fetchrow_array) {
-    my ($seq_region_start,$seq_region_end,$seq_region_strand,$seq_region_id) = @exon_array;
-    my $seq_region_name = $seq_region_names->{$seq_region_id};
-    my $exon_string = $seq_region_start.":".$seq_region_end.":".$seq_region_strand;
+    my $exon_sql = "SELECT seq_region_start,seq_region_end,seq_region_strand,seq_region_id FROM exon";
+    $sth = $target_dba->dbc->prepare($exon_sql);
+    $sth->execute();
+    while(my @exon_array = $sth->fetchrow_array) {
+      my ($seq_region_start,$seq_region_end,$seq_region_strand,$seq_region_id) = @exon_array;
+      my $seq_region_name = $seq_region_names->{$seq_region_id};
+      my $exon_string = $seq_region_start.":".$seq_region_end.":".$seq_region_strand;
 
-    if($exon_string_hash->{$seq_region_name}->{$exon_string}) {
-      $exon_string_hash->{$seq_region_name}->{$exon_string} += 1;
-    } else {
-      $exon_string_hash->{$seq_region_name}->{$exon_string} = 1;
+      if($exon_string_hash->{$seq_region_name}->{$exon_string}) {
+        $exon_string_hash->{$seq_region_name}->{$exon_string} += 1;
+      } else {
+        $exon_string_hash->{$seq_region_name}->{$exon_string} = 1;
+      }
     }
   }
 
