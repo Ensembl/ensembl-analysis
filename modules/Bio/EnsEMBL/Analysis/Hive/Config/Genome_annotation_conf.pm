@@ -2088,7 +2088,7 @@ sub pipeline_analyses {
         -parameters => {
                          'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmask -in '.$self->o('softmasked_genome_file').' -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.$self->o('softmasked_genome_file').'.asnb;makeblastdb -in '.$self->o('softmasked_genome_file').' -dbtype nucl -parse_seqids -mask_data '.$self->o('softmasked_genome_file').'.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.$self->o('softmasked_genome_file').';fi',
                        },
-        -rc_name    => '3GB',
+        -rc_name    => '5GB',
         -flow_into => {
           1 => ['create_reheadered_softmasked_file'],
         },
@@ -2584,7 +2584,7 @@ sub pipeline_analyses {
                          output_file => catfile($self->o('output_path'), 'core_bak.sql.gz'),
                          dump_options => $self->o('mysql_dump_options'),
                        },
-        -rc_name    => 'default',
+        -rc_name    => '2GB',
         -flow_into => { 1 => ['assembly_loading_report','create_selected_projection_db'] },
       },
 
@@ -2630,7 +2630,7 @@ sub pipeline_analyses {
           coord_system_version => '#assembly_name#',
           email => $self->o('email_address'),
         },
-        -rc_name => '4GB',
+        -rc_name => '10GB',
         -flow_into => {
           1 =>['repeatmodeler_coverage'],
         },
@@ -2790,7 +2790,7 @@ sub pipeline_analyses {
         -flow_into => {
                         2 => ['cesar'],
                       },
-         -rc_name    => '3GB',
+         -rc_name    => '5GB',
       },
 
       {
@@ -2915,7 +2915,7 @@ sub pipeline_analyses {
           update_gene_biotype => 1,
           target_db => $self->o('projection_db'),
         },
-        -rc_name    => 'default',
+        -rc_name    => '2GB',
         -flow_into => {
           1 => ['flag_problematic_projections'],
 #          When the realign part is fix, the line above needs to be deleted and the lines below uncommented
@@ -4029,7 +4029,7 @@ sub pipeline_analyses {
           biotype => 'seleno_other',
           missmatch_allowed => 10,
         },
-        -rc_name          => '2GB',
+        -rc_name          => '3GB',
       },
 
 
@@ -5130,7 +5130,7 @@ sub pipeline_analyses {
                     output_dir => $self->o('output_path'),
         },
         -hive_capacity => 900,
-        -rc_name    => 'transcript_finalisation',
+        -rc_name    => '5GB',
         -flow_into => { '-1' => 'run_cmsearch_highmem', '-2' => 'run_cmsearch_highmem'},
       },
 
@@ -7563,7 +7563,7 @@ sub pipeline_analyses {
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
                        },
 
-	     -rc_name    => '15GB',
+	     -rc_name    => '30GB',
 	     -flow_into => {
 			    1 => ['format_blast_db'],
                       },
@@ -7759,7 +7759,7 @@ sub pipeline_analyses {
                                ." -dnadbport ".$self->o('dna_db','-port'),
                      },
         -max_retry_count => 0,
-        -rc_name => 'default',
+        -rc_name => '2GB',
         -flow_into => {
                         '1' => ['final_db_sanity_checks'],
                       },
@@ -7931,7 +7931,7 @@ sub pipeline_analyses {
                          target_db => $self->o('reference_db'),
                          copy_biotypes_to_ignore => $self->o('copy_biotypes_to_ignore'),
                        },
-        -rc_name    => 'default',
+        -rc_name    => '1GB',
       },
 
 
@@ -8777,7 +8777,7 @@ sub pipeline_analyses {
           bedtools => $self->o('bedtools'),
           working_dir => $self->o('merge_dir'),
         },
-        -rc_name => '8GB',
+        -rc_name => '40GB',
         -flow_into  => {
           1 => ['bedgrap2bigwig_himem'],
         },
