@@ -12,12 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import time
+import sys
+sys.path.append('/hps/nobackup2/production/ensembl/fergal/coding/gbiab/python_threading/')
+
 import argparse
 import os
 import shutil
 import subprocess
 import glob
-import csv
+import re
+import multiprocessing
+import gbiab_multiprocess
+
+
 
 def create_dir(main_output_dir,dir_name):
 
@@ -218,12 +227,15 @@ def run_minimap2_align(minimap2_path,main_output_dir,long_read_fastq_dir,genome_
 
 def run_augustus_predict(augustus_path,main_output_dir,genome_file,num_threads):
 
+  min_seq_length = 1000
+
   if not augustus_path:
     augustus_path = 'augustus'
 
   check_exe(augustus_path)
 
   augustus_dir = create_dir(main_output_dir,'augustus_output')
+  augustus_genome_dir = create_dir(augustus_dir,'genome_dir')
   augustus_evidence_dir = create_dir(augustus_dir,'evidence')
   augustus_hints_file = os.path.join(augustus_evidence_dir,'augustus_hints.gff')
   star_dir = os.path.join(main_output_dir,'star_output')
@@ -233,10 +245,79 @@ def run_augustus_predict(augustus_path,main_output_dir,genome_file,num_threads):
     print("Found a Star output dir, generating hints from any .sj.tab files")
     splice_junction_to_gff(star_dir,augustus_hints_file)
 
-  augustus_cmd = [augustus_path,'--species=human',('--hintsfile=' + augustus_hints_file),'--UTR=on','--alternatives-from-evidence=true','--allow_hinted_splicesites=atac',('--extrinsicCfgFile=' + '/homes/thibaut/src/Augustus/config/extrinsic/extrinsic.M.RM.E.W.P.cfg'),genome_file]
-  print("Running Augustus with the following command")
-  print(' '.join(augustus_cmd))
-  subprocess.run(augustus_cmd)
+  print("Splitting the genome into separate files for Augustus. Will ingore sequences of less than",min_seq_length,"in length")
+#  split_genome(genome_file,augustus_genome_dir,min_seq_length)
+
+  generic_augustus_cmd = [augustus_path,'--species=human',('--hintsfile=' + augustus_hints_file),'--UTR=on','--alternatives-from-evidence=true','--allow_hinted_splicesites=atac',('--extrinsicCfgFile=' + '/homes/thibaut/src/Augustus/config/extrinsic/extrinsic.M.RM.E.W.P.cfg')]
+  pool = multiprocessing.Pool(int(num_threads))
+  tasks = []
+  for seq_file in glob.glob(augustus_genome_dir + "/*.split.fa"):
+    augustus_forward = generic_augustus_cmd.copy()
+    augustus_forward.append('--strand=forward')
+    augustus_forward.append(seq_file)
+#    augustus_forward.append('>')
+#    augustus_forward.append('> ' + seq_file + '.forward.gff')
+#    print(augustus_forward)
+    augustus_backward = generic_augustus_cmd.copy()
+    augustus_backward.append('--strand=backward')
+    augustus_backward.append(seq_file)
+#    augustus_backward.append('>')
+ #   augustus_backward.append(seq_file + '.backward.gff')
+
+#    print("Augustus forward command:")
+#    print(' '.join(augustus_forward))
+#    print("Augustus backward command:")
+#    print(' '.join(augustus_backward))
+
+#    tasks.append(augustus_forward)
+#    tasks.append(augustus_backward)
+#  results = [pool.apply_async(test_mulit, t) for t in tasks]
+
+#    pool.apply_async(test_mulit, args=(augustus_forward))
+#    i = 10
+    # NB!!!!! call should be args=(augustus_forward,), removing the ',' seems to lead to the method not getting called
+    pool.apply_async(multiprocess_augustus, args=(augustus_forward,(seq_file + '.forward.gff'),))
+    pool.apply_async(multiprocess_augustus, args=(augustus_backward,(seq_file + '.backward.gff'),))
+#    results = pool.apply_async(test_mulit, args=(augustus_forward), callback=collect_result)
+#    results = pool.apply_async(test_mulit, args=(augustus_backward), callback=collect_result)
+
+  pool.close()
+  pool.join()
+
+#  augustus_cmd = [augustus_path,'--species=human',('--hintsfile=' + augustus_hints_file),'--UTR=on','--alternatives-from-evidence=true','--allow_hinted_splicesites=atac',('--extrinsicCfgFile=' + '/homes/thibaut/src/Augustus/config/extrinsic/extrinsic.M.RM.E.W.P.cfg'),genome_file]
+#  print("Running Augustus with the following command")
+#  print(' '.join(augustus_cmd))
+#  subprocess.run(augustus_cmd)
+
+#results = []
+#def collect_result(result):
+#    global results
+#    results.append(result)
+
+
+def multiprocess_augustus(cmd,output_file):
+
+#  format = "%(asctime)s: %(message)s"
+#  logging.basicConfig(format=format, level=logging.INFO,
+#                      datefmt="%H:%M:%S")
+
+#  logging.info("Subprocess: starting", cmd)
+
+#  file_out = open('/hps/nobackup2/production/ensembl/fergal/coding/gbiab/python_threading/testcheck.tct','w+')
+#  file_out.write("TEST!!!!!")
+#  file_out.close()
+
+  file_out = open(output_file,'w+')
+  print('Running Augustus with the following command:')
+  print(' '.join(cmd))
+  print('Output will be directed to:')
+  print(output_file)
+  subprocess.run(cmd, stdout=file_out)
+  file_out.close()
+
+#  logging.info("Subprocess: fishi", cmd)
+
+#  return(cmd)
 
 
 def splice_junction_to_gff(input_dir,augustus_hints_file):
@@ -250,19 +331,126 @@ def splice_junction_to_gff(input_dir,augustus_hints_file):
       elements = line.split('\t')
       strand = '+'
       # If the strand is undefined then skip, Augustus expects a strand
-      if(elements[3] == '0'):
+      if elements[3] == '0':
         continue;
-      elif(elements[3] == '2'):
+      elif elements[3] == '2':
         strand = '-'
 
+      junction_length = int(elements[2]) - int(elements[1]) + 1
+      if junction_length < 100:
+        continue;
+
+      if not elements[4] and elements[7] < 10:
+        continue;
+       
       # For the moment treat multimapping and single mapping things as a combined score
       score = float(elements[6]) + float(elements[7]);
       score = str(score)
-      output_line = ['RNASEQ',elements[0],'intron',elements[1],elements[2],score,strand,'.',('src=W;mul=' + score + ';')]
+      output_line = [elements[0],'RNASEQ','intron',elements[1],elements[2],score,strand,'.',('src=W;mul=' + score + ';')]
       sjf_out.write('\t'.join(output_line) + '\n')
 
   sjf_out.close()
 
+
+def split_genome(genome_file,target_dir,min_seq_length):
+  # This is the lazy initial way of just splitting into a dir of files based on the toplevel sequence with a min sequence length filter
+  # There are a couple of obvious improvements:
+  # 1) Instead of making files for all seqs, just process N seqs parallel, where N = num_threads. Then you could clean up the seq file
+  #    after each seq finishes, thus avoiding potentially having thousands of file in a dir
+  # 2) Split the seq into even slices and process these in parallel (which the same cleanup as in 1). For sequences smaller than the
+  #    target slice size, bundle them up together into a single file. Vastly more complex, partially implemented in the splice_genome method
+  #    Allows for more consistency with parallelisation (since there should be no large outliers). But require a mapping strategy for the
+  #    coords and sequence names and all the hints will need to be adjusted
+  current_header = ""
+  current_seq = ""
+
+  file_in = open(genome_file)
+  line = file_in.readline()
+  while line:
+    match = re.search(r'>(.+)$',line)
+    if match and current_header:
+      if len(current_seq) > min_seq_length:
+        file_out_name = os.path.join(target_dir,(current_header + '.split.fa'))
+        if not os.path.exists(file_out_name):
+          file_out = open(file_out_name,'w+')
+          file_out.write(">" + current_header + "\n" + current_seq + "\n")
+          file_out.close()
+
+        else:
+          print("Found an existing split file, so will not overwrite. File found:")
+          print(file_out_name)
+ 
+      current_seq = ""
+      current_header = match.group(1)
+    elif match:
+      current_header = match.group(1)
+    else:
+      current_seq += line.rstrip()
+
+    line = file_in.readline()
+
+  if len(current_seq) > min_seq_length:
+    file_out_name =os.path.join(target_dir,(current_header + '.split.fa'))
+    if not os.path.exists(file_out_name):
+      file_out = open(file_out_name,'w+')
+      file_out.write(">" + current_header + "\n" + current_seq + "\n")
+      file_out.close()
+
+    else:
+      print("Found an existing split file, so will not overwrite. File found:")
+      print(file_out_name)
+
+  file_in.close()
+
+
+def slice_genome(genome_file,target_dir,target_slice_size):
+  # The below is sort of tested
+  # Without the 
+  target_seq_length = 50000000
+  min_seq_length = 1000
+  current_header = ""
+  current_seq = ""
+  seq_dict = {}
+  for line in seq:
+    match = re.search(r'>(.+)$',line)
+    if match and current_header:
+      seq_dict[current_header] = current_seq
+      current_seq = ""
+      current_header = match.group(1)
+    elif match:
+      current_header = match.group(1)
+    else:
+      current_seq += line.rstrip()
+
+  seq_dict[current_header] = current_seq
+
+  seq_buffer = 0
+  file_number = 0
+  file_name = 'genome_file_' + str(file_number)
+
+  for header in seq_dict:
+    seq_iterator = 0
+    seq = seq_dict[header]
+
+    while len(seq) > target_seq_length:
+      file_out = open(os.path.join(target_dir,file_name),"w+")
+      subseq = seq[0:target_seq_length]
+      file_out.write(">" + header + "_sli" + str(seq_iterator) + "\n" + subseq + "\n")
+      file_out.close()
+      seq = seq[target_seq_length:]
+      seq_iterator += 1
+      file_number += 1
+      file_name = 'genome_file_' + str(file_number)
+
+    if len(seq) >= min_seq_length:
+      file_name = 'genome_file_' + str(file_number)
+      file_out = open(os.path.join(file_name),"w+")
+      file_out.write(">" + header + "_sli" + str(seq_iterator) + "\n" + seq + "\n")
+      file_out.close()
+      file_number += 1
+      file_name = 'genome_file_' + str(file_number)
+  
+  
 
 def check_exe(exe_path):
 
