@@ -72,7 +72,7 @@ sub get_content {
   $sth_logic->execute;
   my $http_client = HTTP::Tiny->new;
   my $server = 'http://production-services.ensembl.org';
-  my $ext = '/production_db/api/analysisdescription';
+  my $ext = '/api/production_db/analysisdescription';
   my @rnaseq_logic_names = ();
   while (my $logic_name = $sth_logic->fetchrow) {
     if($logic_name =~ /\_rnaseq_gene$/ || $logic_name =~ /\_rnaseq_bam$/ || $logic_name =~ /\_rnaseq_daf$/ || $logic_name =~ /\_rnaseq_ise$/) {
