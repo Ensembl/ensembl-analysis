@@ -53,12 +53,13 @@ while (my @analysis_data = $sth_logic->fetchrow) {
   my $analysis_id = $analysis_data[1];
 
   my $server = 'http://production-services.ensembl.org';
-  my $ext = '/production_db/api/analysisdescription/';
+  my $ext = '/api/production_db/analysisdescription/';
   my $response = $http->request('GET', $server.$ext.$logic_name, {
 		     headers => {
 		         'Content-type' => 'application/json',
 				},
 		 });
+
   if ($response->{success}){
     my $hash_ref = decode_json($response->{content});
     my %hash = %$hash_ref;
