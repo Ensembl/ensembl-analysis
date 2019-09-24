@@ -26,12 +26,14 @@ use feature 'say';
 
 my ($help, $safe_mode, $dbname, $port, $host);
 
+my $user = $ENV{USER};
 GetOptions(
 	   'help|h'       => \$help,
 	   'safe_mode'    => \$safe_mode,
 	   'dbname=s'     => \$dbname,
 	   'port=s'       => \$port,
 	   'host=s'       => \$host,
+     'user=s'       => \$user,
 );
 
 die &helptext if ( $help );
@@ -91,6 +93,7 @@ sub get_content {
 
     if ($logic_type eq "rnaseq_ise"){
       $content = "{
+                       \"user\": \"".$user."\",
                        \"logic_name\": \"".$rnaseq_logic_name."\",
                        \"description\": \"".$values_dict{'description'}."\",
                        \"display_label\": \"".$values_dict{'display_label'}."\"
@@ -98,6 +101,7 @@ sub get_content {
     }
     else{
       $content = "{
+                      \"user\": \"".$user."\",
                       \"web_data\": {
                            \"data\": {
                                \"zmenu\": \"".$values_dict{'web_data_zmenu'}."\",
@@ -141,7 +145,8 @@ sub get_content {
           content => $content
 							  });
 
-      print "\nFailed to add analyses descriptions for ".$sample_name."!\n" unless $response->{success};
+      print "\nFailed to add analyses descriptions for ".$sample_name."!\n  ".$response->{status}."\n  ".$response->{content}."\n"
+        unless $response->{success};
     }
 
   }# end foreach logic_name
@@ -227,6 +232,7 @@ IMPORTANT: it is strongly recommended that you run this in SAFE MODE and check t
 Usage: perl add_rnaseq_analysis_descriptions.pl -dbname <rnaseq_dbname> -host <host> -port <port>
 
 Options: -safe_mode -> run the script without POSTing to the production database, i.e. print the content that would be POSTed when not run in safe mode
+         -user <production services username>, default to your Unix user name
 
 HELPEND
   return $msg;
