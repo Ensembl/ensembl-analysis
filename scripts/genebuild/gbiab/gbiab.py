@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-import time
-import sys
-sys.path.append('/hps/nobackup2/production/ensembl/fergal/coding/gbiab/python_threading/')
+#import logging
+#import time
+#import sys
+#sys.path.append('/hps/nobackup2/production/ensembl/fergal/coding/gbiab/python_threading/')
 
 import argparse
 import os
@@ -24,7 +24,7 @@ import subprocess
 import glob
 import re
 import multiprocessing
-import gbiab_multiprocess
+#import gbiab_multiprocess
 
 
 
@@ -144,12 +144,15 @@ def run_makeblastdb(makeblastdb_path,masked_genome_file,asnb_file):
   print ('Completed running makeblastdb')
 
 
-def run_star_align(star_path,main_output_dir,short_read_fastq_dir,genome_file,num_threads):
+def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fastq_dir,genome_file,num_threads):
 
   if not star_path:
     star_path = 'star'
 
   check_exe(star_path)
+
+  if not os.path.exists(subsample_script_path):
+    subsample_script_path = 'subsample_fastq.py'
 
   star_dir = create_dir(main_output_dir,'star_output')
   star_tmp_dir = os.path.join(star_dir,'tmp')
@@ -165,6 +168,11 @@ def run_star_align(star_path,main_output_dir,short_read_fastq_dir,genome_file,nu
   for fastq_file in glob.glob(short_read_fastq_dir + "/*.fq"):
     fastq_file_list.append(fastq_file)
 
+  for fastq_file in fastq_file_list:
+    subprocess.run(['python3',subsample_script_path,'--fastq_file',fastq_file])    
+
+  fastq_file_list = check_for_fastq_subsamples(fastq_file_list)
+
   if not fastq_file_list:
     raise IndexError('The list of fastq files is empty. Fastq dir:\n%s' % short_read_fastq_dir) 
 
@@ -175,29 +183,50 @@ def run_star_align(star_path,main_output_dir,short_read_fastq_dir,genome_file,nu
   if not star_index_file:
     raise IOError('The index file does not exist. Expected path:\n%s' % star_index_file)
 
+  # This will pair the files if they have the same prefix and end in _1/_2.fastq or _1/_2.fq
+  fastq_file_list = create_paired_paths(fastq_file_list)
+
   print ('Running Star on the files in the fastq dir')
   for fastq_file_path in fastq_file_list:
     fastq_file_name = os.path.basename(fastq_file_path)
     print ("Processing %s" % fastq_file)
-    subprocess.run([star_path,'--runThreadN',num_threads,'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir])
+    subprocess.run([star_path,'--outSAMstrandField','intronMotif','--runThreadN',num_threads,'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir])
     subprocess.run(['mv',os.path.join(star_dir,'Aligned.out.sam'),os.path.join(star_dir,(fastq_file_name + '.sam'))])
     subprocess.run(['mv',os.path.join(star_dir,'SJ.out.tab'),os.path.join(star_dir,(fastq_file_name + '.sj.tab'))])
 
   print ('Completed running STAR')
 
 
-def run_minimap2_align(minimap2_path,main_output_dir,long_read_fastq_dir,genome_file,num_threads):
+def check_for_fastq_subsamples(fastq_file_list):
+
+  for idx,fastq_path in enumerate(fastq_file_list):
+    subsample_path = fastq_path + ".sub"
+    if os.path.exists(subsample_path):
+      print("Found a subsampled file extension, will use that instead of the original file. Path:")
+      print(subsample_path)
+      fastq_file_list[idx] = subsample_path
+
+  return(fastq_file_list)
+
+
+def run_minimap2_align(minimap2_path,paftools_path,main_output_dir,long_read_fastq_dir,genome_file,num_threads):
 
   if not minimap2_path:
     minimap2_path = 'minimap2'
 
   check_exe(minimap2_path)
 
+  if not paftools_path:
+    paftools_path = '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/misc/paftools.js'
+
+  check_exe(paftools_path)
+
   minimap2_dir = create_dir(main_output_dir,'minimap2_output')
 
   genome_file_name = os.path.basename(genome_file)
   genome_file_index = (genome_file_name + '.mmi')
   minimap2_index_file = os.path.join(minimap2_dir,genome_file_index)
+  minimap2_hints_file = os.path.join(minimap2_dir,'minimap2_hints.gff')
 
   fastq_file_list = []
   for fastq_file in glob.glob(long_read_fastq_dir + "/*.fastq"):
@@ -219,10 +248,74 @@ def run_minimap2_align(minimap2_path,main_output_dir,long_read_fastq_dir,genome_
   print ('Running minimap2 on the files in the long read fastq dir')
   for fastq_file_path in fastq_file_list:
     fastq_file_name = os.path.basename(fastq_file_path)
+    sam_file = os.path.join(minimap2_dir,(fastq_file_name + '.sam'))
+    bed_file = os.path.join(minimap2_dir,(fastq_file_name + '.bed'))
+    bed_file_out = open(bed_file,'w+')
     print ("Processing %s" % fastq_file)
-    subprocess.run([minimap2_path,'-t',num_threads,'--cs','-N','1','-ax','splice:hq','-u','b',minimap2_index_file,fastq_file_path,'-o',os.path.join(minimap2_dir,(fastq_file_name + '.sam'))])
+    subprocess.run([minimap2_path,'-t',num_threads,'--cs','-N','1','-ax','splice:hq','-u','b',minimap2_index_file,fastq_file_path,'-o',sam_file])
+    print("Creating bed file from SAM")
+    subprocess.run([paftools_path,'splice2bed',sam_file],stdout=bed_file_out)
+    bed_file_out.close()
+
+  bed_to_gff(minimap2_dir,minimap2_hints_file)
 
   print ('Completed running minimap2')
+
+def bed_to_gff(input_dir,hints_file):
+
+  gff_out = open(hints_file,"w+")
+  exons_dict = {}
+  for bed_file in glob.glob(input_dir + "/*.bed"):
+    print("Processing file for hints:")
+    print(bed_file)
+    bed_in = open(bed_file)
+    bed_lines = bed_in.readlines()
+    for line in bed_lines:
+      line = line.rstrip()
+      elements = line.split('\t')
+      seq_region_name = elements[0]
+      offset = int(elements[1])
+      hit_name = elements[3]
+      strand = elements[5]
+      block_sizes = elements[10].split(',')
+      block_sizes = list(filter(None, block_sizes))
+      block_starts = elements[11].split(',')
+      block_starts = list(filter(None, block_starts))
+      exons = bed_to_exons(block_sizes,block_starts,offset)
+      for i,element in enumerate(exons):
+        exon_coords = exons[i]
+        exon_key = seq_region_name + ':' + exon_coords[0] + ':' + exon_coords[1] + ':' + strand
+        if exon_key in exons_dict:
+          exons_dict[exon_key][5] += 1
+        else:
+          gff_list = [seq_region_name,'CDNA','exon',exon_coords[0],exon_coords[1],1.0,strand,'.']
+          exons_dict[exon_key] = gff_list
+
+  for exon_key, gff_list in exons_dict.items():
+    gff_list[5] = str(gff_list[5])
+    gff_line = '\t'.join(gff_list) + '\tsrc=W;mul=' + gff_list[5] + ';\n'
+    gff_out.write(gff_line)
+
+  gff_out.close()
+
+  sorted_hints_out = open((hints_file + '.srt'),'w+')
+  subprocess.run(['sort','-k1,1','-k7,7','-k4,4','-k5,5',hints_file],stdout=sorted_hints_out)
+  sorted_hints_out.close()
+
+def bed_to_exons(block_sizes,block_starts,offset):
+  exons = []
+  for i,element in enumerate(block_sizes):
+    block_start = offset + int(block_starts[i]) + 1
+    block_end = block_start + int(block_sizes[i]) - 1;
+
+    if block_end < block_start:
+      print('Warning: block end is less than block start, skipping exon')
+      continue
+
+    exon_coords = [str(block_start),str(block_end)]
+    exons.append(exon_coords)
+
+  return exons
 
 
 def run_augustus_predict(augustus_path,main_output_dir,genome_file,num_threads):
@@ -246,7 +339,7 @@ def run_augustus_predict(augustus_path,main_output_dir,genome_file,num_threads):
     splice_junction_to_gff(star_dir,augustus_hints_file)
 
   print("Splitting the genome into separate files for Augustus. Will ingore sequences of less than",min_seq_length,"in length")
-#  split_genome(genome_file,augustus_genome_dir,min_seq_length)
+  split_genome(genome_file,augustus_genome_dir,min_seq_length)
 
   generic_augustus_cmd = [augustus_path,'--species=human',('--hintsfile=' + augustus_hints_file),'--UTR=on','--alternatives-from-evidence=true','--allow_hinted_splicesites=atac',('--extrinsicCfgFile=' + '/homes/thibaut/src/Augustus/config/extrinsic/extrinsic.M.RM.E.W.P.cfg')]
   pool = multiprocessing.Pool(int(num_threads))
@@ -255,57 +348,19 @@ def run_augustus_predict(augustus_path,main_output_dir,genome_file,num_threads):
     augustus_forward = generic_augustus_cmd.copy()
     augustus_forward.append('--strand=forward')
     augustus_forward.append(seq_file)
-#    augustus_forward.append('>')
-#    augustus_forward.append('> ' + seq_file + '.forward.gff')
-#    print(augustus_forward)
+
     augustus_backward = generic_augustus_cmd.copy()
     augustus_backward.append('--strand=backward')
     augustus_backward.append(seq_file)
-#    augustus_backward.append('>')
- #   augustus_backward.append(seq_file + '.backward.gff')
 
-#    print("Augustus forward command:")
-#    print(' '.join(augustus_forward))
-#    print("Augustus backward command:")
-#    print(' '.join(augustus_backward))
-
-#    tasks.append(augustus_forward)
-#    tasks.append(augustus_backward)
-#  results = [pool.apply_async(test_mulit, t) for t in tasks]
-
-#    pool.apply_async(test_mulit, args=(augustus_forward))
-#    i = 10
-    # NB!!!!! call should be args=(augustus_forward,), removing the ',' seems to lead to the method not getting called
     pool.apply_async(multiprocess_augustus, args=(augustus_forward,(seq_file + '.forward.gff'),))
     pool.apply_async(multiprocess_augustus, args=(augustus_backward,(seq_file + '.backward.gff'),))
-#    results = pool.apply_async(test_mulit, args=(augustus_forward), callback=collect_result)
-#    results = pool.apply_async(test_mulit, args=(augustus_backward), callback=collect_result)
 
   pool.close()
   pool.join()
 
-#  augustus_cmd = [augustus_path,'--species=human',('--hintsfile=' + augustus_hints_file),'--UTR=on','--alternatives-from-evidence=true','--allow_hinted_splicesites=atac',('--extrinsicCfgFile=' + '/homes/thibaut/src/Augustus/config/extrinsic/extrinsic.M.RM.E.W.P.cfg'),genome_file]
-#  print("Running Augustus with the following command")
-#  print(' '.join(augustus_cmd))
-#  subprocess.run(augustus_cmd)
-
-#results = []
-#def collect_result(result):
-#    global results
-#    results.append(result)
-
 
 def multiprocess_augustus(cmd,output_file):
-
-#  format = "%(asctime)s: %(message)s"
-#  logging.basicConfig(format=format, level=logging.INFO,
-#                      datefmt="%H:%M:%S")
-
-#  logging.info("Subprocess: starting", cmd)
-
-#  file_out = open('/hps/nobackup2/production/ensembl/fergal/coding/gbiab/python_threading/testcheck.tct','w+')
-#  file_out.write("TEST!!!!!")
-#  file_out.close()
 
   file_out = open(output_file,'w+')
   print('Running Augustus with the following command:')
@@ -315,14 +370,66 @@ def multiprocess_augustus(cmd,output_file):
   subprocess.run(cmd, stdout=file_out)
   file_out.close()
 
-#  logging.info("Subprocess: fishi", cmd)
 
-#  return(cmd)
+def run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,main_output_dir,genome_file,num_threads):
 
+  max_cufflinks_threads = 6
+  if num_threads > max_cufflinks_threads:
+    print("Reducing threads to " + str(max_cufflinks_threads) + " for cufflinks to keep the memory footprint down")
+    num_threads = max_cufflinks_threads
 
-def splice_junction_to_gff(input_dir,augustus_hints_file):
+  if not cufflinks_path:
+    cufflinks_path = 'cufflinks'
+  check_exe(cufflinks_path)
+
+  if not cuffmerge_path:
+    cuffmerge_path = 'cuffmerge'
+  check_exe(cuffmerge_path)
+
+  if not samtools_path:
+    samtools_path = 'samtools'
+  check_exe(samtools_path)
   
-  sjf_out = open(augustus_hints_file,"a+")
+  cufflinks_dir = create_dir(main_output_dir,'cufflinks_output')
+  star_dir = os.path.join(main_output_dir,'star_output')
+
+  if(os.path.exists(star_dir)):
+    print("Found a Star output dir, will load sam file")
+
+  sam_files = []
+  for sam_file in glob.glob(star_dir + "/*.sam"):
+    sam_files.append(sam_file)
+
+  if not sam_files:
+    raise IndexError('The list of sam files is empty, expected them in Star output dir. Star dir:\n%s' % star_dir)
+
+
+  sorted_sam_files = []
+  for sam_file in sam_files:
+    sam_file_name = os.path.basename(sam_file)
+    sam_temp_file_path = os.path.join(star_dir,(sam_file_name + ".tmp"))
+    sam_sort_file_path = os.path.join(star_dir,(sam_file_name + ".sort"))
+    subprocess.run(['samtools','sort','-@',str(num_threads),'-T',sam_temp_file_path,'-o',sam_sort_file_path,sam_file])
+    sorted_sam_files.append(sam_sort_file_path)
+
+  for sorted_sam_file in sorted_sam_files:
+    sorted_sam_file_name = os.path.basename(sorted_sam_file)
+    transcript_file_name = re.sub('.sam.sort','.gtf',sorted_sam_file_name)
+    skipped_file_name = re.sub('.sam.sort','.skipped.gtf',sorted_sam_file_name)
+    genes_fpkm_file_name = re.sub('.sam.sort','.genes.fpkm',sorted_sam_file_name)
+    isoforms_fpkm_file_name = re.sub('.sam.sort','.isoforms.fpkm',sorted_sam_file_name)
+
+    subprocess.run(cufflinks_path,'--output-dir',cufflinks_dir,'--num-threads',num_threads,sorted_sam_file)
+    subprocess.run('mv',os.path.join(cufflinks_dir,'transcripts.gtf'),os.path.join(cufflinks_dir,transcript_file_name))
+    subprocess.run('mv',os.path.join(cufflinks_dir,'skipped.gtf'),os.path.join(cufflinks_dir,skipped_file_name))
+    subprocess.run('mv',os.path.join(cufflinks_dir,'genes.fpkm_tracking'),os.path.join(cufflinks_dir,genes_fpkm_file_name))
+    subprocess.run('mv',os.path.join(cufflinks_dir,'isoforms.fpkm_tracking'),os.path.join(cufflinks_dir,isoforms_fpkm_file_name))
+
+
+
+def splice_junction_to_gff(input_dir,hints_file):
+  
+  sjf_out = open(hints_file,"w+")
   
   for sj_tab_file in glob.glob(input_dir + "/*.sj.tab"):
     sjf_in = open(sj_tab_file)
@@ -451,6 +558,29 @@ def slice_genome(genome_file,target_dir,target_slice_size):
       file_name = 'genome_file_' + str(file_number)
   
   
+def create_paired_paths(fastq_file_paths):
+  path_dict = {}
+  final_list = []
+
+  for path in fastq_file_paths:
+    match = re.search(r'(.+)_\d+\.(fastq|fq)',path)
+    if not match:
+      print("Could not find _1 or _2 at the end of the prefix for file. Assuming file is not paired:")
+      print(path)
+      final_list.append(path)
+      continue
+
+    prefix = match.group(1)
+    if prefix in path_dict:
+      path_dict[prefix] = path_dict[prefix] + ',' + path
+    else:
+      path_dict[prefix] = path
+
+  for pair in path_dict:
+    final_list.append(path_dict[pair])
+
+  return(final_list)
+
 
 def check_exe(exe_path):
 
@@ -464,7 +594,7 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('--output_dir', help='Path where the output and temp files will write to. Uses current dir by default', required=False)
   parser.add_argument('--genome_file', help='Path to the fasta genome file', required=True)
-  parser.add_argument('--num_threads', help='Number of threads to use', required=False)
+  parser.add_argument('--num_threads', type=int, help='Number of threads to use', required=False)
   parser.add_argument('--run_masking', help='Run Red to find repeats and softmask the genome. Otherwise provide a softmasked genome', required=False)
   parser.add_argument('--red_path', help='Path to Red executable. See http://toolsmith.ens.utulsa.edu', required=False)
   parser.add_argument('--genblast_path', help='Path to GenBlast executable. See http://genome.sfu.ca/genblast/download.html', required=False)
@@ -476,9 +606,16 @@ if __name__ == '__main__':
   parser.add_argument('--short_read_fastq_dir', help='Path to short read fastq dir for running with Star', required=False)
   parser.add_argument('--run_minimap2', help='Run minimap2 for long read alignment', required=False)
   parser.add_argument('--minimap2_path', help='Path to minimap2 for long read alignment', required=False)
+  parser.add_argument('--paftools_path', help='Path to paftools for SAM to BED conversion', required=False)
   parser.add_argument('--long_read_fastq_dir', help='Path to long read fastq dir for running with minimap2', required=False)
   parser.add_argument('--run_augustus', help='Run Augustus with hints for gene/transcript prediction', required=False)
   parser.add_argument('--augustus_path', help='Path to Augustus', required=False)
+  parser.add_argument('--run_cufflinks', help='Run Cufflinks on the results from the STAR alignments', required=False)
+  parser.add_argument('--cufflinks_path', help='Path to Cufflinks', required=False)
+  parser.add_argument('--cuffmerge_path', help='Path to Cuffmerge', required=False)
+  parser.add_argument('--subsample_script_path', help='Path to gbiab subsampling script', required=False)
+  parser.add_argument('--samtools_path', help='Path to subsampling script', required=False)
+
 
   args = parser.parse_args()
 
@@ -497,10 +634,16 @@ if __name__ == '__main__':
   short_read_fastq_dir = args.short_read_fastq_dir
   run_minimap2 = args.run_minimap2
   minimap2_path = args.minimap2_path
+  paftools_path = args.paftools_path
   long_read_fastq_dir = args.long_read_fastq_dir
   run_augustus = args.run_augustus
   augustus_path = args.augustus_path
-  
+  run_cufflinks = args.run_cufflinks
+  cufflinks_path = args.cufflinks_path
+  cuffmerge_path = args.cuffmerge_path
+  subsample_script_path = args.subsample_script_path
+  samtools_path = args.samtools_path
+
   if not os.path.exists(genome_file):
     raise IOError('File does not exist: %s' % genome_file)
 
@@ -533,17 +676,22 @@ if __name__ == '__main__':
   # Run STAR
   if run_star:
      print ("Running Star")
-     run_star_align(star_path,work_dir,short_read_fastq_dir,genome_file,num_threads)
+     run_star_align(star_path,subsample_script_path,work_dir,short_read_fastq_dir,genome_file,num_threads)
 
   # Run minimap2
   if run_minimap2:
      print ("Running minimap2")
-     run_minimap2_align(minimap2_path,work_dir,long_read_fastq_dir,genome_file,num_threads)
+     run_minimap2_align(minimap2_path,paftools_path,work_dir,long_read_fastq_dir,genome_file,num_threads)
 
   # Run Augustus
   if run_augustus:
      print ("Running Augustus")
      run_augustus_predict(augustus_path,work_dir,genome_file,num_threads)
+
+  # Run Augustus
+  if run_cufflinks:
+     print ("Running Cufflinks")
+     run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,work_dir,genome_file,num_threads)
 
   # Do some magic
 
