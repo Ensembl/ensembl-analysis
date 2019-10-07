@@ -8243,7 +8243,7 @@ sub pipeline_analyses {
         -max_retry_count => 0,
         -flow_into => {
                         '1->A' => ['fan_otherfeatures_db', 'fan_rnaseq_db'],
-                        'A->1' => ['update_assembly_name'],},
+                        'A->1' => ['core_assembly_name_update'],},
        },
 
 
@@ -8515,8 +8515,31 @@ sub pipeline_analyses {
         -max_retry_count => 0,
 
         -rc_name    => '4GB',
+        -flow_into  => {
+          1 => ['otherfeatures_assembly_name_update'],
+        },
       },
 
+      {
+        -logic_name => 'otherfeatures_assembly_name_update',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                       cmd => 'perl '.$self->o('assembly_name_script').
+                                ' -user '.$self->o('user').
+                                ' -pass '.$self->o('password').
+                                ' -host '.$self->o('otherfeatures_db','-host').
+                                ' -port '.$self->o('otherfeatures_db','-port').
+                                ' -dbname '.$self->o('otherfeatures_db','-dbname').
+                                ' -driver '.$self->o('hive_driver').
+                                ' -assembly_accession '.$self->o('assembly_accession').
+                                ' -assembly_name '.$self->o('assembly_name').
+                                ' -registry_host '.$self->o('registry_host').
+                                ' -registry_port '.$self->o('registry_port').
+                                ' -registry_db '.$self->o('registry_db'),
+                       },
+
+        -rc_name => 'default',
+       },
 
       {
         -logic_name => 'fan_rnaseq_db',
@@ -8892,11 +8915,35 @@ sub pipeline_analyses {
         -max_retry_count => 0,
 
         -rc_name    => '4GB',
+        -flow_into  => {
+          1 => ['rnaseq_assembly_name_update'],
+        },
       },
 
+      {
+        -logic_name => 'rnaseq_assembly_name_update',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                       cmd => 'perl '.$self->o('assembly_name_script').
+                                ' -user '.$self->o('user').
+                                ' -pass '.$self->o('password').
+                                ' -host '.$self->o('rnaseq_db','-host').
+                                ' -port '.$self->o('rnaseq_db','-port').
+                                ' -dbname '.$self->o('rnaseq_db','-dbname').
+                                ' -driver '.$self->o('hive_driver').
+                                ' -assembly_accession '.$self->o('assembly_accession').
+                                ' -assembly_name '.$self->o('assembly_name').
+                                ' -registry_host '.$self->o('registry_host').
+                                ' -registry_port '.$self->o('registry_port').
+                                ' -registry_db '.$self->o('registry_db').
+                                ' -working_dir '.$self->o('merge_dir'),
+                       },
+
+        -rc_name => 'default',
+       },
 
       {
-        -logic_name => 'update_assembly_name',
+        -logic_name => 'core_assembly_name_update',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => { 
                          cmd => 'perl '.$self->o('assembly_name_script').
