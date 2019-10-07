@@ -8243,7 +8243,7 @@ sub pipeline_analyses {
         -max_retry_count => 0,
         -flow_into => {
                         '1->A' => ['fan_otherfeatures_db', 'fan_rnaseq_db'],
-                        'A->1' => ['update_assembly_name'],},
+                        'A->1' => ['core_assembly_name_update'],},
        },
 
 
@@ -8943,7 +8943,7 @@ sub pipeline_analyses {
        },
 
       {
-        -logic_name => 'update_assembly_name',
+        -logic_name => 'core_assembly_name_update',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => { 
                          cmd => 'perl '.$self->o('assembly_name_script').
