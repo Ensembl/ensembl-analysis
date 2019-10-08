@@ -119,7 +119,7 @@ if __name__ == '__main__':
     print(output_file_pair)
 
   if not subsample_read_limit:
-    subsample_read_limit = 50000000
+    subsample_read_limit = 100000000
     print("subsample_read_limit not set, defaulting to",str(subsample_read_limit))
 
   if not num_threads:

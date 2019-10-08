@@ -12,11 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#import logging
-#import time
-#import sys
-#sys.path.append('/hps/nobackup2/production/ensembl/fergal/coding/gbiab/python_threading/')
-
 import argparse
 import os
 import shutil
@@ -24,8 +19,6 @@ import subprocess
 import glob
 import re
 import multiprocessing
-#import gbiab_multiprocess
-
 
 
 def create_dir(main_output_dir,dir_name):
@@ -168,8 +161,30 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
   for fastq_file in glob.glob(short_read_fastq_dir + "/*.fq"):
     fastq_file_list.append(fastq_file)
 
-  for fastq_file in fastq_file_list:
-    subprocess.run(['python3',subsample_script_path,'--fastq_file',fastq_file])    
+  # This will pair the files if they have the same prefix and end in _1/_2.fastq or _1/_2.fq
+  fastq_file_list = create_paired_paths(fastq_file_list)
+
+  pool = multiprocessing.Pool(int(num_threads))
+  for fastq_files in fastq_file_list:
+    fastq_file = fastq_files[0]
+    fastq_file_pair = ''
+    if(len(fastq_files) == 2):
+      fastq_file_pair = fastq_files[1]
+
+    if fastq_file_pair and os.path.exists(fastq_file + '.sub') and os.path.exists(fastq_file_pair + '.sub'):
+      print("Found an existing .sub files on the fastq path for both members of the pair, will use those instead of subsampling again. Files:")
+      print(fastq_file + '.sub')
+      print(fastq_file_pair + '.sub')
+    elif fastq_file_pair:
+      pool.apply_async(run_subsample_script, args=(fastq_file,fastq_file_pair,subsample_script_path,))
+    elif os.path.exists(fastq_file + '.sub'):
+      print("Found an existing .sub file on the fastq path, will use that instead. File:")
+      print(fastq_file + '.sub')
+    else:
+      pool.apply_async(run_subsample_script, args=(fastq_file,fastq_file_pair,subsample_script_path,))
+
+  pool.close()
+  pool.join()
 
   fastq_file_list = check_for_fastq_subsamples(fastq_file_list)
 
@@ -183,28 +198,55 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
   if not star_index_file:
     raise IOError('The index file does not exist. Expected path:\n%s' % star_index_file)
 
-  # This will pair the files if they have the same prefix and end in _1/_2.fastq or _1/_2.fq
-  fastq_file_list = create_paired_paths(fastq_file_list)
 
   print ('Running Star on the files in the fastq dir')
   for fastq_file_path in fastq_file_list:
+    print(fastq_file_path)
     fastq_file_name = os.path.basename(fastq_file_path)
-    print ("Processing %s" % fastq_file)
-    subprocess.run([star_path,'--outSAMstrandField','intronMotif','--runThreadN',num_threads,'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir])
+    print ("Processing %s" % fastq_file_path)
+    subprocess.run([star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir])
     subprocess.run(['mv',os.path.join(star_dir,'Aligned.out.sam'),os.path.join(star_dir,(fastq_file_name + '.sam'))])
     subprocess.run(['mv',os.path.join(star_dir,'SJ.out.tab'),os.path.join(star_dir,(fastq_file_name + '.sj.tab'))])
 
   print ('Completed running STAR')
 
 
-def check_for_fastq_subsamples(fastq_file_list):
+def run_subsample_script(fastq_file,fastq_file_pair,subsample_script_path):
 
-  for idx,fastq_path in enumerate(fastq_file_list):
-    subsample_path = fastq_path + ".sub"
-    if os.path.exists(subsample_path):
+  if(fastq_file_pair):
+    subprocess.run(['python3',subsample_script_path,'--fastq_file',fastq_file,'--fastq_file_pair',fastq_file_pair])
+  else:
+    subprocess.run(['python3',subsample_script_path,'--fastq_file',fastq_file])
+
+
+def check_for_fastq_subsamples(fastq_file_list):
+  # This should probably removed at some point as it is needlessly complicated
+  # Would be better to just build into the previous step
+  # Mainly just about making sure that if you have subsamples they're used and if you have pairs they're paired
+  for idx,fastq_files in enumerate(fastq_file_list):
+    fastq_file = fastq_files[0]
+    subsample_file = fastq_file + ".sub"
+
+    fastq_file_pair = ''
+    subsample_file_pair = '' 
+    if(len(fastq_files) == 2):
+      fastq_file_pair = fastq_files[1]
+      subsample_file_pair = fastq_file_pair + ".sub"
+ 
+    if os.path.exists(subsample_file):
       print("Found a subsampled file extension, will use that instead of the original file. Path:")
-      print(subsample_path)
-      fastq_file_list[idx] = subsample_path
+      print(subsample_file)
+      fastq_file_list[idx] = subsample_file
+
+    if os.path.exists(subsample_file_pair):
+      print("Found a subsampled paired file extension, will use that instead of the original file. Path:")
+      print(subsample_file_pair)
+      fastq_file_list[idx] = fastq_file_list[idx] + ',' + subsample_file_pair
+    elif fastq_file_pair:
+      fastq_file_list[idx] = fastq_file_list[idx] + ',' + fastq_file_pair
+
+    print("Entry at current index:")
+    print(fastq_file_list[idx])
 
   return(fastq_file_list)
 
@@ -404,26 +446,35 @@ def run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,main_outp
     raise IndexError('The list of sam files is empty, expected them in Star output dir. Star dir:\n%s' % star_dir)
 
 
-  sorted_sam_files = []
+  sorted_bam_files = []
   for sam_file in sam_files:
     sam_file_name = os.path.basename(sam_file)
     sam_temp_file_path = os.path.join(star_dir,(sam_file_name + ".tmp"))
-    sam_sort_file_path = os.path.join(star_dir,(sam_file_name + ".sort"))
-    subprocess.run(['samtools','sort','-@',str(num_threads),'-T',sam_temp_file_path,'-o',sam_sort_file_path,sam_file])
-    sorted_sam_files.append(sam_sort_file_path)
+    bam_sort_file_path = os.path.join(star_dir,re.sub('.sam','.bam',sam_file_name))
 
-  for sorted_sam_file in sorted_sam_files:
-    sorted_sam_file_name = os.path.basename(sorted_sam_file)
-    transcript_file_name = re.sub('.sam.sort','.gtf',sorted_sam_file_name)
-    skipped_file_name = re.sub('.sam.sort','.skipped.gtf',sorted_sam_file_name)
-    genes_fpkm_file_name = re.sub('.sam.sort','.genes.fpkm',sorted_sam_file_name)
-    isoforms_fpkm_file_name = re.sub('.sam.sort','.isoforms.fpkm',sorted_sam_file_name)
+    if os.path.exists(bam_sort_file_path):
+      print("Found an existing bam file, will not sort sam file again. Bam file:")
+      print(bam_sort_file_path)
 
-    subprocess.run(cufflinks_path,'--output-dir',cufflinks_dir,'--num-threads',num_threads,sorted_sam_file)
-    subprocess.run('mv',os.path.join(cufflinks_dir,'transcripts.gtf'),os.path.join(cufflinks_dir,transcript_file_name))
-    subprocess.run('mv',os.path.join(cufflinks_dir,'skipped.gtf'),os.path.join(cufflinks_dir,skipped_file_name))
-    subprocess.run('mv',os.path.join(cufflinks_dir,'genes.fpkm_tracking'),os.path.join(cufflinks_dir,genes_fpkm_file_name))
-    subprocess.run('mv',os.path.join(cufflinks_dir,'isoforms.fpkm_tracking'),os.path.join(cufflinks_dir,isoforms_fpkm_file_name))
+    else:
+      print("Converting samfile into sorted bam file. Bam file:")
+      print(bam_sort_file_path)
+      subprocess.run(['samtools','sort','-@',str(num_threads),'-T',sam_temp_file_path,'-o',bam_sort_file_path,sam_file])
+
+    sorted_bam_files.append(bam_sort_file_path)
+
+  for sorted_bam_file in sorted_bam_files:
+    sorted_bam_file_name = os.path.basename(sorted_bam_file)
+    transcript_file_name = re.sub('.bam','.gtf',sorted_bam_file_name)
+    skipped_file_name = re.sub('.bam','.skipped.gtf',sorted_bam_file_name)
+    genes_fpkm_file_name = re.sub('.bam','.genes.fpkm',sorted_bam_file_name)
+    isoforms_fpkm_file_name = re.sub('.bam','.isoforms.fpkm',sorted_bam_file_name)
+
+    subprocess.run([cufflinks_path,'--output-dir',cufflinks_dir,'--num-threads',str(num_threads),sorted_bam_file])
+    subprocess.run(['mv',os.path.join(cufflinks_dir,'transcripts.gtf'),os.path.join(cufflinks_dir,transcript_file_name)])
+    subprocess.run(['mv',os.path.join(cufflinks_dir,'skipped.gtf'),os.path.join(cufflinks_dir,skipped_file_name)])
+    subprocess.run(['mv',os.path.join(cufflinks_dir,'genes.fpkm_tracking'),os.path.join(cufflinks_dir,genes_fpkm_file_name)])
+    subprocess.run(['mv',os.path.join(cufflinks_dir,'isoforms.fpkm_tracking'),os.path.join(cufflinks_dir,isoforms_fpkm_file_name)])
 
 
 
@@ -572,9 +623,10 @@ def create_paired_paths(fastq_file_paths):
 
     prefix = match.group(1)
     if prefix in path_dict:
-      path_dict[prefix] = path_dict[prefix] + ',' + path
+#      path_dict[prefix] = path_dict[prefix] + ',' + path
+      path_dict[prefix].append(path)
     else:
-      path_dict[prefix] = path
+      path_dict[prefix] = [path]
 
   for pair in path_dict:
     final_list.append(path_dict[pair])
