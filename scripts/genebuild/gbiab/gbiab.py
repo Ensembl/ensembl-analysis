@@ -433,6 +433,8 @@ def run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,main_outp
   check_exe(samtools_path)
   
   cufflinks_dir = create_dir(main_output_dir,'cufflinks_output')
+  cuffmerge_dir = create_dir(cufflinks_dir,'merged_asm')
+  cuffmerge_input_file = os.path.join(cufflinks_dir,'cufflinks_assemblies.txt')
   star_dir = os.path.join(main_output_dir,'star_output')
 
   if(os.path.exists(star_dir)):
@@ -476,6 +478,9 @@ def run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,main_outp
     subprocess.run(['mv',os.path.join(cufflinks_dir,'genes.fpkm_tracking'),os.path.join(cufflinks_dir,genes_fpkm_file_name)])
     subprocess.run(['mv',os.path.join(cufflinks_dir,'isoforms.fpkm_tracking'),os.path.join(cufflinks_dir,isoforms_fpkm_file_name)])
 
+  # Now need to merge
+  subprocess.run(['ls','*.gtf','>',cuffmerge_input_file])
+  subprocess.run([cuffmerge_path,'--ref-sequence',genome_file,'--num-threads',str(num_threads),'-o',cuffmerge_dir,cuffmerge_input_file])
 
 
 def splice_junction_to_gff(input_dir,hints_file):
@@ -740,7 +745,7 @@ if __name__ == '__main__':
      print ("Running Augustus")
      run_augustus_predict(augustus_path,work_dir,genome_file,num_threads)
 
-  # Run Augustus
+  # Run Cufflinks
   if run_cufflinks:
      print ("Running Cufflinks")
      run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,work_dir,genome_file,num_threads)
