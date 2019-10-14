@@ -193,7 +193,7 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
 
   if not os.path.exists(star_index_file):
     print ('Did not find an index file for Star. Will create now')
-    subprocess.run([star_path,'--runThreadN',num_threads,'--runMode','genomeGenerate','--outFileNamePrefix',(star_dir + '/'),'--genomeDir',star_dir,'--genomeFastaFiles',genome_file])
+    subprocess.run([star_path,'--runThreadN',str(num_threads),'--runMode','genomeGenerate','--outFileNamePrefix',(star_dir + '/'),'--genomeDir',star_dir,'--genomeFastaFiles',genome_file])
 
   if not star_index_file:
     raise IOError('The index file does not exist. Expected path:\n%s' % star_index_file)
