@@ -19,6 +19,11 @@ def subsample(fastq_files,output_files,subsample_read_limit,num_threads,compress
 
   range_limit = int(num_lines/4)
 
+
+  if range_limit <= subsample_read_limit:
+    print("Number of reads (" + str(range_limit) + ") is less than the max allowed read count (" + str(subsample_read_limit) + ", no need to subsample")
+    return
+
   random_indices = {}
 
   rand_list = random.sample(range(0,range_limit - 1), subsample_read_limit)
