@@ -526,13 +526,15 @@ sub clade_settings {
       'repbase_library'    => 'mammals',
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
+      'ig_tr_fasta_file'    => 'multispecies_ig_tr.fa',
     },
 
    'marsupials' => {
       'repbase_library'    => 'mammals',
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
-    },
+      'ig_tr_fasta_file'    => 'multispecies_ig_tr.fa',
+},
 
     'aves' => {
       'repbase_library'    => 'Birds',
