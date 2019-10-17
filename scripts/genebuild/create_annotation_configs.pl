@@ -455,6 +455,8 @@ sub parse_assembly_report {
 sub create_config {
   my ($assembly_hash) = @_;
 
+  $assembly_hash->{'compara_registry_file'} = catfile($assembly_hash->{'output_path'},$assembly_hash->{'accession'},"Databases.pm");
+
   foreach my $key (keys(%{$assembly_hash})) {
     say "ASSEMBLY: ". $key." => ".$assembly_hash->{$key};
   }
@@ -479,7 +481,7 @@ sub create_config {
       if($line =~ /\'([^\']+)\'\s*\=\>\s*('[^\']*\')/) {
         my $conf_key = $1;
         my $conf_val = $2;
-        if($assembly_hash->{$conf_key}) {
+        if(defined $assembly_hash->{$conf_key}) {
           my $sub_val = "'".$assembly_hash->{$conf_key}."'";
           $line =~ s/$conf_val/$sub_val/;
         }
@@ -658,8 +660,6 @@ sub custom_load_data {
 
 sub init_pipeline {
     my ($assembly_hash,$hive_directory,$force_init,$fh) = @_;
-
-    my $reg_conf_path = catfile($assembly_hash->{'output_path'},$assembly_hash->{'accession'},"Databases.pm");
 
     chdir($assembly_hash->{'output_path'});
     my $cmd;
