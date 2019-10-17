@@ -70,7 +70,7 @@ sub param_defaults {
     ncbidb => 'nucleotide',
     filetype => 'fasta',
     filemode => 'text',
-    batch_size => 5000,
+    batch_size => 500,
     http_proxy => undef,
     _input_id_name => 'query',
   }
