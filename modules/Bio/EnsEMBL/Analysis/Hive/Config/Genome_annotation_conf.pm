@@ -97,6 +97,7 @@ sub default_options {
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
     'mt_accession'              => undef, # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
+    'compara_registry_file'     => '',
 
     # Keys for custom loading, only set/modify if that's what you're doing
     'skip_genscan_blasts'          => '1',
