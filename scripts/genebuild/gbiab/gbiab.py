@@ -155,15 +155,15 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
   star_index_file = os.path.join(star_dir,'SAindex')
 
   fastq_file_list = []
-  for fastq_file in glob.glob(short_read_fastq_dir + "/*.fastq"):
-    fastq_file_list.append(fastq_file)
+  file_types = ('*.fastq','*.fq','*.fastq.gz','*.fq.gz')
+  for file_type in file_types:
+    fastq_file_list.extend(glob.glob(os.path.join(short_read_fastq_dir,file_type)))
 
-  for fastq_file in glob.glob(short_read_fastq_dir + "/*.fq"):
-    fastq_file_list.append(fastq_file)
-
-  # This will pair the files if they have the same prefix and end in _1/_2.fastq or _1/_2.fq
+  # This works out if the files are paired or not
   fastq_file_list = create_paired_paths(fastq_file_list)
 
+
+  # Subsamples in parallel
   pool = multiprocessing.Pool(int(num_threads))
   for fastq_files in fastq_file_list:
     fastq_file = fastq_files[0]
@@ -203,8 +203,17 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
   for fastq_file_path in fastq_file_list:
     print(fastq_file_path)
     fastq_file_name = os.path.basename(fastq_file_path)
+    check_compression= re.search(r'.gz$',fastq_file_name)
     print ("Processing %s" % fastq_file_path)
-    subprocess.run([star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir])
+
+    star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir]
+
+    if check_compression:
+      star_command.append('--readFilesCommand')
+      star_command.append('gunzip')
+      star_command.append('-c')
+
+    subprocess.run(star_command)
     subprocess.run(['mv',os.path.join(star_dir,'Aligned.out.sam'),os.path.join(star_dir,(fastq_file_name + '.sam'))])
     subprocess.run(['mv',os.path.join(star_dir,'SJ.out.tab'),os.path.join(star_dir,(fastq_file_name + '.sj.tab'))])
 
@@ -233,17 +242,21 @@ def check_for_fastq_subsamples(fastq_file_list):
       fastq_file_pair = fastq_files[1]
       subsample_file_pair = fastq_file_pair + ".sub"
  
+    # This bit will replace the list entry with a string, don't need a list after this function for each pair/file
     if os.path.exists(subsample_file):
       print("Found a subsampled file extension, will use that instead of the original file. Path:")
       print(subsample_file)
       fastq_file_list[idx] = subsample_file
+    else:
+      fastq_file_list[idx] = fastq_file
 
+    # This bit just concats the paired file (or subsampled paired file) if it exists
     if os.path.exists(subsample_file_pair):
       print("Found a subsampled paired file extension, will use that instead of the original file. Path:")
       print(subsample_file_pair)
-      fastq_file_list[idx] = fastq_file_list[idx] + ',' + subsample_file_pair
+      fastq_file_list[idx] = subsample_file + ',' + subsample_file_pair
     elif fastq_file_pair:
-      fastq_file_list[idx] = fastq_file_list[idx] + ',' + fastq_file_pair
+      fastq_file_list[idx] = fastq_file + ',' + fastq_file_pair
 
     print("Entry at current index:")
     print(fastq_file_list[idx])
