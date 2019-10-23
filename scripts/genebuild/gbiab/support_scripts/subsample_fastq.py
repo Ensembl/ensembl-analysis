@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 import random
 import multiprocessing
 import gzip
@@ -11,6 +12,11 @@ def subsample(fastq_files,output_files,subsample_read_limit,num_threads,compress
   output_file = output_files[0]
   output_file_pair = output_files[1]
 
+  check_compression = re.search(r'\.gz$',fastq_file)
+  if check_compression:
+    print("Found a .gz extension, so assuming compression")
+    compressed = 1
+
   # Count the file to begin with
   if compressed:
     num_lines = sum(1 for line in gzip.open(fastq_file))
@@ -21,7 +27,7 @@ def subsample(fastq_files,output_files,subsample_read_limit,num_threads,compress
 
 
   if range_limit <= subsample_read_limit:
-    print("Number of reads (" + str(range_limit) + ") is less than the max allowed read count (" + str(subsample_read_limit) + ", no need to subsample")
+    print("Number of reads (" + str(range_limit) + ") is less than the max allowed read count (" + str(subsample_read_limit) + "), no need to subsample")
     return
 
   random_indices = {}

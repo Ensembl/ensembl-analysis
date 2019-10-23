@@ -434,15 +434,15 @@ def run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,main_outp
     num_threads = max_cufflinks_threads
 
   if not cufflinks_path:
-    cufflinks_path = 'cufflinks'
+    cufflinks_path = shutil.which('cufflinks')
   check_exe(cufflinks_path)
 
   if not cuffmerge_path:
-    cuffmerge_path = 'cuffmerge'
+    cuffmerge_path = shutil.which('cuffmerge')
   check_exe(cuffmerge_path)
 
   if not samtools_path:
-    samtools_path = 'samtools'
+    samtools_path = shutil.which('samtools')
   check_exe(samtools_path)
   
   cufflinks_dir = create_dir(main_output_dir,'cufflinks_output')
@@ -492,8 +492,15 @@ def run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,main_outp
     subprocess.run(['mv',os.path.join(cufflinks_dir,'isoforms.fpkm_tracking'),os.path.join(cufflinks_dir,isoforms_fpkm_file_name)])
 
   # Now need to merge
-  subprocess.run(['ls','*.gtf','>',cuffmerge_input_file])
-  subprocess.run([cuffmerge_path,'--ref-sequence',genome_file,'--num-threads',str(num_threads),'-o',cuffmerge_dir,cuffmerge_input_file])
+  print("Creating cuffmerge input file: " + cuffmerge_input_file)
+
+  # Note that I'm writing the subprocess this way because python seems to have issues with wildcards in subprocess.run and this
+  # was the answer I found most often from googling
+  gtf_list_cmd = 'ls ' + os.path.join(cufflinks_dir,'*.gtf') + ' | grep -v ".skipped." >' + cuffmerge_input_file
+  gtf_list_cmd = subprocess.Popen(gtf_list_cmd,shell=True)
+  gtf_list_cmd.wait()
+
+  subprocess.run(['python2.7',cuffmerge_path,'-s',genome_file,'-p',str(num_threads),'-o',cuffmerge_dir,cuffmerge_input_file])
 
 
 def splice_junction_to_gff(input_dir,hints_file):
