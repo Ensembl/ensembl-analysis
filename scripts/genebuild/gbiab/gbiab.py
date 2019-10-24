@@ -503,6 +503,80 @@ def run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,main_outp
   subprocess.run(['python2.7',cuffmerge_path,'-s',genome_file,'-p',str(num_threads),'-o',cuffmerge_dir,cuffmerge_input_file])
 
 
+def run_stringtie_assemble(stringtie_path,samtools_path,main_output_dir,genome_file,num_threads):
+
+  if not stringtie_path:
+    stringtie_path = shutil.which('stringtie')
+  check_exe(stringtie_path)
+
+  if not samtools_path:
+    samtools_path = shutil.which('samtools')
+  check_exe(samtools_path)
+
+  stringtie_dir = create_dir(main_output_dir,'stringtie_output')
+  stringtie_merge_input_file = os.path.join(stringtie_dir,'stringtie_assemblies.txt')
+  stringtie_merge_output_file = os.path.join(stringtie_dir,'stringtie_merge.gtf')
+  star_dir = os.path.join(main_output_dir,'star_output')
+
+  if(os.path.exists(star_dir)):
+    print("Found a Star output dir, will load sam file")
+
+  sam_files = []
+  for sam_file in glob.glob(star_dir + "/*.sam"):
+    sam_files.append(sam_file)
+
+  if not sam_files:
+    raise IndexError('The list of sam files is empty, expected them in Star output dir. Star dir:\n%s' % star_dir)
+
+  sorted_bam_files = []
+  for sam_file in sam_files:
+    sam_file_name = os.path.basename(sam_file)
+    sam_temp_file_path = os.path.join(star_dir,(sam_file_name + ".tmp"))
+    bam_sort_file_path = os.path.join(star_dir,re.sub('.sam','.bam',sam_file_name))
+
+    if os.path.exists(bam_sort_file_path):
+      print("Found an existing bam file, will not sort sam file again. Bam file:")
+      print(bam_sort_file_path)
+
+    else:
+      print("Converting samfile into sorted bam file. Bam file:")
+      print(bam_sort_file_path)
+      subprocess.run(['samtools','sort','-@',str(num_threads),'-T',sam_temp_file_path,'-o',bam_sort_file_path,sam_file])
+
+    sorted_bam_files.append(bam_sort_file_path)
+
+  for sorted_bam_file in sorted_bam_files:
+    sorted_bam_file_name = os.path.basename(sorted_bam_file)
+    transcript_file_name = re.sub('.bam','.gtf',sorted_bam_file_name)
+    transcript_file_path = os.path.join(stringtie_dir,transcript_file_name)
+
+    if os.path.exists(transcript_file_path):
+      print("Found an existing stringtie gtf file, will not overwrite. File found:")
+      print(transcript_file_path)
+    else:
+      print("Running Stringtie on: " + sorted_bam_file_name)
+      print("Writing output to: " + transcript_file_path)
+      subprocess.run([stringtie_path,sorted_bam_file,'-o',transcript_file_path,'-p',str(num_threads)])
+
+  # Now need to merge
+  print("Creating Stringtie merge input file: " + stringtie_merge_input_file)
+
+  # Note that I'm writing the subprocess this way because python seems to have issues with wildcards in subprocess.run and this
+  # was the answer I found most often from googling
+  gtf_list_cmd = 'ls ' + os.path.join(stringtie_dir,'*.gtf') + ' | grep -v "stringtie_merge.gtf" >' + stringtie_merge_input_file
+  gtf_list_cmd = subprocess.Popen(gtf_list_cmd,shell=True)
+  gtf_list_cmd.wait()
+
+  if os.path.exists(stringtie_merge_output_file):
+    print("Found an existing stringtie merge file, will not overwrite. File found:")
+    print(stringtie_merge_output_file)
+  else:
+    print("Merging Stringtie results. Writing to the following file:")
+    print(stringtie_merge_output_file)
+    # Note, I'm not sure stringtie merge actually uses threads, but it doesn't complain if -p is passed in
+    subprocess.run([stringtie_path,'--merge','-p',str(num_threads),'-o',stringtie_merge_output_file,stringtie_merge_input_file])
+
+
 def splice_junction_to_gff(input_dir,hints_file):
   
   sjf_out = open(hints_file,"w+")
@@ -690,6 +764,8 @@ if __name__ == '__main__':
   parser.add_argument('--run_cufflinks', help='Run Cufflinks on the results from the STAR alignments', required=False)
   parser.add_argument('--cufflinks_path', help='Path to Cufflinks', required=False)
   parser.add_argument('--cuffmerge_path', help='Path to Cuffmerge', required=False)
+  parser.add_argument('--run_stringtie', help='Run Stringtie on the results from the STAR alignments', required=False)
+  parser.add_argument('--stringtie_path', help='Path to Stringtie', required=False)
   parser.add_argument('--subsample_script_path', help='Path to gbiab subsampling script', required=False)
   parser.add_argument('--samtools_path', help='Path to subsampling script', required=False)
 
@@ -718,6 +794,8 @@ if __name__ == '__main__':
   run_cufflinks = args.run_cufflinks
   cufflinks_path = args.cufflinks_path
   cuffmerge_path = args.cuffmerge_path
+  run_stringtie = args.run_stringtie
+  stringtie_path = args.stringtie_path
   subsample_script_path = args.subsample_script_path
   samtools_path = args.samtools_path
 
@@ -769,6 +847,11 @@ if __name__ == '__main__':
   if run_cufflinks:
      print ("Running Cufflinks")
      run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,work_dir,genome_file,num_threads)
+
+  # Run Stringtie
+  if run_stringtie:
+     print ("Running Stringtie")
+     run_stringtie_assemble(stringtie_path,samtools_path,work_dir,genome_file,num_threads)
 
   # Do some magic
 
