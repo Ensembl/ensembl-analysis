@@ -26,7 +26,7 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::RunnableDB::LayerAnnotation - 
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::RemoveRedundantGenes - 
 
 =head1 SYNOPSIS
 
