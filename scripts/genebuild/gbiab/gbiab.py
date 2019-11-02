@@ -137,7 +137,7 @@ def run_makeblastdb(makeblastdb_path,masked_genome_file,asnb_file):
   print ('Completed running makeblastdb')
 
 
-def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fastq_dir,genome_file,num_threads):
+def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fastq_dir,genome_file,max_reads_per_sample,max_total_reads,num_threads):
 
   if not star_path:
     star_path = 'star'
@@ -161,7 +161,6 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
 
   # This works out if the files are paired or not
   fastq_file_list = create_paired_paths(fastq_file_list)
-
 
   # Subsamples in parallel
   pool = multiprocessing.Pool(int(num_threads))
@@ -198,7 +197,6 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
   if not star_index_file:
     raise IOError('The index file does not exist. Expected path:\n%s' % star_index_file)
 
-
   print ('Running Star on the files in the fastq dir')
   for fastq_file_path in fastq_file_list:
     print(fastq_file_path)
@@ -222,7 +220,7 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
 
 def run_subsample_script(fastq_file,fastq_file_pair,subsample_script_path):
 
-  if(fastq_file_pair):
+  if fastq_file_pair:
     subprocess.run(['python3',subsample_script_path,'--fastq_file',fastq_file,'--fastq_file_pair',fastq_file_pair])
   else:
     subprocess.run(['python3',subsample_script_path,'--fastq_file',fastq_file])
@@ -361,7 +359,7 @@ def bed_to_exons(block_sizes,block_starts,offset):
   exons = []
   for i,element in enumerate(block_sizes):
     block_start = offset + int(block_starts[i]) + 1
-    block_end = block_start + int(block_sizes[i]) - 1;
+    block_end = block_start + int(block_sizes[i]) - 1
 
     if block_end < block_start:
       print('Warning: block end is less than block start, skipping exon')
@@ -485,11 +483,17 @@ def run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,main_outp
     genes_fpkm_file_name = re.sub('.bam','.genes.fpkm',sorted_bam_file_name)
     isoforms_fpkm_file_name = re.sub('.bam','.isoforms.fpkm',sorted_bam_file_name)
 
-    subprocess.run([cufflinks_path,'--output-dir',cufflinks_dir,'--num-threads',str(num_threads),sorted_bam_file])
-    subprocess.run(['mv',os.path.join(cufflinks_dir,'transcripts.gtf'),os.path.join(cufflinks_dir,transcript_file_name)])
-    subprocess.run(['mv',os.path.join(cufflinks_dir,'skipped.gtf'),os.path.join(cufflinks_dir,skipped_file_name)])
-    subprocess.run(['mv',os.path.join(cufflinks_dir,'genes.fpkm_tracking'),os.path.join(cufflinks_dir,genes_fpkm_file_name)])
-    subprocess.run(['mv',os.path.join(cufflinks_dir,'isoforms.fpkm_tracking'),os.path.join(cufflinks_dir,isoforms_fpkm_file_name)])
+    if os.path.exists(os.path.join(cufflinks_dir,transcript_file_name)):
+      print("Found an existing cufflinks gtf file, will not overwrite. File found:")
+      print(os.path.join(cufflinks_dir,transcript_file_name))
+    else:
+      print("Running cufflinks on: " + sorted_bam_file_name)
+      print("Writing output to: " + os.path.join(cufflinks_dir,transcript_file_name))
+      subprocess.run([cufflinks_path,'--output-dir',cufflinks_dir,'--num-threads',str(num_threads),sorted_bam_file])
+      subprocess.run(['mv',os.path.join(cufflinks_dir,'transcripts.gtf'),os.path.join(cufflinks_dir,transcript_file_name)])
+      subprocess.run(['mv',os.path.join(cufflinks_dir,'skipped.gtf'),os.path.join(cufflinks_dir,skipped_file_name)])
+      subprocess.run(['mv',os.path.join(cufflinks_dir,'genes.fpkm_tracking'),os.path.join(cufflinks_dir,genes_fpkm_file_name)])
+      subprocess.run(['mv',os.path.join(cufflinks_dir,'isoforms.fpkm_tracking'),os.path.join(cufflinks_dir,isoforms_fpkm_file_name)])
 
   # Now need to merge
   print("Creating cuffmerge input file: " + cuffmerge_input_file)
@@ -589,19 +593,19 @@ def splice_junction_to_gff(input_dir,hints_file):
       strand = '+'
       # If the strand is undefined then skip, Augustus expects a strand
       if elements[3] == '0':
-        continue;
+        continue
       elif elements[3] == '2':
         strand = '-'
 
       junction_length = int(elements[2]) - int(elements[1]) + 1
       if junction_length < 100:
-        continue;
+        continue
 
       if not elements[4] and elements[7] < 10:
-        continue;
+        continue
        
       # For the moment treat multimapping and single mapping things as a combined score
-      score = float(elements[6]) + float(elements[7]);
+      score = float(elements[6]) + float(elements[7])
       score = str(score)
       output_line = [elements[0],'RNASEQ','intron',elements[1],elements[2],score,strand,'.',('src=W;mul=' + score + ';')]
       sjf_out.write('\t'.join(output_line) + '\n')
@@ -754,6 +758,8 @@ if __name__ == '__main__':
   parser.add_argument('--protein_file', help='Path to a fasta file with protein sequences', required=False)
   parser.add_argument('--run_star', help='Run Star for short read alignment', required=False)
   parser.add_argument('--star_path', help='Path to Star for short read alignment', required=False)
+  parser.add_argument('--max_reads_per_sample', nargs='?', const=100000000, type=int, help='The maximum number of reads to use per sample. Default=100000000', required=False)
+  parser.add_argument('--max_total_reads', nargs='?', const=500000000, type=int, help='The maximum total number of reads', required=False)
   parser.add_argument('--short_read_fastq_dir', help='Path to short read fastq dir for running with Star', required=False)
   parser.add_argument('--run_minimap2', help='Run minimap2 for long read alignment', required=False)
   parser.add_argument('--minimap2_path', help='Path to minimap2 for long read alignment', required=False)
@@ -785,6 +791,8 @@ if __name__ == '__main__':
   run_star = args.run_star
   star_path = args.star_path
   short_read_fastq_dir = args.short_read_fastq_dir
+  max_reads_per_sample = args.max_reads_per_sample
+  max_total_reads = args.max_total_reads
   run_minimap2 = args.run_minimap2
   minimap2_path = args.minimap2_path
   paftools_path = args.paftools_path
@@ -831,7 +839,7 @@ if __name__ == '__main__':
   # Run STAR
   if run_star:
      print ("Running Star")
-     run_star_align(star_path,subsample_script_path,work_dir,short_read_fastq_dir,genome_file,num_threads)
+     run_star_align(star_path,subsample_script_path,work_dir,short_read_fastq_dir,genome_file,max_reads_per_sample,max_total_reads,num_threads)
 
   # Run minimap2
   if run_minimap2:
