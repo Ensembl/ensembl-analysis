@@ -41,9 +41,12 @@ class Gene:
       self.start = transcripts[0].start
       self.end = transcripts[-1].end
     else:
-      transcripts.sort(key=lambda x: x.start, reverse=True)
-      self.end = transcripts[0].start
-      self.start = transcripts[-1].end
+      transcripts.sort(key=lambda x: x.end, reverse=True)
+      self.start = transcripts[-1].start
+      self.end = transcripts[0].end
+
+    if self.start >= self.end:
+      raise Exception("Gene start was >= end, this should not be")
 
     self.strand = strand
     self.location_name = location_name

@@ -41,9 +41,12 @@ class Transcript:
       self.start = exons[0].start
       self.end = exons[-1].end
     else:
-      exons.sort(key=lambda x: x.start, reverse=True)
-      self.end = exons[0].start
-      self.start = exons[-1].end
+      exons.sort(key=lambda x: x.end, reverse=True)
+      self.start = exons[-1].start
+      self.end = exons[0].end
+
+    if self.start >= self.end:
+      raise Exception("Transcript start was >= end, this should not be")
 
     self.strand = strand
     self.location_name = location_name
