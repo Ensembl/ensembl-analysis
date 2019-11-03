@@ -57,3 +57,17 @@ class Gene:
     # Rebuild gene as a result to ensure everything is consistent
     self.transcripts = self.transcripts + transcripts
     self.build_gene(self.transcripts)
+
+
+  def gene_string(self):
+    start = self.start
+    end = self.end
+    if self.strand == '-':
+      start = self.end
+      end = self.start
+
+    gene_string = "gene; start=" + str(start) + "; end=" + str(end) + "; strand='" + self.strand + "'; location='" + self.location_name + "';"
+    for transcript in self.transcripts:
+      gene_string = gene_string + "\n    " + transcript.transcript_string()
+
+    return gene_string

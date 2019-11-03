@@ -25,8 +25,8 @@ class Intron:
     self.internal_identifier = internal_identifier
     self.public_identifier = public_identifier 
 
+
   def build_intron(self, exons):
-     
     if exons[0].start > exons[1].start:
       exons.sort(key=lambda x: x.start)
       print("Left exon start coord > right exon start coord, will swap")
@@ -64,3 +64,18 @@ class Intron:
       return True
     else:
       return False
+
+
+  def intron_string(self, verbose=None):
+    start = self.start
+    end = self.end
+    if self.strand == '-':
+      start = self.end
+      end = self.start
+
+    intron_string = "<" + str(start) + ".." + str(end) + ">"
+
+    if verbose:
+      intron_string = intron_string+ ":" + self.strand + ":" + self.location_name
+
+    return intron_string

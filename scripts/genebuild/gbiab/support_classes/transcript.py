@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from exon import Exon
+from intron import Intron
 
 class Transcript:
 
@@ -45,6 +46,19 @@ class Transcript:
       self.start = exons[-1].start
       self.end = exons[0].end
 
+    # If we have multiple exons then calculate the introns
+    if len(exons) > 1:
+      introns = []
+      for idx,exon in enumerate(exons[:-1]):
+        intron = Intron([exon,exons[idx + 1]])
+        introns.append(intron)
+      if strand == '+':
+        introns.sort(key=lambda x: x.start)
+      else:
+        introns.sort(key=lambda x: x.end, reverse=True)
+      self.introns = introns
+
+
     if self.start >= self.end:
       raise Exception("Transcript start was >= end, this should not be")
 
@@ -68,3 +82,13 @@ class Transcript:
 
     self.sequence = sequence
     return self.sequence
+
+  def transcript_string(self, verbose=None):
+    transcript_string = "transcript; location='" + self.location_name + "'; strand='" + self.strand + "'; structure="
+    intron_count  = len(self.exons) - 1
+    for idx,exon in enumerate(self.exons):
+      transcript_string = transcript_string + exon.exon_string()
+      if idx < intron_count:
+        transcript_string = transcript_string + self.introns[idx].intron_string()
+
+    return transcript_string

@@ -42,3 +42,18 @@ class Exon:
     else:
       sequence_string = sequence.get_sequence()
       return sequence_string
+
+  def exon_string(self, verbose=None):
+
+    start = self.start
+    end = self.end
+    if self.strand == '-':
+      start = self.end
+      end = self.start
+
+    exon_string = "(" + str(start) + ".." + str(end) + ")"
+
+    if verbose:
+      exon_string = exon_string + ":" + self.strand + ":" + self.location_name
+
+    return(exon_string)
