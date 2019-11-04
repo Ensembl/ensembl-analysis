@@ -12,12 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import tempfile
+import subprocess
+import io
+import os
+import re
+
 from exon import Exon
 from intron import Intron
 
 class Transcript:
 
-  def __init__(self, exons, fasta_file=None, internal_identifier=None, public_identifier=None):
+  translate_path = 'translate'
+
+  def __init__(self, exons, fasta_file=None, internal_identifier=None, public_identifier=None, translate_path=None):
 
     self.exons = exons
     self.build_transcript(exons)
@@ -79,9 +87,74 @@ class Transcript:
       sequence = ''
       for exon in self.exons:
         sequence = sequence + exon.get_sequence()
+      self.sequence = sequence
 
-    self.sequence = sequence
     return self.sequence
+
+
+  def compute_translation(self):
+    translations_methonine_required = []
+    translations_methonine_not_required = []
+    translations_methonine_required = self.run_translate(1)
+    translations_methonine_not_required = self.run_translate(0)
+
+    if translations_methonine_required[0][2] < 100 and translations_methonine_not_required[0][2] > (2 * translations_methonine_required[0][2]):
+      self.translations = translations_methonine_not_required
+    else:
+      self.translations = translations_methonine_required
+
+    if len(self.translations) > 0:
+      self.has_translation = 1
+      self.primary_translation = self.translations[0]
+
+    print(self.translations[0][3])
+
+
+  def run_translate(self, require_methonine):
+    translations = []
+    translate_path = Transcript.translate_path
+    sequence = self.get_sequence()
+    with tempfile.NamedTemporaryFile(mode='w+t', delete=False) as sequence_temp_file:
+      sequence_temp_file.writelines(">tempseq\n" + sequence + "\n")
+      sequence_temp_file.close()
+
+      translate_command = []
+      if require_methonine:
+        translate_command = [translate_path, '-m', '-l', '50', sequence_temp_file.name]
+      else:
+        translate_command = [translate_path, '-l', '50', sequence_temp_file.name]
+
+      translate_output = subprocess.Popen(translate_command, stdout=subprocess.PIPE)
+      decoded_translate_output = []
+      longest_frame = None
+      for idx,line in enumerate(io.TextIOWrapper(translate_output.stdout, encoding="utf-8")):
+        decoded_translate_output.append(line.rstrip())
+
+      for idx,line in enumerate(decoded_translate_output):
+        if not re.search(r'^>', line):
+          continue
+
+        match = re.search(r'^>.+ nt (\d+)\.\.(\d+)', line)
+        start = int(match.group(1))
+        end = int(match.group(2))
+        frame = start % 3
+
+        # in this case the translation is on the opposite strand, so ignore
+        if start >= end:
+          continue
+
+        if longest_frame is None:
+          longest_frame = frame
+
+        if frame != longest_frame:
+          continue
+
+        translations.append([start, end, len(decoded_translate_output[idx + 1]), decoded_translate_output[idx + 1]])
+
+      os.remove(sequence_temp_file.name)
+
+    return translations
+
 
   def transcript_string(self, verbose=None):
     transcript_string = "transcript; location='" + self.location_name + "'; strand='" + self.strand + "'; structure="
