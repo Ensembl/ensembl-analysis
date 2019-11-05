@@ -23,6 +23,7 @@ from intron import Intron
 
 class Transcript:
 
+  internal_identifier = 1
   translate_path = 'translate'
 
   def __init__(self, exons, fasta_file=None, internal_identifier=None, public_identifier=None, translate_path=None):
@@ -31,7 +32,11 @@ class Transcript:
     self.build_transcript(exons)
     self.sequence = None
     self.fasta_file = fasta_file      
-    self.internal_identifier = internal_identifier
+    if internal_identifier is not None:
+      self.internal_identifier = internal_identifier
+    else:
+      self.internal_identifier = Transcript.internal_identifier
+      Transcript.internal_identifier += 1
     self.public_identifier = public_identifier 
 
 

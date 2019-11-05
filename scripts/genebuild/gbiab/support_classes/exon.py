@@ -16,6 +16,8 @@ from sequence import Sequence
 
 class Exon:
 
+  internal_identifier = 1
+
   def __init__(self, start, end, strand, location_name, fasta_file=None, sequence=None, internal_identifier=None, public_identifier=None, exon_start_phase=None, exon_end_phase=None):
     self.start = start
     self.end = end
@@ -26,7 +28,11 @@ class Exon:
     self.location_name = location_name
     self.fasta_file = fasta_file
     self.sequence = sequence
-    self.internal_identifier = internal_identifier
+    if internal_identifier is not None:
+      self.internal_identifier = internal_identifier
+    else:
+      self.internal_identifier = Exon.internal_identifier
+      Exon.internal_identifier += 1
     self.public_identifier = public_identifier 
     self.exon_start_phase = exon_start_phase
     self.exon_end_phase = exon_end_phase
@@ -43,6 +49,7 @@ class Exon:
       sequence_string = sequence.get_sequence()
       return sequence_string
 
+
   def exon_string(self, verbose=None):
 
     start = self.start
@@ -56,4 +63,4 @@ class Exon:
     if verbose:
       exon_string = exon_string + ":" + self.strand + ":" + self.location_name
 
-    return(exon_string)
+    return exon_string

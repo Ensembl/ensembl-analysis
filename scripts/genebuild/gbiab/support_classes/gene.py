@@ -16,12 +16,18 @@ from transcript import Transcript
 
 class Gene:
 
+  internal_identifier = 1
+
   def __init__(self, transcripts, fasta_file=None, internal_identifier=None, public_identifier=None):
 
     self.transcripts = transcripts
     self.build_gene(transcripts)
-    self.fasta_file = fasta_file      
-    self.internal_identifier = internal_identifier
+    self.fasta_file = fasta_file
+    if internal_identifier is not None:
+      self.internal_identifier = internal_identifier
+    else:
+      self.internal_identifier = Gene.internal_identifier
+      Gene.internal_identifier += 1
     self.public_identifier = public_identifier 
 
 
