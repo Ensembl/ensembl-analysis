@@ -73,24 +73,48 @@ class GeneAdaptorGTF:
     if gene:
       processed_genes.append(gene)
 
+    return processed_genes
+
 
   def create_gene(self, gene_record):
-    grouped_exons = self.build_and_group_exons(gene_record)
+    gene_data = None
+    transcript_data = {}
+    exon_data = []
+
+    for record_entry in gene_record:
+      unit_type = record_entry[0][2]
+      if unit_type == 'gene':
+        gene_data = record_entry
+      elif unit_type == 'transcript':
+        transcript_data[record_entry[1]['transcript_id']] = record_entry
+      elif unit_type == 'exon':
+        exon_data.append(record_entry)
+
+    grouped_exons = self.build_and_group_exons(exon_data)
     transcripts = []
+    gene_id = None
     for transcript_id, exons in grouped_exons.items():
       print("Building transcript: " + transcript_id)
       transcript = Transcript(exons)
+      transcript.public_identifier = transcript_id
       transcripts.append(transcript)
+      transcript.attributes = transcript_data[transcript_id][1]
+
+      # This is a little clunky, but will do for now. Many gtf files don't have gene entries
+      # so getting the gene id from the exon is the safest method
+      gene_id = exons[0].attributes['gene_id']
 
     gene = Gene(transcripts)
-    print(gene.gene_string())
+    gene.public_identifier = gene_id
+    if gene_data is not None:
+      gene.attributes = gene_data[1]
 
-    return None
+    return gene
 
 
-  def build_and_group_exons(self, gene_record):
+  def build_and_group_exons(self, exon_data):
     grouped_exons = {}
-    for record_entry in gene_record:
+    for record_entry in exon_data:
       elements = record_entry[0]
       attributes = record_entry[1]
       unit_type = elements[2]
@@ -111,8 +135,9 @@ class GeneAdaptorGTF:
         grouped_exons[transcript_id] = []
 
       exon = Exon(int(start), int(end), strand, location_name, self.sequence_fasta_file)
-      print("Exon: " + exon.exon_string())
       exon.attributes = attributes
+      if 'exon_id' in exon.attributes and  exon.attributes['exon_id'] is not None:
+        exon.public_identifier = exon.attributes['exon_id']
 
       grouped_exons[transcript_id].append(exon)
 
@@ -134,3 +159,87 @@ class GeneAdaptorGTF:
       final_attribute_dict[attribute_pair[0]] = attribute_pair[1]
 
     return final_attribute_dict
+
+
+  @staticmethod
+  def write_genes_to_file(genes, output_file):
+    gtf_out = open(output_file, "w")
+    for gene_idx, gene in  enumerate(genes):
+      gene_attributes = {}
+      if hasattr(gene, 'attributes'):
+        gene_attributes = gene.attributes
+
+      if gene.public_identifier is not None:
+        gene_attributes['gene_id'] = gene.public_identifier
+      else:
+        gene_attributes['gene_id'] = gene.internal_identifier
+
+      gene_attribute_string = GeneAdaptorGTF.create_attribute_string(gene_attributes)
+      gtf_out.write(GeneAdaptorGTF.create_feature_entry(gene, 'gene', gene_attribute_string))
+
+      transcripts = gene.transcripts
+      for transcript_idx, transcript in enumerate(transcripts):
+        transcript_attributes = {}
+        if hasattr(transcript, 'attributes'):
+          transcript_attributes = transcript.attributes
+ 
+        transcript_attributes['gene_id'] = gene_attributes['gene_id']
+
+        if transcript.public_identifier is not None:
+          transcript_attributes['transcript_id'] = transcript.public_identifier
+        else:
+          transcript_attributes['transcript_id'] = transcript.internal_identifier
+    
+        transcript_attribute_string = GeneAdaptorGTF.create_attribute_string(transcript_attributes)
+        gtf_out.write(GeneAdaptorGTF.create_feature_entry(transcript, 'transcript', transcript_attribute_string))
+
+        exons = transcript.exons
+        for exon_idx, exon in enumerate(exons):
+          exon_attributes = {}
+          if hasattr(exon, 'attributes'):
+            exon_attributes = exon.attributes
+
+          exon_attributes['gene_id'] = gene_attributes['gene_id']
+          exon_attributes['transcript_id'] = transcript_attributes['transcript_id']
+          exon_attributes['exon_number'] = exon_idx + 1
+
+          if exon.public_identifier is not None:
+            exon_attributes['exon_id'] = exon.public_identifier
+          else:
+            exon_attributes['exon_id'] = exon.internal_identifier
+
+          exon_attribute_string = GeneAdaptorGTF.create_attribute_string(exon_attributes)
+          gtf_out.write(GeneAdaptorGTF.create_feature_entry(exon, 'exon', exon_attribute_string))
+
+    gtf_out.close()
+
+
+  @staticmethod
+  def create_attribute_string(attributes):
+    attribute_string = ''
+    for key, val in attributes.items():
+      attribute_string = attribute_string + str(key) + ' "' + str(val) + '"; '
+      re.sub(r' $', '', attribute_string)
+    return attribute_string
+
+
+  @staticmethod
+  def create_feature_entry(feature, unit_type, attribute_string):
+    location_name = feature.location_name
+    source = 'ensembl'
+    if hasattr(feature, source) and feature.source is not None:
+      source = feature.source
+
+    start = feature.start
+    end = feature.end
+    col_5 = '.'
+    strand = feature.strand
+    phase = '.'
+    if hasattr(feature, phase) and feature.phase is not None:
+      phase = feature.phase
+
+#    if feature.attributes:
+
+    feature_set = [location_name, source, unit_type, str(start), str(end), col_5, strand, phase, attribute_string]
+
+    return "\t".join(feature_set) + "\n"
