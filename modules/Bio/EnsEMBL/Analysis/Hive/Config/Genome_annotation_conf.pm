@@ -487,6 +487,8 @@ sub default_options {
     # in brackets; the name the read number (1, 2) and the
     # extension.
     pairing_regex => '\S+_(\d)\.\S+',
+    # For single-end reads - only need to identify the name and extension
+    single_regex  => '([^.]+)(\.\S+)',
 
     # Do you want to make models for the each individual sample as well
     # as for the pooled samples (1/0)?
