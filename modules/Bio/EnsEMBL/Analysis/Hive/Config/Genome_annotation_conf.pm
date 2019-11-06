@@ -5439,6 +5439,8 @@ sub pipeline_analyses {
           'max_total_reads'     => $self->o('max_total_reads'),
           'rnaseq_summary_file' => $self->o('rnaseq_summary_file'),
           'fastq_dir'           => $self->o('input_dir'),
+	  'pairing_regex'       => $self->o('pairing_regex'),
+	  'single_regex'        => $self->o('single_regex'),
         },
       },
 

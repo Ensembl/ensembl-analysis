@@ -65,6 +65,8 @@ sub fetch_input {
   $self->param_required('rnaseq_summary_file');
   $self->param_required('fastq_dir');
   $self->param_required('iid');
+  $self->param_required('pairing_regex');
+  $self->param_required('single_regex');
 }
 
 
@@ -113,8 +115,8 @@ sub run {
   say "Preparing to split the fastq file";
   my $sample_name;
   my $remainder;
-  my $pairing_regex = '(\S+)(\_\d\.\S+)';
-  my $single_regex = '([^.]+)(\.\S+)';
+  my $pairing_regex = $self->param('pairing_regex');
+  my $single_regex = $self->param('single_regex');
   if ($fastq_file_name =~ /$pairing_regex/) {
       $sample_name = $1;
       $remainder = $2;
