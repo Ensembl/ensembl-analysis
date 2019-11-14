@@ -93,7 +93,7 @@ sub default_options {
     'mapping_db'                => '', # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
     'uniprot_version'           => 'uniprot_2018_07', # What UniProt data dir to use for various analyses
     'vertrna_version'           => '136', # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
-
+    'paired_end_only'           => '1', # Will only use paired-end rnaseq data if 1
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
     'mt_accession'              => undef, # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
@@ -454,8 +454,7 @@ sub default_options {
     # 'rnaseq_summary_file' should always be set. If 'taxon_id' or 'study_accession' are not undef
     # they will be used to retrieve the information from ENA and to create the csv file. In this case,
     # 'file_columns' and 'summary_file_delimiter' should not be changed unless you know what you are doing
-    'study_accession'        => '',
-
+    'study_accession'     => '',
     'max_reads_per_split' => 2500000, # This sets the number of reads to split the fastq files on
     'max_total_reads'     => 200000000, # This is the total number of reads to allow from a single, unsplit file
 
@@ -488,7 +487,8 @@ sub default_options {
     # in brackets; the name the read number (1, 2) and the
     # extension.
     pairing_regex => '\S+_(\d)\.\S+',
-    paired => 1,
+    # For single-end reads - only need to identify the name and extension
+    single_regex  => '([^.]+)(\.\S+)',
 
     # Do you want to make models for the each individual sample as well
     # as for the pooled samples (1/0)?
@@ -1358,6 +1358,7 @@ sub pipeline_analyses {
           study_accession => $self->o('study_accession'),
           taxon_id => $self->o('species_taxon_id'),
           inputfile => $self->o('rnaseq_summary_file'),
+	  paired_end_only => $self->o('paired_end_only'),
         },
 
         -flow_into => {
@@ -5438,6 +5439,8 @@ sub pipeline_analyses {
           'max_total_reads'     => $self->o('max_total_reads'),
           'rnaseq_summary_file' => $self->o('rnaseq_summary_file'),
           'fastq_dir'           => $self->o('input_dir'),
+	  'pairing_regex'       => $self->o('pairing_regex'),
+	  'single_regex'        => $self->o('single_regex'),
         },
       },
 
@@ -5823,7 +5826,7 @@ sub pipeline_analyses {
           max_intron_length => $self->o('maxintron'),
           min_single_exon_length => 1000,
           min_span   =>   1.5,
-          paired => $self->o('paired'),
+          paired => $self->o('paired_end_only'),
           use_ucsc_naming => $self->o('use_ucsc_naming'),
         },
         -rc_name    => '2GB',
@@ -5848,7 +5851,7 @@ sub pipeline_analyses {
           max_intron_length => $self->o('maxintron'),
           min_single_exon_length => 1000,
           min_span   =>   1.5,
-          paired => $self->o('paired'),
+          paired => $self->o('paired_end_only'),
           use_ucsc_naming => $self->o('use_ucsc_naming'),
         },
         -rc_name    => '10GB',
@@ -5873,7 +5876,7 @@ sub pipeline_analyses {
           max_intron_length => $self->o('maxintron'),
           min_single_exon_length => 1000,
           min_span   =>   1.5,
-          paired => $self->o('paired'),
+          paired => $self->o('paired_end_only'),
           use_ucsc_naming => $self->o('use_ucsc_naming'),
         },
         -rc_name    => '30GB',

@@ -482,6 +482,7 @@ sub create_config {
         my $conf_key = $1;
         my $conf_val = $2;
         if(defined $assembly_hash->{$conf_key}) {
+          print "REPLACING ".$conf_key." with ".$assembly_hash->{$conf_key}."\n";
           my $sub_val = "'".$assembly_hash->{$conf_key}."'";
           $line =~ s/$conf_val/$sub_val/;
         }

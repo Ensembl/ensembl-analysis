@@ -102,10 +102,15 @@ sub write_output {
 	my $split_fastq = $input_id->{filename};
 	if ($split_fastq =~ m/_split/){
 	  my @split_parts = split /_/, $split_fastq;
-	  my $suffix = $split_parts[-2];
-	  my @prefix_parts = @split_parts[ 0..$#split_parts-3 ];
-	  my $prefix = join '_', @prefix_parts;
-	  $fastq = $prefix."_".$suffix;
+	  if ($split_fastq =~ m/_0\.fastq/){ #single end filename format
+	    $fastq = $split_parts[0].".fastq.gz";
+       	  }
+	  else{ #paired_end filename format
+	    my $suffix = $split_parts[-2];
+	    my @prefix_parts = @split_parts[ 0..$#split_parts-3 ];
+	    my $prefix = join '_', @prefix_parts;
+	    $fastq = $prefix."_".$suffix;
+	  }
 	}
 	else{
 	  $fastq = $split_fastq;
