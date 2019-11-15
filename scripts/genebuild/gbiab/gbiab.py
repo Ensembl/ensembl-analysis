@@ -851,15 +851,16 @@ if __name__ == '__main__':
      print ("Running Augustus")
      run_augustus_predict(augustus_path,work_dir,genome_file,num_threads)
 
-  # Run Cufflinks
-  if run_cufflinks:
-     print ("Running Cufflinks")
-     run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,work_dir,genome_file,num_threads)
-
   # Run Stringtie
   if run_stringtie:
      print ("Running Stringtie")
      run_stringtie_assemble(stringtie_path,samtools_path,work_dir,genome_file,num_threads)
+
+
+  # Run Cufflinks
+  if run_cufflinks:
+     print ("Running Cufflinks")
+     run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,work_dir,genome_file,num_threads)
 
   # Do some magic
 

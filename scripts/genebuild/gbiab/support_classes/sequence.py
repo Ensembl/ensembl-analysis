@@ -36,7 +36,7 @@ class Sequence:
 
   def get_sequence(self,fasta_file=None):
     start = self.start - 1
-    end = self.end - 1
+    end = self.end
     length = end - start + 1
     strand = self.strand
     location_name = self.location_name

@@ -80,6 +80,7 @@ class GeneAdaptorGTF:
     gene_data = None
     transcript_data = {}
     exon_data = []
+    cds_data = []
 
     for record_entry in gene_record:
       unit_type = record_entry[0][2]
@@ -89,8 +90,11 @@ class GeneAdaptorGTF:
         transcript_data[record_entry[1]['transcript_id']] = record_entry
       elif unit_type == 'exon':
         exon_data.append(record_entry)
+      elif unit_type == 'CDS':
+        cds_data.append(record_entry)
 
     grouped_exons = self.build_and_group_exons(exon_data)
+    grouped_cds_exons = self.build_and_group_exons(cds_data)
     transcripts = []
     gene_id = None
     for transcript_id, exons in grouped_exons.items():
@@ -99,6 +103,9 @@ class GeneAdaptorGTF:
       transcript.public_identifier = transcript_id
       transcripts.append(transcript)
       transcript.attributes = transcript_data[transcript_id][1]
+
+      if transcript_id in grouped_cds_exons:
+        GeneAdaptorGTF.attach_cds(transcript, grouped_cds_exons[transcript_id])
 
       # This is a little clunky, but will do for now. Many gtf files don't have gene entries
       # so getting the gene id from the exon is the safest method
@@ -114,11 +121,12 @@ class GeneAdaptorGTF:
 
   def build_and_group_exons(self, exon_data):
     grouped_exons = {}
+    exon_unit_types = ['exon', 'CDS']
     for record_entry in exon_data:
       elements = record_entry[0]
       attributes = record_entry[1]
       unit_type = elements[2]
-      if unit_type != 'exon':
+      if unit_type not in exon_unit_types:
         continue
       
       location_name = elements[0]
@@ -143,6 +151,35 @@ class GeneAdaptorGTF:
 
     return grouped_exons
 
+
+  def attach_cds(transcript, cds_exons):
+    # Note this sort doesn't reverse on the negative strand, getting the sequence will be
+    # forward strand based regardless, it just makes more sense to sort on ends for the
+    # reverse strand in case there are some oddities in the GTF with overlapping exons
+    if transcript.strand == '+':
+      cds_exons.sort(key=lambda x: x.start)
+      transcript.cds_genomic_start = cds_exons[0].start
+      transcript.cds_genomic_end = cds_exons[-1].end
+    else:
+      cds_exons.sort(key=lambda x: x.end)
+      transcript.cds_genomic_start = cds_exons[0].start
+      transcript.cds_genomic_end = cds_exons[-1].end
+
+# Build a temp transcript with cds exons
+# fetch sequence => cds seq
+# Transcript should have a cds start/end exon index, cds/translation just goes over that range
+# The genomic start/end could be forward strand based since get_sequence would automatically
+# reverse. Regardless the genomic start and end reported back should be in logical order I think..
+# Not sure how to force translate to compute a direct translation. I assume it can
+
+#    temp_transcript = Transcript(cds_exons)
+#    transcript.cds_sequence = temp_transcript.get_sequence()
+#    print("GTF CDS: " + transcript.cds_sequence)
+#    transcript.translation_sequence = Transcript.local_translate(transcript.cds_sequence.upper())
+
+    # Some code to get stop?
+    # One method of getting the stop would be to take the genome end, convert to seq pos and
+    # then get the next three bases (if they exist)
 
   def set_attributes(self, unparsed_attributes):
     final_attribute_dict = {}
@@ -237,8 +274,6 @@ class GeneAdaptorGTF:
     phase = '.'
     if hasattr(feature, phase) and feature.phase is not None:
       phase = feature.phase
-
-#    if feature.attributes:
 
     feature_set = [location_name, source, unit_type, str(start), str(end), col_5, strand, phase, attribute_string]
 

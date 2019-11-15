@@ -17,6 +17,7 @@ import subprocess
 import io
 import os
 import re
+import copy
 
 from exon import Exon
 from intron import Intron
@@ -31,6 +32,11 @@ class Transcript:
     self.exons = exons
     self.build_transcript(exons)
     self.sequence = None
+    self.cds_genomic_start = None
+    self.cds_genomic_end = None
+    self.cds_sequence = None
+    self.translation_sequence = None
+    self.translations = []
     self.fasta_file = fasta_file      
     if internal_identifier is not None:
       self.internal_identifier = internal_identifier
@@ -96,69 +102,216 @@ class Transcript:
 
     return self.sequence
 
+  def get_cds_sequence(self):
+    if self.cds_sequence is None:
+      self.cds_sequence = ''
+#      for exon in self.exons:
+#        sequence = sequence + exon.get_sequence()
+#      self.sequence = sequence
+
+    return self.cds_sequence
+
+  def get_translation_sequence(self):
+    if self.translation_sequence is None and self.cds_genomic_start is not None and self.cds_genomic_end is not None:
+      self.construct_translation(self.cds_genomic_start, self.cds_genomic_end, self.strand, self.exons)
+
+    return self.translation_sequence
+
+
+  def construct_translation(self, genomic_start, genomic_end, strand, exons):
+    # Make a copy of the exons, based on start, then loop over the range of exons that
+    # the cds start and end cover. Then edit the boundaries of the start and end exons
+    # At the moment I've just made a temp transcript with the cds exons and directly
+    # translates that
+    forward_sorted_exons = copy.deepcopy(exons)
+    forward_sorted_exons.sort(key=lambda x: x.start)
+    start_exon_idx = Transcript.get_feature_index(genomic_start, forward_sorted_exons)
+    end_exon_idx = Transcript.get_feature_index(genomic_end, forward_sorted_exons)
+
+    if start_exon_idx is None or end_exon_idx is None:
+      raise Exception("Start or end exon index was not found based on genomic coordinate, this is wrong")
+
+    cds_exons = []
+    for idx in range(start_exon_idx, end_exon_idx + 1):
+      exon = forward_sorted_exons[idx]
+      if idx == start_exon_idx and start_exon_idx == end_exon_idx:
+        exon.sequence = None
+        exon.start = genomic_start
+        exon.end = genomic_end
+        cds_exons.append(exon)
+      elif idx == start_exon_idx:
+        exon.sequence = None
+        exon.start = genomic_start
+        cds_exons.append(exon)
+      elif idx == end_exon_idx:
+        exon.sequence = None
+        exon.end = genomic_end
+        cds_exons.append(exon)
+      else:
+        cds_exons.append(exon)
+
+    tmp_transcript = Transcript(cds_exons)
+    cds_sequence = tmp_transcript.get_sequence().upper()
+
+    self.translation_sequence = Transcript.local_translate(cds_sequence)
+
 
   def compute_translation(self):
     translations_methonine_required = []
     translations_methonine_not_required = []
-    translations_methonine_required = self.run_translate(1)
-    translations_methonine_not_required = self.run_translate(0)
+    translations_methonine_required = Transcript.run_translate(self.get_sequence(), 1)
+    translations_methonine_not_required = Transcript.run_translate(self.get_sequence(), 0)
 
-    if translations_methonine_required[0][2] < 100 and translations_methonine_not_required[0][2] > (2 * translations_methonine_required[0][2]):
-      self.translations = translations_methonine_not_required
-    else:
-      self.translations = translations_methonine_required
+    best_translation_met = None
+    best_translation_no_met = None
+    primary_translation = None
 
-    if len(self.translations) > 0:
-      self.has_translation = 1
-      self.primary_translation = self.translations[0]
+    if len(translations_methonine_required) > 0:
+      best_translation_met = translations_methonine_required[0]
 
-    print(self.translations[0][3])
+    if len(translations_methonine_not_required) > 0:
+      best_translation_no_met = translations_methonine_not_required[0]
+
+    if best_translation_met and best_translation_no_met:
+      if translations_methonine_required[0][2] < 100 and translations_methonine_not_required[0][2] > (2 * translations_methonine_required[0][2]):
+        primary_translation = best_translation_no_met
+      else:
+        primary_translation = best_translation_met
+    elif best_translation_met:
+      primary_translation = best_translation_met
+    elif best_translation_no_met:
+      primary_translation = best_translation_no_met
+
+    if primary_translation is not None:
+      sequence_start = primary_translation[0]
+      sequence_end = primary_translation[1]
+      if self.strand == '+':
+        self.cds_genomic_start = Transcript.sequence_to_genomic_coord(sequence_start, self.exons)
+        self.cds_genomic_end = Transcript.sequence_to_genomic_coord(sequence_end, self.exons)
+      else:
+        self.cds_genomic_start = Transcript.sequence_to_genomic_coord(sequence_end, self.exons)
+        self.cds_genomic_end = Transcript.sequence_to_genomic_coord(sequence_start, self.exons)
+
+    self.translation_sequence = primary_translation[3]
 
 
-  def run_translate(self, require_methonine):
+  @staticmethod
+  def run_translate(sequence, require_methonine=None, min_length=None):
+
+    if require_methonine is None:
+      require_methonine = 1
+    if min_length is None:
+      min_length = 50
+
     translations = []
     translate_path = Transcript.translate_path
-    sequence = self.get_sequence()
     with tempfile.NamedTemporaryFile(mode='w+t', delete=False) as sequence_temp_file:
-      sequence_temp_file.writelines(">tempseq\n" + sequence + "\n")
+      sequence_temp_file.write(">tempseq\n" + sequence + "\n")
       sequence_temp_file.close()
 
-      translate_command = []
+      translate_command = [translate_path]
       if require_methonine:
-        translate_command = [translate_path, '-m', '-l', '50', sequence_temp_file.name]
-      else:
-        translate_command = [translate_path, '-l', '50', sequence_temp_file.name]
+        translate_command.append('-m')
+
+      if min_length:
+        translate_command.append('-l')
+        translate_command.append(str(min_length))
+
+      translate_command.append(sequence_temp_file.name)
 
       translate_output = subprocess.Popen(translate_command, stdout=subprocess.PIPE)
-      decoded_translate_output = []
+
       longest_frame = None
-      for idx,line in enumerate(io.TextIOWrapper(translate_output.stdout, encoding="utf-8")):
-        decoded_translate_output.append(line.rstrip())
+      translate_output_string = ''
+      for idx, line in enumerate(io.TextIOWrapper(translate_output.stdout, encoding="utf-8")):
+        translate_output_string += line
 
-      for idx,line in enumerate(decoded_translate_output):
-        if not re.search(r'^>', line):
-          continue
-
-        match = re.search(r'^>.+ nt (\d+)\.\.(\d+)', line)
+      fasta_regex = '^>.+ nt (\d+)\.\.(\d+)\n(([a-zA-Z\*]+\n)+)'
+      match = re.search(fasta_regex, translate_output_string)
+      while match is not None:
         start = int(match.group(1))
         end = int(match.group(2))
+        translation_sequence = match.group(3)
         frame = start % 3
+
+        translation_sequence = re.sub("\n",'', translation_sequence)
 
         # in this case the translation is on the opposite strand, so ignore
         if start >= end:
+          translate_output_string = re.sub(fasta_regex, '', translate_output_string)
+          match = re.search(fasta_regex, translate_output_string)
           continue
 
-        if longest_frame is None:
-          longest_frame = frame
-
-        if frame != longest_frame:
-          continue
-
-        translations.append([start, end, len(decoded_translate_output[idx + 1]), decoded_translate_output[idx + 1]])
+        translations.append([start, end, len(translation_sequence), translation_sequence])
+        translate_output_string = re.sub(fasta_regex, '', translate_output_string)
+        match = re.search(fasta_regex, translate_output_string)
 
       os.remove(sequence_temp_file.name)
 
     return translations
+
+
+  @staticmethod
+  def get_feature_index(genomic_position, features):
+    for idx, feature in enumerate(features):
+      if genomic_position >= feature.start and genomic_position <= feature.end:
+        return idx
+    return None
+
+
+  @staticmethod
+  def sequence_to_genomic_coord(sequence_position, features, feature_start_offset=None, feature_end_offset=None):
+    # This loops through a set features with an associated sequence to place a pair of sequence coords onto the genome
+    # A couple of straightforward use cases are converting protein and transcript coords to genomic coords
+    # Since the sequence might not cover all features, a feature start and end offset can be provided
+    # For example a CDS sequence might start/end in the middle of an exon and thus the offset is needed
+    combined_length = 0
+    for feature in features:
+      next_combined_length = combined_length + (feature.end - feature.start + 1)
+      if next_combined_length >= sequence_position:
+        remaining_offset = (sequence_position - combined_length) - 1
+        if feature.strand == '+':
+          return feature.start + remaining_offset
+        else:
+          return feature.end - remaining_offset
+
+      combined_length = next_combined_length
+
+    return None
+
+
+  @staticmethod
+  def local_translate(sequence):
+    translation_table = {
+      'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M',
+      'ACA':'T', 'ACC':'T', 'ACG':'T', 'ACT':'T',
+      'AAC':'N', 'AAT':'N', 'AAA':'K', 'AAG':'K',
+      'AGC':'S', 'AGT':'S', 'AGA':'R', 'AGG':'R',
+      'CTA':'L', 'CTC':'L', 'CTG':'L', 'CTT':'L',
+      'CCA':'P', 'CCC':'P', 'CCG':'P', 'CCT':'P',
+      'CAC':'H', 'CAT':'H', 'CAA':'Q', 'CAG':'Q',
+      'CGA':'R', 'CGC':'R', 'CGG':'R', 'CGT':'R',
+      'GTA':'V', 'GTC':'V', 'GTG':'V', 'GTT':'V',
+      'GCA':'A', 'GCC':'A', 'GCG':'A', 'GCT':'A',
+      'GAC':'D', 'GAT':'D', 'GAA':'E', 'GAG':'E',
+      'GGA':'G', 'GGC':'G', 'GGG':'G', 'GGT':'G',
+      'TCA':'S', 'TCC':'S', 'TCG':'S', 'TCT':'S',
+      'TTC':'F', 'TTT':'F', 'TTA':'L', 'TTG':'L',
+      'TAC':'Y', 'TAT':'Y', 'TAA':'*', 'TAG':'*',
+      'TGC':'C', 'TGT':'C', 'TGA':'*', 'TGG':'W',
+    }
+
+    translation = ""
+    if len(sequence) % 3 == 0:
+      for i in range(0, len(sequence), 3):
+        codon = sequence[i:i + 3]
+        translation += translation_table[codon]
+
+    else:
+      raise Exception("Sequence passed in for local translation was not zero mod three")
+
+    return translation
+
 
 
   def transcript_string(self, verbose=None):
