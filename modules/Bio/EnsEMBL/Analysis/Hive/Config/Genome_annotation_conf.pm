@@ -486,7 +486,7 @@ sub default_options {
     # the expression "\S+_(\d)\.\S+".  Need to identify the read number
     # in brackets; the name the read number (1, 2) and the
     # extension.
-    pairing_regex => '\S+_(\d)\.\S+',
+    pairing_regex => '(\S+)(\_\d\.\S+)',
     # For single-end reads - only need to identify the name and extension
     single_regex  => '([^.]+)(\.\S+)',
 
