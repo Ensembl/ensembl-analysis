@@ -22,20 +22,16 @@ use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor;
 
 my $curr_release = $ENV{ENSEMBL_RELEASE};
-#my $curr_release = 97;
-my $prev_release = $curr_release - 1;
 
 # ---------------------- CURRENT COMPARA DATABASE ---------------------------------
 
 my $compara_dbs = {
-#    'compara_curr'   => [ 'mysql-ens-compara-prod-1', 'ensembl_compara_'.$curr_release ],
-    'compara_curr'   => [ 'mysql-ens-mirror-1', 'ensembl_compara_'.$curr_release ],
+    'compara_curr'   => [ 'mysql-ens-sta-1', 'ensembl_compara_'.$curr_release ],
 };
 
 foreach my $alias_name ( keys %$compara_dbs ) {
   my ( $host, $db_name ) = @{ $compara_dbs->{$alias_name} };
-  my ( $user, $pass ) = ( 'ensadmin', $ENV{'ENSADMIN_PSW'} );
-  ( $user, $pass ) = ( 'ensro', '' ) if ( $alias_name  =~ /_prev/ );
+  my ( $user, $pass ) = ( 'ensro', '' );
   Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
             -host => $host,
             -user => $user,
