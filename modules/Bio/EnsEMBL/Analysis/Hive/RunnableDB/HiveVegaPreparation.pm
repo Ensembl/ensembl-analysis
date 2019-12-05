@@ -186,7 +186,7 @@ sub write_output {
 sub readthrough_transcripts_tagged {
   my ($self, $dbhost,$dbport,$dbuser,$dbpass,$dbname) = @_;
 
-  my $readthrough_transcripts_sql = "update transcript_attrib ta, transcript t set ta.attrib_type_id = (select attrib_type_id from attrib_type where code = 'readthrough_tra') where (ta.value like '%read%through%') and ta.transcript_id = t.transcript_id and ta.transcript_id not in (select transcript_id from transcript_attrib where value like '%_stop_codon_rt%');";
+  my $readthrough_transcripts_sql = "update transcript_attrib ta, transcript t set ta.attrib_type_id = (select attrib_type_id from attrib_type where code = 'readthrough_tra') where ta.value like '%read%through%' and ta.transcript_id = t.transcript_id and ta.value not like '%_stop_codon_rt%';";
 
   run_command("mysql -h$dbhost -P$dbport -u$dbuser -p$dbpass -D$dbname -NB -e\"$readthrough_transcripts_sql\"",
               "\n===== STEP 1: Readthrough transcripts tagged =====\n");
