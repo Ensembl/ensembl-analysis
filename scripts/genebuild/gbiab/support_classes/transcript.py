@@ -103,22 +103,24 @@ class Transcript:
     return self.sequence
 
   def get_cds_sequence(self):
-    if self.cds_sequence is None:
-      self.cds_sequence = ''
-#      for exon in self.exons:
-#        sequence = sequence + exon.get_sequence()
-#      self.sequence = sequence
+    if self.cds_sequence is None and self.cds_genomic_start is not None and self.cds_genomic_end is not None:
+      self.construct_cds(self.cds_genomic_start, self.cds_genomic_end, self.strand, self.exons)
 
     return self.cds_sequence
 
+
   def get_translation_sequence(self):
-    if self.translation_sequence is None and self.cds_genomic_start is not None and self.cds_genomic_end is not None:
-      self.construct_translation(self.cds_genomic_start, self.cds_genomic_end, self.strand, self.exons)
+#    if self.translation_sequence is None and self.cds_genomic_start is not None and self.cds_genomic_end is not None:
+#      self.construct_translation(self.cds_genomic_start, self.cds_genomic_end, self.strand, self.exons)
+
+    cds_sequence = self.get_cds_sequence()
+    if cds_sequence is not None:
+      self.construct_translation(cds_sequence)
 
     return self.translation_sequence
 
 
-  def construct_translation(self, genomic_start, genomic_end, strand, exons):
+  def construct_cds(self, genomic_start, genomic_end, strand, exons):
     # Make a copy of the exons, based on start, then loop over the range of exons that
     # the cds start and end cover. Then edit the boundaries of the start and end exons
     # At the moment I've just made a temp transcript with the cds exons and directly
@@ -153,10 +155,20 @@ class Transcript:
     tmp_transcript = Transcript(cds_exons)
     cds_sequence = tmp_transcript.get_sequence().upper()
 
+    self.cds_sequence = cds_sequence
+
+
+  def construct_translation(self, cds_sequence):
+    # Just does a direct translation of a cds sequence that has already been calculated
     self.translation_sequence = Transcript.local_translate(cds_sequence)
 
 
   def compute_translation(self):
+    # First remove any existing cds/translation info
+    self.cds_sequence = None
+    self.cds_genomic_start = None
+    self.cds_genomic_end = None
+    self.translation_sequence = None
     translations_methonine_required = []
     translations_methonine_not_required = []
     translations_methonine_required = Transcript.run_translate(self.get_sequence(), 1)
@@ -192,7 +204,10 @@ class Transcript:
         self.cds_genomic_start = Transcript.sequence_to_genomic_coord(sequence_end, self.exons)
         self.cds_genomic_end = Transcript.sequence_to_genomic_coord(sequence_start, self.exons)
 
-    self.translation_sequence = primary_translation[3]
+      # Now store the cds and translation seqeunce
+#      self.construct_cds(self.cds_genomic_start, self.cds_genomic_end, self.strand, self.exons)
+      self.get_translation_sequence()
+#      self.translation_sequence = primary_translation[3]
 
 
   @staticmethod

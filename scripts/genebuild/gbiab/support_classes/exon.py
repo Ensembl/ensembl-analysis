@@ -21,8 +21,8 @@ class Exon:
   def __init__(self, start, end, strand, location_name, fasta_file=None, sequence=None, internal_identifier=None, public_identifier=None, exon_start_phase=None, exon_end_phase=None):
     self.start = start
     self.end = end
-    if self.start >= self.end:
-      raise Exception("Exon start was >= end, this should not be")
+    if self.start > self.end:
+      raise Exception("Exon start was >= end, this should not be.\nExon start: " + str(start) + "\nExon end: " + str(end))
 
     self.strand = strand
     self.location_name = location_name

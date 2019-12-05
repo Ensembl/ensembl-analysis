@@ -721,7 +721,7 @@ def create_paired_paths(fastq_file_paths):
     if not match:
       print("Could not find _1 or _2 at the end of the prefix for file. Assuming file is not paired:")
       print(path)
-      final_list.append(path)
+      final_list.append([path])
       continue
 
     prefix = match.group(1)
