@@ -55,6 +55,7 @@ use Exporter qw(import);
 use File::Spec::Functions qw(catfile tmpdir);
 use File::Which;
 use File::Temp;
+use Scalar::Util qw(weaken);
 
 use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; # needed for read_config()
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
@@ -1045,9 +1046,6 @@ sub hrdb_get_dba {
     if ($alternative_class) {
       if ($alternative_class =~ /::/) {
         $module_name = $alternative_class;
-        if ($alternative_class =~ /Vega/) {
-          $params{-GROUP} = 'vega';
-        }
       }
       else {
         $module_name = 'Bio::EnsEMBL::'.$alternative_class.'::DBSQL::DBAdaptor';
@@ -1063,6 +1061,11 @@ sub hrdb_get_dba {
 
     if($@) {
       throw("Error while setting up database connection:\n".$@);
+    }
+    if (!$dba->isa($module_name)) {
+      warning("Hardcore blessing $dba into $module_name");
+      weaken($dba);
+      bless $dba, $module_name;
     }
   } else {
     throw("DB connection info passed in was not a hash:\n".$connection_info);
