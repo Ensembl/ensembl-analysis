@@ -487,8 +487,10 @@ sub default_options {
     # in brackets; the name the read number (1, 2) and the
     # extension.
     pairing_regex => '\S+_(\d)\.\S+',
-    # For single-end reads - only need to identify the name and extension
-    single_regex  => '([^.]+)(\.\S+)',
+    
+    # Regular expressions for splitting the fastq files
+    split_paired_regex   => '(\S+)(\_\d\.\S+)',
+    split_single_regex  => '([^.]+)(\.\S+)',
 
     # Do you want to make models for the each individual sample as well
     # as for the pooled samples (1/0)?
@@ -5440,8 +5442,8 @@ sub pipeline_analyses {
           'max_total_reads'     => $self->o('max_total_reads'),
           'rnaseq_summary_file' => $self->o('rnaseq_summary_file'),
           'fastq_dir'           => $self->o('input_dir'),
-	  'pairing_regex'       => $self->o('pairing_regex'),
-	  'single_regex'        => $self->o('single_regex'),
+	  'pairing_regex'       => $self->o('split_paired_regex'),
+	  'single_regex'        => $self->o('split_single_regex'),
         },
       },
 

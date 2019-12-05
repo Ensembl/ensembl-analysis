@@ -79,20 +79,24 @@ sub write_output {
     $srr = (split /\./, $fastq)[0];
   }
   my $first = substr $srr, 0, 6;
-  my $second = '00'.(substr $srr, -1, 1);
+  my $second_a = '00'.(substr $srr, -1, 1);
+  my $second_b ='0'.(substr $srr, -2, 2);
 
-  my $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$second/$srr/$fastq",  '-P', $path]);
+  my $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$second_a/$srr/$fastq",  '-P', $path]);
   if ($res) {
     $res >>= 8;
     if ($res == 8) {
-      $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$srr/$fastq",  '-P', $path]);
-      if ($res) {
-        $res >>= 8;
-	# if wget failed, delete the file so it can be downloaded again when retried
-	if (-e $path.'/'.$fastq) {
-          $self->run_system_command(['rm',"$path/$fastq"]);
-        }
-        $self->throw("Could not download file $fastq error code is $res");
+      $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$second_b/$srr/$fastq",  '-P', $path]);
+      if ($res == 8) {
+	$res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$srr/$fastq",  '-P', $path]);
+	if ($res) {
+	  $res >>= 8;
+	  # if wget failed, delete the file so it can be downloaded again when retried
+	  if (-e $path.'/'.$fastq) {
+	    $self->run_system_command(['rm',"$path/$fastq"]);
+	  }
+	  $self->throw("Could not download file $fastq error code is $res");
+	}
       }
     }
     elsif ($res) {
