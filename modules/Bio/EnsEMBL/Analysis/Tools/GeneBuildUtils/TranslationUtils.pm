@@ -68,19 +68,22 @@ use vars qw (@ISA  @EXPORT);
 
 sub print_Translation{
   my ($transcript,$indent) = @_;
-  $indent = '' if(!$indent);
-  print Translation_info($transcript, $indent)."\n";
-  print_Translation_genomic_coords($transcript, $indent);
-  warning("Transcript is less than 3bp can't print ".
-          "any more info") if($transcript->length < 3);
-  return if($transcript->length < 3);
-  my $met = starts_with_met($transcript);
-  print $indent."peptide starts with a methionine\n" if($met);
-  my $stop = ends_with_stop($transcript);
-  print $indent."peptide ends with a stop codon\n" if($stop);
-  my $num_stops = contains_internal_stops($transcript);
-  print $indent."peptide contains ".$num_stops.
-    " internal stop codons\n" if($num_stops);
+
+  if ($transcript->translation) {
+    $indent = '' if(!$indent);
+    print Translation_info($transcript, $indent)."\n";
+    print_Translation_genomic_coords($transcript, $indent);
+    warning("Transcript is less than 3bp can't print ".
+            "any more info") if($transcript->length < 3);
+    return if($transcript->length < 3);
+    my $met = starts_with_met($transcript);
+    print $indent."peptide starts with a methionine\n" if($met);
+    my $stop = ends_with_stop($transcript);
+    print $indent."peptide ends with a stop codon\n" if($stop);
+    my $num_stops = contains_internal_stops($transcript);
+    print $indent."peptide contains ".$num_stops.
+      " internal stop codons\n" if($num_stops);
+  }
 }
 
 
