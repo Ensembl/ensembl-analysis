@@ -128,6 +128,12 @@ sub param_defaults {
 sub fetch_input {
     my ($self) = @_;
 
+    if (!($self->param('filename'))) {
+      $self->warning('You did not have input files.');
+      $self->input_job->autoflow(0);
+      $self->complete_early('There are no files to process');
+    }
+
     my @initial_input_files = @{$self->param('filename')};
     my @processed_input_files = ();
     foreach my $input_file (@initial_input_files) {
@@ -156,12 +162,6 @@ sub fetch_input {
     if (!$self->param_is_defined('alignment_bam_file')) {
       $self->param('alignment_bam_file', File::Spec->catfile($self->param('output_dir'),
         join('.', $self->param_required('assembly_name'), $self->param_required('rnaseq_data_provider'), $outname, $self->param('bam_version'), $self->param('_file_ext'))));
-    }
-
-    unless($self->param('filename')) {
-      $self->warning('You did not have input files for '.$self->analysis->logic_name);
-      $self->input_job->autoflow(0);
-      $self->complete_early('There are no files to process');
     }
 
     if (scalar(@processed_input_files) == 0) {
