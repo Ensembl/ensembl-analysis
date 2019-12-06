@@ -86,7 +86,6 @@ sub run {
   $self->param_required('host_secondary');
   $self->param_required('port_secondary');
   $self->param_required('user_secondary');
-  $self->param_required('password_secondary');
   $self->param_required('database_secondary');
 
   #add / at the end of the paths if it cannot be found to avoid possible errors

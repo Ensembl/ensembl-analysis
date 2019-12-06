@@ -111,7 +111,6 @@ sub run {
   $self->param_required('dna_host');
   $self->param_required('dna_port');
   $self->param_required('dna_user');
-  $self->param_required('dna_pass');
   $self->param_required('reports_dir');
   $self->param_required('output_filename');
 
