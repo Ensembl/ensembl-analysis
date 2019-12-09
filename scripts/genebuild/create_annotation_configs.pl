@@ -45,11 +45,12 @@ my $assembly_registry_host = $ENV{GBS1};
 my $assembly_registry_port = $ENV{GBP1};
 my $force_init = 0;
 my $check_for_transcriptomic = 0;
+my $selected_db="";
 
 GetOptions('config_file:s' => \$config_file,
            'config_only!'  => \$config_only,
            'custom_load!'  => \$custom_load,
-	   'early_load!'   => \$early_load,
+           'early_load!'   => \$early_load,
            'assembly_registry_host:s' => \$assembly_registry_host,
            'assembly_registry_port:s' => \$assembly_registry_port,
            'force_init!' => \$force_init,
@@ -60,25 +61,30 @@ unless(-e $config_file) {
   throw("Could not find the config file. Path used:\n".$config_file);
 }
 
-my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
-  -host    => $assembly_registry_host,
-  -port    => $assembly_registry_port,
-  -user    => 'ensro',
-  -dbname  => 'gb_assembly_registry');
+#my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
+#  -host    => $assembly_registry_host,
+#  -port    => $assembly_registry_port,
+#  -user    => 'ensro',
+#  -dbname  => 'gb_assembly_registry');
 
 my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
-  -host    => 'mysql-ens-mirror-1',
-  -port    => 4240,
+  -host    => 'mysql-ens-meta-prod-1',
+  -port    => 4483,
   -user    => 'ensro',
   -dbname  => 'ncbi_taxonomy');
 
 my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
-  -port    => 4240,
+  -port    => 4483,
   -user    => 'ensro',
-  -host    => 'mysql-ens-mirror-1',
+  -host    => 'mysql-ens-meta-prod-1',
   -dbname  => 'ncbi_taxonomy');
 
 my $general_hash = {};
+
+#Adding registry details to hash for populating main config
+$general_hash->{registry_host} = $assembly_registry_host;
+$general_hash->{registry_port} = $assembly_registry_port;
+#$general_hash->{registry_db} = $assembly_registry->{_dbc}->{_dbname};
 
 open(IN,$config_file) || throw("Could not open $config_file");
 while(<IN>) {
@@ -111,6 +117,21 @@ while(<IN>) {
     }
 }
 close IN || throw("Could not close $config_file");
+
+if(exists($general_hash->{non_vert_registry}) and  $general_hash->{non_vert_registry}== 1) {
+  $selected_db = "test_registry_db";
+}
+else{
+  $selected_db = "gb_assembly_registry";
+}
+
+my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
+  -host    => $assembly_registry_host,
+  -port    => $assembly_registry_port,
+  -user    => 'ensro',
+  -dbname  => $selected_db);
+
+$general_hash->{registry_db} = $assembly_registry->{_dbc}->{_dbname};
 
 unless($general_hash->{'output_path'}) {
   throw("Could not find an output path setting in the config. Expected setting".
@@ -231,12 +252,15 @@ foreach my $accession (@accession_array) {
 
   # Get stable id start
   my $stable_id_start;
-  if ($general_hash->{'stable_id_start'}>=0) {
+  if (exists ($general_hash->{'stable_id_start'}) && $general_hash->{'stable_id_start'} >=0) {
     $stable_id_start = $general_hash->{'stable_id_start'};
   }
   else {
     $stable_id_start = $assembly_registry->fetch_stable_id_start_by_gca($accession);
   }
+ unless (defined($stable_id_start)) {
+   throw ("Could not find stable id start");
+ }
   say "Fetched the following stable id start for ".$accession.": ".$stable_id_start;
   $assembly_hash->{'stable_id_start'} = $stable_id_start;
 
@@ -447,6 +471,8 @@ sub parse_assembly_report {
 sub create_config {
   my ($assembly_hash) = @_;
 
+  $assembly_hash->{'compara_registry_file'} = catfile($assembly_hash->{'output_path'},$assembly_hash->{'accession'},"Databases.pm");
+
   foreach my $key (keys(%{$assembly_hash})) {
     say "ASSEMBLY: ". $key." => ".$assembly_hash->{$key};
   }
@@ -471,7 +497,8 @@ sub create_config {
       if($line =~ /\'([^\']+)\'\s*\=\>\s*('[^\']*\')/) {
         my $conf_key = $1;
         my $conf_val = $2;
-        if($assembly_hash->{$conf_key}) {
+        if(defined $assembly_hash->{$conf_key}) {
+          print "REPLACING ".$conf_key." with ".$assembly_hash->{$conf_key}."\n";
           my $sub_val = "'".$assembly_hash->{$conf_key}."'";
           $line =~ s/$conf_val/$sub_val/;
         }
@@ -518,13 +545,15 @@ sub clade_settings {
       'repbase_library'    => 'mammals',
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
+      'ig_tr_fasta_file'    => 'multispecies_ig_tr.fa',
     },
 
    'marsupials' => {
       'repbase_library'    => 'mammals',
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
-    },
+      'ig_tr_fasta_file'    => 'multispecies_ig_tr.fa',
+},
 
     'aves' => {
       'repbase_library'    => 'Birds',
@@ -562,6 +591,36 @@ sub clade_settings {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
       'uniprot_set'        => 'insects_basic',
+    },
+
+    'non_vertebrates' => {
+      'repbase_library'    => 'non_vertebrates',
+      'repbase_logic_name' => 'non_vertebrates',
+      'uniprot_set'        => 'non_vertebrates_basic',
+    },
+
+    'fungi' => {
+      'repbase_library'    => 'fungi',
+      'repbase_logic_name' => 'fungi',
+      'uniprot_set'        => 'fungi_basic',
+    },
+
+    'metazoa' => {
+      'repbase_library'    => 'metazoa',
+      'repbase_logic_name' => 'metazoa',
+      'uniprot_set'        => 'metazoa_basic',
+    },
+
+    'plants'  => {
+      'repbase_library'    => 'plants',
+      'repbase_logic_name' => 'plants',
+      'uniprot_set'        => 'plants_basic',
+    },
+
+    'protists'  => {
+      'repbase_library'    => 'protists',
+      'repbase_logic_name' => 'protists',
+      'uniprot_set'        => 'protists_basic',
     },
 
   };
