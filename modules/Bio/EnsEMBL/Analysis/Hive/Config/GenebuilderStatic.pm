@@ -547,6 +547,16 @@ sub _master_config {
 
     insects_basic => [],
 
+    non_vertebrates_basic => [],
+
+    metazoa_basic => [],
+
+    plants_basic => [],
+
+    fungi_basic => [],
+    
+    protists_basic => [],
+
     self_patch => [
                 'self_pe12_sp_95',
                 'self_pe12_sp_80',
@@ -562,4 +572,3 @@ sub _master_config {
 }
 
 1;
-
