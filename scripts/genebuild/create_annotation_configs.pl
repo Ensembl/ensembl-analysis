@@ -50,12 +50,6 @@ my $selected_db;
 ### change to to 1 for non-verts
 my $is_non_vert = 0;
 
-if($is_non_vert == 1) {
-  $selected_db = "test_registry_db"
-}
-else {
-  $selected_db = "gb_assembly_registry";
-}
 
 GetOptions('config_file:s' => \$config_file,
            'config_only!'  => \$config_only,
@@ -64,11 +58,19 @@ GetOptions('config_file:s' => \$config_file,
            'assembly_registry_host:s' => \$assembly_registry_host,
            'assembly_registry_port:s' => \$assembly_registry_port,
            'force_init!' => \$force_init,
+           'is_non_vert!' => \$is_non_vert,
            'check_for_transcriptomic!' => \$check_for_transcriptomic,
           );
 
 unless(-e $config_file) {
   throw("Could not find the config file. Path used:\n".$config_file);
+}
+
+if($is_non_vert == 1) {
+  $selected_db = "test_registry_db"
+}
+else {
+  $selected_db = "gb_assembly_registry";
 }
 
 my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
