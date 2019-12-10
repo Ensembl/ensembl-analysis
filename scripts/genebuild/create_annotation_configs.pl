@@ -48,7 +48,7 @@ my $check_for_transcriptomic = 0;
 my $selected_db;
 
 ### change to to 1 for non-verts
-my $is_non_vert=0;
+my $is_non_vert=1;
 $is_non_vert == 1 ? $selected_db = "test_registry_db" : $selected_db = "gb_assembly_registry";
 
 GetOptions('config_file:s' => \$config_file,
