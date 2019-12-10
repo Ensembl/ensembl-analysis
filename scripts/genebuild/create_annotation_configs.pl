@@ -48,8 +48,14 @@ my $check_for_transcriptomic = 0;
 my $selected_db;
 
 ### change to to 1 for non-verts
-my $is_non_vert=1;
-$is_non_vert == 1 ? $selected_db = "test_registry_db" : $selected_db = "gb_assembly_registry";
+my $is_non_vert = 1;
+
+if($is_non_vert == 1) {
+  $selected_db = "test_registry_db"
+}
+else {
+  $selected_db = "gb_assembly_registry";
+}
 
 GetOptions('config_file:s' => \$config_file,
            'config_only!'  => \$config_only,
@@ -69,7 +75,8 @@ my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistr
   -host    => $assembly_registry_host,
   -port    => $assembly_registry_port,
   -user    => 'ensro',
-  -dbname  => $selected_db);
+  -dbname  => $selected_db
+  );
 
 my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
   -host    => 'mysql-ens-meta-prod-1',
