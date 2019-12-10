@@ -63,7 +63,7 @@ sub pipeline_analyses {
 
 This is the config file for all analysis downloading clade data from UniProt. You should use it in your Hive configuration file to
 specify the parameters of an analysis. You can either choose an existing config or you can create
-a new one based on the default hash. 
+a new one based on the default hash.
 
 =head1 METHODS
 
@@ -599,6 +599,226 @@ sub _master_config {
                        },
 
      },
+
+     metazoa_basic => {
+              self_pe12 =>{
+                            file_name => 'self_pe12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                          },
+
+              self_pe3 =>{
+                            file_name => 'self_pe3.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [3],
+                          },
+
+              human_pe12 => {
+                              file_name => 'human_pe12.fasta',
+                              taxon_id  => $taxon_ids->{'human_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+
+              mouse_pe12 => {
+                              file_name  => 'mouse_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'mouse_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+
+
+               metazoa_pe12 => {
+                                 file_name  => 'metazoa_pe12.fasta',
+                                 taxon_id   => $taxon_ids->{'metazoa_taxon_id'},
+                                 exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
+                                 dest_dir   => '#output_path#',
+                                 compress   => 0,
+                                 pe_level   => [1,2],
+                               },
+             },
+
+protists_basic => {
+              self_pe12 =>{
+                            file_name => 'self_pe12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                          },
+
+              self_pe3 =>{
+                            file_name => 'self_pe3.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [3],
+                          },
+
+              human_pe12 => {
+                              file_name => 'human_pe12.fasta',
+                              taxon_id  => $taxon_ids->{'human_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+
+              mouse_pe12 => {
+                              file_name  => 'mouse_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'mouse_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+
+
+               protists_pe12 => {
+                                 file_name  => 'protists_pe12.fasta',
+                                 taxon_id   => $taxon_ids->{'protists_taxon_id'},
+                                 exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
+                                 dest_dir   => '#output_path#',
+                                 compress   => 0,
+                                 pe_level   => [1,2],
+                               },
+             },
+
+non_vertebrates_basic => {
+              self_pe12 =>{
+                            file_name => 'self_pe12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                          },
+
+              self_pe3 =>{
+                            file_name => 'self_pe3.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [3],
+                          },
+
+              human_pe12 => {
+                              file_name => 'human_pe12.fasta',
+                              taxon_id  => $taxon_ids->{'human_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+
+              mouse_pe12 => {
+                              file_name  => 'mouse_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'mouse_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+
+
+               non_vertebrates_pe12 => {
+                                 file_name  => 'non_vertebrates_pe12.fasta',
+                                 taxon_id   => $taxon_ids->{'non_vertebrates_taxon_id'},
+                                 exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
+                                 dest_dir   => '#output_path#',
+                                 compress   => 0,
+                                 pe_level   => [1,2],
+                               },
+             },
+
+fungi_basic => {
+              self_pe12 =>{
+                            file_name => 'self_pe12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                          },
+
+              self_pe3 =>{
+                            file_name => 'self_pe3.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [3],
+                          },
+
+              human_pe12 => {
+                              file_name => 'human_pe12.fasta',
+                              taxon_id  => $taxon_ids->{'human_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+
+              mouse_pe12 => {
+                              file_name  => 'mouse_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'mouse_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+
+
+               fungi_pe12 => {
+                                 file_name  => 'fungi_pe12.fasta',
+                                 taxon_id   => $taxon_ids->{'non_vertebrates_taxon_id'},
+                                 exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
+                                 dest_dir   => '#output_path#',
+                                 compress   => 0,
+                                 pe_level   => [1,2],
+                               },
+             },
+
+plants_basic => {
+              self_pe12 =>{
+                            file_name => 'self_pe12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                          },
+
+              self_pe3 =>{
+                            file_name => 'self_pe3.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [3],
+                          },
+
+              human_pe12 => {
+                              file_name => 'human_pe12.fasta',
+                              taxon_id  => $taxon_ids->{'human_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+
+              mouse_pe12 => {
+                              file_name  => 'mouse_pe12.fasta',
+                              taxon_id   => $taxon_ids->{'mouse_taxon_id'},
+                              dest_dir   => '#output_path#',
+                              compress   => 0,
+                              pe_level   => [1,2],
+                            },
+
+
+               plants_pe12 => {
+                                 file_name  => 'plants_pe12.fasta',
+                                 taxon_id   => $taxon_ids->{'non_vertebrates_taxon_id'},
+                                 exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
+                                 dest_dir   => '#output_path#',
+                                 compress   => 0,
+                                 pe_level   => [1,2],
+                               },
+             },
 
   );
   return $config{$key};

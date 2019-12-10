@@ -43,7 +43,7 @@ my $ftpuser = "anonymous";
 my $ftppassword = "";
 my $assembly_registry_host = $ENV{GBS1};
 my $assembly_registry_port = $ENV{GBP1};
-my $force_init = 0;
+my $force_init = 1;
 my $check_for_transcriptomic = 0;
 my $selected_db="";
 
