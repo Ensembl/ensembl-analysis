@@ -40,7 +40,7 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     'compression_ratio' => 3,
-    'target_batch_size' => 1, ########
+    'target_batch_size' => 50000000000,
   }
 }
 
@@ -79,7 +79,6 @@ sub fetch_input {
     }
   }
 
-  say Dumper($samples_hash);
 #  my $output_ids = $self->batch_samples($samples_hash);
   $self->param('inputlist',$self->batch_samples($samples_hash));
 }
