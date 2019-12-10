@@ -48,7 +48,7 @@ my $check_for_transcriptomic = 0;
 my $selected_db;
 
 ### change to to 1 for non-verts
-my $is_non_vert = 1;
+my $is_non_vert = 0;
 
 if($is_non_vert == 1) {
   $selected_db = "test_registry_db"
