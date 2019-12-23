@@ -24,9 +24,7 @@ use Getopt::Long;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
 
 # defaults
-#use Bio::EnsEMBL::ApiVersion;
 my $current_release = $ENV{ENSEMBL_RELEASE};
-#my $current_release = 97;
 my $max_len = 100000;
 my $min_len = $max_len * 0.75;
 
@@ -114,13 +112,13 @@ if ($reg_conf) {
 	my $sample_coord=$sample_gene->seq_region_name().':'.$sample_gene->seq_region_start().'-'.$sample_gene->seq_region_end();
 
 	print OUT "\nUSE ".$db_name.";
-UPDATE meta set meta_value='".$sample_coord."' WHERE meta_key='sample.location_param');
-UPDATE meta set meta_value='".$sample_coord."' WHERE meta_key='sample.location_text');
-UPDATE meta set meta_value='".$sample_gene->stable_id()."' WHERE meta_key='sample.gene_param');
-UPDATE meta set meta_value='".$sample_gene->external_name()."' WHERE meta_key='sample.gene_text');
-UPDATE meta set meta_value='".$sample_transcript->stable_id()."' WHERE meta_key='sample.transcript_param');
-UPDATE meta set meta_value='".$sample_transcript->external_name()."' WHERE meta_key='sample.transcript_text');
-UPDATE meta set meta_value='".$sample_gene->external_name()."' WHERE meta_key='sample.search_text');"
+UPDATE meta set meta_value='".$sample_coord."' WHERE meta_key='sample.location_param';
+UPDATE meta set meta_value='".$sample_coord."' WHERE meta_key='sample.location_text';
+UPDATE meta set meta_value='".$sample_gene->stable_id()."' WHERE meta_key='sample.gene_param';
+UPDATE meta set meta_value='".$sample_gene->external_name()."' WHERE meta_key='sample.gene_text';
+UPDATE meta set meta_value='".$sample_transcript->stable_id()."' WHERE meta_key='sample.transcript_param';
+UPDATE meta set meta_value='".$sample_transcript->external_name()."' WHERE meta_key='sample.transcript_text';
+UPDATE meta set meta_value='glycoprotein' WHERE meta_key='sample.search_text';"
 }
 
 #locations will now exist in meta as placholder info so replaces sql statesments with above ^
@@ -184,7 +182,7 @@ INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_para
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_text', 'ensembl_gene');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_param', '".$sample_transcript->stable_id()."');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_text', 'ensembl_transcript');
-INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.search_text', 'ensembl_gene');\n"
+INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.search_text', 'glycoprotein');\n"
 }
   else{
     print "No suitable transcripts found for $core_db\n";
