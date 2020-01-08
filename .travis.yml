@@ -12,7 +12,6 @@ services:
 
 env:
   - COVERALLS=false DB=mysql
-  - COVERALLS=false DB=mysql
 
 sudo: false
 
