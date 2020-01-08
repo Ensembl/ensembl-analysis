@@ -179,6 +179,7 @@ my %objects_attributes = (
   cds_start_NF => Bio::EnsEMBL::Attribute->new(-code => 'cds_start_NF'),
   cds_end_NF => Bio::EnsEMBL::Attribute->new(-code => 'cds_end_NF'),
   initial_met => Bio::EnsEMBL::Attribute->new(-code => 'initial_met', -value => '1 1 M'),
+  'MANE Select' => Bio::EnsEMBL::Attribute->new(-code => 'MANE_Select'),
 );
 
 foreach my $assemblyexception (@{$sa->db->get_AssemblyExceptionFeatureAdaptor->fetch_all}) {
@@ -319,6 +320,10 @@ LINE: while ($gff_parser->next) {
           $transcript->{gene_object} = $genes{$parent};
           $genes{$parent}->add_Transcript($transcript);
           if (exists $attributes->{tag} and $attributes->{tag} eq 'refseq_select') {
+            $genes{$parent}->canonical_transcript($transcript);
+          }
+          if (exists $attributes->{tag} and $attributes->{tag} eq 'MANE Select') {
+            $transcript->add_Attributes($objects_attributes{'MANE Select'});
             $genes{$parent}->canonical_transcript($transcript);
           }
         }
