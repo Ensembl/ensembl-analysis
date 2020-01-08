@@ -165,6 +165,9 @@ foreach my $slice (@{$sa->fetch_all('toplevel', undef, 1)}) {
       next;
     }
   }
+  if ($slice->start != 1) {
+    $slice = $sa->fetch_by_region($slice->coord_system->name, $slice->seq_region_name, 1, $slice->seq_region_length, 1, $slice->coord_system->version);
+  }
   $sequences{$refseq_synonyms->[0]->name} = $slice;
 }
 my %missing_sequences;
@@ -843,7 +846,7 @@ sub get_one_letter_code {
 sub print_gene {
   my ($gene) = @_;
 
-  print STDERR "GENE: ", join(' ', $gene->display_id, $gene->seq_region_name, $gene->start, $gene->end, $gene->strand, $gene->biotype), "\n";
+  print STDERR "GENE: ", join(' ', $gene->display_id, $gene->seq_region_name, $gene->seq_region_start, $gene->seq_region_end, $gene->strand, $gene->biotype), "\n";
   foreach my $dbe (@{$gene->get_all_DBEntries}) {
     print STDERR "  DBE: ", $dbe->dbname, ' ', $dbe->description, "\n";
   }
@@ -851,7 +854,7 @@ sub print_gene {
     print STDERR '  ATTRIBUTE: ', $attribute->code, ' ', $attribute->value, "\n";
   }
   foreach my $transcript (@{$gene->get_all_Transcripts}) {
-    print STDERR " TRANSCRIPT: ", join(' ', $transcript->display_id, $transcript->seq_region_name, $transcript->start, $transcript->end, $transcript->strand, $transcript->biotype), "\n";
+    print STDERR " TRANSCRIPT: ", join(' ', $transcript->display_id, $transcript->seq_region_name, $transcript->seq_region_start, $transcript->seq_region_end, $transcript->strand, $transcript->biotype), "\n";
     foreach my $dbe (@{$transcript->get_all_DBEntries}) {
       print STDERR "   DBE: ", $dbe->dbname, ' ', $dbe->description, "\n";
     }
@@ -866,7 +869,7 @@ sub print_gene {
       print STDERR "   CDNA: \n", $transcript->translateable_seq, "\n";
     }
     foreach my $exon (@{$transcript->get_all_Exons}) {
-      print STDERR "  EXON: ", join(' ', $exon->display_id, $exon->seq_region_name, $exon->start, $exon->end, $exon->strand, $exon->phase, $exon->end_phase), "\n";
+      print STDERR "  EXON: ", join(' ', $exon->display_id, $exon->seq_region_name, $exon->seq_region_start, $exon->seq_region_end, $exon->strand, $exon->phase, $exon->end_phase), "\n";
     }
   }
 }
