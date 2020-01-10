@@ -45,14 +45,20 @@ my $assembly_registry_host = $ENV{GBS1};
 my $assembly_registry_port = $ENV{GBP1};
 my $force_init = 0;
 my $check_for_transcriptomic = 0;
+my $selected_db;
+
+### change to to 1 for non-verts
+my $is_non_vert = 0;
+
 
 GetOptions('config_file:s' => \$config_file,
            'config_only!'  => \$config_only,
            'custom_load!'  => \$custom_load,
-	   'early_load!'   => \$early_load,
+           'early_load!'   => \$early_load,
            'assembly_registry_host:s' => \$assembly_registry_host,
            'assembly_registry_port:s' => \$assembly_registry_port,
            'force_init!' => \$force_init,
+           'is_non_vert!' => \$is_non_vert,
            'check_for_transcriptomic!' => \$check_for_transcriptomic,
           );
 
@@ -60,11 +66,19 @@ unless(-e $config_file) {
   throw("Could not find the config file. Path used:\n".$config_file);
 }
 
+if($is_non_vert == 1) {
+  $selected_db = "test_registry_db"
+}
+else {
+  $selected_db = "gb_assembly_registry";
+}
+
 my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
   -host    => $assembly_registry_host,
   -port    => $assembly_registry_port,
   -user    => 'ensro',
-  -dbname  => 'gb_assembly_registry');
+  -dbname  => $selected_db
+  );
 
 my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
   -host    => 'mysql-ens-meta-prod-1',
@@ -575,6 +589,36 @@ sub clade_settings {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
       'uniprot_set'        => 'insects_basic',
+    },
+
+    'non_vertebrates' => {
+      'repbase_library'    => 'non_vertebrates',
+      'repbase_logic_name' => 'non_vertebrates',
+      'uniprot_set'        => 'non_vertebrates_basic',
+    },
+
+    'fungi' => {
+      'repbase_library'    => 'fungi',
+      'repbase_logic_name' => 'fungi',
+      'uniprot_set'        => 'fungi_basic',
+    },
+
+    'metazoa' => {
+      'repbase_library'    => 'metazoa',
+      'repbase_logic_name' => 'metazoa',
+      'uniprot_set'        => 'metazoa_basic',
+    },
+
+    'plants'  => {
+      'repbase_library'    => 'plants',
+      'repbase_logic_name' => 'plants',
+      'uniprot_set'        => 'plants_basic',
+    },
+
+    'protists'  => {
+      'repbase_library'    => 'protists',
+      'repbase_logic_name' => 'protists',
+      'uniprot_set'        => 'protists_basic',
     },
 
   };
