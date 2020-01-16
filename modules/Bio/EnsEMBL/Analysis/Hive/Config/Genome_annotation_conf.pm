@@ -8895,10 +8895,22 @@ sub pipeline_analyses {
         -logic_name => 'create_readme',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'cd #working_dir#;FILES=($(ls *.bam));printf "#free_text#" | sed "s/NUM/$((${#FILES[*]}-1))/g;s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" > README.1; IFS=$\'\n\';echo "${FILES[*]}" >> README.1',
+          cmd => 'cd #working_dir#;
+                  FILES=($(ls *.bam));
+                  if [[ $((${#FILES[*]}-1)) > 0 ]]
+                  then printf "#free_text_multi#" | sed "s/NUM/$((${#FILES[*]}-1))/g;s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" > README.1
+                  else printf "#free_text_single#" | sed "s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" >> README.1 
+                  fi 
+                  IFS=$\'\n\';
+                  echo "${FILES[*]}" >> README.1',
           working_dir => $self->o('merge_dir'),
           species_name  => $self->o('species_name'),
-          free_text => 'Note\n------\n\n'.
+	  free_text_single => 'Note\n------\n\n'.
+                       'The RNASeq data for #species_name# consists of 1 individual sample.\n\n'.
+                       'The bam file has an index file (.bai) and a BigWig file (.bw) which contains the coverage information.\n\n'.
+                       'Use the md5sum.txt file to check the integrity of the downloaded files.\n\n'.
+                       'Files\n-----\n',
+          free_text_multi => 'Note\n------\n\n'.
                        'The RNASeq data for #species_name# consists of NUM individual samples and one merged set containing all NUM samples.\n\n'.
                        'All files have an index file (.bai) and a BigWig file (.bw) which contains the coverage information.\n\n'.
                        'Use the md5sum.txt file to check the integrity of the downloaded files.\n\n'.
