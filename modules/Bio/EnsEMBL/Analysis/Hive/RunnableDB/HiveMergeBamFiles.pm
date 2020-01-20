@@ -141,9 +141,10 @@ sub fetch_input {
     my $one_file_only = (scalar(@processed_input_files) == 1 and $self->param('options') !~ /-b /);
 
     if (!$one_file_only) {
+      print "I only have one analysis!\n\n";
       $self->create_analysis;
     }
-    
+
     if ($self->param('store_datafile')) {
       my $db = $self->get_database_by_name('target_db');
       $db->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));

@@ -6320,10 +6320,6 @@ sub pipeline_analyses {
           1 => ['create_rnaseq_layer_nr_db'],
         },
 
-#        -flow_into => {
-#          1 => ['create_lincrna_db'],
-#        },
-
         -rc_name    => '4GB',
       },
 
@@ -7565,8 +7561,26 @@ sub pipeline_analyses {
 
 	     -rc_name    => '30GB',
 	     -flow_into => {
-			    1 => ['format_blast_db'],
-                      },
+			    1 => ['flag_small_orf'],
+			   },
+      },
+
+     {
+        -logic_name => 'flag_small_orf',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'flag_small_orf.pl').
+                                      ' -user '.$self->o('user').
+                                      ' -host '.$self->o('dna_db_server').
+                                      ' -port '.$self->o('dna_db_port').
+                                      ' -dbname '.$self->o('dna_db_name').
+                                      ' -dbpass '.$self->o('password').
+			              ' -dnadbname '.$self->o('dna_db_name'),
+                       },
+        -rc_name => 'default',
+        -flow_into => {
+		       1 => ['format_blast_db'],
+		      },
       },
 
 
@@ -7649,26 +7663,9 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['update_rnaseq_ise_logic_names'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'update_rnaseq_ise_logic_names',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-        -parameters => {
-          db_conn => $self->o('final_geneset_db'),
-          sql => [
-            'UPDATE analysis SET logic_name = REPLACE(logic_name, "_rnaseq_gene", "_rnaseq_ise")',
-          ],
-        },
-        -rc_name    => 'default',
-        -flow_into => {
                         1 => ['run_cleaner'],
                       },
       },
-
 
       {
         -logic_name => 'run_cleaner',
@@ -7968,6 +7965,9 @@ sub pipeline_analyses {
             'DELETE FROM analysis WHERE logic_name="filter_lncrnas"',
             'UPDATE gene SET display_xref_id=NULL',
             'UPDATE transcript SET display_xref_id=NULL',
+	    'INSERT into analysis (logic_name, db_version, db_file, program_file, module) values ("rfamcmsearch", "14.0", "'.$self->o('output_path').'", "/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/bin/cmsearch", "HiveCMSearch")',
+	    'UPDATE dna_align_feature set analysis_id=(select analysis_id from analysis where logic_name="rfamcmsearch") where analysis_id=(select analysis_id from analysis where logic_name="ncrna")',
+	    'UPDATE dna_align_feature set analysis_id=(select analysis_id from analysis where logic_name="cdna2genome") where analysis_id=(select analysis_id from analysis where logic_name="exonerate")',
           ],
         },
         -rc_name    => 'default',
@@ -8115,6 +8115,23 @@ sub pipeline_analyses {
         -max_retry_count => 0,
         -rc_name => '8GB',
         -flow_into => {
+                        1 => ['update_ISE_table'],
+                      },
+      },
+
+      {
+        -logic_name => 'update_ISE_table',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn => $self->o('reference_db'),
+          sql => [
+		  'INSERT IGNORE into analysis (created,logic_name) values (now(),"rnaseq_intron_support")',
+		  'UPDATE intron_supporting_evidence SET analysis_id=(select analysis_id from analysis where logic_name="rnaseq_intron_support")',
+		  'DELETE from analysis where logic_name like "%_rnaseq_ise%"',
+		 ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
                         1 => ['clean_unused_analyses'],
                       },
       },
@@ -8128,7 +8145,7 @@ sub pipeline_analyses {
           sql => [
             'DELETE FROM analysis WHERE logic_name IN'.
               ' ("spliced_elsewhere","pseudogenes","genblast","genblast_not_best","project_pseudogene",'.
-              ' "project_lincrna","project_transcripts","ig_tr_collapse")',
+              ' "project_lincrna","project_transcripts","ig_tr_collapse", "exonerate")',
             'DELETE FROM ad USING analysis_description ad LEFT JOIN analysis a ON ad.analysis_id = a.analysis_id'.
               ' WHERE a.analysis_id IS NULL',
           ],
@@ -8206,10 +8223,79 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into  => {
-                         1 => ['core_gene_set_sanity_checks'],
+                         1 => ['create_analysis_desc_jobs', 'create_placeholder_sql'],
                        },
       },
 
+      {
+        -logic_name => 'create_analysis_desc_jobs',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+        -parameters => {
+			inputquery => 'SELECT logic_name FROM analysis',
+			column_names => ['logic_name'],
+			db_conn => $self->o('reference_db'),
+		       },
+        -rc_name    => 'default',
+        -flow_into => {
+		       '2->A' => ['create_analysis_desc_sql'],
+		       'A->1' => ['core_gene_set_sanity_checks'],
+        },
+      },
+
+     {
+        -logic_name => 'create_analysis_desc_sql',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateAnalysisDescriptionSQL',
+        -parameters => {
+			input_db => $self->o('reference_db'),
+			logic_name => "#logic_name#",
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                       '2' => ['run_analysis_desc_sql'],
+		       -2 => ['failed_analysis_desc_jobs'],
+        },
+      },
+
+      {
+        -logic_name => 'failed_analysis_desc_jobs',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name          => 'default',
+        -can_be_empty  => 1,
+      },
+
+      {
+        -logic_name => 'run_analysis_desc_sql',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+			db_conn => $self->o('reference_db'),
+			sql => ['#sql_command#'],
+                       },
+        -rc_name    => 'default',
+      },
+
+      {
+        -logic_name => 'create_placeholder_sql',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreatePlaceholderSQL',
+        -parameters => {
+			input_db => $self->o('reference_db'),
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                       1 => ['run_placeholder_sql'],
+        },
+      },
+
+     {
+        -logic_name => 'run_placeholder_sql',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+                        db_conn => $self->o('reference_db'),
+                        sql => ['#sql_command#'],
+                       },
+        -rc_name    => 'default',
+      },
 
       {
         -logic_name => 'core_gene_set_sanity_checks',
