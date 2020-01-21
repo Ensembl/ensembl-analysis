@@ -82,35 +82,19 @@ sub write_output {
   my $second_a = '00'.(substr $srr, -1, 1);
   my $second_b ='0'.(substr $srr, -2, 2);
 
-  my $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$second_a/$srr/$fastq",  '-P', $path]);
-  if ($res) {
-    $res >>= 8;
-    if ($res == 8) {
-      $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$second_b/$srr/$fastq",  '-P', $path]);
-      if ($res) {
-        $res >>= 8;
-        if ($res == 8) {
-      	  $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$srr/$fastq",  '-P', $path]);
-          if ($res) {
-      	    $res >>= 8;
-            $self->throw("Could not download file $fastq error code is $res");
-            if ($res == 8) {
-              # if wget failed, delete the file so it can be downloaded again when retried
-              if (-e $path.'/'.$fastq) {
-                $self->run_system_command(['rm',"$path/$fastq"]);
-              }
-            }
-	  }
-        }
-      }
+  my $exit_code = 0;
+  my $wget_cmd_list = [['wget', '-qq', "$ftp_base_url/$first/$second_a/$srr/$fastq",  '-P', $path],['wget', '-qq', "$ftp_base_url/$first/$second_b/$srr/$fastq",  '-P', $path],['wget', '-qq', "$ftp_base_url/$first/$srr/$fastq",  '-P', $path]];
+  foreach my $wget_cmd (@$wget_cmd_list){
+    $exit_code = $self->exit_code_test($wget_cmd);
+    if ($exit_code){
+      last;
     }
   }
-  elsif ($res) {
-    # if wget failed, delete the file so it can be downloaded again when retried
+  if (!$exit_code){
     if (-e $path.'/'.$fastq) {
       $self->run_system_command(['rm',"$path/$fastq"]);
     }
-    $self->throw("wget died with error code $res");
+    $self->throw("Failed to download $fastq");
   }
 
   unless(-e $path.'/'.$fastq) {
@@ -162,5 +146,25 @@ sub create_faidx {
     $self->throw("Failed to index file. Command:\n".$cmd);
   }
 }
+
+sub exit_code_test {
+  my ($self,$wget_cmd) = @_;
+
+  my $res = $self->run_system_command($wget_cmd);
+  if ($res){
+    $res >>= 8;
+    if ($res == 8) {
+      return 0;
+    }
+    else{
+      $self->throw("wget died with error code $res");
+    }
+  }
+  else{
+    return 1;
+  }
+
+}
+
 
 1;
