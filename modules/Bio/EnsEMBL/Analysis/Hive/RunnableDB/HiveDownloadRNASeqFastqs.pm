@@ -147,6 +147,17 @@ sub create_faidx {
   }
 }
 
+=head2 exit_code_test
+
+  Arg [1]    : Array, wget command
+               e.g. ['wget', '-qq', "$ftp_base_url/$first/$second_a/$srr/$fastq",  '-P', $path]
+  Description: The run_system_command returns a different exit code to wget
+               Here, run_system_command exit code is bit-shifted and tested (wget exit code for server error is 8)
+  Returntype : Boolean
+  Exceptions : Throws if error code not 8
+
+=cut
+
 sub exit_code_test {
   my ($self,$wget_cmd) = @_;
 
