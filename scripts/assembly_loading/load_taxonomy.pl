@@ -180,22 +180,11 @@ sub load_taxonomy_in_core {
     $node = $taxonDBA->fetch_node_by_name($self->{'scientific_name'});
   }
 
-  my $match_rank = ($node->name eq 'Canis familiaris') ? 'subspecies' : 'species';
-#  my $match_rank;
-#  if ($node->name eq 'Canis familiaris' ||
-#      $node->name eq 'Gorilla gorilla gorilla' ||
-#      $node->name eq 'Mustela putorius furo' 
-#      $node->name eq 'Ceratotherium simum simum' || 
-#      $node->name eq 'Orycteropus afer afer') {
-#     ) {
-#    $match_rank = 'subspecies';
-#  } else {
-#    $match_rank = 'species';
-#  }
+  my %allowed_rank = map { $_ => 1 } qw(species subspecies);
 
-  if($node->rank ne $match_rank){
+  if(not $allowed_rank{ $node->rank }){
       print "ERROR: taxon_id=",$self->{'taxon_id'},", '",$node->name,"' is rank '",$node->rank,"'.\n";
-      print "It is not a rank 'species' (subspecies for dog). So it can't be loaded.\n\n";
+      print "It is not an allowed rank ('species', 'subspecies'). So it can't be loaded.\n\n";
     exit 2;
   }
 
