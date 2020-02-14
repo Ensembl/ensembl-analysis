@@ -93,6 +93,10 @@ sub _master_config {
                    'reptiles_taxon_id' => '1329799',
                    'amphibians_taxon_id' => '8292',
 # Non vert
+                   'non_vertebrates_taxon_id' => '2759',
+                   'fungi_taxon_id'      => '4751',
+                   'plants_taxon_id'     => '33090',
+                   'metazoa_taxon_id'    => '33208',
                    'flies_taxon_id'      => '7147',
                    'hemiptera_taxon_id'  => '7524',
                    'drosophila_taxon_id' => '7227',
@@ -768,7 +772,7 @@ sub _master_config {
 
                fungi_pe12 => {
                                 file_name  => 'fungi_pe12.fasta',
-                                taxon_id   => $taxon_ids->{'non_vertebrates_taxon_id'},
+                                taxon_id   => $taxon_ids->{'fungi_taxon_id'},
                                 exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
                                 dest_dir   => '#output_path#',
                                 compress   => 0,
@@ -812,7 +816,7 @@ sub _master_config {
 
               plants_pe12 => {
                                 file_name  => 'plants_pe12.fasta',
-                                taxon_id   => $taxon_ids->{'non_vertebrates_taxon_id'},
+                                taxon_id   => $taxon_ids->{'plants_taxon_id'},
                                 exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
                                 dest_dir   => '#output_path#',
                                 compress   => 0,
