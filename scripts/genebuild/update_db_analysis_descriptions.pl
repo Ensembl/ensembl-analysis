@@ -73,8 +73,10 @@ while (my @analysis_data = $sth_logic->fetchrow) {
     else {
       $web_data = '"'.$web_data.'"';
     }
+# convert the web_data back to json format
+    $web_data =~ s/\=\>/:/g;
     my $desc = $hash{'description'};
-    $desc =~ s/\'/\\\'/g;;
+    $desc =~ s/\'/\\\'/g;
 
     say "Creating SQL command for the analysis description table for logic_name ".$logic_name;
     my $insert = "INSERT INTO analysis_description (analysis_id, description, display_label, displayable, web_data) VALUES ($analysis_id, '$desc', '$hash{'display_label'}', $hash{'displayable'}, $web_data);";
