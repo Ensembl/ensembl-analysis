@@ -40,7 +40,7 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     'compression_ratio' => 3,
-    'target_batch_size' => 50000000000,
+    'target_batch_size' => 10000000000,
   }
 }
 

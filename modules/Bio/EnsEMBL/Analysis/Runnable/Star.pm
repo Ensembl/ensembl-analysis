@@ -103,13 +103,13 @@ sub run {
   my $tmp_dir = catfile($self->outdir, $sample_id."_tmp");
 
   # run STAR
-  my $command = $self->program." --runThreadN ".$threads." --twopassMode Basic --readFilesCommand zcat --runMode alignReads --genomeDir ".$self->genome." --readFilesIn ".$fastq." ".$fastqpair." --outFileNamePrefix ".$out_dir."_ ".$options." --outTmpDir ".$tmp_dir;
+  my $command = $self->program." --runThreadN ".$threads." --twopassMode Basic --readFilesCommand zcat --runMode alignReads --genomeDir ".$self->genome." --readFilesIn ".$fastq." ".$fastqpair." --outFileNamePrefix ".$out_dir."_ ".$options." --outTmpDir ".$tmp_dir." --outSAMtype BAM SortedByCoordinate";
 
   $self->warning("Command: $command\n");
   if (system($command)) {
       $self->throw("Error aligning $fastq $fastqpair\nCommandline used: $command\nError code: $?\n");
   }
-  $self->output([$out_dir.'_Aligned.out.sam']);
+  $self->output([$out_dir.'_Aligned.out.bam']);
 }
 
 
