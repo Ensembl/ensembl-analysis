@@ -48,11 +48,8 @@ use strict;
 use feature 'say';
 use File::Spec::Functions;
 use File::Basename;
-use Bio::EnsEMBL::Analysis::Runnable::Stringtie2;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
-
-
 
 sub param_defaults {
   my ($self) = @_;
