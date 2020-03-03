@@ -169,6 +169,11 @@ sub run {
 }
 
 
+sub write_output {
+  my ($self) = @_;
+}
+
+
 sub get_sample_name {
   my ($self,$input_file_path,$csv_file) = @_;
 
