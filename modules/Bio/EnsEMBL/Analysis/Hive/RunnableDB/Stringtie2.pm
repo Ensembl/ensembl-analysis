@@ -105,7 +105,7 @@ sub fetch_input {
     $self->throw("Could not find the genome file. Path used:\n".$genome_file);
   }
 
-  my $input_ids = $self->param('iid');
+  my $input_ids = [$self->param('iid')];
   unless(scalar(@$input_ids)) {
     $self->throw("Found no input ids, something is wrong");
   }
