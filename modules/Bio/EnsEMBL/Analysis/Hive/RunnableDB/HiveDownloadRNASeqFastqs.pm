@@ -83,7 +83,7 @@ sub write_output {
   my $second_b ='0'.(substr $srr, -2, 2);
 
   my $exit_code = 0;
-  my $wget_cmd_list = [['wget', '-qq', "$ftp_base_url/$first/$second_a/$srr/$fastq",  '-P', $path],['wget', '-qq', "$ftp_base_url/$first/$second_b/$srr/$fastq",  '-P', $path],['wget', '-qq', "$ftp_base_url/$first/$srr/$fastq",  '-P', $path]];
+  my $wget_cmd_list = [['wget', '-c', '-qq', "$ftp_base_url/$first/$second_a/$srr/$fastq", '-P', $path],['wget', '-c', '-qq', "$ftp_base_url/$first/$second_b/$srr/$fastq", '-P', $path],['wget', '-c', '-qq', "$ftp_base_url/$first/$srr/$fastq", '-P', $path]];
   foreach my $wget_cmd (@$wget_cmd_list){
     $exit_code = $self->exit_code_test($wget_cmd);
     if ($exit_code){
@@ -154,7 +154,7 @@ sub create_faidx {
   Description: The run_system_command returns a different exit code to wget
                Here, run_system_command exit code is bit-shifted and tested (wget exit code for server error is 8)
   Returntype : Boolean
-  Exceptions : Throws if error code not 8
+  Exceptions : Warning if error code not 8
 
 =cut
 
@@ -162,16 +162,11 @@ sub exit_code_test {
   my ($self,$wget_cmd) = @_;
 
   my $res = $self->run_system_command($wget_cmd);
-  if ($res){
+  if ($res) {
     $res >>= 8;
-    if ($res == 8) {
-      return 0;
-    }
-    else{
-      $self->throw("wget died with error code $res");
-    }
-  }
-  else{
+    $self->warning("wget died with error code $res");
+    return 0;
+  } else {
     return 1;
   }
 
