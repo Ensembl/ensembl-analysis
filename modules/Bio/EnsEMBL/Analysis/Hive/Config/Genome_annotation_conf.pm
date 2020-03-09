@@ -218,6 +218,12 @@ sub default_options {
     'rnaseq_blast_db_server'       => $self->o('databases_server'),
     'rnaseq_blast_db_port'         => $self->o('databases_port'),
 
+    'stringtie_initial_db_server'  => $self->o('databases_server'),
+    'stringtie_initial_db_port'    => $self->o('databases_port'),
+
+    'stringtie_blast_db_server'    => $self->o('databases_server'),
+    'stringtie_blast_db_port'      => $self->o('databases_port'),
+
     'lincrna_db_server'            => $self->o('databases_server'),
     'lincrna_db_port'              => $self->o('databases_port'),
 
@@ -373,6 +379,8 @@ sub default_options {
 ########################
 # Executable paths
 ########################
+    'star_path'              => '/homes/fergal/bin/STAR',
+    'stringtie2_path'        => '/homes/fergal/bin/stringtie',
     'minimap2_genome_index'  => $self->o('faidx_genome_file').'.mmi',
     'minimap2_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/minimap2',
     'paftools_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/misc/paftools.js',
@@ -487,7 +495,7 @@ sub default_options {
     # in brackets; the name the read number (1, 2) and the
     # extension.
     pairing_regex => '\S+_(\d)\.\S+',
-    
+
     # Regular expressions for splitting the fastq files
     split_paired_regex   => '(\S+)(\_\d\.\S+)',
     split_single_regex  => '([^.]+)(\.\S+)',
@@ -509,6 +517,9 @@ sub default_options {
     other_isoforms => 'other', # If you don't want isoforms, set this to undef
     maxintron => 200000,
 
+    star_threads => 12,
+    stringtie_threads => 2,
+
     # Please assign some or all columns from the summary file to the
     # some or all of the following categories.  Multiple values can be
     # separted with commas. ID, SM, DS, CN, is_paired, filename, read_length, is_13plus,
@@ -522,6 +533,9 @@ sub default_options {
     ####################################################################
     file_columns      => ['SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS'],
     long_read_columns => ['sample','filename'],
+
+    'filename_tag'   => 'filename', # For the analysis that creates star jobs, though I assume we should need to do it this way
+
 
 # lincRNA pipeline stuff
     'lncrna_dir' => catdir($self->o('output_path'), 'lincrna'),
@@ -1046,6 +1060,25 @@ sub default_options {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_rough_'.$self->o('release_number'),
       -host   => $self->o('rnaseq_rough_db_server'),
       -port   => $self->o('rnaseq_rough_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+
+    'stringtie_initial_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_stringtie_initial_'.$self->o('release_number'),
+      -host   => $self->o('stringtie_initial_db_server'),
+      -port   => $self->o('stringtie_initial_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    'stringtie_blast_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_stringtie_blast_'.$self->o('release_number'),
+      -host   => $self->o('stringtie_blast_db_server'),
+      -port   => $self->o('stringtie_blast_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -5366,10 +5399,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -rc_name => '1GB',
         -parameters => {
-          cmd => 'EXIT_CODE=0; for F in '.join (' ',
-              $self->o('bwa_path'),
-              $self->o('samtools_path'),
-              $self->o('exonerate_path'),
+                          cmd => 'EXIT_CODE=0; for F in '.join (' ',
               $self->o('sequence_dump_script'),
               $self->o('uniprot_blast_exe_path')
               ).'; do which "$F"; if [ "$?" == 1 ]; then EXIT_CODE=1;fi; done; '
@@ -5377,8 +5407,6 @@ sub pipeline_analyses {
             .'for D in '.join(' ',
               $self->o('output_dir'),
               $self->o('input_dir'),
-              $self->o('merge_dir'),
-              $self->o('sam_dir')
               ).'; do mkdir -p "$D"; done; '
             .'which lfs > /dev/null; if [ $? -eq 0 ]; then for D in '.join(' ',
               $self->o('output_dir'),
@@ -5388,7 +5416,7 @@ sub pipeline_analyses {
         },
         -flow_into => {
           '1->A' => ['create_fastq_download_jobs','index_rnaseq_genome_file'],
-          'A->1' => ['create_rough_db'],
+          'A->1' => ['parse_summary_file'],
         },
       },
 
@@ -5428,73 +5456,21 @@ sub pipeline_analyses {
           input_dir => $self->o('input_dir'),
           read_length_table => $self->o('read_length_table'),
         },
-        -flow_into => {
-          1 => ['split_fastq_files'],
-        },
       },
 
 
       {
-        -logic_name => 'split_fastq_files',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::SplitFastQFiles',
-        -parameters => {
-          'max_reads_per_split' => $self->o('max_reads_per_split'),
-          'max_total_reads'     => $self->o('max_total_reads'),
-          'rnaseq_summary_file' => $self->o('rnaseq_summary_file'),
-          'fastq_dir'           => $self->o('input_dir'),
-	  'pairing_regex'       => $self->o('split_paired_regex'),
-	  'single_regex'        => $self->o('split_single_regex'),
-        },
-      },
-
-
-     {
         -logic_name => 'index_rnaseq_genome_file',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -rc_name => '5GB',
+        -rc_name => '45GB_star',
         -parameters => {
-          cmd => 'if [ ! -e "'.$self->o('faidx_genome_file').'.ann" ]; then '.$self->o('bwa_path').' index -a bwtsw '.$self->o('faidx_genome_file').';fi',
+          cmd => 'if [ ! -e "'.catfile($self->o('output_path'),'genome_dumps','Genome').'" ]; then '.$self->o('star_path').' --runThreadN '.
+                               $self->o('star_threads').' --runMode genomeGenerate --outFileNamePrefix '.
+                               catfile($self->o('output_path'),'genome_dumps').' --genomeDir '.
+                               catfile($self->o('output_path'),'genome_dumps').' --genomeFastaFiles '.$self->o('faidx_genome_file').';fi',
         },
       },
 
-
-      {
-        -logic_name => 'create_rough_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-          source_db => $self->o('dna_db'),
-          target_db => $self->o('rnaseq_rough_db'),
-          create_type => 'clone',
-        },
-        -rc_name => '1GB',
-        -flow_into => {
-          1 => ['backup_original_csv'],
-        },
-      },
-
-
-      {
-        -logic_name => 'backup_original_csv',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => 'cp '.$self->o('rnaseq_summary_file').' '.$self->o('rnaseq_summary_file').'_orig_bak',
-        },
-        -flow_into => {
-          1 => ['create_updated_csv'],
-        },
-      },
-
-
-      {
-        -logic_name => 'create_updated_csv',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => 'cat '.catfile($self->o('input_dir'), '*_new.csv').' > '.$self->o('rnaseq_summary_file'),
-        },
-        -flow_into => {
-          1 => ['parse_summary_file'],
-        },
-      },
 
       {
         -logic_name => 'parse_summary_file',
@@ -5510,700 +5486,138 @@ sub pipeline_analyses {
           read_length_table => $self->o('read_length_table'),
         },
         -flow_into => {
-          '2->A' => [ 'create_tissue_jobs'],
-          'A->1' => [ 'merged_bam_file' ],
+          '1->A' => ['create_star_jobs'],
+          'A->1' => ['stringtie2merge'],
         },
       },
+
+
       {
-        -logic_name => 'create_tissue_jobs',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+        -logic_name => 'create_star_jobs',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateStarJobs',
         -parameters => {
-          inputquery => join(' ', 'SELECT', $self->o('read_group_tag'), ',', $self->o('read_id_tag'), ', is_paired, CN', 'FROM', $self->o('summary_csv_table'), 'WHERE', $self->o('read_group_tag'), '= "#sample_name#"'),
-          column_names => [$self->o('read_group_tag'), $self->o('read_id_tag'), 'is_paired', 'rnaseq_data_provider'],
-        },
-        -rc_name    => '1GB',
-        -flow_into => {
-          '2->A' => ['create_bwa_jobs'],
-          'A->1' => ['merged_tissue_file'],
-        },
-      },
-      {
-        -logic_name => 'create_bwa_jobs',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateBWAJobs',
-        -parameters => {
+                          input_dir => $self->o('input_dir'),
           sample_column => $self->o('read_group_tag'),
           sample_id_column => $self->o('read_id_tag'),
+          filename_column => $self->o('filename_tag'),
           csvfile_table => $self->o('summary_csv_table'),
           column_names => $self->o('file_columns'),
           use_threading => $self->o('use_threads'),
         },
         -rc_name    => '1GB',
         -flow_into => {
-          '2->A' => ['bwa', 'create_header_files'],
-          'A->1' => ['bwa2bam'],
-        },
-      },
-      {
-        -logic_name => 'create_header_files',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -rc_name => '1GB',
-        -parameters => {
-          cmd => 'if [ ! -e "'.$self->o('header_file').'" ]; then printf "'.$header_line.'" > '.$self->o('header_file').'; fi',
-        },
-      },
-      {
-        -logic_name => 'bwa',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA',
-        -parameters => {
-          disconnect_jobs => 1,
-          short_read_aligner => $self->o('bwa_path'),
-          input_dir => $self->o('input_dir'),
-          genome_file => $self->o('faidx_genome_file'),
-          output_dir => $self->o('output_dir'),
-        },
-        -flow_into => {
-          1 => [ ':////accu?fastq=[]' ],
-          -1 => [ 'bwa_20GB' ],
-          -2 => [ 'bwa_20GB' ],
-        },
-        -rc_name    => '10GB_multithread',
-      },
-      {
-        -logic_name => 'bwa_20GB',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA',
-        -can_be_empty => 1,
-        -parameters => {
-          disconnect_jobs => 1,
-          short_read_aligner => $self->o('bwa_path'),
-          input_dir => $self->o('input_dir'),
-          genome_file => $self->o('faidx_genome_file'),
-          output_dir => $self->o('output_dir'),
-        },
-        -flow_into => {
-          1 => [ ':////accu?fastq=[]' ],
-        },
-        -rc_name    => '20GB_multithread',
-      },
-      {
-        -logic_name => 'bwa2bam',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA2BAM',
-        -parameters => {
-          sampe_options => '-A -a '.$self->o('maxintron'),
-          samse_options => '',
-          min_paired => $self->o('read_min_paired'),
-          min_mapped => $self->o('read_min_mapped'),
-          header_file => $self->o('header_file'),
-          bam_prefix => $self->o('read_id_tag'),
-          email => $self->o('email_address'),
-          disconnect_jobs => 1,
-          short_read_aligner => $self->o('bwa_path'),
-          input_dir => $self->o('input_dir'),
-          genome_file => $self->o('faidx_genome_file'),
-          output_dir => $self->o('output_dir'),
-          samtools => $self->o('samtools_path'),
-        },
-        -flow_into => {
-          1 => [ ':////accu?filename=[]' ],
-          -1 => {'bwa2bam_20GB' => { fastq => '#fastq#', is_paired => '#is_paired#', $self->o('read_id_tag') => '#'.$self->o('read_id_tag').'#'}},
-          -2 => {'bwa2bam_20GB' => { fastq => '#fastq#', is_paired => '#is_paired#', $self->o('read_id_tag') => '#'.$self->o('read_id_tag').'#'}},
-        },
-        -rc_name    => '10GB',
-      },
-      {
-        -logic_name => 'bwa2bam_20GB',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA2BAM',
-        -can_be_empty => 1,
-        -parameters => {
-          sampe_options => '-A -a '.$self->o('maxintron'),
-          samse_options => '',
-          min_paired => $self->o('read_min_paired'),
-          min_mapped => $self->o('read_min_mapped'),
-          header_file => $self->o('header_file'),
-          bam_prefix => $self->o('read_id_tag'),
-          email => $self->o('email_address'),
-          disconnect_jobs => 1,
-          short_read_aligner => $self->o('bwa_path'),
-          input_dir => $self->o('input_dir'),
-          genome_file => $self->o('faidx_genome_file'),
-          output_dir => $self->o('output_dir'),
-          samtools => $self->o('samtools_path'),
-        },
-        -flow_into => {
-          1 => [ ':////accu?filename=[]' ],
-        },
-        -rc_name    => '20GB',
-      },
-
-      {
-        -logic_name => 'merged_tissue_file',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMergeBamFiles',
-        -parameters => {
-          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BamMergeStatic', $self->o('rnaseq_merge_type'))},
-          # target_db is the database where we will write the files in the data_file table
-          # You can use store_datafile => 0, if you don't want to store the output file
-          target_db => $self->o('rnaseq_rough_db'),
-          assembly_name => $self->o('assembly_name'),
-          rnaseq_data_provider => $self->o('rnaseq_data_provider'),
-          disconnect_jobs => 1,
-          species => $self->o('species_name'),
-          output_dir => $self->o('merge_dir'),
-          input_dir => $self->o('output_dir'),
-          samtools => $self->o('samtools_path'),
-          picard_lib_jar => $self->o('picard_lib_jar'),
-          use_threads => $self->o('rnaseq_merge_threads'),
-        },
-        -rc_name    => '3GB_merged_multithread',
-        -flow_into => {
-          1 => ['create_analyses_type_job', '?accu_name=filename&accu_address=[]&accu_input_variable=alignment_bam_file'],
-        },
-      },
-      {
-        -logic_name => 'create_analyses_type_job',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-        -rc_name    => '1GB',
-        -parameters => {
-          inputlist => ['gene', 'daf', 'ise'],
-          column_names => ['type'],
-          species => $self->o('species_name'),
-        },
-        -flow_into => {
-          2 => {'create_rnaseq_tissue_analyses' => {analyses => [{'-logic_name' => '#species#_#sample_name#_rnaseq_#type#'}]}},
-        },
-      },
-      {
-        -logic_name => 'create_rnaseq_tissue_analyses',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
-        -rc_name    => '1GB',
-        -parameters => {
-          source_type => 'list',
-          target_db => $self->o('rnaseq_rough_db'),
-        },
-      },
-      {
-        -logic_name => 'merged_bam_file',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMergeBamFiles',
-        -parameters => {
-          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BamMergeStatic', $self->o('rnaseq_merge_type'))},
-          # target_db is the database where we will write the files in the data_file table
-          # You can use store_datafile => 0, if you don't want to store the output file
-          target_db => $self->o('rnaseq_rough_db'),
-          assembly_name => $self->o('assembly_name'),
-          rnaseq_data_provider => $self->o('rnaseq_data_provider'),
-          disconnect_jobs => 1,
-          alignment_bam_file => catfile($self->o('merge_dir'), '#assembly_name#.#rnaseq_data_provider#.merged.1.bam'),
-          species => $self->o('species_name'),
-          output_dir => $self->o('merge_dir'),
-          input_dir => $self->o('merge_dir'),
-          samtools => $self->o('samtools_path'),
-          picard_lib_jar => $self->o('picard_lib_jar'),
-          use_threads => $self->o('rnaseq_merge_threads'),
-        },
-        -rc_name    => '5GB_merged_multithread',
-        -flow_into => {
-          1 => ['fan_merge_analyses'],
-          2 => ['create_header_intron'],
+          2 => ['star'],
         },
       },
 
-     {
-        -logic_name => 'fan_merge_analyses',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+
+      {
+        -logic_name => 'star',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveStar',
         -parameters => {
-	  cmd => "if [[ \$(cut -d\$'\\t' -f1 ".$self->o('rnaseq_summary_file')." | sort | uniq | wc -l) == 1 ]]; then exit 42; else exit 0;fi",
-          return_codes_2_branches => {'42' => 2},
+          disconnect_jobs => 1,
+          input_dir => $self->o('input_dir'),
+          output_dir => $self->o('output_dir'),
+          short_read_aligner => $self->o('star_path'),
+          genome_dir => catfile($self->o('output_path'),'genome_dumps'),
+          num_threads => $self->o('star_threads'),
         },
+        -flow_into => {
+          2 => ['stringtie2'],
+        },
+        -rc_name    => '45GB_star',
+      },
+
+
+      {
+        -logic_name => 'stringtie2',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Stringtie2',
+         -parameters => {
+           output_dir => catdir($self->o('output_dir'),'stringtie'),
+           stringtie2_path        => $self->o('stringtie2_path'),
+           csv_summary_file       => $self->o('rnaseq_summary_file'),
+           csv_summary_file_genus => $self->o('rnaseq_summary_file_genus'),
+           num_threads => $self->o('stringtie_threads'),
+        },
+        -rc_name    => '10GB_stringtie',
+      },
+
+
+      {
+        -logic_name => 'stringtie2merge',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Stringtie2Merge',
+         -parameters => {
+           stringtie_gtf_dir => catdir($self->o('output_dir'),'stringtie'),
+           stringtie_merge_dir => catdir($self->o('output_dir'),'stringtie','merge'),
+           stringtie2_path        => $self->o('stringtie2_path'),
+           csv_summary_file       => $self->o('rnaseq_summary_file'),
+           csv_summary_file_genus => $self->o('rnaseq_summary_file_genus'),
+           num_threads => $self->o('stringtie_threads'),
+
+                         },
+         -flow_into => {
+          1 => ['create_stringtie_initial_db'],
+        },
+        -rc_name    => '10GB_stringtie',
+      },
+
+
+
+      {
+        -logic_name => 'create_stringtie_initial_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('stringtie_initial_db'),
+                         create_type => 'clone',
+                       },
         -rc_name    => 'default',
-        -flow_into  => {
-	  1 => ['create_merge_analyses_type_job'],
+        -flow_into => {
+          1 => ['generate_stringtie_gtf_jobs'],
         },
       },
 
+
       {
-        -logic_name => 'create_merge_analyses_type_job',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-        -rc_name    => '1GB',
-        -parameters => {
-          inputlist => ['gene', 'daf', 'ise'],
-          column_names => ['type'],
-          species => $self->o('species_name'),
+        -logic_name => 'generate_stringtie_gtf_jobs',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::GenerateGTFLoadingJobs',
+         -parameters => {
+           gtf_dir => catdir($self->o('output_dir'),'stringtie','merge'),
         },
         -flow_into => {
-          2 => {'create_rnaseq_merge_analyses' => {analyses => [{'-logic_name' => '#species#_merged_rnaseq_#type#'}]}},
-        },
-      },
-      {
-        -logic_name => 'create_rnaseq_merge_analyses',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
-        -rc_name    => '1GB',
-        -parameters => {
-          source_type => 'list',
-          target_db => $self->o('rnaseq_rough_db'),
-        },
-      },
-      {
-        -logic_name => 'create_header_intron',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -rc_name    => '1GB',
-        -parameters => {
-          cmd => $self->o('samtools_path').' view -H #filename# | grep -v @SQ | grep -v @HD > '.catfile($self->o('rnaseq_dir'),'merged_header.h'),
-        },
-        -flow_into => {
-          '1->A' => [ 'create_toplevel_input_ids'],
-          'A->1' => ['sam2bam'],
-        },
-      },
-
-
-      {
-        -logic_name => 'create_toplevel_input_ids',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -rc_name    => '1GB',
-        -parameters => {
-          iid_type => 'slice',
-          batch_slice_ids => 1,
-          batch_target_size => 1000000,
-          target_db => $self->o('rnaseq_rough_db'),
-        },
-        -flow_into => {
-          2 => {'create_overlapping_slices' => {'iid' => '#iid#', alignment_bam_file => '#filename#'}},
-        },
-      },
-
-      {
-        -logic_name => 'create_overlapping_slices', # Hopefully this can be removed when the new Bam2Genes module is ready
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -rc_name    => '1GB',
-        -parameters => {
-          iid_type => 'split_slice',
-          slice_size => 5000000,
-          slice_overlaps => 2500000,
-          target_db => $self->o('rnaseq_rough_db'),
-        },
-        -flow_into => {
-          '2->A' => {'split_on_low_coverage' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
-          'A->1' => ['check_and_delete_broken_duplicated'],
-        },
-      },
-
-      {
-        -logic_name => 'split_on_low_coverage',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::CalculateLowCoverageSlices',
-        -parameters => {
-          'disconnect_jobs' => 1,
-          'dna_db'   => $self->o('dna_db'),
-        },
-
-        -rc_name   => '10GB',
-        -flow_into => {
-          2 => ['rough_transcripts'],
-          -1 => ['split_on_low_coverage_20GB'],
-        },
-
-      },
-
-      {
-        -logic_name => 'split_on_low_coverage_20GB',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::CalculateLowCoverageSlices',
-        -parameters => {
-          'disconnect_jobs' => 1,
-          'dna_db'   => $self->o('dna_db'),
-        },
-
-        -rc_name          => '20GB',
-        -flow_into => {
-          2 => ['rough_transcripts'],
-        },
-
-      },
-
-
-      {
-        -logic_name => 'rough_transcripts',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Genes',
-        -parameters => {
-          logic_name => 'rough_transcripts',
-          target_db    => $self->o('rnaseq_rough_db'),
-          dna_db    => $self->o('dna_db'),
-          min_length => 300,
-          min_exons  =>   1,
-          max_intron_length => $self->o('maxintron'),
-          min_single_exon_length => 1000,
-          min_span   =>   1.5,
-          paired => $self->o('paired_end_only'),
-          use_ucsc_naming => $self->o('use_ucsc_naming'),
-        },
-        -rc_name    => '2GB',
-        -flow_into => {
-          -1 => {'rough_transcripts_10GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
-          -2 => {'failed_rough_transcript_jobs' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
-          -3 => {'failed_rough_transcript_jobs' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
-        },
-      },
-
-
-      {
-        -logic_name => 'rough_transcripts_10GB',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Genes',
-        -can_be_empty => 1,
-        -parameters => {
-          logic_name => 'rough_transcripts',
-          target_db    => $self->o('rnaseq_rough_db'),
-          dna_db    => $self->o('dna_db'),
-          min_length => 300,
-          min_exons  =>   1,
-          max_intron_length => $self->o('maxintron'),
-          min_single_exon_length => 1000,
-          min_span   =>   1.5,
-          paired => $self->o('paired_end_only'),
-          use_ucsc_naming => $self->o('use_ucsc_naming'),
-        },
-        -rc_name    => '10GB',
-        -flow_into => {
-          -1 => {'rough_transcripts_30GB' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
-          -2 => {'failed_rough_transcript_jobs' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
-          -3 => {'failed_rough_transcript_jobs' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
-        },
-      },
-
-
-      {
-        -logic_name => 'rough_transcripts_30GB',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Genes',
-        -can_be_empty => 1,
-        -parameters => {
-          logic_name => 'rough_transcripts',
-          target_db    => $self->o('rnaseq_rough_db'),
-          dna_db    => $self->o('dna_db'),
-          min_length => 300,
-          min_exons  =>   1,
-          max_intron_length => $self->o('maxintron'),
-          min_single_exon_length => 1000,
-          min_span   =>   1.5,
-          paired => $self->o('paired_end_only'),
-          use_ucsc_naming => $self->o('use_ucsc_naming'),
-        },
-        -rc_name    => '30GB',
-        -flow_into => {
-          -1 => {'failed_rough_transcript_jobs' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
-          -2 => {'failed_rough_transcript_jobs' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
-          -3 => {'failed_rough_transcript_jobs' => {'iid' => '#iid#', alignment_bam_file => '#alignment_bam_file#'}},
-        },
-      },
-
-
-      {
-        -logic_name => 'failed_rough_transcript_jobs',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {
-                       },
-        -rc_name          => 'default',
-        -can_be_empty  => 1,
-      },
-
-
-      {
-        -logic_name => 'check_and_delete_broken_duplicated',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRemoveBrokenAndDuplicatedObjects',
-        -parameters => {
-          target_db => $self->o('rnaseq_rough_db'),
-          check_support => 0,
+          '2->A' => ['load_stringtie_transcripts'],
+          'A->1' => ['create_stringtie_blast_db'],
         },
         -rc_name    => '5GB',
-        -analysis_capacity => 1, # Because there is slice overlap, having parallel jobs can cause problems
-        -flow_into => {
-          1 => ['create_bam2introns_input_ids'],
-        },
-      },
-
-      {
-        -logic_name => 'create_bam2introns_input_ids',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-          iid_type => 'slice_to_feature_ids',
-          target_db => $self->o('rnaseq_rough_db'),
-          feature_type => 'gene',
-          logic_name => ['rough_transcripts'],
-          use_stable_ids => 1,
-          create_stable_ids => 1,
-          stable_id_prefix => 'RNASEQ',
-        },
-        -rc_name    => '1GB',
-        -batch_size => 100,
-        -flow_into => {
-          2 => {'bam2introns' => {iid => '#iid#', bam_file => '#alignment_bam_file#'}},
-        },
-      },
-
-      {
-        -logic_name => 'bam2introns',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns',
-        -parameters => {
-          program_file => $self->o('exonerate_path'),
-          source_db => $self->o('rnaseq_rough_db'),
-          dna_db => $self->o('dna_db'),
-          missmatch => 6,
-          word_length => 10,
-          saturate_threshold => 10000,
-          mask => 1,
-          percent_id => 97,
-          coverage => 90,
-          fullseq   => 1,
-          max_transcript => 1000000,
-          batch_size => 10000,
-          maxintron => $self->o('maxintron'),
-          use_ucsc_naming => $self->o('use_ucsc_naming'),
-          output_dir => $self->o('sam_dir'),
-          use_genome_flatfile => 1,
-          flatfile_masked => 1,
-          genome_file => $self->o('faidx_softmasked_genome_file'),
-          timer => '15m',
-        },
-        -rc_name    => '5GB',
-        -batch_size => 200,
-        -analysis_capacity => 500,
-        -flow_into => {
-          1 => [':////accu?filename=[]'],
-          2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
-          -1 => {'bam2introns_20GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
-          -2 => ['failed_bam2introns_jobs'],
-          -3 => ['failed_bam2introns_jobs'],
-        },
       },
 
 
       {
-        -logic_name => 'bam2introns_20GB',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns',
-        -can_be_empty => 1,
+        -logic_name => 'load_stringtie_transcripts',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::LoadGTFBasic',
         -parameters => {
-          program_file => $self->o('exonerate_path'),
-          source_db => $self->o('rnaseq_rough_db'),
-          dna_db => $self->o('dna_db'),
-          missmatch => 6,
-          word_length => 10,
-          saturate_threshold => 10000,
-          mask => 1,
-          percent_id => 97,
-          coverage => 90,
-          fullseq   => 1,
-          max_transcript => 1000000,
-          batch_size => 10000,
-          maxintron => $self->o('maxintron'),
-          use_ucsc_naming => $self->o('use_ucsc_naming'),
-          output_dir => $self->o('sam_dir'),
-          use_genome_flatfile => 1,
-          flatfile_masked => 1,
-          genome_file => $self->o('faidx_softmasked_genome_file'),
-          timer => '30m',
-        },
-        -rc_name    => '20GB',
-        -flow_into => {
-          1 => [':////accu?filename=[]'],
-          2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
-          -1 => {'bam2introns_30GB' => {iid => '#iid#', bam_file => '#bam_file#'}},
-          -2 => ['failed_bam2introns_jobs'],
-          -3 => ['failed_bam2introns_jobs'],
-        },
-      },
-
-      {
-        -logic_name => 'bam2introns_30GB',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBam2Introns',
-        -can_be_empty => 1,
-        -parameters => {
-          program_file => $self->o('exonerate_path'),
-          source_db => $self->o('rnaseq_rough_db'),
-          dna_db => $self->o('dna_db'),
-          missmatch => 6,
-          word_length => 10,
-          saturate_threshold => 10000,
-          mask => 1,
-          percent_id => 97,
-          coverage => 90,
-          fullseq   => 1,
-          max_transcript => 1000000,
-          batch_size => 10000,
-          maxintron => $self->o('maxintron'),
-          use_ucsc_naming => $self->o('use_ucsc_naming'),
-          output_dir => $self->o('sam_dir'),
-          use_genome_flatfile => 1,
-          flatfile_masked => 1,
-          genome_file => $self->o('faidx_softmasked_genome_file'),
-          timer => '30m',
-        },
-        -rc_name    => '30GB',
-        -flow_into => {
-          1 => [':////accu?filename=[]'],
-          2 => {'bam2introns' => {iid => '#iid#', bam_file => '#bam_file#'}},
-          -1 => ['failed_bam2introns_jobs'],
-          -2 => ['failed_bam2introns_jobs'],
-          -3 => ['failed_bam2introns_jobs'],
-        },
-      },
-
-      {
-        -logic_name => 'failed_bam2introns_jobs',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-        -parameters => {
-                       },
-        -rc_name          => 'default',
-        -can_be_empty  => 1,
-      },
-
-      {
-        -logic_name => 'sam2bam',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSam2Bam',
-        -parameters => {
-          headerfile => catfile($self->o('rnaseq_dir'), 'merged_header.h'),
-          disconnect_jobs => 1,
-          samtools => $self->o('samtools_path'),
-          intron_bam_file => catfile($self->o('output_dir'), 'introns'),
+          target_db => $self->o('stringtie_initial_db'),
+          loading_type => 'range',
           genome_file => $self->o('faidx_genome_file'),
-          use_threading => $self->o('use_threads'),
-          sam_dir => $self->o('sam_dir'),
+          logic_name  => 'stringtie2',
+          module      => 'Stringtie2',
         },
-        -rc_name    => '5GB_multithread',
-        -flow_into => ['create_refine_db'],
+        -rc_name    => '5GB',
       },
 
-
-     {
-        -logic_name => 'create_refine_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-          source_db => $self->o('rnaseq_rough_db'),
-          target_db => $self->o('rnaseq_refine_db'),
-          create_type => 'clone',
-          extra_data_tables => ['data_file'],
-        },
-        -rc_name => '1GB',
-        -flow_into => ['create_blast_db'],
-      },
 
       {
-        -logic_name => 'create_blast_db',
+        -logic_name => 'create_stringtie_blast_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
-          source_db => $self->o('rnaseq_refine_db'),
-          target_db => $self->o('rnaseq_blast_db'),
-          create_type => 'clone',
-          extra_data_tables => ['data_file'],
-        },
-        -rc_name => '1GB',
-        -flow_into => ['create_ccode_config'],
-      },
-      {
-        -logic_name => 'create_ccode_config',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGenerateRefineConfig',
-        -parameters => {
-          species => $self->o('species_name'),
-          output_dir => $self->o('output_dir'),
-          intron_bam_file => catfile($self->o('output_dir'), 'introns'),
-          single_tissue => $self->o('single_tissue'),
-          sample_column => $self->o('read_group_tag'),
-          sample_id_column => $self->o('read_id_tag'),
-          csvfile_table => $self->o('summary_csv_table'),
-          source_db => $self->o('rnaseq_rough_db'),
-          dna_db => $self->o('dna_db'),
-          target_db => $self->o('rnaseq_refine_db'),
-          # write the intron features into the OUTPUT_DB along with the models
-          write_introns => 1,
-          # maximum number of times to loop when building all possible paths through the transcript
-          max_recursions => 10000000000000,
-          # analysis logic_name for the dna_align_features to fetch from the INTRON_DB
-          # If left blank all features will be fetched
-          logicname => [],
-          # logic name of the gene models to fetch
-          model_ln  => '',
-          # penalty for removing a retined intron
-          retained_intron_penalty => 2,
-          #Remove introns that overlap X introns
-          filter_on_overlap => 0,
-          # minimum size for an intron
-          min_intron_size  => 30,
-          max_intron_size  => $self->o('maxintron'),
-          # biotype to give to single exon models if left blank single exons are ignored
-          # minimum single exon size (bp)
-          min_single_exon => 1000,
-          # minimum percentage of single exon length that is coding
-          single_exon_cds => 66,
-          # Intron with most support determines the splice sites for an internal exon
-          # lower scoring introns with different splice sites are rejected
-          strict_internal_splice_sites => 1,
-          # In some species alternate splice sites for end exons seem to be common
-          strict_internal_end_exon_splice_sites => 1,
-          # biotypes to give gene models if left blank these models will not get written to the output database
-          # best score - model with most supporting intron features
-          # all other possible models
-          # max number of other models to make - blank = all
-          other_num      => '10',
-          # max number of other models to process - blank = all
-          max_num      => '1000',
-          other_isoforms => $self->o('other_isoforms'),
-          # biotype to label bad models ( otherwise they are not written )
-          # do you want to trim UTR
-          trim_utr => 1,
-          # config for trimming UTR
-          max_3prime_exons => 2,
-          max_3prime_length => 5000,
-          max_5prime_exons => 3,
-          max_5prime_length => 1000,
-          # % of average intron score that a UTR intron must have
-          reject_intron_cutoff => 5,
-        },
-
-        -rc_name          => '1GB',
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('stringtie_blast_db'),
+                         create_type => 'clone',
+                       },
+        -rc_name    => 'default',
         -flow_into => {
-          '2->A' => ['create_ccode_input_ids'],
+          '1->A' => ['create_gene_id_input_ids'],
           'A->1' => ['copy_rnaseq_blast_db'],
-        },
-      },
-      {
-        -logic_name => 'create_ccode_input_ids',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -rc_name    => '1GB',
-        -parameters => {
-          iid_type => 'slice',
-          coord_system_name => 'toplevel',
-          slice => 1,
-          include_non_reference => 0,
-          top_level => 1,
-          feature_constraint => 1,
-          feature_type => 'gene',
-          target_db => $self->o('rnaseq_rough_db'),
-        },
-        -flow_into => {
-          2 => {'refine_genes' => {iid => '#iid#', logic_name => '#logic_name#', config_file => '#config_file#'}},
-        },
-      },
-
-      {
-        -logic_name => 'refine_genes',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => $self->o('refine_ccode_exe').($self->o('use_ucsc_naming') ? ' -u ' : ' ').($self->o('use_threads') ? ' -t '.$self->o('use_threads').' ' : ' ').'-c #config_file# -i #iid# -l #logic_name# -v 0',
-          return_codes_2_branches => {
-            42 => 2,
-          },
-        },
-        -rc_name => '2GB_multithread',
-        -flow_into => {
-          1 => ['create_gene_id_input_ids'],
-          -1 => {'refine_genes_20GB' => {iid => '#iid#', config_file => '#config_file#', logic_name => '#logic_name#'}},
-        },
-      },
-      {
-        -logic_name => 'refine_genes_20GB',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => $self->o('refine_ccode_exe').($self->o('use_ucsc_naming') ? ' -u ' : ' ').($self->o('use_threads') ? ' -t '.$self->o('use_threads').' ' : ' ').'-c #config_file# -i #iid# -l #logic_name# -v 0',
-          return_codes_2_branches => {
-            42 => 2,
-          },
-        },
-        -rc_name => '20GB_multithread',
-        -flow_into => {
-          1 => ['create_gene_id_input_ids'],
         },
       },
 
@@ -6215,23 +5629,22 @@ sub pipeline_analyses {
         -parameters => {
           iid_type => 'feature_id',
           coord_system_name => 'toplevel',
-          target_db => $self->o('rnaseq_refine_db'),
-          feature_logic_names => ['#logic_name#'],
+          target_db => $self->o('stringtie_initial_db'),
           feature_type => 'gene',
           batch_size => 50,
         },
         -flow_into => {
-          2 => {'blast_rnaseq' => {iid => '#iid#', logic_name => '#logic_name#'}},
+          '2' => {'blast_stringtie' => {iid => '#iid#', logic_name => '#logic_name#'}},
         },
       },
 
 
       {
-        -logic_name => 'blast_rnaseq',
+        -logic_name => 'blast_stringtie',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
         -parameters => {
-          source_db => $self->o('rnaseq_refine_db'),
-          target_db => $self->o('rnaseq_blast_db'),
+          source_db => $self->o('stringtie_initial_db'),
+          target_db => $self->o('stringtie_blast_db'),
           dna_db => $self->o('dna_db'),
           iid_type => 'object_id',
           # path to index to fetch the sequence of the blast hit to calculate % coverage
@@ -6249,7 +5662,7 @@ sub pipeline_analyses {
         -logic_name => 'copy_rnaseq_blast_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
         -parameters => {
-                         source_db => $self->o('rnaseq_blast_db'),
+                         source_db => $self->o('stringtie_blast_db'),
                          target_db => $self->o('rnaseq_for_layer_db'),
                          create_type => 'copy',
                          force_drop => 1,
@@ -6261,33 +5674,17 @@ sub pipeline_analyses {
       },
 
 
+
+
       {
         -logic_name => 'update_rnaseq_for_layer_biotypes',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
           db_conn => $self->o('rnaseq_for_layer_db'),
           sql => [
-            'UPDATE gene SET biotype = "rnaseq_merged" WHERE biotype IN ("best","single","other_merged")',
+            'UPDATE gene SET biotype = "rnaseq_merged" WHERE source IN ("merged")',
             'UPDATE gene SET biotype = "rnaseq_tissue" WHERE biotype != "rnaseq_merged"',
             'UPDATE transcript JOIN gene USING(gene_id) SET transcript.biotype = gene.biotype',
-          ],
-        },
-        -rc_name    => 'default',
-        -flow_into => {
-                        '1' => ['remove_rnaseq_for_layer_daf_features'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'remove_rnaseq_for_layer_daf_features',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-        -parameters => {
-          db_conn => $self->o('rnaseq_for_layer_db'),
-          sql => [
-            'TRUNCATE dna_align_feature',
-            'DELETE transcript_supporting_feature FROM transcript_supporting_feature WHERE feature_type = "dna_align_feature"',
-            'DELETE supporting_feature FROM supporting_feature WHERE feature_type = "dna_align_feature"',
           ],
         },
         -rc_name    => 'default',
@@ -9037,6 +8434,8 @@ sub resource_classes {
     '5GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh74', 5000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
     '10GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh74', 10000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
     '20GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh74', 20000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
+    '45GB_star' => { LSF => $self->lsf_resource_builder('production-rh74', 45000, undef, undef, ($self->default_options->{'star_threads'}+1))},
+    '10GB_stringtie' => { LSF => $self->lsf_resource_builder('production-rh74', 10000, undef, undef, ($self->default_options->{'stringtie_threads'}))},
   }
 }
 

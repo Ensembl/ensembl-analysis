@@ -62,7 +62,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-    input_file_extension => '_Aligned.sortedByCoord.out.bam',
+    input_file_extensions => ['_Aligned.sortedByCoord.out.bam','.mb.sorted.bam'],
     num_threads => 1,
     delete_input_file => 0,
   }
@@ -73,37 +73,14 @@ sub param_defaults {
 =head2 fetch_input
 
  Arg [1]    : None
- Description: Fetch parameters for minimap2
+ Description: Fetch parameters for Stringtie
  Returntype : None
- Exceptions : Throws if 'genome_file' does not exist
-              Throws if 'input_file' does not exist
+ Exceptions : Throws if no input ids
 
 =cut
 
 sub fetch_input {
   my ($self) = @_;
-
-#  my $target_dba = $self->hrdb_get_dba($self->param('target_db'));
-
-#  my $dna_dba;
-#  if($self->param('use_genome_flatfile')) {
-#    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
-#      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
-#    }
-#    setup_fasta(
-#                 -FASTA => $self->param_required('genome_file'),
-#               );
-#  } else {
-#    $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-#    $target_dba->dnadb($dna_dba);
-#  }
-
-#  $self->hrdb_set_con($target_dba,'target_db');
-
-  my $genome_file = $self->param_required('genome_file');
-  unless(-e $genome_file) {
-    $self->throw("Could not find the genome file. Path used:\n".$genome_file);
-  }
 
   my $input_ids = [$self->param('iid')];
   unless(scalar(@$input_ids)) {
@@ -141,8 +118,6 @@ sub fetch_input {
          -input_file        => $input_file,
          -num_threads       => $self->param('num_threads'),
          -output_dir        => $output_dir,
-#         -database_adaptor  => $target_dba,
-         -delete_input_file => $self->param('delete_input_file'), # NB!! only set this when creating ranged files, not when using the original input file
       );
 
     $self->runnable($runnable);
@@ -180,9 +155,10 @@ sub get_sample_name {
   my $input_file = basename($input_file_path);
   chomp($input_file);
 
-  my $file_extension_to_remove = $self->param('input_file_extension');
-  if($file_extension_to_remove) {
-    $input_file =~ s/$file_extension_to_remove//;
+  my $file_extensions_to_remove = $self->param('input_file_extensions');
+
+  foreach my $extension (@$file_extensions_to_remove) {
+    $input_file =~ s/$extension//;
   }
 
   say "Searching for string ".$input_file." in the following csv file:\n".$csv_file;

@@ -60,6 +60,7 @@ sub param_defaults {
     %{$self->SUPER::param_defaults},
     _branch_to_flow_to => 2,
     threads => 1,
+    create_sorted_bam => 1,
   }
 }
 
@@ -112,6 +113,7 @@ sub fetch_input {
      -fastq          => $filepath1,
      -fastqpair      => $filepath2,
      -threads        => $self->param('num_threads'),
+     -create_sorted_bam => $self->param('create_sorted_bam'),
     );
     $self->runnable($runnable);
   }

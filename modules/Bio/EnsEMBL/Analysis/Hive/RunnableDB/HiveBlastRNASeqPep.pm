@@ -1,4 +1,3 @@
-# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 # Copyright [2016-2020] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -76,6 +75,8 @@ sub param_defaults {
     iid_type => 'slice',
     calculate_coverage_and_pid => 1,
     slice_strand => 0,
+    max_translation_length => 7500,
+    _branch_to_flow_to => 2,
   }
 }
 
@@ -170,13 +171,20 @@ sub fetch_input {
     }
   }
 
+  my $ids_to_reprocess = [];
   foreach my $gene (@$genes) {
-      foreach my $tran (@{$gene->get_all_Transcripts}) {
-          $store_genes{$tran->dbID} = $gene;
-          if ($tran->translation) {
-              $tran->translation->seq;
-              foreach my $db (@{$self->param('uniprot_index')}) {
-                  $self->runnable(Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep->new(
+    my $skip_gene = 0;
+    my @runnables = ();
+    foreach my $tran (@{$gene->get_all_Transcripts}) {
+      $store_genes{$tran->dbID} = $gene;
+      if ($tran->translation) {
+        if ($tran->translation->length() > $self->param_required('max_translation_length')) {
+          push(@$ids_to_reprocess,$gene->dbID());
+          $skip_gene = 1;
+          last;
+        }
+        foreach my $db (@{$self->param('uniprot_index')}) {
+          my $runnable = Bio::EnsEMBL::Analysis::Runnable::BlastTranscriptPep->new(
                               -transcript     => $tran,
                               -query          => $tran->slice,
                               -program        => $self->param('blast_program'),
@@ -185,14 +193,22 @@ sub fetch_input {
                               -database       => $db,
                               -analysis       => $self->analysis,
                               %{$self->BLAST_PARAMS},
-                              ));
-              }
-          } else {
-            $self->warning("No translation found for refine gene with dbID: ".$gene->dbID);
-	  }
+                              );
+          push(@runnables,$runnable);
+        }
+      } else {
+        $self->warning("No translation found for refine gene with dbID: ".$gene->dbID);
+	    }
+    } # End foreach my $tran
+
+    unless($skip_gene) {
+      foreach my $runnable (@runnables) {
+        $self->runnable($runnable);
       }
+    }
   }
   $self->genes_by_tran_id(\%store_genes);
+  $self->param('ids_to_reprocess',$ids_to_reprocess);
   return 1;
 }
 
@@ -411,6 +427,7 @@ sub add_supporting_features {
 sub write_output {
   my ($self) = @_;
 
+  my $ids_to_reprocess = $self->param('ids_to_reprocess');
   my $outdb = $self->hrdb_get_con('output_db');
   my $gene_adaptor = $outdb->get_GeneAdaptor;
 
@@ -460,6 +477,10 @@ sub write_output {
   if($total_input_genes >= 20 && $success_percent <= 80) {
     $self->throw("The number of output genes differs too much from the number of input genes\n".
                  "Total input: ".$total_input_genes."\nTotal output: ".$total);
+  }
+
+  foreach my $reprocess_id (@$ids_to_reprocess) {
+    $self->dataflow_output_id([{'iid' => [$reprocess_id]}], $self->param('_branch_to_flow_to'));
   }
 }
 
