@@ -5654,7 +5654,30 @@ sub pipeline_analyses {
           %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
           commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40',
         },
+        -flow_into => {
+         '-1' => ['blast_stringtie_longseq'],
+          '2' => ['blast_stringtie_longseq'],
+        },
         -rc_name => 'blast',
+      },
+
+
+      {
+        -logic_name => 'blast_stringtie_longseq',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
+        -parameters => {
+          source_db => $self->o('stringtie_initial_db'),
+          target_db => $self->o('stringtie_blast_db'),
+          dna_db => $self->o('dna_db'),
+                               iid_type => 'object_id',
+                               # path to index to fetch the sequence of the blast hit to calculate % coverage
+                               indicate_index => $self->o('protein_blast_index'),
+          uniprot_index => [$self->o('protein_blast_db')],
+          blast_program => $self->o('uniprot_blast_exe_path'),
+          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
+          commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40',
+                             },
+        -rc_name => 'blast10GB',
       },
 
 
