@@ -1,6 +1,6 @@
 =head1 LICENSE
 
- Copyright [2019] EMBL-European Bioinformatics Institute
+ Copyright [2019-2020] EMBL-European Bioinformatics Institute
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -47,6 +47,7 @@ use warnings;
 use strict;
 use feature 'say';
 
+use POSIX;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name is_canonical_splice);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
@@ -59,6 +60,7 @@ sub param_defaults {
     %{$self->SUPER::param_defaults},
     _branch_to_flow_to => 1,
     small_intron_size  => 75,
+    min_intron_depth   => 1,
     use_generic_output_type => 0,
     generic_output_type => 'intron',
   }
@@ -77,7 +79,7 @@ sub fetch_input {
 
   say "Fetching input";
   # For the combine files option we don't actually need to do anything in fetch input
-  unless($self->param_required('dump_type') eq 'combine_files') {
+  unless($self->param_required('dump_type') eq 'combine_files' or $self->param_required('dump_type') eq 'star_junctions') {
     my $target_dba = $self->hrdb_get_dba($self->param('target_db'));
 
     if($self->param_required('dump_type') eq 'gene') {
@@ -102,37 +104,6 @@ sub fetch_input {
         push(@$genes,$gene_adaptor->fetch_by_dbID($gene_id));
       }
       $self->param('input_genes',$genes);
-
-##############
-#    say "DEBUG";
-#    foreach my $gene_id (@$gene_ids) {
-#    my $gene = $gene_adaptor->fetch_by_dbID($gene_id);
-#    my $transcripts = $gene->get_all_Transcripts();
-#    foreach my $transcript (@$transcripts) {
-#      say "Transcript: ".$transcript->dbID;
-#      my $introns = $transcript->get_all_Introns();
-#      foreach my $intron (@$introns) {
-#        my ($donor, $acceptor) = @{$intron->splice_seq};
-#        my $intron_string = $intron->start.":".$intron->end.":".$strand;
-#        say "IS: ".$intron_string." ".$donor.":".$acceptor;
-#        my $intron_start = $intron->start();
-#        my $intron_end = $intron->end();
-#        my $intron_strand = $intron->strand;
-#        my ($old_canon,$d,$e) = is_canonical_splice($intron,$target_dba->get_SliceAdaptor(),$gene->slice);
-#        say "Old canon: ".$old_canon." ".$d."..".$e;
-#        if($intron->is_splice_canonical) {
-#          say "Intron: canonical ".$intron_start."..".$intron_end.":".$intron_strand." ".$donor."..".$acceptor;
-#        } else {
-#          say "Intron: non-canonical ".$intron_start."..".$intron_end.":".$intron_strand." ".$donor."..".$acceptor;
-#        }
-#      }
-#    }
-#  }
-#  say "END DEBUG";
-
-##############
-
-
     } # End if($self->param_required('dump_type') eq 'gene')
 
     $self->hrdb_set_con($target_dba,'target_db');
@@ -150,6 +121,8 @@ sub run {
   } elsif($self->param('dump_type') eq 'intron_table') {
     say "Dumping intron table to file from db";
     $self->dump_intron_table();
+  } elsif($self->param('dump_type') eq 'star_junctions') {
+    $self->load_star_junctions();
   } elsif($self->param('dump_type') eq 'combine_files') {
     $self->combine_files();
   } else {
@@ -184,7 +157,7 @@ sub dump_genes {
 
   my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
   my $output_dir  = $self->param_required('introns_dir');
-  my $output_file = $self->create_filename(undef,'int',$output_dir,1);
+  my $output_file = $self->create_filename(undef,'int_freq',$output_dir,1);
   my $temp_name = "$output_file";
   say "Creating output file: ".$output_file;
   my $input_type  = $self->param_required('input_type');
@@ -199,19 +172,15 @@ sub dump_genes {
     foreach my $transcript (@$transcripts) {
       my $introns = $transcript->get_all_Introns();
       unless(scalar(@$introns)) {
-	next;
+        next;
       }
 
       foreach my $intron (@$introns) {
         my ($is_canonical,$donor,$acceptor) = is_canonical_splice($intron,$slice_adaptor,$gene->slice);
         my $intron_string = $intron->start.":".$intron->end.":".$strand;
-#        say "IS: ".$intron_string." ".$donor.":".$acceptor;
-
-#        unless($intron->is_splice_canonical) { # && $intron->length >= $small_intron_size) {
         unless($is_canonical && $intron->length >= $small_intron_size) {
-#          say "Splice not canonical";
           next;
-	}
+	      }
         if($intron_string_hash->{$seq_region_name}->{$intron_string}) {
           $intron_string_hash->{$seq_region_name}->{$intron_string} += 1;
         } else {
@@ -240,7 +209,7 @@ sub dump_intron_table {
   my ($self) = @_;
 
   my $input_type  = $self->param_required('input_type');
-  my $output_file = $self->param_required('introns_dir')."/".$input_type.".int";
+  my $output_file = $self->param_required('introns_dir')."/".$input_type.".int_freq";
   say "Creating output file: ".$output_file;
   open(OUT,">".$output_file);
 
@@ -286,11 +255,101 @@ sub dump_intron_table {
 }
 
 
+sub load_star_junctions {
+  my ($self) = @_;
+
+  my $junction_files;
+
+  if($self->param('star_junctions_dir')) {
+    my $star_junctions_dir = $self->param('star_junctions_dir');
+    unless(-e $star_junctions_dir) {
+      $self->throw("The STAR junction dir param was provided but the dir does not exist Path provided:\n".$star_junctions_dir);
+    }
+    $junction_files = [glob($star_junctions_dir . '/*_SJ.out.tab')];
+  } else {
+    $junction_files = $self->input_id();
+  }
+
+  unless(scalar(@$junction_files)) {
+    $self->throw("No files listed in the input id, something has gone wrong");
+  }
+
+  my $small_intron_size = $self->param_required('small_intron_size');
+  my $min_intron_depth = $self->param_required('min_intron_depth');
+  my $intron_string_hash = {};
+  my $input_type  = $self->param_required('input_type');
+  my $output_file = $self->param_required('introns_dir')."/".$input_type.".int_freq";
+  say "Creating output file: ".$output_file;
+  open(OUT,">".$output_file);
+  foreach my $junction_file (@$junction_files) {
+    unless(-e $junction_file) {
+      $self->throw("The STAR splice junction file in the input id does not exist. Path provided:\n".$junction_file);
+    }
+
+    open(IN,$junction_file);
+    while(<IN>) {
+      my $line = $_;
+      my @elements = split("\t",$line);
+      my $seq_region_name = $elements[0];
+      my $start = $elements[1];
+      my $end = $elements[2];
+      my $strand = $elements[3];
+      if($strand == 0) {
+        next;
+      } elsif($strand == 2) {
+        $strand = -1;
+      }
+
+      my $unique_map_count = $elements[7];
+      my $multi_map_count = ceil($elements[8] / 2);
+      my $depth = $unique_map_count + $multi_map_count;
+
+      my $intron_string = $start.":".$end.":".$strand;
+
+      unless((($end - $start + 1) >= $small_intron_size) && $depth >= $min_intron_depth) {
+        next;
+      }
+
+      if($intron_string_hash->{$seq_region_name}->{$intron_string}) {
+        $intron_string_hash->{$seq_region_name}->{$intron_string} += $depth;
+      } else {
+        $intron_string_hash->{$seq_region_name}->{$intron_string} = $depth;
+      }
+    }
+    close IN;
+  } # End foreach my $junction_file
+
+  foreach my $seq_region (keys(%$intron_string_hash)) {
+    my $out_line = $seq_region.":".$input_type.",";
+    my $introns = $intron_string_hash->{$seq_region};
+    foreach my $intron (keys(%$introns)) {
+      my $count = $introns->{$intron};
+      $out_line .= $intron.":".$count.",";
+    }
+    say OUT $out_line;
+  }
+  close OUT;
+  $self->param('_output_file',$output_file);
+}
+
+
 sub combine_files {
   my ($self) = @_;
 
   my $full_intron_hash = {};
-  my $initial_intron_files = $self->param_required('introns_file');
+  my $initial_intron_files;
+  if($self->param('intron_dirs')) {
+    my $intron_dir_list = $self->param('intron_dirs');
+    foreach my $intron_dir (@$intron_dir_list) {
+      unless(-e $intron_dir) {
+        $self->throw("The intron dirs param was provided but the dir does not exist Path provided:\n".$intron_dir);
+      }
+      push(@$initial_intron_files,glob($intron_dir . '/*.int_freq'));
+    }
+  } else {
+    $initial_intron_files = $self->param_required('introns_file');
+  }
+
   foreach my $intron_file (@$initial_intron_files) {
     unless(open(IN,$intron_file)) {
       $self->throw("Could not open intron file: ".$intron_file);
