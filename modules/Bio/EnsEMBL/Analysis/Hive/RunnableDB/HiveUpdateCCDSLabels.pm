@@ -386,7 +386,8 @@ sub add_ccds_transcript_xref {
                                              -priority => 240,
                                              -db_display_name => 'CCDS',
                                              -info_type => 'DIRECT',
-                                             -type => 'MISC'
+                                             -type => 'MISC',
+                                             -release => 1
                                            );
   $ccds_xref->status('XREF');
   $dbe_adaptor->store($ccds_xref,$transcript->dbID(),'Transcript');
