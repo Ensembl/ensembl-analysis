@@ -2543,6 +2543,37 @@ sub _master_config {
 
     ],
 
+    long_read_confidence => [
+                             {
+              ID         => 'LAYER1',
+              BIOTYPES   => [
+                              'corrected_high',
+                            ],
+              DISCARD    => 0,
+            },
+
+                             {
+              ID         => 'LAYER2',
+              BIOTYPES   => [
+                              'corrected_int',
+                              'corrected_cds',
+                            ],
+              FILTER_AGAINST => ['LAYER1'],
+              DISCARD    => 0,
+            },
+
+                             {
+              ID         => 'LAYER3',
+              BIOTYPES   => [
+                             'corrected',
+                            ],
+              FILTER => 'Bio::EnsEMBL::Analysis::Tools::GenomeOverlapFilter',
+              FILTER_AGAINST => ['LAYER1','LAYER2'],
+              DISCARD    => 0,
+            },
+
+    ],
+
   );
   return $config{$key};
 }

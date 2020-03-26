@@ -145,7 +145,7 @@ sub dump_genes {
 
   my $slice_adaptor = $self->hrdb_get_con('target_db')->get_SliceAdaptor;
   my $output_dir  = $self->param_required('cds_dir');
-  my $output_file = $self->create_filename(undef,'cds',$output_dir,1);
+  my $output_file = $self->create_filename(undef,'cds_freq',$output_dir,1);
   my $temp_name = "$output_file";
   say "Creating output file: ".$output_file;
   my $input_type  = $self->param_required('input_type');

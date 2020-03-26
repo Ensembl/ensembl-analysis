@@ -51,6 +51,7 @@ use feature 'say';
 
 use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(features_overlap);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name is_canonical_splice);
@@ -261,6 +262,21 @@ sub check_input_gene {
 }
 
 
+sub check_exon_modifications {
+  my ($self,$exons) = @_;
+
+  for(my $i=0; $i<scalar(@$exons)-1; $i++) {
+    my $exon1 = $$exons[$i];
+    for(my $j=$i+1; $j<scalar(@$exons); $j++) {
+      my $exon2 = $$exons[$j];
+      if(features_overlap($exon1,$exon2)) {
+        return(1);
+      }
+    } # End for $j
+  } # End for $i
+  return(0);
+}
+
 sub process_introns {
   my ($self,$line,$intron_hash,$combined_intron_hash) = @_;
 
@@ -461,6 +477,12 @@ sub fix_introns {
       say "The transcript was not modified";
       push(@$new_transcripts,$transcript);
     } else {
+      if($self->check_exon_modifications($exons)) {
+        say "There was an issue with the exon edits, using original exon set";
+        push(@$new_transcripts,$transcript);
+        next;
+      }
+
       say "The transcript was modified";
       foreach my $exon (@$exons) {
         $exon->phase(-1);
@@ -476,7 +498,7 @@ sub fix_introns {
       compute_translation($new_transcript);
       push(@$new_transcripts,$new_transcript);
       $new_gene->{'updated'} = 1;
-    }
+    } # End else after unless
   } # end foreach my $transcript (@$transcripts)
 
   foreach my $new_transcript (@$new_transcripts) {
@@ -594,6 +616,11 @@ sub fix_exons {
       say "The transcript was not modified";
       push(@$new_transcripts,$transcript);
     } else {
+      if($self->check_exon_modifications($new_exons)) {
+        say "There was an issue with the exon edits, using original exon set";
+        push(@$new_transcripts,$transcript);
+        next;
+      }
       say "The transcript was modified";
 #      my $new_exons = [];
 #      foreach my $exon (@$exons) {
