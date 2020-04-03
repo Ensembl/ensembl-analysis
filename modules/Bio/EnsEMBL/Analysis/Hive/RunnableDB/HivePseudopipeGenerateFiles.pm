@@ -14,8 +14,7 @@ sub fetch_input {
   my($self) = @_;
   $self->create_analysis;
 
-  my $dna_dba = $self->get_database_by_name('dna_db');
-
+  my $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
   my $slice = $dna_dba->get_SliceAdaptor->fetch_by_name($self->input_id);
   $self->param('_input_slice',$slice);
 }
@@ -26,7 +25,7 @@ sub write_output {
   my $output_path = $self->param('output_path');
 
 # create peptide file
-  my $pepfile = "allPep.fa";
+  my $pepfile = $slice->seq_region_name.".pep.fa";
   my $pep_dir = $self->param('output_path') ."/pep";
   if (not -e $pep_dir) {
      run_command("mkdir -p ".$pep_dir,"Create pep path.",0);
@@ -42,8 +41,14 @@ sub write_output {
   if (not -e $mysql_dir) {
     run_command("mkdir -p ".$mysql_dir,"Create mysql path.",0);
   }
-  open( exOUT, ">", $mysql_dir . "/" . $slice->name."_exLocs" );
-
+  if (not -e $slice->seq_region_name."_exLocs") {
+#    open( exOUT, ">", $mysql_dir . "/" . $slice->name."_exLocs" );
+    open( exOUT, ">", $mysql_dir . "/" . $slice->seq_region_name."_exLocs" );
+  }
+  else {
+    say "File exists!";
+    die;
+  }
   foreach my $exon (@exons) {
     my $seqname = $exon->seqname();
     my $length = $exon->length();
@@ -59,10 +64,10 @@ sub write_output {
     run_command("mkdir -p ".$dna_dir,"Create dna path.",0);
   }
 
-  open( dnaOUT, ">", $dna_dir . "/" . $slice->name . ".fa" );
+  open( dnaOUT, ">", $dna_dir . "/" . $slice->seq_region_name . ".fa" );
   my $dna_seq = $slice->seq;
 
-  say dnaOUT ">".$slice->name."\n".$dna_seq;
+  say dnaOUT ">".$slice->seq_region_name."\n".$dna_seq;
 
 # print all peptides to allPep.fa
   my @genes = @{$slice->get_all_Genes};
