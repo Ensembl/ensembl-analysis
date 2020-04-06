@@ -94,8 +94,10 @@ sub run {
       else {
 	$web_data = '"'.$web_data.'"';
       }
+# convert the web_data back to json format
+      $web_data =~ s/\=\>/:/g;
       my $desc = $hash{'description'};
-      $desc =~ s/\'/\\\'/g;;
+      $desc =~ s/\'/\\\'/g;
 
       my $sql = "INSERT INTO analysis_description (analysis_id, description, display_label, displayable, web_data) VALUES ($analysis_id, '$desc', '$hash{'display_label'}', $hash{'displayable'}, $web_data);";
       my $output_hash = {};
