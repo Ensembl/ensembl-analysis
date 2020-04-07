@@ -483,7 +483,7 @@ sub pipeline_analyses {
                -logic_name    => 'copy_sm_genome_to_ftp',
                -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
                -parameters    => {
-                                    cmd => 'rsync -rtDWv #softmasked_genome_file# '.$self->o('ftp_base').'/#species#/#gca#',
+                                    cmd => 'gzip #softmasked_genome_file# '.$self->o('ftp_base').'/#species#/#gca#/#softmasked_genome_file#.gz',
                                  },
                -rc_name       => 'default',
            },
@@ -535,7 +535,7 @@ sub pipeline_analyses {
                -logic_name    => 'cp_repeatmodeler_to_ftp',
                -module        => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
                -parameters    => {
-                                    cmd => 'cp #repeatmodeler_library# '.$self->o('ftp_base').'/#species#/#gca#/#gca#.repeatmodeler.fa',
+                                    cmd => 'gzip #repeatmodeler_library# '.$self->o('ftp_base').'/#species#/#gca#/#gca#.repeatmodeler.fa.gz',
                                  },
                -rc_name       => 'default',
           },
