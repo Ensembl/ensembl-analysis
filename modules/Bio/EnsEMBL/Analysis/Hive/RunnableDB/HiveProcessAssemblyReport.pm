@@ -90,6 +90,13 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
+    
+    # if any DNA slice sequence length is greater than _MAX_SLICE_LENGTH base pairs,
+    # all DNA slice sequences will be cut into _SUBSLICE_LENGTH-base-pair long sequences
+    _MAX_SLICE_LENGTH => 950000000,  # 950 million base pairs
+    _SUBSLICE_LENGTH => 10000000,    # 10 million base pairs
+    _exceeded_max_slice_length => 0, # it will be set to 1 when any DNA slice sequence length is greater than _MAX_SLICE_LENGTH
+    
     toplevel_as_sequence_levels => 1,
     _report_name => '#assembly_accession#_#assembly_name#_assembly_report.txt',
     _md5checksum_name => 'md5checksums.txt',
@@ -126,12 +133,6 @@ sub param_defaults {
 
 sub fetch_input {
   my ($self) = @_;
-  
-  # if any DNA slice sequence length is greater than _MAX_SLICE_LENGTH base pairs,
-  # all DNA slice sequences will be cut into _SUBSLICE_LENGTH-base-pair long sequences
-  $self->param('_MAX_SLICE_LENGTH',950000000);  # 950 million base pairs 
-  $self->param('_SUBSLICE_LENGTH',10000000);    # 10 million base pairs
-  $self->param('_exceeded_max_slice_length',0); # it will be set to 1 when any DNA slice sequence length if great than _MAX_SLICE_LENGTH
 
   my $db = $self->get_database_by_name('target_db');
   $self->hrdb_set_con($db, 'target_db');
