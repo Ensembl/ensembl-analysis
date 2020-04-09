@@ -17,40 +17,28 @@
 
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HivePopulateProductionTables;
 
+
 use strict;
 use warnings;
 use feature 'say';
 
 use File::Spec::Functions;
 use File::Path qw(make_path);
+use Bio::EnsEMBL::Production::Utils::ProductionDbUpdater;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
-
   unless($self->param('target_db')) {
-    $self->throw("target_db flag not passed into parameters hash. The target db to load the assembly info ".
+  	$self->throw("target_db flag not passed into parameters hash. The target db to load the assembly info ".
                  "into must be passed in with write access");
   }
-
+  
   unless($self->param('production_db')) {
-    $self->throw("You have used the populate_production_tables flag but have not passed in the production db connection hash with ".
-          "the production_db flag");
+  	$self->throw("You have used the populate_production_tables flag but have not passed in the production db connection hash with ".
+  	             "the production_db flag");
   }
-
-
-  unless($self->param('enscode_root_dir')) {
-    $self->throw("enscode_root_dir flag not passed into parameters hash. You need to specify where your code checkout is");
-  }
-
-  unless($self->param('output_path')) {
-    $self->throw("You have not specified the path to the main output directory with the -output_path flag, ".
-                 "this is needed to dump the backup tables into");
-  }
-  my $dump_path = catdir($self->param('output_path'), 'populate_script_dump');
-  make_path($dump_path) unless (-d $dump_path);
-  $self->param('dump_path', $dump_path);
 
   return 1;
 }
@@ -58,15 +46,23 @@ sub fetch_input {
 sub run {
   my $self = shift;
 
-
   my $target_db = $self->param('target_db');
   my $production_db = $self->param('production_db');
   my $enscode_dir = $self->param('enscode_root_dir');
 
-
   say "Running populate script on target db...\n";
-  $self->populate_production_db_tables($target_db,$production_db,$enscode_dir,$self->param('dump_path'));
+  say "IF YOU ARE USING OLD PRODUCTION CODE (before e99 branch), SWITCH old_school to 1\n ";
+  my $old_school = 0;
+  if ($old_school == 1) {
+  	my $dump_path = catdir($self->param('output_path'), 'populate_script_dump');
+  	make_path($dump_path) unless (-d $dump_path);
+  	$self->param('dump_path', $dump_path);
+  	$self->populate_production_db_tables($target_db,$production_db,$enscode_dir,$self->param('dump_path'));
+  } else {
+  	$self->populate_production_db_tables_using_module($target_db,$production_db);
+  }
   say "...finished running script on target db\n";
+  
   return 1;
 }
 
@@ -76,7 +72,49 @@ sub write_output {
   return 1;
 }
 
+# This need to be here, otherwise it will run the post_cleanup with clear_caches method. 
+sub post_cleanup {
+  my ($self,$sleep_time) = @_;
 
+  if(defined($sleep_time)) {
+    unless($sleep_time =~ /^[0-9]+$/) {
+      $self->throw("Value passed in for sleep time was not an positive integer or zero. Value: ".$sleep_time);
+    }
+    sleep($sleep_time);
+  } else {
+    sleep(5);
+  }
+
+}
+
+sub populate_production_db_tables_using_module {
+  my ($self,$target_db,$production_db) = @_;
+
+  my $dba = $self->hrdb_get_dba($self->param('target_db'));
+  $self->throw("Could not fetch $target_db database") unless defined $dba;
+  
+  my $prod_dba = $self->hrdb_get_dba($self->param('production_db'));
+  $self->throw('Could not fetch production database') unless defined $prod_dba;
+
+  my $updater =
+	  Bio::EnsEMBL::Production::Utils::ProductionDbUpdater->new(
+      -PRODUCTION_DBA => $prod_dba
+    );
+
+  my @tables_ar = (
+      'attrib_type',
+      'biotype',
+      'external_db',
+      'misc_set',
+      'unmapped_reason'
+      ); 
+  my $tables  = \@tables_ar;
+  $updater->update_controlled_tables($dba->dbc, $tables);
+}
+
+
+# We use to do it like this. Production delete this script, so we have to start using the other way.
+# I will keep that for a bit, if there are people who are using up to e99 branch production repo. 
 sub populate_production_db_tables {
   my ($self,$target_db,$production_db,$enscode_dir,$dump_path) = @_;
 
