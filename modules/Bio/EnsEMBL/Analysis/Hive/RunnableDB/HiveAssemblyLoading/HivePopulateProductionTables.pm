@@ -28,6 +28,7 @@ use Bio::EnsEMBL::Production::Utils::ProductionDbUpdater;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+
 sub fetch_input {
   my $self = shift;
   unless($self->param('target_db')) {
@@ -43,6 +44,7 @@ sub fetch_input {
   return 1;
 }
 
+
 sub run {
   my $self = shift;
 
@@ -51,7 +53,7 @@ sub run {
   my $enscode_dir = $self->param('enscode_root_dir');
 
   say "Running populate script on target db...\n";
-  say "IF YOU ARE USING OLD PRODUCTION CODE (before e99 branch), SWITCH old_school to 1\n ";
+  say "IF YOU ARE USING OLD PRODUCTION CODE (before e99 branch), consider updating your code or SWITCH old_school to 1\n ";
   my $old_school = 0;
   if ($old_school == 1) {
   	my $dump_path = catdir($self->param('output_path'), 'populate_script_dump');
@@ -66,34 +68,34 @@ sub run {
   return 1;
 }
 
+
 sub write_output {
   my $self = shift;
 
   return 1;
 }
 
-# This need to be here, otherwise it will run the post_cleanup with clear_caches method. 
-sub post_cleanup {
-  my ($self,$sleep_time) = @_;
 
-  if(defined($sleep_time)) {
-    unless($sleep_time =~ /^[0-9]+$/) {
-      $self->throw("Value passed in for sleep time was not an positive integer or zero. Value: ".$sleep_time);
-    }
-    sleep($sleep_time);
-  } else {
-    sleep(5);
-  }
 
-}
+=head2 populate_production_db_tables_using_module
+
+  Arg [1]   : $self,$target_db,$production_db
+  Function  : populate tables in core db from production db 
+  Returntype: 1;
+  Exceptions: throws if can't connect to dbs
+  Example   :
+
+=cut
 
 sub populate_production_db_tables_using_module {
   my ($self,$target_db,$production_db) = @_;
-
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
+  
+  # Creating db adaptor with this class. If you have problem around here download https://github.com/Ensembl/ensembl-orm repository 
+  # and add $ENSCODE/ensembl-orm/modules/ to your $PERL5LIB 
+  my $dba = $self->hrdb_get_dba($self->param('target_db'), undef, "Bio::EnsEMBL::Production::DBSQL::DBAdaptor");
   $self->throw("Could not fetch $target_db database") unless defined $dba;
   
-  my $prod_dba = $self->hrdb_get_dba($self->param('production_db'));
+  my $prod_dba = $self->hrdb_get_dba($self->param('production_db'), undef, "Bio::EnsEMBL::Production::DBSQL::DBAdaptor");
   $self->throw('Could not fetch production database') unless defined $prod_dba;
 
   my $updater =
@@ -113,8 +115,8 @@ sub populate_production_db_tables_using_module {
 }
 
 
-# We use to do it like this. Production delete this script, so we have to start using the other way.
-# I will keep that for a bit, if there are people who are using up to e99 branch production repo. 
+# We used to populate tables like this. But, production deleted this script, so we have to start using the other way.
+# I will keep that for now, if there are people who are using e99 branch of production repo or earlier. 
 sub populate_production_db_tables {
   my ($self,$target_db,$production_db,$enscode_dir,$dump_path) = @_;
 
