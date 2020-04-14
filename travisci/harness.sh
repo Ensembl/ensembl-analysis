@@ -74,7 +74,7 @@ else
       rt=$EXIT_CODE
   fi
   export EHIVE_ROOT_DIR=$PWD/ensembl-hive
-  perl $PWD/ensembl-test/scripts/runtests.pl -verbose $PWD/modules/t $SKIP_TESTS
+  travis_wait perl $PWD/ensembl-test/scripts/runtests.pl -verbose $PWD/modules/t $SKIP_TESTS
   EXIT_CODE=$?
   if [ "$EXIT_CODE" -ne 0 ]; then
       rt=$EXIT_CODE
