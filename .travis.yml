@@ -66,7 +66,7 @@ install:
     - mkdir -p modules/t/test-genome-DBs/homo_sapiens
     - cp -r ensembl/modules/t/test-genome-DBs/homo_sapiens/core modules/t/test-genome-DBs/homo_sapiens
 
-script: "./travisci/harness.sh"
+script: travis_wait 20 ./travisci/harness.sh
 
 notifications:
   email:
