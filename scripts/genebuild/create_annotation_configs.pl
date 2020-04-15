@@ -555,7 +555,7 @@ sub clade_settings {
 
     'aves' => {
       'repbase_library'    => 'Birds',
-      'repbase_logic_name' => 'birds',
+      'repbase_logic_name' => 'aves',
       'uniprot_set'        => 'birds_basic',
     },
 
@@ -747,7 +747,7 @@ sub init_pipeline {
 
 
     my $loop_command = $sync_command;
-    $loop_command =~ s/sync/loop \-sleep 0.3/;
+    $loop_command =~ s/\-sync/\-loop \-sleep 0.3/;
     my ($ehive_url) = $sync_command =~ /url\s+(\S+)/;
     my ($driver, $user, $password, $host, $port, $dbname) = $ehive_url =~ /^(\w+)[:\/]+(\w*):(\w+)@([^:]+):(\d+)\/(\w+)$/;
     if ($password) {
