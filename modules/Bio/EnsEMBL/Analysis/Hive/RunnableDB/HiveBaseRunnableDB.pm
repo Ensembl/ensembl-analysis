@@ -39,6 +39,7 @@ use parent ('Bio::EnsEMBL::Hive::Process');
                _auto_flow => 0, # This is mainly when you want to use complete_early, to set the autoflow
                _output => [],
                skip_analysis => 0, # If you want to skip the analysis, the feature needs to be implemented in the module
+               skip_cache_clearing => 0,
  Returntype : Hashref, containing all default parameters
  Exceptions : None
 
@@ -56,6 +57,7 @@ sub param_defaults {
         _auto_flow => 0,
         _output => [],
         skip_analysis => 0,
+        skip_cache_clearing => 0,
     }
 }
 
@@ -736,6 +738,7 @@ sub _create_temporary_file {
 sub post_cleanup {
   my ($self,$sleep_time) = @_;
 
+  return if ($self->param('skip_cache_clearing'));
   foreach my $key (keys %{$self->{_gb_cache}}) {
     next if ($key eq '_cache_lastlogicname');
     $self->{_gb_cache}->{$key}->clear_caches;

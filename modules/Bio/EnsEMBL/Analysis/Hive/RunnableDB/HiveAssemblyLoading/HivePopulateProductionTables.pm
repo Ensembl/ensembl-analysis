@@ -52,7 +52,7 @@ sub run {
   my $production_db = $self->param('production_db');
   my $enscode_dir = $self->param('enscode_root_dir');
 
-  say "Running populate script on target db...\n";
+  say "Running populate script or module on target db...\n";
   say "IF YOU ARE USING OLD PRODUCTION CODE (before e99 branch), consider updating your code or SWITCH old_school to 1\n ";
   my $old_school = 0;
   if ($old_school == 1) {
@@ -92,10 +92,10 @@ sub populate_production_db_tables_using_module {
   
   # Creating db adaptor with this class. If you have problem around here download https://github.com/Ensembl/ensembl-orm repository 
   # and add $ENSCODE/ensembl-orm/modules/ to your $PERL5LIB 
-  my $dba = $self->hrdb_get_dba($self->param('target_db'), undef, "Bio::EnsEMBL::Production::DBSQL::DBAdaptor");
+  my $dba = $self->hrdb_get_dba($self->param('target_db'));
   $self->throw("Could not fetch $target_db database") unless defined $dba;
   
-  my $prod_dba = $self->hrdb_get_dba($self->param('production_db'), undef, "Bio::EnsEMBL::Production::DBSQL::DBAdaptor");
+  my $prod_dba = $self->hrdb_get_dba($self->param('production_db'));
   $self->throw('Could not fetch production database') unless defined $prod_dba;
 
   my $updater =
