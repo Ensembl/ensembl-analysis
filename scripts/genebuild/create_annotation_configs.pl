@@ -555,7 +555,7 @@ sub clade_settings {
 
     'aves' => {
       'repbase_library'    => 'Birds',
-      'repbase_logic_name' => 'birds',
+      'repbase_logic_name' => 'aves',
       'uniprot_set'        => 'birds_basic',
     },
 

@@ -27,20 +27,19 @@ use Bio::EnsEMBL::Analysis::Runnable::Sam2Bam;
 
 #Generating the data needed
 note('Preparing the data');
-my $accession = 'KQ759721.1';
-my $rest_url = "http://oct2018.rest.ensembl.org/sequence/region/chicken/$accession?content-type=text/x-fasta";
+my $accession = 'CAAJGN020000057.1';
+my $rest_url = "http://rest.ensembl.org/sequence/region/takifugu_rubripes/$accession?content-type=text/x-fasta";
 my @samstring = (
-'ERR1298523.56710939/2	3	KQ759721.1	388	0	34M1330N66M	=	1	100	GGTGGGTTAGGGGTAGGGAAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGGTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGG	*	RG:Z:ERR1298523',
-'ERR1298571.10022360/1	3	KQ759721.1	1460	0	26M3382N35M1N5M1N22M78N12M	=	1	100	GCTTAGGGTTAGGGTTAGGGTTACGGTAGGGTTAGGGTTAGGATTAGGGTTAGGGTTAGGGTAGGGTAGGGTTAGGGTTAGCGTTAGGGGTTAGGGTTAG	*	RG:Z:ERR1298571',
-'ERR1298620.1954341/1	3	KQ759721.1	3741	0	6M1N25M465N16M629N8M1N35M1N10M	=	1	100	GTGTTAGGTTTAGGGTTAGGGTAGGGTTAGGGTTAGGGTTTGGGTAGGGTTAGGGTAGGGTTAGGGCTAGGGTTAGGGTTAGGGTTAGGGTAGGGTTAGG	*	RG:Z:ERR1298620',
-'ERR1298619.3909349/1	3	KQ759721.1	3827	0	43M1069N49M1N8M	=	1	100	GGGTTAGGGTTAGGGTTAGGGTTAGGGTAGGGTTAGGGTTAGGTTAGCGTTAGGGTTAGGGTTAGGGTTTAGGGTTAGGGTTAGGGTTAGTGTAGGGTTA	*	RG:Z:ERR1298619',
-'ERR1298538.12305296/2	3	KQ759721.1	3835	0	46M1087N32M1N22M	=	1	100	GTTAGGGTTAGGGTTAGGGTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTAGGTTTCAGGTTAGGGTTAGG	*	RG:Z:ERR1298538',
-'ERR1298525.50972204/2	3	KQ759721.1	3857	0	29M860N61M10S	=	1	90	GGTTAGGGTTAGGGTTTGGGTTCGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGGTTAGGAGATCGGAAG	*	RG:Z:ERR1298525',
+'SRR5816364.14550925/1	3	CAAJGN020000057.1	150	0	38M11728N88M	=	1	126	TCTTTCCCACCATACAGTAATTTCTAAAGAGGATACTTGATACTTGGTCCTAAAAATTGTGATGCAATGCATGACAGTCAAAAACATGTGTGTGAAGAATATTGATTCTTCAAACCACAGTCCCGC	*	RG:Z:SRR5816364_5',
+'SRR5816364.21941561/2	3	CAAJGN020000057.1	8458	0	25M1428N101M	=	1	126	CACACATATGTTTTTGTTTTTTTATATACATCAATTATATGACTTTTTCCCTTTTTAGTTTGTGATTCATTGCTGGGATAGTTACAGGGGTGCTGATTTATAAGCTGTCGTCCGATCCTCTTTCCC	*	RG:Z:SRR5816364_8',
+'SRR5816367.11338108/2	3	CAAJGN020000057.1	15988	0	2S66M18516N57M1S	=	3	125	GGGAGGTCATATATGGTTCAAAAAAGCCATAATTTGAATATCATCAAAAACATATGTGTGAAAAAAAAATTGTGATGCAATGCATGACAGTCACCACGGTGGAACCAAGAACATGTGTGTGAAGAG	*	RG:Z:SRR5816367_4'
 );
+
 my $root_dir = catdir('modules', 't');
 my @samfiles = (catfile($root_dir, 'file1.sam'), catfile($root_dir, 'file2.sam'));
 open(WH, '>'.$samfiles[0]) || die ('Could not open '.$samfiles[0]);
-foreach my $line ((reverse @samstring)[0..3]) {
+foreach my $line ((reverse @samstring)[0..2]) {
+  print $line."\n";
   print WH $line, "\n";
 }
 print WH '@EOF';
@@ -56,7 +55,7 @@ close(WH) || die('Could not close '.$samfiles[1]);
 my $bamfile = catfile($root_dir, 'introns');
 my $samtools = 'samtools';
 my $headerfile = catfile($root_dir, 'merged_header.h');
-my $genomefile = catfile($root_dir, 'chicken_genome.fa');
+my $genomefile = catfile($root_dir, 'fugu_genome.fa');
 my $ua = LWP::UserAgent->new();
 $ua->env_proxy;
 my $response = $ua->get($rest_url, ':content_file' => $genomefile.'.tmp');
@@ -77,7 +76,7 @@ close(RH) || die("Could not close $genomefile.tmp");
 close(WH) || die("Could not close $genomefile");
 unlink $genomefile.'.tmp';
 
-my $bam_url = 'http://ftp.ensembl.org/pub/release-94/bamcov/gallus_gallus/genebuild/Gallus_gallus-5.0.Roslin.merged.1.bam';
+my $bam_url = 'http://ftp.ensembl.org/pub/release-99/bamcov/takifugu_rubripes/genebuild/fTakRub1.2.ENA.merged.1.bam';
 my $command = "$samtools view -H $bam_url";
 my @headers;
 my $header_lcount = 0;
