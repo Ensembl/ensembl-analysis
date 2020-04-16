@@ -34,6 +34,7 @@ before_install:
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-hive.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-io.git
     - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-test.git
+    - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-production.git
 #    We need the repo to be public or to have a token to use it. If this is uncommented
 #    you also need to update travisci/harness.sh
     - git clone --branch master --depth 1 https://github.com/Ensembl/GIFTS.git
