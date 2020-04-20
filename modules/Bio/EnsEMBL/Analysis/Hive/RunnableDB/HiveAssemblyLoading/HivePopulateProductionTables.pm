@@ -61,8 +61,7 @@ sub param_defaults {
 =head2 fetch_input
 
  Arg [1]    : None
- Description: Fetch if all dbs and directories (in case of old_school) are provided
-
+ Description: Check if all dbs and directories (in case of old_school) are provided
  Returntype : Integer 1
  Exceptions : Throws if 'dna_db' is not provided
               Throws if 'target_db' is not provided
@@ -147,8 +146,8 @@ sub write_output {
 
 =head2 populate_production_db_tables_using_module
 
-  Arg [1]   : $target_db
-  Arg [2]   : $production_db
+  Arg [1]   : hash with target_db info
+  Arg [2]   : hash with production_db info
   Description  : populate tables in core db from production db 
   Returntype: Integer 1
   Exceptions: throws if can't connect to dbs
@@ -178,8 +177,8 @@ sub populate_production_db_tables_using_module {
 
 =head2 populate_production_db_tables_using_module
 
-  Arg [1]   : hash to target_db
-  Arg [2]   : hash to production_db
+  Arg [1]   : hash with target_db info
+  Arg [2]   : hash with production_db info
   Arg [3]   : location of enscode_dir - where enscode lives
   Arg [4]   : location of dump_path - where the dumps can be stored
   Description  : Populate tables in core db with production db script. We used to populate tables like this. 
