@@ -502,7 +502,18 @@ sub write_output {
       if ($self->param('_exceeded_max_slice_length')) {
         $self->cut_and_store_slice($slice_adaptor,$slice,\$seq);
       } else {
-        $slice_adaptor->store($slice,\$seq);
+        if (!$slice->coord_system()->dbID()) {
+          my $stored_cs = $coord_system_adaptor->fetch_by_name($slice->coord_system()->name());
+          my $slice_with_stored_cs = Bio::EnsEMBL::Slice->new(
+            -seq_region_name => $slice->seq_region_name(),
+            -start => $slice->start(),
+            -end => $slice->end(),
+            -coord_system => $stored_cs,
+          );
+          $slice_adaptor->store($slice_with_stored_cs,\$seq);
+        } else {
+          $slice_adaptor->store($slice,\$seq);
+        }
       }
     } else {
       $slice_adaptor->store($slice);
