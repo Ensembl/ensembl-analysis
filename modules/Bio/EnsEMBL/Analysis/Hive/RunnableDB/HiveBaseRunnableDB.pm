@@ -738,10 +738,13 @@ sub _create_temporary_file {
 sub post_cleanup {
   my ($self,$sleep_time) = @_;
 
-  return if ($self->param('skip_cache_clearing'));
-  foreach my $key (keys %{$self->{_gb_cache}}) {
-    next if ($key eq '_cache_lastlogicname');
-    $self->{_gb_cache}->{$key}->clear_caches;
+  if ($self->param('skip_cache_clearing')) {
+    # Will skip cache cleaning	
+  } else {
+  	foreach my $key (keys %{$self->{_gb_cache}}) {
+  	  next if ($key eq '_cache_lastlogicname');
+      $self->{_gb_cache}->{$key}->clear_caches;
+    }
   }
 
   if(defined($sleep_time)) {

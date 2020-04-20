@@ -40,7 +40,18 @@ sub fetch_input {
   	$self->throw("You have used the populate_production_tables flag but have not passed in the production db connection hash with ".
   	             "the production_db flag");
   }
+  
+  # This will be removed when we remove the populate_production_db_tables function
+  unless($self->param('enscode_root_dir')) {
+    $self->throw("enscode_root_dir flag not passed into parameters hash. You need to specify where your code checkout is");
+  }
 
+  # This will be removed when we remove the populate_production_db_tables function
+  unless($self->param('output_path')) {
+    $self->throw("You have not specified the path to the main output directory with the -output_path flag, ".
+                 "this is needed to dump the backup tables into");
+  }
+  
   return 1;
 }
 
@@ -52,8 +63,8 @@ sub run {
   my $production_db = $self->param('production_db');
   my $enscode_dir = $self->param('enscode_root_dir');
 
-  say "Running populate script or module on target db...\n";
-  say "IF YOU ARE USING OLD PRODUCTION CODE (before e99 branch), consider updating your code or SWITCH old_school to 1\n ";
+  $self->warning("Running populate script or module on target db...\n");
+  $self->warning("IF YOU ARE USING OLD PRODUCTION CODE (before e99 branch), consider updating your code or SWITCH old_school to 1\n ");
   my $old_school = 0;
   if ($old_school == 1) {
   	my $dump_path = catdir($self->param('output_path'), 'populate_script_dump');
@@ -63,7 +74,7 @@ sub run {
   } else {
   	$self->populate_production_db_tables_using_module($target_db,$production_db);
   }
-  say "...finished running script on target db\n";
+  $self->warning("...finished running script on target db\n");
   
   return 1;
 }
@@ -79,8 +90,9 @@ sub write_output {
 
 =head2 populate_production_db_tables_using_module
 
-  Arg [1]   : $self,$target_db,$production_db
-  Function  : populate tables in core db from production db 
+  Arg [1]   : $target_db
+  Arg [2]   : $production_db
+  Description  : populate tables in core db from production db 
   Returntype: 1;
   Exceptions: throws if can't connect to dbs
   Example   :
@@ -90,8 +102,6 @@ sub write_output {
 sub populate_production_db_tables_using_module {
   my ($self,$target_db,$production_db) = @_;
   
-  # Creating db adaptor with this class. If you have problem around here download https://github.com/Ensembl/ensembl-orm repository 
-  # and add $ENSCODE/ensembl-orm/modules/ to your $PERL5LIB 
   my $dba = $self->hrdb_get_dba($self->param('target_db'));
   $self->throw("Could not fetch $target_db database") unless defined $dba;
   
@@ -112,11 +122,25 @@ sub populate_production_db_tables_using_module {
       ); 
   my $tables  = \@tables_ar;
   $updater->update_controlled_tables($dba->dbc, $tables);
+
+  return 1;
 }
 
 
-# We used to populate tables like this. But, production deleted this script, so we have to start using the other way.
-# I will keep that for now, if there are people who are using e99 branch of production repo or earlier. 
+=head2 populate_production_db_tables_using_module
+
+  Arg [1]   : $target_db
+  Arg [2]   : $production_db
+  Arg [3]   : $enscode_dir
+  Arg [4]   : $dump_path
+  Description  : Populate tables in core db with production db script. We used to populate tables like this. 
+                 But, production deleted this script, so we have to start using the other way. I will keep that for now, 
+                 if there are people who are using e99 branch of production repo or earlier. 
+  Returntype: 1;
+  Exceptions: throws if can't connect to dbs or directories are missing
+  Example   :
+
+=cut
 sub populate_production_db_tables {
   my ($self,$target_db,$production_db,$enscode_dir,$dump_path) = @_;
 
