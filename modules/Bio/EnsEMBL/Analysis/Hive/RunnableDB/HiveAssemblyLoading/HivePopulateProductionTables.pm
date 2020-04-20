@@ -91,6 +91,12 @@ sub fetch_input {
       $self->throw("You have not specified the path to the main output directory with the -output_path flag, ".
                  "this is needed to dump the backup tables into");
     }
+  } else {
+  	my $target_dba = $self->hrdb_get_dba($self->param('target_db')); 
+    $self->hrdb_set_con($target_dba, 'target_db');
+    
+    my $prod_dba = $self->hrdb_get_dba($self->param('production_db'));  
+    $self->hrdb_set_con($prod_dba, 'production_db');
   }
   
   return 1;
@@ -120,7 +126,7 @@ sub run {
     make_path($dump_path) unless (-d $dump_path);
     $self->populate_production_db_tables($target_db,$production_db,$enscode_dir,$dump_path);
   } else {
-    $self->populate_production_db_tables_using_module($target_db,$production_db);
+    $self->populate_production_db_tables_using_module();
   }
   $self->warning("...finished running script on target db\n");
   
@@ -130,10 +136,10 @@ sub run {
 
 =head2 write_output
 
- Arg [1]    : None
- Description: In this case it doesn't do much 
- Returntype : Integer 1
- Exceptions : None
+  Arg [1]    : None
+  Description: In this case it doesn't do much 
+  Returntype : Integer 1
+  Exceptions : None
 
 =cut
 
@@ -146,8 +152,7 @@ sub write_output {
 
 =head2 populate_production_db_tables_using_module
 
-  Arg [1]   : hash with target_db info
-  Arg [2]   : hash with production_db info
+  Arg [1]    : None
   Description  : populate tables in core db from production db 
   Returntype: Integer 1
   Exceptions: throws if can't connect to dbs
@@ -155,16 +160,15 @@ sub write_output {
 =cut
 
 sub populate_production_db_tables_using_module {
-  my ($self,$target_db,$production_db) = @_;
-  
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
-  $self->throw("Could not fetch $target_db database") unless defined $dba;
-  
-  my $prod_dba = $self->hrdb_get_dba($self->param('production_db'));
-  $self->throw('Could not fetch production database') unless defined $prod_dba;
+  my ($self) = @_;
 
-  my $updater =
-    Bio::EnsEMBL::Production::Utils::ProductionDbUpdater->new(
+  my $dba = $self->hrdb_get_con('target_db'); 
+  $self->throw("Could not fetch target_db database") unless defined $dba;
+  
+  my $prod_dba = $self->hrdb_get_con('production_db'); 
+  $self->throw("Could not fetch target_db database") unless defined $prod_dba;
+
+  my $updater  = Bio::EnsEMBL::Production::Utils::ProductionDbUpdater->new(
       -PRODUCTION_DBA => $prod_dba
     );
 
@@ -177,10 +181,10 @@ sub populate_production_db_tables_using_module {
 
 =head2 populate_production_db_tables_using_module
 
-  Arg [1]   : hash with target_db info
-  Arg [2]   : hash with production_db info
-  Arg [3]   : location of enscode_dir - where enscode lives
-  Arg [4]   : location of dump_path - where the dumps can be stored
+  Arg [1]   : Hashref, containing target_db info
+  Arg [2]   : Hashref, containing production_db info
+  Arg [3]   : String, location of enscode_dir - where enscode lives
+  Arg [4]   : String, location of dump_path - where the dumps can be stored
   Description  : Populate tables in core db with production db script. We used to populate tables like this. 
                  But, production deleted this script, so we have to start using the other way. I will keep that for now, 
                  if there are people who are using e99 branch of production repo or earlier. 
