@@ -46,6 +46,8 @@ my $assembly_registry_port = $ENV{GBP1};
 my $force_init = 0;
 my $check_for_transcriptomic = 0;
 my $selected_db;
+my $annotation_config_path = $ENV{ENSCODE}."/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_conf.pm";
+my $add_gca_to_production_name = 0;
 
 ### change to to 1 for non-verts
 my $is_non_vert = 0;
@@ -60,6 +62,8 @@ GetOptions('config_file:s' => \$config_file,
            'force_init!' => \$force_init,
            'is_non_vert!' => \$is_non_vert,
            'check_for_transcriptomic!' => \$check_for_transcriptomic,
+           'annotation_config_path:s' => \$annotation_config_path,
+           'add_gca_to_production_name!' => \$add_gca_to_production_name,
           );
 
 unless(-e $config_file) {
@@ -70,8 +74,10 @@ if($is_non_vert == 1) {
   $selected_db = "test_registry_db"
 }
 else {
-  $selected_db = "gb_assembly_registry";
+  $selected_db = "do1_viral_registry";
 }
+
+my $annotation_config_basename = basename($annotation_config_path);
 
 my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
   -host    => $assembly_registry_host,
@@ -462,6 +468,14 @@ sub parse_assembly_report {
   $assembly_hash->{'species_name'} = $species_name;
   $assembly_hash->{'production_name'} = $species_name;
   @{$assembly_hash}{keys(%$general_hash)} = values(%$general_hash);
+  if($add_gca_to_production_name) {
+    my $production_accession = $assembly_hash->{'assembly_accession'};
+    $production_accession = lc($production_accession);
+    $production_accession =~ s/\_//;
+    $production_accession =~ s/\./\_/;
+    my $combined_production_name = $assembly_hash->{'production_name'}.'_'.$production_accession;
+    $assembly_hash->{'production_name'} = $combined_production_name;
+  }
   $assembly_hash->{'output_path'} .= "/".$species_name."/".$accession."/";
 }
 
@@ -482,7 +496,8 @@ sub create_config {
 
   my $config_string = "";
   my $past_default_options = 0;
-  open(CONFIG,$ENV{ENSCODE}."/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_conf.pm") || throw("Could not open the config file");
+
+  open(CONFIG,$annotation_config_path) || throw("Could not open the config file");
   while(my $line = <CONFIG>) {
     if($line =~ /sub pipeline_create_commands/) {
       $past_default_options = 1;
@@ -519,7 +534,7 @@ sub create_config {
   close(CONFIG) || throw("CouLd not close the config file");
 
   $config_string =~ s/package Bio::EnsEMBL::Analysis::Hive::Config::([^;]+;)/package $1/;
-  open(OUT_CONFIG,">".$output_path."/Genome_annotation_conf.pm") || throw("Could not open the config file for writing");
+  open(OUT_CONFIG,">".$output_path."/".$annotation_config_basename) || throw("Could not open the config file for writing");
   print OUT_CONFIG $config_string;
   close OUT_CONFIG || throw("Could not close the config file for writing");
 }
@@ -621,6 +636,11 @@ sub clade_settings {
       'uniprot_set'        => 'protists_basic',
     },
 
+   'viral' => {
+      'repbase_library'    => 'non_vertebrates',
+      'repbase_logic_name' => 'non_vertebrates',
+      'uniprot_set'        => 'non_vertebrates_basic',
+    },
   };
 
   unless($clade_settings->{$clade}) {
@@ -716,10 +736,10 @@ sub init_pipeline {
       $cmd = 'init_pipeline.pl';
     }
     if ($force_init) {
-      $cmd .= ' Genome_annotation_conf.pm -hive_force_init 1';
+      $cmd .= ' '.$annotation_config_basename.' -hive_force_init 1';
     }
     else {
-      $cmd .= ' Genome_annotation_conf.pm';
+      $cmd .= ' '.$annotation_config_basename;
     }
     my $result = `$cmd`;
     unless($result =~ /beekeeper.+\-sync/) {
@@ -749,6 +769,8 @@ sub init_pipeline {
     my $loop_command = $sync_command;
     $loop_command =~ s/sync/loop \-sleep 0.3/;
     my ($ehive_url) = $sync_command =~ /url\s+(\S+)/;
+    say "FERGAL DEBUG EHIVE URL: ".$ehive_url;
+#mysql://ensadmin:ensembl@mysql-ens-genebuild-prod-4:4530/fergal_sarsc2_gca009937885_1_pipe_100
     my ($driver, $user, $password, $host, $port, $dbname) = $ehive_url =~ /^(\w+)[:\/]+(\w*):(\w+)@([^:]+):(\d+)\/(\w+)$/;
     if ($password) {
       $password = '&passwd=xxxxx';

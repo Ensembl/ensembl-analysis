@@ -207,7 +207,9 @@ sub fetch_input {
     }
   } elsif($iid_type eq 'filename') {
     @db_files = ($self->GENOMICSEQS);
-    $query_file = $self->input_id;
+#    $query_file = $self->input_id;
+    $query_file = $self->param('protein_file');
+    say "FERGAL DEBUG QUERY: ".$query_file;
   } else {
    $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
@@ -304,9 +306,12 @@ sub write_output {
 
   my $outdb = $self->hrdb_get_con('target_db');
   my $gene_adaptor = $outdb->get_GeneAdaptor;
-
+  my $output_biotype = $self->param('output_biotype');
   foreach my $gene (@{$self->param('output_genes')}){
     empty_Gene($gene);
+    if($output_biotype) {
+      $gene->biotype($output_biotype);
+    }
     $gene_adaptor->store($gene);
   }
 }
@@ -448,7 +453,13 @@ sub make_genes{
     $self->throw("Have no slice") if(!$slice);
     $tran->slice($slice);
     my $accession = $tran->{'accession'};
-    my $transcript_biotype = $self->get_biotype->{$accession};
+    my $transcript_biotype;
+    unless($self->get_biotype && $self->get_biotype->{$accession}) {
+      $transcript_biotype = "protein_coding";
+    } else {
+      $transcript_biotype = $self->get_biotype->{$accession};
+    }
+
     $tran->biotype($transcript_biotype);
 
    if($self->calculate_coverage_and_pid) {

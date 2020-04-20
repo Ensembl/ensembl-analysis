@@ -39,6 +39,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessAssemblyReport;
 
 use strict;
 use warnings;
+use feature 'say';
 
 use Net::FTP;
 use Time::Piece;
@@ -272,7 +273,9 @@ sub run {
         my $karyotype_attribute;
         my $coord_system;
         if ($data[1] eq 'assembled-molecule') {
-          $seq_region_name = $data[2];
+          if($data[2] ne 'na') {
+            $seq_region_name = $data[2];
+          }
           push(@chromosomes, $seq_region_name);
           $karyotype_attribute = Bio::EnsEMBL::Attribute->new(
             %$karyotype_rank_data,
@@ -288,12 +291,14 @@ sub run {
         else {
           $coord_system = $self->get_coord_system($molecule_matcher->{$data[1]}, $no_chromosome);
         }
+
         my $slice = Bio::EnsEMBL::Slice->new(
           -seq_region_name => $seq_region_name,
           -start => 1,
           -end => $data[8] eq 'na' ? 1 : $data[8],
           -coord_system => $coord_system,
         );
+
         # This is not great but the easiest
         $slice->{karyotype_rank} = $karyotype_attribute if ($karyotype_attribute);
         $slice->{_gb_insdc_name} = $data[4];
