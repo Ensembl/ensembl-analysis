@@ -165,7 +165,6 @@ sub populate_production_db_tables_using_module {
   my ($self) = @_;
 
   my $dba = $self->hrdb_get_con('target_db'); 
-  
   my $prod_dba = $self->hrdb_get_con('production_db'); 
 
   my $updater  = Bio::EnsEMBL::Production::Utils::ProductionDbUpdater->new(
@@ -187,7 +186,8 @@ sub populate_production_db_tables_using_module {
   Arg [4]   : String, location of dump_path - where the dumps can be stored
   Description  : Populate tables in core db with production db script. We used to populate tables like this. 
                  But, production deleted this script, so we have to start using the other way. I will keep that for now, 
-                 if there are people who are using e99 branch of production repo or earlier. 
+                 if there are people who are using e99 branch of production repo or earlier. However I am planning to 
+                 remove it soon.
   Returntype: Integer 1
   Exceptions: throws if can't connect to dbs or directories are missing
 
