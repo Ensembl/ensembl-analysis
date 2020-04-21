@@ -93,9 +93,11 @@ sub fetch_input {
     }
   } else {
   	my $target_dba = $self->hrdb_get_dba($self->param('target_db')); 
+    $self->throw("Could not fetch target_db database") unless defined $target_dba;
     $self->hrdb_set_con($target_dba, 'target_db');
     
     my $prod_dba = $self->hrdb_get_dba($self->param('production_db'));  
+    $self->throw("Could not fetch production_db database") unless defined $prod_dba;
     $self->hrdb_set_con($prod_dba, 'production_db');
   }
   
@@ -163,10 +165,8 @@ sub populate_production_db_tables_using_module {
   my ($self) = @_;
 
   my $dba = $self->hrdb_get_con('target_db'); 
-  $self->throw("Could not fetch target_db database") unless defined $dba;
   
   my $prod_dba = $self->hrdb_get_con('production_db'); 
-  $self->throw("Could not fetch target_db database") unless defined $prod_dba;
 
   my $updater  = Bio::EnsEMBL::Production::Utils::ProductionDbUpdater->new(
       -PRODUCTION_DBA => $prod_dba
