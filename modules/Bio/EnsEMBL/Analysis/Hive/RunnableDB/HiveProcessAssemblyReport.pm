@@ -322,9 +322,6 @@ sub run {
         if ($slice->length() > $self->param('_MAX_SLICE_LENGTH')) {
           $self->param('_exceeded_max_slice_length',1);
         }
-        my $db = $self->hrdb_get_con('target_db');
-        $slice->adaptor($db->get_SliceAdaptor());
-
         push(@slices, $slice);
       }
     }
@@ -447,24 +444,20 @@ sub write_output {
 
   my $db = $self->hrdb_get_con('target_db');
   
-  # make sure the coord system stored as primary_assembly has the right sequence_level value
-  # since at this point after processing all lines in the input file the value will be final
-  # as we will know if there was any sequence exceeding the max slice length
-  $self->get_coord_system('primary_assembly'); # this needs to be run before storing anything in the database
-  
+  if ($self->param('_exceeded_max_slice_length')) {
+    # the assembly.mapping meta_key is required to be able to fetch any sequence
+    my $mc = $db->get_MetaContainer();
+    $mc->store_key_value('assembly.mapping','primary_assembly:'.$self->param('assembly_name').'|ensembl_internal:'.$self->param('assembly_name'));
+    
+    $self->get_coord_system('ensembl_internal');
+    $self->get_coord_system('primary_assembly')->{sequence_level} = 0;
+  }
+
   my $coord_system_adaptor = $db->get_CoordSystemAdaptor;
   foreach my $coord_system (values %{$self->param('_coord_systems')}) {
     $coord_system_adaptor->store($coord_system);
   }
   
-  if ($self->param('_exceeded_max_slice_length')) {
-    $coord_system_adaptor->store($self->get_coord_system('ensembl_internal'));
-
-    # the assembly.mapping meta_key is required to be able to fetch any sequence
-    my $mc = $db->get_MetaContainer();
-    $mc->store_key_value('assembly.mapping','primary_assembly:'.$self->param('assembly_name').'|ensembl_internal:'.$self->param('assembly_name'));
-  }
-
   my $slice_adaptor = $db->get_SliceAdaptor;
   my $attribute_adaptor = $db->get_AttributeAdaptor;
   my $toplevel_attribute = $self->param('toplevel_attribute');
@@ -500,35 +493,21 @@ sub write_output {
       }
 
       if ($self->param('_exceeded_max_slice_length')) {
-        $self->cut_and_store_slice($slice_adaptor,$slice,\$seq);
+        $slice_adaptor->store($slice);
+        $self->cut_and_store_subslices($slice_adaptor,$slice,\$seq);
       } else {
-        if (!$slice->coord_system()->dbID()) {
-          my $stored_cs = $coord_system_adaptor->fetch_by_name($slice->coord_system()->name());
-          my $slice_with_stored_cs = Bio::EnsEMBL::Slice->new(
-            -seq_region_name => $slice->seq_region_name(),
-            -start => $slice->start(),
-            -end => $slice->end(),
-            -coord_system => $stored_cs,
-          );
-          $slice_adaptor->store($slice_with_stored_cs,\$seq);
-        } else {
-          $slice_adaptor->store($slice,\$seq);
-        }
+        $slice_adaptor->store($slice,\$seq);
       }
     } else {
       $slice_adaptor->store($slice);
     }
     
-    # need to fetch the stored slice so the seq region is defined when adding the synonym
-    my $syn_slice = $slice_adaptor->fetch_by_region($slice->coord_system_name(),$slice->seq_region_name(),$slice->seq_region_start(),$slice->seq_region_end());
-    
     if (exists $slice->{add_synonym}) {
       foreach my $synonym_data (@{$slice->{add_synonym}}) {
-        $syn_slice->add_synonym(@$synonym_data);
+        $slice->add_synonym(@$synonym_data);
       }
-      $slice_adaptor->update($syn_slice);
+      $slice_adaptor->update($slice);
     }
-    $slice = $syn_slice;
     
     if (exists $slice->{karyotype_rank}) {
       $attribute_adaptor->store_on_Slice($slice,[$slice->{karyotype_rank}]);
@@ -585,13 +564,13 @@ sub write_output {
 sub get_coord_system {
   my ($self, $type, $no_chromosome) = @_;
 
-  if (!exists $self->param('_coord_systems')->{$type} or ($type eq 'primary_assembly')) {
+  if (!exists $self->param('_coord_systems')->{$type}) {
     my $rank = 1;
     $rank = 2 if (($type eq 'scaffold' or $type eq 'ensembl_internal') and !$no_chromosome); 
 
     my $seq_level = $self->param('toplevel_as_sequence_levels');
-    if ($self->param('_exceeded_max_slice_length') and $type eq 'primary_assembly') {
-      $seq_level = 0;
+    if ($type eq 'ensembl_internal') {
+      $seq_level = 1;
     }
 
     my $coord_system;
@@ -617,7 +596,7 @@ sub get_coord_system {
   return $self->param('_coord_systems')->{$type};
 }
 
-=head2 cut_and_store_slice
+=head2 cut_and_store_subslices
 
  Arg [1]    : SliceAdaptor type.
  Arg [2]    : Slice type.
@@ -629,35 +608,13 @@ sub get_coord_system {
 
 =cut
 
-sub cut_and_store_slice {
+sub cut_and_store_subslices {
   my ($self,$slice_adaptor,$slice,$seq) = @_;
 
-  my $db = $self->hrdb_get_con('target_db');
-
-  # make sure the coord system is primary_assembly having sequence_level = 0
-  # at this point, get_coord_system primary_assembly will use the final value of _exceeded_max_slice_length
-
-  my $csa = $db->get_CoordSystemAdaptor();
-
-  my $final_cs;
-  foreach my $cs (@{$csa->fetch_all()}) {
-    if ($cs->name() eq 'primary_assembly') {
-      $final_cs = $cs;
-    }
-  }
-
-  my $final_slice = Bio::EnsEMBL::Slice->new(-coord_system => $final_cs,#-coord_system => $self->get_coord_system('primary_assembly'),
-                                             -start => $slice->start(),
-                                             -end => $slice->end(),
-                                             -strand => $slice->strand(),
-                                             -seq_region_name => $slice->seq_region_name(),
-                                             -seq_region_length => $slice->seq_region_length(),
-                                             -adaptor => $slice_adaptor);
-
-  my $slice_seq_region_id = $final_slice->adaptor()->store($final_slice);
+  my $slice_seq_region_id = $slice_adaptor->get_seq_region_id($slice);
 
   # store all subslices with dna
-  my $i = $final_slice->sub_Slice_Iterator($self->param('_SUBSLICE_LENGTH'));
+  my $i = $slice->sub_Slice_Iterator($self->param('_SUBSLICE_LENGTH'));
   my $subslice_index = 0;
   while ($i->has_next()) {
     $subslice_index++;
