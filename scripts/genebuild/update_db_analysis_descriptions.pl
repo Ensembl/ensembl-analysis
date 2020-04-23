@@ -81,7 +81,7 @@ while (my @analysis_data = $sth_logic->fetchrow) {
     $desc =~ s/\'/\\\'/g;
 
     say "Creating SQL command for the analysis description table for logic_name ".$logic_name;
-    my $insert = "INSERT INTO analysis_description (analysis_id, description, display_label, displayable, web_data) VALUES ($analysis_id, '$desc', '$hash{'display_label'}', $hash{'displayable'}, $json_web_data);";
+    my $insert = "INSERT IGNORE INTO analysis_description (analysis_id, description, display_label, displayable, web_data) VALUES ($analysis_id, '$desc', '$hash{'display_label'}', $hash{'displayable'}, $json_web_data);";
     print OUT $insert."\n";
 
   }
