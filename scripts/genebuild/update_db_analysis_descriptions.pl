@@ -20,7 +20,7 @@ use feature 'say';
 
 use HTTP::Tiny;
 use Time::HiRes qw/sleep/;
-use JSON qw/decode_json/;
+use JSON::XS;
 use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Data::Dumper;
@@ -67,19 +67,21 @@ while (my @analysis_data = $sth_logic->fetchrow) {
     local $Data::Dumper::Terse = 1;
     local $Data::Dumper::Indent = 0;
     my $web_data = Dumper($hash{'web_data'}->{data});
+    my $json_web_data;
     if ($web_data eq 'undef') {
-      $web_data = "NULL";
+      $json_web_data = "NULL";
     }
     else {
-      $web_data = '"'.$web_data.'"';
-    }
 # convert the web_data back to json format
-    $web_data =~ s/\=\>/:/g;
+      my $encoder = JSON::XS->new();
+      $encoder->allow_nonref();
+      $json_web_data = $encoder->encode($web_data);
+    }
     my $desc = $hash{'description'};
     $desc =~ s/\'/\\\'/g;
 
     say "Creating SQL command for the analysis description table for logic_name ".$logic_name;
-    my $insert = "INSERT INTO analysis_description (analysis_id, description, display_label, displayable, web_data) VALUES ($analysis_id, '$desc', '$hash{'display_label'}', $hash{'displayable'}, $web_data);";
+    my $insert = "INSERT INTO analysis_description (analysis_id, description, display_label, displayable, web_data) VALUES ($analysis_id, '$desc', '$hash{'display_label'}', $hash{'displayable'}, $json_web_data);";
     print OUT $insert."\n";
 
   }
