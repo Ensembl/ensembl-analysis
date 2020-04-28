@@ -8625,7 +8625,7 @@ sub pipeline_analyses {
                          output_path => $self->o('output_path'),
                          _stable_id_file => 'rnaseq_stable_ids.sql',
                        },
-        -rc_name    => 'default',
+        -rc_name    => '2GB',
         -flow_into => {
                         1 => ['populate_production_tables_rnaseq'],
                       },
