@@ -842,7 +842,7 @@ sub default_options {
 
 
     'genblast_rnaseq_support_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_rnaseq_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_genblast_rnaseq_'.$self->o('release_number'),
       -host   => $self->o('genblast_rnaseq_support_db_server'),
       -port   => $self->o('genblast_rnaseq_support_db_port'),
       -user   => $self->o('user'),
@@ -852,7 +852,7 @@ sub default_options {
 
 
     'genblast_rnaseq_support_nr_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_rnaseq_nr_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_genblast_rnaseq_nr_'.$self->o('release_number'),
       -host   => $self->o('genblast_rnaseq_support_db_server'),
       -port   => $self->o('genblast_rnaseq_support_db_port'),
       -user   => $self->o('user'),
