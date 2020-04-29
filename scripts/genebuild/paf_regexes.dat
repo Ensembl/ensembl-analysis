@@ -74,6 +74,7 @@
 '^XP_[0-9]{6}\.[0-9]+$'	RefSeq_peptide_predicted
 '^YP_[0-9]{6}$'	RefSeq_peptide
 '^YP_[0-9]{6}\.[0-9]+$'	RefSeq_peptide
+'^YP_[0-9]{9}\.[0-9]+$'	RefSeq_peptide
 '^AP_[0-9]{6}\.[0-9]+$'	RefSeq_peptide
 '^gi\|.*\|ref\|[^X]P'	RefSeq_peptide
 '^gi\|.*\|ref\|XP'	RefSeq_peptide_predicted

@@ -100,6 +100,9 @@ sub fetch_input {
   $self->param('input_genes',$genes);
   $self->param('gene_adaptor',$gene_adaptor);
   $self->hrdb_set_con($target_dba,'target_db');
+
+  $self->create_analysis;
+  $self->analysis->logic_name('ensembl');
 }
 
 
@@ -122,7 +125,7 @@ sub run {
     }
   }
 
-  $output_genes = $self->finalise_geneset($output_genes);
+#  $output_genes = $self->finalise_geneset($output_genes);
 
   foreach my $output_gene (@$output_genes) {
     my $transcripts = $output_gene->get_all_Transcripts();
@@ -132,8 +135,6 @@ sub run {
       $output_gene->add_Transcript($transcript);
     }
   }
-
-
   $self->output($output_genes);
 }
 
@@ -260,11 +261,10 @@ sub process_gene {
       $new_transcript->add_Attributes($attribute);
     }
 
-    say "FERGAL DEBUG 1";
     my $new_exons = $new_transcript->get_all_Exons;
-    foreach my $new_exon (@$new_exons) {
-      say "FERGAL EXON: ".$new_exon->start."..".$new_exon->end;
-    }
+#    foreach my $new_exon (@$new_exons) {
+#      say "FERGAL EXON: ".$new_exon->start."..".$new_exon->end;
+#    }
 
 #    say "FERGAL TRANSCRIPT SEQ:\n".$new_transcript->seq->seq;
 #    compute_translation($new_transcript);
@@ -281,7 +281,6 @@ sub process_gene {
     $new_transcript->translation($translation);
 
     push((@$updated_transcripts,$new_transcript));
-    say "FERGAL DEBUG 2";
   }
 
   unless($updated_gene) {
@@ -308,6 +307,32 @@ sub merge_exons {
                                             -end_phase => $right_exon->end_phase,
                                             -analysis  => $left_exon->analysis,
                                             -slice     => $left_exon->slice);
+
+  $merged_exon = $self->merge_supporting_features($left_exon, $right_exon, $merged_exon);
+  return($merged_exon);
+}
+
+
+sub merge_supporting_features {
+  my ($self, $left_exon, $right_exon, $merged_exon) = @_;
+  my $left_tsf = ${$left_exon->get_all_supporting_features()}[0];
+  my $right_tsf = ${$right_exon->get_all_supporting_features()}[0];
+
+  my $feature_pair = Bio::EnsEMBL::FeaturePair->new(
+                                                        -start      => $merged_exon->start,
+                                                        -end        => $merged_exon->end,
+                                                        -strand     => $merged_exon->strand,
+                                                        -hseqname   => $left_tsf->hseqname,
+                                                        -hstart     => $left_tsf->hstart,
+                                                        -hend       => $right_tsf->hend,
+                                                        -score      => ($left_tsf->score + $right_tsf->score) / 2,
+                                                        # Note for some reason I couldn't just average the left and right coverage
+                                                        -hcoverage  => 100, # Change in future if more strains (use Utilities.pm align_proteins_with_alignment)
+                                                        -percent_id => ($left_tsf->percent_id + $right_tsf->percent_id) / 2, # Change in future if more strains (use Utilities.pm align_proteins_with_alignment)
+                                                        -slice      => $merged_exon->slice,
+                                                        -analysis   => $self->analysis);
+  my $merged_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => [$feature_pair], -align_type => 'ensembl');
+  $merged_exon->add_supporting_features($merged_supporting_features);
 
   return($merged_exon);
 }
