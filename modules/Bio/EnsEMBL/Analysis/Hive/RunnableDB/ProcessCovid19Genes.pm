@@ -50,7 +50,7 @@ use feature 'say';
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name is_canonical_splice);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene clone_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript exon_overlap features_overlap overlap_length);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript exon_overlap features_overlap overlap_length set_stop_codon);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Translation;
@@ -123,6 +123,17 @@ sub run {
   }
 
   $output_genes = $self->finalise_geneset($output_genes);
+
+  foreach my $output_gene (@$output_genes) {
+    my $transcripts = $output_gene->get_all_Transcripts();
+    $output_gene->flush_Transcripts();
+    foreach my $transcript (@$transcripts) {
+      $transcript = set_stop_codon($transcript);
+      $output_gene->add_Transcript($transcript);
+    }
+  }
+
+
   $self->output($output_genes);
 }
 
@@ -144,7 +155,6 @@ sub write_output {
   my $output_genes = $self->output();
 
   foreach my $output_gene (@$output_genes) {
-    say "FERGAL DEBUG IN OUTPUT";
     empty_Gene($output_gene);
     $gene_adaptor->store($output_gene);
   }
@@ -152,7 +162,6 @@ sub write_output {
   foreach my $input_gene (@$input_genes) {
     $gene_adaptor->remove($input_gene);
   }
-
 }
 
 
