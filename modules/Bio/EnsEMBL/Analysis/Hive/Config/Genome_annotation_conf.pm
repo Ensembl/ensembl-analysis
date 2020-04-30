@@ -404,6 +404,7 @@ sub default_options {
     refine_ccode_exe => catfile($self->o('binary_base'), 'RefineSolexaGenes'), #You may need to specify the full path to the RefineSolexaGenes binary
     interproscan_exe => catfile($self->o('binary_base'), 'interproscan.sh'),
     'cesar_path' => catdir($self->o('software_base_path'),'opt','cesar','bin'),
+    deeptools_bamcoverage_path => '/nfs/software/ensembl/RHEL7-JUL2017-core2/pyenv/versions/genebuild/bin/bamCoverage',
 
     'uniprot_genblast_batch_size' => 15,
     'uniprot_table_name'          => 'uniprot_sequences',
@@ -8772,7 +8773,7 @@ sub pipeline_analyses {
         -logic_name => 'bam2bigwig',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-	  deeptools_bamcoverage => '/nfs/software/ensembl/RHEL7-JUL2017-core2/pyenv/versions/genebuild/bin/bamCoverage',
+	  deeptools_bamcoverage => $self->o('deeptools_bamcoverage_path'),
           cmd => 'TMPDIR=#working_dir# ; #deeptools_bamcoverage# --numberOfProcessors 4 --binSize 1 -b '.catfile('#working_dir#','#bam_file#').' -o '.catfile('#working_dir#','#bam_file#').'.bw',
           working_dir => $self->o('merge_dir'),
         },
