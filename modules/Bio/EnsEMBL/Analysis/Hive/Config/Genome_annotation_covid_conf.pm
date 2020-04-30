@@ -939,26 +939,10 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into  => {
-                          1 => ['run_stable_ids'],
+                          1 => ['set_meta_coords'],
                        },
       },
 
-
-      {
-        -logic_name => 'run_stable_ids',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::SetStableIDs',
-        -parameters => {
-                         enscode_root_dir => $self->o('enscode_root_dir'),
-                         mapping_required => $self->o('mapping_required'),
-                         target_db => $self->o('core_db'),
-                         id_start => $self->o('stable_id_prefix').$self->o('stable_id_start'),
-                         output_path => $self->o('output_path'),
-                       },
-        -rc_name    => 'default',
-        -flow_into  => {
-                       1 => ['set_meta_coords'],
-        },
-      },
 
 
       {
@@ -1018,6 +1002,7 @@ sub pipeline_analyses {
         -parameters => {
           db_conn => $self->o('core_db'),
           sql => [
+            'UPDATE gene set stable_id = NULL',
             'UPDATE transcript set stable_id = NULL',
             'UPDATE translation set stable_id = NULL',
             'UPDATE exon set stable_id = NULL',
@@ -1027,9 +1012,29 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['load_external_db_ids_and_optimise_af_tables'],
+                        1 => ['run_stable_ids'],
                       },
       },
+
+
+      {
+        -logic_name => 'run_stable_ids',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::SetStableIDs',
+        -parameters => {
+                         enscode_root_dir => $self->o('enscode_root_dir'),
+                         mapping_required => $self->o('mapping_required'),
+                         target_db => $self->o('core_db'),
+                         id_start => $self->o('stable_id_prefix').$self->o('stable_id_start'),
+                         output_path => $self->o('output_path'),
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['load_external_db_ids_and_optimise_af_tables'],
+                      },
+
+
+      },
+
 
 
       {
