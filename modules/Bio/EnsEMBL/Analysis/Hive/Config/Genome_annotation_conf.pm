@@ -403,8 +403,6 @@ sub default_options {
     bwa_path => catfile($self->o('software_base_path'), 'opt', 'bwa-051mt', 'bin', 'bwa'), #You may need to specify the full path to the bwa binary
     refine_ccode_exe => catfile($self->o('binary_base'), 'RefineSolexaGenes'), #You may need to specify the full path to the RefineSolexaGenes binary
     interproscan_exe => catfile($self->o('binary_base'), 'interproscan.sh'),
-    bedtools => catfile($self->o('binary_base'), 'bedtools'),
-    bedGraphToBigWig => catfile($self->o('binary_base'), 'bedGraphToBigWig'),
     'cesar_path' => catdir($self->o('software_base_path'),'opt','cesar','bin'),
 
     'uniprot_genblast_batch_size' => 15,
@@ -8765,91 +8763,21 @@ sub pipeline_analyses {
         },
         -rc_name => 'default',
         -flow_into  => {
-          '2->A' => ['create_chromosome_file'],
+          '2->A' => ['bam2bigwig'],
           'A->1' => ['concat_md5_sum'],
         },
       },
 
       {
-        -logic_name => 'create_chromosome_file',
+        -logic_name => 'bam2bigwig',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => '#samtools# view -H '.catfile('#working_dir#', '#bam_file#').q( | grep \@SQ |cut -f2,3 | sed 's/[SL]N://g' > ).catfile('#working_dir#', '#bam_file#.txt'),
-          samtools => $self->o('samtools_path'),
+	  deeptools_bamcoverage => '/nfs/software/ensembl/RHEL7-JUL2017-core2/pyenv/versions/genebuild/bin/bamCoverage',
+          cmd => 'TMPDIR=#working_dir# ; #deeptools_bamcoverage# --numberOfProcessors 4 --binSize 1 -b '.catfile('#working_dir#','#bam_file#').' -o '.catfile('#working_dir#','#bam_file#').'.bw',
           working_dir => $self->o('merge_dir'),
         },
-        -rc_name => '3GB',
-        -flow_into  => {
-          1 => ['bam2bedgraph'],
-        },
-      },
-
-      {
-        -logic_name => 'bam2bedgraph',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split > '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' ; LC_COLLATE=C sort -k1,1 -k2,2n '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' > '.catfile('#working_dir#', '#bam_file#.bg'),
-          bedtools => $self->o('bedtools'),
-          working_dir => $self->o('merge_dir'),
-        },
-        -rc_name => '3GB',
-        -flow_into  => {
-          1 => ['bedgrap2bigwig'],
-          -1 => ['bam2bedgraph_himem'],
-        },
-      },
-
-      {
-        -logic_name => 'bam2bedgraph_himem',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => '#bedtools# genomecov -ibam '.catfile('#working_dir#', '#bam_file#').' -bg -split > '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' ; LC_COLLATE=C sort -k1,1 -k2,2n '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' > '.catfile('#working_dir#', '#bam_file#.bg'),
-          bedtools => $self->o('bedtools'),
-          working_dir => $self->o('merge_dir'),
-        },
-        -rc_name => '40GB',
-        -flow_into  => {
-          1 => ['bedgrap2bigwig_himem'],
-        },
-      },
-
-      {
-        -logic_name => 'bedgrap2bigwig',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => '#bedGraphToBigWig# '.catfile('#working_dir#', '#bam_file#.bg').' '.catfile('#working_dir#', '#bam_file#.txt').' '.catfile('#working_dir#', '#bam_file#.bw'),
-          bedGraphToBigWig => $self->o('bedGraphToBigWig'),
-          working_dir => $self->o('merge_dir'),
-        },
-        -rc_name => '3GB',
-        -flow_into  => {
-          1 => ['clean_bg_files'],
-          -1 => ['bedgrap2bigwig_himem'],
-        },
-      },
-
-      {
-        -logic_name => 'bedgrap2bigwig_himem',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => '#bedGraphToBigWig# '.catfile('#working_dir#', '#bam_file#.bg').' '.catfile('#working_dir#', '#bam_file#.txt').' '.catfile('#working_dir#', '#bam_file#.bw'),
-          bedGraphToBigWig => $self->o('bedGraphToBigWig'),
-          working_dir => $self->o('merge_dir'),
-        },
-        -rc_name => '8GB',
-        -flow_into  => {
-          1 => ['clean_bg_files'],
-        },
-      },
-
-      {
-        -logic_name => 'clean_bg_files',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-          cmd => 'rm  '.catfile('#working_dir#', '#bam_file#.bg.unsorted').' '.catfile('#working_dir#', '#bam_file#.bg').' '.catfile('#working_dir#', '#bam_file#.txt'),
-          working_dir => $self->o('merge_dir'),
-        },
-        -rc_name => 'default',
+        -rc_name => '10GB_multithread',
+	-hive_capacity => $self->hive_capacity_classes->{'hc_very_low'},
         -flow_into  => {
           1 => ['md5_sum'],
         },
@@ -9044,6 +8972,7 @@ sub hive_capacity_classes {
   my $self = shift;
 
   return {
+           'hc_very_low'    => 35,
            'hc_low'    => 200,
            'hc_medium' => 500,
            'hc_high'   => 1000,
