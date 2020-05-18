@@ -8646,7 +8646,6 @@ sub pipeline_analyses {
                        },
       },
 
-
       {
         -logic_name => 'dump_daf_introns',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
