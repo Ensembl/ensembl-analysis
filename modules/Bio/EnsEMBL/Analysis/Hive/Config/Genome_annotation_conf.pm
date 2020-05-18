@@ -2768,7 +2768,6 @@ sub pipeline_analyses {
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
       },
 
-
       {
         -logic_name => 'wga_failed_projection',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
@@ -8647,14 +8646,13 @@ sub pipeline_analyses {
                        },
       },
 
-
       {
         -logic_name => 'dump_daf_introns',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
         -parameters => {
                          db_conn => $self->o('rnaseq_refine_db'),
                          input_query => 'SELECT daf.* FROM dna_align_feature daf, analysis a WHERE daf.analysis_id = a.analysis_id AND a.logic_name != "rough_transcripts"',
-                         command_out => q(sort -nk2 -nk3 -nk4 | sed 's/NULL/\\N/g;s/^[0-9]\+/\\N/' | awk -F ' ' '{$15="NULL"; print $0}' | sed 's/ /\t/g' > #daf_file#),
+                         command_out => q(sort -nk2 -nk3 -nk4 | sed 's/NULL/\\N/g;s/^[0-9]\+/\\N/' | awk -F \t '{$15="NULL"; print $0}' > #daf_file#),
                          daf_file => $self->o('rnaseq_daf_introns_file'),
                          prepend => ['-NB', '-q'],
                        },
