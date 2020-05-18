@@ -2761,13 +2761,80 @@ sub pipeline_analyses {
           timer => '30m',
         },
         -flow_into => {
-          -3 => ['wga_failed_projection'],
+          -1 => ['wga_project_transcripts_20'],
         },
         -rc_name    => 'project_transcripts',
         -batch_size => 100,
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
       },
 
+      {
+        -logic_name => 'wga_project_transcripts_20',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
+        -parameters => {
+          logic_name => 'project_transcripts',
+          module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
+          source_dna_db         => $self->default_options()->{'projection_source_db'},
+          target_dna_db         => $self->o('dna_db'),
+          source_transcript_db  => $self->default_options()->{'projection_source_db'},
+          target_transcript_db   => $self->o('projection_db'),
+          compara_db            => $self->o('projection_lastz_db'),
+          method_link_type => 'LASTZ_NET',
+          max_exon_readthrough_dist => 15,
+          TRANSCRIPT_FILTER => {
+            OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+            PARAMETERS => {
+              -coverage => $self->o('projection_cov'),
+              -percent_id => $self->o('projection_pid'),
+            },
+          },
+          iid_type => 'feature_id',
+          feature_type => 'transcript',
+          calculate_coverage_and_pid => $self->o('projection_calculate_coverage_and_pid'),
+          max_internal_stops => $self->o('projection_max_internal_stops'),
+          timer => '30m',
+        },
+        -flow_into => {
+          -1 => ['wga_project_transcripts_30'],
+        },
+        -rc_name    => '20GB',
+        -batch_size => 100,
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      },
+      
+       {
+        -logic_name => 'wga_project_transcripts_30',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
+        -parameters => {
+          logic_name => 'project_transcripts',
+          module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
+          source_dna_db         => $self->default_options()->{'projection_source_db'},
+          target_dna_db         => $self->o('dna_db'),
+          source_transcript_db  => $self->default_options()->{'projection_source_db'},
+          target_transcript_db   => $self->o('projection_db'),
+          compara_db            => $self->o('projection_lastz_db'),
+          method_link_type => 'LASTZ_NET',
+          max_exon_readthrough_dist => 15,
+          TRANSCRIPT_FILTER => {
+            OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+            PARAMETERS => {
+              -coverage => $self->o('projection_cov'),
+              -percent_id => $self->o('projection_pid'),
+            },
+          },
+          iid_type => 'feature_id',
+          feature_type => 'transcript',
+          calculate_coverage_and_pid => $self->o('projection_calculate_coverage_and_pid'),
+          max_internal_stops => $self->o('projection_max_internal_stops'),
+          timer => '30m',
+        },
+        -flow_into => {
+          -3 => ['wga_failed_projection'],
+        },
+        -rc_name    => '30GB',
+        -batch_size => 100,
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      },
 
       {
         -logic_name => 'wga_failed_projection',
@@ -8654,7 +8721,7 @@ sub pipeline_analyses {
         -parameters => {
                          db_conn => $self->o('rnaseq_refine_db'),
                          input_query => 'SELECT daf.* FROM dna_align_feature daf, analysis a WHERE daf.analysis_id = a.analysis_id AND a.logic_name != "rough_transcripts"',
-                         command_out => q(sort -nk2 -nk3 -nk4 | sed 's/NULL/\\N/g;s/^[0-9]\+/\\N/' | awk -F ' ' '{$15="NULL"; print $0}' | sed 's/ /\t/g' > #daf_file#),
+                         command_out => q(sort -nk2 -nk3 -nk4 | sed 's/NULL/\\N/g;s/^[0-9]\+/\\N/' | awk -F \t '{$15="NULL"; print $0}' > #daf_file#),
                          daf_file => $self->o('rnaseq_daf_introns_file'),
                          prepend => ['-NB', '-q'],
                        },
