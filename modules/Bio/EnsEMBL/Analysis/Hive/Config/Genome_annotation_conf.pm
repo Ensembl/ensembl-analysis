@@ -1576,7 +1576,7 @@ sub pipeline_analyses {
               '(1, "repeat.analysis", "dust"),'.
               '(1, "repeat.analysis", "trf")'.
               '(1, "strain.type", "'.$self->o('strain_type').'")'.
-              '(1, "species.strain_group", "'.$self->o('production_name').$self->o('production_name_modifier').'")'.
+              '(1, "species.strain_group", "'.$self->o('production_name').'")'.
               '(1, "species.strain", "'.$self->o('strain').'")',
           ],
         },
@@ -1715,7 +1715,7 @@ sub pipeline_analyses {
             'species.production_name' => $self->o('production_name').$self->o('production_name_modifier'),
             'species.taxonomy_id' => $self->o('taxon_id'),
             'strain.type' => $self->o('strain_type'),
-            'species.strain_group' => $self->o('production_name').$self->o('production_name_modifier'),
+            'species.strain_group' => $self->o('production_name'),
             'species.strain' => $self->o('strain'),
           }
         },
