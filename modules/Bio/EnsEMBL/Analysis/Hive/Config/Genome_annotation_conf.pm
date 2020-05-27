@@ -151,8 +151,12 @@ sub default_options {
     'projection_lastz_db_server'   => $self->o('pipe_db_server'),
     'projection_lastz_db_port'     => $self->o('pipe_db_port'),
 
-    'provider_name'                => 'Ensembl',
-    'provider_url'                 => 'www.ensembl.org',
+    'assembly_provider_name'        => '',
+    'assembly_provider_url'         => '',
+    'annotation_provider_name'      => 'Ensembl',
+    'annotation_provider_url'       => 'www.ensembl.org',
+    'strain_type'                   => 'strain',
+    'strain'                        => 'reference',
 
     'pipe_db_name'                  => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_pipe_'.$self->o('release_number'),
     'dna_db_name'                   => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_core_'.$self->o('release_number'),
@@ -1562,13 +1566,18 @@ sub pipeline_analyses {
               '(1, "genebuild.id", '.$self->o('genebuilder_id').'),'.
               '(1, "genebuild.method", "full_genebuild"),'.
               '(1, "genebuild.projection_source_db", "'.$self->o('projection_source_db_name').'"),'.
-              '(1, "provider.name", "'.$self->o('provider_name').'"),'.
-              '(1, "provider.url", "'.$self->o('provider_url').'"),'.
+              '(1, "assembly.provider_name", "'.$self->o('assembly_provider_name').'"),'.
+              '(1, "assembly.provider_url", "'.$self->o('assembly_provider_url').'"),'.
+              '(1, "annotation.provider_name", "'.$self->o('annotation_provider_name').'"),'.
+              '(1, "annotation.provider_url", "'.$self->o('annotation_provider_url').'"),'.
               '(1, "species.production_name", "'.$self->o('production_name').$self->o('production_name_modifier').'"),'.
               '(1, "repeat.analysis", "'.$self->o('full_repbase_logic_name').'"),'.
               ($self->o('use_repeatmodeler_to_mask') ? '(1, "repeat.analysis", "'.$self->o('repeatmodeler_logic_name').'"),': '').
               '(1, "repeat.analysis", "dust"),'.
-              '(1, "repeat.analysis", "trf")',
+              '(1, "repeat.analysis", "trf"),'.
+              '(1, "strain.type", "'.$self->o('strain_type').'"),'.
+              '(1, "species.strain_group", "'.$self->o('production_name').'"),'.
+              '(1, "species.strain", "'.$self->o('strain').'")',
           ],
         },
         -rc_name    => 'default',
@@ -1698,11 +1707,16 @@ sub pipeline_analyses {
             'genebuild.id' => $self->o('genebuilder_id'),
             'genebuild.method' => 'full_genebuild',
             'genebuild.projection_source_db' => $self->o('projection_source_db_name'),
-            'provider.name' => $self->o('provider_name'),
-            'provider.url' => $self->o('provider_url'),
+            'assembly.provider_name' => $self->o('assembly_provider_name'),
+            'assembly.provider_url' => $self->o('assembly_provider_url'),
+            'annotation.provider_name' => $self->o('annotation_provider_name'),
+            'annotation.provider_url' => $self->o('annotation_provider_url'),
             'repeat.analysis' => [$self->o('full_repbase_logic_name'), 'dust', 'trf'],
             'species.production_name' => $self->o('production_name').$self->o('production_name_modifier'),
             'species.taxonomy_id' => $self->o('taxon_id'),
+            'strain.type' => $self->o('strain_type'),
+            'species.strain_group' => $self->o('production_name'),
+            'species.strain' => $self->o('strain'),
           }
         },
         -rc_name => 'default',
@@ -8345,7 +8359,6 @@ sub pipeline_analyses {
               ' WHERE logic_name NOT IN ("refseq_import","cdna_alignment")',
             'DELETE FROM analysis WHERE logic_name NOT IN ("refseq_import","cdna_alignment")',
             'DELETE FROM meta WHERE meta_key LIKE "%.level"',
-            'DELETE FROM meta WHERE meta_key LIKE "provider.%"',
             'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
             'DELETE FROM meta WHERE meta_key LIKE "removed_evidence_flag.%"',
             'DELETE FROM meta WHERE meta_key LIKE "marker.%"',
@@ -8590,7 +8603,6 @@ sub pipeline_analyses {
                           'DELETE FROM analysis WHERE logic_name NOT LIKE "%rnaseq%"',
                           'INSERT INTO analysis (logic_name, module, created, db_version) VALUES ("other_protein", "HiveBlastRNAseq", NOW(), "#uniprot_version#")',
                           'UPDATE protein_align_feature paf, analysis a SET paf.analysis_id = a.analysis_id WHERE a.logic_name = "other_protein"',
-                          'DELETE FROM meta WHERE meta_key LIKE "provider\.%"',
                           'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
                           'DELETE FROM meta WHERE meta_key LIKE "removed_evidence_flag\.%"',
                           'DELETE FROM meta WHERE meta_key LIKE "marker\.%"',
