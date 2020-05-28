@@ -368,6 +368,11 @@ sub default_options {
                                  'low_coverage' => 1,
                                  'CRISPR' => 1,
                                },
+
+    # cutoffs for removing small_orf genes
+    'small_orf_cutoff' => '100',
+    'intron_cutoff' => '75',
+
 ########################
 # Extra db settings
 ########################
@@ -7603,7 +7608,9 @@ sub pipeline_analyses {
                                 ' -dna_host '.$self->o('dna_db','-host').
                                 ' -dna_port '.$self->o('dna_db','-port').
                                 ' -user_r '.$self->o('dna_db','-user').
-                                ' -dna_dbname '.$self->o('dna_db','-dbname'),
+                                ' -dna_dbname '.$self->o('dna_db','-dbname').
+                                ' -orf_cutoff '.$self->o('small_orf_cutoff').
+                                ' -intron_cutoff '.$self->o('intron_cutoff'),
                        },
         -rc_name => 'default',
         -flow_into  => {
