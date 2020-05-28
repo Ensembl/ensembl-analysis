@@ -343,6 +343,7 @@ sub default_options {
     ensembl_analysis_script           => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     remove_duplicates_script_path     => catfile($self->o('ensembl_analysis_script'), 'find_and_remove_duplicates.pl'),
     flag_potential_pseudogenes_script => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'flag_potential_pseudogenes.pl'),
+    remove_small_orf_script             => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'remove_small_orf.pl'),
     load_optimise_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
     prepare_cdnas_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'prepare_cdnas.pl'),
     load_fasta_script_path            => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_fasta_to_db_table.pl'),
@@ -367,6 +368,11 @@ sub default_options {
                                  'low_coverage' => 1,
                                  'CRISPR' => 1,
                                },
+
+    # cutoffs for removing small_orf genes
+    'small_orf_cutoff' => '100',
+    'intron_cutoff' => '75',
+
 ########################
 # Extra db settings
 ########################
@@ -7585,10 +7591,32 @@ sub pipeline_analyses {
 
 	     -rc_name    => '30GB',
 	     -flow_into => {
-			    1 => ['format_blast_db'],
+			    1 => ['remove_small_orf'],
                       },
       },
 
+     {
+	-logic_name => 'remove_small_orf',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.$self->o('remove_small_orf_script').
+                                ' -host '.$self->o('pseudogene_db','-host').
+                                ' -port '.$self->o('pseudogene_db','-port').
+                                ' -user_w '.$self->o('pseudogene_db','-user').
+                                ' -pass '.$self->o('pseudogene_db','-pass').
+                                ' -dbname '.$self->o('pseudogene_db','-dbname').
+                                ' -dna_host '.$self->o('dna_db','-host').
+                                ' -dna_port '.$self->o('dna_db','-port').
+                                ' -user_r '.$self->o('dna_db','-user').
+                                ' -dna_dbname '.$self->o('dna_db','-dbname').
+                                ' -orf_cutoff '.$self->o('small_orf_cutoff').
+                                ' -intron_cutoff '.$self->o('intron_cutoff'),
+                       },
+        -rc_name => 'default',
+        -flow_into  => {
+          1 => ['format_blast_db'],
+        },
+      },
 
       {
         -logic_name => 'format_blast_db',
