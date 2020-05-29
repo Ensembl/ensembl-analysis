@@ -8254,10 +8254,34 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into  => {
-                         1 => ['core_gene_set_sanity_checks'],
+                         1 => ['create_placeholder_sql'],
                        },
       },
 
+     {
+        -logic_name => 'create_placeholder_sql',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreatePlaceholderSQL',
+        -parameters => {
+                        input_db => $self->o('reference_db'),
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                       2 => ['run_placeholder_sql'],
+        },
+      },
+
+     {
+        -logic_name => 'run_placeholder_sql',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+                        db_conn => $self->o('reference_db'),
+                        sql => '#sql_command#',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                       1 => ['core_gene_set_sanity_checks'],
+        },
+      },
 
       {
         -logic_name => 'core_gene_set_sanity_checks',
