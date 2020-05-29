@@ -8254,10 +8254,21 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into  => {
-                         1 => ['core_gene_set_sanity_checks'],
+                         1 => ['add_placeholder_sample_location'],
                        },
       },
 
+     {
+        -logic_name => 'add_placeholder_sample_location',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddPlaceholderLocation',
+        -parameters => {
+                        input_db => $self->o('reference_db'),
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                       1 => ['core_gene_set_sanity_checks'],
+        },
+      },
 
       {
         -logic_name => 'core_gene_set_sanity_checks',
