@@ -8254,28 +8254,15 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into  => {
-                         1 => ['create_placeholder_sql'],
+                         1 => ['add_placeholder_sample_location'],
                        },
       },
 
      {
-        -logic_name => 'create_placeholder_sql',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreatePlaceholderSQL',
+        -logic_name => 'add_placeholder_sample_location',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddPlaceholderLocation',
         -parameters => {
                         input_db => $self->o('reference_db'),
-                       },
-        -rc_name    => 'default',
-        -flow_into => {
-                       2 => ['run_placeholder_sql'],
-        },
-      },
-
-     {
-        -logic_name => 'run_placeholder_sql',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-        -parameters => {
-                        db_conn => $self->o('reference_db'),
-                        sql => '#sql_command#',
                        },
         -rc_name    => 'default',
         -flow_into => {
