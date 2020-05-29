@@ -505,7 +505,7 @@ sub make_gene{
     -hcoverage    => $RNAfold->score,
     );
   
-  my $hit_name_id = $accession . "-" . $temp_id[2] . "/" . $daf->start . "-" . $daf->end;
+  my $hit_name_id = $accession . "/" . $daf->start . "-" . $daf->end;
 
   $daf = $new_daf;
   $daf->analysis($self->analysis);
