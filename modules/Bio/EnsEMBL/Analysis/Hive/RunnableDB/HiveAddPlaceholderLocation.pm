@@ -117,16 +117,13 @@ sub write_output {
   my ($self) = @_;
 
   my $core_dba = $self->hrdb_get_con('input_db');
+  my $meta_container = $core_dba->get_MetaContainer();
 
   foreach my $meta_pair ( @{$self->output} ){
     my $meta_key = $meta_pair->[0];
     my $meta_value = $meta_pair->[1];
 
-    my $sql = "INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, ?, ?)";
-    my $sth = $core_dba->dbc->prepare($sql);
-    $sth->bind_param(1,$meta_key);
-    $sth->bind_param(2,$meta_value);
-    $sth->execute();
+    $meta_container->store_key_value($meta_key, $meta_value);
   }
 
 }
