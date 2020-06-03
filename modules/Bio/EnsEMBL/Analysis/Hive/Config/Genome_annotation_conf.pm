@@ -8016,6 +8016,10 @@ sub pipeline_analyses {
             'DELETE FROM analysis WHERE logic_name="filter_lncrnas"',
             'UPDATE gene SET display_xref_id=NULL',
             'UPDATE transcript SET display_xref_id=NULL',
+            'INSERT IGNORE into analysis (logic_name, db_version, db_file, program_file, module) values ("rfamcmsearch", "14.0", "'.$self->o('output_path').'", "/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/bin/cmsearch", "HiveCMSearch")',
+            'INSERT IGNORE into analysis (created,logic_name) values (now(),"cdna_alignment_core")',
+            'UPDATE dna_align_feature set analysis_id=(select analysis_id from analysis where logic_name="rfamcmsearch") where analysis_id=(select analysis_id from analysis where logic_name="ncrna")',
+            'UPDATE dna_align_feature set analysis_id=(select analysis_id from analysis where logic_name="cdna_alignment_core") where analysis_id in (select analysis_id from analysis where logic_name in ("exonerate","cdna2genome","best_targetted"))',
           ],
         },
         -rc_name    => 'default',
@@ -8163,10 +8167,25 @@ sub pipeline_analyses {
         -max_retry_count => 0,
         -rc_name => '8GB',
         -flow_into => {
-                        1 => ['clean_unused_analyses'],
+                        1 => ['update_ISE'],
                       },
       },
 
+     {
+        -logic_name => 'update_ISE',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn => $self->o('reference_db'),
+          sql => [
+                    'INSERT IGNORE into analysis (created,logic_name) values (now(),"rnaseq_intron_support")',
+                    'UPDATE intron_supporting_evidence SET analysis_id=(select analysis_id from analysis where logic_name="rnaseq_intron_support")',
+                 ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['clean_unused_analyses'],
+                      },
+      },
 
       {
         -logic_name => 'clean_unused_analyses',
@@ -8176,9 +8195,10 @@ sub pipeline_analyses {
           sql => [
             'DELETE FROM analysis WHERE logic_name IN'.
               ' ("spliced_elsewhere","pseudogenes","genblast","genblast_not_best","project_pseudogene",'.
-              ' "project_lincrna","project_transcripts","ig_tr_collapse")',
+              ' "project_lincrna","project_transcripts","ig_tr_collapse", "exonerate", "cdna2genome", "best_targetted")',
             'DELETE FROM ad USING analysis_description ad LEFT JOIN analysis a ON ad.analysis_id = a.analysis_id'.
               ' WHERE a.analysis_id IS NULL',
+            'DELETE from analysis where logic_name like "%_rnaseq_ise%"',
           ],
         },
         -rc_name    => 'default',
