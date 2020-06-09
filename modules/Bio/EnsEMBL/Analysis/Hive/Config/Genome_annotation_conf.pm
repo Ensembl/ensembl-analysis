@@ -7990,7 +7990,7 @@ sub pipeline_analyses {
           db_conn => $self->o('reference_db'),
           sql => [
             'UPDATE gene SET biotype = "protein_coding" WHERE biotype = "ensembl"',
-            'UPDATE gene SET biotype = "vaultRNA" WHERE biotype = "Vault_RNA"',
+            'UPDATE gene SET biotype = "vault_RNA" WHERE biotype in ("Vault_RNA","vaultRNA")',
             'UPDATE analysis set logic_name="cdna2genome" where logic_name="best_targetted"',
             'UPDATE gene SET analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "ensembl")'.
               ' WHERE analysis_id IN'.
