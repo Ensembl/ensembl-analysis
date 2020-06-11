@@ -111,7 +111,7 @@ sub fetch_input {
         rnaseq_analysis_sanity
         data_file_sanity
         intron_supporting_evidence_sanity
-	dna_align_feature_sanity
+        dna_align_feature_sanity
       ));
     }
     elsif ($group eq 'protein_cdna') {
