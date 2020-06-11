@@ -72,8 +72,8 @@ sub param_defaults {
               in 'methods_list' it overrides the defaults
               'core_handover' group add 'supporting_evidence_sanity'
               'otherfeatures_handover' adds no other test
-              'rnaseq_handover' adds 'rnaseq_analysis_sanity', 'intron_supporting_evidence_sanity' and
-                'data_file_sanity'
+              'rnaseq_handover' adds 'rnaseq_analysis_sanity', 'intron_supporting_evidence_sanity',
+              'data_file_sanity' and 'dna_align_feature_sanity'
  Returntype : None
  Exceptions : Throws if the group is not known
 
@@ -111,6 +111,7 @@ sub fetch_input {
         rnaseq_analysis_sanity
         data_file_sanity
         intron_supporting_evidence_sanity
+	dna_align_feature_sanity
       ));
     }
     elsif ($group eq 'protein_cdna') {
@@ -442,6 +443,48 @@ sub intron_supporting_evidence_sanity {
   }
   if ($failed) {
     $self->output(['intron_supporting_evidence_sanity']);
+  }
+}
+
+
+=head2 dna_align_feature_sanity
+
+ Arg [1]    : None
+ Description: Check that:
+                1. all the dna_align_feature rows are linked to an analysis whose logic name ends with "_daf"
+                2. all the analysis rows whose logic name ends with "_daf" are linked to at least 1 row in the dna_align_feature table
+              and output 'dna_align_feature_sanity' if the above checks fail. 
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub dna_align_feature_sanity {
+  my ($self) = @_;
+
+  my @sql_queries = (
+    'SELECT DISTINCT a.logic_name FROM analysis a RIGHT JOIN dna_align_feature daf ON a.analysis_id=daf.analysis_id WHERE a.logic_name NOT LIKE "%_daf" OR a.logic_name IS NULL', # check 1 (see description)
+    'SELECT logic_name FROM analysis a LEFT JOIN dna_align_feature daf ON a.analysis_id=daf.analysis_id WHERE a.logic_name LIKE "%_daf" AND dna_align_feature_id IS NULL', # check 2 (see description)
+  );
+
+  my $hc_db = $self->hrdb_get_con('hc_db');
+  my $dbc = $hc_db->dbc();
+  my $failed = 0;
+
+  foreach my $query (@sql_queries) {
+    my $sth = $dbc->prepare($query);
+    $sth->execute();
+    foreach my $row (@{$sth->fetchall_arrayref()}) {
+      $row->[0] = "NULL" if (!($row->[0]));
+      my $error_msg = "Analysis whose logic_name is ".$row->[0]." is not linked to the right set of dna_align_feature rows or viceversa.\n";
+      $self->say_with_header($error_msg);
+      print STDERR $error_msg;
+      $failed++;
+    }
+  }
+
+  if ($failed) {
+    $self->output(['dna_align_feature_sanity']);
   }
 }
 
