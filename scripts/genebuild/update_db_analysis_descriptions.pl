@@ -48,12 +48,12 @@ print OUT "USE ".$dbname.";\n";
 my $sth_logic = $db->dbc->prepare("select logic_name, analysis_id from analysis");
 $sth_logic->execute;
 my $http = HTTP::Tiny->new();
+my $server = 'http://production-services.ensembl.org';
+my $ext = '/api/production_db/analysisdescription/';
 while (my @analysis_data = $sth_logic->fetchrow) {
   my $logic_name = $analysis_data[0];
   my $analysis_id = $analysis_data[1];
 
-  my $server = 'http://production-services.ensembl.org';
-  my $ext = '/api/production_db/analysisdescription/';
   my $response = $http->request('GET', $server.$ext.$logic_name, {
 		     headers => {
 		         'Content-type' => 'application/json',
