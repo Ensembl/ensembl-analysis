@@ -469,7 +469,7 @@ sub parse_assembly_report {
 sub create_config {
   my ($assembly_hash) = @_;
 
-  $assembly_hash->{'compara_registry_file'} = catfile($assembly_hash->{'output_path'},$assembly_hash->{'accession'},"Databases.pm");
+  $assembly_hash->{'registry_path'} = catfile($assembly_hash->{'output_path'},"Databases.pm");
 
   foreach my $key (keys(%{$assembly_hash})) {
     say "ASSEMBLY: ". $key." => ".$assembly_hash->{$key};
