@@ -42,7 +42,7 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
       -host    => $host,
       -dbname  => $dbname);
 
-open(OUT, '>', "./".$dbname."_update_ana_desc.sql");
+open(OUT, '>', "./".$dbname."_update_ana_desc.sql") || die("Could not open ${dbname}_update_ana_desc.sql");
 print OUT "USE ".$dbname.";\n";
 
 my $sth_logic = $db->dbc->prepare("select logic_name, analysis_id from analysis");
@@ -90,6 +90,7 @@ while (my @analysis_data = $sth_logic->fetchrow) {
   }
 
 }
+close(OUT) || die("Could not close ${dbname}_update_ana_desc.sql");
 
 sub helptext {
   my $msg = <<HELPEND;
