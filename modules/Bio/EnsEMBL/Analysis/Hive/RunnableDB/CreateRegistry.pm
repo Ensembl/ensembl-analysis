@@ -24,14 +24,14 @@ Questions may also be sent to the Ensembl help desk at
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadmRNAs
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::CreateRegistry
 
 =head1 SYNOPSIS
 
 
 =head1 DESCRIPTION
 
-Module to load mRNA into a customised table in the Hive database
+Create registry file for use in different parts of the pipeline (LastZ, Loading analysis descriptions from Produciton db)
 
 =cut
 
