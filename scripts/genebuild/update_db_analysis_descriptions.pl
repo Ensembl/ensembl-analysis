@@ -19,11 +19,9 @@ use strict;
 use feature 'say';
 
 use HTTP::Tiny;
-use Time::HiRes qw/sleep/;
-use JSON::XS;
+use JSON;
 use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Data::Dumper;
 
 my ($help, $dbname, $host, $port);
 
@@ -42,18 +40,21 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
       -host    => $host,
       -dbname  => $dbname);
 
-open(OUT, '>', "./".$dbname."_update_ana_desc.sql");
+open(OUT, '>', "./".$dbname."_update_ana_desc.sql") || die("Could not open ${dbname}_update_ana_desc.sql");
 print OUT "USE ".$dbname.";\n";
 
 my $sth_logic = $db->dbc->prepare("select logic_name, analysis_id from analysis");
 $sth_logic->execute;
 my $http = HTTP::Tiny->new();
+my $server = 'http://production-services.ensembl.org';
+my $ext = '/api/production_db/analysisdescription/';
+my $json = JSON->new();
+$json->allow_nonref();
+$json->space_after;
 while (my @analysis_data = $sth_logic->fetchrow) {
   my $logic_name = $analysis_data[0];
   my $analysis_id = $analysis_data[1];
 
-  my $server = 'http://production-services.ensembl.org';
-  my $ext = '/api/production_db/analysisdescription/';
   my $response = $http->request('GET', $server.$ext.$logic_name, {
 		     headers => {
 		         'Content-type' => 'application/json',
@@ -61,27 +62,29 @@ while (my @analysis_data = $sth_logic->fetchrow) {
 		 });
 
   if ($response->{success}){
-    my $hash_ref = decode_json($response->{content});
+    my $hash_ref = $json->decode($response->{content});
     my %hash = %$hash_ref;
 
-    local $Data::Dumper::Terse = 1;
-    local $Data::Dumper::Indent = 0;
-    my $web_data = Dumper($hash{'web_data'}->{data});
+    my $web_data = $hash{'web_data'}->{data};
     my $json_web_data;
-    if ($web_data eq 'undef') {
-      $json_web_data = "NULL";
+    if ($web_data) {
+# convert the web_data back to json format
+      $json_web_data = "'".$json->encode($web_data)."'";
     }
     else {
-# convert the web_data back to json format
-      my $encoder = JSON::XS->new();
-      $encoder->allow_nonref();
-      $json_web_data = $encoder->encode($web_data);
+      $json_web_data = "NULL";
     }
-    my $desc = $hash{'description'};
-    $desc =~ s/\'/\\\'/g;
+    my $desc = $hash{'description'} || '';
+    if ($desc) {
+      $desc =~ s/'/\\'/g;
+      $desc = "'$desc'";
+    }
+    else {
+      $desc = 'NULL';
+    }
 
     say "Creating SQL command for the analysis description table for logic_name ".$logic_name;
-    my $insert = "INSERT IGNORE INTO analysis_description (analysis_id, description, display_label, displayable, web_data) VALUES ($analysis_id, '$desc', '$hash{'display_label'}', $hash{'displayable'}, $json_web_data);";
+    my $insert = "INSERT IGNORE INTO analysis_description (analysis_id, description, display_label, displayable, web_data) VALUES ($analysis_id, $desc, '$hash{'display_label'}', $hash{'displayable'}, $json_web_data);";
     print OUT $insert."\n";
 
   }
@@ -90,6 +93,7 @@ while (my @analysis_data = $sth_logic->fetchrow) {
   }
 
 }
+close(OUT) || die("Could not close ${dbname}_update_ana_desc.sql");
 
 sub helptext {
   my $msg = <<HELPEND;
