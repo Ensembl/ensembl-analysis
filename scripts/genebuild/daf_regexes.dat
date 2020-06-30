@@ -77,7 +77,7 @@
 '^EFR[mnxyz][0-9]*[a-z]*[A-Z]*[0-9]*$'	TakRub_est
 '^Fe:e[A-Z]{2}[0-9]{6}$'	TakRub_cdna
 '^MI[0-9]{7}$'	miRBase
-'^RF[0-9]{5}-[A-Z0-9].*'	RFAM
+'^RF[0-9]{5}-*[A-Z0-9]*.*'	RFAM
 '\.[0-9]*-[0-9]*$'	IMGT/LIGM_DB
 '^oa-OR.*$'	Platypus_olfactory_receptor
 '^Plat_OR[0-9]+$'	Platypus_olfactory_receptor
