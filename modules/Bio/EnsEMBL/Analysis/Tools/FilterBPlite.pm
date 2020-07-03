@@ -160,27 +160,7 @@ sub get_hsps{
         next NAME;
       }
 
-      # Input IDs which are longer than 78 characters would be printed
-      # over two rows (80 chars per row) in the BLAST temporary output 
-      # (to be parsed into Ensembl DB). (78 chars is the threshold, 
-      # allowing for space for "> ".) Therefore, a single whitespace 
-      # would be introduced after the 78th character of long input_IDs
-      # ($sbjct->name). This is bad because with an extra whitespace, 
-      # the name won't be parsed.  Therefore, a new variable 
-      # $name_may_need_fix was introduced to fix the name by subsituting 
-      # the whitespace away. For input IDs which are shorter than 78 
-      # characters, the substitution has no effect. 
-      # 
-      # This heaeder-reformatting ( insertion of white spaces + linebreaks ) 
-      # done by wublast can't be undone and the original heder can't be restored. 
-      #
-      my $name_may_need_fix = $sbjct->name;  
-      #print "BEFORE FIXING NAME : $name_may_need_fix \n" ; 
-      # $name_may_need_fix =~ s/\s//; 
-      #print "AFTER  FIXING NAME : $name_may_need_fix \n" ; 
-      
-      my ($name) = $name_may_need_fix =~ /$regex/;   
-
+      my ($name) = $sbjct->name =~ /$regex/;
       unless($name) { 
          throw("Error parsing name from ".$sbjct->name."\nCheck your ".
             "blast setup and blast headers ( your regex in your Blast config file)\n\t".
