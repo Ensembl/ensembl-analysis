@@ -1,4 +1,4 @@
-package UniProt_BLAST_genome_conf;
+package Bio::EnsEMBL::Analysis::Hive::Config::UniProt_BLAST_genome_conf;
 
 use warnings;
 use strict;
