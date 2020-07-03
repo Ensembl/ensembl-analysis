@@ -504,10 +504,6 @@ sub split_hsp {
       throw( "Hardcoded values wrong?? " );
     }
     
-    # helps debugging subsequent steps
-    $fp->{'qseq'} = $hsp->querySeq();
-    $fp->{'sseq'} = $hsp->sbjctSeq();
-    
     # for compara
     $fp->positive_matches($hsp->positive);
     $fp->identical_matches($hsp->match);
