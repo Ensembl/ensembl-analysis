@@ -162,9 +162,9 @@ sub pipeline_analyses {
         -parameters => {
                          sequence_table_name => $self->o('uniprot_table_name'),
                          sequence_type => 'peptide',
-                         logic_name => 'blast_uniprot_to_genome',
                          output_db => $self->o('blast_db'),
                          dna_db => $self->o('dna_db'),
+                         logic_name => 'uniprot',
                          module     => 'HiveBlastPepToGenome',
                          blast_db_path => $self->o('blast_db_path'),
                          blast_exe_path => $self->o('blast_exe_path'),
@@ -174,14 +174,71 @@ sub pipeline_analyses {
                        },
 
         -flow_into => {
-                        '-1' => ['failed_blast_jobs'],
-                        '-2' => ['failed_blast_jobs'],
-                        '-3' => ['failed_blast_jobs'],
+                        'MEMLIMIT' => ['resize_blast_jobs'],
+                        'RUNLIMIT' => ['resize_blast_jobs'],
                       },
-        -rc_name    => 'blast',
+        -rc_name    => '4GB',
       },
 
+     {
+        -logic_name => 'resize_blast_jobs',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         iid_type => 'rechunk',
+                         batch_size => 1,
+                       },
+        -rc_name      => 'default',
+        -flow_into => {
+                        2 => ['run_uniprot_blast_8GB'],
+                      },
+     },
 
+      {
+        -logic_name => 'run_uniprot_blast_8GB',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastPepToGenome',
+        -parameters => {
+                         sequence_table_name => $self->o('uniprot_table_name'),
+                         sequence_type => 'peptide',
+                         output_db => $self->o('blast_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'uniprot',
+                         module     => 'HiveBlastPepToGenome',
+                         blast_db_path => $self->o('blast_db_path'),
+                         blast_exe_path => $self->o('blast_exe_path'),
+                         commandline_params => $self->o('blast_commandline'),
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastUniProtToGenome', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
+                         timer => '2h',
+                       },
+
+        -flow_into => {
+                        'MEMLIMIT' => ['failed_blast_jobs'],
+                        'RUNLIMIT' => ['run_uniprot_blast_restrained'],
+                      },
+        -rc_name    => '8GB',
+      },
+      {
+        -logic_name => 'run_uniprot_blast_restrained',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastPepToGenome',
+        -parameters => {
+                         sequence_table_name => $self->o('uniprot_table_name'),
+                         sequence_type => 'peptide',
+                         output_db => $self->o('blast_db'),
+                         dna_db => $self->o('dna_db'),
+                         logic_name => 'uniprot_low',
+                         module     => 'HiveBlastPepToGenome',
+                         blast_db_path => $self->o('blast_db_path'),
+                         blast_exe_path => $self->o('blast_exe_path'),
+                         commandline_params => $self->o('blast_commandline'),
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastUniProtToGenome', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
+                         timer => '4h',
+                       },
+
+        -flow_into => {
+                        'MEMLIMIT' => ['failed_blast_jobs'],
+                        'RUNLIMIT' => ['failed_blast_jobs'],
+                      },
+        -rc_name    => '8GB',
+      },
 
       {
         -logic_name => 'failed_blast_jobs',
@@ -200,8 +257,9 @@ sub pipeline_analyses {
 sub resource_classes {
     my $self = shift;
     return {
-      'default' => { LSF => $self->lsf_resource_builder('production-rh7', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-      'blast' => { LSF => $self->lsf_resource_builder('production-rh7', 25000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'},$self->default_options->{'blast_db_server'}], undef, 3)},
+      'default' => { LSF => $self->lsf_resource_builder('production-rh74', 900, [$self->default_options->{'pipe_db_host'}, $self->default_options->{'dna_db_host'}], [$self->default_options->{'num_tokens'}])},
+      '4GB' => { LSF => $self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_host'}, $self->default_options->{'dna_db_host'},$self->default_options->{'blast_db_host'}], undef, 3)},
+      '8GB' => { LSF => $self->lsf_resource_builder('production-rh74', 8000, [$self->default_options->{'pipe_db_host'}, $self->default_options->{'dna_db_host'},$self->default_options->{'blast_db_host'}], undef, 3)},
     }
   }
 
