@@ -12,88 +12,74 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
 sub default_options {
   my ($self) = @_;
   return {
-        # inherit other stuff from the base class
-	    %{ $self->SUPER::default_options() },
+    # inherit other stuff from the base class
+    %{ $self->SUPER::default_options() },
 
-##########################
-# Required settings
-##########################
-'blast_db_path'          => '', # this should be the location of a formatted/indexed/rm dump of the genome
-'output_path'            => '', # dir to download uniprot files to
-'enscode_root_dir'       => '', # path to the code checkout
+    ##########################
+    # Required settings
+    ##########################
+    'blast_db_path'   => '', # this should be the location of a formatted/indexed/rm dump of the genome
+    'output_path'     => '', # dir to download uniprot files to
 
-# read/write user and password for servers
-'user_r'                 => '',
-'user_w'                 => '',
-'password'               => '',
+    # read/write user and password for servers
+    'user'            => '',
+    'password'        => '',
+    'user_r'          => '',
 
-# server connection info. The pipe and blast output dbs will be automatically created. The dna db should be an existing db (e.g. the human core)
-'pipe_db_name'           => '',
-'pipe_db_server'         => '',
-'pipe_db_port'           => '',
-'dna_db_name'            => '',
-'dna_db_server'          => '',
-'dna_db_port'            => '',
-'blast_output_dbname'    => '',
-'blast_output_db_server' => '',
-'blast_output_db_port'   => '',
-
-
-##########################
-# Preset variables
-##########################
-
-# UniProt settings
-'uniprot_set'          => 'havana_human_blast', # the UniProt set in the UniProtCladeDownloadStatic config to download
-'uniprot_blast_batch_size' => 10, # number of protein sequences per job
-'uniprot_table_name'   => 'uniprot_sequences', # table name to load the sequences into in the pipe db
-
-# Blast settings. The commandline is where to tweak blast parameters
-'blast_commandline' => ' -num_threads 3 -seg yes -soft_masking true -word_size 4 -threshold 20 -evalue 1e-2 -num_alignments 10000 ',
-'blast_type' => 'ncbi',
-'blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
-
-# Some general settings
-'clone_db_script_path' => $self->o('enscode_root_dir').'/ensembl-analysis/scripts/clone_database.ksh',
-'user'          => 'ensro',
-'hive_driver'   => 'mysql',
-'driver'        => 'mysql',
+    # server connection info. The pipe and blast output dbs will be automatically created. The dna db should be an existing db (e.g. the human core)
+    'pipe_db_name'    => '',
+    'pipe_db_host'  => '',
+    'pipe_db_port'    => '',
+    'dna_db_name'     => '',
+    'dna_db_host'   => '',
+    'dna_db_port'     => '',
+    'blast_db_name'   => '',
+    'blast_db_host' => '',
+    'blast_db_port'   => '',
 
 
+    ##########################
+    # Preset variables
+    ##########################
 
-'pipeline_db' => {
-  -dbname => $self->o('pipe_db_name'),
-  -host   => $self->o('pipe_db_server'),
-  -port   => $self->o('pipe_db_port'),
-  -user   => $self->o('user_w'),
-  -pass   => $self->o('password'),
-  -driver => $self->o('driver'),
-},
+    # UniProt settings
+    'uniprot_set'          => 'havana_teleost_blast', # the UniProt set in the UniProtCladeDownloadStatic config to download
+    'uniprot_blast_batch_size' => 10, # number of protein sequences per job
+    'uniprot_table_name'   => 'uniprot_sequences', # table name to load the sequences into in the pipe db
 
-'dna_db' => {
-  -dbname => $self->o('dna_db_name'),
-  -host   => $self->o('dna_db_server'),
-  -port   => $self->o('dna_db_port'),
-  -user   => $self->o('user_r'),
-},
+    # Blast settings. The commandline is where to tweak blast parameters
+    'blast_commandline' => ' -num_threads 3 -seg yes -soft_masking true -word_size 4 -threshold 20 -evalue 1e-2 -num_alignments 10000 ',
+    'blast_type' => 'ncbi',
+    'blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
 
-'blast_output_db' => {
-  -dbname =>  $self->o('blast_output_dbname'),
-  -host   => $self->o('blast_output_db_server'),
-  -port   => $self->o('blast_output_db_port'),
-  -user   => $self->o('user_w'),
-  -pass   => $self->o('password'),
-},
+    'blast_db_user'   => $self->o('user'),
+    'blast_db_pass'   => $self->o('password'),
+    'blast_db_driver' => $self->o('hive_driver'),
 
-'killlist_db' => {
-  -dbname => 'gb_kill_list',
-  -host   => $self->o('killlist_db_server'),
-  -port   => $self->o('killlist_db_port'),
-  -user   => $self->o('user_r'),
-  -driver => $self->o('hive_driver'),
-},
+    'killlist_db_name'   => 'gb_kill_list',
+    'killlist_db_user'   => $self->o('user_r'),
+    'killlist_db_pass'   => $self->o('password_r'),
+    'killlist_db_driver' => $self->o('hive_driver'),
 
-};
+    'blast_db' => {
+      -dbname => $self->o('blast_db_name'),
+      -host   => $self->o('blast_db_host'),
+      -port   => $self->o('blast_db_port'),
+      -user   => $self->o('blast_db_user'),
+      -pass   => $self->o('blast_db_pass'),
+      -driver => $self->o('blast_db_driver'),
+    },
+
+    'killlist_db' => {
+      -dbname => $self->o('killlist_db_name'),
+      -host   => $self->o('killlist_db_host'),
+      -port   => $self->o('killlist_db_port'),
+      -user   => $self->o('killlist_db_user'),
+      -pass   => $self->o('killlist_db_pass'),
+      -driver => $self->o('killlist_db_driver'),
+    },
+
+  };
 }
 
 sub pipeline_create_commands {
@@ -117,7 +103,7 @@ sub pipeline_analyses {
        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
        -parameters => {
                         source_db => $self->o('dna_db'),
-                        target_db => $self->o('uniprot_output_db'),
+                        target_db => $self->o('blast_db'),
                         create_type => 'clone',
                         script_path => $self->o('clone_db_script_path'),
                         user_r => $self->o('user_r'),
@@ -180,9 +166,9 @@ sub pipeline_analyses {
         -parameters => {
                          sequence_table_name => $self->o('uniprot_table_name'),
                          sequence_type => 'peptide',
-                         output_db => $self->o('blast_output_db'),
-                         dna_db => $self->default_options->{'dna_db'},
                          logic_name => 'blast_uniprot_to_genome',
+                         output_db => $self->o('blast_db'),
+                         dna_db => $self->o('dna_db'),
                          module     => 'HiveBlastPepToGenome',
                          blast_db_path => $self->o('blast_db_path'),
                          blast_exe_path => $self->o('blast_exe_path'),
@@ -214,13 +200,6 @@ sub pipeline_analyses {
     ];
   }
 
-sub pipeline_wide_parameters {
-    my ($self) = @_;
-
-    return {
-	    %{ $self->SUPER::pipeline_wide_parameters() },  # inherit other stuff from the base class
-    };
-  }
 
 sub resource_classes {
     my $self = shift;
