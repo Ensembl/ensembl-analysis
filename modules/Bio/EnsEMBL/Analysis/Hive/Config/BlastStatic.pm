@@ -150,15 +150,17 @@ sub _master_config {
       BlastUniProtToGenome => {
         BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBlastGenome',
         PARSER_PARAMS => {
-                           -regex => '^\s*(\w+\W\d+)',
-                           -query_type => 'dna',
-                           -database_type => 'pep',
+                           -regex => '^(\S+:\S+:\S+:\d+:\d+:1)',
+                           -query_type => 'pep',
+                           -database_type => 'dna',
                            -threshold_type => 'PVALUE',
                            -threshold => 0.00001,
+                           -filter => 0,
                          },
-        BLAST_FILTER => 'Bio::EnsEMBL::Analysis::Tools::FeatureFilter',
+        BLAST_FILTER => 'Bio::EnsEMBL::Analysis::Tools::FeatureFilterOnGenome',
         FILTER_PARAMS => {
                            -prune => 1,
+                           -coverage => 3,
                          },
       },
 
