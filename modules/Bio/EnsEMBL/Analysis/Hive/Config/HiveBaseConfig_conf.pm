@@ -381,4 +381,24 @@ sub get_meta_db_information {
   return $pipedb, $url, $guiurl;
 }
 
+
+=head2 _is_second_pass
+
+ Arg [1]    : String (optional), a parameter name from the default_options hash
+              Default parameter is 'pipe_db_name'
+ Description: Check if all substitutions have been done and that $self->o() can
+              be used safely
+ Returntype : Boolean, true if substitutions have been done
+ Exceptions : None
+
+=cut
+
+sub _is_second_pass {
+  my ($self, $param_name) = @_;
+
+  $param_name ||= 'pipe_db_name';
+
+  return $self->o($param_name) !~ /:subst/;
+}
+
 1;
