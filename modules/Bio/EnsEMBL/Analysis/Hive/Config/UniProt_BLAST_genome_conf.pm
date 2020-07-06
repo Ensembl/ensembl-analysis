@@ -52,6 +52,8 @@ sub default_options {
     'blast_type' => 'ncbi',
     'blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
 
+    load_optimise_script => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
+
     'blast_db_user'   => $self->o('user'),
     'blast_db_pass'   => $self->o('password'),
     'blast_db_driver' => $self->o('hive_driver'),
@@ -60,6 +62,9 @@ sub default_options {
     'killlist_db_user'   => $self->o('user_r'),
     'killlist_db_pass'   => $self->o('password_r'),
     'killlist_db_driver' => $self->o('hive_driver'),
+
+    'production_db_server' => 'mysql-ens-meta-prod-1',
+    'production_db_port'   => '4483',
 
     'blast_db' => {
       -dbname => $self->o('blast_db_name'),
@@ -77,6 +82,15 @@ sub default_options {
       -user   => $self->o('killlist_db_user'),
       -pass   => $self->o('killlist_db_pass'),
       -driver => $self->o('killlist_db_driver'),
+    },
+
+    'production_db' => {
+      -host   => $self->o('production_db_server'),
+      -port   => $self->o('production_db_port'),
+      -user   => $self->o('user_r'),
+      -pass   => $self->o('password_r'),
+      -dbname => 'ensembl_production',
+      -driver => $self->o('hive_driver'),
     },
 
   };
@@ -151,7 +165,8 @@ sub pipeline_analyses {
                        },
         -rc_name      => 'default',
         -flow_into => {
-                        2 => ['run_uniprot_blast'],
+                        '2->A' => ['run_uniprot_blast'],
+                        'A->1' => ['load_external_db_ids_and_optimise_af_tables'],
                       },
      },
 
@@ -248,6 +263,27 @@ sub pipeline_analyses {
         -rc_name          => 'default',
         -can_be_empty  => 1,
         -failed_job_tolerance => 100,
+      },
+      {
+        -logic_name => 'load_external_db_ids_and_optimise_af_tables',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'perl '.$self->o('load_optimise_script').
+            ' -output_path '.catdir($self->o('output_path'), 'optimise').
+            ' -uniprot_filename '.$self->o('protein_entry_loc').
+            ' -dbuser '.$self->o('user').
+            ' -dbpass '.$self->o('password').
+            ' -dbport '.$self->o('blast_db','-port').
+            ' -dbhost '.$self->o('blast_db','-host').
+            ' -dbname '.$self->o('blast_db','-dbname').
+            ' -prod_dbuser '.$self->o('user_r').
+            ' -prod_dbhost '.$self->o('production_db','-host').
+            ' -prod_dbname '.$self->o('production_db','-dbname').
+            ' -prod_dbport '.$self->o('production_db','-port').
+            ' -core'
+        },
+        -max_retry_count => 0,
+        -rc_name => '8GB',
       },
 
     ];
