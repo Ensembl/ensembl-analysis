@@ -78,7 +78,7 @@ sub run {
   my $databases_conf_path = $self->param_required('registry_path');
 
   unless($databases_conf_path) {
-    $self->throw($registry_path." does not exist");
+    $self->throw($databases_conf_path." does not exist");
   }
 
   my $update_genome_db_cmd = 'perl '.$self->param_required('compara_genome_db_update_path').
