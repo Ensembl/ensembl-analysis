@@ -108,6 +108,9 @@ sub default_options {
         software_base_path => $ENV{LINUXBREW_HOME},
         binary_base => catdir($self->o('software_base_path'), 'bin'),
 
+        guihive_host => 'http://guihive.ebi.ac.uk',
+        guihive_port => 8080,
+
         data_db_server => $self->o('host'),
         data_db_host => $self->o('data_db_server'),
         data_db_port => $self->o('port'),
@@ -360,25 +363,36 @@ sub get_server_port_lists {
 }
 
 
-sub get_meta_db_information {
-  my ($self, $dbname, $extra_name) = @_;
+=head2 get_meta_db_information
 
-  if (!$extra_name) {
-    if (exists $self->default_options->{'species_name'}) {
-      $extra_name = '_'.$self->o('species_name');
+ Arg [1]    : Hashref, DB connection details
+ Arg [2]    : String, database name
+ Description: Creates the connection details for a Hive pipeline database, the url and
+              the HTML link tag (<a>) to be able to easily connect to the meta database
+              from the job panel in GuiHive.
+              Arg[1] and Arg[2] are mutually exclusive
+              If Arg[1] is not provided, it will create the connection details based on 'user',
+              'password', Arg[2] and randomly choose a server.
+ Returntype : Arrayref, composed of 3 elements: an arrayref for the database conenction,
+              a string representing the url and a string containing HTML code
+ Exceptions : None
+
+=cut
+
+sub get_meta_db_information {
+  my ($self, $db_conn, $dbname) = @_;
+
+  my $url;
+  my $guiurl;
+  if ($self->_is_second_pass) {
+    if (!$db_conn) {
+      $db_conn = $self->create_database_hash(undef, undef, $self->o('user'), $self->o('password'), $dbname);
     }
-    else {
-      $extra_name = '';
-    }
+    $self->root->{_tmp_db_conn} = $db_conn;
+    $url = $self->dbconn_2_url('_tmp_db_conn', 1);
+    $guiurl = sprintf("<a target='_blank' href='%s:%s/?driver=%s&username=%s&passwd=%s&host=%s&port=%d&dbname=%s'>guihive</a>", $self->o('guihive_host'), $self->o('guihive_port'), $db_conn->{'-driver'}, $db_conn->{'-user'}, $db_conn->{'-pass'}, $db_conn->{'-host'}, $db_conn->{'-port'}, $db_conn->{'-dbname'});
   }
-  my $guihiveserver = $self->o('guihive_server');
-  $guihiveserver = "http://$guihiveserver" unless ($guihiveserver =~ /^http/);
-  my $guihiveport = $self->o('guihive_port');
-  my $pipedb = $self->create_database_hash(undef, undef, $self->o('user'), $self->o('password'), lc($self->o('dbowner').'_'.$self->o('species_name').'_'.$dbname.'_hive'));
-  my $url = sprintf("%s://%s:%s@%s:%d/%s", $pipedb->{'-driver'}, $pipedb->{'-user'}, $pipedb->{'-pass'}, $pipedb->{'-host'}, $pipedb->{'-port'}, $pipedb->{'-dbname'});
-  $url =~ s/:/\// if ($pipedb->{-driver} eq 'sqlite');
-  my $guiurl = sprintf("<a target='_blank' href='%s:%s/?driver=%s&username=%s&passwd=%s&host=%s&port=%d&dbname=%s'>guihive</a>", $guihiveserver, $guihiveport, $pipedb->{'-driver'}, $pipedb->{'-user'}, $pipedb->{'-pass'}, $pipedb->{'-host'}, $pipedb->{'-port'}, $pipedb->{'-dbname'});
-  return $pipedb, $url, $guiurl;
+  return $db_conn, $url, $guiurl;
 }
 
 
