@@ -76,6 +76,7 @@ sub default_options {
     'assembly_name'             => '', # Name (as it appears in the assembly report file)
     'assembly_accession'        => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
     'assembly_refseq_accession' => '', # Versioned GCF accession, e.g. GCF_001857705.1
+    'registry_file'             => '' || catfile($self->o('output_path'), "Databases.pm"), # Path to databse registry for LastaZ and Production sync
     'stable_id_prefix'          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
     'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     'species_url'               => '' || $self->o('production_name').$self->o('production_name_modifier'), # sets species.url meta key
@@ -97,7 +98,6 @@ sub default_options {
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
     'mt_accession'              => undef, # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
-    'compara_registry_file'     => '',
 
     # Keys for custom loading, only set/modify if that's what you're doing
     'skip_genscan_blasts'          => '1',
@@ -135,7 +135,7 @@ sub default_options {
 # Pipe and ref db info
 ########################
 
-    'projection_source_db_name'    => 'homo_sapiens_core_96_38', # This is generally a pre-existing db, like the current human/mouse core for example
+    'projection_source_db_name'    => 'homo_sapiens_core_100_38', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_server'  => 'mysql-ens-mirror-1',
     'projection_source_db_port'    => '4240',
     'projection_source_production_name' => 'homo_sapiens',
@@ -534,7 +534,7 @@ sub default_options {
 
 # lincRNA pipeline stuff
     'lncrna_dir' => catdir($self->o('output_path'), 'lincrna'),
-    registry_file => catfile($self->o('lncrna_dir'), 'registry.pm'),
+    lncrna_registry_file => catfile($self->o('lncrna_dir'), 'registry.pm'),
     'file_translations' => catfile($self->o('lncrna_dir'), 'hive_dump_translations.fasta'),
     'file_for_length' => catfile($self->o('lncrna_dir'), 'check_lincRNA_length.out'),  # list of genes that are smaller than 200bp, if any
     'file_for_biotypes' => catfile($self->o('lncrna_dir'), 'check_lincRNA_need_to_update_biotype_antisense.out'), # mysql queries that will apply or not in your dataset (check update_database) and will update biotypes
@@ -1362,18 +1362,19 @@ sub pipeline_analyses {
 ###############################################################################
 
      {
-        -logic_name => 'download_rnaseq_csv',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
-        -rc_name => '1GB',
+        -logic_name => 'create_registry',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::CreateRegistry',
+        -rc_name => 'default',
         -parameters => {
-          study_accession => $self->o('study_accession'),
-          taxon_id => $self->o('species_taxon_id'),
-          inputfile => $self->o('rnaseq_summary_file'),
-	  paired_end_only => $self->o('paired_end_only'),
+                        compara_db => $self->o('compara_db'),
+                        projection_source_db => $self->o('projection_source_db'),
+                        target_db => $self->o('reference_db'),
+                        production_db => $self->o('production_db'),
+                        registry_file => $self->o('registry_file'),
         },
 
         -flow_into => {
-           1 => ['download_genus_rnaseq_csv'],
+           1 => ['download_rnaseq_csv'],
          },
 
         -input_ids  => [
@@ -1383,6 +1384,22 @@ sub pipeline_analyses {
             assembly_refseq_accession => $self->o('assembly_refseq_accession'),
           },
         ]
+      },
+
+      {
+        -logic_name => 'download_rnaseq_csv',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
+        -rc_name => '1GB',
+        -parameters => {
+          study_accession => $self->o('study_accession'),
+          taxon_id => $self->o('species_taxon_id'),
+          inputfile => $self->o('rnaseq_summary_file'),
+          paired_end_only => $self->o('paired_end_only'),
+        },
+
+	-flow_into => {
+           1 => ['download_genus_rnaseq_csv'],
+         },
       },
 
 
@@ -3405,6 +3422,7 @@ sub pipeline_analyses {
                          pipeline_db => $self->o('pipeline_db'),
                          output_path => $self->o('output_path'),
                          compara_db_url => 'mysql://'.$self->o('user').':'.$self->o('password').'@'.$self->o('compara_db_server').':'.$self->o('compara_db_port').'/'.$self->o('compara_db_name'),
+                         registry_file => $self->o('registry_file'),
                        },
 
         -rc_name => '2GB_lastz',
@@ -8285,6 +8303,19 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
+                       1 => ['populate_analysis_descriptions'],
+        },
+      },
+
+      {
+        -logic_name => 'populate_analysis_descriptions',
+        -module     => 'Bio::EnsEMBL::Production::Pipeline::ProductionDBSync::PopulateAnalysisDescription',
+        -parameters => {
+                        species => $self->o('species_name'),
+                        group => 'core',
+                       },
+        -rc_name    => 'default_registry',
+        -flow_into => {
                        1 => ['core_gene_set_sanity_checks'],
         },
       },
@@ -8988,20 +9019,20 @@ sub resource_classes {
 
   return {
     '1GB' => { LSF => $self->lsf_resource_builder('production-rh74', 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '2GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]},
+    '2GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]},
     '2GB' => { LSF => $self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '3GB' => { LSF => $self->lsf_resource_builder('production-rh74', 3000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '4GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]}, 
+    '4GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]}, 
     '4GB' => { LSF => $self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '5GB' => { LSF => $self->lsf_resource_builder('production-rh74', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '6GB' => { LSF => $self->lsf_resource_builder('production-rh74', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '6GB_registry' => { LSF => [$self->lsf_resource_builder('production-rh74', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]},
     '7GB' => { LSF => $self->lsf_resource_builder('production-rh74', 7000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '8GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]},
+    '8GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]},
     '8GB' => { LSF => $self->lsf_resource_builder('production-rh74', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '9GB' => { LSF => $self->lsf_resource_builder('production-rh74', 9000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '10GB' => { LSF => $self->lsf_resource_builder('production-rh74', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '15GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]},
+    '15GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]},
     '15GB' => { LSF => $self->lsf_resource_builder('production-rh74', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '20GB' => { LSF => $self->lsf_resource_builder('production-rh74', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '25GB' => { LSF => $self->lsf_resource_builder('production-rh74', 25000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
@@ -9013,6 +9044,7 @@ sub resource_classes {
     '80GB' => { LSF => $self->lsf_resource_builder('production-rh74', 80000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '100GB' => { LSF => $self->lsf_resource_builder('production-rh74', 100000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'default' => { LSF => $self->lsf_resource_builder('production-rh74', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    'default_registry' => { LSF => [$self->lsf_resource_builder('production-rh74', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]},
     'repeatmasker' => { LSF => $self->lsf_resource_builder('production-rh74', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'repeatmasker_rebatch' => { LSF => $self->lsf_resource_builder('production-rh74', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'simple_features' => { LSF => $self->lsf_resource_builder('production-rh74', 2900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
