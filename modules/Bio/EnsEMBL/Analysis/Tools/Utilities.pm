@@ -582,7 +582,47 @@ sub write_seqfile{
   return $filename;
 }
 
+=head2 write_sliceseq2fastafile
 
+  Arg [1]   : Bio::EnsEMBL::Slice or ARRAY of Bio::EnsEMBL::Slice
+  Arg [2]   : string
+  Function  : It dumps the Arg[1] sequences into the FASTA file specified by [2].
+  Returntype: string (Arg [2])
+  Exceptions: throw if failed to write sequences
+  Example   : write_slice_seqfile($slice,'/output_path/slice.fa')
+
+=cut
+
+sub write_sliceseq2fastafile {
+  my ($slice,$filename) = @_;
+
+  my $slices;
+  if (ref($slice) eq "ARRAY"){
+    if ($slice->[0]->isa('Bio::EnsEMBL::Slice')) {
+      $slices = $slice;
+    } else {
+      throw("write_sliceseq2fastafile(): Arg [1] needs to be Bio::EnsEMBL::Slice or ARRAY of Bio::EnsEMBL::Slice, not a ".ref($slice));
+    }
+  } else {
+    if (!$slice || !$slice->isa('Bio::EnsEMBL::Slice')) {
+      throw("write_sliceseq2fastafile(): Arg [1] needs to be Bio::EnsEMBL::Slice or ARRAY of Bio::EnsEMBL::Slice, not a ".ref($slice));
+    } else {
+      $slices = [$slice];
+    }
+  }
+
+  if (!$filename) {
+    throw("write_sliceseq2fastafile(): Arg [2] required.");
+  }
+
+  open(OUT,">".$filename);
+  foreach my $slice (@$slices) {
+    say OUT ">".$slice->name();
+    say OUT $slice->seq();
+  }
+  close OUT;
+  return $filename;
+}
 
 =head2 get_db_adaptor_by_string
 
