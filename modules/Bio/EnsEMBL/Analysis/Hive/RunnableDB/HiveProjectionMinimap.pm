@@ -45,7 +45,7 @@ use File::Spec::Functions qw(tmpdir catfile);
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Analysis_to_Gene attach_Slice_to_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(attach_Slice_to_Transcript empty_Transcript);
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw (align_proteins);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw (align_proteins write_seqfile);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
@@ -301,7 +301,7 @@ sub process_transcript {
 
 
 sub make_runnables {
-  my ($self, $transcript_seq, $transcript_slices, $input_id, $annotation_features) = @_;
+  my ($self,$transcript_seq,$transcript_slices,$input_id) = @_;
   my %parameters = %{$self->parameters_hash};
   if (not exists($parameters{-options}) and defined $self->OPTIONS) {
     $parameters{-options} = $self->OPTIONS;
@@ -310,16 +310,36 @@ sub make_runnables {
     $parameters{-coverage_by_aligned} = $self->COVERAGE_BY_ALIGNED;
   }
 
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
-              -program  => $self->param('exonerate_path'),
-              -analysis => $self->analysis,
-              -query_type     => $self->QUERYTYPE,
-              -calculate_coverage_and_pid => $self->param('calculate_coverage_and_pid'),
-              -annotation_features => $annotation_features,
-              %parameters,
-              );
-  $runnable->target_seqs($transcript_slices);
-  $runnable->query_seqs([$transcript_seq]);
+  my $source_sequence_fasta_file = "source_sequence_".$input_id;
+  my $target_sequences_fasta_file = "target_sequences_".$input_id;
+
+  # dump the transcript seq object sequence into a file which will be the input source for Minimap2
+  write_seqfile($transcript_seq,$source_sequence_fasta_file,'fasta',1); # 1 for no_clean so it does not delete the newly created file
+
+  # dump transcript slices sequences into a file which will be the input target for Minimap2
+  write_slice_seqfile($transcript_slices,$target_sequences_fasta_file,'fasta',1); # 1 for no_clean so it does not delete the newly created file
+
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2->new(
+       -analysis          => $self->analysis(),
+       -program           => $self->param('minimap_path'),
+       -paftools_path     => $self->param('paftools_path'),
+#       -options        => $self->param('minimap2_options'),
+       -genome_index      => ,#$genome_index,
+       -input_file        => $source_sequence_fasta_file,
+       -database_adaptor  => ,#$target_dba,
+       -delete_input_file => 0, # only set this when creating ranged files, not when using the original input file
+  );
+
+#  my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
+#              -program  => $self->param('exonerate_path'),
+#              -analysis => $self->analysis,
+#              -query_type     => $self->QUERYTYPE,
+#              -calculate_coverage_and_pid => $self->param('calculate_coverage_and_pid'),
+#              -annotation_features => $annotation_features,
+#              %parameters,
+#              );
+#  $runnable->target_seqs($transcript_slices);
+#  $runnable->query_seqs([$transcript_seq]);
   $runnable->{'_transcript_id'} = $input_id;
   $self->runnable($runnable);
 }
