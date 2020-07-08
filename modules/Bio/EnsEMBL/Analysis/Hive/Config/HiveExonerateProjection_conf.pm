@@ -70,6 +70,8 @@ sub default_options {
 
     'dna_db_name'                   => '',# dna db name of the target db, $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_core_'.$self->o('release_number'),
 
+    'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
+
 ######################################################
 ##
 ## Mostly constant settings
