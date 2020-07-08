@@ -363,6 +363,14 @@ my %stats;
 GENE: foreach my $gene (values %genes) {
   if ($gene->get_all_Transcripts) {
     if ($gene->biotype =~ /^IG_/) {
+      if ($gene->biotype =~ /gene__pseudogene/) {
+        my $new_biotype = $gene->biotype;
+        $new_biotype =~ s/_pseudogene$//;
+        $gene->biotype($new_biotype);
+        foreach my $t (@{$gene->get_all_Transcripts}) {
+          $t->biotype($new_biotype);
+        }
+      }
       my $transcripts = $gene->get_all_Transcripts;
       if (@$transcripts == 1) {
         $transcripts->[0]->get_all_Exons;
