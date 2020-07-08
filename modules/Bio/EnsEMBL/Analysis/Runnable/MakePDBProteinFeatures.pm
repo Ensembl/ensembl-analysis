@@ -59,11 +59,12 @@ sub new {
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ($core_dba,$pdb_filepath,$species,$cs_version) = rearrange([qw(core_dba pdb_filepath species cs_version)],@args);
+    my ($core_dba,$pdb_filepath,$species,$cs_version,$rest_server) = rearrange([qw(core_dba pdb_filepath species cs_version rest_server)],@args);
 
     $self->{'pdb_filepath'} = $pdb_filepath;
     $self->{'species'} = $species;
     $self->{'cs_version'} = $cs_version;
+    $self->{'rest_server'} = $rest_server;
     
     $self->{'pdb_info'} = undef;
     $self->{'perfect_matches'} = undef;
@@ -90,7 +91,7 @@ sub run {
   my ($self) = @_;
 
   $self->{'pdb_info'} = $self->parse_pdb_file();
-  $self->{'perfect_matches'} = fetch_latest_uniprot_enst_perfect_matches($self->{'cs_version'});
+  $self->{'perfect_matches'} = fetch_latest_uniprot_enst_perfect_matches($self->{'rest_server'},$self->{'cs_version'});
   $self->make_protein_features();
 
   return 1;
