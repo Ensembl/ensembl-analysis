@@ -40,6 +40,9 @@ sub default_options {
 #
 ######################################################
 
+    'assembly_name'             => '', # target species assembly name
+    'assembly_accession'        => '', # target species assembly accession
+    'assembly_refseq_accession' => '', # target species refseq accession (it can be empty)
     'species_name'              => '', # scientific name of the target species to project genes to, e.g. mus_musculus
     'production_name'           => '' || $self->o('species_name'),
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
@@ -157,6 +160,7 @@ sub default_options {
 # LastZ
 ########################
 
+    'registry_file'             => '' || catfile($self->o('output_path'), "Databases.pm"), # Path to database registry for LastaZ and Production sync
     'method_link_type'     => 'LASTZ_NET',
     'compara_databases_conf_filename' => 'Databases.pm',
 
@@ -307,6 +311,16 @@ sub default_options {
 ########################
 # db info
 ########################
+
+    'production_db' => {
+      -host   => $self->o('production_db_server'),
+      -port   => $self->o('production_db_port'),
+      -user   => $self->o('user_r'),
+      -pass   => $self->o('password_r'),
+      -dbname => 'ensembl_production',
+      -driver => $self->o('hive_driver'),
+    },
+
     'reference_db' => {
       -dbname => $self->o('reference_db_name'),
       -host   => $self->o('reference_db_server'),
@@ -688,8 +702,32 @@ sub pipeline_analyses {
                        },
         -rc_name => '2GB_lastz',
         -flow_into  => {
-          '1' => ['insert_projection_source_assembly_into_compara_db'],
+          '1' => ['create_registry'],
         },
+      },
+
+      {
+        -logic_name => 'create_registry',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::CreateRegistry',
+        -rc_name => 'default',
+        -parameters => {
+                        compara_db => $self->o('compara_db'),
+                        projection_source_db => $self->o('projection_source_db'),
+                        target_db => $self->o('reference_db'),
+                        production_db => $self->o('production_db'),
+                        registry_file => $self->o('registry_file'),
+        },
+        -flow_into => {
+           1 => ['insert_projection_source_assembly_into_compara_db'],
+         },
+
+        -input_ids  => [
+                        {
+            assembly_name => $self->o('assembly_name'),
+            assembly_accession => $self->o('assembly_accession'),
+            assembly_refseq_accession => $self->o('assembly_refseq_accession'),
+          },
+        ]
       },
 
       {
