@@ -418,6 +418,7 @@ sub pipeline_wide_parameters {
   return {
     %{$self->SUPER::pipeline_wide_parameters},
     skip_lastz => $self->o('skip_lastz'),
+    skip_projection => $self->o('skip_projection'),
     wide_ensembl_release => $self->o('ensembl_release'),
   }
 }
