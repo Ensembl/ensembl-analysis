@@ -40,9 +40,6 @@ sub default_options {
 #
 ######################################################
 
-    'assembly_name'             => '', # target species assembly name
-    'assembly_accession'        => '', # target species assembly accession
-    'assembly_refseq_accession' => '', # target species refseq accession (it can be empty)
     'species_name'              => '', # scientific name of the target species to project genes to, e.g. mus_musculus
     'production_name'           => '' || $self->o('species_name'),
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
@@ -720,14 +717,6 @@ sub pipeline_analyses {
         -flow_into => {
            1 => ['insert_projection_source_assembly_into_compara_db'],
          },
-
-        -input_ids  => [
-                        {
-            assembly_name => $self->o('assembly_name'),
-            assembly_accession => $self->o('assembly_accession'),
-            assembly_refseq_accession => $self->o('assembly_refseq_accession'),
-          },
-        ]
       },
 
       {
