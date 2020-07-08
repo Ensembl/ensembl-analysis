@@ -149,10 +149,10 @@ sub run {
       $runnable->run;
     };
 
-    if($@) {
+    if ($@) {
       my $except = $@;
       $self->runnable_failed($runnable->{'_transcript_id'});
-      $self->warning("Issue with running exonerate, will dataflow input id on branch -3. Exception:\n".$except);
+      $self->warning("Issue with running Minimap2, will dataflow input id on branch -3. Exception:\n".$except);
       $self->param('_branch_to_flow_on_fail', -3);
     } else {
       # Store original transcript id for realignment later. Should implement a cleaner solution at some point
@@ -160,18 +160,29 @@ sub run {
         $output->{'_old_transcript_id'} = $runnable->{'_transcript_id'};
       }
 
-      # If the transcript has bee projected to multiple places then select the best one in terms of combined coverage and
+      # If the transcript has been projected to multiple places then select the best one in terms of combined coverage and
       # percent identity but also any that fall within 5 percent of this value
-      my $preliminary_transcripts = $runnable->output;
-      my $selected_transcripts;
-      unless(scalar(@{$preliminary_transcripts})) {
-        next;
+      my $preliminary_genes = $runnable->output(); # note that minimap2 returns a reference to an array of genes
+      my @preliminary_transcripts;
+      foreach my $preliminary_gene (@{$preliminary_genes}) {
+        my $transcripts = @{$preliminary_gene->get_all_Transcripts()};
+        my $num_transcripts = scalar(@$transcripts);
+        if ($num_transcripts == 1) {
+          push(@preliminary_transcripts,@$transcripts[0]);
+        } elsif ($num_transcripts > 1) {
+          $self->throw("Minimap2 put more than 1 transcript in a gene for the source transcript ".$runnable->{'_transcript_id'});
+        } elsif ($num_transcripts < 1) {
+          $self->throw("Minimap2 put 0 transcripts in a gene for the source transcript ".$runnable->{'_transcript_id'});
+        }
       }
 
-      if(scalar(@{$preliminary_transcripts}) == 1) {
-        $selected_transcripts = $preliminary_transcripts;
+      my $selected_transcripts;
+      if (scalar(@preliminary_transcripts) < 1) {
+        next;
+      } elsif (scalar(@preliminary_transcripts) == 1) {
+        $selected_transcripts = \@preliminary_transcripts;
       } else {
-        $selected_transcripts = $self->select_best_transcripts($preliminary_transcripts);
+        $selected_transcripts = $self->select_best_transcripts(\@preliminary_transcripts);
       }
       $self->output($selected_transcripts);
     }
@@ -181,7 +192,7 @@ sub run {
 }
 
 
-sub write_output{
+sub write_output {
   my ($self) = @_;
 
   my $adaptor = $self->hrdb_get_con('target_transcript_db')->get_GeneAdaptor;
@@ -317,14 +328,15 @@ sub make_runnables {
   write_seqfile($transcript_seq,$source_sequence_fasta_file,'fasta',1); # 1 for no_clean so it does not delete the newly created file
 
   # dump transcript slices sequences into a file which will be the input target for Minimap2
-  write_slice_seqfile($transcript_slices,$target_sequences_fasta_file,'fasta',1); # 1 for no_clean so it does not delete the newly created file
+  #write_slice_seqfile($transcript_slices,$target_sequences_fasta_file,'fasta',1); # 1 for no_clean so it does not delete the newly created file
+  write_seqfile($transcript_slices,$target_sequences_fasta_file,'fasta',1);
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2->new(
        -analysis          => $self->analysis(),
        -program           => $self->param('minimap_path'),
        -paftools_path     => $self->param('paftools_path'),
 #       -options        => $self->param('minimap2_options'),
-       -genome_index      => ,#$genome_index,
+       -genome_index      => $target_sequences_fasta_file,#$genome_index,
        -input_file        => $source_sequence_fasta_file,
        -database_adaptor  => ,#$target_dba,
        -delete_input_file => 0, # only set this when creating ranged files, not when using the original input file
