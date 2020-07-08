@@ -113,28 +113,16 @@ sub fetch_input {
   foreach my $input_id (@$input_ids) {
 
     my $transcript = $source_transcript_dba->get_TranscriptAdaptor->fetch_by_dbID($input_id);
-    my $transcript_seq;
     my $biotype = $transcript->biotype;
     my $stable_id = $transcript->stable_id.".".$transcript->version;
     my $annotation_features;
     $self->param('_transcript_biotype')->{$stable_id} = $biotype;
 
     say "Processing source transcript: ".$transcript->stable_id;
-    if($self->QUERYTYPE eq 'protein') {
-      unless($transcript->translation) {
-        $self->warning("You have protein exonerate selected, but transcript does not have a translation, skipping");
-        next;
-      }
-      $transcript_seq = $transcript->translation->seq;
-    } else {
-      if($self->param('generate_annotation_file')) {
-        $annotation_features = $self->create_annotation_features($transcript);
-      }
-      $transcript_seq = $transcript->seq->seq;
-    }
+    
     my $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba);
     my $transcript_header = $transcript->stable_id.'.'.$transcript->version;
-    my $transcript_seq_object = Bio::Seq->new(-display_id => $transcript_header, -seq => $transcript_seq);
+    my $transcript_seq_object = Bio::Seq->new(-display_id => $transcript_header, -seq => $transcript->seq->seq);
     $self->make_runnables($transcript_seq_object, $transcript_slices, $input_id, $annotation_features);
   } #close foreach input_id
 
