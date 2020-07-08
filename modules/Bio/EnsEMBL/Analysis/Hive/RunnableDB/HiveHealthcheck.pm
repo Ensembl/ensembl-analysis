@@ -478,7 +478,6 @@ sub dna_align_feature_sanity {
       $row->[0] = "NULL" if (!($row->[0]));
       my $error_msg = "Analysis whose logic_name is ".$row->[0]." is not linked to the right set of dna_align_feature rows or viceversa.\n";
       $self->say_with_header($error_msg);
-      print STDERR $error_msg;
       $failed++;
     }
   }
