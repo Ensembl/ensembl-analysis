@@ -753,6 +753,7 @@ sub init_pipeline {
     if ($password) {
       $password = '&passwd=xxxxx';
     }
+
     say $fh "#GuiHive: $base_guihive/?driver=$driver&username=$user&host=$host&port=$port&dbname=$dbname$password";
     say $fh "export EHIVE_URL=$ehive_url";
     say $fh $loop_command;
