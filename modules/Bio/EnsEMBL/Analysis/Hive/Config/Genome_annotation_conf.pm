@@ -1361,31 +1361,6 @@ sub pipeline_analyses {
 #
 ###############################################################################
 
-     {
-        -logic_name => 'create_registry',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::CreateRegistry',
-        -rc_name => 'default',
-        -parameters => {
-                        compara_db => $self->o('compara_db'),
-                        projection_source_db => $self->o('projection_source_db'),
-                        target_db => $self->o('reference_db'),
-                        production_db => $self->o('production_db'),
-                        registry_file => $self->o('registry_file'),
-        },
-
-        -flow_into => {
-           1 => ['download_rnaseq_csv'],
-         },
-
-        -input_ids  => [
-			{
-            assembly_name => $self->o('assembly_name'),
-            assembly_accession => $self->o('assembly_accession'),
-            assembly_refseq_accession => $self->o('assembly_refseq_accession'),
-          },
-        ]
-      },
-
       {
         -logic_name => 'download_rnaseq_csv',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadCsvENA',
@@ -1397,9 +1372,17 @@ sub pipeline_analyses {
           paired_end_only => $self->o('paired_end_only'),
         },
 
-	-flow_into => {
+	     -flow_into => {
            1 => ['download_genus_rnaseq_csv'],
          },
+
+	     -input_ids  => [
+			     {
+            assembly_name => $self->o('assembly_name'),
+            assembly_accession => $self->o('assembly_accession'),
+            assembly_refseq_accession => $self->o('assembly_refseq_accession'),
+          },
+        ]
       },
 
 
@@ -1463,12 +1446,11 @@ sub pipeline_analyses {
                          'create_type'      => 'core_only',
                        },
         -rc_name    => 'default',
-
         -flow_into  => {
                          1 => ['populate_production_tables'],
                        },
-
       },
+
 
       {
         # Load production tables into each reference
@@ -1757,9 +1739,25 @@ sub pipeline_analyses {
         -rc_name    => 'default',
 
         -flow_into  => {
-                          1 => ['load_mitochondrion', 'fan_refseq_import'],
+                         1 => ['create_registry'],
                        },
       },
+
+     {
+        -logic_name => 'create_registry',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::CreateRegistry',
+        -parameters => {
+                        compara_db => $self->o('compara_db'),
+                        projection_source_db => $self->o('projection_source_db'),
+                        target_db => $self->o('reference_db'),
+                        production_db => $self->o('production_db'),
+                        registry_file => $self->o('registry_file'),
+                       },
+       -rc_name => 'default',
+       -flow_into => {
+                       1 => ['load_mitochondrion', 'fan_refseq_import'],
+                     },
+       },
 
 ###############################################################################
 #
