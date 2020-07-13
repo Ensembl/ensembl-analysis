@@ -80,6 +80,7 @@ sub run {
   unless($databases_conf_path) {
     $self->throw($databases_conf_path." does not exist");
   }
+  $self->param('reg_conf',$databases_conf_path);
 
   my $update_genome_db_cmd = 'perl '.$self->param_required('compara_genome_db_update_path').
                              ' --reg_conf '.$databases_conf_path.
