@@ -298,14 +298,38 @@ foreach my $accession (@accession_array) {
   my $species_url = $assembly_hash->{'species_name'};
   $species_url = ucfirst($species_url);
   $assembly_hash->{'species_url'} = $species_url;
+  
+  #Set up taxonomy adaptor to fetch rank of species using NCBI taxonomy database
+  my $node_adaptor = $taxonomy_adaptor->get_TaxonomyNodeAdaptor();
+  my $taxon_node = $node_adaptor->fetch_by_taxon_id($assembly_hash->{'taxon_id'});
 
-  # Get repeatmodeler library path if one exists
-  my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$assembly_hash->{'species_name'},$assembly_hash->{'species_name'}.'.repeatmodeler.fa');
-  if(-e $repeatmodeler_file) {
-    say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
-    $assembly_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
-  } else {
-    say "Did not find an repeatmodeler species library for ".$assembly_hash->{'species_name'}." on path:\n".$assembly_hash->{'species_name'};
+ # Check for repeatmodeler library at species level
+  if ($taxon_node->rank() eq 'subspecies' || $taxon_node->rank() eq 'no rank'){
+    my $parent_node = $node_adaptor->fetch_by_taxon_id($taxon_node->parent_id());
+    my $parent_name = $parent_node->names()->{'scientific name'}->[0];
+    $parent_name =~ s/\s+/\_/g;
+    $parent_name = lc($parent_name);
+   #  Species is at subspecies level so get repeatmodeler library path if one exists at the species level
+    my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$parent_name,$parent_name.'.repeatmodeler.fa');
+    if(-e $repeatmodeler_file) {
+      say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+      $assembly_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+    } else {
+      say "Did not find a repeatmodeler species library for ".$assembly_hash->{'species_name'}." on path:\n".$assembly_hash->{'species_name'};
+    }
+  }
+  elsif ($taxon_node->rank() eq 'species'){
+  #   Get repeatmodeler library path if one exists
+    my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$assembly_hash->{'species_name'},$assembly_hash->{'species_name'}.'.repeatmodeler.fa');
+    if(-e $repeatmodeler_file) {
+      say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+      $assembly_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+    } else {
+      say "Did not find a repeatmodeler species library for ".$assembly_hash->{'species_name'}." on path:\n".$assembly_hash->{'species_name'};
+    }
+  }
+  else{
+    say "Rank is ",$taxon_node->rank();
   }
 
   create_config($assembly_hash);
@@ -692,13 +716,37 @@ sub custom_load_data {
     }
   }
 
-  # Get repeatmodeler library path if one exists. Note that this will be overwritten with a custom path if one has been provided
-  my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$general_hash->{'species_name'},$general_hash->{'species_name'}.'.repeatmodeler.fa');
-  if(-e $repeatmodeler_file) {
-    say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
-    $general_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
-  } else {
-    say "Did not find an repeatmodeler species library for ".$general_hash->{'species_name'}." on path:\n".$general_hash->{'species_name'};
+  #Set up taxonomy adaptor to fetch rank of species using NCBI taxonomy database
+  my $node_adaptor = $taxonomy_adaptor->get_TaxonomyNodeAdaptor();
+  my $taxon_node = $node_adaptor->fetch_by_taxon_id($general_hash->{'taxon_id'});
+
+  #Check for repeatmodeler library at species level
+  if ($taxon_node->rank() eq 'subspecies' || $taxon_node->rank() eq 'no rank'){
+    my $parent_node = $node_adaptor->fetch_by_taxon_id($taxon_node->parent_id());
+    my $parent_name = $parent_node->names()->{'scientific name'}->[0];
+    $parent_name =~ s/\s+/\_/g;
+    $parent_name = lc($parent_name);
+    # Species is at subspecies level so get repeatmodeler library path if one exists at the species level. Note that this will be overwritten with a custom path if one has been provided
+    my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$parent_name,$parent_name.'.repeatmodeler.fa');
+    if(-e $repeatmodeler_file) {
+      say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+      $general_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+    } else {
+      say "Did not find a repeatmodeler species library for ".$general_hash->{'species_name'}." on path:\n".$general_hash->{'species_name'};
+    }
+  }
+  elsif ($taxon_node->rank() eq 'species'){
+   #  Get repeatmodeler library path if one exists. Note that this will be overwritten with a custom path if one has been provided
+    my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$general_hash->{'species_name'},$general_hash->{'species_name'}.'.repeatmodeler.fa');
+    if(-e $repeatmodeler_file) {
+      say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+      $general_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+    } else {
+      say "Did not find a repeatmodeler species library for ".$general_hash->{'species_name'}." on path:\n".$general_hash->{'species_name'};
+    }
+  }
+  else{
+    say "Rank is ",$taxon_node->rank();
   }
 
 }
