@@ -105,6 +105,7 @@ foreach my $chromosome (@chromosomes) {
   # if $check_slice does not exist, try to fetch by name as it can be an Ensembl slice name
   if (!$check_slice) {
     $check_slice = $sa->fetch_by_name($chromosome);
+    $chromosome  =$check_slice->seq_region_name;
   }
   my @except_feat = @{ $asm_exception_adaptor->fetch_all_by_Slice($check_slice) };
   foreach my $aef (@except_feat) {
