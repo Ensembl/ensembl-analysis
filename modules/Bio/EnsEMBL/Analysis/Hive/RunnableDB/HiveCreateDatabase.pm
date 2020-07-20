@@ -278,6 +278,7 @@ sub dump_database {
   }
   else {
     # Check the max_allowed_packet before dumping tables
+    # I commented the check for max_allowed_packet but I don't remember the problem
     my $max_allowed_packet;
     my $checkcmd = $command;
     $checkcmd =~ s/dump/admin/;

@@ -41,6 +41,8 @@ use strict;
 use warnings;
 
 use File::Spec::Functions qw(catfile);
+use Bio::EnsEMBL::Hive::Utils qw(stringify);
+
 use parent ('Bio::EnsEMBL::Hive::RunnableDB::SystemCmd');
 
 
@@ -102,10 +104,12 @@ sub fetch_input {
     '-port', $pipeline_db->{'-port'},
     '-user', $pipeline_db->{'-user'},
     '-password', $pipeline_db->{'-pass'},
+    '-pipe_db_host', $pipeline_db->{'-host'},
+    '-pipe_db_port', $pipeline_db->{'-port'},
+    '-pipe_db_user', $pipeline_db->{'-user'},
+    '-pipe_db_pass', $pipeline_db->{'-pass'},
     '-pipe_db_name', $pipeline_db->{'-dbname'},
     '-pipeline_name', $self->param_required('pipeline_name'));
-  push(@cmd, '-enscode_root_dir', $self->param('enscode_root_dir'))
-    if ($self->param_is_defined('enscode_root_dir'));
   if ($dna_db) {
     $self->warning('Your dna dbname has upper case character, it might cause problems, '.$dna_db->{'-dbname'})
       if ($dna_db->{'-dbname'} =~ /[[:upper:]]/);
@@ -124,6 +128,16 @@ sub fetch_input {
     push(@cmd, '-'.$db_title.'_port', $db->{'-port'});
     push(@cmd, '-'.$db_title.'_user', $db->{'-user'}) if (exists $db->{'-user'});
     push(@cmd, '-'.$db_title.'_pass', $db->{'-pass'}) if (exists $db->{'-pass'} and $db->{'-pass'});
+  }
+  if ($self->param_is_defined('extra_parameters')) {
+    my $extra_parameters = $self->param('extra_parameters');
+    if (ref($extra_parameters) eq 'HASH') {
+      foreach my $key (keys %$extra_parameters) {
+        # We need to make sure that an arrayref/hashref is correctly passed to the init script
+        my $value = ref($extra_parameters->{$key}) ? stringify($extra_parameters->{$key}) : $extra_parameters->{$key};
+        push(@cmd, "-$key", $value);
+      }
+    }
   }
   if ($self->param_is_defined('commandline_params')) {
     push(@cmd, $self->param('commandline_params'));

@@ -168,12 +168,14 @@ sub pipeline_analyses {
 
   my @input_ids;
   my @isoseq_dbs;
-  foreach my $file (@{$self->default_options->{'input_files'}}) {
-    my $dbname = $file;
-    $dbname =~ s/\.\w+$//;
-    push(@isoseq_dbs, $self->create_database_hash(undef, undef, $self->o('user'), $self->o('password'), lc($self->o('dbowner').'_'.$self->o('species_name').'_'.$dbname.'_pacbio')));
-    my ($pipedb, $url, $guiurl) = $self->get_meta_db_information($dbname);
-    push(@input_ids, [$pipedb, $url, $dbname, $guiurl, catfile($self->o('input_dir'), $file), $isoseq_dbs[-1]]);
+  if ($self->_is_second_pass('input_files')) {
+    foreach my $file (@{$self->o('input_files')}) {
+      my $dbname = $file;
+      $dbname =~ s/\.\w+$//;
+      push(@isoseq_dbs, $self->create_database_hash(undef, undef, $self->o('user'), $self->o('password'), lc($self->o('dbowner').'_'.$self->o('species_name').'_'.$dbname.'_pacbio')));
+      my ($pipedb, $url, $guiurl) = $self->get_meta_db_information(undef, lc($self->o('dbowner').'_'.$self->o('species_name').'_'.$dbname.'_hive'));
+      push(@input_ids, [$pipedb, $url, $dbname, $guiurl, catfile($self->o('input_dir'), $file), $isoseq_dbs[-1]]);
+    }
   }
 
   return [

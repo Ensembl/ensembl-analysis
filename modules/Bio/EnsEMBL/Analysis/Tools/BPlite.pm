@@ -377,9 +377,11 @@ sub _parseHeader {
     if ($_ =~ /^Query=(?:\s+([^\(]+))?/) {
       $header_flag = 1;   # valid header element found
       my $query = $1;
+      chomp($query);
       while(<$FH>) {
         last if $_ !~ /\S/;
 		$query .= $_;
+        chomp($query);
       }
       $query =~ s/\s+/ /g;
       $query =~ s/^>//;
@@ -400,6 +402,9 @@ sub _parseHeader {
     elsif (($_ =~ /^Parameters|^\s+Database:/) && ($header_flag==1)) {  # if we entered a header, and saw nothing before the stats at the end, then it was empty
       $self->{'LASTLINE'} = $_;
       return 0; # there's nothing in the report
+    }
+    elsif (!exists $self->{LENGTH} and $_ =~ /Length=\s*(\d+)/) {
+      $self->{LENGTH} = $1;
     }
   }
   return -1; # EOF

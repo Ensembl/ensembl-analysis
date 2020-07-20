@@ -20,7 +20,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis;
 use strict;
 use warnings;
 use feature 'say';
-use Data::Dumper;
 
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba is_slice_name);
@@ -160,16 +159,12 @@ sub create_slice_ids {
                               $self->param('include_non_reference'),
 			      $self->param('include_duplicates'),
 			      $self->param('include_lrg'));
-my @input = map {$_->name} @$slices;
-say "slices from db are ", scalar(@input);
   if (!$self->param('mitochondrion')) {
     my $mt = $sa->fetch_by_region('toplevel', 'MT');
     if ($mt) {
-say "mt is ", $mt;
       my @ids = grep {$_->seq_region_name ne $mt->seq_region_name} @$slices;
       $slices = \@ids;
     }
-say "inside MT";
   }
   if ($self->param('iid_type') eq 'patch_slice') {
     my @pt = ('patch_novel', 'patch_fix');
@@ -187,30 +182,21 @@ say "inside MT";
 
   if($self->param('slice_size') > 0) {
     $slices = split_Slices($slices, $self->param_required('slice_size'), $self->param('slice_overlaps'));
-say "slice > 0";
   }
 
   if($self->param('min_slice_length')) {
     $slices = $self->filter_slice_on_size($slices);
-say "slice length is ", $self->param('min_slice_length');
   }
 
   if($self->param('feature_constraint')) {
     $slices = $self->filter_slice_on_features($slices, $dba);
-say "constraint is ", $self->param('feature_constraint');
   }
 
   if($self->param('batch_slice_ids')) {
-my @inpt = map {$_->name} @$slices;
-say "slices from db are ", scalar(@inpt);
     $slices = $self->batch_slice_ids($slices);
-#my @inp = map {$_->name} @$slices;
-#say "slices from db are ", scalar(@inp);
-    say "batch is ", Dumper($slices);
     $self->param('inputlist', $slices);
   } else {
     my @input_ids = map {$_->name} @$slices;
-   say "slices from db are ", Dumper(@input_ids);
     $self->param('inputlist', \@input_ids);
   }
 
