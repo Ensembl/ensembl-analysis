@@ -193,7 +193,7 @@ sub load_range {
   my $slice_hash = {};
 
   my $proto_transcripts = [];
-  my $input_id = $self->param_required('iid');
+  my $input_id = $self->param_required('gtf_array');
   unless($input_id) {
     $self->throw("No input id found via the iid parameter");
   }

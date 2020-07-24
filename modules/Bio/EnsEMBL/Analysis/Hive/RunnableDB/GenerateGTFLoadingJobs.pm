@@ -110,16 +110,20 @@ sub run {
   my ($self) = @_;
 
   my $gtf_files = $self->param('gtf_files');
-  my $output_ids = [];
+  my @output_ids;
   foreach my $gtf_file (@$gtf_files) {
-    push(@$output_ids,@{$self->process_gtf_file($gtf_file)});
+    my $logic_name = (split '/', $gtf_file)[-1];
+    $logic_name =~ s/.gtf$//;
+    foreach my $chunk (@{$self->process_gtf_file($gtf_file)}){
+      push(@output_ids,{gtf_array => $chunk, logic_name => $logic_name."_rnaseq_gene"});
+    }
   }
 
-  unless(scalar(@$output_ids)) {
+  unless(scalar(@output_ids)) {
     $self->throw("No output ids created. Something went wrong");
   }
-
-  $self->output($output_ids);
+  $self->dataflow_output_id(\@output_ids, 2);
+  #$self->output($output_ids);
 }
 
 

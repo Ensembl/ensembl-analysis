@@ -5561,8 +5561,6 @@ sub pipeline_analyses {
         -rc_name    => '10GB_stringtie',
       },
 
-
-
       {
         -logic_name => 'create_stringtie_initial_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
@@ -5573,10 +5571,24 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-          1 => ['generate_stringtie_gtf_jobs'],
+          1 => ['create_stringtie_blast_db'],
         },
       },
 
+      {
+        -logic_name => 'create_stringtie_blast_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('stringtie_blast_db'),
+                         create_type => 'clone',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+           '1->A' => ['generate_stringtie_gtf_jobs'],
+           'A->1' => ['copy_rnaseq_blast_db'],
+        },
+      },
 
       {
         -logic_name => 'generate_stringtie_gtf_jobs',
@@ -5585,12 +5597,10 @@ sub pipeline_analyses {
            gtf_dir => catdir($self->o('output_dir'),'stringtie','merge'),
         },
         -flow_into => {
-          '2->A' => ['load_stringtie_transcripts'],
-          'A->1' => ['create_stringtie_blast_db'],
+          2 => ['load_stringtie_transcripts'],
         },
         -rc_name    => '5GB',
       },
-
 
       {
         -logic_name => 'load_stringtie_transcripts',
@@ -5603,24 +5613,29 @@ sub pipeline_analyses {
           module      => 'Stringtie2',
         },
         -rc_name    => '5GB',
-      },
-
-
-      {
-        -logic_name => 'create_stringtie_blast_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('stringtie_blast_db'),
-                         create_type => 'clone',
-                       },
-        -rc_name    => 'default',
         -flow_into => {
-          '1->A' => ['create_gene_id_input_ids'],
-          'A->1' => ['copy_rnaseq_blast_db'],
+          1 => 'create_slice_tissue_input_ids',
         },
       },
 
+      {
+        -logic_name => 'create_slice_tissue_input_ids',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -rc_name    => '1GB',
+        -parameters => {
+          iid_type => 'slice',
+          coord_system_name => 'toplevel',
+          slice => 1,
+          include_non_reference => 0,
+          top_level => 1,
+          feature_constraint => 1,
+          feature_type => 'gene',
+          target_db => $self->o('stringtie_initial_db'),
+        },
+        -flow_into => {
+          2 => {'create_gene_id_input_ids' => {iid => '#iid#', logic_name => '#logic_name#'}},
+        },
+      },
 
       {
         -logic_name => 'create_gene_id_input_ids',
@@ -5632,9 +5647,10 @@ sub pipeline_analyses {
           target_db => $self->o('stringtie_initial_db'),
           feature_type => 'gene',
           batch_size => 50,
+          feature_logic_names => ['#logic_name#'],
         },
         -flow_into => {
-          '2' => {'blast_stringtie' => {iid => '#iid#', logic_name => '#logic_name#'}},
+          2 => {'blast_stringtie' => {iid => '#iid#', logic_name => '#logic_name#'}},
         },
       },
 
