@@ -75,7 +75,7 @@ sub run {
   my $target_assembly_name = $target_dba->get_MetaContainer->single_value_by_key('assembly.default');
   my $source_production_name = $projection_source_dba->get_MetaContainer->get_production_name();
   my $target_production_name = $target_dba->get_MetaContainer->get_production_name();
-  my $databases_conf_path = $self->param_required('registry_path');
+  my $databases_conf_path = $self->param_required('registry_file');
 
   unless($databases_conf_path) {
     $self->throw($databases_conf_path." does not exist");
