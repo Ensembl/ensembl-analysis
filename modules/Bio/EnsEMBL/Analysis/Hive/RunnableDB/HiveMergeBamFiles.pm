@@ -103,7 +103,7 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults()},
     bam_version => 1,
-    rename_file => 1,
+    rename_file => 0,
     store_datafile => 1,
     _index_ext => 'bai',
     _file_ext => 'bam',
