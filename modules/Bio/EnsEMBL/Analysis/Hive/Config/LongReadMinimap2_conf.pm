@@ -33,7 +33,7 @@ sub default_options {
 'user'                   => '',
 'password'               => '',
 
-
+'mapping_type'           => 'cdna', # or 'cross_species', 'nanopore'
 # Shouldn't need to set these
 'minimap2_genome_index'  => $self->o('faidx_genome_file').'.mmi',
 'use_genome_flatfile'    => 1,
@@ -247,7 +247,7 @@ sub pipeline_analyses {
                        },
         -rc_name      => '2GB',
         -flow_into => {
-                        2 => {'minimap2' => {'input_file' => '#fastq_file#','iid' => '#iid#'}},
+                        2 => {'minimap2' => {'fastq_file' => '#fastq_file#','iid' => '#iid#'}},
                       },
       },
 
@@ -256,6 +256,8 @@ sub pipeline_analyses {
         -logic_name => 'minimap2',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Minimap2',
         -parameters => {
+                         mapping_type => $self->o('mapping_type'),
+                         long_read_summary_file    => $self->o('long_read_summary_file'),
                          genome_file => $self->o('faidx_genome_file'),
                          minimap2_genome_index => $self->o('minimap2_genome_index'),
                          minimap2_path => $self->o('minimap2_path'),
@@ -266,7 +268,7 @@ sub pipeline_analyses {
                        },
         -rc_name => '15GB',
         -flow_into => {
-                        -1 => {'minimap2_himem' => {'input_file' => '#input_file#','iid' => '#iid#'}},
+                        -1 => {'minimap2_himem' => {'fastq_file' => '#fastq_file#','iid' => '#iid#'}},
                       },
      },
 
@@ -275,6 +277,8 @@ sub pipeline_analyses {
         -logic_name => 'minimap2_himem',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Minimap2',
         -parameters => {
+                         mapping_type => $self->o('mapping_type'),
+                         long_read_summary_file    => $self->o('long_read_summary_file'),
                          genome_file => $self->o('faidx_genome_file'),
                          minimap2_genome_index => $self->o('minimap2_genome_index'),
                          minimap2_path => $self->o('minimap2_path'),

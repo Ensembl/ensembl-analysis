@@ -1,6 +1,6 @@
 =head1 LICENSE
 
- Copyright [2016-2019] EMBL-European Bioinformatics Institute
+ Copyright [2019] EMBL-European Bioinformatics Institute
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -26,19 +26,19 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::Star
+Bio::EnsEMBL::Analysis::Runnable::MagicBlast
 
 =head1 SYNOPSIS
 
   my $runnable =
-    Bio::EnsEMBL::Analysis::Runnable::Star->new();
+    Bio::EnsEMBL::Analysis::Runnable::MagicBlast->new();
 
  $runnable->run;
  my @results = $runnable->output;
 
 =head1 DESCRIPTION
 
-This module uses Star to align fastq to a genomic sequence. Star is a splice aware
+This module uses MagicBlast to align fastq to a genomic sequence. MagicBlast is a splice aware
 aligner. It creates output files with the reads overlapping splice sites and the reads
 aligning on the exons. Some reads are aligned multiple times in the genome.
 
@@ -47,7 +47,7 @@ aligning on the exons. Some reads are aligned multiple times in the genome.
 =cut
 
 
-package Bio::EnsEMBL::Analysis::Runnable::Star;
+package Bio::EnsEMBL::Analysis::Runnable::MagicBlast;
 
 use warnings;
 use strict;
@@ -64,7 +64,7 @@ use parent ('Bio::EnsEMBL::Analysis::Runnable::BaseShortReadAligner');
  Arg [DECOMPRESS]           : String as a command like 'gzip -c -'
  Arg [EXPECTED_ATTRIBUTES]  : String specify the attribute expected for the output, see STAR manual
  Description                : Creates a  object to align reads to a genome using STAR
- Returntype                 : 
+ Returntype                 :
  Exceptions                 : Throws if WORKDIR does not exist
                               Throws if the genome has not been indexed
 
@@ -74,18 +74,18 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($decompress, $sam_attributes, $sample_id, $genome_dir, $threads) = rearrange([qw (DECOMPRESS RG_LINES SAMPLE_NAME GENOME_DIR THREADS)],@args);
-  $self->throw("Genome file must be indexed, '$genome_dir/SA' does not exist\n") unless (-e $genome_dir.'/SA');
-  $self->genome($genome_dir);
+  my ($decompress, $sam_attributes, $genome, $sample_id, $threads, $create_sorted_bam) = rearrange([qw (DECOMPRESS RG_LINES GENOME SAMPLE_NAME THREADS CREATE_SORTED_BAM)],@args);
+  $self->genome($genome);
   $self->sample_id($sample_id);
   $self->threads($threads);
+  $self->create_sorted_bam($create_sorted_bam);
   return $self;
 }
 
 =head2 run
 
  Arg [1]    : None
- Description: Run Star to align reads to an indexed genome. The resulting output file will be stored in $self->output
+ Description: Run MagicBlast to align reads to an indexed genome. The resulting output file will be stored in $self->output
  Returntype : None
  Exceptions : None
 
@@ -99,20 +99,34 @@ sub run {
   my $fastqpair = $self->fastqpair;
   my $options = $self->options;
   my $threads = $self->threads();
-  my $out_dir = catfile($self->outdir, $sample_id);
-  my $tmp_dir = catfile($self->outdir, $sample_id."_tmp");
+  my $out_file = catfile($self->outdir, $sample_id.".sam");
 
-  # run STAR
-  my $command = $self->program." --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$threads." --twopassMode Basic --readFilesCommand zcat --runMode alignReads --genomeDir ".$self->genome." --readFilesIn ".$fastq." ".$fastqpair." --outFileNamePrefix ".$out_dir."_ ".$options." --outTmpDir ".$tmp_dir." --outSAMtype BAM SortedByCoordinate";
-
-# star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir]
-
+  # run magicblast
+  my $command = $self->program." -num_threads ".$threads." -paired -infmt fastq -db ".$self->genome." -outfmt sam -query ".$fastq." -query_mate ".$fastqpair." -out ".$out_file;
 
   $self->warning("Command: $command\n");
   if (system($command)) {
       $self->throw("Error aligning $fastq $fastqpair\nCommandline used: $command\nError code: $?\n");
   }
-  $self->output([$out_dir.'_Aligned.sortedByCoord.out.bam']);
+
+#subprocess.run(['samtools','sort','-@',str(num_threads),'-T',sam_temp_file_path,'-o',bam_sort_file_path,sam_file])
+
+  if ($self->create_sorted_bam()) {
+    my $samtools_path = 'samtools';#$self->samtools_path();
+    unless($samtools_path) {
+      $samtools_path = "samtools";
+    }
+
+    my $temp_file = $out_file.".tmp";
+    my $sorted_bam_file = $out_file;
+    $sorted_bam_file =~ s/\.sam/\.mb\.sorted\.bam/;
+    my $sort_command = $samtools_path." sort -@ ".$threads." -T ".$temp_file." -o ".$sorted_bam_file." ".$out_file;
+    if (system($sort_command)) {
+      $self->throw("Error creating sorted bam file\nCommandline used: $sort_command\nError code: $?\n");
+    }
+  }
+
+  $self->output([$out_file]);
 }
 
 
@@ -198,6 +212,24 @@ sub threads {
     $self->{'_threads'} = $value;
   }
   return $self->{'_threads'};
+}
+
+
+=head2 create_sorted_bam
+
+ Arg [1]    : (optional) int
+ Description: Getter/setter for creating a sorted bam
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub create_sorted_bam {
+  my ($self, $value) = @_;
+  if (defined $value) {
+    $self->{'_create_sorted_bam'} = $value;
+  }
+  return $self->{'_create_sorted_bam'};
 }
 
 

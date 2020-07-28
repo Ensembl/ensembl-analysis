@@ -47,6 +47,7 @@ use feature 'say';
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -115,6 +116,7 @@ sub run {
   my $transcript_strings = {};
   my $count = 0;
   my $total_genes = scalar(@$genes);
+  my $new_genes_to_store = {};
   say "Total gene count: ".$total_genes;
   while(my $gene = pop(@$genes)) {
     $count++;
@@ -151,7 +153,36 @@ sub run {
           $gene_adaptor->remove($gene);
         }
       }
-    } # end if($self->param('target_type') eq 'transcriptomic')
+    } elsif($self->param('target_type') eq 'long_read_utr') {
+      unless($transcript_strings->{$transcript_string}) {
+        $transcript_strings->{$transcript_string} = $gene;
+      } else {
+        my $existing_transcript = ${$transcript_strings->{$transcript_string}->get_all_Transcripts}[0];
+        my $comparison_result = $self->compare_long_read_utr($existing_transcript,$transcript);
+        unless($comparison_result) {
+          # This is for cases where the original transcript was as long or longer in both directions to
+          # the current transcript, so just remove the current one
+          $gene_adaptor->remove($gene);
+        } elsif($comparison_result->{'_exons_modified'}) {
+          # This is where there has been a merging of the terminal exons to get the longest pair of terminal exons
+          # This requires a new gene to be created. It's safer to create a new gene because there is a chance that
+          # there might be some info (e.g. read accession) that don't make sense on the hybrid model
+          my $new_gene = Bio::EnsEMBL::Gene->new( -slice    => $gene->slice(),
+                                                  -analysis => $gene->analysis());
+          $new_gene->add_Transcript($comparison_result);
+          $new_gene->biotype('modified');
+          $gene_adaptor->remove($transcript_strings->{$transcript_string});
+          $gene_adaptor->remove($gene);
+          $transcript_strings->{$transcript_string} = $new_gene;
+          $new_genes_to_store->{$transcript_string} = $new_gene;
+        } else {
+          # If no exons have been modified but the rerun was non-zero then this transcript is
+          # longer in both directions so replace the existing one with it
+          $gene_adaptor->remove($transcript_strings->{$transcript_string});
+          $transcript_strings->{$transcript_string} = $gene;
+        }
+      }
+    }
 
     # This is basically the same as the above, but duplicated for clarity. The major difference is that we consider
     # priority as the deciding factor. This means we can't do the same check to see if the start/end are identical
@@ -170,20 +201,80 @@ sub run {
       } else {
         my $existing_transcript = ${$transcript_strings->{$transcript_string}->get_all_Transcripts}[0];
         if($self->compare_biotype_priorities($existing_transcript,$transcript)) {
+          my $debug_gene2 = $transcript_strings->{$transcript_string};
           $gene_adaptor->remove($transcript_strings->{$transcript_string});
           $transcript_strings->{$transcript_string} = $gene;
         } else {
           $gene_adaptor->remove($gene);
-	}
+	      }
       }
     } # end elsif($self->param('target_type') eq 'biotype_priority')
   }
+  $self->param('_new_genes_to_store',$new_genes_to_store);
 }
 
 
 sub write_output {
   my ($self) = @_;
+
+  my $target_dba = $self->hrdb_get_con('target_db');
+  my $gene_adaptor = $target_dba->get_GeneAdaptor();
+  my $new_genes_to_store = $self->param('_new_genes_to_store');
+  foreach my $key (keys(%$new_genes_to_store)) {
+    $gene_adaptor->store($new_genes_to_store->{$key});
+  }
   return;
+}
+
+
+sub compare_long_read_utr {
+  my ($self,$transcript1,$transcript2) = @_;
+
+  my $transcript1_cds_coords = $transcript1->cdna_coding_start.":". $transcript1->cdna_coding_end;
+  my $transcript2_cds_coords = $transcript2->cdna_coding_start.":". $transcript2->cdna_coding_end;
+
+  # If they're identical just use the first one
+  if($transcript1_cds_coords eq $transcript2_cds_coords &&
+     $transcript1->start() == $transcript2->start() &&
+     $transcript1->end() == $transcript2->end()) {
+    return(0);
+  }
+
+  # If they're not then we want to get the longest UTR from each end, make them the first and last exons
+  # and then calculate the ORF again on the new transcript
+  my $transcript1_exons = $transcript1->get_all_Exons();
+  my $transcript2_exons = $transcript2->get_all_Exons();
+  my $transcript1_5prime_exon = $$transcript1_exons[0];
+  my $transcript2_5prime_exon = $$transcript2_exons[0];
+  my $transcript1_3prime_exon = $$transcript1_exons[$#$transcript1_exons];
+  my $transcript2_3prime_exon = $$transcript2_exons[$#$transcript2_exons];
+
+  my $final_exons = $transcript1->get_all_Exons();
+  my $modified = 0;
+  if($transcript1_5prime_exon->length() < $transcript2_5prime_exon->length()) {
+    $$final_exons[0] = $transcript2_5prime_exon;
+    $modified++;
+  }
+
+  if($transcript1_3prime_exon->length() < $transcript2_3prime_exon->length()) {
+    $$final_exons[$#$final_exons] = $transcript2_3prime_exon;
+    $modified++;
+  }
+
+  unless($modified) {
+    return(0);
+  }
+
+  if($modified == 2) {
+    return($transcript2);
+  }
+
+  my $final_transcript = Bio::EnsEMBL::Transcript->new(-exons    => $final_exons,
+                                                       -slice    => $transcript1->slice(),
+                                                       -analysis => $transcript1->analysis);
+  compute_translation($final_transcript);
+  $final_transcript->{'_exons_modified'} = 1;
+  return($final_transcript);
 }
 
 
@@ -257,18 +348,27 @@ sub compare_biotype_priorities {
     } else {
       # At this point the cds lengths are the same. Get the supporting feature info and pick the transcript
       # with the best combined score, or just transcript1 if the scores are identical
-      my $hcoverage1 = ${$transcript1->get_all_supporting_features}[0]->hcoverage;
-      my $perc_ident1 = ${$transcript1->get_all_supporting_features}[0]->percent_id;
-      my $hcoverage2 = ${$transcript1->get_all_supporting_features}[0]->hcoverage;
-      my $perc_ident2 = ${$transcript1->get_all_supporting_features}[0]->percent_id;
-      my $combined_score1 = $hcoverage1 + $perc_ident1;
-      my $combined_score2 = $hcoverage2 + $perc_ident2;
-      if($combined_score1 >= $combined_score2) {
+      my $sfs1 = $transcript1->get_all_supporting_features;
+      my $sfs2 = $transcript2->get_all_supporting_features;
+
+      if((!(scalar(@$sfs1)) && !(scalar(@$sfs2))) || !(scalar(@$sfs2))) {
         return(0);
+      } elsif(!(scalar(@$sfs1))) {
+        return(1)
       } else {
-        return(1);
-      }
-    } # end else
+        my $hcoverage1 = ${$sfs1}[0]->hcoverage;
+        my $perc_ident1 = ${$sfs1}[0]->percent_id;
+        my $hcoverage2 = ${$sfs2}[0]->hcoverage;
+        my $perc_ident2 = ${$sfs2}[0]->percent_id;
+        my $combined_score1 = $hcoverage1 + $perc_ident1;
+        my $combined_score2 = $hcoverage2 + $perc_ident2;
+        if($combined_score1 >= $combined_score2) {
+          return(0);
+        } else {
+          return(1);
+        }
+      } # end else
+    }
   } # end else
 }
 

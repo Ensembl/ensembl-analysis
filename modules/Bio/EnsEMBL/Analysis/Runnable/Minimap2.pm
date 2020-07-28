@@ -80,12 +80,13 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($genome_index, $input_file, $paftools_path, $database_adaptor, $delete_input_file) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR DELETE_INPUT_FILE)],@args);
+  my ($genome_index, $input_file, $paftools_path, $database_adaptor, $delete_input_file, $mapping_type) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR DELETE_INPUT_FILE MAPPING_TYPE)],@args);
   $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->paftools_path($paftools_path);
   $self->database_adaptor($database_adaptor);
   $self->delete_input_file($delete_input_file);
+  $self->mapping_type($mapping_type);
   return $self;
 }
 
@@ -120,8 +121,23 @@ sub run {
     $self->throw("Paftools path was empty");
   }
 
-  # run minimap2
-  my $minimap2_command = $self->program." --cs -N 1 -ax splice:hq -u b ".$genome_index." ".$input_file." > ".$sam_file;
+  my $mapping_type = $self->mapping_type;
+  unless($mapping_type) {
+    $self->warning("No mapping type specified, defaulting to cdna");
+    $mapping_type = "cdna";
+  }
+
+  my $minimap_type_options;
+  if($mapping_type eq "cdna") {
+    $minimap_type_options = "--cs -N 1 -ax splice:hq -u b";
+  } elsif($mapping_type eq "cross_species") {
+    $minimap_type_options = "--cs -N 1 -ax splice -u b -B2 -O2,24 -C 10 -k14";
+  } elsif($mapping_type eq "nanopore") {
+    $minimap_type_options = "--cs -N 1 -ax splice -uf -k14";
+  }
+
+  my $minimap2_command = $self->program." ".$minimap_type_options." ".$genome_index." ".$input_file." > ".$sam_file;
+
   $self->warning("Command:\n".$minimap2_command."\n");
   if(system($minimap2_command)) {
     $self->throw("Error running minimap2\nError code: $?\n");
@@ -261,9 +277,16 @@ sub parse_results {
 
 # 13  0   84793   ENST00000380152.7   1000    +   0   84793   0,128,255   27  194,106,249,109,50,41,115,50,112,1116,4932,96,70,428,182,188,171,355,156,145,122,199,164,139,245,147,2105,  0,948,3603,9602,10627,10768,11025,13969,15445,16798,20791,29084,31353,39387,40954,42268,47049,47705,54928,55482,61196,63843,64276,64533,79215,81424,82688,
 
-  my $percent_id_cutoff = 90;
+  my $percent_id_cutoff = 95;
   my $coverage_cutoff = 90;
   my $canonical_intron_cutoff = 0.8;
+
+  my $mapping_type = $self->mapping_type();
+  if($mapping_type eq 'nanopore') {
+    $percent_id_cutoff = 80;
+    $coverage_cutoff = 80;
+    $canonical_intron_cutoff = 0.6;
+  }
 
   say "Parsing minimap2 output";
   my $dba = $self->database_adaptor();
@@ -489,8 +512,17 @@ sub delete_input_file {
   if ($val) {
     $self->{_delete_input_file} = $val;
   }
-
   return $self->{_delete_input_file};
+}
+
+
+sub mapping_type {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_mapping_type} = $val;
+  }
+  return $self->{_mapping_type};
 }
 
 1;
