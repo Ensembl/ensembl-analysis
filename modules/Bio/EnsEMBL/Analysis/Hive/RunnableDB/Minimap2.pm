@@ -110,7 +110,7 @@ sub fetch_input {
     $self->throw("Could not find the genome index. Path used:\n".$genome_index);
   }
 
-  my $input_file = $self->param('fastq_file');
+  my $input_file = $self->param('input_file');
   unless(-e $input_file) {
     $self->throw("Could not find the input file. Path used:\n".$input_file);
   }
