@@ -40,15 +40,13 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionMinimap;
 use warnings;
 use strict;
 use feature 'say';
-use Data::Dumper;
-use File::Spec::Functions qw(tmpdir catfile);
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Analysis_to_Gene attach_Slice_to_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(attach_Slice_to_Transcript empty_Transcript);
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw (align_proteins write_seqfile);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw (align_proteins write_seqfile write_sliceseq2fastafile);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
+use Bio::EnsEMBL::Analysis::Runnable::Minimap2;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -115,15 +113,12 @@ sub fetch_input {
     my $transcript = $source_transcript_dba->get_TranscriptAdaptor->fetch_by_dbID($input_id);
     my $biotype = $transcript->biotype;
     my $stable_id = $transcript->stable_id.".".$transcript->version;
-    my $annotation_features;
     $self->param('_transcript_biotype')->{$stable_id} = $biotype;
-
     say "Processing source transcript: ".$transcript->stable_id;
     
     my $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba);
     my $transcript_header = $transcript->stable_id.'.'.$transcript->version;
-    my $transcript_seq_object = Bio::Seq->new(-display_id => $transcript_header, -seq => $transcript->seq->seq);
-    $self->make_runnables($transcript_seq_object, $transcript_slices, $input_id, $annotation_features);
+    $self->make_runnables($transcript->feature_Slice(), $transcript_slices, $input_id, $target_transcript_dba);
   } #close foreach input_id
 
 }
@@ -153,10 +148,20 @@ sub run {
       my $preliminary_genes = $runnable->output(); # note that minimap2 returns a reference to an array of genes
       my @preliminary_transcripts;
       foreach my $preliminary_gene (@{$preliminary_genes}) {
-        my $transcripts = @{$preliminary_gene->get_all_Transcripts()};
-        my $num_transcripts = scalar(@$transcripts);
+        my @transcripts = @{$preliminary_gene->get_all_Transcripts()};
+        my $num_transcripts = scalar(@transcripts);
         if ($num_transcripts == 1) {
-          push(@preliminary_transcripts,@$transcripts[0]);
+          my $preliminary_transcript = $transcripts[0];
+
+          # minimap2 stores the percent id in the description column and the coverage in the version column
+          # I need to store them in the transcript so they can be used in the select_best_transcripts sub
+          $preliminary_transcript->version($preliminary_gene->version());
+          $preliminary_transcript->description($preliminary_gene->description());
+
+          # the source transcript id is stored in the _old_transcript_id key of the output gene
+          $preliminary_transcript->{'_old_transcript_id'} = $preliminary_gene->{'_old_transcript_id'};
+
+          push(@preliminary_transcripts,$transcripts[0]);
         } elsif ($num_transcripts > 1) {
           $self->throw("Minimap2 put more than 1 transcript in a gene for the source transcript ".$runnable->{'_transcript_id'});
         } elsif ($num_transcripts < 1) {
@@ -182,7 +187,6 @@ sub run {
 
 sub write_output {
   my ($self) = @_;
-
   my $adaptor = $self->hrdb_get_con('target_transcript_db')->get_GeneAdaptor;
   my $slice_adaptor = $self->hrdb_get_con('target_transcript_db')->get_SliceAdaptor;
 
@@ -190,7 +194,6 @@ sub write_output {
   my $analysis = $self->analysis;
 
   foreach my $transcript (@output){
-
     my $slice_id = $transcript->start_Exon->seqname;
     my $slice = $slice_adaptor->fetch_by_name($slice_id);
     my $biotype = $self->retrieve_biotype($transcript);
@@ -300,7 +303,7 @@ sub process_transcript {
 
 
 sub make_runnables {
-  my ($self,$transcript_seq,$transcript_slices,$input_id) = @_;
+  my ($self,$transcript_seq,$transcript_slices,$input_id,$target_transcript_dba) = @_;
   my %parameters = %{$self->parameters_hash};
   if (not exists($parameters{-options}) and defined $self->OPTIONS) {
     $parameters{-options} = $self->OPTIONS;
@@ -309,15 +312,14 @@ sub make_runnables {
     $parameters{-coverage_by_aligned} = $self->COVERAGE_BY_ALIGNED;
   }
 
-  my $source_sequence_fasta_file = "source_sequence_".$input_id;
-  my $target_sequences_fasta_file = "target_sequences_".$input_id;
+  my $source_sequence_fasta_file = $self->param('tmpdir')."/source_sequence_".$input_id;
+  my $target_sequences_fasta_file = $self->param('tmpdir')."/target_sequences_".$input_id;
 
   # dump the transcript seq object sequence into a file which will be the input source for Minimap2
-  write_seqfile($transcript_seq,$source_sequence_fasta_file,'fasta',1); # 1 for no_clean so it does not delete the newly created file
+  write_sliceseq2fastafile($transcript_seq,$source_sequence_fasta_file); # 1 for no_clean so it does not delete the newly created file
 
   # dump transcript slices sequences into a file which will be the input target for Minimap2
-  #write_slice_seqfile($transcript_slices,$target_sequences_fasta_file,'fasta',1); # 1 for no_clean so it does not delete the newly created file
-  write_seqfile($transcript_slices,$target_sequences_fasta_file,'fasta',1);
+  write_sliceseq2fastafile($transcript_slices,$target_sequences_fasta_file);
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2->new(
        -analysis          => $self->analysis(),
@@ -326,20 +328,10 @@ sub make_runnables {
 #       -options        => $self->param('minimap2_options'),
        -genome_index      => $target_sequences_fasta_file,#$genome_index,
        -input_file        => $source_sequence_fasta_file,
-       -database_adaptor  => ,#$target_dba,
+       -database_adaptor  => $target_transcript_dba,
        -delete_input_file => 0, # only set this when creating ranged files, not when using the original input file
   );
 
-#  my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
-#              -program  => $self->param('exonerate_path'),
-#              -analysis => $self->analysis,
-#              -query_type     => $self->QUERYTYPE,
-#              -calculate_coverage_and_pid => $self->param('calculate_coverage_and_pid'),
-#              -annotation_features => $annotation_features,
-#              %parameters,
-#              );
-#  $runnable->target_seqs($transcript_slices);
-#  $runnable->query_seqs([$transcript_seq]);
   $runnable->{'_transcript_id'} = $input_id;
   $self->runnable($runnable);
 }
@@ -435,15 +427,13 @@ sub unique_genomic_aligns {
 
 sub select_best_transcripts {
   my ($self,$preliminary_transcripts) = @_;
-
   my $selected_transcripts = [];
   my $best_score = 0;
   foreach my $preliminary_transcript (@{$preliminary_transcripts}) {
-    my @tsfs = @{$preliminary_transcript->get_all_supporting_features};
-    my $cov = $tsfs[0]->hcoverage;
-    my $pid = $tsfs[0]->percent_id;
+    my $cov = $preliminary_transcript->version();     # this was propagated from minimap gene version, which is the coverage
+    my $pid = $preliminary_transcript->description(); # this was propagated from minimap gene description, which is the percent id
     my $combined_score = $cov + $pid;
-    if($combined_score > $best_score) {
+    if ($combined_score > $best_score) {
       $best_score = $combined_score;
     }
     $preliminary_transcript->{'combined_score'} = $combined_score;
@@ -452,7 +442,6 @@ sub select_best_transcripts {
   unless($best_score) {
     $self->throw('Issue with calculating the best score from projection result set. This should not happen.');
   }
-
   # At this point we know the highest value in terms of combined percent identity and coverage. Now
   # we want all transcripts that fall within 5 percent of this value
   foreach my $preliminary_transcript (@{$preliminary_transcripts}) {
@@ -474,23 +463,24 @@ sub select_best_transcripts {
 sub filter_transcript {
   my ($self,$transcript) = @_;
 
-  my $supporting_features = $transcript->get_all_supporting_features;
-  my $supporting_feature = ${$supporting_features}[0];
-  my $transcript_coverage = $supporting_feature->hcoverage;
-  my $transcript_identity = $supporting_feature->percent_id;
+  my $transcript_coverage = $transcript->version();     # this was propagated from minimap gene version, which is the coverage
+  my $transcript_identity = $transcript->description(); # this was propagated from minimap gene description, which is the percent id
 
   unless($transcript_identity >= $self->param_required('minimap_percent_id') && $transcript_coverage >= $self->param_required('minimap_coverage')) {
     print("Transcript failed coverage (".$self->param_required('minimap_coverage').") and/or percent id (".$self->param_required('minimap_percent_id').") filter, will not store. Transcript coverage and percent id are: ".$transcript_coverage." ".$transcript_identity."\n");
     return(1);
   }
 
-  if($transcript->translation) {
-    if($transcript->translation->seq =~ /\*/) {
+  my $original_transcript = $self->hrdb_get_con('source_transcript_db')->get_TranscriptAdaptor->fetch_by_dbID($transcript->{'_old_transcript_id'});
+
+  if ($transcript->translation() and $transcript->translation()->seq() and
+      $original_transcript->translation() and $original_transcript->translation()->seq()) {
+
+    if ($transcript->translation()->seq() =~ /\*/) {
       say "Transcript translation seq has stop, will not store";
-      return(1);
+      return 1;
     }
 
-    my $original_transcript = $self->hrdb_get_con('source_transcript_db')->get_TranscriptAdaptor->fetch_by_dbID($transcript->{'_old_transcript_id'});
     my ($translation_coverage,$translation_identity) = align_proteins($original_transcript->translation->seq, $transcript->translation->seq);
     unless($translation_identity >= $self->param_required('minimap_percent_id') && $translation_coverage >= $self->param_required('minimap_coverage')) {
       print("Translation failed coverage (".$self->param_required('minimap_coverage').") and/or percent id (".$self->param_required('minimap_percent_id').") filter, will not store. Translation coverage and percent id are: ".$translation_coverage." ".$translation_identity."\n");
@@ -500,31 +490,11 @@ sub filter_transcript {
   return(0);
 }
 
-
-sub create_annotation_features {
-  my ($self,$transcript) = @_;
-
-  my $cds_start  = $transcript->cdna_coding_start;
-  my $cds_end = $transcript->cdna_coding_end;
-  my $stable_id  = $transcript->stable_id.".".$transcript->version;
-
-  my $annotation_feature = Bio::EnsEMBL::Feature->new(-seqname => $stable_id,
-                                                      -strand  => 1,
-                                                      -start   => $cds_start,
-                                                      -end     => $cds_end);
-
- my $annotation_features->{$stable_id} = $annotation_feature;
- return($annotation_features);
-}
-
-
 sub retrieve_biotype {
   my ($self, $transcript) = @_;
 
-  my $supporting_features = $transcript->get_all_supporting_features;
-  my $supporting_feature = ${$supporting_features}[0];
-  my $stable_id = $supporting_feature->hseqname;
-
+  my $original_transcript = $self->hrdb_get_con('source_transcript_db')->get_TranscriptAdaptor->fetch_by_dbID($transcript->{'_old_transcript_id'});
+  my $stable_id = $original_transcript->stable_id_version();
   my $biotype = $self->param('_transcript_biotype')->{$stable_id};
   unless($biotype) {
     $self->throw("Failed to retieve biotype for output transcript. Should have been set in fetch_input");
