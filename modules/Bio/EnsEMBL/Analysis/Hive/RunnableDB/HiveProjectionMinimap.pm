@@ -25,13 +25,43 @@ Questions may also be sent to the Ensembl help desk at
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionMinimap
 
 =head1 SYNOPSIS
 
+To be used as part of an eHive pipeline config file:
+
+{
+  -logic_name => 'minimap_project_transcripts',
+  -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionMinimap',
+  -parameters => {
+                   'logic_name' => 'minimap_projection',
+                   'module' => 'Minimap2',
+                   'source_dna_db' => $self->default_options()->{'projection_source_db'},
+                   'target_dna_db' => $self->o('dna_db'),
+                   'source_db' => $self->o('projection_source_db'),
+                   'target_db' => $self->o('projection_db'),
+                   'compara_db' => $self->o('projection_compara_db'),
+                   'method_link_type' => $self->o('method_link_type'),
+                   'minimap_path' => $self->o('minimap2_path'),
+                   'paftools_path' => $self->o('paftools_path'),
+                   'minimap_coverage' => 80,
+                   'minimap_percent_id' => 60,
+                 },
+  -rc_name    => 'default',
+  -hive_capacity => 900,
+  -flow_into => {
+                  -3 => ['failed_coding_jobs'],
+                },
+},
 
 =head1 DESCRIPTION
 
+HiveProjectionMinimap fetches the genes corresponding to the given array of gene_id or a single gene_id in source_db,
+projects its transcripts based on the given Compara lastz alignment and the Minimap2 aligner
+and builds single-transcript genes from these projections to be written to target_db while filtering out the specified
+transcripts if they don't meet the threshold criteria set for the protein muscle alignments (if applicable)
+ by coverage and percentage identity.
 
 =cut
 
