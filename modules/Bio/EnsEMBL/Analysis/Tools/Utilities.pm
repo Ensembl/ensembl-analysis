@@ -68,6 +68,7 @@ our @EXPORT_OK = qw(
               parse_config_mini
               parse_config_value
               create_file_name
+              write_sliceseq2fastafile
               write_seqfile
               merge_config_details
               get_evidence_set
@@ -586,7 +587,7 @@ sub write_seqfile{
 
   Arg [1]   : Bio::EnsEMBL::Slice or ARRAY of Bio::EnsEMBL::Slice
   Arg [2]   : string
-  Function  : It dumps the Arg[1] sequences into the FASTA file specified by [2].
+  Function  : It dumps the Arg[1] sequences into the FASTA file specified by [2] using the slice seq region name as the sequence identifier. Note that the other sub write_seqfile uses the slice name.
   Returntype: string (Arg [2])
   Exceptions: throw if failed to write sequences
   Example   : write_slice_seqfile($slice,'/output_path/slice.fa')
@@ -617,7 +618,7 @@ sub write_sliceseq2fastafile {
 
   open(OUT,">".$filename);
   foreach my $slice (@$slices) {
-    say OUT ">".$slice->name();
+    say OUT ">".$slice->seq_region_name();
     say OUT $slice->seq();
   }
   close OUT;
