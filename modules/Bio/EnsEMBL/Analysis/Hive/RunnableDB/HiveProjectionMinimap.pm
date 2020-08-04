@@ -80,8 +80,21 @@ use Bio::EnsEMBL::Analysis::Runnable::Minimap2;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: It fetches the source db transcript and its corresponding target db slices from the compara db
+              to make the Minimap2 runnables.
+ Returntype : None
+ Exceptions : Throws if the toplevel coordinate systems could not be fetched from the source and target transcript dbs or
+              if the MethodLinkSpeciesSet could not be fetched from the compara db.
+
+=cut
+
 sub fetch_input {
+
   my($self) = @_;
+
   $self->create_analysis;
   my $input_ids = $self->param('iid');
   $self->param('exon_region_padding',100);
@@ -153,9 +166,21 @@ sub fetch_input {
 
 }
 
+=head2 run
+
+ Arg [1]    : None
+ Description: It runs each runnable previously created and stores their transcript ID attributes in the corresponding output attribute.
+              If a source transcript has been projected to multiple regions, it selects the best one based on combined coverage and percent id.
+ Returntype : None
+ Exceptions : Throws if Minimap2 does not put 1 transcript in a projected gene, the coverage and percent ID cannot be fetched or are equal to 0,
+              or there was no best transcript selected.
+
+=cut
 
 sub run {
+
   my ($self) = @_;
+
   $self->runnable_failed(0);
   foreach my $runnable (@{$self->runnable}) {
     eval {
@@ -214,9 +239,19 @@ sub run {
   return 1;
 }
 
+=head2 write_output
+
+ Arg [1]    : None
+ Description: It creates single-transcript genes for each projected gene in the output, sets biotypes and stores them in the target database.
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub write_output {
+
   my ($self) = @_;
+
   my $adaptor = $self->hrdb_get_con('target_transcript_db')->get_GeneAdaptor;
   my $slice_adaptor = $self->hrdb_get_con('target_transcript_db')->get_SliceAdaptor;
 
@@ -252,6 +287,15 @@ sub write_output {
   return 1;
 }
 
+=head2 runnable_failed
+
+ Arg [1]    : 
+ Description: It updates the _runnable_failed array by emptying it if called without any parameter or by adding the element in the 'runnable_failed' parameter, which
+              is a transcript id.
+ Returntype : Array of transcript_id
+ Exceptions : None
+
+=cut
 
 sub runnable_failed {
   my ($self,$runnable_failed) = @_;
@@ -264,6 +308,19 @@ sub runnable_failed {
   return ($self->param('_runnable_failed'));
 }
 
+=head2 process_transcript
+
+ Arg [1]    : Bio::EnsEMBL::Transcript to be projected
+ Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor corresponding to the compara db containing the align blocks between the projection source and projection target assemblies.
+ Arg [3]    : Bio::EnsEMBL::Compara::DBSQL::MethodLinkSpeciesSetAdaptor corresponding to the compara db in Arg [2] 
+ Arg [4]    : Bio::EnsEMBL::Compara::GenomeDB corresponding to the projection source database. 
+ Arg [5]    : Bio::EnsEMBL::DBSQL::DBAdaptor corresponding to the projection source database.
+ Description: It fetches all align blocks from the compara db for the given transcript and it creates slices by clustering them,
+              which will be the projection target slices.
+ Returntype : Arrayref of Slice (transcript slices)
+ Exceptions : It throws if the align blocks could not be converted into transcript slices.
+
+=cut
 
 sub process_transcript {
   my ($self,$transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba) = @_;
@@ -274,20 +331,6 @@ sub process_transcript {
   my $exons = $transcript->get_all_Exons;
   my $exon_region_padding = $self->param('exon_region_padding');
   foreach my $exon (@{$exons}) {
-##    my $exon_padded_start = $exon->seq_region_start - $exon_region_padding;
-##   if($exon_padded_start < 0) {
-##      $exon_padded_start = 0;
-##    }
-
-##    my $exon_padded_end = $exon->seq_region_end + $exon_region_padding;
-##    if($exon_padded_end > $transcript->slice->length) {
-##      $exon_padded_end = $transcript->slice->length;
-##    }
-
-##    my $slice_adaptor = $source_transcript_dba->get_SliceAdaptor();
-##    my $exon_slice = $slice_adaptor->fetch_by_region($exon->slice->coord_system_name, $exon->slice->seq_region_name, $exon_padded_start, $exon_padded_end);
-
-
     my $exon_region_padding = $self->param('exon_region_padding');
     my $exon_padded_start = $exon->start - $exon_region_padding;
     my $exon_padded_end = $exon->end + $exon_region_padding;
@@ -301,12 +344,9 @@ sub process_transcript {
     my $dna_fragments = $compara_dba->get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($source_genome_db,$exon->slice->seq_region_name);
     my $genomic_align_block_adaptor = $compara_dba->get_GenomicAlignBlockAdaptor;
     my $genomic_align_blocks = $genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_DnaFrag($mlss,$dna_fragments,$exon_padded_start,$exon_padded_end);
-##    my $genomic_align_blocks = $genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_Slice($mlss, $exon_slice);
 
     foreach my $genomic_align_block (@$genomic_align_blocks) {
-##      my $restricted_genomic_align_block = $genomic_align_block->restrict_between_reference_positions($exon_padded_start, $exon_padded_end);
       push(@{$all_target_genomic_aligns},@{$genomic_align_block->get_all_non_reference_genomic_aligns});
-##      push(@{$all_target_genomic_aligns},@{$restricted_genomic_align_block->get_all_non_reference_genomic_aligns});
     }
   }
 
@@ -331,6 +371,18 @@ sub process_transcript {
   return $transcript_slices;
 }
 
+=head2 make_runnables
+
+ Arg [1]    : Bio::EnsEMBL::Slice corresponding to the slice where the source transcript lies on 
+ Arg [2]    : Arrayref of Slice, projection target transcript slices
+ Arg [3]    : Integer, transcript id of the source transcript to be projected 
+ Arg [4]    : Bio::EnsEMBL::DBSQL::DBAdaptor corresponding to the projection target database.
+ Description: It makes the Minimap2 runnables and stores the source transcript id as an attribute for each runnable object.
+              It writes the source and target transcripts sequences into temporary FASTA files as required by the Minimap2 runnables. 
+ Returntype : None
+ Exceptions : 
+
+=cut
 
 sub make_runnables {
   my ($self,$transcript_seq,$transcript_slices,$input_id,$target_transcript_dba) = @_;
@@ -366,13 +418,20 @@ sub make_runnables {
   $self->runnable($runnable);
 }
 
+=head2 max_cluster_gap_length
+
+ Arg [1]    : Bio::EnsEMBL::Transcript 
+ Description: This sub will loop through the introns and decide on how long the max allowed value should be.
+              It will be used to decide when to break up clusters on the same seq_region.
+              The max value multiplier will change based on how long the biggest intron is.
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub max_cluster_gap_length {
   my ($self,$transcript) = @_;
 
-  # This sub will loop through the introns and decide on how long the max allowed value should be
-  # This will be used to decide when to break up clusters on the same seq_region
-  # The max value multiplier will change based on how long the biggest intron is
   # Have 50 as a min default value to handle small breaks in single exon genes
   my $longest_intron = 50;
   my $introns = $transcript->get_all_Introns();
@@ -397,6 +456,15 @@ sub max_cluster_gap_length {
   }
 }
 
+=head2 make_cluster_slices
+
+ Arg [1]    : ArrayRef of Bio::EnsEMBL::Compara::GenomicAlign, sorted by seq_region_name and start
+ Arg [2]    : Integer, maximum cluster gap length  
+ Description: It makes slices by clustering the GenomicAlign features.
+ Returntype : ArrayRef of Bio::EnsEMBL::Slice
+ Exceptions : None
+
+=cut
 
 sub make_cluster_slices {
   my ($self,$genomic_aligns,$max_cluster_gap_length) = @_;
@@ -438,6 +506,14 @@ sub make_cluster_slices {
   return($cluster_slices);
 }
 
+=head2 unique_genomic_aligns
+
+ Arg [1]    : ArrayRef of Bio::EnsEMBL::Compara::GenomicAlign
+ Description: It makes an array of unique genomic aligns by dbID.
+ Returntype : ArrayRef of Bio::EnsEMBL::Compara::GenomicAlign
+ Exceptions : None
+
+=cut
 
 sub unique_genomic_aligns {
   my ($self,$genomic_aligns) = @_;
@@ -453,7 +529,14 @@ sub unique_genomic_aligns {
   return($unique_genomic_aligns);
 }
 
+=head2 select_best_transcripts
 
+ Arg [1]    : ArrayRef of Bio::EnsEMBL::Transcript
+ Description: It makes an array of selected transcripts based on coverage and percentage id.
+ Returntype : ArrayRef of Bio::EnsEMBL::Transcript
+ Exceptions : It throws if the coverage and percentage id cannot be fetched or they are zero, or if there was no transcript selected.
+
+=cut
 
 sub select_best_transcripts {
   my ($self,$preliminary_transcripts) = @_;
@@ -489,6 +572,16 @@ sub select_best_transcripts {
 
 }
 
+=head2 filter_transcript
+
+ Arg [1]    : ArrayRef of Bio::EnsEMBL::Transcript
+ Description: It checks if the projected transcript in Arg [1] and its source transcript protein alignment meets the coverage and percentage id
+              thresholds set as parameters.
+ Returntype : Boolean: 1 if the transcript does not meet the minimum coverage and percentage id or it contains stop codons; 0 if the transcript meets the minimum
+              coverage and percentage id or if the transcript does not translate.
+ Exceptions : None
+
+=cut
 
 sub filter_transcript {
   my ($self,$transcript) = @_;
@@ -519,6 +612,15 @@ sub filter_transcript {
   } # end if($transcript->translation)
   return(0);
 }
+
+=head2 retrieve_biotype
+
+ Arg [1]    : Bio::EnsEMBL::Transcript
+ Description: It fetches the biotype for the projected transcript in Arg [1] from its source transcript.
+ Returntype : String, biotype
+ Exceptions : It throws if the biotype could not be fetched.
+
+=cut
 
 sub retrieve_biotype {
   my ($self, $transcript) = @_;
