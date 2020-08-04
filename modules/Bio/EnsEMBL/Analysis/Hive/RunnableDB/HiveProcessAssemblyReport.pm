@@ -200,6 +200,7 @@ sub run {
   my $karyotype_rank_data = $self->param('karyotype_rank');
   my $no_chromosome = 0;
   my $common_name;
+  my $strain;
   my @slices;
   my @dirs;
   my @chromosomes;
@@ -251,6 +252,17 @@ sub run {
         $self->param('common_name', $1) if ($common_name =~ /\(([^)]+)\)/);
         $common_name =~ s/\s+\(.+//;
         $self->param('scientific_name', $common_name);
+        # if the common name is not appropriate for web use (i.e. in 'bad_common_names' file) then use the scientific name
+	open(BADNAMES, $self->param('bad_common_name_file'));
+        if (grep{/$self->param('common_name')/} <BADNAMES>){
+          $self->param('common_name', lc($self->param('scientific_name')));
+        }
+      }
+      elsif ($1 eq 'Infraspecific name') {
+        $strain = $2;
+        $self->param('strain', $1) if ($strain =~ /[a-zA-Z]+\=(.+)/);
+        $strain =~ s/\=.+//;
+        $self->param('strain_type', $strain);
       }
       elsif ($1 eq 'RefSeq assembly accession') {
         if ($self->param_is_defined('assembly_refseq_accession')) {
@@ -316,7 +328,7 @@ sub run {
         if ($data[9] ne 'na') {
           push(@{$slice->{add_synonym}}, [$data[9], $synonym_id->{UCSC}]);
         }
-        
+
         # if the maximum slice length is exceeded for any slice, all the slices will be cut later on
         # and an internal coord_system will be used
         if ($slice->length() > $self->param('_MAX_SLICE_LENGTH')) {
@@ -443,12 +455,12 @@ sub write_output {
   my ($self) = @_;
 
   my $db = $self->hrdb_get_con('target_db');
-  
+
   if ($self->param('_exceeded_max_slice_length')) {
     # the assembly.mapping meta_key is required to be able to fetch any sequence
     my $mc = $db->get_MetaContainer();
     $mc->store_key_value('assembly.mapping','primary_assembly:'.$self->param('assembly_name').'|ensembl_internal:'.$self->param('assembly_name'));
-    
+
     $self->get_coord_system('ensembl_internal');
     $self->get_coord_system('primary_assembly')->{sequence_level} = 0;
   }
@@ -457,7 +469,7 @@ sub write_output {
   foreach my $coord_system (values %{$self->param('_coord_systems')}) {
     $coord_system_adaptor->store($coord_system);
   }
-  
+
   my $slice_adaptor = $db->get_SliceAdaptor;
   my $attribute_adaptor = $db->get_AttributeAdaptor;
   my $toplevel_attribute = $self->param('toplevel_attribute');
@@ -501,36 +513,42 @@ sub write_output {
     } else {
       $slice_adaptor->store($slice);
     }
-    
+
     if (exists $slice->{add_synonym}) {
       foreach my $synonym_data (@{$slice->{add_synonym}}) {
         $slice->add_synonym(@$synonym_data);
       }
       $slice_adaptor->update($slice);
     }
-    
+
     if (exists $slice->{karyotype_rank}) {
       $attribute_adaptor->store_on_Slice($slice,[$slice->{karyotype_rank}]);
     }
     $attribute_adaptor->store_on_Slice($slice,[$toplevel_attribute]);
   }
+  my $display_name;
   my $meta_adaptor = $db->get_MetaContainerAdaptor;
   my $date = localtime->strftime('%Y-%m-Ensembl');
   $meta_adaptor->store_key_value('genebuild.start_date', $date);
   $meta_adaptor->store_key_value('assembly.date', $self->param('assembly_date'));
-  if ($self->param_is_defined('common_name')) {
-    $meta_adaptor->store_key_value('species.common_name', $self->param('common_name'));
-    my $display_name = $self->param('common_name');
+  $meta_adaptor->store_key_value('species.common_name', $self->param('common_name'));
+  if ($self->param_is_defined('scientific_name')) {
+    $meta_adaptor->store_key_value('species.scientific_name', $self->param('scientific_name'));
+    $display_name = $self->param('scientific_name');
     $display_name =~ s/^(\w)/\U$1/;
-    $meta_adaptor->store_key_value('species.display_name', $display_name);
   }
-  $meta_adaptor->store_key_value('species.scientific_name', $self->param('scientific_name'));
   $meta_adaptor->store_key_value('species.taxonomy_id', $self->param('taxon_id'));
   $meta_adaptor->store_key_value('assembly.accession', $self->param('assembly_accession'));
   $meta_adaptor->store_key_value('assembly.default', $self->param('assembly_name'));
   $meta_adaptor->store_key_value('assembly.name', $self->param('assembly_name'));
   $meta_adaptor->store_key_value('assembly.web_accession_source', 'NCBI');
   $meta_adaptor->store_key_value('assembly.web_accession_type', 'INSDC Assembly ID');
+  if ($self->param_is_defined('strain')) {
+    $meta_adaptor->store_key_value('species.strain', $self->param('strain'));
+    $meta_adaptor->store_key_value('strain.type', $self->param('strain_type'));
+    $display_name .= ' ('.$self->param('strain').')';
+  }
+  $meta_adaptor->store_key_value('species.display_name', $display_name);
 
 # Not sure it will properly add the new values, hopefully it will and not cause problems
   my $job_params = destringify($self->input_job->input_id);

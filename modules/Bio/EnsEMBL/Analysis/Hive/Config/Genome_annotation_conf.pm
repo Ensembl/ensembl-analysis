@@ -155,8 +155,6 @@ sub default_options {
     'assembly_provider_url'         => '',
     'annotation_provider_name'      => 'Ensembl',
     'annotation_provider_url'       => 'www.ensembl.org',
-    'strain_type'                   => 'strain',
-    'strain'                        => 'reference',
 
     'pipe_db_name'                  => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_pipe_'.$self->o('release_number'),
     'dna_db_name'                   => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_core_'.$self->o('release_number'),
@@ -362,6 +360,7 @@ sub default_options {
     assembly_name_script       => catfile($self->o('ensembl_analysis_script'), 'update_assembly_name.pl'),
 
     rnaseq_daf_introns_file => catfile($self->o('output_dir'), 'rnaseq_daf_introns.dat'),
+    bad_common_name_file    => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'bad_common_names.txt'), # File containing ncbi taxonomy common names that are too generic to be used in the core db
 
     # Genes biotypes to ignore from the final db when copying to core
     copy_biotypes_to_ignore => {
@@ -1546,6 +1545,7 @@ sub pipeline_analyses {
           full_ftp_path => $self->o('assembly_ftp_path'),
           output_path   => $self->o('output_path'),
           target_db     => $self->o('reference_db'),
+          bad_common_name_file => $self->o('bad_common_name_file'),
         },
         -rc_name    => '8GB',
 	-max_retry_count => 0,
@@ -1579,9 +1579,7 @@ sub pipeline_analyses {
               ($self->o('use_repeatmodeler_to_mask') ? '(1, "repeat.analysis", "'.$self->o('repeatmodeler_logic_name').'"),': '').
               '(1, "repeat.analysis", "dust"),'.
               '(1, "repeat.analysis", "trf"),'.
-              '(1, "strain.type", "'.$self->o('strain_type').'"),'.
-              '(1, "species.strain_group", "'.$self->o('production_name').'"),'.
-              '(1, "species.strain", "'.$self->o('strain').'")',
+              '(1, "species.strain_group", "'.$self->o('production_name').'")',
           ],
         },
         -rc_name    => 'default',
@@ -1718,9 +1716,6 @@ sub pipeline_analyses {
             'repeat.analysis' => [$self->o('full_repbase_logic_name'), 'dust', 'trf'],
             'species.production_name' => $self->o('production_name').$self->o('production_name_modifier'),
             'species.taxonomy_id' => $self->o('taxon_id'),
-            'strain.type' => $self->o('strain_type'),
-            'species.strain_group' => $self->o('production_name'),
-            'species.strain' => $self->o('strain'),
           }
         },
         -rc_name => 'default',
