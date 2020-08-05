@@ -253,10 +253,14 @@ sub run {
         $common_name =~ s/\s+\(.+//;
         $self->param('scientific_name', $common_name);
         # if the common name is not appropriate for web use (i.e. in 'bad_common_names' file) then use the scientific name
-	open(BADNAMES, $self->param('bad_common_name_file'));
-        if (grep{/$self->param('common_name')/} <BADNAMES>){
-          $self->param('common_name', lc($self->param('scientific_name')));
-        }
+	open(BADNAMES, $self->param('bad_common_name_file')) or $self->throw("Could not open file ".$self->param('bad_common_name_file'));
+        my $check_name = $self->param('common_name');
+        chomp $check_name;
+        while (<BADNAMES>){
+          if (/$check_name/){
+	    $self->param('common_name', lc($self->param('scientific_name')));
+          }
+	}
       }
       elsif ($1 eq 'Infraspecific name') {
         $strain = $2;
