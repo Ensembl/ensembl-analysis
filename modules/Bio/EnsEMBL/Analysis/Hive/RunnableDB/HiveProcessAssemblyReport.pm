@@ -252,15 +252,16 @@ sub run {
         $self->param('common_name', $1) if ($common_name =~ /\(([^)]+)\)/);
         $common_name =~ s/\s+\(.+//;
         $self->param('scientific_name', $common_name);
-        # if the common name is not appropriate for web use (i.e. in 'bad_common_names' file) then use the scientific name
-	open(BADNAMES, $self->param('bad_common_name_file')) or $self->throw("Could not open file ".$self->param('bad_common_name_file'));
-        my $check_name = $self->param('common_name');
-        chomp $check_name;
-        while (<BADNAMES>){
-          if (/$check_name/){
-	    $self->param('common_name', lc($self->param('scientific_name')));
-          }
-	}
+### here is code to set the common name to the scientific name if the ncbi common name is too genric, e.g. "birds"
+### This should not be needed
+#	open(BADNAMES, $self->param('bad_common_name_file')) or $self->throw("Could not open file ".$self->param('bad_common_name_file'));
+#        my $check_name = $self->param('common_name');
+#        chomp $check_name;
+#        while (<BADNAMES>){
+#          if (/$check_name/){
+#	    $self->param('common_name', lc($self->param('scientific_name')));
+#          }
+#	}
       }
       elsif ($1 eq 'Infraspecific name') {
         $strain = $2;
@@ -552,7 +553,9 @@ sub write_output {
     $meta_adaptor->store_key_value('strain.type', $self->param('strain_type'));
     $display_name .= ' ('.$self->param('strain').')';
   }
+  $display_name .= ' ('.$self->param('assembly_accession').')';
   $meta_adaptor->store_key_value('species.display_name', $display_name);
+
 
 # Not sure it will properly add the new values, hopefully it will and not cause problems
   my $job_params = destringify($self->input_job->input_id);

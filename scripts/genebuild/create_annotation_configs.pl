@@ -296,7 +296,7 @@ foreach my $accession (@accession_array) {
 
   # Add in the species url by uppercasing the first letter of the species name
   my $species_url = $assembly_hash->{'species_name'};
-  $species_url = ucfirst($species_url);
+  $species_url = ucfirst($species_url).'_'.$accession;
   $assembly_hash->{'species_url'} = $species_url;
 
   # Get repeatmodeler library path if one exists
@@ -387,6 +387,7 @@ sub parse_assembly_report {
   my $refseq_accession;
   my $assembly_level;
   my $wgs_id;
+  my $modifier;
   open($report_file_handle, '>', \$report_file_content) || throw("could not open $report_file_name");
 
   unless($ftp->get($report_file_name, $report_file_handle)) {
@@ -457,10 +458,22 @@ sub parse_assembly_report {
     say "Found no RefSeq accession for this assembly";
   }
 
+# create production name - must be unique, no more than trinomial, and include GCA
+  my $underscore_count = $species_name =~ tr/_//;
+  my $accession_append = lc($accession);
+  $accession_append =~ s/\./v/g;
+  $accession_append =~ s/_//g;
+  if ($underscore_count == 1){
+    $assembly_hash->{'production_name'} = $species_name.'_'.$accession_append;
+  }
+  else {
+    $assembly_hash->{'production_name'} = $species_name.$accession_append;
+  }
+
+  $assembly_hash->{'strain'} = $species_name;
   $assembly_hash->{'assembly_level'} = $assembly_level;
   $assembly_hash->{'wgs_id'} = $wgs_id;
   $assembly_hash->{'species_name'} = $species_name;
-  $assembly_hash->{'production_name'} = $species_name;
   @{$assembly_hash}{keys(%$general_hash)} = values(%$general_hash);
   $assembly_hash->{'output_path'} .= "/".$species_name."/".$accession."/";
 }
