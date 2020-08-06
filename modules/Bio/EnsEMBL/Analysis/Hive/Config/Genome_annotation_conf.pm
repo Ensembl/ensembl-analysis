@@ -5685,6 +5685,7 @@ sub pipeline_analyses {
           samtools => $self->o('samtools_path'),
           picard_lib_jar => $self->o('picard_lib_jar'),
           use_threads => $self->o('rnaseq_merge_threads'),
+          rename_file => 1,
         },
         -rc_name    => '3GB_merged_multithread',
         -flow_into => {
