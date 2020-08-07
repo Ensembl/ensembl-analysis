@@ -52,7 +52,7 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
  Arg [1]    : None
  Description: Default parameters for the analysis
-               ena_base_url => 'http://www.ebi.ac.uk/ena/data/warehouse/search?display=report',
+               ena_base_url => 'http://www.ebi.ac.uk/ena/portal/api/search?display=report',
                files_domain => 'domain=read&result=read_run',
                files_fields => 'run_accession,study_accession,experiment_accession,sample_accession,secondary_sample_accession,instrument_platform,instrument_model,library_layout,library_strategy,nominal_length,read_count,base_count,fastq_ftp,fastq_aspera,fastq_md5,library_source,library_selection,center_name,study_alias,experiment_alias,experiment_title,study_title',
                sample_domain => 'domain=sample&result=sample',
@@ -72,7 +72,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-    ena_base_url => 'http://www.ebi.ac.uk/ena/data/warehouse/search?display=report',
+    ena_base_url => 'http://www.ebi.ac.uk/ena/portal/api/search?display=report',
     files_domain => 'domain=read&result=read_run',
     files_fields => 'run_accession,study_accession,experiment_accession,sample_accession,secondary_sample_accession,instrument_platform,instrument_model,library_layout,library_strategy,nominal_length,read_count,base_count,fastq_ftp,fastq_aspera,fastq_md5,library_source,library_selection,center_name,study_alias,experiment_alias,experiment_title,study_title',
     sample_domain => 'domain=sample&result=sample',
