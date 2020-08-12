@@ -87,7 +87,7 @@ sub default_options {
     'skip_projection'           => '0', # Will skip projection process if 1
     'skip_lastz'                => '0', # Will skip lastz if 1 (if skip_projection is enabled this is irrelevant)
     'skip_rnaseq'               => '0', # Will skip rnaseq analyses if 1
-    'skip_long_read'            => '1', # Will skip long read analyses if 1
+    'skip_long_read'            => '0', # Will skip long read analyses if 1
     'skip_ncrna'                => '0', # Will skip ncrna process if 1
     'skip_cleaning'             => '0', # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
