@@ -17,7 +17,7 @@ limitations under the License.
 
 =cut
 
-package HiveProjectionMinimap_conf;
+package HiveMinimapProjection_conf;
 
 use strict;
 use warnings;
