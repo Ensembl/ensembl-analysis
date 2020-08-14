@@ -256,8 +256,7 @@ sub run {
  Arg [1]    : None
  Description: Write the synonyms for all the seq_regions
  Returntype : None
- Exceptions : Throws if the number of synonyms is different from the expectation
-              Throws if there is a problem in the synonyms
+ Exceptions : Throws if the number of synonyms is lower than 2/3 of the expectation
 
 =cut
 
@@ -288,8 +287,14 @@ sub write_output {
       ++$counter;
     }
   }
-  $self->throw("You are missing some synonyms: $counter instead of ".$self->param('synonym_count'))
-    unless ($counter eq $self->param('synonym_count'));
+  if ($counter ne $self->param('synonym_count')) {
+    if (($counter/$self->param('synonym_count')) < .66) {
+      $self->throw("You are missing some synonyms: $counter instead of ".$self->param('synonym_count'));
+    }
+    else {
+      $self->warning("There is a discrepancy between synonym counts: $counter instead of ".$self->param('synonym_count'));
+    }
+  }
 }
 
 1;
