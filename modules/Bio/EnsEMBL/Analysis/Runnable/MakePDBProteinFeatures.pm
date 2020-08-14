@@ -114,8 +114,6 @@ sub run {
 =cut
 
 sub parse_pdb_file() {
-# Return reference to an array of hashes with .
-
   my $self = shift;
 
   open(my $pdb_fh,'<',$self->{'pdb_filepath'}) || throw('Cannot open: '.$self->{'pdb_filepath'});
