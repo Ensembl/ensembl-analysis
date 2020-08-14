@@ -5072,7 +5072,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
-                          '1->A' => ['dump_genome', 'dump_repeats', 'fetch_rfam_accessions'],
+                          '1->A' => ['dump_repeats', 'fetch_rfam_accessions'],
                           'A->1' => ['create_small_rna_slice_ids'],
                       },
 
@@ -5092,20 +5092,6 @@ sub pipeline_analyses {
        -rc_name => '6GB',
       },
 
-
-      {
-        -logic_name => 'dump_genome',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                          cmd => 'perl '.$self->o('sequence_dump_script').' -dbhost '.$self->o('dna_db_server')
-                                  .' -dbname  '.$self->o('dna_db_name').' -dbport '.$self->o('dna_db_port')
-                                  .' -dbuser '.$self->o('user_r')
-                                  .' -coord_system_name toplevel -mask -mask_repeat '.$self->o('full_repbase_logic_name')
-                                  .' -output_dir '.$self->o('genome_dumps')
-                                  .' -softmask -onefile -header rnaseq -filename '.$self->o('faidx_genome_file'),
-                      },
-         -rc_name   => 'filter',
-      },
 
       {
         -logic_name => 'fetch_rfam_accessions',
@@ -5196,8 +5182,6 @@ sub pipeline_analyses {
         -logic_name => 'mirna_blast',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastmiRNA',
         -parameters => {
-                         repeat_logic_names => ['dust'],
-                         repeat_db => $self->o('dna_db'),
                          output_db => $self->o('ncrna_db'),
                          dna_db => $self->o('dna_db'),
                          logic_name => 'blastmirna',
@@ -5239,8 +5223,6 @@ sub pipeline_analyses {
         -logic_name => 'mirna_blast_retry',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastmiRNA',
         -parameters => {
-                         repeat_logic_names => ['dust'],
-                         repeat_db => $self->o('dna_db'),
                          output_db => $self->o('ncrna_db'),
                          dna_db => $self->o('dna_db'),
                          logic_name => 'blastmirna',
