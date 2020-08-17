@@ -53,6 +53,7 @@ use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
                ncbi_ftp_user => 'anonymous',
                ncbi_ftp_passwd => undef,
                external_db => 'RefSeq_genomic',
+               min_synonym_load_threshold => 1, # 1 means all, 0.X means a fraction of them
  Returntype : Hashref
  Exceptions : None
 
@@ -67,6 +68,7 @@ sub param_defaults {
     ncbi_ftp_user => 'anonymous',
     ncbi_ftp_passwd => undef,
     external_db => 'RefSeq_genomic',
+    min_synonym_load_threshold => 1, # 1 means all, 0.X means a fraction of them
   }
 }
 
@@ -288,7 +290,7 @@ sub write_output {
     }
   }
   if ($counter ne $self->param('synonym_count')) {
-    if (($counter/$self->param('synonym_count')) < .66) {
+    if (($counter/$self->param('synonym_count')) <= $self->param('min_synonym_load_threshold')) {
       $self->throw("You are missing some synonyms: $counter instead of ".$self->param('synonym_count'));
     }
     else {
