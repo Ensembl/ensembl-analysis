@@ -290,6 +290,9 @@ LINE: while ($gff_parser->next) {
     elsif ($type eq 'miRNA') {
       $do_not_process{$attributes->{ID}} = 1;
     }
+    elsif ($type eq 'enhancer') {
+      info('We do not process regulatory elements like enhancer');
+    }
     else {
       if (!exists $transcripts{$attributes->{ID}}) {
         if (exists $genes{$parent}) {
