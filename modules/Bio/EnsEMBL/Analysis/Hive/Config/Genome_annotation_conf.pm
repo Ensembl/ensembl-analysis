@@ -3748,7 +3748,7 @@ sub pipeline_analyses {
         -batch_size => $self->o('chain_batch_size'),
         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::AlignmentChains',
         -parameters => $self->o('chain_parameters'),
-        -max_retry_count => 10,
+        -max_retry_count => 4,
         -flow_into => {
           -1 => [ 'alignment_chains_himem' ],  # MEMLIMIT
         },
@@ -3764,7 +3764,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::AlignmentChains',
         -parameters => $self->o('chain_parameters'),
         -can_be_empty  => 1,
-        -max_retry_count => 10,
+        -max_retry_count => 4,
         -rc_name => '8GB_lastz',
         -flow_into => {
           -1 => [ 'alignment_chains_super_himem' ],  # MEMLIMIT
@@ -3781,7 +3781,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::AlignmentChains',
         -parameters => $self->o('chain_parameters'),
         -can_be_empty  => 1,
-        -max_retry_count => 10,
+        -max_retry_count => 4,
         -rc_name => '15GB_lastz',
         -wait_for => ['alignment_chains'],
          -can_be_empty  => 1,
