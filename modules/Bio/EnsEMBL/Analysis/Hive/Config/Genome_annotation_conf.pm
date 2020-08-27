@@ -359,7 +359,6 @@ sub default_options {
     assembly_name_script       => catfile($self->o('ensembl_analysis_script'), 'update_assembly_name.pl'),
 
     rnaseq_daf_introns_file => catfile($self->o('output_dir'), 'rnaseq_daf_introns.dat'),
-    bad_common_name_file    => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'bad_common_names.txt'), # File containing ncbi taxonomy common names that are too generic to be used in the core db
 
     # Genes biotypes to ignore from the final db when copying to core
     copy_biotypes_to_ignore => {
@@ -1544,7 +1543,6 @@ sub pipeline_analyses {
           full_ftp_path => $self->o('assembly_ftp_path'),
           output_path   => $self->o('output_path'),
           target_db     => $self->o('reference_db'),
-          bad_common_name_file => $self->o('bad_common_name_file'),
         },
         -rc_name    => '8GB',
 	-max_retry_count => 0,

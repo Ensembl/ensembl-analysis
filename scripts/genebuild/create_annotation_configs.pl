@@ -460,15 +460,12 @@ sub parse_assembly_report {
 
 # create production name - must be unique, no more than trinomial, and include GCA
   my $underscore_count = $species_name =~ tr/_//;
+  $species_name =~ /(^[^-]+_[^-]+)_.*/;
+  my $binomial_name = $1;
   my $accession_append = lc($accession);
   $accession_append =~ s/\./v/g;
   $accession_append =~ s/_//g;
-  if ($underscore_count == 1){
-    $assembly_hash->{'production_name'} = $species_name.'_'.$accession_append;
-  }
-  else {
-    $assembly_hash->{'production_name'} = $species_name.$accession_append;
-  }
+  $assembly_hash->{'production_name'} = $binomial_name.'_'.$accession_append;
 
   $assembly_hash->{'strain'} = $species_name;
   $assembly_hash->{'assembly_level'} = $assembly_level;

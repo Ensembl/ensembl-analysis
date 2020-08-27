@@ -252,16 +252,6 @@ sub run {
         $self->param('common_name', $1) if ($common_name =~ /\(([^)]+)\)/);
         $common_name =~ s/\s+\(.+//;
         $self->param('scientific_name', $common_name);
-### here is code to set the common name to the scientific name if the ncbi common name is too genric, e.g. "birds"
-### This should not be needed
-#	open(BADNAMES, $self->param('bad_common_name_file')) or $self->throw("Could not open file ".$self->param('bad_common_name_file'));
-#        my $check_name = $self->param('common_name');
-#        chomp $check_name;
-#        while (<BADNAMES>){
-#          if (/$check_name/){
-#	    $self->param('common_name', lc($self->param('scientific_name')));
-#          }
-#	}
       }
       elsif ($1 eq 'Infraspecific name') {
         $strain = $2;
@@ -532,30 +522,32 @@ sub write_output {
     $attribute_adaptor->store_on_Slice($slice,[$toplevel_attribute]);
   }
   my $display_name;
+  my $common_name = $self->param('common_name');
   my $meta_adaptor = $db->get_MetaContainerAdaptor;
   my $date = localtime->strftime('%Y-%m-Ensembl');
   $meta_adaptor->store_key_value('genebuild.start_date', $date);
   $meta_adaptor->store_key_value('assembly.date', $self->param('assembly_date'));
+  $meta_adaptor->store_key_value('species.scientific_name', $self->param('scientific_name'));
+  $display_name = $self->param('scientific_name');
+  $display_name =~ s/^(\w)/\U$1/;
   $meta_adaptor->store_key_value('species.common_name', $self->param('common_name'));
-  if ($self->param_is_defined('scientific_name')) {
-    $meta_adaptor->store_key_value('species.scientific_name', $self->param('scientific_name'));
-    $display_name = $self->param('scientific_name');
-    $display_name =~ s/^(\w)/\U$1/;
-  }
   $meta_adaptor->store_key_value('species.taxonomy_id', $self->param('taxon_id'));
   $meta_adaptor->store_key_value('assembly.accession', $self->param('assembly_accession'));
   $meta_adaptor->store_key_value('assembly.default', $self->param('assembly_name'));
   $meta_adaptor->store_key_value('assembly.name', $self->param('assembly_name'));
   $meta_adaptor->store_key_value('assembly.web_accession_source', 'NCBI');
   $meta_adaptor->store_key_value('assembly.web_accession_type', 'INSDC Assembly ID');
+  $common_name =~ s/^(\w)/\U$1/;
   if ($self->param_is_defined('strain')) {
     $meta_adaptor->store_key_value('species.strain', $self->param('strain'));
     $meta_adaptor->store_key_value('strain.type', $self->param('strain_type'));
     $display_name .= ' ('.$self->param('strain').')';
   }
-  $display_name .= ' ('.$self->param('assembly_accession').')';
+  else {
+    $display_name .= '('.$common_name.')';
+  }
+  $display_name .= ' - '.$self->param('assembly_accession');
   $meta_adaptor->store_key_value('species.display_name', $display_name);
-
 
 # Not sure it will properly add the new values, hopefully it will and not cause problems
   my $job_params = destringify($self->input_job->input_id);
