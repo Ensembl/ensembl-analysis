@@ -8292,7 +8292,7 @@ sub pipeline_analyses {
         -logic_name => 'populate_analysis_descriptions',
         -module     => 'Bio::EnsEMBL::Production::Pipeline::ProductionDBSync::PopulateAnalysisDescription',
         -parameters => {
-                        species => $self->o('species_name'),
+                        species => $self->o('production_name'),
                         group => 'core',
                        },
         -rc_name    => 'default_registry',
