@@ -62,6 +62,7 @@ sub new {
 
     my ($core_dba,$pdb_filepath,$species,$cs_version,$rest_server) = rearrange([qw(core_dba pdb_filepath species cs_version rest_server)],@args);
 
+    $self->{'core_dba'} = $core_dba;
     $self->{'pdb_filepath'} = $pdb_filepath;
     $self->{'species'} = $species;
     $self->{'cs_version'} = $cs_version;
