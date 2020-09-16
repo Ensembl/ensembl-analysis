@@ -541,7 +541,7 @@ sub write_output {
   if ($self->param_is_defined('strain')) {
     $meta_adaptor->store_key_value('species.strain', $self->param('strain'));
     $meta_adaptor->store_key_value('strain.type', $self->param('strain_type'));
-    $display_name .= ' ('.$common_name.' - '.$self->param('strain').')';
+    $display_name .= ' ('.$self->param('strain').')';
   }
   else {
     $display_name .= '('.$common_name.')';
