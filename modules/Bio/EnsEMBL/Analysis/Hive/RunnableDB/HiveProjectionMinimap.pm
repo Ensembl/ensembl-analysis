@@ -388,13 +388,6 @@ sub process_transcript {
 sub make_runnables {
   my ($self,$transcript_seq,$transcript_slices,$input_id,$target_transcript_dba) = @_;
   my %parameters = %{$self->parameters_hash};
-  #if (not exists($parameters{-options}) and defined $self->OPTIONS) {
-  #  $parameters{-options} = $self->OPTIONS;
-  #}
-  #if (not exists($parameters{-coverage_by_aligned}) and defined $self->COVERAGE_BY_ALIGNED) {
-  #  $parameters{-coverage_by_aligned} = $self->COVERAGE_BY_ALIGNED;
-  #}
-
   my $source_sequence_fasta_file = $self->param('tmpdir')."/source_sequence_".$input_id;
   my $target_sequences_fasta_file = $self->param('tmpdir')."/target_sequences_".$input_id;
 
