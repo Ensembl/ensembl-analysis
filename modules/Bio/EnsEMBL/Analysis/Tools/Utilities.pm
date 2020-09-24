@@ -618,7 +618,7 @@ sub write_sliceseq2fastafile {
 
   open(OUT,">".$filename);
   foreach my $slice (@$slices) {
-    say OUT ">".$slice->seq_region_name();
+    say OUT ">".$slice->name();
     say OUT $slice->seq();
   }
   close OUT;

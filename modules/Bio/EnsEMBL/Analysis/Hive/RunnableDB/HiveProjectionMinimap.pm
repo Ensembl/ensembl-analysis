@@ -263,6 +263,7 @@ sub write_output {
     my $slice = $slice_adaptor->fetch_by_name($slice_id);
     my $biotype = $self->retrieve_biotype($transcript);
     $transcript->biotype($biotype);
+
     attach_Slice_to_Transcript($transcript, $slice);
 
     if($self->filter_transcript($transcript)) {
@@ -387,19 +388,18 @@ sub process_transcript {
 sub make_runnables {
   my ($self,$transcript_seq,$transcript_slices,$input_id,$target_transcript_dba) = @_;
   my %parameters = %{$self->parameters_hash};
-  if (not exists($parameters{-options}) and defined $self->OPTIONS) {
-    $parameters{-options} = $self->OPTIONS;
-  }
-  if (not exists($parameters{-coverage_by_aligned}) and defined $self->COVERAGE_BY_ALIGNED) {
-    $parameters{-coverage_by_aligned} = $self->COVERAGE_BY_ALIGNED;
-  }
+  #if (not exists($parameters{-options}) and defined $self->OPTIONS) {
+  #  $parameters{-options} = $self->OPTIONS;
+  #}
+  #if (not exists($parameters{-coverage_by_aligned}) and defined $self->COVERAGE_BY_ALIGNED) {
+  #  $parameters{-coverage_by_aligned} = $self->COVERAGE_BY_ALIGNED;
+  #}
 
   my $source_sequence_fasta_file = $self->param('tmpdir')."/source_sequence_".$input_id;
   my $target_sequences_fasta_file = $self->param('tmpdir')."/target_sequences_".$input_id;
 
   # dump the transcript seq object sequence into a file which will be the input source for Minimap2
-  write_sliceseq2fastafile($transcript_seq,$source_sequence_fasta_file); # 1 for no_clean so it does not delete the newly created file
-
+  write_sliceseq2fastafile($transcript_seq,$source_sequence_fasta_file);
   # dump transcript slices sequences into a file which will be the input target for Minimap2
   write_sliceseq2fastafile($transcript_slices,$target_sequences_fasta_file);
 

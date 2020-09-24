@@ -261,8 +261,8 @@ sub parse_results {
 
 # 13  0   84793   ENST00000380152.7   1000    +   0   84793   0,128,255   27  194,106,249,109,50,41,115,50,112,1116,4932,96,70,428,182,188,171,355,156,145,122,199,164,139,245,147,2105,  0,948,3603,9602,10627,10768,11025,13969,15445,16798,20791,29084,31353,39387,40954,42268,47049,47705,54928,55482,61196,63843,64276,64533,79215,81424,82688,
 
-  my $percent_id_cutoff = 90;
-  my $coverage_cutoff = 90;
+  my $percent_id_cutoff = 60;#90;
+  my $coverage_cutoff = 80;#90;
   my $canonical_intron_cutoff = 0.8;
 
   say "Parsing minimap2 output";
@@ -295,7 +295,16 @@ sub parse_results {
     }
 
     my $seq_region_name = $results[0];
-    my $offset = $results[1];
+    # this $seq_region_name can be a target sequence slice name
+    # (especially when this module is used in conjunction with HiveMinimapProjection)
+    # e.g. primary_assembly:MUSP714:QGOO01036048.1:22045:256260:1
+    my $target_slice_offset = 0;
+    if ($seq_region_name =~ /.*:.*:(.*):(.*):.*:.*/) {
+      $seq_region_name = $1;
+      $target_slice_offset = $2;
+    }
+    my $offset = $results[1]+$target_slice_offset;
+
     my $slice = $slice_adaptor->fetch_by_region('toplevel',$seq_region_name);
     my $strand = $results[5];
     if($strand eq '+') {
