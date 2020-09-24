@@ -587,7 +587,7 @@ sub write_seqfile{
 
   Arg [1]   : Bio::EnsEMBL::Slice or ARRAY of Bio::EnsEMBL::Slice
   Arg [2]   : string
-  Function  : It dumps the Arg[1] sequences into the FASTA file specified by [2] using the slice seq region name as the sequence identifier. Note that the other sub write_seqfile uses the slice name.
+  Function  : It dumps the Arg[1] sequences into the FASTA file specified by [2] using the slice name as the sequence identifier.
   Returntype: string (Arg [2])
   Exceptions: throw if failed to write sequences
   Example   : write_slice_seqfile($slice,'/output_path/slice.fa')
