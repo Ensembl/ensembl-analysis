@@ -836,6 +836,11 @@ sub assess_projection_transcript {
     $feature_restricted = 1;
     return($feature_restricted);
   }
+  # For human, it is more complicate -so it would be better to have htis test.
+  unless ($current_transcript->translation() and $current_transcript->translation()->seq() ) {
+    $feature_restricted = 1;
+    return($feature_restricted);
+  }
 
   my $attribs = $current_transcript->get_all_Attributes();
   my $readthrough = 0;
