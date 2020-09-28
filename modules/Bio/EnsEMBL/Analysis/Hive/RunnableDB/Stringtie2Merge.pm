@@ -80,13 +80,22 @@ sub fetch_input {
   my $merged_sample_hash = {};
   $merged_sample_hash->{'merged'} = [];
 
-  my $stringtie_gtf_dir = $self->param_required('stringtie_gtf_dir');
-  my @gtf_files = glob($stringtie_gtf_dir."/*.gtf");
-  unless(scalar(@gtf_files)) {
-    $self->throw("Did not find any sample gtf files in the stringtie gtf dir. Path used:\n".$stringtie_gtf_dir);
+  my @all_gtf_files = ();
+  my $gtf_dirs = $self->param_required('input_gtf_dirs');
+  foreach my $gtf_dir (@$gtf_dirs) {
+    say "Checking dir: ".$gtf_dir;
+    my @gtf_files = glob($gtf_dir."/*.gtf");
+    unless(scalar(@gtf_files)) {
+      $self->throw("Did not find any sample gtf files in the stringtie gtf dir. Path used:\n".$gtf_dir);
+    }
+    push(@all_gtf_files,@gtf_files);
   }
 
-  foreach my $input_file (@gtf_files) {
+  unless(scalar(@all_gtf_files)) {
+    $self->throw("No gtf dirs were provided");
+  }
+
+  foreach my $input_file (@all_gtf_files) {
     my $sample_name = $self->get_sample_name($input_file,$self->param_required('csv_summary_file'));
     unless($sample_name) {
       $sample_name = $self->get_sample_name($input_file,$self->param_required('csv_summary_file_genus'));
