@@ -53,6 +53,7 @@ use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
                ncbi_ftp_user => 'anonymous',
                ncbi_ftp_passwd => undef,
                external_db => 'RefSeq_genomic',
+               min_synonym_load_threshold => 1, # 1 means all, 0.X means a fraction of them
  Returntype : Hashref
  Exceptions : None
 
@@ -67,6 +68,7 @@ sub param_defaults {
     ncbi_ftp_user => 'anonymous',
     ncbi_ftp_passwd => undef,
     external_db => 'RefSeq_genomic',
+    min_synonym_load_threshold => 1, # 1 means all, 0.X means a fraction of them
   }
 }
 
@@ -256,8 +258,7 @@ sub run {
  Arg [1]    : None
  Description: Write the synonyms for all the seq_regions
  Returntype : None
- Exceptions : Throws if the number of synonyms is different from the expectation
-              Throws if there is a problem in the synonyms
+ Exceptions : Throws if the number of synonyms is lower than 2/3 of the expectation
 
 =cut
 
@@ -288,8 +289,14 @@ sub write_output {
       ++$counter;
     }
   }
-  $self->throw("You are missing some synonyms: $counter instead of ".$self->param('synonym_count'))
-    unless ($counter eq $self->param('synonym_count'));
+  if ($counter ne $self->param('synonym_count')) {
+    if (($counter/$self->param('synonym_count')) <= $self->param('min_synonym_load_threshold')) {
+      $self->throw("You are missing some synonyms: $counter instead of ".$self->param('synonym_count'));
+    }
+    else {
+      $self->warning("There is a discrepancy between synonym counts: $counter instead of ".$self->param('synonym_count'));
+    }
+  }
 }
 
 1;

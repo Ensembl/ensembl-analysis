@@ -46,23 +46,41 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 =head2 fetch_input
 
  Arg [1]    : None
- Description: Set db connections
+ Description: Set db connections, the datbases must exist.
+              If you provide the parameter source_dbs, it will use the hashes
+              in this arrayref and the production_db to generate a registry file.
+              Otherwise it needs:
+                compara_db
+                target_db
+                production_db
+                projection_source_db
  Returntype : None
- Exceptions : None
+ Exceptions : Throws if source_dbs is set but empty
 
 =cut
 
 sub fetch_input {
   my ($self) = @_;
 
-  my $compara_dba = $self->hrdb_get_dba($self->param_required('compara_db'),undef,'Compara');
-  $self->hrdb_set_con($compara_dba,'compara_db');
+  $self->param_required('registry_file');
+  if ($self->param_is_defined('source_dbs')) {
+    my @source_dbs;
+    foreach my $hashref (@{$self->param('source_dbs')}) {
+      push(@source_dbs, $self->hrdb_get_dba($hashref));
+    }
+    $self->throw("source_dbs is empty") unless (@source_dbs);
+    $self->param('databases', \@source_dbs);
+  }
+  else {
+    my $compara_dba = $self->hrdb_get_dba($self->param_required('compara_db'),undef,'Compara');
+    $self->hrdb_set_con($compara_dba,'compara_db');
 
-  my $target_dba = $self->hrdb_get_dba($self->param_required('target_db'));
-  $self->hrdb_set_con($target_dba,'target_db');
+    my $target_dba = $self->hrdb_get_dba($self->param_required('target_db'));
+    $self->hrdb_set_con($target_dba,'target_db');
 
-  my $projection_source_dba = $self->hrdb_get_dba($self->param_required('projection_source_db'));
-  $self->hrdb_set_con($projection_source_dba,'projection_source_db');
+    my $projection_source_dba = $self->hrdb_get_dba($self->param_required('projection_source_db'));
+    $self->hrdb_set_con($projection_source_dba,'projection_source_db');
+  }
 
   my $production_dba = $self->hrdb_get_dba($self->param_required('production_db'),undef,'Production');
   $self->hrdb_set_con($production_dba,'production_db');
@@ -81,41 +99,75 @@ sub fetch_input {
 sub run {
   my ($self) = @_;
 
-  my $compara_dba =  $self->hrdb_get_con('compara_db');
-  my $target_dba = $self->hrdb_get_con('target_db');
-  my $projection_source_dba = $self->hrdb_get_con('projection_source_db');
-  my $production_dba = $self->hrdb_get_con('production_db');
+  open(OUT,">".$self->param('registry_file')) || $self->throw('Could not open '.$self->param('registry_file'));
+  if ($self->param_is_defined('databases')) {
+    say OUT 'package Reg;';
+    say OUT 'use warnings;';
+    say OUT 'use strict;';
+    say OUT 'use Bio::EnsEMBL::DBSQL::DBAdaptor;';
+    say OUT 'use Bio::EnsEMBL::Production::DBSQL::DBAdaptor;';
+    say OUT '{';
+    foreach my $db (@{$self->param('databases')}) {
+      # The group is important for datachecks
+      my ($group) = $db->dbc->dbname =~ /(otherfeatures|rnaseq|cdna)/;
+      # Fancy way of saying if $group is not defined set it to $db->group
+      $group //= $db->group;
+      say OUT ref($db), '->new(';
+      foreach my $key (qw(host port dbname user pass)) {
+        if ($db->dbc->$key) {
+          say OUT "-$key => '", $db->dbc->$key, "',";
+        }
+      }
+      say OUT "-species => '", $db->get_MetaContainer->get_production_name, "',";
+      say OUT "-group => '", $group, "',";
+      say OUT ');';
+    }
+    my $db = $self->hrdb_get_con('production_db');
+    say OUT ref($db), '->new(';
+    foreach my $key (qw(host port dbname user pass)) {
+      if ($db->dbc->$key) {
+        say OUT "-$key => '", $db->dbc->$key, "',";
+      }
+    }
+    say OUT "-species => 'multi',";
+    say OUT "-group => 'production',";
+    say OUT ');';
+    say OUT '}';
+  }
+  else {
+    my $compara_dba =  $self->hrdb_get_con('compara_db');
+    my $target_dba = $self->hrdb_get_con('target_db');
+    my $projection_source_dba = $self->hrdb_get_con('projection_source_db');
+    my $production_dba = $self->hrdb_get_con('production_db');
 
-  my $source_production_name = $projection_source_dba->get_MetaContainer->get_production_name();
-  my $target_production_name = $target_dba->get_MetaContainer->get_production_name();
+    my $source_production_name = $projection_source_dba->get_MetaContainer->get_production_name();
+    my $target_production_name = $target_dba->get_MetaContainer->get_production_name();
 
-  my $compara_dbname = $compara_dba->dbc->dbname;
-  my $compara_host = $compara_dba->dbc->host;
-  my $compara_port = $compara_dba->dbc->port;
-  my $compara_user = $compara_dba->dbc->user;
-  my $compara_pass = $compara_dba->dbc->pass;
+    my $compara_dbname = $compara_dba->dbc->dbname;
+    my $compara_host = $compara_dba->dbc->host;
+    my $compara_port = $compara_dba->dbc->port;
+    my $compara_user = $compara_dba->dbc->user;
+    my $compara_pass = $compara_dba->dbc->pass;
 
-  my $target_dbname = $target_dba->dbc->dbname;
-  my $target_host = $target_dba->dbc->host;
-  my $target_port = $target_dba->dbc->port;
-  my $target_user = $target_dba->dbc->user;
-  my $target_pass = $target_dba->dbc->pass;
+    my $target_dbname = $target_dba->dbc->dbname;
+    my $target_host = $target_dba->dbc->host;
+    my $target_port = $target_dba->dbc->port;
+    my $target_user = $target_dba->dbc->user;
+    my $target_pass = $target_dba->dbc->pass;
 
-  my $source_dbname = $projection_source_dba->dbc->dbname;
-  my $source_host = $projection_source_dba->dbc->host;
-  my $source_port = $projection_source_dba->dbc->port;
-  my $source_user = $projection_source_dba->dbc->user;
-  my $source_pass = $projection_source_dba->dbc->pass;
+    my $source_dbname = $projection_source_dba->dbc->dbname;
+    my $source_host = $projection_source_dba->dbc->host;
+    my $source_port = $projection_source_dba->dbc->port;
+    my $source_user = $projection_source_dba->dbc->user;
+    my $source_pass = $projection_source_dba->dbc->pass;
 
-  my $production_dbname = $production_dba->dbc->dbname;
-  my $production_host = $production_dba->dbc->host;
-  my $production_port = $production_dba->dbc->port;
-  my $production_user = $production_dba->dbc->user;
-  my $production_pass = $production_dba->dbc->pass;
+    my $production_dbname = $production_dba->dbc->dbname;
+    my $production_host = $production_dba->dbc->host;
+    my $production_port = $production_dba->dbc->port;
+    my $production_user = $production_dba->dbc->user;
+    my $production_pass = $production_dba->dbc->pass;
 
-my $reg_path = $self->param_required('registry_file');
-  open(OUT,">".$reg_path);
-  say OUT <<DATABASES
+    say OUT <<DATABASES
   use warnings;
   use strict;
 
@@ -161,6 +213,8 @@ my $reg_path = $self->param_required('registry_file');
   1;
 DATABASES
   ;
+  }
+  close(OUT) || $self->throw('Could not close '.$self->param('registry_file'));
 
 }
 

@@ -168,11 +168,11 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
       else:
         new_row.append(0)
      
-     if rnaseq_data is None:
-          if contig_N50 >= 100000:
-            new_row[8] = 'No RNAseq data'
-          else:
-            new_row[8] = 'Non candidate assembly'
+      if rnaseq_data is None:
+        if contig_N50 >= 100000:
+           new_row[8] = 'No RNAseq data'
+        else:
+           new_row[8] = 'Non candidate assembly'
       else:
         rnaseq_data.encode('ascii','ignore')
         new_row[8] = rnaseq_data.capitalize()
