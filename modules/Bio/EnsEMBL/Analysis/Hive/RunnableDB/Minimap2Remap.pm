@@ -66,6 +66,7 @@ sub fetch_input {
   # Define the source and target gene dbs
   my $source_gene_dba = $self->hrdb_get_dba($self->param('source_gene_db'));
   my $target_gene_dba = $self->hrdb_get_dba($self->param('target_gene_db'));
+  $source_gene_dba->dnadb($source_dna_dba);
   $target_gene_dba->dnadb($target_dna_dba);
   $self->hrdb_set_con($source_gene_dba,'source_gene_db');
   $self->hrdb_set_con($target_gene_dba,'target_gene_db');
@@ -75,18 +76,32 @@ sub fetch_input {
   my $test_slice = $slice_adaptor->fetch_by_region('toplevel','1');
   my $genes = $test_slice->get_all_Genes();
   foreach my $gene (@$genes) {
-    unless($gene->biotype eq 'protein_coding') {
-      next;
-    }
+ #   unless($gene->biotype eq 'protein_coding') {
+ #     next;
+ #   }
     push(@$input_ids,$gene->dbID);
   }
 
+
+#  $input_ids = [1330904,1331879,1332102,1333521,1335796];
+
   my $sequence_adaptor = $source_gene_dba->get_SequenceAdaptor();
 
+  my $parent_gene_id_hash = {};
   my $genomic_reads = [];
+  say "Processing ".scalar(@$input_ids)." genes";
   foreach my $input_id (@$input_ids) {
-
     my $gene = $source_gene_dba->get_GeneAdaptor->fetch_by_dbID($input_id);
+    my $gene_id = $gene->dbID();
+    my $transcripts = $gene->get_all_Transcripts();
+    foreach my $transcript (@$transcripts) {
+      my $transcript_id = $transcript->dbID();
+      my $biotype = $transcript->get_Biotype();
+      my $biotype_group = $biotype->biotype_group();
+      $parent_gene_id_hash->{$transcript_id}->{'gene_id'} = $gene_id;
+      $parent_gene_id_hash->{$transcript_id}->{'biotype_group'} = $biotype_group;
+    }
+
     my $slice = $gene->slice();
     my $stable_id = $gene->stable_id.".".$gene->version;
 
@@ -104,22 +119,12 @@ sub fetch_input {
     my $strand = $gene->strand;
 
     my $genomic_seq = ${ $sequence_adaptor->fetch_by_Slice_start_end_strand($slice, $region_start, $region_end, $strand) };
-    say "Genomic read length: ".length($genomic_seq);
-    say "Gene length: ".$gene->length();
 
-    my $fasta_record;
-    if($self->param('use_stable_id')) {
-      $fasta_record = ">".$stable_id."\n".$genomic_seq;
-    } else {
-      $fasta_record = ">".$gene->dbID."\n".$genomic_seq;
-    }
-
+    my $fasta_record = ">".$gene_id."\n".$genomic_seq;
     push(@$genomic_reads, $fasta_record);
   } #close foreach input_id
 
   my $input_file = $self->write_input_file($genomic_reads);
-  say "Input file:\n".$input_file;
-
   $self->param('input_file',$input_file);
 
   my $analysis = $self->create_analysis;
@@ -127,19 +132,26 @@ sub fetch_input {
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap->new(
        -analysis          => $analysis,
        -program           => $self->param('minimap2_path'),
-       -paftools_path     => '',
-#       -options        => $self->param('minimap2_options'),
+       -paftools_path     => $self->param('paftools_path'),
        -genome_index      => $self->param_required('genome_index'),
        -input_file        => $input_file,
-       -database_adaptor  => $target_gene_dba,
+       -source_adaptor  => $source_gene_dba,
+       -target_adaptor  => $target_gene_dba,
+       -parent_gene_ids => $parent_gene_id_hash,
   );
-
   $self->runnable($runnable);
 }
 
 
-sub write_output{
+sub write_output {
   my ($self) = @_;
+  my $output_dba = $self->hrdb_get_con('target_gene_db');
+  my $output_gene_adaptor = $output_dba->get_GeneAdaptor;
+  my $output_genes = $self->output();
+  foreach my $output_gene (@$output_genes) {
+    $output_gene_adaptor->store($output_gene);
+  }
+
   return 1;
 }
 

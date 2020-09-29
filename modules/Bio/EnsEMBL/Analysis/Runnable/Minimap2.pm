@@ -80,12 +80,15 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($genome_index, $input_file, $paftools_path, $database_adaptor, $delete_input_file) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR DELETE_INPUT_FILE)],@args);
+  my ($genome_index, $input_file, $paftools_path, $database_adaptor, $delete_input_file, $skip_introns_check, $add_offset, $skip_compute_translation) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR DELETE_INPUT_FILE SKIP_INTRONS_CHECK ADD_OFFSET SKIP_COMPUTE_TRANSLATION)],@args);
   $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->paftools_path($paftools_path);
   $self->database_adaptor($database_adaptor);
   $self->delete_input_file($delete_input_file);
+  $self->skip_introns_check($skip_introns_check);
+  $self->add_offset($add_offset);
+  $self->skip_compute_translation($skip_compute_translation);
   return $self;
 }
 
@@ -154,7 +157,7 @@ sub run {
     $self->files_to_delete($bed_lo_file);
 
 
-    my $minimap2_lo_command = $self->program." --cs -N 1 -ax splice:hq -uf ".$genome_index." ".$leftover_input_file." > ".$sam_lo_file;
+    my $minimap2_lo_command = $self->program." --cs --secondary=no -ax splice:hq -uf ".$genome_index." ".$leftover_input_file." > ".$sam_lo_file;
     $self->warning("Leftover command:\n".$minimap2_command."\n");
     if(system($minimap2_lo_command)) {
       $self->throw("Error running minimap2 leftover\nError code: $?\n");
@@ -256,6 +259,7 @@ sub parse_sam {
   close IN;
 }
 
+
 sub parse_results {
   my ($self,$output_file,$percent_id_hash,$coverage_hash,$leftover_genes) = @_;
 
@@ -295,7 +299,7 @@ sub parse_results {
     }
 
     my $seq_region_name = $results[0];
-    my $offset = $results[1];
+    my $offset = $results[1] + $self->add_offset();
     my $slice = $slice_adaptor->fetch_by_region('toplevel',$seq_region_name);
     my $strand = $results[5];
     if($strand eq '+') {
@@ -338,26 +342,28 @@ sub parse_results {
     $gene->description($percent_identity);
 
     my $transcript = ${$gene->get_all_Transcripts}[0];
-    my $introns = $transcript->get_all_Introns;
-    my $intron_count = scalar(@$introns);
-    if($intron_count) {
-      my $canonical_count = 0;
-      foreach my $intron (@$introns) {
-        my ($is_canonical,$donor,$acceptor) = is_canonical_splice($intron,$slice_adaptor,$slice);
-        if($is_canonical) {
-          $canonical_count++;
-	}
-      }
+    unless($self->skip_introns_check()) {
+      my $introns = $transcript->get_all_Introns;
+      my $intron_count = scalar(@$introns);
+      if($intron_count) {
+        my $canonical_count = 0;
+        foreach my $intron (@$introns) {
+          my ($is_canonical,$donor,$acceptor) = is_canonical_splice($intron,$slice_adaptor,$slice);
+          if($is_canonical) {
+            $canonical_count++;
+	        }
+        }
 
-      # If it fails the canonical cutoff then we skip this gene, but in case it's just a stranded issue we put onto the leftover pile
-      unless($canonical_count/$intron_count >= $canonical_intron_cutoff) {
-        say "Gene fails canonical splice site cut-off";
-        if($leftover_genes) {
-          push(@$leftover_genes,$gene);
-	}
-        next;
+        # If it fails the canonical cutoff then we skip this gene, but in case it's just a stranded issue we put onto the leftover pile
+        unless($canonical_count/$intron_count >= $canonical_intron_cutoff) {
+          say "Gene fails canonical splice site cut-off";
+          if($leftover_genes) {
+            push(@$leftover_genes,$gene);
+	        }
+          next;
+        }
       }
-    }
+   } # End $self->skip_introns_check()
     push(@$genes,$gene);
   }
   close IN;
@@ -422,7 +428,10 @@ sub create_gene {
                                                  -slice    => $slice,
                                                  -analysis => $self->analysis);
 
-  compute_translation($transcript);
+  unless($self->skip_compute_translation()) {
+    compute_translation($transcript);
+  }
+
   my $gene = Bio::EnsEMBL::Gene->new(-slice    => $slice,
                                      -analysis => $self->analysis);
 
@@ -491,6 +500,43 @@ sub delete_input_file {
   }
 
   return $self->{_delete_input_file};
+}
+
+
+sub skip_introns_check {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_skip_introns_check} = $val;
+  }
+
+  return $self->{_skip_introns_check};
+}
+
+
+sub add_offset {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_add_offset} = $val;
+  }
+
+  if($self->{_add_offset}) {
+    return $self->{_add_offset};
+  } else {
+    return(0);
+  }
+}
+
+
+sub skip_compute_translation {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_skip_compute_translation} = $val;
+  }
+
+  return $self->{_skip_compute_translation};
 }
 
 1;

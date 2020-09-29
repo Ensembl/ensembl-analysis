@@ -53,6 +53,9 @@ use warnings;
 use strict;
 use feature 'say';
 
+use Bio::EnsEMBL::Analysis::Runnable::Minimap2;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name);
 use File::Spec;
 use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -75,12 +78,14 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($genome_index, $input_file, $paftools_path, $database_adaptor, $delete_input_file) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR DELETE_INPUT_FILE)],@args);
+  my ($genome_index, $input_file, $paftools_path, $source_adaptor, $target_adaptor, $delete_input_file, $parent_gene_ids) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH SOURCE_ADAPTOR TARGET_ADAPTOR DELETE_INPUT_FILE PARENT_GENE_IDS)],@args);
   $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->paftools_path($paftools_path);
-  $self->database_adaptor($database_adaptor);
+  $self->source_adaptor($source_adaptor);
+  $self->target_adaptor($target_adaptor);
   $self->delete_input_file($delete_input_file);
+  $self->parent_gene_ids($parent_gene_ids);
   return $self;
 }
 
@@ -105,7 +110,7 @@ sub run {
   my $options = $self->options;
 
   # run minimap2
-  my $minimap2_command = $self->program." --cs -N 1 -x asm5 ".$genome_index." ".$input_file." > ".$paf_file;
+  my $minimap2_command = $self->program." --cs --secondary=no -x map-pb ".$genome_index." ".$input_file." > ".$paf_file;
   $self->warning("Command:\n".$minimap2_command."\n");
   if(system($minimap2_command)) {
     $self->throw("Error running minimap2\nError code: $?\n");
@@ -119,19 +124,133 @@ sub run {
   }
   close IN;
 
-  foreach my $result (@$paf_results) {
-    say "PAF: ".$result;
-    my @result_cols = split("\t",$result);
-    my $length = $result_cols[1];
-    my $matching_bases = $result_cols[9];
-    my $all_bases = $result_cols[10];
-    my $percent_similarity = ($matching_bases/$all_bases) * 100;
-    my $matching_coverage = ($matching_bases/$length) * 100;
-    say $length."\t".$matching_bases."\t".$all_bases."\t".$percent_similarity."\t".$matching_coverage;
+  foreach my $paf_result (@$paf_results) {
+    my @result_cols = split("\t",$paf_result);
+    $self->process_results(\@result_cols);
+  }
+} # End run
+
+
+
+sub process_results {
+  my ($self, $paf_result) = @_;
+
+  my $source_gene_id = ${$paf_result}[0];
+  my $source_genomic_length = ${$paf_result}[1];
+  my $source_genomic_start = ${$paf_result}[2];
+  my $source_genomic_end = ${$paf_result}[3];
+  my $same_strand = ${$paf_result}[4];
+  my $target_genomic_name = ${$paf_result}[5];
+  my $target_genomic_length = ${$paf_result}[6];
+  my $target_genomic_start = ${$paf_result}[7];
+  my $target_genomic_end = ${$paf_result}[8];
+  my $matching_bases = ${$paf_result}[9];
+  my $total_bases = ${$paf_result}[10];
+  my $mapping_quality = ${$paf_result}[11];
+
+  my $target_adaptor = $self->target_adaptor();
+  my $target_slice_adaptor = $target_adaptor->get_SliceAdaptor();
+  my $target_parent_slice = $target_slice_adaptor->fetch_by_region('toplevel',$target_genomic_name);
+  my $target_strand = 1;
+  my $target_sequence_adaptor = $target_adaptor->get_SequenceAdaptor;
+  my $target_genomic_seq = ${ $target_sequence_adaptor->fetch_by_Slice_start_end_strand($target_parent_slice, $target_genomic_start, $target_genomic_end, $target_strand) };
+  my $target_genomic_fasta = ">".$target_genomic_name."\n".$target_genomic_seq;
+  my $target_genome_file = $self->write_input_file([$target_genomic_fasta]);
+  my $target_genome_index = $target_genome_file.".mmi";
+  my $target_index_command = $self->program()." -d ".$target_genome_index." ".$target_genome_file;
+  my $index_result = system($target_index_command);
+  if($index_result) {
+    $self->throw('The minimap2 index command returned a non-zero exit code. Commandline used:\n'.$target_index_command);
   }
 
+  # Covert the transcripts into fasta records
+  my $source_adaptor = $self->source_adaptor();
+  my $source_gene_adaptor = $source_adaptor->get_GeneAdaptor();
+  my $source_gene = $source_gene_adaptor->fetch_by_dbID($source_gene_id);
+  my $source_transcripts = $source_gene->get_all_Transcripts();
 
+  my $source_transcript_fasta_seqs = [];
+  foreach my $source_transcript (@$source_transcripts) {
+    my $source_transcript_sequence = $source_transcript->seq->seq();
+    my $fasta_record = ">".$source_transcript->dbID()."\n".$source_transcript_sequence;
+    push(@$source_transcript_fasta_seqs,$fasta_record);
+  }
+
+  my $analysis = $self->analysis();
+  my $program = $self->program();
+  my $paftools = $self->paftools_path();
+  my $source_input_file = $self->write_input_file($source_transcript_fasta_seqs);
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2->new(
+       -analysis                 => $analysis,
+       -program                  => $program,
+       -paftools_path            => $paftools,
+       -genome_index             => $target_genome_index,
+       -input_file               => $source_input_file,
+       -database_adaptor         => $target_adaptor,
+       -skip_introns_check       => 1,
+       -add_offset               => $target_genomic_start - 1,
+       -skip_compute_translation => 1,
+  );
+
+  $runnable->run();
+  my $output_genes = $runnable->output();
+  my $parent_gene_ids = $self->parent_gene_ids();
+  my $final_gene_hash = {};
+  foreach my $gene (@$output_genes) {
+    my $transcripts = $gene->get_all_Transcripts();
+    foreach my $transcript (@$transcripts) {
+      unless($parent_gene_ids->{$transcript->stable_id()}) {
+        $self->throw("The following mapped transcript stable id was not found in the initial list of dbIDs: ".$transcript->stable_id());
+      }
+
+      my $parent_gene_id = $parent_gene_ids->{$transcript->stable_id()}->{'gene_id'};
+      my $biotype_group = $parent_gene_ids->{$transcript->stable_id()}->{'biotype_group'};
+
+      unless($final_gene_hash->{$parent_gene_id}) {
+        $final_gene_hash->{$parent_gene_id} = [];
+      }
+
+      if($biotype_group eq 'coding') {
+        compute_translation($transcript);
+      }
+
+      push(@{$final_gene_hash->{$parent_gene_id}},$transcript);
+    }
+  } # End foreach my $gene
+
+  my $final_genes = [];
+  foreach my $gene_id (keys(%{$final_gene_hash})) {
+    my $transcripts = $final_gene_hash->{$gene_id};
+    my $gene = Bio::EnsEMBL::Gene->new(-analysis => $self->analysis);
+    foreach my $transcript (@$transcripts) {
+      $gene->add_Transcript($transcript);
+    }
+    push(@$final_genes, $gene);
+  }
+
+  $self->output($final_genes);
 }
+
+
+sub write_input_file {
+  my ($self,$fasta_records) = @_;
+
+  my $output_file = $self->create_filename();
+  open(OUT,">".$output_file);
+  foreach my $fasta_record (@$fasta_records) {
+    say OUT $fasta_record;
+  }
+  close OUT;
+
+  return($output_file);
+}
+
+
+sub create_filename{
+  my ($self, $stem, $ext, $dir, $no_clean) = @_;
+  return create_file_name($stem, $ext, $dir, $no_clean);
+}
+
 
 
 sub genome_index {
@@ -167,16 +286,29 @@ sub paftools_path {
 }
 
 
-sub database_adaptor {
+sub source_adaptor {
   my ($self, $val) = @_;
 
   if (defined $val) {
     throw(ref($val).' is not a Bio::EnsEMBL::DBSQL::DBAdaptor')
       unless ($val->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
-    $self->{_database_adaptor} = $val;
+    $self->{_source_adaptor} = $val;
   }
 
-  return $self->{_database_adaptor};
+  return $self->{_source_adaptor};
+}
+
+
+sub target_adaptor {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    throw(ref($val).' is not a Bio::EnsEMBL::DBSQL::DBAdaptor')
+      unless ($val->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
+    $self->{_target_adaptor} = $val;
+  }
+
+  return $self->{_target_adaptor};
 }
 
 
@@ -188,6 +320,17 @@ sub delete_input_file {
   }
 
   return $self->{_delete_input_file};
+}
+
+
+sub parent_gene_ids {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_parent_gene_ids} = $val;
+  }
+
+  return $self->{_parent_gene_ids};
 }
 
 1;
