@@ -71,27 +71,22 @@ sub fetch_input {
   $self->hrdb_set_con($source_gene_dba,'source_gene_db');
   $self->hrdb_set_con($target_gene_dba,'target_gene_db');
 
-  my $input_ids = [];
+
+  my $slice_array = $self->param('iid');
   my $slice_adaptor = $source_gene_dba->get_SliceAdaptor();
-  my $test_slice = $slice_adaptor->fetch_by_region('toplevel','1');
-  my $genes = $test_slice->get_all_Genes();
-  foreach my $gene (@$genes) {
- #   unless($gene->biotype eq 'protein_coding') {
- #     next;
- #   }
-    push(@$input_ids,$gene->dbID);
+  my $sequence_adaptor = $source_gene_dba->get_SequenceAdaptor();
+  my $input_genes = [];
+  foreach my $slice_name (@$slice_array) {
+    my $slice = $slice_adaptor->fetch_by_name($slice_name);
+    my $genes = $slice->get_all_Genes();
+    push(@$input_genes,@$genes);
   }
 
 
-#  $input_ids = [1330904,1331879,1332102,1333521,1335796];
-
-  my $sequence_adaptor = $source_gene_dba->get_SequenceAdaptor();
-
   my $parent_gene_id_hash = {};
   my $genomic_reads = [];
-  say "Processing ".scalar(@$input_ids)." genes";
-  foreach my $input_id (@$input_ids) {
-    my $gene = $source_gene_dba->get_GeneAdaptor->fetch_by_dbID($input_id);
+  say "Processing ".scalar(@$input_genes)." genes";
+  foreach my $gene (@$input_genes) {
     my $gene_id = $gene->dbID();
     my $transcripts = $gene->get_all_Transcripts();
     foreach my $transcript (@$transcripts) {
@@ -117,12 +112,10 @@ sub fetch_input {
     }
 
     my $strand = $gene->strand;
-
     my $genomic_seq = ${ $sequence_adaptor->fetch_by_Slice_start_end_strand($slice, $region_start, $region_end, $strand) };
-
     my $fasta_record = ">".$gene_id."\n".$genomic_seq;
     push(@$genomic_reads, $fasta_record);
-  } #close foreach input_id
+  } #close foreach input_gene
 
   my $input_file = $self->write_input_file($genomic_reads);
   $self->param('input_file',$input_file);
