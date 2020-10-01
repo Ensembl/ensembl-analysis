@@ -484,7 +484,7 @@ sub parse_assembly_report {
 
 # create production name - must be unique, no more than trinomial, and include GCA
   my $underscore_count = $species_name =~ tr/_//;
-  $species_name =~ /(^[^-]+_[^-]+)_.*/;
+  $species_name =~ /(^[^_]+_[^_]+)_*.*/;
   my $binomial_name = $1;
   my $accession_append = lc($accession);
   $accession_append =~ s/\./v/g;
