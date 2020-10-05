@@ -124,10 +124,21 @@ sub run {
   }
   close IN;
 
+  my $high_confidence = 0;
+  my $total_results = 0;
+  my $processed_gene_ids = {};
   foreach my $paf_result (@$paf_results) {
     my @result_cols = split("\t",$paf_result);
-    $self->process_results(\@result_cols);
+    my $gene_id = $result_cols[0];
+    if($processed_gene_ids->{$gene_id}) {
+      next;
+    }
+    $high_confidence += $self->process_results(\@result_cols);
+    $total_results++;
+    $processed_gene_ids->{$gene_id} = 1;
   }
+  say "TOTAL RESULTS: ".$total_results;
+  say "HIGH CONFIDENCE: ".$high_confidence;
 } # End run
 
 
@@ -135,6 +146,7 @@ sub run {
 sub process_results {
   my ($self, $paf_result) = @_;
 
+  my $high_confidence = 0;
   my $source_gene_id = ${$paf_result}[0];
   my $source_genomic_length = ${$paf_result}[1];
   my $source_genomic_start = ${$paf_result}[2];
@@ -147,6 +159,24 @@ sub process_results {
   my $matching_bases = ${$paf_result}[9];
   my $total_bases = ${$paf_result}[10];
   my $mapping_quality = ${$paf_result}[11];
+
+  my $mapping_identity = ($matching_bases/$total_bases) * 100;
+  my $mapping_coverage = ($target_genomic_end - $target_genomic_start + 1)/$source_genomic_length;
+  if($mapping_identity >= 80 and $mapping_coverage >= 0.8) {
+    $high_confidence++;
+  }
+
+  my $adjust_left = $source_genomic_start;
+  my $adjust_right = $source_genomic_length - $source_genomic_end;
+  $target_genomic_start -= $adjust_left;
+  $target_genomic_end += $adjust_right;
+  if($target_genomic_start <= 0) {
+    $target_genomic_start = 1;
+  }
+
+  if($target_genomic_end > $target_genomic_length) {
+    $target_genomic_end = $target_genomic_length;
+  }
 
   my $target_adaptor = $self->target_adaptor();
   my $target_slice_adaptor = $target_adaptor->get_SliceAdaptor();
@@ -229,6 +259,7 @@ sub process_results {
   }
 
   $self->output($final_genes);
+  return($high_confidence);
 }
 
 
