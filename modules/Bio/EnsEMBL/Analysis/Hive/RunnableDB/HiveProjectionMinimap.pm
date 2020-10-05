@@ -157,11 +157,12 @@ sub fetch_input {
     my $biotype = $transcript->biotype;
     my $stable_id = $transcript->stable_id.".".$transcript->version;
     $self->param('_transcript_biotype')->{$stable_id} = $biotype;
-    say "Processing source transcript: ".$transcript->stable_id;
-    
+    say "Processing source transcript: ".$transcript->stable_id . "from: " . $source_genome_db->assembly . "\n";
+    say "with input_id: $input_id and number of exons: " . scalar(@{$transcript->get_all_Exons()})  . "\n";     
     my $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba);
     my $transcript_header = $transcript->stable_id.'.'.$transcript->version;
-    $self->make_runnables($transcript->feature_Slice(), $transcript_slices, $input_id, $target_transcript_dba);
+    $self->make_runnables($transcript->spliced_seq(),$transcript_slices,$input_id,$target_transcript_dba);
+    #$self->make_runnables($transcript->feature_Slice(), $transcript_slices, $input_id, $target_transcript_dba);
   } #close foreach input_id
 
 }
@@ -186,12 +187,12 @@ sub run {
     eval {
       $runnable->run;
     };
-
     if ($@) {
       my $except = $@;
       $self->runnable_failed($runnable->{'_transcript_id'});
       $self->warning("Issue with running Minimap2, will dataflow input id on branch -3. Exception:\n".$except);
       $self->param('_branch_to_flow_on_fail', -3);
+      die; 
     } else {
       # Store original transcript id for realignment later. Should implement a cleaner solution at some point
       foreach my $output (@{$runnable->output}) {
@@ -232,6 +233,17 @@ sub run {
       } else {
         $selected_transcripts = $self->select_best_transcripts(\@preliminary_transcripts);
       }
+      # foreach transcript check translation: 
+	  # Returns the peptide translation of the exons as a Bio::Seq
+      # foreach my $tran (@$selected_transcripts) {
+      #  if ( $tran->translation() ) {
+      #    my $pep = $tran->translate();
+      #    print "DEBUG::Transcript ", $tran->stable_id(), " is protein_coding\n";
+      #  } else {
+      #    print "DEBUG::Transcript ", $tran->stable_id(), " is non-coding\n";
+      #  }
+      # }
+
       $self->output($selected_transcripts);
     }
   }
@@ -251,14 +263,14 @@ sub run {
 sub write_output {
 
   my ($self) = @_;
-
+ 
   my $adaptor = $self->hrdb_get_con('target_transcript_db')->get_GeneAdaptor;
   my $slice_adaptor = $self->hrdb_get_con('target_transcript_db')->get_SliceAdaptor;
 
   my @output = @{$self->output};
   my $analysis = $self->analysis;
-
   foreach my $transcript (@output){
+
     my $slice_id = $transcript->start_Exon->seqname;
     my $slice = $slice_adaptor->fetch_by_name($slice_id);
     my $biotype = $self->retrieve_biotype($transcript);
@@ -386,13 +398,27 @@ sub process_transcript {
 =cut
 
 sub make_runnables {
-  my ($self,$transcript_seq,$transcript_slices,$input_id,$target_transcript_dba) = @_;
+  my ($self,$transcript_seq,$transcript_slices,$input_id,$target_transcript_dba,$transcript_header) = @_;
   my %parameters = %{$self->parameters_hash};
   my $source_sequence_fasta_file = $self->param('tmpdir')."/source_sequence_".$input_id;
   my $target_sequences_fasta_file = $self->param('tmpdir')."/target_sequences_".$input_id;
 
-  # dump the transcript seq object sequence into a file which will be the input source for Minimap2
-  write_sliceseq2fastafile($transcript_seq,$source_sequence_fasta_file);
+  die("DEBUG:: I expect one value only") if (scalar(@{$transcript_slices}) > 1) ;  # I need to investigate that more. 
+  my ($type,$assembly,$chrname,$target_genomic_start,$target_genomic_end,$step); 
+  foreach my $transcript_slice (@{$transcript_slices}) {
+    say "Created transcript slice: ".$transcript_slice->name."\n";
+    ($type,$assembly,$chrname,$target_genomic_start,$target_genomic_end,$step) = split(":", $transcript_slice->name); 
+  }
+
+  # dump the transcript sequence into a file which will be the input source for Minimap2
+  #write_sliceseq2fastafile($transcript_seq,$source_sequence_fasta_file);
+  #my $source_sequence_fasta_file = write_seqfile($transcript_seq);
+  open(OUT,">".$source_sequence_fasta_file);
+  say OUT ">".$input_id;
+  say OUT $transcript_seq;
+  close OUT;
+
+
   # dump transcript slices sequences into a file which will be the input target for Minimap2
   write_sliceseq2fastafile($transcript_slices,$target_sequences_fasta_file);
 
@@ -400,11 +426,14 @@ sub make_runnables {
        -analysis          => $self->analysis(),
        -program           => $self->param('minimap_path'),
        -paftools_path     => $self->param('paftools_path'),
-#       -options        => $self->param('minimap2_options'),
+#       -options           => $self->param('minimap2_options'),
        -genome_index      => $target_sequences_fasta_file,#$genome_index,
-       -input_file        => $source_sequence_fasta_file,
+       -input_file        => $source_sequence_fasta_file, # input is different
        -database_adaptor  => $target_transcript_dba,
        -delete_input_file => 0, # only set this when creating ranged files, not when using the original input file
+       -skip_introns_check       => 1,
+       -add_offset               => $target_genomic_start - 1,
+       -skip_compute_translation => 0, # If you turn that to 1, it will not return translation
   );
 
   $runnable->{'_transcript_id'} = $input_id;
