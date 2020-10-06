@@ -160,7 +160,6 @@ sub fetch_input {
     say "Processing source transcript: ".$transcript->stable_id . "from: " . $source_genome_db->assembly . "\n";
     say "with input_id: $input_id and number of exons: " . scalar(@{$transcript->get_all_Exons()})  . "\n";     
     my $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba);
-    my $transcript_header = $transcript->stable_id.'.'.$transcript->version;
     $self->make_runnables($transcript->spliced_seq(),$transcript_slices,$input_id,$target_transcript_dba);
     #$self->make_runnables($transcript->feature_Slice(), $transcript_slices, $input_id, $target_transcript_dba);
   } #close foreach input_id
@@ -398,17 +397,24 @@ sub process_transcript {
 =cut
 
 sub make_runnables {
-  my ($self,$transcript_seq,$transcript_slices,$input_id,$target_transcript_dba,$transcript_header) = @_;
+  my ($self,$transcript_seq,$transcript_slices,$input_id,$target_transcript_dba) = @_;
   my %parameters = %{$self->parameters_hash};
   my $source_sequence_fasta_file = $self->param('tmpdir')."/source_sequence_".$input_id;
   my $target_sequences_fasta_file = $self->param('tmpdir')."/target_sequences_".$input_id;
 
-  die("DEBUG:: I expect one value only") if (scalar(@{$transcript_slices}) > 1) ;  # I need to investigate that more. 
   my ($type,$assembly,$chrname,$target_genomic_start,$target_genomic_end,$step); 
+  if (scalar(@{$transcript_slices}) == 1) {
+  	my $transcript_slice = @{$transcript_slices}[0]; 
+    ($type,$assembly,$chrname,$target_genomic_start,$target_genomic_end,$step) = split(":", $transcript_slice->name);
+  } elsif (scalar(@{$transcript_slices}) > 1) {
+  	
+  } else {
+    die("I expect one value only"); 
+  }
   foreach my $transcript_slice (@{$transcript_slices}) {
     say "Created transcript slice: ".$transcript_slice->name."\n";
     ($type,$assembly,$chrname,$target_genomic_start,$target_genomic_end,$step) = split(":", $transcript_slice->name); 
-  }
+  } 
 
   # dump the transcript sequence into a file which will be the input source for Minimap2
   #write_sliceseq2fastafile($transcript_seq,$source_sequence_fasta_file);
@@ -417,7 +423,6 @@ sub make_runnables {
   say OUT ">".$input_id;
   say OUT $transcript_seq;
   close OUT;
-
 
   # dump transcript slices sequences into a file which will be the input target for Minimap2
   write_sliceseq2fastafile($transcript_slices,$target_sequences_fasta_file);
@@ -455,7 +460,9 @@ sub max_cluster_gap_length {
   my ($self,$transcript) = @_;
 
   # Have 50 as a min default value to handle small breaks in single exon genes
-  my $longest_intron = 50;
+  # kbillis increased this value to 200000 in order to avoid having small slices 
+  # that will be hard to parse the results due to different offsets. 
+  my $longest_intron = 200000; # 50
   my $introns = $transcript->get_all_Introns();
   unless(scalar(@{$introns}) > 0) {
     return($longest_intron);
@@ -527,6 +534,7 @@ sub make_cluster_slices {
   push(@{$cluster_slices},$slice);
   return($cluster_slices);
 }
+
 
 =head2 unique_genomic_aligns
 
