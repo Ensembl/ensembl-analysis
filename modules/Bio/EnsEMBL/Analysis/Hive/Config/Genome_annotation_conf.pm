@@ -8367,8 +8367,8 @@ sub pipeline_analyses {
           sql => [
             'UPDATE gene, analysis SET gene.analysis_id = analysis.analysis_id WHERE analysis.logic_name = "cdna_alignment"',
             'UPDATE transcript join gene using(gene_id) set transcript.analysis_id=gene.analysis_id',
-            'UPDATE gene set biotype="cdna"',
-            'UPDATE transcript set biotype="cdna"',
+            'UPDATE gene set biotype="cDNA"',
+            'UPDATE transcript set biotype="cDNA"',
             'UPDATE dna_align_feature, analysis SET dna_align_feature.analysis_id = analysis.analysis_id WHERE analysis.logic_name = "cdna_alignment"',
           ],
         },
@@ -8430,6 +8430,7 @@ sub pipeline_analyses {
             'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
             'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id)'.
               ' JOIN dna_align_feature ON feature_id = dna_align_feature_id SET stable_id = hit_name',
+            'UPDATE transcript LEFT JOIN gene ON transcript.gene_id = gene.gene_id SET transcript.display_xref_id = gene.display_xref_id WHERE transcript.analysis_id=(SELECT analysis_id from analysis where logic_name="refseq_import") AND transcript.display_xref_id IS NULL',
           ],
         },
         -rc_name    => 'default',
