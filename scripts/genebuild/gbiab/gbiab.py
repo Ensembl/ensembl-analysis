@@ -1,4 +1,4 @@
-# Copyright [2019] EMBL-European Bioinformatics Institute
+# Copyright [2019-2020] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -162,28 +162,29 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
   # This works out if the files are paired or not
   fastq_file_list = create_paired_paths(fastq_file_list)
 
-  # Subsamples in parallel
-  pool = multiprocessing.Pool(int(num_threads))
-  for fastq_files in fastq_file_list:
-    fastq_file = fastq_files[0]
-    fastq_file_pair = ''
-    if(len(fastq_files) == 2):
-      fastq_file_pair = fastq_files[1]
+  # Subsamples in parallel if there's a value set
+  if max_reads_per_sample:
+    pool = multiprocessing.Pool(int(num_threads))
+    for fastq_files in fastq_file_list:
+      fastq_file = fastq_files[0]
+      fastq_file_pair = ''
+      if(len(fastq_files) == 2):
+        fastq_file_pair = fastq_files[1]
 
-    if fastq_file_pair and os.path.exists(fastq_file + '.sub') and os.path.exists(fastq_file_pair + '.sub'):
-      print("Found an existing .sub files on the fastq path for both members of the pair, will use those instead of subsampling again. Files:")
-      print(fastq_file + '.sub')
-      print(fastq_file_pair + '.sub')
-    elif fastq_file_pair:
-      pool.apply_async(run_subsample_script, args=(fastq_file,fastq_file_pair,subsample_script_path,))
-    elif os.path.exists(fastq_file + '.sub'):
-      print("Found an existing .sub file on the fastq path, will use that instead. File:")
-      print(fastq_file + '.sub')
-    else:
-      pool.apply_async(run_subsample_script, args=(fastq_file,fastq_file_pair,subsample_script_path,))
+      if fastq_file_pair and os.path.exists(fastq_file + '.sub') and os.path.exists(fastq_file_pair + '.sub'):
+        print("Found an existing .sub files on the fastq path for both members of the pair, will use those instead of subsampling again. Files:")
+        print(fastq_file + '.sub')
+        print(fastq_file_pair + '.sub')
+      elif fastq_file_pair:
+        pool.apply_async(run_subsample_script, args=(fastq_file,fastq_file_pair,subsample_script_path,))
+      elif os.path.exists(fastq_file + '.sub'):
+        print("Found an existing .sub file on the fastq path, will use that instead. File:")
+        print(fastq_file + '.sub')
+      else:
+        pool.apply_async(run_subsample_script, args=(fastq_file,fastq_file_pair,subsample_script_path,))
 
-  pool.close()
-  pool.join()
+    pool.close()
+    pool.join()
 
   fastq_file_list = check_for_fastq_subsamples(fastq_file_list)
 
@@ -204,7 +205,7 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
     check_compression= re.search(r'.gz$',fastq_file_name)
     print ("Processing %s" % fastq_file_path)
 
-    star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir]
+    star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir,'--outSAMtype','BAM','SortedByCoordinate']
 
     if check_compression:
       star_command.append('--readFilesCommand')
@@ -212,7 +213,7 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
       star_command.append('-c')
 
     subprocess.run(star_command)
-    subprocess.run(['mv',os.path.join(star_dir,'Aligned.out.sam'),os.path.join(star_dir,(fastq_file_name + '.sam'))])
+    subprocess.run(['mv',os.path.join(star_dir,'Aligned.sortedByCoord.out.bam'),os.path.join(star_dir,(fastq_file_name + '.bam'))])
     subprocess.run(['mv',os.path.join(star_dir,'SJ.out.tab'),os.path.join(star_dir,(fastq_file_name + '.sj.tab'))])
 
   print ('Completed running STAR')
@@ -525,29 +526,29 @@ def run_stringtie_assemble(stringtie_path,samtools_path,main_output_dir,genome_f
   if(os.path.exists(star_dir)):
     print("Found a Star output dir, will load sam file")
 
-  sam_files = []
-  for sam_file in glob.glob(star_dir + "/*.sam"):
-    sam_files.append(sam_file)
-
-  if not sam_files:
-    raise IndexError('The list of sam files is empty, expected them in Star output dir. Star dir:\n%s' % star_dir)
-
   sorted_bam_files = []
-  for sam_file in sam_files:
-    sam_file_name = os.path.basename(sam_file)
-    sam_temp_file_path = os.path.join(star_dir,(sam_file_name + ".tmp"))
-    bam_sort_file_path = os.path.join(star_dir,re.sub('.sam','.bam',sam_file_name))
+  for bam_file in glob.glob(star_dir + "/*.bam"):
+    sorted_bam_files.append(bam_file)
 
-    if os.path.exists(bam_sort_file_path):
-      print("Found an existing bam file, will not sort sam file again. Bam file:")
-      print(bam_sort_file_path)
+  if not sorted_bam_files:
+    raise IndexError('The list of sorted bam files is empty, expected them in Star output dir. Star dir:\n%s' % star_dir)
 
-    else:
-      print("Converting samfile into sorted bam file. Bam file:")
-      print(bam_sort_file_path)
-      subprocess.run(['samtools','sort','-@',str(num_threads),'-T',sam_temp_file_path,'-o',bam_sort_file_path,sam_file])
+#  sorted_bam_files = []
+#  for sam_file in sam_files:
+#    sam_file_name = os.path.basename(sam_file)
+#    sam_temp_file_path = os.path.join(star_dir,(sam_file_name + ".tmp"))
+#    bam_sort_file_path = os.path.join(star_dir,re.sub('.sam','.bam',sam_file_name))
 
-    sorted_bam_files.append(bam_sort_file_path)
+#    if os.path.exists(bam_sort_file_path):
+#      print("Found an existing bam file, will not sort sam file again. Bam file:")
+#      print(bam_sort_file_path)
+
+#    else:
+#      print("Converting samfile into sorted bam file. Bam file:")
+#      print(bam_sort_file_path)
+#      subprocess.run(['samtools','sort','-@',str(num_threads),'-T',sam_temp_file_path,'-o',bam_sort_file_path,sam_file])
+
+#    sorted_bam_files.append(bam_sort_file_path)
 
   for sorted_bam_file in sorted_bam_files:
     sorted_bam_file_name = os.path.basename(sorted_bam_file)
@@ -579,6 +580,64 @@ def run_stringtie_assemble(stringtie_path,samtools_path,main_output_dir,genome_f
     print(stringtie_merge_output_file)
     # Note, I'm not sure stringtie merge actually uses threads, but it doesn't complain if -p is passed in
     subprocess.run([stringtie_path,'--merge','-p',str(num_threads),'-o',stringtie_merge_output_file,stringtie_merge_input_file])
+
+
+def run_scallop_assemble(scallop_path,stringtie_path,main_output_dir):
+
+  if not scallop_path:
+    scallop_path = shutil.which('scallop')
+  check_exe(scallop_path)
+
+  if not stringtie_path:
+    stringtie_path = shutil.which('stringtie')
+  check_exe(stringtie_path)
+
+  scallop_dir = create_dir(main_output_dir,'scallop_output')
+  stringtie_merge_input_file = os.path.join(scallop_dir,'scallop_assemblies.txt')
+  stringtie_merge_output_file = os.path.join(scallop_dir,'scallop_merge.gtf')
+  star_dir = os.path.join(main_output_dir,'star_output')
+
+  if(os.path.exists(star_dir)):
+    print("Found a Star output dir, will load sam file")
+
+  sorted_bam_files = []
+  for bam_file in glob.glob(star_dir + "/*.bam"):
+    sorted_bam_files.append(bam_file)
+
+  if not sorted_bam_files:
+    raise IndexError('The list of sorted bam files is empty, expected them in Star output dir. Star dir:\n%s' % star_dir)
+
+  for sorted_bam_file in sorted_bam_files:
+    sorted_bam_file_name = os.path.basename(sorted_bam_file)
+    transcript_file_name = re.sub('.bam','.gtf',sorted_bam_file_name)
+    transcript_file_path = os.path.join(scallop_dir,transcript_file_name)
+
+    if os.path.exists(transcript_file_path):
+      print("Found an existing scallop gtf file, will not overwrite. File found:")
+      print(transcript_file_path)
+    else:
+      print("Running Scallop on: " + sorted_bam_file_name)
+      print("Writing output to: " + transcript_file_path)
+      subprocess.run([scallop_path,'-i',sorted_bam_file,'-o',transcript_file_path])
+
+
+  # Now need to merge
+  print("Creating Stringtie merge input file: " + stringtie_merge_input_file)
+
+  # Note that I'm writing the subprocess this way because python seems to have issues with wildcards in subprocess.run and this
+  # was the answer I found most often from googling
+  gtf_list_cmd = 'ls ' + os.path.join(scallop_dir,'*.gtf') + ' | grep -v "scallop_merge.gtf" >' + stringtie_merge_input_file
+  gtf_list_cmd = subprocess.Popen(gtf_list_cmd,shell=True)
+  gtf_list_cmd.wait()
+
+  if os.path.exists(stringtie_merge_output_file):
+    print("Found an existing stringtie merge file, will not overwrite. File found:")
+    print(stringtie_merge_output_file)
+  else:
+    print("Merging Stringtie results. Writing to the following file:")
+    print(stringtie_merge_output_file)
+    # Note, I'm not sure stringtie merge actually uses threads and is very quick, so leaving out
+    subprocess.run([stringtie_path,'--merge','-o',stringtie_merge_output_file,stringtie_merge_input_file])
 
 
 def splice_junction_to_gff(input_dir,hints_file):
@@ -758,8 +817,8 @@ if __name__ == '__main__':
   parser.add_argument('--protein_file', help='Path to a fasta file with protein sequences', required=False)
   parser.add_argument('--run_star', help='Run Star for short read alignment', required=False)
   parser.add_argument('--star_path', help='Path to Star for short read alignment', required=False)
-  parser.add_argument('--max_reads_per_sample', nargs='?', const=100000000, type=int, help='The maximum number of reads to use per sample. Default=100000000', required=False)
-  parser.add_argument('--max_total_reads', nargs='?', const=500000000, type=int, help='The maximum total number of reads', required=False)
+  parser.add_argument('--max_reads_per_sample', nargs='?', const=0, type=int, help='The maximum number of reads to use per sample. Default=0 (unlimited)', required=False)
+  parser.add_argument('--max_total_reads', nargs='?', const=0, type=int, help='The maximum total number of reads. Default=0 (unlimited)', required=False)
   parser.add_argument('--short_read_fastq_dir', help='Path to short read fastq dir for running with Star', required=False)
   parser.add_argument('--run_minimap2', help='Run minimap2 for long read alignment', required=False)
   parser.add_argument('--minimap2_path', help='Path to minimap2 for long read alignment', required=False)
@@ -771,7 +830,9 @@ if __name__ == '__main__':
   parser.add_argument('--cufflinks_path', help='Path to Cufflinks', required=False)
   parser.add_argument('--cuffmerge_path', help='Path to Cuffmerge', required=False)
   parser.add_argument('--run_stringtie', help='Run Stringtie on the results from the STAR alignments', required=False)
+  parser.add_argument('--run_scallop', help='Run Scallop on the results from the STAR alignments', required=False)
   parser.add_argument('--stringtie_path', help='Path to Stringtie', required=False)
+  parser.add_argument('--scallop_path', help='Path to Scallop', required=False)
   parser.add_argument('--subsample_script_path', help='Path to gbiab subsampling script', required=False)
   parser.add_argument('--samtools_path', help='Path to subsampling script', required=False)
 
@@ -803,7 +864,9 @@ if __name__ == '__main__':
   cufflinks_path = args.cufflinks_path
   cuffmerge_path = args.cuffmerge_path
   run_stringtie = args.run_stringtie
+  run_scallop = args.run_scallop
   stringtie_path = args.stringtie_path
+  scallop_path = args.scallop_path
   subsample_script_path = args.subsample_script_path
   samtools_path = args.samtools_path
 
@@ -856,6 +919,10 @@ if __name__ == '__main__':
      print ("Running Stringtie")
      run_stringtie_assemble(stringtie_path,samtools_path,work_dir,genome_file,num_threads)
 
+  # Run Scallop
+  if run_scallop:
+     print ("Running Scallop")
+     run_scallop_assemble(scallop_path,stringtie_path,work_dir)
 
   # Run Cufflinks
   if run_cufflinks:
