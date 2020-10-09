@@ -52,6 +52,7 @@ sub default_options {
     'blast_type' => 'ncbi',
     'blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
 
+    protein_entry_loc => '/hps/nobackup2/production/ensembl/genebuild/blastdb/uniprot/uniprot_2019_04/entry_loc',
     load_optimise_script => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
 
     'blast_db_user'   => $self->o('user'),
@@ -123,10 +124,24 @@ sub pipeline_analyses {
        -rc_name    => 'default',
        -input_ids => [{}],
        -flow_into => {
-                       1 => ['download_uniprot_files'],
+                       1 => ['retrieve_taxon_id'],
                      },
      },
 
+     {
+       -logic_name => 'retrieve_taxon_id',
+       -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+       -parameters => {
+         column_names => ['taxon_id'],
+         db_conn => $self->o('dna_db'),
+         inputquery => "SELECT meta_value FROM meta WHERE meta_key = 'species.taxonomy_id'",
+       },
+       -rc_name => 'default',
+       -max_retry_count => 0,
+       -flow_into => {
+         2 => ['download_uniprot_files'],
+       }
+     },
 
      {
        -logic_name => 'download_uniprot_files',
@@ -185,7 +200,7 @@ sub pipeline_analyses {
                          blast_exe_path => $self->o('blast_exe_path'),
                          commandline_params => $self->o('blast_commandline'),
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastUniProtToGenome', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
-                         timer => '2h',
+                         timer => '30m',
                        },
 
         -flow_into => {
@@ -227,12 +242,12 @@ sub pipeline_analyses {
 
         -flow_into => {
                         'MEMLIMIT' => ['failed_blast_jobs'],
-                        'RUNLIMIT' => ['run_uniprot_blast_restrained'],
+                        'RUNLIMIT' => ['run_uniprot_blast_unrestrained'],
                       },
         -rc_name    => '8GB',
       },
       {
-        -logic_name => 'run_uniprot_blast_restrained',
+        -logic_name => 'run_uniprot_blast_unrestrained',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastPepToGenome',
         -parameters => {
                          sequence_table_name => $self->o('uniprot_table_name'),
@@ -245,7 +260,6 @@ sub pipeline_analyses {
                          blast_exe_path => $self->o('blast_exe_path'),
                          commandline_params => $self->o('blast_commandline'),
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastUniProtToGenome', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
-                         timer => '4h',
                        },
 
         -flow_into => {
