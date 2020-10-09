@@ -110,6 +110,7 @@ sub fetch_input {
     '-pipe_db_pass', $pipeline_db->{'-pass'},
     '-pipe_db_name', $pipeline_db->{'-dbname'},
     '-pipeline_name', $self->param_required('pipeline_name'));
+  push(@cmd, '-enscode_root_dir', $self->param('enscode_root_dir'));
   if ($dna_db) {
     $self->warning('Your dna dbname has upper case character, it might cause problems, '.$dna_db->{'-dbname'})
       if ($dna_db->{'-dbname'} =~ /[[:upper:]]/);
