@@ -748,14 +748,15 @@ sub pipeline_analyses {
       -logic_name => 'fan_rnaseq_config',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -parameters => {
-        column_names => ['logic_name'],
+        column_names => ['logic_name', 'otter_name', 'zmap_type'],
         db_conn => $self->o('rnaseq_db'),
-        inputquery => 'SELECT logic_name FROM analysis WHERE logic_name LIKE "%daf%"',
+        inputquery => 'SELECT logic_name, REPLACE(logic_name, "_daf", ""), SUBSTRING_INDEX(logic_name, '_', -1) FROM analysis WHERE logic_name LIKE "%daf%"',
       },
       -rc_name => 'default',
       -max_retry_count => 0,
       -flow_into => {
-        2 => ['write_anaysis_config'],
+        '2->A' => ['write_anaysis_config'],
+        'A->1' => ['write_swissprot_anaysis_config'],
       }
     },
     {
@@ -763,7 +764,17 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'echo "#config_text# > #output_file#',
-        config_text => '',
+        output_file => catfile($self->o('output_dir'), 'swissprot.part'),
+        species => $self->o('species'),
+        config_text => '[#species#.filter.#otter_name#]\n
+        analysis=#logic_name#\n
+        classification=RNA-seq > Introns\n
+        server_script=get_gff/features\n
+        metakey=ensembl_rnaseq_intron\n
+        description=Introns confirmed by spanning RNASeq reads with number of supporting reads\n
+        feature_kind=DnaDnaAlignFeature\n
+        zmap_column=rnaseq_introns_#zmap_type#\n
+        zmap_style=ensembl_rnaseq_intron\n',
       },
       -rc_name => 'default',
     },
@@ -808,8 +819,18 @@ sub pipeline_analyses {
         sequence_db=uniprot,uniprot_archive\n
         blixem_data_type=protein-match\n\n',
       },
+      -rc_name => 'default',
       -flow_into => {
-        1 => ['add_rnaseq_intron'],
+        1 => ['concat_anaysis_config'],
+      },
+    },
+    {
+      -logic_name => 'concat_anaysis_config',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'cat "#output_dir#/*.part > #output_file#',
+        output_file => catfile($self->o('output_dir'), 'otter_config.ini'),
+        output_dir => $self->o('output_dir'),
       },
       -rc_name => 'default',
     },
