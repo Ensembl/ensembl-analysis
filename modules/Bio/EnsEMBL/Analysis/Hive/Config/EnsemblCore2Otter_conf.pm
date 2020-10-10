@@ -750,7 +750,7 @@ sub pipeline_analyses {
       -parameters => {
         column_names => ['logic_name', 'otter_name', 'zmap_type'],
         db_conn => $self->o('rnaseq_db'),
-        inputquery => 'SELECT logic_name, REPLACE(logic_name, "_daf", ""), SUBSTRING_INDEX(logic_name, '_', -1) FROM analysis WHERE logic_name LIKE "%daf%"',
+        inputquery => 'SELECT logic_name, REPLACE(logic_name, "_daf", ""), SUBSTRING_INDEX(logic_name, "_", -1) FROM analysis WHERE logic_name LIKE "%daf%"',
       },
       -rc_name => 'default',
       -max_retry_count => 0,
