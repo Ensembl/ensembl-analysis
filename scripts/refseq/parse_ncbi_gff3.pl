@@ -174,7 +174,6 @@ foreach my $slice (@{$sa->fetch_all('toplevel', undef, 1)}) {
   $sequences{$refseq_synonyms->[0]->name} = $slice;
 }
 my %missing_sequences;
-my $MT_acc;
 my @par_regions;
 my $par_srid;
 my %xrefs;
@@ -196,7 +195,6 @@ my %transcripts;
 my %do_not_process;
 LINE: while ($gff_parser->next) {
   my $seqname = $gff_parser->get_seqname;
-  next LINE if ($MT_acc && $seqname eq $MT_acc);
   next LINE if (exists $missing_sequences{$seqname});
   my $slice;
   if (exists $sequences{$seqname}) {
@@ -416,7 +414,12 @@ GENE: foreach my $gene (values %genes) {
       my $phase = 0;
       if (exists $transcript->{exception}) {
         if ($transcript->{exception}->{type} eq 'ribosomal slippage') {
-          my ($direction, $length) = $transcript->{exception}->{note} =~ /([-+])(\d+)/;
+          # A ribosomal framshift is most commonly -1, but it is sometimes mentionned in the Note attribute
+          my $direction = '-';
+          my $length = 1;
+          if (exists $transcript->{exception}->{note}) {
+            ($direction, $length) = $transcript->{exception}->{note} =~ /([-+])(\d+)/;
+          }
           if ($direction eq '-') {
             for (my $index = 1; $index < @{$transcript->{exception}->{data}}-2; $index += 2) {
               if ($transcript->{exception}->{data}->[$index] == $transcript->{exception}->{data}->[$index+1]-$length+1) {
@@ -491,12 +494,26 @@ GENE: foreach my $gene (values %genes) {
             $gene->biotype('protein_coding');
           }
         }
-        else {
-          info('Biotype is "'.$transcript->biotype.'" instead of "mRNA"');
-        }
         my $translation = $transcript->translation;
         my $genomic_start = $translation->start;
         my $genomic_end = $translation->end;
+        my $exons;
+        eval {
+          $exons = $transcript->get_all_Exons;
+        };
+        if ($@) {
+          warning($transcript->stable_id.' on '.$transcript->slice->name.' does not have an exon. I will create one based on the CDS');
+          my $exon = Bio::EnsEMBL::Exon->new();
+          $exon->slice($transcript->slice);
+          $exon->analysis($transcript->analysis);
+          $exon->start($genomic_start);
+          $exon->end($genomic_end);
+          $exon->strand($transcript->strand);
+          $exon->stable_id($transcript->stable_id);
+          $transcript->add_Exon($exon);
+          $transcript->{__start} = $genomic_start;
+          $transcript->{__end} = $genomic_end;
+        }
         foreach my $exon (@{$transcript->get_all_Exons}) {
           if ($genomic_start >= $exon->seq_region_start and $genomic_start <= $exon->seq_region_end) {
             if ($exon->strand == 1) {
@@ -556,20 +573,15 @@ GENE: foreach my $gene (values %genes) {
             my $sub_slice = $transcript->slice->sub_Slice($attribute_start, $attribute_end, $transcript->strand);
             my $codons = lc($sub_slice->seq);
             if (length($codons) < 3 and exists $transcript->{stop}) {
-              $codons .= $transcript->{stop};
-              if (@{$transcript->get_all_Attributes('_transl_end')}) {
-                $transcript->get_all_Attributes('_transl_end')->[0]->value($transcript->get_all_Attributes('_transl_end')->[0]+length($transcript->{stop}));
+              if (length($transcript->{stop}) == 1) {
+                $codons .= $transcript->{stop}x(3-($attribute_end-$attribute_start)-1);
               }
               else {
-                my $attribute = Bio::EnsEMBL::Attribute->new(
-                  -CODE        => '_transl_end',
-                  -VALUE       => length($transcript->{stop})+$transcript->cdna_coding_end,
-                );
-                $transcript->add_Attributes($attribute);
+                $codons .= $transcript->{stop};
               }
             }
             my @stops = $codon_table->revtranslate('*');
-            my $best_codon;
+            my $best_codon = $stops[0];
             if (length($codons) == 3) {
               my $best_score = 4;
               foreach my $stop_codon (@stops) {
@@ -592,10 +604,17 @@ GENE: foreach my $gene (values %genes) {
                 $best_codon = $stop_codon if ($stop_codon =~ /^$codons/);
               }
             }
-            elsif (length($codons) == 1) {
-              $best_codon = $stops[0];
-            }
             $attribute->value($coords[0]->start.' '.$coords[0]->end.' '.uc($best_codon));
+            if (!@{$transcript->get_all_Attributes('_transl_end')}) {
+              my $diff = 3-($attribute_end-$attribute_start)-1;
+              if ($diff) {
+                my $attribute = Bio::EnsEMBL::Attribute->new(
+                  -CODE        => '_transl_end',
+                  -VALUE       => $diff+$transcript->cdna_coding_end,
+                );
+                $transcript->add_Attributes($attribute);
+              }
+            }
             info("Changing $codons with $best_codon at ".$coords[0]->start.' '.$coords[0]->end.' '.$attribute->value);
           }
         }
@@ -812,7 +831,7 @@ sub process_cds {
       if ($note =~ /([-+]\d+).*ribosomal frameshift/) {
         $transcript->{exception}->{note} = $1;
       }
-      elsif ($note =~ /stop codon completed by the addition of 3' ([ATGC]+)/) {
+      elsif ($note =~ /completed by the addition of 3' ([ATGC]+) residues/) {
         $transcript->{stop} = $1;
       }
     }
