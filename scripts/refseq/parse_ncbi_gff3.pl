@@ -154,6 +154,9 @@ foreach my $slice (@{$sa->fetch_all('toplevel', undef, 1)}) {
           warning('Could not find a RefSeq synonym for '.$slice->seq_region_name.' '.$cs_rank2->name);
           next;
         }
+        elsif ($slice->strand == -1) {
+          $slice = $sa->fetch_by_region($slice->coord_system->name, $slice->seq_region_name, undef, undef, undef, $slice->coord_system->version);
+        }
       }
       else {
         warning('Could not project '.$slice->seq_region_name.' to '.$cs_rank2->name);
