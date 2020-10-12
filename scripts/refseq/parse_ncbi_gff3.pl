@@ -275,6 +275,7 @@ LINE: while ($gff_parser->next) {
         if (!exists $transcripts{$attributes->{ID}}) {
           my $transcript = Bio::EnsEMBL::Transcript->new();
           $transcripts{$attributes->{ID}} = $transcript;
+          $transcript->analysis($analysis);
           $transcript->slice($slice);
           $transcript->start($start);
           $transcript->end($end);
@@ -307,7 +308,7 @@ LINE: while ($gff_parser->next) {
           $transcript->{__start} = $start;
           $transcript->{__end} = $end;
           $transcript->strand($gff_parser->get_strand);
-          $attributes->{gbkey} =~ s/(\w_)(region|segment)/IG_$1gene/;
+          $attributes->{gbkey} =~ s/(\w_)(region|segment).*/IG_$1gene/;
           $transcript->biotype($attributes->{gbkey});
           $transcript->external_name($attributes->{Name} || $attributes->{gene});
           $transcript->description($gff_parser->decode_string($attributes->{product} || $attributes->{standard_name} || $attributes->{gene}));
@@ -347,7 +348,7 @@ LINE: while ($gff_parser->next) {
     $gene->{__start} = $start;
     $gene->{__end} = $end;
     $gene->strand($gff_parser->get_strand);
-    $attributes->{gene_biotype} =~ s/(\w_)(region|segment)/IG_$1gene/;
+    $attributes->{gene_biotype} =~ s/(\w_)(region|segment).*/IG_$1gene/;
     $gene->biotype($attributes->{gene_biotype});
     $gene->external_name($attributes->{Name});
     $gene->description($gff_parser->decode_string($attributes->{description} || $attributes->{Name}));
@@ -357,26 +358,13 @@ LINE: while ($gff_parser->next) {
     }
     $genes{$attributes->{ID}} = $gene;
   }
-  elsif ($type eq 'region') {
-    if (exists $attributes->{genome} and $attributes->{genome} eq 'mitochondrion') {
-      $MT_acc = $seqname;
-    }
-  }
 }
 $gff_parser->close;
 print "Finished processing GFF file\n";
 my %stats;
 GENE: foreach my $gene (values %genes) {
   if ($gene->get_all_Transcripts) {
-    if ($gene->biotype =~ /^IG_/) {
-      if ($gene->biotype =~ /gene__pseudogene/) {
-        my $new_biotype = $gene->biotype;
-        $new_biotype =~ s/_pseudogene$//;
-        $gene->biotype($new_biotype);
-        foreach my $t (@{$gene->get_all_Transcripts}) {
-          $t->biotype($new_biotype);
-        }
-      }
+    if (index($gene->biotype, 'IG') == 0) {
       my $transcripts = $gene->get_all_Transcripts;
       if (@$transcripts == 1) {
         $transcripts->[0]->get_all_Exons;
