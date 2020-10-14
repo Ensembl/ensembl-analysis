@@ -8430,7 +8430,6 @@ sub pipeline_analyses {
             'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
             'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id)'.
               ' JOIN dna_align_feature ON feature_id = dna_align_feature_id SET stable_id = hit_name',
-            'UPDATE transcript LEFT JOIN gene ON transcript.gene_id = gene.gene_id SET transcript.display_xref_id = gene.display_xref_id WHERE transcript.analysis_id=(SELECT analysis_id from analysis where logic_name="refseq_import") AND transcript.display_xref_id IS NULL',
           ],
         },
         -rc_name    => 'default',
