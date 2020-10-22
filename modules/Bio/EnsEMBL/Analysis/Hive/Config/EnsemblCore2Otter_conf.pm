@@ -65,45 +65,51 @@ sub default_options {
 
     species => 'clupea_harengus',
 
-    output_dir => catdir('/hps/nobackup2/production/ensembl/thibaut/loutre', $self->o('species'), $self->o('db_prefix')),
-    blast_db_path        => catfile($self->o('output_dir'), $self->o('species').'_softmasked_toplevel.fa'),
-    password => 'ensembl',
+    base_dir => '/hps/nobackup2/production/ensembl/thibaut/loutre',
+    output_dir => catdir($self->o('base_dir'), $self->o('species'), $self->o('db_prefix')),
+    blast_db_path => catfile($self->o('output_dir'), $self->o('species').'_softmasked_toplevel.fa'),
+    password => '',
     user => 'ensadmin',
     user_r => 'ensro',
     pipe_db_host => 'mysql-ens-genebuild-prod-7',
     pipe_db_port => 4533,
 
-    db_prefix => '1',
+    db_prefix => $self->o('assembly_version'),
     pipeline_name => 'loutre_ensembl_'.$self->o('species').'_'.$self->o('db_prefix'),
+
+    assembly_version => 1,
+    current_release => 101,
+    current_db_host => 'mysql-ens-mirror-1',
+    current_db_port => 4240,
 
     havana_db_host => 'mysql-ens-genebuild-prod-2',
     havana_db_port => 4528,
 
-    ensembl_db_name => 'leanne_clupea_harengus_core_98',
-    ensembl_db_host => 'mysql-ens-genebuild-prod-2',
-    ensembl_db_port => 4528,
+    ensembl_db_name => $self->o('species').'_core_'.$self->o('current_release').'_'.$self->o('assembly_version'),
+    ensembl_db_host => $self->o('current_db_host'),
+    ensembl_db_port => $self->o('current_db_port'),
 
-    rnaseq_gene_db_name => 'leanne_clupea_harengus_rnaseq_layer_nr_98',
-    rnaseq_gene_db_host => 'mysql-ens-genebuild-prod-3',
-    rnaseq_gene_db_port => 4529,
+    rnaseq_gene_db_name => $self->o('species').'_rnaseq_'.$self->o('current_release').'_'.$self->o('assembly_version'),
+    rnaseq_gene_db_host => $self->o('current_db_host'),
+    rnaseq_gene_db_port => $self->o('current_db_port'),
 
-    refine_db_name => 'leanne_clupea_harengus_refine_98',
-    refine_db_host => 'mysql-ens-genebuild-prod-3',
-    refine_db_port => 4529,
+    refine_db_name => $self->o('species').'_rnaseq_'.$self->o('current_release').'_'.$self->o('assembly_version'),
+    refine_db_host => $self->o('current_db_host'),
+    refine_db_port => $self->o('current_db_port'),
 
-    rnaseq_db_host => 'mysql-ens-genebuild-prod-4',
-    rnaseq_db_port => 4530,
+    rnaseq_db_host => $self->o('havana_db_host'),
+    rnaseq_db_port => $self->o('havana_db_port'),
 
     do_uniprot_run => 1,
     uniprot_set => 'havana_human_blast',
     blast_type => 'ncbi',
-    full_repbase_logic_name => 'repeatmask_repbase_'.$self->o('species'),
+    protein_entry_loc => '/hps/nobackup2/production/ensembl/genebuild/blastdb/uniprot/uniprot_2019_04/entry_loc',
 
-    meta_pipeline_db_host => 'mysql-ens-genebuild-prod-7',
-    meta_pipeline_db_port => 4533,
+    meta_pipeline_db_host => $self->o('pipe_db_host'),
+    meta_pipeline_db_port => $self->o('pipe_db_port'),
 
-    blast_db_host => 'mysql-ens-genebuild-prod-3',
-    blast_db_port => 4529,
+    blast_db_host => $self->o('havana_db_host'),
+    blast_db_port => $self->o('havana_db_port'),
 
     killlist_db_host => 'mysql-ens-genebuild-prod-6',
     killlist_db_port => 4532,
@@ -123,9 +129,12 @@ sub default_options {
 
     otter_archive_rank => 100,
     otter_archive_coord_system_id => 10010,
+    gene_number_delimiter => '#',
 
     meta_pipeline_db_head => "'-dbname' => '#expr(#pipe_db#->{-dbname})expr#', '-host' => '#expr(#pipe_db#->{-host})expr#.ebi.ac.uk', '-port' => '#expr(#pipe_db#->{-port})expr#', '-user' => '".$self->o('user_r')."'",
     meta_pipeline_db_head_rw => "'-dbname' => '#expr(#pipe_db#->{-dbname})expr#', '-host' => '#expr(#pipe_db#->{-host})expr#.ebi.ac.uk', '-port' => '#expr(#pipe_db#->{-port})expr#', '-user' => '#expr(#pipe_db#->{-user})expr#', '-pass' => '#expr(#pipe_db#->{-pass})expr#'",
+    meta_core_db_head => "'-dbname' => '#expr(#havana_db#->{-dbname})expr#', '-host' => '#expr(#havana_db#->{-host})expr#.ebi.ac.uk', '-port' => '#expr(#havana_db#->{-port})expr#', '-user' => '".$self->o('user_r')."'",
+    meta_intron_db_head => "'-dbname' => '#expr(#rnaseq_db#->{-dbname})expr#', '-host' => '#expr(#rnaseq_db#->{-host})expr#.ebi.ac.uk', '-port' => '#expr(#rnaseq_db#->{-port})expr#', '-user' => '".$self->o('user_r')."'",
 
     ensembl_dir => catdir($self->o('enscode_root_dir'), 'ensembl'),
     ensembl_scripts => catdir($self->o('ensembl_dir'), 'misc-scripts'),
@@ -150,12 +159,12 @@ sub default_options {
     blast_db_pass   => $self->o('password'),
     blast_db_driver => $self->o('hive_driver'),
 
-    refine_db_name => $self->o('dbowner').'_'.$self->o('species').'_refine_'.$self->o('db_prefix'),
+    refine_db_name => $self->o('species').'_rnaseq_'.$self->o('current_release').'_'.$self->o('assembly_version'), # this would be _refine_ if the database has not been handed over yet
     refine_db_user   => $self->o('user_r'),
     refine_db_pass   => $self->o('password_r'),
     refine_db_driver => $self->o('hive_driver'),
 
-    rnaseq_gene_db_name => $self->o('dbowner').'_'.$self->o('species').'_rnaseq_blast_'.$self->o('db_prefix'),
+    rnaseq_gene_db_name => $self->o('species').'_rnaseq_'.$self->o('current_release').'_'.$self->o('assembly_version'), # this would be _rnaseq_blast_ if the database has not been handed over yet
     rnaseq_gene_db_user   => $self->o('user_r'),
     rnaseq_gene_db_pass   => $self->o('password_r'),
     rnaseq_gene_db_driver => $self->o('hive_driver'),
@@ -257,6 +266,7 @@ sub pipeline_analyses {
   if ($self->_is_second_pass('do_uniprot_run')) {
     if ($self->o('do_uniprot_run')) {
       ($pipedb, $url, $guiurl) = $self->get_meta_db_information($meta_pipeline_db);
+      $meta_pipeline_db = $self->o('blast_db');
     }
     else {
       $meta_pipeline_db = $self->o('havana_db');
@@ -316,9 +326,24 @@ sub pipeline_analyses {
       },
       -flow_into  => {
         1 => WHEN ('-e #blast_db_path#' => ['create_uniprot_pipeline_job'],
-             ELSE ['dump_softmasked_toplevel']),
+             ELSE ['retrieve_repeat_analyses']),
       },
       -rc_name => 'default',
+    },
+    {
+      -logic_name => 'retrieve_repeat_analyses',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+      -parameters => {
+        column_names => ['logic_name'],
+        db_conn => $self->o('ensembl_db'),
+        inputquery => "SELECT meta_value FROM meta WHERE meta_key = 'repeat.analysis' AND meta_value NOT IN ('trf', 'repeatmask_repeatmodeler')",
+        step => 8, # This is a trick to have the multiline result in on array and to have only one input_id. THe value should be higher than the number of expected lines
+      },
+      -rc_name => 'default',
+      -max_retry_count => 0,
+      -flow_into => {
+        2 => ['dump_softmasked_toplevel'],
+      }
     },
     {
       -logic_name => 'dump_softmasked_toplevel',
@@ -329,7 +354,7 @@ sub pipeline_analyses {
         output_path          => $self->o('output_dir'),
         enscode_root_dir     => $self->o('enscode_root_dir'),
         species_name         => $self->o('species'),
-        repeat_logic_names   => ['dust', $self->o('full_repbase_logic_name')],
+        repeat_logic_names   => '#_range_list#',
       },
       -flow_into => {
         1 => ['format_softmasked_toplevel'],
@@ -378,6 +403,7 @@ sub pipeline_analyses {
           user_r => $self->o('user_r'),
           meta_hive_capacity => $self->o('meta_hive_capacity'),
           uniprot_set => $self->o('uniprot_set'),
+          protein_entry_loc => $self->o('protein_entry_loc'),
         },
       },
       -rc_name      => 'default',
@@ -475,18 +501,91 @@ sub pipeline_analyses {
       },
       -rc_name => 'default',
       -flow_into => {
-        1 => 'load_feature_attributes',
+        1 => 'load_feature_status_attributes',
       }
     },
     {
-      -logic_name => 'load_feature_attributes',
+      -logic_name => 'load_feature_status_attributes',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
       -parameters => {
         db_conn => $self->o('havana_db'),
         sql => [
-          'INSERT INTO gene_attrib (gene_id, attrib_type_id, value) SELECT gene_id, attrib_type_id, "PUTATIVE" FROM gene, attrib_type WHERE attrib_type.code = "status"',
-          'INSERT INTO transcript_attrib (transcript_id, attrib_type_id, value) SELECT transcript_id, attrib_type_id, "PUTATIVE" FROM transcript, attrib_type WHERE attrib_type.code = "status"',
-          'INSERT INTO transcript_attrib SELECT transcript_id, 4, CONCAT(gene.gene_id, ".", gene.version, "-", SUBSTR(transcript.transcript_id, -3)) FROM transcript, gene WHERE transcript.gene_id = gene.gene_id',
+          'INSERT INTO gene_attrib SELECT gene_id, attrib_type_id, "PREDICTED" FROM gene, attrib_type WHERE attrib_type.code = "status"',
+          'INSERT INTO transcript_attrib SELECT transcript_id, attrib_type_id, "PREDICTED" FROM transcript, attrib_type WHERE attrib_type.code = "status"',
+        ],
+      },
+      -rc_name => 'default',
+      -flow_into => {
+        1 => 'load_evidence_table',
+      }
+    },
+    {
+      -logic_name => 'load_evidence_table',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => $self->o('havana_db'),
+        sql => [
+          'INSERT IGNORE INTO evidence SELECT t.transcript_id, xaf.hit_name, "cDNA" FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id LEFT JOIN dna_align_feature xaf ON tsf.feature_id = xaf.dna_align_feature_id WHERE tsf.feature_type = "dna_align_feature"',
+          'INSERT IGNORE INTO evidence SELECT et.transcript_id, xaf.hit_name, "cDNA" FROM exon_transcript et LEFT JOIN supporting_feature sf ON et.exon_id = sf.exon_id LEFT JOIN dna_align_feature xaf ON sf.feature_id = xaf.dna_align_feature_id WHERE sf.feature_type = "dna_align_feature"',
+          'INSERT IGNORE INTO evidence SELECT t.transcript_id, xaf.hit_name, "Protein" FROM transcript t LEFT JOIN transcript_supporting_feature tsf ON t.transcript_id = tsf.transcript_id LEFT JOIN protein_align_feature xaf ON tsf.feature_id = xaf.protein_align_feature_id WHERE tsf.feature_type = "protein_align_feature"',
+          'INSERT IGNORE INTO evidence SELECT et.transcript_id, xaf.hit_name, "Protein" FROM exon_transcript et LEFT JOIN supporting_feature sf ON et.exon_id = sf.exon_id LEFT JOIN protein_align_feature xaf ON sf.feature_id = xaf.protein_align_feature_id WHERE sf.feature_type = "protein_align_feature"',
+        ],
+      },
+      -rc_name => 'default',
+      -flow_into => {
+        1 => 'load_feature_gene_name_attributes',
+      }
+    },
+    {
+      -logic_name => 'load_feature_gene_name_attributes',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => $self->o('havana_db'),
+        sql => [
+          'INSERT INTO gene_attrib SELECT gene_id, attrib_type_id, stable_id FROM gene, attrib_type WHERE attrib_type.code = "name"',
+          'UPDATE gene g, gene_attrib ga, xref x, attrib_type at SET ga.value = x.display_label WHERE ga.attrib_type_id = at.attrib_type_id AND ga.gene_id = g.gene_id AND g.display_xref_id = x.xref_id AND at.code = "name"',
+        ],
+      },
+      -rc_name => 'default',
+      -flow_into => {
+        1 => 'fan_multiple_gene_names',
+        'A->1' => 'load_feature_transcript_name_attributes',
+      }
+    },
+    {
+      -logic_name => 'fan_multiple_gene_names',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+      -parameters => {
+        inputquery => 'SELECT ga.value FROM gene_attrib ga, attrib_type at WHERE ga.attrib_type_id = at.attrib_type_id AND at.code = "name" GROUP BY ga.value HAVING COUNT(*) > 2',
+        db_conn => $self->o('havana_db'),
+        column_names => ['gnee_name'],
+      },
+      -rc_name => 'default',
+      -flow_into => {
+        '2->A' => 'make_gene_names_unique',
+        'A->1' => 'load_feature_transcript_name_attributes',
+      }
+    },
+    {
+      -logic_name => 'make_gene_names_unique',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => $self->o('havana_db'),
+        sql => [
+          'SET @i:=0',
+          'UPDATE gene_attrib ga, attrib_type at SET ga.value = CONCAT(ga.value, "#gene_number_delimiter#", (@i:=@i+1)) WHERE ga.attrib_type_id = at.attrib_type_id AND at.code = "name" AND value = "#gene_name#"',
+        ],
+        gene_number_delimiter => $self->o('gene_number_delimiter'),
+      },
+      -rc_name => 'default',
+    },
+    {
+      -logic_name => 'load_feature_transcript_name_attributes',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => $self->o('havana_db'),
+        sql => [
+          'INSERT INTO transcript_attrib SELECT t.transcript_id, at.attrib_type_id, CONCAT(ga.value, "-", SUBSTRING(LPAD(t.transcript_id, 10, 0), -3, 3)) FROM transcript t, gene_attrib ga, attrib_type at WHERE t.gene_id = ga.gene_id AND at.code = "name" AND ga.attrib_type_id = at.attrib_type_id',
         ],
       },
       -rc_name => 'default',
@@ -501,10 +600,14 @@ sub pipeline_analyses {
         db_conn => $self->o('havana_db'),
         meta_pipeline_db_head => $self->o('meta_pipeline_db_head'),
         meta_pipeline_db_head_rw => $self->o('meta_pipeline_db_head_rw'),
+        meta_core_db_head => $self->o('meta_core_db_head'),
+        meta_intron_db_head => $self->o('meta_intron_db_head'),
         pipe_db => $meta_pipeline_db,
         sql => [
           'INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, "pipeline_db_head", "#meta_pipeline_db_head#")',
           'INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, "pipeline_db_rw_head", "#meta_pipeline_db_head_rw#")',
+          'INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, "ensembl_core_db_head", "#meta_core_db_head#")',
+          'INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, "ensembl_intron_db_head", "#meta_intron_db_head#")',
         ],
       },
       -rc_name => 'default',
@@ -517,16 +620,11 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
       -parameters => {
         db_conn => $self->o('havana_db'),
-        pipe_db => $meta_pipeline_db,
         sql => [
-          'SET @MAXID=(SELECT SUBSTRING(MAX(stable_id), 8) FROM gene)',
-          'INSERT INTO gene_stable_id_pool VALUES(@MAXID)',
-          'SET @MAXID=(SELECT SUBSTRING(MAX(stable_id), 8) FROM transcript)',
-          'INSERT INTO transcript_stable_id_pool VALUES(@MAXID)',
-          'SET @MAXID=(SELECT SUBSTRING(MAX(stable_id), 8) FROM translation)',
-          'INSERT INTO translation_stable_id_pool VALUES(@MAXID)',
-          'SET @MAXID=(SELECT SUBSTRING(MAX(stable_id), 8) FROM exon)',
-          'INSERT INTO exon_stable_id_pool VALUES(@MAXID)',
+          'INSERT INTO gene_stable_id_pool SELECT SUBSTRING(MAX(stable_id), 8) FROM gene',
+          'INSERT INTO transcript_stable_id_pool SELECT SUBSTRING(MAX(stable_id), 8) FROM transcript',
+          'INSERT INTO translation_stable_id_pool SELECT SUBSTRING(MAX(stable_id), 8) FROM translation',
+          'INSERT INTO exon_stable_id_pool SELECT SUBSTRING(MAX(stable_id), 8) FROM exon',
         ],
       },
       -rc_name => 'default',
@@ -546,6 +644,19 @@ sub pipeline_analyses {
           .' --dbname #expr(#db_conn#->{-dbname})expr#'
           .' --user #expr(#db_conn#->{-user})expr#'
           .' --pass #expr(#db_conn#->{-pass})expr#',
+      },
+      -flow_into => {
+        1 => 'load_otter_misc_set',
+      },
+      -rc_name => 'default',
+    },
+    # It needs to be after meta_levels as the script delete all meta key but does not set the misc_feature key
+    {
+      -logic_name => 'load_otter_misc_set',
+      -module     => 'AddVirtualClones',
+      -parameters => {
+        target_db => $self->o('havana_db'),
+        feature_dbs => [$self->o('havana_db')],
       },
       -flow_into => {
         1 => 'update_meta_coords',
@@ -592,7 +703,8 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'if [ "#rnaseq_gene_db#" = "#refine_db#" ]; then exit 42; fi',
         rnaseq_gene_db => $self->o('rnaseq_gene_db_name'),
-        refine_db => $self->o('refine_db'),
+        refine_db => $self->o('refine_db_name'),
+        return_codes_2_branches => {'42' => 2},
       },
       -flow_into => {
         1 => ['add_rnaseq_intron'],
@@ -620,12 +732,105 @@ sub pipeline_analyses {
           'DELETE FROM daf USING dna_align_feature daf, analysis a WHERE daf.analysis_id = a.analysis_id AND a.logic_name = "rough_transcripts"',
           'UPDATE analysis SET logic_name = CONCAT(logic_name, "_plus") WHERE logic_name LIKE "%_daf"',
           'INSERT INTO analysis (logic_name, module) SELECT REPLACE(logic_name, "_plus", "_minus"), module FROM analysis WHERE logic_name LIKE "%_daf_plus"',
-          'UPDATE dna_align_feature daf, analysis ap, analysis am SET daf.analysis_id = am.analysis_id WHERE daf.analysis_id = ap.analysis_id AND ap.logic_name LIKE "%_daf_plus" AND am.logic_name = REPLACE(ap.logic_name, "_plus", "_minus")',
+          'UPDATE dna_align_feature daf, analysis ap, analysis am SET daf.analysis_id = am.analysis_id WHERE daf.analysis_id = ap.analysis_id AND ap.logic_name LIKE "%_daf_plus" AND am.logic_name = REPLACE(ap.logic_name, "_plus", "_minus") AND daf.seq_region_strand = -1',
           'INSERT INTO analysis (logic_name) VALUES("non_canonical_plus"), ("non_canonical_minus")',
           'UPDATE dna_align_feature daf, analysis ap, analysis am SET daf.analysis_id = am.analysis_id WHERE daf.analysis_id = ap.analysis_id AND ap.logic_name LIKE "%_daf_plus" AND am.logic_name = "non_canonical_plus" AND hit_name LIKE "%:non %"',
           'UPDATE dna_align_feature daf, analysis ap, analysis am SET daf.analysis_id = am.analysis_id WHERE daf.analysis_id = ap.analysis_id AND ap.logic_name LIKE "%_daf_minus" AND am.logic_name = "non_canonical_minus" AND hit_name LIKE "%:non %"',
 
         ],
+      },
+      -rc_name => 'default',
+      -flow_into => {
+        1 => ['fan_rnaseq_config'],
+      },
+    },
+    {
+      -logic_name => 'fan_rnaseq_config',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+      -parameters => {
+        column_names => ['logic_name', 'otter_name', 'zmap_type'],
+        db_conn => $self->o('rnaseq_db'),
+        inputquery => 'SELECT logic_name, REPLACE(logic_name, "_daf", ""), SUBSTRING_INDEX(logic_name, "_", -1) FROM analysis WHERE logic_name LIKE "%daf%"',
+      },
+      -rc_name => 'default',
+      -max_retry_count => 0,
+      -flow_into => {
+        '2->A' => ['write_anaysis_config'],
+        'A->1' => ['write_swissprot_anaysis_config'],
+      }
+    },
+    {
+      -logic_name => 'write_anaysis_config',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'echo "#config_text# > #output_file#',
+        output_file => catfile($self->o('output_dir'), 'swissprot.part'),
+        species => $self->o('species'),
+        config_text => '[#species#.filter.#otter_name#]\n
+        analysis=#logic_name#\n
+        classification=RNA-seq > Introns\n
+        server_script=get_gff/features\n
+        metakey=ensembl_rnaseq_intron\n
+        description=Introns confirmed by spanning RNASeq reads with number of supporting reads\n
+        feature_kind=DnaDnaAlignFeature\n
+        zmap_column=rnaseq_introns_#zmap_type#\n
+        zmap_style=ensembl_rnaseq_intron\n',
+      },
+      -rc_name => 'default',
+    },
+    {
+      -logic_name => 'write_swissprot_anaysis_config',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'echo "#config_text# > #output_file#',
+        output_file => catfile($self->o('output_dir'), 'swissprot.part'),
+        species => $self->o('species'),
+        config_text => '[#species#.filter.SwissProt]\n
+        classification=core\n
+        server_script=get_gff/features\n
+        analysis=uniprot_sp\n
+        description=SwissProt protein tblastn hits\n
+        feature_kind=DnaPepAlignFeature\n
+        content_type=alignment_feature\n
+        resource_bin=core_with_seq\n
+        sequence_db=uniprot,uniprot_archive\n
+        blixem_data_type=protein-match\n\n',
+      },
+      -flow_into => {
+        1 => ['write_trembl_anaysis_config'],
+      },
+      -rc_name => 'default',
+    },
+    {
+      -logic_name => 'write_trembl_anaysis_config',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'echo "#config_text# > #output_file#',
+        output_file => catfile($self->o('output_dir'), 'trembl.part'),
+        species => $self->o('species'),
+        config_text => '[#species#.filter.TrEMBL]\n
+        classification=core\n
+        server_script=get_gff/features\n
+        analysis=uniprot_tr\n
+        description=TrEMBL protein tblastn hits\n
+        feature_kind=DnaPepAlignFeature\n
+        content_type=alignment_feature\n
+        resource_bin=core_with_seq\n
+        sequence_db=uniprot,uniprot_archive\n
+        blixem_data_type=protein-match\n\n',
+      },
+      -rc_name => 'default',
+      -flow_into => {
+        1 => ['concat_anaysis_config'],
+      },
+    },
+    {
+      -logic_name => 'concat_anaysis_config',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'cat "#output_dir#/*.part > #output_file#',
+        output_file => catfile($self->o('output_dir'), 'otter_config.ini'),
+        output_dir => $self->o('output_dir'),
       },
       -rc_name => 'default',
     },

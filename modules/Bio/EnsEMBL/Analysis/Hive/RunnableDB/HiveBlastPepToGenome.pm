@@ -125,7 +125,7 @@ sub fetch_input{
   }
 
   foreach my $seq (@{$query_seqs}) {
-    if ($seq->namespace =~ /_tr_/) {
+    if ($seq->namespace =~ /_tr/) {
       $analysis = $analysis_hash{tr};
     }
     else {
