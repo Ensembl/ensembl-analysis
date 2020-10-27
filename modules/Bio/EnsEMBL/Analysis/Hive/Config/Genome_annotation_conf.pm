@@ -82,6 +82,7 @@ sub default_options {
     'species_url'               => '', # sets species.url meta key
     'species_division'          => 'EnsemblVertebrates', # sets species.division meta key
     'stable_id_start'           => '0', # When mapping is not required this is usually set to 0
+    'skip_initial_data_check'   => '0', # Will skip initial checks if 1
     'skip_repeatmodeler'        => '0', # Skip using our repeatmodeler library for the species with repeatmasker, will still run standard repeatmasker
     'skip_post_repeat_analyses' => '0', # Will everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
     'skip_projection'           => '0', # Will skip projection process if 1
@@ -1731,9 +1732,80 @@ sub pipeline_analyses {
         -rc_name    => 'default',
 
         -flow_into  => {
-                         1 => ['create_registry'],
+                         1 => ['check_initial_data'],
                        },
       },
+
+
+# TODO: here is going to be the check
+
+      {
+      	-logic_name => 'check_initial_data', 
+      	-module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCheckInitialData', 
+        -parameters => {
+        	# skip all checks -> add this parameter
+            skip_initial_data_check => $self->o('skip_initial_data_check'),
+        	# skips checks
+            skip_rnaseq => $self->o('skip_rnaseq'),
+            skip_long_read => $self->o('skip_long_read'),
+            skip_projection => $self->o('skip_projection'),
+        	
+        	# csv files checks 
+        	lr_csv => $self->o('long_read_summary_file'), 
+        	lr_gn_csv => $self->o('long_read_summary_file_genus'), 
+        	rnaseq_csv => $self->o('rnaseq_summary_file'),
+        	rnaseq_gn_csv => $self->o('rnaseq_summary_file_genus'),        	
+        	# find species info 
+            source_db => $self->o('dna_db'),
+        },
+        -flow_into  => {
+          '1->A' => ['fan_rnaseq_read_create_dbs'],
+          'A->1' => ['create_registry'],
+        },
+        -rc_name    => 'default',
+      },
+
+      {
+      
+        -logic_name => 'fan_rnaseq_read_create_dbs', 
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'if [ "#skip_rnaseq#" -ne "1" ]; then exit 42; else exit 0;fi',
+                         return_codes_2_branches => {'42' => 2},
+                       },
+        -rc_name => 'default',
+        -flow_into  => {
+          '1' => ['create_rnaseq_layer_nr_db_tmp'],
+         }, 
+         -rc_name => 'default',          
+         
+      },
+
+      {
+        -logic_name => 'create_rnaseq_layer_nr_db_tmp',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('rnaseq_for_layer_nr_db'),
+                         create_type => 'clone',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        '1' => ['create_genblast_rnaseq_nr_db_tmp'],
+                      },
+      },
+
+      {
+        -logic_name => 'create_genblast_rnaseq_nr_db_tmp',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('genblast_rnaseq_support_nr_db'),
+                         create_type => 'clone',
+                       },
+        -rc_name    => 'default',
+      },
+
 
      {
         -logic_name => 'create_registry',
@@ -1774,8 +1846,8 @@ sub pipeline_analyses {
         -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadRefSeqSynonyms',
         -parameters => {
                          'target_db'        => $self->o('reference_db'),
-			 'output_dir'       => $self->o('output_path'),
-			 'url'              => $self->o('refseq_report_ftp_path'),
+                         'output_dir'       => $self->o('output_path'),
+                         'url'              => $self->o('refseq_report_ftp_path'),
                        },
         -rc_name => 'default',
         -flow_into  => {
@@ -6335,11 +6407,6 @@ sub pipeline_analyses {
         -flow_into => {
           1 => ['create_rnaseq_layer_nr_db'],
         },
-
-#        -flow_into => {
-#          1 => ['create_lincrna_db'],
-#        },
-
         -rc_name    => '4GB',
       },
 
