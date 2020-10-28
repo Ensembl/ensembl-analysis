@@ -1736,9 +1736,6 @@ sub pipeline_analyses {
                        },
       },
 
-
-# TODO: here is going to be the check
-
       {
       	-logic_name => 'check_initial_data', 
       	-module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCheckInitialData', 
@@ -1749,14 +1746,13 @@ sub pipeline_analyses {
             skip_rnaseq => $self->o('skip_rnaseq'),
             skip_long_read => $self->o('skip_long_read'),
             skip_projection => $self->o('skip_projection'),
-        	
         	# csv files checks 
         	lr_csv => $self->o('long_read_summary_file'), 
         	lr_gn_csv => $self->o('long_read_summary_file_genus'), 
         	rnaseq_csv => $self->o('rnaseq_summary_file'),
         	rnaseq_gn_csv => $self->o('rnaseq_summary_file_genus'),        	
-        	# find species info 
-            source_db => $self->o('dna_db'),
+        	# taxonomy info 
+        	clade => $self->o('uniprot_set'), 
         },
         -flow_into  => {
           '1->A' => ['fan_rnaseq_read_create_dbs'],

@@ -27,7 +27,7 @@ Questions may also be sent to the Ensembl help desk at
 
 Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCheckInitialData
 
-check if data for this annotation 
+check if data are enough for this annotation 
 
 =cut
 
@@ -48,81 +48,84 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-    # skip_initial_data_check => 0, # if set to 1, it will skip checks 
-
   }
-}
-
-=head2 fetch_input
-
- Arg [1]    : None
- Description: fetch the main variable that will be checked
- Returntype : None
- Exceptions : 
-
-=cut
-
-sub fetch_input {
-  my $self = shift;
-
-print "DEBUG::" . $self->param_is_defined('skip_initial_data_check') . "\n"; 
-  if ($self->param_is_defined('skip_initial_data_check') == 20) {
-    $self->complete_early('You asked to skip this analysis');
-  }
-
 }
 
 
 =head2 run
 
  Arg [1]    : None
- Description: Checks there are enough data and if all files if they are available
+ Description: It checks if there are enough data and if all files they are available
  Returntype : None
- Exceptions : 
+ Exceptions : Throws if you may not have enough data for the genebuild
 
 =cut
 
 sub run {
-  my ($self) = @_;
+  my $self = shift;
+  
+  if ($self->param('skip_initial_data_check') == 1) { 
+    $self->complete_early('You asked to skip this analysis'); 
+  }
+  if ( ($self->param('clade') eq "mammals_basic") or ($self->param('clade') eq "primates_basic") ) { 
+  	$self->complete_early('Your clade setting is ok for this genebuild'); 
+  }
+    
   my $lr_csv = $self->param('lr_csv');
   my $lr_gn_csv = $self->param('lr_gn_csv');
   my $rnaseq_csv = $self->param('rnaseq_csv');
   my $rnaseq_gn_csv = $self->param('rnaseq_gn_csv');
   
-  if ( ($self->param_is_defined('skip_rnaseq') == 1 ) 
-   and ($self->param_is_defined('skip_long_read') == 1 ) 
-   and ($self->param_is_defined('skip_projection') == 1 ) ) {
-    $self->throw("You will have very few resources to build models. Set skip_initial_data_check to 1 
-      and continue only if you know what you are doing");
+  if ( ($self->param('skip_rnaseq') == 1 ) 
+  and ($self->param('skip_long_read') == 1 ) 
+  and ($self->param('skip_projection') == 1 ) ) {
+    $self->throw("You have very few resources to build models. Set skip_initial_data_check to 1 
+      and run again if you know what you are doing!");
   }
-   
+  
+  my $lr_csv_exists = 1; 
   if(!-e $lr_csv) {
     say $lr_csv.' does not exist'; 
-    if ($self->param_is_defined('skip_long_read') == 0 ) {
-    	say 'This is not good'; 
-    }
+    $lr_csv_exists = 0; 
   }
-  
+
+  my $lr_gn_csv_exists = 1; 
   if(!-e $lr_gn_csv) {
     say $lr_gn_csv.' does not exist';
+    $lr_gn_csv_exists = 0;
   }  
 
-  if(!-e $rnaseq_csv) {
-    say $rnaseq_csv.' does not exist';
-    if ($self->param_is_defined('skip_rnaseq') == 0 ) {
-      $self->throw("You thought there are rnaseq data, but there are not. Set skip_initial_data_check to 1 
-        and continue only if you know what you are doing"); 
-    }
+  if ( ($lr_gn_csv_exists+$lr_csv_exists <1) and ( $self->param_is_defined('skip_long_read') == 0 ) ) {
+    say 'Update or check your skip_long_read parameter. It looks like there are no data. \n'; 
+  } elsif ( ($lr_gn_csv_exists+$lr_csv_exists >1) and ( $self->param_is_defined('skip_long_read') == 1 ) ) {
+  	$self->throw("There are data. Why to skip it?"); 
   }
-  
-  if(!-e $rnaseq_gn_csv) {
+
+  my $rnaseq_csv_exists = 1; 
+  if (!-e $rnaseq_csv) { 
+    say $rnaseq_csv.' does not exist';
+    $rnaseq_csv_exists = 0; 
+  } 
+
+  my $rnaseq_gn_csv_exists = 1; 
+  if (!-e $rnaseq_gn_csv) {
+    $rnaseq_gn_csv_exists = 0; 
     say $rnaseq_gn_csv.' does not exist';
   }  
-  
-}
 
+  if ( ($rnaseq_csv_exists+$rnaseq_gn_csv_exists <1) and ( $self->param_is_defined('skip_rnaseq') == 0 ) ) {
+    say 'Update or check your skip_rnaseq parameter. It looks like there are no data. \n'; 
+  }
+  
+  if ($lr_gn_csv_exists+$lr_csv_exists+$rnaseq_csv_exists+$rnaseq_gn_csv_exists < 1) {
+  	$self->throw("There are not enough data. Missing data. "); 
+  }
+
+} 
 
 sub write_output {
   my ($self) = @_;
 }
+
 1; 
+
