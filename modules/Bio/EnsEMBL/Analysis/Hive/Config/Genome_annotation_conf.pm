@@ -8367,8 +8367,8 @@ sub pipeline_analyses {
           sql => [
             'UPDATE gene, analysis SET gene.analysis_id = analysis.analysis_id WHERE analysis.logic_name = "cdna_alignment"',
             'UPDATE transcript join gene using(gene_id) set transcript.analysis_id=gene.analysis_id',
-            'UPDATE gene set biotype="cdna"',
-            'UPDATE transcript set biotype="cdna"',
+            'UPDATE gene set biotype="cDNA"',
+            'UPDATE transcript set biotype="cDNA"',
             'UPDATE dna_align_feature, analysis SET dna_align_feature.analysis_id = analysis.analysis_id WHERE analysis.logic_name = "cdna_alignment"',
           ],
         },
