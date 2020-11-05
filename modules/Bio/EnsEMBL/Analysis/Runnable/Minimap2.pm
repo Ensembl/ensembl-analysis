@@ -60,6 +60,7 @@ use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Exon;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(is_canonical_splice);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(align_proteins);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
@@ -80,7 +81,7 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($genome_index, $input_file, $paftools_path, $database_adaptor, $delete_input_file, $skip_introns_check, $add_offset, $skip_compute_translation) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR DELETE_INPUT_FILE SKIP_INTRONS_CHECK ADD_OFFSET SKIP_COMPUTE_TRANSLATION)],@args);
+  my ($genome_index, $input_file, $paftools_path, $database_adaptor, $delete_input_file, $skip_introns_check, $add_offset, $skip_compute_translation, $sensitive) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR DELETE_INPUT_FILE SKIP_INTRONS_CHECK ADD_OFFSET SKIP_COMPUTE_TRANSLATION SENSITIVE)],@args);
   $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->paftools_path($paftools_path);
@@ -89,6 +90,7 @@ sub new {
   $self->skip_introns_check($skip_introns_check);
   $self->add_offset($add_offset);
   $self->skip_compute_translation($skip_compute_translation);
+  $self->sensitive($sensitive);
   return $self;
 }
 
@@ -123,8 +125,13 @@ sub run {
     $self->throw("Paftools path was empty");
   }
 
+  my $splice_type = "splice:hq";
   # run minimap2
-  my $minimap2_command = $self->program." --cs -N 1 -ax splice:hq -u b ".$genome_index." ".$input_file." > ".$sam_file;
+  if($self->sensitive()) {
+    $splice_type = "splice";
+  }
+
+  my $minimap2_command = $self->program." --cs --secondary=no -ax ".$splice_type." -u b ".$genome_index." ".$input_file." > ".$sam_file;
   $self->warning("Command:\n".$minimap2_command."\n");
   if(system($minimap2_command)) {
     $self->throw("Error running minimap2\nError code: $?\n");
@@ -342,6 +349,7 @@ sub parse_results {
     $gene->description($percent_identity);
 
     my $transcript = ${$gene->get_all_Transcripts}[0];
+
     unless($self->skip_introns_check()) {
       my $introns = $transcript->get_all_Introns;
       my $intron_count = scalar(@$introns);
@@ -537,6 +545,17 @@ sub skip_compute_translation {
   }
 
   return $self->{_skip_compute_translation};
+}
+
+
+sub sensitive {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_sensitive} = $val;
+  }
+
+  return $self->{_sensitive};
 }
 
 1;

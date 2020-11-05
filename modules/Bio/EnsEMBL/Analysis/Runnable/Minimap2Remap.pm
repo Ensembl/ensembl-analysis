@@ -52,10 +52,12 @@ package Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap;
 use warnings;
 use strict;
 use feature 'say';
+use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::Runnable::Minimap2;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(set_alignment_supporting_features);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_proteins);
 use File::Spec;
 use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -78,7 +80,7 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($genome_index, $input_file, $paftools_path, $source_adaptor, $target_adaptor, $delete_input_file, $parent_gene_ids) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH SOURCE_ADAPTOR TARGET_ADAPTOR DELETE_INPUT_FILE PARENT_GENE_IDS)],@args);
+  my ($genome_index, $input_file, $paftools_path, $source_adaptor, $target_adaptor, $delete_input_file, $parent_gene_ids, $gene_synteny_hash) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH SOURCE_ADAPTOR TARGET_ADAPTOR DELETE_INPUT_FILE PARENT_GENE_IDS GENE_SYNTENY_HASH)],@args);
   $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->paftools_path($paftools_path);
@@ -86,6 +88,7 @@ sub new {
   $self->target_adaptor($target_adaptor);
   $self->delete_input_file($delete_input_file);
   $self->parent_gene_ids($parent_gene_ids);
+  $self->gene_synteny_hash($gene_synteny_hash);
   return $self;
 }
 
@@ -110,7 +113,7 @@ sub run {
   my $options = $self->options;
 
   # run minimap2
-  my $minimap2_command = $self->program." --cs --secondary=no -x map-pb ".$genome_index." ".$input_file." > ".$paf_file;
+  my $minimap2_command = $self->program." --cs --secondary=no -x map-ont ".$genome_index." ".$input_file." > ".$paf_file;
   $self->warning("Command:\n".$minimap2_command."\n");
   if(system($minimap2_command)) {
     $self->throw("Error running minimap2\nError code: $?\n");
@@ -199,8 +202,11 @@ sub process_results {
   my $source_gene = $source_gene_adaptor->fetch_by_dbID($source_gene_id);
   my $source_transcripts = $source_gene->get_all_Transcripts();
 
+  my $source_transcript_id_hash = {};
   my $source_transcript_fasta_seqs = [];
   foreach my $source_transcript (@$source_transcripts) {
+    my $source_transcript_id = $source_transcript->dbID();
+    $source_transcript_id_hash->{$source_transcript_id} = $source_transcript;
     my $source_transcript_sequence = $source_transcript->seq->seq();
     my $fasta_record = ">".$source_transcript->dbID()."\n".$source_transcript_sequence;
     push(@$source_transcript_fasta_seqs,$fasta_record);
@@ -235,13 +241,31 @@ sub process_results {
 
       my $parent_gene_id = $parent_gene_ids->{$transcript->stable_id()}->{'gene_id'};
       my $biotype_group = $parent_gene_ids->{$transcript->stable_id()}->{'biotype_group'};
+      my $is_canonical = $parent_gene_ids->{$transcript->stable_id()}->{'is_canonical'};
+
+      # Don't see how this would work, but will test
+      if($is_canonical) {
+        $transcript->is_canonical(1);
+      }
 
       unless($final_gene_hash->{$parent_gene_id}) {
         $final_gene_hash->{$parent_gene_id} = [];
       }
 
+      my $transcript_id = $transcript->stable_id();
+      my $source_transcript = $source_transcript_id_hash->{$transcript_id};
+
       if($biotype_group eq 'coding') {
         compute_translation($transcript);
+        set_alignment_supporting_features($transcript,$source_transcript->translation()->seq(),$transcript->translation()->seq());
+      }
+
+      my ($coverage,$percent_id) = (0,0);
+      ($coverage,$percent_id) = align_proteins($source_transcript->seq->seq(),$transcript->seq->seq());
+      if($coverage >= 95 && $percent_id > 90) {
+        $transcript->biotype($source_transcript->biotype());
+      } else {
+        $transcript->biotype($source_transcript->biotype()."_weak");
       }
 
       push(@{$final_gene_hash->{$parent_gene_id}},$transcript);
@@ -252,11 +276,28 @@ sub process_results {
   foreach my $gene_id (keys(%{$final_gene_hash})) {
     my $transcripts = $final_gene_hash->{$gene_id};
     my $gene = Bio::EnsEMBL::Gene->new(-analysis => $self->analysis);
+
+    # Should change this at some point to have a separate has for gene meta data to be tidy
+    my $parent_gene_id = $parent_gene_ids->{${$transcripts}[0]->stable_id()}->{'gene_id'};
+    my $parent_gene_stable_id = $parent_gene_ids->{${$transcripts}[0]->stable_id()}->{'gene_stable_id'};
+    my $parent_gene_version = $parent_gene_ids->{${$transcripts}[0]->stable_id()}->{'gene_version'};
+    my $parent_gene_biotype = $parent_gene_ids->{${$transcripts}[0]->stable_id()}->{'gene_biotype'};
+
     foreach my $transcript (@$transcripts) {
+      my $parent_transcript_stable_id = $parent_gene_ids->{$transcript->stable_id()}->{'transcript_stable_id'};
+      my $parent_transcript_version = $parent_gene_ids->{$transcript->stable_id()}->{'transcript_version'};
+      $transcript->stable_id($parent_transcript_stable_id);
+      $transcript->version($parent_transcript_version);
       $gene->add_Transcript($transcript);
     }
+
+    $gene->{'parent_gene_id'} = $parent_gene_id;
+    $gene->stable_id($parent_gene_stable_id);
+    $gene->version($parent_gene_version);
+    $gene->biotype($parent_gene_biotype);
     push(@$final_genes, $gene);
   }
+
 
   $self->output($final_genes);
   return($high_confidence);
@@ -363,5 +404,17 @@ sub parent_gene_ids {
 
   return $self->{_parent_gene_ids};
 }
+
+
+sub gene_synteny_hash {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_gene_synteny_hash} = $val;
+  }
+
+  return $self->{_gene_synteny_hash};
+}
+
 
 1;

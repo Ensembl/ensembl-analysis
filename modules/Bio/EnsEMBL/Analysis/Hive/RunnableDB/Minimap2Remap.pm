@@ -82,19 +82,80 @@ sub fetch_input {
     push(@$input_genes,@$genes);
   }
 
+############################################
+# TEST
+
+#  my $all_slices = $slice_adaptor->fetch_all('toplevel');
+#  foreach my $slice (@$all_slices) {
+#    my $genes = $slice->get_all_Genes();
+#    push(@$input_genes,@$genes);
+#  }
+
+############################################
+
+  say "Processing ".scalar(@$input_genes)." genes";
+
+
+################
+# Put in code to sort input genes (might just be pre sorted by api, but just in case)
+# Then for each gene record two genes to the left and right. Store these in a gene based hash
+# Each key in the hash should be a gene id that points at up to 4 other gene ids that are keys on a hash
+# Later on, once the final mapped set has been created and sorted, it will look at the current gene id
+# and get the gene ids to the left and right and then compare them to the entries in the hash created now
+# If we have two or more matches then the we can be confident in the gene's location
+################
+
+  my $sorted_input_genes = [sort { $a->slice->name() cmp $b->slice->name() or
+                                   $a->start() <=> $b->start() or
+                                   $a->end() <=> $b->end() }  @{$input_genes}];
+
+  my $gene_synteny_hash = {};
 
   my $parent_gene_id_hash = {};
   my $genomic_reads = [];
-  say "Processing ".scalar(@$input_genes)." genes";
-  foreach my $gene (@$input_genes) {
+#  foreach my $gene (@$sorted_input_genes) {
+  for(my $i=0; $i<scalar(@$sorted_input_genes); $i++) {
+    my $gene = ${$sorted_input_genes}[$i];
     my $gene_id = $gene->dbID();
+    my $gene_stable_id = $gene->stable_id();
+    my $gene_version = $gene->version();
+    my $gene_biotype = $gene->biotype();
+
+    # Store the ids of up to four genes, two upstream and two downstream around the current gene
+    if($i-1 >= 0 && ${$sorted_input_genes}[$i-1]->slice->name() eq $gene->slice->name()) {
+      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i-1]->dbID()} = 1;
+    }
+
+    if($i-2 >= 0 && ${$sorted_input_genes}[$i-2]->slice->name() eq $gene->slice->name()) {
+      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i-2]->dbID()} = 1;
+    }
+
+    if($i+1 < scalar(@$sorted_input_genes) && ${$sorted_input_genes}[$i+1]->slice->name() eq $gene->slice->name()) {
+      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i+1]->dbID()} = 1;
+    }
+
+    if($i+2 < scalar(@$sorted_input_genes) && ${$sorted_input_genes}[$i+2]->slice->name() eq $gene->slice->name()) {
+      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i+2]->dbID()} = 1;
+    }
+
+
     my $transcripts = $gene->get_all_Transcripts();
     foreach my $transcript (@$transcripts) {
       my $transcript_id = $transcript->dbID();
+      my $transcript_stable_id = $transcript->stable_id();
+      my $transcript_version = $transcript->version();
       my $biotype = $transcript->get_Biotype();
       my $biotype_group = $biotype->biotype_group();
+      my $is_canonical = $transcript->is_canonical;
+
       $parent_gene_id_hash->{$transcript_id}->{'gene_id'} = $gene_id;
+      $parent_gene_id_hash->{$transcript_id}->{'gene_stable_id'} = $gene_stable_id;
+      $parent_gene_id_hash->{$transcript_id}->{'gene_version'} = $gene_version;
+      $parent_gene_id_hash->{$transcript_id}->{'gene_biotype'} = $gene_biotype;
+      $parent_gene_id_hash->{$transcript_id}->{'transcript_stable_id'} = $transcript_stable_id;
+      $parent_gene_id_hash->{$transcript_id}->{'transcript_version'} = $transcript_version;
       $parent_gene_id_hash->{$transcript_id}->{'biotype_group'} = $biotype_group;
+      $parent_gene_id_hash->{$transcript_id}->{'is_canonical'} = $is_canonical;
     }
 
     my $slice = $gene->slice();
@@ -115,8 +176,9 @@ sub fetch_input {
     my $genomic_seq = ${ $sequence_adaptor->fetch_by_Slice_start_end_strand($slice, $region_start, $region_end, $strand) };
     my $fasta_record = ">".$gene_id."\n".$genomic_seq;
     push(@$genomic_reads, $fasta_record);
-  } #close foreach input_gene
+  } #close foreach sorted_input_gene
 
+  $self->param('gene_synteny_hash',$gene_synteny_hash);
   my $input_file = $self->write_input_file($genomic_reads);
   $self->param('input_file',$input_file);
 
@@ -128,12 +190,76 @@ sub fetch_input {
        -paftools_path     => $self->param('paftools_path'),
        -genome_index      => $self->param_required('genome_index'),
        -input_file        => $input_file,
-       -source_adaptor  => $source_gene_dba,
-       -target_adaptor  => $target_gene_dba,
-       -parent_gene_ids => $parent_gene_id_hash,
+       -source_adaptor    => $source_gene_dba,
+       -target_adaptor    => $target_gene_dba,
+       -parent_gene_ids   => $parent_gene_id_hash,
+       -gene_synteny_hash => $gene_synteny_hash,
   );
   $self->runnable($runnable);
 }
+
+
+sub run {
+  my ($self) = @_;
+  $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
+  foreach my $runnable(@{$self->runnable}){
+    $runnable->run;
+    if ($self->can('filter_results')) {
+      $self->output($self->filter_results($runnable->output));
+    }
+    else {
+      $self->output($runnable->output);
+    }
+  }
+
+  my $final_genes = $self->output();
+  my $sorted_final_genes = [sort { $a->slice->name() cmp $b->slice->name() or
+                                   $a->start() <=> $b->start() or
+                                   $a->end() <=> $b->end() }  @{$final_genes}];
+
+  my $gene_synteny_hash = $self->param('gene_synteny_hash');
+  for(my $i=0; $i<scalar(@$sorted_final_genes); $i++) {
+    my $gene = ${$sorted_final_genes}[$i];
+    my $gene_id = $gene->{'parent_gene_id'};
+    my $synteny_score = 0;
+    say "FERGAL SYN GID: ".$gene_id;
+    say "FERGAL SYN DMP: ".Dumper($gene_synteny_hash->{$gene_id});
+    say "FERGAL SYN SLC: ".$gene->slice->name();
+
+
+    # Store the ids of up to four genes, two upstream and two downstream around the current gene
+    if($i-1 >= 0 && ${$sorted_final_genes}[$i-1]->slice->name() eq $gene->slice->name() &&
+       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i-1]->{'parent_gene_id'}}) {
+#       my $flanking_gene_id = ${$sorted_final_genes}[$i-1]->{'parent_gene_id'};
+#       say "FERGAL SYN FLK: ".$flanking_gene_id;
+       $synteny_score++;
+     }
+
+    if($i-2 >= 0 && ${$sorted_final_genes}[$i-2]->slice->name() eq $gene->slice->name() &&
+       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i-2]->{'parent_gene_id'}}) {
+       $synteny_score++;
+     }
+
+    if($i+1 < scalar(@$sorted_final_genes) && ${$sorted_final_genes}[$i+1]->slice->name() eq $gene->slice->name() &&
+       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i+1]->{'parent_gene_id'}}) {
+       $synteny_score++;
+     }
+
+    if($i+2 < scalar(@$sorted_final_genes) && ${$sorted_final_genes}[$i+2]->slice->name() eq $gene->slice->name() &&
+       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i+2]->{'parent_gene_id'}}) {
+       $synteny_score++;
+    }
+
+    say "FERGAL SYNTENY SCORE: ".$synteny_score;
+    if($synteny_score < 2) {
+      $gene->description("weak synteny");
+    }
+
+  }
+
+  return $self->output;
+}
+
 
 
 sub write_output {
