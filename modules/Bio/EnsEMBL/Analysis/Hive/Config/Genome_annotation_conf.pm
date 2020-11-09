@@ -8184,7 +8184,7 @@ sub pipeline_analyses {
           db_conn => $self->o('reference_db'),
           sql => [
             'DELETE FROM analysis WHERE logic_name IN'.
-              ' ("spliced_elsewhere","pseudogenes","genblast","genblast_not_best","project_pseudogene",'.
+              ' ("spliced_elsewhere","pseudogenes","genblast","genblast_not_best","project_pseudogene","blast_long_read",'.
               ' "project_lincrna","project_transcripts","ig_tr_collapse", "exonerate", "cdna2genome", "best_targetted")',
             'DELETE FROM ad USING analysis_description ad LEFT JOIN analysis a ON ad.analysis_id = a.analysis_id'.
               ' WHERE a.analysis_id IS NULL',
