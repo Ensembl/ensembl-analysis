@@ -8807,10 +8807,24 @@ sub pipeline_analyses {
         -max_retry_count => 0,
         -rc_name => '8GB',
         -flow_into => {
-                        1 => ['rnaseq_gene_sanity_checks'],
+                        1 => ['null_rnaseq_columns'],
                       },
       },
 
+      {
+        -logic_name => 'null_rnaseq_columns',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn => $self->o('rnaseq_db'),
+          sql => [
+            'UPDATE dna_align_feature SET external_db_id = NULL',
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['rnaseq_gene_sanity_checks'],
+                      },
+      },
 
       {
         -logic_name => 'rnaseq_gene_sanity_checks',
