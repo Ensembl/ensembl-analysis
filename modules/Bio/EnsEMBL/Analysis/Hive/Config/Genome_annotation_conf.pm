@@ -8822,6 +8822,21 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into => {
+                        1 => ['rnaseq_set_align_type'],
+                      },
+      },
+
+      {
+        -logic_name => 'rnaseq_set_align_type',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn => $self->o('rnaseq_db'),
+          sql => [
+            'UPDATE dna_align_feature SET align_type = "ensembl"',
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
                         1 => ['rnaseq_gene_sanity_checks'],
                       },
       },
