@@ -103,7 +103,7 @@ sub run {
       if (index($response->content(), '>') == 0) {
         if (open(my $fh,'>',$filename)) {
           print $fh $response->content();
-          close $fh;
+          close($fh) || $self->throw("Could not close the file '$filename'");
         } else {
           $self->throw("Could not open file $filename\n");
         }
