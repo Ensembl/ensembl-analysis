@@ -7,6 +7,7 @@ use POSIX;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 use Bio::EnsEMBL::IntronSupportingEvidence;
+use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses;
 
 sub param_defaults {
   my ($self) = @_;
@@ -32,24 +33,10 @@ sub fetch_input {
 
   my $source_db = $self->get_database_by_name('source_db');
   $self->hrdb_set_con($source_db,'source_db');
-  $self->hrdb_set_con($source_db,'target_db');
+#  $self->hrdb_set_con($source_db,'target_db');
 
   my $output_dba = $self->hrdb_get_dba($self->param('intron_db'));
   $self->param('_output_dba',$output_dba);
-
-  if($self->param('use_genome_flatfile')) {
-    say "Ingoring dna table and using fasta file for sequence fetching";
-    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
-      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
-    }
-    setup_fasta(
-                 -FASTA => $self->param_required('genome_file'),
-               );
-    } else {
-    say "Attaching dna db";
-    my $dna_dba = $self->get_database_by_name('dna_db');
-    $source_db->dnadb($dna_dba);
-  }
 
   my $junction_files;
   if($self->param('star_junctions_dir')) {
@@ -63,12 +50,6 @@ sub fetch_input {
     $self->throw("No junction files found, something has gone wrong");
   }
   $self->param('_junction_files',$junction_files);
-
-  my $slice = $source_db->get_SliceAdaptor->fetch_by_name($self->input_id);
-  my $exons = $slice->get_all_Exons();
-
-  $self->param('_exons_on_slice',$exons);
-
 }
 
 sub run {
@@ -80,13 +61,35 @@ sub run {
   my $small_intron_size = $self->param('small_intron_size');
   my $min_intron_depth = $self->param('min_intron_depth');
 
-  my $analysis_id=9000;
+  my $ise_table = {};
+  my @analyses;
   foreach my $junction_file (@$junction_files) {
     unless(-e $junction_file) {
       $self->throw("The STAR splice junction file in the input id does not exist. Path provided:\n".$junction_file);
     }
 
     print "Parsing junction file: ".$junction_file."\n";
+
+    my $csv_data_adaptor = $self->db->get_NakedTableAdaptor;
+    $csv_data_adaptor->table_name('csv_data');
+    my $srr = (split'\/', $junction_file)[-1];
+    $srr =~ s/_.*//;
+    my $results = $csv_data_adaptor->fetch_all();
+    my $logic_name;
+    for my $row (@$results){
+      if ($row->{$self->param('sample_id_column')} eq $srr){
+	$logic_name = $row->{$self->param('sample_column')}
+      }
+    }
+    if ($logic_name){
+      $logic_name .= "_ise";
+      my $analysis = {'-logic_name' => $logic_name, '-module' => 'Star2Introns'};
+      push (@analyses, Bio::EnsEMBL::Analysis->new(%$analysis));
+    }
+    else{
+      $self->throw("Sample name does not exist for ".$srr);
+    }
+    $self->param('_analyses', \@analyses);
 
     open(IN,$junction_file);
     while(<IN>) {
@@ -128,14 +131,17 @@ sub run {
       $sth->execute();
       my $seq_region_id = $sth->fetchrow_array();
 
-#      say 'INSERT INTO intron_supporting_evidence (seq_region_id, seq_region_start, seq_region_end, seq_region_strand, hit_name, score, score_type, is_splice_canonical) values ('.$seq_region_id.', '.$start.', '.$end.', '.$strand.', "'.$hit_name.'", '.$depth.', "DEPTH", '.$is_canonical.');';
-
-      my $sth_write = $out_dbc->prepare('INSERT INTO intron_supporting_evidence (analysis_id, seq_region_id, seq_region_start, seq_region_end, seq_region_strand, hit_name, score, score_type, is_splice_canonical) values ('.$analysis_id.', '.$seq_region_id.', '.$start.', '.$end.', '.$strand.', "'.$hit_name.'", '.$depth.', "DEPTH", '.$is_canonical.');');
-      eval {
-        $sth_write->execute();
-      };
-      if($@){
-        say "failed";
+      if (exists ($ise_table->{$hit_name})){
+        $ise_table->{$hit_name}->{'score'} += $depth;
+      }
+      else{
+        $ise_table->{$hit_name}->{'seq_region_id'} = $seq_region_id;
+        $ise_table->{$hit_name}->{'seq_region_start'} = $start;
+        $ise_table->{$hit_name}->{'seq_region_end'} = $end;
+        $ise_table->{$hit_name}->{'seq_region_strand'} = $strand;
+        $ise_table->{$hit_name}->{'score'} = $depth;
+        $ise_table->{$hit_name}->{'is_splice_canonical'} = $is_canonical;
+        $ise_table->{$hit_name}->{'logic_name'} = $logic_name;
       }
 
 # to create new intron need 5' and 3' exons
@@ -151,24 +157,44 @@ sub run {
 #      );
 
 #      $self->output([$new_intron]);
-   }
+    } # End while
     close IN;
-    $analysis_id++;
   } # End foreach my $junction_file
+
+  $self->param('_ise_table', $ise_table);
 }
 
 sub write_output {
   my ($self) = @_;
 
-#  my $introns = $self->output;
-#  my $out_dba = $self->hrdb_get_con('output_db');
+  my $out_dbc = $self->param('_output_dba')->dbc;
+  my $ise_table = $self->param('_ise_table');
+  my $analyses = $self->param('_analyses');
 
-#  my $intron_adaptor = $out_dba->get_IntronAdaptor;
-#  foreach my $intron ( @{$introns} ) {
-#    empty_Intron($intron);
-#    $intron_adaptor->store($intron);
-#  }
+  my $target_adaptor = $self->param('_output_dba')->get_AnalysisAdaptor;
+  foreach my $analysis (@{$analyses}) {
+    $target_adaptor->store($analysis);
+  }
 
+  foreach my $hit_name ( keys $ise_table){
+    my $logic_name = $ise_table->{$hit_name}->{'logic_name'};
+    my $analysis_id = $target_adaptor->fetch_by_logic_name($logic_name)->dbID();
+    my $seq_region_id = $ise_table->{$hit_name}->{'seq_region_id'};
+    my $start = $ise_table->{$hit_name}->{'seq_region_start'};
+    my $end = $ise_table->{$hit_name}->{'seq_region_end'};
+    my $strand = $ise_table->{$hit_name}->{'seq_region_strand'};
+    my $depth = $ise_table->{$hit_name}->{'score'};
+    my $is_canonical = $ise_table->{$hit_name}->{'is_splice_canonical'};
+
+    my $sth_write = $out_dbc->prepare('INSERT INTO intron_supporting_evidence (analysis_id, seq_region_id, seq_region_start, seq_region_end, seq_region_strand, hit_name, score, score_type, is_splice_canonical) values ('.$analysis_id.', '.$seq_region_id.','.$start.', '.$end.', '.$strand.', "'.$hit_name.'", '.$depth.', "DEPTH", '.$is_canonical.');');
+    eval {
+      $sth_write->execute();
+    };
+    if($@){
+      say 'INSERT INTO intron_supporting_evidence (analysis_id, seq_region_id, seq_region_start, seq_region_end, seq_region_strand, hit_name, score, score_type, is_splice_canonical) values ('.$analysis_id.', '.$seq_region_id.','.$start.', '.$end.', '.$strand.', "'.$hit_name.'", '.$depth.', "DEPTH", '.$is_canonical.');';
+      say "Failed to insert intron supporting evidence ".$hit_name."\n";
+    }
+  }
   return 1;
 }
 1;

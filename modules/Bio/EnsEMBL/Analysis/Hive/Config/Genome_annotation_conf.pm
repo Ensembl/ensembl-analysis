@@ -5631,8 +5631,22 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into => {
+           1 => ['create_stringtie_intron_db'],
+        },
+      },
+
+     {
+        -logic_name => 'create_stringtie_intron_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('stringtie_intron_db'),
+                         create_type => 'clone',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
            '1->A' => ['generate_stringtie_gtf_jobs'],
-           'A->1' => ['create_stringtie_intron_db'],
+           'A->1' => ['star2introns'],
         },
       },
 
@@ -5742,31 +5756,18 @@ sub pipeline_analyses {
         -rc_name => 'blast10GB',
       },
 
-     {
-        -logic_name => 'create_stringtie_intron_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-                         source_db => $self->o('dna_db'),
-                         target_db => $self->o('stringtie_intron_db'),
-                         create_type => 'clone',
-                       },
-        -rc_name    => 'default',
-        -flow_into => {
-           '1' => ['star2introns'],
-        },
-      },
-
-     {
+      {
         -logic_name => 'star2introns',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveStar2Introns',
         -parameters => {
                         star_junctions_dir => $self->o('output_dir'),
                         intron_db => $self->o('stringtie_intron_db'),
+                        source_db => $self->o('dna_db'),
                        },
         -rc_name    => 'default',
         -flow_into => {
-           '1' => ['copy_rnaseq_blast_db'],
-        },
+                        '1' => ['copy_rnaseq_blast_db'],
+                      },
       },
 
       {
