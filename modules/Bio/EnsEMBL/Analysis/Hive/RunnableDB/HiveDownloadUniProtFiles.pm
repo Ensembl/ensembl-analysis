@@ -100,11 +100,16 @@ sub run {
     }
 
     if ($response->is_success()) {
-      if (open(my $fh,'>',$filename)) {
-        print $fh $response->content();
-        close $fh;
-      } else {
-        $self->throw("Could not open file $filename\n");
+      if (index($response->content(), '>') == 0) {
+        if (open(my $fh,'>',$filename)) {
+          print $fh $response->content();
+          close($fh) || $self->throw("Could not close the file '$filename'");
+        } else {
+          $self->throw("Could not open file $filename\n");
+        }
+      }
+      else {
+        $self->throw("File '$filename' does not start with a fasta header '>' but website said ".$response->status_line);
       }
       
       if ($filename =~ s/\.gz$//) {
