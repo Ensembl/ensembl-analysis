@@ -228,9 +228,6 @@ sub default_options {
     'stringtie_blast_db_server'    => $self->o('databases_server'),
     'stringtie_blast_db_port'      => $self->o('databases_port'),
 
-    'stringtie_intron_db_server'    => $self->o('databases_server'),
-    'stringtie_intron_db_port'      => $self->o('databases_port'),
-
     'lincrna_db_server'            => $self->o('databases_server'),
     'lincrna_db_port'              => $self->o('databases_port'),
 
@@ -1091,15 +1088,6 @@ sub default_options {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_stringtie_blast_'.$self->o('release_number'),
       -host   => $self->o('stringtie_blast_db_server'),
       -port   => $self->o('stringtie_blast_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
-      -driver => $self->o('hive_driver'),
-    },
-
-    'stringtie_intron_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_stringtie_intron_'.$self->o('release_number'),
-      -host   => $self->o('stringtie_intron_db_server'),
-      -port   => $self->o('stringtie_intron_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -6634,7 +6622,7 @@ sub pipeline_analyses {
         -parameters => {
                          dna_db => $self->o('dna_db'),
                          source_db => $self->o('genblast_db'),
-                         intron_db => $self->o('stringtie_intron_db'),
+                         intron_db => $self->o('stringtie_blast_db'),
                          target_db => $self->o('genblast_db'),
                          logic_name => 'genblast_rnaseq_support',
                          classify_by_count => 1,
@@ -6655,7 +6643,7 @@ sub pipeline_analyses {
         -parameters => {
                          dna_db => $self->o('dna_db'),
                          source_db => $self->o('genblast_db'),
-                         intron_db => $self->o('stringtie_intron_db'),
+                         intron_db => $self->o('stringtie_blast_db'),
                          target_db => $self->o('genblast_db'),
                          logic_name => 'genblast_rnaseq_support',
                          classify_by_count => 1,
@@ -8207,7 +8195,7 @@ sub pipeline_analyses {
         -logic_name => 'dump_daf_introns',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
         -parameters => {
-                         db_conn => $self->o('stringtie_intron_db'),
+                         db_conn => $self->o('stringtie_blast_db'),
                          input_query => 'SELECT daf.* FROM dna_align_feature daf, analysis a WHERE daf.analysis_id = a.analysis_id AND a.logic_name != "rough_transcripts"',
                          command_out => q(sort -nk2 -nk3 -nk4 | sed 's/NULL/\\N/g;s/^[0-9]\+/\\N/' | awk -F \t '{$15="NULL"; print $0}' > #daf_file#),
                          daf_file => $self->o('rnaseq_daf_introns_file'),
