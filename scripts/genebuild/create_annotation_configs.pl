@@ -35,7 +35,9 @@ my $config_file;
 my $config_only = 0;
 my $custom_load = 0;
 my $early_load = 0;
+my $assembly_load =0;
 
+my $config_file_name = "Genome_annotation_conf.pm";
 my $total_running_workers_max = 200;
 my $base_guihive = 'http://guihive.ebi.ac.uk:8080';
 my $ftphost = "ftp.ncbi.nlm.nih.gov";
@@ -55,6 +57,7 @@ GetOptions('config_file:s' => \$config_file,
            'config_only!'  => \$config_only,
            'custom_load!'  => \$custom_load,
            'early_load!'   => \$early_load,
+           'assembly_load!'   => \$assembly_load,
            'assembly_registry_host:s' => \$assembly_registry_host,
            'assembly_registry_port:s' => \$assembly_registry_port,
            'force_init!' => \$force_init,
@@ -194,7 +197,7 @@ assign_server_info($general_hash);
 # Also since the keys basically need to be manually entered, this will only run on one species at a time
 if($custom_load) {
   custom_load_data($general_hash,$ncbi_taxonomy);
-  create_config($general_hash);
+  create_config($general_hash,$config_file_name);
   unless($config_only) {
     init_pipeline($general_hash,$hive_directory,$force_init,$fh);
     close($fh) || throw("Could not close the cmd file");
@@ -332,7 +335,11 @@ foreach my $accession (@accession_array) {
     say "Rank is ",$taxon_node->rank();
   }
 
-  create_config($assembly_hash);
+  if($assembly_load){
+    $config_file_name = "assembly_load_Genome_annotation_conf.pm";
+  }
+
+  create_config($assembly_hash,$config_file_name);
 
   unless($config_only) {
     init_pipeline($assembly_hash,$hive_directory,$force_init,$fh);
@@ -501,7 +508,7 @@ sub parse_assembly_report {
 
 
 sub create_config {
-  my ($assembly_hash) = @_;
+  my ($assembly_hash,$config_file_name) = @_;
 
   $assembly_hash->{'registry_path'} = catfile($assembly_hash->{'output_path'},"Databases.pm");
 
@@ -516,7 +523,7 @@ sub create_config {
 
   my $config_string = "";
   my $past_default_options = 0;
-  open(CONFIG,$ENV{ENSCODE}."/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_conf.pm") || throw("Could not open the config file");
+  open(CONFIG,$ENV{ENSCODE}."/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/".$config_file_name) || throw("Could not open the config file");
   while(my $line = <CONFIG>) {
     if($line =~ /sub pipeline_create_commands/) {
       $past_default_options = 1;
