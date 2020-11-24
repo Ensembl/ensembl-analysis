@@ -441,7 +441,10 @@ sub parse_assembly_report {
   }
 
   if(exists($general_hash->{'load_toplevel_only'}) && $general_hash->{'load_toplevel_only'} == 0) {
-    unless($wgs_id) {
+    if ($wgs_id) {
+      $assembly_hash->{'wgs_id'} = $wgs_id;
+    }
+    else {
       throw("Need the wgs id as the load_toplevel_only flag was set to 0. Failed to find the id in the report file");
     }
   }
@@ -493,7 +496,6 @@ sub parse_assembly_report {
 
   $assembly_hash->{'strain'} = $species_name;
   $assembly_hash->{'assembly_level'} = $assembly_level;
-  $assembly_hash->{'wgs_id'} = $wgs_id;
   $assembly_hash->{'species_name'} = $species_name;
   @{$assembly_hash}{keys(%$general_hash)} = values(%$general_hash);
   $assembly_hash->{'output_path'} .= "/".$species_name."/".$accession."/";
