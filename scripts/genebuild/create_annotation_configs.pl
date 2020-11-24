@@ -818,6 +818,24 @@ sub init_pipeline {
 }
 
 
+=head2 assign_server_info
+
+ Arg [1]    : Hashref, the hash with all the information about the config
+ Description: Assign servers connection details based on 'server_set' if it is present.
+              If the set does not exists, it uses the values for "set1"
+              If 'server_set' is not defined, it looks for the following keys which should
+              all be defined:
+                databases_server
+                databases_port
+                pipe_db_server
+                pipe_db_port
+                dna_db_server
+                dna_db_port
+ Returntype : None
+ Exceptions : Throws if 'server_set' is not set and none of the connection details are set.
+
+=cut
+
 sub assign_server_info {
   my ($general_hash) = @_;
 
