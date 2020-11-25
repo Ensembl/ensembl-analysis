@@ -5594,7 +5594,7 @@ sub pipeline_analyses {
         -rc_name    => 'default',
         -flow_into => {
            '1->A' => ['generate_stringtie_gtf_jobs'],
-           'A->1' => ['copy_rnaseq_blast_db'],
+           'A->1' => ['star2introns'],
         },
       },
 
@@ -5704,6 +5704,19 @@ sub pipeline_analyses {
         -rc_name => 'blast10GB',
       },
 
+      {
+        -logic_name => 'star2introns',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveStar2Introns',
+        -parameters => {
+                        star_junctions_dir => $self->o('output_dir'),
+                        intron_db => $self->o('stringtie_blast_db'),
+                        source_db => $self->o('dna_db'),
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        '1' => ['copy_rnaseq_blast_db'],
+                      },
+      },
 
       {
         -logic_name => 'copy_rnaseq_blast_db',
@@ -6462,7 +6475,7 @@ sub pipeline_analyses {
 #        -parameters => {
 #          source_db => $self->o('long_read_blast_db'),
 #          target_db => $self->o('long_read_final_db'),
-#          intron_db => $self->o('rnaseq_refine_db'),
+#          intron_db> $self->o('rnaseq_refine_db'),
 #          dna_db => $self->o('dna_db'),
 #        },
 #        -rc_name    => '2GB',
@@ -6586,7 +6599,7 @@ sub pipeline_analyses {
         -parameters => {
                          dna_db => $self->o('dna_db'),
                          source_db => $self->o('genblast_db'),
-                         intron_db => $self->o('rnaseq_refine_db'),
+                         intron_db => $self->o('stringtie_blast_db'),
                          target_db => $self->o('genblast_db'),
                          logic_name => 'genblast_rnaseq_support',
                          classify_by_count => 1,
@@ -6607,7 +6620,7 @@ sub pipeline_analyses {
         -parameters => {
                          dna_db => $self->o('dna_db'),
                          source_db => $self->o('genblast_db'),
-                         intron_db => $self->o('rnaseq_refine_db'),
+                         intron_db => $self->o('stringtie_blast_db'),
                          target_db => $self->o('genblast_db'),
                          logic_name => 'genblast_rnaseq_support',
                          classify_by_count => 1,
