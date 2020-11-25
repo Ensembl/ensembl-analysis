@@ -1073,7 +1073,7 @@ sub default_options {
 
 
     'stringtie_initial_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_stringtie_initial_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_stringtie_initial_'.$self->o('release_number'),
       -host   => $self->o('stringtie_initial_db_server'),
       -port   => $self->o('stringtie_initial_db_port'),
       -user   => $self->o('user'),
@@ -1082,7 +1082,7 @@ sub default_options {
     },
 
     'stringtie_blast_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_stringtie_blast_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_stringtie_blast_'.$self->o('release_number'),
       -host   => $self->o('stringtie_blast_db_server'),
       -port   => $self->o('stringtie_blast_db_port'),
       -user   => $self->o('user'),
