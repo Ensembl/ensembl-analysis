@@ -85,6 +85,7 @@ sub _master_config {
                    'human_taxon_id'    => '9606',
                    'mammals_taxon_id'  => '40674',
                    'mouse_taxon_id'    => '10090',
+                   'zebrafish_taxon_id' => '7955',
                    'primates_taxon_id' => '9443',
                    'rodents_taxon_id'  => '9989',
                    'vert_taxon_id'     => '7742',
@@ -823,6 +824,69 @@ sub _master_config {
                                 pe_level   => [1,2],
                               },
       },
+     havana_teleost_blast => {
+
+       human_pe12 => {
+                       file_name => 'human_pe12.fasta',
+                       taxon_id  => $taxon_ids->{'human_taxon_id'},
+                       dest_dir  => '#output_path#',
+                       compress  => 0,
+                       pe_level  => [1,2],
+                     },
+
+       zebrafish_pe12 => {
+                          file_name => 'zebrafish_pe12.fasta',
+                          taxon_id  => $taxon_ids->{'zebrafish_taxon_id'},
+                          dest_dir  => '#output_path#',
+                          compress  => 0,
+                          pe_level  => [1,2],
+                        },
+
+       fish_pe12 => {
+                         file_name  => 'fish_pe12.fasta',
+                         taxon_id   => $taxon_ids->{'fish_taxon_id'},
+                         exclude_id => [$taxon_ids->{'zebrafish_taxon_id'}],
+                         dest_dir   => '#output_path#',
+                        compress   => 0,
+                         pe_level   => [1,2],
+                       },
+
+     },
+     havana_mammals_blast => {
+       self_pe12 =>{
+         file_name => 'self_pe12.fasta',
+         taxon_id  => '#taxon_id#',
+         dest_dir  => '#output_path#',
+         compress  => 0,
+         pe_level  => [1,2],
+       },
+
+       human_pe12 => {
+         file_name => 'human_pe12.fasta',
+         taxon_id  => $taxon_ids->{'human_taxon_id'},
+         dest_dir  => '#output_path#',
+         compress  => 0,
+         pe_level  => [1,2],
+       },
+
+       mouse_pe12 => {
+         file_name  => 'mouse_pe12.fasta',
+         taxon_id   => $taxon_ids->{'mouse_taxon_id'},
+         dest_dir   => '#output_path#',
+         compress   => 0,
+         pe_level   => [1,2],
+       },
+
+
+       mammals_pe12 => {
+         file_name  => 'mammals_pe12.fasta',
+         taxon_id   => $taxon_ids->{'mammals_taxon_id'},
+         exclude_id => ['#taxon_id#',$taxon_ids->{'mouse_taxon_id'},$taxon_ids->{'human_taxon_id'}],
+         dest_dir   => '#output_path#',
+         compress   => 0,
+         pe_level   => [1,2],
+       },
+     },
 
   );
   return $config{$key};

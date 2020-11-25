@@ -29,7 +29,7 @@ temp_df.rename(columns={'E_x':'old_score', 'G':'mir_id', 'H':'blast_evalue', 'I'
                    'L':'gc_perc', 'E_y':'mfe'}, inplace=True)
 
 temp_df['size'] = temp_df.apply(lambda x: x['C'] - x['B'], axis = 1)
-temp_df['norm_mfe'] = temp_df.apply(lambda x: x['mfe'] / x['size'], axis = 1)
+temp_df['norm_mfe'] = temp_df.apply(lambda x: float(x['mfe']) / x['size'], axis = 1)
 
 df = temp_df[['size', 'blast_evalue', 'pid', 'repeat_coverage', 'gc_perc', 'mfe', 'norm_mfe']]
 # scaled = scaler.fit_transform(df)

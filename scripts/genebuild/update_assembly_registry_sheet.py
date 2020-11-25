@@ -62,11 +62,10 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
   existing_annotations_dict = {}
 
   # This ordering needs to match the ordering of the query on the assembly db 
-  assembly_db_columns = ['species_name','common_name','chain','version','clade','contig_N50','assembly_level','assembly_date','refseq_accession','assembly_name','genome_rep']
+  assembly_db_columns = ['subspecies_name','common_name','chain','version','clade','contig_N50','assembly_level','assembly_date','refseq_accession','assembly_name','genome_rep','rnaseq_data']
 
   # This ordering needs to match the ordering of the columns on the sheet
-  assembly_sheet_columns = ['GCA','Clade','Species name','Common name','Contig N50','Assembly level','Assembly date','Assembly name','RefSeq accession','Genebuilder','Status',
-                            'Expected release','Grant','Notes','Filter: Max version','Filter: Genome rep','Filter: N50','Filter: Non-human']
+  assembly_sheet_columns = ['GCA','Clade','Species name','Common name','Contig N50','Assembly level','Assembly date','Assembly name','RNAseq data','RefSeq accession','Genebuilder','Status','Expected release','Grant','Notes','Filter: Max version','Filter: Genome rep','Filter: N50','Filter: Non-human']
    
   # This makes a dict for the db on the versioned GCA and also makes a dict to track the highest
   # version for a particular GCA (used in filtering later)
@@ -131,7 +130,7 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
           #  print(response)
        # gettime = time.time()#Get time of re-authentication
     assembly_row = assembly_db_dict[gca]
-    species_name = assembly_row[assembly_db_columns.index('species_name')]
+    species_name = assembly_row[assembly_db_columns.index('subspecies_name')]
     common_name = assembly_row[assembly_db_columns.index('common_name')]
     chain = assembly_row[assembly_db_columns.index('chain')]
     chain.encode('ascii','ignore')
@@ -143,6 +142,7 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
     refseq_accession = assembly_row[assembly_db_columns.index('refseq_accession')]
     assembly_name = assembly_row[assembly_db_columns.index('assembly_name')]
     genome_rep = assembly_row[assembly_db_columns.index('genome_rep')]
+    rnaseq_data = assembly_row[assembly_db_columns.index('rnaseq_data')]
     gca = make_gca(chain,version)
     annotation_status = 'Not started'
     if gca in existing_annotations_dict:
@@ -150,7 +150,7 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
 
     # If the row does not exist then add it in with the filtering info
     if not gca in existing_sheet_dict:
-      new_row = [gca,clade,species_name,common_name,contig_N50,assembly_level,assembly_date.strftime('%Y-%m-%d'),assembly_name,refseq_accession,'Not assigned',annotation_status,'','Not assigned','']
+      new_row = [gca,clade,species_name,common_name,contig_N50,assembly_level,assembly_date.strftime('%Y-%m-%d'),assembly_name,rnaseq_data,refseq_accession,'Not assigned',annotation_status,'','Not assigned','']
 
       # This section sets various filters
       if version == max_version_dict[chain]:
@@ -167,6 +167,15 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
         new_row.append(1)
       else:
         new_row.append(0)
+     
+      if rnaseq_data is None:
+        if contig_N50 >= 100000:
+           new_row[8] = 'No RNAseq data'
+        else:
+           new_row[8] = 'Non candidate assembly'
+      else:
+        rnaseq_data.encode('ascii','ignore')
+        new_row[8] = rnaseq_data.capitalize()
 
       # There is an issue with the db at the moment with trailing spaces on the species names, but this should get fixed
       if not (species_name == "Homo sapiens " or species_name == "Homo sapiens"):
@@ -192,7 +201,28 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
       sheet_assembly_name_index = assembly_sheet_columns.index('Assembly name')
       sheet_refseq_accession_val = sheet_row[sheet_refseq_accession_index]
       sheet_assembly_name_val = sheet_row[sheet_assembly_name_index]
+      sheet_rnaseq_data_index = assembly_sheet_columns.index('RNAseq data')
+      sheet_rnaseq_data_val = sheet_row[sheet_rnaseq_data_index]
 
+      if rnaseq_data != sheet_rnaseq_data_val:
+        # Check if status from db is null. If yes, check if assembly has been handed over or if assembly met candidate assembly criteria
+        if rnaseq_data is None:
+          if annotation_status == 'Handed over':
+            rnaseq_data = 'Done'
+          else:
+            if contig_N50 >= 100000:
+              rnaseq_data = 'No RNAseq data'
+            else:
+              rnaseq_data = 'Non candidate assembly'
+        else:
+          rnaseq_data.encode('ascii','ignore')
+          rnaseq_data = rnaseq_data.capitalize()
+        # Update the RNAseq data status
+        print("Updating rnaseq data status for: " + gca)
+        row_update_index = assembly_sheet.find(gca).row
+        update_cell_val(assembly_sheet,row_update_index,sheet_rnaseq_data_index,rnaseq_data)
+        time.sleep(3)
+     
       if clade != sheet_clade_val:
         # Update the classification
         print("Updating the clade for: " + gca)
@@ -262,7 +292,7 @@ if __name__ == '__main__':
   parser.add_argument('-wsn','--worksheet_name', help='The name of the Google Sheets worksheet', required=True)
   parser.add_argument('-gsc','--gsheets_credentials', help='Path to a Google Sheets credentials JSON file for authentication', required=True)
   args = parser.parse_args()
-  assembly_db_query = 'SELECT species_name,common_name,chain,version,clade,contig_N50,assembly_level,assembly_date,refseq_accession,assembly_name,genome_rep FROM assembly JOIN meta USING(assembly_id) JOIN species_space_log using(species_id)'
+  assembly_db_query = 'SELECT subspecies_name,common_name,chain,version,clade,contig_N50,assembly_level,assembly_date,refseq_accession,assembly_name,genome_rep,rnaseq_data FROM assembly JOIN meta USING(assembly_id) JOIN species_space_log using(species_id)'
   assembly_db_database = args.assembly_db_dbname
   assembly_db_host = args.assembly_db_host
   assembly_db_port = args.assembly_db_port

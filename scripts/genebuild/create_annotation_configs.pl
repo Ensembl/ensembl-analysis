@@ -296,16 +296,40 @@ foreach my $accession (@accession_array) {
 
   # Add in the species url by uppercasing the first letter of the species name
   my $species_url = $assembly_hash->{'species_name'};
-  $species_url = ucfirst($species_url);
+  $species_url = ucfirst($species_url).'_'.$accession;
   $assembly_hash->{'species_url'} = $species_url;
+  
+  #Set up taxonomy adaptor to fetch rank of species using NCBI taxonomy database
+  my $node_adaptor = $taxonomy_adaptor->get_TaxonomyNodeAdaptor();
+  my $taxon_node = $node_adaptor->fetch_by_taxon_id($assembly_hash->{'taxon_id'});
 
-  # Get repeatmodeler library path if one exists
-  my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$assembly_hash->{'species_name'},$assembly_hash->{'species_name'}.'.repeatmodeler.fa');
-  if(-e $repeatmodeler_file) {
-    say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
-    $assembly_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
-  } else {
-    say "Did not find an repeatmodeler species library for ".$assembly_hash->{'species_name'}." on path:\n".$assembly_hash->{'species_name'};
+ # Check for repeatmodeler library at species level
+  if ($taxon_node->rank() eq 'subspecies' || $taxon_node->rank() eq 'no rank'){
+    my $parent_node = $node_adaptor->fetch_by_taxon_id($taxon_node->parent_id());
+    my $parent_name = $parent_node->names()->{'scientific name'}->[0];
+    $parent_name =~ s/\s+/\_/g;
+    $parent_name = lc($parent_name);
+   #  Species is at subspecies level so get repeatmodeler library path if one exists at the species level
+    my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$parent_name,$parent_name.'.repeatmodeler.fa');
+    if(-e $repeatmodeler_file) {
+      say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+      $assembly_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+    } else {
+      say "Did not find a repeatmodeler species library for ".$assembly_hash->{'species_name'}." on path:\n".$assembly_hash->{'species_name'};
+    }
+  }
+  elsif ($taxon_node->rank() eq 'species'){
+  #   Get repeatmodeler library path if one exists
+    my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$assembly_hash->{'species_name'},$assembly_hash->{'species_name'}.'.repeatmodeler.fa');
+    if(-e $repeatmodeler_file) {
+      say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+      $assembly_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+    } else {
+      say "Did not find a repeatmodeler species library for ".$assembly_hash->{'species_name'}." on path:\n".$assembly_hash->{'species_name'};
+    }
+  }
+  else{
+    say "Rank is ",$taxon_node->rank();
   }
 
   create_config($assembly_hash);
@@ -387,6 +411,7 @@ sub parse_assembly_report {
   my $refseq_accession;
   my $assembly_level;
   my $wgs_id;
+  my $modifier;
   open($report_file_handle, '>', \$report_file_content) || throw("could not open $report_file_name");
 
   unless($ftp->get($report_file_name, $report_file_handle)) {
@@ -416,7 +441,10 @@ sub parse_assembly_report {
   }
 
   if(exists($general_hash->{'load_toplevel_only'}) && $general_hash->{'load_toplevel_only'} == 0) {
-    unless($wgs_id) {
+    if ($wgs_id) {
+      $assembly_hash->{'wgs_id'} = $wgs_id;
+    }
+    else {
       throw("Need the wgs id as the load_toplevel_only flag was set to 0. Failed to find the id in the report file");
     }
   }
@@ -457,10 +485,18 @@ sub parse_assembly_report {
     say "Found no RefSeq accession for this assembly";
   }
 
+# create production name - must be unique, no more than trinomial, and include GCA
+  my $underscore_count = $species_name =~ tr/_//;
+  $species_name =~ /(^[^_]+_[^_]+)_*.*/;
+  my $binomial_name = $1;
+  my $accession_append = lc($accession);
+  $accession_append =~ s/\./v/g;
+  $accession_append =~ s/_//g;
+  $assembly_hash->{'production_name'} = $binomial_name.'_'.$accession_append;
+
+  $assembly_hash->{'strain'} = $species_name;
   $assembly_hash->{'assembly_level'} = $assembly_level;
-  $assembly_hash->{'wgs_id'} = $wgs_id;
   $assembly_hash->{'species_name'} = $species_name;
-  $assembly_hash->{'production_name'} = $species_name;
   @{$assembly_hash}{keys(%$general_hash)} = values(%$general_hash);
   $assembly_hash->{'output_path'} .= "/".$species_name."/".$accession."/";
 }
@@ -469,7 +505,7 @@ sub parse_assembly_report {
 sub create_config {
   my ($assembly_hash) = @_;
 
-  $assembly_hash->{'compara_registry_file'} = catfile($assembly_hash->{'output_path'},$assembly_hash->{'accession'},"Databases.pm");
+  $assembly_hash->{'registry_path'} = catfile($assembly_hash->{'output_path'},"Databases.pm");
 
   foreach my $key (keys(%{$assembly_hash})) {
     say "ASSEMBLY: ". $key." => ".$assembly_hash->{$key};
@@ -555,7 +591,7 @@ sub clade_settings {
 
     'aves' => {
       'repbase_library'    => 'Birds',
-      'repbase_logic_name' => 'birds',
+      'repbase_logic_name' => 'aves',
       'uniprot_set'        => 'birds_basic',
     },
 
@@ -692,13 +728,37 @@ sub custom_load_data {
     }
   }
 
-  # Get repeatmodeler library path if one exists. Note that this will be overwritten with a custom path if one has been provided
-  my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$general_hash->{'species_name'},$general_hash->{'species_name'}.'.repeatmodeler.fa');
-  if(-e $repeatmodeler_file) {
-    say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
-    $general_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
-  } else {
-    say "Did not find an repeatmodeler species library for ".$general_hash->{'species_name'}." on path:\n".$general_hash->{'species_name'};
+  #Set up taxonomy adaptor to fetch rank of species using NCBI taxonomy database
+  my $node_adaptor = $taxonomy_adaptor->get_TaxonomyNodeAdaptor();
+  my $taxon_node = $node_adaptor->fetch_by_taxon_id($general_hash->{'taxon_id'});
+
+  #Check for repeatmodeler library at species level
+  if ($taxon_node->rank() eq 'subspecies' || $taxon_node->rank() eq 'no rank'){
+    my $parent_node = $node_adaptor->fetch_by_taxon_id($taxon_node->parent_id());
+    my $parent_name = $parent_node->names()->{'scientific name'}->[0];
+    $parent_name =~ s/\s+/\_/g;
+    $parent_name = lc($parent_name);
+    # Species is at subspecies level so get repeatmodeler library path if one exists at the species level. Note that this will be overwritten with a custom path if one has been provided
+    my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$parent_name,$parent_name.'.repeatmodeler.fa');
+    if(-e $repeatmodeler_file) {
+      say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+      $general_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+    } else {
+      say "Did not find a repeatmodeler species library for ".$general_hash->{'species_name'}." on path:\n".$general_hash->{'species_name'};
+    }
+  }
+  elsif ($taxon_node->rank() eq 'species'){
+   #  Get repeatmodeler library path if one exists. Note that this will be overwritten with a custom path if one has been provided
+    my $repeatmodeler_file = catfile($ENV{REPEATMODELER_DIR},'species',$general_hash->{'species_name'},$general_hash->{'species_name'}.'.repeatmodeler.fa');
+    if(-e $repeatmodeler_file) {
+      say "Found the following repeatmodeler file for the species:\n".$repeatmodeler_file;
+      $general_hash->{'repeatmodeler_library'} = $repeatmodeler_file;
+    } else {
+      say "Did not find a repeatmodeler species library for ".$general_hash->{'species_name'}." on path:\n".$general_hash->{'species_name'};
+    }
+  }
+  else{
+    say "Rank is ",$taxon_node->rank();
   }
 
 }
@@ -747,17 +807,36 @@ sub init_pipeline {
 
 
     my $loop_command = $sync_command;
-    $loop_command =~ s/sync/loop \-sleep 0.3/;
+    $loop_command =~ s/\-sync/\-loop \-sleep 0.3/;
     my ($ehive_url) = $sync_command =~ /url\s+(\S+)/;
     my ($driver, $user, $password, $host, $port, $dbname) = $ehive_url =~ /^(\w+)[:\/]+(\w*):(\w+)@([^:]+):(\d+)\/(\w+)$/;
     if ($password) {
       $password = '&passwd=xxxxx';
     }
+
     say $fh "#GuiHive: $base_guihive/?driver=$driver&username=$user&host=$host&port=$port&dbname=$dbname$password";
     say $fh "export EHIVE_URL=$ehive_url";
     say $fh $loop_command;
 }
 
+
+=head2 assign_server_info
+
+ Arg [1]    : Hashref, the hash with all the information about the config
+ Description: Assign servers connection details based on 'server_set' if it is present.
+              If the set does not exists, it uses the values for "set1"
+              If 'server_set' is not defined, it looks for the following keys which should
+              all be defined:
+                databases_server
+                databases_port
+                pipe_db_server
+                pipe_db_port
+                dna_db_server
+                dna_db_port
+ Returntype : None
+ Exceptions : Throws if 'server_set' is not set and none of the connection details are set.
+
+=cut
 
 sub assign_server_info {
   my ($general_hash) = @_;
@@ -783,16 +862,28 @@ sub assign_server_info {
   };
 
   my $server_set = $general_hash->{'server_set'};
-  unless(exists $servers->{$server_set}) {
-    warning("Could not find an associated server set entry in the HiveBaseConfig for ".$server_set.". Will default to set1");
-    return($servers->{'set1'});
+  if ($server_set) {
+    if (! exists $servers->{server_set}) {
+      warning("Could not find an associated server set entry in the HiveBaseConfig for ".$server_set.". Will default to set1");
+      $server_set = 'set1';
+    }
+    $general_hash->{databases_server} = $servers->{$server_set}->{'databases_server'};
+    $general_hash->{databases_port} = $servers->{$server_set}->{'databases_port'};
+    $general_hash->{pipe_db_server} = $servers->{$server_set}->{'pipe_db_server'};
+    $general_hash->{pipe_db_port} = $servers->{$server_set}->{'pipe_db_port'};
+    $general_hash->{dna_db_server} = $servers->{$server_set}->{'dna_db_server'};
+    $general_hash->{dna_db_port} = $servers->{$server_set}->{'dna_db_port'};
+
   }
-
-  $general_hash->{databases_server} = $servers->{$server_set}->{'databases_server'};
-  $general_hash->{databases_port} = $servers->{$server_set}->{'databases_port'};
-  $general_hash->{pipe_db_server} = $servers->{$server_set}->{'pipe_db_server'};
-  $general_hash->{pipe_db_port} = $servers->{$server_set}->{'pipe_db_port'};
-  $general_hash->{dna_db_server} = $servers->{$server_set}->{'dna_db_server'};
-  $general_hash->{dna_db_port} = $servers->{$server_set}->{'dna_db_port'};
-
+  else {
+    throw("You are missing connection details for at least one of them: databases_server, databases_port, pipe_db_server, pipe_db_port, dna_db_server, dna_db_port")
+      unless (
+        exists $general_hash->{databases_server} and
+        exists $general_hash->{databases_port} and
+        exists $general_hash->{pipe_db_server} and
+        exists $general_hash->{pipe_db_port} and
+        exists $general_hash->{dna_db_server} and
+        exists $general_hash->{dna_db_port}
+      );
+  }
 }

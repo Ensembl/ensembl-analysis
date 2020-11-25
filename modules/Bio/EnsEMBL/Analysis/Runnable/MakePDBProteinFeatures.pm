@@ -52,6 +52,7 @@ use strict;
 use 5.014002;
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
+use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Bio::EnsEMBL::GIFTS::DB qw(fetch_latest_uniprot_enst_perfect_matches);
 use Bio::EnsEMBL::ProteinFeature;
 
@@ -59,11 +60,13 @@ sub new {
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ($core_dba,$pdb_filepath,$species,$cs_version) = rearrange([qw(core_dba pdb_filepath species cs_version)],@args);
+    my ($core_dba,$pdb_filepath,$species,$cs_version,$rest_server) = rearrange([qw(core_dba pdb_filepath species cs_version rest_server)],@args);
 
+    $self->{'core_dba'} = $core_dba;
     $self->{'pdb_filepath'} = $pdb_filepath;
     $self->{'species'} = $species;
     $self->{'cs_version'} = $cs_version;
+    $self->{'rest_server'} = $rest_server;
     
     $self->{'pdb_info'} = undef;
     $self->{'perfect_matches'} = undef;
@@ -90,22 +93,31 @@ sub run {
   my ($self) = @_;
 
   $self->{'pdb_info'} = $self->parse_pdb_file();
-  $self->{'perfect_matches'} = fetch_latest_uniprot_enst_perfect_matches($self->{'cs_version'});
+  $self->{'perfect_matches'} = fetch_latest_uniprot_enst_perfect_matches($self->{'rest_server'},$self->{'cs_version'});
   $self->make_protein_features();
 
   return 1;
 }
 
-sub parse_pdb_file() {
-# Parse the CSV PDB file containing the following 9 columns:
-# PDB CHAIN SP_PRIMARY RES_BEG RES_END PDB_BEG PDB_END SP_BEG SP_END
-# The SIFTS release date is fetched from the lines starting with '#'.
-# Lines starting with 'PDB' are ignored.
-# Return reference to an array of hashes with SP_PRIMARY, PDB, CHAIN, RES_BEG, RES_END, SP_BEG, SP_END and SIFTS_RELEASE_DATE as keys.
 
+=head2 parse_pdb_file
+
+ Arg [1]    : None
+ Description: Parse the CSV PDB file containing the following 9 columns:
+                PDB CHAIN SP_PRIMARY RES_BEG RES_END PDB_BEG PDB_END SP_BEG SP_END
+              The SIFTS release date is fetched from the lines starting with '#'.
+              Lines starting with 'PDB' are ignored.
+              It skips the entry if the start of the protein is greater than the end as we cannot display it correctly.
+ Returntype : Arrayref of hashref, SP_PRIMARY, PDB, CHAIN, RES_BEG, RES_END, SP_BEG, SP_END and SIFTS_RELEASE_DATE as keys
+ Exceptions : Throws if it cannot open the file
+              Throws if it cannot close the PDB file
+
+=cut
+
+sub parse_pdb_file() {
   my $self = shift;
 
-  open(my $pdb_fh,'<',$self->{'pdb_filepath'}) or die "Cannot open: ".$self->{'pdb_filepath'};
+  open(my $pdb_fh,'<',$self->{'pdb_filepath'}) || throw('Cannot open: '.$self->{'pdb_filepath'});
   my @pdb_info = ();
   my $sifts_release_date;
   
@@ -134,35 +146,36 @@ sub parse_pdb_file() {
                       'SP_BEG' => $sp_beg,
                       'SP_END' => $sp_end,
                       'SIFTS_RELEASE_DATE' => $sifts_release_date
-                     });
+                     }) unless ($sp_beg > $sp_end);
+      # ignore complex PDB-UniProt mappings that allow SP_BEG > SP_END
     }
   }
+  close($pdb_fh) || throw('Cannot close '.$self->{'pdb_filepath'});
   return \@pdb_info;
 }
 
-sub make_protein_features() {
-# create the protein features by linking
-# the ENSP proteins and the PDB entries
-# from 'perfect_matches' and 'pdb_info'
-# It returns an array of hash references containing the
-# translation db ID as key and the ProteinFeature as value.
 
+=head2 make_protein_features
+
+ Arg [1]    : None
+ Description: Create the protein features by linking the ENSP proteins and the PDB entries
+              from 'perfect_matches' and 'pdb_info'. It stores an hash: key is translation
+              id and value is the Bio::EnsEMBL::ProteinFeature object, into $self->output
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub make_protein_features() {
   my $self= shift;
 
   my @pfs = ();
-
-  # get list of transcript stable IDs from the keys of the perfect matches hash
-  my @t_sids = keys %{$self->{'perfect_matches'}};
 
   # loop through all pdb lines and find the corresponding ENSTs (if any)
   # in the perfect matches hash,
   # fetch their proteins and add their protein features
   my $ta = $self->{'core_dba'}->get_TranscriptAdaptor();
-  my $analysis = new Bio::EnsEMBL::Analysis(-logic_name => 'sifts_import',
-                                            -display_label => 'SIFTS import',
-                                            -displayable => '1',
-                                            -description => 'Protein features based on the PDB-UniProt mappings found in the EMBL-EBI PDB SIFTS data and the UniProt-ENSP mappings found in the GIFTS database.',
-  );
+  my $analysis = $self->analysis;
   
   foreach my $pdb_line (@{$self->{'pdb_info'}}) {
     my $pdb_uniprot = $$pdb_line{'SP_PRIMARY'};    
@@ -175,26 +188,23 @@ sub make_protein_features() {
           my %pf_translation;
           my $t = $ta->fetch_by_stable_id($enst);
 
-          if ($t) {
+          if ($t and $t->translation and $t->translation->length >= $$pdb_line{SP_END}) {
             my $translation = $t->translation();
             my $translation_sid = $translation->stable_id();
 
-            if ($$pdb_line{'SP_BEG'} < $$pdb_line{'SP_END'}+1) {
-            # ignore complex PDB-UniProt mappings that allow SP_BEG > SP_END
-              my $pf = Bio::EnsEMBL::ProteinFeature->new(
-                      -start    => $$pdb_line{'SP_BEG'},
-                      -end      => $$pdb_line{'SP_END'},
-                      -hseqname => $$pdb_line{'PDB'}.".".$$pdb_line{'CHAIN'},
-                      -hstart   => $$pdb_line{'RES_BEG'},
-                      -hend     => $$pdb_line{'RES_END'},
-                      -analysis => $analysis,
-                      -hdescription => "Via SIFTS (".$$pdb_line{'SIFTS_RELEASE_DATE'}.
-                                       ") UniProt protein ".$$pdb_line{'SP_PRIMARY'}.
-                                       " isoform exact match to Ensembl protein $translation_sid"
-                   );
+            my $pf = Bio::EnsEMBL::ProteinFeature->new(
+                    -start    => $$pdb_line{'SP_BEG'},
+                    -end      => $$pdb_line{'SP_END'},
+                    -hseqname => $$pdb_line{'PDB'}.".".$$pdb_line{'CHAIN'},
+                    -hstart   => $$pdb_line{'RES_BEG'},
+                    -hend     => $$pdb_line{'RES_END'},
+                    -analysis => $analysis,
+                    -hdescription => "Via SIFTS (".$$pdb_line{'SIFTS_RELEASE_DATE'}.
+                                     ") UniProt protein ".$$pdb_line{'SP_PRIMARY'}.
+                                     " isoform exact match to Ensembl protein $translation_sid"
+                 );
               $pf_translation{$translation->dbID()} = $pf;
               push(@pfs,\%pf_translation);
-            }
           } # if t
         } # foreach my enst
       } # if scalar

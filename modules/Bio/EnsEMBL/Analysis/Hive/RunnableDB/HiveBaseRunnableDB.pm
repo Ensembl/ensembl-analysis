@@ -39,6 +39,7 @@ use parent ('Bio::EnsEMBL::Hive::Process');
                _auto_flow => 0, # This is mainly when you want to use complete_early, to set the autoflow
                _output => [],
                skip_analysis => 0, # If you want to skip the analysis, the feature needs to be implemented in the module
+               _skip_cache_clearing => 0, # If you want to skip cache cleaning 
  Returntype : Hashref, containing all default parameters
  Exceptions : None
 
@@ -56,6 +57,7 @@ sub param_defaults {
         _auto_flow => 0,
         _output => [],
         skip_analysis => 0,
+        _skip_cache_clearing => 0,
     }
 }
 
@@ -728,6 +730,9 @@ sub _create_temporary_file {
               with downstream jobs starting before the write from the upstream job is
               actually fully written to disk. This can have unusual effects in terms of
               creating situations where input is missing and the job silently fails
+              Also note that clear_caches might cause problems if you are using other
+              team's objects. You can skill clear_caches when you set the parameter 
+              _skip_cache_clearing. 
  Returntype : None
  Exceptions : None
 
@@ -736,9 +741,11 @@ sub _create_temporary_file {
 sub post_cleanup {
   my ($self,$sleep_time) = @_;
 
-  foreach my $key (keys %{$self->{_gb_cache}}) {
-    next if ($key eq '_cache_lastlogicname');
-    $self->{_gb_cache}->{$key}->clear_caches;
+  if ($self->param('_skip_cache_clearing') == 0) {
+    foreach my $key (keys %{$self->{_gb_cache}}) {
+      next if ($key eq '_cache_lastlogicname');
+      $self->{_gb_cache}->{$key}->clear_caches;
+    }
   }
 
   if(defined($sleep_time)) {

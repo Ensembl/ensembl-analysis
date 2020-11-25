@@ -69,8 +69,8 @@ use vars qw (@ISA  @EXPORT);
 sub print_Translation{
   my ($transcript,$indent) = @_;
 
+  $indent = '' if(!$indent);
   if ($transcript->translation) {
-    $indent = '' if(!$indent);
     print Translation_info($transcript, $indent)."\n";
     print_Translation_genomic_coords($transcript, $indent);
     warning("Transcript is less than 3bp can't print ".
@@ -83,6 +83,9 @@ sub print_Translation{
     my $num_stops = contains_internal_stops($transcript);
     print $indent."peptide contains ".$num_stops.
       " internal stop codons\n" if($num_stops);
+  }
+  else {
+    print $indent, "NO translation\n";
   }
 }
 
