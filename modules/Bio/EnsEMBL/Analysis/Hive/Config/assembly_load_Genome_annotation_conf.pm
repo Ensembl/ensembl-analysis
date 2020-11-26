@@ -12,7 +12,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 =cut
 
-package Bio::EnsEMBL::Analysis::Hive::Config::assembl_loading_Genome_annotation_conf;
+package Bio::EnsEMBL::Analysis::Hive::Config::Genome_annotation_conf;
 
 use strict;
 use warnings;
