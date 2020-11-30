@@ -339,56 +339,6 @@ foreach my $accession (@accession_array) {
 
   unless($config_only) {
     init_pipeline($assembly_hash,$hive_directory,$force_init,$fh);
-#    chdir($assembly_hash->{'output_path'});
-#    my $cmd;
-#    if ($hive_directory) {
-#      $cmd = 'perl '.catfile($hive_directory, 'scripts', 'init_pipeline.pl');
-#    }
-#    else {
-#      print "WARNING using init_pipeline.pl from your PATH, may not be the same as your PERL5LIB\n";
-#      $cmd = 'init_pipeline.pl';
-#    }
-#    if ($force_init) {
-#      $cmd .= ' Genome_annotation_conf.pm -hive_force_init 1';
-#    }
-#    else {
-#      $cmd .= ' Genome_annotation_conf.pm';
-#    }
-#    my $result = `$cmd`;
-#    unless($result =~ /beekeeper.+\-sync/) {
-#      throw("Failed to run init_pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd);
-#    }
-
-#    my $sync_command = $&;
-#    if ($hive_directory) {
-#      $sync_command = 'perl '.catdir($hive_directory, 'scripts').catfile('','').$sync_command; # The crazy catfile in the middle is to get the path separator
-#    }
-#    my $return = system($sync_command);
-#    if($return) {
-#      throw("Failed to sync the pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$sync_command);
-#    }
-
-
-#    if($check_for_transcriptomic) {
-#      my $run_command = $sync_command;
-#      $run_command =~ s/\-sync/\-run/;
-#      my $return = system($run_command);
-#      if($return) {
-#        throw("Failed to run a loop the pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$run_command);
-#      }
-#    }
-
-
-#    my $loop_command = $sync_command;
-#    $loop_command =~ s/sync/loop \-sleep 0.3/;
-#    my ($ehive_url) = $sync_command =~ /url\s+(\S+)/;
-#    my ($driver, $user, $password, $host, $port, $dbname) = $ehive_url =~ /^(\w+)[:\/]+(\w*):(\w+)@([^:]+):(\d+)\/(\w+)$/;
-#    if ($password) {
-#      $password = '&passwd=xxxxx';
-#    }
-#    say $fh "#GuiHive: $base_guihive/?driver=$driver&username=$user&host=$host&port=$port&dbname=$dbname$password";
-#    say $fh "export EHIVE_URL=$ehive_url";
-#    say $fh $loop_command;
   }
 }
 
@@ -812,7 +762,7 @@ sub init_pipeline {
     my $loop_command = $sync_command;
     $loop_command =~ s/\-sync/\-loop \-sleep 0.3/;
     my ($ehive_url) = $sync_command =~ /url\s+(\S+)/;
-    my ($driver, $user, $password, $host, $port, $dbname) = $ehive_url =~ /^(\w+)[:\/]+(\w*):(\w+)@([^:]+):(\d+)\/(\w+)$/;
+    my ($driver, $user, $password, $host, $port, $dbname) = $ehive_url =~ /^"?(\w+)[:\/]+(\w*):(\w+).([^:]+):(\d+)\/(\w+)"?$/;
     if ($password) {
       $password = '&passwd=xxxxx';
     }
