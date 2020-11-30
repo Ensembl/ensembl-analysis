@@ -381,8 +381,8 @@ sub default_options {
 # Executable paths
 ########################
     'minimap2_genome_index'  => $self->o('faidx_genome_file').'.mmi',
-    'minimap2_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/minimap2',
-    'paftools_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/misc/paftools.js',
+    'minimap2_path'          => catfile($self->o('binary_base'), 'minimap2'),
+    'paftools_path'          => catfile($self->o('binary_base'), 'paftools.js'),
     'minimap2_batch_size'    => '5000',
 
     'blast_type' => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
