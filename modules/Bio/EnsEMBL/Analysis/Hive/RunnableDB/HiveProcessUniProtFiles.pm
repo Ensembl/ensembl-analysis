@@ -39,6 +39,27 @@ sub param_defaults {
 }
 
 
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Parse the protein file to load into the database and be able to align the sequence
+              If the protein has been added to the killlist database, it will be removed from the
+              set.
+              When skip_Xs is set, the protein is removed from the set if it contains as many X in
+              the sequence as the value given in the parameter.
+              If the sequence has B, J or Z, a warning is printed as some software may have problem
+              to use them.
+              When the protein has a uniprot header, the pe level is set accordingly and the source
+              is set to uniprot.
+              When the protein has a RefSeq accession, [AN]P_, the pe level is set to 2 and the source
+              is set to refseq. Predicted proteins [YX]P_ are removed from the set
+              If the protein has a selenocysteine, the source is set to seleno
+ Returntype : None
+ Exceptions : Throws if the header cannot be parsed
+              Throws if it failed to store the sequence
+
+=cut
+
 sub fetch_input {
   my $self = shift;
 
@@ -110,7 +131,7 @@ sub fetch_input {
           $versioned_accession = $1;
           next if ($versioned_accession =~ /^[YX]P_/);
           ($accession) = $versioned_accession =~ /^(.+)\.\d+$/;
-          if ($versioned_accession =~ /^NP_/) {
+          if ($versioned_accession =~ /^[AN]P_/) {
             $source_db = 'refseq';
             $pe_level = 2;
           }
