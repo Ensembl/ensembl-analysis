@@ -443,7 +443,10 @@ sub parse_assembly_report {
   }
 
   if(exists($general_hash->{'load_toplevel_only'}) && $general_hash->{'load_toplevel_only'} == 0) {
-    unless($wgs_id) {
+    if ($wgs_id) {
+      $assembly_hash->{'wgs_id'} = $wgs_id;
+    }
+    else {
       throw("Need the wgs id as the load_toplevel_only flag was set to 0. Failed to find the id in the report file");
     }
   }
@@ -495,7 +498,6 @@ sub parse_assembly_report {
 
   $assembly_hash->{'strain'} = $species_name;
   $assembly_hash->{'assembly_level'} = $assembly_level;
-  $assembly_hash->{'wgs_id'} = $wgs_id;
   $assembly_hash->{'species_name'} = $species_name;
   @{$assembly_hash}{keys(%$general_hash)} = values(%$general_hash);
   $assembly_hash->{'output_path'} .= "/".$species_name."/".$accession."/";
@@ -820,6 +822,24 @@ sub init_pipeline {
 }
 
 
+=head2 assign_server_info
+
+ Arg [1]    : Hashref, the hash with all the information about the config
+ Description: Assign servers connection details based on 'server_set' if it is present.
+              If the set does not exists, it uses the values for "set1"
+              If 'server_set' is not defined, it looks for the following keys which should
+              all be defined:
+                databases_server
+                databases_port
+                pipe_db_server
+                pipe_db_port
+                dna_db_server
+                dna_db_port
+ Returntype : None
+ Exceptions : Throws if 'server_set' is not set and none of the connection details are set.
+
+=cut
+
 sub assign_server_info {
   my ($general_hash) = @_;
 
@@ -844,17 +864,30 @@ sub assign_server_info {
   };
 
   my $server_set = $general_hash->{'server_set'};
-  unless(exists $servers->{$server_set}) {
-    warning("Could not find an associated server set entry in the HiveBaseConfig for ".$server_set.". Will default to set1");
-    return($servers->{'set1'});
-  }
+  if ($server_set) {
+    if (! exists $servers->{server_set}) {
+      warning("Could not find an associated server set entry in the HiveBaseConfig for ".$server_set.". Will default to set1");
+      $server_set = 'set1';
+    }
+    $general_hash->{databases_server} = $servers->{$server_set}->{'databases_server'};
+    $general_hash->{databases_port} = $servers->{$server_set}->{'databases_port'};
+    $general_hash->{pipe_db_server} = $servers->{$server_set}->{'pipe_db_server'};
+    $general_hash->{pipe_db_port} = $servers->{$server_set}->{'pipe_db_port'};
+    $general_hash->{dna_db_server} = $servers->{$server_set}->{'dna_db_server'};
+    $general_hash->{dna_db_port} = $servers->{$server_set}->{'dna_db_port'};
 
-  $general_hash->{databases_server} = $servers->{$server_set}->{'databases_server'};
-  $general_hash->{databases_port} = $servers->{$server_set}->{'databases_port'};
-  $general_hash->{pipe_db_server} = $servers->{$server_set}->{'pipe_db_server'};
-  $general_hash->{pipe_db_port} = $servers->{$server_set}->{'pipe_db_port'};
-  $general_hash->{dna_db_server} = $servers->{$server_set}->{'dna_db_server'};
-  $general_hash->{dna_db_port} = $servers->{$server_set}->{'dna_db_port'};
+  }
+  else {
+    throw("You are missing connection details for at least one of them: databases_server, databases_port, pipe_db_server, pipe_db_port, dna_db_server, dna_db_port")
+      unless (
+        exists $general_hash->{databases_server} and
+        exists $general_hash->{databases_port} and
+        exists $general_hash->{pipe_db_server} and
+        exists $general_hash->{pipe_db_port} and
+        exists $general_hash->{dna_db_server} and
+        exists $general_hash->{dna_db_port}
+      );
+  }
 }
 
 =head2 copy_general_module
