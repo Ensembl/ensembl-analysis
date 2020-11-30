@@ -21,6 +21,7 @@ use feature 'say';
 use Getopt::Long qw(:config no_ignore_case);
 use File::Spec::Functions qw(catfile splitdir catdir updir);
 use File::Basename;
+use File::Copy;
 use Bio::EnsEMBL::Utils::Exception qw (warning throw);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
@@ -333,6 +334,7 @@ foreach my $accession (@accession_array) {
   }
 
   create_config($assembly_hash);
+  copy_general_module();
 
   unless($config_only) {
     init_pipeline($assembly_hash,$hive_directory,$force_init,$fh);
@@ -885,5 +887,30 @@ sub assign_server_info {
         exists $general_hash->{dna_db_server} and
         exists $general_hash->{dna_db_port}
       );
+  }
+}
+
+=head2 copy_general_module
+
+ Arg [1]    : None
+ Description: Find the path to 'ensembl-analysis' in @INC, then copy Bio/EnsEMBL/Analysis/Config/General.pm.example
+              to Bio/EnsEMBL/Analysis/Config/General.pm to be able to run the projection pipeline and Compara parts
+ Returntype : None
+ Exceptions : Throws if it cannot find 'ensembl-analysis'
+
+=cut
+
+sub copy_general_module {
+  my ($analysis_path) = grep {/ensembl-analysis/} @INC;
+  throw("I cannot find ensembl-analysis in your PERL5LIB") unless($analysis_path);
+  my @dirs = splitdir($analysis_path);
+  while (my $dir = pop(@dirs)) {
+    if ($dir eq 'ensembl-analysis') {
+      my $file = catfile(@dirs, $dir, 'modules', 'Bio', 'EnsEMBL', 'Analysis', 'Config', 'General.pm');
+      if (! -e $file) {
+        copy("$file.example", $file) or warning("Could not copy $file.example to $file");
+      }
+      return;
+    }
   }
 }
