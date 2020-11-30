@@ -19,7 +19,7 @@ use strict;
 use feature 'say';
 
 use Getopt::Long qw(:config no_ignore_case);
-use File::Spec::Functions qw(catfile splitdir catdir updir);
+use File::Spec::Functions qw(catfile splitdir catdir updir devnull);
 use File::Basename;
 use File::Copy;
 use Bio::EnsEMBL::Utils::Exception qw (warning throw);
@@ -27,7 +27,7 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor;
 use Net::FTP;
-use Cwd qw(realpath);
+use Cwd qw(realpath chdir getcwd);
 use Data::Dumper;
 
 use JSON;
@@ -335,6 +335,7 @@ foreach my $accession (@accession_array) {
 
   create_config($assembly_hash);
   copy_general_module();
+  check_compara_release_version();
 
   unless($config_only) {
     init_pipeline($assembly_hash,$hive_directory,$force_init,$fh);
@@ -911,6 +912,55 @@ sub copy_general_module {
         copy("$file.example", $file) or warning("Could not copy $file.example to $file");
       }
       return;
+    }
+  }
+}
+
+
+=head2 check_compara_release_version
+
+ Arg [1]    : None
+ Description: Checks if the branch in ensembl-compara is set to the correct version
+              in order to run the projection part successfully.
+              If the branch is not the wanted version, it tries to switch to the wanted
+              version
+ Returntype : None
+ Exceptions : Throws if it fails to move to the ensembl-compara directory
+              Throws if it fails to move back to the current directory
+              Throws if it fails to run 'git branch'
+              Throws if it fails to close the git command pipe
+              Throws if it fails to run 'git fetch'
+              Throws if it fails to run 'git checkout <wanted version>'
+
+=cut
+
+sub check_compara_release_version {
+  my $wanted_branch = 'release/98';
+  foreach my $dir (@INC) {
+    if ($dir =~ /ensembl-compara/) {
+      my $current_dir = getcwd();
+      chdir($dir) or throw("Could not go to '$dir'");
+      open(CH, 'git branch |') or throw('Could not run "git branch"');
+      while(<CH>) {
+        my ($current, $branch) = $_ =~ /^(.)\s+(\S+)/;
+        if ($current eq '*') {
+          if ($branch ne $wanted_branch) {
+            if (system('git fetch > '.devnull().' 2>&1')) {
+              throw('Could not fetch branches with git');
+            }
+            elsif (system("git checkout $wanted_branch > ".devnull().' 2>&1')) {
+              throw("Could not checkout '$wanted_branch'");
+            }
+            else {
+              warning("Switched branch '$branch' to '$wanted_branch' in '$dir'");
+            }
+          }
+          last;
+        }
+      }
+      close(CH) or throw('Could not close the git command pipe');
+      chdir($current_dir) or throw("Could not move back to '$current_dir'");
+      last;
     }
   }
 }
