@@ -855,6 +855,7 @@ sub assign_server_info {
   $general_hash->{pipe_db_port} = $servers->{$server_set}->{'pipe_db_port'};
   $general_hash->{dna_db_server} = $servers->{$server_set}->{'dna_db_server'};
   $general_hash->{dna_db_port} = $servers->{$server_set}->{'dna_db_port'};
+}
 
 =head2 copy_general_module
 
