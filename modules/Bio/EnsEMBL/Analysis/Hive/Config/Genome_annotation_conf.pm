@@ -1333,7 +1333,7 @@ sub pipeline_create_commands {
       'pcp_output' => '/hps/nobackup2/production/ensembl/jma/pcp_temp',  #Temporary for test
       'pcp_name' => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_stringtie_intitial_pcp_'.$self->o('release_number'),
 
-      'impute_command' => '-user '.$self->o('user').' -pass '.$self->o('password').' -dbname  '.$self->o('pcp_name').' -port '.$self->o('stringtie_initial_db_port'). ' -host '.$self->o('stringtie_initial_db_host').' -cpc2 '.$self->o('pcp_output').'/'.$self->o('pcp_name')'_cpc2.txt -rnas '.$self->o('pcp_output').'/'.$self->o('pcp_name').'_RNAsamba.tsv',
+      'impute_command' => '-user '.$self->o('user').' -pass '.$self->o('password').' -dbname  '.$self->o('pcp_name').' -port '.$self->o('stringtie_initial_db_port'). ' -host '.$self->o('stringtie_initial_db_host').' -cpc2 '.$self->o('pcp_output').'/'.$self->o('pcp_name').'_cpc2.txt -rnas '.$self->o('pcp_output').'/'.$self->o('pcp_name').'_RNAsamba.tsv',
 
 #######################
 # /RNASamba CPC2 Stuff
