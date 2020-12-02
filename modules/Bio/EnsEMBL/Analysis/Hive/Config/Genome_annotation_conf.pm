@@ -284,6 +284,10 @@ sub default_options {
     faidx_genome_file             => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
     # This one is a cross between the two above, it has the seq_region name header but is softmasked. It is used by things that would both want to skip using the dna table and also want to avoid the repeat_feature table, e.g. bam2introns
     faidx_softmasked_genome_file  => catfile($self->o('genome_dumps'), $self->o('species_name').'_softmasked_toplevel.fa.reheader'),
+    # repeatdetector (Red) output directories which will contain the softmasked fasta and the repeat features files created by Red
+    red_msk => catfile($self->o('genome_dumps'), $self->o('species_name').'_red_msk/'),
+    red_rpt => catfile($self->o('genome_dumps'), $self->o('species_name').'_red_rpt/'),
+    
     'primary_assembly_dir_name' => 'Primary_Assembly',
     'refseq_cdna_calculate_coverage_and_pid' => '0',
     'contigs_source'            => 'ena',
@@ -393,6 +397,7 @@ sub default_options {
     'cpg_path' => catfile($self->o('binary_base'), 'cpg_lh'),
     'trnascan_path' => catfile($self->o('binary_base'), 'tRNAscan-SE'),
     'repeatmasker_path' => catfile($self->o('binary_base'), 'RepeatMasker'),
+    'red_path' => catfile($self->o('binary_base'), 'Red'),
     'genscan_path' => catfile($self->o('binary_base'), 'genscan'),
     'genscan_matrix_path' => catfile($self->o('software_base_path'), 'share', 'HumanIso.smat'),
     'uniprot_blast_exe_path' => catfile($self->o('binary_base'), 'blastp'),
@@ -1873,7 +1878,7 @@ sub pipeline_analyses {
 
         -flow_into  => {
           '1->A' => ['create_10mb_slice_ids'],
-          'A->1' => ['genome_prep_sanity_checks'],
+          'A->1' => ['repeatdetector'],
         },
 
       },
@@ -2572,6 +2577,23 @@ sub pipeline_analyses {
         -rc_name          => 'default',
         -can_be_empty  => 1,
         -failed_job_tolerance => 100,
+      },
+
+      {
+        -logic_name => 'repeatdetector',
+        -module     => 'Red',
+        -language   => 'python3',
+        -parameters => {
+                         red_path => $self->o('red_path'),
+			 genome_file => $self->o('faidx_genome_file'),
+                         target_db_url => $self->o('reference_db'),
+                         msk => $self->o('red_msk'),
+                         rpt => $self->o('red_rpt'),
+                       },
+        -rc_name => 'default',
+	-flow_into =>  {
+                         1 => ['genome_prep_sanity_checks'],
+                       },
       },
 
       {
