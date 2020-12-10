@@ -598,6 +598,12 @@ sub clade_settings {
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
+    'insects' => {
+      'repbase_library'    => 'lepidoptera',
+      'repbase_logic_name' => 'lepidoptera',
+      'uniprot_set'        => 'lepidoptera_basic',
+    },
+
     'non_vertebrates' => {
       'repbase_library'    => 'non_vertebrates',
       'repbase_logic_name' => 'non_vertebrates',
