@@ -50,6 +50,19 @@ use LWP::UserAgent;
 use parent qw(Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB);
 
 
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Parse the genbank file if present as it contains the cDNAs and
+              check that the protein files containing selenoproteins and PE1
+              and PE2 proteins from Uniprot. It produces a warning if any of
+              the protein files does not exist.
+              If there is no cDNAs or proteins, the job finishes early.
+ Returntype : None
+ Exceptions : Throws if there are cDNAs but no protein files exist
+
+=cut
+
 sub fetch_input {
   my ($self) = @_;
 
@@ -77,14 +90,6 @@ sub fetch_input {
       }
     }
     $genbank_parser->close;
-    if ($self->param_is_defined('protein_files')) {
-      foreach my $file (@{$self->param('protein_files')}) {
-        #instead of throw, issue warning in the absence of a proteome.fa file. We can assume that there were no pe1 or 2 proteins for the species
-        ##This way, the pipeline continues without dying.
-        $self->warning('Could not find '.$file) unless (-e $file);
-         #$self->throw('Could not find '.$file) unless (-e $file);
-      }
-    }
     if (@seqs) {
       $self->output(\@seqs);
     }
@@ -92,12 +97,40 @@ sub fetch_input {
       $self->warning('Strange, you do not seem to have any full length cdna');
     }
   }
-  else {
+  my $count = 0;
+  if ($self->param_is_defined('protein_files')) {
+    foreach my $file (@{$self->param('protein_files')}) {
+      if (-e $file) {
+        ++$count;
+      }
+      else {
+        # It would be better to throw because we expect to have PE1 and PE2 proteins if we have cDNAs.
+        # it is possible that there is no selenoprotein for these species as they usually need manual curation.
+        # However, it is also possible that there is only PE3 selenoproteins which we still want as there should
+        # be better than the Genblast models
+        $self->warning('Could not find '.$file);
+      }
+    }
+  }
+  if (@{$self->output} and !$count) {
+    $self->thow('You have a cDNA file but none of your protein files exist') unless ($count);
+  }
+  elsif (!@{$self->output} and !$count) {
     $self->input_job->autoflow(0);
     $self->complete_early("Could not find any cdnas");
   }
 }
 
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Retrieve the UniProt accession corresponding to the RefSeq/INSDC accession
+              in order to avoid creating models from the same sequence
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub run {
   my ($self) = @_;
@@ -132,6 +165,18 @@ sub run {
   }
 }
 
+
+=head2 _get_uniprot_accession
+
+ Arg [1]    : Hashref containing the parameter for the REST query to UniProt
+ Arg [2]    : Array ref of Bio::Seq
+ Description: Query UniProt to find the Uniprot accession of Refseq or INSDC
+              protein accessions
+              It updates the description field when a UniProt accession is found
+ Returntype : None
+ Exceptions : Throws if the REST query failed
+
+=cut
 
 sub _get_uniprot_accession {
   my ($self, $params, $seqs) = @_;
@@ -185,6 +230,16 @@ sub _get_uniprot_accession {
   }
 }
 
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Write a new FASTA file containing all possible sequences downloaded previously
+              When the seqeunce has multiple accession they are all in the header
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub write_output {
   my ($self) = @_;

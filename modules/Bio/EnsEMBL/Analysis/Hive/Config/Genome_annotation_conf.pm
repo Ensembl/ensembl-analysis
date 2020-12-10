@@ -4784,7 +4784,7 @@ sub pipeline_analyses {
         fasta_filename => catfile($self->o('targetted_path'), 'best_targetted.fa'),
         email => $self->o('email_address'),
         genbank_file => $self->o('cdna_file'),
-        protein_files => [catfile($self->o('targetted_path'), 'proteome.fa')],
+        protein_files => [catfile($self->o('targetted_path'), 'proteome.fa'), catfile($self->o('targetted_path'), $self->o('taxon_id').'_seleno.fa')],
       },
       -rc_name      => 'default',
       -flow_into => {

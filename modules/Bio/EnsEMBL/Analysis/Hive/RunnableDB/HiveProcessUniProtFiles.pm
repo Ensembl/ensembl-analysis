@@ -39,6 +39,27 @@ sub param_defaults {
 }
 
 
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Parse the protein file to load into the database and be able to align the sequence
+              If the protein has been added to the killlist database, it will be removed from the
+              set.
+              When skip_Xs is set, the protein is removed from the set if it contains as many X in
+              the sequence as the value given in the parameter.
+              If the sequence has B, J or Z, a warning is printed as some software may have problem
+              to use them.
+              When the protein has a uniprot header, the pe level is set accordingly and the source
+              is set to uniprot.
+              When the protein has a RefSeq accession, [AN]P_, the pe level is set to 2 and the source
+              is set to refseq. Predicted proteins [YX]P_ are removed from the set
+              If the protein has a selenocysteine, the source is set to seleno
+ Returntype : None
+ Exceptions : Throws if the header cannot be parsed
+              Throws if it failed to store the sequence
+
+=cut
+
 sub fetch_input {
   my $self = shift;
 
@@ -164,8 +185,7 @@ sub fetch_input {
   }
   else {
     if ($write_file and -e $self->param('output_file')) {
-       #do not unlink file in order not to break generate_besttargetted_index
-       #unlink $self->param('output_file');
+       unlink $self->param('output_file');
     }
     $self->input_job->autoflow(0);
     $self->complete_early('No sequences have been stored or written to file');
