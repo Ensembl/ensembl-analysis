@@ -84,6 +84,24 @@ sub fetch_input {
 
   my $production_dba = $self->hrdb_get_dba($self->param_required('production_db'),undef,'Production');
   $self->hrdb_set_con($production_dba,'production_db');
+  if (!$self->param_is_defined('metadata_db')) {
+    my %hash = %{$self->param('production_db')};
+    $hash{'-dbname'} = 'ensembl_metadata';
+    if (exists $hash{'-group'}) {
+      $hash{'-group'} = 'metadata';
+    }
+    my $metadata_dba = $self->hrdb_get_dba(\%hash, undef, 'Bio::EnsEMBL::MetaData::DBSQL::MetaDataDBAdaptor');
+    $self->hrdb_set_con($production_dba,'metadata_db');
+  }
+  if (!$self->param_is_defined('taxonomy_db')) {
+    my %hash = %{$self->param('production_db')};
+    $hash{'-dbname'} = 'ncbi_taxonomy';
+    if (exists $hash{'-group'}) {
+      $hash{'-group'} = 'taxonomy';
+    }
+    my $taxonomy_dba = $self->hrdb_get_dba(\%hash, undef, 'Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor');
+    $self->hrdb_set_con($production_dba,'taxonomy_db');
+  }
 
 }
 
@@ -106,6 +124,8 @@ sub run {
     say OUT 'use strict;';
     say OUT 'use Bio::EnsEMBL::DBSQL::DBAdaptor;';
     say OUT 'use Bio::EnsEMBL::Production::DBSQL::DBAdaptor;';
+    say OUT 'use Bio::EnsEMBL::MetaData::DBSQL::MetaDataDBAdaptor;';
+    say OUT 'use Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor;';
     say OUT '{';
     foreach my $db (@{$self->param('databases')}) {
       # The group is important for datachecks
@@ -122,16 +142,18 @@ sub run {
       say OUT "-group => '", $group, "',";
       say OUT ');';
     }
-    my $db = $self->hrdb_get_con('production_db');
-    say OUT ref($db), '->new(';
-    foreach my $key (qw(host port dbname user pass)) {
-      if ($db->dbc->$key) {
-        say OUT "-$key => '", $db->dbc->$key, "',";
+    foreach my $type ('production', 'metadata', 'taxonomy') {
+      my $db = $self->hrdb_get_con("${type}_db");
+      say OUT ref($db), '->new(';
+      foreach my $key (qw(host port dbname user pass)) {
+        if ($db->dbc->$key) {
+          say OUT "-$key => '", $db->dbc->$key, "',";
+        }
       }
+      say OUT "-species => 'multi',";
+      say OUT "-group => '$type',";
+      say OUT ');';
     }
-    say OUT "-species => 'multi',";
-    say OUT "-group => 'production',";
-    say OUT ');';
     say OUT '}';
   }
   else {
