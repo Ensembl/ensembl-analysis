@@ -142,7 +142,7 @@ sub run {
     my $protein_accession = $sequence->desc;
     my $seq = $seqfetcher->get_entry_by_acc($protein_accession);
     if (!$seq) {
-      if ($sequence->desc =~ /NP_/) {
+      if ($sequence->desc =~ /[AN]P_/) {
         push(@refseq_ids, $sequence);
       }
       else {

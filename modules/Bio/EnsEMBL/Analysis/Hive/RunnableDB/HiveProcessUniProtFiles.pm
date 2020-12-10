@@ -131,7 +131,7 @@ sub fetch_input {
           $versioned_accession = $1;
           next if ($versioned_accession =~ /^[YX]P_/);
           ($accession) = $versioned_accession =~ /^(.+)\.\d+$/;
-          if ($versioned_accession =~ /^NP_/) {
+          if ($versioned_accession =~ /^[AN]P_/) {
             $source_db = 'refseq';
             $pe_level = 2;
           }
