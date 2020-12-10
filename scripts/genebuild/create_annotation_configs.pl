@@ -580,6 +580,12 @@ sub clade_settings {
       'uniprot_set'        => 'insects_basic',
     },
 
+    'insects' => {
+      'repbase_library'    => 'lepidoptera',
+      'repbase_logic_name' => 'lepidoptera',
+      'uniprot_set'        => 'lepidoptera_basic',
+    },
+
     'non_vertebrates' => {
       'repbase_library'    => 'non_vertebrates',
       'repbase_logic_name' => 'non_vertebrates',
@@ -816,7 +822,7 @@ sub assign_server_info {
 
   my $server_set = $general_hash->{'server_set'};
   if ($server_set) {
-    if (! exists $servers->{server_set}) {
+    if (! exists $servers->{$server_set}) {
       warning("Could not find an associated server set entry in the HiveBaseConfig for ".$server_set.". Will default to set1");
       $server_set = 'set1';
     }
