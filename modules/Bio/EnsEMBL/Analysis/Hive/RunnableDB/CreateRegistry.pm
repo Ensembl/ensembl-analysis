@@ -91,7 +91,7 @@ sub fetch_input {
       $hash{'-group'} = 'metadata';
     }
     my $metadata_dba = $self->hrdb_get_dba(\%hash, undef, 'Bio::EnsEMBL::MetaData::DBSQL::MetaDataDBAdaptor');
-    $self->hrdb_set_con($production_dba,'metadata_db');
+    $self->hrdb_set_con($metadata_dba,'metadata_db');
   }
   if (!$self->param_is_defined('taxonomy_db')) {
     my %hash = %{$self->param('production_db')};
@@ -100,7 +100,7 @@ sub fetch_input {
       $hash{'-group'} = 'taxonomy';
     }
     my $taxonomy_dba = $self->hrdb_get_dba(\%hash, undef, 'Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor');
-    $self->hrdb_set_con($production_dba,'taxonomy_db');
+    $self->hrdb_set_con($taxonomy_dba,'taxonomy_db');
   }
 
 }
