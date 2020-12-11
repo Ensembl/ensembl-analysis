@@ -222,6 +222,9 @@ sub default_options {
     'stringtie_initial_db_server'  => $self->o('databases_server'),
     'stringtie_initial_db_port'    => $self->o('databases_port'),
 
+    'stringtie_intitial_pcp_db_server' => $self->o('databases_server'),
+    'stringtie_initial_pcp_db_port'    => $self->o('databases_port'),
+
     'stringtie_blast_db_server'    => $self->o('databases_server'),
     'stringtie_blast_db_port'      => $self->o('databases_port'),
 
@@ -809,6 +812,7 @@ sub default_options {
     'dump_features_exe'                 => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/dumps/DumpMultiAlign.pl'),
 
 
+
 ########################
 # db info
 ########################
@@ -1082,8 +1086,8 @@ sub default_options {
       -driver => $self->o('hive_driver'),
     },
 
-    'stringtie_intitial_pcp_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_stringtie_intitial_pcp_'.$self->o('release_number'),
+    'stringtie_initial_pcp_db'=> {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_stringtie_intitial_pcp_'.$self->o('release_number'),
       -host   => $self->o('stringtie_initial_db_server'),
       -port   => $self->o('stringtie_initial_db_port'),
       -user   => $self->o('user'),
@@ -1208,6 +1212,20 @@ sub default_options {
       -driver => $self->o('hive_driver'),
     },
 
+    #######################
+    # RNASamba CPC2 Stuff
+    #######################
+
+    'rna_samba_weights' => '/homes/jma/coding_gene_testing/full_length_weights.hdf5',
+    'pcp_output' => '/hps/nobackup2/production/ensembl/jma/pcp_temp',  #Temporary for test
+    'pcp_name' => $self->o('dbowner').'_'.$self->o('production_name').'_stringtie_intitial_pcp_'.$self->o('release_number'),
+
+    'impute_command' => '-user '.$self->o('user').' -pass '.$self->o('password').' -dbname  '.$self->o('pcp_name').' -port '.$self->o('stringtie_initial_db_port'). ' -host '.$self->o('stringtie_initial_db_server').' -cpc2 '.$self->o('pcp_output').'/'.$self->o('pcp_name').'_cpc2.txt -rnas '.$self->o('pcp_output').'/'.$self->o('pcp_name').'_RNAsamba.tsv',
+
+    #######################
+    # /RNASamba CPC2 Stuff
+    #######################
+
   };
 }
 
@@ -1324,21 +1342,6 @@ sub pipeline_create_commands {
 #################
 # /LastZ
 #################
-
-#######################
-# RNASamba CPC2 Stuff
-#######################
-
-      'rna_samba_weights' => '/homes/jma/coding_gene_testing/full_length_weights.hdf5',
-      'pcp_output' => '/hps/nobackup2/production/ensembl/jma/pcp_temp',  #Temporary for test
-      'pcp_name' => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_stringtie_intitial_pcp_'.$self->o('release_number'),
-
-      'impute_command' => '-user '.$self->o('user').' -pass '.$self->o('password').' -dbname  '.$self->o('pcp_name').' -port '.$self->o('stringtie_initial_db_port'). ' -host '.$self->o('stringtie_initial_db_host').' -cpc2 '.$self->o('pcp_output').'/'.$self->o('pcp_name').'_cpc2.txt -rnas '.$self->o('pcp_output').'/'.$self->o('pcp_name').'_RNAsamba.tsv',
-
-#######################
-# /RNASamba CPC2 Stuff
-#######################
-
     ];
 }
 
