@@ -185,8 +185,7 @@ sub fetch_input {
   }
   else {
     if ($write_file and -e $self->param('output_file')) {
-       #do not unlink file in order not to break generate_besttargetted_index
-       #unlink $self->param('output_file');
+       unlink $self->param('output_file');
     }
     $self->input_job->autoflow(0);
     $self->complete_early('No sequences have been stored or written to file');
