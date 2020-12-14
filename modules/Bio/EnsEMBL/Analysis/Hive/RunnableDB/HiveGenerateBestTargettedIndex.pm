@@ -113,7 +113,7 @@ sub fetch_input {
     }
   }
   if (@{$self->output} and !$count) {
-    $self->thow('You have a cDNA file but none of your protein files exist') unless ($count);
+    $self->throw('You have a cDNA file but none of your protein files exist') unless ($count);
   }
   elsif (!@{$self->output} and !$count) {
     $self->input_job->autoflow(0);
