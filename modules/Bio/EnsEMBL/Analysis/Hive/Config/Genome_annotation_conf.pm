@@ -97,6 +97,7 @@ sub default_options {
     'paired_end_only'           => '1', # Will only use paired-end rnaseq data if 1
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
     'mt_accession'              => undef, # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
+    'replace_repbase_with_red_to_mask' => '0', # Setting this will replace 'full_repbase_logic_name' with 'red_logic_name' repeat features in the masking process
 
     # Keys for custom loading, only set/modify if that's what you're doing
     'skip_genscan_blasts'          => '1',
@@ -133,6 +134,8 @@ sub default_options {
 ########################
 # Pipe and ref db info
 ########################
+
+    'red_logic_name'            => 'repeatdetector', # logic name for the Red repeat finding analysis
 
     'projection_source_db_name'    => 'homo_sapiens_core_100_38', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_server'  => 'mysql-ens-mirror-1',
@@ -1295,6 +1298,16 @@ sub pipeline_create_commands {
 sub pipeline_wide_parameters {
   my ($self) = @_;
 
+  # set the logic names for repeat masking
+  my $wide_repeat_logic_names;
+  if ($self->o('use_repeatmodeler_to_mask')) {
+    $wide_repeat_logic_names = [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'];
+  } elsif ($self->o('replace_repbase_with_red_to_mask')) {
+    $wide_repeat_logic_names = [$self->o('red_logic_name'),'dust'];
+  } else {
+    $wide_repeat_logic_names = [$self->o('full_repbase_logic_name'),'dust'];
+  }
+
   return {
     %{$self->SUPER::pipeline_wide_parameters},
     skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),
@@ -1305,8 +1318,7 @@ sub pipeline_wide_parameters {
     skip_lastz => $self->o('skip_lastz'),
     skip_repeatmodeler => $self->o('skip_repeatmodeler'),
     load_toplevel_only => $self->o('load_toplevel_only'),
-    wide_repeat_logic_names => $self->o('use_repeatmodeler_to_mask') ? [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'] :
-                                                                                       [$self->o('full_repbase_logic_name'),'dust'],
+    wide_repeat_logic_names => $wide_repeat_logic_names,
     wide_ensembl_release => $self->o('ensembl_release'),
     use_genome_flatfile  => $self->o('use_genome_flatfile'),
     genome_file          => $self->o('faidx_genome_file'),
