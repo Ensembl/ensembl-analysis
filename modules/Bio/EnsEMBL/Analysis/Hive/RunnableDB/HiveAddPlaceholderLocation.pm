@@ -94,10 +94,9 @@ sub run {
     my @output = (['sample.location_param', $sample_coord],
                   ['sample.location_text', $sample_coord],
                   ['sample.gene_param', $sample_gene->stable_id()],
-                  ['sample.gene_text', 'ensembl_gene'],
+                  ['sample.gene_text', $sample_gene->stable_id()],
                   ['sample.transcript_param', $sample_transcript->stable_id()],
-                  ['sample.transcript_text', 'ensembl_transcript'],
-                  ['sample.search_text', 'ensembl_gene']);
+                  ['sample.transcript_text', $sample_transcript->stable_id()]);
 
     $self->output(\@output);
 
