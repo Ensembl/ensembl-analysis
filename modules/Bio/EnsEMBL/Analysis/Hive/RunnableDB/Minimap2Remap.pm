@@ -79,7 +79,32 @@ sub fetch_input {
   foreach my $slice_name (@$slice_array) {
     my $slice = $slice_adaptor->fetch_by_name($slice_name);
     my $genes = $slice->get_all_Genes();
-    push(@$input_genes,@$genes);
+    my $filtered_genes = [];
+    # Put the filtering in a subroutine at some point if it gets more complex
+    # At the moment the filtering is just on readthroughs
+    say "Got ".scalar(@$genes)." unfiltered genes";
+    foreach my $gene (@$genes) {
+      my $is_readthrough = 0;
+      my $transcripts = $gene->get_all_Transcripts();
+      foreach my $transcript (@$transcripts) {
+        if($is_readthrough) {
+          last;
+        }
+
+        my $attributes = $transcript->get_all_Attributes();
+        foreach my $attribute (@{$attributes}) {
+          if($attribute->value eq 'readthrough') {
+            $is_readthrough = 1;
+            last;
+          }
+        } # foreach my $attribute
+      } # End foreach my $transcript
+
+      unless($is_readthrough) {
+        push(@$filtered_genes,$gene);
+      }
+    } # End foreach my $gene
+    push(@$input_genes,@$filtered_genes);
   }
 
 ############################################
