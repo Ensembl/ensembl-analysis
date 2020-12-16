@@ -62,20 +62,15 @@ package Bio::EnsEMBL::Analysis::Runnable::miRNA;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Exon;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Gene;
-use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::Analysis::Runnable::RNAFold;
 
-use vars qw(@ISA);
+use parent qw(Bio::EnsEMBL::Analysis::Runnable);
 
-@ISA = qw(Bio::EnsEMBL::Analysis::Runnable);
-
-my $verbose = "yes";
 
 =head2 new
 
@@ -95,10 +90,6 @@ my $verbose = "yes";
 sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
-#  my ($queries,$thresholds) = rearrange(['QUERIES'], @args);
-#  $self->queries($queries); 
-#  $self->throw("miRNA: dying because cannot find database".$self->analysis->db_file."\n")
-#    unless (-e $self->analysis->db_file);
   
   my ($outdir, $queries,$thresholds) = rearrange(['OUTPUT_DIR', 'QUERIES'], @args);
   $self->queries($queries); 

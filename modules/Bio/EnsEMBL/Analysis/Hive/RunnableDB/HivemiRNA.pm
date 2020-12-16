@@ -84,7 +84,6 @@ sub fetch_input{
   my $analysis = new Bio::EnsEMBL::Analysis(
                                              -logic_name => $self->param('logic_name'),
                                              -module => $self->param('module'),
-                                             -program_file => $self->param('cmsearch_exe_path'),
                                              -db_file => $self->param('blast_db_dir_path'),
                                            );
   $self->analysis($analysis);
