@@ -1889,8 +1889,8 @@ sub pipeline_analyses {
         },
 
         -flow_into  => {
-          '1->A' => ['create_10mb_slice_ids'],
-          'A->1' => ['repeatdetector'],
+          '1->A' => ['repeatdetector'],
+          'A->1' => ['genome_prep_sanity_checks'],
         },
 
       },
@@ -1901,6 +1901,27 @@ sub pipeline_analyses {
 # REPEATMASKER ANALYSES
 #
 ###############################################################################
+
+      {
+        # Run Red (REpeat Detector)
+        -logic_name => 'repeatdetector',
+        -module     => 'Red',
+        -language   => 'python3',
+        -parameters => {
+	                 logic_name => $self->o('red_logic_name'),
+                         red_path => $self->o('red_path'),
+			 genome_file => $self->o('faidx_genome_file'),
+                         target_db_url => $self->o('reference_db'),
+                         msk => $self->o('red_msk'),
+                         rpt => $self->o('red_rpt'),
+			 red_meta_key => $self->o('replace_repbase_with_red_to_mask'),
+                       },
+        -rc_name => 'default',
+	-flow_into =>  {
+                         1 => ['create_10mb_slice_ids'],
+                       },
+      },
+
       {
         # Create 10mb toplevel slices, these will be split further for repeatmasker
         -logic_name => 'create_10mb_slice_ids',
@@ -2589,23 +2610,6 @@ sub pipeline_analyses {
         -rc_name          => 'default',
         -can_be_empty  => 1,
         -failed_job_tolerance => 100,
-      },
-
-      {
-        -logic_name => 'repeatdetector',
-        -module     => 'Red',
-        -language   => 'python3',
-        -parameters => {
-                         red_path => $self->o('red_path'),
-			 genome_file => $self->o('faidx_genome_file'),
-                         target_db_url => $self->o('reference_db'),
-                         msk => $self->o('red_msk'),
-                         rpt => $self->o('red_rpt'),
-                       },
-        -rc_name => 'default',
-	-flow_into =>  {
-                         1 => ['genome_prep_sanity_checks'],
-                       },
       },
 
       {
