@@ -179,11 +179,10 @@ elsif ($core_db){
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.location_param', '".$sample_coord."');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.location_text', '".$sample_coord."');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_param', '".$sample_gene->stable_id()."');
-INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_text', 'ensembl_gene');
+INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.gene_text', '".$sample_gene->stable_id()."');
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_param', '".$sample_transcript->stable_id()."');
-INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_text', 'ensembl_transcript');
-INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.search_text', 'glycoprotein');\n"
-}
+INSERT INTO meta (species_id, meta_key, meta_value) VALUES (1, 'sample.transcript_text', '".$sample_transcript->stable_id()."');"
+  }
   else{
     print "No suitable transcripts found for $core_db\n";
   }
