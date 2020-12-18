@@ -5257,7 +5257,7 @@ sub pipeline_analyses {
         -rc_name    => 'filter',
         -flow_into => {
                         '2->A' => ['run_mirna'],
-                        'A->1' => ['dump_features'],
+                        'A->1' => ['fan_dump_features'],
                         #'3' => ['run_infernal'],
                       },
       },
@@ -5280,6 +5280,18 @@ sub pipeline_analyses {
         #-flow_into  => { '1->A' => ['dump_repeats', 'dump_features', 'dump_genome'], 'A->1' => ['filter_mirnas']},
       },
 
+      { 
+        -logic_name => 'fan_dump_features',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name => 'default',
+        -flow_into  => {
+                         1 => WHEN(
+                                    '-e "'.catfile($self->o('ncrna_dir'),'rna_fold_results.txt').'"' => ['dump_features']
+                                  ),
+                       },
+      },
 
       {
         -logic_name => 'dump_features',
