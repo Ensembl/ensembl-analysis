@@ -56,27 +56,6 @@ sub _master_config {
   my %config = (
   'default' => {},
   'genome_preparation_checks' => {
-     'mammals_basic' => {
-       # repeats
-       'dust'                        => [2000000,'repeat'],
-       'repeatmask_repbase_primates' => [3000000,'repeat'],
-       'trf'                         => [500000,'repeat'],
-
-       # simple features
-       'cpg'                         => [15000,'simple'],
-       'trnascan'                    => [300,'simple'],
-       'eponine'                     => [30000,'simple'],
-
-       # prediction transcripts
-       'genscan'                     => [40000,'prediction transcript'],
-
-       # dna align features
-       'unigene'                     => [3000000,'dna align'],
-       'vertrna'                     => [3000000,'dna align'],
-
-       # protein align features
-       'uniprot'                     => [3000000,'protein align'],
-     },
      'primates_basic' => {
        # repeats
        'dust'                        => [2000000,'repeat'],
