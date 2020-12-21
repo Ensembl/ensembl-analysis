@@ -5338,7 +5338,7 @@ sub pipeline_analyses {
             .' '.catfile($self->o('ncrna_dir'), 'annotated_dafs.tsv')
             .' '.catfile($self->o('ncrna_dir'), 'rna_fold_results.txt')
             .' '.catfile($self->o('ncrna_dir'), 'identified_mirnas.bed')
-            .' '.catfile($self->o('ncrna_dir'), 'mirnas_to_delete.txt')
+            .' '.catfile($self->o('ncrna_dir'), 'mirnas_to_delete.txt'),
           pyenv_virtualenv => 'genebuild-mirna',
         },
         -rc_name   => 'filter',
