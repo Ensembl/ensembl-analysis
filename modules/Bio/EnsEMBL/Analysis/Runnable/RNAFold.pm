@@ -57,6 +57,7 @@ package Bio::EnsEMBL::Analysis::Runnable::RNAFold;
 use strict;
 use warnings;
 
+use File::Spec::Functions qw(catfile);
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -139,7 +140,7 @@ sub RNAfold{
   my $results_file = $self->create_filename("RNAfold","txt");
   $self->files_to_delete($results_file);
   # delete the postcript file that RNAfold generates
-  $self->files_to_delete("/tmp/".$seq->display_id."_ss.ps");
+  $self->files_to_delete(catfile($self->workdir, $seq->display_id."_ss.ps"));
   $self->resultsfile($results_file);
   $command .= "$options < $filename  2>&1 > ".$results_file;
   print STDERR "Running RNAfold ".$command."\n";

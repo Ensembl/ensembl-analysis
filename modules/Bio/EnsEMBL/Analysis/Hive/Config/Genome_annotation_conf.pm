@@ -5095,7 +5095,7 @@ sub pipeline_analyses {
                     " -p " . $self->o('rfam_port') .
                     " -d " . $self->o('rfam_dbname') .
                     " -c " . $self->o('clade') .
-                    " -o " . $self->o('output_path'),
+                    " -o " . $self->o('ncrna_dir'),
         },
         -rc_name => 'default',
         -flow_into => { '1' => 'extract_rfam_cm'},
@@ -5107,8 +5107,8 @@ sub pipeline_analyses {
         -parameters => {
             cmd => "perl " . $self->o('sncrna_analysis_script') . "/filter_cm.pl " .
                              $self->o('rfam_cm') . ' ' .
-                             $self->o('output_path') . '/accessions.txt ' .
-                             $self->o('output_path'),
+                             $self->o('ncrna_dir') . '/accessions.txt ' .
+                             $self->o('ncrna_dir'),
         },
         -rc_name => 'filter',
       },
@@ -5144,7 +5144,7 @@ sub pipeline_analyses {
                     rfam_seeds => $self->o('rfam_seeds'),
                     rfam_cm => $self->o('filtered_rfam_cm'),
                     blast_db_dir_path => $self->o('ncrna_blast_path').'/',
-                    output_dir => $self->o('output_path'),
+                    output_dir => $self->o('ncrna_dir'),
         },
         -hive_capacity => 900,
         -rc_name    => '5GB',
@@ -5163,7 +5163,7 @@ sub pipeline_analyses {
                     rfam_seeds => $self->o('rfam_seeds'),
                     rfam_cm => $self->o('filtered_rfam_cm'),
                     blast_db_dir_path => $self->o('ncrna_blast_path').'/',
-                    output_dir => $self->o('output_path'),
+                    output_dir => $self->o('ncrna_dir'),
         },
         -hive_capacity => 900,
         -rc_name    => '10GB',
@@ -5257,8 +5257,7 @@ sub pipeline_analyses {
         -rc_name    => 'filter',
         -flow_into => {
                         '2->A' => ['run_mirna'],
-                        'A->1' => ['dump_features'],
-                        #'3' => ['run_infernal'],
+                        'A->1' => ['concat_rnafold_result'],
                       },
       },
 
@@ -5277,45 +5276,94 @@ sub pipeline_analyses {
         -batch_size => 20,
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
         -rc_name    => 'filter',
-        #-flow_into  => { '1->A' => ['dump_repeats', 'dump_features', 'dump_genome'], 'A->1' => ['filter_mirnas']},
       },
 
+
+      {
+        -logic_name => 'concat_rnafold_result',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'cat #data_file_pattern# > #output_file#',
+          data_file_pattern => catfile($self->o('ncrna_dir'), 'rna_fold_*.part'),
+          output_file => catfile($self->o('ncrna_dir'), 'rna_fold_results.txt'),
+        },
+        -rc_name   => 'filter',
+        -flow_into => {
+          1 => 'dump_features',
+        },
+      },
 
       {
         -logic_name => 'dump_features',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'perl '.catfile($self->o('sncrna_analysis_script'), 'dump_prefilter_features.pl').' '.
-                                $self->o('ncrna_db_name'). " " .
-                                $self->o('ncrna_db_server') . " " .
-                                $self->o('ncrna_db_port') . " " .
-                                $self->o('user_r') . " " .
-                                $self->o('ncrna_dir').' blastmirna',
-                        },
-         -rc_name   => 'filter',
-         -flow_into => {'1' => 'filter_mirnas'},
+          cmd => 'perl '.catfile($self->o('sncrna_analysis_script'), 'dump_prefilter_features.pl')
+            .' '.$self->o('ncrna_db_name')
+            .' '.$self->o('ncrna_db_server')
+            .' '.$self->o('ncrna_db_port')
+            .' '.$self->o('user_r')
+            .' '.$self->o('ncrna_dir')
+            .' blastmirna',
+        },
+        -rc_name   => 'filter',
+        -flow_into => {
+          1 => 'dump_annotated_dafs',
+        },
       },
 
 
       {
+        -logic_name => 'dump_annotated_dafs',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => "annotateBed -i #bedfile_dafs# -files #repeats_file# | bedtools nuc -fi #genome_file# -bed stdin -s | cut -f1-11,13 | grep -v '#' > #output_file# ",
+          output_file => catfile($self->o('ncrna_dir'), 'annotated_dafs.tsv'),
+          bedfile_dafs => catfile($self->o('ncrna_dir'), 'blastmirna_dafs.bed'),
+          repeats_file => catfile($self->o('ncrna_dir'), 'repeats.bed'),
+          genome_file => $self->o('faidx_genome_file'),
+        },
+        -rc_name   => 'filter',
+        -flow_into => {
+          1 => 'filter_mirnas'
+        },
+      },
+      {
         -logic_name => 'filter_mirnas',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                          cmd => 'sh '.catfile($self->o('sncrna_analysis_script'), 'FilterMiRNAs.sh')
-                                  .' -d '.catfile($self->o('ncrna_dir'), 'blastmirna_dafs.bed')
-                                  .' -r '.catfile($self->o('ncrna_dir'), 'repeats.bed')
-                                  .' -g '.$self->o('faidx_genome_file')
-                                  .' -w '.$self->o('ncrna_dir')
-                                  .' -m '.catfile($self->o('mirna_blast_path'), 'rfc_filters', $self->o('rfc_model'))
-                                  .' -s '.catfile($self->o('mirna_blast_path'), 'rfc_filters', $self->o('rfc_scaler'))
-                                  .' -c '.$self->o('ncrna_db_server').":".$self->o('ncrna_db_port').":".$self->o('ncrna_db_name').":"
-                                  .$self->o('user').":".$self->o('password'),
-                        },
+          cmd => 'PYENV_VERSION="#pyenv_virtualenv#" python '.catfile($self->o('sncrna_analysis_script'), 'FilterDafs.py')
+            .' '.catfile($self->o('mirna_blast_path'), 'rfc_filters', $self->o('rfc_model'))
+            .' '.catfile($self->o('mirna_blast_path'), 'rfc_filters', $self->o('rfc_scaler'))
+            .' '.$self->o('ncrna_dir')
+            .' '.catfile($self->o('ncrna_dir'), 'annotated_dafs.tsv')
+            .' '.catfile($self->o('ncrna_dir'), 'rna_fold_results.txt')
+            .' '.catfile($self->o('ncrna_dir'), 'identified_mirnas.bed')
+            .' '.catfile($self->o('ncrna_dir'), 'mirnas_to_delete.txt'),
+          pyenv_virtualenv => 'genebuild-mirna',
+        },
         -rc_name   => 'filter',
-        -flow_into => {'1' => 'ncrna_sanity_checks' },
-
+        -flow_into => {
+          1 => 'delete_flagged_mirnas',
+        },
       },
-
+      {
+        -logic_name => 'delete_flagged_mirnas',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'perl '.catfile($self->o('ensembl_analysis_script'), 'genebuild', 'delete_genes.pl')
+            .' -dbhost #expr(#target_db#->{-host})expr#'
+            .' -dbport #expr(#target_db#->{-port})expr#'
+            .' -dbuser #expr(#target_db#->{-user})expr#'
+            .' -dbpass #expr(#target_db#->{-pass})expr#'
+            .' -dbname #expr(#target_db#->{-dbname})expr#'
+            .' -idfile '.catfile($self->o('ncrna_dir'), 'mirnas_to_delete.txt'),
+          target_db => $self->o('ncrna_db'),
+        },
+        -rc_name   => 'filter',
+        -flow_into => {
+          1 => 'ncrna_sanity_checks',
+        },
+      },
 
       {
         -logic_name => 'ncrna_sanity_checks',
@@ -5328,9 +5376,6 @@ sub pipeline_analyses {
                        },
 
         -rc_name    => '4GB',
-#        -flow_into => {
-#          1 => ['transfer_ncrnas'],
-#        },
       },
 
 
