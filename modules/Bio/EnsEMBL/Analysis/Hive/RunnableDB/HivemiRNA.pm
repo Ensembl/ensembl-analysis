@@ -60,6 +60,7 @@ use strict;
 use warnings;
 use feature 'say';
 
+use File::Spec::Functions qw(catfile);
 use Bio::EnsEMBL::Analysis::Runnable::miRNA;
 
 use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -83,43 +84,25 @@ sub fetch_input{
   my $analysis = new Bio::EnsEMBL::Analysis(
                                              -logic_name => $self->param('logic_name'),
                                              -module => $self->param('module'),
-                                             -program_file => $self->param('cmsearch_exe_path'),
                                              -db_file => $self->param('blast_db_dir_path'),
                                            );
   $self->analysis($analysis);
 
   # The output db should be the one that the dafs to check have been written to
-  my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  my $output_dir = $self->param('output_dir');
-
-  if($dna_dba) {
-    $output_dba->dnadb($dna_dba);
+  my $dna_db;
+  if ($self->param_is_defined('dna_db')) {
+    $dna_db = $self->get_database_by_name('dna_db');
   }
-
+  my $output_dba = $self->get_database_by_name('output_db', $dna_db);
   $self->hrdb_set_con($output_dba,'output_db');
-
-
-  my $daf_adaptor = $output_dba->get_DnaAlignFeatureAdaptor;
-  my $slice_adaptor = $output_dba->get_SliceAdaptor;
-
-
-  my $daf_ids = $self->param('iid');
-  my $dafs = [];
-  foreach my $db_id (@{$daf_ids}) {
-    push(@{$dafs},$daf_adaptor->fetch_by_dbID($db_id));
-  }
-
-
-  my %families = %{$self->family($dafs)};
-  undef($dafs);
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::miRNA->new
     (
-     -queries => \%families,
+     -queries => $self->family,
      -analysis => $self->analysis,
-     -output_dir => $output_dir,
     );
+  # We want to create a unique filename which would be overwritten if the job is rerun
+  $runnable->resultsfile(catfile($self->param_required('output_dir'), 'rna_fold_'.$self->input_job->dbID.'.part'));
   $self->runnable($runnable);
 }
 
@@ -127,8 +110,8 @@ sub fetch_input{
 =head2 family
 
   Title      : family
-  Usage      : my %families = %{$self->family(\@dafs)};
-  Function   : order dafs by family, removes families with blast hits to repeats
+  Usage      : my %families = %{$self->family()};
+  Function   : Fetch dafs, order dafs by family, removes families with blast hits to repeats
   Returns    : Hash reference
   Exceptions : None
   Args       : Array ref of Bio::EnsEMBL::DnaDnaAlignFeatures
@@ -136,15 +119,19 @@ sub fetch_input{
 =cut
 
 sub family{
-  my ($self,$dafs_ref) = @_;
+  my ($self) = @_;
+
   my %families;
-  foreach my $daf (@$dafs_ref){
+  my $daf_adaptor = $self->hrdb_get_con('output_db')->get_DnaAlignFeatureAdaptor;
+  foreach my $db_id (@{$self->param('iid')}) {
+    my $daf = $daf_adaptor->fetch_by_dbID($db_id);
     push @{$families{$daf->hseqname}},$daf;
   }
+
   my %filtered_fam;
   foreach my $key (keys %families){
-  if (scalar @{$families{$key}} <= 50){
-    $filtered_fam{$key} = $families{$key};
+    if (scalar @{$families{$key}} <= 50){
+      $filtered_fam{$key} = $families{$key};
     } else {
       # take top scoring 50 hits
       my @array = sort {$a->p_value <=> $b->p_value} @{$families{$key}};
