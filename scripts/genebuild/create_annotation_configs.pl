@@ -520,12 +520,16 @@ sub clade_settings {
       'repbase_library'    => 'primates',
       'repbase_logic_name' => 'primates',
       'uniprot_set'        => 'primates_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
     'rodentia' => {
       'repbase_library'    => 'rodents',
       'repbase_logic_name' => 'rodents',
       'uniprot_set'        => 'mammals_basic',
+      'projection_source_production_name' => 'mus_musculus',
+      'projection_source_db_name' => current_projection_source_db('mus_musculus'),
     },
 
     'mammalia' => {
@@ -533,6 +537,8 @@ sub clade_settings {
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
       'ig_tr_fasta_file'    => 'multispecies_ig_tr.fa',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
    'marsupials' => {
@@ -540,12 +546,16 @@ sub clade_settings {
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
       'ig_tr_fasta_file'    => 'multispecies_ig_tr.fa',
-},
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
 
     'aves' => {
       'repbase_library'    => 'Birds',
       'repbase_logic_name' => 'aves',
       'uniprot_set'        => 'birds_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
     'reptiles' => {
@@ -554,6 +564,8 @@ sub clade_settings {
       'uniprot_set'        => 'reptiles_basic',
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
     'teleostei' => {
@@ -563,6 +575,8 @@ sub clade_settings {
       'ig_tr_fasta_file'    => 'fish_ig_tr.fa',
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',
+      'projection_source_production_name' => 'danio_rerio',
+      'projection_source_db_name' => current_projection_source_db('danio_rerio'),
     },
 
     'distant_vertebrate' => {
@@ -571,6 +585,8 @@ sub clade_settings {
       'uniprot_set'        => 'distant_vertebrate',
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
 
@@ -578,36 +594,48 @@ sub clade_settings {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
       'uniprot_set'        => 'insects_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
     'non_vertebrates' => {
       'repbase_library'    => 'non_vertebrates',
       'repbase_logic_name' => 'non_vertebrates',
       'uniprot_set'        => 'non_vertebrates_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
     'fungi' => {
       'repbase_library'    => 'fungi',
       'repbase_logic_name' => 'fungi',
       'uniprot_set'        => 'fungi_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
     'metazoa' => {
       'repbase_library'    => 'metazoa',
       'repbase_logic_name' => 'metazoa',
       'uniprot_set'        => 'metazoa_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
     'plants'  => {
       'repbase_library'    => 'plants',
       'repbase_logic_name' => 'plants',
       'uniprot_set'        => 'plants_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
     'protists'  => {
       'repbase_library'    => 'protists',
       'repbase_logic_name' => 'protists',
       'uniprot_set'        => 'protists_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
   };
@@ -816,7 +844,7 @@ sub assign_server_info {
 
   my $server_set = $general_hash->{'server_set'};
   if ($server_set) {
-    if (! exists $servers->{server_set}) {
+    if (! exists $servers->{$server_set}) {
       warning("Could not find an associated server set entry in the HiveBaseConfig for ".$server_set.". Will default to set1");
       $server_set = 'set1';
     }
@@ -913,4 +941,31 @@ sub check_compara_release_version {
       last;
     }
   }
+}
+
+=head2 
+
+ Arg [1]    : Species name, e.g. mus_musculus
+ Description: Looks for the most recent core on the mirror server for the given 
+              species - to be used as reference for projection.
+ Returntype : String
+ Exceptions : Warning if no core exists on mirror for given species
+
+=cut
+sub current_projection_source_db{
+  my ($species) = @_;
+  my $current_db;
+
+  my $cmd = 'mysql-ens-mirror-1 -NB -e "show databases like \''.$species.'_core%\';"';
+  my @out= `$cmd`;
+  if(@out){
+    $current_db = $out[2]; #the 3 most recent versions of a core will be available on mirror
+  }
+  else{
+    my $hs_cmd = 'mysql-ens-mirror-1 -NB -e "show databases like \'homo_sapiens_core%\';"';
+    my @hs_out= `$hs_cmd`;
+    $current_db = $hs_out[2];
+    warning("No core database available on mirror for species, "+$species+" - will use latest homo_sapiens core.");
+  }
+  return $current_db;
 }

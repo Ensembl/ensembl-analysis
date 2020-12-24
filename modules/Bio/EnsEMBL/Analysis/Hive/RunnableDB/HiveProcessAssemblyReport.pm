@@ -544,7 +544,7 @@ sub write_output {
     $display_name .= ' ('.$self->param('strain').')';
   }
   else {
-    $display_name .= '('.$common_name.')';
+    $display_name .= ' ('.$common_name.')';
   }
   $display_name .= ' - '.$self->param('assembly_accession');
   $meta_adaptor->store_key_value('species.display_name', $display_name);
