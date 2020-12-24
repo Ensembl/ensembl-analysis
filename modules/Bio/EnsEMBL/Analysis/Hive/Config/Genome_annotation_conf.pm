@@ -1906,7 +1906,7 @@ sub pipeline_analyses {
       {
         # Run Red (REpeat Detector)
         -logic_name => 'repeatdetector',
-        -module     => 'Red',
+        -module     => 'Repeatmask_Red',
         -language   => 'python3',
         -parameters => {
 	                 logic_name => $self->o('red_logic_name'),
