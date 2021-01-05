@@ -178,7 +178,7 @@ sub write_output {
     $target_adaptor->store($analysis);
   }
 
-  foreach my $hit_name ( keys $ise_table){
+  foreach my $hit_name ( keys %$ise_table){
     my $logic_name = $ise_table->{$hit_name}->{'logic_name'};
     my $analysis_id = $target_adaptor->fetch_by_logic_name($logic_name)->dbID();
     my $seq_region_id = $ise_table->{$hit_name}->{'seq_region_id'};
