@@ -43,6 +43,17 @@ use feature 'say';
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Calculate the read length of a FASTQ file and insert the values
+              in the table 'read_length_table' of the Hive DB
+ Returntype : None
+ Exceptions : Throws if the file does not exist
+              Throws if the read length is 0
+
+=cut
+
 sub write_output {
   my ($self) = @_;
   my $fastq = $self->param('iid');
@@ -50,7 +61,7 @@ sub write_output {
   my @output_ids;
 
   if(!-e $path.'/'.$fastq) {
-    say $path.'/'.$fastq.' does not exist';
+    $self->throw("$path/$fastq does not exist");
   }
 
   my $read_length_cmd="zcat $path/$fastq| awk \'{if(NR%4==2) print length(\$1)}\' | sort -n | uniq -c";
@@ -67,6 +78,7 @@ sub write_output {
       $read_length = $line_array[1];
     }
   }
+  $self->throw('Read length is 0, something went wrong') unless ($read_length);
 
   say $fastq."  READ LENGTH: ".$read_length;
 
