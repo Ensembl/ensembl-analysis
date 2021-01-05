@@ -31,6 +31,8 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
+  $self->param_required('sample_id_column');
+  $self->param_required('sample_column');
   my $source_db = $self->get_database_by_name('source_db');
   $self->hrdb_set_con($source_db,'source_db');
 #  $self->hrdb_set_con($source_db,'target_db');

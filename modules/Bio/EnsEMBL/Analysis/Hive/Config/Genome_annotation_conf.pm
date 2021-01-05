@@ -5555,7 +5555,7 @@ sub pipeline_analyses {
         -logic_name => 'stringtie2merge',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Stringtie2Merge',
          -parameters => {
-           stringtie_gtf_dir => catdir($self->o('output_dir'),'stringtie'),
+           input_gtf_dirs => [catdir($self->o('output_dir'),'stringtie')],
            stringtie_merge_dir => catdir($self->o('output_dir'),'stringtie','merge'),
            stringtie2_path        => $self->o('stringtie2_path'),
            csv_summary_file       => $self->o('rnaseq_summary_file'),
@@ -5711,6 +5711,8 @@ sub pipeline_analyses {
                         star_junctions_dir => $self->o('output_dir'),
                         intron_db => $self->o('stringtie_blast_db'),
                         source_db => $self->o('dna_db'),
+                        sample_column => $self->o('read_group_tag'),
+                        sample_id_column => $self->o('read_id_tag'),
                        },
         -rc_name    => 'default',
         -flow_into => {
