@@ -91,7 +91,7 @@ sub run {
     }
     $self->param('_analyses', \@analyses);
 
-    open(IN,$junction_file);
+    open(IN,$junction_file) or $self->throw("Coule not open $junction_file");
     while(<IN>) {
       my $line = $_;
       my @elements = split("\t",$line);
@@ -158,7 +158,7 @@ sub run {
 
 #      $self->output([$new_intron]);
     } # End while
-    close IN;
+    close(IN) or $self->throw("Could not close $junction_file");
   } # End foreach my $junction_file
 
   $self->param('_ise_table', $ise_table);
