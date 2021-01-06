@@ -348,7 +348,11 @@ sub write_output {
   my $genes = $self->output_genes();
   foreach my $gene (@{$genes}) {
     my $transcript = @{$gene->get_all_Transcripts}[0]; # any transcript
-    if (!($gene_adaptor->fetch_by_transcript_stable_id($transcript->stable_id()))) {
+    my $stored_gene = $gene_adaptor->fetch_by_transcript_stable_id($transcript->stable_id());
+    if ((!$stored_gene) or
+        ($stored_gene and $stored_gene->analysis()->logic_name() ne $gene->analysis()->logic_name())) {
+      # if the output database is shared with another projection method there could be multiple copies
+      # of the same transcript stable ID from each method so the logic name is used to distinguish among them
       say "Storing gene: ".$gene->start.":".$gene->end.":".$gene->strand." (g.start:g.end:g.strand). Transcript stable ID used to fetch gene: ".$transcript->stable_id();
       empty_Gene($gene);
       $gene->biotype('projection');
