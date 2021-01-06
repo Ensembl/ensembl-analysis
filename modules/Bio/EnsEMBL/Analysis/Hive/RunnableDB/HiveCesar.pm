@@ -70,6 +70,7 @@ binary to be run (excluding the binary filename).
 -common_slice         If set to 1, all the transcripts projected from the same gene will be put on the same slice (and gene) based on the most common seq region name and min and max coordinates covering them. The projected transcripts on the other slices will be discarded. If set to 0 (default), the projected transcripts will be used to make single-transcript genes.
 -stops2introns        Number of stops within a translation which will be replaces with introns. Default 0.
 -max_stops            Only the transcripts whose translations contain a number of stops equal to or less than max_stops will be stored.  Default 0 (translations with stops are not allowed by default).
+-logic_name           logic_name for the stored projected genes and transcripts analysis in the target database 
 -TRANSCRIPT_FILTER    Hash containing the parameters required to apply
 to the projected transcript to exclude some of them. Default to
 ExonerateTranscriptFilter pid,cov 50,50 although note that the actual
@@ -118,6 +119,7 @@ sub param_defaults {
       common_slice => 0,
       stops2introns => 0,
       max_stops => 0,
+      logic_name => 'cesar',
       #TRANSCRIPT_FILTER => {
       #                       OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
       #                       PARAMETERS => {
@@ -126,6 +128,37 @@ sub param_defaults {
       #                       },
       #                     }
    }
+}
+
+sub pre_cleanup {
+  my ($self) = @_;
+
+  my @input_id = ();
+  if (reftype($self->param('iid')) eq "ARRAY") {
+    @input_id = @{$self->param('iid')};
+  } else {
+    # make single-element array
+    @input_id = ($self->param('iid'));
+  }
+
+  my $source_dba = $self->hrdb_get_dba($self->param('source_db'));
+  my $target_dba = $self->hrdb_get_dba($self->param('target_db'));
+
+  my $source_gene_adaptor = $source_dba->get_GeneAdaptor();
+  my $target_gene_adaptor = $target_dba->get_GeneAdaptor();
+
+  foreach my $gene_id (@input_id) {
+    my $source_gene = $source_gene_adaptor->fetch_by_dbID($gene_id);
+    foreach my $source_transcript (@{$source_gene->get_all_Transcripts()}) {
+      my $target_gene = $target_gene_adaptor->fetch_by_transcript_stable_id($source_transcript->stable_id());
+      if ($target_gene) {
+        if ($target_gene->analysis()->logic_name() eq $self->param('logic_name')) {
+          print "pre_cleanup: target gene ".$target_gene->dbID()." will be removed from the target database.\n";
+          $target_gene_adaptor->remove($target_gene);
+        }
+      }
+    }
+  }
 }
 
 sub fetch_input {
@@ -330,7 +363,7 @@ sub run {
     }
 
     if (!$himem_required) {
-      $self->build_gene(\@projected_transcripts,$gene_index,$self->param('canonical'),$self->param('canonical_or_longest'));
+      $self->build_gene(\@projected_transcripts,$gene_index,$self->param('logic_name'),$self->param('canonical'),$self->param('canonical_or_longest'));
     }
     
     say "Had a total of ".$fail_count."/".scalar(@{$transcripts})." failed transcript projections for gene ".$gene->dbID();
@@ -347,28 +380,19 @@ sub write_output {
 
   my $genes = $self->output_genes();
   foreach my $gene (@{$genes}) {
-    my $transcript = @{$gene->get_all_Transcripts}[0]; # any transcript
-    my $stored_gene = $gene_adaptor->fetch_by_transcript_stable_id($transcript->stable_id());
-    if ((!$stored_gene) or
-        ($stored_gene and $stored_gene->analysis()->logic_name() ne $gene->analysis()->logic_name())) {
-      # if the output database is shared with another projection method there could be multiple copies
-      # of the same transcript stable ID from each method so the logic name is used to distinguish among them
-      say "Storing gene: ".$gene->start.":".$gene->end.":".$gene->strand." (g.start:g.end:g.strand). Transcript stable ID used to fetch gene: ".$transcript->stable_id();
-      empty_Gene($gene);
-      $gene->biotype('projection');
-      $gene_adaptor->store($gene);
-    } else {
-      say "NOT storing gene because it has already been stored: ".$gene->start.":".$gene->end.":".$gene->strand."(g.start,g.end,g.strand). Transcript stable ID used to fetch gene: ".$transcript->stable_id();
-    }
+    say "Storing gene: ".$gene->start.":".$gene->end.":".$gene->strand." (g.start:g.end:g.strand).";
+    empty_Gene($gene);
+    $gene->biotype('projection');
+    $gene_adaptor->store($gene);
   }
 }
 
 sub build_gene {
-  my ($self,$projected_transcripts,$gene_index,$canonical,$canonical_or_longest) = @_;
+  my ($self,$projected_transcripts,$gene_index,$logic_name,$canonical,$canonical_or_longest) = @_;
 
   if (scalar(@$projected_transcripts) > 0) {
     my $analysis = Bio::EnsEMBL::Analysis->new(
-                                                -logic_name => 'cesar',
+                                                -logic_name => $logic_name,
                                                 -module => 'HiveCesar',
                                               );
 
