@@ -5278,7 +5278,6 @@ sub pipeline_analyses {
         -rc_name    => 'filter',
       },
 
-
       {
         -logic_name => 'concat_rnafold_result',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -5289,8 +5288,21 @@ sub pipeline_analyses {
         },
         -rc_name   => 'filter',
         -flow_into => {
-          1 => 'dump_features',
+          1 => 'fan_dump_features',
         },
+      },
+
+      { 
+        -logic_name => 'fan_dump_features',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name => 'default',
+        -flow_into  => {
+                         1 => WHEN(
+                                    '-e "'.catfile($self->o('ncrna_dir'),'rna_fold_results.txt').'"' => ['dump_features']
+                                  ),
+                       },
       },
 
       {
