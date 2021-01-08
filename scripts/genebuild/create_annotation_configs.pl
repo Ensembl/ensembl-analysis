@@ -67,10 +67,12 @@ unless(-e $config_file) {
   throw("Could not find the config file. Path used:\n".$config_file);
 }
 
-if($is_non_vert == 1) {
-  $selected_db = "test_registry_db"
-}
-else {
+my $general_hash = {};
+
+if ($is_non_vert == 1) {
+  $selected_db = "test_registry_db";
+  $general_hash->{'replace_repbase_with_red_to_mask'} = '1';
+} else {
   $selected_db = "gb_assembly_registry";
 }
 
@@ -92,8 +94,6 @@ my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -user    => 'ensro',
   -host    => 'mysql-ens-meta-prod-1',
   -dbname  => 'ncbi_taxonomy');
-
-my $general_hash = {};
 
 #Adding registry details to hash for populating main config
 $general_hash->{registry_host} = $assembly_registry_host;

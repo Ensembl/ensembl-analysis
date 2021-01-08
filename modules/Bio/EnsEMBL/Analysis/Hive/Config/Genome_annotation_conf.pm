@@ -97,6 +97,7 @@ sub default_options {
     'paired_end_only'           => '1', # Will only use paired-end rnaseq data if 1
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
     'mt_accession'              => undef, # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
+    'replace_repbase_with_red_to_mask' => '0', # Setting this will replace 'full_repbase_logic_name' with 'red_logic_name' repeat features in the masking process
 
     # Keys for custom loading, only set/modify if that's what you're doing
     'skip_genscan_blasts'          => '1',
@@ -133,6 +134,8 @@ sub default_options {
 ########################
 # Pipe and ref db info
 ########################
+
+    'red_logic_name'            => 'repeatdetector', # logic name for the Red repeat finding analysis
 
     'projection_source_db_name'    => '', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_server'  => 'mysql-ens-mirror-1',
@@ -284,6 +287,10 @@ sub default_options {
     faidx_genome_file             => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
     # This one is a cross between the two above, it has the seq_region name header but is softmasked. It is used by things that would both want to skip using the dna table and also want to avoid the repeat_feature table, e.g. bam2introns
     faidx_softmasked_genome_file  => catfile($self->o('genome_dumps'), $self->o('species_name').'_softmasked_toplevel.fa.reheader'),
+    # repeatdetector (Red) output directories which will contain the softmasked fasta and the repeat features files created by Red
+    red_msk => catfile($self->o('genome_dumps'), $self->o('species_name').'_red_msk/'),
+    red_rpt => catfile($self->o('genome_dumps'), $self->o('species_name').'_red_rpt/'),
+    
     'primary_assembly_dir_name' => 'Primary_Assembly',
     'refseq_cdna_calculate_coverage_and_pid' => '0',
     'contigs_source'            => 'ena',
@@ -393,6 +400,7 @@ sub default_options {
     'cpg_path' => catfile($self->o('binary_base'), 'cpg_lh'),
     'trnascan_path' => catfile($self->o('binary_base'), 'tRNAscan-SE'),
     'repeatmasker_path' => catfile($self->o('binary_base'), 'RepeatMasker'),
+    'red_path' => catfile($self->o('binary_base'), 'Red'),
     'genscan_path' => catfile($self->o('binary_base'), 'genscan'),
     'genscan_matrix_path' => catfile($self->o('software_base_path'), 'share', 'HumanIso.smat'),
     'uniprot_blast_exe_path' => catfile($self->o('binary_base'), 'blastp'),
@@ -1290,6 +1298,16 @@ sub pipeline_create_commands {
 sub pipeline_wide_parameters {
   my ($self) = @_;
 
+  # set the logic names for repeat masking
+  my $wide_repeat_logic_names;
+  if ($self->o('use_repeatmodeler_to_mask')) {
+    $wide_repeat_logic_names = [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'];
+  } elsif ($self->o('replace_repbase_with_red_to_mask')) {
+    $wide_repeat_logic_names = [$self->o('red_logic_name'),'dust'];
+  } else {
+    $wide_repeat_logic_names = [$self->o('full_repbase_logic_name'),'dust'];
+  }
+
   return {
     %{$self->SUPER::pipeline_wide_parameters},
     skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),
@@ -1300,8 +1318,7 @@ sub pipeline_wide_parameters {
     skip_lastz => $self->o('skip_lastz'),
     skip_repeatmodeler => $self->o('skip_repeatmodeler'),
     load_toplevel_only => $self->o('load_toplevel_only'),
-    wide_repeat_logic_names => $self->o('use_repeatmodeler_to_mask') ? [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'] :
-                                                                                       [$self->o('full_repbase_logic_name'),'dust'],
+    wide_repeat_logic_names => $wide_repeat_logic_names,
     wide_ensembl_release => $self->o('ensembl_release'),
     use_genome_flatfile  => $self->o('use_genome_flatfile'),
     genome_file          => $self->o('faidx_genome_file'),
@@ -1572,7 +1589,8 @@ sub pipeline_analyses {
               '(1, "annotation.provider_name", "'.$self->o('annotation_provider_name').'"),'.
               '(1, "annotation.provider_url", "'.$self->o('annotation_provider_url').'"),'.
               '(1, "species.production_name", "'.$self->o('production_name').'"),'.
-              '(1, "repeat.analysis", "'.$self->o('full_repbase_logic_name').'"),'.
+	      ($self->o('replace_repbase_with_red_to_mask') ? '(1, "repeat.analysis", "'.$self->o('red_logic_name').'"),':
+	                                                      '(1, "repeat.analysis", "'.$self->o('full_repbase_logic_name').'"),').
               ($self->o('use_repeatmodeler_to_mask') ? '(1, "repeat.analysis", "'.$self->o('repeatmodeler_logic_name').'"),': '').
               '(1, "repeat.analysis", "dust"),'.
               '(1, "repeat.analysis", "trf"),'.
@@ -1872,7 +1890,7 @@ sub pipeline_analyses {
         },
 
         -flow_into  => {
-          '1->A' => ['create_10mb_slice_ids'],
+          '1->A' => ['repeatdetector'],
           'A->1' => ['genome_prep_sanity_checks'],
         },
 
@@ -1884,6 +1902,27 @@ sub pipeline_analyses {
 # REPEATMASKER ANALYSES
 #
 ###############################################################################
+
+      {
+        # Run Red (REpeat Detector)
+        -logic_name => 'repeatdetector',
+        -module     => 'Repeatmask_Red',
+        -language   => 'python3',
+        -parameters => {
+	                 logic_name => $self->o('red_logic_name'),
+                         red_path => $self->o('red_path'),
+			 genome_file => $self->o('faidx_genome_file'),
+                         target_db_url => $self->o('reference_db'),
+                         msk => $self->o('red_msk'),
+                         rpt => $self->o('red_rpt'),
+			 red_meta_key => $self->o('replace_repbase_with_red_to_mask'),
+                       },
+        -rc_name => 'default',
+	-flow_into =>  {
+                         1 => ['create_10mb_slice_ids'],
+                       },
+      },
+
       {
         # Create 10mb toplevel slices, these will be split further for repeatmasker
         -logic_name => 'create_10mb_slice_ids',
