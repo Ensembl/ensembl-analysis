@@ -134,7 +134,9 @@ sub default_options {
 # Pipe and ref db info
 ########################
 
-    'projection_source_db_name'    => 'homo_sapiens_core_100_38', # This is generally a pre-existing db, like the current human/mouse core for example
+    'red_logic_name'            => 'repeatdetector', # logic name for the Red repeat finding analysis
+
+    'projection_source_db_name'    => '', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_server'  => 'mysql-ens-mirror-1',
     'projection_source_db_port'    => '4240',
     'projection_source_production_name' => 'homo_sapiens',
