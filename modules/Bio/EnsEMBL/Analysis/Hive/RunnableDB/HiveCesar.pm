@@ -102,6 +102,15 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_st
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+=head2 param_defaults
+
+  Arg [1]    : None
+  Description: It sets the default values to the parameters.
+  Returntype : Hash
+  Exceptions : None
+
+=cut
+
 sub param_defaults {
     return {
       iid => '',
@@ -129,6 +138,16 @@ sub param_defaults {
       #                     }
    }
 }
+
+=head2 pre_cleanup
+
+  Arg [1]    : None
+  Description: It removes the genes from the target database having the specified logic_name associated with this analysis
+               whose transcripts match the transcript stable ID of the gene IDs in the input IDs from the source database.
+  Returntype : None
+  Exceptions : None
+
+=cut
 
 sub pre_cleanup {
   my ($self) = @_;
@@ -160,6 +179,21 @@ sub pre_cleanup {
     }
   }
 }
+
+=head2 fetch_input
+
+  Arg [1]    : None
+  Description: It makes an array out of the gene IDs in the input IDs 'iid' parameter.
+               It fetches the relevant data from the compara database to make the target slices from the target database where
+               the translateable transcripts from the source database will be projected onto and it sets the corresponding arrays
+               in preparation for the projection.
+  Returntype : None
+  Exceptions : It throws if the coordinate systems cannot be fetched from the source or target databases.
+               It throws if the method link species data cannot be fetched from the compara database.
+               It throws if the number of elements in parent_genes, unique_translateable_transcripts and transcript_align_slices arrays
+               is different.
+
+=cut
 
 sub fetch_input {
   my($self) = @_;
@@ -332,6 +366,19 @@ sub fetch_input {
   }
 }
 
+=head2 run
+
+  Arg [1]    : None
+  Description: It tries to project the transcripts in the unique_translateable_transcripts arrays.
+               If the projection is successful, it builds the projected gene into the projected_transcripts array.
+  Returntype : None
+  Exceptions : It throws if the coordinate systems cannot be fetched from the source or target databases.
+               It throws if the method link species data cannot be fetched from the compara database.
+               It throws if the number of elements in parent_genes, unique_translateable_transcripts and transcript_align_slices arrays
+               is different.
+
+=cut
+
 sub run {
   my ($self) = @_;
 
@@ -371,6 +418,14 @@ sub run {
   }
 }
 
+=head2 write_output
+
+  Arg [1]    : None
+  Description: It stores the sucessfully projected genes from output_genes() into the target database.
+  Returntype : None
+  Exceptions : None
+
+=cut
 
 sub write_output {
   my ($self) = @_;
@@ -386,6 +441,20 @@ sub write_output {
     $gene_adaptor->store($gene);
   }
 }
+
+=head2 build_gene
+
+  Arg [1]    : Array ref pointing to the projected transcripts array.
+  Arg [2]    : Int containing the index of the parent gene in the parent genes array.
+  Arg [3]    : String containing the logic name for the analysis for the built gene.
+  Arg [4]    : Boolean. If 1, only the projected canonical transcript will be part of the built gene.
+  Arg [5]    : Boolean. If 1, only the projected canonical transcript or
+               the projected longest transcript will be part of the built gene.
+  Description: It builds the genes from the projected transcripts.
+  Returntype : None
+  Exceptions : None
+
+=cut
 
 sub build_gene {
   my ($self,$projected_transcripts,$gene_index,$logic_name,$canonical,$canonical_or_longest) = @_;
@@ -502,8 +571,16 @@ TRANSCRIPT: foreach my $projected_transcript (@projected_transcripts_for_gene) {
   }
 }
 
+=head2 largest_value_mem
+
+  Arg [1]    : None
+  Description: It returns the key containing the largest value in a given hash.
+  Returntype : None
+  Exceptions : None
+
+=cut
+
 sub largest_value_mem {
-# it returns the key containing the largest value in a given hash
   my $hash = shift;
   my ($key,@keys) = keys %$hash;
   my ($big,@vals) = values %$hash;
@@ -517,13 +594,21 @@ sub largest_value_mem {
   $key
 }
 
+=head2 set_common_slice
+
+  Arg [1]    : Array ref pointing to the projected transcripts array.
+  Description: It sets the same slice for all transcripts on the same seq region
+               so they can be added to the same gene later
+               based on the most common seq region name
+               and minimum and maximum transcript coordinates for that seq region name.
+               It returns a new array containing the transcripts on the same slice only
+               after having discarded the transcripts on other seq regions.
+  Returntype : Array
+  Exceptions : None
+
+=cut
+
 sub set_common_slice {
-# it sets the same slice for all transcripts on the same seq region
-# so they can be added to the same gene later
-# based on the most common seq region name
-# and minimum and maximum transcript coordinates for that seq region name
-# It returns a new array containing the transcripts on the same slice only
-# after having discarded the transcripts on other seq regions
   my ($self,$projected_transcripts) = @_;
 
   my @projected_transcripts_on_common_slice = ();
@@ -554,6 +639,19 @@ sub set_common_slice {
 
   return \@projected_transcripts_on_common_slice;
 }
+
+=head2 project_transcript
+
+  Arg [1]    : Bio::EnsEMBL:Transcript containing the transcript to project.
+  Arg [2]    : Int containing the index of the parent gene in the parent genes array.
+  Description: It runs cesar to project the transcript into its corresponding transcript target slice.
+               It preprocesses the split codons, the TGA stops/selenocysteines and the ambiguous bases before running cesar
+               and it parses the cesar output to check for memory problems and other cesar command errors.
+  Returntype : Bio::EnsEMBL:Transcript or int (0).
+               It returns the projected transcripts if the projection is sucessful or 0 if it is not. 
+  Exceptions : None
+
+=cut
 
 sub project_transcript {
   my ($self,$transcript,$gene_index) = @_;
@@ -740,6 +838,17 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
     return (0);
   }
 }
+
+=head2 parse_transcript
+
+  Arg [1]    : Bio::EnsEMBL:Transcript containing the source transcript.
+  Arg [2]    : String containing the projected output file path containing the cesar output for the relevant transcript.
+  Description: It parses the cesar output file for the relevant transcript to make the projected exons array and the projected transcript.
+  Returntype : Bio::EnsEMBL:Transcript or int (0).
+               It returns the projected transcript if the parsing is sucessful or 0 if it is not. 
+  Exceptions : None
+
+=cut
 
 sub parse_transcript {
   my ($self,$source_transcript,$projected_outfile_path) = @_;
@@ -1225,12 +1334,21 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
   }
 }
 
+=head2 make_seq_edits
+
+  Arg [0]    : String containing the source transcript DNA sequence from the cesar output file.
+  Arg [1]    : String containing the target transcript DNA sequence from the cesar output file to make seq edits for.
+  Description: It returns an array of SeqEdit objects for the target sequence to make
+               the insertions for the alignment gaps between the source and target sequences
+               created for an alignment between two dna sequence in cesar output format ie string containing acgtACGT-.
+               A SeqEdit object is added to the array for each substring of any number of "-" not multiple of 3.
+               Inserted bases are taken from the source sequence.
+  Returntype : Array of Bio::EnsEMBL:SeqEdit
+  Exceptions : None
+
+=cut
+
 sub make_seq_edits {
-  # It returns an array of SeqEdit objects for the target sequence to make
-  # the insertions for the alignment gaps between the source and target sequences
-  # created for an alignment between two dna sequence in cesar output format ie string containing acgtACGT-.
-  # A SeqEdit object is added to the array for each substring of any number of "-" not multiple of 3.
-  # Inserted bases are taken from the source sequence.
 
   my ($source_seq,$target_seq) = @_;
 
@@ -1260,19 +1378,17 @@ sub make_seq_edits {
   return (@seq_edits);
 }
 
-sub target_slices {
-  my ($self, $val) = @_;
+=head2 get_unique_translateable_transcripts
 
-  if (defined $val) {
-    $self->param('_target_slices',$val);
-  }
+  Arg [1]    : Bio::EnsEMBL:Gene containing the gene to get the unique translateable transcripts from.
+  Arg [2]    : Boolean. If 1, it will only consider the canonical transcript for the relevant gene
+               when looking at which transcripts are translateable.
+  Description: It returns an array of transcript(s) representing the translateable one(s) which correspond(s)
+               to the relevant gene.
+  Returntype : Array of Bio::EnsEMBL:Transcript
+  Exceptions : None
 
-  unless($self->param_is_defined('_target_slices')) {
-    $self->param('_target_slices',{});
-  }
-
-  return $self->param('_target_slices');
-}
+=cut
 
 sub get_unique_translateable_transcripts {
   my ($self,$gene,$canonical) = @_;
@@ -1298,32 +1414,14 @@ sub get_unique_translateable_transcripts {
   return(values(%{$translateable_transcripts}));
 }
 
-sub make_alignment_mapper {
-  my ($self,$gen_al_blocks) = @_;
+=head2 parent_genes
 
-  my $FROM_CS_NAME = 'chromosome';
-  my $TO_CS_NAME   = 'scaffold';
+  Arg [1]    : Bio::EnsEMBL:Gene containing the gene to add to the array of parent genes.
+  Description: Getter/Setter to add genes to the parent genes array.
+  Returntype : Array of Bio::EnsEMBL:Gene
+  Exceptions : None
 
-  my $mapper = Bio::EnsEMBL::Mapper->new($FROM_CS_NAME,
-                                         $TO_CS_NAME);
-
-  foreach my $bl (@$gen_al_blocks) {
-    foreach my $ugbl (@{$bl->get_all_ungapped_GenomicAlignBlocks}) {
-      my ($from_bl) = $ugbl->reference_genomic_align;
-      my ($to_bl)   = @{$ugbl->get_all_non_reference_genomic_aligns};
-
-      $mapper->add_map_coordinates($from_bl->dnafrag->name,
-                                   $from_bl->dnafrag_start,
-                                   $from_bl->dnafrag_end,
-                                   $from_bl->dnafrag_strand*$to_bl->dnafrag_strand,
-                                   $to_bl->dnafrag->name,
-                                   $to_bl->dnafrag_start,
-                                   $to_bl->dnafrag_end);
-    }
-  }
-
-  return $mapper;
-}
+=cut
 
 sub parent_genes {
   my ($self,$val) = @_;
@@ -1338,6 +1436,15 @@ sub parent_genes {
   return $self->param('_parent_genes');
 }
 
+=head2 unique_translateable_transcripts
+
+  Arg [1]    : Bio::EnsEMBL:Transcript containing the transcript to add to the array of unique translateable transcripts.
+  Description: Getter/Setter to add transcripts to the array of unique translateable transcripts.
+  Returntype : Array of Bio::EnsEMBL:Transcript
+  Exceptions : None
+
+=cut
+
 sub unique_translateable_transcripts {
   my ($self,$val) = @_;
   if (!($self->param('_unique_translateable_transcripts'))) {
@@ -1350,6 +1457,15 @@ sub unique_translateable_transcripts {
 
   return($self->param('_unique_translateable_transcripts'));
 }
+
+=head2 transcript_align_slices
+
+  Arg [1]    : Bio::EnsEMBL:Slice containing the slice to add to the array of transcript align slices.
+  Description: Getter/Setter to add slices to the array of transcript align slices.
+  Returntype : Array of Bio::EnsEMBL:Slice
+  Exceptions : None
+
+=cut
 
 sub transcript_align_slices {
   my ($self,$val) = @_;
@@ -1364,6 +1480,15 @@ sub transcript_align_slices {
   return($self->param('_transcript_align_slices'));
 }
 
+=head2 output_genes
+
+  Arg [1]    : Bio::EnsEMBL:Gene containing the gene to add to the array of output genes.
+  Description: Getter/Setter to add genes to the output genes array.
+  Returntype : Array of Bio::EnsEMBL:Gene
+  Exceptions : None
+
+=cut
+
 sub output_genes {
   my ($self,$val) = @_;
   unless($self->param('_output_genes')) {
@@ -1376,6 +1501,15 @@ sub output_genes {
 
   return($self->param('_output_genes'));
 }
+
+=head2 files_to_delete
+
+  Arg [1]    : String containing the file path to add to the array of files to delete.
+  Description: Getter/Setter to add file paths to the array of files to delete.
+  Returntype : Array of Bio::EnsEMBL:Gene
+  Exceptions : None
+
+=cut
 
 sub files_to_delete {
   my ($self,$val) = @_;
@@ -1390,9 +1524,17 @@ sub files_to_delete {
   return($self->param('_files_to_delete'));
 }
 
+=head2 remove_overlapping_exons
+
+  Arg [0]    : Array ref of Bio::EnsEMBL::Exon pointing to the array of the exons to be processed.
+  Description: It removes any exon overlapped by another longer exon in the input array and
+               it returns the resulting array ref of the exons after the removal.
+  Returntype : Array ref of Bio::EnsEMBL::Exon
+  Exceptions : None
+
+=cut
+
 sub remove_overlapping_exons {
-# any exon overlapped by another longer exon is removed
-# and it will not be part of the returned array reference of exons
   my ($exons) = shift;
 
   print("Removing overlapping projected exons... Before: ".scalar(@$exons)." exons.\n");
@@ -1441,6 +1583,15 @@ EXON: foreach my $exon (@$exons) {
 # transcript editing and filtering
 #
 
+=head2 TRANSCRIPT_FILTER
+
+  Arg [1]    : Hash containing the parameters to apply for filtering out transcripts.
+  Description: Getter/Setter for the hash to filter out transcripts.
+  Returntype : Hash or undefined/empty list
+  Exceptions : None
+
+=cut
+
 sub TRANSCRIPT_FILTER {
    my ($self, $val) = @_;
 
@@ -1456,35 +1607,16 @@ sub TRANSCRIPT_FILTER {
   }
 }
 
-sub filter {
-  my ($self, $val) = @_;
-  if ($val) {
-    $self->param('_runnable_filter',$val);
-  }
+=head2 sub output_single_transcript_gene {
 
-  # filter does not have to be defined, but if it is, it should
-  # give details of an object and its parameters
-  if ($self->TRANSCRIPT_FILTER and !$self->param_is_defined('_runnable_filter')) {
-    if (not ref($self->TRANSCRIPT_FILTER) eq "HASH" or
-        not exists($self->TRANSCRIPT_FILTER->{OBJECT}) or
-        not exists($self->TRANSCRIPT_FILTER->{PARAMETERS})) {
+  Arg [1]    : Bio::EnsEMBL::Transcript containing the projected transcript to be added to the output genes array.
+  Arg [2]    : Bio::EnsEMBL::Analysis containing the analysis for the gene which will be added to the output genes array.
+  Description: It makes as single-transcript gene containing the transcript in Arg[1] having Arg[2] as analysis and it adds it to
+               the output genes array.
+  Returntype : None
+  Exceptions : None
 
-      $self->throw("FILTER in config for '".$self->analysis->logic_name."' must be a hash ref with elements:\n" .
-            "  OBJECT : qualified name of the filter module;\n" .
-            "  PARAMETERS : anonymous hash of parameters to pass to the filter");
-    } else {
-      $self->require_module($self->TRANSCRIPT_FILTER->{OBJECT});
-     
-$self->filter($self->TRANSCRIPT_FILTER->{OBJECT}->new(%{$self->TRANSCRIPT_FILTER->{PARAMETERS}}));
-    }
-  }
-  if ($self->param_is_defined('_runnable_filter')) {
-    return $self->param('_runnable_filter');
-  }
-  else {
-    return;
-  }
-}
+=cut
 
 sub output_single_transcript_gene {
   my ($self,$projected_transcript,$analysis) = @_;
