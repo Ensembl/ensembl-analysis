@@ -4193,7 +4193,6 @@ sub pipeline_analyses {
                          source_db => $self->o('genblast_db'),
                          target_db => $self->o('genblast_nr_db'),
                          create_type => 'copy',
-                         force_drop => 1,
                        },
         -rc_name    => 'default',
         -flow_into => {
@@ -6318,7 +6317,6 @@ sub pipeline_analyses {
                          source_db => $self->o('rnaseq_blast_db'),
                          target_db => $self->o('rnaseq_for_layer_db'),
                          create_type => 'copy',
-                         force_drop => 1,
                        },
         -rc_name    => 'default',
         -flow_into => {
@@ -6408,7 +6406,6 @@ sub pipeline_analyses {
                          source_db => $self->o('rnaseq_for_layer_db'),
                          target_db => $self->o('rnaseq_for_layer_nr_db'),
                          create_type => 'copy',
-                         force_drop => 1,
                        },
         -rc_name    => 'default',
         -flow_into => {
@@ -7247,7 +7244,6 @@ sub pipeline_analyses {
                          source_db => $self->o('genblast_db'),
                          target_db => $self->o('genblast_rnaseq_support_nr_db'),
                          create_type => 'copy',
-                         force_drop => 1,
                        },
         -rc_name    => 'default',
         -flow_into => {
