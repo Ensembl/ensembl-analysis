@@ -1052,7 +1052,7 @@ sub hrdb_get_dba {
       }
       eval "use $module_name";
       if ($@) {
-        throw("Cannot find module $module_name");
+        throw("Cannot find module $module_name . Error message: ".$@);
       }
     }
     eval {

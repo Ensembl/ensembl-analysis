@@ -56,27 +56,6 @@ sub _master_config {
   my %config = (
   'default' => {},
   'genome_preparation_checks' => {
-     'mammals_basic' => {
-       # repeats
-       'dust'                        => [2000000,'repeat'],
-       'repeatmask_repbase_primates' => [3000000,'repeat'],
-       'trf'                         => [500000,'repeat'],
-
-       # simple features
-       'cpg'                         => [15000,'simple'],
-       'trnascan'                    => [300,'simple'],
-       'eponine'                     => [30000,'simple'],
-
-       # prediction transcripts
-       'genscan'                     => [40000,'prediction transcript'],
-
-       # dna align features
-       'unigene'                     => [3000000,'dna align'],
-       'vertrna'                     => [3000000,'dna align'],
-
-       # protein align features
-       'uniprot'                     => [3000000,'protein align'],
-     },
      'primates_basic' => {
        # repeats
        'dust'                        => [2000000,'repeat'],
@@ -155,6 +134,21 @@ sub _master_config {
        'unigene'                    => [3000000, 'dna align'],
        'vertrna'                    => [3000000, 'dna align']
      },
+     
+     'lepidoptera_basic' => {
+       'cpg'                        => [2000, 'simple'],
+       'eponine'                    => [30000, 'simple'],
+       'trnascan'                   => [300, 'simple'],
+       'genscan'                    => [10000, 'prediction transcript'],
+       'dust'                       => [500000, 'repeat'],
+       'repeatdetector'             => [200000, 'repeat'],
+       #'repeatmask_repbase_' => [1500000, 'repeat'],
+       'trf'                        => [50000, 'repeat'],
+       'uniprot'                    => [1, 'protein align'],
+       'unigene'                    => [1, 'dna align'],
+       'vertrna'                    => [1, 'dna align']
+     },
+
    },
 
   'gene_db_checks' => {
