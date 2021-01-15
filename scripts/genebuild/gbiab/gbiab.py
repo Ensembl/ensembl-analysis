@@ -19,7 +19,7 @@ import subprocess
 import glob
 import re
 import multiprocessing
-
+import random
 
 def create_dir(main_output_dir,dir_name):
 
@@ -76,7 +76,7 @@ def run_red(red_path,main_output_dir,genome_file):
   return red_genome_file
 
 
-def run_genblast(genblast_path,convert2blastmask_path,makeblastdb_path,main_output_dir,protein_file,masked_genome_file):
+def run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,main_output_dir,protein_file,masked_genome_file,num_threads):
 
   if not genblast_path:
     genblast_path = 'genblast'
@@ -100,6 +100,9 @@ def run_genblast(genblast_path,convert2blastmask_path,makeblastdb_path,main_outp
   asnb_file = masked_genome_file + '.asnb'
   print ("ASNB file: %s" % asnb_file)
 
+  if not os.path.exists('alignscore.txt'):
+    subprocess.run(['cp','/homes/fergal/enscode/ensembl-analysis/scripts/genebuild/gbiab/support_files/alignscore.txt','./'])
+
   if not os.path.exists(masked_genome_file):
     raise IOError('Masked genome file does not exist: %s' % masked_genome_file)
 
@@ -116,17 +119,84 @@ def run_genblast(genblast_path,convert2blastmask_path,makeblastdb_path,main_outp
 
   run_makeblastdb(makeblastdb_path,masked_genome_file,asnb_file)
 
-  print ('Running genblast, this may take some time depending on the genome size, number of proteins and level of softmasking')
-  subprocess.run([genblast_path,'-p','genblastg','-q',protein_file,'-t',masked_genome_file,'-o',genblast_output_file,'-g','T','-pid','-r','5','-P','blast','-gff','-e','1e-1','-c','0.5','-W','3','-softmask','-scodon','50','-i','30','-x','10','-n','30','-d','200000'])
+  batched_protein_files = split_protein_file(protein_file,genblast_dir)
+
+  pool = multiprocessing.Pool(int(num_threads))
+  for batched_protein_file in batched_protein_files:
+    pool.apply_async(multiprocess_genblast, args=(batched_protein_file,masked_genome_file,genblast_path,))
+
+  pool.close()
+  pool.join()
 
   print ('Completed running GenBlast')
+
+
+def multiprocess_genblast(batched_protein_file,masked_genome_file,genblast_path):
+
+  genblast_extension = '_1.1c_2.3_s1_0_16_1'
+  batch_num = os.path.splitext(batched_protein_file)[0]
+  batch_dir = os.path.dirname(batched_protein_file)
+  print("Running GenBlast on " + batched_protein_file + ":")
+  
+  genblast_cmd = [genblast_path,'-p','genblastg','-q',batched_protein_file,'-t',masked_genome_file,'-g','T','-pid','-r','1','-P','blast','-gff','-e','1e-1','-c','0.5','-W','3','-softmask','-scodon','50','-i','30','-x','10','-n','30','-d','100000','-o',batched_protein_file]
+
+  print(" ".join(genblast_cmd))
+  subprocess.run(genblast_cmd)
+#  subprocess.run('mv',(batched_protein_file + genblast_extension),os.path.join(batch_dir,(batch_num + '.gff')))
+   # rm glob(17.fa_* where not .gff. For gff process and translate to GTF
+
+
+def split_protein_file(protein_file,genblast_dir):
+  batch_size = 20
+  batched_protein_files = []
+
+  for i in range(0,10):
+    create_dir(genblast_dir,('bin_' + str(i)))
+
+  file_in = open(protein_file)
+  line = file_in.readline()
+  seq_count = 0
+  batch_count = 0
+  current_record = ""
+  initial_seq = 1
+  while line:
+    num_dir = random.randint(0,9)
+    match = re.search(r'>(.+)$',line)
+    if match and not initial_seq and seq_count % batch_size == 0:
+      file_out_name = os.path.join(genblast_dir,('bin_' + str(random.randint(0,9))),(str(batch_count) + '.fa'))
+      file_out = open(file_out_name,'w+')
+      file_out.write(current_record)
+      file_out.close()
+      batch_count += 1
+      seq_count += 1
+      current_record = line
+      batched_protein_files.append(file_out_name)
+    elif match:
+      current_record += line
+      initial_seq = 0
+      seq_count += 1
+    else:
+      current_record += line
+    line = file_in.readline()
+  file_in.close()
+
+  if current_record:
+    file_out_name = os.path.join(genblast_dir,('bin_' + str(random.randint(0,9))),(str(batch_count) + '.fa'))
+    file_out = open(file_out_name,'w+')
+    file_out.write(current_record)
+    file_out.close()
+    batched_protein_files.append(file_out_name)
+
+  return batched_protein_files
 
 
 def run_convert2blastmask(convert2blastmask_path,masked_genome_file,asnb_file):
 
   asnb_file = masked_genome_file + '.asnb'
-  print ('Running convert2blastmask prior to GenBlast')
-  subprocess.run([convert2blastmask_path,'-in',masked_genome_file,'-parse_seqids','-masking_algorithm','other','-masking_options','"REpeatDetector, default"','-outfmt','maskinfo_asn1_bin','-out',asnb_file])
+  print ('Running convert2blastmask prior to GenBlast:')
+  cmd = [convert2blastmask_path,'-in',masked_genome_file,'-parse_seqids','-masking_algorithm','other','-masking_options','"REpeatDetector, default"','-outfmt','maskinfo_asn1_bin','-out',asnb_file]
+  print(' '.join(cmd))
+  subprocess.run(cmd)
   print ('Completed running convert2blastmask')
 
 
@@ -138,6 +208,7 @@ def run_makeblastdb(makeblastdb_path,masked_genome_file,asnb_file):
 
 
 def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fastq_dir,genome_file,max_reads_per_sample,max_total_reads,num_threads):
+  # !!! Need to add in samtools path above instead of just using 'samtools' in command
 
   if not star_path:
     star_path = 'star'
@@ -205,7 +276,9 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
     check_compression= re.search(r'.gz$',fastq_file_name)
     print ("Processing %s" % fastq_file_path)
 
-    star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir,'--outSAMtype','BAM','SortedByCoordinate']
+# --outSJfilterIntronMaxVsReadN 5000 10000 50000 50000 50000 50000 50000 50000 50000 100000
+# --alignIntronMax 100000
+    star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir,'--outSAMtype','SAM','--alignIntronMax','100000','--outSJfilterIntronMaxVsReadN','5000','10000','25000','40000','50000','50000','50000','50000','50000','100000']
 
     if check_compression:
       star_command.append('--readFilesCommand')
@@ -213,10 +286,36 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
       star_command.append('-c')
 
     subprocess.run(star_command)
-    subprocess.run(['mv',os.path.join(star_dir,'Aligned.sortedByCoord.out.bam'),os.path.join(star_dir,(fastq_file_name + '.bam'))])
+    subprocess.run(['mv',os.path.join(star_dir,'Aligned.out.sam'),os.path.join(star_dir,(fastq_file_name + '.sam'))])
     subprocess.run(['mv',os.path.join(star_dir,'SJ.out.tab'),os.path.join(star_dir,(fastq_file_name + '.sj.tab'))])
 
   print ('Completed running STAR')
+
+  print ('Sorting sam files into bams')
+
+  # Should move the sorting below into a method that takes a dir as an argument
+  sam_files = []
+  for sam_file in glob.glob(star_dir + "/*.sam"):
+    sam_files.append(sam_file)
+
+  if not sam_files:
+    raise IndexError('The list of sam files is empty, expected them in Star output dir. Star dir:\n%s' % star_dir)
+
+  sorted_bam_files = []
+  for sam_file in sam_files:
+    sam_file_name = os.path.basename(sam_file)
+    sam_temp_file_path = os.path.join(star_dir,(sam_file_name + ".tmp"))
+    bam_sort_file_path = os.path.join(star_dir,re.sub('.sam','.bam',sam_file_name))
+
+    if os.path.exists(bam_sort_file_path):
+      print("Found an existing bam file, will not sort sam file again. Bam file:")
+      print(bam_sort_file_path)
+
+    else:
+      print("Converting samfile into sorted bam file. Bam file:")
+      print(bam_sort_file_path)
+      subprocess.run(['samtools','sort','-@',str(num_threads),'-T',sam_temp_file_path,'-o',bam_sort_file_path,sam_file])
+
 
 
 def run_subsample_script(fastq_file,fastq_file_pair,subsample_script_path):
@@ -520,7 +619,7 @@ def run_stringtie_assemble(stringtie_path,samtools_path,main_output_dir,genome_f
 
   stringtie_dir = create_dir(main_output_dir,'stringtie_output')
   stringtie_merge_input_file = os.path.join(stringtie_dir,'stringtie_assemblies.txt')
-  stringtie_merge_output_file = os.path.join(stringtie_dir,'stringtie_merge.gtf')
+  stringtie_merge_output_file = os.path.join(stringtie_dir,'annotation.gtf')
   star_dir = os.path.join(main_output_dir,'star_output')
 
   if(os.path.exists(star_dir)):
@@ -561,14 +660,14 @@ def run_stringtie_assemble(stringtie_path,samtools_path,main_output_dir,genome_f
     else:
       print("Running Stringtie on: " + sorted_bam_file_name)
       print("Writing output to: " + transcript_file_path)
-      subprocess.run([stringtie_path,sorted_bam_file,'-o',transcript_file_path,'-p',str(num_threads)])
+      subprocess.run([stringtie_path,sorted_bam_file,'-o',transcript_file_path,'-p',str(num_threads),'-t','-a','15'])
 
   # Now need to merge
   print("Creating Stringtie merge input file: " + stringtie_merge_input_file)
 
   # Note that I'm writing the subprocess this way because python seems to have issues with wildcards in subprocess.run and this
   # was the answer I found most often from googling
-  gtf_list_cmd = 'ls ' + os.path.join(stringtie_dir,'*.gtf') + ' | grep -v "stringtie_merge.gtf" >' + stringtie_merge_input_file
+  gtf_list_cmd = 'ls ' + os.path.join(stringtie_dir,'*.gtf') + ' | grep -v "annotation.gtf" >' + stringtie_merge_input_file
   gtf_list_cmd = subprocess.Popen(gtf_list_cmd,shell=True)
   gtf_list_cmd.wait()
 
@@ -579,7 +678,7 @@ def run_stringtie_assemble(stringtie_path,samtools_path,main_output_dir,genome_f
     print("Merging Stringtie results. Writing to the following file:")
     print(stringtie_merge_output_file)
     # Note, I'm not sure stringtie merge actually uses threads, but it doesn't complain if -p is passed in
-    subprocess.run([stringtie_path,'--merge','-p',str(num_threads),'-o',stringtie_merge_output_file,stringtie_merge_input_file])
+    subprocess.run([stringtie_path,'--merge','-p',str(num_threads),'-o',stringtie_merge_output_file,stringtie_merge_input_file,'-i'])
 
 
 def run_scallop_assemble(scallop_path,stringtie_path,main_output_dir):
@@ -594,7 +693,7 @@ def run_scallop_assemble(scallop_path,stringtie_path,main_output_dir):
 
   scallop_dir = create_dir(main_output_dir,'scallop_output')
   stringtie_merge_input_file = os.path.join(scallop_dir,'scallop_assemblies.txt')
-  stringtie_merge_output_file = os.path.join(scallop_dir,'scallop_merge.gtf')
+  stringtie_merge_output_file = os.path.join(scallop_dir,'annotation.gtf')
   star_dir = os.path.join(main_output_dir,'star_output')
 
   if(os.path.exists(star_dir)):
@@ -618,7 +717,7 @@ def run_scallop_assemble(scallop_path,stringtie_path,main_output_dir):
     else:
       print("Running Scallop on: " + sorted_bam_file_name)
       print("Writing output to: " + transcript_file_path)
-      subprocess.run([scallop_path,'-i',sorted_bam_file,'-o',transcript_file_path])
+      subprocess.run([scallop_path,'-i',sorted_bam_file,'-o',transcript_file_path,'--min_flank_length','10'])
 
 
   # Now need to merge
@@ -626,7 +725,7 @@ def run_scallop_assemble(scallop_path,stringtie_path,main_output_dir):
 
   # Note that I'm writing the subprocess this way because python seems to have issues with wildcards in subprocess.run and this
   # was the answer I found most often from googling
-  gtf_list_cmd = 'ls ' + os.path.join(scallop_dir,'*.gtf') + ' | grep -v "scallop_merge.gtf" >' + stringtie_merge_input_file
+  gtf_list_cmd = 'ls ' + os.path.join(scallop_dir,'*.gtf') + ' | grep -v "annotation.gtf" >' + stringtie_merge_input_file
   gtf_list_cmd = subprocess.Popen(gtf_list_cmd,shell=True)
   gtf_list_cmd.wait()
 
@@ -723,6 +822,50 @@ def split_genome(genome_file,target_dir,min_seq_length):
   file_in.close()
 
 
+def run_finalise_geneset(work_dir,genome_file,seq_region_names,num_threads):
+  merged_gtf = os.path.join(work_dir,'annotation_to_finalise.gtf')
+  file_out = open(merged_gtf, 'w')  
+  annotation_dirs = ['stringtie_output','scallop_output']
+  for annotation_dir in annotation_dirs:
+    gtf_file = os.path.join(work_dir,annotation_dir,'annotation.gtf')
+    file_in = open(gtf_file)
+    line = file_in.readline()
+    while line:
+      print(line.rstrip(),file=file_out)
+      line = file_in.readline()
+    file_in.close()
+  file_out.close()
+
+  pool = multiprocessing.Pool(int(num_threads))
+  for seq_region_name in seq_region_names:
+    pool.apply_async(multiprocess_finalise_geneset, args=(seq_region_name,merged_gtf,))
+
+  pool.close()
+  pool.join()
+
+
+def multiprocess_finalise_geneset(seq_region_name,merged_gtf):
+#  finalise_cmd = ['perl','/homes/fergal/enscode/ensembl-common/scripts/process_transcriptomic_gtf.pl','-host','mysql-ens-genebuild-prod-5.ebi.ac.uk','-user','ensadmin','-port','4531','-pass','ensembl','-dna_dbname','fergal_plasmodium_falciparum_3d7_core_100','-dna_host','mysql-ens-genebuild-prod-6.ebi.ac.uk','-dna_user','ensro','-dna_port','4532','-gtf_file',merged_gtf,'-dbname','fergal_plasmodium_falciparum_3d7_scallop_multip_100','-specify_seq_region_name',seq_region_name]
+  finalise_cmd = ['perl','/homes/fergal/enscode/ensembl-common/scripts/process_transcriptomic_gtf.pl','-host','mysql-ens-genebuild-prod-5.ebi.ac.uk','-user','ensadmin','-port','4531','-pass','ensembl','-dna_dbname','carlos_mus_musculus_core_100_38','-dna_host','mysql-ens-genebuild-prod-5.ebi.ac.uk','-dna_user','ensro','-dna_port','4531','-gtf_file',merged_gtf,'-dbname','fergal_mus_musculus_multip_100','-specify_seq_region_name',seq_region_name]
+  print('Finalising ' + seq_region_name)
+  print(' '.join(finalise_cmd))
+  subprocess.run(finalise_cmd)
+
+
+def seq_region_names(genome_file):
+  region_list = []
+
+  file_in = open(genome_file)
+  line = file_in.readline()
+  while line:
+    match = re.search(r'>(.+)$',line)
+    if match:
+      region_list.append(match.group(1))
+    line = file_in.readline()
+
+  return region_list
+
+
 def slice_genome(genome_file,target_dir,target_slice_size):
   # The below is sort of tested
   # Without the 
@@ -814,6 +957,7 @@ if __name__ == '__main__':
   parser.add_argument('--genblast_path', help='Path to GenBlast executable. See http://genome.sfu.ca/genblast/download.html', required=False)
   parser.add_argument('--convert2blastmask_path', help='Path to convert2blastmask executable', required=False)
   parser.add_argument('--makeblastdb_path', help='Path to makeblastdb executable', required=False)
+  parser.add_argument('--run_genblast', help='Run GenBlast to align protein sequences', required=False)
   parser.add_argument('--protein_file', help='Path to a fasta file with protein sequences', required=False)
   parser.add_argument('--run_star', help='Run Star for short read alignment', required=False)
   parser.add_argument('--star_path', help='Path to Star for short read alignment', required=False)
@@ -835,7 +979,7 @@ if __name__ == '__main__':
   parser.add_argument('--scallop_path', help='Path to Scallop', required=False)
   parser.add_argument('--subsample_script_path', help='Path to gbiab subsampling script', required=False)
   parser.add_argument('--samtools_path', help='Path to subsampling script', required=False)
-
+  parser.add_argument('--finalise_geneset', help='Used to finalise the gene set from the various GTF files generated', required=False)
 
   args = parser.parse_args()
 
@@ -848,6 +992,7 @@ if __name__ == '__main__':
   genblast_path = args.genblast_path
   convert2blastmask_path = args.convert2blastmask_path
   makeblastdb_path = args.makeblastdb_path
+  run_genblast = args.run_genblast
   protein_file = args.protein_file
   run_star = args.run_star
   star_path = args.star_path
@@ -869,6 +1014,7 @@ if __name__ == '__main__':
   scallop_path = args.scallop_path
   subsample_script_path = args.subsample_script_path
   samtools_path = args.samtools_path
+  finalise_geneset = args.finalise_geneset
 
   if not os.path.exists(genome_file):
     raise IOError('File does not exist: %s' % genome_file)
@@ -886,6 +1032,12 @@ if __name__ == '__main__':
     print ("No thread count specified, so defaulting to 1. This might be slow")
     num_threads = 1
 
+  # Collect a list of seq region names, most useful for multiprocessing regions
+  seq_region_names = seq_region_names(genome_file)  
+
+  for i in seq_region_names:
+    print(i)
+
   # Run masking
   if run_masking:
     print ("Running masking via Red")
@@ -895,9 +1047,9 @@ if __name__ == '__main__':
     print ("Not running masking a presuming the genome file is softmasked")
 
   # Run GenBlast
-  if protein_file:
+  if run_genblast:
     print ("Running GenBlast")
-    run_genblast(genblast_path,convert2blastmask_path,makeblastdb_path,work_dir,protein_file,masked_genome_file)
+    run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,work_dir,protein_file,masked_genome_file,num_threads)
 
   # Run STAR
   if run_star:
@@ -930,4 +1082,6 @@ if __name__ == '__main__':
      run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,work_dir,genome_file,num_threads)
 
   # Do some magic
-
+  if finalise_geneset:
+     print("Finalise geneset")
+     run_finalise_geneset(work_dir,genome_file,seq_region_names,num_threads)
