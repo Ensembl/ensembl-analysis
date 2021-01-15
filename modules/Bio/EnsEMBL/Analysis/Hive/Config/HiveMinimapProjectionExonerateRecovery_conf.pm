@@ -125,8 +125,8 @@ sub default_options {
 ########################
 
     'minimap2_genome_index'  => $self->o('faidx_genome_file').'.mmi',
-    'minimap2_path'          => '/path/to/minimap2',
-    'paftools_path'          => '/path/to/minimap2/misc/paftools.js',
+    'minimap2_path'          => catfile($self->o('binary_base'), 'minimap2'),
+    'paftools_path'          => catfile($self->o('binary_base'), 'paftools.js'),
     'minimap2_batch_size'    => '5000',
 
     'blast_type' => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
