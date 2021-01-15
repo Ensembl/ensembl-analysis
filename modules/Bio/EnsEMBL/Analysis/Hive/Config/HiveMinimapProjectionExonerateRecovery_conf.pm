@@ -17,7 +17,7 @@ limitations under the License.
 
 =cut
 
-package HiveMinimapProjectionExonerateRecovery_conf_mus2legus;
+package HiveMinimapProjectionExonerateRecovery_conf;
 
 use strict;
 use warnings;
