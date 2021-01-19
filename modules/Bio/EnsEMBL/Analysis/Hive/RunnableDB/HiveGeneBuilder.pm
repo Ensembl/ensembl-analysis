@@ -681,11 +681,11 @@ sub validate_Transcript{
       ++$is_valid;
     }
   }
-  if(contains_internal_stops($transcript)) {
+  if ($transcript->translation() and contains_internal_stops($transcript)) {
     print "Transcript contains internal stops. ";
     $is_valid++;
   }
-  unless(validate_Translation_coords($transcript)) {
+  if ($transcript->translation() and !validate_Translation_coords($transcript)) {
     print "Transcript contains invalid translation coords. ";
     $is_valid++;
   }
