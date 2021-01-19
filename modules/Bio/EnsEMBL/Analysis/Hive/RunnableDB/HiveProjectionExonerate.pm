@@ -55,8 +55,11 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my($self) = @_;
   $self->create_analysis;
+  $self->analysis->logic_name($self->param('logic_name')) if ($self->param('logic_name'));
   my $input_ids = $self->param('iid');
   $self->param('exon_region_padding',100);
+  $self->param('_branch_to_flow_on_fail',-3);
+  $self->param('_branch_to_flow_on_filter',-4);
   # Define the dna dbs
   my $source_dna_dba = $self->hrdb_get_dba($self->param('source_dna_db'));
   my $target_dna_dba = $self->hrdb_get_dba($self->param('target_dna_db'));
@@ -152,8 +155,8 @@ sub run {
     if($@) {
       my $except = $@;
       $self->runnable_failed($runnable->{'_transcript_id'});
-      $self->warning("Issue with running exonerate, will dataflow input id on branch -3. Exception:\n".$except);
-      $self->param('_branch_to_flow_on_fail', -3);
+      $self->warning("Issue with running exonerate, will dataflow input id on fail branch. Exception:\n".$except);
+      #$self->param('_branch_to_flow_on_fail', -3);
     } else {
       # Store original transcript id for realignment later. Should implement a cleaner solution at some point
       foreach my $output (@{$runnable->output}) {
@@ -198,7 +201,11 @@ sub write_output{
     $transcript->biotype($biotype);
     attach_Slice_to_Transcript($transcript, $slice);
 
-    if($self->filter_transcript($transcript)) {
+    if ($self->filter_transcript($transcript)) {
+      # consider it as filtered out to be passed to the next analysis
+      # via the _branch_to_flow_on_filter branch
+      $self->filtered_out($transcript->{'_old_transcript_id'});
+      $self->warning("The transcript has been filtered out. Dataflow input id on filtered out branch. Transcript ".$transcript->{'_old_transcript_id'});
       next;
     }
 
@@ -217,6 +224,14 @@ sub write_output{
     $self->dataflow_output_id($output_hash, $failure_branch_code);
   }
 
+  my $filtered_out_hash = {};
+  my $filtered_out_branch_code = $self->param('_branch_to_flow_on_filter');
+  my $filtered_out_transcript_ids = $self->filtered_out();
+  if (scalar @$filtered_out_transcript_ids ) {
+    $filtered_out_hash->{'iid'} = $filtered_out_transcript_ids;
+    $self->dataflow_output_id($filtered_out_hash,$filtered_out_branch_code);
+  }
+
   return 1;
 }
 
@@ -232,6 +247,16 @@ sub runnable_failed {
   return ($self->param('_runnable_failed'));
 }
 
+sub filtered_out {
+  my ($self,$filtered_out) = @_;
+  if (not $self->param_is_defined('_filtered_out')) {
+    $self->param('_filtered_out',[]);
+  }
+  if ($filtered_out) {
+    push (@{$self->param('_filtered_out')},$filtered_out);
+  }
+  return ($self->param('_filtered_out'));
+}
 
 sub process_transcript {
   my ($self,$transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba) = @_;
