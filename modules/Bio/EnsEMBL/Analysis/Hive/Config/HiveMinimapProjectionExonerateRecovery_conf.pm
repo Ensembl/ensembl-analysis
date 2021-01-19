@@ -17,7 +17,7 @@ limitations under the License.
 
 =cut
 
-package HiveMinimapProjectionExonerateRecovery_conf_mus2legus;
+package HiveMinimapProjectionExonerateRecovery_conf;
 
 use strict;
 use warnings;
@@ -65,6 +65,7 @@ sub default_options {
     'release_number'            => '' || $self->o('ensembl_release'),
     'output_path'               => '/path/to/output/', # output dir
     'registry_path'             => catfile($self->o('output_path'),"Databases.pm"),
+    'minimap_tmpdir'            => catdir($self->o('output_path'),'tmp'),
 
     'projection_source_db_name'    => '', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_server'  => '',
@@ -124,8 +125,8 @@ sub default_options {
 ########################
 
     'minimap2_genome_index'  => $self->o('faidx_genome_file').'.mmi',
-    'minimap2_path'          => '/path/to/minimap2',
-    'paftools_path'          => '/path/to/minimap2/misc/paftools.js',
+    'minimap2_path'          => catfile($self->o('binary_base'), 'minimap2'),
+    'paftools_path'          => catfile($self->o('binary_base'), 'paftools.js'),
     'minimap2_batch_size'    => '5000',
 
     'blast_type' => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
@@ -482,8 +483,21 @@ sub pipeline_analyses {
         -rc_name    => 'default',
         -flow_into  => {
            '1->A' => ['fan_lastz'],
-           'A->1' => ['create_projection_db'],
+           'A->1' => ['create_minimap_tmpdir'],
         },
+      },
+
+      {
+        -logic_name => 'create_minimap_tmpdir',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name => 'default',
+        -parameters => {
+          cmd => 'if [ ! -e "'.$self->o('minimap_tmpdir').'" ]; then mkdir -p '.$self->o('minimap_tmpdir').';fi',
+        },
+        -flow_into => {
+          '1' => ['create_projection_db'],
+        },
+        -rc_name => 'default',
       },
 
       {
@@ -513,60 +527,6 @@ sub pipeline_analyses {
                          target_db => $self->o('projection_source_db'),
                          iid_type => 'feature_id',
                          feature_type => 'transcript',
-                         feature_restriction => 'projection',
-                         biotypes => {
-                                       'protein_coding' => 1,
-                                       'Mt_tRNA' => 1,
-                                       'Mt_rRNA' => 1,
-                                       'misc_RNA' => 1,
-                                       'snoRNA' => 1,
-                                       'miRNA' => 1,
-                                       'protein_coding' => 1,
-                                       'Mt_tRNA' => 1,
-                                       'Mt_rRNA' => 1,
-                                       'misc_RNA' => 1,
-                                       'snoRNA' => 1,
-                                       'miRNA' => 1,
-                                       'snRNA' => 1,
-                                       'pseudogene' => 1,
-                                       'scaRNA' => 1,
-                                       'rRNA' => 1,
-                                       'processed_pseudogene' => 1,
-                                       'ribozyme' => 1,
-                                       'sRNA' => 1,
-                                       'lincRNA' => 1,
-                                       'IG_LV_gene' => 1,
-                                       'processed_transcript' => 1,
-                                       'TEC' => 1,
-                                       'transcribed_processed_pseudogene' => 1,
-                                       'unprocessed_pseudogene' => 1,
-                                       'sense_intronic' => 1,
-                                       'antisense' => 1,
-                                       'bidirectional_promoter_lncRNA' => 1,
-                                       'transcribed_unprocessed_pseudogene' => 1,
-                                       'sense_overlapping' => 1,
-                                       'unitary_pseudogene' => 1,
-                                       'transcribed_unitary_pseudogene' => 1,
-                                       'TR_J_gene' => 1,
-                                       'TR_V_gene' => 1,
-                                       'IG_C_gene' => 1,
-                                       'TR_C_gene' => 1,
-                                       'IG_C_pseudogene' => 1,
-                                       'IG_J_gene' => 1,
-                                       'polymorphic_pseudogene' => 1,
-                                       'IG_D_gene' => 1,
-                                       '3prime_overlapping_ncRNA' => 1,
-                                       'IG_D_pseudogene' => 1,
-                                       'IG_pseudogene' => 1,
-                                       'IG_V_pseudogene' => 1,
-                                       'IG_V_gene' => 1,
-                                       'TR_V_pseudogene' => 1,
-                                       'TR_D_gene' => 1,
-                                       'TR_J_pseudogene' => 1,
-                                       'scRNA' => 1,
-                                       'translated_unprocessed_pseudogene' => 1,
-                                       'macro_lncRNA' => 1,
-                                    }, 
                          batch_size => 25,
         },
         -flow_into => {
@@ -591,14 +551,46 @@ sub pipeline_analyses {
                          'paftools_path' => $self->o('paftools_path'),
                          'minimap_coverage' => 80,
                          'minimap_percent_id' => 60,
+			 'tmpdir' => $self->o('minimap_tmpdir'),
                        },
-        -rc_name    => 'default',
+        -rc_name    => '2GB',
         -hive_capacity => 900,
+	-analysis_capacity => 10,
         -flow_into => {
+	                -1 => ['minimap_project_transcripts_himem'],
                         -3 => ['exonerate_project_transcripts'],
                       },
       },
-     
+      
+      {
+        -logic_name => 'minimap_project_transcripts_himem',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionMinimap',
+        -parameters => {
+                         'logic_name' => 'minimap_projection',
+                         'module' => 'Minimap2',
+                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
+                         'target_dna_db' => $self->o('dna_db'),
+                         'source_db' => $self->o('projection_source_db'),
+                         'target_db' => $self->o('projection_db'),
+                         'compara_db' => $self->o('projection_compara_db'),
+                         'method_link_type' => $self->o('method_link_type'),
+                         'minimap_path' => $self->o('minimap2_path'),
+                         'paftools_path' => $self->o('paftools_path'),
+                         'minimap_coverage' => 80,
+                         'minimap_percent_id' => 60,
+			 'tmpdir' => $self->o('minimap_tmpdir'),
+                       },
+        -rc_name    => '8GB',
+        -hive_capacity => 900,
+	-analysis_capacity => 3,
+        -flow_into => {
+	                -1 => ['exonerate_project_transcripts'],
+                        -3 => ['exonerate_project_transcripts'],
+                      },
+      },
+      
+      
+      
       {
         -logic_name => 'exonerate_project_transcripts',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate',
@@ -621,8 +613,40 @@ sub pipeline_analyses {
                          #%{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_cdna')},
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','cdna2genome')},
                        },
-        -rc_name    => 'default',
+        -rc_name    => '4GB',
         -hive_capacity => 900,
+	-analysis_capacity => 10,
+        -flow_into => {
+	                -1 => ['exonerate_project_transcripts_himem'],
+                        -3 => ['failed_projection'],
+                      },
+      },
+      
+      {
+        -logic_name => 'exonerate_project_transcripts_himem',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProjectionExonerate',
+        -parameters => {
+                         'logic_name' => 'exonerate_projection',
+                         'source_dna_db' => $self->default_options()->{'projection_source_db'},
+                         'target_dna_db' => $self->o('dna_db'),
+                         'source_db' => $self->o('projection_source_db'),
+                         'target_db' => $self->o('projection_db'),
+                         'compara_db' => $self->o('compara_db'),
+                         'method_link_type' => $self->o('method_link_type'),
+                         'exon_region_padding' => $self->o('projection_exonerate_padding'),
+                         'exonerate_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/exonerate',
+                         'exonerate_coverage' => 80,
+                         #'exonerate_percent_id' => 80,
+                         'exonerate_percent_id' => 60,
+                         #'calculate_coverage_and_pid' => 1,
+                         'generate_annotation_file' => 1,
+                         #get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_projection_coding')},
+                         #%{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_cdna')},
+                         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','cdna2genome')},
+                       },
+        -rc_name    => '20GB',
+        -hive_capacity => 900,
+	-analysis_capacity => 2,
         -flow_into => {
                         -3 => ['failed_projection'],
                       },
