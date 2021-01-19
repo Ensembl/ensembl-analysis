@@ -191,7 +191,6 @@ sub run {
       $self->runnable_failed($runnable->{'_transcript_id'});
       $self->warning("Issue with running Minimap2, will dataflow input id on branch -3. Exception:\n".$except);
       $self->param('_branch_to_flow_on_fail', -3);
-      die; 
     } else {
       # Store original transcript id for realignment later. Should implement a cleaner solution at some point
       foreach my $output (@{$runnable->output}) {
@@ -226,6 +225,10 @@ sub run {
 
       my $selected_transcripts;
       if (scalar(@preliminary_transcripts) < 1) {
+        # consider it as a failed runnable as the transcript was not projected
+        $self->runnable_failed($runnable->{'_transcript_id'});
+        $self->warning("Issue with running Minimap2. Transcript ".$runnable->{'_transcript_id'}." did not get projected. Input id will be passed to branch -3.\n");
+        $self->param('_branch_to_flow_on_fail', -3);
         next;
       } elsif (scalar(@preliminary_transcripts) == 1) {
         $selected_transcripts = \@preliminary_transcripts;
@@ -242,7 +245,6 @@ sub run {
       #    print "DEBUG::Transcript ", $tran->stable_id(), " is non-coding\n";
       #  }
       # }
-
       $self->output($selected_transcripts);
     }
   }
@@ -277,7 +279,11 @@ sub write_output {
 
     attach_Slice_to_Transcript($transcript, $slice);
 
-    if($self->filter_transcript($transcript)) {
+    if ($self->filter_transcript($transcript)) {
+      # consider it as a failed runnable as the transcript was filtered out
+      $self->runnable_failed($transcript->{'_old_transcript_id'});
+      $self->warning("The transcript was filtered out after projection due to cov, pid or stop codons. Transcript ".$transcript->{'_old_transcript_id'}." . Input id will be passed to branch -3.\n");
+      $self->param('_branch_to_flow_on_fail', -3);
       next;
     }
 
@@ -295,6 +301,8 @@ sub write_output {
     $output_hash->{'iid'} = $failed_transcript_ids;
     $self->dataflow_output_id($output_hash, $failure_branch_code);
   }
+
+  
 
   return 1;
 }
