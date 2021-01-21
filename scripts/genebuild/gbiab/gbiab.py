@@ -1,4 +1,4 @@
-# Copyright [2019-2020] EMBL-European Bioinformatics Institute
+# Copyright [2019-2021] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,9 +57,14 @@ def run_red(red_path,main_output_dir,genome_file):
 
   genome_file_name = os.path.basename(genome_file)
   red_genome_file = os.path.join(red_genome_dir,genome_file_name)
+  masked_genome_file = os.path.join(red_mask_dir,os.path.splitext(genome_file_name)[0] + ".msk")
+
+  if os.path.exists(masked_genome_file):
+    print ('Masked Genome file already found on the path to the Red mask output dir. Will not create a new file')
+    return masked_genome_file
 
   if os.path.exists(red_genome_file):
-    print ('Genome file already found on the path to the Red genome dir, will not create a sym link')
+    print ('Unmasked genome file already found on the path to the Red genome dir, will not create a sym link')
 
   else:
     print ('Preparing to sym link the genome file to the Red genome dir. Cmd\n%s' % sym_link_genome_cmd)
@@ -73,7 +78,7 @@ def run_red(red_path,main_output_dir,genome_file):
 
   print ('Completed running Red')
 
-  return red_genome_file
+  return masked_genome_file
 
 
 def run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,main_output_dir,protein_file,masked_genome_file,num_threads):
@@ -129,21 +134,97 @@ def run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,mai
   pool.join()
 
   print ('Completed running GenBlast')
+  print ('Combining output into single GTF')
+  generate_genblast_gtf(genblast_dir)
 
 
 def multiprocess_genblast(batched_protein_file,masked_genome_file,genblast_path):
 
-  genblast_extension = '_1.1c_2.3_s1_0_16_1'
   batch_num = os.path.splitext(batched_protein_file)[0]
   batch_dir = os.path.dirname(batched_protein_file)
   print("Running GenBlast on " + batched_protein_file + ":")
   
-  genblast_cmd = [genblast_path,'-p','genblastg','-q',batched_protein_file,'-t',masked_genome_file,'-g','T','-pid','-r','1','-P','blast','-gff','-e','1e-1','-c','0.5','-W','3','-softmask','-scodon','50','-i','30','-x','10','-n','30','-d','100000','-o',batched_protein_file]
+#  genblast_cmd = [genblast_path,'-p','genblastg','-q',batched_protein_file,'-t',masked_genome_file,'-g','T','-pid','-r','1','-P','blast','-gff','-e','1e-1','-c','0.5','-W','3','-softmask','-scodon','50','-i','30','-x','10','-n','30','-d','100000','-o',batched_protein_file]
+
+  genblast_cmd = [genblast_path,'-p','genblastg','-q',batched_protein_file,'-t',masked_genome_file,'-g','T','-pid','-r','1','-P','blast','-gff','-e','1e-1','-c','0.5','-W','3','-scodon','50','-i','30','-x','10','-n','30','-d','100000','-o',batched_protein_file]
 
   print(" ".join(genblast_cmd))
   subprocess.run(genblast_cmd)
-#  subprocess.run('mv',(batched_protein_file + genblast_extension),os.path.join(batch_dir,(batch_num + '.gff')))
-   # rm glob(17.fa_* where not .gff. For gff process and translate to GTF
+
+
+def generate_genblast_gtf(genblast_dir):
+  file_out_name = os.path.join(genblast_dir,"annotation.gtf")
+  file_out = open(file_out_name,'w+')
+  genblast_extension = '_1.1c_2.3_s1_0_16_1'
+  for root, dirs, files in os.walk(genblast_dir):
+    for genblast_file in files:
+      genblast_file = os.path.join(root,genblast_file)
+      if genblast_file.endswith(".gff"):
+        gtf_string = convert_gff_to_gtf(genblast_file)
+        file_out.write(gtf_string)      
+      elif genblast_file.endswith(".fa.blast") or genblast_file.endswith(".fa.blast.report") or genblast_file.endswith(genblast_extension):
+        subprocess.run(['rm',genblast_file])
+  file_out.close()
+
+
+def convert_gff_to_gtf(genblast_file):
+  gtf_string = ""
+#  coverage_passed = {}
+#  identity_passed = {}
+  file_in = open(genblast_file)
+  line = file_in.readline()
+  while line:
+    match = re.search(r"genBlastG",line)
+    if match:
+      results = line.split()
+      if results[2] == "coding_exon":
+        results[2] = "exon"
+      attributes = set_attributes(results[8],results[2])
+      results[8] = attributes
+      converted_line = "\t".join(results)
+      gtf_string += converted_line + "\n"
+    line = file_in.readline()
+  file_in.close()  
+  return gtf_string
+
+
+def set_attributes(attributes,feature_type):
+
+  converted_attributes = ""
+  split_attributes = attributes.split(";")
+  if feature_type == "transcript":
+    match = re.search(r"Name\=(.+)$",split_attributes[1])
+    name = match.group(1)
+    converted_attributes = 'gene_id "' + name + '"; transcript_id "' + name + '";'
+  elif feature_type == "exon":
+    match = re.search(r"\-E(\d+);Parent\=(.+)\-R\d+\-\d+\-",attributes)
+    exon_rank = match.group(1)
+    name = match.group(2)
+    converted_attributes = 'gene_id "' + name + '"; transcript_id "' + name + '"; exon_number "' + exon_rank + '";'
+
+  return converted_attributes
+
+
+#1       genBlastG       transcript      131128674       131137049       252.729 -       .       ID=259447-R1-1-A1;Name=259447;PID=84.65;Coverage=94.22;Note=PID:84.65-Cover:94.22
+#1       genBlastG       coding_exon     131137031       131137049       .       -       .       ID=259447-R1-1-A1-E1;Parent=259447-R1-1-A1
+#1       genBlastG       coding_exon     131136260       131136333       .       -       .       ID=259447-R1-1-A1-E2;Parent=259447-R1-1-A1
+#1       genBlastG       coding_exon     131128674       131130245       .       -       .       ID=259447-R1-1-A1-E3;Parent=259447-R1-1-A1
+##sequence-region       1_group1        1       4534
+#1       genBlastG       transcript      161503457       161503804       30.94   +       .       ID=259453-R1-1-A1;Name=259453;PID=39.46;Coverage=64.97;Note=PID:39.46-Cover:64.97
+#1       genBlastG       coding_exon     161503457       161503804       .       +       .       ID=259453-R1-1-A1-E1;Parent=259453-R1-1-A1
+##sequence-region       5_group1        1       4684
+#5       genBlastG       transcript      69461063        69461741        86.16   +       .       ID=259454-R1-1-A1;Name=259454;PID=82.02;Coverage=91.67;Note=PID:82.02-Cover:91.67
+#5       genBlastG       coding_exon     69461063        69461081        .       +       .       ID=259454-R1-1-A1-E1;Parent=259454-R1-1-A1
+#5       genBlastG       coding_exon     69461131        69461741        .       +       .       ID=259454-R1-1-A1-E2;Parent=259454-R1-1-A1
+
+#1       StringTie       transcript      29322   37319   1000    .       .       gene_id "MSTRG.1"; transcript_id "MSTRG.1.1";
+#1       StringTie       exon    29322   37319   1000    .       .       gene_id "MSTRG.1"; transcript_id "MSTRG.1.1"; exon_number "1";
+#1       StringTie       transcript      74056   76184   1000    +       .       gene_id "MSTRG.2"; transcript_id "MSTRG.2.1";
+#1       StringTie       exon    74056   74631   1000    +       .       gene_id "MSTRG.2"; transcript_id "MSTRG.2.1"; exon_number "1";
+#1       StringTie       exon    74728   76184   1000    +       .       gene_id "MSTRG.2"; transcript_id "MSTRG.2.1"; exon_number "2";
+#1       StringTie       transcript      38873   40244   1000    -       .       gene_id "MSTRG.3"; transcript_id "MSTRG.3.1";
+#1       StringTie       exon    38873   39923   1000    -       .       gene_id "MSTRG.3"; transcript_id "MSTRG.3.1"; exon_number "1";
+#1       StringTie       exon    40154   40244   1000    -       .       gene_id "MSTRG.3"; transcript_id "MSTRG.3.1"; exon_number "2";
 
 
 def split_protein_file(protein_file,genblast_dir):
@@ -276,8 +357,6 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
     check_compression= re.search(r'.gz$',fastq_file_name)
     print ("Processing %s" % fastq_file_path)
 
-# --outSJfilterIntronMaxVsReadN 5000 10000 50000 50000 50000 50000 50000 50000 50000 100000
-# --alignIntronMax 100000
     star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir,'--outSAMtype','SAM','--alignIntronMax','100000','--outSJfilterIntronMaxVsReadN','5000','10000','25000','40000','50000','50000','50000','50000','50000','100000']
 
     if check_compression:
@@ -632,23 +711,6 @@ def run_stringtie_assemble(stringtie_path,samtools_path,main_output_dir,genome_f
   if not sorted_bam_files:
     raise IndexError('The list of sorted bam files is empty, expected them in Star output dir. Star dir:\n%s' % star_dir)
 
-#  sorted_bam_files = []
-#  for sam_file in sam_files:
-#    sam_file_name = os.path.basename(sam_file)
-#    sam_temp_file_path = os.path.join(star_dir,(sam_file_name + ".tmp"))
-#    bam_sort_file_path = os.path.join(star_dir,re.sub('.sam','.bam',sam_file_name))
-
-#    if os.path.exists(bam_sort_file_path):
-#      print("Found an existing bam file, will not sort sam file again. Bam file:")
-#      print(bam_sort_file_path)
-
-#    else:
-#      print("Converting samfile into sorted bam file. Bam file:")
-#      print(bam_sort_file_path)
-#      subprocess.run(['samtools','sort','-@',str(num_threads),'-T',sam_temp_file_path,'-o',bam_sort_file_path,sam_file])
-
-#    sorted_bam_files.append(bam_sort_file_path)
-
   for sorted_bam_file in sorted_bam_files:
     sorted_bam_file_name = os.path.basename(sorted_bam_file)
     transcript_file_name = re.sub('.bam','.gtf',sorted_bam_file_name)
@@ -825,9 +887,14 @@ def split_genome(genome_file,target_dir,min_seq_length):
 def run_finalise_geneset(work_dir,genome_file,seq_region_names,num_threads):
   merged_gtf = os.path.join(work_dir,'annotation_to_finalise.gtf')
   file_out = open(merged_gtf, 'w')  
-  annotation_dirs = ['stringtie_output','scallop_output']
+#  annotation_dirs = ['genblast_output','stringtie_output','scallop_output']
+  annotation_dirs = ['genblast_output']
   for annotation_dir in annotation_dirs:
     gtf_file = os.path.join(work_dir,annotation_dir,'annotation.gtf')
+    if not os.path.exists(gtf_file):
+      print("No annotation.gtf file found in " + annotation_dir + ", skipping")
+      continue
+
     file_in = open(gtf_file)
     line = file_in.readline()
     while line:
@@ -845,8 +912,20 @@ def run_finalise_geneset(work_dir,genome_file,seq_region_names,num_threads):
 
 
 def multiprocess_finalise_geneset(seq_region_name,merged_gtf):
-#  finalise_cmd = ['perl','/homes/fergal/enscode/ensembl-common/scripts/process_transcriptomic_gtf.pl','-host','mysql-ens-genebuild-prod-5.ebi.ac.uk','-user','ensadmin','-port','4531','-pass','ensembl','-dna_dbname','fergal_plasmodium_falciparum_3d7_core_100','-dna_host','mysql-ens-genebuild-prod-6.ebi.ac.uk','-dna_user','ensro','-dna_port','4532','-gtf_file',merged_gtf,'-dbname','fergal_plasmodium_falciparum_3d7_scallop_multip_100','-specify_seq_region_name',seq_region_name]
-  finalise_cmd = ['perl','/homes/fergal/enscode/ensembl-common/scripts/process_transcriptomic_gtf.pl','-host','mysql-ens-genebuild-prod-5.ebi.ac.uk','-user','ensadmin','-port','4531','-pass','ensembl','-dna_dbname','carlos_mus_musculus_core_100_38','-dna_host','mysql-ens-genebuild-prod-5.ebi.ac.uk','-dna_user','ensro','-dna_port','4531','-gtf_file',merged_gtf,'-dbname','fergal_mus_musculus_multip_100','-specify_seq_region_name',seq_region_name]
+
+  output_dbname = ""
+  output_server = "" 
+  output_port = ""
+  output_user = ""
+  output_pass = ""
+
+  dna_dbname = ""
+  dna_server = "" 
+  dna_port = ""
+  dna_user = ""
+
+  finalise_cmd = ['perl','/homes/fergal/enscode/ensembl-common/scripts/process_transcriptomic_gtf.pl','-dbname',output_dbname,'-host',output_server,'-user',output_user,'-port',output_port,'-pass',output_pass,'-dna_dbname',dna_dbname,'-dna_host',dna_server,'-dna_user',dna_user,'-dna_port',dna_port,'-gtf_file',merged_gtf,'-specify_seq_region_name',seq_region_name]
+
   print('Finalising ' + seq_region_name)
   print(' '.join(finalise_cmd))
   subprocess.run(finalise_cmd)
@@ -858,9 +937,15 @@ def seq_region_names(genome_file):
   file_in = open(genome_file)
   line = file_in.readline()
   while line:
-    match = re.search(r'>(.+)$',line)
+    match = re.search(r'>([^\s]+)',line)
     if match:
-      region_list.append(match.group(1))
+      region_name = match.group(1)
+      if region_name == "MT":
+        print ("Skipping region named MT")
+        line = file_in.readline()
+        continue
+      else:
+        region_list.append(match.group(1))
     line = file_in.readline()
 
   return region_list
@@ -1034,7 +1119,6 @@ if __name__ == '__main__':
 
   # Collect a list of seq region names, most useful for multiprocessing regions
   seq_region_names = seq_region_names(genome_file)  
-
   for i in seq_region_names:
     print(i)
 
@@ -1042,6 +1126,7 @@ if __name__ == '__main__':
   if run_masking:
     print ("Running masking via Red")
     masked_genome_file = run_red(red_path,work_dir,genome_file)
+    print ("Masked genome file: " + masked_genome_file)
 
   else:
     print ("Not running masking a presuming the genome file is softmasked")
