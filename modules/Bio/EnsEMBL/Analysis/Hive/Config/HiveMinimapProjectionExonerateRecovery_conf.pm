@@ -764,7 +764,7 @@ sub pipeline_analyses {
         -rc_name    => '4GB',
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
         -flow_into => {
-                        '2' => ['set_gene_biotypes'],
+                        '1' => ['set_gene_biotypes'],
                       },
       },
 
