@@ -57,11 +57,11 @@ To be used as part of an eHive pipeline config file:
 
 =head1 DESCRIPTION
 
-HiveProjectionMinimap fetches the genes corresponding to the given array of gene_id or a single gene_id in source_db,
-projects its transcripts based on the given Compara lastz alignment and the Minimap2 aligner
+HiveProjectionMinimap fetches the transcripts corresponding to the given array of transcript_id or a single transcript_id in source_db,
+projects them based on the given Compara lastz alignment and the Minimap2 aligner
 and builds single-transcript genes from these projections to be written to target_db while filtering out the specified
 transcripts if they don't meet the threshold criteria set for the protein muscle alignments (if applicable)
- by coverage and percentage identity.
+by coverage and percentage identity.
 
 =cut
 
