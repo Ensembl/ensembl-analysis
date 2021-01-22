@@ -302,7 +302,13 @@ sub write_output {
     $self->dataflow_output_id($output_hash, $failure_branch_code);
   }
 
-  
+  $output_hash = {};
+  $failure_branch_code = $self->param('_branch_to_flow_on_noalignblocks');
+  $failed_transcript_ids = $self->transcripts_noalignblocks();
+  if (scalar @$failed_transcript_ids ) {
+    $output_hash->{'iid'} = $failed_transcript_ids;
+    $self->dataflow_output_id($output_hash, $failure_branch_code);
+  }
 
   return 1;
 }
@@ -326,6 +332,27 @@ sub runnable_failed {
     push (@{$self->param('_runnable_failed')},$runnable_failed);
   }
   return ($self->param('_runnable_failed'));
+}
+
+=head2 transcripts_noalignblocks
+
+ Arg [1]    : 
+ Description: It updates the _transcripts_noalignblocks array by emptying it if called without any parameter or by adding the element in the 'transcripts_noalignblocks' parameter, which
+              is a transcript id.
+ Returntype : Array of transcript_id
+ Exceptions : None
+
+=cut
+
+sub transcripts_noalignblocks {
+  my ($self,$transcripts_noalignblocks) = @_;
+  unless ($self->param_is_defined('_transcripts_noalignblocks')) {
+    $self->param('_transcripts_noalignblocks',[]);
+  }
+  if ($transcripts_noalignblocks) {
+    push (@{$self->param('_transcripts_noalignblocks')},$transcripts_noalignblocks);
+  }
+  return ($self->param('_transcripts_noalignblocks'));
 }
 
 =head2 process_transcript
@@ -376,7 +403,11 @@ sub process_transcript {
                                           } @{$unique_target_genomic_aligns};
 
   unless(scalar(@sorted_target_genomic_aligns)) {
-    say "No align blocks so skipping transcript";
+    #say "No align blocks so skipping transcript";
+    # consider it as a failed runnable as the transcript was not projected
+    $self->transcripts_noalignblocks($transcript->dbID());
+    $self->warning("No align blocks so skipping transcript. Transcript ".$transcript->dbID()." . Input id will be passed to branch -4.\n");
+    $self->param('_branch_to_flow_on_noalignblocks', -4);
     next;
   }
 
