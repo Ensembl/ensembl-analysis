@@ -106,6 +106,9 @@ sub default_options {
     'projection_db_server'  => $self->o('databases_server'),
     'projection_db_port'    => $self->o('databases_port'),
 
+    'projection_genebuilder_db_server'  => $self->o('databases_server'),
+    'projection_genebuilder_db_port'    => $self->o('databases_port'),
+
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
     'production_db_server'         => 'mysql-ens-meta-prod-1',
@@ -380,6 +383,15 @@ sub default_options {
       -pass   => $self->o('password_r'),
       -driver => $self->o('hive_driver'),
     },
+    
+    'projection_genebuilder_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_gbuild_'.$self->o('release_number'),
+      -host   => $self->o('projection_genebuilder_db_server'),
+      -port   => $self->o('projection_genebuilder_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },  
 
   };
 }
@@ -495,9 +507,23 @@ sub pipeline_analyses {
           cmd => 'if [ ! -e "'.$self->o('minimap_tmpdir').'" ]; then mkdir -p '.$self->o('minimap_tmpdir').';fi',
         },
         -flow_into => {
-          '1' => ['create_projection_db'],
+          '1' => ['create_projection_genebuilder_db'],
         },
         -rc_name => 'default',
+      },
+
+      { 
+        -logic_name => 'create_projection_genebuilder_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => { 
+                         source_db => $self->o('dna_db'),
+                         target_db => $self->o('projection_genebuilder_db'),
+                         create_type => 'clone',
+                       },
+        -rc_name    => 'default',
+        -flow_into => {
+                        '1' => ['create_projection_db'],
+                      },
       },
 
       {
@@ -507,15 +533,11 @@ sub pipeline_analyses {
                          source_db => $self->o('dna_db'),
                          target_db => $self->o('projection_db'),
                          create_type => 'clone',
-                         #script_path => $self->o('clone_db_script_path'),
-                         #user_r => $self->o('user_r'),
-                         #user_w => $self->o('user_w'),
-                         #pass_w => $self->o('password'),
                        },
         -rc_name    => 'default',
         -flow_into  => {
-          '1->A' => ['minimap_create_projection_input_ids'],#['cesar_create_projection_input_ids','wga_create_projection_input_ids'],
-          'A->1' => ['classify_projected_genes'],
+          '1->A' => ['minimap_create_projection_input_ids'],
+          'A->1' => ['projection_create_toplevel_slices'],
         },
       },
 
@@ -523,7 +545,6 @@ sub pipeline_analyses {
         -logic_name => 'minimap_create_projection_input_ids',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
         -parameters => {
-                         #skip_analysis => $self->o('skip_projection'),
                          target_db => $self->o('projection_source_db'),
                          iid_type => 'feature_id',
                          feature_type => 'transcript',
@@ -600,14 +621,12 @@ sub pipeline_analyses {
                          'target_dna_db' => $self->o('dna_db'),
                          'source_db' => $self->o('projection_source_db'),
                          'target_db' => $self->o('projection_db'),
-                         'compara_db' => $self->o('compara_db'),
+                         'compara_db' => $self->o('projection_compara_db'),
                          'method_link_type' => $self->o('method_link_type'),
                          'exon_region_padding' => $self->o('projection_exonerate_padding'),
                          'exonerate_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/exonerate',
                          'exonerate_coverage' => 80,
-                         #'exonerate_percent_id' => 80,
                          'exonerate_percent_id' => 60,
-                         #'calculate_coverage_and_pid' => 1,
                          'generate_annotation_file' => 1,
                          #get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_projection_coding')},
                          #%{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_cdna')},
@@ -619,6 +638,7 @@ sub pipeline_analyses {
         -flow_into => {
 	                -1 => ['exonerate_project_transcripts_himem'],
                         -3 => ['failed_projection'],
+			-4 => ['filtered_out_projection'],
                       },
       },
       
@@ -631,14 +651,12 @@ sub pipeline_analyses {
                          'target_dna_db' => $self->o('dna_db'),
                          'source_db' => $self->o('projection_source_db'),
                          'target_db' => $self->o('projection_db'),
-                         'compara_db' => $self->o('compara_db'),
+                         'compara_db' => $self->o('projection_compara_db'),
                          'method_link_type' => $self->o('method_link_type'),
                          'exon_region_padding' => $self->o('projection_exonerate_padding'),
                          'exonerate_path' => '/nfs/software/ensembl/RHEL7/linuxbrew/bin/exonerate',
                          'exonerate_coverage' => 80,
-                         #'exonerate_percent_id' => 80,
                          'exonerate_percent_id' => 60,
-                         #'calculate_coverage_and_pid' => 1,
                          'generate_annotation_file' => 1,
                          #get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_projection_coding')},
                          #%{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_cdna')},
@@ -649,6 +667,7 @@ sub pipeline_analyses {
 	-analysis_capacity => 2,
         -flow_into => {
                         -3 => ['failed_projection'],
+			-4 => ['filtered_out_projection'],
                       },
       },
  
@@ -660,78 +679,115 @@ sub pipeline_analyses {
         -rc_name          => 'default',
         -can_be_empty  => 1,
       },
-
+      
       {
-        -logic_name => 'classify_projected_genes',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
+        -logic_name => 'filtered_out_projection',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
         -parameters => {
-          skip_analysis => $self->o('skip_projection'),
-          classification_type => 'standard',
-          update_gene_biotype => 1,
-          target_db => $self->o('projection_db'),
-        },
-        -rc_name    => '2GB',
-        -flow_into => {
-          1 => ['flag_problematic_projections'],
-        },
-      },
-
-      {
-        -logic_name => 'flag_problematic_projections',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
-                         cmd => 'perl '.$self->o('flag_potential_pseudogenes_script').
-                                ' -host '.$self->o('projection_db','-host').
-                                ' -port '.$self->o('projection_db','-port').
-                                ' -user_w '.$self->o('projection_db','-user').
-                                ' -pass '.$self->o('projection_db','-pass').
-                                ' -dbname '.$self->o('projection_db','-dbname').
-                                ' -dna_host '.$self->o('dna_db','-host').
-                                ' -dna_port '.$self->o('dna_db','-port').
-                                ' -user_r '.$self->o('dna_db','-user').
-                                ' -dna_dbname '.$self->o('dna_db','-dbname'),
                        },
-        -rc_name => '2GB',
-        -flow_into  => {
-          1 => ['fix_projection_db_issues'],
-        },
+        -rc_name          => 'default',
+        -can_be_empty  => 1,
+      },
+      
+      {
+        -logic_name => 'projection_create_toplevel_slices',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('dna_db'),
+                         iid_type => 'slice',
+                         coord_system_name => 'toplevel',
+                         include_non_reference => 0,
+                         top_level => 1,
+                         # These options will create only slices that have a gene on the slice in one of the feature dbs
+                         feature_constraint => 1,
+                         feature_type => 'gene',
+                         feature_dbs => [$self->o('projection_db')],
+                      },
+        -flow_into => {
+                       '2'    => ['projection_split_slices_on_intergenic'],
+                      },
+
+        -rc_name    => 'default',
+      },
+
+      { 
+        -logic_name => 'projection_split_slices_on_intergenic',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFindIntergenicRegions',
+        -parameters => {
+                         dna_db => $self->o('dna_db'),
+                         input_gene_dbs => [$self->o('projection_db')],
+                         iid_type => 'slice',
+                       },
+        -batch_size => 100,
+        -hive_capacity => $self->hive_capacity_classes->{'hc_medium'},
+        -rc_name    => '5GB',
+        -flow_into => {
+                       '2' => ['projection_genebuilder'],
+                   },
       },
 
       {
-        # This will fix issues when proteins that were too long for MUSCLE alignment didn't have proper ENST accessions
-        # Will also update the transcript table to match the gene table once the pseudo/canon genes are tagged in the
-        # previous analysis
-        -logic_name => 'fix_projection_db_issues',
+        -logic_name => 'projection_genebuilder',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveGeneBuilder',
+        -parameters => {
+                         source_db => $self->o('projection_db'),
+                         target_db => $self->o('projection_genebuilder_db'),
+                         dna_db     => $self->o('dna_db'),
+                         logic_name => 'ensembl',
+                         module     => 'HiveGeneBuilder',
+                         #INPUT_GENES => {
+                         #  source_db => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GenebuilderStatic',
+                         #                                      $self->o('uniprot_set'), undef, 'ARRAY'),
+                         #},
+                         #OUTPUT_BIOTYPE => 'protein_coding',
+                         MAX_TRANSCRIPTS_PER_CLUSTER => 10,
+                         MIN_SHORT_INTRON_LEN => 7, #introns shorter than this seem
+                         #to be real frame shifts and shoudn't be ignored
+                         MAX_SHORT_INTRON_LEN => 15,
+                         BLESSED_BIOTYPES => {
+                                              'ccds_gene' => 1,
+                                              'IG_C_gene' => 1,
+                                              'IG_J_gene' => 1,
+                                              'IG_V_gene' => 1,
+                                              'IG_D_gene' => 1,
+                                              'TR_C_gene' => 1,
+                                              'TR_J_gene' => 1,
+                                              'TR_V_gene' => 1,
+                                              'TR_D_gene' => 1,
+                                             },
+                         #the biotypes of the best genes always to be kept
+                         MAX_EXON_LENGTH => 20000,
+                         #if the coding_only flag is set to 1, the transcript clustering into genes is done over coding exons only
+                         # the current standard way is to cluster only on coding exons
+                         #CODING_ONLY => 1,
+                       },
+        -rc_name    => '4GB',
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+        -flow_into => {
+                        '1' => ['set_gene_biotypes'],
+                      },
+      },
+
+      {
+        -logic_name => 'set_gene_biotypes',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-          db_conn    => $self->o('projection_db'),
+          db_conn    => $self->o('projection_genebuilder_db'),
           sql => [
-            'UPDATE gene JOIN transcript USING(gene_id) SET transcript.biotype=gene.biotype',
-            'UPDATE protein_align_feature JOIN transcript_supporting_feature ON feature_id = protein_align_feature_id'.
-              ' JOIN transcript USING(transcript_id) SET hit_name = stable_id',
-            'UPDATE protein_align_feature JOIN supporting_feature ON feature_id = protein_align_feature_id'.
-              ' JOIN exon_transcript USING(exon_id) JOIN transcript USING(transcript_id) SET hit_name = stable_id',
+            'UPDATE gene SET biotype="processed_transcript"',
+            'UPDATE gene g,transcript t SET g.biotype="antisense" WHERE g.gene_id=t.gene_id AND t.biotype="antisense"',
+            'UPDATE gene g,transcript t SET g.biotype="lincRNA" WHERE g.gene_id=t.gene_id AND t.biotype="lincRNA"',
+            'UPDATE gene g,transcript t SET g.biotype="sense_intronic" WHERE g.gene_id=t.gene_id AND t.biotype="sense_intronic"',
+            'UPDATE gene g,transcript t SET g.biotype="TEC" WHERE g.gene_id=t.gene_id AND t.biotype="TEC"',
+            'UPDATE gene g,transcript t SET g.biotype="processed_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="processed_pseudogene"',
+            'UPDATE gene g,transcript t SET g.biotype="transcribed_unprocessed_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="transcribed_unprocessed_pseudogene"',
+            'UPDATE gene g,transcript t SET g.biotype="transcribed_processed_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="transcribed_processed_pseudogene"',
+            'UPDATE gene g,transcript t SET g.biotype="unprocessed_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="unprocessed_pseudogene"',
+            'UPDATE gene g,transcript t SET g.biotype="pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="pseudogene"',
+            'UPDATE gene g,transcript t SET g.biotype="protein_coding" WHERE g.gene_id=t.gene_id AND t.biotype IN ("protein_coding","non_stop_decay","nonsense_mediated_decay")'
           ],
         },
         -rc_name    => 'default',
-        -flow_into => {
-          1 => ['projection_sanity_checks'],
-        },
-      },
-
-      {
-        -logic_name => 'projection_sanity_checks',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck',
-        -parameters => {
-          target_db => $self->o('projection_db'),
-          sanity_check_type => 'gene_db_checks',
-          min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-            'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_coding'},
-        },
-        -rc_name    => '4GB',
-        #-flow_into => {
-        #                1 => ['select_projected_genes'],
-        #              },
       },
 
 ######################################################################################
