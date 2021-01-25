@@ -116,7 +116,7 @@ sub run {
   my $minimap2_command = $self->program." --cs --secondary=no -x map-ont ".$genome_index." ".$input_file." > ".$paf_file;
   $self->warning("Command:\n".$minimap2_command."\n");
   if(system($minimap2_command)) {
-    $self->throw("Error running minimap2\nError code: $?\n");
+    $self->throw("Error running minimap2\nError code: $?\nCommand line used:\n".$minimap2_command);
   }
 
   my $paf_results = [];
@@ -184,6 +184,11 @@ sub process_results {
   my $target_adaptor = $self->target_adaptor();
   my $target_slice_adaptor = $target_adaptor->get_SliceAdaptor();
   my $target_parent_slice = $target_slice_adaptor->fetch_by_region('toplevel',$target_genomic_name);
+
+  unless($target_parent_slice) {
+    $self->throw("Could not fetch the slice in the target assembly. Slice name: ".$target_genomic_name);
+  }
+
   my $target_strand = 1;
   my $target_sequence_adaptor = $target_adaptor->get_SequenceAdaptor;
   my $target_genomic_seq = ${ $target_sequence_adaptor->fetch_by_Slice_start_end_strand($target_parent_slice, $target_genomic_start, $target_genomic_end, $target_strand) };
@@ -242,6 +247,7 @@ sub process_results {
       my $parent_gene_id = $parent_gene_ids->{$transcript->stable_id()}->{'gene_id'};
       my $biotype_group = $parent_gene_ids->{$transcript->stable_id()}->{'biotype_group'};
       my $is_canonical = $parent_gene_ids->{$transcript->stable_id()}->{'is_canonical'};
+      my $source = $parent_gene_ids->{$transcript->stable_id()}->{'source'};
 
       # Don't see how this would work, but will test
       if($is_canonical) {
@@ -267,6 +273,8 @@ sub process_results {
       } else {
         $transcript->biotype($source_transcript->biotype()."_weak");
       }
+
+      $transcript->source($source);
 
       push(@{$final_gene_hash->{$parent_gene_id}},$transcript);
     }
