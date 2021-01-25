@@ -144,9 +144,7 @@ def multiprocess_genblast(batched_protein_file,masked_genome_file,genblast_path)
   batch_dir = os.path.dirname(batched_protein_file)
   print("Running GenBlast on " + batched_protein_file + ":")
   
-#  genblast_cmd = [genblast_path,'-p','genblastg','-q',batched_protein_file,'-t',masked_genome_file,'-g','T','-pid','-r','1','-P','blast','-gff','-e','1e-1','-c','0.5','-W','3','-softmask','-scodon','50','-i','30','-x','10','-n','30','-d','100000','-o',batched_protein_file]
-
-  genblast_cmd = [genblast_path,'-p','genblastg','-q',batched_protein_file,'-t',masked_genome_file,'-g','T','-pid','-r','1','-P','blast','-gff','-e','1e-1','-c','0.5','-W','3','-scodon','50','-i','30','-x','10','-n','30','-d','100000','-o',batched_protein_file]
+  genblast_cmd = [genblast_path,'-p','genblastg','-q',batched_protein_file,'-t',masked_genome_file,'-g','T','-pid','-r','1','-P','blast','-gff','-e','1e-1','-c','0.5','-W','3','-softmask','-scodon','50','-i','30','-x','10','-n','30','-d','100000','-o',batched_protein_file]
 
   print(" ".join(genblast_cmd))
   subprocess.run(genblast_cmd)
@@ -169,8 +167,6 @@ def generate_genblast_gtf(genblast_dir):
 
 def convert_gff_to_gtf(genblast_file):
   gtf_string = ""
-#  coverage_passed = {}
-#  identity_passed = {}
   file_in = open(genblast_file)
   line = file_in.readline()
   while line:
@@ -204,7 +200,7 @@ def set_attributes(attributes,feature_type):
 
   return converted_attributes
 
-
+# Example genBlast output
 #1       genBlastG       transcript      131128674       131137049       252.729 -       .       ID=259447-R1-1-A1;Name=259447;PID=84.65;Coverage=94.22;Note=PID:84.65-Cover:94.22
 #1       genBlastG       coding_exon     131137031       131137049       .       -       .       ID=259447-R1-1-A1-E1;Parent=259447-R1-1-A1
 #1       genBlastG       coding_exon     131136260       131136333       .       -       .       ID=259447-R1-1-A1-E2;Parent=259447-R1-1-A1
@@ -216,15 +212,6 @@ def set_attributes(attributes,feature_type):
 #5       genBlastG       transcript      69461063        69461741        86.16   +       .       ID=259454-R1-1-A1;Name=259454;PID=82.02;Coverage=91.67;Note=PID:82.02-Cover:91.67
 #5       genBlastG       coding_exon     69461063        69461081        .       +       .       ID=259454-R1-1-A1-E1;Parent=259454-R1-1-A1
 #5       genBlastG       coding_exon     69461131        69461741        .       +       .       ID=259454-R1-1-A1-E2;Parent=259454-R1-1-A1
-
-#1       StringTie       transcript      29322   37319   1000    .       .       gene_id "MSTRG.1"; transcript_id "MSTRG.1.1";
-#1       StringTie       exon    29322   37319   1000    .       .       gene_id "MSTRG.1"; transcript_id "MSTRG.1.1"; exon_number "1";
-#1       StringTie       transcript      74056   76184   1000    +       .       gene_id "MSTRG.2"; transcript_id "MSTRG.2.1";
-#1       StringTie       exon    74056   74631   1000    +       .       gene_id "MSTRG.2"; transcript_id "MSTRG.2.1"; exon_number "1";
-#1       StringTie       exon    74728   76184   1000    +       .       gene_id "MSTRG.2"; transcript_id "MSTRG.2.1"; exon_number "2";
-#1       StringTie       transcript      38873   40244   1000    -       .       gene_id "MSTRG.3"; transcript_id "MSTRG.3.1";
-#1       StringTie       exon    38873   39923   1000    -       .       gene_id "MSTRG.3"; transcript_id "MSTRG.3.1"; exon_number "1";
-#1       StringTie       exon    40154   40244   1000    -       .       gene_id "MSTRG.3"; transcript_id "MSTRG.3.1"; exon_number "2";
 
 
 def split_protein_file(protein_file,genblast_dir):
@@ -887,8 +874,7 @@ def split_genome(genome_file,target_dir,min_seq_length):
 def run_finalise_geneset(work_dir,genome_file,seq_region_names,num_threads):
   merged_gtf = os.path.join(work_dir,'annotation_to_finalise.gtf')
   file_out = open(merged_gtf, 'w')  
-#  annotation_dirs = ['genblast_output','stringtie_output','scallop_output']
-  annotation_dirs = ['genblast_output']
+  annotation_dirs = ['genblast_output','stringtie_output','scallop_output']
   for annotation_dir in annotation_dirs:
     gtf_file = os.path.join(work_dir,annotation_dir,'annotation.gtf')
     if not os.path.exists(gtf_file):
