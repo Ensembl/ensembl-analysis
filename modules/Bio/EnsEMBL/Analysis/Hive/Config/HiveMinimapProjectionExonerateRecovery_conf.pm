@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016-2020] EMBL-European Bioinformatics Institute
+Copyright [2016-2021] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -580,6 +580,7 @@ sub pipeline_analyses {
         -flow_into => {
 	                -1 => ['minimap_project_transcripts_himem'],
                         -3 => ['exonerate_project_transcripts'],
+			-4 => ['failed_no_align_blocks'],
                       },
       },
       
@@ -607,6 +608,7 @@ sub pipeline_analyses {
         -flow_into => {
 	                -1 => ['exonerate_project_transcripts'],
                         -3 => ['exonerate_project_transcripts'],
+			-4 => ['failed_no_align_blocks'],
                       },
       },
       
@@ -639,6 +641,7 @@ sub pipeline_analyses {
 	                -1 => ['exonerate_project_transcripts_himem'],
                         -3 => ['failed_projection'],
 			-4 => ['filtered_out_projection'],
+			-5 => ['failed_no_align_blocks'],
                       },
       },
       
@@ -668,7 +671,17 @@ sub pipeline_analyses {
         -flow_into => {
                         -3 => ['failed_projection'],
 			-4 => ['filtered_out_projection'],
+			-5 => ['failed_no_align_blocks'],
                       },
+      },
+ 
+      { 
+        -logic_name => 'failed_no_align_blocks',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+        -parameters => {
+                       },
+        -rc_name          => 'default',
+        -can_be_empty  => 1,
       },
  
       {
