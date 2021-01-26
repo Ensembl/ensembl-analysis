@@ -80,7 +80,7 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($genome_index, $input_file, $paftools_path, $database_adaptor, $delete_input_file, $skip_introns_check, $add_offset, $skip_compute_translation, $percent_id_cutoff, $coverage_cutoff) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR DELETE_INPUT_FILE SKIP_INTRONS_CHECK ADD_OFFSET SKIP_COMPUTE_TRANSLATION PERCENT_ID_CUTOFF COVERAGE_CUTOFF CANONICAL_INTRON_CUTOFF)],@args);
+  my ($genome_index, $input_file, $paftools_path, $database_adaptor, $delete_input_file, $skip_introns_check, $add_offset, $skip_compute_translation, $percent_id_cutoff, $coverage_cutoff, $canonical_intron_cutoff) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR DELETE_INPUT_FILE SKIP_INTRONS_CHECK ADD_OFFSET SKIP_COMPUTE_TRANSLATION PERCENT_ID_CUTOFF COVERAGE_CUTOFF CANONICAL_INTRON_CUTOFF)],@args);
   $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->paftools_path($paftools_path);
