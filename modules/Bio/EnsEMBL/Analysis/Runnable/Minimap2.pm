@@ -80,7 +80,7 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($genome_index, $input_file, $paftools_path, $database_adaptor, $delete_input_file, $skip_introns_check, $add_offset, $skip_compute_translation) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR DELETE_INPUT_FILE SKIP_INTRONS_CHECK ADD_OFFSET SKIP_COMPUTE_TRANSLATION)],@args);
+  my ($genome_index, $input_file, $paftools_path, $database_adaptor, $delete_input_file, $skip_introns_check, $add_offset, $skip_compute_translation, $percent_id_cutoff, $coverage_cutoff) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR DELETE_INPUT_FILE SKIP_INTRONS_CHECK ADD_OFFSET SKIP_COMPUTE_TRANSLATION PERCENT_ID_CUTOFF COVERAGE_CUTOFF CANONICAL_INTRON_CUTOFF)],@args);
   $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->paftools_path($paftools_path);
@@ -89,6 +89,9 @@ sub new {
   $self->skip_introns_check($skip_introns_check);
   $self->add_offset($add_offset);
   $self->skip_compute_translation($skip_compute_translation);
+  $self->percent_id_cutoff($percent_id_cutoff || 90);
+  $self->coverage_cutoff($coverage_cutoff || 90);
+  $self->canonical_intron_cutoff($canonical_intron_cutoff || 0.8);
   return $self;
 }
 
@@ -259,13 +262,9 @@ sub parse_sam {
 
 
 sub parse_results {
-  my ($self,$output_file,$percent_id_hash,$coverage_hash,$leftover_genes) = @_;
+  my ($self,$output_file,$percent_id_hash,$coverage_hash,$percent_id_cutoff,$coverage_cutoff,$canonical_intron_cutoff,$leftover_genes) = @_;
 
 # 13  0   84793   ENST00000380152.7   1000    +   0   84793   0,128,255   27  194,106,249,109,50,41,115,50,112,1116,4932,96,70,428,182,188,171,355,156,145,122,199,164,139,245,147,2105,  0,948,3603,9602,10627,10768,11025,13969,15445,16798,20791,29084,31353,39387,40954,42268,47049,47705,54928,55482,61196,63843,64276,64533,79215,81424,82688,
-
-  my $percent_id_cutoff = 90;
-  my $coverage_cutoff = 90;
-  my $canonical_intron_cutoff = 0.8;
 
   say "Parsing minimap2 output";
   my $dba = $self->database_adaptor();
@@ -532,6 +531,36 @@ sub skip_compute_translation {
   }
 
   return $self->{_skip_compute_translation};
+}
+
+sub percent_id_cutoff {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_percent_id_cutoff} = $val;
+  }
+
+  return $self->{_percent_id_cutoff};
+}
+
+sub coverage_cutoff {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_coverage_cutoff} = $val;
+  }
+
+  return $self->{_coverage_cutoff};
+}
+
+sub canonical_intron_cutoff {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_canonical_intron_cutoff} = $val;
+  }
+
+  return $self->{_canonical_intron_cutoff};
 }
 
 1;
