@@ -658,14 +658,6 @@ sub select_best_transcripts {
 sub filter_transcript {
   my ($self,$transcript) = @_;
 
-  my $transcript_coverage = $transcript->version();     # this was propagated from minimap gene version, which is the coverage
-  my $transcript_identity = $transcript->description(); # this was propagated from minimap gene description, which is the percent id
-
-  unless($transcript_identity >= $self->param_required('minimap_percent_id') && $transcript_coverage >= $self->param_required('minimap_coverage')) {
-    print("Transcript failed coverage (".$self->param_required('minimap_coverage').") and/or percent id (".$self->param_required('minimap_percent_id').") filter, will not store. Transcript coverage and percent id are: ".$transcript_coverage." ".$transcript_identity."\n");
-    return(1);
-  }
-
   my $original_transcript = $self->hrdb_get_con('source_transcript_db')->get_TranscriptAdaptor->fetch_by_dbID($transcript->{'_old_transcript_id'});
 
   if ($transcript->translation() and $transcript->translation()->seq() and
