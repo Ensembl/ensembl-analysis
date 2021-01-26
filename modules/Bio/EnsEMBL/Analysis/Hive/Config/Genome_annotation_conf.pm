@@ -5631,7 +5631,7 @@ sub pipeline_analyses {
            gtf_dir => catdir($self->o('output_dir'),'stringtie','merge'),
         },
         -flow_into => {
-          2 => ['load_stringtie_transcripts'],
+          2 => ['load_stringtie_transcripts', 'dump_fasta'],
         },
         -rc_name    => '5GB',
       },
@@ -5648,7 +5648,7 @@ sub pipeline_analyses {
         },
         -rc_name    => '5GB',
         -flow_into => {
-          1 => ['create_slice_tissue_input_ids', 'dump_fasta']
+          1 => ['create_slice_tissue_input_ids'], #, 'dump_fasta']
         },
       },
 

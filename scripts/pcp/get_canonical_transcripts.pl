@@ -29,12 +29,13 @@ my $slice_adaptor = $db->get_SliceAdaptor();
 my $slices = $slice_adaptor->fetch_all($coord_system);
 my $gene_adaptor = $db->get_GeneAdaptor();
 
-for my $slice (@$slices) {
-	my $genes = $slice->get_all_Genes();
-	foreach my $gene (@$genes) {
-		if ($gene->biotype eq "protein_coding") {
-			my $transcript = $gene->canonical_transcript;
-			print ">", $transcript->seq_region_name, ":", $transcript->seq_region_start, "-", $transcript->seq_region_end, "\n", $transcript->seq->seq, "\n";
-		}
-	}
+while ( my $slice = shift @{$slices} ) {
+  my $genes = $slice->get_all_Genes();
+  while ( my $gene = shift @{$genes} ) {
+    my @transcripts = @{$gene->get_all_Transcripts};
+    while ( my $transcript = shift @transcripts ) {
+      my $name =  ">". $transcript->seq_region_name . ":" . $transcript->seq_region_start . ":" . $transcr$
+      print $name, "\n", $transcript->seq->seq, "\n";
+    }
+  }
 }
