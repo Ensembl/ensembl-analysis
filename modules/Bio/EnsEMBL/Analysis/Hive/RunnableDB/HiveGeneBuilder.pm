@@ -147,6 +147,7 @@ sub fetch_input{
           -blessed_biotypes => $self->BLESSED_BIOTYPES,
           -coding_only => $self->CODING_ONLY,
           -skip_readthrough_check => $self->param('skip_readthrough_check'),
+          -skip_pruning => $self->SKIP_PRUNING,
          );
 
 
@@ -405,6 +406,7 @@ sub recover_long_models {
                       -blessed_biotypes => $self->BLESSED_BIOTYPES,
                       -coding_only => $self->CODING_ONLY,
                       -skip_readthrough_check => 1,
+                      -skip_pruning => $self->SKIP_PRUNING,
                      );
       $runnable->run;
       say "Created ".scalar(@{$runnable->output})." output genes";
@@ -780,6 +782,14 @@ sub CODING_ONLY {
     $self->param('CODING_ONLY',$arg);
   }
   return $self->param('CODING_ONLY');
+}
+
+sub SKIP_PRUNING {
+  my ($self, $arg) = @_;
+  if(defined $arg){
+    $self->param('SKIP_PRUNING',$arg);
+  }
+  return $self->param('SKIP_PRUNING');
 }
 
 1;

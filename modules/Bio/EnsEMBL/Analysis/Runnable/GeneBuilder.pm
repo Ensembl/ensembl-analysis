@@ -62,9 +62,9 @@ sub new {
   #print "In GeneBuilder constructor with super class" . ref($class) . "\n";
   my $self = $class->SUPER::new(@args);
   my($genes, $blessed_biotypes, $max_transcript_number,
-     $min_short_intron_len, $max_short_intron_len,$output_biotype, $coding_only, $skip_readthrough_check) =
+     $min_short_intron_len, $max_short_intron_len,$output_biotype, $coding_only, $skip_readthrough_check, $skip_pruning) =
     rearrange([qw(GENES BLESSED_BIOTYPES MAX_TRANSCRIPTS_PER_CLUSTER
-                  MIN_SHORT_INTRON_LEN MAX_SHORT_INTRON_LEN OUTPUT_BIOTYPE CODING_ONLY SKIP_READTHROUGH_CHECK)], @args);
+                  MIN_SHORT_INTRON_LEN MAX_SHORT_INTRON_LEN OUTPUT_BIOTYPE CODING_ONLY SKIP_READTHROUGH_CHECK SKIP_PRUNING)], @args);
   # print "HERE ARE THE ARGS: ", join("  ",@args),"\n";
   # print "HERE I AM: ", $min_short_intron_len,"\t", $max_short_intron_len,"\n";
 
@@ -84,6 +84,7 @@ sub new {
   $self->output_biotype($output_biotype);
   $self->coding_only($coding_only) ;
   $self->skip_readthrough_check($skip_readthrough_check);
+  $self->skip_pruning($skip_pruning);
 
   #data sanity
   warning("Strange running the Genebuilder without any genes") 
@@ -160,6 +161,14 @@ sub skip_readthrough_check {
   return $self->{'skip_readthrough_check'} ;
 }
 
+sub skip_pruning {
+  my ($self, $arg) = @_ ;
+  if ($arg) {
+    $self->{'skip_pruning'} = $arg ;
+  }
+  return $self->{'skip_pruning'} ;
+}
+
 sub run {
   my ($self) = @_;
   my $transcripts = $self->get_Transcripts;
@@ -173,7 +182,7 @@ sub run {
   my $transcript_clusters = $self->cluster_Transcripts($transcripts);
   #print "Have ".@$transcript_clusters." transcript clusters\n";
   #prune transcripts
-  my $pruned_transcripts = $self->prune_Transcripts($transcript_clusters);
+  my $pruned_transcripts = $self->prune_Transcripts($transcript_clusters,$self->skip_pruning());
   #print "Have ".@$pruned_transcripts." pruned transcripts\n";
   #first gene cluster
   my $initial_genes = $self->cluster_into_Genes($pruned_transcripts, $coding_only);
@@ -182,9 +191,13 @@ sub run {
     $initial_genes = $self->remove_readthrough($initial_genes);
   }
   #prune redundant cds
-  $self->prune_redundant_CDS($initial_genes);
+  if (!$self->skip_pruning()) {
+    $self->prune_redundant_CDS($initial_genes);
+  }
   #prune redundant transcripts
-  $self->prune_redundant_transcripts($initial_genes);
+  if (!$self->skip_pruning()) {
+    $self->prune_redundant_transcripts($initial_genes);
+  }
   #select best transcripts
   my $best_transcripts = $self->select_best_transcripts($initial_genes);
   #print "Have ".@$best_transcripts." best transcripts\n";
@@ -431,7 +444,7 @@ sub cluster_Transcripts_by_genomic_range {
 }
 
 sub prune_Transcripts {
-  my ($self, $transcript_clusters) = @_;
+  my ($self, $transcript_clusters, $skip_pruning) = @_;
   my @newtran;
 
   my %blessed_genetypes = %{$self->blessed_biotypes};;
@@ -467,10 +480,20 @@ sub prune_Transcripts {
    
     my $maxexon_number = 0;
     foreach my $t (@transcripts){
-      if ( scalar(@{$t->get_all_Exons}) > $maxexon_number ){
+      if ($skip_pruning) {
+        # all transcripts are added if skip pruning is 1
+        push(@newtran,$t);
+      } elsif ( scalar(@{$t->get_all_Exons}) > $maxexon_number ){
         $maxexon_number = scalar(@{$t->get_all_Exons});
       }
     }
+
+    if ($skip_pruning) {
+      # since all transcripts for the current cluster have already been added
+      # no need to do anything else with them, jump to the next cluster
+      next CLUSTER;
+    }
+
     if ($maxexon_number == 1){
       # take the longest:
       @transcripts = map { $_->[1] } sort { $b->[0]->length <=> $a->[0]->length } map{ [ $_->start_Exon, $_ ] } @transcripts;
