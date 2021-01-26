@@ -113,6 +113,10 @@ sub run {
   $self->files_to_delete($bed_file);
   my $genome_index  = $self->genome_index;
   my $input_file    = $self->input_file;
+  my $percent_id_cutoff = $self->percent_id_cutoff();
+  my $coverage_cutoff = $self->coverage_cutoff();
+  my $canonical_intron_cutoff = $self->canonical_intron_cutoff();
+
   if($self->delete_input_file) {
     $self->files_to_delete($input_file);
   }
@@ -141,7 +145,7 @@ sub run {
     $self->throw("Error running paftools\nError code: $?\n");
   }
 
-  $self->output($self->parse_results($bed_file,$percent_id_hash,$coverage_hash,$leftover_genes));
+  $self->output($self->parse_results($bed_file,$percent_id_hash,$coverage_hash,$percent_id_cutoff,$coverage_cutoff,$canonical_intron_cutoff,$leftover_genes));
 
   # This is mostly a repeat of the above but on the reads that were filtered because they had a high non-canonical rate (but passed cov/identity)
   # These could be samples where the reads where accidently reversed as was seen in pig
@@ -174,7 +178,7 @@ sub run {
       $self->throw("Error running paftools leftover\nError code: $?\n");
     }
 
-    $self->output($self->parse_results($bed_lo_file,$percent_id_lo_hash,$coverage_lo_hash));
+    $self->output($self->parse_results($bed_lo_file,$percent_id_lo_hash,$coverage_lo_hash,$percent_id_cutoff,$coverage_cutoff,$canonical_intron_cutoff));
   }
 
 }
