@@ -478,6 +478,9 @@ sub make_runnables {
        -skip_introns_check       => 1,
        -add_offset               => $target_genomic_start - 1,
        -skip_compute_translation => 0, # If you turn that to 1, it will not return translation
+       -percent_id_cutoff => $self->param('minimap_percent_id'),
+       -coverage_cutoff => $self->param('minimap_coverage'),
+       #-canonical_intron_cutoff => 0.8, this is the default one in the Minimap2 runnable
   );
 
   $runnable->{'_transcript_id'} = $input_id;
