@@ -753,7 +753,7 @@ sub pipeline_analyses {
                          #                                      $self->o('uniprot_set'), undef, 'ARRAY'),
                          #},
                          #OUTPUT_BIOTYPE => 'protein_coding',
-                         MAX_TRANSCRIPTS_PER_CLUSTER => 10,
+                         MAX_TRANSCRIPTS_PER_CLUSTER => 999,
                          MIN_SHORT_INTRON_LEN => 7, #introns shorter than this seem
                          #to be real frame shifts and shoudn't be ignored
                          MAX_SHORT_INTRON_LEN => 15,
@@ -773,6 +773,7 @@ sub pipeline_analyses {
                          #if the coding_only flag is set to 1, the transcript clustering into genes is done over coding exons only
                          # the current standard way is to cluster only on coding exons
                          #CODING_ONLY => 1,
+			 SKIP_PRUNING => 1,
                        },
         -rc_name    => '4GB',
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
