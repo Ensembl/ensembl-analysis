@@ -279,7 +279,7 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
   # !!! Need to add in samtools path above instead of just using 'samtools' in command
 
   if not star_path:
-    star_path = 'star'
+    star_path = 'STAR'
 
   check_exe(star_path)
 
@@ -906,7 +906,7 @@ def multiprocess_finalise_geneset(seq_region_name,merged_gtf):
   output_pass = ""
 
   dna_dbname = ""
-  dna_server = "" 
+  dna_server = ""
   dna_port = ""
   dna_user = ""
 
