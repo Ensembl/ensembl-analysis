@@ -2156,7 +2156,7 @@ sub pipeline_analyses {
         -logic_name => 'format_softmasked_toplevel',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmask -in '.$self->o('softmasked_genome_file').' -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.$self->o('softmasked_genome_file').'.asnb;makeblastdb -in '.$self->o('softmasked_genome_file').' -dbtype nucl -parse_seqids -mask_data '.$self->o('softmasked_genome_file').'.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.$self->o('softmasked_genome_file').';fi',
+                         'cmd'    => 'if [ "'.$self->o('blast_type').'" = "ncbi" ]; then convert2blastmask -in '.$self->o('softmasked_genome_file').' -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out '.$self->o('softmasked_genome_file').'.asnb;makeblastdb -in '.$self->o('softmasked_genome_file').' -dbtype nucl  -max_file_sz "10GB"  -parse_seqids -mask_data '.$self->o('softmasked_genome_file').'.asnb -title "'.$self->o('species_name').'"; else xdformat -n '.$self->o('softmasked_genome_file').';fi',
                        },
         -rc_name    => '5GB',
         -flow_into => {
