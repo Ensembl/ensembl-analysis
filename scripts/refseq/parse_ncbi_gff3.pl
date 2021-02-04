@@ -620,6 +620,9 @@ GENE: foreach my $gene (values %genes) {
         }
       }
       $stats{transcript}->{$transcript->biotype}++;
+      if (!$transcript->display_xref()) {
+        $transcript->display_xref($gene->display_xref());
+      }
     }
     $gene->recalculate_coordinates; #Because I'm adding transcript first, I need to force recalculate
   }
