@@ -1912,7 +1912,7 @@ sub pipeline_analyses {
 	                 logic_name => $self->o('red_logic_name'),
                          red_path => $self->o('red_path'),
 			 genome_file => $self->o('faidx_genome_file'),
-                         target_db_url => $self->o('reference_db'),
+                         target_db_url => $self->o('hive_driver').'://'.$self->o('user').':'.$self->o('password').'@'.$self->o('dna_db_server').':'.$self->o('dna_db_port').'/'.$self->o('dna_db_name'),
                          msk => $self->o('red_msk'),
                          rpt => $self->o('red_rpt'),
 			 red_meta_key => $self->o('replace_repbase_with_red_to_mask'),
