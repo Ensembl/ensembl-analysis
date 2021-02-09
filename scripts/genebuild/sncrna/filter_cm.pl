@@ -44,7 +44,6 @@ sub filter_rfam {
 
 my $rfam_cm_file       = $ARGV[0]; #$self->param_required('rfam_cm_file');
 my $rfam_accessions   = $ARGV[1]; #$self->param_required('rfam_accessions');
-#my $working_dir        = $ARGV[2]; #$self->param_required("working_dir");
 
 my $cm_path = path($rfam_cm_file);
 my $ra_path = path($rfam_accessions);

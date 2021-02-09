@@ -5146,7 +5146,7 @@ sub pipeline_analyses {
             cmd => "perl " . $self->o('sncrna_analysis_script') . "/filter_cm.pl " .
                              $self->o('rfam_cm') . ' ' .
                              $self->o('ncrna_dir') . '/accessions.txt ' .
-                             $self->o('ncrna_dir') . '/Rfam.cm',
+                             $self->o('filtered_rfam_cm'),
         },
         -rc_name => 'filter',
       },
