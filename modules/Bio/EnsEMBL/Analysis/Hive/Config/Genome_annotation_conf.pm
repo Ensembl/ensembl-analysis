@@ -127,7 +127,7 @@ sub default_options {
     'rfam_path' => catfile($self->o('base_blast_db_path'), 'ncrna', 'Rfam_14.0'),
     'rfam_seeds' => $self->o('rfam_path') . "/Rfam.seed",
     'rfam_cm' => $self->o('rfam_path') . "/Rfam.cm",
-    'filtered_rfam_cm' => $self->o('output_path') . '/Rfam.cm',
+    'filtered_rfam_cm' => $self->o('output_path') .  'ncrna/Rfam.cm',
     'clade' => $self->o('repbase_logic_name'),
 
 
