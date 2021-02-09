@@ -203,6 +203,8 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
       sheet_assembly_name_val = sheet_row[sheet_assembly_name_index]
       sheet_rnaseq_data_index = assembly_sheet_columns.index('RNAseq data')
       sheet_rnaseq_data_val = sheet_row[sheet_rnaseq_data_index]
+      sheet_contig_N50_index = assembly_sheet_columns.index('Contig N50')
+      sheet_contig_N50_val = sheet_row[sheet_contig_N50_index]
 
       if rnaseq_data != sheet_rnaseq_data_val:
         # Check if status from db is null. If yes, check if assembly has been handed over or if assembly met candidate assembly criteria
@@ -222,7 +224,14 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
         row_update_index = assembly_sheet.find(gca).row
         update_cell_val(assembly_sheet,row_update_index,sheet_rnaseq_data_index,rnaseq_data)
         time.sleep(3)
-     
+
+      if contig_N50 != sheet_contig_N50_val:
+        # Update the classification
+        print("Updating the contig for: " + gca)
+        row_update_index = assembly_sheet.find(gca).row
+        update_cell_val(assembly_sheet,row_update_index,sheet_contig_N50_index,contig_N50)
+        time.sleep(3)
+
       if clade != sheet_clade_val:
         # Update the classification
         print("Updating the clade for: " + gca)
