@@ -47,7 +47,7 @@ my $rfam_accessions   = $ARGV[1]; #$self->param_required('rfam_accessions');
 
 my $cm_path = path($rfam_cm_file);
 my $ra_path = path($rfam_accessions);
-my $output = $ARGV[2];#path($working_dir . "/Rfam.cm");
+my $output = path($ARGV[2]);#path($working_dir . "/Rfam.cm");
 
 my $cm = $cm_path->slurp;
 my $ra = $ra_path->slurp;
