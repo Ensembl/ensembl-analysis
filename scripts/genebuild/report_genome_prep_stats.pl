@@ -49,6 +49,7 @@ if ($type eq "assembly_loading" || $type eq "all") {
   my $toplevel_count = "'select count(*) from seq_region_attrib where attrib_type_id=6'";
   my $assembly_count = "'select count(*) from assembly'";
   my $repeatmasker_count = "'select count(*) from repeat_feature join analysis using (analysis_id) where logic_name like \"repeatmask%\"'";
+  my $repeatdetector_count = "'select count(*) from repeat_feature where analysis_id=(select analysis_id from analysis where logic_name=\"repeatdetector\")'";
   my $dust_count = "'select count(*) from repeat_feature where analysis_id=(select analysis_id from analysis where logic_name=\"dust\")'";
   my $trf_count = "'select count(*) from repeat_feature where analysis_id=(select analysis_id from analysis where logic_name=\"trf\")'";
   my $eponine_count = "'select count(*) from simple_feature where analysis_id=(select analysis_id from analysis where logic_name=\"eponine\")'";
@@ -78,6 +79,7 @@ if ($type eq "assembly_loading" || $type eq "all") {
   say "Feature Info: ";
   say "==============================";
   print "repeatmasker count: ".`$sql_start$repeatmasker_count`;
+  print "repeatdetector count: ".`$sql_start$repeatdetector_count`;
   print "dust count:         ".`$sql_start$dust_count`;
   print "trf count:          ".`$sql_start$trf_count`;
   print "eponine count:      ".`$sql_start$eponine_count`;
