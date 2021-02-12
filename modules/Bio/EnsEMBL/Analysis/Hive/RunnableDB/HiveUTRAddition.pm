@@ -1799,7 +1799,7 @@ sub filter_input_genes {
           my $biotype = "";
           if($dbname =~ /\_cdna\_/ || $dbname =~ /\_lrfinal\_/) {
             $biotype = "cdna_donor";
-          } elsif($dbname =~ /\_rnaseq\_/) {
+          } elsif($dbname =~ /\_rnalayer\_/ || $dbname =~ /\_rnaseq\_/) {
             $biotype = "rnaseq_donor";
           } else {
             $self->throw("Found an unexpected dbname type for the donor db. Name: ".$dbname);
