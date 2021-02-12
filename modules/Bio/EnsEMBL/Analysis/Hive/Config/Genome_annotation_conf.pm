@@ -1917,7 +1917,7 @@ sub pipeline_analyses {
                          rpt => $self->o('red_rpt'),
 			 red_meta_key => $self->o('replace_repbase_with_red_to_mask'),
                        },
-        -rc_name => 'default',
+        -rc_name => '15GB',
 	-flow_into =>  {
                          1 => ['create_10mb_slice_ids'],
                        },
