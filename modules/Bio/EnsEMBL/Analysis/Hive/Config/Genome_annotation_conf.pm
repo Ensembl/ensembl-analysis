@@ -2826,11 +2826,47 @@ sub pipeline_analyses {
           timer => '30m',
         },
         -flow_into => {
+	  -1 => ['wga_project_transcripts_himem'],
           -3 => ['wga_failed_projection'],
         },
         -rc_name    => 'project_transcripts',
         -batch_size => 100,
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      },
+
+      {
+        -logic_name => 'wga_project_transcripts_himem',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
+        -parameters => {
+          logic_name => 'project_transcripts',
+          module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveWGA2GenesDirect',
+          source_dna_db         => $self->default_options()->{'projection_source_db'},
+          target_dna_db         => $self->o('dna_db'),
+          source_transcript_db  => $self->default_options()->{'projection_source_db'},
+          target_transcript_db   => $self->o('projection_db'),
+          compara_db            => $self->o('projection_lastz_db'),
+          method_link_type => 'LASTZ_NET',
+          max_exon_readthrough_dist => 15,
+          TRANSCRIPT_FILTER => {
+            OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
+            PARAMETERS => {
+              -coverage => $self->o('projection_cov'),
+              -percent_id => $self->o('projection_pid'),
+            },
+          },
+          iid_type => 'feature_id',
+          feature_type => 'transcript',
+          calculate_coverage_and_pid => $self->o('projection_calculate_coverage_and_pid'),
+          max_internal_stops => $self->o('projection_max_internal_stops'),
+          timer => '30m',
+        },
+        -flow_into => {
+          -3 => ['wga_failed_projection'],
+        },
+        -rc_name    => 'project_transcripts_himem',
+        -batch_size => 100,
+        -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+	-can_be_empty  => 1,
       },
 
       {
@@ -9149,7 +9185,8 @@ sub resource_classes {
     'blast_retry' => { LSF => $self->lsf_resource_builder('production-rh74', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'genblast' => { LSF => $self->lsf_resource_builder('production-rh74', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genblast_retry' => { LSF => $self->lsf_resource_builder('production-rh74', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'project_transcripts' => { LSF => $self->lsf_resource_builder('production-rh74', 7200, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    'project_transcripts' => { LSF => $self->lsf_resource_builder('production-rh74', 3000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    'project_transcripts_himem' => { LSF => $self->lsf_resource_builder('production-rh74', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'refseq_import' => { LSF => $self->lsf_resource_builder('production-rh74', 9900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'layer_annotation' => { LSF => $self->lsf_resource_builder('production-rh74', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genebuilder' => { LSF => $self->lsf_resource_builder('production-rh74', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'genblast_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
