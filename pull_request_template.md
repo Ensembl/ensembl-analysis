@@ -12,4 +12,4 @@ _Include links to JIRA tickets_
 _Have you tested it?_
 
 # Assign to the weekly GitHub reviewer
-[The Genebuild Rota can be found here](https://calendar.google.com/calendar/embed?src=c_vci66birfkvcdaj1edguve5pi8%40group.calendar.google.com&ctz=Europe%2FLondon)
+_If you are a member of Ensembl, please check the Genebuild weekly Rotas and assign this week's GitHub reviewer to the PR_
