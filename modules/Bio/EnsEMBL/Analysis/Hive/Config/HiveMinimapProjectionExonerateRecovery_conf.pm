@@ -171,7 +171,7 @@ sub default_options {
 ########################
 
     'method_link_type'     => 'LASTZ_NET',
-    'compara_databases_conf_filename' => 'Databases.pm',
+    'compara_databases_conf_filename' => catfile($self->o('output_path'),'Databases.pm'),
 
     'compara_master'             => 'compara_master',
     'compara_conf_file'             => '',
