@@ -40,8 +40,8 @@ sub default_options {
 #
 ######################################################
 
-    'assembly_name'             => '', # target species assembly name
-    'assembly_accession'        => '', # target species assembly accession
+    'assembly_name'             => '', # target species assembly name eg 'mRatBN7.1'
+    'assembly_accession'        => '', # target species assembly accession eg 'GCA_015227675.1'
     'assembly_refseq_accession' => '', # target species refseq accession (it can be empty)
     'species_name'              => '', # scientific name of the target species to project genes to, e.g. mus_musculus
     'production_name'           => '' || $self->o('species_name'),
