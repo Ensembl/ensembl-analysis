@@ -549,6 +549,8 @@ sub pipeline_analyses {
                          iid_type => 'feature_id',
                          feature_type => 'transcript',
                          batch_size => 25,
+			 #feature_restriction => 'source',
+			 #sources => {'havana' => 1, 'ensembl_havana' => 1},
         },
         -flow_into => {
                         2 => ['minimap_project_transcripts'],
