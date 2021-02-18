@@ -120,7 +120,7 @@ and geometrical methods for a range.
 sub start {
   my ($self,$start) = @_ ;
 
-  if ($start) {
+  if (defined $start) {
     throw( "$start is not an integer") unless $start =~/^[-+]?\d+$/;
     $self->{_start} = $start;
   }
@@ -158,7 +158,7 @@ sub start {
 sub end {
   my ($self, $end) = @_ ;
 
-  if ($end) {
+  if (defined $end) {
     throw( "$end is not an integer") unless $end =~/^[-+]?\d+$/;
     $self->{_end} = $end;
   }
