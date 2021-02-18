@@ -101,7 +101,6 @@ sub run {
              " -gene_type protein_coding".
              " -trna_type Mt_tRNA".
              " -rrna_type Mt_rRNA".
-             " -codon_table 2".
              " -logic_name mt_genbank_import".
              " -source RefSeq".
              " -accession ".$mt_accession.

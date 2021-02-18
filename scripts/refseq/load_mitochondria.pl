@@ -40,7 +40,6 @@ The script will fail.
         -gene_type   test\
         -trna_type   test-Mt-tRNA \
         -rrna_type   test-Mt-tRNA \
-        -codon_table 2  \
         -logic_name  gmap_ncbi  \
         -genbank_file      $BASE/downloads/sequence.gb
 
@@ -102,7 +101,6 @@ my $MIT_LOGIC_NAME;
 my $MIT_SOURCE_NAME;
 my $MIT_NAME;
 my $MIT_TOPLEVEL;
-my $MIT_CODON_TABLE;
 my $MIT_GENE_TYPE;
 my $MIT_TRNA_TYPE;
 my $MIT_RRNA_TYPE;
@@ -132,7 +130,6 @@ GetOptions( \%opt,
             'gene_type=s',
             'trna_type=s',
             'rrna_type=s',
-            'codon_table=i',
             'source=s',         # Allow to set the gene.source by commandline option | MIT_SOURCE_NAME
             'name=s',
             'genbank_file=s',
@@ -164,7 +161,6 @@ $MIT_LOGIC_NAME   = $opt{logic_name}   if $opt{logic_name};
 $MIT_SOURCE_NAME  = $opt{source}       if $opt{source};
 $MIT_NAME         = $opt{name}         if $opt{name};
 $MIT_TOPLEVEL     = $opt{toplevel}     if $opt{toplevel};
-$MIT_CODON_TABLE  = $opt{codon_table}  if $opt{codon_table};
 $MIT_GENE_TYPE    = $opt{gene_type}    if $opt{gene_type};
 $MIT_TRNA_TYPE    = $opt{trna_type}    if $opt{trna_type};
 $MIT_RRNA_TYPE    = $opt{rrna_type}    if $opt{rrna_type};
@@ -186,7 +182,6 @@ unless (    $MIT_DBHOST && $MIT_DBUSER
       . "MIT_LOGIC_NAME $MIT_LOGIC_NAME "
       . "MIT_NAME $MIT_NAME "
       . "MIT_TOPLEVEL $MIT_TOPLEVEL "
-      . "MIT_CODON_TABLE  $MIT_CODON_TABLE "
       . "MIT_GENE_TYPE $MIT_GENE_TYPE "
       . "MIT_TRNA_TYPE $MIT_TRNA_TYPE "
       . "MIT_RRNA_TYPE $MIT_RRNA_TYPE " );
@@ -302,18 +297,6 @@ if ($slice->is_chromosome) {
 }
 
 #########################################
-# Check that there is an entry in seq_region_attrib
-# for the MT chromosome. It needs to use the codon table 2
-my $has_correct_codon_table = check_codon_table($output_db,$slice);
-if ($has_correct_codon_table) {
-  print "Using codon table 2 for translations. (This is correct.)\n";
-} else {
-  throw(   "Cannot find seq_region_attrib entry for MT chromosome. "
-         . "Need to specify value=2 for codon_table." );
-}
-
-
-#########################################
 #Check that there are not genes in the MT chromosome before uploading the new ones.
 
 my @mt_genes = @{$slice->get_all_Genes};
@@ -394,6 +377,7 @@ if(!defined $ensembl_analysis){
  # subsequent indecies contain all the other annotations
  #
 
+my $codon_table_stored = 0;
 my $features = $genbank_parser->get_features;
 my $length = scalar(@$features);
 my $entry_count = 1;
@@ -401,18 +385,21 @@ for (my $index = 1; $index < $length; $index++) {
     my $feature = $features->[$index];
     next unless ($feature->{header} eq 'CDS' or $feature->{header} =~ /[tr]RNA/);
     printf "ENTRY %d\n========\n", $entry_count;
-    if ($feature->{position} =~ tr/././ > 2) {
-        if ($feature->{note}->[0] =~ /frameshift/i) {
-            warning('There is a frameshift in '.$feature->{product}->[0].", the gene has more than one exon!\n");
-        }
-        else {
-            throw($feature->{product}->[0]." has more than one exon!\n");
-        }
+    if ($feature->{note}->[0] =~ /frameshift/i) {
+        warning('There is a frameshift in '.$feature->{product}->[0].", the gene has more than one exon!\n");
     }
     if (exists $feature->{note}->[0] and $feature->{note}->[0] =~ /tRNAscan-SE/) {
         warning('Skipping '.$feature->{product}->[0].' : '.$feature->{note}->[0]."\n");
         next;
     }
+    if (exists $feature->{trans_splicing}) {
+        # some trans_splicing features could be represented by exons
+        # but other would require exons within the same transcript on different strands
+        # which is not supported by the current schema so all trans_splicing are skipped
+        warning('Skipping '.$feature->{product}->[0].' : '.$feature->{trans_splicing}->[0]."\n");
+        next;
+    }
+
     #############
     # TRANSCRIPTS
 
@@ -422,7 +409,8 @@ for (my $index = 1; $index < $length; $index++) {
     my $end_exon;
     my $strand = 1;
     $strand = -1 if ($feature->{position} =~ /complement/);
-    while ($feature->{position} =~ /(\d+)\.\.(\d+)/gc) {
+    my @exons;
+    while ($feature->{position} =~ /(\d+)\.\.\>?(\d+)/gc) {
         my $exon = new Bio::EnsEMBL::Exon;
         $exon->start($1);
         $exon->end($2);
@@ -437,13 +425,28 @@ for (my $index = 1; $index < $length; $index++) {
           $exon->end_phase(($exon->end - $exon->start + 1)%3);
         }
 
-        $transcript->add_Exon($exon);
+        if ($strand == 1) {
+          push(@exons,$exon);
+        } else {
+          unshift(@exons,$exon);
+        }
         $start_exon = $exon if ($exon_number == 0);
         $end_exon = $exon;
         ++$exon_number;
     }
-    $transcript->start_Exon($start_exon);
-    $transcript->end_Exon  ( $end_exon );
+
+    foreach my $exon (@exons) {
+        $transcript->add_Exon($exon);
+    }
+
+    if ($strand == -1) {
+        $transcript->start_Exon($end_exon);
+        $transcript->end_Exon($start_exon);
+    } else {
+        $transcript->start_Exon($start_exon);
+        $transcript->end_Exon($end_exon);
+    }
+
     my $type;
     my $gene = new Bio::EnsEMBL::Gene;
     if ($feature->{header} =~ /(\w)RNA/) {
@@ -462,12 +465,32 @@ for (my $index = 1; $index < $length; $index++) {
         #############
         # TRANSLATION
 
-        throw('Translation table is '.$feature->{transl_table}->[0].' instead of '.$MIT_CODON_TABLE."\n") unless ($MIT_CODON_TABLE eq $feature->{transl_table}->[0]);
+        # Make and store the mitochondrial codon usage attribute
+        my $aa = $output_db->get_AttributeAdaptor();
+        if (not $codon_table_stored) {
+            if ($feature->{transl_table}) {
+                $codon_table_stored = $feature->{transl_table}->[0];
+            } else {
+                # genbank's transl_table default is 1 if it's not present
+                $codon_table_stored = 1;
+            }
+            push my @codonusage,
+              Bio::EnsEMBL::Attribute->new(-CODE        => 'codon_table',
+                                           -NAME        => 'Codon Table',
+                                           -DESCRIPTION => 'Alternate codon table',
+                                           -VALUE       => $codon_table_stored);
+            $aa->store_on_Slice($slice,\@codonusage);
+        } elsif ($feature->{transl_table}) {
+            if ($feature->{transl_table}->[0] ne $codon_table_stored) {
+                throw('Translation table is '.$feature->{transl_table}->[0].' instead of previously stored '.$codon_table_stored."\n");
+            }
+        }
+
         my $translation = new  Bio::EnsEMBL::Translation(
-                             -START_EXON => $start_exon,
-                             -END_EXON   => $end_exon,
+                             -START_EXON => $transcript->start_Exon(),
+                             -END_EXON   => $transcript->end_Exon(),
                              -SEQ_START  => 1,
-                             -SEQ_END    => $end_exon->length,
+                             -SEQ_END    => $transcript->end_Exon()->length(),
                              );
 
         my %h_dbentry;
@@ -548,7 +571,7 @@ for (my $index = 1; $index < $length; $index++) {
         }
         $transcript->translation($translation);
         if ($transcript->translate()->seq() =~ /\*/) {
-          throw("Stop codon found in translation ".$transcript->translate()->seq());
+          throw("Stop codon found in translation ".$transcript->translate()->seq()." Transcript: ".$transcript->stable_id()." ".$transcript->seq_region_start()." ".$transcript->seq_region_end());
         }
         if ($transcript->translate()->seq() =~ /^[^M]/) {
           warning("Adding SeqEdit for non-methionine start codon in translation ".$transcript->translate()->seq());
@@ -724,16 +747,10 @@ sub load_chromosomes {
   my ($slices, $output_db, $seq_ref) = @_;
   my $sa = $output_db->get_SliceAdaptor();
   my $aa = $output_db->get_AttributeAdaptor();
-  # Store slices, add the mit codon usage atribute
+  # Store slices
   # add the sequence if the coord system is contig
   # add the top level attribute if the coord system is chromosome
-  # Make mitochondrial codon usage attribute
 
-  push my @codonusage,
-    Bio::EnsEMBL::Attribute->new( -CODE        => 'codon_table',
-                                  -NAME        => 'Codon Table',
-                                  -DESCRIPTION => 'Alternate codon table',
-                                  -VALUE       => $MIT_CODON_TABLE, );
   # Make top level seq attribute
   push my @toplevel,
     Bio::EnsEMBL::Attribute->new(
@@ -747,7 +764,6 @@ sub load_chromosomes {
     print "Slice " . $slice->name . "\n" if $MIT_DEBUG;
     if ( $cs eq 'seq_level' ) {
       $sa->store( $slice, \$seq_ref );
-      $aa->store_on_Slice( $slice, \@codonusage );
       print "Storing seqlevel \n" if $MIT_DEBUG;
       # If only have 1 coord systen it needs to be both seq_level
       # and top level
@@ -758,7 +774,6 @@ sub load_chromosomes {
     }
     print "Storing slice \n" if $MIT_DEBUG;
     $sa->store( $slice );
-    $aa->store_on_Slice( $slice, \@codonusage );
     if ( $cs eq 'top_level' ) {
       $aa->store_on_Slice( $slice, \@toplevel );
     }
@@ -827,27 +842,6 @@ sub load_assembly {
   return 0;
 }
 
-sub check_codon_table {
-  my ($out_db,$mt_slice) = @_;
-  my $found;
-  my $mt_slice_dbID = $slice_adaptor->get_seq_region_id($mt_slice);
-   print STDERR "   $mt_slice_dbID \n";
-  my $sql = "SELECT sra.value ".
-            "FROM seq_region_attrib sra, attrib_type att ".
-            "WHERE sra.attrib_type_id = att.attrib_type_id ".
-            "AND att.code = 'codon_table' ".
-            "AND sra.seq_region_id = ". $mt_slice_dbID;
-  my $sth = $out_db->dbc->prepare($sql) or die "sql error!";
-  $sth->execute();
-  my $val = $sth->fetchrow();
-  $sth->finish;
-
-
-  if ($val == CHECK_CODON_TABLE) {
-    $found = 1;
-  }
-  return $found;
-}
 ##################################################
 # Example of genbank entry
 
