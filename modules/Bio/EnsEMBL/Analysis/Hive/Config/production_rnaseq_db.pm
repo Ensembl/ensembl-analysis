@@ -658,3 +658,6 @@ sub resource_classes {
     'default' => { LSF => $self->lsf_resource_builder('production-rh74', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
   }
 }
+
+
+1;
