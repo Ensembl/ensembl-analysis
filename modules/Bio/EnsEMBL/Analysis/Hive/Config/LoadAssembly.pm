@@ -288,8 +288,8 @@ sub pipeline_analyses {
         db_conn => $self->o('reference_db'),
         sql => [
           'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"assembly.default","'.$self->o('assembly_name').'")',
-        'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"assembly.name","'.$self->o('assembly_name').'")',
-        'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"species.taxonomy_id","'.$self->o('taxon_id').'")',
+          'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"assembly.name","'.$self->o('assembly_name').'")',
+          'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"species.taxonomy_id","'.$self->o('taxon_id').'")',
         ],
       },
       -rc_name    => 'default',
@@ -339,8 +339,8 @@ sub pipeline_analyses {
           '(1, "annotation.provider_name", "'.$self->o('annotation_provider_name').'"),'.
           '(1, "annotation.provider_url", "'.$self->o('annotation_provider_url').'"),'.
           '(1, "species.production_name", "'.$self->o('production_name').'"),'.
-          ($self->o('replace_repbase_with_red_to_mask') ? '(1, "repeat.analysis", "'.$self->o('red_logic_name').'"),':
-           '(1, "repeat.analysis", "'.$self->o('full_repbase_logic_name').'"),').
+          ($self->o('replace_repbase_with_red_to_mask') ? '(1, "repeat.analysis", "'.$self->o('red_logic_name').'"),' :
+            '(1, "repeat.analysis", "'.$self->o('full_repbase_logic_name').'"),').
           ($self->o('use_repeatmodeler_to_mask') ? '(1, "repeat.analysis", "'.$self->o('repeatmodeler_logic_name').'"),': '').
           '(1, "repeat.analysis", "dust"),'.
           '(1, "repeat.analysis", "trf"),'.
