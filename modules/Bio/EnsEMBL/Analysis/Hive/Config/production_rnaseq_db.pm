@@ -73,7 +73,6 @@ sub default_options {
     # Keys for custom loading, only set/modify if that's what you're doing
     'protein_entry_loc'            => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc'), # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
 
-
     ########################
     # Pipe and ref db info
     ########################
@@ -90,7 +89,6 @@ sub default_options {
     'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
     'production_db_server'         => 'mysql-ens-meta-prod-1',
     'production_db_port'           => '4483',
-
 
     databases_to_delete => ['rnaseq_db'],
 
@@ -143,7 +141,6 @@ sub default_options {
     ####################################################################
     file_columns      => ['SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS'],
     long_read_columns => ['sample','filename'],
-
 
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # No option below this mark should be modified
@@ -333,11 +330,11 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'perl '.$self->o('meta_coord_script').
-        ' -user '.$self->o('user').
-        ' -pass '.$self->o('password').
-        ' -host '.$self->o('rnaseq_db','-host').
-        ' -port '.$self->o('rnaseq_db','-port').
-        ' -dbpattern '.$self->o('rnaseq_db','-dbname')
+          ' -user '.$self->o('user').
+          ' -pass '.$self->o('password').
+          ' -host '.$self->o('rnaseq_db','-host').
+          ' -port '.$self->o('rnaseq_db','-port').
+          ' -dbpattern '.$self->o('rnaseq_db','-dbname')
       },
       -rc_name => 'default',
       -flow_into => {
@@ -350,11 +347,11 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'perl '.$self->o('meta_levels_script').
-        ' -user '.$self->o('user').
-        ' -pass '.$self->o('password').
-        ' -host '.$self->o('rnaseq_db','-host').
-        ' -port '.$self->o('rnaseq_db','-port').
-        ' -dbname '.$self->o('rnaseq_db','-dbname')
+          ' -user '.$self->o('user').
+          ' -pass '.$self->o('password').
+          ' -host '.$self->o('rnaseq_db','-host').
+          ' -port '.$self->o('rnaseq_db','-port').
+          ' -dbname '.$self->o('rnaseq_db','-dbname')
       },
       -rc_name => 'default',
       -flow_into => { 1 => ['optimise_rnaseq'] },
@@ -365,18 +362,18 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'perl '.$self->o('load_optimise_script').
-        ' -output_path '.catfile($self->o('rnaseq_dir'), 'optimise_rnaseq').
-        ' -uniprot_filename '.$self->o('protein_entry_loc').
-        ' -dbuser '.$self->o('user').
-        ' -dbpass '.$self->o('password').
-        ' -dbport '.$self->o('rnaseq_db','-port').
-        ' -dbhost '.$self->o('rnaseq_db','-host').
-        ' -dbname '.$self->o('rnaseq_db','-dbname').
-        ' -prod_dbuser '.$self->o('user_r').
-        ' -prod_dbhost '.$self->o('production_db','-host').
-        ' -prod_dbname '.$self->o('production_db','-dbname').
-        ' -prod_dbport '.$self->o('production_db','-port').
-        ' -nodaf -ise'
+          ' -output_path '.catfile($self->o('rnaseq_dir'), 'optimise_rnaseq').
+          ' -uniprot_filename '.$self->o('protein_entry_loc').
+          ' -dbuser '.$self->o('user').
+          ' -dbpass '.$self->o('password').
+          ' -dbport '.$self->o('rnaseq_db','-port').
+          ' -dbhost '.$self->o('rnaseq_db','-host').
+          ' -dbname '.$self->o('rnaseq_db','-dbname').
+          ' -prod_dbuser '.$self->o('user_r').
+          ' -prod_dbhost '.$self->o('production_db','-host').
+          ' -prod_dbname '.$self->o('production_db','-dbname').
+          ' -prod_dbport '.$self->o('production_db','-port').
+          ' -nodaf -ise'
       },
       -max_retry_count => 0,
       -rc_name => '8GB',
@@ -511,15 +508,15 @@ sub pipeline_analyses {
         working_dir => $self->o('merge_dir'),
         species_name  => $self->o('species_name'),
         free_text_single => 'Note\n------\n\n'.
-        'The RNASeq data for #species_name# consists of 1 individual sample.\n\n'.
-        'The bam file has an index file (.bai) and a BigWig file (.bw) which contains the coverage information.\n\n'.
-        'Use the md5sum.txt file to check the integrity of the downloaded files.\n\n'.
-        'Files\n-----\n',
+          'The RNASeq data for #species_name# consists of 1 individual sample.\n\n'.
+          'The bam file has an index file (.bai) and a BigWig file (.bw) which contains the coverage information.\n\n'.
+          'Use the md5sum.txt file to check the integrity of the downloaded files.\n\n'.
+          'Files\n-----\n',
         free_text_multi => 'Note\n------\n\n'.
-        'The RNASeq data for #species_name# consists of NUM individual samples and one merged set containing all NUM samples.\n\n'.
-        'All files have an index file (.bai) and a BigWig file (.bw) which contains the coverage information.\n\n'.
-        'Use the md5sum.txt file to check the integrity of the downloaded files.\n\n'.
-        'Files\n-----\n',
+          'The RNASeq data for #species_name# consists of NUM individual samples and one merged set containing all NUM samples.\n\n'.
+          'All files have an index file (.bai) and a BigWig file (.bw) which contains the coverage information.\n\n'.
+          'Use the md5sum.txt file to check the integrity of the downloaded files.\n\n'.
+          'Files\n-----\n',
       },
       -rc_name => 'default',
       -flow_into  => {
@@ -548,18 +545,18 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'perl '.$self->o('assembly_name_script').
-        ' -user '.$self->o('user').
-        ' -pass '.$self->o('password').
-        ' -host '.$self->o('rnaseq_db','-host').
-        ' -port '.$self->o('rnaseq_db','-port').
-        ' -dbname '.$self->o('rnaseq_db','-dbname').
-        ' -driver '.$self->o('hive_driver').
-        ' -assembly_accession '.$self->o('assembly_accession').
-        ' -assembly_name '.$self->o('assembly_name').
-        ' -registry_host '.$self->o('registry_host').
-        ' -registry_port '.$self->o('registry_port').
-        ' -registry_db '.$self->o('registry_db').
-        ' -working_dir '.$self->o('merge_dir'),
+          ' -user '.$self->o('user').
+          ' -pass '.$self->o('password').
+          ' -host '.$self->o('rnaseq_db','-host').
+          ' -port '.$self->o('rnaseq_db','-port').
+          ' -dbname '.$self->o('rnaseq_db','-dbname').
+          ' -driver '.$self->o('hive_driver').
+          ' -assembly_accession '.$self->o('assembly_accession').
+          ' -assembly_name '.$self->o('assembly_name').
+          ' -registry_host '.$self->o('registry_host').
+          ' -registry_port '.$self->o('registry_port').
+          ' -registry_db '.$self->o('registry_db').
+          ' -working_dir '.$self->o('merge_dir'),
       },
 
       -rc_name => 'default',
