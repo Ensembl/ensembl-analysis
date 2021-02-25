@@ -83,17 +83,15 @@ my $slice_adaptor = $db->get_SliceAdaptor();
 my $slices = $slice_adaptor->fetch_all('toplevel', undef, 1 );
 my $gene_adaptor = $db->get_GeneAdaptor();
 
-foreach my $slice (@$slices) {
+while ( my $slice = shift @{$slices} ) {
   my $genes = $slice->get_all_Genes();
-
-  foreach my $gene (@$genes) {
-
-      my $check = $gene->dbID;
-      if ( grep( /^$check$/, @selected_genes ) ) {
-        my $current = $gene->biotype;
-        $gene->biotype('rnaseq_coding');
-        $gene_adaptor->update($gene);
-      }
+  while ( my $gene = shift @{$genes} ) {
+    my $check = $gene->dbID;
+    if ( grep( /^$check$/, @selected_genes ) ) {
+      my $current = $gene->biotype;
+      $gene->biotype('rnaseq_coding');
+      $gene_adaptor->update($gene);
+    }
   }
 }
 
