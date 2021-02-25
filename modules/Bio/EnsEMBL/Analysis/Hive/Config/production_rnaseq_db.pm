@@ -18,12 +18,13 @@ limitations under the License.
 =cut
 
 
-package Bio::EnsEMBL::Analysis::Hive::Config::production_rnaseq_db_conf;
+package Bio::EnsEMBL::Analysis::Hive::Config::production_rnaseq_db;
 
 use strict;
 use warnings;
 use File::Spec::Functions;
 
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 
@@ -92,6 +93,11 @@ sub default_options {
 
     databases_to_delete => ['rnaseq_db'],
 
+    ########################
+    # BLAST db paths
+    ########################
+    'base_blast_db_path'        => $ENV{BLASTDB_DIR},
+
     ######################################################
     #
     # Mostly constant settings
@@ -141,6 +147,9 @@ sub default_options {
     ####################################################################
     file_columns      => ['SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS'],
     long_read_columns => ['sample','filename'],
+
+    # RNA-seq pipeline stuff
+    'rnaseq_dir'    => catdir($self->o('output_path'), 'rnaseq'),
 
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # No option below this mark should be modified
