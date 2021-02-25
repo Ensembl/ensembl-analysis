@@ -1218,7 +1218,7 @@ sub default_options {
 
     'rna_samba_weights' => '/homes/jma/coding_gene_testing/full_length_weights.hdf5',
     'pcp_output' => '/hps/nobackup2/production/ensembl/jma/pcp_temp',  #Temporary for test
-    'pcp_name' => $self->o('dbowner').'_'.$self->o('production_name').'_stringtie_intitial_pcp_'.$self->o('release_number'),
+    'pcp_name' => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
 
     'impute_command' => '-user '.$self->o('user').' -pass '.$self->o('password').' -dbname  '.$self->o('pcp_name').' -port '.$self->o('stringtie_initial_db_port'). ' -host '.$self->o('stringtie_initial_db_server').' -cpc2 '.$self->o('pcp_output').'/'.$self->o('pcp_name').'_cpc2.txt -rnas '.$self->o('pcp_output').'/'.$self->o('pcp_name').'_RNAsamba.tsv',
 
@@ -5621,6 +5621,7 @@ sub pipeline_analyses {
         -flow_into => {
            '1->A' => ['generate_stringtie_gtf_jobs'],
            'A->1' => ['star2introns'],
+	    1 => ['dump_fasta']
         },
       },
 
@@ -5631,7 +5632,7 @@ sub pipeline_analyses {
            gtf_dir => catdir($self->o('output_dir'),'stringtie','merge'),
         },
         -flow_into => {
-          2 => ['load_stringtie_transcripts', 'dump_fasta'],
+	  2 => ['load_stringtie_transcripts'],
         },
         -rc_name    => '5GB',
       },
@@ -5648,7 +5649,7 @@ sub pipeline_analyses {
         },
         -rc_name    => '5GB',
         -flow_into => {
-          1 => ['create_slice_tissue_input_ids'], #, 'dump_fasta']
+          1  => ['create_slice_tissue_input_ids'],
         },
       },
 
@@ -5660,12 +5661,23 @@ sub pipeline_analyses {
       {
         -logic_name => 'dump_fasta',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name    => '50GB',
         -parameters => {
-                        cmd => 'mkdir -p'.$self->o('pcp_output').'; perl dump_canonical_gene_models_to_flat_file.pl -user '.$self->o('user_r').' -dna_user '.$self->o('user_r').' -dbname '.$self->o('pcp_name').' -dna_db_name '.$self->o('dna_db_name').' -dbserver '.$self->o('stringtie_initial_db_server').' -dna_dbserver '.$self->o('dna_db_server').' -port '.$self->o('stringtie_initial_db_port').' -dna_port '.$self->o('dna_db_port').' > '.$self->o('pcp_output').'/'.$self->o('pcp_name').'.fasta',
-                       },
+          cmd => 'mkdir -p ' . $self->o('pcp_output') . '; perl ' . catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'pcp', 'get_transcripts.pl').
+	    ' -user ' . $self->o('user_r').
+	    ' -dna_user ' . $self->o('user_r').
+	    ' -dbname ' . $self->o('pcp_name').
+	    ' -dna_db_name ' . $self->o('dna_db_name').
+	    ' -dbhost ' . $self->o('stringtie_initial_db_server').
+	    ' -dna_dbhost ' . $self->o('dna_db_server').
+	    ' -port ' . $self->o('stringtie_initial_db_port').
+	    ' -dna_port ' . $self->o('dna_db_port').
+	    ' > ' . $self->o('pcp_output') . '/' . $self->o('pcp_name') . '.fasta',
+        },
+	-wait_for   => 'load_stringtie_transcripts',
         -flow_into  => {
-                         1 => ['create_initial_pcp_db'],
-                       },
+                         1 => ['create_initial_pcp_db'],			 
+        },
       },
 
       {
@@ -5690,23 +5702,51 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
                          cmd => 'sh /hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_CPC2.sh '.$self->o('pcp_output').'/'.$self->o('pcp_name').'.fasta '.$self->o('pcp_output').'/'.$self->o('pcp_name').'_cpc2',
-                       },
+        },
+	-rc_name => '8GB',
       },
 
       {
         -logic_name => 'run_rnasamba',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => {
+	-rc_name    => '10GB',
+        -parameters =>  {
                          cmd => 'sh /hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_RNAsamba.sh '.$self->o('pcp_output').'/'.$self->o('pcp_name').'_RNAsamba.tsv '.$self->o('pcp_output').'/'.$self->o('pcp_name').'.fasta '.$self->o('rna_samba_weights'),
+        	        },
+        -flow_into =>  {
+                        -1 => ['run_rnasamba_50GB'],
                        },
       },
 
       {
+       	-logic_name => 'run_rnasamba_50GB',
+       	-module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name    => '50GB',
+        -parameters =>  {
+                         cmd => 'sh /hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_RNAsamba.sh '.$self->o('pcp_output').'/'.$self->o('pcp_name').'_RNAsamba.tsv '.$self->o('pcp_output').'/'.$self->o('pcp_name').'.fasta '.$self->$
+               	        },
+        -flow_into =>  {
+                       	-1 => ['run_rnasamba_100GB'],
+                       },
+      },
+
+      {
+       	-logic_name => 'run_rnasamba_100GB',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name    => '100GB',
+        -parameters =>  {
+                         cmd => 'sh /hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_RNAsamba.sh '.$self->o('pcp_output').'/'.$self->o('pcp_name').'_RNAsamba.tsv '.$self->o('pcp_output').'/'.$self->o('pcp_name').'.fasta '.$self->$
+                        },
+      },
+
+      {
         -logic_name => 'impute_coding_genes',
+	-rc_name => '1GB',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                          cmd => 'perl impute_coding_status.pl '.$self->o('impute_command'),
-                       },
+                          cmd => 'perl ' . catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'pcp', 'impute_coding_status.pl') .
+			 ' ' . $self->o('impute_command'),
+        },
       },
 
       ###### ADD redundant filter (maybe?)
@@ -8626,3 +8666,4 @@ sub check_file_in_ensembl {
 }
 
 1;
+
