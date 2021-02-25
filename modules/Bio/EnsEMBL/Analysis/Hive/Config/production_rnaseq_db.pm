@@ -24,9 +24,6 @@ use strict;
 use warnings;
 use File::Spec::Functions;
 
-use Bio::EnsEMBL::ApiVersion qw/software_version/;
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
-use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 
@@ -59,8 +56,6 @@ sub default_options {
     'registry_port'             => '', # port for registry db
     'registry_db'               => '', # name for registry db
 
-    'rnaseq_summary_file'       => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
-    'rnaseq_summary_file_genus' => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'_gen.csv'), # Set this if you have a pre-existing genus level cvs file with the expected columns
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
@@ -68,8 +63,6 @@ sub default_options {
     'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'assembly_name'             => '', # Name (as it appears in the assembly report file)
     'assembly_accession'        => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
-
-    'skip_rnaseq'               => '0', # Will skip rnaseq analyses if 1
 
     'mapping_required'          => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
     'mapping_db'                => '', # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
@@ -98,7 +91,7 @@ sub default_options {
     'production_db_port'           => '4483',
 
 
-    databases_to_delete => ['rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_db'],
+    databases_to_delete => ['rnaseq_db'],
 
 ######################################################
 #
@@ -125,57 +118,8 @@ sub default_options {
 ########################
     deeptools_bamcoverage_path => '/nfs/software/ensembl/RHEL7-JUL2017-core2/pyenv/versions/genebuild/bin/bamCoverage',
 
-
-# RNA-seq pipeline stuff
-    # You have the choice between:
-    #  * using a csv file you already created
-    #  * using a study_accession like PRJEB19386
-    #  * using the taxon_id of your species
-    # 'rnaseq_summary_file' should always be set. If 'taxon_id' or 'study_accession' are not undef
-    # they will be used to retrieve the information from ENA and to create the csv file. In this case,
-    # 'file_columns' and 'summary_file_delimiter' should not be changed unless you know what you are doing
-    'study_accession'     => '',
-    'max_reads_per_split' => 2500000, # This sets the number of reads to split the fastq files on
-    'max_total_reads'     => 200000000, # This is the total number of reads to allow from a single, unsplit file
-
-    'summary_file_delimiter' => '\t', # Use this option to change the delimiter for your summary data file
-    'summary_csv_table' => 'csv_data',
-    'read_length_table' => 'read_length',
-    'rnaseq_data_provider' => 'ENA', #It will be set during the pipeline or it will use this value
-
-    'rnaseq_dir'    => catdir($self->o('output_path'), 'rnaseq'),
-    'input_dir'     => catdir($self->o('rnaseq_dir'),'input'),
     'output_dir'    => catdir($self->o('rnaseq_dir'),'output'),
     'merge_dir'     => catdir($self->o('rnaseq_dir'),'merge'),
-    'sam_dir'       => catdir($self->o('rnaseq_dir'),'sams'),
-    'header_file'   => catfile($self->o('output_dir'), '#'.$self->o('read_id_tag').'#_header.h'),
-
-    'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
-
-    # If your reads are unpaired you may want to run on slices to avoid
-    # making overlong rough models.  If you want to do this, specify a
-    # slice length here otherwise it will default to whole chromosomes.
-    slice_length => 10000000,
-
-    # Regular expression to allow FastQ files to be correctly paired,
-    # for example: file_1.fastq and file_2.fastq could be paired using
-    # the expression "\S+_(\d)\.\S+".  Need to identify the read number
-    # in brackets; the name the read number (1, 2) and the
-    # extension.
-    pairing_regex => '\S+_(\d)\.\S+',
-
-    # Regular expressions for splitting the fastq files
-    split_paired_regex   => '(\S+)(\_\d\.\S+)',
-    split_single_regex  => '([^.]+)(\.\S+)',
-
-    # Do you want to make models for the each individual sample as well
-    # as for the pooled samples (1/0)?
-    single_tissue => 1,
-
-    # What Read group tag would you like to group your samples
-    # by? Default = ID
-    read_group_tag => 'SM',
-    read_id_tag => 'ID',
 
     use_threads => 3,
     rnaseq_merge_threads => 12,
@@ -264,10 +208,6 @@ sub pipeline_wide_parameters {
 
   return {
     %{$self->SUPER::pipeline_wide_parameters},
-
-    # TODO
-    # the following isn't used in this subpipeline, is it needed?
-    skip_rnaseq => $self->o('skip_rnaseq'),
   }
 }
 
@@ -522,12 +462,11 @@ sub pipeline_analyses {
         -logic_name => 'bam2bigwig',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-	  deeptools_bamcoverage => $self->o('deeptools_bamcoverage_path'),
+          deeptools_bamcoverage => $self->o('deeptools_bamcoverage_path'),
           cmd => 'TMPDIR=#working_dir# ; #deeptools_bamcoverage# --numberOfProcessors 4 --binSize 1 -b '.catfile('#working_dir#','#bam_file#').' -o '.catfile('#working_dir#','#bam_file#').'.bw',
           working_dir => $self->o('merge_dir'),
         },
         -rc_name => '10GB_multithread',
-	-hive_capacity => $self->hive_capacity_classes->{'hc_very_low'},
         -flow_into  => {
           1 => ['md5_sum'],
         },
@@ -587,7 +526,7 @@ sub pipeline_analyses {
                   echo "${FILES[*]}" >> README.1',
           working_dir => $self->o('merge_dir'),
           species_name  => $self->o('species_name'),
-	  free_text_single => 'Note\n------\n\n'.
+          free_text_single => 'Note\n------\n\n'.
                        'The RNASeq data for #species_name# consists of 1 individual sample.\n\n'.
                        'The bam file has an index file (.bai) and a BigWig file (.bw) which contains the coverage information.\n\n'.
                        'Use the md5sum.txt file to check the integrity of the downloaded files.\n\n'.
