@@ -521,9 +521,10 @@ sub pipeline_analyses {
                          create_type => 'clone',
                        },
         -rc_name    => 'default',
-        -flow_into => {
-                        '1' => ['create_projection_db'],
-                      },
+        -flow_into  => {
+          '1->A' => ['create_projection_db'],
+          'A->1' => ['set_gene_biotypes'],
+        },
       },
 
       {
@@ -779,9 +780,6 @@ sub pipeline_analyses {
                        },
         -rc_name    => '4GB',
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -flow_into => {
-                        '1' => ['set_gene_biotypes'],
-                      },
       },
 
       {
