@@ -1059,7 +1059,6 @@ sub default_options {
 
     'star_rnaseq_for_layer_nr_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_star_rs_layer_nr_'.$self->o('release_number'),
->>>>>>> Added star-stringtie2 rnaseq pipeline. Added Uniprot set for Lepidoptera.
       -host   => $self->o('rnaseq_for_layer_db_server'),
       -port   => $self->o('rnaseq_for_layer_db_port'),
       -user   => $self->o('user'),
