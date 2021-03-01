@@ -60,6 +60,7 @@ sub default_options {
     'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'rnaseq_summary_file'       => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
+    'star_rnaseq_summary_file'  => '' || catfile($self->o('rnaseq_dir'), 'star_'.$self->o('species_name').'.csv'),
     'rnaseq_summary_file_genus' => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'_gen.csv'), # Set this if you have a pre-existing genus level cvs file with the expected columns
     'long_read_summary_file'    => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
     'long_read_summary_file_genus' => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read_gen.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
@@ -92,7 +93,7 @@ sub default_options {
     'skip_cleaning'             => '0', # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
     'mapping_db'                => '', # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
-    'uniprot_version'           => 'uniprot_2018_07', # What UniProt data dir to use for various analyses
+    'uniprot_version'           => 'uniprot_2019_04', # What UniProt data dir to use for various analyses
     'vertrna_version'           => '136', # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
     'paired_end_only'           => '1', # Will only use paired-end rnaseq data if 1
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
@@ -315,6 +316,7 @@ sub default_options {
                                    $self->o('ig_tr_db'),
                                    $self->o('best_targeted_db'),
                                    $self->o('long_read_final_db'),
+				   $self->o('star_rnaseq_for_layer_nr_db')
                                  ],
 
 
@@ -6546,7 +6548,7 @@ sub pipeline_analyses {
         -parameters => {
           column_names => $self->o('file_columns'),
           sample_column => $self->o('read_group_tag'),
-          inputfile => $self->o('rnaseq_summary_file'),
+          inputfile => $self->o('star_rnaseq_summary_file'),
           delimiter => $self->o('summary_file_delimiter'),
           csvfile_table => $self->o('summary_csv_table'),
           pairing_regex => $self->o('pairing_regex'),
@@ -6601,7 +6603,7 @@ sub pipeline_analyses {
          -parameters => {
            output_dir => catdir($self->o('output_dir'),'stringtie'),
            stringtie2_path        => $self->o('stringtie2_path'),
-           csv_summary_file       => $self->o('rnaseq_summary_file'),
+           csv_summary_file       => $self->o('star_rnaseq_summary_file'),
            csv_summary_file_genus => $self->o('rnaseq_summary_file_genus'),
            num_threads => $self->o('stringtie_threads'),
         },
@@ -6615,7 +6617,7 @@ sub pipeline_analyses {
            stringtie_gtf_dir => catdir($self->o('output_dir'),'stringtie'),
            stringtie_merge_dir => catdir($self->o('output_dir'),'stringtie','merge'),
            stringtie2_path        => $self->o('stringtie2_path'),
-           csv_summary_file       => $self->o('rnaseq_summary_file'),
+           csv_summary_file       => $self->o('star_rnaseq_summary_file'),
            csv_summary_file_genus => $self->o('rnaseq_summary_file_genus'),
            num_threads => $self->o('stringtie_threads'),
 
@@ -6767,6 +6769,8 @@ sub pipeline_analyses {
                         star_junctions_dir => $self->o('output_dir'),
                         intron_db => $self->o('stringtie_blast_db'),
                         source_db => $self->o('dna_db'),
+			sample_column => 'SM',
+			sample_id_column => 'ID',
                        },
         -rc_name    => 'default',
         -flow_into => {
