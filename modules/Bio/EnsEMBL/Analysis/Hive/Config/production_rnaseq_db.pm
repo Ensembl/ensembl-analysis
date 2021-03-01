@@ -127,26 +127,6 @@ sub default_options {
     'merge_dir'     => catdir($self->o('rnaseq_dir'),'merge'),
 
     use_threads => 3,
-    rnaseq_merge_threads => 12,
-    rnaseq_merge_type => 'samtools',
-    read_min_paired => 50,
-    read_min_mapped => 50,
-    other_isoforms => 'other', # If you don't want isoforms, set this to undef
-    maxintron => 200000,
-
-    # Please assign some or all columns from the summary file to the
-    # some or all of the following categories.  Multiple values can be
-    # separted with commas. ID, SM, DS, CN, is_paired, filename, read_length, is_13plus,
-    # is_mate_1 are required. If pairing_regex can work for you, set is_mate_1 to -1.
-    # You can use any other tag specified in the SAM specification:
-    # http://samtools.github.io/hts-specs/SAMv1.pdf
-
-    ####################################################################
-    # This is just an example based on the file snippet shown below.  It
-    # will vary depending on how your data looks.
-    ####################################################################
-    file_columns      => ['SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS'],
-    long_read_columns => ['sample','filename'],
 
     # RNA-seq pipeline stuff
     'rnaseq_dir'    => catdir($self->o('output_path'), 'rnaseq'),
@@ -207,15 +187,6 @@ sub pipeline_create_commands {
 
     'mkdir -p '.$self->o('rnaseq_dir'),
   ];
-}
-
-
-sub pipeline_wide_parameters {
-  my ($self) = @_;
-
-  return {
-    %{$self->SUPER::pipeline_wide_parameters},
-  }
 }
 
 
