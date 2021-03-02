@@ -23,6 +23,9 @@ use strict;
 use warnings;
 use File::Spec::Functions;
 
+use Bio::EnsEMBL::ApiVersion qw/software_version/;
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
+
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 
