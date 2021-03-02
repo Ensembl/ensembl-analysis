@@ -40,6 +40,7 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
+<<<<<<< HEAD
     'dbowner'                         => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name'                   => '' || $self->o('production_name').'_'.$self->o('ensembl_release'),
     'user_r'                          => '', # read only db user
@@ -63,6 +64,31 @@ sub default_options {
     'use_genome_flatfile'             => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     'output_path'                     => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'skip_rnaseq'                     => '0', # Will skip rnaseq analyses if 1
+=======
+    'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
+    'pipeline_name'             => '' || $self->o('production_name').'_'.$self->o('ensembl_release'),
+    'user_r'                    => '', # read only db user
+    'user'                      => '', # write db user
+    'password'                  => '', # password for write db user
+    'server_set'                => '', # What server set to user, e.g. set1
+    'pipe_db_server'            => '', # host for pipe db
+    'databases_server'          => '', # host for general output dbs
+    'dna_db_server'             => '', # host for dna db
+    'pipe_db_port'              => '', # port for pipeline host
+    'databases_port'            => '', # port for general output db host
+    'dna_db_port'               => '', # port for dna db host
+    'registry_host'             => '', # host for registry db
+    'registry_port'             => '', # port for registry db
+    'registry_db'               => '', # name for registry db
+    'release_number'            => '' || $self->o('ensembl_release'),
+    'species_name'              => '', # e.g. mus_musculus
+    'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    'taxon_id'                  => '', # should be in the assembly report file
+    'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
+    'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
+    'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
+
+>>>>>>> c1a9491c6f487c16ac85851f2696b500de3394fd
     # Keys for custom loading, only set/modify if that's what you're doing
     load_toplevel_only                => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
     custom_toplevel_file_path         => '', # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
