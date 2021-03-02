@@ -84,9 +84,6 @@ sub default_options {
     'projection_source_db_port'    => '4240',
     'projection_source_production_name' => '',
 
-    'compara_db_name'     => 'leanne_ensembl_compara_95',
-    'compara_db_server'  => 'mysql-ens-genebuild-prod-5',
-    'compara_db_port'    => 4531,
 
     # The following might not be known in advance, since the come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
@@ -279,20 +276,6 @@ sub pipeline_wide_parameters {
 sub pipeline_analyses {
     my ($self) = @_;
 
-    my %genblast_params = (
-      wu    => '-P wublast -gff -e #blast_eval# -c #blast_cov#',
-      ncbi  => '-P blast -gff -e #blast_eval# -c #blast_cov# -W 3 -softmask -scodon 50 -i 30 -x 10 -n 30 -d 200000 -g T',
-      wu_genome    => '-P wublast -gff -e #blast_eval# -c #blast_cov#',
-      ncbi_genome  => '-P blast -gff -e #blast_eval# -c #blast_cov# -W 3 -softmask -scodon 50 -i 30 -x 10 -n 30 -d 200000 -g T',
-      wu_projection    => '-P wublast -gff -e #blast_eval# -c #blast_cov# -n 100 -x 5 ',
-      ncbi_projection  => '-P blast -gff -e #blast_eval# -c #blast_cov# -W 3 -scodon 50 -i 30 -x 10 -n 30 -d 200000 -g T',
-      );
-    my %commandline_params = (
-      'ncbi' => '-num_threads 3 -window_size 40',
-      'wu' => '-cpus 3 -hitdist 40',
-      'legacy_ncbi' => '-a 3 -A 40',
-      );
-    my $header_line = create_header_line($self->default_options->{'file_columns'});
 
     return [
 
