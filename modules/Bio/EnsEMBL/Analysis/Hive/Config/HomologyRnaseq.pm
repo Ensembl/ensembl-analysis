@@ -57,7 +57,6 @@ sub default_options {
     'uniprot_set'                     => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'use_genome_flatfile'             => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     'output_path'                     => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
-    'skip_rnaseq'                     => '0', # Will skip rnaseq analyses if 1
 
 ########################
 # Pipe and ref db info
@@ -167,19 +166,6 @@ sub pipeline_analyses {
 # Homology Pipeline with RNAseq support
 #
 ###############################################################################
-    {
-      -logic_name => 'fan_genblast_rnaseq_support',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd                     => 'if [ "#skip_rnaseq#" -ne "0" ]; then exit 42; else exit 0;fi',
-        return_codes_2_branches => {'42' => 2},
-      },
-      -rc_name    => 'default',
-      -flow_into  => {
-        '1->A' => ['create_genblast_rnaseq_support_db'],
-        'A->1' => ['create_genblast_rnaseq_nr_db'],
-      },
-    },
 
     {
         -logic_name => 'create_genblast_rnaseq_support_db',
@@ -191,7 +177,8 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into  => {
-          1 => ['create_genblast_rnaseq_slice_ids'],
+          '1-A' => ['create_genblast_rnaseq_slice_ids'],
+          'A->1' => ['create_genblast_rnaseq_nr_db'],
       },
     },
 
