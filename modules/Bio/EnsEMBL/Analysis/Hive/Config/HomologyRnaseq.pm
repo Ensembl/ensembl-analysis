@@ -23,7 +23,6 @@ use File::Spec::Functions;
 
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
-use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 sub default_options {
@@ -45,16 +44,12 @@ sub default_options {
     'user_r'                          => '', # read only db user
     'user'                            => '', # write db user
     'password'                        => '', # password for write db user
-    'server_set'                      => '', # What server set to user, e.g. set1
     'pipe_db_server'                  => '', # host for pipe db
     'databases_server'                => '', # host for general output dbs
     'dna_db_server'                   => '', # host for dna db
     'pipe_db_port'                    => '', # port for pipeline host
     'databases_port'                  => '', # port for general output db host
     'dna_db_port'                     => '', # port for dna db host
-    'registry_host'                   => '', # host for registry db
-    'registry_port'                   => '', # port for registry db
-    'registry_db'                     => '', # name for registry db
     'release_number'                  => '' || $self->o('ensembl_release'),
     'species_name'                    => '', # e.g. mus_musculus
     'production_name'                 => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
@@ -63,13 +58,6 @@ sub default_options {
     'use_genome_flatfile'             => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     'output_path'                     => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'skip_rnaseq'                     => '0', # Will skip rnaseq analyses if 1
-
-    # Keys for custom loading, only set/modify if that's what you're doing
-    load_toplevel_only                => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
-    custom_toplevel_file_path         => '', # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
-    use_repeatmodeler_to_mask         => '0', # Setting this will include the repeatmodeler library in the masking process
-    red_logic_name                    => 'repeatdetector', # logic name for the Red repeat finding analysis
-    replace_repbase_with_red_to_mask  => '0', # Setting this will replace 'full_repbase_logic_name' with 'red_logic_name' repeat features in the masking process
 
 ########################
 # Pipe and ref db info
@@ -89,10 +77,8 @@ sub default_options {
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
-    'production_db_server'         => 'mysql-ens-meta-prod-1',
-    'production_db_port'           => '4483',
 
-#    databases_to_delete => ['genblast_db', 'rnaseq_refine_db',],
+    databases_to_delete => ['genblast_rnaseq_support_db', 'genblast_rnaseq_support_nr_db'],
 
 ######################################################
 #
