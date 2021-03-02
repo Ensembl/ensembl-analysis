@@ -60,9 +60,8 @@ sub default_options {
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'taxon_id'                  => '', # should be in the assembly report file
     'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
-    'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
-    'load_toplevel_only'        => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
+
 
 ########################
 # Pipe and ref db info
@@ -92,9 +91,8 @@ sub default_options {
 # Mostly constant settings
 #
 ######################################################
-    genome_dumps                  => catdir($self->o('output_path'), 'genome_dumps'),
-    faidx_genome_file => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
     'min_toplevel_slice_length'   => 250,
+    faidx_genome_file             => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
 
 ########################
 # Extra db settings
@@ -104,11 +102,6 @@ sub default_options {
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # No option below this mark should be modified
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-##################################
-# Memory settings for the analyses
-##################################
-    'default_mem'          => '900',
 
 ########################
 # db info
