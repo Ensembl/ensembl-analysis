@@ -80,13 +80,7 @@ sub default_options {
     'species_url'               => '', # sets species.url meta key
     'species_division'          => 'EnsemblVertebrates', # sets species.division meta key
     'stable_id_start'           => '0', # When mapping is not required this is usually set to 0
-    'skip_repeatmodeler'        => '0', # Skip using our repeatmodeler library for the species with repeatmasker, will still run standard repeatmasker
-    'skip_post_repeat_analyses' => '0', # Will everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
-    'skip_projection'           => '0', # Will skip projection process if 1
-    'skip_lastz'                => '0', # Will skip lastz if 1 (if skip_projection is enabled this is irrelevant)
     'skip_rnaseq'               => '0', # Will skip rnaseq analyses if 1
-    'skip_ncrna'                => '0', # Will skip ncrna process if 1
-    'skip_cleaning'             => '0', # Will skip the cleaning phase, will keep more genes/transcripts but some lower quality models may be kept
     'mapping_required'          => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
     'mapping_db'                => '', # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
     'uniprot_version'           => 'uniprot_2019_04', # What UniProt data dir to use for various analyses
@@ -97,11 +91,6 @@ sub default_options {
     'replace_repbase_with_red_to_mask' => '0', # Setting this will replace 'full_repbase_logic_name' with 'red_logic_name' repeat features in the masking process
 
     # Keys for custom loading, only set/modify if that's what you're doing
-    'skip_genscan_blasts'          => '1',
-    'load_toplevel_only'           => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
-    'custom_toplevel_file_path'    => '', # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
-    'repeatmodeler_library'        => '', # This should be the path to a custom repeat library, leave blank if none exists
-    'use_repeatmodeler_to_mask'    => '0', # Setting this will include the repeatmodeler library in the masking process
     'protein_blast_db'             => '' || catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata'), # Blast database for comparing the final models to.
     'protein_blast_index'          => '' || catdir($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index'), # Indicate Index for the blast database.
     'protein_entry_loc'            => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc'), # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
@@ -574,12 +563,7 @@ sub pipeline_wide_parameters {
 
   return {
     %{$self->SUPER::pipeline_wide_parameters},
-    skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),
-    skip_projection => $self->o('skip_projection'),
     skip_rnaseq => $self->o('skip_rnaseq'),
-    skip_ncrna => $self->o('skip_ncrna'),
-    skip_lastz => $self->o('skip_lastz'),
-    skip_repeatmodeler => $self->o('skip_repeatmodeler'),
     load_toplevel_only => $self->o('load_toplevel_only'),
     wide_repeat_logic_names => $wide_repeat_logic_names,
     wide_ensembl_release => $self->o('ensembl_release'),
