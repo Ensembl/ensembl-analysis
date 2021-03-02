@@ -63,6 +63,14 @@ sub default_options {
     'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
 
 
+    # Keys for custom loading, only set/modify if that's what you're doing
+    load_toplevel_only        => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
+    custom_toplevel_file_path => '', # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
+    use_repeatmodeler_to_mask => '0', # Setting this will include the repeatmodeler library in the masking process
+
+    red_logic_name                   => 'repeatdetector', # logic name for the Red repeat finding analysis
+    replace_repbase_with_red_to_mask => '0', # Setting this will replace 'full_repbase_logic_name' with 'red_logic_name' repeat features in the masking process
+
 ########################
 # Pipe and ref db info
 ########################
@@ -146,13 +154,6 @@ sub default_options {
 
 sub pipeline_create_commands {
   my ($self) = @_;
-  my $tables;
-  my %small_columns = (
-    paired => 1,
-    read_length => 1,
-    is_13plus => 1,
-    is_mate_1 => 1,
-  );
   return [
     # inheriting database and hive tables' creation
     @{$self->SUPER::pipeline_create_commands},
@@ -191,96 +192,93 @@ sub pipeline_analyses {
         -flow_into  => {
           1 => ['create_genblast_rnaseq_slice_ids'],
       },
-     },
+    },
 
-     {
-        -logic_name => 'create_genblast_rnaseq_slice_ids',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-          target_db             => $self->o('dna_db'),
-          coord_system_name     => 'toplevel',
-          iid_type              => 'slice',
-          include_non_reference => 0,
-          top_level             => 1,
-          min_slice_length      => 0,
-        },
+    {
+      -logic_name => 'create_genblast_rnaseq_slice_ids',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+      -parameters => {
+        target_db             => $self->o('dna_db'),
+        coord_system_name     => 'toplevel',
+        iid_type              => 'slice',
+        include_non_reference => 0,
+        top_level             => 1,
+        min_slice_length      => 0,
+      },
         -rc_name    => 'default',
         -flow_into  => {
           '2' => ['genblast_rnaseq_support'],
       },
+    },
+
+    {
+      -logic_name => 'genblast_rnaseq_support',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
+      -parameters => {
+        dna_db            => $self->o('dna_db'),
+        source_db         => $self->o('genblast_db'),
+        intron_db         => $self->o('rnaseq_refine_db'),
+        target_db         => $self->o('genblast_db'),
+        logic_name        => 'genblast_rnaseq_support',
+        classify_by_count => 1,
+        update_genes      => 0,
+        module => 'HiveHomologyRNASeqIntronsCheck',
+      },
+      -rc_name    => '4GB',
+      -flow_into  => {
+        '-1' => ['genblast_rnaseq_support_himem'],
+      },
      },
 
     {
-        -logic_name => 'genblast_rnaseq_support',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
-        -parameters => {
-          dna_db            => $self->o('dna_db'),
-          source_db         => $self->o('genblast_db'),
-          intron_db         => $self->o('rnaseq_refine_db'),
-          target_db         => $self->o('genblast_db'),
-          logic_name        => 'genblast_rnaseq_support',
-          classify_by_count => 1,
-          update_genes      => 0,
-          module => 'HiveHomologyRNASeqIntronsCheck',
-        },
-        -rc_name    => '4GB',
-        -flow_into  => {
-          '-1' => ['genblast_rnaseq_support_himem'],
-        },
-
-     },
-
-     {
-        -logic_name => 'genblast_rnaseq_support_himem',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
-        -parameters => {
-          dna_db            => $self->o('dna_db'),
-          source_db         => $self->o('genblast_db'),
-          intron_db         => $self->o('rnaseq_refine_db'),
-          target_db         => $self->o('genblast_db'),
-          logic_name        => 'genblast_rnaseq_support',
-          classify_by_count => 1,
-          update_genes      => 0,
-          module            => 'HiveHomologyRNASeqIntronsCheck',
-        },
+      -logic_name => 'genblast_rnaseq_support_himem',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
+      -parameters => {
+        dna_db            => $self->o('dna_db'),
+        source_db         => $self->o('genblast_db'),
+        intron_db         => $self->o('rnaseq_refine_db'),
+        target_db         => $self->o('genblast_db'),
+        logic_name        => 'genblast_rnaseq_support',
+        classify_by_count => 1,
+        update_genes      => 0,
+        module            => 'HiveHomologyRNASeqIntronsCheck',
+      },
         -rc_name    => '8GB',
+    },
+
+    {
+      -logic_name => 'create_genblast_rnaseq_nr_db',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+      -parameters => {
+        source_db   => $self->o('genblast_db'),
+        target_db   => $self->o('genblast_rnaseq_support_nr_db'),
+        create_type => 'copy',
       },
-
-
-      {
-        -logic_name => 'create_genblast_rnaseq_nr_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-          source_db   => $self->o('genblast_db'),
-          target_db   => $self->o('genblast_rnaseq_support_nr_db'),
-          create_type => 'copy',
-        },
-        -rc_name    => 'default',
-        -flow_into  => {
-          '1' => ['create_genblast_rnaseq_nr_slices'],
-        },
+      -rc_name    => 'default',
+      -flow_into  => {
+        '1' => ['create_genblast_rnaseq_nr_slices'],
       },
+    },
 
-      {
-        -logic_name => 'create_genblast_rnaseq_nr_slices',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
-        -parameters => {
-          target_db              => $self->o('dna_db'),
-          coord_system_name      => 'toplevel',
-          iid_type               => 'slice',
-          slice_size             => 20000000,
-          include_non_reference  => 0,
-          top_level              => 1,
-          min_slice_length       => $self->o('min_toplevel_slice_length'),
-          batch_slice_ids        => 1,
-          batch_target_size      => 20000000,
-        },
-        -rc_name    => '2GB',
-        -flow_into  => {
-          '2'  => ['remove_redundant_genblast_rnaseq_genes'],
-        },
-     },
-
+    {
+      -logic_name => 'create_genblast_rnaseq_nr_slices',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+      -parameters => {
+        target_db              => $self->o('dna_db'),
+        coord_system_name      => 'toplevel',
+        iid_type               => 'slice',
+        slice_size             => 20000000,
+        include_non_reference  => 0,
+        top_level              => 1,
+        min_slice_length       => $self->o('min_toplevel_slice_length'),
+        batch_slice_ids        => 1,
+        batch_target_size      => 20000000,
+      },
+      -rc_name    => '2GB',
+      -flow_into  => {
+        '2'  => ['remove_redundant_genblast_rnaseq_genes'],
+      },
+    },
 
     {
       -logic_name => 'remove_redundant_genblast_rnaseq_genes',
@@ -292,7 +290,7 @@ sub pipeline_analyses {
       },
       -rc_name    => '5GB',
     },
-    ];
+  ];
 }
 
 sub resource_classes {
