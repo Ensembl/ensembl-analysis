@@ -61,7 +61,7 @@ sub default_options {
     'taxon_id'                  => '', # should be in the assembly report file
     'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
-
+    'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
 
     # Keys for custom loading, only set/modify if that's what you're doing
     load_toplevel_only        => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
