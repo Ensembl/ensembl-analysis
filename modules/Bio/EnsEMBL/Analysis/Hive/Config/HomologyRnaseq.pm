@@ -100,6 +100,7 @@ sub default_options {
 #
 ######################################################
     'min_toplevel_slice_length'   => 250,
+    genome_dumps                  => catdir($self->o('output_path'), 'genome_dumps'),
     faidx_genome_file             => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
 
 ########################
