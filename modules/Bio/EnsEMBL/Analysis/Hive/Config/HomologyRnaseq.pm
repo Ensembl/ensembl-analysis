@@ -40,36 +40,36 @@ sub default_options {
 ########################
 # Misc setup info
 ########################
-    'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
-    'pipeline_name'             => '' || $self->o('production_name').'_'.$self->o('ensembl_release'),
-    'user_r'                    => '', # read only db user
-    'user'                      => '', # write db user
-    'password'                  => '', # password for write db user
-    'server_set'                => '', # What server set to user, e.g. set1
-    'pipe_db_server'            => '', # host for pipe db
-    'databases_server'          => '', # host for general output dbs
-    'dna_db_server'             => '', # host for dna db
-    'pipe_db_port'              => '', # port for pipeline host
-    'databases_port'            => '', # port for general output db host
-    'dna_db_port'               => '', # port for dna db host
-    'registry_host'             => '', # host for registry db
-    'registry_port'             => '', # port for registry db
-    'registry_db'               => '', # name for registry db
-    'release_number'            => '' || $self->o('ensembl_release'),
-    'species_name'              => '', # e.g. mus_musculus
-    'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
-    'taxon_id'                  => '', # should be in the assembly report file
-    'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
-    'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
-
-
+    'dbowner'                         => '' || $ENV{EHIVE_USER} || $ENV{USER},
+    'pipeline_name'                   => '' || $self->o('production_name').'_'.$self->o('ensembl_release'),
+    'user_r'                          => '', # read only db user
+    'user'                            => '', # write db user
+    'password'                        => '', # password for write db user
+    'server_set'                      => '', # What server set to user, e.g. set1
+    'pipe_db_server'                  => '', # host for pipe db
+    'databases_server'                => '', # host for general output dbs
+    'dna_db_server'                   => '', # host for dna db
+    'pipe_db_port'                    => '', # port for pipeline host
+    'databases_port'                  => '', # port for general output db host
+    'dna_db_port'                     => '', # port for dna db host
+    'registry_host'                   => '', # host for registry db
+    'registry_port'                   => '', # port for registry db
+    'registry_db'                     => '', # name for registry db
+    'release_number'                  => '' || $self->o('ensembl_release'),
+    'species_name'                    => '', # e.g. mus_musculus
+    'production_name'                 => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    'taxon_id'                        => '', # should be in the assembly report file
+    'uniprot_set'                     => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
+    'use_genome_flatfile'             => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
+    'output_path'                     => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
+    'skip_rnaseq'                     => '0', # Will skip rnaseq analyses if 1
     # Keys for custom loading, only set/modify if that's what you're doing
-    load_toplevel_only        => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
-    custom_toplevel_file_path => '', # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
-    use_repeatmodeler_to_mask => '0', # Setting this will include the repeatmodeler library in the masking process
+    load_toplevel_only                => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
+    custom_toplevel_file_path         => '', # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
+    use_repeatmodeler_to_mask         => '0', # Setting this will include the repeatmodeler library in the masking process
 
-    red_logic_name                   => 'repeatdetector', # logic name for the Red repeat finding analysis
-    replace_repbase_with_red_to_mask => '0', # Setting this will replace 'full_repbase_logic_name' with 'red_logic_name' repeat features in the masking process
+    red_logic_name                    => 'repeatdetector', # logic name for the Red repeat finding analysis
+    replace_repbase_with_red_to_mask  => '0', # Setting this will replace 'full_repbase_logic_name' with 'red_logic_name' repeat features in the masking process
 
 ########################
 # Pipe and ref db info
@@ -181,6 +181,20 @@ sub pipeline_analyses {
 # Homology Pipeline with RNAseq support
 #
 ###############################################################################
+    {
+      -logic_name => 'fan_genblast_rnaseq_support',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd                     => 'if [ "#skip_rnaseq#" -ne "0" ]; then exit 42; else exit 0;fi',
+        return_codes_2_branches => {'42' => 2},
+      },
+      -rc_name    => 'default',
+      -flow_into  => {
+        '1->A' => ['create_genblast_rnaseq_support_db'],
+        'A->1' => ['create_genblast_rnaseq_nr_db'],
+      },
+    },
+
     {
         -logic_name => 'create_genblast_rnaseq_support_db',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
@@ -302,6 +316,7 @@ sub resource_classes {
     '2GB' => { LSF => $self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '4GB' => { LSF => $self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '5GB' => { LSF => $self->lsf_resource_builder('production-rh74', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '8GB' => { LSF => $self->lsf_resource_builder('production-rh74', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
   }
 }
 1;
