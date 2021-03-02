@@ -57,8 +57,6 @@ sub default_options {
     'registry_host'             => '', # host for registry db
     'registry_port'             => '', # port for registry db
     'registry_db'               => '', # name for registry db
-    'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
-    'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'rnaseq_summary_file'       => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
     'star_rnaseq_summary_file'  => '' || catfile($self->o('rnaseq_dir'), 'star_'.$self->o('species_name').'.csv'),
     'rnaseq_summary_file_genus' => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'_gen.csv'), # Set this if you have a pre-existing genus level cvs file with the expected columns
@@ -88,34 +86,11 @@ sub default_options {
     'paired_end_only'           => '1', # Will only use paired-end rnaseq data if 1
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
     'mt_accession'              => undef, # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
-    'replace_repbase_with_red_to_mask' => '0', # Setting this will replace 'full_repbase_logic_name' with 'red_logic_name' repeat features in the masking process
 
     # Keys for custom loading, only set/modify if that's what you're doing
     'protein_blast_db'             => '' || catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata'), # Blast database for comparing the final models to.
     'protein_blast_index'          => '' || catdir($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index'), # Indicate Index for the blast database.
     'protein_entry_loc'            => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc'), # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
-
-
-########################
-## Small ncRNAs params
-#########################
-    'mirBase_fasta'             => 'all_mirnas.fa', # What mirBase file to use. It is currently best to use on with the most appropriate set for your species
-    'rfc_scaler'                => 'filter_dafs_rfc_scaler_human.pkl',
-    'rfc_model'                 => 'filter_dafs_rfc_model_human.pkl',
-
-    # Clade-based filtering on rfam accessions
-    # Rfam db details should stay constant but check periodically
-    'rfam_user' => 'rfamro',
-    'rfam_dbname' => 'Rfam',
-    'rfam_host' => 'mysql-rfam-public.ebi.ac.uk',
-    'rfam_port' => 4497,
-
-    'rfam_path' => catfile($self->o('base_blast_db_path'), 'ncrna', 'Rfam_14.0'),
-    'rfam_seeds' => $self->o('rfam_path') . "/Rfam.seed",
-    'rfam_cm' => $self->o('rfam_path') . "/Rfam.cm",
-    'filtered_rfam_cm' => $self->o('output_path') . '/Rfam.cm',
-    'clade' => $self->o('repbase_logic_name'),
-
 
 ########################
 # Pipe and ref db info
@@ -215,8 +190,6 @@ sub default_options {
     'primary_assembly_dir_name' => 'Primary_Assembly',
     'refseq_cdna_calculate_coverage_and_pid' => '0',
     'contigs_source'            => 'ena',
-
-    full_repbase_logic_name => "repeatmask_repbase_".$self->o('repbase_logic_name'),
 
     'cleaning_blessed_biotypes' => {
                                      'pseudogene' => 1,
@@ -551,21 +524,10 @@ sub pipeline_create_commands {
 sub pipeline_wide_parameters {
   my ($self) = @_;
 
-  # set the logic names for repeat masking
-  my $wide_repeat_logic_names;
-  if ($self->o('use_repeatmodeler_to_mask')) {
-    $wide_repeat_logic_names = [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'];
-  } elsif ($self->o('replace_repbase_with_red_to_mask')) {
-    $wide_repeat_logic_names = [$self->o('red_logic_name'),'dust'];
-  } else {
-    $wide_repeat_logic_names = [$self->o('full_repbase_logic_name'),'dust'];
-  }
-
   return {
     %{$self->SUPER::pipeline_wide_parameters},
     skip_rnaseq => $self->o('skip_rnaseq'),
     load_toplevel_only => $self->o('load_toplevel_only'),
-    wide_repeat_logic_names => $wide_repeat_logic_names,
     wide_ensembl_release => $self->o('ensembl_release'),
     use_genome_flatfile  => $self->o('use_genome_flatfile'),
     genome_file          => $self->o('faidx_genome_file'),
