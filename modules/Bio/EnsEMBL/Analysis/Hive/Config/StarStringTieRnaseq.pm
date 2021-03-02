@@ -68,7 +68,6 @@ sub default_options {
     'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'assembly_name'             => '', # Name (as it appears in the assembly report file)
     'registry_file'             => '' || catfile($self->o('output_path'), "Databases.pm"), # Path to databse registry for LastaZ and Production sync
-    'stable_id_prefix'          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
     'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     'skip_rnaseq'               => '0', # Will skip rnaseq analyses if 1
     'uniprot_version'           => 'uniprot_2019_04', # What UniProt data dir to use for various analyses
@@ -117,7 +116,7 @@ sub default_options {
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
 
-    databases_to_delete => ['reference_db', 'genewise_db', 'projection_db', 'selected_projection_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db', 'otherfeatures_db', 'rnaseq_db'],#, 'projection_realign_db'
+    databases_to_delete => ['reference_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db', 'rnaseq_db'],
 
 ########################
 # BLAST db paths
@@ -160,7 +159,6 @@ sub default_options {
     bwa_path => catfile($self->o('software_base_path'), 'opt', 'bwa-051mt', 'bin', 'bwa'), #You may need to specify the full path to the bwa binary
     refine_ccode_exe => catfile($self->o('binary_base'), 'RefineSolexaGenes'), #You may need to specify the full path to the RefineSolexaGenes binary
 
-# RNA-seq pipeline stuff
     # You have the choice between:
     #  * using a csv file you already created
     #  * using a study_accession like PRJEB19386
@@ -243,11 +241,6 @@ sub default_options {
 # No option below this mark should be modified
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #
-
-##################################
-# Memory settings for the analyses
-##################################
-    'default_mem'          => '900',
 
 ########################
 # db info
@@ -401,7 +394,6 @@ sub pipeline_wide_parameters {
   return {
     %{$self->SUPER::pipeline_wide_parameters},
     skip_rnaseq => $self->o('skip_rnaseq'),
-    load_toplevel_only => $self->o('load_toplevel_only'),
     wide_ensembl_release => $self->o('ensembl_release'),
     use_genome_flatfile  => $self->o('use_genome_flatfile'),
     genome_file          => $self->o('faidx_genome_file'),
@@ -458,8 +450,7 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into => {
-          '1->A' => ['fan_rnaseq_for_layer_db'],
-          'A->1' => ['create_long_read_final_db'],
+	  1 => ['fan_rnaseq_for_layer_db'],
         },
       },
 
