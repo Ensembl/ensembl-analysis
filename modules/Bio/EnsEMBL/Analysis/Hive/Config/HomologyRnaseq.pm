@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 =cut
 
-package Bio::EnsEMBL::Analysis::Hive::Config::HomologyRnaseq.pm;
+package Bio::EnsEMBL::Analysis::Hive::Config::HomologyRnaseq;
 
 use strict;
 use warnings;
