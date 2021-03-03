@@ -1,3 +1,4 @@
+
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
@@ -30,16 +31,17 @@ use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 sub default_options {
   my ($self) = @_;
   return {
+
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
 
 ######################################################
-#
-# Variable settings- You change these!!!
-#
+    #
+    # Variable settings- You change these!!!
+    #
 ######################################################
 ########################
-# Misc setup info
+    # Misc setup info
 ########################
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name'             => '' || $self->o('production_name').'_'.$self->o('ensembl_release'),
@@ -49,7 +51,7 @@ sub default_options {
     'pipe_db_server'            => '', # host for pipe db
     'dna_db_server'             => '', # host for dna db
     'databases_server'          => '', # host for general output dbs
- 
+
     'pipe_db_port'              => '', # port for pipeline host
     'dna_db_port'               => '', # port for dna db host
     'databases_port'            => '', # port for general output db host
@@ -68,7 +70,7 @@ sub default_options {
 
     'uniprot_table_name'        => 'uniprot_sequences',
 
-    # Best targetted related parameters: 
+    # Best targetted related parameters:
     genewise_path               => catfile($self->o('binary_base'), 'genewise'),
     'exonerate_path'            => catfile($self->o('software_base_path'), 'opt', 'exonerate09', 'bin', 'exonerate'),
     'cmsearch_exe_path'         => catfile($self->o('software_base_path'), 'bin', 'cmsearch'), # #'opt', 'infernal10', 'bin', 'cmsearch'),
@@ -88,14 +90,13 @@ sub default_options {
     best_targetted_min_coverage => 50, # This is to avoid having models based on fragment alignment and low identity
     best_targetted_min_identity => 50, # This is to avoid having models based on fragment alignment and low identity
 
-
 ########################
-# Pipe and ref db info
+    # Pipe and ref db info
 ########################
 
-    # The following might not be known in advance, since the come from other pipelines
-    # These values can be replaced in the analysis_base table if they're not known yet
-    # If they are not needed (i.e. no projection or rnaseq) then leave them as is
+# The following might not be known in advance, since the come from other pipelines
+# These values can be replaced in the analysis_base table if they're not known yet
+# If they are not needed (i.e. no projection or rnaseq) then leave them as is
 
     'pipe_db_name'              => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
     'dna_db_name'               => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
@@ -111,28 +112,26 @@ sub default_options {
 
     'best_targeted_db_server'      => $self->o('databases_server'),
     'best_targeted_db_port'        => $self->o('databases_port'),
-    
+
     'killlist_db_server'           => $self->o('databases_server'),
     'killlist_db_port'             => $self->o('databases_port'),
-
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'           => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
 
-
 ######################################################
-#
-# Mostly constant settings
-#
+    #
+    # Mostly constant settings
+    #
 ######################################################
 
     genome_dumps                => catdir($self->o('output_path'), 'genome_dumps'),
-    # This one is used by most analyses that run against a genome flatfile like exonerate, genblast etc. Has slice name style headers. Is softmasked
+
+# This one is used by most analyses that run against a genome flatfile like exonerate, genblast etc. Has slice name style headers. Is softmasked
     softmasked_genome_file      => catfile($self->o('genome_dumps'), $self->o('species_name').'_softmasked_toplevel.fa'),
 
-
 ########################
-# db info
+    # db info
 ########################
 
     'cdna_db' => {
@@ -142,7 +141,7 @@ sub default_options {
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
-    },
+      },
 
     'cdna2genome_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_cdna2genome_'.$self->o('release_number'),
@@ -151,7 +150,7 @@ sub default_options {
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
-    },
+      },
 
     'genewise_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_genewise_'.$self->o('release_number'),
@@ -160,7 +159,7 @@ sub default_options {
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
-    },
+      },
 
     'best_targeted_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_bt_'.$self->o('release_number'),
@@ -169,40 +168,35 @@ sub default_options {
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
-    },
- 
-     'killlist_db' => {
+      },
+
+    'killlist_db' => {
       -dbname => $self->o('killlist_db_name'),
       -host   => $self->o('killlist_db_server'),
       -port   => $self->o('killlist_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
       -driver => $self->o('hive_driver'),
-    },
-    
+      },
 
 #######################
-# Extra db settings
+    # Extra db settings
 ########################
     num_tokens => 10,
 
-
-  };
+    };
 }
-
-
 
 ## See diagram for pipeline structure
 sub pipeline_analyses {
-    my ($self) = @_;
+  my ($self) = @_;
 
-
-    return [
+  return [
 
 ######################################################################################
-#
-# cDNA alignment
-#
+    #
+    # cDNA alignment
+    #
 ######################################################################################
 
     {
@@ -212,12 +206,12 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('cdna_db'),
         create_type => 'clone',
-      },
+        },
       -rc_name    => 'default',
       -flow_into => {
         '1->A' => ['create_genewise_db', 'download_mRNA'],
         'A->1' => ['create_besttargetted_db'],
-      },
+        },
     },
 
     {
@@ -227,13 +221,13 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('genewise_db'),
         create_type => 'clone',
-      },
+        },
       -rc_name    => 'default',
       -flow_into => {
         1 => ['download_selenocysteines'],
         '1->A' => ['download_uniprot_self', 'download_refseq_self'],
         'A->1' => ['load_self'],
-      },
+        },
     },
     {
 
@@ -245,11 +239,11 @@ sub pipeline_analyses {
         output_file => catfile($self->o('targetted_path'), 'ncbi_self.fa'),
         ncbidb => 'protein',
         _branch_to_flow_to => 1,
-      },
+        },
       -rc_name          => 'default',
       -flow_into => {
         1 => [':////accu?iid=[]'],
-      },
+        },
     },
     {
 
@@ -260,11 +254,11 @@ sub pipeline_analyses {
         multi_query_download => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::UniProtCladeDownloadStatic', 'self_isoforms_12'),
         output_path => $self->o('targetted_path'),
         _branch_to_flow_to => 1,
-      },
+        },
       -rc_name          => 'default',
       -flow_into => {
         1 => [':////accu?iid=[]'],
-      },
+        },
     },
 
     {
@@ -277,12 +271,12 @@ sub pipeline_analyses {
         killlist_db => $self->o('killlist_db'),
         killlist_type => 'protein',
         sequence_table_name => $self->o('uniprot_table_name'),
-      },
+        },
       -rc_name          => 'default',
       -flow_into => {
         1 => ['indicate_proteome'],
         2 => ['targetted_exonerate'],
-      },
+        },
     },
 
     {
@@ -299,7 +293,7 @@ sub pipeline_analyses {
         exonerate_path   => $self->o('exonerate_path'),
         repeat_libraries => '#wide_repeat_logic_names#',
         calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
-      },
+        },
       -rc_name          => '3GB',
     },
 
@@ -312,13 +306,12 @@ sub pipeline_analyses {
         proteome => 'proteome.fa',
         indicate_dir => $self->o('targetted_path'),
         proteome_index => catdir($self->o('targetted_path'), 'proteome_index'),
-      },
+        },
       -rc_name => 'default',
       -flow_into => {
         '1' => ['generate_pmatch_jobs'],
-      },
+        },
     },
-
 
     {
       -logic_name => 'generate_pmatch_jobs',
@@ -328,12 +321,12 @@ sub pipeline_analyses {
         coord_system_name => 'toplevel',
         iid_type => 'slice',
         top_level => 1,
-      },
+        },
       -rc_name      => '2GB',
       -flow_into => {
         '2->A' => ['pmatch'],
         'A->1' => ['bestpmatch'],
-      },
+        },
     },
 
     {
@@ -349,7 +342,7 @@ sub pipeline_analyses {
         REPEAT_MASKING => [],
         MAX_INTRON_LENGTH => 50000,
         OPTIONS => '-T 20', # set threshold to 14 for more sensitive search
-      },
+        },
       -rc_name          => '2GB',
     },
 
@@ -362,13 +355,13 @@ sub pipeline_analyses {
         target_db => $self->o('genewise_db'),
         PMATCH_LOGIC_NAME => ['pmatch'],
         MIN_COVERAGE => 50,
-      },
+        },
       -rc_name          => '2GB',
       -flow_into => {
         1 => ['generate_targetted_jobs'],
-      },
+        },
     },
-    
+
     {
       -logic_name => 'generate_targetted_jobs',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
@@ -378,13 +371,13 @@ sub pipeline_analyses {
         target_db        => $self->o('genewise_db'),
         logic_name => ['bestpmatch'],
         coord_system_name => 'toplevel',
-      },
+        },
       -rc_name      => 'default',
       -flow_into => {
         2 => ['targetted_genewise_gtag', 'targetted_genewise_nogtag', 'targetted_exo'],
-      },
+        },
     },
-    
+
     {
 
       -logic_name => 'targetted_genewise_gtag',
@@ -399,10 +392,10 @@ sub pipeline_analyses {
         max_intron_length => 200000,
         seqfetcher_index => [catfile($self->o('targetted_path'), 'proteome_index')],
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise')},
-      },
+        },
       -rc_name          => '3GB',
     },
-    
+
     {
 
       -logic_name => 'targetted_genewise_nogtag',
@@ -417,10 +410,10 @@ sub pipeline_analyses {
         max_intron_length => 200000,
         seqfetcher_index => [catfile($self->o('targetted_path'), 'proteome_index')],
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise')},
-      },
+        },
       -rc_name          => '3GB',
     },
-    
+
     {
 
       -logic_name => 'targetted_exo',
@@ -435,10 +428,10 @@ sub pipeline_analyses {
         max_intron_length => 700000,
         program_file => $self->o('exonerate_path'),
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_exonerate')},
-      },
+        },
       -rc_name          => '3GB',
     },
-    
+
     {
 
       -logic_name => 'download_mRNA',
@@ -447,15 +440,15 @@ sub pipeline_analyses {
         output_file => $self->o('cdna_file'),
         filetype => 'gb',
         query => $self->o('ncbi_query'),
-      },
+        },
       -rc_name    => 'default',
       -flow_into => {
         2 => ['prepare_cdna'],
-      },
+        },
     },
-    
+
     {
-    	
+
       -logic_name => 'prepare_cdna',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
@@ -470,11 +463,11 @@ sub pipeline_analyses {
           ($self->o('taxon_id') ? ' -tax_id '.$self->o('taxon_id') : '').
           ' -nomole',
         sequence_file => $self->o('cdna_file'),
-      },
+        },
       -rc_name    => 'default',
       -flow_into => {
         1 => ['load_cdna_file'],
-      },
+        },
     },
 
     {
@@ -485,11 +478,11 @@ sub pipeline_analyses {
         sequence_table_name => $self->o('cdna_table_name'),
         filetype => 'fasta',
         sequence_file => $self->o('cdna_file').'.clipped',
-      },
+        },
       -flow_into => {
         '2->A' => ['exonerate'],
         'A->1' => ['prepare_cdna2genome'],
-      },
+        },
       -rc_name    => 'default',
     },
 
@@ -510,11 +503,11 @@ sub pipeline_analyses {
         exonerate_cdna_pid => 50,
         exonerate_cdna_cov => 50,
         calculate_coverage_and_pid => 0,
-      },
+        },
       -batch_size => 100,
       -flow_into => {
         -1 => ['exonerate_retry'],
-      },
+        },
       -batch_size => 100,
       -failed_job_tolerance => 5,
     },
@@ -536,12 +529,12 @@ sub pipeline_analyses {
         exonerate_cdna_pid => 50,
         exonerate_cdna_cov => 50,
         calculate_coverage_and_pid => 0,
-      },
+        },
       -batch_size => 100,
       -failed_job_tolerance => 100,
       -can_be_empty => 1,
     },
-    
+
     {
       -logic_name => 'prepare_cdna2genome',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -558,13 +551,13 @@ sub pipeline_analyses {
           ($self->o('taxon_id') ? ' -tax_id '.$self->o('taxon_id') : '').
           ' -nomole',
         sequence_file => $self->o('cdna_file'),
-      },
+        },
       -rc_name    => 'default',
       -flow_into => {
         1 => ['create_cdna2genome_db'],
-      },
+        },
     },
-    
+
     {
       -logic_name => 'create_cdna2genome_db',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
@@ -572,13 +565,13 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('cdna2genome_db'),
         create_type => 'clone',
-      },
+        },
       -rc_name    => 'default',
       -flow_into => {
         '1' => ['create_cdna_toplevel_slices'],
-      },
+        },
     },
-    
+
     {
       -logic_name => 'create_cdna_toplevel_slices',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
@@ -590,13 +583,12 @@ sub pipeline_analyses {
         top_level => 1,
         feature_constraint => 1,
         feature_type => 'gene',
-      },
+        },
       -flow_into => {
         '2' => ['apply_threshold'],
-      },
+        },
       -rc_name    => 'default',
     },
-
 
     {
       -logic_name => 'apply_threshold',
@@ -608,15 +600,14 @@ sub pipeline_analyses {
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','cdna_est2genome')},
         exonerate_cdna_pid => $self->o('cdna_selection_pid'),
         exonerate_cdna_cov => $self->o('cdna_selection_cov'),
-      },
+        },
       -rc_name => 'default',
       -analysis_capacity => 5,
       -batch_size => 10,
       -flow_into => {
         '1' => ['create_cdna2genome_slices'],
-      },
+        },
     },
-
 
     {
       -logic_name => 'create_cdna2genome_slices',
@@ -630,17 +621,17 @@ sub pipeline_analyses {
         include_non_reference => 0,
         top_level => 1,
         use_annotation => 1,
-        # These options will create only slices that have a gene on the slice in one of the feature dbs
+
+# These options will create only slices that have a gene on the slice in one of the feature dbs
         annotation_file => $self->o('annotation_file'),
         region_padding => $self->o('cdna2genome_region_padding'),
-      },
+        },
       -flow_into => {
         '2->A' => ['cdna2genome'],
         'A->1' => ['internal_stop'],
-      },
+        },
       -rc_name    => 'default',
     },
-
 
     {
       -logic_name => 'cdna2genome',
@@ -658,11 +649,11 @@ sub pipeline_analyses {
         exonerate_path => $self->o('exonerate_annotation'),
         annotation_file => $self->o('annotation_file'),
         SOFT_MASKED_REPEATS => '#wide_repeat_logic_names#',
-      },
+        },
       -batch_size => 10,
       -flow_into => {
         '-1' => ['cdna2genome_himem'],
-      },
+        },
     },
 
     {
@@ -682,10 +673,10 @@ sub pipeline_analyses {
         exonerate_path => $self->o('exonerate_annotation'),
         annotation_file => $self->o('annotation_file'),
         repeat_libraries => '#wide_repeat_logic_names#',
-      },
+        },
       -batch_size => 10,
     },
-    
+
     {
       -logic_name => 'internal_stop',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveInternalStopFix',
@@ -697,7 +688,7 @@ sub pipeline_analyses {
         logic_name => 'cdna2genome',
         biotype => undef,
         source => undef,
-      },
+        },
       -rc_name    => 'default',
     },
     {
@@ -708,11 +699,11 @@ sub pipeline_analyses {
         taxon_id => $self->o('taxon_id'),
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::UniProtCladeDownloadStatic', 'selenocysteine')},
         output_path => $self->o('targetted_path'),
-      },
+        },
       -rc_name          => 'default',
       -flow_into => {
         2 => ['load_selenocysteine'],
-      },
+        },
     },
     {
 
@@ -720,11 +711,11 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveProcessUniProtFiles',
       -parameters => {
         sequence_table_name => $self->o('uniprot_table_name'),
-      },
+        },
       -rc_name          => 'default',
       -flow_into => {
         2 => ['process_selenocysteine'],
-      },
+        },
     },
     {
 
@@ -739,7 +730,7 @@ sub pipeline_analyses {
         genewise => $self->o('genewise_path'),
         iid_type => 'db_seq',
         sequence_table_name => $self->o('uniprot_table_name'),
-      },
+        },
       -rc_name          => 'default',
     },
     {
@@ -749,11 +740,11 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('best_targeted_db'),
         create_type => 'clone',
-      },
+        },
       -rc_name    => 'default',
       -flow_into => {
         1 => ['generate_besttargetted_index'],
-      },
+        },
     },
     {
       -logic_name => 'generate_besttargetted_index',
@@ -765,11 +756,11 @@ sub pipeline_analyses {
         email => $self->o('email_address'),
         genbank_file => $self->o('cdna_file'),
         protein_files => [catfile($self->o('targetted_path'), 'proteome.fa'), catfile($self->o('targetted_path'), $self->o('taxon_id').'_seleno.fa')],
-      },
+        },
       -rc_name      => 'default',
       -flow_into => {
         1 => ['indicate_BT'],
-      },
+        },
     },
     {
       -logic_name => 'indicate_BT',
@@ -779,11 +770,11 @@ sub pipeline_analyses {
         indicate_path => $self->o('indicate_path'),
         proteome => 'best_targetted.fa',
         indicate_dir => $self->o('targetted_path'),
-      },
+        },
       -rc_name => 'default',
       -flow_into => {
         1 => ['generate_besttargetted_jobs'],
-      },
+        },
     },
 
     {
@@ -797,12 +788,12 @@ sub pipeline_analyses {
         feature_type => 'gene',
         top_level => 1,
         feature_dbs => [$self->o('genewise_db'), $self->o('cdna2genome_db')],
-      },
+        },
       -rc_name      => 'default',
       -flow_into => {
         '2->A' => ['best_targetted'],
         'A->1' => ['best_targetted_healthchecks'],
-      },
+        },
     },
 
     {
@@ -813,16 +804,16 @@ sub pipeline_analyses {
         dna_db => $self->o('dna_db'),
         source_db => { protein_db => $self->o('genewise_db'), cdna2genome_db => $self->o('cdna2genome_db')},
         SEQFETCHER_DIR => [catfile($self->o('targetted_path'), 'proteome_index'),
-        catfile($self->o('targetted_path'), 'best_targetted_index')],
+          catfile($self->o('targetted_path'), 'best_targetted_index')],
         SEQFETCHER_OBJECT => 'Bio::EnsEMBL::Analysis::Tools::SeqFetcher::OBDAIndexSeqFetcher',
         INPUT_DATA_FROM_DBS  => {
           protein_db => ['seleno_self', 'gw_gtag', 'gw_nogtag', 'gw_exo', 'targetted_exonerate'],
           cdna2genome_db => ['cdna2genome', 'edited'],
-        },
+          },
         BIOTYPES => ['seleno_self', 'cdna2genome', 'edited', 'gw_gtag', 'gw_nogtag', 'gw_exo', 'targetted_exonerate'], # sorted list, preferred is first
         protein_min_coverage => $self->o('best_targetted_min_coverage'),
         protein_min_identity => $self->o('best_targetted_min_identity'),
-      },
+        },
       -rc_name          => '3GB',
     },
 
@@ -833,19 +824,13 @@ sub pipeline_analyses {
         input_db => $self->o('best_targeted_db'),
         species  => $self->o('species_name'),
         group    => 'protein_cdna',
-      },
+        },
       -max_retry_count => 0,
       -rc_name    => 'default',
     },
 
-
     ];
 }
-
-
-
-
-
 
 sub resource_classes {
   my $self = shift;
@@ -854,8 +839,7 @@ sub resource_classes {
     '2GB' => { LSF => $self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '3GB' => { LSF => $self->lsf_resource_builder('production-rh74', 3000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'default' => { LSF => $self->lsf_resource_builder('production-rh74', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-  }
+    }
 }
-
 
 1;
