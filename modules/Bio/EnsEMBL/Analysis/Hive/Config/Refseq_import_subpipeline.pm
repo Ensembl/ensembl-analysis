@@ -53,9 +53,10 @@ sub default_options {
     'dna_db_server'             => '', # host for dna db
     'pipe_db_port'              => '', # port for pipeline host
     'dna_db_port'               => '', # port for dna db host
+    'databases_server'          => '',
+    'databases_port'            => '',
 
     'release_number'            => '' || $self->o('ensembl_release'),
-    'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
 
     'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
@@ -80,8 +81,6 @@ sub default_options {
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'           => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
-    'production_db_server'      => 'mysql-ens-meta-prod-1',
-    'production_db_port'        => '4483',
 
 ######################################################
     #
@@ -208,12 +207,6 @@ sub resource_classes {
     'default' => { LSF => $self->lsf_resource_builder('production-rh74', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'refseq_import' => { LSF => $self->lsf_resource_builder('production-rh74', 9900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     }
-}
-
-sub check_file_in_ensembl {
-  my ($self, $file_path) = @_;
-  push @{$self->{'_ensembl_file_paths'}}, $file_path;
-  return $self->o('enscode_root_dir').'/'.$file_path;
 }
 
 1;
