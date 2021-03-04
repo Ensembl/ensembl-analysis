@@ -99,6 +99,7 @@ sub default_options {
     # Mostly constant settings
     #
     ######################################################
+    genome_dumps                  => catdir($self->o('output_path'), 'genome_dumps'),
 
     # This one is used in replacement of the dna table in the core db, so where analyses override slice->seq. Has simple headers with just the seq_region name. Also used by bwa in the RNA-seq analyses. Not masked
     faidx_genome_file             => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
@@ -121,6 +122,8 @@ sub default_options {
     'uniprot_blast_exe_path' => catfile($self->o('binary_base'), 'blastp'),
 
     samtools_path => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
+
+    'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
     'long_read_dir'       => catdir($self->o('output_path'),'long_read'),
     'long_read_fastq_dir' => catdir($self->o('long_read_dir'),'input'),
