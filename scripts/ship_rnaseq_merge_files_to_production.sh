@@ -30,10 +30,11 @@ ANNOTATION_DATA_DIRECTORY="${ANNOTATIONS_DATA_ROOT}/${DATA_DIRECTORY_NAME}/${SCI
 
 RAPID_RELEASE_FTP_ROOT="/nfs/production/panda/ensembl/production/ensemblftp/rapid-release/species"
 
-RNASEQ_DIRECTORY="${RAPID_RELEASE_FTP_ROOT}/${SCIENTIFIC_NAME_UNDERSCORES}/${ASSEMBLY_ACCESSION}/rnaseq"
+RNASEQ_BASE_DIRECTORY="${RAPID_RELEASE_FTP_ROOT}/${SCIENTIFIC_NAME_UNDERSCORES}"
+RNASEQ_DIRECTORY="${RNASEQ_BASE_DIRECTORY}/${ASSEMBLY_ACCESSION}/rnaseq"
 
 mkdir --parents --verbose "$RNASEQ_DIRECTORY"
-chmod g+w "$RNASEQ_DIRECTORY"
+chmod --recursive g+w "$RNASEQ_BASE_DIRECTORY"
 
 rsync --recursive --copy-links --times --devices --specials --whole-file --verbose --human-readable --progress --stats "${ANNOTATION_DATA_DIRECTORY}"/rnaseq/merge/* "${RNASEQ_DIRECTORY}/"
 ################################################################################
