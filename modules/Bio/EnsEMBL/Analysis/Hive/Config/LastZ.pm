@@ -1,5 +1,4 @@
-
-=Head1 LICENSE
+=head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 Copyright [2016-2021] EMBL-European Bioinformatics Institute
@@ -76,26 +75,12 @@ sub default_options {
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
-    'production_db_server'         => 'mysql-ens-meta-prod-1',
-    'production_db_port'           => '4483',
-
-######################################################
-    #
-    # Mostly constant settings
-    #
-######################################################
-
-    genome_dumps                => catdir($self->o('output_path'), 'genome_dumps'),
-
-# This one is used by most analyses that run against a genome flatfile like exonerate, genblast etc. Has slice name style headers. Is softmasked
-    softmasked_genome_file      => catfile($self->o('genome_dumps'), $self->o('species_name').'_softmasked_toplevel.fa'),
 
 ########################
     # Extra db settings
 ########################
 
     'num_tokens' => 10,
-    mysql_dump_options => '--max_allowed_packet=1000MB',
 
     'compara_master'             => 'compara_master',
     'compara_conf_file'             => '',
