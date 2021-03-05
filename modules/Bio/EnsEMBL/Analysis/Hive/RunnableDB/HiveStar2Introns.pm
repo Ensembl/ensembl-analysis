@@ -1,13 +1,61 @@
+=head1 LICENSE
+
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016-2021] EMBL-European Bioinformatics Institute
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+=head1 CONTACT
+
+Please email comments or questions to the public Ensembl
+developers list at <http://lists.ensembl.org/mailman/listinfo/dev>.
+
+Questions may also be sent to the Ensembl help desk at
+<http://www.ensembl.org/Help/Contact>.
+
+=head1 NAME
+
+Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveStar2Introns
+
+=head1 SYNOPSIS
+
+
+=head1 DESCRIPTION
+
+
+=cut
+
 package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveStar2Introns;
 
 use warnings;
 use strict;
-use feature 'say';
+
 use POSIX;
-use Bio::EnsEMBL::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Analysis;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
-use Bio::EnsEMBL::IntronSupportingEvidence;
-use Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses;
+
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Defaults parameters
+                small_intron_size => 0,
+                min_intron_depth => 0,
+                table_name => 'csv_data',
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
 
 sub param_defaults {
   my ($self) = @_;
@@ -16,185 +64,155 @@ sub param_defaults {
 	  %{$self->SUPER::param_defaults},
     small_intron_size => 0,
     min_intron_depth => 0,
+    table_name => 'csv_data',
   }
 }
+
 
 =head2 fetch_input
 
  Arg [1]    : None
- Description: 
+ Description: Check that sample_id_column and sample_column are set, check the databases
+              and fetch the files containing the splce sites. It will also create the set
+              analysis and cache the seq_regions
  Returntype : None
- Exceptions : 
+ Exceptions : Throws if no files where found
 
 =cut
 
 sub fetch_input {
   my ($self) = @_;
 
-  my $source_db = $self->get_database_by_name('source_db');
-  $self->hrdb_set_con($source_db,'source_db');
-#  $self->hrdb_set_con($source_db,'target_db');
-
-  my $output_dba = $self->hrdb_get_dba($self->param('intron_db'));
-  $self->param('_output_dba',$output_dba);
+  $self->param_required('sample_id_column');
+  $self->param_required('sample_column');
+  my $output_dba = $self->get_database_by_name('intron_db');
+  $self->hrdb_set_con($output_dba, 'target_db');
 
   my $junction_files;
-  if($self->param('star_junctions_dir')) {
-    my $star_junctions_dir = $self->param('star_junctions_dir');
-    unless(-e $star_junctions_dir) {
-      $self->throw("The STAR junction dir param was provided but the dir does not exist Path provided:\n".$star_junctions_dir);
+  my $star_junctions_dir = $self->param_required('star_junctions_dir');
+  $self->throw("The STAR junction dir provided does not exist:\n".$star_junctions_dir) unless (-d $star_junctions_dir);
+  $junction_files = [glob($star_junctions_dir . '/*_SJ.out.tab')];
+
+  if (scalar(@$junction_files)) {
+    $self->param('_junction_files',$junction_files);
+    my $csv_data_adaptor = $self->db->get_NakedTableAdaptor;
+    $csv_data_adaptor->table_name($self->param('table_name'));
+    my %analyses;
+    my %unique_analyses;
+    foreach my $row (@{$csv_data_adaptor->fetch_all()}) {
+      my $logic_name = $self->param_required('species').'_'.$row->{$self->param('sample_column')}.'_rnaseq_daf';
+      if (!exists $unique_analyses{$logic_name}) {
+        $unique_analyses{$logic_name} = Bio::EnsEMBL::Analysis->new(-logic_name => $logic_name, -module => 'Star2Introns');
+      }
+      $analyses{$row->{$self->param('sample_id_column')}} = $unique_analyses{$logic_name};
     }
-    $junction_files = [glob($star_junctions_dir . '/*_SJ.out.tab')];
+    if (scalar(keys %unique_analyses) > 1) {
+      $analyses{merged} = Bio::EnsEMBL::Analysis->new(-logic_name => $self->param_required('species').'_merged_rnaseq_daf', -module => 'Star2Introns');
+    }
+    $self->param('_analyses', \%analyses);
+    my $slice_adaptor = $output_dba->get_SliceAdaptor;
+    $slice_adaptor->fetch_all('toplevel');
+    $self->param('_slice_adaptor', $slice_adaptor);
   }
-  unless(scalar(@$junction_files)) {
+  else {
     $self->throw("No junction files found, something has gone wrong");
   }
-  $self->param('_junction_files',$junction_files);
 }
+
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Read the splice junctions files and create DnaDnaAlign objects from it
+ Returntype : None
+ Exceptions : Throws if cannot open or close the files
+              Throws if the accession is not found in the CSV table 'table_name'
+
+=cut
 
 sub run {
   my ($self) = @_;
 
-  my $out_dbc = $self->param('_output_dba')->dbc;
-
   my $junction_files = $self->param('_junction_files');
-  my $small_intron_size = $self->param('small_intron_size');
-  my $min_intron_depth = $self->param('min_intron_depth');
+  my $analyses = $self->param('_analyses');
 
-  my $ise_table = {};
-  my @analyses;
+  my %daf_table;
   foreach my $junction_file (@$junction_files) {
-    unless(-e $junction_file) {
-      $self->throw("The STAR splice junction file in the input id does not exist. Path provided:\n".$junction_file);
-    }
-
-    print "Parsing junction file: ".$junction_file."\n";
-
-    my $csv_data_adaptor = $self->db->get_NakedTableAdaptor;
-    $csv_data_adaptor->table_name('csv_data');
+    $self->say_with_header("Parsing junction file: $junction_file");
     my $srr = (split'\/', $junction_file)[-1];
     $srr =~ s/_.*//;
-    my $results = $csv_data_adaptor->fetch_all();
-    my $logic_name;
-    for my $row (@$results){
-      if ($row->{$self->param('sample_id_column')} eq $srr){
-	$logic_name = $row->{$self->param('sample_column')}
-      }
-    }
-    if ($logic_name){
-      $logic_name .= "_ise";
-      my $analysis = {'-logic_name' => $logic_name, '-module' => 'Star2Introns'};
-      push (@analyses, Bio::EnsEMBL::Analysis->new(%$analysis));
-    }
-    else{
-      $self->throw("Sample name does not exist for ".$srr);
-    }
-    $self->param('_analyses', \@analyses);
+    $self->throw("Sample name does not exist for ".$srr) unless (exists $analyses->{$srr});
 
-    open(IN,$junction_file);
+    open(IN,$junction_file) or $self->throw("Coule not open $junction_file");
     while(<IN>) {
-      my $line = $_;
-      my @elements = split("\t",$line);
-      my $seq_region_name = $elements[0];
-      my $start = $elements[1];
-      my $end = $elements[2];
-      my $strand = $elements[3];
-      if($strand == 1) {
-        next;
-      } elsif($strand == 2) {
-        $strand = -1;
-      }
-      my $is_canonical = $elements[4];
-      if($is_canonical > 0) {
-        $is_canonical = 1;
-      } elsif($strand == 0) {
-        $strand = 0;
-      }
-      my $unique_map_count = $elements[6];
-      my $multi_map_count = POSIX::ceil($elements[7] / 2);
-      my $depth = $unique_map_count + $multi_map_count;
+      my ($seq_region_name, $start, $end, $strand, $is_canonical, undef, $unique_map_count, $multi_map_count) = split("\t", $_);
+      my $depth = $unique_map_count + POSIX::ceil($multi_map_count/2);
 
-      my $hit_seq_region_name = $seq_region_name;
-      $hit_seq_region_name =~ s/\./\*/;
-      my $hit_name = $seq_region_name.":".$start.":".$end.":".$strand;
-      if ($is_canonical){
-        $hit_name = $hit_name.":canon";
-      }
-
-      unless((($end - $start + 1) >= $small_intron_size) && $depth >= $min_intron_depth) {
-        next;
-      }
-
-      my $id_sql = "SELECT seq_region_id from seq_region where name=?";
-      my $sth = $out_dbc->prepare($id_sql);
-      $sth->bind_param(1,$seq_region_name);
-      $sth->execute();
-      my $seq_region_id = $sth->fetchrow_array();
-
-      if (exists ($ise_table->{$hit_name})){
-        $ise_table->{$hit_name}->{'score'} += $depth;
+      if (exists $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}) {
+        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{$srr} += $depth;
+        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{merged} += $depth;
       }
       else{
-        $ise_table->{$hit_name}->{'seq_region_id'} = $seq_region_id;
-        $ise_table->{$hit_name}->{'seq_region_start'} = $start;
-        $ise_table->{$hit_name}->{'seq_region_end'} = $end;
-        $ise_table->{$hit_name}->{'seq_region_strand'} = $strand;
-        $ise_table->{$hit_name}->{'score'} = $depth;
-        $ise_table->{$hit_name}->{'is_splice_canonical'} = $is_canonical;
-        $ise_table->{$hit_name}->{'logic_name'} = $logic_name;
+        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{$srr} = $depth;
+        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{merged} = $depth;
       }
-
-# to create new intron need 5' and 3' exons
-#      my $new_intron = Bio::EnsEMBL::Intron->new(
-#        -SEQ_REGION_NAME => $seq_region_name,
-#        -START           => $start,
-#        -END             => $end,
-#        -STRAND          => $strand,
-#        -IS_SPLICE_CANONICAL=> $is_canonical,
-#        -SCORE           => $depth,
-#        -SCORE_TYPE      => "DEPTH",
-#        -HIT_NAME        => $hit_name,
-#      );
-
-#      $self->output([$new_intron]);
-    } # End while
-    close IN;
-  } # End foreach my $junction_file
-
-  $self->param('_ise_table', $ise_table);
+    }
+    close(IN) or $self->throw("Could not close $junction_file");
+  }
+  $self->param('_daf_table', \%daf_table);
 }
+
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Store the splice site as DnaDnaAlignFeature
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub write_output {
   my ($self) = @_;
 
-  my $out_dbc = $self->param('_output_dba')->dbc;
-  my $ise_table = $self->param('_ise_table');
+  my $out_dbc = $self->hrdb_get_con('target_db')->dbc;
+  my $daf_table = $self->param('_daf_table');
   my $analyses = $self->param('_analyses');
+  my $small_intron_size = $self->param('small_intron_size');
+  my $min_intron_depth = $self->param('min_intron_depth');
 
-  my $target_adaptor = $self->param('_output_dba')->get_AnalysisAdaptor;
-  foreach my $analysis (@{$analyses}) {
+  my $target_adaptor = $self->hrdb_get_con('target_db')->get_AnalysisAdaptor;
+  foreach my $analysis (values %$analyses) {
     $target_adaptor->store($analysis);
   }
+  my $slice_adaptor = $self->param('_slice_adaptor');
 
-  foreach my $hit_name ( keys $ise_table){
-    my $logic_name = $ise_table->{$hit_name}->{'logic_name'};
-    my $analysis_id = $target_adaptor->fetch_by_logic_name($logic_name)->dbID();
-    my $seq_region_id = $ise_table->{$hit_name}->{'seq_region_id'};
-    my $start = $ise_table->{$hit_name}->{'seq_region_start'};
-    my $end = $ise_table->{$hit_name}->{'seq_region_end'};
-    my $strand = $ise_table->{$hit_name}->{'seq_region_strand'};
-    my $depth = $ise_table->{$hit_name}->{'score'};
-    my $is_canonical = $ise_table->{$hit_name}->{'is_splice_canonical'};
-
-    my $sth_write = $out_dbc->prepare('INSERT INTO intron_supporting_evidence (analysis_id, seq_region_id, seq_region_start, seq_region_end, seq_region_strand, hit_name, score, score_type, is_splice_canonical) values ('.$analysis_id.', '.$seq_region_id.','.$start.', '.$end.', '.$strand.', "'.$hit_name.'", '.$depth.', "DEPTH", '.$is_canonical.');');
-    eval {
-      $sth_write->execute();
-    };
-    if($@){
-      say 'INSERT INTO intron_supporting_evidence (analysis_id, seq_region_id, seq_region_start, seq_region_end, seq_region_strand, hit_name, score, score_type, is_splice_canonical) values ('.$analysis_id.', '.$seq_region_id.','.$start.', '.$end.', '.$strand.', "'.$hit_name.'", '.$depth.', "DEPTH", '.$is_canonical.');';
-      say "Failed to insert intron supporting evidence ".$hit_name."\n";
+  my $sth_write = $out_dbc->prepare('INSERT INTO dna_align_feature (seq_region_id, seq_region_start, seq_region_end, seq_region_strand, hit_name, hit_start, hit_end, hit_strand, analysis_id, score, cigar_line, align_type) values (?, ?, ?, ?, ?, 1, ?, 1, ?, ?, ?, "ensembl")');
+  foreach my $seq_region ( keys %$daf_table) {
+    my $seq_region_id = $slice_adaptor->fetch_by_region('toplevel', $seq_region)->get_seq_region_id;
+    my $name = $seq_region;
+    $name =~ s/\./\*/g;
+    foreach my $item (keys %{$daf_table->{$seq_region}}) {
+      my ($start, $end, $strand, $is_canonical) = split(':', $item);
+      foreach my $logic_name (keys %{$daf_table->{$seq_region}->{$item}}) {
+        if ((($end - $start + 1) >= $small_intron_size) && $daf_table->{$seq_region}->{$item}->{$logic_name} >= $min_intron_depth) {
+          $sth_write->bind_param(1, $seq_region_id);
+          $sth_write->bind_param(2, $start);
+          $sth_write->bind_param(3, $end);
+          $sth_write->bind_param(4, $strand == 2 ? -1 : 1);
+          $sth_write->bind_param(5, "$name:$start:$end:".($strand == 2 ? -1 : 1).':'.($is_canonical > 0 ? 'canon' : 'non canon'));
+          $sth_write->bind_param(6, ($end-$start));
+          $sth_write->bind_param(7, $analyses->{$logic_name}->dbID);
+          $sth_write->bind_param(8, $daf_table->{$seq_region}->{$item}->{$logic_name});
+          $sth_write->bind_param(9, ($end-$start+1).'M');
+          $sth_write->execute();
+        }
+        else {
+          $self->say_with_header("Low threshold for $seq_region $item ".$analyses->{$logic_name}->logic_name.' '.$daf_table->{$seq_region}->{$item}->{$logic_name});
+        }
+      }
     }
   }
-  return 1;
 }
+
 1;
