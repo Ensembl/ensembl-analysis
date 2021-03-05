@@ -598,14 +598,6 @@ sub clade_settings {
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
-    'lepidoptera' => {
-      'repbase_library'    => 'lepidoptera',
-      'repbase_logic_name' => 'lepidoptera',
-      'uniprot_set'        => 'lepidoptera_basic',
-      'protein_blast_db'   => '/hps/nobackup2/production/ensembl/genebuild/blastdb/proteomes/HMLEP',
-      'protein_blast_index'=> '/hps/nobackup2/production/ensembl/genebuild/blastdb/proteomes/HMLEP_index',
-    },
-
     'non_vertebrates' => {
       'repbase_library'    => 'non_vertebrates',
       'repbase_logic_name' => 'non_vertebrates',
