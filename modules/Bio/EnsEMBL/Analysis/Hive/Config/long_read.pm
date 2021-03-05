@@ -226,22 +226,8 @@ sub pipeline_analyses {
       },
       -rc_name    => 'default',
       -flow_into  => {
-        '1->A' => ['fan_long_read'],
-        'A->1' => ['cluster_ig_tr_genes'],
-      },
-    },
-
-    {
-      -logic_name => 'fan_long_read',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'if [ "#skip_long_read#" -eq "0" ] && [ -e "'.$self->o('long_read_summary_file').'" ] || [ -e "'.$self->o('long_read_summary_file_genus').'" ]; then exit 0; else exit 42;fi',
-        return_codes_2_branches => {'42' => 2},
-      },
-      -flow_into  => {
         1 => ['create_long_read_dir'],
       },
-      -rc_name => 'default',
     },
 
     {
