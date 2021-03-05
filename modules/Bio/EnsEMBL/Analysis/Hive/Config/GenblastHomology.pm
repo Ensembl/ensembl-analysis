@@ -1,4 +1,3 @@
-
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
@@ -175,7 +174,6 @@ sub pipeline_create_commands {
 ## See diagram for pipeline structure
 sub pipeline_analyses {
   my ($self) = @_;
-
   my %genblast_params = (
     wu_genome    => '-P wublast -gff -e #blast_eval# -c #blast_cov#',
     ncbi_genome  => '-P blast -gff -e #blast_eval# -c #blast_cov# -W 3 -softmask -scodon 50 -i 30 -x 10 -n 30 -d 200000 -g T',
@@ -185,15 +183,12 @@ sub pipeline_analyses {
     'wu' => '-cpus 3 -hitdist 40',
     'legacy_ncbi' => '-a 3 -A 40',
     );
-
   return [
-
 ######################################################################################
     #
     # Protein models (genblast and genewise)
     #
 ######################################################################################
-
     {
       -logic_name => 'create_genblast_output_db',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
@@ -211,7 +206,6 @@ sub pipeline_analyses {
     },
 
     {
-
       -logic_name => 'download_uniprot_files',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadUniProtFiles',
       -parameters => {
@@ -391,13 +385,11 @@ sub pipeline_analyses {
         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
           'gene_db_checks')->{$self->o('uniprot_set')}->{'genblast'},
         },
-
       -rc_name    => '4GB',
       -flow_into => {
         '1->A' => ['create_cdna_db','create_genblast_nr_db'],
         'A->1' => ['create_ig_tr_db'],
         },
-
     },
 
     {
@@ -450,7 +442,6 @@ sub pipeline_analyses {
 
 sub resource_classes {
   my $self = shift;
-
   return {
     '2GB' => { LSF => $self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '3GB' => { LSF => $self->lsf_resource_builder('production-rh74', 3000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
@@ -464,7 +455,6 @@ sub resource_classes {
 
 sub hive_capacity_classes {
   my $self = shift;
-
   return {
     'hc_very_low'    => 35,
     'hc_low'    => 200,
