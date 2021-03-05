@@ -89,7 +89,7 @@ while ( my $slice = shift @{$slices} ) {
     my $check = $gene->dbID;
     if ( grep( /^$check$/, @selected_genes ) ) {
       my $current = $gene->biotype;
-      $gene->biotype('rnaseq_coding');
+      $gene->biotype('pcp_protein_coding');
       $gene_adaptor->update($gene);
     }
   }
