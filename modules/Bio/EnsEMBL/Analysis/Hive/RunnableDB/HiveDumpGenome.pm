@@ -123,10 +123,12 @@ sub fetch_input {
 sub run {
   my $self = shift;
 
+  my $extension = '_toplevel.fa';
   my $db_info = $self->param('target_db');
   my $repeat_logic_names = $self->param('repeat_logic_names');
   my $repeat_string;
   if(scalar(@{$repeat_logic_names})) {
+    $extension = '_softmasked_toplevel.fa';
     $repeat_string .= ' -mask -softmask ';
     foreach my $repeat_logic_name (@{$repeat_logic_names}) {
       $repeat_string .= ' -mask_repeat '.$repeat_logic_name;
@@ -142,7 +144,7 @@ sub run {
             ' -toplevel'.
             ' -onefile'.
             ' -nonref'.
-            ' -filename '.catfile($self->param('output_path'), $self->param('species_name').'_softmasked_toplevel.fa');
+            ' -filename '.catfile($self->param('output_path'), $self->param('species_name').$extension);
 
   $cmd .= $repeat_string if ($repeat_string);
   $cmd .= ' -dbpass '.$db_info->{-pass} if ($db_info->{-pass});
