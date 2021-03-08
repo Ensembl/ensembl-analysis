@@ -20,6 +20,9 @@ import glob
 import re
 import multiprocessing
 import random
+import tempfile
+import io
+
 
 def create_dir(main_output_dir,dir_name):
 
@@ -165,9 +168,9 @@ def generate_genblast_gtf(genblast_dir):
   file_out.close()
 
 
-def convert_gff_to_gtf(genblast_file):
+def convert_gff_to_gtf(gff_file):
   gtf_string = ""
-  file_in = open(genblast_file)
+  file_in = open(gff_file)
   line = file_in.readline()
   while line:
     match = re.search(r"genBlastG",line)
@@ -436,16 +439,16 @@ def run_minimap2_align(minimap2_path,paftools_path,main_output_dir,long_read_fas
   check_exe(minimap2_path)
 
   if not paftools_path:
-    paftools_path = '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/misc/paftools.js'
+    paftools_path = 'paftools.js'
 
   check_exe(paftools_path)
 
-  minimap2_dir = create_dir(main_output_dir,'minimap2_output')
+  minimap2_output_dir = create_dir(main_output_dir,'minimap2_output')
 
   genome_file_name = os.path.basename(genome_file)
   genome_file_index = (genome_file_name + '.mmi')
-  minimap2_index_file = os.path.join(minimap2_dir,genome_file_index)
-  minimap2_hints_file = os.path.join(minimap2_dir,'minimap2_hints.gff')
+  minimap2_index_file = os.path.join(minimap2_output_dir,genome_file_index)
+  minimap2_hints_file = os.path.join(minimap2_output_dir,'minimap2_hints.gff')
 
   fastq_file_list = []
   for fastq_file in glob.glob(long_read_fastq_dir + "/*.fastq"):
@@ -459,7 +462,7 @@ def run_minimap2_align(minimap2_path,paftools_path,main_output_dir,long_read_fas
 
   if not os.path.exists(minimap2_index_file):
     print ('Did not find an index file for minimap2. Will create now')
-    subprocess.run([minimap2_path,'-t',num_threads,'-d',os.path.join(minimap2_index_file),genome_file])
+    subprocess.run([minimap2_path,'-t',str(num_threads),'-d',os.path.join(minimap2_index_file),genome_file])
 
   if not minimap2_index_file:
     raise IOError('The minimap2 index file does not exist. Expected path:\n%s' % minimap2_index_file)
@@ -467,18 +470,70 @@ def run_minimap2_align(minimap2_path,paftools_path,main_output_dir,long_read_fas
   print ('Running minimap2 on the files in the long read fastq dir')
   for fastq_file_path in fastq_file_list:
     fastq_file_name = os.path.basename(fastq_file_path)
-    sam_file = os.path.join(minimap2_dir,(fastq_file_name + '.sam'))
-    bed_file = os.path.join(minimap2_dir,(fastq_file_name + '.bed'))
+    sam_file = os.path.join(minimap2_output_dir,(fastq_file_name + '.sam'))
+    bed_file = os.path.join(minimap2_output_dir,(fastq_file_name + '.bed'))
     bed_file_out = open(bed_file,'w+')
     print ("Processing %s" % fastq_file)
-    subprocess.run([minimap2_path,'-t',num_threads,'--cs','-N','1','-ax','splice:hq','-u','b',minimap2_index_file,fastq_file_path,'-o',sam_file])
+    subprocess.run([minimap2_path,'-t',str(num_threads),'--cs','--secondary=no','-ax','splice','-u','b',minimap2_index_file,fastq_file_path,'-o',sam_file])
     print("Creating bed file from SAM")
     subprocess.run([paftools_path,'splice2bed',sam_file],stdout=bed_file_out)
     bed_file_out.close()
 
-  bed_to_gff(minimap2_dir,minimap2_hints_file)
+  bed_to_gtf(minimap2_output_dir)
 
   print ('Completed running minimap2')
+
+
+def bed_to_gtf(minimap2_output_dir):
+
+  gtf_file_path = os.path.join(minimap2_output_dir,'annotation.gtf')
+  gtf_out = open(gtf_file_path,"w+")
+  exons_dict = {}
+  gene_id = 1
+  for bed_file in glob.glob(minimap2_output_dir + "/*.bed"):
+    print("Converting bed to GTF:")
+    print(bed_file)
+    bed_in = open(bed_file)
+    bed_lines = bed_in.readlines()
+    for line in bed_lines:
+      line = line.rstrip()
+      elements = line.split('\t')
+      seq_region_name = elements[0]
+      offset = int(elements[1])
+      hit_name = elements[3]
+      strand = elements[5]
+      block_sizes = elements[10].split(',')
+      block_sizes = list(filter(None, block_sizes))
+      block_starts = elements[11].split(',')
+      block_starts = list(filter(None, block_starts))
+      exons = bed_to_exons(block_sizes,block_starts,offset)
+      transcript_line = [seq_region_name,'minimap','transcript',0,0,'.',strand,'.','gene_id "minimap_' + str(gene_id) +'"; ' + 'transcript_id "minimap_' + str(gene_id) + '"' ]
+      transcript_start = None
+      transcript_end = None
+      exon_records = []       
+      for i,exon_coords in enumerate(exons):
+        if transcript_start is None or exon_coords[0] < transcript_start:
+          transcript_start = exon_coords[0]
+
+        if transcript_end is None or exon_coords[1] > transcript_end:
+          transcript_end = exon_coords[1]
+          
+        exon_line = [seq_region_name,'minimap','exon',str(exon_coords[0]),str(exon_coords[1]),'.',strand,'.',
+                     'gene_id "minimap_' + str(gene_id) +'"; ' + 'transcript_id "minimap_' + str(gene_id) + '"; exon_number "' + str(i+1) + '";']
+
+        exon_records.append(exon_line)
+
+      transcript_line[3] = str(transcript_start)
+      transcript_line[4] = str(transcript_end)
+
+      gtf_out.write("\t".join(transcript_line) + "\n")
+      for exon_line in exon_records:
+        gtf_out.write("\t".join(exon_line) + "\n")
+
+      gene_id += 1
+
+    gtf_out.close()
+
 
 def bed_to_gff(input_dir,hints_file):
 
@@ -537,57 +592,195 @@ def bed_to_exons(block_sizes,block_starts,offset):
   return exons
 
 
-def run_augustus_predict(augustus_path,main_output_dir,genome_file,num_threads):
+def run_augustus_predict(augustus_path,main_output_dir,masked_genome_file,num_threads):
 
   min_seq_length = 1000
 
   if not augustus_path:
-    augustus_path = 'augustus'
+    augustus_path = '/hps/nobackup2/production/ensembl/jma/src/Augustus/bin/augustus'
 
+  bam2hints_path = '/homes/fergal/bin/bam2hints'
+  bam2wig_path = '/homes/fergal/bin/bam2wig'
+  wig2hints_path = '/homes/fergal/bin/wig2hints'
   check_exe(augustus_path)
 
+  # Run bam2hints, bam2wig, wig2hints, then combine the hints into a single file
+  # Multiprocess with all three steps in the MP as that would be fastest
+  
   augustus_dir = create_dir(main_output_dir,'augustus_output')
+  augustus_hints_dir = create_dir(augustus_dir,'hints')
   augustus_genome_dir = create_dir(augustus_dir,'genome_dir')
   augustus_evidence_dir = create_dir(augustus_dir,'evidence')
   augustus_hints_file = os.path.join(augustus_evidence_dir,'augustus_hints.gff')
   star_dir = os.path.join(main_output_dir,'star_output')
-  minimap2_dir = os.path.join(main_output_dir,'minimap2_output')
+  minimap2_output_dir = os.path.join(main_output_dir,'minimap2_output')
   
   if(os.path.exists(star_dir)):
     print("Found a Star output dir, generating hints from any .sj.tab files")
-    splice_junction_to_gff(star_dir,augustus_hints_file)
+    generate_hints(bam2hints_path,bam2wig_path,wig2hints_path,augustus_hints_dir,star_dir,num_threads)
+    hints_out = open(augustus_hints_file,'w+')
+    for gff_file in glob.glob(augustus_hints_dir + "/*.bam.hints.gff"):
+      gff_in = open(gff_file,'r')
+      line = gff_in.readline()
+      while line:
+        hints_out.write(line)
+        line = gff_in.readline()
+      gff_in.close()
+    hints_out.close()
+  
+  seq_region_lengths = get_seq_region_lengths(genome_file,5000)
+  slice_ids = create_slice_ids(seq_region_lengths)
 
-  print("Splitting the genome into separate files for Augustus. Will ingore sequences of less than",min_seq_length,"in length")
-  split_genome(genome_file,augustus_genome_dir,min_seq_length)
+  generic_augustus_cmd = [augustus_path,'--species=human','--UTR=on',('--extrinsicCfgFile=' + '/hps/nobackup2/production/ensembl/jma/src/Augustus/config/extrinsic/extrinsic.M.RM.E.W.P.cfg')]
 
-  generic_augustus_cmd = [augustus_path,'--species=human',('--hintsfile=' + augustus_hints_file),'--UTR=on','--alternatives-from-evidence=true','--allow_hinted_splicesites=atac',('--extrinsicCfgFile=' + '/homes/thibaut/src/Augustus/config/extrinsic/extrinsic.M.RM.E.W.P.cfg')]
   pool = multiprocessing.Pool(int(num_threads))
   tasks = []
-  for seq_file in glob.glob(augustus_genome_dir + "/*.split.fa"):
-    augustus_forward = generic_augustus_cmd.copy()
-    augustus_forward.append('--strand=forward')
-    augustus_forward.append(seq_file)
 
-    augustus_backward = generic_augustus_cmd.copy()
-    augustus_backward.append('--strand=backward')
-    augustus_backward.append(seq_file)
-
-    pool.apply_async(multiprocess_augustus, args=(augustus_forward,(seq_file + '.forward.gff'),))
-    pool.apply_async(multiprocess_augustus, args=(augustus_backward,(seq_file + '.backward.gff'),))
+  for slice_id in slice_ids:
+    pool.apply_async(multiprocess_augustus_id, args=(generic_augustus_cmd,slice_id,masked_genome_file,augustus_hints_file,augustus_genome_dir,))
 
   pool.close()
   pool.join()
 
 
-def multiprocess_augustus(cmd,output_file):
+def create_slice_ids(seq_region_lengths):
+  slice_size = 1000000
+  overlap = 100000
+  min_length = 5000
+  slice_ids = []
 
-  file_out = open(output_file,'w+')
-  print('Running Augustus with the following command:')
-  print(' '.join(cmd))
-  print('Output will be directed to:')
-  print(output_file)
-  subprocess.run(cmd, stdout=file_out)
-  file_out.close()
+  for region in seq_region_lengths:
+    region_length = seq_region_lengths[region]
+    if region_length < min_length:
+      continue
+
+    if region_length <= slice_size:
+      slice_ids.append([region,1,region_length])
+      continue
+
+    start = 1
+    end = start + slice_size - 1
+    while end < region_length:
+      start = start - overlap
+      if start < 1:
+        start = 1
+
+      end = start + slice_size - 1
+      if end > region_length:
+        end = region_length
+
+      if (end - start + 1) >= min_length:
+        slice_ids.append([region,start,end])
+
+      start = end + 1
+        
+  return slice_ids
+
+
+def generate_hints(bam2hints_path,bam2wig_path,wig2hints_path,augustus_hints_dir,star_dir,num_threads):
+
+  pool = multiprocessing.Pool(int(num_threads))
+  for bam_file in glob.glob(star_dir + "/*.bam"):
+    pool.apply_async(multiprocess_augustus_hints, args=(bam2hints_path,bam2wig_path,wig2hints_path,bam_file,augustus_hints_dir,))
+  pool.close()
+  pool.join()
+
+
+def multiprocess_augustus_hints(bam2hints_path,bam2wig_path,wig2hints_path,bam_file,augustus_hints_dir):
+  bam_file_name = os.path.basename(bam_file)
+  print("Processing " + bam_file_name + " for Augustus hints")
+
+  bam2hints_file_name = bam_file_name + '.hints.gff'
+  bam2hints_file_path = os.path.join(augustus_hints_dir,bam2hints_file_name)
+  bam2hints_cmd = [bam2hints_path,('--in=' + bam_file),('--out=' + bam2hints_file_path),'--maxintronlen=100000']
+  print("bam2hints command:\n" + ' '.join(bam2hints_cmd))
+  subprocess.run(bam2hints_cmd)
+
+  
+#  bam2wig_cmd = [bam2wig_path,'-D',augustus_hints_dir,bam_file]
+#  print("bam2wig command:\n" + ' '.join(bam2wig_cmd))
+#  subprocess.run(bam2wig_cmd)
+
+
+  # wig2hints is odd in that it runs directly off STDIN and then just prints to STDOUT,
+  # so the code below is implemented in steps as it's not good practice to use pipes and
+  # redirects in a subprocess command
+#  wig_file_name = re.sub('.bam','.wig',bam_file_name)
+#  wig_file_path = os.path.join(augustus_hints_dir,wig_file_name)
+#  wig_hints_file_name = (wig_file_name + '.hints.gff')
+#  wig_hints_file_path =  os.path.join(augustus_hints_dir,wig_hints_file_name)
+#  print("Writing wig file info to hints file:\n" + wig_hints_file_name)
+#  wig2hints_out = open(wig_hints_file_path,'w+')
+#  wigcat = subprocess.Popen(('cat',wig_file_path), stdout=subprocess.PIPE)
+#  subprocess.run(wig2hints_path, stdin=wigcat.stdout, stdout=wig2hints_out)
+#  wig2hints_out.close()
+
+
+def multiprocess_augustus_id(cmd,slice_id,genome_file,hints_file,output_dir):
+
+  region = slice_id[0]
+  start = slice_id[1]
+  end = slice_id[2]
+  seq = get_sequence(region,start,end,1,genome_file,output_dir)
+
+  region_fasta_file_name = region + ".rs" + str(start) + ".re" + str(end) + ".fa"
+  region_fasta_file_path = os.path.join(output_dir,region_fasta_file_name)
+  region_augustus_file_path = os.path.join(output_dir,(region_fasta_file_name + ".aug"))
+
+  region_fasta_out = open(region_fasta_file_path,'w+')
+  region_fasta_out.write(">" + region + "\n" + seq + "\n")  
+  region_fasta_out.close()
+
+  region_hints_file = create_slice_hints_file(region,start,end,hints_file,region_fasta_file_path)
+
+  aug_out = open(region_augustus_file_path,'w+')
+
+  cmd.append(('--hintsfile=' + region_hints_file))
+  augustus_forward = cmd.copy()
+  augustus_forward.append('--strand=forward')
+  augustus_forward.append(region_fasta_file_path)
+  subprocess.run(augustus_forward,stdout=aug_out)
+
+  augustus_backward = cmd.copy()
+  augustus_backward.append('--strand=backward')
+  augustus_backward.append(region_fasta_file_path)    
+  subprocess.run(augustus_backward,stdout=aug_out)
+
+  aug_out.close()
+
+
+def create_slice_hints_file(region,start,end,hints_file,region_fasta_file_path):
+
+  # Note this is trying to be memory and file efficient at the cost of speed
+  # So files are only created as needed and the hints are being read line by line as written as needed
+  # This comes with the downside of being slow, but it's only a very small amount of time relative
+  # to how slow the step is in total. Given that this step in general eats up a low of memory, saving as much
+  # as possible here is not a bad thing even if it's adding in an overhead by continuously reading the hints file
+
+  region_hints_file_path = region_fasta_file_path + ".gff"
+  hints_in = open(hints_file)
+  hints_out = open(region_hints_file_path,"w+")
+  hint_line = hints_in.readline()
+  while hint_line:
+    hint_line_values = hint_line.split("\t")
+    if not len(hint_line_values) == 9:
+      hint_line = hints_in.readline()
+      continue
+
+    hint_region = hint_line_values[0]
+    hint_region_start = int(hint_line_values[3])
+    hint_region_end = int(hint_line_values[4])    
+
+    if hint_region == region and hint_region_start >= start and hint_region_end <= end:
+      hint_line_values[3] = str(int(hint_line_values[3]) - (start - 1))
+      hint_line_values[4] = str(int(hint_line_values[4]) - (start - 1))
+      hints_out.write("\t".join(hint_line_values))
+  
+    hint_line = hints_in.readline()
+  hints_in.close()
+  hints_out.close()
+
+  return region_hints_file_path
 
 
 def run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,main_output_dir,genome_file,num_threads):
@@ -871,12 +1064,42 @@ def split_genome(genome_file,target_dir,min_seq_length):
   file_in.close()
 
 
-def run_finalise_geneset(work_dir,genome_file,seq_region_names,num_threads):
-  merged_gtf = os.path.join(work_dir,'annotation_to_finalise.gtf')
-  file_out = open(merged_gtf, 'w')  
-  annotation_dirs = ['genblast_output','stringtie_output','scallop_output']
+def get_seq_region_lengths(genome_file,min_seq_length):
+  current_header = ""
+  current_seq = ""
+
+  seq_regions = {}
+  file_in = open(genome_file)
+  line = file_in.readline()
+  while line:
+    match = re.search(r'>(.+)$',line)
+    if match and current_header:
+      if len(current_seq) > min_seq_length:
+        seq_regions[current_header] = len(current_seq)
+ 
+      current_seq = ""
+      current_header = match.group(1)
+    elif match:
+      current_header = match.group(1)
+    else:
+      current_seq += line.rstrip()
+
+    line = file_in.readline()
+
+  if len(current_seq) > min_seq_length:
+    seq_regions[current_header] = len(current_seq)
+
+  return seq_regions
+
+
+def run_finalise_geneset(main_output_dir,genome_file,seq_region_names,db_details,num_threads):
+  final_annotation_dir = create_dir(main_output_dir,'annotation')
+  db_connection = db_details.split(',')
+  merged_gtf = os.path.join(main_output_dir,'annotation_to_finalise.gtf')
+  file_out = open(merged_gtf, 'w')
+  annotation_dirs = ['genblast_output','stringtie_output','scallop_output','minimap2_output']
   for annotation_dir in annotation_dirs:
-    gtf_file = os.path.join(work_dir,annotation_dir,'annotation.gtf')
+    gtf_file = os.path.join(main_output_dir,annotation_dir,'annotation.gtf')
     if not os.path.exists(gtf_file):
       print("No annotation.gtf file found in " + annotation_dir + ", skipping")
       continue
@@ -891,30 +1114,61 @@ def run_finalise_geneset(work_dir,genome_file,seq_region_names,num_threads):
 
   pool = multiprocessing.Pool(int(num_threads))
   for seq_region_name in seq_region_names:
-    pool.apply_async(multiprocess_finalise_geneset, args=(seq_region_name,merged_gtf,))
+    pool.apply_async(multiprocess_finalise_geneset, args=(seq_region_name,merged_gtf,db_connection,final_annotation_dir,))
 
   pool.close()
   pool.join()
 
 
-def multiprocess_finalise_geneset(seq_region_name,merged_gtf):
+def multiprocess_finalise_geneset(seq_region_name,merged_gtf,db_connection,final_annotation_dir):
 
-  output_dbname = ""
-  output_server = "" 
-  output_port = ""
-  output_user = ""
-  output_pass = ""
+  output_dbname = db_connection[0]
+  output_server = db_connection[1]
+  output_port = db_connection[2]
+  output_user = db_connection[3]
+  output_pass = db_connection[4]
 
-  dna_dbname = ""
-  dna_server = ""
-  dna_port = ""
-  dna_user = ""
+  dna_dbname = db_connection[0]
+  dna_server = db_connection[1]
+  dna_port = db_connection[2]
+  dna_user = db_connection[5]
 
-  finalise_cmd = ['perl','/homes/fergal/enscode/ensembl-common/scripts/process_transcriptomic_gtf.pl','-dbname',output_dbname,'-host',output_server,'-user',output_user,'-port',output_port,'-pass',output_pass,'-dna_dbname',dna_dbname,'-dna_host',dna_server,'-dna_user',dna_user,'-dna_port',dna_port,'-gtf_file',merged_gtf,'-specify_seq_region_name',seq_region_name]
+  finalise_cmd = ['perl','/homes/fergal/enscode/ensembl-common/scripts/process_transcriptomic_gtf.pl','-dbname',output_dbname,'-host',output_server,'-user',output_user,'-port',output_port,'-pass',output_pass,'-dna_dbname',dna_dbname,'-dna_host',dna_server,'-dna_user',dna_user,'-dna_port',dna_port,'-gtf_file',merged_gtf,'-specify_seq_region_name',seq_region_name,'-output_path',final_annotation_dir]
 
   print('Finalising ' + seq_region_name)
   print(' '.join(finalise_cmd))
   subprocess.run(finalise_cmd)
+
+
+def get_sequence(seq_region,start,end,strand,fasta_file,output_dir):
+  start -= 1
+  bedtools_path = 'bedtools'
+
+  # This creates a tempfile and writes the bed info to it based on whatever information
+  # has been passed in about the sequence. Then runs bedtools getfasta. The fasta file
+  # should have a faidx. This can be created with the create_faidx static method prior
+  # to fetching sequence
+  with tempfile.NamedTemporaryFile(mode='w+t', delete=False, dir=output_dir) as bed_temp_file:
+    bed_temp_file.writelines(seq_region + "\t" + str(start) + "\t" + str(end))
+    bed_temp_file.close()
+
+  bedtools_command = [bedtools_path, 'getfasta','-fi', fasta_file,'-bed',bed_temp_file.name]
+  bedtools_output = subprocess.Popen(bedtools_command, stdout=subprocess.PIPE)
+  for idx,line in enumerate(io.TextIOWrapper(bedtools_output.stdout, encoding="utf-8")):
+    if idx == 1:
+      if strand == 1:
+        sequence = line.rstrip()
+      else:
+        sequence = reverse_complement(line.rstrip())
+
+  os.remove(bed_temp_file.name)
+  return sequence
+
+
+def reverse_complement(sequence):
+  rev_matrix = str.maketrans("atgcATGC", "tacgTACG")
+  return sequence.translate(rev_matrix)[::-1]
+
 
 
 def seq_region_names(genome_file):
@@ -1051,7 +1305,8 @@ if __name__ == '__main__':
   parser.add_argument('--subsample_script_path', help='Path to gbiab subsampling script', required=False)
   parser.add_argument('--samtools_path', help='Path to subsampling script', required=False)
   parser.add_argument('--finalise_geneset', help='Used to finalise the gene set from the various GTF files generated', required=False)
-
+  parser.add_argument('--db_details', help='A comma separated stinrg of dbname,host,port,user,pass', required=False)
+  parser.add_argument('--annotate', help='Run a generalised annotation, will automatically check for input data and run tools based on that', required=False)
   args = parser.parse_args()
 
   work_dir = args.output_dir
@@ -1086,6 +1341,8 @@ if __name__ == '__main__':
   subsample_script_path = args.subsample_script_path
   samtools_path = args.samtools_path
   finalise_geneset = args.finalise_geneset
+  db_details = args.db_details
+  annotate = args.annotate
 
   if not os.path.exists(genome_file):
     raise IOError('File does not exist: %s' % genome_file)
@@ -1103,10 +1360,21 @@ if __name__ == '__main__':
     print ("No thread count specified, so defaulting to 1. This might be slow")
     num_threads = 1
 
+  # If the annotate flag is set then we want to set a standardised set of analyses
+  # The flag is passed in to each method to indicate that it's okay if data aren't present as it is a generalised run
+  if annotate:
+    run_masking = 1
+    run_genblast = 1
+    run_star = 1
+    run_minimap2 = 1
+    run_stringtie = 1
+    run_scallop = 1
+    finalise_geneset = 1
+
   # Collect a list of seq region names, most useful for multiprocessing regions
-  seq_region_names = seq_region_names(genome_file)  
-  for i in seq_region_names:
-    print(i)
+#  seq_region_names = seq_region_names(genome_file)  
+#  for i in seq_region_names:
+#    print(i)
 
   # Run masking
   if run_masking:
@@ -1115,7 +1383,7 @@ if __name__ == '__main__':
     print ("Masked genome file: " + masked_genome_file)
 
   else:
-    print ("Not running masking a presuming the genome file is softmasked")
+    print ("Not running masking, presuming the genome file is softmasked")
 
   # Run GenBlast
   if run_genblast:
@@ -1135,7 +1403,7 @@ if __name__ == '__main__':
   # Run Augustus
   if run_augustus:
      print ("Running Augustus")
-     run_augustus_predict(augustus_path,work_dir,genome_file,num_threads)
+     run_augustus_predict(augustus_path,work_dir,masked_genome_file,num_threads)
 
   # Run Stringtie
   if run_stringtie:
@@ -1155,4 +1423,4 @@ if __name__ == '__main__':
   # Do some magic
   if finalise_geneset:
      print("Finalise geneset")
-     run_finalise_geneset(work_dir,genome_file,seq_region_names,num_threads)
+     run_finalise_geneset(work_dir,genome_file,seq_region_names,db_details,num_threads)
