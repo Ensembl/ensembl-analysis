@@ -24,7 +24,6 @@ use strict;
 use warnings;
 use File::Spec::Functions;
 
-use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 sub default_options {
