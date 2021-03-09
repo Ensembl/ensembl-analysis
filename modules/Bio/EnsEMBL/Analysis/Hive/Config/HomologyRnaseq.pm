@@ -168,17 +168,17 @@ sub pipeline_analyses {
 ###############################################################################
 
     {
-        -logic_name => 'create_genblast_rnaseq_support_db',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-        -parameters => {
-          source_db   => $self->o('dna_db'),
-          target_db   => $self->o('genblast_rnaseq_support_db'),
-          create_type => 'clone',
-        },
-        -rc_name    => 'default',
-        -flow_into  => {
-          '1-A' => ['create_genblast_rnaseq_slice_ids'],
-          'A->1' => ['create_genblast_rnaseq_nr_db'],
+      -logic_name => 'create_genblast_rnaseq_support_db',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+      -parameters => {
+        source_db   => $self->o('dna_db'),
+        target_db   => $self->o('genblast_rnaseq_support_db'),
+        create_type => 'clone',
+      },
+      -rc_name    => 'default',
+      -flow_into  => {
+        '1-A' => ['create_genblast_rnaseq_slice_ids'],
+        'A->1' => ['create_genblast_rnaseq_nr_db'],
       },
     },
 
