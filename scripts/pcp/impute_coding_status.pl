@@ -40,8 +40,8 @@ my $options = GetOptions ("user|dbuser|u=s"     => \$user,
                           "dbname|db|D=s"       => \$dbname,
                           "dbpass|pass|p=s"     => \$pass,
                           "cpc2=s"              => \$cpc2_file,
-                          "rnaSamba|rnas=s"     => \$rnasamba_file
-                          "coords=sub"          => \$coord_system);
+                          "rnaSamba|rnas=s"     => \$rnasamba_file,
+                          "coords:sub"          => \$coord_system);
 
 
 my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
