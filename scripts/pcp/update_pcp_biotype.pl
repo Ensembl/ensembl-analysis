@@ -15,14 +15,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Script to impute proteing coding status into pcp database
-# Reads in and validates rnasamaba and cpc2 output files and creates intersection
-# Uses this to update biotype (impute proteincodign stayus effectively)
+# Updates biotype in pcp db if BOTH protein coding prediction tools agree that
+# the gene is protein coding
 
 use strict;
 use warnings;
 use Getopt::Long qw(:config no_ignore_case);
 
+use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
 ## Some defaults
@@ -41,8 +41,7 @@ my $options = GetOptions ("user|dbuser|u=s"     => \$user,
                           "dbpass|pass|p=s"     => \$pass,
                           "cpc2=s"              => \$cpc2_file,
                           "rnaSamba|rnas=s"     => \$rnasamba_file,
-                          "coords:sub"          => \$coord_system);
-
+                          "coords:s"            => \$coord_system,);
 
 my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -port    => $port,
@@ -53,29 +52,31 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 
 my %cpc_results = parse_results($cpc2_file, 8);
 my %rnasamba_results = parse_results($rnasamba_file, 2);
-my @selected_genes = ();
+my %selected_genes;
 
 if (%cpc_results ne %rnasamba_results) {
-    die "Results files have different number of genes\n";
-} else {
-    my %compare = map { $_ => 1 } keys %cpc_results;
-    for my $key (keys %rnasamba_results) {
-        last unless exists $compare{$key};
-        delete $compare{$key};
-    }
-    if (%compare) {
-        die "Results files contain different genes\n";
-    } else {
+  throw("Results files have different number of genes\n");
+}
+else {
+  my %compare = map {$_ => 1} keys %cpc_results;
+  for my $key (keys %rnasamba_results) {
+    last unless exists $compare{$key};
+    delete $compare{$key};
+  }
+  if (%compare) {
+    throw("Results files contain different genes\n");
+  }
+  else {
         ## SUCCESS
         print "Same genes compared, nothing missing\n";
-    }
+  }
 }
 
 foreach my $key (keys %cpc_results) {
   ## Currently using AND to account for relative sensitivity  / specifity differences
   ## between the algorithms.
   if ($rnasamba_results{$key} eq 'coding' and $cpc_results{$key} eq 'coding') {
-      push(@selected_genes, $key);
+      $selected_genes{$key} = 1;
   }
 }
 
@@ -83,11 +84,11 @@ my $slice_adaptor = $db->get_SliceAdaptor();
 my $slices = $slice_adaptor->fetch_all('toplevel', undef, 1 );
 my $gene_adaptor = $db->get_GeneAdaptor();
 
-while ( my $slice = shift @{$slices} ) {
+while (my $slice = shift @{$slices}) {
   my $genes = $slice->get_all_Genes();
-  while ( my $gene = shift @{$genes} ) {
+  while (my $gene = shift @{$genes}) {
     my $check = $gene->dbID;
-    if ( grep( /^$check$/, @selected_genes ) ) {
+    if ($selected_genes{$check}) {
       my $current = $gene->biotype;
       $gene->biotype('pcp_protein_coding');
       $gene_adaptor->update($gene);
@@ -100,12 +101,13 @@ while ( my $slice = shift @{$slices} ) {
 sub parse_results {
   my ($in_file, $column_num) = @_;
   my %results;
-
-  open my $FILE, '<', $in_file or die $!;
+  if (!$in_file) {
+    throw("Input file is missing!\n");
+  }
+  open my $FILE, '<', $in_file;
   my $header = <$FILE>;
-  ## header check maybe?
 
-  while( <$FILE> ) {
+  while(<$FILE>) {
     chomp( my @row = split'\t', $_ );
     my @temp = split':', $row[0];
     $results{$temp[-1]} = $row[$column_num];
