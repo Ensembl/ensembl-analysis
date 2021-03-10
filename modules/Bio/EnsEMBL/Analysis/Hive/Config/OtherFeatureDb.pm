@@ -88,7 +88,7 @@ sub default_options {
     'production_db_server' => 'mysql-ens-meta-prod-1',
     'production_db_port'   => '4483',
 
-    databases_to_delete => [ 'cdna_db', 'refseq_db', 'otherfeatures_db' ],    #, 'projection_realign_db'
+    databases_to_delete => ['otherfeatures_db'],    #, 'projection_realign_db'
 
 ########################
     # BLAST db paths
