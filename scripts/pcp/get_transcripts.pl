@@ -15,6 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Dumps out gene models 
+
 use strict;
 use warnings;
 use Getopt::Long qw(:config no_ignore_case);
@@ -49,7 +51,7 @@ my $options = GetOptions ("user|dbuser|u=s"         => \$user,
                           "dna_dbname|dna_db|D=s"   => \$dna_dbname,
                           "dna_dbpass|dna_pass|p=s" => \$dna_pass,
 
-                          "coords=s"                => \$coord_system,);
+                          "coords:s"                => \$coord_system,);
 
 my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -port    => $port,
@@ -65,9 +67,7 @@ my $dna_db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -dbname  => $dna_dbname,
   -pass    => $dna_pass);
 
-if($dna_db) {
-  $db->dnadb($dna_db);
-}
+$db->dnadb($dna_db);
 
 my $slice_adaptor = $db->get_SliceAdaptor();
 my $slices = $slice_adaptor->fetch_all('toplevel', undef, 1 );
@@ -77,8 +77,11 @@ while ( my $slice = shift @{$slices} ) {
   my $genes = $slice->get_all_Genes();
   while ( my $gene = shift @{$genes} ) {
     my @transcripts = @{$gene->get_all_Transcripts};
+    if (!@transcripts) {
+      throw("No transcripts found in $dna_dbname\n");
+    }
     while ( my $transcript = shift @transcripts ) {
-      my $name =  ">". $transcript->seq_region_name . ":" . $transcript->seq_region_start . ":" . $transcript->seq_region_end . ":" . $transcript->biotype . ":" . $transcript->dbID;
+      my $name =  ">". $transcript->seq_region_name. ":" .$transcript->seq_region_start. ":" .$transcript->seq_region_end. ":" .$transcript->biotype. ":" .$transcript->dbID;
       print $name, "\n", $transcript->seq->seq, "\n";
     }
   }

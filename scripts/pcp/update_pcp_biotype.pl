@@ -55,7 +55,7 @@ my %rnasamba_results = parse_results($rnasamba_file, 2);
 my %selected_genes;
 
 if (%cpc_results ne %rnasamba_results) {
-  throw("Results files have different number of genes\n");
+  throw("Results files have different number of gene models\n");
 }
 else {
   my %compare = map {$_ => 1} keys %cpc_results;
@@ -64,11 +64,7 @@ else {
     delete $compare{$key};
   }
   if (%compare) {
-    throw("Results files contain different genes\n");
-  }
-  else {
-        ## SUCCESS
-        print "Same genes compared, nothing missing\n";
+    throw("Results files contain different gene models\n");
   }
 }
 
