@@ -76,9 +76,6 @@ sub default_options {
 ########################
 
     'projection_source_db_name'         => '',                                                                                 # This is generally a pre-existing db, like the current human/mouse core for example
-    'projection_source_db_server'       => 'mysql-ens-mirror-1',
-    'projection_source_db_port'         => '4240',
-    'projection_source_production_name' => '',
 
     'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . '_pipe_' . $self->o('release_number'),
     'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . '_core_' . $self->o('release_number'),
@@ -509,7 +506,6 @@ sub pipeline_analyses {
         min_allowed_feature_counts => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
           'gene_db_checks' )->{ $self->o('uniprot_set') }->{'core'},
       },
-
       -rc_name   => '4GB',
       -flow_into => {
         1 => ['core_healthchecks'],
