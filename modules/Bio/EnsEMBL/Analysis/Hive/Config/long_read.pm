@@ -1,5 +1,3 @@
-#!/usr/bin/env perl
-
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
@@ -75,9 +73,6 @@ sub default_options {
     ########################
     'long_read_initial_db_server' => $self->o('databases_server'),
     'long_read_initial_db_port'   => $self->o('databases_port'),
-
-    'long_read_blast_db_server' => $self->o('databases_server'),
-    'long_read_blast_db_port'   => $self->o('databases_port'),
 
     'long_read_collapse_db_server' => $self->o('databases_server'),
     'long_read_collapse_db_port'   => $self->o('databases_port'),
@@ -166,17 +161,6 @@ sub default_options {
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
     },
-
-    # TODO
-    # Delete or uncomment, referenced in commented out analyses of this pipeline.
-    # long_read_blast_db => {
-    #   -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrblast_' . $self->o('release_number'),
-    #   -host   => $self->o('long_read_blast_db_server'),
-    #   -port   => $self->o('long_read_blast_db_port'),
-    #   -user   => $self->o('user'),
-    #   -pass   => $self->o('password'),
-    #   -driver => $self->o('hive_driver'),
-    # },
 
     long_read_final_db => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrfinal_' . $self->o('release_number'),
@@ -376,23 +360,6 @@ sub pipeline_analyses {
         }
     },
 
-    # TODO
-    # Added the following analysis for completeness. Should it be deleted or edited and brought back to the pipeline?
-    # {
-    #   -logic_name => 'create_long_read_blast_db',
-    #   -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-    #   -parameters => {
-    #     source_db   => $self->o('dna_db'),
-    #     target_db   => $self->o('long_read_blast_db'),
-    #     create_type => 'clone',
-    #   },
-    #   -rc_name         => 'default',
-    #   -max_retry_count => 0,
-    #   -flow_into       => {
-    #     1 => ['generate_collapse_jobs'],
-    #     }
-    # },
-
     {
       -logic_name => 'generate_collapse_jobs',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
@@ -466,7 +433,6 @@ sub pipeline_analyses {
       -rc_name   => 'blast',
       -flow_into => {
         -1 => ['blast_long_read_10G'],
-        # 1 => ['intron_check'],
       },
     },
 
@@ -486,39 +452,7 @@ sub pipeline_analyses {
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40 -seg no',
       },
       -rc_name => 'blast10GB',
-      # -flow_into => {
-      #   1 => ['intron_check'],
-      # },
     },
-
-    # TODO
-    # Added the following two analyses for completeness. Should they be deleted or edited and brought back to the pipeline?
-    # {
-    #   -logic_name => 'intron_check',
-    #   -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
-    #   -parameters => {
-    #     source_db => $self->o('long_read_blast_db'),
-    #     target_db => $self->o('long_read_final_db'),
-    #     intron_db => $self->o('rnaseq_refine_db'),
-    #     dna_db    => $self->o('dna_db'),
-    #   },
-    #   -rc_name   => '2GB',
-    #   -flow_into => {
-    #     1 => ['intron_check_10GB'],
-    #   },
-    # },
-
-    # {
-    #   -logic_name => 'intron_check_10GB',
-    #   -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck',
-    #   -parameters => {
-    #     source_db => $self->o('long_read_blast_db'),
-    #     target_db => $self->o('long_read_final_db'),
-    #     intron_db => $self->o('rnaseq_refine_db'),
-    #     dna_db    => $self->o('dna_db'),
-    #   },
-    #   -rc_name => '10GB',
-    # },
 
     {
       -logic_name => 'collapse_transcripts_20GB',
