@@ -61,7 +61,6 @@ sub default_options {
     'species_name'    => '',                                                                                                          # e.g. mus_musculus
     'production_name' => '',                                                                                                          # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'output_path'     => '',                                                                                                          # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
-    'skip_long_read'  => '0',                                                                                                         # Will skip long read analyses if 1
     'uniprot_version' => 'uniprot_2019_04',                                                                                           # What UniProt data dir to use for various analyses
 
     # Keys for custom loading, only set/modify if that's what you're doing
