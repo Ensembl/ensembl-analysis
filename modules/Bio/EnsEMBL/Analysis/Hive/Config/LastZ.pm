@@ -322,7 +322,6 @@ sub pipeline_analyses {
         'get_species_list' => 1,
         'core_dbs'         => undef,
       },
-
       -rc_name   => '2GB_lastz',
       -flow_into => {
         1 => { 'populate_new_database' => { 'mlss_id' => '#mlss_id#', 'reg_conf' => '#reg_conf#' } },
