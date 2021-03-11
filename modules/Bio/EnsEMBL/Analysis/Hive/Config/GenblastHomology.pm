@@ -140,8 +140,8 @@ sub default_options {
 
     'genblast_nr_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_genblast_nr_' . $self->o('release_number'),
-      -host   => $self->o('genblast_db_server'),
-      -port   => $self->o('genblast_db_port'),
+      -host   => $self->o('genblast_nr_db_server'),
+      -port   => $self->o('genblast_nr_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
