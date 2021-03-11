@@ -5755,7 +5755,7 @@ sub pipeline_analyses {
 	      -rc_name => '1GB',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                          cmd => 'perl ' . catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'pcp', 'impute_coding_status.pl') .
+                          cmd => 'perl ' . catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'pcp', 'update_pcp_biotype.pl') .
 			                    ' -user ' . $self->o('user') .
                           ' -pass ' . $self->o('password') .
                           ' -dbname  ' . $self->o('pcp_name') .
