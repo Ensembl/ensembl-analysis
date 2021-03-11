@@ -308,7 +308,6 @@ sub pipeline_analyses {
         compara_db_url                => 'mysql://' . $self->o('user') . ':' . $self->o('password') . '@' . $self->o('compara_db_server') . ':' . $self->o('compara_db_port') . '/' . $self->o('compara_db_name'),
         registry_file                 => $self->o('registry_file'),
       },
-
       -rc_name   => '2GB_lastz',
       -flow_into => {
         1 => { 'get_species_list' => { 'mlss_id' => '#mlss_id#', 'reg_conf' => '#reg_conf#' } },
