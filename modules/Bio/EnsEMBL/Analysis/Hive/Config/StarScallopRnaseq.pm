@@ -55,9 +55,6 @@ sub default_options {
     'pipe_db_port'              => '',                                                                                # port for pipeline host
     'databases_port'            => '',                                                                                # port for general output db host
     'dna_db_port'               => '',                                                                                # port for dna db host
-    'registry_host'             => '',                                                                                # host for registry db
-    'registry_port'             => '',                                                                                # port for registry db
-    'registry_db'               => '',                                                                                # name for registry db
     'rnaseq_summary_file'       => '' || catfile( $self->o('rnaseq_dir'), $self->o('species_name') . '.csv' ),        # Set this if you have a pre-existing cvs file with the expected columns
     'rnaseq_summary_file_genus' => '' || catfile( $self->o('rnaseq_dir'), $self->o('species_name') . '_gen.csv' ),    # Set this if you have a pre-existing genus level cvs file with the expected columns
     'release_number' => '' || $self->o('ensembl_release'),
