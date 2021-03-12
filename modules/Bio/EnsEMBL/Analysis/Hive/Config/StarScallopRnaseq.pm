@@ -743,21 +743,4 @@ sub resource_classes {
     }
 }
 
-sub hive_capacity_classes {
-  my $self = shift;
-
-  return {
-    'hc_very_low' => 35,
-    'hc_low'      => 200,
-    'hc_medium'   => 500,
-    'hc_high'     => 1000,
-  };
-}
-
-sub check_file_in_ensembl {
-  my ( $self, $file_path ) = @_;
-  push @{ $self->{'_ensembl_file_paths'} }, $file_path;
-  return $self->o('enscode_root_dir') . '/' . $file_path;
-}
-
 1;
