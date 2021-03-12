@@ -25,7 +25,6 @@ use File::Spec::Functions;
 
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
-use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 sub default_options {
@@ -71,8 +70,8 @@ sub default_options {
     'cdna_db_server' => $self->o('databases_server'),
     'cdna_db_port'   => $self->o('databases_port'),
 
-    'genblast_db_server' => $self->o('databases_server'),
-    'genblast_db_port'   => $self->o('databases_port'),
+    'genblast_nr_db_server' => $self->o('databases_server'),
+    'genblast_nr_db_port'   => $self->o('databases_port'),
 
     'genblast_rnaseq_support_db_server' => $self->o('databases_server'),
     'genblast_rnaseq_support_db_port'   => $self->o('databases_port'),
@@ -80,8 +79,8 @@ sub default_options {
     'ig_tr_db_server' => $self->o('databases_server'),
     'ig_tr_db_port'   => $self->o('databases_port'),
 
-    'genewise_db_server' => $self->o('databases_server'),
-    'genewise_db_port'   => $self->o('databases_port'),
+    'best_targeted_db_server' => $self->o('databases_server'),
+    'best_targeted_db_port'   => $self->o('databases_port'),
 
     'selected_projection_db_server' => $self->o('databases_server'),
     'selected_projection_db_port'   => $self->o('databases_port'),
@@ -91,6 +90,9 @@ sub default_options {
 
     'rnaseq_for_layer_db_server' => $self->o('databases_server'),
     'rnaseq_for_layer_db_port'   => $self->o('databases_port'),
+
+    'rnaseq_for_layer_nr_db_server' => $self->o('databases_server'),
+    'rnaseq_for_layer_nr_db_port'   => $self->o('databases_port'),
 
     # Layering is one of the most intesnive steps, so separating it off the main output server helps
     # Have also set module to use flatfile seq retrieval, so even if it's on the same server as the
@@ -205,19 +207,10 @@ sub default_options {
       -driver => $self->o('hive_driver'),
     },
 
-    'genblast_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_genblast_' . $self->o('release_number'),
-      -host   => $self->o('genblast_db_server'),
-      -port   => $self->o('genblast_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
-      -driver => $self->o('hive_driver'),
-    },
-
     'genblast_nr_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_nr_'.$self->o('release_number'),
-      -host   => $self->o('genblast_db_server'),
-      -port   => $self->o('genblast_db_port'),
+      -host   => $self->o('genblast_nr_db_server'),
+      -port   => $self->o('genblast_nr_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -243,8 +236,8 @@ sub default_options {
 
     'best_targeted_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_bt_'.$self->o('release_number'),
-      -host   => $self->o('genewise_db_server'),
-      -port   => $self->o('genewise_db_port'),
+      -host   => $self->o('best_targeted_db_server'),
+      -port   => $self->o('best_targeted_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -279,8 +272,8 @@ sub default_options {
 
     'rnaseq_for_layer_nr_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnalayer_nr_'.$self->o('release_number'),
-      -host   => $self->o('rnaseq_for_layer_db_server'),
-      -port   => $self->o('rnaseq_for_layer_db_port'),
+      -host   => $self->o('rnaseq_for_layer_nr_db_server'),
+      -port   => $self->o('rnaseq_for_layer_nr_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -433,7 +426,7 @@ sub pipeline_analyses {
         # These options will create only slices that have a gene on the slice in one of the feature dbs
         feature_constraint => 1,
         feature_type       => 'gene',
-        feature_dbs        => [ $self->o('genblast_db'), $self->o('selected_projection_db'), $self->o('rnaseq_for_layer_db') ],
+        feature_dbs        => [ $self->o('genblast_nr_db'), $self->o('selected_projection_db'), $self->o('rnaseq_for_layer_db') ],
       },
       -flow_into => {
         '2' => ['split_slices_on_intergenic'],
