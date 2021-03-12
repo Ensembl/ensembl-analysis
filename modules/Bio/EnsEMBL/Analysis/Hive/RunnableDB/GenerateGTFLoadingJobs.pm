@@ -60,7 +60,6 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     transcripts_per_batch => 5000,
-    _branch_to_flow_to => 2,
   }
 }
 
@@ -102,7 +101,7 @@ sub fetch_input {
  Arg [1]    : None
  Description: Run will go through the gtf files, count the genes and then make batches
  Returntype : None
- Exceptions : None
+ Exceptions : Throws if no output has been created has no files would have been find
 
 =cut
 
@@ -123,14 +122,13 @@ sub run {
     $self->throw("No output ids created. Something went wrong");
   }
   $self->dataflow_output_id(\@output_ids, 2);
-  #$self->output($output_ids);
 }
 
 
 =head2 write_output
 
  Arg [1]    : None
- Description: Writes the output ids on branch 2
+ Description: Writes the output ids on branch '_branch_to_flow_to' usually 2
  Returntype : None
  Exceptions : None
 
@@ -145,6 +143,16 @@ sub write_output {
   }
 }
 
+
+=head2 process_gtf_file
+
+ Arg [1]    : String, path to the GTF file
+ Description: Count the number of transcripts in the file and create a data structure to
+              store the file path and the range to process
+ Returntype : Arrayref of array, the array has three elements, filename, start, end
+ Exceptions : Throws if the number of transcrits is 0
+
+=cut
 
 sub process_gtf_file {
   my ($self,$gtf_file) = @_;
