@@ -278,7 +278,6 @@ sub pipeline_wide_parameters {
 
   return {
     %{ $self->SUPER::pipeline_wide_parameters },
-    wide_ensembl_release => $self->o('ensembl_release'),
     genome_file          => $self->o('faidx_genome_file'),
     }
 }
