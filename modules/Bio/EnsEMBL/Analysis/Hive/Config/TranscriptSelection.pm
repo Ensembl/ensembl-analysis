@@ -54,19 +54,11 @@ sub default_options {
     'pipe_db_port'              => '',                                                          # port for pipeline host
     'databases_port'            => '',                                                          # port for general output db host
     'dna_db_port'               => '',                                                          # port for dna db host
-    'registry_host'             => '',                                                          # host for registry db
-    'registry_port'             => '',                                                          # port for registry db
-    'registry_db'               => '',                                                          # name for registry db
-    'repbase_logic_name'        => '',                                                          # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '',                                                          # e.g. mus_musculus
     'production_name'           => '',                                                          # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'uniprot_set'               => '',                                                          # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'               => '',                                                          # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
-    'assembly_name'             => '',                                                          # Name (as it appears in the assembly report file)
-    'assembly_accession'        => '',                                                          # Versioned GCA assembly accession, e.g. GCA_001857705.1
-    'assembly_refseq_accession' => '',                                                          # Versioned GCF accession, e.g. GCF_001857705.1
-    'registry_file'             => '' || catfile( $self->o('output_path'), "Databases.pm" ),    # Path to databse registry for LastaZ and Production sync
     'use_genome_flatfile'       => '1',                                                         # This will read sequence where possible from a dumped flatfile instead of the core db
     'skip_projection'           => '0',                                                         # Will skip projection process if 1
     'skip_rnaseq'               => '0',                                                         # Will skip rnaseq analyses if 1
@@ -76,19 +68,23 @@ sub default_options {
 # Pipe and ref db info
 ########################
 
-    'projection_source_db_name'         => '',                                                  # This is generally a pre-existing db, like the current human/mouse core for example
-    'projection_source_db_server'       => 'mysql-ens-mirror-1',
-    'projection_source_db_port'         => '4240',
-    'projection_source_production_name' => '',
-
     'cdna_db_server' => $self->o('databases_server'),
     'cdna_db_port'   => $self->o('databases_port'),
 
     'genblast_db_server' => $self->o('databases_server'),
     'genblast_db_port'   => $self->o('databases_port'),
 
-    'projection_db_server' => $self->o('databases_server'),
-    'projection_db_port'   => $self->o('databases_port'),
+    'genblast_rnaseq_support_db_server' => $self->o('databases_server'),
+    'genblast_rnaseq_support_db_port'   => $self->o('databases_port'),
+
+    'ig_tr_db_server' => $self->o('databases_server'),
+    'ig_tr_db_port'   => $self->o('databases_port'),
+
+    'genewise_db_server' => $self->o('databases_server'),
+    'genewise_db_port'   => $self->o('databases_port'),
+
+    'selected_projection_db_server' => $self->o('databases_server'),
+    'selected_projection_db_port'   => $self->o('databases_port'),
 
     'long_read_final_db_server' => $self->o('databases_server'),
     'long_read_final_db_port'   => $self->o('databases_port'),
@@ -123,7 +119,7 @@ sub default_options {
     'production_db_server' => 'mysql-ens-meta-prod-1',
     'production_db_port'   => '4483',
 
-    databases_to_delete => [ 'cdna_db', 'genblast_db', 'selected_projection_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db' ],    #, 'projection_realign_db'
+    databases_to_delete => ['layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'final_geneset_db'],    #, 'projection_realign_db'
 
 ######################################################
 #
@@ -136,7 +132,12 @@ sub default_options {
     faidx_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_toplevel.fa' ),
 
     'layering_input_gene_dbs' => [
+      $self->o('genblast_nr_db'),
+      $self->o('genblast_rnaseq_support_nr_db'),
+      $self->o('rnaseq_for_layer_nr_db'),
       $self->o('selected_projection_db'),
+      $self->o('ig_tr_db'),
+      $self->o('best_targeted_db'),
       $self->o('long_read_final_db'),
     ],
 
@@ -213,6 +214,42 @@ sub default_options {
       -driver => $self->o('hive_driver'),
     },
 
+    'genblast_nr_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_nr_'.$self->o('release_number'),
+      -host   => $self->o('genblast_db_server'),
+      -port   => $self->o('genblast_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    'genblast_rnaseq_support_nr_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_gb_rnaseq_nr_'.$self->o('release_number'),
+      -host   => $self->o('genblast_rnaseq_support_db_server'),
+      -port   => $self->o('genblast_rnaseq_support_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    'ig_tr_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_igtr_'.$self->o('release_number'),
+      -host   => $self->o('ig_tr_db_server'),
+      -port   => $self->o('ig_tr_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    'best_targeted_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_bt_'.$self->o('release_number'),
+      -host   => $self->o('genewise_db_server'),
+      -port   => $self->o('genewise_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
     long_read_final_db => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrfinal_' . $self->o('release_number'),
       -host   => $self->o('long_read_final_db_server'),
@@ -224,8 +261,8 @@ sub default_options {
 
     'selected_projection_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_sel_proj_' . $self->o('release_number'),
-      -host   => $self->o('projection_db_server'),
-      -port   => $self->o('projection_db_port'),
+      -host   => $self->o('selected_projection_db_server'),
+      -port   => $self->o('selected_projection_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -233,6 +270,15 @@ sub default_options {
 
     'rnaseq_for_layer_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_rnalayer_nr_' . $self->o('release_number'),
+      -host   => $self->o('rnaseq_for_layer_db_server'),
+      -port   => $self->o('rnaseq_for_layer_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    'rnaseq_for_layer_nr_db' => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnalayer_nr_'.$self->o('release_number'),
       -host   => $self->o('rnaseq_for_layer_db_server'),
       -port   => $self->o('rnaseq_for_layer_db_port'),
       -user   => $self->o('user'),
@@ -302,8 +348,6 @@ sub pipeline_create_commands {
   return [
     # inheriting database and hive tables' creation
     @{ $self->SUPER::pipeline_create_commands },
-
-    'mkdir -p ' . $self->o('genome_dumps'),
   ];
 }
 
@@ -324,6 +368,7 @@ sub pipeline_analyses {
   my ($self) = @_;
   my %commandline_params = (
     'ncbi' => '-num_threads 3 -window_size 40',
+    'wu' => '-cpus 3 -hitdist 40',
   );
 
   return [
@@ -460,7 +505,6 @@ sub pipeline_analyses {
       -flow_into     => {
         -1 => ['run_utr_addition_10GB'],
       },
-
     },
 
     {
