@@ -488,6 +488,13 @@ sub pipeline_analyses {
   ];
 }
 
+sub hive_capacity_classes {
+  my $self = shift;
+  return {
+    'hc_high'   => 1000,
+  };
+}
+
 sub resource_classes {
   my $self = shift;
   return {
