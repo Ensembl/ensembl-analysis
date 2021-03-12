@@ -64,7 +64,6 @@ sub default_options {
     'uniprot_set'         => '',                                                                                      # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'         => '',                                                                                      # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'assembly_name'       => '',                                                                                      # Name (as it appears in the assembly report file)
-    'registry_file'       => '' || catfile( $self->o('output_path'), "Databases.pm" ),                                # Path to databse registry for LastaZ and Production sync
     'use_genome_flatfile' => '1',                                                                                     # This will read sequence where possible from a dumped flatfile instead of the core db
     'skip_rnaseq'         => '0',                                                                                     # Will skip rnaseq analyses if 1
     'uniprot_version'     => 'uniprot_2019_04',                                                                       # What UniProt data dir to use for various analyses
