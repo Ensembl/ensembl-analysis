@@ -1,18 +1,19 @@
 =head1 LICENSE
 
- Copyright [2020] EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016-2021] EMBL-European Bioinformatics Institute
 
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-      http://www.apache.org/licenses/LICENSE-2.0
+     http://www.apache.org/licenses/LICENSE-2.0
 
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 =head1 NAME
 
@@ -49,33 +50,37 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::LoadGTFBasic;
 
 use warnings;
 use strict;
-use feature 'say';
 use File::Basename;
+
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::Exon;
-use Bio::EnsEMBL::DBEntry;
 use Bio::EnsEMBL::Transcript;
-use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis;
-use Bio::EnsEMBL::Translation;
-use Bio::EnsEMBL::DnaDnaAlignFeature;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(contains_internal_stops compute_translation);
 
-use Data::Dumper;
-
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters
+                loading_type => 'range',
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
 
 sub param_defaults {
   my ($self) = @_;
 
   return {
     %{$self->SUPER::param_defaults},
-    loading_type => 'file',
+    loading_type => 'range',
   }
 }
 
@@ -88,6 +93,9 @@ sub param_defaults {
               range based loading
  Returntype : None
  Exceptions : Throws if it doesn't find input files
+              Throws if 'use_genome_flatfile' is set and no 'genome_file' exists
+              Throws if there is no transcripts to work on
+              Throws if 'loading_type' is set to an unsupported type
 
 =cut
 
@@ -126,22 +134,18 @@ sub fetch_input {
       $self->throw("Loaded no transcripts. This module expects either an iid with an arrayref of gtf files or an iid with a filename and a start and end index");
     }
     $self->param('proto_transcripts',$proto_transcripts);
-  } elsif($loading_type eq 'file') {
-   #push(@$initial_transcripts,$self->load_full_gtf());
   } else {
     $self->throw("Unrecognised loading type selected. Refer to module for existing loading types");
   }
-
-
 }
 
 
 =head2 run
 
  Arg [1]    : None
- Description: Run will go through the gtf files, count the genes and then make batches
+ Description: Run will go through the gtf files and create all objects to be stored in the database
  Returntype : None
- Exceptions : None
+ Exceptions : Throws if no object has been generated
 
 =cut
 
@@ -167,7 +171,7 @@ sub run {
 =head2 write_output
 
  Arg [1]    : None
- Description: Writes the output ids on branch 2
+ Description: Store the genes in the 'target_db' database
  Returntype : None
  Exceptions : None
 
@@ -180,12 +184,26 @@ sub write_output {
   my $gene_adaptor = $target_dba->get_GeneAdaptor();
 
   my $genes = $self->output();
-  say "Total genes to output: ".scalar(@$genes);
+  $self->say_with_header("Total genes to output: ".scalar(@$genes));
   foreach my $gene (@$genes) {
     $gene_adaptor->store($gene);
   }
 }
 
+
+=head2 load_range
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::SliceAdaptor
+ Description: Process the tanscript and exon lines to create gene models
+ Returntype : Arrayref of String, the lines corresponding to exons
+              It also store a hash of Bio::EnsEMBL::Slice representing the sequences
+ Exceptions : Throws if 'gtf_array' is not populated
+              Throws if the file provided in 'gtf_array' does not exist
+              Throws if the start index provided by 'gtf_array' is negative
+              Throws if it fails opening the GTF file
+              Throws if it fails cloing the GTF file
+
+=cut
 
 sub load_range {
   my ($self,$slice_adaptor) = @_;
@@ -199,7 +217,7 @@ sub load_range {
   }
 
   my ($file,$start_index,$end_index) = @{$input_id};
-  say "Loading the following range: [".$start_index.",".$end_index."], ".$file;
+  $self->say_with_header("Loading the following range: [".$start_index.",".$end_index."], ".$file);
   unless(-e $file) {
     $self->throw("The GTF file specified in the input id does not exist. Path specified:\n".$file);
   }
@@ -220,7 +238,7 @@ sub load_range {
   my $proto_exons = [];
   my $current_index = 0;
   my $first_transcript = 1;
-  open(IN,$file);
+  open(IN, $file) or $self->throw("Could not open $file");
   while(<IN>) {
     my $line = $_;
 
@@ -261,20 +279,25 @@ sub load_range {
       }
     }
   } # End while
-  close IN;
+  close(IN) or $self->throw("Could not close $file");
 
   if(scalar(@$proto_exons)) {
     push(@$proto_transcripts,$proto_exons);
-  }
-
-  foreach my $proto_transcript (@$proto_transcripts) {
-    say "FERGAL DUMPER PT1: ".Dumper($proto_transcript);
   }
 
   $self->param('slice_hash',$slice_hash);
   return($proto_transcripts);
 }
 
+
+=head2 build_gene
+
+ Arg [1]    : Array of String, exon GTF lines
+ Description: Create the gene, transcript and translation based on the exon lines
+ Returntype : Bio::EnsEMBL::Gene
+ Exceptions : None
+
+=cut
 
 sub build_gene {
   my ($self,$proto_transcript) = @_;
@@ -321,9 +344,6 @@ sub build_gene {
     my $gene_id = $attributes->{'gene_id'};
     my $transcript_id = $attributes->{'transcript_id'};
 
-    my $exon_number = $attributes->{'exon_number'};
-    $exon_number--;
-
     my $exon = Bio::EnsEMBL::Exon->new(
                                       -START     => $start,
                                       -END       => $end,
@@ -331,7 +351,7 @@ sub build_gene {
                                       -SLICE     => $slice_hash->{$seq_region_name},
                                       -PHASE     => -1,
                                       -END_PHASE => -1);
-    $$exons[$exon_number] = $exon;
+    push(@$exons, $exon);
   } # End foreach my $proto_exon
 
   if($strand == 1) {
@@ -351,7 +371,7 @@ sub build_gene {
   $transcript->source($source_name);
   $transcript->analysis($analysis);
   compute_translation($transcript);
-  say "Created transcript ".$transcript_id." with ".scalar(@$exons)." exons";
+  $self->say_with_header("Created transcript ".$transcript_id." with ".scalar(@$exons)." exons");
 
 
   # This is a bit redundant but will do for now
@@ -400,6 +420,16 @@ sub build_gene {
   return($gene);
 }
 
+
+=head2 set_attributes
+
+ Arg [1]    : String, the attribute column of a GTF file
+ Description: Split the attribute column into a dictionnary of key for the attribute
+              name and its value
+ Returntype : Hashref, key is the atribute, value is the value of the attribute
+ Exceptions : None
+
+=cut
 
 sub set_attributes {
   my ($self,$attribute_string) = @_;
