@@ -95,7 +95,7 @@ sub default_options {
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release' => $ENV{ENSEMBL_RELEASE},    # this is the current release version on staging to be able to get the correct database
 
-    databases_to_delete => ['reference_db'],
+    databases_to_delete => ['star_rnaseq_for_layer_db','star_rnaseq_for_layer_nr_db','scallop_initial_db','scallop_blast_db'],
 
 ########################
 # BLAST db paths
