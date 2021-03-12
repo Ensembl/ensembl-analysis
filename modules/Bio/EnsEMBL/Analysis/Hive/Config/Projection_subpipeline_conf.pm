@@ -44,13 +44,17 @@ sub default_options {
 ########################
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name'             => '' || $self->o('production_name').'_'.$self->o('ensembl_release'),
+    'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    'release_number'            => '' || $self->o('ensembl_release'),
     'user_r'                    => '', # read only db user
     'user'                      => '', # write db user
     'password'                  => '', # password for write db user
     'pipe_db_server'            => '', # host for pipe db
     'dna_db_server'             => '', # host for dna db
+    'databases_server'          => '', # host for general output dbs
     'pipe_db_port'              => '', # port for pipeline host
     'dna_db_port'               => '', # port for dna db host
+    'databases_port'            => '', # port for general output db host
     'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
@@ -72,11 +76,12 @@ sub default_options {
     # The following might not be known in advance, since the come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
     # If they are not needed (i.e. no projection or rnaseq) then leave them as is
+    'pipe_db_name'  => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
+
     'projection_lastz_db_name'     => $self->o('pipe_db_name'),
     'projection_lastz_db_server'   => $self->o('pipe_db_server'),
     'projection_lastz_db_port'     => $self->o('pipe_db_port'),
 
-    'pipe_db_name'  => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
     'dna_db_name'   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
 
     'projection_db_server'  => $self->o('databases_server'),
@@ -99,6 +104,7 @@ sub default_options {
 
     'min_toplevel_slice_length'   => 250,
 
+    ensembl_analysis_script           => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     flag_potential_pseudogenes_script => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'flag_potential_pseudogenes.pl'),
 
 ########################
@@ -491,7 +497,7 @@ sub pipeline_analyses {
 sub hive_capacity_classes {
   my $self = shift;
   return {
-    'hc_high'   => 1000,
+    'hc_high' => 1000,
   };
 }
 
