@@ -319,7 +319,6 @@ sub pipeline_analyses {
       -rc_name    => '1GB',
       -parameters => {
         cmd => 'EXIT_CODE=0; for F in ' . join( ' ',
-          $self->o('bwa_path'),
           $self->o('uniprot_blast_exe_path')
           ) . '; do which "$F"; if [ "$?" == 1 ]; then EXIT_CODE=1;fi; done; '
           . 'if [ $EXIT_CODE -eq 1 ];then exit $EXIT_CODE;fi; '
