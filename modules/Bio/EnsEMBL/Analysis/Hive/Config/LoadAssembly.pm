@@ -94,6 +94,11 @@ sub default_options {
     ensembl_release      => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
     production_db_server => 'mysql-ens-meta-prod-1',
     production_db_port   => '4483',
+    production_db_name   => 'ensembl_production',
+
+    taxonomy_db_server => $self->o('production_db_server'),
+    taxonomy_db_port   => $self->o('production_db_port'),
+    taxonomy_db_name   => 'ncbi_taxonomy',
 
     projection_source_db_name => '', # This is generally a pre-existing db, like the current human/mouse core for example
 
@@ -164,16 +169,16 @@ sub default_options {
       -port   => $self->o('production_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
-      -dbname => 'ensembl_production',
+      -dbname => $self->o('production_db_name'),
       -driver => $self->o('hive_driver'),
     },
 
     taxonomy_db => {
-      -host   => $self->o('production_db_server'),
-      -port   => $self->o('production_db_port'),
+      -host   => $self->o('taxonomy_db_server'),
+      -port   => $self->o('taxonomy_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
-      -dbname => 'ncbi_taxonomy',
+      -dbname => $self->o('taxonomy_db_name'),
       -driver => $self->o('hive_driver'),
     },
   };
@@ -231,7 +236,7 @@ sub pipeline_analyses {
       -rc_name    => 'default',
       -flow_into  => {
         1 => WHEN ('#load_toplevel_only# == 1' => ['process_assembly_info'],
-            '#load_toplevel_only# == 2' => ['custom_load_toplevel'],
+              '#load_toplevel_only# == 2' => ['custom_load_toplevel'],
             ELSE ['download_assembly_info']),
       },
     },
