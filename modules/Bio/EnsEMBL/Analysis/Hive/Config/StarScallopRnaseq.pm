@@ -86,6 +86,9 @@ sub default_options {
     'star_rnaseq_for_layer_db_server' => $self->o('databases_server'),
     'star_rnaseq_for_layer_db_port'   => $self->o('databases_port'),
 
+    'star_rnaseq_for_layer_nr_db_server' => $self->o('databases_server'),
+    'star_rnaseq_for_layer_nr_db_port'   => $self->o('databases_port'),
+
     'scallop_initial_db_server' => $self->o('databases_server'),
     'scallop_initial_db_port'   => $self->o('databases_port'),
 
@@ -202,8 +205,8 @@ sub default_options {
 
     'star_rnaseq_for_layer_nr_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_star_rs_layer_nr_' . $self->o('release_number'),
-      -host   => $self->o('star_rnaseq_for_layer_db_server'),
-      -port   => $self->o('star_rnaseq_for_layer_db_port'),
+      -host   => $self->o('star_rnaseq_for_layer_nr_db_server'),
+      -port   => $self->o('star_rnaseq_for_layer_nr_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
