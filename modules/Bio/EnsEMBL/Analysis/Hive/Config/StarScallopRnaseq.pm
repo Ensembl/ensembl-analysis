@@ -309,19 +309,6 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        1 => ['fan_star_rnaseq_for_layer_db'],
-      },
-    },
-
-    {
-      -logic_name => 'fan_star_rnaseq_for_layer_db',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'if [ "#skip_rnaseq#" -ne "0" ]; then exit 42; else exit 0;fi',
-        return_codes_2_branches => { '42' => 2 },
-      },
-      -rc_name   => 'default',
-      -flow_into => {
         1 => ['checking_file_path'],
       },
     },
