@@ -1,7 +1,7 @@
 =head1 LICENSE
  
-
-Copyright [2019-2020] EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016-2021] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,10 +29,21 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateStarJobs;
 
 use strict;
 use warnings;
-use feature 'say';
 use File::Spec::Functions;
-use Data::Dumper;
+
 use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
+
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters
+                'compression_ratio' => 3,
+                'target_batch_size' => 10000000000,
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
 
 sub param_defaults {
   my $self = shift;
@@ -49,7 +60,6 @@ sub param_defaults {
 
  Arg [1]    : None
  Description: Creates input id based on a custom table 'csvfile_table' in the hive database
-              It will generate the parameters for BWA based on the data for each file
               It stores the input ids in 'inputlist'
  Returntype : None
  Exceptions : None
@@ -79,15 +89,22 @@ sub fetch_input {
     }
   }
 
-#  my $output_ids = $self->batch_samples($samples_hash);
   $self->param('inputlist',$self->batch_samples($samples_hash));
 }
 
 
+=head2 batch_samples
+
+ Arg [1]    : Hashref, containing the information from the 'csvfile_table'
+ Description: Batch files depending on their size
+ Returntype : Arrayref of array containing sample names to be batched together
+ Exceptions : None
+
+=cut
+
 sub batch_samples {
   my ($self,$samples_hash) = @_;
 
-  say Dumper($samples_hash);
   my $fastq_dir = $self->param_required('input_dir');
 
   my $file_sizes = {};
@@ -108,6 +125,16 @@ sub batch_samples {
   return($output_ids);
 }
 
+
+=head2 build_sorted_batches
+
+ Arg [1]    : Hashref, containgin the information from the 'csvfile_table'
+ Arg [2]    : Hashref, containing the the size of each file
+ Description: Build the size sorted batches
+ Returntype : Arrayref of array containing sample names to be batched together
+ Exceptions : None
+
+=cut
 
 sub build_sorted_batches {
   my ($self,$samples_hash,$file_sizes) = @_;
