@@ -123,8 +123,9 @@ sub default_options {
 ########################
 # Executable paths
 ########################
-    'star_path'    => '/homes/fergal/bin/STAR',
-    'scallop_path' => '/homes/fergal/bin/scallop',
+    'star_path'       => '/homes/fergal/bin/STAR',
+    'scallop_path'    => '/homes/fergal/bin/scallop',
+    'stringtie2_path' => '/homes/fergal/bin/stringtie2',
 
     'blast_type'             => 'ncbi',                                                                         # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     'uniprot_blast_exe_path' => catfile( $self->o('binary_base'), 'blastp' ),
