@@ -282,28 +282,6 @@ sub pipeline_wide_parameters {
     }
 }
 
-=head2 create_header_line
-
- Arg [1]    : Arrayref String, it will contains the values of 'file_columns'
- Example    : create_header_line($self->o('file_columns');
- Description: It will create a RG line using only the keys present in your csv file
- Returntype : String representing the RG line in a BAM file
- Exceptions : None
-
-
-=cut
-
-sub create_header_line {
-  my ($items) = shift;
-
-  my @read_tags = qw(ID SM DS CN DT FO KS LB PG PI PL PM PU);
-  my $read_line = '@RG';
-  foreach my $rt (@read_tags) {
-    $read_line .= "\t$rt:#$rt#" if ( grep( $rt eq $_, @$items ) );
-  }
-  return $read_line . "\n";
-}
-
 ## See diagram for pipeline structure
 sub pipeline_analyses {
   my ($self) = @_;
@@ -313,7 +291,6 @@ sub pipeline_analyses {
     'wu'          => '-cpus 3 -hitdist 40',
     'legacy_ncbi' => '-a 3 -A 40',
   );
-  my $header_line = create_header_line( $self->default_options->{'file_columns'} );
 
   return [
 
