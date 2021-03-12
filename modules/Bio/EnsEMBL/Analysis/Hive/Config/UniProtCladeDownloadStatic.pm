@@ -275,7 +275,6 @@ sub _master_config {
                             },
 
              },
-
     birds_basic => {
               self_pe12 =>{
                             file_name => 'self_pe12.fasta',
