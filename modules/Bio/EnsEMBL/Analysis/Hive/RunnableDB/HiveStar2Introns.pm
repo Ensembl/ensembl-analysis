@@ -61,7 +61,7 @@ sub param_defaults {
   my ($self) = @_;
 
   return {
-	  %{$self->SUPER::param_defaults},
+    %{$self->SUPER::param_defaults},
     small_intron_size => 0,
     min_intron_depth => 0,
     table_name => 'csv_data',
