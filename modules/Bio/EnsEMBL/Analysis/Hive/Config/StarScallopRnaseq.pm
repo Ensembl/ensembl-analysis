@@ -64,8 +64,6 @@ sub default_options {
     'uniprot_set'         => '',                                                                                      # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'         => '',                                                                                      # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'assembly_name'       => '',                                                                                      # Name (as it appears in the assembly report file)
-    'use_genome_flatfile' => '1',                                                                                     # This will read sequence where possible from a dumped flatfile instead of the core db
-    'skip_rnaseq'         => '0',                                                                                     # Will skip rnaseq analyses if 1
     'uniprot_version'     => 'uniprot_2019_04',                                                                       # What UniProt data dir to use for various analyses
     'paired_end_only'     => '1',                                                                                     # Will only use paired-end rnaseq data if 1
 
@@ -295,9 +293,7 @@ sub pipeline_wide_parameters {
 
   return {
     %{ $self->SUPER::pipeline_wide_parameters },
-    skip_rnaseq          => $self->o('skip_rnaseq'),
     wide_ensembl_release => $self->o('ensembl_release'),
-    use_genome_flatfile  => $self->o('use_genome_flatfile'),
     genome_file          => $self->o('faidx_genome_file'),
     }
 }
