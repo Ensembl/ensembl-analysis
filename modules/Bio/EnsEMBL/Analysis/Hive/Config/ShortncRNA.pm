@@ -78,9 +78,9 @@ sub default_options {
     rfam_port => 4497,
 
     rfam_path => catfile($self->o('base_blast_db_path'), 'ncrna', 'Rfam_14.0'),
-    rfam_seeds => $self->o('rfam_path') . '/Rfam.seed',
-    rfam_cm => $self->o('rfam_path') . '/Rfam.cm',
-    filtered_rfam_cm => $self->o('ncrna_dir') .  '/Rfam.cm',
+    rfam_seeds => catfile($self->o('rfam_path'), 'Rfam.seed'),
+    rfam_cm => catfile($self->o('rfam_path'), 'Rfam.cm'),
+    filtered_rfam_cm => catfile($self->o('ncrna_dir'), 'Rfam.cm'),
     clade => $self->o('repbase_logic_name'),
 
 
@@ -104,8 +104,8 @@ sub default_options {
 # BLAST db paths
 ########################
     base_blast_db_path        => $ENV{BLASTDB_DIR},
-    ncrna_blast_path          => catfile($self->o('base_blast_db_path'), 'ncrna', 'ncrna_2016_05'),
-    mirna_blast_path          => catfile($self->o('base_blast_db_path'), 'ncrna', 'mirbase_22'),
+    ncrna_blast_path          => catdir($self->o('base_blast_db_path'), 'ncrna', 'ncrna_2016_05'),
+    mirna_blast_path          => catdir($self->o('base_blast_db_path'), 'ncrna', 'mirbase_22'),
 
 ######################################################
 #
@@ -208,7 +208,7 @@ sub pipeline_analyses {
       -logic_name => 'fetch_rfam_accessions',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'perl ' . $self->o('sncrna_analysis_script') . '/fetch_rfam_accessions.pl ' .
+        cmd => 'perl ' . catfile($self->o('sncrna_analysis_script'), 'fetch_rfam_accessions.pl') .
           ' -h ' . $self->o('rfam_host') .
           ' -u ' . $self->o('rfam_user') .
           ' -p ' . $self->o('rfam_port') .
@@ -224,10 +224,10 @@ sub pipeline_analyses {
       -logic_name => 'extract_rfam_cm',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'perl ' . $self->o('sncrna_analysis_script') . '/filter_cm.pl ' .
-          $self->o('rfam_cm') . ' ' .
-          $self->o('ncrna_dir') . '/accessions.txt ' .
-          $self->o('filtered_rfam_cm'),
+        cmd => 'perl '.catfile($self->o('sncrna_analysis_script'), 'filter_cm.pl').
+          ' '.$self->o('rfam_cm').
+          ' '.catfile($self->o('ncrna_dir'), 'accessions.txt').
+          ' '.$self->o('filtered_rfam_cm'),
       },
       -rc_name => 'filter',
     },
@@ -336,7 +336,7 @@ sub pipeline_analyses {
         dna_db => $self->o('dna_db'),
         logic_name => 'blastmirna',
         module     => 'HiveBlastmiRNA',
-        blast_db_path => $self->o('mirna_blast_path') . '/' . $self->o('mirBase_fasta') ,
+        blast_db_path => catfile($self->o('mirna_blast_path'), $self->o('mirBase_fasta')),
         blast_exe_path => $self->o('blastn_exe_path'),
         commandline_params => ' -num_threads 3 ',
         %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastmiRBase', {BLAST_PARAMS => {type => $self->o('blast_type')}})},
