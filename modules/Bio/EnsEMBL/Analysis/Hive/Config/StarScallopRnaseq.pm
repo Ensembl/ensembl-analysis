@@ -142,13 +142,6 @@ sub default_options {
 
     'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
-    'use_ucsc_naming' => 0,
-
-    # If your reads are unpaired you may want to run on slices to avoid
-    # making overlong rough models.  If you want to do this, specify a
-    # slice length here otherwise it will default to whole chromosomes.
-    slice_length => 10000000,
-
     # Regular expression to allow FastQ files to be correctly paired,
     # for example: file_1.fastq and file_2.fastq could be paired using
     # the expression "\S+_(\d)\.\S+".  Need to identify the read number
