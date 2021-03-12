@@ -131,17 +131,6 @@ sub default_options {
     'uniprot_blast_exe_path' => catfile( $self->o('binary_base'), 'blastp' ),
     'bwa_path'               => catfile( $self->o('software_base_path'), 'opt', 'bwa-051mt', 'bin', 'bwa' ),    #You may need to specify the full path to the bwa binary
 
-    # You have the choice between:
-    #  * using a csv file you already created
-    #  * using a study_accession like PRJEB19386
-    #  * using the taxon_id of your species
-    # 'rnaseq_summary_file' should always be set. If 'taxon_id' or 'study_accession' are not undef
-    # they will be used to retrieve the information from ENA and to create the csv file. In this case,
-    # 'file_columns' and 'summary_file_delimiter' should not be changed unless you know what you are doing
-    'study_accession'     => '',
-    'max_reads_per_split' => 2500000,      # This sets the number of reads to split the fastq files on
-    'max_total_reads'     => 200000000,    # This is the total number of reads to allow from a single, unsplit file
-
     'summary_file_delimiter' => '\t',            # Use this option to change the delimiter for your summary data file
     'summary_csv_table'      => 'csv_data',
     'read_length_table'      => 'read_length',
@@ -150,7 +139,6 @@ sub default_options {
     'rnaseq_dir' => catdir( $self->o('output_path'), 'rnaseq' ),
     'input_dir'  => catdir( $self->o('rnaseq_dir'),  'input' ),
     'output_dir' => catdir( $self->o('rnaseq_dir'),  'output' ),
-    'merge_dir'  => catdir( $self->o('rnaseq_dir'),  'merge' ),
 
     'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
@@ -379,12 +367,10 @@ sub pipeline_analyses {
           . 'for D in ' . join( ' ',
           $self->o('output_dir'),
           $self->o('input_dir'),
-          $self->o('merge_dir'),
           ) . '; do mkdir -p "$D"; done; '
           . 'which lfs > /dev/null; if [ $? -eq 0 ]; then for D in ' . join( ' ',
           $self->o('output_dir'),
-          $self->o('input_dir'),
-          $self->o('merge_dir')
+          $self->o('input_dir')
           ) . '; do lfs getdirstripe -q $D > /dev/null; if [ $? -eq 0 ]; then lfs setstripe -c -1 $D;fi;done;fi',
       },
       -flow_into => {
