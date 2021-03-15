@@ -25,7 +25,6 @@ use File::Spec::Functions;
 
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
-use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 sub default_options {
@@ -82,7 +81,10 @@ sub default_options {
     'projection_db_server'  => $self->o('databases_server'),
     'projection_db_port'    => $self->o('databases_port'),
 
-    databases_to_delete => ['projection_db',],
+    'selected_projection_db_server'  => $self->o('databases_server'),
+    'selected_projection_db_port'    => $self->o('databases_port'),
+
+    databases_to_delete => ['projection_db', 'selected_projection_db',],
 
 ######################################################
 #
