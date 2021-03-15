@@ -57,7 +57,6 @@ sub default_options {
     'databases_port'            => '', # port for general output db host
     'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
-    'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     'skip_projection'           => '0', # Will skip projection process if 1
 
 ########################
@@ -68,10 +67,6 @@ sub default_options {
     'projection_source_db_server'       => 'mysql-ens-mirror-1',
     'projection_source_db_port'         => '4240',
     'projection_source_production_name' => '',
-
-    'compara_db_name'   => 'leanne_ensembl_compara_95',
-    'compara_db_server' => 'mysql-ens-genebuild-prod-5',
-    'compara_db_port'   => 4531,
 
     # The following might not be known in advance, since the come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
@@ -94,15 +89,6 @@ sub default_options {
 # Mostly constant settings
 #
 ######################################################
-
-    genome_dumps  => catdir($self->o('output_path'), 'genome_dumps'),
-    # This one is used by most analyses that run against a genome flatfile like exonerate, genblast etc. Has slice name style headers. Is softmasked
-
-    'primary_assembly_dir_name'              => 'Primary_Assembly',
-    'refseq_cdna_calculate_coverage_and_pid' => '0',
-    'contigs_source'                         => 'ena',
-
-    'min_toplevel_slice_length'   => 250,
 
     ensembl_analysis_script           => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     flag_potential_pseudogenes_script => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'flag_potential_pseudogenes.pl'),
@@ -158,30 +144,13 @@ sub default_options {
 
     'selected_projection_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_sel_proj_'.$self->o('release_number'),
-      -host   => $self->o('projection_db_server'),
-      -port   => $self->o('projection_db_port'),
+      -host   => $self->o('selected_projection_db_server'),
+      -port   => $self->o('selected_projection_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
     },
   };
-}
-
-sub pipeline_create_commands {
-    my ($self) = @_;
-    return [
-    # inheriting database and hive tables' creation
-      @{$self->SUPER::pipeline_create_commands},
-    ];
-}
-
-
-sub pipeline_wide_parameters {
-  my ($self) = @_;
-  return {
-    %{$self->SUPER::pipeline_wide_parameters},
-    skip_projection => $self->o('skip_projection'),
-  }
 }
 
 ## See diagram for pipeline structure
