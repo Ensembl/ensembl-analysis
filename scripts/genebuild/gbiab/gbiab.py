@@ -45,6 +45,357 @@ def create_dir(main_output_dir,dir_name):
   return target_dir
 
 
+
+def search_rfam(genome_file,cmsearch_path,rfam_cm_db_path,main_output_dir,clade):
+
+  if not cmsearch_path:
+    cmsearch_path = 'cmsearch'
+
+  rfam_output_dir = os.path.join(main_output_dir,rfam_output)
+  rfam_dbname = 'Rfam'
+  rfam_user = 'rfamro'
+  rfam_host = 'mysql-rfam-public.ebi.ac.uk'
+  rfam_port = '4497'
+#  rfam_accession_query_cmd = ["mysql -h", rfam_host,"-u",rfam_user,"-P",rfam_port,"-NB -e",rfam_dbname,"'select rfam_acc FROM (SELECT DISTINCT f.rfam_acc, f.rfam_id, f.type, f.description, f.gathering_cutoff, f.trusted_cutoff FROM full_region fr, rfamseq rf, taxonomy tx, family f WHERE rf.ncbi_id = tx.ncbi_id AND f.rfam_acc = fr.rfam_acc AND fr.rfamseq_acc = rf.rfamseq_acc AND LOWER(tx.tax_string) LIKE \'%" + clade + "%\' AND (f.type LIKE \'%snRNA%\' OR f.type LIKE \'%rRNA%\' OR LOWER(f.rfam_id) LIKE \'%rnase%\' OR LOWER(f.rfam_id) LIKE \'%vault%\' OR LOWER(f.rfam_id) LIKE \'%y_rna%\' OR f.rfam_id LIKE \'%Metazoa_SRP%\') AND is_significant = 1) AS TEMP WHERE rfam_id NOT LIKE \'%bacteria%\' AND rfam_id NOT LIKE \'%archaea%\' AND rfam_id NOT LIKE \'%microsporidia%\';'"]
+
+  rfam_cm_db_path = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.0/Rfam.cm'
+  rfam_accession_file = os.path.join(rfam_output_dir,'rfam_accessions.txt')
+  rfam_selected_models_file = os.path.join(rfam_output_dir,'rfam_models.cm')
+  with open(rfam_accession_file) as rfam_accession:
+    rfam_accessions = rfam_accession_file.read().splitlines()
+
+  with open(rfam_cm_db_path, 'r') as rfam_cm_in:
+    rfam_data = rfam_cm_in.read()
+
+  rfam_models = rfam_data.split("//\n")
+  rfam_cm_out = open(rfam_selected_models_file, 'w+')
+
+  matches = []
+  for model in rfam_models:
+    match = re.search(r"(RF\d+)",model)
+    if match:
+      model_accession = match.group(1)
+      if model_accession in rfam_accessions:
+        rfam_cm_out.write(model + "//\n")
+
+  seq_region_lengths = get_seq_region_lengths(genome_file,5000)
+  slice_ids = create_slice_ids(seq_region_lengths)
+
+  pool = multiprocessing.Pool(int(num_threads))
+  tasks = []
+  generic_cmsearch_cmd = [cmseatch_path,'--rfam','--cpu','1','--nohmmonly','--cut_ga','--tblout']
+  for slice_id in slice_ids:
+    pool.apply_async(multiprocess_cmsearch, args=(generic_cmsearch_cmd,slice_id,masked_genome_file,rfam_output_dir,rfam_selected_models_file,))
+
+  pool.close()
+  pool.join()
+
+
+def multiprocess_cmsearch(generic_cmsearch_cmd,slice_id,masked_genome_file,rfam_output_dir,rfam_selected_models_file):
+
+  region = slice_id[0]
+  start = slice_id[1]
+  end = slice_id[2]
+  seq = get_sequence(region,start,end,1,genome_file,output_dir)
+
+  slice_file_name = region + ".rs" + str(start) + ".re" + str(end)
+
+  region_fasta_file_name = slice_file_name + ".fa"
+  region_fasta_file_path = os.path.join(output_dir,region_fasta_file_name)
+  region_fasta_out = open(region_fasta_file_path,'w+')
+  region_fasta_out.write(">" + region + "\n" + seq + "\n")  
+  region_fasta_out.close()
+
+  region_tblout_file_name = slice_file_name + ".tblout"
+  region_tblout_file_path = os.path.join(output_dir,region_tblout_file_name)
+
+  region_results_file_name = slice_file_name + ".rfam.gtf"
+  region_results_file_path = os.path.join(output_dir,region_results_file_name)
+
+  rfam_results_out = open(region_results_file_path,'w+')
+  
+  cmsearch_cmd = cmd.copy()
+  cmsearch_cmd.append(region_tblout_file_path)
+  cmsearch_cmd.append(region_fasta_file_path)
+  subprocess.run(cmsearch_cmd,stdout=rfam_results_out)
+
+  rfam_results_out.close()
+
+
+def get_rfam_seed_descriptions(rfam_seeds_path):
+
+  descriptions = {}
+
+  with open(rfam_seeds_path) as rfam_seeds_in:
+    rfam_seeds = rfam_seeds_in.read().splitlines()
+
+  for seed in rfam_seeds:
+    domain_match = re.search("^\#=GF AC   (.+)",seed)
+    if domain_match:
+      domain = domain_match.group(1)
+      continue
+
+    description_match = re.search("^\#=GF DE   (.+)",seed)
+    if description_match:
+      description = description_match.group(1)
+      descriptions[domain]['description'] = description
+      continue
+
+    name_match = re.search("^\#=GF ID   (.+)",seed)
+    if name_match:
+      name = name_match.group(1)
+      descriptions[domain]['name'] = name
+      continue
+
+    type_match = re.search("^\#=GF TP   Gene; (.+)",seed)
+    if type_match:
+      rfam_type = type_match.group(1)
+      descriptions[domain]['type'] = rfam_type
+      continue
+
+  return descriptions
+
+
+def extract_rfam_metrics(rfam_selected_models_file):
+
+  with open(rfam_selected_models_file, 'r') as rfam_cm_in:
+    rfam_data = rfam_cm_in.read()
+
+  rfam_models = rfam_data.split("//\n")
+  parsed_cm_data = {}
+  for model in rfam_models:
+    temp = model.split("\n")
+    model_name_match = re.search("^NAME\s+(\S+)",model)
+    if model_name_match:
+      model_name = model_name_match.group(1)
+      for line in temp:
+        name_match = re.search("^NAME\s+(\S+)",line)
+        if name_match:
+          parsed_cm_data[model_name]['-name'] = name_match.group(1)
+          continue
+
+        description_match = re.search("^DESC\s+(\S+)",line)
+        if description_match:
+          parsed_cm_data[model_name]['-description'] = description_match.group(1)
+          continue
+
+        length_match = re.search("^CLEN\s+(\d+)",line)
+        if length_match:
+          parsed_cm_data[model_name]['-length'] = length_match.group(1)
+          continue
+
+        max_length_match = re.search("^W\s+(\d+)",line)
+        if max_length_match:
+          parsed_cm_data[model_name]['-maxlength'] = max_length_match.group(1)
+          continue
+
+        accession_match = re.search("^ACC\s+(\S+)",line)
+        if accession_match:
+          parsed_cm_data[model_name]['-accession'] = accession_match.group(1)
+          continue
+
+        threshold_match = re.search("^GA\s+(\d+)",line)
+        if threshold_match:
+          parsed_cm_data[model_name]['-threshold'] = threshold_match.group(1)
+          continue
+
+  return parsed_cm_data
+
+
+def parse_rfam_tblout(region_tblout_file_path):
+
+  with open(region_tblout_file_path, 'r') as rfam_tbl_in:
+    rfam_tbl_data = rfam_tbl_in.read()
+
+  tbl_results = rfam_tbl_data.split("\n")
+  parsed_tbl_data = {}
+
+  for result in tbl_results:
+    if result.startswith("#"):
+      continue
+
+    hit = result.split("\n")
+    accession = hit[3]
+    target_name = hit[0]
+    query_name = hit[2]
+    hstart = hit[5];
+    hend = hit[6];
+    start = hit[7];
+    end = hit[8];
+    if hit[9] == "+":
+      strand = 1
+    else:
+      strand = -1
+    evalue = hit[15];
+    score = hit[14];
+
+    parsed_tbl_data['accession'] = accession
+    parsed_tbl_data['start'] = start
+    parsed_tbl_data['end'] = end
+    parsed_tbl_data['strand'] = strand
+    parsed_tbl_data['query_name'] = query_name
+    parsed_tbl_data['score'] = score
+
+  return parsed_tbl_data
+
+# NOTE some of the code above and the code commented out here is to do with creating
+# a DAF. As we don't have a python concept of this I'm leaving it out for the moment
+# but the code below is a reference
+#    my $daf = Bio::EnsEMBL::DnaDnaAlignFeature->new(
+#      -slice          => $self->queries,
+#      -start          => $strand == 1 ? $start : $end,
+#      -end            => $strand == 1 ? $end : $start,
+#      -strand         => $strand,
+#      -hstart         => $hstart,
+#      -hend           => $hend,
+#      -hstrand        => $strand,
+#      -score          => $score,
+#      -hseqname       => length($target_name) > 39 ? substr($target_name, 0, 39) : $target_name,,
+#      -p_value  => $evalue,
+#      -align_type => 'ensembl',
+#      -cigar_string  => abs($hend - $hstart) . "M",
+#   );
+
+
+def remove_rfam_overlap(parsed_tbl_data):
+
+  excluded_structures = {}
+  chosen_structures = []
+  for structure_x in parsed_tbl_data:
+    chosen_structure = structure_x
+    structure_x_start = structure_x['start']
+    structure_x_end = structure_x['end']
+    structure_x_score = structure_x['score']
+    structure_x_accession = structure_x['accession']
+    structure_x_string = ":".join([str(structure_x_start),str(structure_x_end),str(structure_x_score),structure_x_accession])
+    for structure_y in parsed_tbl_data:
+      structure_y_start = structure_y['start']
+      structure_y_end = structure_y['end']
+      structure_y_score = structure_y['score']
+      structure_y_accession = structure_y['accession']
+      structure_y_string = ":".join([str(structure_y_start),str(structure_y_end),str(structure_y_score),structure_y_accession])
+      if excluded[structure_y_string]:
+        continue
+
+      if structure_x_start <= structure_y_end and structure_x_end >= structure_y_start:
+        if structure_x_score < structure_y_score:
+          chosen_structure = structure_y
+          excluded_structures[structure_x_string] = 1
+        else:
+          excluded_structures[structure_y_string] = 1
+
+    chosen_structures.append(chosen_structure)
+
+  return chosen_structures
+
+
+def filter_rfam_results(unfiltered_tbl_data,cm_models):
+
+  filtered_results = []
+  for structure in unfiltered_tbl_data:
+    query = structure['query']
+    if cm_models[query]:
+       
+      if query == 'LSU_rRNA_eukarya':
+        threshold = 1700;
+  
+      if query == 'LSU_rRNA_archaea':
+        continue
+
+      if query == 'LSU_rRNA_bacteria':
+        continue
+
+      if query == 'SSU_rRNA_eukarya':
+        threshold = 1600;
+
+      if query == '5_8S_rRNA':
+        threshold = 85;
+
+      if query == '5S_rRNA':
+        threshold = 75;
+
+      if structure['score'] >= threshold:
+        filtered_results.append(structure)
+
+  return filtered_results
+
+# NOTE: The below are notes from the perl code (which has extra code) about possible improvements that are not implemented there
+# Although not included in RefSeq filters, additional filters that consider sizes and score_to_size ratios can be applied
+# in future work to further exclude FPs
+#
+# my $is_valid_size = $mapping_length > $min_length && $mapping_length < $max_length ? 1 : 0;
+# my $score_size_ratio = $result->{'score'} / $mapping_length;
+
+
+
+def create_rfam_gtf(filtered_results,cm_models,descriptions,region_results_file_path):
+
+  rfam_gtf_out = open(region_results_file_path,'w+')  
+  for structure in filtered_results:
+    query = structure['query']
+    accession = structure['accession']
+    if cm_models[query]:
+      model = cm_models[query]
+      description = descriptions[accession]
+      domain = structure['query']
+      padding = model['-length']
+      rfam_type = description['type']  
+      strand = structure['strand']
+      if strand == 1:
+        start = structure['start']
+        end = structure['end']
+      else:
+        start = structure['end']
+        end = structure['start']
+        score = structure['score']
+
+      biotype = "misc_RNA";
+      if re.match(r"^snRNA;",rfam_type):
+        biotype = "snRNA"
+      if re.match(r"^snRNA; snoRNA",rfam_type):
+        biotype = "snoRNA"
+      if re.match(r"^snRNA; snoRNA; scaRNA;",rfam_type):
+        biotype = "scaRNA"
+      if re.match(r"rRNA;",rfam_type):
+        biotype = "rRNA"
+      if re.match(r"antisense;",rfam_type):
+        biotype = "antisense"
+      if re.match(r"antitoxin;",rfam_type):
+        biotype = "antitoxin"
+      if re.match(r"ribozyme;",rfam_type):
+        biotype = "ribozyme"
+      if re.match(r(domain),rfam_type):
+        biotype = domain
+      if re.match(r(domain),rfam_type):
+        biotype = "Vault_RNA"
+      if re.match(r(domain),rfam_type):
+        biotype = "Y_RNA"
+
+      rfam_gtf_out.write(start + " " + end + " " + strand + " " + biotype)
+
+  rfam_gtf_out.close()      
+
+#  return unless ($exon->start >= 1);
+#  return unless ($exon->overlaps($daf));
+
+#  my $RNAfold = Bio::EnsEMBL::Analysis::Runnable::RNAFold->new
+#  (
+#    -analysis  => $self->analysis,
+#    -sequence  => $seq,
+#  );
+#  $RNAfold->run;
+
+
+
+# blast_db_path = /hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/ncrna_2016_05/
+# cm_search_path = /nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/bin/cmsearch
+# rfam_cm = /hps/nobackup2/production/ensembl/genebuild/production/African_pygmy_mouse-Mus_minutoides-GCA_902729475.1/mus_minutoides/GCA_902729475.1/ncrna/Rfam.cm
+# rfam_seeds = /hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.0/Rfam.seed
+#  my $options = " --rfam --cpu 4 --nohmmonly --cut_ga --tblout $tblout_path ";
+#  $options =~ s/\-\-toponly//;
+#  my $command = "$program $options $cm_path $filename > $results_path ";
+
+
 def run_red(red_path,main_output_dir,genome_file):
 
   if not red_path:
@@ -592,6 +943,92 @@ def bed_to_exons(block_sizes,block_starts,offset):
   return exons
 
 
+
+# start gene g1
+#1       AUGUSTUS        gene    1       33908   1       +       .       g1
+#1       AUGUSTUS        transcript      1       33908   .       +       .       g1.t1
+#1       AUGUSTUS        CDS     3291    3585    .       +       2       transcript_id "g1.t1"; gene_id "g1";
+#1       AUGUSTUS        exon    3291    3585    .       +       .       transcript_id "g1.t1"; gene_id "g1";
+#1       AUGUSTUS        CDS     11377   11510   .       +       1       transcript_id "g1.t1"; gene_id "g1";
+#1       AUGUSTUS        exon    11377   11510   .       +       .       transcript_id "g1.t1"; gene_id "g1";
+#1       AUGUSTUS        CDS     30726   30871   .       +       2       transcript_id "g1.t1"; gene_id "g1";
+#1       AUGUSTUS        exon    30726   30871   .       +       .       transcript_id "g1.t1"; gene_id "g1";
+#1       AUGUSTUS        CDS     32975   33502   .       +       0       transcript_id "g1.t1"; gene_id "g1";
+#1       AUGUSTUS        exon    32975   33908   .       +       .       transcript_id "g1.t1"; gene_id "g1";
+#1       AUGUSTUS        stop_codon      33500   33502   .       +       0       transcript_id "g1.t1"; gene_id "g1";
+#1       AUGUSTUS        tts     33908   33908   .       +       .       transcript_id "g1.t1"; gene_id "g1";
+# protein sequence = [GGRGEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEKKEKKEEEEEEEEEEEEEEEK
+# EEGEGMEGRDIMGIRGKQKQPRKQPELSSSFPTFLLTQKTPYCPESIKLLLILRNNIQTIVFYKGPKGVINDWRKFKLESEDGDSIPPSKKEILRQMS
+# SPQSRDDSKERMSRKMSIQEYELIHQDKEDESCLRKYRRQCMQDMHQKLSFGPRYGFVYELETGEQFLETIEKEQKVTTIVVNIYEDGVRGCDALNSS
+# LACLAVEYPMVKFCKIKASNTGAGDRFSTDVLPTLLVYKGGELISNFISVAEQFAEEFFAVDVESFLNEYGLLPEREIHDLEQTNMEDEDIE]
+# Evidence for and against this transcript:
+# % of transcript supported by hints (any source): 0
+# CDS exons: 0/4
+# CDS introns: 0/4
+# 5'UTR exons and introns: 0/0
+# 3'UTR exons and introns: 0/1
+# hint groups fully obeyed: 0
+# incompatible hint groups: 0
+# end gene g1
+###
+
+def augustus_output_to_gtf(augustus_output_dir,augustus_genome_dir):
+
+    gtf_file_path = os.path.join(augustus_output_dir,'annotation.gtf')
+    gtf_out = open(gtf_file_path,'w+')
+    record_count = 1
+    for gff_file_path in glob.glob(augustus_genome_dir + "/*.aug"):
+      gff_file_name = os.path.basename(gff_file_path)
+      match = re.search(r'\.rs(\d+)\.re(\d+)\.',gff_file_name)
+      start_offset = int(match.group(1))
+      
+      exon_number = 1
+      current_exon_hints_total = 0
+      current_exon_hints_match = 0
+      current_intron_hints_total = 0
+      current_intron_hints_match = 0
+      current_record = []
+      gff_in = open(gff_file_path,'r')
+      line = gff_in.readline()
+      while line:
+        match = re.search(r'# CDS exons\: (\d+)\/(\d+)',line)
+        if match:
+          current_exon_hints_match = match.group(1)
+          current_exon_hints_total = match.group(2)
+
+        match = re.search(r'# CDS introns\: (\d+)\/(\d+)',line)
+        if match:
+          current_introns_hints_match = match.group(1)
+          current_introns_hints_total = match.group(2)
+
+        if re.search(r'# end gene',line):
+          for output_line in current_record:
+            gtf_out.write(output_line)
+          current_record = []
+          current_exon_hints_total = 0
+          current_exon_hints_match = 0
+          current_intron_hints_total = 0
+          current_intron_hints_match = 0
+          record_count += 1
+          exon_number = 1
+
+        values = line.split("\t")
+        if len(values) == 9 and values[1] == "AUGUSTUS" and (values[2] == "transcript" or values[2] == "exon"):
+          values[3] = str(int(values[3]) + (start_offset - 1))
+          values[4] = str(int(values[4]) + (start_offset - 1))
+          values[8] = 'gene_id "aug' + str(record_count) + '"; transcript_id "aug' + str(record_count) + '";'
+          if values[2] == "exon":
+            values[8] = values[8] + ' exon_number "' + str(exon_number) + '";'
+            exon_number += 1
+          values[8] = values[8] + "\n"
+          current_record.append("\t".join(values))
+
+        line = gff_in.readline()
+      gff_in.close()
+    gtf_out.close()
+
+
+
 def run_augustus_predict(augustus_path,main_output_dir,masked_genome_file,num_threads):
 
   min_seq_length = 1000
@@ -642,6 +1079,8 @@ def run_augustus_predict(augustus_path,main_output_dir,masked_genome_file,num_th
   pool.close()
   pool.join()
 
+  augustus_output_to_gtf(augustus_dir,augustus_genome_dir):
+  
 
 def create_slice_ids(seq_region_lengths):
   slice_size = 1000000
@@ -735,13 +1174,14 @@ def multiprocess_augustus_id(cmd,slice_id,genome_file,hints_file,output_dir):
 
   aug_out = open(region_augustus_file_path,'w+')
 
-  cmd.append(('--hintsfile=' + region_hints_file))
   augustus_forward = cmd.copy()
+  augustus_forward.append(('--hintsfile=' + region_hints_file))
   augustus_forward.append('--strand=forward')
   augustus_forward.append(region_fasta_file_path)
   subprocess.run(augustus_forward,stdout=aug_out)
 
   augustus_backward = cmd.copy()
+  augustus_backward.append(('--hintsfile=' + region_hints_file))
   augustus_backward.append('--strand=backward')
   augustus_backward.append(region_fasta_file_path)    
   subprocess.run(augustus_backward,stdout=aug_out)
@@ -1011,6 +1451,48 @@ def splice_junction_to_gff(input_dir,hints_file):
       sjf_out.write('\t'.join(output_line) + '\n')
 
   sjf_out.close()
+
+
+def model_builder(work_dir):
+
+  star_output_dir = os.path.join(work_dir,'star_output')
+
+  all_junctions_file = os.path.join(star_output_dir,'all_junctions.sj')
+  sjf_out = open(all_junctions_file,"w+")
+
+  for sj_tab_file in glob.glob(input_dir + "/*.sj.tab"):
+    sjf_in = open(sj_tab_file)
+    sjf_lines = sjf_in.readlines()
+    for line in sjf_lines:
+      elements = line.split('\t')
+      strand = '+'
+
+#    my $slice_name = $eles[0];
+#    my $start = $eles[1];
+#    my $end = $eles[2];
+#    my $strand = $eles[3];
+
+      # If the strand is undefined then skip, Augustus expects a strand
+      if elements[3] == '0':
+        continue
+      elif elements[3] == '2':
+        strand = '-'
+
+      junction_length = int(elements[2]) - int(elements[1]) + 1
+      if junction_length < 100:
+        continue
+
+      if not elements[4] and elements[7] < 10:
+        continue
+
+      # For the moment treat multimapping and single mapping things as a combined score
+      score = float(elements[6]) + float(elements[7])
+      score = str(score)
+      output_line = [elements[0],'RNASEQ','intron',elements[1],elements[2],score,strand,'.',('src=W;mul=' + score + ';')]
+      sjf_out.write('\t'.join(output_line) + '\n')
+
+  sjf_out.close()
+
 
 
 def split_genome(genome_file,target_dir,min_seq_length):
