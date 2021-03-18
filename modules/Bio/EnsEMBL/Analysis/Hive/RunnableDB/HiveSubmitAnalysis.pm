@@ -809,6 +809,10 @@ sub feature_restriction {
         unless($self->param_required('biotypes')->{$feature->biotype()}) {
           $feature_restricted = 1;
         }
+      } elsif($restriction eq 'source') {
+        unless($self->param_required('sources')->{$feature->source()}) {
+          $feature_restricted = 1;
+        }
       } elsif($restriction eq 'projection') {
         return($self->assess_projection_transcript($feature));
       } else {
