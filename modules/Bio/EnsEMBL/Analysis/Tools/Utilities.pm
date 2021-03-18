@@ -1245,16 +1245,55 @@ sub execute_with_timer {
 
   my $realtimer = parse_timer($timer);
   my $remaining_time = 0;
-
+  print "BEBUG:BK: timeout by default set to: " . $realtimer . "sec \n"; 
+  print "BEBUG:BK: timeout is set for testing to: " . $realtimer . "sec \n";
+  
   # As seen on perldoc: http://perldoc.perl.org/5.14.2/functions/alarm.html
   eval {
+  	print "BEBUG:BK: THERE IS A TIME ALARM 1\n"; 
+  	print "BEBUG:BK: I am the " . $$ . "process \n"; 
+  	# collect_processes($$); 
     local $SIG{ALRM} = sub {die("alarm\n")};
+  	print "BEBUG:BK THERE IS A TIME ALARM 2 \n"; 
     alarm $realtimer;
+  	print "BEBUG:BK THERE IS A TIME ALARM 3 \n"; 
     execute_with_wait($cmd);
+  	print "BEBUG:BK THERE IS A TIME ALARM 4\n"; 
     $remaining_time = alarm 0;
+  	print "BEBUG:BK THERE IS A TIME ALARM 5\n"; 
+
+    
   };
   if ($@) {
+ 
     if ($@ eq "alarm\n") {
+      print("DEBUG:BK:: I Will die, check my processes now. bye!\n"); 
+      my $kid = collect_processes($$); 
+      my $grand_kid = collect_processes($kid); 
+      print("\nDEBUG:BK:: I think the parent is: " . $$ . " the kid is: " . 
+        $kid . "the grandkid is: " . $grand_kid . "\n" ); 
+      # collect_child_gr($$); 
+      while (collect_processes($grand_kid)) {
+        print "DEBUG:BK:: it is still exist!! kill the $grand_kid rules\n"; 
+        kill 9, $grand_kid;	
+        sleep(5); 
+      }
+      while (collect_processes($kid)) {
+        print "DEBUG:BK:: it is still exist!! kill the $kid rules\n"; 
+        kill 9, $kid;	
+        sleep(5); 
+      }
+      # final check based on $cmd 
+      while (collect_processes($cmd)) {
+      	$kid = collect_processes($cmd); 
+      	$grand_kid = collect_processes($kid);
+        print "DEBUG:BK:: the $cmd is still exist!! kill the $grand_kid and $kid rules\n"; 
+        kill 9, $grand_kid;	        
+        kill 9, $kid;	
+        sleep(5); 
+      } 
+      print("DEBUG:BK:: CHECK IF KIDS ARE DEAD AND PARENT ALIVE\n"); 
+      sleep(10);
       throw("Your job $cmd was still running after your timer: $realtimer\n");
     }
     else {
@@ -1263,6 +1302,63 @@ sub execute_with_timer {
   }
   return $remaining_time;
 }
+
+
+# BK CODE TO FIND child/grandchild 
+
+sub collect_processes {
+  
+  my $process_to_check = shift;
+  my $child = ""; 
+  use Proc::ProcessTable;
+  
+  print "DEBUG:: my parent is "  . $process_to_check . "\n"; 
+
+  my $FORMAT = "%-6s %-7s %-10s %-8s %-24s %s\n";
+  my $t = Proc::ProcessTable->new;
+  printf($FORMAT, "PID", "PPID", "TTY", "STAT", "START", "COMMAND"); 
+  foreach my $p ( @{$t->table} ){
+    if ( ( $p->state ne "defunct") and ( $p->pid eq $process_to_check ) ) {
+      print "DEBUG:BK:: This is what you need 1(pid):" . "\n" ;
+      printf($FORMAT,
+         $p->pid, 
+         $p->ppid, 
+         $p->ttydev, 
+         $p->state, 
+         scalar(localtime($p->start)), 
+         $p->cmndline);
+      print "DEBUG:: check id now is: " . $p->ppid . "n"; 
+      $child = $p->ppid; 
+    } elsif ( ( $p->state ne "defunct") and ( $p->ppid eq $process_to_check ) ) {
+      print "DEBUG:BK:: This is what you need 2(ppid):" . "\n" ;
+      printf($FORMAT,
+         $p->pid, 
+         $p->ppid, 
+         $p->ttydev, 
+         $p->state, 
+         scalar(localtime($p->start)), 
+         $p->cmndline);
+      print "DEBUG:: check id now is: " . $p->pid . "n"; 
+      $child = $p->pid;  
+    	
+    } elsif (( $p->state ne "defunct") and ($p->cmndline eq $process_to_check) ) { 
+      print "DEBUG:BK:: This is what you need 3 (cmd): " . "\n" ;
+      printf($FORMAT,
+         $p->pid, 
+         $p->ppid, 
+         $p->ttydev, 
+         $p->state, 
+         scalar(localtime($p->start)), 
+         $p->cmndline);
+      print "DEBUG:: check id now is: " . $p->pid . "n"; 
+      $child = $p->pid; 
+
+    }
+  }
+
+  return $child; 
+}
+
 
 
 =head2 parse_timer
