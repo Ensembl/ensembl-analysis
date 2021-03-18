@@ -40,8 +40,8 @@ sub default_options {
 #
 ######################################################
 
-    'assembly_name'             => '', # target species assembly name
-    'assembly_accession'        => '', # target species assembly accession
+    'assembly_name'             => '', # target species assembly name eg 'mRatBN7.1'
+    'assembly_accession'        => '', # target species assembly accession eg 'GCA_015227675.1'
     'assembly_refseq_accession' => '', # target species refseq accession (it can be empty)
     'species_name'              => '', # scientific name of the target species to project genes to, e.g. mus_musculus
     'production_name'           => '' || $self->o('species_name'),
@@ -171,7 +171,7 @@ sub default_options {
 ########################
 
     'method_link_type'     => 'LASTZ_NET',
-    'compara_databases_conf_filename' => 'Databases.pm',
+    'compara_databases_conf_filename' => catfile($self->o('output_path'),'Databases.pm'),
 
     'compara_master'             => 'compara_master',
     'compara_conf_file'             => '',
@@ -521,9 +521,10 @@ sub pipeline_analyses {
                          create_type => 'clone',
                        },
         -rc_name    => 'default',
-        -flow_into => {
-                        '1' => ['create_projection_db'],
-                      },
+        -flow_into  => {
+          '1->A' => ['create_projection_db'],
+          'A->1' => ['set_gene_biotypes'],
+        },
       },
 
       {
@@ -549,6 +550,8 @@ sub pipeline_analyses {
                          iid_type => 'feature_id',
                          feature_type => 'transcript',
                          batch_size => 25,
+			 #feature_restriction => 'source',
+			 #sources => {'havana' => 1, 'ensembl_havana' => 1},
         },
         -flow_into => {
                         2 => ['minimap_project_transcripts'],
@@ -753,7 +756,7 @@ sub pipeline_analyses {
                          #                                      $self->o('uniprot_set'), undef, 'ARRAY'),
                          #},
                          #OUTPUT_BIOTYPE => 'protein_coding',
-                         MAX_TRANSCRIPTS_PER_CLUSTER => 10,
+                         MAX_TRANSCRIPTS_PER_CLUSTER => 999,
                          MIN_SHORT_INTRON_LEN => 7, #introns shorter than this seem
                          #to be real frame shifts and shoudn't be ignored
                          MAX_SHORT_INTRON_LEN => 15,
@@ -773,12 +776,10 @@ sub pipeline_analyses {
                          #if the coding_only flag is set to 1, the transcript clustering into genes is done over coding exons only
                          # the current standard way is to cluster only on coding exons
                          #CODING_ONLY => 1,
+			 SKIP_PRUNING => 1,
                        },
         -rc_name    => '4GB',
         -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
-        -flow_into => {
-                        '1' => ['set_gene_biotypes'],
-                      },
       },
 
       {
@@ -787,17 +788,43 @@ sub pipeline_analyses {
         -parameters => {
           db_conn    => $self->o('projection_genebuilder_db'),
           sql => [
-            'UPDATE gene SET biotype="processed_transcript"',
+	    'UPDATE gene SET biotype="processed_transcript"',
+	    'UPDATE gene g,transcript t SET g.biotype="snoRNA" WHERE g.gene_id=t.gene_id AND t.biotype="snoRNA"',
+	    'UPDATE gene g,transcript t SET g.biotype="snRNA" WHERE g.gene_id=t.gene_id AND t.biotype="snRNA"',
+	    'UPDATE gene g,transcript t SET g.biotype="miRNA" WHERE g.gene_id=t.gene_id AND t.biotype="miRNA"',
+	    'UPDATE gene g,transcript t SET g.biotype="misc_RNA" WHERE g.gene_id=t.gene_id AND t.biotype="misc_RNA"',
             'UPDATE gene g,transcript t SET g.biotype="antisense" WHERE g.gene_id=t.gene_id AND t.biotype="antisense"',
+	    'UPDATE gene g,transcript t SET g.biotype="rRNA" WHERE g.gene_id=t.gene_id AND t.biotype="rRNA"',
             'UPDATE gene g,transcript t SET g.biotype="lincRNA" WHERE g.gene_id=t.gene_id AND t.biotype="lincRNA"',
             'UPDATE gene g,transcript t SET g.biotype="sense_intronic" WHERE g.gene_id=t.gene_id AND t.biotype="sense_intronic"',
+	    'UPDATE gene g,transcript t SET g.biotype="sense_overlapping" WHERE g.gene_id=t.gene_id AND t.biotype="sense_overlapping"',
             'UPDATE gene g,transcript t SET g.biotype="TEC" WHERE g.gene_id=t.gene_id AND t.biotype="TEC"',
             'UPDATE gene g,transcript t SET g.biotype="processed_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="processed_pseudogene"',
             'UPDATE gene g,transcript t SET g.biotype="transcribed_unprocessed_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="transcribed_unprocessed_pseudogene"',
             'UPDATE gene g,transcript t SET g.biotype="transcribed_processed_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="transcribed_processed_pseudogene"',
             'UPDATE gene g,transcript t SET g.biotype="unprocessed_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="unprocessed_pseudogene"',
             'UPDATE gene g,transcript t SET g.biotype="pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="pseudogene"',
-            'UPDATE gene g,transcript t SET g.biotype="protein_coding" WHERE g.gene_id=t.gene_id AND t.biotype IN ("protein_coding","non_stop_decay","nonsense_mediated_decay")'
+	    'UPDATE gene g,transcript t SET g.biotype="3prime_overlapping_ncRNA" WHERE g.gene_id=t.gene_id AND t.biotype="3prime_overlapping_ncRNA"',
+	    'UPDATE gene g,transcript t SET g.biotype="IG_C_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="IG_C_pseudogene"',
+	    'UPDATE gene g,transcript t SET g.biotype="IG_D_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="IG_D_pseudogene"',
+	    'UPDATE gene g,transcript t SET g.biotype="IG_J_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="IG_J_pseudogene"',
+	    'UPDATE gene g,transcript t SET g.biotype="IG_V_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="IG_V_pseudogene"',
+	    'UPDATE gene g,transcript t SET g.biotype="IG_C_gene" WHERE g.gene_id=t.gene_id AND t.biotype="IG_C_gene"',
+	    'UPDATE gene g,transcript t SET g.biotype="IG_D_gene" WHERE g.gene_id=t.gene_id AND t.biotype="IG_D_gene"',
+	    'UPDATE gene g,transcript t SET g.biotype="IG_J_gene" WHERE g.gene_id=t.gene_id AND t.biotype="IG_J_gene"',
+	    'UPDATE gene g,transcript t SET g.biotype="IG_V_gene" WHERE g.gene_id=t.gene_id AND t.biotype="IG_V_gene"',
+	    'UPDATE gene g,transcript t SET g.biotype="TR_C_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="TR_C_pseudogene"',
+	    'UPDATE gene g,transcript t SET g.biotype="TR_D_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="TR_D_pseudogene"',
+	    'UPDATE gene g,transcript t SET g.biotype="TR_J_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="TR_J_pseudogene"',
+	    'UPDATE gene g,transcript t SET g.biotype="TR_V_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="TR_V_pseudogene"',
+	    'UPDATE gene g,transcript t SET g.biotype="TR_C_gene" WHERE g.gene_id=t.gene_id AND t.biotype="TR_C_gene"',
+	    'UPDATE gene g,transcript t SET g.biotype="TR_D_gene" WHERE g.gene_id=t.gene_id AND t.biotype="TR_D_gene"',
+	    'UPDATE gene g,transcript t SET g.biotype="TR_J_gene" WHERE g.gene_id=t.gene_id AND t.biotype="TR_J_gene"',
+	    'UPDATE gene g,transcript t SET g.biotype="TR_V_gene" WHERE g.gene_id=t.gene_id AND t.biotype="TR_V_gene"',
+	    'UPDATE gene g,transcript t SET g.biotype="Mt_rRNA" WHERE g.gene_id=t.gene_id AND t.biotype="Mt_rRNA"',
+	    'UPDATE gene g,transcript t SET g.biotype="Mt_tRNA" WHERE g.gene_id=t.gene_id AND t.biotype="Mt_tRNA"',
+            'UPDATE gene g,transcript t SET g.biotype="protein_coding" WHERE g.gene_id=t.gene_id AND t.biotype IN ("protein_coding","non_stop_decay","nonsense_mediated_decay")',
+	    'UPDATE gene g,transcript t SET g.biotype="polymorphic_pseudogene" WHERE g.gene_id=t.gene_id AND t.biotype="polymorphic_pseudogene"'
           ],
         },
         -rc_name    => 'default',

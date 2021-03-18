@@ -403,7 +403,6 @@ sub process_transcript {
                                           } @{$unique_target_genomic_aligns};
 
   unless(scalar(@sorted_target_genomic_aligns)) {
-    #say "No align blocks so skipping transcript";
     # consider it as a failed runnable as the transcript was not projected
     $self->transcripts_noalignblocks($transcript->dbID());
     $self->warning("No align blocks so skipping transcript. Transcript ".$transcript->dbID()." . Input id will be passed to branch -4.\n");
@@ -412,8 +411,12 @@ sub process_transcript {
   }
 
   my $transcript_slices = $self->make_cluster_slices(\@sorted_target_genomic_aligns,$max_cluster_gap_length);
-  unless($transcript_slices) {
-    $self->throw("The sorted align blocks were not converted into transcript slices, something went wrong");
+  if (!$transcript_slices) {
+    # consider it as a failed runnable as the transcript was not projected
+    $self->transcripts_noalignblocks($transcript->dbID());
+    $self->warning("The sorted align blocks were not converted into transcript slices. Transcript ".$transcript->dbID()." . Input id will be passed to branch -4.\n");
+    $self->param('_branch_to_flow_on_noalignblocks', -4);
+    next;
   }
 
   foreach my $transcript_slice (@{$transcript_slices}) {
@@ -543,23 +546,24 @@ sub make_cluster_slices {
   my $slice_adaptor = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor;
   my $cluster_slices = [];
   my $previous_genomic_align = shift(@{$genomic_aligns});
-  my $cluster_start = $previous_genomic_align->get_Slice->start();
-  my $cluster_end = $previous_genomic_align->get_Slice->end();
-  unless($previous_genomic_align) {
-    return;
+  my $previous_genomic_align_slice = $previous_genomic_align->get_Slice();
+  if (!$previous_genomic_align or !$previous_genomic_align_slice) {
+    return 0;
   }
+  my $cluster_start = $previous_genomic_align_slice->start();
+  my $cluster_end = $previous_genomic_align_slice->end();
 
   foreach my $current_genomic_align (@{$genomic_aligns}) {
-    if($previous_genomic_align->get_Slice->seq_region_name ne $current_genomic_align->get_Slice->seq_region_name) {
-      my $slice = $slice_adaptor->fetch_by_region($previous_genomic_align->get_Slice->coord_system_name,
-                                                  $previous_genomic_align->get_Slice->seq_region_name, $cluster_start, $cluster_end);
+    if ($previous_genomic_align_slice->seq_region_name ne $current_genomic_align->get_Slice->seq_region_name) {
+      my $slice = $slice_adaptor->fetch_by_region($previous_genomic_align_slice->coord_system_name,
+                                                  $previous_genomic_align_slice->seq_region_name, $cluster_start, $cluster_end);
       push(@{$cluster_slices},$slice);
       $cluster_start = $current_genomic_align->get_Slice->start();
       $cluster_end = $current_genomic_align->get_Slice->end();
       $previous_genomic_align = $current_genomic_align;
-    } elsif($current_genomic_align->get_Slice->start - $previous_genomic_align->get_Slice->end > $max_cluster_gap_length) {
-      my $slice = $slice_adaptor->fetch_by_region($previous_genomic_align->get_Slice->coord_system_name,
-                                                  $previous_genomic_align->get_Slice->seq_region_name, $cluster_start, $cluster_end);
+    } elsif ($current_genomic_align->get_Slice->start - $previous_genomic_align_slice->end > $max_cluster_gap_length) {
+      my $slice = $slice_adaptor->fetch_by_region($previous_genomic_align_slice->coord_system_name,
+                                                  $previous_genomic_align_slice->seq_region_name, $cluster_start, $cluster_end);
       push(@{$cluster_slices},$slice);
       $cluster_start = $current_genomic_align->get_Slice->start();
       $cluster_end = $current_genomic_align->get_Slice->end();
@@ -571,8 +575,8 @@ sub make_cluster_slices {
   } # end foreach my $current_genomic_align
 
   # push the final slice
-  my $slice = $slice_adaptor->fetch_by_region($previous_genomic_align->get_Slice->coord_system_name,
-                                              $previous_genomic_align->get_Slice->seq_region_name, $cluster_start, $cluster_end);
+  my $slice = $slice_adaptor->fetch_by_region($previous_genomic_align_slice->coord_system_name,
+                                              $previous_genomic_align_slice->seq_region_name, $cluster_start, $cluster_end);
   push(@{$cluster_slices},$slice);
   return($cluster_slices);
 }
