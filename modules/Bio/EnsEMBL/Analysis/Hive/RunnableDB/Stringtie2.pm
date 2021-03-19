@@ -45,7 +45,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::Stringtie2;
 
 use warnings;
 use strict;
-use feature 'say';
 use File::Basename;
 
 use Bio::EnsEMBL::IO::Parser::Fasta;
@@ -149,7 +148,7 @@ sub get_sample_name {
     $input_file =~ s/$extension//;
   }
 
-  say "Searching for string ".$input_file." in the following csv file:\n".$csv_file;
+  say_with_header("Searching for string ".$input_file." in the following csv file:\n".$csv_file);
 
   my $sample_name;
 
