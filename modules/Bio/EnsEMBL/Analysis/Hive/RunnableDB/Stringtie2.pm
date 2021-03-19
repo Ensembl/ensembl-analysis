@@ -135,19 +135,7 @@ sub fetch_input {
 
 sub write_output {
   my ($self) = @_;
-
-
-#  my $target_dba = $self->hrdb_get_con("target_db");
-#  my $gene_adaptor = $target_dba->get_GeneAdaptor();
-
-#  my $genes = $self->output();
-#  say "Total genes to output: ".scalar(@$genes);
-#  foreach my $gene (@$genes) {
-#    $gene_adaptor->store($gene);
-#  }
-
 }
-
 
 sub get_sample_name {
   my ($self,$input_file_path,$csv_file) = @_;
