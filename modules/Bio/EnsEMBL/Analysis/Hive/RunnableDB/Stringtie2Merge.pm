@@ -83,7 +83,6 @@ sub fetch_input {
   my @all_gtf_files = ();
   my $gtf_dirs = $self->param_required('input_gtf_dirs');
   foreach my $gtf_dir (@$gtf_dirs) {
-    say "Checking dir: ".$gtf_dir;
     my @gtf_files = glob($gtf_dir."/*.gtf");
     unless(scalar(@gtf_files)) {
       $self->throw("Did not find any sample gtf files in the stringtie gtf dir. Path used:\n".$gtf_dir);
