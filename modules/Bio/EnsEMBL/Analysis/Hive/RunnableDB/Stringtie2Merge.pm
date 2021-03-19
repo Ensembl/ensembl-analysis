@@ -166,7 +166,7 @@ sub run {
     foreach my $file_path (@tissue_files) {
       say OUT $file_path;
     }
-    close OUT;
+    close(OUT) || $self->throw('Could not close '.$tissue_file_list_path);
 
     my $stringtie_merge_command = $stringtie_path." --merge -p ".$self->param('num_threads')." -o ".$merged_file_path." ".$tissue_file_list_path;
     $result = system($stringtie_merge_command);
@@ -214,7 +214,7 @@ sub get_sample_name {
     $sample_name = $1;
     last;
   }
-  close IN;
+  close(IN) || $self->throw('Could not close '.$csv_file);
 
   return($sample_name);
 }
