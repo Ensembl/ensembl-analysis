@@ -171,7 +171,7 @@ sub get_sample_name {
     $sample_name = $1;
     last;
   }
-  close IN;
+  close(IN) || $self->throw('Could not close '.$csv_file);
 
   return($sample_name);
 }
