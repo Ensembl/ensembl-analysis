@@ -194,8 +194,6 @@ sub get_sample_name {
     $input_file =~ s/$file_extension_to_remove//;
   }
 
-  say "Searching for string ".$input_file." in the following csv file:\n".$csv_file;
-
   my $sample_name;
 
   unless(open(IN,$csv_file)) {
