@@ -149,7 +149,7 @@ sub run {
     my $merged_file_path = catfile($stringtie_merge_dir,$tissue.".gtf");
 
     if(scalar(@tissue_files) == 1) {
-      say "For ".$tissue." only found one file so will just copy it to merged dir";
+      say_with_header("For ".$tissue." only found one file so will just copy it to merged dir");
       my $copy_command = "cp ".$tissue_files[0]." ".$merged_file_path;
       $result = system($copy_command);
       if($result) {
