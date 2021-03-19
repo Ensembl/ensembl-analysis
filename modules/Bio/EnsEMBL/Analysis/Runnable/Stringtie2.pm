@@ -163,19 +163,6 @@ sub output_dir {
 }
 
 
-sub database_adaptor {
-  my ($self, $val) = @_;
-
-  if (defined $val) {
-    throw(ref($val).' is not a Bio::EnsEMBL::DBSQL::DBAdaptor')
-      unless ($val->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
-    $self->{_database_adaptor} = $val;
-  }
-
-  return $self->{_database_adaptor};
-}
-
-
 sub delete_input_file {
   my ($self, $val) = @_;
 
