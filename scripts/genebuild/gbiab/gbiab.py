@@ -45,11 +45,99 @@ def create_dir(main_output_dir,dir_name):
   return target_dir
 
 
+def run_trf_repeats(genome_file,trf_path,main_output_dir,num_threads):
+
+  if not trf_path:
+    trf_path = 'trf'
+
+  check_exe(trf_path)
+  trf_output_dir = create_dir(main_output_dir,'trf_output')
+
+  print("Creating list of genomic slices")
+  seq_region_lengths = get_seq_region_lengths(genome_file,5000)
+  slice_ids = create_slice_ids(seq_region_lengths,1000000,0,5000)
+
+  match_score = 2
+  mismatch_score = 5
+  delta = 7
+  pm = 80
+  pi = 10
+  minscore = 40
+  maxperiod = 500
+
+  trf_output_extension = ('.' + str(match_score) + '.' + str(mismatch_score) + '.' + str(delta) + '.' + str(pm) + '.' + 
+                          str(pi) + '.' + str(minscore) + '.' + str(maxperiod) + '.dat')
+
+  generic_trf_cmd = [trf_path,None,str(match_score),str(mismatch_score),str(delta),str(pm),str(pi),str(minscore),str(maxperiod),'-d','-h']
+  print("Running TRF")
+  pool = multiprocessing.Pool(int(num_threads))
+  tasks = []
+  for slice_id in slice_ids:
+    pool.apply_async(multiprocess_trf, args=(generic_trf_cmd,slice_id,genome_file,trf_output_dir,trf_output_extension,))
+
+  pool.close()
+  pool.join()
+  slice_output_to_gtf(trf_output_dir,'.trf.gtf')
+
+
+def multiprocess_trf(generic_trf_cmd,slice_id,genome_file,trf_output_dir,trf_output_extension):
+
+  region_name = slice_id[0]
+  start = slice_id[1]
+  end = slice_id[2]
+
+  print("Processing slice to find tandem repeats with TRF: " + region_name + ":" + str(start) + ":" + str(end))
+  seq = get_sequence(region_name,start,end,1,genome_file,trf_output_dir)
+
+  slice_file_name = region_name + ".rs" + str(start) + ".re" + str(end)
+  region_fasta_file_name = slice_file_name + ".fa"
+  region_fasta_file_path = os.path.join(trf_output_dir,region_fasta_file_name)
+  region_fasta_out = open(region_fasta_file_path,'w+')
+  region_fasta_out.write(">" + region_name + "\n" + seq + "\n")  
+  region_fasta_out.close()
+
+  region_results_file_name = slice_file_name + ".trf.gtf"
+  region_results_file_path = os.path.join(trf_output_dir,region_results_file_name)
+
+  # TRF writes to the current dir, so swtich to the output dir for it
+  os.chdir(trf_output_dir)
+  trf_output_file = (region_fasta_file_path + trf_output_extension)
+  trf_cmd = generic_trf_cmd.copy()
+  trf_cmd[1] = region_fasta_file_path
+  print(" ".join(trf_cmd))
+  subprocess.run(trf_cmd)
+  create_trf_gtf(trf_output_file,region_results_file_name,region_name)
+  os.remove(trf_output_file)
+  os.remove(region_fasta_file_path)
+
+
+def create_trf_gtf(trf_output_file,region_results_file_name,region_name):
+
+  trf_in = open(trf_output_file,'r')
+  trf_out = open(region_results_file_name,'w+')
+  line = trf_in.readline()
+  repeat_count = 1
+  while line:
+    result_match = re.search(r"^\d+",line)    
+    if result_match:
+      results = line.split()
+      start = results[0]
+      end = results[1]
+      period = float(results[2])
+      copy_number = float(results[3])
+      percent_matches = float(results[5])
+      score = float(results[7])
+      if (score < 50 and percent_matches >= 80 and copy_number > 2 and period < 10) or (copy_number >= 2 and percent_matches >= 70 and score >= 50):
+        gtf_line = (region_name + "\tTRF\trepeat\t" + str(start) + "\t" + str(end) + "\t.\t+\t.\t" + 'repeat_id "' +
+                    str(repeat_count) + '"; score "' + str(score) + '";\n' )        
+        trf_out.write(gtf_line)
+        repeat_count += 1
+    line = trf_in.readline()
+  trf_in.close()
+  trf_out.close()
+
 
 def search_rfam(genome_file,cmsearch_path,rfam_cm_db_path,rfam_seeds_file_path,main_output_dir,clade,num_threads):
-
-  if not cmsearch_path:
-    cmsearch_path = 'cmsearch'
 
   if not cmsearch_path:
     cmsearch_path = 'cmsearch'
@@ -65,7 +153,7 @@ def search_rfam(genome_file,cmsearch_path,rfam_cm_db_path,rfam_seeds_file_path,m
 
   rfam_cm_db_path = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.0/Rfam.cm'
   rfam_seeds_file_path = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.0/Rfam.seed'
-  rfam_accession_file = os.path.join(main_output_dir,'rfam_accessions.txt') #!!!!!
+  rfam_accession_file = os.path.join(main_output_dir,'rfam_accessions.txt') 
   rfam_selected_models_file = os.path.join(rfam_output_dir,'rfam_models.cm')
   with open(rfam_accession_file) as rfam_accessions_in:
     rfam_accessions = rfam_accessions_in.read().splitlines()
@@ -77,11 +165,10 @@ def search_rfam(genome_file,cmsearch_path,rfam_cm_db_path,rfam_seeds_file_path,m
   rfam_cm_out = open(rfam_selected_models_file, 'w+')
 
   for model in rfam_models:
-    # The Rfam.cm file has INFERNAL and HMMR models
-    # We just want the INFERNAL ones
+    # The Rfam.cm file has INFERNAL and HMMR models, both are needed at this point
+    # Later we just want the INFERNAL ones for looking at thresholds
     match = re.search(r"(RF\d+)",model)
-    match_infernal = re.search(r"INFERNAL",model)
-    if match: # and match_infernal:
+    if match:
       model_accession = match.group(1)
       if model_accession in rfam_accessions:
         rfam_cm_out.write(model + "//\n")
@@ -94,82 +181,53 @@ def search_rfam(genome_file,cmsearch_path,rfam_cm_db_path,rfam_seeds_file_path,m
   seq_region_lengths = get_seq_region_lengths(genome_file,5000)
   slice_ids = create_slice_ids(seq_region_lengths,1000000,0,5000)
 
-  print("Running Rfam")
-#  pool = multiprocessing.Pool(int(num_threads))
-#  tasks = []
   generic_cmsearch_cmd = [cmsearch_path,'--rfam','--cpu','1','--nohmmonly','--cut_ga','--tblout']
+  print("Running Rfam")
+  pool = multiprocessing.Pool(int(num_threads))
+  tasks = []
   for slice_id in slice_ids:
-    region_name = slice_id[0]
-    start = slice_id[1]
-    end = slice_id[2]
+    pool.apply_async(multiprocess_cmsearch, args=(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions,))
 
-    print("Processing Rfam data using cmsearch against slice: " + region_name + ":" + str(start) + ":" + str(end))
-    seq = get_sequence(region_name,start,end,1,genome_file,rfam_output_dir)
-
-    slice_file_name = region_name + ".rs" + str(start) + ".re" + str(end)
-    region_fasta_file_name = slice_file_name + ".fa"
-    region_fasta_file_path = os.path.join(rfam_output_dir,region_fasta_file_name)
-    region_fasta_out = open(region_fasta_file_path,'w+')
-    region_fasta_out.write(">" + region_name + "\n" + seq + "\n")  
-    region_fasta_out.close()
-
-    region_tblout_file_name = slice_file_name + ".tblout"
-    region_tblout_file_path = os.path.join(rfam_output_dir,region_tblout_file_name)
-
-    region_results_file_name = slice_file_name + ".rfam.gtf"
-    region_results_file_path = os.path.join(rfam_output_dir,region_results_file_name)
-
-  
-    cmsearch_cmd = generic_cmsearch_cmd.copy()
-    cmsearch_cmd.append(region_tblout_file_path)
-    cmsearch_cmd.append(rfam_selected_models_file)
-    cmsearch_cmd.append(region_fasta_file_path)
-    print(" ".join(cmsearch_cmd))
-    subprocess.run(cmsearch_cmd)
-
-#    rfam_results_out = open(region_results_file_path,'w+') !!!!!!!! remove?
-#    rfam_results_out.close() !!!!!!!!! remove?
-
-    initial_table_results = parse_rfam_tblout(region_tblout_file_path,region_name)
-    unique_table_results = remove_rfam_overlap(initial_table_results)
-    filtered_table_results = filter_rfam_results(unique_table_results,cv_models)
-    create_rfam_gtf(filtered_table_results,cv_models,seed_descriptions,region_name,region_results_file_path)
-
-#    pool.apply_async(multiprocess_cmsearch, args=(generic_cmsearch_cmd,slice_id,masked_genome_file,rfam_output_dir,rfam_selected_models_file,))
-
-#  pool.close()
-#  pool.join()
+  pool.close()
+  pool.join()
+  slice_output_to_gtf(rfam_output_dir,'.rfam.gtf')
 
 
-def multiprocess_cmsearch(generic_cmsearch_cmd,slice_id,masked_genome_file,rfam_output_dir,rfam_selected_models_file):
+def multiprocess_cmsearch(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions):
 
-  region = slice_id[0]
+  region_name = slice_id[0]
   start = slice_id[1]
   end = slice_id[2]
-  seq = get_sequence(region,start,end,1,genome_file,output_dir)
 
-  slice_file_name = region + ".rs" + str(start) + ".re" + str(end)
+  print("Processing Rfam data using cmsearch against slice: " + region_name + ":" + str(start) + ":" + str(end))
+  seq = get_sequence(region_name,start,end,1,genome_file,rfam_output_dir)
 
+  slice_file_name = region_name + ".rs" + str(start) + ".re" + str(end)
   region_fasta_file_name = slice_file_name + ".fa"
-  region_fasta_file_path = os.path.join(output_dir,region_fasta_file_name)
+  region_fasta_file_path = os.path.join(rfam_output_dir,region_fasta_file_name)
   region_fasta_out = open(region_fasta_file_path,'w+')
-  region_fasta_out.write(">" + region + "\n" + seq + "\n")  
+  region_fasta_out.write(">" + region_name + "\n" + seq + "\n")  
   region_fasta_out.close()
 
   region_tblout_file_name = slice_file_name + ".tblout"
-  region_tblout_file_path = os.path.join(output_dir,region_tblout_file_name)
+  region_tblout_file_path = os.path.join(rfam_output_dir,region_tblout_file_name)
 
   region_results_file_name = slice_file_name + ".rfam.gtf"
-  region_results_file_path = os.path.join(output_dir,region_results_file_name)
+  region_results_file_path = os.path.join(rfam_output_dir,region_results_file_name)
 
-  rfam_results_out = open(region_results_file_path,'w+')
   
-  cmsearch_cmd = cmd.copy()
+  cmsearch_cmd = generic_cmsearch_cmd.copy()
   cmsearch_cmd.append(region_tblout_file_path)
+  cmsearch_cmd.append(rfam_selected_models_file)
   cmsearch_cmd.append(region_fasta_file_path)
-  subprocess.run(cmsearch_cmd,stdout=rfam_results_out)
+  print(" ".join(cmsearch_cmd))
+  subprocess.run(cmsearch_cmd)
 
-  rfam_results_out.close()
+  initial_table_results = parse_rfam_tblout(region_tblout_file_path,region_name)
+  unique_table_results = remove_rfam_overlap(initial_table_results)
+  filtered_table_results = filter_rfam_results(unique_table_results,cv_models)
+  create_rfam_gtf(filtered_table_results,cv_models,seed_descriptions,region_name,region_results_file_path)
+
 
 
 def get_rfam_seed_descriptions(rfam_seeds_path):
@@ -394,10 +452,16 @@ def create_rfam_gtf(filtered_results,cm_models,descriptions,region_name,region_r
     accession = structure['accession']
     if query in cm_models:
       model = cm_models[query]
-      description = descriptions[accession]
+      if accession in descriptions:
+        description = descriptions[accession]
+        if 'type' in description:
+          rfam_type = description['type']  
+        else:
+          description = None
+          rfam_type = "misc_RNA"
       domain = structure['query_name']
       padding = model['-length']
-      rfam_type = description['type']  
+#      rfam_type = description['type']  
       strand = structure['strand']
       if strand == 1:
         start = structure['start']
@@ -409,7 +473,7 @@ def create_rfam_gtf(filtered_results,cm_models,descriptions,region_name,region_r
         score = structure['score']
         strand = '-'
 
-      biotype = "misc_RNA";
+      biotype = "misc_RNA"
       if re.match(r"^snRNA;",rfam_type):
         biotype = "snRNA"
       if re.match(r"^snRNA; snoRNA",rfam_type):
@@ -431,9 +495,9 @@ def create_rfam_gtf(filtered_results,cm_models,descriptions,region_name,region_r
       if re.match(r"" + domain,rfam_type):
         biotype = "Y_RNA"
 
-      transcript_string = (region_name + "\tRfam\ttranscript\t" + str(start) + "\t" + str(end) + "\t" + strand + "\t.\t" + 'gene_id "' +
+      transcript_string = (region_name + "\tRfam\ttranscript\t" + str(start) + "\t" + str(end) + "\t.\t" + strand + "\t.\t" + 'gene_id "' +
                            str(gene_counter) + '"; transcript_id "' + str(gene_counter) + '"; biotype "' + biotype + '";\n')
-      exon_string = (region_name + "\tRfam\texon\t" + str(start) + "\t" + str(end) + "\t" + strand + "\t.\t" + 'gene_id "' +
+      exon_string = (region_name + "\tRfam\texon\t" + str(start) + "\t" + str(end) + "\t.\t" + strand + "\t.\t" + 'gene_id "' +
                      str(gene_counter) + '"; transcript_id "' + str(gene_counter) + '"; exon_number "1"; biotype "' + biotype + '";\n')
 
       rfam_gtf_out.write(transcript_string)
@@ -451,6 +515,32 @@ def create_rfam_gtf(filtered_results,cm_models,descriptions,region_name,region_r
 #    -sequence  => $seq,
 #  );
 #  $RNAfold->run;
+
+
+
+def slice_output_to_gtf(output_dir,extension):
+
+  feature_types = ['exon','transcript','repeat']
+  if not extension:
+    extension = '.gtf'
+  gtf_files = glob.glob(output_dir + "/*" + extension)
+  gtf_file_path = os.path.join(output_dir,'annotation.gtf')
+  gtf_out = open(gtf_file_path,'w+')
+  for gtf_file_path in gtf_files:
+    gtf_file_name = os.path.basename(gtf_file_path)
+    match = re.search(r'\.rs(\d+)\.re(\d+)\.',gtf_file_name)
+    start_offset = int(match.group(1))
+    gtf_in = open(gtf_file_path,'r')
+    line = gtf_in.readline()
+    while line:
+      values = line.split("\t")
+      if len(values) == 9 and (values[2] in feature_types):
+        values[3] = str(int(values[3]) + (start_offset - 1))
+        values[4] = str(int(values[4]) + (start_offset - 1))
+        gtf_out.write("\t".join(values))
+        line = gtf_in.readline()
+    gtf_in.close()
+  gtf_out.close()
 
 
 
@@ -1162,7 +1252,7 @@ def create_slice_ids(seq_region_lengths,slice_size,overlap,min_length):
   slice_ids = []
 
   for region in seq_region_lengths:
-    region_length = seq_region_lengths[region]
+    region_length = int(seq_region_lengths[region])
     if region_length < min_length:
       continue
 
@@ -1180,12 +1270,10 @@ def create_slice_ids(seq_region_lengths,slice_size,overlap,min_length):
       end = start + slice_size - 1
       if end > region_length:
         end = region_length
-
       if (end - start + 1) >= min_length:
         slice_ids.append([region,start,end])
-
       start = end + 1
-        
+
   return slice_ids
 
 
@@ -1862,6 +1950,8 @@ if __name__ == '__main__':
   parser.add_argument('--finalise_geneset', help='Used to finalise the gene set from the various GTF files generated', required=False)
   parser.add_argument('--db_details', help='A comma separated stinrg of dbname,host,port,user,pass', required=False)
   parser.add_argument('--run_sncrna', help='Search for sncRNA structures using Rfam and cmsearch', required=False)
+  parser.add_argument('--run_trf', help='Run TRF to find tandem repeats', required=False)
+  parser.add_argument('--trf_path', help='Path to TRF', required=False)
   parser.add_argument('--annotate', help='Run a generalised annotation, will automatically check for input data and run tools based on that', required=False)
   args = parser.parse_args()
 
@@ -1899,6 +1989,8 @@ if __name__ == '__main__':
   finalise_geneset = args.finalise_geneset
   db_details = args.db_details
   run_sncrna = args.run_sncrna
+  run_trf = args.run_trf
+  trf_path = args.trf_path
   annotate = args.annotate
 
   if not os.path.exists(genome_file):
@@ -1982,8 +2074,11 @@ if __name__ == '__main__':
      print("Finalise geneset")
      run_finalise_geneset(work_dir,genome_file,seq_region_names,db_details,num_threads)
 
-
+  # Search Rfam with cmsearch
   if run_sncrna:
      print("Annotating sncRNAs")
      search_rfam(genome_file,None,None,None,work_dir,"insect",num_threads)
 
+  if run_trf:
+     print("Annotating tandem repeats")
+     run_trf_repeats(genome_file,trf_path,work_dir,num_threads)
