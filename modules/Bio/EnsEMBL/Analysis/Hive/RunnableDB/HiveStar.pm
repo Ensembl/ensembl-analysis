@@ -52,6 +52,13 @@ use Bio::EnsEMBL::Analysis::Runnable::Star;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+=head2 param_defaults
+ Arg [1]    : None
+ Description: Default parameters
+ Returntype : Hashref
+                threads => 1,
+ Exceptions : None
+=cut
 
 sub param_defaults {
   my ($self) = @_;
