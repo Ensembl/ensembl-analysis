@@ -118,6 +118,14 @@ sub run {
   $self->output([$output_file]);
 }
 
+=head2 input_file
+
+ Arg [1]    : string
+ Description: Getter/Setter for _input_file
+ Returntype : string
+ Exceptions : None
+
+=cut
 
 sub input_file {
   my ($self, $val) = @_;
@@ -129,6 +137,14 @@ sub input_file {
   return $self->{_input_file};
 }
 
+=head2 num_threads
+
+ Arg [1]    : integer
+ Description: Getter/Setter for _num_threads
+ Returntype : integer
+ Exceptions : None
+
+=cut
 
 sub num_threads {
   my ($self, $val) = @_;
@@ -139,6 +155,14 @@ sub num_threads {
   return $self->{_num_threads};
 }
 
+=head2 output_dir
+
+ Arg [1]    : string
+ Description: Getter/Setter for _output_dir
+ Returntype : string
+ Exceptions : None
+
+=cut
 
 sub output_dir {
   my ($self, $val) = @_;
@@ -149,6 +173,14 @@ sub output_dir {
   return $self->{_output_dir};
 }
 
+=head2 delete_input_file
+
+ Arg [1]    : boolean
+ Description: Getter/Setter for _delete_input_file
+ Returntype : boolean
+ Exceptions : None
+ 
+=cut
 
 sub delete_input_file {
   my ($self, $val) = @_;
