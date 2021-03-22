@@ -176,11 +176,28 @@ sub run {
   }
 }
 
+=head2 write_output
+
+ Arg [1]    : None
+ Description: None
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub write_output {
   my ($self) = @_;
 }
 
+=head2 get_sample_name
+
+ Arg [1]    : string Full path to the input file
+ Arg [2]    : string Full path to the CSV file
+ Description: It returns the sample name related to Arg [1] in Arg [2]
+ Returntype : string
+ Exceptions : Throws if Arg [2] cannot be opened or once the line in Arg [2] related to Arg [1] is found, the regexp matching fails 
+
+=cut
 
 sub get_sample_name {
   my ($self,$input_file_path,$csv_file) = @_;
