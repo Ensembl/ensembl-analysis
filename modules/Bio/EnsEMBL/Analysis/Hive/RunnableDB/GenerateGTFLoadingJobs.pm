@@ -145,6 +145,13 @@ sub write_output {
   }
 }
 
+=head2 process_gtf_file
+ Arg [1]    : String, path to the GTF file
+ Description: Count the number of transcripts in the file and create a data structure to
+              store the file path and the range to process
+ Returntype : Arrayref of array, the array has three elements, filename, start, end
+ Exceptions : Throws if the number of transcrits is 0
+=cut
 
 sub process_gtf_file {
   my ($self,$gtf_file) = @_;
