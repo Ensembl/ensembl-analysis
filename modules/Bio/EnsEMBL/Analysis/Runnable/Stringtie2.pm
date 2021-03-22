@@ -76,7 +76,6 @@ sub new {
 
   my $self = $class->SUPER::new(@args);
   my ($input_file, $num_threads, $output_dir, $delete_input_file) = rearrange([qw (INPUT_FILE NUM_THREADS OUTPUT_DIR DELETE_INPUT_FILE)],@args);
- # $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->num_threads($num_threads);
   $self->output_dir($output_dir);
@@ -96,7 +95,6 @@ sub new {
 sub run {
   my ($self) = @_;
 
-#  my $genome_index  = $self->genome_index;
   my $input_file    = $self->input_file;
   my $num_threads = $self->num_threads;
   my $output_file = basename($input_file);
@@ -118,17 +116,6 @@ sub run {
   }
 
   $self->output([$output_file]);
-}
-
-
-sub genome_index {
-  my ($self, $val) = @_;
-
-  if ($val) {
-    $self->{_genome_index} = $val;
-  }
-
-  return $self->{_genome_index};
 }
 
 
