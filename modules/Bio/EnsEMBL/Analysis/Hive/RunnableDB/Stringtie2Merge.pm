@@ -51,6 +51,16 @@ use File::Basename;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+=head2 param_defaults
+ Arg [1]    : None
+ Description: Default parameters
+ Returntype : Hashref
+                input_file_extension => '_Aligned.sortedByCoord.out.gtf',
+                num_threads => 1,
+                delete_input_file => 0,
+ Exceptions : None
+=cut
+
 sub param_defaults {
   my ($self) = @_;
 
