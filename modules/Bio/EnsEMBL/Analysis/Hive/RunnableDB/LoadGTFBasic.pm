@@ -69,6 +69,15 @@ use Data::Dumper;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters
+                loading_type => 'range',
+ Returntype : Hashref
+ Exceptions : None
+ 
+=cut
 
 sub param_defaults {
   my ($self) = @_;
@@ -78,7 +87,6 @@ sub param_defaults {
     loading_type => 'file',
   }
 }
-
 
 =head2 fetch_input
 
@@ -186,6 +194,19 @@ sub write_output {
   }
 }
 
+=head2 load_range
+
+ Arg [1]    : Bio::EnsEMBL::DBSQL::SliceAdaptor
+ Description: Process the tanscript and exon lines to create gene models
+ Returntype : Arrayref of String, the lines corresponding to exons
+              It also store a hash of Bio::EnsEMBL::Slice representing the sequences
+ Exceptions : Throws if 'gtf_array' is not populated
+              Throws if the file provided in 'gtf_array' does not exist
+              Throws if the start index provided by 'gtf_array' is negative
+              Throws if it fails opening the GTF file
+              Throws if it fails cloing the GTF file
+              
+=cut
 
 sub load_range {
   my ($self,$slice_adaptor) = @_;
@@ -275,6 +296,14 @@ sub load_range {
   return($proto_transcripts);
 }
 
+=head2 build_gene
+
+ Arg [1]    : Array of String, exon GTF lines
+ Description: Create the gene, transcript and translation based on the exon lines
+ Returntype : Bio::EnsEMBL::Gene
+ Exceptions : None
+ 
+=cut
 
 sub build_gene {
   my ($self,$proto_transcript) = @_;
@@ -400,6 +429,15 @@ sub build_gene {
   return($gene);
 }
 
+=head2 set_attributes
+
+ Arg [1]    : String, the attribute column of a GTF file
+ Description: Split the attribute column into a dictionnary of key for the attribute
+              name and its value
+ Returntype : Hashref, key is the atribute, value is the value of the attribute
+ Exceptions : None
+ 
+=cut
 
 sub set_attributes {
   my ($self,$attribute_string) = @_;
