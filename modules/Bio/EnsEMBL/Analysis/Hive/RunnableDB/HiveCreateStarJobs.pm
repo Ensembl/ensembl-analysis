@@ -34,6 +34,15 @@ use File::Spec::Functions;
 use Data::Dumper;
 use parent ('Bio::EnsEMBL::Hive::RunnableDB::JobFactory');
 
+=head2 param_defaults
+ Arg [1]    : None
+ Description: Default parameters
+                'compression_ratio' => 3,
+                'target_batch_size' => 10000000000,
+ Returntype : Hashref
+ Exceptions : None
+=cut
+
 sub param_defaults {
   my $self = shift;
 
@@ -83,6 +92,12 @@ sub fetch_input {
   $self->param('inputlist',$self->batch_samples($samples_hash));
 }
 
+=head2 batch_samples
+ Arg [1]    : Hashref, containing the information from the 'csvfile_table'
+ Description: Batch files depending on their size
+ Returntype : Arrayref of array containing sample names to be batched together
+ Exceptions : None
+=cut
 
 sub batch_samples {
   my ($self,$samples_hash) = @_;
@@ -108,6 +123,13 @@ sub batch_samples {
   return($output_ids);
 }
 
+=head2 build_sorted_batches
+ Arg [1]    : Hashref, containgin the information from the 'csvfile_table'
+ Arg [2]    : Hashref, containing the the size of each file
+ Description: Build the size sorted batches
+ Returntype : Arrayref of array containing sample names to be batched together
+ Exceptions : None
+=cut
 
 sub build_sorted_batches {
   my ($self,$samples_hash,$file_sizes) = @_;
