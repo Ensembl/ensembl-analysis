@@ -107,13 +107,13 @@ my $num_not_found_reference_transcripts = 0;
 my $num_split_reference_genes = 0;
 my $num_split_query_genes = 0;
 
-say catfile($output_path,'not_found_reference_regions.tsv');
+my $file_prefix = time().'_'.$reference_cs_version."_".$query_cs_version;
 
-open(my $not_found_reference_regions_fh,'>',catfile($output_path,'not_found_reference_regions.tsv')) || die "Couldn't open file not_found_reference_regions.tsv, $!";;
-open(my $not_found_reference_genes_fh,'>',catfile($output_path,'not_found_reference_genes.tsv')) || die "Couldn't open file not_found_reference_genes.tsv, $!";;
-open(my $not_found_reference_transcripts_fh,'>',catfile($output_path,'not_found_reference_transcripts.tsv')) || die "Couldn't open file not_found_reference_transcripts.tsv, $!";;
-open(my $split_reference_genes_fh,'>',catfile($output_path,'split_reference_genes.tsv')) || die "Couldn't open file split_reference_genes.tsv, $!";;
-open(my $split_query_genes_fh,'>',catfile($output_path,'split_query_genes.tsv')) || die "Couldn't open file split_query_genes.tsv, $!";;
+open(my $not_found_reference_regions_fh,'>',catfile($output_path,$file_prefix.'_not_found_reference_regions.tsv')) || die "Couldn't open file not_found_reference_regions.tsv, $!";
+open(my $not_found_reference_genes_fh,'>',catfile($output_path,$file_prefix.'_not_found_reference_genes.tsv')) || die "Couldn't open file not_found_reference_genes.tsv, $!";
+open(my $not_found_reference_transcripts_fh,'>',catfile($output_path,$file_prefix.'_not_found_reference_transcripts.tsv')) || die "Couldn't open file not_found_reference_transcripts.tsv, $!";
+open(my $split_reference_genes_fh,'>',catfile($output_path,$file_prefix.'_split_reference_genes.tsv')) || die "Couldn't open file split_reference_genes.tsv, $!";
+open(my $split_query_genes_fh,'>',catfile($output_path,$file_prefix.'_split_query_genes.tsv')) || die "Couldn't open file split_query_genes.tsv, $!";
 
 my $reference_gene_adaptor = $reference_db->get_GeneAdaptor();
 my $reference_transcript_adaptor = $reference_db->get_TranscriptAdaptor();
@@ -475,6 +475,9 @@ sub compare_genes {
     my $matched_cds_introns = 0;
     my $matched_transcripts = 0;
     my $matched_cds_transcripts = 0;
+    my $matched_gene = 0;
+    my $matched_cds_gene = 0;
+    my $is_cds_gene = 0;
 
     my $reference_gene_id = $reference_gene->dbID();
     my $reference_transcripts;
@@ -543,13 +546,27 @@ sub compare_genes {
 
     } # End foreach my $reference_transcript
 
+    if ($total_cds_transcripts) {
+      $is_cds_gene = 1;
+    }
+
+    if ($matched_transcripts eq $total_transcripts) {
+      $matched_gene++;
+    }
+
+    if ($matched_cds_transcripts and ($matched_cds_transcripts eq $total_cds_transcripts)) {
+      $matched_cds_gene++;
+    }
+
     $comparison_results->{$reference_gene_id} = {'biotype' => $reference_biotype,
                                                  'exons' => [$matched_exons,$total_exons],
                                                  'introns' => [$matched_introns,$total_introns],
                                                  'cds_exons' => [$matched_cds_exons,$total_cds_exons],
                                                  'cds_introns' => [$matched_cds_introns,$total_cds_introns],
                                                  'transcript_structure' => [$matched_transcripts,$total_transcripts],
-                                                 'transcript_cds_structure' => [$matched_cds_transcripts,$total_cds_transcripts]};
+                                                 'transcript_cds_structure' => [$matched_cds_transcripts,$total_cds_transcripts],
+                                                 'gene_structure' => [$matched_gene,1],
+                                                 'gene_cds_structure' => [$matched_cds_gene,$is_cds_gene]};
   } # End foreach my $reference_gene
 
   return $comparison_results;
@@ -580,6 +597,11 @@ sub compare_genes {
 sub print_results {
   my ($results) = @_;
 
+
+  my $all_gene_structures_match = 0;
+  my $all_gene_structures = 0;
+  my $all_gene_cds_structures_match = 0;
+  my $all_gene_cds_structures = 0;
   my $all_transcript_structures_match = 0;
   my $all_transcript_structures = 0;
   my $all_transcript_cds_structures_match = 0;
@@ -593,8 +615,15 @@ sub print_results {
   my $all_cds_introns_match = 0;
   my $all_cds_introns = 0;
 
+
   foreach my $gene_id (keys(%$results)) {
     my $gene_results = $results->{$gene_id};
+    my $gs_match = $gene_results->{'gene_structure'};
+    $all_gene_structures_match += ${$gs_match}[0];
+    $all_gene_structures += ${$gs_match}[1];
+    my $gs_cds_match = $gene_results->{'gene_cds_structure'};
+    $all_gene_cds_structures_match += ${$gs_cds_match}[0];
+    $all_gene_cds_structures += ${$gs_cds_match}[1];
     my $ts_match = $gene_results->{'transcript_structure'};
     $all_transcript_structures_match += ${$ts_match}[0];
     $all_transcript_structures += ${$ts_match}[1];
@@ -615,12 +644,18 @@ sub print_results {
     $all_cds_introns += ${$cds_introns_match}[1];
   }
 
+
+  my $match_gs_perc = sprintf("%.2f", ($all_gene_structures_match/$all_gene_structures) * 100);
+  my $match_gs_cds_perc = sprintf("%.2f", ($all_gene_cds_structures_match/$all_gene_cds_structures) * 100);
   my $match_ts_perc = sprintf("%.2f", ($all_transcript_structures_match/$all_transcript_structures) * 100);
   my $match_ts_cds_perc = sprintf("%.2f", ($all_transcript_cds_structures_match/$all_transcript_cds_structures) * 100);
   my $match_exons_perc = sprintf("%.2f", ($all_exons_match/$all_exons) * 100);
   my $match_introns_perc = sprintf("%.2f", ($all_introns_match/$all_introns) * 100);
   my $match_cds_exons_perc = sprintf("%.2f", ($all_cds_exons_match/$all_cds_exons) * 100);
   my $match_cds_introns_perc = sprintf("%.2f", ($all_cds_introns_match/$all_cds_introns) * 100);
+
+  say "Matched/Total gene structures: ".$all_gene_structures_match."/".$all_gene_structures.", ".$match_gs_perc."%";
+  say "Matched/Total CDS gene structures: ".$all_gene_cds_structures_match."/".$all_gene_cds_structures.", ".$match_gs_cds_perc."%";
 
   say "Matched/Total transcript structures: ".$all_transcript_structures_match."/".$all_transcript_structures.", ".$match_ts_perc."%";
   say "Matched/Total CDS transcript structures: ".$all_transcript_cds_structures_match."/".$all_transcript_cds_structures.", ".$match_ts_cds_perc."%";
