@@ -290,7 +290,7 @@ sub default_options {
     # repeatdetector (Red) output directories which will contain the softmasked fasta and the repeat features files created by Red
     red_msk => catfile($self->o('genome_dumps'), $self->o('species_name').'_red_msk/'),
     red_rpt => catfile($self->o('genome_dumps'), $self->o('species_name').'_red_rpt/'),
-    
+
     'primary_assembly_dir_name' => 'Primary_Assembly',
     'refseq_cdna_calculate_coverage_and_pid' => '0',
     'contigs_source'            => 'ena',
@@ -501,7 +501,7 @@ sub default_options {
     # in brackets; the name the read number (1, 2) and the
     # extension.
     pairing_regex => '\S+_(\d)\.\S+',
-    
+
     # Regular expressions for splitting the fastq files
     split_paired_regex   => '(\S+)(\_\d\.\S+)',
     split_single_regex  => '([^.]+)(\.\S+)',
@@ -1909,18 +1909,39 @@ sub pipeline_analyses {
         -module     => 'Repeatmask_Red',
         -language   => 'python3',
         -parameters => {
-	                 logic_name => $self->o('red_logic_name'),
-                         red_path => $self->o('red_path'),
-			 genome_file => $self->o('faidx_genome_file'),
-                         target_db_url => $self->o('hive_driver').'://'.$self->o('user').':'.$self->o('password').'@'.$self->o('dna_db_server').':'.$self->o('dna_db_port').'/'.$self->o('dna_db_name'),
-                         msk => $self->o('red_msk'),
-                         rpt => $self->o('red_rpt'),
-			 red_meta_key => $self->o('replace_repbase_with_red_to_mask'),
-                       },
-        -rc_name => '15GB',
-	-flow_into =>  {
-                         1 => ['create_10mb_slice_ids'],
-                       },
+	         logic_name     => $self->o('red_logic_name'),
+           red_path       => $self->o('red_path'),
+			     genome_file    => $self->o('faidx_genome_file'),
+           target_db_url  => $self->o('hive_driver').'://'.$self->o('user').':'.$self->o('password').'@'.$self->o('dna_db_server').':'.$self->o('dna_db_port').'/'.$self->o('dna_db_name'),
+           msk            => $self->o('red_msk'),
+           rpt            => $self->o('red_rpt'),
+			     red_meta_key   => $self->o('replace_repbase_with_red_to_mask'),
+        },
+        -rc_name   => '15GB',
+	      -flow_into => {
+          1   => ['create_10mb_slice_ids'],
+          -1  => ['repeatdetector_50GB'],
+        },
+      },
+
+      {
+        # Run Red (REpeat Detector)
+        -logic_name => 'repeatdetector_50GB',
+        -module     => 'Repeatmask_Red',
+        -language   => 'python3',
+        -parameters => {
+          logic_name     => $self->o('red_logic_name'),
+          red_path       => $self->o('red_path'),
+          genome_file    => $self->o('faidx_genome_file'),
+          target_db_url  => $self->o('hive_driver').'://'.$self->o('user').':'.$self->o('password').'@'.$self->o('dna_db_server').':'.$self->o('dna_db_port').'/'.$self->o('dna_db_name'),
+          msk            => $self->o('red_msk'),
+          rpt            => $self->o('red_rpt'),
+          red_meta_key   => $self->o('replace_repbase_with_red_to_mask'),
+        },
+        -rc_name => '50GB',
+        -flow_into =>  {
+          1 => ['create_10mb_slice_ids'],
+        },
       },
 
       {
@@ -5164,7 +5185,7 @@ sub pipeline_analyses {
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
             cmd => "perl " . $self->o('sncrna_analysis_script') . "/fetch_rfam_accessions.pl " .
-                    " -h " . $self->o('rfam_host') . 
+                    " -h " . $self->o('rfam_host') .
                     " -u " . $self->o('rfam_user') .
                     " -p " . $self->o('rfam_port') .
                     " -d " . $self->o('rfam_dbname') .
@@ -5366,7 +5387,7 @@ sub pipeline_analyses {
         },
       },
 
-      { 
+      {
         -logic_name => 'fan_dump_features',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
         -parameters => {
@@ -9058,8 +9079,8 @@ sub pipeline_analyses {
                   FILES=($(ls *.bam));
                   if [[ $((${#FILES[*]}-1)) > 0 ]]
                   then printf "#free_text_multi#" | sed "s/NUM/$((${#FILES[*]}-1))/g;s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" > README.1
-                  else printf "#free_text_single#" | sed "s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" >> README.1 
-                  fi 
+                  else printf "#free_text_single#" | sed "s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" >> README.1
+                  fi
                   IFS=$\'\n\';
                   echo "${FILES[*]}" >> README.1',
           working_dir => $self->o('merge_dir'),
@@ -9123,7 +9144,7 @@ sub pipeline_analyses {
       {
         -logic_name => 'core_assembly_name_update',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => { 
+        -parameters => {
                          cmd => 'perl '.$self->o('assembly_name_script').
                                 ' -user '.$self->o('user').
                                 ' -pass '.$self->o('password').
@@ -9152,7 +9173,7 @@ sub resource_classes {
     '2GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]},
     '2GB' => { LSF => $self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '3GB' => { LSF => $self->lsf_resource_builder('production-rh74', 3000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '4GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]}, 
+    '4GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]},
     '4GB' => { LSF => $self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '5GB' => { LSF => $self->lsf_resource_builder('production-rh74', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '6GB' => { LSF => $self->lsf_resource_builder('production-rh74', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
