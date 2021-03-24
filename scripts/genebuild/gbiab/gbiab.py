@@ -14,6 +14,7 @@
 
 import argparse
 import os
+import errno
 import shutil
 import subprocess
 import glob
@@ -24,9 +25,21 @@ import tempfile
 import io
 
 
+# Validate CDS
+# Write transcript/protein sequences out to file (on the transcriptomic script?)
+# if source == transcriptomic or Augustus
+#   Run transcript sequence through CPC2 and RNAsamba
+#   Write attribs to GTF transcript lines
+# Once these are tagged, finalisation script decides what to do. At each locus a decision needs to be
+# made based on the tags at each locus. If the longest CDS is coding, the locus is coding. Remove
+# transripts that are flagged as non coding
+
 def create_dir(main_output_dir,dir_name):
 
-  target_dir = os.path.join(main_output_dir,dir_name)
+  if dir_name:
+    target_dir = os.path.join(main_output_dir,dir_name)
+  else:
+    target_dir = main_output_dir
 
   if os.path.exists(target_dir):
     print ("Directory already exists, will not create again")
@@ -43,6 +56,520 @@ def create_dir(main_output_dir,dir_name):
     print ("Successfully created the dir on the following path: %s" % target_dir)
 
   return target_dir
+
+
+def run_repeatmasker_regions(genome_file,repeatmasker_path,library,main_output_dir,num_threads):
+
+  if not repeatmasker_path:
+    repeatmasker_path = 'RepeatMasker'
+
+  if not library:
+    library = 'homo'
+
+  check_exe(repeatmasker_path)
+  repeatmasker_output_dir = create_dir(main_output_dir,'repeatmasker_output')
+  os.chdir(repeatmasker_output_dir)
+
+  print("Creating list of genomic slices")
+  seq_region_lengths = get_seq_region_lengths(genome_file,5000)
+  slice_ids = create_slice_ids(seq_region_lengths,1000000,0,5000)
+
+  generic_repeatmasker_cmd = [repeatmasker_path,'-nolow','-species',library,'-engine','crossmatch','-dir',repeatmasker_output_dir]
+  print("Running RepeatMasker")
+  pool = multiprocessing.Pool(int(num_threads))
+  tasks = []
+  for slice_id in slice_ids:
+    pool.apply_async(multiprocess_repeatmasker, args=(generic_repeatmasker_cmd,slice_id,genome_file,repeatmasker_output_dir,))
+
+  pool.close()
+  pool.join()
+  slice_output_to_gtf(repeatmasker_output_dir,'.rm.gtf')
+
+
+def multiprocess_repeatmasker(generic_repeatmasker_cmd,slice_id,genome_file,repeatmasker_output_dir):
+
+  region_name = slice_id[0]
+  start = slice_id[1]
+  end = slice_id[2]
+
+  print("Processing slice to find repeats with RepeatMasker: " + region_name + ":" + str(start) + ":" + str(end))
+  seq = get_sequence(region_name,start,end,1,genome_file,repeatmasker_output_dir)
+
+  slice_file_name = region_name + ".rs" + str(start) + ".re" + str(end)
+  region_fasta_file_name = slice_file_name + ".fa"
+  region_fasta_file_path = os.path.join(repeatmasker_output_dir,region_fasta_file_name)
+  region_fasta_out = open(region_fasta_file_path,'w+')
+  region_fasta_out.write(">" + region_name + "\n" + seq + "\n")  
+  region_fasta_out.close()
+
+  region_results_file_path = (region_fasta_file_path + ".rm.gtf")
+  repeatmasker_output_file_path = (region_fasta_file_path + ".out")
+  repeatmasker_masked_file_path = (region_fasta_file_path + ".masked")
+  repeatmasker_tbl_file_path = (region_fasta_file_path + ".tbl")
+  repeatmasker_log_file_path = (region_fasta_file_path + ".log")
+  repeatmasker_cat_file_path = (region_fasta_file_path + ".cat")
+
+  repeatmasker_cmd = generic_repeatmasker_cmd.copy()
+  repeatmasker_cmd.append(region_fasta_file_path)
+  print(" ".join(repeatmasker_cmd))
+  subprocess.run(repeatmasker_cmd)
+
+  create_repeatmasker_gtf(repeatmasker_output_file_path,region_results_file_path,region_name)
+
+  os.remove(region_fasta_file_path)
+  if os.path.exists(region_results_file_path):
+    os.remove(region_results_file_path)
+  if os.path.exists(repeatmasker_masked_file_path):
+    os.remove(repeatmasker_masked_file_path)
+  if os.path.exists(repeatmasker_tbl_file_path):
+    os.remove(repeatmasker_tbl_file_path)
+  if os.path.exists(repeatmasker_log_file_path):
+    os.remove(repeatmasker_log_file_path)
+  if os.path.exists(repeatmasker_cat_file_path):
+    os.remove(repeatmasker_cat_file_path)
+
+
+def create_repeatmasker_gtf(repeatmasker_output_file_path,region_results_file_path,region_name):
+
+  repeatmasker_in = open(repeatmasker_output_file_path,'r')
+  repeatmasker_out = open(region_results_file_path,'w+')
+  line = repeatmasker_in.readline()
+  repeat_count = 1
+  while line:
+    result_match = re.search(r"^\s*\d+\s+",line)    
+    if result_match:
+      results = line.split()
+      if results[-1] == '*':
+        results.pop()
+      if not len(results) == 15:
+        continue
+
+      score = results[0]
+      start = results[5]
+      end = results[6]
+      strand = results[8]
+      repeat_name = results[9]
+      repeat_class = results[10]
+      if strand == '+':
+        repeat_start = results[11]
+        repeat_end = results[12]
+      else:
+        repeat_start = results[13]
+        repeat_end = results[12]
+        strand = '-'
+     
+      gtf_line = (region_name + "\tRepeatMasker\trepeat\t" + str(start) + "\t" + str(end) + "\t.\t" + strand +"\t.\t" + 'repeat_id "' +
+                  str(repeat_count) + '"; repeat_name "' + repeat_name + '"; repeat_class "' + repeat_class + '"; repeat_start "' +
+                  str(repeat_start) + '"; repeat_end "' + str(repeat_end) + '"; score "' + str(score) + '";\n')
+      repeatmasker_out.write(gtf_line)
+      repeat_count += 1
+    line = repeatmasker_in.readline()
+  repeatmasker_in.close()
+  repeatmasker_out.close()
+
+
+def run_eponine_regions(genome_file,java_path,eponine_path,main_output_dir,num_threads):
+
+  if not java_path:
+    java_path = 'java'
+
+  if not eponine_path:
+    eponine_path = '/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/opt/eponine/libexec/eponine-scan.jar'
+
+  check_file(eponine_path)
+  check_exe(java_path)
+
+  eponine_output_dir = create_dir(main_output_dir,'eponine_output')
+
+  print("Creating list of genomic slices")
+  seq_region_lengths = get_seq_region_lengths(genome_file,5000)
+  slice_ids = create_slice_ids(seq_region_lengths,1000000,0,5000)
+
+  threshold = '0.999'
+  generic_eponine_cmd = [java_path,'-jar',eponine_path,'-threshold',threshold,'-seq']
+  print("Running Eponine")
+  pool = multiprocessing.Pool(int(num_threads))
+  tasks = []
+  for slice_id in slice_ids:
+    pool.apply_async(multiprocess_eponine, args=(generic_eponine_cmd,slice_id,genome_file,eponine_output_dir,))
+
+  pool.close()
+  pool.join()
+  slice_output_to_gtf(eponine_output_dir,'.epo.gtf')
+
+
+def multiprocess_eponine(generic_eponine_cmd,slice_id,genome_file,eponine_output_dir):
+
+  region_name = slice_id[0]
+  start = slice_id[1]
+  end = slice_id[2]
+
+  print("Processing slice to find transcription start sites with Eponine: " + region_name + ":" + str(start) + ":" + str(end))
+  seq = get_sequence(region_name,start,end,1,genome_file,eponine_output_dir)
+
+  slice_file_name = region_name + ".rs" + str(start) + ".re" + str(end)
+  region_fasta_file_name = slice_file_name + ".fa"
+  region_fasta_file_path = os.path.join(eponine_output_dir,region_fasta_file_name)
+
+  region_fasta_out = open(region_fasta_file_path,'w+')
+  region_fasta_out.write(">" + region_name + "\n" + seq + "\n")  
+  region_fasta_out.close()
+
+  region_results_file_name = slice_file_name + ".epo.gtf"
+  region_results_file_path = os.path.join(eponine_output_dir,region_results_file_name)
+
+  eponine_output_file_path = (region_fasta_file_path + ".epo")
+  eponine_out = open(eponine_output_file_path,'w+')
+
+  eponine_cmd = generic_eponine_cmd.copy()
+  eponine_cmd.append(region_fasta_file_path)
+
+  print(" ".join(eponine_cmd))
+  subprocess.run(eponine_cmd, stdout=eponine_out)
+  eponine_out.close()
+
+  create_eponine_gtf(eponine_output_file_path,region_results_file_path,region_name)
+  os.remove(eponine_output_file_path)
+  os.remove(region_fasta_file_path)
+
+
+def create_eponine_gtf(eponine_output_file_path,region_results_file_path,region_name):
+
+
+  eponine_in = open(eponine_output_file_path,'r')
+  eponine_out = open(region_results_file_path,'w+')
+
+  line = eponine_in.readline()
+  feature_count = 1
+  while line:
+    result_match = re.search(r"^" + region_name,line)
+
+    if result_match:
+      results = line.split()
+      start = int(results[3])
+      end = int(results[4])
+      score = float(results[5])
+      strand = results[6]
+
+      # There's a one base offset on the reverse strand
+      if strand == '-':
+        start -= 1
+        end -= 1
+
+      gtf_line = (region_name + "\tEponine\tfeature\t" + str(start) + "\t" + str(end) + "\t.\t" + strand + "\t.\t" + 'feature_id "' +
+                  str(feature_count) + '";\n')
+      eponine_out.write(gtf_line)
+      feature_count += 1
+    line = eponine_in.readline()
+  eponine_in.close()
+  eponine_out.close()
+
+
+def run_cpg_regions(genome_file,cpg_path,main_output_dir,num_threads):
+
+  if not cpg_path:
+    cpg_path = 'cpg_lh'
+
+  check_exe(cpg_path)
+  cpg_output_dir = create_dir(main_output_dir,'cpg_output')
+
+  print("Creating list of genomic slices")
+  seq_region_lengths = get_seq_region_lengths(genome_file,5000)
+  slice_ids = create_slice_ids(seq_region_lengths,1000000,0,5000)
+
+  print("Running CpG")
+  pool = multiprocessing.Pool(int(num_threads))
+  tasks = []
+  for slice_id in slice_ids:
+    pool.apply_async(multiprocess_cpg, args=(cpg_path,slice_id,genome_file,cpg_output_dir,))
+
+  pool.close()
+  pool.join()
+  slice_output_to_gtf(cpg_output_dir,'.cpg.gtf')
+
+
+def multiprocess_cpg(cpg_path,slice_id,genome_file,cpg_output_dir):
+
+  region_name = slice_id[0]
+  start = slice_id[1]
+  end = slice_id[2]
+
+  print("Processing slice to find CpG islands with cpg_lh: " + region_name + ":" + str(start) + ":" + str(end))
+  seq = get_sequence(region_name,start,end,1,genome_file,cpg_output_dir)
+
+  slice_file_name = region_name + ".rs" + str(start) + ".re" + str(end)
+  region_fasta_file_name = slice_file_name + ".fa"
+  region_fasta_file_path = os.path.join(cpg_output_dir,region_fasta_file_name)
+
+  region_fasta_out = open(region_fasta_file_path,'w+')
+  region_fasta_out.write(">" + region_name + "\n" + seq + "\n")  
+  region_fasta_out.close()
+
+  region_results_file_name = slice_file_name + ".cpg.gtf"
+  region_results_file_path = os.path.join(cpg_output_dir,region_results_file_name)
+
+  cpg_output_file_path = (region_fasta_file_path + ".cpg")
+  cpg_out = open(cpg_output_file_path,'w+')
+
+  cpg_cmd = [cpg_path,region_fasta_file_path]
+  print(" ".join(cpg_cmd))
+  subprocess.run(cpg_cmd, stdout=cpg_out)
+  cpg_out.close()
+
+  create_cpg_gtf(cpg_output_file_path,region_results_file_path,region_name)
+  os.remove(cpg_output_file_path)
+  os.remove(region_fasta_file_path)
+
+
+def create_cpg_gtf(cpg_output_file_path,region_results_file_path,region_name):
+
+  cpg_min_length = 400
+  cpg_min_gc_content = 50
+  cpg_min_oe = 0.6
+
+  cpg_in = open(cpg_output_file_path,'r')
+  cpg_out = open(region_results_file_path,'w+')
+  line = cpg_in.readline()
+  feature_count = 1
+  while line:
+    result_match = re.search(r"^" + region_name,line)    
+    if result_match:
+      results = line.split()
+      start = int(results[1])
+      end = int(results[2])
+      length = end - start + 1
+      score = float(results[3])
+      gc_content = float(results[6])
+      oe = results[7]
+
+      if oe == '-' or oe == 'inf':
+        oe = 0
+      else:
+        oe = float(oe)
+
+      if length >= cpg_min_length and gc_content >= cpg_min_gc_content and oe >= cpg_min_oe:
+        gtf_line = (region_name + "\tCpG\tfeature\t" + str(start) + "\t" + str(end) + "\t.\t+\t.\t" + 'feature_id "' +
+                    str(feature_count) + '";\n')
+        cpg_out.write(gtf_line)
+        feature_count += 1
+    line = cpg_in.readline()
+  cpg_in.close()
+  cpg_out.close()
+
+
+def run_trnascan_regions(genome_file,trnascan_path,trnascan_filter_path,main_output_dir,num_threads):
+
+  if not trnascan_path:
+    trnascan_path = '/hps/nobackup2/production/ensembl/fergal/coding/trnascan/install_dir/bin/tRNAscan-SE'
+
+  if not trnascan_filter_path:
+    trnascan_filter_path = '/hps/nobackup2/production/ensembl/fergal/coding/trnascan/install_dir/bin/EukHighConfidenceFilter'
+
+  check_exe(trnascan_path)
+  check_exe(trnascan_filter_path)
+
+  trnascan_output_dir = create_dir(main_output_dir,'trnascan_output')
+
+  print("Creating list of genomic slices")
+  seq_region_lengths = get_seq_region_lengths(genome_file,5000)
+  slice_ids = create_slice_ids(seq_region_lengths,1000000,0,5000)
+
+  generic_trnascan_cmd = [trnascan_path,None,'-o',None,'-f',None,'-H','-q','--detail']
+  print("Running tRNAscan-SE")
+  pool = multiprocessing.Pool(int(num_threads))
+  tasks = []
+  for slice_id in slice_ids:
+    pool.apply_async(multiprocess_trnascan, args=(generic_trnascan_cmd,slice_id,genome_file,trnascan_filter_path,trnascan_output_dir,))
+
+  pool.close()
+  pool.join()
+  slice_output_to_gtf(trnascan_output_dir,'.trna.gtf')
+
+
+def multiprocess_trnascan(generic_trnascan_cmd,slice_id,genome_file,trnascan_filter_path,trnascan_output_dir):
+
+  region_name = slice_id[0]
+  start = slice_id[1]
+  end = slice_id[2]
+
+  print("Processing slice to find tRNAs using tRNAscan-SE: " + region_name + ":" + str(start) + ":" + str(end))
+  seq = get_sequence(region_name,start,end,1,genome_file,trnascan_output_dir)
+
+  slice_file_name = region_name + ".rs" + str(start) + ".re" + str(end)
+  region_fasta_file_name = slice_file_name + ".fa"
+  region_fasta_file_path = os.path.join(trnascan_output_dir,region_fasta_file_name)
+  region_fasta_out = open(region_fasta_file_path,'w+')
+  region_fasta_out.write(">" + region_name + "\n" + seq + "\n")  
+  region_fasta_out.close()
+
+  region_results_file_name = slice_file_name + ".trna.gtf"
+  region_results_file_path = os.path.join(trnascan_output_dir,region_results_file_name)
+
+  trnascan_output_file_path = (region_fasta_file_path + ".trna")
+  trnascan_ss_output_file_path = (trnascan_output_file_path + ".ss")
+
+  # The filter takes an output dir and a prefix and then uses those to make a path to a .out file
+  trnascan_filter_file_prefix = (region_fasta_file_name + '.filt')
+  trnascan_filter_file_name = (trnascan_filter_file_prefix + '.out')
+  trnascan_filter_log_file_name = (trnascan_filter_file_prefix + '.log')
+  trnascan_filter_ss_file_name = (trnascan_filter_file_prefix + '.ss')
+  trnascan_filter_file_path = os.path.join(trnascan_output_dir,trnascan_filter_file_name)
+  trnascan_filter_log_file_path = os.path.join(trnascan_output_dir,trnascan_filter_log_file_name)
+  trnascan_filter_ss_file_path = os.path.join(trnascan_output_dir,trnascan_filter_ss_file_name)
+
+  trnascan_cmd = generic_trnascan_cmd.copy()
+  trnascan_cmd[1] = region_fasta_file_path
+  trnascan_cmd[3] = trnascan_output_file_path
+  trnascan_cmd[5] = trnascan_ss_output_file_path
+
+  print("tRNAscan-SE command:")
+  print(" ".join(trnascan_cmd))
+  subprocess.run(trnascan_cmd)
+
+  # If we have a blank output file at this point we want to stop and remove whatever files
+  # have been created instead of moving onto the filter
+  if os.stat(trnascan_output_file_path).st_size == 0:
+    os.remove(trnascan_output_file_path)
+    os.remove(region_fasta_file_path)
+    if os.path.exists(trnascan_ss_output_file_path):
+      os.remove(trnascan_ss_output_file_path)
+    return
+
+  filter_cmd = [trnascan_filter_path,'--result',trnascan_output_file_path,'--ss',trnascan_ss_output_file_path,'--output',trnascan_output_dir,'--prefix',trnascan_filter_file_prefix]
+  print("tRNAscan-SE filter command:")
+  print(" ".join(filter_cmd))
+  subprocess.run(filter_cmd)
+
+  create_trnascan_gtf(region_results_file_path,trnascan_filter_file_path,region_name)
+  if os.path.exists(trnascan_output_file_path):
+    os.remove(trnascan_output_file_path)
+  if os.path.exists(trnascan_ss_output_file_path):
+    os.remove(trnascan_ss_output_file_path)
+  if os.path.exists(trnascan_filter_file_path):
+    os.remove(trnascan_filter_file_path)
+  if os.path.exists(trnascan_filter_log_file_path):
+    os.remove(trnascan_filter_log_file_path)
+  if os.path.exists(trnascan_filter_ss_file_path):
+    os.remove(trnascan_filter_ss_file_path)
+  if os.path.exists(region_fasta_file_path):
+    os.remove(region_fasta_file_path)
+
+
+def create_trnascan_gtf(region_results_file_path,trnascan_filter_file_path,region_name):
+
+  trna_in = open(trnascan_filter_file_path,'r')
+  trna_out = open(region_results_file_path,'w+')
+  line = trna_in.readline()
+  gene_counter = 1
+  while line:
+    result_match = re.search(r"^" + region_name,line)    
+    if result_match:
+      results = line.split()
+      start = int(results[2])
+      end = int(results[3])
+      trna_type = results[4]
+      score = results[8]
+
+      strand = '+'
+      if start > end:
+        strand = '-'
+        temp_end = start
+        start = end
+        end = temp_end
+
+      biotype = 'trna_pseudogene'
+      high_confidence_match = re.search(r'high confidence set',line)
+      if high_confidence_match:
+        biotype = 'trna'
+
+      transcript_string = (region_name + "\ttRNAscan\ttranscript\t" + str(start) + "\t" + str(end) + "\t.\t" + strand + "\t.\t" + 'gene_id "' +
+                           str(gene_counter) + '"; transcript_id "' + str(gene_counter) + '"; biotype "' + biotype + '";\n')
+      exon_string = (region_name + "\ttRNAscan\texon\t" + str(start) + "\t" + str(end) + "\t.\t" + strand + "\t.\t" + 'gene_id "' +
+                     str(gene_counter) + '"; transcript_id "' + str(gene_counter) + '"; exon_number "1"; biotype "' + biotype + '";\n')
+
+      trna_out.write(transcript_string)
+      trna_out.write(exon_string)
+      gene_counter += 1
+    line = trna_in.readline()
+  trna_in.close()
+  trna_out.close()
+
+
+def run_dust_regions(genome_file,dust_path,main_output_dir,num_threads):
+
+  if not dust_path:
+    dust_path = 'tcdust'
+
+  check_exe(dust_path)
+  dust_output_dir = create_dir(main_output_dir,'dust_output')
+
+  print("Creating list of genomic slices")
+  seq_region_lengths = get_seq_region_lengths(genome_file,5000)
+  slice_ids = create_slice_ids(seq_region_lengths,1000000,0,5000)
+
+  generic_dust_cmd = [dust_path,'-x']
+  print("Running Dust")
+  pool = multiprocessing.Pool(int(num_threads))
+  tasks = []
+  for slice_id in slice_ids:
+    pool.apply_async(multiprocess_dust, args=(generic_dust_cmd,slice_id,genome_file,dust_output_dir,))
+
+  pool.close()
+  pool.join()
+  slice_output_to_gtf(dust_output_dir,'.dust.gtf')
+
+
+def multiprocess_dust(generic_dust_cmd,slice_id,genome_file,dust_output_dir):
+
+  region_name = slice_id[0]
+  start = slice_id[1]
+  end = slice_id[2]
+
+  print("Processing slice to find low complexity regions with Dust: " + region_name + ":" + str(start) + ":" + str(end))
+  seq = get_sequence(region_name,start,end,1,genome_file,dust_output_dir)
+
+  slice_file_name = region_name + ".rs" + str(start) + ".re" + str(end)
+  region_fasta_file_name = slice_file_name + ".fa"
+  region_fasta_file_path = os.path.join(dust_output_dir,region_fasta_file_name)
+  region_fasta_out = open(region_fasta_file_path,'w+')
+  region_fasta_out.write(">" + region_name + "\n" + seq + "\n")  
+  region_fasta_out.close()
+
+  region_results_file_name = slice_file_name + ".dust.gtf"
+  region_results_file_path = os.path.join(dust_output_dir,region_results_file_name)
+
+  dust_output_file_path = (region_fasta_file_path + ".dust")
+  dust_out = open(dust_output_file_path,'w+')
+
+  dust_cmd = generic_dust_cmd.copy()
+  dust_cmd.append(region_fasta_file_path)
+  print(" ".join(dust_cmd))
+  subprocess.run(dust_cmd,stdout=dust_out)
+  dust_out.close()
+
+  create_dust_gtf(dust_output_file_path,region_results_file_path,region_name)
+  os.remove(dust_output_file_path)
+  os.remove(region_fasta_file_path)
+
+
+def create_dust_gtf(dust_output_file_path,region_results_file_path,region_name):
+
+  dust_in = open(dust_output_file_path,'r')
+  dust_out = open(region_results_file_path,'w+')
+  line = dust_in.readline()
+  repeat_count = 1
+  while line:
+    result_match = re.search(r"(\d+)\.\.(\d+)",line)    
+    if result_match:
+      start = int(result_match.group(1)) + 1
+      end = int(result_match.group(2)) + 1
+      gtf_line = (region_name + "\tDust\trepeat\t" + str(start) + "\t" + str(end) + "\t.\t+\t.\t" + 'repeat_id "' +
+                  str(repeat_count) + '";\n')
+      dust_out.write(gtf_line)
+      repeat_count += 1
+    line = dust_in.readline()
+  dust_in.close()
+  dust_out.close()
 
 
 def run_trf_repeats(genome_file,trf_path,main_output_dir,num_threads):
@@ -101,26 +628,28 @@ def multiprocess_trf(generic_trf_cmd,slice_id,genome_file,trf_output_dir,trf_out
 
   # TRF writes to the current dir, so swtich to the output dir for it
   os.chdir(trf_output_dir)
-  trf_output_file = (region_fasta_file_path + trf_output_extension)
+  trf_output_file_path = (region_fasta_file_path + trf_output_extension)
   trf_cmd = generic_trf_cmd.copy()
   trf_cmd[1] = region_fasta_file_path
   print(" ".join(trf_cmd))
   subprocess.run(trf_cmd)
-  create_trf_gtf(trf_output_file,region_results_file_name,region_name)
-  os.remove(trf_output_file)
+  create_trf_gtf(trf_output_file_path,region_results_file_path,region_name)
+  os.remove(trf_output_file_path)
   os.remove(region_fasta_file_path)
 
 
-def create_trf_gtf(trf_output_file,region_results_file_name,region_name):
+def create_trf_gtf(trf_output_file_path,region_results_file_path,region_name):
 
-  trf_in = open(trf_output_file,'r')
-  trf_out = open(region_results_file_name,'w+')
+  trf_in = open(trf_output_file_path,'r')
+  trf_out = open(region_results_file_path,'w+')
   line = trf_in.readline()
   repeat_count = 1
   while line:
     result_match = re.search(r"^\d+",line)    
     if result_match:
       results = line.split()
+      if not len(results) == 15:
+        continue
       start = results[0]
       end = results[1]
       period = float(results[2])
@@ -209,12 +738,11 @@ def multiprocess_cmsearch(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_
   region_fasta_out.write(">" + region_name + "\n" + seq + "\n")  
   region_fasta_out.close()
 
-  region_tblout_file_name = slice_file_name + ".tblout"
+  
+  region_tblout_file_name = (slice_file_name + ".tblout")
   region_tblout_file_path = os.path.join(rfam_output_dir,region_tblout_file_name)
-
-  region_results_file_name = slice_file_name + ".rfam.gtf"
+  region_results_file_name = (slice_file_name + ".rfam.gtf")
   region_results_file_path = os.path.join(rfam_output_dir,region_results_file_name)
-
   
   cmsearch_cmd = generic_cmsearch_cmd.copy()
   cmsearch_cmd.append(region_tblout_file_path)
@@ -226,8 +754,9 @@ def multiprocess_cmsearch(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_
   initial_table_results = parse_rfam_tblout(region_tblout_file_path,region_name)
   unique_table_results = remove_rfam_overlap(initial_table_results)
   filtered_table_results = filter_rfam_results(unique_table_results,cv_models)
-  create_rfam_gtf(filtered_table_results,cv_models,seed_descriptions,region_name,region_results_file_path)
-
+  create_rfam_gtf(filtered_table_results,cv_models,seed_descriptions,region_name,region_results_file_path,genome_file,rfam_output_dir)
+  os.remove(region_fasta_file_path)
+  os.remove(region_tblout_file_path)
 
 
 def get_rfam_seed_descriptions(rfam_seeds_path):
@@ -430,6 +959,7 @@ def filter_rfam_results(unfiltered_tbl_data,cv_models):
 
       if threshold and float(structure['score']) >= float(threshold):
         filtered_results.append(structure)
+
   return filtered_results
 
 # NOTE: The below are notes from the perl code (which has extra code) about possible improvements that are not implemented there
@@ -440,7 +970,7 @@ def filter_rfam_results(unfiltered_tbl_data,cv_models):
 # my $score_size_ratio = $result->{'score'} / $mapping_length;
 
 
-def create_rfam_gtf(filtered_results,cm_models,descriptions,region_name,region_results_file_path):
+def create_rfam_gtf(filtered_results,cm_models,descriptions,region_name,region_results_file_path,genome_file,rfam_output_dir):
 
   if not filtered_results:
     return
@@ -462,16 +992,18 @@ def create_rfam_gtf(filtered_results,cm_models,descriptions,region_name,region_r
       domain = structure['query_name']
       padding = model['-length']
 #      rfam_type = description['type']  
-      strand = structure['strand']
-      if strand == 1:
+      gtf_strand = structure['strand']
+      rnafold_strand = structure['strand']
+      if gtf_strand == 1:
         start = structure['start']
         end = structure['end']
-        strand = '+'
+        gtf_strand = '+'
       else:
         start = structure['end']
         end = structure['start']
         score = structure['score']
-        strand = '-'
+        gtf_strand = '-'
+        rnafold_strand = -1
 
       biotype = "misc_RNA"
       if re.match(r"^snRNA;",rfam_type):
@@ -495,32 +1027,49 @@ def create_rfam_gtf(filtered_results,cm_models,descriptions,region_name,region_r
       if re.match(r"" + domain,rfam_type):
         biotype = "Y_RNA"
 
-      transcript_string = (region_name + "\tRfam\ttranscript\t" + str(start) + "\t" + str(end) + "\t.\t" + strand + "\t.\t" + 'gene_id "' +
+      rna_seq = get_sequence(region_name,start,end,rnafold_strand,genome_file,rfam_output_dir)
+      valid_structure = check_rnafold_structure(rna_seq,rfam_output_dir)
+
+      if not valid_structure:
+        continue
+
+      transcript_string = (region_name + "\tRfam\ttranscript\t" + str(start) + "\t" + str(end) + "\t.\t" + gtf_strand + "\t.\t" + 'gene_id "' +
                            str(gene_counter) + '"; transcript_id "' + str(gene_counter) + '"; biotype "' + biotype + '";\n')
-      exon_string = (region_name + "\tRfam\texon\t" + str(start) + "\t" + str(end) + "\t.\t" + strand + "\t.\t" + 'gene_id "' +
+      exon_string = (region_name + "\tRfam\texon\t" + str(start) + "\t" + str(end) + "\t.\t" + gtf_strand + "\t.\t" + 'gene_id "' +
                      str(gene_counter) + '"; transcript_id "' + str(gene_counter) + '"; exon_number "1"; biotype "' + biotype + '";\n')
 
       rfam_gtf_out.write(transcript_string)
       rfam_gtf_out.write(exon_string)
       gene_counter += 1
-
   rfam_gtf_out.close()      
 
-#  return unless ($exon->start >= 1);
-#  return unless ($exon->overlaps($daf));
 
-#  my $RNAfold = Bio::EnsEMBL::Analysis::Runnable::RNAFold->new
-#  (
-#    -analysis  => $self->analysis,
-#    -sequence  => $seq,
-#  );
-#  $RNAfold->run;
+def check_rnafold_structure(seq,rfam_output_dir):
 
+  # Note there's some extra code in the RNAfold Perl module for encoding the structure into an attrib
+  # Could consider implementing this when running for loading into an Ensembl db
+  structure = 0
+  with tempfile.NamedTemporaryFile(mode='w+t', delete=False, dir=rfam_output_dir) as rna_temp_in:
+    rna_temp_in.writelines(">seq1\n" + seq + "\n")
+    rna_in_file_path = rna_temp_in.name
+
+  rnafold_cmd = ['RNAfold','--infile',rna_in_file_path]
+  rnafold_output = subprocess.Popen(rnafold_cmd, stdout=subprocess.PIPE)
+  for line in (io.TextIOWrapper(rnafold_output.stdout, encoding="utf-8")):
+    match = re.search(r"([().]+)\s\(\s*(-*\d+.\d+)\)\n$",line)
+    if match:
+      structure = match.group(1)
+      score = match.group(2)
+      break
+  rna_temp_in.close()
+  os.remove(rna_in_file_path)
+
+  return structure
 
 
 def slice_output_to_gtf(output_dir,extension):
 
-  feature_types = ['exon','transcript','repeat']
+  feature_types = ['exon','transcript','repeat','feature']
   if not extension:
     extension = '.gtf'
   gtf_files = glob.glob(output_dir + "/*" + extension)
@@ -541,16 +1090,6 @@ def slice_output_to_gtf(output_dir,extension):
         line = gtf_in.readline()
     gtf_in.close()
   gtf_out.close()
-
-
-
-# blast_db_path = /hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/ncrna_2016_05/
-# cm_search_path = /nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/bin/cmsearch
-# rfam_cm = /hps/nobackup2/production/ensembl/genebuild/production/African_pygmy_mouse-Mus_minutoides-GCA_902729475.1/mus_minutoides/GCA_902729475.1/ncrna/Rfam.cm
-# rfam_seeds = /hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.0/Rfam.seed
-#  my $options = " --rfam --cpu 4 --nohmmonly --cut_ga --tblout $tblout_path ";
-#  $options =~ s/\-\-toponly//;
-#  my $command = "$program $options $cm_path $filename > $results_path ";
 
 
 def run_red(red_path,main_output_dir,genome_file):
@@ -874,7 +1413,6 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
   sam_files = []
   for sam_file in glob.glob(star_dir + "/*.sam"):
     sam_files.append(sam_file)
-
   if not sam_files:
     raise IndexError('The list of sam files is empty, expected them in Star output dir. Star dir:\n%s' % star_dir)
 
@@ -1784,6 +2322,9 @@ def multiprocess_finalise_geneset(seq_region_name,merged_gtf,db_connection,final
 
 
 def get_sequence(seq_region,start,end,strand,fasta_file,output_dir):
+  start = int(start)
+  end = int(end)
+  strand = int(strand)
   start -= 1
   bedtools_path = 'bedtools'
 
@@ -1912,7 +2453,12 @@ def check_exe(exe_path):
   if not shutil.which(exe_path):
     raise OSError('Exe does not exist. Path checked: %s' % exe_path)
 
-  
+
+def check_file(file_path):
+
+  if not os.path.exists(file_path):
+    raise FileNotFoundError(errno.ENOENT,os.strerror(errno.ENOENT),file_path)
+
 
 if __name__ == '__main__':
 
@@ -1952,6 +2498,18 @@ if __name__ == '__main__':
   parser.add_argument('--run_sncrna', help='Search for sncRNA structures using Rfam and cmsearch', required=False)
   parser.add_argument('--run_trf', help='Run TRF to find tandem repeats', required=False)
   parser.add_argument('--trf_path', help='Path to TRF', required=False)
+  parser.add_argument('--run_dust', help='Run Dust to find low complexity regions', required=False)
+  parser.add_argument('--dust_path', help='Path to Dust', required=False)
+  parser.add_argument('--run_repeatmasker', help='Run RepeatMasker to find repeat regions', required=False)
+  parser.add_argument('--repeatmasker_path', help='Path to RepeatMasker', required=False)
+  parser.add_argument('--run_trnascan', help='Run tRNAscan-SE to find tRNAs', required=False)
+  parser.add_argument('--trnascan_path', help='Path to tRNAscan-SE', required=False)
+  parser.add_argument('--trnascan_filter_path', help='Path to tRNAscan-SE high confidence filter', required=False)
+  parser.add_argument('--run_cpg', help='Run cpg_lh to find CpG islands', required=False)
+  parser.add_argument('--cpg_path', help='Path to cpg_lh', required=False)
+  parser.add_argument('--run_eponine', help='Run Eponine to find transcription start sites', required=False)
+  parser.add_argument('--eponine_path', help='Path to Eponine jar file', required=False)
+  parser.add_argument('--java_path', help='Path to Java for use with Eponine', required=False)
   parser.add_argument('--annotate', help='Run a generalised annotation, will automatically check for input data and run tools based on that', required=False)
   args = parser.parse_args()
 
@@ -1991,6 +2549,19 @@ if __name__ == '__main__':
   run_sncrna = args.run_sncrna
   run_trf = args.run_trf
   trf_path = args.trf_path
+  run_dust = args.run_dust
+  dust_path = args.dust_path
+  run_trnascan = args.run_trnascan
+  trnascan_path = args.trnascan_path
+  trnascan_filter_path = args.trnascan_filter_path
+  run_cpg = args.run_cpg
+  cpg_path = args.cpg_path
+  run_eponine = args.run_eponine
+  eponine_path = args.eponine_path
+  java_path = args.java_path
+  run_repeatmasker = args.run_repeatmasker
+  repeatmasker_path = args.repeatmasker_path
+
   annotate = args.annotate
 
   if not os.path.exists(genome_file):
@@ -2003,7 +2574,7 @@ if __name__ == '__main__':
 
   if not os.path.exists(work_dir):
     print ("Work dir does not exist, will create")
-    create_dir(work_dir)
+    create_dir(work_dir,None)
 
   if not num_threads:
     print ("No thread count specified, so defaulting to 1. This might be slow")
@@ -2082,3 +2653,23 @@ if __name__ == '__main__':
   if run_trf:
      print("Annotating tandem repeats")
      run_trf_repeats(genome_file,trf_path,work_dir,num_threads)
+
+  if run_dust:
+     print("Annotating low complexity regions")
+     run_dust_regions(genome_file,dust_path,work_dir,num_threads)
+
+  if run_trnascan:
+     print("Annotating tRNAs")
+     run_trnascan_regions(genome_file,trnascan_path,trnascan_filter_path,work_dir,num_threads)
+
+  if run_cpg:
+     print("Annotating CpG islands")
+     run_cpg_regions(genome_file,cpg_path,work_dir,num_threads)
+
+  if run_eponine:
+    print("Running Eponine to find transcription start sites")
+    run_eponine_regions(genome_file,java_path,eponine_path,work_dir,num_threads)
+
+  if run_repeatmasker:
+     print("Annotating repeats with RepeatMasker")
+     run_repeatmasker_regions(genome_file,repeatmasker_path,None,work_dir,num_threads)
