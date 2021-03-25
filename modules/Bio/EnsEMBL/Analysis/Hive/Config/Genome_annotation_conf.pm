@@ -126,9 +126,9 @@ sub default_options {
     'rfam_port' => 4497,
 
     'rfam_path' => catfile($self->o('base_blast_db_path'), 'ncrna', 'Rfam_14.0'),
-    'rfam_seeds' => $self->o('rfam_path') . "/Rfam.seed",
-    'rfam_cm' => $self->o('rfam_path') . "/Rfam.cm",
-    'filtered_rfam_cm' => $self->o('output_path') . '/Rfam.cm',
+    'rfam_seeds' => catfile($self->o('rfam_path'), '/Rfam.seed'),
+    'rfam_cm' => catfile($self->o('rfam_path'), '/Rfam.cm'),
+    'filtered_rfam_cm' => catfile($self->o('output_path'), 'ncrna', '/Rfam.cm'),
     'clade' => $self->o('repbase_logic_name'),
 
 
@@ -495,6 +495,7 @@ sub default_options {
     'rnaseq_dir'    => catdir($self->o('output_path'), 'rnaseq'),
     'input_dir'     => catdir($self->o('rnaseq_dir'),'input'),
     'output_dir'    => catdir($self->o('rnaseq_dir'),'output'),
+    'star_output_dir'=> catdir($self->o('rnaseq_dir'),'output','STAR'),
     'merge_dir'     => catdir($self->o('rnaseq_dir'),'merge'),
     'sam_dir'       => catdir($self->o('rnaseq_dir'),'sams'),
     'header_file'   => catfile($self->o('output_dir'), '#'.$self->o('read_id_tag').'#_header.h'),
@@ -1967,16 +1968,37 @@ sub pipeline_analyses {
 	                 logic_name => $self->o('red_logic_name'),
                          red_path => $self->o('red_path'),
 			 genome_file => $self->o('faidx_genome_file'),
-                         target_db_url => $self->o('reference_db'),
+                         target_db_url => $self->o('hive_driver').'://'.$self->o('user').':'.$self->o('password').'@'.$self->o('dna_db_server').':'.$self->o('dna_db_port').'/'.$self->o('dna_db_name'),
                          msk => $self->o('red_msk'),
                          rpt => $self->o('red_rpt'),
 			 red_meta_key => $self->o('replace_repbase_with_red_to_mask'),
                        },
-        -rc_name => 'default',
+        -rc_name => '15GB',
 	-flow_into =>  {
                          1 => ['create_10mb_slice_ids'],
+			 -1  => ['repeatdetector_himem'],
                        },
       },
+
+     {
+        # Run Red (REpeat Detector)
+        -logic_name => 'repeatdetector_himem',
+        -module     => 'Repeatmask_Red',
+        -language   => 'python3',
+        -parameters => {
+			logic_name     => $self->o('red_logic_name'),
+			red_path       => $self->o('red_path'),
+			genome_file    => $self->o('faidx_genome_file'),
+			target_db_url  => $self->o('hive_driver').'://'.$self->o('user').':'.$self->o('password').'@'.$self->o('dna_db_server').':'.$self->o('dna_db_port').'/'.$self->o('dna_db_name'),
+			msk            => $self->o('red_msk'),
+			rpt            => $self->o('red_rpt'),
+			red_meta_key   => $self->o('replace_repbase_with_red_to_mask'),
+        },
+        -rc_name => '50GB',
+        -flow_into =>  {
+			1 => ['create_10mb_slice_ids'],
+		       },
+     },
 
       {
         # Create 10mb toplevel slices, these will be split further for repeatmasker
@@ -5545,7 +5567,7 @@ sub pipeline_analyses {
               ).'; do lfs getdirstripe -q $D > /dev/null; if [ $? -eq 0 ]; then lfs setstripe -c -1 $D;fi;done;fi',
         },
         -flow_into => {
-          '1->A' => ['create_fastq_download_jobs','index_rnaseq_genome_file'],
+          '1->A' => ['create_fastq_download_jobs','index_rnaseq_genome_file_bwa','index_rnaseq_genome_file_star'],
           'A->1' => ['create_rough_db'],
         },
       },
@@ -5591,6 +5613,13 @@ sub pipeline_analyses {
         },
       },
 
+      {
+        -logic_name => 'copy_rnaseq_summary_file',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+			cmd => 'cp '. $self->o('rnaseq_summary_file').' ' .$self->o('star_rnaseq_summary_file'),
+        },
+      },
 
       {
         -logic_name => 'split_fastq_files',
@@ -5607,11 +5636,23 @@ sub pipeline_analyses {
 
 
      {
-        -logic_name => 'index_rnaseq_genome_file',
+        -logic_name => 'index_rnaseq_genome_file_bwa',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -rc_name => '5GB',
         -parameters => {
           cmd => 'if [ ! -e "'.$self->o('faidx_genome_file').'.ann" ]; then '.$self->o('bwa_path').' index -a bwtsw '.$self->o('faidx_genome_file').';fi',
+        },
+      },
+
+     {
+        -logic_name => 'index_rnaseq_genome_file_star',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name => '45GB_star',
+        -parameters => {
+          cmd => 'if [ ! -e "'.catfile($self->o('output_path'),'genome_dumps','Genome').'" ]; then '.$self->o('star_path').' --runThreadN '.
+                               $self->o('star_threads').' --runMode genomeGenerate --outFileNamePrefix '.
+                               catfile($self->o('output_path'),'genome_dumps').' --genomeDir '.
+                               catfile($self->o('output_path'),'genome_dumps').' --genomeFastaFiles '.$self->o('faidx_genome_file').';fi',
         },
       },
 
@@ -6584,7 +6625,7 @@ sub pipeline_analyses {
         -parameters => {
           disconnect_jobs => 1,
           input_dir => $self->o('input_dir'),
-          output_dir => $self->o('output_dir'),
+          output_dir => $self->o('star_output_dir'),
           short_read_aligner => $self->o('star_path'),
           genome_dir => catfile($self->o('output_path'),'genome_dumps'),
           num_threads => $self->o('star_threads'),
@@ -6619,7 +6660,7 @@ sub pipeline_analyses {
            csv_summary_file       => $self->o('star_rnaseq_summary_file'),
            csv_summary_file_genus => $self->o('rnaseq_summary_file_genus'),
            num_threads => $self->o('stringtie_threads'),
-
+	   input_gtf_dirs => [catdir($self->o('output_dir'),'stringtie')],
                          },
          -flow_into => {
           1 => ['create_stringtie_initial_db'],
@@ -6765,7 +6806,7 @@ sub pipeline_analyses {
         -logic_name => 'star2introns',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveStar2Introns',
         -parameters => {
-                        star_junctions_dir => $self->o('output_dir'),
+                        star_junctions_dir => $self->o('star_output_dir'),
                         intron_db => $self->o('stringtie_blast_db'),
                         source_db => $self->o('dna_db'),
 			sample_column => 'SM',
