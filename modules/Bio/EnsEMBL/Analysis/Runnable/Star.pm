@@ -1,7 +1,6 @@
 =head1 LICENSE
 
- Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
- Copyright [2016-2020] EMBL-European Bioinformatics Institute
+ Copyright [2016-2019] EMBL-European Bioinformatics Institute
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -53,7 +52,7 @@ package Bio::EnsEMBL::Analysis::Runnable::Star;
 use warnings;
 use strict;
 
-use File::Spec;
+use File::Spec::Functions;
 
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
@@ -75,13 +74,11 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($decompress, $sam_attributes) = rearrange([qw (DECOMPRESS RG_LINES)],@args);
-  $self->throw('Your working directory '.$self->workdir." does not exist!\n") unless (-d $self->workdir);
-  my (undef,$genome_dir,) = File::Spec->splitpath($self->genome);
+  my ($decompress, $sam_attributes, $sample_id, $genome_dir, $threads) = rearrange([qw (DECOMPRESS RG_LINES SAMPLE_NAME GENOME_DIR THREADS)],@args);
   $self->throw("Genome file must be indexed, '$genome_dir/SA' does not exist\n") unless (-e $genome_dir.'/SA');
   $self->genome($genome_dir);
-  $self->sam_attributes($sam_attributes);
-  $self->is_file_compressed($decompress || '');
+  $self->sample_id($sample_id);
+  $self->threads($threads);
   return $self;
 }
 
@@ -97,21 +94,25 @@ sub new {
 sub run {
   my ($self) = @_;
 
+  my $sample_id = $self->sample_id();
   my $fastq = $self->fastq;
   my $fastqpair = $self->fastqpair;
   my $options = $self->options;
-  $options .= ' --readFilesCommand '.$self->is_file_compressed if ($self->is_file_compressed);
-  $options .= ' --outSAMattrRGline '.$self->sam_attributes;
-  my (undef,undef,$filename) = File::Spec->splitpath($fastq);
-  my $outdir = File::Spec->catfile($self->outdir, $filename);
+  my $threads = $self->threads();
+  my $out_dir = catfile($self->outdir, $sample_id);
+  my $tmp_dir = catfile($self->outdir, $sample_id."_tmp");
 
   # run STAR
-  my $command = $self->program." --twopassMode Basic --runMode alignReads --genomeDir ".$self->genome." --readFilesIn $fastq $fastqpair --outFileNamePrefix $outdir $options --outTmpDir ".$self->workdir;
+  my $command = $self->program." --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$threads." --twopassMode Basic --readFilesCommand zcat --runMode alignReads --genomeDir ".$self->genome." --readFilesIn ".$fastq." ".$fastqpair." --outFileNamePrefix ".$out_dir."_ ".$options." --outTmpDir ".$tmp_dir." --outSAMtype BAM SortedByCoordinate";
+
+# star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir]
+
+
   $self->warning("Command: $command\n");
   if (system($command)) {
-      $self->throw("Error aligning $fastq $fastqpair\nError code: $?\n");
+      $self->throw("Error aligning $fastq $fastqpair\nCommandline used: $command\nError code: $?\n");
   }
-  $self->output([$outdir.'.bam']);
+  $self->output([$out_dir.'_Aligned.sortedByCoord.out.bam']);
 }
 
 
@@ -162,5 +163,42 @@ sub sam_attributes {
     return;
   }
 }
+
+
+=head2 sample_id
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter for the sample name, which becomes the file name for the output
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub sample_id {
+  my ($self, $value) = @_;
+  if (defined $value) {
+    $self->{'_sample_id'} = $value;
+  }
+  return $self->{'_sample_id'};
+}
+
+
+=head2 threads
+
+ Arg [1]    : (optional) int
+ Description: Getter/setter for the number of threads to use
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub threads {
+  my ($self, $value) = @_;
+  if (defined $value) {
+    $self->{'_threads'} = $value;
+  }
+  return $self->{'_threads'};
+}
+
 
 1;
