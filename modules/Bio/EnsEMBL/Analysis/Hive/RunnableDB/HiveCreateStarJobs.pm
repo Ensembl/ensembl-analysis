@@ -49,7 +49,7 @@ sub param_defaults {
 
  Arg [1]    : None
  Description: Creates input id based on a custom table 'csvfile_table' in the hive database
-              It will generate the parameters for BWA based on the data for each file
+              It will generate the parameters for STAR based on the data for each file
               It stores the input ids in 'inputlist'
  Returntype : None
  Exceptions : None
@@ -70,12 +70,14 @@ sub fetch_input {
   foreach my $result (@$results) {
     my $sample_id = $result->{$self->param('sample_id_column')};
     my $sample_name = $result->{$self->param('sample_column')};
-    if(exists $samples_hash->{$sample_id}) {
-      push(@{$samples_hash->{$sample_id}->{'files'}},$result->{$self->param('filename_column')});
-    } else {
-      $samples_hash->{$sample_id}->{'files'} = [$result->{$self->param('filename_column')}];
-      $samples_hash->{$sample_id}->{$self->param('sample_column')} = $sample_name;
-      $samples_hash->{$sample_id}->{$self->param('sample_id_column')} = $sample_id;
+    if ($result->{$self->param('filename_column')} !~ /_split/){
+      if(exists $samples_hash->{$sample_id}) {
+        push(@{$samples_hash->{$sample_id}->{'files'}},$result->{$self->param('filename_column')});
+      } else {
+        $samples_hash->{$sample_id}->{'files'} = [$result->{$self->param('filename_column')}];
+        $samples_hash->{$sample_id}->{$self->param('sample_column')} = $sample_name;
+        $samples_hash->{$sample_id}->{$self->param('sample_id_column')} = $sample_id;
+      }
     }
   }
 
