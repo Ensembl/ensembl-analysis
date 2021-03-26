@@ -232,6 +232,9 @@ sub default_options {
     'stringtie_blast_db_server'    => $self->o('databases_server'),
     'stringtie_blast_db_port'      => $self->o('databases_port'),
 
+    'pcp_db_server'                => $self->o('databases_server'),
+    'pcp_db_port'                  => $self->o('databases_port'),
+
     'lincrna_db_server'            => $self->o('databases_server'),
     'lincrna_db_port'              => $self->o('databases_port'),
 
@@ -300,7 +303,7 @@ sub default_options {
     # repeatdetector (Red) output directories which will contain the softmasked fasta and the repeat features files created by Red
     red_msk => catfile($self->o('genome_dumps'), $self->o('species_name').'_red_msk/'),
     red_rpt => catfile($self->o('genome_dumps'), $self->o('species_name').'_red_rpt/'),
-    
+
     'primary_assembly_dir_name' => 'Primary_Assembly',
     'refseq_cdna_calculate_coverage_and_pid' => '0',
     'contigs_source'            => 'ena',
@@ -312,6 +315,7 @@ sub default_options {
                                    $self->o('genblast_rnaseq_support_nr_db'),
                                    $self->o('rnaseq_for_layer_nr_db'),
                                    $self->o('star_rnaseq_for_layer_nr_db'),
+                                   $self->o('pcp_nr_db'),
                                    $self->o('selected_projection_db'),
                                    $self->o('ig_tr_db'),
                                    $self->o('best_targeted_db'),
@@ -517,7 +521,7 @@ sub default_options {
     # in brackets; the name the read number (1, 2) and the
     # extension.
     pairing_regex => '\S+_(\d)\.\S+',
-    
+
     # Regular expressions for splitting the fastq files
     split_paired_regex   => '(\S+)(\_\d\.\S+)',
     split_single_regex  => '([^.]+)(\.\S+)',
@@ -823,6 +827,18 @@ sub default_options {
     'dump_features_exe'                 => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/dumps/DumpMultiAlign.pl'),
 
 
+    #######################
+    # RNASamba CPC2 Stuff
+    #######################
+
+    'rna_samba_weights' => '/homes/jma/coding_gene_testing/full_length_weights.hdf5',
+    'pcp_output' => catdir($self->o('output_path'), 'pcp'),
+    'pcp_name' => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
+
+    #######################
+    # /RNASamba CPC2 Stuff
+    #######################
+
 ########################
 # db info
 ########################
@@ -1116,6 +1132,24 @@ sub default_options {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_stringtie_blast_'.$self->o('release_number'),
       -host   => $self->o('stringtie_blast_db_server'),
       -port   => $self->o('stringtie_blast_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    'pcp_db'=> {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
+      -host   => $self->o('pcp_db_server'),
+      -port   => $self->o('pcp_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    'pcp_nr_db'=> {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_nr_'.$self->o('release_number'),
+      -host   => $self->o('pcp_db_server'),
+      -port   => $self->o('pcp_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -5205,7 +5239,7 @@ sub pipeline_analyses {
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
             cmd => "perl " . $self->o('sncrna_analysis_script') . "/fetch_rfam_accessions.pl " .
-                    " -h " . $self->o('rfam_host') . 
+                    " -h " . $self->o('rfam_host') .
                     " -u " . $self->o('rfam_user') .
                     " -p " . $self->o('rfam_port') .
                     " -d " . $self->o('rfam_dbname') .
@@ -5407,7 +5441,7 @@ sub pipeline_analyses {
         },
       },
 
-      { 
+      {
         -logic_name => 'fan_dump_features',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
         -parameters => {
@@ -6723,6 +6757,183 @@ sub pipeline_analyses {
         -flow_into => {
           1 => 'create_slice_tissue_input_ids',
         },
+      },
+
+      #################
+      ## PCP
+      #################
+
+      {
+        -logic_name => 'dump_fasta',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name    => '8GB',
+        -parameters => {
+          cmd => 'mkdir -p ' . $self->o('pcp_output') . ';'.
+          ' perl ' . catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'pcp', 'get_transcripts.pl').
+          ' -user ' . $self->o('user_r').
+          ' -dna_user ' . $self->o('user_r').
+          ' -dbname ' . $self->o('pcp_name').
+          ' -dna_dbname ' . $self->o('dna_db_name').
+          ' -host ' . $self->o('stringtie_initial_db_server').
+          ' -dna_host ' . $self->o('dna_db_server').
+          ' -port ' . $self->o('stringtie_initial_db_port').
+          ' -dna_port ' . $self->o('dna_db_port').
+          ' > ' . $self->o('pcp_output') . '/' . $self->o('pcp_name') . '.fasta',
+        },
+        -wait_for   => 'load_stringtie_transcripts',
+        -flow_into  => {
+                         1 => ['create_pcp_db'],
+        },
+      },
+
+      {
+        -logic_name => 'create_pcp_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+          source_db   => $self->o('stringtie_initial_db'),
+          target_db   => $self->o('pcp_db'),
+          create_type => 'copy',
+          force_drop  => 1,
+        },
+        -rc_name    => 'default',
+        -flow_into  => {
+          '1->A' => ['run_cpc2', 'run_rnasamba'],
+          'A->1' => ['impute_coding_genes']
+        },
+      },
+
+      {
+        -logic_name => 'run_cpc2',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name    => '8GB',
+        -parameters => {
+          cmd => 'sh /hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_CPC2.sh ' .
+          $self->o('pcp_output') . '/' . $self->o('pcp_name') . '.fasta ' .
+          $self->o('pcp_output') . '/' . $self->o('pcp_name') . '_cpc2',
+        },
+      },
+
+      {
+        -logic_name => 'run_rnasamba',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name    => '10GB',
+        -parameters =>  {
+          cmd => 'sh /hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_RNAsamba.sh ' .
+          $self->o('pcp_output') . '/' . $self->o('pcp_name') . '_RNAsamba.tsv ' .
+          $self->o('pcp_output') . '/' . $self->o('pcp_name').'.fasta ' .
+          $self->o('rna_samba_weights'),
+        },
+        -flow_into =>  {
+          -1 => ['run_rnasamba_50GB'],
+        },
+      },
+
+      {
+        -logic_name => 'run_rnasamba_50GB',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name    => '50GB',
+        -parameters =>  {
+          cmd => 'sh /hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_RNAsamba.sh ' .
+          $self->o('pcp_output') . '/' .
+          $self->o('pcp_name') . '_RNAsamba.tsv ' .
+          $self->o('pcp_output') . '/' . $self->o('pcp_name') . '.fasta ' .
+          $self->o('rna_samba_weights'),
+        },
+        -flow_into =>  {
+          -1 => ['run_rnasamba_100GB'],
+        },
+      },
+
+      {
+        -logic_name => 'run_rnasamba_100GB',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -rc_name    => '100GB',
+        -parameters =>  {
+          cmd => 'sh /hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_RNAsamba.sh ' .
+          $self->o('pcp_output') . '/' .
+          $self->o('pcp_name') . '_RNAsamba.tsv ' .
+          $self->o('pcp_output') . '/' . $self->o('pcp_name') . '.fasta ' .
+          $self->o('rna_samba_weights'),
+        },
+      },
+
+      {
+        -logic_name => 'impute_coding_genes',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'perl ' . catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'pcp', 'update_pcp_biotype.pl') .
+          ' -user ' . $self->o('user') .
+          ' -pass ' . $self->o('password') .
+          ' -dbname  ' . $self->o('pcp_name') .
+          ' -port ' . $self->o('stringtie_initial_db_port') .
+          ' -host ' . $self->o('stringtie_initial_db_server') .
+          ' -cpc2 ' . $self->o('pcp_output') . '/' . $self->o('pcp_name') . '_cpc2.txt' .
+          '-rnas ' . $self->o('pcp_output') . '/' . $self->o('pcp_name') . '_RNAsamba.tsv',
+        },
+        -rc_name    => '1GB',
+        -flow_into => {
+          '1'    => ['create_pcp_nr_db'],
+        },
+      },
+
+      {
+        -logic_name => 'create_pcp_nr_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+          source_db   => $self->o('pcp_db'),
+          target_db   => $self->o('pcp_nr_db'),
+          create_type => 'copy',
+          force_drop  => 1,
+        },
+        -rc_name    => 'default',
+        -flow_into => {
+          '1'    => ['remove_non_pcp_biotypes'],
+        },
+      },
+
+      {
+        -logic_name => 'remove_non_pcp_biotypes',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn => $self->o('pcp_nr_db'),
+          sql => [
+            'DELETE FROM gene WHERE biotpye <> "pcp_protein_coding"'
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
+          '1' => ['create_pcp_nr_slices'],
+        },
+      },
+
+      {
+ 	     -logic_name => 'create_pcp_nr_slices',
+ 	     -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+         -parameters => {
+                          target_db             => $self->o('dna_db'),
+                          coord_system_name     => 'toplevel',
+                          iid_type              => 'slice',
+                          slice_size            => 20000000,
+                          include_non_reference => 0,
+                          top_level             => 1,
+                          min_slice_length      => $self->o('min_toplevel_slice_length'),
+                          batch_slice_ids       => 1,
+                          batch_target_size     => 20000000,
+                        },
+         -rc_name    => '2GB',
+         -flow_into => {
+           '2'    => ['remove_redundant_pcp_genes'],
+         },
+       },
+
+      {
+        -logic_name => 'remove_redundant_pcp_genes',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::RemoveRedundantGenes',
+        -parameters => {
+          target_db   => $self->o('pcp_nr_db'),
+          target_type => 'generic',
+        },
+        -rc_name => '5GB',
       },
 
 	    {
@@ -9466,8 +9677,8 @@ sub pipeline_analyses {
                   FILES=($(ls *.bam));
                   if [[ $((${#FILES[*]}-1)) > 0 ]]
                   then printf "#free_text_multi#" | sed "s/NUM/$((${#FILES[*]}-1))/g;s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" > README.1
-                  else printf "#free_text_single#" | sed "s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" >> README.1 
-                  fi 
+                  else printf "#free_text_single#" | sed "s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" >> README.1
+                  fi
                   IFS=$\'\n\';
                   echo "${FILES[*]}" >> README.1',
           working_dir => $self->o('merge_dir'),
@@ -9531,7 +9742,7 @@ sub pipeline_analyses {
       {
         -logic_name => 'core_assembly_name_update',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -parameters => { 
+        -parameters => {
                          cmd => 'perl '.$self->o('assembly_name_script').
                                 ' -user '.$self->o('user').
                                 ' -pass '.$self->o('password').
@@ -9560,7 +9771,7 @@ sub resource_classes {
     '2GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]},
     '2GB' => { LSF => $self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '3GB' => { LSF => $self->lsf_resource_builder('production-rh74', 3000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '4GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]}, 
+    '4GB_lastz' => { LSF => [$self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]},
     '4GB' => { LSF => $self->lsf_resource_builder('production-rh74', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '5GB' => { LSF => $self->lsf_resource_builder('production-rh74', 5000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '6GB' => { LSF => $self->lsf_resource_builder('production-rh74', 6000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
