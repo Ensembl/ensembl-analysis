@@ -1464,7 +1464,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into  => {
-                         1 => ['increase_biotype_length'],
+                         1 => ['increase_biotype_source_length'],
                        },
       },
 
@@ -1472,13 +1472,15 @@ sub pipeline_analyses {
         # This will allow for the use of longer transcriptomic data sample names in the refine db
         # It will be reversed by the end of the pipeline because the longer biotypes do not end up
         # in the final core database
-        -logic_name => 'increase_biotype_length',
+        -logic_name => 'increase_biotype_source_length',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
           db_conn    => $self->o('reference_db'),
           sql => [
 	    'ALTER TABLE gene MODIFY biotype varchar(128)',
-	    'ALTER TABLE transcript MODIFY biotype varchar(128)'
+	    'ALTER TABLE transcript MODIFY biotype varchar(128)',
+	    'ALTER TABLE gene MODIFY source varchar(128)',
+	    'ALTER TABLE transcript MODIFY source varchar(128)'
           ],
         },
         -rc_name    => 'default',
@@ -8306,7 +8308,7 @@ sub pipeline_analyses {
         -max_retry_count => 0,
         -rc_name => '8GB',
         -flow_into => {
-                        1 => ['restore_biotype_length'],
+                        1 => ['restore_biotype_source_length'],
                       },
       },
 
@@ -8314,13 +8316,15 @@ sub pipeline_analyses {
         # The biotype length was increased to allow for the use of longer transcriptomic data sample names in the refine db
         # It has to be reversed by the end of the pipeline because the longer biotypes do not end up
         # in the final core database
-        -logic_name => 'restore_biotype_length',
+        -logic_name => 'restore_biotype_source_length',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
           db_conn    => $self->o('reference_db'),
           sql => [
 	    'ALTER TABLE gene MODIFY biotype varchar(40)',
-	    'ALTER TABLE transcript MODIFY biotype varchar(40)'
+	    'ALTER TABLE transcript MODIFY biotype varchar(40)',
+	    'ALTER TABLE gene MODIFY source varchar(40)',
+	    'ALTER TABLE transcript MODIFY source varchar(40)'
           ],
         },
         -rc_name    => 'default',
