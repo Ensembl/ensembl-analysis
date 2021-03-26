@@ -956,7 +956,7 @@ sub current_projection_source_db{
   my ($species) = @_;
   my $current_db;
 
-  my @out= `mysql-ens-mirror-1 -NB -e "SHOW DATABASES LIKE '$species_core%'"`;
+  my @out= `mysql-ens-mirror-1 -NB -e "SHOW DATABASES LIKE '${species}_core%'"`;
   if(!@out){
     warning("No core database available on mirror for species +$species+ - will use latest homo_sapiens core.");
     @out= `mysql-ens-mirror-1 -NB -e "SHOW DATABASES LIKE 'homo_sapiens_core%'"`;
