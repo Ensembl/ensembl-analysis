@@ -6868,7 +6868,7 @@ sub pipeline_analyses {
           ' -port ' . $self->o('stringtie_initial_db_port') .
           ' -host ' . $self->o('stringtie_initial_db_server') .
           ' -cpc2 ' . $self->o('pcp_output') . '/' . $self->o('pcp_name') . '_cpc2.txt' .
-          '-rnas ' . $self->o('pcp_output') . '/' . $self->o('pcp_name') . '_RNAsamba.tsv',
+          ' -rnas ' . $self->o('pcp_output') . '/' . $self->o('pcp_name') . '_RNAsamba.tsv',
         },
         -rc_name    => '1GB',
         -flow_into => {
@@ -6897,7 +6897,7 @@ sub pipeline_analyses {
         -parameters => {
           db_conn => $self->o('pcp_nr_db'),
           sql => [
-            'DELETE FROM gene WHERE biotpye <> "pcp_protein_coding"'
+            'DELETE FROM gene WHERE biotype <> "pcp_protein_coding"'
           ],
         },
         -rc_name    => 'default',
@@ -6930,6 +6930,7 @@ sub pipeline_analyses {
         -logic_name => 'remove_redundant_pcp_genes',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::RemoveRedundantGenes',
         -parameters => {
+          dna_db => $self->o('dna_db'),
           target_db   => $self->o('pcp_nr_db'),
           target_type => 'generic',
         },
@@ -7132,7 +7133,7 @@ sub pipeline_analyses {
       -logic_name => 'remove_redundant_rnaseq_layer_genes_star',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::RemoveRedundantGenes',
       -parameters => {
-        target_db => $self->o('star_rnaseq_for_layer_nr_db'),
+        target_db   => $self->o('star_rnaseq_for_layer_nr_db'),
         target_type => 'generic',
       },
       -rc_name          => '5GB',
