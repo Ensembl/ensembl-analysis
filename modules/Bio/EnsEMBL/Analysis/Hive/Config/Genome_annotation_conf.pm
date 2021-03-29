@@ -232,6 +232,9 @@ sub default_options {
     'stringtie_blast_db_server'    => $self->o('databases_server'),
     'stringtie_blast_db_port'      => $self->o('databases_port'),
 
+    'pcp_db_server'                => $self->o('databases_server'),
+    'pcp_db_port'                  => $self->o('databases_port'),
+
     'lincrna_db_server'            => $self->o('databases_server'),
     'lincrna_db_port'              => $self->o('databases_port'),
 
@@ -312,7 +315,8 @@ sub default_options {
                                    $self->o('genblast_rnaseq_support_nr_db'),
                                    $self->o('rnaseq_for_layer_nr_db'),
                                    $self->o('star_rnaseq_for_layer_nr_db'),
-                                   $self->o('selected_projection_db'),
+				   $self->o('pcp_nr_db'),
+				   $self->o('selected_projection_db'),
                                    $self->o('ig_tr_db'),
                                    $self->o('best_targeted_db'),
                                    $self->o('long_read_final_db'),
@@ -325,6 +329,7 @@ sub default_options {
       $self->o('rnaseq_for_layer_db'),
       $self->o('star_rnaseq_for_layer_db'),
       $self->o('long_read_final_db'),
+      $self->o('pcp_nr_db'),
     ],
 
     utr_acceptor_dbs => [
@@ -822,6 +827,18 @@ sub default_options {
     'create_pair_aligner_page_exe'      => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/report/create_pair_aligner_page.pl'),
     'dump_features_exe'                 => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/dumps/DumpMultiAlign.pl'),
 
+    #######################
+    # RNASamba CPC2 Stuff
+    #######################
+
+    'rna_samba_weights' => '/homes/jma/coding_gene_testing/full_length_weights.hdf5',
+    'pcp_output' => catdir($self->o('output_path'), 'pcp'),
+    'pcp_name' => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
+
+    #######################
+    # /RNASamba CPC2 Stuff
+    #######################
+
 
 ########################
 # db info
@@ -1116,6 +1133,24 @@ sub default_options {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_stringtie_blast_'.$self->o('release_number'),
       -host   => $self->o('stringtie_blast_db_server'),
       -port   => $self->o('stringtie_blast_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    'pcp_db'=> {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
+      -host   => $self->o('pcp_db_server'),
+      -port   => $self->o('pcp_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    'pcp_nr_db'=> {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_nr_'.$self->o('release_number'),
+      -host   => $self->o('pcp_db_server'),
+      -port   => $self->o('pcp_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
