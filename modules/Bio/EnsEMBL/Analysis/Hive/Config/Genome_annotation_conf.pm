@@ -6473,7 +6473,7 @@ sub pipeline_analyses {
           indicate_index => $self->o('protein_blast_index'),
           uniprot_index => [$self->o('protein_blast_db')],
           blast_program => $self->o('uniprot_blast_exe_path'),
-          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
+          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep_non_vert', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
           commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40',
         },
         -rc_name => 'blast',
@@ -6809,7 +6809,7 @@ sub pipeline_analyses {
           indicate_index => $self->o('protein_blast_index'),
           uniprot_index => [$self->o('protein_blast_db')],
           blast_program => $self->o('uniprot_blast_exe_path'),
-          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
+          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep_non_vert', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
           commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40',
         },
         -flow_into => {
