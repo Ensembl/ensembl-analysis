@@ -604,9 +604,8 @@ sub rnaseq_analysis_sanity {
 =head2 data_file_sanity
 
  Arg [1]    : None
- Description: Check that there is data in the data_file table, check that the logic_name
-              and the name are equals and check that no logic_name is used for more than
-              one file.
+ Description: Check that there is data in the data_file table
+              and check that no logic_name is used for more than one file.
  Returntype : None
  Exceptions : None
 
@@ -636,32 +635,6 @@ sub data_file_sanity {
         $failed = 1;
         $self->say_with_header('You have more than 1 data_file for '.$analysis->logic_name);
       }
-    }
-  }
-  my $production_name = $self->param_is_defined('production_name') ? $self->param('production_name') : undef;
-  foreach my $data_file (@{$datafile_adaptor->fetch_all}) {
-    if ($data_file->analysis and $data_file->analysis->logic_name =~ /_rnaseq_bam$/) {
-      if ($production_name) {
-        my ($dln) = $data_file->name =~ /\.([^.]+)\.\d+$/;
-
-        my $ln = lc($data_file->analysis->logic_name);
-        $ln =~ s/_rnaseq_bam$//;
-        if ($ln =~ s/${production_name}_// == 0) {
-          my ($pname) = $production_name =~ /(\w+)_[^_]+$/;
-          $ln =~ s/${pname}_//;
-        }
-        if ($dln ne $ln) {
-          $failed = 1;
-          $self->say_with_header('Your logic_name and datafile does not seem to match: '.$data_file->name.' and '.lc($data_file->analysis->logic_name));
-        }
-      }
-      else {
-        $self->say_with_header('Could not check file name for '.$data_file->name);
-      }
-    }
-    else {
-      $failed = 1;
-      $self->say_with_header('There is a problem with '.$data_file->name);
     }
   }
   $failed = 1 unless ($count);
