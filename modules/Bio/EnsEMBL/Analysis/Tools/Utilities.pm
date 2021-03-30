@@ -1232,7 +1232,7 @@ sub execute_with_wait {
 
  Arg [1]    : String $cmd, the command to run
  Arg [2]    : Int $timer, how long we should wait before killing your job
- Description: Execute a system command and kill it if it doesn't finish in time
+ Description: Execute a system command and kill it (and other processes under it) if it doesn't finish in time
               You can either specify the time in seconds as digits only or
               you can use M and H to specify hours and/or minutes, without white spaces.
  Returntype : Int 1 if successfull
@@ -1246,38 +1246,24 @@ sub execute_with_timer {
 
   my $realtimer = parse_timer($timer);
   my $remaining_time = 0;
-  print "BEBUG:BK: timeout by default set to: " . $realtimer . "sec \n"; 
-  print "BEBUG:BK: timeout is set for testing to: " . $realtimer . "sec \n";
   
   # As seen on perldoc: http://perldoc.perl.org/5.14.2/functions/alarm.html
   eval {
-  	print "BEBUG:BK: THERE IS A TIME ALARM 1\n"; 
-  	print "BEBUG:BK: I am the $$ process \n"; 
-  	# collect_processes($$); 
     local $SIG{ALRM} = sub {die("alarm\n")};
-  	print "BEBUG:BK THERE IS A TIME ALARM 2 \n"; 
     alarm $realtimer;
-  	print "BEBUG:BK THERE IS A TIME ALARM 3 \n"; 
     execute_with_wait($cmd);
-  	print "BEBUG:BK THERE IS A TIME ALARM 4\n"; 
     $remaining_time = alarm 0;
-  	print "BEBUG:BK THERE IS A TIME ALARM 5\n"; 
-
-    
   };
   if ($@) {
  
     if ($@ eq "alarm\n") {
-      print("DEBUG:BK:: $$ I Will die, check my processes now. bye!\n"); 
       my $pid_list = collect_processes($$);
       foreach my $kid (@$pid_list) {
-        print "DEBUG:BK:: it is still exist!! kill the $kid rules\n"; 
         kill 'KILL', $kid;	
       }
       sleep(10);
       $pid_list = collect_processes($$);
       foreach my $kid (@$pid_list) {
-        print "DEBUG:BK:: it is still exist!! kill the $kid rules\n"; 
         kill 'KILL', $kid;	
       }
       sleep(10);
@@ -1291,14 +1277,18 @@ sub execute_with_timer {
 }
 
 
-# BK CODE TO FIND child/grandchild 
+=head2 collect_processes
+
+ Arg [1]    : String $process_to_check, the initial process to check.
+ Description: It uses a ProcessTable to collect all processes that are running under one process. 
+ Returntype : Returns a list with process ids
+ Exceptions : 
+
+=cut 
 
 sub collect_processes {
   my ($process_to_check, $proc_table, $pid_list) = @_;
-  print "DEBUG:: my parent is "  . $process_to_check . "\n"; 
 
-  my $FORMAT = "%-6s %-7s %-10s %-8s %-24s %s\n";
-  printf($FORMAT, "PID", "PPID", "TTY", "STAT", "START", "COMMAND"); 
   if (!$proc_table) {
     $proc_table = Proc::ProcessTable->new;
   }
@@ -1307,19 +1297,8 @@ sub collect_processes {
   }
   foreach my $p (grep {$_->ppid eq $process_to_check} @{$proc_table->table} ){
     if ($p->state ne "defunct") {
-      print "DEBUG:BK:: This is what you need 2(ppid):" . "\n" ;
-      printf($FORMAT,
-         $p->pid, 
-         $p->ppid, 
-         $p->ttydev, 
-         $p->state, 
-         scalar(localtime($p->start)), 
-         $p->cmndline);
       push(@$pid_list, $p->pid);
       collect_processes($p->pid, $proc_table, $pid_list);
-    }
-    else {
-      print "DEFUNCT ", $p->pid, ' ', $p->ppid, ' ', $p->cmndline, "\n";
     }
   }
   return $pid_list;
