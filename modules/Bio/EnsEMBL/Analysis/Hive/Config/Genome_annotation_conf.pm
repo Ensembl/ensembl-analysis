@@ -8308,15 +8308,15 @@ sub pipeline_analyses {
         -max_retry_count => 0,
         -rc_name => '8GB',
         -flow_into => {
-                        1 => ['restore_biotype_source_length'],
+                        1 => ['restore_biotype_source_length_core_db'],
                       },
       },
 
       {
-        # The biotype length was increased to allow for the use of longer transcriptomic data sample names in the refine db
-        # It has to be reversed by the end of the pipeline because the longer biotypes do not end up
+        # The biotype and source lengths were increased to allow for the use of longer transcriptomic data sample names in the refine db
+        # It has to be reversed by the end of the pipeline because the longer biotypes and sources do not end up
         # in the final core database
-        -logic_name => 'restore_biotype_source_length',
+        -logic_name => 'restore_biotype_source_length_core_db',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
           db_conn    => $self->o('reference_db'),
@@ -8525,11 +8525,30 @@ sub pipeline_analyses {
                        },
         -rc_name    => 'default',
         -flow_into  => {
-                         1 => ['update_cdna_analyses'],
+                         1 => ['restore_biotype_source_length_otherfeatures_db'],
                        },
       },
 
-
+      {
+        # The biotype and source lengths were increased to allow for the use of longer transcriptomic data sample names in the refine db
+        # It has to be reversed by the end of the pipeline because the longer biotypes and sources do not end up
+        # in the final otherfeatures database
+        -logic_name => 'restore_biotype_source_length_otherfeatures_db',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn    => $self->o('otherfeatures_db'),
+          sql => [
+	    'ALTER TABLE gene MODIFY biotype varchar(40)',
+	    'ALTER TABLE transcript MODIFY biotype varchar(40)',
+	    'ALTER TABLE gene MODIFY source varchar(40)',
+	    'ALTER TABLE transcript MODIFY source varchar(40)'
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
+          1 => ['update_cdna_analyses'],
+        },
+      },
 
       {
         -logic_name => 'update_cdna_analyses',
@@ -8820,10 +8839,30 @@ sub pipeline_analyses {
         -rc_name    => 'default',
 
         -flow_into => {
-                        '1' => ['prepare_rnaseq_meta_data'],
+                        '1' => ['restore_biotype_source_length_rnaseq_db'],
                       },
       },
 
+      {
+        # The biotype and source lengths were increased to allow for the use of longer transcriptomic data sample names in the refine db
+        # It has to be reversed by the end of the pipeline because the longer biotypes and sources do not end up
+        # in the final rnaseq database
+        -logic_name => 'restore_biotype_source_length_rnaseq_db',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn    => $self->o('rnaseq_db'),
+          sql => [
+	    'ALTER TABLE gene MODIFY biotype varchar(40)',
+	    'ALTER TABLE transcript MODIFY biotype varchar(40)',
+	    'ALTER TABLE gene MODIFY source varchar(40)',
+	    'ALTER TABLE transcript MODIFY source varchar(40)'
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
+          1 => ['prepare_rnaseq_meta_data'],
+        },
+      },
 
       {
         -logic_name => 'prepare_rnaseq_meta_data',
