@@ -56,6 +56,7 @@ use File::Spec::Functions qw(catfile tmpdir);
 use File::Which;
 use File::Temp;
 use Scalar::Util qw(weaken);
+use Proc::ProcessTable;
 
 use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; # needed for read_config()
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
@@ -1231,7 +1232,7 @@ sub execute_with_wait {
 
  Arg [1]    : String $cmd, the command to run
  Arg [2]    : Int $timer, how long we should wait before killing your job
- Description: Execute a system command and kill it if it doesn't finish in time
+ Description: Execute a system command and kill it (and other processes under it) if it doesn't finish in time
               You can either specify the time in seconds as digits only or
               you can use M and H to specify hours and/or minutes, without white spaces.
  Returntype : Int 1 if successfull
@@ -1245,7 +1246,7 @@ sub execute_with_timer {
 
   my $realtimer = parse_timer($timer);
   my $remaining_time = 0;
-
+  
   # As seen on perldoc: http://perldoc.perl.org/5.14.2/functions/alarm.html
   eval {
     local $SIG{ALRM} = sub {die("alarm\n")};
@@ -1254,7 +1255,18 @@ sub execute_with_timer {
     $remaining_time = alarm 0;
   };
   if ($@) {
+ 
     if ($@ eq "alarm\n") {
+      my $pid_list = collect_processes($$);
+      foreach my $kid (@$pid_list) {
+        kill 'KILL', $kid;	
+      }
+      sleep(10);
+      $pid_list = collect_processes($$);
+      foreach my $kid (@$pid_list) {
+        kill 'KILL', $kid;	
+      }
+      sleep(10);
       throw("Your job $cmd was still running after your timer: $realtimer\n");
     }
     else {
@@ -1263,6 +1275,35 @@ sub execute_with_timer {
   }
   return $remaining_time;
 }
+
+
+=head2 collect_processes
+
+ Arg [1]    : String $process_to_check, the initial process to check.
+ Description: It uses a ProcessTable to collect all processes that are running under one process. 
+ Returntype : Returns a list with process ids
+ Exceptions : 
+
+=cut 
+
+sub collect_processes {
+  my ($process_to_check, $proc_table, $pid_list) = @_;
+
+  if (!$proc_table) {
+    $proc_table = Proc::ProcessTable->new;
+  }
+  if (!$pid_list) {
+    $pid_list = [];
+  }
+  foreach my $p (grep {$_->ppid eq $process_to_check} @{$proc_table->table} ){
+    if ($p->state ne "defunct") {
+      push(@$pid_list, $p->pid);
+      collect_processes($p->pid, $proc_table, $pid_list);
+    }
+  }
+  return $pid_list;
+}
+
 
 
 =head2 parse_timer

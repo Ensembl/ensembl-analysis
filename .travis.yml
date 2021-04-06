@@ -57,6 +57,7 @@ install:
     - cpanm --with-recommends --notest JSON
     - unset HTSLIB_DIR
     - unset PERL5LIB
+    - cpanm --notest Proc::ProcessTable
 # We don't really need the modules below this, just one module needs it (modules/Bio/EnsEMBL/Analysis/Tools/BlastDBTracking.pm) and it is not used by us
     - echo "We need these modules for an unused module"
     - cpanm --notest MooseX::ClassAttribute
