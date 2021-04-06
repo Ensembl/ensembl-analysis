@@ -1,19 +1,19 @@
 =head1 LICENSE
 
- Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
- Copyright [2016-2020] EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016-2021] EMBL-European Bioinformatics Institute
 
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-      http://www.apache.org/licenses/LICENSE-2.0
+     http://www.apache.org/licenses/LICENSE-2.0
 
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 =head1 NAME
 
@@ -21,7 +21,7 @@ Bio::EnsEMBL::Analysis::Hive::RunnableDB::Star
 
 =head1 SYNOPSIS
 
-my $runnableDB =  Bio::EnsEMBL::Analysis::Hive::RunnableDB::Star->new( );
+my $runnableDB =  Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveStar->new( );
 
 $runnableDB->fetch_input();
 $runnableDB->run();
@@ -52,6 +52,26 @@ use Bio::EnsEMBL::Analysis::Runnable::Star;
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters
+ Returntype : Hashref
+                threads => 1,
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    threads => 1,
+  }
+}
+
+
 =head2 fetch_input
 
  Arg [1]    : None
@@ -65,26 +85,45 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my ($self) = @_;
-  my $filename = $self->param('wide_input_dir').'/'.$self->param('filename');
-  $self->throw("Fastq file $filename not found\n") unless ( -e $filename );
-  my $fastqpair = $self->param('wide_input_dir').'/'.$self->param('fastqpair');
-  $self->throw("Fastq file $fastqpair not found\n") unless ( -e $fastqpair );
-  my $program = $self->param('wide_short_read_aligner');
-  $self->throw("Star program not defined in analysis\n") unless (defined $program);
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Star->new
+
+  my $input_ids = $self->param('SM');
+  $self->say_with_header('Found '.scalar(@$input_ids).' input ids');
+  foreach my $input_id (@$input_ids) {
+    my $sample_id = $input_id->{'ID'};
+    $self->say_with_header("Processing sample: $sample_id");
+    my $files = $input_id->{'files'};
+    my $file1 = ${$files}[0];
+    my $file2 = ${$files}[1];
+
+    $self->say_with_header("Found file: $file1");
+    my $filepath1 = $self->param('input_dir').'/'.$file1;
+    $self->throw("Fastq file ".$filepath1." not found\n") unless ( -e $filepath1 );
+
+    my $filepath2 = "";
+    if($file2) {
+      $self->say_with_header("Found paired file: $file2");
+      $filepath2 = $self->param('input_dir').'/'.$file2;
+      $self->throw("Fastq file ".$filepath2." not found\n") unless ( -e $filepath2 );
+    }
+
+    my $program = $self->param('short_read_aligner');
+    $self->throw("Star program not defined in analysis\n") unless (defined $program);
+
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::Star->new
     (
      -analysis       => $self->create_analysis,
      -program        => $program,
      -options        => $self->param('short_read_aligner_options'),
      -outdir         => $self->param('output_dir'),
-     -workdir        => $self->param('temp_dir'),
-     -genome         => $self->param('wide_genome_file'),
-     -fastq          => $filename,
-     -fastqpair      => $fastqpair,
-     -sam_attributes => $self->param('sam_attributes'),
-     -decompress     => $self->param('decompress'),
+     -genome_dir     => $self->param('genome_dir'),
+     -genome     => $self->param('genome_dir')."/Genome",
+     -sample_name    => $sample_id,
+     -fastq          => $filepath1,
+     -fastqpair      => $filepath2,
+     -threads        => $self->param('num_threads'),
     );
-  $self->runnable($runnable);
+    $self->runnable($runnable);
+  }
 }
 
 
@@ -100,8 +139,11 @@ sub fetch_input {
 sub write_output {
   my ($self) = @_;
 
-# I need to overwrite branch 1 as I'm using the accu table and the next analysis is on branch 1
-  $self->dataflow_output_id({filename => $self->output->[0]}, 1);
+  my $output_files = $self->output;
+  foreach my $output_file (@$output_files) {
+    $self->say_with_header("Output file: ".$output_file);
+    $self->dataflow_output_id([{'iid' => $output_file}], $self->param('_branch_to_flow_to'));
+  }
 }
 
 1;
