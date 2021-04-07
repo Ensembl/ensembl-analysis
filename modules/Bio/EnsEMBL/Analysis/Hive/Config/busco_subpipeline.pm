@@ -17,7 +17,7 @@ limitations under the License.
 
 =cut
 
-package Bio::EnsEMBL::Analysis::Hive::Config::busco_subpipeline;
+package busco_subpipeline;
 
 use strict;
 use warnings;
@@ -83,7 +83,7 @@ sub default_options {
 # If they are not needed (i.e. no projection or rnaseq) then leave them as is
 
     'busco_input_file_stid'         => 'stable_id_to_dump.txt',
-    'base_busco_path'        => '/hps/nobackup2/production/ensembl/kbillis/research/busco_QC/busco/bin/busco', 
+    'base_busco_path'        => '/homes/kbillis/.local/bin/busco', 
     'default_busco_config'   => '/hps/nobackup2/production/ensembl/kbillis/research/busco_QC/busco/busco_config_bk.ini', 
 
 ######################################################
