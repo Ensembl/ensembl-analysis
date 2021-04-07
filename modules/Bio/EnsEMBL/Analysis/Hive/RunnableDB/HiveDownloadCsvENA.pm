@@ -288,8 +288,13 @@ sub run {
                         $line{age} .= ' '.$data->{characteristics}->{age}->[0]->{unit};
                       }
                     }
-                    if (exists $data->{characteristics}->{tissue}) {
-                      $line{organismPart} = $data->{characteristics}->{tissue}->[0]->{text};
+                    if (exists $data->{characteristics}->{tissue} ||
+                        exists $data->{characteristics}->{'tissue type'} ||
+                        exists $data->{characteristics}->{tissue_type}
+                       ) {
+                      $line{organismPart} = $data->{characteristics}->{tissue}->[0]->{text} ||
+                                            $data->{characteristics}->{'tissue type'}->[0]->{text} ||
+                                            $data->{characteristics}->{tissue_type}->[0]->{text}  ;
                       if (exists $data->{characteristics}->{tissue}->[0]->{ontologyTerms}) {
                         $line{uberon} = $data->{characteristics}->{tissue}->[0]->{ontologyTerms}->[-1];
                       }
@@ -354,6 +359,11 @@ sub run {
 
           if ($samples{$sample}->{sex}) {
             $samples{$sample}->{sample_name} = $samples{$sample}->{sex}.'_'.$samples{$sample}->{sample_name};
+          }
+
+          if ($samples{$sample}->{cellType} || $samples{$sample}->{organismPart} || $samples{$sample}->{sample_alias} || $samples{$sample}->{description}) {
+            $samples{$sample}->{sample_name} .= '_';
+            $samples{$sample}->{sample_name} .= $samples{$sample}->{cellType} || $samples{$sample}->{organismPart} || $samples{$sample}->{sample_alias} || $samples{$sample}->{description};
           }
         }
       }
