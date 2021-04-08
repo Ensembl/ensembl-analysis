@@ -70,7 +70,7 @@ sub default_options {
     'busco_db_server'           => '', 
     'busco_db_port'             => '', 
     'busco_output_name'         => '', 
-    'busco_params'              => ' -f ', # -f is for delete and overwrite existing dirs 
+    'busco_params'              => ' -f  -m prot ', # -f is for delete and overwrite existing dirs 
 
 
 
@@ -83,7 +83,7 @@ sub default_options {
 # If they are not needed (i.e. no projection or rnaseq) then leave them as is
 
     'busco_input_file_stid'         => 'stable_id_to_dump.txt',
-    'base_busco_path'        => '/homes/kbillis/.local/bin/busco', 
+    'base_busco_path'        => 'python /hps/nobackup2/production/ensembl/kbillis/research/busco_QC/busco/build/lib/busco/run_BUSCO.py', 
     'default_busco_config'   => '/hps/nobackup2/production/ensembl/kbillis/research/busco_QC/busco/busco_config_bk.ini', 
 
 ######################################################
@@ -211,10 +211,9 @@ sub pipeline_analyses {
         -logic_name => 'run_busco',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'busco '. 
+                         cmd => $self->o('base_busco_path'). 
                          $self->o('busco_params').
                          ' -i '.catfile($self->o('input_dir'),'input_file.fa').
-                         ' -m prot '.
                          ' -l '.$self->o('busco_set').
                          ' -o '.$self->o('busco_output_name').
                          ' --config '.$self->o('default_busco_config'),
