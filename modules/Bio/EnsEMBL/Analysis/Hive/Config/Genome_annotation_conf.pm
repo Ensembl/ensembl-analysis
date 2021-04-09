@@ -382,7 +382,7 @@ sub default_options {
 ########################
 
     'num_tokens' => 10,
-    mysql_dump_options => '--max_allowed_packet=1000MB',
+    mysql_dump_options => '--max_allowed_packet=1000MB --quick',
 
 ########################
 # Executable paths
@@ -2685,8 +2685,10 @@ sub pipeline_analyses {
                                 ' -port '.$self->o('reference_db','-port').
                                 ' -dbpattern '.$self->o('reference_db','-dbname')
                        },
-         -rc_name => 'default',
-         -flow_into => { 1 => ['backup_core_db'] },
+        -rc_name => 'default',
+        -flow_into => {
+                        1 => ['backup_core_db'],
+        },
      },
 
 
@@ -2695,13 +2697,26 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::DatabaseDumper',
         -parameters => {
                          src_db_conn => $self->o('dna_db'),
-                         output_file => catfile($self->o('output_path'), 'core_bak.sql.gz'),
+                         output_file => catfile($self->o('output_path'), 'core_bak.sql'),
                          dump_options => $self->o('mysql_dump_options'),
                        },
         -rc_name    => '2GB',
-        -flow_into => { 1 => ['assembly_loading_report','create_selected_projection_db'] },
+        -flow_into => {
+                        1 => ['compress_core_db'],
+        },
       },
 
+      {
+        -logic_name => 'compress_core_db',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                          cmd => 'gzip '.catfile($self->o('output_path'), 'core_bak.sql')
+        },
+        -rc_name    => 'default',
+        -flow_into  => {
+                          1 => ['assembly_loading_report','create_selected_projection_db']
+        },
+      },
 
       {
         -logic_name => 'assembly_loading_report',
@@ -8300,13 +8315,27 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::DatabaseDumper',
         -parameters => {
                          src_db_conn => $self->o('dna_db'),
-                         output_file => catfile($self->o('output_path'), 'core_post_stable_idsbak.sql.gz'),
+                         output_file => catfile($self->o('output_path'), 'core_post_stable_idsbak.sql'),
                          dump_options => $self->o('mysql_dump_options'),
                        },
         -rc_name    => 'default',
-        -flow_into => { 1 => ['load_external_db_ids_and_optimise_af_tables'] },
+        -flow_into => {
+                        1 => ['compress_core_db_pre_optimise'],
+        },
       },
 
+      {
+        # Creates a reference db for each species
+        -logic_name => 'compress_core_db_pre_optimise',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                          cmd => 'gzip '.catfile($self->o('output_path'), 'core_post_stable_idsbak.sql')
+        },
+        -rc_name    => 'default',
+        -flow_into => {
+                        1 => ['load_external_db_ids_and_optimise_af_tables'],
+        },
+      },
 
       {
         -logic_name => 'load_external_db_ids_and_optimise_af_tables',
