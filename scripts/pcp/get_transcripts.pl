@@ -15,7 +15,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Dumps out gene models 
+=head1 NAME
+  get_transcripts.pl
+=head1 DESCRIPTION
+Retrieves the DNA for all transcripts from a given database and dumps out to fasta format file.
+=head1 OPTIONS
+=head1
+=head2 Database connection options
+  -dbhost   Host name for database.
+  -dbport   What port to connect to.
+  -dbname   What name to connect to.
+  -dbuser   What username to connect as.
+  -dbpass   What password to use.
+
+  -dna_dbhost   Host name for database.
+  -dna_dbport   What port to connect to.
+  -dna_dbname   What name to connect to.
+  -dna_dbuser   What username to connect as.
+  -dna_dbpass   What password to use.
+
+=head2 Other options
+  --coords coordinate system name to use, default toplevel
+=head1 EXAMPLES
+  ./get_transcripts.pl --dbhost genebuild5 \
+    --dbuser ensro \
+    --dbname <database_name> \
+    --dna_dbhost genebuild6 \
+    --dna_dbname <dna_database_name> \
+    > output.fasta
+=cut
 
 use strict;
 use warnings;

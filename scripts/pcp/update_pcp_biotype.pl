@@ -18,6 +18,33 @@
 # Updates biotype in pcp db if BOTH protein coding prediction tools agree that
 # the gene is protein coding
 
+=head1 NAME
+  update_pcp_biotype.pl
+=head1 DESCRIPTION
+Reads the output of both RNASamba and CPC2 and where they both agree that a transcript is protein coding the biotype
+is updated to pcp_protein_coding in the selected database.
+Throws if results files have non matching gene models/ number of gene models
+=head1 OPTIONS
+=head1
+=head2 Database connection options
+  -dbhost   Host name for database.
+  -dbport   What port to connect to.
+  -dbname   What name to connect to.
+  -dbuser   What username to connect as.
+  -dbpass   What password to use.
+=head2 Other options
+  --coords coordinate system name to use, default toplevel
+  --rnaSamba RNASamba output file to be used
+  --cpc2 CPC2 output file to be used
+=head1 EXAMPLES
+  ./update_pcp_biotype.pl --dbhost genebuild5 \
+    --dbname <database_name> \
+    --dbhost GBS5
+    --dport GBP5
+    --rnaSamba <RNASamba output file> \
+    --cpc2 <CPC2 output file> \
+=cut
+
 use strict;
 use warnings;
 use Getopt::Long qw(:config no_ignore_case);
@@ -92,8 +119,11 @@ while (my $slice = shift @{$slices}) {
   }
 }
 
-## Parses results from the classification program output
-## Takes the filename and column where protein coding classifier stored
+=head2
+Parses results from the classification program output, akes the filename and
+column where protein coding classifier stored. Throws if files not found
+=cut
+
 sub parse_results {
   my ($in_file, $column_num) = @_;
   my %results;
