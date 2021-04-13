@@ -58,6 +58,101 @@ def create_dir(main_output_dir,dir_name):
   return target_dir
 
 
+def load_results_to_ensembl_db(load_to_ensembl_db,genome_file,main_output_dir,db_details,num_threads):
+
+  loading_script_path = '/homes/fergal/enscode/ensembl-common/scripts/load_gtf_ensembl_gbiab.pl'
+  annotation_results_gtf_file = os.path.join(main_output_dir,'annotation_output','annotation.gtf')
+  db_loading_dir = create_dir(main_output_dir,'db_loading')
+
+  batch_size = 200
+  gene_gtf_records = batch_gtf_records(annotation_results_gtf_file,batch_size,db_loading_dir,'gene')
+
+  print("Loading genes to db")
+  pool = multiprocessing.Pool(int(num_threads))
+  for record_batch in gene_gtf_records:
+    pool.apply_async(multiprocess_load_records_to_ensembl_db, args=(load_to_ensembl_db,record_batch,loading_script_path,genome_file,db_details,db_loading_dir,))
+  pool.close()
+  pool.join()
+
+
+def multiprocess_load_records_to_ensembl_db(load_to_ensembl_db,record_batch,loading_script_path,genome_file,db_details,output_dir):
+
+  with tempfile.NamedTemporaryFile(mode='w+t', delete=False, dir=output_dir) as gtf_temp_out:
+    for line in record_batch:
+      gtf_temp_out.writelines(line)
+      gtf_temp_file_path = gtf_temp_out.name
+
+  (db_name,db_host,db_port,db_user,db_pass) = db_details.split(',') 
+
+  loading_cmd = ['perl',loading_script_path,
+                 '-genome_file',genome_file,
+                 '-dbname',db_name,
+                 '-host',db_host,
+                 '-port',str(db_port),
+                 '-user',db_user,
+                 '-pass',db_pass,
+                 '-gtf_file',gtf_temp_file_path,
+                 '-protein_coding_biotype','gbiab_protein_coding',
+                 '-non_coding_biotype','gbiab_lncRNA']
+
+  if load_to_ensembl_db == 'single_transcript_genes':
+    loading_cmd.append('-make_single_transcript_genes')
+
+
+  print(' '.join(loading_cmd))
+  subprocess.run(loading_cmd)
+  gtf_temp_file_path.close()
+  os.remove(gtf_temp_file_path) # doesn't seem to be working
+  
+
+def batch_gtf_records(input_gtf_file,batch_size,output_dir,record_type):
+  records = []
+
+  gtf_in = open(input_gtf_file)
+  if record_type == 'gene':
+        
+    # NOTE that the neverending variations on GTF reading/writing/merging is becoming very messy
+    # need to create a set of utility methods outside of this script
+    # This one assumes the file has unique ids for the parent features. It then batches them into
+    # sets of records based on the batch size passed in
+    record_counter = 0
+    current_record_batch = []
+    current_gene_id = ""    
+    line = gtf_in.readline()
+    while line:
+      if re.search(r"^#", line):
+        line = gtf_in.readline()
+        continue
+
+      eles = line.split("\t")
+      if not len(eles) == 9:
+        line = gtf_in.readline()
+        continue
+
+      match = re.search(r'gene_id "([^"]+)"',line)
+      gene_id = match.group(1)
+
+      if not current_gene_id:
+        record_counter += 1
+        current_gene_id = gene_id
+
+      if not gene_id == current_gene_id:
+        record_counter += 1
+        if (record_counter % batch_size == 0):
+          records.append(current_record_batch)
+          current_record_batch = []
+        current_gene_id = gene_id
+
+      current_record_batch.append(line)
+      line = gtf_in.readline()
+
+    records.append(current_record_batch)
+  gtf_in.close()
+  
+  return(records)
+
+
+
 def run_find_orfs(genome_file,main_output_dir):
 
   min_orf_length = 600
@@ -2765,25 +2860,25 @@ def fasta_to_dict(fasta_list):
   return index
 
 
-def merge_gtf_files(file_paths,id_label):
+#def merge_gtf_files(file_paths,id_label):
 
-  gtf_file_path = os.path.join(output_dir,'annotation.gtf')
-  gtf_out = open(gtf_file_path,'w+')
-  for gtf_file_path in gtf_files:
-    gtf_file_name = os.path.basename(gtf_file_path)
-    match = re.search(r'\.rs(\d+)\.re(\d+)\.',gtf_file_name)
-    start_offset = int(match.group(1))
-    gtf_in = open(gtf_file_path,'r')
-    line = gtf_in.readline()
-    while line:
-      values = line.split("\t")
-      if len(values) == 9 and (values[2] in feature_types):
-        values[3] = str(int(values[3]) + (start_offset - 1))
-        values[4] = str(int(values[4]) + (start_offset - 1))
-        gtf_out.write("\t".join(values))
-        line = gtf_in.readline()
-    gtf_in.close()
-  gtf_out.close()
+#  gtf_file_path = os.path.join(output_dir,'annotation.gtf')
+#  gtf_out = open(gtf_file_path,'w+')
+#  for gtf_file_path in gtf_files:
+#    gtf_file_name = os.path.basename(gtf_file_path)
+#    match = re.search(r'\.rs(\d+)\.re(\d+)\.',gtf_file_name)
+#    start_offset = int(match.group(1))
+#    gtf_in = open(gtf_file_path,'r')
+#    line = gtf_in.readline()
+#    while line:
+#      values = line.split("\t")
+#      if len(values) == 9 and (values[2] in feature_types):
+#        values[3] = str(int(values[3]) + (start_offset - 1))
+#        values[4] = str(int(values[4]) + (start_offset - 1))
+#        gtf_out.write("\t".join(values))
+#        line = gtf_in.readline()
+#    gtf_in.close()
+#  gtf_out.close()
 
 
 def multiprocess_finalise_geneset(cmd):
@@ -3003,6 +3098,7 @@ if __name__ == '__main__':
   parser.add_argument('--run_sncrnas', help='Run Rfam, tRNAscan-SE', required=False)
   parser.add_argument('--run_transcriptomic', help='Run STAR, Stringtie2, Scallop, minimap2 (if short_read_fastq_dir and/or long_read_fastq_dir are provided)', required=False)
   parser.add_argument('--run_proteins', help='Run GenBlast if protein_file and/or busco_protein_file', required=False)
+  parser.add_argument('--load_to_ensembl_db', help='Load results to an Ensembl db, must also provide the db_details flag', required=False)
   args = parser.parse_args()
 
   work_dir = args.output_dir
@@ -3060,6 +3156,7 @@ if __name__ == '__main__':
   run_sncrnas = args.run_sncrnas
   run_transcriptomic = args.run_transcriptomic
   run_proteins = args.run_proteins
+  load_to_ensembl_db = args.load_to_ensembl_db
 
   if not os.path.exists(genome_file):
     raise IOError('File does not exist: %s' % genome_file)
@@ -3223,6 +3320,8 @@ if __name__ == '__main__':
      print ("Running Cufflinks")
      run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,work_dir,genome_file,num_threads)
 
+  if load_to_ensembl_db:
+    load_results_to_ensembl_db(load_to_ensembl_db,genome_file,work_dir,db_details,num_threads)
 
 #  coallate_results(work_dir)
 
