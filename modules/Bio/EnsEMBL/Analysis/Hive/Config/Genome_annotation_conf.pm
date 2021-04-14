@@ -316,7 +316,7 @@ sub default_options {
                                    $self->o('rnaseq_for_layer_nr_db'),
                                    $self->o('star_rnaseq_for_layer_nr_db'),
                                    $self->o('pcp_nr_db'),
-                                   $self->o('selected_projection_db'),
+                                   $self->o('selected_projection_db')
                                    $self->o('ig_tr_db'),
                                    $self->o('best_targeted_db'),
                                    $self->o('long_read_final_db'),
@@ -329,6 +329,7 @@ sub default_options {
       $self->o('rnaseq_for_layer_db'),
       $self->o('star_rnaseq_for_layer_db'),
       $self->o('long_read_final_db'),
+      $self->o('pcp_nr_db'),
     ],
 
     utr_acceptor_dbs => [
@@ -825,6 +826,18 @@ sub default_options {
     'compare_beds_exe'                  => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/pipeline/compare_beds.pl'),
     'create_pair_aligner_page_exe'      => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/report/create_pair_aligner_page.pl'),
     'dump_features_exe'                 => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/dumps/DumpMultiAlign.pl'),
+
+    #######################
+    # RNASamba CPC2 Stuff
+    #######################
+
+    'rna_samba_weights' => '/homes/jma/coding_gene_testing/full_length_weights.hdf5',
+    'pcp_output' => catdir($self->o('output_path'), 'pcp'),
+    'pcp_name' => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
+
+    #######################
+    # /RNASamba CPC2 Stuff
+    #######################
 
 
     #######################
@@ -6474,7 +6487,7 @@ sub pipeline_analyses {
           indicate_index => $self->o('protein_blast_index'),
           uniprot_index => [$self->o('protein_blast_db')],
           blast_program => $self->o('uniprot_blast_exe_path'),
-          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
+          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep_non_vert', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
           commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40',
         },
         -rc_name => 'blast',
@@ -6986,7 +6999,7 @@ sub pipeline_analyses {
           indicate_index => $self->o('protein_blast_index'),
           uniprot_index => [$self->o('protein_blast_db')],
           blast_program => $self->o('uniprot_blast_exe_path'),
-          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
+          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic','BlastGenscanPep_non_vert', {BLAST_PARAMS => {-type => $self->o('blast_type')}})},
           commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus='.$self->o('use_threads').' -hitdist=40' : '-num_threads '.$self->o('use_threads').' -window_size 40',
         },
         -flow_into => {

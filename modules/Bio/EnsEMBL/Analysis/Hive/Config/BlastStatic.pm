@@ -100,6 +100,21 @@ sub _master_config {
                          },
       },
 
+      BlastGenscanPep_non_vert => {
+        PARSER_PARAMS => {
+                           -regex => '^\\s*([^\\s]+)',
+                           -query_type => 'pep',
+                           -database_type => 'pep',
+                           -threshold_type => 'PVALUE',
+                           -threshold => 0.01,
+                         },
+        BLAST_FILTER => 'Bio::EnsEMBL::Analysis::Tools::FeatureFilter',
+        FILTER_PARAMS => {
+                           -min_score => 200,
+                           -prune => 1,
+                         },
+      },
+
       BlastGenscanVertRNA => {
         BLAST_PARSER => 'Bio::EnsEMBL::Analysis::Tools::FilterBPlite',
         PARSER_PARAMS => {

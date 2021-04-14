@@ -555,6 +555,7 @@ sub _master_config {
 			  'TR_V_gene',
 			  'TR_D_gene',
 			  'seleno_self',
+			  'pcp_protein_coding',
 			  'cdna2genome',
 			  'edited',
 			  'gw_gtag',
