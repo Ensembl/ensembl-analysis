@@ -815,6 +815,8 @@ sub feature_restriction {
         }
       } elsif($restriction eq 'projection') {
         return($self->assess_projection_transcript($feature));
+      } elsif($restriction eq 'no_readthrough') {
+        return($self->assess_readthrough_transcript($feature));
       } else {
         $self->throw("You've selected a features restriction type that is not recognised: ".$restriction);
       }
@@ -887,6 +889,39 @@ sub assess_projection_transcript {
   } # end if($cds_incomplete)
 
   return($feature_restricted);
+}
+
+=head2 assess_readthrough_transcript
+
+ Arg [1]    : Bio::EnsEMBL::Transcript
+ Description: It loops through all transcript attributes for the given transcript
+              to find the 'readthrough_tra' attribute.
+	      It returns 1 if it finds it. Otherwise, it returns 0.
+ Returntype : Boolean
+ Exceptions : Throws if the 'feature_type' cannot be processed
+
+=cut
+
+sub assess_readthrough_transcript {
+  my ($self,$current_transcript) = @_;
+
+  my $feature_restricted = 0;
+
+  if (!(ref($current_transcript) eq "Bio::EnsEMBL::Transcript")) {
+    $self->throw("The assess_readthrough_transcript subroutine expects a transcript object. Found object type: ".ref($current_transcript));
+  }
+
+  my $attribs = $current_transcript->get_all_Attributes();
+  my $readthrough = 0;
+  foreach my $attrib (@{$attribs}) {
+    my $code = $attrib->code();
+    # Remove readthroughs
+    if ($code eq 'readthrough_tra') {
+      $feature_restricted = 1;
+      return $feature_restricted;
+    }
+  }
+  return $feature_restricted;
 }
 
 =head2 filter_slice_on_features
