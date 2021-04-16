@@ -93,3 +93,4 @@
 '^contig[0-9]{5}$'	RIKEN
 '^[1-22XY]{1}$'	GRC_primary_assembly
 '^Cluster'	Ensembl_Bam2Genes_intron
+'^ENSRNOT[0-9]{11}\.*[0-9]*$'	Ens_Rn_transcript
