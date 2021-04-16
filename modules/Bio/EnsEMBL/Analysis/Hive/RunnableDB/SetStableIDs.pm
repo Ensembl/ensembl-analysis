@@ -35,21 +35,43 @@ sub param_defaults {
 }
 
 
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Check if mapping_required and skip_analysis have been set to know
+              if stable ids can be generated or if stable id mapping must be run
+ Returntype : None
+ Exceptions : Throws if mapping_required is true but skip_analysis is set to false
+
+=cut
+
 sub fetch_input {
   my $self = shift;
 
-  return 1;
+  if($self->param('mapping_required')) {
+    if ($self->param('skip_analysis')) {
+      $self->complete_early('You set mapping_required and skip_analysis to "true". That means you ran the stable id pipeline');
+    }
+    else {
+      $self->throw('You set mapping_required to "true" but not skip_analysis. if you have run stable id mapping, please set skip_analysis to "true"')
+    }
+  }
 }
 
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Generate stable ids for the database
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub run {
   my $self = shift;
 
-  if($self->param('mapping_required')) {
-    $self->run_stable_id_mapping();
-  } else {
-    $self->generate_stable_ids();
-  }
+  $self->generate_stable_ids();
 
   return 1;
 }
