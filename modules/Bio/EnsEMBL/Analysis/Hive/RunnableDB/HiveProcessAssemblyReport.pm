@@ -312,7 +312,9 @@ sub run {
         $slice->{karyotype_rank} = $karyotype_attribute if ($karyotype_attribute);
         $slice->{_gb_insdc_name} = $data[4];
         if ($data[4] eq $seq_region_name) {
-          push(@{$slice->{add_synonym}}, [$data[0], undef]);
+          if ($data[0] ne 'na') {
+            push(@{$slice->{add_synonym}}, [$data[0], undef]);
+          }
         }
         else {
           push(@{$slice->{add_synonym}}, [$data[4], $synonym_id->{INSDC}]);
