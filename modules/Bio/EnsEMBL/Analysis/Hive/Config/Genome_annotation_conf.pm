@@ -4452,8 +4452,8 @@ sub pipeline_analyses {
         2 => ['targetted_exonerate'],
       },
     },
-    {
 
+    {
       -logic_name => 'targetted_exonerate',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
       -parameters => {
@@ -4468,8 +4468,27 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
       },
       -rc_name          => '3GB',
+      -flow_into => {
+        -1 => ['targetted_exonerate_retry'],
+      },
     },
 
+    {
+      -logic_name => 'targetted_exonerate_retry',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
+      -parameters => {
+        iid_type => 'db_seq',
+        sequence_table_name => $self->o('uniprot_table_name'),
+        dna_db => $self->o('dna_db'),
+        target_db => $self->o('genewise_db'),
+        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_protein')},
+        genome_file      => $self->o('softmasked_genome_file'),
+        exonerate_path   => $self->o('exonerate_path'),
+        repeat_libraries => '#wide_repeat_logic_names#',
+        calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
+      },
+      -rc_name          => '10GB',
+    },
 
     {
       -logic_name => 'indicate_proteome',
