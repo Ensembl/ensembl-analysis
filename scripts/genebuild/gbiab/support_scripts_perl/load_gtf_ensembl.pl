@@ -320,6 +320,10 @@ sub load_genes {
   }
 
   foreach my $gene (@$final_genes) {
+    # For the moment we're going to skip tRNA_pseudogenes
+    if($gene->biotype() eq 'tRNA_pseudogene') {
+      next;
+    }
     empty_Gene($gene);
     $gene_adaptor->store($gene);
   }
@@ -328,17 +332,6 @@ sub load_genes {
 
 sub load_repeats {
   my ($dba,$gtf_file,$slice_hash,$analysis,%strand_conversion) = @_;
-
-
-#     my $rc = $ff->create_repeat_consensus('trf', 'trf', '', $mer);
-#      my $rf = $ff->create_repeat_feature($start, $end, 0, $score, 1,
-#                                         ($end - $start +1), $rc);
-
-#  my $rc = $ff->create_repeat_consensus('dust', 'dust', 'simple', 'N');
-#      my $rf = $ff->create_repeat_feature($start, $end, 0, 0, $start,
-#                                          $end, $rc, $self->query->name,
-#                                          $self->query);
-
 
   my $repeat_types = { trf => 'Tandem repeats',
                        dust => 'Dust',
