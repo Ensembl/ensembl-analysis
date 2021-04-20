@@ -25,15 +25,6 @@ import tempfile
 import io
 
 
-# Validate CDS
-# Write transcript/protein sequences out to file (on the transcriptomic script?)
-# if source == transcriptomic or Augustus
-#   Run transcript sequence through CPC2 and RNAsamba
-#   Write attribs to GTF transcript lines
-# Once these are tagged, finalisation script decides what to do. At each locus a decision needs to be
-# made based on the tags at each locus. If the longest CDS is coding, the locus is coding. Remove
-# transripts that are flagged as non coding
-
 def create_dir(main_output_dir,dir_name):
 
   if dir_name:
@@ -58,24 +49,118 @@ def create_dir(main_output_dir,dir_name):
   return target_dir
 
 
-def load_results_to_ensembl_db(load_to_ensembl_db,genome_file,main_output_dir,db_details,num_threads):
+def load_results_to_ensembl_db(main_script_dir,load_to_ensembl_db,genome_file,main_output_dir,db_details,num_threads):
 
-  loading_script_path = '/homes/fergal/enscode/ensembl-common/scripts/load_gtf_ensembl_gbiab.pl'
-  annotation_results_gtf_file = os.path.join(main_output_dir,'annotation_output','annotation.gtf')
+  db_loading_script = os.path.join(main_script_dir,'support_scripts_perl','load_gtf_ensemb')
   db_loading_dir = create_dir(main_output_dir,'db_loading')
 
-  batch_size = 200
-  gene_gtf_records = batch_gtf_records(annotation_results_gtf_file,batch_size,db_loading_dir,'gene')
+  # Should collapse this into a function
+  annotation_results_gtf_file = os.path.join(main_output_dir,'annotation_output','annotation.gtf')
+  if os.path.exists(annotation_results_gtf_file):
+    print("Loading main geneset to db")
+    batch_size = 200
+    load_type = 'gene'
+    analysis_name = 'ensembl'
+    gtf_records = batch_gtf_records(annotation_results_gtf_file,batch_size,db_loading_dir,load_type)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+  else:
+    print("Did not find the main gene annotation file, so not loading. Path checked:\n" + annotation_results_gtf_file)
 
-  print("Loading genes to db")
+
+  rfam_results_gtf_file = os.path.join(main_output_dir,'rfam_output','annotation.gtf')
+  if os.path.exists(rfam_results_gtf_file):
+    print("Loading Rfam-based sncRNA genes to db")
+    batch_size = 500
+    load_type = 'gene'
+    analysis_name = 'ncrna'
+    gtf_records = batch_gtf_records(rfam_results_gtf_file,batch_size,db_loading_dir,load_type)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+  else:
+    print("Did not find an Rfam annotation file, so not loading. Path checked:\n" + rfam_results_gtf_file)
+
+
+  trnascan_results_gtf_file = os.path.join(main_output_dir,'trnascan_output','annotation.gtf')
+  if os.path.exists(trnascan_results_gtf_file):
+    print("Loading tRNAScan-SE tRNA genes to db")
+    batch_size = 500
+    load_type = 'gene'
+    analysis_name = 'ncrna'
+    gtf_records = batch_gtf_records(trnascan_results_gtf_file,batch_size,db_loading_dir,load_type)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+  else:
+    print("Did not find an tRNAScan-SE annotation file, so not loading. Path checked:\n" + trnascan_results_gtf_file)
+
+
+  dust_results_gtf_file = os.path.join(main_output_dir,'dust_output','annotation.gtf')
+  if os.path.exists(dust_results_gtf_file):
+    print("Loading Dust repeats to db")
+    batch_size = 5000
+    load_type = 'single_line_feature'
+    analysis_name = 'dust'
+    gtf_records = batch_gtf_records(dust_results_gtf_file,batch_size,db_loading_dir,load_type)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+  else:
+    print("Did not find a Dust annotation file, so not loading. Path checked:\n" + dust_results_gtf_file)
+
+
+  red_results_gtf_file = os.path.join(main_output_dir,'red_output','annotation.gtf')
+  if os.path.exists(red_results_gtf_file):
+    print("Loading Red repeats to db")
+    batch_size = 5000
+    load_type = 'single_line_feature'
+    analysis_name = 'repeatmask_red'
+    gtf_records = batch_gtf_records(red_results_gtf_file,batch_size,db_loading_dir,load_type)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+  else:
+    print("Did not find a Red annotation file, so not loading. Path checked:\n" + red_results_gtf_file)
+
+
+  trf_results_gtf_file = os.path.join(main_output_dir,'trf_output','annotation.gtf')
+  if os.path.exists(trf_results_gtf_file):
+    print("Loading TRF repeats to db")
+    batch_size = 5000
+    load_type = 'single_line_feature'
+    analysis_name = 'trf'
+    gtf_records = batch_gtf_records(trf_results_gtf_file,batch_size,db_loading_dir,load_type)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+  else:
+    print("Did not find a TRF annotation file, so not loading. Path checked:\n" + trf_results_gtf_file)
+
+
+  cpg_results_gtf_file = os.path.join(main_output_dir,'cpg_output','annotation.gtf')
+  if os.path.exists(cpg_results_gtf_file):
+    print("Loading CpG islands to db")
+    batch_size = 5000
+    load_type = 'single_line_feature'
+    analysis_name = 'cpg'
+    gtf_records = batch_gtf_records(cpg_results_gtf_file,batch_size,db_loading_dir,load_type)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+  else:
+    print("Did not find a CpG annotation file, so not loading. Path checked:\n" + cpg_results_gtf_file)
+
+
+  eponine_results_gtf_file = os.path.join(main_output_dir,'eponine_output','annotation.gtf')
+  if os.path.exists(eponine_results_gtf_file):
+    print("Loading Eponine repeats to db")
+    batch_size = 5000
+    load_type = 'single_line_feature'
+    analysis_name = 'eponine'
+    gtf_records = batch_gtf_records(eponine_results_gtf_file,batch_size,db_loading_dir,load_type)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+  else:
+    print("Did not find an Eponine annotation file, so not loading. Path checked:\n" + eponine_results_gtf_file)
+
+
+def generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records):
+
   pool = multiprocessing.Pool(int(num_threads))
-  for record_batch in gene_gtf_records:
-    pool.apply_async(multiprocess_load_records_to_ensembl_db, args=(load_to_ensembl_db,record_batch,loading_script_path,genome_file,db_details,db_loading_dir,))
+  for record_batch in gtf_records:
+    pool.apply_async(multiprocess_load_records_to_ensembl_db, args=(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,record_batch,))
   pool.close()
   pool.join()
 
 
-def multiprocess_load_records_to_ensembl_db(load_to_ensembl_db,record_batch,loading_script_path,genome_file,db_details,output_dir):
+def multiprocess_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,output_dir,load_type,analysis_name,record_batch):
 
   with tempfile.NamedTemporaryFile(mode='w+t', delete=False, dir=output_dir) as gtf_temp_out:
     for line in record_batch:
@@ -84,7 +169,7 @@ def multiprocess_load_records_to_ensembl_db(load_to_ensembl_db,record_batch,load
 
   (db_name,db_host,db_port,db_user,db_pass) = db_details.split(',') 
 
-  loading_cmd = ['perl',loading_script_path,
+  loading_cmd = ['perl',db_loading_script,
                  '-genome_file',genome_file,
                  '-dbname',db_name,
                  '-host',db_host,
@@ -92,22 +177,24 @@ def multiprocess_load_records_to_ensembl_db(load_to_ensembl_db,record_batch,load
                  '-user',db_user,
                  '-pass',db_pass,
                  '-gtf_file',gtf_temp_file_path,
-                 '-protein_coding_biotype','gbiab_protein_coding',
-                 '-non_coding_biotype','gbiab_lncRNA']
+                 '-analysis_name',analysis_name,
+                 '-load_type',load_type]
 
-  if load_to_ensembl_db == 'single_transcript_genes':
-    loading_cmd.append('-make_single_transcript_genes')
-
+  if load_type == 'gene' and analysis_name == 'ensembl':
+    loading_cmd.extend(['-protein_coding_biotype','gbiab_protein_coding','-non_coding_biotype','gbiab_lncRNA'])
+   
+    if load_to_ensembl_db == 'single_transcript_genes':
+      loading_cmd.append('-make_single_transcript_genes')
 
   print(' '.join(loading_cmd))
   subprocess.run(loading_cmd)
-  gtf_temp_file_path.close()
+  gtf_temp_out.close()
   os.remove(gtf_temp_file_path) # doesn't seem to be working
-  
+
 
 def batch_gtf_records(input_gtf_file,batch_size,output_dir,record_type):
-  records = []
 
+  records = []
   gtf_in = open(input_gtf_file)
   if record_type == 'gene':
         
@@ -147,10 +234,36 @@ def batch_gtf_records(input_gtf_file,batch_size,output_dir,record_type):
       line = gtf_in.readline()
 
     records.append(current_record_batch)
-  gtf_in.close()
-  
-  return(records)
 
+  elif record_type == 'single_line_feature':
+    record_counter = 0
+    current_record_batch = []
+    current_gene_id = ""    
+    line = gtf_in.readline()
+    while line:
+      if re.search(r"^#", line):
+        line = gtf_in.readline()
+        continue
+
+      eles = line.split("\t")
+      if not len(eles) == 9:
+        line = gtf_in.readline()
+        continue
+
+      record_counter += 1
+
+      if record_counter % batch_size == 0:
+        records.append(current_record_batch)
+        current_record_batch = []
+
+      current_record_batch.append(line)
+      line = gtf_in.readline()
+
+    records.append(current_record_batch)
+
+  gtf_in.close()
+
+  return(records)
 
 
 def run_find_orfs(genome_file,main_output_dir):
@@ -224,7 +337,7 @@ def run_repeatmasker_regions(genome_file,repeatmasker_path,library,main_output_d
 
   pool.close()
   pool.join()
-  slice_output_to_gtf(repeatmasker_output_dir,'.rm.gtf')
+  slice_output_to_gtf(repeatmasker_output_dir,'.rm.gtf',1,'repeat_id','repeatmask')
 
 
 def multiprocess_repeatmasker(generic_repeatmasker_cmd,slice_id,genome_file,repeatmasker_output_dir):
@@ -336,7 +449,7 @@ def run_eponine_regions(genome_file,java_path,eponine_path,main_output_dir,num_t
 
   pool.close()
   pool.join()
-  slice_output_to_gtf(eponine_output_dir,'.epo.gtf')
+  slice_output_to_gtf(eponine_output_dir,'.epo.gtf',1,'feature_id','eponine')
 
 
 def multiprocess_eponine(generic_eponine_cmd,slice_id,genome_file,eponine_output_dir):
@@ -376,7 +489,6 @@ def multiprocess_eponine(generic_eponine_cmd,slice_id,genome_file,eponine_output
 
 def create_eponine_gtf(eponine_output_file_path,region_results_file_path,region_name):
 
-
   eponine_in = open(eponine_output_file_path,'r')
   eponine_out = open(region_results_file_path,'w+')
 
@@ -398,7 +510,7 @@ def create_eponine_gtf(eponine_output_file_path,region_results_file_path,region_
         end -= 1
 
       gtf_line = (region_name + "\tEponine\tsimple_feature\t" + str(start) + "\t" + str(end) + "\t.\t" + strand + "\t.\t" + 'feature_id "' +
-                  str(feature_count) + '";\n')
+                  str(feature_count) + '; score "' + str(score) + '";\n')
       eponine_out.write(gtf_line)
       feature_count += 1
     line = eponine_in.readline()
@@ -426,7 +538,7 @@ def run_cpg_regions(genome_file,cpg_path,main_output_dir,num_threads):
 
   pool.close()
   pool.join()
-  slice_output_to_gtf(cpg_output_dir,'.cpg.gtf')
+  slice_output_to_gtf(cpg_output_dir,'.cpg.gtf',1,'feature_id','cpg')
 
 
 def multiprocess_cpg(cpg_path,slice_id,genome_file,cpg_output_dir):
@@ -490,7 +602,7 @@ def create_cpg_gtf(cpg_output_file_path,region_results_file_path,region_name):
 
       if length >= cpg_min_length and gc_content >= cpg_min_gc_content and oe >= cpg_min_oe:
         gtf_line = (region_name + "\tCpG\tsimple_feature\t" + str(start) + "\t" + str(end) + "\t.\t+\t.\t" + 'feature_id "' +
-                    str(feature_count) + '";\n')
+                    str(feature_count) + '"; score "' + str(score) + '";\n')
         cpg_out.write(gtf_line)
         feature_count += 1
     line = cpg_in.readline()
@@ -524,7 +636,7 @@ def run_trnascan_regions(genome_file,trnascan_path,trnascan_filter_path,main_out
 
   pool.close()
   pool.join()
-  slice_output_to_gtf(trnascan_output_dir,'.trna.gtf')
+  slice_output_to_gtf(trnascan_output_dir,'.trna.gtf',1,None,None)
 
 
 def multiprocess_trnascan(generic_trnascan_cmd,slice_id,genome_file,trnascan_filter_path,trnascan_output_dir):
@@ -657,7 +769,7 @@ def run_dust_regions(genome_file,dust_path,main_output_dir,num_threads):
 
   pool.close()
   pool.join()
-  slice_output_to_gtf(dust_output_dir,'.dust.gtf')
+  slice_output_to_gtf(dust_output_dir,'.dust.gtf',1,'repeat_id','dust')
 
 
 def multiprocess_dust(generic_dust_cmd,slice_id,genome_file,dust_output_dir):
@@ -745,7 +857,7 @@ def run_trf_repeats(genome_file,trf_path,main_output_dir,num_threads):
 
   pool.close()
   pool.join()
-  slice_output_to_gtf(trf_output_dir,'.trf.gtf')
+  slice_output_to_gtf(trf_output_dir,'.trf.gtf',1,'repeat_id','trf')
 
 
 def multiprocess_trf(generic_trf_cmd,slice_id,genome_file,trf_output_dir,trf_output_extension):
@@ -797,9 +909,10 @@ def create_trf_gtf(trf_output_file_path,region_results_file_path,region_name):
       copy_number = float(results[3])
       percent_matches = float(results[5])
       score = float(results[7])
+      repeat_consensus = results[13]
       if (score < 50 and percent_matches >= 80 and copy_number > 2 and period < 10) or (copy_number >= 2 and percent_matches >= 70 and score >= 50):
         gtf_line = (region_name + "\tTRF\trepeat\t" + str(start) + "\t" + str(end) + "\t.\t+\t.\t" + 'repeat_id "' +
-                    str(repeat_count) + '"; score "' + str(score) + '";\n' )        
+                    str(repeat_count) + '"; score "' + str(score) + '"; repeat_consensus "' + repeat_consensus + '";\n' )        
         trf_out.write(gtf_line)
         repeat_count += 1
     line = trf_in.readline()
@@ -854,16 +967,42 @@ def run_cmsearch_regions(genome_file,cmsearch_path,rfam_cm_db_path,rfam_seeds_fi
   seq_region_lengths = get_seq_region_lengths(genome_file,5000)
   slice_ids = create_slice_ids(seq_region_lengths,100000,0,5000)
 
-  generic_cmsearch_cmd = [cmsearch_path,'--rfam','--cpu',str(num_threads),'--nohmmonly','--cut_ga','--tblout']
+  generic_cmsearch_cmd = [cmsearch_path,'--rfam','--cpu','1','--nohmmonly','--cut_ga','--tblout']
   print("Running Rfam")
   pool = multiprocessing.Pool(int(num_threads))
-  tasks = []
+  results = []
   for slice_id in slice_ids:
-    pool.apply_async(multiprocess_cmsearch, args=(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions,))
-
+    result = pool.apply_async(multiprocess_cmsearch, args=(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions,))
+    if result:
+      results.append(result)
   pool.close()
   pool.join()
-  slice_output_to_gtf(rfam_output_dir,'.rfam.gtf')
+
+  hi_mem_slice_ids = []
+  for result in results:
+    hi_mem_slice_id = result.get()
+    hi_mem_slice_ids.append(hi_mem_slice_id)
+
+  for hi_mem_slice_id in hi_mem_slice_ids:
+    print("Running himem job in serial")
+    multiprocess_cmsearch(generic_cmsearch_cmd,hi_mem_slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions)
+
+  slice_output_to_gtf(rfam_output_dir,'.rfam.gtf',1,None,None)
+
+
+def prlimit_command(command_list, virtual_memory_limit):
+    """
+    Prepend memory limiting arguments to a command list to be run with subprocess.
+
+    This method uses the `prlimit` program to set the memory limit.
+
+    The `virtual_memory_limit` size is in bytes.
+
+    prlimit arguments:
+    -v, --as[=limits]
+           Address space limit.
+    """
+    return ["prlimit", f"-v{virtual_memory_limit}"] + command_list
 
 
 def multiprocess_cmsearch(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions):
@@ -893,7 +1032,16 @@ def multiprocess_cmsearch(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_
   cmsearch_cmd.append(rfam_selected_models_file)
   cmsearch_cmd.append(region_fasta_file_path)
   print(" ".join(cmsearch_cmd))
-  subprocess.run(cmsearch_cmd)
+
+  memory_limit = 5 * 1024 ** 3
+  cmsearch_cmd = prlimit_command(cmsearch_cmd, memory_limit)
+
+  try:
+    subprocess.run(cmsearch_cmd)
+  except subprocess.CalledProcessError as ex:
+    print("Mem limit reached on slice: ".slice_file_name)
+    print("Storing slice for processing later")
+    return slice_id
 
   initial_table_results = parse_rfam_tblout(region_tblout_file_path,region_name)
   unique_table_results = remove_rfam_overlap(initial_table_results)
@@ -1211,9 +1359,28 @@ def check_rnafold_structure(seq,rfam_output_dir):
   return structure
 
 
-def slice_output_to_gtf(output_dir,extension):
+def slice_output_to_gtf(output_dir,extension,unique_ids,feature_id_label,new_id_prefix):
 
-  feature_types = ['exon','transcript','repeat','feature']
+  # Note that this does not make unique ids at the moment
+  # In many cases this is fine because the ids are unique by seq region, but in cases like batching it can cause problems
+  # So will add in a helper method to make ids unique
+
+  # This holds keys of the current slice details with the gene id to form unique keys. Each time a new key is added
+  # the overall gene counter is incremented and the value of the key is set to the new gene id. Any subsequent
+  # lines with the same region/gene id key will then just get the new id without incrementing the counter
+  gene_id_index = {}
+  gene_transcript_id_index = {}
+  gene_counter = 1
+
+  # Similar to the gene id index, this will have a key that is based on the slice details, gene id and transcript id. If there
+  # is no existing entry, the transcript key will be added and the transcript counter is incremented. If there is a key then
+  # the transcript id will be replaced with the new transcript id (which is based on the new gene id and transcript counter)
+  # Example key KS8000.rs1.re1000000.gene_1.transcript_1 =
+  transcript_id_count_index = {}
+
+  feature_counter = 1
+
+  feature_types = ['exon','transcript','repeat','simple_feature']
   if not extension:
     extension = '.gtf'
   gtf_files = glob.glob(output_dir + "/*" + extension)
@@ -1230,7 +1397,54 @@ def slice_output_to_gtf(output_dir,extension):
       if len(values) == 9 and (values[2] in feature_types):
         values[3] = str(int(values[3]) + (start_offset - 1))
         values[4] = str(int(values[4]) + (start_offset - 1))
+        if unique_ids:
+          # Maybe make a unique id based on the feature type
+          # Basically region/feature id should be unique at this point, so could use region_id and current_id is key, value is the unique id that is incremented
+          attribs = values[8]
+
+          # This bit assigns unique gene/transcript ids if the line contains gene_id/transcript_id
+          match_gene_type = re.search(r'(gene_id +"([^"]+)").+(transcript_id +"([^"]+)")',line)
+          if match_gene_type:
+            full_gene_id_string = match_gene_type.group(1)
+            current_gene_id = match_gene_type.group(2)
+            full_transcript_id_string = match_gene_type.group(3)
+            current_transcript_id = match_gene_type.group(4)
+            gene_id_key = gtf_file_name + '.' + str(current_gene_id)
+            transcript_id_key = gene_id_key + '.' + str(current_transcript_id)
+            if gene_id_key not in gene_id_index:
+              new_gene_id = 'gene' + str(gene_counter)
+              gene_id_index[gene_id_key] = new_gene_id
+              attribs = re.sub(full_gene_id_string,'gene_id "' + new_gene_id +'"',attribs)
+              transcript_id_count_index[gene_id_key] = 1
+              gene_counter += 1
+            else:
+              new_gene_id = gene_id_index[gene_id_key]
+              attribs = re.sub(full_gene_id_string,'gene_id "' + new_gene_id +'"',attribs)
+            if transcript_id_key not in gene_transcript_id_index:
+              new_transcript_id = gene_id_index[gene_id_key] + '.t' + str(transcript_id_count_index[gene_id_key])
+              gene_transcript_id_index[transcript_id_key] = new_transcript_id
+              attribs = re.sub(full_transcript_id_string,'transcript_id "' + new_transcript_id +'"',attribs)
+              transcript_id_count_index[gene_id_key] += 1
+            else:
+              new_transcript_id = gene_transcript_id_index[transcript_id_key]
+              attribs = re.sub(full_transcript_id_string,'transcript_id "' + new_transcript_id +'"',attribs)
+            values[8] = attribs
+
+          # If you don't match a gene line, try a feature line
+          else:
+            match_feature_type = re.search(r'('+ feature_id_label + ' +"([^"]+)")',line)
+            if match_feature_type:
+              full_feature_id_string = match_feature_type.group(1)
+              current_feature_id = match_feature_type.group(2)
+              new_feature_id = new_id_prefix + str(feature_counter)
+              attribs = re.sub(full_feature_id_string,feature_id_label + ' "' + new_feature_id +'"',attribs)
+              feature_counter += 1
+              values[8] = attribs
+
         gtf_out.write("\t".join(values))
+        line = gtf_in.readline()
+      else:
+        print("Feature type not recognised, will skip. Feature type: " + values[2])
         line = gtf_in.readline()
     gtf_in.close()
   gtf_out.close()
@@ -1350,7 +1564,6 @@ def run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,gen
   pool = multiprocessing.Pool(int(num_threads))
   for batched_protein_file in batched_protein_files:
     pool.apply_async(multiprocess_genblast, args=(batched_protein_file,masked_genome_file,genblast_path,))
-
   pool.close()
   pool.join()
 
@@ -1391,15 +1604,18 @@ def convert_gff_to_gtf(gff_file):
   file_in = open(gff_file)
   line = file_in.readline()
   while line:
-    match = re.search(r"genBlastG",line)
-    if match:
-      results = line.split()
-      if results[2] == "coding_exon":
-        results[2] = "exon"
-      attributes = set_attributes(results[8],results[2])
-      results[8] = attributes
-      converted_line = "\t".join(results)
-      gtf_string += converted_line + "\n"
+#    match = re.search(r"genBlastG",line)
+#    if match:
+    results = line.split()
+    if not len(results) == 9:
+      line = file_in.readline()
+      continue
+    if results[2] == "coding_exon":
+      results[2] = "exon"
+    attributes = set_attributes(results[8],results[2])
+    results[8] = attributes
+    converted_line = "\t".join(results)
+    gtf_string += converted_line + "\n"
     line = file_in.readline()
   file_in.close()  
   return gtf_string
@@ -2444,7 +2660,8 @@ def get_seq_region_lengths(genome_file,min_seq_length):
   return seq_regions
 
 
-def run_finalise_geneset(main_output_dir,genome_file,seq_region_names,num_threads):
+def run_finalise_geneset(main_script_dir,main_output_dir,genome_file,seq_region_names,num_threads):
+
   final_annotation_dir = create_dir(main_output_dir,'annotation_output')
   region_annotation_dir = create_dir(final_annotation_dir,'initial_region_gtfs')
   final_region_annotation_dir = create_dir(final_annotation_dir,'final_region_gtfs')
@@ -2458,6 +2675,11 @@ def run_finalise_geneset(main_output_dir,genome_file,seq_region_names,num_thread
   stringtie_annotation_raw =  os.path.join(main_output_dir,'stringtie_output','annotation.gtf')
   scallop_annotation_raw =  os.path.join(main_output_dir,'scallop_output','annotation.gtf')
   busco_annotation_raw =  os.path.join(main_output_dir,'busco_output','annotation.gtf')
+
+  transcript_selector_script = os.path.join(main_script_dir,'support_scripts_perl','select_best_transcripts.pl')
+  finalise_geneset_script = os.path.join(main_script_dir,'support_scripts_perl','finalise_geneset.pl')
+  clean_geneset_script = os.path.join(main_script_dir,'support_scripts_perl','clean_geneset.pl')
+  gtf_to_seq_script = os.path.join(main_script_dir,'support_scripts_perl','gtf_to_seq.pl')
 
   transcriptomic_annotation_raw = os.path.join(final_annotation_dir,'transcriptomic_raw.gtf')
   file_out = open(transcriptomic_annotation_raw,'w+')
@@ -2484,7 +2706,7 @@ def run_finalise_geneset(main_output_dir,genome_file,seq_region_names,num_thread
     subprocess.run(['cp',protein_annotation_raw,os.path.join(final_annotation_dir,'protein_raw.gtf')])
 
   gtf_files = ['transcriptomic_raw.gtf','protein_raw.gtf','busco_raw.gtf']
-  generic_select_cmd = ['perl','/homes/fergal/enscode/ensembl-common/scripts/select_best_transcripts.pl','-genome_file',genome_file]
+  generic_select_cmd = ['perl',transcript_selector_script,'-genome_file',genome_file]
   pool = multiprocessing.Pool(int(num_threads))
   for seq_region_name in seq_region_names:
     # The selection script needs different params depending on whether the seqs are from transcriptomic data or not
@@ -2533,7 +2755,7 @@ def run_finalise_geneset(main_output_dir,genome_file,seq_region_names,num_thread
   fully_merged_gtf_out.close()
 
   # Now collapse the gene set
-  generic_finalise_cmd = ['perl','/homes/fergal/enscode/ensembl-common/scripts/finalise_geneset.pl','-genome_file',genome_file]
+  generic_finalise_cmd = ['perl',finalise_geneset_script,'-genome_file',genome_file]
 
   pool = multiprocessing.Pool(int(num_threads))
   for seq_region_name in seq_region_names:
@@ -2560,11 +2782,17 @@ def run_finalise_geneset(main_output_dir,genome_file,seq_region_names,num_thread
 
   cleaned_gtf_file = os.path.join(final_annotation_dir,('annotation.gtf'))
 
-  clean_geneset_script = '/homes/fergal/enscode/ensembl-common/scripts/clean_geneset_gbiab.pl'
+  print("Cleaning gene set")
   cleaning_cmd = ['perl',clean_geneset_script,'-genome_file',genome_file,'-gtf_file',postvalidation_gtf_file,'-output_gtf_file',cleaned_gtf_file]
   print(' '.join(cleaning_cmd))
   subprocess.run(cleaning_cmd)
 
+  print("Dumping transcript and translation sequences")
+  cleaning_cmd = ['perl',gtf_to_seq_script,'-genome_file',genome_file,'-gtf_file',postvalidation_gtf_file]
+  print(' '.join(cleaning_cmd))
+  subprocess.run(cleaning_cmd)
+
+  print("Finished creating gene set")
 
 def validate_coding_transcripts(cdna_file,amino_acid_file,validation_dir,gtf_file):
 
@@ -3158,6 +3386,8 @@ if __name__ == '__main__':
   run_proteins = args.run_proteins
   load_to_ensembl_db = args.load_to_ensembl_db
 
+  main_script_dir = os.path.realpath(__file__)
+
   if not os.path.exists(genome_file):
     raise IOError('File does not exist: %s' % genome_file)
 
@@ -3303,7 +3533,7 @@ if __name__ == '__main__':
   # Do some magic
   if finalise_geneset:
      print("Finalise geneset")
-     run_finalise_geneset(work_dir,genome_file,seq_region_names,num_threads)
+     run_finalise_geneset(main_script_dir,work_dir,genome_file,seq_region_names,num_threads)
 
 
   #################################
