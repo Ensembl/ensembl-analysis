@@ -415,7 +415,7 @@ sub default_options {
     exonerate_annotation => catfile($self->o('binary_base'), 'exonerate'),
     samtools_path => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
     picard_lib_jar => catfile($self->o('software_base_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
-    bwa_path => catfile($self->o('software_base_path'), 'opt', 'bwa-051mt', 'bin', 'bwa'), #You may need to specify the full path to the bwa binary
+    bwa_path => catfile($self->o('software_base_path'), 'bin', 'bwa'), #You may need to specify the full path to the bwa binary
     refine_ccode_exe => catfile($self->o('binary_base'), 'RefineSolexaGenes'), #You may need to specify the full path to the RefineSolexaGenes binary
     interproscan_exe => catfile($self->o('binary_base'), 'interproscan.sh'),
     'cesar_path' => catdir($self->o('software_base_path'),'opt','cesar','bin'),
@@ -5780,13 +5780,13 @@ sub pipeline_analyses {
         },
         -flow_into => {
           1 => [ ':////accu?fastq=[]' ],
-          -1 => [ 'bwa_20GB' ],
-          -2 => [ 'bwa_20GB' ],
+          -1 => [ 'bwa_35GB' ],
+          -2 => [ 'bwa_35GB' ],
         },
         -rc_name    => '10GB_multithread',
       },
       {
-        -logic_name => 'bwa_20GB',
+        -logic_name => 'bwa_35GB',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBWA',
         -can_be_empty => 1,
         -parameters => {
@@ -5799,7 +5799,7 @@ sub pipeline_analyses {
         -flow_into => {
           1 => [ ':////accu?fastq=[]' ],
         },
-        -rc_name    => '20GB_multithread',
+        -rc_name    => '35GB_multithread',
       },
       {
         -logic_name => 'bwa2bam',
@@ -9349,6 +9349,7 @@ sub resource_classes {
     '5GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh74', 5000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
     '10GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh74', 10000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
     '20GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh74', 20000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
+    '35GB_multithread' => { LSF => $self->lsf_resource_builder('production-rh74', 35000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
   }
 }
 
