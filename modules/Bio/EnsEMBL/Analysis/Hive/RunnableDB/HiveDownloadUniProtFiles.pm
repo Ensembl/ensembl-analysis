@@ -108,8 +108,10 @@ sub run {
           $self->throw("Could not open file $filename\n");
         }
       }
-      else {
-        $self->throw("File '$filename' does not start with a fasta header '>' but website said ".$response->status_line);
+      elsif ($response->content() eq ""){
+        $self->warning("File '$filename' contains no sequence");
+      }
+      else{
       }
       
       if ($filename =~ s/\.gz$//) {
