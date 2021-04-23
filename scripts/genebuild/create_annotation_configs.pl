@@ -29,6 +29,7 @@ use Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor;
 use Net::FTP;
 use Cwd qw(realpath chdir getcwd);
 use Data::Dumper;
+use DateTime;
 
 use JSON;
 
@@ -95,11 +96,6 @@ my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -host    => 'mysql-ens-meta-prod-1',
   -dbname  => 'ncbi_taxonomy');
 
-#Adding registry details to hash for populating main config
-$general_hash->{registry_host} = $assembly_registry_host;
-$general_hash->{registry_port} = $assembly_registry_port;
-$general_hash->{registry_db} = $assembly_registry->{_dbc}->{_dbname};
-
 open(IN,$config_file) || throw("Could not open $config_file");
 while(<IN>) {
     my $line = $_;
@@ -131,6 +127,19 @@ while(<IN>) {
     }
 }
 close IN || throw("Could not close $config_file");
+
+my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
+  -host    => $assembly_registry_host,
+  -port    => $assembly_registry_port,
+  -user    => $general_hash->{'user'},
+  -pass    => $general_hash->{'password'},
+  -dbname  => $selected_db
+  );
+
+#Adding registry details to hash for populating main config
+$general_hash->{registry_host} = $assembly_registry_host;
+$general_hash->{registry_port} = $assembly_registry_port;
+$general_hash->{registry_db} = $assembly_registry->{_dbc}->{_dbname};
 
 unless($general_hash->{'output_path'}) {
   throw("Could not find an output path setting in the config. Expected setting".
@@ -454,6 +463,32 @@ sub parse_assembly_report {
   $assembly_hash->{'output_path'} .= "/".$species_name."/".$accession."/";
 }
 
+=pod
+
+=head1 Description of method
+
+This method updates the registry database with the current timestamp when the annotation started. 
+It also updates the registry with the status of the annotation as well as the user who started it.
+
+=cut
+
+sub update_annotation_status{
+  my $accession = shift;
+  my $dt   = DateTime->now;   # Stores current date and time as datetime object
+  my $date = $dt->ymd;
+  my $assembly_id = $assembly_registry->fetch_assembly_id_by_gca($accession);
+  my $sql = "insert into genebuild_status(assembly_accession,progress_status,date_started,genebuilder,assembly_id) values(?,?,?,?,?)";
+  my $sth = $assembly_registry->dbc->prepare($sql);
+  $sth->bind_param(1,$accession);
+  $sth->bind_param(2,'in progress');
+  $sth->bind_param(3,$date);
+  $sth->bind_param(4,$ENV{EHIVE_USER} || $ENV{USER});
+  $sth->bind_param(5,$assembly_id);
+  say "Accession being worked on is $accession";
+  unless($sth->execute()){
+   throw("Could not update annoation status for assembly with accession ".$accession);
+  }
+}
 
 sub create_config {
   my ($assembly_hash) = @_;
@@ -680,8 +715,21 @@ sub custom_load_data {
     throw("A critical key was missing a value");
   }
 
-  # Should update registry api to allow clade to be fetched by taxon id
-  my $clade = $general_hash->{'clade'};
+  # Get clade
+  my $clade;
+  if ($general_hash->{'clade'}) {
+    $clade = $general_hash->{'clade'};
+  }
+  else {
+    $clade = $assembly_registry->fetch_clade_by_taxon_id($general_hash->{'taxon_id'});
+  }
+  say "Fetched the following clade for ".$accession.": ".$clade;
+  my $clade_hash = clade_settings($clade);
+  foreach my $key (keys(%{$clade_hash})) {
+    $general_hash->{$key} = $clade_hash->{$key};
+  }
+
+
   my $clade_hash = clade_settings($clade);
   foreach my $key (keys(%{$clade_hash})) {
     $general_hash->{$key} = $clade_hash->{$key};
@@ -766,7 +814,8 @@ sub init_pipeline {
     unless($result =~ /beekeeper.+\-sync/) {
       throw("Failed to run init_pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd);
     }
-
+    update_annotation_status($assembly_hash->{'assembly_accession'});
+    
     my $sync_command = $&;
     if ($hive_directory) {
       $sync_command = 'perl '.catdir($hive_directory, 'scripts').catfile('','').$sync_command; # The crazy catfile in the middle is to get the path separator
