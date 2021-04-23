@@ -393,11 +393,13 @@ sub run {
 
     if($@) {
       my $except = $@;
-      if($except =~ /still running after your timer/) {
-        $self->warning("bam2introns took longer than the timer limit (".$self->param('timer')."), will dataflow input id on branch -2. Exception:\n".$except);
-        if($self->param('rebatch_failed') && scalar(@{$runnable->query_seqs}) > $self->param('rebatch_size')) {
+      if ($except =~ /still running after your timer/ or
+          $except =~ /Can\'t call method \"state\"/ ) {
+        if ($self->param('rebatch_failed') && scalar(@{$runnable->query_seqs}) > $self->param('rebatch_size')) {
+          $self->warning("Rebatching because bam2introns failed. Exception:\n".$except);
           $self->rebatch_runnable($runnable);
-	} else{
+	} else {
+          $self->warning("bam2introns failed, will dataflow input id on branch -2. Exception:\n".$except);
           $self->param('_branch_to_flow_to_on_fail',-2);
           $self->runnable_failed(1);
 	}
