@@ -394,7 +394,8 @@ sub run {
     if($@) {
       my $except = $@;
       if ($except =~ /still running after your timer/ or
-          $except =~ /Can\'t call method \"state\"/ ) {
+          $except =~ /Can\'t call method \"state\"/ or 
+          $except =~ /Can\'t locate object method \"state\"/) {
         if ($self->param('rebatch_failed') && scalar(@{$runnable->query_seqs}) > $self->param('rebatch_size')) {
           $self->warning("Rebatching because bam2introns failed. Exception:\n".$except);
           $self->rebatch_runnable($runnable);
