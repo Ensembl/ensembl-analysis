@@ -278,6 +278,24 @@ sub fetch_stable_id_start_by_gca {
   return($stable_id_space_start);
 }
 
+sub fetch_assembly_id_by_gca {
+  my ($self,$chain_version,$type) = @_;
+
+  my ($chain,$version) = $self->split_gca($chain_version);
+
+  my $sql = "SELECT assembly_id FROM assembly WHERE chain=? and version=?";
+  my $sth = $self->dbc->prepare($sql);
+  $sth->bind_param(1,$chain);
+  $sth->bind_param(2,$version);
+  $sth->execute();
+
+  my $assembly_id = $sth->fetchrow();
+  unless($assembly_id) {
+    $self->throw("Could not find assembly id for assembly with chain ".$chain." and version ".$version);
+  }
+
+  return($assembly_id);
+}
 
 sub split_gca {
   my ($self,$chain_version) = @_;
