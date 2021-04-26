@@ -113,7 +113,11 @@ sub fetch_input {
   } elsif ($self->param_is_defined('study_accession') and $self->param('study_accession')) {
     $self->_populate_query($self->param('study_accession'), 'study_accession=%s');
   } elsif ($self->param_is_defined('taxon_id') and $self->param('taxon_id')) {
-    $self->_populate_query($self->param('taxon_id'), 'tax_tree(%s) AND instrument_platform='.$self->param('instrument_platform').' AND library_source=TRANSCRIPTOMIC');
+    my $taxon_id = $self->param('taxon_id');
+    if($self->param_is_defined('override_taxon_id') and $self->param('override_taxon_id') == 1 and $self->param('genus_taxon_id')) {
+      $taxon_id = $self->param('genus_taxon_id');
+    }
+    $self->_populate_query($taxon_id, 'tax_tree(%s) AND instrument_platform='.$self->param('instrument_platform').' AND library_source=TRANSCRIPTOMIC');
   } else {
     $self->throw('"inputfile" does not exist and neither "study_accession" nor "taxon_id" were defined');
   }
