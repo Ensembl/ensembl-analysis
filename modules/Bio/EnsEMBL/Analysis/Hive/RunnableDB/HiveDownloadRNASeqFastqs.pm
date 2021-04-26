@@ -80,16 +80,21 @@ sub write_output {
   }
   my $first = substr $srr, 0, 6;
   my $second = '00'.(substr $srr, -1, 1);
+  my $third = '0'.(substr $srr, -2, 2);
 
   my $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$second/$srr/$fastq",  '-P', $path]);
   if ($res) {
     $res >>= 8;
     if ($res == 8) {
       $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$srr/$fastq",  '-P', $path]);
+      $res >>= 8;
+      if ($res == 8) {
+        $res = $self->run_system_command(['wget', '-qq', "$ftp_base_url/$first/$third/$srr/$fastq",  '-P', $path]);
+      }
       if ($res) {
         $res >>= 8;
-	# if wget failed, delete the file so it can be downloaded again when retried
-	if (-e $path.'/'.$fastq) {
+        # if wget failed, delete the file so it can be downloaded again when retried
+        if (-e $path.'/'.$fastq) {
           $self->run_system_command(['rm',"$path/$fastq"]);
         }
         $self->throw("Could not download file $fastq error code is $res");
