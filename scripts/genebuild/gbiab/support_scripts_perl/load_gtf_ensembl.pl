@@ -319,6 +319,7 @@ sub load_genes {
     override_biotypes($final_genes,$protein_coding_biotype,$non_coding_biotype);
   }
 
+  say "Got ".scalar(@$final_genes)." genes to write";
   foreach my $gene (@$final_genes) {
     # For the moment we're going to skip tRNA_pseudogenes
     if($gene->biotype() eq 'tRNA_pseudogene') {
@@ -326,6 +327,7 @@ sub load_genes {
     }
     empty_Gene($gene);
     $gene_adaptor->store($gene);
+    undef($gene);
   }
 }
 
@@ -382,21 +384,16 @@ sub load_repeats {
 
   my $repeat_feature_adaptor = $dba->get_RepeatFeatureAdaptor();
   foreach my $repeat_feature (@$repeat_features) {
-    use Data::Dumper;
-    say "DUMPER: ".Dumper($repeat_feature);
     $repeat_feature_adaptor->store($repeat_feature);
+    # Running an undef here as there is a weird issue when multiprocessing this script in Python, seems to be some sort of mem
+    # leak. With this undef the mem usage stays low and the feature count is correct. Could potentially try a pop as an alternative
+    undef($repeat_feature);
   }
 }
 
 
 sub load_simple_features {
   my ($dba,$gtf_file,$slice_hash,$analysis,%strand_conversion) = @_;
-
-# my $sf = $ff->create_simple_feature($start, $end, 0, $score,
-#                                          "oe = $oe", $name,
-#                                         $self->query);
-#  my $sf = $ff->create_simple_feature($start, $end, $strand, $score,
-#                                          '', $name, $self->query);
 
   my $simple_features = [];
   say "Reading GTF";
@@ -443,6 +440,7 @@ sub load_simple_features {
   my $simple_feature_adaptor = $dba->get_SimpleFeatureAdaptor();
   foreach my $simple_feature (@$simple_features) {
     $simple_feature_adaptor->store($simple_feature);
+    undef($simple_feature);
   }
 }
 
