@@ -51,7 +51,7 @@ def create_dir(main_output_dir,dir_name):
 
 def load_results_to_ensembl_db(main_script_dir,load_to_ensembl_db,genome_file,main_output_dir,db_details,num_threads):
 
-  db_loading_script = os.path.join(main_script_dir,'support_scripts_perl','load_gtf_ensemb')
+  db_loading_script = os.path.join(main_script_dir,'support_scripts_perl','load_gtf_ensembl.pl')
   db_loading_dir = create_dir(main_output_dir,'db_loading')
 
   # Should collapse this into a function
@@ -62,7 +62,7 @@ def load_results_to_ensembl_db(main_script_dir,load_to_ensembl_db,genome_file,ma
     load_type = 'gene'
     analysis_name = 'ensembl'
     gtf_records = batch_gtf_records(annotation_results_gtf_file,batch_size,db_loading_dir,load_type)
-    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records,num_threads)
   else:
     print("Did not find the main gene annotation file, so not loading. Path checked:\n" + annotation_results_gtf_file)
 
@@ -74,7 +74,7 @@ def load_results_to_ensembl_db(main_script_dir,load_to_ensembl_db,genome_file,ma
     load_type = 'gene'
     analysis_name = 'ncrna'
     gtf_records = batch_gtf_records(rfam_results_gtf_file,batch_size,db_loading_dir,load_type)
-    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records,num_threads)
   else:
     print("Did not find an Rfam annotation file, so not loading. Path checked:\n" + rfam_results_gtf_file)
 
@@ -86,7 +86,7 @@ def load_results_to_ensembl_db(main_script_dir,load_to_ensembl_db,genome_file,ma
     load_type = 'gene'
     analysis_name = 'ncrna'
     gtf_records = batch_gtf_records(trnascan_results_gtf_file,batch_size,db_loading_dir,load_type)
-    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records,num_threads)
   else:
     print("Did not find an tRNAScan-SE annotation file, so not loading. Path checked:\n" + trnascan_results_gtf_file)
 
@@ -94,11 +94,11 @@ def load_results_to_ensembl_db(main_script_dir,load_to_ensembl_db,genome_file,ma
   dust_results_gtf_file = os.path.join(main_output_dir,'dust_output','annotation.gtf')
   if os.path.exists(dust_results_gtf_file):
     print("Loading Dust repeats to db")
-    batch_size = 5000
+    batch_size = 500
     load_type = 'single_line_feature'
     analysis_name = 'dust'
     gtf_records = batch_gtf_records(dust_results_gtf_file,batch_size,db_loading_dir,load_type)
-    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records,num_threads)
   else:
     print("Did not find a Dust annotation file, so not loading. Path checked:\n" + dust_results_gtf_file)
 
@@ -106,11 +106,11 @@ def load_results_to_ensembl_db(main_script_dir,load_to_ensembl_db,genome_file,ma
   red_results_gtf_file = os.path.join(main_output_dir,'red_output','annotation.gtf')
   if os.path.exists(red_results_gtf_file):
     print("Loading Red repeats to db")
-    batch_size = 5000
+    batch_size = 500
     load_type = 'single_line_feature'
     analysis_name = 'repeatmask_red'
     gtf_records = batch_gtf_records(red_results_gtf_file,batch_size,db_loading_dir,load_type)
-    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records,num_threads)
   else:
     print("Did not find a Red annotation file, so not loading. Path checked:\n" + red_results_gtf_file)
 
@@ -118,11 +118,11 @@ def load_results_to_ensembl_db(main_script_dir,load_to_ensembl_db,genome_file,ma
   trf_results_gtf_file = os.path.join(main_output_dir,'trf_output','annotation.gtf')
   if os.path.exists(trf_results_gtf_file):
     print("Loading TRF repeats to db")
-    batch_size = 5000
+    batch_size = 500
     load_type = 'single_line_feature'
     analysis_name = 'trf'
     gtf_records = batch_gtf_records(trf_results_gtf_file,batch_size,db_loading_dir,load_type)
-    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records,num_threads)
   else:
     print("Did not find a TRF annotation file, so not loading. Path checked:\n" + trf_results_gtf_file)
 
@@ -130,11 +130,11 @@ def load_results_to_ensembl_db(main_script_dir,load_to_ensembl_db,genome_file,ma
   cpg_results_gtf_file = os.path.join(main_output_dir,'cpg_output','annotation.gtf')
   if os.path.exists(cpg_results_gtf_file):
     print("Loading CpG islands to db")
-    batch_size = 5000
+    batch_size = 500
     load_type = 'single_line_feature'
     analysis_name = 'cpg'
     gtf_records = batch_gtf_records(cpg_results_gtf_file,batch_size,db_loading_dir,load_type)
-    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records,num_threads)
   else:
     print("Did not find a CpG annotation file, so not loading. Path checked:\n" + cpg_results_gtf_file)
 
@@ -142,20 +142,23 @@ def load_results_to_ensembl_db(main_script_dir,load_to_ensembl_db,genome_file,ma
   eponine_results_gtf_file = os.path.join(main_output_dir,'eponine_output','annotation.gtf')
   if os.path.exists(eponine_results_gtf_file):
     print("Loading Eponine repeats to db")
-    batch_size = 5000
+    batch_size = 500
     load_type = 'single_line_feature'
     analysis_name = 'eponine'
     gtf_records = batch_gtf_records(eponine_results_gtf_file,batch_size,db_loading_dir,load_type)
-    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records)
+    generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records,num_threads)
   else:
     print("Did not find an Eponine annotation file, so not loading. Path checked:\n" + eponine_results_gtf_file)
 
+  print("Finished loading records to db")
 
-def generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records):
+
+def generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records,num_threads):
 
   pool = multiprocessing.Pool(int(num_threads))
   for record_batch in gtf_records:
     pool.apply_async(multiprocess_load_records_to_ensembl_db, args=(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,record_batch,))
+
   pool.close()
   pool.join()
 
@@ -190,7 +193,7 @@ def multiprocess_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script
   subprocess.run(loading_cmd)
   gtf_temp_out.close()
   os.remove(gtf_temp_file_path) # doesn't seem to be working
-
+  print("Finished: " + gtf_temp_file_path)
 
 def batch_gtf_records(input_gtf_file,batch_size,output_dir,record_type):
 
@@ -510,7 +513,7 @@ def create_eponine_gtf(eponine_output_file_path,region_results_file_path,region_
         end -= 1
 
       gtf_line = (region_name + "\tEponine\tsimple_feature\t" + str(start) + "\t" + str(end) + "\t.\t" + strand + "\t.\t" + 'feature_id "' +
-                  str(feature_count) + '; score "' + str(score) + '";\n')
+                  str(feature_count) + '"; score "' + str(score) + '";\n')
       eponine_out.write(gtf_line)
       feature_count += 1
     line = eponine_in.readline()
@@ -920,7 +923,7 @@ def create_trf_gtf(trf_output_file_path,region_results_file_path,region_name):
   trf_out.close()
 
 
-def run_cmsearch_regions(genome_file,cmsearch_path,rfam_cm_db_path,rfam_seeds_file_path,main_output_dir,clade,num_threads):
+def run_cmsearch_regions(genome_file,cmsearch_path,rfam_cm_db_path,rfam_seeds_file_path,rfam_accession_file,main_output_dir,num_threads):
 
   if not cmsearch_path:
     cmsearch_path = 'cmsearch'
@@ -936,7 +939,7 @@ def run_cmsearch_regions(genome_file,cmsearch_path,rfam_cm_db_path,rfam_seeds_fi
 
 # mysql -hmysql-rfam-public.ebi.ac.uk -urfamro -P4497 Rfam -NB -e "select rfam_acc FROM (SELECT DISTINCT f.rfam_acc, f.rfam_id, f.type, f.description, f.gathering_cutoff, f.trusted_cutoff FROM full_region fr, rfamseq rf, taxonomy tx, family f WHERE rf.ncbi_id = tx.ncbi_id AND f.rfam_acc = fr.rfam_acc AND fr.rfamseq_acc = rf.rfamseq_acc AND LOWER(tx.tax_string) LIKE '%insect%' AND (f.type LIKE '%snRNA%' OR f.type LIKE '%rRNA%' OR LOWER(f.rfam_id) LIKE '%rnase%' OR LOWER(f.rfam_id) LIKE '%vault%' OR LOWER(f.rfam_id) LIKE '%y_rna%' OR f.rfam_id LIKE '%Metazoa_SRP%') AND is_significant = 1) AS TEMP WHERE rfam_id NOT LIKE '%bacteria%' AND rfam_id NOT LIKE '%archaea%' AND rfam_id NOT LIKE '%microsporidia%';"
 
-  rfam_accession_file = '/hps/nobackup2/production/ensembl/fergal/production/test_runs/non_verts/butterfly/rfam_insect_ids.txt'
+#  rfam_accession_file = '/hps/nobackup2/production/ensembl/fergal/production/test_runs/non_verts/butterfly/rfam_insect_ids.txt'
  # rfam_accession_file = os.path.join(main_output_dir,'rfam_accessions.txt')
   rfam_cm_db_path = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.0/Rfam.cm'
   rfam_seeds_file_path = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.0/Rfam.seed'
@@ -965,32 +968,32 @@ def run_cmsearch_regions(genome_file,cmsearch_path,rfam_cm_db_path,rfam_seeds_fi
 
   print("Creating list of genomic slices")
   seq_region_lengths = get_seq_region_lengths(genome_file,5000)
-  slice_ids = create_slice_ids(seq_region_lengths,100000,0,5000)
+  slice_ids = create_slice_ids(seq_region_lengths,1000000,0,5000)
 
   generic_cmsearch_cmd = [cmsearch_path,'--rfam','--cpu','1','--nohmmonly','--cut_ga','--tblout']
   print("Running Rfam")
   pool = multiprocessing.Pool(int(num_threads))
   results = []
+  failed_slice_ids = []
   for slice_id in slice_ids:
     result = pool.apply_async(multiprocess_cmsearch, args=(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions,))
-    if result:
-      results.append(result)
+    results.append(result)
   pool.close()
   pool.join()
 
-  hi_mem_slice_ids = []
   for result in results:
-    hi_mem_slice_id = result.get()
-    hi_mem_slice_ids.append(hi_mem_slice_id)
+    if result is not None:
+      failed_slice_ids.append(result.get())
 
-  for hi_mem_slice_id in hi_mem_slice_ids:
+  for failed_slice_id in failed_slice_ids:
     print("Running himem job in serial")
-    multiprocess_cmsearch(generic_cmsearch_cmd,hi_mem_slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions)
+    multiprocess_cmsearch(generic_cmsearch_cmd,failed_mem_slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions)
 
   slice_output_to_gtf(rfam_output_dir,'.rfam.gtf',1,None,None)
 
 
 def prlimit_command(command_list, virtual_memory_limit):
+
     """
     Prepend memory limiting arguments to a command list to be run with subprocess.
 
@@ -1049,6 +1052,7 @@ def multiprocess_cmsearch(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_
   create_rfam_gtf(filtered_table_results,cv_models,seed_descriptions,region_name,region_results_file_path,genome_file,rfam_output_dir)
   os.remove(region_fasta_file_path)
   os.remove(region_tblout_file_path)
+  return None
 
 
 def get_rfam_seed_descriptions(rfam_seeds_path):
@@ -1779,8 +1783,20 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
     print(fastq_file_path)
     fastq_file_name = os.path.basename(fastq_file_path)
     check_compression= re.search(r'.gz$',fastq_file_name)
-    print ("Processing %s" % fastq_file_path)
 
+    # If there's a tmp dir already, the most likely cause is that STAR failed on the previous input file(s)
+    # In this case STAR would effectively break for all the rest of the files, as it won't run if the tmp
+    # dir exists. So clean it up and put out a warning. Another approach would be to just name the tmp dir
+    # uniquely. Also there should be code checking the return on STAR anyway. So later when this is being
+    # cleaned up to have proper tests, need to decide on the best implementation
+    if os.path.exists(star_tmp_dir):
+      print("Found an existing tmp dir, implies potential failure on previous file. Removing tmp dir")
+      try:
+        shutil.rmtree(star_tmp_dir)
+      except OSError as e:
+        print ("Error: %s - %s." % (e.filename, e.strerror))
+
+    print ("Processing %s" % fastq_file_path)
     star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir,'--outSAMtype','SAM','--alignIntronMax','100000','--outSJfilterIntronMaxVsReadN','5000','10000','25000','40000','50000','50000','50000','50000','50000','100000']
 
     if check_compression:
@@ -2309,89 +2325,6 @@ def create_slice_hints_file(region,start,end,hints_file,region_fasta_file_path):
   return region_hints_file_path
 
 
-def run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,main_output_dir,genome_file,num_threads):
-
-  max_cufflinks_threads = 6
-  if num_threads > max_cufflinks_threads:
-    print("Reducing threads to " + str(max_cufflinks_threads) + " for cufflinks to keep the memory footprint down")
-    num_threads = max_cufflinks_threads
-
-  if not cufflinks_path:
-    cufflinks_path = shutil.which('cufflinks')
-  check_exe(cufflinks_path)
-
-  if not cuffmerge_path:
-    cuffmerge_path = shutil.which('cuffmerge')
-  check_exe(cuffmerge_path)
-
-  if not samtools_path:
-    samtools_path = shutil.which('samtools')
-  check_exe(samtools_path)
-  
-  cufflinks_dir = create_dir(main_output_dir,'cufflinks_output')
-  cuffmerge_dir = create_dir(cufflinks_dir,'merged_asm')
-  cuffmerge_input_file = os.path.join(cufflinks_dir,'cufflinks_assemblies.txt')
-  star_dir = os.path.join(main_output_dir,'star_output')
-
-  if(os.path.exists(star_dir)):
-    print("Found a Star output dir, will load sam file")
-
-  sam_files = []
-  for sam_file in glob.glob(star_dir + "/*.sam"):
-    sam_files.append(sam_file)
-
-  if not sam_files:
-    raise IndexError('The list of sam files is empty, expected them in Star output dir. Star dir:\n%s' % star_dir)
-
-
-  sorted_bam_files = []
-  for sam_file in sam_files:
-    sam_file_name = os.path.basename(sam_file)
-    sam_temp_file_path = os.path.join(star_dir,(sam_file_name + ".tmp"))
-    bam_sort_file_path = os.path.join(star_dir,re.sub('.sam','.bam',sam_file_name))
-
-    if os.path.exists(bam_sort_file_path):
-      print("Found an existing bam file, will not sort sam file again. Bam file:")
-      print(bam_sort_file_path)
-
-    else:
-      print("Converting samfile into sorted bam file. Bam file:")
-      print(bam_sort_file_path)
-      subprocess.run(['samtools','sort','-@',str(num_threads),'-T',sam_temp_file_path,'-o',bam_sort_file_path,sam_file])
-
-    sorted_bam_files.append(bam_sort_file_path)
-
-  for sorted_bam_file in sorted_bam_files:
-    sorted_bam_file_name = os.path.basename(sorted_bam_file)
-    transcript_file_name = re.sub('.bam','.gtf',sorted_bam_file_name)
-    skipped_file_name = re.sub('.bam','.skipped.gtf',sorted_bam_file_name)
-    genes_fpkm_file_name = re.sub('.bam','.genes.fpkm',sorted_bam_file_name)
-    isoforms_fpkm_file_name = re.sub('.bam','.isoforms.fpkm',sorted_bam_file_name)
-
-    if os.path.exists(os.path.join(cufflinks_dir,transcript_file_name)):
-      print("Found an existing cufflinks gtf file, will not overwrite. File found:")
-      print(os.path.join(cufflinks_dir,transcript_file_name))
-    else:
-      print("Running cufflinks on: " + sorted_bam_file_name)
-      print("Writing output to: " + os.path.join(cufflinks_dir,transcript_file_name))
-      subprocess.run([cufflinks_path,'--output-dir',cufflinks_dir,'--num-threads',str(num_threads),sorted_bam_file])
-      subprocess.run(['mv',os.path.join(cufflinks_dir,'transcripts.gtf'),os.path.join(cufflinks_dir,transcript_file_name)])
-      subprocess.run(['mv',os.path.join(cufflinks_dir,'skipped.gtf'),os.path.join(cufflinks_dir,skipped_file_name)])
-      subprocess.run(['mv',os.path.join(cufflinks_dir,'genes.fpkm_tracking'),os.path.join(cufflinks_dir,genes_fpkm_file_name)])
-      subprocess.run(['mv',os.path.join(cufflinks_dir,'isoforms.fpkm_tracking'),os.path.join(cufflinks_dir,isoforms_fpkm_file_name)])
-
-  # Now need to merge
-  print("Creating cuffmerge input file: " + cuffmerge_input_file)
-
-  # Note that I'm writing the subprocess this way because python seems to have issues with wildcards in subprocess.run and this
-  # was the answer I found most often from googling
-  gtf_list_cmd = 'ls ' + os.path.join(cufflinks_dir,'*.gtf') + ' | grep -v ".skipped." >' + cuffmerge_input_file
-  gtf_list_cmd = subprocess.Popen(gtf_list_cmd,shell=True)
-  gtf_list_cmd.wait()
-
-  subprocess.run(['python2.7',cuffmerge_path,'-s',genome_file,'-p',str(num_threads),'-o',cuffmerge_dir,cuffmerge_input_file])
-
-
 def run_stringtie_assemble(stringtie_path,samtools_path,main_output_dir,genome_file,num_threads):
 
   if not stringtie_path:
@@ -2417,6 +2350,8 @@ def run_stringtie_assemble(stringtie_path,samtools_path,main_output_dir,genome_f
   if not sorted_bam_files:
     raise IndexError('The list of sorted bam files is empty, expected them in Star output dir. Star dir:\n%s' % star_dir)
 
+  # Don't know why this isn't multiprocessed, probably cos it was fast enough in serial. But consider multiprocessing if
+  # the mem usage is low
   for sorted_bam_file in sorted_bam_files:
     sorted_bam_file_name = os.path.basename(sorted_bam_file)
     transcript_file_name = re.sub('.bam','.gtf',sorted_bam_file_name)
@@ -2433,20 +2368,20 @@ def run_stringtie_assemble(stringtie_path,samtools_path,main_output_dir,genome_f
   # Now need to merge
   print("Creating Stringtie merge input file: " + stringtie_merge_input_file)
 
-  # Note that I'm writing the subprocess this way because python seems to have issues with wildcards in subprocess.run and this
-  # was the answer I found most often from googling
-  gtf_list_cmd = 'ls ' + os.path.join(stringtie_dir,'*.gtf') + ' | grep -v "annotation.gtf" >' + stringtie_merge_input_file
-  gtf_list_cmd = subprocess.Popen(gtf_list_cmd,shell=True)
-  gtf_list_cmd.wait()
+  # Now need to merge
+  print("Creating Stringtie merge input file: " + stringtie_merge_input_file)
+  gtf_list_out = open(stringtie_merge_input_file,'w+')
+  for gtf_file in glob.glob(stringtie_dir + "/*.stringtie.gtf"):
+    transcript_count = check_gtf_transcripts(gtf_file)
+    if transcript_count > 0:
+      gtf_list_out.write(gtf_file + "\n")
+    else:
+      print("Warning, skipping file with no transcripts. Path:\n" + gtf_file)
+  gtf_list_out.close()
 
-  if os.path.exists(stringtie_merge_output_file):
-    print("Found an existing stringtie merge file, will not overwrite. File found:")
-    print(stringtie_merge_output_file)
-  else:
-    print("Merging Stringtie results. Writing to the following file:")
-    print(stringtie_merge_output_file)
-    # Note, I'm not sure stringtie merge actually uses threads, but it doesn't complain if -p is passed in
-    subprocess.run([stringtie_path,'--merge','-p',str(num_threads),'-o',stringtie_merge_output_file,stringtie_merge_input_file,'-i'])
+  print("Merging Stringtie results. Writing to the following file:")
+  print(stringtie_merge_output_file)
+  subprocess.run([stringtie_path,'--merge','-o',stringtie_merge_output_file,stringtie_merge_input_file])
 
 
 def run_scallop_assemble(scallop_path,stringtie_path,main_output_dir):
@@ -2474,9 +2409,11 @@ def run_scallop_assemble(scallop_path,stringtie_path,main_output_dir):
   if not sorted_bam_files:
     raise IndexError('The list of sorted bam files is empty, expected them in Star output dir. Star dir:\n%s' % star_dir)
 
+  # Don't know why this isn't multiprocessed, probably cos it was fast enough in serial. But consider multiprocessing if
+  # the mem usage is low
   for sorted_bam_file in sorted_bam_files:
     sorted_bam_file_name = os.path.basename(sorted_bam_file)
-    transcript_file_name = re.sub('.bam','.gtf',sorted_bam_file_name)
+    transcript_file_name = re.sub('.bam','.scallop.gtf',sorted_bam_file_name)
     transcript_file_path = os.path.join(scallop_dir,transcript_file_name)
 
     if os.path.exists(transcript_file_path):
@@ -2487,24 +2424,40 @@ def run_scallop_assemble(scallop_path,stringtie_path,main_output_dir):
       print("Writing output to: " + transcript_file_path)
       subprocess.run([scallop_path,'-i',sorted_bam_file,'-o',transcript_file_path,'--min_flank_length','10'])
 
-
   # Now need to merge
   print("Creating Stringtie merge input file: " + stringtie_merge_input_file)
 
-  # Note that I'm writing the subprocess this way because python seems to have issues with wildcards in subprocess.run and this
-  # was the answer I found most often from googling
-  gtf_list_cmd = 'ls ' + os.path.join(scallop_dir,'*.gtf') + ' | grep -v "annotation.gtf" >' + stringtie_merge_input_file
-  gtf_list_cmd = subprocess.Popen(gtf_list_cmd,shell=True)
-  gtf_list_cmd.wait()
+  gtf_list_out = open(stringtie_merge_input_file,'w+')
+  for gtf_file in glob.glob(scallop_dir + "/*.scallop.gtf"):
+    transcript_count = check_gtf_transcripts(gtf_file)
+    if transcript_count > 0:
+      gtf_list_out.write(gtf_file + "\n")
+    else:
+      print("Warning, skipping file with no transcripts. Path:\n" + gtf_file)
+  gtf_list_out.close()
 
-  if os.path.exists(stringtie_merge_output_file):
-    print("Found an existing stringtie merge file, will not overwrite. File found:")
-    print(stringtie_merge_output_file)
-  else:
-    print("Merging Stringtie results. Writing to the following file:")
-    print(stringtie_merge_output_file)
-    # Note, I'm not sure stringtie merge actually uses threads and is very quick, so leaving out
-    subprocess.run([stringtie_path,'--merge','-o',stringtie_merge_output_file,stringtie_merge_input_file])
+  print("Merging Scallop results. Writing to the following file:")
+  print(stringtie_merge_output_file)
+  subprocess.run([stringtie_path,'--merge','-o',stringtie_merge_output_file,stringtie_merge_input_file])
+
+
+def check_gtf_transcripts(gtf_file):
+  
+  # This just checks how many transcript lines are in a GTF
+  transcript_count = 0
+  gtf_in = open(gtf_file)
+  line = gtf_in.readline()
+  while line:
+    eles = line.split("\t")
+    if not len(eles) == 9:
+      line = gtf_in.readline()
+      continue
+    if eles[2] == 'transcript':
+      transcript_count += 1
+    line = gtf_in.readline()
+  gtf_in.close()
+
+  return transcript_count
 
 
 def splice_junction_to_gff(input_dir,hints_file):
@@ -2788,9 +2741,9 @@ def run_finalise_geneset(main_script_dir,main_output_dir,genome_file,seq_region_
   subprocess.run(cleaning_cmd)
 
   print("Dumping transcript and translation sequences")
-  cleaning_cmd = ['perl',gtf_to_seq_script,'-genome_file',genome_file,'-gtf_file',postvalidation_gtf_file]
-  print(' '.join(cleaning_cmd))
-  subprocess.run(cleaning_cmd)
+  dumping_cmd = ['perl',gtf_to_seq_script,'-genome_file',genome_file,'-gtf_file',cleaned_gtf_file]
+  print(' '.join(dumping_cmd))
+  subprocess.run(dumping_cmd)
 
   print("Finished creating gene set")
 
@@ -3282,7 +3235,8 @@ if __name__ == '__main__':
   parser.add_argument('--run_genblast', help='Run GenBlast to align protein sequences', required=False)
   parser.add_argument('--run_busco', help='Run GenBlast to align BUSCO protein sequences', required=False)
   parser.add_argument('--protein_file', help='Path to a fasta file with protein sequences', required=False)
-  parser.add_argument('--busco_protein_file', help='Path to a fasta file with BSUCO protein sequences', required=False)
+  parser.add_argument('--busco_protein_file', help='Path to a fasta file with BUSCO protein sequences', required=False)
+  parser.add_argument('--rfam_accessions_file', help='Path to a file with Rfam CM accessions, one accession per line, to use with cmsearch', required=False)
   parser.add_argument('--run_star', help='Run Star for short read alignment', required=False)
   parser.add_argument('--star_path', help='Path to Star for short read alignment', required=False)
   parser.add_argument('--max_reads_per_sample', nargs='?', const=0, type=int, help='The maximum number of reads to use per sample. Default=0 (unlimited)', required=False)
@@ -3294,9 +3248,6 @@ if __name__ == '__main__':
   parser.add_argument('--long_read_fastq_dir', help='Path to long read fastq dir for running with minimap2', required=False)
   parser.add_argument('--run_augustus', help='Run Augustus with hints for gene/transcript prediction', required=False)
   parser.add_argument('--augustus_path', help='Path to Augustus', required=False)
-  parser.add_argument('--run_cufflinks', help='Run Cufflinks on the results from the STAR alignments', required=False)
-  parser.add_argument('--cufflinks_path', help='Path to Cufflinks', required=False)
-  parser.add_argument('--cuffmerge_path', help='Path to Cuffmerge', required=False)
   parser.add_argument('--run_stringtie', help='Run Stringtie on the results from the STAR alignments', required=False)
   parser.add_argument('--run_scallop', help='Run Scallop on the results from the STAR alignments', required=False)
   parser.add_argument('--stringtie_path', help='Path to Stringtie', required=False)
@@ -3320,7 +3271,7 @@ if __name__ == '__main__':
   parser.add_argument('--run_eponine', help='Run Eponine to find transcription start sites', required=False)
   parser.add_argument('--eponine_path', help='Path to Eponine jar file', required=False)
   parser.add_argument('--java_path', help='Path to Java for use with Eponine', required=False)
-  parser.add_argument('--annotate', help='Run a generalised annotation, will automatically check for input data and run tools based on that', required=False)
+  parser.add_argument('--run_full_annotation', help='Run a full annotation, will automatically check for input data and run tools based on that', required=False)
   parser.add_argument('--run_repeats', help='Run Red, Dust, TRF', required=False)
   parser.add_argument('--run_simple_features', help='Run CpG, Eponine', required=False)
   parser.add_argument('--run_sncrnas', help='Run Rfam, tRNAscan-SE', required=False)
@@ -3342,6 +3293,7 @@ if __name__ == '__main__':
   run_busco = args.run_busco
   protein_file = args.protein_file
   busco_protein_file = args.busco_protein_file
+  rfam_accessions_file = args.rfam_accessions_file
   run_star = args.run_star
   star_path = args.star_path
   short_read_fastq_dir = args.short_read_fastq_dir
@@ -3353,9 +3305,6 @@ if __name__ == '__main__':
   long_read_fastq_dir = args.long_read_fastq_dir
   run_augustus = args.run_augustus
   augustus_path = args.augustus_path
-  run_cufflinks = args.run_cufflinks
-  cufflinks_path = args.cufflinks_path
-  cuffmerge_path = args.cuffmerge_path
   run_stringtie = args.run_stringtie
   run_scallop = args.run_scallop
   stringtie_path = args.stringtie_path
@@ -3379,6 +3328,7 @@ if __name__ == '__main__':
   java_path = args.java_path
   run_repeatmasker = args.run_repeatmasker
   repeatmasker_path = args.repeatmasker_path
+  run_full_annotation = args.run_full_annotation
   run_repeats = args.run_repeats
   run_simple_features = args.run_simple_features
   run_sncrnas = args.run_sncrnas
@@ -3386,7 +3336,7 @@ if __name__ == '__main__':
   run_proteins = args.run_proteins
   load_to_ensembl_db = args.load_to_ensembl_db
 
-  main_script_dir = os.path.realpath(__file__)
+  main_script_dir = os.path.dirname(os.path.realpath(__file__))
 
   if not os.path.exists(genome_file):
     raise IOError('File does not exist: %s' % genome_file)
@@ -3404,8 +3354,17 @@ if __name__ == '__main__':
     print ("No thread count specified, so defaulting to 1. This might be slow")
     num_threads = 1
 
-  # If the annotate flag is set then we want to set a standardised set of analyses
-  # The flag is passed in to each method to indicate that it's okay if data aren't present as it is a generalised run
+
+  # If the run_full_annotation flag is set then we want to set a standardised set of analyses
+  if run_full_annotation:
+    run_repeats = 1
+    run_simple_features = 1
+    run_sncrnas = 1
+    run_transcriptomic = 1
+    run_proteins = 1
+    finalise_geneset = 1
+
+  # These are subsets of the analyses that can be run, group by type
   if run_repeats:
     run_masking = 1
     run_dust = 1
@@ -3416,7 +3375,8 @@ if __name__ == '__main__':
     run_eponine = 1
 
   if run_sncrnas:
-    run_cmsearch = 1
+    if rfam_accessions_file:
+      run_cmsearch = 1
     run_trnascan = 1
 
   if run_transcriptomic:
@@ -3482,7 +3442,7 @@ if __name__ == '__main__':
   # Search Rfam with cmsearch
   if run_cmsearch:
      print("Annotating sncRNAs")
-     run_cmsearch_regions(genome_file,None,None,None,work_dir,"insect",num_threads)
+     run_cmsearch_regions(genome_file,None,None,None,rfam_accessions_file,work_dir,num_threads)
 
   if run_trnascan:
      print("Annotating tRNAs")
@@ -3521,9 +3481,9 @@ if __name__ == '__main__':
     print ("Running GenBlast")
     run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,os.path.join(work_dir,'genblast_output'),protein_file,masked_genome_file,num_threads)
 
-  # Run GenBlast on BUSCO set, gives higher priority when creating the final genes
+  # Run GenBlast on BUSCO set, gives higher priority when creating the final genes in cases where transcriptomic data are missing or fragmented
   if run_busco:
-    print ("Running BUSCO")
+    print ("Running GenBlast of BUSCO proteins")
     run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,os.path.join(work_dir,'busco_output'),busco_protein_file,masked_genome_file,num_threads)
 
 
@@ -3545,13 +3505,8 @@ if __name__ == '__main__':
      run_augustus_predict(augustus_path,work_dir,masked_genome_file,num_threads)
 
 
-  # Run Cufflinks
-  if run_cufflinks:
-     print ("Running Cufflinks")
-     run_cufflinks_assemble(cufflinks_path,cuffmerge_path,samtools_path,work_dir,genome_file,num_threads)
-
   if load_to_ensembl_db:
-    load_results_to_ensembl_db(load_to_ensembl_db,genome_file,work_dir,db_details,num_threads)
+    load_results_to_ensembl_db(main_script_dir,load_to_ensembl_db,genome_file,work_dir,db_details,num_threads)
 
 #  coallate_results(work_dir)
 
