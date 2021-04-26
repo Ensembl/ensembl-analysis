@@ -981,13 +981,13 @@ def run_cmsearch_regions(genome_file,cmsearch_path,rfam_cm_db_path,rfam_seeds_fi
   pool.close()
   pool.join()
 
-  for result in results:
-    if result is not None:
-      failed_slice_ids.append(result.get())
+#  for result in results:
+#    if result is not None:
+#      failed_slice_ids.append(result.get())
 
-  for failed_slice_id in failed_slice_ids:
-    print("Running himem job in serial")
-    multiprocess_cmsearch(generic_cmsearch_cmd,failed_mem_slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions)
+#  for failed_slice_id in failed_slice_ids:
+#    print("Running himem job in serial")
+#    multiprocess_cmsearch(generic_cmsearch_cmd,failed_mem_slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions)
 
   slice_output_to_gtf(rfam_output_dir,'.rfam.gtf',1,None,None)
 
