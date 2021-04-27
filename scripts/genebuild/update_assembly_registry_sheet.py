@@ -211,12 +211,11 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
       sheet_genebuilder_val = sheet_row[sheet_genebuilder_index]
       sheet_assembly_group_index = assembly_sheet_columns.index('Assembly group')
       sheet_assembly_group_val = sheet_row[sheet_assembly_group_index]
-      
       # Check if transcriptomic data status from db is null. If yes, check if assembly has been handed over or if assembly meets candidate assembly criteria
-      if rnaseq_data is None and sheet_rnaseq_data_val == 'Non candidate assembly' or sheet_rnaseq_data_val == 'No RNAseq data':
+      if ((rnaseq_data is None) and (sheet_rnaseq_data_val == 'Non candidate assembly' or sheet_rnaseq_data_val == 'No RNAseq data')):
         # Nothing to update
         print("No update on rnaseq data status for: " + gca)
-      elif rnaseq_data is None and annotation_status == 'Handed over': #It is possible to annotate a species and handover without RNASeq data
+      elif ((rnaseq_data is None) and (annotation_status == 'Handed over')): #It is possible to annotate a species and handover without RNASeq data
         # update the RNASeq data status
         rnaseq_data = 'Done'
         print("Updating rnaseq data status for: " + gca)
@@ -301,9 +300,8 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
         genebuilder = 'Not assigned'
 
       if sheet_assembly_group_val is None:
-      #if not assembly_group is None and assembly_group.lower() != sheet_assembly_group_val.lower():
-        # Add/update the genebuilder
-        print("This assembly has no group assigned on the sheet: " + gca)
+        # Add/update the assembly group
+        print("This assembly has no group assigned to it on the sheet: " + gca)
         if assembly_group == 'dtol':
           assembly_group = 'DToL'
         elif assembly_group == 'ungrouped':
