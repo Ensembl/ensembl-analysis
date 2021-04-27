@@ -29,7 +29,7 @@ use Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor;
 use Net::FTP;
 use Cwd qw(realpath chdir getcwd);
 use Data::Dumper;
-
+use DateTime;
 use JSON;
 
 my $config_file;
@@ -73,15 +73,8 @@ if ($is_non_vert == 1) {
   $selected_db = "test_registry_db";
   $general_hash->{'replace_repbase_with_red_to_mask'} = '1';
 } else {
-  $selected_db = "gb_assembly_registry";
+  $selected_db = "do1_automated_registry";#"gb_assembly_registry";
 }
-
-my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
-  -host    => $assembly_registry_host,
-  -port    => $assembly_registry_port,
-  -user    => 'ensro',
-  -dbname  => $selected_db
-  );
 
 my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
   -host    => 'mysql-ens-meta-prod-1',
@@ -94,11 +87,6 @@ my $ncbi_taxonomy = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -user    => 'ensro',
   -host    => 'mysql-ens-meta-prod-1',
   -dbname  => 'ncbi_taxonomy');
-
-#Adding registry details to hash for populating main config
-$general_hash->{registry_host} = $assembly_registry_host;
-$general_hash->{registry_port} = $assembly_registry_port;
-$general_hash->{registry_db} = $assembly_registry->{_dbc}->{_dbname};
 
 open(IN,$config_file) || throw("Could not open $config_file");
 while(<IN>) {
@@ -115,6 +103,10 @@ while(<IN>) {
       # for this
       if($key eq 'user_w') {
         $key = 'user';
+        $general_hash->{$key} = $value;
+      }
+      if($key eq 'password') {
+        $general_hash->{$key} = $value;
       }
       #Ignore clade settings from .ini file if set
       if($key eq 'clade' && !$custom_load && !$early_load) {
@@ -131,6 +123,18 @@ while(<IN>) {
     }
 }
 close IN || throw("Could not close $config_file");
+
+ my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
+  -host    => $assembly_registry_host,
+  -port    => $assembly_registry_port,
+  -user    => $general_hash->{'user'},
+  -pass    => $general_hash->{'password'},
+  -dbname  => $selected_db
+  );
+#Adding registry details to hash for populating main config
+$general_hash->{registry_host} = $assembly_registry_host;
+$general_hash->{registry_port} = $assembly_registry_port;
+$general_hash->{registry_db} = $assembly_registry->{_dbc}->{_dbname};
 
 unless($general_hash->{'output_path'}) {
   throw("Could not find an output path setting in the config. Expected setting".
@@ -454,6 +458,32 @@ sub parse_assembly_report {
   $assembly_hash->{'output_path'} .= "/".$species_name."/".$accession."/";
 }
 
+=pod
+
+=head1 Description of method
+
+This method updates the registry database with the current timestamp when the annotation started. 
+It also updates the registry with the status of the annotation as well as the user who started it.
+
+=cut
+
+sub update_annotation_status{
+  my $accession = shift;
+  my $dt   = DateTime->now;   # Stores current date and time as datetime object
+  my $date = $dt->ymd;
+  my $assembly_id = $assembly_registry->fetch_assembly_id_by_gca($accession);
+  my $sql = "insert into genebuild_status(assembly_accession,progress_status,date_started,genebuilder,assembly_id) values(?,?,?,?,?)";
+  my $sth = $assembly_registry->dbc->prepare($sql);
+  $sth->bind_param(1,$accession);
+  $sth->bind_param(2,'in progress');
+  $sth->bind_param(3,$date);
+  $sth->bind_param(4,$ENV{EHIVE_USER} || $ENV{USER});
+  $sth->bind_param(5,$assembly_id);
+  say "Accession being worked on is $accession";
+  unless($sth->execute()){
+   throw("Could not update annoation status for assembly with accession ".$accession);
+  }
+}
 
 sub create_config {
   my ($assembly_hash) = @_;
@@ -766,7 +796,8 @@ sub init_pipeline {
     unless($result =~ /beekeeper.+\-sync/) {
       throw("Failed to run init_pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd);
     }
-
+    update_annotation_status($assembly_hash->{'assembly_accession'});
+   
     my $sync_command = $&;
     if ($hive_directory) {
       $sync_command = 'perl '.catdir($hive_directory, 'scripts').catfile('','').$sync_command; # The crazy catfile in the middle is to get the path separator
