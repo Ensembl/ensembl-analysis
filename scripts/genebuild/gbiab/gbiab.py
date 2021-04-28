@@ -108,7 +108,7 @@ def load_results_to_ensembl_db(main_script_dir,load_to_ensembl_db,genome_file,ma
     print("Loading Red repeats to db")
     batch_size = 500
     load_type = 'single_line_feature'
-    analysis_name = 'repeatmask_red'
+    analysis_name = 'repeatdetector'
     gtf_records = batch_gtf_records(red_results_gtf_file,batch_size,db_loading_dir,load_type)
     generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records,num_threads)
   else:

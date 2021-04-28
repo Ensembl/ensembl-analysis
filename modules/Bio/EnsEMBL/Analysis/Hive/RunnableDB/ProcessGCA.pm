@@ -105,10 +105,10 @@ sub fetch_input {
 
 
   my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
-  -host    => 'mysql-ens-mirror-1',
-  -port    => 4240,
+  -host    => 'mysql-ens-meta-prod-1',
+  -port    => 4483,
   -user    => 'ensro',
-  -dbname  => 'ncbi_taxonomy_104');
+  -dbname  => 'ncbi_taxonomy');
 
 
   my $sql = "SELECT assembly_id FROM assembly WHERE CONCAT(chain,'.',version) = ?";
