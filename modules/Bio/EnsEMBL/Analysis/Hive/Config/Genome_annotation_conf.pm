@@ -316,7 +316,7 @@ sub default_options {
                                    $self->o('rnaseq_for_layer_nr_db'),
                                    $self->o('star_rnaseq_for_layer_nr_db'),
                                    $self->o('pcp_nr_db'),
-                                   $self->o('selected_projection_db')
+                                   $self->o('selected_projection_db'),
                                    $self->o('ig_tr_db'),
                                    $self->o('best_targeted_db'),
                                    $self->o('long_read_final_db'),
