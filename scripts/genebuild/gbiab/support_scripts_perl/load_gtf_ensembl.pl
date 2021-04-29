@@ -289,7 +289,7 @@ sub load_genes {
           my $gene = Bio::EnsEMBL::Gene->new();
           $gene->analysis($analysis);
           $gene->stable_id($gene_id);
-          $gene->add_transcript($transcript);
+          $gene->add_Transcript($transcript);
           $gene->biotype($transcript->biotype());
           if($set_canonical) {
             $gene->canonical_transcript($transcript);
