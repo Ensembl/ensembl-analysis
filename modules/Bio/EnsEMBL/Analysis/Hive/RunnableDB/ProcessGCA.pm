@@ -269,6 +269,7 @@ sub fetch_input {
   $output_params->{'strain_type'} = $strain_type;
   $output_params->{'production_name'} = $production_name;
   $output_params->{'rnaseq_summary_file'} = $rnaseq_summary_file; # Problematic
+  $output_params->{'long_read_summary_file'} = $long_read_summary_file; # Problematic
   $output_params->{'protein_file'} = $protein_file;
   $output_params->{'busco_protein_file'} = $busco_protein_file;
   $output_params->{'rfam_accessions_file'} = $rfam_accessions_file;
