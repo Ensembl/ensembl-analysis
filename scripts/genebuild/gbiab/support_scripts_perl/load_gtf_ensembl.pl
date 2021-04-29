@@ -26,7 +26,7 @@ use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Translation;
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw (attach_Slice_to_Transcript attach_Analysis_to_Transcript calculate_exon_phases);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
@@ -111,18 +111,6 @@ if ($dna_dba) {
 my $slice_adaptor = $dba->get_SliceAdaptor();
 my $slice_hash = {};
 
-if($slice_name) {
-  my $slice = $slice_adaptor->fetch_by_region('toplevel',$slice_name);
-  say "Slice name: ".$slice->name;
-  $slice_hash->{$slice_name} = $slice;
-} else {
-  my $slice_array = $slice_adaptor->fetch_all('toplevel');
-  foreach my $slice (@{$slice_array}) {
-    my $seq_region_name = $slice->seq_region_name;
-    $slice_hash->{$seq_region_name} = $slice;
-  }
-}
-
 my %strand_conversion = ('+' => '1', '-' => '-1', '.' => undef, '?' => undef);
 my $analysis = new Bio::EnsEMBL::Analysis(-logic_name => $analysis_name,
                                           -module     => $module_name);
@@ -160,11 +148,6 @@ sub load_genes {
     }
 
     my $gtf_region = $eles[0];
-    unless($slice_hash->{$gtf_region}) {
-      next;
-    }
-
-    my $gtf_slice = $slice_hash->{$gtf_region};
     my $gtf_type = $eles[2];
     my $gtf_start = $eles[3];
     my $gtf_end = $eles[4];
@@ -206,14 +189,8 @@ sub load_genes {
       my $transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $exons);
       $transcript->stable_id($current_transcript_id);
       $transcript->biotype($current_biotype);
-      $transcript->slice($$exons[0]->slice());
       $transcript->analysis($analysis);
-
-      if($current_translation_coords) {
-        build_translation($transcript,$current_translation_coords);
-      } elsif($compute_translations) {
-        compute_translation($transcript);
-      }
+      $transcript->{'translation_coords'} = $current_translation_coords;
 
       if($transcripts_by_gene_id->{$current_gene_id}) {
         push(@{$transcripts_by_gene_id->{$current_gene_id}},$transcript);
@@ -246,9 +223,9 @@ sub load_genes {
                                           -START     => $gtf_start,
                                           -END       => $gtf_end,
                                           -STRAND    => $gtf_strand,
-                                          -SLICE     => $gtf_slice,
                                           -PHASE     => -1,
                                           -END_PHASE => -1);
+      $exon->{'region_name'} = $gtf_region;
       push(@$exons,$exon);
     } else {
       throw("Found an unexpected type in the GTF file, expected transcript or exon, found: ".$gtf_type);
@@ -269,14 +246,8 @@ sub load_genes {
     my $transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $exons);
     $transcript->stable_id($current_transcript_id);
     $transcript->biotype($current_biotype);
-    $transcript->slice($$exons[0]->slice());
     $transcript->analysis($analysis);
-
-    if($current_translation_coords) {
-      build_translation($transcript,$current_translation_coords);
-    } elsif($compute_translations) {
-      compute_translation($transcript);
-    }
+    $transcript->{'translation_coords'} = $current_translation_coords;
 
     if($transcripts_by_gene_id->{$current_gene_id}) {
       push(@{$transcripts_by_gene_id->{$current_gene_id}},$transcript);
@@ -285,50 +256,96 @@ sub load_genes {
     }
   }
 
-  my $genes = [];
+
+  my $genes_by_region = {};
   foreach my $gene_id (keys(%$transcripts_by_gene_id)) {
-    my $gene = Bio::EnsEMBL::Gene->new();
-    $gene->analysis($analysis);
     my $transcripts = $transcripts_by_gene_id->{$gene_id};
-    $gene->slice(${$transcripts}[0]->slice());
-    $gene->stable_id($gene_id);
-
-    foreach my $transcript (@$transcripts) {
-      $gene->add_Transcript($transcript);
-    }
-
-    if($set_canonical) {
-      set_canonical_transcript($gene);
-      $gene->biotype($gene->canonical_transcript->biotype());
-    }
-    push(@$genes,$gene);
+    my $exons = ${$transcripts}[0]->get_all_Exons();
+    my $region_name = ${$exons}[0]->{'region_name'};
+    $genes_by_region->{$region_name}->{$gene_id} = $transcripts;
   }
+
 
   my $gene_adaptor = $dba->get_GeneAdaptor();
-  my $final_genes;
-  if($make_single_transcript_genes) {
-    foreach my $gene (@$genes) {
-      my $single_transcript_genes = create_single_transcript_genes($gene->get_all_Transcripts());
-      push(@$final_genes,@{$single_transcript_genes});
+  foreach my $region_name (keys(%$genes_by_region)) {
+    my $slice = $slice_adaptor->fetch_by_region('toplevel',$region_name);
+    foreach my $gene_id (keys(%{$genes_by_region->{$region_name}})) {
+      my $transcripts = $genes_by_region->{$region_name}->{$gene_id};
+      foreach my $transcript (@$transcripts) {
+        attach_Slice_to_Transcript($transcript,$slice);
+        attach_Analysis_to_Transcript($transcript,$analysis);
+        if($transcript->{'translation_coords'}) {
+          build_translation($transcript,$transcript->{'translation_coords'});
+        } elsif($compute_translations) {
+          compute_translation($transcript);
+        }
+      }
+
+      if($make_single_transcript_genes) {
+        foreach my $transcript (@$transcripts) {
+          if($transcript->biotype() eq 'tRNA_pseudogene') {
+            next;
+          }
+          my $gene = Bio::EnsEMBL::Gene->new();
+          $gene->analysis($analysis);
+          $gene->stable_id($gene_id);
+          $gene->add_transcript($transcript);
+          $gene->biotype($transcript->biotype());
+          if($set_canonical) {
+            $gene->canonical_transcript($transcript);
+          }
+          if($protein_coding_biotype || $non_coding_biotype) {
+            override_biotypes([$gene],$protein_coding_biotype,$non_coding_biotype);
+          }
+          empty_Gene($gene);
+          $gene_adaptor->store($gene);
+          undef($gene);
+        }
+      } else {
+        my $gene = Bio::EnsEMBL::Gene->new();
+        $gene->analysis($analysis);
+        $gene->stable_id($gene_id);
+        foreach my $transcript (@$transcripts) {
+          $gene->add_Transcript($transcript);
+        }
+        if($set_canonical) {
+          set_canonical_transcript($gene);
+          $gene->biotype($gene->canonical_transcript->biotype());
+        }
+        if($protein_coding_biotype || $non_coding_biotype) {
+          override_biotypes([$gene],$protein_coding_biotype,$non_coding_biotype);
+        }
+        if($gene->biotype() eq 'tRNA_pseudogene') {
+          next;
+        }
+
+        empty_Gene($gene);
+        $gene_adaptor->store($gene);
+        undef($gene);
+      }
+    } # End foreach my $gene_id
+    undef($slice);
+  }
+}
+
+
+
+sub sort_genes_by_region {
+  my ($genes) = @_;
+
+  my $genes_by_region = {};
+  foreach my $gene (@$genes) {
+    my $transcripts = $gene->get_all_Transcripts();
+    my $exons = ${$transcripts}[0]->get_all_Exons();
+    my $region_name = ${$exons}[0]->{'region_name'};
+    if($genes_by_region->{$region_name}) {
+      push(@{$genes_by_region->{$region_name}},$gene);
+    } else {
+      $genes_by_region->{$region_name} = [$gene];
     }
-  } else {
-    $final_genes = $genes;
   }
 
-  if($protein_coding_biotype || $non_coding_biotype) {
-    override_biotypes($final_genes,$protein_coding_biotype,$non_coding_biotype);
-  }
-
-  say "Got ".scalar(@$final_genes)." genes to write";
-  foreach my $gene (@$final_genes) {
-    # For the moment we're going to skip tRNA_pseudogenes
-    if($gene->biotype() eq 'tRNA_pseudogene') {
-      next;
-    }
-    empty_Gene($gene);
-    $gene_adaptor->store($gene);
-    undef($gene);
-  }
+  return($genes_by_region);
 }
 
 
@@ -339,6 +356,7 @@ sub load_repeats {
                        dust => 'Dust',
                      };
   my $repeat_features = [];
+  my $features_by_region = {};
   say "Reading GTF";
   open(IN,$gtf_file);
   while(<IN>) {
@@ -350,11 +368,6 @@ sub load_repeats {
     }
 
     my $gtf_region = $eles[0];
-    unless($slice_hash->{$gtf_region}) {
-      next;
-    }
-
-    my $gtf_slice = $slice_hash->{$gtf_region};
     my $gtf_type = $eles[2];
     my $gtf_start = $eles[3];
     my $gtf_end = $eles[4];
@@ -376,18 +389,26 @@ sub load_repeats {
     my $feature_factory = Bio::EnsEMBL::Analysis::Tools::FeatureFactory->new();
     my $repeat_consensus = $feature_factory->create_repeat_consensus($analysis->logic_name,$analysis->logic_name, $repeat_type, $repeat_consensus_seq);
     my $repeat_feature = $feature_factory->create_repeat_feature($gtf_start, $gtf_end, 1, $repeat_score, 1,($gtf_end - $gtf_start + 1),$repeat_consensus);
-    $repeat_feature->analysis($analysis);
-    $repeat_feature->slice($gtf_slice);
-    push(@$repeat_features,$repeat_feature);
+
+    if($features_by_region->{$gtf_region}) {
+      push(@{$features_by_region->{$gtf_region}},$repeat_feature);
+    } else {
+      $features_by_region->{$gtf_region} = [$repeat_feature];
+    }
   }
   say "Finished reading GTF file";
 
   my $repeat_feature_adaptor = $dba->get_RepeatFeatureAdaptor();
-  foreach my $repeat_feature (@$repeat_features) {
-    $repeat_feature_adaptor->store($repeat_feature);
-    # Running an undef here as there is a weird issue when multiprocessing this script in Python, seems to be some sort of mem
-    # leak. With this undef the mem usage stays low and the feature count is correct. Could potentially try a pop as an alternative
-    undef($repeat_feature);
+  foreach my $region_name (keys(%$features_by_region)) {
+    my $slice = $slice_adaptor->fetch_by_region('toplevel',$region_name);
+    my $features = $features_by_region->{$region_name};
+    foreach my $feature (@$features) {
+      $feature->analysis($analysis);
+      $feature->slice($slice);
+      $repeat_feature_adaptor->store($feature);
+      undef($feature)
+    }
+    undef($slice);
   }
 }
 
@@ -396,6 +417,8 @@ sub load_simple_features {
   my ($dba,$gtf_file,$slice_hash,$analysis,%strand_conversion) = @_;
 
   my $simple_features = [];
+
+  my $features_by_region = {};
   say "Reading GTF";
   open(IN,$gtf_file);
   while(<IN>) {
@@ -407,11 +430,6 @@ sub load_simple_features {
     }
 
     my $gtf_region = $eles[0];
-    unless($slice_hash->{$gtf_region}) {
-      next;
-    }
-
-    my $gtf_slice = $slice_hash->{$gtf_region};
     my $gtf_type = $eles[2];
     my $gtf_start = $eles[3];
     my $gtf_end = $eles[4];
@@ -429,18 +447,26 @@ sub load_simple_features {
      -score => 0,
      -display_label => '',
      -seqname => '',
-     -slice => $gtf_slice,
-     -analysis => $analysis,
     );
 
-    push(@$simple_features,$simple_feature);
+    if($features_by_region->{$gtf_region}) {
+      push(@{$features_by_region->{$gtf_region}},$simple_feature);
+    } else {
+      $features_by_region->{$gtf_region} = [$simple_feature];
+    }
   }
   say "Finished reading GTF file";
 
   my $simple_feature_adaptor = $dba->get_SimpleFeatureAdaptor();
-  foreach my $simple_feature (@$simple_features) {
-    $simple_feature_adaptor->store($simple_feature);
-    undef($simple_feature);
+  foreach my $region_name (keys(%$features_by_region)) {
+    my $slice = $slice_adaptor->fetch_by_region('toplevel',$region_name);
+    my $features = $features_by_region->{$region_name};
+    foreach my $feature (@$features) {
+      $feature->analysis($analysis);
+      $feature->slice($slice);
+      $simple_feature_adaptor->store($feature);
+      undef($feature)
+    }
   }
 }
 
