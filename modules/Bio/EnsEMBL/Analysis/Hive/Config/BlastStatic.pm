@@ -102,7 +102,7 @@ sub _master_config {
 
       BlastGenscanPep_non_vert => {
         PARSER_PARAMS => {
-                           -regex => '^\\s*([^\\s]+)',
+                           -regex => '^\s*([^\s]+)',
                            -query_type => 'pep',
                            -database_type => 'pep',
                            -threshold_type => 'PVALUE',
