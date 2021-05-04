@@ -23,7 +23,7 @@ import multiprocessing
 import random
 import tempfile
 import io
-
+import gc
 
 def create_dir(main_output_dir,dir_name):
 
@@ -194,6 +194,8 @@ def multiprocess_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script
   gtf_temp_out.close()
   os.remove(gtf_temp_file_path) # doesn't seem to be working
   print("Finished: " + gtf_temp_file_path)
+  gc.collect()
+
 
 def batch_gtf_records(input_gtf_file,batch_size,output_dir,record_type):
 
@@ -931,6 +933,8 @@ def run_cmsearch_regions(genome_file,cmsearch_path,rfam_cm_db_path,rfam_seeds_fi
   check_exe(cmsearch_path)
   rfam_output_dir = create_dir(main_output_dir,'rfam_output')
 
+  os.chdir(rfam_output_dir)
+
   rfam_dbname = 'Rfam'
   rfam_user = 'rfamro'
   rfam_host = 'mysql-rfam-public.ebi.ac.uk'
@@ -968,26 +972,39 @@ def run_cmsearch_regions(genome_file,cmsearch_path,rfam_cm_db_path,rfam_seeds_fi
 
   print("Creating list of genomic slices")
   seq_region_lengths = get_seq_region_lengths(genome_file,5000)
-  slice_ids = create_slice_ids(seq_region_lengths,1000000,0,5000)
+  slice_ids = create_slice_ids(seq_region_lengths,100000,0,5000)
 
   generic_cmsearch_cmd = [cmsearch_path,'--rfam','--cpu','1','--nohmmonly','--cut_ga','--tblout']
   print("Running Rfam")
   pool = multiprocessing.Pool(int(num_threads))
   results = []
   failed_slice_ids = []
+  memory_limit = 3 * 1024 ** 3  
   for slice_id in slice_ids:
-    result = pool.apply_async(multiprocess_cmsearch, args=(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions,))
-    results.append(result)
+    pool.apply_async(multiprocess_cmsearch, args=(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions,memory_limit,))
   pool.close()
   pool.join()
 
-#  for result in results:
-#    if result is not None:
-#      failed_slice_ids.append(result.get())
-
-#  for failed_slice_id in failed_slice_ids:
-#    print("Running himem job in serial")
-#    multiprocess_cmsearch(generic_cmsearch_cmd,failed_mem_slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions)
+  # Need to figure something more automated out here. At the moment it's just limiting to 5 cores and 5GB vram
+  # Ideally we could look at the amount of mem requested and put something like 10GB per core and then figure
+  # out how many cores to use (obviously not using more than the amount specified)
+  memory_limit = 5 * 1024 ** 3
+  if num_threads > 5:
+    num_threads = 5
+  pool = multiprocessing.Pool(num_threads)
+  exception_files = glob.glob(rfam_output_dir + "/*.rfam.except")
+  for exception_file_path in exception_files:
+    exception_file_name = os.path.basename(exception_file_path)
+    print("Running himem job for failed region:\n" + exception_file_path)
+    match = re.search(r"(.+)\.rs(\d+)\.re(\d+)\.",exception_file_name)
+    if match:
+      except_region = match.group(1)
+      except_start = match.group(2)
+      except_end = match.group(3)
+      except_slice_id = [except_region,except_start,except_end]
+      pool.apply_async(multiprocess_cmsearch, args=(generic_cmsearch_cmd,except_slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions,memory_limit,))      
+  pool.close()
+  pool.join()
 
   slice_output_to_gtf(rfam_output_dir,'.rfam.gtf',1,None,None)
 
@@ -1008,7 +1025,7 @@ def prlimit_command(command_list, virtual_memory_limit):
     return ["prlimit", f"-v{virtual_memory_limit}"] + command_list
 
 
-def multiprocess_cmsearch(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions):
+def multiprocess_cmsearch(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_dir,rfam_selected_models_file,cv_models,seed_descriptions,memory_limit):
 
   region_name = slice_id[0]
   start = slice_id[1]
@@ -1029,22 +1046,36 @@ def multiprocess_cmsearch(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_
   region_tblout_file_path = os.path.join(rfam_output_dir,region_tblout_file_name)
   region_results_file_name = (slice_file_name + ".rfam.gtf")
   region_results_file_path = os.path.join(rfam_output_dir,region_results_file_name)
-  
+
+  exception_results_file_name = (slice_file_name + ".rfam.except")  
+  exception_results_file_path = os.path.join(rfam_output_dir,exception_results_file_name)
+
   cmsearch_cmd = generic_cmsearch_cmd.copy()
   cmsearch_cmd.append(region_tblout_file_path)
   cmsearch_cmd.append(rfam_selected_models_file)
   cmsearch_cmd.append(region_fasta_file_path)
   print(" ".join(cmsearch_cmd))
 
-  memory_limit = 5 * 1024 ** 3
-  cmsearch_cmd = prlimit_command(cmsearch_cmd, memory_limit)
+  if memory_limit is not None:
+    cmsearch_cmd = prlimit_command(cmsearch_cmd, memory_limit)
 
+  print(' '.join(cmsearch_cmd))
+
+  return_value = None
   try:
-    subprocess.run(cmsearch_cmd)
+    return_value = subprocess.check_output(cmsearch_cmd)
   except subprocess.CalledProcessError as ex:
-    print("Mem limit reached on slice: ".slice_file_name)
-    print("Storing slice for processing later")
-    return slice_id
+    # Note that writing to file was the only option here. If return_value was passed back, eventually it would clog the
+    # tiny pipe that is used by the workers to send info back. That would mean that it would eventually just be one
+    # worked running at a time
+    print("Issue processing the following region with cmsearch: " + region_name + " " + str(start) + "-" + str(end))
+    print("Return value: " + str(return_value))
+    exception_out = open(exception_results_file_path,'w+')
+    exception_out.write(region_name + " " + str(start) + " " + str(end) + "\n")
+    exception_out.close()
+    os.remove(region_fasta_file_path)
+    os.remove(region_tblout_file_path)
+    return
 
   initial_table_results = parse_rfam_tblout(region_tblout_file_path,region_name)
   unique_table_results = remove_rfam_overlap(initial_table_results)
@@ -1052,7 +1083,7 @@ def multiprocess_cmsearch(generic_cmsearch_cmd,slice_id,genome_file,rfam_output_
   create_rfam_gtf(filtered_table_results,cv_models,seed_descriptions,region_name,region_results_file_path,genome_file,rfam_output_dir)
   os.remove(region_fasta_file_path)
   os.remove(region_tblout_file_path)
-  return None
+  gc.collect()
 
 
 def get_rfam_seed_descriptions(rfam_seeds_path):
@@ -2354,7 +2385,7 @@ def run_stringtie_assemble(stringtie_path,samtools_path,main_output_dir,genome_f
   # the mem usage is low
   for sorted_bam_file in sorted_bam_files:
     sorted_bam_file_name = os.path.basename(sorted_bam_file)
-    transcript_file_name = re.sub('.bam','.gtf',sorted_bam_file_name)
+    transcript_file_name = re.sub('.bam','.stringtie.gtf',sorted_bam_file_name)
     transcript_file_path = os.path.join(stringtie_dir,transcript_file_name)
 
     if os.path.exists(transcript_file_path):
