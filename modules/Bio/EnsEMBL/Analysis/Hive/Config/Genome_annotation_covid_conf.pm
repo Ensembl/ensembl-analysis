@@ -110,7 +110,7 @@ sub default_options {
     'clade' => $self->o('repbase_logic_name'),
 
     'base_blast_db_path'        => $ENV{BLASTDB_DIR},
-    'uniprot_version'           => 'uniprot_2018_07',
+    'uniprot_version'           => 'uniprot_2019_04',
     'protein_entry_loc'            => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc'),
 
 ########################
@@ -617,6 +617,7 @@ sub pipeline_analyses {
           },
         ],
       },
+
 
       {
         # Load production tables into each reference
