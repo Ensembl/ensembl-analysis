@@ -202,7 +202,7 @@ sub fetch_input {
   my $rfam_accessions_file = $clade_params->{'rfam_accessions_file'};
 
   # Meta details
-  my $species_division  = 'Ensembl';
+  my $species_division  =  $clade_params->{'species_division'};
   my $species_url;
   my $species_display_name;
   if ($assembly_name =~ /alternate_haplotype/) {
@@ -275,7 +275,11 @@ sub fetch_input {
   $output_params->{'rfam_accessions_file'} = $rfam_accessions_file;
   $output_params->{'gbiab_commandline'} = $gbiab_commandline;
   $self->param('output_params',$output_params);
+
+  $self->create_registry_entry($self->param('registry_file'),$core_db_details,$production_name);
 }
+
+
 
 
 sub run {
@@ -309,11 +313,50 @@ sub get_clade_params {
     $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/lepidoptera_uniprot_proteins.fa',
     $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/orthodb/busco/refseq_db.faa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
+    $clade_params->{'species_division'} = 'EnsemblMetazoa',
   } else {
     $self->throw('Clade parameters not found for clade: '.$clade);
   }
 
   return($clade_params);
 }
+
+
+sub create_registry_entry {
+  my ($self,$registry_path,$core_db_details,$production_name) = @_;
+
+  unless(-e $registry_path) {
+    $self->throw("A registry file was not found on the path provided. Path:\n".$registry_path);
+  }
+
+  my $core_string = "Bio::EnsEMBL::DBSQL::DBAdaptor->new(\n".
+                      "-host => '".$core_db_details->{'-host'}."',\n".
+                      "-port => '".$core_db_details->{'-port'}."',\n".
+                      "-dbname => '".$core_db_details->{'-dbname'}."',\n".
+                      "-user => '".$core_db_details->{'-user'}."',\n".
+                      "-pass => '".$core_db_details->{'-pass'}."',\n".
+                      "-species => '".$production_name."',\n".
+                      "-group => 'core',\n".
+                      ");\n";
+  open(IN,$registry_path);
+  my @lines = <IN>;
+  close IN;
+
+  open(OUT,">".$registry_path.".tmp");
+  foreach my $line (@lines) {
+    print OUT $line;
+    if($line =~ /\{/) {
+      print OUT $core_string;
+    }
+  }
+  close OUT;
+
+  my $result = system('mv '.$registry_path.".tmp ".$registry_path);
+  if($result) {
+    $self->throw("Issue overwriting the old registry with the new one. Registry path: ".$registry_path);
+  }
+
+}
+
 
 1;
