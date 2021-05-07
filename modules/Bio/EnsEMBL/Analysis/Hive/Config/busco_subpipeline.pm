@@ -17,7 +17,7 @@ limitations under the License.
 
 =cut
 
-package busco_subpipeline;
+package Bio::EnsEMBL::Analysis::Hive::Config::busco_subpipeline;
 
 use strict;
 use warnings;
@@ -42,37 +42,48 @@ sub default_options {
     #
 ######################################################
 ########################
-    # Misc setup info
-########################
+    # need for pipeline set up
+    
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name'             => '' || $self->o('production_name').'_busco_'.$self->o('ensembl_release'),
-    'user_r'                    => '', # read only db user
-    'user'                      => '', # write db user
-    'password'                  => '', # password for write db user
+    'user_r'                    => 'ensro', # read only db user
+    # 'user'                      => '', # write db user. You may not need that for this pipeline
+    # 'password'                  => '', # password for write db user. You may not need that for this pipeline
     'pipe_db_server'            => '', # host for pipe db
     'pipe_db_port'              => '', # port for pipeline host
-
     'release_number'            => '' || $self->o('ensembl_release'),
     'ensembl_release'           => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
 
+
     # need for busco part:
-    'load_inputfile_only'       => 1,  # 1 or 0, if you have a file: 1   
-    'busco_input_file'          => '',   # What fasta file to check. File should contain protein segments with appropriate headers. It will check db if you don't provide it. 
-    'busco_set'                 => '',    # e.g. glires_odb10 , 
+    ## Name of the output subdirectory.
+    'busco_output_name'         => '', # You need to specify this and be careful. Just put the name where your output file is going to be.   
+    'load_inputfile_only'       => 1, 
+    'run_busco_singularity'     => 1, 
+    ## What fasta file to check (if you provide it). File should contain protein segments with appropriate headers. 
+    'busco_input_file'          => '/hps/nobackup2/production/ensembl/kbillis/research/busco_QC/busco/fergal_test_butterfly/input/non_verts/butterfly/lep_prots_unique_ids.fa', 
+    ## where is your output/working dir?
     'output_path'               => '', 
-    'input_dir'                 => catdir($self->o('output_path'), 'input_dir'),  # this is only useful if user doesn't provide file. 
+    'input_dir'                 => catdir($self->o('output_path'), 'input_dir'),  
     'working_dir'               => catdir($self->o('output_path'), 'working_dir'),
     'busco_input_file_std'      => catdir($self->o('input_dir'), 'input_file.fa' ), 
     'pipe_db_name'              => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'), 
+    ## If you want me to check a db, provide one (run cannonical transcripts first.): 
     'busco_db_name'             => '', 
     'busco_db_server'           => '', 
     'busco_db_port'             => '', 
-    'busco_output_name'         => '', 
-    'busco_params'              => ' -f  -m prot ', # -f is for delete and overwrite existing dirs 
-
-
+    'busco_params'              => ' -f ', # -f is for delete and overwrite existing dirs 
+    ## in case normal busco. This can be name of dataset or location where dataset stored in the farm. 
+    'busco_set'                 => 'lepidoptera_odb10',    # e.g. glires_odb10 , 
+    ## in case of singularity: 
+    'output_path_singlularity'               => '/hps/nobackup2/singularity/kbillis/busco_test_ehive/', 
+    'busco_singlularity_default_config'      => '/hps/nobackup2/production/ensembl/kbillis/research/busco_QC/busco/docker/busco_config_docker.ini',
+    'busco_singularity_image'                => '/hps/nobackup2/singularity/kbillis/busco-v5.0.0_cv1.simg',
+    'busco_singularity_dataset'              => 'lepidoptera_odb10', 
+    # this is the output file. May copy it afterwards to another location 
+    'busco_output_file'  => $self->o('output_path_singlularity').$self->o('busco_output_name').'/short_summary.specific.'.$self->o('busco_singularity_dataset').'.txt.',
 
 ########################
     # Pipe and busco db info
@@ -83,7 +94,8 @@ sub default_options {
 # If they are not needed (i.e. no projection or rnaseq) then leave them as is
 
     'busco_input_file_stid'         => 'stable_id_to_dump.txt',
-    'base_busco_path'        => 'python /hps/nobackup2/production/ensembl/kbillis/research/busco_QC/busco/build/lib/busco/run_BUSCO.py', 
+    # 'base_busco_path'        => '/hps/nobackup2/production/ensembl/kbillis/research/busco_QC/busco/bin/busco', 
+    'base_busco_path'        => '/homes/kbillis/.local/bin/busco', 
     'default_busco_config'   => '/hps/nobackup2/production/ensembl/kbillis/research/busco_QC/busco/busco_config_bk.ini', 
 
 ######################################################
@@ -125,6 +137,7 @@ sub pipeline_wide_parameters {
   return {
   	%{$self->SUPER::pipeline_wide_parameters},
   	load_inputfile_only => $self->o('load_inputfile_only'),
+  	run_busco_singularity => $self->o('run_busco_singularity'),
   }
 }
 
@@ -164,7 +177,7 @@ sub pipeline_analyses {
                          input_query => 'SELECT transcript.stable_id from gene, transcript '.
                           ' WHERE gene.gene_id = transcript.gene_id '.
                           ' AND gene.canonical_transcript_id = transcript.transcript_id '.
-                          ' AND transcript.biotype = "protein_coding" ', 
+                          ' AND transcript.biotype = "protein_coding" limit 2 ', 
                          command_out => q( grep 'ENS' > #busco_input_file_m#), 
                          busco_input_file_m => catfile($self->o('input_dir'),  $self->o('busco_input_file_stid') ),
                          prepend => ['-NB', '-q'],
@@ -189,12 +202,11 @@ sub pipeline_analyses {
                                 ' --output_file='.$self->o('busco_input_file_std'), 
                        },
         -rc_name => 'default',
-        -flow_into => {
-                        1 => ['run_busco'],
-                      },
+        -flow_into     => WHEN ( '#run_busco_singularity# == 1'  => [ 'run_busco_singularity' ], 
+                                 '#load_inputfile_only# == 0' => ['run_busco_normal']),
       },
 
-       {
+      {
         -logic_name => 'copy_input_file',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
@@ -204,22 +216,56 @@ sub pipeline_analyses {
         -flow_into => {
                         1 => ['run_busco'],
                       },
+        -flow_into     => WHEN ( '#run_busco_singularity# == 1'  => [ 'run_busco_singularity' ], 
+                                 '#load_inputfile_only# == 0' => ['run_busco_normal']),
+                      
       },
       
-# run busco in docker
-       {
-        -logic_name => 'run_busco',
+      # run busco in normal mode 
+      {
+        -logic_name => 'run_busco_normal',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => $self->o('base_busco_path'). 
+                         cmd => 'busco '. 
                          $self->o('busco_params').
                          ' -i '.catfile($self->o('input_dir'),'input_file.fa').
+                         ' -m prot '.
                          ' -l '.$self->o('busco_set').
                          ' -o '.$self->o('busco_output_name').
                          ' --config '.$self->o('default_busco_config'),
                        },
         -rc_name => 'busco_rc',
       },
+
+      # run busco in singularity mode 
+      {
+        -logic_name => 'run_busco_singularity',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+        	             cmd => 'mkdir '.$self->o('output_path_singlularity').';'. 
+        	                    'cd '.$self->o('output_path_singlularity').';'.
+        	                    'cp '.$self->o('busco_singlularity_default_config').' ./ '.' ;'. 
+        	                    'cp '.catfile($self->o('input_dir'),'input_file.fa').' ./ '.' ;'. 
+        	                    'singularity exec '.$self->o('busco_singularity_image').' busco -i input_file.fa -m prot -l '.
+        	                        $self->o('busco_singularity_dataset').' -o '. $self->o('busco_output_name').' --config busco_config_docker.ini'.' ;'. 
+        	                    'cd - '.';',  
+        	             },
+        -rc_name => 'busco_singularity_rc',
+        -flow_into => {
+                        1 => ['check_cp_file'],
+                      },
+
+      },
+
+      {
+        -logic_name => 'check_cp_file',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => { 
+          cmd => 'if [ ! -f "'.$self->o('busco_output_file').'" ] ; then die;fi',
+        },        
+        -rc_name => 'default',
+      }
+
 
     ];
 }
@@ -233,6 +279,7 @@ sub resource_classes {
     '2GB' => { LSF => $self->lsf_resource_builder('production-rh74', 2000, [$self->default_options->{'pipe_db_server'}], [$self->default_options->{'num_tokens'}])},
     'default' => { LSF => $self->lsf_resource_builder('production-rh74', 900, [$self->default_options->{'pipe_db_server'}], [$self->default_options->{'num_tokens'}])},
     'busco_rc' => { LSF => $self->lsf_resource_builder('production-rh74', 23900, [$self->default_options->{'pipe_db_server'}], [$self->default_options->{'num_tokens'}])},
+    'busco_singularity_rc' =>  { LSF => $self->lsf_resource_builder('production-rh74', 35000, [$self->default_options->{'pipe_db_server'}], [$self->default_options->{'num_tokens'}])},
     }
 }
 
