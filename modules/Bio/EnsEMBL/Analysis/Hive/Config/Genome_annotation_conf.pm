@@ -354,7 +354,7 @@ sub default_options {
 
     'min_toplevel_slice_length'   => 250,
 
-    'repeatmodeler_logic_name'    => 'repeatmask_repeatmodeler',
+    'repeatmodeler_logic_name'    => ($self->o('use_repeatmodeler_to_mask') ? 'repeatmask_customlib' : 'repeatmask_repeatmodeler'),
     'homology_models_path'        => catdir($self->o('output_path'),'homology_models'),
 
     ncrna_dir => catdir($self->o('output_path'), 'ncrna'),
