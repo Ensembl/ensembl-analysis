@@ -30,7 +30,6 @@ use Net::FTP;
 use Cwd qw(realpath chdir getcwd);
 use Data::Dumper;
 use DateTime;
-
 use JSON;
 
 my $config_file;
@@ -74,7 +73,7 @@ if ($is_non_vert == 1) {
   $selected_db = "test_registry_db";
   $general_hash->{'replace_repbase_with_red_to_mask'} = '1';
 } else {
-  $selected_db = "gb_assembly_registry";
+  $selected_db = "do1_automated_registry";#"gb_assembly_registry";
 }
 
 my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
@@ -104,6 +103,10 @@ while(<IN>) {
       # for this
       if($key eq 'user_w') {
         $key = 'user';
+        $general_hash->{$key} = $value;
+      }
+      if($key eq 'password') {
+        $general_hash->{$key} = $value;
       }
       #Ignore clade settings from .ini file if set
       if($key eq 'clade' && !$custom_load && !$early_load) {
@@ -121,7 +124,7 @@ while(<IN>) {
 }
 close IN || throw("Could not close $config_file");
 
-my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
+ my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
   -host    => $assembly_registry_host,
   -port    => $assembly_registry_port,
   -user    => $general_hash->{'user'},
@@ -802,7 +805,7 @@ sub init_pipeline {
       throw("Failed to run init_pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd);
     }
     update_annotation_status($assembly_hash->{'assembly_accession'});
-    
+
     my $sync_command = $&;
     if ($hive_directory) {
       $sync_command = 'perl '.catdir($hive_directory, 'scripts').catfile('','').$sync_command; # The crazy catfile in the middle is to get the path separator
