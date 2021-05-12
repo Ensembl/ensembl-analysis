@@ -77,13 +77,6 @@ if ($is_non_vert == 1) {
   $selected_db = "gb_assembly_registry";
 }
 
-my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
-  -host    => $assembly_registry_host,
-  -port    => $assembly_registry_port,
-  -user    => 'ensro',
-  -dbname  => $selected_db
-  );
-
 my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
   -host    => 'mysql-ens-meta-prod-1',
   -port    => 4483,
@@ -723,12 +716,6 @@ sub custom_load_data {
   else {
     $clade = $assembly_registry->fetch_clade_by_taxon_id($general_hash->{'taxon_id'});
   }
-  say "Fetched the following clade for ".$accession.": ".$clade;
-  my $clade_hash = clade_settings($clade);
-  foreach my $key (keys(%{$clade_hash})) {
-    $general_hash->{$key} = $clade_hash->{$key};
-  }
-
 
   my $clade_hash = clade_settings($clade);
   foreach my $key (keys(%{$clade_hash})) {
