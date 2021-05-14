@@ -131,6 +131,7 @@ close IN || throw("Could not close $config_file");
   -pass    => $general_hash->{'password'},
   -dbname  => $selected_db
   );
+
 #Adding registry details to hash for populating main config
 $general_hash->{registry_host} = $assembly_registry_host;
 $general_hash->{registry_port} = $assembly_registry_port;
@@ -710,8 +711,15 @@ sub custom_load_data {
     throw("A critical key was missing a value");
   }
 
-  # Should update registry api to allow clade to be fetched by taxon id
-  my $clade = $general_hash->{'clade'};
+  # Get clade
+  my $clade;
+  if ($general_hash->{'clade'}) {
+    $clade = $general_hash->{'clade'};
+  }
+  else {
+    $clade = $assembly_registry->fetch_clade_by_taxon_id($general_hash->{'taxon_id'});
+  }
+
   my $clade_hash = clade_settings($clade);
   foreach my $key (keys(%{$clade_hash})) {
     $general_hash->{$key} = $clade_hash->{$key};
@@ -797,7 +805,7 @@ sub init_pipeline {
       throw("Failed to run init_pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd);
     }
     update_annotation_status($assembly_hash->{'assembly_accession'});
-   
+
     my $sync_command = $&;
     if ($hive_directory) {
       $sync_command = 'perl '.catdir($hive_directory, 'scripts').catfile('','').$sync_command; # The crazy catfile in the middle is to get the path separator

@@ -51,11 +51,11 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
   # dicts key on the versioned GCA (which is unique). Once the dicts are generated keys in the
   # assembly db dict are compared to the keys in the sheets dict. If a key is not in the sheets
   # dict then it is a new entry and gets made into a new row and added to the sheet. If the key
-  # is present then some tests are done to see of anything needs updating. Some of these tests
+  # is present then some tests are done to see if anything needs updating. Some of these tests
   # could be made generic, but there are some complex cases like when the filters need updating
   # The filters are basically tags for the assemblies that are then used to create the filter
   # views in sheets
-  min_contig_n50_filter = 30000
+  min_contig_n50_filter = 100000
   assembly_db_dict = {}
   existing_sheet_dict = {}
   max_version_dict = {}
@@ -69,7 +69,7 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
    
   # This makes a dict for the db on the versioned GCA and also makes a dict to track the highest
   # version for a particular GCA (used in filtering later)
-  # Note the db has entries that  are in unicode in some cases and need to be converted
+  # Note the db has entries that are in unicode in some cases and need to be converted
   for row in assembly_db_data:
     chain = row[assembly_db_columns.index('chain')]
     version = row[assembly_db_columns.index('version')]
@@ -85,7 +85,7 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
       max_version_dict[chain] = version
 
   # This makes an existing annotations dict based on the meta data db. Note that this db only
-  # goes back to e80, so there is a small chance that assemblies were once annotated are not marked
+  # goes back to e80, so there is a small chance that assemblies that were once annotated are not marked
   # as handed over in the filters, but this shouldn't be a problem
   for row in meta_db_data:
     gca = row[0]
@@ -103,21 +103,21 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
   
   # This is where the majority of the work occurs. All assembly GCAs are examined to determined what
   # should be added/updated
-  # Note that currently a three second sleep is need to avoid exhausting the Sheets REST API quota
+  # Note that currently a three second sleep is needed to avoid exhausting the Sheets REST API quota
   for gca in assembly_db_dict:
-    #Check that time since last authentication is < 1hr
-    if(time.time() - gettime > 60* 59):#If greater than 1 hr, then re-authenticate
-        print("Updating time: " + gca)
-         # use creds to create a client to interact with the Google Drive API
-        scope = ['https://spreadsheets.google.com/feeds',
-           'https://www.googleapis.com/auth/drive']
+    # Check that time since last authentication is < 1hr
+    # If greater than 1 hr, then re-authenticate
+    if(time.time() - gettime > 60* 59):
+      print("Re-authenticating API's connection ")
+      # use creds to create a client to interact with the Google Drive API
+      scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive']
+      creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
+      client = gspread.authorize(creds)
+      gettime = time.time()
 
-        creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
-        client = gspread.authorize(creds)
-        gettime = time.time()
-     # Find a workbook by name and open the first sheet
-     # Make sure you use the right name here.
-        assembly_sheet = client.open(worksheet_name).worksheet("EnsemblAssemblyRegistry")
+    # Find a workbook by name and open the first sheet
+    # Make sure you use the right name here.
+    assembly_sheet = client.open(worksheet_name).worksheet("EnsemblAssemblyRegistry")
     assembly_row = assembly_db_dict[gca]
     species_name = assembly_row[assembly_db_columns.index('subspecies_name')]
     common_name = assembly_row[assembly_db_columns.index('common_name')]
@@ -136,39 +136,45 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
     genebuilder = assembly_row[assembly_db_columns.index('genebuilder')]
     annotation_status = assembly_row[assembly_db_columns.index('progress_status')]
     assembly_group = assembly_row[assembly_db_columns.index('assembly_group')]
+    # If GCA is in meta db, then it means db has been handed over 
     if gca in existing_annotations_dict:
       annotation_status = 'Handed over'
-
     # If the row does not exist then add it in with the filtering info
     if not gca in existing_sheet_dict:
-      #Depending on the assembly group, we try to match the display to how the project is identified
+      # Depending on the assembly group, we match the display to the right project naming convention
+      # For example, Darwin Tree of Life (DToL), Vertebrates Genomes Project (VGP), etc.
+      # Ungrouped refers to non-project specific assemblies
       if assembly_group == 'dtol':
         assembly_group = 'DToL'
       elif assembly_group == 'ungrouped':
-          assembly_group = assembly_group.capitalize()
+        assembly_group = assembly_group.capitalize()
       else:
         assembly_group.upper()
-      #When assembly is first written to sheets, its status should be Not started and genebuilder set to Not assigned
+
+      # When an assembly is first written to sheets, its status should be set to 'Not started' and genebuilder set to 'Not assigned'
       annotation_status = 'Not started'
       genebuilder = 'Not assigned'
       new_row = [gca,clade,species_name,common_name,contig_N50,assembly_level,assembly_date.strftime('%Y-%m-%d'),assembly_name,rnaseq_data,refseq_accession,genebuilder,annotation_status,assembly_group,'','Not assigned','']
-
       # This section sets various filters
+      # Setting filter of versioned GCA
       if version == max_version_dict[chain]:
         new_row.append(1)
       else:
         new_row.append(0)
 
+      # Setting filter for genome representation
       if genome_rep == 'full':
         new_row.append(1)
       else:
         new_row.append(0)
-     
+
+      # Setting contig_N50 filter
       if contig_N50 >= min_contig_n50_filter:
         new_row.append(1)
       else:
         new_row.append(0)
-     
+
+      # Set RNASeq status based on contig_N50 if not already assigned
       if rnaseq_data is None:
         if contig_N50 >= 100000:
            new_row[8] = 'No RNAseq data'
@@ -176,13 +182,14 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
            new_row[8] = 'Non candidate assembly'
       else:
         new_row[8] = rnaseq_data.capitalize()
-
+      
       # There is an issue with the db at the moment with trailing spaces on the species names, but this should get fixed
       if not (species_name == "Homo sapiens " or species_name == "Homo sapiens"):
         new_row.append(1)
       else:
         new_row.append(0)
 
+      # Add new record to sheets
       print(new_row)
       insert_index = 2
       assembly_sheet.append_row(new_row)
@@ -212,41 +219,48 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
       sheet_assembly_group_index = assembly_sheet_columns.index('Assembly group')
       sheet_assembly_group_val = sheet_row[sheet_assembly_group_index]
       
-      # Check if transcriptomic data status from db is null. If yes, check if assembly has been handed over or if assembly meets candidate assembly criteria
-      if rnaseq_data is None and sheet_rnaseq_data_val == 'Non candidate assembly' or sheet_rnaseq_data_val == 'No RNAseq data':
+      # Check if transcriptomic data status from db is null. 
+      # If yes, check if assembly has been handed over or if assembly meets candidate assembly criteria
+      if ((rnaseq_data is None) and (sheet_rnaseq_data_val == 'Non candidate assembly' or sheet_rnaseq_data_val == 'No RNAseq data' or sheet_rnaseq_data_val == 'Not available')):
         # Nothing to update
         print("No update on rnaseq data status for: " + gca)
-      elif rnaseq_data is None and annotation_status == 'Handed over': #It is possible to annotate a species and handover without RNASeq data
-        # update the RNASeq data status
-        rnaseq_data = 'Done'
+        # It is possible to annotate a species and handover without RNASeq data
+      elif rnaseq_data is None and annotation_status == 'Handed over':
+        # update the RNASeq data status as not applicable
+        rnaseq_data = 'N/A'
         print("Updating rnaseq data status for: " + gca)
         row_update_index = assembly_sheet.find(gca).row
         update_cell_val(assembly_sheet,row_update_index,sheet_rnaseq_data_index,rnaseq_data)
         time.sleep(3)
       elif rnaseq_data.lower() != sheet_rnaseq_data_val.lower():
         rnaseq_data = rnaseq_data.capitalize()
-        # update the RNASeq data status
+        # update the RNASeq data status with value from db
         print("Updating rnaseq data status for: " + gca)
         row_update_index = assembly_sheet.find(gca).row
         update_cell_val(assembly_sheet,row_update_index,sheet_rnaseq_data_index,rnaseq_data)
         time.sleep(3)
-      #Sometimes we could have assemblies with no contig_N50 value in the sheet. This can cause issues with comparison
+
+      # Sometimes we could have assemblies with no contig_N50 value in the sheet. This can cause issues with comparison
       if sheet_contig_N50_val is None:
-        sheet_contig_N50_val = 0; 
+        # Set a default value for contig_N50
+        sheet_contig_N50_val = 0
+ 
       if contig_N50 != int(sheet_contig_N50_val):
-        # Update the contig info
+        # Update the contig info on the sheet
         print("Updating the contig for: "  + gca)
         row_update_index = assembly_sheet.find(gca).row
         update_cell_val(assembly_sheet,row_update_index,sheet_contig_N50_index,contig_N50)
         time.sleep(3)
 
+      # Compare clade vlaues between db and sheets
       if clade != sheet_clade_val:
-        # Update the classification
+        # Update the clade
         print("Updating the clade for: " + gca)
         row_update_index = assembly_sheet.find(gca).row
         update_cell_val(assembly_sheet,row_update_index,sheet_clade_index,clade)
         time.sleep(3)
 
+      # Updating specific filters
       if sheet_filter_version_val == "1" and str(version) != str(max_version_dict[chain]):
         # update the max version to 0
         print("Updating max version filter val for: " + gca)
@@ -267,6 +281,7 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
         update_cell_val(assembly_sheet,row_update_index,sheet_filter_N50_index,0)
         time.sleep(3)
 
+      # Compare refseq accession where it exists
       if not refseq_accession is None and refseq_accession != sheet_refseq_accession_val:
         # Add/update the RefSeq accession
         print("Updating RefSeq accession for: " + gca)
@@ -274,13 +289,15 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
         update_cell_val(assembly_sheet,row_update_index,sheet_refseq_accession_index,refseq_accession)
         time.sleep(3)
 
+      # Check if assembly name needs update
       if not assembly_name is None and assembly_name != sheet_assembly_name_val:
         # Add/update the assembly name
         print("Updating Assembly name for: " + gca)
         row_update_index = assembly_sheet.find(gca).row
         update_cell_val(assembly_sheet,row_update_index,sheet_assembly_name_index,assembly_name)
         time.sleep(3)
-      
+  
+      # Check status of the genebuild and update accordingly    
       if not annotation_status is None and annotation_status.lower() != sheet_annotation_status_val.lower():
         # Add/update the annotation status
         annotation_status = annotation_status.capitalize()
@@ -291,6 +308,7 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
       elif annotation_status is None:
         annotation_status = 'Not started'
 
+      # Compare genebuilder information  and update accordingly
       if not genebuilder is None and genebuilder.lower() != sheet_genebuilder_val.lower():
         # Add/update the genebuilder
         print("Updating genebuilder for: " + gca)
@@ -300,9 +318,8 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
       elif genebuilder is None:
         genebuilder = 'Not assigned'
 
+      # If the assembly group info between the sheets and db differs, update accordingly
       if sheet_assembly_group_val is None:
-      #if not assembly_group is None and assembly_group.lower() != sheet_assembly_group_val.lower():
-        # Add/update the genebuilder
         print("This assembly has no group assigned on the sheet: " + gca)
         if assembly_group == 'dtol':
           assembly_group = 'DToL'
@@ -310,11 +327,11 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
           assembly_group = assembly_group.capitalize()
         else:
           assembly_group = assembly_group.upper()
+        print("Updating assembly group info for: " + gca)
         row_update_index = assembly_sheet.find(gca).row
         update_cell_val(assembly_sheet,row_update_index,sheet_assembly_group_index,assembly_group)
         time.sleep(3)
       elif not assembly_group is None and assembly_group.lower() != sheet_assembly_group_val.lower():
-        # Update the assembly group
         if assembly_group == 'dtol':
           assembly_group = 'DToL'
         elif assembly_group == 'ungrouped':
@@ -376,9 +393,7 @@ if __name__ == '__main__':
            'https://www.googleapis.com/auth/drive']
 
   creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
-  #try:
   client = gspread.authorize(creds)
-     #get 
   gettime = time.time()
      # Find a workbook by name and open the first sheet
      # Make sure you use the right name here.
@@ -387,10 +402,4 @@ if __name__ == '__main__':
      # Extract and print all of the values
   existing_sheet_records = assembly_sheet.get_all_values()
 
-     #Check if access token has expired
-    # if creds.access_token_expired:
-        #re-authenticate
-  #      client.login() 
   update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,assembly_sheet,gettime,worksheet_name)
-#  except Exception, e:
- #    traceback.print_exc()
