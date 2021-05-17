@@ -552,6 +552,7 @@ sub write_output {
   }
   $display_name .= ' - '.$self->param('assembly_accession');
   $meta_adaptor->store_key_value('species.display_name', $display_name);
+  $meta_adaptor->store_key_value('species.full_display_name', $display_name);
 
 # Not sure it will properly add the new values, hopefully it will and not cause problems
   my $job_params = destringify($self->input_job->input_id);
