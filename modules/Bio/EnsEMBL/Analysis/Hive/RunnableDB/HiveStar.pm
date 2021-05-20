@@ -122,6 +122,12 @@ sub fetch_input {
      -fastqpair      => $filepath2,
      -threads        => $self->param('num_threads'),
     );
+    if ($self->param_is_defined('rg_lines')) {
+      $runnable->rg_lines($self->param('rg_lines'));
+    }
+    else {
+      $runnable->rg_lines("ID:$sample_id\tSM:".$input_id->{SM}."\tPL:ILLUMINA");
+    }
     $self->runnable($runnable);
   }
 }
