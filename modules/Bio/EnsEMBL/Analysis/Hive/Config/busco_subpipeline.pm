@@ -181,7 +181,7 @@ sub pipeline_analyses {
                          input_query => 'SELECT transcript.stable_id from gene, transcript '.
                           ' WHERE gene.gene_id = transcript.gene_id '.
                           ' AND gene.canonical_transcript_id = transcript.transcript_id '.
-                          ' AND transcript.biotype = "protein_coding" limit 2 ', 
+                          ' AND transcript.biotype = "protein_coding" ', 
                          command_out => q( grep 'ENS' > #busco_input_file_m#), 
                          busco_input_file_m => catfile($self->o('input_dir'),  $self->o('busco_input_file_stid') ),
                          prepend => ['-NB', '-q'],
