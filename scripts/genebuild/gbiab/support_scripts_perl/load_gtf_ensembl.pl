@@ -117,10 +117,12 @@ my $analysis = new Bio::EnsEMBL::Analysis(-logic_name => $analysis_name,
 
 if($load_type eq 'gene') {
   load_genes($dba,$gtf_file,$slice_hash,$analysis,%strand_conversion);
-} elsif($load_type eq 'single_line_feature' and ($analysis_name eq 'dust' or $analysis_name eq 'repeatmask_red' or $analysis_name eq 'trf')) {
+} elsif($load_type eq 'single_line_feature' and ($analysis_name eq 'dust' or $analysis_name eq 'repeatdetector' or $analysis_name eq 'trf')) {
   load_repeats($dba,$gtf_file,$slice_hash,$analysis,%strand_conversion);
 } elsif($load_type eq 'single_line_feature' and ($analysis_name eq 'cpg' or $analysis_name eq 'eponine')) {
   load_simple_features($dba,$gtf_file,$slice_hash,$analysis,%strand_conversion);
+} else {
+  die "Unsupported load type/analysis name combo: ".$load_type." ".$analysis_name;
 }
 
 exit;
@@ -354,6 +356,7 @@ sub load_repeats {
 
   my $repeat_types = { trf => 'Tandem repeats',
                        dust => 'Dust',
+                       repeatdetector => 'repeatdetector',
                      };
   my $repeat_features = [];
   my $features_by_region = {};
