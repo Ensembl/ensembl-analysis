@@ -394,6 +394,28 @@ sub fetch_clade_by_taxon_id {
 
 =head1 Description of method
 
+This method returns the status of an annotation via its assembly_accession.
+
+=cut
+
+sub fetch_genebuild_status_by_gca {
+  my ($self,$chain_version,$type) = @_;
+
+  my $sql = "SELECT progress_status,date_started,date_completed,genebuilder FROM genebuild_status WHERE assembly_accession=? and is_current = ?";
+  my $sth = $self->dbc->prepare($sql);
+  $sth->bind_param(1,$chain_version);
+  $sth->bind_param(2,1);
+  $sth->execute();
+
+  my @genebuild_status = $sth->fetchrow_array();
+  return(@genebuild_status);
+}
+
+
+=pod
+
+=head1 Description of method
+
 This method takes an accession and returns the chain and versionn of the assembly.
 
 =cut
