@@ -114,10 +114,9 @@ def update_assembly_sheet(assembly_db_data,meta_db_data,existing_sheet_records,a
       creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
       client = gspread.authorize(creds)
       gettime = time.time()
-
-    # Find a workbook by name and open the first sheet
-    # Make sure you use the right name here.
-    assembly_sheet = client.open(worksheet_name).worksheet("EnsemblAssemblyRegistry")
+      # Find a workbook by name and open the first sheet
+      # Make sure you use the right name here.
+      assembly_sheet = client.open(worksheet_name).worksheet("EnsemblAssemblyRegistry")
     assembly_row = assembly_db_dict[gca]
     species_name = assembly_row[assembly_db_columns.index('subspecies_name')]
     common_name = assembly_row[assembly_db_columns.index('common_name')]
