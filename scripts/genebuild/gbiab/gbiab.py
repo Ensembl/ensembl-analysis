@@ -1422,6 +1422,10 @@ def slice_output_to_gtf(output_dir,extension,unique_ids,feature_id_label,new_id_
   gtf_file_path = os.path.join(output_dir,'annotation.gtf')
   gtf_out = open(gtf_file_path,'w+')
   for gtf_file_path in gtf_files:
+    if os.stat(gtf_file_path).st_size == 0:
+      print("File is empty, will skip:\n" + gtf_file_path)
+      continue
+
     gtf_file_name = os.path.basename(gtf_file_path)
     match = re.search(r'\.rs(\d+)\.re(\d+)\.',gtf_file_name)
     start_offset = int(match.group(1))
