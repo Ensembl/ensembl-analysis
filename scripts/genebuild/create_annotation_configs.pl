@@ -47,6 +47,7 @@ my $assembly_registry_port = $ENV{GBP1};
 my $force_init = 0;
 my $check_for_transcriptomic = 0;
 my $selected_db;
+my $current_genebuild = 0;
 
 ### change to to 1 for non-verts
 my $is_non_vert = 0;
@@ -61,6 +62,7 @@ GetOptions('config_file:s' => \$config_file,
            'force_init!' => \$force_init,
            'is_non_vert!' => \$is_non_vert,
            'check_for_transcriptomic!' => \$check_for_transcriptomic,
+           'current_genebuild!' => \$current_genebuild,
           );
 
 unless(-e $config_file) {
@@ -73,7 +75,7 @@ if ($is_non_vert == 1) {
   $selected_db = "test_registry_db";
   $general_hash->{'replace_repbase_with_red_to_mask'} = '1';
 } else {
-  $selected_db = "do1_automated_registry";#"gb_assembly_registry";
+  $selected_db = "gb_assembly_registry";
 }
 
 my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
@@ -226,6 +228,12 @@ foreach my $accession (@accession_array) {
   say "Processing accession: ".$accession;
   unless($accession =~ /GCA_([\d]{3})([\d]{3})([\d]{3})\.\d+/) {
     throw("Found an assembly accession that did not match the regex. Offending accession: ".$accession);
+  }
+  
+  #Check genebuild status of assembly
+  if ($current_genebuild == 1) {
+  } else {
+    check_annotation_status($accession);
   }
 
   # Get stable id prefix
@@ -463,7 +471,7 @@ sub parse_assembly_report {
 
 =head1 Description of method
 
-This method updates the registry database with the current timestamp when the annotation started. 
+This method updates the registry database with the timestamp of when the annotation started. 
 It also updates the registry with the status of the annotation as well as the user who started it.
 
 =cut
@@ -473,16 +481,52 @@ sub update_annotation_status{
   my $dt   = DateTime->now;   # Stores current date and time as datetime object
   my $date = $dt->ymd;
   my $assembly_id = $assembly_registry->fetch_assembly_id_by_gca($accession);
-  my $sql = "insert into genebuild_status(assembly_accession,progress_status,date_started,genebuilder,assembly_id) values(?,?,?,?,?)";
-  my $sth = $assembly_registry->dbc->prepare($sql);
+  my ($sql,$sth);
+  if ($current_genebuild == 1){
+    say "Updating genebuild status to overwrite";
+    $sql = "update genebuild_status set is_current = ? where assembly_accession = ?";
+    $sth = $assembly_registry->dbc->prepare($sql);
+    $sth->bind_param(1,0);
+    $sth->bind_param(2,$accession);
+    unless($sth->execute()){
+      throw("Could not update annoation status for assembly with accession ".$accession);
+    }
+  }
+  $sql = "insert into genebuild_status(assembly_accession,progress_status,date_started,genebuilder,assembly_id,is_current) values(?,?,?,?,?,?)";
+  $sth = $assembly_registry->dbc->prepare($sql);
   $sth->bind_param(1,$accession);
   $sth->bind_param(2,'in progress');
   $sth->bind_param(3,$date);
   $sth->bind_param(4,$ENV{EHIVE_USER} || $ENV{USER});
   $sth->bind_param(5,$assembly_id);
+  $sth->bind_param(6,1);
   say "Accession being worked on is $accession";
   unless($sth->execute()){
    throw("Could not update annoation status for assembly with accession ".$accession);
+  }
+}
+
+=pod
+
+=head1 Description of method
+
+This method checks if there is an existing genebuild entry for the assembly.  
+If yes, genebuilder must decide whether to continue annotation or not.
+If genebuilder decides to continue, then rerun with option: -current_genebuild 1
+This would automatically make this new genebuild the current annotation for tracking purposes
+
+=cut
+
+sub check_annotation_status{
+  my $accession = shift;
+  my @status = $assembly_registry->fetch_genebuild_status_by_gca($accession);
+  if (@status){
+    if ($status[2]){
+      throw("A genebuild entry already exists for this assembly. "."$accession\nStatus: $status[0]\nDate started: $status[1]\nDate completed: $status[2]\nGenebuilder: $status[3      ]"."\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1"  );
+    }
+    else{
+      throw("A genebuild entry already exists for this assembly. "."$accession\nStatus: $status[0]\nDate started: $status[1]\nDate completed: Pending\nGenebuilder: $status[3      ]"."\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1"  );
+    }
   }
 }
 
