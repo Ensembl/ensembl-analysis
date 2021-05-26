@@ -216,7 +216,9 @@ sub meta_table {
     if (@$meta_results == 1) {
       $species_url = $meta_results->[0];
       if ($species_production_name) {
-        $species_production_name =~ s/^(\w)/\U$1\E/;
+        $species_production_name =~ s/^(\w)/\U$1/;
+        $species_production_name =~ s/(gca)/GCA_/m;
+        $species_production_name =~ s/(?=v\d+)\D+/./gi;
         $self->say_with_header("$species_production_name and $species_url are different, one of them could be wrong")
           unless ($species_production_name eq $species_url);
       }
