@@ -561,9 +561,11 @@ sub rnaseq_analysis_sanity {
   my $failed = 1;
   my $total = 0;
   my $lc_count = 0;
+  my @analysis_name;
   foreach my $analysis (@{$analysis_adaptor->fetch_all}) {
     ++$total;
     my $ln = $analysis->logic_name;
+    $analysis_name[$total-1]=$analysis->logic_name;
     if ($ln eq 'other_protein') {
       $failed = 0;
     }
@@ -595,6 +597,9 @@ sub rnaseq_analysis_sanity {
     if ($bases{$base} != 4) {
       $failed = 1;
       $self->say_with_header('There is a problem with your analysis '.$base);
+      $self->say_with_header('Check if gene, daf, bam and ise analyses are present.');
+      $self->say_with_header('Total number of analyses in the database: '.$total);
+      $self->say_with_header('List of analyses present in the database: '.join("\n",@analysis_name), "\n");
     }
   }
   if ($failed) {
