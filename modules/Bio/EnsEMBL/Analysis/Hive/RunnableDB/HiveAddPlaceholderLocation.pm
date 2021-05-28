@@ -46,6 +46,14 @@ sub fetch_input {
 
   my $core_dba = $self->hrdb_get_dba($self->param_required('input_db'));
   $self->hrdb_set_con($core_dba, 'input_db');
+  my $support_test = $core_dba->dbc->prepare('select count(*) from supporting_feature');
+  $support_test->execute;
+
+  my $test = $support_test->fetchrow_array;
+  $self->{'has_supporting'} = 0;
+  if ($test > 0) {
+    $self->{'has_supporting'} = 1;
+  }
 }
 
 =head2 run
@@ -53,7 +61,8 @@ sub fetch_input {
  Arg [1]    : None
  Description: Choose a transcript for the placeholder location
               (checks 10 longest seq_regions for transcript with high support,
-              i.e coverage>=99 and percent_id>=75)
+              i.e coverage>=99 and percent_id>=75. If no supporting evidence
+              available, uses largest gene by number of exons.)
  Returntype : None
  Exceptions : None
 
@@ -64,29 +73,49 @@ sub run {
 
   my $core_dba = $self->hrdb_get_con('input_db');
   my $sa = $core_dba->get_SliceAdaptor;
-
   my $sth_longest = $core_dba->dbc->prepare('select seq_region_id from seq_region order by length desc limit 10');
   $sth_longest->execute;
-
   my $sample_transcript;
- LOOP: while (my $seq_region_id = $sth_longest->fetchrow_array) {
-    my $region = $sa->fetch_by_seq_region_id($seq_region_id);
 
-  TRANSCRIPT:foreach my $transcript (@{ $region->get_all_Transcripts_by_type('protein_coding') }){
-      my $supporting_features = $transcript->get_all_supporting_features;
-      foreach my $support (@$supporting_features){
-        if ($support->hcoverage() >= 99 && $support->percent_id() >= 75){
-          $sample_transcript=$transcript;
-          last LOOP;
+  if ($self->{'has_supporting'} == 1) {
+
+    LOOP: while (my $seq_region_id = $sth_longest->fetchrow_array) {
+      my $region = $sa->fetch_by_seq_region_id($seq_region_id);
+      TRANSCRIPT:foreach my $transcript (@{ $region->get_all_Transcripts_by_type('protein_coding') }) {
+        my $supporting_features = $transcript->get_all_supporting_features;
+        foreach my $support (@$supporting_features) {
+          print $support->hcoverage(),"\t",$support->percent_id(),"\n";
+          if ($support->hcoverage() >= 99 && $support->percent_id() >= 75) {
+            $sample_transcript=$transcript;
+	          last LOOP;
+          }
+          else {
+            next TRANSCRIPT;
+          }
         }
-        else{
-          next TRANSCRIPT;
+      }
+    }#end while
+  }
+
+  else {
+    my $most_exons = 0;
+    my $selected_gene;
+
+    while (my $seq_region_id = $sth_longest->fetchrow_array) {
+      my $region = $sa->fetch_by_seq_region_id($seq_region_id);
+      foreach my $gene (@{$region->get_all_Genes_by_type('protein_coding')}) {
+        my $exons = $gene->get_all_Exons;
+        if (scalar(@$exons) > $most_exons) {
+          $most_exons = scalar(@$exons);
+    	    $selected_gene = $gene;
         }
       }
     }
-  }#end while
 
-  if ($sample_transcript){
+    $sample_transcript = $selected_gene->canonical_transcript;
+  }
+
+  if ($sample_transcript) {
     my $db_name = $core_dba->dbc->dbname;
     my $sample_gene = $sample_transcript->get_Gene;
     my $sample_coord = $sample_gene->seq_region_name().':'.$sample_gene->seq_region_start().'-'.$sample_gene->seq_region_end();
@@ -99,7 +128,9 @@ sub run {
                   ['sample.transcript_text', $sample_transcript->stable_id()]);
 
     $self->output(\@output);
-
+  }
+  else {
+    self->throw("Could not obtain a suitable placeholder transcript.")
   }
 }
 
@@ -114,17 +145,13 @@ sub run {
 
 sub write_output {
   my ($self) = @_;
-
   my $core_dba = $self->hrdb_get_con('input_db');
   my $meta_container = $core_dba->get_MetaContainer();
-
   foreach my $meta_pair ( @{$self->output} ){
     my $meta_key = $meta_pair->[0];
     my $meta_value = $meta_pair->[1];
-
     $meta_container->store_key_value($meta_key, $meta_value);
   }
-
 }
 
 1;
