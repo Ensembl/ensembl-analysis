@@ -261,18 +261,23 @@ sub process_results {
       my $transcript_id = $transcript->stable_id();
       my $source_transcript = $source_transcript_id_hash->{$transcript_id};
 
-      if($biotype_group eq 'coding') {
-        compute_translation($transcript);
-        set_alignment_supporting_features($transcript,$source_transcript->translation()->seq(),$transcript->translation()->seq());
-      }
+#      if($biotype_group eq 'coding') {
+#        compute_translation($transcript);
+#        set_alignment_supporting_features($transcript,$source_transcript->translation()->seq(),$transcript->translation()->seq());
+#      }
 
       my ($coverage,$percent_id) = (0,0);
       ($coverage,$percent_id) = align_proteins($source_transcript->seq->seq(),$transcript->seq->seq());
-      if($coverage >= 95 && $percent_id > 90) {
-        $transcript->biotype($source_transcript->biotype());
-      } else {
-        $transcript->biotype($source_transcript->biotype()."_weak");
-      }
+#      if($coverage >= 95 && $percent_id > 90) {
+      $transcript->biotype($source_transcript->biotype());
+      $transcript->created_date($coverage);
+      $transcript->modified_date($percent_id);
+      my $cov_string = "cov: ".$coverage." perc_id: ".$percent_id;
+      $transcript->description($cov_string);
+
+#      } else {
+#        $transcript->biotype($source_transcript->biotype()."_weak");
+#      }
 
       $transcript->source($source);
 
