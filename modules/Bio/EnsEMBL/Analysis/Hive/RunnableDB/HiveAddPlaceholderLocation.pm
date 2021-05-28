@@ -84,7 +84,6 @@ sub run {
       TRANSCRIPT:foreach my $transcript (@{ $region->get_all_Transcripts_by_type('protein_coding') }) {
         my $supporting_features = $transcript->get_all_supporting_features;
         foreach my $support (@$supporting_features) {
-          print $support->hcoverage(),"\t",$support->percent_id(),"\n";
           if ($support->hcoverage() >= 99 && $support->percent_id() >= 75) {
             $sample_transcript=$transcript;
 	          last LOOP;
