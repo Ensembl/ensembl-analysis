@@ -217,6 +217,7 @@ sub meta_table {
       $species_url = $meta_results->[0];
       if ($species_production_name) {
         $species_production_name =~ s/^(\w)/\U$1\E/;
+        $species_production_name =~ s/gca(\d+)v(\d+)$/GCA_$1.$2/;
         $self->say_with_header("$species_production_name and $species_url are different, one of them could be wrong")
           unless ($species_production_name eq $species_url);
       }
@@ -593,6 +594,8 @@ sub rnaseq_analysis_sanity {
     if ($bases{$base} != 4) {
       $failed = 1;
       $self->say_with_header('There is a problem with your analysis '.$base);
+      $self->say_with_header('Check if gene, daf, bam and ise analyses are present.');
+      $self->say_with_header('Total number of analyses in the database: '.$total);
     }
   }
   if ($failed) {
