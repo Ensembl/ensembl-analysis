@@ -216,9 +216,8 @@ sub meta_table {
     if (@$meta_results == 1) {
       $species_url = $meta_results->[0];
       if ($species_production_name) {
-        $species_production_name =~ s/^(\w)/\U$1/;
-        $species_production_name =~ s/(gca)/GCA_/m;
-        $species_production_name =~ s/(?=v\d+)\D+/./gi;
+        $species_production_name =~ s/^(\w)/\U$1\E/;
+        $species_production_name =~ s/gca(\d+)v(\d+)$/GCA_$1.$2/;
         $self->say_with_header("$species_production_name and $species_url are different, one of them could be wrong")
           unless ($species_production_name eq $species_url);
       }
@@ -561,11 +560,9 @@ sub rnaseq_analysis_sanity {
   my $failed = 1;
   my $total = 0;
   my $lc_count = 0;
-  my @analysis_name;
   foreach my $analysis (@{$analysis_adaptor->fetch_all}) {
     ++$total;
     my $ln = $analysis->logic_name;
-    $analysis_name[$total-1]=$analysis->logic_name;
     if ($ln eq 'other_protein') {
       $failed = 0;
     }
@@ -599,7 +596,6 @@ sub rnaseq_analysis_sanity {
       $self->say_with_header('There is a problem with your analysis '.$base);
       $self->say_with_header('Check if gene, daf, bam and ise analyses are present.');
       $self->say_with_header('Total number of analyses in the database: '.$total);
-      $self->say_with_header('List of analyses present in the database: '.join("\n",@analysis_name), "\n");
     }
   }
   if ($failed) {
