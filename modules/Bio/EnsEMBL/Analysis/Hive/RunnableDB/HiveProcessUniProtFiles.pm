@@ -94,8 +94,10 @@ sub fetch_input {
     open(FH, '>'.$self->param('output_file')) || $self->throw('Could not open '.$self->param('output_file'));
   }
   foreach my $file_path (@$files) {
-    $self->throw("The input id doesn't exist, offending path:\n$file_path")
-      unless(-e $file_path);
+    unless(-e $file_path){
+      $self->warning("The input id doesn't exist, offending path:\n$file_path");
+      next;
+    }
     my (undef, undef, $group_name) = splitpath($file_path);
     $group_name =~ s/\.\w+$//;
 

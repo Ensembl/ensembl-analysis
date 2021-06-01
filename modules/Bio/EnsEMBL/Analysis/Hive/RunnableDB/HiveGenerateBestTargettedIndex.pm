@@ -252,6 +252,10 @@ sub write_output {
   }
   if ($self->param_is_defined('protein_files')) {
     foreach my $file (@{$self->param('protein_files')}) {
+      unless(-e $file){
+        $self->warning("File does not exist. Missing file path is $file");
+        next;
+      }
       my $protein_file = Bio::SeqIO->new(-format => 'fasta', -file => $file);
       while (my $seq = $protein_file->next_seq) {
         my $id = $seq->id;
