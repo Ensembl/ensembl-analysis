@@ -572,6 +572,7 @@ sub pipeline_analyses {
       -parameters => {
         inputcmd => 'ls #input_dir#/#'.$self->o('read_id_tag').'#*.bam',
         column_names => ['filename'],
+        input_dir => $self->o('output_dir'),
         fan_branch_code => 1,
       },
       -rc_name    => 'default',
