@@ -40,7 +40,8 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCalculateReadLength;
 use warnings;
 use strict;
 
-use File::Spec::Functions qw(catfile);
+use File::Basename;
+use File::Spec::Functions qw(catfile file_name_is_absolute);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -48,8 +49,14 @@ sub fetch_input {
   my ($self) = @_;
 
   $self->param_required('read_length_table');
-  $self->throw(catfile($self->param('input_dir'), $self->param('iid')).' does not exist')
-    unless(-e catfile($self->param_required('input_dir'), $self->param_required('iid')));
+  my $filename = $self->input_id;
+  if (!file_name_is_absolute($self->input_id)) {
+    $filename = catfile($self->param('input_dir'), $self->input_id);
+  }
+
+  $self->throw("$filename does not exist")
+    unless(-e $filename);
+  $self->param('absolute_filepath', $filename);
 }
 
 sub run {
@@ -58,17 +65,17 @@ sub run {
   my $read_length = 0;
   my $count = 0;
 
-  open(PH, 'zcat '.catfile($self->param('input_dir'), $self->param('iid')).' |')
-    or $self->throw('Could not open '.catfile($self->param('input_dir'), $self->param('iid')));
+  open(PH, 'zcat '.$self->param('absolute_filepath').' |')
+    or $self->throw('Could not open '.$self->param('absolute_filepath'));
   while (my $line = <PH>) {
     if ($count%4 == 1){
       $read_length = length($line) if (length($line) > $read_length);
     }
     ++$count;
   }
-  close(PH) or $self->throw('Could not close '.catfile($self->param('input_dir'), $self->param('iid')));
+  close(PH) or $self->throw('Could not close '.$self->param('absolute_filepath'));
 
-  $self->say_with_header(catfile($self->param('input_dir'), $self->param('iid'))."  READ LENGTH: $read_length");
+  $self->say_with_header($self->param('absolute_filepath')."  READ LENGTH: $read_length");
   $self->output([$read_length]);
 }
 
@@ -79,7 +86,12 @@ sub write_output {
   my $table_adaptor = $self->db->get_NakedTableAdaptor;
   $table_adaptor->table_name($self->param('read_length_table'));
 
-  $table_adaptor->store([{'fastq'       => $self->param('iid'),
+  my $filename = $self->input_id;
+  if (file_name_is_absolute($filename)) {
+    $filename = basename($self->input_id);
+  }
+
+  $table_adaptor->store([{'fastq'       => $filename,
                           'read_length' => $self->output->[0]}]);
 }
 
