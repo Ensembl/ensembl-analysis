@@ -108,7 +108,9 @@ sub run {
   if (-d $tmp_dir) {
     remove_tree($tmp_dir, {safe => 1});
   }
-  $options .= ' --readFilesCommand '.$self->is_file_compressed if ($self->is_file_compressed);
+  if ($fastq =~ /\.gz$/) {
+    $options .= ' --readFilesCommand zcat';
+  }
   $options .= ' --outSAMattrRGline "'.$self->rg_lines.'"' if ($self->rg_lines);
   $options .= ' --outSAMattributes "'.$self->sam_attributes.'"' if ($self->sam_attributes);
 
