@@ -397,7 +397,7 @@ sub write_output {
           }
           $description =~ tr/:\t/ /;
           if($self->param('read_type') eq 'short_read') {
-            print FH sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s, %s, %s\n",
+            print FH sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s, %s, %s\t%s\t%s\n",
               lc($sample_name),
               $experiment->{run_accession},
               $experiment->{library_layout} eq 'PAIRED' ? 1 : 0,
@@ -410,6 +410,8 @@ sub write_output {
               $study_accession,
               $sample,
               $description,
+              $file,
+              $checksums[$index]
             );
 	  } elsif($self->param('read_type') eq 'isoseq') {
             print FH sprintf("%s\t%s\t%s\n",

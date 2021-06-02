@@ -181,7 +181,8 @@ sub default_options {
     # This is just an example based on the file snippet shown below.  It
     # will vary depending on how your data looks.
     ####################################################################
-    file_columns => [ 'SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS' ],
+    file_columns => [ 'SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS', 'url', 'md5sum' ],
+    download_method => 'ftp',
 
     'filename_tag' => 'filename',    # For the analysis that creates star jobs, though I assume we should need to do it this way
 
@@ -247,7 +248,7 @@ sub pipeline_create_commands {
     if ( exists $small_columns{$key} ) {
       $tables .= $key . ' SMALLINT UNSIGNED NOT NULL,'
     }
-    elsif ( $key eq 'DS' ) {
+    elsif ( $key eq 'DS' or $key eq 'url') {
       $tables .= $key . ' VARCHAR(255) NOT NULL,'
     }
     else {
@@ -308,6 +309,7 @@ sub pipeline_analyses {
         taxon_id => $self->o('taxon_id'),
         inputfile => $self->o('rnaseq_summary_file'),
         paired_end_only => $self->o('paired_end_only'),
+        download_method => $self->o('download_method'),
       },
       -flow_into => {
         1 => ['download_genus_rnaseq_csv'],
@@ -323,21 +325,8 @@ sub pipeline_analyses {
         study_accession => $self->o('rnaseq_study_accession'),
         taxon_id => $self->o('genus_taxon_id'),
         inputfile => $self->o('rnaseq_summary_file_genus'),
+        download_method => $self->o('download_method'),
       },
-      -flow_into => {
-        1 => ['create_rnaseq_for_layer_db'],
-      },
-    },
-    {
-      -logic_name => 'create_rnaseq_for_layer_db',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-      -parameters => {
-        source_db   => $self->o('dna_db'),
-        target_db   => $self->o('rnaseq_for_layer_db'),
-        create_type => 'clone',
-      },
-      -max_retry_count => 0,
-      -rc_name   => 'default',
       -flow_into => {
         1 => ['checking_file_path'],
       },
@@ -378,21 +367,23 @@ sub pipeline_analyses {
         delimiter    => '\t',
       },
       -flow_into => {
-        2 => { 'download_RNASeq_fastqs' => { 'iid' => '#filename#' } },
+        2 => ['download_RNASeq_fastqs'],
       },
     },
 
     {
       -logic_name => 'download_RNASeq_fastqs',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadRNASeqFastqs',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData',
       -parameters => {
-        ftp_base_url => $self->o('rnaseq_ftp_base'),
-        input_dir    => $self->o('input_dir'),
+        output_dir => $self->o('input_dir'),
+        download_method => $self->o('download_method'),
+        uncompress => 0,
       },
       -flow_into => {
-        1 => ['get_read_lengths'],
+        2 => ['get_read_lengths'],
       },
       -analysis_capacity => 50,
+      -max_retry_count => 12, #This is needed for big files > 10GB as there will be timeout and md5sum failures
     },
 
     {
@@ -401,6 +392,7 @@ sub pipeline_analyses {
       -parameters => {
         input_dir         => $self->o('input_dir'),
         read_length_table => $self->o('read_length_table'),
+        _input_id_name => 'filename',
       },
     },
 
