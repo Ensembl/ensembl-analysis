@@ -183,7 +183,7 @@ sub fetch_input {
         $self->throw($abs_filename.' is not an absolute path!') unless (File::Spec->file_name_is_absolute($abs_filename));
         if ($self->param('rename_file')) {
           my $index_ext = '.'.$self->param('_index_ext');
-          if (!move($abs_filename, $alignment_bam_file))) {
+          if (!move($abs_filename, $alignment_bam_file)) {
              $self->throw("Could not rename file $abs_filename to $alignment_bam_file  Error is $!");
           }
           if (-e $abs_filename.$index_ext) {
