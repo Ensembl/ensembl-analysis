@@ -1477,10 +1477,10 @@ sub pipeline_analyses {
         -parameters => {
           db_conn    => $self->o('reference_db'),
           sql => [
-	    'ALTER TABLE gene MODIFY biotype varchar(128)',
-	    'ALTER TABLE transcript MODIFY biotype varchar(128)',
-	    'ALTER TABLE gene MODIFY source varchar(128)',
-	    'ALTER TABLE transcript MODIFY source varchar(128)'
+	    "ALTER TABLE gene MODIFY biotype varchar(128) NOT NULL",
+	    "ALTER TABLE transcript MODIFY biotype varchar(128) NOT NULL",
+	    "ALTER TABLE gene MODIFY source varchar(128) NOT NULL",
+	    "ALTER TABLE transcript MODIFY source varchar(128) NOT NULL DEFAULT 'ensembl'"
           ],
         },
         -rc_name    => 'default',
@@ -8390,10 +8390,10 @@ sub pipeline_analyses {
         -parameters => {
           db_conn    => $self->o('reference_db'),
           sql => [
-	    'ALTER TABLE gene MODIFY biotype varchar(40)',
-	    'ALTER TABLE transcript MODIFY biotype varchar(40)',
-	    'ALTER TABLE gene MODIFY source varchar(40)',
-	    'ALTER TABLE transcript MODIFY source varchar(40)'
+	    "ALTER TABLE gene MODIFY biotype varchar(40) NOT NULL",
+	    "ALTER TABLE transcript MODIFY biotype varchar(40) NOT NULL",
+	    "ALTER TABLE gene MODIFY source varchar(40) NOT NULL",
+	    "ALTER TABLE transcript MODIFY source varchar(40) NOT NULL DEFAULT 'ensembl'"
           ],
         },
         -rc_name    => 'default',
@@ -8607,10 +8607,10 @@ sub pipeline_analyses {
         -parameters => {
           db_conn    => $self->o('otherfeatures_db'),
           sql => [
-	    'ALTER TABLE gene MODIFY biotype varchar(40)',
-	    'ALTER TABLE transcript MODIFY biotype varchar(40)',
-	    'ALTER TABLE gene MODIFY source varchar(40)',
-	    'ALTER TABLE transcript MODIFY source varchar(40)'
+	    "ALTER TABLE gene MODIFY biotype varchar(40) NOT NULL",
+	    "ALTER TABLE transcript MODIFY biotype varchar(40) NOT NULL",
+	    "ALTER TABLE gene MODIFY source varchar(40) NOT NULL",
+	    "ALTER TABLE transcript MODIFY source varchar(40) NOT NULL DEFAULT 'ensembl'"
           ],
         },
         -rc_name    => 'default',
@@ -8954,10 +8954,10 @@ sub pipeline_analyses {
         -parameters => {
           db_conn    => $self->o('rnaseq_db'),
           sql => [
-	    'ALTER TABLE gene MODIFY biotype varchar(40)',
-	    'ALTER TABLE transcript MODIFY biotype varchar(40)',
-	    'ALTER TABLE gene MODIFY source varchar(40)',
-	    'ALTER TABLE transcript MODIFY source varchar(40)'
+	    "ALTER TABLE gene MODIFY biotype varchar(40) NOT NULL",
+	    "ALTER TABLE transcript MODIFY biotype varchar(40) NOT NULL",
+	    "ALTER TABLE gene MODIFY source varchar(40) NOT NULL",
+	    "ALTER TABLE transcript MODIFY source varchar(40) NOT NULL DEFAULT 'ensembl'"
           ],
         },
         -rc_name    => 'default',
