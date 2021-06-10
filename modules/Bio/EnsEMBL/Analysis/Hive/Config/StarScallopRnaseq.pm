@@ -132,11 +132,11 @@ sub default_options {
 ########################
 # Executable paths
 ########################
-    'star_path'       => '/homes/fergal/bin/STAR',
-    'scallop_path'    => '/homes/fergal/bin/scallop',
-    'stringtie2_path' => '/homes/fergal/bin/stringtie',
-    samtools_path => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
-    picard_lib_jar => catfile($self->o('software_base_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
+    star_path       => catfile($self->o('binary_base'), 'STAR'),
+    scallop_path    => catfile($self->o('binary_base'), 'scallop'),
+    stringtie2_path => catfile($self->o('binary_base'), 'stringtie'),
+    samtools_path   => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
+    picard_lib_jar  => catfile($self->o('software_base_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
 
     'blast_type'             => 'ncbi',                                                                         # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     'uniprot_blast_exe_path' => catfile( $self->o('binary_base'), 'blastp' ),
@@ -457,8 +457,26 @@ sub pipeline_analyses {
       },
       -flow_into => {
         2 => ['scallop'],
+	ANYFAILURE => ['star_himem'],
       },
       -rc_name => '45GB_star',
+    },
+
+    {
+      -logic_name => 'star_himem',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveStar',
+      -parameters => {
+        disconnect_jobs    => 1,
+        input_dir          => $self->o('input_dir'),
+        output_dir         => $self->o('output_dir'),
+        short_read_aligner => $self->o('star_path'),
+        genome_dir         => catfile( $self->o('output_path'), 'genome_dumps' ),
+        num_threads        => $self->o('star_threads'),
+      },
+      -flow_into => {
+        2 => ['scallop'],
+      },
+      -rc_name => '80GB_star',
     },
 
     {
@@ -609,7 +627,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -rc_name    => 'default',
       -parameters => {
-        inputlist => ['gene', 'daf', 'ise'],
+        inputlist => ['daf', 'ise'],
         column_names => ['type'],
         species => $self->o('species_name'),
       },
@@ -655,7 +673,7 @@ sub pipeline_analyses {
       -logic_name => 'fan_merge_analyses',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [[ $(cut -f1 '.$self->o('rnaseq_summary_file')." | sort | uniq | wc -l) == 1 ]]; then exit 42; else exit 0;fi",
+        cmd => 'if [[ $(cut -f1 '.$self->o('rnaseq_summary_file')." | sort -u | wc -l) == 1 ]]; then exit 42; else exit 0;fi",
         return_codes_2_branches => {'42' => 2},
       },
       -rc_name    => 'default',
@@ -669,7 +687,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -rc_name    => 'default',
       -parameters => {
-        inputlist => ['gene', 'daf', 'ise'],
+        inputlist => ['daf', 'ise'],
         column_names => ['type'],
         species => $self->o('species_name'),
       },
@@ -920,16 +938,17 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    '2GB'     => { LSF => $self->lsf_resource_builder( 'production-rh74', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '5GB'     => { LSF => $self->lsf_resource_builder( 'production-rh74', 5000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'default' => { LSF => $self->lsf_resource_builder( 'production-rh74', 900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '3GB_multithread'     => { LSF => $self->lsf_resource_builder( 'production-rh74', 2900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{use_threads} ) },
-    '3GB_rnaseq_multithread'     => { LSF => $self->lsf_resource_builder( 'production-rh74', 2900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{rnaseq_merge_threads} ) },
-    '5GB_merge_multithread'     => { LSF => $self->lsf_resource_builder( 'production-rh74', 5000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{rnaseq_merge_threads} ) },
-    '10GB_multithread' => { LSF => $self->lsf_resource_builder( 'production-rh74', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{use_threads} ) },
-    '45GB_star'    => { LSF => $self->lsf_resource_builder( 'production-rh74', 45000, undef, undef, ( $self->default_options->{'star_threads'} + 1 ) ) },
-    '10GB_scallop' => { LSF => $self->lsf_resource_builder( 'production-rh74', 10000, undef, undef, ( $self->default_options->{'scallop_threads'} ) ) },
-    '50GB_scallop' => { LSF => $self->lsf_resource_builder( 'production-rh74', 50000, undef, undef, ( $self->default_options->{'scallop_threads'} ) ) },
+    '2GB'     => { LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '5GB'     => { LSF => $self->lsf_resource_builder( 'production', 5000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    'default' => { LSF => $self->lsf_resource_builder( 'production', 900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '3GB_multithread'     => { LSF => $self->lsf_resource_builder( 'production', 2900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{use_threads} ) },
+    '3GB_rnaseq_multithread'     => { LSF => $self->lsf_resource_builder( 'production', 2900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{rnaseq_merge_threads} ) },
+    '5GB_merge_multithread'     => { LSF => $self->lsf_resource_builder( 'production', 5000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{rnaseq_merge_threads} ) },
+    '10GB_multithread' => { LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{use_threads} ) },
+    '45GB_star'    => { LSF => $self->lsf_resource_builder( 'production', 45000, undef, undef, ( $self->default_options->{'star_threads'} + 1 ) ) },
+    '80GB_star'    => { LSF => $self->lsf_resource_builder( 'production', 80000, undef, undef, ( $self->default_options->{'star_threads'} + 1 ) ) },
+    '10GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 10000, undef, undef, ( $self->default_options->{'scallop_threads'} ) ) },
+    '50GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 50000, undef, undef, ( $self->default_options->{'scallop_threads'} ) ) },
     }
 }
 
