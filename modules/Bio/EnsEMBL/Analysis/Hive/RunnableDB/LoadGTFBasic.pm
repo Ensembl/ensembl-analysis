@@ -59,8 +59,7 @@ use Bio::EnsEMBL::Exon;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(contains_internal_stops compute_translation);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -69,7 +68,8 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
  Arg [1]    : None
  Description: Default parameters
-                loading_type => 'range',
+                loading_type => 'range', # you can use range or file
+                use_transcript_id => 1, # set to 1 if you want single transcript genes
  Returntype : Hashref
  Exceptions : None
 
@@ -81,6 +81,7 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     loading_type => 'range',
+    use_transcript_id => 1,
   }
 }
 
@@ -134,7 +135,32 @@ sub fetch_input {
       $self->throw("Loaded no transcripts. This module expects either an iid with an arrayref of gtf files or an iid with a filename and a start and end index");
     }
     $self->param('proto_transcripts',$proto_transcripts);
-  } else {
+  }
+  elsif ($loading_type eq 'file') {
+    my $logic_name;
+    if ($self->param_is_defined('logic_name')) {
+      $logic_name = $self->param('logic_name');
+    }
+    else {
+      $logic_name = basename($self->param_required('filename'), '.gtf');
+      my $scientific_name = $target_dba->get_MetaContainerAdaptor->get_scientific_name;
+      $scientific_name =~ s/ /_/g;
+      $logic_name = lc($scientific_name)."_${logic_name}_rnaseq_gene";
+    }
+    my $slice_adaptor = $target_dba->get_SliceAdaptor;
+    my %slice_cache;
+    foreach my $slice (@{$slice_adaptor->fetch_all('toplevel')}) {
+      $slice_cache{$slice->name} = $slice;
+      $slice_cache{$slice->seq_region_name} = $slice;
+    }
+    $self->param('slice_cache', \%slice_cache);
+    my $analysis = $target_dba->get_AnalysisAdaptor->fetch_by_logic_name($logic_name);
+    if (!$analysis) {
+      $analysis = Bio::EnsEMBL::Analysis->new(-logic_name => $logic_name);
+    }
+    $self->analysis($analysis);
+  }
+  else {
     $self->throw("Unrecognised loading type selected. Refer to module for existing loading types");
   }
 }
@@ -152,19 +178,111 @@ sub fetch_input {
 sub run {
   my ($self) = @_;
 
-  my $output_genes = [];
   if($self->param('loading_type') eq 'range') {
     my $proto_transcripts = $self->param('proto_transcripts');
     foreach my $proto_transcript (@$proto_transcripts) {
-      push(@$output_genes,$self->build_gene($proto_transcript));
+      $self->output([$self->build_gene($proto_transcript)]);
+    }
+  }
+  elsif ($self->param('loading_type') eq 'file') {
+    my $use_transcript_id = $self->param('use_transcript_id');
+    my $slice_cache = $self->param('slice_cache');
+    my %genes;
+    my %transcripts;
+    my $analysis = $self->analysis;
+    open(FH, $self->param('filename')) || $self->throw('Could not open '.$self->param('filename'));
+    while (my $line = <FH>) {
+      next if (index($line, '#') == 0);
+      my @data = split("\t", $line);
+      my $slice = $slice_cache->{$data[0]};
+      $self->throw('Unknown region '.$data[0]) unless ($slice);
+      my $attributes = $self->set_attributes($data[8]);
+
+      my $gene_id = $use_transcript_id ? $attributes->{'transcript_id'} : $attributes->{'gene_id'};
+      my $transcript_id = $attributes->{'transcript_id'};
+
+      if ($data[2] eq 'exon') {
+        my $exon = Bio::EnsEMBL::Exon->new(
+                                           -START     => $data[3],
+                                           -END       => $data[4],
+                                           -STRAND    => $data[6] eq '-' ? -1 : 1,
+                                           -SLICE     => $slice,
+                                           -PHASE     => -1,
+                                           -END_PHASE => -1
+                                          );
+
+        if (!exists $transcripts{$transcript_id}) {
+          $transcripts{$transcript_id} = Bio::EnsEMBL::Transcript->new(-stable_id => $transcript_id, -source => $data[1]);
+          $transcripts{$transcript_id}->analysis($analysis);
+          $transcripts{$transcript_id}->slice($slice); # I need to add the slice here as add_Exon which will add a slice will happen later but it will be needed for recalculate_coordinates
+          if ($gene_id) {
+            if (!exists $genes{$gene_id}) {
+              $genes{$gene_id} = Bio::EnsEMBL::Gene->new();
+              $genes{$gene_id}->stable_id($gene_id);
+              $genes{$gene_id}->source($data[1]);
+              $genes{$gene_id}->analysis($analysis);
+            }
+            $genes{$gene_id}->add_Transcript($transcripts{$transcript_id});
+          }
+        }
+        $transcripts{$transcript_id}->add_Exon($exon);
+      }
+      elsif ($data[2] eq 'transcript') {
+        if (!exists $transcripts{$transcript_id}) {
+          $transcripts{$transcript_id} = Bio::EnsEMBL::Transcript->new(-stable_id => $transcript_id, -source => $data[1]);
+          $transcripts{$transcript_id}->analysis($analysis);
+          $transcripts{$transcript_id}->slice($slice); # I need to add the slice here as add_Exon which will add a slice will happen later but it will be needed for recalculate_coordinates
+          $transcripts{$transcript_id}->strand($data[6] eq '-' ? -1 : 1); # I need to add the strand here as add_Exon which will add a strand will happen later but it will be needed for recalculate_coordinates
+        }
+        if (!exists $genes{$gene_id}) {
+          $genes{$gene_id} = Bio::EnsEMBL::Gene->new();
+          $genes{$gene_id}->stable_id($gene_id);
+          $genes{$gene_id}->source($data[1]);
+          $genes{$gene_id}->analysis($analysis);
+        }
+        $genes{$gene_id}->add_Transcript($transcripts{$transcript_id});
+      }
+    }
+    close(FH) || $self->throw('Could not close '.$self->param('filename'));
+    my $count = 0;
+    $self->say_with_header("START: ".localtime);
+    foreach my $gene (sort {$a->slice <=> $b->slice || $a->slice->start <=> $b->slice->start} values %genes) {
+      my $transcripts = $gene->get_all_Transcripts;
+      $gene->flush_Transcripts;
+      foreach my $transcript (@$transcripts) {
+        compute_translation($transcript);
+        if (@{$transcript->get_all_Exons} == 1 and $transcript->strand == 1) {
+          my %tmp_hash = %{$transcript->get_all_Exons->[0]};
+          my $tmp_exon = Bio::EnsEMBL::Exon->new_fast(\%tmp_hash);
+          my $tmp_transcript = Bio::EnsEMBL::Transcript->new;
+          $tmp_transcript->add_Exon($tmp_exon);
+          compute_translation($tmp_transcript);
+          if ($tmp_transcript->translation) {
+            my $translation = $transcript->translation;
+            if ($translation and length($tmp_transcript->translation->seq) > length($translation->seq)) {
+              $gene->add_Transcript($tmp_transcript);
+            }
+            else {
+              $gene->add_Transcript($transcript);
+            }
+          }
+          else {
+            $gene->add_Transcript($transcript);
+          }
+        }
+        else {
+          $gene->add_Transcript($transcript);
+        }
+      }
+      $self->output([$gene]);
+      ++$count;
+      $self->say_with_header("$count ".localtime) if (($count%1000) == 0);
     }
   }
 
-  unless(scalar(@$output_genes)) {
+  unless(scalar(@{$self->output})) {
     $self->throw("No output genes created. Something went wrong");
   }
-
-  $self->output($output_genes);
 }
 
 

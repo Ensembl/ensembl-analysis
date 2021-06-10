@@ -706,12 +706,15 @@ sub pipeline_analyses {
     },
     {
       -logic_name => 'generate_scallop_gtf_jobs',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::GenerateGTFLoadingJobs',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -parameters => {
-        gtf_dir => catdir( $self->o('output_dir'), 'scallop', 'merge' ),
+        inputcmd => 'ls #pattern#',
+        pattern => catfile( $self->o('output_dir'), 'scallop', 'merge', '*.gtf'),
+        column_names => ['filename'],
       },
       -flow_into => {
-        2 => ['load_scallop_transcripts'],
+        '2->A' => ['load_scallop_transcripts'],
+        'A->1' => ['create_logic_name_input_ids'],
       },
       -rc_name => '5GB',
     },
@@ -721,14 +724,24 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::LoadGTFBasic',
       -parameters => {
         target_db    => $self->o('scallop_initial_db'),
-        loading_type => 'range',
+        loading_type => 'file',
         genome_file  => $self->o('faidx_genome_file'),
-        logic_name   => 'scallop',
-        module       => 'Stringtie2',
       },
       -rc_name   => '5GB',
+    },
+
+    {
+      -logic_name => 'create_logic_name_input_ids',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+      -rc_name    => 'default',
+      -parameters => {
+        inputquery   => 'SELECT logic_name FROM analysis WHERE logic_name LIKE "#species_name#%rnaseq_gene"',
+        column_names => ['logic_name'],
+        db_conn      => $self->o('scallop_initial_db'),
+        species_name => $self->o('species_name'),
+      },
       -flow_into => {
-        1 => 'create_slice_tissue_input_ids',
+        2 => ['create_slice_tissue_input_ids'],
       },
     },
 
