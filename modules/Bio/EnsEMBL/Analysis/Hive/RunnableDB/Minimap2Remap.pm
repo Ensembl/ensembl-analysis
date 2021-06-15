@@ -45,7 +45,7 @@ use File::Spec::Functions qw(tmpdir catfile);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 use Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap;
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw (align_proteins);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw (align_nucleotide_seqs);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 

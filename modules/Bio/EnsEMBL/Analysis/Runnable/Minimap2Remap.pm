@@ -57,7 +57,7 @@ use Data::Dumper;
 use Bio::EnsEMBL::Analysis::Runnable::Minimap2;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(set_alignment_supporting_features);
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_proteins);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_nucleotide_seqs);
 use File::Spec;
 use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -267,7 +267,7 @@ sub process_results {
 #      }
 
       my ($coverage,$percent_id) = (0,0);
-      ($coverage,$percent_id) = align_proteins($source_transcript->seq->seq(),$transcript->seq->seq());
+      ($coverage,$percent_id) = align_nucleotide_seqs($source_transcript->seq->seq(),$transcript->seq->seq());
 #      if($coverage >= 95 && $percent_id > 90) {
       $transcript->biotype($source_transcript->biotype());
       $transcript->created_date($coverage);
