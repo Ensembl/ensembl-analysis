@@ -16,7 +16,7 @@ limitations under the License.
 
 =cut
 
-package Genome_annotation_gbiab_conf;
+package Human_anno_conf;
 
 use strict;
 use warnings;
@@ -253,8 +253,8 @@ sub default_options {
 # Executable paths
 ########################
     'minimap2_genome_index'  => $self->o('faidx_genome_file').'.mmi',
-    'minimap2_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/minimap2',
-    'paftools_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/misc/paftools.js',
+    'minimap2_path'          => '/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/bin/minimap2',
+    'paftools_path'          => '/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/bin/paftools.js',
     'minimap2_batch_size'    => '5000',
 
     'blast_type' => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
@@ -857,7 +857,7 @@ sub pipeline_analyses {
                          1 => ['create_core_db'],
                        },
         -analysis_capacity => 1,
-        -input_ids  => [{'assembly_accession' => 'GCA_905163445.1'},
+        -input_ids  => [{'assembly_accession' => 'GCA_009914755.2'},
                                                                     ],
       },
 
@@ -995,22 +995,72 @@ sub pipeline_analyses {
                        },
         -rc_name => 'default',
         -flow_into => {
-          1 => ['run_gbiab'],
+          1 => ['create_minimap2_index'],
         },
       },
 
-
       {
-        -logic_name => 'run_gbiab',
+        -logic_name => 'create_minimap2_index',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'if [ ! -e "'.'#reheadered_toplevel_genome_file#.mmi'.'" ]; then '.$self->o('minimap2_path').
+                 ' -d '.'#reheadered_toplevel_genome_file#.mmi'.' '.'#reheadered_toplevel_genome_file#'.';fi',
+        },
+        -flow_into  => {
+          1 => ['check_index_not_empty'],
+        },
+        -rc_name => '20GB',
+      },
+
+
+            {
+        -logic_name => 'check_index_not_empty',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-                         cmd => 'python3.7 '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'gbiab', 'gbiab.py').' #gbiab_commandline#',
-                       },
-        -rc_name => 'gbiab',
-        -max_retry_count => 0,
-        -flow_into => {
-          1 => ['update_biotypes_and_analyses'],
+                         cmd => 'if [ -s "'.'#reheadered_toplevel_genome_file#.mmi'.'" ]; then exit 0; else exit 42;fi',
+                         return_codes_2_branches => {'42' => 2},
         },
+        -flow_into  => {
+          '1->A' => ['create_remap_jobs'],
+          'A->1' => ['update_biotypes_and_analyses'],
+        },
+        -rc_name => 'default',
+      },
+
+
+
+      {
+        -logic_name => 'create_remap_jobs',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('reference_db'),
+                         coord_system_name => 'toplevel',
+                         iid_type => 'slice',
+                         include_non_reference => 0,
+                         top_level => 1,
+                         batch_slice_ids => 1,
+                         batch_target_size => 10000000,
+                       },
+        -rc_name    => '2GB',
+        -flow_into => {
+                         2 => {'minimap2genomic' => {'core_db' => '#core_db#','genome_index' => '#reheadered_toplevel_genome_file#'.'.mmi'}},
+                      },
+     },
+
+
+    {
+        -logic_name => 'minimap2genomic',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Minimap2Remap',
+        -parameters => {
+                         genome_index   => '#genome_index#',
+                         source_dna_db => $self->o('reference_db'),
+                         source_gene_db => $self->o('reference_db'),
+                         target_dna_db => '#core_db#',
+                         target_gene_db => '#core_db#',
+                         paftools_path => $self->o('paftools_path'),
+                         minimap2_path => $self->o('minimap2_path'),
+                       },
+        -rc_name    => '50GB',
       },
 
 

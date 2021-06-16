@@ -267,7 +267,7 @@ sub process_results {
 #      }
 
       my ($coverage,$percent_id) = (0,0);
-      ($coverage,$percent_id) = align_nucleotide_seqs($source_transcript->seq->seq(),$transcript->seq->seq());
+#      ($coverage,$percent_id) = align_nucleotide_seqs($source_transcript->seq->seq(),$transcript->seq->seq());
 #      if($coverage >= 95 && $percent_id > 90) {
       $transcript->biotype($source_transcript->biotype());
       $transcript->created_date($coverage);

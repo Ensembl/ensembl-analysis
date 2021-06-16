@@ -84,6 +84,11 @@ sub fetch_input {
     # At the moment the filtering is just on readthroughs
     say "Got ".scalar(@$genes)." unfiltered genes";
     foreach my $gene (@$genes) {
+      # Skip X genes on Y
+      if($slice->seq_region_name eq 'Y' and $gene->seq_region_name ne 'Y') {
+        next;
+      }
+
       my $is_readthrough = 0;
       my $transcripts = $gene->get_all_Transcripts();
       foreach my $transcript (@$transcripts) {
@@ -249,9 +254,9 @@ sub run {
     my $gene = ${$sorted_final_genes}[$i];
     my $gene_id = $gene->{'parent_gene_id'};
     my $synteny_score = 0;
-    say "FERGAL SYN GID: ".$gene_id;
-    say "FERGAL SYN DMP: ".Dumper($gene_synteny_hash->{$gene_id});
-    say "FERGAL SYN SLC: ".$gene->slice->name();
+#    say "FERGAL SYN GID: ".$gene_id;
+#    say "FERGAL SYN DMP: ".Dumper($gene_synteny_hash->{$gene_id});
+#    say "FERGAL SYN SLC: ".$gene->slice->name();
 
 
     # Store the ids of up to four genes, two upstream and two downstream around the current gene
