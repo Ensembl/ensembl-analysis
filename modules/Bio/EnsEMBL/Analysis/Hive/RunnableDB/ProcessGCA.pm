@@ -325,6 +325,12 @@ sub get_clade_params {
     $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblVertebrates',
+  } elsif($clade eq 'insects') {
+    # This is for hymenoptera, just labelled insects till the registry is updated
+    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/hymenoptera_uniprot_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/ hymenoptera_orthodb_proteins.fa',
+    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
+    $clade_params->{'species_division'} = 'EnsemblMetazoa',
   } else {
     $self->throw('Clade parameters not found for clade: '.$clade);
   }
