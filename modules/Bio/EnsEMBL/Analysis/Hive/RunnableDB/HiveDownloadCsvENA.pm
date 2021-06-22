@@ -508,7 +508,7 @@ sub _retrieve_biosample_info {
           $data->{sample_alias} = $json->{characteristics}->{$sample_string}->[0]->{text};
         }
       }
-      foreach my $tissue ('cell type', 'organism part', 'tissue') {
+      foreach my $tissue ('cell type', 'organism part', 'tissue', 'tissue_type', 'tissue type') {
         if (exists $json->{characteristics}->{$tissue}) {
           if (exists $data->{organismPart} and $data->{organismPart} ne $json->{characteristics}->{$tissue}->[0]->{text}) {
             $self->warning('Replacing '.$data->{organismPart}.' with '.$json->{characteristics}->{$tissue}->[0]->{text});
