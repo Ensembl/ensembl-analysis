@@ -57,7 +57,7 @@ use Data::Dumper;
 use Bio::EnsEMBL::Analysis::Runnable::Minimap2;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(set_alignment_supporting_features);
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_nucleotide_seqs);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_nucleotide_seqs map_cds_location align_proteins);
 use File::Spec;
 use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -267,19 +267,54 @@ sub process_results {
 #      }
 
       my ($coverage,$percent_id) = (0,0);
-#      ($coverage,$percent_id) = align_nucleotide_seqs($source_transcript->seq->seq(),$transcript->seq->seq());
-#      if($coverage >= 95 && $percent_id > 90) {
+      my $aligned_source_seq;
+      my $aligned_target_seq;
+      ($coverage,$percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->seq->seq(),$transcript->seq->seq());
       $transcript->biotype($source_transcript->biotype());
       $transcript->created_date($coverage);
       $transcript->modified_date($percent_id);
       my $cov_string = "cov: ".$coverage." perc_id: ".$percent_id;
-      $transcript->description($cov_string);
 
-#      } else {
-#        $transcript->biotype($source_transcript->biotype()."_weak");
-#      }
+      if($source_transcript->translation()) {
+        say "Calculating CDS for transcript with stable id: ".$transcript->stable_id();
+        map_cds_location($source_transcript,$transcript,$aligned_source_seq,$aligned_target_seq);
+        my $good_cov = 99;
+        my $good_ident = 95;
+        if($transcript->translation()) {
+          my $source_cds_seq = $source_transcript->translateable_seq();
+          my $initial_target_cds_seq = $transcript->translateable_seq();
+          my $initial_translation = $transcript->translation();
+          my ($initial_cds_cov,$initial_cds_perc_id,$initial_aligned_cds_source_seq,$initial_aligned_cds_target_seq) = align_nucleotide_seqs($source_cds_seq,$initial_target_cds_seq);
+          if($initial_cds_cov < $good_cov or $initial_cds_perc_id < $good_ident) {
+            say "Initial translation failed cut-off thresholds, will try computing translation to compare";
+            compute_translation($transcript);
+            my $computed_target_cds_seq = $transcript->translateable_seq();
+            my ($computed_cds_cov,$computed_cds_perc_id,$computed_aligned_cds_source_seq,$computed_aligned_cds_target_seq) = align_nucleotide_seqs($source_cds_seq,$computed_target_cds_seq);
+            # At the moment just look at which combined value is better
+            if(($computed_cds_cov + $computed_cds_perc_id) < ($initial_cds_cov + $initial_cds_perc_id)) {
+              say "Going with the intial translation over the computed one";
+              $transcript->translation($initial_translation);
+              $cov_string .= " cds_cov: ".$initial_cds_cov." cds_perc_id: ".$initial_cds_perc_id;
+            } else {
+              say "Choosing the computed translation over the initial translation";
+              $cov_string .= " cds_cov: ".$computed_cds_cov." cds_perc_id: ".$computed_cds_perc_id;
+            }
+          } else {
+            $cov_string .= " cds_cov: ".$initial_cds_cov." cds_perc_id: ".$initial_cds_perc_id;
+          }
+        } else {
+          say "No translation found for transcript: ".$transcript->stable_id();
+          say "Will compute translation";
+          compute_translation($transcript);
+          my $source_cds_seq = $source_transcript->translateable_seq();
+          my $computed_target_cds_seq = $transcript->translateable_seq();
+          my ($computed_cds_cov,$computed_cds_perc_id,$computed_aligned_cds_source_seq,$computed_aligned_cds_target_seq) = align_nucleotide_seqs($source_cds_seq,$computed_target_cds_seq);
+          $cov_string .= " cds_cov: ".$computed_cds_cov." cds_perc_id: ".$computed_cds_perc_id;
+        }
+      } # End if($source_transcript->translation()
 
       $transcript->source($source);
+      $transcript->description($cov_string);
 
       push(@{$final_gene_hash->{$parent_gene_id}},$transcript);
     }

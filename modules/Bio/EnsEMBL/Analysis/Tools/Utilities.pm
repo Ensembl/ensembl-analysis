@@ -50,6 +50,7 @@ package Bio::EnsEMBL::Analysis::Tools::Utilities;
 
 use strict;
 use warnings;
+use feature 'say';
 
 use Exporter qw(import);
 use File::Spec::Functions qw(catfile tmpdir);
@@ -85,6 +86,7 @@ our @EXPORT_OK = qw(
               align_proteins
               align_proteins_with_alignment
               align_nucleotide_seqs
+              map_cds_location
               locate_executable
               first_upper_case
               execute_with_wait
@@ -953,14 +955,23 @@ sub align_proteins_with_alignment {
   say INPUT $target_protein_seq;
   close INPUT;
 
-  my $align_program_path = 'muscle';
+  my $align_program_path = 'mafft';
 
-  my $cmd = $align_program_path." -in ".$align_input_file." -out ".$align_output_file;
+  my $cmd = $align_program_path." --amino ".$align_input_file." > ".$align_output_file;
   my $result = system($cmd);
 
   if ($result) {
     throw("Got a non-zero exit code from alignment. Command line used:\n".$cmd);
   }
+
+#  my $align_program_path = 'muscle';
+
+#  my $cmd = $align_program_path." -in ".$align_input_file." -out ".$align_output_file;
+#  my $result = system($cmd);
+
+#  if ($result) {
+#    throw("Got a non-zero exit code from alignment. Command line used:\n".$cmd);
+#  }
 
   my $file = "";
   open(ALIGN,$align_output_file);
@@ -1049,7 +1060,7 @@ sub align_nucleotide_seqs {
 
   my $align_program_path = 'mafft';
 
-  my $cmd = $align_program_path." ".$align_input_file." > ".$align_output_file;
+  my $cmd = $align_program_path." --nuc ".$align_input_file." > ".$align_output_file;
   my $result = system($cmd);
 
   if ($result) {
@@ -1111,8 +1122,290 @@ sub align_nucleotide_seqs {
   my $percent_id = ($match_count/$aligned_positions)*100;
   $coverage = sprintf "%.2f", $coverage;
   $percent_id = sprintf "%.2f", $percent_id;
-  return ($coverage,$percent_id);
+  return ($coverage,$percent_id,$aligned_source_seq,$aligned_target_seq);
 }
+
+
+=head2 map_cds_location
+
+  Arg [0]   : source transcript with CDS
+  Arg [1]   : target transcript without a CDS
+  Arg [2]   : source transcript alignment seq from pairwise aligment of both transcripts
+  Arg [3]   : target transcript alignment seq from pairwise aligment of both transcripts
+  Function  : It takes in a source transcript with an annotated CDS and then tries to find that CDS in
+              the target based on a pairwise alignement of both sequences. This works in conjunction
+              with the output of align_nucleotide_seqs, which returns the aligned sequences from the
+              pairwise alignment
+  Returntype: None
+  Examples  : align_nucleotide_seqs($source_transcript,$target_transcript,$aligned_source_seq,$aligned_target_seq);
+
+=cut
+
+sub map_cds_location {
+  my ($source_transcript,$target_transcript,$aligned_source_seq,$aligned_target_seq) = @_;
+
+  my $source_seq = $source_transcript->seq->seq();
+  my $target_seq = $target_transcript->seq->seq();
+
+  unless($source_transcript->translation()) {
+    throw("Source transcript does not have a translation, so can't map a CDS");
+  }
+
+  my $source_cds_start = $source_transcript->cdna_coding_start();
+  my $source_cds_end = $source_transcript->cdna_coding_end();
+
+  my @align_source = split("",$aligned_source_seq);
+  my @align_target = split("",$aligned_target_seq);
+
+  my ($source_align_start_index,$target_start_pos) = find_base_alignment_index($source_cds_start,$aligned_source_seq,$aligned_target_seq);
+
+  my $target_codon = substr($target_seq,$target_start_pos - 1, 3);
+  say "Target codon: ".$target_codon;
+  if($target_codon eq 'ATG') {
+    my $target_stop_pos = find_stop_pos($target_seq,$target_start_pos);
+    my $target_stop_codon = substr($target_seq,$target_stop_pos - 3, 3);
+    say "Target stop codon: ".$target_stop_codon;
+#    my @coords = $target_transcript->cdna2genomic($target_start_pos,$target_start_pos);
+#    my $transcript_mapper = $target_transcript->get_TranscriptMapper();
+#
+#    say "Genomic start/end: ".${$coords}[0]."..".${$coords}[1];
+#    use Data::Dumper;
+#    say "FERGAL DUMPER: ".Dumper(@coords);
+    my ($target_start_exon,$start_offset) = find_base_exon_position($target_transcript,$target_start_pos);
+#    say "FERGAL T1";
+    my ($target_end_exon,$end_offset) = find_base_exon_position($target_transcript,$target_stop_pos);
+    # Once we have all of these it's enough to attach a translation to the target
+#    say "FERGAL T2";
+    my $translation = Bio::EnsEMBL::Translation->new();
+    $translation->start_Exon($target_start_exon);
+    $translation->start($start_offset);
+    $translation->end_Exon($target_end_exon);
+    $translation->end($end_offset);
+    $target_transcript->translation($translation);
+
+    # Set the phases
+    calculate_exon_phases($target_transcript, 0);
+ #   say "Translation: ".$target_transcript->translation->seq();
+ #   throw("FERGAL DEBUG");
+  }
+
+}
+
+
+=head2 find_base_alignment_index
+
+  Arg [0]   : the position of the base in the unaligned source sequence
+  Arg [1]   : source transcript alignment seq from pairwise aligment of both transcripts
+  Arg [2]   : target transcript alignment seq from pairwise aligment of both transcripts
+  Function  : It takes in the position of a base in the source transcript (for example $transcript->cdna_coding_start)
+              along with the two aligned sequences from the source and target transcripts and then tries to figure out
+              the location of the base in the target transcript and the index of the base in the alignment
+  Returntype: source_align_pos_index, target_pos
+  Examples  : my ($source_align_pos_index,$target_pos) = find_base_alignment_index($source_base_index,$aligned_source_seq,$aligned_target_seq);
+
+=cut
+
+sub find_base_alignment_index {
+  my ($source_base_index,$aligned_source_seq,$aligned_target_seq) = @_;
+
+  my @align_source = split("",$aligned_source_seq);
+  my @align_target = split("",$aligned_target_seq);
+
+  my $source_align_pos = 0;
+  my $source_align_pos_index = 0;
+  my $target_pos = 0;
+  # Loop and find the cds start index in the alignment
+  for(my $i=0; $i<scalar(@align_source); $i++) {
+    my $align_char_source = $align_source[$i];
+    my $align_char_target = $align_target[$i];
+    if($align_char_source ne '-') {
+      $source_align_pos++;
+    }
+
+    if($align_char_target ne '-') {
+      $target_pos++;
+    }
+
+    if($source_align_pos == $source_base_index) {
+      $source_align_pos_index = $i;
+      last;
+    }
+  }
+
+  say "Source base align pos: ".$source_align_pos_index;
+  say "Target base seq pos: ".$target_pos;
+  return($source_align_pos_index,$target_pos);
+}
+
+
+=head2 find_stop_pos
+
+  Arg [0]   : the target sequence
+  Arg [1]   : the position of the orf start
+  Function  : takes in the orf start pos and then
+  Returntype: stop index
+  Examples  : my $stop_index = find_stop_pos($target_seq,$target_start_pos);
+
+=cut
+
+sub find_stop_pos {
+  my ($target_seq,$target_start_pos) = @_;
+
+  my @target_seq_array = split("",$target_seq);
+
+  # This is the second codon index
+  my $second_codon_index = $target_start_pos - 1 + 3;
+  my $last_codon_index = 0;
+  for(my $i=$second_codon_index; $i<scalar(@target_seq_array) - 2; $i += 3) {
+    my $codon = $target_seq_array[$i].$target_seq_array[$i+1].$target_seq_array[$i+2];
+    $last_codon_index = $i+2;
+    if($codon eq 'TAA' or $codon eq 'TAG' or $codon eq 'TGA') {
+      last;
+    }
+  }
+
+  # Add 1 since the position in seq coords is 1-based
+  return($last_codon_index + 1);
+}
+
+
+=head2 find_base_exon_position
+
+  Arg [0]   : target_transcript
+  Arg [1]   : target_pos
+  Function  : takes the target transcript and a base position in it and figures out where it is in
+              exons
+  Returntype: exon, offset in exon
+  Examples  : my ($target_end_exon,$end_offset) = find_base_exon_position($target_transcript,$target_stop_pos);
+
+=cut
+
+#sub find_base_exon_position {
+#  my ($transcript,$pos) = @_;
+
+#  my $exons = $transcript->get_all_Exons();
+#  my $running_count = 0;
+#  my $selected_exon;
+#  my $offset;
+#  foreach my $exon (@$exons) {
+#    $running_count += $exon->length();
+#    if($running_count >= $pos) {
+#      $selected_exon = $exon;
+#      my $start_base_count = $running_count - $exon->length() + 1;
+#      my $offset = $pos - $start_base_count + 1;
+#    }
+#  }
+
+  # Stop examples
+  # pos = 12
+  #  123456789012345
+  #  AAATTTAAATGATTT
+  # rc = 15
+  # sbc = 15 - 15  + 1 = 1
+  # offset = 12 - 1 + 1 = 12
+  #
+  # pos = 21
+  # 123456789 012345678901234
+  # TTTAAATTT AAACCCAAATGAAAA
+  # loop 1 (exon 1):
+  # rc = 9
+  # loop 2 (exon 2):
+  # rc = 9 + 15 = 24
+  # sbc = 24 - 15 + 1 = 10
+  # offset = 21 - 10 + 1 = 12
+
+#  unless($selected_exon and $offset) {
+#    throw("Couldn't fine the position of the base in the exon set, something went wrong");
+#  }
+
+#  return($selected_exon,$offset);
+#}
+
+
+sub find_base_exon_position {
+  my ($transcript,$pos) = @_;
+
+  my $exons = $transcript->get_all_Exons();
+  my @genomic_coords = $transcript->cdna2genomic($pos,$pos);
+  my $pos_genomic = $genomic_coords[0]->start();
+  say "Pos genomic: ".$pos_genomic;
+  my $selected_exon;
+  foreach my $exon (@$exons) {
+    say "Exon: ".$exon->seq_region_start()."..".$exon->seq_region_end();
+    if($pos_genomic >= $exon->seq_region_start and $pos_genomic <= $exon->seq_region_end) {
+      $selected_exon = $exon;
+      last;
+    }
+  }
+
+  unless($selected_exon) {
+    throw("Couldn't find the position of the base in the exon set, something went wrong");
+  }
+
+  my $offset = 0;
+  if($selected_exon->strand() == 1) {
+    $offset = $pos_genomic - $selected_exon->seq_region_start() + 1;
+  } else {
+    $offset = $selected_exon->seq_region_end() - $pos_genomic + 1;
+  }
+
+  return($selected_exon,$offset);
+}
+
+
+=head2 calculate_exon_phases
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : Given a transcript, calculates and sets
+    exon phases according to translation and given
+    start phase
+
+=cut
+
+sub calculate_exon_phases {
+  my ($transcript, $start_phase) = @_;
+
+  foreach my $e (@{$transcript->get_all_Exons}) {
+    $e->phase(-1);
+    $e->end_phase(-1);
+  }
+
+  if ($transcript->translation) {
+    my $tr = $transcript->translation;
+
+    my @exons = @{$transcript->get_all_Exons};
+
+    while($exons[0] != $tr->start_Exon) {
+      shift @exons;
+    }
+    while($exons[-1] != $tr->end_Exon) {
+      pop @exons;
+    }
+
+    # set phase of for first coding exon
+    my $cds_len = $exons[0]->length;
+    if ($tr->start == 1) {
+      $exons[0]->phase($start_phase);
+      if ($start_phase > 0) {
+        $cds_len += $start_phase;
+      }
+    } else {
+      $cds_len -= ($tr->start - 1);
+    }
+    $exons[0]->end_phase($cds_len % 3);
+    # set phase for internal coding exons
+    for(my $i=1; $i < @exons; $i++) {
+      $exons[$i]->phase($exons[$i-1]->end_phase);
+      $exons[$i]->end_phase(($exons[$i]->length + $exons[$i]->phase) % 3);
+    }
+
+    # set phase for last coding exon
+    if ($exons[-1]->length > $tr->end) {
+      $exons[-1]->end_phase(-1);
+    }
+  }
+}
+
 
 =head2 hrdb_get_dba
 

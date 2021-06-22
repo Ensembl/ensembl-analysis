@@ -73,11 +73,13 @@ sub fetch_input {
 
 
   my $slice_array = $self->param('iid');
-  my $slice_adaptor = $source_gene_dba->get_SliceAdaptor();
-  my $sequence_adaptor = $source_gene_dba->get_SequenceAdaptor();
+  my $slice_adaptor = $source_dna_dba->get_SliceAdaptor();
+  my $sequence_adaptor = $source_dna_dba->get_SequenceAdaptor();
   my $input_genes = [];
   foreach my $slice_name (@$slice_array) {
+    say "FERGAL T1";
     my $slice = $slice_adaptor->fetch_by_name($slice_name);
+    say "FERGAL T2";
     my $genes = $slice->get_all_Genes();
     my $filtered_genes = [];
     # Put the filtering in a subroutine at some point if it gets more complex
@@ -85,9 +87,13 @@ sub fetch_input {
     say "Got ".scalar(@$genes)." unfiltered genes";
     foreach my $gene (@$genes) {
       # Skip X genes on Y
-      if($slice->seq_region_name eq 'Y' and $gene->seq_region_name ne 'Y') {
-        next;
-      }
+      #if($slice->seq_region_name eq 'Y') {
+      #  next;
+      #}
+
+#      unless($gene->stable_id eq 'ENSG00000183067') {
+#        next;
+#      }
 
       my $is_readthrough = 0;
       my $transcripts = $gene->get_all_Transcripts();
@@ -195,14 +201,20 @@ sub fetch_input {
 
 
     my $region_start = $gene->seq_region_start - $self->param('region_padding');
-    if($region_start <= 0) {
-      $region_start = 1;
+    if($region_start < $slice->seq_region_start()) {
+       $region_start = $slice->seq_region_start();
     }
+#    if($region_start <= 0) {
+#      $region_start = 1;
+#    }
 
     my $region_end = $gene->seq_region_end + $self->param('region_padding');
-    if($region_end > $slice->length()) {
-      $region_end = $slice->length();
+    if($region_end > $slice->seq_region_end()) {
+      $region_end = $slice->seq_region_end();
     }
+#    if($region_end > $slice->length()) {
+#      $region_end = $slice->length();
+#    }
 
     my $strand = $gene->strand;
     my $genomic_seq = ${ $sequence_adaptor->fetch_by_Slice_start_end_strand($slice, $region_start, $region_end, $strand) };

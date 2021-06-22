@@ -32,19 +32,21 @@ sub default_options {
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
-    'num_threads' => 20,
-    'dbowner' => 'fergal',
-    'base_output_dir' => '/hps/nobackup2/production/ensembl/fergal/production/test_runs/non_verts/production_test/',
+    'dbowner'                   => 'f2' || $ENV{EHIVE_USER} || $ENV{USER},
+    'user'                      => '', # write db user
+    'password'                  => '', # password for write db user
+    'base_output_dir'           => '/hps/nobackup2/production/ensembl/fergal/hprc/scale_test1/',
     'protein_file'              => '',
     'busco_protein_file'        => '',
     'rfam_accessions_file'      => '',
     'registry_file'             => '/hps/nobackup2/production/ensembl/fergal/production/test_runs/non_verts/production_test/Databases.pm',
+    'ref_db_server'             => 'mysql-ens-mirror-1', # host for dna db
+    'ref_db_port'               => '4240',
+    'ref_db_name'               => 'homo_sapiens_core_104_38',
     'release_number'            => '001' || $self->o('ensembl_release'),
-    'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
-    'pipeline_name'             => '' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('ensembl_release'),
-    'user_r'                    => '', # read only db user
-    'user'                      => '', # write db user
-    'password'                  => '', # password for write db user
+    'pipeline_name'             => 'human_scale_1' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('ensembl_release'),
+    'user_r'                    => 'ensro', # read only db user
+    'num_threads' => 20,
     'server_set'                => '', # What server set to user, e.g. set1
     'pipe_db_server'            => $ENV{GBS7}, # host for pipe db
     'databases_server'          => $ENV{GBS5}, # host for general output dbs
@@ -678,6 +680,13 @@ sub default_options {
       -driver => $self->o('hive_driver'),
     },
 
+    'reference_db' => {
+      -dbname => $self->o('ref_db_name'),
+      -host   => $self->o('ref_db_server'),
+      -port   => $self->o('ref_db_port'),
+      -user   => $self->o('user_r'),
+      -driver => $self->o('hive_driver'),
+    },
 
 
     'production_db' => {
@@ -858,6 +867,9 @@ sub pipeline_analyses {
                        },
         -analysis_capacity => 1,
         -input_ids  => [{'assembly_accession' => 'GCA_009914755.2'},
+                        {'assembly_accession' => 'GCA_016700455.2'},
+                        {'assembly_accession' => 'GCA_018472865.1'},
+                        {'assembly_accession' => 'GCA_018469875.1'},
                                                                     ],
       },
 
@@ -1028,24 +1040,37 @@ sub pipeline_analyses {
       },
 
 
-
       {
         -logic_name => 'create_remap_jobs',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::GenerateSlices',
         -parameters => {
-                         target_db => $self->o('reference_db'),
-                         coord_system_name => 'toplevel',
-                         iid_type => 'slice',
-                         include_non_reference => 0,
-                         top_level => 1,
-                         batch_slice_ids => 1,
-                         batch_target_size => 10000000,
+                         reference_db => $self->o('reference_db'),
+                         genome_index => '#reheadered_toplevel_genome_file#'.'.mmi'
                        },
         -rc_name    => '2GB',
         -flow_into => {
-                         2 => {'minimap2genomic' => {'core_db' => '#core_db#','genome_index' => '#reheadered_toplevel_genome_file#'.'.mmi'}},
+                        2 => ['minimap2genomic'], #{'minimap2genomic' => {'core_db' => '#core_db#','genome_index' => '#reheadered_toplevel_genome_file#'.'.mmi'}},
                       },
      },
+
+
+#      {
+#        -logic_name => 'create_remap_jobs',
+#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+#        -parameters => {
+#                         target_db => $self->o('reference_db'),
+#                         coord_system_name => 'toplevel',
+#                         iid_type => 'slice',
+#                         include_non_reference => 0,
+#                         top_level => 1,
+#                         batch_slice_ids => 1,
+#                         batch_target_size => 10000000,
+#                       },
+ #       -rc_name    => '2GB',
+ #       -flow_into => {
+ #                       2 => ['minimap2genomic'], #{'minimap2genomic' => {'core_db' => '#core_db#','genome_index' => '#reheadered_toplevel_genome_file#'.'.mmi'}},
+ #                     },
+ #    },
 
 
     {
