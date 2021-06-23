@@ -250,8 +250,9 @@ sub pipeline_create_commands {
     }
     elsif ( $key eq 'DS' or $key eq 'url') {
       $tables .= $key . ' VARCHAR(255) NOT NULL,'
-    }
-    else {
+    } elsif ($key eq 'SM' or $key eq 'CN') {
+      $tables .= $key.' VARCHAR(138) NOT NULL,'
+    } else {
       $tables .= $key . ' VARCHAR(50) NOT NULL,'
     }
   }
