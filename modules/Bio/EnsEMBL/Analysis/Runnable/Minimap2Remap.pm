@@ -277,6 +277,15 @@ sub process_results {
 
       if($source_transcript->translation()) {
         say "Calculating CDS for transcript with stable id: ".$transcript->stable_id();
+        # Test
+        compute_translation($transcript);
+        my $source_cds_seq = $source_transcript->translateable_seq();
+        my $computed_target_cds_seq = $transcript->translateable_seq();
+        my ($computed_cds_cov,$computed_cds_perc_id,$computed_aligned_cds_source_seq,$computed_aligned_cds_target_seq) = align_nucleotide_seqs($source_cds_seq,$computed_target_cds_seq);
+        $cov_string .= " cds_cov: ".$computed_cds_cov." cds_perc_id: ".$computed_cds_perc_id;
+        # End test
+
+=for comment
         map_cds_location($source_transcript,$transcript,$aligned_source_seq,$aligned_target_seq);
         my $good_cov = 99;
         my $good_ident = 95;
@@ -311,6 +320,8 @@ sub process_results {
           my ($computed_cds_cov,$computed_cds_perc_id,$computed_aligned_cds_source_seq,$computed_aligned_cds_target_seq) = align_nucleotide_seqs($source_cds_seq,$computed_target_cds_seq);
           $cov_string .= " cds_cov: ".$computed_cds_cov." cds_perc_id: ".$computed_cds_perc_id;
         }
+=cut
+
       } # End if($source_transcript->translation()
 
       $transcript->source($source);
