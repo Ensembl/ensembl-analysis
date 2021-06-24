@@ -87,6 +87,10 @@ sub fetch_input {
   my $output_dir = catdir($output_dir_base,$assembly_accession);
   my $genome_files_dir = catdir($output_dir,'genome_files');
   my $short_read_dir = catdir($output_dir,'short_read_fastq');
+  if($self->param('use_existing_short_read_dir') and -d $self->param('use_existing_short_read_dir')) {
+    $short_read_dir = $self->param('use_existing_short_read_dir');
+  }
+
   my $long_read_dir = catdir($output_dir,'long_read_fastq');
   push(@$dirs_to_create,($output_dir,$genome_files_dir,$short_read_dir,$long_read_dir));
 
@@ -328,7 +332,7 @@ sub get_clade_params {
   } elsif($clade eq 'insects') {
     # This is for hymenoptera, just labelled insects till the registry is updated
     $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/hymenoptera_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/ hymenoptera_orthodb_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/hymenoptera_orthodb_proteins.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblMetazoa',
   } else {

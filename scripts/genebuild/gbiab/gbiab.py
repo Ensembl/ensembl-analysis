@@ -1869,6 +1869,8 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
       print(bam_sort_file_path)
       subprocess.run(['samtools','sort','-@',str(num_threads),'-T',sam_temp_file_path,'-o',bam_sort_file_path,sam_file])
 
+    print("Removing sam file")
+    subprocess.run(['rm',sam_file])
 
 
 def run_subsample_script(fastq_file,fastq_file_pair,subsample_script_path):
