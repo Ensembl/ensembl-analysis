@@ -1,0 +1,61 @@
+1	\N	schema_type	core
+2	\N	schema_version	104
+4	1	genebuild.start_date	2021-05-Ensembl
+5	1	assembly.date	2021-01
+6	1	species.common_name	Speckled Wood Butterfly
+8	1	species.scientific_name	Pararge aegeria
+9	1	species.taxonomy_id	116150
+10	1	assembly.accession	GCA_905163445.1
+11	1	assembly.default	ilParAegt1.1
+12	1	assembly.name	ilParAegt1.1
+13	1	assembly.web_accession_source	NCBI
+14	1	assembly.web_accession_type	INSDC Assembly ID
+15	1	annotation.provider_name	Ensembl
+16	1	annotation.provider_url	www.ensembl.org
+17	1	assembly.coverage_depth	high
+18	1	assembly.provider_name	
+19	1	assembly.provider_url	
+21	1	species.stable_id_prefix	ENSPAG
+22	1	species.url	Pararge_aegeria_GCA_905163445.1
+23	1	species.display_name	Pararge aegeria (Speckled Wood Butterfly) - GCA_905163445.1
+24	1	species.division	EnsemblMetazoa
+25	1	species.strain	reference
+26	1	species.strain_group	pararge_aegeria_gca905163445v1
+27	1	species.production_name	pararge_aegeria_gca905163445v1
+28	1	strain.type	strain
+29	1	repeat.analysis	repeatdetector
+30	1	repeat.analysis	dust
+31	1	repeat.analysis	trf
+36	1	species.classification	Parargina
+37	1	species.classification	Satyrini
+38	1	species.classification	Satyrinae
+39	1	species.classification	Nymphalidae
+40	1	species.classification	Papilionoidea
+41	1	species.classification	Obtectomera
+42	1	species.classification	Ditrysia
+43	1	species.classification	Heteroneura
+44	1	species.classification	Neolepidoptera
+45	1	species.classification	Glossata
+46	1	species.classification	Lepidoptera
+47	1	species.classification	Amphiesmenoptera
+48	1	species.classification	Holometabola
+49	1	species.classification	Neoptera
+50	1	species.classification	Pterygota
+51	1	species.classification	Dicondylia
+52	1	species.classification	Insecta
+53	1	species.classification	Hexapoda
+54	1	species.classification	Pancrustacea
+55	1	species.classification	Mandibulata
+56	1	species.classification	Arthropoda
+57	1	species.classification	Panarthropoda
+58	1	species.classification	Ecdysozoa
+59	1	species.classification	Protostomia
+60	1	species.classification	Bilateria
+61	1	species.classification	Eumetazoa
+62	1	species.classification	Metazoa
+63	1	species.classification	Opisthokonta
+64	1	species.classification	Eukaryota
+65	1	genebuild.level	toplevel
+66	1	transcriptbuild.level	toplevel
+67	1	exonbuild.level	toplevel
+68	1	assembly.mapping	primary_assembly:ilParAegt1.1|contig

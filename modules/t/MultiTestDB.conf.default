@@ -8,5 +8,8 @@
     'homo_sapiens' => {
       'core' => 'Bio::EnsEMBL::DBSQL::DBAdaptor',
     },
+    'pararge_aegeria' => {
+      'core' => 'Bio::EnsEMBL::DBSQL::DBAdaptor',
+    },
   },
 }

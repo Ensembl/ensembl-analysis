@@ -1,0 +1,2 @@
+1	1	primary_assembly	ilParAegt1.1	1	default_version
+2	1	contig	\N	2	default_version,sequence_level
