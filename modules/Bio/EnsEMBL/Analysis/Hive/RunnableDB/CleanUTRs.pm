@@ -110,10 +110,7 @@ sub run {
       my $transcripts = $gene->get_all_Transcripts;
       for (my $next_gene_index = 0; $next_gene_index <= $#overlapping_genes; $next_gene_index++) {
         my $next_gene = $overlapping_genes[$next_gene_index];
-        if ($gene_index == $next_gene_index) {
-          $self->say_with_header('Checking transcripts overlap inside gene');
-        }
-        else {
+        if ($gene_index != $next_gene_index) {
           $self->say_with_header("Checking $next_gene_index ".$next_gene->display_id);
           if ($gene->overlaps_local($next_gene)) {
             $self->say_with_header('Comparing '.$gene->display_id.' '.$next_gene->display_id);
@@ -155,7 +152,7 @@ sub run {
                           $exons_to_delete{$utr_exon->start.':'.$utr_exon->end} = $utr_exon;
                           if (!exists $overlapping_exons{$cds_exon->start.':'.$cds_exon->end}) {
                             if ($utr_exon->start <= $cds_start_genomic and $utr_exon->end >= $cds_start_genomic
-                                and $utr_exon->start <= $next_transcript->coding_region_end and $utr_exon->end >= $next_transcript->coding_region_start) {
+                                and $utr_exon->start <= $next_transcript->coding_region_end and $utr_exon->end >= $next_transcript->coding_region_end) {
                               $new_utr_exon_start = $cds_exon->end;
                             }
                             if ($utr_exon->start <= $cds_end_genomic and $utr_exon->end >= $cds_end_genomic
