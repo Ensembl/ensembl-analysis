@@ -251,6 +251,14 @@ sub run {
                       }
                       $transcript->add_Exon($exon);
                     }
+                    if ($translation and $translation->start_Exon == $translation->end_Exon) {
+                      if ($transcript->strand == -1) {
+                        $translation->end($translation->start_Exon->end-$cds_start_genomic+1);
+                      }
+                      else {
+                        $translation->end($cds_end_genomic-$translation->start_Exon->start+1);
+                      }
+                    }
                   }
                 }
               }
