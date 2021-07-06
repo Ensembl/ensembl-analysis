@@ -211,7 +211,7 @@ sub run {
     $runnable->run();
     $self->output($runnable->output());
   }
-  close(OUT) || $self->throw("Could not close $output_path/all_multi_exon_genes.fasta");
+  close(OUT) || $self->throw("Could not close ".$output_path."/".$all_multi_exons_filename);
 }
 
 sub make_runnable {
