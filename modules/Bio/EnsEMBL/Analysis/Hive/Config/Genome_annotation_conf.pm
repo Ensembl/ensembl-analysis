@@ -7765,16 +7765,38 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into => {
-                        1 => ['pseudogenes'],
+                        '1->A' => ['create_toplevel_slices_for_pseudogenes'],
+                        'A->1' => ['concat_pseudogenes_multi_exon_files'],
                       },
       },
 
+
+
+      {
+        -logic_name => 'create_toplevel_slices_for_pseudogenes',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+                         target_db => $self->o('dna_db'),
+                         iid_type => 'slice',
+                         coord_system_name => 'toplevel',
+                         include_non_reference => 0,
+                         top_level => 1,
+                         # These options will create only slices that have a gene on the slice in one of the feature dbs
+                         feature_constraint => 1,
+                         feature_type => 'gene',
+                         feature_dbs => [$self->o('genebuilder_db')],
+                      },
+        -flow_into => {
+                       '2'    => ['pseudogenes'],
+                      },
+        -rc_name    => 'default',
+      },
 
       {
         -logic_name => 'pseudogenes',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes',
         -parameters => {
-                         single_multi_file => 1,
+                         single_multi_file => 0,
                          output_path => $self->o('output_path').'/pseudogenes/',
                          input_gene_db => $self->o('genebuilder_db'),
                          repeat_db => $self->o('dna_db'),
@@ -7786,9 +7808,20 @@ sub pipeline_analyses {
                        },
 
 	     -rc_name    => '30GB',
-	     -flow_into => {
-			    1 => ['remove_small_orf'],
-                      },
+      },
+
+      {
+        -logic_name => 'concat_pseudogenes_multi_exon_files',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'cat '.catfile('#working_dir#','multi_exon_genes*').' > '.
+	                catfile('#working_dir#','all_multi_exon_genes.fasta'),
+          working_dir => $self->o('output_path').'/pseudogenes/',
+        },
+        -rc_name => 'default',
+        -flow_into  => {
+          1 => ['remove_small_orf'],
+        },
       },
 
      {
