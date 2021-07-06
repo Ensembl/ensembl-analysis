@@ -7770,8 +7770,6 @@ sub pipeline_analyses {
                       },
       },
 
-
-
       {
         -logic_name => 'create_toplevel_slices_for_pseudogenes',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
@@ -7814,7 +7812,7 @@ sub pipeline_analyses {
         -logic_name => 'concat_pseudogenes_multi_exon_files',
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd => 'cat '.catfile('#working_dir#','multi_exon_genes*').' > '.
+          cmd => 'cat '.catfile('#working_dir#','all_multi_exon_genes_*').' > '.
 	                catfile('#working_dir#','all_multi_exon_genes.fasta'),
           working_dir => $self->o('output_path').'/pseudogenes/',
         },
