@@ -171,16 +171,19 @@ sub run {
   my ($self) = @_;
 
   my $output_path = $self->param('output_path');
-  unless(open(OUT,">".$output_path."/all_multi_exon_genes.fasta")) {
-    $self->throw("Could not create all_multi_exon_genes.fasta for writing. Path used:\n".$output_path."/all_multi_exon_genes.fasta")
+  my $single_multi_file = $self->param('single_multi_file');
+  if ($single_multi_file) {
+    unless (open(OUT,">".$output_path."/all_multi_exon_genes.fasta")) {
+      $self->throw("Could not create all_multi_exon_genes.fasta for writing. Path used:\n".$output_path."/all_multi_exon_genes.fasta")
+    }
   }
 
   foreach my $runnable (@{$self->runnable}) {
-    if($self->SINGLE_EXON) {
+    if ($self->SINGLE_EXON) {
       foreach my $gene (@{$runnable->genes}) {
-        if(scalar(@{$gene->get_all_Exons}) == 1) {
+        if (scalar(@{$gene->get_all_Exons}) == 1) {
           say "Will analyse ".$gene->dbID." in spliced elsewhere";
-        } else {
+        } elsif ($single_multi_file) {
           my $transcripts = $gene->get_all_Transcripts;
           foreach my $transcript (@$transcripts) {
             say OUT ">".$transcript->dbID;
