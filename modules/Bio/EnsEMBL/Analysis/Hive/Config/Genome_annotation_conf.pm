@@ -7805,7 +7805,7 @@ sub pipeline_analyses {
                          %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic','pseudogenes')},
                        },
 
-	     -rc_name    => '8GB',
+	     -rc_name    => '3GB',
       },
 
       {
