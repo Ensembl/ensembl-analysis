@@ -182,15 +182,16 @@ sub run {
   my $output_path = $self->param('output_path');
   my $single_multi_file = $self->param('single_multi_file');
   my $iid_slice_name = $self->param('iid');
+  my $all_multi_exons_filename = 'all_multi_exon_genes.fasta';
+
   if ($single_multi_file) {
 
-    my $all_multi_exons_filename = 'all_multi_exon_genes.fasta';
     if ($iid_slice_name) {
       $all_multi_exons_filename = 'all_multi_exon_genes_'.$iid_slice_name.'.fasta';
     }
     
     unless (open(OUT,">".$output_path."/".$all_multi_exons_filename)) {
-      $self->throw("Could not create ".$all_multi_exons_filename ".for writing. Path used:\n".$output_path."/".$all_multi_exons_filename)
+      $self->throw("Could not create ".$all_multi_exons_filename." for writing. Path used:\n".$output_path."/".$all_multi_exons_filename)
     }
   }
 
