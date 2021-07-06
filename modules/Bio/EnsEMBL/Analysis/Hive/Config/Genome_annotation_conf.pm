@@ -7796,7 +7796,7 @@ sub pipeline_analyses {
         -logic_name => 'pseudogenes',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes',
         -parameters => {
-                         single_multi_file => 0,
+                         single_multi_file => 1,
                          output_path => $self->o('output_path').'/pseudogenes/',
                          input_gene_db => $self->o('genebuilder_db'),
                          repeat_db => $self->o('dna_db'),
