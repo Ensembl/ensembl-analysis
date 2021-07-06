@@ -121,6 +121,8 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
+  my $iid_slice_name = $self->param('iid');
+
   $self->create_analysis;
 
   unless(-e $self->param_required('output_path')) {
@@ -146,7 +148,14 @@ sub fetch_input {
   }
 
   $self->hrdb_set_con($output_dba,'output_db');
-  my $slices = $input_dba->get_SliceAdaptor->fetch_all('toplevel');
+  
+  my $slices;
+  if ($iid_slice_name) {
+    $slices = [$input_dba->get_SliceAdaptor->fetch_by_name($iid_slice_name)];
+  } else {
+    $slices = $input_dba->get_SliceAdaptor->fetch_all('toplevel');
+  }
+  
   foreach my $slice (@$slices) {
     my $genes = $slice->get_all_Genes;
     my $repeat_slice_adaptor = $repeat_dba->get_SliceAdaptor;
@@ -172,9 +181,16 @@ sub run {
 
   my $output_path = $self->param('output_path');
   my $single_multi_file = $self->param('single_multi_file');
+  my $iid_slice_name = $self->param('iid');
   if ($single_multi_file) {
-    unless (open(OUT,">".$output_path."/all_multi_exon_genes.fasta")) {
-      $self->throw("Could not create all_multi_exon_genes.fasta for writing. Path used:\n".$output_path."/all_multi_exon_genes.fasta")
+
+    my $all_multi_exons_filename = 'all_multi_exon_genes.fasta';
+    if ($iid_slice_name) {
+      $all_multi_exons_filename = 'all_multi_exon_genes_'.$iid_slice_name.'.fasta';
+    }
+    
+    unless (open(OUT,">".$output_path."/".$all_multi_exons_filename)) {
+      $self->throw("Could not create ".$all_multi_exons_filename ".for writing. Path used:\n".$output_path."/".$all_multi_exons_filename)
     }
   }
 
