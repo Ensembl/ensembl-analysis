@@ -364,6 +364,7 @@ sub default_options {
     frameshift_attrib_script   => catfile($self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl'),
     select_canonical_script    => catfile($self->o('ensembl_misc_script'),'canonical_transcripts', 'select_canonical_transcripts.pl'),
     assembly_name_script       => catfile($self->o('ensembl_analysis_script'), 'update_assembly_name.pl'),
+    registry_status_update_script     => catfile($self->o('ensembl_analysis_script'), 'update_assembly_registry.pl'),
 
     rnaseq_daf_introns_file => catfile($self->o('output_dir'), 'rnaseq_daf_introns.dat'),
 
@@ -9291,6 +9292,21 @@ sub pipeline_analyses {
         -rc_name => 'default',
        },
 
+       {
+        -logic_name => 'update_assembly_registry_status',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.$self->o('registry_status_update_script').
+                                ' -user '.$self->o('user').
+                                ' -pass '.$self->o('password').
+                                ' -driver '.$self->o('hive_driver').
+                                ' -assembly_accession '.$self->o('assembly_accession').
+                                ' -registry_host '.$self->o('registry_host').
+                                ' -registry_port '.$self->o('registry_port').
+                                ' -registry_db '.$self->o('registry_db'),
+                       },
+        -rc_name => 'default',
+       },
     ];
 }
 
