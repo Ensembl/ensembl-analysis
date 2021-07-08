@@ -7874,7 +7874,7 @@ sub pipeline_analyses {
                          logic_name => 'filter_lncrnas',
                          module     => 'HiveFilterlncRNAs',
                        },
-        -rc_name          => '3GB',
+        -rc_name          => '8GB',
         -flow_into => {
                         1 => ['change_biotype_for_weak_cds'],
                       },
@@ -7926,7 +7926,7 @@ sub pipeline_analyses {
                          flagged_redundancy_coverage_threshold => 95,
                          general_redundancy_coverage_threshold => 95,
                        },
-        -rc_name    => '4GB',
+        -rc_name    => '8GB',
         -flow_into => {
                         '1' => ['delete_flagged_transcripts'],
                       },
