@@ -646,18 +646,21 @@ sub check_protein_models {
     }
   }
 
-  my $supporting_feature = shift(@$supporting_features);
-  my $coverage = $supporting_feature->hcoverage;
-  my $translation = $transcript->translation->seq;
-  my $hit_name = $supporting_feature->hseqname;
-  if($coverage < 75 && $translation !~ /^M/) {
-    say "Removing transcript ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$hit_name.":".$coverage;
-    say "Translation:\n".$translation;
+  if (!($transcript->translation())) {
+    say "Removing transcript because it has no translation ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end;
     return(1);
+  } else {
+    my $supporting_feature = shift(@$supporting_features);
+    my $coverage = $supporting_feature->hcoverage;
+    my $translation = $transcript->translation->seq;
+    my $hit_name = $supporting_feature->hseqname;
+    if($coverage < 75 && $translation !~ /^M/) {
+      say "Removing transcript ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$hit_name.":".$coverage;
+      say "Translation:\n".$translation;
+      return(1);
+    }
+    return(0);
   }
-
-  return(0);
-
 }
 
 1;
