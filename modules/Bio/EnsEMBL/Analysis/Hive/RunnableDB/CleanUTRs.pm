@@ -91,7 +91,6 @@ sub fetch_input {
       }
     }
     else {
-      $self->say_with_header($gene->display_id.' has no transcript');
     }
   }
   if (@genes) {
@@ -118,14 +117,11 @@ sub run {
     my @overlapping_genes = sort {$a->start <=> $b->start || $a->end <=> $b->end} @{$cluster->get_Genes_by_Set('set1')};
     for (my $gene_index = 0; $gene_index <= $#overlapping_genes; $gene_index++) {
       my $gene = $overlapping_genes[$gene_index];
-      $self->say_with_header("Working on $gene_index ".$gene->display_id);
       my $transcripts = $gene->get_all_Transcripts;
       for (my $next_gene_index = 0; $next_gene_index <= $#overlapping_genes; $next_gene_index++) {
         my $next_gene = $overlapping_genes[$next_gene_index];
         if ($gene_index != $next_gene_index) {
-          $self->say_with_header("Checking $next_gene_index ".$next_gene->display_id);
           if ($gene->overlaps_local($next_gene)) {
-            $self->say_with_header('Comparing '.$gene->display_id.' '.$next_gene->display_id);
             my $change_happened = 0;
             foreach my $transcript (@$transcripts) {
               if ($transcript->overlaps_local($next_gene)) {
@@ -133,7 +129,6 @@ sub run {
                 my $cds_end_genomic = $transcript->coding_region_end;
                 my $cds_start_index = 0;
                 my $cds_end_index = 0;
-                $self->say_with_header($transcript->display_id.' overlaps '.$next_gene->display_id);
                 my %overlapping_exons;
                 my %exons_to_delete;
                 my @exons = sort {$a->start <=> $b->start} @{$transcript->get_all_Exons};
@@ -147,20 +142,16 @@ sub run {
                   }
                   if ($exon->overlaps_local($next_gene)) {
                     $overlapping_exons{$exon->start.':'.$exon->end} = $exon;
-                    $self->say_with_header('OVERLAP '.join(' ', $exon->display_id, $exon->start, $exon->end));
                   }
                   ++$count;
                 }
                 if (scalar(keys %overlapping_exons)) {
-                  $self->say_with_header("$cds_start_genomic $cds_start_index $cds_end_genomic $cds_end_index");
                   my $new_utr_exon_start = 0;
                   my $new_utr_exon_end = 0;
                   foreach my $next_transcript (@{$next_gene->get_all_Transcripts}) {
-                    $self->say_with_header('Comparing '.$transcript->display_id.' against '.$next_transcript->display_id);
                     foreach my $cds_exon (@{$next_transcript->get_all_CDS}) {
                       foreach my $utr_exon (values %overlapping_exons) {
                         if ($cds_exon->overlaps_local($utr_exon)) {
-                          $self->say_with_header($cds_exon->start.':'.$cds_exon->end.' is overlapped by '.$utr_exon->display_id);
                           $exons_to_delete{$utr_exon->start.':'.$utr_exon->end} = $utr_exon;
                           if (!exists $overlapping_exons{$cds_exon->start.':'.$cds_exon->end}) {
                             if ($utr_exon->start <= $cds_start_genomic and $utr_exon->end >= $cds_start_genomic
@@ -171,7 +162,6 @@ sub run {
                                 and $utr_exon->start <= $next_transcript->coding_region_start and $utr_exon->end >= $next_transcript->coding_region_start) {
                               $new_utr_exon_end = $cds_exon->start;
                             }
-                            $self->say_with_header($cds_exon->start.':'.$cds_exon->end." is not in hash $new_utr_exon_start $new_utr_exon_end");
                           }
                         }
                       }
@@ -189,10 +179,7 @@ sub run {
                     $transcript->flush_Exons;
                     my $start_index = 0;
                     my $end_index = $#exons;
-                    $self->say_with_header("$end_index exons to start with");
-                    $self->say_with_header("Working on 5' end");
                     for (my $index = $cds_start_index; $index >= 0; $index--) {
-                      $self->say_with_header("$cds_start_index $index");
                       if (exists $exons_to_delete{$exons[$index]->start.':'.$exons[$index]->end}) {
                         if ($exons_to_delete{$exons[$index]->start.':'.$exons[$index]->end}->start <= $cds_start_genomic and $exons_to_delete{$exons[$index]->start.':'.$exons[$index]->end}->end >= $cds_start_genomic) {
                           $start_index = $index;
@@ -203,9 +190,7 @@ sub run {
                         $start_index = $index;
                       }
                     }
-                    $self->say_with_header("Working on 3' end");
                     for (my $index = $cds_end_index; $index <= $#exons; $index++) {
-                      $self->say_with_header("$cds_end_index $index");
                       if (exists $exons_to_delete{$exons[$index]->start.':'.$exons[$index]->end}) {
                         if ($exons_to_delete{$exons[$index]->start.':'.$exons[$index]->end}->start <= $cds_end_genomic and $exons_to_delete{$exons[$index]->start.':'.$exons[$index]->end}->end >= $cds_end_genomic) {
                           $end_index = $index;
@@ -216,7 +201,6 @@ sub run {
                         $end_index = $index;
                       }
                     }
-                    $self->say_with_header("Result: $start_index $end_index");
                     foreach my $exon (@exons[$start_index..$end_index]) {
                       if ($new_utr_exon_start >= $exon->start and $new_utr_exon_start <= $exon->end) {
                         if ($exon->strand == -1) {
@@ -225,16 +209,12 @@ sub run {
                         else {
                           $new_utr_exon_start = $cds_start_genomic-int(($cds_start_genomic-$exon->start)*$ratio_5prime_utr);
                         }
-                        $self->say_with_header($new_utr_exon_start);
                         if ($cds_start_genomic-$new_utr_exon_start < $min_size_utr_exon) {
                           $new_utr_exon_start = $cds_start_genomic-$min_size_utr_exon;
                         }
-                        $self->say_with_header($new_utr_exon_start);
                         if ($new_utr_exon_start < $exon->start) {
                           $new_utr_exon_start = $exon->start;
                         }
-                        $self->say_with_header($new_utr_exon_start);
-                        $self->say_with_header($translation || 'NULL');
                         $translation->start($cds_start_genomic-$new_utr_exon_start+1) if ($translation);
                         $exon->start($new_utr_exon_start);
                       }
@@ -245,16 +225,12 @@ sub run {
                         else {
                           $new_utr_exon_end = $cds_end_genomic+int(($exon->end-$cds_end_genomic)*$ratio_3prime_utr);
                         }
-                        $self->say_with_header($new_utr_exon_end);
                         if ($new_utr_exon_end-$cds_end_genomic < $min_size_utr_exon) {
                           $new_utr_exon_end = $cds_end_genomic+$min_size_utr_exon;
                         }
-                        $self->say_with_header($new_utr_exon_end);
                         if ($new_utr_exon_end > $exon->end) {
                           $new_utr_exon_end = $exon->end;
                         }
-                        $self->say_with_header($new_utr_exon_end);
-                        $self->say_with_header($translation || 'NULL');
                         $translation->start($new_utr_exon_end-$cds_end_genomic+1) if ($translation);
                         $exon->end($new_utr_exon_end);
                       }
