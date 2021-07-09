@@ -1125,7 +1125,7 @@ sub intergenic_slice {
         }
         $input_id = join(':', $slice->coord_system->name, $slice->coord_system->version, $slice->seq_region_name, $cluster_start);
       }
-      $cluster_end = $gene->end;
+    $cluster_end = $gene->end if ($cluster_end < $gene->end);
       $cluster_size = $cluster_end-$cluster_start;
     }
     if ($input_id) {

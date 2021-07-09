@@ -57,6 +57,7 @@ sub param_defaults {
     ratio_same_transcript => .02,
     ratio_max_allowed_difference => .05,
     ratio_expansion => 3,
+    minimum_expanding_number_for_single_transcript => 2,
   }
 }
 
@@ -111,123 +112,8 @@ sub run {
   my $ratio_same_transcript = $self->param('ratio_same_transcript');
   my $ratio_max_allowed_difference = $self->param('ratio_max_allowed_difference');
   my $ratio_expansion = $self->param('ratio_expansion');
+  my $minimum_expanding_number_for_single_transcript = $self->param('minimum_expanding_number_for_single_transcript');
   my ($clusters, $unclustered) = cluster_Genes($self->param('protein_coding_genes'), make_types_hash($self->param('protein_coding_genes'), undef, 'set1'));
-  foreach my $uncluster (@$unclustered) {
-    my ($gene) = @{$uncluster->get_Genes_by_Set('set1')};
-    my @transcripts = sort {$a->end-$a->start <=> $b->end-$b->start } @{$gene->get_all_Transcripts};
-    my $tcount = 0;
-    foreach my $transcript (@transcripts) {
-      ++$tcount if ($transcripts[0]->overlaps($transcript));
-      $self->say_with_header($transcripts[0]->display_id.' over'.$transcript->display_id." $tcount ".($transcript->end-$transcript->start+1));
-    }
-    if ($tcount != scalar(@transcripts)) {
-      $self->say_with_header('Not all transcript overlap '.$transcripts[0]->display_id);
-      my %data;
-      foreach my $transcript (@transcripts) {
-        my $stable_id = $transcript->display_id;
-        $data{$stable_id}->{cds_length} = $transcript->translation->length;
-        $data{$stable_id}->{cds_content} = $self->calculate_sequence_content($transcript->translation->seq);
-      }
-      my @genes;
-      my %bridging_transcripts;
-      foreach my $transcript (@transcripts) {
-        my $current_gene;
-        foreach my $cluster_gene (reverse @genes) {
-          if ($transcript->overlaps_local($cluster_gene)) {
-            if ($current_gene) {
-              $self->say_with_header($transcript->display_id.' is bridging genes');
-              $bridging_transcripts{$transcript->display_id} = $transcript;
-              last;
-            }
-            else {
-              $current_gene = $cluster_gene;
-            }
-          }
-        }
-        if (!exists $bridging_transcripts{$transcript->display_id}) {
-          if ($current_gene) {
-            $current_gene->add_Transcript($transcript);
-          }
-          else {
-            $current_gene = Bio::EnsEMBL::Gene->new();
-            $current_gene->add_Transcript($transcript);
-            $current_gene->analysis($transcript->analysis);
-            $current_gene->biotype('protein_coding');
-            push(@genes, $current_gene);
-          }
-        }
-      }
-      if (scalar(keys %bridging_transcripts) == 1) {
-        my ($bridging_transcript) = values %bridging_transcripts;
-        my $max_allowed_difference = int($bridging_transcript->translation->length*$ratio_max_allowed_difference);
-        $self->say_with_header('BRIDGING '.$bridging_transcript->display_id.' '.$bridging_transcript->start.' '.$bridging_transcript->end);
-        my $bridging_stable_id = $bridging_transcript->display_id;
-        my $remove_transcript = 0;
-        foreach my $new_gene (@genes) {
-          $self->say_with_header('CLUSTER '.$new_gene->display_id.' '.$new_gene->start.' '.$new_gene->end);
-          foreach my $new_transcript (@{$new_gene->get_all_Transcripts}) {
-            my $new_stable_id = $new_transcript->display_id;
-            if ($data{$bridging_stable_id}->{cds_length}/$data{$new_stable_id}->{cds_length} > 1-$ratio_same_transcript
-                  and $data{$bridging_stable_id}->{cds_length}/$data{$new_stable_id}->{cds_length} < 1+$ratio_same_transcript) {
-              $self->say_with_header(($data{$bridging_stable_id}->{cds_length}*100)/$data{$new_stable_id}->{cds_length});
-              $self->say_with_header($bridging_stable_id.' '.join(' ', map { $data{$bridging_stable_id}->{cds_content}->{$_}} sort keys %{$data{$bridging_stable_id}->{cds_content}}));
-              $self->say_with_header($new_stable_id.' '.join(' ', map { $data{$new_stable_id}->{cds_content}->{$_}} sort keys %{$data{$new_stable_id}->{cds_content}}));
-              my $bridge_value = 0;
-              my $new_value = 0;
-              my $diff = 0;
-              $remove_transcript = 1;
-              foreach my $key (keys $data{$new_stable_id}->{cds_content}) {
-                $bridge_value += $data{$bridging_stable_id}->{cds_content}->{$key} || 0;
-                $new_value += $data{$new_stable_id}->{cds_content}->{$key};
-                $diff = abs($bridge_value-$new_value) if (abs($bridge_value-$new_value) > $diff);
-                $self->say_with_header("$diff $max_allowed_difference");
-                if ($diff > $max_allowed_difference) {
-                  $remove_transcript = 0;
-                }
-              }
-            }
-          }
-        }
-        if ($remove_transcript) {
-          $gene->flush_Transcripts;
-          my $first_gene = shift(@genes);
-          foreach my $t (@{$first_gene->get_all_Transcripts}) {
-            $gene->add_Transcript($t);
-          }
-          foreach my $new_gene (@genes) {
-            $self->output([$new_gene]);
-            push(@{$self->param('protein_coding_genes')}, $new_gene);
-          }
-          $bridging_transcript->biotype('readthrough');
-          my $readthrough = Bio::EnsEMBL::Gene->new();
-          $readthrough->add_Transcript($bridging_transcript);
-          $readthrough->analysis($bridging_transcript->analysis);
-          $readthrough->biotype($bridging_transcript->biotype);
-          $self->output([$readthrough]);
-        }
-      }
-      else {
-        $gene->flush_Transcripts;
-        my $first_gene = shift(@genes);
-        foreach my $t (@{$first_gene->get_all_Transcripts}) {
-          $gene->add_Transcript($t);
-        }
-        foreach my $new_gene (@genes) {
-          $self->output([$new_gene]);
-          push(@{$self->param('protein_coding_genes')}, $new_gene);
-        }
-        foreach my $bridging_transcript (values %bridging_transcripts) {
-          $self->say_with_header('MULTIBRIDGING '.$bridging_transcript->display_id.' '.$bridging_transcript->start.' '.$bridging_transcript->end);
-          $bridging_transcript->biotype('readthrough');
-          my $readthrough = Bio::EnsEMBL::Gene->new();
-          $readthrough->add_Transcript($bridging_transcript);
-          $readthrough->analysis($bridging_transcript->analysis);
-          $readthrough->biotype($bridging_transcript->biotype);
-          $self->output([$readthrough]);
-        }
-      }
-    }
-  }
   foreach my $cluster (@$clusters) {
     my @overlapping_genes = sort {$a->start <=> $b->start || $a->end <=> $b->end} @{$cluster->get_Genes_by_Set('set1')};
     for (my $gene_index = 0; $gene_index <= $#overlapping_genes; $gene_index++) {
@@ -417,7 +303,139 @@ sub run {
       }
     }
   }
+  my @extra_genes;
   foreach my $gene (@{$self->param('protein_coding_genes')}) {
+    my @transcripts = sort {$a->end-$a->start <=> $b->end-$b->start } @{$gene->get_all_Transcripts};
+    my $tcount = 0;
+    foreach my $transcript (@transcripts) {
+      ++$tcount if ($transcripts[0]->overlaps($transcript));
+    }
+    if ($tcount != scalar(@transcripts)) {
+      my %data;
+      foreach my $transcript (@transcripts) {
+        my $stable_id = $transcript->display_id;
+        $data{$stable_id}->{cds_length} = $transcript->translation->length;
+        $data{$stable_id}->{cds_content} = $self->calculate_sequence_content($transcript->translation->seq);
+      }
+      my @genes;
+      my %bridging_transcripts;
+      foreach my $transcript (@transcripts) {
+        my $current_gene;
+        foreach my $cluster_gene (reverse @genes) {
+          if ($transcript->overlaps_local($cluster_gene)) {
+            if ($current_gene) {
+              $bridging_transcripts{$transcript->display_id} = $transcript;
+              last;
+            }
+            else {
+              $current_gene = $cluster_gene;
+            }
+          }
+        }
+        if (!exists $bridging_transcripts{$transcript->display_id}) {
+          if ($current_gene) {
+            $current_gene->add_Transcript($transcript);
+          }
+          else {
+            $current_gene = Bio::EnsEMBL::Gene->new();
+            $current_gene->add_Transcript($transcript);
+            $current_gene->analysis($transcript->analysis);
+            $current_gene->biotype('protein_coding');
+            push(@genes, $current_gene);
+          }
+        }
+      }
+      if (scalar(keys %bridging_transcripts) == 1) {
+        my ($bridging_transcript) = values %bridging_transcripts;
+        my $max_allowed_difference = int($bridging_transcript->translation->length*$ratio_max_allowed_difference);
+        my $bridging_stable_id = $bridging_transcript->display_id;
+        my $remove_transcript = 0;
+        my %bridging_exon_seen;
+        my $bridging_exons = $bridging_transcript->get_all_Exons;
+        foreach my $new_gene (@genes) {
+          foreach my $new_transcript (@{$new_gene->get_all_Transcripts}) {
+            my $new_stable_id = $new_transcript->display_id;
+            if ($data{$bridging_stable_id}->{cds_length}/$data{$new_stable_id}->{cds_length} > 1-$ratio_same_transcript
+                  and $data{$bridging_stable_id}->{cds_length}/$data{$new_stable_id}->{cds_length} < 1+$ratio_same_transcript) {
+              my $bridge_value = 0;
+              my $new_value = 0;
+              my $diff = 0;
+              $remove_transcript = 1;
+              foreach my $key (keys $data{$new_stable_id}->{cds_content}) {
+                $bridge_value += $data{$bridging_stable_id}->{cds_content}->{$key} || 0;
+                $new_value += $data{$new_stable_id}->{cds_content}->{$key};
+                $diff = abs($bridge_value-$new_value) if (abs($bridge_value-$new_value) > $diff);
+                if ($diff > $max_allowed_difference) {
+                  $remove_transcript = 0;
+                }
+              }
+            }
+            else {
+              my $index = -1;
+              foreach my $bridging_exon (@$bridging_exons) {
+                ++$index;
+                next if (exists $bridging_exon_seen{$bridging_exon});
+                if ($bridging_exon->overlaps_local($new_transcript)) {
+                  $bridging_exon_seen{$bridging_exon} = [$bridging_exon, $new_gene, $index];
+                }
+              }
+            }
+          }
+        }
+        if (keys %bridging_exon_seen) {
+          my $previous_gene;
+          my $previous_rank;
+          foreach my $item (sort {$a->[2] <=> $b->[2]} values %bridging_exon_seen) {
+            if (defined $previous_gene and $previous_gene != $item->[1]) {
+              if ($previous_rank+1 == $item->[2]) {
+                $remove_transcript = 1;
+                last;
+              }
+            }
+            $previous_gene = $item->[1];
+            $previous_rank = $item->[2];
+          }
+        }
+        if ($remove_transcript) {
+          $gene->flush_Transcripts;
+          my $first_gene = shift(@genes);
+          foreach my $t (@{$first_gene->get_all_Transcripts}) {
+            $gene->add_Transcript($t);
+          }
+          foreach my $new_gene (@genes) {
+            $self->output([$new_gene]);
+            push(@extra_genes, $new_gene);
+          }
+          $bridging_transcript->biotype('readthrough');
+          my $readthrough = Bio::EnsEMBL::Gene->new();
+          $readthrough->add_Transcript($bridging_transcript);
+          $readthrough->analysis($bridging_transcript->analysis);
+          $readthrough->biotype($bridging_transcript->biotype);
+          $self->output([$readthrough]);
+        }
+      }
+      else {
+        $gene->flush_Transcripts;
+        my $first_gene = shift(@genes);
+        foreach my $t (@{$first_gene->get_all_Transcripts}) {
+          $gene->add_Transcript($t);
+        }
+        foreach my $new_gene (@genes) {
+          $self->output([$new_gene]);
+          push(@extra_genes, $new_gene);
+        }
+        foreach my $bridging_transcript (values %bridging_transcripts) {
+          $bridging_transcript->biotype('readthrough');
+          my $readthrough = Bio::EnsEMBL::Gene->new();
+          $readthrough->add_Transcript($bridging_transcript);
+          $readthrough->analysis($bridging_transcript->analysis);
+          $readthrough->biotype($bridging_transcript->biotype);
+          $self->output([$readthrough]);
+        }
+      }
+    }
+  }
+  foreach my $gene (@{$self->param('protein_coding_genes')}, @extra_genes) {
     my @transcripts = sort {$a->end-$a->start <=> $b->end-$b->start } @{$gene->get_all_Transcripts};
     my @genes;
     my %expanding_transcripts;
@@ -432,12 +450,39 @@ sub run {
         $expanding_transcripts{$transcript->display_id} = $transcript
       }
     }
-    foreach my $expanding_transcript (values %expanding_transcripts) {
-      my $expanding_gene = Bio::EnsEMBL::Gene->new();
-      $expanding_gene->add_Transcript($expanding_transcript);
-      $expanding_gene->analysis($expanding_transcript->analysis);
-      $expanding_gene->biotype('expanding');
-      $self->output([$expanding_gene]);
+    if (@{$gene->get_all_Transcripts} == 1 and scalar(keys %expanding_transcripts) > $minimum_expanding_number_for_single_transcript) {
+      foreach my $expanding_transcript (values %expanding_transcripts) {
+        $gene->add_Transcript($expanding_transcript);
+      }
+    }
+    elsif (scalar(keys %expanding_transcripts) >= @{$gene->get_all_Transcripts}) {
+      foreach my $expanding_transcript (values %expanding_transcripts) {
+        if ($gene->length*$ratio_expansion >= ($expanding_transcript->coding_region_end-$expanding_transcript->coding_region_start+1)) {
+          my $expanding_exons = $expanding_transcript->get_all_Exons;
+          $expanding_transcript->flush_Exons;
+          my %utr_5p = map {$_->start.':'.$_->end => $_ } @{$expanding_transcript->get_all_five_prime_UTRs};
+          foreach my $expanding_exon (@$expanding_exons) {
+            $expanding_transcript->add_Exon($expanding_exon) unless (exists $utr_5p{$expanding_exon->start.':'.$expanding_exon->end});
+          }
+          $gene->add_Transcript($expanding_transcript);
+        }
+        else {
+          my $expanding_gene = Bio::EnsEMBL::Gene->new();
+          $expanding_gene->add_Transcript($expanding_transcript);
+          $expanding_gene->analysis($expanding_transcript->analysis);
+          $expanding_gene->biotype('expanding');
+          $self->output([$expanding_gene]);
+        }
+      }
+    }
+    else {
+      foreach my $expanding_transcript (values %expanding_transcripts) {
+        my $expanding_gene = Bio::EnsEMBL::Gene->new();
+        $expanding_gene->add_Transcript($expanding_transcript);
+        $expanding_gene->analysis($expanding_transcript->analysis);
+        $expanding_gene->biotype('expanding');
+        $self->output([$expanding_gene]);
+      }
     }
   }
 }
