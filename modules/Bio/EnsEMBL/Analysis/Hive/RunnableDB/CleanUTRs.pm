@@ -60,6 +60,7 @@ sub param_defaults {
     minimum_expanding_number_for_single_transcript => 2,
     ratio_transcript_fragment => 3,
     ratio_exon_expansion => 2,
+    ratio_utrs => 2,
   }
 }
 
@@ -116,6 +117,7 @@ sub run {
   my $minimum_expanding_number_for_single_transcript = $self->param('minimum_expanding_number_for_single_transcript');
   my $ratio_transcript_fragment = $self->param('ratio_transcript_fragment');
   my $ratio_exon_expansion = $self->param('ratio_exon_expansion');
+  my $ratio_utrs = $self->param('ratio_utrs');
   my ($clusters, $unclustered) = cluster_Genes($self->param('protein_coding_genes'), make_types_hash($self->param('protein_coding_genes'), undef, 'set1'));
   foreach my $cluster (@$clusters) {
     my @overlapping_genes = sort {$a->start <=> $b->start || $a->end <=> $b->end} @{$cluster->get_Genes_by_Set('set1')};
@@ -294,8 +296,21 @@ sub run {
       my %data;
       foreach my $transcript (@transcripts) {
         my $stable_id = $transcript->display_id;
+        $self->say_with_header($stable_id);
         $data{$stable_id}->{cds_length} = $transcript->translation->length;
         $data{$stable_id}->{cds_content} = $self->calculate_sequence_content($transcript->translation->seq);
+        if (($transcript->coding_region_end-$transcript->coding_region_end)*$ratio_utrs < ($transcript->end-$transcript->start)) {
+          my $exons = $transcript->get_all_Exons;
+          my $coding_start = $transcript->coding_region_start;
+          my $coding_end = $transcript->coding_region_end;
+          $transcript->flush_Exons;
+          foreach my $exon (@$exons) {
+            if ($exon->start <= $coding_end and $exon->end >= $coding_start) {
+              $self->say_with_header(__LINE__.' '.$exon->display_id.' '.$exon->start.' '.$exon->end);
+              $transcript->add_Exon($exon);
+            }
+          }
+        }
       }
       my @genes;
       my %bridging_transcripts;
@@ -304,21 +319,8 @@ sub run {
         my $current_gene;
         foreach my $cluster_gene (reverse @genes) {
           $self->say_with_header(($current_gene ? $current_gene->start.' '.$current_gene->end : 'NULL').' '.$cluster_gene->start.' '.$cluster_gene->end);
-          if ($transcript->overlaps_local($cluster_gene)) {
+          if ($transcript->coding_region_start <= $cluster_gene->{_gb_coding_end} and $transcript->coding_region_end >= $cluster_gene->{_gb_coding_start}) {
             $self->say_with_header(__LINE__.' '.$transcript->display_id.' '.$transcript->coding_region_start.' '.$transcript->coding_region_end);
-            if (!($transcript->coding_region_start <= $cluster_gene->end and $transcript->coding_region_end >= $gene->start)) {
-              $self->say_with_header(__LINE__.' '.$transcript->display_id);
-              my $exons = $transcript->get_all_Exons;
-              my $coding_region_start = $transcript->coding_region_start;
-              my $coding_region_end = $transcript->coding_region_end;
-              $transcript->flush_Exons;
-              foreach my $exon (@$exons) {
-                if ($exon->start <= $coding_region_end and $exon->end >= $coding_region_start) {
-                  $transcript->add_Exon($exon);
-                }
-              }
-              next;
-            }
             if ($current_gene) {
               $self->say_with_header(__LINE__.' '.$transcript->display_id);
               $bridging_transcripts{$transcript->display_id} = $transcript;
@@ -327,6 +329,12 @@ sub run {
             else {
               $self->say_with_header(__LINE__.' '.$transcript->display_id);
               $current_gene = $cluster_gene;
+              if ($transcript->coding_region_start < $cluster_gene->{_gb_coding_start}) {
+                $cluster_gene->{_gb_coding_start} = $transcript->coding_region_start;
+              }
+              if ($transcript->coding_region_end < $cluster_gene->{_gb_coding_end}) {
+                $cluster_gene->{_gb_coding_end} = $transcript->coding_region_end;
+              }
             }
           }
         }
@@ -339,6 +347,8 @@ sub run {
             $current_gene->add_Transcript($transcript);
             $current_gene->analysis($transcript->analysis);
             $current_gene->biotype('protein_coding');
+            $current_gene->{_gb_coding_start} = $transcript->coding_region_start;
+            $current_gene->{_gb_coding_end} = $transcript->coding_region_end;
             push(@genes, $current_gene);
           }
         }
