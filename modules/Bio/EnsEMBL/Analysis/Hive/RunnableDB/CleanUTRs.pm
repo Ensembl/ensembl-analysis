@@ -58,6 +58,8 @@ sub param_defaults {
     ratio_max_allowed_difference => .05,
     ratio_expansion => 3,
     minimum_expanding_number_for_single_transcript => 2,
+    ratio_transcript_fragment => 3,
+    ratio_exon_expansion => 2,
   }
 }
 
@@ -112,6 +114,8 @@ sub run {
   my $ratio_max_allowed_difference = $self->param('ratio_max_allowed_difference');
   my $ratio_expansion = $self->param('ratio_expansion');
   my $minimum_expanding_number_for_single_transcript = $self->param('minimum_expanding_number_for_single_transcript');
+  my $ratio_transcript_fragment = $self->param('ratio_transcript_fragment');
+  my $ratio_exon_expansion = $self->param('ratio_exon_expansion');
   my ($clusters, $unclustered) = cluster_Genes($self->param('protein_coding_genes'), make_types_hash($self->param('protein_coding_genes'), undef, 'set1'));
   foreach my $cluster (@$clusters) {
     my @overlapping_genes = sort {$a->start <=> $b->start || $a->end <=> $b->end} @{$cluster->get_Genes_by_Set('set1')};
@@ -296,14 +300,32 @@ sub run {
       my @genes;
       my %bridging_transcripts;
       foreach my $transcript (@transcripts) {
+        $self->say_with_header(__LINE__.' '.$transcript->display_id);
         my $current_gene;
         foreach my $cluster_gene (reverse @genes) {
+          $self->say_with_header(($current_gene ? $current_gene->start.' '.$current_gene->end : 'NULL').' '.$cluster_gene->start.' '.$cluster_gene->end);
           if ($transcript->overlaps_local($cluster_gene)) {
+            $self->say_with_header(__LINE__.' '.$transcript->display_id.' '.$transcript->coding_region_start.' '.$transcript->coding_region_end);
+            if (!($transcript->coding_region_start <= $cluster_gene->end and $transcript->coding_region_end >= $gene->start)) {
+              $self->say_with_header(__LINE__.' '.$transcript->display_id);
+              my $exons = $transcript->get_all_Exons;
+              my $coding_region_start = $transcript->coding_region_start;
+              my $coding_region_end = $transcript->coding_region_end;
+              $transcript->flush_Exons;
+              foreach my $exon (@$exons) {
+                if ($exon->start <= $coding_region_end and $exon->end >= $coding_region_start) {
+                  $transcript->add_Exon($exon);
+                }
+              }
+              next;
+            }
             if ($current_gene) {
+              $self->say_with_header(__LINE__.' '.$transcript->display_id);
               $bridging_transcripts{$transcript->display_id} = $transcript;
               last;
             }
             else {
+              $self->say_with_header(__LINE__.' '.$transcript->display_id);
               $current_gene = $cluster_gene;
             }
           }
@@ -323,6 +345,7 @@ sub run {
       }
       if (scalar(keys %bridging_transcripts) == 1) {
         my ($bridging_transcript) = values %bridging_transcripts;
+        $self->say_with_header(__LINE__.' '.$bridging_transcript->display_id);
         my $max_allowed_difference = int($bridging_transcript->translation->length*$ratio_max_allowed_difference);
         my $bridging_stable_id = $bridging_transcript->display_id;
         my $remove_transcript = 0;
@@ -401,6 +424,7 @@ sub run {
           push(@extra_genes, $new_gene);
         }
         foreach my $bridging_transcript (values %bridging_transcripts) {
+          $self->say_with_header(__LINE__.' '.$bridging_transcript->display_id);
           $bridging_transcript->biotype('readthrough');
           my $readthrough = Bio::EnsEMBL::Gene->new();
           $readthrough->add_Transcript($bridging_transcript);
@@ -427,22 +451,46 @@ sub run {
       }
     }
     if (@{$gene->get_all_Transcripts} == 1 and scalar(keys %expanding_transcripts) > $minimum_expanding_number_for_single_transcript) {
+      $self->say_with_header(__LINE__);
       foreach my $expanding_transcript (values %expanding_transcripts) {
         $gene->add_Transcript($expanding_transcript);
       }
     }
     elsif (scalar(keys %expanding_transcripts) >= @{$gene->get_all_Transcripts}) {
+      $self->say_with_header(__LINE__.' '.$gene->display_id.' '.$gene->start.' '.$gene->end.' '.$gene->length);
+      my $expansion_added = 0;
+      my $exon_count = 0;
+      my %possible_fragments;
+      foreach my $t (@{$gene->get_all_Transcripts}) {
+        $self->say_with_header(__LINE__.' '.$t->display_id.' '.$t->start.' '.$t->end.' '.($t->end-$t->start+1));
+        $exon_count = scalar(@{$t->get_all_Exons}) if ($exon_count < scalar(@{$t->get_all_Exons}));
+        $possible_fragments{$t} = 1;
+      }
       foreach my $expanding_transcript (values %expanding_transcripts) {
+        $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id.' '.$expanding_transcript->start.' '.$expanding_transcript->end.' '.($expanding_transcript->end-$expanding_transcript->start+1));
         if ($gene->length*$ratio_expansion >= ($expanding_transcript->coding_region_end-$expanding_transcript->coding_region_start+1)) {
+          $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id.' '.($gene->length*$ratio_expansion).' '.($expanding_transcript->coding_region_end-$expanding_transcript->coding_region_start+1));
           my $expanding_exons = $expanding_transcript->get_all_Exons;
           $expanding_transcript->flush_Exons;
           my %utr_5p = map {$_->start.':'.$_->end => $_ } @{$expanding_transcript->get_all_five_prime_UTRs};
           foreach my $expanding_exon (@$expanding_exons) {
             $expanding_transcript->add_Exon($expanding_exon) unless (exists $utr_5p{$expanding_exon->start.':'.$expanding_exon->end});
           }
+          $expanding_exons = $expanding_transcript->get_all_Exons;
+          $expanding_transcript->flush_Exons;
+          my %utr_3p = map {$_->start.':'.$_->end => $_ } @{$expanding_transcript->get_all_three_prime_UTRs};
+          foreach my $expanding_exon (@$expanding_exons) {
+            $expanding_transcript->add_Exon($expanding_exon) unless (exists $utr_3p{$expanding_exon->start.':'.$expanding_exon->end});
+          }
           $gene->add_Transcript($expanding_transcript);
         }
+        elsif ($exon_count < scalar(@{$expanding_transcript->get_all_CDS})) {
+          $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id.' '.($gene->length*$ratio_expansion).' '.($expanding_transcript->coding_region_end-$expanding_transcript->coding_region_start+1));
+          $gene->add_Transcript($expanding_transcript);
+          ++$expansion_added;
+        }
         else {
+          $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id);
           my $expanding_gene = Bio::EnsEMBL::Gene->new();
           $expanding_gene->add_Transcript($expanding_transcript);
           $expanding_gene->analysis($expanding_transcript->analysis);
@@ -450,14 +498,90 @@ sub run {
           $self->output([$expanding_gene]);
         }
       }
+      if ($expansion_added >= scalar(keys %expanding_transcripts) and scalar(keys %possible_fragments)*$ratio_transcript_fragment < $expansion_added) {
+        $self->say_with_header(__LINE__);
+        my $all_transcripts = $gene->get_all_Transcripts;
+        $gene->flush_Transcripts;
+        foreach my $all_transcript (@$all_transcripts) {
+          if (exists $possible_fragments{$all_transcript}) {
+            my $fragment_gene = Bio::EnsEMBL::Gene->new();
+            $fragment_gene->add_Transcript($all_transcript);
+            $fragment_gene->analysis($all_transcript->analysis);
+            $fragment_gene->biotype('fragment');
+            $self->output([$fragment_gene]);
+          }
+          else {
+            $gene->add_Transcript($all_transcript) unless (exists $possible_fragments{$all_transcript});
+          }
+        }
+      }
     }
     else {
+      my $expansion_added = 0;
+      my $exon_count = 0;
+      my %possible_fragments;
+      foreach my $t (@{$gene->get_all_Transcripts}) {
+        $exon_count = scalar(@{$t->get_all_Exons}) if ($exon_count < scalar(@{$t->get_all_Exons}));
+        $possible_fragments{$t} = 1;
+      }
+      $exon_count *= $ratio_exon_expansion;
       foreach my $expanding_transcript (values %expanding_transcripts) {
-        my $expanding_gene = Bio::EnsEMBL::Gene->new();
-        $expanding_gene->add_Transcript($expanding_transcript);
-        $expanding_gene->analysis($expanding_transcript->analysis);
-        $expanding_gene->biotype('expanding');
-        $self->output([$expanding_gene]);
+        my $process_transcript = 1;
+        my $is_new_gene;
+        my $genomic_start = $expanding_transcript->coding_region_start;
+        my $genomic_end = $expanding_transcript->coding_region_end;
+        my $expanding_exons = $expanding_transcript->get_all_Exons;
+        $expanding_transcript->flush_Exons;
+        foreach my $expanding_exon (@$expanding_exons) {
+          if ($expanding_exon->start <= $genomic_end and $expanding_exon->end >= $genomic_start
+             or $expanding_exon->overlaps_local($gene)) {
+            $expanding_transcript->add_Exon($expanding_exon);
+          }
+        }
+        if ($expanding_transcript->overlaps_local($gene)) {
+          if ($gene->length*$ratio_expansion >= ($expanding_transcript->end-$expanding_transcript->start+1)) {
+            $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id);
+            $gene->add_Transcript($expanding_transcript);
+            $process_transcript = 0;
+          }
+        }
+        else {
+            $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id);
+          $is_new_gene = $expanding_transcript->get_all_Exons;
+        }
+        if ($process_transcript) {
+          $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id);
+          if ($exon_count < scalar(@{$expanding_transcript->get_all_CDS})) {
+            $gene->add_Transcript($expanding_transcript);
+            ++$expansion_added;
+            $process_transcript = 0;
+          }
+        }
+        if ($process_transcript) {
+          $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id);
+          my $expanding_gene = Bio::EnsEMBL::Gene->new();
+          $expanding_gene->add_Transcript($expanding_transcript);
+          $expanding_gene->analysis($expanding_transcript->analysis);
+          $expanding_gene->biotype('expanding');
+          $self->output([$expanding_gene]);
+        }
+      }
+      if ($expansion_added >= scalar(keys %expanding_transcripts) and scalar(keys %possible_fragments)*$ratio_transcript_fragment < $expansion_added) {
+        $self->say_with_header(__LINE__);
+        my $all_transcripts = $gene->get_all_Transcripts;
+        $gene->flush_Transcripts;
+        foreach my $all_transcript (@$all_transcripts) {
+          if (exists $possible_fragments{$all_transcript}) {
+            my $fragment_gene = Bio::EnsEMBL::Gene->new();
+            $fragment_gene->add_Transcript($all_transcript);
+            $fragment_gene->analysis($all_transcript->analysis);
+            $fragment_gene->biotype('fragment');
+            $self->output([$fragment_gene]);
+          }
+          else {
+            $gene->add_Transcript($all_transcript) unless (exists $possible_fragments{$all_transcript});
+          }
+        }
       }
     }
   }
