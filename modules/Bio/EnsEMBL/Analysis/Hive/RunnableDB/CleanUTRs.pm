@@ -291,11 +291,13 @@ sub run {
   foreach my $gene (@{$self->param('protein_coding_genes')}) {
     my @transcripts = sort {$a->end-$a->start <=> $b->end-$b->start } @{$gene->get_all_Transcripts};
     my $tcount = 0;
+      $self->say_with_header(__LINE__.' '.$gene->display_id.' '.$gene->start.' '.$gene->end);
     foreach my $transcript (@transcripts) {
-      ++$tcount if ($transcripts[0]->overlaps($transcript));
+      $self->say_with_header(__LINE__.' '.$transcript->display_id.' '.$transcript->start);
+      ++$tcount if ($transcripts[0]->coding_region_start <= $transcript->coding_region_end and $transcripts[0]->coding_region_end >= $transcript->coding_region_start);
+      $self->say_with_header(__LINE__.' '.$transcript->display_id.' '.$transcript->start) if ($transcripts[0]->coding_region_start <= $transcript->coding_region_end and $transcripts[0]->coding_region_end >= $transcript->coding_region_start);
     }
     if ($tcount != scalar(@transcripts)) {
-      $gene->flush_Transcripts;
       my %data;
       foreach my $transcript (@transcripts) {
         my $stable_id = $transcript->display_id;
@@ -309,7 +311,6 @@ sub run {
           $transcript->flush_Exons;
           foreach my $exon (@$exons) {
             if ($exon->start <= $coding_end and $exon->end >= $coding_start) {
-              $self->say_with_header(__LINE__.' '.$exon->display_id.' '.$exon->start.' '.$exon->end);
               $transcript->add_Exon($exon);
             }
           }
@@ -356,8 +357,8 @@ sub run {
           }
         }
       }
-      my @keep_readthrough;
-      foreach my $bridging_transcript (values %bridging_transcripts) {
+      if (scalar(keys %bridging_transcripts) == 1) {
+        my ($bridging_transcript) = values %bridging_transcripts;
         $self->say_with_header(__LINE__.' '.$bridging_transcript->display_id);
         my $max_allowed_difference = int($bridging_transcript->translation->length*$ratio_max_allowed_difference);
         my $bridging_stable_id = $bridging_transcript->display_id;
@@ -409,6 +410,15 @@ sub run {
           }
         }
         if ($remove_transcript) {
+          $gene->flush_Transcripts;
+          my $first_gene = shift(@genes);
+          foreach my $t (@{$first_gene->get_all_Transcripts}) {
+            $gene->add_Transcript($t);
+          }
+          foreach my $new_gene (@genes) {
+            $self->output([$new_gene]);
+            push(@extra_genes, $new_gene);
+          }
           if ($store_rejected) {
             $bridging_transcript->biotype('readthrough');
             my $readthrough = Bio::EnsEMBL::Gene->new();
@@ -418,41 +428,95 @@ sub run {
             $self->output([$readthrough]);
           }
         }
-        else {
-          push(@keep_readthrough, $bridging_transcript);
-        }
       }
-      if (@keep_readthrough) {
-        my $first_gene = shift(@genes);
-        foreach my $t (@{$first_gene->get_all_Transcripts}, @keep_readthrough) {
-          $gene->add_Transcript($t);
+      elsif (scalar(keys %bridging_transcripts) > 1) {
+        $self->say_with_header(scalar(keys %bridging_transcripts));
+        $self->say_with_header(__LINE__.' '.$gene->display_id.' '.$gene->start.' '.$gene->end.' '.$gene->strand);
+        my @no_fragments;
+        $gene->flush_Transcripts;
+        foreach my $small_cluster (@genes) {
+          my $nof_gene = Bio::EnsEMBL::Gene->new();
+          foreach my $small_transcript (@{$small_cluster->get_all_Transcripts}) {
+            $nof_gene->add_Transcript($small_transcript) if (uc(substr($small_transcript->translateable_seq, 0, 3)) eq 'ATG');
+          }
+          if ($nof_gene->get_all_Transcripts and @{$nof_gene->get_all_Transcripts}) {
+            $nof_gene->analysis($small_cluster->analysis);
+            $nof_gene->biotype($small_cluster->biotype);
+            push(@no_fragments, $nof_gene);
+          }
+          else {
+            $self->say_with_header(__LINE__.' '.$small_cluster->display_id.' '.$small_cluster->start.' '.$small_cluster->end.' '.$small_cluster->strand);
+          }
         }
-        foreach my $new_gene (@genes) {
-          if ($first_gene->overlaps_local($new_gene)) {
-            foreach my $new_transcript (@{$new_gene->get_all_Transcripts}) {
-              $first_gene->add_Transcript($new_transcript);
+        if (@no_fragments) {
+          if (@no_fragments == 1) {
+            $self->say_with_header(__LINE__.' '.$gene->display_id.' '.$gene->start.' '.$gene->end.' '.$gene->strand);
+            foreach my $nof_transcript (@{$no_fragments[0]->get_all_Transcripts}, values %bridging_transcripts) {
+              $gene->add_Transcript($nof_transcript);
             }
           }
           else {
-            $self->output([$new_gene]);
-            push(@extra_genes, $new_gene);
+            $self->say_with_header(__LINE__.' '.$gene->display_id.' '.$gene->start.' '.$gene->end.' '.$gene->strand);
+            foreach my $bridging_transcript (sort {$a->end-$a->start <=> $b->end-$b->start} values %bridging_transcripts) {
+              my $current_nof_gene;
+              my $bridging = 0;
+              foreach my $nof_gene (@no_fragments) {
+                if ($bridging_transcript->coding_region_start <= $nof_gene->end and $bridging_transcript->coding_region_end >= $nof_gene->start) {
+                  if ($current_nof_gene) {
+                    $bridging = 1;
+                  }
+                  else {
+                    $current_nof_gene = $nof_gene;
+                  }
+                }
+              }
+              if ($bridging) {
+                $self->say_with_header(__LINE__.' '.$bridging_transcript->display_id);
+                if ($store_rejected) {
+                  $bridging_transcript->biotype('readthrough');
+                  my $readthrough = Bio::EnsEMBL::Gene->new();
+                  $readthrough->add_Transcript($bridging_transcript);
+                  $readthrough->analysis($bridging_transcript->analysis);
+                  $readthrough->biotype($bridging_transcript->biotype);
+                  $self->output([$readthrough]);
+                }
+              }
+              else {
+                if (!$current_nof_gene) {
+                  $current_nof_gene = Bio::EnsEMBL::Gene->new();
+                  $current_nof_gene->analysis($bridging_transcript->analysis);
+                  $current_nof_gene->biotype($bridging_transcript->biotype);
+                  push(@no_fragments, $current_nof_gene);
+                }
+                $current_nof_gene->add_Transcript($bridging_transcript);
+              }
+            }
+            my $first_gene = shift(@no_fragments);
+            foreach my $t (@{$first_gene->get_all_Transcripts}) {
+              $gene->add_Transcript($t);
+            }
+            foreach my $new_gene (@no_fragments) {
+              $self->output([$new_gene]);
+              push(@extra_genes, $new_gene);
+            }
           }
         }
-      }
-      else {
-        my $first_gene = shift(@genes);
-        foreach my $t (@{$first_gene->get_all_Transcripts}) {
-          $gene->add_Transcript($t);
+        else {
+          $self->say_with_header(__LINE__.' '.$gene->display_id.' '.$gene->start.' '.$gene->end.' '.$gene->strand);
+          foreach my $bridging_transcript (values %bridging_transcripts) {
+            $self->say_with_header(__LINE__.' '.$bridging_transcript->display_id);
+            $gene->add_Transcript($bridging_transcript);
+          }
         }
-        foreach my $new_gene (@genes) {
-          $self->output([$new_gene]);
-          push(@extra_genes, $new_gene);
-        }
+        $self->say_with_header($gene->display_id.' '.$gene->start.' '.$gene->end.' '.$gene->strand);
+        $self->say_with_header(scalar(@{$gene->get_all_Transcripts}));
       }
     }
   }
   foreach my $gene (@{$self->param('protein_coding_genes')}, @extra_genes) {
     my @transcripts = sort {$a->end-$a->start <=> $b->end-$b->start } @{$gene->get_all_Transcripts};
+    $self->say_with_header($gene->display_id.' '.$gene->start.' '.$gene->end.' '.$gene->strand);
+    $self->say_with_header(scalar(@{$gene->get_all_Transcripts}));
     my @genes;
     my %expanding_transcripts;
     my $current_gene_size = $transcripts[0]->end-$transcripts[0]->start;
@@ -467,25 +531,20 @@ sub run {
       }
     }
     if (@{$gene->get_all_Transcripts} == 1 and scalar(keys %expanding_transcripts) > $minimum_expanding_number_for_single_transcript) {
-      $self->say_with_header(__LINE__);
       foreach my $expanding_transcript (values %expanding_transcripts) {
         $gene->add_Transcript($expanding_transcript);
       }
     }
     elsif (scalar(keys %expanding_transcripts) >= @{$gene->get_all_Transcripts}) {
-      $self->say_with_header(__LINE__.' '.$gene->display_id.' '.$gene->start.' '.$gene->end.' '.$gene->length);
       my $expansion_added = 0;
       my $exon_count = 0;
       my %possible_fragments;
       foreach my $t (@{$gene->get_all_Transcripts}) {
-        $self->say_with_header(__LINE__.' '.$t->display_id.' '.$t->start.' '.$t->end.' '.($t->end-$t->start+1));
         $exon_count = scalar(@{$t->get_all_Exons}) if ($exon_count < scalar(@{$t->get_all_Exons}));
         $possible_fragments{$t} = 1;
       }
       foreach my $expanding_transcript (values %expanding_transcripts) {
-        $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id.' '.$expanding_transcript->start.' '.$expanding_transcript->end.' '.($expanding_transcript->end-$expanding_transcript->start+1));
         if ($gene->length*$ratio_expansion >= ($expanding_transcript->coding_region_end-$expanding_transcript->coding_region_start+1)) {
-          $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id.' '.($gene->length*$ratio_expansion).' '.($expanding_transcript->coding_region_end-$expanding_transcript->coding_region_start+1));
           my $expanding_exons = $expanding_transcript->get_all_Exons;
           $expanding_transcript->flush_Exons;
           my %utr_5p = map {$_->start.':'.$_->end => $_ } @{$expanding_transcript->get_all_five_prime_UTRs};
@@ -501,13 +560,11 @@ sub run {
           $gene->add_Transcript($expanding_transcript);
         }
         elsif ($exon_count < scalar(@{$expanding_transcript->get_all_CDS})) {
-          $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id.' '.($gene->length*$ratio_expansion).' '.($expanding_transcript->coding_region_end-$expanding_transcript->coding_region_start+1));
           $gene->add_Transcript($expanding_transcript);
           ++$expansion_added;
         }
         else {
           if ($store_rejected) {
-            $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id);
             my $expanding_gene = Bio::EnsEMBL::Gene->new();
             $expanding_gene->add_Transcript($expanding_transcript);
             $expanding_gene->analysis($expanding_transcript->analysis);
@@ -517,7 +574,6 @@ sub run {
         }
       }
       if ($expansion_added >= scalar(keys %expanding_transcripts) and scalar(keys %possible_fragments)*$ratio_transcript_fragment < $expansion_added) {
-        $self->say_with_header(__LINE__);
         my $all_transcripts = $gene->get_all_Transcripts;
         $gene->flush_Transcripts;
         foreach my $all_transcript (@$all_transcripts) {
@@ -560,17 +616,14 @@ sub run {
         }
         if ($expanding_transcript->overlaps_local($gene)) {
           if ($gene->length*$ratio_expansion >= ($expanding_transcript->end-$expanding_transcript->start+1)) {
-            $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id);
             $gene->add_Transcript($expanding_transcript);
             $process_transcript = 0;
           }
         }
         else {
-            $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id);
           $is_new_gene = $expanding_transcript->get_all_Exons;
         }
         if ($process_transcript) {
-          $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id);
           if ($exon_count < scalar(@{$expanding_transcript->get_all_CDS})) {
             $gene->add_Transcript($expanding_transcript);
             ++$expansion_added;
@@ -578,7 +631,6 @@ sub run {
           }
         }
         if ($process_transcript) {
-          $self->say_with_header(__LINE__.' '.$expanding_transcript->display_id);
           if ($store_rejected) {
             my $expanding_gene = Bio::EnsEMBL::Gene->new();
             $expanding_gene->add_Transcript($expanding_transcript);
@@ -589,7 +641,6 @@ sub run {
         }
       }
       if ($expansion_added >= scalar(keys %expanding_transcripts) and scalar(keys %possible_fragments)*$ratio_transcript_fragment < $expansion_added) {
-        $self->say_with_header(__LINE__);
         my $all_transcripts = $gene->get_all_Transcripts;
         $gene->flush_Transcripts;
         foreach my $all_transcript (@$all_transcripts) {
@@ -607,6 +658,12 @@ sub run {
           }
         }
       }
+    }
+  }
+  foreach my $gene (@{$self->output}) {
+    $self->say_with_header(($gene->display_id || 'NEW').' '.$gene->start.' '.$gene->end.' '.$gene->biotype);
+    foreach my $transcript (@{$gene->get_all_Transcripts}) {
+      $self->say_with_header('  '.$transcript->display_id.' '.$transcript->start.' '.$transcript->end.' '.$transcript->biotype);
     }
   }
 }
