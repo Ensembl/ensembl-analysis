@@ -295,6 +295,7 @@ sub run {
       ++$tcount if ($transcripts[0]->overlaps($transcript));
     }
     if ($tcount != scalar(@transcripts)) {
+      $gene->flush_Transcripts;
       my %data;
       foreach my $transcript (@transcripts) {
         my $stable_id = $transcript->display_id;
@@ -355,8 +356,8 @@ sub run {
           }
         }
       }
-      if (scalar(keys %bridging_transcripts) == 1) {
-        my ($bridging_transcript) = values %bridging_transcripts;
+      my @keep_readthrough;
+      foreach my $bridging_transcript (values %bridging_transcripts) {
         $self->say_with_header(__LINE__.' '.$bridging_transcript->display_id);
         my $max_allowed_difference = int($bridging_transcript->translation->length*$ratio_max_allowed_difference);
         my $bridging_stable_id = $bridging_transcript->display_id;
@@ -408,15 +409,6 @@ sub run {
           }
         }
         if ($remove_transcript) {
-          $gene->flush_Transcripts;
-          my $first_gene = shift(@genes);
-          foreach my $t (@{$first_gene->get_all_Transcripts}) {
-            $gene->add_Transcript($t);
-          }
-          foreach my $new_gene (@genes) {
-            $self->output([$new_gene]);
-            push(@extra_genes, $new_gene);
-          }
           if ($store_rejected) {
             $bridging_transcript->biotype('readthrough');
             my $readthrough = Bio::EnsEMBL::Gene->new();
@@ -426,9 +418,28 @@ sub run {
             $self->output([$readthrough]);
           }
         }
+        else {
+          push(@keep_readthrough, $bridging_transcript);
+        }
+      }
+      if (@keep_readthrough) {
+        my $first_gene = shift(@genes);
+        foreach my $t (@{$first_gene->get_all_Transcripts}, @keep_readthrough) {
+          $gene->add_Transcript($t);
+        }
+        foreach my $new_gene (@genes) {
+          if ($first_gene->overlaps_local($new_gene)) {
+            foreach my $new_transcript (@{$new_gene->get_all_Transcripts}) {
+              $first_gene->add_Transcript($new_transcript);
+            }
+          }
+          else {
+            $self->output([$new_gene]);
+            push(@extra_genes, $new_gene);
+          }
+        }
       }
       else {
-        $gene->flush_Transcripts;
         my $first_gene = shift(@genes);
         foreach my $t (@{$first_gene->get_all_Transcripts}) {
           $gene->add_Transcript($t);
@@ -436,17 +447,6 @@ sub run {
         foreach my $new_gene (@genes) {
           $self->output([$new_gene]);
           push(@extra_genes, $new_gene);
-        }
-        if ($store_rejected) {
-          foreach my $bridging_transcript (values %bridging_transcripts) {
-            $self->say_with_header(__LINE__.' '.$bridging_transcript->display_id);
-            $bridging_transcript->biotype('readthrough');
-            my $readthrough = Bio::EnsEMBL::Gene->new();
-            $readthrough->add_Transcript($bridging_transcript);
-            $readthrough->analysis($bridging_transcript->analysis);
-            $readthrough->biotype($bridging_transcript->biotype);
-            $self->output([$readthrough]);
-          }
         }
       }
     }
