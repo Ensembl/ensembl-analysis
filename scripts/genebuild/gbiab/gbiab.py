@@ -1690,12 +1690,12 @@ def set_attributes(attributes,feature_type):
 #5       genBlastG       coding_exon     69461131        69461741        .       +       .       ID=259454-R1-1-A1-E2;Parent=259454-R1-1-A1
 
 
-def split_protein_file(protein_file,genblast_dir):
+def split_protein_file(protein_file,protein_output_dir):
   batch_size = 20
   batched_protein_files = []
 
   for i in range(0,10):
-    create_dir(genblast_dir,('bin_' + str(i)))
+    create_dir(protein_output_dir,('bin_' + str(i)))
 
   file_in = open(protein_file)
   line = file_in.readline()
@@ -1707,7 +1707,7 @@ def split_protein_file(protein_file,genblast_dir):
     num_dir = random.randint(0,9)
     match = re.search(r'>(.+)$',line)
     if match and not initial_seq and seq_count % batch_size == 0:
-      file_out_name = os.path.join(genblast_dir,('bin_' + str(random.randint(0,9))),(str(batch_count) + '.fa'))
+      file_out_name = os.path.join(protein_output_dir,('bin_' + str(random.randint(0,9))),(str(batch_count) + '.fa'))
       file_out = open(file_out_name,'w+')
       file_out.write(current_record)
       file_out.close()
@@ -1725,7 +1725,7 @@ def split_protein_file(protein_file,genblast_dir):
   file_in.close()
 
   if current_record:
-    file_out_name = os.path.join(genblast_dir,('bin_' + str(random.randint(0,9))),(str(batch_count) + '.fa'))
+    file_out_name = os.path.join(protein_output_dir,('bin_' + str(random.randint(0,9))),(str(batch_count) + '.fa'))
     file_out = open(file_out_name,'w+')
     file_out.write(current_record)
     file_out.close()
@@ -1831,6 +1831,12 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
       except OSError as e:
         print ("Error: %s - %s." % (e.filename, e.strerror))
 
+    sam_file_path = os.path.join(star_dir,(fastq_file_name + '.sam'))
+    junctions_file_path = os.path.join(star_dir,(fastq_file_name + '.sj.tab'))
+    if os.path.isfile(junctions_file_path):
+      print("Found an existing junctions file for the fastq file, presuming the file has been processed, will skip")
+      continue
+
     print ("Processing %s" % fastq_file_path)
     star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir,'--outSAMtype','SAM','--alignIntronMax','100000','--outSJfilterIntronMaxVsReadN','5000','10000','25000','40000','50000','50000','50000','50000','50000','100000']
 
@@ -1840,8 +1846,8 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
       star_command.append('-c')
 
     subprocess.run(star_command)
-    subprocess.run(['mv',os.path.join(star_dir,'Aligned.out.sam'),os.path.join(star_dir,(fastq_file_name + '.sam'))])
-    subprocess.run(['mv',os.path.join(star_dir,'SJ.out.tab'),os.path.join(star_dir,(fastq_file_name + '.sj.tab'))])
+    subprocess.run(['mv',os.path.join(star_dir,'Aligned.out.sam'),sam_file_path])
+    subprocess.run(['mv',os.path.join(star_dir,'SJ.out.tab'),junctions_file_path])
 
   print ('Completed running STAR')
 
@@ -1849,10 +1855,11 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
 
   # Should move the sorting below into a method that takes a dir as an argument
   sam_files = []
+  bam_files = glob.glob(star_dir + "/*.bam")
   for sam_file in glob.glob(star_dir + "/*.sam"):
     sam_files.append(sam_file)
-  if not sam_files:
-    raise IndexError('The list of sam files is empty, expected them in Star output dir. Star dir:\n%s' % star_dir)
+  if not sam_files and not bam_files:
+    raise IndexError('The list of sam files is empty and no bam files exist, expected them in Star output dir. Star dir:\n%s' % star_dir)
 
   sorted_bam_files = []
   for sam_file in sam_files:
@@ -1870,7 +1877,7 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
       subprocess.run(['samtools','sort','-@',str(num_threads),'-T',sam_temp_file_path,'-o',bam_sort_file_path,sam_file])
 
     print("Removing sam file")
-    subprocess.run(['rm',sam_file])
+#    subprocess.run(['rm',sam_file])
 
 
 def run_subsample_script(fastq_file,fastq_file_pair,subsample_script_path):
@@ -2435,9 +2442,10 @@ def run_scallop_assemble(scallop_path,stringtie_path,main_output_dir):
   stringtie_merge_input_file = os.path.join(scallop_dir,'scallop_assemblies.txt')
   stringtie_merge_output_file = os.path.join(scallop_dir,'annotation.gtf')
   star_dir = os.path.join(main_output_dir,'star_output')
+  memory_limit = 40 * 1024 ** 3
 
   if(os.path.exists(star_dir)):
-    print("Found a Star output dir, will load sam file")
+    print("Found a Star output dir, will load bam files")
 
   sorted_bam_files = []
   for bam_file in glob.glob(star_dir + "/*.bam"):
@@ -2459,7 +2467,18 @@ def run_scallop_assemble(scallop_path,stringtie_path,main_output_dir):
     else:
       print("Running Scallop on: " + sorted_bam_file_name)
       print("Writing output to: " + transcript_file_path)
-      subprocess.run([scallop_path,'-i',sorted_bam_file,'-o',transcript_file_path,'--min_flank_length','10'])
+      scallop_cmd = [scallop_path,'-i',sorted_bam_file,'-o',transcript_file_path,'--min_flank_length','10']
+      if memory_limit is not None:
+        scallop_cmd = prlimit_command(scallop_cmd, memory_limit)
+
+      return_value = None
+      try:
+        return_value = subprocess.check_output(scallop_cmd)
+      except subprocess.CalledProcessError as ex:
+        print("Issue processing the following region with scallop")
+        print("Return value: " + str(return_value))
+
+#      subprocess.run([scallop_path,'-i',sorted_bam_file,'-o',transcript_file_path,'--min_flank_length','10'])
 
   # Now need to merge
   print("Creating Stringtie merge input file: " + stringtie_merge_input_file)
@@ -2763,7 +2782,7 @@ def run_finalise_geneset(main_script_dir,main_output_dir,genome_file,seq_region_
   merged_gtf_file = os.path.join(final_annotation_dir,('prevalidation_sel.gtf'))
   merged_cdna_file = os.path.join(final_annotation_dir,('prevalidation_sel.cdna.fa'))
   merged_amino_acid_file = os.path.join(final_annotation_dir,('prevalidation_sel.prot.fa'))
-  updated_gtf_lines = validate_coding_transcripts(merged_cdna_file,merged_amino_acid_file,validation_dir,merged_gtf_file)
+  updated_gtf_lines = validate_coding_transcripts(merged_cdna_file,merged_amino_acid_file,validation_dir,merged_gtf_file,num_threads)
   postvalidation_gtf_file = os.path.join(final_annotation_dir,('postvalidation.gtf'))
   file_out = open(postvalidation_gtf_file,'w+')
   for line in updated_gtf_lines:
@@ -2784,7 +2803,8 @@ def run_finalise_geneset(main_script_dir,main_output_dir,genome_file,seq_region_
 
   print("Finished creating gene set")
 
-def validate_coding_transcripts(cdna_file,amino_acid_file,validation_dir,gtf_file):
+
+def validate_coding_transcripts(cdna_file,amino_acid_file,validation_dir,gtf_file,num_threads):
 
   print("Running CDS validation with RNAsamba and CPC2")
   rnasamba_path = '/hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_RNAsamba.sh'
@@ -2810,11 +2830,42 @@ def validate_coding_transcripts(cdna_file,amino_acid_file,validation_dir,gtf_fil
   cpc2_results = read_cpc2_results(cpc2_output_path)
 
   combined_results = combine_results(rnasamba_results,cpc2_results)
+
+  blastp_path = 'blastp'
+  blast_validation_db = ''
+  blast_output_dir = os.path.join(validation_dir,'blast_output')
+
+  if blast_validation_db:
+    blast_results = blast_validation(blast_validation_db,blastp_path,amino_acid_file,blast_output_dir,num_threads)
+
   parsed_gtf_genes = read_gtf_genes(gtf_file)
   updated_gtf_lines = update_gtf_genes(parsed_gtf_genes,combined_results)
 
   return updated_gtf_lines
 
+
+def blast_validation(blast_validation_db,blastp_path,amino_acid_file,blast_output_dir,num_threads):
+
+  batched_protein_files = split_protein_file(protein_file,blast_output_dir)
+
+  pool = multiprocessing.Pool(int(num_threads))
+  for batched_protein_file in batched_protein_files:
+    pool.apply_async(multiprocess_genblast, args=(batched_protein_file,blast_validation_db,blastp_path,))
+  pool.close()
+  pool.join()
+
+
+def multiprocess_blastp(batched_protein_file,blast_validation_db,blastp_path):
+
+  batch_num = os.path.splitext(batched_protein_file)[0]
+  batch_dir = os.path.dirname(batched_protein_file)
+  print("Running blastp on " + batched_protein_file + ":")
+  
+  blastp_cmd = [genblast_path,'-p','genblastg','-q',batched_protein_file,'-t',masked_genome_file,'-g','T','-pid','-r','1','-P','blast','-gff','-e','1e-1','-c','0.8','-W','3','-softmask','-scodon','50','-i','30','-x','10','-n','30','-d','100000','-o',batched_protein_file]
+
+  print(" ".join(genblast_cmd))
+  subprocess.run(genblast_cmd)
+  
 
 def update_gtf_genes(parsed_gtf_genes,combined_results):
 
@@ -3390,7 +3441,6 @@ if __name__ == '__main__':
   if not num_threads:
     print ("No thread count specified, so defaulting to 1. This might be slow")
     num_threads = 1
-
 
   # If the run_full_annotation flag is set then we want to set a standardised set of analyses
   if run_full_annotation:

@@ -288,6 +288,10 @@ sub run {
         else {
           $coord_system = $self->get_coord_system($molecule_matcher->{$data[1]}, $no_chromosome);
         }
+
+        # This is to deal with the special case first seen in bombus_terrestris_gca000214255v1 where some of the regions had names like "LG B01"
+        $seq_region_name =~ s/ +/\_/g;
+
         my $slice = Bio::EnsEMBL::Slice->new(
           -seq_region_name => $seq_region_name,
           -start => 1,
