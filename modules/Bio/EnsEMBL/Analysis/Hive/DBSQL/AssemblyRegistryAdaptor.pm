@@ -150,6 +150,130 @@ This method fetches  assembly accessions from the registry based on set criteria
 
 =cut
 
+sub fetch_gca_by_constraints_assembly_group_no_haplotype {
+  my ($self,$assembly_group,$contig_n50,$scaffold_n50,$total_length,$levels,$max_version_only,$genome_rep,$haplotype) = @_;
+  unless($assembly_group) { $assembly_group = 'dtol';}
+  unless($contig_n50) { $contig_n50 = 0;}
+  unless($scaffold_n50) { $scaffold_n50 = 0;}
+  unless($total_length) { $total_length = 0;}
+  unless($levels) { $levels = ['contig','scaffold','chromosome'];}
+  unless($genome_rep) { $genome_rep = 'full';}
+  unless($haplotype) { $haplotype = 'haplotype';}
+  my $output_hash;
+  foreach my $level (@{$levels}) {
+    my $sql;
+
+    $sql = "SELECT chain,version,assembly_name FROM assembly JOIN meta using(assembly_id) WHERE ".
+           " contig_N50 >= ? AND total_length >= ? AND assembly_level = ? AND genome_rep = ? AND assembly_group = ? AND assembly_name not like CONCAT( '%',?,'%')";
+
+    unless($level eq 'contig') {
+      $sql .= " AND (scaffold_N50 >= ? || scaffold_N50 IS NULL)";
+    }
+    my $sth = $self->dbc->prepare($sql);
+    $sth->bind_param(1,$contig_n50);
+    $sth->bind_param(2,$total_length);
+    $sth->bind_param(3,$level);
+    $sth->bind_param(4,$genome_rep);
+    $sth->bind_param(5,$assembly_group);
+    $sth->bind_param(6,$haplotype);
+    unless($level eq 'contig') {
+      $sth->bind_param(7,$scaffold_n50);
+    }
+    $sth->execute();
+    while (my ($chain,$version,$name) = $sth->fetchrow_array()) {
+      unless($chain =~ /^GCA\_(\d){9}/) {
+        next;
+      }
+      say "Accession is $chain.$version";
+      unless($output_hash->{$chain}) {
+	       $output_hash->{$chain} = [];
+      }
+      if($max_version_only) {
+        if((${$output_hash->{$chain}}[0])) {
+          unless(${$output_hash->{$chain}}[0] > $version) {
+            ${$output_hash->{$chain}}[0] = $version;
+          }
+        } else {
+          ${$output_hash->{$chain}}[0] = $version;
+        }
+      } else {
+        push(@{$output_hash->{$chain}},$version);
+      }
+    } # end while $output_hash
+  }
+  my $output_array = [];
+  foreach my $chain (keys(%{$output_hash})) {
+    my $version_array  = $output_hash->{$chain};
+    foreach my $version (@{$version_array}) {
+      push(@{$output_array},$chain.".".$version);
+    }
+  }
+
+  return($output_array);
+}
+
+sub fetch_gca_by_constraints_assembly_group {
+  my ($self,$assembly_group,$contig_n50,$scaffold_n50,$total_length,$levels,$max_version_only,$genome_rep) = @_;
+  unless($assembly_group) { $assembly_group = 'dtol';}
+  unless($contig_n50) { $contig_n50 = 0;}
+  unless($scaffold_n50) { $scaffold_n50 = 0;}
+  unless($total_length) { $total_length = 0;}
+  unless($levels) { $levels = ['contig','scaffold','chromosome'];}
+  unless($genome_rep) { $genome_rep = 'full';}
+  my $output_hash;
+  foreach my $level (@{$levels}) {
+    my $sql;
+
+    $sql = "SELECT chain,version FROM assembly JOIN meta using(assembly_id) WHERE ".
+           " contig_N50 >= ? AND total_length >= ? AND assembly_level = ? AND genome_rep = ? AND assembly_group = ?";
+
+    unless($level eq 'contig') {
+      $sql .= " AND (scaffold_N50 >= ? || scaffold_N50 IS NULL)";
+    }
+
+    my $sth = $self->dbc->prepare($sql);
+    $sth->bind_param(1,$contig_n50);
+    $sth->bind_param(2,$total_length);
+    $sth->bind_param(3,$level);
+    $sth->bind_param(4,$genome_rep);
+    $sth->bind_param(5,$assembly_group);
+    unless($level eq 'contig') {
+	    $sth->bind_param(6,$scaffold_n50);
+    }
+
+    $sth->execute();
+    while (my ($chain,$version) = $sth->fetchrow_array()) {
+      unless($chain =~ /^GCA\_(\d){9}/) {
+        next;
+      }
+      say "Accession is $chain.$version";
+      unless($output_hash->{$chain}) {
+               $output_hash->{$chain} = [];
+      }
+      if($max_version_only) {
+        if((${$output_hash->{$chain}}[0])) {
+          unless(${$output_hash->{$chain}}[0] > $version) {
+            ${$output_hash->{$chain}}[0] = $version;
+          }
+        } else {
+          ${$output_hash->{$chain}}[0] = $version;
+        }
+      } else {
+        push(@{$output_hash->{$chain}},$version);
+      }
+    } # end while $output_hash
+  }
+  my $output_array = [];
+  foreach my $chain (keys(%{$output_hash})) {
+    my $version_array  = $output_hash->{$chain};
+    foreach my $version (@{$version_array}) {
+      push(@{$output_array},$chain.".".$version);
+    }
+  }
+
+  return($output_array);
+}
+
 sub fetch_gca_by_constraints {
   my ($self,$contig_n50,$scaffold_n50,$total_length,$levels,$max_version_only,$genome_rep) = @_;
 
