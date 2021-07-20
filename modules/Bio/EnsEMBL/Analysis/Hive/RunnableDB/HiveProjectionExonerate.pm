@@ -78,16 +78,23 @@ sub fetch_input {
   my $target_species = $target_transcript_dba->get_MetaContainerAdaptor->get_production_name();
   
   my $mode = "";
+  my ($compara_dba, $source_genome_db, $mlss, $hal_file, $assembly_name); 
   # Define the compara db
   if (defined($self->param('hal_file'))) {
-    my $hal_file = $self->param('hal_file');
+    $hal_file = $self->param('hal_file');
+    
+    # not sure if works
+    $assembly_name = $target_transcript_dba->get_MetaContainer->single_value_by_key('assembly.name');
+
+
     $mode = "hal"; 
+    
   } elsif (defined($self->param('compara_db'))) {
-    my $compara_dba = $self->hrdb_get_dba($self->param('compara_db'),undef,'Compara');
+    $compara_dba = $self->hrdb_get_dba($self->param('compara_db'),undef,'Compara');
     $self->hrdb_set_con($compara_dba,'compara_db');
     # Get the genome db adpator
     my $genome_dba = $compara_dba->get_GenomeDBAdaptor;
-    my $source_genome_db = $genome_dba->fetch_by_core_DBAdaptor($source_transcript_dba);
+    $source_genome_db = $genome_dba->fetch_by_core_DBAdaptor($source_transcript_dba);
     my $target_genome_db = $genome_dba->fetch_by_core_DBAdaptor($target_transcript_dba);
 
     my $source_assembly = $source_genome_db->assembly;
@@ -103,7 +110,7 @@ sub fetch_input {
     }
 
     my $transcript_align_slices = {};
-    my $mlss = $compara_dba->get_MethodLinkSpeciesSetAdaptor->fetch_by_method_link_type_GenomeDBs($self->param('method_link_type'),
+    $mlss = $compara_dba->get_MethodLinkSpeciesSetAdaptor->fetch_by_method_link_type_GenomeDBs($self->param('method_link_type'),
                                                                                                 [$source_genome_db,
                                                                                                 $target_genome_db]);
     unless($mlss) {
@@ -117,9 +124,6 @@ sub fetch_input {
     #$self->throw("");
   }
 
-  # Retrieve the production names for the query and target species
-  my $source_species = $source_transcript_dba->get_MetaContainerAdaptor->get_production_name();
-  my $target_species = $target_transcript_dba->get_MetaContainerAdaptor->get_production_name();
 
   foreach my $input_id (@$input_ids) {
 
@@ -148,7 +152,8 @@ sub fetch_input {
       $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba);
     } elsif ($mode eq "hal_file") {
       # TODO method to return $transcript_slices of HAL file.       
-      # $hal_file
+      # $hal_file and $target_assembly need to find
+      $transcript_slices = $self->process_transcript_hal_file($transcript, $hal_file, $assembly_name); 
     } else {
       # TODO throw ...  
       #$self->throw("");
@@ -180,7 +185,7 @@ sub run {
         $output->{'_old_transcript_id'} = $runnable->{'_transcript_id'};
       }
 
-      # If the transcript has bee projected to multiple places then select the best one in terms of combined coverage and
+      # If the transcript has been projected to multiple places then select the best one in terms of combined coverage and
       # percent identity but also any that fall within 5 percent of this value
       my $preliminary_transcripts = $runnable->output;
       my $selected_transcripts;
@@ -374,6 +379,51 @@ sub process_transcript {
   }
   return $transcript_slices;
 }
+
+
+# TODO: THIS METHOD will create the $transcript_slices from hal file.
+sub process_transcript_hal_file {
+  my ($self,$transcript,$hal_file,$target_assembly) = @_;
+
+  my $source_transcript_slice = $transcript->slice();  
+  my ($type,$assembly,$chrname,$target_genomic_start,$target_genomic_end,$step) = split(":", $source_transcript_slice->name); 
+  
+  # command: 
+  $hal_file = '/hps/nobackup/flicek/ensembl/compara/twalsh/GRCh38-f1-90-mc-mar22.hal';
+  my $output_file_tmp = $self->param('tmpdir')."/source_sequence_".$transcript->dbID;
+   
+  my $hal_file_take = 'python '. ' /nfs/production/flicek/ensembl/genebuild/kbillis/ensembl_code/human_pangenome_HAL_files/ensembl-compara/scripts/hal_alignment/hal_gene_liftover.py ' . 
+                             ' --src-region ' . ' TODO region to get' .
+                             ' --flank ' . '5000 ' .
+                             $hal_file . ' ' . $assembly . ' ' . $target_assembly . ' ' . $output_file_tmp ;
+
+  say "Running hal gene liftover script";
+  if(system($hal_file_take)) {
+     $self->throw("The hal_gene_liftover script exited with a non-zero exit code. Commandline used:\n".$hal_file_take);
+  }
+  
+  # TODO: read json file and get:
+  my $transcript_slices = []; 
+  my ($coord_system_name, $seq_region_name, $start, $end); 
+  my $slice_adaptor = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor; 
+  my $hal_align_slice = $slice_adaptor->fetch_by_region($coord_system_name, $seq_region_name, $start, $end);
+  
+  
+  push(@{$transcript_slices},$hal_align_slice);
+  return($transcript_slices);
+
+
+  # my $transcript_slices = $hal_align_slice; #  $self->make_cluster_slices(\@sorted_target_genomic_aligns,$max_cluster_gap_length);
+  unless($transcript_slices) {
+    $self->throw("The sorted align blocks were not converted into transcript slices, something went wrong");
+  }
+
+  foreach my $transcript_slice (@{$transcript_slices}) {
+    say "Created transcript slice: ".$transcript_slice->name."\n";
+  }
+  return $transcript_slices;
+}
+
 
 
 sub make_runnables {
