@@ -87,7 +87,7 @@ sub write_output {
 
 sub process_assembly_files {
   my ($self,$full_path,$output_file,$assembly_output_path,$gca) = @_;
-
+  my $consensi_files_to_process = $self->param_required('min_consensi_files');
   unless(-d $assembly_output_path) {
     if(system('mkdir -p '.$assembly_output_path)) {
       $self->throw("Could not make assembly output dir. Path used:\n".$assembly_output_path);
@@ -96,6 +96,7 @@ sub process_assembly_files {
 
   my $assembly_run_hash;
   my $total_consensi_files_processed = 0;
+  my $family_file = "";
   for(my $i=0; $i<$consensi_files_to_process; $i++) {
     my $run_dir = catfile($full_path,$i);
     unless(-d $run_dir) {
