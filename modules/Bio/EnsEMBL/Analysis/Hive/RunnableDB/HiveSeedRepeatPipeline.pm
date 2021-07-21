@@ -55,14 +55,14 @@ sub fetch_input {
 
 sub run {
   my $self = shift;
-
   my $assembly_registry_dba = $self->hrdb_get_con('assembly_registry_db');
   my $min_contig_n50        = $self->param('min_contig_n50');
   my $min_scaffold_n50      = $self->param('min_scaffold_n50');
   my $min_total_length      = $self->param('min_total_length');
   my $max_version_only      = $self->param('max_version_only');
+  my $assembly_group        = $self->param('assembly_group');
   say "Fetching GCAs by constraints...";
-  my $inital_gca_list       = $assembly_registry_dba->fetch_gca_by_constraints($min_contig_n50,$min_scaffold_n50,$min_total_length,undef,$max_version_only);
+  my $inital_gca_list       = $assembly_registry_dba->fetch_gca_by_constraints_assembly_group_no_haplotype($assembly_group,$min_contig_n50,$min_scaffold_n50,$min_total_length,undef,$max_version_only);
   say "Processing GCAs to determine what to process...";
   my $gcas_to_process       = $self->find_gcas_to_process($inital_gca_list,$assembly_registry_dba);
   $self->gcas_to_process($gcas_to_process);

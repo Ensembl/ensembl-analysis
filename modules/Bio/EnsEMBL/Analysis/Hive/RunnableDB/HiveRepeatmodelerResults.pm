@@ -70,7 +70,7 @@ sub run {
     $self->throw("Found an existing repeatmodeler file on the assembly path. Will not overwrite. Path:\n".$output_file);
   }
 
-  $self->process_assembly_files($full_path,$output_file,$assembly_output_path);
+  $self->process_assembly_files($full_path,$output_file,$assembly_output_path,$gca);
   $self->update_species_file($gca,$output_file);
 }
 
@@ -86,8 +86,8 @@ sub write_output {
 
 
 sub process_assembly_files {
-  my ($self,$full_path,$output_file,$assembly_output_path) = @_;
-
+  my ($self,$full_path,$output_file,$assembly_output_path,$gca) = @_;
+  my $consensi_files_to_process = $self->param_required('min_consensi_files');
   unless(-d $assembly_output_path) {
     if(system('mkdir -p '.$assembly_output_path)) {
       $self->throw("Could not make assembly output dir. Path used:\n".$assembly_output_path);
@@ -96,26 +96,35 @@ sub process_assembly_files {
 
   my $assembly_run_hash;
   my $total_consensi_files_processed = 0;
-  for(my $i=0; $i<10; $i++) {
+  my $family_file = "";
+  for(my $i=0; $i<$consensi_files_to_process; $i++) {
     my $run_dir = catfile($full_path,$i);
     unless(-d $run_dir) {
       $self->warning("Warning, did not find the following output dir, will skip:\n".$run_dir);
       next;
     }
-    my $cmd = 'lfs find -name RM* '.$run_dir.' -maxdepth 1';
+    my $cmd = 'find '.$run_dir.' -maxdepth 1 -name RM*';
     my @repeatmodeler_subdirs = `$cmd`;
     unless(scalar(@repeatmodeler_subdirs)) {
       $self->warning("Warning, did not find a repeatmodeler output dir in the run dir. Run dir used:\n$run_dir");
     }
 
-    foreach my $subdir (@repeatmodeler_subdirs) {
+     foreach my $subdir (@repeatmodeler_subdirs) {
       chomp($subdir);
-      my $run_lib_file = catfile($subdir,'consensi.fa.classified');
+      my $run_lib_file = catfile($subdir,'consensi.fa');
+      my $family_lib_file = catfile($subdir,'families.stk');
       unless(-e $run_lib_file) {
-        $self->warning("Did not find a consensi.fa.classified lib on path:\n".$run_lib_file);
+        $self->warning("Did not find a consensi.fa lib on path:\n".$run_lib_file);
         next;
       }
-
+      unless(-e $family_lib_file) {
+        $self->warning("Did not find a families.stk lib on path:\n".$family_lib_file);
+        next;
+      }
+      if (-e $family_lib_file){
+        $family_file = $assembly_output_path . '/families.stk_'.$i;
+        say "output is $family_file";
+      }
       my $assembly_parser = Bio::EnsEMBL::IO::Parser::Fasta->open($run_lib_file);
       while($assembly_parser->next()) {
         my $sequence = $assembly_parser->getSequence;
@@ -125,14 +134,17 @@ sub process_assembly_files {
         }
       }
 
-      my $copy_cmd = 'cp '.$run_lib_file.' '.catfile($assembly_output_path,'consensi.fa.classified_'.$i);
+      my $copy_cmd = 'cp '.$run_lib_file.' '.catfile($assembly_output_path,'consensi.fa_'.$i);
       if(system($copy_cmd)) {
         $self->throw("Failed to copy the run consensi.fa.classified to the assembly lib dir. Commandline useed:\n".$copy_cmd);
       }
+      $copy_cmd = 'cp '.$family_lib_file.' '.catfile($assembly_output_path,'families.stk_'.$i);
+      if(system($copy_cmd)) {
+        $self->throw("Failed to copy the run families.stk to the assembly lib dir. Commandline useed:\n".$copy_cmd);
+      }
       $total_consensi_files_processed++;
     } # end foreach my $subdir
-  } # end for(my $i=0; $i<10; $i++)
-
+  } # end for(my $i=0; $i<$consensi; $i++)
   unless(open(OUT_ASSEMBLY,">".$output_file)) {
     $self->throw("Could not open an ouput file for writing in assembly storage dir. Path used:\n".$output_file);
   }
@@ -144,6 +156,22 @@ sub process_assembly_files {
   }
 
   close OUT_ASSEMBLY;
+  
+  #looping through to compress families-classified.stk file
+  my $cmd = 'find '.$assembly_output_path.' -maxdepth 1 -name families.stk*';
+  my @families_subdirs = `$cmd`;
+  unless(scalar(@families_subdirs)) {
+    $self->warning("Warning, did not find a repeatmodeler output dir in the run dir. Run dir used:\n$assembly_output_path");
+  }
+
+  foreach my $subdir (@families_subdirs) {
+    chomp($subdir);
+    say "Compressing family file now...";
+    my $compressed_family_lib = catfile($assembly_output_path,$gca.'.families.stk.gz');
+    my $cmd = "gzip -cvf $subdir > $compressed_family_lib";
+    say "line is $cmd";
+    `$cmd`;
+  }
 
   unless($total_consensi_files_processed >= $self->param_required('min_consensi_files')) {
     $self->throw("Only found ".$total_consensi_files_processed." files, required ".$self->param_required('min_consensi_files'));
@@ -169,7 +197,7 @@ sub update_species_file {
   my $path_to_store_species_libs  = $self->param('path_to_species_libs');
   my $species_dir_path = catfile($path_to_store_species_libs,$species_name);
   unless(-d $species_dir_path) {
-    if(system('mkdir '.$species_dir_path)) {
+    if(system('mkdir -p '.$species_dir_path)) {
       $self->throw("Could not make species output dir. Path used:\n".$species_dir_path);
     }
   }
