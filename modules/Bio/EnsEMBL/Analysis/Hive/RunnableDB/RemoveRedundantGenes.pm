@@ -124,16 +124,20 @@ sub run {
     # Only works on a one transcript per gene model
     my $transcript = ${$gene->get_all_Transcripts}[0];
 #    my $transcript_string = $transcript->start.":".$transcript->end.":".$transcript->strand.":".$transcript->seq_region_name.":";
-    my $transcript_string = $transcript->seq_region_name.":".$transcript->strand.":";
-    my $intron_string = $self->generate_intron_string($transcript->get_all_Introns());
-    if($intron_string) {
-      $transcript_string .= $intron_string;
-    }
+    my $transcript_string;
+    my $intron_string;
+    if ($transcript) {
+      $transcript_string = $transcript->seq_region_name.":".$transcript->strand.":";
+      $intron_string = $self->generate_intron_string($transcript->get_all_Introns());
+      if ($intron_string) {
+        $transcript_string .= $intron_string;
+      }
 
-    # This will process single exon genes. It won't handle cases where the single exon genes have different start/ends, but this isn't
-    # exactly enough of a problem to warrant all the extra code it would take
-    unless($intron_string) {
-      $transcript_string .= $transcript->start.":".$transcript->end;
+      # This will process single exon genes. It won't handle cases where the single exon genes have different start/ends, but this isn't
+      # exactly enough of a problem to warrant all the extra code it would take
+      unless ($intron_string) {
+        $transcript_string .= $transcript->start.":".$transcript->end;
+      }
     }
 
     # For generic data we mostly just consider which has the longest cds if the introns are the same. Then if the cds is the
