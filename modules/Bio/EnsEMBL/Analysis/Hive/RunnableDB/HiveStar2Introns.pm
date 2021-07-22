@@ -187,6 +187,7 @@ sub write_output {
   }
   my $slice_adaptor = $self->param('_slice_adaptor');
 
+  my $num_dafs = 0;
   my $sth_write = $out_dbc->prepare('INSERT INTO dna_align_feature (seq_region_id, seq_region_start, seq_region_end, seq_region_strand, hit_name, hit_start, hit_end, hit_strand, analysis_id, score, cigar_line, align_type) values (?, ?, ?, ?, ?, 1, ?, 1, ?, ?, ?, "ensembl")');
   foreach my $seq_region ( keys %$daf_table) {
     my $seq_region_id = $slice_adaptor->fetch_by_region('toplevel', $seq_region)->get_seq_region_id;
@@ -196,11 +197,13 @@ sub write_output {
       my ($start, $end, $strand, $is_canonical) = split(':', $item);
       foreach my $logic_name (keys %{$daf_table->{$seq_region}->{$item}}) {
         if ((($end - $start + 1) >= $small_intron_size) && $daf_table->{$seq_region}->{$item}->{$logic_name} >= $min_intron_depth) {
+          $num_dafs++;
           $sth_write->bind_param(1, $seq_region_id);
           $sth_write->bind_param(2, $start);
           $sth_write->bind_param(3, $end);
           $sth_write->bind_param(4, $strand == 2 ? -1 : 1);
-          $sth_write->bind_param(5, "$name:$start:$end:".($strand == 2 ? -1 : 1).':'.($is_canonical > 0 ? 'canon' : 'non canon'));
+          $sth_write->bind_param(5, "$num_dafs:".($strand == 2 ? -1 : 1).':'.($is_canonical > 0 ? 'canon' : 'n
+on canon'));
           $sth_write->bind_param(6, ($end-$start));
           $sth_write->bind_param(7, $analyses->{$logic_name}->dbID);
           $sth_write->bind_param(8, $daf_table->{$seq_region}->{$item}->{$logic_name});

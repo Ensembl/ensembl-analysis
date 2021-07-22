@@ -648,6 +648,12 @@ sub check_protein_models {
 
   my $supporting_feature = shift(@$supporting_features);
   my $coverage = $supporting_feature->hcoverage;
+  
+  if (!($transcript->translation())) {
+    say "Removing transcript because it does not have any translation ".$transcript->seq_region_name().":".$transcript->seq_region_start().":".$transcript->seq_region_end();
+    return(1);
+  }
+  
   my $translation = $transcript->translation->seq;
   my $hit_name = $supporting_feature->hseqname;
   if($coverage < 75 && $translation !~ /^M/) {
