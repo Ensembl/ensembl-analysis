@@ -108,6 +108,8 @@ sub fetch_input {
     }
     if (scalar(keys %unique_analyses) > 1) {
       $analyses{merged} = Bio::EnsEMBL::Analysis->new(-logic_name => $self->param_required('species').'_merged_rnaseq_daf', -module => 'Star2Introns');
+      my $has_merge_set = scalar(keys %analyses) > 1;
+      $self->param('has_merge_set',$has_merge_set);
     }
     $self->param('_analyses', \%analyses);
     my $slice_adaptor = $output_dba->get_SliceAdaptor;
@@ -135,7 +137,6 @@ sub run {
 
   my $junction_files = $self->param('_junction_files');
   my $analyses = $self->param('_analyses');
-
   my %daf_table;
   foreach my $junction_file (@$junction_files) {
     $self->say_with_header("Parsing junction file: $junction_file");
@@ -149,12 +150,12 @@ sub run {
       my $depth = $unique_map_count + POSIX::ceil($multi_map_count/2);
 
       if (exists $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}) {
-        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{$srr} += $depth;
-        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{merged} += $depth;
+        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{$analyses->{$srr}->logic_name} += $depth;
+        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{merged} += $depth if ($self->param('has_merge_set'));
       }
       else{
-        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{$srr} = $depth;
-        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{merged} = $depth;
+        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{$analyses->{$srr}->logic_name} = $depth;
+        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{merged} = $depth if ($self->param('has_merge_set'));
       }
     }
     close(IN) or $self->throw("Could not close $junction_file");
@@ -174,7 +175,6 @@ sub run {
 
 sub write_output {
   my ($self) = @_;
-
   my $out_dbc = $self->hrdb_get_con('target_db')->dbc;
   my $daf_table = $self->param('_daf_table');
   my $analyses = $self->param('_analyses');
