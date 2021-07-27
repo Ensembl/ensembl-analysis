@@ -109,11 +109,11 @@ my $num_split_query_genes = 0;
 
 my $file_prefix = time().'_'.$reference_cs_version."_".$query_cs_version;
 
-open(my $not_found_reference_regions_fh,'>',catfile($output_path,$file_prefix.'_not_found_reference_regions.tsv')) || die "Couldn't open file not_found_reference_regions.tsv, $!";
-open(my $not_found_reference_genes_fh,'>',catfile($output_path,$file_prefix.'_not_found_reference_genes.tsv')) || die "Couldn't open file not_found_reference_genes.tsv, $!";
-open(my $not_found_reference_transcripts_fh,'>',catfile($output_path,$file_prefix.'_not_found_reference_transcripts.tsv')) || die "Couldn't open file not_found_reference_transcripts.tsv, $!";
-open(my $split_reference_genes_fh,'>',catfile($output_path,$file_prefix.'_split_reference_genes.tsv')) || die "Couldn't open file split_reference_genes.tsv, $!";
-open(my $split_query_genes_fh,'>',catfile($output_path,$file_prefix.'_split_query_genes.tsv')) || die "Couldn't open file split_query_genes.tsv, $!";
+open(my $not_found_reference_regions_fh,'>',catfile($output_path,$file_prefix.'_not_found_reference_regions.tsv')) || die "Couldn't open file *not_found_reference_regions.tsv, $!";
+open(my $not_found_reference_genes_fh,'>',catfile($output_path,$file_prefix.'_not_found_reference_genes.tsv')) || die "Couldn't open file *not_found_reference_genes.tsv, $!";
+open(my $not_found_reference_transcripts_fh,'>',catfile($output_path,$file_prefix.'_not_found_reference_transcripts.tsv')) || die "Couldn't open file *not_found_reference_transcripts.tsv, $!";
+open(my $split_reference_genes_fh,'>',catfile($output_path,$file_prefix.'_split_reference_genes.tsv')) || die "Couldn't open file *split_reference_genes.tsv, $!";
+open(my $split_query_genes_fh,'>',catfile($output_path,$file_prefix.'_split_query_genes.tsv')) || die "Couldn't open file *split_query_genes.tsv, $!";
 
 my $reference_gene_adaptor = $reference_db->get_GeneAdaptor();
 my $reference_transcript_adaptor = $reference_db->get_TranscriptAdaptor();
@@ -554,7 +554,7 @@ sub compare_genes {
       $matched_gene++;
     }
 
-    if ($matched_cds_transcripts and ($matched_cds_transcripts eq $total_cds_transcripts)) {
+    if ($matched_cds_transcripts and ($matched_cds_transcripts == $total_cds_transcripts)) {
       $matched_cds_gene++;
     }
 
