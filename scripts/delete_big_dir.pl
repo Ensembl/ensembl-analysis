@@ -50,7 +50,7 @@ unless(-d $full_master_dir_path) {
 say "The full path for the dir to be deleted is:\n".$full_master_dir_path;
 
 say "Getting subdir list...";
-my @subdirs = `lfs find $full_master_dir_path -type d`;
+my @subdirs = `find $full_master_dir_path -type d`;
 
 say "Found ".(scalar(@subdirs) - 1)." subdirs";
 
