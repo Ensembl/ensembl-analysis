@@ -339,7 +339,7 @@ sub run {
               if ($transcript->coding_region_start < $cluster_gene->{_gb_coding_start}) {
                 $cluster_gene->{_gb_coding_start} = $transcript->coding_region_start;
               }
-              if ($transcript->coding_region_end < $cluster_gene->{_gb_coding_end}) {
+              if ($transcript->coding_region_end > $cluster_gene->{_gb_coding_end}) {
                 $cluster_gene->{_gb_coding_end} = $transcript->coding_region_end;
               }
             }
