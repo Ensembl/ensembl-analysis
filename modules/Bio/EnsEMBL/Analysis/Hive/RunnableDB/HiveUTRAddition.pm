@@ -211,7 +211,7 @@ sub run {
       my $acceptor_transcripts = $gene->get_all_Transcripts;
       $gene->flush_Transcripts;
       foreach my $acceptor_transcript (@$acceptor_transcripts) {
-        if($acceptor_transcript->translate->seq =~ /\*/) {
+        if ($acceptor_transcript->translate and $acceptor_transcript->translate->seq =~ /\*/) {
           $self->warning("Transcript with dbID ".$acceptor_transcript->dbID." has a stop codon in the translation. Skipping UTR addition");
           $gene->add_Transcript($acceptor_transcript);
 	} else {
