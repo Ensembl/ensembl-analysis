@@ -1067,7 +1067,7 @@ sub clean_utrs {
               my $new_value = 0;
               my $diff = 0;
               $remove_transcript = 1;
-              foreach my $key (keys $data{$new_stable_id}->{cds_content}) {
+              foreach my $key (keys %{$data{$new_stable_id}->{cds_content}}) {
                 $bridge_value += $data{$bridging_stable_id}->{cds_content}->{$key} || 0;
                 $new_value += $data{$new_stable_id}->{cds_content}->{$key};
                 $diff = abs($bridge_value-$new_value) if (abs($bridge_value-$new_value) > $diff);
