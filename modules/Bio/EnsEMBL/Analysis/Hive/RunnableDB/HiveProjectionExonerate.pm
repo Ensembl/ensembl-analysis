@@ -50,6 +50,9 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 
+use JSON::PP;
+
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
@@ -73,6 +76,10 @@ sub fetch_input {
   $self->hrdb_set_con($source_transcript_dba,'source_transcript_db');
   $self->hrdb_set_con($target_transcript_dba,'target_transcript_db');
 
+  # test code with: /hps/nobackup/flicek/ensembl/compara/twalsh/GRCh38-f1-90-mc-mar22.hal
+  $self->param('hal_file', '/hps/nobackup/flicek/ensembl/compara/twalsh/GRCh38-f1-90-mc-mar22.hal'); 
+  
+
   # Retrieve the production names for the query and target species
   my $source_species = $source_transcript_dba->get_MetaContainerAdaptor->get_production_name();
   my $target_species = $target_transcript_dba->get_MetaContainerAdaptor->get_production_name();
@@ -86,8 +93,9 @@ sub fetch_input {
     # not sure if works
     $assembly_name = $target_transcript_dba->get_MetaContainer->single_value_by_key('assembly.name');
 
+    $self->param('_transcript_biotype',{});
 
-    $mode = "hal"; 
+    $mode = "hal_file"; 
     
   } elsif (defined($self->param('compara_db'))) {
     $compara_dba = $self->hrdb_get_dba($self->param('compara_db'),undef,'Compara');
@@ -121,18 +129,21 @@ sub fetch_input {
     $mode = "compara_db"; 
   } else {
     #TODO:  throw
-    #$self->throw("");
+    $self->throw("Didn't specify compara or hal file");
   }
 
 
-  foreach my $input_id (@$input_ids) {
-
+  foreach my $input_id (@$input_ids) { 
     my $transcript = $source_transcript_dba->get_TranscriptAdaptor->fetch_by_dbID($input_id);
     my $transcript_seq;
     my $biotype = $transcript->biotype;
     my $stable_id = $transcript->stable_id.".".$transcript->version;
+print "DEBUG:: yo! $input_id running transcript: $transcript  bio $biotype stable: $stable_id \n";
+
     my $annotation_features;
     $self->param('_transcript_biotype')->{$stable_id} = $biotype;
+
+print "DEBUG:: yo! $input_id running transcript: $transcript  bio $biotype stable: $stable_id \n";
 
     say "Processing source transcript: ".$transcript->stable_id;
     if($self->QUERYTYPE eq 'protein') {
@@ -148,7 +159,7 @@ sub fetch_input {
       $transcript_seq = $transcript->seq->seq;
     }
     my $transcript_slices; 
-    if ($mode eq "compare_db" ) {
+    if ($mode eq "compara_db" ) {
       $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba);
     } elsif ($mode eq "hal_file") {
       # TODO method to return $transcript_slices of HAL file.       
@@ -156,7 +167,7 @@ sub fetch_input {
       $transcript_slices = $self->process_transcript_hal_file($transcript, $hal_file, $assembly_name); 
     } else {
       # TODO throw ...  
-      #$self->throw("");
+      $self->throw("No mode mention");
     }
     my $transcript_header = $transcript->stable_id.'.'.$transcript->version;
     my $transcript_seq_object = Bio::Seq->new(-display_id => $transcript_header, -seq => $transcript_seq);
@@ -385,37 +396,81 @@ sub process_transcript {
 sub process_transcript_hal_file {
   my ($self,$transcript,$hal_file,$target_assembly) = @_;
 
-  my $source_transcript_slice = $transcript->slice();  
-  my ($type,$assembly,$chrname,$target_genomic_start,$target_genomic_end,$step) = split(":", $source_transcript_slice->name); 
-  
-  # command: 
-  $hal_file = '/hps/nobackup/flicek/ensembl/compara/twalsh/GRCh38-f1-90-mc-mar22.hal';
-  my $output_file_tmp = $self->param('tmpdir')."/source_sequence_".$transcript->dbID;
+  my $source_transcript_slice = $transcript->slice(); 
+  print "DEBUG:: ". $source_transcript_slice->name . "\n"; 
+  # chromosome:GRCm38:1:1:195471971:1
    
+  my ($type,$assembly,$chrname,$target_genomic_start,$target_genomic_end,$step) = split(":", $source_transcript_slice->name);  
+  my $transcript_start = $transcript->seq_region_start() ; 
+  my $transcript_end = $transcript->seq_region_end() ;
+  my $transcript_strand = $transcript->strand() ;
+  
+  my $src_region_to_lift = "chr" . $chrname . ":" . $transcript_start . "-" . $transcript_end . ":" . $transcript_strand ; 
+  my $output_file_tmp = $self->param('tmpdir')."/source_sequence_".$transcript->dbID;
+  
+  
+  # example data NEED TO COMMENT THEM: 
+  $hal_file = '/hps/nobackup/flicek/ensembl/compara/twalsh/GRCh38-f1-90-mc-mar22.hal';
+  $output_file_tmp = "/hps/nobackup/flicek/ensembl/genebuild/kbillis/tmp/"."/source_sequence_".$transcript->dbID; 
+  $src_region_to_lift = "chr11:2159779-2161221:-1";  
+  $assembly = "GRCh38"; 
+  $target_assembly = "CHM13";   
+  # command: 
   my $hal_file_take = 'python '. ' /nfs/production/flicek/ensembl/genebuild/kbillis/ensembl_code/human_pangenome_HAL_files/ensembl-compara/scripts/hal_alignment/hal_gene_liftover.py ' . 
-                             ' --src-region ' . ' TODO region to get' .
+                             ' --src-region ' . $src_region_to_lift  .
                              ' --flank ' . '5000 ' .
                              $hal_file . ' ' . $assembly . ' ' . $target_assembly . ' ' . $output_file_tmp ;
 
-  say "Running hal gene liftover script";
+  say "Running hal gene liftover script. command is: $hal_file_take  ";
   if(system($hal_file_take)) {
      $self->throw("The hal_gene_liftover script exited with a non-zero exit code. Commandline used:\n".$hal_file_take);
   }
   
   # TODO: read json file and get:
+  # [{"params": {"src_genome": "GRCh38", "src_chrom": "chr11", "src_start": 2159779, "src_end": 2161221, "src_strand": -1, "flank": 5000, "dest_genome": "CHM13"}, "results": [{"dest_chrom": "chr11", "dest_start": 2242428, "dest_end": 2255588, "dest_strand": -1, "dest_sequence": "GGAGGCCCGGTGGAGGTGCGGATCCTGGGCGGCCAGGGAAGGTCTCTGCCGCCCGGGAAGTGTCCCAGAGACCCCTGGAGGGGCTGCTGACACCCCCGGTGCCCCCACCTCGAGCATGACCCAGGGCTGCCTCTCCATGGGT"}]}]
+  # use json module.  	
+
+  my $json_text = do {
+    open(my $json_fh, "<:encoding(UTF-8)", $output_file_tmp)
+       or die("Can't open \$filename\": $!\n");
+    local $/;
+    <$json_fh>
+  };
+
+# print "$json_text \n"; 
+  my $json = JSON->new;
+  my $data = $json->decode($json_text);
+
+# say "Number of elements: " . scalar \@data;
+
+  if (scalar(@$data) > 1) {
+    $self->throw("not sure if this is correct"); 	
+  } 
+
+  
+  # I Am not taking strand because I don't think it is important for minima sequence. 
+  my $dest_genome = $data->[0]{'results'}->[0]{'dest_genome'};  # this is the name of the assembly for example 'dest_genome' => 'CHM13',
+  my $dest_chrom = $data->[0]{'results'}->[0]{'dest_chrom'};
+  my $start_chrom = $data->[0]{'results'}->[0]{'dest_start'};
+  my $end_chrom = $data->[0]{'results'}->[0]{'dest_end'};
+
+  
+
   my $transcript_slices = []; 
   my ($coord_system_name, $seq_region_name, $start, $end); 
+  print "DEBUG $coord_system_name, $seq_region_name, $start, $end \n"; 
   my $slice_adaptor = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor; 
   my $hal_align_slice = $slice_adaptor->fetch_by_region($coord_system_name, $seq_region_name, $start, $end);
   
+die; 
+
   
   push(@{$transcript_slices},$hal_align_slice);
   return($transcript_slices);
+  # you need to check that the file has data, but we didn't create transcript slice 
 
-
-  # my $transcript_slices = $hal_align_slice; #  $self->make_cluster_slices(\@sorted_target_genomic_aligns,$max_cluster_gap_length);
   unless($transcript_slices) {
-    $self->throw("The sorted align blocks were not converted into transcript slices, something went wrong");
+    $self->throw("The  align blocks were not converted into transcript slices, something went wrong");
   }
 
   foreach my $transcript_slice (@{$transcript_slices}) {

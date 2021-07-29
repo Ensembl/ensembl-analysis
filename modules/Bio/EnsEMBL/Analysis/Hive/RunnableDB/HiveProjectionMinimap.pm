@@ -111,45 +111,74 @@ sub fetch_input {
   $self->hrdb_set_con($source_transcript_dba,'source_transcript_db');
   $self->hrdb_set_con($target_transcript_dba,'target_transcript_db');
 
-  # Define the compara db
-  my $compara_dba = $self->hrdb_get_dba($self->param('compara_db'),undef,'Compara');
-  $self->hrdb_set_con($compara_dba,'compara_db');
-
-  # Get the genome db adpator
-  my $genome_dba = $compara_dba->get_GenomeDBAdaptor;
-
   # Retrieve the production names for the query and target species
   my $source_species = $source_transcript_dba->get_MetaContainerAdaptor->get_production_name();
   my $target_species = $target_transcript_dba->get_MetaContainerAdaptor->get_production_name();
 
-  my $source_genome_db = $genome_dba->fetch_by_core_DBAdaptor($source_transcript_dba);
-  my $target_genome_db = $genome_dba->fetch_by_core_DBAdaptor($target_transcript_dba);
 
-  ########
-  # check that the default assembly for the query and target agrees
-  # with that for the method_link_species_set GenomeDBs
-  ########
+  # test code with: /hps/nobackup/flicek/ensembl/compara/twalsh/GRCh38-f1-90-mc-mar22.hal
+  $self->param('hal_file', '/hps/nobackup/flicek/ensembl/compara/twalsh/GRCh38-f1-90-mc-mar22.hal'); 
+  $self->param('tmpdir', '/hps/nobackup/flicek/ensembl/genebuild/kbillis/tmp'); 
 
-  my $source_assembly = $source_genome_db->assembly;
-  my $target_assembly = $target_genome_db->assembly;
+  my $mode = "";
+  my ($compara_dba, $source_genome_db, $mlss, $hal_file, $assembly_name); 
 
-  my ($source_assembly_version, $target_assembly_version);
-  eval {
-    $source_assembly_version = $source_transcript_dba->get_CoordSystemAdaptor->fetch_by_name('toplevel',$source_genome_db->assembly);
-    $target_assembly_version = $target_transcript_dba->get_CoordSystemAdaptor->fetch_by_name('toplevel',$target_genome_db->assembly);
-  };
-  if($@) {
-    $self->throw("Had trouble fetching coord systems for ".$source_genome_db->assembly . " and " .$target_genome_db->assembly . " from core dbs:\n".$@);
-  }
 
-  my $transcript_align_slices = {};
-  my $mlss = $compara_dba->get_MethodLinkSpeciesSetAdaptor->fetch_by_method_link_type_GenomeDBs($self->param('method_link_type'),
+  if (defined($self->param('hal_file'))) {
+    $hal_file = $self->param('hal_file');
+    
+    # not sure if works
+    $assembly_name = $target_transcript_dba->get_MetaContainer->single_value_by_key('assembly.name');
+
+    $self->param('_transcript_biotype',{});
+
+    $mode = "hal_file"; 
+    
+  } elsif (defined($self->param('compara_db'))) {  
+  	# Define the compara db
+  	my $compara_dba = $self->hrdb_get_dba($self->param('compara_db'),undef,'Compara');
+    $self->hrdb_set_con($compara_dba,'compara_db');
+
+    # Get the genome db adpator
+    my $genome_dba = $compara_dba->get_GenomeDBAdaptor;
+
+    # Retrieve the production names for the query and target species
+    my $source_species = $source_transcript_dba->get_MetaContainerAdaptor->get_production_name();
+    my $target_species = $target_transcript_dba->get_MetaContainerAdaptor->get_production_name();
+
+    my $source_genome_db = $genome_dba->fetch_by_core_DBAdaptor($source_transcript_dba);
+    my $target_genome_db = $genome_dba->fetch_by_core_DBAdaptor($target_transcript_dba);
+
+    ########
+    # check that the default assembly for the query and target agrees
+    # with that for the method_link_species_set GenomeDBs
+    ########
+
+    my $source_assembly = $source_genome_db->assembly;
+    my $target_assembly = $target_genome_db->assembly;
+
+    my ($source_assembly_version, $target_assembly_version);
+    eval {
+      $source_assembly_version = $source_transcript_dba->get_CoordSystemAdaptor->fetch_by_name('toplevel',$source_genome_db->assembly);
+      $target_assembly_version = $target_transcript_dba->get_CoordSystemAdaptor->fetch_by_name('toplevel',$target_genome_db->assembly);
+    };
+    if($@) {
+      $self->throw("Had trouble fetching coord systems for ".$source_genome_db->assembly . " and " .$target_genome_db->assembly . " from core dbs:\n".$@);
+    }
+
+    my $transcript_align_slices = {};
+    my $mlss = $compara_dba->get_MethodLinkSpeciesSetAdaptor->fetch_by_method_link_type_GenomeDBs($self->param('method_link_type'),
                                                                                                 [$source_genome_db,
                                                                                                 $target_genome_db]);
-  unless($mlss) {
-    $self->throw("No MethodLinkSpeciesSet for :\n" .$self->param('method_link_type') . "\n" .$source_species . "\n" .$target_species);
+    unless($mlss) {
+      $self->throw("No MethodLinkSpeciesSet for :\n" .$self->param('method_link_type') . "\n" .$source_species . "\n" .$target_species);
+    }
+  } else {
+    #TODO:  throw
+    $self->throw("Didn't specify compara or hal file");
   }
-
+  
+  # fetch transcripts. 
   $self->param('_transcript_biotype',{});
   foreach my $input_id (@$input_ids) {
 
@@ -157,9 +186,23 @@ sub fetch_input {
     my $biotype = $transcript->biotype;
     my $stable_id = $transcript->stable_id.".".$transcript->version;
     $self->param('_transcript_biotype')->{$stable_id} = $biotype;
-    say "Processing source transcript: ".$transcript->stable_id . "from: " . $source_genome_db->assembly . "\n";
-    say "with input_id: $input_id and number of exons: " . scalar(@{$transcript->get_all_Exons()})  . "\n";     
-    my $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba);
+
+    my $transcript_slices; 
+    if ($mode eq "compara_db" ) {
+      say "Processing source transcript: ".$transcript->stable_id . "from: " . $source_genome_db->assembly . "\n";
+      say "with input_id: $input_id and number of exons: " . scalar(@{$transcript->get_all_Exons()})  . "\n";     
+      $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba);
+    } elsif ($mode eq "hal_file") {
+      say "HAL_MODE:Processing source transcript: ".$transcript->stable_id . "\n"; 
+      # TODO method to return $transcript_slices of HAL file.       
+      # $hal_file and $target_assembly need to find
+      $transcript_slices = $self->process_transcript_hal_file($transcript, $hal_file, $assembly_name); 
+    } else {
+      # TODO throw ...  
+      $self->throw("No mode mention");
+    }
+
+
     $self->make_runnables($transcript->spliced_seq(),$transcript_slices,$input_id,$target_transcript_dba);
     #$self->make_runnables($transcript->feature_Slice(), $transcript_slices, $input_id, $target_transcript_dba);
   } #close foreach input_id
@@ -355,6 +398,137 @@ sub transcripts_noalignblocks {
   return ($self->param('_transcripts_noalignblocks'));
 }
 
+
+
+
+
+
+
+# TODO: THIS METHOD will create the $transcript_slices from hal file.
+sub process_transcript_hal_file {
+  my ($self,$transcript,$hal_file,$target_assembly) = @_;
+
+  my $source_transcript_slice = $transcript->slice(); 
+  print "DEBUG:: ". $source_transcript_slice->name . "\n"; 
+  # chromosome:GRCm38:1:1:195471971:1
+   
+  my ($type,$assembly,$chrname,$target_genomic_start,$target_genomic_end,$step) = split(":", $source_transcript_slice->name);  
+  my $transcript_start = $transcript->seq_region_start() ; 
+  my $transcript_end = $transcript->seq_region_end() ;
+  my $transcript_strand = $transcript->strand() ;
+
+  use Scalar::Util qw(looks_like_number);
+  if (looks_like_number($chrname)) { 
+    $chrname= "chr" . $chrname ; 
+  }
+  
+  my $src_region_to_lift = $chrname . ":" . $transcript_start . "-" . $transcript_end . ":" . $transcript_strand ; 
+  my $output_file_tmp = $self->param('tmpdir')."/source_sequence_".$transcript->dbID;
+  
+  
+  # example data NEED TO COMMENT THEM: 
+  $hal_file = '/hps/nobackup/flicek/ensembl/compara/twalsh/GRCh38-f1-90-mc-mar22.hal';
+  # $output_file_tmp = "/hps/nobackup/flicek/ensembl/genebuild/kbillis/tmp/"."/source_sequence_".$transcript->dbID; 
+  # $src_region_to_lift = "chr11:2159779-2161221:-1";  
+  print "DEBUG:: ". $transcript->dbID . "will lift: " . $src_region_to_lift . "\n"; 
+  
+  $assembly = "GRCh38"; 
+  $target_assembly = "CHM13";   
+  # command: 
+  my $hal_file_take = 'python '. ' /nfs/production/flicek/ensembl/genebuild/kbillis/ensembl_code/human_pangenome_HAL_files/ensembl-compara/scripts/hal_alignment/hal_gene_liftover.py ' . 
+                             ' --src-region ' . $src_region_to_lift  .
+                             ' --flank ' . '5000 ' .
+                             $hal_file . ' ' . $assembly . ' ' . $target_assembly . ' ' . $output_file_tmp ;
+
+  say "Running hal gene liftover script. command is: $hal_file_take  ";
+  if(system($hal_file_take)) {
+     $self->throw("The hal_gene_liftover script exited with a non-zero exit code. Commandline used:\n".$hal_file_take);
+  }
+  
+  # TODO: read json file and get:
+  # [{"params": {"src_genome": "GRCh38", "src_chrom": "chr11", "src_start": 2159779, "src_end": 2161221, "src_strand": -1, "flank": 5000, "dest_genome": "CHM13"}, "results": [{"dest_chrom": "chr11", "dest_start": 2242428, "dest_end": 2255588, "dest_strand": -1, "dest_sequence": "GGAGGCCCGGTGGAGGTGCGGATCCTGGGCGGCCAGGGAAGGTCTCTGCCGCCCGGGAAGTGTCCCAGAGACCCCTGGAGGGGCTGCTGACACCCCCGGTGCCCCCACCTCGAGCATGACCCAGGGCTGCCTCTCCATGGGT"}]}]
+  # use json module.  	
+
+  my $json_text = do {
+    open(my $json_fh, "<:encoding(UTF-8)", $output_file_tmp)
+       or die("Can't open \$filename\": $!\n");
+    local $/;
+    <$json_fh>
+  };
+
+# print "$json_text \n"; 
+  my $json = JSON->new;
+  my $data = $json->decode($json_text);
+
+# say "Number of elements: " . scalar \@data;
+
+  if (scalar(@$data) > 1) {
+    $self->throw("not sure if this is correct"); 	
+  } 
+
+  
+  # I Am not taking strand because I don't think it is important for minima sequence. 
+  my $dest_genome = $data->[0]{'results'}->[0]{'dest_genome'};  # this is the name of the assembly for example 'dest_genome' => 'CHM13',
+  my $dest_chrom = $data->[0]{'results'}->[0]{'dest_chrom'};
+  my $start_chrom = $data->[0]{'results'}->[0]{'dest_start'};
+  my $end_chrom = $data->[0]{'results'}->[0]{'dest_end'};
+
+  
+
+  my $transcript_slices = []; 
+  my ($coord_system_name, $seq_region_name, $start, $end); 
+  
+  $coord_system_name = "CHM13_T2T_v1.0";
+  $seq_region_name = $dest_chrom; 
+  $start = $start_chrom;
+  $end = $end_chrom; 
+  
+  
+  print "DEBUG $coord_system_name, $seq_region_name, $start, $end \n"; 
+  my $slice_adaptor = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor; 
+
+
+  my $csa = $self->hrdb_get_con('target_dna_db')->get_CoordSystemAdaptor();
+  # $coord_system_name = $csa->fetch_all()->name(); 
+
+  #
+  # Get all coord systems in the database:
+  #
+  foreach my $cs ( @{ $csa->fetch_all() } ) {
+    my $str = join ':', $cs->name(), $cs->version(), $cs->dbID();
+    print "$str\n";
+    $coord_system_name = $cs->name(); 
+  }
+  
+  $seq_region_name =~ s/chr//;
+  
+  print "$coord_system_name, $seq_region_name, $start, $end \n"; 
+  my $hal_align_slice = $slice_adaptor->fetch_by_region($coord_system_name, $seq_region_name, $start, $end);
+  
+  
+  push(@{$transcript_slices},$hal_align_slice);
+  # you need to check that the file has data, but we didn't create transcript slice 
+
+  unless($transcript_slices) {
+    $self->throw("The  align blocks were not converted into transcript slices, something went wrong");
+  }
+
+  foreach my $transcript_slice (@{$transcript_slices}) {
+    say "Created transcript slice: ".$transcript_slice->name."\n";
+  }
+ 
+  return $transcript_slices;
+}
+
+
+
+
+
+
+
+
+
+
 =head2 process_transcript
 
  Arg [1]    : Bio::EnsEMBL::Transcript to be projected
@@ -447,6 +621,10 @@ sub make_runnables {
   my ($type,$assembly,$chrname,$target_genomic_start,$target_genomic_end,$step); 
   if (scalar(@{$transcript_slices}) == 1) {
   	my $transcript_slice = @{$transcript_slices}[0]; 
+    use Data::Dumper;
+    print "DEBUG:: dumper start\n"; 
+  	Dumper($transcript_slice); 
+    print "DEBUG:: dumper end\n"; 
     ($type,$assembly,$chrname,$target_genomic_start,$target_genomic_end,$step) = split(":", $transcript_slice->name);
   } elsif (scalar(@{$transcript_slices}) > 1) {
   	
