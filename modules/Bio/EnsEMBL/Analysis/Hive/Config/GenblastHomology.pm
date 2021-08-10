@@ -105,6 +105,9 @@ sub default_options {
 
     'homology_models_path' => catdir( $self->o('output_path'), 'homology_models' ),
 
+    # This is used for "messaging" other sub pipeline
+    transcript_selection_url => undef,
+
 ########################
     # Extra db settings
 ########################
@@ -450,6 +453,40 @@ sub pipeline_analyses {
         layers      => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic', $self->o('uniprot_set'), undef, 'ARRAY' ),
       },
       -rc_name => '5GB',
+      -flow_into  => {
+        '1'  => ['notification_pipeline_is_done'],
+      },
+    },
+
+    {
+      -logic_name => 'notification_pipeline_is_done',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::MessagePipeline',
+      -parameters => {
+        messages   => [
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'create_toplevel_slices',
+          param => 'feature_dbs',
+          data => $self->o('genblast_nr_db'),
+          update => 1,
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'split_slices_on_intergenic',
+          param => 'input_gene_dbs',
+          data => $self->o('genblast_nr_db'),
+          update => 1,
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'layer_annotation',
+          param => 'SOURCEDB_REFS',
+          data => $self->o('genblast_nr_db'),
+          update => 1,
+        }],
+        tweak_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'tweak_pipeline.pl'),
+      },
+      -rc_name    => 'default',
     },
 
   ];

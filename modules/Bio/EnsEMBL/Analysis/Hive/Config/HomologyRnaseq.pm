@@ -88,6 +88,8 @@ sub default_options {
     'min_toplevel_slice_length'   => 250,
     genome_dumps                  => catdir($self->o('output_path'), 'genome_dumps'),
     faidx_genome_file             => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
+    # This is used for "messaging" other sub pipeline
+    transcript_selection_url => undef,
 
 ########################
 # Extra db settings
@@ -279,6 +281,26 @@ sub pipeline_analyses {
         layers      => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic', $self->o('uniprot_set'), undef, 'ARRAY'),
       },
       -rc_name    => '5GB',
+      -flow_into  => {
+        '1'  => ['notification_pipeline_is_done'],
+      },
+    },
+
+    {
+      -logic_name => 'notification_pipeline_is_done',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::MessagePipeline',
+      -parameters => {
+        tweak_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'tweak_pipeline.pl'),
+        messages   => [
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'layer_annotation',
+          param => 'SOURCEDB_REFS',
+          data => $self->o('genblast_rnaseq_support_nr_db'),
+          update => 1,
+        }],
+      },
+      -rc_name    => 'default',
     },
   ];
 }

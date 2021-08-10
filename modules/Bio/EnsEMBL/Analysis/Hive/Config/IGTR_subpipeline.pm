@@ -92,6 +92,9 @@ sub default_options {
 
     genome_dumps                  => catdir($self->o('output_path'), 'genome_dumps'),
 
+    # This is used for "messaging" other sub pipeline
+    transcript_selection_url => undef,
+
 # This one is used by most analyses that run against a genome flatfile like exonerate, genblast etc. Has slice name style headers. Is softmasked
     softmasked_genome_file        => catfile($self->o('genome_dumps'), $self->o('species_name').'_softmasked_toplevel.fa'),
     ensembl_analysis_script           => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
@@ -357,6 +360,40 @@ sub pipeline_analyses {
           'UPDATE gene JOIN transcript USING(gene_id) SET gene.biotype = transcript.biotype',
           ],
         },
+      -rc_name    => 'default',
+      -flow_into  => {
+        '1'  => ['notification_pipeline_is_done'],
+      },
+    },
+
+    {
+      -logic_name => 'notification_pipeline_is_done',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::MessagePipeline',
+      -parameters => {
+        messages   => [
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'create_toplevel_slices',
+          param => 'feature_dbs',
+          data => $self->o('ig_tr_db'),
+          update => 1,
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'split_slices_on_intergenic',
+          param => 'input_gene_dbs',
+          data => $self->o('ig_tr_db'),
+          update => 1,
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'layer_annotation',
+          param => 'SOURCEDB_REFS',
+          data => $self->o('ig_tr_db'),
+          update => 1,
+        }],
+        tweak_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'tweak_pipeline.pl'),
+      },
       -rc_name    => 'default',
     },
 

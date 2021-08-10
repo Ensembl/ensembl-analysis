@@ -123,6 +123,10 @@ sub default_options {
     rnaseq_merge_type => 'samtools',
     rnaseq_merge_threads => 12,
 
+    # This is used for "messaging" other sub pipeline
+    transcript_selection_url => undef,
+    homology_rnaseq_url => undef,
+
 ########################
 # Extra db settings
 ########################
@@ -943,6 +947,54 @@ sub pipeline_analyses {
         target_type => 'generic',
       },
       -rc_name => '5GB',
+      -flow_into  => {
+        '1'  => ['notification_pipeline_is_done'],
+      },
+    },
+
+    {
+      -logic_name => 'notification_pipeline_is_done',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::MessagePipeline',
+      -parameters => {
+        messages   => [
+        {
+          url => $self->o('homology_rnaseq_url'),
+          logic_name => 'create_toplevel_slices',
+          param => 'feature_dbs',
+          data => $self->o('rnaseq_for_layer_nr_db'),
+          update => 1,
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'create_toplevel_slices',
+          param => 'feature_dbs',
+          data => $self->o('rnaseq_for_layer_nr_db'),
+          update => 1,
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'split_slices_on_intergenic',
+          param => 'input_gene_dbs',
+          data => $self->o('rnaseq_for_layer_nr_db'),
+          update => 1,
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'layer_annotation',
+          param => 'SOURCEDB_REFS',
+          data => $self->o('rnaseq_for_layer_nr_db'),
+          update => 1,
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'utr_addition',
+          param => 'donor',
+          data => $self->o('rnaseq_for_layer_nr_db'),
+          update => 1,
+        }],
+        tweak_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'tweak_pipeline.pl'),
+      },
+      -rc_name    => 'default',
     },
 
   ];
