@@ -125,7 +125,7 @@ sub fetch_input {
     $self->warning("Your $db_title dbname has upper case character, it might cause problems, ".$db->{'-dbname'})
       if ($db->{'-dbname'} =~ /[[:upper:]]/);
     push(@cmd, '-'.$db_title.'_name', $db->{'-dbname'});
-    push(@cmd, '-'.$db_title.'_host', $db->{'-host'});
+    push(@cmd, '-'.$db_title.'_server', $db->{'-host'});
     push(@cmd, '-'.$db_title.'_port', $db->{'-port'});
     push(@cmd, '-'.$db_title.'_user', $db->{'-user'}) if (exists $db->{'-user'});
     push(@cmd, '-'.$db_title.'_pass', $db->{'-pass'}) if (exists $db->{'-pass'} and $db->{'-pass'});
@@ -134,9 +134,18 @@ sub fetch_input {
     my $extra_parameters = $self->param('extra_parameters');
     if (ref($extra_parameters) eq 'HASH') {
       foreach my $key (keys %$extra_parameters) {
-        # We need to make sure that an arrayref/hashref is correctly passed to the init script
-        my $value = ref($extra_parameters->{$key}) ? stringify($extra_parameters->{$key}) : $extra_parameters->{$key};
-        push(@cmd, "-$key", $value);
+        if (ref($extra_parameters->{$key}) eq 'ARRAY') {
+          # We need to make sure that an arrayref/hashref is correctly passed to the init script
+          foreach my $arraydata (@{$extra_parameters->{$key}}) {
+            my $value = ref($arraydata) ? stringify($arraydata) : $arraydata;
+            push(@cmd, "-$key", $value);
+          }
+        }
+        else {
+          # We need to make sure that an arrayref/hashref is correctly passed to the init script
+          my $value = ref($extra_parameters->{$key}) ? stringify($extra_parameters->{$key}) : $extra_parameters->{$key};
+          push(@cmd, "-$key", $value) if ($value);
+        }
       }
     }
   }
