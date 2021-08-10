@@ -481,23 +481,12 @@ sub create_config {
           $line .= "'dbowner' => '".$assembly_hash->{'dbowner'}."',";
         }
       }
-      if($line =~ /\'([^\']+)\'\s*\=\>\s*('[^\']*\')/) {
+      if($line =~ /'?([^' ]+)'?\s*=>\s*('?[^']*'?)/) {
         my $conf_key = $1;
         my $conf_val = $2;
-        if(defined $assembly_hash->{$conf_key}) {
+        if(exists $assembly_hash->{$conf_key}) {
           print "REPLACING ".$conf_key." with ".$assembly_hash->{$conf_key}."\n";
           my $sub_val = "'".$assembly_hash->{$conf_key}."'";
-          $line =~ s/$conf_val/$sub_val/;
-        }
-      } elsif($line =~ /\'([^\']+)\'\s*(\=\>\s*undef\s*\,)/) {
-        # Note, a special case needed to be added for undef. In the main config we have to put in undef as opposed to '' in cases where the value will be evalutated
-        # later in the config in a conditional (e.g. deciding the blast db path based on whether a custom db path has been provided or not). In these cases '' will
-        # evaluate to true in the conditional, which is wrong and a quirk of hive. Since undef as a string is not very unique and could be accidently be matched
-        # in the key when doing the subsitution, I have added this as it's own conditional to be very safe
-        my $conf_key = $1;
-        my $conf_val = $2;
-        if($assembly_hash->{$conf_key}) {
-          my $sub_val = "=> '".$assembly_hash->{$conf_key}."',";
           $line =~ s/$conf_val/$sub_val/;
         }
       }
