@@ -561,16 +561,16 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default' => { LSF => $self->lsf_resource_builder( 'production-rh74', 900,   [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '1GB'     => { LSF => $self->lsf_resource_builder( 'production-rh74', 1000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '2GB'     => { LSF => $self->lsf_resource_builder( 'production-rh74', 2000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '5GB'     => { LSF => $self->lsf_resource_builder( 'production-rh74', 5000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '10GB'    => { LSF => $self->lsf_resource_builder( 'production-rh74', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '15GB'    => { LSF => $self->lsf_resource_builder( 'production-rh74', 15000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '20GB'    => { LSF => $self->lsf_resource_builder( 'production-rh74', 20000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '25GB'    => { LSF => $self->lsf_resource_builder( 'production-rh74', 25000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'blast'     => { LSF => $self->lsf_resource_builder( 'production-rh74', 2900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, 3 ) },
-    'blast10GB' => { LSF => $self->lsf_resource_builder( 'production-rh74', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, 3 ) },
+    'default' => { LSF => $self->lsf_resource_builder( 'production', 900,   [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '1GB'     => { LSF => $self->lsf_resource_builder( 'production', 1000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '2GB'     => { LSF => $self->lsf_resource_builder( 'production', 2000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '5GB'     => { LSF => $self->lsf_resource_builder( 'production', 5000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '10GB'    => { LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '15GB'    => { LSF => $self->lsf_resource_builder( 'production', 15000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '20GB'    => { LSF => $self->lsf_resource_builder( 'production', 20000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '25GB'    => { LSF => $self->lsf_resource_builder( 'production', 25000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    'blast'     => { LSF => $self->lsf_resource_builder( 'production', 2900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, 3 ) },
+    'blast10GB' => { LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, 3 ) },
     }
 }
 
