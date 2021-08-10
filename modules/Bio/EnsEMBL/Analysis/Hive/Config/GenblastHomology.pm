@@ -24,6 +24,7 @@ use strict;
 use warnings;
 use File::Spec::Functions;
 
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 sub default_options {
@@ -96,7 +97,9 @@ sub default_options {
 # This one is used by most analyses that run against a genome flatfile like exonerate, genblast etc. Has slice name style headers. Is softmasked
     softmasked_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_softmasked_toplevel.fa' ),
 
-# This one is used in replacement of the dna table in the core db, so where analyses override slice->seq. Has simple headers with just the seq_region name. Also used by bwa in the RNA-seq analyses. Not masked
+    use_genome_flatfile           => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
+    genome_dumps                  => catdir($self->o('output_path'), 'genome_dumps'),
+    faidx_genome_file             => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
 
     'min_toplevel_slice_length' => 250,
 
@@ -172,6 +175,18 @@ sub pipeline_create_commands {
   ];
 }
 
+
+sub pipeline_wide_parameters {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::pipeline_wide_parameters},
+    use_genome_flatfile => $self->o('use_genome_flatfile'),
+    genome_file => $self->o('faidx_genome_file'),
+  }
+}
+
+
 ## See diagram for pipeline structure
 sub pipeline_analyses {
   my ($self) = @_;
@@ -199,7 +214,7 @@ sub pipeline_analyses {
         create_type => 'clone',
       },
       -rc_name   => 'default',
-      -wait_for  => ['create_softmasked_faidx'],
+      -input_ids  => [{}],
       -flow_into => {
         '1->A' => ['download_uniprot_files'],
         'A->1' => ['classify_genblast_models'],
@@ -388,8 +403,7 @@ sub pipeline_analyses {
       },
       -rc_name   => '4GB',
       -flow_into => {
-        '1->A' => [ 'create_cdna_db', 'create_genblast_nr_db' ],
-        'A->1' => ['create_ig_tr_db'],
+        1 => ['create_genblast_nr_db'],
       },
     },
 

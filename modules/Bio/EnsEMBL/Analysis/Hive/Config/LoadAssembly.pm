@@ -58,7 +58,6 @@ sub default_options {
     wgs_id                    => '', # Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
     assembly_name             => '', # Name (as it appears in the assembly report file)
     assembly_accession        => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
-    assembly_refseq_accession => '', # Versioned GCF accession, e.g. GCF_001857705.1
     stable_id_prefix          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
     species_url               => '', # sets species.url meta key
     species_division          => 'EnsemblVertebrates', # sets species.division meta key
@@ -83,7 +82,7 @@ sub default_options {
 ########################
 # Pipe and ref db info
 ########################
-    pipe_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
+    pipe_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_load_assembly_pipe_'.$self->o('release_number'),
     dna_db_name  => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
 
     reference_db_name   => $self->o('dna_db_name'),
@@ -146,10 +145,6 @@ sub default_options {
     ncbi_base_ftp           => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all',
     insdc_base_ftp          => $self->o('ncbi_base_ftp').'/#expr(substr(#assembly_accession#, 0, 3))expr#/#expr(substr(#assembly_accession#, 4, 3))expr#/#expr(substr(#assembly_accession#, 7, 3))expr#/#expr(substr(#assembly_accession#, 10, 3))expr#/#assembly_accession#_#assembly_name#',
     assembly_ftp_path       => $self->o('insdc_base_ftp'),
-    refseq_base_ftp         => $self->o('ncbi_base_ftp').'/#expr(substr(#assembly_refseq_accession#, 0, 3))expr#/#expr(substr(#assembly_refseq_accession#, 4, 3))expr#/#expr(substr(#assembly_refseq_accession#, 7, 3))expr#/#expr(substr(#assembly_refseq_accession#, 10, 3))expr#/#assembly_refseq_accession#_#assembly_name#',
-    refseq_import_ftp_path  => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_genomic.gff.gz',
-    refseq_mrna_ftp_path    => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_rna.fna.gz',
-    refseq_report_ftp_path => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_assembly_report.txt',
 
 
 ########################
@@ -219,6 +214,12 @@ sub pipeline_analyses {
         'create_type'      => 'core_only',
       },
       -rc_name    => 'default',
+      -input_ids  => [
+        {
+          assembly_name => $self->o('assembly_name'),
+          assembly_accession => $self->o('assembly_accession'),
+        },
+      ],
       -flow_into  => {
         1 => ['populate_production_tables'],
       },

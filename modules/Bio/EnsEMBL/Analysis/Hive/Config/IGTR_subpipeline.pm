@@ -135,6 +135,18 @@ sub default_options {
     };
 }
 
+
+sub pipeline_wide_parameters {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::pipeline_wide_parameters},
+    use_genome_flatfile => $self->o('use_genome_flatfile'),
+    genome_file => $self->o('softmasked_genome_file'),
+  }
+}
+
+
 ## See diagram for pipeline structure
 sub pipeline_analyses {
   my ($self) = @_;
@@ -164,7 +176,8 @@ sub pipeline_analyses {
         source_db => $self->o('dna_db'),
         target_db => $self->o('ig_tr_db'),
         create_type => 'clone',
-        },
+      },
+      -input_ids  => [{}],
       -flow_into => {
         1 => ['load_ig_tr_seqs'],
         },

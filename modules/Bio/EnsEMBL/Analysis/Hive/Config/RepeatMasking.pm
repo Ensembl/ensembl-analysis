@@ -181,6 +181,7 @@ sub pipeline_create_commands {
   ];
 }
 
+
 ## See diagram for pipeline structure
 sub pipeline_analyses {
   my ($self) = @_;
@@ -207,6 +208,7 @@ sub pipeline_analyses {
         batch_target_size     => 10000000,
       },
       -rc_name   => '2GB',
+      -input_ids  => [{}],
       -flow_into => {
         '2' => ['semaphore_10mb_slices'],
       },

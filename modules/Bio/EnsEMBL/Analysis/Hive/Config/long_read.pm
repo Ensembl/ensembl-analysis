@@ -185,6 +185,16 @@ sub pipeline_create_commands {
   ];
 }
 
+sub pipeline_wide_parameters {
+  my ($self) = @_;
+
+  return {
+    %{ $self->SUPER::pipeline_wide_parameters },
+    genome_file         => $self->o('faidx_genome_file'),
+    use_genome_flatfile => $self->o('use_genome_flatfile'),
+  }
+}
+
 ## See diagram for pipeline structure
 sub pipeline_analyses {
   my ($self) = @_;
@@ -205,6 +215,7 @@ sub pipeline_analyses {
         create_type => 'clone',
       },
       -rc_name   => 'default',
+      -input_ids  => [{}],
       -flow_into => {
         1 => ['create_long_read_dir'],
       },

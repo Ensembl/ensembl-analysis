@@ -173,6 +173,7 @@ sub pipeline_analyses {
         target_db   => $self->o('otherfeatures_db'),
         create_type => 'copy',
       },
+      -input_ids  => [{}],
       -rc_name   => 'default',
       -flow_into => {
         1 => ['update_cdna_analyses'],

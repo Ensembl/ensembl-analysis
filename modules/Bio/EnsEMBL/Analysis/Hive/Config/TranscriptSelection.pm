@@ -67,54 +67,85 @@ sub default_options {
 # Pipe and ref db info
 ########################
 
+    'input_ids' => {},
     'cdna_db_server' => $self->o('databases_server'),
     'cdna_db_port'   => $self->o('databases_port'),
+    'cdna_db_user'   => $self->o('user'),
+    'cdna_db_pass'   => $self->o('password'),
 
     'genblast_nr_db_server' => $self->o('databases_server'),
     'genblast_nr_db_port'   => $self->o('databases_port'),
+    'genblast_nr_db_user'   => $self->o('user'),
+    'genblast_nr_db_pass'   => $self->o('password'),
 
-    'genblast_rnaseq_support_db_server' => $self->o('databases_server'),
-    'genblast_rnaseq_support_db_port'   => $self->o('databases_port'),
+    'genblast_rnaseq_support_nr_db_server' => $self->o('databases_server'),
+    'genblast_rnaseq_support_nr_db_port'   => $self->o('databases_port'),
+    'genblast_rnaseq_support_nr_db_user'   => $self->o('user'),
+    'genblast_rnaseq_support_nr_db_pass'   => $self->o('password'),
 
     'ig_tr_db_server' => $self->o('databases_server'),
     'ig_tr_db_port'   => $self->o('databases_port'),
+    'ig_tr_db_user'   => $self->o('user'),
+    'ig_tr_db_pass'   => $self->o('password'),
 
     'best_targeted_db_server' => $self->o('databases_server'),
     'best_targeted_db_port'   => $self->o('databases_port'),
+    'best_targeted_db_user'   => $self->o('user'),
+    'best_targeted_db_pass'   => $self->o('password'),
 
     'selected_projection_db_server' => $self->o('databases_server'),
     'selected_projection_db_port'   => $self->o('databases_port'),
+    'selected_projection_db_user'   => $self->o('user'),
+    'selected_projection_db_pass'   => $self->o('password'),
 
     'long_read_final_db_server' => $self->o('databases_server'),
     'long_read_final_db_port'   => $self->o('databases_port'),
+    'long_read_final_db_user'   => $self->o('user'),
+    'long_read_final_db_pass'   => $self->o('password'),
 
     'rnaseq_for_layer_db_server' => $self->o('databases_server'),
     'rnaseq_for_layer_db_port'   => $self->o('databases_port'),
+    'rnaseq_for_layer_db_user'   => $self->o('user'),
+    'rnaseq_for_layer_db_pass'   => $self->o('password'),
 
     'rnaseq_for_layer_nr_db_server' => $self->o('databases_server'),
     'rnaseq_for_layer_nr_db_port'   => $self->o('databases_port'),
+    'rnaseq_for_layer_nr_db_user'   => $self->o('user'),
+    'rnaseq_for_layer_nr_db_pass'   => $self->o('password'),
 
     # Layering is one of the most intesnive steps, so separating it off the main output server helps
     # Have also set module to use flatfile seq retrieval, so even if it's on the same server as the
     # core, the core should not be accessed
     'layering_db_server' => $self->o('dna_db_server'),
     'layering_db_port'   => $self->o('dna_db_port'),
+    'layering_db_user'   => $self->o('user'),
+    'layering_db_pass'   => $self->o('password'),
 
     'utr_db_server' => $self->o('databases_server'),
     'utr_db_port'   => $self->o('databases_port'),
+    'utr_db_user'   => $self->o('user'),
+    'utr_db_pass'   => $self->o('password'),
 
     'genebuilder_db_server' => $self->o('databases_server'),
     'genebuilder_db_port'   => $self->o('databases_port'),
+    'genebuilder_db_user'   => $self->o('user'),
+    'genebuilder_db_pass'   => $self->o('password'),
 
     'pseudogene_db_server' => $self->o('databases_server'),
     'pseudogene_db_port'   => $self->o('databases_port'),
+    'pseudogene_db_user'   => $self->o('user'),
+    'pseudogene_db_pass'   => $self->o('password'),
 
     'ncrna_db_server' => $self->o('databases_server'),
     'ncrna_db_port'   => $self->o('databases_port'),
     ncrna_db_name     => $self->o('dbowner') . '_' . $self->o('production_name') . '_ncrna_' . $self->o('release_number'),
+    'ncrna_db_user'   => $self->o('user'),
+    'ncrna_db_pass'   => $self->o('password'),
 
     'final_geneset_db_server' => $self->o('databases_server'),
     'final_geneset_db_port'   => $self->o('databases_port'),
+    'final_geneset_db_user'   => $self->o('user'),
+    'final_geneset_db_pass'   => $self->o('password'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'      => $ENV{ENSEMBL_RELEASE},     # this is the current release version on staging to be able to get the correct database
@@ -133,7 +164,12 @@ sub default_options {
     # This one is used in replacement of the dna table in the core db, so where analyses override slice->seq. Has simple headers with just the seq_region name. Also used by bwa in the RNA-seq analyses. Not masked
     faidx_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_toplevel.fa' ),
 
-    'layering_input_gene_dbs' => [
+    create_toplevel_dbs => [
+      $self->o('genblast_nr_db'),
+      $self->o('selected_projection_db'),
+      $self->o('rnaseq_for_layer_db'),
+    ],
+    layering_input_gene_dbs => [
       $self->o('genblast_nr_db'),
       $self->o('genblast_rnaseq_support_nr_db'),
       $self->o('rnaseq_for_layer_nr_db'),
@@ -141,6 +177,17 @@ sub default_options {
       $self->o('ig_tr_db'),
       $self->o('best_targeted_db'),
       $self->o('long_read_final_db'),
+    ],
+
+    split_intergenic_dbs => [
+      $self->o('genblast_nr_db'),
+      $self->o('genblast_rnaseq_support_nr_db'),
+      $self->o('rnaseq_for_layer_nr_db'),
+      $self->o('selected_projection_db'),
+      $self->o('ig_tr_db'),
+      $self->o('best_targeted_db'),
+      $self->o('long_read_final_db'),
+      $self->o('cdna_db'),
     ],
 
     utr_donor_dbs => [
@@ -194,124 +241,139 @@ sub default_options {
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #
 
+    cdna_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_cdna_' . $self->o('release_number'),
+    genblast_nr_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_nr_'.$self->o('release_number'),
+    genblast_rnaseq_support_nr_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_gb_rnaseq_nr_'.$self->o('release_number'),
+    ig_tr_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_igtr_'.$self->o('release_number'),
+    best_targeted_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_bt_'.$self->o('release_number'),
+    long_read_final_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrfinal_' . $self->o('release_number'),
+    selected_projection_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_sel_proj_' . $self->o('release_number'),
+    rnaseq_for_layer_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_rnalayer_nr_' . $self->o('release_number'),
+    rnaseq_for_layer_nr_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_rnalayer_nr_'.$self->o('release_number'),
+    layering_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_layer_' . $self->o('release_number'),
+    utr_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_utr_' . $self->o('release_number'),
+    genebuilder_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_gbuild_' . $self->o('release_number'),
+    pseudogene_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_pseudo_' . $self->o('release_number'),
+    final_geneset_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_final_' . $self->o('release_number'),
+
 ########################
 # db info
 ########################
 
     'cdna_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_cdna_' . $self->o('release_number'),
+      -dbname => $self->o('cdna_db_name'),
       -host   => $self->o('cdna_db_server'),
       -port   => $self->o('cdna_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('cdna_db_user'),
+      -pass   => $self->o('cdna_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
     'genblast_nr_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_nr_'.$self->o('release_number'),
+      -dbname => $self->o('genblast_nr_db_name'),
       -host   => $self->o('genblast_nr_db_server'),
       -port   => $self->o('genblast_nr_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('genblast_nr_db_user'),
+      -pass   => $self->o('genblast_nr_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
     'genblast_rnaseq_support_nr_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_gb_rnaseq_nr_'.$self->o('release_number'),
-      -host   => $self->o('genblast_rnaseq_support_db_server'),
-      -port   => $self->o('genblast_rnaseq_support_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -dbname => $self->o('genblast_rnaseq_support_nr_db_name'),
+      -host   => $self->o('genblast_rnaseq_support_nr_db_server'),
+      -port   => $self->o('genblast_rnaseq_support_nr_db_port'),
+      -user   => $self->o('genblast_rnaseq_support_nr_db_user'),
+      -pass   => $self->o('genblast_rnaseq_support_nr_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
     'ig_tr_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_igtr_'.$self->o('release_number'),
+      -dbname => $self->o('ig_tr_db_name'),
       -host   => $self->o('ig_tr_db_server'),
       -port   => $self->o('ig_tr_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('ig_tr_db_user'),
+      -pass   => $self->o('ig_tr_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
     'best_targeted_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_bt_'.$self->o('release_number'),
+      -dbname => $self->o('best_targeted_db_name'),
       -host   => $self->o('best_targeted_db_server'),
       -port   => $self->o('best_targeted_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('best_targeted_db_user'),
+      -pass   => $self->o('best_targeted_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
     long_read_final_db => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrfinal_' . $self->o('release_number'),
+      -dbname => $self->o('long_read_final_db_name'),
       -host   => $self->o('long_read_final_db_server'),
       -port   => $self->o('long_read_final_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('long_read_final_db_user'),
+      -pass   => $self->o('long_read_final_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
     'selected_projection_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_sel_proj_' . $self->o('release_number'),
+      -dbname => $self->o('selected_projection_db_name'),
       -host   => $self->o('selected_projection_db_server'),
       -port   => $self->o('selected_projection_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('selected_projection_db_user'),
+      -pass   => $self->o('selected_projection_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
     'rnaseq_for_layer_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_rnalayer_nr_' . $self->o('release_number'),
+      -dbname => $self->o('rnaseq_for_layer_db_name'),
       -host   => $self->o('rnaseq_for_layer_db_server'),
       -port   => $self->o('rnaseq_for_layer_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('rnaseq_for_layer_db_user'),
+      -pass   => $self->o('rnaseq_for_layer_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
     'rnaseq_for_layer_nr_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnalayer_nr_'.$self->o('release_number'),
+      -dbname => $self->o('rnaseq_for_layer_nr_db_name'),
       -host   => $self->o('rnaseq_for_layer_nr_db_server'),
       -port   => $self->o('rnaseq_for_layer_nr_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('rnaseq_for_layer_nr_db_user'),
+      -pass   => $self->o('rnaseq_for_layer_nr_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
     'layering_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_layer_' . $self->o('release_number'),
+      -dbname => $self->o('layering_db_name'),
       -host   => $self->o('layering_db_server'),
       -port   => $self->o('layering_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('layering_db_user'),
+      -pass   => $self->o('layering_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
     'utr_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_utr_' . $self->o('release_number'),
+      -dbname => $self->o('utr_db_name'),
       -host   => $self->o('utr_db_server'),
       -port   => $self->o('utr_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('utr_db_user'),
+      -pass   => $self->o('utr_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
     'genebuilder_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_gbuild_' . $self->o('release_number'),
+      -dbname => $self->o('genebuilder_db_name'),
       -host   => $self->o('genebuilder_db_server'),
       -port   => $self->o('genebuilder_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('genebuilder_db_user'),
+      -pass   => $self->o('genebuilder_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
     'pseudogene_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_pseudo_' . $self->o('release_number'),
+      -dbname => $self->o('pseudogene_db_name'),
       -host   => $self->o('pseudogene_db_server'),
       -port   => $self->o('pseudogene_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('pseudogene_db_user'),
+      -pass   => $self->o('pseudogene_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
@@ -319,17 +381,17 @@ sub default_options {
       -dbname => $self->o('ncrna_db_name'),
       -host   => $self->o('ncrna_db_server'),
       -port   => $self->o('ncrna_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('ncrna_db_user'),
+      -pass   => $self->o('ncrna_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
     'final_geneset_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_final_' . $self->o('release_number'),
+      -dbname => $self->o('final_geneset_db_name'),
       -host   => $self->o('final_geneset_db_server'),
       -port   => $self->o('final_geneset_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
+      -user   => $self->o('final_geneset_db_user'),
+      -pass   => $self->o('final_geneset_db_pass'),
       -driver => $self->o('hive_driver'),
     },
 
@@ -359,10 +421,6 @@ sub pipeline_wide_parameters {
 ## See diagram for pipeline structure
 sub pipeline_analyses {
   my ($self) = @_;
-  my %commandline_params = (
-    'ncbi' => '-num_threads 3 -window_size 40',
-    'wu' => '-cpus 3 -hitdist 40',
-  );
 
   return [
 
@@ -380,6 +438,7 @@ sub pipeline_analyses {
         create_type => 'clone',
       },
       -rc_name   => 'default',
+      -input_ids  => [$self->o('input_ids')],
       -flow_into => {
         1 => ['create_utr_db'],
       },
@@ -426,7 +485,7 @@ sub pipeline_analyses {
         # These options will create only slices that have a gene on the slice in one of the feature dbs
         feature_constraint => 1,
         feature_type       => 'gene',
-        feature_dbs        => [ $self->o('genblast_nr_db'), $self->o('selected_projection_db'), $self->o('rnaseq_for_layer_db') ],
+        feature_dbs        => $self->o('create_toplevel_dbs'),
       },
       -flow_into => {
         '2' => ['split_slices_on_intergenic'],
@@ -439,7 +498,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFindIntergenicRegions',
       -parameters => {
         dna_db         => $self->o('dna_db'),
-        input_gene_dbs => [ @{ $self->default_options->{'layering_input_gene_dbs'} }, $self->default_options->{'cdna_db'} ],
+        input_gene_dbs => $self->o('split_intergenic_dbs'),
         iid_type       => 'slice',
       },
       -batch_size    => 100,

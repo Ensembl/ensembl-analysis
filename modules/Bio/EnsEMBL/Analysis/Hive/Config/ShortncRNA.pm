@@ -116,6 +116,7 @@ sub default_options {
     genome_dumps                  => catdir($self->o('output_path'), 'genome_dumps'),
     # This one is used in replacement of the dna table in the core db, so where analyses override slice->seq. Has simple headers with just the seq_region name. Also used by bwa in the RNA-seq analyses. Not masked
     faidx_genome_file             => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
+    use_genome_flatfile           => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
 
     ncrna_dir => catdir($self->o('output_path'), 'ncrna'),
 
@@ -166,8 +167,22 @@ sub pipeline_wide_parameters {
 
   return {
     %{$self->SUPER::pipeline_wide_parameters},
+    use_genome_flatfile => $self->o('use_genome_flatfile'),
     genome_file          => $self->o('faidx_genome_file'),
   }
+}
+
+
+sub pipeline_create_commands {
+  my ($self) = @_;
+
+  return [
+
+    # inheriting database and hive tables' creation
+    @{ $self->SUPER::pipeline_create_commands },
+
+    'mkdir -p ' . $self->o('ncrna_dir'),
+  ];
 }
 
 
@@ -184,6 +199,7 @@ sub pipeline_analyses {
         create_type => 'clone',
       },
       -rc_name    => 'default',
+      -input_ids  => [{}],
       -flow_into => {
         '1->A' => ['dump_repeats', 'fetch_rfam_accessions'],
         'A->1' => ['create_small_rna_slice_ids'],

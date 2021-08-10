@@ -253,8 +253,7 @@ sub default_options {
 sub pipeline_create_commands {
   my ($self) = @_;
 
-  my $second_pass = exists $self->{'_is_second_pass'};
-  $self->{'_is_second_pass'} = $second_pass;
+  my $second_pass = $self->_is_second_pass;
   return $self->SUPER::pipeline_create_commands if $self->can('no_compara_schema');
   my $pipeline_url = $self->pipeline_url();
   my $parsed_url   = $second_pass && Bio::EnsEMBL::Hive::Utils::URL::parse($pipeline_url);
@@ -309,6 +308,7 @@ sub pipeline_analyses {
         registry_file                 => $self->o('registry_file'),
       },
       -rc_name   => '2GB_lastz',
+      -input_ids  => [{}],
       -flow_into => {
         1 => { 'get_species_list' => { 'mlss_id' => '#mlss_id#', 'reg_conf' => '#reg_conf#' } },
       },

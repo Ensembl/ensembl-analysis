@@ -204,7 +204,7 @@ sub pipeline_analyses {
         create_type => 'copy',
       },
       -rc_name    => 'default',
-
+      -input_ids  => [{}],
       -flow_into => {
         '1' => ['prepare_rnaseq_meta_data'],
       },

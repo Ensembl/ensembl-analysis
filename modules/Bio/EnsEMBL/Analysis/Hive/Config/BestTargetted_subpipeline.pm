@@ -61,7 +61,6 @@ sub default_options {
     'species_name'    => '',     # e.g. mus_musculus
     'production_name' => '',     # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
 
-    'uniprot_set' => '',         # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'taxon_id'    => '',         # should be in the assembly report file
 
     'output_path'   => '',                                               # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
@@ -84,8 +83,8 @@ sub default_options {
 
     cdna_table_name                             => 'cdna_sequences',
     target_exonerate_calculate_coverage_and_pid => 0,
-    exonerate_protein_pid                       => 95,
-    exonerate_protein_cov                       => 50,
+    cdna_selection_pid                          => '97', # Cut-off for percent id for selecting the cDNAs
+    cdna_selection_cov                          => '90', # Cut-off for coverage for selecting the cDNAs
     cdna2genome_region_padding                  => 2000,
     exonerate_max_intron                        => 200000,
     best_targetted_min_coverage                 => 50,                 # This is to avoid having models based on fragment alignment and low identity
@@ -129,6 +128,10 @@ sub default_options {
     genome_dumps => catdir( $self->o('output_path'), 'genome_dumps' ),
     # This one is used by most analyses that run against a genome flatfile like exonerate, genblast etc. Has slice name style headers. Is softmasked
     softmasked_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_softmasked_toplevel.fa' ),
+
+    ensembl_analysis_script => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
+    prepare_cdnas_script    => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'prepare_cdnas.pl'),
+
 
     ########################
     # db info
@@ -179,12 +182,39 @@ sub default_options {
       -driver => $self->o('hive_driver'),
     },
 
+    databases_to_delete => ['cdna_db', 'cdna2genome_db', 'genewise_db', 'best_targeted_db'],
+
+
     #######################
     # Extra db settings
     ########################
     num_tokens => 10,
   };
 }
+
+sub pipeline_create_commands {
+  my ($self) = @_;
+
+  return [
+    @{$self->SUPER::pipeline_create_commands},
+    $self->hive_data_table('protein', $self->o('uniprot_table_name')),
+    $self->hive_data_table('refseq', $self->o('cdna_table_name')),
+
+  ];
+}
+
+
+sub pipeline_wide_parameters {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::pipeline_wide_parameters},
+    use_genome_flatfile => $self->o('use_genome_flatfile'),
+    genome_file => $self->o('faidx_genome_file'),
+    wide_repeat_logic_names => $self->o('wide_repeat_logic_names'),
+  }
+}
+
 
 ## See diagram for pipeline structure
 sub pipeline_analyses {
@@ -207,6 +237,7 @@ sub pipeline_analyses {
         create_type => 'clone',
       },
       -rc_name   => 'default',
+      -input_ids  => [{}],
       -flow_into => {
         '1->A' => [ 'create_genewise_db', 'download_mRNA' ],
         'A->1' => ['create_besttargetted_db'],

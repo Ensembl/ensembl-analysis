@@ -127,6 +127,7 @@ sub default_options {
   };
 }
 
+
 ## See diagram for pipeline structure
 sub pipeline_analyses {
   my ($self) = @_;
@@ -142,6 +143,12 @@ sub pipeline_analyses {
         'url'        => $self->o('refseq_report_ftp_path'),
       },
       -rc_name   => 'default',
+      -input_ids  => [
+        {
+          assembly_name => $self->o('assembly_name'),
+          assembly_refseq_accession => $self->o('assembly_refseq_accession'),
+        },
+      ],
       -flow_into => {
         1 => ['download_refseq_gff'],
       },

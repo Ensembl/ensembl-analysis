@@ -73,6 +73,7 @@ sub default_options {
 
     'rnaseq_refine_db_server'       => $self->o('databases_server'),
     'rnaseq_refine_db_port'         => $self->o('databases_port'),
+    'rnaseq_refine_db_name'         => $self->o('dbowner').'_'.$self->o('production_name').'_refine_'.$self->o('release_number'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
@@ -128,7 +129,7 @@ sub default_options {
     },
 
     'rnaseq_refine_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_refine_'.$self->o('release_number'),
+      -dbname => $self->o('rnaseq_refine_db_name'),
       -host   => $self->o('rnaseq_refine_db_server'),
       -port   => $self->o('rnaseq_refine_db_port'),
       -user   => $self->o('user'),
@@ -176,8 +177,9 @@ sub pipeline_analyses {
         create_type => 'clone',
       },
       -rc_name    => 'default',
+      -input_ids  => [{}],
       -flow_into  => {
-        '1-A' => ['create_genblast_rnaseq_slice_ids'],
+        '1->A' => ['create_genblast_rnaseq_slice_ids'],
         'A->1' => ['create_genblast_rnaseq_nr_db'],
       },
     },

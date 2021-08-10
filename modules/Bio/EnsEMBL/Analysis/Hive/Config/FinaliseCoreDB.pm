@@ -165,6 +165,7 @@ sub pipeline_analyses {
         feature_type => 'gene',
         batch_size   => 100,
       },
+      -input_ids  => [{}],
       -flow_into => {
         '2->A' => ['copy_genes_to_core'],
         'A->1' => ['update_biotypes_and_analyses'],

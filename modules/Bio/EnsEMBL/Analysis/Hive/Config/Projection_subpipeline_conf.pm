@@ -65,18 +65,19 @@ sub default_options {
     'projection_source_db_name'         => '', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_server'       => 'mysql-ens-mirror-1',
     'projection_source_db_port'         => '4240',
-    'projection_source_production_name' => '',
 
     # The following might not be known in advance, since the come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
     # If they are not needed (i.e. no projection or rnaseq) then leave them as is
     'pipe_db_name'  => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
 
-    'projection_lastz_db_name'     => $self->o('pipe_db_name'),
+    'projection_lastz_db_name'     => $self->o('dbowner').'_'.$self->o('production_name').'_lastz_pipe_'.$self->o('release_number'),
     'projection_lastz_db_server'   => $self->o('pipe_db_server'),
     'projection_lastz_db_port'     => $self->o('pipe_db_port'),
 
     'dna_db_name'   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
+    faidx_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_toplevel.fa' ),
+    faidx_softmasked_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_softmasked_toplevel.fa.reheader' ),
 
     'projection_db_server'  => $self->o('databases_server'),
     'projection_db_port'    => $self->o('databases_port'),
@@ -155,10 +156,39 @@ sub default_options {
   };
 }
 
+
+
+sub pipeline_wide_parameters {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::pipeline_wide_parameters},
+    use_genome_flatfile => $self->o('use_genome_flatfile'),
+    genome_file => $self->o('faidx_genome_file'),
+  }
+}
+
+
 ## See diagram for pipeline structure
 sub pipeline_analyses {
   my ($self) = @_;
   return [
+    {
+      -logic_name => 'create_selected_projection_db',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+      -parameters => {
+        source_db => $self->o('dna_db'),
+        target_db => $self->o('selected_projection_db'),
+        create_type => 'clone',
+      },
+      -rc_name    => 'default',
+      -input_ids  => [{}],
+      -flow_into  => {
+        '1->A' => ['create_projection_db'],
+        'A->1' => ['classify_projected_genes'],
+      },
+    },
+
     {
       -logic_name => 'create_projection_db',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
@@ -169,8 +199,7 @@ sub pipeline_analyses {
       },
       -rc_name    => 'default',
       -flow_into  => {
-        '1->A' => ['cesar_create_projection_input_ids','wga_create_projection_input_ids'],
-        'A->1' => ['classify_projected_genes'],
+        1 => ['cesar_create_projection_input_ids','wga_create_projection_input_ids'],
       },
     },
 
@@ -425,9 +454,9 @@ sub pipeline_analyses {
         sql => [
           'UPDATE gene JOIN transcript USING(gene_id) SET transcript.biotype=gene.biotype',
           'UPDATE protein_align_feature JOIN transcript_supporting_feature ON feature_id = protein_align_feature_id'.
-          'JOIN transcript USING(transcript_id) SET hit_name = stable_id',
+            ' JOIN transcript USING(transcript_id) SET hit_name = stable_id',
           'UPDATE protein_align_feature JOIN supporting_feature ON feature_id = protein_align_feature_id'.
-          'JOIN exon_transcript USING(exon_id) JOIN transcript USING(transcript_id) SET hit_name = stable_id',
+            ' JOIN exon_transcript USING(exon_id) JOIN transcript USING(transcript_id) SET hit_name = stable_id',
         ],
       },
       -rc_name    => 'default',
