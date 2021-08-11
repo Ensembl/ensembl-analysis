@@ -863,7 +863,6 @@ sub pipeline_analyses {
           dna_db_port => $self->o('dna_db_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
-          assembly_name => $self->o('assembly_name'),
           repbase_logic_name => $self->o('repbase_logic_name'),
           repbase_library => $self->o('repbase_library'),
           species_name => $self->o('species_name'),

@@ -153,9 +153,9 @@ sub pipeline_wide_parameters {
 
   # set the logic names for repeat masking
   my $wide_repeat_logic_names;
-  if ( $self->o('use_repeatmodeler_to_mask') ) {
+  if ( $self->o('use_repeatmodeler_to_mask') and $self->o('use_repeatmodeler_to_mask') !~ /^#:subst/) {
     $wide_repeat_logic_names = [ $self->o('full_repbase_logic_name'), $self->o('repeatmodeler_logic_name'), 'dust' ];
-  } elsif ( $self->o('replace_repbase_with_red_to_mask') ) {
+  } elsif ( $self->o('replace_repbase_with_red_to_mask') and $self->o('replace_repbase_with_red_to_mask') !~ /^#:subst/) {
     $wide_repeat_logic_names = [ $self->o('red_logic_name'), 'dust' ];
   } else {
     $wide_repeat_logic_names = [ $self->o('full_repbase_logic_name'), 'dust' ];
@@ -210,7 +210,8 @@ sub pipeline_analyses {
       -rc_name   => '2GB',
       -input_ids  => [{}],
       -flow_into => {
-        '2' => ['semaphore_10mb_slices'],
+        '2->A' => ['semaphore_10mb_slices'],
+        'A->1' => ['dump_softmasked_toplevel'],
       },
     },
 
@@ -399,8 +400,6 @@ sub pipeline_analyses {
         'species_name'       => $self->o('species_name'),
         'repeat_logic_names' => '#wide_repeat_logic_names#',
       },
-      -input_ids => [ {} ],
-      -wait_for  => ['run_dust'],
       -flow_into => {
         1 => ['format_softmasked_toplevel'],
       },
