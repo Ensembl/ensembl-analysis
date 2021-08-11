@@ -41,6 +41,7 @@ sub default_options {
     'genome_file'           => '',
     #working_dir???
     'braker_singularity_image' => '/hps/nobackup2/singularity/ftricomi/test-braker2_epmode_gen_threader.simg',
+    
 
     #Gbiab
     'num_threads' => 20,
@@ -855,8 +856,20 @@ sub pipeline_analyses {
         1 => ['download_rnaseq_csv'],
       },
       -analysis_capacity => 1,
-      -input_ids => [ { 'assembly_accession' => 'GCA_905333065.1' },
-      ],
+      -input_ids => [
+	{ 'assembly_accession' => 'GCA_907269065.1' },
+	{ 'assembly_accession' => 'GCA_907269135.1' },
+	{ 'assembly_accession' => 'GCA_905147135.1' },
+	{ 'assembly_accession' => 'GCA_905147205.1' },
+	{ 'assembly_accession' => 'GCA_910589645.1' },
+	{ 'assembly_accession' => 'GCA_910589255.1' },
+	{ 'assembly_accession' => 'GCA_905404275.1' },
+	{ 'assembly_accession' => 'GCA_905404235.1' },
+	{ 'assembly_accession' => 'GCA_910592155.1' },
+	{ 'assembly_accession' => 'GCA_910591985.1' },
+	],
+     # { 'assembly_accession' => 'GCA_905333065.1' },
+      
     },
 
     {
@@ -875,7 +888,7 @@ sub pipeline_analyses {
       -flow_into => {
            '1->A' => {'fan_short_read_download' => {'inputfile' => '#rnaseq_summary_file#','input_dir' => '#short_read_dir#'}},
            'A->1' => ['download_long_read_csv'],
-#        1 => ['fan_rnaseq_data_available'],
+#       1 => ['fan_rnaseq_data_available'],
 #        1 => { 'fan_rnaseq_data_available' => { 'long_read_dir' => '#long_read_dir#', 'short_read_dir' => '#short_read_dir#','output_path' => '#output_path#', 'reheadered_toplevel_genome_file' => '#reheadered_toplevel_genome_file#', 'species_name' => '#species_name#' } },
 #               1 => {'run_braker_ab_initio' => {'output_path' => '#output_path#', 'reheadered_toplevel_genome_file' => '#reheadered_toplevel_genome_file#', 'species_name' => '#species_name#'}},
       },
@@ -1222,7 +1235,7 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        1 => { 'fan_rnaseq_data_available' => { 'long_read_dir' => '#long_read_dir#', 'short_read_dir' => '#short_read_dir#' } },
+        1 => ['fan_rnaseq_data_available'],
       },
     },
 
@@ -1270,7 +1283,7 @@ sub pipeline_analyses {
       -logic_name => 'fan_braker_ep_setup',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [ -d "' . $self->o('augustus_species_path') . '#species_name" ]; then exit 0; else exit 42;fi',
+        cmd => 'if [ -d "' . $self->o('augustus_species_path'). '#species_name#" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -rc_name   => 'default',
@@ -1563,7 +1576,7 @@ sub resource_classes {
   return {
     'default_registry' => { LSF => [ $self->lsf_resource_builder( 'production-rh74', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{'registry_file'} ] },
     'gbiab'    => { LSF => $self->lsf_resource_builder( 'production-rh74', 50000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{'num_threads'} ) },
-    'braker32' => { LSF => $self->lsf_resource_builder( 'production-rh74', 32000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{'cores'} ) },
+    'braker32' => { LSF => $self->lsf_resource_builder( 'production-rh74', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{'cores'} ) },
     '1GB' => { LSF => $self->lsf_resource_builder( 'production-rh74', 1000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
     '2GB_lastz' => { LSF => [ $self->lsf_resource_builder( 'production-rh74', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{compara_registry_file} ] },
     '2GB' => { LSF => $self->lsf_resource_builder( 'production-rh74', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
