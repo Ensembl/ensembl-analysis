@@ -40,7 +40,7 @@ sub default_options {
     'cores'                 => 30,
     'genome_file'           => '',
     #working_dir???
-    'braker_singularity_image' => '/hps/nobackup2/singularity/ftricomi/test-braker2_prothint.simg',
+    'braker_singularity_image' => '/hps/nobackup2/singularity/ftricomi/test-braker2_epmode_gen_threader.simg',
 
     #Gbiab
     'num_threads' => 20,
@@ -873,9 +873,9 @@ sub pipeline_analyses {
       },
 
       -flow_into => {
-#           '1->A' => {'fan_short_read_download' => {'inputfile' => '#rnaseq_summary_file#','input_dir' => '#short_read_dir#'}},
-#           'A->1' => ['download_long_read_csv'],
-        1 => ['fan_rnaseq_data_available'],
+           '1->A' => {'fan_short_read_download' => {'inputfile' => '#rnaseq_summary_file#','input_dir' => '#short_read_dir#'}},
+           'A->1' => ['download_long_read_csv'],
+#        1 => ['fan_rnaseq_data_available'],
 #        1 => { 'fan_rnaseq_data_available' => { 'long_read_dir' => '#long_read_dir#', 'short_read_dir' => '#short_read_dir#','output_path' => '#output_path#', 'reheadered_toplevel_genome_file' => '#reheadered_toplevel_genome_file#', 'species_name' => '#species_name#' } },
 #               1 => {'run_braker_ab_initio' => {'output_path' => '#output_path#', 'reheadered_toplevel_genome_file' => '#reheadered_toplevel_genome_file#', 'species_name' => '#species_name#'}},
       },
@@ -1286,7 +1286,7 @@ sub pipeline_analyses {
 
       -parameters => {
         cmd => 'cd #output_path#;' .
-               'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --softmasking --esmode --species=#species_name#_PIPE  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
+               'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --softmasking --esmode --species=#species_name#  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
 #                               'mv braker braker_ab_initio;',
       },
       -rc_name         => 'braker32',
@@ -1302,8 +1302,8 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'cd #output_path#;' .
 
-          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --softmasking --esmode --species=#species_name#_PIPE  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' .
-          'mv braker braker_etp_mode;',
+          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --prot_seq=/data/#protein_file# --bam=$bam_file --softmasking --etpmode --species=#species_name#  --useexisting --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' ,
+#          'mv braker braker_etp_mode;',
       },
       -rc_name         => 'braker32',
       -max_retry_count => 0,
@@ -1317,8 +1317,8 @@ sub pipeline_analyses {
 
       -parameters => {
                              cmd => 'mkdir prothint;'.
-                                    'singularity exec --bind #output_path#/:/data:rw  '.$self->o('braker_singularity_image').' prothint.py /data/#reheadered_toplevel_genome_file# data/#protein_file#;',
-                                    'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#species_name#_PIPE --useexisting  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' ,
+                                    'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py /data/#reheadered_toplevel_genome_file# data/#protein_file# ;'.   
+                                    'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#species_name# --useexisting  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' ,
 #                             #                                    'mv braker braker_etp_mode',
       },
       -rc_name         => 'braker32',
@@ -1332,7 +1332,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
 
       -parameters => {
-        cmd => 'python process_braker_gtf.py ./braker/braker.gtf braker_gtf_new.gtf;' .
+        cmd => 'python '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'process_braker_gtf.py'). './braker/braker.gtf braker_gtf_new.gtf;',
       },
       -rc_name         => '2GB',
       -max_retry_count => 0,
@@ -1357,7 +1357,7 @@ sub pipeline_analyses {
                                       ' -port '.$self->o('dna_db_port').
                                       ' -dbname '.$self->o('dna_db_name').
                                       ' -write'.
-                                      ' -file'. 'braker_gtf_new.gtf',
+                                      ' -file braker_gtf_new.gtf',
       },
       -rc_name         => 'default',
       -max_retry_count => 0,
@@ -1563,7 +1563,7 @@ sub resource_classes {
   return {
     'default_registry' => { LSF => [ $self->lsf_resource_builder( 'production-rh74', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{'registry_file'} ] },
     'gbiab'    => { LSF => $self->lsf_resource_builder( 'production-rh74', 50000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{'num_threads'} ) },
-    'braker32' => { LSF => $self->lsf_resource_builder( 'production-rh74', 8000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{'cores'} ) },
+    'braker32' => { LSF => $self->lsf_resource_builder( 'production-rh74', 32000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{'cores'} ) },
     '1GB' => { LSF => $self->lsf_resource_builder( 'production-rh74', 1000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
     '2GB_lastz' => { LSF => [ $self->lsf_resource_builder( 'production-rh74', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{compara_registry_file} ] },
     '2GB' => { LSF => $self->lsf_resource_builder( 'production-rh74', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
