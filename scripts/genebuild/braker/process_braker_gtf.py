@@ -22,13 +22,13 @@ def analyse_genmark(df):
     # dropping ALL duplicate values
     df_genmark = df_genmark.drop_duplicates().reset_index(drop=True)
     df_genmark["transcript_id"] = [
-        re.sub(r"[_t]\b", "transcript_GenMark", str(x))
+        re.sub(r"[_t]\b", "braker_transcript_GenMark", str(x))
         for x in df_genmark["transcript_id"]
     ]
     df_genmark["gene_id"] = [
-        re.sub(r"[_g]\b", "gene_GenMark", str(x)) for x in df_genmark["gene_id"]
+        re.sub(r"[_g]\b", "braker_gene_GenMark", str(x)) for x in df_genmark["gene_id"]
     ]
-    print("genmark")
+    
     gene_list = set(df_genmark["gene_id"])
     df_genmark_final = pd.DataFrame(df.columns)
     for i in gene_list:
@@ -66,7 +66,7 @@ def analyse_genmark(df):
             ).reset_index(drop=True)
 
     df_genmark_final = df_genmark_final.replace(np.nan, "")
-    print("genmark")
+    
     return df_genmark_final
 
 
@@ -78,7 +78,7 @@ def analyse_augustus(df):
     df_augustus["frame"][df_augustus["feature"] == "intron"] = "."
     df_augustus["frame"][df_augustus["feature"] == "gene"] = "."
     df_augustus["frame"][df_augustus["feature"] == "transcript"] = "."
-    # l=0
+    
     df_augustus = df_augustus.drop(
         df_augustus[df_augustus.duplicated()].index, axis=0
     ).reset_index(drop=True)
@@ -90,15 +90,15 @@ def analyse_augustus(df):
     ).reset_index(drop=True)
     df_augustus = df_augustus.drop_duplicates().reset_index(drop=True)
     df_augustus["transcript_id"] = [
-        re.sub(r"^jg", "augustus", str(x)) for x in df_augustus["transcript_id"]
+        re.sub(r"^jg", "braker_augustus", str(x)) for x in df_augustus["transcript_id"]
     ]
     df_augustus["gene_id"] = [
-        re.sub(r"^jg", "augustus", str(x)) for x in df_augustus["gene_id"]
+        re.sub(r"^jg", "braker_augustus", str(x)) for x in df_augustus["gene_id"]
     ]
     transcript_list = set(df_augustus["transcript_id"])
     df_augustus_final = pd.DataFrame()
     for i in transcript_list:
-        # if l==0:
+        
         df_subset = df_augustus[df_augustus["transcript_id"] == i]
 
         old_index = df_subset[df_subset["feature"] == "transcript"].index.item()
@@ -112,9 +112,9 @@ def analyse_augustus(df):
         df_augustus_final = df_augustus_final.append(df_subset_new.T).reset_index(
             drop=True
         )
-        # l=1
+        
 
-    print("augustus")
+    
     return df_augustus_final
 
 
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     source = set(df["source"])
 
     if "GeneMark.hmm" in source:
-        print("GENMARK")
+        
         df_genmark_final = analyse_genmark(df)
         genmark_list = create_file(df_genmark_final)
 
