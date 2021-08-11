@@ -216,16 +216,16 @@ sub default_options {
     'filter_duplicates_batch_size'    => 10,
 
     # LastZ is used to align the genomes
-    'pair_aligner_exe'             => $self->o('lastz_exe'),
-    'cellar_dir'                   => '/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/Cellar/',
-    'lastz_exe'                    => catfile( $self->o('cellar_dir'), 'lastz/1.04.00/bin/lastz' ),
-    'axtChain_exe'                 => catfile( $self->o('cellar_dir'), 'kent/v335_1/bin/axtChain' ),
-    'chainNet_exe'                 => catfile( $self->o('cellar_dir'), 'kent/v335_1/bin/chainNet' ),
-    'faToNib_exe'                  => catfile( $self->o('cellar_dir'), 'kent/v335_1/bin/faToNib' ),
-    'lavToAxt_exe'                 => catfile( $self->o('cellar_dir'), 'kent/v335_1/bin/lavToAxt' ),
-    'compare_beds_exe'             => catfile( $self->o('enscode_root_dir'), 'ensembl-compara/scripts/pipeline/compare_beds.pl' ),
-    'create_pair_aligner_page_exe' => catfile( $self->o('enscode_root_dir'), 'ensembl-compara/scripts/report/create_pair_aligner_page.pl' ),
-    'dump_features_exe'            => catfile( $self->o('enscode_root_dir'), 'ensembl-compara/scripts/dumps/DumpMultiAlign.pl' ),
+    opt_dir                      => catdir($self->o('software_base_path'), 'opt'),
+    pair_aligner_exe             => catfile( $self->o('opt_dir'), 'lastz', 'bin', 'lastz' ),
+    axtChain_exe                 => catfile( $self->o('opt_dir'), 'kent', 'bin', 'axtChain' ),
+    chainNet_exe                 => catfile( $self->o('opt_dir'), 'kent', 'bin', 'chainNet' ),
+    faToNib_exe                  => catfile( $self->o('opt_dir'), 'kent', 'bin', 'faToNib' ),
+    lavToAxt_exe                 => catfile( $self->o('opt_dir'), 'kent', 'bin', 'lavToAxt' ),
+    compara_scripts              => catdir($self->o('enscode_root_dir'), 'ensembl-compara', 'scripts'),
+    compare_beds_exe             => catfile( $self->o('enscode_root_dir'), 'pipeline', 'compare_beds.pl' ),
+    create_pair_aligner_page_exe => catfile( $self->o('enscode_root_dir'), 'report', 'create_pair_aligner_page.pl' ),
+    dump_features_exe            => catfile( $self->o('enscode_root_dir'), 'dumps', 'DumpMultiAlign.pl' ),
 
 ########################
     # db info
