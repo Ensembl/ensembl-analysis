@@ -199,6 +199,7 @@ sub write_output{
     my $slice = $slice_adaptor->fetch_by_name($slice_id);
     my $biotype = $self->retrieve_biotype($transcript);
     $transcript->biotype($biotype);
+    $transcript->stable_id($transcript->{'_old_transcript_id'}); # store source transcript id in target transcript stable_id
     attach_Slice_to_Transcript($transcript, $slice);
 
     if ($self->filter_transcript($transcript)) {
