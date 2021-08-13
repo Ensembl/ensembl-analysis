@@ -1199,6 +1199,7 @@ sub pipeline_analyses {
           projection_source_db_name => $self->o('projection_source_db_name'),
           uniprot_set => $self->o('uniprot_set'),
           transcript_selection_url => $transcript_finalisation_pipe_url,
+          species_name => $self->o('species_name'),
         },
       },
       -rc_name      => 'default',

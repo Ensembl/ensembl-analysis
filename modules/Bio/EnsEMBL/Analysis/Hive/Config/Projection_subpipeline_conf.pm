@@ -56,7 +56,8 @@ sub default_options {
     'databases_port'            => '', # port for general output db host
     'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
-    'skip_projection'           => '0', # Will skip projection process if 1
+    species_name                => '',
+
 
 ########################
 # Pipe and ref db info
@@ -76,6 +77,8 @@ sub default_options {
     'projection_lastz_db_port'     => $self->o('pipe_db_port'),
 
     'dna_db_name'   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
+    genome_dumps => catdir( $self->o('output_path'), 'genome_dumps' ),
+    use_genome_flatfile => 1,
     faidx_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_toplevel.fa' ),
     faidx_softmasked_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_softmasked_toplevel.fa.reheader' ),
 
@@ -414,7 +417,6 @@ sub pipeline_analyses {
       -logic_name => 'classify_projected_genes',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
       -parameters => {
-        skip_analysis       => $self->o('skip_projection'),
         classification_type => 'standard',
         update_gene_biotype => 1,
         target_db           => $self->o('projection_db'),
