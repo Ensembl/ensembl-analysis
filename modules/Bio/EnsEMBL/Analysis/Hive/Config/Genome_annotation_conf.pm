@@ -528,17 +528,17 @@ sub pipeline_analyses {
   my $db_name_template = "%s_%s_%s_%s";
   my ($load_assembly_pipe_db, $load_assembly_pipe_url, $load_assembly_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'load_assembly', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'load_assembly_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
   my ($repeat_masking_pipe_db, $repeat_masking_pipe_url, $repeat_masking_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'repeat_masking', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'repeat_masking_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
   my ($refseq_import_pipe_db, $refseq_import_pipe_url, $refseq_import_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'refseq_import', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'refseq_import_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
   my ($lastz_pipe_db, $lastz_pipe_url, $lastz_guihive) = $self->get_meta_db_information(
@@ -548,62 +548,62 @@ sub pipeline_analyses {
     );
   my ($projection_pipe_db, $projection_pipe_url, $projection_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'projection', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'projection_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
   my ($homology_pipe_db, $homology_pipe_url, $homology_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'homology', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'homology_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
   my ($best_targeted_pipe_db, $best_targeted_pipe_url, $best_targeted_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'best_targeted', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'best_targeted_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
   my ($igtr_pipe_db, $igtr_pipe_url, $igtr_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'igtr', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'igtr_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
   my ($short_ncrna_pipe_db, $short_ncrna_pipe_url, $short_ncrna_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'short_ncrna', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'short_ncrna_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
   my ($rnaseq_pipe_db, $rnaseq_pipe_url, $rnaseq_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'rnaseq', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'rnaseq_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
   my ($long_read_pipe_db, $long_read_pipe_url, $long_read_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'long_read', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'long_read_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
   my ($homology_rnaseq_pipe_db, $homology_rnaseq_pipe_url, $homology_rnaseq_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'homology_rnaseq', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'homology_rnaseq_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
   my ($transcript_finalisation_pipe_db, $transcript_finalisation_pipe_url, $transcript_finalisation_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'set_finalisation', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'set_finalisation_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
   my ($core_db_finalisation_pipe_db, $core_db_finalisation_pipe_url, $core_db_finalisation_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'db_finalisation', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'db_finalisation_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
   my ($otherfeatures_db_pipe_db, $otherfeatures_db_pipe_url, $otherfeatures_db_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'otherfeatures_db', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'otherfeatures_db_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
   my ($rnaseq_db_pipe_db, $rnaseq_db_pipe_url, $rnaseq_db_guihive) = $self->get_meta_db_information(
       undef,
-      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'rnaseq_db', $self->o('release_number')),
+      sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'rnaseq_db_pipe', $self->o('release_number')),
       $self->o('pipe_db_server')
     );
 
