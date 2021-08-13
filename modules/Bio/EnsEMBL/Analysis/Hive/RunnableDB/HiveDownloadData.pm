@@ -115,7 +115,7 @@ sub fetch_input {
     $client->target($output_dir);
   }
   else {
-    $url = "$download_method://$url" unless ($url =~ /^$download_method:\/\//);
+    $url = "$download_method://$url" unless ($url =~ '^\w+://');
     $client = File::Fetch->new(uri => $url) || $self->throw('Could not create a fetcher for '.$url);
     $self->param('options', [to => $output_dir]);
   }
