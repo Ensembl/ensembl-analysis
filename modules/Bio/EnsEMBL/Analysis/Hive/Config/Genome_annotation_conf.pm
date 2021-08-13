@@ -981,15 +981,48 @@ sub pipeline_analyses {
           skip_projection => $self->o('skip_projection'),
           skip_rnaseq => $self->o('skip_rnaseq'),
           skip_cleaning => $self->o('skip_cleaning'),
-          layering_input_gene_dbs => [],
-          utr_donor_dbs => [],
-          split_intergenic_dbs => [],
-          create_toplevel_dbs => [],
           uniprot_set => $self->o('uniprot_set'),
         },
       },
       -rc_name      => 'default',
       -max_retry_count => 1,
+      -flow_into => {
+        1 => ['reset_transcript_selection_db_arrays'],
+      },
+    },
+
+    {
+      -logic_name => 'reset_transcript_selection_db_arrays',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::MessagePipeline',
+      -parameters => {
+        tweak_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'tweak_pipeline.pl'),
+        messages   => [
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'create_toplevel_slices',
+          param => 'feature_dbs',
+          data => [],
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'split_slices_on_intergenic',
+          param => 'input_gene_dbs',
+          data => [],
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'layer_annotation',
+          param => 'SOURCEDB_REFS',
+          data => [],
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'utr_addition',
+          param => 'donor_dbs',
+          data => [],
+        }],
+      },
+      -rc_name    => 'default',
       -flow_into => {
         '1->A' => ['fan_projection'],
         'A->1' => ['run_transcript_finalisation'],

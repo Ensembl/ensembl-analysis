@@ -67,7 +67,6 @@ sub default_options {
 # Pipe and ref db info
 ########################
 
-    'input_ids' => {},
     'cdna_db_server' => $self->o('databases_server'),
     'cdna_db_port'   => $self->o('databases_port'),
     'cdna_db_user'   => $self->o('user'),
@@ -438,7 +437,7 @@ sub pipeline_analyses {
         create_type => 'clone',
       },
       -rc_name   => 'default',
-      -input_ids  => [$self->o('input_ids')],
+      -input_ids  => [{}],
       -flow_into => {
         1 => ['create_utr_db'],
       },
