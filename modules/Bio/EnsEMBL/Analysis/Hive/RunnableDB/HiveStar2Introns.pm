@@ -65,6 +65,7 @@ sub param_defaults {
     small_intron_size => 0,
     min_intron_depth => 0,
     table_name => 'csv_data',
+    has_merge_set => undef,
   }
 }
 
@@ -107,11 +108,13 @@ sub fetch_input {
       $analyses{$row->{$self->param('sample_id_column')}} = $unique_analyses{$logic_name};
     }
     if (scalar(keys %unique_analyses) > 1) {
-      $analyses{merged} = Bio::EnsEMBL::Analysis->new(-logic_name => $self->param_required('species').'_merged_rnaseq_daf', -module => 'Star2Introns');
-      my $has_merge_set = scalar(keys %analyses) > 1;
-      $self->param('has_merge_set',$has_merge_set);
+      my $logic_name = $self->param_required('species').'_merged_rnaseq_daf';
+      $analyses{$logic_name} = Bio::EnsEMBL::Analysis->new(-logic_name => $logic_name, -module => 'Star2Introns');
+      $unique_analyses{$logic_name} = $analyses{$logic_name};
+      $self->param('has_merge_set', $logic_name);
     }
     $self->param('_analyses', \%analyses);
+    $self->param('_unique_analyses', \%unique_analyses);
     my $slice_adaptor = $output_dba->get_SliceAdaptor;
     $slice_adaptor->fetch_all('toplevel');
     $self->param('_slice_adaptor', $slice_adaptor);
@@ -148,14 +151,12 @@ sub run {
     while(<IN>) {
       my ($seq_region_name, $start, $end, $strand, $is_canonical, undef, $unique_map_count, $multi_map_count) = split("\t", $_);
       my $depth = $unique_map_count + POSIX::ceil($multi_map_count/2);
-
-      if (exists $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}) {
-        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{$analyses->{$srr}->logic_name} += $depth;
-        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{merged} += $depth if ($self->param('has_merge_set'));
+      my $intron_id = "$start:$end:$strand:$is_canonical";
+      if (exists $daf_table{$seq_region_name}->{$intron_id}) {
+        $daf_table{$seq_region_name}->{$intron_id}->{$analyses->{$srr}->logic_name} += $depth;
       }
       else{
-        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{$analyses->{$srr}->logic_name} = $depth;
-        $daf_table{$seq_region_name}->{"$start:$end:$strand:$is_canonical"}->{merged} = $depth if ($self->param('has_merge_set'));
+        $daf_table{$seq_region_name}->{$intron_id}->{$analyses->{$srr}->logic_name} = $depth;
       }
     }
     close(IN) or $self->throw("Could not close $junction_file");
@@ -177,9 +178,10 @@ sub write_output {
   my ($self) = @_;
   my $out_dbc = $self->hrdb_get_con('target_db')->dbc;
   my $daf_table = $self->param('_daf_table');
-  my $analyses = $self->param('_analyses');
+  my $analyses = $self->param('_unique_analyses');
   my $small_intron_size = $self->param('small_intron_size');
   my $min_intron_depth = $self->param('min_intron_depth');
+  my $merged_logic_name = $self->param('has_merge_set');
 
   my $target_adaptor = $self->hrdb_get_con('target_db')->get_AnalysisAdaptor;
   foreach my $analysis (values %$analyses) {
@@ -188,34 +190,49 @@ sub write_output {
   my $slice_adaptor = $self->param('_slice_adaptor');
 
   my $num_dafs = 0;
+  $out_dbc->do("ALTER TABLE dna_align_feature DISABLE KEYS");
   my $sth_write = $out_dbc->prepare('INSERT INTO dna_align_feature (seq_region_id, seq_region_start, seq_region_end, seq_region_strand, hit_name, hit_start, hit_end, hit_strand, analysis_id, score, cigar_line, align_type) values (?, ?, ?, ?, ?, 1, ?, 1, ?, ?, ?, "ensembl")');
   foreach my $seq_region ( keys %$daf_table) {
     my $seq_region_id = $slice_adaptor->fetch_by_region('toplevel', $seq_region)->get_seq_region_id;
-    my $name = $seq_region;
-    $name =~ s/\./\*/g;
     foreach my $item (keys %{$daf_table->{$seq_region}}) {
       my ($start, $end, $strand, $is_canonical) = split(':', $item);
+      my $merged_depth = 0;
+      my $diff = $end-$start;
+      $is_canonical = $is_canonical > 0 ? 'canon' : 'non canon';
       foreach my $logic_name (keys %{$daf_table->{$seq_region}->{$item}}) {
-        if ((($end - $start + 1) >= $small_intron_size) && $daf_table->{$seq_region}->{$item}->{$logic_name} >= $min_intron_depth) {
+        if ((($diff + 1) >= $small_intron_size) && $daf_table->{$seq_region}->{$item}->{$logic_name} >= $min_intron_depth) {
           $num_dafs++;
           $sth_write->bind_param(1, $seq_region_id);
           $sth_write->bind_param(2, $start);
           $sth_write->bind_param(3, $end);
           $sth_write->bind_param(4, $strand == 2 ? -1 : 1);
-          $sth_write->bind_param(5, "$num_dafs:".($strand == 2 ? -1 : 1).':'.($is_canonical > 0 ? 'canon' : 'n
-on canon'));
-          $sth_write->bind_param(6, ($end-$start));
+          $sth_write->bind_param(5, "$num_dafs:$is_canonical");
+          $sth_write->bind_param(6, $diff);
           $sth_write->bind_param(7, $analyses->{$logic_name}->dbID);
           $sth_write->bind_param(8, $daf_table->{$seq_region}->{$item}->{$logic_name});
-          $sth_write->bind_param(9, ($end-$start+1).'M');
+          $sth_write->bind_param(9, ($diff+1).'M');
           $sth_write->execute();
+          $merged_depth += $daf_table->{$seq_region}->{$item}->{$logic_name};
         }
         else {
           $self->say_with_header("Low threshold for $seq_region $item ".$analyses->{$logic_name}->logic_name.' '.$daf_table->{$seq_region}->{$item}->{$logic_name});
         }
       }
+      if ($merged_logic_name and $merged_depth) {
+        $sth_write->bind_param(1, $seq_region_id);
+        $sth_write->bind_param(2, $start);
+        $sth_write->bind_param(3, $end);
+        $sth_write->bind_param(4, $strand == 2 ? -1 : 1);
+        $sth_write->bind_param(5, "$num_dafs:$is_canonical");
+        $sth_write->bind_param(6, $diff);
+        $sth_write->bind_param(7, $analyses->{$merged_logic_name}->dbID);
+        $sth_write->bind_param(8, $merged_depth);
+        $sth_write->bind_param(9, ($diff+1).'M');
+        $sth_write->execute();
+      }
     }
   }
+  $out_dbc->do("ALTER TABLE dna_align_feature ENABLE KEYS");
 }
 
 1;
