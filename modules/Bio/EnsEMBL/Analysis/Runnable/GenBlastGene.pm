@@ -413,11 +413,6 @@ sub set_supporting_features {
   $query_seq .= '*';
   $target_seq .= '*';
 
-  say "";
-  say "------------------------------------------------";
-  say "NEW TRANSCRIPT";
-  say "------------------------------------------------";
-
   my $codon_index= 0;
   my $exons = $transcript->get_all_Exons();
   my $i=0;
@@ -429,16 +424,6 @@ sub set_supporting_features {
     my $phase = $exon->phase();
     my $end_phase = $exon->end_phase();
     my $start_index = 0;
-
-    say "";
-    say "------------------------------------------------";
-    say "NEW EXON";
-    say "------------------------------------------------";
-    say "FM2 ESTART: ".$exon->start;
-    say "FM2 EEND: ".$exon->end;
-    say "FM2 ESTRAND: ".$exon->strand;
-    say "FM2 EPHASE: ".$exon->phase;
-    say "FM2 EENDPHASE: ".$exon->end_phase;
 
     # If the phase is not 0 then the first codon is a split one. The phase is then number of bases missing from
     # the codon. so if you take the phase from 3 you get the number of bases in the split codon
@@ -452,7 +437,6 @@ sub set_supporting_features {
      # Ending on a split codon, so increase the index and finish the loop
      if($k+2 >= scalar(@nucleotide_array)) {
         $codon_index++;
-        say "FM2 SKIPPING SPLIT CODON";
         last;
       }
 
@@ -473,31 +457,15 @@ sub set_supporting_features {
       my $query_char = substr($query_seq,$codon_alignment_index,1);
       my $target_char = substr($target_seq,$codon_alignment_index,1);
       if($query_char eq '-') {
-        say "FM2 TSTART: ".$target_start;
-        say "FM2 TEND: ".$target_end;
-        say "FM2 CODON INDEX: ".$codon_index;
-        say "FM2 CODON ALIGNMENT INDEX: ".$codon_alignment_index;
-        say "FM2 CODON CHARS: '".$nucleotide_array[$k].$nucleotide_array[$k+1].$nucleotide_array[$k+2]."'";
-        say "FM2 ALIGNMENT CHARS: '".$query_char."'='".$target_char."'";
-        say "FM2 SKIPPING CODON BECAUSE OF ALIGMENT GAP";
         $codon_index++;
         next;
       } elsif(($codon_alignment_index == length($query_seq)-1) && $query_char eq '*' && $target_char eq '*') {
-        say "FM2 LAST CODON IS STOP SO SKIPPING";
         next;
       }
 
       my $hit_start = $self->find_hit_start($codon_alignment_index,$query_seq);
       my $hit_end = $hit_start;
 
-      say "FM2 TSTART: ".$target_start;
-      say "FM2 TEND: ".$target_end;
-      say "FM2 HSTART: ".$hit_start;
-      say "FM2 HEND: ".$hit_end;
-      say "FM2 CODON INDEX: ".$codon_index;
-      say "FM2 CODON ALIGNMENT INDEX: ".$codon_alignment_index;
-      say "FM2 CODON CHARS: '".$nucleotide_array[$k].$nucleotide_array[$k+1].$nucleotide_array[$k+2]."'";
-      say "FM2 ALIGNMENT CHARS: '".$query_char."'---'".$target_char."'";
       $codon_index++;
 
       push(@{$proto_supporting_features},{'tstart' => $target_start,
@@ -505,9 +473,6 @@ sub set_supporting_features {
                                           'hstart' => $hit_start,
                                           'hend'   =>$hit_end});
     }
-
-    say "\nQUERY:\n".$query_seq;
-    say "\nTARGET:\n".$target_seq;
 
    my $joined_supporting_features = $self->join_supporting_features($proto_supporting_features,$exon->strand);
    my $exon_feature_pairs = [];
@@ -523,8 +488,6 @@ sub set_supporting_features {
                                                         -percent_id => $percent_id,
                                                         -slice      => $exon->slice,
                                                         -analysis   => $transcript->analysis);
-     say "FM2 ADD SUPPORTING EVIDENCE START: ".$feature_pair->start;
-     say "FM2 ADD SUPPORTING EVIDENCE END: ".$feature_pair->end;
      push(@{$exon_feature_pairs},$feature_pair);
      push(@{$all_exon_supporting_features},$feature_pair);
    }
@@ -616,15 +579,6 @@ sub join_supporting_features {
       my $left_proto = $$proto_supporting_features[$i];
       my $right_proto = $$proto_supporting_features[$i-1];
 
-      say "FM2 PROTO LTS: ".$left_proto->{'tstart'};
-      say "FM2 PROTO LTE: ".$left_proto->{'tend'}; 
-      say "FM2 PROTO LHS: ".$left_proto->{'hstart'};
-      say "FM2 PROTO LHE: ".$left_proto->{'hend'};
-      say "FM2 PROTO RTS: ".$right_proto->{'tstart'};
-      say "FM2 PROTO RTE: ".$right_proto->{'tend'};
-      say "FM2 PROTO RHS: ".$right_proto->{'hstart'};
-      say "FM2 PROTO RHE: ".$right_proto->{'hend'};
-
       if($left_proto->{'tend'} == ($right_proto->{'tstart'} - 1)) {
         if($left_proto->{'hend'} == ($right_proto->{'hstart'} + 1)) {
           # If this is the case then the codons and hits are contiguous and so they can be joined
@@ -638,11 +592,6 @@ sub join_supporting_features {
   }
   foreach my $proto_sf (@{$proto_supporting_features}) {
     if($proto_sf) {
-      say "FM2 JOINED TSTART: ".$proto_sf->{'tstart'};
-      say "FM2 JOINED TEND: ".$proto_sf->{'tend'};
-      say "FM2 JOINED HSTART: ".$proto_sf->{'hstart'};
-      say "FM2 JOINED HEND: ".$proto_sf->{'hend'};
-
       # If it's the negative strand then swap the start and end of the hit
       if($strand == -1) {
         my $temp = $proto_sf->{'hstart'};
