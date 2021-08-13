@@ -75,9 +75,10 @@ sub fetch_input {
   $target_transcript_dba->dnadb($target_dna_dba);
   $self->hrdb_set_con($source_transcript_dba,'source_transcript_db');
   $self->hrdb_set_con($target_transcript_dba,'target_transcript_db');
-
+ 
   # test code with: /hps/nobackup/flicek/ensembl/compara/twalsh/GRCh38-f1-90-mc-mar22.hal
   $self->param('hal_file', '/hps/nobackup/flicek/ensembl/compara/twalsh/GRCh38-f1-90-mc-mar22.hal'); 
+  $self->param('tmpdir', '/hps/nobackup/flicek/ensembl/genebuild/kbillis/tmp'); 
   
 
   # Retrieve the production names for the query and target species
@@ -163,7 +164,7 @@ print "DEBUG:: yo! $input_id running transcript: $transcript  bio $biotype stabl
       $transcript_slices = $self->process_transcript($transcript,$compara_dba,$mlss,$source_genome_db,$source_transcript_dba);
     } elsif ($mode eq "hal_file") {
       # TODO method to return $transcript_slices of HAL file.       
-      # $hal_file and $target_assembly need to find
+      # $hal_file and $target_assembly need to find      
       $transcript_slices = $self->process_transcript_hal_file($transcript, $hal_file, $assembly_name); 
     } else {
       # TODO throw ...  
@@ -189,7 +190,7 @@ sub run {
       my $except = $@;
       $self->runnable_failed($runnable->{'_transcript_id'});
       $self->warning("Issue with running exonerate, will dataflow input id on fail branch. Exception:\n".$except);
-      #$self->param('_branch_to_flow_on_fail', -3);
+      $self->param('_branch_to_flow_on_fail', -3);
     } else {
       # Store original transcript id for realignment later. Should implement a cleaner solution at some point
       foreach my $output (@{$runnable->output}) {
@@ -232,6 +233,7 @@ sub write_output{
     my $slice = $slice_adaptor->fetch_by_name($slice_id);
     my $biotype = $self->retrieve_biotype($transcript);
     $transcript->biotype($biotype);
+    $transcript->stable_id($transcript->{'_old_transcript_id'}); # store source transcript id in target transcript stable_id
     attach_Slice_to_Transcript($transcript, $slice);
 
     if ($self->filter_transcript($transcript)) {
@@ -392,7 +394,7 @@ sub process_transcript {
 }
 
 
-# TODO: THIS METHOD will create the $transcript_slices from hal file.
+# THIS METHOD will create the $transcript_slices from hal file.
 sub process_transcript_hal_file {
   my ($self,$transcript,$hal_file,$target_assembly) = @_;
 
@@ -404,17 +406,89 @@ sub process_transcript_hal_file {
   my $transcript_start = $transcript->seq_region_start() ; 
   my $transcript_end = $transcript->seq_region_end() ;
   my $transcript_strand = $transcript->strand() ;
+
+  # use Scalar::Util qw(looks_like_number);
+  # if (looks_like_number($chrname)) { 
+  #  $chrname= "chr" . $chrname ; 
+  # }
   
-  my $src_region_to_lift = "chr" . $chrname . ":" . $transcript_start . "-" . $transcript_end . ":" . $transcript_strand ; 
-  my $output_file_tmp = $self->param('tmpdir')."/source_sequence_".$transcript->dbID;
+  # this is not pretty, but for know it should work
+  my %chrom_map = (
+    '1' => 'chr1',
+    '10' => 'chr10',
+    '11' => 'chr11',
+    '12' => 'chr12',
+    '13' => 'chr13',
+    '14' => 'chr14',
+    '15' => 'chr15',
+    '16' => 'chr16',
+    '17' => 'chr17',
+    '18' => 'chr18',
+    '19' => 'chr19',
+    '2' => 'chr2',
+    '20' => 'chr20',
+    '21' => 'chr21',
+    '22' => 'chr22',
+    '3' => 'chr3',
+    '4' => 'chr4',
+    '5' => 'chr5',
+    '6' => 'chr6',
+    '7' => 'chr7',
+    '8' => 'chr8',
+    '9' => 'chr9',
+    'MT' => 'chrM',
+    'KI270728.1' => 'chr16_KI270728v1_random',
+    'GL000205.2' => 'chr17_GL000205v2_random',
+    'GL000194.1' => 'chr14_GL000194v1_random',
+    'KI270713.1' => 'chr1_KI270713v1_random',
+    'GL000218.1' => 'chrUn_GL000218v1',
+    'GL000216.2' => 'chrUn_GL000216v2',
+    'GL000195.1' => 'chrUn_GL000195v1',
+    'KI270734.1' => 'chr22_KI270734v1_random',
+    'KI270733.1' => 'chr22_KI270733v1_random',
+    'KI270731.1' => 'chr22_KI270731v1_random',
+    'KI270721.1' => 'chr11_KI270721v1_random',
+    'GL000220.1' => 'chrUn_GL000220v1',
+    'KI270442.1' => 'chrUn_KI270442v1',
+    'GL000009.2' => 'chr14_GL000009v2_random',
+    'KI270744.1' => 'chrUn_KI270744v1',
+    'GL000225.1' => 'chr14_GL000225v1_random',
+    'GL000219.1' => 'chrUn_GL000219v1',
+    'KI270750.1' => 'chrUn_KI270750v1',
+    'X' => 'chrX',
+    'Y' => 'chrY'
+  );
+  
+  # keep the reverse naming for storing afterwards. 
+  my %nchrom_map = reverse %chrom_map;
+  
+  # rename based on new names: 
+  print "DEBUG:: before:: $chrname \n"; 
+  if (!defined($chrom_map{$chrname})) {
+  	$self->transcripts_noalignblocks($transcript->dbID());
+    $self->warning("this $chrname region is not exist in HAL file"); 
+    $self->param('_branch_to_flow_on_noalignblocks', -5); 
+    next; 
+  }
+  $chrname = $chrom_map{$chrname}; 
+  print "DEBUG:: after:: $chrname \n"; 
+  
+
+  
+  # create the region to lift: 
+  my $src_region_to_lift = $chrname . ":" . $transcript_start . "-" . $transcript_end . ":" . $transcript_strand ; 
+  my $output_file_tmp = $self->param('tmpdir')."/source_sequence_hal_exon_".$transcript->dbID;
   
   
   # example data NEED TO COMMENT THEM: 
   $hal_file = '/hps/nobackup/flicek/ensembl/compara/twalsh/GRCh38-f1-90-mc-mar22.hal';
-  $output_file_tmp = "/hps/nobackup/flicek/ensembl/genebuild/kbillis/tmp/"."/source_sequence_".$transcript->dbID; 
-  $src_region_to_lift = "chr11:2159779-2161221:-1";  
+  # $output_file_tmp = "/hps/nobackup/flicek/ensembl/genebuild/kbillis/tmp/"."/source_sequence_".$transcript->dbID; 
+  # $src_region_to_lift = "chr11:2159779-2161221:-1";  
+  print "DEBUG:: ". $transcript->dbID . "will lift: " . $src_region_to_lift . "\n"; 
+  
   $assembly = "GRCh38"; 
-  $target_assembly = "CHM13";   
+  $target_assembly = "CHM13";
+     
   # command: 
   my $hal_file_take = 'python '. ' /nfs/production/flicek/ensembl/genebuild/kbillis/ensembl_code/human_pangenome_HAL_files/ensembl-compara/scripts/hal_alignment/hal_gene_liftover.py ' . 
                              ' --src-region ' . $src_region_to_lift  .
@@ -422,8 +496,17 @@ sub process_transcript_hal_file {
                              $hal_file . ' ' . $assembly . ' ' . $target_assembly . ' ' . $output_file_tmp ;
 
   say "Running hal gene liftover script. command is: $hal_file_take  ";
-  if(system($hal_file_take)) {
-     $self->throw("The hal_gene_liftover script exited with a non-zero exit code. Commandline used:\n".$hal_file_take);
+  if(system($hal_file_take)) { 
+    $self->throw("The hal_gene_liftover script exited with a non-zero exit code. Commandline used:\n".$hal_file_take); 
+  } else { 
+  	print "Commnand $hal_file_take finished without any issue. I will check if there is output. " . 
+  	   " If there is file, there are no alignments. \n"; 
+  	   
+  	if (-e $output_file_tmp) { 
+      print "the output file exists\n";
+  	} else {
+  	  $self->throw("the output file DOESN'T exist. Why??]");
+  	}
   }
   
   # TODO: read json file and get:
@@ -441,11 +524,21 @@ sub process_transcript_hal_file {
   my $json = JSON->new;
   my $data = $json->decode($json_text);
 
-# say "Number of elements: " . scalar \@data;
+  say "Number of elements: " . scalar(@$data);
 
   if (scalar(@$data) > 1) {
     $self->throw("not sure if this is correct"); 	
-  } 
+  }
+
+  my $transcript_slices = []; 
+
+  if (scalar(@$data) == 0 ) {
+    # consider it as a failed runnable as the transcript was not projected
+    $self->transcripts_noalignblocks($transcript->dbID());
+    $self->warning("The sorted align blocks were not converted into transcript slices - not there. Transcript ".$transcript->dbID()." . .\n");
+    $self->param('_branch_to_flow_on_noalignblocks', -5);
+    next;
+  }
 
   
   # I Am not taking strand because I don't think it is important for minima sequence. 
@@ -454,19 +547,38 @@ sub process_transcript_hal_file {
   my $start_chrom = $data->[0]{'results'}->[0]{'dest_start'};
   my $end_chrom = $data->[0]{'results'}->[0]{'dest_end'};
 
-  
-
-  my $transcript_slices = []; 
   my ($coord_system_name, $seq_region_name, $start, $end); 
+  
+  $coord_system_name = "CHM13_T2T_v1.0";
+  $seq_region_name = $dest_chrom; 
+  $start = $start_chrom;
+  $end = $end_chrom; 
+  
+  
   print "DEBUG $coord_system_name, $seq_region_name, $start, $end \n"; 
   my $slice_adaptor = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor; 
+
+
+  my $csa = $self->hrdb_get_con('target_dna_db')->get_CoordSystemAdaptor();
+  # $coord_system_name = $csa->fetch_all()->name(); 
+
+  #
+  # Get all coord systems in the database:
+  #
+  foreach my $cs ( @{ $csa->fetch_all() } ) {
+    my $str = join ':', $cs->name(), $cs->version(), $cs->dbID();
+    print "$str\n";
+    $coord_system_name = $cs->name(); 
+  }
+  
+  # $seq_region_name =~ s/chr//;
+  $seq_region_name = $nchrom_map{$seq_region_name}; 
+  
+  print "$coord_system_name, $seq_region_name, $start, $end \n"; 
   my $hal_align_slice = $slice_adaptor->fetch_by_region($coord_system_name, $seq_region_name, $start, $end);
   
-die; 
-
   
   push(@{$transcript_slices},$hal_align_slice);
-  return($transcript_slices);
   # you need to check that the file has data, but we didn't create transcript slice 
 
   unless($transcript_slices) {
@@ -476,9 +588,9 @@ die;
   foreach my $transcript_slice (@{$transcript_slices}) {
     say "Created transcript slice: ".$transcript_slice->name."\n";
   }
+ 
   return $transcript_slices;
 }
-
 
 
 sub make_runnables {

@@ -417,13 +417,76 @@ sub process_transcript_hal_file {
   my $transcript_end = $transcript->seq_region_end() ;
   my $transcript_strand = $transcript->strand() ;
 
-  use Scalar::Util qw(looks_like_number);
-  if (looks_like_number($chrname)) { 
-    $chrname= "chr" . $chrname ; 
-  }
+  # use Scalar::Util qw(looks_like_number);
+  # if (looks_like_number($chrname)) { 
+  #  $chrname= "chr" . $chrname ; 
+  # }
   
+  # this is not pretty, but for know it should work
+  my %chrom_map = (
+    '1' => 'chr1',
+    '10' => 'chr10',
+    '11' => 'chr11',
+    '12' => 'chr12',
+    '13' => 'chr13',
+    '14' => 'chr14',
+    '15' => 'chr15',
+    '16' => 'chr16',
+    '17' => 'chr17',
+    '18' => 'chr18',
+    '19' => 'chr19',
+    '2' => 'chr2',
+    '20' => 'chr20',
+    '21' => 'chr21',
+    '22' => 'chr22',
+    '3' => 'chr3',
+    '4' => 'chr4',
+    '5' => 'chr5',
+    '6' => 'chr6',
+    '7' => 'chr7',
+    '8' => 'chr8',
+    '9' => 'chr9',
+    'MT' => 'chrM',
+    'KI270728.1' => 'chr16_KI270728v1_random',
+    'GL000205.2' => 'chr17_GL000205v2_random',
+    'GL000194.1' => 'chr14_GL000194v1_random',
+    'KI270713.1' => 'chr1_KI270713v1_random',
+    'GL000218.1' => 'chrUn_GL000218v1',
+    'GL000216.2' => 'chrUn_GL000216v2',
+    'GL000195.1' => 'chrUn_GL000195v1',
+    'KI270734.1' => 'chr22_KI270734v1_random',
+    'KI270733.1' => 'chr22_KI270733v1_random',
+    'KI270731.1' => 'chr22_KI270731v1_random',
+    'KI270721.1' => 'chr11_KI270721v1_random',
+    'GL000220.1' => 'chrUn_GL000220v1',
+    'KI270442.1' => 'chrUn_KI270442v1',
+    'GL000009.2' => 'chr14_GL000009v2_random',
+    'KI270744.1' => 'chrUn_KI270744v1',
+    'GL000225.1' => 'chr14_GL000225v1_random',
+    'GL000219.1' => 'chrUn_GL000219v1',
+    'KI270750.1' => 'chrUn_KI270750v1',
+    'X' => 'chrX',
+    'Y' => 'chrY'
+  );
+  
+  # keep the reverse naming for storing afterwards. 
+  my %nchrom_map = reverse %chrom_map;
+  
+  # rename based on new names: 
+  print "DEBUG:: before:: $chrname \n"; 
+  if (!defined($chrom_map{$chrname})) {
+  	$self->transcripts_noalignblocks($transcript->dbID());
+    $self->warning("this $chrname region is not exist in HAL file"); 
+    $self->param('_branch_to_flow_on_noalignblocks', -5); 
+    next; 
+  }
+  $chrname = $chrom_map{$chrname}; 
+  print "DEBUG:: after:: $chrname \n"; 
+
+  
+  # create the region to lift: 
   my $src_region_to_lift = $chrname . ":" . $transcript_start . "-" . $transcript_end . ":" . $transcript_strand ; 
-  my $output_file_tmp = $self->param('tmpdir')."/source_sequence_".$transcript->dbID;
+  my $output_file_tmp = $self->param('tmpdir')."/source_sequence_hal_".$transcript->dbID;
   
   
   # example data NEED TO COMMENT THEM: 
@@ -433,7 +496,8 @@ sub process_transcript_hal_file {
   print "DEBUG:: ". $transcript->dbID . "will lift: " . $src_region_to_lift . "\n"; 
   
   $assembly = "GRCh38"; 
-  $target_assembly = "CHM13";   
+  $target_assembly = "CHM13";
+     
   # command: 
   my $hal_file_take = 'python '. ' /nfs/production/flicek/ensembl/genebuild/kbillis/ensembl_code/human_pangenome_HAL_files/ensembl-compara/scripts/hal_alignment/hal_gene_liftover.py ' . 
                              ' --src-region ' . $src_region_to_lift  .
@@ -441,8 +505,17 @@ sub process_transcript_hal_file {
                              $hal_file . ' ' . $assembly . ' ' . $target_assembly . ' ' . $output_file_tmp ;
 
   say "Running hal gene liftover script. command is: $hal_file_take  ";
-  if(system($hal_file_take)) {
-     $self->throw("The hal_gene_liftover script exited with a non-zero exit code. Commandline used:\n".$hal_file_take);
+  if(system($hal_file_take)) { 
+    $self->throw("The hal_gene_liftover script exited with a non-zero exit code. Commandline used:\n".$hal_file_take); 
+  } else { 
+  	print "Commnand $hal_file_take finished without any issue. I will check if there is output. " . 
+  	   " If there is file, there are no alignments. \n"; 
+  	   
+  	if (-e $output_file_tmp) { 
+      print "the output file exists\n";
+  	} else {
+  	  $self->throw("the output file DOESN'T exist. Why??]");
+  	}
   }
   
   # TODO: read json file and get:
@@ -460,22 +533,29 @@ sub process_transcript_hal_file {
   my $json = JSON->new;
   my $data = $json->decode($json_text);
 
-# say "Number of elements: " . scalar \@data;
+  say "Number of elements: " . scalar(@$data);
 
   if (scalar(@$data) > 1) {
     $self->throw("not sure if this is correct"); 	
-  } 
+  }
+
+  my $transcript_slices = []; 
+
+  if (scalar(@$data) == 0 ) {
+    # consider it as a failed to get an aligned block
+    $self->transcripts_noalignblocks($transcript->dbID());
+    $self->warning("The sorted align blocks were not converted into transcript slices. Transcript ".$transcript->dbID()." . Input id will be passed to branch -5.\n");
+    $self->param('_branch_to_flow_on_noalignblocks', -5);
+    next;
+  }
 
   
-  # I Am not taking strand because I don't think it is important for minima sequence. 
+  # I Am not taking strand because I assume minimap needs the sequence. 
   my $dest_genome = $data->[0]{'results'}->[0]{'dest_genome'};  # this is the name of the assembly for example 'dest_genome' => 'CHM13',
   my $dest_chrom = $data->[0]{'results'}->[0]{'dest_chrom'};
   my $start_chrom = $data->[0]{'results'}->[0]{'dest_start'};
   my $end_chrom = $data->[0]{'results'}->[0]{'dest_end'};
 
-  
-
-  my $transcript_slices = []; 
   my ($coord_system_name, $seq_region_name, $start, $end); 
   
   $coord_system_name = "CHM13_T2T_v1.0";
@@ -500,7 +580,8 @@ sub process_transcript_hal_file {
     $coord_system_name = $cs->name(); 
   }
   
-  $seq_region_name =~ s/chr//;
+  # $seq_region_name =~ s/chr//;
+  $seq_region_name = $nchrom_map{$seq_region_name}; 
   
   print "$coord_system_name, $seq_region_name, $start, $end \n"; 
   my $hal_align_slice = $slice_adaptor->fetch_by_region($coord_system_name, $seq_region_name, $start, $end);
@@ -580,7 +661,7 @@ sub process_transcript {
     # consider it as a failed runnable as the transcript was not projected
     $self->transcripts_noalignblocks($transcript->dbID());
     $self->warning("No align blocks so skipping transcript. Transcript ".$transcript->dbID()." . Input id will be passed to branch -4.\n");
-    $self->param('_branch_to_flow_on_noalignblocks', -4);
+    $self->param('_branch_to_flow_on_noalignblocks', -5);
     next;
   }
 
@@ -589,7 +670,7 @@ sub process_transcript {
     # consider it as a failed runnable as the transcript was not projected
     $self->transcripts_noalignblocks($transcript->dbID());
     $self->warning("The sorted align blocks were not converted into transcript slices. Transcript ".$transcript->dbID()." . Input id will be passed to branch -4.\n");
-    $self->param('_branch_to_flow_on_noalignblocks', -4);
+    $self->param('_branch_to_flow_on_noalignblocks', -5);
     next;
   }
 
@@ -879,5 +960,8 @@ sub retrieve_biotype {
   }
   return($biotype);
 }
+
+
+
 
 1;
