@@ -837,7 +837,7 @@ sub pipeline_analyses {
         sample_id_column   => 'ID',
         species            => $self->o('species_name'),
       },
-      -rc_name   => 'default',
+      -rc_name   => '15GB',
       -flow_into => {
         '1' => ['copy_rnaseq_star_blast_db'],
       },
@@ -1015,6 +1015,7 @@ sub resource_classes {
     '80GB_star'    => { LSF => $self->lsf_resource_builder( 'production', 80000, undef, undef, ( $self->default_options->{'star_threads'} + 1 ) ) },
     '10GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 10000, undef, undef, ( $self->default_options->{'scallop_threads'} ) ) },
     '50GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 50000, undef, undef, ( $self->default_options->{'scallop_threads'} ) ) },
+    '15GB'     => { LSF => $self->lsf_resource_builder( 'production', 15000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
     }
 }
 
