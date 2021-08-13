@@ -74,20 +74,24 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($database,$genblast_program,$max_rank,$genblast_pid,$database_adaptor) = rearrange([qw(DATABASE
+  my ($database,$genblast_program,$max_rank,$genblast_pid,$slice_cache) = rearrange([qw(DATABASE
                                                                                              GENBLAST_PROGRAM
                                                                                              MAX_RANK
                                                                                              GENBLAST_PID
-                                                                                             DATABASE_ADAPTOR
+                                                                                             SLICE_CACHE
                                                                                          )], @args);
   $self->database($database) if defined $database;
   # Allows the specification of exonerate or genewise instead of genblastg. Will default to genblastg if undef
   $self->genblast_program($genblast_program || 'genblastg');
   $self->max_rank($max_rank) if defined $max_rank;
   $self->genblast_pid($genblast_pid) if defined $genblast_pid;
-  $self->database_adaptor($database_adaptor) if defined $database_adaptor;
+  if ($slice_cache) {
+    $self->slice_cache($slice_cache);
+  }
+  else {
+    throw("You must supply a hash of Bio::EnsEMBL::Slice for supporting evidence");
+  }
   throw("You must supply a database") if not $self->database;
-  throw("You must supply a database adaptor to fetch the genomic sequence from for supporting features") if not $self->database_adaptor;
 
   # Default max rank
   unless($self->max_rank()) {
@@ -212,8 +216,7 @@ sub parse_results{
     $results = $self->resultsfile;
   }
 
-  my $dba = $self->database_adaptor();
-  my $slice_adaptor = $dba->get_SliceAdaptor();
+  my $slice_cache = $self->slice_cache;
 
   open(OUT, "<".$results) or throw("FAILED to open ".$results."\nGenBlast:parse_results");
   my (%transcripts, @transcripts);
@@ -240,7 +243,7 @@ sub parse_results{
               "GenBlast:parse_results");
       }
       my ($chromosome, $type, $start, $end, $score, $strand, $other) =  @elements[0, 2, 3, 4, 5, 6, 8];
-      my $slice = $slice_adaptor->fetch_by_name($chromosome);
+      my $slice = $slice_cache->{$chromosome};
 
       if ($type eq 'transcript') {
         #ID=Q502Q5.1-R1-1-A1;Name=Q502Q5.1;PID=67.05;Coverage=99.36;Note=PID:67.05-Cover:99.36
@@ -861,16 +864,24 @@ sub genblast_pid {
   return $self->{_genblast_pid};
 }
 
-sub database_adaptor {
+=head2 slice_cache
+
+ Arg [1]    : Hashref of Bio::EnsEMBL::Slice, the keys are the Ensembl name which can be retrieved with $slice->name
+ Description: Cache of Slice object to avoid unnecessary call to the DB
+ Returntype : Hashref of Bio::EnsEMBL::Slice
+ Exceptions : Throws if Arg[1] is not a hashref
+
+=cut
+
+sub slice_cache {
   my ($self, $val) = @_;
 
   if (defined $val) {
-    throw(ref($val).' is not a Bio::EnsEMBL::DBSQL::DBAdaptor')
-      unless ($val->isa('Bio::EnsEMBL::DBSQL::DBAdaptor'));
-    $self->{_database_adaptor} = $val;
+    throw(ref($val).' is not a hash') unless (ref($val) eq 'HASH');
+    $self->{_slice_cache} = $val;
   }
 
-  return $self->{_database_adaptor};
+  return $self->{_slice_cache};
 }
 
 
