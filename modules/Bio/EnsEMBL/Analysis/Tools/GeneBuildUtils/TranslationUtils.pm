@@ -49,6 +49,7 @@ use vars qw (@ISA  @EXPORT);
              add_ORF_to_transcript
              compute_6frame_translations_for_transcript 
              create_Translation
+             calculate_sequence_content
             );
 
 
@@ -641,5 +642,18 @@ sub create_Translation {
 
   return $translation;
 }
+
+sub calculate_sequence_content {
+  my ($translation) = @_;
+
+  my %content;
+  my $index = 0;
+  my $seq = $translation->seq;
+  while ($index < length($seq)) {
+    ++$content{substr($seq, $index++, 1)};
+  }
+  return \%content;
+}
+
 
 1;
