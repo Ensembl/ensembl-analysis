@@ -192,6 +192,7 @@ sub process_results {
   my $target_strand = 1;
   my $target_sequence_adaptor = $target_adaptor->get_SequenceAdaptor;
   my $target_genomic_seq = ${ $target_sequence_adaptor->fetch_by_Slice_start_end_strand($target_parent_slice, $target_genomic_start, $target_genomic_end, $target_strand) };
+  my $target_region_slice = $target_slice_adaptor->fetch_by_region('toplevel', $target_genomic_name, $target_genomic_start, $target_genomic_end, $target_strand);
   my $target_genomic_fasta = ">".$target_genomic_name."\n".$target_genomic_seq;
   my $target_genome_file = $self->write_input_file([$target_genomic_fasta]);
   my $target_genome_index = $target_genome_file.".mmi";
@@ -209,32 +210,72 @@ sub process_results {
 
   my $source_transcript_id_hash = {};
   my $source_transcript_fasta_seqs = [];
+
+  #  if($self->mode() eq 'exonerate') {
+#"COVERAGE_BY_ALIGNED" => 1,"FILTER" => {"OBJECT" => "Bio::EnsEMBL::Analysis::Tools::Filter::cDNA2GenomeTranscriptFilter","PARAMETERS" => {"-best_in_genome" => 1,"-coverage" => 50,"-percent_id" => 90,"-reject_processed_pseudos" => 1}},"GENOMICSEQS" => "#genome_file#","IIDREGEXP" => "(\\d+):(\\d+)","KILL_TYPE" => undef,"OPTIONS" => "--model cdna2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --score 500 --saturatethreshold 100 --dnawordlen 15 --codonwordlen 15 --dnahspthreshold 60 --bestn 10","PROGRAM" => "#exonerate_path#","QUERYTYPE" => "dna","SOFT_MASKED_REPEATS" => "#repeat_libraries#","USE_KILL_LIST" => 0,"exon_region_padding" => 5000,"exonerate_coverage" => 80,"exonerate_path" => "exonerate","exonerate_percent_id" => 60,"generate_annotation_file" => 1,
+
+    my %parameters = ();
+    $parameters{-options} = "--model cdna2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --score 500 ".
+                              "--saturatethreshold 100 --dnawordlen 15 --codonwordlen 15 --dnahspthreshold 60 --bestn 1";
+    $parameters{-coverage_by_aligned} = 1;
+
   foreach my $source_transcript (@$source_transcripts) {
-    my $source_transcript_id = $source_transcript->dbID();
-    $source_transcript_id_hash->{$source_transcript_id} = $source_transcript;
-    my $source_transcript_sequence = $source_transcript->seq->seq();
-    my $fasta_record = ">".$source_transcript->dbID()."\n".$source_transcript_sequence;
-    push(@$source_transcript_fasta_seqs,$fasta_record);
+      my $annotation_features;
+      if($source_transcript->translation()) {
+        $annotation_features = $self->create_annotation_features($source_transcript);
+      }
+
+      my $source_transcript_header = $source_transcript->stable_id.'.'.$source_transcript->version;
+      my $source_transcript_seq_object = Bio::Seq->new(-display_id => $source_transcript_header, -seq => $source_transcript->seq->seq());
+
+      my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
+                       -program  => '/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/bin/exonerate',
+                       -analysis => $self->analysis(),
+                       -query_type     => "dna",
+                       -calculate_coverage_and_pid => 1,
+                       -annotation_features => $annotation_features,
+                        %parameters,
+                     );
+      $runnable->target_seqs([$target_region_slice]);
+      $runnable->query_seqs([$source_transcript_seq_object]);
+      $self->runnable($runnable);
+    }
+#  }
+
+
+#  foreach my $source_transcript (@$source_transcripts) {
+#    my $source_transcript_id = $source_transcript->dbID();
+#    $source_transcript_id_hash->{$source_transcript_id} = $source_transcript;
+#    my $source_transcript_sequence = $source_transcript->seq->seq();
+#    my $fasta_record = ">".$source_transcript->dbID()."\n".$source_transcript_sequence;
+#    push(@$source_transcript_fasta_seqs,$fasta_record);
+#  }
+
+#  my $analysis = $self->analysis();
+#  my $program = $self->program();
+#  my $paftools = $self->paftools_path();
+#  my $source_input_file = $self->write_input_file($source_transcript_fasta_seqs);
+#  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2->new(
+#       -analysis                 => $analysis,
+#       -program                  => $program,
+#       -paftools_path            => $paftools,
+#       -genome_index             => $target_genome_index,
+#       -input_file               => $source_input_file,
+#       -database_adaptor         => $target_adaptor,
+#       -skip_introns_check       => 1,
+#       -add_offset               => $target_genomic_start - 1,
+#       -skip_compute_translation => 1,
+#  );
+
+#  $runnable->run();
+#  my $output_genes = $runnable->output();
+
+  my $output_genes = [];
+  foreach my $runnable ($self->runnable()) {
+    $runnable->run();
+    push(@{$output_genes},@{$runnable->output()});
   }
 
-  my $analysis = $self->analysis();
-  my $program = $self->program();
-  my $paftools = $self->paftools_path();
-  my $source_input_file = $self->write_input_file($source_transcript_fasta_seqs);
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2->new(
-       -analysis                 => $analysis,
-       -program                  => $program,
-       -paftools_path            => $paftools,
-       -genome_index             => $target_genome_index,
-       -input_file               => $source_input_file,
-       -database_adaptor         => $target_adaptor,
-       -skip_introns_check       => 1,
-       -add_offset               => $target_genomic_start - 1,
-       -skip_compute_translation => 1,
-  );
-
-  $runnable->run();
-  my $output_genes = $runnable->output();
   my $parent_gene_ids = $self->parent_gene_ids();
   my $final_gene_hash = {};
   foreach my $gene (@$output_genes) {
@@ -374,6 +415,23 @@ sub write_input_file {
   close OUT;
 
   return($output_file);
+}
+
+
+sub create_annotation_features {
+  my ($self,$transcript) = @_;
+
+  my $cds_start  = $transcript->cdna_coding_start;
+  my $cds_end    = $transcript->cdna_coding_end;
+  my $stable_id  = $transcript->stable_id.".".$transcript->version;
+
+  my $annotation_feature = Bio::EnsEMBL::Feature->new(-seqname => $stable_id,
+                                                      -strand  => 1,
+                                                      -start   => $cds_start,
+                                                      -end     => $cds_end);
+
+ my $annotation_features->{$stable_id} = $annotation_feature;
+ return($annotation_features);
 }
 
 
