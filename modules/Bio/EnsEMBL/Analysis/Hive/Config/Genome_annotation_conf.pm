@@ -792,12 +792,12 @@ sub default_options {
 
     # LastZ is used to align the genomes
     'pair_aligner_exe'  => $self->o('lastz_exe'),
-    'cellar_dir'                        => '/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/Cellar/',
-    'lastz_exe'                         => catfile($self->o('cellar_dir'),'lastz/1.04.00/bin/lastz'),
-    'axtChain_exe'                      => catfile($self->o('cellar_dir'),'kent/v335_1/bin/axtChain'),
-    'chainNet_exe'                      => catfile($self->o('cellar_dir'),'kent/v335_1/bin/chainNet'),
-    'faToNib_exe'                       => catfile($self->o('cellar_dir'),'kent/v335_1/bin/faToNib'),
-    'lavToAxt_exe'                      => catfile($self->o('cellar_dir'),'kent/v335_1/bin/lavToAxt'),
+    'cellar_dir'                        => '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/',
+    'lastz_exe'                         => catfile($self->o('cellar_dir'),'bin/lastz'),
+    'axtChain_exe'                      => catfile($self->o('cellar_dir'),'bin/axtChain'),
+    'chainNet_exe'                      => catfile($self->o('cellar_dir'),'bin/chainNet'),
+    'faToNib_exe'                       => catfile($self->o('cellar_dir'),'bin/faToNib'),
+    'lavToAxt_exe'                      => catfile($self->o('cellar_dir'),'bin/lavToAxt'),
     'compare_beds_exe'                  => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/pipeline/compare_beds.pl'),
     'create_pair_aligner_page_exe'      => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/report/create_pair_aligner_page.pl'),
     'dump_features_exe'                 => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/dumps/DumpMultiAlign.pl'),
