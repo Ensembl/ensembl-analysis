@@ -405,7 +405,7 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        2 => [ 'targetted_genewise_gtag', 'targetted_genewise_nogtag', 'targetted_exo' ],
+        2 => [ 'targetted_genewise_gtag', 'targetted_exo' ],
       },
     },
 
@@ -424,23 +424,26 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise' ) },
       },
       -rc_name => '3GB',
+      -flow_into => {
+        MEMLIMIT => ['targetted_genewise_gtag_6GB'],
+      },
     },
 
     {
-      -logic_name => 'targetted_genewise_nogtag',
+      -logic_name => 'targetted_genewise_gtag_6GB',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastMiniGenewise',
       -parameters => {
         source_db         => $self->o('genewise_db'),
         target_db         => $self->o('genewise_db'),
         killlist_db       => $self->o('killlist_db'),
         dna_db            => $self->o('dna_db'),
-        gtag              => 1,                                                             # 0 is for gtag, 1 is for non canonical
-        biotype           => 'gw_nogtag',
+        gtag              => 0,                                                             # 0 is for gtag, 1 is for non canonical
+        biotype           => 'gw_gtag',
         max_intron_length => 200000,
         seqfetcher_index  => [ catfile( $self->o('targetted_path'), 'proteome_index' ) ],
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise' ) },
       },
-      -rc_name => '3GB',
+      -rc_name => '6GB',
     },
 
     {
@@ -458,6 +461,26 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_exonerate' ) },
       },
       -rc_name => '3GB',
+      -flow_into => {
+        MEMLIMIT => ['targetted_exo_6GB'],
+      },
+    },
+
+    {
+      -logic_name => 'targetted_exo_6GB',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerateForGenewise',
+      -parameters => {
+        source_db         => $self->o('genewise_db'),
+        target_db         => $self->o('genewise_db'),
+        killlist_db       => $self->o('killlist_db'),
+        dna_db            => $self->o('dna_db'),
+        biotype           => 'gw_exo',
+        seqfetcher_index  => [ catfile( $self->o('targetted_path'), 'proteome_index' ) ],
+        max_intron_length => 700000,
+        program_file      => $self->o('exonerate_path'),
+        %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_exonerate' ) },
+      },
+      -rc_name => '6GB',
     },
 
     {
