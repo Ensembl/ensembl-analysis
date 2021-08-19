@@ -935,7 +935,8 @@ sub pipeline_analyses {
       },
       -rc_name   => '2GB',
       -flow_into => {
-        '2' => ['remove_redundant_rnaseq_layer_genes_star'],
+        '1->A'  => ['notification_pipeline_is_done'],
+        'A->2' => ['remove_redundant_rnaseq_layer_genes_star'],
       },
     },
 
@@ -947,9 +948,6 @@ sub pipeline_analyses {
         target_type => 'generic',
       },
       -rc_name => '5GB',
-      -flow_into  => {
-        '1'  => ['notification_pipeline_is_done'],
-      },
     },
 
     {
@@ -959,10 +957,15 @@ sub pipeline_analyses {
         messages   => [
         {
           url => $self->o('homology_rnaseq_url'),
-          logic_name => 'create_toplevel_slices',
-          param => 'feature_dbs',
+          logic_name => 'genblast_rnaseq_support',
+          param => 'intron_db',
           data => $self->o('rnaseq_for_layer_nr_db'),
-          update => 1,
+        },
+        {
+          url => $self->o('homology_rnaseq_url'),
+          logic_name => 'genblast_rnaseq_support_himem',
+          param => 'intron_db',
+          data => $self->o('rnaseq_for_layer_nr_db'),
         },
         {
           url => $self->o('transcript_selection_url'),

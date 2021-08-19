@@ -62,6 +62,7 @@ sub default_options {
     'production_name' => '',     # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
 
     'taxon_id'    => '',         # should be in the assembly report file
+    use_genome_flatfile => 1,
 
     'output_path'   => '',                                               # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     targetted_path  => catdir( $self->o('output_path'), 'targetted' ),
@@ -128,6 +129,7 @@ sub default_options {
     genome_dumps => catdir( $self->o('output_path'), 'genome_dumps' ),
     # This one is used by most analyses that run against a genome flatfile like exonerate, genblast etc. Has slice name style headers. Is softmasked
     softmasked_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_softmasked_toplevel.fa' ),
+    faidx_genome_file => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
 
     # This is used for "messaging" other sub pipeline
     transcript_selection_url => undef,

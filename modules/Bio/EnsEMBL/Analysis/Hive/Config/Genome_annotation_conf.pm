@@ -1354,6 +1354,7 @@ sub pipeline_analyses {
           taxon_id => $self->o('taxon_id'),
           wide_repeat_logic_names => '#wide_repeat_logic_names#',
           transcript_selection_url => $transcript_finalisation_pipe_url,
+          use_genome_flatfile => $self->o('use_genome_flatfile'),
         },
       },
       -rc_name      => 'default',
@@ -1520,7 +1521,7 @@ sub pipeline_analyses {
       -rc_name => 'default',
       -flow_into  => {
         '1->A' => ['skip_rnaseq'],
-        'A->1' => ['fan_long_read'],
+        'A->1' => ['skip_long_read'],
       },
     },
 
@@ -1574,6 +1575,7 @@ sub pipeline_analyses {
           databases_server => $self->o('databases_server'),
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
+          assembly_name => $self->o('assembly_name'),
           production_name => $self->o('production_name'),
           species_name => $self->o('species_name'),
           taxon_id => $self->o('taxon_id'),
@@ -1659,16 +1661,6 @@ sub pipeline_analyses {
       },
       -rc_name      => 'default',
       -max_retry_count => 1,
-    },
-
-    {
-      -logic_name => 'fan_long_read',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-      -parameters => {},
-      -rc_name => 'default',
-      -flow_into  => {
-        1 => ['skip_long_read'],
-      },
     },
 
     {
