@@ -177,7 +177,7 @@ sub uncompress {
 sub check_file {
   my ($self, $file) = @_;
 
-  $self->throw("The file $file does not exist") unless (-e $file);
+  $self->throw('The file "'.($file ||  '').'" does not exist') unless ($file and -e $file);
   if ($self->param_is_defined('md5sum')) {
     my $digest = Digest::MD5->new();
     open(my $fh, $file) || $self->throw('Could not open '.$file);
