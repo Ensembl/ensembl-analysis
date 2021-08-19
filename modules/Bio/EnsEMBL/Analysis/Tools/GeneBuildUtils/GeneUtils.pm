@@ -888,6 +888,7 @@ sub clean_utrs {
                       $translation = $transcript->translation;
                     }
                     $transcript->flush_Exons;
+                    $transcript->flush_IntronSupportingEvidence;
                     my $start_index = 0;
                     my $end_index = $#exons;
                     for (my $index = $cds_start_index; $index >= 0; $index--) {
@@ -1008,6 +1009,7 @@ sub clean_utrs {
           my $coding_start = $transcript->coding_region_start;
           my $coding_end = $transcript->coding_region_end;
           $transcript->flush_Exons;
+          $transcript->flush_IntronSupportingEvidence;
           foreach my $exon (@$exons) {
             if ($exon->start <= $coding_end and $exon->end >= $coding_start) {
               $transcript->add_Exon($exon);
@@ -1226,12 +1228,14 @@ sub clean_utrs {
         if ($gene->length*$ratio_expansion >= ($expanding_transcript->coding_region_end-$expanding_transcript->coding_region_start+1)) {
           my $expanding_exons = $expanding_transcript->get_all_Exons;
           $expanding_transcript->flush_Exons;
+          $expanding_transcript->flush_IntronSupportingEvidence;
           my %utr_5p = map {$_->start.':'.$_->end => $_ } @{$expanding_transcript->get_all_five_prime_UTRs};
           foreach my $expanding_exon (@$expanding_exons) {
             $expanding_transcript->add_Exon($expanding_exon) unless (exists $utr_5p{$expanding_exon->start.':'.$expanding_exon->end});
           }
           $expanding_exons = $expanding_transcript->get_all_Exons;
           $expanding_transcript->flush_Exons;
+          $expanding_transcript->flush_IntronSupportingEvidence;
           my %utr_3p = map {$_->start.':'.$_->end => $_ } @{$expanding_transcript->get_all_three_prime_UTRs};
           foreach my $expanding_exon (@$expanding_exons) {
             $expanding_transcript->add_Exon($expanding_exon) unless (exists $utr_3p{$expanding_exon->start.':'.$expanding_exon->end});
@@ -1287,6 +1291,7 @@ sub clean_utrs {
         my $genomic_end = $expanding_transcript->coding_region_end;
         my $expanding_exons = $expanding_transcript->get_all_Exons;
         $expanding_transcript->flush_Exons;
+        $expanding_transcript->flush_IntronSupportingEvidence;
         foreach my $expanding_exon (@$expanding_exons) {
           if ($expanding_exon->start <= $genomic_end and $expanding_exon->end >= $genomic_start
              or $expanding_exon->overlaps_local($gene)) {
