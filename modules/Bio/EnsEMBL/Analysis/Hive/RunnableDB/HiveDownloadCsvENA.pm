@@ -500,7 +500,7 @@ sub _retrieve_biosample_info {
         }
       }
       # The choice of the order is based on a specific submission and may not be the best for the majority of the samples
-      foreach my $sample_string ('sample_name', 'sample description') {
+      foreach my $sample_string ('sample_name', 'sample description', 'alias', 'synonym', 'title') {
         if (exists $json->{characteristics}->{$sample_string}) {
           if (exists $data->{sample_alias} and $data->{sample_alias} ne $json->{characteristics}->{$sample_string}->[0]->{text}) {
             $self->warning('Replacing '.$data->{sample_alias}.' with '.$json->{characteristics}->{$sample_string}->[0]->{text});
