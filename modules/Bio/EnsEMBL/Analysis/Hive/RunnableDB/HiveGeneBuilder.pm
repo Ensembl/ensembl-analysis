@@ -252,13 +252,13 @@ sub post_filter_genes {
 sub clean_overlapping_utrs {
   my ($self, $genes) = @_;
 
-  my ($extra_genes, $rejected) = clean_utrs($self->param('protein_coding_genes'), $self->param('min_size_utr_exon'),
+  my ($extra_genes, $rejected) = clean_utrs($genes, $self->param('min_size_utr_exon'),
           $self->param('ratio_5prime_utr'), $self->param('ratio_3prime_utr'), $self->param('ratio_same_transcript'),
           $self->param('ratio_max_allowed_difference'), $self->param('ratio_expansion'), $self->param('minimum_expanding_number_for_single_transcript'),
           $self->param('ratio_transcript_fragment'), $self->param('ratio_exon_expansion'), $self->param('ratio_utrs'), $self->param('store_rejected'));
 
-  push(@$genes, @$extra_genes);
-  push(@$genes, @$rejected) if ($self->param('store_rejected'));
+  push(@$genes, @$extra_genes) if ($extra_genes);
+  push(@$genes, @$rejected) if ($rejected and $self->param('store_rejected'));
 
   return $genes;
 }
