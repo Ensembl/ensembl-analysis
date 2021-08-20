@@ -1017,7 +1017,25 @@ sub pipeline_analyses {
         },
         {
           url => $self->o('transcript_selection_url'),
-          logic_name => 'utr_addition',
+          logic_name => 'run_utr_addition',
+          param => 'donor_dbs',
+          data => [],
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'run_utr_addition_10GB',
+          param => 'donor_dbs',
+          data => [],
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'run_utr_addition_30GB',
+          param => 'donor_dbs',
+          data => [],
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'utr_memory_failover',
           param => 'donor_dbs',
           data => [],
         }],
