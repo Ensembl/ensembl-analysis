@@ -935,8 +935,8 @@ sub pipeline_analyses {
       },
       -rc_name   => '2GB',
       -flow_into => {
-        '1->A'  => ['notification_pipeline_is_done'],
-        'A->2' => ['remove_redundant_rnaseq_layer_genes_star'],
+        '2->A' => ['remove_redundant_rnaseq_layer_genes_star'],
+        'A->1'  => ['notification_pipeline_is_done'],
       },
     },
 
