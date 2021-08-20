@@ -440,7 +440,8 @@ sub pipeline_analyses {
       },
       -rc_name   => '2GB',
       -flow_into => {
-        '2' => ['remove_redundant_genblast_genes'],
+        '2->A' => ['remove_redundant_genblast_genes'],
+        'A->1'  => ['notification_pipeline_is_done'],
       },
     },
 
@@ -453,9 +454,6 @@ sub pipeline_analyses {
         layers      => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic', $self->o('uniprot_set'), undef, 'ARRAY' ),
       },
       -rc_name => '5GB',
-      -flow_into  => {
-        '1'  => ['notification_pipeline_is_done'],
-      },
     },
 
     {
