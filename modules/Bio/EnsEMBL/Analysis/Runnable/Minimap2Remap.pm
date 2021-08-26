@@ -243,6 +243,10 @@ sub process_results {
   my $source_adaptor = $self->source_adaptor();
   my $source_gene_adaptor = $source_adaptor->get_GeneAdaptor();
   my $source_gene = $source_gene_adaptor->fetch_by_dbID($source_gene_id);
+  say "Processing the following source gene: ".$source_gene->stable_id();
+  my $datestring = gmtime();
+  print "GMT date and time $datestring\n";
+
   my $source_transcripts = $source_gene->get_all_Transcripts();
   say "Processing a total of ".scalar(@$source_transcripts)." source transcripts";
 
@@ -460,6 +464,9 @@ sub process_results {
 
   say "Build ".scalar(@$final_genes)." final genes";
 
+  $datestring = gmtime();
+  print "Finished GMT date and time $datestring\n";
+
   $self->output($final_genes);
   return($high_confidence);
 }
@@ -622,11 +629,28 @@ sub update_exonerate_transcript_coords {
 sub check_mapping_quality {
   my ($self,$target_transcripts,$source_transcript_id_hash,$good_transcripts) = @_;
   my $bad_transcripts = [];
-  my $coverage_cutoff = 95;
-  my $perc_id_cutoff = 95;
+  my $coverage_cutoff_groups = {'coding' => 95,
+                                'pseudogene' => 80,
+                                'snoncoding' => 90,
+                                'mnoncoding' => 80,
+                                'lnoncoding' => 80,
+                                'undefined'  => 50};
+
+  my $percent_identity_groups = {'coding' => 95,
+                                 'pseudogene' => 80,
+                                 'snoncoding' => 80,
+                                 'mnoncoding' => 80,
+                                 'lnoncoding' => 80,
+                                 'undefined'  => 50};
+
   my $cds_length_diff_cutoff = 0.05;
+  my $exonerate_length_cutoff = 15000;
+
+  my $processed_transcripts = {};
+
 
   foreach my $transcript (@$target_transcripts) {
+    say "Checking mapping quality for mapped transcript with original dbID: ".$transcript->stable_id();
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
     my $source_transcript_seq;
     my $transcript_seq;
@@ -660,12 +684,54 @@ sub check_mapping_quality {
     my ($coverage,$percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript_seq,$transcript_seq);
     $transcript->{'cov'} = $coverage;
     $transcript->{'perc_id'} = $percent_id;
+    $transcript->{'cds_length_diff'} = $cds_length_diff;
+    $transcript->{'source_stable_id'} = $source_transcript->stable_id();
+    $transcript->{'source_biotype_group'} = $source_transcript->get_Biotype->biotype_group();
+    $transcript->{'source_length'} = $source_transcript->length();
 
-    if($coverage >= $coverage_cutoff and $percent_id >= $perc_id_cutoff and $cds_length_diff <= $cds_length_diff_cutoff) {
+    # I added this in because even when minimap is explicitly told not to output secondary alignments, it very occasionally does
+    # The example case was ENST00000624628, which is a large lncRNA (24kb) and for some reason it seems to split into one large
+    # alignment and one small one and outputs both
+    if($processed_transcripts->{$transcript->stable_id()}) {
+      if(($transcript->{'cov'} + $transcript->{'perc_id'}) > ($processed_transcripts->{$transcript->stable_id()}->{'cov'} + $processed_transcripts->{$transcript->stable_id()}->{'perc_id'})) {
+        say "Found two transcripts for the same dbID. Selecting transcript with highest combined coverage and identity: ".$transcript->{'cov'}." cov, ".$transcript->{'perc_id'}." perc_id";
+        $processed_transcripts->{$transcript->stable_id()} = $transcript;
+      }
+    } else {
+      $processed_transcripts->{$transcript->stable_id()} = $transcript;
+    }
+
+
+#    if($coverage >= $coverage_cutoff and $percent_id >= $perc_id_cutoff and $cds_length_diff <= $cds_length_diff_cutoff) {
+#      push(@$good_transcripts,$transcript);
+#    } else {
+#      say "Transcript ".$source_transcript->stable_id()." failed check: ".$coverage." cov, ".$percent_id." perc_id, ".$cds_length_diff_cutoff." length diff";
+#      push(@$bad_transcripts,$transcript);
+#    }
+  }
+
+  foreach my $transcript_id (keys(%{$processed_transcripts})) {
+    my $transcript = $processed_transcripts->{$transcript_id};
+    my $biotype_group = $transcript->{'source_biotype_group'};
+    my $coverage_cutoff = $coverage_cutoff_groups->{$biotype_group};
+    my $perc_id_cutoff = $percent_identity_groups->{$biotype_group};
+
+    unless($coverage_cutoff and $perc_id_cutoff) {
+      $self->throw("Issue fetching coverage and percent id cutoffs for the biotype group of the parent transcript. Biotype group: ".$biotype_group);
+    }
+
+    if($transcript->{'cov'} >= $coverage_cutoff and $transcript->{'perc_id'} >= $perc_id_cutoff and $transcript->{'cds_length_diff'} <= $cds_length_diff_cutoff) {
+      say "Transcript ".$transcript->{'source_stable_id'}." (".$transcript->stable_id().", ".$biotype_group.") passed check: ".$transcript->{'cov'}." cov, ".
+          $transcript->{'perc_id'}." perc_id, ".$transcript->{'cds_length_diff'}." length diff";
       push(@$good_transcripts,$transcript);
     } else {
-      say "Transcript ".$source_transcript->stable_id()." failed check: ".$coverage." cov, ".$percent_id." perc_id, ".$cds_length_diff_cutoff." length diff";
-      push(@$bad_transcripts,$transcript);
+      say "Transcript ".$transcript->{'source_stable_id'}." (".$transcript->stable_id().", ".$biotype_group.") failed check: ".$transcript->{'cov'}." cov, ".
+          $transcript->{'perc_id'}." perc_id, ".$transcript->{'cds_length_diff'}." length diff";
+
+     # Exonerate is likely to get stuck on very large transcripts, especially if we haven't loaded repeats, so skip. They should still get a global minimap alignment later
+      unless($transcript->{'source_length'} > $exonerate_length_cutoff) {
+        push(@$bad_transcripts,$transcript);
+      }
     }
   }
 

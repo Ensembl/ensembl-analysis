@@ -42,10 +42,11 @@ use feature 'say';
 use Data::Dumper;
 use File::Spec::Functions qw(tmpdir catfile);
 
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_nucleotide_seqs);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 use Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap;
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw (align_nucleotide_seqs);
+#use Bio::EnsEMBL::Analysis::Tools::Utilities qw (align_nucleotide_seqs);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 
@@ -71,52 +72,52 @@ sub fetch_input {
   $self->hrdb_set_con($source_gene_dba,'source_gene_db');
   $self->hrdb_set_con($target_gene_dba,'target_gene_db');
 
-
-  my $slice_array = $self->param('iid');
-  my $slice_adaptor = $source_dna_dba->get_SliceAdaptor();
+  my $input_genes = $self->fetch_input_genes_by_id($self->param('iid'),$source_gene_dba);
   my $sequence_adaptor = $source_dna_dba->get_SequenceAdaptor();
-  my $input_genes = [];
-  foreach my $slice_name (@$slice_array) {
-    say "FERGAL T1";
-    my $slice = $slice_adaptor->fetch_by_name($slice_name);
-    say "FERGAL T2";
-    my $genes = $slice->get_all_Genes();
-    my $filtered_genes = [];
+
+#  my $slice_array = $self->param('iid');
+#  my $slice_adaptor = $source_dna_dba->get_SliceAdaptor();
+#  my $input_genes = [];
+#  foreach my $slice_name (@$slice_array) {
+#    my $slice = $slice_adaptor->fetch_by_name($slice_name);
+#    my $genes = $slice->get_all_Genes();
+#    my $filtered_genes = [];
     # Put the filtering in a subroutine at some point if it gets more complex
     # At the moment the filtering is just on readthroughs
-    say "Got ".scalar(@$genes)." unfiltered genes";
-    foreach my $gene (@$genes) {
+#    say "Got ".scalar(@$genes)." unfiltered genes";
+#    foreach my $gene (@$genes) {
+ #     say "Initial gene: ".$gene->stable_id();
       # Skip X genes on Y
       #if($slice->seq_region_name eq 'Y') {
       #  next;
       #}
 
-#      unless($gene->stable_id eq 'ENSG00000183067') {
+#      unless($gene->stable_id eq 'ENSG00000125841') {
 #        next;
 #      }
 
-      my $is_readthrough = 0;
-      my $transcripts = $gene->get_all_Transcripts();
-      foreach my $transcript (@$transcripts) {
-        if($is_readthrough) {
-          last;
-        }
+#      my $is_readthrough = 0;
+#      my $transcripts = $gene->get_all_Transcripts();
+#      foreach my $transcript (@$transcripts) {
+#        if($is_readthrough) {
+#          last;
+#        }
 
-        my $attributes = $transcript->get_all_Attributes();
-        foreach my $attribute (@{$attributes}) {
-          if($attribute->value eq 'readthrough') {
-            $is_readthrough = 1;
-            last;
-          }
-        } # foreach my $attribute
-      } # End foreach my $transcript
+#        my $attributes = $transcript->get_all_Attributes();
+#        foreach my $attribute (@{$attributes}) {
+#          if($attribute->value eq 'readthrough') {
+#            $is_readthrough = 1;
+#            last;
+#          }
+#        } # foreach my $attribute
+#      } # End foreach my $transcript
 
-      unless($is_readthrough) {
-        push(@$filtered_genes,$gene);
-      }
-    } # End foreach my $gene
-    push(@$input_genes,@$filtered_genes);
-  }
+#      unless($is_readthrough) {
+#        push(@$filtered_genes,$gene);
+#      }
+#    } # End foreach my $gene
+#    push(@$input_genes,@$filtered_genes);
+#  }
 
 ############################################
 # TEST
@@ -158,21 +159,21 @@ sub fetch_input {
     my $gene_biotype = $gene->biotype();
 
     # Store the ids of up to four genes, two upstream and two downstream around the current gene
-    if($i-1 >= 0 && ${$sorted_input_genes}[$i-1]->slice->name() eq $gene->slice->name()) {
-      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i-1]->dbID()} = 1;
-    }
+#    if($i-1 >= 0 && ${$sorted_input_genes}[$i-1]->slice->name() eq $gene->slice->name()) {
+#      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i-1]->dbID()} = 1;
+#    }
 
-    if($i-2 >= 0 && ${$sorted_input_genes}[$i-2]->slice->name() eq $gene->slice->name()) {
-      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i-2]->dbID()} = 1;
-    }
+#    if($i-2 >= 0 && ${$sorted_input_genes}[$i-2]->slice->name() eq $gene->slice->name()) {
+#      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i-2]->dbID()} = 1;
+#    }
 
-    if($i+1 < scalar(@$sorted_input_genes) && ${$sorted_input_genes}[$i+1]->slice->name() eq $gene->slice->name()) {
-      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i+1]->dbID()} = 1;
-    }
+#    if($i+1 < scalar(@$sorted_input_genes) && ${$sorted_input_genes}[$i+1]->slice->name() eq $gene->slice->name()) {
+#      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i+1]->dbID()} = 1;
+#    }
 
-    if($i+2 < scalar(@$sorted_input_genes) && ${$sorted_input_genes}[$i+2]->slice->name() eq $gene->slice->name()) {
-      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i+2]->dbID()} = 1;
-    }
+#    if($i+2 < scalar(@$sorted_input_genes) && ${$sorted_input_genes}[$i+2]->slice->name() eq $gene->slice->name()) {
+#      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i+2]->dbID()} = 1;
+#    }
 
 
     my $transcripts = $gene->get_all_Transcripts();
@@ -204,17 +205,11 @@ sub fetch_input {
     if($region_start < $slice->seq_region_start()) {
        $region_start = $slice->seq_region_start();
     }
-#    if($region_start <= 0) {
-#      $region_start = 1;
-#    }
 
     my $region_end = $gene->seq_region_end + $self->param('region_padding');
     if($region_end > $slice->seq_region_end()) {
       $region_end = $slice->seq_region_end();
     }
-#    if($region_end > $slice->length()) {
-#      $region_end = $slice->length();
-#    }
 
     my $strand = $gene->strand;
     my $genomic_seq = ${ $sequence_adaptor->fetch_by_Slice_start_end_strand($slice, $region_start, $region_end, $strand) };
@@ -256,50 +251,50 @@ sub run {
     }
   }
 
-  my $final_genes = $self->output();
-  my $sorted_final_genes = [sort { $a->slice->name() cmp $b->slice->name() or
-                                   $a->start() <=> $b->start() or
-                                   $a->end() <=> $b->end() }  @{$final_genes}];
+# This is the synteny code, it was only really designed to work when the input id is a full slice
+# so have disabled it while changing to gene id for input id
+#  my $final_genes = $self->output();
+#  my $sorted_final_genes = [sort { $a->slice->name() cmp $b->slice->name() or
+#                                   $a->start() <=> $b->start() or
+#                                   $a->end() <=> $b->end() }  @{$final_genes}];
 
-  my $gene_synteny_hash = $self->param('gene_synteny_hash');
-  for(my $i=0; $i<scalar(@$sorted_final_genes); $i++) {
-    my $gene = ${$sorted_final_genes}[$i];
-    my $gene_id = $gene->{'parent_gene_id'};
-    my $synteny_score = 0;
+#  my $gene_synteny_hash = $self->param('gene_synteny_hash');
+#  for(my $i=0; $i<scalar(@$sorted_final_genes); $i++) {
+#    my $gene = ${$sorted_final_genes}[$i];
+#    my $gene_id = $gene->{'parent_gene_id'};
+#    my $synteny_score = 0;
 #    say "FERGAL SYN GID: ".$gene_id;
 #    say "FERGAL SYN DMP: ".Dumper($gene_synteny_hash->{$gene_id});
 #    say "FERGAL SYN SLC: ".$gene->slice->name();
 
 
     # Store the ids of up to four genes, two upstream and two downstream around the current gene
-    if($i-1 >= 0 && ${$sorted_final_genes}[$i-1]->slice->name() eq $gene->slice->name() &&
-       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i-1]->{'parent_gene_id'}}) {
-#       my $flanking_gene_id = ${$sorted_final_genes}[$i-1]->{'parent_gene_id'};
-#       say "FERGAL SYN FLK: ".$flanking_gene_id;
-       $synteny_score++;
-     }
+#    if($i-1 >= 0 && ${$sorted_final_genes}[$i-1]->slice->name() eq $gene->slice->name() &&
+#       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i-1]->{'parent_gene_id'}}) {
+#       $synteny_score++;
+#     }
 
-    if($i-2 >= 0 && ${$sorted_final_genes}[$i-2]->slice->name() eq $gene->slice->name() &&
-       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i-2]->{'parent_gene_id'}}) {
-       $synteny_score++;
-     }
+#    if($i-2 >= 0 && ${$sorted_final_genes}[$i-2]->slice->name() eq $gene->slice->name() &&
+#       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i-2]->{'parent_gene_id'}}) {
+#       $synteny_score++;
+#     }
 
-    if($i+1 < scalar(@$sorted_final_genes) && ${$sorted_final_genes}[$i+1]->slice->name() eq $gene->slice->name() &&
-       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i+1]->{'parent_gene_id'}}) {
-       $synteny_score++;
-     }
+#    if($i+1 < scalar(@$sorted_final_genes) && ${$sorted_final_genes}[$i+1]->slice->name() eq $gene->slice->name() &&
+#       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i+1]->{'parent_gene_id'}}) {
+#       $synteny_score++;
+#     }
 
-    if($i+2 < scalar(@$sorted_final_genes) && ${$sorted_final_genes}[$i+2]->slice->name() eq $gene->slice->name() &&
-       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i+2]->{'parent_gene_id'}}) {
-       $synteny_score++;
-    }
+#    if($i+2 < scalar(@$sorted_final_genes) && ${$sorted_final_genes}[$i+2]->slice->name() eq $gene->slice->name() &&
+#       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i+2]->{'parent_gene_id'}}) {
+#       $synteny_score++;
+#    }
 
-    say "FERGAL SYNTENY SCORE: ".$synteny_score;
-    if($synteny_score < 2) {
-      $gene->description("weak synteny");
-    }
+#    say "FERGAL SYNTENY SCORE: ".$synteny_score;
+#    if($synteny_score < 2) {
+#      $gene->description("weak synteny");
+#    }
 
-  }
+#  }
 
   return $self->output;
 }
@@ -312,10 +307,45 @@ sub write_output {
   my $output_gene_adaptor = $output_dba->get_GeneAdaptor;
   my $output_genes = $self->output();
   foreach my $output_gene (@$output_genes) {
+    say "Final gene; ".$output_gene->stable_id();
+    empty_Gene($output_gene);
     $output_gene_adaptor->store($output_gene);
   }
 
   return 1;
+}
+
+
+sub fetch_input_genes_by_id {
+  my ($self,$gene_ids,$source_gene_dba) = @_;
+
+  my $input_genes = [];
+  my $source_gene_adaptor = $source_gene_dba->get_GeneAdaptor();
+  foreach my $gene_id (@$gene_ids) {
+    my $gene = $source_gene_adaptor->fetch_by_dbID($gene_id);
+
+    my $is_readthrough = 0;
+    my $transcripts = $gene->get_all_Transcripts();
+    foreach my $transcript (@$transcripts) {
+      if($is_readthrough) {
+         last;
+      }
+
+      my $attributes = $transcript->get_all_Attributes();
+      foreach my $attribute (@{$attributes}) {
+        if($attribute->value eq 'readthrough') {
+          $is_readthrough = 1;
+          last;
+        }
+      } # foreach my $attribute
+    } # End foreach my $transcript
+
+    unless($is_readthrough) {
+      push(@$input_genes,$gene);
+    }
+  }
+
+  return($input_genes);
 }
 
 
