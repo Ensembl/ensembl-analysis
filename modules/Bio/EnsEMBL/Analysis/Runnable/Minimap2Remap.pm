@@ -82,13 +82,14 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($genome_index, $input_file, $paftools_path, $source_adaptor, $target_adaptor, $delete_input_file, $parent_gene_ids, $gene_synteny_hash) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH SOURCE_ADAPTOR TARGET_ADAPTOR DELETE_INPUT_FILE PARENT_GENE_IDS GENE_SYNTENY_HASH)],@args);
+  my ($genome_index, $input_file, $paftools_path, $source_adaptor, $target_adaptor, $delete_input_file, $parent_genes, $parent_gene_ids, $gene_synteny_hash) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH SOURCE_ADAPTOR TARGET_ADAPTOR DELETE_INPUT_FILE PARENT_GENES PARENT_GENE_IDS GENE_SYNTENY_HASH)],@args);
   $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->paftools_path($paftools_path);
   $self->source_adaptor($source_adaptor);
   $self->target_adaptor($target_adaptor);
   $self->delete_input_file($delete_input_file);
+  $self->genes_to_process($parent_genes);
   $self->parent_gene_ids($parent_gene_ids);
   $self->gene_synteny_hash($gene_synteny_hash);
   return $self;
@@ -132,16 +133,24 @@ sub run {
   my $high_confidence = 0;
   my $total_results = 0;
   my $processed_gene_ids = {};
+  my $paf_results_hash = {};
   foreach my $paf_result (@$paf_results) {
     my @result_cols = split("\t",$paf_result);
     my $gene_id = $result_cols[0];
-    if($processed_gene_ids->{$gene_id}) {
+    if($paf_results_hash->{$gene_id}) {
       next;
     }
-    $high_confidence += $self->process_results(\@result_cols);
-    $total_results++;
-    $processed_gene_ids->{$gene_id} = 1;
+    $paf_results_hash->{$gene_id} = \@result_cols;
   }
+
+
+  my $genes_to_process = $self->genes_to_process();
+  foreach my $gene (@$genes_to_process) {
+    say "Processing source gene: ".$gene->stable_id();
+    $high_confidence += $self->process_results($gene,$paf_results_hash);
+    $total_results++;
+  }
+
   say "TOTAL RESULTS: ".$total_results;
   say "HIGH CONFIDENCE: ".$high_confidence;
 } # End run
@@ -149,7 +158,20 @@ sub run {
 
 
 sub process_results {
-  my ($self, $paf_result) = @_;
+  my ($self,$source_gene,$paf_results) = @_;
+
+  my $high_confidence = 0;
+
+  my $source_transcripts = $source_gene->get_all_Transcripts();
+  my $paf_result = $paf_results->{$source_gene->dbID()};
+  my $good_transcripts = []; # Transcripts that pass the cut-off thresholds
+  my $bad_source_transcripts = []; # The source transcripts for mapped Transcripts that don't pass the threshold
+  my $best_bad_transcripts = []; # When both the minimap and exonerate mappings fail the cut-offs, this will store the version with the highest combined coverage and percent id
+  my $source_transcript_id_hash = {}; # A hash to organise transcripts by dbID (note that the dbID is somewhat confusingly saved in the stable id field here, safer than using the realstable id)
+
+  my $target_adaptor = $self->target_adaptor();
+
+  my $final_genes = [];
 
   # This is a paf result from the alignment of a genomic read representing a gene against the target genome
   # Only one such mapped read per gene will be passed into this based on the top hit in the paf results
@@ -185,130 +207,118 @@ sub process_results {
   #      - If worse, then do no more
   #      - Once you have the final set of transcripts decide whether to keep the gene or not
 
-
-  my $high_confidence = 0;
-  my $source_gene_id = ${$paf_result}[0];
-  my $source_genomic_length = ${$paf_result}[1];
-  my $source_genomic_start = ${$paf_result}[2];
-  my $source_genomic_end = ${$paf_result}[3];
-  my $same_strand = ${$paf_result}[4];
-  my $target_genomic_name = ${$paf_result}[5];
-  my $target_genomic_length = ${$paf_result}[6];
-  my $target_genomic_start = ${$paf_result}[7];
-  my $target_genomic_end = ${$paf_result}[8];
-  my $matching_bases = ${$paf_result}[9];
-  my $total_bases = ${$paf_result}[10];
-  my $mapping_quality = ${$paf_result}[11];
-
-  my $mapping_identity = ($matching_bases/$total_bases) * 100;
-  my $mapping_coverage = ($target_genomic_end - $target_genomic_start + 1)/$source_genomic_length;
-  if($mapping_identity >= 80 and $mapping_coverage >= 0.8) {
-    $high_confidence++;
-  }
-
-  my $adjust_left = $source_genomic_start;
-  my $adjust_right = $source_genomic_length - $source_genomic_end;
-  $target_genomic_start -= $adjust_left;
-  $target_genomic_end += $adjust_right;
-  if($target_genomic_start <= 0) {
-    $target_genomic_start = 1;
-  }
-
-  if($target_genomic_end > $target_genomic_length) {
-    $target_genomic_end = $target_genomic_length;
-  }
-
-  my $target_adaptor = $self->target_adaptor();
-  my $target_slice_adaptor = $target_adaptor->get_SliceAdaptor();
-  my $target_parent_slice = $target_slice_adaptor->fetch_by_region('toplevel',$target_genomic_name);
-
-  unless($target_parent_slice) {
-    $self->throw("Could not fetch the slice in the target assembly. Slice name: ".$target_genomic_name);
-  }
-
-  my $target_strand = 1;
-  my $target_sequence_adaptor = $target_adaptor->get_SequenceAdaptor;
-  my $target_genomic_seq = ${ $target_sequence_adaptor->fetch_by_Slice_start_end_strand($target_parent_slice, $target_genomic_start, $target_genomic_end, $target_strand) };
-  my $target_region_slice = $target_slice_adaptor->fetch_by_region('toplevel', $target_genomic_name, $target_genomic_start, $target_genomic_end, $target_strand);
-  my $target_genomic_fasta = ">".$target_genomic_name."\n".$target_genomic_seq;
-  my $target_genome_file = $self->write_input_file([$target_genomic_fasta]);
-  my $target_genome_index = $target_genome_file.".mmi";
-  my $target_index_command = $self->program()." -d ".$target_genome_index." ".$target_genome_file;
-  my $index_result = system($target_index_command);
-  if($index_result) {
-    $self->throw('The minimap2 index command returned a non-zero exit code. Commandline used:\n'.$target_index_command);
-  }
-
-  # Covert the transcripts into fasta records
-  my $source_adaptor = $self->source_adaptor();
-  my $source_gene_adaptor = $source_adaptor->get_GeneAdaptor();
-  my $source_gene = $source_gene_adaptor->fetch_by_dbID($source_gene_id);
-  say "Processing the following source gene: ".$source_gene->stable_id();
-  my $datestring = gmtime();
-  print "GMT date and time $datestring\n";
-
-  my $source_transcripts = $source_gene->get_all_Transcripts();
-  say "Processing a total of ".scalar(@$source_transcripts)." source transcripts";
-
-  my $source_transcript_id_hash = {};
-  my $source_transcript_fasta_seqs = [];
-
-
-  foreach my $source_transcript (@$source_transcripts) {
-    my $source_transcript_id = $source_transcript->dbID();
-    $source_transcript_id_hash->{$source_transcript_id} = $source_transcript;
-    say "STID HASH: ".$source_transcript_id;
-    my $source_transcript_sequence = $source_transcript->seq->seq();
-    my $fasta_record = ">".$source_transcript->dbID()."\n".$source_transcript_sequence;
-    push(@$source_transcript_fasta_seqs,$fasta_record);
-  }
-
-  say "Generating initial set of minimap2 mappings";
-  my $output_minimap_transcripts = $self->generate_minimap_transcripts($source_transcript_fasta_seqs,$target_genome_index,$target_adaptor,$target_genomic_start);
-  my $good_transcripts = [];
-  my $bad_minimap_transcripts = $self->check_mapping_quality($output_minimap_transcripts,$source_transcript_id_hash,$good_transcripts);
-  say "Number of good transcripts after minimap2: ".scalar(@$good_transcripts);
-  say "Number of bad transcripts after minimap2: ".scalar(@$bad_minimap_transcripts);
-
-  say "Running exonerate on bad transcripts";
-  my $output_exonerate_transcripts = $self->generate_exonerate_transcripts($bad_minimap_transcripts,$source_transcript_id_hash,$target_region_slice,$target_slice_adaptor);
-  my $bad_exonerate_transcripts = $self->check_mapping_quality($output_exonerate_transcripts,$source_transcript_id_hash,$good_transcripts);
-  say "Number of good transcripts after exonerate: ".scalar(@$good_transcripts);
-  say "Number of bad transcripts after exonerate: ".scalar(@$bad_exonerate_transcripts);
-
-  # Store these in a hash for making selecting the best based on dbID easier
   my $good_transcripts_hash = {};
-  foreach my $transcript (@$good_transcripts) {
-    $good_transcripts_hash->{$transcript->stable_id()} = $transcript;
-  }
-
-  my $bad_minimap_transcripts_hash = {};
-  foreach my $transcript (@$bad_minimap_transcripts) {
-    $bad_minimap_transcripts_hash->{$transcript->stable_id()} = $transcript;
-  }
-
-  my $bad_exonerate_transcripts_hash = {};
-  foreach my $transcript (@$bad_exonerate_transcripts) {
-    $bad_exonerate_transcripts_hash->{$transcript->stable_id()} = $transcript;
-  }
-
-  # Select the best transcript foreach pair across both hashes, and any transcripts that are unique to either hash
-  # Then put the corresponding source transcripts into an array to do a global mapping later
-  say "Selecting best transcripts out of bad minimap2/exonerate transcripts";
-  my $best_bad_transcripts = $self->select_best_transcripts($bad_minimap_transcripts_hash,$bad_exonerate_transcripts_hash);
   my $best_bad_transcripts_hash = {};
-  my $bad_source_transcripts = [];
-  foreach my $transcript (@$best_bad_transcripts) {
-    # If a transcript was bad from minimap and good after exonerate, then we want to skip over it
-    if($good_transcripts_hash->{$transcript->stable_id()}) {
-      next;
+  if($paf_result) {
+    my $source_gene_id = ${$paf_result}[0];
+    my $source_genomic_length = ${$paf_result}[1];
+    my $source_genomic_start = ${$paf_result}[2];
+    my $source_genomic_end = ${$paf_result}[3];
+    my $same_strand = ${$paf_result}[4];
+    my $target_genomic_name = ${$paf_result}[5];
+    my $target_genomic_length = ${$paf_result}[6];
+    my $target_genomic_start = ${$paf_result}[7];
+    my $target_genomic_end = ${$paf_result}[8];
+    my $matching_bases = ${$paf_result}[9];
+    my $total_bases = ${$paf_result}[10];
+    my $mapping_quality = ${$paf_result}[11];
+
+    my $mapping_identity = ($matching_bases/$total_bases) * 100;
+    my $mapping_coverage = ($target_genomic_end - $target_genomic_start + 1)/$source_genomic_length;
+    if($mapping_identity >= 80 and $mapping_coverage >= 0.8) {
+      $high_confidence++;
     }
 
-    $best_bad_transcripts_hash->{$transcript->stable_id()} = $transcript;
-    push(@$bad_source_transcripts,$source_transcript_id_hash->{$transcript->stable_id()});
-  }
+    my $adjust_left = $source_genomic_start;
+    my $adjust_right = $source_genomic_length - $source_genomic_end;
+    $target_genomic_start -= $adjust_left;
+    $target_genomic_end += $adjust_right;
+    if($target_genomic_start <= 0) {
+      $target_genomic_start = 1;
+    }
 
-  say "Number of bad transcripts after selection: ".scalar(@$bad_source_transcripts);
+    if($target_genomic_end > $target_genomic_length) {
+      $target_genomic_end = $target_genomic_length;
+    }
+
+    my $target_slice_adaptor = $target_adaptor->get_SliceAdaptor();
+    my $target_parent_slice = $target_slice_adaptor->fetch_by_region('toplevel',$target_genomic_name);
+
+    unless($target_parent_slice) {
+      $self->throw("Could not fetch the slice in the target assembly. Slice name: ".$target_genomic_name);
+    }
+
+    my $target_strand = 1;
+    my $target_sequence_adaptor = $target_adaptor->get_SequenceAdaptor;
+    my $target_genomic_seq = ${ $target_sequence_adaptor->fetch_by_Slice_start_end_strand($target_parent_slice, $target_genomic_start, $target_genomic_end, $target_strand) };
+    my $target_region_slice = $target_slice_adaptor->fetch_by_region('toplevel', $target_genomic_name, $target_genomic_start, $target_genomic_end, $target_strand);
+    my $target_genomic_fasta = ">".$target_genomic_name."\n".$target_genomic_seq;
+    my $target_genome_file = $self->write_input_file([$target_genomic_fasta]);
+    my $target_genome_index = $target_genome_file.".mmi";
+    my $target_index_command = $self->program()." -d ".$target_genome_index." ".$target_genome_file;
+    my $index_result = system($target_index_command);
+    if($index_result) {
+      $self->throw('The minimap2 index command returned a non-zero exit code. Commandline used:\n'.$target_index_command);
+    }
+
+    say "Processing a total of ".scalar(@$source_transcripts)." source transcripts";
+
+    my $source_transcript_fasta_seqs = [];
+
+    foreach my $source_transcript (@$source_transcripts) {
+      my $source_transcript_id = $source_transcript->dbID();
+      $source_transcript_id_hash->{$source_transcript_id} = $source_transcript;
+
+      my $source_transcript_sequence = $source_transcript->seq->seq();
+      my $fasta_record = ">".$source_transcript->dbID()."\n".$source_transcript_sequence;
+      push(@$source_transcript_fasta_seqs,$fasta_record);
+    }
+
+    say "Generating initial set of minimap2 mappings";
+    my $output_minimap_transcripts = $self->generate_minimap_transcripts($source_transcript_fasta_seqs,$target_genome_index,$target_adaptor,$target_genomic_start);
+    my $bad_minimap_transcripts = $self->check_mapping_quality($output_minimap_transcripts,$source_transcript_id_hash,$good_transcripts);
+    say "Number of good transcripts after minimap2: ".scalar(@$good_transcripts);
+    say "Number of bad transcripts after minimap2: ".scalar(@$bad_minimap_transcripts);
+
+    say "Running exonerate on bad transcripts";
+    my $output_exonerate_transcripts = $self->generate_exonerate_transcripts($bad_minimap_transcripts,$source_transcript_id_hash,$target_region_slice,$target_slice_adaptor);
+    my $bad_exonerate_transcripts = $self->check_mapping_quality($output_exonerate_transcripts,$source_transcript_id_hash,$good_transcripts);
+    say "Number of good transcripts after exonerate: ".scalar(@$good_transcripts);
+    say "Number of bad transcripts after exonerate: ".scalar(@$bad_exonerate_transcripts);
+
+    # Store these in a hash for making selecting the best based on dbID easier
+    foreach my $transcript (@$good_transcripts) {
+      $good_transcripts_hash->{$transcript->stable_id()} = $transcript;
+    }
+
+    my $bad_minimap_transcripts_hash = {};
+    foreach my $transcript (@$bad_minimap_transcripts) {
+      $bad_minimap_transcripts_hash->{$transcript->stable_id()} = $transcript;
+    }
+
+    my $bad_exonerate_transcripts_hash = {};
+    foreach my $transcript (@$bad_exonerate_transcripts) {
+      $bad_exonerate_transcripts_hash->{$transcript->stable_id()} = $transcript;
+    }
+
+    # Select the best transcript foreach pair across both hashes, and any transcripts that are unique to either hash
+    # Then put the corresponding source transcripts into an array to do a global mapping later
+    say "Selecting best transcripts out of bad minimap2/exonerate transcripts";
+    $best_bad_transcripts = $self->select_best_transcripts($bad_minimap_transcripts_hash,$bad_exonerate_transcripts_hash);
+    foreach my $transcript (@$best_bad_transcripts) {
+      # If a transcript was bad from minimap and good after exonerate, then we want to skip over it
+      if($good_transcripts_hash->{$transcript->stable_id()}) {
+        next;
+      }
+
+      $best_bad_transcripts_hash->{$transcript->stable_id()} = $transcript;
+      push(@$bad_source_transcripts,$source_transcript_id_hash->{$transcript->stable_id()});
+    }
+
+    say "Number of bad transcripts after selection: ".scalar(@$bad_source_transcripts);
+  } else {
+    say "Did not get a paf result from the first pass, will resort to global mapping of the transcripts";
+  }
 
   # At this point we have the selected set of good/bad transcripts. There may also be missing transcripts at the moment, i.e.
   # those that did no get aligned by either method. We now want to take the original sequences for the bad and missing transcripts
@@ -371,26 +381,6 @@ sub process_results {
   $self->label_transcript_status($best_bad_transcripts,'bad');
   $self->label_transcript_status($bad_global_transcripts,'bad');
 
-#  my $all_initial_transcripts = [@$good_transcripts,@$good_global_transcripts,@$best_bad_transcripts,@$bad_global_transcripts];
-#  my $unique_transcripts_hash = {};
-#  foreach my $transcript (@$all_initial_transcripts) {
-#    unless($unique_transcripts_hash->{$transcript->stable_id()}) {
-#      $unique_transcripts_hash->{$transcript->stable_id()} = $transcript;
-#      next;
-#    }
-
-#    my $current_selected_transcript = $unique_transcripts_hash->{$transcript->stable_id()};
-#    if(($transcript->{'cov'} + $transcript->{'perc_id'}) > ($current_selected_transcript->{'cov'} + $current_selected_transcript->{'perc_id'})) {
-#	    $unique_transcripts_hash->{$transcript->stable_id()} = $transcript;
-#    }
-#  }
-
-#  my $all_transcripts = [];
-#  foreach my $transcript_id (keys(%{$unique_transcripts_hash})) {
-#    my $transcript = $unique_transcripts_hash->{$transcript_id};
-#    push(@$all_transcripts,$transcript);
-#  }
-
   my $all_transcripts = [@$good_transcripts,@$good_global_transcripts,@$best_bad_transcripts,@$bad_global_transcripts];
   my $biotypes_hash = $self->generate_biotypes_hash($all_transcripts);
 
@@ -447,25 +437,19 @@ sub process_results {
   say "Building genes from final clusters";
   # Now remove duplicates and form genes
   my $parent_gene_ids = $self->parent_gene_ids();
-  my $final_genes = [];
+#  my $final_genes = [];
   foreach my $cluster (@$final_clusters) {
     my $gene = $self->create_gene_from_cluster($cluster,$parent_gene_ids,$source_transcript_id_hash);
     say "Created gene: ".$gene->stable_id()." ".$gene->seq_region_name().":".$gene->seq_region_start.":".$gene->seq_region_end.":".$gene->strand();
     my $transcripts = $gene->get_all_Transcripts();
     foreach my $transcript (@$transcripts) {
       say "  Transcript: ".$transcript->stable_id()." ".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$transcript->strand();
-#      if($transcript->stable_id() eq 'ENST00000608875') {
-#        say $transcript->seq->seq();
-#      }
    }
 
     push(@$final_genes,$gene);
   }
 
   say "Build ".scalar(@$final_genes)." final genes";
-
-  $datestring = gmtime();
-  print "Finished GMT date and time $datestring\n";
 
   $self->output($final_genes);
   return($high_confidence);
@@ -483,6 +467,11 @@ sub write_input_file {
   close OUT;
 
   return($output_file);
+}
+
+
+sub process_paf_result {
+
 }
 
 
@@ -1057,6 +1046,17 @@ sub genome_index {
 }
 
 
+sub genes_to_process {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_genes_to_process} = $val;
+  }
+
+  return $self->{_genes_to_process};
+}
+
+
 sub input_file {
   my ($self, $val) = @_;
 
@@ -1136,163 +1136,5 @@ sub gene_synteny_hash {
 
   return $self->{_gene_synteny_hash};
 }
-
-
-sub old_code {
-  my ($self) = @_;
-
-
-#  my ($clusters, $unclustered) = cluster_Genes_by_coding_exon_overlap($transcriptomic_genes,$types_hash);
-#  my $transcriptomic_clusters = [@$clusters, @$unclustered];
-
-
-
-  # At this point there should mostly be a set of good transcripts from minimap2 and some from exonerate
-  # Then there are two lists of bad transcripts. Anything in the exonerate list means there was no good transcript from either method,
-  # so they need to be assessed in terms of possible methods of recovery
-#  my $remaining_bad_transcripts;
-#  if(scalar(@$good_transcripts) and scalar(@$bad_exonerate_transcripts)) {
-#    say "Found a mix of good and bad transcripts, will attempt to recover bad transcripts in the same region";
-#    $remaining_bad_transcripts = $self->access_transcripts_for_recovery($bad_exonerate_transcripts,$source_transcript_id_hash,$good_transcripts);
-#  }
-
-
-#  my $output_genes = [];
-#  my $final_gene_hash = {};
-#  foreach my $gene (@$output_genes) {
-#    my $transcripts = $gene->get_all_Transcripts();
-#    foreach my $transcript (@$transcripts) {
-#      say "SECOND TRANSCRIPT: ".$transcript->start()." ".$transcript->end()." ".$transcript->strand()." ".$transcript->slice->name();
-#      say $transcript->seq->seq();
-
-#      unless($parent_gene_ids->{$transcript->stable_id()}) {
-#        $self->throw("The following mapped transcript stable id was not found in the initial list of dbIDs: ".$transcript->stable_id());
-#      }
-
-#      my $parent_gene_id = $parent_gene_ids->{$transcript->stable_id()}->{'gene_id'};
-#      my $biotype_group = $parent_gene_ids->{$transcript->stable_id()}->{'biotype_group'};
-#      my $is_canonical = $parent_gene_ids->{$transcript->stable_id()}->{'is_canonical'};
-#      my $source = $parent_gene_ids->{$transcript->stable_id()}->{'source'};
-
-      # Don't see how this would work, but will test
-#      if($is_canonical) {
-#        $transcript->is_canonical(1);
-#      }
-
-#      unless($final_gene_hash->{$parent_gene_id}) {
-#        $final_gene_hash->{$parent_gene_id} = [];
-#      }
-
-#      my $transcript_id = $transcript->stable_id();
-#      my $source_transcript = $source_transcript_id_hash->{$transcript_id};
-#      use Data::Dumper;
-#      print "SOURCE DUMPER: ".Dumper($source_transcript);
-
-#      if($biotype_group eq 'coding') {
-#        compute_translation($transcript);
-#        set_alignment_supporting_features($transcript,$source_transcript->translation()->seq(),$transcript->translation()->seq());
-#      }
-
-#      my ($coverage,$percent_id) = (0,0);
-#      my $aligned_source_seq;
-#      my $aligned_target_seq;
-#      my $source_transcript_seq = $source_transcript->seq->seq();
-#      my $transcript_seq = $transcript->seq->seq();
-
-#      ($coverage,$percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript_seq,$transcript_seq);
-#      $transcript->biotype($source_transcript->biotype());
-#      $transcript->created_date($coverage);
-#      $transcript->modified_date($percent_id);
-#      my $cov_string = "cov: ".$coverage." perc_id: ".$percent_id;
-#      if($source_transcript->translation()) {
-#        say "Calculating CDS for transcript with stable id: ".$transcript->stable_id();
-        # Test
-#        compute_translation($transcript);
-#        my $source_cds_seq = $source_transcript->translateable_seq();
-#        my $computed_target_cds_seq = $transcript->translateable_seq();
-#        unless($computed_target_cds_seq) {
-#          $self->warning("Existing CDS was not found for transcript ".$transcript->stable_id.", computing translation");
-#          compute_translation($transcript);
-#          $computed_target_cds_seq = $transcript->translateable_seq();
-#        }
-
-#        my ($computed_cds_cov,$computed_cds_perc_id,$computed_aligned_cds_source_seq,$computed_aligned_cds_target_seq) = align_nucleotide_seqs($source_cds_seq,$computed_target_cds_seq);
-#        $cov_string .= " cds_cov: ".$computed_cds_cov." cds_perc_id: ".$computed_cds_perc_id;
-        # End test
-
-=for comment
-        map_cds_location($source_transcript,$transcript,$aligned_source_seq,$aligned_target_seq);
-        my $good_cov = 99;
-        my $good_ident = 95;
-        if($transcript->translation()) {
-          my $source_cds_seq = $source_transcript->translateable_seq();
-          my $initial_target_cds_seq = $transcript->translateable_seq();
-          my $initial_translation = $transcript->translation();
-          my ($initial_cds_cov,$initial_cds_perc_id,$initial_aligned_cds_source_seq,$initial_aligned_cds_target_seq) = align_nucleotide_seqs($source_cds_seq,$initial_target_cds_seq);
-          if($initial_cds_cov < $good_cov or $initial_cds_perc_id < $good_ident) {
-            say "Initial translation failed cut-off thresholds, will try computing translation to compare";
-            compute_translation($transcript);
-            my $computed_target_cds_seq = $transcript->translateable_seq();
-            my ($computed_cds_cov,$computed_cds_perc_id,$computed_aligned_cds_source_seq,$computed_aligned_cds_target_seq) = align_nucleotide_seqs($source_cds_seq,$computed_target_cds_seq);
-            # At the moment just look at which combined value is better
-            if(($computed_cds_cov + $computed_cds_perc_id) < ($initial_cds_cov + $initial_cds_perc_id)) {
-              say "Going with the intial translation over the computed one";
-              $transcript->translation($initial_translation);
-              $cov_string .= " cds_cov: ".$initial_cds_cov." cds_perc_id: ".$initial_cds_perc_id;
-            } else {
-              say "Choosing the computed translation over the initial translation";
-              $cov_string .= " cds_cov: ".$computed_cds_cov." cds_perc_id: ".$computed_cds_perc_id;
-            }
-          } else {
-            $cov_string .= " cds_cov: ".$initial_cds_cov." cds_perc_id: ".$initial_cds_perc_id;
-          }
-        } else {
-          say "No translation found for transcript: ".$transcript->stable_id();
-          say "Will compute translation";
-          compute_translation($transcript);
-          my $source_cds_seq = $source_transcript->translateable_seq();
-          my $computed_target_cds_seq = $transcript->translateable_seq();
-          my ($computed_cds_cov,$computed_cds_perc_id,$computed_aligned_cds_source_seq,$computed_aligned_cds_target_seq) = align_nucleotide_seqs($source_cds_seq,$computed_target_cds_seq);
-          $cov_string .= " cds_cov: ".$computed_cds_cov." cds_perc_id: ".$computed_cds_perc_id;
-        }
-=cut
-
-#      } # End if($source_transcript->translation()
-
-#      $transcript->source($source);
-#      $transcript->description($cov_string);
-
-#      push(@{$final_gene_hash->{$parent_gene_id}},$transcript);
-#    }
-#  } # End foreach my $gene
-
-#  my $final_genes = [];
-#  foreach my $gene_id (keys(%{$final_gene_hash})) {
-#    my $transcripts = $final_gene_hash->{$gene_id};
-#    my $gene = Bio::EnsEMBL::Gene->new(-analysis => $self->analysis);
-
-    # Should change this at some point to have a separate has for gene meta data to be tidy
-#    my $parent_gene_id = $parent_gene_ids->{${$transcripts}[0]->stable_id()}->{'gene_id'};
-#    my $parent_gene_stable_id = $parent_gene_ids->{${$transcripts}[0]->stable_id()}->{'gene_stable_id'};
-#    my $parent_gene_version = $parent_gene_ids->{${$transcripts}[0]->stable_id()}->{'gene_version'};
-#    my $parent_gene_biotype = $parent_gene_ids->{${$transcripts}[0]->stable_id()}->{'gene_biotype'};
-
-#    foreach my $transcript (@$transcripts) {
-#      my $parent_transcript_stable_id = $parent_gene_ids->{$transcript->stable_id()}->{'transcript_stable_id'};
-#      my $parent_transcript_version = $parent_gene_ids->{$transcript->stable_id()}->{'transcript_version'};
-#      $transcript->stable_id($parent_transcript_stable_id);
-#      $transcript->version($parent_transcript_version);
-#      $gene->add_Transcript($transcript);
-#    }
-
-#    $gene->{'parent_gene_id'} = $parent_gene_id;
-#    $gene->stable_id($parent_gene_stable_id);
- #   $gene->version($parent_gene_version);
-#    $gene->biotype($parent_gene_biotype);
-#    push(@$final_genes, $gene);
-#  }
-
-}
-
 
 1;

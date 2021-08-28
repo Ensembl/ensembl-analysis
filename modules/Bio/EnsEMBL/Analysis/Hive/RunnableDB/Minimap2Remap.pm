@@ -231,6 +231,7 @@ sub fetch_input {
        -input_file        => $input_file,
        -source_adaptor    => $source_gene_dba,
        -target_adaptor    => $target_gene_dba,
+       -parent_genes      => $sorted_input_genes,
        -parent_gene_ids   => $parent_gene_id_hash,
        -gene_synteny_hash => $gene_synteny_hash,
   );
@@ -323,6 +324,10 @@ sub fetch_input_genes_by_id {
   my $source_gene_adaptor = $source_gene_dba->get_GeneAdaptor();
   foreach my $gene_id (@$gene_ids) {
     my $gene = $source_gene_adaptor->fetch_by_dbID($gene_id);
+
+    if($gene->seq_region_name() eq 'MT') {
+      next;
+    }
 
     my $is_readthrough = 0;
     my $transcripts = $gene->get_all_Transcripts();
