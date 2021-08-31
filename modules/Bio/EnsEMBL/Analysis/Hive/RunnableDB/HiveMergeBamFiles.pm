@@ -163,8 +163,11 @@ sub fetch_input {
     }
     my $alignment_bam_file = $self->param('alignment_bam_file');
     if (!$alignment_bam_file) {
+      print "DEBUG:: alignment_bam_file is not def \n"; 
       $alignment_bam_file = File::Spec->catfile($self->param('output_dir'),
         join('.', $self->param_required('assembly_name'), $self->param_required('rnaseq_data_provider'), $outname, $self->param('bam_version'), $self->param('_file_ext')));
+      print "DEBUG:: $alignment_bam_file is def now\n";
+      $self->param('alignment_bam_file', $alignment_bam_file ) ;  # set alignment_bam_file param because there is an issue with data_file import. 
     }
 
     if (scalar(@processed_input_files) == 0) {
@@ -200,6 +203,10 @@ sub fetch_input {
             $samtools->index($alignment_bam_file);
           }
         }
+        # save file to datafile table. 
+        if ($self->param('store_datafile')) {
+          $self->store_filename_into_datafile;
+        }        
         $self->dataflow_output_id({filename => $alignment_bam_file}, $self->param('_branch_to_flow_to'));
         # Finally tell Hive that we've finished processing
         $self->complete_early('There is only one file to process');
@@ -298,6 +305,7 @@ sub store_filename_into_datafile {
   my @coord_systems = sort {$a->rank <=> $b->rank} @{$db->get_CoordSystemAdaptor->fetch_all_by_version($self->param('assembly_name'))};
   my $datafile = Bio::EnsEMBL::DataFile->new();
   $datafile->analysis($analysis);
+  print "DEBUG::alignment_bam_file...file_ext " . $self->param('_file_ext') . "\n"; 
   $datafile->name(basename($self->param('alignment_bam_file'), '.'.$self->param('_file_ext')));
   $datafile->file_type('BAMCOV');
   $datafile->version_lock(0);
