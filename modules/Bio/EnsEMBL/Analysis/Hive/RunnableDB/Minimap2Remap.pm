@@ -75,61 +75,6 @@ sub fetch_input {
   my $input_genes = $self->fetch_input_genes_by_id($self->param('iid'),$source_gene_dba);
   my $sequence_adaptor = $source_dna_dba->get_SequenceAdaptor();
 
-#  my $slice_array = $self->param('iid');
-#  my $slice_adaptor = $source_dna_dba->get_SliceAdaptor();
-#  my $input_genes = [];
-#  foreach my $slice_name (@$slice_array) {
-#    my $slice = $slice_adaptor->fetch_by_name($slice_name);
-#    my $genes = $slice->get_all_Genes();
-#    my $filtered_genes = [];
-    # Put the filtering in a subroutine at some point if it gets more complex
-    # At the moment the filtering is just on readthroughs
-#    say "Got ".scalar(@$genes)." unfiltered genes";
-#    foreach my $gene (@$genes) {
- #     say "Initial gene: ".$gene->stable_id();
-      # Skip X genes on Y
-      #if($slice->seq_region_name eq 'Y') {
-      #  next;
-      #}
-
-#      unless($gene->stable_id eq 'ENSG00000125841') {
-#        next;
-#      }
-
-#      my $is_readthrough = 0;
-#      my $transcripts = $gene->get_all_Transcripts();
-#      foreach my $transcript (@$transcripts) {
-#        if($is_readthrough) {
-#          last;
-#        }
-
-#        my $attributes = $transcript->get_all_Attributes();
-#        foreach my $attribute (@{$attributes}) {
-#          if($attribute->value eq 'readthrough') {
-#            $is_readthrough = 1;
-#            last;
-#          }
-#        } # foreach my $attribute
-#      } # End foreach my $transcript
-
-#      unless($is_readthrough) {
-#        push(@$filtered_genes,$gene);
-#      }
-#    } # End foreach my $gene
-#    push(@$input_genes,@$filtered_genes);
-#  }
-
-############################################
-# TEST
-
-#  my $all_slices = $slice_adaptor->fetch_all('toplevel');
-#  foreach my $slice (@$all_slices) {
-#    my $genes = $slice->get_all_Genes();
-#    push(@$input_genes,@$genes);
-#  }
-
-############################################
-
   say "Processing ".scalar(@$input_genes)." genes";
 
 
@@ -150,31 +95,12 @@ sub fetch_input {
 
   my $parent_gene_id_hash = {};
   my $genomic_reads = [];
-#  foreach my $gene (@$sorted_input_genes) {
   for(my $i=0; $i<scalar(@$sorted_input_genes); $i++) {
     my $gene = ${$sorted_input_genes}[$i];
     my $gene_id = $gene->dbID();
     my $gene_stable_id = $gene->stable_id();
     my $gene_version = $gene->version();
     my $gene_biotype = $gene->biotype();
-
-    # Store the ids of up to four genes, two upstream and two downstream around the current gene
-#    if($i-1 >= 0 && ${$sorted_input_genes}[$i-1]->slice->name() eq $gene->slice->name()) {
-#      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i-1]->dbID()} = 1;
-#    }
-
-#    if($i-2 >= 0 && ${$sorted_input_genes}[$i-2]->slice->name() eq $gene->slice->name()) {
-#      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i-2]->dbID()} = 1;
-#    }
-
-#    if($i+1 < scalar(@$sorted_input_genes) && ${$sorted_input_genes}[$i+1]->slice->name() eq $gene->slice->name()) {
-#      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i+1]->dbID()} = 1;
-#    }
-
-#    if($i+2 < scalar(@$sorted_input_genes) && ${$sorted_input_genes}[$i+2]->slice->name() eq $gene->slice->name()) {
-#      $gene_synteny_hash->{$gene_id}->{${$sorted_input_genes}[$i+2]->dbID()} = 1;
-#    }
-
 
     my $transcripts = $gene->get_all_Transcripts();
     foreach my $transcript (@$transcripts) {
@@ -252,51 +178,6 @@ sub run {
     }
   }
 
-# This is the synteny code, it was only really designed to work when the input id is a full slice
-# so have disabled it while changing to gene id for input id
-#  my $final_genes = $self->output();
-#  my $sorted_final_genes = [sort { $a->slice->name() cmp $b->slice->name() or
-#                                   $a->start() <=> $b->start() or
-#                                   $a->end() <=> $b->end() }  @{$final_genes}];
-
-#  my $gene_synteny_hash = $self->param('gene_synteny_hash');
-#  for(my $i=0; $i<scalar(@$sorted_final_genes); $i++) {
-#    my $gene = ${$sorted_final_genes}[$i];
-#    my $gene_id = $gene->{'parent_gene_id'};
-#    my $synteny_score = 0;
-#    say "FERGAL SYN GID: ".$gene_id;
-#    say "FERGAL SYN DMP: ".Dumper($gene_synteny_hash->{$gene_id});
-#    say "FERGAL SYN SLC: ".$gene->slice->name();
-
-
-    # Store the ids of up to four genes, two upstream and two downstream around the current gene
-#    if($i-1 >= 0 && ${$sorted_final_genes}[$i-1]->slice->name() eq $gene->slice->name() &&
-#       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i-1]->{'parent_gene_id'}}) {
-#       $synteny_score++;
-#     }
-
-#    if($i-2 >= 0 && ${$sorted_final_genes}[$i-2]->slice->name() eq $gene->slice->name() &&
-#       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i-2]->{'parent_gene_id'}}) {
-#       $synteny_score++;
-#     }
-
-#    if($i+1 < scalar(@$sorted_final_genes) && ${$sorted_final_genes}[$i+1]->slice->name() eq $gene->slice->name() &&
-#       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i+1]->{'parent_gene_id'}}) {
-#       $synteny_score++;
-#     }
-
-#    if($i+2 < scalar(@$sorted_final_genes) && ${$sorted_final_genes}[$i+2]->slice->name() eq $gene->slice->name() &&
-#       $gene_synteny_hash->{$gene_id}->{${$sorted_final_genes}[$i+2]->{'parent_gene_id'}}) {
-#       $synteny_score++;
-#    }
-
-#    say "FERGAL SYNTENY SCORE: ".$synteny_score;
-#    if($synteny_score < 2) {
-#      $gene->description("weak synteny");
-#    }
-
-#  }
-
   return $self->output;
 }
 
@@ -308,7 +189,7 @@ sub write_output {
   my $output_gene_adaptor = $output_dba->get_GeneAdaptor;
   my $output_genes = $self->output();
   foreach my $output_gene (@$output_genes) {
-    say "Final gene; ".$output_gene->stable_id();
+    say "Final gene: ".$output_gene->stable_id();
     empty_Gene($output_gene);
     $output_gene_adaptor->store($output_gene);
   }
