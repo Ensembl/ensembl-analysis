@@ -81,7 +81,7 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($genome_index, $input_file, $paftools_path, $database_adaptor, $delete_input_file, $skip_introns_check, $add_offset, $skip_compute_translation, $sensitive) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR DELETE_INPUT_FILE SKIP_INTRONS_CHECK ADD_OFFSET SKIP_COMPUTE_TRANSLATION SENSITIVE)],@args);
+  my ($genome_index, $input_file, $paftools_path, $database_adaptor, $delete_input_file, $skip_introns_check, $add_offset, $skip_compute_translation, $sensitive, $bestn, $coverage, $perc_id, $max_intron_size) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH DATABASE_ADAPTOR DELETE_INPUT_FILE SKIP_INTRONS_CHECK ADD_OFFSET SKIP_COMPUTE_TRANSLATION SENSITIVE BESTN COVERAGE PERC_ID MAX_INTRON_SIZE)],@args);
   $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->paftools_path($paftools_path);
@@ -91,6 +91,10 @@ sub new {
   $self->add_offset($add_offset);
   $self->skip_compute_translation($skip_compute_translation);
   $self->sensitive($sensitive);
+  $self->secondary_alignments($bestn);
+  $self->coverage_cutoff($coverage);
+  $self->perc_id_cutoff($perc_id);
+  $self->max_intron_size($max_intron_size);
   return $self;
 }
 
@@ -121,6 +125,12 @@ sub run {
   my $paftools_path = $self->paftools_path;
   my $options       = $self->options;
 
+  my $max_intron_size = $self->max_intron_size();
+
+  unless(defined($max_intron_size)) {
+    $max_intron_size = 200000;
+  }
+
   unless($paftools_path) {
     $self->throw("Paftools path was empty");
   }
@@ -131,7 +141,13 @@ sub run {
     $splice_type = "splice";
   }
 
-  my $minimap2_command = $self->program." --cs --secondary=no -ax ".$splice_type." -u b ".$genome_index." ".$input_file." > ".$sam_file;
+  # By default we have secondary alignments off, but if we want them on then we just remove the flag to turn them off and put in the -N flag with the number of secondary alignments we want
+  my $secondary_alignments = '--secondary=no';
+  if($self->secondary_alignments()) {
+    $secondary_alignments = '-N '.$self->secondary_alignments();
+  }
+
+  my $minimap2_command = $self->program." --cs ".$secondary_alignments." -G ". $max_intron_size." -ax ".$splice_type." -u b ".$genome_index." ".$input_file." > ".$sam_file;
   $self->warning("Command:\n".$minimap2_command."\n");
   if(system($minimap2_command)) {
     $self->throw("Error running minimap2\nError code: $?\n");
@@ -151,7 +167,6 @@ sub run {
 
   # This is mostly a repeat of the above but on the reads that were filtered because they had a high non-canonical rate (but passed cov/identity)
   # These could be samples where the reads where accidently reversed as was seen in pig
-#  if(scalar(@$leftover_genes)) {
   say "Found ".scalar(@$leftover_genes)." leftover genes";
   if(scalar(@$leftover_genes)) {
     my $leftover_input_file = $self->create_filename(undef,'lo');
@@ -164,7 +179,7 @@ sub run {
     $self->files_to_delete($bed_lo_file);
 
 
-    my $minimap2_lo_command = $self->program." --cs --secondary=no -ax splice:hq -uf ".$genome_index." ".$leftover_input_file." > ".$sam_lo_file;
+    my $minimap2_lo_command = $self->program." --cs ".$secondary_alignments." -G ". $max_intron_size." -ax ".$splice_type." -uf ".$genome_index." ".$leftover_input_file." > ".$sam_lo_file;
     $self->warning("Leftover command:\n".$minimap2_command."\n");
     if(system($minimap2_lo_command)) {
       $self->throw("Error running minimap2 leftover\nError code: $?\n");
@@ -272,8 +287,16 @@ sub parse_results {
 
 # 13  0   84793   ENST00000380152.7   1000    +   0   84793   0,128,255   27  194,106,249,109,50,41,115,50,112,1116,4932,96,70,428,182,188,171,355,156,145,122,199,164,139,245,147,2105,  0,948,3603,9602,10627,10768,11025,13969,15445,16798,20791,29084,31353,39387,40954,42268,47049,47705,54928,55482,61196,63843,64276,64533,79215,81424,82688,
 
-  my $percent_id_cutoff = 90;
-  my $coverage_cutoff = 90;
+  my $percent_id_cutoff = $self->perc_id_cutoff();
+  my $coverage_cutoff = $self->coverage_cutoff();
+  unless(defined($percent_id_cutoff)) {
+    $percent_id_cutoff = 90;
+  }
+
+  unless(defined($coverage_cutoff)) {
+    $coverage_cutoff = 90;
+  }
+
   my $canonical_intron_cutoff = 0.8;
 
   say "Parsing minimap2 output";
@@ -557,5 +580,50 @@ sub sensitive {
 
   return $self->{_sensitive};
 }
+
+
+sub secondary_alignments {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_secondary_alignments} = $val;
+  }
+
+  return $self->{_secondary_alignments};
+}
+
+
+sub coverage_cutoff {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_coverage_cutoff} = $val;
+  }
+
+  return $self->{_coverage_cutoff};
+}
+
+
+sub perc_id_cutoff {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_perc_id_cutoff} = $val;
+  }
+
+  return $self->{_perc_id_cutoff};
+}
+
+
+sub max_intron_size {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_max_intron_size} = $val;
+  }
+
+  return $self->{_max_intron_size};
+}
+
 
 1;
