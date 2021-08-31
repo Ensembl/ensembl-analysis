@@ -58,10 +58,6 @@ sub fetch_input {
 
   my $target_dba = $self->hrdb_get_dba($self->param('target_db'));
 
-  # Define the dna dbs
-#  my $target_dna_dba = $self->hrdb_get_dba($self->param('target_dna_db'));
-#  $self->hrdb_set_con($target_dna_dba,'target_dna_db');
-
   my $dna_dba;
   if($self->param('use_genome_flatfile')) {
     unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
@@ -154,7 +150,6 @@ sub write_output {
   foreach my $output_gene (@$output_genes) {
     say "Final gene; ".$output_gene->stable_id();
     $output_gene->biotype($output_gene->biotype());
-    $output_gene->description("Potential paralogue");
     empty_Gene($output_gene);
     $output_gene_adaptor->store($output_gene);
   }
@@ -228,12 +223,7 @@ sub cluster_source_genes {
   my $genes_by_slice = {};
   my $filtered_genes = [];
 
-  # TEST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  #  return($new_genes);
-  # END TEST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
   foreach my $new_gene (@$new_genes) {
-    say "FERGAL NEW GENE IN CLUSTER: ".$new_gene->seq_region_start.":".$new_gene->seq_region_end.":".$new_gene->seq_region_strand." ".$new_gene->biotype();
     my $slice = $new_gene->slice();
 
     unless($genes_by_slice->{$slice->seq_region_name()}) {
@@ -241,9 +231,7 @@ sub cluster_source_genes {
     }
 
     $new_gene->biotype("new_".$new_gene->biotype);
-    # TEST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    # This is some test code just to deal with the fact that we may have new genes already in the db when testing
-    # my $slice_genes = $genes_by_slice->{$slice->seq_region_name()};
+
     my $intial_slice_genes = $genes_by_slice->{$slice->seq_region_name()};
     my $slice_genes = [];
 
@@ -252,12 +240,11 @@ sub cluster_source_genes {
         next;
       }
 
+      # This is mostly just there if testing to ignore test transcripts
       unless($slice_gene->biotype() =~ /^new/) {
         push(@$slice_genes,$slice_gene);
       }
     }
-    # TEST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 
     my $biotypes_hash = $self->generate_biotypes_hash($slice_genes);
     $biotypes_hash->{'new_gene'} = [$new_gene->biotype()];
@@ -317,6 +304,8 @@ sub filter_by_cutoffs {
     $gene->version($source_gene->version());
     $gene->stable_id($source_gene->stable_id());
     $transcript->biotype($source_transcript->biotype());
+    my $gene_description = "Parent: ".$source_gene->stable_id().".".$source_gene->version().", Type: Potential paralogue";
+    $gene->description($gene_description);
 
     my $source_transcript_seq;
     my $transcript_seq;
@@ -337,11 +326,14 @@ sub filter_by_cutoffs {
     $transcript->{'cov'} = $coverage;
     $transcript->{'perc_id'} = $percent_id;
     $transcript->{'source_stable_id'} = $source_transcript->stable_id();
+    $transcript->{'parent_gene_stable_id'} = $source_transcript->get_Gene->stable_id().".".$source_transcript->get_Gene->version();
     $transcript->{'source_biotype_group'} = $source_transcript->get_Biotype->biotype_group();
     $transcript->{'source_length'} = $source_transcript->length();
     my $biotype_group = $transcript->{'source_biotype_group'};
     my $coverage_cutoff = $coverage_cutoff_groups->{$biotype_group};
     my $perc_id_cutoff = $percent_identity_groups->{$biotype_group};
+    my $transcript_description = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$coverage.", Perc id: ".$percent_id;
+    $transcript->description($transcript_description);
 
     if($transcript->{'cov'} >= $coverage_cutoff and $transcript->{'perc_id'} >= $perc_id_cutoff) {
       say "Transcript ".$transcript->{'source_stable_id'}." (".$transcript->stable_id().", ".$biotype_group.") passed check: ".$transcript->{'cov'}." cov, ".

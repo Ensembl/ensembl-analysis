@@ -95,6 +95,23 @@ sub fetch_input {
 }
 
 
+sub run {
+  my ($self) = @_;
+
+  foreach my $runnable (@{$self->runnable()}) {
+    $runnable->run();
+    my $output_genes = $runnable->output();
+    my @parent_gene_ids = @{$runnable->{'parent_gene_ids'}};
+    my $id_string = join(':',@parent_gene_ids);
+    foreach my $output_gene (@$output_genes) {
+      my $gene_description = "Parent: ".$id_string.", Type: Potential paralogue";
+      $output_gene->description($gene_description);
+      $self->output([$output_gene]);
+    }
+  }
+}
+
+
 sub write_output {
   my ($self) = @_;
   my $output_dba = $self->hrdb_get_con('target_db');
@@ -104,17 +121,20 @@ sub write_output {
   my $current_genes = $output_gene_adaptor->fetch_all();
   foreach my $output_gene (@$output_genes) {
     my $initial_biotype = $output_gene->biotype();
-    $initial_biotype =~ s/new\_/fin\_/;
+    $initial_biotype =~ s/^new\_//;
     $output_gene->biotype($initial_biotype);
-    $output_gene->description("Potential paralogue");
     $output_gene->analysis($self->analysis());
     empty_Gene($output_gene);
+
+    # Just cloning for safety there as the next bit will remove the existing genes from the db. Added the description back in as it doesn't seem to be cloned
     my $cloned_output_gene = clone_Gene($output_gene);
+    $cloned_output_gene->description($output_gene->description());
     $output_gene_adaptor->store($cloned_output_gene);
   }
 
+  # Remove the initial set of paralogues prior to collapsing
   foreach my $current_gene (@$current_genes) {
-    if($current_gene->biotype =~ /^new/) {
+    if($current_gene->biotype =~ /^new\_/) {
       $output_gene_adaptor->remove($current_gene);
     }
   }
@@ -132,6 +152,16 @@ sub make_runnables {
 
   foreach my $cluster (@$clusters) {
     my $clustered_genes = $cluster->get_Genes();
+    my $parent_gene_ids = [];
+
+    # There is a slight chance that this cluster has genes from multiple parents, so track this
+    foreach my $gene (@$clustered_genes) {
+      my $description = $gene->description();
+      $description =~ /^Parent\: ([^\,]+)\,/;
+      my $parent_stable_id = $1;
+      push(@$parent_gene_ids,$parent_stable_id)
+    }
+
     my $output_biotype = ${$clustered_genes}[0]->biotype();
     my $runnable = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder->new(
                      -query => $slice,
@@ -146,6 +176,7 @@ sub make_runnables {
                      -max_exon_length => 50000,
                      -coding_only => 1,
                    );
+    $runnable->{'parent_gene_ids'} = $parent_gene_ids;
     $self->runnable($runnable);
   }
 
