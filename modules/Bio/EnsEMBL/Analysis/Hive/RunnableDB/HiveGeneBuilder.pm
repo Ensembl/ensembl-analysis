@@ -243,7 +243,7 @@ sub post_filter_genes {
   #    Not implemented yet. Sometimes tricky as terminal exons are often misaligned. Might be worth
   #    ignoring any introns bordering a terminal exon when deciding if a gene lies in the intron of another
 
-  $genes = $self->clean_overlapping_utrs($genes);
+#  $genes = $self->clean_overlapping_utrs($genes);
 
   return($genes);
 }
