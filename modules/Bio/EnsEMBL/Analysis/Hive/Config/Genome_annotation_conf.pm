@@ -1804,6 +1804,7 @@ sub pipeline_analyses {
           mapping_db => $self->o('mapping_db'),
           projection_source_db_name => $self->o('projection_source_db_name'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
+          registry_file => $self->o('registry_file'),
         },
       },
       -rc_name      => 'default',
