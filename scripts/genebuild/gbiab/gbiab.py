@@ -433,7 +433,7 @@ def run_eponine_regions(genome_file,java_path,eponine_path,main_output_dir,num_t
     java_path = 'java'
 
   if not eponine_path:
-    eponine_path = '/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/opt/eponine/libexec/eponine-scan.jar'
+    eponine_path = '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/opt/eponine/libexec/eponine-scan.jar'
 
   check_file(eponine_path)
   check_exe(java_path)
@@ -618,10 +618,10 @@ def create_cpg_gtf(cpg_output_file_path,region_results_file_path,region_name):
 def run_trnascan_regions(genome_file,trnascan_path,trnascan_filter_path,main_output_dir,num_threads):
 
   if not trnascan_path:
-    trnascan_path = '/hps/nobackup2/production/ensembl/fergal/coding/trnascan/install_dir/bin/tRNAscan-SE'
+    trnascan_path = '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/trnascan-1.4'
 
   if not trnascan_filter_path:
-    trnascan_filter_path = '/hps/nobackup2/production/ensembl/fergal/coding/trnascan/install_dir/bin/EukHighConfidenceFilter'
+    trnascan_filter_path = '/hps/software/users/ensembl/repositories/ftricomi/tRNAscan-SE/EukHighConfidenceFilter'
 
   check_exe(trnascan_path)
   check_exe(trnascan_filter_path)
@@ -945,8 +945,8 @@ def run_cmsearch_regions(genome_file,cmsearch_path,rfam_cm_db_path,rfam_seeds_fi
 
 #  rfam_accession_file = '/hps/nobackup2/production/ensembl/fergal/production/test_runs/non_verts/butterfly/rfam_insect_ids.txt'
  # rfam_accession_file = os.path.join(main_output_dir,'rfam_accessions.txt')
-  rfam_cm_db_path = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.0/Rfam.cm'
-  rfam_seeds_file_path = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.0/Rfam.seed'
+  rfam_cm_db_path = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.0/Rfam.cm'
+  rfam_seeds_file_path = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.0/Rfam.seed'
   rfam_selected_models_file = os.path.join(rfam_output_dir,'rfam_models.cm')
   with open(rfam_accession_file) as rfam_accessions_in:
     rfam_accessions = rfam_accessions_in.read().splitlines()
@@ -1580,7 +1580,7 @@ def run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,gen
   print ("ASNB file: %s" % asnb_file)
 
   if not os.path.exists('alignscore.txt'):
-    subprocess.run(['cp','/homes/fergal/enscode/ensembl-analysis/scripts/genebuild/gbiab/support_files/alignscore.txt','./'])
+    subprocess.run(['cp','$ENSCODE/ensembl-analysis/scripts/genebuild/gbiab/support_files/alignscore.txt','./'])
 
   if not os.path.exists(masked_genome_file):
     raise IOError('Masked genome file does not exist: %s' % masked_genome_file)
@@ -2807,18 +2807,20 @@ def run_finalise_geneset(main_script_dir,main_output_dir,genome_file,seq_region_
 def validate_coding_transcripts(cdna_file,amino_acid_file,validation_dir,gtf_file,num_threads):
 
   print("Running CDS validation with RNAsamba and CPC2")
-  rnasamba_path = '/hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_RNAsamba.sh'
-  rnasamba_weights = '/homes/jma/coding_gene_testing/full_length_weights.hdf5'
-  cpc2_path = '/hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_CPC2.sh'
+  #rnasamba_path = '/hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_RNAsamba.sh'
+  rnasamba_weights = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/rnasamba_test/RNAsamba/data/full_length_weights.hdf5'
+  #cpc2_path = '/hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_CPC2.sh'
   
   rnasamba_output_path = os.path.join(validation_dir,'rnasamba.tsv.txt')
   cpc2_output_path = os.path.join(validation_dir,'cpc2.tsv')
-
-  rnasamba_cmd = ['sh',rnasamba_path,rnasamba_output_path,cdna_file,rnasamba_weights]
+  rnasamba_volume=rnasamba_output_path+'/:/app:rw'
+  #rnasamba_cmd = ['sh',rnasamba_path,rnasamba_output_path,cdna_file,rnasamba_weights]
+  rnasamba_cmd=['singularity exec --bind ', rnasamba_volume, '/hps/software/users/ensembl/genebuild/ftricomi/singularity/rnasamba_latest.sif rnasamba classify ',rnasamba_output_path, cdna_file, rnasamba_weights]
   print(' '.join(rnasamba_cmd))
   subprocess.run(rnasamba_cmd)
-
-  cpc2_cmd = ['sh',cpc2_path,cdna_file,cpc2_output_path]
+  cpc2_volume=cpc2_output_path+'/:/app:rw'
+  #cpc2_cmd = ['sh',cpc2_path,cdna_file,cpc2_output_path]
+  cpc2_cmd = ['singularity exec --bind ', cpc2_volume, '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test_cpc2.sif python3 /CPC2_standalone-1.0.1/bin/CPC2.py -i ',cdna_file,' --ORF -o ',cpc2_output_path]
   print(' '.join(cpc2_cmd))
   subprocess.run(cpc2_cmd)
   cpc2_output_path = cpc2_output_path + '.txt'
