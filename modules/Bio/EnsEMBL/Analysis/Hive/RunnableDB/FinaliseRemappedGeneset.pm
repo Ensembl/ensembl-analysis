@@ -89,10 +89,8 @@ sub fetch_input {
   # 7) Could consider something about pseudogenes/polymorphic pseudogenes now being coding, but maybe out of scope
 
 
-  my $slice = $target_dba->get_SliceAdaptor->fetch_by_region('toplevel','1' );
-  my $all_initial_genes = $slice->get_all_Genes();
-#  my $gene_adaptor = $target_dba->get_GeneAdaptor();
-#  my $all_initial_genes = $gene_adaptor->fetch_all();
+  my $gene_adaptor = $target_dba->get_GeneAdaptor();
+  my $all_initial_genes = $gene_adaptor->fetch_all();
 
   # First we'll parse the descriptions of all the gene/transcripts and filter out the potential paralogues, as these have already been qc'd at this point
   my $primary_genes = $self->parse_descriptions($all_initial_genes);
