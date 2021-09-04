@@ -92,7 +92,7 @@ sub fetch_input {
                                    $a->end() <=> $b->end() }  @{$input_genes}];
 
   my $gene_synteny_hash = {};
-
+  my $gene_genomic_seqs_hash = {};
   my $parent_gene_id_hash = {};
   my $genomic_reads = [];
   for(my $i=0; $i<scalar(@$sorted_input_genes); $i++) {
@@ -138,9 +138,10 @@ sub fetch_input {
     }
 
     my $strand = $gene->strand;
-    my $genomic_seq = ${ $sequence_adaptor->fetch_by_Slice_start_end_strand($slice, $region_start, $region_end, $strand) };
+    my $genomic_seq = ${ $sequence_adaptor->fetch_by_Slice_start_end_strand($slice,$region_start,$region_end,$strand) };
     my $fasta_record = ">".$gene_id."\n".$genomic_seq;
     push(@$genomic_reads, $fasta_record);
+    $gene_genomic_seqs_hash->{$gene_id} = [$region_start,$region_end,$genomic_seq];
   } #close foreach sorted_input_gene
 
   $self->param('gene_synteny_hash',$gene_synteny_hash);
@@ -160,6 +161,7 @@ sub fetch_input {
        -parent_genes      => $sorted_input_genes,
        -parent_gene_ids   => $parent_gene_id_hash,
        -gene_synteny_hash => $gene_synteny_hash,
+       -gene_genomic_seqs_hash => $gene_genomic_seqs_hash,
   );
   $self->runnable($runnable);
 }
@@ -180,7 +182,6 @@ sub run {
 
   return $self->output;
 }
-
 
 
 sub write_output {
@@ -205,6 +206,9 @@ sub fetch_input_genes_by_id {
   my $source_gene_adaptor = $source_gene_dba->get_GeneAdaptor();
   foreach my $gene_id (@$gene_ids) {
     my $gene = $source_gene_adaptor->fetch_by_dbID($gene_id);
+    unless($gene) {
+      $self->throw("Could not retrieve gene from source gene db with dbID: ".$gene->dbID());
+    }
 
     if($gene->seq_region_name() eq 'MT') {
       next;
