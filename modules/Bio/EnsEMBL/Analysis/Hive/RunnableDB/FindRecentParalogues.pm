@@ -46,6 +46,7 @@ use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_nucleotide_seqs);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 use Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
@@ -84,12 +85,6 @@ sub fetch_input {
   say "Processing ".scalar(@$input_genes)." genes for mapping";
   $self->param('input_genes',$input_genes);
 
-#  my $parent_genes_hash = {};
-#  foreach my $gene (@$input_genes) {
-#    $parent_genes_hash->{$gene->dbID()} = $gene;
-#  }
-#  $self->param('parent_genes_hash',$parent_genes_hash);
-
   my $program = $self->param('minimap2_path');
   my $paftools =  $self->param('paftools_path');
 
@@ -102,16 +97,12 @@ sub fetch_input {
   }
 
   my $source_transcript_hash = {};
-  foreach my $gene (@$input_genes) {
-    my $transcripts = $gene->get_all_Transcripts();
-    foreach my $transcript (@$transcripts) {
-      $source_transcript_hash->{$transcript->dbID()} = $transcript;
-    }
-  }
 
   $self->param('source_transcripts',$source_transcript_hash);
 
-  my $input_file = $self->create_input_file($input_genes);
+  # Potentially should add in something to calculate the max intron size, but since these are already somewhat predictive
+  # it also might just be better to leave it at default
+  my $input_file = $self->create_input_file($input_genes,$source_transcript_hash);
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2->new(
        -analysis          => $self->analysis(),
        -program           => $program,
@@ -120,6 +111,8 @@ sub fetch_input {
        -input_file        => $input_file,
        -database_adaptor  => $target_dba,
        -bestn             => 10,
+       -skip_compute_translation => 1,
+       -skip_introns_check       => 1,
        -delete_input_file => 1, # NB!! only set this when creating ranged files, not when using the original input file
   );
 
@@ -134,7 +127,6 @@ sub run {
   foreach my $runnable (@{$self->runnable()}) {
     $runnable->run();
     my $mapped_genes = $runnable->output();
-    my $parent_genes_hash = $self->param('parent_genes_hash');
     my $filtered_new_genes = $self->filter_new_genes($mapped_genes);
     $self->output($filtered_new_genes);
   }
@@ -148,7 +140,7 @@ sub write_output {
   my $output_gene_adaptor = $output_dba->get_GeneAdaptor;
   my $output_genes = $self->output();
   foreach my $output_gene (@$output_genes) {
-    say "Final gene; ".$output_gene->stable_id();
+    say "Final gene: ".$output_gene->stable_id();
     $output_gene->biotype($output_gene->biotype());
     empty_Gene($output_gene);
     $output_gene_adaptor->store($output_gene);
@@ -230,7 +222,7 @@ sub cluster_source_genes {
       $genes_by_slice->{$slice->seq_region_name()} = $slice->get_all_Genes();
     }
 
-    $new_gene->biotype("new_".$new_gene->biotype);
+#    $new_gene->biotype("new_".$new_gene->biotype);
 
     my $intial_slice_genes = $genes_by_slice->{$slice->seq_region_name()};
     my $slice_genes = [];
@@ -241,7 +233,7 @@ sub cluster_source_genes {
       }
 
       # This is mostly just there if testing to ignore test transcripts
-      unless($slice_gene->biotype() =~ /^new/) {
+      unless($slice_gene->description =~ /Potential paralogue/) {
         push(@$slice_genes,$slice_gene);
       }
     }
@@ -304,8 +296,6 @@ sub filter_by_cutoffs {
     $gene->version($source_gene->version());
     $gene->stable_id($source_gene->stable_id());
     $transcript->biotype($source_transcript->biotype());
-    my $gene_description = "Parent: ".$source_gene->stable_id().".".$source_gene->version().", Type: Potential paralogue";
-    $gene->description($gene_description);
 
     my $source_transcript_seq;
     my $transcript_seq;
@@ -320,20 +310,27 @@ sub filter_by_cutoffs {
     } else {
       $source_transcript_seq = $source_transcript->seq->seq();
       $transcript_seq = $transcript->seq->seq();
+      if($transcript->translation()) {
+        $self->throw("Found a translation on mapped transcript even though parent has none. Mapped transcript dbID: ".$transcript->dbID());
+      }
     }
 
     my ($coverage,$percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript_seq,$transcript_seq);
     $transcript->{'cov'} = $coverage;
     $transcript->{'perc_id'} = $percent_id;
     $transcript->{'source_stable_id'} = $source_transcript->stable_id();
-    $transcript->{'parent_gene_stable_id'} = $source_transcript->get_Gene->stable_id().".".$source_transcript->get_Gene->version();
+    $transcript->{'parent_gene_stable_id'} = $source_transcript->{'parent_gene_stable_id'};
     $transcript->{'source_biotype_group'} = $source_transcript->get_Biotype->biotype_group();
     $transcript->{'source_length'} = $source_transcript->length();
     my $biotype_group = $transcript->{'source_biotype_group'};
     my $coverage_cutoff = $coverage_cutoff_groups->{$biotype_group};
     my $perc_id_cutoff = $percent_identity_groups->{$biotype_group};
+
     my $transcript_description = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$coverage.", Perc id: ".$percent_id;
     $transcript->description($transcript_description);
+
+    my $gene_description = "Parent: ".$source_transcript->{'parent_gene_stable_id'}.", Type: Potential paralogue";
+    $gene->description($gene_description);
 
     if($transcript->{'cov'} >= $coverage_cutoff and $transcript->{'perc_id'} >= $perc_id_cutoff) {
       say "Transcript ".$transcript->{'source_stable_id'}." (".$transcript->stable_id().", ".$biotype_group.") passed check: ".$transcript->{'cov'}." cov, ".
@@ -384,13 +381,24 @@ sub create_input_file {
   # In this we'll just take the canonical of the input genes and write then to file
   # Output the db id of the transcript in the header to help figure out later what the overlap is
   my $output_file = $self->create_filename();
-
   open(OUT,">".$output_file);
   foreach my $gene (@$genes) {
-    my $transcript = $gene->canonical_transcript();
-    unless($transcript) {
-      $transcript = $self->set_canonical($gene);
+    my $gene_description = $gene->description();
+    $gene_description =~ /^Parent\: (.+)\, Type\: (.+)$/;
+    my $parent_stable_id = $1;
+    my $type = $2;
+    unless($parent_stable_id and $type) {
+      $self->throw("Issue parsing the parent stable id and type from gene description for gene with dbID ".$gene->dbID().". Description: ".$gene_description);
     }
+
+    if($type eq 'Potential paralogue') {
+      # Just in case there's accidental re-runs or testing
+      next;
+    }
+
+    # Just going to use the canonical
+    my $transcript = $gene->canonical_transcript();
+    $transcript->{'parent_gene_stable_id'} = $parent_stable_id;
     $source_transcript_hash->{$transcript->dbID()} = $transcript;
     my $seq = $transcript->seq->seq();
     say OUT ">".$transcript->dbID();
@@ -410,7 +418,7 @@ sub set_canonical {
 
   my $transcripts = $gene->get_all_Transcripts();
   foreach my $transcript (@$transcripts) {
-    if($transcript->translation) {
+    if($transcript->translation()) {
       if($longest_translation) {
         if($transcript->translation->length() > $longest_translation->translation->length()) {
           $longest_translation = $transcript;
@@ -441,43 +449,32 @@ sub set_canonical {
 sub fetch_input_genes_by_id {
   my ($self,$gene_ids,$source_gene_dba) = @_;
 
-  # TEST!!!!
-#  $gene_ids = [34154,7703];
-#  $gene_ids = [35728];
-  # TEST!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  my $coverage_cutoff = 98;
+  my $perc_id_cutoff = 98;
 
   my $input_genes = [];
   my $source_gene_adaptor = $source_gene_dba->get_GeneAdaptor();
   foreach my $gene_id (@$gene_ids) {
     my $gene = $source_gene_adaptor->fetch_by_dbID($gene_id);
-
     unless($gene) {
       $self->throw("Couldn't fetch gene from source db with dbID: ".$gene_id);
     }
 
-    if($gene->seq_region_name() eq 'MT') {
+    my $transcript = $self->set_canonical($gene);
+    my $transcript_description = $transcript->description();
+    $transcript_description =~ /Coverage\: (.+), Perc id\: (.+)$/;
+    my $coverage = $1;
+    my $perc_id = $2;
+    unless(defined($coverage) and defined($perc_id)) {
+      $self->throw("Issue parsing coverage and percent id from transcript description. Transcript description:\n".$transcript_description);
+    }
+
+    # Skip over canonical transcripts that don't have near perfect mappings
+    unless($coverage >= $coverage_cutoff and $perc_id >= $perc_id_cutoff) {
       next;
     }
 
-    my $is_readthrough = 0;
-    my $transcripts = $gene->get_all_Transcripts();
-    foreach my $transcript (@$transcripts) {
-      if($is_readthrough) {
-         last;
-      }
-
-      my $attributes = $transcript->get_all_Attributes();
-      foreach my $attribute (@{$attributes}) {
-        if($attribute->value eq 'readthrough') {
-          $is_readthrough = 1;
-          last;
-        }
-      } # foreach my $attribute
-    } # End foreach my $transcript
-
-    unless($is_readthrough) {
-      push(@$input_genes,$gene);
-    }
+    push(@$input_genes,$gene);
   }
 
   return($input_genes);
