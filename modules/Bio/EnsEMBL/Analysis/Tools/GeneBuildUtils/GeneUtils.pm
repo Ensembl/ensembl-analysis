@@ -201,6 +201,7 @@ sub clone_Gene{
   $newgene->stable_id($gene->stable_id);
   $newgene->version($gene->version);
   $newgene->source($gene->source);
+  $newgene->description($gene->description);
   if ($clone_xrefs){
     foreach my $DBEntry (@{$gene->get_all_DBEntries}){
       $newgene->add_DBEntry($DBEntry);
