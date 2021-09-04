@@ -82,12 +82,12 @@ sub fetch_input {
     my $initial_genes = $slice->get_all_Genes();
     my $new_genes = [];
     foreach my $input_gene (@$initial_genes) {
-      if($input_gene->biotype =~ /^new/) {
+      my $input_gene_description = $input_gene->description();
+      if($input_gene_description =~ /Potential paralogue/) {
         push(@$new_genes,$input_gene);
         push(@$all_new_genes,$input_gene);
       }
     }
-
     $self->make_runnables($new_genes,$slice);
   }
 
@@ -126,9 +126,8 @@ sub write_output {
     $output_gene->analysis($self->analysis());
     empty_Gene($output_gene);
 
-    # Just cloning for safety there as the next bit will remove the existing genes from the db. Added the description back in as it doesn't seem to be cloned
+    # Just cloning for safety there as the next bit will remove the existing genes from the db
     my $cloned_output_gene = clone_Gene($output_gene);
-    $cloned_output_gene->description($output_gene->description());
     $output_gene_adaptor->store($cloned_output_gene);
   }
 
