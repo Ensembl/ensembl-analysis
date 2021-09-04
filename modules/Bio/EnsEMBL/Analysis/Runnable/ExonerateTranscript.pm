@@ -88,9 +88,10 @@ sub new {
   my ($class,@args) = @_;
   my $self = $class->SUPER::new(@args);
 
-  my ($coverage_aligned) =
+  my ($coverage_aligned,$non_coding_transcript) =
       rearrange([qw(
                     COVERAGE_BY_ALIGNED
+                    NON_CODING_TRANSCRIPT
                     )
                  ], @args);
 
@@ -101,6 +102,8 @@ sub new {
     $self->coverage_as_proportion_of_aligned_residues(1);
   }
 
+  # Note that this will not behave correctly if multiple transcripts that are both coding and non-coding are passed in
+  $self->non_coding_transcript($non_coding_transcript);
 
   return $self;
 }
@@ -283,16 +286,16 @@ sub parse_results {
     my @exons = @{$transcript->get_all_Exons};
 
     if (scalar(@exons)) {
-      if (defined $cds_start_exon) {
+      if (defined $cds_start_exon && !$self->non_coding_transcript()) {
         my $translation = Bio::EnsEMBL::Translation->new();
         $translation->start_Exon($cds_start_exon);
-        $translation->start($cds_start);      
+        $translation->start($cds_start);
         $translation->end_Exon($cds_end_exon);
         $translation->end($cds_end);
 
         $transcript->translation($translation);
       }
-      
+
       calculate_exon_phases($transcript, 0);
 
 
@@ -553,6 +556,17 @@ sub coverage_as_proportion_of_aligned_residues {
   }
   return $self->{_coverage_aligned};
 }
+
+
+sub non_coding_transcript {
+  my ($self, $val) = @_;
+
+  if (defined $val) {
+    $self->{_non_coding_transcript} = $val;
+  }
+  return $self->{_non_coding_transcript};
+}
+
 
 
 1;
