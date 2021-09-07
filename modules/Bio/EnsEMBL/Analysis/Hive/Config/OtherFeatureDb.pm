@@ -111,11 +111,6 @@ sub default_options {
     select_canonical_script  => catfile( $self->o('ensembl_misc_script'),     'canonical_transcripts', 'select_canonical_transcripts.pl' ),
     assembly_name_script     => catfile( $self->o('ensembl_analysis_script'), 'update_assembly_name.pl' ),
 
-########################
-    # Extra db settings
-########################
-
-    'num_tokens' => 10,
 
 ########################
     # db info
@@ -432,9 +427,9 @@ sub pipeline_analyses {
 sub resource_classes {
   my $self = shift;
   return {
-    '2GB'     => { LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '4GB'     => { LSF => $self->lsf_resource_builder( 'production', 4000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'default' => { LSF => $self->lsf_resource_builder( 'production', 900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '2GB'     => { LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    '4GB'     => { LSF => $self->lsf_resource_builder( 'production', 4000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    'default' => { LSF => $self->lsf_resource_builder( 'production', 900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
     }
 }
 

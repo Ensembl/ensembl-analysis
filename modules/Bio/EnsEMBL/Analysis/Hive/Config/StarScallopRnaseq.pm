@@ -127,11 +127,6 @@ sub default_options {
     transcript_selection_url => undef,
     homology_rnaseq_url => undef,
 
-########################
-# Extra db settings
-########################
-
-    'num_tokens' => 10,
 
 ########################
 # Executable paths
@@ -1028,9 +1023,9 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    '2GB'     => { LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '5GB'     => { LSF => $self->lsf_resource_builder( 'production', 5000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'default' => { LSF => $self->lsf_resource_builder( 'production', 900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '2GB'     => { LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    '5GB'     => { LSF => $self->lsf_resource_builder( 'production', 5000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    'default' => { LSF => $self->lsf_resource_builder( 'production', 900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
     '3GB_multithread'     => { LSF => $self->lsf_resource_builder( 'production', 2900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{use_threads} ) },
     '3GB_rnaseq_multithread'     => { LSF => $self->lsf_resource_builder( 'production', 2900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{rnaseq_merge_threads} ) },
     '5GB_merge_multithread'     => { LSF => $self->lsf_resource_builder( 'production', 5000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{rnaseq_merge_threads} ) },
@@ -1039,7 +1034,7 @@ sub resource_classes {
     '80GB_star'    => { LSF => $self->lsf_resource_builder( 'production', 80000, undef, undef, ( $self->default_options->{'star_threads'} + 1 ) ) },
     '10GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 10000, undef, undef, ( $self->default_options->{'scallop_threads'} ) ) },
     '50GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 50000, undef, undef, ( $self->default_options->{'scallop_threads'} ) ) },
-    '15GB'     => { LSF => $self->lsf_resource_builder( 'production', 15000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '15GB'     => { LSF => $self->lsf_resource_builder( 'production', 15000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
     }
 }
 

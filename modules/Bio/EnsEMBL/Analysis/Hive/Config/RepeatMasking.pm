@@ -111,12 +111,6 @@ sub default_options {
     sequence_dump_script => catfile( $self->o('ensembl_analysis_script'), 'sequence_dump.pl' ),
 
 ########################
-    # Extra db settings
-########################
-
-    'num_tokens' => 10,
-
-########################
     # Executable paths
 ########################
 
@@ -524,15 +518,15 @@ sub pipeline_analyses {
 sub resource_classes {
   my $self = shift;
   return {
-    '2GB'                  => { LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '3GB'                  => { LSF => $self->lsf_resource_builder( 'production', 3000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '5GB'                  => { LSF => $self->lsf_resource_builder( 'production', 5000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '15GB'                 => { LSF => $self->lsf_resource_builder( 'production', 15000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '50GB'                 => { LSF => $self->lsf_resource_builder( 'production', 50000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'default'              => { LSF => $self->lsf_resource_builder( 'production', 900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'repeatmasker'         => { LSF => $self->lsf_resource_builder( 'production', 2900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'repeatmasker_rebatch' => { LSF => $self->lsf_resource_builder( 'production', 5900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'simple_features'      => { LSF => $self->lsf_resource_builder( 'production', 2900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '2GB'                  => { LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    '3GB'                  => { LSF => $self->lsf_resource_builder( 'production', 3000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    '5GB'                  => { LSF => $self->lsf_resource_builder( 'production', 5000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    '15GB'                 => { LSF => $self->lsf_resource_builder( 'production', 15000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    '50GB'                 => { LSF => $self->lsf_resource_builder( 'production', 50000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    'default'              => { LSF => $self->lsf_resource_builder( 'production', 900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    'repeatmasker'         => { LSF => $self->lsf_resource_builder( 'production', 2900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    'repeatmasker_rebatch' => { LSF => $self->lsf_resource_builder( 'production', 5900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    'simple_features'      => { LSF => $self->lsf_resource_builder( 'production', 2900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
     }
 }
 

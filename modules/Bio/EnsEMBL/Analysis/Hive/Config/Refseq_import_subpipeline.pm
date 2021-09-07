@@ -120,10 +120,6 @@ sub default_options {
     ensembl_analysis_script => catdir( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts' ),
     refseq_import_script_path => catfile( $self->o('ensembl_analysis_script'), 'refseq', 'parse_ncbi_gff3.pl' ),
 
-    #######################
-    # Extra db settings
-    ########################
-    num_tokens => 10,
   };
 }
 
@@ -209,8 +205,8 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default' => { LSF => $self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'refseq_import' => { LSF => $self->lsf_resource_builder( 'production', 9900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    'default' => { LSF => $self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    'refseq_import' => { LSF => $self->lsf_resource_builder( 'production', 9900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
     }
 }
 

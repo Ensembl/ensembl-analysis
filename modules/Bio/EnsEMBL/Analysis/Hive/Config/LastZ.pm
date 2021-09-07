@@ -81,8 +81,6 @@ sub default_options {
     # Extra db settings
 ########################
 
-    'num_tokens' => 10,
-
     'compara_master'                    => 'compara_master',
     'compara_conf_file'                 => '',
     'compara_innodb_schema'             => 1,
@@ -826,11 +824,11 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    '2GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 2000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{registry_file} ] },
-    '4GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 4000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{registry_file} ] },
-    '8GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 8000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{registry_file} ] },
-    '15GB_lastz' => { LSF => [ $self->lsf_resource_builder( 'production', 15000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{registry_file} ] },
-    'default' => { LSF => $self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '2GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 2000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ), '-reg_conf ' . $self->default_options->{registry_file} ] },
+    '4GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 4000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ), '-reg_conf ' . $self->default_options->{registry_file} ] },
+    '8GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 8000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ), '-reg_conf ' . $self->default_options->{registry_file} ] },
+    '15GB_lastz' => { LSF => [ $self->lsf_resource_builder( 'production', 15000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ), '-reg_conf ' . $self->default_options->{registry_file} ] },
+    'default' => { LSF => $self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
     }
 }
 
