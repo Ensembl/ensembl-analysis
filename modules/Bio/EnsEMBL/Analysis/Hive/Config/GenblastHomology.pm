@@ -119,7 +119,7 @@ sub default_options {
 ########################
 
     'blast_type'                  => 'ncbi',                                                                                # It can be 'ncbi', 'wu', or 'legacy_ncbi'
-    'exonerate_path'              => catfile( $self->o('software_base_path'), 'opt', 'exonerate09', 'bin', 'exonerate' ),
+    'exonerate_path'              => catfile( $self->o('linuxbrew_home_path'), 'opt', 'exonerate09', 'bin', 'exonerate' ),
     'uniprot_genblast_batch_size' => 15,
     'uniprot_table_name'          => 'uniprot_sequences',
     genewise_path   => catfile( $self->o('binary_base'), 'genewise' ),

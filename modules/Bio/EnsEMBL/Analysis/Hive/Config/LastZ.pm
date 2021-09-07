@@ -216,7 +216,7 @@ sub default_options {
     'filter_duplicates_batch_size'    => 10,
 
     # LastZ is used to align the genomes
-    opt_dir                      => catdir($self->o('software_base_path'), 'opt'),
+    opt_dir                      => catdir($self->o('linuxbrew_home_path'), 'opt'),
     pair_aligner_exe             => catfile( $self->o('opt_dir'), 'lastz', 'bin', 'lastz' ),
     axtChain_exe                 => catfile( $self->o('opt_dir'), 'kent', 'bin', 'axtChain' ),
     chainNet_exe                 => catfile( $self->o('opt_dir'), 'kent', 'bin', 'chainNet' ),

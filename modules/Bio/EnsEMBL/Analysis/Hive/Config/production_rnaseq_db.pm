@@ -121,7 +121,7 @@ sub default_options {
     ########################
     # Executable paths
     ########################
-    deeptools_bamcoverage_path => '/nfs/software/ensembl/RHEL7-JUL2017-core2/pyenv/versions/genebuild/bin/bamCoverage',
+    deeptools_bamcoverage_path => catfile($self->o('software_base_path'), 'pyenv', 'versions', 'genebuild', 'bin', 'bamCoverage'),
 
     'output_dir'    => catdir($self->o('rnaseq_dir'),'output'),
     'merge_dir'     => catdir($self->o('rnaseq_dir'),'merge'),

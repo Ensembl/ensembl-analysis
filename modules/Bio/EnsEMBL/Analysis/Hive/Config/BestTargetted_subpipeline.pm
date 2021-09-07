@@ -73,10 +73,9 @@ sub default_options {
 
     # Best targetted related parameters:
     genewise_path => catfile( $self->o('binary_base'), 'genewise' ),
-    'exonerate_path' => catfile( $self->o('software_base_path'), 'opt', 'exonerate09', 'bin', 'exonerate' ),
-    'cmsearch_exe_path' => catfile( $self->o('software_base_path'), 'bin', 'cmsearch' ),    # #'opt', 'infernal10', 'bin', 'cmsearch'),
-    indicate_path       => catfile( $self->o('binary_base'),        'indicate' ),
-    pmatch_path         => catfile( $self->o('binary_base'),        'pmatch' ),
+    exonerate_path => catfile( $self->o('linuxbrew_home_path'), 'opt', 'exonerate09', 'bin', 'exonerate' ),
+    indicate_path       => catfile( $self->o('binary_base'), 'indicate' ),
+    pmatch_path         => catfile( $self->o('binary_base'), 'pmatch' ),
     exonerate_annotation => catfile( $self->o('binary_base'), 'exonerate' ),
 
     exonerate_logic_name => 'exonerate',

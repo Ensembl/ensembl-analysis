@@ -112,7 +112,7 @@ sub default_options {
 # Executable paths
 ########################
 
-    'cesar_path' => catdir($self->o('software_base_path'),'opt','cesar','bin'),
+    'cesar_path' => catdir($self->o('linuxbrew_home_path'),'opt','cesar','bin'),
 
 # Max internal stops for projected transcripts
     'projection_pid'                        => '50',

@@ -53,8 +53,9 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
                 genebuilder_id => $ENV{GENEBUILDER_ID} || 0,
                 email => $ENV{HIVE_EMAIL},
                 enscode_root_dir => $ENV{ENSCODE},
-                software_base_path => $ENV{LINUXBREW_HOME},
-                binary_base => catdir($self->o('software_base_path'), 'bin'),
+                software_base_path => $ENV{ENSEMBL_SOFTWARE_HOME}, # This is the path where pyenv, linuxbrew and any other software is installed
+                linuxbrew_home_path => $ENV{LINUXBREW_HOME},
+                binary_base => catdir($self->o('linuxbrew_home_path'), 'bin'),
 
                 # Usefull if you want to use one server for all your databases, not great but ok
                 data_db_server => $self->o('host'),
@@ -105,8 +106,9 @@ sub default_options {
         genebuilder_id => $ENV{GENEBUILDER_ID} || 0,
         email_address => $ENV{HIVE_EMAIL},
         enscode_root_dir => $ENV{ENSCODE},
-        software_base_path => $ENV{LINUXBREW_HOME},
-        binary_base => catdir($self->o('software_base_path'), 'bin'),
+        software_base_path => $ENV{ENSEMBL_SOFTWARE_HOME},
+        linuxbrew_home_path => $ENV{LINUXBREW_HOME},
+        binary_base => catdir($self->o('linuxbrew_home_path'), 'bin'),
 
         guihive_host => 'http://guihive.ebi.ac.uk',
         guihive_port => 8080,

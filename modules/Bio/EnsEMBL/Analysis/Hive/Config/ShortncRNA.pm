@@ -134,7 +134,7 @@ sub default_options {
 ########################
     blast_type => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     blastn_exe_path => catfile($self->o('binary_base'), 'blastn'),
-    cmsearch_exe_path    => catfile($self->o('software_base_path'), 'bin', 'cmsearch'), # #'opt', 'infernal10', 'bin', 'cmsearch'),
+    cmsearch_exe_path    => catfile($self->o('binary_base'), 'cmsearch'), # #'opt', 'infernal10', 'bin', 'cmsearch'),
 
 ########################
 # Misc setup info

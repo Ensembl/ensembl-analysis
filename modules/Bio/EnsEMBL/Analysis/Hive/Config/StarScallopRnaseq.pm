@@ -140,7 +140,7 @@ sub default_options {
     scallop_path    => catfile($self->o('binary_base'), 'scallop'),
     stringtie2_path => catfile($self->o('binary_base'), 'stringtie'),
     samtools_path   => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
-    picard_lib_jar  => catfile($self->o('software_base_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
+    picard_lib_jar  => catfile($self->o('linuxbrew_home_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
 
     'blast_type'             => 'ncbi',                                                                         # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     'uniprot_blast_exe_path' => catfile( $self->o('binary_base'), 'blastp' ),
