@@ -205,8 +205,8 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default' => { LSF => $self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    'refseq_import' => { LSF => $self->lsf_resource_builder( 'production', 9900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    'default' => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
+    'refseq_import' => { LSF => $self->lsf_resource_builder( 'production', 9900 ) },
     }
 }
 

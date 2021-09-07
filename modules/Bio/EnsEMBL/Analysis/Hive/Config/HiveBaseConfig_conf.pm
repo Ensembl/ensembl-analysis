@@ -244,8 +244,8 @@ sub hive_data_table {
  Arg [5]    : Integer $num_threads, number of cores, use only if you ask for multiple cores
  Arg [6]    : String $extra_requirements, any other parameters you want to give to LSF option -R
  Arg [7]    : Arrayref String, any parameters related to your file system if you need to use -R"select[gpfs]"
- Example    : '1GB' => { LSF => $self->lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}])},
-              '3GB_multithread' => { LSF => $self->lsf_resource_builder('long', 3000, [$self->default_options->{'pipe_db_server'}], undef, 3)},
+ Example    : '1GB' => { LSF => $self->lsf_resource_builder('normal', 1000)},
+              '3GB_multithread' => { LSF => $self->lsf_resource_builder('long', 3000, undef, undef, 3)},
  Description: It will return the LSF requirement parameters you require based on the queue, the memory, the database servers, the number
               of CPUs. It uses options -q, -n, -M and -R. If you need any other other options you will need to add it to the returned string.
               If you want multiple cores from multiple CPUs, you will have to edit the returned string.

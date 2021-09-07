@@ -556,12 +556,12 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default' => { LSF => $self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    'default_registry' => { LSF => [ $self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ), undef, '-reg_conf ' . $self->default_options->{registry_file} ] },
-    '1GB'  => { LSF => $self->lsf_resource_builder( 'production', 1000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    '4GB'  => { LSF => $self->lsf_resource_builder( 'production', 4000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    '8GB'  => { LSF => $self->lsf_resource_builder( 'production', 8000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    '10GB' => { LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    'default' => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
+    'default_registry' => { LSF => [ $self->lsf_resource_builder( 'production', 900 ), undef, '-reg_conf ' . $self->default_options->{registry_file} ] },
+    '1GB'  => { LSF => $self->lsf_resource_builder( 'production', 1000 ) },
+    '4GB'  => { LSF => $self->lsf_resource_builder( 'production', 4000 ) },
+    '8GB'  => { LSF => $self->lsf_resource_builder( 'production', 8000 ) },
+    '10GB' => { LSF => $self->lsf_resource_builder( 'production', 10000 ) },
     }
 }
 

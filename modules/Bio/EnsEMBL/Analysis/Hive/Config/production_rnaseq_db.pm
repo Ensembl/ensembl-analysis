@@ -545,11 +545,11 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    '2GB' => { LSF => $self->lsf_resource_builder('production', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}])},
-    '4GB' => { LSF => $self->lsf_resource_builder('production', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}])},
-    '8GB' => { LSF => $self->lsf_resource_builder('production', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}])},
-    '10GB_multithread' => { LSF => $self->lsf_resource_builder('production', 10000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
-    'default' => { LSF => $self->lsf_resource_builder('production', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}])},
+    '2GB' => { LSF => $self->lsf_resource_builder('production', 2000)},
+    '4GB' => { LSF => $self->lsf_resource_builder('production', 4000)},
+    '8GB' => { LSF => $self->lsf_resource_builder('production', 8000)},
+    '10GB_multithread' => { LSF => $self->lsf_resource_builder('production', 10000, undef, undef, ($self->default_options->{'use_threads'}+1))},
+    'default' => { LSF => $self->lsf_resource_builder('production', 900)},
   }
 }
 

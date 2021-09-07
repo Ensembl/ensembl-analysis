@@ -518,15 +518,15 @@ sub pipeline_analyses {
 sub resource_classes {
   my $self = shift;
   return {
-    '2GB'                  => { LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    '3GB'                  => { LSF => $self->lsf_resource_builder( 'production', 3000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    '5GB'                  => { LSF => $self->lsf_resource_builder( 'production', 5000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    '15GB'                 => { LSF => $self->lsf_resource_builder( 'production', 15000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    '50GB'                 => { LSF => $self->lsf_resource_builder( 'production', 50000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    'default'              => { LSF => $self->lsf_resource_builder( 'production', 900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    'repeatmasker'         => { LSF => $self->lsf_resource_builder( 'production', 2900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    'repeatmasker_rebatch' => { LSF => $self->lsf_resource_builder( 'production', 5900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    'simple_features'      => { LSF => $self->lsf_resource_builder( 'production', 2900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    '2GB'                  => { LSF => $self->lsf_resource_builder( 'production', 2000 ) },
+    '3GB'                  => { LSF => $self->lsf_resource_builder( 'production', 3000 ) },
+    '5GB'                  => { LSF => $self->lsf_resource_builder( 'production', 5000 ) },
+    '15GB'                 => { LSF => $self->lsf_resource_builder( 'production', 15000 ) },
+    '50GB'                 => { LSF => $self->lsf_resource_builder( 'production', 50000 ) },
+    'default'              => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
+    'repeatmasker'         => { LSF => $self->lsf_resource_builder( 'production', 2900 ) },
+    'repeatmasker_rebatch' => { LSF => $self->lsf_resource_builder( 'production', 5900 ) },
+    'simple_features'      => { LSF => $self->lsf_resource_builder( 'production', 2900 ) },
     }
 }
 

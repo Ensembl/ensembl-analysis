@@ -578,16 +578,16 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default' => { LSF => $self->lsf_resource_builder( 'production', 900,   [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    '1GB'     => { LSF => $self->lsf_resource_builder( 'production', 1000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    '2GB'     => { LSF => $self->lsf_resource_builder( 'production', 2000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    '5GB'     => { LSF => $self->lsf_resource_builder( 'production', 5000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    '10GB'    => { LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    '15GB'    => { LSF => $self->lsf_resource_builder( 'production', 15000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    '20GB'    => { LSF => $self->lsf_resource_builder( 'production', 20000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    '25GB'    => { LSF => $self->lsf_resource_builder( 'production', 25000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
-    'blast'     => { LSF => $self->lsf_resource_builder( 'production', 2900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, 3 ) },
-    'blast10GB' => { LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, 3 ) },
+    'default' => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
+    '1GB'     => { LSF => $self->lsf_resource_builder( 'production', 1000 ) },
+    '2GB'     => { LSF => $self->lsf_resource_builder( 'production', 2000 ) },
+    '5GB'     => { LSF => $self->lsf_resource_builder( 'production', 5000 ) },
+    '10GB'    => { LSF => $self->lsf_resource_builder( 'production', 10000 ) },
+    '15GB'    => { LSF => $self->lsf_resource_builder( 'production', 15000 ) },
+    '20GB'    => { LSF => $self->lsf_resource_builder( 'production', 20000 ) },
+    '25GB'    => { LSF => $self->lsf_resource_builder( 'production', 25000 ) },
+    'blast'     => { LSF => $self->lsf_resource_builder( 'production', 2900, undef, 3 ) },
+    'blast10GB' => { LSF => $self->lsf_resource_builder( 'production', 10000, undef, undef, 3 ) },
     }
 }
 

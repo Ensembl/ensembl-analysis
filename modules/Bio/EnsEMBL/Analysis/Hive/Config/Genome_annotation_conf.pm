@@ -2014,12 +2014,12 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    '1GB' => { LSF => $self->lsf_resource_builder('production', 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}])},
-    '2GB' => { LSF => $self->lsf_resource_builder('production', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}])},
-    '4GB' => { LSF => $self->lsf_resource_builder('production', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}])},
-    '10GB' => { LSF => $self->lsf_resource_builder('production', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}])},
-    '15GB' => { LSF => $self->lsf_resource_builder('production', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}])},
-    'default' => { LSF => $self->lsf_resource_builder('production', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}])},
+    '1GB' => { LSF => $self->lsf_resource_builder('production', 1000)},
+    '2GB' => { LSF => $self->lsf_resource_builder('production', 2000)},
+    '4GB' => { LSF => $self->lsf_resource_builder('production', 4000)},
+    '10GB' => { LSF => $self->lsf_resource_builder('production', 10000)},
+    '15GB' => { LSF => $self->lsf_resource_builder('production', 15000)},
+    'default' => { LSF => $self->lsf_resource_builder('production', 900)},
   }
 }
 
