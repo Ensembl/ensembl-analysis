@@ -848,7 +848,14 @@ sub pipeline_analyses {
         db_conn => $self->o('final_geneset_db'),
         sql     => [
           'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id) JOIN protein_align_feature ON feature_id=protein_align_feature_id SET biotype="low_coverage" WHERE feature_type="protein_align_feature" AND hcoverage < 50 AND biotype not like "pseudo%"',
-          'UPDATE gene JOIN transcript USING(gene_id) SET gene.biotype="low_coverage" WHERE transcript.biotype="low_coverage"',
+          'UPDATE gene JOIN transcript USING(gene_id) SET gene.biotype="low_coverage" WHERE transcript.biotype="low_coverage" AND gene_id NOT IN ('
+            .'SELECT DISTINCT(gbio.gene_id) FROM ('
+              .'SELECT count(*) AS biotype_cnt,g.gene_id FROM gene g,transcript t WHERE g.gene_id=t.gene_id AND g.gene_id IN ('
+                .'SELECT DISTINCT(gene_id) FROM transcript WHERE biotype="low_coverage"'
+              .') GROUP BY g.gene_id HAVING biotype_cnt > 1'
+            .') AS gbio,transcript t WHERE t.gene_id=gbio.gene_id AND t.transcript_id IN (SELECT transcript_id FROM transcript WHERE biotype="low_coverage")'
+          .')',
+          'UPDATE gene SET biotype="low_coverage" WHERE gene_id IN (SELECT gene_id FROM (SELECT count(*) AS cnt,gene_id,biotype FROM (SELECT count(*),gene_id,biotype FROM transcript GROUP BY gene_id,biotype) AS numbioperg GROUP BY gene_id having cnt=1) AS geneswith1bio WHERE biotype="low_coverage")'
         ],
       },
       -rc_name   => 'default',
@@ -884,7 +891,7 @@ sub pipeline_analyses {
         flagged_redundancy_coverage_threshold => 95,
         general_redundancy_coverage_threshold => 95,
       },
-      -rc_name   => '4GB',
+      -rc_name   => '8GB',
       -flow_into => {
         '1' => ['delete_flagged_transcripts'],
       },
@@ -987,6 +994,7 @@ sub resource_classes {
     '3GB'     => { LSF => $self->lsf_resource_builder( 'production', 3000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
     '4GB'     => { LSF => $self->lsf_resource_builder( 'production', 4000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
     '5GB'     => { LSF => $self->lsf_resource_builder( 'production', 5000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '8GB'     => { LSF => $self->lsf_resource_builder( 'production', 8000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
     '10GB'    => { LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
     '30GB'    => { LSF => $self->lsf_resource_builder( 'production', 30000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
     'default' => { LSF => $self->lsf_resource_builder( 'production', 900,   [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },

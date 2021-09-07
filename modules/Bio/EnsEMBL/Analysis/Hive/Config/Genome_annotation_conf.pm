@@ -264,7 +264,7 @@ sub default_options {
 # Extra db settings
 ########################
     num_tokens => 10,
-    mysql_dump_options => '--max_allowed_packet=1000MB',
+    mysql_dump_options => '--max_allowed_packet=1000MB --quick',
 
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
