@@ -314,27 +314,33 @@ sub get_clade_params {
   my $clade_params = {};
 
   if($clade eq 'lepidoptera') {
-    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/lepidoptera_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/lepidoptera_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
+    $clade_params->{'protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/lepidoptera_uniprot_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/lepidoptera_orthodb_proteins.fa',
+    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblMetazoa',
   } elsif($clade eq 'teleostei') {
-    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
+    $clade_params->{'protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/actinopterygii_uniprot_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/actinopterygii_orthodb_proteins.fa',
+    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblVertebrates',
   } elsif($clade eq 'humans') {
     # Just temp stuff for testing
-    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
+    $clade_params->{'protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/actinopterygii_uniprot_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/actinopterygii_orthodb_proteins.fa',
+    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblVertebrates',
   } elsif($clade eq 'insects') {
     # This is for hymenoptera, just labelled insects till the registry is updated
-    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/hymenoptera_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/hymenoptera_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
+    $clade_params->{'protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/hymenoptera_uniprot_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/hymenoptera_orthodb_proteins.fa',
+    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblMetazoa',
+  } elsif($clade eq 'plants') {
+    # Test for Impatiens glandulifera labelled plants in the registry
+    $clade_params->{'protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/gbiab_plants/all_plants.fasta',
+    $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/gbiab_plants/viridiplantae_orthodb_proteins.fa',
+    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_eudicotyledons_ids.txt',
+    $clade_params->{'species_division'} = 'EnsemblPlants',
   } else {
     $self->throw('Clade parameters not found for clade: '.$clade);
   }
