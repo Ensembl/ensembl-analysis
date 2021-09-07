@@ -328,6 +328,26 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
       },
       -rc_name => '3GB',
+      -flow_into => {
+        -1 => ['targetted_exonerate_retry'],
+      },
+    },
+
+    {
+      -logic_name => 'targetted_exonerate_retry',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveExonerate2Genes',
+      -parameters => {
+        iid_type => 'db_seq',
+        sequence_table_name => $self->o('uniprot_table_name'),
+        dna_db => $self->o('dna_db'),
+        target_db => $self->o('genewise_db'),
+        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::ExonerateStatic','exonerate_protein')},
+        genome_file      => $self->o('softmasked_genome_file'),
+        exonerate_path   => $self->o('exonerate_path'),
+        repeat_libraries => '#wide_repeat_logic_names#',
+        calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
+      },
+      -rc_name => '10GB',
     },
 
     {
@@ -952,6 +972,7 @@ sub resource_classes {
     '2GB'     => { LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
     '3GB'     => { LSF => $self->lsf_resource_builder( 'production', 3000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
     '6GB'     => { LSF => $self->lsf_resource_builder( 'production', 6000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '10GB'    => { LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
     'default' => { LSF => $self->lsf_resource_builder( 'production', 900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
     }
 }
