@@ -249,6 +249,7 @@ sub default_options {
     loading_report_script   => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'report_genome_prep_stats.pl'),
     ensembl_misc_script     => catdir($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts'),
     repeat_types_script     => catfile($self->o('ensembl_misc_script'), 'repeats', 'repeat-types.pl'),
+    registry_status_update_script     => catfile($self->o('ensembl_analysis_script'), 'update_assembly_registry.pl'),
 
     hive_beekeeper_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'beekeeper.pl'),
 
@@ -1830,9 +1831,10 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
       -parameters => {},
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
-        1 => ['skip_rnaseq_db', 'skip_otherfeatures_db'],
+        '1->A' => ['skip_rnaseq_db', 'skip_otherfeatures_db'],
+        'A->1' => ['update_assembly_registry_status'],
       }
     },
 
@@ -1988,6 +1990,22 @@ sub pipeline_analyses {
       },
       -rc_name      => 'default',
       -max_retry_count => 1,
+    },
+
+    {
+      -logic_name => 'update_assembly_registry_status',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'perl '.$self->o('registry_status_update_script').
+          ' -user '.$self->o('user').
+          ' -pass '.$self->o('password').
+          ' -driver '.$self->o('hive_driver').
+          ' -assembly_accession '.$self->o('assembly_accession').
+          ' -registry_host '.$self->o('registry_host').
+          ' -registry_port '.$self->o('registry_port').
+          ' -registry_db '.$self->o('registry_db'),
+      },
+      -rc_name => 'default',
     },
   ];
 }
