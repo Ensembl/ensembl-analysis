@@ -417,4 +417,16 @@ sub _is_second_pass {
   return $self->o($param_name) !~ /:subst/;
 }
 
+
+sub hive_capacity_classes {
+  my $self = shift;
+
+  return {
+    hc_very_low => 35,
+    hc_low      => 200,
+    hc_medium   => 500,
+    hc_high     => 1000,
+  };
+}
+
 1;

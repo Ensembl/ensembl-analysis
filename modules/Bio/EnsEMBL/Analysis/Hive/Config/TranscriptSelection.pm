@@ -1001,13 +1001,4 @@ sub resource_classes {
     }
 }
 
-sub hive_capacity_classes {
-  my $self = shift;
-
-  return {
-    'hc_medium' => 500,
-    'hc_high'   => 1000,
-  };
-}
-
 1;
