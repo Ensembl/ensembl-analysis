@@ -725,7 +725,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_load_assembly'],
       },
@@ -814,7 +814,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_refseq_import'],
       },
@@ -876,7 +876,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_repeat_masking'],
       },
@@ -986,7 +986,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['reset_transcript_selection_db_arrays'],
       },
@@ -1171,7 +1171,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_lastz'],
       },
@@ -1255,7 +1255,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_projection'],
       },
@@ -1316,7 +1316,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_homology'],
       },
@@ -1377,7 +1377,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_best_targeted'],
       },
@@ -1435,7 +1435,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_igtr'],
       },
@@ -1517,7 +1517,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_short_ncrna'],
       },
@@ -1605,7 +1605,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_rnaseq'],
       },
@@ -1666,7 +1666,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_homology_rnaseq'],
       },
@@ -1737,7 +1737,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_long_read'],
       },
@@ -1809,7 +1809,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_core_db_finalisation'],
       },
@@ -1901,7 +1901,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_otherfeatures_db'],
       },
@@ -1976,7 +1976,7 @@ sub pipeline_analyses {
         },
       },
       -rc_name      => 'default',
-      -max_retry_count => 1,
+      -max_retry_count => 0,
       -flow_into => {
         1 => ['run_rnaseq_db'],
       },
