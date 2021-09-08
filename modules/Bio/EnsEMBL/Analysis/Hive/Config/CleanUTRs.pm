@@ -117,10 +117,6 @@ sub default_options {
     },
 
     databases_to_delete => ['clean_utr_db'],
-    #######################
-    # Extra db settings
-    ########################
-    num_tokens => 10,
   };
 }
 
@@ -201,9 +197,9 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default' => { LSF => $self->lsf_resource_builder( 'production-rh74', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '4GB' => { LSF => $self->lsf_resource_builder( 'production-rh74', 4000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '8GB' => { LSF => $self->lsf_resource_builder( 'production-rh74', 8000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    'default' => { LSF => $self->lsf_resource_builder( 'production-rh74', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    '4GB' => { LSF => $self->lsf_resource_builder( 'production-rh74', 4000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
+    '8GB' => { LSF => $self->lsf_resource_builder( 'production-rh74', 8000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'} ] ) },
   }
 }
 
