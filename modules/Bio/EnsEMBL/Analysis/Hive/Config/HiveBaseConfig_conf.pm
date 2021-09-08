@@ -44,7 +44,7 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
 
  Arg [1]    : None
  Description: It returns a hashref containing the default options for HiveGeneric_conf
-                use_tokens => 0,
+                use_tokens => 0, # This is deprecated
                 drop_databases => 0, # ONLY USE THIS PARAMETER ON THE COMMAND LINE
                 databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
                 password_r => undef,
@@ -109,7 +109,7 @@ sub default_options {
         # inherit other stuff from the base class
         %{ $self->SUPER::default_options() },
 
-        use_tokens => 0,
+        use_tokens => 0, # This is deprecated
         drop_databases => 0, # ONLY USE THIS PARAMETER ON THE COMMAND LINE
         databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
         password_r => undef,

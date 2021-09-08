@@ -75,7 +75,7 @@ sub default_options {
     # These values can be replaced in the analysis_base table if they're not known yet
     # If they are not needed (i.e. no projection or rnaseq) then leave them as is
 
-    pipe_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
+    pipe_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_clean_utr_pipe_'.$self->o('release_number'),
     dna_db_name  => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
