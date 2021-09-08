@@ -264,7 +264,7 @@ sub hive_data_table {
 sub lsf_resource_builder {
     my ($self, $queue, $memory, $servers, $tokens, $threads, $extra_requirements, $paths) = @_;
 
-    my $lsf_requirement = '-q '.($queue || 'production-rh7');
+    my $lsf_requirement = '-q '.($queue || 'production');
     my @lsf_rusage;
     my @lsf_select;
     $extra_requirements = '' unless (defined $extra_requirements);
