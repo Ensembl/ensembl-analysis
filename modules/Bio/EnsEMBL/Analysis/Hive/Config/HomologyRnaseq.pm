@@ -44,9 +44,9 @@ sub default_options {
     'user_r'                          => '', # read only db user
     'user'                            => '', # write db user
     'password'                        => '', # password for write db user
-    'pipe_db_server'                  => '', # host for pipe db
-    'databases_server'                => '', # host for general output dbs
-    'dna_db_server'                   => '', # host for dna db
+    'pipe_db_host'                    => '', # host for pipe db
+    'databases_host'                  => '', # host for general output dbs
+    'dna_db_host'                     => '', # host for dna db
     'pipe_db_port'                    => '', # port for pipeline host
     'databases_port'                  => '', # port for general output db host
     'dna_db_port'                     => '', # port for dna db host
@@ -65,13 +65,13 @@ sub default_options {
     'pipe_db_name'                  => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
     'dna_db_name'                   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
 
-    'genblast_db_server'           => $self->o('databases_server'),
+    'genblast_db_host'             => $self->o('databases_host'),
     'genblast_db_port'             => $self->o('databases_port'),
 
-    'genblast_rnaseq_support_db_server'  => $self->o('databases_server'),
+    'genblast_rnaseq_support_db_host'    => $self->o('databases_host'),
     'genblast_rnaseq_support_db_port'    => $self->o('databases_port'),
 
-    'rnaseq_refine_db_server'       => $self->o('databases_server'),
+    'rnaseq_refine_db_host'         => $self->o('databases_host'),
     'rnaseq_refine_db_port'         => $self->o('databases_port'),
     'rnaseq_refine_db_name'         => $self->o('dbowner').'_'.$self->o('production_name').'_refine_'.$self->o('release_number'),
 
@@ -101,7 +101,7 @@ sub default_options {
 ########################
     'genblast_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_'.$self->o('release_number'),
-      -host   => $self->o('genblast_db_server'),
+      -host   => $self->o('genblast_db_host'),
       -port   => $self->o('genblast_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -110,7 +110,7 @@ sub default_options {
 
     'genblast_rnaseq_support_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_gb_rnaseq_'.$self->o('release_number'),
-      -host   => $self->o('genblast_rnaseq_support_db_server'),
+      -host   => $self->o('genblast_rnaseq_support_db_host'),
       -port   => $self->o('genblast_rnaseq_support_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -119,7 +119,7 @@ sub default_options {
 
     'genblast_rnaseq_support_nr_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_gb_rnaseq_nr_'.$self->o('release_number'),
-      -host   => $self->o('genblast_rnaseq_support_db_server'),
+      -host   => $self->o('genblast_rnaseq_support_db_host'),
       -port   => $self->o('genblast_rnaseq_support_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -128,7 +128,7 @@ sub default_options {
 
     'rnaseq_refine_db' => {
       -dbname => $self->o('rnaseq_refine_db_name'),
-      -host   => $self->o('rnaseq_refine_db_server'),
+      -host   => $self->o('rnaseq_refine_db_host'),
       -port   => $self->o('rnaseq_refine_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),

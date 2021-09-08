@@ -74,7 +74,7 @@ sub param_defaults {
               databases you need to add the name of the database(s) in 'databases'. The
               parameters will be created by using "${db_name}_name" where $db_name is the
               name of the databases in 'hive_config'. You should also have paramters in
-              the config like "${db_name}_name", "${db_name}_port", "${db_name}_server",
+              the config like "${db_name}_name", "${db_name}_port", "${db_name}_host",
               "${db_name}_user", "${db_name}_password".
  Returntype : None
  Exceptions : Throws if 'ehive_url', 'pipeline_name', 'meta_pipeline_db' or 'hive_config' is not set
@@ -125,7 +125,7 @@ sub fetch_input {
     $self->warning("Your $db_title dbname has upper case character, it might cause problems, ".$db->{'-dbname'})
       if ($db->{'-dbname'} =~ /[[:upper:]]/);
     push(@cmd, '-'.$db_title.'_name', $db->{'-dbname'});
-    push(@cmd, '-'.$db_title.'_server', $db->{'-host'});
+    push(@cmd, '-'.$db_title.'_host', $db->{'-host'});
     push(@cmd, '-'.$db_title.'_port', $db->{'-port'});
     push(@cmd, '-'.$db_title.'_user', $db->{'-user'}) if (exists $db->{'-user'});
     push(@cmd, '-'.$db_title.'_pass', $db->{'-pass'}) if (exists $db->{'-pass'} and $db->{'-pass'});

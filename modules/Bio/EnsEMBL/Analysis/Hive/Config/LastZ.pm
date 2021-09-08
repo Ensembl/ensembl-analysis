@@ -47,8 +47,8 @@ sub default_options {
     'user_r'         => '',    # read only db user
     'user'           => '',    # write db user
     'password'       => '',    # password for write db user
-    'pipe_db_server' => '',    # host for pipe db
-    'dna_db_server'  => '',    # host for dna db
+    'pipe_db_host'   => '',    # host for pipe db
+    'dna_db_host'    => '',    # host for dna db
     'pipe_db_port'   => '',    # port for pipeline host
     'dna_db_port'    => '',    # port for dna db host
 
@@ -63,12 +63,12 @@ sub default_options {
 ########################
 
     'projection_source_db_name'         => '',                                        # This is generally a pre-existing db, like the current human/mouse core for example
-    'projection_source_db_server'       => 'mysql-ens-mirror-1',
+    'projection_source_db_host'         => 'mysql-ens-mirror-1',
     'projection_source_db_port'         => '4240',
     'projection_source_production_name' => '',
 
     'compara_db_name'   => 'leanne_ensembl_compara_95',
-    'compara_db_server' => 'mysql-ens-genebuild-prod-5',
+    'compara_db_host'   => 'mysql-ens-genebuild-prod-5',
     'compara_db_port'   => 4531,
 
     'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . '_pipe_' . $self->o('release_number'),
@@ -230,7 +230,7 @@ sub default_options {
 ########################
     'projection_source_db' => {
       -dbname => $self->o('projection_source_db_name'),
-      -host   => $self->o('projection_source_db_server'),
+      -host   => $self->o('projection_source_db_host'),
       -port   => $self->o('projection_source_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
@@ -239,7 +239,7 @@ sub default_options {
 
     'compara_db' => {
       -dbname => $self->o('compara_db_name'),
-      -host   => $self->o('compara_db_server'),
+      -host   => $self->o('compara_db_host'),
       -port   => $self->o('compara_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -302,7 +302,7 @@ sub pipeline_analyses {
         target_db                     => $self->o('dna_db'),
         pipeline_db                   => $self->o('pipeline_db'),
         output_path                   => $self->o('output_path'),
-        compara_db_url                => 'mysql://' . $self->o('user') . ':' . $self->o('password') . '@' . $self->o('compara_db_server') . ':' . $self->o('compara_db_port') . '/' . $self->o('compara_db_name'),
+        compara_db_url                => 'mysql://' . $self->o('user') . ':' . $self->o('password') . '@' . $self->o('compara_db_host') . ':' . $self->o('compara_db_port') . '/' . $self->o('compara_db_name'),
         registry_file                 => $self->o('registry_file'),
       },
       -rc_name   => '2GB_lastz',

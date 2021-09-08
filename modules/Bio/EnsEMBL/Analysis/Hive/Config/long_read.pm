@@ -48,9 +48,9 @@ sub default_options {
     'user_r'           => '',    # read only db user
     'user'             => '',    # write db user
     'password'         => '',    # password for write db user
-    'pipe_db_server'   => '',    # host for pipe db
-    'databases_server' => '',    # host for general output dbs
-    'dna_db_server'    => '',    # host for dna db
+    'pipe_db_host'     => '',    # host for pipe db
+    'databases_host'   => '',    # host for general output dbs
+    'dna_db_host'      => '',    # host for dna db
     'databases_port'   => '',    # port for general output db host
 
     'long_read_summary_file'       => '' || catfile( $self->o('long_read_dir'), $self->o('species_name') . '_long_read.csv' ),        # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
@@ -70,13 +70,13 @@ sub default_options {
     ########################
     # Pipe and ref db info
     ########################
-    'long_read_initial_db_server' => $self->o('databases_server'),
+    'long_read_initial_db_host'   => $self->o('databases_host'),
     'long_read_initial_db_port'   => $self->o('databases_port'),
 
-    'long_read_collapse_db_server' => $self->o('databases_server'),
+    'long_read_collapse_db_host'   => $self->o('databases_host'),
     'long_read_collapse_db_port'   => $self->o('databases_port'),
 
-    'long_read_final_db_server' => $self->o('databases_server'),
+    'long_read_final_db_host'   => $self->o('databases_host'),
     'long_read_final_db_port'   => $self->o('databases_port'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
@@ -144,7 +144,7 @@ sub default_options {
     ########################
     long_read_initial_db => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrinitial_' . $self->o('release_number'),
-      -host   => $self->o('long_read_initial_db_server'),
+      -host   => $self->o('long_read_initial_db_host'),
       -port   => $self->o('long_read_initial_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -153,7 +153,7 @@ sub default_options {
 
     long_read_collapse_db => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrcollapse_' . $self->o('release_number'),
-      -host   => $self->o('long_read_collapse_db_server'),
+      -host   => $self->o('long_read_collapse_db_host'),
       -port   => $self->o('long_read_collapse_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -162,7 +162,7 @@ sub default_options {
 
     long_read_final_db => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrfinal_' . $self->o('release_number'),
-      -host   => $self->o('long_read_final_db_server'),
+      -host   => $self->o('long_read_final_db_host'),
       -port   => $self->o('long_read_final_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),

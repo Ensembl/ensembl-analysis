@@ -797,11 +797,11 @@ sub init_pipeline {
               If the set does not exists, it uses the values for "set1"
               If 'server_set' is not defined, it looks for the following keys which should
               all be defined:
-                databases_server
+                databases_host
                 databases_port
-                pipe_db_server
+                pipe_db_host
                 pipe_db_port
-                dna_db_server
+                dna_db_host
                 dna_db_port
  Returntype : None
  Exceptions : Throws if 'server_set' is not set and none of the connection details are set.
@@ -813,20 +813,20 @@ sub assign_server_info {
 
   my $servers = {
     set1 => {
-              pipe_db_server => "mysql-ens-genebuild-prod-4",
+              pipe_db_host => "mysql-ens-genebuild-prod-4",
               pipe_db_port   => 4530,
-              databases_server  => "mysql-ens-genebuild-prod-3",
+              databases_host  => "mysql-ens-genebuild-prod-3",
               databases_port    => 4529,
-              dna_db_server  => "mysql-ens-genebuild-prod-2",
+              dna_db_host  => "mysql-ens-genebuild-prod-2",
               dna_db_port    => 4528,
             },
 
     set2 => {
-              pipe_db_server => "mysql-ens-genebuild-prod-7",
+              pipe_db_host => "mysql-ens-genebuild-prod-7",
               pipe_db_port   => 4533,
-              databases_server  => "mysql-ens-genebuild-prod-5",
+              databases_host  => "mysql-ens-genebuild-prod-5",
               databases_port    => 4531,
-              dna_db_server  => "mysql-ens-genebuild-prod-6",
+              dna_db_host  => "mysql-ens-genebuild-prod-6",
               dna_db_port    => 4532,
             },
   };
@@ -837,22 +837,22 @@ sub assign_server_info {
       warning("Could not find an associated server set entry in the HiveBaseConfig for ".$server_set.". Will default to set1");
       $server_set = 'set1';
     }
-    $general_hash->{databases_server} = $servers->{$server_set}->{'databases_server'};
+    $general_hash->{databases_host} = $servers->{$server_set}->{'databases_host'};
     $general_hash->{databases_port} = $servers->{$server_set}->{'databases_port'};
-    $general_hash->{pipe_db_server} = $servers->{$server_set}->{'pipe_db_server'};
+    $general_hash->{pipe_db_host} = $servers->{$server_set}->{'pipe_db_host'};
     $general_hash->{pipe_db_port} = $servers->{$server_set}->{'pipe_db_port'};
-    $general_hash->{dna_db_server} = $servers->{$server_set}->{'dna_db_server'};
+    $general_hash->{dna_db_host} = $servers->{$server_set}->{'dna_db_host'};
     $general_hash->{dna_db_port} = $servers->{$server_set}->{'dna_db_port'};
 
   }
   else {
-    throw("You are missing connection details for at least one of them: databases_server, databases_port, pipe_db_server, pipe_db_port, dna_db_server, dna_db_port")
+    throw("You are missing connection details for at least one of them: databases_host, databases_port, pipe_db_host, pipe_db_port, dna_db_host, dna_db_port")
       unless (
-        exists $general_hash->{databases_server} and
+        exists $general_hash->{databases_host} and
         exists $general_hash->{databases_port} and
-        exists $general_hash->{pipe_db_server} and
+        exists $general_hash->{pipe_db_host} and
         exists $general_hash->{pipe_db_port} and
-        exists $general_hash->{dna_db_server} and
+        exists $general_hash->{dna_db_host} and
         exists $general_hash->{dna_db_port}
       );
   }

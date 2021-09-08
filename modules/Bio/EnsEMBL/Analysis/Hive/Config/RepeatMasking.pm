@@ -47,8 +47,8 @@ sub default_options {
     'user'                             => '',                                  # write db user
     'password'                         => '',                                  # password for write db user
     'server_set'                       => '',                                  # What server set to user, e.g. set1
-    'pipe_db_server'                   => '',                                  # host for pipe db
-    'dna_db_server'                    => '',                                  # host for dna db
+    'pipe_db_host'                     => '',                                  # host for pipe db
+    'dna_db_host'                      => '',                                  # host for dna db
     'pipe_db_port'                     => '',                                  # port for pipeline host
     'dna_db_port'                      => '',                                  # port for dna db host
     'repbase_logic_name'               => '',                                  # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
@@ -76,12 +76,12 @@ sub default_options {
     'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . '_core_' . $self->o('release_number'),
 
     'reference_db_name'   => $self->o('dna_db_name'),
-    'reference_db_server' => $self->o('dna_db_server'),
+    'reference_db_host'   => $self->o('dna_db_host'),
     'reference_db_port'   => $self->o('dna_db_port'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'      => $ENV{ENSEMBL_RELEASE},     # this is the current release version on staging to be able to get the correct database
-    'production_db_server' => 'mysql-ens-meta-prod-1',
+    'production_db_host'   => 'mysql-ens-meta-prod-1',
     'production_db_port'   => '4483',
 
 ######################################################
@@ -132,7 +132,7 @@ sub default_options {
 ########################
     'reference_db' => {
       -dbname => $self->o('reference_db_name'),
-      -host   => $self->o('reference_db_server'),
+      -host   => $self->o('reference_db_host'),
       -port   => $self->o('reference_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -486,7 +486,7 @@ sub pipeline_analyses {
         logic_name     => $self->o('red_logic_name'),
         red_path       => $self->o('red_path'),
         genome_file    => $self->o('faidx_genome_file'),
-        target_db_url  => $self->o('hive_driver').'://'.$self->o('user').':'.$self->o('password').'@'.$self->o('dna_db_server').':'.$self->o('dna_db_port').'/'.$self->o('dna_db_name'),
+        target_db_url  => $self->o('hive_driver').'://'.$self->o('user').':'.$self->o('password').'@'.$self->o('dna_db_host').':'.$self->o('dna_db_port').'/'.$self->o('dna_db_name'),
         msk            => $self->o('red_msk'),
         rpt            => $self->o('red_rpt'),
         red_meta_key   => $self->o('replace_repbase_with_red_to_mask'),
@@ -505,7 +505,7 @@ sub pipeline_analyses {
         logic_name     => $self->o('red_logic_name'),
         red_path       => $self->o('red_path'),
         genome_file    => $self->o('faidx_genome_file'),
-        target_db_url  => $self->o('hive_driver').'://'.$self->o('user').':'.$self->o('password').'@'.$self->o('dna_db_server').':'.$self->o('dna_db_port').'/'.$self->o('dna_db_name'),
+        target_db_url  => $self->o('hive_driver').'://'.$self->o('user').':'.$self->o('password').'@'.$self->o('dna_db_host').':'.$self->o('dna_db_port').'/'.$self->o('dna_db_name'),
         msk            => $self->o('red_msk'),
         rpt            => $self->o('red_rpt'),
         red_meta_key   => $self->o('replace_repbase_with_red_to_mask'),

@@ -46,9 +46,9 @@ sub default_options {
     'user_r'             => '',                                                                                                # read only db user
     'user'               => '',                                                                                                # write db user
     'password'           => '',                                                                                                # password for write db user
-    'pipe_db_server'     => '',                                                                                                # host for pipe db
-    'databases_server'   => '',                                                                                                # host for general output dbs
-    'dna_db_server'      => '',                                                                                                # host for dna db
+    'pipe_db_host'       => '',                                                                                                # host for pipe db
+    'databases_host'     => '',                                                                                                # host for general output dbs
+    'dna_db_host'        => '',                                                                                                # host for dna db
     'pipe_db_port'       => '',                                                                                                # port for pipeline host
     'databases_port'     => '',                                                                                                # port for general output db host
     'dna_db_port'        => '',                                                                                                # port for dna db host
@@ -82,15 +82,15 @@ sub default_options {
     'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . '_core_' . $self->o('release_number'),
 
     'reference_db_name'   => $self->o('dna_db_name'),
-    'reference_db_server' => $self->o('dna_db_server'),
+    'reference_db_host'   => $self->o('dna_db_host'),
     'reference_db_port'   => $self->o('dna_db_port'),
 
-    'final_geneset_db_server' => $self->o('databases_server'),
+    'final_geneset_db_host'   => $self->o('databases_host'),
     'final_geneset_db_port'   => $self->o('databases_port'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'      => $ENV{ENSEMBL_RELEASE},     # this is the current release version on staging to be able to get the correct database
-    'production_db_server' => 'mysql-ens-meta-prod-1',
+    'production_db_host'   => 'mysql-ens-meta-prod-1',
     'production_db_port'   => '4483',
 
 ########################
@@ -123,7 +123,7 @@ sub default_options {
 ########################
     'reference_db' => {
       -dbname => $self->o('reference_db_name'),
-      -host   => $self->o('reference_db_server'),
+      -host   => $self->o('reference_db_host'),
       -port   => $self->o('reference_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -132,7 +132,7 @@ sub default_options {
 
     'final_geneset_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_final_' . $self->o('release_number'),
-      -host   => $self->o('final_geneset_db_server'),
+      -host   => $self->o('final_geneset_db_host'),
       -port   => $self->o('final_geneset_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -140,7 +140,7 @@ sub default_options {
     },
 
     'production_db' => {
-      -host   => $self->o('production_db_server'),
+      -host   => $self->o('production_db_host'),
       -port   => $self->o('production_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),

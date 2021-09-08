@@ -48,9 +48,9 @@ sub default_options {
     user                      => '', # write db user
     password                  => '', # password for write db user
     server_set                => '', # What server set to user, e.g. set1
-    pipe_db_server            => '', # host for pipe db
-    databases_server          => '', # host for general output dbs
-    dna_db_server             => '', # host for dna db
+    pipe_db_host              => '', # host for pipe db
+    databases_host            => '', # host for general output dbs
+    dna_db_host               => '', # host for dna db
     pipe_db_port              => '', # port for pipeline host
     databases_port            => '', # port for general output db host
     dna_db_port               => '', # port for dna db host
@@ -90,7 +90,7 @@ sub default_options {
     pipe_db_name                  => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
     dna_db_name                   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
 
-    ncrna_db_server              => $self->o('databases_server'),
+    ncrna_db_host                => $self->o('databases_host'),
     ncrna_db_port                => $self->o('databases_port'),
     ncrna_db_name                  => $self->o('dbowner').'_'.$self->o('production_name').'_ncrna_'.$self->o('release_number'),
 
@@ -147,7 +147,7 @@ sub default_options {
 ########################
     ncrna_db => {
       -dbname => $self->o('ncrna_db_name'),
-      -host   => $self->o('ncrna_db_server'),
+      -host   => $self->o('ncrna_db_host'),
       -port   => $self->o('ncrna_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -207,7 +207,7 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'perl '.catfile($self->o('sncrna_analysis_script'), 'repeats_dump.pl').' '.
           $self->o('dna_db_name'). ' ' .
-          $self->o('dna_db_server') . ' ' .
+          $self->o('dna_db_host') . ' ' .
           $self->o('dna_db_port') . ' ' .
           $self->o('user_r') . ' ' .
           $self->o('ncrna_dir').' blastmirna',
@@ -434,7 +434,7 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'perl '.catfile($self->o('sncrna_analysis_script'), 'dump_prefilter_features.pl')
           .' '.$self->o('ncrna_db_name')
-          .' '.$self->o('ncrna_db_server')
+          .' '.$self->o('ncrna_db_host')
           .' '.$self->o('ncrna_db_port')
           .' '.$self->o('user_r')
           .' '.$self->o('ncrna_dir')

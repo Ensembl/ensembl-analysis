@@ -48,9 +48,9 @@ sub default_options {
     'user_r'                    => '', # read only db user
     'user'                      => '', # write db user
     'password'                  => '', # password for write db user
-    'pipe_db_server'            => '', # host for pipe db
-    'dna_db_server'             => '', # host for dna db
-    'databases_server'          => '', # host for general output dbs
+    'pipe_db_host'              => '', # host for pipe db
+    'dna_db_host'               => '', # host for dna db
+    'databases_host'            => '', # host for general output dbs
     'pipe_db_port'              => '', # port for pipeline host
     'dna_db_port'               => '', # port for dna db host
     'databases_port'            => '', # port for general output db host
@@ -64,7 +64,7 @@ sub default_options {
 ########################
 
     'projection_source_db_name'         => '', # This is generally a pre-existing db, like the current human/mouse core for example
-    'projection_source_db_server'       => 'mysql-ens-mirror-1',
+    'projection_source_db_host'         => 'mysql-ens-mirror-1',
     'projection_source_db_port'         => '4240',
 
     # The following might not be known in advance, since the come from other pipelines
@@ -73,7 +73,7 @@ sub default_options {
     'pipe_db_name'  => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
 
     'projection_lastz_db_name'     => $self->o('dbowner').'_'.$self->o('production_name').'_lastz_pipe_'.$self->o('release_number'),
-    'projection_lastz_db_server'   => $self->o('pipe_db_server'),
+    'projection_lastz_db_host'     => $self->o('pipe_db_host'),
     'projection_lastz_db_port'     => $self->o('pipe_db_port'),
 
     'dna_db_name'   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
@@ -82,10 +82,10 @@ sub default_options {
     faidx_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_toplevel.fa' ),
     faidx_softmasked_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_softmasked_toplevel.fa.reheader' ),
 
-    'projection_db_server'  => $self->o('databases_server'),
+    'projection_db_host'    => $self->o('databases_host'),
     'projection_db_port'    => $self->o('databases_port'),
 
-    'selected_projection_db_server'  => $self->o('databases_server'),
+    'selected_projection_db_host'    => $self->o('databases_host'),
     'selected_projection_db_port'    => $self->o('databases_port'),
 
     databases_to_delete => ['projection_db', 'selected_projection_db',],
@@ -120,7 +120,7 @@ sub default_options {
 
     'projection_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_proj_'.$self->o('release_number'),
-      -host   => $self->o('projection_db_server'),
+      -host   => $self->o('projection_db_host'),
       -port   => $self->o('projection_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -129,7 +129,7 @@ sub default_options {
 
     'projection_source_db' => {
       -dbname => $self->o('projection_source_db_name'),
-      -host   => $self->o('projection_source_db_server'),
+      -host   => $self->o('projection_source_db_host'),
       -port   => $self->o('projection_source_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
@@ -138,7 +138,7 @@ sub default_options {
 
     'projection_lastz_db' => {
       -dbname => $self->o('projection_lastz_db_name'),
-      -host   => $self->o('projection_lastz_db_server'),
+      -host   => $self->o('projection_lastz_db_host'),
       -port   => $self->o('projection_lastz_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
@@ -147,7 +147,7 @@ sub default_options {
 
     'selected_projection_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_sel_proj_'.$self->o('release_number'),
-      -host   => $self->o('selected_projection_db_server'),
+      -host   => $self->o('selected_projection_db_host'),
       -port   => $self->o('selected_projection_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),

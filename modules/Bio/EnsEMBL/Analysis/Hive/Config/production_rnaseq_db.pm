@@ -48,11 +48,11 @@ sub default_options {
     'user_r'                    => '', # read only db user
     'user'                      => '', # write db user
     'password'                  => '', # password for write db user
-    'pipe_db_server'            => '', # host for pipe db
+    'pipe_db_host'              => '', # host for pipe db
     'pipe_db_port'              => '', # port for pipeline host
-    'databases_server'          => '', # host for general output dbs
+    'databases_host'            => '', # host for general output dbs
     'databases_port'            => '', # port for general output db host
-    'dna_db_server'             => '', # host for dna db
+    'dna_db_host'               => '', # host for dna db
     'dna_db_port'               => '', # port for dna db host
     'registry_host'             => '', # host for registry db
     'registry_port'             => '', # port for registry db
@@ -77,18 +77,18 @@ sub default_options {
     ########################
     # Pipe and ref db info
     ########################
-    'rnaseq_db_server'             => $self->o('databases_server'),
+    'rnaseq_db_host'               => $self->o('databases_host'),
     'rnaseq_db_port'               => $self->o('databases_port'),
 
-    'rnaseq_refine_db_server'       => $self->o('databases_server'),
+    'rnaseq_refine_db_host'         => $self->o('databases_host'),
     'rnaseq_refine_db_port'         => $self->o('databases_port'),
 
-    'rnaseq_blast_db_server'       => $self->o('databases_server'),
+    'rnaseq_blast_db_host'         => $self->o('databases_host'),
     'rnaseq_blast_db_port'         => $self->o('databases_port'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
-    'production_db_server'         => 'mysql-ens-meta-prod-1',
+    'production_db_host'           => 'mysql-ens-meta-prod-1',
     'production_db_port'           => '4483',
 
     databases_to_delete => ['rnaseq_db'],
@@ -136,7 +136,7 @@ sub default_options {
     ########################
     'rnaseq_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_'.$self->o('release_number'),
-      -host   => $self->o('rnaseq_db_server'),
+      -host   => $self->o('rnaseq_db_host'),
       -port   => $self->o('rnaseq_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -145,7 +145,7 @@ sub default_options {
 
     'rnaseq_blast_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_blast_'.$self->o('release_number'),
-      -host   => $self->o('rnaseq_blast_db_server'),
+      -host   => $self->o('rnaseq_blast_db_host'),
       -port   => $self->o('rnaseq_blast_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -154,7 +154,7 @@ sub default_options {
 
     'rnaseq_refine_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_refine_'.$self->o('release_number'),
-      -host   => $self->o('rnaseq_refine_db_server'),
+      -host   => $self->o('rnaseq_refine_db_host'),
       -port   => $self->o('rnaseq_refine_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -162,7 +162,7 @@ sub default_options {
     },
 
     'production_db' => {
-      -host   => $self->o('production_db_server'),
+      -host   => $self->o('production_db_host'),
       -port   => $self->o('production_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),

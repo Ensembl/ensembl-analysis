@@ -87,12 +87,12 @@ sub default_options {
     # Mostly constant settings
     #
     ######################################################
-    gene_db_host => $self->o('data_db_server'),
-    gene_db_port => $self->o('data_db_port'),
+    gene_db_host => $self->o('databases_host'),
+    gene_db_port => $self->o('databases_port'),
     gene_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_gene_'.$self->o('release_number'),
 
-    clean_utr_db_host => $self->o('data_db_server'),
-    clean_utr_db_port => $self->o('data_db_port'),
+    clean_utr_db_host => $self->o('databases_host'),
+    clean_utr_db_port => $self->o('databases_port'),
     clean_utr_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_clean_utr_'.$self->o('release_number'),
 
     ########################

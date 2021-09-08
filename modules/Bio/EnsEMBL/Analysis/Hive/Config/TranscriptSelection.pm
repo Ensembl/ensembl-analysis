@@ -47,9 +47,9 @@ sub default_options {
     'user'                      => '',                                                          # write db user
     'password'                  => '',                                                          # password for write db user
     'server_set'                => '',                                                          # What server set to user, e.g. set1
-    'pipe_db_server'            => '',                                                          # host for pipe db
-    'databases_server'          => '',                                                          # host for general output dbs
-    'dna_db_server'             => '',                                                          # host for dna db
+    'pipe_db_host'              => '',                                                          # host for pipe db
+    'databases_host'            => '',                                                          # host for general output dbs
+    'dna_db_host'               => '',                                                          # host for dna db
     'pipe_db_port'              => '',                                                          # port for pipeline host
     'databases_port'            => '',                                                          # port for general output db host
     'dna_db_port'               => '',                                                          # port for dna db host
@@ -67,47 +67,47 @@ sub default_options {
 # Pipe and ref db info
 ########################
 
-    'cdna_db_server' => $self->o('databases_server'),
+    'cdna_db_host'   => $self->o('databases_host'),
     'cdna_db_port'   => $self->o('databases_port'),
     'cdna_db_user'   => $self->o('user'),
     'cdna_db_pass'   => $self->o('password'),
 
-    'genblast_nr_db_server' => $self->o('databases_server'),
+    'genblast_nr_db_host'   => $self->o('databases_host'),
     'genblast_nr_db_port'   => $self->o('databases_port'),
     'genblast_nr_db_user'   => $self->o('user'),
     'genblast_nr_db_pass'   => $self->o('password'),
 
-    'genblast_rnaseq_support_nr_db_server' => $self->o('databases_server'),
+    'genblast_rnaseq_support_nr_db_host'   => $self->o('databases_host'),
     'genblast_rnaseq_support_nr_db_port'   => $self->o('databases_port'),
     'genblast_rnaseq_support_nr_db_user'   => $self->o('user'),
     'genblast_rnaseq_support_nr_db_pass'   => $self->o('password'),
 
-    'ig_tr_db_server' => $self->o('databases_server'),
+    'ig_tr_db_host'   => $self->o('databases_host'),
     'ig_tr_db_port'   => $self->o('databases_port'),
     'ig_tr_db_user'   => $self->o('user'),
     'ig_tr_db_pass'   => $self->o('password'),
 
-    'best_targeted_db_server' => $self->o('databases_server'),
+    'best_targeted_db_host'   => $self->o('databases_host'),
     'best_targeted_db_port'   => $self->o('databases_port'),
     'best_targeted_db_user'   => $self->o('user'),
     'best_targeted_db_pass'   => $self->o('password'),
 
-    'selected_projection_db_server' => $self->o('databases_server'),
+    'selected_projection_db_host'   => $self->o('databases_host'),
     'selected_projection_db_port'   => $self->o('databases_port'),
     'selected_projection_db_user'   => $self->o('user'),
     'selected_projection_db_pass'   => $self->o('password'),
 
-    'long_read_final_db_server' => $self->o('databases_server'),
+    'long_read_final_db_host'   => $self->o('databases_host'),
     'long_read_final_db_port'   => $self->o('databases_port'),
     'long_read_final_db_user'   => $self->o('user'),
     'long_read_final_db_pass'   => $self->o('password'),
 
-    'rnaseq_for_layer_db_server' => $self->o('databases_server'),
+    'rnaseq_for_layer_db_host'   => $self->o('databases_host'),
     'rnaseq_for_layer_db_port'   => $self->o('databases_port'),
     'rnaseq_for_layer_db_user'   => $self->o('user'),
     'rnaseq_for_layer_db_pass'   => $self->o('password'),
 
-    'rnaseq_for_layer_nr_db_server' => $self->o('databases_server'),
+    'rnaseq_for_layer_nr_db_host'   => $self->o('databases_host'),
     'rnaseq_for_layer_nr_db_port'   => $self->o('databases_port'),
     'rnaseq_for_layer_nr_db_user'   => $self->o('user'),
     'rnaseq_for_layer_nr_db_pass'   => $self->o('password'),
@@ -115,40 +115,40 @@ sub default_options {
     # Layering is one of the most intesnive steps, so separating it off the main output server helps
     # Have also set module to use flatfile seq retrieval, so even if it's on the same server as the
     # core, the core should not be accessed
-    'layering_db_server' => $self->o('dna_db_server'),
+    'layering_db_host'   => $self->o('dna_db_host'),
     'layering_db_port'   => $self->o('dna_db_port'),
     'layering_db_user'   => $self->o('user'),
     'layering_db_pass'   => $self->o('password'),
 
-    'utr_db_server' => $self->o('databases_server'),
+    'utr_db_host'   => $self->o('databases_host'),
     'utr_db_port'   => $self->o('databases_port'),
     'utr_db_user'   => $self->o('user'),
     'utr_db_pass'   => $self->o('password'),
 
-    'genebuilder_db_server' => $self->o('databases_server'),
+    'genebuilder_db_host'   => $self->o('databases_host'),
     'genebuilder_db_port'   => $self->o('databases_port'),
     'genebuilder_db_user'   => $self->o('user'),
     'genebuilder_db_pass'   => $self->o('password'),
 
-    'pseudogene_db_server' => $self->o('databases_server'),
+    'pseudogene_db_host'   => $self->o('databases_host'),
     'pseudogene_db_port'   => $self->o('databases_port'),
     'pseudogene_db_user'   => $self->o('user'),
     'pseudogene_db_pass'   => $self->o('password'),
 
-    'ncrna_db_server' => $self->o('databases_server'),
+    'ncrna_db_host'   => $self->o('databases_host'),
     'ncrna_db_port'   => $self->o('databases_port'),
     ncrna_db_name     => $self->o('dbowner') . '_' . $self->o('production_name') . '_ncrna_' . $self->o('release_number'),
     'ncrna_db_user'   => $self->o('user'),
     'ncrna_db_pass'   => $self->o('password'),
 
-    'final_geneset_db_server' => $self->o('databases_server'),
+    'final_geneset_db_host'   => $self->o('databases_host'),
     'final_geneset_db_port'   => $self->o('databases_port'),
     'final_geneset_db_user'   => $self->o('user'),
     'final_geneset_db_pass'   => $self->o('password'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'      => $ENV{ENSEMBL_RELEASE},     # this is the current release version on staging to be able to get the correct database
-    'production_db_server' => 'mysql-ens-meta-prod-1',
+    'production_db_host'   => 'mysql-ens-meta-prod-1',
     'production_db_port'   => '4483',
 
     databases_to_delete => ['layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'final_geneset_db'],    #, 'projection_realign_db'
@@ -256,7 +256,7 @@ sub default_options {
 
     'cdna_db' => {
       -dbname => $self->o('cdna_db_name'),
-      -host   => $self->o('cdna_db_server'),
+      -host   => $self->o('cdna_db_host'),
       -port   => $self->o('cdna_db_port'),
       -user   => $self->o('cdna_db_user'),
       -pass   => $self->o('cdna_db_pass'),
@@ -265,7 +265,7 @@ sub default_options {
 
     'genblast_nr_db' => {
       -dbname => $self->o('genblast_nr_db_name'),
-      -host   => $self->o('genblast_nr_db_server'),
+      -host   => $self->o('genblast_nr_db_host'),
       -port   => $self->o('genblast_nr_db_port'),
       -user   => $self->o('genblast_nr_db_user'),
       -pass   => $self->o('genblast_nr_db_pass'),
@@ -274,7 +274,7 @@ sub default_options {
 
     'genblast_rnaseq_support_nr_db' => {
       -dbname => $self->o('genblast_rnaseq_support_nr_db_name'),
-      -host   => $self->o('genblast_rnaseq_support_nr_db_server'),
+      -host   => $self->o('genblast_rnaseq_support_nr_db_host'),
       -port   => $self->o('genblast_rnaseq_support_nr_db_port'),
       -user   => $self->o('genblast_rnaseq_support_nr_db_user'),
       -pass   => $self->o('genblast_rnaseq_support_nr_db_pass'),
@@ -283,7 +283,7 @@ sub default_options {
 
     'ig_tr_db' => {
       -dbname => $self->o('ig_tr_db_name'),
-      -host   => $self->o('ig_tr_db_server'),
+      -host   => $self->o('ig_tr_db_host'),
       -port   => $self->o('ig_tr_db_port'),
       -user   => $self->o('ig_tr_db_user'),
       -pass   => $self->o('ig_tr_db_pass'),
@@ -292,7 +292,7 @@ sub default_options {
 
     'best_targeted_db' => {
       -dbname => $self->o('best_targeted_db_name'),
-      -host   => $self->o('best_targeted_db_server'),
+      -host   => $self->o('best_targeted_db_host'),
       -port   => $self->o('best_targeted_db_port'),
       -user   => $self->o('best_targeted_db_user'),
       -pass   => $self->o('best_targeted_db_pass'),
@@ -301,7 +301,7 @@ sub default_options {
 
     long_read_final_db => {
       -dbname => $self->o('long_read_final_db_name'),
-      -host   => $self->o('long_read_final_db_server'),
+      -host   => $self->o('long_read_final_db_host'),
       -port   => $self->o('long_read_final_db_port'),
       -user   => $self->o('long_read_final_db_user'),
       -pass   => $self->o('long_read_final_db_pass'),
@@ -310,7 +310,7 @@ sub default_options {
 
     'selected_projection_db' => {
       -dbname => $self->o('selected_projection_db_name'),
-      -host   => $self->o('selected_projection_db_server'),
+      -host   => $self->o('selected_projection_db_host'),
       -port   => $self->o('selected_projection_db_port'),
       -user   => $self->o('selected_projection_db_user'),
       -pass   => $self->o('selected_projection_db_pass'),
@@ -319,7 +319,7 @@ sub default_options {
 
     'rnaseq_for_layer_db' => {
       -dbname => $self->o('rnaseq_for_layer_db_name'),
-      -host   => $self->o('rnaseq_for_layer_db_server'),
+      -host   => $self->o('rnaseq_for_layer_db_host'),
       -port   => $self->o('rnaseq_for_layer_db_port'),
       -user   => $self->o('rnaseq_for_layer_db_user'),
       -pass   => $self->o('rnaseq_for_layer_db_pass'),
@@ -328,7 +328,7 @@ sub default_options {
 
     'rnaseq_for_layer_nr_db' => {
       -dbname => $self->o('rnaseq_for_layer_nr_db_name'),
-      -host   => $self->o('rnaseq_for_layer_nr_db_server'),
+      -host   => $self->o('rnaseq_for_layer_nr_db_host'),
       -port   => $self->o('rnaseq_for_layer_nr_db_port'),
       -user   => $self->o('rnaseq_for_layer_nr_db_user'),
       -pass   => $self->o('rnaseq_for_layer_nr_db_pass'),
@@ -337,7 +337,7 @@ sub default_options {
 
     'layering_db' => {
       -dbname => $self->o('layering_db_name'),
-      -host   => $self->o('layering_db_server'),
+      -host   => $self->o('layering_db_host'),
       -port   => $self->o('layering_db_port'),
       -user   => $self->o('layering_db_user'),
       -pass   => $self->o('layering_db_pass'),
@@ -346,7 +346,7 @@ sub default_options {
 
     'utr_db' => {
       -dbname => $self->o('utr_db_name'),
-      -host   => $self->o('utr_db_server'),
+      -host   => $self->o('utr_db_host'),
       -port   => $self->o('utr_db_port'),
       -user   => $self->o('utr_db_user'),
       -pass   => $self->o('utr_db_pass'),
@@ -355,7 +355,7 @@ sub default_options {
 
     'genebuilder_db' => {
       -dbname => $self->o('genebuilder_db_name'),
-      -host   => $self->o('genebuilder_db_server'),
+      -host   => $self->o('genebuilder_db_host'),
       -port   => $self->o('genebuilder_db_port'),
       -user   => $self->o('genebuilder_db_user'),
       -pass   => $self->o('genebuilder_db_pass'),
@@ -364,7 +364,7 @@ sub default_options {
 
     'pseudogene_db' => {
       -dbname => $self->o('pseudogene_db_name'),
-      -host   => $self->o('pseudogene_db_server'),
+      -host   => $self->o('pseudogene_db_host'),
       -port   => $self->o('pseudogene_db_port'),
       -user   => $self->o('pseudogene_db_user'),
       -pass   => $self->o('pseudogene_db_pass'),
@@ -373,7 +373,7 @@ sub default_options {
 
     'ncrna_db' => {
       -dbname => $self->o('ncrna_db_name'),
-      -host   => $self->o('ncrna_db_server'),
+      -host   => $self->o('ncrna_db_host'),
       -port   => $self->o('ncrna_db_port'),
       -user   => $self->o('ncrna_db_user'),
       -pass   => $self->o('ncrna_db_pass'),
@@ -382,7 +382,7 @@ sub default_options {
 
     'final_geneset_db' => {
       -dbname => $self->o('final_geneset_db_name'),
-      -host   => $self->o('final_geneset_db_server'),
+      -host   => $self->o('final_geneset_db_host'),
       -port   => $self->o('final_geneset_db_port'),
       -user   => $self->o('final_geneset_db_user'),
       -pass   => $self->o('final_geneset_db_pass'),

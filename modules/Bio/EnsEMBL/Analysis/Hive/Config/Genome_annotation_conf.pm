@@ -47,9 +47,9 @@ sub default_options {
     user                             => '', # write db user
     password                         => '', # password for write db user
     server_set                       => '', # What server set to user, e.g. set1
-    pipe_db_server                   => '', # host for pipe db
-    databases_server                 => '', # host for general output dbs
-    dna_db_server                    => '', # host for dna db
+    pipe_db_host                     => '', # host for pipe db
+    databases_host                   => '', # host for general output dbs
+    dna_db_host                      => '', # host for dna db
     pipe_db_port                     => '', # port for pipeline host
     databases_port                   => '', # port for general output db host
     dna_db_port                      => '', # port for dna db host
@@ -137,95 +137,95 @@ sub default_options {
     dna_db_name                   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
 
     reference_db_name            => $self->o('dna_db_name'),
-    reference_db_server          => $self->o('dna_db_server'),
+    reference_db_host            => $self->o('dna_db_host'),
     reference_db_port            => $self->o('dna_db_port'),
 
-    refseq_db_server             => $self->o('databases_server'),
-    refseq_db_port               => $self->o('databases_port'),
+    refseq_db_host => $self->o('databases_host'),
+    refseq_db_port => $self->o('databases_port'),
 
     projection_source_db_name    => '', # This is generally a pre-existing db, like the current human/mouse core for example
-    projection_source_db_server  => 'mysql-ens-mirror-1',
+    projection_source_db_host    => 'mysql-ens-mirror-1',
     projection_source_db_port    => '4240',
     projection_source_production_name => '',
 
-    compara_db_name     => 'leanne_ensembl_compara_95',
-    compara_db_server  => 'mysql-ens-genebuild-prod-5',
-    compara_db_port    => 4531,
+    compara_db_name => 'leanne_ensembl_compara_95',
+    compara_db_host => 'mysql-ens-genebuild-prod-5',
+    compara_db_port => 4531,
 
-    projection_db_server  => $self->o('databases_server'),
+    projection_db_host    => $self->o('databases_host'),
     projection_db_port    => $self->o('databases_port'),
 
-    genblast_db_server           => $self->o('databases_server'),
+    genblast_db_host             => $self->o('databases_host'),
     genblast_db_port             => $self->o('databases_port'),
 
-    genblast_nr_db_server           => $self->o('databases_server'),
+    genblast_nr_db_host             => $self->o('databases_host'),
     genblast_nr_db_port             => $self->o('databases_port'),
 
-    cdna_db_server               => $self->o('databases_server'),
+    cdna_db_host                 => $self->o('databases_host'),
     cdna_db_port                 => $self->o('databases_port'),
 
-    best_targeted_db_server               => $self->o('databases_server'),
+    best_targeted_db_host                 => $self->o('databases_host'),
     best_targeted_db_port                 => $self->o('databases_port'),
 
-    ig_tr_db_server              => $self->o('databases_server'),
+    ig_tr_db_host                => $self->o('databases_host'),
     ig_tr_db_port                => $self->o('databases_port'),
 
-    ncrna_db_server              => $self->o('databases_server'),
+    ncrna_db_host                => $self->o('databases_host'),
     ncrna_db_port                => $self->o('databases_port'),
 
-    rnaseq_db_server             => $self->o('databases_server'),
+    rnaseq_db_host               => $self->o('databases_host'),
     rnaseq_db_port               => $self->o('databases_port'),
 
-    rnaseq_refine_db_server       => $self->o('databases_server'),
+    rnaseq_refine_db_host         => $self->o('databases_host'),
     rnaseq_refine_db_port         => $self->o('databases_port'),
 
-    rnaseq_blast_db_server       => $self->o('databases_server'),
+    rnaseq_blast_db_host         => $self->o('databases_host'),
     rnaseq_blast_db_port         => $self->o('databases_port'),
 
-    long_read_initial_db_server  => $self->o('databases_server'),
+    long_read_initial_db_host    => $self->o('databases_host'),
     long_read_initial_db_port    => $self->o('databases_port'),
 
-    long_read_final_db_server    => $self->o('databases_server'),
+    long_read_final_db_host      => $self->o('databases_host'),
     long_read_final_db_port      => $self->o('databases_port'),
 
-    rnaseq_for_layer_db_server   => $self->o('databases_server'),
+    rnaseq_for_layer_db_host     => $self->o('databases_host'),
     rnaseq_for_layer_db_port     => $self->o('databases_port'),
 
-    rnaseq_for_layer_nr_db_server   => $self->o('databases_server'),
+    rnaseq_for_layer_nr_db_host     => $self->o('databases_host'),
     rnaseq_for_layer_nr_db_port     => $self->o('databases_port'),
 
-    genblast_rnaseq_support_db_server  => $self->o('databases_server'),
+    genblast_rnaseq_support_db_host    => $self->o('databases_host'),
     genblast_rnaseq_support_db_port    => $self->o('databases_port'),
 
     # Layering is one of the most intesnive steps, so separating it off the main output server helps
     # Have also set module to use flatfile seq retrieval, so even if it's on the same server as the
     # core, the core should not be accessed
-    layering_db_server           => $self->o('dna_db_server'),
+    layering_db_host             => $self->o('dna_db_host'),
     layering_db_port             => $self->o('dna_db_port'),
 
-    utr_db_server                => $self->o('databases_server'),
+    utr_db_host                  => $self->o('databases_host'),
     utr_db_port                  => $self->o('databases_port'),
 
-    genebuilder_db_server        => $self->o('databases_server'),
+    genebuilder_db_host         => $self->o('databases_host'),
     genebuilder_db_port          => $self->o('databases_port'),
 
-    pseudogene_db_server         => $self->o('databases_server'),
+    pseudogene_db_host           => $self->o('databases_host'),
     pseudogene_db_port           => $self->o('databases_port'),
 
-    final_geneset_db_server      => $self->o('databases_server'),
+    final_geneset_db_host        => $self->o('databases_host'),
     final_geneset_db_port        => $self->o('databases_port'),
 
-    killlist_db_server           => $self->o('databases_server'),
+    killlist_db_host             => $self->o('databases_host'),
     killlist_db_port             => $self->o('databases_port'),
 
-    otherfeatures_db_server      => $self->o('databases_server'),
+    otherfeatures_db_host        => $self->o('databases_host'),
     otherfeatures_db_port        => $self->o('databases_port'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
-    production_db_server         => 'mysql-ens-meta-prod-1',
+    production_db_host           => 'mysql-ens-meta-prod-1',
     production_db_port           => '4483',
 
-    taxonomy_db_server      => $self->o('production_db_server'),
+    taxonomy_db_host        => $self->o('production_db_host'),
     taxonomy_db_port        => $self->o('production_db_port'),
 
     databases_to_delete => [],
@@ -275,7 +275,7 @@ sub default_options {
 ########################
     reference_db => {
       -dbname => $self->o('reference_db_name'),
-      -host   => $self->o('reference_db_server'),
+      -host   => $self->o('reference_db_host'),
       -port   => $self->o('reference_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -284,7 +284,7 @@ sub default_options {
 
     refseq_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_refseq_'.$self->o('release_number'),
-      -host   => $self->o('refseq_db_server'),
+      -host   => $self->o('refseq_db_host'),
       -port   => $self->o('refseq_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -293,7 +293,7 @@ sub default_options {
 
     compara_db => {
       -dbname => $self->o('compara_db_name'),
-      -host   => $self->o('compara_db_server'),
+      -host   => $self->o('compara_db_host'),
       -port   => $self->o('compara_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -302,7 +302,7 @@ sub default_options {
 
     projection_source_db => {
       -dbname => $self->o('projection_source_db_name'),
-      -host   => $self->o('projection_source_db_server'),
+      -host   => $self->o('projection_source_db_host'),
       -port   => $self->o('projection_source_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
@@ -311,7 +311,7 @@ sub default_options {
 
     selected_projection_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_sel_proj_'.$self->o('release_number'),
-      -host   => $self->o('projection_db_server'),
+      -host   => $self->o('projection_db_host'),
       -port   => $self->o('projection_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -320,7 +320,7 @@ sub default_options {
 
     genblast_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_'.$self->o('release_number'),
-      -host   => $self->o('genblast_db_server'),
+      -host   => $self->o('genblast_db_host'),
       -port   => $self->o('genblast_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -329,7 +329,7 @@ sub default_options {
 
     genblast_nr_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_nr_'.$self->o('release_number'),
-      -host   => $self->o('genblast_nr_db_server'),
+      -host   => $self->o('genblast_nr_db_host'),
       -port   => $self->o('genblast_nr_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -338,7 +338,7 @@ sub default_options {
 
     cdna_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_cdna_'.$self->o('release_number'),
-      -host   => $self->o('cdna_db_server'),
+      -host   => $self->o('cdna_db_host'),
       -port   => $self->o('cdna_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -347,7 +347,7 @@ sub default_options {
 
     best_targeted_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_bt_'.$self->o('release_number'),
-      -host   => $self->o('best_targeted_db_server'),
+      -host   => $self->o('best_targeted_db_host'),
       -port   => $self->o('best_targeted_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -356,7 +356,7 @@ sub default_options {
 
     ig_tr_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_igtr_'.$self->o('release_number'),
-      -host   => $self->o('ig_tr_db_server'),
+      -host   => $self->o('ig_tr_db_host'),
       -port   => $self->o('ig_tr_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -365,7 +365,7 @@ sub default_options {
 
     ncrna_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_ncrna_'.$self->o('release_number'),
-      -host   => $self->o('ncrna_db_server'),
+      -host   => $self->o('ncrna_db_host'),
       -port   => $self->o('ncrna_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -374,7 +374,7 @@ sub default_options {
 
     rnaseq_refine_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_refine_'.$self->o('release_number'),
-      -host   => $self->o('rnaseq_refine_db_server'),
+      -host   => $self->o('rnaseq_refine_db_host'),
       -port   => $self->o('rnaseq_refine_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -383,7 +383,7 @@ sub default_options {
 
     rnaseq_blast_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_blast_'.$self->o('release_number'),
-      -host   => $self->o('rnaseq_blast_db_server'),
+      -host   => $self->o('rnaseq_blast_db_host'),
       -port   => $self->o('rnaseq_blast_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -392,7 +392,7 @@ sub default_options {
 
     rnaseq_for_layer_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_layer_'.$self->o('release_number'),
-      -host   => $self->o('rnaseq_for_layer_db_server'),
+      -host   => $self->o('rnaseq_for_layer_db_host'),
       -port   => $self->o('rnaseq_for_layer_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -401,7 +401,7 @@ sub default_options {
 
     rnaseq_for_layer_nr_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnalayer_nr_'.$self->o('release_number'),
-      -host   => $self->o('rnaseq_for_layer_nr_db_server'),
+      -host   => $self->o('rnaseq_for_layer_nr_db_host'),
       -port   => $self->o('rnaseq_for_layer_nr_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -410,7 +410,7 @@ sub default_options {
 
     long_read_final_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_lrfinal_'.$self->o('release_number'),
-      -host => $self->o('long_read_final_db_server'),
+      -host => $self->o('long_read_final_db_host'),
       -port => $self->o('long_read_final_db_port'),
       -user => $self->o('user'),
       -pass => $self->o('password'),
@@ -419,7 +419,7 @@ sub default_options {
 
     genblast_rnaseq_support_nr_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_gb_rnaseq_nr_'.$self->o('release_number'),
-      -host   => $self->o('genblast_rnaseq_support_db_server'),
+      -host   => $self->o('genblast_rnaseq_support_db_host'),
       -port   => $self->o('genblast_rnaseq_support_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -428,7 +428,7 @@ sub default_options {
 
     final_geneset_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_final_'.$self->o('release_number'),
-      -host   => $self->o('final_geneset_db_server'),
+      -host   => $self->o('final_geneset_db_host'),
       -port   => $self->o('final_geneset_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -437,7 +437,7 @@ sub default_options {
 
     rnaseq_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_'.$self->o('release_number'),
-      -host   => $self->o('rnaseq_db_server'),
+      -host   => $self->o('rnaseq_db_host'),
       -port   => $self->o('rnaseq_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -446,7 +446,7 @@ sub default_options {
 
     otherfeatures_db => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_otherfeatures_'.$self->o('release_number'),
-      -host   => $self->o('otherfeatures_db_server'),
+      -host   => $self->o('otherfeatures_db_host'),
       -port   => $self->o('otherfeatures_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -455,7 +455,7 @@ sub default_options {
 
     killlist_db => {
       -dbname => $self->o('killlist_db_name'),
-      -host   => $self->o('killlist_db_server'),
+      -host   => $self->o('killlist_db_host'),
       -port   => $self->o('killlist_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
@@ -463,7 +463,7 @@ sub default_options {
     },
 
     production_db => {
-      -host   => $self->o('production_db_server'),
+      -host   => $self->o('production_db_host'),
       -port   => $self->o('production_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
@@ -472,7 +472,7 @@ sub default_options {
     },
 
     taxonomy_db => {
-      -host   => $self->o('production_db_server'),
+      -host   => $self->o('production_db_host'),
       -port   => $self->o('production_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
@@ -529,82 +529,82 @@ sub pipeline_analyses {
   my ($load_assembly_pipe_db, $load_assembly_pipe_url, $load_assembly_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'load_assembly_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($repeat_masking_pipe_db, $repeat_masking_pipe_url, $repeat_masking_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'repeat_masking_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($refseq_import_pipe_db, $refseq_import_pipe_url, $refseq_import_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'refseq_import_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($lastz_pipe_db, $lastz_pipe_url, $lastz_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'lastz_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($projection_pipe_db, $projection_pipe_url, $projection_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'projection_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($homology_pipe_db, $homology_pipe_url, $homology_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'homology_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($best_targeted_pipe_db, $best_targeted_pipe_url, $best_targeted_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'best_targeted_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($igtr_pipe_db, $igtr_pipe_url, $igtr_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'igtr_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($short_ncrna_pipe_db, $short_ncrna_pipe_url, $short_ncrna_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'short_ncrna_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($rnaseq_pipe_db, $rnaseq_pipe_url, $rnaseq_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'rnaseq_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($long_read_pipe_db, $long_read_pipe_url, $long_read_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'long_read_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($homology_rnaseq_pipe_db, $homology_rnaseq_pipe_url, $homology_rnaseq_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'homology_rnaseq_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($transcript_finalisation_pipe_db, $transcript_finalisation_pipe_url, $transcript_finalisation_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'set_finalisation_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($core_db_finalisation_pipe_db, $core_db_finalisation_pipe_url, $core_db_finalisation_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'db_finalisation_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($otherfeatures_db_pipe_db, $otherfeatures_db_pipe_url, $otherfeatures_db_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'otherfeatures_db_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
   my ($rnaseq_db_pipe_db, $rnaseq_db_pipe_url, $rnaseq_db_guihive) = $self->get_meta_db_information(
       undef,
       sprintf($db_name_template, $self->o('dbowner'), $self->o('production_name'), 'rnaseq_db_pipe', $self->o('release_number')),
-      $self->o('pipe_db_server')
+      $self->o('pipe_db_host')
     );
 
 
@@ -704,7 +704,7 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
           repbase_logic_name => $self->o('repbase_logic_name'),
           release_number => $self->o('release_number'),
@@ -802,9 +802,9 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          databases_server => $self->o('databases_server'),
+          databases_host => $self->o('databases_host'),
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
@@ -859,7 +859,7 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
@@ -970,9 +970,9 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          databases_server => $self->o('databases_server'),
+          databases_host => $self->o('databases_host'),
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
@@ -1159,7 +1159,7 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
@@ -1241,9 +1241,9 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          databases_server => $self->o('databases_server'),
+          databases_host => $self->o('databases_host'),
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
@@ -1301,9 +1301,9 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          databases_server => $self->o('databases_server'),
+          databases_host => $self->o('databases_host'),
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
@@ -1362,9 +1362,9 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          databases_server => $self->o('databases_server'),
+          databases_host => $self->o('databases_host'),
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
@@ -1421,9 +1421,9 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          databases_server => $self->o('databases_server'),
+          databases_host => $self->o('databases_host'),
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
@@ -1502,9 +1502,9 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          databases_server => $self->o('databases_server'),
+          databases_host => $self->o('databases_host'),
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
@@ -1588,9 +1588,9 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          databases_server => $self->o('databases_server'),
+          databases_host => $self->o('databases_host'),
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           assembly_name => $self->o('assembly_name'),
@@ -1651,9 +1651,9 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          databases_server => $self->o('databases_server'),
+          databases_host => $self->o('databases_host'),
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
@@ -1722,9 +1722,9 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          databases_server => $self->o('databases_server'),
+          databases_host => $self->o('databases_host'),
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
@@ -1783,9 +1783,9 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          databases_server => $self->o('databases_server'),
+          databases_host => $self->o('databases_host'),
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
@@ -1883,9 +1883,9 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          databases_server => $self->o('databases_server'),
+          databases_host => $self->o('databases_host'),
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
@@ -1960,9 +1960,9 @@ sub pipeline_analyses {
         extra_parameters => {
           output_path => $self->o('output_path'),
           user_r => $self->o('user_r'),
-          dna_db_server => $self->o('dna_db_server'),
+          dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          databases_server => $self->o('databases_server'),
+          databases_host => $self->o('databases_host'),
           databases_port => $self->o('databases_port'),
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),

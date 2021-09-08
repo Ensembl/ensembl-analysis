@@ -46,9 +46,9 @@ sub default_options {
     'user_r'                    => '',                                  # read only db user
     'user'                      => '',                                  # write db user
     'password'                  => '',                                  # password for write db user
-    'pipe_db_server'            => '',                                  # host for pipe db
-    'databases_server'          => '',                                  # host for general output dbs
-    'dna_db_server'             => '',                                  # host for dna db
+    'pipe_db_host'              => '',                                  # host for pipe db
+    'databases_host'            => '',                                  # host for general output dbs
+    'dna_db_host'               => '',                                  # host for dna db
     'pipe_db_port'              => '',                                  # port for pipeline host
     'databases_port'            => '',                                  # port for general output db host
     'dna_db_port'               => '',                                  # port for dna db host
@@ -74,18 +74,18 @@ sub default_options {
     'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . '_pipe_' . $self->o('release_number'),
     'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . '_core_' . $self->o('release_number'),
 
-    'cdna_db_server' => $self->o('databases_server'),
+    'cdna_db_host'   => $self->o('databases_host'),
     'cdna_db_port'   => $self->o('databases_port'),
 
-    'refseq_db_server' => $self->o('databases_server'),
+    'refseq_db_host'   => $self->o('databases_host'),
     'refseq_db_port'   => $self->o('databases_port'),
 
-    'otherfeatures_db_server' => $self->o('databases_server'),
+    'otherfeatures_db_host'   => $self->o('databases_host'),
     'otherfeatures_db_port'   => $self->o('databases_port'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'      => $ENV{ENSEMBL_RELEASE},     # this is the current release version on staging to be able to get the correct database
-    'production_db_server' => 'mysql-ens-meta-prod-1',
+    'production_db_host'   => 'mysql-ens-meta-prod-1',
     'production_db_port'   => '4483',
 
     databases_to_delete => ['otherfeatures_db'],    #, 'projection_realign_db'
@@ -117,7 +117,7 @@ sub default_options {
 ########################
     'cdna_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_cdna_' . $self->o('release_number'),
-      -host   => $self->o('cdna_db_server'),
+      -host   => $self->o('cdna_db_host'),
       -port   => $self->o('cdna_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -126,7 +126,7 @@ sub default_options {
 
     'refseq_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_refseq_' . $self->o('release_number'),
-      -host   => $self->o('refseq_db_server'),
+      -host   => $self->o('refseq_db_host'),
       -port   => $self->o('refseq_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -134,7 +134,7 @@ sub default_options {
     },
 
     'production_db' => {
-      -host   => $self->o('production_db_server'),
+      -host   => $self->o('production_db_host'),
       -port   => $self->o('production_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
@@ -144,7 +144,7 @@ sub default_options {
 
     'otherfeatures_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_otherfeatures_' . $self->o('release_number'),
-      -host   => $self->o('otherfeatures_db_server'),
+      ghost   => $self->o('otherfeatures_db_host'),
       -port   => $self->o('otherfeatures_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),

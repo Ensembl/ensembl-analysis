@@ -49,9 +49,9 @@ sub default_options {
     'user_r'           => '',    # read only db user
     'user'             => '',    # write db user
     'password'         => '',    # password for write db user
-    'pipe_db_server'   => '',    # host for pipe db
-    'dna_db_server'    => '',    # host for dna db
-    'databases_server' => '',    # host for general output dbs
+    'pipe_db_host'     => '',    # host for pipe db
+    'dna_db_host'      => '',    # host for dna db
+    'databases_host'   => '',    # host for general output dbs
 
     'pipe_db_port'   => '',      # port for pipeline host
     'dna_db_port'    => '',      # port for dna db host
@@ -101,19 +101,19 @@ sub default_options {
     'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . '_pipe_' . $self->o('release_number'),
     'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . '_core_' . $self->o('release_number'),
 
-    'cdna_db_server' => $self->o('databases_server'),
+    'cdna_db_host'   => $self->o('databases_host'),
     'cdna_db_port'   => $self->o('databases_port'),
 
-    'cdna2genome_db_server' => $self->o('databases_server'),
+    'cdna2genome_db_host'   => $self->o('databases_host'),
     'cdna2genome_db_port'   => $self->o('databases_port'),
 
-    'genewise_db_server' => $self->o('databases_server'),
+    'genewise_db_host'   => $self->o('databases_host'),
     'genewise_db_port'   => $self->o('databases_port'),
 
-    'best_targeted_db_server' => $self->o('databases_server'),
+    'best_targeted_db_host'   => $self->o('databases_host'),
     'best_targeted_db_port'   => $self->o('databases_port'),
 
-    'killlist_db_server' => $self->o('databases_server'),
+    'killlist_db_host'   => $self->o('databases_host'),
     'killlist_db_port'   => $self->o('databases_port'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
@@ -143,7 +143,7 @@ sub default_options {
 
     'cdna_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_cdna_' . $self->o('release_number'),
-      -host   => $self->o('cdna_db_server'),
+      -host   => $self->o('cdna_db_host'),
       -port   => $self->o('cdna_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -152,7 +152,7 @@ sub default_options {
 
     'cdna2genome_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_cdna2genome_' . $self->o('release_number'),
-      -host   => $self->o('cdna2genome_db_server'),
+      -host   => $self->o('cdna2genome_db_host'),
       -port   => $self->o('cdna2genome_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -161,7 +161,7 @@ sub default_options {
 
     'genewise_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_genewise_' . $self->o('release_number'),
-      -host   => $self->o('genewise_db_server'),
+      -host   => $self->o('genewise_db_host'),
       -port   => $self->o('genewise_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -170,7 +170,7 @@ sub default_options {
 
     'best_targeted_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_bt_' . $self->o('release_number'),
-      -host   => $self->o('best_targeted_db_server'),
+      -host   => $self->o('best_targeted_db_host'),
       -port   => $self->o('best_targeted_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -179,7 +179,7 @@ sub default_options {
 
     'killlist_db' => {
       -dbname => $self->o('killlist_db_name'),
-      -host   => $self->o('killlist_db_server'),
+      -host   => $self->o('killlist_db_host'),
       -port   => $self->o('killlist_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),

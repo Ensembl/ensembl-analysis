@@ -48,8 +48,8 @@ sub default_options {
     'user_r'                    => '', # read only db user
     'user'                      => '', # write db user
     'password'                  => '', # password for write db user
-    'pipe_db_server'            => '', # host for pipe db
-    'dna_db_server'             => '', # host for dna db
+    'pipe_db_host'              => '', # host for pipe db
+    'dna_db_host'               => '', # host for dna db
     'pipe_db_port'              => '', # port for pipeline host
     'dna_db_port'               => '', # port for dna db host
 
@@ -72,7 +72,7 @@ sub default_options {
     'pipe_db_name'                  => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
     'dna_db_name'                   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
 
-    'ig_tr_db_server'              => $self->o('databases_server'),
+    'ig_tr_db_host'                => $self->o('databases_host'),
     'ig_tr_db_port'                => $self->o('databases_port'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
@@ -123,7 +123,7 @@ sub default_options {
 
     'ig_tr_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_igtr_'.$self->o('release_number'),
-      -host   => $self->o('ig_tr_db_server'),
+      -host   => $self->o('ig_tr_db_host'),
       -port   => $self->o('ig_tr_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),

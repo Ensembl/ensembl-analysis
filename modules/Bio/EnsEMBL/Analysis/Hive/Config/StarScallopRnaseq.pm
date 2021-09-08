@@ -48,9 +48,9 @@ sub default_options {
     'user'                      => '',                                                                                # write db user
     'password'                  => '',                                                                                # password for write db user
     'server_set'                => '',                                                                                # What server set to user, e.g. set1
-    'pipe_db_server'            => '',                                                                                # host for pipe db
-    'databases_server'          => '',                                                                                # host for general output dbs
-    'dna_db_server'             => '',                                                                                # host for dna db
+    'pipe_db_host'              => '',                                                                                # host for pipe db
+    'databases_host'            => '',                                                                                # host for general output dbs
+    'dna_db_host'               => '',                                                                                # host for dna db
     'pipe_db_port'              => '',                                                                                # port for pipeline host
     'databases_port'            => '',                                                                                # port for general output db host
     'dna_db_port'               => '',                                                                                # port for dna db host
@@ -81,21 +81,21 @@ sub default_options {
     'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . '_core_' . $self->o('release_number'),
 
     'reference_db_name'   => $self->o('dna_db_name'),
-    'reference_db_server' => $self->o('dna_db_server'),
+    'reference_db_host'   => $self->o('dna_db_host'),
     'reference_db_port'   => $self->o('dna_db_port'),
 
-    'rnaseq_for_layer_db_server' => $self->o('databases_server'),
+    'rnaseq_for_layer_db_host'   => $self->o('databases_host'),
     'rnaseq_for_layer_db_port'   => $self->o('databases_port'),
     'rnaseq_for_layer_db_name'   => $self->o('dbowner') . '_' . $self->o('production_name') . '_star_rs_layer_' . $self->o('release_number'),
 
-    'rnaseq_for_layer_nr_db_server' => $self->o('databases_server'),
+    'rnaseq_for_layer_nr_db_host'   => $self->o('databases_host'),
     'rnaseq_for_layer_nr_db_port'   => $self->o('databases_port'),
     'rnaseq_for_layer_nr_db_name'   => $self->o('dbowner') . '_' . $self->o('production_name') . '_star_rs_layer_nr_' . $self->o('release_number'),
 
-    'scallop_initial_db_server' => $self->o('databases_server'),
+    'scallop_initial_db_host'   => $self->o('databases_host'),
     'scallop_initial_db_port'   => $self->o('databases_port'),
 
-    'scallop_blast_db_server' => $self->o('databases_server'),
+    'scallop_blast_db_host'   => $self->o('databases_host'),
     'scallop_blast_db_port'   => $self->o('databases_port'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
@@ -195,7 +195,7 @@ sub default_options {
 ########################
     'rnaseq_for_layer_db' => {
       -dbname => $self->o('rnaseq_for_layer_db_name'),
-      -host   => $self->o('rnaseq_for_layer_db_server'),
+      -host   => $self->o('rnaseq_for_layer_db_host'),
       -port   => $self->o('rnaseq_for_layer_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -204,7 +204,7 @@ sub default_options {
 
     'rnaseq_for_layer_nr_db' => {
       -dbname => $self->o('rnaseq_for_layer_nr_db_name'),
-      -host   => $self->o('rnaseq_for_layer_nr_db_server'),
+      -host   => $self->o('rnaseq_for_layer_nr_db_host'),
       -port   => $self->o('rnaseq_for_layer_nr_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -213,7 +213,7 @@ sub default_options {
 
     'scallop_initial_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_scallop_initial_' . $self->o('release_number'),
-      -host   => $self->o('scallop_initial_db_server'),
+      -host   => $self->o('scallop_initial_db_host'),
       -port   => $self->o('scallop_initial_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -222,7 +222,7 @@ sub default_options {
 
     'scallop_blast_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_scallop_blast_' . $self->o('release_number'),
-      -host   => $self->o('scallop_blast_db_server'),
+      -host   => $self->o('scallop_blast_db_host'),
       -port   => $self->o('scallop_blast_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),

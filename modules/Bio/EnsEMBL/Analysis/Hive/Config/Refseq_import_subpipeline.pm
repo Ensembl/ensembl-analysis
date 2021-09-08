@@ -49,11 +49,11 @@ sub default_options {
     'user_r'           => '',    # read only db user
     'user'             => '',    # write db user
     'password'         => '',    # password for write db user
-    'pipe_db_server'   => '',    # host for pipe db
-    'dna_db_server'    => '',    # host for dna db
+    'pipe_db_host'     => '',    # host for pipe db
+    'dna_db_host'      => '',    # host for dna db
     'pipe_db_port'     => '',    # port for pipeline host
     'dna_db_port'      => '',    # port for dna db host
-    'databases_server' => '',
+    'databases_host' => '',
     'databases_port'   => '',
 
     'release_number' => '' || $self->o('ensembl_release'),
@@ -73,7 +73,7 @@ sub default_options {
     # If they are not needed (i.e. no projection or rnaseq) then leave them as is
 
     'reference_db_name'   => $self->o('dna_db_name'),
-    'reference_db_server' => $self->o('dna_db_server'),
+    'reference_db_host'   => $self->o('dna_db_host'),
     'reference_db_port'   => $self->o('dna_db_port'),
 
     'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . '_pipe_' . $self->o('release_number'),
@@ -93,7 +93,7 @@ sub default_options {
     ########################
     'reference_db' => {
       -dbname => $self->o('reference_db_name'),
-      -host   => $self->o('reference_db_server'),
+      -host   => $self->o('reference_db_host'),
       -port   => $self->o('reference_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -102,7 +102,7 @@ sub default_options {
 
     'refseq_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_refseq_' . $self->o('release_number'),
-      -host   => $self->o('refseq_db_server'),
+      -host   => $self->o('refseq_db_host'),
       -port   => $self->o('refseq_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),

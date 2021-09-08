@@ -22,8 +22,8 @@ This base config should be used by all pipeline created for the ensembl-annotati
 =head1 METHODS
 
 default_options: returns the default options from HiveGeneric_conf and it adds pipeline_db,
-  dna_db and use_tokens. The inheriting class needs to specify; pipe_db_name, pipe_db_server,
-  port, user, password, reference_db_name, reference_db_server, user_r, dna_db_name, dna_db_server
+  dna_db, data_db. The inheriting class needs to specify; pipe_db_name, pipe_db_host,
+  port, user, password, reference_db_name, reference_db_host, user_r, dna_db_name, dna_db_host
 
 lsf_resource_builder: returns the parameters string for LSF meadow_type
 
@@ -57,35 +57,47 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
                 linuxbrew_home_path => $ENV{LINUXBREW_HOME},
                 binary_base => catdir($self->o('linuxbrew_home_path'), 'bin'),
 
-                # Usefull if you want to use one server for all your databases, not great but ok
-                data_db_server => $self->o('host'),
-                data_db_host => $self->o('data_db_server'), # data_dbs_server will be deprecated
-                data_db_port => $self->o('port'),
-                data_db_user => $self->o('user'),
-                data_db_password => $self->o('password'),
-                data_db_driver => $self->o('hive_driver'),
-                data_db_pass => $self->o('data_db_password'), # data_dbs_password will be deprecated
+                guihive_host => 'http://guihive.ebi.ac.uk',
+                guihive_port => 8080,
 
-                dna_db_server => $self->o('host'),
-                dna_db_host => $self->o('dna_db_server'), # dna_db_server will be deprecated
+                # Usefull if you want to use one server for all your databases, not great but ok
+                databases_host => $self->o('host'),
+                databases_port => $self->o('port'),
+
+                dna_db_host => $self->o('host'),
                 dna_db_name => undef,
                 dna_db_port => $self->o('port'),
                 dna_db_user => $self->o('user_r'),
-                dna_db_password => $self->o('password_r'),
-                dna_db_pass => $self->o('dna_db_password'), # dna_db_password will be deprecated
+                dna_db_pass => $self->o('password_r'),
                 dna_db_driver => $self->o('hive_driver'),
                 dna_db_host => $self->o('dna_db_host'),
 
-                pipe_dbname => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
-                pipe_db_name => $self->o('pipe_dbname'), # pipe_dbname will be deprecated
-                pipe_db_server => $self->o('host'),
-                pipe_db_host => $self->o('pipe_db_server'), # pipe_db_server will be deprecated
+                pipe_db_name => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+                pipe_db_host => $self->o('host'),
                 pipe_db_port => $self->o('port'),
                 pipe_db_user => $self->o('user'),
-                pipe_db_password => $self->o('password'),
-                pipe_db_pass => $self->o('pipe_db_password'), # pipe_db_password will be deprecated
+                pipe_db_pass => $self->o('password'), # pipe_db_password will be deprecated
                 pipe_db_driver => $self->o('hive_driver'),
-              and two DB connection hash: pipeline_db and dna_db
+
+                killlist_db_name => 'gb_kill_list',
+
+                pipeline_db => {
+                    -dbname => $self->o('pipe_db_name'),
+                    -host   => $self->o('pipe_db_host'),
+                    -port   => $self->o('pipe_db_port'),
+                    -user   => $self->o('pipe_db_user'),
+                    -pass   => $self->o('pipe_db_pass'),
+                    -driver => $self->o('pipe_db_driver'),
+                },
+
+                dna_db => {
+                    -dbname => $self->o('dna_db_name'),
+                    -host   => $self->o('dna_db_host'),
+                    -port   => $self->o('dna_db_port'),
+                    -user   => $self->o('dna_db_user'),
+                    -pass   => $self->o('dna_db_pass'),
+                    -driver => $self->o('dna_db_driver'),
+                },
  Returntype : Hashref
  Exceptions : None
 
@@ -113,36 +125,26 @@ sub default_options {
         guihive_host => 'http://guihive.ebi.ac.uk',
         guihive_port => 8080,
 
-        data_db_server => $self->o('host'),
-        data_db_host => $self->o('data_db_server'),
-        data_db_port => $self->o('port'),
-        data_db_user => $self->o('user'),
-        data_db_password => $self->o('password'),
-        data_db_driver => $self->o('hive_driver'),
-        data_db_pass => $self->o('data_db_password'),
+        databases_host => $self->o('host'),
+        databases_port => $self->o('port'),
 
-        dna_db_server => $self->o('host'),
-        dna_db_host => $self->o('dna_db_server'),
+        dna_db_host => $self->o('host'),
         dna_db_name => undef,
         dna_db_port => $self->o('port'),
         dna_db_user => $self->o('user_r'),
-        dna_db_password => $self->o('password_r'),
-        dna_db_pass => $self->o('dna_db_password'),
+        dna_db_pass => $self->o('password_r'),
         dna_db_driver => $self->o('hive_driver'),
 
-        pipe_dbname => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
-        pipe_db_name => $self->o('pipe_dbname'),
-        pipe_db_server => $self->o('host'),
-        pipe_db_host => $self->o('pipe_db_server'),
+        pipe_db_name => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+        pipe_db_host => $self->o('host'),
         pipe_db_port => $self->o('port'),
         pipe_db_user => $self->o('user'),
-        pipe_db_password => $self->o('password'),
-        pipe_db_pass => $self->o('pipe_db_password'),
+        pipe_db_pass => $self->o('password'),
         pipe_db_driver => $self->o('hive_driver'),
 
         killlist_db_name => 'gb_kill_list',
 
-        'pipeline_db' => {
+        pipeline_db => {
             -dbname => $self->o('pipe_db_name'),
             -host   => $self->o('pipe_db_host'),
             -port   => $self->o('pipe_db_port'),
@@ -151,7 +153,7 @@ sub default_options {
             -driver => $self->o('pipe_db_driver'),
         },
 
-        'dna_db' => {
+        dna_db => {
             -dbname => $self->o('dna_db_name'),
             -host   => $self->o('dna_db_host'),
             -port   => $self->o('dna_db_port'),

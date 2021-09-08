@@ -45,8 +45,8 @@ sub default_options {
     user_r                    => '', # read only db user
     user                      => '', # write db user
     password                  => '', # password for write db user
-    pipe_db_server            => '', # host for pipe db
-    dna_db_server             => '', # host for dna db
+    pipe_db_host              => '', # host for pipe db
+    dna_db_host               => '', # host for dna db
     pipe_db_port              => '', # port for pipeline host
     dna_db_port               => '', # port for dna db host
     repbase_logic_name        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
@@ -86,16 +86,16 @@ sub default_options {
     dna_db_name  => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
 
     reference_db_name   => $self->o('dna_db_name'),
-    reference_db_server => $self->o('dna_db_server'),
+    reference_db_host   => $self->o('dna_db_host'),
     reference_db_port   => $self->o('dna_db_port'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     ensembl_release      => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
-    production_db_server => 'mysql-ens-meta-prod-1',
+    production_db_host   => 'mysql-ens-meta-prod-1',
     production_db_port   => '4483',
     production_db_name   => 'ensembl_production',
 
-    taxonomy_db_server => $self->o('production_db_server'),
+    taxonomy_db_host   => $self->o('production_db_host'),
     taxonomy_db_port   => $self->o('production_db_port'),
     taxonomy_db_name   => 'ncbi_taxonomy',
 
@@ -146,7 +146,7 @@ sub default_options {
 ########################
     reference_db => {
       -dbname => $self->o('reference_db_name'),
-      -host   => $self->o('reference_db_server'),
+      -host   => $self->o('reference_db_host'),
       -port   => $self->o('reference_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
@@ -154,7 +154,7 @@ sub default_options {
     },
 
     production_db => {
-      -host   => $self->o('production_db_server'),
+      -host   => $self->o('production_db_host'),
       -port   => $self->o('production_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
@@ -163,7 +163,7 @@ sub default_options {
     },
 
     taxonomy_db => {
-      -host   => $self->o('taxonomy_db_server'),
+      -host   => $self->o('taxonomy_db_host'),
       -port   => $self->o('taxonomy_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),
@@ -245,7 +245,7 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'assembly_loading', 'load_seq_region.pl').
-          ' -dbhost '.$self->o('reference_db_server').
+          ' -dbhost '.$self->o('reference_db_host').
           ' -dbuser '.$self->o('user').
           ' -dbpass '.$self->o('password').
           ' -dbport '.$self->o('reference_db_port').
@@ -269,7 +269,7 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'assembly_loading', 'set_toplevel.pl').
-          ' -dbhost '.$self->o('reference_db_server').
+          ' -dbhost '.$self->o('reference_db_host').
           ' -dbuser '.$self->o('user').
           ' -dbpass '.$self->o('password').
           ' -dbport '.$self->o('reference_db_port').
@@ -521,7 +521,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name => '1GB',
       -parameters => {
-        cmd => 'if [ ! -s "'.$self->o('faidx_genome_file').'" ]; then perl '.$self->o('sequence_dump_script').' -dbhost '.$self->o('dna_db_server').' -dbuser '.$self->o('dna_db_user').' -dbport '.$self->o('dna_db_port').' -dbname '.$self->o('dna_db_name').' -coord_system_name '.$self->o('assembly_name').' -toplevel -onefile -header rnaseq -filename '.$self->o('faidx_genome_file').';fi',
+        cmd => 'if [ ! -s "'.$self->o('faidx_genome_file').'" ]; then perl '.$self->o('sequence_dump_script').' -dbhost '.$self->o('dna_db_host').' -dbuser '.$self->o('dna_db_user').' -dbport '.$self->o('dna_db_port').' -dbname '.$self->o('dna_db_name').' -coord_system_name '.$self->o('assembly_name').' -toplevel -onefile -header rnaseq -filename '.$self->o('faidx_genome_file').';fi',
       },
       -flow_into => {
         1 => [ 'create_faidx'],
