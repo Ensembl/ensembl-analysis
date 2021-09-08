@@ -22,8 +22,8 @@ This base config should be used by all pipeline created for the ensembl-annotati
 =head1 METHODS
 
 default_options: returns the default options from HiveGeneric_conf and it adds pipeline_db,
-  dna_db and use_tokens. The inheriting class needs to specify; pipe_db_name, pipe_db_server,
-  port, user, password, reference_db_name, reference_db_server, user_r, dna_db_name, dna_db_server
+  dna_db, data_db. The inheriting class needs to specify; pipe_db_name, pipe_db_host,
+  port, user, password, reference_db_name, reference_db_host, user_r, dna_db_name, dna_db_host
 
 lsf_resource_builder: returns the parameters string for LSF meadow_type
 
@@ -44,7 +44,7 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
 
  Arg [1]    : None
  Description: It returns a hashref containing the default options for HiveGeneric_conf
-                use_tokens => 0,
+                use_tokens => 0, # This is deprecated
                 drop_databases => 0, # ONLY USE THIS PARAMETER ON THE COMMAND LINE
                 databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
                 password_r => undef,
@@ -53,38 +53,51 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
                 genebuilder_id => $ENV{GENEBUILDER_ID} || 0,
                 email => $ENV{HIVE_EMAIL},
                 enscode_root_dir => $ENV{ENSCODE},
-                software_base_path => $ENV{LINUXBREW_HOME},
-                binary_base => catdir($self->o('software_base_path'), 'bin'),
+                software_base_path => $ENV{ENSEMBL_SOFTWARE_HOME}, # This is the path where pyenv, linuxbrew and any other software is installed
+                linuxbrew_home_path => $ENV{LINUXBREW_HOME},
+                binary_base => catdir($self->o('linuxbrew_home_path'), 'bin'),
+
+                guihive_host => 'http://guihive.ebi.ac.uk',
+                guihive_port => 8080,
 
                 # Usefull if you want to use one server for all your databases, not great but ok
-                data_db_server => $self->o('host'),
-                data_db_host => $self->o('data_db_server'), # data_dbs_server will be deprecated
-                data_db_port => $self->o('port'),
-                data_db_user => $self->o('user'),
-                data_db_password => $self->o('password'),
-                data_db_driver => $self->o('hive_driver'),
-                data_db_pass => $self->o('data_db_password'), # data_dbs_password will be deprecated
+                databases_host => $self->o('host'),
+                databases_port => $self->o('port'),
 
-                dna_db_server => $self->o('host'),
-                dna_db_host => $self->o('dna_db_server'), # dna_db_server will be deprecated
+                dna_db_host => $self->o('host'),
                 dna_db_name => undef,
                 dna_db_port => $self->o('port'),
                 dna_db_user => $self->o('user_r'),
-                dna_db_password => $self->o('password_r'),
-                dna_db_pass => $self->o('dna_db_password'), # dna_db_password will be deprecated
+                dna_db_pass => $self->o('password_r'),
                 dna_db_driver => $self->o('hive_driver'),
                 dna_db_host => $self->o('dna_db_host'),
 
-                pipe_dbname => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
-                pipe_db_name => $self->o('pipe_dbname'), # pipe_dbname will be deprecated
-                pipe_db_server => $self->o('host'),
-                pipe_db_host => $self->o('pipe_db_server'), # pipe_db_server will be deprecated
+                pipe_db_name => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+                pipe_db_host => $self->o('host'),
                 pipe_db_port => $self->o('port'),
                 pipe_db_user => $self->o('user'),
-                pipe_db_password => $self->o('password'),
-                pipe_db_pass => $self->o('pipe_db_password'), # pipe_db_password will be deprecated
+                pipe_db_pass => $self->o('password'), # pipe_db_password will be deprecated
                 pipe_db_driver => $self->o('hive_driver'),
-              and two DB connection hash: pipeline_db and dna_db
+
+                killlist_db_name => 'gb_kill_list',
+
+                pipeline_db => {
+                    -dbname => $self->o('pipe_db_name'),
+                    -host   => $self->o('pipe_db_host'),
+                    -port   => $self->o('pipe_db_port'),
+                    -user   => $self->o('pipe_db_user'),
+                    -pass   => $self->o('pipe_db_pass'),
+                    -driver => $self->o('pipe_db_driver'),
+                },
+
+                dna_db => {
+                    -dbname => $self->o('dna_db_name'),
+                    -host   => $self->o('dna_db_host'),
+                    -port   => $self->o('dna_db_port'),
+                    -user   => $self->o('dna_db_user'),
+                    -pass   => $self->o('dna_db_pass'),
+                    -driver => $self->o('dna_db_driver'),
+                },
  Returntype : Hashref
  Exceptions : None
 
@@ -96,7 +109,7 @@ sub default_options {
         # inherit other stuff from the base class
         %{ $self->SUPER::default_options() },
 
-        use_tokens => 0,
+        use_tokens => 0, # This is deprecated
         drop_databases => 0, # ONLY USE THIS PARAMETER ON THE COMMAND LINE
         databases_to_delete => [], # example: ['blast_db', 'refine_db', 'rough_db'],
         password_r => undef,
@@ -105,42 +118,33 @@ sub default_options {
         genebuilder_id => $ENV{GENEBUILDER_ID} || 0,
         email_address => $ENV{HIVE_EMAIL},
         enscode_root_dir => $ENV{ENSCODE},
-        software_base_path => $ENV{LINUXBREW_HOME},
-        binary_base => catdir($self->o('software_base_path'), 'bin'),
+        software_base_path => $ENV{ENSEMBL_SOFTWARE_HOME},
+        linuxbrew_home_path => $ENV{LINUXBREW_HOME},
+        binary_base => catdir($self->o('linuxbrew_home_path'), 'bin'),
 
         guihive_host => 'http://guihive.ebi.ac.uk',
         guihive_port => 8080,
 
-        data_db_server => $self->o('host'),
-        data_db_host => $self->o('data_db_server'),
-        data_db_port => $self->o('port'),
-        data_db_user => $self->o('user'),
-        data_db_password => $self->o('password'),
-        data_db_driver => $self->o('hive_driver'),
-        data_db_pass => $self->o('data_db_password'),
+        databases_host => $self->o('host'),
+        databases_port => $self->o('port'),
 
-        dna_db_server => $self->o('host'),
-        dna_db_host => $self->o('dna_db_server'),
+        dna_db_host => $self->o('host'),
         dna_db_name => undef,
         dna_db_port => $self->o('port'),
         dna_db_user => $self->o('user_r'),
-        dna_db_password => $self->o('password_r'),
-        dna_db_pass => $self->o('dna_db_password'),
+        dna_db_pass => $self->o('password_r'),
         dna_db_driver => $self->o('hive_driver'),
 
-        pipe_dbname => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
-        pipe_db_name => $self->o('pipe_dbname'),
-        pipe_db_server => $self->o('host'),
-        pipe_db_host => $self->o('pipe_db_server'),
+        pipe_db_name => $self->o('dbowner').'_'.$self->o('pipeline_name').'_pipe',
+        pipe_db_host => $self->o('host'),
         pipe_db_port => $self->o('port'),
         pipe_db_user => $self->o('user'),
-        pipe_db_password => $self->o('password'),
-        pipe_db_pass => $self->o('pipe_db_password'),
+        pipe_db_pass => $self->o('password'),
         pipe_db_driver => $self->o('hive_driver'),
 
         killlist_db_name => 'gb_kill_list',
 
-        'pipeline_db' => {
+        pipeline_db => {
             -dbname => $self->o('pipe_db_name'),
             -host   => $self->o('pipe_db_host'),
             -port   => $self->o('pipe_db_port'),
@@ -149,7 +153,7 @@ sub default_options {
             -driver => $self->o('pipe_db_driver'),
         },
 
-        'dna_db' => {
+        dna_db => {
             -dbname => $self->o('dna_db_name'),
             -host   => $self->o('dna_db_host'),
             -port   => $self->o('dna_db_port'),
@@ -242,8 +246,8 @@ sub hive_data_table {
  Arg [5]    : Integer $num_threads, number of cores, use only if you ask for multiple cores
  Arg [6]    : String $extra_requirements, any other parameters you want to give to LSF option -R
  Arg [7]    : Arrayref String, any parameters related to your file system if you need to use -R"select[gpfs]"
- Example    : '1GB' => { LSF => $self->lsf_resource_builder('normal', 1000, [$self->default_options->{'pipe_db_server'}])},
-              '3GB_multithread' => { LSF => $self->lsf_resource_builder('long', 3000, [$self->default_options->{'pipe_db_server'}], undef, 3)},
+ Example    : '1GB' => { LSF => $self->lsf_resource_builder('normal', 1000)},
+              '3GB_multithread' => { LSF => $self->lsf_resource_builder('long', 3000, undef, undef, 3)},
  Description: It will return the LSF requirement parameters you require based on the queue, the memory, the database servers, the number
               of CPUs. It uses options -q, -n, -M and -R. If you need any other other options you will need to add it to the returned string.
               If you want multiple cores from multiple CPUs, you will have to edit the returned string.
@@ -260,7 +264,7 @@ sub hive_data_table {
 sub lsf_resource_builder {
     my ($self, $queue, $memory, $servers, $tokens, $threads, $extra_requirements, $paths) = @_;
 
-    my $lsf_requirement = '-q '.($queue || 'production-rh7');
+    my $lsf_requirement = '-q '.($queue || 'production');
     my @lsf_rusage;
     my @lsf_select;
     $extra_requirements = '' unless (defined $extra_requirements);
@@ -380,13 +384,13 @@ sub get_server_port_lists {
 =cut
 
 sub get_meta_db_information {
-  my ($self, $db_conn, $dbname) = @_;
+  my ($self, $db_conn, $dbname, $host) = @_;
 
   my $url;
   my $guiurl;
   if ($self->_is_second_pass) {
     if (!$db_conn) {
-      $db_conn = $self->create_database_hash(undef, undef, $self->o('user'), $self->o('password'), $dbname);
+      $db_conn = $self->create_database_hash($host, undef, $self->o('user'), $self->o('password'), $dbname);
     }
     $self->root->{_tmp_db_conn} = $db_conn;
     $url = $self->dbconn_2_url('_tmp_db_conn', 1);
@@ -413,6 +417,18 @@ sub _is_second_pass {
   $param_name ||= 'pipe_db_name';
 
   return $self->o($param_name) !~ /:subst/;
+}
+
+
+sub hive_capacity_classes {
+  my $self = shift;
+
+  return {
+    hc_very_low => 35,
+    hc_low      => 200,
+    hc_medium   => 500,
+    hc_high     => 1000,
+  };
 }
 
 1;

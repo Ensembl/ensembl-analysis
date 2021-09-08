@@ -556,23 +556,12 @@ sub create_config {
           $line .= "'dbowner' => '".$assembly_hash->{'dbowner'}."',";
         }
       }
-      if($line =~ /\'([^\']+)\'\s*\=\>\s*('[^\']*\')/) {
+      if($line =~ /'?([^' ]+)'?\s*=>\s*('?[^']*'?)/) {
         my $conf_key = $1;
         my $conf_val = $2;
-        if(defined $assembly_hash->{$conf_key}) {
+        if(exists $assembly_hash->{$conf_key}) {
           print "REPLACING ".$conf_key." with ".$assembly_hash->{$conf_key}."\n";
           my $sub_val = "'".$assembly_hash->{$conf_key}."'";
-          $line =~ s/$conf_val/$sub_val/;
-        }
-      } elsif($line =~ /\'([^\']+)\'\s*(\=\>\s*undef\s*\,)/) {
-        # Note, a special case needed to be added for undef. In the main config we have to put in undef as opposed to '' in cases where the value will be evalutated
-        # later in the config in a conditional (e.g. deciding the blast db path based on whether a custom db path has been provided or not). In these cases '' will
-        # evaluate to true in the conditional, which is wrong and a quirk of hive. Since undef as a string is not very unique and could be accidently be matched
-        # in the key when doing the subsitution, I have added this as it's own conditional to be very safe
-        my $conf_key = $1;
-        my $conf_val = $2;
-        if($assembly_hash->{$conf_key}) {
-          my $sub_val = "=> '".$assembly_hash->{$conf_key}."',";
           $line =~ s/$conf_val/$sub_val/;
         }
       }
@@ -600,7 +589,7 @@ sub clade_settings {
     },
 
     'rodentia' => {
-      'repbase_library'    => 'rodents',
+      'repbase_library'    => 'rodentia',
       'repbase_logic_name' => 'rodents',
       'uniprot_set'        => 'mammals_basic',
       'projection_source_production_name' => 'mus_musculus',
@@ -891,11 +880,11 @@ sub init_pipeline {
               If the set does not exists, it uses the values for "set1"
               If 'server_set' is not defined, it looks for the following keys which should
               all be defined:
-                databases_server
+                databases_host
                 databases_port
-                pipe_db_server
+                pipe_db_host
                 pipe_db_port
-                dna_db_server
+                dna_db_host
                 dna_db_port
  Returntype : None
  Exceptions : Throws if 'server_set' is not set and none of the connection details are set.
@@ -907,20 +896,20 @@ sub assign_server_info {
 
   my $servers = {
     set1 => {
-              pipe_db_server => "mysql-ens-genebuild-prod-4",
+              pipe_db_host => "mysql-ens-genebuild-prod-4",
               pipe_db_port   => 4530,
-              databases_server  => "mysql-ens-genebuild-prod-3",
+              databases_host  => "mysql-ens-genebuild-prod-3",
               databases_port    => 4529,
-              dna_db_server  => "mysql-ens-genebuild-prod-2",
+              dna_db_host  => "mysql-ens-genebuild-prod-2",
               dna_db_port    => 4528,
             },
 
     set2 => {
-              pipe_db_server => "mysql-ens-genebuild-prod-7",
+              pipe_db_host => "mysql-ens-genebuild-prod-7",
               pipe_db_port   => 4533,
-              databases_server  => "mysql-ens-genebuild-prod-5",
+              databases_host  => "mysql-ens-genebuild-prod-5",
               databases_port    => 4531,
-              dna_db_server  => "mysql-ens-genebuild-prod-6",
+              dna_db_host  => "mysql-ens-genebuild-prod-6",
               dna_db_port    => 4532,
             },
   };
@@ -931,22 +920,22 @@ sub assign_server_info {
       warning("Could not find an associated server set entry in the HiveBaseConfig for ".$server_set.". Will default to set1");
       $server_set = 'set1';
     }
-    $general_hash->{databases_server} = $servers->{$server_set}->{'databases_server'};
+    $general_hash->{databases_host} = $servers->{$server_set}->{'databases_host'};
     $general_hash->{databases_port} = $servers->{$server_set}->{'databases_port'};
-    $general_hash->{pipe_db_server} = $servers->{$server_set}->{'pipe_db_server'};
+    $general_hash->{pipe_db_host} = $servers->{$server_set}->{'pipe_db_host'};
     $general_hash->{pipe_db_port} = $servers->{$server_set}->{'pipe_db_port'};
-    $general_hash->{dna_db_server} = $servers->{$server_set}->{'dna_db_server'};
+    $general_hash->{dna_db_host} = $servers->{$server_set}->{'dna_db_host'};
     $general_hash->{dna_db_port} = $servers->{$server_set}->{'dna_db_port'};
 
   }
   else {
-    throw("You are missing connection details for at least one of them: databases_server, databases_port, pipe_db_server, pipe_db_port, dna_db_server, dna_db_port")
+    throw("You are missing connection details for at least one of them: databases_host, databases_port, pipe_db_host, pipe_db_port, dna_db_host, dna_db_port")
       unless (
-        exists $general_hash->{databases_server} and
+        exists $general_hash->{databases_host} and
         exists $general_hash->{databases_port} and
-        exists $general_hash->{pipe_db_server} and
+        exists $general_hash->{pipe_db_host} and
         exists $general_hash->{pipe_db_port} and
-        exists $general_hash->{dna_db_server} and
+        exists $general_hash->{dna_db_host} and
         exists $general_hash->{dna_db_port}
       );
   }
@@ -1044,6 +1033,6 @@ sub current_projection_source_db{
     warning("No core database available on mirror for species +$species+ - will use latest homo_sapiens core.");
     @out= `mysql-ens-mirror-1 -NB -e "SHOW DATABASES LIKE 'homo_sapiens_core%'"`;
   }
-  chomp($out[2]); #the 3 most recent versions of a core will be available on mirror
-  return $out[2];
+  chomp($out[-1]); #the 3 most recent versions of a core will be available on mirror
+  return $out[-1];
 }

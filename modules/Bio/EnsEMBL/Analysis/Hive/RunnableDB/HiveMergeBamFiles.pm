@@ -77,6 +77,7 @@ use File::Spec;
 use File::Basename qw(basename);
 
 use Bio::EnsEMBL::DataFile;
+use Bio::EnsEMBL::Analysis::Runnable::Samtools;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -108,6 +109,7 @@ sub param_defaults {
     _index_ext => 'bai',
     _file_ext => 'bam',
     _logic_name_ext => 'bam',
+    samtools => 'samtools',
   }
 }
 
@@ -159,9 +161,13 @@ sub fetch_input {
     if (!$self->param_is_defined('logic_name') and !$one_file_only) {
       $self->analysis->logic_name($self->param('species').'_'.$outname.'_rnaseq_'.$self->param('_logic_name_ext'));
     }
-    if (!$self->param_is_defined('alignment_bam_file')) {
-      $self->param('alignment_bam_file', File::Spec->catfile($self->param('output_dir'),
-        join('.', $self->param_required('assembly_name'), $self->param_required('rnaseq_data_provider'), $outname, $self->param('bam_version'), $self->param('_file_ext'))));
+    my $alignment_bam_file = $self->param('alignment_bam_file');
+    if (!$alignment_bam_file) {
+      print "DEBUG:: alignment_bam_file is not def \n"; 
+      $alignment_bam_file = File::Spec->catfile($self->param('output_dir'),
+        join('.', $self->param_required('assembly_name'), $self->param_required('rnaseq_data_provider'), $outname, $self->param('bam_version'), $self->param('_file_ext')));
+      print "DEBUG:: $alignment_bam_file is def now\n";
+      $self->param('alignment_bam_file', $alignment_bam_file ) ;  # set alignment_bam_file param because there is an issue with data_file import. 
     }
 
     if (scalar(@processed_input_files) == 0) {
@@ -180,15 +186,28 @@ sub fetch_input {
         $self->throw($abs_filename.' is not an absolute path!') unless (File::Spec->file_name_is_absolute($abs_filename));
         if ($self->param('rename_file')) {
           my $index_ext = '.'.$self->param('_index_ext');
-          if (!move($abs_filename, $self->param('alignment_bam_file'))) {
-             $self->throw("Could not rename file $abs_filename to ".$self->param('alignment_bam_file'));
-	  }
-          if (!move($abs_filename.$index_ext, $self->param('alignment_bam_file').$index_ext)) {
-            $self->throw("Could not rename file $abs_filename$index_ext to ".$self->param('alignment_bam_file').$index_ext);
-	  }
-          $abs_filename = $self->param('alignment_bam_file');
+          if (!move($abs_filename, $alignment_bam_file)) {
+             $self->throw("Could not rename file $abs_filename to $alignment_bam_file  Error is $!");
+          }
+          if (-e $abs_filename.$index_ext) {
+            if (!move($abs_filename.$index_ext, $alignment_bam_file.$index_ext)) {
+              $self->throw("Could not rename file $abs_filename$index_ext to $alignment_bam_file$index_ext  Error is $!");
+            }
+          }
+          else {
+            my $samtools = Bio::EnsEMBL::Analysis::Runnable::Samtools->new(
+                              -program => $self->param('samtools'),
+                              -use_threading => $self->param('use_threading')
+                              );
+
+            $samtools->index($alignment_bam_file);
+          }
         }
-        $self->dataflow_output_id({filename => $abs_filename}, $self->param('_branch_to_flow_to'));
+        # save file to datafile table. 
+        if ($self->param('store_datafile')) {
+          $self->store_filename_into_datafile;
+        }        
+        $self->dataflow_output_id({filename => $alignment_bam_file}, $self->param('_branch_to_flow_to'));
         # Finally tell Hive that we've finished processing
         $self->complete_early('There is only one file to process');
     }
@@ -200,7 +219,7 @@ sub fetch_input {
             -lib => $self->param('picard_lib'),
             -options => $self->param('options'),
             -analysis => $self->analysis,
-            -output_file => $self->param('alignment_bam_file'),
+            -output_file => $alignment_bam_file,
             -input_files => \@processed_input_files,
             -use_threading => $self->param('use_threading'),
             -samtools => $self->param('samtools') || 'samtools',
@@ -209,10 +228,10 @@ sub fetch_input {
     else {
         $self->require_module('Bio::EnsEMBL::Analysis::Runnable::SamtoolsMerge');
         $self->runnable(Bio::EnsEMBL::Analysis::Runnable::SamtoolsMerge->new(
-            -program => $self->param('samtools') || 'samtools',
+            -program => 'samtools',
             -options => $self->param('options'),
             -analysis => $self->analysis,
-            -output_file => $self->param('alignment_bam_file'),
+            -output_file => $alignment_bam_file,
             -input_files => \@processed_input_files,
             -use_threading => $self->param('use_threading'),
             ));
@@ -236,8 +255,8 @@ sub run {
     foreach my $runnable (@{$self->runnable}) {
         $runnable->run;
         $runnable->check_output_file;
+        $self->output([$runnable->output_file]);
     }
-    $self->output([$self->param('alignment_bam_file')]);
 }
 
 
@@ -286,6 +305,7 @@ sub store_filename_into_datafile {
   my @coord_systems = sort {$a->rank <=> $b->rank} @{$db->get_CoordSystemAdaptor->fetch_all_by_version($self->param('assembly_name'))};
   my $datafile = Bio::EnsEMBL::DataFile->new();
   $datafile->analysis($analysis);
+  print "DEBUG::alignment_bam_file...file_ext " . $self->param('_file_ext') . "\n"; 
   $datafile->name(basename($self->param('alignment_bam_file'), '.'.$self->param('_file_ext')));
   $datafile->file_type('BAMCOV');
   $datafile->version_lock(0);

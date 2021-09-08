@@ -64,7 +64,7 @@ sub default_options {
     'killlist_db_pass'   => $self->o('password_r'),
     'killlist_db_driver' => $self->o('hive_driver'),
 
-    'production_db_server' => 'mysql-ens-meta-prod-1',
+    'production_db_host'   => 'mysql-ens-meta-prod-1',
     'production_db_port'   => '4483',
 
     'blast_db' => {
@@ -86,7 +86,7 @@ sub default_options {
     },
 
     'production_db' => {
-      -host   => $self->o('production_db_server'),
+      -host   => $self->o('production_db_host'),
       -port   => $self->o('production_db_port'),
       -user   => $self->o('user_r'),
       -pass   => $self->o('password_r'),

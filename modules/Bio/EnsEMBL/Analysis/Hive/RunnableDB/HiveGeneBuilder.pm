@@ -48,7 +48,7 @@ use feature 'say';
 use Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils qw(id coord_string lies_inside_of_slice);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_ovewrite empty_Gene print_Gene_Transcript_and_Exons);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(Gene_info attach_Analysis_to_Gene_no_ovewrite empty_Gene print_Gene_Transcript_and_Exons clean_utrs);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils 
   qw(are_strands_consistent are_phases_consistent calculate_exon_phases
      is_not_folded all_exons_are_valid intron_lengths_all_less_than_maximum exon_overlap features_overlap overlap_length);
@@ -89,6 +89,17 @@ sub param_defaults {
       recovery_overlap_threshold => 0.9,
       skip_readthrough_check => 1,
       load_all_biotypes => 1,
+      min_size_utr_exon => 30,
+      ratio_5prime_utr => .3,
+      ratio_3prime_utr => .6,
+      ratio_same_transcript => .02,
+      ratio_max_allowed_difference => .05,
+      ratio_expansion => 3,
+      minimum_expanding_number_for_single_transcript => 2,
+      ratio_transcript_fragment => 3,
+      ratio_exon_expansion => 2,
+      ratio_utrs => 2,
+      store_rejected => 0,
     }
 }
 
@@ -232,9 +243,25 @@ sub post_filter_genes {
   #    Not implemented yet. Sometimes tricky as terminal exons are often misaligned. Might be worth
   #    ignoring any introns bordering a terminal exon when deciding if a gene lies in the intron of another
 
+#  $genes = $self->clean_overlapping_utrs($genes);
+
   return($genes);
 }
 
+
+sub clean_overlapping_utrs {
+  my ($self, $genes) = @_;
+
+  my ($extra_genes, $rejected) = clean_utrs($genes, $self->param('min_size_utr_exon'),
+          $self->param('ratio_5prime_utr'), $self->param('ratio_3prime_utr'), $self->param('ratio_same_transcript'),
+          $self->param('ratio_max_allowed_difference'), $self->param('ratio_expansion'), $self->param('minimum_expanding_number_for_single_transcript'),
+          $self->param('ratio_transcript_fragment'), $self->param('ratio_exon_expansion'), $self->param('ratio_utrs'), $self->param('store_rejected'));
+
+  push(@$genes, @$extra_genes) if ($extra_genes);
+  push(@$genes, @$rejected) if ($rejected and $self->param('store_rejected'));
+
+  return $genes;
+}
 
 sub remove_bad_transcripts {
   my ($self,$genes) = @_;

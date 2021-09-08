@@ -74,7 +74,7 @@ sub param_defaults {
               databases you need to add the name of the database(s) in 'databases'. The
               parameters will be created by using "${db_name}_name" where $db_name is the
               name of the databases in 'hive_config'. You should also have paramters in
-              the config like "${db_name}_name", "${db_name}_port", "${db_name}_server",
+              the config like "${db_name}_name", "${db_name}_port", "${db_name}_host",
               "${db_name}_user", "${db_name}_password".
  Returntype : None
  Exceptions : Throws if 'ehive_url', 'pipeline_name', 'meta_pipeline_db' or 'hive_config' is not set
@@ -134,9 +134,18 @@ sub fetch_input {
     my $extra_parameters = $self->param('extra_parameters');
     if (ref($extra_parameters) eq 'HASH') {
       foreach my $key (keys %$extra_parameters) {
-        # We need to make sure that an arrayref/hashref is correctly passed to the init script
-        my $value = ref($extra_parameters->{$key}) ? stringify($extra_parameters->{$key}) : $extra_parameters->{$key};
-        push(@cmd, "-$key", $value);
+        if (ref($extra_parameters->{$key}) eq 'ARRAY') {
+          # We need to make sure that an arrayref/hashref is correctly passed to the init script
+          foreach my $arraydata (@{$extra_parameters->{$key}}) {
+            my $value = ref($arraydata) ? stringify($arraydata) : $arraydata;
+            push(@cmd, "-$key", $value);
+          }
+        }
+        else {
+          # We need to make sure that an arrayref/hashref is correctly passed to the init script
+          my $value = ref($extra_parameters->{$key}) ? stringify($extra_parameters->{$key}) : $extra_parameters->{$key};
+          push(@cmd, "-$key", $value) if ($value);
+        }
       }
     }
   }

@@ -28,11 +28,11 @@ sub default_options {
 'base_repeat_dir'             => '',
 'repeatmodeler_path'          => '',
 
-'pipe_db_server'              => '',
+'pipe_db_host'                => '',
 'port'                        => '',
 
 'assembly_registry_dbname'    => '',
-'assembly_registry_db_server' => '',
+'assembly_registry_db_host'   => '',
 'assembly_registry_db_port'   => '',
 
 # Variables (with suggested values)
@@ -55,7 +55,7 @@ sub default_options {
 'dna_db_name'                 => '', # Leave blank, just needs to be present
 'assembly_registry_db'        => {
                                    -dbname => $self->o('assembly_registry_dbname'),
-                                   -host   => $self->o('assembly_registry_db_server'),
+                                   -host   => $self->o('assembly_registry_db_host'),
                                    -port   => $self->o('assembly_registry_db_port'),
                                    -user   => $self->o('user_r'),
                                    -driver => $self->o('hive_driver'),

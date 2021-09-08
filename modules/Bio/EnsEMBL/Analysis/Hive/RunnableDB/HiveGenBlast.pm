@@ -130,6 +130,10 @@ sub fetch_input {
     $self->throw("You provided an input id type that was not recoginised via the 'iid_type' param. Type provided:\n".$iid_type);
   }
 
+  my %seq_region_cache;
+  foreach my $slice (@{$dba->get_SliceAdaptor->fetch_all('toplevel')}) {
+    $seq_region_cache{$slice->name} = $slice;
+  }
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::GenBlastGene->new
     (
      -program => $self->analysis->program_file,
@@ -138,7 +142,7 @@ sub fetch_input {
      -max_rank => $self->param('max_rank'),
      -genblast_pid => $self->param('genblast_pid'),
      -workdir => File::Temp->newdir(),
-     -database_adaptor => $dba,
+     -slice_cache => \%seq_region_cache,
      %parameters,
     );
   if (ref($query) eq 'ARRAY') {

@@ -62,6 +62,7 @@ use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; # needed for re
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 our @EXPORT_OK = qw(
               shuffle
@@ -95,6 +96,7 @@ our @EXPORT_OK = qw(
               get_biotype_groups
               get_feature_name
               create_production_directory
+              parse_uri
               );
 
 
@@ -1073,6 +1075,12 @@ sub hrdb_get_dba {
   }
 
   if (defined $dna_db) {
+      if (!ref($dna_db)) {
+        my($scheme, $user, $password, $host, $port, $path) = parse_uri($dna_db);
+        if ($scheme eq 'file' or !$scheme) {
+          setup_fasta(-FASTA => $path);
+        }
+      }
       if ($dna_db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
           $dba->dnadb($dna_db);
       }
@@ -1518,4 +1526,9 @@ sub create_production_directory {
   }
 }
 
+sub parse_uri {
+  my ($uri) = @_;
+
+  return $uri =~ m|(?:([^:/?#]+):)?(?://([^/:?#]*)?(?::([^@]*))?@([^:?#]*)(?::(\d+))\/?)?([^?#]*)|;
+}
 1;

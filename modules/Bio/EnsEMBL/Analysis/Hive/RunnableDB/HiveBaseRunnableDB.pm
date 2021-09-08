@@ -23,7 +23,8 @@ use warnings;
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Tools::FeatureFactory;
 use Bio::EnsEMBL::Hive::Utils ('destringify');
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name parse_uri);
+use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Hive::Process');
 
@@ -58,6 +59,7 @@ sub param_defaults {
         _output => [],
         skip_analysis => 0,
         _skip_cache_clearing => 0,
+        use_genome_flatfile => 0,
     }
 }
 
@@ -576,14 +578,15 @@ sub create_analysis {
 
 =head2 hrdb_get_dba
 
- Arg [1]    : String $name, name of a database as it stored in parameters
+ Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor or String $name, URI to a database, it can be a path
  Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object, the database will have the dna (optional)
  Arg [3]    : String $alternative_class (optional), Allowed class are Variation, Compara, Funcgen
  Example    : $self->hrdb_get_dba($self->param('target_db'));
  Description: It's a wrapper for hrdb_get_dba from Bio::EnsEMBL::Analysis::Tools::Utilities
  Returntype : Bio::EnsEMBL::DBSQL::DBAdaptor
  Exceptions : Throws if it cannot connect to the database.
-              Throws if $connection_info is not a hashref
+              Throws if $connection_info is not a hashref or URI
+              Throws if 
               Throws if $dna_db is not a Bio::EnsEMBL::DBSQL::DBAdaptor object
 
 =cut
@@ -591,7 +594,32 @@ sub create_analysis {
 sub  hrdb_get_dba {
     my ($self, $connection_info, $dna_db, $alternative_class) = @_;
 
-    $self->throw($connection_info.' is not a HASHREF') unless (ref($connection_info) eq 'HASH');
+    if (!ref($connection_info)) {
+      my($scheme, $user, $password, $host, $port, $path) = parse_uri($connection_info);
+      if ($scheme eq 'file' or !$scheme) {
+        if ($self->param_is_defined('genome_file') and $self->param_is_defined('use_genome_flatfile')
+            and $self->param('use_genome_flatfile') and $path eq $self->param('genome_file')) {
+          setup_fasta(-FASTA => $path);
+          return;
+        }
+        else {
+          $self->throw("Cannot use flatfile as databases yet");
+        }
+      }
+      else {
+        $connection_info = {
+          -host => $host,
+          -port => $port,
+          -user => $user,
+          -pass => $password,
+          -dbname => $path,
+          -driver => $scheme,
+        };
+      }
+    }
+    elsif (ref($connection_info) ne 'HASH') {
+      $self->throw("$connection_info is not a recognised object");
+    }
     my $uniq_id = join(':', $connection_info->{-host},
                             $connection_info->{-dbname},
                             $connection_info->{-port},

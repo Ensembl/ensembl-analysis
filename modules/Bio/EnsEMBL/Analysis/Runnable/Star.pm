@@ -53,7 +53,8 @@ package Bio::EnsEMBL::Analysis::Runnable::Star;
 use warnings;
 use strict;
 
-use File::Spec;
+use File::Spec::Functions qw(catdir catfile);
+use File::Path qw(remove_tree);
 
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 
@@ -62,12 +63,13 @@ use parent ('Bio::EnsEMBL::Analysis::Runnable::BaseShortReadAligner');
 
 =head2 new
 
- Arg [DECOMPRESS]           : String as a command like 'gzip -c -'
- Arg [EXPECTED_ATTRIBUTES]  : String specify the attribute expected for the output, see STAR manual
- Description                : Creates a  object to align reads to a genome using STAR
- Returntype                 : 
- Exceptions                 : Throws if WORKDIR does not exist
-                              Throws if the genome has not been indexed
+ Arg [DECOMPRESS]  : String, as a command like 'gzip -c -'
+ Arg [SAMPLE_NAME] : String, specify the sample name, used for the temporary files and directories
+ Arg [GENOME_DIR]  : String, path to a directory containing the index SA
+ Arg [THREADS]     : Int, number of threads to use
+ Description       : Creates a  object to align reads to a genome using STAR
+ Returntype        : Bio::EnsEMBL::Analysis::Runnable::Star
+ Exceptions        : Throws if the genome has not been indexed
 
 =cut
 
@@ -75,13 +77,12 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($decompress, $sam_attributes) = rearrange([qw (DECOMPRESS RG_LINES)],@args);
-  $self->throw('Your working directory '.$self->workdir." does not exist!\n") unless (-d $self->workdir);
-  my (undef,$genome_dir,) = File::Spec->splitpath($self->genome);
+  my ($decompress, $sample_id, $genome_dir, $threads) = rearrange([qw (DECOMPRESS SAMPLE_NAME GENOME_DIR THREADS)],@args);
   $self->throw("Genome file must be indexed, '$genome_dir/SA' does not exist\n") unless (-e $genome_dir.'/SA');
   $self->genome($genome_dir);
-  $self->sam_attributes($sam_attributes);
-  $self->is_file_compressed($decompress || '');
+  $self->sample_id($sample_id);
+  $self->threads($threads);
+  $self->is_file_compressed($decompress);
   return $self;
 }
 
@@ -89,6 +90,7 @@ sub new {
 
  Arg [1]    : None
  Description: Run Star to align reads to an indexed genome. The resulting output file will be stored in $self->output
+              It will delete the previous temporary files if they exist
  Returntype : None
  Exceptions : None
 
@@ -97,21 +99,28 @@ sub new {
 sub run {
   my ($self) = @_;
 
+  my $sample_id = $self->sample_id();
   my $fastq = $self->fastq;
   my $fastqpair = $self->fastqpair;
   my $options = $self->options;
-  $options .= ' --readFilesCommand '.$self->is_file_compressed if ($self->is_file_compressed);
-  $options .= ' --outSAMattrRGline '.$self->sam_attributes;
-  my (undef,undef,$filename) = File::Spec->splitpath($fastq);
-  my $outdir = File::Spec->catfile($self->outdir, $filename);
+  my $out_dir = catfile($self->outdir, $sample_id.'_');
+  my $tmp_dir = catdir($self->outdir, $sample_id.'_tmp');
+  if (-d $tmp_dir) {
+    remove_tree($tmp_dir, {safe => 1});
+  }
+  if ($fastq =~ /\.gz$/) {
+    $options .= ' --readFilesCommand zcat';
+  }
+  $options .= ' --outSAMattrRGline "'.$self->rg_lines.'"' if ($self->rg_lines);
+  $options .= ' --outSAMattributes "'.$self->sam_attributes.'"' if ($self->sam_attributes);
 
   # run STAR
-  my $command = $self->program." --twopassMode Basic --runMode alignReads --genomeDir ".$self->genome." --readFilesIn $fastq $fastqpair --outFileNamePrefix $outdir $options --outTmpDir ".$self->workdir;
+  my $command = $self->program." --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$self->threads." --twopassMode Basic --runMode alignReads --genomeDir ".$self->genome." --readFilesIn $fastq $fastqpair --outFileNamePrefix $out_dir $options --outTmpDir $tmp_dir --outSAMtype BAM SortedByCoordinate";
   $self->warning("Command: $command\n");
   if (system($command)) {
-      $self->throw("Error aligning $fastq $fastqpair\nError code: $?\n");
+      $self->throw("Error aligning $fastq $fastqpair\nCommandline used: $command\nError code: $?\n");
   }
-  $self->output([$outdir.'.bam']);
+  $self->output([$out_dir.'Aligned.sortedByCoord.out.bam']);
 }
 
 
@@ -139,6 +148,31 @@ sub is_file_compressed {
 }
 
 
+=head2 rg_lines
+
+ Arg [1]    : (optional) String
+ Example    : $self->rg_lines("ID:blood\tCN:ENA\tPL:ILLUMINA");
+ Description: getter/setter for the attributes expected in the RG line
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub rg_lines {
+  my ($self,$value) = @_;
+
+  if (defined $value) {
+    $self->{'_rg_lines'} = $value;
+  }
+
+  if (exists($self->{'_rg_lines'})) {
+    return $self->{'_rg_lines'};
+  } else {
+    return;
+  }
+}
+
+
 =head2 sam_attributes
 
  Arg [1]    : (optional) String
@@ -162,5 +196,42 @@ sub sam_attributes {
     return;
   }
 }
+
+
+=head2 sample_id
+
+ Arg [1]    : (optional) String
+ Description: Getter/setter for the sample name, which becomes the file name for the output
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub sample_id {
+  my ($self, $value) = @_;
+  if (defined $value) {
+    $self->{'_sample_id'} = $value;
+  }
+  return $self->{'_sample_id'};
+}
+
+
+=head2 threads
+
+ Arg [1]    : (optional) int
+ Description: Getter/setter for the number of threads to use
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub threads {
+  my ($self, $value) = @_;
+  if (defined $value) {
+    $self->{'_threads'} = $value;
+  }
+  return $self->{'_threads'};
+}
+
 
 1;
