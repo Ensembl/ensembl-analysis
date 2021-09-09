@@ -827,26 +827,15 @@ sub default_options {
     'create_pair_aligner_page_exe'      => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/report/create_pair_aligner_page.pl'),
     'dump_features_exe'                 => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/dumps/DumpMultiAlign.pl'),
 
-    #######################
-    # RNASamba CPC2 Stuff
-    #######################
-
-    'rna_samba_weights' => '/homes/jma/coding_gene_testing/full_length_weights.hdf5',
-    'pcp_output' => catdir($self->o('output_path'), 'pcp'),
-    'pcp_name' => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
-
-    #######################
-    # /RNASamba CPC2 Stuff
-    #######################
 
 
     #######################
     # RNASamba CPC2 Stuff
     #######################
 
-    'rna_samba_weights' => '/nfs/production/panda/ensembl/genebuild/pcp_temp/full_length_weights.hdf5',
-    'rnasamba' => '/nfs/production/panda/ensembl/genebuild/pcp_temp/run_RNAsamba.sh',
-    'cpc2' => '/nfs/production/panda/ensembl/genebuild/pcp_temp/run_CPC2.sh',
+    'rna_samba_weights' => '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/rnasamba_test/RNAsamba/data/full_length_weights.hdf5',
+    'rnasamba' => '/nfs/production/flicek/ensembl/genebuild/jma/tools_temp/run_RNAsamba.sh',
+    'cpc2' => '/nfs/production/flicek/ensembl/genebuild/jma/tools_temp/run_CPC2.sh',
     'pcp_output' => catdir($self->o('output_path'), 'pcp'),
     'pcp_name' => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
 
