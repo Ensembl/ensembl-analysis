@@ -64,7 +64,7 @@ use parent ('Bio::EnsEMBL::Analysis::Runnable::BaseShortReadAligner');
  Arg [DECOMPRESS]           : String as a command like 'gzip -c -'
  Arg [EXPECTED_ATTRIBUTES]  : String specify the attribute expected for the output, see STAR manual
  Description                : Creates a  object to align reads to a genome using STAR
- Returntype                 : 
+ Returntype                 :
  Exceptions                 : Throws if WORKDIR does not exist
                               Throws if the genome has not been indexed
 
@@ -103,7 +103,9 @@ sub run {
   my $tmp_dir = catfile($self->outdir, $sample_id."_tmp");
 
   # run STAR
-  my $command = $self->program." --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$threads." --twopassMode Basic --readFilesCommand zcat --runMode alignReads --genomeDir ".$self->genome." --readFilesIn ".$fastq." ".$fastqpair." --outFileNamePrefix ".$out_dir."_ ".$options." --outTmpDir ".$tmp_dir." --outSAMtype BAM SortedByCoordinate";
+ # my $command = $self->program." --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$threads." --twopassMode Basic --readFilesCommand zcat --runMode alignReads --genomeDir ".$self->genome." --readFilesIn ".$fastq." ".$fastqpair." --outFileNamePrefix ".$out_dir."_ ".$options." --outTmpDir ".$tmp_dir." --outSAMtype BAM SortedByCoordinate";
+ # Run STAR without setting tmp_Dir, and also restricting BAM sort memory allocation:
+   my $command = $self->program." --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$threads." --twopassMode Basic --readFilesCommand zcat --runMode alignReads --genomeDir ".$self->genome." --readFilesIn ".$fastq." ".$fastqpair." --outFileNamePrefix ".$out_dir."_ ".$options." --outSAMtype BAM SortedByCoordinate"." --limitBAMsortRAM 15000000000";
 
 # star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir]
 

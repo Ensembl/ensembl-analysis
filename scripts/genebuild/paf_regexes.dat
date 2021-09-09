@@ -108,3 +108,8 @@
 'nBa\.[0-9]+\.[0-9]+\-t[0-9]+\-[PA,RA,RB,RC]'	Lepidoptera_proteomes
 '^[novel,temp]+\_model.*$'	Lepidoptera_proteomes
 '^g[0-9]+\.t[0-9]+$'	Lepidoptera_proteomes
+'^[trsp]{2}\|[A-Z0-9]+\|[A-Z0-9]+_[A-Z0-9]+$'   Atroparvus_proteomes
+'^[trsp]{2}\|[A-Z0-9]+\|[A-Z0-9]+_[A-Z0-9]+\wunnamed protein product Length=[0-9]+$'   Atroparvus_proteomes
+'^AATE[0-9]{6}\-P[ABCD]$'       Atroparvus_proteomes
+'^[trsp]{2}\|[A-Z0-9]+\|[A-Z0-9]+_[A-Z0-9]+$'   Perniciosus_proteomes
+'^PPAI[0-9]{6}\-P[ABCDEF].[1-3]$'       Perniciosus_proteomes
