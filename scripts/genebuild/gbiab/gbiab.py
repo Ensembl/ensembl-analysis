@@ -24,6 +24,10 @@ import random
 import tempfile
 import io
 import gc
+import logging
+
+logging.basicConfig(filename='app.log', filemode='w', format='%(asctime)s,%(msecs)d %(name)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S', level=logging.DEBUG)
+logging.warning('This will get logged to a file')
 
 def create_dir(main_output_dir,dir_name):
 
@@ -96,7 +100,7 @@ def load_results_to_ensembl_db(main_script_dir,load_to_ensembl_db,genome_file,ma
     print("Loading Dust repeats to db")
     batch_size = 500
     load_type = 'single_line_feature'
-    analysis_name = 'dust'
+    analysis_name = 'dustmasker'
     gtf_records = batch_gtf_records(dust_results_gtf_file,batch_size,db_loading_dir,load_type)
     generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records,num_threads)
   else:
@@ -619,12 +623,15 @@ def run_trnascan_regions(genome_file,trnascan_path,trnascan_filter_path,main_out
 
   if not trnascan_path:
     trnascan_path = '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/trnascan-1.4'
-
+  logging.info(trnascan_path)
   if not trnascan_filter_path:
-    trnascan_filter_path = '/hps/software/users/ensembl/repositories/ftricomi/tRNAscan-SE/EukHighConfidenceFilter'
-
+    trnascan_filter_path = '/hps/software/users/ensembl/repositories/ftricomi/tRNAscan-SE/EukHighConfidenceFilter.in'
+  logging.info(trnascan_filter_path)
   check_exe(trnascan_path)
-  check_exe(trnascan_filter_path)
+  logging.info(trnascan_path)
+  #check_exe(trnascan_filter_path)
+  check_file(trnascan_filter_path)
+  logging.info(trnascan_filter_path)
 
   trnascan_output_dir = create_dir(main_output_dir,'trnascan_output')
 
@@ -756,7 +763,7 @@ def create_trnascan_gtf(region_results_file_path,trnascan_filter_file_path,regio
 def run_dust_regions(genome_file,dust_path,main_output_dir,num_threads):
 
   if not dust_path:
-    dust_path = 'tcdust'
+    dust_path = 'dustmasker'
 
   check_exe(dust_path)
   dust_output_dir = create_dir(main_output_dir,'dust_output')
@@ -765,7 +772,7 @@ def run_dust_regions(genome_file,dust_path,main_output_dir,num_threads):
   seq_region_lengths = get_seq_region_lengths(genome_file,5000)
   slice_ids = create_slice_ids(seq_region_lengths,1000000,0,5000)
 
-  generic_dust_cmd = [dust_path,'-x']
+  generic_dust_cmd = [dust_path,'-in']
   print("Running Dust")
   pool = multiprocessing.Pool(int(num_threads))
   tasks = []
@@ -798,7 +805,6 @@ def multiprocess_dust(generic_dust_cmd,slice_id,genome_file,dust_output_dir):
 
   dust_output_file_path = (region_fasta_file_path + ".dust")
   dust_out = open(dust_output_file_path,'w+')
-
   dust_cmd = generic_dust_cmd.copy()
   dust_cmd.append(region_fasta_file_path)
   print(" ".join(dust_cmd))
@@ -817,7 +823,7 @@ def create_dust_gtf(dust_output_file_path,region_results_file_path,region_name):
   line = dust_in.readline()
   repeat_count = 1
   while line:
-    result_match = re.search(r"(\d+)\.\.(\d+)",line)    
+    result_match = re.search(r"(\d+)\ - (\d+)",line)    
     if result_match:
       start = int(result_match.group(1)) + 1
       end = int(result_match.group(2)) + 1
@@ -1580,7 +1586,7 @@ def run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,gen
   print ("ASNB file: %s" % asnb_file)
 
   if not os.path.exists('alignscore.txt'):
-    subprocess.run(['cp','$ENSCODE/ensembl-analysis/scripts/genebuild/gbiab/support_files/alignscore.txt','./'])
+    subprocess.run(['cp',os.environ["ENSCODE"]+'/ensembl-analysis/scripts/genebuild/gbiab/support_files/alignscore.txt','./'])
 
   if not os.path.exists(masked_genome_file):
     raise IOError('Masked genome file does not exist: %s' % masked_genome_file)
@@ -2813,16 +2819,16 @@ def validate_coding_transcripts(cdna_file,amino_acid_file,validation_dir,gtf_fil
   
   rnasamba_output_path = os.path.join(validation_dir,'rnasamba.tsv.txt')
   cpc2_output_path = os.path.join(validation_dir,'cpc2.tsv')
-  rnasamba_volume=rnasamba_output_path+'/:/app:rw'
+  rnasamba_volume=validation_dir+'/:/app:rw'
   #rnasamba_cmd = ['sh',rnasamba_path,rnasamba_output_path,cdna_file,rnasamba_weights]
-  rnasamba_cmd=['singularity exec --bind ', rnasamba_volume, '/hps/software/users/ensembl/genebuild/ftricomi/singularity/rnasamba_latest.sif rnasamba classify ',rnasamba_output_path, cdna_file, rnasamba_weights]
+  rnasamba_cmd=['singularity', 'exec', '--bind', rnasamba_volume, '/hps/software/users/ensembl/genebuild/ftricomi/singularity/rnasamba_latest.sif', 'rnasamba', 'classify',rnasamba_output_path, cdna_file, rnasamba_weights]
   print(' '.join(rnasamba_cmd))
-  subprocess.run(rnasamba_cmd)
-  cpc2_volume=cpc2_output_path+'/:/app:rw'
+  subprocess.run(' '.join(rnasamba_cmd))
+  cpc2_volume=validation_dir+'/:/app:rw'
   #cpc2_cmd = ['sh',cpc2_path,cdna_file,cpc2_output_path]
-  cpc2_cmd = ['singularity exec --bind ', cpc2_volume, '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test_cpc2.sif python3 /CPC2_standalone-1.0.1/bin/CPC2.py -i ',cdna_file,' --ORF -o ',cpc2_output_path]
+  cpc2_cmd = ['singularity', 'exec', '--bind', cpc2_volume, '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test_cpc2.sif', 'python3', '/CPC2_standalone-1.0.1/bin/CPC2.py', '-i',cdna_file,'--ORF', '-o',cpc2_output_path]
   print(' '.join(cpc2_cmd))
-  subprocess.run(cpc2_cmd)
+  subprocess.run(' '.join(cpc2_cmd))
   cpc2_output_path = cpc2_output_path + '.txt'
 
   check_file(rnasamba_output_path)

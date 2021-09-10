@@ -73,6 +73,8 @@ GetOptions( 'gtf_file=s'             => \$input_gtf_file,
             'clean_transcripts!'     => \$clean_transcripts,
             'all_cds_exons!'         => \$all_cds_exons);
 
+print "FROM GBIAB\n";
+print "$input_gtf_file\n$output_gtf_file\n$region_details\n";    
 if (!(-e $input_gtf_file)) {
   die "Could not open the GTF file, path used: ".$input_gtf_file;
 }
