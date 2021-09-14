@@ -384,13 +384,13 @@ sub get_server_port_lists {
 =cut
 
 sub get_meta_db_information {
-  my ($self, $db_conn, $dbname, $host) = @_;
+  my ($self, $db_conn, $dbname, $host, $port, $user, $password) = @_;
 
   my $url;
   my $guiurl;
   if ($self->_is_second_pass) {
     if (!$db_conn) {
-      $db_conn = $self->create_database_hash($host, undef, $self->o('user'), $self->o('password'), $dbname);
+      $db_conn = $self->create_database_hash($host, $port, $user, $password, $dbname);
     }
     $self->root->{_tmp_db_conn} = $db_conn;
     $url = $self->dbconn_2_url('_tmp_db_conn', 1);
