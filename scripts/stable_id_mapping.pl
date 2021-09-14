@@ -19,6 +19,7 @@ use warnings;
 
 use Getopt::Long qw(:config no_ignore_case);
 use Digest::MD5 qw(md5);
+use POSIX qw(strftime);
 
 use Bio::EnsEMBL::Utils::Exception qw(warning throw);
 
@@ -44,9 +45,7 @@ my $new_port = '3306';
 my $new_user;
 my $new_pass;
 my $new_dbname;
-my $iid;
 my $genome_file;
-my $write;
 
 &GetOptions (
             'oh|old_host=s'   => \$old_host,
@@ -65,8 +64,6 @@ my $write;
             'np|new_pass=s'   => \$new_pass,
             'nd|new_dbname=s' => \$new_dbname,
             'gf|genome_file=s' => \$genome_file,
-            'iid=s'           => \$iid,
-            'write!'          => \$write,
         );
 
 my $old_db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
@@ -85,24 +82,104 @@ my $new_db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
             '-dbname' => $new_dbname,
 );
 
-#throw("You need a region name not '$iid'") unless ($iid);
-
 print scalar(localtime), "\n";
 if ($genome_file) {
   setup_fasta(-FASTA => $genome_file);
 }
+my $stable_id_prefix = $old_db->get_MetaContainer->single_value_by_key('species.stable_id_prefix');
+
 # We need to get the last id for gene, exon, transcript and translation
 my $highest_stable_ids = undef;
-if (!$havana_dbname) {
+if ($havana_dbname) {
+  my $havana_db = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
+              '-host'   => $havana_host,
+              '-port'   => $havana_port,
+              '-user'   => $havana_user,
+              '-pass'   => $havana_pass,
+              '-dbname' => $havana_dbname,
+  );
+
   $highest_stable_ids = {
-    gene        => get_highest_stable_id('gene', $old_db, $new_db),
-    transcript  => get_highest_stable_id('transcript', $old_db, $new_db),
-    exon        => get_highest_stable_id('exon', $old_db, $new_db),
-    translation => get_highest_stable_id('translation', $old_db, $new_db),
+    gene        => get_highest_stable_id_from_havana('gene', $havana_db, $new_db),
+    transcript  => get_highest_stable_id_from_havana('transcript', $havana_db, $new_db),
+    exon        => get_highest_stable_id_from_havana('exon', $havana_db, $new_db),
+    translation => get_highest_stable_id_from_havana('translation', $havana_db, $new_db),
+  };
+  foreach my $table (qw(gene transcript translation exon)) {
+    my $sth_wrong_id = $new_db->dbc->prepare("SELECT ${table}_id, stable_id FROM $table WHERE stable_id LIKE 'OTT%'");
+    $sth_wrong_id->execute;
+    my $sth_update_row = $new_db->dbc->prepare("UPDATE $table SET stable_id = CONCAT('$stable_id_prefix".uc(substr($table, 0, 1))."', LPAD(?, 11, 0)), version = 1 WHERE ${table}_id = ?");
+    my $sth_new_id = $new_db->dbc->prepare("SELECT stable_id FROM $table WHERE ${table}_id = ?");
+    my $extra = '';
+    if ($table eq 'gene' or $table eq 'transcript') {
+      $extra = 'is_current = 1 AND'
+    }
+    while (my $row = $sth_wrong_id->fetchrow_arrayref) {
+      $sth_update_row->bind_param(1, $highest_stable_ids->{$table}++);
+      $sth_update_row->bind_param(2, $row->[0]);
+      $sth_update_row->execute;
+      $sth_new_id->bind_param(1, $row->[0]);
+      $sth_new_id->execute;
+      my ($new_id) = $sth_new_id->fetchrow_array;
+
+      print "UPDATE $table SET stable_id = '$new_id', version = 1 WHERE $extra stable_id = '", $row->[1], "';\n";
+    }
+  }
+  my $duplicate_error = 0;
+  foreach my $table (qw(gene transcript translation exon)) {
+    my $sth_duplicated = $new_db->dbc->prepare("SELECT stable_id FROM $table WHERE stable_id LIKE '$stable_id_prefix%' GROUP BY stable_id HAVING COUNT(stable_id) > 1");
+    $sth_duplicated->execute;
+    my $sth_old_genes = $old_db->dbc->prepare("SELECT DISTINCT(g.stable_id) FROM gene g LEFT JOIN transcript t ON g.gene_id = t.gene_id LEFT JOIN exon_transcript et ON t.transcript_id = et.transcript_id LEFT JOIN exon e ON et.exon_id = e.exon_id WHERE e.stable_id = ?");
+    my $sth_update_row = $new_db->dbc->prepare("UPDATE gene g, transcript t, exon_transcript et, exon e SET e.stable_id = CONCAT('${stable_id_prefix}E', LPAD(?, 11, 0)), e.version = 1 WHERE g.gene_id = t.gene_id AND t.transcript_id = et.transcript_id AND et.exon_id = e.exon_id AND e.stable_id = ? AND g.stable_id != ?");
+    my $sth_select_dup = $new_db->dbc->prepare("SELECT exon_id FROM exon WHERE stable_id = ?");
+    my $sth_update_randomrow = $new_db->dbc->prepare("UPDATE exon SET stable_id = CONCAT('${stable_id_prefix}E', LPAD(?, 11, 0)), version = 1 WHERE exon_id = ?");
+    while (my $row = $sth_duplicated->fetchrow_arrayref) {
+      if ($table eq 'exon') {
+        my $stable_id = $row->[0];
+        $sth_old_genes->bind_param(1, $stable_id);
+        $sth_old_genes->execute;
+        my $genes = $sth_old_genes->fetchall_arrayref;
+        if (@$genes and @$genes == 1) {
+          $sth_update_row->bind_param(1, $highest_stable_ids->{exon}++);
+          $sth_update_row->bind_param(2, $stable_id);
+          $sth_update_row->bind_param(3, $genes->[0]->[0]);
+          $sth_update_row->execute;
+        }
+        elsif (@$genes and @$genes == 0) {
+          $sth_select_dup->bind_param(1, $stable_id);
+          $sth_select_dup->execute;
+          my $count = 0;
+          while (my $row_r = $sth_select_dup->fetchrow_arrayref) {
+            if ($count) {
+              $sth_update_randomrow->bind_param(1, $row_r->[0]);
+              $sth_update_randomrow->execute;
+            }
+            $count++;
+          }
+        }
+        else {
+          warning("Something went wrong for $stable_id and ".join(' ', @$genes));
+        }
+      }
+      else {
+        $duplicate_error = 1;
+        last;
+      }
+    }
+  }
+  if ($duplicate_error) {
+    die("You have duplication in table which needs manual intervention");
+  }
+}
+else {
+  $highest_stable_ids = {
+    gene        => get_highest_stable_id_from_core('gene', $old_db, $new_db),
+    transcript  => get_highest_stable_id_from_core('transcript', $old_db, $new_db),
+    exon        => get_highest_stable_id_from_core('exon', $old_db, $new_db),
+    translation => get_highest_stable_id_from_core('translation', $old_db, $new_db),
   };
 }
 
-my $stable_id_prefix = $old_db->get_MetaContainer->single_value_by_key('species.stable_id_prefix');
 my $unique_old_genes = {};
 my $unique_old_transcripts = {};
 my $unique_old_translations = {};
@@ -112,19 +189,19 @@ my $unique_new_transcripts = {};
 my $unique_new_translations = {};
 my $unique_new_exons = {};
 
-#foreach my $old_slice (@{$old_db->get_SliceAdaptor->fetch_all('toplevel')}) {
-my $old_slice = $old_db->get_SliceAdaptor->fetch_by_name($iid);
-print scalar(localtime), ' start ', $old_slice->seq_region_name, "\n";
-my $new_slice = $new_db->get_SliceAdaptor->fetch_by_name($old_slice->name);
+my $stable_id_events = [];
+my $objects_to_update = [];
 
-my $old_genes = $old_slice->get_all_Genes(undef, undef, 1);
-my $new_genes = $new_slice->get_all_Genes(undef, undef, 1);
+foreach my $old_slice (@{$old_db->get_SliceAdaptor->fetch_all('toplevel', undef, 1)}) {
+#  next unless ($old_slice->seq_region_name eq '1');
+  print scalar(localtime), ' start ', $old_slice->seq_region_name, "\n";
+  my $new_slice = $new_db->get_SliceAdaptor->fetch_by_name($old_slice->name);
 
-my ($old_gene_keys, $old_transcript_keys) = generate_hash_keys($old_genes, $stable_id_prefix, $highest_stable_ids, $unique_old_genes, $unique_old_transcripts, $unique_old_translations, $unique_old_exons);
-my ($new_gene_keys, $new_transcript_keys) = generate_hash_keys($new_genes, $stable_id_prefix, $highest_stable_ids, $unique_new_genes, $unique_new_transcripts, $unique_new_translations, $unique_new_exons);
+  my $old_genes = $old_slice->get_all_Genes(undef, undef, 1);
+  my $new_genes = $new_slice->get_all_Genes(undef, undef, 1);
 
-my $stable_id_events;
-my $objects_to_update;
+  my ($old_gene_keys, $old_transcript_keys) = generate_hash_keys($old_genes, $stable_id_prefix, $highest_stable_ids, $unique_old_genes, $unique_old_transcripts, $unique_old_translations, $unique_old_exons);
+  my ($new_gene_keys, $new_transcript_keys) = generate_hash_keys($new_genes, $stable_id_prefix, $highest_stable_ids, $unique_new_genes, $unique_new_transcripts, $unique_new_translations, $unique_new_exons);
 
 # I will first loop through all the old genes using the unique keys, start:end:num_transcripts
 # Because most of the genes should be the same, I should only have few genes to try to find if
@@ -134,709 +211,572 @@ my $objects_to_update;
 # will be unchanged and I can then check the stable id or the name to be sure I am looking at the same
 # gene.
 # For the hopefully very few remaining genes, I will need to check thoroughly each objects
-my @coordinate_check;
-foreach my $gene_key (keys %$old_gene_keys) {
-  my $old_gene = $old_gene_keys->{$gene_key};
-  my $old_transcripts = $old_gene->get_all_Transcripts;
-  my $gene_needs_update = 0;
-  my $gene_version_change = 0;
-  if (exists $new_gene_keys->{$gene_key}) {
+  my @coordinate_check;
+  my @missing_old_genes;
+  foreach my $old_gene (@$old_genes) {
+    my $old_transcripts = $old_gene->get_all_Transcripts;
+    my $gene_key = join(':', $old_gene->start, $old_gene->end, $old_gene->strand, scalar(@$old_transcripts));
+    my $gene_needs_update = 0;
+    my $gene_stable_id_event = 0;
+    my @missing_old_transcripts;
+    if (exists $unique_new_genes->{$old_gene->stable_id}) {
+      my $new_gene = $unique_new_genes->{$old_gene->stable_id};
+      print 'FOUND STABLE ID ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, "\n";
+      my $new_transcripts = $new_gene->get_all_Transcripts;
+      foreach my $old_transcript (@$old_transcripts) {
+        my $old_exons = $old_transcript->get_all_Exons;
+        if (exists $unique_new_transcripts->{$old_transcript->stable_id}) {
+          my $new_transcript = $unique_new_transcripts->{$old_transcript->stable_id};
+          print ' FOUND STABLE ID ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
+          if ($old_gene->stable_id ne $new_transcript->{_gb_gene}->stable_id) {
+            print "WARNING STABLE ID gene switch for ", $old_transcript->stable_id_version, ' ', $old_gene->stable_id_version, ' -> ', $new_transcript->{_gb_gene}->stable_id, "\n";
+          }
+          process_transcript($old_transcript, $new_transcript, $objects_to_update, $unique_old_transcripts, $unique_old_translations, $stable_id_events);
+          process_exons($old_transcript, $new_transcript, $old_exons, $unique_old_exons, $objects_to_update);
+        }
+        elsif (exists $new_transcript_keys->{${$old_transcript->{_gb_key}}}) {
+          my $new_transcript = $new_transcript_keys->{${$old_transcript->{_gb_key}}};
+          print ' FOUND KEY ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
+          if ($old_gene->stable_id ne $new_transcript->{_gb_gene}->stable_id) {
+            print "WARNING KEY gene switch for ", $old_transcript->stable_id_version, ' ', $old_gene->stable_id_version, ' -> ', $new_transcript->{_gb_gene}->stable_id, "\n";
+          }
+          process_transcript($old_transcript, $new_transcript, $objects_to_update, $unique_old_transcripts, $unique_old_translations, $stable_id_events);
+          process_exons($old_transcript, $new_transcript, $old_exons, $unique_old_exons, $objects_to_update);
+        }
+        else {
+          push(@missing_old_transcripts, $old_transcript);
+        }
+      }
+      if (@missing_old_transcripts) {
+        foreach my $missing_old_transcript (@missing_old_transcripts) {
+          print ' MISSING ', $missing_old_transcript->stable_id_version, "\n";
+          find_transcript_by_exon_overlap([$missing_old_transcript], $new_transcripts, $stable_id_events, $objects_to_update, $unique_new_transcripts, $unique_old_translations);
+        }
+      }
+      if ($old_gene->start != $new_gene->start
+          or $old_gene->end != $new_gene->end
+          or @$old_transcripts != @$new_transcripts) {
+        if (object_needs_update($old_gene, $new_gene, 1)) {
+          push(@$objects_to_update, $new_gene);
+        }
+        push(@$stable_id_events, [$old_gene, $new_gene]);
+      }
+      else {
+        if (object_needs_update($old_gene, $new_gene)) {
+          push(@$objects_to_update, $new_gene);
+        }
+      }
+    }
+    elsif (exists $new_gene_keys->{$gene_key}) {
 #   If the gene_key exists in the new database I would expect to have exactly the same gene
 #   or maybe some of the transcripts will be a bit different
 #   So I will loop through each transcripts to find its match in the new database
-    print $new_gene_keys->{$gene_key}->stable_id_version, " FOUND\n";
-    my $new_gene = $new_gene_keys->{$gene_key};
-    $new_gene->{_gb_found} = 0;
-    my $new_transcripts = $new_gene->get_all_Transcripts;
-    my @old_missed_transcripts;
-    OLD_TRANSCRIPT: foreach my $old_transcript (@$old_transcripts) {
-      foreach my $new_transcript (@$new_transcripts) {
-#       If the transcript_key exists in the new database, I will have the same exon-intron structure
-#       with the following possible changes
-#         - different stable id, if the transcript was deleted and recreated
-#         - different translation if the start has been updated (stop is less likely)
-#           or with a non standard amino acid
-#         - different cDNA if a new attribute has been added
-        if (${$old_transcript->{_gb_key}} eq ${$new_transcript->{_gb_key}}) {
-          my $old_exons = $old_transcript->get_all_Exons;
-          my $new_exons = $new_transcript->get_all_Exons;
-          for (my $index = 0; $index < @$old_exons; $index++) {
-            my $exon_needs_update = 0;
-            if ($old_exons->[$index]->stable_id ne $new_exons->[$index]->stable_id) {
-              if (exists $unique_old_exons->{$new_exons->[$index]->stable_id}) {
-                $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exons->[$index]->stable_id}, $new_exons->[$index]));
-              }
-              else {
-                $new_exons->[$index]->created_date('');
-                $new_exons->[$index]->modified_date('');
-                $new_exons->[$index]->version(1);
-                $exon_needs_update = 1;
-              }
-              print '   EXON KEY ID ', $old_exons->[$index]->stable_id_version, ' -> ', $new_exons->[$index]->stable_id_version, "\n";
-            }
-            elsif ($old_exons->[$index]->version != $new_exons->[$index]->version) {
-              $exon_needs_update = 1 if (object_needs_update($old_exons->[$index], $new_exons->[$index]));
-              print '   EXON KEY VERSION ', $old_exons->[$index]->stable_id_version, ' -> ', $new_exons->[$index]->stable_id_version, "\n";
-            }
-            push(@$objects_to_update, $new_exons->[$index]) if ($exon_needs_update);
+      my $new_gene = $new_gene_keys->{$gene_key};
+      print 'FOUND KEY ', $old_gene->stable_id_version, ' ', $new_gene->stable_id_version, "\n";
+      my $new_transcripts = $new_gene->get_all_Transcripts;
+      foreach my $old_transcript (@$old_transcripts) {
+        my $old_exons = $old_transcript->get_all_Exons;
+        if (exists $unique_new_transcripts->{$old_transcript->stable_id}) {
+          my $new_transcript = $unique_new_transcripts->{$old_transcript->stable_id};
+          print ' FOUND STABLE ID ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
+          if ($old_gene->stable_id ne $new_transcript->{_gb_gene}->stable_id) {
+            print "WARNING STABLE ID gene switch for ", $old_transcript->stable_id_version, ' ', $old_gene->stable_id_version, ' -> ', $new_transcript->{_gb_gene}->stable_id, "\n";
           }
-          process_transcript($old_transcript, $new_transcript, $objects_to_update, $unique_old_transcripts, $unique_old_translations);
-          print ' TRANSCRIPT GENE KEY TRANSCRIPT KEY ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
-          next OLD_TRANSCRIPT;
+          process_transcript($old_transcript, $new_transcript, $objects_to_update, $unique_old_transcripts, $unique_old_translations, $stable_id_events);
+          process_exons($old_transcript, $new_transcript, $old_exons, $unique_old_exons, $objects_to_update);
         }
-#       Otherwise I'm checking the stable id, we know we should be in the same genes so the transcript stable ids should match
-#       If the stable ids match, it is more likely that all stable will match however at least one the following would have happened:
-#         - exon with different phase whether a correction or a real change
-#         - a change in the peptide, usually an extension via the start codon position
-#         - an extension of the transcript
-        elsif ($old_transcript->stable_id eq $new_transcript->stable_id) {
-          my $old_exons = $old_transcript->get_all_Exons;
-          my $new_exons = $new_transcript->get_all_Exons;
-          if ($old_transcript->spliced_seq ne $new_transcript->spliced_seq) {
-            my $new_index = 0;
-            foreach my $old_exon (@$old_exons) {
-              for (my $index = $new_index; $index < @$new_exons; $index++) {
-                my $exon_needs_update = 0;
-                my $new_exon = $new_exons->[$index];
-                if ($old_exon->start == $new_exon->start and $old_exon->end == $new_exon->end) {
-                  if ($old_exon->stable_id ne $new_exon->stable_id) {
-                    if (exists $unique_old_exons->{$new_exon->stable_id}) {
-                      $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exon->stable_id}, $new_exon));
-                    }
-                    else {
-                      $new_exon->created_date('');
-                      $new_exon->modified_date('');
-                      $new_exon->version(1);
-                      $exon_needs_update = 1;
-                    }
-                    print '   EXON DEEP ID ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
-                  }
-                  elsif ($old_exon->version != $new_exon->version) {
-                    $exon_needs_update = 1 if (object_needs_update($old_exon, $new_exon));
-                    print '   EXON DEEP VERSION ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
-                  }
-                  $new_index = $index+1;
-                  push(@$objects_to_update, $new_exon) if ($exon_needs_update);
-                  last;
-                }
-                elsif ($old_exon->start <= $new_exon->end and $old_exon->end >= $new_exon->start) {
-                  if ($old_exon->stable_id ne $new_exon->stable_id) {
-                    if (exists $unique_old_exons->{$new_exon->stable_id}) {
-                      $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exon->stable_id}, $new_exon, 1));
-                    }
-                    else {
-                      $new_exon->created_date('');
-                      $new_exon->modified_date('');
-                      $new_exon->version(1);
-                      $exon_needs_update = 1;
-                    }
-                    print '   EXON DEEP INC ID ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
-                  }
-                  elsif ($old_exon->version+1 != $new_exon->version) {
-                    $exon_needs_update = 1 if (object_needs_update($old_exon, $new_exon, 1));
-                    print '   EXON DEEP INC VERSION ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
-                  }
-                  $new_index = $index+1;
-                  push(@$objects_to_update, $new_exon) if ($exon_needs_update);
-                  last;
-                }
-              }
-            }
+        elsif (exists $new_transcript_keys->{${$old_transcript->{_gb_key}}}) {
+          my $new_transcript = $new_transcript_keys->{${$old_transcript->{_gb_key}}};
+          print ' FOUND KEY ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
+          if ($old_gene->stable_id ne $new_transcript->{_gb_gene}->stable_id) {
+            print "WARNING KEY gene switch for ", $old_transcript->stable_id_version, ' ', $old_gene->stable_id_version, ' -> ', $new_transcript->{_gb_gene}->stable_id, "\n";
           }
-          else {
-            for (my $index = 0; $index < @$old_exons; $index++) {
-              my $exon_needs_update = 0;
-              my $old_exon = $old_exons->[$index];
-              my $new_exon = $new_exons->[$index];
-              if ($old_exon->stable_id ne $new_exon->stable_id) {
-                if (exists $unique_old_exons->{$new_exon->stable_id}) {
-                  $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exon->stable_id}, $new_exon));
-                }
-                else {
-                  $new_exon->created_date('');
-                  $new_exon->modified_date('');
-                  $new_exon->version(1);
-                  $exon_needs_update = 1;
-                }
-                print '   EXON ID ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
-              }
-              elsif ($old_exon->version != $new_exon->version) {
-                $exon_needs_update = 1 if (object_needs_update($old_exon, $new_exon));
-                print '   EXON VERSION ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
-              }
-              push(@$objects_to_update, $new_exon) if ($exon_needs_update);
-            }
-          }
-          process_transcript($old_transcript, $new_transcript, $objects_to_update, $unique_old_transcripts, $unique_old_translations);
-          print ' TRANSCRIPT GENE KEY TRANSCRIPT STABLEID ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
-          next OLD_TRANSCRIPT;
-        }
-      }
-      push(@old_missed_transcripts, $old_transcript);
-    }
-#   If @old_missed_transcripts has one element or more, I could not find the match of some of my old transcripts
-#   in the new database so I will look at all the transcripts left in the new gene and calculate a score for each
-#   of them:
-#     - exon coordinate match -> 1
-#     - exon stable id match -> 1
-#     - exon overlap
-#       - if small difference -> .4
-#       - phase update -> .2
-#       - end_phase update -> .2
-#   Then I'm comparing at the number of exons of the old transcript times .6, if the score is above, it is considered
-#   for a possible match.
-#   Finally, I take the transcript with the best score. If none if found, the old transcript is labelled as deleted.
-#   All the new transcripts without a match are considered new
-    if (@old_missed_transcripts) {
-      find_transcript_by_exon_overlap(\@old_missed_transcripts, $new_transcripts, $stable_id_events, $objects_to_update, $unique_new_transcripts, $unique_old_translations);
-      print ' TRANSCRIPT GENE KEY TRANSCRIPT MISSED ', "\n";
-      foreach my $new_transcript (@$new_transcripts) {
-        if (!exists $new_transcript->{_gb_found}) {
-          print '  TRANSCRIPT NEW ', $new_transcript->stable_id_version, "\n";
-          push(@$stable_id_events, [undef, $new_transcript]);
-          if ($new_transcript->translation and exists $unique_old_translations->{$new_transcript->translation->stable_id}) {
-            print 'ERROR translation part of a new transcript ', $new_transcript->translation->stable_id, "\n";
-          }
-        }
-      }
-    }
-#   If the gene stable id is different, I look at the gene name if present. This is for information
-    if ($old_gene->stable_id ne $new_gene->stable_id) {
-      my $old_name_attrib = $old_gene->get_all_Attributes('name');
-      if ($old_name_attrib and @$old_name_attrib) {
-        my $new_name_attrib = $new_gene->get_all_Attributes('name');
-        if ($new_name_attrib and @$new_name_attrib) {
-          if ($old_name_attrib->[0]->value eq $new_name_attrib->[0]->value) {
-            print '  TRANSCRIPT DIFF GENEID SAME NAME RECOVER ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, "\n";
-          }
-          else {
-            print '  TRANSCRIPT DIFF GENEID DIFF NAME RECOVER ', $old_gene->stable_id_version, ' ', $old_name_attrib->[0]->value, ' -> ', $new_gene->stable_id_version, ' ', $new_name_attrib->[0]->value, "\n";
-          }
+          process_transcript($old_transcript, $new_transcript, $objects_to_update, $unique_old_transcripts, $unique_old_translations, $stable_id_events);
+          process_exons($old_transcript, $new_transcript, $old_exons, $unique_old_exons, $objects_to_update);
         }
         else {
-          print '  TRANSCRIPT DIFF GENEID NO NEW NAME RECOVER ', $old_gene->stable_id_version, ' ', $old_name_attrib->[0]->value, ' -> ', $new_gene->stable_id_version, "\n";
+          push(@missing_old_transcripts, $old_transcript);
+        }
+      }
+      if (@missing_old_transcripts) {
+        foreach my $missing_old_transcript (@missing_old_transcripts) {
+          print ' MISSING ', $missing_old_transcript->stable_id_version, "\n";
+          find_transcript_by_exon_overlap([$missing_old_transcript], $new_transcripts, $stable_id_events, $objects_to_update, $unique_new_transcripts, $unique_old_translations);
+        }
+      }
+      if (exists $unique_old_genes->{$new_gene->stable_id}) {
+        if (!exists $new_gene->{_gb_found}) {
+          if ($unique_old_genes->{$new_gene->stable_id}->start != $new_gene->start
+              or $unique_old_genes->{$new_gene->stable_id}->end != $new_gene->end
+              or @{$unique_old_genes->{$new_gene->stable_id}->get_all_Transcripts} != @$new_transcripts) {
+            if (object_needs_update($unique_old_genes->{$new_gene->stable_id}, $new_gene, 1)) {
+              push(@$objects_to_update, $new_gene);
+            }
+          }
+          else {
+            if (object_needs_update($unique_old_genes->{$new_gene->stable_id}, $new_gene)) {
+              push(@$objects_to_update, $new_gene);
+            }
+          }
         }
       }
       else {
-        print '  TRANSCRIPT DIFF GENEID RECOVER ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, "\n";
-      }
-      if (exists $unique_old_genes->{$new_gene->stable_id}) {
-        $gene_needs_update = 1 if (object_needs_update($unique_old_genes->{$new_gene->stable_id}, $new_gene));
-      }
-      else {
+        $new_gene->version(1);
         $new_gene->created_date('');
         $new_gene->modified_date('');
-        $new_gene->version(1);
-        $gene_needs_update = 1;
       }
-      print ' GENE ID ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, "\n";
       push(@$stable_id_events, [$old_gene, $new_gene]);
     }
     else {
-      if ($gene_version_change) {
-        if ($old_gene->version+1 != $new_gene->version) {
-          print '  GENE VERSION INC ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, "\n";
-        }
-        push(@$stable_id_events, [$old_gene, $new_gene]);
-        object_needs_update($old_gene, $new_gene, 1);
-      }
-      else {
-        if ($old_gene->version != $new_gene->version) {
-          print '  GENE VERSION ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, "\n";
-        }
-        $gene_needs_update = 1 if (object_needs_update($old_gene, $new_gene));
-      }
-    }
-    push(@$objects_to_update, $new_gene) if ($gene_needs_update);
-  }
-  else {
 #   If the gene_key is not found, I will first look at the old transcript and try to find them with their transcript_key
 #   or their stable id in the new database
 #   If none of them are found, I will need to look at all the new gene left and us the coordinates to make sure that they
 #   have been deleted
-    print $old_gene->stable_id_version, " NOMATCH\n";
-    my $gene_version_change = 0;
-    my %possible_new_genes;
-    my @missed_old_transcripts;
-    foreach my $old_transcript (@$old_transcripts) {
-      if (exists $new_transcript_keys->{${$old_transcript->{_gb_key}}}) {
-        my $new_transcript = $new_transcript_keys->{${$old_transcript->{_gb_key}}};
-        $possible_new_genes{$new_transcript->{_gb_gene}} = $new_transcript->{_gb_gene};
-        if ($old_gene->stable_id ne $new_transcript->{_gb_gene}->stable_id) {
-          my $old_name_attrib = $old_gene->get_all_Attributes('name');
-          if ($old_name_attrib and @$old_name_attrib) {
-            my $new_name_attrib = $new_transcript->{_gb_gene}->get_all_Attributes('name');
-            if ($new_name_attrib and @$new_name_attrib) {
-              if ($old_name_attrib->[0]->value eq $new_name_attrib->[0]->value) {
-                print '  TRANSCRIPT DIFF GENEID SAME NAME RECOVER ', $old_gene->stable_id_version, ' -> ', $new_transcript->{_gb_gene}->stable_id_version, "\n";
-              }
-              else {
-                print '  TRANSCRIPT DIFF GENEID DIFF NAME RECOVER ', $old_gene->stable_id_version, ' ', $old_name_attrib->[0]->value, ' -> ', $new_transcript->{_gb_gene}->stable_id_version, ' ', $new_name_attrib->[0]->value, "\n";
-              }
-            }
-            else {
-              print '  TRANSCRIPT DIFF GENEID NO NEW NAME RECOVER ', $old_gene->stable_id_version, ' ', $old_name_attrib->[0]->value, ' -> ', $new_transcript->{_gb_gene}->stable_id_version, "\n";
+      print 'NO MATCH ', $old_gene->stable_id_version, "\n";
+      my %possible_new_genes;
+      my @missed_old_transcripts;
+      foreach my $old_transcript (@$old_transcripts) {
+        my $old_exons = $old_transcript->get_all_Exons;
+        if (exists $unique_new_transcripts->{$old_transcript->stable_id}) {
+          my $new_transcript = $unique_new_transcripts->{$old_transcript->stable_id};
+          print ' FOUND STABLE ID ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
+          $possible_new_genes{$new_transcript->{_gb_gene}} = $new_transcript->{_gb_gene};
+          if ($old_transcript->slice->name eq $new_transcript->slice->name) {
+            if (!find_transcript_by_exon_overlap([$old_transcript], [$new_transcript], $stable_id_events, $objects_to_update, $unique_new_transcripts, $unique_old_translations)) {
+              print 'WARNING stable_id on a different transcript ', $old_transcript->stable_id_version, , ' ', $unique_new_transcripts->{$old_transcript->stable_id}->{_gb_gene}->stable_id, "\n";
             }
           }
           else {
-            print '  TRANSCRIPT DIFF GENEID RECOVER ', $old_gene->stable_id_version, ' -> ', $new_transcript->{_gb_gene}->stable_id_version, "\n";
+            print 'ERROR stable_id on a different region ', $old_transcript->stable_id_version, ' ', $old_transcript->slice->name, ' => '. $new_transcript->slice->name, "\n";
           }
         }
-        my $old_exons = $old_transcript->get_all_Exons;
-        my $new_exons = $new_transcript->get_all_Exons;
-        for (my $index = 0; $index < @$old_exons; $index++) {
-          my $exon_needs_update = 0;
-          if ($old_exons->[$index]->stable_id ne $new_exons->[$index]->stable_id) {
-            if (exists $unique_old_exons->{$new_exons->[$index]->stable_id}) {
-              $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exons->[$index]->stable_id}, $new_exons->[$index]));
-            }
-            else {
-              $new_exons->[$index]->created_date('');
-              $new_exons->[$index]->modified_date('');
-              $new_exons->[$index]->version(1);
-              $exon_needs_update = 1;
-            }
-            print '   EXON KEY ID ', $old_exons->[$index]->stable_id_version, ' -> ', $new_exons->[$index]->stable_id_version, "\n";
-          }
-          elsif ($old_exons->[$index]->version != $new_exons->[$index]->version) {
-            $exon_needs_update = 1 if (object_needs_update($old_exons->[$index], $new_exons->[$index]));
-            print '   EXON KEY VERSION ', $old_exons->[$index]->stable_id_version, ' -> ', $new_exons->[$index]->stable_id_version, "\n";
-          }
-        }
-        process_transcript($old_transcript, $new_transcript, $objects_to_update, $unique_old_transcripts, $unique_old_translations);
-        print ' TRANSCRIPT GENE NOKEY TRANSCRIPT KEY ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
-      }
-      elsif (exists $unique_new_transcripts->{$old_transcript->stable_id}) {
-        my $new_transcript = $unique_new_transcripts->{$old_transcript->stable_id};
-        $possible_new_genes{$new_transcript->{_gb_gene}} = $new_transcript->{_gb_gene};
-        if ($old_transcript->slice->name eq $new_transcript->slice->name) {
-          if (!find_transcript_by_exon_overlap([$old_transcript], [$new_transcript], $stable_id_events, $objects_to_update, $unique_new_transcripts, $unique_old_translations)) {
-            print 'ERROR stable_id on a different transcript ', $old_transcript->stable_id_version, , ' ', $unique_new_transcripts->{$old_transcript->stable_id}->{_gb_gene}->stable_id, "\n";
-          }
+        elsif (exists $new_transcript_keys->{${$old_transcript->{_gb_key}}}) {
+          my $new_transcript = $new_transcript_keys->{${$old_transcript->{_gb_key}}};
+          print ' FOUND KEY ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
+          $possible_new_genes{$new_transcript->{_gb_gene}} = $new_transcript->{_gb_gene};
+          process_transcript($old_transcript, $new_transcript, $objects_to_update, $unique_old_transcripts, $unique_old_translations, $stable_id_events);
+          process_exons($old_transcript, $new_transcript, $old_exons, $unique_old_exons, $objects_to_update);
+          print ' TRANSCRIPT GENE NOKEY TRANSCRIPT KEY ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
         }
         else {
-          print 'ERROR stable_id on a different region ', $old_transcript->stable_id_version, ' ', $old_transcript->slice->name, ' => '. $new_transcript->slice->name, "\n";
+          push(@missed_old_transcripts, $old_transcript);
+          print '  TRANSCRIPT MISSED RECOVER ', $old_transcript->stable_id_version, "\n";
         }
       }
-      else {
-        push(@missed_old_transcripts, $old_transcript);
-        print '  TRANSCRIPT MISSED RECOVER ', $old_transcript->stable_id_version, "\n";
-      }
-    }
 #   If none of the transcripts have been found, I will need to check with coordinates later before saying it has been deleted
-    if (@missed_old_transcripts == @$old_transcripts) {
-      print '  TRANSCRIPT FOUND NONE RECOVER ', $old_gene->stable_id_version, "\n";
-      push(@coordinate_check, $old_gene);
-    }
-    elsif (@missed_old_transcripts == 0) {
+      if (@missed_old_transcripts == @$old_transcripts) {
+        print '  TRANSCRIPT FOUND NONE RECOVER ', $old_gene->stable_id_version, "\n";
+        push(@coordinate_check, $old_gene);
+      }
+      elsif (@missed_old_transcripts == 0) {
 #     If all the transcripts have been found,
 #       - the gene has been merged into another if they are all in the same new gene
 #         or an already existing one
 #       - the gene has been broken into two genes if they are in two different genes
 #       - I don't expect to have my transcripts in three different genes so die
-      if (keys %possible_new_genes == 1) {
-        my ($new_gene) = values %possible_new_genes;
-        if ($old_gene->stable_id ne $new_gene->stable_id) {
-          if (exists $unique_old_genes->{$new_gene->stable_id} and exists $unique_new_genes->{$old_gene->stable_id}) {
-            print 'ERROR The old stable id is present in the new database but all its transcripts have been assigned to a different gene ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, "\n";
+        if (keys %possible_new_genes == 1) {
+          my ($new_gene) = values %possible_new_genes;
+          if ($old_gene->stable_id eq $new_gene->stable_id) {
+            $gene_needs_update = 1 if (object_needs_update($old_gene, $new_gene, 1));
           }
           else {
             if (exists $unique_old_genes->{$new_gene->stable_id} and !exists $unique_new_genes->{$old_gene->stable_id}) {
               print '  TRANSCRIPT MERGED RECOVER ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, "\n";
+              if ($unique_old_genes->{$new_gene->stable_id}->start == $new_gene->start
+                  and $unique_old_genes->{$new_gene->stable_id}->end == $new_gene->end
+                  and $unique_old_genes->{$new_gene->stable_id}->start == $new_gene->start) {
+                $gene_needs_update = 1 if (object_needs_update($unique_old_genes->{$new_gene->stable_id}, $new_gene));
+              }
+              else {
+                $gene_needs_update = 1 if (object_needs_update($unique_old_genes->{$new_gene->stable_id}, $new_gene, 1));
+              }
             }
             elsif (@$old_transcripts != @{$new_gene->get_all_Transcripts}) {
               print '  TRANSCRIPT HAVANA DELETE RECOVER ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, "\n";
+              $gene_needs_update = 1 if (object_needs_update($old_gene, $new_gene, 1));
             }
             else {
               print '  TRANSCRIPT ERROR RECOVER ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, "\n";
+              $gene_needs_update = 1 if (object_needs_update($old_gene, $new_gene, 1));
             }
-            $gene_needs_update = 1 if (object_needs_update($old_gene, $new_gene, 1));
-            push(@$stable_id_events, [$old_gene, $new_gene]);
           }
-        }
-        else {
-          if (@$old_transcripts != @{$new_gene->get_all_Transcripts}) {
-            $gene_needs_update = 1 if (object_needs_update($old_gene, $new_gene, 1));
-          }
-          else {
-            $gene_needs_update = 1 if (object_needs_update($old_gene, $new_gene, 1));
-          }
+          push(@$objects_to_update, $new_gene) if ($gene_needs_update);
           push(@$stable_id_events, [$old_gene, $new_gene]);
         }
-      }
-      elsif (keys %possible_new_genes == 2) {
-        if (exists $unique_new_genes->{$old_gene->stable_id}) {
-          foreach my $possible_new_gene (values %possible_new_genes) {
-            if ($old_gene->stable_id ne $possible_new_gene->stable_id) {
-              if (exists $unique_old_genes->{$possible_new_gene->stable_id} and !exists $unique_new_genes->{$old_gene->stable_id}) {
-                print '  TRANSCRIPT MERGED RECOVER ', $old_gene->stable_id_version, ' -> ', $possible_new_gene->stable_id_version, "\n";
-              }
-              elsif (@$old_transcripts != @{$possible_new_gene->get_all_Transcripts}) {
-                print '  TRANSCRIPT HAVANA DELETE RECOVER ', $old_gene->stable_id_version, ' -> ', $possible_new_gene->stable_id_version, "\n";
-              }
-              else {
-                print '  TRANSCRIPT ERROR RECOVER ', $old_gene->stable_id_version, ' -> ', $possible_new_gene->stable_id_version, "\n";
-              }
-              $gene_needs_update = 1 if (object_needs_update($old_gene, $possible_new_gene, 1));
-              push(@$stable_id_events, [$old_gene, $possible_new_gene]);
-            }
-            else {
-              if (@$old_transcripts != @{$possible_new_gene->get_all_Transcripts}) {
+        elsif (keys %possible_new_genes == 2) {
+          if (exists $unique_new_genes->{$old_gene->stable_id}) {
+            foreach my $possible_new_gene (values %possible_new_genes) {
+              if ($old_gene->stable_id eq $possible_new_gene->stable_id) {
                 $gene_needs_update = 1 if (object_needs_update($old_gene, $possible_new_gene, 1));
               }
               else {
-                $gene_needs_update = 1 if (object_needs_update($old_gene, $possible_new_gene, 1));
+                if (exists $unique_old_genes->{$possible_new_gene->stable_id} and !exists $unique_new_genes->{$old_gene->stable_id}) {
+                  print '  TRANSCRIPT MERGED RECOVER ', $old_gene->stable_id_version, ' -> ', $possible_new_gene->stable_id_version, "\n";
+                  if ($unique_old_genes->{$possible_new_gene->stable_id}->start == $possible_new_gene->start
+                      and $unique_old_genes->{$possible_new_gene->stable_id}->end == $possible_new_gene->end
+                      and $unique_old_genes->{$possible_new_gene->stable_id}->start == $possible_new_gene->start) {
+                    $gene_needs_update = 1 if (object_needs_update($unique_old_genes->{$possible_new_gene->stable_id}, $possible_new_gene));
+                  }
+                  else {
+                    $gene_needs_update = 1 if (object_needs_update($unique_old_genes->{$possible_new_gene->stable_id}, $possible_new_gene, 1));
+                  }
+                }
+                elsif (@$old_transcripts != @{$possible_new_gene->get_all_Transcripts}) {
+                  print '  TRANSCRIPT HAVANA DELETE RECOVER ', $old_gene->stable_id_version, ' -> ', $possible_new_gene->stable_id_version, "\n";
+                  $gene_needs_update = 1 if (object_needs_update($old_gene, $possible_new_gene, 1));
+                }
+                else {
+                  print '  TRANSCRIPT ERROR RECOVER ', $old_gene->stable_id_version, ' -> ', $possible_new_gene->stable_id_version, "\n";
+                  $gene_needs_update = 1 if (object_needs_update($old_gene, $possible_new_gene, 1));
+                }
               }
+              push(@$objects_to_update, $possible_new_gene) if ($gene_needs_update);
               push(@$stable_id_events, [$old_gene, $possible_new_gene]);
             }
           }
+          else {
+            print 'ERROR gene stable id not found in new database, unlikely event ', $old_gene->stable_id_version, "\n";
+          }
         }
         else {
-          print 'ERROR gene stable id not found in new database, unlikely event ', $old_gene->stable_id_version, "\n";
+          print 'ERROR transcripts in more than 2 different genes ', $old_gene->stable_id, ' -> ', join(', ', grep {$_->stable_id_version} values %possible_new_genes), "\n";
         }
       }
       else {
-        print 'ERROR transcripts in more than 2 different genes ', $old_gene->stable_id, ' -> ', join(', ', grep {$_->stable_id_version} values %possible_new_genes), "\n";
-      }
-    }
-    else {
-      print '  TRANSCRIPT FOUND RECOVER ', $old_gene->stable_id_version, ' ', scalar(@$old_transcripts), ' ', scalar(@missed_old_transcripts), "\n";
-      my $found_transcript = 0;
-      foreach my $missed_old_transcript (@missed_old_transcripts) {
-        my @possible_new_transcripts;
-        foreach my $possible_new_gene (values %possible_new_genes) {
-          push(@possible_new_transcripts, @{$possible_new_gene->get_all_Transcripts});
-        }
-        if (!find_transcript_by_exon_overlap([$missed_old_transcript], \@possible_new_transcripts, $stable_id_events, $objects_to_update, $unique_new_transcripts, $unique_old_translations)) {
-          print '  TRANSCRIPT MISSING DELETED RECOVER ', $missed_old_transcript->stable_id_version, ' within ', $old_gene->stable_id_version, "\n";
-          push(@$stable_id_events, [$missed_old_transcript, undef]);
+        print '  TRANSCRIPT FOUND RECOVER ', $old_gene->stable_id_version, ' ', scalar(@$old_transcripts), ' ', scalar(@missed_old_transcripts), "\n";
+        my $found_transcript = 0;
+        foreach my $missed_old_transcript (@missed_old_transcripts) {
+          my @possible_new_transcripts;
+          foreach my $possible_new_gene (values %possible_new_genes) {
+            push(@possible_new_transcripts, @{$possible_new_gene->get_all_Transcripts});
+          }
+          if (!find_transcript_by_exon_overlap([$missed_old_transcript], \@possible_new_transcripts, $stable_id_events, $objects_to_update, $unique_new_transcripts, $unique_old_translations)) {
+            print '  TRANSCRIPT MISSING DELETED RECOVER ', $missed_old_transcript->stable_id_version, ' within ', $old_gene->stable_id_version, "\n";
+            push(@$stable_id_events, [$missed_old_transcript, undef]);
+          }
         }
       }
     }
   }
-}
 # This is the last chance, I will first check the stable id because at one point you have to trust them
 # Then I will check the coordinates of the genes which don't have _gb_found set has it means no transcript
 # of theirs match an old transcript
-if (@coordinate_check) {
-  foreach my $old_gene (@coordinate_check) {
-    my $old_transcripts = $old_gene->get_all_Transcripts;
-    if (exists $unique_new_genes->{$old_gene->stable_id}) {
-      my $new_gene = $unique_new_genes->{$old_gene->stable_id};
-      if (exists $new_gene->{_gb_found}) {
-        print 'ERROR new_gene has _gb_found but for a different gene ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, ' ', $new_gene->{_gb_found}, "\n";
-      }
-      else {
-        $new_gene->{_gb_found} = 0;
-        my $new_transcripts = $new_gene->get_all_Transcripts;
-        my $gene_version_change = 0;
-        my $gene_needs_update = 0;
-        CHECK_TRANSCRIPT: foreach my $old_transcript (@$old_transcripts) {
-          foreach my $new_transcript (@$new_transcripts) {
-            if (!exists $new_transcript->{_gb_found}) {
-              if ($old_transcript->stable_id eq $new_transcript->stable_id) {
-                my $old_exons = $old_transcript->get_all_Exons;
-                my $new_exons = $new_transcript->get_all_Exons;
-                if ($old_transcript->spliced_seq ne $new_transcript->spliced_seq) {
-                  my $new_index = 0;
-                  foreach my $old_exon (@$old_exons) {
-                    for (my $index = $new_index; $index < @$new_exons; $index++) {
-                      my $exon_needs_update = 0;
-                      my $new_exon = $new_exons->[$index];
-                      if ($old_exon->start == $new_exon->start and $old_exon->end == $new_exon->end) {
-                        if ($old_exon->stable_id ne $new_exon->stable_id) {
-                          if (exists $unique_old_exons->{$new_exon->stable_id}) {
-                            $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exon->stable_id}, $new_exon));
-                          }
-                          else {
-                            $new_exon->created_date('');
-                            $new_exon->modified_date('');
-                            $new_exon->version(1);
-                            $exon_needs_update = 1;
-                          }
-                          print '   EXON DEEP ID ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
-                        }
-                        elsif ($old_exon->version != $new_exon->version) {
-                          $exon_needs_update = 1 if (object_needs_update($old_exon, $new_exon));
-                          print '   EXON DEEP VERSION ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
-                        }
-                        $new_index = $index+1;
-                        push(@$objects_to_update, $new_exon) if ($exon_needs_update);
-                        last;
-                      }
-                      elsif ($old_exon->start <= $new_exon->end and $old_exon->end >= $new_exon->start) {
-                        if ($old_exon->stable_id ne $new_exon->stable_id) {
-                          if (exists $unique_old_exons->{$new_exon->stable_id}) {
-                            $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exon->stable_id}, $new_exon, 1));
-                          }
-                          else {
-                            $new_exon->created_date('');
-                            $new_exon->modified_date('');
-                            $new_exon->version(1);
-                            $exon_needs_update = 1;
-                          }
-                          print '   EXON DEEP INC ID ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
-                        }
-                        elsif ($old_exon->version+1 != $new_exon->version) {
-                          $exon_needs_update = 1 if (object_needs_update($old_exon, $new_exon, 1));
-                          print '   EXON DEEP INC VERSION ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
-                        }
-                        $new_index = $index+1;
-                        push(@$objects_to_update, $new_exon) if ($exon_needs_update);
-                        last;
-                      }
-                    }
-                  }
-                }
-                else {
-                  for (my $index = 0; $index < @$old_exons; $index++) {
-                    my $exon_needs_update = 0;
-                    my $old_exon = $old_exons->[$index];
-                    my $new_exon = $new_exons->[$index];
-                    if ($old_exon->stable_id ne $new_exon->stable_id) {
-                      if (exists $unique_old_exons->{$new_exon->stable_id}) {
-                        $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exon->stable_id}, $new_exon));
-                      }
-                      else {
-                        $new_exon->created_date('');
-                        $new_exon->modified_date('');
-                        $new_exon->version(1);
-                        $exon_needs_update = 1;
-                      }
-                      print '   EXON ID ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
-                    }
-                    elsif ($old_exon->version != $new_exon->version) {
-                      $exon_needs_update = 1 if (object_needs_update($old_exon, $new_exon));
-                      print '   EXON VERSION ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
-                    }
-                    push(@$objects_to_update, $new_exon) if ($exon_needs_update);
-                  }
-                }
-                process_transcript($old_transcript, $new_transcript, $objects_to_update, $unique_old_transcripts, $unique_old_translations);
-                print ' TRANSCRIPT GENE STABLEID TRANSCRIPT COORD ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
-                next CHECK_TRANSCRIPT;
-              }
-            }
-          }
-          print '  TRANSCRIPT NOT FOUND CHECK ', $old_transcript->stable_id_version, "\n";
-          push(@$stable_id_events, [$old_transcript, undef]);
-        }
-        if (@$old_transcripts != @$new_transcripts) {
-          $gene_version_change = 1;
-        }
-        if ($gene_version_change) {
-          $gene_needs_update = 1 if (object_needs_update($old_gene, $new_gene, 1));
-          push(@$stable_id_events, [$old_gene, $new_gene]);
+  if (@coordinate_check) {
+    foreach my $old_gene (@coordinate_check) {
+      my $old_transcripts = $old_gene->get_all_Transcripts;
+      if (exists $unique_new_genes->{$old_gene->stable_id}) {
+        my $new_gene = $unique_new_genes->{$old_gene->stable_id};
+        if (exists $new_gene->{_gb_found}) {
+          print 'ERROR new_gene has _gb_found but for a different gene ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, ' ', $new_gene->{_gb_found}, "\n";
         }
         else {
-          $gene_needs_update = 1 if (object_needs_update($old_gene, $new_gene));
+          $new_gene->{_gb_found} = 0;
+          my $new_transcripts = $new_gene->get_all_Transcripts;
+          my $gene_needs_update = 0;
+          CHECK_TRANSCRIPT: foreach my $old_transcript (@$old_transcripts) {
+            my $old_exons = $old_transcript->get_all_Exons;
+            foreach my $new_transcript (@$new_transcripts) {
+              if (!exists $new_transcript->{_gb_found}) {
+                if ($old_transcript->stable_id eq $new_transcript->stable_id) {
+                  process_exons($old_transcript, $new_transcript, $old_exons, $unique_old_exons, $objects_to_update);
+                  process_transcript($old_transcript, $new_transcript, $objects_to_update, $unique_old_transcripts, $unique_old_translations, $stable_id_events);
+                  print ' TRANSCRIPT GENE STABLEID TRANSCRIPT COORD ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
+                  next CHECK_TRANSCRIPT;
+                }
+              }
+            }
+            print '  TRANSCRIPT NOT FOUND CHECK ', $old_transcript->stable_id_version, "\n";
+            push(@$stable_id_events, [$old_transcript, undef]);
+          }
+          if (@$old_transcripts != @$new_transcripts) {
+            $gene_needs_update = 1 if (object_needs_update($old_gene, $new_gene, 1));
+            push(@$stable_id_events, [$old_gene, $new_gene]);
+          }
+          else {
+            $gene_needs_update = 1 if (object_needs_update($old_gene, $new_gene));
+          }
+          push(@$objects_to_update, $new_gene) if ($gene_needs_update);
         }
-        push(@$objects_to_update, $new_gene) if ($gene_needs_update);
+      }
+      else {
+        my $found_gene;
+        foreach my $new_gene (@$new_genes) {
+          if (!exists $new_gene->{_gb_found}) {
+            if ($old_gene->strand == $new_gene->strand and $old_gene->start <= $new_gene->end and $old_gene->end >= $new_gene->start) {
+              if (find_transcript_by_exon_overlap($old_transcripts, $new_gene->get_all_Transcripts, $stable_id_events, $objects_to_update, $unique_new_transcripts, $unique_old_translations)) {
+                $found_gene = $new_gene;
+              }
+              print ' TRANSCRIPT GENE COORD TRANSCRIPT COORD ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, "\n";
+            }
+          }
+        }
+        if ($found_gene) {
+          push(@$stable_id_events, [$old_gene, $found_gene]);
+        }
+        else {
+          push(@$stable_id_events, [$old_gene, undef]);
+          foreach my $old_transcript (@$old_transcripts) {
+            push(@$stable_id_events, [$old_transcript, undef]);
+          }
+        }
+      }
+    }
+  }
+  foreach my $gene (@$new_genes) {
+    my $transcripts = $gene->get_all_Transcripts;
+    if (!exists $gene->{_gb_found}) {
+      $gene->version(1);
+      $gene->created_date('');
+      $gene->modified_date('');
+      push(@$objects_to_update, $gene);
+      push(@$stable_id_events, [undef, $gene]);
+      $gene->{_gb_found} = 0;
+    }
+    if ($gene->{_gb_found} != @$transcripts) {
+      foreach my $transcript (@$transcripts) {
+        if (!exists $transcript->{_gb_found}) {
+          $transcript->version(1);
+          $transcript->created_date('');
+          $transcript->modified_date('');
+          push(@$objects_to_update, $transcript);
+          push(@$stable_id_events, [undef, $transcript]);
+          if (exists $unique_old_transcripts->{$transcript->stable_id}) {
+            print 'WARNING old transcript not processed ', $transcript->stable_id_version, ' ', $gene->stable_id_version, "\n";
+          }
+          my $translation = $transcript->translation;
+          if ($translation) {
+            $translation->version(1);
+            $translation->created_date('');
+            $translation->modified_date('');
+            push(@$objects_to_update, $translation);
+          }
+        }
+      }
+    }
+  }
+  print scalar(localtime), ' start ', $old_slice->seq_region_name, "\n";
+}
+foreach my $exon (values %$unique_new_exons) {
+  my $exon_needs_update = 0;
+  if (!exists $exon->{_gb_found}) {
+    if (exists $unique_old_exons->{$exon->stable_id}) {
+      print 'WARNING old exon not processed ', $unique_old_exons->{$exon->stable_id}->stable_id_version, ' ', $exon->stable_id_version, "\n";
+      if ($unique_old_exons->{$exon->stable_id}->start == $exon->start and $unique_old_exons->{$exon->stable_id}->end == $exon->end) {
+        $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$exon->stable_id}, $exon));
+      }
+      else {
+        $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$exon->stable_id}, $exon, 1));
       }
     }
     else {
-      my $found_gene;
-      foreach my $new_gene (@$new_genes) {
-        if (!exists $new_gene->{_gb_found}) {
-          if ($old_gene->strand == $new_gene->strand and $old_gene->start <= $new_gene->end and $old_gene->end >= $new_gene->start) {
-            my $old_name_attrib = $old_gene->get_all_Attributes('name');
-            if ($old_name_attrib and @$old_name_attrib) {
-              my $new_name_attrib = $new_gene->get_all_Attributes('name');
-              if ($new_name_attrib and @$new_name_attrib) {
-                if ($old_name_attrib->[0]->value eq $new_name_attrib->[0]->value) {
-                  print ' GENE DIFF GENEID SAME NAME CHECK ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, "\n";
-                }
-                else {
-                  print ' GENE DIFF GENEID DIFF NAME CHECK ', $old_gene->stable_id_version, ' ', $old_name_attrib->[0]->value, ' -> ', $new_gene->stable_id_version, ' ', $new_name_attrib->[0]->value, "\n";
-                }
-              }
-              else {
-                print ' GENE DIFF GENEID NO NEW NAME CHECK ', $old_gene->stable_id_version, ' ', $old_name_attrib->[0]->value, ' -> ', $new_gene->stable_id_version, "\n";
-              }
-            }
-            else {
-              print ' GENE DIFF GENEID CHECK ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, "\n";
-            }
-            find_transcript_by_exon_overlap($old_transcripts, $new_gene->get_all_Transcripts, $stable_id_events, $objects_to_update, $unique_new_transcripts, $unique_old_translations);
-            print ' TRANSCRIPT GENE COORD TRANSCRIPT COORD ', $old_gene->stable_id_version, ' -> ', $new_gene->stable_id_version, "\n";
-          }
-        }
-      }
-      if ($found_gene) {
-        push(@$stable_id_events, [$old_gene, $found_gene]);
-      }
-      else {
-        push(@$stable_id_events, [$old_gene, undef]);
-        foreach my $old_transcript (@$old_transcripts) {
-          push(@$stable_id_events, [$old_transcript, undef]);
-        }
-      }
+      $exon->version(1);
+      $exon->created_date('');
+      $exon->modified_date('');
+      $exon_needs_update = 1;
     }
+    push(@$objects_to_update, $exon) if ($exon_needs_update);
   }
 }
-foreach my $gene (values %$new_gene_keys) {
-  my $transcripts = $gene->get_all_Transcripts;
-  if (!exists $gene->{_gb_found}) {
-    if ($gene->version != 1) {
-      $gene->version(1);
-    }
-    $gene->created_date('');
-    $gene->modified_date('');
-    push(@$objects_to_update, $gene);
-    push(@$stable_id_events, [undef, $gene]);
-    $gene->{_gb_found} = 0;
-  }
-  if ($gene->{_gb_found} != @$transcripts) {
-    foreach my $transcript (@$transcripts) {
-      if (!exists $transcript->{_gb_found}) {
-        if ($transcript->version != 1) {
-          $transcript->version(1);
-        }
-        $transcript->created_date('');
-        $transcript->modified_date('');
-        push(@$objects_to_update, $transcript);
-        push(@$stable_id_events, [undef, $transcript]);
-        if (exists $unique_old_transcripts->{$transcript->stable_id}) {
-          print 'ERROR old transcript not processed ', $transcript->stable_id_version, ' ', $gene->stable_id_version, "\n";
-        }
-      }
-    }
-  }
-}
-print scalar(localtime), ' start ', $old_slice->seq_region_name, "\n";
-#}
 print scalar(localtime), "\n";
 print "To update: ", scalar(@$objects_to_update), "\n";
 print "stable id events: ", scalar(@$stable_id_events), "\n";
 
-if ($write) {
+print scalar(localtime), ' start mapping session', "\n";
 # Create the mapping session
-  my $old_db_schema = $old_db->get_MetaContainer->get_schema_version;
-  my $old_assembly = $old_db->get_CoordSystemAdaptor->get_default_version;
-  my $new_db_schema = $new_db->get_MetaContainer->get_schema_version;
-  my $new_assembly = $new_db->get_CoordSystemAdaptor->get_default_version;
+my $old_db_schema = $old_db->get_MetaContainer->get_schema_version;
+my $old_assembly = $old_db->get_CoordSystemAdaptor->get_default_version;
+my $new_db_schema = $new_db->get_MetaContainer->get_schema_version;
+my $new_assembly = $new_db->get_CoordSystemAdaptor->get_default_version;
 
-  my @old_db_name = split('_', $old_db->dbname);
-  my @new_db_name = @old_db_name;
-  if ($old_db_schema+1 < $new_db_schema) {
-    $old_db_name[-2] = $new_db_schema-1;
-  }
-  else {
-    $new_db_name[-2] = $old_db_schema+1;
-  }
-  if ($old_db_schema != $old_db_name[-2] or $new_db_schema != $new_db_name[-2]) {
-    warning('Schema mismatch, using ', $old_db_name[-2], ' -> ', $new_db_name[-2], ' instead of ', $old_db_name[-2], ' -> ', $new_db_name[-2], "\n");
-    $old_db_schema = $old_db_name[-2];
-    $new_db_schema = $new_db_name[-2];
-  }
-  $new_db->dbc->do("INSERT IGNORE INTO mapping_session (old_db_name, old_release, old_assembly, new_db_name, new_release, new_assembly, created) VALUES('".join('_', @old_db_name)."', $old_db_schema, '$old_assembly', '".join('_', @new_db_name)."', $new_db_schema, '$new_assembly', NOW())");
-  my $sth = $new_db->dbc->prepare("SELECT mapping_session_id, created FROM mapping_session WHERE old_db_name = '".join('_', @old_db_name)."' AND old_release = $old_db_schema AND old_assembly = '$old_assembly' AND new_db_name = '".join('_', @new_db_name)."' AND new_release = $new_db_schema AND new_assembly = '$new_assembly'");
-  $sth->execute;
-  my ($mapping_session_id, $mapping_session_date) = $sth->fetchrow_array;
+my $new_dbc = $new_db->dbc;
 
-# Deleting data from a possible failed run
-  foreach my $table (qw(gene_archive peptide_archive stable_id_event)) {
-    $new_db->dbc->do("DELETE FROM $table WHERE mapping_session_id = $mapping_session_id");
-    $new_db->dbc->do("ALTER TABLE $table AUTO_INCREMENT = 1");
-  }
-  foreach my $object_to_update (@$objects_to_update) {
-    $object_to_update->created_date($mapping_session_date) unless ($object_to_update->created_date);
-    $object_to_update->modified_date($mapping_session_date) unless ($object_to_update->modified_date);
-    $object_to_update->adaptor->update;
-  }
-  my $sth_stable_id_event = $new_db->dbc->prepare("INSERT INTO stable_id_mapping (mapping_session_id, old_stable_id, old_version, new_stable_id, new_version, type, score) VALUES($mapping_session_id, ?, ?, ?, ?, ?, ?)");
-  my $sth_stable_id_peptide_event = $new_db->dbc->prepare("INSERT INTO stable_id_mapping (mapping_session_id, old_stable_id, old_version, new_stable_id, new_version, type, score) VALUES($mapping_session_id, ?, ?, ?, ?, ?, ?)");
-  my $sth_gene_archive = $new_db->dbc->prepare("INSERT INTO gene_archive (mapping_session_id, gene_stable_id, gene_version, transcript_stable_id, transcript_version, translation_stable_id, translation_version, peptide_archive_id) VALUES($mapping_session_id, ?, ?, ?, ?, ?, ?, ?)");
-  my $sth_peptide_archive = $new_db->dbc->prepare("INSERT INTO peptide_archive (md5_checksum, peptide_seq) VALUES(?, ?)");
-  foreach my $event (@$stable_id_events) {
-    my $old_object = $event->[0];
-    my $new_object = $event->[1];
-    my $old_translation;
-    my $new_translation;
-    if ($old_object) {
-      $sth_stable_id_event->bind_param(1, $old_object->stable_id);
-      $sth_stable_id_event->bind_param(2, $old_object->version);
-      my @type = split('::', ref($old_object));
-      $sth_stable_id_event->bind_param(5, lc($type[-1]));
-      if ($type[-1] eq 'Transcript') {
-        $sth_gene_archive->bind_param(1, $old_object->{_gb_gene}->stable_id);
-        $sth_gene_archive->bind_param(2, $old_object->{_gb_gene}->version);
-        $sth_gene_archive->bind_param(3, $old_object->stable_id);
-        $sth_gene_archive->bind_param(4, $old_object->version);
-        $old_translation = $old_object->translation;
-        if ($old_translation) {
-          my $seq = $old_translation->seq;
-          $sth_peptide_archive->bind_param(1, md5($seq));
-          $sth_peptide_archive->bind_param(2, $seq);
-          $sth->execute;
-          $sth_gene_archive->bind_param(5, $old_translation->stable_id);
-          $sth_gene_archive->bind_param(6, $old_translation->version);
-          $sth_gene_archive->bind_param(7, $sth->last_insert_id);
-        }
-        else {
-          $sth_gene_archive->bind_param(5, undef);
-          $sth_gene_archive->bind_param(6, undef);
-          $sth_gene_archive->bind_param(7, undef);
-        }
-        $sth_gene_archive->execute;
-      }
-    }
-    else {
-      $sth_stable_id_event->bind_param(1, undef);
-      $sth_stable_id_event->bind_param(2, undef);
-    }
-    if ($new_object) {
-      $sth_stable_id_event->bind_param(3, $new_object->stable_id);
-      $sth_stable_id_event->bind_param(4, $new_object->version);
-      my @type = split('::', ref($new_object));
-      if ($type[-1] eq 'Transcript') {
-        $new_translation = $new_object->translation;
-      }
-      $sth_stable_id_event->bind_param(5, lc($type[-1]));
-      if (exists $new_object->{_gb_score}) {
-        $sth_stable_id_event->bind_param(6, $new_object->{_gb_score});
-      }
-      else {
-        $sth_stable_id_event->bind_param(6, .99);
-      }
-      $sth_stable_id_event->execute;
-    }
-    else {
-      $sth_stable_id_event->bind_param(3, undef);
-      $sth_stable_id_event->bind_param(4, undef);
-    }
-    $sth_stable_id_event->execute;
-    if ($old_translation and $new_translation) {
-      if ($old_translation->stable_id_version ne $new_translation->stable_id_version) {
-        $sth_stable_id_event->bind_param(1, $old_translation->stable_id);
-        $sth_stable_id_event->bind_param(2, $old_translation->version);
-        $sth_stable_id_event->bind_param(3, $new_translation->stable_id);
-        $sth_stable_id_event->bind_param(4, $new_translation->version);
-        $sth_stable_id_event->bind_param(5, 'translation');
-        $sth_stable_id_event->bind_param(6, .99);
-        $sth_stable_id_event->execute;
-      }
-    }
-    elsif ($old_translation and !$new_translation) {
-        $sth_stable_id_event->bind_param(1, $old_translation->stable_id);
-        $sth_stable_id_event->bind_param(2, $old_translation->version);
-        $sth_stable_id_event->bind_param(3, undef);
-        $sth_stable_id_event->bind_param(4, undef);
-        $sth_stable_id_event->bind_param(5, 'translation');
-        $sth_stable_id_event->bind_param(6, 0);
-        $sth_stable_id_event->execute;
-    }
-    elsif (!$old_translation and $new_translation) {
-        $sth_stable_id_event->bind_param(1, undef);
-        $sth_stable_id_event->bind_param(2, undef);
-        $sth_stable_id_event->bind_param(3, $new_translation->stable_id);
-        $sth_stable_id_event->bind_param(4, $new_translation->version);
-        $sth_stable_id_event->bind_param(5, 'translation');
-        $sth_stable_id_event->bind_param(6, 0);
-        $sth_stable_id_event->execute;
-    }
+my @old_db_name = split('_', $old_db->dbc->dbname);
+my @new_db_name = @old_db_name;
+if ($old_db_schema+1 < $new_db_schema) {
+  $old_db_name[-2] = $new_db_schema-1;
+}
+else {
+  $new_db_name[-2] = $old_db_schema+1;
+}
+if ($old_db_schema != $old_db_name[-2] or $new_db_schema != $new_db_name[-2]) {
+  warning('Schema mismatch, using ', $old_db_name[-2], ' -> ', $new_db_name[-2], ' instead of ', $old_db_name[-2], ' -> ', $new_db_name[-2], "\n");
+  $old_db_schema = $old_db_name[-2];
+  $new_db_schema = $new_db_name[-2];
+}
+my $sth_tables = $new_dbc->prepare("SHOW TABLES");
+$sth_tables->execute;
+my %tables = (
+  gene => 1,
+  transcript => 1,
+  translation => 1,
+  exon => 1,
+);
+while ( my $row = $sth_tables->fetchrow_arrayref) {
+  if ($row->[0] =~ /(\w+)_si_bak/) {
+    $tables{$1} = 0;
   }
 }
+foreach my $table (keys %tables) {
+  if ($tables{$table}) {
+    $new_dbc->do("CREATE TABLE ${table}_si_bak SELECT * FROM $table");
+  }
+}
+my $sth_select_mapping_session = $new_dbc->prepare("SELECT mapping_session_id, UNIX_TIMESTAMP(created) FROM mapping_session WHERE old_db_name = '".join('_', @old_db_name)."' AND old_release = $old_db_schema AND old_assembly = '$old_assembly' AND new_db_name = '".join('_', @new_db_name)."' AND new_release = $new_db_schema AND new_assembly = '$new_assembly'");
+$sth_select_mapping_session->execute;
+my ($mapping_session_id, $mapping_session_date) = $sth_select_mapping_session->fetchrow_array;
+if (!$mapping_session_id or !$mapping_session_date) {
+  $new_dbc->do("INSERT INTO mapping_session (old_db_name, old_release, old_assembly, new_db_name, new_release, new_assembly, created) VALUES('".join('_', @old_db_name)."', $old_db_schema, '$old_assembly', '".join('_', @new_db_name)."', $new_db_schema, '$new_assembly', NOW())");
+  $sth_select_mapping_session->execute;
+  ($mapping_session_id, $mapping_session_date) = $sth_select_mapping_session->fetchrow_array;
+}
+
+# Deleting data from a possible failed run
+foreach my $table (qw(gene_archive stable_id_event)) {
+  $new_dbc->do("DELETE FROM $table WHERE mapping_session_id = $mapping_session_id");
+  $new_dbc->do("ALTER TABLE $table AUTO_INCREMENT = 1");
+}
+$new_dbc->do("DELETE FROM pa USING peptide_archive pa LEFT JOIN gene_archive ga ON pa.peptide_archive_id = ga.peptide_archive_id WHERE ga.peptide_archive_id IS NULL");
+
+print scalar(localtime), ' update objects', "\n";
+my $sth_exon_update = $new_dbc->prepare("UPDATE exon SET version = ?, created_date = ?, modified_date = ? WHERE exon_id = ?");
+my $sth_translation_update = $new_dbc->prepare("UPDATE translation SET version = ?, created_date = ?, modified_date = ? WHERE translation_id = ?");
+my $sth_transcript_update = $new_dbc->prepare("UPDATE transcript SET version = ?, created_date = ?, modified_date = ? WHERE transcript_id = ?");
+my $sth_gene_update = $new_dbc->prepare("UPDATE gene SET version = ?, created_date = ?, modified_date = ? WHERE gene_id = ?");
+my $sth;
+foreach my $object_to_update (@$objects_to_update) {
+  if ($object_to_update->isa('Bio::EnsEMBL::Exon')) {
+    $sth = $sth_exon_update;
+  }
+  elsif ($object_to_update->isa('Bio::EnsEMBL::Transcript')) {
+    $sth = $sth_transcript_update;
+  }
+  elsif ($object_to_update->isa('Bio::EnsEMBL::Translation')) {
+    $sth = $sth_translation_update;
+  }
+  elsif ($object_to_update->isa('Bio::EnsEMBL::Gene')) {
+    $sth = $sth_gene_update;
+  }
+  print $object_to_update->stable_id_version, ' ', $object_to_update->created_date, ' ', $object_to_update->modified_date, ' ==> ';
+  $object_to_update->created_date($mapping_session_date) unless ($object_to_update->created_date);
+  $object_to_update->modified_date($mapping_session_date) unless ($object_to_update->modified_date);
+  $sth->bind_param(1, $object_to_update->version);
+  $sth->bind_param(2, strftime("%F %T", localtime($object_to_update->created_date)));
+  $sth->bind_param(3, strftime("%F %T", localtime($object_to_update->modified_date)));
+  $sth->bind_param(4, $object_to_update->dbID);
+  $sth->execute;
+  print $object_to_update->stable_id_version, ' ', $object_to_update->created_date, ' ', $object_to_update->modified_date, "\n";
+}
+print scalar(localtime), ' disabling keys', "\n";
+foreach my $table (qw(gene_archive peptide_archive stable_id_event)) {
+  $new_dbc->do("ALTER TABLE $table DISABLE KEYS");
+}
+print scalar(localtime), ' stable id mapping session', "\n";
+my $sth_stable_id_event = $new_dbc->prepare("INSERT INTO stable_id_event (mapping_session_id, old_stable_id, old_version, new_stable_id, new_version, type, score) VALUES($mapping_session_id, ?, ?, ?, ?, ?, ?)");
+my $sth_gene_archive = $new_dbc->prepare("INSERT INTO gene_archive (mapping_session_id, gene_stable_id, gene_version, transcript_stable_id, transcript_version, translation_stable_id, translation_version, peptide_archive_id) VALUES($mapping_session_id, ?, ?, ?, ?, ?, ?, ?)");
+my $sth_peptide_archive = $new_dbc->prepare("INSERT INTO peptide_archive (md5_checksum, peptide_seq) VALUES(?, ?)");
+foreach my $event (@$stable_id_events) {
+  my $old_object = $event->[0];
+  my $new_object = $event->[1];
+  my $old_translation;
+  my $new_translation;
+  my $score = 0;
+  if ($old_object) {
+    print 'OLD ', $old_object->stable_id_version, ' ';
+    $sth_stable_id_event->bind_param(1, $old_object->stable_id);
+    $sth_stable_id_event->bind_param(2, $old_object->version);
+    my @type = split('::', ref($old_object));
+    $sth_stable_id_event->bind_param(5, lc($type[-1]));
+    if ($type[-1] eq 'Transcript') {
+      $sth_gene_archive->bind_param(1, $old_object->{_gb_gene}->stable_id);
+      $sth_gene_archive->bind_param(2, $old_object->{_gb_gene}->version);
+      $sth_gene_archive->bind_param(3, $old_object->stable_id);
+      $sth_gene_archive->bind_param(4, $old_object->version);
+      $old_translation = $old_object->translation;
+      if ($old_translation) {
+        my $seq = $old_translation->seq;
+        $sth_peptide_archive->bind_param(1, md5($seq));
+        $sth_peptide_archive->bind_param(2, $seq);
+        $sth_peptide_archive->execute;
+        $sth_gene_archive->bind_param(5, $old_translation->stable_id);
+        $sth_gene_archive->bind_param(6, $old_translation->version);
+        $sth_gene_archive->bind_param(7, $sth_peptide_archive->last_insert_id);
+      }
+      else {
+        $sth_gene_archive->bind_param(5, undef);
+        $sth_gene_archive->bind_param(6, 0);
+        $sth_gene_archive->bind_param(7, undef);
+      }
+      $sth_gene_archive->execute;
+    }
+  }
+  else {
+    $sth_stable_id_event->bind_param(1, undef);
+    $sth_stable_id_event->bind_param(2, undef);
+  }
+  if ($new_object) {
+    print 'NEW ', $new_object->stable_id_version;
+    $sth_stable_id_event->bind_param(3, $new_object->stable_id);
+    $sth_stable_id_event->bind_param(4, $new_object->version);
+    my @type = split('::', ref($new_object));
+    if ($type[-1] eq 'Transcript') {
+      $new_translation = $new_object->translation;
+    }
+    $sth_stable_id_event->bind_param(5, lc($type[-1]));
+    if (exists $new_object->{_gb_score}) {
+      $score = $new_object->{_gb_score};
+    }
+    else {
+      $score = .99;
+    }
+  }
+  else {
+    $sth_stable_id_event->bind_param(3, undef);
+    $sth_stable_id_event->bind_param(4, undef);
+  }
+  print "\n";
+  $sth_stable_id_event->bind_param(6, $score);
+  $sth_stable_id_event->execute unless ($old_object and $new_object and $old_object->stable_id_version eq $new_object->stable_id_version);
+  if ($old_translation and $new_translation) {
+    if ($old_translation->stable_id_version ne $new_translation->stable_id_version) {
+      $sth_stable_id_event->bind_param(1, $old_translation->stable_id);
+      $sth_stable_id_event->bind_param(2, $old_translation->version);
+      $sth_stable_id_event->bind_param(3, $new_translation->stable_id);
+      $sth_stable_id_event->bind_param(4, $new_translation->version);
+      $sth_stable_id_event->bind_param(5, 'translation');
+      $sth_stable_id_event->bind_param(6, .99);
+      $sth_stable_id_event->execute;
+      print 'OLD ', $old_translation->stable_id_version, ' ==> ', 'NEW ', $new_translation->stable_id_version, "\n";
+    }
+    else {
+      print "NOT STORING FOR ", $old_translation->stable_id_version, ' and ', $new_translation->stable_id_version, "\n";
+    }
+  }
+  elsif ($old_translation and !$new_translation) {
+      $sth_stable_id_event->bind_param(1, $old_translation->stable_id);
+      $sth_stable_id_event->bind_param(2, $old_translation->version);
+      $sth_stable_id_event->bind_param(3, undef);
+      $sth_stable_id_event->bind_param(4, undef);
+      $sth_stable_id_event->bind_param(5, 'translation');
+      $sth_stable_id_event->bind_param(6, 0);
+      $sth_stable_id_event->execute;
+      print 'OLD ', $old_translation->stable_id_version, "\n";
+  }
+  elsif (!$old_translation and $new_translation) {
+      $sth_stable_id_event->bind_param(1, undef);
+      $sth_stable_id_event->bind_param(2, undef);
+      $sth_stable_id_event->bind_param(3, $new_translation->stable_id);
+      $sth_stable_id_event->bind_param(4, $new_translation->version);
+      $sth_stable_id_event->bind_param(5, 'translation');
+      $sth_stable_id_event->bind_param(6, 0);
+      $sth_stable_id_event->execute;
+      print 'NEW ', $new_translation->stable_id_version, "\n";
+  }
+}
+print scalar(localtime), ' stable id mapping session done', "\n";
+foreach my $table (qw(gene_archive peptide_archive stable_id_event)) {
+  $new_dbc->do("ALTER TABLE $table ENABLE KEYS");
+}
+print scalar(localtime), ' keys enabled', "\n";
 
 
 sub find_transcript_by_exon_overlap {
@@ -887,8 +827,7 @@ sub find_transcript_by_exon_overlap {
             }
           }
           $score /= scalar(@$old_exons);
-          if ($score >= .6
-              or ($old_transcript->stable_id eq $new_transcript->stable_id and $old_transcript->{_gb_gene}->stable_id eq $new_transcript->{_gb_gene}->stable_id)) {
+          if ($score >= .6 or $old_transcript->stable_id eq $new_transcript->stable_id) {
             $new_transcript->{_gb_score} = $score;
             push(@possible_new_transcripts, $new_transcript);
           }
@@ -906,40 +845,8 @@ sub find_transcript_by_exon_overlap {
         }
         print '  TRANSCRIPT RECOVER ', $old_transcript->stable_id_version, ' -> ', $possible_transcript->stable_id_version, ' ', $possible_transcript->{_gb_score}, "\n";
         $old_transcripts_found++;
-        foreach my $old_exon (@$old_exons) {
-          my $new_exons = $possible_transcript->get_all_Exons;
-          my $new_index = 0;
-          my $score = 0;
-          foreach my $old_exon (@$old_exons) {
-            my $exon_needs_update = 0;
-            for (my $index = $new_index; $index < @$new_exons; $index++) {
-              my $new_exon = $new_exons->[$index];
-              if ($old_exon->stable_id eq $new_exon->stable_id) {
-                if ($old_exon->start == $new_exon->start and $old_exon->end == $new_exon->end) {
-                  $exon_needs_update = 1 if (object_needs_update($old_exon, $new_exon));
-                }
-                else {
-                  $exon_needs_update = 1 if (object_needs_update($old_exon, $new_exon, 1));
-                }
-              }
-              elsif ($old_exon->start == $new_exon->start and $old_exon->end == $new_exon->end) {
-                if (exists $unique_old_exons->{$new_exons->[$index]->stable_id}) {
-                  $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exons->[$index]->stable_id}, $new_exons->[$index]));
-                }
-                else {
-                  $new_exons->[$index]->created_date('');
-                  $new_exons->[$index]->modified_date('');
-                  $new_exons->[$index]->version(1);
-                  $exon_needs_update = 1;
-                }
-              }
-              push(@$objects_to_update, $new_exons->[$index]) if ($exon_needs_update);
-              $new_index = $index+1;
-              last;
-            }
-          }
-        }
-        process_transcript($old_transcript, $possible_transcript, $objects_to_update, $unique_old_transcripts, $unique_old_translations);
+        process_transcript($old_transcript, $possible_transcript, $objects_to_update, $unique_old_transcripts, $unique_old_translations, $stable_id_events);
+        process_exons($old_transcript, $possible_transcript, $old_exons, $unique_old_exons, $objects_to_update);
         last;
       }
       if (@possible_new_transcripts > 1) {
@@ -952,22 +859,12 @@ sub find_transcript_by_exon_overlap {
       print '  TRANSCRIPT RECOVER DELETED ', $old_transcript->stable_id_version, "\n";
       push(@$stable_id_events, [$old_transcript, undef]);
       if ($old_transcript->translation and exists $unique_new_translations->{$old_transcript->translation->stable_id}) {
-        print 'ERROR translation part of a new transcript ', $old_transcript->translation->stable_id, "\n";
+        print 'WARNING translation part of a new transcript ', $old_transcript->translation->stable_id, "\n";
       }
     }
   }
   print "WARNING $old_transcripts_found\n";
   return $old_transcripts_found;
-}
-
-sub generate_exon_keys {
-  my ($exons) = @_;
-
-  my %exon_keys;
-  foreach my $exon (@$exons) {
-    $exon_keys{$exon->start.':'.$exon->end} = $exon;
-  }
-  return \%exon_keys;
 }
 
 
@@ -982,7 +879,7 @@ sub generate_hash_keys {
       my $transcript_id;
       foreach my $exon (@{$transcript->get_all_Exons}) {
         $transcript_id .= join(':', $exon->start, $exon->end, $exon->phase, $exon->end_phase, '');
-        if (!$exon->stable_id and $high_stable_ids) {
+        if (!$exon->stable_id) {
           $exon->stable_id(sprintf("%sE%011d", $stable_id_prefix, $high_stable_ids->{exon}++));
           $exon->version(1);
         }
@@ -993,7 +890,7 @@ sub generate_hash_keys {
       }
       my $translation = $transcript->translation;
       if ($translation) {
-        if (!$translation->stable_id and $high_stable_ids) {
+        if (!$translation->stable_id) {
           $translation->stable_id(sprintf("%sP%011d", $stable_id_prefix, $high_stable_ids->{translation}++));
           $translation->version(1);
         }
@@ -1007,7 +904,7 @@ sub generate_hash_keys {
       $transcript_keys{$transcript_id} = $transcript;
       $transcript->{_gb_key} = \$transcript_id;
       $transcript->{_gb_gene} = $gene;
-      if (!$transcript->stable_id and $high_stable_ids) {
+      if (!$transcript->stable_id) {
         $transcript->stable_id(sprintf("%sT%011d", $stable_id_prefix, $high_stable_ids->{transcript}++));
         $transcript->version(1);
       }
@@ -1018,7 +915,7 @@ sub generate_hash_keys {
     }
     my $gene_key = join(':', $gene->start, $gene->end, $gene->strand, scalar(@$transcripts));
     $gene_keys{$gene_key} = $gene;
-    if (!$gene->stable_id and $high_stable_ids) {
+    if (!$gene->stable_id) {
       $gene->stable_id(sprintf("%sG%011d", $stable_id_prefix, $high_stable_ids->{gene}++));
       $gene->version(1);
     }
@@ -1031,14 +928,24 @@ sub generate_hash_keys {
 }
 
 
-sub get_highest_stable_id {
+sub get_highest_stable_id_from_havana {
+  my ($table, $havana_db) = @_;
+
+  my $havana_sth_max = $havana_db->dbc->prepare("SELECT MAX(${table}_pool_id) FROM ${table}_stable_id_pool");
+  $havana_sth_max->execute;
+  my ($high_stable_id) = $havana_sth_max->fetchrow_array;
+  return $high_stable_id+1;
+}
+
+
+sub get_highest_stable_id_from_core {
   my ($table, $old_db, $new_db) = @_;
 
-  my $old_sth_max = $old_db->prepare("SELECT MAX(stable_id) FROM $table");
+  my $old_sth_max = $old_db->dbc->prepare("SELECT MAX(stable_id) FROM $table");
   $old_sth_max->execute;
   my ($old_high_stable_id) = $old_sth_max->fetchrow_array;
   my ($highest_id) = $old_high_stable_id =~ /(\d+)/;
-  my $new_sth_max = $new_db->prepare("SELECT MAX(stable_id) FROM $table");
+  my $new_sth_max = $new_db->dbc->prepare("SELECT MAX(stable_id) FROM $table");
   $new_sth_max->execute;
   my ($new_high_stable_id) = $old_sth_max->fetchrow_array;
   $new_high_stable_id =~ /(\d+)/;
@@ -1053,11 +960,16 @@ sub object_needs_update {
   my $object_needs_update = 0;
   my $expected_version = $old_object->version;
   $expected_version += 1 if ($increment);
+  print $old_object->stable_id_version, ': ', $new_object->stable_id, ' ', $new_object->version, ' ', $new_object->created_date, ' ', $new_object->modified_date, ' => ', "\t";
   if ($new_object->created_date ne $old_object->created_date) {
     $new_object->created_date($old_object->created_date);
     $object_needs_update = 1;
   }
-  if ($new_object->modified_date ne $old_object->modified_date) {
+  if ($increment) {
+    $new_object->modified_date('');
+    $object_needs_update = 1;
+  }
+  elsif ($new_object->modified_date ne $old_object->modified_date) {
     $new_object->modified_date($old_object->modified_date);
     $object_needs_update = 1;
   }
@@ -1065,6 +977,7 @@ sub object_needs_update {
     $new_object->version($expected_version);
     $object_needs_update = 1;
   }
+  print $new_object->version, ' ', $new_object->created_date, ' ', $new_object->modified_date, ' => ', $object_needs_update, "\n";
   return $object_needs_update;
 }
 
@@ -1073,12 +986,23 @@ sub process_translations {
   my ($old_translation, $new_translation, $objects_to_update, $unique_old_translations) = @_;
 
   my $transcript_stable_id_event = 0;
+  my $translation_needs_update = 0;
   if ($old_translation and $new_translation) {
-    my $translation_needs_update = 0;
     if ($old_translation->seq eq $new_translation->seq) {
-      if ($old_translation->stable_id ne $new_translation->stable_id) {
+      if ($old_translation->stable_id eq $new_translation->stable_id) {
+        if ($old_translation->version != $new_translation->version) {
+          print '   TRANSLATION KEY VERSION ', $old_translation->stable_id_version, ' -> ', $new_translation->stable_id_version, "\n";
+        }
+        $translation_needs_update = 1 if (object_needs_update($old_translation, $new_translation));
+      }
+      else {
         if (exists $unique_old_translations->{$new_translation->stable_id}) {
-          $translation_needs_update = 1 if (object_needs_update($unique_old_translations->{$new_translation->stable_id}, $new_translation));
+          if ($unique_old_translations->{$new_translation->stable_id}->seq eq $new_translation->seq) {
+            $translation_needs_update = 1 if (object_needs_update($unique_old_translations->{$new_translation->stable_id}, $new_translation));
+          }
+          else {
+            $translation_needs_update = 1 if (object_needs_update($unique_old_translations->{$new_translation->stable_id}, $new_translation, 1));
+          }
         }
         else {
           $new_translation->created_date('');
@@ -1089,16 +1013,17 @@ sub process_translations {
         $transcript_stable_id_event = 1;
         print '   TRANSLATION KEY ID ', $old_translation->stable_id_version, ' -> ', $new_translation->stable_id_version, "\n";
       }
-      elsif ($old_translation->version != $new_translation->version) {
-        $translation_needs_update = 1 if (object_needs_update($old_translation, $new_translation));
-        print '   TRANSLATION KEY VERSION ', $old_translation->stable_id_version, ' -> ', $new_translation->stable_id_version, "\n";
-      }
     }
     else {
       $transcript_stable_id_event = 1;
       if ($old_translation->stable_id ne $new_translation->stable_id) {
         if (exists $unique_old_translations->{$new_translation->stable_id}) {
-          $translation_needs_update = 1 if (object_needs_update($unique_old_translations->{$new_translation->stable_id}, $new_translation));
+          if ($unique_old_translations->{$new_translation->stable_id}->seq eq $new_translation->seq) {
+            $translation_needs_update = 1 if (object_needs_update($unique_old_translations->{$new_translation->stable_id}, $new_translation));
+          }
+          else {
+            $translation_needs_update = 1 if (object_needs_update($unique_old_translations->{$new_translation->stable_id}, $new_translation, 1));
+          }
         }
         else {
           $new_translation->created_date('');
@@ -1108,12 +1033,26 @@ sub process_translations {
         }
         print '   TRANSLATION KEY FULL ID ', $old_translation->stable_id_version, ' -> ', $new_translation->stable_id_version, "\n";
       }
-      elsif ($old_translation->version+1 != $new_translation->version) {
+      else {
+        if ($old_translation->version+1 != $new_translation->version) {
+          print '   TRANSLATION KEY INC VERSION ', $old_translation->stable_id_version, ' -> ', $new_translation->stable_id_version, "\n";
+        }
         $translation_needs_update = 1 if (object_needs_update($old_translation, $new_translation, 1));
-        print '   TRANSLATION KEY INC VERSION ', $old_translation->stable_id_version, ' -> ', $new_translation->stable_id_version, "\n";
       }
     }
-    push(@$objects_to_update, $new_translation) if ($translation_needs_update);
+  }
+  elsif (($old_translation and !$new_translation) or (!$old_translation and $new_translation)) {
+    $transcript_stable_id_event = 1;
+    if (!$old_translation) {
+      $new_translation->created_date('');
+      $new_translation->modified_date('');
+      $new_translation->version(1);
+      $translation_needs_update = 1;
+    }
+  }
+  push(@$objects_to_update, $new_translation) if ($translation_needs_update);
+  if ($transcript_stable_id_event) {
+    print $old_translation ? $old_translation->stable_id_version : 'NEW', ' -> ', $new_translation ? $new_translation->stable_id_version : 'DELETED', "\n";
   }
   return $transcript_stable_id_event;
 }
@@ -1127,22 +1066,10 @@ sub process_transcript {
   my $transcript_needs_update = 0;
   if ($old_transcript->spliced_seq ne $new_transcript->spliced_seq) {
     $transcript_version_change = 1;
+    $transcript_stable_id_event = 1;
   }
   $transcript_stable_id_event = 1 if (process_translations($old_transcript->translation, $new_transcript->translation, $objects_to_update, $unique_old_translations));
-  if ($old_transcript->stable_id ne $new_transcript->stable_id) {
-    if (exists $unique_old_transcripts->{$new_transcript->stable_id}) {
-      $transcript_needs_update = 1 if (object_needs_update($unique_old_transcripts->{$new_transcript->stable_id}, $new_transcript));
-    }
-    else {
-      $new_transcript->created_date('');
-      $new_transcript->modified_date('');
-      $new_transcript->version(1);
-      $transcript_needs_update = 1;
-    }
-    $transcript_stable_id_event = 1;
-    print '  TRANSCRIPT KEY ID ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
-  }
-  else {
+  if ($old_transcript->stable_id eq $new_transcript->stable_id) {
     if ($transcript_version_change) {
       if ($old_transcript->version+1 != $new_transcript->version) {
         print '  TRANSCRIPT KEY INC VERSION ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
@@ -1156,6 +1083,26 @@ sub process_transcript {
       $transcript_needs_update = 1 if (object_needs_update($old_transcript, $new_transcript));
     }
   }
+  else {
+    if (exists $unique_old_transcripts->{$new_transcript->stable_id}) {
+      if (!exists $new_transcript->{_gb_found}) {
+        if ($unique_old_transcripts->{$new_transcript->stable_id}->spliced_seq eq $new_transcript->spliced_seq) {
+          $transcript_needs_update = 1 if (object_needs_update($unique_old_transcripts->{$new_transcript->stable_id}, $new_transcript));
+        }
+        else {
+          $transcript_needs_update = 1 if (object_needs_update($unique_old_transcripts->{$new_transcript->stable_id}, $new_transcript, 1));
+        }
+      }
+    }
+    else {
+      $new_transcript->created_date('');
+      $new_transcript->modified_date('');
+      $new_transcript->version(1);
+      $transcript_needs_update = 1;
+    }
+    $transcript_stable_id_event = 1;
+    print '  TRANSCRIPT KEY ID ', $old_transcript->stable_id_version, ' -> ', $new_transcript->stable_id_version, "\n";
+  }
   push(@$objects_to_update, $new_transcript) if ($transcript_needs_update);
   push(@$stable_id_events, [$old_transcript, $new_transcript]) if ($transcript_stable_id_event);
   $new_transcript->{_gb_found} = 1;
@@ -1164,5 +1111,135 @@ sub process_transcript {
   }
   else {
     $new_transcript->{_gb_gene}->{_gb_found} = 1;
+  }
+}
+
+sub process_exons {
+  my ($old_transcript, $new_transcript, $old_exons, $unique_old_exons, $objects_to_update) = @_;
+
+  my $new_exons = $new_transcript->get_all_Exons;
+  if ($old_transcript->{_gb_key} eq $new_transcript->{_gb_key} or $old_transcript->spliced_seq eq $new_transcript->spliced_seq) {
+    for (my $index = 0; $index < @$old_exons; $index++) {
+      my $exon_needs_update = 0;
+      if ($old_exons->[$index]->stable_id eq $new_exons->[$index]->stable_id) {
+        if (object_needs_update($old_exons->[$index], $new_exons->[$index])) {
+          $exon_needs_update = 1;
+          print '   EXON KEY VERSION ', $old_exons->[$index]->stable_id_version, ' -> ', $new_exons->[$index]->stable_id_version, "\n"
+            if ($old_exons->[$index]->version != $new_exons->[$index]->version);
+        }
+      }
+      else {
+        if (exists $unique_old_exons->{$new_exons->[$index]->stable_id}) {
+          if ($unique_old_exons->{$new_exons->[$index]->stable_id}->start == $new_exons->[$index]->start and $unique_old_exons->{$new_exons->[$index]->stable_id}->end == $new_exons->[$index]->end) {
+            $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exons->[$index]->stable_id}, $new_exons->[$index]));
+          }
+          else {
+            $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exons->[$index]->stable_id}, $new_exons->[$index], 1));
+          }
+          print '   EXON KEY ID ', $old_exons->[$index]->stable_id_version, ' -> ', $new_exons->[$index]->stable_id_version, "\n";
+        }
+        else {
+          $new_exons->[$index]->created_date('');
+          $new_exons->[$index]->modified_date('');
+          $new_exons->[$index]->version(1);
+          $exon_needs_update = 1;
+          print '   EXON KEY NEW ID ', $old_exons->[$index]->stable_id_version, ' -> ', $new_exons->[$index]->stable_id_version, "\n";
+        }
+      }
+      $new_exons->[$index]->{_gb_found} = 1;
+      push(@$objects_to_update, $new_exons->[$index]) if ($exon_needs_update);
+    }
+  }
+  else {
+    my $new_index = 0;
+    OLD_EXON: foreach my $old_exon (@$old_exons) {
+      my @possible_exons;
+      my $exon_needs_update = 0;
+      print 'STARTING index ', $old_exon->stable_id_version, ' ', $new_index, "\n";
+      for (my $index = $new_index; $index < @$new_exons; $index++) {
+        my $new_exon = $new_exons->[$index];
+        if ($old_exon->stable_id eq $new_exon->stable_id) {
+          if ($old_exon->start == $new_exon->start and $old_exon->end == $new_exon->end) {
+            $exon_needs_update = 1 if (object_needs_update($old_exon, $new_exon));
+          }
+          else {
+            $exon_needs_update = 1 if (object_needs_update($old_exon, $new_exon, 1));
+          }
+          $new_index = $index+1;
+          push(@$objects_to_update, $new_exon) if ($exon_needs_update);
+          $new_exon->{_gb_found} = 1;
+          print '   EXON DEEP ID ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
+          print 'NEW ID index ', $new_index, "\n";
+          next OLD_EXON;
+        }
+        elsif ($old_exon->start == $new_exon->start and $old_exon->end == $new_exon->end and $old_exon->phase == $new_exon->phase and $old_exon->end_phase == $new_exon->end_phase) {
+          if (exists $unique_old_exons->{$new_exon->stable_id}) {
+            if ($unique_old_exons->{$new_exon->stable_id}->start == $new_exon->start and $unique_old_exons->{$new_exon->stable_id}->end == $new_exon->end) {
+              $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exon->stable_id}, $new_exon));
+            }
+            else {
+              $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exon->stable_id}, $new_exon, 1));
+            }
+          }
+          else {
+            $new_exon->created_date('');
+            $new_exon->modified_date('');
+            $new_exon->version(1);
+            $exon_needs_update = 1;
+          }
+          print '   EXON DEEP MATCH ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
+          $new_index = $index+1;
+          push(@$objects_to_update, $new_exon) if ($exon_needs_update);
+          $new_exon->{_gb_found} = 1;
+          print 'NEW DEEP index ', $new_index, "\n";
+          next OLD_EXON;
+        }
+        elsif ($old_exon->start <= $new_exon->end and $old_exon->end >= $new_exon->start) {
+          push(@possible_exons, $index);
+        }
+      }
+      if (@possible_exons == 1) {
+        my $new_exon = $new_exons->[$possible_exons[0]];
+        if (exists $unique_old_exons->{$new_exon->stable_id}) {
+          print 'WARNING EXON DEEP POSSIBLE ', $unique_old_exons->{$new_exon->stable_id}->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
+          if ($unique_old_exons->{$new_exon->stable_id}->start == $new_exon->start and $unique_old_exons->{$new_exon->stable_id}->end == $new_exon->end) {
+            $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exon->stable_id}, $new_exon));
+          }
+          else {
+            $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exon->stable_id}, $new_exon, 1));
+          }
+        }
+        else {
+          $new_exon->created_date('');
+          $new_exon->modified_date('');
+          $new_exon->version(1);
+          $exon_needs_update = 1;
+        }
+        print '   EXON DEEP POSSIBLE ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
+        $new_index = $possible_exons[0];
+        push(@$objects_to_update, $new_exon) if ($exon_needs_update);
+        $new_exon->{_gb_found} = 1;
+      }
+      else {
+        foreach my $possible_index ( sort {abs($new_exons->[$a]->length-$old_exon->length) >= abs($new_exons->[$b]->length-$old_exon->length)} @possible_exons) {
+          my $new_exon = $new_exons->[$possible_index];
+          if (exists $unique_old_exons->{$new_exon->stable_id}) {
+            print 'WARNING EXON DEEP POSSIBLE MULTI ', $unique_old_exons->{$new_exon->stable_id}->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
+            $exon_needs_update = 1 if (object_needs_update($unique_old_exons->{$new_exon->stable_id}, $new_exon));
+          }
+          else {
+            $new_exon->created_date('');
+            $new_exon->modified_date('');
+            $new_exon->version(1);
+            $exon_needs_update = 1;
+          }
+          print '   EXON DEEP POSSIBLE MULTI ', $old_exon->stable_id_version, ' -> ', $new_exon->stable_id_version, "\n";
+          $new_index = $possible_index;
+          push(@$objects_to_update, $new_exon) if ($exon_needs_update);
+          $new_exon->{_gb_found} = 1;
+        }
+      }
+      print 'NEW POSSSIBLE index ', $new_index, "\n";
+    }
   }
 }
