@@ -107,6 +107,9 @@ sub default_options {
 
     'repeatmodeler_logic_name' => 'repeatmask_repeatmodeler',
 
+    red_msk => catfile($self->o('genome_dumps'), $self->o('species_name').'_red_msk/'),
+    red_rpt => catfile($self->o('genome_dumps'), $self->o('species_name').'_red_rpt/'),
+
     ensembl_analysis_script => catdir( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts' ),
     sequence_dump_script => catfile( $self->o('ensembl_analysis_script'), 'sequence_dump.pl' ),
 
@@ -118,6 +121,7 @@ sub default_options {
     'dust_path'         => catfile( $self->o('binary_base'), 'dustmasker' ),
     'trf_path'          => catfile( $self->o('binary_base'), 'trf' ),
     'repeatmasker_path' => catfile( $self->o('binary_base'), 'RepeatMasker' ),
+    red_path            => catfile($self->o('binary_base'), 'Red'),
     samtools_path       => catfile( $self->o('binary_base'), 'samtools' ),       #You may need to specify the full path to the samtools binary
 
 ########################
