@@ -35,8 +35,8 @@ use_ok('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData');
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
 	{ # input param hash
-		'url'     => 'ftp://ftp.ensembl.org/pub/release-104/README',
-		'download_method'     => 'ftp',
+		'url'     => 'http://ftp.ensembl.org/pub/release-104/README',
+		'download_method'     => 'http',
     'md5sum' => '0ddb2b5156d12c2e740da6800ee56811',
     'output_dir' => $output_dir,
     'uncompress' => 0,
@@ -53,8 +53,8 @@ standaloneJob(
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
 	{ # input param hash
-		'url'     => 'ftp://ftp.ensembl.org/pub/release-104/README',
-		'download_method'     => 'ftp',
+		'url'     => 'http://ftp.ensembl.org/pub/release-104/README',
+		'download_method'     => 'http',
     'md5sum' => '2a3ea6c67b0bf0a1cc72c5b15c73b931',
     'output_dir' => $output_dir,
     'uncompress' => 0,
@@ -74,8 +74,8 @@ standaloneJob(
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
 	{ # input param hash
-		'url'     => 'ftp://ftp.ensembl.org/pub/release-104/README',
-		'download_method'     => 'ftp',
+		'url'     => 'http://ftp.ensembl.org/pub/release-104/README',
+		'download_method'     => 'http',
     'output_dir' => $output_dir,
     'uncompress' => 0,
 	},
