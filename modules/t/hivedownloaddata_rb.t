@@ -107,7 +107,7 @@ standaloneJob(
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
 	{ # input param hash
-		'url'     => 'ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/README',
+		'url'     => 'ftp://ftp.sra.ebi.ac.uk/ensemblorg/pub/release-104/README',
 		'download_method'     => 'ftp',
     'output_dir' => $output_dir,
     'uncompress' => 0,
