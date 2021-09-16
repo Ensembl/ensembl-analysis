@@ -104,6 +104,23 @@ standaloneJob(
 	]
 );
 
+standaloneJob(
+	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
+	{ # input param hash
+		'url'     => 'ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/README',
+		'download_method'     => 'ftp',
+    'output_dir' => $output_dir,
+    'uncompress' => 0,
+	},
+	[ # list of events to test for (just 1 event in this case)
+		[ # start event
+			'DATAFLOW', # event to test for (could be WARNING)
+			$expected_dataflow, # expected data flowed out
+			2 # dataflow branch
+		], # end event
+	]
+);
+
 done_testing();
 
 cleaning();
