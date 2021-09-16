@@ -483,7 +483,7 @@ sub pipeline_analyses {
 
 # Run Red (REpeat Detector)
     {
-      -logic_name => 'repeatdetector_50GB',
+      -logic_name => 'repeatdetector',
       -module     => 'Repeatmask_Red',
       -language   => 'python3',
       -parameters => {
