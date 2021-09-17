@@ -197,9 +197,9 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default' => { LSF => $self->lsf_resource_builder( 'production-rh74', 2000 ) },
-    '4GB' => { LSF => $self->lsf_resource_builder( 'production-rh74', 4000 ) },
-    '8GB' => { LSF => $self->lsf_resource_builder( 'production-rh74', 8000 ) },
+    'default' => { LSF => $self->lsf_resource_builder( 'production', 2000 ) },
+    '4GB' => { LSF => $self->lsf_resource_builder( 'production', 4000 ) },
+    '8GB' => { LSF => $self->lsf_resource_builder( 'production', 8000 ) },
   }
 }
 
