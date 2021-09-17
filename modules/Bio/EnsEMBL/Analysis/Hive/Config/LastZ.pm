@@ -824,10 +824,10 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    '2GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 2000 ), undef, '-reg_conf ' . $self->default_options->{registry_file} ] },
-    '4GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 4000 ), undef, '-reg_conf ' . $self->default_options->{registry_file} ] },
-    '8GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 8000 ), undef, '-reg_conf ' . $self->default_options->{registry_file} ] },
-    '15GB_lastz' => { LSF => [ $self->lsf_resource_builder( 'production', 15000 ), undef, '-reg_conf ' . $self->default_options->{registry_file} ] },
+    '2GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 2000 ), '-reg_conf ' . $self->default_options->{registry_file} ] },
+    '4GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 4000 ), '-reg_conf ' . $self->default_options->{registry_file} ] },
+    '8GB_lastz'  => { LSF => [ $self->lsf_resource_builder( 'production', 8000 ), '-reg_conf ' . $self->default_options->{registry_file} ] },
+    '15GB_lastz' => { LSF => [ $self->lsf_resource_builder( 'production', 15000 ), '-reg_conf ' . $self->default_options->{registry_file} ] },
     'default' => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
     }
 }

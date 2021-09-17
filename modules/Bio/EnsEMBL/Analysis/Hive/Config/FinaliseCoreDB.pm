@@ -557,7 +557,7 @@ sub resource_classes {
 
   return {
     'default' => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
-    'default_registry' => { LSF => [ $self->lsf_resource_builder( 'production', 900 ), undef, '-reg_conf ' . $self->default_options->{registry_file} ] },
+    'default_registry' => { LSF => [ $self->lsf_resource_builder( 'production', 900 ), '-reg_conf ' . $self->default_options->{registry_file} ] },
     '1GB'  => { LSF => $self->lsf_resource_builder( 'production', 1000 ) },
     '4GB'  => { LSF => $self->lsf_resource_builder( 'production', 4000 ) },
     '8GB'  => { LSF => $self->lsf_resource_builder( 'production', 8000 ) },
