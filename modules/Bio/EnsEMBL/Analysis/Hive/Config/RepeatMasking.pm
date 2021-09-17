@@ -210,6 +210,7 @@ sub pipeline_analyses {
       -flow_into => {
         '2->A' => ['semaphore_10mb_slices'],
         'A->1' => ['dump_softmasked_toplevel'],
+        1 => ['repeatdetector'],
       },
     },
 
