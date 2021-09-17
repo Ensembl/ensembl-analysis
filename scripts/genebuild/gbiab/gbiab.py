@@ -2823,12 +2823,12 @@ def validate_coding_transcripts(cdna_file,amino_acid_file,validation_dir,gtf_fil
   #rnasamba_cmd = ['sh',rnasamba_path,rnasamba_output_path,cdna_file,rnasamba_weights]
   rnasamba_cmd=['singularity', 'exec', '--bind', rnasamba_volume, '/hps/software/users/ensembl/genebuild/ftricomi/singularity/rnasamba_latest.sif', 'rnasamba', 'classify',rnasamba_output_path, cdna_file, rnasamba_weights]
   print(' '.join(rnasamba_cmd))
-  subprocess.run(' '.join(rnasamba_cmd))
+  subprocess.run(rnasamba_cmd)
   cpc2_volume=validation_dir+'/:/app:rw'
   #cpc2_cmd = ['sh',cpc2_path,cdna_file,cpc2_output_path]
   cpc2_cmd = ['singularity', 'exec', '--bind', cpc2_volume, '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test_cpc2.sif', 'python3', '/CPC2_standalone-1.0.1/bin/CPC2.py', '-i',cdna_file,'--ORF', '-o',cpc2_output_path]
   print(' '.join(cpc2_cmd))
-  subprocess.run(' '.join(cpc2_cmd))
+  subprocess.run(cpc2_cmd)
   cpc2_output_path = cpc2_output_path + '.txt'
 
   check_file(rnasamba_output_path)
