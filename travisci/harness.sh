@@ -12,6 +12,8 @@ else
     exit 1;
 fi
 
+host myip.opendns.com resolver1.opendns.com | grep "myip.opendns.com has" | awk '{print $4}'
+
 echo "Running test suite"
 echo "Using $PERL5LIB"
 rt=0
