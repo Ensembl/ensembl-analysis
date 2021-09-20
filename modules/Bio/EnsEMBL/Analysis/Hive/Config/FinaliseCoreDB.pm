@@ -111,12 +111,15 @@ sub default_options {
     copy_biotypes_to_ignore => {
       'low_coverage' => 1,
       'CRISPR'       => 1,
+      broken_gene    => 1, # This is a biotype to quickly skip bad genes
     },
 
 ########################
 # Extra db settings
 ########################
     mysql_dump_options => '--max_allowed_packet=1000MB',
+    desired_slice_length => 10000000,
+    store_rejected => 0,
 
 ########################
 # db info
@@ -158,33 +161,54 @@ sub pipeline_analyses {
   return [
 
     {
-      -logic_name => 'create_gene_ids_to_copy',
+      -logic_name => 'create_toplevel_slices',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
       -parameters => {
-        target_db    => $self->o('final_geneset_db'),
-        iid_type     => 'feature_id',
-        feature_type => 'gene',
-        batch_size   => 100,
+        target_db             => $self->o('final_geneset_db'),
+        iid_type              => 'slice',
+        coord_system_name     => 'toplevel',
+        include_non_reference => 0,
+        top_level             => 1,
       },
       -input_ids  => [{}],
       -flow_into => {
-        '2->A' => ['copy_genes_to_core'],
+        '2->A' => ['split_slices_on_intergenic'],
         'A->1' => ['update_biotypes_and_analyses'],
       },
       -rc_name => 'default',
     },
 
     {
-      -logic_name => 'copy_genes_to_core',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCopyGenes',
+      -logic_name => 'split_slices_on_intergenic',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
       -parameters => {
-        copy_genes_directly     => 1,
-        source_db               => $self->o('final_geneset_db'),
-        dna_db                  => $self->o('dna_db'),
-        target_db               => $self->o('reference_db'),
+        target_db             => $self->o('final_geneset_db'),
+        iid_type              => 'intergenic_slice',
+        coord_system_name     => 'toplevel',
+        include_non_reference => 0,
+        top_level             => 1,
+        desired_slice_length  => $self->o('desired_slice_length'),
+      },
+      -batch_size => 300,
+      -flow_into => {
+        2 => ['clean_utr'],
+      },
+      -rc_name => 'default',
+    },
+
+    {
+      -logic_name => 'clean_utr',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::CleanUTRs',
+      -parameters => {
+        source_db => $self->o('final_geneset_db'),
+        target_db => $self->o('reference_db'),
+        dna_db    => $self->o('dna_db'),
+        store_rejected => $self->o('store_rejected'),
         copy_biotypes_to_ignore => $self->o('copy_biotypes_to_ignore'),
       },
-      -rc_name => '1GB',
+      -rc_name => '4GB',
+      -max_retry_count => 1,
+      -analysis_capacity => 400,
     },
 
     {
