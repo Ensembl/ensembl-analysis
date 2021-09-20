@@ -85,7 +85,7 @@ sub fetch_input {
 # We store the genes directly in output as we will store any genes but the transcripts will be modified
   my @genes;
   my @protein_coding;
-  my %unwanted = ('low_coverage' => 1, 'CRISPR' => 1);
+  my %unwanted = (low_coverage => 1, CRISPR => 1, broken_gene => 1);
   foreach my $gene (@{$slice->get_all_Genes}) {
     if (@{$gene->get_all_Transcripts}) {
       if (!exists $unwanted{$gene->biotype}) {
@@ -95,8 +95,6 @@ sub fetch_input {
           push(@protein_coding, $gene);
         }
       }
-    }
-    else {
     }
   }
   if (@genes) {
