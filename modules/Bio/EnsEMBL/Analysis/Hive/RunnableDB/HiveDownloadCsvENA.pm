@@ -305,11 +305,6 @@ sub run {
           else {
             $sample_name = $samples{$sample}->{sample_alias};
           }
-
-          if ($samples{$sample}->{cellType} || $samples{$sample}->{organismPart} || $samples{$sample}->{sample_alias} || $samples{$sample}->{description}) {
-            $samples{$sample}->{sample_name} .= '_';
-            $samples{$sample}->{sample_name} .= $samples{$sample}->{cellType} || $samples{$sample}->{organismPart} || $samples{$sample}->{sample_alias} || $samples{$sample}->{description};
-          }
         }
         $sample_names{$sample} = $sample_name;
       }
