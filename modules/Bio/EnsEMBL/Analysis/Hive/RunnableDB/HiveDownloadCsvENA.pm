@@ -236,7 +236,7 @@ sub run {
             $self->warning("Removed $sample from the set as it is from a non-healthy animal");
             next;
           }
-          elsif ($success = 0) {
+          elsif ($success == 0) {
             $ua->default_headers($dh);
             $url = join('&', $self->param('ena_base_url'), 'query="accession='.$sample.'"', $self->param('sample_domain'), 'fields='.$self->param('sample_fields'));
             $response = $ua->get($url);
