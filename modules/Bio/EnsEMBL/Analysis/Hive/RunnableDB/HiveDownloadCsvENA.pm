@@ -302,6 +302,9 @@ sub run {
           if ($samples{$sample}->{sample_alias} eq $sample and length($samples{$sample}->{description}) > 2) {
             $sample_name = $samples{$sample}->{description};
           }
+          elsif ($samples{$sample}->{description} and index($samples{$sample}->{description}, $sample) != -1) {
+            $sample_name = $sample;
+          }
           else {
             $sample_name = $samples{$sample}->{sample_alias};
           }
@@ -507,6 +510,10 @@ sub _retrieve_biosample_info {
           }
           $data->{sample_alias} = $json->{characteristics}->{$sample_string}->[0]->{text};
         }
+      }
+      if (index($data->{sample_alias}, $json->{name}) > -1 and length($json->{name}) < length($data->{sample_alias})) {
+        $data = {};
+        return 0;
       }
       foreach my $tissue ('cell type', 'organism part', 'tissue', 'tissue_type', 'tissue type') {
         if (exists $json->{characteristics}->{$tissue}) {
