@@ -96,6 +96,7 @@ sub fetch_input {
   $self->param_required('core_dbpass');
   $self->param_required('cs_version');
   $self->param_required('species');
+  $self->param_required('rest_server');
 
   # connect to the core database
   my $core_dba = Bio::EnsEMBL::DBSQL::DBAdaptor->new(
@@ -120,7 +121,8 @@ sub fetch_input {
     -core_dba => $self->hrdb_get_con("core"),
     -alpha_path => $self->param('alpha_path'),
     -species => $self->param('species'),
-    -cs_version => $self->param('cs_version')
+    -cs_version => $self->param('cs_version'),
+    -rest_server => $self->param('rest_server')
     );
   $self->runnable($runnable);
 

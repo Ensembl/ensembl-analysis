@@ -53,18 +53,20 @@ use 5.014002;
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use Bio::EnsEMBL::Utils::Exception qw(throw);
+use Bio::EnsEMBL::GIFTS::DB qw(fetch_latest_uniprot_enst_perfect_matches);
 use Bio::EnsEMBL::ProteinFeature;
 
 sub new {
     my ($class,@args) = @_;
     my $self = $class->SUPER::new(@args);
 
-    my ($core_dba,$alpha_path,$species,$cs_version) = rearrange([qw(core_dba alpha_path species cs_version)],@args);
+    my ($core_dba,$alpha_path,$species,$cs_version,$rest_server) = rearrange([qw(core_dba alpha_path species cs_version rest_server)],@args);
 
     $self->{'core_dba'} = $core_dba;
     $self->{'alpha_path'} = $alpha_path;
     $self->{'species'} = $species;
     $self->{'cs_version'} = $cs_version;
+    $self->{'rest_server'} = $rest_server;
     
     $self->{'pdb_info'} = undef;
     $self->{'perfect_matches'} = undef;
@@ -92,7 +94,8 @@ sub run {
   my ($self) = @_;
 
   $self->{'afdb_info'} = $self->parse_afdb_file();
-  $self->{'perfect_matches'} = $self->fetch_uniprot_ensembl_matches();
+  $self->{'perfect_matches'} = fetch_latest_uniprot_enst_perfect_matches($self->{'rest_server'},$self->{'cs_version'});
+  #$self->{'perfect_matches'} = $self->fetch_uniprot_ensembl_matches();
   $self->make_protein_features();
 
   return 1;
