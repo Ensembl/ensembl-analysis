@@ -389,7 +389,7 @@ sub pipeline_analyses {
         MAX_INTRON_LENGTH => 50000,
         OPTIONS           => '-T 20',                                                # set threshold to 14 for more sensitive search
       },
-      -rc_name => '2GB',
+      -rc_name => '3GB',
     },
 
     {
