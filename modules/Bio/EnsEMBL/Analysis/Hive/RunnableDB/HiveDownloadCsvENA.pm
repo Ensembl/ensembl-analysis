@@ -528,6 +528,10 @@ sub _retrieve_biosample_info {
       return 0;
     }
   }
+  else {
+    $self->warning("Failed to get $current_sample, error is ".$biosd->status_line);
+    return 0;
+  }
 }
 
 1;
