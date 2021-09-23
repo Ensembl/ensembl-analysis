@@ -1,0 +1,6 @@
+numpy ~=1.7
+pandas ~=0.15
+python-dateutil ~=2.7.3
+pytz ~=2017.3
+six ~=1.5
+gtfparse ~=1.2.1
