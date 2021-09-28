@@ -37,7 +37,7 @@ def analyse_genmark(df):
         start = min(df_subset["start"])
         stop = max(df_subset["end"])
         index = min(df_subset.index)
-
+        print (index)
         line = pd.DataFrame(
             {
                 "seqname": df_subset["seqname"][index],

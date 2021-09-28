@@ -1330,8 +1330,10 @@ sub pipeline_analyses {
 
       -parameters => {
                              cmd => 'mkdir #output_path#/prothint;'.
-                                    'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py /data/#reheadered_toplevel_genome_file# data/#protein_file# ;'.   
-                                    'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#species_name# --useexisting  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' ,
+			            'cd #output_path#/prothint;'.
+                                    'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #reheadered_toplevel_genome_file# #protein_file# ;'.   
+				    'cd #output_path#/;'.	
+				    'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#species_name# --useexisting  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' ,
 #                             #                                    'mv braker braker_etp_mode',
       },
       -rc_name         => 'braker32',
