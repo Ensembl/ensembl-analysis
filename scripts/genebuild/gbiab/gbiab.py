@@ -622,7 +622,7 @@ def create_cpg_gtf(cpg_output_file_path,region_results_file_path,region_name):
 def run_trnascan_regions(genome_file,trnascan_path,trnascan_filter_path,main_output_dir,num_threads):
 
   if not trnascan_path:
-    trnascan_path = '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/trnascan-1.4'
+    trnascan_path = '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/tRNAscan-SE'
   logging.info(trnascan_path)
   if not trnascan_filter_path:
     trnascan_filter_path = '/hps/software/users/ensembl/repositories/ftricomi/tRNAscan-SE/EukHighConfidenceFilter.in'
