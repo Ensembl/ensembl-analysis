@@ -57,6 +57,7 @@ use File::Spec::Functions qw(catdir catfile);
 use File::Path qw(remove_tree);
 
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable::BaseShortReadAligner');
 
@@ -117,9 +118,7 @@ sub run {
   # run STAR
   my $command = $self->program." --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$self->threads." --twopassMode Basic --runMode alignReads --genomeDir ".$self->genome." --readFilesIn $fastq $fastqpair --outFileNamePrefix $out_dir $options --outTmpDir $tmp_dir --outSAMtype BAM SortedByCoordinate";
   $self->warning("Command: $command\n");
-  if (system($command)) {
-      $self->throw("Error aligning $fastq $fastqpair\nCommandline used: $command\nError code: $?\n");
-  }
+  execute_with_wait($command);
   $self->output([$out_dir.'Aligned.sortedByCoord.out.bam']);
 }
 
