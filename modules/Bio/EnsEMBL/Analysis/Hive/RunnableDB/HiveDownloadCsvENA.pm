@@ -511,7 +511,7 @@ sub _retrieve_biosample_info {
           $data->{sample_alias} = $json->{characteristics}->{$sample_string}->[0]->{text};
         }
       }
-      if (index($data->{sample_alias}, $json->{name}) > -1 and length($json->{name}) < length($data->{sample_alias})) {
+      if (exists $data->{sample_alias} and index($data->{sample_alias}, $json->{name}) > -1 and length($json->{name}) < length($data->{sample_alias})) {
         $data = {};
         return 0;
       }
