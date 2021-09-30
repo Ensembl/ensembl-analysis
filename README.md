@@ -29,7 +29,10 @@ We recommend that you clone all the repositories into one directory
 
 For each of these repository, you will need to install their dependencies using the cpanfile provided in their Git repositories
 
-You can use the [Ensembl git commands](https://github.com/Ensembl/ensembl-git-tools) and run the following command to clone the repositories ```git ensembl --clone genebuild```
+You can use the [Ensembl git commands](https://github.com/Ensembl/ensembl-git-tools) and run the following command to clone the repositories
+```
+git ensembl --clone genebuild
+```
 
 ### Python EnsEMBL repositories you need to have
 | Repository name | branch | URL|
@@ -64,26 +67,44 @@ There is a main configuration file, `Bio::EnsEMBL::Analysis::Hive::Config::Genom
 The whole system is explained in more details below
 
 ### Initialising the pipeline within an Ensembl
-You will need to activate the genebuild virtual environment ```pyenv activate genebuild```
+You will need to activate the genebuild virtual environment
+```
+pyenv activate genebuild
+```
 
 #### Filling the main configuration manually
 You would need to edit `$ENSCODE/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_conf.pm` and fill in any information according to you environment
 
-Then you can run ```perl $ENSCODE/ensembl-hive/scripts/init_Pipeline.pl Bio::EnsEMBL::Analysis::Hive::Config::Genome_annotation_conf [extra parameters]```
+Then you can run
+```
+perl $ENSCODE/ensembl-hive/scripts/init_Pipeline.pl Bio::EnsEMBL::Analysis::Hive::Config::Genome_annotation_conf [extra parameters]
+```
 
 #### Filling the main configuration automatically
 If you are operating within an environment prepared for Ensembl with the assembly registry you can use the `ensembl-analysis/scripts/genebuild/create_annotation_configs.pl`.
 
 You would need to edit `ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/genome_annotation.ini`
 
-Then you can run ```perl $ENSCODE/ensembl-analysis/scripts/genebuild/create_annotation_configs.pl --config_file ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/genome_annotation.ini --assembly_registry_host <host_name> --assembly_registry_port <port>```
+Then you can run
+```
+perl $ENSCODE/ensembl-analysis/scripts/genebuild/create_annotation_configs.pl --config_file ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/genome_annotation.ini --assembly_registry_host <host_name> --assembly_registry_port <port>
+```
 
 ### Running the pipeline
-To start the pipeline you need the URL to your pipeline database which will be provided when running the init_Pipeline.pl script. If you initialised the pipeline automatically, you need to look at the command file created in your `working_dir` directory to retrieve the information. ```export EHIVE_URL=mysql://readwrite_user:password@host:port/dbname```
+To start the pipeline you need the URL to your pipeline database which will be provided when running the init_Pipeline.pl script. If you initialised the pipeline automatically, you need to look at the command file created in your `working_dir` directory to retrieve the information.
+```
+export EHIVE_URL=mysql://readwrite_user:password@host:port/dbname
+```
 
-You can now start the pipeline with ```perl $ENSCODE/ensembl-hive/scripts/beekeeper.pl -url $EHIVE_URL -loop```
+You can now start the pipeline with
+```
+perl $ENSCODE/ensembl-hive/scripts/beekeeper.pl -url $EHIVE_URL -loop
+```
 
-If you only want to run some analyses, you can run ```perl $ENSCODE/ensembl-hive/scripts/beekeeper.pl -url $EHIVE_URL -loop -analyses_pattern 1..5```
+If you only want to run some analyses, you can run
+```
+perl $ENSCODE/ensembl-hive/scripts/beekeeper.pl -url $EHIVE_URL -loop -analyses_pattern 1..5
+```
 
 #### GuiHive
 To follow the pipeline steps, it is better to use GuiHive, a graphical interface to ensembl-hive, which allows you to change parameters, debug your problems and much more
@@ -93,12 +114,19 @@ You should first look at the job tab to know the reason of the failure
 * Insufficient memory: you can either use a different resource or add a new one more suited to your needs
 * Error in the code: I'm afraid you will need to do proper debugging
 
-Once you are happy with your fix, you would need to reset the jobs with ```perl $ENSCODE/ensembl-hive/scripts/beekeeper.pl -url $EHIVE_URL -reset_failed_jobs``` and restart the pipeline
+Once you are happy with your fix, you would need to reset the jobs with
+```
+perl $ENSCODE/ensembl-hive/scripts/beekeeper.pl -url $EHIVE_URL -reset_failed_jobs
+```
+and restart the pipeline
 
 #### How can I debug a job
 By default ensembl-hive redirect all output to `/dev/null` unless you used some logging parameters.
 
-You will need to run the problematic job with runWorker. First you will need to retrieve the job id using GuiHive or the pipeline database. Then you can run ```perl $ENSCODE/ensembl-hive/scripts/runWorker.pl -url $EHIVE_URL -debug 1 -job_id XX```
+You will need to run the problematic job with runWorker. First you will need to retrieve the job id using GuiHive or the pipeline database. Then you can run
+```
+perl $ENSCODE/ensembl-hive/scripts/runWorker.pl -url $EHIVE_URL -debug 1 -job_id XX
+```
 
 Using a higher value for `-debug` is usually not useful as it is mostly seen as a boolean flag.
 
