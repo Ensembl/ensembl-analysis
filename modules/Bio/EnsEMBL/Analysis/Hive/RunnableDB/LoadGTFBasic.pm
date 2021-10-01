@@ -136,7 +136,7 @@ sub fetch_input {
     }
     $self->param('proto_transcripts',$proto_transcripts);
   }
-  elsif ($loading_type eq 'file') {
+  elsif ($loading_type eq 'file' or $loading_type eq 'sorted_file') {
     my $logic_name;
     if ($self->param_is_defined('logic_name')) {
       $logic_name = $self->param('logic_name');
@@ -183,6 +183,78 @@ sub run {
     foreach my $proto_transcript (@$proto_transcripts) {
       $self->output([$self->build_gene($proto_transcript)]);
     }
+  }
+  elsif ($self->param('loading_type') eq 'sorted_file') {
+    my $use_transcript_id = $self->param('use_transcript_id');
+    my $slice_cache = $self->param('slice_cache');
+    my @genes;
+    my $analysis = $self->analysis;
+    my $current_transcript;
+    my $current_strand;
+    open(FH, $self->param('filename')) || $self->throw('Could not open '.$self->param('filename'));
+    while (my $line = <FH>) {
+      next if (index($line, '#') == 0);
+      my @data = split("\t", $line);
+      my $slice = $slice_cache->{$data[0]};
+      $self->throw('Unknown region '.$data[0]) unless ($slice);
+      my $attributes = $self->set_attributes($data[8]);
+
+      my $gene_id = $use_transcript_id ? $attributes->{'transcript_id'} : $attributes->{'gene_id'};
+      my $transcript_id = $attributes->{'transcript_id'};
+
+      if ($data[2] eq 'exon') {
+        if ($current_transcript) {
+          $current_transcript->add_Exon(Bio::EnsEMBL::Exon->new(
+           -START     => $data[3],
+           -END       => $data[4],
+           -STRAND    => $current_strand,
+           -SLICE     => $slice,
+           -PHASE     => -1,
+           -END_PHASE => -1
+          ));
+          if ($current_transcript->start == $current_transcript->{_gb_start} and $current_transcript->end == $current_transcript->{_gb_end}) {
+            compute_translation($current_transcript);
+            if (@{$current_transcript->get_all_Exons} == 1 and $current_transcript->strand == 1) {
+              my %tmp_hash = %{$current_transcript->get_all_Exons->[0]};
+              my $tmp_exon = Bio::EnsEMBL::Exon->new_fast(\%tmp_hash);
+              $tmp_exon->strand(-1);
+              my $tmp_transcript = Bio::EnsEMBL::Transcript->new;
+              $tmp_transcript->add_Exon($tmp_exon);
+              compute_translation($tmp_transcript);
+              my $tmp_translation = $tmp_transcript->translation;
+              if ($tmp_translation) {
+                my $translation = $current_transcript->translation;
+                # Because we have a single exon model, no need to look for the real sequence
+                if (($translation and ($tmp_translation->end-$tmp_translation->start) > ($translation->end-$translation->start)) or !$translation) {
+                  $genes[-1]->flush_Transcripts;
+                  $genes[-1]->add_Transcript($tmp_transcript);
+                }
+              }
+            }
+          }
+        }
+        else {
+          $self->throw("No current transcript, something went wrong for '$line'");
+        }
+      }
+      elsif ($data[2] eq 'transcript') {
+        $current_transcript = Bio::EnsEMBL::Transcript->new(-stable_id => $transcript_id, -source => $data[1]);
+        $current_transcript->analysis($analysis);
+        $current_transcript->slice($slice); # I need to add the slice here as add_Exon which will add a slice will happen later but it will be needed for recalculate_coordinates
+        $current_strand = $data[6] eq '-' ? -1 : 1;
+        $current_transcript->strand($current_strand); # I need to add the strand here as add_Exon which will add a strand will happen later but it will be needed for recalculate_coordinates
+        $current_transcript->{_gb_start} = $data[3];
+        $current_transcript->{_gb_end} = $data[4];
+        my $gene = Bio::EnsEMBL::Gene->new();
+        $gene->stable_id($gene_id);
+        $gene->source($data[1]);
+        $gene->analysis($analysis);
+        $gene->add_Transcript($current_transcript);
+        push(@genes, $gene);
+      }
+    }
+    close(FH) || $self->throw('Could not close '.$self->param('filename'));
+    $self->output(\@genes);
   }
   elsif ($self->param('loading_type') eq 'file') {
     my $use_transcript_id = $self->param('use_transcript_id');
@@ -254,12 +326,15 @@ sub run {
         if (@{$transcript->get_all_Exons} == 1 and $transcript->strand == 1) {
           my %tmp_hash = %{$transcript->get_all_Exons->[0]};
           my $tmp_exon = Bio::EnsEMBL::Exon->new_fast(\%tmp_hash);
+          $tmp_exon->strand(-1);
           my $tmp_transcript = Bio::EnsEMBL::Transcript->new;
           $tmp_transcript->add_Exon($tmp_exon);
           compute_translation($tmp_transcript);
-          if ($tmp_transcript->translation) {
+          my $tmp_translation = $tmp_transcript->translation;
+          if ($tmp_translation) {
             my $translation = $transcript->translation;
-            if ($translation and length($tmp_transcript->translation->seq) > length($translation->seq)) {
+            # Because we have a single exon model, no need to look for the real sequence
+            if (($translation and ($tmp_translation->end-$tmp_translation->start) > ($translation->end-$translation->start)) or !$translation) {
               $gene->add_Transcript($tmp_transcript);
             }
             else {
