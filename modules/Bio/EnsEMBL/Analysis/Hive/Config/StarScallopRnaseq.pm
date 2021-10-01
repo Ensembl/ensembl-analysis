@@ -619,7 +619,7 @@ sub pipeline_analyses {
       },
       -rc_name    => '3GB_rnaseq_multithread',
       -flow_into => {
-        1 => ['create_analyses_type_job', '?accu_name=filename&accu_address=[]&accu_input_variable=alignment_bam_file'],
+        1 => ['create_analyses_type_job', '?accu_name=filename&accu_address=[]&accu_input_variable=bam_file'],
       },
     },
     {
@@ -655,7 +655,6 @@ sub pipeline_analyses {
         assembly_name => $self->o('assembly_name'),
         rnaseq_data_provider => $self->o('rnaseq_data_provider'),
         disconnect_jobs => 1,
-        alignment_bam_file => catfile($self->o('merge_dir'), '#assembly_name#.#rnaseq_data_provider#.merged.1.bam'),
         species => $self->o('species_name'),
         output_dir => $self->o('merge_dir'),
         input_dir => $self->o('merge_dir'),
