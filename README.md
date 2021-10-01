@@ -51,8 +51,8 @@ If you are not part of the Ensembl Genebuild team, you will need to set some she
 | ENSCODE | $HOME | -enscode\_root\_dir | Directory path where you cloned all the Perl repositories |
 | ENSEMBL\_SOFTWARE\_HOME | $HOME | -software\_base\_path | Directory where pyenv, plenv and linuxbrew are installed |
 | LINUXBREW\_HOME | $HOME/.linuxbrew | -linuxbrew\_home\_path | Base directory for your Linuxbrew installation |
-| PYTHONPATH | $HOME/ensembl-genes/ensembl\_genes | It needs to be set until the package can be install properly |
-| BLASTDB\_DIR | $HOME | It will be used to find the path to the entry\_loc file which is the list of accession from SwissProt which would be located at $HOME/uniprot/2021\_03/entry\_loc |
+| PYTHONPATH | $HOME/ensembl-genes/ensembl\_genes | | It needs to be set until the package can be install properly |
+| BLASTDB\_DIR | $HOME | | It will be used to find the path to the entry\_loc file which is the list of accession from SwissProt which would be located at $HOME/uniprot/2021\_03/entry\_loc |
 
 ### MySQL
 We currently use MySQL databases to store our data. To avoid having to do many changes to the configuration files we recommend having one read-only user and one read-write user. It is also better to use different servers for keeping the eHive pipeline database, the DNA database and the "data" databases.
