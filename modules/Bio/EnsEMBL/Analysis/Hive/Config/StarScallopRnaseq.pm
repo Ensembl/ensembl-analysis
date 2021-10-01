@@ -566,6 +566,7 @@ sub pipeline_analyses {
         column_names => ['sample_name', 'rnaseq_data_provider'],
       },
       -rc_name    => 'default',
+      -priority => -2,
       -flow_into => {
         '2->A' => ['create_tissue_jobs'],
         'A->1' => ['merged_bam_file'],
@@ -579,6 +580,7 @@ sub pipeline_analyses {
         column_names => [$self->o('read_group_tag'), $self->o('read_id_tag')],
       },
       -rc_name    => 'default',
+      -priority => -2,
       -flow_into => {
         '2->A' => ['create_file_list'],
         'A->1' => ['merged_tissue_file'],
@@ -594,6 +596,7 @@ sub pipeline_analyses {
         fan_branch_code => 1,
       },
       -rc_name    => 'default',
+      -priority => -2,
       -flow_into => {
           1 => ['?accu_name=filename&accu_address=[]&accu_input_variable=filename'],
       },
@@ -618,6 +621,7 @@ sub pipeline_analyses {
         rename_file => 1,
       },
       -rc_name    => '3GB_rnaseq_multithread',
+      -priority => -2,
       -flow_into => {
         1 => ['create_analyses_type_job', '?accu_name=filename&accu_address=[]&accu_input_variable=bam_file'],
       },
@@ -631,6 +635,7 @@ sub pipeline_analyses {
         column_names => ['type'],
         species => $self->o('species_name'),
       },
+      -priority => -2,
       -flow_into => {
         2 => {'create_rnaseq_tissue_analyses' => {analyses => [{'-logic_name' => '#species#_#sample_name#_rnaseq_#type#'}]}},
       },
@@ -643,6 +648,7 @@ sub pipeline_analyses {
         source_type => 'list',
         target_db => $self->o('scallop_blast_db'),
       },
+      -priority => -2,
     },
     {
       -logic_name => 'merged_bam_file',
@@ -663,6 +669,7 @@ sub pipeline_analyses {
         use_threads => $self->o('rnaseq_merge_threads'),
       },
       -rc_name    => '5GB_merge_multithread',
+      -priority => -2,
       -flow_into => {
         1 => ['fan_merge_analyses'],
       },
@@ -676,6 +683,7 @@ sub pipeline_analyses {
         return_codes_2_branches => {'42' => 2},
       },
       -rc_name    => 'default',
+      -priority => -2,
       -flow_into  => {
   1 => ['create_merge_analyses_type_job'],
       },
@@ -690,6 +698,7 @@ sub pipeline_analyses {
         column_names => ['type'],
         species => $self->o('species_name'),
       },
+      -priority => -2,
       -flow_into => {
         2 => {'create_rnaseq_merge_analyses' => {analyses => [{'-logic_name' => '#species#_merged_rnaseq_#type#'}]}},
       },
@@ -702,6 +711,7 @@ sub pipeline_analyses {
         source_type => 'list',
         target_db => $self->o('scallop_blast_db'),
       },
+      -priority => -2,
     },
     {
       -logic_name => 'generate_scallop_gtf_jobs',
