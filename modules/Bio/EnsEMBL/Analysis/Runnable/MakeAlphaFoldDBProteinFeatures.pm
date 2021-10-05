@@ -219,7 +219,7 @@ sub make_protein_features() {
                     -hstart   => $$afdb_line{'RES_BEG'},
                     -hend     => $$afdb_line{'RES_END'},
                     -analysis => $analysis,
-                    -hdescription => "Via UniParc (".$$afdb_line{'SIFTS_RELEASE_DATE'}.
+                    -hdescription => "Via SIFTS (".$$afdb_line{'SIFTS_RELEASE_DATE'}.
                                      ") UniProt protein ".$$afdb_line{'SP_PRIMARY'}.
                                      " isoform exact match to Ensembl protein $translation_sid"
                  );
