@@ -184,7 +184,7 @@ sub run {
       $self->output([$self->build_gene($proto_transcript)]);
     }
   }
-  elsif ($self->param('loading_type') eq 'sorted_file') {
+  elsif ($self->param('loading_type') eq 'file') {
     my $use_transcript_id = $self->param('use_transcript_id');
     my $slice_cache = $self->param('slice_cache');
     my @genes;
@@ -227,6 +227,7 @@ sub run {
                 # Because we have a single exon model, no need to look for the real sequence
                 if (($translation and ($tmp_translation->end-$tmp_translation->start) > ($translation->end-$translation->start)) or !$translation) {
                   $genes[-1]->flush_Transcripts;
+                  $tmp_transcript->analysis($genes[-1]->analysis);
                   $genes[-1]->add_Transcript($tmp_transcript);
                 }
               }
@@ -256,7 +257,7 @@ sub run {
     close(FH) || $self->throw('Could not close '.$self->param('filename'));
     $self->output(\@genes);
   }
-  elsif ($self->param('loading_type') eq 'file') {
+  elsif ($self->param('loading_type') eq 'unsorted_file') {
     my $use_transcript_id = $self->param('use_transcript_id');
     my $slice_cache = $self->param('slice_cache');
     my %genes;
@@ -316,8 +317,6 @@ sub run {
       }
     }
     close(FH) || $self->throw('Could not close '.$self->param('filename'));
-    my $count = 0;
-    $self->say_with_header("START: ".localtime);
     foreach my $gene (sort {$a->slice <=> $b->slice || $a->slice->start <=> $b->slice->start} values %genes) {
       my $transcripts = $gene->get_all_Transcripts;
       $gene->flush_Transcripts;
@@ -350,8 +349,6 @@ sub run {
         }
       }
       $self->output([$gene]);
-      ++$count;
-      $self->say_with_header("$count ".localtime) if (($count%1000) == 0);
     }
   }
 
