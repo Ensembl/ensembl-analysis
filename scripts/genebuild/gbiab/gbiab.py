@@ -625,7 +625,7 @@ def run_trnascan_regions(genome_file,trnascan_path,trnascan_filter_path,main_out
     trnascan_path = '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/tRNAscan-SE'
   logging.info(trnascan_path)
   if not trnascan_filter_path:
-    trnascan_filter_path = '/hps/software/users/ensembl/repositories/ftricomi/tRNAscan-SE/EukHighConfidenceFilter.in'
+    trnascan_filter_path = '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/EukHighConfidenceFilter'
   logging.info(trnascan_filter_path)
   check_exe(trnascan_path)
   logging.info(trnascan_path)
@@ -639,7 +639,7 @@ def run_trnascan_regions(genome_file,trnascan_path,trnascan_filter_path,main_out
   seq_region_lengths = get_seq_region_lengths(genome_file,5000)
   slice_ids = create_slice_ids(seq_region_lengths,1000000,0,5000)
 
-  generic_trnascan_cmd = [trnascan_path,None,'-o',None,'-f',None,'-H','-q','--detail']
+  generic_trnascan_cmd = [trnascan_path,None,'-o',None,'-f',None,'-H','-q','--detail','-Q']
   print("Running tRNAscan-SE")
   pool = multiprocessing.Pool(int(num_threads))
   tasks = []
