@@ -186,9 +186,9 @@ sub prepare_seq {
       $id = $1;
     } elsif ($tmp =~ m/^gi\|\d+\|emb\|(\w+\.\d)\|/) {  #EMBL entries
       $id = $1;
-    } elsif ($tmp =~ m/^[\w\d]+\s([\w\.\d]+)\s.+\n{1}?/) {
+    } elsif ($tmp =~ m/^[\w\d]+\s([\w\.\d]+)\s.+\n{1}/) {
       $id = $1;
-    } elsif ($tmp =~m/^[\w\.\d]+\s.+\n{1}?/) {
+    } elsif ($tmp =~m/^[\w\.\d]+\s.+\n{1}/) {
         #already in correct format - do nothing
       $id = $tmp;
     } elsif ($tmp =~ m/[\w\.\d]+/) {
