@@ -174,8 +174,7 @@ sub compare_seqs {
   my @alt_seq_arr = split('',$alt_slice->subseq(1,100));
 
   my $num_mismatches = 0;
-  join('',map { $ref_seq_arr[$_] eq $alt_seq_arr[$_] ? $alt_seq_arr[$_] : $num_mismatches++ }
-              0 .. $#alt_seq_arr);
+  map { $ref_seq_arr[$_] eq $alt_seq_arr[$_] ? $alt_seq_arr[$_] : $num_mismatches++ } 0 .. $#alt_seq_arr;
 
   if ($num_mismatches >= 6) { # 95% identity instead of 100%
     print "WARNING: starts have different seqs\n";
