@@ -72,14 +72,6 @@ You will need to activate the genebuild virtual environment
 pyenv activate genebuild
 ```
 
-#### Filling the main configuration manually
-You would need to edit `$ENSCODE/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_conf.pm` and fill in any information according to you environment
-
-Then you can run
-```
-perl $ENSCODE/ensembl-hive/scripts/init_Pipeline.pl Bio::EnsEMBL::Analysis::Hive::Config::Genome_annotation_conf [extra parameters]
-```
-
 #### Filling the main configuration automatically
 If you are operating within an environment prepared for Ensembl with the assembly registry you can use the `$ENSCODE/ensembl-analysis/scripts/genebuild/create_annotation_configs.pl`.
 
@@ -88,6 +80,14 @@ You would need to edit `$ENSCODE/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/H
 Then you can run
 ```
 perl $ENSCODE/ensembl-analysis/scripts/genebuild/create_annotation_configs.pl --config_file $ENSCODE/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/genome_annotation.ini --assembly_registry_host <host_name> --assembly_registry_port <port>
+```
+
+#### Filling the main configuration manually
+If you're setup do not work with the create\_annotation\_configs.pl script, you would need to edit `$ENSCODE/ensembl-analysis/modules/Bio/EnsEMBL/Analysis/Hive/Config/Genome_annotation_conf.pm` and fill in any information according to you environment
+
+Then you can run
+```
+perl $ENSCODE/ensembl-hive/scripts/init_Pipeline.pl Bio::EnsEMBL::Analysis::Hive::Config::Genome_annotation_conf [extra parameters]
 ```
 
 ### Running the pipeline
@@ -105,6 +105,8 @@ If you only want to run some analyses, you can run
 ```
 perl $ENSCODE/ensembl-hive/scripts/beekeeper.pl -url $EHIVE_URL -loop -analyses_pattern 1..5
 ```
+
+### Monitoring the pipeline
 
 #### GuiHive
 To follow the pipeline steps, it is better to use GuiHive, a graphical interface to ensembl-hive, which allows you to change parameters, debug your problems and much more https://github.com/Ensembl/guiHive
@@ -135,6 +137,117 @@ First you would need to go on the job tab and do a middle click/right click on t
 
 Then from the "GuiHive" of the sub pipeline, you need to make your changes/debugging the same way as a normal pipeline. Once this is done, you can simply reset the main pipeline and restart the main pipeline
 
+## What is the difference between a "main" pipeline and a "sub" pipeline
+We use the main/sub terminology to define the different part of the system. We could have used parent/child
+* The "main" pipeline will run multiple analyses and will initialise at least one sub pipeline and run this sub pipeline
+* The "sub" pipeline will run multiple analyses and can potentially be the "main" pipeline of a different pipeline. A sub pipeline can be run on its own
+
+A pipeline needs three analyses to be called a "main" pipeline:
+* `create_<sub pipeline name>_jobs`
+* `initialise_<sub pipeline name>`
+* `run_<sub pipeline name>`
+
+### create\_\<sub pipeline name\>\_jobs
+The main reason for this analysis is to provide an easy access to the sub pipeline guiHive and the pipeline database details
+
+It is usually a `Bio::EnsEMBL::Hive::RunnableDB::JobFactory` where the input list will have at least one element with four key value pair. The reason for this analysis it
+  - ehive\_url: the sub pipeline database connection URI, `mysql://rw\_user:password@host:port/database`, useful for debugging as it can be used
+  - external\_link: the sub pipeline guiHive URL
+  - meta\_pipeline\_db: the sub pipeline database connection hash, `{'-dbname' => 'database','-driver' => 'mysql','-host' => 'host','-pass' => 'password','-port' => 3306,'-user' => 'rw_user'}`
+  - pipeline\_name: the name of the sub pipeline
+
+**Example analysis config**
+```
+{
+  -logic_name => 'create_rnaseq_db_pipeline_job',
+  -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+  -parameters => {
+    column_names => ['meta_pipeline_db', 'ehive_url', 'pipeline_name', 'external_link'],
+    inputlist => [[$rnaseq_db_pipe_db, $rnaseq_db_pipe_url, 'rnaseq_db_'.$self->o('production_name'), $rnaseq_db_guihive]],
+    guihive_host => $self->o('guihive_host'),
+    guihive_port => $self->o('guihive_port'),
+  },
+  -rc_name => 'default',
+  -max_retry_count => 0,
+  -flow_into => {
+    2 => ['initialise_rnaseq_db'],
+  }
+},
+```
+
+### initialise\_\<sub pipeline name\>
+This analysis will initialise the sub pipeline.
+
+It must be a `Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMetaPipelineInit`, it will simply generate the commandline which will be run with `$ENSCODE/ensembl-hive/scripts/init_pipeline.pl`
+
+There is a set of parameters which are needed:
+* hive\_config: the name of the config to use
+* databases: list of keys which contains the connection details of any database to be used such as 'dna\_db'. The key value pairs should not be in `extra_parameters`.
+* extra\_parameters: any parameter to be provided to the initialisation script. `species_name => 'homo_sapiens'` would be used as `-species_name homo_sapiens`
+* metadata\_pipeline\_db: the connection details of the pipeline database, this would usually be provided by the `create_<sub pipeline name>_jobs` analysis
+
+There is one special parameter which is not required but can be helpful, `commandline_params`, which will not process the value associated. It can be used for re-initialising a sub pipeline with something like `-hive_force_init 1` or `-hive_force_init 1 -drop_databases 1` if the pipeline has already been started/run and you want to drop any databases created by the pipeline.
+
+Arrays and hashes cannot be easily passed to the init script on the command line. Also Hive does not overwrite arrays, it always add elements to the parameter if the array already exist.
+
+**Example analysis config**
+```
+{
+  -logic_name => 'initialise_rnaseq_db',
+  -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMetaPipelineInit',
+  -parameters => {
+    hive_config => $self->o('hive_rnaseq_db_config'),
+    databases => ['rnaseq_db', 'rnaseq_refine_db', 'rnaseq_blast_db', 'dna_db'],
+    rnaseq_db => $self->o('rnaseq_db'),
+    rnaseq_refine_db => $self->o('rnaseq_refine_db'),
+    rnaseq_blast_db => $self->o('rnaseq_blast_db'),
+    dna_db => $self->o('dna_db'),
+    enscode_root_dir => $self->o('enscode_root_dir'),
+    extra_parameters => {
+      output_path => $self->o('output_path'),
+      user_r => $self->o('user_r'),
+      dna_db_host => $self->o('dna_db_host'),
+      dna_db_port => $self->o('dna_db_port'),
+      databases_host => $self->o('databases_host'),
+      databases_port => $self->o('databases_port'),
+      release_number => $self->o('release_number'),
+      production_name => $self->o('production_name'),
+      species_name => $self->o('species_name'),
+      registry_host => $self->o('registry_host'),
+      registry_port => $self->o('registry_port'),
+      registry_db => $self->o('registry_db'),
+      assembly_name => $self->o('assembly_name'),
+      assembly_accession => $self->o('assembly_accession'),
+    },
+  },
+  -rc_name      => 'default',
+  -max_retry_count => 0,
+  -flow_into => {
+    1 => ['run_rnaseq_db'],
+  },
+},
+```
+
+### run\_\<sub pipeline name\>
+This analysis will run the sub pipeline
+
+It must be a `Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMetaPipelineRun`, it will run beekeeper in a loop. If the job is a retry, it will first reset all failed jobs in the sub pipeline and start beekeeper.
+
+There is only one parameter to be passed, `beekeeper_script`, it is not required but recommended.
+
+**Example analysis config**
+```
+{
+  -logic_name => 'run_rnaseq_db',
+  -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMetaPipelineRun',
+  -parameters => {
+    beekeeper_script => $self->o('hive_beekeeper_script'),
+  },
+  -rc_name      => 'default',
+  -max_retry_count => 1,
+},
+```
+
 ## The different parts of the EnsEMBL Genome Annotation System
 ### The main pipeline
 The main pipeline will query ENA to retrieve the possible short read and long read accessions which would be used in the corresponding sub pipelines. Then start each sub pipeline below in the order they appear in this document.
@@ -145,32 +258,150 @@ It will create a registry file which will be used for the whole genome alignment
 
 It will provide stats on the assembly and on the repeat masking which will be sent to the email provided.
 
+Before starting the alignments sub pipelines, it will reset a set of arrays in the "Transcript selection" sub pipeline to allow any related sub pipeline to provide the database connection details some analyses will need.
+
 ### Loading the assembly
+#### What it does
+It will create the core database which is referenced as `dna_db`, `reference_db` and sometimes `core_db` in configuration files. It will load a set of static tables. It will process the assembly report file to load the sequence names and synonyms and the dna. If UCSC sequence accessions exist in the report, they will be loaded as sequence synonyms
+
+When there is a known mitochondrial sequence, it will load the mitochondrial dna and genes. Finally, it will dump the genome in a fasta file and index it for faidx access.
+
+#### Notifications
+None
+
+#### Caveats
+If RefSeq has not created a sister assembly (GCF\_\*), we will not load any mitochondrial data even if a RefSeq mitochondrial annotation exists. Because the mitochodrial sequence is not used in the annotation process it can be checked before the gene set is released with a query on the NCBI website, searching for a mitocondrial annotation from RefSeq for the species of interest.
 
 ### RefSeq annotation import
+#### What it does
+It checks on the assembly report if a corresponding RefSeq assembly exists. It will then load the RefSeq sequence accessions as sequence synonyms and the RefSeq gene set using their GFF3 annotation file
+
+The gene set is not used for annotation purpose. It can be used to compare the gene set generated and Ensmbl users appreciate the possibilty of looking at both gene sets in one location.
+
+#### Notifications
+None
+
+#### Caveats
+None
 
 ### Repeat masking the genome
+#### What it does
+It will run RepeatMasker using RepBase with the closest clade library and it will run dustmasker and TRF.
+
+It will verify the presence of a RepeatModeler library file and run RepeatMasker with this library if needed.
+
+It will run Red, a different repeat masking program if `replace_repbase_with_red_to_mask` is set to 1.
+
+#### Notifications
+None
+
+#### Caveats
+Red and RepeatMasker with a RepeatModeler library may mask the genome where protein gene families could be. However in the absence of a RepBase entry for the species of interest, they will be helpful.
 
 ### Whole genome alignment against a high quality assembly with LastZ
+#### What it does
+
+#### Notifications
+None
+
+#### Caveats
+None
 
 ### Projecting a high quality annotation on the species of interest
+#### What it does
+
+#### Notifications
+None
+
+#### Caveats
+None
 
 ### Aligning proteins from related species
+#### What it does
+
+#### Notifications
+None
+
+#### Caveats
+None
 
 ### Aligning proteins and cDNAs from the species of interest
+#### What it does
+
+#### Notifications
+None
+
+#### Caveats
+None
 
 ### Creating an IG/TR annotation
+#### What it does
+
+#### Notifications
+None
+
+#### Caveats
+None
 
 ### Generating a short non coding gene set
+#### What it does
+
+#### Notifications
+None
+
+#### Caveats
+None
 
 ### Short read alignments
+#### What it does
+
+#### Notifications
+None
+
+#### Caveats
+None
 
 ### Long read alignments
+#### What it does
+
+#### Notifications
+None
+
+#### Caveats
+None
 
 ### Transcript selection
+#### What it does
+
+#### Notifications
+None
+
+#### Caveats
+None
 
 ### Gene set finalisation
+#### What it does
+
+#### Notifications
+None
+
+#### Caveats
+None
 
 ### \_otherfeatures\_ database creation
+#### What it does
+
+#### Notifications
+None
+
+#### Caveats
+None
 
 ### \_rnaseq\_ database creation
+#### What it does
+
+#### Notifications
+None
+
+#### Caveats
+None
