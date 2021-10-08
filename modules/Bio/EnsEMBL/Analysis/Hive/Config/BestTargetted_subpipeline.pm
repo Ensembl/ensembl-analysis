@@ -63,6 +63,7 @@ sub default_options {
 
     'taxon_id'    => '',         # should be in the assembly report file
     use_genome_flatfile => 1,
+    wide_repeat_logic_names => [],
 
     'output_path'   => '',                                               # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     targetted_path  => catdir( $self->o('output_path'), 'targetted' ),
