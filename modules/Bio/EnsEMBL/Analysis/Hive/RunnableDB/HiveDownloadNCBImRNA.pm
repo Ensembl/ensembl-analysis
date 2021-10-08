@@ -70,7 +70,7 @@ sub param_defaults {
     ncbidb => 'nucleotide',
     filetype => 'fasta',
     filemode => 'text',
-    batch_size => 500,
+    batch_size => 5000,
     http_proxy => undef,
     _input_id_name => 'query',
   }
@@ -172,6 +172,7 @@ sub write_output {
   }
   close(WH) || $self->throw('Could not close '.$self->param('output_file'));
 
+  sleep(45);
   # check the number of sequences that you have saved: 
   my $count = 0;
   my $format = $self->param('filetype');
