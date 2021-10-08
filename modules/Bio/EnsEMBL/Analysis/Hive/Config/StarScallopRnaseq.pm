@@ -506,6 +506,22 @@ sub pipeline_analyses {
         num_threads            => $self->o('scallop_threads'),
       },
       -rc_name => '50GB_scallop',
+      -flow_into => {
+        MEMLIMIT => ['scallop_himem'],
+      },
+    },
+
+    {
+      -logic_name => 'scallop_200GB',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Scallop',
+      -parameters => {
+        output_dir => catdir( $self->o('output_dir'), 'scallop' ),
+        scallop_path        => $self->o('scallop_path'),
+        csv_summary_file       => $self->o('rnaseq_summary_file'),
+        csv_summary_file_genus => $self->o('rnaseq_summary_file_genus'),
+        num_threads            => $self->o('scallop_threads'),
+      },
+      -rc_name => '200GB_scallop',
     },
 
     {
@@ -1043,6 +1059,7 @@ sub resource_classes {
     '80GB_star'    => { LSF => $self->lsf_resource_builder( 'production', 80000, undef, undef, ( $self->default_options->{'star_threads'} + 1 ) ) },
     '10GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 10000, undef, undef, $self->default_options->{'scallop_threads'} ) },
     '50GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 50000, undef, undef, $self->default_options->{'scallop_threads'} ) },
+    '200GB_scallop' => { LSF => $self->lsf_resource_builder( 'production', 200000, undef, undef, $self->default_options->{'scallop_threads'} ) },
     '15GB'     => { LSF => $self->lsf_resource_builder( 'production', 15000 ) },
     }
 }
