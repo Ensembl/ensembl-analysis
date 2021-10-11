@@ -17,7 +17,7 @@ limitations under the License.
 
 =cut
 
-package Genome_annotation_gbiab_conf;
+package braker_subpipeline;
 
 use strict;
 use warnings;
@@ -41,7 +41,7 @@ sub default_options {
     'genome_file'           => '',
     #working_dir???
     'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test-braker2_es_ep_etp.simg',
-    
+    'python_singularity_image' => '/hps/software/users/ensembl/genebuild/ftricomi//singularity/test_clean_gtf.sif',
 
     #Gbiab
     'num_threads' => 20,
@@ -53,8 +53,8 @@ sub default_options {
     'registry_file'        => '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/braker_subpipe/Databases.pm',
     'release_number'       => '001' || $self->o('ensembl_release'),
 
-    'dbowner' => '' || $ENV{EHIVE_USER} || $ENV{USER},
-    'pipeline_name' => 'braker_prod_test' || $self->o('production_name') . $self->o('production_name_modifier') . '_' . $self->o('ensembl_release'),
+    'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
+    'pipeline_name'                => 'braker_prod_test' || $self->o('production_name') . $self->o('production_name_modifier') . '_' . $self->o('ensembl_release'),
     'user_r'                       => 'ensro',                                                                                        # read only db user
     'user'                         => 'ensadmin',                                                                                     # write db user
     'password'                     => 'ensembl',                                                                                      # password for write db user
@@ -70,35 +70,35 @@ sub default_options {
     'registry_db_name'             => 'gb_assembly_registry',                                                                         # name for registry db
     'repbase_logic_name'           => '',                                                                                             # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'repbase_library'              => '',                                                                                             # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
-    'rnaseq_summary_file'          => '' || catfile( $self->o('rnaseq_dir'), $self->o('species_name') . '.csv' ),                     # Set this if you have a pre-existing cvs file with the expected columns
-    'rnaseq_summary_file_genus'    => '' || catfile( $self->o('rnaseq_dir'), $self->o('species_name') . '_gen.csv' ),                 # Set this if you have a pre-existing genus level cvs file with the expected columns
+    'rnaseq_summary_file'          => '' || catfile( $self->o('rnaseq_dir'),    $self->o('species_name') . '.csv' ),                  # Set this if you have a pre-existing cvs file with the expected columns
+    'rnaseq_summary_file_genus'    => '' || catfile( $self->o('rnaseq_dir'),    $self->o('species_name') . '_gen.csv' ),              # Set this if you have a pre-existing genus level cvs file with the expected columns
     'long_read_summary_file'       => '' || catfile( $self->o('long_read_dir'), $self->o('species_name') . '_long_read.csv' ),        # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
     'long_read_summary_file_genus' => '' || catfile( $self->o('long_read_dir'), $self->o('species_name') . '_long_read_gen.csv' ),    # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
     'long_read_fastq_dir'          => '' || catdir( $self->o('long_read_dir'), 'input' ),
     'species_name'                 => '',                                                                                             # e.g. mus_musculus
-    'production_name' => 'test_scale_braker' || $self->o('species_name'),                                                             # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
-    'taxon_id'                  => '',                                                                                                # should be in the assembly report file
-    'species_taxon_id'          => '' || $self->o('taxon_id'),                                                                        # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
-    'genus_taxon_id'            => '' || $self->o('taxon_id'),                                                                        # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
-    'uniprot_set'               => '',                                                                                                # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
-    'output_path'               => '',                                                                                                # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
-    'assembly_name'             => '',                                                                                                # Name (as it appears in the assembly report file)
-    'assembly_accession'        => '',                                                                                                # Versioned GCA assembly accession, e.g. GCA_001857705.1
-    'assembly_refseq_accession' => '',                                                                                                # Versioned GCF accession, e.g. GCF_001857705.1
-    'stable_id_prefix'          => '',                                                                                                # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
-    'use_genome_flatfile'       => '1',                                                                                               # This will read sequence where possible from a dumped flatfile instead of the core db
-    'species_url'               => '' || $self->o('production_name') . $self->o('production_name_modifier'),                          # sets species.url meta key
-    'species_division'          => '',                                                                                                # sets species.division meta key
-    'stable_id_start'           => '',                                                                                                # When mapping is not required this is usually set to 0
-    'mapping_required'          => '0',                                                                                               # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
-    'mapping_db'                => '',                                                                                                # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
-    'uniprot_version'           => 'uniprot_2018_07',                                                                                 # What UniProt data dir to use for various analyses
-    'vertrna_version'           => '136',                                                                                             # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
-    'paired_end_only'           => '1',                                                                                               # Will only use paired-end rnaseq data if 1
-    'ig_tr_fasta_file'          => 'human_ig_tr.fa',                                                                                  # What IMGT fasta file to use. File should contain protein segments with appropriate headers
-    'mt_accession'              => undef,                                                                                             # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
-    'production_name_modifier'  => '',                                                                                                # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
-    'compara_registry_file'     => '',
+    'production_name'              => 'test_scale_braker' || $self->o('species_name'),                                                # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    'taxon_id'                     => '',                                                                                             # should be in the assembly report file
+    'species_taxon_id'             => '' || $self->o('taxon_id'),                                                                     # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
+    'genus_taxon_id'               => '' || $self->o('taxon_id'),                                                                     # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
+    'uniprot_set'                  => '',                                                                                             # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
+    'output_path'                  => '',                                                                                             # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
+    'assembly_name'                => '',                                                                                             # Name (as it appears in the assembly report file)
+    'assembly_accession'           => '',                                                                                             # Versioned GCA assembly accession, e.g. GCA_001857705.1
+    'assembly_refseq_accession'    => '',                                                                                             # Versioned GCF accession, e.g. GCF_001857705.1
+    'stable_id_prefix'             => '',                                                                                             # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
+    'use_genome_flatfile'          => '1',                                                                                            # This will read sequence where possible from a dumped flatfile instead of the core db
+    'species_url'                  => '' || $self->o('production_name') . $self->o('production_name_modifier'),                       # sets species.url meta key
+    'species_division'             => '',                                                                                             # sets species.division meta key
+    'stable_id_start'              => '',                                                                                             # When mapping is not required this is usually set to 0
+    'mapping_required'             => '0',                                                                                            # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
+    'mapping_db'                   => '',                                                                                             # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
+    'uniprot_version'              => 'uniprot_2019_04',                                                                              # What UniProt data dir to use for various analyses
+    'vertrna_version'              => '136',                                                                                          # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
+    'paired_end_only'              => '1',                                                                                            # Will only use paired-end rnaseq data if 1
+    'ig_tr_fasta_file'             => 'human_ig_tr.fa',                                                                               # What IMGT fasta file to use. File should contain protein segments with appropriate headers
+    'mt_accession'                 => undef,                                                                                          # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
+    'production_name_modifier'     => '',                                                                                             # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
+    'compara_registry_file'        => '',
 
     # Keys for custom loading, only set/modify if that's what you're doing
     'skip_genscan_blasts'       => '1',
@@ -108,59 +108,28 @@ sub default_options {
     'use_repeatmodeler_to_mask' => '0',                                                                                                                # Setting this will include the repeatmodeler library in the masking process
     'protein_blast_db'          => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata' ),         # Blast database for comparing the final models to.
     'protein_blast_index'       => '' || catdir( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index' ),    # Indicate Index for the blast database.
-    'protein_entry_loc' => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),                             # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
+    'protein_entry_loc'         => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),                     # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
 
     'softmask_logic_names' => [],
-
-########################
-## Small ncRNAs params
-#########################
-    'mirBase_fasta' => 'all_mirnas.fa',                                                                                                                # What mirBase file to use. It is currently best to use on with the most appropriate set for your species
-    'rfc_scaler'    => 'filter_dafs_rfc_scaler_human.pkl',
-    'rfc_model'     => 'filter_dafs_rfc_model_human.pkl',
-
-    # Clade-based filtering on rfam accessions
-    # Rfam db details should stay constant but check periodically
-    'rfam_user'   => 'rfamro',
-    'rfam_dbname' => 'Rfam',
-    'rfam_host'   => 'mysql-rfam-public.ebi.ac.uk',
-    'rfam_port'   => 4497,
-
-    'rfam_path' => catfile( $self->o('base_blast_db_path'), 'ncrna', 'Rfam_14.0' ),
-    'rfam_seeds'       => $self->o('rfam_path') . "/Rfam.seed",
-    'rfam_cm'          => $self->o('rfam_path') . "/Rfam.cm",
-    'filtered_rfam_cm' => $self->o('output_path') . '/Rfam.cm',
-    'clade'            => $self->o('repbase_logic_name'),
 
 ########################
 # Pipe and ref db info
 ########################
 
-    'projection_source_db_name'         => 'homo_sapiens_core_98_38',    # This is generally a pre-existing db, like the current human/mouse core for example
+    'projection_source_db_name'         => 'homo_sapiens_core_98_38',                                                                                  # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_server'       => 'mysql-ens-mirror-1',
     'projection_source_db_port'         => '4240',
     'projection_source_production_name' => 'homo_sapiens',
 
-    'compara_db_name'   => 'leanne_ensembl_compara_95',
-    'compara_db_server' => 'mysql-ens-genebuild-prod-5',
-    'compara_db_port'   => 4531,
-
     # The following might not be known in advance, since the come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
     # If they are not needed (i.e. no projection or rnaseq) then leave them as is
-    'projection_lastz_db_name'   => $self->o('pipe_db_name'),
-    'projection_lastz_db_server' => $self->o('pipe_db_server'),
-    'projection_lastz_db_port'   => $self->o('pipe_db_port'),
 
     'provider_name' => 'Ensembl',
     'provider_url'  => 'www.ensembl.org',
 
     'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('production_name_modifier') . '_pipe_' . $self->o('release_number'),
     'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . $self->o('production_name_modifier') . '_core_' . $self->o('release_number'),
-
-    'core_db_name'   => $self->o('dna_db_name'),
-    'core_db_server' => $self->o('dna_db_server'),
-    'core_db_port'   => $self->o('dna_db_port'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'      => $ENV{ENSEMBL_RELEASE},     # this is the current release version on staging to be able to get the correct database
@@ -173,11 +142,6 @@ sub default_options {
 # BLAST db paths
 ########################
     'base_blast_db_path' => $ENV{BLASTDB_DIR},
-    'vertrna_blast_db_path' => catfile( $self->o('base_blast_db_path'), 'vertrna', $self->o('vertrna_version'), 'embl_vertrna-1' ),
-    'unigene_blast_db_path' => catfile( $self->o('base_blast_db_path'), 'unigene', 'unigene' ),
-    'ncrna_blast_path'      => catfile( $self->o('base_blast_db_path'), 'ncrna',   'ncrna_2016_05' ),
-    'mirna_blast_path'      => catfile( $self->o('base_blast_db_path'), 'ncrna',   'mirbase_22' ),
-    'ig_tr_blast_path'      => catfile( $self->o('base_blast_db_path'), 'ig_tr_genes' ),
 
 ######################################################
 #
@@ -191,66 +155,15 @@ sub default_options {
     # This one is used in replacement of the dna table in the core db, so where analyses override slice->seq. Has simple headers with just the seq_region name. Also used by bwa in the RNA-seq analyses. Not masked
     faidx_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_toplevel.fa' ),
     # This one is a cross between the two above, it has the seq_region name header but is softmasked. It is used by things that would both want to skip using the dna table and also want to avoid the repeat_feature table, e.g. bam2introns
-    faidx_softmasked_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_softmasked_toplevel.fa.reheader' ),
-    'primary_assembly_dir_name' => 'Primary_Assembly',
-    'refseq_cdna_calculate_coverage_and_pid' => '0',
-    'contigs_source'                         => 'ena',
-
-    full_repbase_logic_name => "repeatmask_repbase_" . $self->o('repbase_logic_name'),
-
-    'utr_biotype_priorities' => {
-      'rnaseq' => 2,
-      'cdna'   => 1,
-    },
-
-    'cleaning_blessed_biotypes' => {
-      'pseudogene'           => 1,
-      'processed_pseudogene' => 1,
-      'IG_C_gene'            => 1,
-      'IG_V_gene'            => 1,
-      'TR_C_gene'            => 1,
-      'TR_D_gene'            => 1,
-      'TR_V_gene'            => 1,
-      'lncRNA'               => 1,
-    },
-
-    'min_toplevel_slice_length' => 250,
-
-    'repeatmodeler_logic_name' => 'repeatmask_repeatmodeler',
-    'homology_models_path' => catdir( $self->o('output_path'), 'homology_models' ),
-
-    ncrna_dir      => catdir( $self->o('output_path'), 'ncrna' ),
-    targetted_path => catdir( $self->o('output_path'), 'targetted' ),
-    cdna_file => catfile( $self->o('targetted_path'), 'cdnas' ),
-    annotation_file => $self->o('cdna_file') . '.annotation',
 
     ensembl_analysis_script => catdir( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts' ),
-    remove_duplicates_script_path     => catfile( $self->o('ensembl_analysis_script'), 'find_and_remove_duplicates.pl' ),
-    flag_potential_pseudogenes_script => catfile( $self->o('ensembl_analysis_script'), 'genebuild', 'flag_potential_pseudogenes.pl' ),
-    load_optimise_script              => catfile( $self->o('ensembl_analysis_script'), 'genebuild', 'load_external_db_ids_and_optimize_af.pl' ),
-    prepare_cdnas_script              => catfile( $self->o('ensembl_analysis_script'), 'genebuild', 'prepare_cdnas.pl' ),
-    load_fasta_script_path            => catfile( $self->o('ensembl_analysis_script'), 'genebuild', 'load_fasta_to_db_table.pl' ),
-    loading_report_script             => catfile( $self->o('ensembl_analysis_script'), 'genebuild', 'report_genome_prep_stats.pl' ),
-    refseq_synonyms_script_path       => catfile( $self->o('ensembl_analysis_script'), 'refseq', 'load_refseq_synonyms.pl' ),
-    refseq_import_script_path         => catfile( $self->o('ensembl_analysis_script'), 'refseq', 'parse_ncbi_gff3.pl' ),
-    sequence_dump_script              => catfile( $self->o('ensembl_analysis_script'), 'sequence_dump.pl' ),
-    sncrna_analysis_script => catdir( $self->o('ensembl_analysis_script'), 'genebuild', 'sncrna' ),
 
-    ensembl_misc_script => catdir( $self->o('enscode_root_dir'), 'ensembl', 'misc-scripts' ),
-    repeat_types_script => catfile( $self->o('ensembl_misc_script'), 'repeats',    'repeat-types.pl' ),
-    meta_coord_script   => catfile( $self->o('ensembl_misc_script'), 'meta_coord', 'update_meta_coord.pl' ),
-    meta_levels_script  => catfile( $self->o('ensembl_misc_script'), 'meta_levels.pl' ),
-    frameshift_attrib_script => catfile( $self->o('ensembl_misc_script'),     'frameshift_transcript_attribs.pl' ),
-    select_canonical_script  => catfile( $self->o('ensembl_misc_script'),     'canonical_transcripts', 'select_canonical_transcripts.pl' ),
-    assembly_name_script     => catfile( $self->o('ensembl_analysis_script'), 'update_assembly_name.pl' ),
+    ensembl_misc_script      => catdir( $self->o('enscode_root_dir'), 'ensembl', 'misc-scripts' ),
+    meta_coord_script        => catfile( $self->o('ensembl_misc_script'), 'meta_coord', 'update_meta_coord.pl' ),
+    meta_levels_script       => catfile( $self->o('ensembl_misc_script'), 'meta_levels.pl' ),
+    frameshift_attrib_script => catfile( $self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl' ),
+    select_canonical_script  => catfile( $self->o('ensembl_misc_script'), 'canonical_transcripts', 'select_canonical_transcripts.pl' ),
 
-    rnaseq_daf_introns_file => catfile( $self->o('output_dir'), 'rnaseq_daf_introns.dat' ),
-
-    # Genes biotypes to ignore from the final db when copying to core
-    copy_biotypes_to_ignore => {
-      'low_coverage' => 1,
-      'CRISPR'       => 1,
-    },
 ########################
 # Extra db settings
 ########################
@@ -261,77 +174,13 @@ sub default_options {
 ########################
 # Executable paths
 ########################
-    'minimap2_genome_index' => $self->o('faidx_genome_file') . '.mmi',
-    'minimap2_path'         => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/minimap2',
-    'paftools_path'         => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/misc/paftools.js',
-    'minimap2_batch_size'   => '5000',
-
-    'blast_type'        => 'ncbi',                                                                                       # It can be 'ncbi', 'wu', or 'legacy_ncbi'
-    'dust_path'         => catfile( $self->o('binary_base'), 'dustmasker' ),
-    'trf_path'          => catfile( $self->o('binary_base'), 'trf' ),
-    'eponine_java_path' => catfile( $self->o('binary_base'), 'java' ),
-    'eponine_jar_path'  => catfile( $self->o('software_base_path'), 'opt', 'eponine', 'libexec', 'eponine-scan.jar' ),
-    'cpg_path'               => catfile( $self->o('binary_base'),        'cpg_lh' ),
-    'trnascan_path'          => catfile( $self->o('binary_base'),        'tRNAscan-SE' ),
-    'repeatmasker_path'      => catfile( $self->o('binary_base'),        'RepeatMasker' ),
-    'genscan_path'           => catfile( $self->o('binary_base'),        'genscan' ),
-    'genscan_matrix_path'    => catfile( $self->o('software_base_path'), 'share', 'HumanIso.smat' ),
-    'uniprot_blast_exe_path' => catfile( $self->o('binary_base'),        'blastp' ),
-    'blastn_exe_path'        => catfile( $self->o('binary_base'),        'blastn' ),
-    'vertrna_blast_exe_path' => catfile( $self->o('binary_base'),        'tblastn' ),
-    'unigene_blast_exe_path' => catfile( $self->o('binary_base'),        'tblastn' ),
-    genewise_path            => catfile( $self->o('binary_base'),        'genewise' ),
-    'exonerate_path'         => catfile( $self->o('software_base_path'), 'opt', 'exonerate09', 'bin', 'exonerate' ),
-    'cmsearch_exe_path' => catfile( $self->o('software_base_path'), 'bin', 'cmsearch' ),    # #'opt', 'infernal10', 'bin', 'cmsearch'),
-    indicate_path       => catfile( $self->o('binary_base'),        'indicate' ),
-    pmatch_path         => catfile( $self->o('binary_base'),        'pmatch' ),
-    exonerate_annotation => catfile( $self->o('binary_base'),        'exonerate' ),
-    samtools_path        => catfile( $self->o('binary_base'),        'samtools' ),                                                    #You may need to specify the full path to the samtools binary
-    picard_lib_jar       => catfile( $self->o('software_base_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar' ),    #You need to specify the full path to the picard library
-    bwa_path => catfile( $self->o('software_base_path'), 'opt', 'bwa-051mt', 'bin', 'bwa' ),                                          #You may need to specify the full path to the bwa binary
-    refine_ccode_exe => catfile( $self->o('binary_base'), 'RefineSolexaGenes' ),                                                      #You may need to specify the full path to the RefineSolexaGenes binary
-    interproscan_exe => catfile( $self->o('binary_base'), 'interproscan.sh' ),
-    bedtools         => catfile( $self->o('binary_base'), 'bedtools' ),
-    bedGraphToBigWig => catfile( $self->o('binary_base'), 'bedGraphToBigWig' ),
-    'cesar_path' => catdir( $self->o('software_base_path'), 'opt', 'cesar', 'bin' ),
+    'blast_type'  => 'ncbi',                                            # It can be 'ncbi', 'wu', or 'legacy_ncbi'
+    samtools_path => catfile( $self->o('binary_base'), 'samtools' ),    #You may need to specify the full path to the samtools binary
 
     'uniprot_genblast_batch_size' => 15,
     'uniprot_table_name'          => 'uniprot_sequences',
 
-    'genblast_path' => catfile( $self->o('binary_base'), 'genblast' ),
-    'genblast_eval' => $self->o('blast_type') eq 'wu' ? '1e-20' : '1e-1',
-    'genblast_cov'  => '0.5',
-    'genblast_pid'  => '30',
-    'genblast_max_rank'           => '5',
-    'genblast_flag_small_introns' => 1,
-    'genblast_flag_subpar_models' => 0,
-
-    'ig_tr_table_name'        => 'ig_tr_sequences',
-    'ig_tr_genblast_cov'      => '0.8',
-    'ig_tr_genblast_pid'      => '70',
-    'ig_tr_genblast_eval'     => '1',
-    'ig_tr_genblast_max_rank' => '5',
-    'ig_tr_batch_size'        => 10,
-
-    'exonerate_cdna_pid' => '95',    # Cut-off for percent id
-    'exonerate_cdna_cov' => '50',    # Cut-off for coverage
-
-    'cdna_selection_pid' => '97',    # Cut-off for percent id for selecting the cDNAs
-    'cdna_selection_cov' => '90',    # Cut-off for coverage for selecting the cDNAs
-
-# Best targetted stuff
-    exonerate_logic_name => 'exonerate',
-    ncbi_query           => '((txid' . $self->o('taxon_id') . '[Organism:noexp]+AND+biomol_mrna[PROP]))  NOT "tsa"[Properties]',
-
-    cdna_table_name                             => 'cdna_sequences',
-    target_exonerate_calculate_coverage_and_pid => 0,
-    exonerate_protein_pid                       => 95,
-    exonerate_protein_cov                       => 50,
-    cdna2genome_region_padding                  => 2000,
-    exonerate_max_intron                        => 200000,
-
-    best_targetted_min_coverage => 50,    # This is to avoid having models based on fragment alignment and low identity
-    best_targetted_min_identity => 50,    # This is to avoid having models based on fragment alignment and low identity
+    cdna_table_name => 'cdna_sequences',
 
 # RNA-seq pipeline stuff
     # You have the choice between:
@@ -341,20 +190,14 @@ sub default_options {
     # 'rnaseq_summary_file' should always be set. If 'taxon_id' or 'study_accession' are not undef
     # they will be used to retrieve the information from ENA and to create the csv file. In this case,
     # 'file_columns' and 'summary_file_delimiter' should not be changed unless you know what you are doing
-    'study_accession'     => '',
-    'max_reads_per_split' => 2500000,      # This sets the number of reads to split the fastq files on
-    'max_total_reads'     => 200000000,    # This is the total number of reads to allow from a single, unsplit file
+    'summary_csv_table' => 'csv_data',
+    'read_length_table' => 'read_length',
 
-    'summary_file_delimiter' => '\t',            # Use this option to change the delimiter for your summary data file
-    'summary_csv_table'      => 'csv_data',
-    'read_length_table'      => 'read_length',
-    'rnaseq_data_provider'   => 'ENA',           #It will be set during the pipeline or it will use this value
-
-    'rnaseq_dir' => catdir( $self->o('output_path'), 'rnaseq' ),
-    'input_dir'  => catdir( $self->o('rnaseq_dir'),  'input' ),
-    'output_dir' => catdir( $self->o('rnaseq_dir'),  'output' ),
-    'merge_dir'  => catdir( $self->o('rnaseq_dir'),  'merge' ),
-    'sam_dir'    => catdir( $self->o('rnaseq_dir'),  'sams' ),
+    'rnaseq_dir'  => catdir( $self->o('output_path'), 'rnaseq' ),
+    'input_dir'   => catdir( $self->o('rnaseq_dir'),  'input' ),
+    'output_dir'  => catdir( $self->o('rnaseq_dir'),  'output' ),
+    'merge_dir'   => catdir( $self->o('rnaseq_dir'),  'merge' ),
+    'sam_dir'     => catdir( $self->o('rnaseq_dir'),  'sams' ),
     'header_file' => catfile( $self->o('output_dir'), '#' . $self->o('read_id_tag') . '#_header.h' ),
 
     'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
@@ -407,92 +250,14 @@ sub default_options {
     # This is just an example based on the file snippet shown below.  It
     # will vary depending on how your data looks.
     ####################################################################
-    file_columns => [ 'SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS' ],
+    file_columns      => [ 'SM',     'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS' ],
     long_read_columns => [ 'sample', 'filename' ],
-
-# lincRNA pipeline stuff
-    'lncrna_dir' => catdir( $self->o('output_path'), 'lincrna' ),
-    'file_translations'        => catfile( $self->o('lncrna_dir'), 'hive_dump_translations.fasta' ),
-    'file_for_length'          => catfile( $self->o('lncrna_dir'), 'check_lincRNA_length.out' ),                              # list of genes that are smaller than 200bp, if any
-    'file_for_biotypes'        => catfile( $self->o('lncrna_dir'), 'check_lincRNA_need_to_update_biotype_antisense.out' ),    # mysql queries that will apply or not in your dataset (check update_database) and will update biotypes
-    'file_for_introns_support' => catfile( $self->o('lncrna_dir'), 'check_lincRNA_Introns_supporting_evidence.out' ),         # for debug
-    biotype_output             => 'rnaseq',
-    lincrna_protein_coding_set => [
-      'rnaseq_merged_1',
-      'rnaseq_merged_2',
-      'rnaseq_merged_3',
-      'rnaseq_merged_4',
-      'rnaseq_merged_5',
-      'rnaseq_tissue_1',
-      'rnaseq_tissue_2',
-      'rnaseq_tissue_3',
-      'rnaseq_tissue_4',
-      'rnaseq_tissue_5',
-    ],
-
-########################
-# SPLIT PROTEOME File
-########################
-    'max_seqs_per_file'       => 20,
-    'max_seq_length_per_file' => 20000,                                 # Maximum sequence length in a file
-    'max_files_per_directory' => 1000,                                  # Maximum number of files in a directory
-    'max_dirs_per_directory'  => $self->o('max_files_per_directory'),
-
-########################
-# FINAL Checks parameters - Update biotypes to lincRNA, antisense, sense, problem ...
-########################
-
-    update_database => 'yes',                                           # Do you want to apply the suggested biotypes? yes or no.
 
 ########################
 # Interproscan
 ########################
-    required_externalDb              => '',
-    interproscan_lookup_applications => [
-      'PfamA',
-    ],
-    required_externalDb => [],
-    pathway_sources     => [],
-    required_analysis   => [
-      {
-        'logic_name'    => 'pfam',
-        'db'            => 'Pfam',
-        'db_version'    => '31.0',
-        'ipscan_name'   => 'Pfam',
-        'ipscan_xml'    => 'PFAM',
-        'ipscan_lookup' => 1,
-      },
-    ],
 
-# Max internal stops for projected transcripts
-    'projection_pid'                        => '50',
-    'projection_cov'                        => '50',
-    'projection_max_internal_stops'         => '1',
-    'projection_calculate_coverage_and_pid' => '1',
-
-    'projection_lincrna_percent_id'    => 90,
-    'projection_lincrna_coverage'      => 90,
-    'projection_pseudogene_percent_id' => 60,
-    'projection_pseudogene_coverage'   => 75,
-    'projection_ig_tr_percent_id'      => 70,
-    'projection_ig_tr_coverage'        => 90,
-    'projection_exonerate_padding'     => 5000,
-
-    'realign_table_name'               => 'projection_source_sequences',
-    'max_projection_structural_issues' => 1,
-
-## Add in genewise path and put in matching code
-    'genewise_pid'                        => '50',
-    'genewise_cov'                        => '50',
-    'genewise_region_padding'             => '50000',
-    'genewise_calculate_coverage_and_pid' => '1',
-
-########################
-# Misc setup info
-########################
-    'repeatmasker_engine' => 'crossmatch',
-    'masking_timer_long'  => '5h',
-    'masking_timer_short' => '2h',
+    'realign_table_name' => 'projection_source_sequences',
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # No option below this mark should be modified
@@ -508,75 +273,14 @@ sub default_options {
     'refseq_import_ftp_path' => $self->o('refseq_base_ftp') . '/#assembly_refseq_accession#_#assembly_name#_genomic.gff.gz',
     'refseq_mrna_ftp_path'   => $self->o('refseq_base_ftp') . '/#assembly_refseq_accession#_#assembly_name#_rna.fna.gz',
     'refseq_report_ftp_path' => $self->o('refseq_base_ftp') . '/#assembly_refseq_accession#_#assembly_name#_assembly_report.txt',
-##################################
-# Memory settings for the analyses
-##################################
-    'default_mem'          => '900',
-    'genblast_mem'         => '1900',
-    'genblast_retry_mem'   => '4900',
-    'genewise_mem'         => '3900',
-    'genewise_retry_mem'   => '5900',
-    'refseq_mem'           => '9900',
-    'projection_mem'       => '1900',
-    'layer_annotation_mem' => '3900',
-    'genebuilder_mem'      => '1900',
 
 ########################
 # LastZ
 ########################
 
-    'compara_master'                    => 'compara_master',
-    'compara_conf_file'                 => '',
-    'compara_innodb_schema'             => 1,
-    'compara_genome_db_update_path'     => catfile( $self->o('enscode_root_dir'), '/ensembl-compara/scripts/pipeline/update_genome.pl' ),
-    'compara_mlss_script_path'          => catfile( $self->o('enscode_root_dir'), '/ensembl-compara/scripts/pipeline/create_mlss.pl' ),
-    'compara_mlss_reg_conf_path'        => catfile( $self->o('enscode_root_dir'), '/ensembl-compara/scripts/pipeline/production_reg_ensembl_conf.pl' ),
-    'compara_populate_new_database_exe' => catfile( $self->o('enscode_root_dir'), 'ensembl-compara/scripts/pipeline/populate_new_database.pl' ),
-    'compara_only_cellular_component'   => undef,
-    'compara_dump_dir'                  => catdir( $self->o('output_path'), 'lastz' ),
+    'compara_dump_dir' => catdir( $self->o('output_path'), 'lastz' ),
 
-    'mlss_id_list'       => undef,
-    'compara_collection' => '',
-
-    'compara_ref_species'     => $self->o('projection_source_production_name'),
-    'compara_non_ref_species' => $self->o('production_name'),
-    'only_cellular_component' => undef,                                           # Do we load *all* the dnafrags or only the ones from a specific cellular-component ?
-    'mix_cellular_components' => 0,                                               # Do we try to allow the nuclear genome vs MT, etc ?
-    'dump_min_nib_size'       => 11500000,
-    'dump_min_chunk_size'     => 1000000,
-    'dump_min_chunkset_size'  => 1000000,
-    'quick'                   => 1,
-    'default_chunks'          => {
-      'reference' => {
-        'homo_sapiens' => {
-          'chunk_size'            => 30000000,
-          'overlap'               => 0,
-          'include_non_reference' => -1,                                          #1  => include non_reference regions (eg human assembly patches)
-                                                                                  #0  => do not include non_reference regions
-                                                                                  #-1 => auto-detect (only include non_reference regions if the non-reference species is high-coverage
-                                                                                  #ie has chromosomes since these analyses are the only ones we keep up-to-date with the patches-pipeline)
-          'masking_options'       => '{default_soft_masking => 1}',
-          # if you have a specific selection of repeat elements for the masking
-          #'masking_options_file' => $self->check_file_in_ensembl('ensembl-compara/scripts/pipeline/human36.spec'),
-        },
-        #non human example
-        'default' => {
-          'chunk_size'      => 10000000,
-          'overlap'         => 0,
-          'masking_options' => '{default_soft_masking => 1}'
-        },
-      },
-      'non_reference' => {
-        'chunk_size'      => 10100000,
-        'group_set_size'  => 10100000,
-        'overlap'         => 100000,
-        'masking_options' => '{default_soft_masking => 1}'
-      },
-    },
-
-    'compara_window_size'             => 10000,
-    'filter_duplicates_rc_name'       => '2GB_lastz',
-    'filter_duplicates_himem_rc_name' => '8GB_lastz',
+    'compara_ref_species' => $self->o('projection_source_production_name'),
 
     #
     #Default pair_aligner
@@ -584,15 +288,6 @@ sub default_options {
     'pair_aligner_method_link' => [ 1001, 'LASTZ_RAW' ],
     'pair_aligner_logic_name'  => 'LastZ',
     'pair_aligner_module'      => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::LastZ',
-
-    'pair_aligner_options' => {
-      default => 'T=1 L=3000 H=2200 O=400 E=30 --ambiguous=iupac',                                                                                                          # ensembl genomes settings
-      7742    => 'T=1 K=3000 L=3000 H=2200 O=400 E=30 --ambiguous=iupac',                                                                                                   # vertebrates - i.e. ensembl-specific
-      9526    => 'T=1 K=5000 L=5000 H=3000 M=10 O=400 E=30 Q=' . $self->check_file_in_ensembl('ensembl-compara/scripts/pipeline/primate.matrix') . ' --ambiguous=iupac',    # primates
-      33554   => 'T=1 K=5000 L=5000 H=3000 M=10 O=400 E=30 --ambiguous=iupac',                                                                                              # carnivora
-      3913    => 'T=1 L=3000 H=2200 O=400 E=30 --ambiguous=iupac --matchcount=1000',
-      4070    => 'T=1 L=3000 H=2200 O=400 E=30 --ambiguous=iupac --matchcount=1000',
-    },
 
     #
     #Default chain
@@ -615,9 +310,9 @@ sub default_options {
     #
     'net_input_method_link'  => [ 1002, 'LASTZ_CHAIN' ],
     'net_output_method_link' => [ 16,   'LASTZ_NET' ],
-    'net_ref_species' => $self->o('compara_ref_species'),                                 #default to ref_species
-    'net_parameters'  => { 'max_gap' => '50', 'chainNet' => $self->o('chainNet_exe') },
-    'bidirectional'   => 0,
+    'net_ref_species'        => $self->o('compara_ref_species'),                                 #default to ref_species
+    'net_parameters'         => { 'max_gap' => '50', 'chainNet' => $self->o('chainNet_exe') },
+    'bidirectional'          => 0,
 
     #
     #Default healthcheck
@@ -659,11 +354,11 @@ sub default_options {
     # LastZ is used to align the genomes
     'pair_aligner_exe'             => $self->o('lastz_exe'),
     'cellar_dir'                   => '/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/Cellar/',
-    'lastz_exe'                    => catfile( $self->o('cellar_dir'), 'lastz/1.04.00/bin/lastz' ),
-    'axtChain_exe'                 => catfile( $self->o('cellar_dir'), 'kent/v335_1/bin/axtChain' ),
-    'chainNet_exe'                 => catfile( $self->o('cellar_dir'), 'kent/v335_1/bin/chainNet' ),
-    'faToNib_exe'                  => catfile( $self->o('cellar_dir'), 'kent/v335_1/bin/faToNib' ),
-    'lavToAxt_exe'                 => catfile( $self->o('cellar_dir'), 'kent/v335_1/bin/lavToAxt' ),
+    'lastz_exe'                    => catfile( $self->o('cellar_dir'),       'lastz/1.04.00/bin/lastz' ),
+    'axtChain_exe'                 => catfile( $self->o('cellar_dir'),       'kent/v335_1/bin/axtChain' ),
+    'chainNet_exe'                 => catfile( $self->o('cellar_dir'),       'kent/v335_1/bin/chainNet' ),
+    'faToNib_exe'                  => catfile( $self->o('cellar_dir'),       'kent/v335_1/bin/faToNib' ),
+    'lavToAxt_exe'                 => catfile( $self->o('cellar_dir'),       'kent/v335_1/bin/lavToAxt' ),
     'compare_beds_exe'             => catfile( $self->o('enscode_root_dir'), 'ensembl-compara/scripts/pipeline/compare_beds.pl' ),
     'create_pair_aligner_page_exe' => catfile( $self->o('enscode_root_dir'), 'ensembl-compara/scripts/report/create_pair_aligner_page.pl' ),
     'dump_features_exe'            => catfile( $self->o('enscode_root_dir'), 'ensembl-compara/scripts/dumps/DumpMultiAlign.pl' ),
@@ -723,13 +418,13 @@ sub pipeline_create_commands {
   # We need to store the values of the csv file to easily process it. It will be used at different stages
   foreach my $key ( @{ $self->default_options->{'file_columns'} } ) {
     if ( exists $small_columns{$key} ) {
-      $tables .= $key . ' SMALLINT UNSIGNED NOT NULL,'
+      $tables .= $key . ' SMALLINT UNSIGNED NOT NULL,';
     }
     elsif ( $key eq 'DS' ) {
-      $tables .= $key . ' VARCHAR(255) NOT NULL,'
+      $tables .= $key . ' VARCHAR(255) NOT NULL,';
     }
     else {
-      $tables .= $key . ' VARCHAR(50) NOT NULL,'
+      $tables .= $key . ' VARCHAR(50) NOT NULL,';
     }
   }
   $tables .= ' KEY(SM), KEY(ID)';
@@ -780,7 +475,7 @@ sub pipeline_wide_parameters {
 
     wide_ensembl_release => $self->o('ensembl_release'),
     species_name         => $self->o('species_name'),
-    }
+  };
 }
 
 =head2 create_header_line
@@ -856,20 +551,20 @@ sub pipeline_analyses {
         1 => ['download_rnaseq_csv'],
       },
       -analysis_capacity => 1,
-      -input_ids => [
-	{ 'assembly_accession' => 'GCA_907269065.1' },
-	{ 'assembly_accession' => 'GCA_907269135.1' },
-	{ 'assembly_accession' => 'GCA_905147135.1' },
-	{ 'assembly_accession' => 'GCA_905147205.1' },
-	{ 'assembly_accession' => 'GCA_910589645.1' },
-	{ 'assembly_accession' => 'GCA_910589255.1' },
-	{ 'assembly_accession' => 'GCA_905404275.1' },
-	{ 'assembly_accession' => 'GCA_905404235.1' },
-	{ 'assembly_accession' => 'GCA_910592155.1' },
-	{ 'assembly_accession' => 'GCA_910591985.1' },
-	],
-     # { 'assembly_accession' => 'GCA_905333065.1' },
-      
+      -input_ids         => [
+        { 'assembly_accession' => 'GCA_907269065.1' },
+        { 'assembly_accession' => 'GCA_907269135.1' },
+        { 'assembly_accession' => 'GCA_905147135.1' },
+        { 'assembly_accession' => 'GCA_905147205.1' },
+        { 'assembly_accession' => 'GCA_910589645.1' },
+        { 'assembly_accession' => 'GCA_910589255.1' },
+        { 'assembly_accession' => 'GCA_905404275.1' },
+        { 'assembly_accession' => 'GCA_905404235.1' },
+        { 'assembly_accession' => 'GCA_910592155.1' },
+        { 'assembly_accession' => 'GCA_910591985.1' },
+      ],
+      # { 'assembly_accession' => 'GCA_905333065.1' },
+
     },
 
     {
@@ -886,19 +581,19 @@ sub pipeline_analyses {
       },
 
       -flow_into => {
-           '1->A' => {'fan_short_read_download' => {'inputfile' => '#rnaseq_summary_file#','input_dir' => '#short_read_dir#'}},
-           'A->1' => ['download_long_read_csv'],
+        '1->A' => { 'fan_short_read_download' => { 'inputfile' => '#rnaseq_summary_file#', 'input_dir' => '#short_read_dir#' } },
+        'A->1' => ['download_long_read_csv'],
 #       1 => ['fan_rnaseq_data_available'],
 #        1 => { 'fan_rnaseq_data_available' => { 'long_read_dir' => '#long_read_dir#', 'short_read_dir' => '#short_read_dir#','output_path' => '#output_path#', 'reheadered_toplevel_genome_file' => '#reheadered_toplevel_genome_file#', 'species_name' => '#species_name#' } },
 #               1 => {'run_braker_ab_initio' => {'output_path' => '#output_path#', 'reheadered_toplevel_genome_file' => '#reheadered_toplevel_genome_file#', 'species_name' => '#species_name#'}},
       },
     },
-   
+
     {
       -logic_name => 'fan_short_read_download',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [ -e "#inputfile#" ]; then exit 0; else exit 42;fi',
+        cmd                     => 'if [ -e "#inputfile#" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -rc_name   => 'default',
@@ -953,7 +648,7 @@ sub pipeline_analyses {
       -logic_name => 'fan_long_read_download',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [ -e "#inputfile#" ]; then exit 0; else exit 42;fi',
+        cmd                     => 'if [ -e "#inputfile#" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -flow_into => {
@@ -1003,23 +698,6 @@ sub pipeline_analyses {
         1 => ['populate_production_tables'],
       },
     },
-
-#      {
-#        -logic_name => 'create_registry',
-#        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::CreateRegistry',
-#        -parameters => {
-#                        compara_db => $self->o('compara_db'),
-#                        projection_source_db => $self->o('projection_source_db'),
-#                         source_dbs => ['#core_db#'],
-#                        target_db => '#core_db#',
-#                         production_db => $self->o('production_db'),
-#                         registry_file => '#registry_file#',
-#                       },
-#       -rc_name => 'default',
-#       -flow_into => {
-#                       1 => ['populate_production_tables'],
-#                     },
-#      },
 
     {
       # Load production tables into each reference
@@ -1107,106 +785,6 @@ sub pipeline_analyses {
       },
     },
 
-###############################################################################
-#
-# REFSEQ ANNOTATION
-#
-###############################################################################
-#      {
-#        -logic_name => 'fan_refseq_import',
-#        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-#        -parameters => {
-#                         cmd => 'if [ -n "#assembly_refseq_accession#" ]; then exit 0; else exit 42;fi',
-#                         return_codes_2_branches => {'42' => 2},
-#                       },
-#        -rc_name => 'default',
-#        -flow_into  => {
-#                          1 => ['load_refseq_synonyms'],
-#                       },
-#      },
-
-#      {
-#        -logic_name => 'load_refseq_synonyms',
-#        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadRefSeqSynonyms',
-#        -parameters => {
-#                         'target_db'        => $self->o('core_db'),
-#			 'output_dir'       => $self->o('output_path'),
-#			 'url'              => $self->o('refseq_report_ftp_path'),
-#                       },
-#        -rc_name => 'default',
-#        -flow_into  => {
-#                          1 => ['download_refseq_gff'],
-#                       },
-#      },
-
-#      {
-#        -logic_name => 'download_refseq_gff',
-#        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData',
-#        -parameters => {
-#          output_dir => catdir($self->o('output_path'), 'refseq_import'),
-#          url => $self->o('refseq_import_ftp_path'),
-#          download_method => 'ftp',
-#        },
-#        -rc_name => 'default',
-#        -flow_into  => {
-#                         1 => ['create_refseq_db'],
-#                       },
-#      },
-
-#      {
-#        -logic_name => 'create_refseq_db',
-#        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-#        -parameters => {
-#                         source_db => $self->o('dna_db'),
-#                         target_db => $self->o('refseq_db'),
-#                         create_type => 'clone',
-#                       },
-#       -rc_name => 'default',
-#       -flow_into  => {
-#                          1 => ['load_refseq_gff'],
-#                      },
-#      },
-
-    #     {
-    #       -logic_name => 'load_refseq_gff',
-    #       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-    #       -parameters => {
-    #                        cmd => 'perl '.$self->o('refseq_import_script_path').
-    #                                     ' -dnahost '.$self->o('dna_db','-host').
-    #                                     ' -dnadbname '.$self->o('dna_db','-dbname').
-    #                                     ' -dnaport '.$self->o('dna_db','-port').
-    #                                     ' -dnauser '.$self->o('dna_db','-user').
-    #                                     ' -user '.$self->o('user').
-    #                                     ' -pass '.$self->o('password').
-    #                                     ' -host '.$self->o('refseq_db','-host').
-    #                                     ' -port '.$self->o('refseq_db','-port').
-    #                                     ' -dbname '.$self->o('refseq_db','-dbname').
-    #                                     ' -write'.
-    #                                     ' -file '.catfile($self->o('output_path'), 'refseq_import', '#assembly_refseq_accession#_#assembly_name#_genomic.gff'),
-    #                      },
-    #       -rc_name => 'refseq_import',
-    #     },
-
-#      {
-#        -logic_name => 'load_windowmasker_repeats',
-#        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-#        -parameters => {
-#                         cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-common', 'scripts', 'load_repeats_from_file.pl').
-#                                      ' -dbname #core_dbname#'.
-#                                      ' -host '.$self->o('dna_db_server').
-#                                      ' -port '.$self->o('dna_db_port').
-#                                      ' -user '.$self->o('user').
-#                                      ' -pass '.$self->o('password').
-#                                      ' -repeat_logic_name windowmasker'.
-#                                      ' -genome_file_dir #output_path#'.
-#                                      ' -assembly_accession #assembly_accession#',
-#                       },
-#        -rc_name => '10GB',
-#        -flow_into => {
-#          1 => ['dump_toplevel_file'],
-#        },
-#      },
-
     {
       -logic_name => 'dump_toplevel_file',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDumpGenome',
@@ -1244,7 +822,7 @@ sub pipeline_analyses {
       -logic_name => 'fan_rnaseq_data_available',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [ "$(ls -A #short_read_dir#)" && "$(ls -A #long_read_dir#)" ]; then exit 0; else exit 42;fi',
+        cmd                     => 'if [ "$(ls -A #short_read_dir#)" && "$(ls -A #long_read_dir#)" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -rc_name   => 'default',
@@ -1269,7 +847,7 @@ sub pipeline_analyses {
       -logic_name => 'fan_braker_etp_setup',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [ -d "' . $self->o('augustus_species_path') . '#species_name#" ]; then exit 0; else exit 42;fi',
+        cmd                     => 'if [ -d "' . $self->o('augustus_species_path') . '#species_name#" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -rc_name   => 'default',
@@ -1283,7 +861,7 @@ sub pipeline_analyses {
       -logic_name => 'fan_braker_ep_setup',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [ -d "' . $self->o('augustus_species_path'). '#species_name#" ]; then exit 0; else exit 42;fi',
+        cmd                     => 'if [ -d "' . $self->o('augustus_species_path') . '#species_name#" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => { '42' => 2 },
       },
       -rc_name   => 'default',
@@ -1299,7 +877,7 @@ sub pipeline_analyses {
 
       -parameters => {
         cmd => 'cd #output_path#;' .
-               'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --softmasking --esmode --species=#species_name#  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
+          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --softmasking --esmode --species=#species_name#  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
 #                               'mv braker braker_ab_initio;',
       },
       -rc_name         => 'braker32',
@@ -1315,7 +893,7 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'cd #output_path#;' .
 
-          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --prot_seq=/data/#protein_file# --bam=$bam_file --softmasking --etpmode --species=#species_name#  --useexisting --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' ,
+          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --prot_seq=/data/#protein_file# --bam=$bam_file --softmasking --etpmode --species=#species_name#  --useexisting --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
 #          'mv braker braker_etp_mode;',
       },
       -rc_name         => 'braker32',
@@ -1329,11 +907,11 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
 
       -parameters => {
-                             cmd => 'mkdir #output_path#/prothint;'.
-			            'cd #output_path#/prothint;'.
-                                    'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #reheadered_toplevel_genome_file# #protein_file# ;'.   
-				    'cd #output_path#/;'.	
-				    'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#species_name# --useexisting  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' ,
+        cmd => 'mkdir #output_path#/prothint;' .
+          'cd #output_path#/prothint;' .
+          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #reheadered_toplevel_genome_file# #protein_file# ;' .
+          'cd #output_path#/;' .
+          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#species_name# --useexisting  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
 #                             #                                    'mv braker braker_etp_mode',
       },
       -rc_name         => 'braker32',
@@ -1347,9 +925,11 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
 
       -parameters => {
-        cmd => 'python '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'process_braker_gtf.py'). ' ./braker/braker.gtf braker_gtf_new.gtf;',
+	      #        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'process_braker_gtf.py' ) . ' ./braker/braker.gtf braker_gtf.gtf;' .
+	      #          'sed "s/ \+ /\t/g" braker_gtf.gtf > braker_gtf_new.gtf',
+        cmd => 'singularity exec --bind #output_path#/braker/:/data:rw  ' . $self->o('python_singularity_image') .  'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'process_braker_gtf.py' ) . ' .#output_path#/braker/braker.gtf #output_path#/braker/braker_gtf.gtf;',
       },
-      -rc_name         => '2GB',
+      -rc_name         => 'braker32',
       -max_retry_count => 0,
       -flow_into       => {
         1 => ['load_gtf_file'],
@@ -1360,19 +940,19 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
 
       -parameters => {
-        cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'data_import', 'parse_gtf.pl').
-                                      ' -dnahost '.$self->o('dna_db_server').
-                                      ' -dnauser '.$self->o('user_r').
-                                      ' -dnapass '.$self->o('password').
-                                      ' -dnaport '.$self->o('dna_db_port').
-                                      ' -dnadbname '.$self->o('dna_db_name').
-                                      ' -host '.$self->o('dna_db_server').
-                                      ' -user '.$self->o('user').
-                                      ' -pass '.$self->o('password').
-                                      ' -port '.$self->o('dna_db_port').
-                                      ' -dbname '.$self->o('dna_db_name').
-                                      ' -write'.
-                                      ' -file braker_gtf_new.gtf',
+        cmd => 'perl ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'data_import', 'parse_gtf.pl' ) .
+          ' -dnahost ' . $self->o('dna_db_server') .
+          ' -dnauser ' . $self->o('user_r') .
+          ' -dnapass ' . $self->o('password') .
+          ' -dnaport ' . $self->o('dna_db_port') .
+          ' -dnadbname ' . $self->o('dna_db_name') .
+          ' -host ' . $self->o('dna_db_server') .
+          ' -user ' . $self->o('user') .
+          ' -pass ' . $self->o('password') .
+          ' -port ' . $self->o('dna_db_port') .
+          ' -dbname ' . $self->o('dna_db_name') .
+          ' -write' .
+          ' -file braker_gtf_new.gtf',
       },
       -rc_name         => 'default',
       -max_retry_count => 0,
@@ -1433,7 +1013,7 @@ sub pipeline_analyses {
           ' -port ' . $self->o( 'core_db', '-port' ) .
           ' -dbname ' . '#core_dbname#'
       },
-      -rc_name => 'default',
+      -rc_name   => 'default',
       -flow_into => { 1 => ['set_frameshift_introns'] },
     },
 
@@ -1448,7 +1028,7 @@ sub pipeline_analyses {
           ' -port ' . $self->o( 'core_db', '-port' ) .
           ' -dbpattern ' . '#core_dbname#'
       },
-      -rc_name => '10GB',
+      -rc_name   => '10GB',
       -flow_into => { 1 => ['set_canonical_transcripts'] },
     },
 
@@ -1464,7 +1044,7 @@ sub pipeline_analyses {
           ' -dbname ' . '#core_dbname#' .
           ' -coord toplevel -write'
       },
-      -rc_name => '10GB',
+      -rc_name   => '10GB',
       -flow_into => { 1 => ['null_columns'] },
     },
 
@@ -1577,57 +1157,20 @@ sub resource_classes {
 
   return {
     'default_registry' => { LSF => [ $self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{'registry_file'} ] },
-    'gbiab'    => { LSF => $self->lsf_resource_builder( 'production', 50000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{'num_threads'} ) },
-    'braker32' => { LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{'cores'} ) },
-    '1GB' => { LSF => $self->lsf_resource_builder( 'production', 1000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '2GB_lastz' => { LSF => [ $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{compara_registry_file} ] },
-    '2GB' => { LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '3GB' => { LSF => $self->lsf_resource_builder( 'production', 3000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '4GB_lastz' => { LSF => [ $self->lsf_resource_builder( 'production', 4000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{compara_registry_file} ] },
-    '4GB' => { LSF => $self->lsf_resource_builder( 'production', 4000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '5GB' => { LSF => $self->lsf_resource_builder( 'production', 5000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '6GB' => { LSF => $self->lsf_resource_builder( 'production', 6000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '6GB_registry' => { LSF => [ $self->lsf_resource_builder( 'production', 6000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{registry_file} ] },
-    '7GB' => { LSF => $self->lsf_resource_builder( 'production', 7000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '8GB_lastz' => { LSF => [ $self->lsf_resource_builder( 'production', 8000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{compara_registry_file} ] },
-    '8GB'  => { LSF => $self->lsf_resource_builder( 'production', 8000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '9GB'  => { LSF => $self->lsf_resource_builder( 'production', 9000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '10GB' => { LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '15GB_lastz' => { LSF => [ $self->lsf_resource_builder( 'production', 15000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{compara_registry_file} ] },
-    '15GB'                 => { LSF => $self->lsf_resource_builder( 'production', 15000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '20GB'                 => { LSF => $self->lsf_resource_builder( 'production', 20000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '25GB'                 => { LSF => $self->lsf_resource_builder( 'production', 25000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '30GB'                 => { LSF => $self->lsf_resource_builder( 'production', 30000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '35GB'                 => { LSF => $self->lsf_resource_builder( 'production', 35000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '40GB'                 => { LSF => $self->lsf_resource_builder( 'production', 40000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '50GB'                 => { LSF => $self->lsf_resource_builder( 'production', 50000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '75GB'                 => { LSF => $self->lsf_resource_builder( 'production', 75000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '80GB'                 => { LSF => $self->lsf_resource_builder( 'production', 80000,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '100GB'                => { LSF => $self->lsf_resource_builder( 'production', 100000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'default'              => { LSF => $self->lsf_resource_builder( 'production', 900,    [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'repeatmasker'         => { LSF => $self->lsf_resource_builder( 'production', 2900,   [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'repeatmasker_rebatch' => { LSF => $self->lsf_resource_builder( 'production', 5900,   [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'simple_features'      => { LSF => $self->lsf_resource_builder( 'production', 2900,   [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'genscan'              => { LSF => $self->lsf_resource_builder( 'production', 3900,   [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'genscan_short'        => { LSF => $self->lsf_resource_builder( 'production', 5900,   [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'blast'       => { LSF => $self->lsf_resource_builder( 'production', 2900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, 3 ) },
-    'blast10GB'   => { LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, 3 ) },
-    'blast_retry' => { LSF => $self->lsf_resource_builder( 'production', 5900,  [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, 3 ) },
-    'genblast'       => { LSF => $self->lsf_resource_builder( 'production', 3900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'genblast_retry' => { LSF => $self->lsf_resource_builder( 'production', 4900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'project_transcripts' => { LSF => $self->lsf_resource_builder( 'production', 7200, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'refseq_import'           => { LSF => $self->lsf_resource_builder( 'production', 9900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'},    $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'layer_annotation'        => { LSF => $self->lsf_resource_builder( 'production', 3900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'genebuilder'             => { LSF => $self->lsf_resource_builder( 'production', 1900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'transcript_finalisation' => { LSF => $self->lsf_resource_builder( 'production', 1900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    'filter'                  => { LSF => $self->lsf_resource_builder( 'production', 4900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
-    '2GB_multithread'        => { LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'} ], undef, $self->default_options->{'use_threads'} ) },
-    '3GB_merged_multithread' => { LSF => $self->lsf_resource_builder( 'production', 3000, [ $self->default_options->{'pipe_db_server'} ], undef, $self->default_options->{'rnaseq_merge_threads'} ) },
-    '5GB_merged_multithread' => { LSF => $self->lsf_resource_builder( 'production', 5000,  [ $self->default_options->{'pipe_db_server'} ], undef, ( $self->default_options->{'rnaseq_merge_threads'} ) ) },
-    '5GB_multithread'        => { LSF => $self->lsf_resource_builder( 'production', 5000,  [ $self->default_options->{'pipe_db_server'} ], undef, ( $self->default_options->{'use_threads'} + 1 ) ) },
-    '10GB_multithread'       => { LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'} ], undef, ( $self->default_options->{'use_threads'} + 1 ) ) },
-    '20GB_multithread'       => { LSF => $self->lsf_resource_builder( 'production', 20000, [ $self->default_options->{'pipe_db_server'} ], undef, ( $self->default_options->{'use_threads'} + 1 ) ) },
-    }
+    'gbiab'            => { LSF => $self->lsf_resource_builder( 'production', 50000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{'num_threads'} ) },
+    'braker32'         => { LSF => $self->lsf_resource_builder( 'production', 32000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, $self->default_options->{'cores'} ) },
+    '1GB'              => { LSF => $self->lsf_resource_builder( 'production', 1000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '2GB_lastz'        => { LSF => [ $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{compara_registry_file} ] },
+    '2GB'              => { LSF => $self->lsf_resource_builder( 'production', 2000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '3GB'              => { LSF => $self->lsf_resource_builder( 'production', 3000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '8GB_lastz'        => { LSF => [ $self->lsf_resource_builder( 'production', 8000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{compara_registry_file} ] },
+    '8GB'              => { LSF => $self->lsf_resource_builder( 'production', 8000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '10GB'             => { LSF => $self->lsf_resource_builder( 'production', 10000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    '15GB_lastz'       => { LSF => [ $self->lsf_resource_builder( 'production', 15000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ), '-reg_conf ' . $self->default_options->{compara_registry_file} ] },
+    'default'          => { LSF => $self->lsf_resource_builder( 'production', 900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+    'blast'            => { LSF => $self->lsf_resource_builder( 'production', 2900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'} ], undef, 3 ) },
+    'genblast'         => { LSF => $self->lsf_resource_builder( 'production', 3900, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
+  };
 }
 
 sub hive_capacity_classes {
