@@ -41,12 +41,15 @@ sub default_options {
     'genome_file'           => '',
     #working_dir???
     'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test-braker2_es_ep_etp.simg',
-    'python_singularity_image' => '/hps/software/users/ensembl/genebuild/ftricomi//singularity/test_clean_gtf.sif',
+    'python_singularity_image' => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test_clean_gtf.sif',
+    'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test-agat.simg',
+    'busco_dataset'            => 'lepidoptera_odb10',
+    'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/busco-v5.1.2_cv1.simg',
 
     #Gbiab
     'num_threads' => 20,
     #'dbowner' => 'fergal',
-    'base_output_dir'      => '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/braker_subpipe/',
+    'base_output_dir'      => '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/braker_subpipe/test1/',
     'protein_file'         => '',
     'busco_protein_file'   => '',
     'rfam_accessions_file' => '',
@@ -57,7 +60,7 @@ sub default_options {
     'pipeline_name'                => 'braker_prod_test' || $self->o('production_name') . $self->o('production_name_modifier') . '_' . $self->o('ensembl_release'),
     'user_r'                       => 'ensro',                                                                                        # read only db user
     'user'                         => 'ensadmin',                                                                                     # write db user
-    'password'                     => 'ensembl',                                                                                      # password for write db user
+    'password'                     => '',                                                                                             # password for write db user
     'server_set'                   => '',                                                                                             # What server set to user, e.g. set1
     'pipe_db_server'               => $ENV{GBS7},                                                                                     # host for pipe db
     'databases_server'             => $ENV{GBS5},                                                                                     # host for general output dbs
@@ -552,18 +555,8 @@ sub pipeline_analyses {
       },
       -analysis_capacity => 1,
       -input_ids         => [
-        { 'assembly_accession' => 'GCA_907269065.1' },
-        { 'assembly_accession' => 'GCA_907269135.1' },
-        { 'assembly_accession' => 'GCA_905147135.1' },
-        { 'assembly_accession' => 'GCA_905147205.1' },
-        { 'assembly_accession' => 'GCA_910589645.1' },
-        { 'assembly_accession' => 'GCA_910589255.1' },
-        { 'assembly_accession' => 'GCA_905404275.1' },
-        { 'assembly_accession' => 'GCA_905404235.1' },
-        { 'assembly_accession' => 'GCA_910592155.1' },
-        { 'assembly_accession' => 'GCA_910591985.1' },
+        #{ 'assembly_accession' => 'GCA_907269065.1' },
       ],
-      # { 'assembly_accession' => 'GCA_905333065.1' },
 
     },
 
@@ -813,10 +806,23 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        1 => ['fan_rnaseq_data_available'],
+        1 => ['run_gbiab_softmasking'],
       },
     },
 
+    {
+      -logic_name => 'run_gbiab_softmasking',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'python3.7 ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'gbiab', 'gbiab.py' ) . ' #gbiab_red_commandline#;' .
+          'cp #output_path#/red_output/mask_output/#species_name#_reheadered_toplevel.msk #output_path#/#species_name#_softmasked_toplevel.fa',
+      },
+      -rc_name         => 'gbiab',
+      -max_retry_count => 0,
+      -flow_into       => {
+        1 => ['fan_rnaseq_data_available'],
+      },
+    },
 ######################BRAKER###########
     {
       -logic_name => 'fan_rnaseq_data_available',
@@ -827,36 +833,36 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        1 => ['run_gbiab'],
+	      #        1 => ['run_gbiab'],
         2 => ['fan_braker_ep_setup'],
       },
     },
-    {
-      -logic_name => 'run_gbiab',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'python3.7 ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'gbiab', 'gbiab.py' ) . ' #gbiab_commandline#',
-      },
-      -rc_name         => 'gbiab',
-      -max_retry_count => 0,
-      -flow_into       => {
-        1 => ['fan_braker_etp_setup'],
-      },
-    },
-    {
-      -logic_name => 'fan_braker_etp_setup',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd                     => 'if [ -d "' . $self->o('augustus_species_path') . '#species_name#" ]; then exit 0; else exit 42;fi',
-        return_codes_2_branches => { '42' => 2 },
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-        1      => ['run_braker_etp_mode'],
-        '2->A' => ['run_braker_ab_initio'],
-        'A->2' => ['run_braker_etp_mode'],
-      },
-    },
+    #    {
+    #      -logic_name => 'run_gbiab',
+    #      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    #      -parameters => {
+    #        cmd => 'python3.7 ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'gbiab', 'gbiab.py' ) . ' #gbiab_commandline#',
+    #      },
+    #      -rc_name         => 'gbiab',
+    #      -max_retry_count => 0,
+    #      -flow_into       => {
+    #        1 => ['fan_braker_etp_setup'],
+    #      },
+    #    },
+    #    {
+    #      -logic_name => 'fan_braker_etp_setup',
+    #      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    #      -parameters => {
+    #        cmd                     => 'if [ -d "' . $self->o('augustus_species_path') . '#species_name#" ]; then exit 0; else exit 42;fi',
+    #        return_codes_2_branches => { '42' => 2 },
+    #      },
+    #      -rc_name   => 'default',
+    #      -flow_into => {
+    #        1      => ['run_braker_etp_mode'],
+    #        '2->A' => ['run_braker_ab_initio'],
+    #        'A->2' => ['run_braker_etp_mode'],
+    #      },
+    #    },
     {
       -logic_name => 'fan_braker_ep_setup',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -877,8 +883,8 @@ sub pipeline_analyses {
 
       -parameters => {
         cmd => 'cd #output_path#;' .
-          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --softmasking --esmode --species=#species_name#  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
-#                               'mv braker braker_ab_initio;',
+          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking --esmode --species=#species_name#  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' .
+          'mv braker braker_ab_initio;',
       },
       -rc_name         => 'braker32',
       -max_retry_count => 0,
@@ -886,22 +892,22 @@ sub pipeline_analyses {
 #          1 => ['load_gtf_file'],
       },
     },
-    {
-      -logic_name => 'run_braker_etp_mode',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    #    {
+    #      -logic_name => 'run_braker_etp_mode',
+    #      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
 
-      -parameters => {
-        cmd => 'cd #output_path#;' .
+    #      -parameters => {
+    #        cmd => 'cd #output_path#;' .
 
-          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --prot_seq=/data/#protein_file# --bam=$bam_file --softmasking --etpmode --species=#species_name#  --useexisting --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
+    #          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --prot_seq=/data/#protein_file# --bam=$bam_file --softmasking --etpmode --species=#species_name#  --useexisting --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
 #          'mv braker braker_etp_mode;',
-      },
-      -rc_name         => 'braker32',
-      -max_retry_count => 0,
-      -flow_into       => {
-        1 => ['clean_gtf_file'],
-      },
-    },
+    #      },
+    #      -rc_name         => 'braker32',
+    #      -max_retry_count => 0,
+    #      -flow_into       => {
+    #        1 => ['clean_gtf_file'],
+    #      },
+    #    },
     {
       -logic_name => 'run_braker_ep_mode',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -909,9 +915,9 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'mkdir #output_path#/prothint;' .
           'cd #output_path#/prothint;' .
-          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #reheadered_toplevel_genome_file# #protein_file# ;' .
+          'singularity exec --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file# ;' .
           'cd #output_path#/;' .
-          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#reheadered_toplevel_genome_file# --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#species_name# --useexisting  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
+          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#species_name# --useexisting  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
 #                             #                                    'mv braker braker_etp_mode',
       },
       -rc_name         => 'braker32',
@@ -925,9 +931,9 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
 
       -parameters => {
-	      #        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'process_braker_gtf.py' ) . ' ./braker/braker.gtf braker_gtf.gtf;' .
-	      #          'sed "s/ \+ /\t/g" braker_gtf.gtf > braker_gtf_new.gtf',
-        cmd => 'singularity exec --bind #output_path#/braker/:/data:rw  ' . $self->o('python_singularity_image') .  'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'process_braker_gtf.py' ) . ' .#output_path#/braker/braker.gtf #output_path#/braker/braker_gtf.gtf;',
+        #        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'process_braker_gtf.py' ) . ' ./braker/braker.gtf braker_gtf.gtf;' .
+        #          'sed "s/ \+ /\t/g" braker_gtf.gtf > braker_gtf_new.gtf',
+        cmd => 'singularity exec --bind #output_path#/braker/:/data:rw  ' . $self->o('python_singularity_image') . 'python ' . catfile( $self->o('base_output_dir'), 'process_braker_gtf.py' ) . ' .#output_path#/braker/braker.gtf #output_path#/braker/braker_gtf.gtf;',
       },
       -rc_name         => 'braker32',
       -max_retry_count => 0,
@@ -943,16 +949,15 @@ sub pipeline_analyses {
         cmd => 'perl ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'data_import', 'parse_gtf.pl' ) .
           ' -dnahost ' . $self->o('dna_db_server') .
           ' -dnauser ' . $self->o('user_r') .
-          ' -dnapass ' . $self->o('password') .
           ' -dnaport ' . $self->o('dna_db_port') .
-          ' -dnadbname ' . $self->o('dna_db_name') .
+          ' -dnadbname #core_dbname#' .
           ' -host ' . $self->o('dna_db_server') .
           ' -user ' . $self->o('user') .
           ' -pass ' . $self->o('password') .
           ' -port ' . $self->o('dna_db_port') .
-          ' -dbname ' . $self->o('dna_db_name') .
+          ' -dbname #core_dbname#' .
           ' -write' .
-          ' -file braker_gtf_new.gtf',
+          ' -file #output_path#/braker/braker_gtf.gtf',
       },
       -rc_name         => 'default',
       -max_retry_count => 0,
@@ -1146,9 +1151,33 @@ sub pipeline_analyses {
         species => '#production_name#',
         group   => 'core',
       },
-      -rc_name => 'default_registry',
+      -rc_name   => 'default_registry',
+      -flow_into => {
+        1 => ['run_agat_protein_file'],
+      },
     },
+    {
+      -logic_name => 'run_agat_protein_file',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
 
+      -parameters => {
+        cmd => 'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('agat_singularity_image') . ' agat_sp_extract_sequences.pl --gff /data/braker/braker.gtf -f  #output_path#/#species_name#_softmasked_toplevel.fa -p  -o  #output_path#/braker/braker_proteins.fa;',
+      },
+      -rc_name         => 'braker32',
+      -max_retry_count => 0,
+      -flow_into       => {
+        1 => ['run_busco'],
+      },
+    },
+    {
+      -logic_name => 'run_busco',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+
+      -parameters => {
+        cmd => 'singularity exec ' . $self->o('busco_singularity_image') . ' busco -i #output_path#/braker/braker_proteins.fa -m prot -l ' . $self->o('busco_dataset') . ' -o output_busco_#assembly_accession#  ;',
+      },
+      -rc_name => 'braker32',
+    },
   ];
 }
 
