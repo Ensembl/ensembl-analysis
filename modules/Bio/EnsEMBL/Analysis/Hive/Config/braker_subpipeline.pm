@@ -166,6 +166,7 @@ sub default_options {
     meta_levels_script       => catfile( $self->o('ensembl_misc_script'), 'meta_levels.pl' ),
     frameshift_attrib_script => catfile( $self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl' ),
     select_canonical_script  => catfile( $self->o('ensembl_misc_script'), 'canonical_transcripts', 'select_canonical_transcripts.pl' ),
+    stable_id_convert_script => catfile( $self->o('ensembl_analysis_script'), 'genebuild', 'braker', 'stable_id_convert.pl' ),
 
 ########################
 # Extra db settings
@@ -1085,9 +1086,26 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        1 => ['final_meta_updates'],
+        1 => ['update_stable_ids'],
       },
     },
+
+    {
+    -logic_name => 'update_stable_ids',
+    -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+      cmd => 'perl ' . $self->o('stable_id_convert_script') .
+        ' -user ' . $self->o('user') .
+        ' -pass ' . $self->o('password') .
+        ' -host ' . $self->o('core_db', '-host') .
+        ' -port ' . $self->o('core_db', '-port') .
+        ' -dbname ' . $self->o('core_db', '-name')
+    },
+    -rc_name   => 'default',
+    -flow_into => {
+      1 => ['final_meta_updates'],
+    },
+  },
 
     {
       -logic_name => 'final_meta_updates',
