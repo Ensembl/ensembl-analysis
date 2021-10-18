@@ -622,10 +622,10 @@ def create_cpg_gtf(cpg_output_file_path,region_results_file_path,region_name):
 def run_trnascan_regions(genome_file,trnascan_path,trnascan_filter_path,main_output_dir,num_threads):
 
   if not trnascan_path:
-    trnascan_path = '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/trnascan-1.4'
+    trnascan_path = '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/tRNAscan-SE'
   logging.info(trnascan_path)
   if not trnascan_filter_path:
-    trnascan_filter_path = '/hps/software/users/ensembl/repositories/ftricomi/tRNAscan-SE/EukHighConfidenceFilter.in'
+    trnascan_filter_path = '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/EukHighConfidenceFilter'
   logging.info(trnascan_filter_path)
   check_exe(trnascan_path)
   logging.info(trnascan_path)
@@ -639,7 +639,7 @@ def run_trnascan_regions(genome_file,trnascan_path,trnascan_filter_path,main_out
   seq_region_lengths = get_seq_region_lengths(genome_file,5000)
   slice_ids = create_slice_ids(seq_region_lengths,1000000,0,5000)
 
-  generic_trnascan_cmd = [trnascan_path,None,'-o',None,'-f',None,'-H','-q','--detail']
+  generic_trnascan_cmd = [trnascan_path,None,'-o',None,'-f',None,'-H','-q','--detail','-Q']
   print("Running tRNAscan-SE")
   pool = multiprocessing.Pool(int(num_threads))
   tasks = []
@@ -2823,12 +2823,12 @@ def validate_coding_transcripts(cdna_file,amino_acid_file,validation_dir,gtf_fil
   #rnasamba_cmd = ['sh',rnasamba_path,rnasamba_output_path,cdna_file,rnasamba_weights]
   rnasamba_cmd=['singularity', 'exec', '--bind', rnasamba_volume, '/hps/software/users/ensembl/genebuild/ftricomi/singularity/rnasamba_latest.sif', 'rnasamba', 'classify',rnasamba_output_path, cdna_file, rnasamba_weights]
   print(' '.join(rnasamba_cmd))
-  subprocess.run(' '.join(rnasamba_cmd))
+  subprocess.run(rnasamba_cmd)
   cpc2_volume=validation_dir+'/:/app:rw'
   #cpc2_cmd = ['sh',cpc2_path,cdna_file,cpc2_output_path]
   cpc2_cmd = ['singularity', 'exec', '--bind', cpc2_volume, '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test_cpc2.sif', 'python3', '/CPC2_standalone-1.0.1/bin/CPC2.py', '-i',cdna_file,'--ORF', '-o',cpc2_output_path]
   print(' '.join(cpc2_cmd))
-  subprocess.run(' '.join(cpc2_cmd))
+  subprocess.run(cpc2_cmd)
   cpc2_output_path = cpc2_output_path + '.txt'
 
   check_file(rnasamba_output_path)
