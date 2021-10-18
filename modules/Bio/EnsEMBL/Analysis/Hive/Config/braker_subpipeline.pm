@@ -835,7 +835,7 @@ sub pipeline_analyses {
       -rc_name   => 'default',
       -flow_into => {
 	      #        1 => ['run_gbiab'],
-        2 => ['fan_braker_ep_setup'],
+        2 => ['run_braker_ep_mode'],
       },
     },
     #    {
@@ -864,35 +864,35 @@ sub pipeline_analyses {
     #        'A->2' => ['run_braker_etp_mode'],
     #      },
     #    },
-    {
-      -logic_name => 'fan_braker_ep_setup',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd                     => 'if [ -d "' . $self->o('augustus_species_path') . '#species_name#" ]; then exit 0; else exit 42;fi',
-        return_codes_2_branches => { '42' => 2 },
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-        1      => ['run_braker_ep_mode'],
-        '2->A' => ['run_braker_ab_initio'],
-        'A->2' => ['run_braker_ep_mode'],
-      },
-    },
-    {
-      -logic_name => 'run_braker_ab_initio',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    # {
+    #  -logic_name => 'fan_braker_ep_setup',
+    #  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    #  -parameters => {
+    #    cmd                     => 'if [ -d "' . $self->o('augustus_species_path') . '#species_name#" ]; then exit 0; else exit 42;fi',
+    #    return_codes_2_branches => { '42' => 2 },
+    #  },
+    #  -rc_name   => 'default',
+    #  -flow_into => {
+    #    1      => ['run_braker_ep_mode'],
+    #    '2->A' => ['run_braker_ab_initio'],
+    #    'A->2' => ['run_braker_ep_mode'],
+    #  },
+    #},
+    #{
+    #  -logic_name => 'run_braker_ab_initio',
+    #  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
 
-      -parameters => {
-        cmd => 'cd #output_path#;' .
-          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking --esmode --species=#species_name#  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' .
-          'mv braker braker_ab_initio;',
-      },
-      -rc_name         => 'braker32',
-      -max_retry_count => 0,
-      -flow_into       => {
+    #  -parameters => {
+    #    cmd => 'cd #output_path#;' .
+    #      'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking --esmode --species=#species_name#  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' .
+    #      'mv braker braker_ab_initio;',
+    #  },
+    #  -rc_name         => 'braker32',
+    #  -max_retry_count => 0,
+    #  -flow_into       => {
 #          1 => ['load_gtf_file'],
-      },
-    },
+    #  },
+    #},
     #    {
     #      -logic_name => 'run_braker_etp_mode',
     #      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -918,7 +918,7 @@ sub pipeline_analyses {
           'cd #output_path#/prothint;' .
           'singularity exec --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file# ;' .
           'cd #output_path#/;' .
-          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#species_name# --useexisting  --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
+          'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#assembly_accession#_#species_name# --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
 #                             #                                    'mv braker braker_etp_mode',
       },
       -rc_name         => 'braker32',
@@ -934,7 +934,7 @@ sub pipeline_analyses {
       -parameters => {
         #        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'process_braker_gtf.py' ) . ' ./braker/braker.gtf braker_gtf.gtf;' .
         #          'sed "s/ \+ /\t/g" braker_gtf.gtf > braker_gtf_new.gtf',
-        cmd => 'singularity exec --bind #output_path#/braker/:/data:rw  ' . $self->o('python_singularity_image') . 'python ' . catfile( $self->o('base_output_dir'), 'process_braker_gtf.py' ) . ' .#output_path#/braker/braker.gtf #output_path#/braker/braker_gtf.gtf;',
+        cmd => 'singularity exec --bind #output_path#/braker/:/data:rw  ' . $self->o('python_singularity_image') . 'python ' . catfile( $self->o('base_output_dir'), 'process_braker_gtf.py' ) . ' #output_path#/braker/braker.gtf #output_path#/braker/braker_gtf.gtf;',
       },
       -rc_name         => 'braker32',
       -max_retry_count => 0,
@@ -947,7 +947,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
 
       -parameters => {
-        cmd => 'perl ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'data_import', 'parse_gtf.pl' ) .
+        cmd => 'perl ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'parse_gtf.pl' ) .
           ' -dnahost ' . $self->o('dna_db_server') .
           ' -dnauser ' . $self->o('user_r') .
           ' -dnaport ' . $self->o('dna_db_port') .
@@ -1099,7 +1099,7 @@ sub pipeline_analyses {
         ' -pass ' . $self->o('password') .
         ' -host ' . $self->o('core_db', '-host') .
         ' -port ' . $self->o('core_db', '-port') .
-        ' -dbname ' . $self->o('core_db', '-name')
+        ' -dbname ' . '#core_dbname#'
     },
     -rc_name   => 'default',
     -flow_into => {
