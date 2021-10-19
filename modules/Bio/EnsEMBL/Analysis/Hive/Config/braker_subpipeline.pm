@@ -934,7 +934,7 @@ sub pipeline_analyses {
       -parameters => {
         #        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'process_braker_gtf.py' ) . ' ./braker/braker.gtf braker_gtf.gtf;' .
         #          'sed "s/ \+ /\t/g" braker_gtf.gtf > braker_gtf_new.gtf',
-        cmd => 'singularity exec --bind #output_path#/braker/:/data:rw  ' . $self->o('python_singularity_image') . 'python ' . catfile( $self->o('base_output_dir'), 'process_braker_gtf.py' ) . ' #output_path#/braker/braker.gtf #output_path#/braker/braker_gtf.gtf;',
+        cmd => 'singularity exec --bind #output_path#/braker/:/data:rw  ' . $self->o('python_singularity_image') . 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'process_braker_gtf.py' ) . ' #output_path#/braker/braker.gtf #output_path#/braker/braker_gtf.gtf;',
       },
       -rc_name         => 'braker32',
       -max_retry_count => 0,
