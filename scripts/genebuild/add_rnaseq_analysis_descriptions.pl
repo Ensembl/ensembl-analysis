@@ -161,14 +161,14 @@ sub get_values {
 
   my %description = (
 		     'rnaseq_gene' => "Annotation generated from ".$sample_name." RNA-seq data",
-		     'rnaseq_bam'  => 'BWA alignments of '.$sample_name.' RNA-seq data. This BAM file can be downloaded from the <a href=\\"ftp://ftp.ensembl.org/pub/data_files/\\">Ensembl FTP site</a>',
+		     'rnaseq_bam'  => 'Alignments of '.$sample_name.' RNA-seq data. This BAM file can be downloaded from the <a href=\\"ftp://ftp.ensembl.org/pub/data_files/\\">Ensembl FTP site</a>',
 		     'rnaseq_ise'  => "Spliced-read support for ".$sample_name,
 		     'rnaseq_daf'  => "Spliced-read support for ".$sample_name,
 		    );
 
   my %display_label = (
          	     'rnaseq_gene' => $sample_name." RNA-seq gene models",
-		     'rnaseq_bam'  => $sample_name." RNA-seq BWA alignments",
+		     'rnaseq_bam'  => $sample_name." RNA-seq alignments",
 		     'rnaseq_ise'  => $sample_name." intron-spanning reads",
 	             'rnaseq_daf'  => $sample_name." intron-spanning reads",
         	    );
