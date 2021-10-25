@@ -90,7 +90,7 @@ while ( my $slice = shift @{$slices} ) {
         if ( defined( $transcript->translation() ) ) {
 #          print "\n", $transcript->translation()->stable_id();
           my $stable_p = update_stable( $transcript->translation()->stable_id );
-#          print "\t$stable_p";
+          print "\t$stable_p";
           update_core($transcript->translation()->stable_id, $stable_p, "translation");
         }
       }
@@ -106,9 +106,11 @@ if ( $braker == 0 ) {
 sub update_stable {
 
   my $stable = shift;
-  if ( $stable =~ m/^ENS[A-Z]+[0-9]+/ ) {
+  print "\t$stable";
+  if ( $stable =~ m/^ENS[A-Za-z]+[0-9]+/ ) {
     $stable =~ s/ENS/BRAKER_/;
     $stable =~ s/0+(?=[0-9])/_/;
+    print "\t$stable";
   }
   ## Note: this will probably trigger on exons that are part of multiple transcripts
   ## and can safely be ignored in that case
