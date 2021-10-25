@@ -127,8 +127,9 @@ def create_file(df):
     for l in range(0, len(df)):
         temp = []
         first_line_part = "\t".join([str(i) for i in df.loc[l, "seqname":"frame"]])
-        second_line_part = df.loc[l, "transcript_id":].tolist()
         col_index = 8
+        second_line_part = df.iloc[l, col_index :].tolist()
+        
         #print(second_line_part)
         for t in second_line_part:
             #print(t)
