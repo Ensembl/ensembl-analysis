@@ -36,7 +36,7 @@ my $dna_dbname;
 my $analysis_name = "anno";
 my $module_name = "anno";
 
-my $region_details = '1.rs1.re21295481';
+my $region_details = '';
 my $specify_strand;
 my $good_biotype = 'transcriptomic';
 my $bad_biotype = 'transcriptomic_flagged';
@@ -51,10 +51,9 @@ my $set_canonical = 1;
 my $skip_db_write = 0;
 my $output_path;
 
-my $genome_file = '/hps/nobackup2/production/ensembl/fergal/production/test_runs/non_verts/butterfly/pararge_aegeria_toplevel.fa';
-#my $input_gtf_file = '/hps/nobackup2/production/ensembl/fergal/production/test_runs/non_verts/butterfly/output_genblast_orthodb/genblast_output/annotation.gtf';
-my $input_gtf_file = '/hps/nobackup2/production/ensembl/fergal/production/test_runs/non_verts/butterfly/output_normal/annotation/proteins_raw.gtf';
-my $output_gtf_file = '/hps/nobackup2/production/ensembl/fergal/production/test_runs/non_verts/butterfly/output_normal/annotation/proteins_sel.gtf';
+my $genome_file = '';
+my $input_gtf_file = '';
+my $output_gtf_file = '';
 my $final_biotype = 'not_set';
 
 GetOptions( 'gtf_file=s'             => \$input_gtf_file,
@@ -237,7 +236,7 @@ foreach my $slice_name (keys(%{$transcripts_by_slice})) {
 
   my $joined_transcripts;
   if($join_transcripts) {
-     $joined_transcripts = join_transcripts($cloned_transcripts);
+    $joined_transcripts = join_transcripts($cloned_transcripts);
     push(@$joined_transcripts,@$sorted_transcripts);
     say "Transcript count after joining: ".scalar(@{$joined_transcripts});
   } else {
@@ -286,6 +285,8 @@ foreach my $slice_name (keys(%{$transcripts_by_slice})) {
     # 2: The longest ORF from the computed translation is < 100aa
     # 3: The ORF does not start with a met or end with a stop
     while(scalar(@$cleaned_transcripts)) {
+      # Note the original transcript should be kept by process_transcript, as each unique exon string it encounters
+      # is added to $processed_transcripts. So nothing should be lost as such
       my $transcript = pop(@$cleaned_transcripts);
       process_transcript($transcript,$cleaned_transcripts,$processed_transcripts,$processed_exon_strings);
     }
@@ -303,7 +304,6 @@ foreach my $slice_name (keys(%{$transcripts_by_slice})) {
   say "Select genes: ".scalar(@$select_genes);
   my $final_genes = build_final_geneset($select_genes);
   say "Final genes: ".scalar(@$final_genes);
-
 
   my $genes_to_write = prep_genes_for_writing($final_genes,$write_single_transcript_genes,$analysis);
 
@@ -387,7 +387,6 @@ sub build_gtf_record{
     my $exon_attribs = $exon_attribs_generic.' exon_number "'.$exon_rank.'";';
     my @exon_cols = ($transcript->slice->seq_region_name(),$analysis_name,'exon',$exon->start(),$exon->end(),'.',$strand,'.',$exon_attribs);
     my $exon_line = join("\t",@exon_cols);
-#    say "FERGAL EXON!!!!!!!!!!!!!11 ".$exon_line;
     push(@$record,$exon_line);
     $exon_rank++;
   }
@@ -666,7 +665,6 @@ sub calculate_joins {
       #      if($single_exon) {
 #        $joined_transcript = single_exon_join($transcript_i,$transcript_j);
       #        if($joined_transcript && $joined_transcript->{'original_strand'} == -1) {
-#          say "FERGAL CREATED A JOINED TRANSCRIPT ON THE MINUS STRAND";
 #        }
 #      } else {
        $joined_transcript = multi_exon_join($transcript_i,$transcript_j);
@@ -761,11 +759,6 @@ sub single_exon_join {
     throw("In the single exon join subroutine, but had a mutli-exon first transcript. First transcript should be single exon");
   }
 
-#  say "FERGAL IN SEJ";
-  #  if($transcript1->{'original_strand'} == -1) {
-#    say "FERGAL TRYING TO JOIN A NEGATIVE STRAND SEG";
-#  }
-
   my $exon1 = clone_Exon(${$exons1}[0]);
 
   # A few scenarios here:
@@ -787,10 +780,6 @@ sub single_exon_join {
   for(my $i=0; $i<scalar(@$exons2); $i++) {
     my $exon2 = ${$exons2}[$i];
     if(features_overlap($exon1,$exon2)) {
-      if($transcript1->{'original_strand'} == -1) {
-        say "FERGAL FOUND OVERLAPPING FEATURES";
-      }
-
       # Check the different conditions
       # Note that originally I had thought it was clever to change seq_region_start/end. But this actually
       # does not update the start/end in general. It's still better to generally use seq_region_start/end
@@ -850,9 +839,6 @@ sub single_exon_join {
   $joined_transcript->analysis($analysis);
   copy_transcript_attribs($transcript1,$joined_transcript);
 
-  if($joined_transcript->{'original_strand'} == -1) {
-    say "FERGAL TRYING TO RETURN A NEGATIVE STRAND SEG";
-  }
   return($joined_transcript);
 }
 
@@ -889,7 +875,6 @@ sub clone_exon_array {
 sub multi_exon_join {
   my ($transcript1,$transcript2) = @_;
 
-#  say "FERGAL STRANDS T1/2: ".$transcript1->strand." ".$transcript2->strand;
   my $cloned_transcript1 = $transcript1;#clone_Transcript($transcript1);
   my $exons1 = $cloned_transcript1->get_all_Exons();
   my $exons2 = $transcript2->get_all_Exons();
@@ -901,21 +886,6 @@ sub multi_exon_join {
     return;
   }
 
-#  say "FERGAL EXONS1";
-#  print_exons($exons1);
-#  say "FERGAL EXONS2";
-#  print_exons($exons2);
-
-
-#  my $transcript1_id = $transcript1->{'internal_id'};
-#  my $transcript2_id = $transcript2->{'internal_id'};
-
-  #  unless($transcript1_id && $transcript2_id) {
-#    throw("Issue when attempting to join multi exon transcripts. One or both were missing an internal id needed for intron lookup");
-#  }
-
-
- # say "FERGAL CHECK: ".scalar(@$exons1)." ".scalar(@$exons2);
   # Do this in two parts
   # First examine for matches on the terminal introns, if there are then:
   # 1: If t1 has more exons past the boundary, replace the end exon of t1 with the corresponding exon from t2
@@ -951,17 +921,10 @@ sub multi_exon_join {
     push(@$terminal_exon1s,${$exons1}[$#$exons1]);
   }
 
-#  say "FERGAL TERMINAL EXONS:";
-#  print_exons($terminal_exon1s);
-
-#  say "FERGAL CHECk2";
   for(my $i=0; $i<scalar(@$terminal_exon1s); $i++) {
     my $exon1 = ${$terminal_exon1s}[$i];
     for(my $j=0; $j<scalar(@$exons2); $j++) {
       my $exon2 = ${$exons2}[$j];
-      #      if($exon2->strand != 1) {
-#        say "FERGAL NEGATIVE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
-#      }
       if(features_overlap($exon1,$exon2)) {
         # Check the different conditions
         if($exon2->seq_region_start() > $exon1->seq_region_start() && $exon2->seq_region_end() < $exon1->seq_region_start()) {
@@ -969,12 +932,10 @@ sub multi_exon_join {
           next;
         } elsif($exon2->seq_region_end() >= $exon1->seq_region_start() && $exon2->seq_region_start() <= $exon1->seq_region_start() && $i == 0) {
           # This means there is an overlap on the 5' boundary and exon1 should be updated to match exon2
-#          say "FERGAL Modifying the 5' boundary";
           $exon1->start($exon2->start());
           $modified_five_prime = 1;
         } elsif($exon2->start() <= $exon1->end() && $exon2->end() >= $exon1->end() && $i == $#$terminal_exon1s) {
          # This means there is an overlap on the 3' boundary and exon1 should be updated to match exon2
-#          say "FERGAL Modifying the 3' boundary";
           $exon1->end($exon2->end());
           $modified_three_prime = 1;
         }
@@ -988,7 +949,6 @@ sub multi_exon_join {
     } # End for(my $j=0;
   } # End for(my $i=0;
 
- # say "FERGAL CHECk3";
   unless($modified_five_prime || $modified_three_prime) {
     return;
   }
@@ -1012,26 +972,17 @@ sub multi_exon_join {
     push(@$merged_exons,@{$three_prime_exon2s});
   }
 
-#  say "FERGAL MERGED EXONS COUNT: ".scalar(@$merged_exons);
-#  say "FERGAL MERGED EXONS1";
-#  print_exons($merged_exons);
   $merged_exons = [sort { $a->start <=> $b->start } @{$merged_exons}];
 
-#  say "FERGAL CHECk3.5";
   # Since these exons might be modified in other merges, clone them before making the new transcript
   $merged_exons = clone_exon_array($merged_exons);
-
-#  say "FERGAL MERGED EXONS";
-#  print_exons($merged_exons);
 
   my $merged_exon_string = generate_exon_string($merged_exons);
 
   if($merged_exon_string eq $cloned_transcipt1_exon_string || $merged_exon_string eq $transcript2_exon_string){
-#    say "FERGAL MERGED STRING IS THE SAME AS T2";
     return;
   }
 
-#  say "FERGAL CHECk4";
 
   say "Creating joined transcript from single exon transcript. Joined transcript has ".scalar(@$merged_exons)." exons";
   my $joined_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $merged_exons);
@@ -1129,12 +1080,9 @@ sub clean_initial_transcripts {
     }
 
     if($valid_cds) {
-      #    if(1) {
       push(@$cleaned_transcripts,$transcript);
     } else {
-#      say "FERGAL TR ".$transcript->start." ".$transcript->end." E: ".scalar(@{$transcript->get_all_Exons});
       say "CDS not valid!!!";
-#      say "TRANLASTION: ".$transcript->translateable_seq;
     }
   } # foreach my $transcript (@$transcripts)
 
@@ -1260,8 +1208,10 @@ sub extract_transcripts_from_genes {
 sub process_transcript {
   my ($transcript,$transcripts,$processed_transcripts,$processed_exon_strings) = @_;
 
-  my $cds_only = 1;
+  my $cds_only = 0; # NOTE: This is disabled/enabled directly from here, when we want to actually add this it needs to be a real param
   if($cds_only) {
+    # This is for pulling out cds seqs without UTR (for example in single cell stuff where it's mostly tightly packed single exon genes)
+    # So the transcripts coming out of this are all then without UTR
     my $cds_exons = $transcript->get_all_translateable_Exons();
     my $cds_exon_string = generate_exon_string($cds_exons);
     if($processed_exon_strings->{$cds_exon_string}) {
@@ -1279,14 +1229,14 @@ sub process_transcript {
     compute_translation($cds_transcript);
     push(@$processed_transcripts,$cds_transcript);
   } else {
+    # This checks if the exon string has been seen and if not it's added to the processed_transcripts array and marked
+    # If it has been seen already, then this just returns
     my $exons = $transcript->get_all_Exons();
     my $exon_string = generate_exon_string($exons);
     if($processed_exon_strings->{$exon_string}) {
       return;
     }
-
     $processed_exon_strings->{$exon_string} = 1;
-    push(@$processed_transcripts,$transcript);
   }
 
   my $utr_5p_features = $transcript->get_all_five_prime_UTRs();
@@ -1295,14 +1245,269 @@ sub process_transcript {
   my $utr_5p_exons = create_exons_from_utr($utr_5p_features);
   my $utr_3p_exons = create_exons_from_utr($utr_3p_features);
 
-  unless($processed_exon_strings->{generate_exon_string($utr_5p_exons)}) {
+  my $min_5p_exon_count = 2;
+  my $min_3p_exon_count = 2;
+  my $min_5p_length = 500;
+  my $min_3p_length = 500;
+  my $cds_buffer_length = 100;
+  my $utr_5p_length = cumulative_feature_length($utr_5p_exons,$cds_buffer_length);
+  my $utr_3p_length = cumulative_feature_length($utr_3p_exons,$cds_buffer_length);
+
+  # If these are exon strings that have not been seen before, we want to build a transcript out of them and then assuming it
+  # passed out critera they will get added back to the transcripts array, which means they'll come back into this method later
+  # and be further broke down if possible
+  unless($processed_exon_strings->{generate_exon_string($utr_5p_exons)} || (scalar(@$utr_5p_exons) < $min_5p_exon_count) || ($utr_5p_length < $min_5p_length)) {
     generate_new_transcript($utr_5p_exons,$transcript,$transcripts);
   }
 
-  unless($processed_exon_strings->{generate_exon_string($utr_3p_exons)}) {
+  unless($processed_exon_strings->{generate_exon_string($utr_3p_exons)} || (scalar(@$utr_3p_exons) < $min_3p_exon_count) || ($utr_3p_length < $min_3p_length)) {
     generate_new_transcript($utr_3p_exons,$transcript,$transcripts);
   }
+
+  # Now for the original transcript, trim the 3' UTR as needed
+  # It is very unusual to have real introns in the 3' UTR. Usually an intron in the 3' UTR is incorrect, because of the reconstructor
+  # or because of thing like transposons
+  # First cut off any additional introns (these will be searched for ORFs part of the recursive nature of this process)
+  # Then trim the remaining UTR based on looking for the PAS signal
+  if(scalar(@$utr_3p_exons)) {
+    $transcript = remove_three_prime_exons($transcript,$utr_3p_features);
+    $transcript = trim_3prime_utr($transcript);
+  }
+
+  if(scalar(@$utr_5p_exons)) {
+    $transcript = remove_five_prime_exons($transcript);
+  }
+
+  push(@$processed_transcripts,$transcript);
 }
+
+
+sub cumulative_feature_length {
+  my ($features,$buffer_length) = @_;
+
+  # If a buffer has been specificed take that into account, for example it would be unusual for one another gene to end closer than 100bp of the next
+  # so remove the buffer when considering the availble length for a potential new CDS to fit into
+  unless($buffer_length) {
+    $buffer_length = 0;
+  }
+
+  my $cumulative_length = 0;
+  foreach my $feature (@$features) {
+    $cumulative_length += $feature->length();
+  }
+
+   $cumulative_length -= $buffer_length;
+   return($cumulative_length);
+}
+
+
+sub remove_three_prime_exons {
+  my ($transcript,$utr_3p_features) = @_;
+
+  # Look at exons in pairs
+  my $exons = $transcript->get_all_Exons();
+  my $kept_exons = [];
+  my $skip = 1;
+
+  my $closest_utr_exon;
+  for(my $i=scalar(@$exons)-1; $i>=0; $i--) {
+    my $exon = ${$exons}[$i];
+    if($exon->is_coding($transcript) and $skip) {
+      if($i<scalar(@$exons)-1) {
+        $closest_utr_exon = ${$exons}[$i+1];
+      }
+      $skip = 0;
+    }
+
+    unless($skip) {
+      push(@$kept_exons,$exon);
+    }
+  }
+
+  # Treat the first pure UTR exon (if it exists) as a special case. If it's close to the end of the CDS and it's not abnormally short, then allow it
+  my $max_first_intron_dist = 100;
+  my $min_first_intron_length = 250;
+  my $min_closest_exon_length = 100;
+  my $max_utr_length = 1000;
+  if($closest_utr_exon and ${$utr_3p_features}[0]->length() < $max_utr_length and $closest_utr_exon->length() >= $min_closest_exon_length) {
+    my $intron_size = 0;
+    if($closest_utr_exon->strand == 1) {
+      $intron_size = $closest_utr_exon->seq_region_start() - ${$kept_exons}[0]->seq_region_end() + 1;
+    } else {
+      $intron_size = ${$kept_exons}[0]->seq_region_start() - $closest_utr_exon->seq_region_end() + 1;
+    }
+
+    if($intron_size >= $min_first_intron_length) {
+      push(@$kept_exons,$closest_utr_exon);
+    }
+  }
+
+
+  my @unsorted_exons = @{$kept_exons};
+  my @sorted_exons = ();
+  if (${$kept_exons}[0]->strand == 1) {
+    @sorted_exons = sort {$a->start <=> $b->start} @unsorted_exons;
+  } else {
+    @sorted_exons = sort {$b->start <=> $a->start} @unsorted_exons;
+  }
+
+  $kept_exons = \@sorted_exons;
+
+  my $last_exon = ${$kept_exons}[-1];
+  my $coding_offset = 0;
+  # First figure out if there's a coding offset to take into account
+  if($last_exon->is_coding($transcript)) {
+    my $cds_end_coord = $last_exon->coding_region_end($transcript);
+    if($last_exon->strand() == 1) {
+      $coding_offset = $cds_end_coord - $last_exon->seq_region_start();
+    } else {
+      $coding_offset = $last_exon->seq_region_end() - $cds_end_coord;
+    }
+  }
+
+  # If the length of the UTR of the final exon is > the max length then adjust
+  my $last_exon_utr_length = $last_exon->length - $coding_offset;
+  if($last_exon_utr_length > $max_utr_length) {
+    my $diff = $last_exon_utr_length - $max_utr_length;
+    if($last_exon->strand() == 1 and $diff > 0) {
+      $last_exon->end($last_exon->end()-$diff);
+    } else {
+      $last_exon->start($last_exon->start()+$diff);
+    }
+  }
+
+
+  my $new_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $kept_exons);
+  $new_transcript->stable_id($transcript->stable_id);
+  $new_transcript->biotype($transcript->biotype());
+  $new_transcript->slice($transcript->slice());
+  $new_transcript->analysis($transcript->analysis());
+  copy_transcript_attribs($transcript,$new_transcript);
+
+  return($new_transcript);
+}
+
+
+sub remove_five_prime_exons {
+  my ($transcript) = @_;
+
+  unless($transcript->translation()) {
+    compute_translation($transcript);
+  }
+
+  # Want to go through the 5p UTR exons
+  # Drop most 5' exons if UTR only and length < min_terminal_length
+  # For remaining exons, go through and work at what exon the UTR is already greater than the allowed length
+  # Stop at that exon and cut back to max allowed length
+
+  # Look at exons in pairs
+  my $exons = $transcript->get_all_Exons();
+  my $kept_exons = [];
+  my $skip = 1;
+  my $min_utr_terminal_exon_length = 100;
+  for(my $i=0; $i<scalar(@$exons); $i++) {
+    my $exon = ${$exons}[$i];
+    if($exon->is_coding($transcript)) {
+      $skip = 0;
+    }
+
+    # If we're hit a coding exon we'll push it as skip will have switched to 0 at that point
+    # and everything else will be pushed
+    # If we're still in the 5' UTR exons push the exon if it meats the min size criteria
+    unless($skip) {
+      push(@$kept_exons,$exon);
+    } elsif($skip and $exon->length > $min_utr_terminal_exon_length) {
+      push(@$kept_exons,$exon);
+    }
+  }
+
+  my @unsorted_exons = @{$kept_exons};
+  my @sorted_exons = ();
+  if (${$kept_exons}[0]->strand == 1) {
+    @sorted_exons = sort {$a->start <=> $b->start} @unsorted_exons;
+  } else {
+    @sorted_exons = sort {$b->start <=> $a->start} @unsorted_exons;
+  }
+
+  $kept_exons = \@sorted_exons;
+
+  my $max_5p_utr_length = 300;
+  # Now loop through the sorted exons and find the index if the first coding exon, then work back in the 5' direction
+  my $cds_exon_index = 0;
+  foreach my $exon (@$kept_exons) {
+    if($exon->is_coding($transcript)) {
+      last;
+    }
+    $cds_exon_index++;
+  }
+
+  my $cumulative_exon_length = 0;
+  my $exons_5p_to_keep = [];
+  for(my $i=$cds_exon_index; $i>=0; $i--) {
+    my $exon = ${$kept_exons}[$i];
+    my $coding_offset = 0;
+    if($exon->is_coding($transcript)) {
+      my $cds_start_coord = $exon->coding_region_start($transcript);
+      if($exon->strand() == 1) {
+        $coding_offset = $exon->seq_region_end - $cds_start_coord;
+      } else {
+        $coding_offset = $cds_start_coord - $exon->seq_region_start;
+      }
+    }
+
+    my $exon_utr_length = $exon->length() - $coding_offset;
+    my $min_remaining_length = 50;
+    # At this point we know the length of the current UTR and the cumulative length
+    # If the length of the of the current utr exon added to the cumulative total > max_5p_utr_length (minus any coding offset)
+    # then this exon needs to either be dropped or it's the last one (technically the first one). First determine if once trimmed
+    # the length is >= min_remaining_length, if it is then trim and keep. If it's not but it's a coding exon, then you don't need
+    # do anything and just keep as is. Otherwise just drop it. Once any of these conditions are hit, stop and add all the exons
+    # after the coding exon index
+    my $current_cumulative_length = $cumulative_exon_length + $exon_utr_length;
+    if($current_cumulative_length > $max_5p_utr_length) {
+      my $overlimit_length = $current_cumulative_length - $max_5p_utr_length;
+      my $trimmed_length = $exon_utr_length - $overlimit_length;
+      if($trimmed_length < $min_remaining_length and $exon->is_coding($transcript)) {
+        push(@$exons_5p_to_keep,$exon);
+        last;
+      } elsif($trimmed_length < $min_remaining_length) {
+        last;
+      } else {
+        # In this case we want to trim the exon
+        if($exon->strand() == 1) {
+          $exon->start($exon->start()+$overlimit_length);
+        } else {
+          $exon->end($exon->end()-$overlimit_length);
+        }
+        push(@$exons_5p_to_keep,$exon);
+        last;
+      }
+    }
+
+    push(@$exons_5p_to_keep,$exon);
+    $cumulative_exon_length = $current_cumulative_length;
+  }
+
+
+  my $final_exons = $exons_5p_to_keep;
+  for(my $i=$cds_exon_index+1; $i<scalar(@$kept_exons); $i++) {
+    my $exon = ${$kept_exons}[$i];
+    push(@$final_exons,$exon);
+  }
+
+#  unless(scalar()) {
+
+#  }
+  my $new_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $final_exons);
+  $new_transcript->stable_id($transcript->stable_id);
+  $new_transcript->biotype($transcript->biotype());
+  $new_transcript->slice($transcript->slice());
+  $new_transcript->analysis($transcript->analysis());
+  copy_transcript_attribs($transcript,$new_transcript);
+
+  return($new_transcript);
+}
+
 
 
 sub create_exons_from_utr {
@@ -1337,7 +1542,7 @@ sub generate_new_transcript {
   my ($utr_exons,$transcript,$transcripts) = @_;
 
   my $min_multi_exon_cds_length = 300;
-  my $min_single_exon_cds_length = 450;
+  my $min_single_exon_cds_length = 900;
 
   my $utr_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $utr_exons);
   $utr_transcript->stable_id($transcript->stable_id);
@@ -1346,12 +1551,13 @@ sub generate_new_transcript {
   $utr_transcript->analysis($transcript->analysis());
   copy_transcript_attribs($transcript,$utr_transcript);
 
+  # If it's not at least a little bigger than the min cds length (i.e. to have some UTR), return
+  # To be honest this doesn't make too much sense, 50bp is a bit random
   unless($utr_transcript->length() >= ($min_single_exon_cds_length + 50)) {
     return;
   }
 
   compute_translation($utr_transcript);
-
   my $cds_seq = $utr_transcript->translateable_seq();
 
   my $valid_cds = 0;
@@ -1366,6 +1572,88 @@ sub generate_new_transcript {
   } else {
     push(@$transcripts,$utr_transcript);
   }
+}
+
+
+sub trim_3prime_utr {
+  my ($transcript) = @_;
+
+  # Only going to use the most common nuclear PAS signal
+  my $pas_signal = 'AATAAA';
+  my $cleavage_signal = 'CA';
+  my $max_no_cleavage = 1000;
+
+  unless($transcript->three_prime_utr) {
+    warning("The trim_3prime_utr_short_read was called on a transcript with no 3 prime UTR. Nothing to trim");
+    return($transcript);
+  }
+
+  my $exons = $transcript->get_all_Exons;
+  my $final_exon = ${$exons}[$#{$exons}];
+  my $translation_end_exon = $transcript->translation->end_Exon;
+
+  my $coding_offset = 0;
+  my $final_exon_seq = $final_exon->seq->seq;
+  if($final_exon->start == $translation_end_exon->start) {
+    $coding_offset = $transcript->translation->end;
+  }
+
+  my $found_pas = 0;
+  my $pas_start = 0;
+  my $pas_end = 0;
+  my $cleavage_site = 0;
+  while($final_exon_seq =~ /$pas_signal/g && !$found_pas) {
+    # Set to 1 base offset for ease
+    $pas_start = $-[0] + 1;
+    $pas_end =  $+[0];
+
+    if($pas_start <= $coding_offset) {
+      next;
+    }
+
+    say "Found PAS signal in final exon seq at the following coords: ".$pas_start."..".$pas_end;
+    $found_pas = 1;
+    last;
+  }
+
+  if($found_pas) {
+    # There are 15-30bp between the end of the pas signal and the cleavage site
+    # as pas_end is already shifted to 1bp offset, just add 14
+    my $post_pas_seq = substr($final_exon_seq,$pas_end + 14,15);
+    say $post_pas_seq;
+    if($post_pas_seq =~ /CA/) {
+      $cleavage_site = $pas_end + 14 + $+[0];
+      say "Cleavage site found within 15-30bp range of PAS signal";
+      say $cleavage_site;
+    } else {
+      $cleavage_site = $pas_end + 30;
+      say "Cleavage site not found within 15-30bp range of PAS signal, setting to 30bp downstream:";
+      say $cleavage_site;
+    }
+  } else {
+    if((length($final_exon_seq) - $coding_offset) > $max_no_cleavage) {
+      $cleavage_site = $coding_offset + $max_no_cleavage;
+    }
+    say "Could not find PAS signal in 3' UTR, will use max_no_cleavage as a cut-off:";
+    say $cleavage_site;
+  }
+
+  if($cleavage_site >= length($final_exon_seq)) {
+    say "Not cleaving as proposed cleavage site is at or over the end of the final exon";
+    return($transcript);
+  }
+
+  if($cleavage_site) {
+    if($final_exon->strand == 1 && $cleavage_site > $coding_offset) {
+      $final_exon->end($final_exon->start + $cleavage_site - 1);
+      $transcript->end($final_exon->end);
+    } elsif($final_exon->strand == -1 && $cleavage_site > $coding_offset) {
+      $final_exon->start($final_exon->end - $cleavage_site + 1);
+      $transcript->start($final_exon->start);
+    }
+  }
+
+  return($transcript);
 }
 
 
@@ -1393,7 +1681,7 @@ sub build_final_geneset {
                      -analysis => $analysis,
                      -genes => $genes,
                      -output_biotype => $biotype,
-                     -max_transcripts_per_cluster => 10,
+                     -max_transcripts_per_cluster => 100,
                      -min_short_intron_len => 7,
                      -max_short_intron_len => 15,
                      -blessed_biotypes => {},
