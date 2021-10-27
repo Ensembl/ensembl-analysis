@@ -1305,7 +1305,7 @@ sub collect_processes {
     $pid_list = [];
   }
   foreach my $p (grep {$_->ppid eq $process_to_check} @{$proc_table->table} ){
-    if ($p->state ne "defunct") {
+    if ($p and $p->state ne "defunct") {
       push(@$pid_list, $p->pid);
       collect_processes($p->pid, $proc_table, $pid_list);
     }
