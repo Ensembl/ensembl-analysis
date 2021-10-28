@@ -25,9 +25,7 @@ It also populates the "pdb_ens" table in the GIFTS database with similar data.
 
 =head1 OPTIONS
 
--ftp_path       FTP path where the AlphaFoldDB chain Uniprot file is located (including file name).
-
--output_path    Output path where output and log files will be written.
+-alpha_path     Path to file containing the AlphaFoldDB mapping data (including file name).
 
 -core_dbhost    Core database host name.
 
@@ -41,11 +39,13 @@ It also populates the "pdb_ens" table in the GIFTS database with similar data.
 
 -cs_version     Coordinate system version.
 
+-species        Production name of species to process
+
 -rest_server    GIFTS rest server to fetch the perfect matches data from. 
 
 =head1 EXAMPLE USAGE
 
-standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadAlphaFoldDBProteinFeatures -ftp_path ftp://ftp.ebi.ac.uk/pub/databases/msd/sifts/flatfiles/tsv/pdb_chain_uniprot.tsv.gz -output_path OUTPUT_PATH -core_dbhost genebuild3 -core_dbport 4500 -core_dbname carlos_homo_sapiens_core_89_test -core_dbuser *** -core_dbpass *** -cs_version GRCh38 -rest_server https://www.ebi.ac.uk/gifts/api/
+standaloneJob.pl Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveLoadAlphaFoldDBProteinFeatures -alpha_path /hps/nobackup/flicek/ensembl/mr6/AlphaFoldDB/homo_sapiens/alpha_mappings.txt -core_dbhost genebuild3 -core_dbport 4500 -core_dbname carlos_homo_sapiens_core_89_test -core_dbuser *** -core_dbpass *** -cs_version GRCh38 -species homo_sapiens -rest_server https://www.ebi.ac.uk/gifts/api/
 
 =cut
 
@@ -82,6 +82,7 @@ sub param_defaults {
       core_dbpass => undef,
       cs_version => undef,
       species => undef,
+      rest_server => undef,
     }
 }
 
