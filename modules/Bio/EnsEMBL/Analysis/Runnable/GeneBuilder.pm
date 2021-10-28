@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2021] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,11 +43,13 @@ package Bio::EnsEMBL::Analysis::Runnable::GeneBuilder;
 use strict;  
 use warnings;
 use vars   qw(@ISA);
+use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange ); 
 
+use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::TranscriptCluster;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(transfer_supporting_evidence Exon_info);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(Transcript_info print_Transcript_and_Exons print_Transcript);
@@ -169,15 +171,16 @@ sub run {
     return;
   }
   #cluster transcripts
-  #print "Have ".@$transcripts." transcripts to build from\n";
+  print "Have ".@$transcripts." transcripts to build from\n";
   my $transcript_clusters = $self->cluster_Transcripts($transcripts);
-  #print "Have ".@$transcript_clusters." transcript clusters\n";
+  print "Have ".@$transcript_clusters." transcript clusters\n";
   #prune transcripts
   my $pruned_transcripts = $self->prune_Transcripts($transcript_clusters);
-  #print "Have ".@$pruned_transcripts." pruned transcripts\n";
+
+  print "Have ".@$pruned_transcripts." pruned transcripts\n";
   #first gene cluster
   my $initial_genes = $self->cluster_into_Genes($pruned_transcripts, $coding_only);
-  #print "Have ".@$initial_genes." initial gene structures\n";
+  print "Have ".@$initial_genes." initial gene structures\n";
   unless($self->skip_readthrough_check) {
     $initial_genes = $self->remove_readthrough($initial_genes);
   }
@@ -187,12 +190,12 @@ sub run {
   $self->prune_redundant_transcripts($initial_genes);
   #select best transcripts
   my $best_transcripts = $self->select_best_transcripts($initial_genes);
-  #print "Have ".@$best_transcripts." best transcripts\n";
+  print "Have ".@$best_transcripts." best transcripts\n";
   #final cluster of genes
   my $final_genes = $self->cluster_into_Genes($best_transcripts, $coding_only);
   my $pruned_genes = $self->make_shared_exons_unique($final_genes);
   $self->output($pruned_genes);
-  #print "Have ".@$final_genes." final gene clusters\n";
+  print "Have ".@$final_genes." final gene clusters\n";
   #return output
 }
 
@@ -359,7 +362,69 @@ sub get_Transcripts {
   return $self->{'transcripts'};
 }
 
+
 sub cluster_Transcripts {
+  my ($self,$transcripts) = @_;
+
+  my $transcript_clusters = [];
+  my $genes = $self->create_single_transcript_genes($transcripts);
+
+  my $biotypes_hash = $self->get_all_biotypes($genes);
+  my $biotypes_array = [keys(%$biotypes_hash)];
+
+  my $types_hash;
+  $types_hash->{genes} = $biotypes_array;
+
+  my ($clusters,$unclustered) = cluster_Genes_by_coding_exon_overlap($genes,$types_hash);
+  my $all_clusters = [@$clusters,@$unclustered];
+  foreach my $cluster (@$all_clusters) {
+    my $overall_cluster_transcripts = [];
+    my $cluster_genes = $cluster->get_Genes();
+    foreach my $cluster_gene (@$cluster_genes) {
+      my $cluster_transcripts = $cluster_gene->get_all_Transcripts();
+      push(@$overall_cluster_transcripts,@$cluster_transcripts);
+    }
+
+    push(@$transcript_clusters,$overall_cluster_transcripts);
+  }
+
+  return($transcript_clusters);
+}
+
+
+sub get_all_biotypes {
+  my ($self,$master_genes_array) = @_;
+
+  my $master_biotypes_hash = {};
+
+  foreach my $gene (@{$master_genes_array}) {
+    unless($master_biotypes_hash->{$gene->biotype}) {
+      $master_biotypes_hash->{$gene->biotype} = 1;
+    }
+  }
+  return($master_biotypes_hash);
+}
+
+
+sub create_single_transcript_genes {
+  my ($self,$transcripts) = @_;
+
+  my $single_transcript_genes = [];
+  foreach my $transcript (@$transcripts) {
+    my $gene = Bio::EnsEMBL::Gene->new();
+    $gene->stable_id($transcript->stable_id());
+    $gene->biotype($transcript->biotype);
+    $gene->slice($transcript->slice());
+    $gene->analysis($transcript->analysis);
+    $gene->add_Transcript($transcript);
+    push(@$single_transcript_genes,$gene);
+  }
+
+  return($single_transcript_genes);
+}
+
+
+sub cluster_Transcripts_old {
   my ($self, $transcripts) = @_;
   my @forward;
   my @reverse;
@@ -422,7 +487,7 @@ sub cluster_Transcripts_by_genomic_range {
       $cluster->put_Transcripts([$transcripts[$c]], 0);
       $cluster_starts[$cluster_count] = $transcripts[$c]->start;
       $cluster_ends[$cluster_count]   = $transcripts[$c]->end;
-      
+
       # store it in the list of clusters
       push(@clusters,$cluster);
     }
@@ -430,27 +495,28 @@ sub cluster_Transcripts_by_genomic_range {
   return \@clusters;
 }
 
+
 sub prune_Transcripts {
   my ($self, $transcript_clusters) = @_;
   my @newtran;
 
-  my %blessed_genetypes = %{$self->blessed_biotypes};;
+  my %blessed_genetypes = %{$self->blessed_biotypes};
 
   my $cluster_count = 0;
-  
+
  CLUSTER:
   foreach my $transcript_cluster ( @$transcript_clusters ){
     $cluster_count++;
     #print STDERR "Cluster $cluster_count\n";
-    my $mytranscripts = $transcript_cluster->get_Transcripts;
-   
+    my $mytranscripts = $transcript_cluster;
+
     ########################
     #
     # sort the transcripts
     #
     ########################
     my @transcripts = @{$self->bin_sort_transcripts( $mytranscripts )};
-  
+
     ##############################
     #
     # deal with single exon genes
@@ -464,7 +530,6 @@ sub prune_Transcripts {
     # this may increase problems with the loss of valid single exon genes as mentioned
     # below. it's a balance between keeping multi exon transcripts and losing 
     # single exon ones
-   
     my $maxexon_number = 0;
     foreach my $t (@transcripts){
       if ( scalar(@{$t->get_all_Exons}) > $maxexon_number ){
@@ -539,7 +604,6 @@ sub prune_Transcripts {
         my $foundpair = 0;
         my $exon1 = $exons[$i];
         my $exon2 = $exons[$i+1];
-                
         # Only count introns > 50 bp as real introns
         my $intron;
         if ($exon1->strand == 1) {
@@ -548,7 +612,6 @@ sub prune_Transcripts {
         else {
           $intron = abs($exon1->start - $exon2->end - 1);
         }
-        
         if ($intron < $self->max_short_intron_len && 
             $intron > $self->min_short_intron_len ) {
           print STDERR "Intron too short: $intron bp. Transcript will be rejected\n";
@@ -558,7 +621,6 @@ sub prune_Transcripts {
           # go through the exon pairs already stored in %pairhash. 
           # If there is a pair whose exon1 overlaps this exon1, and 
           # whose exon2 overlaps this exon2, then these two transcripts are paired
-          
           foreach my $first_exon_id (keys %pairhash) {
             my $first_exon = $exonhash{$first_exon_id};
             foreach my $second_exon_id (keys %{$pairhash{$first_exon}}) {
@@ -568,11 +630,9 @@ sub prune_Transcripts {
                 # eae: this method allows a transcript to be covered by exon pairs
                 # from different transcripts, rejecting possible
                 # splicing variants. Needs rethinking
-                
                 # we put first the exon from the transcript being tested:
                 push( @evidence_pairs, [ $exon1 , $first_exon  ] );
                 push( @evidence_pairs, [ $exon2 , $second_exon ] );
-                
                 transfer_supporting_evidence($exon1, $first_exon);
                 transfer_supporting_evidence($first_exon, $exon1);
                 transfer_supporting_evidence($exon2, $second_exon);
@@ -594,6 +654,7 @@ sub prune_Transcripts {
         }
       }                         # end of EXONS
 
+
       # decide whether this is a new transcript or whether it has already been seen
       # if it's blessed, we keep it and there's nothing more to do
       if(exists $blessed_genetypes{$tran->biotype}){
@@ -611,15 +672,14 @@ sub prune_Transcripts {
         if ( $tran == $transcripts[0] ){
           print STDERR "Strange, this is the first transcript in the cluster!\n";
         }
-                
+
         ## transfer supporting feature data. We transfer it to exons
         foreach my $pair ( @evidence_pairs ){
           my @pair = @$pair;
-        
+
           # first in the pair is the 'already seen' exon
           my $source_exon = $pair[0];
           my $target_exon = $pair[1];
-        
           transfer_supporting_evidence($source_exon, $target_exon)
         }
       }
@@ -638,13 +698,13 @@ sub prune_Transcripts {
           # transcript overlapping two exons in a multi exon transcript, so the 
           # supporting evidence would be transferred in entirety to both exons.
           transfer_supporting_evidence($exons[0], $stored_exon);
-        
         }
       }
     }
   } #end CLUSTER
+
   return \@newtran;
-} 
+}
 
 
 sub cluster_into_Genes {
