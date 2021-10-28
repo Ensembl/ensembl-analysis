@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2020] EMBL-European Bioinformatics Institute
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis;
 use strict;
 use warnings;
 use feature 'say';
-use Data::Dumper;
 
 use Bio::EnsEMBL::Hive::Utils qw(destringify);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(hrdb_get_dba is_slice_name);
@@ -58,6 +57,7 @@ sub param_defaults {
 
     return {
         %{$self->SUPER::param_defaults},
+        skip_analysis => 0,
         include_non_reference => 0,
         feature_id_include_non_reference => 1,
         include_duplicates => 0,
@@ -129,6 +129,8 @@ sub fetch_input {
         $self->feature_region($dba);
       } elsif($iid_type eq 'feature_id') {
         $self->feature_id($dba);
+      } elsif($iid_type eq 'intergenic_slice') {
+        $self->intergenic_slice($dba);
       } else {
         $self->throw('You have not specified one of the recognised operation types: '.$iid_type);
       }
@@ -160,16 +162,12 @@ sub create_slice_ids {
                               $self->param('include_non_reference'),
 			      $self->param('include_duplicates'),
 			      $self->param('include_lrg'));
-my @input = map {$_->name} @$slices;
-say "slices from db are ", scalar(@input);
   if (!$self->param('mitochondrion')) {
     my $mt = $sa->fetch_by_region('toplevel', 'MT');
     if ($mt) {
-say "mt is ", $mt;
       my @ids = grep {$_->seq_region_name ne $mt->seq_region_name} @$slices;
       $slices = \@ids;
     }
-say "inside MT";
   }
   if ($self->param('iid_type') eq 'patch_slice') {
     my @pt = ('patch_novel', 'patch_fix');
@@ -187,30 +185,21 @@ say "inside MT";
 
   if($self->param('slice_size') > 0) {
     $slices = split_Slices($slices, $self->param_required('slice_size'), $self->param('slice_overlaps'));
-say "slice > 0";
   }
 
   if($self->param('min_slice_length')) {
     $slices = $self->filter_slice_on_size($slices);
-say "slice length is ", $self->param('min_slice_length');
   }
 
   if($self->param('feature_constraint')) {
     $slices = $self->filter_slice_on_features($slices, $dba);
-say "constraint is ", $self->param('feature_constraint');
   }
 
   if($self->param('batch_slice_ids')) {
-my @inpt = map {$_->name} @$slices;
-say "slices from db are ", scalar(@inpt);
     $slices = $self->batch_slice_ids($slices);
-#my @inp = map {$_->name} @$slices;
-#say "slices from db are ", scalar(@inp);
-    say "batch is ", Dumper($slices);
     $self->param('inputlist', $slices);
   } else {
     my @input_ids = map {$_->name} @$slices;
-   say "slices from db are ", Dumper(@input_ids);
     $self->param('inputlist', \@input_ids);
   }
 
@@ -1104,6 +1093,46 @@ sub fastq_range {
   }
 
   $self->param('inputlist', $self->_chunk_input_ids(1, $batch_array));
+}
+
+sub intergenic_slice {
+  my ($self, $dba) = @_;
+
+  my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param('iid'));
+  my @input_ids;
+  my $desired_size = $self->param('desired_slice_length');
+  my $cluster_start = 1;
+  my $cluster_end = 0;
+  my $cluster_size = 0;
+  $self->say_with_header($slice->length);
+  $self->say_with_header($desired_size*1.25);
+  if ($slice->length < $desired_size*1.25) {
+    if ($dba->get_GeneAdaptor->count_all_by_Slice($slice)) {
+      push(@input_ids, $slice->name);
+    }
+  }
+  else {
+    my $input_id = join(':', $slice->coord_system->name, $slice->coord_system->version, $slice->seq_region_name, $slice->start);
+    foreach my $gene (sort {$a->start <=> $b->start || $a->end <=> $b->end} @{$slice->get_all_Genes}) {
+      if ($cluster_size > $desired_size and $cluster_end < $gene->start) {
+        $cluster_end += int(($gene->start-$cluster_end)/2);
+        $cluster_start = $cluster_end+1;
+        push(@input_ids, $input_id.':'.$cluster_end.':1');
+        if ($gene->end+$desired_size >= $slice->end) {
+          push(@input_ids, join(':', $slice->coord_system->name, $slice->coord_system->version, $slice->seq_region_name, $cluster_start, $slice->end, 1));
+          undef($input_id);
+          last;
+        }
+        $input_id = join(':', $slice->coord_system->name, $slice->coord_system->version, $slice->seq_region_name, $cluster_start);
+      }
+    $cluster_end = $gene->end if ($cluster_end < $gene->end);
+      $cluster_size = $cluster_end-$cluster_start;
+    }
+    if ($input_id) {
+      push(@input_ids, "$input_id:$cluster_end:1");
+    }
+  }
+  $self->param('inputlist', \@input_ids);
 }
 
 1;

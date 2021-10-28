@@ -32,19 +32,22 @@ sub default_options {
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
-    'num_threads' => 20,
-    'dbowner' => '',
-    'base_output_dir' => '',
+#    'busco_dataset'            => '' || ,  # CHANGE AS REQUIRED
+    'busco_input_file_stid'         => 'stable_id_to_dump.txt',
+
+    'num_threads'               => 20,
+    'dbowner'                   => 'jma',
+    'base_output_dir'           => '' || '/hps/nobackup/flicek/ensembl/genebuild/jma/research',
     'protein_file'              => '',
     'busco_protein_file'        => '',
     'rfam_accessions_file'      => '',
-    'registry_file'             => 'Databases.pm',
-    'release_number'            => '001' || $self->o('ensembl_release'),
+    'registry_file'             => '/nfs/production/flicek/ensembl/genebuild/jma/temp/gbiab_temp_space/Databases.pm',
+    'release_number'            => '' || $self->o('ensembl_release'),
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
-    'pipeline_name'             => 'gbiab_prod_test' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('ensembl_release'),
-    'user_r'                    => '', # read only db user
-    'user'                      => '', # write db user
-    'password'                  => '', # password for write db user
+    'pipeline_name'             => '' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('ensembl_release'),
+    'user_r'                    => 'ensro', # read only db user
+    'user'                      => 'ensadmin', # write db user
+    'password'                  => 'ensembl', # password for write db user
     'server_set'                => '', # What server set to user, e.g. set1
     'pipe_db_server'            => $ENV{GBS7}, # host for pipe db
     'databases_server'          => $ENV{GBS5}, # host for general output dbs
@@ -63,7 +66,7 @@ sub default_options {
     'long_read_summary_file_genus' => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read_gen.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
     'long_read_fastq_dir'       => '' || catdir($self->o('long_read_dir'),'input'),
     'species_name'              => '', # e.g. mus_musculus
-    'production_name'           => 'test_scale_gbiab' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    'production_name'           => '' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'taxon_id'                  => '', # should be in the assembly report file
     'species_taxon_id'          => '' || $self->o('taxon_id'), # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
     'genus_taxon_id'            => '' || $self->o('taxon_id'), # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
@@ -98,6 +101,11 @@ sub default_options {
     'protein_entry_loc'            => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc'), # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
 
     'softmask_logic_names' => [],
+    'desired_slice_length' => 10000000,
+    'store_rejected' => 0,
+
+    'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test-agat.simg',
+    'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/busco-v5.1.2_cv1.simg',
 
 ########################
 ## Small ncRNAs params
@@ -156,9 +164,6 @@ sub default_options {
     'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
     'production_db_server'         => 'mysql-ens-meta-prod-1',
     'production_db_port'           => '4483',
-
-
-    databases_to_delete => ['reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_db', 'selected_projection_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db', 'lincrna_db', 'otherfeatures_db', 'rnaseq_db'],#, 'projection_realign_db'
 
 ########################
 # BLAST db paths
@@ -234,6 +239,7 @@ sub default_options {
     frameshift_attrib_script   => catfile($self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl'),
     select_canonical_script    => catfile($self->o('ensembl_misc_script'),'canonical_transcripts', 'select_canonical_transcripts.pl'),
     assembly_name_script       => catfile($self->o('ensembl_analysis_script'), 'update_assembly_name.pl'),
+    print_protein_script_path  => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'print_translations.pl'),
 
     rnaseq_daf_introns_file => catfile($self->o('output_dir'), 'rnaseq_daf_introns.dat'),
 
@@ -253,8 +259,8 @@ sub default_options {
 # Executable paths
 ########################
     'minimap2_genome_index'  => $self->o('faidx_genome_file').'.mmi',
-    'minimap2_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/minimap2',
-    'paftools_path'          => '/hps/nobackup2/production/ensembl/fergal/coding/long_read_aligners/new_mm2/minimap2/misc/paftools.js',
+    'minimap2_path'          => '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/minimap2',
+    'paftools_path'          => '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/paftools.js',
     'minimap2_batch_size'    => '5000',
 
     'blast_type' => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
@@ -312,7 +318,7 @@ sub default_options {
 
 # Best targetted stuff
     exonerate_logic_name => 'exonerate',
-    ncbi_query => '((txid'.$self->o('taxon_id').'[Organism:noexp]+AND+biomol_mrna[PROP]))  NOT "tsa"[Properties]', 
+    ncbi_query => '((txid'.$self->o('taxon_id').'[Organism:noexp]+AND+biomol_mrna[PROP]))  NOT "tsa"[Properties]',
 
     cdna_table_name    => 'cdna_sequences',
     target_exonerate_calculate_coverage_and_pid => 0,
@@ -343,10 +349,10 @@ sub default_options {
     'rnaseq_data_provider' => 'ENA', #It will be set during the pipeline or it will use this value
 
     'rnaseq_dir'    => catdir($self->o('output_path'), 'rnaseq'),
-    'input_dir'     => catdir($self->o('rnaseq_dir'),'input'),
-    'output_dir'    => catdir($self->o('rnaseq_dir'),'output'),
-    'merge_dir'     => catdir($self->o('rnaseq_dir'),'merge'),
-    'sam_dir'       => catdir($self->o('rnaseq_dir'),'sams'),
+    'input_dir'     => catdir($self->o('rnaseq_dir'), 'input'),
+    'output_dir'    => catdir($self->o('rnaseq_dir'), 'output'),
+    'merge_dir'     => catdir($self->o('rnaseq_dir'), 'merge'),
+    'sam_dir'       => catdir($self->o('rnaseq_dir'), 'sams'),
     'header_file'   => catfile($self->o('output_dir'), '#'.$self->o('read_id_tag').'#_header.h'),
 
     'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
@@ -503,6 +509,7 @@ sub default_options {
     'refseq_import_ftp_path'  => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_genomic.gff.gz',
     'refseq_mrna_ftp_path'    => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_rna.fna.gz',
     'refseq_report_ftp_path' => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_assembly_report.txt',
+
 ##################################
 # Memory settings for the analyses
 ##################################
@@ -515,8 +522,6 @@ sub default_options {
     'projection_mem'       => '1900',
     'layer_annotation_mem' => '3900',
     'genebuilder_mem'      => '1900',
-
-
 
 ########################
 # LastZ
@@ -665,6 +670,13 @@ sub default_options {
     'create_pair_aligner_page_exe'      => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/report/create_pair_aligner_page.pl'),
     'dump_features_exe'                 => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/dumps/DumpMultiAlign.pl'),
 
+    #gene_db_host => $self->o('data_db_server'),
+    #gene_db_port => $self->o('data_db_port'),
+    #gene_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_gene_'.$self->o('release_number'),
+
+    clean_utr_db_host => $self->o('dna_db_server'),
+    clean_utr_db_port => $self->o('dna_db_port'),
+    clean_utr_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_clean_utr_'.$self->o('release_number'),
 
 ########################
 # db info
@@ -677,8 +689,6 @@ sub default_options {
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
     },
-
-
 
     'production_db' => {
       -host   => $self->o('production_db_server'),
@@ -706,6 +716,22 @@ sub default_options {
       -dbname => $self->o('registry_db_name'),
       -driver => $self->o('hive_driver'),
     },
+
+    'clean_utr_db' => {
+      -dbname => $self->o('clean_utr_db_name'),
+      -host   => $self->o('clean_utr_db_host'),
+      -port   => $self->o('clean_utr_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    databases_to_delete => ['reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_db', 'selected_projection_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db', 'lincrna_db', 'otherfeatures_db', 'rnaseq_db', 'clean_utr_db'],
+
+    #######################
+    # Extra db settings
+    ########################
+    num_tokens => 10,
 
   };
 }
@@ -845,6 +871,7 @@ sub pipeline_analyses {
                          'num_threads'      => $self->o('num_threads'),
                          'dbowner'          => $self->o('dbowner'),
                          'core_db'          => $self->o('core_db'),
+                         'clean_utr_db'     => $self->o('clean_utr_db'),
                          'ensembl_release'  => $self->o('ensembl_release'),
                          'base_output_dir'  => $self->o('base_output_dir'),
                          'registry_db'      => $self->o('registry_db'),
@@ -857,7 +884,7 @@ sub pipeline_analyses {
                          1 => ['download_rnaseq_csv'],
                        },
         -analysis_capacity => 1,
-        -input_ids  => [{'assembly_accession' => 'GCA_907164915.1'},
+        -input_ids  => [{'assembly_accession' => 'GCA_905404115.1'},
 #                        {'assembly_accession' => 'GCA_905163545.1'},
 #                        {'assembly_accession' => 'GCA_905147085.1'},
 #                        {'assembly_accession' => 'GCA_905147105.1'},
@@ -1153,10 +1180,117 @@ sub pipeline_analyses {
         -rc_name => 'gbiab',
         -max_retry_count => 0,
         -flow_into => {
-          1 => ['update_biotypes_and_analyses'],
+          1 => ['create_clean_utr_db']
         },
       },
 
+      {
+        -logic_name => 'create_clean_utr_db',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+        -parameters => {
+          source_db   => '#core_db#',
+          target_db   => '#clean_utr_db#',
+          create_type => 'clone',
+        },
+        -rc_name   => 'default',
+        -flow_into => {
+          1 => ['create_toplevel_slices']
+        },
+      },
+
+      {
+        -logic_name => 'create_toplevel_slices',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+          target_db             => '#core_db#',
+          iid_type              => 'slice',
+          coord_system_name     => 'toplevel',
+          include_non_reference => 0,
+          top_level             => 1,
+        },
+        -flow_into => {
+#          '2->A' => {'split_slices_on_intergenic' => {'target_db' => '#core_db#', 'iid' => '#iid#'} },
+          '2->A' => {'split_slices_on_intergenic' => INPUT_PLUS() },
+	        'A->1' => ['delete_genes'],
+        },
+        -rc_name => 'default',
+      },
+
+      {
+        -logic_name => 'split_slices_on_intergenic',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+        -parameters => {
+          target_db             => '#core_db#',
+          iid_type              => 'intergenic_slice',
+          coord_system_name     => 'toplevel',
+          include_non_reference => 0,
+          top_level             => 1,
+          desired_slice_length  => $self->o('desired_slice_length'),
+        },
+        -batch_size => 300,
+        -flow_into => {
+          2 => {'clean_utr' => INPUT_PLUS() },
+        },
+        -rc_name => 'default',
+      },
+
+      {
+        -logic_name => 'clean_utr',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::CleanUTRs',
+        -parameters => {
+          source_db => '#core_db#',
+          target_db => '#clean_utr_db#',
+          dna_db    => '#core_db#',
+          store_rejected => $self->o('store_rejected'),
+        },
+        -rc_name => '4GB',
+        -max_retry_count => 1,
+        -analysis_capacity => 400,
+      },
+
+      {
+        -logic_name => 'delete_genes',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                          cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'delete_genes.pl').
+                          ' -dbuser '.$self->o('user').
+                          ' -dbpass '.$self->o('password').
+                          ' -dbhost '.$self->o('core_db','-host').
+                          ' -dbport '.$self->o('core_db','-port').
+                          ' -dbname '.'#core_dbname#'.
+                          ' -all'
+                        },
+        -rc_name    => 'default',
+        -flow_into  => {
+          1 => ['copy_genes'],
+        }
+      },
+
+      {
+        -logic_name => 'copy_genes',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                          cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'copy_genes.pl').
+                          ' -inuser '.$self->o('user_r').
+                          ' -inhost '.$self->o('clean_utr_db','-host').
+                          ' -inport '.$self->o('clean_utr_db','-port').
+                          ' -indbname '.'#clean_utr_dbname#'.
+                          ' -dnauser '.$self->o('user_r').
+                          ' -dnahost '.$self->o('core_db','-host').
+                          ' -dnaport '.$self->o('core_db','-port').
+                          ' -dnadbname '.'#core_dbname#'.
+                          ' -outuser '.$self->o('user').
+                          ' -outpass '.$self->o('password').
+                          ' -outhost '.$self->o('core_db','-host').
+                          ' -outport '.$self->o('core_db','-port').
+                          ' -outdbname '.'#core_dbname#'.
+                          ' -all'
+                        },
+        -rc_name    => 'default',
+        -flow_into  => {
+          1 => ['update_biotypes_and_analyses'],
+        }
+      },
 
       {
         -logic_name => 'update_biotypes_and_analyses',
@@ -1331,7 +1465,6 @@ sub pipeline_analyses {
 
       },
 
-
       {
         -logic_name => 'add_placeholder_sample_location',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddPlaceholderLocation',
@@ -1351,10 +1484,71 @@ sub pipeline_analyses {
                         species => '#production_name#',
                         group => 'core',
                        },
+        -flow_into  => {
+                        1 => ['create_busco_dirs'],
+                       },
         -rc_name    => 'default_registry',
       },
 
+      {
+         -logic_name => 'create_busco_dirs',
+         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+         -parameters => {
+                          cmd => 'mkdir -p #output_path#'.'/busco_score_data',
+                        },
+         -rc_name => 'default',
+         -flow_into => {
+                         1 => ['dump_canonical_stable_ids'],
+                       },
+       },
 
+      {
+         -logic_name => 'dump_canonical_stable_ids',
+         -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
+         -parameters => {
+                          db_conn => '#core_db#',
+                          input_query => 'SELECT transcript.stable_id from gene, transcript '.
+                           ' WHERE gene.gene_id = transcript.gene_id '.
+                           ' AND gene.canonical_transcript_id = transcript.transcript_id '.
+                           ' AND transcript.biotype = "protein_coding" ',
+                          command_out => q( grep 'ENS' > #busco_input_file_m#),
+                          busco_input_file_m => catfile('#output_path#', '/busco_score_data/',  $self->o('busco_input_file_stid') ),
+                          prepend => ['-NB', '-q'],
+                        },
+         -rc_name => '2GB',
+         -flow_into => {
+                         1 => ['print_translations'],
+                       },
+       },
+
+       {
+         -logic_name => 'print_translations',
+         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+         -parameters => {
+                          cmd => 'perl '.$self->o('print_protein_script_path').
+                                 ' --user='.$self->o('user_r').
+                                 ' --host='.$self->o('core_db','-host').
+                                 ' --port='.$self->o('core_db','-port').
+                                 ' --dbname='.'#core_dbname#'.
+                                 ' --id_file='.catfile('#output_path#', '/busco_score_data/', $self->o('busco_input_file_stid') ).
+                                 ' --output_file='.catfile('#output_path#', '/busco_score_data/', 'canonical_proteins.fa'),
+                        },
+         -rc_name => 'default',
+         -flow_into     => { 1  => ['run_busco'] },
+       },
+
+      {
+        -logic_name => 'run_busco',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd =>  'cd #output_path#; singularity exec ' .
+                  $self->o('busco_singularity_image') .
+                  ' busco -i #output_path#/busco_score_data/canonical_proteins.fa -m prot -l ' . '#busco_group#' .
+                  ' -o busco_score_p
+                  output;',
+        },
+        -rc_name => 'busco32',
+      },
     ];
 }
 
@@ -1365,8 +1559,11 @@ sub resource_classes {
   return {
     'default_registry' => { LSF => [$self->lsf_resource_builder('production', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{'registry_file'}]},
     'gbiab' => { LSF => $self->lsf_resource_builder('production', 50000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, $self->default_options->{'num_threads'})},
+    'busco32' => { LSF => $self->lsf_resource_builder( 'production', 32000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, $self->default_options->{'cores'}) },
     '1GB' => { LSF => $self->lsf_resource_builder('production', 1000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '2GB' => { LSF => $self->lsf_resource_builder('production', 2000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '3GB' => { LSF => $self->lsf_resource_builder('production', 3000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '4GB' => { LSF => $self->lsf_resource_builder( 'production', 4000, [ $self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'} ], [ $self->default_options->{'num_tokens'} ] ) },
     '8GB' => { LSF => $self->lsf_resource_builder('production', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '10GB' => { LSF => $self->lsf_resource_builder('production', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'default' => { LSF => $self->lsf_resource_builder('production', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},

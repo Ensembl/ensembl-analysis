@@ -195,6 +195,10 @@ sub fetch_input {
   my $core_dbname = $self->param('dbowner').'_'.$production_name.'_core_'.$ensembl_release.'_1';
   $core_db_details->{'-dbname'} = $core_dbname;
 
+  my $clean_db_details = $self->param('clean_utr_db');
+  my $clean_dbname = $self->param('dbowner').'_'.$production_name.'_cleanutr_'.$ensembl_release.'_1';
+  $clean_db_details->{'-dbname'} = $clean_dbname;
+
   my $rnaseq_summary_file          = catfile($short_read_dir, $production_name.'.csv');
   my $long_read_summary_file       = catfile($long_read_dir, $production_name.'_long_read.csv');
 
@@ -204,6 +208,7 @@ sub fetch_input {
   my $protein_file = $clade_params->{'protein_file'};
   my $busco_protein_file = $clade_params->{'busco_protein_file'};
   my $rfam_accessions_file = $clade_params->{'rfam_accessions_file'};
+  my $busco_group = $clade_params->{'busco_group'};
 
   # Meta details
   my $species_division  =  $clade_params->{'species_division'};
@@ -245,6 +250,8 @@ sub fetch_input {
 
   $output_params->{'core_db'} = $core_db_details;
   $output_params->{'core_dbname'} = $core_dbname;
+  $output_params->{'clean_utr_db'} = $clean_db_details;
+  $output_params->{'clean_utr_dbname'} = $clean_dbname;
   $output_params->{'stable_id_start'} = $stable_id_start;
   $output_params->{'stable_id_prefix'} = $stable_id_prefix;
   $output_params->{'clade'} = $clade;
@@ -276,6 +283,7 @@ sub fetch_input {
   $output_params->{'long_read_summary_file'} = $long_read_summary_file; # Problematic
   $output_params->{'protein_file'} = $protein_file;
   $output_params->{'busco_protein_file'} = $busco_protein_file;
+  $output_params->{'busco_group'} = $busco_group;
   $output_params->{'rfam_accessions_file'} = $rfam_accessions_file;
   $output_params->{'gbiab_commandline'} = $gbiab_commandline;
   $self->param('output_params',$output_params);
@@ -292,7 +300,7 @@ sub run {
 
 
 =head2 write_output
-
+p
  Arg [1]    : None
  Description: Dataflow the name of the resulting BAM file on branch 1 via 'filename'
  Returntype : None
@@ -318,23 +326,29 @@ sub get_clade_params {
     $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/lepidoptera_orthodb_proteins.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblMetazoa',
+    $clade_params->{'busco_group'} = 'lepidoptera_odb10',
+
   } elsif($clade eq 'teleostei') {
     $clade_params->{'protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/actinopterygii_uniprot_proteins.fa',
     $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/actinopterygii_orthodb_proteins.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblVertebrates',
+
   } elsif($clade eq 'humans') {
     # Just temp stuff for testing
     $clade_params->{'protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/actinopterygii_uniprot_proteins.fa',
     $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/actinopterygii_orthodb_proteins.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblVertebrates',
+
   } elsif($clade eq 'insects') {
     # This is for hymenoptera, just labelled insects till the registry is updated
     $clade_params->{'protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/hymenoptera_uniprot_proteins.fa',
     $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/hymenoptera_orthodb_proteins.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblMetazoa',
+    $clade_params->{'busco_group'} = 'hymenoptera_odb10',
+
   } elsif($clade eq 'plants') {
     # Test for Impatiens glandulifera labelled plants in the registry
     $clade_params->{'protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/gbiab_plants/all_plants.fasta',

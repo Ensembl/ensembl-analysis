@@ -1,5 +1,5 @@
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016-2019] EMBL-European Bioinformatics Institute
+# Copyright [2016-2020] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ use vars qw (@ISA  @EXPORT);
              add_ORF_to_transcript
              compute_6frame_translations_for_transcript 
              create_Translation
+             calculate_sequence_content
             );
 
 
@@ -68,19 +69,25 @@ use vars qw (@ISA  @EXPORT);
 
 sub print_Translation{
   my ($transcript,$indent) = @_;
+
   $indent = '' if(!$indent);
-  print Translation_info($transcript, $indent)."\n";
-  print_Translation_genomic_coords($transcript, $indent);
-  warning("Transcript is less than 3bp can't print ".
-          "any more info") if($transcript->length < 3);
-  return if($transcript->length < 3);
-  my $met = starts_with_met($transcript);
-  print $indent."peptide starts with a methionine\n" if($met);
-  my $stop = ends_with_stop($transcript);
-  print $indent."peptide ends with a stop codon\n" if($stop);
-  my $num_stops = contains_internal_stops($transcript);
-  print $indent."peptide contains ".$num_stops.
-    " internal stop codons\n" if($num_stops);
+  if ($transcript->translation) {
+    print Translation_info($transcript, $indent)."\n";
+    print_Translation_genomic_coords($transcript, $indent);
+    warning("Transcript is less than 3bp can't print ".
+            "any more info") if($transcript->length < 3);
+    return if($transcript->length < 3);
+    my $met = starts_with_met($transcript);
+    print $indent."peptide starts with a methionine\n" if($met);
+    my $stop = ends_with_stop($transcript);
+    print $indent."peptide ends with a stop codon\n" if($stop);
+    my $num_stops = contains_internal_stops($transcript);
+    print $indent."peptide contains ".$num_stops.
+      " internal stop codons\n" if($num_stops);
+  }
+  else {
+    print $indent, "NO translation\n";
+  }
 }
 
 
@@ -635,5 +642,18 @@ sub create_Translation {
 
   return $translation;
 }
+
+sub calculate_sequence_content {
+  my ($translation) = @_;
+
+  my %content;
+  my $index = 0;
+  my $seq = $translation->seq;
+  while ($index < length($seq)) {
+    ++$content{substr($seq, $index++, 1)};
+  }
+  return \%content;
+}
+
 
 1;
