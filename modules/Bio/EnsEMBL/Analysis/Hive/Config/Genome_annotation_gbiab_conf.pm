@@ -230,16 +230,16 @@ sub default_options {
     refseq_synonyms_script_path       => catfile($self->o('ensembl_analysis_script'), 'refseq', 'load_refseq_synonyms.pl'),
     refseq_import_script_path         => catfile($self->o('ensembl_analysis_script'), 'refseq', 'parse_ncbi_gff3.pl'),
     sequence_dump_script              => catfile($self->o('ensembl_analysis_script'), 'sequence_dump.pl'),
-    sncrna_analysis_script             => catdir($self->o('ensembl_analysis_script'), 'genebuild', 'sncrna'),
-
-    ensembl_misc_script        => catdir($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts'),
-    repeat_types_script        => catfile($self->o('ensembl_misc_script'), 'repeats', 'repeat-types.pl'),
-    meta_coord_script          => catfile($self->o('ensembl_misc_script'), 'meta_coord', 'update_meta_coord.pl'),
-    meta_levels_script         => catfile($self->o('ensembl_misc_script'), 'meta_levels.pl'),
-    frameshift_attrib_script   => catfile($self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl'),
-    select_canonical_script    => catfile($self->o('ensembl_misc_script'),'canonical_transcripts', 'select_canonical_transcripts.pl'),
-    assembly_name_script       => catfile($self->o('ensembl_analysis_script'), 'update_assembly_name.pl'),
-    print_protein_script_path  => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'print_translations.pl'),
+    sncrna_analysis_script            => catdir($self->o('ensembl_analysis_script'), 'genebuild', 'sncrna'),
+    ensembl_misc_script               => catdir($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts'),
+    clean_lncrna_script               => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'gbiab', 'support_scripts_perl', 'clean_lncrna.pl'),
+    repeat_types_script               => catfile($self->o('ensembl_misc_script'), 'repeats', 'repeat-types.pl'),
+    meta_coord_script                 => catfile($self->o('ensembl_misc_script'), 'meta_coord', 'update_meta_coord.pl'),
+    meta_levels_script                => catfile($self->o('ensembl_misc_script'), 'meta_levels.pl'),
+    frameshift_attrib_script          => catfile($self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl'),
+    select_canonical_script           => catfile($self->o('ensembl_misc_script'),'canonical_transcripts', 'select_canonical_transcripts.pl'),
+    assembly_name_script              => catfile($self->o('ensembl_analysis_script'), 'update_assembly_name.pl'),
+    print_protein_script_path         => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'print_translations.pl'),
 
     rnaseq_daf_introns_file => catfile($self->o('output_dir'), 'rnaseq_daf_introns.dat'),
 
@@ -1180,8 +1180,25 @@ sub pipeline_analyses {
         -rc_name => 'gbiab',
         -max_retry_count => 0,
         -flow_into => {
-          1 => ['create_clean_utr_db']
+          1 => ['clean_lncrna']
         },
+      },
+
+      {
+        -logic_name => 'clean_lncrna',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.$self->o('clean_lncrna_script').
+                                ' -user '.$self->o('user').
+                                ' -pass '.$self->o('password').
+                                ' -host '.$self->o('core_db','-host').
+                                ' -port '.$self->o('core_db','-port').
+                                ' -dbname '.'#core_dbname#'
+                       },
+        -rc_name => 'default',
+        -flow_into => {
+                        1 => ['create_clean_utr_db'],
+                      },
       },
 
       {
@@ -1332,7 +1349,6 @@ sub pipeline_analyses {
                         1 => ['set_meta_levels'],
                       },
       },
-
 
       {
         -logic_name => 'set_meta_levels',
