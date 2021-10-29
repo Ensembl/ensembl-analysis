@@ -32,23 +32,22 @@ sub default_options {
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
-#    'busco_dataset'            => '' || ,  # CHANGE AS REQUIRED
-    'busco_input_file_stid'         => 'stable_id_to_dump.txt',
-
     'num_threads'               => 20,
-    'dbowner'                   => 'jma',
-    'base_output_dir'           => '' || '/hps/nobackup/flicek/ensembl/genebuild/jma/research',
+    'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
+    'base_output_dir'           => '',
     'protein_file'              => '',
     'busco_protein_file'        => '',
     'rfam_accessions_file'      => '',
-    'registry_file'             => '/nfs/production/flicek/ensembl/genebuild/jma/temp/gbiab_temp_space/Databases.pm',
+    'diamond_validation_db'     => '',
+    'validation_type'           => '',
+    'registry_file'             => '',
     'release_number'            => '' || $self->o('ensembl_release'),
-    'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name'             => '' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('ensembl_release'),
-    'user_r'                    => 'ensro', # read only db user
-    'user'                      => 'ensadmin', # write db user
-    'password'                  => 'ensembl', # password for write db user
+    'user_r'                    => '', # read only db user
+    'user'                      => '', # write db user
+    'password'                  => '', # password for write db user
     'server_set'                => '', # What server set to user, e.g. set1
+    'busco_input_file_stid'     => 'stable_id_to_dump.txt',
     'pipe_db_server'            => $ENV{GBS7}, # host for pipe db
     'databases_server'          => $ENV{GBS5}, # host for general output dbs
     'dna_db_server'             => $ENV{GBS6}, # host for dna db
