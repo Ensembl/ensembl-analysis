@@ -32,22 +32,23 @@ sub default_options {
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
+#    'busco_dataset'            => '' || ,  # CHANGE AS REQUIRED
+    'busco_input_file_stid'         => 'stable_id_to_dump.txt',
+
     'num_threads'               => 20,
-    'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
-    'base_output_dir'           => '',
+    'dbowner'                   => 'jma',
+    'base_output_dir'           => '' || '/hps/nobackup/flicek/ensembl/genebuild/jma/research',
     'protein_file'              => '',
     'busco_protein_file'        => '',
     'rfam_accessions_file'      => '',
-    'diamond_validation_db'     => '',
-    'validation_type'           => '',
-    'registry_file'             => '',
+    'registry_file'             => '/nfs/production/flicek/ensembl/genebuild/jma/temp/gbiab_temp_space/Databases.pm',
     'release_number'            => '' || $self->o('ensembl_release'),
+    'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name'             => '' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('ensembl_release'),
-    'user_r'                    => '', # read only db user
-    'user'                      => '', # write db user
-    'password'                  => '', # password for write db user
+    'user_r'                    => 'ensro', # read only db user
+    'user'                      => 'ensadmin', # write db user
+    'password'                  => 'ensembl', # password for write db user
     'server_set'                => '', # What server set to user, e.g. set1
-    'busco_input_file_stid'     => 'stable_id_to_dump.txt',
     'pipe_db_server'            => $ENV{GBS7}, # host for pipe db
     'databases_server'          => $ENV{GBS5}, # host for general output dbs
     'dna_db_server'             => $ENV{GBS6}, # host for dna db
@@ -867,17 +868,15 @@ sub pipeline_analyses {
         -logic_name => 'process_gca',
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::ProcessGCA',
         -parameters => {
-                         'num_threads'           => $self->o('num_threads'),
-                         'dbowner'               => $self->o('dbowner'),
-                         'core_db'               => $self->o('core_db'),
-                         'clean_utr_db'          => $self->o('clean_utr_db'),
-                         'ensembl_release'       => $self->o('ensembl_release'),
-                         'base_output_dir'       => $self->o('base_output_dir'),
-                         'registry_db'           => $self->o('registry_db'),
-                         'enscode_root_dir'      => $self->o('enscode_root_dir'),
-                         'registry_file'         => $self->o('registry_file'),
-                         'diamond_validation_db' => $self->o('diamond_validation_db'),
-                         'validation_type'       => $self->o('validation_type'),
+                         'num_threads'      => $self->o('num_threads'),
+                         'dbowner'          => $self->o('dbowner'),
+                         'core_db'          => $self->o('core_db'),
+                         'clean_utr_db'     => $self->o('clean_utr_db'),
+                         'ensembl_release'  => $self->o('ensembl_release'),
+                         'base_output_dir'  => $self->o('base_output_dir'),
+                         'registry_db'      => $self->o('registry_db'),
+                         'enscode_root_dir' => $self->o('enscode_root_dir'),
+                         'registry_file'      => $self->o('registry_file'),
                        },
         -rc_name    => 'default',
 
@@ -1558,11 +1557,11 @@ sub pipeline_analyses {
         -logic_name => 'run_busco',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
-          cmd =>  'cd #output_path#; singularity exec ' .
+          cmd =>  'cd #output_path#/busco_score_data; singularity exec ' .
                   $self->o('busco_singularity_image') .
-                  ' busco -i #output_path#/busco_score_data/canonical_proteins.fa -m prot -l ' . '#busco_group#' .
-                  ' -o busco_score_p
-                  output;',
+                  ' busco -i #output_path#/busco_score_data/canonical_proteins.fa -m prot -l ' .
+                  '#busco_group#' .
+                  ' -o output;',
         },
         -rc_name => 'busco32',
       },
