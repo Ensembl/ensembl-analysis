@@ -356,12 +356,14 @@ sub get_clade_params {
     $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/gbiab_plants/viridiplantae_orthodb_proteins.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_eudicotyledons_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblPlants',
+    $clade_params->{'busco_group'} = 'viridiplantae_odb10',
   } elsif($clade eq 'metazoa') {
     # Test for Impatiens glandulifera labelled plants in the registry
     $clade_params->{'protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/worm_uniprot_proteins.fa',
     $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/mollusca_orthodb_proteins.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_worm_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblMetazoa',
+    $clade_params->{'busco_group'} = 'metazoa_odb10',
   } else {
     $self->throw('Clade parameters not found for clade: '.$clade);
   }
