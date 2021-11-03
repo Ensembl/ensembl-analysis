@@ -49,11 +49,11 @@ sub default_options {
     #Gbiab
     'num_threads' => 20,
     #'dbowner' => 'fergal',
-    'base_output_dir'      => '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/braker_subpipe/test1/',
+    'base_output_dir'      => '',
     'protein_file'         => '',
     'busco_protein_file'   => '',
     'rfam_accessions_file' => '',
-    'registry_file'        => '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/braker_subpipe/Databases.pm',
+    'registry_file'        => 'Databases.pm',
     'release_number'       => '001' || $self->o('ensembl_release'),
 
     'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
@@ -1192,7 +1192,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
 
       -parameters => {
-        cmd => 'singularity exec ' . $self->o('busco_singularity_image') . ' busco -i #output_path#/braker/braker_proteins.fa -m prot -l ' . $self->o('busco_dataset') . ' -o output_busco_#assembly_accession#  ;',
+        cmd => 'singularity exec ' . $self->o('busco_singularity_image') . ' busco -i #output_path#/braker/braker_proteins.fa -m prot -l #busco_group# -o output_busco_#assembly_accession#  ;',
       },
       -rc_name => 'braker32',
     },
