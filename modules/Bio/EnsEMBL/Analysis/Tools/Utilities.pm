@@ -1217,6 +1217,7 @@ sub first_upper_case {
  Arg [2]    : String $msg (optional), message to the user if something goes wrong
  Arg [3]    : Int $wait (optional), how long we should wait before throwing an exception
               Default is 30 seconds
+ Arg [4]    : ArrayRef of String $fail_strings (optional), if any string in this array is found in the $cmd output, $cmd will be retried 
  Description: Execute a command and wait for Arg[3] seconds before throwing an execption
               This is really useful in Hive while using LSF as processes are killed in random order
               Without the wait a LSF signal like TERM_MEMLIMIT might not be caught before the exit
@@ -1227,9 +1228,20 @@ sub first_upper_case {
 =cut
 
 sub execute_with_wait {
-  my ($cmd, $failed_msg, $wait) = @_;
+  my ($cmd, $failed_msg, $wait, $fail_strings) = @_;
 
-  if (system($cmd)) {
+  if ($fail_strings) {
+    my $cmd_output = `$cmd`;
+    foreach my $fail_str (@{$fail_strings}) {    
+      if ($cmd_output =~ /$fail_str/) {
+        warning("String $fail_str found in command output. The command will be retried. Command: $cmd\n");
+        execute_with_wait($cmd, $failed_msg, $wait);
+      } elsif ($?) {
+        sleep($wait || 30);
+        throw($failed_msg || 'Failed to run with code: '.$?."\n".$cmd);
+      }
+    }
+  } elsif (system($cmd)) {
     sleep($wait || 30);
     throw($failed_msg || 'Failed to run with code: '.$?."\n".$cmd);
   }
