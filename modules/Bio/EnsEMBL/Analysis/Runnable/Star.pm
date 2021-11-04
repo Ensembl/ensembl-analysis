@@ -118,7 +118,7 @@ sub run {
   # run STAR
   my $command = $self->program." --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$self->threads." --twopassMode Basic --runMode alignReads --genomeDir ".$self->genome." --readFilesIn $fastq $fastqpair --outFileNamePrefix $out_dir $options --outTmpDir $tmp_dir --outSAMtype BAM SortedByCoordinate";
   $self->warning("Command: $command\n");
-  execute_with_wait($command,["Unexpected block structure in file","Possible output corruption"]);
+  execute_with_wait($command);
   $self->output([$out_dir.'Aligned.sortedByCoord.out.bam']);
 }
 
