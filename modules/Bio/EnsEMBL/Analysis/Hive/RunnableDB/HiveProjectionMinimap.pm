@@ -479,6 +479,12 @@ sub process_transcript_hal_file {
     $self->warning("this $chrname region is not exist in HAL file"); 
     $self->param('_branch_to_flow_on_noalignblocks', -5); 
     next; 
+  } elsif ( ($chrname eq 'MT') or ( $chrname eq 'chrM' ) ) {
+  	# I should have a new block
+  	$self->transcripts_noalignblocks($transcript->dbID());
+    $self->warning("this $chrname region is not exist in HAL file"); 
+    $self->param('_branch_to_flow_on_noalignblocks', -5); 
+    next;   	
   }
   $chrname = $chrom_map{$chrname}; 
   print "DEBUG:: after:: $chrname \n"; 
@@ -529,7 +535,7 @@ sub process_transcript_hal_file {
     <$json_fh>
   };
 
-# print "$json_text \n"; 
+  # print "$json_text \n"; 
   my $json = JSON->new;
   my $data = $json->decode($json_text);
 
@@ -541,23 +547,34 @@ sub process_transcript_hal_file {
 
   my $transcript_slices = []; 
 
-  if (scalar(@$data) == 0 ) {
+  my $results = $data->[0]{'results'}; 
+  if (scalar(@$results) == 0 ) {
+  	print "DEBUG::THERE ARE NO RESULTS\n"; 
+  }
+  
+  if ( (scalar(@$data) == 0 ) or ( scalar(@$results) == 0 ) ) {
     # consider it as a failed to get an aligned block
     $self->transcripts_noalignblocks($transcript->dbID());
     $self->warning("The sorted align blocks were not converted into transcript slices. Transcript ".$transcript->dbID()." . Input id will be passed to branch -5.\n");
     $self->param('_branch_to_flow_on_noalignblocks', -5);
     next;
   }
-
+  
+  
+  # data dumper: 
+  # use Data::Dumper; 
+  # print "DEBUG:: START DUMPER\n"; 
+  # print Dumper($data); 
+  # print "DEBUG:: END DUMPER\n"; 
   
   # I Am not taking strand because I assume minimap needs the sequence. 
   my $dest_genome = $data->[0]{'results'}->[0]{'dest_genome'};  # this is the name of the assembly for example 'dest_genome' => 'CHM13',
-  my $dest_chrom = $data->[0]{'results'}->[0]{'dest_chrom'};
+  my $dest_chrom = $data->[0]{'results'}->[0]{'dest_chr'};
   my $start_chrom = $data->[0]{'results'}->[0]{'dest_start'};
   my $end_chrom = $data->[0]{'results'}->[0]{'dest_end'};
 
   my ($coord_system_name, $seq_region_name, $start, $end); 
-  
+  print "DEBUG::dest_chrom:: $dest_chrom \n"; 
   $coord_system_name = "CHM13_T2T_v1.0";
   $seq_region_name = $dest_chrom; 
   $start = $start_chrom;
@@ -576,7 +593,7 @@ sub process_transcript_hal_file {
   #
   foreach my $cs ( @{ $csa->fetch_all() } ) {
     my $str = join ':', $cs->name(), $cs->version(), $cs->dbID();
-    print "$str\n";
+    print "DEBUG:: GET ALL CS INFO:: $str\n";
     $coord_system_name = $cs->name(); 
   }
   
@@ -600,7 +617,6 @@ sub process_transcript_hal_file {
  
   return $transcript_slices;
 }
-
 
 
 

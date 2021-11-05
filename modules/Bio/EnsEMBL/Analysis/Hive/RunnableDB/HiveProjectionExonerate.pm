@@ -469,7 +469,14 @@ sub process_transcript_hal_file {
     $self->warning("this $chrname region is not exist in HAL file"); 
     $self->param('_branch_to_flow_on_noalignblocks', -5); 
     next; 
+  } elsif ( ($chrname eq 'MT') or ( $chrname eq 'chrM' ) ) {
+  	# I should have a new block
+  	$self->transcripts_noalignblocks($transcript->dbID());
+    $self->warning("this $chrname region is not exist in HAL file"); 
+    $self->param('_branch_to_flow_on_noalignblocks', -5); 
+    next;   	
   }
+
   $chrname = $chrom_map{$chrname}; 
   print "DEBUG:: after:: $chrname \n"; 
   
@@ -543,7 +550,8 @@ sub process_transcript_hal_file {
   
   # I Am not taking strand because I don't think it is important for minima sequence. 
   my $dest_genome = $data->[0]{'results'}->[0]{'dest_genome'};  # this is the name of the assembly for example 'dest_genome' => 'CHM13',
-  my $dest_chrom = $data->[0]{'results'}->[0]{'dest_chrom'};
+  # my $dest_chrom = $data->[0]{'results'}->[0]{'dest_chrom'};
+  my $dest_chrom = $data->[0]{'results'}->[0]{'dest_chr'};
   my $start_chrom = $data->[0]{'results'}->[0]{'dest_start'};
   my $end_chrom = $data->[0]{'results'}->[0]{'dest_end'};
 
