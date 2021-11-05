@@ -1600,7 +1600,58 @@ sub pipeline_analyses {
       },
       -rc_name => 'default',
       -flow_into  => {
-        1 => ['create_rnaseq_pipeline_job'],
+        1 => ['create_homology_rnaseq_pipeline_job'],
+      },
+    },
+
+    {
+      -logic_name => 'create_homology_rnaseq_pipeline_job',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+      -parameters => {
+        column_names => ['meta_pipeline_db', 'ehive_url', 'pipeline_name', 'external_link'],
+        inputlist => [[$homology_rnaseq_pipe_db, $homology_rnaseq_pipe_url, 'homology_rnaseq_'.$self->o('production_name'), $homology_rnaseq_guihive]],
+        guihive_host => $self->o('guihive_host'),
+        guihive_port => $self->o('guihive_port'),
+      },
+      -rc_name => 'default',
+      -max_retry_count => 0,
+      -flow_into => {
+        2 => ['initialise_homology_rnaseq'],
+      }
+    },
+
+    {
+      -logic_name => 'initialise_homology_rnaseq',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMetaPipelineInit',
+      -parameters => {
+        hive_config => $self->o('hive_homology_rnaseq_config'),
+        databases => ['genblast_db', 'rnaseq_refine_db', 'genblast_rnaseq_support_nr_db', 'dna_db'],
+        genblast_db => $self->o('genblast_db'),
+        rnaseq_refine_db => undef,
+        genblast_rnaseq_support_nr_db => $self->o('genblast_rnaseq_support_nr_db'),
+        dna_db => $self->o('dna_db'),
+        enscode_root_dir => $self->o('enscode_root_dir'),
+        extra_parameters => {
+          output_path => $self->o('output_path'),
+          user_r => $self->o('user_r'),
+          dna_db_host => $self->o('dna_db_host'),
+          dna_db_port => $self->o('dna_db_port'),
+          databases_host => $self->o('databases_host'),
+          databases_port => $self->o('databases_port'),
+          release_number => $self->o('release_number'),
+          production_name => $self->o('production_name'),
+          species_name => $self->o('species_name'),
+          taxon_id => $self->o('taxon_id'),
+          uniprot_set => $self->o('uniprot_set'),
+          use_genome_flatfile => $self->o('use_genome_flatfile'),
+          transcript_selection_url => $transcript_selection_pipe_url,
+        },
+      },
+      -rc_name      => 'default',
+      -max_retry_count => 0,
+      -flow_into => {
+        '1->A' => ['create_rnaseq_pipeline_job'],
+        'A->1' => ['run_homology_rnaseq'],
       },
     },
 
@@ -1619,7 +1670,6 @@ sub pipeline_analyses {
         '2->A' => ['initialise_rnaseq'],
         'A->1' => ['create_homology_rnaseq_pipeline_job'],
       }
-
     },
 
     {
@@ -1668,56 +1718,6 @@ sub pipeline_analyses {
       -max_retry_count => 1,
     },
 
-
-    {
-      -logic_name => 'create_homology_rnaseq_pipeline_job',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-      -parameters => {
-        column_names => ['meta_pipeline_db', 'ehive_url', 'pipeline_name', 'external_link'],
-        inputlist => [[$homology_rnaseq_pipe_db, $homology_rnaseq_pipe_url, 'homology_rnaseq_'.$self->o('production_name'), $homology_rnaseq_guihive]],
-        guihive_host => $self->o('guihive_host'),
-        guihive_port => $self->o('guihive_port'),
-      },
-      -rc_name => 'default',
-      -max_retry_count => 0,
-      -flow_into => {
-        2 => ['initialise_homology_rnaseq'],
-      }
-    },
-
-    {
-      -logic_name => 'initialise_homology_rnaseq',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMetaPipelineInit',
-      -parameters => {
-        hive_config => $self->o('hive_homology_rnaseq_config'),
-        databases => ['genblast_db', 'rnaseq_refine_db', 'genblast_rnaseq_support_nr_db', 'dna_db'],
-        genblast_db => $self->o('genblast_db'),
-        rnaseq_refine_db => undef,
-        genblast_rnaseq_support_nr_db => $self->o('genblast_rnaseq_support_nr_db'),
-        dna_db => $self->o('dna_db'),
-        enscode_root_dir => $self->o('enscode_root_dir'),
-        extra_parameters => {
-          output_path => $self->o('output_path'),
-          user_r => $self->o('user_r'),
-          dna_db_host => $self->o('dna_db_host'),
-          dna_db_port => $self->o('dna_db_port'),
-          databases_host => $self->o('databases_host'),
-          databases_port => $self->o('databases_port'),
-          release_number => $self->o('release_number'),
-          production_name => $self->o('production_name'),
-          species_name => $self->o('species_name'),
-          taxon_id => $self->o('taxon_id'),
-          uniprot_set => $self->o('uniprot_set'),
-          use_genome_flatfile => $self->o('use_genome_flatfile'),
-          transcript_selection_url => $transcript_selection_pipe_url,
-        },
-      },
-      -rc_name      => 'default',
-      -max_retry_count => 0,
-      -flow_into => {
-        1 => ['run_homology_rnaseq'],
-      },
-    },
 
     {
       -logic_name => 'run_homology_rnaseq',
