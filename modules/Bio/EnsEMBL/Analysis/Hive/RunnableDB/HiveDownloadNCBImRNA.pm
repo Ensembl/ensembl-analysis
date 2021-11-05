@@ -93,7 +93,6 @@ sub fetch_input {
   my $url = $self->param('base_url').'/'.$self->param('search_url').'?db='.$self->param('ncbidb').'&term='.$self->input_id.'&usehistory=y';
 
   if (!-d dirname($self->param('output_file')) ) {
-    print  "DEBUG:: to check" . $self->param('output_file') . "\n"; 
     make_path(dirname($self->param('output_file')));
   }
 
