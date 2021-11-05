@@ -507,7 +507,7 @@ sub pipeline_analyses {
       },
       -rc_name => '50GB_scallop',
       -flow_into => {
-        MEMLIMIT => ['scallop_himem'],
+        MEMLIMIT => ['scallop_200GB'],
       },
     },
 
