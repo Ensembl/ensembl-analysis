@@ -192,8 +192,7 @@ sub compare_seqs {
   my @alt_seq_end_arr = split('',$alt_slice_end);
 
   $num_mismatches = 0;
-  join('',map { $ref_seq_end_arr[$_] eq $alt_seq_end_arr[$_] ? $alt_seq_end_arr[$_] : $num_mismatches++ }
-              0 .. $#alt_seq_end_arr);
+  map { $ref_seq_end_arr[$_] eq $alt_seq_end_arr[$_] ? $alt_seq_end_arr[$_] : $num_mismatches++ } 0 .. $#alt_seq_end_arr;
 
   if ($num_mismatches >= 6) { # 95% identity instead of 100%
     print "WARNING: ends have different seqs\n";
