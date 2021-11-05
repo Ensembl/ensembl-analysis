@@ -59,9 +59,13 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
                sample_fields => 'accession,secondary_sample_accession,bio_material,cell_line,cell_type,collected_by,collection_date,country,cultivar,culture_collection,description,dev_stage,ecotype,environmental_sample,first_public,germline,identified_by,isolate,isolation_source,location,mating_type,serotype,serovar,sex,submitted_sex,specimen_voucher,strain,sub_species,sub_strain,tissue_lib,tissue_type,variety,tax_id,scientific_name,sample_alias,center_name,protocol_label,project_name,investigation_type,experimental_factor,sample_collection,sequencing_method',
                download_method => 'ftp',
                separator => '\t',
-               _read_length => 1, # This is a default that should not exist. Some data do not have the read count and base count
+               _read_length => 1,
                _centre_name => 'ENA',
-               print_all_info => 0, # It will print all the sample information in the description instead of a selection, good to use when checking the CSV file
+               print_all_info => 0,
+               paired_end_only => 1, #by default, module will only add paired-end data to the csv, add "paired_end_only => 0" to pipeline config to include single end data
+               read_type => 'short_read',
+               instrument_platform => 'ILLUMINA',
+               taxon_id_restriction => 0, # Set it to 1 if you are using 'study_accession' which has multiple species
  Returntype : Hashref
  Exceptions : None
 
@@ -85,6 +89,7 @@ sub param_defaults {
     paired_end_only => 1, #by default, module will only add paired-end data to the csv, add "paired_end_only => 0" to pipeline config to include single end data
     read_type => 'short_read',
     instrument_platform => 'ILLUMINA',
+    taxon_id_restriction => 0, # Set it to 1 if you are using 'study_accession' which has multiple species
   }
 }
 
@@ -111,7 +116,12 @@ sub fetch_input {
   if (-e $self->param('inputfile')) {
     $self->complete_early("'inputfile' exists so I will use that");
   } elsif ($self->param_is_defined('study_accession') and $self->param('study_accession')) {
-    $self->_populate_query($self->param('study_accession'), 'study_accession=%s');
+    if ($self->param('taxon_id_restriction') and $self->param_is_defined('taxon_id') and $self->param('taxon_id')) {
+      $self->_populate_query($self->param('study_accession'), 'study_accession=%s AND tax_tree('.$self->param('taxon_id').')');
+    }
+    else {
+      $self->_populate_query($self->param('study_accession'), 'study_accession=%s');
+    }
   } elsif ($self->param_is_defined('taxon_id') and $self->param('taxon_id')) {
     $self->_populate_query($self->param('taxon_id'), 'tax_tree(%s) AND instrument_platform='.$self->param('instrument_platform').' AND library_source=TRANSCRIPTOMIC');
   } else {
