@@ -161,7 +161,7 @@ sub write_output {
     my $log_file = catfile($output_file_dirname,$srr.'_Log.out');
     my $log_file_ok = 1;
 
-    open(LOGFILE,$log_file) or die("Log file $log_file not found");
+    open(LOGFILE,$log_file) or die("Log file $log_file could not be opened.");
     while (my $string = <LOGFILE>) {
       if ($string =~ /Unexpected block structure/ or
           $string =~ /Possible output corruption/) {
@@ -169,7 +169,7 @@ sub write_output {
 	last;
       }
     }
-    close(LOGFILE);
+    close(LOGFILE) or die("Log file $log_file could not be closed.");
 
     if (!$log_file_ok) {
       $self->throw("'Unexpected block structure' or 'Possible output corruption' found in the log file $log_file");
