@@ -456,7 +456,7 @@ sub pipeline_analyses {
         num_threads        => $self->o('star_threads'),
       },
       -flow_into => {
-        2 => ['check_star_bam_files'],
+        2 => ['scallop'],
 	ANYFAILURE => ['star_himem'],
       },
       -rc_name => '45GB_star',
@@ -474,21 +474,9 @@ sub pipeline_analyses {
         num_threads        => $self->o('star_threads'),
       },
       -flow_into => {
-        2 => ['check_star_bam_files'],
+        2 => ['scallop'],
       },
       -rc_name => '80GB_star',
-    },
-
-    {
-      -logic_name => 'check_star_bam_files',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -rc_name => 'default',
-      -parameters => {
-        cmd => $self->o('samtools_path').' flagstat #iid#',
-      },
-      -flow_into => {
-	1 => ['scallop'],
-      },
     },
 
     {
