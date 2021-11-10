@@ -53,7 +53,6 @@ sub default_options {
     'release_number'                  => '' || $self->o('ensembl_release'),
     'species_name'                    => '', # e.g. mus_musculus
     'production_name'                 => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
-    'taxon_id'                        => '', # should be in the assembly report file
     'uniprot_set'                     => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'use_genome_flatfile'             => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     'output_path'                     => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
@@ -206,7 +205,7 @@ sub pipeline_analyses {
         dna_db            => $self->o('dna_db'),
         source_db         => $self->o('genblast_db'),
         intron_db         => $self->o('rnaseq_refine_db'),
-        target_db         => $self->o('genblast_db'),
+        target_db         => $self->o('genblast_rnaseq_support_db'),
         logic_name        => 'genblast_rnaseq_support',
         classify_by_count => 1,
         update_genes      => 0,
@@ -225,7 +224,7 @@ sub pipeline_analyses {
         dna_db            => $self->o('dna_db'),
         source_db         => $self->o('genblast_db'),
         intron_db         => $self->o('rnaseq_refine_db'),
-        target_db         => $self->o('genblast_db'),
+        target_db         => $self->o('genblast_rnaseq_support_db'),
         logic_name        => 'genblast_rnaseq_support',
         classify_by_count => 1,
         update_genes      => 0,
@@ -238,7 +237,7 @@ sub pipeline_analyses {
       -logic_name => 'create_genblast_rnaseq_nr_db',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
       -parameters => {
-        source_db   => $self->o('genblast_db'),
+        source_db   => $self->o('genblast_rnaseq_support_db'),
         target_db   => $self->o('genblast_rnaseq_support_nr_db'),
         create_type => 'copy',
       },

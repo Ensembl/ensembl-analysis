@@ -1641,7 +1641,6 @@ sub pipeline_analyses {
           release_number => $self->o('release_number'),
           production_name => $self->o('production_name'),
           species_name => $self->o('species_name'),
-          taxon_id => $self->o('taxon_id'),
           uniprot_set => $self->o('uniprot_set'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
           transcript_selection_url => $transcript_selection_pipe_url,

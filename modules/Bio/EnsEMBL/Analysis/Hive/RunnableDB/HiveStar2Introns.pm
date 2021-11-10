@@ -189,6 +189,7 @@ sub write_output {
   }
   my $slice_adaptor = $self->param('_slice_adaptor');
 
+  my $max_intron_size = 0;
   my $num_dafs = 0;
   $out_dbc->do("ALTER TABLE dna_align_feature DISABLE KEYS");
   my $sth_write = $out_dbc->prepare('INSERT INTO dna_align_feature (seq_region_id, seq_region_start, seq_region_end, seq_region_strand, hit_name, hit_start, hit_end, hit_strand, analysis_id, score, cigar_line, align_type) values (?, ?, ?, ?, ?, 1, ?, 1, ?, ?, ?, "ensembl")');
@@ -198,6 +199,9 @@ sub write_output {
       my ($start, $end, $strand, $is_canonical) = split(':', $item);
       my $merged_depth = 0;
       my $diff = $end-$start;
+      if ($diff > $max_intron_size) {
+        $max_intron_size = $diff;
+      }
       $is_canonical = $is_canonical > 0 ? 'canon' : 'non canon';
       foreach my $logic_name (keys %{$daf_table->{$seq_region}->{$item}}) {
         if ((($diff + 1) >= $small_intron_size) && $daf_table->{$seq_region}->{$item}->{$logic_name} >= $min_intron_depth) {
@@ -233,6 +237,8 @@ sub write_output {
     }
   }
   $out_dbc->do("ALTER TABLE dna_align_feature ENABLE KEYS");
+  my $sth_meta_coord = $out_dbc->prepare('INSERT INTO meta_coord (table_name, coord_system_id, max_length) VALUES ("dna_align_feature", 1, '.($max_intron_size+1).')');
+  $sth_meta_coord->execute;
 }
 
 1;
