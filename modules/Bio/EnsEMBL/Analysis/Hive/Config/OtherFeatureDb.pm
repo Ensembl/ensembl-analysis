@@ -144,7 +144,7 @@ sub default_options {
 
     'otherfeatures_db' => {
       -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_otherfeatures_' . $self->o('release_number'),
-      ghost   => $self->o('otherfeatures_db_host'),
+      -host   => $self->o('otherfeatures_db_host'),
       -port   => $self->o('otherfeatures_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
