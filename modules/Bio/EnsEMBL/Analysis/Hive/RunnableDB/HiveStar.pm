@@ -47,6 +47,9 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveStar;
 use warnings;
 use strict;
 
+use File::Basename;
+use File::Spec::Functions qw(catfile);
+use Bio::EnsEMBL::Analysis::Runnable::Samtools;
 use Bio::EnsEMBL::Analysis::Runnable::Star;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
@@ -68,6 +71,8 @@ sub param_defaults {
   return {
     %{$self->SUPER::param_defaults},
     threads => 1,
+    samtools => 'samtools',
+    samtools_use_threading => 1,
   }
 }
 
@@ -136,9 +141,11 @@ sub fetch_input {
 =head2 write_output
 
  Arg [1]    : None
- Description: Dataflow the name of the resulting BAM file on branch 1 via 'filename'
+ Description: Check that the output log file does not contain any error message.
+              Check that the output BAM file is not truncated by running samtools flagstat.
+              If no error nor truncation is found, dataflow the name of the resulting BAM file on branch 1 via 'filename'
  Returntype : None
- Exceptions : None
+ Exceptions : Throw if an error is found in the output log file or the BAM file is truncated.
 
 =cut
 
@@ -147,6 +154,37 @@ sub write_output {
 
   my $output_files = $self->output;
   foreach my $output_file (@$output_files) {
+    my $output_file_basename = basename($output_file);
+    my $output_file_dirname = dirname($output_file);
+    my @output_file_basename_split = split('_',$output_file_basename,2);
+    my $srr = shift(@output_file_basename_split);
+    my $log_file = catfile($output_file_dirname,$srr.'_Log.out');
+    my $log_file_ok = 1;
+
+    open(LOGFILE,$log_file) or die("Log file $log_file could not be opened.");
+    while (my $string = <LOGFILE>) {
+      if ($string =~ /Unexpected block structure/ or
+          $string =~ /Possible output corruption/) {
+        $log_file_ok = 0;
+	last;
+      }
+    }
+    close(LOGFILE) or die("Log file $log_file could not be closed.");
+
+    if (!$log_file_ok) {
+      $self->throw("'Unexpected block structure' or 'Possible output corruption' found in the log file $log_file");
+    }
+
+    if (-e $output_file) {
+      my $samtools = Bio::EnsEMBL::Analysis::Runnable::Samtools->new(
+                     -program => $self->param('samtools'),
+                     -use_threading => $self->param('samtools_use_threading')
+                     );
+      $samtools->flagstat($output_file); # this will throw if the file is truncated
+    } else {
+      $self->throw("The output file $output_file does not exist. Cannot run samtools flagstat $output_file");
+    }
+
     $self->say_with_header("Output file: ".$output_file);
     $self->dataflow_output_id([{'iid' => $output_file}], $self->param('_branch_to_flow_to'));
   }
