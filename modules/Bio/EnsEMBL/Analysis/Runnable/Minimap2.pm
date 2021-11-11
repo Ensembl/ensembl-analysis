@@ -157,6 +157,10 @@ sub run {
   my $coverage_hash = {};
   $self->parse_sam($sam_file,$percent_id_hash,$coverage_hash);
 
+  # I'm putting this in because of a couple of edge case jobs where paftools would not run unless the newline was removed from the end
+  # of the file. This seems unusual, but as it does no harm I've decided to just implement this fix and not investigate further
+  system("perl -pi -e 'chomp if eof' ".$sam_file);
+
   my $paftools_command = $paftools_path." splice2bed ".$sam_file." > ".$bed_file;
   $self->warning("Command:\n".$paftools_command."\n");
   if(system($paftools_command)) {

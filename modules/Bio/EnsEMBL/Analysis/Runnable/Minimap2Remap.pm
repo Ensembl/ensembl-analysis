@@ -924,9 +924,8 @@ sub run_exonerate {
   if(scalar(@{$runnable->output()})) {
      my $initial_output_transcript = ${$runnable->output()}[0];
      my $output_transcript = $self->update_exonerate_transcript_coords($initial_output_transcript,$target_slice_adaptor);
-     # Exonerate seems to always make
-     unless($source_transcript->translation()) {
- 
+     if($source_transcript->translation() and $output_transcript->translation()) {
+       $self->check_exonerate_translation($source_transcript,$output_transcript);
      }
      $output_transcript->stable_id($source_transcript->dbID());
      push(@$output_transcripts,$output_transcript);
@@ -935,6 +934,39 @@ sub run_exonerate {
   return($output_transcripts);
 }
 
+
+sub check_exonerate_translation {
+  my ($self,$source_transcript,$output_transcript) = @_;
+
+  my $source_se = $source_transcript->translation->start_Exon();
+  my $source_ee = $source_transcript->translation->end_Exon();
+
+  my $output_se = $output_transcript->translation->start_Exon();
+  my $output_ee = $output_transcript->translation->end_Exon();
+
+  # This will sort an incomplete start codon out. Exonerate will always make a CDS that's a multiple
+  # of three even if the annotation features is not a multiple of three. So this code will cut the
+  # equivalent amount off the end of the CDS. Note that at the moment there's no code to deal with
+  # edge cases like if this moved the cds into another exon (start would be < 1)
+  if($source_se->phase()) {
+    my $translation = $output_transcript->translation();
+    $output_se->phase($source_se->phase());
+    my $end_offset = $translation->end() - $source_se->phase();
+    $translation->end($end_offset);
+    $output_transcript->translation($translation);
+  }
+
+  # Need some code to sort out the situation where the cds end is wrong because exonerate won't make a
+  # complete cds. This can happen if the end codon of the original cds is not complete. Exonerate will
+  # just truncate it to the closest codon
+  my $translation_offset = length($output_transcript->translateable_seq()) % 3;
+  if($translation_offset) {
+    my $translation = $output_transcript->translation();
+    my $end_offset = $translation->end() - $translation_offset;
+    $translation->end($end_offset);
+    $output_transcript->translation($translation)
+  }
+}
 
 sub update_exonerate_transcript_coords {
   my ($self,$transcript,$target_slice_adaptor) = @_;
@@ -1012,7 +1044,7 @@ sub check_mapping_quality {
 
       unless($transcript_seq) {
         $self->warning("Couldn't find an ORF in transcript mapped from ".$source_transcript->stable_id().". Source transcript has an ORF");
-        push(@$bad_transcripts,$transcript);
+#        push(@$bad_transcripts,$transcript);
         next;
       }
 
@@ -1034,6 +1066,8 @@ sub check_mapping_quality {
     $transcript->{'source_stable_id'} = $source_transcript->stable_id();
     $transcript->{'source_biotype_group'} = $source_transcript->get_Biotype->biotype_group();
     $transcript->{'source_length'} = $source_transcript->length();
+    say "FERGAL SOURCE SPAN: ".$source_genomic_span;
+    say "FERGAL TARGET SPAN: ".$target_genomic_span;
     my $transcript_genomic_span_diff = $target_genomic_span/$source_genomic_span;
     $transcript_genomic_span_diff = sprintf("%.2f", $transcript_genomic_span_diff);
     $transcript->{'transcript_genomic_span_diff'} = $transcript_genomic_span_diff;
@@ -1388,12 +1422,17 @@ sub get_transcript_boundaries {
   return($transcripts_start,$transcripts_end);
 }
 
+
 sub create_annotation_features {
   my ($self,$transcript) = @_;
 
   my $cds_start  = $transcript->cdna_coding_start;
   my $cds_end    = $transcript->cdna_coding_end;
   my $stable_id  = $transcript->stable_id.".".$transcript->version;
+
+
+  my $start_phase = $transcript->translation->start_Exon->phase();
+  my $end_phase = $transcript->translation->end_Exon->end_phase();
 
   my $annotation_feature = Bio::EnsEMBL::Feature->new(-seqname => $stable_id,
                                                       -strand  => 1,

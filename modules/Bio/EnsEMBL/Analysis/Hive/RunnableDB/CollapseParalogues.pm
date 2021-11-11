@@ -102,7 +102,20 @@ sub run {
     $runnable->run();
     my $output_genes = $runnable->output();
     my @parent_gene_ids = @{$runnable->{'parent_gene_ids'}};
-    my $id_string = join(':',@parent_gene_ids);
+
+    # For some reason there seems to be an issue with the same id getting added multiple times
+    # and this is happening for every new paralogue
+    # Should debug at some point, but for now it's fine to just make unique here
+    my $id_seen = {};
+    my $id_string = "";
+    foreach my $id (@parent_gene_ids) {
+      unless($id_seen->{$id}) {
+        $id_string .= $id.":";
+        $id_seen->{$id} = 1;
+      }
+    }
+    $id_string =~ s/\:$//;
+
     foreach my $output_gene (@$output_genes) {
       my $gene_description = "Parent: ".$id_string.", Type: Potential paralogue";
       $output_gene->description($gene_description);
@@ -120,22 +133,17 @@ sub write_output {
 
   my $current_genes = $output_gene_adaptor->fetch_all();
   foreach my $output_gene (@$output_genes) {
-    my $initial_biotype = $output_gene->biotype();
-    $initial_biotype =~ s/^new\_//;
-    $output_gene->biotype($initial_biotype);
-    $output_gene->analysis($self->analysis());
-    empty_Gene($output_gene);
-
     # Just cloning for safety there as the next bit will remove the existing genes from the db
+    $output_gene->analysis($self->analysis());
     my $cloned_output_gene = clone_Gene($output_gene);
+    empty_Gene($cloned_output_gene);
     $output_gene_adaptor->store($cloned_output_gene);
   }
 
   # Remove the initial set of paralogues prior to collapsing
-  foreach my $current_gene (@$current_genes) {
-    if($current_gene->biotype =~ /^new\_/) {
-      $output_gene_adaptor->remove($current_gene);
-    }
+  my $original_new_genes = $self->param('input_genes');
+  foreach my $current_gene (@$original_new_genes) {
+    $output_gene_adaptor->remove($current_gene);
   }
 }
 
@@ -151,6 +159,7 @@ sub make_runnables {
 
   foreach my $cluster (@$clusters) {
     my $clustered_genes = $cluster->get_Genes();
+    my $layered_clustered_genes = $self->layer_cluster_genes($clustered_genes);
     my $parent_gene_ids = [];
 
     # There is a slight chance that this cluster has genes from multiple parents, so track this
@@ -186,6 +195,37 @@ sub make_runnables {
       $self->output([$unclustered_gene]);
     }
   }
+}
+
+
+sub layer_cluster_genes {
+  my ($self,$genes) = @_;
+
+  # This is just a simple filtering to make sure we don't make any weird complex clusters like sncRNA transcripts with protein coding ones
+  # It does mean that some potentially interesting edge cases might be missed, but this is fine for now
+  my $biotype_group_priorities = { 'coding'     => 5,
+                                   'lnoncoding' => 4,
+                                   'pseudogene' => 3,
+                                   'snoncoding' => 2,
+                                   'mnoncoding' => 1,
+                                   'undefined'  => 0,
+                                 };
+
+  my $filtered_genes = [];
+  my $max_priority = 0;
+  foreach my $gene (@$genes) {
+    my $biotype_group = $gene->get_Biotype->biotype_group();
+    my $priority = $biotype_group_priorities->{$biotype_group};
+    if($priority > $max_priority) {
+      $max_priority = $priority;
+      $filtered_genes = [];
+      push(@$filtered_genes,$gene);
+    } elsif($priority == $max_priority) {
+      push(@$filtered_genes,$gene);
+    }
+  }
+
+  return($filtered_genes)
 }
 
 

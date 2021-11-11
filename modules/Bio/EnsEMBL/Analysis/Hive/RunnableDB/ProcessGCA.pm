@@ -165,7 +165,6 @@ sub fetch_input {
 
   my $clade_params = $self->get_clade_params($clade);
 
-
   #use taxon id to retrieve genus taxon id
   #genus taxon_id will be used to download genus level rnaseq data
   my $genus_taxon_id;
@@ -319,7 +318,25 @@ sub get_clade_params {
     $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblVertebrates',
+  } elsif($clade eq 'mammalia') {
+    # Just temp stuff for testing
+    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_uniprot_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',
+    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
+    $clade_params->{'species_division'} = 'EnsemblVertebrates',
+  } elsif($clade eq 'primates') {
+    # Just temp stuff for testing
+    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_uniprot_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',
+    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
+    $clade_params->{'species_division'} = 'EnsemblVertebrates',
   } elsif($clade eq 'humans') {
+    # Just temp stuff for testing
+    $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_uniprot_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',
+    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup2/production/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
+    $clade_params->{'species_division'} = 'EnsemblVertebrates',
+  } elsif($clade eq 'metazoa') {
     # Just temp stuff for testing
     $clade_params->{'protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_uniprot_proteins.fa',
     $clade_params->{'busco_protein_file'} = '/hps/nobackup2/production/ensembl/fergal/production/protein_dbs/actinopterygii_orthodb_proteins.fa',

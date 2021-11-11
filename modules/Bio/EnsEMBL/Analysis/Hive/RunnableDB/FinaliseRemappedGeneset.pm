@@ -124,14 +124,15 @@ sub write_output {
   my ($self) = @_;
   my $output_dba = $self->hrdb_get_con('target_db');
   my $output_gene_adaptor = $output_dba->get_GeneAdaptor();
+  my $output_slice_adaptor = $output_dba->get_SliceAdaptor();
   my $genes_to_remove = $self->output();
 
   # Remove the initial set of paralogues prior to collapsing
   foreach my $gene (@$genes_to_remove) {
-#    $gene->biotype("to_remove");
-#    $output_gene_adaptor->update($gene);
     $output_gene_adaptor->remove($gene);
   }
+
+  $self->add_gene_symbols($output_gene_adaptor,$output_slice_adaptor);
 }
 
 
@@ -147,7 +148,6 @@ sub parse_descriptions {
   my $primary_genes = [];
   foreach my $gene (@{$genes}) {
     my $gene_description = $gene->description();
-    say "FERGAL GD: ".$gene_description;
     $gene_description =~ /^Parent\: ([^\,]+)\, Type\: (.+)$/;
     my $gene_stable_id = $1;
     my $gene_type = $2;
@@ -156,9 +156,9 @@ sub parse_descriptions {
 
     # TEST TILL FIX DESCRIPTIONS IN COLLAPSE/FINDPARA
     # I mean technically these aren't actually needed anyway
-    if($gene_type eq 'Potential paralogue' or $gene_type eq 'Potential Paralogue') {
-      next;
-    }
+#    if($gene_type eq 'Potential paralogue' or $gene_type eq 'Potential Paralogue') {
+#      next;
+#    }
 
     my $total_cov = 0;
     my $total_perc_id = 0;
@@ -222,6 +222,7 @@ sub generate_duplicate_genes_hash {
 
   foreach my $gene (@$genes) {
     my $parent_stable_id = $gene->{'parent_stable_id'};
+
     unless($initial_genes_hash->{$parent_stable_id}) {
       $initial_genes_hash->{$parent_stable_id} = [];
     }
@@ -426,6 +427,38 @@ sub generate_biotypes_hash {
 
   $biotypes_hash->{'slice_genes'} = $biotypes_array;
   return($biotypes_hash);
+}
+
+
+sub add_gene_symbols {
+  my ($self,$target_gene_adaptor,$target_slice_adaptor) = @_;
+
+  say "Setting gene symbols using source genes in the target gene set";
+  my $source_gene_db = $self->hrdb_get_con('source_gene_db');
+  my $source_gene_adaptor = $source_gene_db->get_GeneAdaptor();
+  my $target_slices = $target_slice_adaptor->fetch_all('toplevel');
+  foreach my $slice (@$target_slices) {
+    my $genes = $slice->get_all_Genes();
+    foreach my $gene (@$genes) {
+      my $gene_description = $gene->description();
+      $gene_description =~ /^Parent\: ([^\,]+)\, Type\: (.+)$/;
+      my $gene_stable_id = $1;
+      my $gene_type = $2;
+      my $unversioned_parent_stable_id = $gene_stable_id;
+      $unversioned_parent_stable_id =~ s/\.(\d+)$//;
+      my $source_gene = $source_gene_adaptor->fetch_by_stable_id($unversioned_parent_stable_id);
+      unless($source_gene) {
+        say "Couldn't find parent gene with stable id: ".$unversioned_parent_stable_id;
+        next;
+      }
+
+      my $xref = $source_gene->display_xref();
+      if($xref) {
+        $gene->display_xref($xref);
+        $target_gene_adaptor->update($gene);
+      }
+    } # End foreach my $gene
+  } # End foreach my $slice
 }
 
 

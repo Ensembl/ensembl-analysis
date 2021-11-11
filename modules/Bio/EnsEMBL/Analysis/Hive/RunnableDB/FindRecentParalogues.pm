@@ -299,13 +299,18 @@ sub filter_by_cutoffs {
 
     my $source_transcript_seq;
     my $transcript_seq;
-    if($source_transcript->translation()) {
+    if(defined($source_transcript->translation())) {
+      say "FERGAL IN SC TRANS: ".$source_transcript->dbID();
       $source_transcript_seq = $source_transcript->translateable_seq();
       $transcript_seq = $transcript->translateable_seq();
 
       unless($transcript_seq) {
         compute_translation($transcript);
         $transcript_seq = $transcript->translateable_seq();
+      }
+
+      unless($transcript_seq) {
+        next;
       }
     } else {
       $source_transcript_seq = $source_transcript->seq->seq();
@@ -423,7 +428,7 @@ sub set_canonical {
         if($transcript->translation->length() > $longest_translation->translation->length()) {
           $longest_translation = $transcript;
         } elsif(($transcript->translation->length() > $longest_translation->translation->length()) and ($transcript->length() > $longest_translation->length())) {
-         $longest_translation = $transcript;
+          $longest_translation = $transcript;
         }
       } else {
         $longest_translation = $transcript;
@@ -457,6 +462,7 @@ sub fetch_input_genes_by_id {
   foreach my $gene_id (@$gene_ids) {
     my $gene = $source_gene_adaptor->fetch_by_dbID($gene_id);
     unless($gene) {
+      next;
       $self->throw("Couldn't fetch gene from source db with dbID: ".$gene_id);
     }
 
