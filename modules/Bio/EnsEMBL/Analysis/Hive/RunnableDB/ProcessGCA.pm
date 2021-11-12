@@ -248,7 +248,14 @@ sub fetch_input {
                           ' --run_full_annotation 1'.
                           ' --load_to_ensembl_db 1';
 
- 
+  if($self->param('diamond_validation_db')) {
+    $gbiab_commandline .= ' --diamond_validation_db '.$self->param('diamond_validation_db');
+  }
+
+  if($self->param('validation_type')) {
+    $gbiab_commandline .= ' --validation_type '.$self->param('validation_type');
+  }
+
   $output_params->{'core_db'} = $core_db_details;
   $output_params->{'core_dbname'} = $core_dbname;
   $output_params->{'clean_utr_db'} = $clean_db_details;

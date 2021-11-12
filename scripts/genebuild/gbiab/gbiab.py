@@ -1604,7 +1604,7 @@ def run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,gen
 
   run_makeblastdb(makeblastdb_path,masked_genome_file,asnb_file)
 
-  batched_protein_files = split_protein_file(protein_file,genblast_dir)
+  batched_protein_files = split_protein_file(protein_file,genblast_dir,20)
 
   pool = multiprocessing.Pool(int(num_threads))
   for batched_protein_file in batched_protein_files:
@@ -1696,8 +1696,10 @@ def set_attributes(attributes,feature_type):
 #5       genBlastG       coding_exon     69461131        69461741        .       +       .       ID=259454-R1-1-A1-E2;Parent=259454-R1-1-A1
 
 
-def split_protein_file(protein_file,protein_output_dir):
-  batch_size = 20
+def split_protein_file(protein_file,protein_output_dir,batch_size):
+  if batch_size is None:
+    batch_size = 20
+
   batched_protein_files = []
 
   for i in range(0,10):
@@ -1839,8 +1841,12 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
 
     sam_file_path = os.path.join(star_dir,(fastq_file_name + '.sam'))
     junctions_file_path = os.path.join(star_dir,(fastq_file_name + '.sj.tab'))
-    if os.path.isfile(junctions_file_path):
-      print("Found an existing junctions file for the fastq file, presuming the file has been processed, will skip")
+    sam_file_name = os.path.basename(sam_file_path)
+    sam_temp_file_path = os.path.join(star_dir,(sam_file_name + ".tmp"))
+    bam_sort_file_path = os.path.join(star_dir,re.sub('.sam','.bam',sam_file_name))
+
+    if os.path.isfile(bam_sort_file_path) and not os.stat(bam_sort_file_path).st_size == 0:
+      print("Found an existing bam file for the fastq file, presuming the file has been processed, will skip")
       continue
 
     print ("Processing %s" % fastq_file_path)
@@ -1855,35 +1861,14 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
     subprocess.run(['mv',os.path.join(star_dir,'Aligned.out.sam'),sam_file_path])
     subprocess.run(['mv',os.path.join(star_dir,'SJ.out.tab'),junctions_file_path])
 
-  print ('Completed running STAR')
-
-  print ('Sorting sam files into bams')
-
-  # Should move the sorting below into a method that takes a dir as an argument
-  sam_files = []
-  bam_files = glob.glob(star_dir + "/*.bam")
-  for sam_file in glob.glob(star_dir + "/*.sam"):
-    sam_files.append(sam_file)
-  if not sam_files and not bam_files:
-    raise IndexError('The list of sam files is empty and no bam files exist, expected them in Star output dir. Star dir:\n%s' % star_dir)
-
-  sorted_bam_files = []
-  for sam_file in sam_files:
-    sam_file_name = os.path.basename(sam_file)
-    sam_temp_file_path = os.path.join(star_dir,(sam_file_name + ".tmp"))
-    bam_sort_file_path = os.path.join(star_dir,re.sub('.sam','.bam',sam_file_name))
-
-    if os.path.exists(bam_sort_file_path):
-      print("Found an existing bam file, will not sort sam file again. Bam file:")
-      print(bam_sort_file_path)
-
-    else:
-      print("Converting samfile into sorted bam file. Bam file:")
-      print(bam_sort_file_path)
-      subprocess.run(['samtools','sort','-@',str(num_threads),'-T',sam_temp_file_path,'-o',bam_sort_file_path,sam_file])
+    print("Converting samfile into sorted bam file. Bam file:")
+    print(bam_sort_file_path)
+    subprocess.run(['samtools','sort','-@',str(num_threads),'-T',sam_temp_file_path,'-o',bam_sort_file_path,sam_file_path])
 
     print("Removing sam file")
-#    subprocess.run(['rm',sam_file])
+    subprocess.run(['rm',sam_file_path])
+
+  print ('Completed running STAR')
 
 
 def run_subsample_script(fastq_file,fastq_file_pair,subsample_script_path):
@@ -2675,7 +2660,12 @@ def get_seq_region_lengths(genome_file,min_seq_length):
   return seq_regions
 
 
-def run_finalise_geneset(main_script_dir,main_output_dir,genome_file,seq_region_names,num_threads):
+def run_finalise_geneset(main_script_dir,main_output_dir,genome_file,seq_region_names,validation_type,diamond_validation_db,num_threads):
+
+  if validation_type is None:
+    print("Setting validation type to relaxed")
+  else:
+    print("Setting validation type to " + validation_type)
 
   final_annotation_dir = create_dir(main_output_dir,'annotation_output')
   region_annotation_dir = create_dir(final_annotation_dir,'initial_region_gtfs')
@@ -2725,7 +2715,6 @@ def run_finalise_geneset(main_script_dir,main_output_dir,genome_file,seq_region_
   pool = multiprocessing.Pool(int(num_threads))
   for seq_region_name in seq_region_names:
     # The selection script needs different params depending on whether the seqs are from transcriptomic data or not
-
     region_details = (seq_region_name + '.rs1' + '.re' + str(seq_region_lengths[seq_region_name]))
     transcriptomic_region_gtf_path = os.path.join(region_annotation_dir,(region_details + '.trans.gtf'))
     busco_region_gtf_path = os.path.join(region_annotation_dir,(region_details + '.busco.gtf'))
@@ -2735,7 +2724,7 @@ def run_finalise_geneset(main_script_dir,main_output_dir,genome_file,seq_region_
       print("Finalising transcriptomic data for: " + seq_region_name)
       transcriptomic_annotation_select = re.sub('_raw.gtf','_sel.gtf',transcriptomic_annotation_raw)
       cmd = generic_select_cmd.copy()
-      cmd.extend(['-region_details',region_details,'-input_gtf_file',transcriptomic_annotation_raw,'-output_gtf_file',transcriptomic_region_gtf_path,'-join_transcripts','-final_biotype','transcriptomic'])
+      cmd.extend(['-region_details',region_details,'-input_gtf_file',transcriptomic_annotation_raw,'-output_gtf_file',transcriptomic_region_gtf_path,'-cds_search','-final_biotype','transcriptomic'])
       pool.apply_async(multiprocess_finalise_geneset, args=(cmd,))
 
     if os.path.exists(busco_annotation_raw):
@@ -2788,7 +2777,7 @@ def run_finalise_geneset(main_script_dir,main_output_dir,genome_file,seq_region_
   merged_gtf_file = os.path.join(final_annotation_dir,('prevalidation_sel.gtf'))
   merged_cdna_file = os.path.join(final_annotation_dir,('prevalidation_sel.cdna.fa'))
   merged_amino_acid_file = os.path.join(final_annotation_dir,('prevalidation_sel.prot.fa'))
-  updated_gtf_lines = validate_coding_transcripts(merged_cdna_file,merged_amino_acid_file,validation_dir,merged_gtf_file,num_threads)
+  updated_gtf_lines = validate_coding_transcripts(merged_cdna_file,merged_amino_acid_file,validation_dir,validation_type,diamond_validation_db,merged_gtf_file,num_threads)
   postvalidation_gtf_file = os.path.join(final_annotation_dir,('postvalidation.gtf'))
   file_out = open(postvalidation_gtf_file,'w+')
   for line in updated_gtf_lines:
@@ -2810,22 +2799,17 @@ def run_finalise_geneset(main_script_dir,main_output_dir,genome_file,seq_region_
   print("Finished creating gene set")
 
 
-def validate_coding_transcripts(cdna_file,amino_acid_file,validation_dir,gtf_file,num_threads):
+def validate_coding_transcripts(cdna_file,amino_acid_file,validation_dir,validation_type,diamond_validation_db,gtf_file,num_threads):
 
   print("Running CDS validation with RNAsamba and CPC2")
-  #rnasamba_path = '/hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_RNAsamba.sh'
   rnasamba_weights = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/rnasamba_test/RNAsamba/data/full_length_weights.hdf5'
-  #cpc2_path = '/hps/nobackup2/production/ensembl/jma/src/python_wrappers/run_CPC2.sh'
-  
   rnasamba_output_path = os.path.join(validation_dir,'rnasamba.tsv.txt')
   cpc2_output_path = os.path.join(validation_dir,'cpc2.tsv')
   rnasamba_volume=validation_dir+'/:/app:rw'
-  #rnasamba_cmd = ['sh',rnasamba_path,rnasamba_output_path,cdna_file,rnasamba_weights]
   rnasamba_cmd=['singularity', 'exec', '--bind', rnasamba_volume, '/hps/software/users/ensembl/genebuild/ftricomi/singularity/rnasamba_latest.sif', 'rnasamba', 'classify',rnasamba_output_path, cdna_file, rnasamba_weights]
   print(' '.join(rnasamba_cmd))
   subprocess.run(rnasamba_cmd)
   cpc2_volume=validation_dir+'/:/app:rw'
-  #cpc2_cmd = ['sh',cpc2_path,cdna_file,cpc2_output_path]
   cpc2_cmd = ['singularity', 'exec', '--bind', cpc2_volume, '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test_cpc2.sif', 'python3', '/CPC2_standalone-1.0.1/bin/CPC2.py', '-i',cdna_file,'--ORF', '-o',cpc2_output_path]
   print(' '.join(cpc2_cmd))
   subprocess.run(cpc2_cmd)
@@ -2834,48 +2818,49 @@ def validate_coding_transcripts(cdna_file,amino_acid_file,validation_dir,gtf_fil
   check_file(rnasamba_output_path)
   check_file(cpc2_output_path)
 
+
+  diamond_results = None
+  if diamond_validation_db is not None:
+    diamond_output_dir = create_dir(validation_dir,'diamond_output')
+    diamond_validation(diamond_validation_db,amino_acid_file,diamond_output_dir,num_threads)
+    diamond_results = read_diamond_results(diamond_output_dir)  
+
   rnasamba_results = read_rnasamba_results(rnasamba_output_path)
   cpc2_results = read_cpc2_results(cpc2_output_path)
-
-  combined_results = combine_results(rnasamba_results,cpc2_results)
-
-  blastp_path = 'blastp'
-  blast_validation_db = ''
-  blast_output_dir = os.path.join(validation_dir,'blast_output')
-
-  if blast_validation_db:
-    blast_results = blast_validation(blast_validation_db,blastp_path,amino_acid_file,blast_output_dir,num_threads)
+  combined_results = combine_results(rnasamba_results,cpc2_results,diamond_results)
 
   parsed_gtf_genes = read_gtf_genes(gtf_file)
-  updated_gtf_lines = update_gtf_genes(parsed_gtf_genes,combined_results)
+  updated_gtf_lines = update_gtf_genes(parsed_gtf_genes,combined_results,validation_type)
 
   return updated_gtf_lines
 
 
-def blast_validation(blast_validation_db,blastp_path,amino_acid_file,blast_output_dir,num_threads):
+def diamond_validation(diamond_validation_db,amino_acid_file,diamond_output_dir,num_threads):
 
-  batched_protein_files = split_protein_file(protein_file,blast_output_dir)
+  batched_protein_files = split_protein_file(amino_acid_file,diamond_output_dir,100)
 
   pool = multiprocessing.Pool(int(num_threads))
   for batched_protein_file in batched_protein_files:
-    pool.apply_async(multiprocess_genblast, args=(batched_protein_file,blast_validation_db,blastp_path,))
+    pool.apply_async(multiprocess_diamond, args=(batched_protein_file,diamond_output_dir,diamond_validation_db,))
   pool.close()
   pool.join()
 
 
-def multiprocess_blastp(batched_protein_file,blast_validation_db,blastp_path):
+def multiprocess_diamond(batched_protein_file,diamond_output_dir,diamond_validation_db,):
 
   batch_num = os.path.splitext(batched_protein_file)[0]
   batch_dir = os.path.dirname(batched_protein_file)
-  print("Running blastp on " + batched_protein_file + ":")
+  diamond_output_file = batched_protein_file + '.dmdout'
+  print("Running diamond on " + batched_protein_file + ":")
   
-  blastp_cmd = [genblast_path,'-p','genblastg','-q',batched_protein_file,'-t',masked_genome_file,'-g','T','-pid','-r','1','-P','blast','-gff','-e','1e-1','-c','0.8','-W','3','-softmask','-scodon','50','-i','30','-x','10','-n','30','-d','100000','-o',batched_protein_file]
+  diamond_cmd = ['diamond','blastp','--query',batched_protein_file,'--db',diamond_validation_db,'--out',diamond_output_file]
 
-  print(" ".join(genblast_cmd))
-  subprocess.run(genblast_cmd)
-  
+  print(" ".join(diamond_cmd))
+  subprocess.run(diamond_cmd)
+  subprocess.run(['mv',diamond_output_file,diamond_output_dir])  
 
-def update_gtf_genes(parsed_gtf_genes,combined_results):
+
+def update_gtf_genes(parsed_gtf_genes,combined_results,validation_type):
 
   output_lines = []
 
@@ -2883,6 +2868,15 @@ def update_gtf_genes(parsed_gtf_genes,combined_results):
     transcript_ids = parsed_gtf_genes[gene_id].keys()
     for transcript_id in transcript_ids:
       transcript_line = parsed_gtf_genes[gene_id][transcript_id]['transcript']
+      single_cds_exon_transcript = 0
+      translation_match = re.search(r'; translation_coords "([^"]+)";',transcript_line)
+      if translation_match:
+        translation_coords = translation_match.group(1)
+        translation_coords_list = translation_coords.split(":")
+        # If the start exon coords of both exons are the same, then it's the same exon and thus a single exon cds
+        if translation_coords_list[0] == translation_coords_list[3]:
+          single_cds_exon_transcript = 1
+
       exon_lines = parsed_gtf_genes[gene_id][transcript_id]['exons']
       validation_results = combined_results[transcript_id]
       rnasamba_coding_probability = float(validation_results[0])
@@ -2891,6 +2885,10 @@ def update_gtf_genes(parsed_gtf_genes,combined_results):
       cpc2_coding_potential = validation_results[3]
       transcript_length = int(validation_results[4])
       peptide_length = int(validation_results[5])
+      diamond_e_value = None
+      if len(validation_results) == 7:
+        diamond_e_value = validation_results[6]
+
       avg_coding_probability = (rnasamba_coding_probability + cpc2_coding_probability) / 2 
       max_coding_probability = max(rnasamba_coding_probability,cpc2_coding_probability)
 
@@ -2905,16 +2903,28 @@ def update_gtf_genes(parsed_gtf_genes,combined_results):
       min_single_exon_pep_length = 100
       min_multi_exon_pep_length = 75
       min_single_source_probability = 0.8
+      min_single_exon_probability = 0.9
 
-      if len(exon_lines) == 1:
-        if rnasamba_coding_potential == 'coding' and cpc2_coding_potential == 'coding' and peptide_length >= min_single_exon_pep_length:
+      if single_cds_exon_transcript == 1 and validation_type == 'relaxed':
+        if diamond_e_value is not None:
+          transcript_line = re.sub('; biotype "' + biotype + '";','; biotype "protein_coding";',transcript_line)
+        elif rnasamba_coding_potential == 'coding' and cpc2_coding_potential == 'coding' and peptide_length >= min_single_exon_pep_length:
           transcript_line = re.sub('; biotype "' + biotype + '";','; biotype "protein_coding";',transcript_line)          
         elif (rnasamba_coding_potential == 'coding' or cpc2_coding_potential == 'coding') and peptide_length >= min_single_exon_pep_length and max_coding_probability >= min_single_source_probability:
           transcript_line = re.sub('; biotype "' + biotype + '";','; biotype "protein_coding";',transcript_line)
         else:
           continue
+      elif single_cds_exon_transcript == 1 and validation_type == 'moderate':
+        if diamond_e_value is not None and peptide_length >= min_single_exon_pep_length:
+          transcript_line = re.sub('; biotype "' + biotype + '";','; biotype "protein_coding";',transcript_line)          
+        elif (rnasamba_coding_potential == 'coding' and cpc2_coding_potential == 'coding') and peptide_length >= min_single_exon_pep_length and avg_coding_probability >= min_single_exon_probability:
+          transcript_line = re.sub('; biotype "' + biotype + '";','; biotype "protein_coding";',transcript_line)
+        else:
+          continue
       else:
-        if rnasamba_coding_potential == 'coding' and cpc2_coding_potential == 'coding' and peptide_length >= min_multi_exon_pep_length:
+        if diamond_e_value is not None:
+          transcript_line = re.sub('; biotype "' + biotype + '";','; biotype "protein_coding";',transcript_line)
+        elif rnasamba_coding_potential == 'coding' and cpc2_coding_potential == 'coding' and peptide_length >= min_multi_exon_pep_length:
           transcript_line = re.sub('; biotype "' + biotype + '";','; biotype "protein_coding";',transcript_line)
         elif (rnasamba_coding_potential == 'coding' or cpc2_coding_potential == 'coding') and peptide_length >= min_multi_exon_pep_length and max_coding_probability >= min_single_source_probability:
           transcript_line = re.sub('; biotype "' + biotype + '";','; biotype "protein_coding";',transcript_line)
@@ -2988,7 +2998,31 @@ def read_cpc2_results(file_path):
   return results
 
 
-def combine_results(rnasamba_results,cpc2_results):
+def read_diamond_results(diamond_output_dir):
+
+  results = []
+  diamond_files = glob.glob(diamond_output_dir + "/*.dmdout")
+  for file_path in diamond_files:
+    file_in = open(file_path)
+    line = file_in.readline()
+    while line:
+      line = line.rstrip()
+
+      eles = line.split("\t")
+      if not len(eles) == 12:
+        line = file_in.readline()
+        continue
+
+      transcript_id = eles[0]
+      e_value = eles[10]
+      results.append([transcript_id,e_value])
+      line = file_in.readline()
+  file_in.close()
+
+  return results
+
+
+def combine_results(rnasamba_results,cpc2_results,diamond_results):
 
   transcript_ids = {}
   
@@ -3007,6 +3041,16 @@ def combine_results(rnasamba_results,cpc2_results):
     transcript_length = result[3]
     peptide_length = result[4]
     transcript_ids[transcript_id].extend([coding_probability,coding_potential,transcript_length,peptide_length])
+
+  if diamond_results is not None:
+    for result in diamond_results:
+      transcript_id = result[0]
+      e_value = result[1]
+      # There seems to be an issue where there are a small number of sequences that don't make it into the cpc2/rnasamba output
+      # Should code in a system for this, but it would be good to understand why it happens to begin with. Seems to be the same
+      # number of missing seqs in both, so maybe a shared cut-off
+      if transcript_id in transcript_ids:
+        transcript_ids[transcript_id].extend([e_value])
 
   return transcript_ids
 
@@ -3373,6 +3417,8 @@ if __name__ == '__main__':
   parser.add_argument('--run_sncrnas', help='Run Rfam, tRNAscan-SE', required=False)
   parser.add_argument('--run_transcriptomic', help='Run STAR, Stringtie2, Scallop, minimap2 (if short_read_fastq_dir and/or long_read_fastq_dir are provided)', required=False)
   parser.add_argument('--run_proteins', help='Run GenBlast if protein_file and/or busco_protein_file', required=False)
+  parser.add_argument('--diamond_validation_db', help='Use a Diamond db with blastp mode to help validate cds sequences', required=False)
+  parser.add_argument('--validation_type', help='The strength of evidence needed to validate and ORF as protein coding, can be "relaxed" or "moderate"', required=False)
   parser.add_argument('--load_to_ensembl_db', help='Load results to an Ensembl db, must also provide the db_details flag', required=False)
   args = parser.parse_args()
 
@@ -3430,6 +3476,8 @@ if __name__ == '__main__':
   run_sncrnas = args.run_sncrnas
   run_transcriptomic = args.run_transcriptomic
   run_proteins = args.run_proteins
+  diamond_validation_db = args.diamond_validation_db
+  validation_type = args.validation_type
   load_to_ensembl_db = args.load_to_ensembl_db
 
   main_script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -3453,8 +3501,8 @@ if __name__ == '__main__':
   # If the run_full_annotation flag is set then we want to set a standardised set of analyses
   if run_full_annotation:
     run_repeats = 1
-    run_simple_features = 1
-    run_sncrnas = 1
+#    run_simple_features = 1
+#    run_sncrnas = 1
     run_transcriptomic = 1
     run_proteins = 1
     finalise_geneset = 1
@@ -3462,8 +3510,8 @@ if __name__ == '__main__':
   # These are subsets of the analyses that can be run, group by type
   if run_repeats:
     run_masking = 1
-    run_dust = 1
-    run_trf = 1
+#    run_dust = 1
+#    run_trf = 1
 
   if run_simple_features:
     run_cpg = 1
@@ -3588,7 +3636,7 @@ if __name__ == '__main__':
   # Do some magic
   if finalise_geneset:
      print("Finalise geneset")
-     run_finalise_geneset(main_script_dir,work_dir,genome_file,seq_region_names,num_threads)
+     run_finalise_geneset(main_script_dir,work_dir,genome_file,seq_region_names,validation_type,diamond_validation_db,num_threads)
 
 
   #################################

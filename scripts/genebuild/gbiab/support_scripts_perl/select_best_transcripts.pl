@@ -1542,7 +1542,7 @@ sub generate_new_transcript {
   my ($utr_exons,$transcript,$transcripts) = @_;
 
   my $min_multi_exon_cds_length = 300;
-  my $min_single_exon_cds_length = 900;
+  my $min_single_exon_cds_length = 450;
 
   my $utr_transcript = Bio::EnsEMBL::Transcript->new(-EXONS => $utr_exons);
   $utr_transcript->stable_id($transcript->stable_id);

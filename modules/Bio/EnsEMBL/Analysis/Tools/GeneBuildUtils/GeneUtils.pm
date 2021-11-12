@@ -1344,6 +1344,7 @@ sub clean_utrs {
       }
     }
   }
+  return \@extra_genes, \@rejected;
 }
 
 
