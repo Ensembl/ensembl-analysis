@@ -50,7 +50,7 @@ my $selected_db;
 my $current_genebuild = 0;
 
 ### change to to 1 for non-verts
-my $is_non_vert = 0;
+my $is_non_vert = 1;
 
 
 GetOptions('config_file:s' => \$config_file,
@@ -589,7 +589,7 @@ sub clade_settings {
     },
 
     'rodentia' => {
-      'repbase_library'    => 'rodentia',
+      'repbase_library'    => 'rodents',
       'repbase_logic_name' => 'rodents',
       'uniprot_set'        => 'mammals_basic',
       'projection_source_production_name' => 'mus_musculus',
@@ -658,6 +658,43 @@ sub clade_settings {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
       'uniprot_set'        => 'insects_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+    'lepidoptera' => {
+      'repbase_library'    => 'lepidoptera',
+      'repbase_logic_name' => 'lepidoptera',
+      'uniprot_set'        => 'lepidoptera_basic',
+      'protein_blast_db'   => '/hps/nobackup2/production/ensembl/genebuild/blastdb/proteomes/HMLEP',
+      'protein_blast_index'=> '/hps/nobackup2/production/ensembl/genebuild/blastdb/proteomes/HMLEP_index',
+      'skip_projection'    => 1,
+      'skip_lastz'         => 1,
+      # need a default projection source db set - for now use human and projection is skipped, will consider updating to use a butterfly annotation
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+    # This is based on a run performed on noah before move to codon:
+    'atroparvus' => {
+      'repbase_library'    => 'insecta',
+      'repbase_logic_name' => 'insects',
+      'uniprot_set'        => 'atroparvus_basic',
+      'protein_blast_db'   => '/hps/nobackup2/production/ensemblgenomes/lcampbell/Infravec_Work/5_01_21-A_atroparvus/GeneBuilding/Pipeline_Components/Custom_BLAST_Database/Combined_A.atroparvus_n356016',
+      'protein_blast_index'=> '/hps/nobackup2/production/ensemblgenomes/lcampbell/Infravec_Work/5_01_21-A_atroparvus/GeneBuilding/Pipeline_Components/Custom_BLAST_Database/indicate_index_db',
+      'skip_projection'    => 1,
+      'skip_lastz'         => 1,
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+   'perniciosus' => {
+      'repbase_library'    => 'insecta',
+      'repbase_logic_name' => 'insects',
+      'uniprot_set'        => 'perniciosus_basic',
+      'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/vectorbase/lcampbell/Genbuilding/P_perniciosus/PipelineComponents/CustomBlast_DBs/Phlebotomus_Uniprot_Ensembl_DB',
+      'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/vectorbase/lcampbell/Genbuilding/P_perniciosus/PipelineComponents/CustomBlast_DBs/Phlebotomus_Uniprot_Ensembl_DB_index',
+      'skip_projection'    => 1,
+      'skip_lastz'         => 1,
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
