@@ -96,7 +96,7 @@ sub fetch_input {
       if (!exists $unwanted->{$gene->biotype}) {
         $gene->load;
         push(@genes, $gene);
-        if ($gene->biotype eq 'protein_coding') {
+        if ($gene->biotype eq 'gbiab_protein_coding') {
           push(@protein_coding, $gene);
         }
       }
