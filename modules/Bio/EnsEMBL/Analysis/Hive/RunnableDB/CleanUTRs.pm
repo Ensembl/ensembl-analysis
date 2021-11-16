@@ -96,7 +96,8 @@ sub fetch_input {
       if (!exists $unwanted->{$gene->biotype}) {
         $gene->load;
         push(@genes, $gene);
-        if ($gene->biotype eq 'protein_coding') {
+        my $transcripts = $gene->get_all_Transcripts;
+        if ($transcripts->[0]->translation) {
           push(@protein_coding, $gene);
         }
       }
