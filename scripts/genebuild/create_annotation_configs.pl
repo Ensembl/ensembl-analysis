@@ -666,8 +666,8 @@ sub clade_settings {
       'repbase_library'    => 'lepidoptera',
       'repbase_logic_name' => 'lepidoptera',
       'uniprot_set'        => 'lepidoptera_basic',
-      'protein_blast_db'   => '/hps/nobackup2/production/ensembl/genebuild/blastdb/proteomes/HMLEP',
-      'protein_blast_index'=> '/hps/nobackup2/production/ensembl/genebuild/blastdb/proteomes/HMLEP_index',
+      'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/HMLEP',
+      'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/HMLEP_index',
       'skip_projection'    => 1,
       'skip_lastz'         => 1,
       # need a default projection source db set - for now use human and projection is skipped, will consider updating to use a butterfly annotation
