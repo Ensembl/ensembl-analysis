@@ -50,7 +50,7 @@ my $selected_db;
 my $current_genebuild = 0;
 
 ### change to to 1 for non-verts
-my $is_non_vert = 1;
+my $is_non_vert = 0;
 
 
 GetOptions('config_file:s' => \$config_file,
