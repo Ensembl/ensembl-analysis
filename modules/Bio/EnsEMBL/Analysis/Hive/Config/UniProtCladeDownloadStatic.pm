@@ -114,6 +114,7 @@ sub _master_config {
                    'lepidoptera_taxon_id'  => '7088',
                    'culicidae_taxon_id' => '7157',
 		   'psychodidae_taxon_id' => '7197',
+		   'hymenoptera_taxon_id' => '7399',
                  };
   my %config = (
     default => {},
@@ -522,6 +523,41 @@ sub _master_config {
               dicondylia_pe12 => {
                                    file_name  => 'dicondylia_pe12.fasta',
                                    taxon_id   => $taxon_ids->{'dicondylia_taxon_id'},
+                                   exclude_id => ['#taxon_id#'],
+                                   dest_dir   => '#output_path#',
+                                   compress   => 0,
+                                   pe_level   => [1,2],
+                                 },
+
+              self_pe3 => {
+                           file_name => 'self_pe3.fasta',
+                           taxon_id  => '#taxon_id#',
+                           dest_dir  => '#output_path#',
+                           compress  => 0,
+                           pe_level  => [3],
+                         },
+
+              human_pe12 => {
+                              file_name => 'human_pe12.fasta',
+                              taxon_id  => $taxon_ids->{'human_taxon_id'},
+                              dest_dir  => '#output_path#',
+                              compress  => 0,
+                              pe_level  => [1,2],
+                            },
+           },
+
+           hymenoptera_basic => {
+              self_pe12 =>{
+                            file_name => 'self_pe12.fasta',
+                            taxon_id  => '#taxon_id#',
+                            dest_dir  => '#output_path#',
+                            compress  => 0,
+                            pe_level  => [1,2],
+                          },
+
+              hymenoptera_pe12 => {
+                                   file_name  => 'hymenoptera_pe12.fasta',
+                                   taxon_id   => $taxon_ids->{'hymenoptera_taxon_id'},
                                    exclude_id => ['#taxon_id#'],
                                    dest_dir   => '#output_path#',
                                    compress   => 0,
