@@ -72,12 +72,11 @@ unless(-e $config_file) {
 my $general_hash = {};
 
 if ($is_non_vert == 1) {
-  $selected_db = "test_registry_db";
   $general_hash->{'replace_repbase_with_red_to_mask'} = '1';
   $general_hash->{'skip_projection'} = '1';
-} else {
-  $selected_db = "gb_assembly_registry";
 }
+
+$selected_db = "gb_assembly_registry";
 
 my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
   -host    => 'mysql-ens-meta-prod-1',
