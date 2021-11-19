@@ -47,10 +47,8 @@ my $dnauser;
 my $dnapass;
 my $dnadbname;
 my $write;
-my $gff_file;
-my $logic_name = 'refseq_import';
-my $cs = 'toplevel';
-my $csv;
+my $gtf_file;
+my $logic_name = 'braker';
 my $verbose = 0;
 
 &GetOptions (
@@ -64,7 +62,7 @@ my $verbose = 0;
             'dnauser|ddbuser=s' => \$dnauser,
             'dnapass|ddbpass=s' => \$dnapass,
             'dnadbname=s'       => \$dnadbname,
-            'file=s'            => \$gff_file,
+            'file=s'            => \$gtf_file,
             'l|logic_name=s'    => \$logic_name,
             'write!'            => \$write,
             'verbose!'          => \$verbose,
@@ -100,8 +98,8 @@ my $sa = $db->get_SliceAdaptor;
 my $ga = $db->get_GeneAdaptor;
 my $aa = $db->get_AnalysisAdaptor;
 my $analysis = $aa->fetch_by_logic_name($logic_name);
-my $timestamp = strftime("%F %X", localtime(stat($gff_file)->mtime));
-my $infile_name = basename($gff_file);
+my $timestamp = strftime("%F %X", localtime(stat($gtf_file)->mtime));
+my $infile_name = basename($gtf_file);
 if ($analysis) {
   if ($infile_name ne $analysis->db_file) {
     warning('Your old analysis had '.$analysis->db_file." as db_file, it will be update to $infile_name\n");
@@ -122,143 +120,133 @@ else {
 }
 
 my $codon_table = Bio::Tools::CodonTable->new;
-my $gtf_parser = Bio::EnsEMBL::IO::Parser::GTF->open($gff_file, must_parse_metadata => 0);
+my $gtf_parser = Bio::EnsEMBL::IO::Parser::GTF->open($gtf_file, must_parse_metadata => 0);
 my %sequences;
 foreach my $slice (@{$sa->fetch_all('toplevel', undef, 1)}) {
-  my $refseq_synonyms = $slice->get_all_synonyms();
-  if ($slice->start != 1) {
-    $slice = $sa->fetch_by_region($slice->coord_system->name, $slice->seq_region_name, 1, $slice->seq_region_length, 1, $slice->coord_system->version);
-  }
   $sequences{$slice->seq_region_name} = $slice;
 }
-my %missing_sequences;
-my $MT_acc;
-my @par_regions;
-my $par_srid;
 
-foreach my $assemblyexception (@{$sa->db->get_AssemblyExceptionFeatureAdaptor->fetch_all}) {
-  next unless ($assemblyexception->type eq 'PAR');
-  push(@par_regions, [$assemblyexception->start, $assemblyexception->end]);
-  $par_srid = $assemblyexception->slice->get_seq_region_id;
-}
-
-my @genes;
+my %genes;
 my %transcripts;
-LINE: while ($gtf_parser->next) {
+my $eid = 1;
+while ($gtf_parser->next) {
   my $seqname = $gtf_parser->get_seqname;
-  next LINE if ($MT_acc && $seqname eq $MT_acc);
-  next LINE if (exists $missing_sequences{$seqname});
   my $slice;
   if (exists $sequences{$seqname}) {
     $slice = $sequences{$seqname};
-  }
-  else {
-    $slice = $sa->fetch_by_region($cs, $seqname, undef, undef, undef, $csv, undef);
-# It's important to get this right: Ensembl and RefSeq have different styles of handling slices
-# 1) Missing slices. Only report missing slices once. Missing slices are actually slices on
-# alternative assemblies
-    if ($slice) {
-      $sequences{$seqname} = $slice;
-    }
-    else {
-      warning('Slice not found '.$seqname);
-      $missing_sequences{$seqname} = 1;
-      next LINE;
-    }
-  }
-
-  my $start = $gtf_parser->get_start;
-  my $end = $gtf_parser->get_end;
-# 2) Ignore annotations on pseudo-autosomal regions (currently only X/Y for human)
-  if (@par_regions && $slice->get_seq_region_id() == $par_srid) {
-    foreach my $aref (@par_regions) {
-      if ( ($start >= $$aref[0] && $start <= $$aref[1]) || ($end >= $$aref[0] && $end <= $$aref[1]) ) {
-        info( 'In PAR region, skip...');
-        next LINE;
+    my $start = $gtf_parser->get_start;
+    my $end = $gtf_parser->get_end;
+    my $type = $gtf_parser->get_type;
+    my $strand = $gtf_parser->get_strand;
+    my $source = retrieve_source($gtf_parser->get_source);
+    if ($type eq 'exon') {
+      my $exon = Bio::EnsEMBL::Exon->new();
+      $exon->slice($slice);
+      $exon->analysis($analysis);
+      $exon->start($start);
+      $exon->end($end);
+      $exon->strand($strand);
+      $exon->stable_id($eid++);
+      my $attributes = $gtf_parser->get_attributes;
+      if (!exists $transcripts{$attributes->{transcript_id}}) {
+        my $transcript = Bio::EnsEMBL::Transcript->new();
+        $transcripts{$attributes->{transcript_id}} = $transcript;
+        $transcript->stable_id($attributes->{transcript_id});
+        $transcript->slice($slice);
+        $transcript->analysis($analysis);
+        $transcript->biotype('non_coding');
+        $transcript->strand($strand);
+        $transcript->source($source);
+      }
+      $transcripts{$attributes->{transcript_id}}->add_Exon($exon);
+      if (!exists $genes{$attributes->{gene_id}}) {
+        my $gene = Bio::EnsEMBL::Gene->new();
+        $genes{$attributes->{gene_id}} = $gene;
+        $gene->slice($slice);
+        $gene->analysis($analysis);
+        $gene->stable_id($attributes->{gene_id});
+        $gene->strand($strand);
+        $gene->biotype('non_coding');
+        $gene->source($transcripts{$attributes->{transcript_id}}->source);
+        $genes{$attributes->{gene_id}} = $gene;
+      }
+      if (!exists $transcripts{$attributes->{transcript_id}}->{__gene}) {
+        $transcripts{$attributes->{transcript_id}}->{__gene} = $genes{$attributes->{gene_id}};
+        $genes{$attributes->{gene_id}}->add_Transcript($transcripts{$attributes->{transcript_id}});
       }
     }
-  }
-  my $type = $gtf_parser->get_type;
-  my $attributes = $gtf_parser->get_attributes;
-  my $parent = $attributes->{transcript_id};
-  if ($type eq 'exon') {
-    my $exon = Bio::EnsEMBL::Exon->new();
-    $exon->slice($slice);
-    $exon->analysis($analysis);
-    $exon->start($start);
-    $exon->end($end);
-    $exon->strand($gtf_parser->get_strand);
-    $exon->stable_id($attributes->{exon_id});
-    if (exists $transcripts{$parent}) {
-      $transcripts{$parent}->add_Exon($exon);
+    elsif ($type eq 'CDS') {
+      my $attributes = $gtf_parser->get_attributes;
+      if (!exists $transcripts{$attributes->{transcript_id}}) {
+        my $transcript = Bio::EnsEMBL::Transcript->new();
+        $transcripts{$attributes->{transcript_id}} = $transcript;
+        $transcript->stable_id($attributes->{transcript_id});
+        $transcript->slice($slice);
+        $transcript->analysis($analysis);
+        $transcript->biotype('non_coding');
+        $transcript->strand($strand);
+        $transcript->source($source);
+      }
+      process_cds($transcripts{$attributes->{transcript_id}}, $start, $end, $strand, $gtf_parser->get_phase);
     }
-    else {
-      throw('Missing transcript for '.$attributes->{exon_id}.' '.$start);
+    elsif ($type eq 'intron') {
+# just to remove warning for now
     }
-  }
-  elsif ($type eq 'CDS') {
-    if (exists $transcripts{$parent}) {
-      process_cds($gtf_parser, $transcripts{$parent}->{gene_object}, $transcripts{$parent}, $attributes, $start, $end);
-    }
-    else {
-      throw('Missing transcript for '.$type.' '.$attributes->{exon_id}.' '.$start);
-    }
-  }
-  elsif ($type eq 'start_codon' or $type eq 'stop_codon') {
-    if (exists $transcripts{$parent}) {
-      $transcripts{$parent}->{$type} = {
+    elsif ($type eq 'start_codon' or $type eq 'stop_codon') {
+      my $attributes = $gtf_parser->get_attributes;
+      if (!exists $transcripts{$attributes->{transcript_id}}) {
+        my $transcript = Bio::EnsEMBL::Transcript->new();
+        $transcripts{$attributes->{transcript_id}} = $transcript;
+        $transcript->stable_id($attributes->{transcript_id});
+        $transcript->slice($slice);
+        $transcript->analysis($analysis);
+        $transcript->biotype('non_coding');
+        $transcript->strand($strand);
+        $transcript->source($source);
+      }
+      $transcripts{$attributes->{transcript_id}}->{$type} = {
         start => $start,
         end => $end,
       };
     }
+    elsif ($type eq 'transcript') {
+      my $transcript_id = $gtf_parser->get_raw_attributes;
+      if (!exists $transcripts{$transcript_id}) {
+        my $transcript = Bio::EnsEMBL::Transcript->new();
+        $transcripts{$transcript_id} = $transcript;
+        $transcript->stable_id($transcript_id);
+        $transcript->slice($slice);
+        $transcript->analysis($analysis);
+        $transcript->biotype('non_coding');
+        $transcript->strand($strand);
+        $transcript->source($source);
+      }
+    }
+    elsif ($type eq 'gene') {
+      my $gene_id = $gtf_parser->get_raw_attributes;
+      if (!exists $genes{$gene_id}) {
+        my $gene = Bio::EnsEMBL::Gene->new();
+        $genes{$gene_id} = $gene;
+        $gene->stable_id($gene_id);
+        $gene->slice($slice);
+        $gene->analysis($analysis);
+        $gene->biotype('non_coding');
+        $gene->strand($strand);
+        $gene->source($source);
+      }
+    }
     else {
-      throw('Missing transcript for '.$type.' '.$attributes->{exon_id}.' '.$start);
+      warning("$type is not supported. You need to add support for it if needed");
     }
-  }
-  elsif ($type eq 'transcript') {
-
-    my $gene = Bio::EnsEMBL::Gene->new();
-    $gene->slice($slice);
-    $gene->analysis($analysis);
-    $gene->stable_id($attributes->{gene_id});
-    $gene->{__start} = $start;
-    $gene->{__end} = $end;
-    $gene->strand($gtf_parser->get_strand);
-    $gene->biotype('non_coding');
-    if ($gtf_parser->get_source() eq 'AUGUSTUS') {
-      $gene->source('braker_augustus')
-    }
-    if ($gtf_parser->get_source() eq 'GeneMark.hmm') {
-      $gene->source('braker_genemark')
-    }
-    push(@genes, $gene);
-
-    my $transcript = Bio::EnsEMBL::Transcript->new();
-    $transcripts{$attributes->{transcript_id}} = $transcript;
-    $transcript->stable_id($attributes->{transcript_id});
-    $transcript->slice($slice);
-    $transcript->analysis($analysis);
-    $transcript->biotype('non_coding');
-    $transcript->{__start} = $start;
-    $transcript->{__end} = $end;
-    $transcript->strand($gtf_parser->get_strand);
-    $transcript->{gene_object} = $gene;
-    if ($gtf_parser->get_source() eq 'AUGUSTUS') {
-      $transcript->source('braker_augustus')
-    }
-    if ($gtf_parser->get_source() eq 'GeneMark.hmm') {
-      $transcript->source('braker_genemark')
-    }
-    $gene->add_Transcript($transcript);
   }
   else {
-    warning("$type is not supported. You need to add support for it if needed");
+    warning("Slice not found $seqname");
   }
 }
 $gtf_parser->close;
 print "Finished processing GTF file\n";
 my %stats;
-GENE: foreach my $gene (@genes) {
+GENE: foreach my $gene (sort {$a->slice->seq_region_name cmp $b->slice->seq_region_name} values %genes) {
   if ($gene->get_all_Transcripts) {
     foreach my $transcript (@{$gene->get_all_Transcripts}) {
       my $phase = 0;
@@ -330,48 +318,27 @@ GENE: foreach my $gene (@genes) {
       $stats{transcript}->{$transcript->biotype}++;
     }
     $gene->recalculate_coordinates; #Because I'm adding transcript first, I need to force recalculate
-  }
-  else {
-    info('WARNING: Should not have happened '.$gene->stable_id);
-    my $exon = Bio::EnsEMBL::Exon->new;
-    $exon->start($gene->{__start});
-    $exon->end($gene->{__end});
-    $exon->strand($gene->strand);
-    $exon->phase(-1);
-    $exon->end_phase(-1);
-    $exon->stable_id($gene->stable_id);
-    $exon->slice($gene->slice);
-    $exon->analysis($gene->analysis);
-    my $transcript = Bio::EnsEMBL::Transcript->new;
-    $transcript->{__start} = $gene->{__start};
-    $transcript->{__end} = $gene->{__end};
-    $transcript->add_Exon($exon);
-    $transcript->biotype($gene->biotype);
-    $transcript->stable_id($gene->stable_id);
-    $transcript->description($gene->description);
-    $transcript->analysis($gene->analysis);
-    $stats{transcript}->{$transcript->biotype}++;
-    $gene->add_Transcript($transcript);
-    info('Was expecting gene '.$gene->stable_id.' '.$gene->biotype.' '.$gene->{__start}.' '.$gene->{__end}.' to have a transcript, I have added one...');
-  }
-# Another way to do it is to check that the canonical transcript is a NM if the gene has NM and XM
-  $gene->canonical_transcript($gene->get_all_Transcripts->[0]) unless ($gene->canonical_transcript);
-  $stats{gene}->{$gene->biotype}++;
-  warning('Something is wrong with gene '.$gene->display_id) unless (check_gene($gene));
-  print_gene($gene) if ($verbose);
-  if ($write) {
-    if ($gene->slice->is_toplevel) {
-      $ga->store($gene);
-    }
-    else {
-      my $toplevel_gene = $gene->transform('toplevel');
-      if ($toplevel_gene) {
-        $ga->store($toplevel_gene);
+    # Another way to do it is to check that the canonical transcript is a NM if the gene has NM and XM
+    $gene->canonical_transcript($gene->get_all_Transcripts->[0]) unless ($gene->canonical_transcript);
+    $stats{gene}->{$gene->biotype}++;
+    print_gene($gene) if ($verbose);
+    if ($write) {
+      if ($gene->slice->is_toplevel) {
+        $ga->store($gene);
       }
       else {
-        throw('Could not project '.$gene->display_id.' from '.$gene->slice->name.' to toplevel');
+        my $toplevel_gene = $gene->transform('toplevel');
+        if ($toplevel_gene) {
+          $ga->store($toplevel_gene);
+        }
+        else {
+          throw('Could not project '.$gene->display_id.' from '.$gene->slice->name.' to toplevel');
+        }
       }
     }
+  }
+  else {
+    warning('No transcripts for '.$gene->stable_id);
   }
 }
 foreach my $key (keys %stats) {
@@ -380,65 +347,23 @@ foreach my $key (keys %stats) {
   }
 }
 
-=head2 check_gene
-
- Arg [1]    : Bio::EnsEMBL::Gene
- Description: Check the current coordinates of the gene and transcripts against
-              the values from the file. It also check for stop codon in the translation
-              and for the absence of stop codon at the end of the CDS
- Returntype : Boolean, 1 if the gene is good, 0 otherwise
- Exceptions : None
-
-=cut
-
-sub check_gene {
-  my ($gene) = @_;
-
-  if ($gene->start == $gene->{__start} and $gene->end == $gene->{__end}) {
-    foreach my $transcript (@{$gene->get_all_Transcripts}) {
-      if ($transcript->start == $transcript->{__start} and $transcript->end == $transcript->{__end}) {
-        if ($transcript->translation) {
-          my $stop_codon = substr($transcript->translateable_seq,-3, 3);
-          if ($codon_table->translate($stop_codon) ne '*') {
-            info('MISSING STOP in '.$transcript->display_id." has $stop_codon instead");
-          }
-          if ($transcript->translation->seq =~ /\*/) {
-            info('STOP in '.$transcript->translation->display_id."\n".$transcript->translation->seq);
-          }
-        }
-      }
-      else {
-        info('Transcript coordinates '.$transcript->stable_id.' '.$transcript->source.' '.$transcript->biotype.' '.$transcript->start.' '.$transcript->end.' instead of '.$transcript->{__start}.' '.$transcript->{__end});
-        return 0;
-      }
-    }
-    return 1;
-  }
-  else {
-    info('Gene coordinates '.$gene->stable_id.' '.$gene->source.' '.$gene->biotype.' '.$gene->{__start}.' '.$gene->{__end}.' instead of '.$gene->start.' '.$gene->end);
-  }
-  return 0;
-}
-
 
 =head2 process_cds
 
- Arg [1]    : Bio::EnsEMBL::IO::Parser::GFF3
- Arg [2]    : Bio::EnsEMBL::Gene
- Arg [3]    : Bio::EnsEMBL::Transcript
- Arg [4]    : Hash of String, the attributes for the current object
- Arg [5]    : Int start
- Arg [6]    : Int end
+ Arg [1]    : Bio::EnsEMBL::Transcript
+ Arg [2]    : Int start
+ Arg [3]    : Int end
+ Arg [4]    : Int strand
+ Arg [5]    : Int frame
  Description: Process the CDS line of the file. It creates a
-              Bio::EnsEMBL::Translation object and attach it
-              to the transcript if it does not exists yet.
+              Bio::EnsEMBL::Translation object
  Returntype : None
  Exceptions : None
 
 =cut
 
 sub process_cds {
-  my ($gtf_parser, $gene, $transcript, $attributes, $start, $end) = @_;
+  my ($transcript, $start, $end, $strand, $phase) = @_;
 
   if ($transcript->translation) {
     $transcript->translation->start($start) if ($transcript->translation->start > $start);
@@ -448,19 +373,19 @@ sub process_cds {
     my $translation = Bio::EnsEMBL::Translation->new;
     $translation->start($start);
     $translation->end($end);
-    $transcript->strand($gtf_parser->get_strand);
-    $translation->stable_id($attributes->{transcript_id});
+    $translation->stable_id($transcript->stable_id);
     $transcript->translation($translation);
   }
-  if ($gtf_parser->get_phase) {
-    if (($gtf_parser->get_strand == 1 and $transcript->translation->start >= $start)
-        or ($gtf_parser->get_strand == -1 and $transcript->translation->end <= $end)) {
-      if ($gtf_parser->get_phase == 1) {
-        $transcript->translation->{phase} = 2;
-      }
-      elsif ($gtf_parser->get_phase == 2) {
-        $transcript->translation->{phase} = 1;
-      }
+  if (($strand == 1 and $transcript->translation->start >= $start)
+      or ($strand == -1 and $transcript->translation->end <= $end)) {
+    if ($phase == 1) {
+      $transcript->translation->{phase} = 2;
+    }
+    elsif ($phase == 2) {
+      $transcript->translation->{phase} = 1;
+    }
+    else {
+      $transcript->translation->{phase} = 0;
     }
   }
 }
@@ -469,7 +394,7 @@ sub process_cds {
 =head2 print_gene
 
  Arg [1]    : Bio::EnsEMBL::Gene
- Description: Print information abou the Arg[1], all the transcripts, translation and exons
+ Description: Print information about the Arg[1], all the transcripts, translation and exons
  Returntype : None
  Exceptions : None
 
@@ -489,4 +414,21 @@ sub print_gene {
       print STDERR "  EXON: ", join(' ', $exon->display_id, $exon->seq_region_name, $exon->seq_region_start, $exon->seq_region_end, $exon->strand, $exon->phase, $exon->end_phase), "\n";
     }
   }
+}
+
+
+=head2 retrieve_source
+
+ Arg [1]    : String source of the data
+ Description: Return the source with 'braker_' prefixed
+ Returntype : String
+ Exceptions : None
+
+=cut
+
+sub retrieve_source {
+  my ($source) = @_;
+
+  my ($data) = split('\.', $source);
+  return 'braker_'.lc($data);
 }
