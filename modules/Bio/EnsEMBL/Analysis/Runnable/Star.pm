@@ -119,7 +119,7 @@ sub run {
   $options .= ' --outSAMattributes "'.$self->sam_attributes.'"' if ($self->sam_attributes);
 
   # Run STAR setting TmpDir and restricting BAM sort memory allocation:
-  my $command = $self->program." --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$self->threads()." --twopassMode Basic --runMode alignReads --genomeDir ".$self->genome." --readFilesIn ".$fastq." ".$fastqpair." --outFileNamePrefix ".$out_dir."_ ".$options." --outTmpDir ".$tmp_dir." --outSAMtype BAM SortedByCoordinate"." --limitBAMsortRAM 15000000000";
+  my $command = $self->program." --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$self->threads()." --twopassMode Basic --runMode alignReads --genomeDir ".$self->genome." --readFilesIn ".$fastq." ".$fastqpair." --outFileNamePrefix ".$out_dir." ".$options." --outTmpDir ".$tmp_dir." --outSAMtype BAM SortedByCoordinate"." --limitBAMsortRAM 15000000000";
 
   $self->warning("Command: $command\n");
   if (system($command)) {

@@ -158,7 +158,7 @@ sub write_output {
     my $output_file_dirname = dirname($output_file);
     my @output_file_basename_split = split('_',$output_file_basename,2);
     my $srr = shift(@output_file_basename_split);
-    my $log_file = catfile($output_file_dirname,$srr.'__Log.out');
+    my $log_file = catfile($output_file_dirname,$srr.'_Log.out');
     my $log_file_ok = 1;
 
     open(LOGFILE,$log_file) or die("Log file $log_file could not be opened.");
