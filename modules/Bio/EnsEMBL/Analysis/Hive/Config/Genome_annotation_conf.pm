@@ -1732,7 +1732,7 @@ sub pipeline_analyses {
       -logic_name => 'skip_long_read',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [ #skip_long_read# -eq 0 ] && [ -s "'.$self->o('long_read_summary_file').'" ] || [ -s "'.$self->o('long_read_summary_file_genus').'" ]; then exit 0; else exit 42;fi',
+        cmd => 'if [ #skip_long_read# -eq 0 ] && [ -s "'.$self->o('long_read_summary_file').'" || -s "'.$self->o('long_read_summary_file_genus').'" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => {'42' => 2},
       },
       -rc_name => 'default',
