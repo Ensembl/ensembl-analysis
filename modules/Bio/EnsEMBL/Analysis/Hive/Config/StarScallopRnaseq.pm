@@ -57,6 +57,10 @@ sub default_options {
     'rnaseq_summary_file'       => '' || catfile( $self->o('rnaseq_dir'), $self->o('species_name') . '.csv' ),        # Set this if you have a pre-existing cvs file with the expected columns
     'rnaseq_summary_file_genus' => '' || catfile( $self->o('rnaseq_dir'), $self->o('species_name') . '_gen.csv' ),    # Set this if you have a pre-existing genus level cvs file with the expected columns
     rnaseq_study_accession => '',
+    'rnasamba_tsv_file'         => '' || catfile( $self->o('pcp_dir'), $self->o('pcp_db_name') . '_RNAsamba.tsv' ),
+    'cpc2_fasta_file'           => '' || catfile( $self->o('pcp_dir'), $self->o('pcp_db_name') . '.fasta' ),
+    'cpc2_file'                 => '' || catfile( $self->o('pcp_dir'), $self->o('pcp_db_name') . '_cpc2' ),
+    'cpc2_txt_file'             => '' || catfile( $self->o('pcp_dir'), $self->o('pcp_db_name') . '_cpc2.txt' ),
     'release_number' => '' || $self->o('ensembl_release'),
     'species_name'        => '',                                                                                      # e.g. mus_musculus
     'production_name'     => '',                                                                                      # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
@@ -143,6 +147,8 @@ sub default_options {
     picard_lib_jar  => catfile($self->o('linuxbrew_home_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
     rnasamba => '/nfs/production/flicek/ensembl/genebuild/jma/tools_temp/run_RNAsamba.sh',
     cpc2 => '/nfs/production/flicek/ensembl/genebuild/jma/tools_temp/run_CPC2.sh',
+    ensembl_analysis_scripts   => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
+    pcp_get_transcripts_script => catfile($self->o('ensembl_analysis_scripts'), 'pcp', 'get_transcripts.pl').
 
     'blast_type'             => 'ncbi',                                                                         # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     'uniprot_blast_exe_path' => catfile( $self->o('binary_base'), 'blastp' ),
@@ -1002,7 +1008,7 @@ sub pipeline_analyses {
       -rc_name    => '8GB',
       -parameters => {
         cmd => 'mkdir -p ' . $self->o('pcp_dir') . ';'.
-        ' perl ' . catfile($self->o('ensembl_analysis_script'), 'pcp', 'get_transcripts.pl').
+        ' perl ' . $self->o('pcp_get_transcripts_script').
         ' -user ' . $self->o('user_r').
         ' -dna_user ' . $self->o('user_r').
         ' -dbname ' . $self->o('pcp_db_name').
@@ -1011,7 +1017,7 @@ sub pipeline_analyses {
         ' -dna_host ' . $self->o('dna_db_host').
         ' -port ' . $self->o('scallop_initial_db_port').
         ' -dna_port ' . $self->o('dna_db_port').
-        ' > ' . catfile($self->o('pcp_dir'), $self->o('pcp_db_name')). '.fasta'
+        ' > ' . $self->o('cpc2_fasta_file')
       },
       -flow_into  => {
         1 => ['create_pcp_db'],
@@ -1040,8 +1046,8 @@ sub pipeline_analyses {
       -rc_name    => '8GB',
       -parameters => {
         cmd => 'sh ' . $self->o('cpc2').' '.
-        catfile($self->o('pcp_dir'), $self->o('pcp_db_name')). '.fasta ' .
-        catfile($self->o('pcp_dir'), $self->o('pcp_db_name')). '_cpc2'
+        $self->o('cpc2_fasta_file').' '
+        $self->o('cpc2_file').' '
       },
     },
 
@@ -1050,9 +1056,9 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '10GB',
       -parameters =>  {
-        cmd => 'sh ' . $self->o('rnasamba'). ' '.
-        catfile($self->o('pcp_dir'), $self->o('pcp_db_name')) . '_RNAsamba.tsv ' .
-        catfile($self->o('pcp_dir'), $self->o('pcp_db_name')) .'.fasta ' .
+        cmd => 'sh ' . $self->o('rnasamba').' '.
+        $self->o('rnasamba_tsv_file').' '
+        $self->o('cpc2_fasta_file').' '
         $self->o('rna_samba_weights')
       },
       -flow_into =>  {
@@ -1065,9 +1071,9 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '50GB',
       -parameters =>  {
-        cmd => 'sh ' . $self->o('rnasamba'). ' '.
-        catfile($self->o('pcp_dir'), $self->o('pcp_db_name')) . '_RNAsamba.tsv ' .
-        catfile($self->o('pcp_dir'), $self->o('pcp_db_name')) .'.fasta ' .
+        cmd => 'sh ' . $self->o('rnasamba').' '.
+        $self->o('rnasamba_tsv_file').' '
+        $self->o('cpc2_fasta_file').' '
         $self->o('rna_samba_weights')
       },
       -flow_into =>  {
@@ -1080,9 +1086,9 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '100GB',
       -parameters =>  {
-        cmd => 'sh ' . $self->o('rnasamba'). ' '.
-        catfile($self->o('pcp_dir'), $self->o('pcp_db_name')) . '_RNAsamba.tsv ' .
-        catfile($self->o('pcp_dir'), $self->o('pcp_db_name')) .'.fasta ' .
+        cmd => 'sh ' . $self->o('rnasamba').' '.
+        $self->o('rnasamba_tsv_file').' '
+        $self->o('cpc2_fasta_file').' '
         $self->o('rna_samba_weights')
       },
     },
@@ -1096,9 +1102,9 @@ sub pipeline_analyses {
         ' -pass ' . $self->o('password') .
         ' -dbname  ' . $self->o('pcp_db_name') .
         ' -port ' . $self->o('scallop_initial_db_port') .
-        ' -host ' . $self->o('scallop_initial_db_server') .
-        ' -cpc2 ' . catfile($self->o('pcp_dir'), $self->o('pcp_db_name')) . '_cpc2.txt' .
-        ' -rnas ' . catfile($self->o('pcp_dir'), $self->o('pcp_db_name')) . '_RNAsamba.tsv',
+        ' -host ' . $self->o('scallop_initial_db_host') .
+        ' -cpc2 ' . $self->o('cpc2_txt_file') .
+        ' -rnas ' . $self->o('rnasamba_tsv_file'),
       },
       -rc_name    => '1GB',
       -flow_into => {
