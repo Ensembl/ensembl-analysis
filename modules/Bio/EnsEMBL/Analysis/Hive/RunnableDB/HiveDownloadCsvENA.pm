@@ -199,12 +199,42 @@ sub run {
             my @row = split("\t", $line);
             my $read_length = $self->param('_read_length');
 
-            if ($self->param('paired_end_only')){
-	      my $third_file = "ftp[^_]*\.fastq\.gz\;ftp";
-	      $row[$fields_index{$fastq_file}] =~ s/$third_file/ftp/; # sometimes a third combined fastq file exists (it has single end naming format) - discard it
-
+            if ($self->param('paired_end_only')) {
               next if ($row[$fields_index{library_layout}] eq 'SINGLE'); # don't include single end reads
-	      next if ($row[$fields_index{$fastq_file}] !~ m/.*_1\.fastq\.gz.*_2\.fastq\.gz/);# this will throw out the paired end data that is stored in a single file, i.e. it looks like single end data to a regex
+              next if ($row[$fields_index{$fastq_file}] !~ m/.*_1\.fastq\.gz.*_2\.fastq\.gz/);# this will throw out the paired end data that is stored in a single file, i.e. it looks like single end data to a regex
+
+              # sometimes a third combined fastq file exists (it has single end naming format)
+              # remove the file (and its corresponding checksum) without numerical suffix if the _1 and _2 files are present
+              my $fastq_files = $row[$fields_index{$fastq_file}];
+              if ($fastq_files =~ m/.*_1\.fastq\.gz/ and
+                  $fastq_files =~ m/.*_2\.fastq\.gz/ and
+                  $fastq_files =~ m/[^_]+[0-9]+\.fastq\.gz/) {
+
+                my @files = split(';',$fastq_files);
+                my @checksums = split(';',$row[$fields_index{fastq_md5}]);
+                my @files_to_del = ();
+                foreach my $file (@files) {
+                  if ($file =~ m/[^_][0-9]+]*\.fastq\.gz/) {
+                    push(@files_to_del,1);
+                  } else {
+                    push(@files_to_del,0);
+                  }
+                }
+
+                my $file_index = 0;
+                foreach my $file_to_del (@files_to_del) {
+                  if ($file_to_del) {
+                    splice(@files,$file_index,1);
+                    splice(@checksums,$file_index,1);
+                  } else {
+                    $file_index++;
+                  }
+                }
+
+                # set the value for the final list of files and their corresponding checksums
+                $row[$fields_index{$fastq_file}] = join(';',@files);
+                $row[$fields_index{fastq_md5}] = join(';',@checksums);
+              }
             }
 
             if ($row[$fields_index{base_count}] and $row[$fields_index{read_count}]) {
