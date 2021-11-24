@@ -100,7 +100,7 @@ def load_results_to_ensembl_db(main_script_dir,load_to_ensembl_db,genome_file,ma
     print("Loading Dust repeats to db")
     batch_size = 500
     load_type = 'single_line_feature'
-    analysis_name = 'dustmasker'
+    analysis_name = 'dust'
     gtf_records = batch_gtf_records(dust_results_gtf_file,batch_size,db_loading_dir,load_type)
     generic_load_records_to_ensembl_db(load_to_ensembl_db,db_loading_script,genome_file,db_details,db_loading_dir,load_type,analysis_name,gtf_records,num_threads)
   else:
@@ -1628,6 +1628,11 @@ def multiprocess_genblast(batched_protein_file,masked_genome_file,genblast_path)
   print(" ".join(genblast_cmd))
   subprocess.run(genblast_cmd)
 
+  files_to_delete = glob.glob(batched_protein_file + "*msk.blast*")
+  files_to_delete.append(batched_protein_file)
+  for file_to_delete in files_to_delete:
+    subprocess.run(['rm',file_to_delete])
+
 
 def generate_genblast_gtf(genblast_dir):
   file_out_name = os.path.join(genblast_dir,"annotation.gtf")
@@ -1759,13 +1764,86 @@ def run_makeblastdb(makeblastdb_path,masked_genome_file,asnb_file):
   print ('Completed running makeblastdb')
 
 
-def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fastq_dir,genome_file,max_reads_per_sample,max_total_reads,num_threads):
+def run_trimming(main_output_dir,short_read_fastq_dir,delete_pre_trim_fastq,num_threads):
+
+  trim_galore_path = 'trim_galore'
+  check_exe(trim_galore_path)
+  
+  trim_dir = create_dir(main_output_dir,'trim_galore_output')
+
+  fastq_file_list = []
+  file_types = ('*.fastq','*.fq','*.fastq.gz','*.fq.gz')
+  for file_type in file_types:
+    fastq_file_list.extend(glob.glob(os.path.join(short_read_fastq_dir,file_type)))
+
+  fastq_file_list = create_paired_paths(fastq_file_list)
+
+  for fastq_file_path in fastq_file_list:
+    print(fastq_file_path)
+
+  generic_trim_galore_cmd = [trim_galore_path,'--illumina','--quality','20','--length','50','--output_dir',trim_dir]  
+
+  pool = multiprocessing.Pool(int(num_threads))
+  for fastq_files in fastq_file_list:
+    pool.apply_async(multiprocess_trim_galore, args=(generic_trim_galore_cmd,fastq_files,trim_dir,))
+    if delete_pre_trim_fastq:
+      for file_path in fastq_files:
+        print("Removing original fastq file post trimming:\n" + file_path)
+        subprocess.run(['rm',file_path])
+
+  pool.close()
+  pool.join()
+
+  trimmed_fastq_list = glob.glob(os.path.join(trim_dir,'*.fq.gz'))
+  for trimmed_fastq_path in trimmed_fastq_list:
+    print("Trimmed file path:\n" + trimmed_fastq_path)
+    sub_patterns =  r'|'.join(('_val_1.fq','_val_2.fq','_trimmed.fq'))
+    updated_file_path =  re.sub(sub_patterns,'.fq',trimmed_fastq_path)
+    print("Updated file path:\n" + updated_file_path)
+    subprocess.run(['mv',trimmed_fastq_path,updated_file_path])
+
+    files_to_delete_list = []
+    for file_type in file_types:
+      files_to_delete_list.extend(glob.glob(os.path.join(short_read_fastq_dir,file_type)))
+
+
+def multiprocess_trim_galore(generic_trim_galore_cmd,fastq_files,trim_dir):
+
+  fastq_file = fastq_files[0]
+  fastq_file_pair = None
+  if(len(fastq_files) == 2):
+    fastq_file_pair = fastq_files[1]
+
+  trim_galore_cmd = generic_trim_galore_cmd
+  if fastq_file_pair:
+    trim_galore_cmd.append('--paired')
+
+  trim_galore_cmd.append(fastq_file)
+
+  if fastq_file_pair:
+    trim_galore_cmd.append(fastq_file_pair)
+
+  print("Running Trim Galore with the following command:")
+  print(' '.join(trim_galore_cmd))  
+  subprocess.run(trim_galore_cmd)
+
+
+# --basename <PREFERRED_NAME>	Use PREFERRED_NAME as the basename for output files, instead of deriving the filenames from
+#                        the input files. Single-end data would be called PREFERRED_NAME_trimmed.fq(.gz), or
+#                        PREFERRED_NAME_val_1.fq(.gz) and PREFERRED_NAME_val_2.fq(.gz) for paired-end data. --basename
+#                        only works when 1 file (single-end) or 2 files (paired-end) are specified, but not for longer lists.  
+
+def run_star_align(star_path,trim_fastq,subsample_script_path,main_output_dir,short_read_fastq_dir,genome_file,max_reads_per_sample,max_total_reads,num_threads):
   # !!! Need to add in samtools path above instead of just using 'samtools' in command
 
   if not star_path:
     star_path = 'STAR'
 
   check_exe(star_path)
+
+  # If trimming has been enabled then switch the path for short_read_fastq_dir from the original location to the trimmed fastq dir
+  if trim_fastq:
+    short_read_fastq_dir = os.path.join(main_output_dir,'trim_galore_output')
 
 #  if not os.path.exists(subsample_script_path):
   subsample_script_path = 'subsample_fastq.py'
@@ -1852,6 +1930,8 @@ def run_star_align(star_path,subsample_script_path,main_output_dir,short_read_fa
     print ("Processing %s" % fastq_file_path)
     star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir,'--outSAMtype','SAM','--alignIntronMax','100000','--outSJfilterIntronMaxVsReadN','5000','10000','25000','40000','50000','50000','50000','50000','50000','100000']
 
+#    star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir,'--outSAMtype','SAM','--alignIntronMax','100000']
+ 
     if check_compression:
       star_command.append('--readFilesCommand')
       star_command.append('gunzip')
@@ -3420,6 +3500,8 @@ if __name__ == '__main__':
   parser.add_argument('--diamond_validation_db', help='Use a Diamond db with blastp mode to help validate cds sequences', required=False)
   parser.add_argument('--validation_type', help='The strength of evidence needed to validate and ORF as protein coding, can be "relaxed" or "moderate"', required=False)
   parser.add_argument('--load_to_ensembl_db', help='Load results to an Ensembl db, must also provide the db_details flag', required=False)
+  parser.add_argument('--trim_fastq', help='Trim the short read files using Trim Galore', required=False)
+  parser.add_argument('--delete_pre_trim_fastq', help='Delete the original fastq files after trimming', required=False)
   args = parser.parse_args()
 
   work_dir = args.output_dir
@@ -3479,6 +3561,8 @@ if __name__ == '__main__':
   diamond_validation_db = args.diamond_validation_db
   validation_type = args.validation_type
   load_to_ensembl_db = args.load_to_ensembl_db
+  trim_fastq = args.trim_fastq
+  delete_pre_trim_fastq = args.delete_pre_trim_fastq
 
   main_script_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -3501,8 +3585,8 @@ if __name__ == '__main__':
   # If the run_full_annotation flag is set then we want to set a standardised set of analyses
   if run_full_annotation:
     run_repeats = 1
-#    run_simple_features = 1
-#    run_sncrnas = 1
+    run_simple_features = 1
+    run_sncrnas = 1
     run_transcriptomic = 1
     run_proteins = 1
     finalise_geneset = 1
@@ -3510,8 +3594,8 @@ if __name__ == '__main__':
   # These are subsets of the analyses that can be run, group by type
   if run_repeats:
     run_masking = 1
-#    run_dust = 1
-#    run_trf = 1
+    run_dust = 1
+    run_trf = 1
 
   if run_simple_features:
     run_cpg = 1
@@ -3595,10 +3679,13 @@ if __name__ == '__main__':
   #################################
   # Transcriptomic analyses
   #################################
+  if trim_fastq:
+    run_trimming(work_dir,short_read_fastq_dir,delete_pre_trim_fastq,num_threads)
+
   # Run STAR
   if run_star:
      print ("Running Star")
-     run_star_align(star_path,subsample_script_path,work_dir,short_read_fastq_dir,genome_file,max_reads_per_sample,max_total_reads,num_threads)
+     run_star_align(star_path,trim_fastq,subsample_script_path,work_dir,short_read_fastq_dir,genome_file,max_reads_per_sample,max_total_reads,num_threads)
 
   # Run Scallop
   if run_scallop:
