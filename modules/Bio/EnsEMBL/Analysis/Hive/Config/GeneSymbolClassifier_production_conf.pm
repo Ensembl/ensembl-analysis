@@ -43,9 +43,15 @@ use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
 sub default_options {
   my ($self) = @_;
 
-  my $gsc_data_directory = $self->o('annotation_data_directory');
+  # inherited from the Base pipeline config
+  my $gsc_data_directory = $self->o('pipeline_dir');
 
   my $core_db_name = $self->o('core_db_name');
+
+  my $pipeline_name => $self-o('pipeline_name') || 'GeneSymbolClassifier_production';
+  my $pipe_db_name = $ENV{USER}.$self->o('pipeline_name');
+
+  my $gsc_scripts_directory = $ENV{ENSCODE}.'/ensembl-genes/pipelines/gene_symbol_classifier';
 
   my $protein_sequences_fasta_path = "${gsc_data_directory}/${core_db_name}_protein_sequences.fa";
   my $gene_symbols_csv_path = "${gsc_data_directory}/${core_db_name}_protein_sequences_symbols.csv";
@@ -62,19 +68,26 @@ sub default_options {
 
     history_file => undef,
 
-    'gsc_data_directory' => $gsc_data_directory,
-    'protein_sequences_fasta_path' => $protein_sequences_fasta_path,
-    'gene_symbols_csv_path' => $gene_symbols_csv_path,
-    'filtered_assignments_csv_path' => $filtered_assignments_csv_path,
+    pipeline_name => $self->o('pipeline_name'),
 
-    'pipeline_db' => {
+    pipeline_db => {
       -driver => 'mysql',
-      -host   => $self->o('pipe_db_server'),
-      -port   => $self->o('pipe_db_port'),
+      -host   => $self->o('host'),
+      -port   => $self->o('port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -dbname => $self->o('pipe_db_name'),
     },
+
+    user_r => 'ensro',
+
+    loading_threshold => $self->o('loading_threshold'),
+
+    gsc_scripts_directory => $gsc_scripts_directory,
+    gsc_data_directory => $gsc_data_directory,
+    protein_sequences_fasta_path => $protein_sequences_fasta_path,
+    gene_symbols_csv_path => $gene_symbols_csv_path,
+    filtered_assignments_csv_path => $filtered_assignments_csv_path,
   };
 }
 
@@ -140,7 +153,7 @@ sub pipeline_analyses {
       -comment    => 'Retrieve the protein coding gene sequences from a Ensembl core database and store them as a FASTA file. The analysis is auto-seeded with a job for the target core database.',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        'cmd' => 'perl dump_protein_sequences.pl --db_host '.$self->o('core_db_server_host').' --db_port '.$self->o('core_db_server_port').' --db_name '.$self->o('core_db_name').' --output_file '.$self->o('protein_sequences_fasta_path'),
+        'cmd' => 'perl '.$self->o('gsc_scripts_directory').'/dump_protein_sequences.pl --db_host '.$self->o('core_db_server_host').' --db_port '.$self->o('core_db_server_port').' --db_name '.$self->o('core_db_name').' --output_file '.$self->o('protein_sequences_fasta_path'),
       },
       -rc_name    => 'default',
       -flow_into  => {
@@ -185,7 +198,7 @@ sub pipeline_analyses {
       -comment    => 'Read gene symbols assignments from a CSV file and load them to the Ensembl core database.',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        'cmd' => 'perl load_gene_symbols.pl --db_host '.$self->o('core_db_server_host').' --db_port '.$self->o('core_db_server_port').' --db_name '.$self->o('core_db_name').' --username '.$self->o('user').' --password '.$self->o('password').' --symbol_assignments '.$self->o('filtered_assignments_csv_path'),
+        'cmd' => 'perl '.$self->o('gsc_scripts_directory').'/load_gene_symbols.pl --db_host '.$self->o('core_db_server_host').' --db_port '.$self->o('core_db_server_port').' --db_name '.$self->o('core_db_name').' --username '.$self->o('user').' --password '.$self->o('password').' --symbol_assignments '.$self->o('filtered_assignments_csv_path'),
       },
       -rc_name    => 'default',
       -flow_into  => {
