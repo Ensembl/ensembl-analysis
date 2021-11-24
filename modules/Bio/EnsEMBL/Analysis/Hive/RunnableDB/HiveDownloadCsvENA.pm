@@ -108,7 +108,7 @@ sub fetch_input {
     $self->param('instrument_platform','PACBIO_SMRT'),
   }
   $self->param_required('inputfile');
-  if (-e $self->param('inputfile')) {
+  if (($self->param('inputfile') and -e $self->param('inputfile')) or ($self->param('input_dir') and -d $self->param('input_dir'))) {
     $self->complete_early("'inputfile' exists so I will use that");
   } elsif ($self->param_is_defined('study_accession') and $self->param('study_accession')) {
     $self->_populate_query($self->param('study_accession'), 'study_accession=%s');
@@ -193,6 +193,7 @@ sub run {
             my $read_length = $self->param('_read_length');
             my $nominal_length = 0;
             my $calculated_length = 0;
+            my $read_count = 0;
 
             if ($self->param('paired_end_only')){
 	      my $third_file = "ftp[^_]*\.fastq\.gz\;ftp";
@@ -206,6 +207,11 @@ sub run {
               $nominal_length = $row[$fields_index{nominal_length}];
               $read_length = $nominal_length;
             }
+            if  ($row[$fields_index{read_count}]) {
+              $read_count = $row[$fields_index{read_count}];
+              say "FERGAL ADDING READ COUNT: ".$read_count;
+            }
+
             if ($row[$fields_index{base_count}] and $row[$fields_index{read_count}]) {
               $calculated_length = $row[$fields_index{base_count}]/$row[$fields_index{read_count}];
               $read_length = $calculated_length;
@@ -228,6 +234,7 @@ sub run {
               experiment_title => $row[$fields_index{experiment_title}],
               instrument_model => $row[$fields_index{instrument_model}],
               read_length => $read_length,
+              read_count => $read_count,
               center_name => $row[$fields_index{center_name}],
             );
             $samples{$row[$fields_index{sample_accession}]} = $row[$fields_index{secondary_sample_accession}];
@@ -332,7 +339,7 @@ sub run {
       foreach my $sample (keys %{$csv_data{$project}}) {
         unless($sample =~ /^SAM/) {
           next;
-	}
+	      }
         next unless (exists $samples{$sample});
         if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
 #        if (exists $samples{$sample}->{dev_stage}) {
@@ -440,13 +447,14 @@ sub write_output {
           }
           $description =~ tr/:\t/ /;
           if($self->param('read_type') eq 'short_read') {
-            print FH sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s, %s, %s\n",
+            print FH sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s, %s, %s\n",
               lc($sample_name),
               $experiment->{run_accession},
               $experiment->{library_layout} eq 'PAIRED' ? 1 : 0,
               $filename,
               -1,
               $experiment->{read_length},
+              $experiment->{read_count},
               0,
               $experiment->{center_name} || $self->param('_centre_name'),
               $experiment->{instrument_platform},
