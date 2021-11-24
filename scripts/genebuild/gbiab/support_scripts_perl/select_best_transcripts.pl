@@ -73,7 +73,7 @@ GetOptions( 'gtf_file=s'             => \$input_gtf_file,
             'all_cds_exons!'         => \$all_cds_exons);
 
 print "FROM GBIAB\n";
-print "$input_gtf_file\n$output_gtf_file\n$region_details\n";    
+print "$input_gtf_file\n$output_gtf_file\n$region_details\n";
 if (!(-e $input_gtf_file)) {
   die "Could not open the GTF file, path used: ".$input_gtf_file;
 }
@@ -1208,8 +1208,8 @@ sub extract_transcripts_from_genes {
 sub process_transcript {
   my ($transcript,$transcripts,$processed_transcripts,$processed_exon_strings) = @_;
 
-  my $cds_only = 0; # NOTE: This is disabled/enabled directly from here, when we want to actually add this it needs to be a real param
-  if($cds_only) {
+  my $consider_cds_only = 0; # NOTE: This is disabled/enabled directly from here, when we want to actually add this it needs to be a real param
+  if($consider_cds_only) {
     # This is for pulling out cds seqs without UTR (for example in single cell stuff where it's mostly tightly packed single exon genes)
     # So the transcripts coming out of this are all then without UTR
     my $cds_exons = $transcript->get_all_translateable_Exons();

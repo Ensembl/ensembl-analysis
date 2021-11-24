@@ -65,13 +65,15 @@ my $dba = new Bio::EnsEMBL::DBSQL::DBAdaptor( -host   => $host,
 
 
 
-my $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
+
+if($dnadbname) {
+  my $dnadb = new Bio::EnsEMBL::DBSQL::DBAdaptor(
                                                 -port    => $dnaport,
                                                 -user    => $dnauser,
                                                 -host    => $dnahost,
                                                 -dbname  => $dnadbname);
-
-$dba->dnadb($dnadb);
+  $dba->dnadb($dnadb);
+}
 
 my $gene_adaptor = $dba->get_GeneAdaptor;
 my $transcript_adaptor = $dba->get_TranscriptAdaptor;
