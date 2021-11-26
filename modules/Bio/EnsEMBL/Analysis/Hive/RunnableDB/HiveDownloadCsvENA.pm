@@ -199,12 +199,35 @@ sub run {
             my @row = split("\t", $line);
             my $read_length = $self->param('_read_length');
 
-            if ($self->param('paired_end_only')){
-	      my $third_file = "ftp[^_]*\.fastq\.gz\;ftp";
-	      $row[$fields_index{$fastq_file}] =~ s/$third_file/ftp/; # sometimes a third combined fastq file exists (it has single end naming format) - discard it
-
+            if ($self->param('paired_end_only')) {
               next if ($row[$fields_index{library_layout}] eq 'SINGLE'); # don't include single end reads
-	      next if ($row[$fields_index{$fastq_file}] !~ m/.*_1\.fastq\.gz.*_2\.fastq\.gz/);# this will throw out the paired end data that is stored in a single file, i.e. it looks like single end data to a regex
+              next if ($row[$fields_index{$fastq_file}] !~ m/.*_1\.fastq\.gz.*_2\.fastq\.gz/);# this will throw out the paired end data that is stored in a single file, i.e. it looks like single end data to a regex
+
+              # sometimes a third combined fastq file exists (it has single end naming format)
+              # remove the file (and its corresponding checksum) without numerical suffix if the _1 and _2 files are present
+              my @files = split(';',$row[$fields_index{$fastq_file}]);
+              my @checksums = split(';',$row[$fields_index{fastq_md5}]);
+
+              if (scalar(@files) > 2) {
+                $row[$fields_index{$fastq_file}] = '';
+                $row[$fields_index{fastq_md5}] = '';
+                my $file_index = 0;
+                my $file_count = 0;
+                foreach my $file (@files) {
+                  if ($file !~ m/[^_][0-9]+]*\.fastq\.gz/) {
+                    $row[$fields_index{$fastq_file}] .= $file.";";
+                    $row[$fields_index{fastq_md5}] .= $checksums[$file_index].";";
+                    $file_count++;
+                  }
+                  $file_index++;
+                }
+                chop($row[$fields_index{$fastq_file}]);
+                chop($row[$fields_index{fastq_md5}]);
+
+                if ($file_count != 2) {
+                  $self->throw("The number of parsed fastq files must be 2 but it is ".$file_count." for line:\n".$line);
+                }
+              }
             }
 
             if ($row[$fields_index{base_count}] and $row[$fields_index{read_count}]) {
