@@ -205,35 +205,28 @@ sub run {
 
               # sometimes a third combined fastq file exists (it has single end naming format)
               # remove the file (and its corresponding checksum) without numerical suffix if the _1 and _2 files are present
-              my $fastq_files = $row[$fields_index{$fastq_file}];
-              if ($fastq_files =~ m/.*_1\.fastq\.gz/ and
-                  $fastq_files =~ m/.*_2\.fastq\.gz/ and
-                  $fastq_files =~ m/[^_]+[0-9]+\.fastq\.gz/) {
+              my @files = split(';',$row[$fields_index{$fastq_file}]);
+              my @checksums = split(';',$row[$fields_index{fastq_md5}]);
 
-                my @files = split(';',$fastq_files);
-                my @checksums = split(';',$row[$fields_index{fastq_md5}]);
-                my @files_to_del = ();
-                foreach my $file (@files) {
-                  if ($file =~ m/[^_][0-9]+]*\.fastq\.gz/) {
-                    push(@files_to_del,1);
-                  } else {
-                    push(@files_to_del,0);
-                  }
-                }
-
+              if (scalar(@files) > 2) {
+                $row[$fields_index{$fastq_file}] = '';
+                $row[$fields_index{fastq_md5}] = '';
                 my $file_index = 0;
-                foreach my $file_to_del (@files_to_del) {
-                  if ($file_to_del) {
-                    splice(@files,$file_index,1);
-                    splice(@checksums,$file_index,1);
-                  } else {
-                    $file_index++;
+                my $file_count = 0;
+                foreach my $file (@files) {
+                  if ($file !~ m/[^_][0-9]+]*\.fastq\.gz/) {
+                    $row[$fields_index{$fastq_file}] .= $file.";";
+                    $row[$fields_index{fastq_md5}] .= $checksums[$file_index].";";
+                    $file_count++;
                   }
+                  $file_index++;
                 }
+                chop($row[$fields_index{$fastq_file}]);
+                chop($row[$fields_index{fastq_md5}]);
 
-                # set the value for the final list of files and their corresponding checksums
-                $row[$fields_index{$fastq_file}] = join(';',@files);
-                $row[$fields_index{fastq_md5}] = join(';',@checksums);
+                if ($file_count != 2) {
+                  $self->throw("The number of parsed fastq files must be 2 but it is ".$file_count." for line:\n".$line);
+                }
               }
             }
 
