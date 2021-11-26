@@ -113,7 +113,12 @@ sub run {
     $self->throw("Error running scallop\nError code: $?\n");
   }
 
-  $self->output([$output_file]);
+  # check that the output GTF file does not have zero size
+  if (-s $output_file_path) {
+    $self->output([$output_file]);
+  } else {
+    $self->throw("Error running scallop\nThe output GTF file has zero size: $output_file_path\n");
+  }
 }
 
 
