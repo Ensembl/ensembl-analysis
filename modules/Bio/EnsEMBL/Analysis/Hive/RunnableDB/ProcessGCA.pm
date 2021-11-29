@@ -140,6 +140,10 @@ sub fetch_input {
 
   my $output_params = {};
   my ($stable_id_prefix,$clade,$species_taxon_id,$taxon_id,$assembly_name,$common_name,$assembly_refseq_accession,$assembly_date,$species_name,$assembly_group,$stable_id_start) = $sth->fetchrow();
+  my $s = $stable_id_prefix;
+  $s =~ s/(ENS)/BRAKER/m;
+  my $stable_id_prefix = $s;
+
   my $scientific_name = $species_name;
   $species_name = lc($species_name);
   $species_name =~ s/ +/\_/g;
@@ -252,7 +256,10 @@ sub fetch_input {
                                                $core_db_details->{'-pass'}.
                               ' --output_dir '.$output_dir.
                               ' --num_threads '.$self->param('num_threads').
-                              ' --run_masking 1';
+                              ' --run_masking 1'.
+                              ' --run_repeats 1'.
+                              ' --run_simple_features 1'.
+                              ' --load_to_ensembl_db 1';			      
  
   $output_params->{'core_db'} = $core_db_details;
   $output_params->{'core_dbname'} = $core_dbname;
@@ -353,14 +360,20 @@ sub get_clade_params {
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblMetazoa',
     $clade_params->{'busco_group'} = 'hymenoptera_odb10',
- 
+  } elsif($clade eq 'hymenoptera') {
+    # This is for hymenoptera, just labelled insects till the registry is updated
+    $clade_params->{'protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/hymenoptera_uniprot_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/hymenoptera_orthodb_proteins.fa',
+    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
+    $clade_params->{'species_division'} = 'EnsemblMetazoa',
+    $clade_params->{'busco_group'} = 'hymenoptera_odb10',
   } elsif($clade eq 'plants') {
     # Test for Impatiens glandulifera labelled plants in the registry
     $clade_params->{'protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/all_plants_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/viridiplantae_orthodb_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/eudicots_orthodb_proteins.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_eudicotyledons_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblPlants',
-    $clade_params->{'busco_group'} = 'viridiplantae_odb10',
+    $clade_params->{'busco_group'} = 'eudicots_odb10',
 
   } elsif($clade eq 'metazoa') {
     $clade_params->{'protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/worm_uniprot_proteins.fa',

@@ -446,7 +446,7 @@ sub pipeline_analyses {
       },
       -analysis_capacity => 1,
       -input_ids         => [
-        #{ 'assembly_accession' => 'GCA_907269065.1' },
+        #{ 'assembly_accession' => 'GCA_' },
       ],
 
     },
@@ -711,23 +711,23 @@ sub pipeline_analyses {
       -rc_name         => 'gbiab',
       -max_retry_count => 0,
       -flow_into       => {
-        1 => ['fan_rnaseq_data_available'],
+        1 => ['run_braker_ep_mode'],
       },
     },
 ######################BRAKER###########
-    {
-      -logic_name => 'fan_rnaseq_data_available',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd                     => 'if [ "$(ls -A #short_read_dir#)" && "$(ls -A #long_read_dir#)" ]; then exit 0; else exit 42;fi',
-        return_codes_2_branches => { '42' => 2 },
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-	      #        1 => ['run_gbiab'],
-        2 => ['run_braker_ep_mode'],
-      },
-    },
+    #{
+    #  -logic_name => 'fan_rnaseq_data_available',
+    #  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    #  -parameters => {
+    #    cmd                     => 'if [ "$(ls -A #short_read_dir#)" && "$(ls -A #long_read_dir#)" ]; then exit 0; else exit 42;fi',
+    #    return_codes_2_branches => { '42' => 2 },
+    #  },
+    #  -rc_name   => 'default',
+    #  -flow_into => {
+	      ##        1 => ['run_gbiab'],
+	      #    2 => ['run_braker_ep_mode'],
+	      #  },
+	      # },
     #    {
     #      -logic_name => 'run_gbiab',
     #      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -809,22 +809,6 @@ sub pipeline_analyses {
           'singularity exec --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file# ;' .
           'cd #output_path#/;' .
           'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#assembly_accession#_#species_name# --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
-#                             #                                    'mv braker braker_etp_mode',
-      },
-      -rc_name         => 'braker32',
-      -max_retry_count => 0,
-      -flow_into       => {
-        1 => ['clean_gtf_file'],
-      },
-    },
-    {
-      -logic_name => 'clean_gtf_file',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-
-      -parameters => {
-        #        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'process_braker_gtf.py' ) . ' ./braker/braker.gtf braker_gtf.gtf;' .
-        #          'sed "s/ \+ /\t/g" braker_gtf.gtf > braker_gtf_new.gtf',
-        cmd => 'singularity exec --bind #output_path#/braker/:/data:rw  ' . $self->o('python_singularity_image') . 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'process_braker_gtf.py' ) . ' #output_path#/braker/braker.gtf #output_path#/braker/braker_gtf.gtf;',
       },
       -rc_name         => 'braker32',
       -max_retry_count => 0,
@@ -832,6 +816,21 @@ sub pipeline_analyses {
         1 => ['load_gtf_file'],
       },
     },
+    # {
+    #  -logic_name => 'clean_gtf_file',
+    #  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+
+    #  -parameters => {
+    # #        cmd => 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'process_braker_gtf.py' ) . ' ./braker/braker.gtf braker_gtf.gtf;' .
+        #          'sed "s/ \+ /\t/g" braker_gtf.gtf > braker_gtf_new.gtf',
+	#    cmd => 'singularity exec --bind #output_path#/braker/:/data:rw  ' . $self->o('python_singularity_image') . 'python ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'braker', 'process_braker_gtf.py' ) . ' #output_path#/braker/braker.gtf #output_path#/braker/braker_gtf.gtf;',
+	# },
+	#  -rc_name         => 'braker32',
+	#  -max_retry_count => 0,
+	#  -flow_into       => {
+	#   1 => ['load_gtf_file'],
+	# },
+	# },
     {
       -logic_name => 'load_gtf_file',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -848,7 +847,7 @@ sub pipeline_analyses {
           ' -port ' . $self->o('dna_db_port') .
           ' -dbname #core_dbname#' .
           ' -write' .
-          ' -file #output_path#/braker/braker_gtf.gtf',
+          ' -file #output_path#/braker/braker.gtf',
       },
       -rc_name         => 'default',
       -max_retry_count => 0,
@@ -974,26 +973,26 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        1 => ['update_stable_ids'],
+        1 => ['final_meta_updates'],
       },
     },
 
-    {
-    -logic_name => 'update_stable_ids',
-    -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::SystemCmd',
-    -parameters => {
-      cmd => 'perl ' . $self->o('stable_id_convert_script') .
-        ' -user ' . $self->o('user') .
-        ' -pass ' . $self->o('password') .
-        ' -host ' . $self->o('core_db', '-host') .
-        ' -port ' . $self->o('core_db', '-port') .
-        ' -dbname ' . '#core_dbname#'
-    },
-    -rc_name   => 'default',
-    -flow_into => {
-      1 => ['final_meta_updates'],
-    },
-  },
+    # {
+    #-logic_name => 'update_stable_ids',
+    #-module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::SystemCmd',
+    #-parameters => {
+    #  cmd => 'perl ' . $self->o('stable_id_convert_script') .
+    #    ' -user ' . $self->o('user') .
+    #    ' -pass ' . $self->o('password') .
+    #    ' -host ' . $self->o('core_db', '-host') .
+    #    ' -port ' . $self->o('core_db', '-port') .
+    #    ' -dbname ' . '#core_dbname#'
+    #},
+    #-rc_name   => 'default',
+    #-flow_into => {
+    #  1 => ['final_meta_updates'],
+    #},
+    #},
 
     {
       -logic_name => 'final_meta_updates',
