@@ -39,7 +39,6 @@ sub default_options {
     'augustus_species_path' => '/nfs/production/flicek/ensembl/genebuild/ftricomi/augustus_config/config/species/',
     'cores'                 => 30,
     'genome_file'           => '',
-    #working_dir???
     'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test-braker2_es_ep_etp.simg',
     'python_singularity_image' => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test_clean_gtf.sif',
     'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test-agat.simg',
@@ -48,7 +47,6 @@ sub default_options {
 
     #Gbiab
     'num_threads' => 20,
-    #'dbowner' => 'fergal',
     'base_output_dir'      => '',
     'protein_file'         => '',
     'busco_protein_file'   => '',
@@ -210,26 +208,6 @@ sub default_options {
     'long_read_fastq_dir' => catdir( $self->o('long_read_dir'), 'input' ),
     'use_ucsc_naming'     => 0,
 
-    # If your reads are unpaired you may want to run on slices to avoid
-    # making overlong rough models.  If you want to do this, specify a
-    # slice length here otherwise it will default to whole chromosomes.
-    slice_length => 10000000,
-
-    # Regular expression to allow FastQ files to be correctly paired,
-    # for example: file_1.fastq and file_2.fastq could be paired using
-    # the expression "\S+_(\d)\.\S+".  Need to identify the read number
-    # in brackets; the name the read number (1, 2) and the
-    # extension.
-    pairing_regex => '\S+_(\d)\.\S+',
-
-    # Regular expressions for splitting the fastq files
-    split_paired_regex => '(\S+)(\_\d\.\S+)',
-    split_single_regex => '([^.]+)(\.\S+)',
-
-    # Do you want to make models for the each individual sample as well
-    # as for the pooled samples (1/0)?
-    single_tissue => 1,
-
     # What Read group tag would you like to group your samples
     # by? Default = ID
     read_group_tag => 'SM',
@@ -278,94 +256,6 @@ sub default_options {
     'refseq_mrna_ftp_path'   => $self->o('refseq_base_ftp') . '/#assembly_refseq_accession#_#assembly_name#_rna.fna.gz',
     'refseq_report_ftp_path' => $self->o('refseq_base_ftp') . '/#assembly_refseq_accession#_#assembly_name#_assembly_report.txt',
 
-########################
-# LastZ
-########################
-
-    'compara_dump_dir' => catdir( $self->o('output_path'), 'lastz' ),
-
-    'compara_ref_species' => $self->o('projection_source_production_name'),
-
-    #
-    #Default pair_aligner
-    #
-    'pair_aligner_method_link' => [ 1001, 'LASTZ_RAW' ],
-    'pair_aligner_logic_name'  => 'LastZ',
-    'pair_aligner_module'      => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::LastZ',
-
-    #
-    #Default chain
-    #
-    'chain_input_method_link'  => [ 1001, 'LASTZ_RAW' ],
-    'chain_output_method_link' => [ 1002, 'LASTZ_CHAIN' ],
-
-    #linear_gap=>medium for more closely related species, 'loose' for more distant
-    'linear_gap' => 'medium',
-
-    'chain_parameters' => { 'max_gap' => '50', 'linear_gap' => $self->o('linear_gap'), 'faToNib' => $self->o('faToNib_exe'), 'lavToAxt' => $self->o('lavToAxt_exe'), 'axtChain' => $self->o('axtChain_exe'), 'max_blocks_for_chaining' => 100000 },
-
-    #
-    #Default patch_alignments
-    #
-    'patch_alignments' => 0,    #set to 1 to align the patches of a species to many other species
-
-    #
-    #Default net
-    #
-    'net_input_method_link'  => [ 1002, 'LASTZ_CHAIN' ],
-    'net_output_method_link' => [ 16,   'LASTZ_NET' ],
-    'net_ref_species'        => $self->o('compara_ref_species'),                                 #default to ref_species
-    'net_parameters'         => { 'max_gap' => '50', 'chainNet' => $self->o('chainNet_exe') },
-    'bidirectional'          => 0,
-
-    #
-    #Default healthcheck
-    #
-    'previous_db'               => 'compara_prev',
-    'prev_release'              => 0,                # 0 is the default and it means "take current release number and subtract 1"
-    'max_percent_diff'          => 20,
-    'max_percent_diff_patches'  => 99.99,
-    'do_pairwise_gabs'          => 1,
-    'do_compare_to_previous_db' => 0,
-
-    'compara_bed_dir'     => $self->o('compara_dump_dir') . '/bed_dir',
-    'compara_feature_dir' => $self->o('compara_dump_dir') . '/feature_dumps',
-
-    #
-    #Default pairaligner config
-    #
-    'skip_pairaligner_stats' => 1,    #skip this module if set to 1
-
-    'pair_aligner_method_link' => [ 1001, 'LASTZ_RAW' ],
-    'pair_aligner_logic_name'  => 'LastZ',
-    'pair_aligner_module'      => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::LastZ',
-    'chain_input_method_link'  => [ 1001, 'LASTZ_RAW' ],
-    'chain_output_method_link' => [ 1002, 'LASTZ_CHAIN' ],
-    'linear_gap'               => 'medium',
-    'net_input_method_link'    => [ 1002, 'LASTZ_CHAIN' ],
-    'net_output_method_link'   => [ 16,   'LASTZ_NET' ],
-
-    # Capacities
-    'pair_aligner_analysis_capacity'  => 700,
-    'pair_aligner_batch_size'         => 40,
-    'chain_hive_capacity'             => 200,
-    'chain_batch_size'                => 10,
-    'net_hive_capacity'               => 300,
-    'net_batch_size'                  => 10,
-    'filter_duplicates_hive_capacity' => 200,
-    'filter_duplicates_batch_size'    => 10,
-
-    # LastZ is used to align the genomes
-    'pair_aligner_exe'             => $self->o('lastz_exe'),
-    'cellar_dir'                   => '/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/Cellar/',
-    'lastz_exe'                    => catfile( $self->o('cellar_dir'),       'lastz/1.04.00/bin/lastz' ),
-    'axtChain_exe'                 => catfile( $self->o('cellar_dir'),       'kent/v335_1/bin/axtChain' ),
-    'chainNet_exe'                 => catfile( $self->o('cellar_dir'),       'kent/v335_1/bin/chainNet' ),
-    'faToNib_exe'                  => catfile( $self->o('cellar_dir'),       'kent/v335_1/bin/faToNib' ),
-    'lavToAxt_exe'                 => catfile( $self->o('cellar_dir'),       'kent/v335_1/bin/lavToAxt' ),
-    'compare_beds_exe'             => catfile( $self->o('enscode_root_dir'), 'ensembl-compara/scripts/pipeline/compare_beds.pl' ),
-    'create_pair_aligner_page_exe' => catfile( $self->o('enscode_root_dir'), 'ensembl-compara/scripts/report/create_pair_aligner_page.pl' ),
-    'dump_features_exe'            => catfile( $self->o('enscode_root_dir'), 'ensembl-compara/scripts/dumps/DumpMultiAlign.pl' ),
 
 ########################
 # db info
@@ -974,8 +864,6 @@ sub pipeline_analyses {
         db_conn => '#core_db#',
         sql     => [
           'UPDATE analysis SET module=NULL',
-          'UPDATE gene SET biotype = "protein_coding" WHERE biotype = "gbiab_protein_coding"',
-          'UPDATE gene SET biotype = "lncRNA" WHERE biotype = "gbiab_lncRNA"',
           'UPDATE transcript JOIN gene USING(gene_id) SET transcript.biotype = gene.biotype',
           'UPDATE transcript JOIN gene USING(gene_id) SET transcript.analysis_id = gene.analysis_id',
           'UPDATE repeat_feature SET repeat_start = 1 WHERE repeat_start < 1',
