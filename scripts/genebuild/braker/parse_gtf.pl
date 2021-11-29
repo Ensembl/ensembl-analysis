@@ -111,12 +111,12 @@ if ($analysis) {
   $aa->update($analysis);
 }
 else {
-    $analysis = Bio::EnsEMBL::Analysis->new(
-        -logic_name => $logic_name,
-        -db => 'RefSeq',
-        -db_version => $timestamp,
-        -db_file => $infile_name,
-    );
+        $analysis = Bio::EnsEMBL::Analysis->new(
+	-logic_name => $logic_name,
+	#-db => $db,
+	#-db_version => $timestamp,
+	#-db_file => $infile_name,
+	);
 }
 
 my $codon_table = Bio::Tools::CodonTable->new;
