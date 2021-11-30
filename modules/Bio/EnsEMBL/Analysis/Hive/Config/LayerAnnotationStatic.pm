@@ -3302,7 +3302,7 @@ sub _master_config {
           FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7','LAYER8','LAYER9'],
           DISCARD    => 0,
         },
-    ]
+    ],
 
     perniciosus_basic => [
           {
