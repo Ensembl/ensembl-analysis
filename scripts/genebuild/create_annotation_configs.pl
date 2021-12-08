@@ -74,6 +74,7 @@ my $general_hash = {};
 if ($is_non_vert == 1) {
   $general_hash->{'replace_repbase_with_red_to_mask'} = '1';
   $general_hash->{'skip_projection'} = '1';
+  $general_hash->{'is_non_vert'} = '1';
 }
 
 $selected_db = "gb_assembly_registry";

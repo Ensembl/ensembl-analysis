@@ -28,8 +28,13 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
+# this is required for eHive's WHEN ELSE
+use  Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
+use parent ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');
+
 sub default_options {
   my ($self) = @_;
+
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
@@ -109,7 +114,7 @@ sub default_options {
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release' => $ENV{ENSEMBL_RELEASE},    # this is the current release version on staging to be able to get the correct database
 
-    databases_to_delete => ['rnaseq_for_layer_db','rnaseq_for_layer_nr_db','scallop_initial_db','scallop_blast_db'],
+    databases_to_delete => ['rnaseq_for_layer_db','rnaseq_for_layer_nr_db','scallop_initial_db','scallop_blast_db','pcp_db','pcp_nr_db'],
 
 ########################
 # BLAST db paths
@@ -126,6 +131,8 @@ sub default_options {
     # This one is used in replacement of the dna table in the core db, so where analyses override slice->seq. Has simple headers with just the seq_region name. Also used by bwa in the RNA-seq analyses. Not masked
     faidx_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_toplevel.fa' ),
     use_genome_flatfile => 1,
+
+    is_non_vert => 0,
 
     'min_toplevel_slice_length' => 250,
     rnaseq_merge_type => 'samtools',
@@ -148,7 +155,7 @@ sub default_options {
     rnasamba => '/nfs/production/flicek/ensembl/genebuild/jma/tools_temp/run_RNAsamba.sh',
     cpc2 => '/nfs/production/flicek/ensembl/genebuild/jma/tools_temp/run_CPC2.sh',
     ensembl_analysis_scripts   => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
-    pcp_get_transcripts_script => catfile($self->o('ensembl_analysis_scripts'), 'pcp', 'get_transcripts.pl').
+    pcp_get_transcripts_script => catfile($self->o('ensembl_analysis_scripts'), 'pcp', 'get_transcripts.pl'),
 
     'blast_type'             => 'ncbi',                                                                         # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     'uniprot_blast_exe_path' => catfile( $self->o('binary_base'), 'blastp' ),
@@ -312,6 +319,7 @@ sub pipeline_wide_parameters {
     %{ $self->SUPER::pipeline_wide_parameters },
     genome_file          => $self->o('faidx_genome_file'),
     use_genome_flatfile => $self->o('use_genome_flatfile'),
+    is_non_vert         => $self->o('is_non_vert'),
   }
 }
 
@@ -988,7 +996,7 @@ sub pipeline_analyses {
       -rc_name   => '2GB',
       -flow_into => {
         '2->A' => ['remove_redundant_rnaseq_layer_genes_star'],
-        'A->1'  => ['dump_fasta'],
+        'A->1' => WHEN('#is_non_vert# eq "1"' => 'dump_fasta', ELSE 'notification_pipeline_is_done',),
       },
     },
 
@@ -1046,7 +1054,7 @@ sub pipeline_analyses {
       -rc_name    => '8GB',
       -parameters => {
         cmd => 'sh ' . $self->o('cpc2').' '.
-        $self->o('cpc2_fasta_file').' '
+        $self->o('cpc2_fasta_file').' '.
         $self->o('cpc2_file').' '
       },
     },
@@ -1057,8 +1065,8 @@ sub pipeline_analyses {
       -rc_name    => '10GB',
       -parameters =>  {
         cmd => 'sh ' . $self->o('rnasamba').' '.
-        $self->o('rnasamba_tsv_file').' '
-        $self->o('cpc2_fasta_file').' '
+        $self->o('rnasamba_tsv_file').' '.
+        $self->o('cpc2_fasta_file').' '.
         $self->o('rna_samba_weights')
       },
       -flow_into =>  {
@@ -1072,8 +1080,8 @@ sub pipeline_analyses {
       -rc_name    => '50GB',
       -parameters =>  {
         cmd => 'sh ' . $self->o('rnasamba').' '.
-        $self->o('rnasamba_tsv_file').' '
-        $self->o('cpc2_fasta_file').' '
+        $self->o('rnasamba_tsv_file').' '.
+        $self->o('cpc2_fasta_file').' '.
         $self->o('rna_samba_weights')
       },
       -flow_into =>  {
@@ -1087,8 +1095,8 @@ sub pipeline_analyses {
       -rc_name    => '100GB',
       -parameters =>  {
         cmd => 'sh ' . $self->o('rnasamba').' '.
-        $self->o('rnasamba_tsv_file').' '
-        $self->o('cpc2_fasta_file').' '
+        $self->o('rnasamba_tsv_file').' '.
+        $self->o('cpc2_fasta_file').' '.
         $self->o('rna_samba_weights')
       },
     },
@@ -1097,13 +1105,13 @@ sub pipeline_analyses {
       -logic_name => 'impute_coding_genes',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'perl ' . catfile($self->o('ensembl_analysis_script'), 'pcp', 'update_pcp_biotype.pl') .
-        ' -user ' . $self->o('user') .
-        ' -pass ' . $self->o('password') .
-        ' -dbname  ' . $self->o('pcp_db_name') .
-        ' -port ' . $self->o('scallop_initial_db_port') .
-        ' -host ' . $self->o('scallop_initial_db_host') .
-        ' -cpc2 ' . $self->o('cpc2_txt_file') .
+        cmd => 'perl ' . catfile($self->o('ensembl_analysis_scripts'), 'pcp', 'update_pcp_biotype.pl') .
+        ' -user ' . $self->o('user').
+        ' -pass ' . $self->o('password').
+        ' -dbname  ' . $self->o('pcp_db_name').
+        ' -port ' . $self->o('scallop_initial_db_port').
+        ' -host ' . $self->o('scallop_initial_db_host').
+        ' -cpc2 ' . $self->o('cpc2_txt_file').
         ' -rnas ' . $self->o('rnasamba_tsv_file'),
       },
       -rc_name    => '1GB',
@@ -1172,7 +1180,7 @@ sub pipeline_analyses {
       },
       -rc_name => '5GB',
       -flow_into => {
-        '1'    => ['notification_pipeline_is_done'],
+        '1'    => ['notification_pipeline_is_done_pcp'],
       },
     },
 
@@ -1247,6 +1255,60 @@ sub pipeline_analyses {
       -rc_name    => 'default',
     },
 
+    {
+      -logic_name => 'notification_pipeline_is_done_pcp',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::MessagePipeline',
+      -parameters => {
+        messages   => [
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'split_slices_on_intergenic',
+          param => 'input_gene_dbs',
+          data => $self->o('pcp_nr_db'),
+          update => 1,
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'layer_annotation',
+          param => 'SOURCEDB_REFS',
+          data => $self->o('pcp_nr_db'),
+          update => 1,
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'run_utr_addition',
+          param => 'donor_dbs',
+          data => $self->o('pcp_nr_db'),
+          update => 1,
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'run_utr_addition_10GB',
+          param => 'donor_dbs',
+          data => $self->o('pcp_nr_db'),
+          update => 1,
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'run_utr_addition_30GB',
+          param => 'donor_dbs',
+          data => $self->o('pcp_nr_db'),
+          update => 1,
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'utr_memory_failover',
+          param => 'donor_dbs',
+          data => $self->o('pcp_nr_db'),
+          update => 1,
+        }],
+        tweak_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'tweak_pipeline.pl'),
+      },
+      -rc_name   => 'default',
+      -flow_into => {
+        '1' => ['notification_pipeline_is_done'],
+      }
+    }
   ];
 }
 
