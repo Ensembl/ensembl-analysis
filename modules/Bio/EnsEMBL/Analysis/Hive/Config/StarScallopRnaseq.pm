@@ -142,6 +142,8 @@ sub default_options {
     transcript_selection_url => undef,
     homology_rnaseq_url => undef,
     
+    cpc2_output => catdir($self->o('output_path'),'cpc2_output'),
+    rnasamba_output => catdir($self->o('output_path'),'rnasamba_output'),
     rna_samba_weights => '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/rnasamba_test/RNAsamba/data/full_length_weights.hdf5',
 
 ########################
@@ -152,8 +154,8 @@ sub default_options {
     stringtie2_path => catfile($self->o('binary_base'), 'stringtie'),
     samtools_path   => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
     picard_lib_jar  => catfile($self->o('linuxbrew_home_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
-    rnasamba => '/nfs/production/flicek/ensembl/genebuild/jma/tools_temp/run_RNAsamba.sh',
-    cpc2 => '/nfs/production/flicek/ensembl/genebuild/jma/tools_temp/run_CPC2.sh',
+    rnasamba => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/rnasamba_latest.sif',
+    cpc2 => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test_cpc2.sif',
     ensembl_analysis_scripts   => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     pcp_get_transcripts_script => catfile($self->o('ensembl_analysis_scripts'), 'pcp', 'get_transcripts.pl'),
 
@@ -1053,9 +1055,10 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '8GB',
       -parameters => {
-        cmd => 'sh ' . $self->o('cpc2').' '.
-        $self->o('cpc2_fasta_file').' '.
-        $self->o('cpc2_file').' '
+        cmd => 'singularity exec --bind '.$self->o('cpc2_output').' '.
+        $self->o('cpc2').' python3 /CPC2_standalone-1.0.1/bin/CPC2.py'.
+        ' -i '.$self->o('cpc2_fasta_file').' '.
+        ' --ORF -o '.$self->o('cpc2_file').' '
       },
     },
 
@@ -1064,7 +1067,8 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '10GB',
       -parameters =>  {
-        cmd => 'sh ' . $self->o('rnasamba').' '.
+        cmd => 'singularity exec --bind '.$self->o('rnasamba_output').' '.
+        $self->o('rnasamba').' rnasamba classify '.
         $self->o('rnasamba_tsv_file').' '.
         $self->o('cpc2_fasta_file').' '.
         $self->o('rna_samba_weights')
@@ -1079,7 +1083,8 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '50GB',
       -parameters =>  {
-        cmd => 'sh ' . $self->o('rnasamba').' '.
+        cmd => 'singularity exec --bind '.$self->o('rnasamba_output').' '.
+        $self->o('rnasamba').' rnasamba classify '.
         $self->o('rnasamba_tsv_file').' '.
         $self->o('cpc2_fasta_file').' '.
         $self->o('rna_samba_weights')
@@ -1094,7 +1099,8 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '100GB',
       -parameters =>  {
-        cmd => 'sh ' . $self->o('rnasamba').' '.
+        cmd => 'singularity exec --bind '.$self->o('rnasamba_output').' '.
+        $self->o('rnasamba').' rnasamba classify '.
         $self->o('rnasamba_tsv_file').' '.
         $self->o('cpc2_fasta_file').' '.
         $self->o('rna_samba_weights')
