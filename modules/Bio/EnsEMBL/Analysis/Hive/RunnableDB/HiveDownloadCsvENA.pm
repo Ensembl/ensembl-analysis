@@ -304,6 +304,10 @@ sub run {
                       sequencing_method => $row[$fields_index{sequencing_method}],
                       sample_alias => $row[$fields_index{sample_alias}],
                     };
+                    if ($data->{sex} eq 'not determined') {
+                      $data->{sex} = undef;
+                    }
+                    $self->say_with_header($data->{sex} || 'NULL')
                   }
                 }
               }
@@ -520,14 +524,14 @@ sub _retrieve_biosample_info {
           $data->{dev_stage} = $json->{characteristics}->{$dev_stage}->[0]->{text};
         }
       }
-      if (exists $json->{characteristics}->{sex} and $json->{characteristics}->{sex} ne 'not determined') {
+      if (exists $json->{characteristics}->{sex} and $json->{characteristics}->{sex}->[0]->{text} ne 'not determined') {
         if (exists $data->{sex} and $data->{sex} ne $json->{characteristics}->{sex}->[0]->{text}) {
           $self->warning('Replacing '.$data->{sex}.' with '.$json->{characteristics}->{sex}->[0]->{text});
         }
         $data->{sex} = $json->{characteristics}->{sex}->[0]->{text};
       }
       # The order of the keys influence the age given. If unborn we expect the two values to be the same
-      foreach my $age_string ('gestational age at sample collection', 'animal age at collection') {
+      foreach my $age_string ('gestational age at sample collection', 'animal age at collection', 'age') {
         if (exists $json->{characteristics}->{$age_string}) {
           if (exists $data->{age} and $data->{age} ne $json->{characteristics}->{$age_string}->[0]->{text}.' '.$json->{characteristics}->{$age_string}->[0]->{unit}) {
             $self->warning('Replacing '.$data->{age}.' with '.$json->{characteristics}->{$age_string}->[0]->{text}.' '.$json->{characteristics}->{$age_string}->[0]->{unit});
@@ -555,6 +559,10 @@ sub _retrieve_biosample_info {
           }
           $data->{organismPart} = $json->{characteristics}->{$tissue}->[0]->{text};
         }
+      }
+      if (exists $json->{characteristics}->{age} and $data->{organismPart} =~ /embryo/) {
+        $data->{organismPart} = 'embryo_'.$json->{characteristics}->{age}->[0]->{text};
+        $data->{organismPart} =~ tr/ /_/;
       }
       return 1;
     }
