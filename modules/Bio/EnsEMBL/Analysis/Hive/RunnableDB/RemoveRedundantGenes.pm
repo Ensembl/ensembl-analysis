@@ -89,7 +89,17 @@ sub fetch_input {
       # Note that the below means we can use standardised slice lengths and only process genes once. There will be very rare edge cases where
       # a cluster will only be split because of varying terminal exon lengths, but this will not cause any actual problems
       unless($gene->end > $slice->length) {
-        push(@$genes,$gene);
+        eval {
+          $gene->load();
+        };
+        if ($@) {
+          $self->warning('Could not fully load '.$gene->display_id."\n$@");
+          $self->say_with_header('Deleting '.$gene->display_id);
+          $target_dba->dbc->do('DELETE FROM gene WHERE gene_id = '.$gene->dbID);
+        }
+        else {
+          push(@$genes,$gene);
+        }
       }
     }
   }
