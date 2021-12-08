@@ -226,8 +226,10 @@ sub run {
                 my $translation = $current_transcript->translation;
                 # Because we have a single exon model, no need to look for the real sequence
                 if (($translation and ($tmp_translation->end-$tmp_translation->start) > ($translation->end-$translation->start)) or !$translation) {
-                  $genes[-1]->flush_Transcripts;
+                  $tmp_transcript->source($current_transcript->source);
+                  $tmp_transcript->stable_id($current_transcript->stable_id);
                   $tmp_transcript->analysis($genes[-1]->analysis);
+                  $genes[-1]->flush_Transcripts;
                   $genes[-1]->add_Transcript($tmp_transcript);
                 }
               }
