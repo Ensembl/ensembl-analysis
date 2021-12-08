@@ -110,6 +110,7 @@ sub param_defaults {
     store_datafile => 1,
     _index_ext => 'bai',
     _file_ext => 'bam',
+    _file_type => 'BAMCOV',
     _logic_name_ext => 'bam',
     samtools => 'samtools',
   }
