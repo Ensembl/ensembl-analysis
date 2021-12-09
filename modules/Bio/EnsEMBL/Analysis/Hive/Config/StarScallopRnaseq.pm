@@ -998,7 +998,7 @@ sub pipeline_analyses {
       -rc_name   => '2GB',
       -flow_into => {
         '2->A' => ['remove_redundant_rnaseq_layer_genes_star'],
-        'A->1' => WHEN('#is_non_vert# eq "1"' => 'dump_fasta', ELSE 'notification_pipeline_is_done',),
+        'A->1' => WHEN('#is_non_vert# eq "1"' => 'create_pcp_db', ELSE 'notification_pipeline_is_done',),
       },
     },
 
@@ -1010,6 +1010,21 @@ sub pipeline_analyses {
         target_type => 'generic',
       },
       -rc_name => '5GB',
+    },
+
+    {
+      -logic_name => 'create_pcp_db',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+      -parameters => {
+        source_db   => $self->o('scallop_initial_db'),
+        target_db   => $self->o('pcp_db'),
+        create_type => 'copy',
+        force_drop  => 1,
+      },
+      -rc_name    => 'default',
+      -flow_into  => {
+        1 => ['dump_fasta'],
+      },
     },
 
     {
@@ -1030,22 +1045,7 @@ sub pipeline_analyses {
         ' > ' . $self->o('cpc2_fasta_file')
       },
       -flow_into  => {
-        1 => ['create_pcp_db'],
-      },
-    },
-
-    {
-      -logic_name => 'create_pcp_db',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-      -parameters => {
-        source_db   => $self->o('scallop_initial_db'),
-        target_db   => $self->o('pcp_db'),
-        create_type => 'copy',
-        force_drop  => 1,
-      },
-      -rc_name    => 'default',
-      -flow_into  => {
-        '1->A' => ['run_cpc2', 'run_rnasamba'],
+        '1->A' => ['run_cpc2','run_rnasamba'],
         'A->1' => ['impute_coding_genes']
       },
     },
