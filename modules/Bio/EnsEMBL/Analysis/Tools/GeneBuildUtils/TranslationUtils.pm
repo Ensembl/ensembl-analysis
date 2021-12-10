@@ -50,6 +50,7 @@ use vars qw (@ISA  @EXPORT);
              compute_6frame_translations_for_transcript 
              create_Translation
              calculate_sequence_content
+             orfs_prediction
             );
 
 
@@ -314,6 +315,51 @@ sub return_translation{
 }
 
 
+=head2 orfs_prediction
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : boolean, do want predictions with met or not
+  Function  : Find coordinates of translations in transcripts cdna
+  Returntype: arrayref of an array or arrays, each element
+  containing an array of length, start and end
+  Exceptions: None
+
+=cut
+
+sub orfs_prediction {
+  my ($transcript, $met_only) = @_;
+
+  my $seq = $transcript->seq;
+
+  my @orf_predictions;
+  foreach my $frame (0, 1, 2) {
+    my $translation = $seq->translate(-frame => $frame);
+    my $start = $frame+1;
+    foreach my $subseq (split('\*', $translation->seq)) {
+      my $length_subseq = length($subseq);
+      if ($length_subseq) {
+        my $first_met = index($subseq, 'M');
+        if ($met_only and $first_met != -1) {
+          my $length = $length_subseq-$first_met;
+          $first_met *= 3;
+          push(@orf_predictions, [$length, $start+$first_met, $start+$first_met+(($length+1)*3)-1]);
+        }
+        elsif (!$met_only and $first_met != 0) {
+          push(@orf_predictions, [$length_subseq, $start, $start+(($length_subseq+1)*3)-1]);
+        }
+      }
+      $start += ($length_subseq*3)+3;
+    }
+    # If the end is longer than the sequence, we probably don't have a stop codon
+    if (@orf_predictions and $orf_predictions[-1]->[2] > $seq->length) {
+      $orf_predictions[-1]->[2] -= 3;
+    }
+  }
+  my @sorted_predictions = sort { $b->[0] <=> $a->[0] } @orf_predictions;
+  return \@sorted_predictions;
+}
+
+
 =head2 compute_translation
 
   Arg [1]   : Bio::EnsEMBL::Transcript
@@ -330,9 +376,9 @@ sub return_translation{
 sub compute_translation{
   my ($transcript) = @_;
 
-  my @met_predictions = @{run_translate 
+  my @met_predictions = @{orfs_prediction
                             ($transcript, 1)};
-  my @nomet_predictions = @{run_translate 
+  my @nomet_predictions = @{orfs_prediction
                               ($transcript)};
 
   # choosing the best ORF 
@@ -395,7 +441,7 @@ sub add_ORF_to_transcript{
   if(!$translation_start || !$translation_end 
      || !$translation_start_Exon
      || !$translation_end_Exon){
-    warning("problems making the translation ".
+    throw("problems making the translation ".
             "for ".id($transcript));
     return $transcript;
   }else{
@@ -470,8 +516,8 @@ sub add_ORF_to_transcript{
 
 sub compute_6frame_translations_for_transcript{
   my ($transcript) = @_;
-  my @met_predictions = @{run_translate ($transcript, 1)};
-  my @nomet_predictions = @{run_translate ($transcript)}; 
+  my @met_predictions = @{orfs_prediction ($transcript, 1)};
+  my @nomet_predictions = @{orfs_prediction ($transcript)};
   my %translations; 
   foreach my $orf ( @met_predictions, @nomet_predictions ) {  
     my $nt = new Bio::EnsEMBL::Transcript( -EXONS => $transcript->get_all_Exons  ) ; 
