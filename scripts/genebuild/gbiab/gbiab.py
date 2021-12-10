@@ -25,6 +25,7 @@ import tempfile
 import io
 import gc
 import logging
+import math
 
 logging.basicConfig(filename='app.log', filemode='w', format='%(asctime)s,%(msecs)d %(name)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S', level=logging.DEBUG)
 logging.warning('This will get logged to a file')
@@ -1561,7 +1562,9 @@ def create_red_gtf(repeat_coords_file,gtf_output_file_path):
   red_out.close()
 
 
-def run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,genblast_dir,protein_file,masked_genome_file,num_threads):
+def run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,genblast_dir,protein_file,masked_genome_file,max_intron_length,num_threads):
+
+  genblast_timeout_secs = 10800
 
   if not genblast_path:
     genblast_path = 'genblast'
@@ -1608,7 +1611,7 @@ def run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,gen
 
   pool = multiprocessing.Pool(int(num_threads))
   for batched_protein_file in batched_protein_files:
-    pool.apply_async(multiprocess_genblast, args=(batched_protein_file,masked_genome_file,genblast_path,))
+    pool.apply_async(multiprocess_genblast, args=(batched_protein_file,masked_genome_file,genblast_path,genblast_timeout_secs,max_intron_length,))
   pool.close()
   pool.join()
 
@@ -1617,16 +1620,20 @@ def run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,gen
   generate_genblast_gtf(genblast_dir)
 
 
-def multiprocess_genblast(batched_protein_file,masked_genome_file,genblast_path):
+def multiprocess_genblast(batched_protein_file,masked_genome_file,genblast_path,genblast_timeout_secs,max_intron_length):
 
   batch_num = os.path.splitext(batched_protein_file)[0]
   batch_dir = os.path.dirname(batched_protein_file)
   print("Running GenBlast on " + batched_protein_file + ":")
   
-  genblast_cmd = [genblast_path,'-p','genblastg','-q',batched_protein_file,'-t',masked_genome_file,'-g','T','-pid','-r','1','-P','blast','-gff','-e','1e-1','-c','0.8','-W','3','-softmask','-scodon','50','-i','30','-x','10','-n','30','-d','100000','-o',batched_protein_file]
+  genblast_cmd = [genblast_path,'-p','genblastg','-q',batched_protein_file,'-t',masked_genome_file,'-g','T','-pid','-r','1','-P','blast','-gff','-e','1e-1','-c','0.8','-W','3','-softmask','-scodon','50','-i','30','-x','10','-n','30','-d',str(max_intron_length),'-o',batched_protein_file]
 
   print(" ".join(genblast_cmd))
-  subprocess.run(genblast_cmd)
+  try:
+    subprocess.run(genblast_cmd, timeout=genblast_timeout_secs)
+  except subprocess.TimeoutExpired:
+    print("Timeout reached for file:\n" + batched_protein_file)
+    subprocess.run(['touch',(batched_protein_file + '.except')])
 
   files_to_delete = glob.glob(batched_protein_file + "*msk.blast*")
   files_to_delete.append(batched_protein_file)
@@ -1828,12 +1835,7 @@ def multiprocess_trim_galore(generic_trim_galore_cmd,fastq_files,trim_dir):
   subprocess.run(trim_galore_cmd)
 
 
-# --basename <PREFERRED_NAME>	Use PREFERRED_NAME as the basename for output files, instead of deriving the filenames from
-#                        the input files. Single-end data would be called PREFERRED_NAME_trimmed.fq(.gz), or
-#                        PREFERRED_NAME_val_1.fq(.gz) and PREFERRED_NAME_val_2.fq(.gz) for paired-end data. --basename
-#                        only works when 1 file (single-end) or 2 files (paired-end) are specified, but not for longer lists.  
-
-def run_star_align(star_path,trim_fastq,subsample_script_path,main_output_dir,short_read_fastq_dir,genome_file,max_reads_per_sample,max_total_reads,num_threads):
+def run_star_align(star_path,trim_fastq,subsample_script_path,main_output_dir,short_read_fastq_dir,genome_file,max_reads_per_sample,max_total_reads,max_short_read_intron_length,num_threads):
   # !!! Need to add in samtools path above instead of just using 'samtools' in command
 
   if not star_path:
@@ -1894,7 +1896,10 @@ def run_star_align(star_path,trim_fastq,subsample_script_path,main_output_dir,sh
 
   if not os.path.exists(star_index_file):
     print ('Did not find an index file for Star. Will create now')
-    subprocess.run([star_path,'--runThreadN',str(num_threads),'--runMode','genomeGenerate','--outFileNamePrefix',(star_dir + '/'),'--genomeDir',star_dir,'--genomeFastaFiles',genome_file])
+    seq_region_lengths = get_seq_region_lengths(genome_file,0)
+    genome_size = sum(seq_region_lengths.values())
+    index_bases = min(14,math.floor((math.log(genome_size,2)/2)-1))
+    subprocess.run([star_path,'--runThreadN',str(num_threads),'--runMode','genomeGenerate','--outFileNamePrefix',(star_dir + '/'),'--genomeDir',star_dir,'--genomeSAindexNbases',str(index_bases),'--genomeFastaFiles',genome_file])
 
   if not star_index_file:
     raise IOError('The index file does not exist. Expected path:\n%s' % star_index_file)
@@ -1928,9 +1933,9 @@ def run_star_align(star_path,trim_fastq,subsample_script_path,main_output_dir,sh
       continue
 
     print ("Processing %s" % fastq_file_path)
-    star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir,'--outSAMtype','SAM','--alignIntronMax','100000','--outSJfilterIntronMaxVsReadN','5000','10000','25000','40000','50000','50000','50000','50000','50000','100000']
+#    star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir,'--outSAMtype','SAM','--alignIntronMax',str(max_intron_length),'--outSJfilterIntronMaxVsReadN','5000','10000','25000','40000','50000','50000','50000','50000','50000','100000']
 
-#    star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir,'--outSAMtype','SAM','--alignIntronMax','100000']
+    star_command = [star_path,'--outFilterIntronMotifs','RemoveNoncanonicalUnannotated','--outSAMstrandField','intronMotif','--runThreadN',str(num_threads),'--twopassMode','Basic','--runMode','alignReads','--genomeDir',star_dir,'--readFilesIn',fastq_file_path,'--outFileNamePrefix',(star_dir + '/'),'--outTmpDir',star_tmp_dir,'--outSAMtype','SAM','--alignIntronMax',str(max_intron_length)]
  
     if check_compression:
       star_command.append('--readFilesCommand')
@@ -1995,7 +2000,7 @@ def check_for_fastq_subsamples(fastq_file_list):
   return(fastq_file_list)
 
 
-def run_minimap2_align(minimap2_path,paftools_path,main_output_dir,long_read_fastq_dir,genome_file,num_threads):
+def run_minimap2_align(minimap2_path,paftools_path,main_output_dir,long_read_fastq_dir,genome_file,max_intron_length,num_threads):
 
   if not minimap2_path:
     minimap2_path = 'minimap2'
@@ -2022,7 +2027,14 @@ def run_minimap2_align(minimap2_path,paftools_path,main_output_dir,long_read_fas
     fastq_file_list.append(fastq_file)
 
   if not fastq_file_list:
-    raise IndexError('The list of fastq files is empty. Fastq dir:\n%s' % long_read_fastq_dir) 
+    # NOTE: should update this to have a param that says it's okay to be empty if there's an override param
+    # This is because it's important that an external user would have an exception if they provided a long read dir
+    # but there was nothing in it. Whereas in the Ensembl pipeline there might not be long read data, but we don't
+    # know this when the command line is being constructed. This is also true for the short read data. An alternative
+    # would be to put in another analysis into the Ensembl pipeline to construct this commandline after the transcriptomic
+    # data has been searched for
+    return
+#    raise IndexError('The list of fastq files is empty. Fastq dir:\n%s' % long_read_fastq_dir) 
 
   if not os.path.exists(minimap2_index_file):
     print ('Did not find an index file for minimap2. Will create now')
@@ -2038,7 +2050,7 @@ def run_minimap2_align(minimap2_path,paftools_path,main_output_dir,long_read_fas
     bed_file = os.path.join(minimap2_output_dir,(fastq_file_name + '.bed'))
     bed_file_out = open(bed_file,'w+')
     print ("Processing %s" % fastq_file)
-    subprocess.run([minimap2_path,'-t',str(num_threads),'--cs','--secondary=no','-ax','splice','-u','b',minimap2_index_file,fastq_file_path,'-o',sam_file])
+    subprocess.run([minimap2_path,'-G',str(max_intron_length),'-t',str(num_threads),'--cs','--secondary=no','-ax','splice','-u','b',minimap2_index_file,fastq_file_path,'-o',sam_file])
     print("Creating bed file from SAM")
     subprocess.run([paftools_path,'splice2bed',sam_file],stdout=bed_file_out)
     bed_file_out.close()
@@ -2096,7 +2108,7 @@ def bed_to_gtf(minimap2_output_dir):
 
       gene_id += 1
 
-    gtf_out.close()
+  gtf_out.close()
 
 
 def bed_to_gff(input_dir,hints_file):
@@ -2156,6 +2168,29 @@ def bed_to_exons(block_sizes,block_starts,offset):
   return exons
 
 
+def check_transcriptomic_output(main_output_dir):
+
+  # This will check across the various transcriptomic dirs and check there's actually some data
+  transcriptomic_dirs = ['scallop_output','stringtie_output','minimap2_output']
+  total_lines = 0
+  min_lines = 100000
+  for transcriptomic_dir in transcriptomic_dirs:
+    full_file_path = os.path.join(main_output_dir,transcriptomic_dir,'annotation.gtf')
+    if not os.path.exists(full_file_path):
+      print('Warning, no annotation.gtf found for ' + transcriptomic_dir + '. This might be fine, e.g. no long read data were provided')
+      continue
+    num_lines = sum(1 for line in open(full_file_path))
+    total_lines = total_lines + num_lines
+    print('For ' + transcriptomic_dir + ' found a total of ' + str(num_lines) + ' in the annotation.gtf file')
+  if total_lines == 0:
+    raise IOError('Anno was run with transcriptomic mode enabled, but the transcriptomic annotation files are empty')
+  elif total_lines <= min_lines:
+    raise IOError('Anno was run with transcriptomic mode enabled, but the total number of lines in the output files were less than the min expected value' + "\n"
+                  'Found: ' + str(total_lines) + "\n"
+                  'Min allowed: ' + str(min_lines))
+   
+  else:
+    print('Found ' + str(total_lines) + ' total lines across the transcriptomic files. Checks passed')
 
 # start gene g1
 #1       AUGUSTUS        gene    1       33908   1       +       .       g1
@@ -2750,6 +2785,7 @@ def run_finalise_geneset(main_script_dir,main_output_dir,genome_file,seq_region_
   final_annotation_dir = create_dir(main_output_dir,'annotation_output')
   region_annotation_dir = create_dir(final_annotation_dir,'initial_region_gtfs')
   final_region_annotation_dir = create_dir(final_annotation_dir,'final_region_gtfs')
+  utr_region_annotation_dir = create_dir(final_annotation_dir,'utr_region_gtfs')
   validation_dir = create_dir(final_annotation_dir,'cds_validation')
   seq_region_lengths = get_seq_region_lengths(genome_file,0)
 
@@ -2764,6 +2800,7 @@ def run_finalise_geneset(main_script_dir,main_output_dir,genome_file,seq_region_
   transcript_selector_script = os.path.join(main_script_dir,'support_scripts_perl','select_best_transcripts.pl')
   finalise_geneset_script = os.path.join(main_script_dir,'support_scripts_perl','finalise_geneset.pl')
   clean_geneset_script = os.path.join(main_script_dir,'support_scripts_perl','clean_geneset.pl')
+  clean_utrs_script = os.path.join(main_script_dir,'support_scripts_perl','clean_utrs_and_lncRNAs.pl')
   gtf_to_seq_script = os.path.join(main_script_dir,'support_scripts_perl','gtf_to_seq.pl')
 
   transcriptomic_annotation_raw = os.path.join(final_annotation_dir,'transcriptomic_raw.gtf')
@@ -2864,15 +2901,32 @@ def run_finalise_geneset(main_script_dir,main_output_dir,genome_file,seq_region_
     file_out.write(line)
   file_out.close()
 
-  cleaned_gtf_file = os.path.join(final_annotation_dir,('annotation.gtf'))
+  cleaned_initial_gtf_file = os.path.join(final_annotation_dir,('cleaned_pre_utr.gtf'))
+  cleaned_utr_gtf_file = os.path.join(final_annotation_dir,('annotation.gtf'))
 
-  print("Cleaning gene set")
-  cleaning_cmd = ['perl',clean_geneset_script,'-genome_file',genome_file,'-gtf_file',postvalidation_gtf_file,'-output_gtf_file',cleaned_gtf_file]
+  print("Cleaning initial set")
+  cleaning_cmd = ['perl',clean_geneset_script,'-genome_file',genome_file,'-gtf_file',postvalidation_gtf_file,'-output_gtf_file',cleaned_initial_gtf_file]
   print(' '.join(cleaning_cmd))
   subprocess.run(cleaning_cmd)
 
+  # Clean UTRs
+  generic_clean_utrs_cmd = ['perl',clean_utrs_script,'-genome_file',genome_file,'-input_gtf_file',cleaned_initial_gtf_file]
+  pool = multiprocessing.Pool(int(num_threads))
+  for seq_region_name in seq_region_names:
+    region_details = (seq_region_name + '.rs1' + '.re' + str(seq_region_lengths[seq_region_name]))
+    utr_region_gtf_path = os.path.join(utr_region_annotation_dir,(region_details + '.utr.gtf'))
+
+    cmd = generic_clean_utrs_cmd.copy()
+    cmd.extend(['-region_details',region_details,'-input_gtf_file',cleaned_initial_gtf_file,'-output_gtf_file',utr_region_gtf_path])
+    pool.apply_async(multiprocess_generic, args=(cmd,))
+  pool.close()
+  pool.join()
+
+  merge_finalise_output_files(final_annotation_dir,utr_region_annotation_dir,'.utr.gtf','annotation')
+  subprocess.run(['mv',os.path.join(final_annotation_dir,'annotation_sel.gtf'),cleaned_utr_gtf_file])
+
   print("Dumping transcript and translation sequences")
-  dumping_cmd = ['perl',gtf_to_seq_script,'-genome_file',genome_file,'-gtf_file',cleaned_gtf_file]
+  dumping_cmd = ['perl',gtf_to_seq_script,'-genome_file',genome_file,'-gtf_file',cleaned_utr_gtf_file]
   print(' '.join(dumping_cmd))
   subprocess.run(dumping_cmd)
 
@@ -2985,6 +3039,10 @@ def update_gtf_genes(parsed_gtf_genes,combined_results,validation_type):
       min_single_source_probability = 0.8
       min_single_exon_probability = 0.9
 
+      # Note that the below looks at validating things under different levels of strictness
+      # There are a few different continue statements, where transcripts will be skipped resulting
+      # in a smaller post validation file. It mainly removes single coding exon genes with no real
+      # support or for multi-exon lncRNAs that are less than 200bp long
       if single_cds_exon_transcript == 1 and validation_type == 'relaxed':
         if diamond_e_value is not None:
           transcript_line = re.sub('; biotype "' + biotype + '";','; biotype "protein_coding";',transcript_line)
@@ -3282,6 +3340,11 @@ def fasta_to_dict(fasta_list):
 #  gtf_out.close()
 
 
+def multiprocess_generic(cmd):
+  print(' '.join(cmd))
+  subprocess.run(cmd)
+
+
 def multiprocess_finalise_geneset(cmd):
 
   print(' '.join(cmd))
@@ -3462,6 +3525,7 @@ if __name__ == '__main__':
   parser.add_argument('--max_reads_per_sample', nargs='?', const=0, type=int, help='The maximum number of reads to use per sample. Default=0 (unlimited)', required=False)
   parser.add_argument('--max_total_reads', nargs='?', const=0, type=int, help='The maximum total number of reads. Default=0 (unlimited)', required=False)
   parser.add_argument('--short_read_fastq_dir', help='Path to short read fastq dir for running with Star', required=False)
+  parser.add_argument('--max_intron_length', nargs='?', const=100000, type=int, help='The maximum intron size for alignments. Default=100000', required=False)
   parser.add_argument('--run_minimap2', help='Run minimap2 for long read alignment', required=False)
   parser.add_argument('--minimap2_path', help='Path to minimap2 for long read alignment', required=False)
   parser.add_argument('--paftools_path', help='Path to paftools for SAM to BED conversion', required=False)
@@ -3521,6 +3585,7 @@ if __name__ == '__main__':
   run_star = args.run_star
   star_path = args.star_path
   short_read_fastq_dir = args.short_read_fastq_dir
+  max_intron_length = args.max_intron_length
   max_reads_per_sample = args.max_reads_per_sample
   max_total_reads = args.max_total_reads
   run_minimap2 = args.run_minimap2
@@ -3673,7 +3738,7 @@ if __name__ == '__main__':
 
   if run_trnascan:
      print("Annotating tRNAs")
-     run_trnascan_regions(genome_file,trnascan_path,trnascan_filter_path,work_dir,num_threads)
+#     run_trnascan_regions(genome_file,trnascan_path,trnascan_filter_path,work_dir,num_threads)
 
 
   #################################
@@ -3685,7 +3750,7 @@ if __name__ == '__main__':
   # Run STAR
   if run_star:
      print ("Running Star")
-     run_star_align(star_path,trim_fastq,subsample_script_path,work_dir,short_read_fastq_dir,genome_file,max_reads_per_sample,max_total_reads,num_threads)
+     run_star_align(star_path,trim_fastq,subsample_script_path,work_dir,short_read_fastq_dir,genome_file,max_reads_per_sample,max_total_reads,max_intron_length,num_threads)
 
   # Run Scallop
   if run_scallop:
@@ -3700,8 +3765,10 @@ if __name__ == '__main__':
   # Run minimap2
   if run_minimap2:
      print ("Running minimap2")
-     run_minimap2_align(minimap2_path,paftools_path,work_dir,long_read_fastq_dir,genome_file,num_threads)
+     run_minimap2_align(minimap2_path,paftools_path,work_dir,long_read_fastq_dir,genome_file,max_intron_length,num_threads)
 
+  if run_transcriptomic:
+     check_transcriptomic_output(work_dir)
 
   #################################
   # Protein analyses
@@ -3709,12 +3776,13 @@ if __name__ == '__main__':
   # Run GenBlast
   if run_genblast:
     print ("Running GenBlast")
-    run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,os.path.join(work_dir,'genblast_output'),protein_file,masked_genome_file,num_threads)
+    run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,os.path.join(work_dir,'genblast_output'),protein_file,masked_genome_file,max_intron_length,num_threads)
+
 
   # Run GenBlast on BUSCO set, gives higher priority when creating the final genes in cases where transcriptomic data are missing or fragmented
   if run_busco:
     print ("Running GenBlast of BUSCO proteins")
-    run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,os.path.join(work_dir,'busco_output'),busco_protein_file,masked_genome_file,num_threads)
+    run_genblast_align(genblast_path,convert2blastmask_path,makeblastdb_path,os.path.join(work_dir,'busco_output'),busco_protein_file,masked_genome_file,max_intron_length,num_threads)
 
 
   #################################
