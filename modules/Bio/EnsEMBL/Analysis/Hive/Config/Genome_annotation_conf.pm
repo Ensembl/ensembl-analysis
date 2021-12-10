@@ -1805,6 +1805,7 @@ sub pipeline_analyses {
           long_read_summary_file_genus => $self->o('long_read_summary_file_genus'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
           transcript_selection_url => $transcript_selection_pipe_url,
+	  is_non_vert => $self->o('is_non_vert'),
         },
       },
       -rc_name      => 'default',

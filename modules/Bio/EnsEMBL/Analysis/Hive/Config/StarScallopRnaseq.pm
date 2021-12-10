@@ -74,12 +74,12 @@ sub default_options {
     'uniprot_set'         => '',                                                                                      # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'         => '',                                                                                      # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'assembly_name'       => '',                                                                                      # Name (as it appears in the assembly report file)
-    'uniprot_version'     => 'uniprot_2019_04',                                                                       # What UniProt data dir to use for various analyses
+    'uniprot_version'     => 'uniprot_2021_04',                                                                       # What UniProt data dir to use for various analyses
     'paired_end_only'     => '1',                                                                                     # Will only use paired-end rnaseq data if 1
 
     # Keys for custom loading, only set/modify if that's what you're doing
-    'protein_blast_db' => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata' ),    # Blast database for comparing the final models to.
-    'protein_blast_index' => '' || catdir( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index' ),    # Indicate Index for the blast database.
+    'protein_blast_db' => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), ($self->o('is_non_vert') eq '1') ? 'PE12' : 'PE12_vertebrata' ),    # Blast database for comparing the final models to.
+    'protein_blast_index' => '' || catdir( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), ($self->o('is_non_vert') eq '1') ? 'PE12_index' : 'PE12_vertebrata_index' ),    # Indicate Index for the blast database.
     'protein_entry_loc' => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),                       # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
 
 ########################
