@@ -224,7 +224,9 @@ say "Finished reading GTF";
 my $transcripts_by_slice = sort_transcripts_by_slice($transcripts);
 foreach my $slice_name (keys(%{$transcripts_by_slice})) {
   say "Processing region: ".$slice_name;
-  my $sorted_transcripts = $transcripts_by_slice->{$slice_name};
+
+  my $initial_transcripts = $transcripts_by_slice->{$slice_name};
+  my $sorted_transcripts = remove_overlapping_exons($initial_transcripts);
 
   # We want to keep the original set of transcripts for processing, but make a copy
   # for modifying/merging
@@ -422,6 +424,32 @@ sub prep_genes_for_writing {
     }
   }
   return($genes_to_write);
+}
+
+
+sub remove_overlapping_exons {
+  my ($transcripts) = @_;
+  my $filtered_transcripts = [];
+
+  foreach my $transcript (@$transcripts) {
+    my $exons = $transcript->get_all_Exons();
+    my $flagged = 0;
+    for(my $i=0; $i<scalar(@$exons)-1; $i++) {
+      my $exon1 = ${$exons}[$i];
+      my $exon2 = ${$exons}[$i+1];
+      if(features_overlap($exon1,$exon2)) {
+        $flagged = 1;
+        last;
+      }
+    }
+
+    unless($flagged) {
+      push(@$filtered_transcripts,$transcript);
+    } else {
+      say "Flagged transcript with start/end ".$transcript->seq_region_start." ".$transcript->seq_region_end.", will remove";
+    }
+  }
+  return($filtered_transcripts);
 }
 
 
