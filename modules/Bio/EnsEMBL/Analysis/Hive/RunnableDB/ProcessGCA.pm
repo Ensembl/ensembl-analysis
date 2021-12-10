@@ -167,6 +167,11 @@ sub fetch_input {
   # underscore seems to be the correct thing to do based on the observed paths so far
   $assembly_name =~ s/ /\_/g;
 
+  if($self->param('override_clade')) {
+    $clade = $self->param('override_clade');
+    say "Clade param set in config, will override registry value";
+  }
+
   my $clade_params = $self->get_clade_params($clade);
 
 
@@ -209,6 +214,7 @@ sub fetch_input {
   my $busco_protein_file = $clade_params->{'busco_protein_file'};
   my $rfam_accessions_file = $clade_params->{'rfam_accessions_file'};
   my $busco_group = $clade_params->{'busco_group'};
+  my $max_intron_length = $clade_params->{'max_intron_length'};
 
   # Meta details
   my $species_division  =  $clade_params->{'species_division'};
@@ -241,6 +247,8 @@ sub fetch_input {
                                            $core_db_details->{'-pass'}.
                           ' --output_dir '.$output_dir.
                           ' --short_read_fastq_dir '.$short_read_dir.
+                          ' --long_read_fastq_dir '.$long_read_dir.
+                          ' --max_intron_length '.$max_intron_length.
                           ' --protein_file '.$protein_file.
                           ' --busco_protein_file '.$busco_protein_file.
                           ' --rfam_accessions_file '.$rfam_accessions_file.
@@ -328,6 +336,7 @@ sub get_clade_params {
   my ($self,$clade) = @_;
 
   my $clade_params = {};
+  $clade_params->{'max_intron_length'} = 100000;
 
   if($clade eq 'lepidoptera') {
     $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/lepidoptera_uniprot_proteins.fa',
@@ -335,35 +344,51 @@ sub get_clade_params {
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblMetazoa',
     $clade_params->{'busco_group'} = 'lepidoptera_odb10',
-
   } elsif($clade eq 'teleostei') {
     $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/actinopterygii_uniprot_proteins.fa',
     $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/actinopterygii_orthodb_proteins.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblVertebrates',
-
   } elsif($clade eq 'humans') {
     # Just temp stuff for testing
     $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/actinopterygii_uniprot_proteins.fa',
     $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/actinopterygii_orthodb_proteins.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblVertebrates',
-
-  } elsif($clade eq 'hymenoperta') {
-    # This is for hymenoptera, just labelled insects till the registry is updated
+  } elsif($clade eq 'hymenoptera') {
     $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hymenoptera_uniprot_proteins.fa',
     $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hymenoptera_orthodb_proteins.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblMetazoa',
     $clade_params->{'busco_group'} = 'hymenoptera_odb10',
+  } elsif($clade eq 'diptera') {
+    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/diptera_uniprot_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/diptera_orthodb_proteins.fa',
+    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
+    $clade_params->{'species_division'} = 'EnsemblMetazoa',
+    $clade_params->{'busco_group'} = 'diptera_odb10',
+  } elsif($clade eq 'coleoptera') {
+    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/endopterygota_uniprot_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/endopterygota_orthodb_proteins_reheader.fa',
+    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
+    $clade_params->{'species_division'} = 'EnsemblMetazoa',
+    $clade_params->{'busco_group'} = 'endopterygota_odb10',
   } elsif($clade eq 'plants') {
     # Test for Impatiens glandulifera labelled plants in the registry
-    $clade_params->{'protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/all_plants_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/protein_dbs/eudicots_orthodb_proteins.fa',
+    $clade_params->{'max_intron_length'} = 10000;
+    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/viridiplantae_uniprot_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/viridiplantae_orthodb_proteins_reheader.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_eudicotyledons_ids.txt',
     $clade_params->{'species_division'} = 'EnsemblPlants',
     $clade_params->{'busco_group'} = 'viridiplantae_odb10',
   } elsif($clade eq 'metazoa') {
+    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/worm_uniprot_proteins.fa',
+    $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mollusca_orthodb_proteins.fa',
+    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_worm_ids.txt',
+    $clade_params->{'species_division'} = 'EnsemblMetazoa',
+    $clade_params->{'busco_group'} = 'metazoa_odb10',
+  } elsif($clade eq 'viral') {
+    # Test settings for loading viral dbs
     $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/worm_uniprot_proteins.fa',
     $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mollusca_orthodb_proteins.fa',
     $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_worm_ids.txt',
