@@ -311,6 +311,8 @@ sub pipeline_create_commands {
 
     'mkdir -p ' . $self->o('rnaseq_dir'),
     'mkdir -p ' . $self->o('genome_dumps'),
+    'mkdir -p ' . $self->o('rnasamba_output'),
+    'mkdir -p ' . $self->o('cpc2_output'),
   ];
 }
 
