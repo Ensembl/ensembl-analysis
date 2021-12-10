@@ -1172,7 +1172,8 @@ sub pipeline_analyses {
       },
       -rc_name    => '2GB',
       -flow_into => {
-        '2'    => ['remove_redundant_pcp_genes'],
+        '2->A' => ['remove_redundant_pcp_genes'],
+        'A->1' => ['notification_pipeline_is_done_pcp'],
       },
     },
 
@@ -1185,9 +1186,6 @@ sub pipeline_analyses {
         target_type => 'generic',
       },
       -rc_name => '5GB',
-      -flow_into => {
-        '1'    => ['notification_pipeline_is_done_pcp'],
-      },
     },
 
     {
