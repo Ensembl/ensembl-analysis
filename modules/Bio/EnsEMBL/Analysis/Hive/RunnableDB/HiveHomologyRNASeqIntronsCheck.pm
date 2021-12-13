@@ -99,22 +99,20 @@ sub fetch_input {
     $self->param('update_genes', 1); # If people didn't specify a target_db, we update the biotype, otherwise they have to specify a target_db
   }
 
-  $self->hrdb_set_con($intron_db,'intron_db');
-
   my $slice = $source_db->get_SliceAdaptor->fetch_by_name($self->input_id);
   my $genes;
   if ($self->param_is_defined('source_logic_name')) {
     if (ref($self->param('source_logic_name')) eq 'ARRAY') {
       foreach my $logic_name (@{$self->param('source_logic_name')}) {
-        push(@$genes, @{$slice->get_all_Genes($logic_name)});
+        push(@$genes, @{$slice->get_all_Genes($logic_name, undef, 1)});
       }
     }
     else {
-      $genes = $slice->get_all_Genes($self->param('source_logic_name'));
+      $genes = $slice->get_all_Genes($self->param('source_logic_name'), undef, 1);
     }
   }
   else {
-    $genes = $slice->get_all_Genes();
+    $genes = $slice->get_all_Genes(undef, undef, 1);
   }
 
   # If we have the slice_strand param set then we want to filter the genes based on the strand
@@ -131,6 +129,15 @@ sub fetch_input {
 
   print STDERR 'Fetched ', scalar(@$genes), "\n";
   $self->say_with_header('Fetched '.scalar(@$genes));
+  my $intron_adaptor = $intron_db->get_DnaAlignFeatureAdaptor;
+  my %introns;
+  foreach my $intron (@{$intron_adaptor->fetch_all_by_Slice($slice)}) {
+    my $key = sprintf("%d:%d:%d", $intron->start, $intron->end, $intron->strand);
+    if (!exists $introns{$key} or (exists $introns{$key} and $introns{$key} < $intron->score)) {
+      $introns{$key} = $intron->score;
+    }
+  }
+  $self->param('__introns', \%introns);
   $self->input_genes($genes);
 }
 
@@ -138,12 +145,17 @@ sub fetch_input {
 sub run {
   my ($self) = @_;
 
-  my $intron_adaptor = $self->hrdb_get_con('intron_db')->get_DnaAlignFeatureAdaptor;
   my %good_introns;
   my $full_support_suffix = $self->param('full_support_suffix');
+  my $weak_count   = $self->param('classify_weak');
+  my $low_count    = $self->param('classify_low');
+  my $medium_count = $self->param('classify_medium');
+  my $high_count   = $self->param('classify_high');
+  my $top_count    = $self->param('classify_top');
+  my $classify_by_count = $self->param('classify_by_count');
+  my $introns = $self->param('__introns');
 
   foreach my $gene (@{$self->input_genes}) {
-    my %introns;
     my $transcripts = $gene->get_all_Transcripts;
     if(scalar(@$transcripts) > 1) {
       $self->throw("The module is not currently designed to work with multi-transcript genes");
@@ -154,31 +166,17 @@ sub run {
       my $good_intron_count = 0;
       foreach my $intron (@{$transcript->get_all_Introns}) {
         ++$intron_count;
-        my $hashkey = sprintf("%d:%d:%d", $intron->seq_region_start, $intron->seq_region_end, $intron->strand);
+        my $hashkey = sprintf("%d:%d:%d", $intron->start, $intron->end, $intron->strand);
         if (exists $good_introns{$hashkey}) {
           ++$good_intron_count;
         }
-        elsif (exists $introns{$hashkey}) {
+        elsif (exists $introns->{$hashkey}) {
           ++$good_intron_count;
-          $good_introns{$hashkey} = $introns{$hashkey};
-        }
-        elsif (scalar(keys %introns) == 0) {
-          foreach my $intron (@{$intron_adaptor->fetch_all_by_Slice($gene->feature_Slice)}) {
-            $introns{sprintf("%d:%d:%d", $intron->seq_region_start, $intron->seq_region_end, $intron->strand*$gene->strand)} = $intron->score;
-          }
-          if (exists $introns{$hashkey}) {
-            ++$good_intron_count;
-            $good_introns{$hashkey} = $introns{$hashkey};
-          }
+          $good_introns{$hashkey} = $introns->{$hashkey};
         }
       }
 
-      if($self->param('classify_by_count')) {
-        my $weak_count   = $self->param_required('classify_weak');
-        my $low_count    = $self->param_required('classify_low');
-        my $medium_count = $self->param_required('classify_medium');
-        my $high_count   = $self->param_required('classify_high');
-        my $top_count    = $self->param_required('classify_top');
+      if ($classify_by_count) {
         my $intron_support_diff = $good_intron_count - ($intron_count - $good_intron_count);
         if($intron_support_diff >= $top_count) {
           $transcript->biotype('genblast_rnaseq_top');
@@ -225,16 +223,17 @@ sub write_output {
 
   my $analysis = $self->analysis;
   my $gene_adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
-  my $update_genes = $self->param('update_genes');
-  foreach my $gene (@{$self->output}) {
-    if ($update_genes) {
+  if ($self->param('update_genes')) {
+    foreach my $gene (@{$self->output}) {
       foreach my $transcript (@{$gene->get_all_Transcripts}) {
         $transcript->adaptor->update($transcript);
       }
       $gene->adaptor->update($gene);
     }
-    else {
-      fully_load_Gene($gene);
+  }
+  else {
+    foreach my $gene (@{$self->output}) {
+      fully_load_Gene($gene); # This is probably not needed anymore as we load in fetch_input
       empty_Gene($gene);
       $gene->analysis($analysis);
       $gene_adaptor->store($gene);
