@@ -39,11 +39,28 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck
 
 use strict;
 use warnings;
-use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene fully_load_Gene);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters:
+                target_db => undef,
+                update_genes => 0,
+                full_support_suffix => 'top', # We will concat this value to the previous biotype
+                classify_weak=> 1,
+                classify_low => 2,
+                classify_medium => 4,
+                classify_high => 6,
+                classify_top => 8,
+                slice_strand => 0,
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
 
 sub param_defaults {
   my ($self) = @_;
@@ -63,6 +80,21 @@ sub param_defaults {
 }
 
 
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Retrieve all genes from a slice, logic_name(s) can be provided with
+              'source_logic_name' as a String or an array of String. All transcripts
+              and exons are loaded. All possible introns on the slice are loaded to
+              reduce the load on the database. It will use the highest score for any
+              intron
+ Returntype : None
+ Exceptions : Throws if 'source_db' is not provided
+              Throws if 'intron_db' is not provided
+              Throws if the genome file is not found when using the FASTA for sequences
+
+=cut
+
 sub fetch_input {
   my ($self) = @_;
 
@@ -75,7 +107,7 @@ sub fetch_input {
   }
 
   if($self->param('use_genome_flatfile')) {
-    say "Ingoring dna table and using fasta file for sequence fetching";
+    $self->say_with_header("Ignoring dna table and using fasta file for sequence fetching");
     unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
       $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
     }
@@ -83,7 +115,7 @@ sub fetch_input {
                  -FASTA => $self->param_required('genome_file'),
                );
   } else {
-    say "Attaching dna db";
+    $self->say_with_header("Attaching dna db");
     my $dna_dba = $self->get_database_by_name('dna_db');
     $source_db->dnadb($dna_dba);
     $intron_db->dnadb($dna_dba);
@@ -127,7 +159,6 @@ sub fetch_input {
     }
   }
 
-  print STDERR 'Fetched ', scalar(@$genes), "\n";
   $self->say_with_header('Fetched '.scalar(@$genes));
   my $intron_adaptor = $intron_db->get_DnaAlignFeatureAdaptor;
   my %introns;
@@ -141,6 +172,22 @@ sub fetch_input {
   $self->input_genes($genes);
 }
 
+
+=head2 run
+
+ Arg [1]    : None
+ Description: Loop through all the transcripts of all the genes and check
+              if at least one short read overlapping a splice junctions
+              exists.
+              It then classifies the models based on either:
+                - full intron support in a binary way
+                - degrees of support, so a transcript with half support
+                  is still of higher value than a transcript with less
+                  support
+ Returntype : None
+ Exceptions : Throws if the genes have more than one transcript
+
+=cut
 
 sub run {
   my ($self) = @_;
@@ -199,7 +246,7 @@ sub run {
           $gene->biotype('genblast_rnaseq_weak');
           $self->output([$gene]);
         } else {
-          say "Skipping gene as there is no support";
+          $self->say_with_header("Skipping gene as there is no support");
         }
       } else {
         if ($intron_count == $good_intron_count) {
@@ -217,6 +264,16 @@ sub run {
   } # End foreach my $gene
 }
 
+
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Updates the transcripts biotype if 'target_db' is not set
+              or store a new set of gene/transcript if it is set.
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub write_output {
   my ($self) = @_;
