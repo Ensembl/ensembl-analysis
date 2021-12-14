@@ -75,6 +75,8 @@ sub default_options {
     species_url                      => '', # sets species.url meta key
     species_division                 => 'EnsemblVertebrates', # sets species.division meta key
     is_non_vert                      => '0', # Setting this will indicate that the assembly corresponds to a non-vertebrate species.
+    protein_blast_db_file            => 'PE12_vertebrata', # use PE12 for non-vertebrates. Note there must also be a PE12_index file available in the same directory.
+    protein_entry_loc_file           => 'entry_loc',
 
     repbase_logic_name               => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     repbase_library                  => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
@@ -262,7 +264,6 @@ sub default_options {
 
     blast_type => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     cdna_threshold => 10, # The lowest number of genes using the cdna_db in the otherfeatures_db
-
 
 ########################
 # Extra db settings
@@ -1723,6 +1724,8 @@ sub pipeline_analyses {
           transcript_selection_url => $transcript_selection_pipe_url,
           homology_rnaseq_url => $homology_rnaseq_pipe_url,
 	  is_non_vert => $self->o('is_non_vert'),
+          protein_blast_db_file => $self->o('protein_blast_db_file'),
+          protein_entry_loc_file => $self->o('protein_entry_loc_file'),
         },
       },
       -rc_name      => 'default',
@@ -1806,6 +1809,8 @@ sub pipeline_analyses {
           use_genome_flatfile => $self->o('use_genome_flatfile'),
           transcript_selection_url => $transcript_selection_pipe_url,
 	  is_non_vert => $self->o('is_non_vert'),
+          protein_blast_db_file => $self->o('protein_blast_db_file'),
+          protein_entry_loc_file => $self->o('protein_entry_loc_file'),
         },
       },
       -rc_name      => 'default',

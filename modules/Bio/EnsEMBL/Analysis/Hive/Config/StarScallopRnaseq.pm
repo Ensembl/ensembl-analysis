@@ -38,7 +38,6 @@ sub default_options {
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
-
 ######################################################
 #
 # Variable settings- You change these!!!
@@ -67,6 +66,9 @@ sub default_options {
     'cpc2_file'                 => '' || catfile( $self->o('pcp_dir'), $self->o('pcp_db_name') . '_cpc2' ),
     'cpc2_txt_file'             => '' || catfile( $self->o('pcp_dir'), $self->o('pcp_db_name') . '_cpc2.txt' ),
     'release_number' => '' || $self->o('ensembl_release'),
+    'is_non_vert'    => '' || $self->o('is_non_vert'),
+    'protein_blast_db_file' => 'PE12_vertebrata', # use PE12 for non-vertebrates'. Note there must also be a PE12_index file in the same directory.
+    'protein_entry_loc_file' => 'entry_loc',
     'species_name'        => '',                                                                                      # e.g. mus_musculus
     'production_name'     => '',                                                                                      # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'taxon_id'            => '',                                                                                      # should be in the assembly report file
@@ -78,9 +80,9 @@ sub default_options {
     'paired_end_only'     => '1',                                                                                     # Will only use paired-end rnaseq data if 1
 
     # Keys for custom loading, only set/modify if that's what you're doing
-    'protein_blast_db' => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), ($self->o('is_non_vert') eq '1') ? 'PE12' : 'PE12_vertebrata' ),    # Blast database for comparing the final models to.
-    'protein_blast_index' => '' || catdir( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), ($self->o('is_non_vert') eq '1') ? 'PE12_index' : 'PE12_vertebrata_index' ),    # Indicate Index for the blast database.
-    'protein_entry_loc' => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),                       # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
+    'protein_blast_db' => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), $self->o('protein_blast_db_file') ), # Blast database for comparing the final models to.
+    'protein_blast_index' => '' || catdir( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), $self->o('protein_blast_db_file').'_index' ), # Indicate Index for the blast database.
+    'protein_entry_loc' => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), $self->o('protein_entry_loc_file') ), # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
 
 ########################
 # Pipe and ref db info
@@ -131,8 +133,6 @@ sub default_options {
     # This one is used in replacement of the dna table in the core db, so where analyses override slice->seq. Has simple headers with just the seq_region name. Also used by bwa in the RNA-seq analyses. Not masked
     faidx_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_toplevel.fa' ),
     use_genome_flatfile => 1,
-
-    is_non_vert => 0,
 
     'min_toplevel_slice_length' => 250,
     rnaseq_merge_type => 'samtools',
@@ -323,7 +323,6 @@ sub pipeline_wide_parameters {
     %{ $self->SUPER::pipeline_wide_parameters },
     genome_file          => $self->o('faidx_genome_file'),
     use_genome_flatfile => $self->o('use_genome_flatfile'),
-    is_non_vert         => $self->o('is_non_vert'),
   }
 }
 
@@ -860,7 +859,7 @@ sub pipeline_analyses {
         iid_type  => 'object_id',
         # path to index to fetch the sequence of the blast hit to calculate % coverage
         indicate_index => $self->o('protein_blast_index'),
-        uniprot_index  => [ $self->o('protein_blast_db') ],
+        uniprot_index => [$self->o('protein_blast_db')],
         blast_program  => $self->o('uniprot_blast_exe_path'),
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic', 'BlastGenscanPep', { BLAST_PARAMS => { -type => $self->o('blast_type') } } ) },
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40',

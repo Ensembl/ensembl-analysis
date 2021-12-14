@@ -75,6 +75,8 @@ if ($is_non_vert == 1) {
   $general_hash->{'replace_repbase_with_red_to_mask'} = '1';
   $general_hash->{'skip_projection'} = '1';
   $general_hash->{'is_non_vert'} = '1';
+  $general_hash->{'protein_blast_db_file'} = 'PE12';
+  $general_hash->{'protein_entry_loc_file'} = 'entry_loc';
 }
 
 $selected_db = "gb_assembly_registry";
