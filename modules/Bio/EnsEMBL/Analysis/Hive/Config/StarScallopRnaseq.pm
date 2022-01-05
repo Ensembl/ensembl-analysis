@@ -323,6 +323,7 @@ sub pipeline_wide_parameters {
     %{ $self->SUPER::pipeline_wide_parameters },
     genome_file          => $self->o('faidx_genome_file'),
     use_genome_flatfile => $self->o('use_genome_flatfile'),
+    is_non_vert => $self->o('is_non_vert'),
   }
 }
 
