@@ -28,9 +28,9 @@ before_install:
     - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl
     - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl-variation
     - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl-taxonomy
-    - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl-external
-    - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl-killlist
-    - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl-pipeline
+    - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-external.git
+    - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-killlist.git
+    - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-pipeline.git
     - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl-compara
     - git-ensembl --clone --branch release/90 --depth 1 ensembl-funcgen
     - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl-hive
