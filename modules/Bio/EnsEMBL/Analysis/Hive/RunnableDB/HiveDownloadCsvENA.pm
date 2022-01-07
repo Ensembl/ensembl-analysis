@@ -66,6 +66,7 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
                read_type => 'short_read',
                instrument_platform => 'ILLUMINA',
                taxon_id_restriction => 0, # Set it to 1 if you are using 'study_accession' which has multiple species
+               max_long_read_read_count => 1000000, # if a long read set has more than 1,000,000 reads, discard it. Very crude filter on rax reads
  Returntype : Hashref
  Exceptions : None
 
@@ -78,7 +79,7 @@ sub param_defaults {
     %{$self->SUPER::param_defaults},
     ena_base_url => 'http://www.ebi.ac.uk/ena/portal/api/search?display=report',
     files_domain => 'domain=read&result=read_run',
-    files_fields => 'run_accession,study_accession,experiment_accession,sample_accession,secondary_sample_accession,instrument_platform,instrument_model,library_layout,library_strategy,read_count,base_count,fastq_ftp,fastq_aspera,fastq_md5,library_source,library_selection,center_name,study_alias,experiment_alias,experiment_title,study_title',
+    files_fields => 'run_accession,study_accession,experiment_accession,sample_accession,secondary_sample_accession,instrument_platform,instrument_model,library_layout,library_strategy,read_count,base_count,fastq_ftp,fastq_aspera,fastq_md5,library_source,library_selection,center_name,study_alias,experiment_alias,experiment_title,study_title, submitted_ftp',
     sample_domain => 'domain=sample&result=sample',
     sample_fields => 'accession,secondary_sample_accession,bio_material,cell_line,cell_type,collected_by,collection_date,country,cultivar,culture_collection,description,dev_stage,ecotype,environmental_sample,first_public,germline,identified_by,isolate,isolation_source,location,mating_type,serotype,serovar,sex,submitted_sex,specimen_voucher,strain,sub_species,sub_strain,tissue_lib,tissue_type,variety,tax_id,scientific_name,sample_alias,center_name,protocol_label,project_name,investigation_type,experimental_factor,sample_collection,sequencing_method',
     download_method => 'ftp',
@@ -90,6 +91,7 @@ sub param_defaults {
     read_type => 'short_read',
     instrument_platform => 'ILLUMINA',
     taxon_id_restriction => 0, # Set it to 1 if you are using 'study_accession' which has multiple species
+    max_long_read_read_count => 1000000, # if a long read set has more than 1,000,000 reads, discard it. Very crude filter on rax reads
   }
 }
 
@@ -174,13 +176,15 @@ sub run {
   my %csv_data;
   my %samples;
   my $json_decoder = JSON::PP->new();
+  my $fastq_file = 'fastq_'.$self->param('download_method');
+  my $is_long_read = $self->param_required('read_type') ne 'short_read';
+  my $max_long_read_read_count = $self->param_required('max_long_read_read_count');
   foreach my $query (@{$self->param('query')}) {
     my $ua = LWP::UserAgent->new;
     $ua->env_proxy;
     my $url = join('&', $self->param('ena_base_url'), 'query="'.$query.'"', $self->param('files_domain'), 'fields='.$self->param('files_fields'));
     $self->say_with_header($url);
     my $response = $ua->get($url);
-    my $fastq_file = 'fastq_'.$self->param('download_method');
     if ($response->is_success) {
       my $content = $response->decoded_content(ref => 1);
       if ($content) {
@@ -230,6 +234,10 @@ sub run {
               }
             }
 
+            if ($is_long_read and $row[$fields_index{read_count}] and $row[$fields_index{read_count}] > $max_long_read_read_count) {
+              $self->say_with_header($row[$fields_index{run_accession}].' has too many reads: '.$row[$fields_index{read_count}].', discarding it');
+              next;
+            }
             if ($row[$fields_index{base_count}] and $row[$fields_index{read_count}]) {
               $read_length = $row[$fields_index{base_count}]/$row[$fields_index{read_count}];
             }
@@ -453,15 +461,19 @@ sub write_output {
               $file,
               $checksums[$index]
             );
-	  } elsif($self->param('read_type') eq 'isoseq') {
-            print FH sprintf("%s\t%s\t%s\n",
+          }
+          elsif($self->param('read_type') eq 'isoseq') {
+            print FH sprintf("%s\t%s\t%s\t%s\t%s\n",
               lc($sample_name),
               $filename,
               $description,
+              $file,
+              $checksums[$index]
             );
-	  } else {
+          }
+          else {
             $self->throw('Read type unknown: '.$self->param('read_type'));
-	  }
+          }
           push(@output_ids, {url => $file, download_method => $download_method, checksum => $checksums[$index++]});
         }
       }

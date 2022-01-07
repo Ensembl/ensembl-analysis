@@ -115,8 +115,6 @@ sub default_options {
 
     samtools_path => catfile( $self->o('binary_base'), 'samtools' ),    #You may need to specify the full path to the samtools binary
 
-    'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
-
     'long_read_dir'       => catdir( $self->o('output_path'),   'long_read' ),
     'long_read_fastq_dir' => catdir( $self->o('long_read_dir'), 'input' ),
 
@@ -133,7 +131,9 @@ sub default_options {
     # This is just an example based on the file snippet shown below.  It
     # will vary depending on how your data looks.
     ####################################################################
-    long_read_columns => [ 'sample', 'filename' ],
+    long_read_columns => [ 'sample', 'filename', 'description', 'fastq_file', 'fastq_md5' ],
+    download_method => 'ftp',
+    databases_to_delete => ['long_read_initial_db', 'long_read_collapse_db', 'long_read_final_db'],
 
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # No option below this mark should be modified
@@ -206,42 +206,28 @@ sub pipeline_analyses {
 
   return [
     {
-      -logic_name => 'create_long_read_final_db',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
-      -parameters => {
-        source_db   => $self->o('dna_db'),
-        target_db   => $self->o('long_read_final_db'),
-        create_type => 'clone',
-      },
-      -rc_name   => 'default',
-      -input_ids  => [{}],
-      -flow_into => {
-        1 => ['create_long_read_dir'],
-      },
-    },
-
-    {
-      -logic_name => 'create_long_read_dir',
+      -logic_name => 'create_fastq_dir',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => 'default',
       -parameters => {
         cmd => 'if [ ! -e "' . $self->o('long_read_fastq_dir') . '" ]; then mkdir -p ' . $self->o('long_read_fastq_dir') . ';fi',
       },
+      -input_ids  => [{}],
       -flow_into => {
-        '1' => ['create_long_read_initial_db'],
+        '1' => ['create_initial_db'],
       },
       -rc_name => 'default',
     },
 
     {
-      -logic_name => 'create_long_read_initial_db',
+      -logic_name => 'create_initial_db',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
       -parameters => {
         source_db   => $self->o('dna_db'),
         target_db   => $self->o('long_read_initial_db'),
         create_type => 'clone',
       },
-      -rc_name   => '1GB',
+      -rc_name   => 'default',
       -flow_into => {
         '1' => ['create_minimap2_index'],
       },
@@ -268,14 +254,13 @@ sub pipeline_analyses {
         return_codes_2_branches => { '42' => 2 },
       },
       -flow_into => {
-        '1->A' => ['create_lr_fastq_download_jobs'],
-        'A->1' => ['create_collapse_db'],
+        1 => ['create_fastq_download_jobs'],
       },
       -rc_name => 'default',
     },
 
     {
-      -logic_name => 'create_lr_fastq_download_jobs',
+      -logic_name => 'create_fastq_download_jobs',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -parameters => {
         inputfile    => $self->o('long_read_summary_file'),
@@ -283,24 +268,25 @@ sub pipeline_analyses {
         delimiter    => '\t',
       },
       -flow_into => {
-        2 => { 'download_long_read_fastq' => { 'iid' => '#filename#' } },
+        '2->A' => { 'download_fastq' => { 'url' => '#fastq_file#' } },
+        'A->1' => ['create_collapse_db'],
       },
     },
 
     {
-      -logic_name => 'download_long_read_fastq',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadRNASeqFastqs',
+      -logic_name => 'download_fastq',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData',
       -parameters => {
-        ftp_base_url  => $self->o('rnaseq_ftp_base'),
-        input_dir     => $self->o('long_read_fastq_dir'),
-        samtools_path => $self->o('samtools_path'),
-        decompress    => 1,
+        samtools => $self->o('samtools_path'),
+        output_dir => $self->o('long_read_fastq_dir'),
+        download_method => $self->o('download_method'),
+        uncompress => 1,
         create_faidx  => 1,
       },
-      -rc_name           => '1GB',
+      -rc_name           => 'default',
       -analysis_capacity => 50,
       -flow_into         => {
-        1 => { 'generate_minimap2_jobs' => { 'fastq_file' => $self->o('long_read_fastq_dir') . '/' . '#fastq_file#' } },
+        2 => { 'generate_minimap2_jobs' => { 'fastq_file' => '#filename#' } },
       },
     },
 
@@ -311,7 +297,7 @@ sub pipeline_analyses {
         iid_type   => 'fastq_range',
         batch_size => $self->o('minimap2_batch_size'),
       },
-      -rc_name   => '2GB',
+      -rc_name   => 'default',
       -flow_into => {
         2 => { 'minimap2' => { 'input_file' => '#fastq_file#', 'iid' => '#iid#' } },
       },
@@ -332,6 +318,7 @@ sub pipeline_analyses {
         module                       => 'Minimap2',
       },
       -rc_name   => '15GB',
+      -analysis_capacity => 200,
       -flow_into => {
         -1 => { 'minimap2_himem' => { 'input_file' => '#input_file#', 'iid' => '#iid#' } },
       },
@@ -351,6 +338,7 @@ sub pipeline_analyses {
         logic_name                   => 'minimap2',
         module                       => 'Minimap2',
       },
+      -analysis_capacity => 200,
       -rc_name => '25GB',
     },
 
@@ -358,15 +346,29 @@ sub pipeline_analyses {
       -logic_name => 'create_collapse_db',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
       -parameters => {
-        source_db   => $self->o('dna_db'),
+        source_db   => $self->o('long_read_initial_db'),
         target_db   => $self->o('long_read_collapse_db'),
         create_type => 'clone',
       },
       -rc_name         => 'default',
       -max_retry_count => 0,
       -flow_into       => {
-        1 => ['generate_collapse_jobs'],
+        1 => ['create_final_db'],
         }
+    },
+
+    {
+      -logic_name => 'create_final_db',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+      -parameters => {
+        source_db   => $self->o('long_read_initial_db'),
+        target_db   => $self->o('long_read_final_db'),
+        create_type => 'clone',
+      },
+      -rc_name   => 'default',
+      -flow_into => {
+        1 => ['generate_collapse_jobs'],
+      },
     },
 
     {
@@ -384,13 +386,13 @@ sub pipeline_analyses {
       -rc_name         => 'default',
       -max_retry_count => 1,
       -flow_into       => {
-        '2->A' => ['split_lr_slices_on_intergenic'],
-        'A->1' => ['classify_long_read_models'],
+        '2->A' => ['split_slices_on_intergenic'],
+        'A->1' => ['classify_models'],
       },
     },
 
     {
-      -logic_name => 'split_lr_slices_on_intergenic',
+      -logic_name => 'split_slices_on_intergenic',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveFindIntergenicRegions',
       -parameters => {
         dna_db         => $self->o('dna_db'),
@@ -399,6 +401,7 @@ sub pipeline_analyses {
         use_strand     => 1,
       },
       -batch_size => 100,
+      -analysis_capacity => 200,
       -rc_name    => '5GB',
       -flow_into  => {
         2 => { 'collapse_transcripts' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },
@@ -417,15 +420,15 @@ sub pipeline_analyses {
       },
       -rc_name   => '5GB',
       -flow_into => {
-        1 => ['blast_long_read'],
+        1 => ['blast'],
         -1 => { 'collapse_transcripts_20GB' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },
       },
       -batch_size        => 100,
-      -analysis_capacity => 1000,
+      -analysis_capacity => 200,
     },
 
     {
-      -logic_name => 'blast_long_read',
+      -logic_name => 'blast',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
       -parameters => {
         input_db       => $self->o('long_read_collapse_db'),
@@ -440,13 +443,14 @@ sub pipeline_analyses {
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40 -seg no',
       },
       -rc_name   => 'blast',
+      -analysis_capacity => 200,
       -flow_into => {
-        -1 => ['blast_long_read_10G'],
+        -1 => ['blast_10G'],
       },
     },
 
     {
-      -logic_name => 'blast_long_read_10G',
+      -logic_name => 'blast_10G',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastRNASeqPep',
       -parameters => {
         input_db       => $self->o('long_read_collapse_db'),
@@ -460,6 +464,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic', 'BlastGenscanPep', { BLAST_PARAMS => { -type => $self->o('blast_type') } } ) },
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40 -seg no',
       },
+      -analysis_capacity => 200,
       -rc_name => 'blast10GB',
     },
 
@@ -475,11 +480,11 @@ sub pipeline_analyses {
       },
       -rc_name   => '20GB',
       -flow_into => {
-        1  => { 'blast_long_read' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },
+        1  => { 'blast' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },
         -1 => { 'failed_collapse' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },
       },
       -batch_size        => 10,
-      -analysis_capacity => 1000,
+      -analysis_capacity => 200,
     },
 
     {
@@ -492,14 +497,15 @@ sub pipeline_analyses {
         biotypes   => [ "isoseq", "cdna" ],
         copy_only  => 1,
       },
+      -analysis_capacity => 200,
       -rc_name   => '10GB',
       -flow_into => {
-        1 => { 'blast_long_read' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },
+        1 => { 'blast' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },
       },
     },
 
     {
-      -logic_name => 'classify_long_read_models',
+      -logic_name => 'classify_models',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveClassifyTranscriptSupport',
       -parameters => {
         classification_type => 'long_read',
@@ -579,8 +585,6 @@ sub resource_classes {
 
   return {
     'default' => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
-    '1GB'     => { LSF => $self->lsf_resource_builder( 'production', 1000 ) },
-    '2GB'     => { LSF => $self->lsf_resource_builder( 'production', 2000 ) },
     '5GB'     => { LSF => $self->lsf_resource_builder( 'production', 5000 ) },
     '10GB'    => { LSF => $self->lsf_resource_builder( 'production', 10000 ) },
     '15GB'    => { LSF => $self->lsf_resource_builder( 'production', 15000 ) },
