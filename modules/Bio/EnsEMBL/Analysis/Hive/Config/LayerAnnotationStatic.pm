@@ -1628,6 +1628,7 @@ sub _master_config {
             {
               ID         => 'LAYER2',
               BIOTYPES   => [
+	                     'pcp_protein_coding',
                              'cdna2genome',
                              'edited',
                              'gw_gtag',
@@ -1834,6 +1835,7 @@ sub _master_config {
             {
               ID         => 'LAYER2',
               BIOTYPES   => [
+	                     'pcp_protein_coding',
                              'cdna2genome',
                              'edited',
                              'gw_gtag',
@@ -2287,6 +2289,7 @@ sub _master_config {
             {
               ID         => 'LAYER2',
               BIOTYPES   => [
+	                     'pcp_protein_coding',
                              'cdna2genome',
                              'edited',
                              'gw_gtag',
@@ -2503,6 +2506,7 @@ sub _master_config {
             {
               ID         => 'LAYER2',
               BIOTYPES   => [
+	                     'pcp_protein_coding',
                              'cdna2genome',
                              'edited',
                              'gw_gtag',
@@ -2719,6 +2723,7 @@ sub _master_config {
             {
               ID         => 'LAYER2',
               BIOTYPES   => [
+	                     'pcp_protein_coding',
                              'cdna2genome',
                              'edited',
                              'gw_gtag',
@@ -2935,6 +2940,7 @@ sub _master_config {
             {
               ID         => 'LAYER2',
               BIOTYPES   => [
+	                     'pcp_protein_coding',
                              'cdna2genome',
                              'edited',
                              'gw_gtag',

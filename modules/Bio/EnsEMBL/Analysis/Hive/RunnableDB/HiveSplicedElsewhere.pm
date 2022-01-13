@@ -84,6 +84,27 @@ use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    _retro_gene => [],
+    _real_gene => [],
+    _pseudo_gene => [],
+    _genes => [],
+  }
+}
+
 
 =head2 fetch_input
 
@@ -455,9 +476,6 @@ Arg [1]    : Bio::EnsEMBL::Gene
 
 sub retro_genes {
   my ($self, $retro_gene) = @_;
-  unless(defined($self->param('_retro_gene'))) {
-   $self->param('_retro_gene',[]);
-  }
   if ($retro_gene) {
     unless ($retro_gene->isa("Bio::EnsEMBL::Gene")){
       $self->throw("retro gene is not a Bio::EnsEMBL::Gene, it is a $retro_gene");
@@ -469,9 +487,6 @@ sub retro_genes {
 
 sub real_genes {
   my ($self, $real_gene) = @_;
-  unless(defined($self->param('_real_gene'))) {
-   $self->param('_real_gene',[]);
-  }
 
   if ($real_gene) {
     unless ($real_gene->isa("Bio::EnsEMBL::Gene")){

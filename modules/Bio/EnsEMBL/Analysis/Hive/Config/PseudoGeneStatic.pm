@@ -160,10 +160,10 @@ sub _master_config {
                # mimimum number of exons for the spliced gene to have
                PS_MIN_EXONS           => 4,
                # path of blast db of multi exon genes
-               PS_MULTI_EXON_DIR       => "/path/to/my/blast/directory/" ,
+               PS_MULTI_EXON_DIR       => '#output_path#' ,
                # Chunk size
                PS_CHUNK => '50',
-               DEBUG => '1',
+               DEBUG => '0',
               },
 
               pseudogenes => {

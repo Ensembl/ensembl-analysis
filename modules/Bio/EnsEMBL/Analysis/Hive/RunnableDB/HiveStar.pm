@@ -131,7 +131,7 @@ sub fetch_input {
       $runnable->rg_lines($self->param('rg_lines'));
     }
     else {
-      $runnable->rg_lines("ID:$sample_id\tSM:".$input_id->{SM}."\tPL:ILLUMINA");
+      $runnable->rg_lines("ID:$sample_id");
     }
     $self->runnable($runnable);
   }

@@ -48,6 +48,7 @@ use File::Fetch;
 use IO::Uncompress::AnyUncompress qw(anyuncompress $AnyUncompressError) ;
 
 use Bio::EnsEMBL::Analysis::Runnable::Aspera;
+use Bio::EnsEMBL::Analysis::Runnable::Samtools;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -60,6 +61,8 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
                aspera_user => 'era-fasp',
                aspera_host => 'ftp.sra.ebi.ac.uk',
                uncompress => 1,
+               create_faidx => 0,
+               samtools => 'samtools',
  Returntype : Hashref
  Exceptions : None
 
@@ -74,6 +77,8 @@ sub param_defaults {
     aspera_user => 'era-fasp',
     aspera_host => 'ftp.sra.ebi.ac.uk',
     uncompress => 1,
+    create_faidx => 0,
+    samtools => 'samtools',
   }
 }
 
@@ -140,6 +145,12 @@ sub run {
   my $file = $client->fetch(($self->param_is_defined('options') ? @{$self->param('options')}: undef));
   $self->check_file($file);
   $file = $self->uncompress($file) if ($self->param('uncompress'));
+  if ($self->param('create_faidx')) {
+    my $samtools = Bio::EnsEMBL::Analysis::Runnable::Samtools->new(
+                   -program => $self->param('samtools'),
+                   );
+    $samtools->index_genome($file);
+  }
   $self->output([$file]);
 }
 

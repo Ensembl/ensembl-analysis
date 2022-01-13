@@ -268,11 +268,10 @@ sub pipeline_analyses {
         species_name       => $self->o('species_name'),
         output_file        => catfile( $self->o('targetted_path'), 'ncbi_self.fa' ),
         ncbidb             => 'protein',
-        _branch_to_flow_to => 1,
       },
       -rc_name   => 'default',
       -flow_into => {
-        1 => [':////accu?iid=[]'],
+        1 => ['?accu_name=iid&accu_address=[]&accu_input_variable=output_file'],
       },
     },
 
@@ -287,7 +286,7 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        1 => [':////accu?iid=[]'],
+        1 => ['?accu_name=iid&accu_address=[]&accu_input_variable=iid'],
       },
     },
 
