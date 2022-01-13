@@ -58,6 +58,8 @@ sub default_options {
     'production_name'           => '',                                                          # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'uniprot_set'               => '',                                                          # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'               => '',                                                          # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
+    pseudogenes_path            => catfile($self->o('output_path'), 'pseudogenes'),
+    cleaner_path                => catfile($self->o('output_path'), 'clean_genes'),
     'use_genome_flatfile'       => '1',                                                         # This will read sequence where possible from a dumped flatfile instead of the core db
     'skip_projection'           => '0',                                                         # Will skip projection process if 1
     'skip_rnaseq'               => '0',                                                         # Will skip rnaseq analyses if 1
@@ -726,16 +728,35 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        1 => ['pseudogenes'],
+        1 => ['create_toplevel_slices_for_pseudogenes'],
       },
     },
 
     {
+      -logic_name => 'create_toplevel_slices_for_pseudogenes',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+      -parameters => {
+        target_db => $self->o('dna_db'),
+        iid_type => 'slice',
+        coord_system_name => 'toplevel',
+        include_non_reference => 0,
+        top_level => 1,
+        feature_constraint => 1,
+        feature_type => 'gene',
+        feature_dbs => [$self->o('genebuilder_db')],
+      },
+      -flow_into => {
+        '2->A' => ['pseudogenes'],
+        'A->1' => ['concat_pseudogenes_multi_exon_files'],
+      },
+      -rc_name    => 'default',
+    },
+    {
       -logic_name => 'pseudogenes',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HivePseudogenes',
       -parameters => {
-        single_multi_file => 1,
-        output_path       => $self->o('output_path') . '/pseudogenes/',
+        single_multi_file => 0,
+        output_path       => $self->o('pseudogenes_path'),
         input_gene_db     => $self->o('genebuilder_db'),
         repeat_db         => $self->o('dna_db'),
         output_db         => $self->o('pseudogene_db'),
@@ -744,8 +765,19 @@ sub pipeline_analyses {
         module            => 'HivePseudogenes',
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic', 'pseudogenes' ) },
       },
-      -rc_name   => '30GB',
-      -flow_into => {
+      -rc_name   => '3GB',
+    },
+
+    {
+      -logic_name => 'concat_pseudogenes_multi_exon_files',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'cat '.catfile('#working_dir#','multi_exon_seq*').' > '.
+          catfile('#working_dir#','all_multi_exon_genes.fasta'),
+        working_dir => $self->o('pseudogenes_path'),
+      },
+      -rc_name => 'default',
+      -flow_into  => {
         1 => ['remove_small_orf'],
       },
     },
@@ -779,8 +811,8 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'if [ "' . $self->o('blast_type') .
           '" = "ncbi" ];then makeblastdb -dbtype nucl -in ' .
-          $self->o('output_path') . '/pseudogenes/all_multi_exon_genes.fasta;' .
-          ' else xdformat -n ' . $self->o('output_path') . '/pseudogenes/all_multi_exon_genes.fasta;fi'
+          catfile($self->o('pseudogenes_path'), 'all_multi_exon_genes.fasta').';' .
+          ' else xdformat -n ' . catfile($self->o('pseudogenes_path'), 'all_multi_exon_genes.fasta').';fi'
       },
       -rc_name   => 'default',
       -flow_into => {
@@ -792,7 +824,7 @@ sub pipeline_analyses {
       -logic_name => 'spliced_elsewhere',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSplicedElsewhere',
       -parameters => {
-        multi_exon_db_path => $self->o('output_path') . '/pseudogenes/',
+        multi_exon_db_path => $self->o('pseudogenes_path'),
         input_gene_db      => $self->o('genebuilder_db'),
         repeat_db          => $self->o('dna_db'),
         output_db          => $self->o('pseudogene_db'),
@@ -881,7 +913,7 @@ sub pipeline_analyses {
         skip_analysis                         => $self->o('skip_cleaning'),
         input_db                              => $self->o('final_geneset_db'),
         dna_db                                => $self->o('dna_db'),
-        output_path                           => $self->o('output_path') . '/clean_genes/',
+        output_path                           => $self->o('cleaner_path'),
         blessed_biotypes                      => $self->o('cleaning_blessed_biotypes'),
         flagged_redundancy_coverage_threshold => 95,
         general_redundancy_coverage_threshold => 95,
@@ -902,12 +934,12 @@ sub pipeline_analyses {
         dbuser              => $self->o('user'),
         dbpass              => $self->o('password'),
         dbport              => $self->o( 'final_geneset_db', '-port' ),
-        transcript_ids_file => catfile( $self->o('output_path'), 'clean_genes', 'transcript_ids_to_remove.txt' ),
+        transcript_ids_file => catfile( $self->o('cleaner_path'), 'transcript_ids_to_remove.txt' ),
         delete_transcripts_path => catdir( $self->o('ensembl_analysis_script'), 'genebuild/' ),
         delete_genes_path       => catdir( $self->o('ensembl_analysis_script'), 'genebuild/' ),
         delete_transcripts_script_name => '/delete_transcripts.pl',
         delete_genes_script_name       => '/delete_genes.pl',
-        output_path                    => catdir( $self->o('output_path'), 'clean_genes' ),
+        output_path                    => $self->o('cleaner_path'),
         output_file_name               => 'delete_transcripts.out',
       },
       -max_retry_count => 0,

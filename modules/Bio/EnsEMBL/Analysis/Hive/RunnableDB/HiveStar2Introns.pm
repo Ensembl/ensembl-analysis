@@ -241,4 +241,24 @@ sub write_output {
   $sth_meta_coord->execute;
 }
 
+
+=head2 pre_cleanup
+
+ Arg [1]    : None
+ Description: Check indexes are 'on', truncate the dna_align_feature table and clean the meta_coord table
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub pre_cleanup {
+  my ($self) = @_;
+
+  my $db = $self->get_database_by_name('intron_db');
+  $self->warning('Truncating dna_align_feature for '.$db->dbc->dbname.'@'.$db->dbc->host);
+  $db->dbc->do("ALTER TABLE dna_align_feature ENABLE KEYS");
+  $db->dbc->do("TRUNCATE dna_align_feature");
+  $db->dbc->do("DELETE FROM meta_coord WHERE table_name = 'dna_align_feature' AND coord_system_id = 1");
+}
+
 1;

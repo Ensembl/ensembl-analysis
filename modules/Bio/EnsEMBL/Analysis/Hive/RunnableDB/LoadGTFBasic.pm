@@ -59,7 +59,7 @@ use Bio::EnsEMBL::Exon;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Analysis;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_best_translation);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -213,21 +213,23 @@ sub run {
            -END_PHASE => -1
           ));
           if ($current_transcript->start == $current_transcript->{_gb_start} and $current_transcript->end == $current_transcript->{_gb_end}) {
-            compute_translation($current_transcript);
+            compute_best_translation($current_transcript);
             if (@{$current_transcript->get_all_Exons} == 1 and $current_transcript->strand == 1) {
               my %tmp_hash = %{$current_transcript->get_all_Exons->[0]};
               my $tmp_exon = Bio::EnsEMBL::Exon->new_fast(\%tmp_hash);
               $tmp_exon->strand(-1);
               my $tmp_transcript = Bio::EnsEMBL::Transcript->new;
               $tmp_transcript->add_Exon($tmp_exon);
-              compute_translation($tmp_transcript);
+              compute_best_translation($tmp_transcript);
               my $tmp_translation = $tmp_transcript->translation;
               if ($tmp_translation) {
                 my $translation = $current_transcript->translation;
                 # Because we have a single exon model, no need to look for the real sequence
                 if (($translation and ($tmp_translation->end-$tmp_translation->start) > ($translation->end-$translation->start)) or !$translation) {
-                  $genes[-1]->flush_Transcripts;
+                  $tmp_transcript->source($current_transcript->source);
+                  $tmp_transcript->stable_id($current_transcript->stable_id);
                   $tmp_transcript->analysis($genes[-1]->analysis);
+                  $genes[-1]->flush_Transcripts;
                   $genes[-1]->add_Transcript($tmp_transcript);
                 }
               }
@@ -321,14 +323,14 @@ sub run {
       my $transcripts = $gene->get_all_Transcripts;
       $gene->flush_Transcripts;
       foreach my $transcript (@$transcripts) {
-        compute_translation($transcript);
+        compute_best_translation($transcript);
         if (@{$transcript->get_all_Exons} == 1 and $transcript->strand == 1) {
           my %tmp_hash = %{$transcript->get_all_Exons->[0]};
           my $tmp_exon = Bio::EnsEMBL::Exon->new_fast(\%tmp_hash);
           $tmp_exon->strand(-1);
           my $tmp_transcript = Bio::EnsEMBL::Transcript->new;
           $tmp_transcript->add_Exon($tmp_exon);
-          compute_translation($tmp_transcript);
+          compute_best_translation($tmp_transcript);
           my $tmp_translation = $tmp_transcript->translation;
           if ($tmp_translation) {
             my $translation = $transcript->translation;
@@ -560,7 +562,7 @@ sub build_gene {
   $transcript->slice($slice_hash->{$seq_region_name});
   $transcript->source($source_name);
   $transcript->analysis($analysis);
-  compute_translation($transcript);
+  compute_best_translation($transcript);
   $self->say_with_header("Created transcript ".$transcript_id." with ".scalar(@$exons)." exons");
 
 
@@ -580,7 +582,7 @@ sub build_gene {
     $reverse_transcript->slice($slice_hash->{$seq_region_name});
     $reverse_transcript->source($source_name);
     $reverse_transcript->analysis($analysis);
-    compute_translation($reverse_transcript);
+    compute_best_translation($reverse_transcript);
 
     my $forward_translation = $transcript->translation;
     my $reverse_translation = $reverse_transcript->translation;

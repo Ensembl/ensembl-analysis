@@ -56,6 +56,7 @@ use File::Spec::Functions;
 use File::Basename;
 use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
@@ -109,11 +110,14 @@ sub run {
   my $scallop_command = $self->program." -i ".$input_file." -o ".$output_file_path;
 
   $self->warning("Command:\n".$scallop_command."\n");
-  if(system($scallop_command)) {
-    $self->throw("Error running scallop\nError code: $?\n");
-  }
+  execute_with_wait($scallop_command);
 
-  $self->output([$output_file]);
+  # check that the output GTF file does not have zero size
+  if (-s $output_file_path) {
+    $self->output([$output_file]);
+  } else {
+    $self->throw("Error running scallop\nThe output GTF file has zero size: $output_file_path\n");
+  }
 }
 
 
