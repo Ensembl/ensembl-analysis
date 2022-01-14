@@ -144,7 +144,7 @@ sub default_options {
     
     cpc2_output => catdir($self->o('output_path'),'cpc2_output'),
     rnasamba_output => catdir($self->o('output_path'),'rnasamba_output'),
-    rna_samba_weights => '/hps/nobackup/flicek/ensembl/genebuild/ftricomi/rnasamba_test/RNAsamba/data/full_length_weights.hdf5',
+    rna_samba_weights => '/nfs/production/flicek/ensembl/genebuild/rnasamba/full_length_weights.hdf5',
 
 ########################
 # Executable paths
@@ -154,8 +154,8 @@ sub default_options {
     stringtie2_path => catfile($self->o('binary_base'), 'stringtie'),
     samtools_path   => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
     picard_lib_jar  => catfile($self->o('linuxbrew_home_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
-    rnasamba => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/rnasamba_latest.sif',
-    cpc2 => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test_cpc2.sif',
+    rnasamba => '/hps/software/users/ensembl/genebuild/singularity/rnasamba_latest.sif',
+    cpc2 => '/hps/software/users/ensembl/genebuild/singularity/test_cpc2.sif',
     ensembl_analysis_scripts   => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     pcp_get_transcripts_script => catfile($self->o('ensembl_analysis_scripts'), 'pcp', 'get_transcripts.pl'),
 
