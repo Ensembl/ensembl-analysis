@@ -130,7 +130,7 @@ sub parse_results {
   if (!$in_file) {
     throw("Input file is missing!\n");
   }
-  open my $FILE, '<', $in_file;
+  open(my $FILE,'<',$in_file) or die("Could not open file ".$in_file);
   my $header = <$FILE>;
 
   while(<$FILE>) {
@@ -138,5 +138,7 @@ sub parse_results {
     my @temp = split':', $row[0];
     $results{$temp[-1]} = $row[$column_num];
   }
+  
+  close($FILE) or die("Could not close file ".$in_file);
   return %results;
 }
