@@ -592,8 +592,8 @@ sub clade_settings {
     },
 
     'rodentia' => {
-      'repbase_library'    => 'rodents',
-      'repbase_logic_name' => 'rodents',
+      'repbase_library'    => 'rodentia',
+      'repbase_logic_name' => 'rodentia',
       'uniprot_set'        => 'mammals_basic',
       'projection_source_production_name' => 'mus_musculus',
       'projection_source_db_name' => current_projection_source_db('mus_musculus'),
