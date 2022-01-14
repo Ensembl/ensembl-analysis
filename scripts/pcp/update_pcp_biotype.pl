@@ -86,7 +86,7 @@ if (%cpc_results ne %rnasamba_results) {
 }
 
 foreach my $key (keys %cpc_results) {
-  throw("Results files contain different gene models\n") unless (exists $rnasamba_results{$key));
+  throw("Results files contain different gene models\n") unless (exists $rnasamba_results{$key});
   ## Currently using AND to account for relative sensitivity  / specifity differences
   ## between the algorithms.
   if ($rnasamba_results{$key} eq 'coding' and $cpc_results{$key} eq 'coding') {
