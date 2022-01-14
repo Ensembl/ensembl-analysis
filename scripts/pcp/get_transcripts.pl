@@ -57,14 +57,14 @@ my $coord_system = 'toplevel';
 
 my $dbname = '';
 my $user   = 'ensro';
-my $host = $ENV{GBS5};
-my $port = $ENV{GBP5};
+my $host = '';
+my $port = '';
 my $pass = '';
 
 my $dna_dbname = '';
 my $dna_user   = 'ensro';
-my $dna_host   = $ENV{GBS6};
-my $dna_port   = $ENV{GBP6};
+my $dna_host   = '';
+my $dna_port   = '';
 my $dna_pass  = '';
 
 my $options = GetOptions ("user|dbuser|u=s"         => \$user,
