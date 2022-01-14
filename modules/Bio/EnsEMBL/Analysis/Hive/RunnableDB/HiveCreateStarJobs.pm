@@ -81,14 +81,12 @@ sub fetch_input {
   foreach my $result (@$results) {
     my $sample_id = $result->{$self->param('sample_id_column')};
     my $sample_name = $result->{$self->param('sample_column')};
-    if ($result->{$self->param('filename_column')} !~ /_split/){
-      if(exists $samples_hash->{$sample_id}) {
-        push(@{$samples_hash->{$sample_id}->{'files'}},$result->{$self->param('filename_column')});
-      } else {
-        $samples_hash->{$sample_id}->{'files'} = [$result->{$self->param('filename_column')}];
-        $samples_hash->{$sample_id}->{$self->param('sample_column')} = $sample_name;
-        $samples_hash->{$sample_id}->{$self->param('sample_id_column')} = $sample_id;
-      }
+    if(exists $samples_hash->{$sample_id}) {
+      push(@{$samples_hash->{$sample_id}->{'files'}},$result->{$self->param('filename_column')});
+    } else {
+      $samples_hash->{$sample_id}->{'files'} = [$result->{$self->param('filename_column')}];
+      $samples_hash->{$sample_id}->{$self->param('sample_column')} = $sample_name;
+      $samples_hash->{$sample_id}->{$self->param('sample_id_column')} = $sample_id;
     }
   }
 
