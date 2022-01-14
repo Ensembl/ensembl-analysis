@@ -77,19 +77,19 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -dbname  => $dbname,
   -pass    => $pass);
 
-my %cpc_results = parse_results($cpc2_file, 8);
-my %rnasamba_results = parse_results($rnasamba_file, 2);
+my $cpc_results = parse_results($cpc2_file, 8);
+my $rnasamba_results = parse_results($rnasamba_file, 2);
 my %selected_genes;
 
-if (scalar(keys %cpc_results) != scalar(keys %rnasamba_results)) {
+if (scalar(keys %{$cpc_results}) != scalar(keys %{$rnasamba_results})) {
   throw("Results files have different number of gene models\n");
 }
 
-foreach my $key (keys %cpc_results) {
-  throw("Results files contain different gene models\n") unless (exists $rnasamba_results{$key});
+foreach my $key (keys %{$cpc_results}) {
+  throw("Results files contain different gene models\n") unless (exists $rnasamba_results->{$key});
   ## Currently using AND to account for relative sensitivity  / specifity differences
   ## between the algorithms.
-  if ($rnasamba_results{$key} eq 'coding' and $cpc_results{$key} eq 'coding') {
+  if ($rnasamba_results->{$key} eq 'coding' and $cpc_results->{$key} eq 'coding') {
       $selected_genes{$key} = 1;
   }
 }
@@ -131,5 +131,5 @@ sub parse_results {
   }
   
   close($FILE) or die("Could not close file ".$in_file);
-  return %results;
+  return \%results;
 }
