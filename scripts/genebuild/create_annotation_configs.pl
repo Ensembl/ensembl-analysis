@@ -682,8 +682,6 @@ sub clade_settings {
       'repbase_library'    => 'hymenoptera',
       'repbase_logic_name' => 'hymenoptera',
       'uniprot_set'        => 'hymenoptera_basic',
-      #'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/HYMENOPTERA',
-      #'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/HYMENOPTERA_index',
       'skip_projection'    => 1,
       'skip_lastz'         => 1,
       # need a default projection source db set - for now use human and projection is skipped, will consider updating to use a butterfly annotation
