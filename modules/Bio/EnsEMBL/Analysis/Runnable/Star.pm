@@ -1,6 +1,7 @@
 =head1 LICENSE
 
- Copyright [2016-2019] EMBL-European Bioinformatics Institute
+ Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+ Copyright [2016-2020] EMBL-European Bioinformatics Institute
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -63,15 +64,13 @@ use parent ('Bio::EnsEMBL::Analysis::Runnable::BaseShortReadAligner');
 
 =head2 new
 
- Arg [DECOMPRESS]          : String, as a command like 'gzip -c -'
- Arg [EXPECTED_ATTRIBUTES] : String, to specify the SAM attributes expected for the output, see STAR manual
- Arg [SAMPLE_NAME]         : String, specify the sample name, used for the temporary files and directories
- Arg [GENOME_DIR]          : String, path to a directory containing the index SA
- Arg [THREADS]             : Int, number of threads to use
- Description               : Creates a  object to align reads to a genome using STAR
- Returntype                : Bio::EnsEMBL::Analysis::Runnable::Star
- Exceptions                : Throws if WORKDIR does not exist
-                             Throws if the genome has not been indexed
+ Arg [DECOMPRESS]  : String, as a command like 'gzip -c -'
+ Arg [SAMPLE_NAME] : String, specify the sample name, used for the temporary files and directories
+ Arg [GENOME_DIR]  : String, path to a directory containing the index SA
+ Arg [THREADS]     : Int, number of threads to use
+ Description       : Creates a  object to align reads to a genome using STAR
+ Returntype        : Bio::EnsEMBL::Analysis::Runnable::Star
+ Exceptions        : Throws if the genome has not been indexed
 
 =cut
 
@@ -79,7 +78,7 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($decompress, $sam_attributes, $sample_id, $genome_dir, $threads) = rearrange([qw (DECOMPRESS RG_LINES SAMPLE_NAME GENOME_DIR THREADS)],@args);
+  my ($decompress, $sample_id, $genome_dir, $threads) = rearrange([qw (DECOMPRESS SAMPLE_NAME GENOME_DIR THREADS)],@args);
   $self->throw("Genome file must be indexed, '$genome_dir/SA' does not exist\n") unless (-e $genome_dir.'/SA');
   $self->genome($genome_dir);
   $self->sample_id($sample_id);
@@ -105,10 +104,8 @@ sub run {
   my $fastq = $self->fastq;
   my $fastqpair = $self->fastqpair;
   my $options = $self->options;
-
   my $out_dir = catfile($self->outdir, $sample_id.'_');
-  my $tmp_dir = catfile($self->outdir, $sample_id."_tmp");
-  
+  my $tmp_dir = catdir($self->outdir, $sample_id.'_tmp');
   if (-d $tmp_dir) {
     remove_tree($tmp_dir, {safe => 1});
   }
@@ -118,13 +115,10 @@ sub run {
   $options .= ' --outSAMattrRGline "'.$self->rg_lines.'"' if ($self->rg_lines);
   $options .= ' --outSAMattributes "'.$self->sam_attributes.'"' if ($self->sam_attributes);
 
-  # Run STAR setting TmpDir and restricting BAM sort memory allocation:
-  my $command = $self->program." --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$self->threads()." --twopassMode Basic --runMode alignReads --genomeDir ".$self->genome." --readFilesIn ".$fastq." ".$fastqpair." --outFileNamePrefix ".$out_dir." ".$options." --outTmpDir ".$tmp_dir." --outSAMtype BAM SortedByCoordinate"." --limitBAMsortRAM 15000000000";
-
+  # run STAR
+  my $command = $self->program." --outFilterIntronMotifs RemoveNoncanonicalUnannotated --outSAMstrandField intronMotif --runThreadN ".$self->threads." --twopassMode Basic --runMode alignReads --genomeDir ".$self->genome." --readFilesIn $fastq $fastqpair --outFileNamePrefix $out_dir $options --outTmpDir $tmp_dir --outSAMtype BAM SortedByCoordinate";
   $self->warning("Command: $command\n");
-  if (system($command)) {
-    $self->throw("Error aligning $fastq $fastqpair\nCommandline used: $command\nError code: $?\n");
-  }
+  execute_with_wait($command);
   $self->output([$out_dir.'Aligned.sortedByCoord.out.bam']);
 }
 
