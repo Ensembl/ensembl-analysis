@@ -81,7 +81,7 @@ my %cpc_results = parse_results($cpc2_file, 8);
 my %rnasamba_results = parse_results($rnasamba_file, 2);
 my %selected_genes;
 
-if (%cpc_results ne %rnasamba_results) {
+if (scalar(keys %cpc_results) != scalar(keys %rnasamba_results)) {
   throw("Results files have different number of gene models\n");
 }
 
