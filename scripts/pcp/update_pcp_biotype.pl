@@ -56,9 +56,9 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 my $coord_system = 'toplevel';
 my $dbname = '';
 my $user   = 'ensadmin';
-my $host = $ENV{GBS5};
-my $port = $ENV{GBP5};
-my $pass = 'ensembl';
+my $host = '';
+my $port = '';
+my $pass = '';
 my ($cpc2_file, $rnasamba_file ) = ( '', '' );
 
 my $options = GetOptions ("user|dbuser|u=s"     => \$user,
