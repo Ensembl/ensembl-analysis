@@ -313,6 +313,7 @@ sub pipeline_create_commands {
     'mkdir -p ' . $self->o('genome_dumps'),
     'mkdir -p ' . $self->o('rnasamba_output'),
     'mkdir -p ' . $self->o('cpc2_output'),
+    'mkdir -p ' . $self->o('pcp_dir'),
   ];
 }
 
@@ -1034,8 +1035,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => '8GB',
       -parameters => {
-        cmd => 'mkdir -p ' . $self->o('pcp_dir') . ';'.
-        ' perl ' . $self->o('pcp_get_transcripts_script').
+        cmd => ' perl ' . $self->o('pcp_get_transcripts_script').
         ' -user ' . $self->o('user_r').
         ' -dna_user ' . $self->o('user_r').
         ' -dbname ' . $self->o('pcp_db_name').
