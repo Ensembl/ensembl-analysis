@@ -689,13 +689,12 @@ sub clade_settings {
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
 
-    # This is based on a run performed on noah before move to codon:
     'atroparvus' => {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
       'uniprot_set'        => 'atroparvus_basic',
-      'protein_blast_db'   => '/hps/nobackup2/production/ensemblgenomes/lcampbell/Infravec_Work/5_01_21-A_atroparvus/GeneBuilding/Pipeline_Components/Custom_BLAST_Database/Combined_A.atroparvus_n356016',
-      'protein_blast_index'=> '/hps/nobackup2/production/ensemblgenomes/lcampbell/Infravec_Work/5_01_21-A_atroparvus/GeneBuilding/Pipeline_Components/Custom_BLAST_Database/indicate_index_db',
+      'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/5_01_21-A_atroparvus/Combined_A.atroparvus_n356016',
+      'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/5_01_21-A_atroparvus/Combined_A.atroparvus_n356016_index',
       'skip_projection'    => 1,
       'skip_lastz'         => 1,
       'projection_source_production_name' => 'homo_sapiens',
@@ -706,8 +705,8 @@ sub clade_settings {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
       'uniprot_set'        => 'perniciosus_basic',
-      'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/vectorbase/lcampbell/Genbuilding/P_perniciosus/PipelineComponents/CustomBlast_DBs/Phlebotomus_Uniprot_Ensembl_DB',
-      'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/vectorbase/lcampbell/Genbuilding/P_perniciosus/PipelineComponents/CustomBlast_DBs/Phlebotomus_Uniprot_Ensembl_DB_index',
+      'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/P_perniciosus/Phlebotomus_Uniprot_Ensembl_DB',
+      'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/P_perniciosus/Phlebotomus_Uniprot_Ensembl_DB_index',
       'skip_projection'    => 1,
       'skip_lastz'         => 1,
       'projection_source_production_name' => 'homo_sapiens',
