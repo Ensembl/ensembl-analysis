@@ -1106,7 +1106,7 @@ sub _master_config {
                              'self_pe12_seleno_4',
                              'reptiles_pe12_seleno_4',
                              'aves_pe12_seleno_4',
-                             'amphibians_seleno_4'
+                             'amphibians_seleno_4',
 			     'pcp_protein_coding',
 			     'cdna2genome',
                              'edited',
