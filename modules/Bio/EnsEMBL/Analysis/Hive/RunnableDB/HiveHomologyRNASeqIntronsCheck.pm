@@ -125,7 +125,7 @@ sub fetch_input {
   }
 
   if($target_db) {
-    $target_db->dbc->disconnect_when_inactive(1);
+    $target_db->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
     $self->hrdb_set_con($target_db,'target_db');
   } else {
     $self->hrdb_set_con($source_db, 'target_db');
