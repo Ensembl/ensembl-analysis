@@ -74,6 +74,9 @@ sub default_options {
     use_genome_flatfile              => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     species_url                      => '', # sets species.url meta key
     species_division                 => 'EnsemblVertebrates', # sets species.division meta key
+    is_non_vert                      => '0', # Setting this will indicate that the assembly corresponds to a non-vertebrate species.
+    protein_blast_db_file            => 'PE12_vertebrata', # use PE12 for non-vertebrates. Note there must also be a PE12_index file available in the same directory.
+    protein_entry_loc_file           => 'entry_loc',
 
     repbase_logic_name               => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     repbase_library                  => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
@@ -194,6 +197,9 @@ sub default_options {
     rnaseq_for_layer_nr_db_host     => $self->o('databases_host'),
     rnaseq_for_layer_nr_db_port     => $self->o('databases_port'),
 
+    pcp_db_host                     => $self->o('databases_host'),
+    pcp_db_port                     => $self->o('databases_port'),
+
     genblast_rnaseq_support_db_host    => $self->o('databases_host'),
     genblast_rnaseq_support_db_port    => $self->o('databases_port'),
 
@@ -258,7 +264,6 @@ sub default_options {
 
     blast_type => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     cdna_threshold => 10, # The lowest number of genes using the cdna_db in the otherfeatures_db
-
 
 ########################
 # Extra db settings
@@ -403,6 +408,24 @@ sub default_options {
       -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnalayer_nr_'.$self->o('release_number'),
       -host   => $self->o('rnaseq_for_layer_nr_db_host'),
       -port   => $self->o('rnaseq_for_layer_nr_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    pcp_db => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
+      -host   => $self->o('pcp_db_host'),
+      -port   => $self->o('pcp_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    pcp_nr_db => {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_nr_'.$self->o('release_number'),
+      -host   => $self->o('pcp_db_host'),
+      -port   => $self->o('pcp_db_port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
@@ -1676,11 +1699,13 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMetaPipelineInit',
       -parameters => {
         hive_config => $self->o('hive_rnaseq_config'),
-        databases => ['rnaseq_refine_db', 'rnaseq_for_layer_nr_db', 'rnaseq_for_layer_db', 'dna_db'],
+	databases => ['rnaseq_refine_db', 'rnaseq_for_layer_nr_db', 'rnaseq_for_layer_db', 'dna_db', 'pcp_db', 'pcp_nr_db'],
         rnaseq_refine_db => $self->o('rnaseq_refine_db'),
         rnaseq_for_layer_db => $self->o('rnaseq_for_layer_db'),
         rnaseq_for_layer_nr_db => $self->o('rnaseq_for_layer_nr_db'),
         dna_db => $self->o('dna_db'),
+	pcp_db => $self->o('pcp_db'),
+	pcp_nr_db => $self->o('pcp_nr_db'),
         enscode_root_dir => $self->o('enscode_root_dir'),
         extra_parameters => {
           output_path => $self->o('output_path'),
@@ -1698,6 +1723,9 @@ sub pipeline_analyses {
           use_genome_flatfile => $self->o('use_genome_flatfile'),
           transcript_selection_url => $transcript_selection_pipe_url,
           homology_rnaseq_url => $homology_rnaseq_pipe_url,
+	  is_non_vert => $self->o('is_non_vert'),
+          protein_blast_db_file => $self->o('protein_blast_db_file'),
+          protein_entry_loc_file => $self->o('protein_entry_loc_file'),
         },
       },
       -rc_name      => 'default',
@@ -1780,6 +1808,9 @@ sub pipeline_analyses {
           long_read_summary_file_genus => $self->o('long_read_summary_file_genus'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
           transcript_selection_url => $transcript_selection_pipe_url,
+	  is_non_vert => $self->o('is_non_vert'),
+          protein_blast_db_file => $self->o('protein_blast_db_file'),
+          protein_entry_loc_file => $self->o('protein_entry_loc_file'),
         },
       },
       -rc_name      => 'default',
@@ -2071,3 +2102,4 @@ sub resource_classes {
 }
 
 1;
+

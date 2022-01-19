@@ -64,8 +64,8 @@ sub default_options {
     'uniprot_version' => 'uniprot_2019_04',                                                                                           # What UniProt data dir to use for various analyses
 
     # Keys for custom loading, only set/modify if that's what you're doing
-    'protein_blast_db' => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata' ),    # Blast database for comparing the final models to.
-    'protein_blast_index' => '' || catdir( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index' ),    # Indicate Index for the blast database.
+    'protein_blast_db' => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), ($self->o('is_non_vert') eq '1') ? 'PE12' : 'PE12_vertebrata' ),    # Blast database for comparing the final models to.
+    'protein_blast_index' => '' || catdir( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), ($self->o('is_non_vert') eq '1') ? 'PE12_index' : 'PE12_vertebrata_index' ),    # Indicate Index for the blast database.
 
     ########################
     # Pipe and ref db info
@@ -191,6 +191,7 @@ sub pipeline_wide_parameters {
     %{ $self->SUPER::pipeline_wide_parameters },
     genome_file         => $self->o('faidx_genome_file'),
     use_genome_flatfile => $self->o('use_genome_flatfile'),
+    is_non_vert         => $self->o('is_non_vert'),
   }
 }
 

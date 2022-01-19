@@ -72,11 +72,14 @@ unless(-e $config_file) {
 my $general_hash = {};
 
 if ($is_non_vert == 1) {
-  $selected_db = "test_registry_db";
   $general_hash->{'replace_repbase_with_red_to_mask'} = '1';
-} else {
-  $selected_db = "gb_assembly_registry";
+  $general_hash->{'skip_projection'} = '1';
+  $general_hash->{'is_non_vert'} = '1';
+  $general_hash->{'protein_blast_db_file'} = 'PE12';
+  $general_hash->{'protein_entry_loc_file'} = 'entry_loc';
 }
+
+$selected_db = "gb_assembly_registry";
 
 my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
   -host    => 'mysql-ens-meta-prod-1',
@@ -590,7 +593,7 @@ sub clade_settings {
 
     'rodentia' => {
       'repbase_library'    => 'rodentia',
-      'repbase_logic_name' => 'rodents',
+      'repbase_logic_name' => 'rodentia',
       'uniprot_set'        => 'mammals_basic',
       'projection_source_production_name' => 'mus_musculus',
       'projection_source_db_name' => current_projection_source_db('mus_musculus'),
@@ -658,6 +661,54 @@ sub clade_settings {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
       'uniprot_set'        => 'insects_basic',
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+    'lepidoptera' => {
+      'repbase_library'    => 'lepidoptera',
+      'repbase_logic_name' => 'lepidoptera',
+      'uniprot_set'        => 'lepidoptera_basic',
+      'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/HMLEP',
+      'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/HMLEP_index',
+      'skip_projection'    => 1,
+      'skip_lastz'         => 1,
+      # need a default projection source db set - for now use human and projection is skipped, will consider updating to use a butterfly annotation
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+    'hymenoptera' => {
+      'repbase_library'    => 'hymenoptera',
+      'repbase_logic_name' => 'hymenoptera',
+      'uniprot_set'        => 'hymenoptera_basic',
+      'skip_projection'    => 1,
+      'skip_lastz'         => 1,
+      # need a default projection source db set - for now use human and projection is skipped, will consider updating to use a butterfly annotation
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+    'atroparvus' => {
+      'repbase_library'    => 'insecta',
+      'repbase_logic_name' => 'insects',
+      'uniprot_set'        => 'atroparvus_basic',
+      'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/5_01_21-A_atroparvus/Combined_A.atroparvus_n356016',
+      'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/5_01_21-A_atroparvus/Combined_A.atroparvus_n356016_index',
+      'skip_projection'    => 1,
+      'skip_lastz'         => 1,
+      'projection_source_production_name' => 'homo_sapiens',
+      'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+    },
+
+   'perniciosus' => {
+      'repbase_library'    => 'insecta',
+      'repbase_logic_name' => 'insects',
+      'uniprot_set'        => 'perniciosus_basic',
+      'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/P_perniciosus/Phlebotomus_Uniprot_Ensembl_DB',
+      'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/P_perniciosus/Phlebotomus_Uniprot_Ensembl_DB_index',
+      'skip_projection'    => 1,
+      'skip_lastz'         => 1,
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },

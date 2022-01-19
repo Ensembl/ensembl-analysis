@@ -60,6 +60,7 @@ sub param_defaults {
 
  Arg [1]    : None
  Description: Creates input id based on a custom table 'csvfile_table' in the hive database
+              It will generate the parameters for STAR based on the data for each file
               It stores the input ids in 'inputlist'
  Returntype : None
  Exceptions : None
@@ -128,7 +129,7 @@ sub batch_samples {
 
 =head2 build_sorted_batches
 
- Arg [1]    : Hashref, containgin the information from the 'csvfile_table'
+ Arg [1]    : Hashref, containing the information from the 'csvfile_table'
  Arg [2]    : Hashref, containing the the size of each file
  Description: Build the size sorted batches
  Returntype : Arrayref of array containing sample names to be batched together

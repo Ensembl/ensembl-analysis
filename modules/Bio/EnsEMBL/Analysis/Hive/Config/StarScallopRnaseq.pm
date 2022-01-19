@@ -28,12 +28,16 @@ use Bio::EnsEMBL::ApiVersion qw/software_version/;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
+# this is required for eHive's WHEN ELSE
+use  Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
+use parent ('Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf');
+
 sub default_options {
   my ($self) = @_;
+
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
-
 ######################################################
 #
 # Variable settings- You change these!!!
@@ -57,7 +61,14 @@ sub default_options {
     'rnaseq_summary_file'       => '' || catfile( $self->o('rnaseq_dir'), $self->o('species_name') . '.csv' ),        # Set this if you have a pre-existing cvs file with the expected columns
     'rnaseq_summary_file_genus' => '' || catfile( $self->o('rnaseq_dir'), $self->o('species_name') . '_gen.csv' ),    # Set this if you have a pre-existing genus level cvs file with the expected columns
     rnaseq_study_accession => '',
+    'rnasamba_tsv_file'         => '' || catfile( $self->o('pcp_dir'), $self->o('pcp_db_name') . '_RNAsamba.tsv' ),
+    'cpc2_fasta_file'           => '' || catfile( $self->o('pcp_dir'), $self->o('pcp_db_name') . '.fasta' ),
+    'cpc2_file'                 => '' || catfile( $self->o('pcp_dir'), $self->o('pcp_db_name') . '_cpc2' ),
+    'cpc2_txt_file'             => '' || catfile( $self->o('pcp_dir'), $self->o('pcp_db_name') . '_cpc2.txt' ),
     'release_number' => '' || $self->o('ensembl_release'),
+    'is_non_vert'    => '' || $self->o('is_non_vert'),
+    'protein_blast_db_file' => 'PE12_vertebrata', # use PE12 for non-vertebrates'. Note there must also be a PE12_index file in the same directory.
+    'protein_entry_loc_file' => 'entry_loc',
     'species_name'        => '',                                                                                      # e.g. mus_musculus
     'production_name'     => '',                                                                                      # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'taxon_id'            => '',                                                                                      # should be in the assembly report file
@@ -65,13 +76,13 @@ sub default_options {
     'uniprot_set'         => '',                                                                                      # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'         => '',                                                                                      # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'assembly_name'       => '',                                                                                      # Name (as it appears in the assembly report file)
-    'uniprot_version'     => 'uniprot_2019_04',                                                                       # What UniProt data dir to use for various analyses
+    'uniprot_version'     => 'uniprot_2021_04',                                                                       # What UniProt data dir to use for various analyses
     'paired_end_only'     => '1',                                                                                     # Will only use paired-end rnaseq data if 1
 
     # Keys for custom loading, only set/modify if that's what you're doing
-    'protein_blast_db' => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata' ),    # Blast database for comparing the final models to.
-    'protein_blast_index' => '' || catdir( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index' ),    # Indicate Index for the blast database.
-    'protein_entry_loc' => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),                       # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
+    'protein_blast_db' => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), $self->o('protein_blast_db_file') ), # Blast database for comparing the final models to.
+    'protein_blast_index' => '' || catdir( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), $self->o('protein_blast_db_file').'_index' ), # Indicate Index for the blast database.
+    'protein_entry_loc' => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), $self->o('protein_entry_loc_file') ), # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
 
 ########################
 # Pipe and ref db info
@@ -97,11 +108,15 @@ sub default_options {
 
     'scallop_blast_db_host'   => $self->o('databases_host'),
     'scallop_blast_db_port'   => $self->o('databases_port'),
+    
+    'pcp_db_host' => $self->o('databases_host'),
+    'pcp_db_port' => $self->o('databases_port'),
+    'pcp_db_name' => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release' => $ENV{ENSEMBL_RELEASE},    # this is the current release version on staging to be able to get the correct database
 
-    databases_to_delete => ['rnaseq_for_layer_db','rnaseq_for_layer_nr_db','scallop_initial_db','scallop_blast_db'],
+    databases_to_delete => ['rnaseq_for_layer_db','rnaseq_for_layer_nr_db','scallop_initial_db','scallop_blast_db','pcp_db','pcp_nr_db'],
 
 ########################
 # BLAST db paths
@@ -126,7 +141,10 @@ sub default_options {
     # This is used for "messaging" other sub pipeline
     transcript_selection_url => undef,
     homology_rnaseq_url => undef,
-
+    
+    cpc2_output => catdir($self->o('output_path'),'cpc2_output'),
+    rnasamba_output => catdir($self->o('output_path'),'rnasamba_output'),
+    rna_samba_weights => '/nfs/production/flicek/ensembl/genebuild/rnasamba/full_length_weights.hdf5',
 
 ########################
 # Executable paths
@@ -136,6 +154,10 @@ sub default_options {
     stringtie2_path => catfile($self->o('binary_base'), 'stringtie'),
     samtools_path   => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
     picard_lib_jar  => catfile($self->o('linuxbrew_home_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
+    rnasamba => '/hps/software/users/ensembl/genebuild/singularity/rnasamba_latest.sif',
+    cpc2 => '/hps/software/users/ensembl/genebuild/singularity/test_cpc2.sif',
+    ensembl_analysis_scripts   => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
+    pcp_get_transcripts_script => catfile($self->o('ensembl_analysis_scripts'), 'pcp', 'get_transcripts.pl'),
 
     'blast_type'             => 'ncbi',                                                                         # It can be 'ncbi', 'wu', or 'legacy_ncbi'
     'uniprot_blast_exe_path' => catfile( $self->o('binary_base'), 'blastp' ),
@@ -149,6 +171,7 @@ sub default_options {
     'input_dir'  => catdir( $self->o('rnaseq_dir'),  'input' ),
     'output_dir' => catdir( $self->o('rnaseq_dir'),  'output' ),
     'merge_dir' => catdir( $self->o('rnaseq_dir'),  'merge' ),
+    'pcp_dir' => catdir( $self->o('rnaseq_dir'),  'pcp' ),
 
     'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
@@ -229,6 +252,24 @@ sub default_options {
       -driver => $self->o('hive_driver'),
     },
 
+    'pcp_db'=> {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
+      -host   => $self->o('pcp_db_host'),
+      -port   => $self->o('pcp_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
+    'pcp_nr_db'=> {
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_nr_'.$self->o('release_number'),
+      -host   => $self->o('pcp_db_host'),
+      -port   => $self->o('pcp_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+
   };
 }
 
@@ -270,6 +311,9 @@ sub pipeline_create_commands {
 
     'mkdir -p ' . $self->o('rnaseq_dir'),
     'mkdir -p ' . $self->o('genome_dumps'),
+    'mkdir -p ' . $self->o('rnasamba_output'),
+    'mkdir -p ' . $self->o('cpc2_output'),
+    'mkdir -p ' . $self->o('pcp_dir'),
   ];
 }
 
@@ -280,6 +324,7 @@ sub pipeline_wide_parameters {
     %{ $self->SUPER::pipeline_wide_parameters },
     genome_file          => $self->o('faidx_genome_file'),
     use_genome_flatfile => $self->o('use_genome_flatfile'),
+    is_non_vert => $self->o('is_non_vert'),
   }
 }
 
@@ -816,7 +861,7 @@ sub pipeline_analyses {
         iid_type  => 'object_id',
         # path to index to fetch the sequence of the blast hit to calculate % coverage
         indicate_index => $self->o('protein_blast_index'),
-        uniprot_index  => [ $self->o('protein_blast_db') ],
+        uniprot_index => [$self->o('protein_blast_db')],
         blast_program  => $self->o('uniprot_blast_exe_path'),
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic', 'BlastGenscanPep', { BLAST_PARAMS => { -type => $self->o('blast_type') } } ) },
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40',
@@ -956,7 +1001,7 @@ sub pipeline_analyses {
       -rc_name   => '2GB',
       -flow_into => {
         '2->A' => ['remove_redundant_rnaseq_layer_genes_star'],
-        'A->1'  => ['notification_pipeline_is_done'],
+        'A->1' => WHEN('#is_non_vert# eq "1"' => 'create_pcp_db', ELSE 'notification_pipeline_is_done',),
       },
     },
 
@@ -965,6 +1010,181 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::RemoveRedundantGenes',
       -parameters => {
         target_db   => $self->o('rnaseq_for_layer_nr_db'),
+        target_type => 'generic',
+      },
+      -rc_name => '5GB',
+    },
+
+    {
+      -logic_name => 'create_pcp_db',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+      -parameters => {
+        source_db   => $self->o('scallop_initial_db'),
+        target_db   => $self->o('pcp_db'),
+        create_type => 'copy',
+        force_drop  => 1,
+      },
+      -rc_name    => 'default',
+      -flow_into  => {
+        1 => ['dump_fasta'],
+      },
+    },
+
+    {
+      -logic_name => 'dump_fasta',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name    => '8GB',
+      -parameters => {
+        cmd => ' perl ' . $self->o('pcp_get_transcripts_script').
+        ' -user ' . $self->o('user_r').
+        ' -dna_user ' . $self->o('user_r').
+        ' -dbname ' . $self->o('pcp_db_name').
+        ' -dna_dbname ' . $self->o('dna_db_name').
+        ' -host ' . $self->o('scallop_initial_db_host').
+        ' -dna_host ' . $self->o('dna_db_host').
+        ' -port ' . $self->o('scallop_initial_db_port').
+        ' -dna_port ' . $self->o('dna_db_port').
+        ' > ' . $self->o('cpc2_fasta_file')
+      },
+      -flow_into  => {
+        '1->A' => ['run_cpc2','run_rnasamba'],
+        'A->1' => ['impute_coding_genes']
+      },
+    },
+
+    {
+      -logic_name => 'run_cpc2',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name    => '8GB',
+      -parameters => {
+        cmd => 'singularity exec --bind '.$self->o('cpc2_output').' '.
+        $self->o('cpc2').' python3 /CPC2_standalone-1.0.1/bin/CPC2.py'.
+        ' -i '.$self->o('cpc2_fasta_file').' '.
+        ' --ORF -o '.$self->o('cpc2_file').' '
+      },
+    },
+
+    {
+      -logic_name => 'run_rnasamba',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name    => '10GB',
+      -parameters =>  {
+        cmd => 'singularity exec --bind '.$self->o('rnasamba_output').' '.
+        $self->o('rnasamba').' rnasamba classify '.
+        $self->o('rnasamba_tsv_file').' '.
+        $self->o('cpc2_fasta_file').' '.
+        $self->o('rna_samba_weights')
+      },
+      -flow_into =>  {
+        -1 => ['run_rnasamba_50GB'],
+      },
+    },
+
+    {
+      -logic_name => 'run_rnasamba_50GB',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name    => '50GB',
+      -parameters =>  {
+        cmd => 'singularity exec --bind '.$self->o('rnasamba_output').' '.
+        $self->o('rnasamba').' rnasamba classify '.
+        $self->o('rnasamba_tsv_file').' '.
+        $self->o('cpc2_fasta_file').' '.
+        $self->o('rna_samba_weights')
+      },
+      -flow_into =>  {
+        -1 => ['run_rnasamba_100GB'],
+      },
+    },
+
+    {
+      -logic_name => 'run_rnasamba_100GB',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name    => '100GB',
+      -parameters =>  {
+        cmd => 'singularity exec --bind '.$self->o('rnasamba_output').' '.
+        $self->o('rnasamba').' rnasamba classify '.
+        $self->o('rnasamba_tsv_file').' '.
+        $self->o('cpc2_fasta_file').' '.
+        $self->o('rna_samba_weights')
+      },
+    },
+
+    {
+      -logic_name => 'impute_coding_genes',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'perl ' . catfile($self->o('ensembl_analysis_scripts'), 'pcp', 'update_pcp_biotype.pl') .
+        ' -user ' . $self->o('user').
+        ' -pass ' . $self->o('password').
+        ' -dbname  ' . $self->o('pcp_db_name').
+        ' -port ' . $self->o('scallop_initial_db_port').
+        ' -host ' . $self->o('scallop_initial_db_host').
+        ' -cpc2 ' . $self->o('cpc2_txt_file').
+        ' -rnas ' . $self->o('rnasamba_tsv_file'),
+      },
+      -rc_name    => '1GB',
+      -flow_into => {
+        '1'    => ['create_pcp_nr_db'],
+      },
+    },
+
+    {
+      -logic_name => 'create_pcp_nr_db',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+      -parameters => {
+        source_db   => $self->o('pcp_db'),
+        target_db   => $self->o('pcp_nr_db'),
+        create_type => 'copy',
+        force_drop  => 1,
+      },
+      -rc_name    => 'default',
+      -flow_into => {
+        '1'    => ['remove_non_pcp_biotypes'],
+      },
+    },
+
+    {
+      -logic_name => 'remove_non_pcp_biotypes',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => $self->o('pcp_nr_db'),
+        sql => [
+          'DELETE FROM gene WHERE biotype <> "pcp_protein_coding"'
+        ],
+      },
+      -rc_name    => 'default',
+      -flow_into => {
+        '1' => ['create_pcp_nr_slices'],
+      },
+    },
+
+    {
+      -logic_name => 'create_pcp_nr_slices',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSubmitAnalysis',
+      -parameters => {
+        target_db             => $self->o('dna_db'),
+        coord_system_name     => 'toplevel',
+        iid_type              => 'slice',
+        slice_size            => 20000000,
+        include_non_reference => 0,
+        top_level             => 1,
+        min_slice_length      => $self->o('min_toplevel_slice_length'),
+        batch_slice_ids       => 1,
+        batch_target_size     => 20000000,
+      },
+      -rc_name    => '2GB',
+      -flow_into => {
+        '2->A' => ['remove_redundant_pcp_genes'],
+        'A->1' => ['notification_pipeline_is_done_pcp'],
+      },
+    },
+
+    {
+      -logic_name => 'remove_redundant_pcp_genes',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::RemoveRedundantGenes',
+      -parameters => {
+        dna_db => $self->o('dna_db'),
+        target_db   => $self->o('pcp_nr_db'),
         target_type => 'generic',
       },
       -rc_name => '5GB',
@@ -1041,6 +1261,33 @@ sub pipeline_analyses {
       -rc_name    => 'default',
     },
 
+    {
+      -logic_name => 'notification_pipeline_is_done_pcp',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::MessagePipeline',
+      -parameters => {
+        messages   => [
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'split_slices_on_intergenic',
+          param => 'input_gene_dbs',
+          data => $self->o('pcp_nr_db'),
+          update => 1,
+        },
+        {
+          url => $self->o('transcript_selection_url'),
+          logic_name => 'layer_annotation',
+          param => 'SOURCEDB_REFS',
+          data => $self->o('pcp_nr_db'),
+          update => 1,
+        },
+        ],
+        tweak_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'tweak_pipeline.pl'),
+      },
+      -rc_name   => 'default',
+      -flow_into => {
+        '1' => ['notification_pipeline_is_done'],
+      }
+    }
   ];
 }
 
@@ -1048,8 +1295,13 @@ sub resource_classes {
   my $self = shift;
 
   return {
+    '1GB'     => { LSF => $self->lsf_resource_builder( 'production', 1000 ) },
     '2GB'     => { LSF => $self->lsf_resource_builder( 'production', 2000 ) },
     '5GB'     => { LSF => $self->lsf_resource_builder( 'production', 5000 ) },
+    '8GB'     => { LSF => $self->lsf_resource_builder( 'production', 8000 ) },
+    '10GB'     => { LSF => $self->lsf_resource_builder( 'production', 10000 ) },
+    '50GB'     => { LSF => $self->lsf_resource_builder( 'production', 50000 ) },
+    '100GB'     => { LSF => $self->lsf_resource_builder( 'production', 100000 ) },
     'default' => { LSF => $self->lsf_resource_builder( 'production', 900 ) },
     '3GB_multithread'     => { LSF => $self->lsf_resource_builder( 'production', 2900, undef, undef, $self->default_options->{use_threads} ) },
     '3GB_rnaseq_multithread'     => { LSF => $self->lsf_resource_builder( 'production', 2900, undef, undef, $self->default_options->{rnaseq_merge_threads} ) },

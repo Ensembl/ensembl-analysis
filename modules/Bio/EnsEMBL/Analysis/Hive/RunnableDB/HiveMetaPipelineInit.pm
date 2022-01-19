@@ -144,7 +144,7 @@ sub fetch_input {
         else {
           # We need to make sure that an arrayref/hashref is correctly passed to the init script
           my $value = ref($extra_parameters->{$key}) ? stringify($extra_parameters->{$key}) : $extra_parameters->{$key};
-          push(@cmd, "-$key", $value) if ($value);
+          push(@cmd, "-$key", $value) if (defined($value));
         }
       }
     }
