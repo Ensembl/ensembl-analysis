@@ -1,3 +1,4 @@
+
 =head1 LICENSE
 
  Copyright [2021] EMBL-European Bioinformatics Institute
@@ -52,8 +53,11 @@ use Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor;
 use Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name is_canonical_splice);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
-
+use File::Copy;
+use DateTime;
+use Bio::EnsEMBL::Utils::Exception qw (warning throw);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+use Bio::EnsEMBL::DBSQL::DBAdaptor;
 
 sub param_defaults {
   my ($self) = @_;
@@ -63,7 +67,7 @@ sub param_defaults {
 #    _branch_to_flow_to => 1,
 #    use_generic_output_type => 0,
 #    generic_output_type => 'cds',
-  }
+  };
 }
 
 =head2 fetch_input
@@ -80,44 +84,50 @@ sub fetch_input {
   say "Fetching input";
   # For the combine files option we don't actually need to do anything in fetch input
 
-  my $dirs_to_create = [];
-
-  my $output_dir_base = $self->param('base_output_dir');
+  my $dirs_to_create     = [];
+  my $current_genebuild  = 0;
+  my $output_dir_base    = $self->param('base_output_dir');
   my $assembly_accession = $self->param('assembly_accession');
-  my $output_dir = catdir($output_dir_base,$assembly_accession);
-  my $genome_files_dir = catdir($output_dir,'genome_files');
-  my $short_read_dir = catdir($output_dir,'short_read_fastq');
-  if($self->param('use_existing_short_read_dir') and -d $self->param('use_existing_short_read_dir')) {
+  my $output_dir         = catdir( $output_dir_base, $assembly_accession );
+  my $genome_files_dir   = catdir( $output_dir,      'genome_files' );
+  my $short_read_dir     = catdir( $output_dir,      'short_read_fastq' );
+  if ( $self->param('use_existing_short_read_dir') and -d $self->param('use_existing_short_read_dir') ) {
     $short_read_dir = $self->param('use_existing_short_read_dir');
   }
 
-  my $long_read_dir = catdir($output_dir,'long_read_fastq');
-  push(@$dirs_to_create,($output_dir,$genome_files_dir,$short_read_dir,$long_read_dir));
+  my $long_read_dir = catdir( $output_dir, 'long_read_fastq' );
+  push( @$dirs_to_create, ( $output_dir, $genome_files_dir, $short_read_dir, $long_read_dir ) );
 
   foreach my $dir (@$dirs_to_create) {
-    my $result = system('mkdir -p '.$dir);
-    if($result) {
-      $self->throw("Failed to create dir: ".$dir);
+    my $result = system( 'mkdir -p ' . $dir );
+    if ($result) {
+      $self->throw( "Failed to create dir: " . $dir );
     }
   }
 
   my $registry_dba = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
-  -host    => $self->param('registry_db')->{'-host'},
-  -port    => $self->param('registry_db')->{'-port'},
-  -user    => $self->param('registry_db')->{'-user'},
-  -dbname  => $self->param('registry_db')->{'-dbname'});
-
+    -host   => $self->param('registry_db')->{'-host'},
+    -port   => $self->param('registry_db')->{'-port'},
+    -user   => $self->param('registry_db')->{'-user'},
+    -pass   => $self->param('registry_db')->{'-pass'},
+    -dbname => $self->param('registry_db')->{'-dbname'} );
 
   my $taxonomy_adaptor = new Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor(
-  -host    => 'mysql-ens-meta-prod-1',
-  -port    => 4483,
-  -user    => 'ensro',
-  -dbname  => 'ncbi_taxonomy');
+    -host   => 'mysql-ens-meta-prod-1',
+    -port   => 4483,
+    -user   => 'ensro',
+    -dbname => 'ncbi_taxonomy' );
 
+  my $pipeline_db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
+    -host   => $self->param('pipe_db')->{'-host'},
+    -port   => $self->param('pipe_db')->{'-port'},
+    -user   => $self->param('pipe_db')->{'-user'},
+    -pass   => $self->param('pipe_db')->{'-pass'},
+    -dbname => $self->param('pipe_db')->{'-dbname'} );
 
   my $sql = "SELECT assembly_id FROM assembly WHERE CONCAT(chain,'.',version) = ?";
   my $sth = $registry_dba->dbc->prepare($sql);
-  $sth->bind_param(1,$assembly_accession);
+  $sth->bind_param( 1, $assembly_accession );
   $sth->execute();
   my ($assembly_id) = $sth->fetchrow();
 
@@ -135,54 +145,54 @@ sub fetch_input {
                  FROM assembly JOIN meta as m USING(assembly_id) JOIN stable_id_space USING(stable_id_space_id) WHERE assembly_id=?";
   $sth = $registry_dba->dbc->prepare($sql);
 
-  $sth->bind_param(1,$assembly_id);
+  $sth->bind_param( 1, $assembly_id );
   $sth->execute();
 
   my $output_params = {};
-  my ($stable_id_prefix,$clade,$species_taxon_id,$taxon_id,$assembly_name,$common_name,$assembly_refseq_accession,$assembly_date,$species_name,$assembly_group,$stable_id_start) = $sth->fetchrow();
+  my ( $stable_id_prefix, $clade, $species_taxon_id, $taxon_id, $assembly_name, $common_name, $assembly_refseq_accession, $assembly_date, $species_name, $assembly_group, $stable_id_start ) = $sth->fetchrow();
   my $scientific_name = $species_name;
   $species_name = lc($species_name);
   $species_name =~ s/ +/\_/g;
-  $species_name =~ s/\_$//; # This cropped up
+  $species_name =~ s/\_$//;                # This cropped up
   $species_name =~ /([^\_]+)\_([^\_]+)/;
-  my $p1 = $1;
-  my $p2 = $2;
-  my $binomial_species_name = $p1."_".$p2;
-  my $production_name = $p1."_".$p2;
-  my $max_part_length = 15;
-  unless(length($production_name) <= ($max_part_length * 2) + 1) {
-    my $ssp1 = substr($p1,0,$max_part_length);
-    my $ssp2 = substr($p2,0,$max_part_length);
-    $production_name = $ssp1."_".$ssp2;
+  my $p1                    = $1;
+  my $p2                    = $2;
+  my $binomial_species_name = $p1 . "_" . $p2;
+  my $production_name       = $p1 . "_" . $p2;
+  my $max_part_length       = 15;
+
+  unless ( length($production_name) <= ( $max_part_length * 2 ) + 1 ) {
+    my $ssp1 = substr( $p1, 0, $max_part_length );
+    my $ssp2 = substr( $p2, 0, $max_part_length );
+    $production_name = $ssp1 . "_" . $ssp2;
   }
 
   my $production_gca = $assembly_accession;
   $production_gca =~ s/\./v/;
   $production_gca =~ s/\_//g;
   $production_gca = lc($production_gca);
-  $production_name .= "_".$production_gca;
+  $production_name .= "_" . $production_gca;
 
   # The assembly names for the alt haplotypes from DToL have spaces, probably better to substitute them in the registry
   # as opposed to here, but here is fine too. The paths to the files on the ftp site do not have an spaces so subbing with
   # underscore seems to be the correct thing to do based on the observed paths so far
   $assembly_name =~ s/ /\_/g;
 
-  if($self->param('override_clade')) {
+  if ( $self->param('override_clade') ) {
     $clade = $self->param('override_clade');
     say "Clade param set in config, will override registry value";
   }
 
   my $clade_params = $self->get_clade_params($clade);
 
-
   #use taxon id to retrieve genus taxon id
   #genus taxon_id will be used to download genus level rnaseq data
   my $genus_taxon_id;
   my $node_adaptor = $taxonomy_adaptor->get_TaxonomyNodeAdaptor();
-  my $taxon_node = $node_adaptor->fetch_by_taxon_id($taxon_id);
-  foreach my $ancestor ( @{ $node_adaptor->fetch_ancestors($taxon_node)}){
+  my $taxon_node   = $node_adaptor->fetch_by_taxon_id($taxon_id);
+  foreach my $ancestor ( @{ $node_adaptor->fetch_ancestors($taxon_node) } ) {
     #store genus level taxon id
-    if ($ancestor->rank eq 'genus'){
+    if ( $ancestor->rank eq 'genus' ) {
       $genus_taxon_id = $ancestor->taxon_id;
     }
     #store taxonomy at species level if species is a subspecies
@@ -190,130 +200,152 @@ sub fetch_input {
 #        $species_taxon_id = $ancestor->taxon_id;
 #        $assembly_hash->{'species_taxon_id'} = $species_taxon_id;
 #      }
-     else{}
+    else { }
   }
-
 
   my $ensembl_release = $self->param('ensembl_release');
 
   my $core_db_details = $self->param('core_db');
-  my $core_dbname = $self->param('dbowner').'_'.$production_name.'_core_'.$ensembl_release.'_1';
+  my $core_dbname     = $self->param('dbowner') . '_' . $production_name . '_core_' . $ensembl_release . '_1';
   $core_db_details->{'-dbname'} = $core_dbname;
 
   my $clean_db_details = $self->param('clean_utr_db');
-  my $clean_dbname = $self->param('dbowner').'_'.$production_name.'_cleanutr_'.$ensembl_release.'_1';
+  my $clean_dbname     = $self->param('dbowner') . '_' . $production_name . '_cleanutr_' . $ensembl_release . '_1';
   $clean_db_details->{'-dbname'} = $clean_dbname;
 
-  my $rnaseq_summary_file          = catfile($short_read_dir, $production_name.'.csv');
-  my $long_read_summary_file       = catfile($long_read_dir, $production_name.'_long_read.csv');
+  my $rnaseq_summary_file    = catfile( $short_read_dir, $production_name . '.csv' );
+  my $long_read_summary_file = catfile( $long_read_dir,  $production_name . '_long_read.csv' );
 
-  my $toplevel_genome_file = catfile($output_dir,$species_name."_toplevel.fa");
-  my $reheadered_toplevel_genome_file = catfile($output_dir,$species_name."_reheadered_toplevel.fa");
+  my $toplevel_genome_file            = catfile( $output_dir, $species_name . "_toplevel.fa" );
+  my $reheadered_toplevel_genome_file = catfile( $output_dir, $species_name . "_reheadered_toplevel.fa" );
 
-  my $protein_file = $clade_params->{'protein_file'};
-  my $busco_protein_file = $clade_params->{'busco_protein_file'};
+  my $protein_file         = $clade_params->{'protein_file'};
+  my $busco_protein_file   = $clade_params->{'busco_protein_file'};
   my $rfam_accessions_file = $clade_params->{'rfam_accessions_file'};
-  my $busco_group = $clade_params->{'busco_group'};
-  my $max_intron_length = $clade_params->{'max_intron_length'};
+  my $busco_group          = $clade_params->{'busco_group'};
+  my $max_intron_length    = $clade_params->{'max_intron_length'};
 
   # Meta details
-  my $species_division  =  $clade_params->{'species_division'};
+  my $species_division = $clade_params->{'species_division'};
   my $species_url;
   my $species_display_name;
-  if ($assembly_name =~ /alternate_haplotype/) {
+  if ( $assembly_name =~ /alternate_haplotype/ ) {
     $common_name = "alternate haplotype";
   }
 
-  if(!$common_name) {
+  if ( !$common_name ) {
     $common_name = "NA";
   }
 
-  $species_display_name = $scientific_name." (".$common_name.") - ".$assembly_accession;
-  $species_url = $scientific_name."_".$assembly_accession;
+  $species_display_name = $scientific_name . " (" . $common_name . ") - " . $assembly_accession;
+  $species_url          = $scientific_name . "_" . $assembly_accession;
   $species_url =~ s/ /_/g;
 
   # Note this should probably be update so that haps are strain assemblies under a strain group
   # The group should be changed to cut off the GCA from the production name, then the type can
   # be set to alternate haplotype. This needs to be discussed before implementing
-  my $species_strain = "reference";
+  my $species_strain       = "reference";
   my $species_strain_group = $production_name;
-  my $strain_type = "strain";
+  my $strain_type          = "strain";
 
-  my $gbiab_commandline = ' --genome_file '.$reheadered_toplevel_genome_file.
-                          ' --db_details '.$core_db_details->{'-dbname'}.','.
-                                           $core_db_details->{'-host'}.','.
-                                           $core_db_details->{'-port'}.','.
-                                           $core_db_details->{'-user'}.','.
-                                           $core_db_details->{'-pass'}.
-                          ' --output_dir '.$output_dir.
-                          ' --short_read_fastq_dir '.$short_read_dir.
-                          ' --long_read_fastq_dir '.$long_read_dir.
-                          ' --max_intron_length '.$max_intron_length.
-                          ' --protein_file '.$protein_file.
-                          ' --busco_protein_file '.$busco_protein_file.
-                          ' --rfam_accessions_file '.$rfam_accessions_file.
-                          ' --num_threads '.$self->param('num_threads').
-                          ' --run_full_annotation 1'.
-                          ' --load_to_ensembl_db 1';
+  my $anno_commandline = ' --genome_file ' . $reheadered_toplevel_genome_file .
+    ' --db_details ' . $core_db_details->{'-dbname'} . ',' .
+    $core_db_details->{'-host'} . ',' .
+    $core_db_details->{'-port'} . ',' .
+    $core_db_details->{'-user'} . ',' .
+    $core_db_details->{'-pass'} .
+    ' --output_dir ' . $output_dir .
+    ' --short_read_fastq_dir ' . $short_read_dir .
+    ' --long_read_fastq_dir ' . $long_read_dir .
+    ' --max_intron_length ' . $max_intron_length .
+    ' --protein_file ' . $protein_file .
+    ' --busco_protein_file ' . $busco_protein_file .
+    ' --rfam_accessions_file ' . $rfam_accessions_file .
+    ' --num_threads ' . $self->param('num_threads') .
+    ' --run_full_annotation 1' .
+    ' --load_to_ensembl_db 1';
 
-  if($self->param('diamond_validation_db')) {
-    $gbiab_commandline .= ' --diamond_validation_db '.$self->param('diamond_validation_db');
+  if ( $self->param('diamond_validation_db') ) {
+    $anno_commandline .= ' --diamond_validation_db ' . $self->param('diamond_validation_db');
   }
 
-  if($self->param('validation_type')) {
-    $gbiab_commandline .= ' --validation_type '.$self->param('validation_type');
+  if ( $self->param('validation_type') ) {
+    $anno_commandline .= ' --validation_type ' . $self->param('validation_type');
   }
 
-  $output_params->{'core_db'} = $core_db_details;
-  $output_params->{'core_dbname'} = $core_dbname;
-  $output_params->{'clean_utr_db'} = $clean_db_details;
-  $output_params->{'clean_utr_dbname'} = $clean_dbname;
-  $output_params->{'stable_id_start'} = $stable_id_start;
-  $output_params->{'stable_id_prefix'} = $stable_id_prefix;
-  $output_params->{'clade'} = $clade;
-  $output_params->{'species_taxon_id'} = $species_taxon_id;
-  $output_params->{'taxon_id'} = $taxon_id;
-  $output_params->{'genus_taxon_id'} = $genus_taxon_id;
-  $output_params->{'assembly_name'} = $assembly_name;
-  $output_params->{'assembly_accession'} = $assembly_accession;
-  $output_params->{'assembly_refseq_accession'} = $assembly_refseq_accession;
-  $output_params->{'assembly_date'} = $assembly_date;
-  $output_params->{'species_name'} = $species_name;
-  $output_params->{'assembly_group'} = $assembly_group;
-  $output_params->{'stable_id_start'} = $stable_id_start;
-  $output_params->{'ensembl_release'} = $ensembl_release;
-  $output_params->{'output_path'} = $output_dir;
-  $output_params->{'genome_files_dir'} = $genome_files_dir;
-  $output_params->{'toplevel_genome_file'} = $toplevel_genome_file;
+  #Create a local copy of the registry and update the pipeline's resources with the new path
+  my $new_registry_file = catfile( $output_dir_base, 'Databases.pm' );
+  my $registry_file     = $self->param('registry_file');
+  $registry_file =~ s|/+|/|g;
+
+  $sth = $pipeline_db->dbc->prepare("update resource_description set worker_cmd_args=replace(worker_cmd_args, ?, ?);");
+  $sth->bind_param( 1, "$registry_file" );
+  $sth->bind_param( 2, "$new_registry_file" );
+  unless ( $sth->execute() ) {
+    throw("Could not update path for registry");
+  }
+
+  if ( -e $new_registry_file ) {
+    $self->create_registry_entry( $new_registry_file, $core_db_details, $production_name );
+  } else {
+    system( 'cp ' . $registry_file . ' ' . $new_registry_file );
+    $self->create_registry_entry( $new_registry_file, $core_db_details, $production_name );
+  }
+
+  #Check genebuild status of assembly
+  if ( $current_genebuild == 1 ) {
+    $self->update_annotation_status( $registry_dba, $assembly_accession, $current_genebuild );
+  } else {
+    #it will stop the pipeline if there is already an annotation in progress for this assembly
+    $self->check_annotation_status( $registry_dba, $assembly_accession, $current_genebuild );
+  }
+
+  #Output
+  $output_params->{'core_db'}                         = $core_db_details;
+  $output_params->{'core_dbname'}                     = $core_dbname;
+  $output_params->{'clean_utr_db'}                    = $clean_db_details;
+  $output_params->{'clean_utr_dbname'}                = $clean_dbname;
+  $output_params->{'stable_id_start'}                 = $stable_id_start;
+  $output_params->{'stable_id_prefix'}                = $stable_id_prefix;
+  $output_params->{'clade'}                           = $clade;
+  $output_params->{'species_taxon_id'}                = $species_taxon_id;
+  $output_params->{'taxon_id'}                        = $taxon_id;
+  $output_params->{'genus_taxon_id'}                  = $genus_taxon_id;
+  $output_params->{'assembly_name'}                   = $assembly_name;
+  $output_params->{'assembly_accession'}              = $assembly_accession;
+  $output_params->{'assembly_refseq_accession'}       = $assembly_refseq_accession;
+  $output_params->{'assembly_date'}                   = $assembly_date;
+  $output_params->{'species_name'}                    = $species_name;
+  $output_params->{'assembly_group'}                  = $assembly_group;
+  $output_params->{'stable_id_start'}                 = $stable_id_start;
+  $output_params->{'ensembl_release'}                 = $ensembl_release;
+  $output_params->{'output_path'}                     = $output_dir;
+  $output_params->{'genome_files_dir'}                = $genome_files_dir;
+  $output_params->{'toplevel_genome_file'}            = $toplevel_genome_file;
   $output_params->{'reheadered_toplevel_genome_file'} = $reheadered_toplevel_genome_file;
-  $output_params->{'short_read_dir'} = $short_read_dir;
-  $output_params->{'long_read_dir'} = $long_read_dir;
-  $output_params->{'species_url'} = $species_url;
-  $output_params->{'species_division'} = $species_division;
-  $output_params->{'species_display_name'} = $species_display_name;
-  $output_params->{'species_strain'} = $species_strain;
-  $output_params->{'species_strain_group'} = $species_strain_group;
-  $output_params->{'strain_type'} = $strain_type;
-  $output_params->{'production_name'} = $production_name;
-  $output_params->{'rnaseq_summary_file'} = $rnaseq_summary_file; # Problematic
-  $output_params->{'long_read_summary_file'} = $long_read_summary_file; # Problematic
-  $output_params->{'protein_file'} = $protein_file;
-  $output_params->{'busco_protein_file'} = $busco_protein_file;
-  $output_params->{'busco_group'} = $busco_group;
-  $output_params->{'rfam_accessions_file'} = $rfam_accessions_file;
-  $output_params->{'gbiab_commandline'} = $gbiab_commandline;
-  $self->param('output_params',$output_params);
-
-  $self->create_registry_entry($self->param('registry_file'),$core_db_details,$production_name);
+  $output_params->{'short_read_dir'}                  = $short_read_dir;
+  $output_params->{'long_read_dir'}                   = $long_read_dir;
+  $output_params->{'species_url'}                     = $species_url;
+  $output_params->{'species_division'}                = $species_division;
+  $output_params->{'species_display_name'}            = $species_display_name;
+  $output_params->{'species_strain'}                  = $species_strain;
+  $output_params->{'species_strain_group'}            = $species_strain_group;
+  $output_params->{'strain_type'}                     = $strain_type;
+  $output_params->{'production_name'}                 = $production_name;
+  $output_params->{'rnaseq_summary_file'}             = $rnaseq_summary_file;               # Problematic
+  $output_params->{'long_read_summary_file'}          = $long_read_summary_file;            # Problematic
+  $output_params->{'protein_file'}                    = $protein_file;
+  $output_params->{'busco_protein_file'}              = $busco_protein_file;
+  $output_params->{'busco_group'}                     = $busco_group;
+  $output_params->{'rfam_accessions_file'}            = $rfam_accessions_file;
+  $output_params->{'anno_commandline'}                = $anno_commandline;
+  $output_params->{'registry_file'}                   = $new_registry_file;
+  $self->param( 'output_params', $output_params );
 }
-
-
-
 
 sub run {
   my ($self) = @_;
 }
-
 
 =head2 write_output
 p
@@ -328,115 +360,170 @@ sub write_output {
   my ($self) = @_;
 
   my $output_params = $self->param('output_params');
-  $self->dataflow_output_id($output_params,1);
+  $self->dataflow_output_id( $output_params, 1 );
 }
 
-
 sub get_clade_params {
-  my ($self,$clade) = @_;
+  my ( $self, $clade ) = @_;
 
   my $clade_params = {};
   $clade_params->{'max_intron_length'} = 100000;
 
-  if($clade eq 'lepidoptera') {
+  if ( $clade eq 'lepidoptera' ) {
     $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/lepidoptera_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/lepidoptera_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblMetazoa',
-    $clade_params->{'busco_group'} = 'lepidoptera_odb10',
-  } elsif($clade eq 'teleostei') {
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/lepidoptera_orthodb_proteins.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblMetazoa',
+      $clade_params->{'busco_group'}          = 'lepidoptera_odb10',;
+  } elsif ( $clade eq 'teleostei' ) {
     $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/actinopterygii_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/actinopterygii_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblVertebrates',
-  } elsif($clade eq 'humans') {
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/actinopterygii_orthodb_proteins.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblVertebrates',;
+  } elsif ( $clade eq 'humans' ) {
     # Just temp stuff for testing
     $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/actinopterygii_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/actinopterygii_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblVertebrates',
-  } elsif($clade eq 'hymenoptera') {
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/actinopterygii_orthodb_proteins.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_teleost_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblVertebrates',;
+  } elsif ( $clade eq 'hymenoptera' ) {
     $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hymenoptera_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hymenoptera_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblMetazoa',
-    $clade_params->{'busco_group'} = 'hymenoptera_odb10',
-  } elsif($clade eq 'diptera') {
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hymenoptera_orthodb_proteins.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblMetazoa',
+      $clade_params->{'busco_group'}          = 'hymenoptera_odb10',;
+  } elsif ( $clade eq 'diptera' ) {
     $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/diptera_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/diptera_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblMetazoa',
-    $clade_params->{'busco_group'} = 'diptera_odb10',
-  } elsif($clade eq 'coleoptera') {
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/diptera_orthodb_proteins.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblMetazoa',
+      $clade_params->{'busco_group'}          = 'diptera_odb10',;
+  } elsif ( $clade eq 'coleoptera' ) {
     $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/endopterygota_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/endopterygota_orthodb_proteins_reheader.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblMetazoa',
-    $clade_params->{'busco_group'} = 'endopterygota_odb10',
-  } elsif($clade eq 'plants') {
-    # Test for Impatiens glandulifera labelled plants in the registry
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/endopterygota_orthodb_proteins_reheader.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_insect_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblMetazoa',
+      $clade_params->{'busco_group'}          = 'endopterygota_odb10',;
+  } elsif ( $clade eq 'plants' ) {
     $clade_params->{'max_intron_length'} = 10000;
-    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/viridiplantae_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/viridiplantae_orthodb_proteins_reheader.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_eudicotyledons_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblPlants',
-    $clade_params->{'busco_group'} = 'viridiplantae_odb10',
-  } elsif($clade eq 'metazoa') {
+    $clade_params->{'protein_file'}      = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/viridiplantae_uniprot_proteins.fa',
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/viridiplantae_orthodb_proteins_reheader.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_eudicotyledons_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblPlants',
+      $clade_params->{'busco_group'}          = 'viridiplantae_odb10',;
+  } elsif ( $clade eq 'metazoa' ) {
     $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/worm_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mollusca_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_worm_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblMetazoa',
-    $clade_params->{'busco_group'} = 'metazoa_odb10',
-  } elsif($clade eq 'viral') {
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mollusca_orthodb_proteins.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_worm_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblMetazoa',
+      $clade_params->{'busco_group'}          = 'metazoa_odb10',;
+  } elsif ( $clade eq 'viral' ) {
     # Test settings for loading viral dbs
     $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/worm_uniprot_proteins.fa',
-    $clade_params->{'busco_protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mollusca_orthodb_proteins.fa',
-    $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_worm_ids.txt',
-    $clade_params->{'species_division'} = 'EnsemblMetazoa',
-    $clade_params->{'busco_group'} = 'metazoa_odb10',
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/mollusca_orthodb_proteins.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_worm_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblMetazoa',
+      $clade_params->{'busco_group'}          = 'metazoa_odb10',;
   } else {
-    $self->throw('Clade parameters not found for clade: '.$clade);
+    $self->throw( 'Clade parameters not found for clade: ' . $clade );
   }
 
-  return($clade_params);
+  return ($clade_params);
 }
 
-
 sub create_registry_entry {
-  my ($self,$registry_path,$core_db_details,$production_name) = @_;
+  my ( $self, $registry_path, $core_db_details, $production_name ) = @_;
 
-  unless(-e $registry_path) {
-    $self->throw("A registry file was not found on the path provided. Path:\n".$registry_path);
+  unless ( -e $registry_path ) {
+    $self->throw( "A registry file was not found on the path provided. Path:\n" . $registry_path );
   }
 
-  my $core_string = "Bio::EnsEMBL::DBSQL::DBAdaptor->new(\n".
-                      "-host => '".$core_db_details->{'-host'}."',\n".
-                      "-port => '".$core_db_details->{'-port'}."',\n".
-                      "-dbname => '".$core_db_details->{'-dbname'}."',\n".
-                      "-user => '".$core_db_details->{'-user'}."',\n".
-                      "-pass => '".$core_db_details->{'-pass'}."',\n".
-                      "-species => '".$production_name."',\n".
-                      "-group => 'core',\n".
-                      ");\n";
-  open(IN,$registry_path);
+  my $core_string = "Bio::EnsEMBL::DBSQL::DBAdaptor->new(\n" .
+    "-host => '" . $core_db_details->{'-host'} . "',\n" .
+    "-port => '" . $core_db_details->{'-port'} . "',\n" .
+    "-dbname => '" . $core_db_details->{'-dbname'} . "',\n" .
+    "-user => '" . $core_db_details->{'-user'} . "',\n" .
+    "-pass => '" . $core_db_details->{'-pass'} . "',\n" .
+    "-species => '" . $production_name . "',\n" .
+    "-group => 'core',\n" .
+    ");\n";
+  open( IN, $registry_path );
   my @lines = <IN>;
   close IN;
 
-  open(OUT,">".$registry_path.".tmp");
+  open( OUT, ">" . $registry_path . ".tmp" );
   foreach my $line (@lines) {
     print OUT $line;
-    if($line =~ /\{/) {
+    if ( $line =~ /\{/ ) {
       print OUT $core_string;
     }
   }
   close OUT;
 
-  my $result = system('mv '.$registry_path.".tmp ".$registry_path);
-  if($result) {
-    $self->throw("Issue overwriting the old registry with the new one. Registry path: ".$registry_path);
+  my $result = system( 'mv ' . $registry_path . ".tmp " . $registry_path );
+  if ($result) {
+    $self->throw( "Issue overwriting the old registry with the new one. Registry path: " . $registry_path );
   }
 
 }
 
+=pod
+=head1 Description of method
+This method updates the registry database with the timestamp of when the annotation started. 
+It also updates the registry with the status of the annotation as well as the user who started it.
+=cut
+
+sub update_annotation_status {
+  my ( $self, $registry_dba, $accession, $current_genebuild ) = @_;
+  my $dt          = DateTime->now;                                         # Stores current date and time as datetime object
+  my $date        = $dt->ymd;
+  my $assembly_id = $registry_dba->fetch_assembly_id_by_gca($accession);
+  my ( $sql, $sth );
+  if ( $current_genebuild == 1 ) {
+    say "Updating genebuild status to overwrite";
+    $sql = "update genebuild_status set is_current = ? where assembly_accession = ?";
+    $sth = $registry_dba->dbc->prepare($sql);
+    $sth->bind_param( 1, 0 );
+    $sth->bind_param( 2, $accession );
+    unless ( $sth->execute() ) {
+      throw( "Could not update annoation status for assembly with accession " . $accession );
+    }
+  }
+  $sql = "insert into genebuild_status(assembly_accession,progress_status,date_started,genebuilder,assembly_id,is_current) values(?,?,?,?,?,?)";
+  $sth = $registry_dba->dbc->prepare($sql);
+  $sth->bind_param( 1, $accession );
+  $sth->bind_param( 2, 'in progress' );
+  $sth->bind_param( 3, $date );
+  $sth->bind_param( 4, $ENV{EHIVE_USER} || $ENV{USER} );
+  $sth->bind_param( 5, $assembly_id );
+  $sth->bind_param( 6, 1 );
+  say "Accession being worked on is $accession";
+
+  unless ( $sth->execute() ) {
+    throw( "Could not update annoation status for assembly with accession " . $accession );
+  }
+}
+
+=pod
+=head1 Description of method
+This method checks if there is an existing genebuild entry for the assembly.  
+If yes, genebuilder must decide whether to continue annotation or not.
+If genebuilder decides to continue, then rerun with option: -current_genebuild 1
+This would automatically make this new genebuild the current annotation for tracking purposes
+=cut
+
+sub check_annotation_status {
+  my ( $self, $registry_dba, $accession, $current_genebuild ) = @_;
+
+  my @status = $registry_dba->fetch_genebuild_status_by_gca($accession);
+  if (@status) {
+    if ( $status[2] ) {
+      throw( "A genebuild entry already exists for this assembly. " . "$accession\nStatus: $status[0]\nDate started: $status[1]\nDate completed: $status[2]\nGenebuilder: $status[3      ]" . "\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1" );
+    }
+    else {
+      throw( "A genebuild entry already exists for this assembly. " . "$accession\nStatus: $status[0]\nDate started: $status[1]\nDate completed: Pending\nGenebuilder: $status[3      ]" . "\nTo proceed with this genebuild, re-run script with option: -current_genebuild 1" );
+    }
+  }
+}
 
 1;
