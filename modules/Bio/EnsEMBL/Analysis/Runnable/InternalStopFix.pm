@@ -124,6 +124,20 @@ sub new {
     return $self;
 }
 
+=head2 run
+
+ Arg [1]    : None
+ Description: Process all transcripts of the set of genes and check for internal stops.
+              When a transcript has at least one internal stop, the gene and its transcripts
+              change biotype to stop_codon_biotype. There is usually only one transcript per
+              gene at this stage.
+              For a transcript with one internal stop, the stop codon is replace by an intron
+              and the transcript is added to a new gene for storage.
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub run {
     my $self = shift;
 
@@ -164,13 +178,11 @@ sub run {
                 }
                 push(@new_genes, $new_gene);
             }
-            else {
-              $gene->biotype($self->stop_codon_biotype);
-              foreach my $t (@{$gene->get_all_Transcripts}) {
-                $t->biotype($self->stop_codon_biotype);
-              }
-              push(@new_genes, $gene);
+            $gene->biotype($self->stop_codon_biotype);
+            foreach my $t (@{$gene->get_all_Transcripts}) {
+              $t->biotype($self->stop_codon_biotype);
             }
+            push(@new_genes, $gene);
         }
     }
     $self->output(\@new_genes);
