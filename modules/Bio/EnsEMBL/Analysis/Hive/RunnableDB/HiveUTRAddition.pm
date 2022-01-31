@@ -291,6 +291,9 @@ sub write_output {
               intron structure. The objects from Arg[2] have priorities which means
               that if we add UTR with a transcript from the group 1 we do not try
               to add UTR from group 2.
+              If the UTR is not coming from short read data, we try to trim 5' and 3'
+              only if the number of UTR exons is high as the sequence is supposed to
+              be full length.
  Returntype : Bio::EnsEMBL::Transcript
  Exceptions : None
 
@@ -343,6 +346,14 @@ sub add_utr {
       $modified_acceptor_transcript_single_exon->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($modified_acceptor_transcript_single_exon,$acceptor_transcript);
       $transcript = $modified_acceptor_transcript_single_exon;
+      $self->look_for_both($transcript);
+      if($transcript->three_prime_utr && ($transcript->{'donor_3prime_biotype'} =~ /^rnaseq/ or @{$transcript->get_all_three_prime_UTRs} > 1)) {
+        $transcript = $self->trim_3prime_utr_short_read($transcript);
+      }
+      if($transcript->five_prime_utr && ($transcript->{'donor_5prime_biotype'} =~ /^rnaseq/ or @{$transcript->get_all_five_prime_UTRs} > 1)) {
+        $transcript = $self->trim_5prime_utr_short_read($transcript);
+      }
+      calculate_exon_phases($transcript, 0);
       return($transcript);
     }
   } else {
@@ -359,7 +370,7 @@ sub add_utr {
       $utr_transcript->biotype($acceptor_transcript->biotype);
       $self->add_transcript_supporting_features($utr_transcript,$acceptor_transcript);
       $self->look_for_both($utr_transcript);
-      if($utr_transcript->three_prime_utr && $utr_transcript->{'donor_3prime_biotype'} =~ /^rnaseq/) {
+      if($utr_transcript->three_prime_utr && ($utr_transcript->{'donor_3prime_biotype'} =~ /^rnaseq/ or @{$utr_transcript->get_all_three_prime_UTRs} > 3)) {
         $utr_transcript = $self->trim_3prime_utr_short_read($utr_transcript);
       }
       if($utr_transcript->five_prime_utr && ($utr_transcript->{'donor_5prime_biotype'} =~ /^rnaseq/ or @{$utr_transcript->get_all_five_prime_UTRs} > 4)) {
