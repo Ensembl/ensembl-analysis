@@ -46,27 +46,9 @@ use warnings;
 use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils qw(make_types_hash_with_genes cluster_Genes);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(
-                                                                transfer_supporting_evidence
-                                                                validate_Exon_coords
-                                                               );
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(
-                                                                      calculate_exon_phases
-                                                                      is_Transcript_sane
-                                                                      all_exons_are_valid
-                                                                      intron_lengths_all_less_than_maximum
-                                                                      set_start_codon
-                                                                      set_stop_codon
-                                                                      clone_Transcript
-                                                                      has_no_unwanted_evidence
-                                                                     );
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(
-                                                                       validate_Translation_coords
-                                                                       compute_translation
-                                                                       contains_internal_stops
-                                                                       print_Translation
-                                                                       create_Translation
-                                                                      );
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(transfer_supporting_evidence);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(create_Translation);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene validate_store);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
@@ -436,8 +418,6 @@ sub add_utr_evidence {
 
  Arg [1]    : Bio::EnsEMBL::Transcript acceptor transcript
  Arg [2]    : Bio::EnsEMBL::Transcript donor transcript
- Arg [3]    : Arrayref of Bio::EnsEMBL::Intron from the acceptor transcript
- Arg [4]    : Arrayref of Bio::EnsEMBL::Intron from the donor transcript
  Arg [5]    : String representing the intron structure of the acceptor transcript
  Arg [6]    : String representing the intron structure of the donor transcript
  Description: Try to add UTR to the 5' end of Arg[1] using Arg[2]
@@ -448,7 +428,7 @@ sub add_utr_evidence {
 =cut
 
 sub add_five_prime_utr {
-  my ($self,$transcript_a,$transcript_b,$introns_acceptor,$introns_b,$cds_intron_string_a,$intron_string_b) = @_;
+  my ($self,$transcript_a,$transcript_b,$cds_intron_string_a,$intron_string_b) = @_;
 
   my $strand = $transcript_a->strand;
   # At this point we have a match, now we need to locate the exon to merge
@@ -679,8 +659,6 @@ sub add_five_prime_utr {
 
  Arg [1]    : Bio::EnsEMBL::Transcript acceptor transcript
  Arg [2]    : Bio::EnsEMBL::Transcript donor transcript
- Arg [3]    : Arrayref of Bio::EnsEMBL::Intron from the acceptor transcript
- Arg [4]    : Arrayref of Bio::EnsEMBL::Intron from the donor transcript
  Arg [5]    : String representing the intron structure of the acceptor transcript
  Arg [6]    : String representing the intron structure of the donor transcript
  Description: Try to add UTR to the 3' end of Arg[1] using Arg[2]
@@ -691,7 +669,7 @@ sub add_five_prime_utr {
 =cut
 
 sub add_three_prime_utr {
-  my ($self,$transcript_a,$transcript_b,$introns_acceptor,$introns_b,$cds_intron_string_a,$intron_string_b) = @_;
+  my ($self,$transcript_a,$transcript_b,$cds_intron_string_a,$intron_string_b) = @_;
 
   my $strand = $transcript_a->strand;
 
