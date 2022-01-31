@@ -887,21 +887,6 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        1 => ['update_rnaseq_ise_logic_names'],
-      },
-    },
-
-    {
-      -logic_name => 'update_rnaseq_ise_logic_names',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => $self->o('final_geneset_db'),
-        sql     => [
-          'UPDATE analysis SET logic_name = REPLACE(logic_name, "_rnaseq_gene", "_rnaseq_ise")',
-        ],
-      },
-      -rc_name   => 'default',
-      -flow_into => {
         1 => ['run_cleaner'],
       },
     },

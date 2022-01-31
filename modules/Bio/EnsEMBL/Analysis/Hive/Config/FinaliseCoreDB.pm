@@ -173,7 +173,7 @@ sub pipeline_analyses {
       -input_ids  => [{}],
       -flow_into => {
         '2->A' => ['split_slices_on_intergenic'],
-        'A->1' => ['update_biotypes_and_analyses'],
+        'A->1' => ['add_missing_analyses'],
       },
       -rc_name => 'default',
     },
@@ -212,22 +212,37 @@ sub pipeline_analyses {
     },
 
     {
+      -logic_name => 'add_missing_analyses',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => $self->o('reference_db'),
+        sql     => [
+          'INSERT IGNORE INTO analysis (created, logic_name) VALUES (NOW(), "rnaseq_intron_support")',
+          'INSERT IGNORE INTO analysis (created, logic_name) VALUES (NOW(), "cdna_alignment_core")',
+          'INSERT IGNORE INTO analysis (created, logic_name, db) VALUES (NOW(), "other_protein", "uniprot")',
+          'INSERT IGNORE INTO analysis (created, logic_name, db) VALUES (NOW(), "projected_transcript", "'.$self->o('projection_source_db_name').'")',
+          'INSERT IGNORE INTO analysis (logic_name, db_version, db_file, program_file, module) VALUES ("rfamcmsearch", "14.0", "'.$self->o('output_path').'", "cmsearch", "HiveCMSearch")',
+        ],
+      },
+      -rc_name   => 'default',
+      -flow_into => {
+        1 => ['update_biotypes_and_analyses'],
+      },
+    },
+
+    {
       -logic_name => 'update_biotypes_and_analyses',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
       -parameters => {
         db_conn => $self->o('reference_db'),
         sql     => [
+          'UPDATE analysis SET logic_name = "cdna2genome" WHERE logic_name = "best_targetted"',
           'UPDATE gene SET biotype = "protein_coding" WHERE biotype = "ensembl"',
-          'UPDATE gene SET biotype = "vault_RNA" WHERE biotype in ("Vault_RNA","vaultRNA")',
-          'UPDATE analysis set logic_name="cdna2genome" where logic_name="best_targetted"',
-          'UPDATE gene SET analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "ensembl")' .
-            ' WHERE analysis_id IN' .
-            ' (SELECT analysis_id FROM analysis' .
-            ' WHERE logic_name IN ("spliced_elsewhere","pseudogenes","genblast","genblast_not_best","project_transcripts","project_pseudogene","project_lincrna","cesar"))',
+          'UPDATE gene SET biotype = "vault_RNA" WHERE biotype IN ("Vault_RNA","vaultRNA")',
+          'UPDATE gene SET analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "ensembl")'.
+            ' WHERE analysis_id != (SELECT analysis_id FROM analysis WHERE logic_name = "ncrna")',
           'UPDATE transcript JOIN gene USING(gene_id) SET transcript.biotype = gene.biotype',
           'UPDATE transcript JOIN gene USING(gene_id) SET transcript.analysis_id = gene.analysis_id',
-          'INSERT IGNORE into analysis (created,logic_name,db) VALUES (NOW(),"other_protein","uniprot")',
-          'INSERT IGNORE into analysis (created,logic_name,db) VALUES (NOW(),"projected_transcript","' . $self->o('projection_source_db_name') . '")',
           'UPDATE protein_align_feature SET analysis_id =' .
             '(SELECT analysis_id FROM analysis WHERE logic_name = "projected_transcript") WHERE analysis_id IN ' .
             '(SELECT analysis_id FROM analysis WHERE logic_name IN ("project_transcripts","cesar"))',
@@ -237,17 +252,72 @@ sub pipeline_analyses {
           'UPDATE dna_align_feature SET analysis_id =' .
             '(SELECT analysis_id FROM analysis WHERE logic_name = "projected_transcript") WHERE analysis_id IN' .
             '(SELECT analysis_id FROM analysis WHERE logic_name IN ("project_lincrna","project_pseudogene"))',
-          'UPDATE repeat_feature SET repeat_start = 1 WHERE repeat_start < 1',
-          'UPDATE repeat_feature SET repeat_end = 1 WHERE repeat_end < 1',
-          'UPDATE gene SET analysis_id=(select analysis_id from analysis where logic_name="ensembl") WHERE analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="filter_lncrnas")',
-          'UPDATE transcript SET analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name="ensembl") WHERE analysis_id=(SELECT analysis_id from analysis WHERE logic_name="filter_lncrnas")',
-          'DELETE FROM analysis WHERE logic_name="filter_lncrnas"',
-          'UPDATE gene SET display_xref_id=NULL',
-          'UPDATE transcript SET display_xref_id=NULL',
-          'INSERT IGNORE into analysis (logic_name, db_version, db_file, program_file, module) values ("rfamcmsearch", "14.0", "' . $self->o('output_path') . '", "cmsearch", "HiveCMSearch")',
-          'INSERT IGNORE into analysis (created,logic_name) values (now(),"cdna_alignment_core")',
-          'UPDATE dna_align_feature set analysis_id=(select analysis_id from analysis where logic_name="rfamcmsearch") where analysis_id=(select analysis_id from analysis where logic_name="ncrna")',
-          'UPDATE dna_align_feature set analysis_id=(select analysis_id from analysis where logic_name="cdna_alignment_core") where analysis_id in (select analysis_id from analysis where logic_name in ("exonerate","cdna2genome","best_targetted"))',
+          'UPDATE dna_align_feature SET analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name = "rfamcmsearch")'.
+            ' WHERE analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "ncrna")',
+          'UPDATE dna_align_feature SET analysis_id=(SELECT analysis_id FROM analysis WHERE logic_name = "cdna_alignment_core")'.
+            ' WHERE analysis_id IN (SELECT analysis_id FROM analysis WHERE logic_name IN ("exonerate","cdna2genome","best_targetted"))',
+          'UPDATE intron_supporting_evidence SET analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "rnaseq_intron_support")',
+        ],
+      },
+      -rc_name   => 'default',
+      -flow_into => {
+        1 => ['null_columns'],
+      },
+    },
+
+    {
+      -logic_name => 'null_columns',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => $self->o('reference_db'),
+        sql     => [
+          'UPDATE gene SET stable_id = NULL',
+          'UPDATE transcript SET stable_id = NULL',
+          'UPDATE translation SET stable_id = NULL',
+          'UPDATE exon SET stable_id = NULL',
+          'UPDATE protein_align_feature SET external_db_id = NULL',
+          'UPDATE dna_align_feature SET external_db_id = NULL',
+        ],
+      },
+      -rc_name   => 'default',
+      -flow_into => {
+        1 => ['clean_unused_analyses'],
+      },
+    },
+
+    {
+      -logic_name => 'clean_unused_analyses',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => $self->o('reference_db'),
+        sql     => [
+          'DELETE FROM analysis WHERE logic_name IN'.
+            ' ("spliced_elsewhere","pseudogenes","genblast","genblast_not_best","project_pseudogene","blast_long_read",'.
+            ' "project_lincrna","project_transcripts","ig_tr_collapse", "exonerate", "cdna2genome", "best_targetted",'.
+            ' "filter_lncrnas", "blast", "process_homology_selenocysteine")',
+          'DELETE from analysis where logic_name like "%\_rnaseq\_%"',
+        ],
+      },
+      -rc_name   => 'default',
+      -flow_into => {
+        1 => ['xref_cleaning'],
+      },
+    },
+
+    {
+      -logic_name => 'xref_cleaning',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => $self->o('reference_db'),
+        sql     => [
+          'TRUNCATE associated_xref',
+          'TRUNCATE dependent_xref',
+          'TRUNCATE identity_xref',
+          'TRUNCATE object_xref',
+          'TRUNCATE ontology_xref',
+          'TRUNCATE xref',
+          'UPDATE gene SET display_xref_id = NULL',
+          'UPDATE transcript SET display_xref_id = NULL',
         ],
       },
       -rc_name   => 'default',
@@ -316,26 +386,7 @@ sub pipeline_analyses {
           ' -coord toplevel -write'
       },
       -rc_name => '10GB',
-      -flow_into => { 1 => ['null_columns'] },
-    },
-
-    {
-      -logic_name => 'null_columns',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => $self->o('reference_db'),
-        sql     => [
-          'UPDATE transcript set stable_id = NULL',
-          'UPDATE translation set stable_id = NULL',
-          'UPDATE exon set stable_id = NULL',
-          'UPDATE protein_align_feature set external_db_id = NULL',
-          'UPDATE dna_align_feature set external_db_id = NULL',
-        ],
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-        1 => ['run_stable_ids'],
-      },
+      -flow_into => { 1 => ['run_stable_ids'] },
     },
 
     {
@@ -389,45 +440,10 @@ sub pipeline_analyses {
       -max_retry_count => 0,
       -rc_name         => '8GB',
       -flow_into       => {
-        1 => ['update_ISE'],
-      },
-    },
-
-    {
-      -logic_name => 'update_ISE',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => $self->o('reference_db'),
-        sql     => [
-          'INSERT IGNORE into analysis (created,logic_name) values (now(),"rnaseq_intron_support")',
-          'UPDATE intron_supporting_evidence SET analysis_id=(select analysis_id from analysis where logic_name="rnaseq_intron_support")',
-        ],
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-        1 => ['clean_unused_analyses'],
-      },
-    },
-
-    {
-      -logic_name => 'clean_unused_analyses',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => $self->o('reference_db'),
-        sql     => [
-          'DELETE FROM analysis WHERE logic_name IN' .
-            ' ("spliced_elsewhere","pseudogenes","genblast","genblast_not_best","project_pseudogene","blast_long_read",' .
-            ' "project_lincrna","project_transcripts","ig_tr_collapse", "exonerate", "cdna2genome", "best_targetted")',
-          'DELETE FROM ad USING analysis_description ad LEFT JOIN analysis a ON ad.analysis_id = a.analysis_id' .
-            ' WHERE a.analysis_id IS NULL',
-          'DELETE from analysis where logic_name like "%_rnaseq_ise%"',
-        ],
-      },
-      -rc_name   => 'default',
-      -flow_into => {
         1 => ['drop_backup_tables_job'],
       },
     },
+
 
     {
       -logic_name => 'drop_backup_tables_job',
@@ -462,32 +478,6 @@ sub pipeline_analyses {
         sql     => [
           'INSERT INTO meta (species_id, meta_key, meta_value) VALUES ' .
             '(1, "genebuild.last_geneset_update", (SELECT CONCAT((EXTRACT(YEAR FROM now())),"-",(LPAD(EXTRACT(MONTH FROM now()),2,"0")))))'
-        ],
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-        1 => ['final_cleaning'],
-      },
-    },
-
-    {
-      -logic_name => 'final_cleaning',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => $self->o('reference_db'),
-        sql     => [
-          'TRUNCATE associated_xref',
-          'TRUNCATE dependent_xref',
-          'TRUNCATE identity_xref',
-          'TRUNCATE object_xref',
-          'TRUNCATE ontology_xref',
-          'TRUNCATE xref',
-          'DELETE exon FROM exon LEFT JOIN exon_transcript ON exon.exon_id = exon_transcript.exon_id WHERE exon_transcript.exon_id IS NULL',
-          'DELETE supporting_feature FROM supporting_feature LEFT JOIN exon ON supporting_feature.exon_id = exon.exon_id WHERE exon.exon_id IS NULL',
-          'DELETE supporting_feature FROM supporting_feature LEFT JOIN dna_align_feature ON feature_id = dna_align_feature_id WHERE feature_type="dna_align_feature" AND dna_align_feature_id IS NULL',
-          'DELETE supporting_feature FROM supporting_feature LEFT JOIN protein_align_feature ON feature_id = protein_align_feature_id WHERE feature_type="protein_align_feature" AND protein_align_feature_id IS NULL',
-          'DELETE transcript_supporting_feature FROM transcript_supporting_feature LEFT JOIN dna_align_feature ON feature_id = dna_align_feature_id WHERE feature_type="dna_align_feature" AND dna_align_feature_id IS NULL',
-          'DELETE transcript_supporting_feature FROM transcript_supporting_feature LEFT JOIN protein_align_feature ON feature_id = protein_align_feature_id WHERE feature_type="protein_align_feature" AND protein_align_feature_id IS NULL',
         ],
       },
       -rc_name   => 'default',
