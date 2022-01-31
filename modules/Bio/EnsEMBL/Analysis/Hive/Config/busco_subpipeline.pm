@@ -68,7 +68,7 @@ sub default_options {
 
     # busco ADVANCE : 
     'load_inputfile_only'       => 1, # do you want to run busco with input file or db?  
-    'run_busco_singularity'     => 0, # do you want to run busco as singularity? 
+    'run_busco_singularity'     => 1, # do you want to run busco as singularity? 
     
     ## collect files in one location. 
     'input_dir'                 => catdir($self->o('output_path'), 'input_dir'),  
@@ -83,7 +83,7 @@ sub default_options {
     ## in case of singularity: 
     'output_path_singlularity'               => '', # add this, examples: /hps/nobackup2/singularity/[username]/[singularity_working_dir]/ and /hps/nobackup2/singularity/kbillis/busco_test_ehive/
     'busco_singlularity_default_config'      => '/hps/nobackup2/production/ensembl/kbillis/research/busco_QC/busco/docker/busco_config_docker.ini',
-    'busco_singularity_image'                => '/hps/nobackup2/singularity/kbillis/busco-v5.0.0_cv1.simg',
+    'busco_singularity_image'                => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/busco-v5.1.2_cv1.simg',
     'busco_singularity_dataset'              =>  $self->o('busco_set'),  # lepidoptera_odb10
     # this is the output file. May copy it afterwards to another location 
     'busco_output_file'  => $self->o('output_path_singlularity').$self->o('busco_output_name').'/short_summary.specific.'.$self->o('busco_singularity_dataset').'.txt.',
@@ -248,10 +248,9 @@ sub pipeline_analyses {
         -parameters => {
         	             cmd => 'mkdir '.$self->o('output_path_singlularity').';'. 
         	                    'cd '.$self->o('output_path_singlularity').';'.
-        	                    'cp '.$self->o('busco_singlularity_default_config').' ./ '.' ;'. 
         	                    'cp '.catfile($self->o('input_dir'),'input_file.fa').' ./ '.' ;'. 
         	                    'singularity exec '.$self->o('busco_singularity_image').' busco -i input_file.fa -m prot -l '.
-        	                        $self->o('busco_singularity_dataset').' -o '. $self->o('busco_output_name').' --config busco_config_docker.ini'.' ;'. 
+									$self->o('busco_singularity_dataset').' -o '. $self->o('busco_output_name').';'.
         	                    'cd - '.';',  
         	             },
         -rc_name => 'busco_singularity_rc',
