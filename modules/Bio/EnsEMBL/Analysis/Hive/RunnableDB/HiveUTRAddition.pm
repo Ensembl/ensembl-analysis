@@ -1726,68 +1726,90 @@ sub trim_5prime_utr_short_read {
   return $transcript;
 }
 
-  my $exons = $transcript->get_all_Exons;
-  my $final_exon = ${$exons}[$#{$exons}];
-  my $translation_end_exon = $transcript->translation->end_Exon;
 
-  my $coding_offset = 0;
-  my $final_exon_seq = $final_exon->seq->seq;
-  if($final_exon->start == $translation_end_exon->start) {
-    $coding_offset = $transcript->translation->end;
-  }
+=head2 trim_3prime_utr_short_read
 
-  my $found_pas = 0;
-  my $pas_start = 0;
-  my $pas_end = 0;
-  my $cleavage_site = 0;
-  while($final_exon_seq =~ /$pas_signal/g && !$found_pas) {
-    # Set to 1 base offset for ease
-    $pas_start = $-[0] + 1;
-    $pas_end =  $+[0];
+ Arg [1]    : Bio::EnsEMBL::Transcript, the transcript with a 3' UTR to trim
+ Description: Looking at the last exon with coding sequence, we try to find the polyA signal
+              AATAAA. If it's not present we have a hard limit at 1,000bp.
+              When the polyA signla is present we are looking for a cleavage signal around
+              15-30 bp downstream. If present we use its position or we are trimming at 15bp.
+ Returntype : Bio::EnsEMBL::Transcript
+ Exceptions : None
 
-    if($pas_start <= $coding_offset) {
-      next;
-    }
+=cut
 
-    $found_pas = 1;
-    last;
-  }
+sub trim_3prime_utr_short_read {
+  my ($self,$transcript) = @_;
 
-  if($found_pas) {
-    # There are 15-30bp between the end of the pas signal and the cleavage site
-    # as pas_end is already shifted to 1bp offset, just add 14
-    if (length($final_exon_seq) < $pas_end+19) {
-      $cleavage_site = length($final_exon_seq);
+  $self->say_with_header("Trimming 3' UTR for ".$transcript->display_id.' '.$transcript->biotype.' '.$transcript->source);
+  # Only going to use the most common nuclear PAS signal
+  my $pas_signal = 'AATAAA';
+  my $cleavage_signal = 'CA'; # Not sure about that one
+  my $new_end = 1000; # If there is no signal/cleavage, the max 3' end is 1000bp
+
+  my $three_prime_utr = $transcript->three_prime_utr;
+  if ($three_prime_utr) {
+    my $exons = $transcript->get_all_Exons;
+    my $stop_codon_exon = $transcript->translation->end_Exon;
+    my $stop_codon_seq = $stop_codon_exon->seq;
+    my $translation_end = $transcript->translation->end;
+    my $ises = $transcript->get_all_IntronSupportingEvidence;
+    $transcript->flush_Exons;
+    my $polya_pos = index($stop_codon_seq->seq, $pas_signal);
+    if ($polya_pos == -1 or $polya_pos < $translation_end) {
+      $self->say_with_header("Did not found $pas_signal in last coding exon");
     }
     else {
-      my $post_pas_seq = substr($final_exon_seq,$pas_end + 14,15);
-      if($post_pas_seq =~ /CA/) {
-        $cleavage_site = $pas_end + 14 + $+[0];
-      } else {
-        $cleavage_site = $pas_end + 30;
+      $self->say_with_header("Found $pas_signal at $polya_pos");
+      my $cleavage_pos = index(substr($stop_codon_seq->seq, $polya_pos+14, 15), $cleavage_signal);
+      if ($cleavage_pos == -1) {
+        $self->say_with_header("Did not found $cleavage_signal after $polya_pos");
+        $cleavage_pos = 15;
+      }
+      my $new_end = $polya_pos+$cleavage_pos;
+    }
+    foreach my $exon (@$exons) {
+      if ($exon == $stop_codon_exon) {
+        if ($exon->length > $new_end) {
+          if ($exon->length-$translation_end > $new_end) {
+            if ($exon->strand == 1) {
+              $exon->end($exon->start+$translation_end+$new_end);
+            }
+            else {
+              $exon->start($exon->end-$translation_end-$new_end);
+            }
+          }
+        }
+        else {
+          if ($new_end < $exon->length) {
+            if ($exon->strand == 1) {
+              $exon->end($exon->start+$new_end);
+            }
+            else {
+              $exon->start($exon->end-$new_end);
+            }
+          }
+        }
+        $transcript->add_Exon($exon);
+        last;
+      }
+      $transcript->add_Exon($exon);
+    }
+    if ($stop_codon_exon != $exons->[-1]) {
+      $transcript->flush_IntronSupportingEvidence;
+      foreach my $ise (@$ises) {
+        if ($ise->start <= $transcript->end and $ise->end >= $transcript->start) {
+          $transcript->add_IntronSupportingEvidence($ise);
+        }
       }
     }
-  } else {
-    if((length($final_exon_seq) - $coding_offset) > $max_no_cleavage) {
-      $cleavage_site = $coding_offset + $max_no_cleavage;
-    }
+  }
+  else {
+    $self->warning("The trim_3prime_utr_short_read was called on a transcript with no 3 prime UTR. Nothing to trim");
   }
 
-  if($cleavage_site >= length($final_exon_seq)) {
-    return($transcript);
-  }
-
-  if($cleavage_site) {
-    if($final_exon->strand == 1 && $cleavage_site > $coding_offset) {
-      $final_exon->end($final_exon->start + $cleavage_site - 1);
-      $transcript->end($final_exon->end);
-    } elsif($final_exon->strand == -1 && $cleavage_site > $coding_offset) {
-      $final_exon->start($final_exon->end - $cleavage_site + 1);
-      $transcript->start($final_exon->start);
-    }
-  }
-
-  return($transcript);
+  return $transcript;
 }
 
 =head2 acceptor_genes
