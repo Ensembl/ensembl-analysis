@@ -137,7 +137,11 @@ sub fetch_input {
 
   my $input_id_type = $self->param_required('iid_type');
 
-  $self->param_required('utr_biotype_priorities'); # Checking that the Hash is set, it will be accessed with $self->biotype_priorities
+  # Checking that the Hash is set, it will be accessed with $self->biotype_priorities
+  if (!exists $self->param_required('utr_biotype_priorities')->{other}) {
+    my ($highest_key) = sort { $b <=> $a} values %{$self->param('utr_biotype_priorities')};
+    $self->param_required('utr_biotype_priorities')->{other} = $highest_key+1;
+  }
 
   my $input_id = $self->param('iid');
 
