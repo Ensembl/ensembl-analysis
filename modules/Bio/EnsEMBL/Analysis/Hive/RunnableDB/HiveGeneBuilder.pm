@@ -106,6 +106,19 @@ sub param_defaults {
 
 
 
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Fetch all the genes and create one runnable for the protein coding genes
+              and one runnable for the lncRNA. This way we collapse all the genes but
+              the lncRNA don't interfere with the protein coding genes
+ Returntype : None
+ Exceptions : Throws if 'use_genome_flatfile' is set and 'genome_file' cannot be found
+              Throws if 'source_db' is not set
+              Throws if 'target_db' is not set
+
+=cut
+
 sub fetch_input{
   my ($self) = @_;
 
@@ -162,31 +175,62 @@ sub fetch_input{
 
 
   $self->runnable($runnable);
+  if ($self->param_is_defined('pre_lncRNA')) {
+
+    my $runnable = Bio::EnsEMBL::Analysis::Runnable::GeneBuilder
+      ->new(
+            -query => $self->query,
+            -analysis => $self->analysis,
+            -genes => $self->param('pre_lncRNA'),
+            -output_biotype => 'pre_lncRNA',
+            -max_transcripts_per_cluster => $self->MAX_TRANSCRIPTS_PER_CLUSTER,
+            -min_short_intron_len => $self->MIN_SHORT_INTRON_LEN,
+            -max_short_intron_len => $self->MAX_SHORT_INTRON_LEN,
+            -blessed_biotypes => $self->BLESSED_BIOTYPES,
+            -coding_only => $self->CODING_ONLY,
+            -skip_readthrough_check => $self->param('skip_readthrough_check'),
+           );
+
+
+    $self->runnable($runnable);
+  }
 
 };
 
+=head2 run
+
+ Arg [1]    : None
+ Description: Run all runnables created in fetch_input to collapse the genes into
+              multi-transcript genes
+ Returntype : None
+ Exceptions : Throws if no genes are present post filtering
+
+=cut
 
 sub run {
   my ($self) = @_;
-  my $runnable = shift(@{$self->runnable()});
-  $runnable->run;
-  my $initial_genes = $runnable->output;
-  say "Found ".scalar(@$initial_genes)." in initial runnable output";
-  unless(scalar(@$initial_genes)) {
-    $self->warning("No initial set of output genes created");
-    return;
-  }
 
-  
-  if($self->param('post_filter_genes')) {
-    my $output_genes = $self->post_filter_genes($initial_genes);
-    unless(scalar(@$output_genes)) {
-      $self->throw("The output genes array is empty after running filter genes. This should not happen");
+  foreach my $runnable (@{$self->runnable}) {
+    $runnable->run;
+    my $initial_genes = $runnable->output;
+    if (scalar(@$initial_genes)) {
+      $self->say_with_header('Found '.scalar(@$initial_genes).' in initial runnable output');
+      if($self->param('post_filter_genes')) {
+        my $output_genes = $self->post_filter_genes($initial_genes);
+        if (scalar(@$output_genes)) {
+          $self->say_with_header('Found '.scalar(@$output_genes).' after post filtering');
+          $self->output($output_genes);
+        }
+        else {
+          $self->throw("The output genes array is empty after running filter genes. This should not happen");
+        }
+      } else {
+        $self->output($initial_genes);
+      }
     }
-    say "Found ".scalar(@$output_genes)." after post filtering";
-    $self->output($output_genes);
-  } else {
-    $self->output($initial_genes);
+    else {
+      $self->warning("No initial set of output genes created");
+    }
   }
 }
 
@@ -638,14 +682,30 @@ sub input_genes {
   return $self->param('_input_genes');
 }
 
+=head2 filter_genes
+
+ Arg [1]    : Arrayref of Bio::EnsEMBL::Gene, (optional) the list of genes to filter
+ Description: Check that the gene can be properly loaded and has valid transcript.
+              If the biotype is one of 'cdna', 'rnaseq_merged', 'rnaseq_tissue'; it
+              means the model will be used for lncRNA and should not be used in the
+              process of possible protein coding transcripts. These models are stored
+              in 'pre_lncRNA'.
+ Returntype : Arrayref of Bio::EnsEMBL::Gene
+ Exceptions : None
+
+=cut
+
 sub filter_genes{
   my ($self, $genes) = @_;
   $genes = $self->input_genes if(!$genes);
-  print "Have ".@$genes." to filter\n";
+  $self->say_with_header('Have '.@$genes.' to filter');
   my @filtered;
+  my @pre_lncRNA;
   GENE:foreach my $gene (@$genes) {
-    #throw("Genebuilder only works with one gene one transcript structures")
-    #  if(@{$gene->get_all_Transcripts} >= 2);
+    if ($gene->biotype eq 'cdna' or $gene->biotype eq 'rnaseq_merged' or $gene->biotype eq 'rnaseq_tissue') {
+      push(@pre_lncRNA, $gene);
+      next GENE;
+    }
     my $transcripts = $gene->get_all_Transcripts();
     unless(scalar(@$transcripts)) {
       $self->warning("Likely broken gene as no transcripts were recovered. Skipping");
@@ -662,10 +722,13 @@ sub filter_genes{
         push(@filtered, $gene);
         next GENE;
       } else {
-        print Gene_info($gene)." is invalid skipping\n";
+        $self->warning(Gene_info($gene).' is invalid skipping');
         next GENE;
       }
     }
+  }
+  if (@pre_lncRNA) {
+    $self->param('pre_lncRNA', \@pre_lncRNA);
   }
   return \@filtered;
 }
