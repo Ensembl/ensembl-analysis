@@ -80,6 +80,7 @@ my $file;
 my $slicename;
 my $verbose;
 my $biotypeToFetch; # dump translations of only this biotype 
+my $canonical_only = 0;
 
 GetOptions(
     'dbhost|host|h=s'    => \$dbhost,
@@ -97,6 +98,7 @@ GetOptions(
     'file=s'      => \$file,
     'slicename=s' => \$slicename,
     'biotype=s'   => \$biotypeToFetch,
+    'canonical_only!'   => \$canonical_only,
     'verbose'     => \$verbose,
 ) or die("Couldn't get options");
 
@@ -186,6 +188,7 @@ while (my $gene = shift @$gene_list) {
     my $gene_id = $gene->dbID();
 
     foreach my $trans (@{ $gene->get_all_Transcripts }) {
+        next if ($canonical_only and !$trans->is_canonical);
         next if (!$trans->translation);
         my $identifier = '';
 
