@@ -217,18 +217,20 @@ sub run {
       my $acceptor_transcripts = $gene->get_all_Transcripts;
       $gene->flush_Transcripts;
       foreach my $acceptor_transcript (@$acceptor_transcripts) {
-        if($acceptor_transcript->translate->seq =~ /\*/) {
-          $self->warning("Transcript with dbID ".$acceptor_transcript->dbID." has a stop codon in the translation. Skipping UTR addition");
-          $gene->add_Transcript($acceptor_transcript);
-	} else {
+        if($acceptor_transcript->translate and index($acceptor_transcript->translate->seq, '*') == -1) {
           my $transcript = $self->add_utr($acceptor_transcript, $donor_transcripts);
-          unless($transcript) {
+          if ($transcript) {
+            $gene->add_Transcript($transcript);
+          }
+          else {
             $self->throw("No transcript returned, even if no UTR found the original transcript should always be returned");
-	  }
-          $gene->add_Transcript($transcript);
+          }
+        }
+        else {
+          $self->warning("Transcript with dbID ".$acceptor_transcript->dbID." has a stop codon in the translation. Skipping UTR addition");
         }
       }
-      push(@genes, $gene);
+      push(@genes, $gene) if (@{$gene->get_all_Transcripts});
     }
   }
 
