@@ -1172,383 +1172,62 @@ sub add_transcript_supporting_features {
 sub look_for_both {
   my ($self,$trans) = @_;
 
-  my $time = time;
-  my $nupdated_start = 0;
-  my $nupdated_end = 0;
-  my $metcnt = 1;
-  my $maxterdist = 150;
-
-    if ($trans->translation) {
-      my $tln = $trans->translation;
-      my $coding_start = $trans->cdna_coding_start;
-      my $orig_coding_start = $coding_start;
-      my $cdna_seq = uc($trans->spliced_seq);
-      my @pepgencoords = $trans->pep2genomic(1,1);
-      if(scalar(@pepgencoords) > 2) {
-        goto TLNEND; # I swore I'd never use this - this code desperately needs a rewrite
-      }
-      my $pepgenstart = $pepgencoords[0]->start;
-      my $pepgenend   = $pepgencoords[$#pepgencoords]->end;
-
-      unless($pepgencoords[0]->isa('Bio::EnsEMBL::Mapper::Coordinate')) {
-        goto TLNEND; # I swore I'd never use this - this code desperately needs a rewrite
-      }
-      unless($pepgencoords[$#pepgencoords]->isa('Bio::EnsEMBL::Mapper::Coordinate')) {
-        goto TLNEND; # I swore I'd never use this - this code desperately needs a rewrite
-      }
-
-      my $startseq= substr($cdna_seq,$coding_start-1,3);
-      if ($startseq ne "ATG") {
-        if ($coding_start > 3) {
-            my $had_stop = 0;
-            while ($coding_start > 3 && !$had_stop) {
-                  my $testseq = substr($cdna_seq,$coding_start-4,3);
-                  if ($testseq eq "ATG") {
-                          print_Translation($trans) if ($self->debug);
-                          my @coords = $trans->cdna2genomic($coding_start-3,$coding_start-1);
-                          my $new_start;
-                          my $new_end;
-                          if(scalar(@coords) > 2) {
-                            $self->throw("Shouldn't happen - new coding start maps to >2 locations in genome - I'm out of here\n");
-                          } elsif (scalar(@coords) == 2) {
-                            if ($trans->strand == 1) {
-                                $new_start = $coords[0]->start;
-                                  $new_end   = $coords[$#coords]->end;
-                              } else {
-                                  $new_start = $coords[0]->end;
-                                    $new_end   = $coords[$#coords]->start;
-                                }
-                          } else {
-                            $new_start = $coords[0]->start;
-                            $new_end   = $coords[0]->end;
-                          }
-
-                          unless($coords[0]->isa('Bio::EnsEMBL::Mapper::Coordinate')) {
-                            # Shouldn't happen - new start maps to gap - I'm out of here
-                            next;
-                          }
-                          unless($coords[$#coords]->isa('Bio::EnsEMBL::Mapper::Coordinate')) {
-                            # Shouldn't happen - new start (end of) maps to gap - I'm out of here
-                            next;
-                          }
-
-                          if ($new_end - $new_start == 2) {
-
-                            $nupdated_start++;
-
-                            my $newstartexon;
-                            foreach my $exon (@{$trans->get_all_Exons}) {
-                              if ($exon->seq_region_end >= $new_start && $exon->seq_region_start <= $new_start) {
-                                $newstartexon = $exon;
-                                last;
-                              }
-                            }
-
-
-                            if ($newstartexon == $tln->start_Exon) {
-                              if ($tln->start_Exon->strand == 1) {
-                                    $tln->start($new_start - $tln->start_Exon->seq_region_start + 1);
-                                  } else {
-                                        $tln->start($tln->start_Exon->seq_region_end - $new_end + 1);
-                                      }
-
-                                # NAUGHTY, but hey I should have to do this - I've changed the translation after all
-                                $trans->{'transcript_mapper'} = undef;
-                                $trans->{'coding_region_start'} = undef;
-                                $trans->{'coding_region_end'} = undef;
-                                $trans->{'cdna_coding_start'} = undef;
-                                $trans->{'cdna_coding_end'} = undef;
-
-                            } else {
-                                # find exon
-                              if (!defined($newstartexon)) {
-                                        next;
-                                  }
-                                # create a copy of if and of current start exon (because of phase change)
-                              my $copyexon = new Bio::EnsEMBL::Exon(
-                                                                    -start  => $tln->start_Exon->start,
-                                                                    -end    => $tln->start_Exon->end,
-                                                                    -strand => $trans->strand,
-                                                                           );
-                              my $copynewstartexon = new Bio::EnsEMBL::Exon(
-                                                                            -start  => $newstartexon->start,
-                                                                            -end    => $newstartexon->end,
-                                                                            -strand => $trans->strand,
-                                                                                   );
-
-                                # $copyexon->phase(0);
-                                $copyexon->end_phase($tln->start_Exon->end_phase);
-                                $copyexon->slice($tln->start_Exon->slice);
-                              if ($tln->start_Exon->stable_id) {
-                                    $copyexon->stable_id($tln->start_Exon->stable_id . "MET" . $metcnt++);
-                                        $copyexon->created($time);
-                                        $copyexon->modified($time);
-                                        $copyexon->version(1);
-                                  }
-
-                                $copynewstartexon->phase($newstartexon->phase);
-                                # $copynewstartexon->end_phase(0);
-                                $copynewstartexon->slice($newstartexon->slice);
-                              if ($newstartexon->stable_id) {
-                                    $copynewstartexon->stable_id($newstartexon->stable_id . "MET" . $metcnt++);
-                                        $copynewstartexon->created($time);
-                                        $copynewstartexon->modified($time);
-                                        $copynewstartexon->version(1);
-                                  }
-
-                                # TODO evidence
-
-                              if ($copynewstartexon->strand == 1) {
-                                    $tln->start($new_start - $copynewstartexon->seq_region_start + 1);
-                                  } else {
-                                        $tln->start($copynewstartexon->seq_region_end - $new_end + 1);
-                                      }
-
-                                # Replace exons in transcript, and fix phases
-
-                                my @newexons;
-                                my $inrange = 0;
-                              foreach my $exon (@{$trans->get_all_Exons}) {
-                                if ($inrange) {
-                                        $exon->phase( $newexons[$#newexons]->end_phase );
-                                              $exon->end_phase(($exon->length + $exon->phase) % 3);
-                                      }
-                                if ($exon == $tln->start_Exon) {
-                                        $copyexon->phase( $newexons[$#newexons]->end_phase );
-
-                                              push @newexons,$copyexon;
-                                              $inrange = 0;
-                                      } elsif ($exon == $newstartexon) {
-                                              push @newexons,$copynewstartexon;
-                                                    $copynewstartexon->end_phase(($exon->length - $tln->start + 1)%3);
-                                                    $inrange = 1;
-                                            } else {
-                                                    push @newexons,$exon;
-                                                  }
-                              }
-
-
-                                $trans->flush_Exons;
-                              foreach my $exon (@newexons) {
-                                    $trans->add_Exon($exon);
-                                  }
-
-                                # Reset translation start exon
-                              if ($tln->end_Exon == $tln->start_Exon) {
-                                    $tln->end_Exon($copyexon);
-                                  }
-                                $tln->start_Exon($copynewstartexon);
-
-                            }
-                          }
-
-                                last;
-                        } else {
-                          if ($testseq =~ /TAA/ or $testseq =~ /TGA/ or $testseq =~ /TAG/) {
-                            $had_stop = 1;
-                          } else {
-                            $coding_start -= 3;
-                          }
-                        }
-                }
-          }
-      }
-
-    TLNEND:
-      {
-        my $coding_end = $trans->cdna_coding_end;
-        my $orig_coding_end = $coding_end;
-
-
-        my $peplen = $trans->translate->length;
-
-        my @pepgencoords = $trans->pep2genomic($peplen,$peplen);
-
-        if(scalar(@pepgencoords) > 2) {
-              next;
-          }
-
-        my $pepgenstart = $pepgencoords[0]->start;
-        my $pepgenend   = $pepgencoords[$#pepgencoords]->end;
-
-        unless($pepgencoords[0]->isa('Bio::EnsEMBL::Mapper::Coordinate')) {
-          # pep end maps to gap
-              next;
-          }
-        unless($pepgencoords[$#pepgencoords]->isa('Bio::EnsEMBL::Mapper::Coordinate')) {
-          # pep start (end of) maps to gap\n";
-              next;
-          }
-
-        my $endseq= substr($cdna_seq,$coding_end-3,3);
-        my $cdnalen = length($cdna_seq);
-
-        my $longendseq= substr($cdna_seq,$coding_end-6,12);
-
-        if ($endseq ne "TGA" and $endseq ne "TAA" and $endseq ne "TAG") {
-          if (($cdnalen-$coding_end) > 3) {
-            while (($cdnalen-$coding_end) > 0 && ($coding_end-$orig_coding_end) <= $maxterdist) {
-                    my $testseq = substr($cdna_seq,$coding_end,3);
-
-                    if ($testseq eq "TGA" or $testseq eq "TAA" or $testseq eq "TAG") {
-
-                      my @coords = $trans->cdna2genomic($coding_end+1,$coding_end+3);
-                      my $new_start;
-                      my $new_end;
-                      if(scalar(@coords) > 2) {
-                          $self->throw("new end does not map cleanly\n");
-                        } elsif (scalar(@coords) == 2) {
-                            if ($trans->strand == 1) {
-                                  $new_start = $coords[0]->start;
-                                      $new_end   = $coords[$#coords]->end;
-                                } else {
-                                      $new_start = $coords[0]->end;
-                                          $new_end   = $coords[$#coords]->start;
-                                    }
-                          } else {
-                              $new_start = $coords[0]->start;
-                                $new_end   = $coords[0]->end;
-                            }
-
-                      unless($coords[0]->isa('Bio::EnsEMBL::Mapper::Coordinate')) {
-                         # new start maps to gap
-                            next;
-                        }
-                      unless($coords[$#coords]->isa('Bio::EnsEMBL::Mapper::Coordinate')) {
-                         # new start (end of) maps to gap\n";
-                            next;
-                        }
-
-                      if ($new_end - $new_start == 2) {
-
-                          $nupdated_end++;
-
-                            my $newendexon;
-                          foreach my $exon (@{$trans->get_all_Exons}) {
-                            if ($exon->seq_region_end >= $new_start && $exon->seq_region_start <= $new_start) {
-                                    $newendexon = $exon;
-                                          last;
-                                  }
-                          }
-
-                          if ($newendexon == $tln->end_Exon) {
-                            if ($tln->end_Exon->strand == 1) {
-                                    $tln->end($new_end - $tln->end_Exon->seq_region_start + 1);
-                                  } else {
-                                          $tln->end($tln->end_Exon->seq_region_end - $new_start + 1);
-                                        }
-
-                                # NAUGHTY, but hey I should have to do this - I've changed the translation after all
-                                $trans->{'transcript_mapper'} = undef;
-                                $trans->{'coding_region_start'} = undef;
-                                $trans->{'coding_region_end'} = undef;
-                                $trans->{'cdna_coding_start'} = undef;
-                                $trans->{'cdna_coding_end'} = undef;
-
-                          } else {
-                                # find exon
-                            if (!defined($newendexon)) {
-                                   # Failed finding new end exon - how can this be?
-                                          next;
-                                  }
-                                # create a copy of if and of current end exon (because of phase change)
-                            my $copyexon = new Bio::EnsEMBL::Exon(
-                                                                    -start  => $tln->end_Exon->start,
-                                                                    -end    => $tln->end_Exon->end,
-                                                                    -strand => $trans->strand,
-                                                                   );
-                            my $copynewendexon = new Bio::EnsEMBL::Exon(
-                                                                        -start  => $newendexon->start,
-                                                                        -end    => $newendexon->end,
-                                                                        -strand => $trans->strand,
-                                                                               );
-
-                                $copyexon->phase($tln->end_Exon->phase);
-                                $copyexon->end_phase($tln->end_Exon->end_phase);
-                                $copyexon->slice($tln->end_Exon->slice);
-                            if ($tln->end_Exon->stable_id) {
-                                    $copyexon->stable_id($tln->end_Exon->stable_id . "TER" . $metcnt++);
-                                          $copyexon->created($time);
-                                          $copyexon->modified($time);
-                                          $copyexon->version(1);
-                                  }
-
-                                $copynewendexon->phase($newendexon->phase);
-                                # $copynewendexon->end_phase(0);
-                                $copynewendexon->slice($newendexon->slice);
-                            if ($newendexon->stable_id) {
-                                    $copynewendexon->stable_id($newendexon->stable_id . "TER" . $metcnt++);
-                                          $copynewendexon->created($time);
-                                          $copynewendexon->modified($time);
-                                          $copynewendexon->version(1);
-                                  }
-
-                                # TODO evidence
-
-                            if ($copynewendexon->strand == 1) {
-                                    $tln->end($new_end - $copynewendexon->seq_region_start + 1);
-                                  } else {
-                                          $tln->end($copynewendexon->seq_region_end - $new_start + 1 );
-
-                                                my $tercodon = $copynewendexon->seq->subseq($copynewendexon->seq_region_end - $new_start-1, $copynewendexon->seq_region_end - $new_start +1);
-                                                #reverse($tercodon);
-                                                #$tercodon =~ tr /ACGT/TGCA/;
-
-                                        }
-
-                                # Replace exons in transcript, and fix phases
-                                my @newexons;
-                                my $inrange = 0;
-                            foreach my $exon (@{$trans->get_all_Exons}) {
-                              if ($inrange) {
-                                $exon->phase( $newexons[$#newexons]->end_phase );
-                                $exon->end_phase(($exon->length + $exon->phase) % 3);
-                              }
-                              if ($exon == $tln->end_Exon) {
-                                my $phase = $exon->phase;
-                                if ($phase == -1) {
-                                    $phase = 0;
-                                  }
-                                if ($exon == $tln->start_Exon) {
-                                    $copyexon->end_phase(($exon->length - $tln->start + 1)%3);
-                                  } else {
-                                      $copyexon->end_phase(($exon->length + $exon->phase)%3);
-                                    }
-
-                                push @newexons,$copyexon;
-                                $inrange = 1;
-                              } elsif ($exon == $newendexon) {
-                                $copynewendexon->phase( $newexons[$#newexons]->end_phase );
-                                $copynewendexon->end_phase( -1);
-
-                                push @newexons,$copynewendexon;
-                                $inrange = 0;
-                              } else {
-                                push @newexons,$exon;
-                              }
-                            }
-
-                                $trans->flush_Exons;
-                            foreach my $exon (@newexons) {
-                                    $trans->add_Exon($exon);
-                                  }
-
-                                # Reset translation start exon
-                            if ($tln->end_Exon == $tln->start_Exon) {
-                                    $tln->start_Exon($copyexon);
-                                  }
-                                $tln->end_Exon($copynewendexon);
-
-                          }
-                        }
-                      last;
-                    }
-                          $coding_end += 3;
-                  }
-          }
+  $self->say_with_header('Looking for M and *');
+  if ($trans->translation) {
+    my $tln = $trans->translation;
+    my $cdna_seq = uc($trans->spliced_seq);
+    my $coding_start = $trans->cdna_coding_start;
+    my $coding_end = $trans->cdna_coding_end;
+    $trans->translation(undef);
+# I need to be 0-based to go faster
+    my $new_start = $coding_start;
+    my $new_end = $coding_end;
+    my $pos = $coding_start-1;
+    if ($coding_start > 200) {
+      while ($pos > 2) {
+        $pos -= 3;
+        if (substr($cdna_seq, $pos, 3) eq 'ATG') {
+          $new_start = $pos+1;
+        }
+        elsif (substr($cdna_seq, $pos, 3) eq 'TGA' or substr($cdna_seq, $pos, 3) eq 'TAA' or substr($cdna_seq, $pos, 3) eq 'TAG') {
+          last;
         }
       }
     }
+    $pos = $coding_end-6; # In some cases the stop coding value is not set correctly
+    my $max_pos = length($cdna_seq)-2;
+    while($pos < $max_pos) {
+      $pos+= 3;
+      if (substr($cdna_seq, $pos, 3) eq 'TGA' or substr($cdna_seq, $pos, 3) eq 'TAA' or substr($cdna_seq, $pos, 3) eq 'TAG') {
+        $new_end = $pos+3;
+        last;
+      }
+    }
+    my $exons = $trans->get_all_Exons;
+    if ($new_start < $coding_start) {
+      $self->say_with_header('Found new start for '.$trans->display_id." $new_start instead of $coding_start");
+      foreach my $exon (@$exons) {
+        $new_start -= $exon->length;
+        if ($new_start < 0) {
+          $tln->start($exon->length+$new_start);
+          $tln->start_Exon($exon);
+          last;
+        }
+      }
+    }
+    if ($new_end > $coding_end) {
+      $self->say_with_header('Found new end for '.$trans->display_id." $new_end instead of $coding_end");
+      foreach my $exon (@$exons) {
+        $new_end -= $exon->length;
+        if ($new_end <= 0) {
+          $tln->end($exon->length+$new_end);
+          $tln->end_Exon($exon);
+          last;
+        }
+      }
+    }
+    $trans->translation($tln);
+  }
 
   return($trans);
 }
