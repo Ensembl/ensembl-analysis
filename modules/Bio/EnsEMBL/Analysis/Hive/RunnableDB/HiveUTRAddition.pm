@@ -77,9 +77,13 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
  Arg [1]    : None
  Description: Defaults parameters are
-               allow_partial_match => 0, # The code is not implented yet
+               allow_partial_match => 0,
                allowed_input_sets => undef,
                min_size_5prime => 20,
+               _max_5prime_utr_size => 200,
+               copy_only => 0, # This is for jobs that fail even with lots of mem. Just copy the genes without trying to add UTR
+               validate_store => 0, # This will check that the final stored gene is identical to what's in memory
+               collapse_redundant_genes => 1,
  Returntype : Hashref
  Exceptions : None
 
@@ -93,6 +97,7 @@ sub param_defaults {
     allow_partial_match => 0,
     allowed_input_sets => undef,
     min_size_5prime => 20,
+    _max_5prime_utr_size => 200,
     copy_only => 0, # This is for jobs that fail even with lots of mem. Just copy the genes without trying to add UTR
     validate_store => 0, # This will check that the final stored gene is identical to what's in memory
     collapse_redundant_genes => 1,
@@ -356,6 +361,9 @@ sub add_utr {
       $self->look_for_both($utr_transcript);
       if($utr_transcript->three_prime_utr && $utr_transcript->{'donor_3prime_biotype'} =~ /^rnaseq/) {
         $utr_transcript = $self->trim_3prime_utr_short_read($utr_transcript);
+      }
+      if($utr_transcript->five_prime_utr && ($utr_transcript->{'donor_5prime_biotype'} =~ /^rnaseq/ or @{$utr_transcript->get_all_five_prime_UTRs} > 4)) {
+        $utr_transcript = $self->trim_5prime_utr_short_read($utr_transcript);
       }
       calculate_exon_phases($utr_transcript, 0);
       return($utr_transcript);
@@ -1646,18 +1654,77 @@ sub filter_input_genes {
 }
 
 
-sub trim_3prime_utr_short_read {
-  my ($self,$transcript) = @_;
+=head2 trim_5prime_utr_short_read
 
+ Arg [1]    : Bio::EnsEMBL::Transcript, the transcript with a 5' UTR to trim
+ Description: If the 5' UTR of the transcript is longer than the value in '_max_5prime_utr_size'
+              we remove all UTR exons until the UTR is equal or smaller than the maximum value.
+              If the first UTR exon is more than double the maximum UTR size, it is trimmed down
+              to the maximum UTR size. Otherwise the exon is left untouched.
+ Returntype : Bio::EnsEMBL::Transcript
+ Exceptions : None
 
-  # Only going to use the most common nuclear PAS signal
-  my $pas_signal = 'AATAAA';
-  my $cleavage_signal = 'CA';
-  my $max_no_cleavage = 1000;
+=cut
 
-  unless($transcript->three_prime_utr) {
-    $self->warning("The trim_3prime_utr_short_read was called on a transcript with no 3 prime UTR. Nothing to trim");
+sub trim_5prime_utr_short_read {
+  my ($self, $transcript) = @_;
+
+  my $max_utr_size = $self->param('_max_5prime_utr_size');
+  my $relative_coding_start = $transcript->cdna_coding_start;
+  if ($relative_coding_start > $max_utr_size) {
+    $self->say_with_header("Trimming 5' UTR for ".$transcript->display_id.' '.$transcript->biotype.' '.$transcript->source);
+    my $exons = $transcript->get_all_Exons;
+    $transcript->flush_Exons;
+    foreach my $exon (@$exons) {
+      if ($relative_coding_start-$exon->length > $max_utr_size) {
+        $relative_coding_start -= $exon->length;
+        $self->say_with_header("Removing ".$exon->seq_region_start.' '.$exon->seq_region_end);
+      }
+      else {
+        if ($relative_coding_start > $max_utr_size and $exon->length > $max_utr_size*2 ) {
+          my $diff = $exon->length+$max_utr_size-$relative_coding_start-1;
+          $self->say_with_header("Long exon ".$exon->seq_region_start.' '.$exon->seq_region_end.' '.$exon->length.' '.$diff);
+          $relative_coding_start -= $exon->length;
+          if ($diff < 0 or $diff > $exon->length) {
+            $self->say_with_header('Removing '.$exon->seq_region_start.' '.$exon->seq_region_end.' because it will create a small exon');
+            next;
+          }
+          if ($relative_coding_start < 1) {
+            $self->say_with_header("Reset translation ".$exon->seq_region_start.' '.$exon->seq_region_end.' '.$transcript->translation->start);
+            my $tln = $transcript->translation->new(
+              -start_exon => $transcript->translation->start_Exon,
+              -end_exon => $transcript->translation->end_Exon,
+              -seq_start => $max_utr_size,
+              -seq_end => $transcript->translation->end,
+            );
+            $transcript->translation($tln);
+          }
+          if ($exon->strand == 1) {
+            $exon->start($exon->end-$diff);
+          }
+          else {
+            $exon->end($exon->start+$diff);
+          }
+        }
+        else {
+          $relative_coding_start -= $exon->length;
+        }
+        $transcript->add_Exon($exon);
+      }
+    }
+    my $ises = $transcript->get_all_IntronSupportingEvidence;
+    $transcript->flush_IntronSupportingEvidence;
+    foreach my $ise (@$ises) {
+      if ($ise->start <= $transcript->end and $ise->end >= $transcript->start) {
+        $transcript->add_IntronSupportingEvidence($ise);
+      }
+    }
   }
+  else {
+    $self->say_with_header("5' UTR is shorter than $max_utr_size, no need to trim");
+  }
+  return $transcript;
+}
 
   my $exons = $transcript->get_all_Exons;
   my $final_exon = ${$exons}[$#{$exons}];
