@@ -177,9 +177,9 @@ if (defined $slicename) {
     }
 }
 else {
-    my $gene_adaptor = $db->get_GeneAdaptor();
-    my $gene_ids     = $gene_adaptor->list_dbIDs();
-    $gene_list = $gene_adaptor->fetch_all_by_dbID_list($gene_ids);
+  foreach my $slice (@{$db->get_SliceAdaptor->fetch_all('toplevel')}) {
+    push(@$gene_list, @{$slice->get_all_Genes(undef, undef, 1, undef, $biotypeToFetch)});
+  }
 }
 
 # shift the next gene off the list, or the memory used by this script will grow
