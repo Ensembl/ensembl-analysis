@@ -193,9 +193,6 @@ sub run {
   my ($clusters, $unclustered) = cluster_Genes($genes, $type_hash);
   my @genes;
   foreach my $cluster (@$clusters) {
-    if (@genes%100 == 0) {
-      print scalar(@genes), "\n";
-    }
     my $donor_transcripts;
     foreach my $gene (@{$cluster->get_Genes_by_Set('donor')}) {
       push(@$donor_transcripts, @{$gene->get_all_Transcripts});
