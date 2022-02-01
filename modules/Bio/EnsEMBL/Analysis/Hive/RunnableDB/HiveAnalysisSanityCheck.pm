@@ -19,14 +19,23 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAnalysisSanityCheck;
 use strict;
 use warnings;
 use feature 'say';
-use Data::Dumper;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Use skip_analysis to avoid running the sanity checks
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub fetch_input {
   my $self = shift;
 
-  if(1) {
+  if ($self->param('skip_analysis')) {
     $self->complete_early('Skip check flag is enabled, so no check will be carried out');
   }
   $self->param_required('sanity_check_type');
