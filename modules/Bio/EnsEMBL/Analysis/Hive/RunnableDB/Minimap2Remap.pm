@@ -202,12 +202,29 @@ sub write_output {
 sub fetch_input_genes_by_id {
   my ($self,$gene_ids,$source_gene_dba) = @_;
 
+  my $xy_scanner;
+  if($self->param_defined('xy_scanner') and $self->param('xy_scanner') ne 'XY') {
+    $xy_scanner = $self->param('xy_scanner');
+  }
+
   my $input_genes = [];
   my $source_gene_adaptor = $source_gene_dba->get_GeneAdaptor();
   foreach my $gene_id (@$gene_ids) {
     my $gene = $source_gene_adaptor->fetch_by_dbID($gene_id);
     unless($gene) {
       $self->throw("Could not retrieve gene from source gene db with dbID: ".$gene->dbID());
+    }
+
+    # If xy_scanner has something in it at this point then it means one or both of the chromosomes are missing
+    # So at that point if the gene from X or Y
+    if($xy_scanner and ($gene->seq_region_name() eq 'X' or $gene->seq_region_name() eq 'Y')) {
+      if($xy_scanner eq 'None') {
+        next;
+      } elsif($xy_scanner eq 'X' and $gene->seq_region_name() eq 'Y') {
+        next;
+      } elsif($xy_scanner eq 'Y' and $gene->seq_region_name() eq 'X') {
+        next;
+      }
     }
 
     if($gene->seq_region_name() eq 'MT') {

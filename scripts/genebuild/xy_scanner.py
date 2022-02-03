@@ -16,7 +16,8 @@ import csv
 import argparse
 import os
 import tempfile
-
+import subprocess
+import re
 
 
 def run_minimap(genome_index,marker_file,output_dir):
@@ -73,21 +74,32 @@ if __name__ == '__main__':
   parser.add_argument('--genome_index', help='Path to the genome index file (mmi)', required=True)
   parser.add_argument('--x_marker_file', help='Number of threads to use', required=True)
   parser.add_argument('--y_marker_file', help='Number of threads to use', required=True)
-  parser.add_argument('--output_dir', help='Path to output dir to write minimap output to', required=False)
+  parser.add_argument('--output_dir', help='Path to output dir to write minimap output to',required=False)
+  parser.add_argument('--output_file_name', help='File name for the result, will be written to output dir',required=False)
   args = parser.parse_args()
   genome_index = args.genome_index
   x_marker_file = args.x_marker_file
   y_marker_file = args.y_marker_file
   output_dir = args.output_dir
+  output_file_name = args.output_file_name
+
+  if output_file_name is None:
+    output_file_name = 'xy_scanner.out'
 
   x_present = run_minimap(genome_index,x_marker_file,output_dir)
   y_present = run_minimap(genome_index,y_marker_file,output_dir)
 
+  result_out = open(os.path.join(output_dir,output_file_name),'w+')
   if(x_present and y_present):
     print("XY present")
+    result_out.write("XY")
   elif(x_present):
     print("X present")
+    result_out.write("X")
   elif(y_present):
     print("Y present")
+    result_out.write("Y")
   else:
     print("None present")
+    result_out.write("None")
+  result_out.close()
