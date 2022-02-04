@@ -79,12 +79,15 @@ sub default_options {
     ########################
     'rnaseq_db_host'               => $self->o('databases_host'),
     'rnaseq_db_port'               => $self->o('databases_port'),
+    'rnaseq_db_name'               => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_'.$self->o('release_number'),
 
     'rnaseq_refine_db_host'         => $self->o('databases_host'),
     'rnaseq_refine_db_port'         => $self->o('databases_port'),
+    'rnaseq_refine_db_name'         => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_blast_'.$self->o('release_number'),
 
     'rnaseq_blast_db_host'         => $self->o('databases_host'),
     'rnaseq_blast_db_port'         => $self->o('databases_port'),
+    'rnaseq_blast_db_name'         => $self->o('dbowner').'_'.$self->o('production_name').'_refine_'.$self->o('release_number'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
@@ -135,7 +138,7 @@ sub default_options {
     # db info
     ########################
     'rnaseq_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_'.$self->o('release_number'),
+      -dbname => $self->o('rnaseq_db_name'),
       -host   => $self->o('rnaseq_db_host'),
       -port   => $self->o('rnaseq_db_port'),
       -user   => $self->o('user'),
@@ -144,7 +147,7 @@ sub default_options {
     },
 
     'rnaseq_blast_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_blast_'.$self->o('release_number'),
+      -dbname => $self->o('rnaseq_blast_db_name'),
       -host   => $self->o('rnaseq_blast_db_host'),
       -port   => $self->o('rnaseq_blast_db_port'),
       -user   => $self->o('user'),
@@ -153,7 +156,7 @@ sub default_options {
     },
 
     'rnaseq_refine_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_refine_'.$self->o('release_number'),
+      -dbname => $self->o('rnaseq_refine_db_name'),
       -host   => $self->o('rnaseq_refine_db_host'),
       -port   => $self->o('rnaseq_refine_db_port'),
       -user   => $self->o('user'),
