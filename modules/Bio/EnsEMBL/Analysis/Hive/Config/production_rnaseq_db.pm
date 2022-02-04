@@ -125,7 +125,7 @@ sub default_options {
     'output_dir'    => catdir($self->o('rnaseq_dir'),'output'),
     'merge_dir'     => catdir($self->o('rnaseq_dir'),'merge'),
 
-    use_threads => 3,
+    use_threads => 4,
 
     # RNA-seq pipeline stuff
     'rnaseq_dir'    => catdir($self->o('output_path'), 'rnaseq'),
@@ -427,7 +427,8 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         deeptools_bamcoverage => $self->o('deeptools_bamcoverage_path'),
-        cmd => 'TMPDIR=#working_dir# ; #deeptools_bamcoverage# --numberOfProcessors 4 --binSize 1 -b '.catfile('#working_dir#','#bam_file#').' -o '.catfile('#working_dir#','#bam_file#').'.bw',
+        num_cpus => $self->o('use_threads'),
+        cmd => 'TMPDIR=#working_dir# ; #deeptools_bamcoverage# --numberOfProcessors #num_cpus# --binSize 1 -b '.catfile('#working_dir#','#bam_file#').' -o '.catfile('#working_dir#','#bam_file#').'.bw',
         working_dir => $self->o('merge_dir'),
       },
       -rc_name => '10GB_multithread',
@@ -551,7 +552,7 @@ sub resource_classes {
     '2GB' => { LSF => $self->lsf_resource_builder('production', 2000)},
     '4GB' => { LSF => $self->lsf_resource_builder('production', 4000)},
     '8GB' => { LSF => $self->lsf_resource_builder('production', 8000)},
-    '10GB_multithread' => { LSF => $self->lsf_resource_builder('production', 10000, undef, undef, ($self->default_options->{'use_threads'}+1))},
+    '10GB_multithread' => { LSF => $self->lsf_resource_builder('production', 10000, undef, undef, $self->default_options->{'use_threads'})},
     'default' => { LSF => $self->lsf_resource_builder('production', 900)},
   }
 }
