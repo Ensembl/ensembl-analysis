@@ -947,6 +947,7 @@ sub align_proteins_with_alignment {
 
   my $align_input_file = "/tmp/align_".$$.".fa";
   my $align_output_file = "/tmp/align_".$$.".aln";
+  my $align_progress_file = "/tmp/align_".$$.".log";
 
   open(INPUT,">".$align_input_file);
   say INPUT ">query";
@@ -957,7 +958,7 @@ sub align_proteins_with_alignment {
 
   my $align_program_path = 'mafft';
 
-  my $cmd = $align_program_path." --amino ".$align_input_file." > ".$align_output_file;
+  my $cmd = $align_program_path." --progress ".$align_progress_file." --amino ".$align_input_file." > ".$align_output_file;
   my $result = system($cmd);
 
   if ($result) {
@@ -993,6 +994,7 @@ sub align_proteins_with_alignment {
 
   `rm $align_input_file`;
   `rm $align_output_file`;
+  `rm $align_progress_file`;
 
   # Work out coverage
   my $coverage;
@@ -1050,6 +1052,7 @@ sub align_nucleotide_seqs {
 
   my $align_input_file = "/tmp/align_".$$.".fa";
   my $align_output_file = "/tmp/align_".$$.".aln";
+  my $align_progress_file = "/tmp/align_".$$.".log";
 
   open(INPUT,">".$align_input_file);
   say INPUT ">query";
@@ -1060,7 +1063,7 @@ sub align_nucleotide_seqs {
 
   my $align_program_path = 'mafft';
 
-  my $cmd = $align_program_path." --nuc ".$align_input_file." > ".$align_output_file;
+  my $cmd = $align_program_path." --progress ".$align_progress_file." --nuc ".$align_input_file." > ".$align_output_file;
   my $result = system($cmd);
 
   if ($result) {
@@ -1084,9 +1087,9 @@ sub align_nucleotide_seqs {
 
   $aligned_source_seq =~ s/\n//g;
   $aligned_target_seq =~ s/\n//g;
-
   `rm $align_input_file`;
   `rm $align_output_file`;
+  `rm $align_progress_file`;
 
   # Work out coverage
   my $coverage;
