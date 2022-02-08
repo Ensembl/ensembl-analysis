@@ -203,7 +203,7 @@ sub fetch_input_genes_by_id {
   my ($self,$gene_ids,$source_gene_dba) = @_;
 
   my $xy_scanner;
-  if($self->param_defined('xy_scanner') and $self->param('xy_scanner') ne 'XY') {
+  if($self->param_is_defined('xy_scanner') and $self->param('xy_scanner') ne 'XY') {
     $xy_scanner = $self->param('xy_scanner');
   }
 
