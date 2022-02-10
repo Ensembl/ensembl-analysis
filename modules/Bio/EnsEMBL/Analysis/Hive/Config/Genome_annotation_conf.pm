@@ -1952,9 +1952,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMetaPipelineInit',
       -parameters => {
         hive_config => $self->o('hive_otherfeatures_db_config'),
-        databases => ['cdna_db', 'refseq_db', 'otherfeatures_db', 'dna_db'],
-        cdna_db => $self->o('cdna_db'),
-        refseq_db => $self->o('refseq_db'),
+        databases => ['otherfeatures_db', 'dna_db'],
         otherfeatures_db => $self->o('otherfeatures_db'),
         dna_db => $self->o('dna_db'),
         enscode_root_dir => $self->o('enscode_root_dir'),
@@ -1973,7 +1971,6 @@ sub pipeline_analyses {
           registry_db => $self->o('registry_db'),
           assembly_name => $self->o('assembly_name'),
           assembly_accession => $self->o('assembly_accession'),
-          assembly_refseq_accession => $self->o('assembly_refseq_accession'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
         },
       },

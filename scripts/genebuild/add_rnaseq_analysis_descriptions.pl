@@ -18,14 +18,14 @@ use strict;
 use warnings;
 
 use HTTP::Tiny;
-use Time::HiRes qw/sleep/;
-use JSON qw/decode_json/;
+use JSON;
 use Getopt::Long qw(:config no_ignore_case);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use feature 'say';
 
 my ($help, $safe_mode, $dbname, $port, $host);
 
+my $dbuser = 'ensro';
 my $user = $ENV{USER};
 GetOptions(
 	   'help|h'       => \$help,
@@ -33,6 +33,7 @@ GetOptions(
 	   'dbname=s'     => \$dbname,
 	   'port=s'       => \$port,
 	   'host=s'       => \$host,
+     'dbuser=s'     => \$dbuser,
      'user=s'       => \$user,
 );
 
@@ -57,11 +58,14 @@ get_content($dbname, $port, $host);
 
 sub get_content {
   my ($dbname, $port, $host) = @_;
-  my $content;
 
+  my $json = JSON->new;
+  if ($safe_mode) {
+    $json->pretty([1]);
+  }
   my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
       -port    => $port,
-      -user    => 'ensro',
+      -user    => $dbuser,
       -host    => $host,
       -dbname  => $dbname);
 
@@ -77,63 +81,72 @@ sub get_content {
   my $ext = '/api/production_db/analysisdescription';
   my @rnaseq_logic_names = ();
   while (my $logic_name = $sth_logic->fetchrow) {
-    if($logic_name =~ /\_rnaseq_gene$/ || $logic_name =~ /\_rnaseq_bam$/ || $logic_name =~ /\_rnaseq_daf$/ || $logic_name =~ /\_rnaseq_ise$/) {
+    if($logic_name =~ /\_rnaseq_gene$/ || $logic_name =~ /\_rnaseq_bam$/ || $logic_name =~ /\_rnaseq_daf$/ || $logic_name =~ /\_rnaseq_ise$/ || $logic_name =~ /_isoseq$/) {
       my $response = $http_client->get("$server$ext/$logic_name");
-      push(@rnaseq_logic_names,$logic_name) unless ($response->{success});
+      if ($response->{success}) {
+        say "$logic_name already exists" if ($safe_mode);
+      }
+      else {
+        push(@rnaseq_logic_names,$logic_name);
+      }
     }
   }# end while
   foreach my $rnaseq_logic_name (@rnaseq_logic_names){
     my $logic_type = $rnaseq_logic_name;
-    $logic_type = $1 if $logic_type =~ /(rnaseq_.*)/;
-
-    my $sample_name = $rnaseq_logic_name;
-    $sample_name =~ s/$species_name// && $sample_name =~ s/_rnaseq_.*// && $sample_name =~ s/_// && $sample_name =~ s/_/ /g;
-
-    my %values_dict = get_values($sample_name, $logic_type);
-
-    if ($logic_type eq "rnaseq_ise"){
-      $content = "{
-                       \"user\": \"".$user."\",
-                       \"logic_name\": \"".$rnaseq_logic_name."\",
-                       \"description\": \"".$values_dict{'description'}."\",
-                       \"display_label\": \"".$values_dict{'display_label'}."\"
-                     }";
+    if ($logic_type =~ /(rnaseq_.*)/) {
+      $logic_type = $1;
     }
-    else{
-      $content = "{
-                      \"user\": \"".$user."\",
-                      \"web_data\": {
-                           \"data\": {
-                               \"zmenu\": \"".$values_dict{'web_data_zmenu'}."\",
-                               \"label_key\": \"".$values_dict{'web_data_label_key'}."\",
-                               \"colour_key\": \"".$values_dict{'web_data_colour_key'}."\",
-                               \"type\": \"rnaseq\",";
+    elsif ($logic_type =~ /_isoseq$/) {
+      $logic_type = 'isoseq';
+    }
+
+    my (undef, $sample_name) = $rnaseq_logic_name =~ /(${species_name}_)?(\w+)_(rna|iso)seq.*/;
+    if ($sample_name eq $rnaseq_logic_name) {
+      die("Could not retrieve the sample name from $rnaseq_logic_name");
+    }
+    $sample_name =~ s/_+/ /g;
+
+    my $values_dict = get_values($sample_name, $logic_type);
+
+    my %json_data = (
+      user => $user,
+      logic_name => $rnaseq_logic_name,
+      description => $values_dict->{description},
+      display_label => $values_dict->{display_label},
+    );
+    if ($logic_type eq 'isoseq') {
+      $json_data{web_data} = {
+        data => {
+          zmenu => $values_dict->{web_data_zmenu},
+          label_key => $values_dict->{web_data_label_key},
+          colour_key => $values_dict->{web_data_colour_key},
+          type => 'longreads',
+        },
+      };
+    }
+    elsif ($logic_type ne "rnaseq_ise"){
+      $json_data{web_data} = {
+        data => {
+          zmenu => $values_dict->{web_data_zmenu},
+          label_key => $values_dict->{web_data_label_key},
+          colour_key => $values_dict->{web_data_colour_key},
+          matrix => {
+            column => $values_dict->{matrix_column},
+            menu => 'rnaseq',
+            group => 'ENA',
+            row => $sample_name,
+            group_order => $values_dict->{matrix_group_order},
+          },
+          type => 'rnaseq',
+        },
+      };
       if ($logic_type eq "rnaseq_daf") {
-	$content .=           "
-                               \"additional_renderers\": ".$values_dict{'web_data_additional_renders'}.""
+        $json_data{web_data}{data}{additional_renderers} = $values_dict->{web_data_additional_renders},
       }
-      $content .=              "
-                               \"matrix\": {";
-      if ($logic_type eq "rnaseq_bam") {
-	$content .=                         "
-                                           \"group_order\": \"".$values_dict{'matrix_group_order'}."\","
-      }
-      $content .=                           "
-                                           \"column\": \"".$values_dict{'matrix_column'}."\",
-                                           \"menu\": \"rnaseq\",
-                                           \"group\": \"ENA\",
-                                           \"row\": \"".$sample_name."\"
-                                           }
-                                     }
-                                  },
-                      \"logic_name\": \"".$rnaseq_logic_name."\",
-                      \"description\": \"".$values_dict{'description'}."\",
-                      \"display_label\": \"".$values_dict{'display_label'}."\"
-                     }";
     }
 
     if ( $safe_mode ) {
-      print "RUN IN SAFE MODE\nCONTENT:\n".$sample_name." ".$logic_type."\n".$content."\n";
+      print "RUN IN SAFE MODE\nCONTENT:\n".$sample_name." ".$logic_type."\n".$json->encode(\%json_data)."\n";
     }
     else {
       my $http = HTTP::Tiny->new;
@@ -142,7 +155,7 @@ sub get_content {
 		      'Content-type' => 'application/json',
 		      'Accept' => 'application/json'
 		     },
-          content => $content
+          content => $json->encode(\%json_data)
 							  });
 
       print "\nFailed to add analyses descriptions for ".$sample_name."!\n  ".$response->{status}."\n  ".$response->{content}."\n"
@@ -151,7 +164,6 @@ sub get_content {
 
   }# end foreach logic_name
 
-  return $content;
 
 }# end get_content
 
@@ -161,66 +173,69 @@ sub get_values {
 
   my %description = (
 		     'rnaseq_gene' => "Annotation generated from ".$sample_name." RNA-seq data",
-		     'rnaseq_bam'  => 'Alignments of '.$sample_name.' RNA-seq data. This BAM file can be downloaded from the <a href=\\"ftp://ftp.ensembl.org/pub/data_files/\\">Ensembl FTP site</a>',
+		     'rnaseq_bam'  => 'Alignments of '.$sample_name.' RNA-seq data. This BAM file can be downloaded from the <a href="ftp://ftp.ensembl.org/pub/data_files/">Ensembl FTP site</a>',
 		     'rnaseq_ise'  => "Spliced-read support for ".$sample_name,
 		     'rnaseq_daf'  => "Spliced-read support for ".$sample_name,
+         'isoseq'      => ucfirst($sample_name).' PacBio long reads from <a rel="external" href="https://www.ebi.ac.uk/ena">ENA</a> aligned to the genome using <a rel="external" href="https://doi.org/10.1093/bioinformatics/bty191">Minimap2</a>',
 		    );
 
   my %display_label = (
-         	     'rnaseq_gene' => $sample_name." RNA-seq gene models",
-		     'rnaseq_bam'  => $sample_name." RNA-seq alignments",
-		     'rnaseq_ise'  => $sample_name." intron-spanning reads",
-	             'rnaseq_daf'  => $sample_name." intron-spanning reads",
+    rnaseq_gene => ucfirst($sample_name)." RNA-seq gene models",
+    rnaseq_bam  => ucfirst($sample_name)." RNA-seq alignments",
+    rnaseq_ise  => ucfirst($sample_name)." intron-spanning reads",
+    rnaseq_daf  => ucfirst($sample_name)." intron-spanning reads",
+    isoseq => ucfirst($sample_name).' PacBio lond reads',
         	    );
 
   my %web_data_zmenu = (
 		      'rnaseq_gene' => "RNASeq",
 		      'rnaseq_bam'  => "RNASeq_bam",
 	              'rnaseq_daf'  => "Supporting_alignment",
+          isoseq => 'CLS',
 		    );
 
   my %web_data_label_key = (
 		       'rnaseq_gene' => "RNASeq [biotype]",
 		       'rnaseq_bam'  => "RNASeq [biotype]",
 		       'rnaseq_daf'  => "",
+           isoseq => '[biotype] [display_label]',
 		    );
 
   my %web_data_additional_renders = (
 		       'rnaseq_gene' => "",
 	       	       'rnaseq_bam'  => "",
-		       'rnaseq_daf'  => "\[\"histogram\", \"Variable height\"\],",
+		       'rnaseq_daf'  => '["histogram", "Variable height"],',
 		    );
 
   my %web_data_colour_key = (
 		       'rnaseq_gene' => "human_rnaseq",
 		       'rnaseq_bam'  => "bam",
 		       'rnaseq_daf'  => "intron_support",
+           isoseq => 'long_reads_isoseq',
 		    );
 
   my %matrix_group_order = (
-		        'rnaseq_gene' => "",
-			'rnaseq_bam'  => "1",
-			'rnaseq_daf'  => "",
-		    );
+      rnaseq_bam  => 1,
+      rnaseq_daf  => 2,
+      rnaseq_gene => 3,
+      );
 
   my %matrix_column = (
-			'rnaseq_gene' => "Gene models",
-			'rnaseq_bam'  => "BAM files",
-			'rnaseq_daf'  => "Intron-spanning reads",
-		   );
+    rnaseq_gene => 'Gene models',
+    rnaseq_bam  => 'BAM files',
+    rnaseq_daf  => 'Intron-spanning reads',
+  );
 
-  my %desc_info = (
-		        'description' => $description{$logic_type},
-		        'display_label' => $display_label{$logic_type},
-		        'web_data_zmenu' => $web_data_zmenu{$logic_type},
-		        'web_data_label_key' => $web_data_label_key{$logic_type},
-		        'web_data_additional_renders' => $web_data_additional_renders{$logic_type},
-		        'web_data_colour_key' => $web_data_colour_key{$logic_type},
-		        'matrix_group_order' => $matrix_group_order{$logic_type},
-		        'matrix_column' => $matrix_column{$logic_type},
-                  );
-
-  return %desc_info;
+  return {
+    description => $description{$logic_type},
+    display_label => $display_label{$logic_type},
+    web_data_zmenu => $web_data_zmenu{$logic_type},
+    web_data_label_key => $web_data_label_key{$logic_type},
+    web_data_additional_renders => $web_data_additional_renders{$logic_type},
+    web_data_colour_key => $web_data_colour_key{$logic_type},
+    matrix_group_order => $matrix_group_order{$logic_type},
+    matrix_column => $matrix_column{$logic_type},
+  };
 
 }# end get_values
 
