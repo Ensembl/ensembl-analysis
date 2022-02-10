@@ -966,6 +966,16 @@ sub check_exonerate_translation {
     $translation->end($end_offset);
     $output_transcript->translation($translation)
   }
+
+  # Fix the end of the translation if it's set to be beyond the end of the end exon
+  my $translation = $output_transcript->translation();
+  my $end_exon = $translation->end_Exon(); # 'end_exon_id' exon in 'translation' table
+  my $end_exon_length = $end_exon->seq_region_end()-$end_exon->seq_region_start()+1;
+  if ($translation->end() > $end_exon_length) {
+    print STDERR "Fixing the end of the translation (seq_start,seq_end,start_Exon->seq_region_start,end_Exon->seq_region_end) - (".$translation->start().",".$translation->end().",".$translation->start_Exon()->seq_region_start().",".$translation->end_Exon()->seq_region_end()." from ".$translation->end()." to ".$end_exon_length." because it is beyond the end of the end exon. Setting it to the maximum length of the end exon.\n";
+    $translation->end($end_exon_length);
+    $output_transcript->translation($translation);
+  }
 }
 
 sub update_exonerate_transcript_coords {
