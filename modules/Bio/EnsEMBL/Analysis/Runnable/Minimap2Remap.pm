@@ -1007,7 +1007,7 @@ sub check_exonerate_translation {
   my $end_exon_rank = $end_exon->rank();
   if ($translation->end() <= 0) {
     print STDERR "Fixing the end of the translation (seq_start,seq_end,start_Exon->seq_region_start,end_Exon->seq_region_end) - (".$translation->start().",".$translation->end().",".$translation->start_Exon()->seq_region_start().",".$translation->end_Exon()->seq_region_end()." because it is set to 0. Set it to the end of the previous exon.\n";
-    foreach my $exon (@{$transcript->get_all_constitutive_Exons()}) {
+    foreach my $exon (@{$output_transcript->get_all_constitutive_Exons()}) {
       if ($exon->rank() == $end_exon_rank-1) {
         $translation->end_Exon($exon);
         $translation->end($exon->length());
