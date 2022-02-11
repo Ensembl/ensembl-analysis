@@ -132,7 +132,7 @@ sub fetch_input {
   my ($assembly_id) = $sth->fetchrow();
 
   $sql = "SELECT species_prefix,
-                 clade
+                 clade,
                  species_id,
                  taxonomy,
                  assembly_name,
