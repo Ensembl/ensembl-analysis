@@ -274,7 +274,7 @@ sub pipeline_analyses {
         '2->A' => {'copy_genes_to_otherfeatures' => INPUT_PLUS()},
         'A->1' => ['dummy_semaphore_fan'],
       },
-      -rc_name => '4GB',
+      -rc_name => 'default',
     },
 
     {
