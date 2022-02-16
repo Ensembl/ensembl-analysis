@@ -1004,15 +1004,20 @@ sub check_exonerate_translation {
   }
 
   $translation = $output_transcript->translation();;
-  my $end_exon_rank = $end_exon->rank($output_transcript);
+  my $end_exon_rank = $self->exon_rank($end_exon,$output_transcript);
   if ($translation->end() <= 0) {
-    print STDERR "Fixing the end of the translation (seq_start,seq_end,start_Exon->seq_region_start,end_Exon->seq_region_end) - (".$translation->start().",".$translation->end().",".$translation->start_Exon()->seq_region_start().",".$translation->end_Exon()->seq_region_end()." because it is set to 0. Set it to the end of the previous exon.\n";
-    foreach my $exon (@{$output_transcript->get_all_constitutive_Exons()}) {
-      if ($exon->rank($output_transcript) == $end_exon_rank-1) {
+    print STDERR "Transcript(seq_region_start,seq_region_end) ".$output_transcript->seq_region_start().",".$output_transcript->seq_region_end()." has translation end <= 0, number of exons = ".scalar(@{$output_transcript->get_all_Exons()}."\n"),
+    print STDERR "Fixing the end of the translation (seq_start,seq_end,start_Exon->seq_region_start,end_Exon->seq_region_end) - (".$translation->start().",".$translation->end().",".$translation->start_Exon()->seq_region_start().",".$translation->end_Exon()->seq_region_end()." because it is set to 0. Set it to the end of the previous exon. End exon rank = ".$end_exon_rank."\n";
+    foreach my $exon (@{$output_transcript->get_all_Exons()}) {
+      my $exon_rank = $self->exon_rank($exon,$output_transcript);
+      print STDERR "Translation end <= 0, foreach my exon (seq_region_start,seq_region_end,seq_region_strand,rank): ".$exon->seq_region_start().",".$exon->seq_region_end().",".$exon->seq_region_strand().",".$exon_rank."\n";
+      if ($exon_rank == $end_exon_rank-1) {
+	print STDERR "end_exon_rank-1 found.\n";
         $translation->end_Exon($exon);
         $translation->end($exon->length());
 	print STDERR "End of the previous exon is ".$exon->length()."\n";
 	$output_transcript->translation($translation);
+	last;
       }
     }
   }
@@ -1612,6 +1617,36 @@ sub gene_genomic_seqs_hash {
   }
 
   return $self->{_gene_genomic_seqs_hash};
+}
+
+=head2 exon_rank
+  Arg [1]    : Bio::EnsEMBL::Exon to get the rank from
+  Arg [2]    : Bio::EnsEMBL::Transcript where the exon in Arg [1] is found
+  Description: It searches for the Arg [1] exon in the Arg [2] transcript exon array by using the exon coordinates.
+               Note it is assumed that a transcript cannot have overlapping exons nor exons having the same coordinates.
+  Returntype : int
+               It returns the index (1 <= index <= number_of_exons) of the Arg [1] exon in the Arg [2] transcript exon array.
+  Exceptions : It throws if the Arg [1] exon cannot be found in the Arg [2] transcript.
+=cut
+
+sub exon_rank {
+  my ($self,$exon,$transcript) = @_;
+
+  my $rank = 0;
+  foreach my $t_exon (@{$transcript->get_all_Exons()}) {
+    $rank++;
+    if ($t_exon->seq_region_start() == $exon->seq_region_start() and
+        $t_exon->seq_region_end() == $exon->seq_region_end() and
+        $t_exon->seq_region_strand() == $exon->seq_region_strand()) {
+      last;
+    }
+  }
+
+  if ($rank) {
+    return $rank;
+  } else {
+    $self->throw("Exon(seq_region_start,seq_region_end,seq_region_strand) ".$exon->seq_region_start()." ".$exon->seq_region_end()." ".$exon->seq_region_strand()." does not belong to transcript(seq_region_start,seq_region_end,seq_region_strand) ".$transcript->seq_region_start()." ".$transcript->seq_region_end()." ".$transcript->seq_region_strand());
+  }
 }
 
 1;
