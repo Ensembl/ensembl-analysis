@@ -1676,9 +1676,12 @@ sub replace_stops_with_introns{
 
   # The first case to test for is if the edited translation is longer than the original, this shouldn't happen
   if($new_transl_len > $old_transl_len) {
-    throw("The edited transcript has a longer translation than the original, something has gone wrong.".
-          " Original translation has length ".$old_transl_len.", edited translation has length ".$new_transl_len.
-          "\n>original\n".$transcript->translate->seq."\n>edited\n".$newtranscript->translate->seq);
+    #throw("The edited transcript has a longer translation than the original, something has gone wrong.".
+    #      " Original translation has length ".$old_transl_len.", edited translation has length ".$new_transl_len.
+    #      "\n>original\n".$transcript->translate->seq."\n>edited\n".$newtranscript->translate->seq);
+    warning("The edited transcript has a longer translation than the original, something has gone wrong.".
+            " Original translation has length ".$old_transl_len.", edited translation has length ".$new_transl_len.
+            "\n>original\n".$transcript->translate->seq."\n>edited\n".$newtranscript->translate->seq);
   }
 
   # As long as the new translation is less than or equal to the original length do a few more checks.
