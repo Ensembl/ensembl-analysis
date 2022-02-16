@@ -134,7 +134,7 @@ sub get_content {
             column => $values_dict->{matrix_column},
             menu => 'rnaseq',
             group => 'ENA',
-            row => $sample_name,
+            row => ucfirst($sample_name),
             group_order => $values_dict->{matrix_group_order},
           },
           type => 'rnaseq',
@@ -204,7 +204,7 @@ sub get_values {
   my %web_data_additional_renders = (
 		       'rnaseq_gene' => "",
 	       	       'rnaseq_bam'  => "",
-		       'rnaseq_daf'  => '["histogram", "Variable height"],',
+       'rnaseq_daf'  => ["histogram", "Variable height"],
 		    );
 
   my %web_data_colour_key = (
