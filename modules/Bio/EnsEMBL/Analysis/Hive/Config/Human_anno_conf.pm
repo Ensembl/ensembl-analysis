@@ -90,11 +90,6 @@ sub default_options {
 # Pipe and ref db info
 ########################
 
-    # The following might not be known in advance, since the come from other pipelines
-    # These values can be replaced in the analysis_base table if they're not known yet
-    # If they are not needed (i.e. no projection or rnaseq) then leave them as is
-    'projection_lastz_db_server'   => $self->o('pipe_db_server'),
-
     'provider_name'                => 'Ensembl',
     'provider_url'                 => 'www.ensembl.org',
 
@@ -114,9 +109,6 @@ sub default_options {
     'base_blast_db_path'        => $ENV{BLASTDB_DIR},
     'vertrna_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'vertrna', $self->o('vertrna_version'), 'embl_vertrna-1'),
     'unigene_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'unigene', 'unigene'),
-    'ncrna_blast_path'          => catfile($self->o('base_blast_db_path'), 'ncrna', 'ncrna_2016_05'),
-    'mirna_blast_path'          => catfile($self->o('base_blast_db_path'), 'ncrna', 'mirbase_22'),
-    'ig_tr_blast_path'          => catfile($self->o('base_blast_db_path'), 'ig_tr_genes'),
 
 ######################################################
 #
@@ -131,37 +123,11 @@ sub default_options {
     faidx_genome_file             => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
     # This one is a cross between the two above, it has the seq_region name header but is softmasked. It is used by things that would both want to skip using the dna table and also want to avoid the repeat_feature table, e.g. bam2introns
     faidx_softmasked_genome_file  => catfile($self->o('genome_dumps'), $self->o('species_name').'_softmasked_toplevel.fa.reheader'),
-    'primary_assembly_dir_name' => 'Primary_Assembly',
-    'refseq_cdna_calculate_coverage_and_pid' => '0',
-    'contigs_source'            => 'ena',
 
     full_repbase_logic_name => "repeatmask_repbase_".$self->o('repbase_logic_name'),
 
-    'utr_biotype_priorities'  => {
-                                   'rnaseq' => 2,
-                                   'cdna' => 1,
-                                 },
-
-    'cleaning_blessed_biotypes' => {
-                                     'pseudogene' => 1,
-                                     'processed_pseudogene' => 1,
-                                     'IG_C_gene' => 1,
-                                     'IG_V_gene' => 1,
-                                     'TR_C_gene' => 1,
-                                     'TR_D_gene' => 1,
-                                     'TR_V_gene' => 1,
-                                     'lncRNA'    => 1,
-                                   },
-
-    'min_toplevel_slice_length'   => 250,
-
     'repeatmodeler_logic_name'    => 'repeatmask_repeatmodeler',
     'homology_models_path'        => catdir($self->o('output_path'),'homology_models'),
-
-    ncrna_dir => catdir($self->o('output_path'), 'ncrna'),
-    targetted_path => catdir($self->o('output_path'), 'targetted'),
-    cdna_file      => catfile($self->o('targetted_path'), 'cdnas'),
-    annotation_file => $self->o('cdna_file').'.annotation',
 
     ensembl_analysis_script           => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     load_optimise_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
@@ -210,78 +176,7 @@ sub default_options {
     'unigene_blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
     samtools_path => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
 
-    'uniprot_genblast_batch_size' => 15,
     'uniprot_table_name'          => 'uniprot_sequences',
-
-    'genblast_path'     => catfile($self->o('binary_base'), 'genblast'),
-    'genblast_eval'     => $self->o('blast_type') eq 'wu' ? '1e-20' : '1e-1',
-    'genblast_cov'      => '0.5',
-    'genblast_pid'      => '30',
-    'genblast_max_rank' => '5',
-    'genblast_flag_small_introns' => 1,
-    'genblast_flag_subpar_models' => 0,
-
-# Best targetted stuff
-    cdna_table_name    => 'cdna_sequences',
-
-# RNA-seq pipeline stuff
-    # You have the choice between:
-    #  * using a csv file you already created
-    #  * using a study_accession like PRJEB19386
-    #  * using the taxon_id of your species
-    # 'rnaseq_summary_file' should always be set. If 'taxon_id' or 'study_accession' are not undef
-    # they will be used to retrieve the information from ENA and to create the csv file. In this case,
-    # 'file_columns' and 'summary_file_delimiter' should not be changed unless you know what you are doing
-    'summary_csv_table' => 'csv_data',
-    'read_length_table' => 'read_length',
-
-    use_threads => 3,
-    rnaseq_merge_threads => 12,
-
-    # Please assign some or all columns from the summary file to the
-    # some or all of the following categories.  Multiple values can be
-    # separted with commas. ID, SM, DS, CN, is_paired, filename, read_length, is_13plus,
-    # is_mate_1 are required. If pairing_regex can work for you, set is_mate_1 to -1.
-    # You can use any other tag specified in the SAM specification:
-    # http://samtools.github.io/hts-specs/SAMv1.pdf
-
-    ####################################################################
-    # This is just an example based on the file snippet shown below.  It
-    # will vary depending on how your data looks.
-    ####################################################################
-    file_columns      => ['SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS'],
-
-# lincRNA pipeline stuff
-    'lncrna_dir' => catdir($self->o('output_path'), 'lincrna'),
-    'file_translations' => catfile($self->o('lncrna_dir'), 'hive_dump_translations.fasta'),
-    'file_for_length' => catfile($self->o('lncrna_dir'), 'check_lincRNA_length.out'),  # list of genes that are smaller than 200bp, if any
-    'file_for_biotypes' => catfile($self->o('lncrna_dir'), 'check_lincRNA_need_to_update_biotype_antisense.out'), # mysql queries that will apply or not in your dataset (check update_database) and will update biotypes
-    'file_for_introns_support' => catfile($self->o('lncrna_dir'), 'check_lincRNA_Introns_supporting_evidence.out'), # for debug
-    biotype_output => 'rnaseq',
-    lincrna_protein_coding_set => [
-      'rnaseq_merged_1',
-      'rnaseq_merged_2',
-      'rnaseq_merged_3',
-      'rnaseq_merged_4',
-      'rnaseq_merged_5',
-      'rnaseq_tissue_1',
-      'rnaseq_tissue_2',
-      'rnaseq_tissue_3',
-      'rnaseq_tissue_4',
-      'rnaseq_tissue_5',
-    ],
-
-########################
-# SPLIT PROTEOME File
-########################
-    'max_files_per_directory' => 1000, # Maximum number of files in a directory
-    'max_dirs_per_directory'  => $self->o('max_files_per_directory'),
-
-########################
-# FINAL Checks parameters - Update biotypes to lincRNA, antisense, sense, problem ...
-########################
-
-     update_database => 'yes', # Do you want to apply the suggested biotypes? yes or no.
 
 ########################
 # Interproscan
@@ -382,27 +277,6 @@ sub default_options {
 sub pipeline_create_commands {
     my ($self) = @_;
 
-    my $tables;
-    my %small_columns = (
-        paired => 1,
-        read_length => 1,
-        is_13plus => 1,
-        is_mate_1 => 1,
-        );
-    # We need to store the values of the csv file to easily process it. It will be used at different stages
-    foreach my $key (@{$self->default_options->{'file_columns'}}) {
-        if (exists $small_columns{$key}) {
-            $tables .= $key.' SMALLINT UNSIGNED NOT NULL,'
-        }
-        elsif ($key eq 'DS') {
-            $tables .= $key.' VARCHAR(255) NOT NULL,'
-        }
-        else {
-            $tables .= $key.' VARCHAR(50) NOT NULL,'
-        }
-    }
-    $tables .= ' KEY(SM), KEY(ID)';
-
 ################
 # LastZ
 ################
@@ -424,20 +298,10 @@ sub pipeline_create_commands {
 
       $self->hive_data_table('protein', $self->o('uniprot_table_name')),
 
-      $self->hive_data_table('refseq', $self->o('cdna_table_name')),
-
       $self->db_cmd('CREATE TABLE '.$self->o('realign_table_name').' ('.
                     'accession varchar(50) NOT NULL,'.
                     'seq text NOT NULL,'.
                     'PRIMARY KEY (accession))'),
-
-      $self->db_cmd('CREATE TABLE '.$self->o('summary_csv_table')." ($tables)"),
-
-      $self->db_cmd('CREATE TABLE '.$self->o('read_length_table').' ('.
-                    'fastq varchar(50) NOT NULL,'.
-                    'read_length int(50) NOT NULL,'.
-                    'PRIMARY KEY (fastq))'),
-
     ];
 }
 
@@ -449,28 +313,6 @@ sub pipeline_wide_parameters {
     %{$self->SUPER::pipeline_wide_parameters},
     wide_ensembl_release => $self->o('ensembl_release'),
   }
-}
-
-=head2 create_header_line
-
- Arg [1]    : Arrayref String, it will contains the values of 'file_columns'
- Example    : create_header_line($self->o('file_columns');
- Description: It will create a RG line using only the keys present in your csv file
- Returntype : String representing the RG line in a BAM file
- Exceptions : None
-
-
-=cut
-
-sub create_header_line {
-    my ($items) = shift;
-
-    my @read_tags = qw(ID SM DS CN DT FO KS LB PG PI PL PM PU);
-    my $read_line = '@RG';
-    foreach my $rt (@read_tags) {
-        $read_line .= "\t$rt:#$rt#" if (grep($rt eq $_, @$items));
-    }
-    return $read_line."\n";
 }
 
 ## See diagram for pipeline structure
@@ -490,7 +332,6 @@ sub pipeline_analyses {
       'wu' => '-cpus 3 -hitdist 40',
       'legacy_ncbi' => '-a 3 -A 40',
       );
-    my $header_line = create_header_line($self->default_options->{'file_columns'});
 
     return [
 
@@ -1056,18 +897,11 @@ sub resource_classes {
     'blast_retry' => { LSF => $self->lsf_resource_builder('production', 5900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], undef, 3)},
     'genblast' => { LSF => $self->lsf_resource_builder('production', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genblast_retry' => { LSF => $self->lsf_resource_builder('production', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'project_transcripts' => { LSF => $self->lsf_resource_builder('production', 7200, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'projection_db_server'}, $self->default_options->{'projection_lastz_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'refseq_import' => { LSF => $self->lsf_resource_builder('production', 9900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'refseq_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'layer_annotation' => { LSF => $self->lsf_resource_builder('production', 3900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'genebuilder' => { LSF => $self->lsf_resource_builder('production', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'transcript_finalisation' => { LSF => $self->lsf_resource_builder('production', 1900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     'filter' => { LSF => $self->lsf_resource_builder('production', 4900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'exonerate_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '2GB_multithread' => { LSF => $self->lsf_resource_builder('production', 2000, [$self->default_options->{'pipe_db_server'}], undef, $self->default_options->{'use_threads'})},
-    '3GB_merged_multithread' => { LSF => $self->lsf_resource_builder('production', 3000, [$self->default_options->{'pipe_db_server'}], undef, $self->default_options->{'rnaseq_merge_threads'})},
-    '5GB_merged_multithread' => { LSF => $self->lsf_resource_builder('production', 5000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'rnaseq_merge_threads'}))},
-    '5GB_multithread' => { LSF => $self->lsf_resource_builder('production', 5000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
-    '10GB_multithread' => { LSF => $self->lsf_resource_builder('production', 10000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
-    '20GB_multithread' => { LSF => $self->lsf_resource_builder('production', 20000, [$self->default_options->{'pipe_db_server'}], undef, ($self->default_options->{'use_threads'}+1))},
   }
 }
 
