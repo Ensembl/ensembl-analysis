@@ -84,8 +84,9 @@ sub fetch_input {
   say "Fetching input";
   # For the combine files option we don't actually need to do anything in fetch input
 
-  my $dirs_to_create     = [];
-  my $current_genebuild  = 0;
+  my $dirs_to_create    = [];
+  my $current_genebuild = $self->param('current_genebuild');
+  #my $current_genebuild  = 0;
   my $output_dir_base    = $self->param('base_output_dir');
   my $assembly_accession = $self->param('assembly_accession');
   my $output_dir         = catdir( $output_dir_base, $assembly_accession );
@@ -150,6 +151,12 @@ sub fetch_input {
 
   my $output_params = {};
   my ( $stable_id_prefix, $clade, $species_taxon_id, $taxon_id, $assembly_name, $common_name, $assembly_refseq_accession, $assembly_date, $species_name, $assembly_group, $stable_id_start ) = $sth->fetchrow();
+
+  my $s = $stable_id_prefix;
+  #$s =~ s/(ENS)/BRAKER/m;
+  #my $stable_id_prefix = $s;
+  $s =~ s/ENS//g;
+  my $species_prefix  = $s;
   my $scientific_name = $species_name;
   $species_name = lc($species_name);
   $species_name =~ s/ +/\_/g;
@@ -213,6 +220,10 @@ sub fetch_input {
   my $clean_dbname     = $self->param('dbowner') . '_' . $production_name . '_cleanutr_' . $ensembl_release . '_1';
   $clean_db_details->{'-dbname'} = $clean_dbname;
 
+  my $otherfeatures_db_details = $self->param('otherfeatures_db');
+  my $otherfeatures_dbname     = $self->param('dbowner') . '_' . $production_name . '_otherfeatures_' . $ensembl_release . '_1';
+  $otherfeatures_db_details->{'-dbname'} = $otherfeatures_dbname;
+
   my $rnaseq_summary_file    = catfile( $short_read_dir, $production_name . '.csv' );
   my $long_read_summary_file = catfile( $long_read_dir,  $production_name . '_long_read.csv' );
 
@@ -265,6 +276,19 @@ sub fetch_input {
     ' --run_full_annotation 1' .
     ' --load_to_ensembl_db 1';
 
+  my $anno_red_commandline = ' --genome_file ' . $reheadered_toplevel_genome_file .
+    ' --db_details ' . $core_db_details->{'-dbname'} . ',' .
+    $core_db_details->{'-host'} . ',' .
+    $core_db_details->{'-port'} . ',' .
+    $core_db_details->{'-user'} . ',' .
+    $core_db_details->{'-pass'} .
+    ' --output_dir ' . $output_dir .
+    ' --num_threads ' . $self->param('num_threads') .
+    ' --run_masking 1' .
+    ' --run_repeats 1' .
+    ' --run_simple_features 1' .
+    ' --load_to_ensembl_db 1';
+
   if ( $self->param('diamond_validation_db') ) {
     $anno_commandline .= ' --diamond_validation_db ' . $self->param('diamond_validation_db');
   }
@@ -286,10 +310,10 @@ sub fetch_input {
   }
 
   if ( -e $new_registry_file ) {
-    $self->create_registry_entry( $new_registry_file, $core_db_details, $production_name );
+    $self->create_registry_entry( $new_registry_file, $core_db_details, $otherfeatures_db_details, $production_name );
   } else {
     system( 'cp ' . $registry_file . ' ' . $new_registry_file );
-    $self->create_registry_entry( $new_registry_file, $core_db_details, $production_name );
+    $self->create_registry_entry( $new_registry_file, $core_db_details, $otherfeatures_db_details, $production_name );
   }
 
   #Check genebuild status of assembly
@@ -305,6 +329,8 @@ sub fetch_input {
   $output_params->{'core_dbname'}                     = $core_dbname;
   $output_params->{'clean_utr_db'}                    = $clean_db_details;
   $output_params->{'clean_utr_dbname'}                = $clean_dbname;
+  $output_params->{'otherfeatures_db'}                = $otherfeatures_db_details;
+  $output_params->{'otherfeatures_dbname'}            = $otherfeatures_dbname;
   $output_params->{'stable_id_start'}                 = $stable_id_start;
   $output_params->{'stable_id_prefix'}                = $stable_id_prefix;
   $output_params->{'clade'}                           = $clade;
@@ -339,7 +365,9 @@ sub fetch_input {
   $output_params->{'busco_group'}                     = $busco_group;
   $output_params->{'rfam_accessions_file'}            = $rfam_accessions_file;
   $output_params->{'anno_commandline'}                = $anno_commandline;
+  $output_params->{'anno_red_commandline'}            = $anno_red_commandline;
   $output_params->{'registry_file'}                   = $new_registry_file;
+  $output_params->{'species_prefix'}                  = $species_prefix;
   $self->param( 'output_params', $output_params );
 }
 
@@ -410,7 +438,7 @@ sub get_clade_params {
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_mollusc_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'mollusca_odb10',;
-  }elsif ( $clade eq 'plants' ) {
+  } elsif ( $clade eq 'plants' ) {
     $clade_params->{'max_intron_length'} = 10000;
     $clade_params->{'protein_file'}      = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/viridiplantae_uniprot_proteins.fa',
       $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/viridiplantae_orthodb_proteins_reheader.fa',
@@ -438,7 +466,7 @@ sub get_clade_params {
 }
 
 sub create_registry_entry {
-  my ( $self, $registry_path, $core_db_details, $production_name ) = @_;
+  my ( $self, $registry_path, $core_db_details, $otherfeatures_db_details, $production_name ) = @_;
 
   unless ( -e $registry_path ) {
     $self->throw( "A registry file was not found on the path provided. Path:\n" . $registry_path );
@@ -453,6 +481,16 @@ sub create_registry_entry {
     "-species => '" . $production_name . "',\n" .
     "-group => 'core',\n" .
     ");\n";
+  my $otherfeatures_string = "Bio::EnsEMBL::DBSQL::DBAdaptor->new(\n" .
+    "-host => '" . $otherfeatures_db_details->{'-host'} . "',\n" .
+    "-port => '" . $otherfeatures_db_details->{'-port'} . "',\n" .
+    "-dbname => '" . $otherfeatures_db_details->{'-dbname'} . "',\n" .
+    "-user => '" . $otherfeatures_db_details->{'-user'} . "',\n" .
+    "-pass => '" . $otherfeatures_db_details->{'-pass'} . "',\n" .
+    "-species => '" . $production_name . "',\n" .
+    "-group => 'otherfeatures',\n" .
+    ");\n";
+
   open( IN, $registry_path );
   my @lines = <IN>;
   close IN;
@@ -462,6 +500,7 @@ sub create_registry_entry {
     print OUT $line;
     if ( $line =~ /\{/ ) {
       print OUT $core_string;
+      print OUT $otherfeatures_string;
     }
   }
   close OUT;
