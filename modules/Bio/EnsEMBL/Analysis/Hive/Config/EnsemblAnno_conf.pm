@@ -33,6 +33,7 @@ sub default_options {
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
+    'current_genebuild'       =>1,
     'num_threads'                  => 20,
     'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'base_output_dir'              => '',
@@ -885,7 +886,8 @@ sub pipeline_analyses {
         'use_existing_short_read_dir' => $self->o('use_existing_short_read_dir'),
         'override_clade'              => $self->o('override_clade'),
         'pipe_db'                     => $self->o('pipe_db'),
-      },
+	'current_genebuild'           =>$self->o('current_genebuild'),
+	},
       -rc_name => 'default',
 
       -flow_into => {
