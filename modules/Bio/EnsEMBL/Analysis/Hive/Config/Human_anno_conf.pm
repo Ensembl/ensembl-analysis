@@ -59,11 +59,6 @@ sub default_options {
     'registry_db_name'          => 'gb_assembly_registry', # name for registry db
     'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
-    'rnaseq_summary_file'       => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'.csv'), # Set this if you have a pre-existing cvs file with the expected columns
-    'rnaseq_summary_file_genus' => '' || catfile($self->o('rnaseq_dir'), $self->o('species_name').'_gen.csv'), # Set this if you have a pre-existing genus level cvs file with the expected columns
-    'long_read_summary_file'    => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
-    'long_read_summary_file_genus' => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read_gen.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
-    'long_read_fastq_dir'       => '' || catdir($self->o('long_read_dir'),'input'),
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => 'test_scale_gbiab' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'taxon_id'                  => '', # should be in the assembly report file
@@ -339,48 +334,12 @@ sub default_options {
     'max_reads_per_split' => 2500000, # This sets the number of reads to split the fastq files on
     'max_total_reads'     => 200000000, # This is the total number of reads to allow from a single, unsplit file
 
-    'summary_file_delimiter' => '\t', # Use this option to change the delimiter for your summary data file
     'summary_csv_table' => 'csv_data',
     'read_length_table' => 'read_length',
-    'rnaseq_data_provider' => 'ENA', #It will be set during the pipeline or it will use this value
 
     'rnaseq_dir'    => catdir($self->o('output_path'), 'rnaseq'),
     'input_dir'     => catdir($self->o('rnaseq_dir'),'input'),
     'output_dir'    => catdir($self->o('rnaseq_dir'),'output'),
-    'merge_dir'     => catdir($self->o('rnaseq_dir'),'merge'),
-    'sam_dir'       => catdir($self->o('rnaseq_dir'),'sams'),
-    'header_file'   => catfile($self->o('output_dir'), '#'.$self->o('read_id_tag').'#_header.h'),
-
-    'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
-
-    'long_read_dir'       => catdir($self->o('output_path'),'long_read'),
-    'long_read_fastq_dir' => catdir($self->o('long_read_dir'),'input'),
-    'use_ucsc_naming' => 0,
-
-    # If your reads are unpaired you may want to run on slices to avoid
-    # making overlong rough models.  If you want to do this, specify a
-    # slice length here otherwise it will default to whole chromosomes.
-    slice_length => 10000000,
-
-    # Regular expression to allow FastQ files to be correctly paired,
-    # for example: file_1.fastq and file_2.fastq could be paired using
-    # the expression "\S+_(\d)\.\S+".  Need to identify the read number
-    # in brackets; the name the read number (1, 2) and the
-    # extension.
-    pairing_regex => '\S+_(\d)\.\S+',
-
-    # Regular expressions for splitting the fastq files
-    split_paired_regex   => '(\S+)(\_\d\.\S+)',
-    split_single_regex  => '([^.]+)(\.\S+)',
-
-    # Do you want to make models for the each individual sample as well
-    # as for the pooled samples (1/0)?
-    single_tissue => 1,
-
-    # What Read group tag would you like to group your samples
-    # by? Default = ID
-    read_group_tag => 'SM',
-    read_id_tag => 'ID',
 
     use_threads => 3,
     rnaseq_merge_threads => 12,
