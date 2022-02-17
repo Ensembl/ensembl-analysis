@@ -61,10 +61,6 @@ sub default_options {
     'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'species_name'              => '', # e.g. mus_musculus
     'production_name'           => 'test_scale_gbiab' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
-    'taxon_id'                  => '', # should be in the assembly report file
-    'species_taxon_id'          => '' || $self->o('taxon_id'), # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
-    'genus_taxon_id'            => '' || $self->o('taxon_id'), # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
-    'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'assembly_name'             => '', # Name (as it appears in the assembly report file)
     'assembly_accession'        => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
@@ -78,16 +74,10 @@ sub default_options {
     'mapping_db'                => '', # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
     'uniprot_version'           => 'uniprot_2018_07', # What UniProt data dir to use for various analyses
     'vertrna_version'           => '136', # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
-    'paired_end_only'           => '1', # Will only use paired-end rnaseq data if 1
-    'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
-    'mt_accession'              => undef, # This should be set to undef unless you know what you are doing. If you specify an accession, then you need to add the parameters to the load_mitochondrion analysis
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
     'compara_registry_file'     => '',
 
     # Keys for custom loading, only set/modify if that's what you're doing
-    'skip_genscan_blasts'          => '1',
-    'load_toplevel_only'           => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
-    'custom_toplevel_file_path'    => '', # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
     'repeatmodeler_library'        => '', # This should be the path to a custom repeat library, leave blank if none exists
     'use_repeatmodeler_to_mask'    => '0', # Setting this will include the repeatmodeler library in the masking process
     'protein_blast_db'             => '' || catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata'), # Blast database for comparing the final models to.
@@ -97,45 +87,13 @@ sub default_options {
     'softmask_logic_names' => [],
 
 ########################
-## Small ncRNAs params
-#########################
-    'mirBase_fasta'             => 'all_mirnas.fa', # What mirBase file to use. It is currently best to use on with the most appropriate set for your species
-    'rfc_scaler'                => 'filter_dafs_rfc_scaler_human.pkl',
-    'rfc_model'                 => 'filter_dafs_rfc_model_human.pkl',
-
-    # Clade-based filtering on rfam accessions
-    # Rfam db details should stay constant but check periodically
-    'rfam_user' => 'rfamro',
-    'rfam_dbname' => 'Rfam',
-    'rfam_host' => 'mysql-rfam-public.ebi.ac.uk',
-    'rfam_port' => 4497,
-
-    'rfam_path' => catfile($self->o('base_blast_db_path'), 'ncrna', 'Rfam_14.0'),
-    'rfam_seeds' => $self->o('rfam_path') . "/Rfam.seed",
-    'rfam_cm' => $self->o('rfam_path') . "/Rfam.cm",
-    'filtered_rfam_cm' => $self->o('output_path') . '/Rfam.cm',
-    'clade' => $self->o('repbase_logic_name'),
-
-
-########################
 # Pipe and ref db info
 ########################
-
-    'projection_source_db_name'    => 'homo_sapiens_core_98_38', # This is generally a pre-existing db, like the current human/mouse core for example
-    'projection_source_db_server'  => 'mysql-ens-mirror-1',
-    'projection_source_db_port'    => '4240',
-    'projection_source_production_name' => 'homo_sapiens',
-
-    'compara_db_name'     => 'leanne_ensembl_compara_95',
-    'compara_db_server'  => 'mysql-ens-genebuild-prod-5',
-    'compara_db_port'    => 4531,
 
     # The following might not be known in advance, since the come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
     # If they are not needed (i.e. no projection or rnaseq) then leave them as is
-    'projection_lastz_db_name'     => $self->o('pipe_db_name'),
     'projection_lastz_db_server'   => $self->o('pipe_db_server'),
-    'projection_lastz_db_port'     => $self->o('pipe_db_port'),
 
     'provider_name'                => 'Ensembl',
     'provider_url'                 => 'www.ensembl.org',
@@ -143,19 +101,12 @@ sub default_options {
     'pipe_db_name'                  => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_pipe_'.$self->o('release_number'),
     'dna_db_name'                   => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_core_'.$self->o('release_number'),
 
-    'core_db_name'     => $self->o('dna_db_name'),
-    'core_db_server'  => $self->o('dna_db_server'),
-    'core_db_port'    => $self->o('dna_db_port'),
-
-
-
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
     'production_db_server'         => 'mysql-ens-meta-prod-1',
     'production_db_port'           => '4483',
 
-
-    databases_to_delete => ['reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_db', 'selected_projection_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db', 'lincrna_db', 'otherfeatures_db', 'rnaseq_db'],#, 'projection_realign_db'
+    databases_to_delete => ['reference_db'],
 
 ########################
 # BLAST db paths
@@ -213,16 +164,7 @@ sub default_options {
     annotation_file => $self->o('cdna_file').'.annotation',
 
     ensembl_analysis_script           => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
-    remove_duplicates_script_path     => catfile($self->o('ensembl_analysis_script'), 'find_and_remove_duplicates.pl'),
-    flag_potential_pseudogenes_script => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'flag_potential_pseudogenes.pl'),
     load_optimise_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
-    prepare_cdnas_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'prepare_cdnas.pl'),
-    load_fasta_script_path            => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_fasta_to_db_table.pl'),
-    loading_report_script             => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'report_genome_prep_stats.pl'),
-    refseq_synonyms_script_path       => catfile($self->o('ensembl_analysis_script'), 'refseq', 'load_refseq_synonyms.pl'),
-    refseq_import_script_path         => catfile($self->o('ensembl_analysis_script'), 'refseq', 'parse_ncbi_gff3.pl'),
-    sequence_dump_script              => catfile($self->o('ensembl_analysis_script'), 'sequence_dump.pl'),
-    sncrna_analysis_script             => catdir($self->o('ensembl_analysis_script'), 'genebuild', 'sncrna'),
 
     ensembl_misc_script        => catdir($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts'),
     repeat_types_script        => catfile($self->o('ensembl_misc_script'), 'repeats', 'repeat-types.pl'),
@@ -231,8 +173,6 @@ sub default_options {
     frameshift_attrib_script   => catfile($self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl'),
     select_canonical_script    => catfile($self->o('ensembl_misc_script'),'canonical_transcripts', 'select_canonical_transcripts.pl'),
     assembly_name_script       => catfile($self->o('ensembl_analysis_script'), 'update_assembly_name.pl'),
-
-    rnaseq_daf_introns_file => catfile($self->o('output_dir'), 'rnaseq_daf_introns.dat'),
 
     # Genes biotypes to ignore from the final db when copying to core
     copy_biotypes_to_ignore => {
@@ -268,20 +208,7 @@ sub default_options {
     'blastn_exe_path' => catfile($self->o('binary_base'), 'blastn'),
     'vertrna_blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
     'unigene_blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
-    genewise_path => catfile($self->o('binary_base'), 'genewise'),
-    'exonerate_path'         => catfile($self->o('software_base_path'), 'opt', 'exonerate09', 'bin', 'exonerate'),
-    'cmsearch_exe_path'    => catfile($self->o('software_base_path'), 'bin', 'cmsearch'), # #'opt', 'infernal10', 'bin', 'cmsearch'),
-    indicate_path  => catfile($self->o('binary_base'), 'indicate'),
-    pmatch_path  => catfile($self->o('binary_base'), 'pmatch'),
-    exonerate_annotation => catfile($self->o('binary_base'), 'exonerate'),
     samtools_path => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
-    picard_lib_jar => catfile($self->o('software_base_path'), 'Cellar', 'picard-tools', '2.6.0', 'libexec', 'picard.jar'), #You need to specify the full path to the picard library
-    bwa_path => catfile($self->o('software_base_path'), 'opt', 'bwa-051mt', 'bin', 'bwa'), #You may need to specify the full path to the bwa binary
-    refine_ccode_exe => catfile($self->o('binary_base'), 'RefineSolexaGenes'), #You may need to specify the full path to the RefineSolexaGenes binary
-    interproscan_exe => catfile($self->o('binary_base'), 'interproscan.sh'),
-    bedtools => catfile($self->o('binary_base'), 'bedtools'),
-    bedGraphToBigWig => catfile($self->o('binary_base'), 'bedGraphToBigWig'),
-    'cesar_path' => catdir($self->o('software_base_path'),'opt','cesar','bin'),
 
     'uniprot_genblast_batch_size' => 15,
     'uniprot_table_name'          => 'uniprot_sequences',
@@ -294,33 +221,8 @@ sub default_options {
     'genblast_flag_small_introns' => 1,
     'genblast_flag_subpar_models' => 0,
 
-    'ig_tr_table_name'    => 'ig_tr_sequences',
-    'ig_tr_genblast_cov'  => '0.8',
-    'ig_tr_genblast_pid'  => '70',
-    'ig_tr_genblast_eval' => '1',
-    'ig_tr_genblast_max_rank' => '5',
-    'ig_tr_batch_size'    => 10,
-
-    'exonerate_cdna_pid' => '95', # Cut-off for percent id
-    'exonerate_cdna_cov' => '50', # Cut-off for coverage
-
-    'cdna_selection_pid' => '97', # Cut-off for percent id for selecting the cDNAs
-    'cdna_selection_cov' => '90', # Cut-off for coverage for selecting the cDNAs
-
 # Best targetted stuff
-    exonerate_logic_name => 'exonerate',
-    ncbi_query => '((txid'.$self->o('taxon_id').'[Organism:noexp]+AND+biomol_mrna[PROP]))  NOT "tsa"[Properties]', 
-
     cdna_table_name    => 'cdna_sequences',
-    target_exonerate_calculate_coverage_and_pid => 0,
-    exonerate_protein_pid => 95,
-    exonerate_protein_cov => 50,
-    cdna2genome_region_padding => 2000,
-    exonerate_max_intron => 200000,
-
-    best_targetted_min_coverage => 50, # This is to avoid having models based on fragment alignment and low identity
-    best_targetted_min_identity => 50, # This is to avoid having models based on fragment alignment and low identity
-
 
 # RNA-seq pipeline stuff
     # You have the choice between:
@@ -330,24 +232,11 @@ sub default_options {
     # 'rnaseq_summary_file' should always be set. If 'taxon_id' or 'study_accession' are not undef
     # they will be used to retrieve the information from ENA and to create the csv file. In this case,
     # 'file_columns' and 'summary_file_delimiter' should not be changed unless you know what you are doing
-    'study_accession'     => '',
-    'max_reads_per_split' => 2500000, # This sets the number of reads to split the fastq files on
-    'max_total_reads'     => 200000000, # This is the total number of reads to allow from a single, unsplit file
-
     'summary_csv_table' => 'csv_data',
     'read_length_table' => 'read_length',
 
-    'rnaseq_dir'    => catdir($self->o('output_path'), 'rnaseq'),
-    'input_dir'     => catdir($self->o('rnaseq_dir'),'input'),
-    'output_dir'    => catdir($self->o('rnaseq_dir'),'output'),
-
     use_threads => 3,
     rnaseq_merge_threads => 12,
-    rnaseq_merge_type => 'samtools',
-    read_min_paired => 50,
-    read_min_mapped => 50,
-    other_isoforms => 'other', # If you don't want isoforms, set this to undef
-    maxintron => 200000,
 
     # Please assign some or all columns from the summary file to the
     # some or all of the following categories.  Multiple values can be
@@ -361,7 +250,6 @@ sub default_options {
     # will vary depending on how your data looks.
     ####################################################################
     file_columns      => ['SM', 'ID', 'is_paired', 'filename', 'is_mate_1', 'read_length', 'is_13plus', 'CN', 'PL', 'DS'],
-    long_read_columns => ['sample','filename'],
 
 # lincRNA pipeline stuff
     'lncrna_dir' => catdir($self->o('output_path'), 'lincrna'),
@@ -386,8 +274,6 @@ sub default_options {
 ########################
 # SPLIT PROTEOME File
 ########################
-    'max_seqs_per_file' => 20,
-    'max_seq_length_per_file' => 20000, # Maximum sequence length in a file
     'max_files_per_directory' => 1000, # Maximum number of files in a directory
     'max_dirs_per_directory'  => $self->o('max_files_per_directory'),
 
@@ -417,31 +303,8 @@ sub default_options {
       },
     ],
 
-
-
-
 # Max internal stops for projected transcripts
-    'projection_pid'                        => '50',
-    'projection_cov'                        => '50',
-    'projection_max_internal_stops'         => '1',
-    'projection_calculate_coverage_and_pid' => '1',
-
-    'projection_lincrna_percent_id'         => 90,
-    'projection_lincrna_coverage'           => 90,
-    'projection_pseudogene_percent_id'      => 60,
-    'projection_pseudogene_coverage'        => 75,
-    'projection_ig_tr_percent_id'           => 70,
-    'projection_ig_tr_coverage'             => 90,
-    'projection_exonerate_padding'          => 5000,
-
     'realign_table_name'                    => 'projection_source_sequences',
-    'max_projection_structural_issues'      => 1,
-
-## Add in genewise path and put in matching code
-    'genewise_pid'                        => '50',
-    'genewise_cov'                        => '50',
-    'genewise_region_padding'             => '50000',
-    'genewise_calculate_coverage_and_pid' => '1',
 
 ########################
 # Misc setup info
@@ -464,168 +327,6 @@ sub default_options {
     'refseq_import_ftp_path'  => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_genomic.gff.gz',
     'refseq_mrna_ftp_path'    => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_rna.fna.gz',
     'refseq_report_ftp_path' => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_assembly_report.txt',
-##################################
-# Memory settings for the analyses
-##################################
-    'default_mem'          => '900',
-    'genblast_mem'         => '1900',
-    'genblast_retry_mem'   => '4900',
-    'genewise_mem'         => '3900',
-    'genewise_retry_mem'   => '5900',
-    'refseq_mem'           => '9900',
-    'projection_mem'       => '1900',
-    'layer_annotation_mem' => '3900',
-    'genebuilder_mem'      => '1900',
-
-
-
-########################
-# LastZ
-########################
-
-    'compara_master'             => 'compara_master',
-    'compara_conf_file'             => '',
-    'compara_innodb_schema'         => 1,
-    'compara_genome_db_update_path' => catfile($self->o('enscode_root_dir'),'/ensembl-compara/scripts/pipeline/update_genome.pl'),
-    'compara_mlss_script_path'      => catfile($self->o('enscode_root_dir'),'/ensembl-compara/scripts/pipeline/create_mlss.pl'),
-    'compara_mlss_reg_conf_path'    => catfile($self->o('enscode_root_dir'),'/ensembl-compara/scripts/pipeline/production_reg_ensembl_conf.pl'),
-    'compara_populate_new_database_exe' => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/pipeline/populate_new_database.pl'),
-    'compara_only_cellular_component' => undef,
-    'compara_dump_dir'              => catdir($self->o('output_path'),'lastz'),
-
-    'mlss_id_list' => undef,
-    'compara_collection' => '',
-
-    'compara_ref_species'       => $self->o('projection_source_production_name'),
-    'compara_non_ref_species'   => $self->o('production_name'),
-    'only_cellular_component'   => undef,   # Do we load *all* the dnafrags or only the ones from a specific cellular-component ?
-    'mix_cellular_components'   => 0,       # Do we try to allow the nuclear genome vs MT, etc ?
-    'dump_min_nib_size'         => 11500000,
-    'dump_min_chunk_size'       => 1000000,
-    'dump_min_chunkset_size'    => 1000000,
-    'quick' => 1,
-    'default_chunks' => {
-      'reference'   => {
-        'homo_sapiens' => {
-          'chunk_size' => 30000000,
-          'overlap'    => 0,
-          'include_non_reference' => -1, #1  => include non_reference regions (eg human assembly patches)
-                                         #0  => do not include non_reference regions
-                                         #-1 => auto-detect (only include non_reference regions if the non-reference species is high-coverage
-                                         #ie has chromosomes since these analyses are the only ones we keep up-to-date with the patches-pipeline)
-          'masking_options' => '{default_soft_masking => 1}',
-           # if you have a specific selection of repeat elements for the masking
-           #'masking_options_file' => $self->check_file_in_ensembl('ensembl-compara/scripts/pipeline/human36.spec'),
-        },
-        #non human example
-        'default' => {
-          'chunk_size'      => 10000000,
-          'overlap'         => 0,
-          'masking_options' => '{default_soft_masking => 1}'
-        },
-      },
-      'non_reference' => {
-        'chunk_size'      => 10100000,
-        'group_set_size'  => 10100000,
-        'overlap'         => 100000,
-        'masking_options' => '{default_soft_masking => 1}'
-      },
-    },
-
-    'compara_window_size' => 10000,
-    'filter_duplicates_rc_name' => '2GB_lastz',
-    'filter_duplicates_himem_rc_name' => '8GB_lastz',
-
-   #
-    #Default pair_aligner
-    #
-    'pair_aligner_method_link' => [1001, 'LASTZ_RAW'],
-    'pair_aligner_logic_name' => 'LastZ',
-    'pair_aligner_module' => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::LastZ',
-
-    'pair_aligner_options' => {
-       default => 'T=1 L=3000 H=2200 O=400 E=30 --ambiguous=iupac', # ensembl genomes settings
-       7742    => 'T=1 K=3000 L=3000 H=2200 O=400 E=30 --ambiguous=iupac', # vertebrates - i.e. ensembl-specific
-       9526    => 'T=1 K=5000 L=5000 H=3000 M=10 O=400 E=30 Q=' . $self->check_file_in_ensembl('ensembl-compara/scripts/pipeline/primate.matrix').' --ambiguous=iupac', # primates
-       33554   => 'T=1 K=5000 L=5000 H=3000 M=10 O=400 E=30 --ambiguous=iupac', # carnivora
-       3913    => 'T=1 L=3000 H=2200 O=400 E=30 --ambiguous=iupac --matchcount=1000',
-       4070    => 'T=1 L=3000 H=2200 O=400 E=30 --ambiguous=iupac --matchcount=1000',
-    },
-
-    #
-    #Default chain
-    #
-    'chain_input_method_link' => [1001, 'LASTZ_RAW'],
-    'chain_output_method_link' => [1002, 'LASTZ_CHAIN'],
-
-    #linear_gap=>medium for more closely related species, 'loose' for more distant
-    'linear_gap' => 'medium',
-
-    'chain_parameters' => {'max_gap'=>'50','linear_gap'=> $self->o('linear_gap'), 'faToNib' => $self->o('faToNib_exe'), 'lavToAxt'=> $self->o('lavToAxt_exe'), 'axtChain'=>$self->o('axtChain_exe'), 'max_blocks_for_chaining' => 100000},
-
-    #
-    #Default patch_alignments
-    #
-    'patch_alignments' => 0,  #set to 1 to align the patches of a species to many other species
-
-    #
-    #Default net
-    #
-    'net_input_method_link' => [1002, 'LASTZ_CHAIN'],
-    'net_output_method_link' => [16, 'LASTZ_NET'],
-    'net_ref_species' => $self->o('compara_ref_species'),  #default to ref_species
-    'net_parameters' => {'max_gap'=>'50', 'chainNet'=>$self->o('chainNet_exe')},
-    'bidirectional' => 0,
-
-    #
-    #Default healthcheck
-    #
-    'previous_db' => 'compara_prev',
-    'prev_release' => 0,   # 0 is the default and it means "take current release number and subtract 1"
-    'max_percent_diff' => 20,
-    'max_percent_diff_patches' => 99.99,
-    'do_pairwise_gabs' => 1,
-    'do_compare_to_previous_db' => 0,
-
-    'compara_bed_dir' => $self->o('compara_dump_dir').'/bed_dir',
-    'compara_feature_dir' => $self->o('compara_dump_dir').'/feature_dumps',
-
-    #
-    #Default pairaligner config
-    #
-    'skip_pairaligner_stats' => 1, #skip this module if set to 1
-
-    'pair_aligner_method_link' => [1001, 'LASTZ_RAW'],
-    'pair_aligner_logic_name' => 'LastZ',
-    'pair_aligner_module' => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::LastZ',
-    'chain_input_method_link' => [1001, 'LASTZ_RAW'],
-    'chain_output_method_link' => [1002, 'LASTZ_CHAIN'],
-    'linear_gap' => 'medium',
-    'net_input_method_link' => [1002, 'LASTZ_CHAIN'],
-    'net_output_method_link' => [16, 'LASTZ_NET'],
-
-    # Capacities
-    'pair_aligner_analysis_capacity' => 700,
-    'pair_aligner_batch_size' => 40,
-    'chain_hive_capacity' => 200,
-    'chain_batch_size' => 10,
-    'net_hive_capacity' => 300,
-    'net_batch_size' => 10,
-    'filter_duplicates_hive_capacity' => 200,
-    'filter_duplicates_batch_size' => 10,
-
-    # LastZ is used to align the genomes
-    'pair_aligner_exe'  => $self->o('lastz_exe'),
-    'cellar_dir'                        => '/nfs/software/ensembl/RHEL7-JUL2017-core2/linuxbrew/Cellar/',
-    'lastz_exe'                         => catfile($self->o('cellar_dir'),'lastz/1.04.00/bin/lastz'),
-    'axtChain_exe'                      => catfile($self->o('cellar_dir'),'kent/v335_1/bin/axtChain'),
-    'chainNet_exe'                      => catfile($self->o('cellar_dir'),'kent/v335_1/bin/chainNet'),
-    'faToNib_exe'                       => catfile($self->o('cellar_dir'),'kent/v335_1/bin/faToNib'),
-    'lavToAxt_exe'                      => catfile($self->o('cellar_dir'),'kent/v335_1/bin/lavToAxt'),
-    'compare_beds_exe'                  => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/pipeline/compare_beds.pl'),
-    'create_pair_aligner_page_exe'      => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/report/create_pair_aligner_page.pl'),
-    'dump_features_exe'                 => catfile($self->o('enscode_root_dir'),'ensembl-compara/scripts/dumps/DumpMultiAlign.pl'),
-
 
 ########################
 # db info
