@@ -899,10 +899,15 @@ sub generate_exonerate_transcripts {
           print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Removing translation and setting biotype to processed_transcript.\n";
           $transcript_after_replaced_stops->translation(undef);
           $transcript_after_replaced_stops->biotype("processed_transcript");
-        } else {
+	  push(@$output_transcripts,$transcript_after_replaced_stops);
+        } elsif ($transcript_after_replaced_stops) {
           print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") has more than the maximum of $max_stops stops or it has stops after replace_stops_with_introns. Removing translation and setting biotype to processed_transcript.\n";
-          $transcript_after_replaced_stops->translation(undef);
+	  $transcript_after_replaced_stops->translation(undef);
           $transcript_after_replaced_stops->biotype("processed_transcript");
+	  push(@$output_transcripts,$transcript_after_replaced_stops);
+        } else {
+          print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") replace_stops_with_introns failed. Pushing transcript as it was before the attempt to replace stops.\n";
+          push(@$output_transcripts,$transcript);
         }
       } else {
         push(@$output_transcripts,$transcript);
