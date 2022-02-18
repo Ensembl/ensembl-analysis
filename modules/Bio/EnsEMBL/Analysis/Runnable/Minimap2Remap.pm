@@ -851,10 +851,11 @@ sub generate_minimap_transcripts {
   foreach my $gene (@$output_genes) {
     my $transcripts = $gene->get_all_Transcripts();
     foreach my $transcript (@$transcripts) {
+      my $transcript_after_replaced_stops = $transcript;
       if ($transcript->translate() and $transcript->translate()->seq()) {
-        my $transcript_after_replaced_stops = replace_stops_with_introns($transcript,$max_stops);
+        $transcript_after_replaced_stops = replace_stops_with_introns($transcript,$max_stops);
         if ($transcript_after_replaced_stops and $transcript_after_replaced_stops->translate()->seq !~ /\*/) {
-          push(@$minimap_transcripts,$transcript_after_replaced_stops);
+          ;#push(@$minimap_transcripts,$transcript_after_replaced_stops);
         } elsif (!$transcript_after_replaced_stops->translate()) {
           print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region->strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Discarded.\n";
           $transcript_after_replaced_stops->translation(undef);
@@ -864,9 +865,9 @@ sub generate_minimap_transcripts {
           $transcript_after_replaced_stops->translation(undef);
           $transcript_after_replaced_stops->biotype("processed_transcript");
         }
-      } else {
-        push(@$minimap_transcripts,$transcript);
       }
+      $self->check_and_fix_translation_boundaries($transcript_after_replaced_stops);
+      push(@$minimap_transcripts,$transcript_after_replaced_stops);
     }
   }
 
@@ -959,6 +960,7 @@ sub run_exonerate {
      if($source_transcript->translation() and $output_transcript->translation()) {
        $self->check_exonerate_translation($source_transcript,$output_transcript);
      }
+     $self->check_and_fix_translation_boundaries($output_transcript);
      $output_transcript->stable_id($source_transcript->dbID());
      push(@$output_transcripts,$output_transcript);
   }
@@ -997,37 +999,6 @@ sub check_exonerate_translation {
     my $end_offset = $translation->end() - $translation_offset;
     $translation->end($end_offset);
     $output_transcript->translation($translation)
-  }
-
-  # Fix the end of the translation if it's set to be beyond the end of the end exon
-  # or if it's set to be before the start of the end exon
-  my $translation = $output_transcript->translation();
-  my $end_exon = $translation->end_Exon(); # 'end_exon_id' exon in 'translation' table
-  my $end_exon_length = $end_exon->seq_region_end()-$end_exon->seq_region_start()+1;
-
-  if ($translation->end() > $end_exon_length) {
-    print STDERR "Fixing the end of the translation (seq_start,seq_end,start_Exon->seq_region_start,end_Exon->seq_region_end) - (".$translation->start().",".$translation->end().",".$translation->start_Exon()->seq_region_start().",".$translation->end_Exon()->seq_region_end()." from ".$translation->end()." to ".$end_exon_length." because it is beyond the end of the end exon. Setting it to the maximum length of the end exon.\n";
-    $translation->end($end_exon_length);
-    $output_transcript->translation($translation);
-  }
-
-  $translation = $output_transcript->translation();;
-  my $end_exon_rank = $self->exon_rank($end_exon,$output_transcript);
-  if ($translation->end() <= 0) {
-    print STDERR "Transcript(seq_region_start,seq_region_end) ".$output_transcript->seq_region_start().",".$output_transcript->seq_region_end()." has translation end <= 0, number of exons = ".scalar(@{$output_transcript->get_all_Exons()}."\n"),
-    print STDERR "Fixing the end of the translation (seq_start,seq_end,start_Exon->seq_region_start,end_Exon->seq_region_end) - (".$translation->start().",".$translation->end().",".$translation->start_Exon()->seq_region_start().",".$translation->end_Exon()->seq_region_end()." because it is set to 0. Set it to the end of the previous exon. End exon rank = ".$end_exon_rank."\n";
-    foreach my $exon (@{$output_transcript->get_all_Exons()}) {
-      my $exon_rank = $self->exon_rank($exon,$output_transcript);
-      print STDERR "Translation end <= 0, foreach my exon (seq_region_start,seq_region_end,seq_region_strand,rank): ".$exon->seq_region_start().",".$exon->seq_region_end().",".$exon->seq_region_strand().",".$exon_rank."\n";
-      if ($exon_rank == $end_exon_rank-1) {
-	print STDERR "end_exon_rank-1 found.\n";
-        $translation->end_Exon($exon);
-        $translation->end($exon->length());
-	print STDERR "End of the previous exon is ".$exon->length()."\n";
-	$output_transcript->translation($translation);
-	last;
-      }
-    }
   }
 }
 
@@ -1654,6 +1625,47 @@ sub exon_rank {
     return $rank;
   } else {
     $self->throw("Exon(seq_region_start,seq_region_end,seq_region_strand) ".$exon->seq_region_start()." ".$exon->seq_region_end()." ".$exon->seq_region_strand()." does not belong to transcript(seq_region_start,seq_region_end,seq_region_strand) ".$transcript->seq_region_start()." ".$transcript->seq_region_end()." ".$transcript->seq_region_strand());
+  }
+}
+
+=head2 check_and_fix_translation_boundaries
+  Arg [1]    : Bio::EnsEMBL::Transcript whose translation needs to be fixed
+  Description: Fix the end of the translation if it's set to be beyond the end of the end exon
+               or if it's set to be before the start of the end exon.
+  Returntype : N/A
+  Exceptions : N/A
+=cut
+
+sub check_and_fix_translation_boundaries {
+  my ($self,$transcript) = @_;
+
+  my $translation = $transcript->translation();
+  my $end_exon = $translation->end_Exon(); # 'end_exon_id' exon in 'translation' table
+  my $end_exon_length = $end_exon->seq_region_end()-$end_exon->seq_region_start()+1;
+
+  if ($translation->end() > $end_exon_length) {
+    print STDERR "Fixing the end of the translation (seq_start,seq_end,start_Exon->seq_region_start,end_Exon->seq_region_end) - (".$translation->start().",".$translation->end().",".$translation->start_Exon()->seq_region_start().",".$translation->end_Exon()->seq_region_end()." from ".$translation->end()." to ".$end_exon_length." because it is beyond the end of the end exon. Setting it to the maximum length of the end exon.\n";
+    $translation->end($end_exon_length);
+    $transcript->translation($translation);
+  }
+
+  $translation = $transcript->translation();;
+  my $end_exon_rank = $self->exon_rank($end_exon,$transcript);
+  if ($translation->end() <= 0) {
+    print STDERR "Transcript(seq_region_start,seq_region_end) ".$transcript->seq_region_start().",".$transcript->seq_region_end()." has translation end <= 0, number of exons = ".scalar(@{$transcript->get_all_Exons()}."\n"),
+    print STDERR "Fixing the end of the translation (seq_start,seq_end,start_Exon->seq_region_start,end_Exon->seq_region_end) - (".$translation->start().",".$translation->end().",".$translation->start_Exon()->seq_region_start().",".$translation->end_Exon()->seq_region_end()." because it is set to 0. Set it to the end of the previous exon. End exon rank = ".$end_exon_rank."\n";
+    foreach my $exon (@{$transcript->get_all_Exons()}) {
+      my $exon_rank = $self->exon_rank($exon,$transcript);
+      print STDERR "Translation end <= 0, foreach my exon (seq_region_start,seq_region_end,seq_region_strand,rank): ".$exon->seq_region_start().",".$exon->seq_region_end().",".$exon->seq_region_strand().",".$exon_rank."\n";
+      if ($exon_rank == $end_exon_rank-1) {
+        print STDERR "end_exon_rank-1 found.\n";
+        $translation->end_Exon($exon);
+        $translation->end($exon->length());
+        print STDERR "End of the previous exon is ".$exon->length()."\n";
+        $transcript->translation($translation);
+        last;
+      }
+    }
   }
 }
 
