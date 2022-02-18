@@ -853,12 +853,16 @@ sub generate_minimap_transcripts {
     foreach my $transcript (@$transcripts) {
       if ($transcript->translate() and $transcript->translate()->seq()) {
         my $transcript_after_replaced_stops = replace_stops_with_introns($transcript,$max_stops);
-        if ($transcript_after_replaced_stops and $transcript_after_replaced_stops->translate()) {
+        if ($transcript_after_replaced_stops and $transcript_after_replaced_stops->translate()->seq !~ /\*/) {
           push(@$minimap_transcripts,$transcript_after_replaced_stops);
         } elsif (!$transcript_after_replaced_stops->translate()) {
           print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region->strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Discarded.\n";
+          $transcript_after_replaced_stops->translation(undef);
+          $transcript_after_replaced_stops->biotype("processed_transcript");
         } else {
-          print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region->strand().",".$transcript->seq_region_name().") has more than the maximum of $max_stops stops or something went wrong. Discarded.\n";
+          print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region->strand().",".$transcript->seq_region_name().") has more than the maximum of $max_stops stops or it has stops after replace_stops_with_introns. Discarded.\n";
+          $transcript_after_replaced_stops->translation(undef);
+          $transcript_after_replaced_stops->biotype("processed_transcript");
         }
       } else {
         push(@$minimap_transcripts,$transcript);
@@ -886,12 +890,16 @@ sub generate_exonerate_transcripts {
     foreach my $transcript (@$exonerate_transcripts) {
       if ($transcript->translate() and $transcript->translate()->seq()) {
         my $transcript_after_replaced_stops = replace_stops_with_introns($transcript,$max_stops);
-        if ($transcript_after_replaced_stops and $transcript_after_replaced_stops->translate()) {
+        if ($transcript_after_replaced_stops and $transcript_after_replaced_stops->translate()->seq() !~ /\*/) {
           push(@$output_transcripts,$transcript_after_replaced_stops);
         } elsif ($transcript_after_replaced_stops and !($transcript_after_replaced_stops->translate())) {
-          print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Discarded.\n";
+          print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Removing translation and setting biotype to processed_transcript.\n";
+          $transcript_after_replaced_stops->translation(undef);
+          $transcript_after_replaced_stops->biotype("processed_transcript");
         } else {
-          print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") has more than the maximum of $max_stops stops or something went wrong. Discarded.\n";
+          print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") has more than the maximum of $max_stops stops or it has stops after replace_stops_with_introns. Removing translation and setting biotype to processed_transcript.\n";
+          $transcript_after_replaced_stops->translation(undef);
+          $transcript_after_replaced_stops->biotype("processed_transcript");
         }
       } else {
         push(@$output_transcripts,$transcript);
