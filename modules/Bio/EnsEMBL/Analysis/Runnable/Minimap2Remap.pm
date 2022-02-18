@@ -866,7 +866,9 @@ sub generate_minimap_transcripts {
           $transcript_after_replaced_stops->biotype("processed_transcript");
         }
       }
-      $self->check_and_fix_translation_boundaries($transcript_after_replaced_stops);
+      if ($transcript_after_replaced_stops->translation()) {
+        $self->check_and_fix_translation_boundaries($transcript_after_replaced_stops);
+      }
       push(@$minimap_transcripts,$transcript_after_replaced_stops);
     }
   }
@@ -960,7 +962,9 @@ sub run_exonerate {
      if($source_transcript->translation() and $output_transcript->translation()) {
        $self->check_exonerate_translation($source_transcript,$output_transcript);
      }
-     $self->check_and_fix_translation_boundaries($output_transcript);
+     if ($output_transcript->translation()) {
+       $self->check_and_fix_translation_boundaries($output_transcript);
+     }
      $output_transcript->stable_id($source_transcript->dbID());
      push(@$output_transcripts,$output_transcript);
   }
