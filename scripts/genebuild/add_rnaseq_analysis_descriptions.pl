@@ -24,6 +24,7 @@ use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use feature 'say';
 
 my ($help, $safe_mode, $dbname, $port, $host);
+my $use_datafile = 0;
 
 my $dbuser = 'ensro';
 my $user = $ENV{USER};
@@ -35,12 +36,13 @@ GetOptions(
 	   'host=s'       => \$host,
      'dbuser=s'     => \$dbuser,
      'user=s'       => \$user,
+     'df|Use_data_file!' => \$use_datafile,
 );
 
 die &helptext if ( $help );
 
 say "Adding analysis decsriptions for logic name in database: ".$dbname;
-get_content($dbname, $port, $host);
+get_content($dbname, $port, $host, $use_datafile);
 
 
 =head2 get_content
@@ -57,7 +59,7 @@ get_content($dbname, $port, $host);
 =cut
 
 sub get_content {
-  my ($dbname, $port, $host) = @_;
+  my ($dbname, $port, $host, $use_datafile) = @_;
 
   my $json = JSON->new;
   if ($safe_mode) {
@@ -104,6 +106,18 @@ sub get_content {
     if ($sample_name eq $rnaseq_logic_name) {
       die("Could not retrieve the sample name from $rnaseq_logic_name");
     }
+    my $provider = 'ENA';
+    if ($use_datafile and $rnaseq_logic_name =~ /_rnaseq_/) {
+      my $analysis = $rnaseq_logic_name;
+      $analysis =~ s/_[^_]+$/_bam/;
+      my $data_files = $db->get_DataFileAdaptor->fetch_all_by_logic_name($analysis);
+      if (@$data_files != 1) {
+        warn('You have '.scalar(@$data_files).' this should not happen, I will use the default provider');
+      }
+      else {
+        ($provider) = $data_files->[0]->name =~ /\.([^.]+)\.$sample_name/;
+      }
+    }
     $sample_name =~ s/_+/ /g;
 
     my $values_dict = get_values($sample_name, $logic_type);
@@ -133,7 +147,7 @@ sub get_content {
           matrix => {
             column => $values_dict->{matrix_column},
             menu => 'rnaseq',
-            group => 'ENA',
+            group => $provider,
             row => ucfirst($sample_name),
             group_order => $values_dict->{matrix_group_order},
           },
