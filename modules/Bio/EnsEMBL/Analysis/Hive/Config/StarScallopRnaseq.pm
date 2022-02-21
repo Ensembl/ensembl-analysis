@@ -1262,7 +1262,7 @@ sub pipeline_analyses {
           logic_name => 'initialise_rnaseq_db',
           param => 'rnaseq_blast_db',
           data => $self->o('scallop_blast_db'),
-        }],
+        },
         {
           url => $self->o('main_pipeline_url'),
           logic_name => 'initialise_rnaseq_db',
