@@ -25,6 +25,7 @@ use feature 'say';
 
 my ($help, $safe_mode, $dbname, $port, $host);
 my $use_datafile = 0;
+my $update_analysis_description = 0;
 
 my $dbuser = 'ensro';
 my $user = $ENV{USER};
@@ -37,12 +38,13 @@ GetOptions(
      'dbuser=s'     => \$dbuser,
      'user=s'       => \$user,
      'df|Use_data_file!' => \$use_datafile,
+     'update!'      => \$update_analysis_description,
 );
 
 die &helptext if ( $help );
 
 say "Adding analysis decsriptions for logic name in database: ".$dbname;
-get_content($dbname, $port, $host, $use_datafile);
+get_content($dbname, $port, $host, $use_datafile, $update_analysis_description);
 
 
 =head2 get_content
@@ -59,7 +61,7 @@ get_content($dbname, $port, $host, $use_datafile);
 =cut
 
 sub get_content {
-  my ($dbname, $port, $host, $use_datafile) = @_;
+  my ($dbname, $port, $host, $use_datafile, $update_analysis_description) = @_;
 
   my $json = JSON->new;
   if ($safe_mode) {
@@ -85,7 +87,7 @@ sub get_content {
   while (my $logic_name = $sth_logic->fetchrow) {
     if($logic_name =~ /\_rnaseq_gene$/ || $logic_name =~ /\_rnaseq_bam$/ || $logic_name =~ /\_rnaseq_daf$/ || $logic_name =~ /\_rnaseq_ise$/ || $logic_name =~ /_isoseq$/) {
       my $response = $http_client->get("$server$ext/$logic_name");
-      if ($response->{success}) {
+      if (!$update_analysis_description and $response->{success}) {
         say "$logic_name already exists" if ($safe_mode);
       }
       else {
@@ -163,16 +165,23 @@ sub get_content {
       print "RUN IN SAFE MODE\nCONTENT:\n".$sample_name." ".$logic_type."\n".$json->encode(\%json_data)."\n";
     }
     else {
-      my $http = HTTP::Tiny->new;
-      my $response = $http->request('POST', $server.$ext, {
+      my $http_action = 'POST';
+      my $error_msg = 'add';
+      my $url = $server.$ext;
+      if ($update_analysis_description) {
+        $http_action = 'PATCH';
+        $error_msg = 'update';
+        $url .= "/$rnaseq_logic_name"
+      }
+      my $response = $http_client->request($http_action, $url, {
           headers => {
-		      'Content-type' => 'application/json',
-		      'Accept' => 'application/json'
-		     },
-          content => $json->encode(\%json_data)
-							  });
+          'Content-type' => 'application/json',
+          'Accept' => 'application/json'
+        },
+        content => $json->encode(\%json_data)
+      });
 
-      print "\nFailed to add analyses descriptions for ".$sample_name."!\n  ".$response->{status}."\n  ".$response->{content}."\n"
+      print "\nFailed to $error_msg analyses descriptions for $sample_name!\n  ".$response->{status}."\n  ".$response->{content}."\n"
         unless $response->{success};
     }
 
