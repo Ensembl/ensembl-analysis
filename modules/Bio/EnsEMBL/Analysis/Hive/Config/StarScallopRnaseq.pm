@@ -139,6 +139,7 @@ sub default_options {
     rnaseq_merge_threads => 12,
 
     # This is used for "messaging" other sub pipeline
+    main_pipeline_url => undef,
     transcript_selection_url => undef,
     homology_rnaseq_url => undef,
     
@@ -1255,6 +1256,18 @@ sub pipeline_analyses {
           param => 'donor_dbs',
           data => $self->o('rnaseq_for_layer_nr_db'),
           update => 1,
+        },
+        {
+          url => $self->o('main_pipeline_url'),
+          logic_name => 'initialise_rnaseq_db',
+          param => 'rnaseq_blast_db',
+          data => $self->o('scallop_blast_db'),
+        }],
+        {
+          url => $self->o('main_pipeline_url'),
+          logic_name => 'initialise_rnaseq_db',
+          param => 'rnaseq_refine_db',
+          data => $self->o('scallop_blast_db'),
         }],
         tweak_script => catfile($self->o('enscode_root_dir'), 'ensembl-hive', 'scripts', 'tweak_pipeline.pl'),
       },

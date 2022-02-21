@@ -1721,6 +1721,7 @@ sub pipeline_analyses {
           taxon_id => $self->o('taxon_id'),
           uniprot_set => $self->o('uniprot_set'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
+          main_pipeline_url => $self->pipeline_url,
           transcript_selection_url => $transcript_selection_pipe_url,
           homology_rnaseq_url => $homology_rnaseq_pipe_url,
 	  is_non_vert => $self->o('is_non_vert'),
