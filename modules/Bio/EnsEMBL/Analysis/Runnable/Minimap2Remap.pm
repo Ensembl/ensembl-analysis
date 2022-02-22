@@ -58,7 +58,7 @@ use POSIX;
 use Bio::EnsEMBL::Analysis::Runnable::Minimap2;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_best_translation);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(set_alignment_supporting_features attach_Slice_to_Transcript attach_Analysis_to_Transcript calculate_exon_phases replace_stops_with_introns);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_nucleotide_seqs map_cds_location align_proteins);
 use File::Spec;
@@ -1078,7 +1078,7 @@ sub check_mapping_quality {
       $transcript_seq = $transcript->translateable_seq();
 
       unless($transcript_seq) {
-        compute_translation($transcript);
+        compute_best_translation($transcript);
         $transcript_seq = $transcript->translateable_seq();
       }
 
