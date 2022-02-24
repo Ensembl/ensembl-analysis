@@ -34,8 +34,8 @@ my $options = GetOptions ("user|dbuser|u=s" => \$user,
                           "port|dbport|P=i" => \$port,
                           "dbname|db|D=s"   => \$dbname,
                           "dbpass|pass|p=s" => \$pass,
-                          "output_file_x=s" => $output_file_x,
-                          "output_file_y=s" => $output_file_y);
+                          "output_file_x=s" => \$output_file_x,
+                          "output_file_y=s" => \$output_file_y);
 
 my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -port    => $port,
@@ -56,11 +56,12 @@ my $y_slice = $slice_adaptor->fetch_by_region('toplevel','Y');
 my $x_seqs = get_slice_seqs($x_slice,2500,300,10000,10000000,'x');
 my $y_seqs = get_slice_seqs($y_slice,2500,300,2500,10000000,'y');
 
-open(OUT,">".$output_file_x);
+
+open(OUT,">".$output_file_x) or die "Couldn't open: $!";
 print OUT $x_seqs;
 close OUT;
 
-open(OUT,">".$output_file_y);
+open(OUT,">".$output_file_y) or die "Couldn't open: $!";
 print OUT $y_seqs;
 close OUT;
 

@@ -38,6 +38,7 @@ sub default_options {
     'base_output_dir'           => '', # Where to write the files to
     'registry_file'             => '', # This needs to be a standard registry with the production/meta data/taxonomy db adaptors in there
     'pipeline_name'             => '' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('ensembl_release'),
+    'production_name'           => '' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'release_number'            => '' || $self->o('ensembl_release'),
     'xy_scanner_path'           => '/hps/software/users/ensembl/repositories/fergal/ensembl-analysis/scripts/genebuild/xy_scanner.py',
     'x_marker_fasta_path'       => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/hprc/x_markers.fa',
@@ -65,7 +66,6 @@ sub default_options {
     'long_read_summary_file_genus' => '' || catfile($self->o('long_read_dir'), $self->o('species_name').'_long_read_gen.csv'), # csv file for minimap2, should have 2 columns tab separated cols: sample_name\tfile_name
     'long_read_fastq_dir'       => '' || catdir($self->o('long_read_dir'),'input'),
     'species_name'              => '', # e.g. mus_musculus
-    'production_name'           => 'test_scale_gbiab' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'taxon_id'                  => '', # should be in the assembly report file
     'species_taxon_id'          => '' || $self->o('taxon_id'), # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
     'genus_taxon_id'            => '' || $self->o('taxon_id'), # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
@@ -227,7 +227,8 @@ sub default_options {
     refseq_synonyms_script_path       => catfile($self->o('ensembl_analysis_script'), 'refseq', 'load_refseq_synonyms.pl'),
     refseq_import_script_path         => catfile($self->o('ensembl_analysis_script'), 'refseq', 'parse_ncbi_gff3.pl'),
     sequence_dump_script              => catfile($self->o('ensembl_analysis_script'), 'sequence_dump.pl'),
-    sncrna_analysis_script             => catdir($self->o('ensembl_analysis_script'), 'genebuild', 'sncrna'),
+    sncrna_analysis_script            => catdir($self->o('ensembl_analysis_script'), 'genebuild', 'sncrna'),
+    mapping_stats_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'calculate_remapping_stats.pl'),
 
     ensembl_misc_script        => catdir($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts'),
     repeat_types_script        => catfile($self->o('ensembl_misc_script'), 'repeats', 'repeat-types.pl'),
@@ -854,7 +855,7 @@ sub pipeline_analyses {
                          'num_threads'      => $self->o('num_threads'),
                          'dbowner'          => $self->o('dbowner'),
                          'core_db'          => $self->o('core_db'),
-                         'ensembl_release'  => $self->o('ensembl_release'),
+                         'ensembl_release'  => $self->o('release_number'),
                          'base_output_dir'  => $self->o('base_output_dir'),
                          'registry_db'      => $self->o('registry_db'),
                          'registry_file'      => $self->o('registry_file'),
@@ -1322,9 +1323,30 @@ sub pipeline_analyses {
         },
         -rc_name    => 'default',
         -flow_into => {
-                       1 => ['add_placeholder_sample_location'],
+                       1 => ['generate_mapping_stats'],
         },
 
+      },
+
+
+      {
+        -logic_name => 'generate_mapping_stats',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.$self->o('mapping_stats_script').
+                                ' -query_user '.$self->o('user_r').
+                                ' -query_host '.$self->o('core_db','-host').
+                                ' -query_port '.$self->o('core_db','-port').
+                                ' -query_dbname '.'#core_dbname#'.
+                                ' -reference_user '.$self->o('user_r').
+                                ' -reference_host '.$self->o('ref_db_server').
+                                ' -reference_port '.$self->o('ref_db_port').
+                                ' -reference_dbname '.$self->o('ref_db_name').
+                                ' -output_dir '.'#output_path#'.
+                                ' -output_file_prefix '.'#assembly_accession#'."_mapping_stats"
+                       },
+        -rc_name => '10GB',
+        -flow_into => { 1 => ['add_placeholder_sample_location'] },
       },
 
 

@@ -31,7 +31,7 @@ def run_minimap(genome_index,marker_file,output_dir):
   
 def process_results(temp_path,marker_file):
 
-  presence_threshold = 0.75
+  presence_threshold = 0.50
   results_dict = {}
   marker_in = open(marker_file,'r')
   line = marker_in.readline()
