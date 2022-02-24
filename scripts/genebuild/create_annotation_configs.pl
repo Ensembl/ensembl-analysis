@@ -888,8 +888,9 @@ sub init_pipeline {
     unless($result =~ /beekeeper.+\-sync/) {
       throw("Failed to run init_pipeline for ".$assembly_hash->{'species_name'}."\nCommandline used:\n".$cmd);
     }
-    update_annotation_status($assembly_hash->{'assembly_accession'});
-
+    unless ($custom_load){
+	update_annotation_status($assembly_hash->{'assembly_accession'});
+    }
     my $sync_command = $&;
     if ($hive_directory) {
       $sync_command = 'perl '.catdir($hive_directory, 'scripts').catfile('','').$sync_command; # The crazy catfile in the middle is to get the path separator
