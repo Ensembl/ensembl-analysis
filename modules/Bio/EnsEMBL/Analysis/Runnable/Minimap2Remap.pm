@@ -58,8 +58,8 @@ use POSIX;
 use Bio::EnsEMBL::Analysis::Runnable::Minimap2;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(set_alignment_supporting_features attach_Slice_to_Transcript attach_Analysis_to_Transcript calculate_exon_phases);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_best_translation);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(set_alignment_supporting_features attach_Slice_to_Transcript attach_Analysis_to_Transcript calculate_exon_phases replace_stops_with_introns);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_nucleotide_seqs map_cds_location align_proteins);
 use File::Spec;
 use Bio::DB::HTS::Faidx;
@@ -824,6 +824,7 @@ sub generate_minimap_transcripts {
   # This will take in the target genomic region (via the index)
   my $coverage_cutoff = 80;
   my $perc_id_cutoff = 80;
+  my $max_stops = 999;
   my $minimap_transcripts = [];
   my $analysis = $self->analysis();
   my $program = $self->program();
@@ -850,7 +851,25 @@ sub generate_minimap_transcripts {
   foreach my $gene (@$output_genes) {
     my $transcripts = $gene->get_all_Transcripts();
     foreach my $transcript (@$transcripts) {
-      push(@$minimap_transcripts,$transcript);
+      my $transcript_after_replaced_stops = $transcript;
+      if ($transcript->translate() and $transcript->translate()->seq()) {
+        $transcript_after_replaced_stops = replace_stops_with_introns($transcript,$max_stops);
+        if ($transcript_after_replaced_stops and $transcript_after_replaced_stops->translate()->seq !~ /\*/) {
+          ;#push(@$minimap_transcripts,$transcript_after_replaced_stops);
+        } elsif (!$transcript_after_replaced_stops->translate()) {
+          print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region->strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Discarded.\n";
+          $transcript_after_replaced_stops->translation(undef);
+          $transcript_after_replaced_stops->biotype("processed_transcript");
+        } else {
+          print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region->strand().",".$transcript->seq_region_name().") has more than the maximum of $max_stops stops or it has stops after replace_stops_with_introns. Discarded.\n";
+          $transcript_after_replaced_stops->translation(undef);
+          $transcript_after_replaced_stops->biotype("processed_transcript");
+        }
+      }
+      if ($transcript_after_replaced_stops->translation()) {
+        $self->check_and_fix_translation_boundaries($transcript_after_replaced_stops);
+      }
+      push(@$minimap_transcripts,$transcript_after_replaced_stops);
     }
   }
 
@@ -864,18 +883,16 @@ sub generate_exonerate_transcripts {
   my $output_transcripts = [];
 
   foreach my $bad_transcript (@$bad_target_transcripts) {
-      my $source_transcript = $source_transcript_id_hash->{$bad_transcript->stable_id()};
-      unless($source_transcript) {
-        $self->throw("Couldn't find the dbID of the transcript in the source transcript hash when attempting to run exonerate");
-      }
+    my $source_transcript = $source_transcript_id_hash->{$bad_transcript->stable_id()};
+    unless($source_transcript) {
+      $self->throw("Couldn't find the dbID of the transcript in the source transcript hash when attempting to run exonerate");
+    }
 
-      my $exonerate_transcripts = $self->run_exonerate($source_transcript,$target_region_slice,$target_slice_adaptor,$max_intron_size);
-      foreach my $transcript (@$exonerate_transcripts) {
-
-      }
-      push(@$output_transcripts,@$exonerate_transcripts);
+    my $exonerate_transcripts = $self->run_exonerate($source_transcript,$target_region_slice,$target_slice_adaptor,$max_intron_size);
+    foreach my $transcript (@$exonerate_transcripts) {
+      push(@$output_transcripts,$transcript);
+    }
   }
-
   return($output_transcripts);
 }
 
@@ -885,6 +902,7 @@ sub run_exonerate {
 
   my $output_transcripts = [];
   my $exonerate_length_cutoff = 15000;
+  my $max_stops = 999;
   if($source_transcript->length() > $exonerate_length_cutoff) {
     say "Not running exonerate on trascript ".$source_transcript->stable_id()." as length (".$source_transcript->length().") is greater than length cut-off (".$exonerate_length_cutoff.")";
     return($output_transcripts);
@@ -921,14 +939,36 @@ sub run_exonerate {
   $runnable->target_seqs([$target_region_slice]);
   $runnable->query_seqs([$source_transcript_seq_object]);
   $runnable->run();
-  if(scalar(@{$runnable->output()})) {
-     my $initial_output_transcript = ${$runnable->output()}[0];
-     my $output_transcript = $self->update_exonerate_transcript_coords($initial_output_transcript,$target_slice_adaptor);
-     if($source_transcript->translation() and $output_transcript->translation()) {
-       $self->check_exonerate_translation($source_transcript,$output_transcript);
-     }
-     $output_transcript->stable_id($source_transcript->dbID());
-     push(@$output_transcripts,$output_transcript);
+  if (scalar(@{$runnable->output()})) {
+    my $initial_output_transcript = ${$runnable->output()}[0];
+    my $output_transcript = $self->update_exonerate_transcript_coords($initial_output_transcript,$target_slice_adaptor);
+    if ($source_transcript->translation() and $output_transcript->translation()) {
+      $self->check_exonerate_translation($source_transcript,$output_transcript);
+    }
+
+    my $transcript_after_replaced_stops = $output_transcript;
+    if ($output_transcript->translate() and $output_transcript->translate()->seq()) {
+      $transcript_after_replaced_stops = replace_stops_with_introns($output_transcript,$max_stops);
+      if ($transcript_after_replaced_stops and $transcript_after_replaced_stops->translate()->seq() !~ /\*/) {
+        ;#push(@$output_transcripts,$transcript_after_replaced_stops);
+      } elsif ($transcript_after_replaced_stops and !($transcript_after_replaced_stops->translate())) {
+        print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$output_transcript->seq_region_start().",".$output_transcript->seq_region_end().",".$output_transcript->seq_region_strand().",".$output_transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Removing translation and setting biotype to processed_transcript.\n";
+        $transcript_after_replaced_stops->translation(undef);
+        $transcript_after_replaced_stops->biotype("processed_transcript");
+      } elsif ($transcript_after_replaced_stops) {
+        print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$output_transcript->seq_region_start().",".$output_transcript->seq_region_end().",".$output_transcript->seq_region_strand().",".$output_transcript->seq_region_name().") has more than the maximum of $max_stops stops or it has stops after replace_stops_with_introns. Removing translation and setting biotype to processed_transcript.\n";
+        $transcript_after_replaced_stops->translation(undef);
+        $transcript_after_replaced_stops->biotype("processed_transcript");
+      } else {
+        print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$output_transcript->seq_region_start().",".$output_transcript->seq_region_end().",".$output_transcript->seq_region_strand().",".$output_transcript->seq_region_name().") replace_stops_with_introns failed. Pushing transcript as it was before the attempt to replace stops.\n";
+        $transcript_after_replaced_stops = $output_transcript;
+      }
+    }
+    if ($transcript_after_replaced_stops->translation()) {
+      $self->check_and_fix_translation_boundaries($transcript_after_replaced_stops);
+    }
+    $transcript_after_replaced_stops->stable_id($source_transcript->dbID());
+    push(@$output_transcripts,$transcript_after_replaced_stops);
   }
 
   return($output_transcripts);
@@ -1038,7 +1078,7 @@ sub check_mapping_quality {
       $transcript_seq = $transcript->translateable_seq();
 
       unless($transcript_seq) {
-        compute_translation($transcript);
+        compute_best_translation($transcript);
         $transcript_seq = $transcript->translateable_seq();
       }
 
@@ -1562,6 +1602,77 @@ sub gene_genomic_seqs_hash {
   }
 
   return $self->{_gene_genomic_seqs_hash};
+}
+
+=head2 exon_rank
+  Arg [1]    : Bio::EnsEMBL::Exon to get the rank from
+  Arg [2]    : Bio::EnsEMBL::Transcript where the exon in Arg [1] is found
+  Description: It searches for the Arg [1] exon in the Arg [2] transcript exon array by using the exon coordinates.
+               Note it is assumed that a transcript cannot have overlapping exons nor exons having the same coordinates.
+  Returntype : int
+               It returns the index (1 <= index <= number_of_exons) of the Arg [1] exon in the Arg [2] transcript exon array.
+  Exceptions : It throws if the Arg [1] exon cannot be found in the Arg [2] transcript.
+=cut
+
+sub exon_rank {
+  my ($self,$exon,$transcript) = @_;
+
+  my $rank = 0;
+  foreach my $t_exon (@{$transcript->get_all_Exons()}) {
+    $rank++;
+    if ($t_exon->seq_region_start() == $exon->seq_region_start() and
+        $t_exon->seq_region_end() == $exon->seq_region_end() and
+        $t_exon->seq_region_strand() == $exon->seq_region_strand()) {
+      last;
+    }
+  }
+
+  if ($rank) {
+    return $rank;
+  } else {
+    $self->throw("Exon(seq_region_start,seq_region_end,seq_region_strand) ".$exon->seq_region_start()." ".$exon->seq_region_end()." ".$exon->seq_region_strand()." does not belong to transcript(seq_region_start,seq_region_end,seq_region_strand) ".$transcript->seq_region_start()." ".$transcript->seq_region_end()." ".$transcript->seq_region_strand());
+  }
+}
+
+=head2 check_and_fix_translation_boundaries
+  Arg [1]    : Bio::EnsEMBL::Transcript whose translation needs to be fixed
+  Description: Fix the end of the translation if it's set to be beyond the end of the end exon
+               or if it's set to be before the start of the end exon.
+  Returntype : N/A
+  Exceptions : N/A
+=cut
+
+sub check_and_fix_translation_boundaries {
+  my ($self,$transcript) = @_;
+
+  my $translation = $transcript->translation();
+  my $end_exon = $translation->end_Exon(); # 'end_exon_id' exon in 'translation' table
+  my $end_exon_length = $end_exon->length();
+
+  if ($translation->end() > $end_exon_length) {
+    print STDERR "Fixing the end of the translation (seq_start,seq_end,start_Exon->seq_region_start,end_Exon->seq_region_end) - (".$translation->start().",".$translation->end().",".$translation->start_Exon()->seq_region_start().",".$translation->end_Exon()->seq_region_end()." from ".$translation->end()." to ".$end_exon_length." because it is beyond the end of the end exon. Setting it to the maximum length of the end exon.\n";
+    $translation->end($end_exon_length);
+    $transcript->translation($translation);
+  }
+
+  $translation = $transcript->translation();
+  my $end_exon_rank = $self->exon_rank($end_exon,$transcript);
+  if ($translation->end() <= 0) {
+    print STDERR "Transcript(seq_region_start,seq_region_end) ".$transcript->seq_region_start().",".$transcript->seq_region_end()." has translation end <= 0, number of exons = ".scalar(@{$transcript->get_all_Exons()}."\n"),
+    print STDERR "Fixing the end of the translation (seq_start,seq_end,start_Exon->seq_region_start,end_Exon->seq_region_end) - (".$translation->start().",".$translation->end().",".$translation->start_Exon()->seq_region_start().",".$translation->end_Exon()->seq_region_end()." because it is set to 0. Set it to the end of the previous exon. End exon rank = ".$end_exon_rank."\n";
+    foreach my $exon (@{$transcript->get_all_Exons()}) {
+      my $exon_rank = $self->exon_rank($exon,$transcript);
+      print STDERR "Translation end <= 0, foreach my exon (seq_region_start,seq_region_end,seq_region_strand,rank): ".$exon->seq_region_start().",".$exon->seq_region_end().",".$exon->seq_region_strand().",".$exon_rank."\n";
+      if ($exon_rank == $end_exon_rank-1) {
+        print STDERR "end_exon_rank-1 found.\n";
+        $translation->end_Exon($exon);
+        $translation->end($exon->length());
+        print STDERR "End of the previous exon is ".$exon->length()."\n";
+        $transcript->translation($translation);
+        last;
+      }
+    }
+  }
 }
 
 1;

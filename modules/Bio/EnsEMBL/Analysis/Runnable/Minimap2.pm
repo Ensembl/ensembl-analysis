@@ -58,7 +58,7 @@ use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Exon;
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_translation);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_best_translation);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(is_canonical_splice);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(align_proteins);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -464,7 +464,7 @@ sub create_gene {
                                                  -analysis => $self->analysis);
 
   unless($self->skip_compute_translation()) {
-    compute_translation($transcript);
+    compute_best_translation($transcript);
   }
 
   my $gene = Bio::EnsEMBL::Gene->new(-slice    => $slice,

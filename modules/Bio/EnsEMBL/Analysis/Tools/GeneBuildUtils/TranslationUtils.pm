@@ -43,6 +43,8 @@ use vars qw (@ISA  @EXPORT);
              contains_internal_stops
              print_Translation_genomic_coords
              run_translate
+             orfs_prediction
+             compute_best_translation
              compute_translation
              return_translation
              validate_Translation_coords
@@ -312,6 +314,195 @@ sub return_translation{
   return $trans->translation;
 }
 
+
+=head2 orfs_prediction
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Arg [2]   : boolean, do want predictions with met or not
+  Function  : Find coordinates of translations in transcripts cdna
+  Returntype: arrayref of an array or arrays, each element
+  containing an array of length, start and end
+  Exceptions: None
+
+=cut
+
+sub orfs_prediction {
+  my ($transcript, $met_only) = @_;
+
+  my $seq = $transcript->seq;
+
+  my @orf_predictions;
+  foreach my $frame (0, 1, 2) {
+    my $translation = $seq->translate(-frame => $frame);
+    my $start = $frame+1;
+    foreach my $subseq (split('\*', $translation->seq)) {
+      my $length_subseq = length($subseq);
+      if ($length_subseq) {
+        my $first_met = index($subseq, 'M');
+        if ($met_only and $first_met != -1) {
+          my $length = $length_subseq-$first_met;
+          $first_met *= 3;
+          push(@orf_predictions, [$length, $start+$first_met, $start+$first_met+(($length+1)*3)-1]);
+        }
+        elsif (!$met_only and $first_met != 0) {
+          push(@orf_predictions, [$length_subseq, $start, $start+(($length_subseq+1)*3)-1]);
+        }
+      }
+      $start += ($length_subseq*3)+3;
+    }
+    # If the end is longer than the sequence, we probably don't have a stop codon
+    if (@orf_predictions and $orf_predictions[-1]->[2] > $seq->length) {
+      $orf_predictions[-1]->[2] -= 3;
+    }
+  }
+  my @sorted_predictions = sort { $b->[0] <=> $a->[0] } @orf_predictions;
+  return \@sorted_predictions;
+}
+
+
+=head2 compute_best_translation
+
+  Arg [1]   : Bio::EnsEMBL::Transcript
+  Function  : run run_translate and give transcript new
+  translation based on those results
+  Returntype: Bio::EnsEMBL::Transcript
+  Exceptions: Warns in unable to create translation
+
+=cut
+
+
+
+sub compute_best_translation{
+  my ($transcript) = @_;
+
+  my $met_predictions = orfs_prediction($transcript, 1);
+  my $nomet_predictions = orfs_prediction($transcript);
+
+  # choosing the best ORF
+  my $orfs;
+  if (@$met_predictions && @$nomet_predictions) {
+    if ($nomet_predictions->[0]->[0] > (2*$met_predictions->[0]->[0])) {
+      $orfs = $nomet_predictions;
+    }
+    else {
+      $orfs = $met_predictions;
+    }
+  }
+  elsif (@$met_predictions) {
+    $orfs = $met_predictions;
+  }
+  elsif (@$nomet_predictions) {
+    $orfs = $nomet_predictions;
+  }
+  else {
+    warning(id($transcript)." has no translations ");
+    return $transcript;
+  }
+
+  # add ORF to transcript
+  #Here we take the best prediction with a methionine unless
+  #there aren't any of the best prediction without a
+  #methoinine is more than twice the length
+  my $min_length = $orfs->[0]->[0]*.9;
+  my $orf_start = $orfs->[0]->[1];
+  my $orf_end = $orfs->[0]->[2];
+  my ($translation_start, $translation_end,
+      $translation_start_Exon, $translation_end_Exon);
+  my $exon_count = 0;
+  my $pos = 1;
+  my $exons = $transcript->get_all_Exons;
+  foreach my $exon (@$exons) {
+    $exon_count++;
+    if ( $orf_start >= $pos && $orf_start <= $pos + $exon->length - 1 ) {
+      $translation_start = $orf_start - $pos+1;
+      $translation_start_Exon = $exon;
+    }
+    if ($orf_end >= $pos && $orf_end <= $pos + $exon->length - 1) {
+      $translation_end = $orf_end - $pos + 1;
+      $translation_end_Exon = $exon;
+    }
+    $pos += $exon->length;
+  }
+  if(!$translation_start || !$translation_end || !$translation_start_Exon || !$translation_end_Exon) {
+    throw('problems making the translation for '.id($transcript));
+  }
+  if ($translation_start_Exon == $translation_end_Exon and @$exons > 1 and @$orfs > 1) {
+    my ($better_translation_start, $better_translation_end, $better_translation_start_Exon, $better_translation_end_Exon);
+    for (my $index = 1; $index < @$orfs; $index++) {
+      last if ($min_length > $orfs->[$index]->[0]);
+      my $orf_start = $orfs->[$index]->[1];
+      my $orf_end = $orfs->[$index]->[2];
+      my $exon_count = 0;
+      my $pos = 1;
+      foreach my $exon (@$exons) {
+        $exon_count++;
+        if ( $orf_start >= $pos && $orf_start <= $pos + $exon->length - 1 ) {
+          $better_translation_start = $orf_start - $pos+1;
+          $better_translation_start_Exon = $exon;
+        }
+        if ($orf_end >= $pos && $orf_end <= $pos + $exon->length - 1) {
+          $better_translation_end = $orf_end - $pos + 1;
+          $better_translation_end_Exon = $exon;
+        }
+        $pos += $exon->length;
+      }
+      if(!$better_translation_start || !$better_translation_end || !$better_translation_start_Exon || !$better_translation_end_Exon) {
+        throw('problems making the translation for '.id($transcript));
+      }
+      if ($better_translation_start_Exon != $better_translation_end_Exon) {
+        $translation_start = $better_translation_start;
+        $translation_end = $better_translation_end;
+        $translation_start_Exon = $better_translation_start_Exon;
+        $translation_end_Exon = $better_translation_end_Exon;
+        last;
+      }
+    }
+  }
+  my $translation = Bio::EnsEMBL::Translation->new();
+  $translation->start($translation_start);
+  $translation->end($translation_end);
+  $translation->start_Exon($translation_start_Exon);
+  $translation->end_Exon($translation_end_Exon);
+  $transcript->translation($translation);
+  my $found_start = 0;
+  my $found_end = 0;
+  my $last_end_phase;
+  my $first_exon = 1;
+  foreach my $exon(@{$transcript->get_all_Exons}){
+    $exon->phase(-1);
+    $exon->end_phase(-1);
+
+    if($translation->start_Exon == $exon){
+      if($translation->start == 1 && $first_exon){
+        $exon->phase(0);
+      }
+      $found_start = 1;
+    }elsif($found_start and not $found_end){
+      $exon->phase($last_end_phase);
+    }
+    my $end_phase;
+    if($exon == $translation->start_Exon){
+      $end_phase = ($exon->end - ($exon->start +
+                                  $translation->start
+                                  - 1) +1 ) %3;
+    }else{
+      $end_phase = (($exon->length + $exon->phase) %3);
+    }
+    if(($exon == $translation->end_Exon && $exon->length == $translation->end)){
+      $exon->end_phase($end_phase);
+    }
+
+    $found_end = 1 if($exon == $translation->end_Exon);
+
+    if (($found_start and !$found_end)) {
+      $exon->end_phase($end_phase);
+    }
+
+    $last_end_phase = $exon->end_phase;
+    $first_exon = 0;
+  }
+  return $transcript;
+}
 
 =head2 compute_translation
 
