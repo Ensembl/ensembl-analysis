@@ -939,20 +939,20 @@ sub _master_config {
                               'cdna2genome',
                               'edited',
                               'gw_gtag',
-                              'gw_exo',
+		              'gw_exo',
+		              'cdna_1',
+		              'cdna_2',
+		              'cdna_3',
+		              'cdna_4',
                               'rnaseq_merged_1',
                               'rnaseq_merged_2',
                               'rnaseq_merged_3',
                               'rnaseq_tissue_1',
                               'rnaseq_tissue_2',
                               'rnaseq_tissue_3',
-                              'genblast_select_1',
-                              'genblast_select_2',
-                              'vert_pe12_sp_1',
+		              'vert_pe12_sp_1',
                               'vert_pe12_sp_2',
-                              'projection_1',
-                              'projection_2',
-                              'self_pe12_sp_1',
+		              'self_pe12_sp_1',
                               'self_pe12_sp_2',
                               'self_pe12_tr_1',
                               'self_pe12_tr_2',
@@ -966,10 +966,12 @@ sub _master_config {
             {
               ID         => 'LAYER3',
               BIOTYPES   => [
-                              'rnaseq_merged_4',
+                              'projection_1',
+		              'projection_2',
+		              'cdna_5',
+		              'rnaseq_merged_4',
                               'rnaseq_tissue_4',
-                              'genblast_select_3',
-                              'vert_pe12_sp_3',
+		              'vert_pe12_sp_3',
                               'vert_pe12_tr_1',
                               'vert_pe12_tr_2',
                               'projection_3',
@@ -982,6 +984,7 @@ sub _master_config {
             {
               ID         => 'LAYER4',
               BIOTYPES   => [
+		              'cdna_6',
                               'rnaseq_merged_5',
                               'rnaseq_tissue_5',
                               'genblast_select_4',
@@ -997,6 +1000,7 @@ sub _master_config {
             {
               ID         => 'LAYER5',
               BIOTYPES   => [
+		              'cdna_7',
                               'rnaseq_merged_6',
                               'rnaseq_tissue_6',
                               'genblast_select_5',
@@ -1011,7 +1015,6 @@ sub _master_config {
              {
               ID         => 'LAYER6',
               BIOTYPES   => [
-                              'genblast_select_6',
                               'vert_pe12_sp_6',
                               'projection_6',
                               'vert_pe12_tr_6',
@@ -1025,15 +1028,26 @@ sub _master_config {
               BIOTYPES   => [
                               'rnaseq_merged_7',
                               'rnaseq_tissue_7',
-                              'genblast_select_7',
                               'vert_pe12_sp_7',
                               'projection_7',
                               'vert_pe12_tr_7',
                             ],
               FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6'],
               DISCARD    => 0,
+	     },
+	
+	     {
+              ID         => 'LAYER8',
+              BIOTYPES   => [
+		              'rnaseq_merged',
+		              'rnaseq_tissue',
+		              'cdna',
+                            ],
+              FILTER_AGAINST => ['LAYER1','LAYER2','LAYER3','LAYER4','LAYER5','LAYER6','LAYER7'],
+              DISCARD    => 0,
             },
 
+	
     ],
 
 

@@ -79,12 +79,15 @@ sub default_options {
     ########################
     'rnaseq_db_host'               => $self->o('databases_host'),
     'rnaseq_db_port'               => $self->o('databases_port'),
+    'rnaseq_db_name'               => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_'.$self->o('release_number'),
 
     'rnaseq_refine_db_host'         => $self->o('databases_host'),
     'rnaseq_refine_db_port'         => $self->o('databases_port'),
+    'rnaseq_refine_db_name'         => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_blast_'.$self->o('release_number'),
 
     'rnaseq_blast_db_host'         => $self->o('databases_host'),
     'rnaseq_blast_db_port'         => $self->o('databases_port'),
+    'rnaseq_blast_db_name'         => $self->o('dbowner').'_'.$self->o('production_name').'_refine_'.$self->o('release_number'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
@@ -105,6 +108,8 @@ sub default_options {
     ######################################################
     ensembl_analysis_script           => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     load_optimise_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
+    delete_genes_script     => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'delete_genes.pl'),
+    add_analyses_script => catfile( $self->o('ensembl_analysis_script'), 'genebuild', 'add_rnaseq_analysis_descriptions.pl' ),
 
     ensembl_misc_script        => catdir($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts'),
     meta_coord_script          => catfile($self->o('ensembl_misc_script'), 'meta_coord', 'update_meta_coord.pl'),
@@ -113,19 +118,23 @@ sub default_options {
 
     rnaseq_daf_introns_file => catfile($self->o('output_dir'), 'rnaseq_daf_introns.dat'),
 
+    gene_ids_per_file => 600,
 
     ########################
     # Executable paths
     ########################
     deeptools_bamcoverage_path => catfile($self->o('software_base_path'), 'pyenv', 'versions', 'genebuild', 'bin', 'bamCoverage'),
 
-    'output_dir'    => catdir($self->o('rnaseq_dir'),'output'),
-    'merge_dir'     => catdir($self->o('rnaseq_dir'),'merge'),
-
-    use_threads => 3,
+    use_threads => 4,
 
     # RNA-seq pipeline stuff
     'rnaseq_dir'    => catdir($self->o('output_path'), 'rnaseq'),
+    output_dir    => catdir($self->o('rnaseq_dir'),'output'),
+    merge_dir     => catdir($self->o('rnaseq_dir'),'merge'),
+
+    delete_genes_dir => catdir($self->o('rnaseq_dir'),'delete_merge_genes'),
+    delete_genes_prefix => catfile($self->o('delete_genes_dir'), 'genes_to_delete.'),
+    optimise_dir => catdir($self->o('rnaseq_dir'),'optimise_rnaseq'),
 
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # No option below this mark should be modified
@@ -135,7 +144,7 @@ sub default_options {
     # db info
     ########################
     'rnaseq_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_'.$self->o('release_number'),
+      -dbname => $self->o('rnaseq_db_name'),
       -host   => $self->o('rnaseq_db_host'),
       -port   => $self->o('rnaseq_db_port'),
       -user   => $self->o('user'),
@@ -144,7 +153,7 @@ sub default_options {
     },
 
     'rnaseq_blast_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_blast_'.$self->o('release_number'),
+      -dbname => $self->o('rnaseq_blast_db_name'),
       -host   => $self->o('rnaseq_blast_db_host'),
       -port   => $self->o('rnaseq_blast_db_port'),
       -user   => $self->o('user'),
@@ -153,7 +162,7 @@ sub default_options {
     },
 
     'rnaseq_refine_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_refine_'.$self->o('release_number'),
+      -dbname => $self->o('rnaseq_refine_db_name'),
       -host   => $self->o('rnaseq_refine_db_host'),
       -port   => $self->o('rnaseq_refine_db_port'),
       -user   => $self->o('user'),
@@ -181,7 +190,8 @@ sub pipeline_create_commands {
     # inheriting database and hive tables' creation
     @{$self->SUPER::pipeline_create_commands},
 
-    'mkdir -p '.$self->o('rnaseq_dir'),
+    'mkdir -p '.$self->o('delete_genes_dir'),
+    'mkdir -p '.$self->o('optimise_dir'),
   ];
 }
 
@@ -202,7 +212,96 @@ sub pipeline_analyses {
       -rc_name    => 'default',
       -input_ids  => [{}],
       -flow_into => {
-        '1' => ['prepare_rnaseq_meta_data'],
+        '1' => ['delete_merged_genes_files'],
+      },
+    },
+
+    {
+      -logic_name => 'delete_merged_genes_files',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
+      -parameters => {
+        db_conn => $self->o('rnaseq_db'),
+        lines => $self->o('gene_ids_per_file'),
+        input_query => 'SELECT g.gene_id FROM gene g, analysis a'.
+          ' WHERE g.analysis_id = a.analysis_id AND a.logic_name  LIKE "%\_merged_rnaseq_gene" ORDER BY g.seq_region_id',
+        command_out => 'split -a 3 -d -l #lines# - '.$self->o('delete_genes_prefix'),
+        prepend => ['-NB', '-q'],
+      },
+      -rc_name => 'default',
+      -flow_into => {
+        1 => ['create_delete_merge_genes_jobs'],
+      },
+    },
+
+    {
+      -logic_name => 'create_delete_merge_genes_jobs',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+      -parameters => {
+        inputcmd => 'ls #delete_genes_prefix#*',
+        column_names => ['id_file'],
+        delete_genes_prefix => $self->o('delete_genes_prefix'),
+      },
+      -rc_name => 'default',
+      -flow_into  => {
+        '2->A' => ['delete_merge_genes'],
+        'A->1' => ['create_delete_merge_files_jobs'],
+      },
+    },
+
+    {
+      -logic_name => 'delete_merge_genes',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'perl '.$self->o('delete_genes_script').
+          ' -host '.$self->o('rnaseq_db', '-host').
+          ' -port '.$self->o('rnaseq_db', '-port').
+          ' -user '.$self->o('rnaseq_db', '-user').
+          ' -pass '.$self->o('rnaseq_db', '-pass').
+          ' -dbname '.$self->o('rnaseq_db', '-dbname').
+          ' -idfile #id_file#'
+      },
+      -rc_name => 'default',
+      -hive_capacity => 200,
+    },
+
+    {
+      -logic_name => 'create_delete_merge_files_jobs',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+      -parameters => {
+        db_conn => $self->o('rnaseq_db'),
+        inputquery => 'SELECT name FROM data_file JOIN analysis USING(analysis_id) WHERE logic_name LIKE "%\_merged_rnaseq\_%"',
+        column_names => ['file'],
+      },
+      -rc_name => 'default',
+      -flow_into  => {
+        '2->A' => ['delete_merge_files'],
+        'A->1' => ['clean_tables_merged_data'],
+      },
+    },
+
+    {
+      -logic_name => 'delete_merge_files',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'if [[ -e "'.$self->o('merge_dir').'/#file#.bam" ]]; then rm '.$self->o('merge_dir').'/#file#.bam*; fi',
+      },
+      -rc_name => 'default',
+    },
+
+    {
+      -logic_name => 'clean_tables_merged_data',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => $self->o('rnaseq_db'),
+        sql => [
+          'DELETE FROM data_file JOIN analysis USING(analysis_id) WHERE logic_name LIKE "%\_merged_rnaseq\_%"',
+          'DELETE FROM analysis WHERE logic_name LIKE "%\_merged_rnaseq\_%"',
+        ],
+      },
+      -rc_name    => 'default',
+
+      -flow_into => {
+        1 => ['prepare_rnaseq_meta_data'],
       },
     },
 
@@ -224,7 +323,8 @@ sub pipeline_analyses {
           'DELETE FROM meta WHERE meta_key IN ("genebuild.method","genebuild.projection_source_db","genebuild.start_date","repeat.analysis")',
           'UPDATE gene JOIN transcript USING(gene_id) SET canonical_transcript_id = transcript_id',
           'UPDATE transcript JOIN translation USING(transcript_id) SET canonical_translation_id = translation_id',
-          'UPDATE intron_supporting_evidence ise, analysis a1, analysis a2 SET ise.analysis_id = a2.analysis_id WHERE ise.analysis_id = a1.analysis_id AND a2.logic_name = REPLACE(a1.logic_name, "rnaseq_gene", "rnaseq_ise")',
+          'UPDATE intron_supporting_evidence ise, analysis a1, analysis a2 SET ise.analysis_id = a2.analysis_id'.
+            ' WHERE ise.analysis_id = a1.analysis_id AND a2.logic_name = REPLACE(a1.logic_name, "rnaseq_gene", "rnaseq_ise")',
           'UPDATE gene SET source = "ensembl", biotype = "protein_coding", stable_id = NULL',
           'UPDATE transcript SET source = "ensembl", biotype = "protein_coding", stable_id = NULL',
           'UPDATE translation SET stable_id = NULL',
@@ -246,27 +346,12 @@ sub pipeline_analyses {
         enscode_root_dir => $self->o('enscode_root_dir'),
         mapping_required => 0,
         target_db => $self->o('rnaseq_db'),
-        id_start => 'RNASEQ',
+        id_start => 'RNASEQ01',
         output_path => $self->o('output_path'),
         _stable_id_file => 'rnaseq_stable_ids.sql',
       },
       -rc_name    => '2GB',
       -flow_into => {
-        1 => ['populate_production_tables_rnaseq'],
-      },
-    },
-
-    {
-      -logic_name => 'populate_production_tables_rnaseq',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HivePopulateProductionTables',
-      -parameters => {
-        'target_db'        => $self->o('rnaseq_db'),
-        'output_path'      => $self->o('output_path'),
-        'enscode_root_dir' => $self->o('enscode_root_dir'),
-        'production_db'    => $self->o('production_db'),
-      },
-      -rc_name    => 'default',
-      -flow_into  => {
         1 => ['dump_daf_introns'],
       },
     },
@@ -276,8 +361,9 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
       -parameters => {
         db_conn => $self->o('rnaseq_refine_db'),
-        input_query => 'SELECT daf.* FROM dna_align_feature daf, analysis a WHERE daf.analysis_id = a.analysis_id AND a.logic_name != "rough_transcripts"',
-        command_out => q(sort -nk2 -nk3 -nk4 | sed 's/NULL/\\N/g;s/^[0-9]\+/\\N/' | awk -F \t '{$15="NULL"; print $0}' > #daf_file#),
+        input_query => 'SELECT daf.* FROM dna_align_feature daf, analysis a'.
+          ' WHERE daf.analysis_id = a.analysis_id AND a.logic_name != "rough_transcripts" AND a.logic_name NOT LIKE "%\_merged_rnaseq_daf"',
+        command_out => q(sort -nk2 -nk3 -nk4 | sed 's/NULL/\\N/g;s/^[0-9]\+/\\N/' > #daf_file#),
         daf_file => $self->o('rnaseq_daf_introns_file'),
         prepend => ['-NB', '-q'],
       },
@@ -296,6 +382,22 @@ sub pipeline_analyses {
         daf_file => $self->o('rnaseq_daf_introns_file'),
       },
       -rc_name => 'default',
+      -flow_into => {
+        1 => ['update_dna_align_feature_table'],
+      },
+    },
+
+    {
+      -logic_name => 'update_dna_align_feature_table',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => $self->o('rnaseq_db'),
+        sql => [
+          'UPDATE dna_align_feature SET external_db_id = NULL',
+          'UPDATE dna_align_feature SET align_type = "ensembl"',
+        ],
+      },
+      -rc_name    => 'default',
       -flow_into => {
         1 => ['set_rnaseq_meta_coords'],
       },
@@ -338,7 +440,7 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         cmd => 'perl '.$self->o('load_optimise_script').
-          ' -output_path '.catfile($self->o('rnaseq_dir'), 'optimise_rnaseq').
+          ' -output_path '.$self->o('optimise_dir').
           ' -uniprot_filename '.$self->o('protein_entry_loc').
           ' -dbuser '.$self->o('user').
           ' -dbpass '.$self->o('password').
@@ -354,36 +456,6 @@ sub pipeline_analyses {
       -max_retry_count => 0,
       -rc_name => '8GB',
       -flow_into => {
-        1 => ['null_rnaseq_columns'],
-      },
-    },
-
-    {
-      -logic_name => 'null_rnaseq_columns',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => $self->o('rnaseq_db'),
-        sql => [
-          'UPDATE dna_align_feature SET external_db_id = NULL',
-        ],
-      },
-      -rc_name    => 'default',
-      -flow_into => {
-        1 => ['rnaseq_set_align_type'],
-      },
-    },
-
-    {
-      -logic_name => 'rnaseq_set_align_type',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => $self->o('rnaseq_db'),
-        sql => [
-          'UPDATE dna_align_feature SET align_type = "ensembl"',
-        ],
-      },
-      -rc_name    => 'default',
-      -flow_into => {
         1 => ['rnaseq_gene_sanity_checks'],
       },
     },
@@ -398,7 +470,7 @@ sub pipeline_analyses {
           'gene_db_checks')->{'rnaseq_final'},
       },
 
-      -rc_name    => '4GB',
+      -rc_name    => '8GB',
       -flow_into => {
         1 => ['create_bam_file_job'],
       },
@@ -424,7 +496,8 @@ sub pipeline_analyses {
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
         deeptools_bamcoverage => $self->o('deeptools_bamcoverage_path'),
-        cmd => 'TMPDIR=#working_dir# ; #deeptools_bamcoverage# --numberOfProcessors 4 --binSize 1 -b '.catfile('#working_dir#','#bam_file#').' -o '.catfile('#working_dir#','#bam_file#').'.bw',
+        num_cpus => $self->o('use_threads'),
+        cmd => 'TMPDIR=#working_dir# ; #deeptools_bamcoverage# --numberOfProcessors #num_cpus# --binSize 1 -b '.catfile('#working_dir#','#bam_file#').' -o '.catfile('#working_dir#','#bam_file#').'.bw',
         working_dir => $self->o('merge_dir'),
       },
       -rc_name => '10GB_multithread',
@@ -475,22 +548,14 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'cd #working_dir#;
         FILES=($(ls *.bam));
-        if [[ $((${#FILES[*]}-1)) > 0 ]]
-        then printf "#free_text_multi#" | sed "s/NUM/$((${#FILES[*]}-1))/g;s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" > README.1
-        else printf "#free_text_single#" | sed "s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" >> README.1
-        fi
+        printf "#free_text#" | sed "s/NUM/$((${#FILES[*]}-1))/g;s/ \([a-z]\)\([a-z]\+_\)/ \U\1\E\2/;s/_/ /g" > README.1
         IFS=$\'\n\';
         echo "${FILES[*]}" >> README.1',
         working_dir => $self->o('merge_dir'),
         species_name  => $self->o('species_name'),
-        free_text_single => 'Note\n------\n\n'.
-          'The RNASeq data for #species_name# consists of 1 individual sample.\n\n'.
+        free_text => 'Note\n------\n\n'.
+          'The RNASeq data for #species_name# consists of NUM individual sample.\n\n'.
           'The bam file has an index file (.bai) and a BigWig file (.bw) which contains the coverage information.\n\n'.
-          'Use the md5sum.txt file to check the integrity of the downloaded files.\n\n'.
-          'Files\n-----\n',
-        free_text_multi => 'Note\n------\n\n'.
-          'The RNASeq data for #species_name# consists of NUM individual samples and one merged set containing all NUM samples.\n\n'.
-          'All files have an index file (.bai) and a BigWig file (.bw) which contains the coverage information.\n\n'.
           'Use the md5sum.txt file to check the integrity of the downloaded files.\n\n'.
           'Files\n-----\n',
       },
@@ -511,6 +576,21 @@ sub pipeline_analyses {
       -max_retry_count => 0,
 
       -rc_name    => '4GB',
+      -flow_into  => {
+        1 => ['add_analyses_descriptions'],
+      },
+    },
+
+    {
+      -logic_name => 'add_analyses_descriptions',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'perl '.$self->o('add_analyses_script').' -host #host# -port #port# -dbname #dbname#',
+        dbname => $self->o('rnaseq_db_name'),
+        host   => $self->o('rnaseq_db_host'),
+        port   => $self->o('rnaseq_db_port'),
+      },
+      -rc_name => 'default',
       -flow_into  => {
         1 => ['rnaseq_assembly_name_update'],
       },
@@ -548,7 +628,7 @@ sub resource_classes {
     '2GB' => { LSF => $self->lsf_resource_builder('production', 2000)},
     '4GB' => { LSF => $self->lsf_resource_builder('production', 4000)},
     '8GB' => { LSF => $self->lsf_resource_builder('production', 8000)},
-    '10GB_multithread' => { LSF => $self->lsf_resource_builder('production', 10000, undef, undef, ($self->default_options->{'use_threads'}+1))},
+    '10GB_multithread' => { LSF => $self->lsf_resource_builder('production', 10000, undef, undef, $self->default_options->{'use_threads'})},
     'default' => { LSF => $self->lsf_resource_builder('production', 900)},
   }
 }

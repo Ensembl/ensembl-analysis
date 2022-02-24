@@ -58,7 +58,7 @@ use warnings;
 use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(run_command);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene attach_Analysis_to_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils;
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
@@ -104,6 +104,7 @@ sub param_defaults {
 sub fetch_input {
   my $self = shift;
 
+  $self->create_analysis;
   return 1;
 }
 
@@ -204,9 +205,20 @@ sub write_output {
     }
 
     my $copy_biotypes_to_ignore = $self->param('copy_biotypes_to_ignore');
+    my $add_analysis = $self->param_is_defined('logic_name') ? $self->param('logic_name') : undef;
+    my $add_biotype = $self->param_is_defined('biotype') ? $self->param('biotype') : undef;
     foreach my $gene (@{$output_genes}) {
       if($copy_biotypes_to_ignore && $copy_biotypes_to_ignore->{$gene->biotype}) {
         next;
+      }
+      if ($add_analysis) {
+        attach_Analysis_to_Gene($gene, $self->analysis);
+      }
+      if ($add_biotype) {
+        $gene->biotype($add_biotype);
+        foreach my $transcript (@{$gene->get_all_Transcripts}) {
+          $transcript->biotype($add_biotype);
+        }
       }
       empty_Gene($gene);
       $output_ga->store($gene);
