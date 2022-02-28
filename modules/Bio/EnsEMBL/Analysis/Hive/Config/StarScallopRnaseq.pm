@@ -1014,7 +1014,19 @@ sub pipeline_analyses {
         target_type => 'generic',
       },
       -rc_name => '5GB',
+      -flow_into => {
+      	 '2' => ['delete_short_reads'],
+      },
     },
+
+     { 
+     -logic_name => 'delete_short_reads',
+     -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+     -parameters => {
+       cmd => 'rm '.$self->o('input_dir').'/*.gz',
+     },
+     -rc_name => 'default',
+     },
 
     {
       -logic_name => 'create_pcp_db',

@@ -135,6 +135,7 @@ sub default_options {
     delete_genes_dir => catdir($self->o('rnaseq_dir'),'delete_merge_genes'),
     delete_genes_prefix => catfile($self->o('delete_genes_dir'), 'genes_to_delete.'),
     optimise_dir => catdir($self->o('rnaseq_dir'),'optimise_rnaseq'),
+    production_ftp_dir => '/nfs/production/flicek/ensembl/production/ensemblftp/rapid-release/',
 
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # No option below this mark should be modified
@@ -616,6 +617,29 @@ sub pipeline_analyses {
       },
 
       -rc_name => 'default',
+      -flow_into  => {
+        1 => ['copy_data_files_to_ftp'],
+      },
+    },
+    
+    {
+      -logic_name => 'copy_data_files_to_ftp',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+                       cmd => "sudo -u genebuild mkdir -p " . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/' . ";sudo -u genebuild rsync -ahvW " . $self->o('merge_dir') . '/* ' . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/' . ";sudo -u genebuild chmod -R g+w " .$self->o('production_ftp_dir') . 'species/' . ucfirst($self->o('species_name')). "/",
+                     },
+      -rc_name    => '2GB',
+      -flow_into => {
+	1 => ['delete_data_files'],
+      }
+    },
+
+    { 
+      -logic_name => 'delete_data_files',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+       -parameters => { 
+	 cmd => 'rm '. $self->o('merge_dir') . '/* ',
+       }
     },
   ];
 }
