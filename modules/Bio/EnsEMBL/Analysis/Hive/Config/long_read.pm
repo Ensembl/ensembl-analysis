@@ -515,8 +515,20 @@ sub pipeline_analyses {
       },
       -rc_name => 'default',
       -flow_into  => {
-        '1'  => ['notification_pipeline_is_done'],
+        '1'  => ['delete_long_reads'],
       },
+    },
+
+   {
+     -logic_name => 'delete_long_reads',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'rm '.$self->o('long_read_fastq_dir').'/*',
+      },
+      -rc_name => 'default',
+      -flow_into  => {
+	'1'  => ['notification_pipeline_is_done'],
+      }
     },
 
     {
