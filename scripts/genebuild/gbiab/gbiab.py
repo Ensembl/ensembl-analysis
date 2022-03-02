@@ -3738,7 +3738,7 @@ if __name__ == '__main__':
 
   if run_trnascan:
      print("Annotating tRNAs")
-#     run_trnascan_regions(genome_file,trnascan_path,trnascan_filter_path,work_dir,num_threads)
+     run_trnascan_regions(genome_file,trnascan_path,trnascan_filter_path,work_dir,num_threads)
 
 
   #################################
