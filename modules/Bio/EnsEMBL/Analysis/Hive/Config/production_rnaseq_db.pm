@@ -206,7 +206,7 @@ sub pipeline_analyses {
       -logic_name => 'create_rnaseq_db',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
       -parameters => {
-        source_db => $self->o('rnaseq_refine_db_name'),
+        source_db => $self->o('rnaseq_refine_db'),
         target_db => $self->o('rnaseq_db'),
         create_type => 'copy',
       },
