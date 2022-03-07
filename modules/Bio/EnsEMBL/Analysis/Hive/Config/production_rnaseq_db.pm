@@ -83,7 +83,7 @@ sub default_options {
 
     'rnaseq_refine_db_host'         => $self->o('databases_host'),
     'rnaseq_refine_db_port'         => $self->o('databases_port'),
-    'rnaseq_refine_db_name'         => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_blast_'.$self->o('release_number'),
+    'rnaseq_refine_db_name'         => $self->o('dbowner').'_'.$self->o('production_name').'_scallop_blast_'.$self->o('release_number'),
 
     'rnaseq_blast_db_host'         => $self->o('databases_host'),
     'rnaseq_blast_db_port'         => $self->o('databases_port'),
@@ -206,7 +206,7 @@ sub pipeline_analyses {
       -logic_name => 'create_rnaseq_db',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
       -parameters => {
-        source_db => $self->o('rnaseq_blast_db'),
+        source_db => $self->o('rnaseq_refine_db_name'),
         target_db => $self->o('rnaseq_db'),
         create_type => 'copy',
       },
