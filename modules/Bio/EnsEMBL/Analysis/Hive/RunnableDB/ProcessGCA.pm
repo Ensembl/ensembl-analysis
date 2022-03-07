@@ -89,6 +89,7 @@ sub fetch_input {
   #my $current_genebuild  = 0;
   my $output_dir_base    = $self->param('base_output_dir');
   my $assembly_accession = $self->param('assembly_accession');
+  say "assembly_accession " . $assembly_accession;
   my $output_dir         = catdir( $output_dir_base, $assembly_accession );
   my $genome_files_dir   = catdir( $output_dir,      'genome_files' );
   my $short_read_dir     = catdir( $output_dir,      'short_read_fastq' );
@@ -125,14 +126,76 @@ sub fetch_input {
     -user   => $self->param('pipe_db')->{'-user'},
     -pass   => $self->param('pipe_db')->{'-pass'},
     -dbname => $self->param('pipe_db')->{'-dbname'} );
+  my $init_file = $self->param('init_config');
+  my $output_params = {};
+  my $sth;
+  my $general_hash = {};
+  my ($stable_id_prefix, $clade, $species_taxon_id, $taxon_id, $assembly_name, $common_name, $assembly_refseq_accession, $assembly_date, $species_name, $assembly_group, $stable_id_start);
+  if ( -e $init_file ) {
+    open( IN, $init_file ) || throw("Could not open $init_file");
+    while (<IN>) {
+      my $line = $_;
 
-  my $sql = "SELECT assembly_id FROM assembly WHERE CONCAT(chain,'.',version) = ?";
-  my $sth = $registry_dba->dbc->prepare($sql);
-  $sth->bind_param( 1, $assembly_accession );
-  $sth->execute();
-  my ($assembly_id) = $sth->fetchrow();
+      #$line =~ s/\s//g;
+      if ( $line =~ /^(.+)\=(.+)/ ) {
+        my $key   = $1;
+        my $value = $2;
+        say "Found key/value pair: " . $key . " => " . $value;
+	if ( $key eq 'stable_id_prefix' ) {	
+		#$general_hash->{$key} = $value;
+	 $stable_id_prefix = $value;
+	 
+	 say "dentro if: " . $stable_id_prefix;
+	 }
+	if ( $key eq 'clade' ) {
+	 $clade = $value;
+	 }
+	if ( $key eq 'species_taxon_id' ) { 
+	 $species_taxon_id = $value;
+	 }
+	if ( $key eq 'taxon_id' ) { 
+	 $taxon_id = $value;
+ 	}
+	if ( $key eq 'assembly_name' ) {
+	 $assembly_name = $value;
+ 	}
+	if ( $key eq 'common_name' ) {	
+       	 $common_name = $value;
+        }
+	if ( $key eq 'assembly_refseq_accession' ) {
+	 $assembly_refseq_accession = $value;
+        }
+	if ( $key eq 'assembly_date' ) {
+	 $assembly_date = $value;
+ 	}
+	if ( $key eq 'species_name' ) {
+	 $species_name = $value;
+        }
+	if ( $key eq 'assembly_group' ) {
+	 $assembly_group = $value;
+        }
+	if ( $key eq 'stable_id_start' ) {
+	 $stable_id_start = $value;
+        }
+	 #        if ( $key eq 'user_w' ) {
+	#  $key = 'user';
+	#  $general_hash->{$key} = $value;
+	#}
+	} elsif ( $line eq "\n" ) {
+      } else {
+        say "Line format not recognised. Skipping line:\n" . $line;
+      }
+    }
+    close IN || throw("Could not close $init_file");
 
-  $sql = "SELECT species_prefix,
+  } else {
+    my $sql = "SELECT assembly_id FROM assembly WHERE CONCAT(chain,'.',version) = ?";
+    my $sth = $registry_dba->dbc->prepare($sql);
+    $sth->bind_param( 1, $assembly_accession );
+    $sth->execute();
+    my ($assembly_id) = $sth->fetchrow();
+
+    $sql = "SELECT species_prefix,
                  clade,
                  species_id,
                  taxonomy,
@@ -144,24 +207,29 @@ sub fetch_input {
                  assembly_group,
                  stable_id_space_start
                  FROM assembly JOIN meta as m USING(assembly_id) JOIN stable_id_space USING(stable_id_space_id) WHERE assembly_id=?";
-  $sth = $registry_dba->dbc->prepare($sql);
+    $sth = $registry_dba->dbc->prepare($sql);
 
-  $sth->bind_param( 1, $assembly_id );
-  $sth->execute();
+    $sth->bind_param( 1, $assembly_id );
+    $sth->execute();
 
-  my $output_params = {};
-  my ( $stable_id_prefix, $clade, $species_taxon_id, $taxon_id, $assembly_name, $common_name, $assembly_refseq_accession, $assembly_date, $species_name, $assembly_group, $stable_id_start ) = $sth->fetchrow();
-
+    my ( $stable_id_prefix, $clade, $species_taxon_id, $taxon_id, $assembly_name, $common_name, $assembly_refseq_accession, $assembly_date, $species_name, $assembly_group, $stable_id_start ) = $sth->fetchrow();
+  }
+  say "stable_id_prefix " . $stable_id_prefix;
   my $s = $stable_id_prefix;
   #$s =~ s/(ENS)/BRAKER/m;
   #my $stable_id_prefix = $s;
   $s =~ s/ENS//g;
   my $species_prefix  = $s;
   my $scientific_name = $species_name;
+  say $species_name;
   $species_name = lc($species_name);
+  say $species_name;
   $species_name =~ s/ +/\_/g;
+  say $species_name;
   $species_name =~ s/\_$//;                # This cropped up
+  say $species_name;
   $species_name =~ /([^\_]+)\_([^\_]+)/;
+  say $species_name;
   my $p1                    = $1;
   my $p2                    = $2;
   my $binomial_species_name = $p1 . "_" . $p2;
