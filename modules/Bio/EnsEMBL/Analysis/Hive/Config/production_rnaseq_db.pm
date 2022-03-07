@@ -295,7 +295,7 @@ sub pipeline_analyses {
       -parameters => {
         db_conn => $self->o('rnaseq_db'),
         sql => [
-          'DELETE FROM data_file JOIN analysis USING(analysis_id) WHERE logic_name LIKE "%\_merged_rnaseq\_%"',
+          'DELETE data_file FROM data_file JOIN analysis USING(analysis_id) WHERE logic_name LIKE "%\_merged_rnaseq\_%"',
           'DELETE FROM analysis WHERE logic_name LIKE "%\_merged_rnaseq\_%"',
         ],
       },
