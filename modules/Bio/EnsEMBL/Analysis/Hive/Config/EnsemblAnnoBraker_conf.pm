@@ -922,7 +922,8 @@ sub pipeline_analyses {
         'current_genebuild'           => $self->o('current_genebuild'),
 	'init_config'     =>$self->o('init_config'),
         'assembly_accession'     =>$self->o('assembly_accession'),
-      },
+   	'repeatmodeler_library' =>$self->o('repeatmodeler_library'),  
+   },
       -rc_name => 'default',
 
       -flow_into => {

@@ -89,6 +89,7 @@ sub fetch_input {
   #my $current_genebuild  = 0;
   my $output_dir_base    = $self->param('base_output_dir');
   my $assembly_accession = $self->param('assembly_accession');
+  my $repeatmodeler_library = $self->param('repeatmodeler_library');
   say "assembly_accession " . $assembly_accession;
   my $output_dir         = catdir( $output_dir_base, $assembly_accession );
   my $genome_files_dir   = catdir( $output_dir,      'genome_files' );
@@ -341,6 +342,7 @@ sub fetch_input {
     ' --busco_protein_file ' . $busco_protein_file .
     ' --rfam_accessions_file ' . $rfam_accessions_file .
     ' --num_threads ' . $self->param('num_threads') .
+    ' --repeatmasker_library ' . $repeatmodeler_library .
     ' --run_full_annotation 1' .
     ' --load_to_ensembl_db 1';
 
@@ -436,6 +438,7 @@ sub fetch_input {
   $output_params->{'anno_red_commandline'}            = $anno_red_commandline;
   $output_params->{'registry_file'}                   = $new_registry_file;
   $output_params->{'species_prefix'}                  = $species_prefix;
+  $output_params->{'repeatmodeler_library'}           = $repeatmodeler_library;
   $self->param( 'output_params', $output_params );
 }
 

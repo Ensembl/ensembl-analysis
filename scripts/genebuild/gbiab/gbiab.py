@@ -3566,6 +3566,7 @@ if __name__ == '__main__':
   parser.add_argument('--load_to_ensembl_db', help='Load results to an Ensembl db, must also provide the db_details flag', required=False)
   parser.add_argument('--trim_fastq', help='Trim the short read files using Trim Galore', required=False)
   parser.add_argument('--delete_pre_trim_fastq', help='Delete the original fastq files after trimming', required=False)
+  parser.add_argument('--repeatmasker_library', help='Specify library for repeatmasker (default homo) ', required=False)
   args = parser.parse_args()
 
   work_dir = args.output_dir
@@ -3628,6 +3629,7 @@ if __name__ == '__main__':
   load_to_ensembl_db = args.load_to_ensembl_db
   trim_fastq = args.trim_fastq
   delete_pre_trim_fastq = args.delete_pre_trim_fastq
+  library = args.repeatmasker_library
 
   main_script_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -3713,7 +3715,7 @@ if __name__ == '__main__':
 
   if run_repeatmasker:
      print("Annotating repeats with RepeatMasker")
-     run_repeatmasker_regions(genome_file,repeatmasker_path,None,work_dir,num_threads)
+     run_repeatmasker_regions(genome_file,repeatmasker_path,library,work_dir,num_threads)
 
 
   #################################
