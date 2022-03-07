@@ -1,4 +1,3 @@
-
 =head1 LICENSE
 
 Copyright [2021] EMBL-European Bioinformatics Institute
@@ -45,6 +44,7 @@ sub default_options {
     'num_threads'                  => 20,
     'dbowner'                      => '',                                                                                                                # || $ENV{EHIVE_USER} || $ENV{USER},
     'base_output_dir'              => '',
+    'init_config'               => '', #path for configuration file (custom loading)
     'override_clade'               => '',
     'protein_file'                 => '',
     'busco_protein_file'           => '',
@@ -139,6 +139,7 @@ sub default_options {
     'filtered_rfam_cm' => $self->o('output_path') . '/Rfam.cm',
     'clade'            => $self->o('repbase_logic_name'),
 
+
 ########################
 # Pipe and ref db info
 ########################
@@ -169,6 +170,8 @@ sub default_options {
     'core_db_name'   => $self->o('dna_db_name'),
     'core_db_server' => $self->o('dna_db_server'),
     'core_db_port'   => $self->o('dna_db_port'),
+
+
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release'      => $ENV{ENSEMBL_RELEASE},     # this is the current release version on staging to be able to get the correct database
@@ -342,6 +345,7 @@ sub default_options {
     best_targetted_min_coverage => 50,    # This is to avoid having models based on fragment alignment and low identity
     best_targetted_min_identity => 50,    # This is to avoid having models based on fragment alignment and low identity
 
+
 # RNA-seq pipeline stuff
     # You have the choice between:
     #  * using a csv file you already created
@@ -472,6 +476,9 @@ sub default_options {
         'ipscan_lookup' => 1,
       },
     ],
+
+
+
 
 # Max internal stops for projected transcripts
     'projection_pid'                        => '50',
@@ -788,6 +795,7 @@ sub pipeline_create_commands {
   }
   $tables .= ' KEY(SM), KEY(ID)';
 
+
 ################
 # LastZ
 ################
@@ -825,6 +833,7 @@ sub pipeline_create_commands {
 
   ];
 }
+
 
 sub pipeline_wide_parameters {
   my ($self) = @_;
@@ -878,6 +887,7 @@ sub pipeline_analyses {
 
   return [
 
+
 ###############################################################################
 #
 # ASSEMBLY LOADING ANALYSES
@@ -887,6 +897,7 @@ sub pipeline_analyses {
 # 2) Standard create core, populate tables, download data etc
 # 3) Either run gbiab or setup gbiab
 # 4) Finalise steps
+
 
     {
       # Creates a reference db for each species
@@ -909,6 +920,8 @@ sub pipeline_analyses {
         'override_clade'              => $self->o('override_clade'),
         'pipe_db'                     => $self->o('pipe_db'),
         'current_genebuild'           => $self->o('current_genebuild'),
+	'init_config'     =>$self->o('init_config'),
+        'assembly_accession'     =>$self->o('assembly_accession'),
       },
       -rc_name => 'default',
 
@@ -921,6 +934,7 @@ sub pipeline_analyses {
         #	{'assembly_accession' => 'GCA_905333015.1'},
       ],
     },
+
 
     {
       -logic_name => 'download_rnaseq_csv',
@@ -942,6 +956,7 @@ sub pipeline_analyses {
       },
     },
 
+
     {
       -logic_name => 'fan_short_read_download',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -955,6 +970,7 @@ sub pipeline_analyses {
       },
     },
 
+
     {
       -logic_name => 'create_sr_fastq_download_jobs',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
@@ -967,6 +983,7 @@ sub pipeline_analyses {
       },
     },
 
+
     {
       -logic_name => 'download_short_read_fastqs',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadRNASeqFastqs',
@@ -976,6 +993,7 @@ sub pipeline_analyses {
       },
       -analysis_capacity => 50,
     },
+
 
     {
       -logic_name => 'download_long_read_csv',
@@ -1010,6 +1028,7 @@ sub pipeline_analyses {
       -rc_name => 'default',
     },
 
+
     {
       -logic_name => 'create_lr_fastq_download_jobs',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
@@ -1021,6 +1040,7 @@ sub pipeline_analyses {
         2 => { 'download_long_read_fastq' => { 'iid' => '#filename#', 'input_dir' => '#input_dir#' } },
       },
     },
+
 
     {
       -logic_name => 'download_long_read_fastq',
@@ -1052,6 +1072,7 @@ sub pipeline_analyses {
       },
     },
 
+
     {
       # Load production tables into each reference
       -logic_name => 'populate_production_tables',
@@ -1065,10 +1086,73 @@ sub pipeline_analyses {
       -rc_name => 'default',
 
       -flow_into => {
-        1 => ['process_assembly_info'],
+	      # 1 => ['process_assembly_info'],
+	      1 => WHEN ('#load_toplevel_only# == 1' => ['process_assembly_info'],
+                        '#load_toplevel_only# == 2' => ['custom_load_toplevel']),
+      },
+    },
+    ####
+    # Loading custom assembly where the user provide a FASTA file, probably a repeat library
+    ####
+    {
+      -logic_name => 'custom_load_toplevel',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'assembly_loading', 'load_seq_region.pl').
+          ' -dbhost '.$self->o('dna_db_server').
+          ' -dbuser '.$self->o('user').
+          ' -dbpass '.$self->o('password').
+          ' -dbport '.$self->o('dna_db_port').
+          ' -dbname '.$self->o('dna_db_name').
+          ' -coord_system_version '.$self->o('assembly_name').
+          ' -default_version'.
+          ' -coord_system_name primary_assembly'.
+          ' -rank 1'.
+          ' -fasta_file '. $self->o('custom_toplevel_file_path').
+          ' -sequence_level'.
+          ' -noverbose',
+      },
+      -rc_name => '4GB',
+      -flow_into => {
+        1 => ['custom_set_toplevel'],
       },
     },
 
+    {
+      -logic_name => 'custom_set_toplevel',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'perl '.catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'assembly_loading', 'set_toplevel.pl').
+          ' -dbhost '.$self->o('dna_db_server').
+          ' -dbuser '.$self->o('user').
+          ' -dbpass '.$self->o('password').
+          ' -dbport '.$self->o('dna_db_port').
+          ' -dbname '.$self->o('dna_db_name'),
+      },
+      -rc_name => 'default',
+      -flow_into  => {
+        1 => ['custom_add_meta_keys'],
+      },
+    },
+
+    {
+      -logic_name => 'custom_add_meta_keys',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => '#core_db#',
+        sql => [
+          'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"assembly.default","'.$self->o('assembly_name').'")',
+          'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"assembly.name","'.$self->o('assembly_name').'")',
+          'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"species.taxonomy_id","'.$self->o('taxon_id').'")',
+        ],
+      },
+      -rc_name    => 'default',
+      -flow_into => {
+        1 => ['anno_load_meta_info'],
+      },
+    },
+
+  
     {
       # Download the files and dir structure from the NCBI ftp site. Uses the link to a species in the ftp_link_file
       -logic_name => 'process_assembly_info',
@@ -1173,6 +1257,7 @@ sub pipeline_analyses {
         1 => ['load_taxonomy_info'],
       },
     },
+    
     {
       -logic_name => 'load_taxonomy_info',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadTaxonomyInfo',
@@ -1186,6 +1271,7 @@ sub pipeline_analyses {
         1 => ['dump_toplevel_file'],    #['load_windowmasker_repeats'],# 'fan_refseq_import'],
       },
     },
+
 
     {
       -logic_name => 'dump_toplevel_file',
@@ -1203,6 +1289,7 @@ sub pipeline_analyses {
       },
       -rc_name => '3GB',
     },
+
 
     {
       -logic_name => 'reheader_toplevel_file',
