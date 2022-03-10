@@ -48,6 +48,8 @@ my $ids_to_map_list;
 my $output_dir = '';
 my $output_file_prefix = "mapping_stats";
 
+my $xy_scanner;
+
 my $options = GetOptions ("reference_user=s"          => \$reference_user,
                           "reference_host=s"          => \$reference_host,
                           "reference_port=i"          => \$reference_port,
@@ -57,7 +59,8 @@ my $options = GetOptions ("reference_user=s"          => \$reference_user,
                           "query_port=i"              => \$query_port,
                           "query_dbname=s"            => \$query_dbname,
                           "output_dir=s"              => \$output_dir,
-                          "output_file_prefix=s"      => \$output_file_prefix);
+                          "output_file_prefix=s"      => \$output_file_prefix,
+                          "xy_scanner=s"              => \$xy_scanner);
 
 
 my $input_genes_file = $output_file_prefix.".input_gene_ids.txt";
@@ -120,7 +123,7 @@ foreach my $slice (@$source_slices) {
   my $genes = $slice->get_all_Genes();
   unless($ids_to_map_list) {
     say "Filtering ".scalar(@$genes)." initial genes";
-    $genes = filter_genes($genes,$source_gene_ids_hash);
+    $genes = filter_genes($genes,$source_gene_ids_hash,$xy_scanner);
     say "Have ".scalar(@$genes)." genes post filtering";
   }
   foreach my $gene (@$genes) {
@@ -344,11 +347,27 @@ sub print_mapping_stats {
 
 
 sub filter_genes {
-  my ($genes,$source_gene_ids_hash) = @_;
+  my ($genes,$source_gene_ids_hash,$xy_scanner) = @_;
 
   # This should mirror the code in the Minimap2Remap filtering to give comparable numbers
   my $filtered_genes = [];
   foreach my $gene (@$genes) {
+
+    # If xy_scanner has something in it at this point then it means one or both of the chromosomes are missing
+    # from the target gene set so we want to skip the genes from the source gene set
+    if ($xy_scanner and ($gene->seq_region_name() eq 'X' or $gene->seq_region_name() eq 'Y')) {
+      if ($xy_scanner eq 'None') {
+        say "Skipping gene  ".$gene->stable_id()." (".$gene->biotype().", ".$gene->seq_region_name."), reason: xy_scanner None";
+        next;
+      } elsif($xy_scanner eq 'X' and $gene->seq_region_name() eq 'Y') {
+        say "Skipping gene  ".$gene->stable_id()." (".$gene->biotype().", ".$gene->seq_region_name."), reason: xy_scanner X and gene seq region name Y";
+        next;
+      } elsif($xy_scanner eq 'Y' and $gene->seq_region_name() eq 'X') {
+        say "Skipping gene  ".$gene->stable_id()." (".$gene->biotype().", ".$gene->seq_region_name."), reason: xy_scanner Y and gene seq region name X";
+        next;
+      }
+    }
+
     if($gene->seq_region_name() eq 'MT') {
       say "Skipping gene  ".$gene->stable_id()." (".$gene->biotype().", ".$gene->seq_region_name."), reason: MT gene";
       next;
