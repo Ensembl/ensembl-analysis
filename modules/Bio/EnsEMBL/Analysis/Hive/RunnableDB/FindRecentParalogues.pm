@@ -467,16 +467,20 @@ sub fetch_input_genes_by_id {
     }
 
     my $transcript = $self->set_canonical($gene);
-    my $transcript_description = $transcript->description();
-    $transcript_description =~ /Coverage\: (.+), Perc id\: (.+)$/;
-    my $coverage = $1;
-    my $perc_id = $2;
-    unless(defined($coverage) and defined($perc_id)) {
-      $self->throw("Issue parsing coverage and percent id from transcript description. Transcript description:\n".$transcript_description);
-    }
+    if ($transcript) {
+      my $transcript_description = $transcript->description();
+      $transcript_description =~ /Coverage\: (.+), Perc id\: (.+)$/;
+      my $coverage = $1;
+      my $perc_id = $2;
+      unless(defined($coverage) and defined($perc_id)) {
+        $self->throw("Issue parsing coverage and percent id from transcript description. Transcript description:\n".$transcript_description);
+      }
 
-    # Skip over canonical transcripts that don't have near perfect mappings
-    unless($coverage >= $coverage_cutoff and $perc_id >= $perc_id_cutoff) {
+      # Skip over canonical transcripts that don't have near perfect mappings
+      unless($coverage >= $coverage_cutoff and $perc_id >= $perc_id_cutoff) {
+        next;
+      }
+    } else {
       next;
     }
 
