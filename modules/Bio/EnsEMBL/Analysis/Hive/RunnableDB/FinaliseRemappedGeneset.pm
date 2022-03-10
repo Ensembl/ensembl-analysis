@@ -163,6 +163,9 @@ sub parse_descriptions {
     my $total_cov = 0;
     my $total_perc_id = 0;
     my $transcripts = $gene->get_all_Transcripts();
+    if (scalar(@$transcripts) == 0) {
+      next;
+    }
     foreach my $transcript (@$transcripts) {
       # Parse the cov and percent id out, also track the total cov/perc id to get average for gene
       my $transcript_description = $transcript->description();
