@@ -387,7 +387,7 @@ sub default_options {
     },
 
     rnaseq_blast_db => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_rnaseq_blast_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_scallop_blast_'.$self->o('release_number'),
       -host   => $self->o('rnaseq_blast_db_host'),
       -port   => $self->o('rnaseq_blast_db_port'),
       -user   => $self->o('user'),
