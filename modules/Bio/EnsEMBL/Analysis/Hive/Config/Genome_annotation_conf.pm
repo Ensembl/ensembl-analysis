@@ -1618,7 +1618,7 @@ sub pipeline_analyses {
       -logic_name => 'skip_rnaseq',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [ #skip_rnaseq# -eq 0 ]; then exit 0; else exit 42;fi',
+        cmd => 'if [ #skip_rnaseq# -eq 0 ] && [ -s "'.$self->o('rnaseq_summary_file').'" ] || [ -s "'.$self->o('rnaseq_summary_file_genus').'" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => {'42' => 2},
       },
       -rc_name => 'default',
@@ -1761,12 +1761,13 @@ sub pipeline_analyses {
       -logic_name => 'skip_long_read',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [ #skip_long_read# -eq 0 ] && [ -s "'.$self->o('long_read_summary_file').'" || -s "'.$self->o('long_read_summary_file_genus').'" ]; then exit 0; else exit 42;fi',
+        cmd => 'if [ #skip_long_read# -eq 0 ] && [ -s "'.$self->o('long_read_summary_file').'" ] || [ -s "'.$self->o('long_read_summary_file_genus').'" ]; then exit 0; else exit 42;fi',
         return_codes_2_branches => {'42' => 2},
       },
       -rc_name => 'default',
       -flow_into  => {
         1 => ['create_long_read_pipeline_job'],
+	2 => ['create_dummy_long_read_db'],
       },
     },
 
@@ -1831,6 +1832,16 @@ sub pipeline_analyses {
       -max_retry_count => 1,
     },
 
+    { 
+      -logic_name => 'create_dummy_long_read_db',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCreateDatabase',
+      -parameters => {
+        source_db   => $self->o('dna_db'),
+	target_db   => $self->o('long_read_final_db'),
+	create_type => 'clone',
+      },
+      -rc_name   => 'default',
+    },
 
     {
       -logic_name => 'create_core_db_finalisation_pipeline_job',
