@@ -849,6 +849,7 @@ sub pipeline_analyses {
         -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
         -parameters => {
                          cmd => 'perl '.$self->o('mapping_stats_script').
+                                ' -xy_scanner '.'#xy_scanner#'.
                                 ' -query_user '.$self->o('user_r').
                                 ' -query_host '.$self->o('core_db','-host').
                                 ' -query_port '.$self->o('core_db','-port').
