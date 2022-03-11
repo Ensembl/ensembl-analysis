@@ -1002,7 +1002,7 @@ sub pipeline_analyses {
       -rc_name   => '2GB',
       -flow_into => {
         '2->A' => ['remove_redundant_rnaseq_layer_genes_star'],
-        'A->1' => WHEN('#is_non_vert# eq "1"' => 'create_pcp_db', ELSE 'notification_pipeline_is_done',),
+        'A->1' => WHEN('#is_non_vert# eq "1"' => 'create_pcp_db', ELSE 'delete_short_reads',),
       },
     },
 
@@ -1014,9 +1014,6 @@ sub pipeline_analyses {
         target_type => 'generic',
       },
       -rc_name => '5GB',
-      -flow_into => {
-      	 '2' => ['delete_short_reads'],
-      },
     },
 
      { 
@@ -1026,6 +1023,9 @@ sub pipeline_analyses {
        cmd => 'rm '.$self->o('input_dir').'/*.gz',
      },
      -rc_name => 'default',
+     -flow_into  => {
+        1 => ['notification_pipeline_is_done'],
+      },
      },
 
     {
@@ -1310,7 +1310,7 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        '1' => ['notification_pipeline_is_done'],
+        '1' => ['delete_short_reads'],
       }
     }
   ];
