@@ -178,10 +178,10 @@ foreach my $slice (@$target_slices) {
 
       my $transcripts = $gene->get_all_Transcripts();
       foreach my $transcript (@$transcripts) {
-#        if($transcript->translation()) {
-#          say TRANSLATION ">".$transcript->stable_id();
-#          say TRANSLATION $transcript->translation->seq();
-#        }
+        if ($transcript->translation()) {
+          say TRANSLATION ">".$transcript->stable_id();
+          say TRANSLATION $transcript->translation->seq();
+        }
 
        	my $transcript_biotype = $transcript->biotype();
         my $transcript_biotype_group = $transcript->get_Biotype->biotype_group();
