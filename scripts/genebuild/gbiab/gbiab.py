@@ -322,13 +322,10 @@ def find_orf_phased_region(region_name,seq,phase,min_orf_length,orf_output_dir):
     current_index += 3
   orf_out.close()
 
-def run_repeatmasker_regions(genome_file,repeatmasker_path,library,main_output_dir,num_threads):
+def run_repeatmasker_regions(genome_file,repeatmasker_path,library,species,main_output_dir,num_threads):
 
   if not repeatmasker_path:
     repeatmasker_path = 'RepeatMasker'
-
-  if not library:
-    library = 'homo'
 
   check_exe(repeatmasker_path)
   repeatmasker_output_dir = create_dir(main_output_dir,'repeatmasker_output')
@@ -338,7 +335,16 @@ def run_repeatmasker_regions(genome_file,repeatmasker_path,library,main_output_d
   seq_region_lengths = get_seq_region_lengths(genome_file,5000)
   slice_ids = create_slice_ids(seq_region_lengths,1000000,0,5000)
 
-  generic_repeatmasker_cmd = [repeatmasker_path,'-nolow','-species',library,'-engine','crossmatch','-dir',repeatmasker_output_dir]
+  if not library:
+    if not species:
+      species = 'homo'
+      generic_repeatmasker_cmd = [repeatmasker_path,'-nolow','-species',species,'-engine','crossmatch','-dir',repeatmasker_output_dir]
+    else:
+      generic_repeatmasker_cmd = [repeatmasker_path,'-nolow','-species',species,'-engine','crossmatch','-dir',repeatmasker_output_dir]
+      
+  else:
+    generic_repeatmasker_cmd = [repeatmasker_path,'-nolow','-lib',library,'-engine','crossmatch','-dir',repeatmasker_output_dir]
+
   print("Running RepeatMasker")
   pool = multiprocessing.Pool(int(num_threads))
   tasks = []
@@ -3715,7 +3721,7 @@ if __name__ == '__main__':
 
   if run_repeatmasker:
      print("Annotating repeats with RepeatMasker")
-     run_repeatmasker_regions(genome_file,repeatmasker_path,library,work_dir,num_threads)
+     run_repeatmasker_regions(genome_file,repeatmasker_path,library,species,work_dir,num_threads)
 
 
   #################################
