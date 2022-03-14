@@ -642,6 +642,9 @@ sub clade_settings {
       'ig_tr_fasta_file'    => 'fish_ig_tr.fa',
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',
+      'skip_projection'    => 1,
+      'skip_lastz'         => 1,
+      # need a default projection source db set
       'projection_source_production_name' => 'danio_rerio',
       'projection_source_db_name' => current_projection_source_db('danio_rerio'),
     },
