@@ -35,7 +35,7 @@ sub default_options {
     #BRAKER parameters
     'augustus_config_path'     => '/nfs/production/flicek/ensembl/genebuild/ftricomi/augustus_config/config',
     'augustus_species_path'    => '/nfs/production/flicek/ensembl/genebuild/ftricomi/augustus_config/config/species/',
-    'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test-braker2_es_ep_etp.simg',
+    'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test_braker2_es_ep_etp.sif',
     'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test-agat.simg',
     'run_braker'               => 1,
 
@@ -841,6 +841,7 @@ sub pipeline_wide_parameters {
   return {
     %{ $self->SUPER::pipeline_wide_parameters },
     wide_ensembl_release => $self->o('ensembl_release'),
+    load_toplevel_only => $self->o('load_toplevel_only'),
   };
 }
 
@@ -1104,7 +1105,7 @@ sub pipeline_analyses {
           ' -dbuser '.$self->o('user').
           ' -dbpass '.$self->o('password').
           ' -dbport '.$self->o('dna_db_port').
-          ' -dbname '.$self->o('dna_db_name').
+          ' -dbname '.'#core_db#'.
           ' -coord_system_version '.$self->o('assembly_name').
           ' -default_version'.
           ' -coord_system_name primary_assembly'.
@@ -1128,7 +1129,7 @@ sub pipeline_analyses {
           ' -dbuser '.$self->o('user').
           ' -dbpass '.$self->o('password').
           ' -dbport '.$self->o('dna_db_port').
-          ' -dbname '.$self->o('dna_db_name'),
+          ' -dbname '.'#core_db#',
       },
       -rc_name => 'default',
       -flow_into  => {
@@ -1995,7 +1996,26 @@ sub pipeline_analyses {
           ' -registry_db ' . $self->o('registry_db_name'),
       },
       -rc_name => 'default',
+      -flow_into       => { 1 => ['delete_short_reads'], },
+
     },
+     { 
+      -logic_name => 'delete_short_reads',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'rm '.$self->o('input_dir').'/*.gz',
+      },
+      -rc_name => 'default',
+      -flow_into       => { 1 => ['delete_long_reads'], },
+      },
+     {
+      -logic_name => 'delete_long_reads',
+       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+       -parameters => {
+         cmd => 'rm '.$self->o('long_read_fastq_dir').'/*',
+       },
+       -rc_name => 'default',
+     },    
 
     {
       -logic_name => 'run_anno_softmasking',
