@@ -213,7 +213,7 @@ sub fetch_input {
     $sth->bind_param( 1, $assembly_id );
     $sth->execute();
 
-    my ( $stable_id_prefix, $clade, $species_taxon_id, $taxon_id, $assembly_name, $common_name, $assembly_refseq_accession, $assembly_date, $species_name, $assembly_group, $stable_id_start ) = $sth->fetchrow();
+    ( $stable_id_prefix, $clade, $species_taxon_id, $taxon_id, $assembly_name, $common_name, $assembly_refseq_accession, $assembly_date, $species_name, $assembly_group, $stable_id_start ) = $sth->fetchrow();
   }
   say "stable_id_prefix " . $stable_id_prefix;
   my $s = $stable_id_prefix;
@@ -566,7 +566,7 @@ sub create_registry_entry {
   my @lines = <IN>;
   close IN;
 
-  open( OUT, ">" . $registry_path . ".tmp" );
+  open( OUT, ">" , $registry_path . ".tmp" );
   foreach my $line (@lines) {
     print OUT $line;
     if ( $line =~ /\{/ ) {
