@@ -562,19 +562,21 @@ sub create_registry_entry {
     "-group => 'otherfeatures',\n" .
     ");\n";
 
-  open( IN, $registry_path );
-  my @lines = <IN>;
-  close IN;
+  open( my $in, '<', $registry_path )
+  	or die "Can't open " . $registry_path . " for reading.\n";
+  my @lines = <$in>;
+  close $in;
 
-  open( OUT, ">" , $registry_path . ".tmp" );
+  open( my $out , ">" , $registry_path . ".tmp" )
+  	or die "Can't open " . $registry_path . ".tmp for writing.\n";
   foreach my $line (@lines) {
-    print OUT $line;
+    print $out $line;
     if ( $line =~ /\{/ ) {
-      print OUT $core_string;
-      print OUT $otherfeatures_string;
+      print $out $core_string;
+      print $out $otherfeatures_string;
     }
   }
-  close OUT;
+  close $out;
 
   my $result = system( 'mv ' . $registry_path . ".tmp " . $registry_path );
   if ($result) {
