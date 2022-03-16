@@ -122,6 +122,7 @@ sub run {
 
 sub write_output {
   my ($self) = @_;
+
   my $output_dba = $self->hrdb_get_con('target_db');
   my $output_gene_adaptor = $output_dba->get_GeneAdaptor();
   my $output_slice_adaptor = $output_dba->get_SliceAdaptor();
@@ -438,6 +439,7 @@ sub add_gene_symbols {
 
   say "Setting gene symbols using source genes in the target gene set";
   my $source_gene_db = $self->hrdb_get_con('source_gene_db');
+  my $target_gene_db = $self->hrdb_get_con('target_db');
   my $source_gene_adaptor = $source_gene_db->get_GeneAdaptor();
   my $target_slices = $target_slice_adaptor->fetch_all('toplevel');
   foreach my $slice (@$target_slices) {
@@ -457,8 +459,8 @@ sub add_gene_symbols {
 
       my $xref = $source_gene->display_xref();
       if($xref) {
-        $gene->display_xref($xref);
-        $target_gene_adaptor->update($gene);
+        my $dbea = $target_gene_db->get_DBEntryAdaptor();
+        $dbea->store($xref,$gene->dbID(),'Gene',1); # 1 to ignore the external db version
       }
     } # End foreach my $gene
   } # End foreach my $slice
