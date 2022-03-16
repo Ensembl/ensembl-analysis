@@ -341,9 +341,11 @@ sub fetch_input {
     ' --protein_file ' . $protein_file .
     ' --busco_protein_file ' . $busco_protein_file .
     ' --rfam_accessions_file ' . $rfam_accessions_file .
-    ' --num_threads ' . $self->param('num_threads') .
-    ' --repeatmasker_library ' . $repeatmodeler_library .
-    ' --run_full_annotation 1' .
+    ' --num_threads ' . $self->param('num_threads');
+
+    $anno_commandline .= ' --repeatmasker_library ' . $repeatmodeler_library if ($repeatmodeler_library);
+
+	$anno_commandline .= ' --run_full_annotation 1' .
     ' --load_to_ensembl_db 1';
 
   my $anno_red_commandline = ' --genome_file ' . $reheadered_toplevel_genome_file .
