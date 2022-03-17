@@ -65,6 +65,7 @@ sub default_options {
     species_taxon_id                 => '' || $self->o('taxon_id'), # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
     genus_taxon_id                   => '' || $self->o('taxon_id'), # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
     uniprot_set                      => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
+    ig_tr_fasta_file                 => '', # file containing ig and tr proteins to be used during the IGTR subpipeline. This would come from the clade settings defined in "create_annotation_configs.pl" (ie 'fish_ig_tr.fa')
     output_path                      => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     wgs_id                           => '', # Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
     assembly_name                    => '', # Name (as it appears in the assembly report file)
@@ -1500,6 +1501,7 @@ sub pipeline_analyses {
           production_name => $self->o('production_name'),
           species_name => $self->o('species_name'),
           uniprot_set => $self->o('uniprot_set'),
+          ig_tr_fasta_file => $self->o('ig_tr_fasta_file'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
           transcript_selection_url => $transcript_selection_pipe_url,
         },
