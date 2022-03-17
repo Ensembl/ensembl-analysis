@@ -2003,7 +2003,7 @@ sub pipeline_analyses {
       -logic_name => 'delete_short_reads',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'rm '.$self->o('input_dir').'/*.gz',
+        cmd => 'rm ' . '#short_read_dir#' . '/*.gz',
       },
       -rc_name => 'default',
       -flow_into       => { 1 => ['delete_long_reads'], },
@@ -2012,7 +2012,7 @@ sub pipeline_analyses {
       -logic_name => 'delete_long_reads',
        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
        -parameters => {
-         cmd => 'rm '.$self->o('long_read_fastq_dir').'/*',
+         cmd => 'rm ' . '#long_read_dir#' . '/*',
        },
        -rc_name => 'default',
      },    
