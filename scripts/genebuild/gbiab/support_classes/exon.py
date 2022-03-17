@@ -14,53 +14,71 @@
 
 from sequence import Sequence
 
+
 class Exon:
 
-  internal_identifier = 1
+    internal_identifier = 1
 
-  def __init__(self, start, end, strand, location_name, fasta_file=None, sequence=None, internal_identifier=None, public_identifier=None, exon_start_phase=None, exon_end_phase=None):
-    self.start = start
-    self.end = end
-    if self.start > self.end:
-      raise Exception("Exon start was >= end, this should not be.\nExon start: " + str(start) + "\nExon end: " + str(end))
+    def __init__(
+        self,
+        start,
+        end,
+        strand,
+        location_name,
+        fasta_file=None,
+        sequence=None,
+        internal_identifier=None,
+        public_identifier=None,
+        exon_start_phase=None,
+        exon_end_phase=None,
+    ):
+        self.start = start
+        self.end = end
+        if self.start > self.end:
+            raise Exception(
+                "Exon start was >= end, this should not be.\nExon start: "
+                + str(start)
+                + "\nExon end: "
+                + str(end)
+            )
 
-    self.strand = strand
-    self.location_name = location_name
-    self.fasta_file = fasta_file
-    self.sequence = sequence
-    if internal_identifier is not None:
-      self.internal_identifier = internal_identifier
-    else:
-      self.internal_identifier = Exon.internal_identifier
-      Exon.internal_identifier += 1
-    self.public_identifier = public_identifier 
-    self.exon_start_phase = exon_start_phase
-    self.exon_end_phase = exon_end_phase
+        self.strand = strand
+        self.location_name = location_name
+        self.fasta_file = fasta_file
+        self.sequence = sequence
+        if internal_identifier is not None:
+            self.internal_identifier = internal_identifier
+        else:
+            self.internal_identifier = Exon.internal_identifier
+            Exon.internal_identifier += 1
+        self.public_identifier = public_identifier
+        self.exon_start_phase = exon_start_phase
+        self.exon_end_phase = exon_end_phase
 
+    def get_sequence(self):
+        if self.sequence is None:
+            sequence = Sequence(
+                self.start, self.end, self.strand, self.location_name, self.fasta_file
+            )
+            self.sequence = sequence
 
-  def get_sequence(self):
-    if self.sequence is None:
-      sequence = Sequence(self.start, self.end, self.strand, self.location_name, self.fasta_file)
-      self.sequence = sequence
+        if self.sequence.sequence is not None:
+            return self.sequence.sequence
+        else:
+            sequence_string = sequence.get_sequence()
+            return sequence_string
 
-    if self.sequence.sequence is not None:
-      return self.sequence.sequence
-    else:
-      sequence_string = sequence.get_sequence()
-      return sequence_string
+    def exon_string(self, verbose=None):
 
+        start = self.start
+        end = self.end
+        if self.strand == "-":
+            start = self.end
+            end = self.start
 
-  def exon_string(self, verbose=None):
+        exon_string = "(" + str(start) + ".." + str(end) + ")"
 
-    start = self.start
-    end = self.end
-    if self.strand == '-':
-      start = self.end
-      end = self.start
+        if verbose:
+            exon_string = exon_string + ":" + self.strand + ":" + self.location_name
 
-    exon_string = "(" + str(start) + ".." + str(end) + ")"
-
-    if verbose:
-      exon_string = exon_string + ":" + self.strand + ":" + self.location_name
-
-    return exon_string
+        return exon_string
