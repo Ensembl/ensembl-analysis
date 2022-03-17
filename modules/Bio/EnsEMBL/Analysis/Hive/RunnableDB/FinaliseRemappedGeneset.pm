@@ -149,17 +149,11 @@ sub parse_descriptions {
   my $primary_genes = [];
   foreach my $gene (@{$genes}) {
     my $gene_description = $gene->description();
-    $gene_description =~ /^Parent\: ([^\,]+)\, Type\: (.+)$/;
+    $gene_description =~ /;parent_gene=([^\,]+);mapping_type=(.+)$/;
     my $gene_stable_id = $1;
     my $gene_type = $2;
     $gene->{'parent_stable_id'} = $gene_stable_id; # Not really needed, since the stable id should be assigned, but doing it as it may be useful
     $gene->{'type'} = $gene_type;
-
-    # TEST TILL FIX DESCRIPTIONS IN COLLAPSE/FINDPARA
-    # I mean technically these aren't actually needed anyway
-#    if($gene_type eq 'Potential paralogue' or $gene_type eq 'Potential Paralogue') {
-#      next;
-#    }
 
     my $total_cov = 0;
     my $total_perc_id = 0;
@@ -171,7 +165,7 @@ sub parse_descriptions {
       # Parse the cov and percent id out, also track the total cov/perc id to get average for gene
       my $transcript_description = $transcript->description();
 
-      $transcript_description =~ /^Parent\: ([^\,]+)\, Coverage\: ([^\,]+)\, Perc id\: (.+)$/;
+      $transcript_description =~ /;parent_transcript=([^\,]+);mapping_coverage=([^\,]+);mapping_identity=(.+)$/;
       my $transcript_stable_id = $1;
       my $cov = $2;
       my $perc_id = $3;
@@ -193,7 +187,7 @@ sub parse_descriptions {
       $gene->{'quality_call'} = 'bad';
     }
 
-    if($gene_type eq 'Primary mapping') {
+    if($gene_type eq 'primary_mapping') {
       push(@$primary_genes,$gene);
     }
   }
@@ -446,7 +440,7 @@ sub add_gene_symbols {
     my $genes = $slice->get_all_Genes();
     foreach my $gene (@$genes) {
       my $gene_description = $gene->description();
-      $gene_description =~ /^Parent\: ([^\,]+)\, Type\: (.+)$/;
+      $gene_description =~ /;parent_gene=([^\,]+);mapping_type=(.+)$/;
       my $gene_stable_id = $1;
       my $gene_type = $2;
       my $unversioned_parent_stable_id = $gene_stable_id;
@@ -459,6 +453,8 @@ sub add_gene_symbols {
 
       my $xref = $source_gene->display_xref();
       if($xref) {
+        $gene->description($gene->description().";parent_gene_display_id=".$source_gene->display_id());
+        $target_gene_adaptor->update($gene);
         my $dbea = $target_gene_db->get_DBEntryAdaptor();
         $dbea->store($xref,$gene->dbID(),'Gene',1); # 1 to ignore the external db version
       }

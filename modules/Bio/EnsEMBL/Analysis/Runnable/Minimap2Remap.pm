@@ -624,7 +624,7 @@ sub process_small_gene {
       say "POST align source seq:\n".$aligned_source_seq;
       say "POST align target seq:\n".$aligned_target_seq;
 
-      my $description_string = "Parent: ".$transcript->stable_id().".".$transcript->version().", Coverage: ".$coverage.", Perc id: ".$percent_id;
+      my $description_string = ";parent_transcript=".$transcript->stable_id().".".$transcript->version().";mapping_coverage=".$coverage.";mapping_identity=".$percent_id;
       $projected_transcript->description($description_string);
       if($coverage >= $coverage_cutoff and $percent_id >= $perc_id_cutoff) {
         say "Projected transcript passed cut-offs: ".$coverage." cov, ".$percent_id." percent id";
@@ -1071,7 +1071,7 @@ sub check_mapping_quality {
     my $cds_length_diff = 0;
 
     # Set the description now on the minor chance the transcript doesn't have a cds that can be calculated
-    my $transcript_description = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version();
+    my $transcript_description = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version().";parent_transcript_display_id=".$source_transcript->display_id();
     $transcript->description($transcript_description);
     if($source_transcript->translation()) {
       $source_transcript_seq = $source_transcript->translateable_seq();
@@ -1112,7 +1112,7 @@ sub check_mapping_quality {
     $transcript_genomic_span_diff = sprintf("%.2f", $transcript_genomic_span_diff);
     $transcript->{'transcript_genomic_span_diff'} = $transcript_genomic_span_diff;
 
-    $transcript_description .= ", Coverage: ".$coverage.", Perc id: ".$percent_id;
+    $transcript_description .= ";mapping_coverage=".$coverage.";mapping_identity=".$percent_id;
     $transcript->description($transcript_description);
 
     # I added this in because even when minimap is explicitly told not to output secondary alignments, it very occasionally does
@@ -1346,10 +1346,7 @@ sub create_gene_from_cluster {
       $transcript->is_canonical(1);
     }
 
-
     $transcript->source($source);
-#    my $cov_string = "cov: ".$transcript->{'cov'}." perc_id: ".$transcript->{'perc_id'};
-#    $transcript->description($cov_string);
     $gene->add_Transcript($transcript);
   }
 
@@ -1357,7 +1354,7 @@ sub create_gene_from_cluster {
   $gene->stable_id($parent_gene_stable_id);
   $gene->version($parent_gene_version);
   $gene->biotype($parent_gene_biotype);
-  my $gene_description = "Parent: ".$parent_gene_stable_id.".".$parent_gene_version.", Type: Primary mapping";
+  my $gene_description = ";parent_gene=".$parent_gene_stable_id.".".$parent_gene_version.";mapping_type=primary_mapping";
   $gene->description($gene_description);
 
   return($gene);

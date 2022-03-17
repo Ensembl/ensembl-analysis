@@ -233,7 +233,7 @@ sub cluster_source_genes {
       }
 
       # This is mostly just there if testing to ignore test transcripts
-      unless($slice_gene->description =~ /Potential paralogue/) {
+      unless($slice_gene->description =~ /potential_paralogue/) {
         push(@$slice_genes,$slice_gene);
       }
     }
@@ -331,10 +331,10 @@ sub filter_by_cutoffs {
     my $coverage_cutoff = $coverage_cutoff_groups->{$biotype_group};
     my $perc_id_cutoff = $percent_identity_groups->{$biotype_group};
 
-    my $transcript_description = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$coverage.", Perc id: ".$percent_id;
+    my $transcript_description = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version().";mapping_coverage=".$coverage.";mapping_identity=".$percent_id;
     $transcript->description($transcript_description);
 
-    my $gene_description = "Parent: ".$source_transcript->{'parent_gene_stable_id'}.", Type: Potential paralogue";
+    my $gene_description = ";parent_gene=".$source_transcript->{'parent_gene_stable_id'}.";mapping_type=potential_paralogue";
     $gene->description($gene_description);
 
     if($transcript->{'cov'} >= $coverage_cutoff and $transcript->{'perc_id'} >= $perc_id_cutoff) {
@@ -389,14 +389,14 @@ sub create_input_file {
   open(OUT,">".$output_file);
   foreach my $gene (@$genes) {
     my $gene_description = $gene->description();
-    $gene_description =~ /^Parent\: (.+)\, Type\: (.+)$/;
+    $gene_description =~ /;parent_gene=(.+);mapping_type=(.+)$/;
     my $parent_stable_id = $1;
     my $type = $2;
     unless($parent_stable_id and $type) {
       $self->throw("Issue parsing the parent stable id and type from gene description for gene with dbID ".$gene->dbID().". Description: ".$gene_description);
     }
 
-    if($type eq 'Potential paralogue') {
+    if($type eq 'potential_paralogue') {
       # Just in case there's accidental re-runs or testing
       next;
     }
@@ -469,7 +469,7 @@ sub fetch_input_genes_by_id {
     my $transcript = $self->set_canonical($gene);
     if ($transcript) {
       my $transcript_description = $transcript->description();
-      $transcript_description =~ /Coverage\: (.+), Perc id\: (.+)$/;
+      $transcript_description =~ /;mapping_coverage=(.+);mapping_identity=(.+)$/;
       my $coverage = $1;
       my $perc_id = $2;
       unless(defined($coverage) and defined($perc_id)) {
