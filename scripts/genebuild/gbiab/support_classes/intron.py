@@ -14,73 +14,80 @@
 
 from sequence import Sequence
 
+
 class Intron:
 
-  internal_identifier = 1
-  canonical_splice_sites = ['GTAG', 'ATAC', 'GCAG']
+    internal_identifier = 1
+    canonical_splice_sites = ["GTAG", "ATAC", "GCAG"]
 
-  def __init__(self, exons, fasta_file=None, internal_identifier=None, public_identifier=None, exon_start_phase=None, exon_end_phase=None):
-    self.build_intron(exons)
-    self.fasta_file = fasta_file
-    self.sequence = None
-    if internal_identifier is not None:
-      self.internal_identifier = internal_identifier
-    else:
-      self.internal_identifier = Intron.internal_identifier
-      Intron.internal_identifier += 1
-    self.public_identifier = public_identifier 
+    def __init__(
+        self,
+        exons,
+        fasta_file=None,
+        internal_identifier=None,
+        public_identifier=None,
+        exon_start_phase=None,
+        exon_end_phase=None,
+    ):
+        self.build_intron(exons)
+        self.fasta_file = fasta_file
+        self.sequence = None
+        if internal_identifier is not None:
+            self.internal_identifier = internal_identifier
+        else:
+            self.internal_identifier = Intron.internal_identifier
+            Intron.internal_identifier += 1
+        self.public_identifier = public_identifier
 
+    def build_intron(self, exons):
+        if exons[0].start > exons[1].start:
+            exons.sort(key=lambda x: x.start)
+            print("Left exon start coord > right exon start coord, will swap")
 
-  def build_intron(self, exons):
-    if exons[0].start > exons[1].start:
-      exons.sort(key=lambda x: x.start)
-      print("Left exon start coord > right exon start coord, will swap")
+        exon_left = exons[0]
+        exon_right = exons[1]
 
-    exon_left = exons[0]
-    exon_right = exons[1]
+        self.start = exon_left.end + 1
+        self.end = exon_right.start - 1
+        self.length = self.end - self.start + 1
+        self.strand = exon_left.strand
+        self.location_name = exon_left.location_name
+        if hasattr(exon_left, "fasta_file"):
+            self.fasta_file = exon_left.fasta_file
 
-    self.start = exon_left.end + 1
-    self.end = exon_right.start - 1
-    self.length = self.end - self.start + 1
-    self.strand = exon_left.strand
-    self.location_name = exon_left.location_name
-    if hasattr(exon_left, 'fasta_file'):
-      self.fasta_file = exon_left.fasta_file
+    def get_sequence(self):
+        if self.sequence is None:
+            sequence = Sequence(
+                self.start, self.end, self.strand, self.location_name, self.fasta_file
+            )
+            self.sequence = sequence
 
+        if self.sequence.sequence is not None:
+            return self.sequence.sequence
+        else:
+            sequence_string = sequence.get_sequence()
+            return sequence_string
 
-  def get_sequence(self):
-    if self.sequence is None:
-      sequence = Sequence(self.start, self.end, self.strand, self.location_name, self.fasta_file)
-      self.sequence = sequence
+    def is_splice_canonical(self):
+        sequence = self.get_sequence()
+        donor = sequence[:2]
+        acceptor = sequence[-2:]
+        splice_site = donor + acceptor
+        if splice_site in Intron.canonical_splice_sites:
+            return True
+        else:
+            return False
 
-    if self.sequence.sequence is not None:
-      return self.sequence.sequence
-    else:
-      sequence_string = sequence.get_sequence()
-      return sequence_string
+    def intron_string(self, verbose=None):
+        start = self.start
+        end = self.end
+        if self.strand == "-":
+            start = self.end
+            end = self.start
 
+        intron_string = "<" + str(start) + ".." + str(end) + ">"
 
-  def is_splice_canonical(self):
-    sequence = self.get_sequence()
-    donor = sequence[:2]
-    acceptor = sequence[-2:]
-    splice_site = donor + acceptor
-    if splice_site in Intron.canonical_splice_sites:
-      return True
-    else:
-      return False
+        if verbose:
+            intron_string = intron_string + ":" + self.strand + ":" + self.location_name
 
-
-  def intron_string(self, verbose=None):
-    start = self.start
-    end = self.end
-    if self.strand == '-':
-      start = self.end
-      end = self.start
-
-    intron_string = "<" + str(start) + ".." + str(end) + ">"
-
-    if verbose:
-      intron_string = intron_string+ ":" + self.strand + ":" + self.location_name
-
-    return intron_string
+        return intron_string
