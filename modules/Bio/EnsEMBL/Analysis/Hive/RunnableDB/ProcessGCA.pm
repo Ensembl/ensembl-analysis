@@ -309,8 +309,12 @@ sub fetch_input {
   my $species_division = $clade_params->{'species_division'};
   my $species_url;
   my $species_display_name;
+  my $species_strain       = "reference";
+  my $species_strain_group = $production_name;
+  my $strain_type          = "strain";
   if ( $assembly_name =~ /alternate_haplotype/ ) {
     $common_name = "alternate haplotype";
+    $species_strain = "alternate haplotype";
   }
 
   if ( !$common_name ) {
@@ -320,13 +324,6 @@ sub fetch_input {
   $species_display_name = $scientific_name . " (" . $common_name . ") - " . $assembly_accession;
   $species_url          = $scientific_name . "_" . $assembly_accession;
   $species_url =~ s/ /_/g;
-
-  # Note this should probably be update so that haps are strain assemblies under a strain group
-  # The group should be changed to cut off the GCA from the production name, then the type can
-  # be set to alternate haplotype. This needs to be discussed before implementing
-  my $species_strain       = "reference";
-  my $species_strain_group = $production_name;
-  my $strain_type          = "strain";
 
   my $anno_commandline = ' --genome_file ' . $reheadered_toplevel_genome_file .
     ' --db_details ' . $core_db_details->{'-dbname'} . ',' .
