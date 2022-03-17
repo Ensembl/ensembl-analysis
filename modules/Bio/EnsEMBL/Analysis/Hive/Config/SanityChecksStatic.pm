@@ -583,7 +583,7 @@ sub _master_config {
         }, # logic_names
         'biotypes' =>    {
           'miRNA'               => 400,
-          'misc_RNA'            => 1000,
+          'misc_RNA'            => 70,
           'ribozyme'            => 0,
           'rRNA'                => 200,
           'scaRNA'              => 0,
