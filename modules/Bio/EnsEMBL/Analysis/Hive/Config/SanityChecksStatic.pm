@@ -579,7 +579,7 @@ sub _master_config {
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
-          'ncrna' => 2500,
+          'ncrna' => 400,
         }, # logic_names
         'biotypes' =>    {
           'miRNA'               => 400,
