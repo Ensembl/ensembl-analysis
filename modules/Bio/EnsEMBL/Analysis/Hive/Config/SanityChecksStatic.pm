@@ -501,8 +501,8 @@ sub _master_config {
           'ig_tr_gene'          => 1,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                 => 20,
-          'TR_'                 => 20,
+          'IG_'                 => 4,
+          'TR_'                 => 4,
         }, # biotypes
       }, # ig_tr
       'projection_coding' => {
