@@ -488,7 +488,7 @@ sub _master_config {
         'biotypes' =>    {
           'fish_pe12_' => 20000,
           'mammals_pe12_' => 100000,
-          'vert_pe12_' => 40000,
+          'vert_pe12_' => 10000,
         }, # biotypes
       }, # genblast
       'genblast_select' => {
