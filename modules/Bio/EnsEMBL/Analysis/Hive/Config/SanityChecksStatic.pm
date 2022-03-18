@@ -498,7 +498,7 @@ sub _master_config {
       }, # genblast_select
       'ig_tr' => {
         'logic_names' => {
-          'ig_tr_gene'          => 40,
+          'ig_tr_gene'          => 1,
         }, # logic_names
         'biotypes' =>    {
           'IG_'                 => 20,
