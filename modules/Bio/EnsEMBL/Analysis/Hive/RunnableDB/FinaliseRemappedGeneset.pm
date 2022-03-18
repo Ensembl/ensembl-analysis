@@ -453,7 +453,9 @@ sub add_gene_symbols {
 
       my $xref = $source_gene->display_xref();
       if($xref) {
-        $gene->description($gene->description().";parent_gene_display_id=".$source_gene->display_id());
+        if ($source_gene->display_xref()) {
+          $gene->description($gene->description().";parent_gene_display_xref=".$source_gene->display_xref());
+        }
         $target_gene_adaptor->update($gene);
         my $dbea = $target_gene_db->get_DBEntryAdaptor();
         $dbea->store($xref,$gene->dbID(),'Gene',1); # 1 to ignore the external db version

@@ -1071,7 +1071,11 @@ sub check_mapping_quality {
     my $cds_length_diff = 0;
 
     # Set the description now on the minor chance the transcript doesn't have a cds that can be calculated
-    my $transcript_description = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version().";parent_transcript_display_id=".$source_transcript->display_id();
+    my $transcript_description = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version();
+    if ($source_transcript->display_xref()) {
+      $transcript_description .= ";parent_transcript_display_xref=".$source_transcript->display_xref();
+    }
+
     $transcript->description($transcript_description);
     if($source_transcript->translation()) {
       $source_transcript_seq = $source_transcript->translateable_seq();
