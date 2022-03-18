@@ -502,7 +502,7 @@ sub _master_config {
         }, # logic_names
         'biotypes' =>    {
           'IG_'                 => 4,
-          'TR_'                 => 4,
+          'TR_'                 => 1,
         }, # biotypes
       }, # ig_tr
       'projection_coding' => {
