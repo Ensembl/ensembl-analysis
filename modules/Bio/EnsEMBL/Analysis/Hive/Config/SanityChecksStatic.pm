@@ -483,7 +483,7 @@ sub _master_config {
       'genblast' => {
         'logic_names' => {
           'genblast'            => 125000,
-          'genblast_not_best'   => 125000,
+          'genblast_not_best'   => 40000,
         }, # logic_names
         'biotypes' =>    {
           'fish_pe12_' => 20000,
