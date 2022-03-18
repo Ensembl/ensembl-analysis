@@ -487,7 +487,7 @@ sub _master_config {
         }, # logic_names
         'biotypes' =>    {
           'fish_pe12_' => 20000,
-          'mammals_pe12_' => 100000,
+          'mammals_pe12_' => 5000,
           'vert_pe12_' => 10000,
         }, # biotypes
       }, # genblast
