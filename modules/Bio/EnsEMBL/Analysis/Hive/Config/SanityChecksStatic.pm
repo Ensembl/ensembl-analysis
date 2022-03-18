@@ -582,13 +582,13 @@ sub _master_config {
           'ncrna' => 400,
         }, # logic_names
         'biotypes' =>    {
-          'miRNA'               => 400,
-          'misc_RNA'            => 70,
+          'miRNA'               => 100,
+          'misc_RNA'            => 10,
           'ribozyme'            => 0,
-          'rRNA'                => 200,
+          'rRNA'                => 10,
           'scaRNA'              => 0,
-          'snoRNA'              => 200,
-          'snRNA'               => 400,
+          'snoRNA'              => 100,
+          'snRNA'               => 100,
         }, # biotypes
       }, # ncrna
       'final' => {
