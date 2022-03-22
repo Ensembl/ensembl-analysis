@@ -162,7 +162,7 @@ foreach my $slice (@$target_slices) {
   my $genes = $slice->get_all_Genes();
   foreach my $gene (@$genes) {
     my $gene_description = $gene->description();
-    $gene_description =~ /^Parent\: (.+), Type: (.+)$/;
+    $gene_description =~ /;parent_gene=(.+);mapping_type=(.+)$/;
     my $gene_versioned_stable_id = $1;
     my $gene_type = $2;
     my $gene_stable_id = $gene_versioned_stable_id;
@@ -192,7 +192,7 @@ foreach my $slice (@$target_slices) {
           next;
         }
 
-        $transcript_description =~ /^Parent\: (.+)\, Coverage\: (.+), Perc id\: (.+)$/;
+        $transcript_description =~ /;parent_transcript=(.+);mapping_coverage=(.+);mapping_identity=(.+)$/;
         my $transcript_versioned_stable_id = $1;
         my $transcript_coverage = $2;
         my $transcript_perc_id = $3;
