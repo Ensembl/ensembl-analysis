@@ -35,7 +35,7 @@ sub default_options {
     #BRAKER parameters
     'augustus_config_path'     => '/nfs/production/flicek/ensembl/genebuild/ftricomi/augustus_config/config',
     'augustus_species_path'    => '/nfs/production/flicek/ensembl/genebuild/ftricomi/augustus_config/config/species/',
-    'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test_braker2_es_ep_etp.sif',
+    'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test-braker2_es_ep_etp.simg',
     'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test-agat.simg',
     'run_braker'               => 1,
 
@@ -1767,13 +1767,17 @@ sub pipeline_analyses {
           'DELETE FROM analysis WHERE logic_name IN' .
             ' ("dust","repeatdetector","trf","cpg","eponine")',
           'DELETE FROM meta WHERE meta_key LIKE "%.level"',
+	  'DELETE FROM meta WHERE meta_key LIKE "sample.%"',
           'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
           'DELETE FROM meta WHERE meta_key LIKE "removed_evidence_flag.%"',
           'DELETE FROM meta WHERE meta_key LIKE "marker.%"',
           'DELETE FROM meta WHERE meta_key IN' .
             ' ("repeat.analysis","genebuild.method","genebuild.last_geneset_update","genebuild.projection_source_db","genebuild.start_date")',
           'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
-        ],
+	  'UPDATE meta set meta_value="BRAKER#species_prefix#" where meta_key="species.stable_id_prefix"',
+          'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id)'.
+              ' JOIN dna_align_feature ON feature_id = dna_align_feature_id SET stable_id = hit_name',  
+      ],
       },
       -rc_name   => 'default',
       -flow_into => {
@@ -1852,11 +1856,11 @@ sub pipeline_analyses {
       -parameters => {
         db_conn => '#otherfeatures_db#',
         sql     => [
-          'UPDATE gene SET stable_id = NULL',
-          'UPDATE transcript SET stable_id = NULL',
-          'UPDATE translation SET stable_id = NULL',
-          'UPDATE exon SET stable_id = NULL',
-          'UPDATE protein_align_feature set external_db_id = NULL',
+		'UPDATE gene SET stable_id = NULL',
+		'UPDATE transcript SET stable_id = NULL',
+		'UPDATE translation SET stable_id = NULL',
+		'UPDATE exon SET stable_id = NULL',
+		'UPDATE protein_align_feature set external_db_id = NULL',
           'UPDATE dna_align_feature set external_db_id = NULL',
         ],
       },
