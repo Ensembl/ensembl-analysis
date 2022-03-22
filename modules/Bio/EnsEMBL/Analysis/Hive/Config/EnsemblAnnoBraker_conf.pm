@@ -33,10 +33,12 @@ sub default_options {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
     #BRAKER parameters
-    'augustus_config_path'     => '/nfs/production/flicek/ensembl/genebuild/ftricomi/augustus_config/config',
-    'augustus_species_path'    => '/nfs/production/flicek/ensembl/genebuild/ftricomi/augustus_config/config/species/',
-    'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test-braker2_es_ep_etp.simg',
-    'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test-agat.simg',
+    'augustus_config_path'     => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/augustus_config/config',
+    'augustus_species_path'    => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/augustus_config/config/species/',
+    'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-braker2_es_ep_etp.simg',
+    'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-agat.simg',
+    'busco_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
+
     'run_braker'               => 1,
 
     'current_genebuild'            => 1,
@@ -116,8 +118,6 @@ sub default_options {
     'desired_slice_length' => 10000000,
     'store_rejected'       => 0,
 
-    'agat_singularity_image'  => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/test-agat.simg',
-    'busco_singularity_image' => '/hps/software/users/ensembl/genebuild/ftricomi/singularity/busco-v5.1.2_cv1.simg',
 
 ########################
 ## Small ncRNAs params
