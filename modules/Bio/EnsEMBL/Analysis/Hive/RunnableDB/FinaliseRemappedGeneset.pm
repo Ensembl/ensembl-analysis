@@ -454,7 +454,9 @@ sub add_gene_symbols {
       my $xref = $source_gene->display_xref();
       if($xref) {
         if ($source_gene->display_xref()) {
-          $gene->description($gene->description().";parent_gene_display_xref=".$source_gene->display_xref());
+          if ($source_gene->display_xref()->display_id()) {
+            $gene->description($gene->description().";parent_gene_display_xref=".$source_gene->display_xref()->display_id());
+          }
         }
         $target_gene_adaptor->update($gene);
         my $dbea = $target_gene_db->get_DBEntryAdaptor();

@@ -1073,7 +1073,9 @@ sub check_mapping_quality {
     # Set the description now on the minor chance the transcript doesn't have a cds that can be calculated
     my $transcript_description = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version();
     if ($source_transcript->display_xref()) {
-      $transcript_description .= ";parent_transcript_display_xref=".$source_transcript->display_xref();
+      if ($source_transcript->display_xref()->display_id()) {
+        $transcript_description .= ";parent_transcript_display_xref=".$source_transcript->display_xref()->display_id();
+      }
     }
 
     $transcript->description($transcript_description);
