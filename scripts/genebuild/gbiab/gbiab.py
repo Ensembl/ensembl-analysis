@@ -4438,7 +4438,7 @@ def validate_coding_transcripts(
 ):
 
     logging.info("Running CDS validation with RNAsamba and CPC2")
-    rnasamba_weights = "/hps/nobackup/flicek/ensembl/genebuild/ftricomi/rnasamba_test/RNAsamba/data/full_length_weights.hdf5"
+    rnasamba_weights = "/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/rnasamba_data/full_length_weights.hdf5"
     rnasamba_output_path = os.path.join(validation_dir, "rnasamba.tsv.txt")
     cpc2_output_path = os.path.join(validation_dir, "cpc2.tsv")
     rnasamba_volume = validation_dir + "/:/app:rw"
