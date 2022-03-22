@@ -1203,7 +1203,6 @@ sub pipeline_analyses {
             '(1, "species.display_name", "#species_display_name#"),' .
             '(1, "species.division", "#species_division#"),' .
             '(1, "species.strain", "#species_strain#"),' .
-            '(1, "species.strain_group", "#species_strain_group#"),' .
             '(1, "species.production_name", "#production_name#"),' .
             '(1, "strain.type", "#strain_type#"),' .
             '(1, "repeat.analysis", "repeatdetector"),' .
@@ -1241,7 +1240,6 @@ sub pipeline_analyses {
             '(1, "species.display_name", "#species_display_name#"),' .
             '(1, "species.division", "#species_division#"),' .
             '(1, "species.strain", "#species_strain#"),' .
-            '(1, "species.strain_group", "#species_strain_group#"),' .
             '(1, "species.production_name", "#production_name#"),' .
             '(1, "strain.type", "#strain_type#"),' .
             '(1, "repeat.analysis", "repeatdetector"),' .
