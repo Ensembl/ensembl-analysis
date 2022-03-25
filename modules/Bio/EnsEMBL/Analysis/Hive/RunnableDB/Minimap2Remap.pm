@@ -190,9 +190,33 @@ sub write_output {
   my $output_gene_adaptor = $output_dba->get_GeneAdaptor;
   my $output_genes = $self->output();
   foreach my $output_gene (@$output_genes) {
-    say "Final gene: ".$output_gene->stable_id();
-    empty_Gene($output_gene);
-    $output_gene_adaptor->store($output_gene);
+    my $num_transcripts = 0;
+    my $transcripts = $output_gene->get_all_Transcripts();
+    $output_gene->flush_Transcripts();
+    TRANSCRIPT: foreach my $transcript (@$transcripts) {
+      # do not store transcripts containing stops
+      if ($transcript->translate()) {
+        my $transcript_translate_seq = $transcript->translate()->seq();
+        my $num_stops = $transcript_translate_seq =~ s/\*/\*/g;
+        if ($num_stops) {
+          say "The transcript ".$transcript->dbID()." has been filtered out because its translation contains stops (".$num_stops." stops).";
+        } else {
+          $output_gene->add_Transcript($transcript);
+          $num_transcripts++;
+        }
+      } else {
+        $output_gene->add_Transcript($transcript);
+        $num_transcripts++;
+      }
+    }
+    
+    if ($num_transcripts) {
+      say "Final gene: ".$output_gene->stable_id();
+      empty_Gene($output_gene);
+      $output_gene_adaptor->store($output_gene);
+    } else {
+      say "Final gene: ".$output_gene->stable_id()." has not been stored because it has no transcript left after checking for stops in the translation.";
+    }
   }
 
   return 1;
