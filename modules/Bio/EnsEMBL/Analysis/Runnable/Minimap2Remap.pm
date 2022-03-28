@@ -626,6 +626,11 @@ sub process_small_gene {
 
       my $description_string = ";parent_transcript=".$transcript->stable_id().".".$transcript->version().";mapping_coverage=".$coverage.";mapping_identity=".$percent_id;
       $projected_transcript->description($description_string);
+
+      # add source transcript stable id as transcript attribute
+      my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $transcript->stable_id().".".$transcript->version());
+      $projected_transcript->add_Attributes($parent_attribute);
+
       if($coverage >= $coverage_cutoff and $percent_id >= $perc_id_cutoff) {
         say "Projected transcript passed cut-offs: ".$coverage." cov, ".$percent_id." percent id";
         push(@$good_transcripts,$projected_transcript);
@@ -1079,6 +1084,11 @@ sub check_mapping_quality {
     }
 
     $transcript->description($transcript_description);
+
+    # add source transcript stable id as transcript attribute
+    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $source_transcript->stable_id().".".$source_transcript->version());
+    $transcript->add_Attributes($parent_attribute);
+
     if($source_transcript->translation()) {
       $source_transcript_seq = $source_transcript->translateable_seq();
       $transcript_seq = $transcript->translateable_seq();
