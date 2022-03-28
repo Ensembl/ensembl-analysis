@@ -1373,6 +1373,10 @@ sub create_gene_from_cluster {
   my $gene_description = ";parent_gene=".$parent_gene_stable_id.".".$parent_gene_version.";mapping_type=primary_mapping";
   $gene->description($gene_description);
 
+  # add source gene stable id as gene attribute
+  my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $parent_gene_stable_id.".".$parent_gene_version);
+  $gene->add_Attributes($parent_attribute);
+
   return($gene);
 }
 
