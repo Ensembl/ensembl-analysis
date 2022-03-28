@@ -32,6 +32,7 @@ sub default_options {
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
+    'email'                     => '', # email to receive report from the HiveDeleteTranscripts module
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'user'                      => '', # write db user
     'password'                  => '', # password for write db user
@@ -133,6 +134,7 @@ sub default_options {
     'repeatmodeler_logic_name'    => 'repeatmask_repeatmodeler',
     'homology_models_path'        => catdir($self->o('output_path'),'homology_models'),
 
+    ensembl_analysis_script_genebuild => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild'),
     ensembl_analysis_script           => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     load_optimise_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
     mapping_stats_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'calculate_remapping_stats.pl'),
@@ -743,9 +745,62 @@ sub pipeline_analyses {
                                 ' -coord toplevel -write'
                        },
         -rc_name => '10GB',
-        -flow_into => { 1 => ['null_columns'] },
+        -flow_into => { 1 => ['update_pc_gene_biotype_non_pc_canonical'] },
       },
 
+      {
+        # update the gene and transcript biotypes to 'pcnonpc' in preparation for deletion
+        # for genes whose biotype is protein-coding and its canonical transcript biotype is not
+        -logic_name => 'update_pcnonpc_biotypes',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn    => '#core_db#',
+          sql => [
+	       "UPDATE gene g ".
+            "  INNER JOIN transcript t ON g.canonical_transcript_id = t.transcript_id ".
+            "  INNER JOIN seq_region sr ON g.seq_region_id = sr.seq_region_id ".
+            "  INNER JOIN coord_system cs USING (coord_system_id) ".
+            "SET g.biotype='pcnonpc' ".
+            "WHERE g.biotype = 'protein_coding' ".
+            "  AND t.biotype NOT IN ('protein_coding', 'nonsense_mediated_decay') ".
+            "  AND cs.species_id = 1",
+	    
+            "UPDATE transcript t,gene g ".
+            "SET t.biotype='pcnonpc' ".
+            "WHERE t.gene_id=g.gene_id ".
+            "  AND g.biotype='pcnonpc'",
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
+          1 => ['delete_pcnonpc_transcripts_and_genes'],
+        },
+      },
+      
+      {
+        -logic_name => 'delete_pcnonpc_transcripts_and_genes',
+        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDeleteTranscripts',
+        -parameters => {
+          dbhost => $self->o('core_db','-host'),
+          dbname => '#core_dbname#',
+          dbuser => $self->o('user'),
+          dbpass => $self->o('password'),
+          dbport => $self->o('core_db','-port'),
+          biotype => 'pcnonpc',  # this will delete the transcripts whose biotype is 'pcnonpc'
+          fix_broken_genes => 1, # this will delete the genes that are empty after deleting their transcripts, which will be the case for all the pcnonpc as a result of the previous analysis
+          delete_transcripts_path => $self->o('ensembl_analysis_script_genebuild'),
+          delete_genes_path => $self->o('ensembl_analysis_script_genebuild'),
+          delete_transcripts_script_name => 'delete_transcripts.pl',
+          delete_genes_script_name => 'delete_genes.pl',
+          email => $self->o('email'),
+          output_path => $self->o('output_path'),
+          output_file_name => 'delete_pcnonpc_transcripts_and_genes.out',
+        },
+        -max_retry_count => 0,
+        -flow_into => {
+                        '1' => ['null_columns'],
+                      },
+      },
 
       {
         -logic_name => 'null_columns',
