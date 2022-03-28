@@ -334,8 +334,16 @@ sub filter_by_cutoffs {
     my $transcript_description = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version().";mapping_coverage=".$coverage.";mapping_identity=".$percent_id;
     $transcript->description($transcript_description);
 
+    # add source transcript stable id as transcript attribute
+    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $source_transcript->stable_id().".".$source_transcript->version());
+    $transcript->add_Attributes($parent_attribute);
+
     my $gene_description = ";parent_gene=".$source_transcript->{'parent_gene_stable_id'}.";mapping_type=potential_paralogue";
     $gene->description($gene_description);
+
+    # add source gene stable id as gene attribute
+    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_transcript->{'parent_gene_stable_id'});
+    $gene->add_Attributes($parent_attribute);
 
     if($transcript->{'cov'} >= $coverage_cutoff and $transcript->{'perc_id'} >= $perc_id_cutoff) {
       say "Transcript ".$transcript->{'source_stable_id'}." (".$transcript->stable_id().", ".$biotype_group.") passed check: ".$transcript->{'cov'}." cov, ".
