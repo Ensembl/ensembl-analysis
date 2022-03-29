@@ -745,7 +745,7 @@ sub pipeline_analyses {
                                 ' -coord toplevel -write'
                        },
         -rc_name => '10GB',
-        -flow_into => { 1 => ['update_pc_gene_biotype_non_pc_canonical'] },
+        -flow_into => { 1 => ['update_pcnonpc_biotypes'] },
       },
 
       {
