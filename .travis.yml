@@ -1,3 +1,6 @@
+os: linux
+dist: xenial
+
 language: "perl"
 
 perl:
@@ -10,8 +13,6 @@ services:
 
 env:
   - COVERALLS=false DB=mysql
-
-sudo: false
 
 addons:
     apt:
