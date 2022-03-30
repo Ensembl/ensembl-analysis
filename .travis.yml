@@ -1,11 +1,9 @@
 language: "perl"
 
 perl:
-  - "5.30"
   - "5.28"
   - "5.26"
   - "5.24"
-  - "5.22"
 
 services:
   - mysql
@@ -23,23 +21,19 @@ addons:
         - graphviz
 
 before_install:
-    - git clone --depth 1 https://github.com/Ensembl/ensembl-git-tools.git
-    - export PATH=$PATH:$PWD/ensembl-git-tools/bin
-    - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl
-    - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl-variation
-    - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl-taxonomy
-    - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-external.git
-    - git clone --branch main --depth 1 https://github.com/Ensembl/ensembl-killlist.git
-    - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-pipeline.git
-    - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl-compara
-    - git-ensembl --clone --branch release/90 --depth 1 ensembl-funcgen
-    - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl-hive
-    - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl-io
-    - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl-test
-    - git-ensembl --clone --branch master --secondary_branch main --depth 1 ensembl-production
-#    We need the repo to be public or to have a token to use it. If this is uncommented
-#    you also need to update travisci/harness.sh
-    - git clone --branch main --depth 1 https://github.com/Ensembl/GIFTS.git
+    - git clone --depth 1 https://github.com/Ensembl/ensembl.git
+    - git clone --depth 1 https://github.com/Ensembl/ensembl-variation.git
+    - git clone --depth 1 https://github.com/Ensembl/ensembl-taxonomy.git
+    - git clone --depth 1 https://github.com/Ensembl/ensembl-external.git
+    - git clone --depth 1 https://github.com/Ensembl/ensembl-killlist.git
+    - git clone --depth 1 https://github.com/Ensembl/ensembl-pipeline.git
+    - git clone --depth 1 https://github.com/Ensembl/ensembl-compara.git
+    - git clone --branch release/90 --depth 1 https://github.com/Ensembl/ensembl-funcgen.git
+    - git clone --depth 1 https://github.com/Ensembl/ensembl-hive.git
+    - git clone --depth 1 https://github.com/Ensembl/ensembl-io.git
+    - git clone --depth 1 https://github.com/Ensembl/ensembl-test.git
+    - git clone --depth 1 https://github.com/Ensembl/ensembl-production.git
+    - git clone --depth 1 https://github.com/Ensembl/GIFTS.git
     - echo "We need release 56 for FuncGen modules"
     - git clone --branch release/56 --depth 1 https://github.com/Ensembl/ensembl.git ensembl-56
     - git clone --branch release-1-6-924 --depth 1 https://github.com/bioperl/bioperl-live.git

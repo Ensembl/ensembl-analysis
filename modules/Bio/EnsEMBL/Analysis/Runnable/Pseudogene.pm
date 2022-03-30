@@ -184,11 +184,9 @@ Arg [none] :
 sub run {
   my ($self) = @_;
   $self->test_genes;
-  $self->summary;
+  $self->summary if ($self->DEBUG);
   if ($self->SINGLE_EXON && !$self->single_multi_file){
-    # Write out multiple exon genes for making into blast db for Spliced_elsewhere, 1 at end specifies not to delete these files
-    my $filename = $self->create_filename('multi_exon_seq','fasta',$self->PS_MULTI_EXON_DIR, 1);
-    $self->write_seq_array($self->multi_exon_genes,$filename);
+    $self->write_seq_array($self->multi_exon_genes);
 
   }
   return 0;
@@ -888,8 +886,7 @@ sub output {
 
   Arg [1]   : Bio::EnsEMBL::Analysis::Runnable
   Arg [2]   : Array of Bio::Ensembl::Gene objects
-  Arg [3]   : filename
-  Function  : This uses Bio::SeqIO to dump a transcript sequence to a fasta file
+  Function  : This dumps a transcript sequence to a fasta file
   Returntype: string, filename
   Exceptions: throw if failed to write sequence
   Example   : 
@@ -898,20 +895,14 @@ sub output {
 
 
 sub write_seq_array{
-  my ($self, $genes, $filename) = @_;
+  my ($self, $genes) = @_;
   return 0 unless (scalar(@{$genes}>0));
-  if(!$filename){
-    $self->throw("FAILED to write genes - no filename");
-  }
- # my $seqout = Bio::SeqIO->new(
- #                              -file => ">".$filename,
- #                              -format => 'Fasta',
- #                             );
+  # Write out multiple exon genes for making into blast db for Spliced_elsewhere, 1 at end specifies not to delete these files
+  my $filename = $self->create_filename('multi_exon_seq','fasta',$self->PS_MULTI_EXON_DIR, 1);
   open(OUT,">$filename") || throw("Could not open $filename");
   foreach my $gene (@{$genes}){
     foreach my $transcript (@{$gene->get_all_Transcripts}){
       next unless ( $transcript->translateable_seq );
-#        $seqout->write_seq($transcript->seq);
        print OUT '>', $transcript->dbID, "\n";
        print OUT $transcript->seq->seq, "\n";
     }

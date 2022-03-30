@@ -355,6 +355,8 @@ LINE: while ($gff_parser->next) {
       add_xrefs(\%xrefs, $attributes->{Dbxref}, $gene);
     }
     $genes{$attributes->{ID}} = $gene;
+  } elsif ($type eq 'tRNA' or $type eq 'rRNA') {
+    $do_not_process{$attributes->{ID}} = 1;
   }
 }
 $gff_parser->close;

@@ -230,8 +230,8 @@ sub flagstat {
   my @output;
   open(CMD, $cmd.' 2>&1 | ') || throw("Could not open command $cmd");
   while(<CMD>) {
-      throw($file.' is truncated, something went wrong: '.$_)
-        if (/truncated/ or /EOF marker is absent/ or /invalid BAM binary header/);
+      throw($file.' is truncated or there was an error, something went wrong: '.$_)
+        if (/error/ or /truncated/ or /EOF marker is absent/ or /invalid BAM binary header/);
       if ($stat and /^\s*(\d+).*in total/) {
           $output[0] = $1;
       }

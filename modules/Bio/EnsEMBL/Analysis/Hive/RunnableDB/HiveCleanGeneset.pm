@@ -196,7 +196,7 @@ sub clean_genes {
       my $logic_name = $transcript->analysis->logic_name();
       if($logic_name =~ /^genblast/ && scalar(@{$transcript->get_all_Exons()}) <= 3) {
         if($self->check_protein_models($transcript)) {
-          say "Found protein model with weak supporting evidence: ".$transcript->dbID.", ".$transcript->biotype;
+          $self->warning("Found protein model with weak supporting evidence: ".$transcript->dbID.", ".$transcript->biotype);
           push(@{$transcript_ids_to_remove},$transcript->dbID);
         }
       }
@@ -291,7 +291,7 @@ sub assess_flagged_transcripts {
     if($flagged_transcript->{'_is_frameshift'}) {
       my $redundant_ignoring_frameshifts = $self->check_frameshift_redundancy($flagged_transcript,$normal_transcripts);
       if($redundant_ignoring_frameshifts) {
-        say "Found a flagged transcript whose CDS is redundant if you ignore the frameshift introns, dbID: ".$flagged_transcript->dbID;
+        $self->warning("Found a flagged transcript whose CDS is redundant if you ignore the frameshift introns, dbID: ".$flagged_transcript->dbID);
         $flagged_transcript->{'_marked_for_removal'} = 1;
         push(@{$db_ids_to_remove},$flagged_transcript->dbID);
         next;
@@ -310,7 +310,7 @@ sub assess_flagged_transcripts {
     foreach my $normal_transcript (@sorted_normal_transcripts) {
       my $coverage =  $self->calculate_coverage($normal_transcript,$flagged_transcript);
       if($coverage >= $redundancy_cutoff) {
-        say "Found a flagged transcript (".$flagged_transcript->dbID.") that is covered by a normal transcript (".$normal_transcript->dbID.")";
+        $self->warning("Found a flagged transcript (".$flagged_transcript->dbID.") that is covered by a normal transcript (".$normal_transcript->dbID.")");
         say "Coverage: ".$coverage." (coverage threshold: ".$redundancy_cutoff.")";
         $flagged_transcript->{'_marked_for_removal'} = 1;
         push(@{$db_ids_to_remove},$flagged_transcript->dbID);
@@ -446,7 +446,7 @@ sub single_exon_within_intron {
     }
   }
 
-  say "FM2 overlap_on_same_strand_count: ".$overlap_on_same_strand_count;
+  $self->warning("overlap_on_same_strand_count: ".$overlap_on_same_strand_count);
 
   # If there is more than just the parent gene then this single exon model must lie in an intron of another gene
   # Otherwise it would have been part of the overlapping gene
@@ -589,10 +589,8 @@ sub generate_exon_string {
     my $start = $exon->start();
     my $end = $exon->end();
     $exon_string .= $start."..".$end.":";
-    print "(".$start."..".$end.")";
   }
 
-  print "\n";
 
   return($exon_string);
 }
@@ -627,7 +625,7 @@ sub check_protein_models {
     # If an exon supporting feature is found, base decision on that
     if($coverage) {
       if($coverage < 75 && $translation !~ /^M/) {
-       say "Removing transcript ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$hit_name.":".$coverage;
+       $self->warning("Removing transcript ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$hit_name.":".$coverage);
        say "Translation:\n".$translation;
        return(1);
       } else {
@@ -641,17 +639,23 @@ sub check_protein_models {
     if($classification <= 4) {
       return(0);
     } else {
-      say "Removing based on classification: ".$biotype;
+      $self->warning("Removing based on classification: ".$biotype);
       return(1);
     }
   }
 
   my $supporting_feature = shift(@$supporting_features);
   my $coverage = $supporting_feature->hcoverage;
+  
+  if (!($transcript->translation())) {
+    $self->warning("Removing transcript because it does not have any translation ".$transcript->seq_region_name().":".$transcript->seq_region_start().":".$transcript->seq_region_end());
+    return(1);
+  }
+  
   my $translation = $transcript->translation->seq;
   my $hit_name = $supporting_feature->hseqname;
   if($coverage < 75 && $translation !~ /^M/) {
-    say "Removing transcript ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$hit_name.":".$coverage;
+    $self->warning("Removing transcript ".$transcript->seq_region_name.":".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$hit_name.":".$coverage);
     say "Translation:\n".$translation;
     return(1);
   }

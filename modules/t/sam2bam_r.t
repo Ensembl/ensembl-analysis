@@ -32,23 +32,22 @@ my $rest_url = "http://rest.ensembl.org/sequence/region/takifugu_rubripes/$acces
 my @samstring = (
 'SRR5816364.14550925/1	3	CAAJGN020000057.1	150	0	38M11728N88M	=	1	126	TCTTTCCCACCATACAGTAATTTCTAAAGAGGATACTTGATACTTGGTCCTAAAAATTGTGATGCAATGCATGACAGTCAAAAACATGTGTGTGAAGAATATTGATTCTTCAAACCACAGTCCCGC	*	RG:Z:SRR5816364_5',
 'SRR5816364.21941561/2	3	CAAJGN020000057.1	8458	0	25M1428N101M	=	1	126	CACACATATGTTTTTGTTTTTTTATATACATCAATTATATGACTTTTTCCCTTTTTAGTTTGTGATTCATTGCTGGGATAGTTACAGGGGTGCTGATTTATAAGCTGTCGTCCGATCCTCTTTCCC	*	RG:Z:SRR5816364_8',
-'SRR5816367.11338108/2	3	CAAJGN020000057.1	15988	0	2S66M18516N57M1S	=	3	125	GGGAGGTCATATATGGTTCAAAAAAGCCATAATTTGAATATCATCAAAAACATATGTGTGAAAAAAAAATTGTGATGCAATGCATGACAGTCACCACGGTGGAACCAAGAACATGTGTGTGAAGAG	*	RG:Z:SRR5816367_4'
+'SRR5816367.11338108/2	3	CAAJGN020000057.1	15988	0	2S66M18516N57M1S	=	3	125	GGGAGGTCATATATGGTTCAAAAAAGCCATAATTTGAATATCATCAAAAACATATGTGTGAAAAAAAAATTGTGATGCAATGCATGACAGTCACCACGGTGGAACCAAGAACATGTGTGTGAAGAG	*	RG:Z:SRR5816367_4',
 );
 
+# We create two files to be concatenated. we do not have the intron file anymore
+# so we need to use these 3 lines at the moment. The two files need to be unsorted
+# but @samstring needs to be sorted to facilitate the checks
 my $root_dir = catdir('modules', 't');
 my @samfiles = (catfile($root_dir, 'file1.sam'), catfile($root_dir, 'file2.sam'));
 open(WH, '>'.$samfiles[0]) || die ('Could not open '.$samfiles[0]);
-foreach my $line ((reverse @samstring)[0..2]) {
-  print $line."\n";
-  print WH $line, "\n";
-}
+print WH $samstring[1], "\n";
 print WH '@EOF';
 close(WH) || die('Could not close '.$samfiles[0]);
 
 open(WH, '>'.$samfiles[1]) || die ('Could not open '.$samfiles[1]);
-foreach my $line ((reverse @samstring)[4..5]) {
-  print WH $line, "\n";
-}
+print WH $samstring[2], "\n";
+print WH $samstring[0], "\n";
 print WH '@EOF';
 close(WH) || die('Could not close '.$samfiles[1]);
 
@@ -136,6 +135,6 @@ done_testing();
 
 #Cleaning
 note('Cleaning');
-foreach my $file ($genomefile, $genomefile.'.fai', @samfiles, $bamfile.'.bam', $bamfile.'.bam.bai', $bamfile.'.header', $headerfile) {
+foreach my $file ($genomefile, $genomefile.'.fai', @samfiles, $bamfile.'.sam', $bamfile.'.bam', $bamfile.'.bam.bai', $bamfile.'.header', $headerfile) {
   unlink $file if (-e $file);
 }

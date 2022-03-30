@@ -123,16 +123,9 @@ sub _master_config {
      },
 
      'fish_basic' => {
-       'cpg'                        => [15000, 'simple'],
-       'eponine'                    => [30000, 'simple'],
-       'trnascan'                   => [300, 'simple'],
-       'genscan'                    => [40000, 'prediction transcript'],
-       'dust'                       => [2000000, 'repeat'],
-       'repeatmask_repbase_teleost' => [1500000, 'repeat'],
-       'trf'                        => [500000, 'repeat'],
-       'uniprot'                    => [3000000, 'protein align'],
-       'unigene'                    => [3000000, 'dna align'],
-       'vertrna'                    => [3000000, 'dna align']
+       'dust'                       => [1000000, 'repeat'],
+       'repeatmask_repbase_teleost' => [100000, 'repeat'],
+       'trf'                        => [100000, 'repeat']
      },
      
      'lepidoptera_basic' => {
@@ -149,6 +142,19 @@ sub _master_config {
        'vertrna'                    => [1, 'dna align']
      },
 
+     'hymenoptera_basic' => {
+       'cpg'                        => [2000, 'simple'],
+       'eponine'                    => [30000, 'simple'],
+       'trnascan'                   => [300, 'simple'],
+       'genscan'                    => [10000, 'prediction transcript'],
+       'dust'                       => [500000, 'repeat'],
+       'repeatdetector'             => [200000, 'repeat'],
+       #'repeatmask_repbase_' => [1500000, 'repeat'],
+       'trf'                        => [50000, 'repeat'],
+       'uniprot'                    => [1, 'protein align'],
+       'unigene'                    => [1, 'dna align'],
+       'vertrna'                    => [1, 'dna align']
+     },
    },
 
   'gene_db_checks' => {
@@ -476,13 +482,13 @@ sub _master_config {
     'fish_basic' => {
       'genblast' => {
         'logic_names' => {
-          'genblast'            => 125000,
-          'genblast_not_best'   => 125000,
+          'genblast'            => 20000,
+          'genblast_not_best'   => 40000,
         }, # logic_names
         'biotypes' =>    {
           'fish_pe12_' => 20000,
-          'mammals_pe12_' => 100000,
-          'vert_pe12_' => 40000,
+          'mammals_pe12_' => 5000,
+          'vert_pe12_' => 10000,
         }, # biotypes
       }, # genblast
       'genblast_select' => {
@@ -492,11 +498,11 @@ sub _master_config {
       }, # genblast_select
       'ig_tr' => {
         'logic_names' => {
-          'ig_tr_gene'          => 40,
+          'ig_tr_gene'          => 1,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                 => 20,
-          'TR_'                 => 20,
+          'IG_'                 => 4,
+          'TR_'                 => 1,
         }, # biotypes
       }, # ig_tr
       'projection_coding' => {
@@ -573,16 +579,16 @@ sub _master_config {
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
-          'ncrna' => 2500,
+          'ncrna' => 400,
         }, # logic_names
         'biotypes' =>    {
-          'miRNA'               => 500,
-          'misc_RNA'            => 1000,
+          'miRNA'               => 100,
+          'misc_RNA'            => 10,
           'ribozyme'            => 0,
-          'rRNA'                => 200,
+          'rRNA'                => 10,
           'scaRNA'              => 0,
-          'snoRNA'              => 200,
-          'snRNA'               => 400,
+          'snoRNA'              => 100,
+          'snRNA'               => 100,
         }, # biotypes
       }, # ncrna
       'final' => {

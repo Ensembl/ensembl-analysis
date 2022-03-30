@@ -125,6 +125,9 @@ sub write_output {
           $input_id->{$key} =~ tr /:\t/ /;
         }
 
+        my ($project_id_cvs,$sample_id_csv,$rest_of_DS) = split(',', $input_id->{DS}, 3);
+        $input_id->{DS} = $project_id_cvs . ',' . $sample_id_csv;
+
         my $table_adaptor = $self->db->get_NakedTableAdaptor;
         $table_adaptor->table_name($self->param('csvfile_table'));
         $table_adaptor->store([$input_id]);

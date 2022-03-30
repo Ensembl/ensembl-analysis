@@ -39,11 +39,28 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveHomologyRNASeqIntronsCheck
 
 use strict;
 use warnings;
-use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene fully_load_Gene);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters:
+                target_db => undef,
+                update_genes => 0,
+                full_support_suffix => 'top', # We will concat this value to the previous biotype
+                classify_weak=> 1,
+                classify_low => 2,
+                classify_medium => 4,
+                classify_high => 6,
+                classify_top => 8,
+                slice_strand => 0,
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
 
 sub param_defaults {
   my ($self) = @_;
@@ -63,6 +80,21 @@ sub param_defaults {
 }
 
 
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Retrieve all genes from a slice, logic_name(s) can be provided with
+              'source_logic_name' as a String or an array of String. All transcripts
+              and exons are loaded. All possible introns on the slice are loaded to
+              reduce the load on the database. It will use the highest score for any
+              intron
+ Returntype : None
+ Exceptions : Throws if 'source_db' is not provided
+              Throws if 'intron_db' is not provided
+              Throws if the genome file is not found when using the FASTA for sequences
+
+=cut
+
 sub fetch_input {
   my ($self) = @_;
 
@@ -75,7 +107,7 @@ sub fetch_input {
   }
 
   if($self->param('use_genome_flatfile')) {
-    say "Ingoring dna table and using fasta file for sequence fetching";
+    $self->say_with_header("Ignoring dna table and using fasta file for sequence fetching");
     unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
       $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
     }
@@ -83,7 +115,7 @@ sub fetch_input {
                  -FASTA => $self->param_required('genome_file'),
                );
   } else {
-    say "Attaching dna db";
+    $self->say_with_header("Attaching dna db");
     my $dna_dba = $self->get_database_by_name('dna_db');
     $source_db->dnadb($dna_dba);
     $intron_db->dnadb($dna_dba);
@@ -93,28 +125,27 @@ sub fetch_input {
   }
 
   if($target_db) {
+    $target_db->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
     $self->hrdb_set_con($target_db,'target_db');
   } else {
     $self->hrdb_set_con($source_db, 'target_db');
     $self->param('update_genes', 1); # If people didn't specify a target_db, we update the biotype, otherwise they have to specify a target_db
   }
 
-  $self->hrdb_set_con($intron_db,'intron_db');
-
   my $slice = $source_db->get_SliceAdaptor->fetch_by_name($self->input_id);
   my $genes;
   if ($self->param_is_defined('source_logic_name')) {
     if (ref($self->param('source_logic_name')) eq 'ARRAY') {
       foreach my $logic_name (@{$self->param('source_logic_name')}) {
-        push(@$genes, @{$slice->get_all_Genes($logic_name)});
+        push(@$genes, @{$slice->get_all_Genes($logic_name, undef, 1)});
       }
     }
     else {
-      $genes = $slice->get_all_Genes($self->param('source_logic_name'));
+      $genes = $slice->get_all_Genes($self->param('source_logic_name'), undef, 1);
     }
   }
   else {
-    $genes = $slice->get_all_Genes();
+    $genes = $slice->get_all_Genes(undef, undef, 1);
   }
 
   # If we have the slice_strand param set then we want to filter the genes based on the strand
@@ -129,21 +160,50 @@ sub fetch_input {
     }
   }
 
-  print STDERR 'Fetched ', scalar(@$genes), "\n";
   $self->say_with_header('Fetched '.scalar(@$genes));
+  my $intron_adaptor = $intron_db->get_DnaAlignFeatureAdaptor;
+  my %introns;
+  foreach my $intron (@{$intron_adaptor->fetch_all_by_Slice($slice)}) {
+    my $key = sprintf("%d:%d:%d", $intron->start, $intron->end, $intron->strand);
+    if (!exists $introns{$key} or (exists $introns{$key} and $introns{$key} < $intron->score)) {
+      $introns{$key} = $intron->score;
+    }
+  }
+  $self->param('__introns', \%introns);
   $self->input_genes($genes);
 }
 
 
+=head2 run
+
+ Arg [1]    : None
+ Description: Loop through all the transcripts of all the genes and check
+              if at least one short read overlapping a splice junctions
+              exists.
+              It then classifies the models based on either:
+                - full intron support in a binary way
+                - degrees of support, so a transcript with half support
+                  is still of higher value than a transcript with less
+                  support
+ Returntype : None
+ Exceptions : Throws if the genes have more than one transcript
+
+=cut
+
 sub run {
   my ($self) = @_;
 
-  my $intron_adaptor = $self->hrdb_get_con('intron_db')->get_DnaAlignFeatureAdaptor;
   my %good_introns;
   my $full_support_suffix = $self->param('full_support_suffix');
+  my $weak_count   = $self->param('classify_weak');
+  my $low_count    = $self->param('classify_low');
+  my $medium_count = $self->param('classify_medium');
+  my $high_count   = $self->param('classify_high');
+  my $top_count    = $self->param('classify_top');
+  my $classify_by_count = $self->param('classify_by_count');
+  my $introns = $self->param('__introns');
 
   foreach my $gene (@{$self->input_genes}) {
-    my %introns;
     my $transcripts = $gene->get_all_Transcripts;
     if(scalar(@$transcripts) > 1) {
       $self->throw("The module is not currently designed to work with multi-transcript genes");
@@ -154,31 +214,17 @@ sub run {
       my $good_intron_count = 0;
       foreach my $intron (@{$transcript->get_all_Introns}) {
         ++$intron_count;
-        my $hashkey = sprintf("%d:%d:%d", $intron->seq_region_start, $intron->seq_region_end, $intron->strand);
+        my $hashkey = sprintf("%d:%d:%d", $intron->start, $intron->end, $intron->strand);
         if (exists $good_introns{$hashkey}) {
           ++$good_intron_count;
         }
-        elsif (exists $introns{$hashkey}) {
+        elsif (exists $introns->{$hashkey}) {
           ++$good_intron_count;
-          $good_introns{$hashkey} = $introns{$hashkey};
-        }
-        elsif (scalar(keys %introns) == 0) {
-          foreach my $intron (@{$intron_adaptor->fetch_all_by_Slice($gene->feature_Slice)}) {
-            $introns{sprintf("%d:%d:%d", $intron->seq_region_start, $intron->seq_region_end, $intron->strand*$gene->strand)} = $intron->score;
-          }
-          if (exists $introns{$hashkey}) {
-            ++$good_intron_count;
-            $good_introns{$hashkey} = $introns{$hashkey};
-          }
+          $good_introns{$hashkey} = $introns->{$hashkey};
         }
       }
 
-      if($self->param('classify_by_count')) {
-        my $weak_count   = $self->param_required('classify_weak');
-        my $low_count    = $self->param_required('classify_low');
-        my $medium_count = $self->param_required('classify_medium');
-        my $high_count   = $self->param_required('classify_high');
-        my $top_count    = $self->param_required('classify_top');
+      if ($classify_by_count) {
         my $intron_support_diff = $good_intron_count - ($intron_count - $good_intron_count);
         if($intron_support_diff >= $top_count) {
           $transcript->biotype('genblast_rnaseq_top');
@@ -201,7 +247,7 @@ sub run {
           $gene->biotype('genblast_rnaseq_weak');
           $self->output([$gene]);
         } else {
-          say "Skipping gene as there is no support";
+          $self->say_with_header("Skipping gene as there is no support");
         }
       } else {
         if ($intron_count == $good_intron_count) {
@@ -220,21 +266,32 @@ sub run {
 }
 
 
+=head2 write_output
+
+ Arg [1]    : None
+ Description: Updates the transcripts biotype if 'target_db' is not set
+              or store a new set of gene/transcript if it is set.
+ Returntype : None
+ Exceptions : None
+
+=cut
+
 sub write_output {
   my ($self) = @_;
 
   my $analysis = $self->analysis;
   my $gene_adaptor = $self->hrdb_get_con('target_db')->get_GeneAdaptor;
-  my $update_genes = $self->param('update_genes');
-  foreach my $gene (@{$self->output}) {
-    if ($update_genes) {
+  if ($self->param('update_genes')) {
+    foreach my $gene (@{$self->output}) {
       foreach my $transcript (@{$gene->get_all_Transcripts}) {
         $transcript->adaptor->update($transcript);
       }
       $gene->adaptor->update($gene);
     }
-    else {
-      fully_load_Gene($gene);
+  }
+  else {
+    foreach my $gene (@{$self->output}) {
+      fully_load_Gene($gene); # This is probably not needed anymore as we load in fetch_input
       empty_Gene($gene);
       $gene->analysis($analysis);
       $gene_adaptor->store($gene);

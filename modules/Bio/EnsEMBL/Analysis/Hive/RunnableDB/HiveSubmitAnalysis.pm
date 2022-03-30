@@ -57,6 +57,7 @@ sub param_defaults {
 
     return {
         %{$self->SUPER::param_defaults},
+        skip_analysis => 0,
         include_non_reference => 0,
         feature_id_include_non_reference => 1,
         include_duplicates => 0,
@@ -128,6 +129,8 @@ sub fetch_input {
         $self->feature_region($dba);
       } elsif($iid_type eq 'feature_id') {
         $self->feature_id($dba);
+      } elsif($iid_type eq 'intergenic_slice') {
+        $self->intergenic_slice($dba);
       } else {
         $self->throw('You have not specified one of the recognised operation types: '.$iid_type);
       }
@@ -708,10 +711,15 @@ sub feature_region {
 
  Arg [1]    : Bio::EnsEMBL::DBSQL::DBAdaptor
  Description: Creates input ids based on features 'feature_type'
+              You can filter the set with multiple parameters:
+              * feature_logic_names: an array of logic_names
+              * exclude_biotype: an array of biotypes to exclude
+              * feature_restriction: biotype (needs biotypes param) or projection
               It stores the input ids in 'inputlist'
  Returntype : None
  Exceptions : Throws if 'feature_type' is not defined
               Throws if 'feature_type' is not supported
+              Throws if 'batch_size' is defined and less than 1
 
 =cut
 
@@ -747,24 +755,29 @@ sub feature_id {
   else {
     $slices = $dba->get_SliceAdaptor->fetch_all($self->param('coord_system_name'));
   }
-  foreach my $slice (@$slices) {
-    foreach my $logic_name (@$logic_names) {
-        foreach my $feature (@{$feature_adaptor->fetch_all_by_Slice($slice, $logic_name)}) {
-          if($self->param_is_defined('exclude_biotype')) {
-            foreach my $biotype (@{$self->param('exclude_biotype')}){
-               if ($feature->biotype eq $biotype) {
-                   $self->warning("You've defined a biotype that is not allowed to be copied. Something is wrong");
-               }
-               else{
-                  push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
-               }
+  if ($feature_restriction or $self->param_is_defined('exclude_biotype') or @$slices == 1) {
+    foreach my $slice (@$slices) {
+      foreach my $logic_name (@$logic_names) {
+          foreach my $feature (@{$feature_adaptor->fetch_all_by_Slice($slice, $logic_name)}) {
+            if($self->param_is_defined('exclude_biotype')) {
+              foreach my $biotype (@{$self->param('exclude_biotype')}){
+                 if ($feature->biotype eq $biotype) {
+                     $self->warning("You've defined a biotype that is not allowed to be copied. Something is wrong");
+                 }
+                 else{
+                    push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
+                 }
+             }
            }
-         }
-         else{
-                  push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
-               }
+           else{
+                    push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
+                 }
+        }
       }
     }
+  }
+  else {
+    $output_id_array = $feature_adaptor->list_dbIDs(1);
   }
 
   if($self->param_is_defined('batch_size')) {
@@ -1090,6 +1103,46 @@ sub fastq_range {
   }
 
   $self->param('inputlist', $self->_chunk_input_ids(1, $batch_array));
+}
+
+sub intergenic_slice {
+  my ($self, $dba) = @_;
+
+  my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param('iid'));
+  my @input_ids;
+  my $desired_size = $self->param('desired_slice_length');
+  my $cluster_start = 1;
+  my $cluster_end = 0;
+  my $cluster_size = 0;
+  $self->say_with_header($slice->length);
+  $self->say_with_header($desired_size*1.25);
+  if ($slice->length < $desired_size*1.25) {
+    if ($dba->get_GeneAdaptor->count_all_by_Slice($slice)) {
+      push(@input_ids, $slice->name);
+    }
+  }
+  else {
+    my $input_id = join(':', $slice->coord_system->name, $slice->coord_system->version, $slice->seq_region_name, $slice->start);
+    foreach my $gene (sort {$a->start <=> $b->start || $a->end <=> $b->end} @{$slice->get_all_Genes}) {
+      if ($cluster_size > $desired_size and $cluster_end < $gene->start) {
+        $cluster_end += int(($gene->start-$cluster_end)/2);
+        $cluster_start = $cluster_end+1;
+        push(@input_ids, $input_id.':'.$cluster_end.':1');
+        if ($gene->end+$desired_size >= $slice->end) {
+          push(@input_ids, join(':', $slice->coord_system->name, $slice->coord_system->version, $slice->seq_region_name, $cluster_start, $slice->end, 1));
+          undef($input_id);
+          last;
+        }
+        $input_id = join(':', $slice->coord_system->name, $slice->coord_system->version, $slice->seq_region_name, $cluster_start);
+      }
+    $cluster_end = $gene->end if ($cluster_end < $gene->end);
+      $cluster_size = $cluster_end-$cluster_start;
+    }
+    if ($input_id) {
+      push(@input_ids, "$input_id:$cluster_end:1");
+    }
+  }
+  $self->param('inputlist', \@input_ids);
 }
 
 1;

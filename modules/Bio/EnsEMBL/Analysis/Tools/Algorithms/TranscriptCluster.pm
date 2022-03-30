@@ -685,30 +685,21 @@ sub get_ExonCluster_using_all_Exons {
     foreach my $exon (@{$trans->get_all_Exons}) {
 
       my @matching_clusters;
-       # print "\nStarting Exon " . $exon->dbID . " limits: " . $exon->start . 
-       #" and " .  $exon->end . "\n";
 
       CLUSTER: foreach my $cluster (@clusters) {
-        # print "Testing against cluster with limits " . 
-         $cluster->start. " to " . $cluster->end . " ".$cluster->strand ."\t";
         if (!($exon->start >= $cluster->end ||
               $exon->end <= $cluster->start)) {
           if (!$ignore_strand) {
              if ($cluster->strand eq $exon->strand ){
                 push (@matching_clusters, $cluster);
-                #print "cl. matches " .$cluster->strand ."\t" .$exon->strand . "\t" .$trans->strand ."\n" ;
              }
           } else {
             # ignore strand; do nothing
             push (@matching_clusters, $cluster);
           }
         }
-        #print "\n";
       }
       if (scalar(@matching_clusters) == 0) {
-        # print STDERR "Created new cluster for " . $exon->stable_id . " " . $exon->dbID . "\n";
-        # print "\ncreating new cluster for Exon " . $exon->dbID . 
-        # " limits: " . $exon->start . " and " .  $exon->end . "\n";
 
         my $newcluster = Bio::EnsEMBL::Analysis::Tools::Algorithms::ExonCluster->new() ;
 
@@ -716,8 +707,6 @@ sub get_ExonCluster_using_all_Exons {
         push(@clusters,$newcluster);
 
       } elsif (scalar(@matching_clusters) == 1) {
-        # print STDERR "Adding to cluster for " . $exon->stable_id . " " . $exon->dbID . "\n";
-        #$matching_clusters[0]->add_exon($exon,$trans);
         $matching_clusters[0]->add_exon_if_not_present($exon,$trans, $ignore_strand);
       } else {
          # Merge the matching clusters into a single cluster

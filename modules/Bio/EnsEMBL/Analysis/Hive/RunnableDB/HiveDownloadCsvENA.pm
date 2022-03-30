@@ -54,14 +54,19 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
  Description: Default parameters for the analysis
                ena_base_url => 'http://www.ebi.ac.uk/ena/portal/api/search?display=report',
                files_domain => 'domain=read&result=read_run',
-               files_fields => 'run_accession,study_accession,experiment_accession,sample_accession,secondary_sample_accession,instrument_platform,instrument_model,library_layout,library_strategy,nominal_length,read_count,base_count,fastq_ftp,fastq_aspera,fastq_md5,library_source,library_selection,center_name,study_alias,experiment_alias,experiment_title,study_title',
+               files_fields => 'run_accession,study_accession,experiment_accession,sample_accession,secondary_sample_accession,instrument_platform,instrument_model,library_layout,library_strategy,read_count,base_count,fastq_ftp,fastq_aspera,fastq_md5,library_source,library_selection,center_name,study_alias,experiment_alias,experiment_title,study_title',
                sample_domain => 'domain=sample&result=sample',
                sample_fields => 'accession,secondary_sample_accession,bio_material,cell_line,cell_type,collected_by,collection_date,country,cultivar,culture_collection,description,dev_stage,ecotype,environmental_sample,first_public,germline,identified_by,isolate,isolation_source,location,mating_type,serotype,serovar,sex,submitted_sex,specimen_voucher,strain,sub_species,sub_strain,tissue_lib,tissue_type,variety,tax_id,scientific_name,sample_alias,center_name,protocol_label,project_name,investigation_type,experimental_factor,sample_collection,sequencing_method',
                download_method => 'ftp',
                separator => '\t',
-               _read_length => 1, # This is a default that should not exist. Some data do not have the read count and base count
+               _read_length => 1,
                _centre_name => 'ENA',
-               print_all_info => 0, # It will print all the sample information in the description instead of a selection, good to use when checking the CSV file
+               print_all_info => 0,
+               paired_end_only => 1, #by default, module will only add paired-end data to the csv, add "paired_end_only => 0" to pipeline config to include single end data
+               read_type => 'short_read',
+               instrument_platform => 'ILLUMINA',
+               taxon_id_restriction => 0, # Set it to 1 if you are using 'study_accession' which has multiple species
+               max_long_read_read_count => 1000000, # if a long read set has more than 1,000,000 reads, discard it. Very crude filter on rax reads
  Returntype : Hashref
  Exceptions : None
 
@@ -74,7 +79,7 @@ sub param_defaults {
     %{$self->SUPER::param_defaults},
     ena_base_url => 'http://www.ebi.ac.uk/ena/portal/api/search?display=report',
     files_domain => 'domain=read&result=read_run',
-    files_fields => 'run_accession,study_accession,experiment_accession,sample_accession,secondary_sample_accession,instrument_platform,instrument_model,library_layout,library_strategy,nominal_length,read_count,base_count,fastq_ftp,fastq_aspera,fastq_md5,library_source,library_selection,center_name,study_alias,experiment_alias,experiment_title,study_title',
+    files_fields => 'run_accession,study_accession,experiment_accession,sample_accession,secondary_sample_accession,instrument_platform,instrument_model,library_layout,library_strategy,read_count,base_count,fastq_ftp,fastq_aspera,fastq_md5,library_source,library_selection,center_name,study_alias,experiment_alias,experiment_title,study_title, submitted_ftp',
     sample_domain => 'domain=sample&result=sample',
     sample_fields => 'accession,secondary_sample_accession,bio_material,cell_line,cell_type,collected_by,collection_date,country,cultivar,culture_collection,description,dev_stage,ecotype,environmental_sample,first_public,germline,identified_by,isolate,isolation_source,location,mating_type,serotype,serovar,sex,submitted_sex,specimen_voucher,strain,sub_species,sub_strain,tissue_lib,tissue_type,variety,tax_id,scientific_name,sample_alias,center_name,protocol_label,project_name,investigation_type,experimental_factor,sample_collection,sequencing_method',
     download_method => 'ftp',
@@ -85,6 +90,8 @@ sub param_defaults {
     paired_end_only => 1, #by default, module will only add paired-end data to the csv, add "paired_end_only => 0" to pipeline config to include single end data
     read_type => 'short_read',
     instrument_platform => 'ILLUMINA',
+    taxon_id_restriction => 0, # Set it to 1 if you are using 'study_accession' which has multiple species
+    max_long_read_read_count => 1000000, # if a long read set has more than 1,000,000 reads, discard it. Very crude filter on rax reads
   }
 }
 
@@ -111,7 +118,12 @@ sub fetch_input {
   if (-e $self->param('inputfile')) {
     $self->complete_early("'inputfile' exists so I will use that");
   } elsif ($self->param_is_defined('study_accession') and $self->param('study_accession')) {
-    $self->_populate_query($self->param('study_accession'), 'study_accession=%s');
+    if ($self->param('taxon_id_restriction') and $self->param_is_defined('taxon_id') and $self->param('taxon_id')) {
+      $self->_populate_query($self->param('study_accession'), 'study_accession=%s AND tax_tree('.$self->param('taxon_id').')');
+    }
+    else {
+      $self->_populate_query($self->param('study_accession'), 'study_accession=%s');
+    }
   } elsif ($self->param_is_defined('taxon_id') and $self->param('taxon_id')) {
     $self->_populate_query($self->param('taxon_id'), 'tax_tree(%s) AND instrument_platform='.$self->param('instrument_platform').' AND library_source=TRANSCRIPTOMIC');
   } else {
@@ -163,13 +175,16 @@ sub run {
 
   my %csv_data;
   my %samples;
+  my $json_decoder = JSON::PP->new();
+  my $fastq_file = 'fastq_'.$self->param('download_method');
+  my $is_long_read = $self->param_required('read_type') ne 'short_read';
+  my $max_long_read_read_count = $self->param_required('max_long_read_read_count');
   foreach my $query (@{$self->param('query')}) {
     my $ua = LWP::UserAgent->new;
     $ua->env_proxy;
     my $url = join('&', $self->param('ena_base_url'), 'query="'.$query.'"', $self->param('files_domain'), 'fields='.$self->param('files_fields'));
     $self->say_with_header($url);
     my $response = $ua->get($url);
-    my $fastq_file = 'fastq_'.$self->param('download_method');
     if ($response->is_success) {
       my $content = $response->decoded_content(ref => 1);
       if ($content) {
@@ -187,27 +202,44 @@ sub run {
 
             my @row = split("\t", $line);
             my $read_length = $self->param('_read_length');
-            my $nominal_length = 0;
-            my $calculated_length = 0;
 
-            if ($self->param('paired_end_only')){
-	      my $third_file = "ftp[^_]*\.fastq\.gz\;ftp";
-	      $row[$fields_index{$fastq_file}] =~ s/$third_file/ftp/; # sometimes a third combined fastq file exists (it has single end naming format) - discard it
-
+            if ($self->param('paired_end_only')) {
               next if ($row[$fields_index{library_layout}] eq 'SINGLE'); # don't include single end reads
-	      next if ($row[$fields_index{$fastq_file}] !~ m/.*_1\.fastq\.gz.*_2\.fastq\.gz/);# this will throw out the paired end data that is stored in a single file, i.e. it looks like single end data to a regex
+              next if ($row[$fields_index{$fastq_file}] !~ m/.*_1\.fastq\.gz.*_2\.fastq\.gz/);# this will throw out the paired end data that is stored in a single file, i.e. it looks like single end data to a regex
+
+              # sometimes a third combined fastq file exists (it has single end naming format)
+              # remove the file (and its corresponding checksum) without numerical suffix if the _1 and _2 files are present
+              my @files = split(';',$row[$fields_index{$fastq_file}]);
+              my @checksums = split(';',$row[$fields_index{fastq_md5}]);
+
+              if (scalar(@files) > 2) {
+                $row[$fields_index{$fastq_file}] = '';
+                $row[$fields_index{fastq_md5}] = '';
+                my $file_index = 0;
+                my $file_count = 0;
+                foreach my $file (@files) {
+                  if ($file !~ m/[^_][0-9]+]*\.fastq\.gz/) {
+                    $row[$fields_index{$fastq_file}] .= $file.";";
+                    $row[$fields_index{fastq_md5}] .= $checksums[$file_index].";";
+                    $file_count++;
+                  }
+                  $file_index++;
+                }
+                chop($row[$fields_index{$fastq_file}]);
+                chop($row[$fields_index{fastq_md5}]);
+
+                if ($file_count != 2) {
+                  $self->throw("The number of parsed fastq files must be 2 but it is ".$file_count." for line:\n".$line);
+                }
+              }
             }
 
-            if ($row[$fields_index{nominal_length}]) {
-              $nominal_length = $row[$fields_index{nominal_length}];
-              $read_length = $nominal_length;
+            if ($is_long_read and $row[$fields_index{read_count}] and $row[$fields_index{read_count}] > $max_long_read_read_count) {
+              $self->say_with_header($row[$fields_index{run_accession}].' has too many reads: '.$row[$fields_index{read_count}].', discarding it');
+              next;
             }
             if ($row[$fields_index{base_count}] and $row[$fields_index{read_count}]) {
-              $calculated_length = $row[$fields_index{base_count}]/$row[$fields_index{read_count}];
-              $read_length = $calculated_length;
-            }
-            if ($nominal_length != $calculated_length and $nominal_length != 0 and $calculated_length != 0) {
-              $self->warning("${row[$fields_index{run_accession}]} NOMINAL $nominal_length CALC $calculated_length");
+              $read_length = $row[$fields_index{base_count}]/$row[$fields_index{read_count}];
             }
             if ($row[$fields_index{library_layout}] eq 'PAIRED') {
               $read_length /= 2;
@@ -226,96 +258,70 @@ sub run {
               read_length => $read_length,
               center_name => $row[$fields_index{center_name}],
             );
-            $samples{$row[$fields_index{sample_accession}]} = $row[$fields_index{secondary_sample_accession}];
-            push(@{$csv_data{$row[$fields_index{study_accession}]}->{$row[$fields_index{sample_accession}]}}, \%line);
+            my $sample_name = $row[$fields_index{sample_accession}];
+            if (index($row[$fields_index{secondary_sample_accession}], 'SAM') == 0) {
+              $sample_name = $row[$fields_index{sample_accession}];
+            }
+            $samples{$sample_name} = {};
+            push(@{$csv_data{$row[$fields_index{study_accession}]}->{$sample_name}}, \%line);
           }
         }
-        my @sample_names = keys %samples;
         my $header;
-        SAMPLE: foreach my $sample (@sample_names) {
-          $url = join('&', $self->param('ena_base_url'), 'query="accession='.$sample.'"', $self->param('sample_domain'), 'fields='.$self->param('sample_fields'));
-          $response = $ua->get($url);
-          if ($response->is_success) {
-            $content = $response->decoded_content();
-            if ($content) {
-              while ($content =~ /^(\w+.*)$/mgc) {
-                my $line = $1;
-                if ($line =~ /^[a-z]/) {
-                  my $index = 0;
-                  %fields_index = map { $_ => $index++} split('\t', $line);
-                  $header = $line;
-                }
-                else {
-                  $self->say_with_header($line);
-                  my @row = split("\t", $line);
-                  my %line = (
-                    center_name => $row[$fields_index{center_name}],
-                    cell_line => $row[$fields_index{cell_line}],
-                    cell_type => $row[$fields_index{cell_type}],
-                    dev_stage => $row[$fields_index{dev_stage}],
-                    sex => $row[$fields_index{sex}],
-                    strain => $row[$fields_index{strain}],
-                    sub_species => $row[$fields_index{sub_species}],
-                    sub_strain => $row[$fields_index{sub_strain}],
-                    tissue_lib => $row[$fields_index{tissue_lib}],
-                    tissue_type => $row[$fields_index{tissue_type}],
-                    variety => $row[$fields_index{variety}],
-                    tax_id => $row[$fields_index{tax_id}],
-                    description => $row[$fields_index{description}],
-                    sample_collection => $row[$fields_index{sample_collection}],
-                    sequencing_method => $row[$fields_index{sequencing_method}],
-                    sample_alias => $row[$fields_index{sample_alias}],
-                  );
-                  my $dh = $ua->default_headers;
-                  $ua->default_header('Content-Type' => 'application/json');
-                  my $biosd = $ua->get('http://www.ebi.ac.uk/biosamples/samples/'.$sample);
-                  if ($biosd->is_success) {
-                    $content = $biosd->decoded_content();
-                    my $json = JSON::PP->new();
-                    my $data = $json->decode($content);
-                    if (exists $data->{characteristics}->{immunization}) {
-                      delete $samples{$sample};
-                      $self->warning("Removed $sample from the set as it has immunization value: ".$data->{characteristics}->{immunization}->[0]->{text});
-                      next SAMPLE;
-                    }
-                    $line{dev_stage} = $data->{characteristics}->{'development stage'}->[0]->{text}
-                      if (exists $data->{characteristics}->{'development stage'});
-                    $line{status} = $data->{characteristics}->{healthStatusAtCollection}->[0]->{text}
-                      if (exists $data->{characteristics}->{healthStatusAtCollection});
-                    if (exists $data->{characteristics}->{age}) {
-                      $line{age} = $data->{characteristics}->{age}->[0]->{text};
-                      if (exists $data->{characteristics}->{age}->[0]->{unit}) {
-                        $line{age} .= ' '.$data->{characteristics}->{age}->[0]->{unit};
-                      }
-                    }
-                    if (exists $data->{characteristics}->{tissue} ||
-                        exists $data->{characteristics}->{'tissue type'} ||
-                        exists $data->{characteristics}->{tissue_type}
-                       ) {
-                      $line{organismPart} = $data->{characteristics}->{tissue}->[0]->{text} ||
-                                            $data->{characteristics}->{'tissue type'}->[0]->{text} ||
-                                            $data->{characteristics}->{tissue_type}->[0]->{text}  ;
-                      if (exists $data->{characteristics}->{tissue}->[0]->{ontologyTerms}) {
-                        $line{uberon} = $data->{characteristics}->{tissue}->[0]->{ontologyTerms}->[-1];
-                      }
-                    }
-                    elsif (exists $data->{characteristics}->{cellType}) {
-                      $line{cellType} = $data->{characteristics}->{cellType}->[0]->{text};
-                      if (exists $data->{characteristics}->{cellType}->[0]->{ontologyTerms}) {
-                        $line{uberon} = $data->{characteristics}->{cellType}->[0]->{ontologyTerms}->[-1];
-                      }
-                    }
+        my $dh = $ua->default_headers;
+        my @sample_list = keys %samples;
+        foreach my $sample (@sample_list) {
+          my $data = {};
+          my $success = $self->_retrieve_biosample_info($ua, $json_decoder, $sample, $data);
+          if ($success == -1) {
+            delete $samples{$sample};
+            $self->warning("Removed $sample from the set as it is from a non-healthy animal");
+            next;
+          }
+          elsif ($success == 0) {
+            $ua->default_headers($dh);
+            $url = join('&', $self->param('ena_base_url'), 'query="accession='.$sample.'"', $self->param('sample_domain'), 'fields='.$self->param('sample_fields'));
+            $response = $ua->get($url);
+            if ($response->is_success) {
+              $content = $response->decoded_content();
+              if ($content) {
+                while ($content =~ /^(\w+.*)$/mgc) {
+                  my $line = $1;
+                  if ($line =~ /^[a-z]/) {
+                    my $index = 0;
+                    %fields_index = map { $_ => $index++} split('\t', $line);
+                    $header = $line;
                   }
                   else {
-                    $self->warning("Could not connect to BioSample with $sample");
+                    $self->say_with_header($line);
+                    my @row = split("\t", $line);
+                    $data = {
+                      center_name => $row[$fields_index{center_name}],
+                      cell_line => $row[$fields_index{cell_line}],
+                      cellType => $row[$fields_index{cell_type}],
+                      dev_stage => $row[$fields_index{dev_stage}],
+                      sex => $row[$fields_index{sex}],
+                      strain => $row[$fields_index{strain}],
+                      sub_species => $row[$fields_index{sub_species}],
+                      sub_strain => $row[$fields_index{sub_strain}],
+                      tissue_lib => $row[$fields_index{tissue_lib}],
+                      organismPart => $row[$fields_index{tissue_type}],
+                      variety => $row[$fields_index{variety}],
+                      tax_id => $row[$fields_index{tax_id}],
+                      description => $row[$fields_index{description}],
+                      sample_collection => $row[$fields_index{sample_collection}],
+                      sequencing_method => $row[$fields_index{sequencing_method}],
+                      sample_alias => $row[$fields_index{sample_alias}],
+                    };
+                    if ($data->{sex} eq 'not determined') {
+                      $data->{sex} = undef;
+                    }
+                    $self->say_with_header($data->{sex} || 'NULL')
                   }
-
-                  $ua->default_headers($dh);
-                  $samples{$sample} = \%line;
                 }
               }
             }
           }
+          $samples{$sample} = $data;
         }
       }
       else {
@@ -329,58 +335,54 @@ sub run {
   if (keys %csv_data) {
     foreach my $project (keys %csv_data) {
       my %dev_stages;
-      my %celltypes;
+      my %sample_names;
       foreach my $sample (keys %{$csv_data{$project}}) {
-        unless($sample =~ /^SAM/) {
-          next;
-	}
         next unless (exists $samples{$sample});
         if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
-#        if (exists $samples{$sample}->{dev_stage}) {
           next if ($samples{$sample}->{dev_stage} eq 'sexually immature stage');
           $dev_stages{$samples{$sample}->{dev_stage}} = 1;
         }
-      }
-      if (scalar(keys(%dev_stages)) > 1) {
-        foreach my $sample (keys %{$csv_data{$project}}) {
-          unless($sample =~ /^SAM/) {
-            next;
-  	  }
-          next unless (exists $samples{$sample});
-          if (exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
-            $samples{$sample}->{sample_name} = $samples{$sample}->{dev_stage};
+        my $sample_name = $samples{$sample}->{cellType} || $samples{$sample}->{organismPart};
+        if (!$sample_name) {
+          if ($samples{$sample}->{sample_alias} eq $sample and length($samples{$sample}->{description}) > 2) {
+            $sample_name = $samples{$sample}->{description};
+          }
+          elsif ($samples{$sample}->{description} and index($samples{$sample}->{description}, $sample) != -1) {
+            $sample_name = $sample;
           }
           else {
-            #instead of breaking pipeline, show warning where sample has no development stage
-            #use unknown for such cases
-            $self->warning('No dev stages for '.$sample.' "'.join('", "', keys %dev_stages).'"');
-            $samples{$sample}->{sample_name} = 'unknown';
-          }
-
-          if ($samples{$sample}->{sex}) {
-            $samples{$sample}->{sample_name} = $samples{$sample}->{sex}.'_'.$samples{$sample}->{sample_name};
-          }
-
-          if ($samples{$sample}->{cellType} || $samples{$sample}->{organismPart} || $samples{$sample}->{sample_alias} || $samples{$sample}->{description}) {
-            $samples{$sample}->{sample_name} .= '_';
-            $samples{$sample}->{sample_name} .= $samples{$sample}->{cellType} || $samples{$sample}->{organismPart} || $samples{$sample}->{sample_alias} || $samples{$sample}->{description};
+            $sample_name = $samples{$sample}->{sample_alias};
           }
         }
+        $sample_names{$sample} = $sample_name;
       }
-      else {
-        foreach my $sample (keys %{$csv_data{$project}}) {
-          unless($sample =~ /^SAM/) {
-            next;
-  	  }
-          next unless (exists $samples{$sample});
-          $samples{$sample}->{sample_name} = $samples{$sample}->{cellType} || $samples{$sample}->{organismPart} || $samples{$sample}->{sample_alias} || $samples{$sample}->{description};
-          if (!$samples{$sample}->{sample_name}) {
-            $self->throw('No sample name for '.$sample);
+      foreach my $sample (keys %{$csv_data{$project}}) {
+        next unless (exists $samples{$sample});
+        my @name;
+        if ($samples{$sample}->{sex}) {
+          push(@name, $samples{$sample}->{sex});
+        }
+        push(@name, $sample_names{$sample});
+        if (scalar(keys %dev_stages) > 1 and exists $samples{$sample}->{dev_stage} and $samples{$sample}->{dev_stage}) {
+          $samples{$sample}->{dev_stage} =~ s/ stage//;
+          if (exists $samples{$sample}->{age} and $samples{$sample}->{age}) {
+            $samples{$sample}->{age} =~ s/\.0//;
+            if ($samples{$sample}->{dev_stage} eq 'embryo') {
+              $samples{$sample}->{age} =~ s/ (\w)\w+/$1pf/;
+              push(@name, $samples{$sample}->{age});
+            }
+            elsif ($samples{$sample}->{dev_stage} eq 'neonate') {
+              push(@name, $samples{$sample}->{dev_stage});
+            }
+            else {
+              push(@name, $samples{$sample}->{age}, $samples{$sample}->{dev_stage});
+            }
           }
-          if ($samples{$sample}->{sex}) {
-            $samples{$sample}->{sample_name} = $samples{$sample}->{sex}.'_'.$samples{$sample}->{sample_name};
+          else {
+            push(@name, $samples{$sample}->{dev_stage});
           }
         }
+        $samples{$sample}->{sample_name} = join('_', @name);
       }
     }
     $self->output([\%csv_data, \%samples]);
@@ -420,9 +422,6 @@ sub write_output {
   foreach my $study_accession (keys %{$data->[0]}) {
     my $study = $data->[0]->{$study_accession};
     foreach my $sample (keys %{$study}) {
-      unless($sample =~ /^SAM/) {
-        next;
-      }
       next unless (exists $samples->{$sample});
       foreach my $experiment (@{$study->{$sample}}) {
         my @files = split(';', $experiment->{fastq_file});
@@ -446,7 +445,7 @@ sub write_output {
           }
           $description =~ tr/:\t/ /;
           if($self->param('read_type') eq 'short_read') {
-            print FH sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s, %s, %s\n",
+            print FH sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s, %s, %s\t%s\t%s\n",
               lc($sample_name),
               $experiment->{run_accession},
               $experiment->{library_layout} eq 'PAIRED' ? 1 : 0,
@@ -459,16 +458,22 @@ sub write_output {
               $study_accession,
               $sample,
               $description,
+              $file,
+              $checksums[$index]
             );
-	  } elsif($self->param('read_type') eq 'isoseq') {
-            print FH sprintf("%s\t%s\t%s\n",
+          }
+          elsif($self->param('read_type') eq 'isoseq') {
+            print FH sprintf("%s\t%s\t%s\t%s\t%s\n",
               lc($sample_name),
               $filename,
               $description,
+              $file,
+              $checksums[$index]
             );
-	  } else {
+          }
+          else {
             $self->throw('Read type unknown: '.$self->param('read_type'));
-	  }
+          }
           push(@output_ids, {url => $file, download_method => $download_method, checksum => $checksums[$index++]});
         }
       }
@@ -476,6 +481,112 @@ sub write_output {
   }
   close(FH) || $self->throw('Could not close '.$self->param('inputfile'));
   $self->dataflow_output_id(\@output_ids, $self->param('_branch_to_flow_to'));
+}
+
+
+=head2 _retrieve_biosample_info
+
+ Arg [1]    : LWP::UserAgent
+ Arg [2]    : JSON::PP
+ Arg [3]    : String, BioSample accession
+ Arg [4]    : Hashref
+ Description: Retrieve information of the sample and look at the related samples to find the most accurate data
+              Then Arg[4] will be populated with the information
+ Returntype : Int, -1 if the sample does not come from a healthy individual and should be removed
+                   0 if the sample is not found
+                   1 if the information has been found
+ Exceptions : None
+
+=cut
+
+sub _retrieve_biosample_info {
+  my ($self, $ua, $json_decoder, $current_sample, $data) = @_;
+
+  $ua->default_header('Content-Type' => 'application/json');
+  my $biosd = $ua->get('http://www.ebi.ac.uk/biosamples/samples/'.$current_sample);
+  if ($biosd->is_success) {
+    my $content = $biosd->decoded_content();
+    if ($content) {
+      $self->say_with_header($content);
+      my $json = $json_decoder->decode($content);
+      foreach my $disease ('immunization', 'disease') {
+        if (exists $json->{characteristics}->{$disease} and $json->{characteristics}->{$disease}->[0]->{text} ne 'control') {
+          $self->warning("Removed $current_sample from the set as it has $disease value: ".$json->{characteristics}->{$disease}->[0]->{text});
+          return -1;
+        }
+      }
+      if (exists $json->{characteristics}->{'health status at collection'} and $json->{characteristics}->{'health status at collection'}->[0]->{text} ne 'normal') {
+        $self->warning("Removed $current_sample from the set as its health status is: ".$json->{characteristics}->{'health status at collection'}->[0]->{text});
+        return -1;
+      }
+      if (exists $json->{relationships}) {
+        foreach my $item (@{$json->{relationships}}) {
+          if ($current_sample ne $item->{target}) {
+            if ($self->_retrieve_biosample_info($ua, $json_decoder, $item->{target}, $data) == -1) {
+              return -1;
+            }
+          }
+        }
+      }
+      foreach my $dev_stage ('developmental stage', 'dev stage') {
+        if (exists $json->{characteristics}->{$dev_stage}) {
+          if (exists $data->{dev_stage} and $data->{dev_stage} ne $json->{characteristics}->{$dev_stage}->[0]->{text}) {
+            $self->warning('Replacing '.$data->{dev_stage}.' with '.$json->{characteristics}->{$dev_stage}->[0]->{text});
+          }
+          $data->{dev_stage} = $json->{characteristics}->{$dev_stage}->[0]->{text};
+        }
+      }
+      if (exists $json->{characteristics}->{sex} and $json->{characteristics}->{sex}->[0]->{text} ne 'not determined') {
+        if (exists $data->{sex} and $data->{sex} ne $json->{characteristics}->{sex}->[0]->{text}) {
+          $self->warning('Replacing '.$data->{sex}.' with '.$json->{characteristics}->{sex}->[0]->{text});
+        }
+        $data->{sex} = $json->{characteristics}->{sex}->[0]->{text};
+      }
+      # The order of the keys influence the age given. If unborn we expect the two values to be the same
+      foreach my $age_string ('gestational age at sample collection', 'animal age at collection', 'age') {
+        if (exists $json->{characteristics}->{$age_string}) {
+          if (exists $data->{age} and $data->{age} ne $json->{characteristics}->{$age_string}->[0]->{text}.' '.$json->{characteristics}->{$age_string}->[0]->{unit}) {
+            $self->warning('Replacing '.$data->{age}.' with '.$json->{characteristics}->{$age_string}->[0]->{text}.' '.$json->{characteristics}->{$age_string}->[0]->{unit});
+          }
+          $data->{age} = $json->{characteristics}->{$age_string}->[0]->{text}.' '.$json->{characteristics}->{$age_string}->[0]->{unit};
+        }
+      }
+      # The choice of the order is based on a specific submission and may not be the best for the majority of the samples
+      foreach my $sample_string ('sample_name', 'sample description', 'alias', 'synonym', 'title') {
+        if (exists $json->{characteristics}->{$sample_string}) {
+          if (exists $data->{sample_alias} and $data->{sample_alias} ne $json->{characteristics}->{$sample_string}->[0]->{text}) {
+            $self->warning('Replacing '.$data->{sample_alias}.' with '.$json->{characteristics}->{$sample_string}->[0]->{text});
+          }
+          $data->{sample_alias} = $json->{characteristics}->{$sample_string}->[0]->{text};
+        }
+      }
+      if (exists $data->{sample_alias} and index($data->{sample_alias}, $json->{name}) > -1 and length($json->{name}) < length($data->{sample_alias})) {
+        $data = {};
+        return 0;
+      }
+      foreach my $tissue ('cell type', 'organism part', 'tissue', 'tissue_type', 'tissue type') {
+        if (exists $json->{characteristics}->{$tissue}) {
+          if (exists $data->{organismPart} and $data->{organismPart} ne $json->{characteristics}->{$tissue}->[0]->{text}) {
+            $self->warning('Replacing '.$data->{organismPart}.' with '.$json->{characteristics}->{$tissue}->[0]->{text});
+          }
+          $data->{organismPart} = $json->{characteristics}->{$tissue}->[0]->{text};
+        }
+      }
+      if (exists $json->{characteristics}->{age} and $data->{organismPart} =~ /embryo/) {
+        $data->{organismPart} = 'embryo_'.$json->{characteristics}->{age}->[0]->{text};
+        $data->{organismPart} =~ tr/ /_/;
+      }
+      return 1;
+    }
+    else {
+      $self->warning("$current_sample not found in BioSample");
+      return 0;
+    }
+  }
+  else {
+    $self->warning("Failed to get $current_sample, error is ".$biosd->status_line);
+    return 0;
+  }
 }
 
 1;

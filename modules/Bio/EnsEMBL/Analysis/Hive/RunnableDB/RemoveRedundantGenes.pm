@@ -89,7 +89,17 @@ sub fetch_input {
       # Note that the below means we can use standardised slice lengths and only process genes once. There will be very rare edge cases where
       # a cluster will only be split because of varying terminal exon lengths, but this will not cause any actual problems
       unless($gene->end > $slice->length) {
-        push(@$genes,$gene);
+        eval {
+          $gene->load();
+        };
+        if ($@) {
+          $self->warning('Could not fully load '.$gene->display_id."\n$@");
+          $self->say_with_header('Deleting '.$gene->display_id);
+          $target_dba->dbc->do('DELETE FROM gene WHERE gene_id = '.$gene->dbID);
+        }
+        else {
+          push(@$genes,$gene);
+        }
       }
     }
   }
@@ -115,25 +125,29 @@ sub run {
   my $transcript_strings = {};
   my $count = 0;
   my $total_genes = scalar(@$genes);
-  say "Total gene count: ".$total_genes;
-  while(my $gene = pop(@$genes)) {
+  my @genes_to_delete;
+  $self->say_with_header("Total gene count: $total_genes");
+  foreach my $gene (@$genes) {
     $count++;
     if($count % 100 == 0) {
-      say "Completed: ".$count."/".$total_genes;
+      $self->say_with_header("Completed: $count/$total_genes");
     }
     # Only works on a one transcript per gene model
     my $transcript = ${$gene->get_all_Transcripts}[0];
-#    my $transcript_string = $transcript->start.":".$transcript->end.":".$transcript->strand.":".$transcript->seq_region_name.":";
-    my $transcript_string = $transcript->seq_region_name.":".$transcript->strand.":";
-    my $intron_string = $self->generate_intron_string($transcript->get_all_Introns());
-    if($intron_string) {
-      $transcript_string .= $intron_string;
-    }
+    my $transcript_string;
+    my $intron_string;
+    if ($transcript) {
+      $transcript_string = $transcript->seq_region_name.":".$transcript->strand.":";
+      $intron_string = $self->generate_intron_string($transcript->get_all_Introns());
+      if ($intron_string) {
+        $transcript_string .= $intron_string;
+      }
 
-    # This will process single exon genes. It won't handle cases where the single exon genes have different start/ends, but this isn't
-    # exactly enough of a problem to warrant all the extra code it would take
-    unless($intron_string) {
-      $transcript_string .= $transcript->start.":".$transcript->end;
+      # This will process single exon genes. It won't handle cases where the single exon genes have different start/ends, but this isn't
+      # exactly enough of a problem to warrant all the extra code it would take
+      unless ($intron_string) {
+        $transcript_string .= $transcript->start.":".$transcript->end;
+      }
     }
 
     # For generic data we mostly just consider which has the longest cds if the introns are the same. Then if the cds is the
@@ -145,10 +159,10 @@ sub run {
       } else {
         my $existing_transcript = ${$transcript_strings->{$transcript_string}->get_all_Transcripts}[0];
         if($self->compare_transcripts($existing_transcript,$transcript)) {
-          $gene_adaptor->remove($transcript_strings->{$transcript_string});
+          push(@genes_to_delete, $transcript_strings->{$transcript_string});
           $transcript_strings->{$transcript_string} = $gene;
         } else {
-          $gene_adaptor->remove($gene);
+          push(@genes_to_delete, $gene);
         }
       }
     } # end if($self->param('target_type') eq 'transcriptomic')
@@ -161,7 +175,7 @@ sub run {
       # There is a key called 'unrecognised_biotype' that has the worst priority that could be used
       # if we ever want to do anything with these
       unless(exists $self->param('biotype_priorities')->{$transcript->biotype}) {
-        $gene_adaptor->remove($gene);
+        push(@genes_to_delete, $gene);
         next;
       }
 
@@ -170,20 +184,24 @@ sub run {
       } else {
         my $existing_transcript = ${$transcript_strings->{$transcript_string}->get_all_Transcripts}[0];
         if($self->compare_biotype_priorities($existing_transcript,$transcript)) {
-          $gene_adaptor->remove($transcript_strings->{$transcript_string});
+          push(@genes_to_delete, $transcript_strings->{$transcript_string});
           $transcript_strings->{$transcript_string} = $gene;
         } else {
-          $gene_adaptor->remove($gene);
+          push(@genes_to_delete, $gene);
 	}
       }
     } # end elsif($self->param('target_type') eq 'biotype_priority')
   }
+  $self->output(\@genes_to_delete);
 }
 
 
 sub write_output {
   my ($self) = @_;
-  return;
+
+  foreach my $gene (@{$self->output}) {
+    $gene->adaptor->remove($gene);
+  }
 }
 
 

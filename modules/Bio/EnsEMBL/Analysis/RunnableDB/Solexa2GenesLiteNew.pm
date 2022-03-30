@@ -897,7 +897,6 @@ sub ungapped_features {
   my $string = $feat->[4];
   my $start = $feat->[2];
   my $end = $feat->[3];
- # print "THINGS $start $end $string\n";
   my @pieces = ( $string =~ /(\d*[MDI])/g );
   foreach my $piece (@pieces) {
     my ($length) = ( $piece =~ /^(\d*)/ );
@@ -918,8 +917,6 @@ sub ungapped_features {
       $ugf->[3] = $qend;
       $ugf->[4] = $length."M";
       push @ugfs, $ugf;
-#      print "UNGAPPED " .$ugf->[2] .
-	" " . $ugf->[3] . " " . $ugf->[4] ."\n";
     } elsif( $piece =~ /I$/ ) {
       #
       # INSERT

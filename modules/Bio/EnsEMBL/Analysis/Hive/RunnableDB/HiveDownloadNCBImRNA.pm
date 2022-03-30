@@ -70,7 +70,7 @@ sub param_defaults {
     ncbidb => 'nucleotide',
     filetype => 'fasta',
     filemode => 'text',
-    batch_size => 500,
+    batch_size => 5000,
     http_proxy => undef,
     _input_id_name => 'query',
   }
@@ -93,7 +93,6 @@ sub fetch_input {
   my $url = $self->param('base_url').'/'.$self->param('search_url').'?db='.$self->param('ncbidb').'&term='.$self->input_id.'&usehistory=y';
 
   if (!-d dirname($self->param('output_file')) ) {
-    print  "DEBUG:: to check" . $self->param('output_file') . "\n"; 
     make_path(dirname($self->param('output_file')));
   }
 
@@ -172,6 +171,7 @@ sub write_output {
   }
   close(WH) || $self->throw('Could not close '.$self->param('output_file'));
 
+  sleep(45);
   # check the number of sequences that you have saved: 
   my $count = 0;
   my $format = $self->param('filetype');
