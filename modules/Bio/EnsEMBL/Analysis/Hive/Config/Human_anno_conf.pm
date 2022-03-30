@@ -788,8 +788,8 @@ sub pipeline_analyses {
           dbport => $self->o('core_db','-port'),
           biotype => 'pcnonpc',  # this will delete the transcripts whose biotype is 'pcnonpc'
           fix_broken_genes => 1, # this will delete the genes that are empty after deleting their transcripts, which will be the case for all the pcnonpc as a result of the previous analysis
-          delete_transcripts_path => $self->o('ensembl_analysis_script_genebuild'),
-          delete_genes_path => $self->o('ensembl_analysis_script_genebuild'),
+          delete_transcripts_path => $self->o('ensembl_analysis_script_genebuild')."/",
+          delete_genes_path => $self->o('ensembl_analysis_script_genebuild')."/",
           delete_transcripts_script_name => 'delete_transcripts.pl',
           delete_genes_script_name => 'delete_genes.pl',
           email => $self->o('email'),
