@@ -33,8 +33,8 @@ sub default_options {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
     #BRAKER parameters
-    'augustus_config_path'     => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/augustus_config/config',
-    'augustus_species_path'    => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/augustus_config/config/species/',
+    'augustus_config_path'     => '/nfs/production/flicek/ensembl/genebuild/ftricomi/augustus_config/config',
+    'augustus_species_path'    => '/nfs/production/flicek/ensembl/genebuild/ftricomi/augustus_config/config/species/',
     'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-braker2_es_ep_etp.simg',
     'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-agat.simg',
     'busco_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
@@ -86,7 +86,7 @@ sub default_options {
     'genus_taxon_id'               => '' || $self->o('taxon_id'),                                                                                        # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
     'uniprot_set'                  => '',                                                                                                                # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'                  => '',                                                                                                                # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
-    'assembly_name'                => '',                                                                                                                # Name (as it appears in the assembly report file)
+    'assembly_name'                => '',                                                                                                                # Name (as it appears in the assembly report file)e.g icPyrSerr1.1  icPyrSerr1.1 alternate haplotype
     'assembly_accession'           => '',                                                                                                                # Versioned GCA assembly accession, e.g. GCA_001857705.1
     'assembly_refseq_accession'    => '',                                                                                                                # Versioned GCF accession, e.g. GCF_001857705.1
     'stable_id_prefix'             => '',                                                                                                                # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
@@ -1105,7 +1105,7 @@ sub pipeline_analyses {
           ' -dbuser '.$self->o('user').
           ' -dbpass '.$self->o('password').
           ' -dbport '.$self->o('dna_db_port').
-          ' -dbname '.'#core_db#'.
+          ' -dbname '.'#core_dbname#'.
           ' -coord_system_version '.$self->o('assembly_name').
           ' -default_version'.
           ' -coord_system_name primary_assembly'.
@@ -1129,7 +1129,7 @@ sub pipeline_analyses {
           ' -dbuser '.$self->o('user').
           ' -dbpass '.$self->o('password').
           ' -dbport '.$self->o('dna_db_port').
-          ' -dbname '.'#core_db#',
+          ' -dbname '.'#core_dbname#',
       },
       -rc_name => 'default',
       -flow_into  => {
@@ -1212,7 +1212,7 @@ sub pipeline_analyses {
             '(1, "genebuild.projection_source_db", NULL),' .
             '(1, "genebuild.id", ' . $self->o('genebuilder_id') . '),' .
             '(1, "genebuild.method", "anno")'.
-	    '(1, "genebuild.method_display", "Ensembl Genebuild")'.
+	    '(1, "genebuild.method_display", "Ensembl Genebuild")'
         ],
       },
       -max_retry_count => 0,
@@ -1695,6 +1695,36 @@ sub pipeline_analyses {
       -rc_name => 'default',
 
       -flow_into => {
+        1 => ['update_otherfeatures_db'],
+      },
+    },
+        {
+      -logic_name => 'update_otherfeatures_db',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => '#otherfeatures_db#',
+        sql     => [
+                #          'DELETE FROM analysis_description WHERE analysis_id IN (SELECT analysis_id FROM analysis WHERE logic_name IN' .
+                # ' ("dust","repeatdetector","trf","cpg","eponine"))',
+                #'DELETE FROM analysis WHERE logic_name IN' .
+                # ' ("dust","repeatdetector","trf","cpg","eponine")',
+          'TRUNCATE analysis',
+          'TRUNCATE analysis_description',
+          'DELETE FROM meta WHERE meta_key LIKE "%.level"',
+          'DELETE FROM meta WHERE meta_key LIKE "sample.%"',
+          'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
+          'DELETE FROM meta WHERE meta_key LIKE "removed_evidence_flag.%"',
+          'DELETE FROM meta WHERE meta_key LIKE "marker.%"',
+          'DELETE FROM meta WHERE meta_key IN' .
+            ' ("repeat.analysis","genebuild.method","genebuild.last_geneset_update","genebuild.projection_source_db","genebuild.start_date")',
+          'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
+          'UPDATE meta set meta_value="BRAKER#species_prefix#" where meta_key="species.stable_id_prefix"',
+          'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id)'.
+              ' JOIN dna_align_feature ON feature_id = dna_align_feature_id SET stable_id = hit_name',
+      ],
+      },
+      -rc_name   => 'default',
+      -flow_into => {
         1 => ['populate_production_tables_otherfeatures'],
       },
     },
@@ -1753,37 +1783,39 @@ sub pipeline_analyses {
       -rc_name         => 'default',
       -max_retry_count => 0,
       -flow_into       => {
-        1 => ['update_otherfeatures_db'],
-      },
-    },
-    {
-      -logic_name => 'update_otherfeatures_db',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => '#otherfeatures_db#',
-        sql     => [
-          'DELETE FROM analysis_description WHERE analysis_id IN (SELECT analysis_id FROM analysis WHERE logic_name IN' .
-            ' ("dust","repeatdetector","trf","cpg","eponine"))',
-          'DELETE FROM analysis WHERE logic_name IN' .
-            ' ("dust","repeatdetector","trf","cpg","eponine")',
-          'DELETE FROM meta WHERE meta_key LIKE "%.level"',
-	  'DELETE FROM meta WHERE meta_key LIKE "sample.%"',
-          'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
-          'DELETE FROM meta WHERE meta_key LIKE "removed_evidence_flag.%"',
-          'DELETE FROM meta WHERE meta_key LIKE "marker.%"',
-          'DELETE FROM meta WHERE meta_key IN' .
-            ' ("repeat.analysis","genebuild.method","genebuild.last_geneset_update","genebuild.projection_source_db","genebuild.start_date")',
-          'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
-	  'UPDATE meta set meta_value="BRAKER#species_prefix#" where meta_key="species.stable_id_prefix"',
-          'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id)'.
-              ' JOIN dna_align_feature ON feature_id = dna_align_feature_id SET stable_id = hit_name',  
-      ],
-      },
-      -rc_name   => 'default',
-      -flow_into => {
         1 => ['otherfeatures_set_meta_coords'],
       },
     },
+    #    {
+    #  -logic_name => 'update_otherfeatures_db',
+    #  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+    #  -parameters => {
+    #    db_conn => '#otherfeatures_db#',
+    #    sql     => [
+		#          'DELETE FROM analysis_description WHERE analysis_id IN (SELECT analysis_id FROM analysis WHERE logic_name IN' .
+		# ' ("dust","repeatdetector","trf","cpg","eponine"))',
+		#'DELETE FROM analysis WHERE logic_name IN' .
+		# ' ("dust","repeatdetector","trf","cpg","eponine")',
+		#     'TRUNCATE analysis',
+		#  'TRUNCATE analysis_description',
+		# 'DELETE FROM meta WHERE meta_key LIKE "%.level"',
+		#'DELETE FROM meta WHERE meta_key LIKE "sample.%"',
+		#'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
+		#'DELETE FROM meta WHERE meta_key LIKE "removed_evidence_flag.%"',
+		#'DELETE FROM meta WHERE meta_key LIKE "marker.%"',
+		# 'DELETE FROM meta WHERE meta_key IN' .
+		#' ("repeat.analysis","genebuild.method","genebuild.last_geneset_update","genebuild.projection_source_db","genebuild.start_date")',
+		# 'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
+		#'UPDATE meta set meta_value="BRAKER#species_prefix#" where meta_key="species.stable_id_prefix"',
+		#'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id)'.
+		# ' JOIN dna_align_feature ON feature_id = dna_align_feature_id SET stable_id = hit_name',  
+		#  ],
+		# },
+		# -rc_name   => 'default',
+		# -flow_into => {
+		#   1 => ['otherfeatures_set_meta_coords'],
+		#},
+		#},
     {
       -logic_name => 'otherfeatures_set_meta_coords',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
@@ -1932,21 +1964,21 @@ sub pipeline_analyses {
       },
       -rc_name   => 'default',
       -flow_into => {
-        1 => ['otherfeatures_add_placeholder_sample_location'],
+        1 => ['otherfeatures_populate_analysis_descriptions'],
       },
 
     },
-    {
-      -logic_name => 'otherfeatures_add_placeholder_sample_location',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddPlaceholderLocation',
-      -parameters => {
-        input_db => '#otherfeatures_db#',
-      },
-      -rc_name   => 'default',
-      -flow_into => {
-        1 => ['otherfeatures_populate_analysis_descriptions'],
-      },
-    },
+    #    {
+    #  -logic_name => 'otherfeatures_add_placeholder_sample_location',
+    #  -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddPlaceholderLocation',
+    #  -parameters => {
+    #    input_db => '#otherfeatures_db#',
+    #  },
+    #  -rc_name   => 'default',
+    #  -flow_into => {
+    #    1 => ['otherfeatures_populate_analysis_descriptions'],
+    #  },
+    #},
 
     {
       -logic_name => 'otherfeatures_populate_analysis_descriptions',
@@ -1956,9 +1988,35 @@ sub pipeline_analyses {
         group   => 'otherfeatures',
       },
       -flow_into => {
-        1 => ['otherfeatures_sanity_checks'],
+        1 => ['run_agat_protein_file_otherfeatures'],
       },
       -rc_name => 'default_registry',
+    },
+    {
+      -logic_name => 'run_agat_protein_file_otherfeatures',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+
+      -parameters => {
+        cmd => 'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('agat_singularity_image') . ' agat_sp_extract_sequences.pl --gff /data/braker/braker.gtf -f  #output_path#/#species_name#_softmasked_toplevel.fa -p  -o  #output_path#/braker/braker_proteins.fa;',
+      },
+      -rc_name         => 'braker',
+      -max_retry_count => 0,
+      -flow_into       => {
+        1 => ['run_busco_braker_otherfeatures'],
+      },
+    },
+    {
+      -logic_name => 'run_busco_braker_otherfeatures',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+
+      -parameters => {
+        cmd => 'cd #output_path#/;' .
+          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -i #output_path#/braker/braker_proteins.fa -m prot -l #busco_group# -o output_busco_#assembly_accession#  ;',
+      },
+      -rc_name   => 'braker',
+      -flow_into => {
+        1 => ['otherfeatures_sanity_checks'],
+      },
     },
     {
       -logic_name => 'otherfeatures_sanity_checks',
