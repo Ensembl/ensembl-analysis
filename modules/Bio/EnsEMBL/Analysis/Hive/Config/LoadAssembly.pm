@@ -332,7 +332,8 @@ sub pipeline_analyses {
           '(1, "genebuild.initial_release_date", NULL),'.
           '(1, "assembly.coverage_depth", "high"),'.
           '(1, "genebuild.id", '.$self->o('genebuilder_id').'),'.
-          '(1, "genebuild.method", "full_genebuild"),'.
+	  '(1, "genebuild.method", "full_genebuild"),'.
+	  '(1, "genebuild.method_display", "Ensembl Genebuild"),'.
           '(1, "genebuild.projection_source_db", "'.$self->o('projection_source_db_name').'"),'.
           '(1, "assembly.provider_name", "'.$self->o('assembly_provider_name').'"),'.
           '(1, "assembly.provider_url", "'.$self->o('assembly_provider_url').'"),'.
@@ -470,7 +471,8 @@ sub pipeline_analyses {
           'assembly.web_accession_source' => 'NCBI',
           'assembly.web_accession_type' => 'GenBank Assembly ID',
           'genebuild.id' => $self->o('genebuilder_id'),
-          'genebuild.method' => 'full_genebuild',
+	  'genebuild.method' => 'full_genebuild',
+	  'genebuild.method_display' => 'Ensembl Genebuild', 
           'genebuild.projection_source_db' => $self->o('projection_source_db_name'),
           'assembly.provider_name' => $self->o('assembly_provider_name'),
           'assembly.provider_url' => $self->o('assembly_provider_url'),
