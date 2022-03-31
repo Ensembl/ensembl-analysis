@@ -421,7 +421,7 @@ sub pipeline_analyses {
           output_path   => '#output_path#',
           target_db     => '#core_db#',
         },
-        -rc_name    => '8GB',
+        -rc_name    => '4GB',
       	-max_retry_count => 0,
         -flow_into  => {
           1 => ['load_meta_info'],
@@ -498,7 +498,7 @@ sub pipeline_analyses {
           1 => ['reheader_toplevel_file'],
         },
         -analysis_capacity => 20,
-        -rc_name    => '3GB',
+        -rc_name    => 'default',
       },
 
 
@@ -521,7 +521,7 @@ sub pipeline_analyses {
      {
         -logic_name => 'create_faidx',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -rc_name => '5GB',
+        -rc_name => 'default',
         -parameters => {
           cmd => 'if [ ! -e "'.'#reheadered_toplevel_genome_file#'.'.fai" ]; then '.$self->o('samtools_path').' faidx '.'#reheadered_toplevel_genome_file#'.';fi',
         },
@@ -571,7 +571,7 @@ sub pipeline_analyses {
                          y_marker_fasta_path => $self->o('y_marker_fasta_path'),
                          output_dir          => '#output_path#',
                        },
-        -rc_name    => '30GB',
+        -rc_name    => '9GB',
         -flow_into  => {
           '1->A' => ['create_remap_jobs'],
           'A->1' => ['create_paralogue_jobs'],
@@ -588,7 +588,7 @@ sub pipeline_analyses {
           feature_type        => 'gene',
           batch_size          => 100,
         },
-        -rc_name    => '4GB',
+        -rc_name    => 'default',
         -flow_into => {
           2 => {'minimap2genomic' => {'xy_scanner' => '#xy_scanner#', 'core_db' => '#core_db#','genome_index' => '#reheadered_toplevel_genome_file#'.'.mmi','iid' => '#iid#'}},
         },
@@ -607,7 +607,7 @@ sub pipeline_analyses {
                          paftools_path => $self->o('paftools_path'),
                          minimap2_path => $self->o('minimap2_path'),
                        },
-        -rc_name    => '25GB',
+        -rc_name    => '15GB',
       },
 
 
@@ -620,7 +620,7 @@ sub pipeline_analyses {
           feature_type        => 'gene',
           batch_size          => 1000,
         },
-        -rc_name    => '4GB',
+        -rc_name    => 'default',
         -flow_into => {
           '2->A' => {'find_paralogues' => {'core_db' => '#core_db#','genome_file' => '#reheadered_toplevel_genome_file#','genome_index' => '#reheadered_toplevel_genome_file#'.'.mmi','iid' => '#iid#'}},
           'A->1' => ['collapse_paralogues'],
@@ -639,7 +639,7 @@ sub pipeline_analyses {
                          paftools_path => $self->o('paftools_path'),
                          minimap2_path => $self->o('minimap2_path'),
                        },
-        -rc_name    => '25GB',
+        -rc_name    => '15GB',
       },
 
 
@@ -655,7 +655,7 @@ sub pipeline_analyses {
                         1 => ['update_biotypes_and_analyses'],
                       },
 
-        -rc_name    => '25GB',
+        -rc_name    => '12GB',
         -flow_into  => {
           1 => ['finalise_geneset'],
         },
@@ -675,7 +675,7 @@ sub pipeline_analyses {
                         1 => ['update_biotypes_and_analyses'],
                       },
 
-        -rc_name    => '25GB',
+        -rc_name    => '12GB',
         -flow_into  => {
           1 => ['set_meta_coords'],
         },
@@ -727,7 +727,7 @@ sub pipeline_analyses {
                                 ' -port '.$self->o('core_db','-port').
                                 ' -dbpattern '.'#core_dbname#'
                        },
-        -rc_name => '10GB',
+        -rc_name => '3GB',
         -flow_into => { 1 => ['set_canonical_transcripts'] },
       },
 
@@ -744,7 +744,7 @@ sub pipeline_analyses {
                                 ' -dbname '.'#core_dbname#'.
                                 ' -coord toplevel -write'
                        },
-        -rc_name => '10GB',
+        -rc_name => '3GB',
         -flow_into => { 1 => ['update_pcnonpc_biotypes'] },
       },
 
@@ -955,7 +955,7 @@ sub pipeline_analyses {
                                 ' -output_dir '.'#output_path#'.
                                 ' -output_file_prefix '.'#assembly_accession#'."_mapping_stats"
                        },
-        -rc_name => '10GB',
+        -rc_name => '3GB',
         -flow_into => { 1 => ['add_placeholder_sample_location'] },
       },
 
@@ -1006,6 +1006,7 @@ sub resource_classes {
     '8GB' => { LSF => $self->lsf_resource_builder('production', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '9GB' => { LSF => $self->lsf_resource_builder('production', 9000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '10GB' => { LSF => $self->lsf_resource_builder('production', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '12GB' => { LSF => $self->lsf_resource_builder('production', 12000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '15GB_lastz' => { LSF => [$self->lsf_resource_builder('production', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]},
     '15GB' => { LSF => $self->lsf_resource_builder('production', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '20GB' => { LSF => $self->lsf_resource_builder('production', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
