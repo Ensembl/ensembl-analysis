@@ -1341,6 +1341,7 @@ sub create_gene_from_cluster {
   my $parent_gene_stable_id = $parent_gene_ids->{$transcript_id}->{'gene_stable_id'};
   my $parent_gene_version = $parent_gene_ids->{$transcript_id}->{'gene_version'};
   my $parent_gene_biotype = $parent_gene_ids->{$transcript_id}->{'gene_biotype'};
+  my $parent_gene_description = $parent_gene_ids->{$transcript_id}->{'gene_description'};
 
   foreach my $transcript (@$final_transcripts) {
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
@@ -1370,8 +1371,9 @@ sub create_gene_from_cluster {
   $gene->stable_id($parent_gene_stable_id);
   $gene->version($parent_gene_version);
   $gene->biotype($parent_gene_biotype);
-  my $gene_description = ";parent_gene=".$parent_gene_stable_id.".".$parent_gene_version.";mapping_type=primary_mapping";
-  $gene->description($gene_description);
+  #my $gene_description = ";parent_gene=".$parent_gene_stable_id.".".$parent_gene_version.";mapping_type=primary_mapping";
+  #$gene->description($gene_description);
+  $gene->description($parent_gene_description);
 
   # add source gene stable id as gene attribute
   my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $parent_gene_stable_id.".".$parent_gene_version);

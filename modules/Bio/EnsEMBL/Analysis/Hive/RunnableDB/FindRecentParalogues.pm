@@ -338,8 +338,9 @@ sub filter_by_cutoffs {
     my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $source_transcript->stable_id().".".$source_transcript->version());
     $transcript->add_Attributes($parent_attribute);
 
-    my $gene_description = ";parent_gene=".$source_transcript->{'parent_gene_stable_id'}.";mapping_type=potential_paralogue";
-    $gene->description($gene_description);
+    #my $gene_description = ";parent_gene=".$source_transcript->{'parent_gene_stable_id'}.";mapping_type=potential_paralogue";
+    #$gene->description($gene_description);
+    $gene->description($source_gene->description());
 
     # add source gene stable id as gene attribute
     $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_transcript->{'parent_gene_stable_id'});
@@ -396,10 +397,12 @@ sub create_input_file {
   my $output_file = $self->create_filename();
   open(OUT,">".$output_file);
   foreach my $gene (@$genes) {
-    my $gene_description = $gene->description();
-    $gene_description =~ /;parent_gene=(.+);mapping_type=(.+)$/;
-    my $parent_stable_id = $1;
-    my $type = $2;
+    #my $gene_description = $gene->description();
+    #$gene_description =~ /;parent_gene=(.+);mapping_type=(.+)$/;
+    
+    my ($parent_stable_id) = @{$gene->get_all_Attributes('proj_parent_g')};
+    #my $parent_stable_id = $1;
+    #my $type = $2;
     unless($parent_stable_id and $type) {
       $self->throw("Issue parsing the parent stable id and type from gene description for gene with dbID ".$gene->dbID().". Description: ".$gene_description);
     }

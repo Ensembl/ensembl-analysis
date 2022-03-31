@@ -101,6 +101,7 @@ sub fetch_input {
     my $gene_stable_id = $gene->stable_id();
     my $gene_version = $gene->version();
     my $gene_biotype = $gene->biotype();
+    my $gene_description = $gene->description();
 
     my $transcripts = $gene->get_all_Transcripts();
     foreach my $transcript (@$transcripts) {
@@ -121,6 +122,7 @@ sub fetch_input {
       $parent_gene_id_hash->{$transcript_id}->{'biotype_group'} = $biotype_group;
       $parent_gene_id_hash->{$transcript_id}->{'is_canonical'} = $is_canonical;
       $parent_gene_id_hash->{$transcript_id}->{'source'} = $source;
+      $parent_gene_id_hash->{$transcript_id}->{'gene_description'} = $gene_description;
     }
 
     my $slice = $gene->slice();
