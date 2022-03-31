@@ -857,7 +857,7 @@ sub generate_minimap_transcripts {
     my $transcripts = $gene->get_all_Transcripts();
     foreach my $transcript (@$transcripts) {
       my $transcript_after_replaced_stops = $transcript;
-      if ($transcript->translate() and $transcript->translate()->seq()) {
+      if ($transcript->translate() and $transcript->translate()->seq() and $transcript->biotype() eq 'protein_coding') {
         $transcript_after_replaced_stops = replace_stops_with_introns($transcript,$max_stops);
         if ($transcript_after_replaced_stops and $transcript_after_replaced_stops->translate()->seq !~ /\*/) {
           ;#push(@$minimap_transcripts,$transcript_after_replaced_stops);
@@ -952,7 +952,7 @@ sub run_exonerate {
     }
 
     my $transcript_after_replaced_stops = $output_transcript;
-    if ($output_transcript->translate() and $output_transcript->translate()->seq()) {
+    if ($output_transcript->translate() and $output_transcript->translate()->seq() and $output_transcript->biotype() eq 'protein_coding') {
       $transcript_after_replaced_stops = replace_stops_with_introns($output_transcript,$max_stops);
       if ($transcript_after_replaced_stops and $transcript_after_replaced_stops->translate()->seq() !~ /\*/) {
         ;#push(@$output_transcripts,$transcript_after_replaced_stops);

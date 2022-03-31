@@ -194,8 +194,8 @@ sub write_output {
     my $transcripts = $output_gene->get_all_Transcripts();
     $output_gene->flush_Transcripts();
     TRANSCRIPT: foreach my $transcript (@$transcripts) {
-      # do not store transcripts containing stops
-      if ($transcript->translate()) {
+      # do not store protein_coding transcripts containing stops
+      if ($transcript->translate() and $transcript->biotype() eq 'protein_coding') {
         my $transcript_translate_seq = $transcript->translate()->seq();
         my $num_stops = $transcript_translate_seq =~ s/\*/\*/g;
         if ($num_stops) {
