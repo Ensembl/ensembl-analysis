@@ -161,12 +161,13 @@ foreach my $slice (@$target_slices) {
   say "Processing target slice: ".$region_name;
   my $genes = $slice->get_all_Genes();
   foreach my $gene (@$genes) {
-    my $gene_description = $gene->description();
-    $gene_description =~ /;parent_gene=(.+);mapping_type=(.+)$/;
-    my $gene_versioned_stable_id = $1;
+    #my $gene_description = $gene->description();
+    #$gene_description =~ /;parent_gene=(.+);mapping_type=(.+)$/;
+    #my $gene_versioned_stable_id = $1;
     #my $gene_type = $2;
-    my $gene_stable_id = $gene_versioned_stable_id;
-    $gene_stable_id =~ s/\.\d+//;
+    #my $gene_stable_id = $gene_versioned_stable_id;
+    #$gene_stable_id =~ s/\.\d+//;
+    my ($gene_stable_id) = @{$gene->get_all_Attributes('proj_parent_g')};
 
     # Just process genes in the original mapping list
     if($source_gene_ids_hash->{$gene_stable_id}) {
