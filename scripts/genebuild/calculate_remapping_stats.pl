@@ -164,7 +164,7 @@ foreach my $slice (@$target_slices) {
     my $gene_description = $gene->description();
     $gene_description =~ /;parent_gene=(.+);mapping_type=(.+)$/;
     my $gene_versioned_stable_id = $1;
-    my $gene_type = $2;
+    #my $gene_type = $2;
     my $gene_stable_id = $gene_versioned_stable_id;
     $gene_stable_id =~ s/\.\d+//;
 
@@ -174,7 +174,7 @@ foreach my $slice (@$target_slices) {
       my $gene_biotype_group = $gene->get_Biotype->biotype_group();
       $target_gene_info->{$gene_stable_id}->{'gene_biotype'} = $gene_biotype;
       $target_gene_info->{$gene_stable_id}->{'gene_biotype_group'} = $gene_biotype_group;
-      $target_gene_info->{$gene_stable_id}->{'gene_type'} = $gene_type;
+      #$target_gene_info->{$gene_stable_id}->{'gene_type'} = $gene_type;
 
       my $transcripts = $gene->get_all_Transcripts();
       foreach my $transcript (@$transcripts) {
