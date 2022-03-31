@@ -35,6 +35,9 @@ sub default_options {
     #BRAKER parameters
     'augustus_config_path'     => '/nfs/production/flicek/ensembl/genebuild/ftricomi/augustus_config/config',
     'augustus_species_path'    => '/nfs/production/flicek/ensembl/genebuild/ftricomi/augustus_config/config/species/',
+#GCA_932273785.1
+#GCA_932273905.1
+#GCA_932274405.1
     'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-braker2_es_ep_etp.simg',
     'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-agat.simg',
     'busco_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
@@ -1530,6 +1533,7 @@ sub pipeline_analyses {
           'TRUNCATE object_xref',
           'TRUNCATE ontology_xref',
           'TRUNCATE xref',
+	  'DELETE from meta where meta_key="species.strain_group"',
           'DELETE exon FROM exon LEFT JOIN exon_transcript ON exon.exon_id = exon_transcript.exon_id WHERE exon_transcript.exon_id IS NULL',
           'DELETE supporting_feature FROM supporting_feature LEFT JOIN exon ON supporting_feature.exon_id = exon.exon_id WHERE exon.exon_id IS NULL',
           'DELETE supporting_feature FROM supporting_feature LEFT JOIN dna_align_feature ON feature_id = dna_align_feature_id WHERE feature_type="dna_align_feature" AND dna_align_feature_id IS NULL',
@@ -1716,7 +1720,7 @@ sub pipeline_analyses {
           'DELETE FROM meta WHERE meta_key LIKE "removed_evidence_flag.%"',
           'DELETE FROM meta WHERE meta_key LIKE "marker.%"',
           'DELETE FROM meta WHERE meta_key IN' .
-            ' ("repeat.analysis","genebuild.method","genebuild.last_geneset_update","genebuild.projection_source_db","genebuild.start_date")',
+            ' ("repeat.analysis","genebuild.method","genebuild.last_geneset_update","genebuild.projection_source_db","genebuild.start_date","species.strain_group")',
           'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
           'UPDATE meta set meta_value="BRAKER#species_prefix#" where meta_key="species.stable_id_prefix"',
           'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id)'.
