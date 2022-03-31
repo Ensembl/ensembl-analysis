@@ -1102,7 +1102,8 @@ sub pipeline_analyses {
             '(1, "genebuild.initial_release_date", NULL),' .
             '(1, "genebuild.projection_source_db", NULL),' .
             '(1, "genebuild.id", ' . $self->o('genebuilder_id') . '),' .
-            '(1, "genebuild.method", "anno")'
+            '(1, "genebuild.method", "anno")'.
+	    '(1, "genebuild.method_display", "Ensembl Genebuild")'.
         ],
       },
       -max_retry_count => 0,
