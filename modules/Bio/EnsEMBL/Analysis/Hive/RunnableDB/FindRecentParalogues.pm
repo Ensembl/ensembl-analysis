@@ -342,7 +342,7 @@ sub filter_by_cutoffs {
     $gene->description($gene_description);
 
     # add source gene stable id as gene attribute
-    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_transcript->{'parent_gene_stable_id'});
+    $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_transcript->{'parent_gene_stable_id'});
     $gene->add_Attributes($parent_attribute);
 
     if($transcript->{'cov'} >= $coverage_cutoff and $transcript->{'perc_id'} >= $perc_id_cutoff) {
