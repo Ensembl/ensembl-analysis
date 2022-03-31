@@ -166,6 +166,7 @@ my $biotype2group = get_biotype_groups($production_db);
 my $known_biotypes = {
                      'protein_coding'                     => 'coding',
                      'polymorphic_pseudogene'             => 'coding',
+                     'protein_coding_LoF'                 => 'coding',
                      'IG_D_gene'                          => 'coding',
                      'IG_J_gene'                          => 'coding',
                      'IG_C_gene'                          => 'coding',
@@ -196,6 +197,7 @@ my $known_biotypes = {
                      'sRNA'                               => 'noncoding_second_choice',
                      'vault_RNA'                          => 'noncoding_second_choice',
                      'processed_transcript'               => 'noncoding_second_choice',
+                     'protein_coding_CDS_not_defined'     => 'noncoding_second_choice',
                      'misc_RNA'                           => 'noncoding_second_choice',
                      '3prime_overlapping_ncRNA'           => 'noncoding_second_choice',
                      'non_coding'                         => 'noncoding_second_choice',
@@ -229,6 +231,7 @@ my $known_biotypes = {
                      'TEC'                                => 'problem',
                      'ambiguous_orf'                      => 'problem',
                      'disrupted_domain'                   => 'problem',
+                     'artifact'                           => 'problem',
                      'LRG_gene'                           => 'do_not_use',
                      };
 
