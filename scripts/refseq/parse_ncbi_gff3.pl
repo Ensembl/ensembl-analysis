@@ -117,29 +117,16 @@ my $sa = $db->get_SliceAdaptor;
 my $ga = $db->get_GeneAdaptor;
 my $aa = $db->get_AnalysisAdaptor;
 my $analysis = $aa->fetch_by_logic_name($logic_name);
-my $timestamp = strftime("%F %X", localtime(stat($gff_file)->mtime));
-my $infile_name = basename($gff_file);
-if ($analysis) {
-  if ($infile_name ne $analysis->db_file) {
-    warning('Your old analysis had '.$analysis->db_file." as db_file, it will be update to $infile_name\n");
-    $analysis->db_file($infile_name);
-  }
-
-  warning('Old db_version: '.$analysis->db_version."\nNew db_version: $timestamp\n");
-  $analysis->db_version($timestamp);
-  $aa->update($analysis);
-}
-else {
+if (!$analysis) {
     $analysis = Bio::EnsEMBL::Analysis->new(
         -logic_name => $logic_name,
         -db => 'RefSeq',
-        -db_version => $timestamp,
-        -db_file => $infile_name,
     );
 }
 
 my $codon_table = Bio::Tools::CodonTable->new;
-my $gff_parser = Bio::EnsEMBL::IO::Parser::GFF3->open($gff_file, must_parse_metadata => 0);
+my $gff_parser = Bio::EnsEMBL::IO::Parser::GFF3->open($gff_file, must_parse_metadata => 1);
+my $annotation_version = undef;
 my %sequences;
 my $cs_rank2 = $db->get_CoordSystemAdaptor->fetch_by_rank(2);
 foreach my $slice (@{$sa->fetch_all('toplevel', undef, 1)}) {
@@ -194,6 +181,18 @@ my %genes;
 my %transcripts;
 my %do_not_process;
 LINE: while ($gff_parser->next) {
+  if (!$annotation_version) {
+    my $comments = $gff_parser->get_metadata_value('comments');
+    if ($comments) {
+      foreach my $comment (@$comments) {
+        $comment =~ /!annotation-source\D+(\d+)$/;
+        if ($1) {
+          $annotation_version = $1;
+          last;
+        }
+      }
+    }
+  }
   my $seqname = $gff_parser->get_seqname;
   next LINE if (exists $missing_sequences{$seqname});
   my $slice;
@@ -361,6 +360,25 @@ LINE: while ($gff_parser->next) {
 }
 $gff_parser->close;
 print "Finished processing GFF file\n";
+if (!$annotation_version) {
+  $annotation_version = 100;
+}
+$annotation_version .= '.'.strftime("%Y%m%d", localtime(stat($gff_file)->mtime));
+my $infile_name = basename($gff_file);
+if ($analysis->is_stored($db)) {
+  if ($infile_name ne $analysis->db_file) {
+    warning('Your old analysis had '.$analysis->db_file." as db_file, it will be update to $infile_name\n");
+    $analysis->db_file($infile_name);
+  }
+
+  warning('Old db_version: '.$analysis->db_version."\nNew db_version: $annotation_version\n");
+  $analysis->db_version($annotation_version);
+  $aa->update($analysis);
+}
+else {
+  $analysis->db_file($infile_name);
+  $analysis->db_version($annotation_version);
+}
 my %stats;
 GENE: foreach my $gene (values %genes) {
   if ($gene->get_all_Transcripts) {
