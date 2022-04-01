@@ -184,7 +184,7 @@ LINE: while ($gff_parser->next) {
   if (!$annotation_version) {
     my $comments = $gff_parser->get_metadata_value('comments');
     if ($comments) {
-      foreach my $comment (@$comments}) {
+      foreach my $comment (@$comments) {
         $comment =~ /!annotation-source\D+(\d+)$/;
         if ($1) {
           $annotation_version = $1;
