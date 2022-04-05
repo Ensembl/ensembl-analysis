@@ -130,18 +130,14 @@ foreach my $slice (@$source_slices) {
     # Just process genes in the original mapping list
     if($source_gene_ids_hash->{$gene->stable_id()}) {
       my $gene_biotype = get_biotype_group_for_stats($gene->biotype());
-      my $gene_biotype_group = $gene->get_Biotype->biotype_group();
       my $gene_region_name = $gene->seq_region_name();
       $source_gene_info->{$gene->stable_id()}->{'gene_biotype'} = $gene_biotype;
-      $source_gene_info->{$gene->stable_id()}->{'gene_biotype_group'} = $gene_biotype_group;
       $source_gene_info->{$gene->stable_id()}->{'gene_region_name'} = $gene_region_name;
       my $transcripts = $gene->get_all_Transcripts();
       foreach my $transcript (@$transcripts) {
         my $transcript_stable_id = $transcript->stable_id();
         my $transcript_biotype = get_biotype_group_for_stats($transcript->biotype());
-        my $transcript_biotype_group = $transcript->get_Biotype->biotype_group();
         $source_transcript_info->{$transcript_stable_id}->{'transcript_biotype'} = $transcript_biotype;
-        $source_transcript_info->{$transcript_stable_id}->{'transcript_biotype_group'} = $transcript_biotype_group;
       }
     } # End if(source_gene_ids_hash
   }
@@ -172,9 +168,7 @@ foreach my $slice (@$target_slices) {
     # Just process genes in the original mapping list
     if($source_gene_ids_hash->{$gene_stable_id}) {
       my $gene_biotype = get_biotype_group_for_stats($gene->biotype());
-      my $gene_biotype_group = $gene->get_Biotype->biotype_group();
       $target_gene_info->{$gene_stable_id}->{'gene_biotype'} = $gene_biotype;
-      $target_gene_info->{$gene_stable_id}->{'gene_biotype_group'} = $gene_biotype_group;
       #$target_gene_info->{$gene_stable_id}->{'gene_type'} = $gene_type;
 
       my $transcripts = $gene->get_all_Transcripts();
@@ -185,7 +179,6 @@ foreach my $slice (@$target_slices) {
         }
 
        	my $transcript_biotype = get_biotype_group_for_stats($transcript->biotype());
-        my $transcript_biotype_group = $transcript->get_Biotype->biotype_group();
         my $transcript_description = $transcript->description();
 
         # DUE TO BUG IN FINDPARALOGUES NOT ADDING DESCRIPTION
@@ -206,7 +199,6 @@ foreach my $slice (@$target_slices) {
         my $transcript_stable_id = $transcript_versioned_stable_id;
         $transcript_stable_id =~ s/\.\d+//;
         $target_transcript_info->{$transcript_stable_id}->{'transcript_biotype'} = $transcript_biotype;
-        $target_transcript_info->{$transcript_stable_id}->{'transcript_biotype_group'} = $transcript_biotype_group;
         $target_transcript_info->{$transcript_stable_id}->{'coverage'} = $transcript_coverage;
         $target_transcript_info->{$transcript_stable_id}->{'perc_id'} = $transcript_perc_id;
       }
