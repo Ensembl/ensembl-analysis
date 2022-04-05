@@ -222,6 +222,9 @@ my $total_gene_count_by_biotype = {};
 my $mapped_gene_count_by_biotype = {};
 my $total_transcript_count_by_biotype = {};
 my $mapped_transcript_count_by_biotype = {};
+my $mapped_transcripts_count = 0;
+my $mapped_transcripts_coverage = 0;
+my $mapped_transcripts_percent_id = 0;
 
 # At this point a straightforward comparison is enough
 my @missing_gene_info = ();
@@ -256,6 +259,11 @@ foreach my $transcript_id (keys(%{$source_transcript_info})) {
   }
 
   if($target_transcript_info->{$transcript_id}) {
+
+    $mapped_transcripts_count++;
+    $mapped_transcripts_coverage += $target_transcript_info->{$transcript_id}->{'coverage'};
+    $mapped_transcripts_percent_id += $target_transcript_info->{$transcript_id}->{'perc_id'};
+  
     if($mapped_transcript_count_by_biotype->{$transcript_biotype}) {
       $mapped_transcript_count_by_biotype->{$transcript_biotype}->{'count'}++;
       $mapped_transcript_count_by_biotype->{$transcript_biotype}->{'coverage'} += $target_transcript_info->{$transcript_id}->{'coverage'};
@@ -339,8 +347,8 @@ sub print_mapping_stats {
   my $overall_mapping_percent = sprintf("%.2f", (($overall_mapped/$overall_source) * 100));
   my $overall_string = "  Overall mapping: ".$overall_mapped."/".$overall_source." (".$overall_mapping_percent."), ".($overall_source - $overall_mapped)." missing";
   if($overall_coverage) {
-    $overall_coverage = sprintf("%.2f", ($overall_coverage/$coverage_biotype_count));
-    $overall_perc_id = sprintf("%.2f", ($overall_perc_id/$coverage_biotype_count));
+    $overall_coverage = sprintf("%.2f", ($mapped_transcripts_coverage/$mapped_transcripts_count));
+    $overall_perc_id = sprintf("%.2f", ($mapped_transcripts_percent_id/$mapped_transcripts_count));
     $overall_string .= ", Coverage: ".$overall_coverage."%, Percent id: ".$overall_perc_id."%, Problematic: ".$overall_problematic_count;
   }
   say MAPPING $overall_string;
