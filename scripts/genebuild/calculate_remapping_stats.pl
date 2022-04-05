@@ -129,7 +129,7 @@ foreach my $slice (@$source_slices) {
   foreach my $gene (@$genes) {
     # Just process genes in the original mapping list
     if($source_gene_ids_hash->{$gene->stable_id()}) {
-      my $gene_biotype = $gene->biotype();
+      my $gene_biotype = get_biotype_group_for_stats($gene->biotype());
       my $gene_biotype_group = $gene->get_Biotype->biotype_group();
       my $gene_region_name = $gene->seq_region_name();
       $source_gene_info->{$gene->stable_id()}->{'gene_biotype'} = $gene_biotype;
@@ -138,7 +138,7 @@ foreach my $slice (@$source_slices) {
       my $transcripts = $gene->get_all_Transcripts();
       foreach my $transcript (@$transcripts) {
         my $transcript_stable_id = $transcript->stable_id();
-        my $transcript_biotype = $transcript->biotype();
+        my $transcript_biotype = get_biotype_group_for_stats($transcript->biotype());
         my $transcript_biotype_group = $transcript->get_Biotype->biotype_group();
         $source_transcript_info->{$transcript_stable_id}->{'transcript_biotype'} = $transcript_biotype;
         $source_transcript_info->{$transcript_stable_id}->{'transcript_biotype_group'} = $transcript_biotype_group;
@@ -171,7 +171,7 @@ foreach my $slice (@$target_slices) {
 
     # Just process genes in the original mapping list
     if($source_gene_ids_hash->{$gene_stable_id}) {
-      my $gene_biotype = $gene->biotype();
+      my $gene_biotype = get_biotype_group_for_stats($gene->biotype());
       my $gene_biotype_group = $gene->get_Biotype->biotype_group();
       $target_gene_info->{$gene_stable_id}->{'gene_biotype'} = $gene_biotype;
       $target_gene_info->{$gene_stable_id}->{'gene_biotype_group'} = $gene_biotype_group;
@@ -184,7 +184,7 @@ foreach my $slice (@$target_slices) {
           say TRANSLATION $transcript->translation->seq();
         }
 
-       	my $transcript_biotype = $transcript->biotype();
+       	my $transcript_biotype = get_biotype_group_for_stats($transcript->biotype());
         my $transcript_biotype_group = $transcript->get_Biotype->biotype_group();
         my $transcript_description = $transcript->description();
 
@@ -366,19 +366,19 @@ sub filter_genes {
     # from the target gene set so we want to skip the genes from the source gene set
     if ($xy_scanner and ($gene->seq_region_name() eq 'X' or $gene->seq_region_name() eq 'Y')) {
       if ($xy_scanner eq 'None') {
-        say "Skipping gene  ".$gene->stable_id()." (".$gene->biotype().", ".$gene->seq_region_name."), reason: xy_scanner None";
+        say "Skipping gene  ".$gene->stable_id()." (".get_biotype_group_for_stats($gene->biotype()).", ".$gene->seq_region_name."), reason: xy_scanner None";
         next;
       } elsif($xy_scanner eq 'X' and $gene->seq_region_name() eq 'Y') {
-        say "Skipping gene  ".$gene->stable_id()." (".$gene->biotype().", ".$gene->seq_region_name."), reason: xy_scanner X and gene seq region name Y";
+        say "Skipping gene  ".$gene->stable_id()." (".get_biotype_group_for_stats($gene->biotype()).", ".$gene->seq_region_name."), reason: xy_scanner X and gene seq region name Y";
         next;
       } elsif($xy_scanner eq 'Y' and $gene->seq_region_name() eq 'X') {
-        say "Skipping gene  ".$gene->stable_id()." (".$gene->biotype().", ".$gene->seq_region_name."), reason: xy_scanner Y and gene seq region name X";
+        say "Skipping gene  ".$gene->stable_id()." (".get_biotype_group_for_stats($gene->biotype()).", ".$gene->seq_region_name."), reason: xy_scanner Y and gene seq region name X";
         next;
       }
     }
 
     if($gene->seq_region_name() eq 'MT') {
-      say "Skipping gene  ".$gene->stable_id()." (".$gene->biotype().", ".$gene->seq_region_name."), reason: MT gene";
+      say "Skipping gene  ".$gene->stable_id()." (".get_biotype_group_for_stats($gene->biotype()).", ".$gene->seq_region_name."), reason: MT gene";
       next;
     }
 
@@ -400,12 +400,41 @@ sub filter_genes {
 
     unless($is_readthrough) {
       $source_gene_ids_hash->{$gene->stable_id()} = 1;
-      say INPUT $gene->stable_id." ".$gene->seq_region_name." ".$gene->biotype;
+      say INPUT $gene->stable_id." ".$gene->seq_region_name." ".get_biotype_group_for_stats($gene->biotype);
       push(@$filtered_genes,$gene);
     } else {
-      say "Skipping gene  ".$gene->stable_id()." (".$gene->biotype().", ".$gene->seq_region_name."), reason: gene has readthrough transcript";
+      say "Skipping gene  ".$gene->stable_id()." (".get_biotype_group_for_stats($gene->biotype()).", ".$gene->seq_region_name."), reason: gene has readthrough transcript";
     }
   }
 
   return($filtered_genes);
 }
+
+=head2 get_biotype_group_for_stats
+ Arg [1]    : String - Biotype
+ Description: It returns the string representing the biotype group for statistical purposes Arg [1] belongs to.
+              In this statistics context, the biotype groups are defined as follows:
+              'processed_pseudogene', 'unprocessed_pseudogene', 'unitary_pseudogene', 'IG_TR_gene', 'IG_TR_pseudogene',
+              and any other biotype not belonging to any group above will define its own biotype group.
+ Returntype : String
+ Exceptions : None
+=cut
+
+sub get_biotype_group_for_stats {
+  my $biotype = shift;
+
+  if ($biotype =~ /unitary_pseudogene/) {
+    $biotype = 'unitary_pseudogene';
+  } elsif ($biotype =~ /unprocessed_pseudogene/) {
+    $biotype = 'unprocessed_pseudogene';
+  } elsif ($biotype =~ /processed_pseudogene/) {
+    $biotype = 'processed_pseudogene';
+  } elsif ($biotype =~ /IG_.*pseudogene/ or $biotype ~= /TR_.*pseudogene/) {
+    $biotype = 'IG_TR_pseudogene';
+  } elsif ($biotype =~ /IG_.*gene/ or $biotype ~= /TR_.*gene/) {
+    $biotype = 'IG_TR_gene';
+  }
+
+  return $biotype;
+}
+
