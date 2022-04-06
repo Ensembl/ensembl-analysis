@@ -399,13 +399,13 @@ sub create_input_file {
   foreach my $gene (@$genes) {
     my $gene_description = $gene->description();
     $gene_description =~ /;mapping_type=(.+)$/;
+    my $type = $1; # type could be present or not
     
     my ($parent_stable_id_att) = @{$gene->get_all_Attributes('proj_parent_g')};
     if (!$parent_stable_id_att) {
       $self->throw("Issue getting the proj_parent_g attribute for gene with dbID ".$gene->dbID().". Description: ".$gene_description);
     }
     my $parent_stable_id = $parent_stable_id_att->value();
-    my $type = $1; # type could be present or not
     if (!$parent_stable_id) {
       $self->throw("Issue getting the parent stable id from gene attribute for gene with dbID ".$gene->dbID().". Description: ".$gene_description);
     }

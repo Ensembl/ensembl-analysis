@@ -149,9 +149,14 @@ sub parse_descriptions {
   my $primary_genes = [];
   foreach my $gene (@{$genes}) {
     my $gene_description = $gene->description();
-    $gene_description =~ /;parent_gene=([^\,]+);mapping_type=(.+)$/;
-    my $gene_stable_id = $1;
-    my $gene_type = $2;
+    $gene_description =~ /;mapping_type=(.+)$/;
+    my $gene_type = $1;
+
+    my ($parent_stable_id_att) = @{$gene->get_all_Attributes('proj_parent_g')};
+    if (!$parent_stable_id_att) {
+      $self->throw("Issue getting the proj_parent_g attribute for gene with dbID ".$gene->dbID().". Description: ".$gene_description);
+    }
+    my $gene_stable_id = $parent_stable_id_att->value();
     $gene->{'parent_stable_id'} = $gene_stable_id; # Not really needed, since the stable id should be assigned, but doing it as it may be useful
     $gene->{'type'} = $gene_type;
 
@@ -187,7 +192,7 @@ sub parse_descriptions {
       $gene->{'quality_call'} = 'bad';
     }
 
-    if($gene_type eq 'primary_mapping') {
+    if ($gene_type and ($gene_type ne 'potential_paralogue')) {
       push(@$primary_genes,$gene);
     }
   }
