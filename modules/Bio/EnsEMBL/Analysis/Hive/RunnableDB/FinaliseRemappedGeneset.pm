@@ -445,14 +445,17 @@ sub add_gene_symbols {
     my $genes = $slice->get_all_Genes();
     foreach my $gene (@$genes) {
       my $gene_description = $gene->description();
-      $gene_description =~ /;parent_gene=([^\,]+);mapping_type=(.+)$/;
-      my $gene_stable_id = $1;
-      my $gene_type = $2;
-      my $unversioned_parent_stable_id = $gene_stable_id;
-      $unversioned_parent_stable_id =~ s/\.(\d+)$//;
-      my $source_gene = $source_gene_adaptor->fetch_by_stable_id($unversioned_parent_stable_id);
+      $gene_description =~ /;mapping_type=(.+)$/;
+      my $gene_type = $1;
+
+      my ($parent_stable_id_att) = @{$gene->get_all_Attributes('proj_parent_g')};
+      if (!$parent_stable_id_att) {
+        $self->throw("Issue getting the proj_parent_g attribute for gene with dbID ".$gene->dbID().". Description: ".$gene_description);
+    }
+      my $gene_stable_id = $parent_stable_id_att->value();
+      my $source_gene = $source_gene_adaptor->fetch_by_stable_id($gene_stable_id);
       unless($source_gene) {
-        say "Couldn't find parent gene with stable id: ".$unversioned_parent_stable_id;
+        say "Couldn't find parent gene with stable id: ".$gene_stable_id;
         next;
       }
 
