@@ -163,7 +163,8 @@ foreach my $slice (@$target_slices) {
     #my $gene_type = $2;
     #my $gene_stable_id = $gene_versioned_stable_id;
     #$gene_stable_id =~ s/\.\d+//;
-    my ($gene_stable_id) = @{$gene->get_all_Attributes('proj_parent_g')};
+    my ($gene_stable_id_att) = @{$gene->get_all_Attributes('proj_parent_g')};
+    my $gene_stable_id = $gene_stable_id_att->value();
 
     # Just process genes in the original mapping list
     if($source_gene_ids_hash->{$gene_stable_id}) {
