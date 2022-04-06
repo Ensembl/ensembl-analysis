@@ -1691,8 +1691,7 @@ sub pipeline_analyses {
       -rc_name => 'default',
       -max_retry_count => 0,
       -flow_into => {
-        '2->A' => ['initialise_rnaseq'],
-        'A->1' => ['create_homology_rnaseq_pipeline_job'],
+        2 => ['initialise_rnaseq'],
       }
     },
 
