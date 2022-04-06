@@ -422,9 +422,9 @@ sub get_biotype_group_for_stats {
     $biotype = 'unprocessed_pseudogene';
   } elsif ($biotype =~ /processed_pseudogene/) {
     $biotype = 'processed_pseudogene';
-  } elsif ($biotype =~ /IG_.*pseudogene/ or $biotype ~= /TR_.*pseudogene/) {
+  } elsif ($biotype =~ /IG_.*pseudogene/ or $biotype =~ /TR_.*pseudogene/) {
     $biotype = 'IG_TR_pseudogene';
-  } elsif ($biotype =~ /IG_.*gene/ or $biotype ~= /TR_.*gene/) {
+  } elsif ($biotype =~ /IG_.*gene/ or $biotype =~ /TR_.*gene/) {
     $biotype = 'IG_TR_gene';
   }
 
