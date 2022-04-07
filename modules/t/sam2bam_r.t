@@ -116,7 +116,7 @@ is($runnable->bamfile, $bamfile, 'Check bamfile');
 $runnable->run;
 ok(-e $genomefile.'.fai', 'Genome index file exists');
 ok(-e $bamfile.'.bam', 'BAM file exists');
-ok(-e $bamfile.'.bam.bai', 'Index file exists');
+ok(-e $bamfile.'.bam.csi', 'Index file exists');
 ok(!-e $bamfile.'_unsorted.bam', 'Unsorted BAM deleted');
 my $program = $runnable->program;
 my $result_check = `$program view $bamfile.bam`;
@@ -135,6 +135,6 @@ done_testing();
 
 #Cleaning
 note('Cleaning');
-foreach my $file ($genomefile, $genomefile.'.fai', @samfiles, $bamfile.'.sam', $bamfile.'.bam', $bamfile.'.bam.bai', $bamfile.'.header', $headerfile) {
+foreach my $file ($genomefile, $genomefile.'.fai', @samfiles, $bamfile.'.sam', $bamfile.'.bam', $bamfile.'.bam.csi', $bamfile.'.header', $headerfile) {
   unlink $file if (-e $file);
 }
