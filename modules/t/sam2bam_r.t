@@ -75,7 +75,7 @@ close(RH) || die("Could not close $genomefile.tmp");
 close(WH) || die("Could not close $genomefile");
 unlink $genomefile.'.tmp';
 
-my $bam_url = 'http://ftp.ensembl.org/pub/release-99/bamcov/takifugu_rubripes/genebuild/fTakRub1.2.ENA.merged.1.bam';
+my $bam_url = 'http://ftp.ensembl.org/pub/release-99/bamcov/urocitellus_parryii/genebuild/ASM342692v1.ENA.adult_female_skeletal_muscle.1.bam';
 my $command = "$samtools view -H $bam_url";
 my @headers;
 my $header_lcount = 0;
