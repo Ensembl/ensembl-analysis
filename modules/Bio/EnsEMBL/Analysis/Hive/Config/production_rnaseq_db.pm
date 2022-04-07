@@ -511,7 +511,7 @@ sub pipeline_analyses {
       -logic_name => 'md5_sum',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'cd #working_dir#;md5sum #bam_file#.bw #bam_file# #bam_file#.bai > #bam_file#.md5',
+        cmd => 'cd #working_dir#;md5sum #bam_file#.bw #bam_file# #bam_file#.csi > #bam_file#.md5',
         working_dir => $self->o('merge_dir'),
       },
       -rc_name => 'default',
@@ -556,7 +556,7 @@ sub pipeline_analyses {
         species_name  => $self->o('species_name'),
         free_text => 'Note\n------\n\n'.
           'The RNASeq data for #species_name# consists of NUM individual sample.\n\n'.
-          'The bam file has an index file (.bai) and a BigWig file (.bw) which contains the coverage information.\n\n'.
+          'The bam file has an index file (.csi) and a BigWig file (.bw) which contains the coverage information.\n\n'.
           'Use the md5sum.txt file to check the integrity of the downloaded files.\n\n'.
           'Files\n-----\n',
       },
