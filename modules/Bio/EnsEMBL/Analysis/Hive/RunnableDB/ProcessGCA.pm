@@ -220,7 +220,7 @@ sub fetch_input {
   #$s =~ s/(ENS)/BRAKER/m;
   #my $stable_id_prefix = $s;
   $s =~ s/ENS//g;
-  my $species_prefix  = $s;
+  my $species_prefix  = uc($s);
   my $scientific_name = $species_name;
   say $species_name;
   $species_name = lc($species_name);
