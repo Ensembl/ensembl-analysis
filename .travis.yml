@@ -43,6 +43,9 @@ before_install:
     - cd htslib-1.3.2 && make CFLAGS="-g -O2 -fPIC"
     - cd ..
     - git clone https://github.com/samtools/htslib
+    - cd htslib
+    - git submodule update --init --recursive
+    - cd ..
     - git clone https://github.com/samtools/samtools
 
 install:
@@ -65,9 +68,16 @@ install:
     - mkdir -p modules/t/test-genome-DBs/homo_sapiens
     - cp -r ensembl/modules/t/test-genome-DBs/homo_sapiens/core modules/t/test-genome-DBs/homo_sapiens
 # samtools
-    - cd samtools
+    - cd htslib
     - make
-    - cp samtools ~/bin
+    - cd ..
+    - cd samtools
+    - autoheader
+    - autoconf -Wno-syntax
+    - ./configure
+    - make
+    - make install
+    - cd ..
 
 script: "./travisci/harness.sh"
 
