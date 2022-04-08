@@ -18,7 +18,6 @@ addons:
     apt:
         packages:
         - unzip
-        - samtools
         - graphviz
 
 before_install:
@@ -43,7 +42,8 @@ before_install:
     - tar -jxvf htslib-1.3.2.tar.bz2
     - cd htslib-1.3.2 && make CFLAGS="-g -O2 -fPIC"
     - cd ..
-
+    - git clone https://github.com/samtools/htslib
+    - git clone https://github.com/samtools/samtools
 
 install:
     - cpanm --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
@@ -64,6 +64,10 @@ install:
     - cp travisci/MultiTestDB.conf.mysql modules/t/MultiTestDB.conf.mysql
     - mkdir -p modules/t/test-genome-DBs/homo_sapiens
     - cp -r ensembl/modules/t/test-genome-DBs/homo_sapiens/core modules/t/test-genome-DBs/homo_sapiens
+# samtools
+    - cd samtools
+    - make
+    - cp samtools ~/bin
 
 script: "./travisci/harness.sh"
 
