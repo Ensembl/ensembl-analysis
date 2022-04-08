@@ -45,10 +45,10 @@ before_install:
     - wget https://github.com/samtools/samtools/releases/download/1.15.1/samtools-1.15.1.tar.bz2
     - tar -jxvf samtools-1.15.1.tar.bz2
     - cd samtools-1.15.1
-    - ./configure --prefix=./samtools/
+    - ./configure --prefix=/home/travis/samtools/
     - make
     - make install
-    - export PATH=./samtools/bin:$PATH
+    - export PATH=/home/travis/samtools/bin:$PATH
 
 install:
     - cpanm --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
