@@ -75,7 +75,7 @@ close(RH) || die("Could not close $genomefile.tmp");
 close(WH) || die("Could not close $genomefile");
 unlink $genomefile.'.tmp';
 
-my $bam_url = 'http://ftp.ensembl.org/pub/release-99/bamcov/takifugu_rubripes/genebuild/fTakRub1.2.ENA.merged.1.bam';
+my $bam_url = 'http://ftp.ensembl.org/pub/release-99/bamcov/urocitellus_parryii/genebuild/ASM342692v1.ENA.adult_female_skeletal_muscle.1.bam';
 my $command = "$samtools view -H $bam_url";
 my @headers;
 my $header_lcount = 0;
@@ -116,7 +116,7 @@ is($runnable->bamfile, $bamfile, 'Check bamfile');
 $runnable->run;
 ok(-e $genomefile.'.fai', 'Genome index file exists');
 ok(-e $bamfile.'.bam', 'BAM file exists');
-ok(-e $bamfile.'.bam.bai', 'Index file exists');
+ok(-e $bamfile.'.bam.csi', 'Index file exists');
 ok(!-e $bamfile.'_unsorted.bam', 'Unsorted BAM deleted');
 my $program = $runnable->program;
 my $result_check = `$program view $bamfile.bam`;
@@ -135,6 +135,6 @@ done_testing();
 
 #Cleaning
 note('Cleaning');
-foreach my $file ($genomefile, $genomefile.'.fai', @samfiles, $bamfile.'.sam', $bamfile.'.bam', $bamfile.'.bam.bai', $bamfile.'.header', $headerfile) {
+foreach my $file ($genomefile, $genomefile.'.fai', @samfiles, $bamfile.'.sam', $bamfile.'.bam', $bamfile.'.bam.csi', $bamfile.'.header', $headerfile) {
   unlink $file if (-e $file);
 }

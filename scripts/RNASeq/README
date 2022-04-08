@@ -175,9 +175,9 @@ The 'name' column in data_file refers to the file name on disk.
 
 Files on disk, for FTP site: 
 /path/to/sus_scrofa/Sscrofa10.2/rnaseq/alveolar_macrophage_merged_sorted.bam
-/path/to/sus_scrofa/Sscrofa10.2/rnaseq/alveolar_macrophage_merged_sorted.bam.bai
+/path/to/sus_scrofa/Sscrofa10.2/rnaseq/alveolar_macrophage_merged_sorted.bam.csi
 /path/to/sus_scrofa/Sscrofa10.2/rnaseq/whole_blood_merged_sorted.bam
-/path/to/sus_scrofa/Sscrofa10.2/rnaseq/whole_blood_merged_sorted.bam.bai
+/path/to/sus_scrofa/Sscrofa10.2/rnaseq/whole_blood_merged_sorted.bam.csi
 
 Note that each BAM files needs an index file.
 

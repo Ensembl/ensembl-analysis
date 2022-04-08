@@ -202,7 +202,7 @@ sub index {
   my ($self, $file, $options) = @_;
 
   $options = '' unless (defined $options);
-  my $cmd = join(' ', $self->_base_command('index', $options), $file);
+  my $cmd = join(' ', $self->_base_command('index -c', $options), $file);
   logger_info($cmd);
   execute_with_wait($cmd, $file.' indexing failed');
 }
