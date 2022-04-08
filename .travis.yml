@@ -42,11 +42,13 @@ before_install:
     - tar -jxvf htslib-1.3.2.tar.bz2
     - cd htslib-1.3.2 && make CFLAGS="-g -O2 -fPIC"
     - cd ..
-    - git clone https://github.com/samtools/htslib
-    - cd htslib
-    - git submodule update --init --recursive
-    - cd ..
-    - git clone https://github.com/samtools/samtools
+    - wget https://github.com/samtools/samtools/releases/download/1.15.1/samtools-1.15.1.tar.bz2
+    - tar -jxvf samtools-1.15.1.tar.bz2
+    - cd samtools-1.15.1
+    - ./configure --prefix=./samtools/
+    - make
+    - make install
+    - export PATH=./samtools/bin:$PATH
 
 install:
     - cpanm --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
