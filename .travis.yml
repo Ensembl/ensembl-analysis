@@ -47,7 +47,6 @@ before_install:
     - git submodule update --init --recursive
     - cd ..
     - git clone https://github.com/samtools/samtools
-    - cd ..
 
 install:
     - cpanm --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
