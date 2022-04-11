@@ -550,6 +550,11 @@ sub _master_config {
          }, # biotypes
       }, # rnaseq_blast
       'layer' => {
+        'logic_names' =>    {
+          'genblast'                => 10000,
+          'best_targetted'          => 1000,
+          'genblast_rnaseq_support' => 10000,
+        }, # logic_names
         'biotypes' =>    {
           'IG_'                  => 0,
           'TR_'                  => 0,
