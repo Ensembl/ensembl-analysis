@@ -554,11 +554,11 @@ sub _master_config {
           'IG_'                  => 0,
           'TR_'                  => 0,
           'human_pe12_'          => 0,
-          'mouse_pe12_'       => 15000,
-          'vert_pe12_'       => 300,
-          'mammals_pe12_'        => 12000,
+          'mouse_pe12_'       => 0,
+          'vert_pe12_'       => 200,
+          'mammals_pe12_'        => 500,
           'realign_'             => 0,
-          'rnaseq_merged_'       => 10000,
+          'rnaseq_merged_'       => 0,
           'rnaseq_tissue_'       => 149000,
         }, # biotypes
       }, # layer
