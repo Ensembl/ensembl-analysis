@@ -572,14 +572,8 @@ sub _master_config {
           'ensembl'             => 19000,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                  => 20,
-          'TR_'                  => 20,
-          'human_pe12_'         => 2000,
-          'mouse_pe12_'      => 2000,
-          'vert_pe12_'      => 2000,
-          'mammals_pe12_'       => 1000,
-          'realign_'            => 10000,
-          'rnaseq_merged_'      => 2000,
+          'pre_lncRNA'          => 1000,
+          'protein_coding'      => 18000,
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
