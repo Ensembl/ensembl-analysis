@@ -41,6 +41,7 @@ use strict;
 use feature 'say';
 use Data::Dumper;
 use File::Spec::Functions qw(tmpdir catfile);
+use POSIX;
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_nucleotide_seqs);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
@@ -54,9 +55,10 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my($self) = @_;
+
   $self->create_analysis;
 
-  $self->param('region_padding',500);
+#  $self->param('region_padding',10000);
 
   # Define the dna dbs
   my $source_dna_dba = $self->hrdb_get_dba($self->param('source_dna_db'));
@@ -72,8 +74,11 @@ sub fetch_input {
   $self->hrdb_set_con($source_gene_dba,'source_gene_db');
   $self->hrdb_set_con($target_gene_dba,'target_gene_db');
 
+#  my $input_genes = $self->fetch_input_genes_by_id([53671,56952,59930,59295,59266,59293],$source_gene_dba);
   my $input_genes = $self->fetch_input_genes_by_id($self->param('iid'),$source_gene_dba);
+
   my $sequence_adaptor = $source_dna_dba->get_SequenceAdaptor();
+
 
   say "Processing ".scalar(@$input_genes)." genes";
 
@@ -91,10 +96,14 @@ sub fetch_input {
                                    $a->start() <=> $b->start() or
                                    $a->end() <=> $b->end() }  @{$input_genes}];
 
+
+#  my $batched_input_genes = $self->batch_input_genes();
+
   my $gene_synteny_hash = {};
   my $gene_genomic_seqs_hash = {};
   my $parent_gene_id_hash = {};
   my $genomic_reads = [];
+
   for(my $i=0; $i<scalar(@$sorted_input_genes); $i++) {
     my $gene = ${$sorted_input_genes}[$i];
     my $gene_id = $gene->dbID();
@@ -127,18 +136,33 @@ sub fetch_input {
     my $stable_id = $gene->stable_id.".".$gene->version;
 
 
-    my $region_start = $gene->seq_region_start - $self->param('region_padding');
+    # There's a big issue in terms of small genes, even with a fair amount of padding. To counter this have a minimum
+    # target region size of about 50kb. If the gene is bigger then the padding itself should be enough as it's likely
+    # there are many neutral sites in the gene already
+    my $min_padding = 1000;
+    my $min_region_size = 50000;
+    my $region_diff = $min_region_size - $gene->length;
+    if($region_diff > 0) {
+      $region_diff = ceil($region_diff/2);
+    } else {
+      $region_diff = 0;
+      $min_padding = 5000;
+    }
+
+    my $region_start = $gene->seq_region_start - $min_padding - $region_diff;
     if($region_start < $slice->seq_region_start()) {
        $region_start = $slice->seq_region_start();
     }
 
-    my $region_end = $gene->seq_region_end + $self->param('region_padding');
+    my $region_end = $gene->seq_region_end + $min_padding + $region_diff;
     if($region_end > $slice->seq_region_end()) {
       $region_end = $slice->seq_region_end();
     }
 
     my $strand = $gene->strand;
     my $genomic_seq = ${ $sequence_adaptor->fetch_by_Slice_start_end_strand($slice,$region_start,$region_end,$strand) };
+    say "FERGAL DEBUG ORIG REGION S/E, GENE S/E: ".$region_start.'/'.$region_end.", ". $gene->seq_region_start."/".$gene->seq_region_end;
+
     my $fasta_record = ">".$gene_id."\n".$genomic_seq;
     push(@$genomic_reads, $fasta_record);
     $gene_genomic_seqs_hash->{$gene_id} = [$region_start,$region_end,$genomic_seq];
@@ -162,6 +186,7 @@ sub fetch_input {
        -parent_gene_ids   => $parent_gene_id_hash,
        -gene_synteny_hash => $gene_synteny_hash,
        -gene_genomic_seqs_hash => $gene_genomic_seqs_hash,
+       -no_projection     => $self->param('no_projection'),
   );
   $self->runnable($runnable);
 }
@@ -187,7 +212,12 @@ sub run {
 sub write_output {
   my ($self) = @_;
   my $output_dba = $self->hrdb_get_con('target_gene_db');
-  my $output_gene_adaptor = $output_dba->get_GeneAdaptor;
+
+  my $target_dna_dba = $self->hrdb_get_dba($self->param('target_dna_db'));
+  my $target_gene_dba = $self->hrdb_get_dba($self->param('target_gene_db'));
+  $target_gene_dba->dnadb($target_dna_dba);
+
+  my $output_gene_adaptor = $target_gene_dba->get_GeneAdaptor;
   my $output_genes = $self->output();
   foreach my $output_gene (@$output_genes) {
     say "Final gene: ".$output_gene->stable_id();
