@@ -330,8 +330,36 @@ sub filter_by_cutoffs {
     my $biotype_group = $transcript->{'source_biotype_group'};
     my $coverage_cutoff = $coverage_cutoff_groups->{$biotype_group};
     my $perc_id_cutoff = $percent_identity_groups->{$biotype_group};
-
     my $transcript_description = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$coverage.", Perc id: ".$percent_id;
+
+    if($source_transcript->translation()) {
+      my ($cds_coverage,$cds_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->translateable_seq(),$transcript->translateable_seq());
+      my $cds_description = ", CDS coverage: ".$cds_coverage." CDS perc id: ".$cds_percent_id;
+      my $aligned_source_seq_copy = $aligned_source_seq;
+      my $aligned_target_seq_copy = $aligned_target_seq;
+      $aligned_source_seq_copy =~ s/\-\-\-//g;
+      $aligned_target_seq_copy =~ s/\-\-\-//g;
+
+      if($aligned_source_seq_copy =~ /\-/ or $aligned_target_seq_copy =~ /\-/) {
+        $cds_description .= ", CDS gap: 1";
+        my $transcript_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
+                                                             -VALUE => ">source_cds_align\n".$aligned_source_seq."\n>target_cds_align\n".$aligned_target_seq."\n");
+        $transcript->add_Attributes($transcript_attrib);
+        my $translation_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
+                                                              -VALUE => ">source_translation\n".$source_transcript->translation->seq().
+                                                                        "\n>target_translation\n".$transcript->translation->seq()."\n");
+        $transcript->translation->add_Attributes($translation_attrib);
+      } else {
+        $cds_description .= ", CDS gap: 0";
+      }
+      $transcript->{'cds_description'} = $cds_description;
+    }
+
+    if($transcript->{'cds_description'}) {
+      $transcript_description .= $transcript->{'cds_description'};
+    }
+
+    $transcript_description .= ", Annotation method: minimap_paralogue";
     $transcript->description($transcript_description);
 
     my $gene_description = "Parent: ".$source_transcript->{'parent_gene_stable_id'}.", Type: Potential paralogue";
