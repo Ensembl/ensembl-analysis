@@ -1048,7 +1048,7 @@ sub align_proteins_with_alignment {
 =cut
 
 sub align_nucleotide_seqs {
-  my ($source_protein_seq,$target_protein_seq) = @_;
+  my ($source_protein_seq,$target_protein_seq,$program) = @_;
 
   my $align_input_file = "/tmp/align_".$$.".fa";
   my $align_output_file = "/tmp/align_".$$.".aln";
@@ -1062,8 +1062,13 @@ sub align_nucleotide_seqs {
   close INPUT;
 
   my $align_program_path = 'mafft';
-
   my $cmd = $align_program_path." --progress ".$align_progress_file." --nuc ".$align_input_file." > ".$align_output_file;
+
+  if($program and $program eq 'muscle') {
+    $align_program_path = 'muscle';
+    $cmd = $align_program_path." -in ".$align_input_file." -out ".$align_output_file;
+  }
+
   my $result = system($cmd);
 
   if ($result) {
