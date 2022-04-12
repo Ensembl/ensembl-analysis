@@ -74,6 +74,7 @@ sub fetch_input {
 
   my $input_genes = $self->fetch_input_genes_by_id($self->param('iid'),$source_gene_dba);
   my $sequence_adaptor = $source_dna_dba->get_SequenceAdaptor();
+  my $target_gene_adaptor = $target_gene_dba->get_GeneAdaptor();
 
   say "Processing ".scalar(@$input_genes)." genes";
 
@@ -102,6 +103,15 @@ sub fetch_input {
     my $gene_version = $gene->version();
     my $gene_biotype = $gene->biotype();
     my $gene_description = $gene->description();
+
+    # since there could be retries of jobs and partial storage of genes due to server or database access problems
+    # we need to make sure any previously mapped gene having this gene as source is deleted
+    my $previously_mapped_gene = $target_gene_adaptor->fetch_by_stable_id($gene_stable_id);
+    while ($previously_mapped_gene) {
+      print STDERR "Deleting previously mapped gene for ".$gene_stable_id."\n";
+      $target_gene_adaptor->remove($previously_mapped_gene);
+      $previously_mapped_gene = $target_gene_adaptor->fetch_by_stable_id($gene_stable_id);
+    }
 
     my $transcripts = $gene->get_all_Transcripts();
     foreach my $transcript (@$transcripts) {
