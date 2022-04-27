@@ -721,6 +721,23 @@ sub feature_id {
   my $output_id_array = [];
   my $type = $self->param_required('feature_type');
 
+  my $xy_scanner;
+  if($self->param_is_defined('xy_scanner') and $self->param('xy_scanner') ne 'XY') {
+    $xy_scanner = $self->param('xy_scanner');
+  }
+
+  my $exclude_mt = 1;
+  if($self->param_is_defined('exclude_mt') and $self->param('exclude_mt') == 0) {
+    $exclude_mt = 0;
+  }
+
+  my $id_output_file_path;
+  if($self->param_is_defined('id_output_file_path')) {
+    $id_output_file_path = $self->param('id_output_file_path');
+    open(IDOUT,">".$id_output_file_path);
+  }
+
+
   my $logic_names = [undef];
   if ($self->param_is_defined('feature_logic_names')) {
     $logic_names = $self->param('feature_logic_names');
@@ -748,23 +765,49 @@ sub feature_id {
     $slices = $dba->get_SliceAdaptor->fetch_all($self->param('coord_system_name'));
   }
   foreach my $slice (@$slices) {
-    foreach my $logic_name (@$logic_names) {
-        foreach my $feature (@{$feature_adaptor->fetch_all_by_Slice($slice, $logic_name)}) {
-          if($self->param_is_defined('exclude_biotype')) {
-            foreach my $biotype (@{$self->param('exclude_biotype')}){
-               if ($feature->biotype eq $biotype) {
-                   $self->warning("You've defined a biotype that is not allowed to be copied. Something is wrong");
-               }
-               else{
-                  push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
-               }
-           }
-         }
-         else{
-                  push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
-               }
+    if($xy_scanner and ($slice->seq_region_name() eq 'X' or $slice->seq_region_name() eq 'Y')) {
+      if($xy_scanner eq 'None') {
+        next;
+      } elsif($xy_scanner eq 'X' and $slice->seq_region_name() eq 'Y') {
+        next;
+      } elsif($xy_scanner eq 'Y' and $slice->seq_region_name() eq 'X') {
+        next;
       }
     }
+
+    if($exclude_mt and $slice->seq_region_name() eq 'MT') {
+      next;
+    }
+
+    foreach my $logic_name (@$logic_names) {
+      foreach my $feature (@{$feature_adaptor->fetch_all_by_Slice($slice, $logic_name)}) {
+        if($self->param_is_defined('exclude_biotype')) {
+          foreach my $biotype (@{$self->param('exclude_biotype')}){
+            if($feature->biotype eq $biotype) {
+              $self->warning("You've defined a biotype that is not allowed to be copied. Something is wrong");
+            } else {
+              unless($self->feature_restriction($feature, $type, $feature_restriction)) {
+                push(@$output_id_array, $feature->dbID);
+                if($id_output_file_path) {
+                  say IDOUT $feature->dbID."\t".$feature->stable_id();
+                }
+              }
+            }
+          }
+        } else {
+          unless($self->feature_restriction($feature, $type, $feature_restriction)) {
+            push(@$output_id_array, $feature->dbID) unless ($self->feature_restriction($feature, $type, $feature_restriction));
+            if($id_output_file_path) {
+              say IDOUT $feature->dbID."\t".$feature->stable_id();
+            }
+          }
+        } # end else
+      } # end foreach my $feature
+    } # end foreach my $logic_name
+  } # end foreach my $slice
+
+  if($id_output_file_path) {
+    close IDOUT;
   }
 
   if($self->param_is_defined('batch_size')) {
@@ -797,7 +840,9 @@ sub feature_restriction {
         }
       } elsif($restriction eq 'projection') {
         return($self->assess_projection_transcript($feature));
-      } else {
+      } elsif($restriction eq 'readthrough') {
+        return($self->remove_readthroughs($feature));
+      }  else {
         $self->throw("You've selected a features restriction type that is not recognised: ".$restriction);
       }
     } # End if type eq gene or transcript
@@ -807,6 +852,31 @@ sub feature_restriction {
 
 }
 
+
+sub remove_readthroughs {
+  my ($self,$feature) = @_;
+
+  if(ref($feature) eq "Bio::EnsEMBL::Gene") {
+    my $transcripts = $feature->get_all_Transcripts();
+    foreach my $transcript (@$transcripts) {
+      my $attributes = $transcript->get_all_Attributes();
+      foreach my $attribute (@{$attributes}) {
+        if($attribute->value eq 'readthrough') {
+          return(1);
+        }
+      } # foreach my $attribute
+    } # End foreach my $transcript
+  } elsif(ref($feature) eq "Bio::EnsEMBL::Transcript") {
+    my $attributes = $feature->get_all_Attributes();
+    foreach my $attribute (@{$attributes}) {
+      if($attribute->value eq 'readthrough') {
+        return(1);
+      }
+    } # foreach my $attribute
+  } else {
+    $self->throw("The assess_projection_transcript subroutine expects a transcript object. Found object type: ".ref($feature));
+  }
+}
 
 
 sub assess_projection_transcript {
