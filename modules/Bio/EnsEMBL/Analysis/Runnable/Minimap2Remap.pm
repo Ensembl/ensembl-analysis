@@ -665,11 +665,13 @@ sub fix_cds_issues {
                      ",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Discarded.\n";
         $transcript->translation(undef);
         $transcript->biotype("processed_transcript");
-      } else {
+      } elsif ($transcript) {
         print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().
                      ",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") has more than the maximum of $max_stops stops or it has stops after replace_stops_with_introns. Discarded.\n";
         $transcript->translation(undef);
         $transcript->biotype("processed_transcript");
+      } else {
+        print STDERR "No transcript defined in 'fix_cds_issues()' after 'replace_stops_with_introns()'.\n";
       }
     }
 
