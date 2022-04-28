@@ -675,7 +675,7 @@ sub fix_cds_issues {
       }
     }
 
-    if($transcript->translation()) {
+    if ($transcript and $transcript->translation()) {
       $self->check_and_fix_translation_boundaries($transcript);
     }
   }
