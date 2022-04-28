@@ -1272,11 +1272,6 @@ sub project_feature {
   my $target_seq = $aligned_target_seq;
   $target_seq =~ s/\-//g;
 
-  open(OUT,">tmp.seq");
-  say OUT ">source\n".$source_seq;
-  say OUT ">target\n".$target_seq;
-  close OUT;
-
   my @source_align_array = split('',$aligned_source_seq);
   my @target_align_array = split('',$aligned_target_seq);
   my $source_seq_pos = 0;
