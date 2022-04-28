@@ -133,7 +133,8 @@ sub run {
                         ." -D".$self->param('dbname')
                         ." -P".$self->param('dbport')
                         ." -e".'"'.$sql_get_biotype.'"'
-                        ." > ".$self->param('output_path').$transcript_ids_file);
+                        ." > ".$self->param('output_path').$transcript_ids_file
+                        ." 2> ".$self->param('output_path').$transcript_ids_file.".err");
 
     # delete the transcripts
     run_command("perl ".$self->param('delete_transcripts_path')

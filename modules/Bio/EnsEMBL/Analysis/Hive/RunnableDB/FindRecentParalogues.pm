@@ -233,7 +233,7 @@ sub cluster_source_genes {
       }
 
       # This is mostly just there if testing to ignore test transcripts
-      unless($slice_gene->description =~ /Potential paralogue/) {
+      unless($slice_gene->description =~ /potential_paralogue/) {
         push(@$slice_genes,$slice_gene);
       }
     }
@@ -330,18 +330,17 @@ sub filter_by_cutoffs {
     my $biotype_group = $transcript->{'source_biotype_group'};
     my $coverage_cutoff = $coverage_cutoff_groups->{$biotype_group};
     my $perc_id_cutoff = $percent_identity_groups->{$biotype_group};
-    my $transcript_description = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$coverage.", Perc id: ".$percent_id;
-
-    if($source_transcript->translation()) {
+    my $transcript_description = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version().";mapping_coverage=".$coverage.";mapping_identity=".$percent_id;
+    if ($source_transcript->translation()) {
       my ($cds_coverage,$cds_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->translateable_seq(),$transcript->translateable_seq());
-      my $cds_description = ", CDS coverage: ".$cds_coverage." CDS perc id: ".$cds_percent_id;
+      my $cds_description = ";cds_coverage=".$cds_coverage.";cds_identity=".$cds_percent_id;
       my $aligned_source_seq_copy = $aligned_source_seq;
       my $aligned_target_seq_copy = $aligned_target_seq;
       $aligned_source_seq_copy =~ s/\-\-\-//g;
       $aligned_target_seq_copy =~ s/\-\-\-//g;
 
-      if($aligned_source_seq_copy =~ /\-/ or $aligned_target_seq_copy =~ /\-/) {
-        $cds_description .= ", CDS gap: 1";
+      if ($aligned_source_seq_copy =~ /\-/ or $aligned_target_seq_copy =~ /\-/) {
+        $cds_description .= ";cds_gap=1";
         my $transcript_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
                                                              -VALUE => ">source_cds_align\n".$aligned_source_seq."\n>target_cds_align\n".$aligned_target_seq."\n");
         $transcript->add_Attributes($transcript_attrib);
@@ -350,20 +349,29 @@ sub filter_by_cutoffs {
                                                                         "\n>target_translation\n".$transcript->translation->seq()."\n");
         $transcript->translation->add_Attributes($translation_attrib);
       } else {
-        $cds_description .= ", CDS gap: 0";
+        $cds_description .= ";cds_gap=0";
       }
       $transcript->{'cds_description'} = $cds_description;
     }
 
-    if($transcript->{'cds_description'}) {
+    if ($transcript->{'cds_description'}) {
       $transcript_description .= $transcript->{'cds_description'};
     }
 
-    $transcript_description .= ", Annotation method: minimap_paralogue";
+    $transcript_description .= ";annotation_method=minimap_paralogue";
     $transcript->description($transcript_description);
 
-    my $gene_description = "Parent: ".$source_transcript->{'parent_gene_stable_id'}.", Type: Potential paralogue";
-    $gene->description($gene_description);
+    # add source transcript stable id as transcript attribute
+    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $source_transcript->stable_id().".".$source_transcript->version());
+    $transcript->add_Attributes($parent_attribute);
+
+    #my $gene_description = ";parent_gene=".$source_transcript->{'parent_gene_stable_id'}.";mapping_type=potential_paralogue";
+    #$gene->description($gene_description);
+    $gene->description($source_gene->description()." ;mapping_type=potential_paralogue");
+
+    # add source gene stable id as gene attribute
+    $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_transcript->{'parent_gene_stable_id'});
+    $gene->add_Attributes($parent_attribute);
 
     if($transcript->{'cov'} >= $coverage_cutoff and $transcript->{'perc_id'} >= $perc_id_cutoff) {
       say "Transcript ".$transcript->{'source_stable_id'}." (".$transcript->stable_id().", ".$biotype_group.") passed check: ".$transcript->{'cov'}." cov, ".
@@ -417,14 +425,19 @@ sub create_input_file {
   open(OUT,">".$output_file);
   foreach my $gene (@$genes) {
     my $gene_description = $gene->description();
-    $gene_description =~ /^Parent\: (.+)\, Type\: (.+)$/;
-    my $parent_stable_id = $1;
-    my $type = $2;
-    unless($parent_stable_id and $type) {
-      $self->throw("Issue parsing the parent stable id and type from gene description for gene with dbID ".$gene->dbID().". Description: ".$gene_description);
+    $gene_description =~ /;mapping_type=(.+)$/;
+    my $type = $1; # type could be present or not
+    
+    my ($parent_stable_id_att) = @{$gene->get_all_Attributes('proj_parent_g')};
+    if (!$parent_stable_id_att) {
+      $self->throw("Issue getting the proj_parent_g attribute for gene with dbID ".$gene->dbID().". Description: ".$gene_description);
+    }
+    my $parent_stable_id = $parent_stable_id_att->value();
+    if (!$parent_stable_id) {
+      $self->throw("Issue getting the parent stable id from gene attribute for gene with dbID ".$gene->dbID().". Description: ".$gene_description);
     }
 
-    if($type eq 'Potential paralogue') {
+    if ($type and $type eq 'potential_paralogue') {
       # Just in case there's accidental re-runs or testing
       next;
     }
@@ -497,7 +510,7 @@ sub fetch_input_genes_by_id {
     my $transcript = $self->set_canonical($gene);
     if ($transcript) {
       my $transcript_description = $transcript->description();
-      $transcript_description =~ /Coverage\: (.+), Perc id\: (.+)$/;
+      $transcript_description =~ /;mapping_coverage=(.+);mapping_identity=(.+)$/;
       my $coverage = $1;
       my $perc_id = $2;
       unless(defined($coverage) and defined($perc_id)) {

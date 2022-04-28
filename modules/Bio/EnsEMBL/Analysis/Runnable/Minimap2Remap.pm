@@ -120,11 +120,6 @@ sub run {
 
   # run minimap2
   my $minimap2_command = $self->program." --cs --secondary=no -x map-ont ".$genome_index." ".$input_file." > ".$paf_file;
-#  `cp $input_file test_seqs.fa`;
-
-  $self->throw("DEBUG");
-
-#  my $minimap2_command = $self->program." --cs --secondary=no -x asm5  ".$genome_index." ".$input_file." > ".$paf_file;
   $self->warning("Command:\n".$minimap2_command."\n");
   if(system($minimap2_command)) {
     $self->throw("Error running minimap2\nError code: $?\nCommand line used:\n".$minimap2_command);
@@ -151,11 +146,7 @@ sub run {
     } else {
       $paf_results_hash->{$gene_id} = [\@result_cols];
     }
-
-#    $paf_results_hash->{$gene_id} = \@result_cols;
   }
-
-#  $self->throw("DEbUG");
 
   my $genes_to_process = $self->genes_to_process();
   foreach my $gene (@$genes_to_process) {
@@ -174,10 +165,6 @@ sub process_results {
 
   my $high_confidence = 0;
 
-#  unless($source_gene->stable_id eq 'ENSG00000147753') {
-#    return;
-#  }
-
   my $gene_seq = $source_gene->seq();
 
   my $source_transcripts = $source_gene->get_all_Transcripts();
@@ -185,15 +172,6 @@ sub process_results {
 
   say "Source transcript list:";
   foreach my $source_transcript (@$source_transcripts) {
-#    unless($source_transcript->stable_id() eq 'ENST00000354192') {
-#      next;
-#    } else {
-#      my $source_transcript_id = $source_transcript->dbID();
-#      $source_transcript_id_hash->{$source_transcript_id} = $source_transcript;
-#      $source_transcripts = [$source_transcript];
-#      last;
-#    }
-
     say "  ".$source_transcript->stable_id();
     my $source_transcript_id = $source_transcript->dbID();
     $source_transcript_id_hash->{$source_transcript_id} = $source_transcript;
@@ -250,14 +228,8 @@ sub process_results {
   my $bad_transcripts_hash = {};
   my $best_transcripts_by_id = {};
   if($gene_paf_results) {
-#    my $chained_paf_result = $self->chain_paf_results($gene_paf_results);
     my $chained_paf_result = $self->calculate_region_boundary($gene_paf_results);
-#    $self->throw("DEBUG");
 
-#    my $source_genomic_length = ${$paf_result}[1];
-#    my $source_genomic_start = ${$paf_result}[2];
-#    my $source_genomic_end = ${$paf_result}[3];
-#    my $target_strand = ${$paf_result}[4];
     my $target_genomic_start = ${$chained_paf_result}[0];
     my $target_genomic_end = ${$chained_paf_result}[1];
     my $target_strand = ${$chained_paf_result}[2];
@@ -269,31 +241,8 @@ sub process_results {
       $target_strand = -1;
     }
 
-#    my $target_genomic_length = ${$paf_result}[6];
-#    my $target_genomic_start = ${$paf_result}[7];
-#    my $target_genomic_end = ${$paf_result}[8];
-#    my $matching_bases = ${$paf_result}[9];
-#    my $total_bases = ${$paf_result}[10];
-#    my $mapping_quality = ${$paf_result}[11];
-
-#    my $mapping_identity = ($matching_bases/$total_bases) * 100;
-#    my $mapping_coverage = ($target_genomic_end - $target_genomic_start + 1)/$source_genomic_length;
-
     say "First pass genomic start/end: ".$target_genomic_start."/".$target_genomic_end;
 
-#    if($mapping_identity >= 80 and $mapping_coverage >= 0.8) {
-#      $high_confidence++;
-#    }
-
-#    my $adjust_left = $source_genomic_start;
-#    my $adjust_right = $source_genomic_length - $source_genomic_end;
-#    if($target_strand == 1) {
-#      $target_genomic_start -= $adjust_left;
-#      $target_genomic_end += $adjust_right;
-#    } else {
-#      $target_genomic_start -= $adjust_right;
-#      $target_genomic_end += $adjust_left;
-#    }
 
     say "First pass adjusted genomic start/end: ".$target_genomic_start."/".$target_genomic_end;
 
@@ -303,14 +252,6 @@ sub process_results {
     unless($target_parent_slice) {
       $self->throw("Could not fetch the slice in the target assembly. Slice name: ".$target_genomic_name);
     }
-
-#    if($target_genomic_start <= 0) {
-#      $target_genomic_start = 1;
-#    }
-
-#    if($target_genomic_end > $target_parent_slice->length()) {
-#      $target_genomic_end = $target_parent_slice->length();
-#    }
 
     # Note that we are going to use the forward strand regardless of what strand the PAF hit is on here because minimap2/exonerate assume the region is on the forward strand
     my $target_sequence_adaptor = $target_adaptor->get_SequenceAdaptor;
@@ -322,29 +263,17 @@ sub process_results {
 
     say "Projecting gene: ".$source_gene->stable_id();
 
-#    open(TESTOUT,">srctgt_seq.fa");
-#    my $revcomp_gene_seq = $self->revcomp($gene_seq);
-#    my $gene_genomic_seqs_hash = $self->gene_genomic_seqs_hash();
-#    my $source_genomic_seq_info = $gene_genomic_seqs_hash->{$source_gene->dbID()};
-#    my $source_genome_seq = ${$source_genomic_seq_info}[2];
-#    say TESTOUT ">src\n".$gene_seq."\n>tgt\n".$target_genomic_seq."\n>origsrc\n".$source_genome_seq;
-#    close TESTOUT;
-#    $self->throw("DEBUG");
-
     my $coverage_threshold = 98;
     my $perc_id_threshold = 98;
     my $projected_transcripts_by_id = $self->project_gene_coords($source_gene,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand);
     $self->print_transcript_stats($projected_transcripts_by_id,'projection');
-#    my $projected_transcripts_by_id = {};
     $self->update_best_transcripts($best_transcripts_by_id,$projected_transcripts_by_id);
-#     my $minimap_transcripts_by_id = {};
     my $minimap_transcripts_by_id = $self->map_gene_minimap($source_gene,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,
                                                             $target_genome_file,$source_transcript_id_hash,$max_intron_size,$target_adaptor,$target_slice_adaptor,
                                                             $best_transcripts_by_id);
     $self->print_transcript_stats($minimap_transcripts_by_id,'minimap local');
 
     $self->update_best_transcripts($best_transcripts_by_id,$minimap_transcripts_by_id);
-#     my $exonerate_transcripts_by_id = {};
     my $exonerate_transcripts_by_id = $self->map_gene_exonerate($source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,
                                                                 $target_genome_file,$source_transcript_id_hash,$max_intron_size,$target_adaptor,
                                                                 $target_slice_adaptor,$best_transcripts_by_id);
@@ -369,7 +298,6 @@ sub process_results {
   # and figure out if they're all in the same region.
 
   say "Checking for missing transcripts";
-#  my $transcripts_for_global_mapping = $self->list_missing_transcripts($best_transcripts_by_id,$source_transcripts);
   my $transcripts_for_global_mapping = $self->filter_transcripts_to_map($source_transcripts,$best_transcripts_by_id);
   say "Found ".scalar(@$transcripts_for_global_mapping)." missing transcripts";
 
@@ -395,8 +323,6 @@ sub process_results {
     $transcript->{'perc_id'} = $mapped_percent_id;
     $transcript->{'aligned_source_seq'} = $aligned_source_seq;
     $transcript->{'aligned_target_seq'} = $aligned_target_seq;
-#    my $description_string = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$transcript->{'cov'}.", Perc id: ".$transcript->{'perc_id'};
-#    $transcript->description($description_string);
 
     $transcript->{'annotation_method'} = 'minimap_global';
     my $db_id = $transcript->stable_id();
@@ -405,8 +331,6 @@ sub process_results {
 
   # Want to use global mapping if the the current best model is below the coverage thresholds and the global model is better
   # The coverage thresholds are lower in this instance as we would give more weight to any of the other approaches since they use the alignment
-#  my $global_coverage_threshold = 95;
-#  my $global_perc_id_threshold = 95;
   $self->print_transcript_stats($global_transcripts_by_id,'minimap global');
   $self->update_best_transcripts($best_transcripts_by_id,$global_transcripts_by_id);
 
@@ -495,7 +419,7 @@ sub process_results {
     my $transcripts = $gene->get_all_Transcripts();
     foreach my $transcript (@$transcripts) {
       say "  Transcript: ".$transcript->stable_id()." ".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$transcript->strand();
-      my $updated_description = $transcript->description().", Annotation method: ".$transcript->{'annotation_method'};
+      my $updated_description = $transcript->description().";annotation_method=".$transcript->{'annotation_method'};
       $transcript->description($updated_description);
     }
 
@@ -529,7 +453,7 @@ sub set_transcript_descriptions {
   foreach my $id (keys(%$transcripts_by_id)) {
     my $transcript = $transcripts_by_id->{$id};
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
-    my $description_string = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$transcript->{'cov'}.", Perc id: ".$transcript->{'perc_id'};
+    my $description_string = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version().";mapping_coverage=".$transcript->{'cov'}.";mapping_identity=".$transcript->{'perc_id'};
     if($transcript->{'cds_description'}) {
       $description_string .= $transcript->{'cds_description'};
     }
@@ -546,14 +470,14 @@ sub qc_cds_sequences {
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
     if($source_transcript->translation()) {
       my ($cds_coverage,$cds_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->translateable_seq(),$transcript->translateable_seq());
-      my $cds_description = ", CDS coverage: ".$cds_coverage." CDS perc id: ".$cds_percent_id;
+      my $cds_description = ";cds_coverage=".$cds_coverage.";cds_identity=".$cds_percent_id;
       my $aligned_source_seq_copy = $aligned_source_seq;
       my $aligned_target_seq_copy = $aligned_target_seq;
       $aligned_source_seq_copy =~ s/\-\-\-//g;
       $aligned_target_seq_copy =~ s/\-\-\-//g;
 
       if($aligned_source_seq_copy =~ /\-/ or $aligned_target_seq_copy =~ /\-/) {
-        $cds_description .= ", CDS gap: 1";
+        $cds_description .= ";cds_gap=1";
         my $transcript_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
                                                              -VALUE => ">source_cds_align\n".$aligned_source_seq."\n>target_cds_align\n".$aligned_target_seq."\n");
         $transcript->add_Attributes($transcript_attrib);
@@ -562,7 +486,7 @@ sub qc_cds_sequences {
                                                                         "\n>target_translation\n".$transcript->translation->seq()."\n");
         $transcript->translation->add_Attributes($translation_attrib);
       } else {
-        $cds_description .= ", CDS gap: 0";
+        $cds_description .= ";cds_gap=0";
       }
       $transcript->{'cds_description'} = $cds_description;
     }
@@ -1783,8 +1707,19 @@ sub check_mapping_quality {
     my $cds_length_diff = 0;
 
     # Set the description now on the minor chance the transcript doesn't have a cds that can be calculated
-    my $transcript_description = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version();
+    my $transcript_description = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version();
+    if ($source_transcript->display_xref()) {
+      if ($source_transcript->display_xref()->display_id()) {
+        $transcript_description .= ";parent_transcript_display_xref=".$source_transcript->display_xref()->display_id();
+      }
+    }
+
     $transcript->description($transcript_description);
+
+    # add source transcript stable id as transcript attribute
+    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $source_transcript->stable_id().".".$source_transcript->version());
+    $transcript->add_Attributes($parent_attribute);
+
     if($source_transcript->translation()) {
       $source_transcript_seq = $source_transcript->translateable_seq();
       $transcript_seq = $transcript->translateable_seq();
@@ -1824,7 +1759,7 @@ sub check_mapping_quality {
     $transcript_genomic_span_diff = sprintf("%.2f", $transcript_genomic_span_diff);
     $transcript->{'transcript_genomic_span_diff'} = $transcript_genomic_span_diff;
 
-    $transcript_description .= ", Coverage: ".$coverage.", Perc id: ".$percent_id;
+    $transcript_description .= ";mapping_coverage=".$coverage.";mapping_identity=".$percent_id;
     $transcript->description($transcript_description);
 
     # I added this in because even when minimap is explicitly told not to output secondary alignments, it very occasionally does
@@ -2045,6 +1980,7 @@ sub create_gene_from_cluster {
   my $parent_gene_stable_id = $parent_gene_ids->{$transcript_id}->{'gene_stable_id'};
   my $parent_gene_version = $parent_gene_ids->{$transcript_id}->{'gene_version'};
   my $parent_gene_biotype = $parent_gene_ids->{$transcript_id}->{'gene_biotype'};
+  my $parent_gene_description = $parent_gene_ids->{$transcript_id}->{'gene_description'};
 
   foreach my $transcript (@$final_transcripts) {
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
@@ -2066,10 +2002,7 @@ sub create_gene_from_cluster {
       $transcript->is_canonical(1);
     }
 
-
     $transcript->source($source);
-#    my $cov_string = "cov: ".$transcript->{'cov'}." perc_id: ".$transcript->{'perc_id'};
-#    $transcript->description($cov_string);
     $gene->add_Transcript($transcript);
   }
 
@@ -2077,8 +2010,13 @@ sub create_gene_from_cluster {
   $gene->stable_id($parent_gene_stable_id);
   $gene->version($parent_gene_version);
   $gene->biotype($parent_gene_biotype);
-  my $gene_description = "Parent: ".$parent_gene_stable_id.".".$parent_gene_version.", Type: Primary mapping";
-  $gene->description($gene_description);
+  #my $gene_description = ";parent_gene=".$parent_gene_stable_id.".".$parent_gene_version.";mapping_type=primary_mapping";
+  #$gene->description($gene_description);
+  $gene->description($parent_gene_description);
+
+  # add source gene stable id as gene attribute
+  my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $parent_gene_stable_id.".".$parent_gene_version);
+  $gene->add_Attributes($parent_attribute);
 
   return($gene);
 }

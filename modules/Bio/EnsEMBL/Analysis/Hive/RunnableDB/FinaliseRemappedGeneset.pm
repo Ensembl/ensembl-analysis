@@ -91,14 +91,7 @@ sub fetch_input {
 
 
   my $gene_adaptor = $target_dba->get_GeneAdaptor();
-
-# TEST CODE FOR DEBUGGING !!!!!!!!!!!!!!!!!!!
-#  my $slice_adaptor = $target_dba->get_SliceAdaptor();
-#  my $slice = $slice_adaptor->fetch_by_region('toplevel','4');
-#  my $all_initial_genes = $gene_adaptor->fetch_all_by_Slice($slice);
-
   my $all_initial_genes = $gene_adaptor->fetch_all();
-
 
   # First we'll parse the descriptions of all the gene/transcripts and filter out the potential paralogues, as these have already been qc'd at this point
   my $primary_genes = $self->parse_descriptions($all_initial_genes);
@@ -124,14 +117,14 @@ sub run {
   my $duplicate_filtering = $self->filter_duplicates($first_filtering,$duplicate_genes_hash);
 
   my $duplicate_genes_to_remove = $self->genes_to_remove($initial_genes,$duplicate_filtering);
-#  my $low_identity_genes_to_remove = $self->low_identity_genes_to_remove($initial_genes);
 
-  $self->output($duplicate_genes_to_remove);#@$low_identity_genes_to_remove]);
+  $self->output($duplicate_genes_to_remove);
 }
 
 
 sub write_output {
   my ($self) = @_;
+
   my $output_dba = $self->hrdb_get_con('target_db');
   my $output_gene_adaptor = $output_dba->get_GeneAdaptor();
   my $output_slice_adaptor = $output_dba->get_SliceAdaptor();
@@ -219,9 +212,14 @@ sub parse_descriptions {
 
   foreach my $gene (@{$genes}) {
     my $gene_description = $gene->description();
-    $gene_description =~ /^Parent\: ([^\,]+)\, Type\: (.+)$/;
-    my $gene_stable_id = $1;
-    my $gene_type = $2;
+    $gene_description =~ /;mapping_type=(.+)$/;
+    my $gene_type = $1;
+
+    my ($parent_stable_id_att) = @{$gene->get_all_Attributes('proj_parent_g')};
+    if (!$parent_stable_id_att) {
+      $self->throw("Issue getting the proj_parent_g attribute for gene with dbID ".$gene->dbID().". Description: ".$gene_description);
+    }
+    my $gene_stable_id = $parent_stable_id_att->value();
     $gene->{'parent_stable_id'} = $gene_stable_id; # Not really needed, since the stable id should be assigned, but doing it as it may be useful
     $gene->{'type'} = $gene_type;
     $gene->{'annotation_method'} = 'not_assigned';
@@ -230,14 +228,14 @@ sub parse_descriptions {
     my $total_perc_id = 0;
     my $transcripts = $gene->get_all_Transcripts();
     if (scalar(@$transcripts) == 0) {
-      $self->throw("Found a gene with no transcripts. Gene: ".$gene->stable_id());
+      next;
     }
 
     foreach my $transcript (@$transcripts) {
       # Parse the cov and percent id out, also track the total cov/perc id to get average for gene
       my $transcript_description = $transcript->description();
 
-      $transcript_description =~ /^Parent\: ([^\,]+)\, Coverage\: ([^\,]+)\, Perc id\: ([^\,]+)\,.+Annotation method\: (.+)$/;
+      $transcript_description =~ /;parent_transcript=([^\,]+);mapping_coverage=([^\,]+);mapping_identity=(.+);annotation_method=(.+)$/;
       my $transcript_stable_id = $1;
       my $cov = $2;
       my $perc_id = $3;
@@ -246,7 +244,7 @@ sub parse_descriptions {
       $transcript->{'cov'} = $cov;
       $transcript->{'perc_id'} = $perc_id;
       $transcript->{'annotation_method'} = $annotation_method;
-      if($annotation_method_rankings->{$annotation_method} > $annotation_method_rankings->{$gene->{'annotation_method'}}) {
+      if ($annotation_method_rankings->{$annotation_method} > $annotation_method_rankings->{$gene->{'annotation_method'}}) {
         $gene->{'annotation_method'} = $annotation_method;
       }
 
@@ -265,7 +263,7 @@ sub parse_descriptions {
       $gene->{'quality_call'} = 'bad';
     }
 
-    if($gene_type eq 'Primary mapping') {
+    if ($gene_type and ($gene_type ne 'potential_paralogue')) {
       push(@$primary_genes,$gene);
     }
   }
@@ -648,27 +646,37 @@ sub add_gene_symbols {
 
   say "Setting gene symbols using source genes in the target gene set";
   my $source_gene_db = $self->hrdb_get_con('source_gene_db');
+  my $target_gene_db = $self->hrdb_get_con('target_db');
   my $source_gene_adaptor = $source_gene_db->get_GeneAdaptor();
   my $target_slices = $target_slice_adaptor->fetch_all('toplevel');
   foreach my $slice (@$target_slices) {
     my $genes = $slice->get_all_Genes();
     foreach my $gene (@$genes) {
       my $gene_description = $gene->description();
-      $gene_description =~ /^Parent\: ([^\,]+)\, Type\: (.+)$/;
-      my $gene_stable_id = $1;
-      my $gene_type = $2;
-      my $unversioned_parent_stable_id = $gene_stable_id;
-      $unversioned_parent_stable_id =~ s/\.(\d+)$//;
-      my $source_gene = $source_gene_adaptor->fetch_by_stable_id($unversioned_parent_stable_id);
+      $gene_description =~ /;mapping_type=(.+)$/;
+      my $gene_type = $1;
+
+      my ($parent_stable_id_att) = @{$gene->get_all_Attributes('proj_parent_g')};
+      if (!$parent_stable_id_att) {
+        $self->throw("Issue getting the proj_parent_g attribute for gene with dbID ".$gene->dbID().". Description: ".$gene_description);
+    }
+      my $gene_stable_id = $parent_stable_id_att->value();
+      my $source_gene = $source_gene_adaptor->fetch_by_stable_id($gene_stable_id);
       unless($source_gene) {
-        say "Couldn't find parent gene with stable id: ".$unversioned_parent_stable_id;
+        say "Couldn't find parent gene with stable id: ".$gene_stable_id;
         next;
       }
 
       my $xref = $source_gene->display_xref();
       if($xref) {
-        $gene->display_xref($xref);
+        if ($source_gene->display_xref()) {
+          if ($source_gene->display_xref()->display_id()) {
+            $gene->description($gene->description().";parent_gene_display_xref=".$source_gene->display_xref()->display_id());
+          }
+        }
         $target_gene_adaptor->update($gene);
+        my $dbea = $target_gene_db->get_DBEntryAdaptor();
+        $dbea->store($xref,$gene->dbID(),'Gene',1); # 1 to ignore the external db version
       }
     } # End foreach my $gene
   } # End foreach my $slice
