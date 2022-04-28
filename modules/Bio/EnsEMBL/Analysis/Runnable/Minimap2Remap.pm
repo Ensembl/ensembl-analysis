@@ -660,7 +660,7 @@ sub fix_cds_issues {
       $transcript = replace_stops_with_introns($transcript,$max_stops);
       if ($transcript and $transcript->translate()->seq !~ /\*/) {
           #;#push(@$minimap_transcripts,$transcript_after_replaced_stops);
-      } elsif (!$transcript->translate()) {
+      } elsif ($transcript and !$transcript->translate()) {
         print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().
                      ",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Discarded.\n";
         $transcript->translation(undef);
