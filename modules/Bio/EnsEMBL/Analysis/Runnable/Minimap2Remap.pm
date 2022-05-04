@@ -453,6 +453,11 @@ sub set_transcript_descriptions {
   foreach my $id (keys(%$transcripts_by_id)) {
     my $transcript = $transcripts_by_id->{$id};
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
+
+    # add source transcript stable id as transcript attribute
+    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $source_transcript->stable_id().".".$source_transcript->version());
+    $transcript->add_Attributes($parent_attribute);
+
     my $description_string = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version().";mapping_coverage=".$transcript->{'cov'}.";mapping_identity=".$transcript->{'perc_id'};
     if($transcript->{'cds_description'}) {
       $description_string .= $transcript->{'cds_description'};
@@ -468,6 +473,7 @@ sub qc_cds_sequences {
   foreach my $id (keys(%$transcripts_by_id)) {
     my $transcript = $transcripts_by_id->{$id};
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
+
     if($source_transcript->translation()) {
       my ($cds_coverage,$cds_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->translateable_seq(),$transcript->translateable_seq());
       my $cds_description = ";cds_coverage=".$cds_coverage.";cds_identity=".$cds_percent_id;
