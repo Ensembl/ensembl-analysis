@@ -478,10 +478,10 @@ sub qc_cds_sequences {
 
       if($aligned_source_seq_copy =~ /\-/ or $aligned_target_seq_copy =~ /\-/) {
         $cds_description .= ";cds_gap=1";
-        my $transcript_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
+        my $transcript_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'hidden_remark',
                                                              -VALUE => ">source_cds_align\n".$aligned_source_seq."\n>target_cds_align\n".$aligned_target_seq."\n");
         $transcript->add_Attributes($transcript_attrib);
-        my $translation_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
+        my $translation_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'hidden_remark',
                                                               -VALUE => ">source_translation\n".$source_transcript->translation->seq().
                                                                         "\n>target_translation\n".$transcript->translation->seq()."\n");
         $transcript->translation->add_Attributes($translation_attrib);
