@@ -116,6 +116,7 @@ our @EXPORT_OK = qw(
              remove_initial_or_terminal_short_exons
              remove_short_frameshift_introns
              replace_stops_with_introns
+             fix_internal_stops_with_cigar
              set_start_codon
              set_stop_codon
              split_Transcript
@@ -3411,5 +3412,1015 @@ sub join_supporting_features {
   return($joined_supporting_features);
 
 }
+
+
+sub fix_internal_stops_with_cigar {
+  my ($transcript,$max_stops) = @_;
+
+  # If max_stops is not a sensible value then throw
+  if(defined($max_stops) && $max_stops <= 0) {
+    throw("You have passed a value to max_stops but this value is <= 0. The value passed to max_stops should be ".
+          ">= 1");
+  }
+
+  my $translation_end_shift = 0;   # in number of bases
+#  my $end_exon_shift = 0;          # in number of exons
+
+  my $translate_obj = $transcript->translate;
+  my $pep = $translate_obj->seq if ($translate_obj);
+  # gaps adjacent to internal stop codons - skip
+  # I'm not sure this happens often but I had a peptide equal to '*'
+  return 0 if ($pep eq '*' or $pep =~ /X\*/ || $pep =~ /\*X/);
+  my $num_stops = $pep =~ s/\*/\*/g;
+
+  # The next few bits of code are to do some checks in terms of the allowed number of stops and to throw
+  # if there is an issue. There is at least one redundant check later in the code, however it is faster
+  # to have these here
+
+  # This is the default behaviour, throw if > 1 stop
+  if ($num_stops > 1 && !$max_stops) {
+    throw("Transcript does not have exactly one stop codon; it has $num_stops stops. Multiple stops replacement is ".
+          "experimental and requires a value to be passed to max_stops");
+  }
+
+  # If max_stops is defined and there are more stops than the value then throw
+  if(defined($max_stops) && ($num_stops > $max_stops)) {
+    warning("You have set max_stops to ".$max_stops." however the number of stops in the translation is ".$num_stops);
+    return(0);
+  }
+
+  # Warn that there are internal stops
+  if ($num_stops > 0) {
+    warning("Transcript has ".$num_stops." internal stops\n");
+  }
+  else {
+    return $transcript;
+  }
+
+  my $newtranscript = clone_Transcript($transcript);
+  my $newtranslation = $newtranscript->translation;
+  my @exons = @{$newtranscript->get_all_Exons};
+  my $removed_exon_count = 0;
+  print join(' ', __LINE__, $newtranscript->translation->start_Exon->start, $newtranscript->translation->start_Exon->end, $newtranscript->translation->end_Exon->start, $newtranscript->translation->end_Exon->end, $newtranscript->translation->start, $newtranscript->translation->end, $newtranscript->translation->start_Exon, $newtranscript->translation->end_Exon), "\n";
+
+  my $die = 0;
+  while($pep =~ /\*/g) {
+    # find the position of the stop codon within the peptide
+    #
+    print __LINE__, ' ', $pep, "\n";
+    my $position = pos($pep);
+    print "Replacing stop at pos: ".$position."\n";
+
+    # and find out the genomic start position of this stop codon
+    my @coords = $newtranscript->pep2genomic($position, $position);
+
+    foreach my $stop (@coords) {
+      print "Found stop at position start ".$stop->start." end ".$stop->end." on strand ".$transcript->strand."\n";
+      # locate the exon that this stop lies in
+      my @new_exons;
+      my @possible_exon_to_modify_index;
+      foreach my $exon (@exons) {
+        print join(' ', __LINE__, $exon, $exon->start, $exon->end, $exon->strand, $exon->phase, $exon->end_phase, $newtranslation->start_Exon, $newtranslation->start, $newtranslation->end_Exon, $newtranslation->end), "\n";
+        print  __LINE__, ' ', $exon->seq->seq, "\n";
+        my $sfs = $exon->get_all_supporting_features;
+        my $cigar_string = $sfs->[0]->cigar_string;
+        my $num_deletion = $cigar_string =~ tr/D/D/;
+        if ($stop->start <= $exon->seq_region_end and $stop->end >= $exon->seq_region_start) {
+          print "--- MODIFYING ---\n";
+          # NOTE that at this point the stop will always lie on a translateable exon
+          print join(' ', __LINE__, $cigar_string), "\n";
+          my ($first_deletion) = $cigar_string =~ /(\d*)D/;
+          if (defined $first_deletion) {
+            $first_deletion //= 1;
+            if ($first_deletion%3) {
+              if ($num_deletion == 1 and @$sfs == 1) {
+#                push(@new_exons, &fix_exon_with_deletion($newtranslation, $stop, $exon, $sfs, $num_deletion, $cigar_string, $first_deletion, $newtranscript->analysis));
+#                push(@new_exons, &fix_exon_with_deletion($newtranslation, $stop, $exon, $sfs, $cigar_string, $first_deletion, $newtranscript->analysis));
+                my @resulting_exons = &fix_exon_with_deletion($newtranslation, $stop, $exon, $sfs, $cigar_string, $first_deletion, $newtranscript->analysis);
+                if (@resulting_exons) {
+                  push(@new_exons, @resulting_exons);
+                }
+                elsif(@possible_exon_to_modify_index) {
+                  foreach my $exon_index (reverse @possible_exon_to_modify_index) {
+                    my $sfs = $new_exons[$exon_index]->get_all_supporting_features;
+                    my $cigar_string = $sfs->[0]->cigar_string;
+                    my $num_deletion = $cigar_string =~ tr/D/D/;
+                    if ($num_deletion == 1 and @$sfs == 1) {
+#                my @possible_exons = &fix_exon_with_deletion($newtranslation, $stop, $new_exons[$exon_index], $sfs, $num_deletion, $cigar_string, $first_deletion, $newtranscript->analysis);
+                      my @possible_exons = &fix_exon_with_deletion($newtranslation, $stop, $new_exons[$exon_index], $sfs, $cigar_string, $first_deletion, $newtranscript->analysis);
+                      if (@possible_exons == 1 and $possible_exons[0] == $new_exons[$exon_index]) {
+                        print join(' ', __LINE__, 'same exon'), "\n";
+                      }
+                      else {
+#                  print join(' ', __LINE__, $exon_index, map {$_.' '.$_->start.' '.$_->end} $possible_exons[0]->start, $possible_exons[0]->end, $possible_exons[1]->start, $possible_exons[1]->end), "\n";
+                        print join(' ', __LINE__, $exon_index, map {$_.' '.$_->start.' '.$_->end} @possible_exons), "\n";
+                        if ($exon->strand == 1) {
+                          splice(@new_exons, $exon_index, 1, @possible_exons);
+                        }
+                        else {
+                          splice(@new_exons, $exon_index, 1, reverse @possible_exons);
+                        }
+                      }
+                      push(@new_exons, $exon);
+                      last;
+                    }
+                  }
+                  if ($new_exons[-1] != $exon) {
+                    my ($exon_left, $exon_right) = &_replace_internal_stop_in_exon($stop, $exon, $newtranslation);
+                    print join(' ', __LINE__, $exon, $exon_left, $exon_right, $newtranscript->translation->start_Exon, $newtranscript->translation->end_Exon), "\n";
+                    &_split_evidences_to_exons($sfs, $exon_left, $exon_right, $newtranscript->analysis);
+
+                    if ($exon->strand < 0) {
+                      if ($exon_right->end >= $exon_right->start) {
+                        push @new_exons, $exon_right;
+                      }
+                      if ($exon_left->end >= $exon_left->start) {
+                        push @new_exons, $exon_left;
+                      }
+                    } else {
+                      if ($exon_left->end >= $exon_left->start) {
+                        push @new_exons, $exon_left;
+                      }
+                      if ($exon_right->end >= $exon_right->start) {
+                        push @new_exons, $exon_right;
+                      }
+                    }
+                  }
+                }
+                else {
+                  my ($exon_left, $exon_right) = &_replace_internal_stop_in_exon($stop, $exon, $newtranslation);
+                  print join(' ', __LINE__, $exon, $exon_left, $exon_right, $newtranscript->translation->start_Exon, $newtranscript->translation->end_Exon), "\n";
+                  &_split_evidences_to_exons($sfs, $exon_left, $exon_right, $newtranscript->analysis);
+                  if ($exon->strand < 0) {
+                    if ($exon_right->end >= $exon_right->start) {
+                      push @new_exons, $exon_right;
+                    }
+                    if ($exon_left->end >= $exon_left->start) {
+                      push @new_exons, $exon_left;
+                    }
+                  } else {
+                    if ($exon_left->end >= $exon_left->start) {
+                      push @new_exons, $exon_left;
+                    }
+                    if ($exon_right->end >= $exon_right->start) {
+                      push @new_exons, $exon_right;
+                    }
+                  }
+                }
+              }
+            }
+            else {
+              my ($exon_left, $exon_right) = &_replace_internal_stop_in_exon($stop, $exon, $newtranslation);
+              print join(' ', __LINE__, $exon, $exon_left, $exon_right, $newtranscript->translation->start_Exon, $newtranscript->translation->end_Exon), "\n";
+              &_split_evidences_to_exons($sfs, $exon_left, $exon_right, $newtranscript->analysis);
+              if ($exon->strand < 0) {
+                if ($exon_right->end >= $exon_right->start) {
+                  push @new_exons, $exon_right;
+                }
+                if ($exon_left->end >= $exon_left->start) {
+                  push @new_exons, $exon_left;
+                }
+              } else {
+                if ($exon_left->end >= $exon_left->start) {
+                  push @new_exons, $exon_left;
+                }
+                if ($exon_right->end >= $exon_right->start) {
+                  push @new_exons, $exon_right;
+                }
+              }
+            }
+          }
+          elsif(@possible_exon_to_modify_index) {
+            foreach my $exon_index (reverse @possible_exon_to_modify_index) {
+              my $sfs = $new_exons[$exon_index]->get_all_supporting_features;
+              my $cigar_string = $sfs->[0]->cigar_string;
+              my $num_deletion = $cigar_string =~ tr/D/D/;
+              if ($num_deletion == 1 and @$sfs == 1) {
+#                my @possible_exons = &fix_exon_with_deletion($newtranslation, $stop, $new_exons[$exon_index], $sfs, $num_deletion, $cigar_string, $first_deletion, $newtranscript->analysis);
+                my @possible_exons = &fix_exon_with_deletion($newtranslation, $stop, $new_exons[$exon_index], $sfs, $cigar_string, $first_deletion, $newtranscript->analysis);
+                if (@possible_exons == 1 and $possible_exons[0] == $new_exons[$exon_index]) {
+                  print join(' ', __LINE__, 'same exon'), "\n";
+                }
+                else {
+#                  print join(' ', __LINE__, $exon_index, map {$_.' '.$_->start.' '.$_->end} $possible_exons[0]->start, $possible_exons[0]->end, $possible_exons[1]->start, $possible_exons[1]->end), "\n";
+                  print join(' ', __LINE__, $exon_index, map {$_.' '.$_->start.' '.$_->end} @possible_exons), "\n";
+                  if ($exon->strand == 1) {
+                    splice(@new_exons, $exon_index, 1, @possible_exons);
+                  }
+                  else {
+                    splice(@new_exons, $exon_index, 1, reverse @possible_exons);
+                  }
+                }
+                push(@new_exons, $exon);
+                last;
+              }
+            }
+            if ($new_exons[-1] != $exon) {
+              my ($exon_left, $exon_right) = &_replace_internal_stop_in_exon($stop, $exon, $newtranslation);
+              print join(' ', __LINE__, $exon, $exon_left, $exon_right, $newtranscript->translation->start_Exon, $newtranscript->translation->end_Exon), "\n";
+              &_split_evidences_to_exons($sfs, $exon_left, $exon_right, $newtranscript->analysis);
+
+              if ($exon->strand < 0) {
+                if ($exon_right->end >= $exon_right->start) {
+                  push @new_exons, $exon_right;
+                }
+                if ($exon_left->end >= $exon_left->start) {
+                  push @new_exons, $exon_left;
+                }
+              } else {
+                if ($exon_left->end >= $exon_left->start) {
+                  push @new_exons, $exon_left;
+                }
+                if ($exon_right->end >= $exon_right->start) {
+                  push @new_exons, $exon_right;
+                }
+              }
+            }
+          }
+          elsif ($stop->start() > $exon->seq_region_start() and $stop->end() < $exon->seq_region_end()) {
+            # This stop lies _completely_ within an exon and not on its
+            # boundary. We therefore can split the exon into two UNLESS
+            # (the stop starts at the start of the translation OR
+            #  the stop ends at the end of the translation)
+            if ( ($newtranslation->start_Exon->start == $exon->start and
+                  $newtranslation->genomic_start() == $stop->start and
+                  $newtranscript->strand == 1)
+                 or
+                 ($newtranslation->start_Exon->start == $exon->start and
+                  $newtranslation->genomic_end() == $stop->end and
+                  $newtranscript->strand == -1) ) {
+              # if the stop starts at the start of the translation
+              # the translation start is shifted and the exon is not divided
+              $newtranslation->start($newtranslation->start+3);
+              print("The stop starts at the start of the translation within an exon, not boundary.\n");
+
+              push @new_exons,$exon; # exon not changed but translation start will be shifted
+              next;
+
+            } elsif ( ($newtranslation->end_Exon->start == $exon->start and
+                       $newtranslation->genomic_end() == $stop->end and
+                       $newtranscript->strand == 1)
+                      or
+                      ($newtranslation->end_Exon->start == $exon->start and
+                       $newtranslation->genomic_start() == $stop->start and
+                       $newtranscript->strand == -1) )
+            {
+
+              # if the stop ends at the end of the translation
+              # the translation end is shifted and the exon is not divided
+              $newtranslation->end($newtranslation->end-3);
+              print("The stop ends at the end of the translation within an exon, not boundary.\n");
+
+              push @new_exons,$exon; # exon not changed but translation start will be shifted
+              next;
+
+            } else {
+              # the stop end DOES NOT match the translation end
+              print __LINE__, ' ', $newtranslation->end_Exon->start, ' ', $newtranslation->end_Exon->end, "\n";
+              print("---I am NOT a boundary stop\n");
+              print join(' ', __LINE__, $exon->start, $exon->seq_region_start, $exon->end, $exon->seq_region_end, $exon->phase, $exon->end_phase, $stop->start, $stop->end, $exon), "\n";
+              my ($exon_left, $exon_right) = &_replace_internal_stop_in_exon($stop, $exon, $newtranslation);
+              print join(' ', __LINE__, $exon, $exon_left, $exon_right, $newtranscript->translation->start_Exon, $newtranscript->translation->end_Exon), "\n";
+              &_split_evidences_to_exons($sfs, $exon_left, $exon_right, $newtranscript->analysis);
+
+
+              if ($exon->strand < 0) {
+                if ($exon_right->end >= $exon_right->start) {
+                  push @new_exons, $exon_right;
+                }
+                if ($exon_left->end >= $exon_left->start) {
+                  push @new_exons, $exon_left;
+                }
+              } else {
+                if ($exon_left->end >= $exon_left->start) {
+                  push @new_exons, $exon_left;
+                }
+                if ($exon_right->end >= $exon_right->start) {
+                  push @new_exons, $exon_right;
+                }
+              }
+            }
+
+          } elsif($stop->start() <= $exon->seq_region_start() && $stop->end() >= $exon->seq_region_end()) {
+            warning("Exon is a stop codon, removing the exon");
+          } elsif ($stop->start() == $exon->seq_region_start()) {
+            # stop lies at the start of the exon
+            print("---stop lies at the start of the exon\n");
+#          $die = 1;
+            # note that +3 has been replaced with $stop->end-$stop->start+1 to
+            # fix the rare cases where stops lie on two consecutive exons
+            $exon->start($exon->start + ($stop->end-$stop->start+1));
+            print join(' ', __LINE__, $exon->start, $exon->end, $exon->phase, $exon->end_phase, $newtranslation->end_Exon->start, $newtranslation->end_Exon->end, $newtranslation->start, $newtranslation->end), "\n";
+            # Because the stop length may not now be 3 bases long now we need to fix the phase
+            if ( $newtranscript->strand == -1 ) {
+              $exon->end_phase(0);
+            } else {
+              $exon->phase(0);
+              if ($newtranslation->end_Exon->start == $exon->start) {
+                $newtranslation->end($newtranslation->end-($stop->end-$stop->start+1));
+              }
+            }
+            print join(' ', __LINE__, $exon->start, $exon->end, $exon->phase, $exon->end_phase, $newtranslation->end_Exon->start, $newtranslation->end_Exon->end, $newtranslation->start, $newtranslation->end), "\n";
+
+            push @new_exons, $exon;
+            # I'm removing the call to the truncate sub because it still needs work, sometimes it truncates things
+            # it doesn't need to. As we are short on time the simplist thing is to just use the old way, which is
+            # the above line of code, where no modification occurs to the supporting features. Might leave slight
+            # overhang, but this is no big deal
+#          my $new_exon = truncate_exon_features($exon,$newtranscript->analysis,0);
+#          push @new_exons, $new_exon;
+
+          } elsif ($stop->end() == $exon->seq_region_end()) {
+            # stop lies at the end of the exon
+            print("---stop lies at the end of the exon\n");
+#          $die = 1;
+            # note that +3 has been replaced with $stop->end-$stop->start+1 to
+            # fix the rare cases where stops lie on two consecutive exons
+            print join(' ', __LINE__, $exon->start, $exon->end, $exon->phase, $exon->end_phase, $newtranslation->end_Exon->start, $newtranslation->end_Exon->end, $newtranslation->start, $newtranslation->end), "\n";
+            $exon->end($exon->end - ($stop->end-$stop->start+1));
+
+            # Because the stop length may not now be 3 bases long now we need to fix the phase
+            if ( $newtranscript->strand == -1 ) {
+              $exon->phase(0);
+              if ($newtranslation->end_Exon->start == $exon->start) {
+                $newtranslation->end($newtranslation->end-($stop->end-$stop->start+1));
+              }
+            } else {
+              $exon->end_phase(0);
+            }
+            print join(' ', __LINE__, $exon->start, $exon->end, $exon->phase, $exon->end_phase, $newtranslation->end_Exon->start, $newtranslation->end_Exon->end, $newtranslation->start, $newtranslation->end), "\n";
+
+            push @new_exons, $exon;
+            # I'm removing the call to the truncate sub because it still needs work, sometimes it truncates things
+            # it doesn't need to. As we are short on time the simplist thing is to just use the old way, which is
+            # the above line of code, where no modification occurs to the supporting features. Might leave slight
+            # overhang, but this is no big deal
+#          my $new_exon = truncate_exon_features($exon,$newtranscript->analysis,1);
+#          push @new_exons, $new_exon;
+          }
+        } else {
+          # this exon is unaffected by this stop
+          print("---this exon is unaffected by this stop\n");
+          push @new_exons, $exon;
+          if ($num_deletion) {
+            push(@possible_exon_to_modify_index, scalar(@new_exons)-1);
+          }
+        }
+
+      }
+
+      @exons = @new_exons;
+    } # foreach
+    # this removes the old exons and replaces with new exon
+    # by first cloning the old transcript and then replacing the exon
+    # we should be keeping the info attached to the transcript eg. xrefs, sequence edits (atttribs)
+    $newtranscript->flush_Exons;
+    foreach my $exon (@exons) {
+      $newtranscript->add_Exon($exon);
+    }
+    $newtranscript->translation($newtranslation);
+    print join(' ', __LINE__, $newtranscript->translation->start_Exon->start, $newtranscript->translation->start_Exon->end, $newtranscript->translation->end_Exon->start, $newtranscript->translation->end_Exon->end, $newtranscript->translation->start, $newtranscript->translation->end), "\n";
+    $pep = $newtranscript->translate->seq;
+
+  } #end of while loop
+  foreach my $exon (@{$transcript->get_all_Exons}) {
+    print join(' ', __LINE__, $exon->start, $exon->end, $exon->strand, $exon->phase, $exon->end_phase), "\n";
+  }
+  calculate_exon_phases($transcript, $transcript->start_Exon->phase);
+  foreach my $exon (@{$transcript->get_all_Exons}) {
+    print join(' ', __LINE__, $exon->start, $exon->end, $exon->strand, $exon->phase, $exon->end_phase), "\n";
+  }
+
+
+
+  my $old_transl_len = $transcript->translate->length();
+  my $new_transl_len = 0;
+  if ($newtranscript->translate()) {
+    $new_transl_len = $newtranscript->translate()->length();
+  }
+
+  # The first case to test for is if the edited translation is longer than the original, this shouldn't happen
+  if($new_transl_len > $old_transl_len) {
+    throw("The edited transcript has a longer translation than the original, something has gone wrong.".
+          " Original translation has length $old_transl_len, edited translation has length $new_transl_len\n".
+          ">original\n".$transcript->translate->seq."\n>edited\n".$newtranscript->translate->seq);
+  }
+
+  # As long as the new translation is less than or equal to the original length do a few more checks.
+  # If the max_stops parameter is active, make sure the edited translation has had a length of at
+  # least the original length minus the value of max_stops
+  elsif($max_stops && (($old_transl_len-$max_stops) > $new_transl_len)) {
+    throw("The edited transcript is shorter than allowed by the max_stops parameter. Currently max_stops is ".
+          "set as: ".$max_stops."\nThe original translation has length ".$old_transl_len.", edited translation has length ".
+          $new_transl_len."\n>original\n".$transcript->translate->seq."\n>edited\n".$newtranscript->translate->seq);
+  }
+
+  # The next issue is if max_stops is not present and the edited translation has had more than one stop removed.
+  # By default this should expect to only remove one.
+  elsif(!$max_stops && (($old_transl_len-1) > $new_transl_len)) {
+    throw("The edited transcript had more than one internal stop removed. The default is to allow one removal. If you ".
+          "want to remove more than one interal stop you can pass in the max_stops parameter. "."\nThe original translation has length ".
+          $old_transl_len.", edited translation has length ".$new_transl_len."\n>original\n".$transcript->translate->seq.
+          "\n>edited\n".$newtranscript->translate->seq);
+  }
+
+  # Hopefully at this point the removal of the stops is okay.
+  else {
+    print "Original translation has length ".$old_transl_len." but edited translation has length ".$new_transl_len.
+          "\n>original\n".$transcript->translate->seq."\n>edited\n";
+    print $newtranscript->translate->seq."\n" if ($newtranscript->translate());
+  }
+
+  # add xrefs from old translation to new translation
+  my $old_translation = $transcript->translation;
+  foreach my $DBEntry (@{$old_translation->get_all_DBEntries}){
+     $newtranslation->add_DBEntry($DBEntry);
+  }
+  if ($die) {
+    throw("GGGGGGG");
+  }
+
+  return $newtranscript;
+}
+
+
+sub _replace_internal_stop_in_exon {
+  my ($stop, $exon, $newtranslation) = @_;
+
+  my $exon_left = Bio::EnsEMBL::Exon->new(
+          -slice     => $exon->slice,
+          -start     => $exon->start,
+          -end       => $exon->start+($stop->start()-$exon->seq_region_start())-1,
+          -strand    => $exon->strand,
+          -phase     => $exon->strand < 0 ? 0 : $exon->phase,
+          -end_phase => $exon->strand < 0 ? $exon->end_phase  :0);
+  my $exon_right = Bio::EnsEMBL::Exon->new(
+          -slice     => $exon->slice,
+          -start     => $exon_left->end()+4,
+          -end       => $exon->end,
+          -strand    => $exon->strand,
+          -phase     => $exon->strand < 0 ? $exon->phase : 0,
+          -end_phase => $exon->strand < 0 ? 0 : $exon->end_phase);
+  if ($newtranslation->start_Exon == $exon) {
+    # and this is the last translateable exon
+    if ($exon->strand == 1) {
+      $newtranslation->start_Exon($exon_left);
+    } else {
+      $newtranslation->start_Exon($exon_right);
+    }
+  }
+  if ($newtranslation->end_Exon == $exon) {
+    # and this is the last translateable exon
+    if ($exon->strand == 1) {
+      $newtranslation->end($newtranslation->end-($stop->end-$exon->seq_region_start+1));
+      $newtranslation->end_Exon($exon_right);
+    } else {
+      $newtranslation->end($newtranslation->end-($exon->seq_region_end-$stop->start+1));
+      $newtranslation->end_Exon($exon_left);
+    }
+  }
+  return $exon_left, $exon_right;
+}
+
+
+sub _split_evidences_to_exons {
+  my ($sfs, $exon_left, $exon_right, $analysis) = @_;
+
+  my (@ug_left, @ug_right);
+
+  my $feature_isa = undef;
+  my $feature_unit_length = undef;
+
+  foreach my $f (@$sfs) {
+    print join(' ', __LINE__, $f->start, $f->end, $f->hstart, $f->hend, $f->hseqname, $f->cigar_string, $f->align_type), "\n";
+    if ($f->isa("Bio::EnsEMBL::DnaDnaAlignFeature")) {
+
+      if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaDnaAlignFeature")) {
+        throw("All the supporting features must be of the same type.");
+      }
+
+      $feature_unit_length = 1; # ie feature is a cDNA alignment
+      $feature_isa = "Bio::EnsEMBL::DnaDnaAlignFeature";
+
+    } elsif ($f->isa("Bio::EnsEMBL::DnaPepAlignFeature")) {
+
+      if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaPepAlignFeature")) {
+        throw("All the supporting features must be of the same type.");
+      }
+
+      $feature_unit_length = 3; # ie feature is a protein alignment
+      $feature_isa = "Bio::EnsEMBL::DnaPepAlignFeature";
+
+    } else {
+      throw("Feature ".$f->dbID()." is not Bio::EnsEMBL::DnaDnaAlignFeature nor Bio::EnsEMBL::DnaPepAlignFeature.");
+    }
+
+    warning(join(' ', $exon_left->start, $exon_left->end, $f->start, $f->end, $f->hstart, $f->hend, $f->cigar_string));
+    foreach my $ug ($f->ungapped_features) {
+      $ug->analysis($analysis);
+      print join(' ', __LINE__, $ug->start, $ug->end, $exon_left->start, $exon_left->end, $exon_right->start, $exon_right->end, $exon_left->strand, $exon_right->strand), "\n";
+
+      my $orignial_analysis = $ug->analysis;
+      if ($ug->start >= $exon_left->start &&
+          $ug->end <= $exon_left->end+3) {
+        # completely within the left-side of the split
+        # (including the stop length +3)
+        push @ug_left, $ug;
+
+      } elsif($ug->end >= $exon_left->start &&
+          $ug->end <= $exon_left->end+3) {
+          # This case might crop up if the feature went over the edge of the end of the
+          # left exon. Possibly because of a previous stop removal. I'm keeping this as
+          # a separate case to draw attention to the possibility
+        warning("Feature only partially overlaps with left exon. Will add anyway.");
+        warning(join(' ', $exon_left->start, $exon_left->end, $ug->start, $ug->end, $ug->hstart, $ug->hend));
+        push @ug_left, $ug;
+
+      } elsif ($ug->start >= $exon_right->start-3 &&
+          $ug->end <= $exon_right->end) {
+          # completely within the right-side of the split
+          # (including the stop length -3)
+        push @ug_right, $ug;
+
+      } elsif($ug->start >= $exon_right->start-3 &&
+          $ug->start <= $exon_right->end) {
+          # This case might crop up if the feature went over the edge of the end of the
+          # right exon. Possibly because of a previous stop removal. I'm keeping this as
+          # a separate case to draw attention to the possibility
+        warning("Feature only partially overlaps with right exon. Will add anyway.");
+        warning(join(' ', $exon_right->start, $exon_right->end, $ug->start, $ug->end, $ug->hstart, $ug->hend));
+        push @ug_right, $ug;
+
+      } elsif ($ug->start >= ($exon_left->start-3) && $ug->end <= ($exon_right->end+3)) {
+
+        print join(' ', __LINE__, $ug->start, $ug->end, $ug->hstart, $ug->hend), "\n";
+        # this ug must span the split
+        my $fp_left = Bio::EnsEMBL::FeaturePair->new();
+        if ($ug->slice) {
+          $fp_left->slice($ug->slice);
+        }
+        $fp_left->seqname   ($ug->seqname);
+        $fp_left->strand    ($ug->strand);
+        $fp_left->hstrand    ($ug->hstrand);
+        $fp_left->hseqname  ($ug->hseqname);
+        $fp_left->score     ($ug->score);
+        $fp_left->percent_id($ug->percent_id);
+        $fp_left->start     ($ug->start);
+        $fp_left->end       ($exon_left->end);
+        $fp_left->external_db_id($ug->external_db_id);
+        $fp_left->hcoverage($ug->hcoverage);
+        $fp_left->analysis($orignial_analysis);
+        print join(' ', __LINE__, $fp_left->start, $fp_left->end), "\n";
+
+        my $fp_right = Bio::EnsEMBL::FeaturePair->new();
+        if ($ug->slice) {
+          $fp_right->slice($ug->slice);
+        }
+        $fp_right->seqname   ($ug->seqname);
+        $fp_right->strand    ($ug->strand);
+        $fp_right->hstrand    ($ug->hstrand);
+        $fp_right->hseqname  ($ug->hseqname);
+        $fp_right->score     ($ug->score);
+        $fp_right->percent_id($ug->percent_id);
+        $fp_right->start     ($exon_right->start);
+        $fp_right->end       ($ug->end);
+        $fp_right->external_db_id($ug->external_db_id);
+        $fp_right->hcoverage($ug->hcoverage);
+        $fp_right->analysis($orignial_analysis);
+        print join(' ', __LINE__, $fp_right->start, $fp_right->end), "\n";
+
+        # here's the state of play:
+        #
+        #                        fp_left          fp_right
+        #                         s    e        s          e
+        #                         ======        ============
+        #          1 >---------------------------------------------> strand
+        #
+        #                         s                        e
+        #             un gapped   ==========================
+        #
+        #         -1 <---------------------------------------------< strand
+        #                         ======        ============
+        #                         s    e        s          e
+        #                        fp_right         fp_left
+        #
+
+        if ($exon_left->strand > 0) {
+          $fp_left->hstart($ug->hstart);
+          $fp_left->hend($ug->hstart +
+              ceil($fp_left->length / $feature_unit_length) -
+              1);
+          $fp_right->hend ($ug->hend);
+          $fp_right->hstart($ug->hend -
+              ceil($fp_right->length / $feature_unit_length) +
+              1);
+        } else {
+          $fp_right->hstart($ug->hstart);
+          $fp_right->hend($ug->hstart +
+              ceil($fp_right->length / $feature_unit_length) -
+              1);
+          $fp_left->hend ($ug->hend);
+          $fp_left->hstart($ug->hend -
+              ceil($fp_left->length / $feature_unit_length) +
+              1);
+        }
+
+        if ($fp_left->end >= $fp_left->start) {
+          if ($feature_isa eq "Bio::EnsEMBL::DnaPepAlignFeature") {
+            # only push if the length if multiple of 3
+            if ($fp_left->length() % 3 == 0) {
+              push @ug_left, $fp_left;
+            }
+          } else {
+            push @ug_left, $fp_left; }
+        }
+        if ($fp_right->end >= $fp_right->start) {
+          if ($feature_isa eq "Bio::EnsEMBL::DnaPepAlignFeature") {
+            # only push if the length if multiple of 3
+            if ($fp_right->length() % 3 == 0) {
+              push @ug_right, $fp_right;
+            }
+          } else {
+            push @ug_right, $fp_right;
+          }
+        }
+      }
+
+      elsif($ug->start < $exon_left->start && $ug->end < $exon_left->start ||
+          $ug->start > $exon_right->end && $ug->end > $exon_right->end
+          ) {
+        warning("Feature is present but lies fully outside the left and right exons, not adding");
+      }
+
+      else {
+        throw("Something about this feature has not been covered in the conditionals, edit code");
+      }
+
+    } # foreach my $ug ($f->ungapped_features)
+  } # foreach my $f (@$sfs)
+
+  $exon_left = add_dna_align_features_by_hitname_and_analysis(\@ug_left,$exon_left,$feature_isa) ;
+  $exon_right =add_dna_align_features_by_hitname_and_analysis(\@ug_right,$exon_right,$feature_isa) ;
+}
+
+
+sub fix_exon_with_deletion {
+#  my ($newtranslation, $stop, $exon, $sfs, $num_deletion, $cigar_string, $first_deletion, $analysis) = @_;
+  my ($newtranslation, $stop, $exon, $sfs, $cigar_string, $first_deletion, $analysis) = @_;
+
+#M  E  S  T  S  Q  D  R  R  A  T  H  V  I  T  I  K  P  N  E  T  V  L  T  A  F  P  Y  R  P  H  S  S  L  L  D  F  L  K  G  E  P  R  V  L  G  A  T  Q  I  L  L  A  L  I  I  V  G  F  G  T  I  F  A  L  N  Y  I  G  F  S  Q  R  LPLVVLTGYPFWGALIGQGVTGMNVISSLVAITGITFTILSYRHQDKYCQMPSFEEICVFSRTLFIDFILLTPPHSSHFL
+#ATGGAGTCAACATCCCAGGACAGAAGGGCAACTCACGTCATCACTATAAAACCAAACGAAACTGTATTGACTGCATTTCCCTACAGACCTCATAGCTCTCTGCTGGATTTTCTGAAGGGAGAGCCAAGAGTCTTGGGGGCTACCCAGATCCTGCTTGCTCTAATCATTGTGGGCTTTGGAACTATATTTGCACTTAATT
+#ACATCGGTTTCTCCCAAAGACTTCCCCTTGTTGTCCTCACAGGATATCCATTCTGGGGAGCACTTATTGGTCAAGGTGTCACGGGCATGAATGTTATCAGCTCCTTGGTTGCGATAACTGGGATTACTTTCACCATTCTCAGCTACAGACATCAAGACAAGTACTGCCAGATGCCATCCTTTGAAGAAATATGTGTTTTCAGTA
+#GAACTCTTTTCATTGACTTCATCCTTCTCACTCCTCCACACTCCAGCCACTTCCTATAA
+#M  E  S  T  S  Q  D  R  R  A  T  H  V  I  T  I  K  P  N  E  T  V  L  T  A  F  P  Y  R  P  H  S  S  L  L  D  F  L  K  G  E  P  R  V  L  G   A  T  Q  I  L  L  A  L  I  S  G  L  W  N  Y  I  C  T  *  LHRFLPKTSPCCPHRISILGSTYWSRCHGHECYQLLGCDNWDYFHHSQLQTSRQVLPDAIL*RNMCFQ*NSFH*LHPSHSSTLQPLPI
+#ATGGAGTCAACATCCCAGGACAGAAGGGCAACTCACGTCATCACTATAAAACCAAACGAAACTGTATTGACTGCATTTCCCTACAGACCTCATAGCTCTCTGCTGGATTTTCTGAAGGGAGAGCCAAGAGTCTTGGGG GCTACCCAGATCCTGCTTGCTCTAATCA  GTGGGCTTTGGAACTATATTTGCACTTAATTAC
+#ATCGGTTTCTCCCAAAGACTTCCCCTTGTTGTCCTCACAGGATATCCATTCTGGGGAGCACTTATTGGTCAAGGTGTCACGGGCATGAATGTTATCAGCTCCTTGGTTGCGATAACTGGGATTACTTTCACCATTCTCAGCTACAGACATCAAGACAAGTACTGCCAGATGCCATCCTTTGAAGAAATATGTGTTTTCAGTAGA
+#ACTCTTTTCATTGACTTCATCCTTCTCACTCCTCCACACTCCAGCCACTTCCTATAA
+#  if ($num_deletion == 1 and @$sfs == 1) {
+    my $exon_left;
+    my $exon_right;
+    my @ungapped_features = $sfs->[0]->ungapped_features;
+    if (@ungapped_features == 2) {
+      print join(' ', __LINE__, $ungapped_features[0]->start, $ungapped_features[0]->end, $ungapped_features[0]->hstart, $ungapped_features[0]->hend, $ungapped_features[0]->length, $ungapped_features[1]->start, $ungapped_features[1]->end, $ungapped_features[1]->hstart, $ungapped_features[1]->hend, $ungapped_features[1]->length), "\n";
+      if ($ungapped_features[0]->seq_region_start <= $stop->end and $ungapped_features[0]->seq_region_end >= $stop->start) {
+        return;
+      }
+      else {
+        my $diff_gap = ($ungapped_features[1]->hstart-$ungapped_features[0]->hend-1)%3;
+        if ($diff_gap) {
+#M  S  G  V  F  C  F  F  F  F  F  L  GVPEAEVTWFRNKSKLGSPHHLHEGSLLLTNVSSSDQGLYSCRAANLHGELTESTQLLILDPPQVPTQLEDIRALLAATGPNLPSVLTSPLGTQLVLDPGNSALLGCPIKGHPVPNITWFHGGQPIVTATGLTHHILAAGQILQVANLSGGSQGEFSCLAQNEAGVLMQKASLVIQDYWWSVDRLATCSASCGNRGVQQPRLRCLLNSTEVNPAHCAGKVRPAVQPIACNRRDCPSRWMVTSWSACTRSCGGGVQTRRVTCQKLKASGISTPVSNDMCTQVAKRPVDTQACNQQLCVEWAFSSWGQCNGPCIGPHLAVQHRQVFCQTRDGITLPSEQCSALPRPVSTQNCWSEACSVHWRVSLWTLCTATCGNYGFQSRRVECVHARTNKAVPEHLCSWGPRPANWQRCNITPCENMECRDTTRYCEKVKQLKLCQLSQFKSRCCGTCGKA
+#ATGAGTGGGGTTTTTTGTTTTTTTTTTTTCTTCCTAGGAGTGCCTGAAGCTGAAGTCACTTGGTTCAGGAATAAAAGCAAACTGGGCTCCCCGCACCATCTGCACGAAGGCTCCTTGCTGCTCACAAACGTGTCCTCCTCGGATCAGGGCCTGTACTCCTGCAGGGCGGCCAATCTTCATGGAGAGCTGACTGAGAGCACCCAGCTGCTGATCCTAGATCCCCCCCAAGTCCCCACACAGTTGGAAGACATCAGGGCCTTGCTCGCTGCCACTGGACCGAACCTTCCTTCAGTGCTGACGTCTCCTCTGGGAACACAGCTGGTCCTGGATCCTGGGAATTCTGCTCTCCTTGGCTGCCCCATCAAAGGTCACCCTGTCCCTAATATCACCTGGTTTCATGGTGGTCAGCCAATTGTCACTGCCACAGGACTGACGCATCACATCTTGGCAGCTGGACAGATCCTTCAAGTTGCAAACCTTAGCGGTGGGTCTCAAGGGGAATTCAGCTGCCTTGCTCAGAATGAGGCAGGGGTGCTCATGCAGAAGGCATCTTTAGTGATCCAAGATTACTGGTGGTCTGTGGACAGACTGGCAACCTGCTCAGCCTCCTGTGGTAACCGGGGGGTTCAGCAGCCCCGCTTGAGGTGCCTGCTGAACAGCACGGAGGTCAACCCTGCCCACTGCGCAGGGAAGGTTCGCCCTGCGGTGCAGCCCATCGCGTGCAACCGGAGAGACTGCCCTTCTCGGTGGATGGTGACCTCCTGGTCTGCCTGTACCCGGAGCTGTGGGGGAGGTGTCCAGACCCGCAGGGTGACCTGTCAAAAGCTGAAAGCCTCTGGGATCTCCACCCCTGTGTCCAATGACATGTGCACCCAGGTCGCCAAGCGGCCTGTGGACACCCAGGCCTGTAACCAGCAGCTGTGTGTGGAGTGGGCCTTCTCCAGCTGGGGCCAGTGCAATGGGCCTTGCATCGGGCCTCACCTAGCTGTGCAACACAGACAAGTCTTCTGCCAGACACGGGATGGCATCACCTTACCATCAGAGCAGTGCAGTGCTCTTCCGAGGCCTGTGAGCACCCAGAACTGCTGGTCAGAGGCCTGCAGTGTACACTGGAGAGTCAGCCTGTGGACCCTGTGCACAGCTACCTGTGGCAACTACGGCTTCCAGTCCCGGCGTGTGGAGTGTGTGCATGCCCGCACCAACAAGGCAGTGCCTGAGCACCTGTGCTCCTGGGGGCCCCGGCCTGCCAACTGGCAGCGCTGCAACATCACCCCATGTGAAAACATGGAGTGCAGAGACACCACCAGGTACTGCGAGAAGGTGAAACAGCTGAAACTCTGCCAACTCAGCCAGTTTAAATCTCGCTGCTGTGGAACTTGTGGCAAAGCGTGA
+#M  S  G  V  F  C  F  F  F  S  S  *  ECLKLKSLGSGIKANWAPRTICTKAPCCSQTCPPRIRACTPAGRPIFMES*LRAPSC*S*IPPKSPHSWKTSGPCSLPLDRTFLQC*RLLWEHSWSWVLGILLSLAAPSKVTLSLISPGFMVVSQLSLPQD*RITSWQLDRSFKLQTLAVGLKGNSAALLRMRQGCSCRRHL**SKITGGLWTDWQPAQPPVVTGGFSSPA*GAC*TARRSTLPTAQGRFALRCSPSRATGETALLGGW*PPGLPVPGAVGEVSRPAG*PVKS*KPLGSPPLCPMTCAPRSPSGLWTPRPVTSSCVWSGPSPAGASAMGLASGLT*LCNTDKSSARHGMASPYHQSSAVLFRGL*APRTAGQRPAVYTGESACGPCAQLPVATTASSPGVWSVCMPAPTRQCLSTCAPGGPGLPTGSAATSPHVKTWSAETPPGTARR*NS*NSANSASLNLAAVELVAKR
+#ATGAGTGGGGTTTTTTG TTTTTTTTTTTCTTCCTAGGAGTGCCTGAAGCTGAAGTCACTTGGTTCAGGAATAAAAGCAAACTGGGCTCCCCGCACCATCTGCACGAAGGCTCCTTGCTGCTCACAAACGTGTCCTCCTCGGATCAGGGCCTGTACTCCTGCAGGGCGGCCAATCTTCATGGAGAGCTGACTGAGAGCACCCAGCTGCTGATCCTAGATCCCCCCCAAGTCCCCACACAGTTGGAAGACATCAGGGCCTTGCTCGCTGCCACTGGACCGAACCTTCCTTCAGTGCTGACGTCTCCTCTGGGAACACAGCTGGTCCTGGGTCCTGGGAATTCTGCTCTCCTTGGCTGCCCCATCAAAGGTCACCCTGTCCCTAATATCACCTGGTTTCATGGTGGTCAGCCAATTGTCACTGCCACAGGACTGACGCATCACATCTTGGCAGCTGGACAGATCCTTCAAGTTGCAAACCTTAGCGGTGGGTCTCAAGGGGAATTCAGCTGCCTTGCTCAGAATGAGGCAGGGGTGCTCATGCAGAAGGCATCTTTAGTGATCCAAGATTACTGGTGGTCTGTGGACAGACTGGCAACCTGCTCAGCCTCCTGTGGTAACCGGGGGGTTCAGCAGCCCCGCTTGAGGTGCCTGCTGAACAGCACGGAGGTCAACCCTGCCCACTGCGCAGGGAAGGTTCGCCCTGCGGTGCAGCCCATCGCGTGCAACCGGAGAGACTGCCCTTCTCGGTGGATGGTGACCTCCTGGTCTGCCTGTACCCGGAGCTGTGGGGGAGGTGTCCAGACCCGCAGGGTGACCTGTCAAAAGCTGAAAGCCTCTGGGATCTCCACCCCTGTGTCCAATGACATGTGCACCCAGGTCGCCAAGCGGCCTGTGGACACCCAGGCCTGTAACCAGCAGCTGTGTGTGGAGTGGGCCTTCTCCAGCTGGGGCCAGTGCAATGGGCCTTGCATCGGGCCTCACCTAGCTGTGCAACACAGACAAGTCTTCTGCCAGACACGGGATGGCATCACCTTACCATCAGAGCAGTGCAGTGCTCTTCCGAGGCCTGTGAGCACCCAGAACTGCTGGTCAGAGGCCTGCAGTGTACACTGGAGAGTCAGCCTGTGGACCCTGTGCACAGCTACCTGTGGCAACTACGGCTTCCAGTCCCGGCGTGTGGAGTGTGTGCATGCCCGCACCAACAAGGCAGTGCCTGAGCACCTGTGCTCCTGGGGGCCCCGGCCTGCCAACTGGCAGCGCTGCAACATCACCCCATGTGAAAACATGGAGTGCAGAGACACCACCAGGTACTGCGAGAAGGTGAAACAGCTGAAACTCTGCCAACTCAGCCAGTTTAAATCTCGCTGCTGTGGAACTTGTGGCAAAGCGTGA
+#ATTTAATCTGGCCAAAGCCTGGTAGAAGATGTCCCTGTAGAGCAGCCCCAGGGAAGGGGGATTCAAGAAGCTATAAATGCCTCTGGGCTCACCTGAATGTGTTTGACTGATGAGTGGGGTTTTTTGTTTTTTTTTTTTCTTCCTAGGAGTGCCTGAAGCTGAAGTCACTTGGTTCAGGAATAAAAGCAAACTGGGCT
+#ATTTAATCTGGCCAAAGCCTGGTAGAAGATGTCCCTGTAGAGCAGCCCCAGGGAAGGGGGATTCAAGAAGCTATAAATGCCTCTGGGCTCACCTGAATGTGTTTGACTGATGAGTGGGGTTTTTTG TTTTTTTTTTTCTTCCTAGGAGTGCCTGAAGCTGAAGTCACTTGGTTCAGGAATAAAAGCAAACTGGGCTC
+          if ($exon->strand == 1) {
+            my $left_end = $ungapped_features[0]->end;
+            my $phase_fixer = 0;
+            if ($exon->phase > 0) {
+              $phase_fixer = 3-$exon->phase;
+            }
+            elsif ($exon->phase == -1) {
+              $phase_fixer = $newtranslation->start-1;
+            }
+            my $length = $ungapped_features[0]->length-$phase_fixer;
+            my $left_diff;
+            my $right_phase = 0;
+            if ($length < 0) {
+              $left_diff = 0;
+            }
+            else {
+              $left_diff = $length%3;
+              $left_end -= $left_diff;
+              $exon_left = Bio::EnsEMBL::Exon->new(
+                      -slice     => $exon->slice,
+                      -start     => $exon->start,
+                      -end       => $left_end,
+                      -strand    => $exon->strand,
+                      -phase     => $exon->phase,
+                      -end_phase => 0);
+              print join(' ', __LINE__, $exon_left->seq->seq), "\n";
+              if ($newtranslation->start_Exon == $exon) {
+                $newtranslation->start_Exon($exon_left);
+              }
+            }
+            print join(' ', __LINE__, $exon->start, $exon->end, $exon->phase, $exon->end_phase, $phase_fixer, $length, $diff_gap, $left_diff, $ungapped_features[0]->start, $ungapped_features[0]->end, $left_end, $newtranslation->start_Exon), "\n";
+            my $right_start = $ungapped_features[1]->start;
+            my $right_diff = 3-$left_diff-$diff_gap;
+            if ($exon->phase == 0) {
+              $right_diff = $diff_gap;
+            }
+            if ($exon->end_phase == -1) {
+              $length = $newtranslation->end-($ungapped_features[1]->start-$exon->start);
+              $right_diff = $length%3;
+            }
+            else {
+              $length = $ungapped_features[1]->length-$right_diff;
+            }
+            $right_start += $right_diff;
+            $exon_right = Bio::EnsEMBL::Exon->new(
+                    -slice     => $exon->slice,
+                    -start     => $right_start,
+                    -end       => $exon->end,
+                    -strand    => $exon->strand,
+                    -phase     => $right_phase,
+                    -end_phase => $exon->end_phase);
+            print join(' ', __LINE__, $exon_right->seq->seq), "\n";
+            if ($newtranslation->end_Exon == $exon or $exon_right->end_phase == -1) {
+              $newtranslation->end($length-$left_diff);
+              $newtranslation->end_Exon($exon_right);
+            }
+            print join(' ', __LINE__, $exon->start, $exon->end, $exon->phase, $exon->end_phase, $length, $diff_gap, $right_diff, $ungapped_features[1]->start, $ungapped_features[1]->end, $right_start, $newtranslation->end_Exon, $newtranslation->end), "\n";
+            if (!$exon_left) {
+              if ($exon->phase > 0) {
+                $exon_right->start($exon_right->start-$exon->phase);
+              }
+              my $fp_right = Bio::EnsEMBL::FeaturePair->new();
+              if ($ungapped_features[1]->slice) {
+                $fp_right->slice($ungapped_features[1]->slice);
+              }
+              $fp_right->seqname   ($ungapped_features[1]->seqname);
+              $fp_right->strand    ($ungapped_features[1]->strand);
+              $fp_right->hstrand    ($ungapped_features[1]->hstrand);
+              $fp_right->hseqname  ($ungapped_features[1]->hseqname);
+              $fp_right->score     ($ungapped_features[1]->score);
+              $fp_right->percent_id($ungapped_features[1]->percent_id);
+              $fp_right->start     ($exon_right->start);
+              $fp_right->end       ($ungapped_features[1]->end);
+              $fp_right->hstart     ($ungapped_features[1]->hend-$exon_right->length+1);
+              $fp_right->hend       ($ungapped_features[1]->hend);
+              $fp_right->external_db_id($ungapped_features[1]->external_db_id);
+              $fp_right->hcoverage($ungapped_features[1]->hcoverage);
+              $fp_right->analysis($sfs->[0]->analysis);
+              my $f = Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => [$fp_right], -align_type => 'ensembl');
+              $exon_right->add_supporting_features($f);
+              print join(' ', __LINE__, $exon_right->get_all_supporting_features->[0]->start, $exon_right->get_all_supporting_features->[0]->end, $exon_right->get_all_supporting_features->[0]->hstart, $exon_right->get_all_supporting_features->[0]->hend, $exon_right->get_all_supporting_features->[0]->cigar_string), "\n";
+              print __LINE__, ' ', $exon_right->seq->seq, "\n";
+              return $exon_right;
+            }
+#M  L  L  L  I  N  V  I  L  T  L  W  V  S  C  A  N  G  Q  V  K  P  C  D  F  P  D  I  K  H  G  G  L  F  H  E  N  M  R  R  P  Y  F  P  V  A  V  G  K  Y  Y  S  Y  Y  C  D  E  H  F  E  T  P  S  G  S  Y  W  D  Y  I  H  C  T  Q  N  G  W  S  P  A  V  P  C  L
+#ATGTTGTTACTAATCAATGTCATTCTGACCTTGTGGGTTTCCTGTGCTAATGGACAAGTGAAACCTTGTGATTTTCCAGACATTAAACATGGAGGTCTATTTCATGAGAATATGCGTAGACCATACTTTCCAGTAGCTGTAGGAAAATATTACTCCTATTACTGTGATGAACATTTTGAGACTCCTTCAGGAAGTTACTGGGATTACATTCATTGCACACAAAATGGGTGGTCACCAGCAGTACCATGTCTC
+#                                                      X  V  K  P  C  D  F  P  E  I  Q  H  G  G  L  Y  Y  K  S  L  R  R  L  Y  F  P  A  A  A  G  Q  S  Y  S  Y  Y  C  D  Q  N  F  V  T  P  S  G  S  Y  W  D  Y  I  H  C  T  Q  D  G  W  S  P  T  V  P  C  L
+#                                                      NAAGTGAAACCTTGTGATTTTCCAGAAATTCAACATGGAGGTCTATATTATAAGAGTTTGCGTAGACTATACTTTCCAGCAGCTGCAGGACAATCTTATTCCTATTACTGTGATCAAAATTTTGTGACTCCTTCAGGAAGTTACTGGGATTACATTCATTGCACACAAGATGGTTGGTCACCAACGGTCCCATGCCTC
+#R  K  C  Y  F  P  Y  L  E  N  G  Y  N  Q  N  Y  G  R  K  F  V  Q  G  N  S  T  E  V  A  C  H  P  G  Y  G  L  P  K  A  Q  T  T  V  T  C  T  E  K  G  W  S  P  T  P  R  C  I  R  V  R  T  C  S  K  S  D  I  E  I  E  N  G  F  I  S  E  S  S  S  I  Y  I  L  N  K  E  I  Q  Y  K  C  K  P  G  Y  A  T  A  D  G  N  S  S  G  S  I  T  C  L  Q  N  G  W  S  A  Q  P  I  C  I  N  S  S  E  K  C  G  P  P  P  P  I  S  N  G  D  T  T  S  F  L  L  K  V  Y  V  P  Q  S  R  V  E  Y  Q  C  Q  P  Y  Y  E  L  Q  G  S  N  Y  V  T  C  S  N  G  E  W  S  E  P  P  R  C  I  H  P  C  I  I  T  E  E  N  M  N  K  N  N  I  K  L  K  G  R  S  D  R  K  Y  Y  A  K  T  G  D  T  I  E  F  M  C  K  L  G  Y  N  A  N  T  S  I  L  S  F  Q  A  V  C  R  E  G  I  V  E  Y  P  R  C  E
+#AGAAAATGTTATTTTCCTTATTTGGAAAATGGATATAATCAAAATTATGGAAGAAAGTTTGTACAGGGTAACTCTACAGAAGTTGCCTGCCATCCTGGCTACGGTCTTCCAAAAGCGCAGACCACAGTTACATGTACGGAGAAAGGCTGGTCTCCTACTCCCAGATGCATCCGTGTCAGAACATGCTCAAAATCAGATATAGAAATTGAAAATGGATTCATTTCCGAATCTTCCTCTATTTATATTTTAAATAAAGAAATACAATATAAATGTAAACCAGGATATGCAACAGCAGATGGAAATTCTTCAGGATCAATTACATGTTTGCAAAATGGATGGTCAGCACAACCAATTTGCATTAATTCTTCAGAAAAGTGTGGGCCTCCTCCACCTATTAGCAATGGTGATACCACCTCCTTTCTACTAAAAGTGTATGTGCCACAGTCAAGAGTCGAGTACCAATGCCAGCCCTACTATGAACTTCAGGGTTCTAATTATGTAACATGTAGTAATGGAGAGTGGTCGGAACCACCAAGATGCATACATCCATGTATAATAACTGAAGAAAACATGAATAAAAATAACATAAAGTTAAAAGGAAGAAGTGACAGAAAATATTATGCAAAAACAGGGGATACCATTGAATTTATGTGTAAATTGGGATATAATGCAAATACATCAATTCTATCATTTCAAGCAGTGTGTCGGGAAGGGATAGTGGAATACCCCAGATGCGAATAA
+#R  Q  C  I  L  V  I  W  R  M  D  I  T  Q  N  M  K  E  Y  L  Y  R  V  N  L  *  K  L  R  I  S  W  L  Q  S  F  K  C  A  D  H  S  S  M  Y  R  G  *  M  V  S  S  S  Q  M  H  S  C  Q  N  M  L  K  I  R  Y  R  N  *  K  W  I  H  F  *  I  F  L  Y  L  Y  F  K  *  R  N  T  I  *  M  *  T  R  I  C  N  S  R  W  K  F  F  R  F  N  Y  M  F  A  K  W  M  V  S  T  T  N  L  H  *  F  F  R  K  V  W  A  S  S  T  Y  *  Q  W  *  Y  H  L  L  S  T  K  S  V  C  A  T  V  K  S  R  V  P  M  P  V  L  L  *  T  S  G  F  *  L  C  N  M  *  *  W  R  V  V  G  T  T  K  M  H  T  S  M  Y  N  N  *  R  K  H  E  *  K  *  H  T  V  K  R  K  K  *  H  K  I  L  C  K  N  R  G  Y  H  *  I  Y  V  *  I  G  I  *  C  E  Y  I  S  S  I  I  S  S  S  V  *  G  R  H  S  G  I  P  Q  M  R  I
+#AGACAATGTATTCTCG  TTATTTGGAGAATGGATATAACACAAAATATGAAGGAATATCTTTACAGAGTCAATCTGTAAAAGTTGAGGATATCCTGGCTACAGTCTTTCAAATGTGCAGACCACAGTTCCATGTACAGAGGATGAATGGTCTCCTCCTCCCAGATGCATTCGTGTCAGAACATGCTCAAAATCAGATATAGAAATTGAAAATGGATTCATTTCTGAATCTTCCTCTATTTATATTTTAAATAAAGAAATACAATATAAATGTAAACCAGGATATGCAACAGCAGATGGAAATTCTTCAGGTTCAATTACATGTTTGCAAAATGGATGGTCAGCACAACCAATTTGCATTAATTCTTCAGAAAAGTGTGGGCCTCCTCCACCTATTAGCAATGGTGATACCACCTCCTTTCTACTAAAAGTGTATGTGCCACAGTCAAGAGTCGAGTACCAATGCCAGTCCTACTATGAACTTCAGGGTTCTAATTATGTAACATGTAGTAATGGAGAGTGGTCGGAACCACCAAGATGCATACATCCATGTATAATAACTGAAGAAAACATGAATAAAAATAACATACAGTTAAAAGGAAAAAGTGACATAAAATATTATGCAAAAACAGGGGATACCATTGAATTTATGTGTAAATTGGGATATAATGCGAATACATCAGTTCTATCATTTCAAGCAGTGTGTAGGGAAGGCATAGTGGAATACCCCAGATGCGAATAA
+#
+#M  G  A  T  A  G  W  A  V  T  V  Y  D  K  P  A  S  F  F  K  E  A  P  L  D  L  Q  H  R  L  F  M  K  L  G  S  T  H  S  P  F  R  A  R  S  E  P  E  D  P  D  T  E  R  S  A  F  T  E  R  D  S  G  S  G  L  V  T  R  L  H  E  R  P  A  L  L  V  S  S  T  S  W  T  E  F  E  Q  L  T  L  D  G  Q  N  L  P  S  L  V  C  V  I  T  G  K  G  P  L  R  E  Y  Y  S  R  L  I  H  Q  K  H  F  Q  H  I  Q  V  C  I  P  W  L  E  G  R  G  L  P  P  L  L  G  S  V  D  L  D  V  C  L  D  T  S  S  S  G  L  D  L  P  M  K  V  V  D  M  F  R  C  C  L  P  A  C  A  V  N  F  K  C  L  H  E  L  V  K  H  E  E  N  R  L  V  F  E  D  S  E  E  L  A  A  Q  L  Q  Y  F  A  D  A  F  L  K  L  S
+#ATGGGAGCTACTGCAGGCTGGGCTGTGACCGTCTACGACAAGCCGGCATCTTTCTTTAAAGAGGCACCTCTGGACCTGCAGCACCGGCTCTTCATGAAGCTGGGCAGCACGCACTCTCCGTTCAGGGCCCGCTCAGAACCTGAGGACCCAGACACAGAGCGGTCGGCCTTCACGGAGCGGGATTCTGGGAGCGGGCTGGTGACGCGTCTCCACGAGCGGCCAGCCCTGCTGGTCAGCAGCACAAGCTGGACAGAGTTTGAACAACTGACTCTTGACGGACAGAACCTTCCTTCTCTCGTCTGTGTGATAACAGGCAAAGGGCCTCTGAGGGAGTATTACAGCCGCCTCATCCACCAGAAGCATTTCCAGCACATCCAGGTCTGCATCCCCTGGCTGGAGGGCCGAGGACTACCCCCGCTTCTAGGGTCGGTGGACCTGGATGTCTGTCTGGACACGTCCTCCAGTGGCCTGGACCTGCCCATGAAGGTGGTGGACATGTTCAGGTGCTGTTTGCCTGCGTGTGCCGTGAACTTCAAGTGTTTACATGAGCTGGTGAAACATGAAGAAAACCGCCTGGTCTTTGAGGACTCAGAGGAACTGGCAGCTCAGCTGCAGTATTTTGCAGATGCTTTTCTCAAACTTTCCTGA
+#M  G  A  T  A  G  W  A  V  T  V  Y  D  K  P  A  S  F  F  K  E  A  P  L  D  L  Q  H  R  L  F  M  K  L  G  S  T  H  S  P  F  R  A  R  S  E  P  E  D  P  D  T  E  R  S  A  F  T  E  R  D  S  G  S  G  L  V  T  R  L  H  E  R  P  A  L  L  V  S  S  T  S  W  T  E  F  E  Q  L  T  L  D  G  Q  N  L  P  S  L  V  C  V  I  T  G  K  G  P  L  R  E  Y  Y  S  R  L  I  H  Q  K  H  F  Q  H  I  Q  V  C  I  P  W  L  E  G  R  G  L  P  P  L  L  G  S  V  D  L  D  V  C  L  D  T  S  S  S  G   W  T  C  P  *  R  W  W  T  C  S  G  A  V  C  L  R  V  P  *  T  S  S  V  Y  M  S  W  *  N  M  K  K  T  A  W  S  L  R  T  Q  R  N  W  Q  L  S  C  S  I  L  Q  M  L  F  S  N  F  P
+#ATGGGAGCTACTGCAGGCTGGGCTGTGACCGTCTACGACAAGCCAGCATCTTTCTTTAAAGAGGCACCTCTGGATCTGCAGCACCGGCTCTTCATGAAGCTGGGCAGCACGCACTCTCCGTTCAGGGCCCGCTCAGAACCTGAGGACCCAGACACAGAGCGGTCGGCCTTCACGGAGCGGGATTCTGGGAGCGGGCTGGTGACGCGTCTCCACGAGCGGCCAGCCCTGCTGGTCAGCAGCACAAGCTGGACAGAGTTTGAACAACTGACTCTTGACGGACAGAACCTTCCTTCTCTCGTCTGTGTGATAACAGGCAAAGGGCCTCTGAGGGAGTATTACAGCCGCCTCATCCACCAGAAGCATTTCCAACACATCCAGGTCTGCATCCCCTGGCTGGAGGGCCGAGGACTACCCCCGCTTCTAGGGTCGGTGGACCTGGATGTCTGTCTGGACACGTCCTCCAGTGG CTGGACCTGCCCATGAAGGTGGTGGACATGTTCAGGTGCTGTTTGCCTGCGTGTGCCGTGAACTTCAAGTGTTTACATGAGCTGGTGAAACATGAAGAAAACCGCCTGGTCTTTGAGGACTCAGAGGAACTGGCAGCTCAGCTGCAGTATTTTGCAGATGCTTTTCTCAAACTTTCCTGA
+#
+#M  E  V  K  G  P  S  G  R  S  F  C  C  E  S  E  G  Q  F  K  S  C  L  K  R  H  T  P  S  L  L  L  P  S  S  W  K  G  N  S  G  S  C  L  M  A  K  A  L  H  R  M  S  P  T  P  N  S  C  P  L  P  L  P  L  C  R  M  S  G  V  L  C  S  R  N  L  F  T  F  K  F  S  L  F  Q  L  D  S  G  A  S  G  E  P  G  H  S  L  G  L  T  L  G  F  S  H  C  G  N  C  Q  T  A  V  V  S  A  Q  P  E  G  M  A  S  N  G  A  Y  P  A  L  G  P  G  V  T  A  N  P  G  T  S  L  S  V  F  T  A  L  P  F  T  T  P  A  P  G  P  A  H  G  P  L  L  V  T  A  G  A  P  P  G  G  P  L  V  L  S  T  L  P  S  T  P  L  V  T  E  Q  D  G  C  G  P  S  G  A  G  A  S  N  V  F  V  Q  M  R  T  E  V  G  P  V  K  A  A  Q  A  Q  T  L  V  L  T  Q  A  P  L  V  W  Q  A  P  G  A  L  C  G  G  V  V  C  P  P  P  L  L  L  A  A  A  P  V  V  P  V  M  A  A  Q  V  V  G  G  T  Q  A  C  E  G  G  W  S  Q  G  L  P  L  P  P  P  P  P  P  A  A  Q  L  P  P  I  V  S  Q  G  N  A  G  P  W  P  Q  G  A  H  G  E  G  S  L  A  S  S  Q  A  K  A  P  P  D  D  S  C  N  P  R  S  V  Y  E  N  F  R  L  W  Q  H  Y  K  P  L  A  R  R  H  L  P  Q  S  P  D  T  E  A  L  S  C  F  L  I  P  V  L  R  S  L  A  R  R  K  P  T  M  T  L  E  E  G  L  W  R  A  M  R  E  W  Q  H  T  S  N  F  D  R  M  I  F  Y  E  M  A  E  K  F  L  E  F  E  A  E  E  E  M  Q  I  Q  K  S  Q  W  M  K  G  P  Q  C  L  P  P  P  A  T  P  R  L  E  P  R  G  P  P  A  P  E  V  V  K  Q  P  V  Y  L  P  S  K  A  G  P  K  A  P  T  A  C  L  P  P  P  R  P  Q  R  P  V  T  K  A  R  R  P  P  P  R  P  H  R  R  A  E  T  K  A  R  L  P  P  P  R  P  Q  R  P  A  E  T  K  V  P  E  E  I  P  P  E  V  V  Q  E  Y  V  D  I  M  E  E  L  L  G  P  S  L  G  A  T  G  E  P  E  K  Q  R  E  E  G  E  V  K  Q  P  Q  E  E  D  W  T  P  P  D  P  G  L  L  S  Y  T  D  K  L  C  S  Q  K  D  F  V  T  K  V  E  A  V  I  H  P  Q  F  L  E  E  L  L  S  P  D  P  Q  M  D  F  L  A  L  S  Q  E  L  E  Q  E  E  G  L  T  L  A  Q  G  A  P  S  D  A  P  G  T  D  R  C
+#ATGGAAGTAAAGGGGCCATCAGGTAGAAGCTTTTGCTGTGAGTCAGAAGGACAATTTAAAAGTTGCCTAAAGAGGCACACGCCATCTCTGCTGCTGCCTTCCAGTTGGAAGGGAAACTCAGGTTCTTGCCTAATGGCCAAAGCCCTTCACAGAATGTCCCCCACCCCTAACAGCTGCCCACTGCCCCTCCCCCTCTGCAGAATGTCTGGGGTCCTATGTTCCAGGAACCTGTTTACTTTCAAATTTTCCCTGTTTCAGTTGGACTCAGGAGCATCTGGTGAGCCAGGTCACTCTCTGGGTCTTACCCTTGGCTTTTCTCATTGCGGAAACTGCCAGACAGCGGTGGTCAGTGCCCAGCCTGAGGGGATGGCTTCAAATGGAGCATACCCAGCGCTGGGACCGGGCGTGACCGCGAACCCTGGCACCTCCCTGTCTGTGTTCACGGCTCTGCCCTTCACCACACCCGCTCCCGGCCCAGCACACGGGCCGCTCCTTGTGACTGCAGGGGCTCCTCCAGGCGGCCCTCTGGTGCTGTCTACCCTCCCCAGCACACCTCTGGTGACAGAACAGGATGGCTGCGGCCCGAGTGGGGCCGGGGCTTCCAACGTCTTTGTCCAGATGAGGACAGAGGTGGGGCCTGTGAAGGCCGCTCAGGCGCAGACCTTGGTCCTAACTCAGGCCCCCCTCGTCTGGCAGGCTCCAGGCGCCCTCTGCGGAGGTGTTGTGTGTCCACCTCCCCTACTCCTGGCAGCTGCTCCTGTGGTGCCTGTTATGGCTGCCCAGGTGGTTGGGGGCACCCAGGCCTGTGAGGGAGGCTGGTCCCAGGGCCTTCCTCTTCCACCACCACCACCACCGGCTGCCCAGCTGCCCCCCATTGTGTCCCAAGGGAATGCTGGGCCATGGCCACAAGGGGCTCACGGAGAGGGCAGCCTGGCTTCCTCCCAGGCCAAGGCCCCGCCAGATGACTCCTGTAACCCCAGGAGTGTCTATGAGAACTTCCGACTCTGGCAGCACTACAAGCCCCTGGCCCGGAGGCACCTTCCCCAGAGTCCTGACACCGAAGCGCTTTCGTGCTTCCTCATCCCAGTTCTCCGATCCCTGGCCCGGCGGAAGCCCACCATGACCCTGGAGGAGGGACTGTGGCGGGCCATGCGGGAATGGCAGCACACGAGCAACTTTGACCGGATGATCTTCTACGAGATGGCGGAAAAGTTCCTGGAGTTTGAGGCTGAGGAGGAGATGCAGATTCAGAAATCGCAATGGATGAAGGGGCCCCAGTGCCTGCCTCCTCCAGCCACACCGAGGCTTGAACCTCGAGGACCCCCGGCCCCTGAGGTGGTCAAGCAGCCAGTGTACCTTCCCAGCAAGGCCGGCCCCAAGGCCCCGACTGCCTGCCTGCCACCACCCAGGCCCCAGAGGCCAGTGACCAAGGCCCGCCGGCCACCACCCCGGCCCCACCGGCGAGCAGAGACCAAGGCCCGCCTGCCACCACCCAGGCCCCAGAGACCAGCAGAGACCAAGGTCCCTGAGGAGATCCCCCCAGAAGTGGTGCAGGAGTATGTGGACATCATGGAGGAGCTGCTGGGGCCTTCCCTCGGGGCCACGGGGGAGCCCGAGAAACAACGGGAAGAGGGCGAAGTGAAGCAGCCACAGGAAGAGGACTGGACGCCCCCAGACCCGGGCCTCCTGAGCTACACTGACAAGCTGTGTTCCCAGAAAGACTTCGTCACCAAGGTGGAGGCCGTCATTCATCCCCAATTCCTGGAAGAATTGCTTTCCCCAGATCCACAGATGGATTTCTTGGCCCTAAGCCAGGAGCTGGAGCAGGAGGAAGGACTCACCCTTGCCCAGGGAGCCCCTTCAGATGCTCCAGGGACTGACAGATGCTGA
+#M  E  V  K  G  P  S  G  R  S  F  C  C  E  S  E  G  Q  F  K  S  C  L  K  R  H  T  P  S  L  L  L  P  S  S  W  K  G  N  S  G  S  C  L  M  A  E  A  L  H  R  M  S  P  T  P  N  S  C  P  L  P  L  P  L  C  R  M  S  G  V  L  C  S  R  N  L  F  T  F  K  F  S   C  F  S  W  T  Q  E  H  L  V  S  Q  V  T  L  W  V  L  P  L  A  F  L  I  V  E  T  A  R  Q  R  *  S  V  P  S  L  R  G  W  L  Q  M  E  H  T  Q  R  W  D  R  A  *  P  R  T  L  A  P  P  C  L  C  S  R  L  C  P  S  P  H  P  L  P  A  Q  H  T  G  R  S  L  *  L  Q  G  L  L  Q  A  A  L  W  C  C  L  P  S  P  A  H  L  W  *  Q  N  R  M  A  A  A  R  V  G  P  G  L  P  T  S  L  S  R  *  G  Q  R  W  G  L  *  R  P  L  R  R  R  P  W  S  *  L  R  P  P  S  S  G  R  L  Q  A  P  S  A  E  V  L  C  V  H  L  P  Y  S  W  Q  L  L  L  W  C  L  L  W  L  P  R  W  L  G  A  P  R  P  V  R  E  A  G  P  R  A  F  L  F  H  H  H  H  H  R  L  P  S  C  P  P  L  C  P  K  G  M  L  G  H  G  H  K  G  L  T  E  R  A  A  W  L  P  P  R  P  R  P  R  Q  M  T  P  V  T  P  G  V  S  M  R  T  S  D  S  G  S  T  T  S  P  W  P  G  G  T  F  P  R  V  L  T  P  K  R  F  R  A  S  S  S  Q  F  S  D  P  W  P  G  G  S  P  P  *  P  W  R  R  D  C  G  G  P  C  G  N  G  S  T  R  A  T  L  T  G  *  S  S  T  R  W  R  K  S  S  W  S  L  R  L  R  R  R  C  R  F  R  N  R  N  G  *  R  G  P  S  A  C  L  L  Q  P  H  R  G  L  N  L  E  D  P  R  P  L  R  W  S  S  S  Q  C  T  F  P  A  R  P  A  P  R  P  R  L  P  A  C  H  H  P  G  P  R  G  Q  *  P  R  P  A  G  H  H  P  G  P  T  G  E  Q  R  P  R  P  A  C  H  H  P  G  P  R  D  Q  Q  R  P  R  S  L  R  R  S  P  Q  K  W  C  R  S  M  W  T  S  W  R  S  C  W  G  L  P  S  G  P  R  G  S  P  R  N  N  G  K  R  A  K  *  S  S  H  R  K  R  T  G  R  P  Q  T  R  A  S  *  A  T  L  T  S  C  V  P  R  K  T  S  S  P  R  W  R  P  S  F  I  P  N  S  W  K  N  C  F  P  Q  I  H  R  W  I  S  W  P  *  A  R  S  W  S  R  R  K  D  S  P  L  P  R  E  P  L  Q  M  L  Q  G  L  T  D  A
+#ATGGAAGTAAAGGGGCCATCAGGTAGAAGCTTTTGCTGTGAGTCAGAAGGACAATTTAAAAGTTGCCTAAAGAGGCACACGCCATCTCTGCTGCTGCCTTCCAGTTGGAAGGGAAACTCAGGTTCTTGCCTAATGGCCGAAGCCCTTCACAGAATGTCCCCCACCCCTAACAGCTGCCCACTGCCCCTCCCCCTCTGCAGAATGTCTGGGGTCCTATGTTCCAGGAACCTGTTTACTTTCAAATTTT CCTGTTTCAGTTGGACTCAGGAGCATCTGGTGAGCCAGGTCACTCTCTGGGTCTTACCCTTGGCTTTTCTCATTGTGGAAACTGCCAGACAGCGGTAGTCAGTGCCCAGCCTGAGGGGATGGCTTCAAATGGAGCATACCCAGCGCTGGGACCGGGCGTGACCGCGAACCCTGGCACCTCCCTGTCTGTGTTCACGGCTCTGCCCTTCACCACACCCGCTCCCGGCCCAGCACACGGGCCGCTCCTTGTGACTGCAGGGGCTCCTCCAGGCGGCCCTCTGGTGCTGTCTACCCTCCCCAGCACACCTCTGGTGACAGAACAGGATGGCTGCGGCCCGAGTGGGGCCGGGGCTTCCAACGTCTTTGTCCAGATGAGGACAGAGGTGGGGCCTGTGAAGGCCGCTCAGGCGCAGACCTTGGTCCTAACTCAGGCCCCCCTCGTCTGGCAGGCTCCAGGCGCCCTCTGCGGAGGTGTTGTGTGTCCACCTCCCCTACTCCTGGCAGCTGCTCCTGTGGTGCCTGTTATGGCTGCCCAGGTGGTTGGGGGCACCCAGGCCTGTGAGGGAGGCTGGTCCCAGGGCCTTCCTCTTCCACCACCACCACCACCGGCTGCCCAGCTGCCCCCCATTGTGTCCCAAGGGAATGCTGGGCCATGGCCACAAGGGGCTCACGGAGAGGGCAGCCTGGCTTCCTCCCAGGCCAAGGCCCCGCCAGATGACTCCTGTAACCCCAGGAGTGTCTATGAGAACTTCCGACTCTGGCAGCACTACAAGCCCCTGGCCCGGAGGCACCTTCCCCAGAGTCCTGACACCGAAGCGCTTTCGTGCTTCCTCATCCCAGTTCTCCGATCCCTGGCCCGGCGGAAGCCCACCATGACCCTGGAGGAGGGACTGTGGCGGGCCATGCGGGAATGGCAGCACACGAGCAACTTTGACCGGATGATCTTCTACGAGATGGCGGAAAAGTTCCTGGAGTTTGAGGCTGAGGAGGAGATGCAGATTCAGAAATCGCAATGGATGAAGGGGCCCCAGTGCCTGCCTCCTCCAGCCACACCGAGGCTTGAACCTCGAGGACCCCCGGCCCCTGAGGTGGTCAAGCAGCCAGTGTACCTTCCCAGCAAGGCCGGCCCCAAGGCCCCGACTGCCTGCCTGCCACCACCCAGGCCCCAGAGGCCAGTGACCAAGGCCCGCCGGCCACCACCCCGGCCCCACCGGCGAGCAGAGACCAAGGCCCGCCTGCCACCACCCAGGCCCCAGAGACCAGCAGAGACCAAGGTCCCTGAGGAGATCCCCCCAGAAGTGGTGCAGGAGTATGTGGACATCATGGAGGAGCTGCTGGGGCCTTCCCTCGGGGCCACGGGGGAGCCCGAGAAACAACGGGAAGAGAGCGAAGTGAAGCAGCCACAGGAAGAGGACTGGACGCCCCCAGACCCGGGCCTCCTGAGCTACACTGACAAGCTGTGTTCCCAGAAAGACTTCGTCACCAAGGTGGAGGCCGTCATTCATCCCCAATTCCTGGAAGAATTGCTTTCCCCAGATCCACAGATGGATTTCTTGGCCCTAAGCCAGGAGCTGGAGCAGGAGGAAGGACTCACCCTTGCCCAGGGAGCCCCTTCAGATGCTCCAGGGACTGACAGATGCTGA
+#~ marks splicing
+#M  K  L  R  G  V  S  L  A  A  G  L  F  L  L  A  L  S  L  W  G  Q  P  A  E  A  A  A  C  Y  G  C  S  P  G  S  K  C  D  C  S  G  I  K  G  E  K  G  E  R  G  F  P  G  L  E  G  H  P  G  L  P  G  F  P  G  P  E  G  P  P  G  P  R  G  Q  K  G  D  D  G  I  P  G  P  P  G  P  K  G  I  R  G  P  P  G  L  P  G  F  P  G  T  P  G  L  P  G  M  P  G  H  D  G  A  P  G  P  Q  G  I  P  G  C  N  G  T  K  G  E  R  G  F  P  G  S  P  G  F  P  G  L  Q  G  P  P  G  P  P  G  I  P  G  M  K  G  E  P  G  S  I  I  M  S  S  L  P  G  P  K  G  N  P  G  Y  P  G  P  P  G  I  Q  G  L  P  G  P  T  G  I  P  G  P  I  G  P  P  G  P  P  G  L  M  G  P  P  G  P  P  G  L  P  G  P  K  G  N  M  G  L  N  F  Q  G  P  K  G  E  K  G  E  Q  G  L  Q  G  P  P  G  P  P  G  Q  I  S  E  Q  K  R  P  I  D  V  E  F  Q  K  G  D  Q  G  L  P  G  D  R  G  P  P  G  P  P  G  I  R  G  P  P  G  P  P  G  G  E  K  G  E  K  G  E  Q  G  E  P  G  K  R  G  K  P  G  K  D  G  E  N  G  Q  P  G  I  P  G  L  P  G  D  P  G  Y  P  G  E  P  G  R  D  G  E  K  G  Q  K  G  D  T  G  P  P  G  P  P  G  L  V  I  P  R  P  G  T  G  I  T  I  G  E  K  G  N  I  G  L  P  G  L  P  G  E  K  G  E  R  G  F  P  G  I  Q  G  P  P  G  L  P  G  P  P  G  A  A  V  M  G  P  P  G  P  P  G  F  P  G  E  R  G  Q  K  G  D  E  G  P  P  G  I  S  I  P  G  P  P  G  L  D  G  Q  P  G  A  P  G  L  P  G  P  P  G  P  A  G  P  H  I  P  P  S  D  E  I  C  E  P  G  P  P  G  P  P  G  S  P  G  D  K  G  L  Q  G  E  Q  G  V  K  G  D  K  G  D  T  C  F  N  C  I  G  T  G  I  S  G  P  P  G  Q  P  G  L  P  G  L  P  G  P  P  G  S  L  G  F  P  G  Q  K  G  E  K  G  Q  A  G  A  T  G  P  K  G  L  P  G  I  P  G  A  P  G  A  P  G  F  P  G  S  K  G  E  P  G  D  I  L  T  F  P  G  M  K  G  D  K  G  E  L  G  S  P  G  A  P  G  L  P  G  L  P  G  T  P  G  Q  D  G  L  P  G  L  P  G  P  K  G  E  P  G  G  I  T  F  K  G  E  R  G  P  P  G  N  P  G  L  P  G  L  P  G  N  I  G  P  M  G  P  P  G  F  G  P  P  G  P  V  G  E  K  G  I  Q  G  V  A  G  N  P  G  Q  P  G  I  P  G  P  K  G  D  P  G  Q  T  I  T  Q  P  G  K  P  G  L  P  G  N  P  G  R  D  G  D  V  G  L  P  G  D  P  G  L  P  G  Q  P  G  L  P  G  I  P  G  S  K  G  E  P  G  I  P  G  I  G  L  P  G  P  P  G  P  K  G  F  P  G  I  P  G  P  P  G  A  P  G  T  P  G  R  I  G  L  E  G  P  P  G  P  P  G  F  P  G  P  K  G  E  P  G  F  A  L  P  G  P  P  G  P  P  G  L  P  G  F  K  G  A  L  G  P  K  G  D  R  G  F  P  G  P  P  G  P  P  G  R  T  G  L  D  G  L  P  G  P  K  G  D  V  G  P  N  G  Q  P  G  P  M  G  P  P  G  L  P  G  I  G  V  Q  G  P  P  G  P  P  G  I  P  G  P  I  G  Q  P  G  L  H  G  I  P  G  E  K  G  D  P  G  P  P  G  L  D  V  P  G  P  P  G  E  R  G  S  P  G  I  P  G  A  P  G  P  I  G  P  P  G  S  P  G  L  P  G  K  A  G  A  S  G  F  P  G  T  K  G  E  M  G  M  M  G  P  P  G  P  P  G  P  L  G  I  P  G  R  S  G  V  P  G  L  K  G  D  D  G  L  Q  G  Q  P  G  L  P  G  P  T  G  E  K  G  S  K  G  E  P  G  L  P  G  P  P  G  P  M  D  P  N  L  L  G  S  K  G  E  K  G  E  P  G  L  P  G  I  P  G  V  S  G  P  K  G  Y  Q  G  L  P  G  D  P  G  Q  P  G  L  S  G  Q  P  G  L  P  G  P  P  G  P  K  G  N  P  G  L  P  G  Q  P  G  L  I  G  P  P  G  L  K  G  T  I  G  D  M  G  F  P  G  P  Q  G  V  E  G  P  P  G  P  S  G  V  P  G  Q  P  G  S  P  G  L  P  G  Q  K  G  D  K  G  D  P  G  I  S  S  I  G  L  P  G  L  P  G  P  K  G  E  P  G  L  P  G  Y  P  G  N  P  G  I  K  G  S  V  G  D  P  G  L  P  G  L  P  G  T  P  G  A  K  G  Q  P  G  L  P  G  F  P  G  T  P  G  P  P  G  P  K  G  I  S  G  P  P  G  N  P  G  L  P  G  E  P  G  P  V  G  G  G  G  H  P  G  Q  P  G  P  P  G  E  K  G  K  P  G  Q  D  G  I  P  G  P  A  G  Q  K  G  E  P  G  Q  P  G  F  G  N  P  G  P  P  G  L  P  G  L  S  G  Q  K  G  D  G  G  L  P  G  I  P  G  N  P  G  L  P  G  P  K  G  E  P  G  F  H  G  F  P  G  V  Q  G  P  P  G  P  P  G  S  P  G  P  A  L  E  G  P  K  G  N  P  G
+#ATGAAACTGCGTGGAGTCAGCCTGGCTGCCGGCTTGTTCTTACTGGCCCTGAGTCTTTGGGGGCAGCCTGCAGAGGCTGCGGCTTGCTATGGGTGTTCTCCAGGATCAAAGTGTGACTGCAGTGGCATAAAAGGGGAAAAGGGAGAGAGAGGGTTTCCAGGTTTGGAAGGACACCCAGGATTGCCTGGATTTCCAGGTCCAGAAGGGCCTCCGGGGCCTCGGGGACAAAAGGGTGATGATGGAATTCCAGGGCCACCAGGACCAAAAGGAATCAGAGGTCCTCCTGGACTTCCTGGATTTCCAGGGACACCAGGTCTTCCTGGAATGCCAGGCCACGATGGGGCCCCAGGACCTCAAGGTATTCCCGGATGCAATGGAACCAAGGGAGAACGTGGATTTCCAGGCAGTCCCGGTTTTCCTGGTTTACAGGGTCCTCCAGGACCCCCTGGGATCCCAGGTATGAAGGGTGAACCAGGTAGTATAATTATGTCATCACTGCCAGGACCAAAGGGTAATCCAGGATATCCAGGTCCTCCTGGAATACAAGGCCTACCTGGTCCCACTGGTATACCAGGGCCAATTGGTCCCCCAGGACCACCAGGTTTGATGGGCCCTCCTGGTCCACCAGGACTTCCAGGACCTAAGGGGAATATGGGCTTAAATTTCCAGGGACCCAAAGGTGAAAAAGGTGAGCAAGGTCTTCAGGGCCCACCTGGGCCACCTGGGCAGATCAGTGAACAGAAAAGACCAATTGATGTAGAGTTTCAGAAAGGAGATCAGGGACTTCCTGGTGACCGAGGGCCTCCTGGACCTCCAGGGATACGTGGTCCTCCAGGTCCCCCAGGTGGTGAGAAAGGTGAGAAGGGTGAGCAAGGAGAGCCAGGCAAAAGAGGTAAACCAGGCAAAGATGGAGAAAATGGCCAACCAGGAATTCCTGGTTTGCCTGGTGATCCTGGTTACCCTGGTGAACCCGGAAGGGATGGTGAAAAGGGCCAAAAAGGTGACACTGGCCCACCTGGACCTCCTGGACTTGTAATTCCTAGACCTGGGACTGGTATAACTATAGGAGAAAAAGGAAACATTGGGTTGCCTGGGTTGCCTGGAGAAAAAGGAGAGCGAGGATTTCCTGGAATACAGGGTCCACCTGGCCTTCCTGGACCTCCAGGGGCTGCAGTTATGGGTCCTCCTGGCCCTCCTGGATTTCCTGGAGAAAGGGGTCAGAAAGGTGATGAAGGACCACCTGGAATTTCCATTCCTGGACCTCCTGGACTTGACGGACAGCCTGGGGCTCCTGGGCTTCCAGGGCCTCCTGGCCCTGCTGGCCCTCACATTCCTCCTAGTGATGAGATATGTGAACCAGGCCCTCCAGGCCCCCCAGGATCTCCAGGTGATAAAGGACTCCAAGGAGAACAAGGAGTGAAAGGTGACAAAGGTGACACTTGCTTCAACTGCATTGGAACTGGTATTTCAGGGCCTCCAGGTCAACCTGGTTTGCCAGGTCTCCCAGGTCCTCCAGGATCTCTTGGTTTCCCTGGACAGAAAGGGGAAAAAGGACAAGCTGGTGCAACTGGTCCCAAAGGATTACCAGGCATTCCAGGAGCTCCAGGTGCTCCAGGCTTTCCTGGATCTAAAGGTGAACCTGGTGATATCCTCACTTTTCCAGGAATGAAGGGTGACAAAGGAGAGTTGGGTTCCCCTGGAGCTCCAGGGCTTCCTGGTTTACCTGGCACTCCTGGACAGGATGGATTGCCAGGGCTTCCTGGCCCGAAAGGAGAGCCTGGTGGAATTACTTTTAAGGGTGAAAGAGGTCCCCCTGGGAACCCAGGTTTACCAGGCCTCCCAGGGAATATAGGGCCTATGGGTCCCCCTGGTTTCGGCCCTCCAGGCCCAGTAGGTGAAAAAGGCATACAAGGTGTGGCAGGAAATCCAGGCCAGCCAGGAATACCAGGTCCTAAAGGGGATCCAGGTCAGACTATAACCCAGCCGGGGAAGCCTGGCTTGCCTGGTAACCCAGGCAGAGATGGTGATGTAGGTCTTCCAGGTGACCCTGGACTTCCAGGGCAACCAGGCTTGCCAGGGATACCTGGTAGCAAAGGAGAACCAGGTATCCCTGGAATTGGGCTTCCTGGACCACCTGGTCCCAAAGGCTTTCCTGGAATTCCAGGACCTCCAGGAGCACCTGGGACACCTGGAAGAATTGGTCTAGAAGGCCCTCCTGGGCCACCCGGCTTTCCAGGACCAAAGGGTGAACCAGGATTTGCATTACCTGGGCCACCTGGGCCACCAGGACTTCCAGGTTTCAAAGGAGCACTTGGTCCAAAAGGTGATCGTGGTTTCCCAGGACCTCCGGGTCCTCCAGGACGCACTGGCTTAGATGGGCTCCCTGGACCAAAAGGTGATGTTGGACCAAATGGACAACCTGGACCAATGGGACCTCCTGGGCTGCCAGGAATAGGTGTTCAGGGACCACCAGGACCACCAGGGATTCCTGGGCCAATAGGTCAACCTGGTTTACATGGAATACCAGGAGAGAAGGGGGATCCAGGACCTCCTGGACTTGATGTTCCAGGACCCCCAGGTGAAAGAGGCAGTCCAGGGATCCCCGGAGCACCTGGTCCTATAGGACCTCCAGGATCACCAGGGCTTCCAGGAAAAGCAGGTGCCTCTGGATTTCCAGGTACCAAAGGTGAAATGGGTATGATGGGACCTCCAGGCCCACCAGGACCTTTGGGAATTCCTGGCAGGAGTGGTGTACCTGGTCTTAAAGGTGATGATGGCTTGCAGGGTCAGCCAGGACTTCCTGGCCCTACAGGAGAAAAAGGTAGTAAAGGAGAGCCTGGCCTTCCAGGCCCTCCTGGACCAATGGATCCAAATCTTCTGGGCTCAAAAGGAGAGAAGGGGGAACCTGGCTTACCAGGTATACCTGGAGTTTCAGGGCCAAAAGGTTATCAGGGTTTGCCTGGAGACCCAGGGCAACCTGGACTGAGTGGACAACCTGGATTACCAGGACCACCAGGTCCCAAAGGTAACCCTGGTCTCCCTGGACAGCCAGGTCTTATAGGACCTCCTGGACTTAAAGGAACCATCGGTGATATGGGTTTTCCAGGGCCTCAGGGTGTGGAAGGGCCTCCTGGACCTTCTGGAGTTCCTGGACAACCTGGCTCCCCAGGATTACCTGGACAGAAAGGCGACAAAGGTGATCCTGGTATTTCAAGCATTGGTCTTCCAGGTCTTCCTGGTCCAAAGGGTGAGCCTGGTCTGCCTGGATACCCAGGGAACCCTGGTATCAAAGGTTCTGTGGGAGATCCTGGTTTGCCCGGATTACCAGGAACCCCTGGAGCAAAAGGACAACCAGGCCTTCCTGGATTCCCAGGAACCCCAGGCCCTCCTGGACCAAAAGGTATTAGTGGCCCTCCTGGGAACCCCGGCCTTCCAGGAGAACCTGGTCCTGTAGGTGGTGGAGGTCATCCTGGGCAACCAGGGCCTCCAGGCGAAAAAGGCAAACCCGGTCAAGATGGTATTCCTGGACCAGCTGGACAGAAGGGTGAACCAGGTCAACCAGGCTTTGGAAACCCAGGACCCCCTGGACTTCCAGGACTTTCTGGCCAAAAGGGTGATGGAGGATTACCTGGGATTCCAGGAAATCCTGGCCTTCCAGGTCCAAAGGGCGAACCAGGCTTTCACGGTTTCCCTGGTGTGCAGGGTCCCCCAGGCCCTCCTGGTTCTCCGGGTCCAGCTCTGGAAGGACCTAAAGGCAACCCTGGG
+#M  K  L  R  G  V  S  L  A  A  G  L  F  L  L  A  L  S  L  W  G  Q  P  A  E  A  A  A  C  Y  G  C  S  P  G  S  K  C  D  C  S  G  I  K  G  E  K  G  E  R  G  F  P  G  L  E  G  H  P  G  L  P  G  F  P  G  P  E  G  P  P  G  P  R  G  Q  K  G  D  D  G  I  P  G  P  P  G  P  K  G  I  R  G  P  P  G  L  P  G  F  P  G  T  P  G  L  P  G  M  P  G  H  D  G  A  P  G  P  Q  G  I  P  G  C  N  G  T  K  G  E  R  G  F  P  G  S  P  G  F  P  G  L  Q  G  P  P  G  P  P  G  I  P  G  M  K  G  E  P  G  S  I  I  M  S  S  L  P  G  P  K  G  N  P  G  Y  P  G  P  P  G  I  Q  G  L  P  G  P  T  G  I  P  G  P  I  G  P  P  G  P  P  G  L  M  G  P  P  G  P  P  G  L  P  G  P  K  G  N  M  G  L  N  F  Q  G  P  K  G  E  K  G  E  Q  G  L  Q  G  P  P  G  P  P  G  Q  I  S  E  Q  K  R  P  I  D  V  E  F  Q  K  G  D  Q  G  L  P  G  D  R  G  P  P  G  P  P  G  I  R  G  P  P  G  P  P  G  G  E  K  G  E  K  G  E  Q  G  E  P  G  K  R  G  K  P  G  K  D  G  E  N  G  Q  P  G  I  P  G  L  P  G  D  P  G  Y  P  G  E  P  G  R  D  G  E  K  G  Q  K  G  D  T  G  P  P  G  P  P  G  L  V  I  P  R  P  G  T  G  I  T  I  G  E  K  G  N  I  G  L  P  G  L  P  G  E  K  G  E  R  G  F  P  G  I  Q  G  P  P  G  L  P  G  P  P  G  A  A  V  M  G  P  P  G  P  P  G  F  P  G  E  R  G  Q  K  G  D  E  G  P  P  G  I  S  I  P  G  P  P  G  L  D  G  Q  P  G  A  P  G  L  P  G  P  P  G  P  A  G  P  H  I  P  P  S  D  E  I  C  E  P  G  P  P  G  P  P  G  S  P  G  D  K  G  L  Q  G  E  Q  G  V  K  G  D  K  G  D  T  C  F  N  C  I  G  T  G  I  S  G  P  P  G  Q  P  G  L  P  G  L  P  G  P  P  G  S  L  G  F  P  G  Q  K  G  E  K  G  Q  A  G  A  T  G  P  K  G  L  P  G  I  P  G  A  P  G  A  P  G  F  P  G  S  K  G  E  P  G  D  I  L  T  F  P  G  M  K  G  D  K  G  E  L  G  S  P  G  A  P  G  L  P  G  L  P  G  T  P  G  Q  D  G  L  P  G  L  P  G  P  K  G  E  P  G  G  I  T  F  K  G  E  R  G  P  P  G  N  P  G  L  P  G  L  P  G  N  I  G  P  M  G  P  P  G  F  G  P  P  G  P  V  G  E  K  G  I  Q  G  V  A  G  N  P  G  Q  P  G  I  P  G  P  K  G  D  P  G  Q  T  I  T  Q  P  G  K  P  G  L  P  G  N  P  G  R  D  G  D  V  G  L  P  G  D  P  G  L  P  G  Q  P  G  L  P  G  I  P  G  S  K  G  E  P  G  I  P  G  I  G  L  P  G  P  P  G  P  K  G  F  P  G  I  P  G  P  P  G  A  P  G  T  P  G  R  I  G  L  E  G  P  P  G  P  P  G  F  P  G  P  K  G  E  P  G  F  A  L  P  G  P  P  G  P  P  G  L  P  G  F  K  G  A  L  G  P  K  G  D  R  G  F  P  G  P  P  G  P  P  G  R  T  G  L  D  G  L  P  G  P  K  G  D  V  G  P  N  G  Q  P  G  P  M  G  P  P  G  L  P  G  I  G  V  Q  G  P  P  G  P  P  G  I  P  G  P  I  G  Q  P  G  L  H  G  I  P  G  E  K  G  D  P  G  P  P  G  L  D  V  P  G  P  P  G  E  R  G  S  P  G  I  P  G  A  P  G  P  I  G  P  P  G  S  P  G  L  P  G  K  A  G  A  S  G  F  P  G  T  K  G  E  M  G  M  M  G  P  P  G  P  P  G  P  L  G  I  P  G  R  S  G  V  P  G  L  K  G  D  D  G  L  Q  G  Q  P  G  L  P  G  P  T  G  E  K  G  S  K  G  E  P  G  L  P  G  P  P  G  P  M  D  P  N  L  L  G  S  K  G  E  K  G  E  P  G  L  P  G  I  P  G  V  S  G  P  K  G  Y  Q  G  L  P  G  D  P  G  Q  P  G  L  S  G  Q  P  G  L  P  G  P  P  G  P  K  G  N  P  G  L  P  G  Q  P  G  L  I  G  P  P  G  L  K  G  T  I  G  D  M  G  F  P  G  P  Q  G  V  E  G  P  P  G  P  S  G  V  P  G  Q  P  G  S  P  G  L  P  G  Q  K  G  D  K  G  D  P  G  I  S  S  I  G  L  P  G  L  P  G  P  K  G  E  P  G  L  P  G  Y  P  G  N  P  G  I  K  G  S  V  G  D  P  G  L  P  G  L  P  G  T  P  G  A  K  G  Q  P  G  L  P  G  F  P  G  T  P  G  P  P  G  P  K  G  I  S  G  P  P  G  N  P  G  L  P  G  E  P  G  P  V  G  G  G  G  H  P  G  Q  P  G  P  P  G  E  K  G  K  P  G  Q  D  G  I  P  G  P  A  G  Q  K  G  E  P  G  Q  P  G  F  G  N  P  G  P  P  G  L  P  G  L  S  G  Q  K  G  D  G  G  L  P  G  I  P  G  N  P  G  L  P  G  P  K  G  E  P  G  F  H  G  F  P  G  V  Q  G  P  P  G  P  P  G  S  P  G  P  A  L  E  G  P  K  G  N  P  G
+#ATGAAACTGCGTGGAGTCAGCCTGGCTGCCGGCTTGTTCTTACTGGCCCTGAGTCTTTGGGGGCAGCCTGCAGAGGCTGCGGCTTGCTATGGGTGTTCTCCAGGATCAAAGTGTGACTGCAGTGGCATAAAAGGGGAAAAGGGAGAGAGAGGGTTTCCAGGTTTGGAAGGACACCCAGGATTGCCTGGATTTCCAGGTCCAGAAGGGCCTCCGGGGCCTCGGGGACAAAAGGGTGATGATGGAATTCCAGGGCCACCAGGACCAAAAGGAATCAGAGGTCCTCCTGGACTTCCTGGATTTCCAGGGACACCAGGTCTTCCTGGAATGCCAGGCCACGATGGGGCCCCAGGACCTCAAGGTATTCCCGGATGCAATGGAACCAAGGGAGAACGTGGATTTCCAGGCAGTCCCGGTTTTCCTGGTTTACAGGGTCCTCCAGGACCCCCTGGGATCCCAGGTATGAAGGGTGAACCAGGTAGTATAATTATGTCATCACTGCCAGGACCAAAGGGTAATCCAGGATATCCAGGTCCTCCTGGAATACAAGGCCTACCTGGTCCCACTGGTATACCAGGGCCAATTGGTCCCCCAGGACCACCAGGTTTGATGGGCCCTCCTGGTCCACCAGGACTTCCAGGACCTAAGGGGAATATGGGCTTAAATTTCCAGGGACCCAAAGGTGAAAAAGGTGAGCAAGGTCTTCAGGGCCCACCTGGGCCACCTGGGCAGATCAGTGAACAGAAAAGACCAATTGATGTAGAGTTTCAGAAAGGAGATCAGGGACTTCCTGGTGACCGAGGGCCTCCTGGACCTCCAGGGATACGTGGTCCTCCAGGTCCCCCAGGTGGTGAGAAAGGTGAGAAGGGTGAGCAAGGAGAGCCAGGCAAAAGAGGTAAACCAGGCAAAGATGGAGAAAATGGCCAACCAGGAATTCCTGGTTTGCCTGGTGATCCTGGTTACCCTGGTGAACCCGGAAGGGATGGTGAAAAGGGCCAAAAAGGTGACACTGGCCCACCTGGACCTCCTGGACTTGTAATTCCTAGACCTGGGACTGGTATAACTATAGGAGAAAAAGGAAACATTGGGTTGCCTGGGTTGCCTGGAGAAAAAGGAGAGCGAGGATTTCCTGGAATACAGGGTCCACCTGGCCTTCCTGGACCTCCAGGGGCTGCAGTTATGGGTCCTCCTGGCCCTCCTGGATTTCCTGGAGAAAGGGGTCAGAAAGGTGATGAAGGACCACCTGGAATTTCCATTCCTGGACCTCCTGGACTTGACGGACAGCCTGGGGCTCCTGGGCTTCCAGGGCCTCCTGGCCCTGCTGGCCCTCACATTCCTCCTAGTGATGAGATATGTGAACCAGGCCCTCCAGGCCCCCCAGGATCTCCAGGTGATAAAGGACTCCAAGGAGAACAAGGAGTGAAAGGTGACAAAGGTGACACTTGCTTCAACTGCATTGGAACTGGTATTTCAGGGCCTCCAGGTCAACCTGGTTTGCCAGGTCTCCCAGGTCCTCCAGGATCTCTTGGTTTCCCTGGACAGAAAGGGGAAAAAGGACAAGCTGGTGCAACTGGTCCCAAAGGATTACCAGGCATTCCAGGAGCTCCAGGTGCTCCAGGCTTTCCTGGATCTAAAGGTGAACCTGGTGATATCCTCACTTTTCCAGGAATGAAGGGTGACAAAGGAGAGTTGGGTTCCCCTGGAGCTCCAGGGCTTCCTGGTTTACCTGGCACTCCTGGACAGGATGGATTGCCAGGGCTTCCTGGCCCGAAAGGAGAGCCTGGTGGAATTACTTTTAAGGGTGAAAGAGGTCCCCCTGGGAACCCAGGTTTACCAGGCCTCCCAGGGAATATAGGGCCTATGGGTCCCCCTGGTTTCGGCCCTCCAGGCCCAGTAGGTGAAAAAGGCATACAAGGTGTGGCAGGAAATCCAGGCCAGCCAGGAATACCAGGTCCTAAAGGGGATCCAGGTCAGACTATAACCCAGCCGGGGAAGCCTGGCTTGCCTGGTAACCCAGGCAGAGATGGTGATGTAGGTCTTCCAGGTGACCCTGGACTTCCAGGGCAACCAGGCTTGCCAGGGATACCTGGTAGCAAAGGAGAACCAGGTATCCCTGGAATTGGGCTTCCTGGACCACCTGGTCCCAAAGGCTTTCCTGGAATTCCAGGACCTCCAGGAGCACCTGGGACACCTGGAAGAATTGGTCTAGAAGGCCCTCCTGGGCCACCCGGCTTTCCAGGACCAAAGGGTGAACCAGGATTTGCATTACCTGGGCCACCTGGGCCACCAGGACTTCCAGGTTTCAAAGGAGCACTTGGTCCAAAAGGTGATCGTGGTTTCCCAGGACCTCCGGGTCCTCCAGGACGCACTGGCTTAGATGGGCTCCCTGGACCAAAAGGTGATGTTGGACCAAATGGACAACCTGGACCAATGGGACCTCCTGGGCTGCCAGGAATAGGTGTTCAGGGACCACCAGGACCACCAGGGATTCCTGGGCCAATAGGTCAACCTGGTTTACATGGAATACCAGGAGAGAAGGGGGATCCAGGACCTCCTGGACTTGATGTTCCAGGACCCCCAGGTGAAAGAGGCAGTCCAGGGATCCCCGGAGCACCTGGTCCTATAGGACCTCCAGGATCACCAGGGCTTCCAGGAAAAGCAGGTGCCTCTGGATTTCCAGGTACCAAAGGTGAAATGGGTATGATGGGACCTCCAGGCCCACCAGGACCTTTGGGAATTCCTGGCAGGAGTGGTGTACCTGGTCTTAAAGGTGATGATGGCTTGCAGGGTCAGCCAGGACTTCCTGGCCCTACAGGAGAAAAAGGTAGTAAAGGAGAGCCTGGCCTTCCAGGCCCTCCTGGACCAATGGATCCAAATCTTCTGGGCTCAAAAGGAGAGAAGGGGGAACCTGGCTTACCAGGTATACCTGGAGTTTCAGGGCCAAAAGGTTATCAGGGTTTGCCTGGAGACCCAGGGCAACCTGGACTGAGTGGACAACCTGGATTACCAGGACCACCAGGTCCCAAAGGTAACCCTGGTCTCCCTGGACAGCCAGGTCTTATAGGACCTCCTGGACTTAAAGGAACCATCGGTGATATGGGTTTTCCAGGGCCTCAGGGTGTGGAAGGGCCTCCTGGACCTTCTGGAGTTCCTGGACAACCTGGCTCCCCAGGATTACCTGGACAGAAAGGCGACAAAGGTGATCCTGGTATTTCAAGCATTGGTCTTCCAGGTCTTCCTGGTCCAAAGGGTGAGCCTGGTCTGCCTGGATACCCAGGGAACCCTGGTATCAAAGGTTCTGTGGGAGATCCTGGTTTGCCCGGATTACCAGGAACCCCTGGAGCAAAAGGACAACCAGGCCTTCCTGGATTCCCAGGAACCCCAGGCCCTCCTGGACCAAAAGGTATTAGTGGCCCTCCTGGGAACCCCGGCCTTCCAGGAGAACCTGGTCCTGTAGGTGGTGGAGGTCATCCTGGGCAACCAGGGCCTCCAGGCGAAAAAGGCAAACCCGGTCAAGATGGTATTCCTGGACCAGCTGGACAGAAGGGTGAACCAGGTCAACCAGGCTTTGGAAACCCAGGACCCCCTGGACTTCCAGGACTTTCTGGCCAAAAGGGTGATGGAGGATTACCTGGGATTCCAGGAAATCCTGGCCTTCCAGGTCCAAAGGGCGAACCAGGCTTTCACGGTTTCCCTGGTGTGCAGGGTCCCCCAGGCCCTCCTGGTTCTCCGGGTCCAGCTCTGGAAGGACCTAAAGGCAACCCTGGG
+#P  Q  G  P  P  G  R  P  G  P  T  G  F  Q  G  L  P  G  P  E  G  P  P  G  L  P  G  N  G  G  I  K  G  E  K  G  N  P  G  Q  P  G  L  P  G  L  P  G  L  K  G  D  Q  G  P  P  G  L  Q  G  N  P  G  R  P  G  L  N  G  M  K  G  D  P  G  L  P  G  V  P  G  F  P  G  M  K  G  P  S  G  V  P  G  S  A  G  P  E  G  E  P  G  L  I  G  P  P  G  P  P  G  L  P  G  P  S  G  Q  S  I  I  I  K  G  D  A  G  P  P  G  I  P  G  Q  P  G  L  K  G  L  P  G  P  Q  G  P  Q  G  L  P  G  P  T  G  P  P  G  D  P  G  R  N  G  L  P  G  F  D  G  A  G  G  R  K  G  D  P  G  L  P  G  Q  P  G  T  R  G  L  D  G  P  P  G  P  D  G  L  Q  G  P  P  G  P  P  G  T  S  S  V  A  H  G  F  L  I  T  R  H  S  Q  T  T  D  A  P  Q  C  P  Q  G  T  L  Q  V  Y  E  G  F  S  L  L  Y  V  Q  G  N  K  R  A  H  G  Q  D  L  G  T  A  G  S  C  L  R  R  F  S  T  M  P  F  M  F  C  N  I  N  N  V  C  N  F  A  S  R  N  D  Y  S  Y  W  L  S  T  P  E  P  M  P  M  S  M  Q  P  L  K  G  Q  S  I  Q  P  F  I  S  R  C  A  V  C  E  A  P  A  V  V  I  A  V  H  S  Q  T  I  Q  I  P  H  C  P  Q  G  W  D  S  L  W  I  G  Y  S  F  M  M  H  T  S  A  G  A  E  G  S  G  Q  A  L  A  S  P  G  S  C  L  E  E  F  R  S  A  P  F  I  E  C  H  G  R  G  T  C  N  Y  Y  A  N  S  Y  S  F  W  L  A  T  V  D  V  S  D  M  F  S  K  P  Q  S  E  T  L  K  A  G  D  L  R  T  R  I  S  R  C  Q  V  C  M  K  R  T
+#CCCCAAGGTCCTCCTGGGAGACCAGGTCCTACAGGTTTTCAAGGTCTACCAGGTCCAGAAGGTCCTCCAGGTCTCCCTGGAAATGGAGGTATTAAAGGAGAGAAGGGAAATCCAGGCCAACCTGGGCTACCTGGCTTGCCTGGTTTGAAAGGAGATCAAGGACCACCAGGACTCCAGGGTAATCCTGGCCGGCCGGGTCTCAATGGAATGAAAGGAGATCCTGGTCTCCCTGGTGTTCCAGGATTCCCAGGCATGAAAGGACCCAGTGGAGTACCTGGATCAGCTGGCCCTGAGGGGGAACCGGGACTTATTGGTCCTCCAGGTCCTCCTGGATTACCTGGTCCTTCAGGACAGAGTATCATAATTAAAGGAGATGCTGGTCCTCCAGGAATCCCTGGCCAGCCTGGGCTAAAGGGTCTACCAGGACCCCAAGGACCTCAAGGCTTACCAGGTCCAACTGGCCCTCCAGGAGATCCTGGACGCAATGGACTCCCTGGCTTTGATGGTGCAGGAGGGCGCAAAGGAGACCCAGGTCTGCCAGGACAGCCAGGTACCCGTGGTTTGGATGGTCCCCCTGGTCCAGATGGATTGCAAGGTCCCCCAGGTCCCCCTGGAACCTCCTCTGTTGCACATGGATTTCTTATTACACGCCACAGCCAGACAACGGATGCACCACAATGCCCACAGGGAACACTTCAGGTCTATGAAGGCTTTTCTCTCCTGTATGTACAAGGAAATAAAAGAGCCCACGGTCAAGACTTGGGGACGGCTGGCAGCTGCCTTCGTCGCTTTAGTACCATGCCTTTCATGTTCTGCAACATCAATAATGTTTGCAACTTTGCTTCAAGAAATGACTATTCTTACTGGCTCTCTACCCCAGAGCCCATGCCAATGAGCATGCAACCCCTAAAGGGCCAGAGCATCCAGCCATTCATTAGTCGATGTGCAGTATGTGAAGCTCCAGCTGTGGTGATCGCAGTTCACAGTCAGACGATCCAGATTCCCCATTGTCCTCAGGGATGGGATTCTCTGTGGATTGGTTATTCCTTCATGATGCATACAAGTGCAGGGGCAGAAGGCTCAGGTCAAGCCCTAGCCTCCCCTGGTTCCTGCTTGGAAGAGTTTCGTTCAGCTCCCTTCATCGAATGTCATGGGAGGGGTACCTGTAACTACTATGCCAACTCCTACAGCTTTTGGCTGGCAACTGTAGATGTGTCAGACATGTTCAGTAAACCTCAGTCAGAAACGCTGAAAGCAGGAGACTTGAGGACACGAATTAGCCGATGTCAAGTGTGCATGAAGAGGACATAA
+#P  Q  G  P  P  G  R  P  G    I  I  K  V  Y  Q  V  Q  K  V  L  Q  V  S  L  E  M  E  V  L  K  E  R  R  E  I  Q  A  N  L  G  Y  L  A  C  L  V  *  K  E  I  K  D  H  Q  D  S  R  V  I  L  A  G  R  V  S  M  E  *  K  E  I  L  V  S  L  V  F  Q  D  S  Q  A  *  K  D  P  V  E  Y  L  D  Q  L  A  L  R  G  N  R  D  L  L  V  L  Q  V  L  L  D  Y  L  V  L  Q  D  R  V  S  *  L  K  E  M  L  V  L  Q  E  S  L  A  S  L  G  *  R  V  Y  Q  D  P  K  D  L  K  A  Y  Q  V  Q  L  A  L  Q  E  I  L  D  A  M  D  S  L  A  L  M  V  Q  E  G  A  K  E  T  Q  V  C  Q  D  S  Q  V  P  V  V  W  M  V  P  L  V  Q  M  D  C  K  V  P  Q  V  P  L  E  P  P  L  L  H  M  D  F  L  L  H  A  T  A  R  Q  R  M  H  H  N  A  H  R  E  H  F  R  S  M  K  A  F  L  S  C  M  Y  K  E  I  K  E  P  T  V  K  T  W  G  R  L  A  A  A  F  V  A  L  V  P  C  L  S  C  S  A  T  S  I  M  F  A  T  L  L  Q  E  M  T  I  L  T  G  S  L  P  Q  S  P  C  Q  *  A  C  N  P  *  R  A  R  A  S  S  H  S  L  V  D  V  Q  Y  V  K  L  Q  L  W  *  S  Q  F  T  V  R  R  S  R  F  P  I  V  L  R  D  G  I  L  C  G  L  V  I  P  S  *  C  I  Q  V  Q  G  Q  K  A  Q  V  K  P  *  P  P  L  V  P  A  W  K  S  F  V  Q  L  P  S  S  N  V  M  G  G  V  P  V  T  T  M  P  T  P  T  A  F  G  W  Q  L  *  M  C  Q  T  C  S  V  N  L  S  Q  K  R  *  K  Q  E  T  *  G  H  E  L  A  D  V  K  C  A  *  R  G  H
+#CCCCAAGGTCCTCCTGGGAGACCAG~G      GATTATTAAGGTCTACCAGGTCCAGAAGGTCCTCCAGGTCTCCCTGGAAATGGAGGTATTAAAGGAGAGAAGGGAAATCCAGGCCAACCTGGGCTACCTGGCTTGCCTGGTTTGAAAGGAGATCAAGGACCACCAGGACTCCAGGGTAATCCTGGCCGGCCGGGTCTCAATGGAATGAAAGGAGATCCTGGTCTCCCTGGTGTTCCAGGATTCCCAGGCATGAAAGGACCCAGTGGAGTACCTGGATCAGCTGGCCCTGAGGGGGAACCGGGACTTATTGGTCCTCCAGGTCCTCCTGGATTACCTGGTCCTTCAGGACAGAGTATCATAATTAAAGGAGATGCTGGTCCTCCAGGAATCCCTGGCCAGCCTGGGCTAAAGGGTCTACCAGGACCCCAAGGACCTCAAGGCTTACCAGGTCCAACTGGCCCTCCAGGAGATCCTGGACGCAATGGACTCCCTGGCTTTGATGGTGCAGGAGGGCGCAAAGGAGACCCAGGTCTGCCAGGACAGCCAGGTACCCGTGGTTTGGATGGTCCCCCTGGTCCAGATGGATTGCAAGGTCCCCCAGGTCCCCCTGGAACCTCCTCTGTTGCACATGGATTTCTTATTACACGCCACAGCCAGACAACGGATGCACCACAATGCCCACAGGGAACACTTCAGGTCTATGAAGGCTTTTCTCTCCTGTATGTACAAGGAAATAAAAGAGCCCACGGTCAAGACTTGGGGACGGCTGGCAGCTGCCTTCGTCGCTTTAGTACCATGCCTTTCATGTTCTGCAACATCAATAATGTTTGCAACTTTGCTTCAAGAAATGACTATTCTTACTGGCTCTCTACCCCAGAGCCCATGCCAATGAGCATGCAACCCCTAAAGGGCCAGAGCATCCAGCCATTCATTAGTCGATGTGCAGTATGTGAAGCTCCAGCTGTGGTGATCGCAGTTCACAGTCAGACGATCCAGATTCCCCATTGTCCTCAGGGATGGGATTCTCTGTGGATTGGTTATTCCTTCATGATGCATACAAGTGCAGGGGCAGAAGGCTCAGGTCAAGCCCTAGCCTCCCCTGGTTCCTGCTTGGAAGAGTTTCGTTCAGCTCCCTTCATCGAATGTCATGGGAGGGGTACCTGTAACTACTATGCCAACTCCTACAGCTTTTGGCTGGCAACTGTAGATGTGTCAGACATGTTCAGTAAACCTCAGTCAGAAACGCTGAAAGCAGGAGACTTGAGGACACGAATTAGCCGATGTCAAGTGTGCATGAAGAGGACATAA
+#P  Q  G  P  P  G  R  P  G    I  I   K  V  Y  Q  V  Q  K  V  L  Q  V  S  L  E  M  E  V  L  K  E  R  R  E  I  Q  A  N  L  G  Y  L  A  C  L  V  *  K  E  I  K  D  H  Q  D  S  R  V  I  L  A  G  R  V  S  M  E  *  K  E  I  L  V  S  L  V  F  Q  D  S  Q  A  *  K  D  P  V  E  Y  L  D  Q  L  A  L  R  G  N  R  D  L  L  V  L  Q  V  L  L  D  Y  L  V  L  Q  D  R  V  S  *  L  K  E  M  L  V  L  Q  E  S  L  A  S  L  G  *  R  V  Y  Q  D  P  K  D  L  K  A  Y  Q  V  Q  L  A  L  Q  E  I  L  D  A  M  D  S  L  A  L  M  V  Q  E  G  A  K  E  T  Q  V  C  Q  D  S  Q  V  P  V  V  W  M  V  P  L  V  Q  M  D  C  K  V  P  Q  V  P  L  E  P  P  L  L  H  M  D  F  L  L  H  A  T  A  R  Q  R  M  H  H  N  A  H  R  E  H  F  R  S  M  K  A  F  L  S  C  M  Y  K  E  I  K  E  P  T  V  K  T  W  G  R  L  A  A  A  F  V  A  L  V  P  C  L  S  C  S  A  T  S  I  M  F  A  T  L  L  Q  E  M  T  I  L  T  G  S  L  P  Q  S  P  C  Q  *  A  C  N  P  *  R  A  R  A  S  S  H  S  L  V  D  V  Q  Y  V  K  L  Q  L  W  *  S  Q  F  T  V  R  R  S  R  F  P  I  V  L  R  D  G  I  L  C  G  L  V  I  P  S  *  C  I  Q  V  Q  G  Q  K  A  Q  V  K  P  *  P  P  L  V  P  A  W  K  S  F  V  Q  L  P  S  S  N  V  M  G  G  V  P  V  T  T  M  P  T  P  T  A  F  G  W  Q  L  *  M  C  Q  T  C  S  V  N  L  S  Q  K  R  *  K  Q  E  T  *  G  H  E  L  A  D  V  K  C  A  *  R  G  H  X  *
+#CCCCAAGGTCCTCCTGGGAGACCAG         ATTATTAAGGTCTACCAGGTCCAGAAGGTCCTCCAGGTCTCCCTGGAAATGGAGGTATTAAAGGAGAGAAGGGAAATCCAGGCCAACCTGGGCTACCTGGCTTGCCTGGTTTGAAAGGAGATCAAGGACCACCAGGACTCCAGGGTAATCCTGGCCGGCCGGGTCTCAATGGAATGAAAGGAGATCCTGGTCTCCCTGGTGTTCCAGGATTCCCAGGCATGAAAGGACCCAGTGGAGTACCTGGATCAGCTGGCCCTGAGGGGGAACCGGGACTTATTGGTCCTCCAGGTCCTCCTGGATTACCTGGTCCTTCAGGACAGAGTATCATAATTAAAGGAGATGCTGGTCCTCCAGGAATCCCTGGCCAGCCTGGGCTAAAGGGTCTACCAGGACCCCAAGGACCTCAAGGCTTACCAGGTCCAACTGGCCCTCCAGGAGATCCTGGACGCAATGGACTCCCTGGCTTTGATGGTGCAGGAGGGCGCAAAGGAGACCCAGGTCTGCCAGGACAGCCAGGTACCCGTGGTTTGGATGGTCCCCCTGGTCCAGATGGATTGCAAGGTCCCCCAGGTCCCCCTGGAACCTCCTCTGTTGCACATGGATTTCTTATTACACGCCACAGCCAGACAACGGATGCACCACAATGCCCACAGGGAACACTTCAGGTCTATGAAGGCTTTTCTCTCCTGTATGTACAAGGAAATAAAAGAGCCCACGGTCAAGACTTGGGGACGGCTGGCAGCTGCCTTCGTCGCTTTAGTACCATGCCTTTCATGTTCTGCAACATCAATAATGTTTGCAACTTTGCTTCAAGAAATGACTATTCTTACTGGCTCTCTACCCCAGAGCCCATGCCAATGAGCATGCAACCCCTAAAGGGCCAGAGCATCCAGCCATTCATTAGTCGATGTGCAGTATGTGAAGCTCCAGCTGTGGTGATCGCAGTTCACAGTCAGACGATCCAGATTCCCCATTGTCCTCAGGGATGGGATTCTCTGTGGATTGGTTATTCCTTCATGATGCATACAAGTGCAGGGGCAGAAGGCTCAGGTCAAGCCCTAGCCTCCCCTGGTTCCTGCTTGGAAGAGTTTCGTTCAGCTCCCTTCATCGAATGTCATGGGAGGGGTACCTGTAACTACTATGCCAACTCCTACAGCTTTTGGCTGGCAACTGTAGATGTGTCAGACATGTTCAGTAAACCTCAGTCAGAAACGCTGAAAGCAGGAGACTTGAGGACACGAATTAGCCGATGTCAAGTGTGCATGAAGAGGACATAA
+#                                          G  L  P  G  P  E  G  P  P  G  L  P  G  N  G  G  I  K  G  E  K  G  N  P  G  Q  P  G  L  P  G  L  P  G  L  K  G  D  Q  G  P  P  G  L  Q  G  N  P  G  R  P  G  L  N  G  M  K  G  D  P  G  L  P  G  V  P  G  F  P  G  M  K  G  P  S  G  V  P  G  S  A  G  P  E  G  E  P  G  L  I  G  P  P  G  P  P  G  L  P  G  P  S  G  Q  S  I  I  I  K  G  D  A  G  P  P  G  I  P  G  Q  P  G  L  K  G  L  P  G  P  Q  G  P  Q  G  L  P  G  P  T  G  P  P  G  D  P  G  R  N  G  L  P  G  F  D  G  A  G  G  R  K  G  D  P  G  L  P  G  Q  P  G  T  R  G  L  D  G  P  P  G  P  D  G  L  Q  G  P  P  G  P  P  G  T  S  S  V  A  H  G  F  L  I  T  R  H  S  Q  T  T  D  A  P  Q  C  P  Q  G  T  L  Q  V  Y  E  G  F  S  L  L  Y  V  Q  G  N  K  R  A  H  G  Q  D  L  G  T  A  G  S  C  L  R  R  F  S  T  M  P  F  M  F  C  N  I  N  N  V  C  N  F  A  S  R  N  D  Y  S  Y  W  L  S  T  P  E  P  M  P  M  S  M  Q  P  L  K  G  Q  S  I  Q  P  F  I  S  R  C  A  V  C  E  A  P  A  V  V  I  A  V  H  S  Q  T  I  Q  I  P  H  C  P  Q  G  W  D  S  L  W  I  G  Y  S  F  M  M  H  T  S  A  G  A  E  G  S  G  Q  A  L  A  S  P  G  S  C  L  E  E  F  R  S  A  P  F  I  E  C  H  G  R  G  T  C  N  Y  Y  A  N  S  Y  S  F  W  L  A  T  V  D  V  S  D  M  F  S  K  P  Q  S  E  T  L  K  A  G  D  L  R  T  R  I  S  R  C  Q  V  C  M  K  R  T
+
+#X  S  L  Y  G  G  N  A  V  V  E  L  V  T  V  K  S  F  D  T  S  L  I  R  K  T  R  T  I  L  E  A  K  Q  A  E  K  E  H  V  Y  Q  K  K  K  K  E  R  N  K  E  V  F  M  G  V  K  S  F  N  V  C  L  S  S  E  L  P  A  E  E  P  S  K  S  L  *
+#NACAGTCTTTATGGTGGGAATGCAGTGGTAGAGTTAGTCACTGTCAAGTCATTTGACACCTCCCTCATTAGGAAGACAAGGACTATCCTTGAGGCAAAACAAGCGGAAAAAGAACATGTTTATCAAAAAAAAAAAAAGGAAAGAAACAAAGAGGTCTTCATGGGCGTGAAATCCTTTAACGTTTGCCTCAGCTCTGAGCTCCCCGCAGAAGAACCCAGCAAGTCCCTATAA
+#X  S  L  Y  G  G  N  A  V  V  E  L  V  T  V  K  S  F  D  T  S  L  I  R  K  T  R  T  I  L  E  A  K  Q  A  E  K  E  H  V  Y  Q -K  K  K  R  K  E  T  K  R  S  S  W  A  *  N  P  L  T  F  A  S  A  L  S  S  P  Q  K  N  P  A  S  P  Y  *
+#NACAGTCTTTATGGTGGGAATGCAGTGGTAGAGTTAGTCACTGTCAAGTCATTTGACACCTCCCTCATTAGGAAGACAAGGACTATCCTTGAGGCAAAACAAGCGGAAAAAGAACATGTTTATC AAAAAAAAAAAAGGAAAGAAACAAAGAGGTCTTCATGGGCGTGAAATCCTTTAACGTTTGCCTCAGCTCTGAGCTCCCCGCAGAAGAACCCAGCAAGTCCCTATAA
+#ACGTCAAGCTGAGTGTACAAAGACTGCACGAATTCAGGCCGCATTACCCGCGGCTAAACCAGCAGTGCCGGCTCCTGCACCAGTGGCAGCGCCCCCGCCGCCGCCGCCGCCTCCGCCAGGTGCGCATCTCTATGAAGAACTTGGAGACAGCTCAATG
+          }
+          else {
+            my $left_start = $ungapped_features[0]->start;
+            my $phase_fixer = 0;
+            if ($exon->phase > 0) {
+              $phase_fixer = 3-$exon->phase;
+            }
+            elsif ($exon->phase == -1) {
+              $phase_fixer = $newtranslation->start-1;
+            }
+            my $length = $ungapped_features[0]->length-$phase_fixer;
+            my $left_diff = $length%3;
+            print join(' ', __LINE__, $exon, $exon->start, $exon->end, $exon->phase, $exon->end_phase, $phase_fixer, $length, $diff_gap, $left_diff, $ungapped_features[0]->start, $ungapped_features[0]->end, $newtranslation->start_Exon, $newtranslation->start, $newtranslation->end_Exon, $newtranslation->end), "\n";
+            if ($length > $left_diff) {
+              $left_start += $left_diff;
+              $exon_left = Bio::EnsEMBL::Exon->new(
+                      -slice     => $exon->slice,
+                      -start     => $left_start,
+                      -end       => $exon->end,
+                      -strand    => $exon->strand,
+                      -phase     => $exon->phase,
+                      -end_phase => 0);
+              print join(' ', __LINE__, $exon_left->seq->seq), "\n";
+              if ($newtranslation->start_Exon == $exon) {
+                $newtranslation->start_Exon($exon_left);
+              }
+              print join(' ', __LINE__, $exon_left, $exon_left->start, $exon_left->end, $exon_left->phase, $exon_left->end_phase, $left_start, $newtranslation->start_Exon, $newtranslation->start, $newtranslation->end_Exon, $newtranslation->end), "\n";
+            }
+            my $right_end = $ungapped_features[1]->end;
+            my $right_diff = 3-$left_diff-$diff_gap;
+            if ($exon->end_phase == -1) {
+              $length = $newtranslation->end-($exon->end-$ungapped_features[1]->end);
+              $right_diff = $length%3;
+            }
+            else {
+              $length = $ungapped_features[1]->length-$right_diff;
+            }
+            print join(' ', __LINE__, $exon, $exon->start, $exon->end, $exon->phase, $exon->end_phase, $right_end, $length, $right_diff, $ungapped_features[1]->start, $ungapped_features[1]->end, $newtranslation->start_Exon, $newtranslation->start, $newtranslation->end_Exon, $newtranslation->end), "\n";
+# Had 0 before but fails for ENST00000398761
+            if ($length < 1) {
+#            $exon_left->start($exon_left->start+$right_diff);
+#            This works for ENST00000398761
+              $exon_left->start($exon_left->start);
+              my $fp_left = Bio::EnsEMBL::FeaturePair->new();
+              if ($ungapped_features[0]->slice) {
+                $fp_left->slice($ungapped_features[0]->slice);
+              }
+              $fp_left->seqname   ($ungapped_features[0]->seqname);
+              $fp_left->strand    ($ungapped_features[0]->strand);
+              $fp_left->hstrand    ($ungapped_features[0]->hstrand);
+              $fp_left->hseqname  ($ungapped_features[0]->hseqname);
+              $fp_left->score     ($ungapped_features[0]->score);
+              $fp_left->percent_id($ungapped_features[0]->percent_id);
+              $fp_left->start     ($exon_left->start);
+              $fp_left->end       ($ungapped_features[0]->end);
+              $fp_left->hstart     ($ungapped_features[0]->hend-$exon_left->length+1);
+              $fp_left->hend       ($ungapped_features[0]->hend);
+              $fp_left->external_db_id($ungapped_features[0]->external_db_id);
+              $fp_left->hcoverage($ungapped_features[0]->hcoverage);
+              $fp_left->analysis($analysis);
+              my $f = Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => [$fp_left], -align_type => 'ensembl');
+              $exon_left->add_supporting_features($f);
+              print join(' ', __LINE__, $exon->start, $exon->end, $exon->phase, $exon->end_phase, $length, $diff_gap, $right_diff, $ungapped_features[1]->start, $ungapped_features[1]->end, $right_end, $newtranslation->end_Exon, $newtranslation->end), "\n";
+              print join(' ', __LINE__, $exon_left->get_all_supporting_features->[0]->start, $exon_left->get_all_supporting_features->[0]->end, $exon_left->get_all_supporting_features->[0]->hstart, $exon_left->get_all_supporting_features->[0]->hend, $exon_left->get_all_supporting_features->[0]->cigar_string), "\n";
+              print __LINE__, ' ', $exon_left->seq->seq, "\n";
+              return $exon_left;
+            }
+            else {
+              $right_end -= $right_diff;
+              $exon_right = Bio::EnsEMBL::Exon->new(
+                      -slice     => $exon->slice,
+                      -start     => $exon->start,
+                      -end       => $right_end,
+                      -strand    => $exon->strand,
+                      -phase     => 0,
+                      -end_phase => $exon->end_phase);
+              print join(' ', __LINE__, $exon_right->seq->seq), "\n";
+              if ($newtranslation->end_Exon == $exon or $exon_right->end_phase == -1) {
+                $newtranslation->end($length-$right_diff);
+                $newtranslation->end_Exon($exon_right);
+              }
+              print join(' ', __LINE__, $exon_right, $exon_right->start, $exon_right->end, $exon_right->phase, $exon_right->end_phase, $right_end, $newtranslation->start_Exon, $newtranslation->start, $newtranslation->end_Exon, $newtranslation->end), "\n";
+              if (!$exon_left) {
+                my $fp_right = Bio::EnsEMBL::FeaturePair->new();
+                if ($ungapped_features[1]->slice) {
+                  $fp_right->slice($ungapped_features[1]->slice);
+                }
+                $fp_right->seqname   ($ungapped_features[1]->seqname);
+                $fp_right->strand    ($ungapped_features[1]->strand);
+                $fp_right->hstrand    ($ungapped_features[1]->hstrand);
+                $fp_right->hseqname  ($ungapped_features[1]->hseqname);
+                $fp_right->score     ($ungapped_features[1]->score);
+                $fp_right->percent_id($ungapped_features[1]->percent_id);
+                $fp_right->start     ($exon_right->start);
+                $fp_right->end       ($ungapped_features[1]->end);
+                $fp_right->hstart     ($ungapped_features[1]->hend-$exon_right->length+1);
+                $fp_right->hend       ($ungapped_features[1]->hend);
+                $fp_right->external_db_id($ungapped_features[1]->external_db_id);
+                $fp_right->hcoverage($ungapped_features[1]->hcoverage);
+                $fp_right->analysis($sfs->[0]->analysis);
+                my $f = Bio::EnsEMBL::DnaDnaAlignFeature->new(-features => [$fp_right], -align_type => 'ensembl');
+                $exon_right->add_supporting_features($f);
+                print join(' ', __LINE__, $exon_right->get_all_supporting_features->[0]->start, $exon_right->get_all_supporting_features->[0]->end, $exon_right->get_all_supporting_features->[0]->hstart, $exon_right->get_all_supporting_features->[0]->hend, $exon_right->get_all_supporting_features->[0]->cigar_string), "\n";
+                return $exon_right;
+              }
+            }
+          }
+          print join(' ', __LINE__, $exon_left->start, $exon_left->seq_region_start, $exon_left->end, $exon_left->seq_region_end, $exon_left->phase, $exon_left->end_phase), "\n";
+          print join(' ', __LINE__, $exon_right->start, $exon_right->seq_region_start, $exon_right->end, $exon_right->seq_region_end, $exon_right->phase, $exon_right->end_phase), "\n";
+#
+#CGGCCGGGTGCTGGGCCG
+#AGGCCGAGGCCGGGGCGGGATCCAGAGCGGGAGCCGGCGCGGGATCTGGGACTCGGAGCGGGATCCGGAGCGGGACCCAGGAGCCGGCGCGGGGCC
+#                                                                                                ATGGCGAGGCGCGGGCCAGGGTGGCGGCCGCTTCTGCTGCTCGTGCTGCTGGCGGGCGCGGCGCAGGGCGGCCTCTACTTCCGCCGGGGACAGACCTGCTACCGGCCTCTGCGGGGGGACGGGCTGGCTCCGCTGGGGCGCAG
+#CACATACCCCCGGCCTCATGAGTACCTGTCCCCAGCGGATCTGCCCAAGAGCTGGGACTGGCGCAATGTGGATGGTGTCAACTATGCCAGCATCACCCGGAACCAGCACATCCCCCAATACTGCGGCTCCTGCTGGGCCCACGCCAGCACCAGCGCTATGGCGG
+#ATCGGATCAACATCAAGAGGAAGGGAGCGTGGCCCTCCACCCTCCTGTCCGTGCAGAACGTCATCGACTGCGGTAACGCTGGCTCCTGTGAAGGGGGTAATGACCTGTCCGTGTGGGACTACGCCCACCAGCACGGCATCCCTGACGAGACCTGCAACAACTACCAGGCCAAGGACCAGG
+#GCCTTATTGTTCAGCCAGAAA
+#TTCTCCTGGACTGGCTGAGTGAGTCCTTCGAGAAGGGGGACAGATG
+#AAGGCGCAGAGGGAAGGGCTATCAGATGGCTCTGGAAGCAGGAAGCAGGTATCAGGTGGTCTCCAGGGCCACGCCCACTCCACGCCAAAGTGCTCTCGCCCAGCCGAGGCCAGGCCCCTCCAACCCACCCAGCCTGACAGGAGCAGATGGAGCTCATCAGAAACCTGATTGTGTGACTGGTGACCGCGGTGGCTCACACCTGTAATCCCAGCACTTTGGGAGGCTGAGGCGGGCGGATCACTTGAGACCAGGAGTTCGAGACCAGACTGGCCAACATG
+#AGTGTGACAAGTTTAACCAATGTGGGACATGCAATGAATTCAAAGAGTGCCACGCCATCCGGAACTACACCCTCTGGAGGGTGGGAGACTACGGCTCCCTCTCTGGGAGGGAGAAGATGATGGCAGAAATCTACGCAAATGGTCCCATCAG
+#CTGTGGAATAATGGCAACAGAAAGACTGGCTAACTACACCGGAGGCATCTATGCCGAATACCAGGACACCACATATATAAACCATGTCGTTTCTGTGGCTGGGTGGGGCATCAGTGATGGGACTGAGTACTGGATTGTCCGGAATTCATGGGGTGAACCATGG
+#GGCGAGAGAGGCTGGCTGAGGATCGTGACCAGCACCTATAAGGATGGGAAGGGCGCCAGATACAACCTTGCCATCGAGGAGCACTGTACATTTGGGGACCCCATCGTTTAAGGCCATGTCACTAGAAGCGCAGTTTAAGAAAAGGCATGGTGACCCATGACCAGAGGGGATCCTATGGTTATGTGTGCCAGGCTGGCTGGCAGGAACTGGGGTGGCTATCAATATTGGATGGCGAGGACAGCGTGGTACTGGCTGCGAGTGTTCCTGAGAGTTGAAAGTGGGATGACTTATGACACTTGCACAGCATGGCTCTGCCTCACAATGATGCAGTCAGCCACCTGGTGAAGAAGTGACCTGCGACACAGGAAACGATGGGACCTCAGTCTTCTTCAGCAGAGGACTTGATATTTTGTATTTGGCAACTGTGGGCAATAATATGGCATTTAAGAGGTGAAAGAGTTCAGACTTATCACCATTCTTATGTCACTTTAGAATCAAGGGTGGGGGAGGGAGGGAGGGAGTTGGCAGTTTCAAATCGCCCAAGTGATGAATAAAGTATCTGGCTCTGCACGAGA
+#
+#M  A  R  R  G  P  G  W  R  P  L  L  L  L  V  L  L  A  G  A  A  Q  G  G  L  Y  F  R  R  G  Q  T  C  Y  R  P  L  R  G  D  G  L  A  P  L  G  R  S  T  Y  P  R  P  H  E  Y  L  S  P  A  D  L  P  K  S  W  D  W  R  N  V  D  G  V  N  Y  A  S  I  T  R  N  Q  H  I  P  Q  Y  C  G  S  C  W  A  H  A  S  T  S  A  M  A  D  R  I  N  I  K  R  K  G  A  W  P  S  T  L  L  S  V  Q  N  V  I  D  C  G  N  A  G  S  C  E  G  G  N  D  L  S  V  W  D  Y  A  H  Q  H  G  I  P  D  E  T  C  N  N  Y  Q  A  K  D  Q  G  L  I
+#ATGGCGAGGCGCGGGCCAGGGTGGCGGCCGCTTCTGCTGCTCGTGCTGCTGGCGGGCGCGGCGCAGGGCGGCCTCTACTTCCGCCGGGGACAGACCTGCTACCGGCCTCTGCGGGGGGACGGGCTGGCTCCGCTGGGGCGCAGCACATACCCCCGGCCTCATGAGTACCTGTCCCCAGCGGATCTGCCCAAGAGCTGGGACTGGCGCAATGTGGATGGTGTCAACTATGCCAGCATCACCCGGAACCAGCACATCCCCCAATACTGCGGCTCCTGCTGGGCCCACGCCAGCACCAGCGCTATGGCGGATCGGATCAACATCAAGAGGAAGGGAGCGTGGCCCTCCACCCTCCTGTCCGTGCAGAACGTCATCGACTGCGGTAACGCTGGCTCCTGTGAAGGGGGTAATGACCTGTCCGTGTGGGACTACGCCCACCAGCACGGCATCCCTGACGAGACCTGCAACAACTACCAGGCCAAGGACCAGGGCCTTATT
+#M  A  R  R  G  P  G  W  R  P  L  L  L  L  V  L  L  A  G  A  A  Q  G  G  L  Y  F  R  R  G  Q  T  C  Y  R  P  L  R  G  D  G  L  A  P  L  G  R  S  T  Y  P  R  P  H  E  Y  L  S  P  A  D  L  P  K  S  W  D  W  R  N  V  D  G  V  N  Y  A  S  I  T  R  N  Q  H  I  P  Q  Y  C  G  S  C  W  A  H  A  S  T  S  A  M  A  D  R  I  N  I  K  R  K  G  A  W  P  S  T  L  L  S  V  Q  N  V  I  D  C  G  N  A  G  S  C  E  G  G  N  D  L  S  V  W  D  Y  A  H  Q  H  G  I  P  D  E  T  C  N  N  Y  Q  A  K  D  Q  G  L  I
+#ATGGCGAGGCGCGGGCCAGGGTGGCGGCCGCTTCTGCTGCTCGTGCTGCTGGCGGGCGCGGCGCAGGGCGGCCTCTACTTCCGCCGGGGACAGACCTGCTACCGGCCTCTGCGGGGGGACGGGCTGGCTCCGCTGGGGCGCAGCACATACCCCCGGCCTCATGAGTACCTGTCCCCAGCGGATCTGCCCAAGAGCTGGGACTGGCGCAATGTGGATGGTGTCAACTATGCCAGCATCACCCGGAACCAGCACATCCCCCAATACTGCGGCTCCTGCTGGGCCCACGCCAGCACCAGCGCTATGGCGGATCGGATCAACATCAAGAGGAAGGGAGCGTGGCCCTCCACCCTCCTGTCCGTGCAGAACGTCATCGACTGCGGTAACGCTGGCTCCTGTGAAGGGGGTAATGACCTGTCCGTGTGGGACTACGCCCACCAGCACGGCATCCCTGACGAGACCTGCAACAACTACCAGGCCAAGGACCAGGGCCTTATT
+#V  Q  P  E  I  L  L  D  W  L  S  E  S  F  E  K  G  D  R  W  K  V  Q  R  E  G  L  S  D  G  S  G  S  R  K  Q  V  S  G  G  L  Q  G  H  A  H  S  T  P  K  C  S  R  P  A  E  A  R  P  L  Q  P  T  Q  P  D  R  S  R  W  S  S  S  E  T
+#GTTCAGCCAGAAATTCTCCTGGACTGGCTGAGTGAGTCCTTCGAGAAGGGGGACAGATGGAAGGTGCAGAGGGAAGGGCTATCAGATGGCTCTGGAAGCAGGAAGCAGGTATCAGGTGGTCTCCAGGGCCACGCCCACTCCACGCCAAAGTGCTCTCGCCCAGCTGAGGCCAGGCCCCTCCAACCCACCCAGCCTGACAGGAGCAGATGGAGCTCATCAGAAACCTGA
+#V  Q  P  E  I  L  L  D  W  L  S  E  S  F  E  K  G  D  R  *  R  R  R  G  K  G  Y  Q  M  A  L  E  A  G  S  R  Y  Q  V  V  S  R  A  T  P  T  P  R  Q  S  A  L  A  Q  P  R  P  G  P  S  N  P  P  S  L  T  G  A  D  G  A  H  Q  K  P
+#GTTCAGCCAGAAATTCTCCTGGACTGGCTGAGTGAGTCCTTCGAGAAGGGGGACAGAT GAAGGCGCAGAGGGAAGGGCTATCAGATGGCTCTGGAAGCAGGAAGCAGGTATCAGGTGGTCTCCAGGGCCACGCCCACTCCACGCCAAAGTGCTCTCGCCCAGCCGAGGCCAGGCCCCTCCAACCCACCCAGCCTGACAGGAGCAGATGGAGCTCATCAGAAACCTGA
+        }
+        else {
+          ($exon_left, $exon_right) = &_replace_internal_stop_in_exon($stop, $exon, $newtranslation);
+          print join(' ', __LINE__, $cigar_string, $exon, $exon->start, $exon->end, $newtranslation->start_Exon, $newtranslation->start, $newtranslation->end_Exon, $newtranslation->end, $exon_left, $exon_left->start, $exon_left->end, $exon_right, $exon_right->start, $exon_right->end), "\n";
+        }
+      }
+    }
+    elsif (@ungapped_features == 1) {
+      $cigar_string =~ /(\d*)D/g;
+      my $pos = pos($cigar_string);
+      my $diff = 3-($first_deletion%3);
+      if ($pos == length($cigar_string)) {
+        if ($exon->strand == 1) {
+          $exon->start($exon->start+$diff);
+        }
+        else {
+          $exon->end($exon->end-$diff);
+          if ($newtranslation->start_Exon == $exon) {
+            $newtranslation->start($newtranslation->start-$diff);
+          }
+          if ($newtranslation->end_Exon == $exon) {
+            $newtranslation->end($newtranslation->end-$diff);
+          }
+        }
+      }
+      else {
+        if ($exon->strand == 1) {
+          $exon->start($exon->start+$diff);
+          if ($newtranslation->start_Exon == $exon) {
+            $newtranslation->start($newtranslation->start-$diff);
+          }
+          if ($newtranslation->end_Exon == $exon) {
+            $newtranslation->end($newtranslation->end-$diff);
+          }
+        }
+        else {
+          $exon->end($exon->end-$diff);
+        }
+      }
+      print join(' ', __LINE__, $exon->start, $exon->end, $exon->phase, $exon->end_phase, $cigar_string, $diff, $pos, $newtranslation->start_Exon, $newtranslation->start, $newtranslation->end_Exon, $newtranslation->end), "\n";
+      print __LINE__, ' ', $exon->seq->seq, "\n";
+#M  A  P  P  Q  R  H  P  Q  R  S  E  Q  V  L  L  L  T  L  L  G  T  L  W  G  A  A  A  A  Q  I  R  Y  S  I  P  E  E  L  E  K  G  S  F  V  G  N  I  V  K  D  L  G  L  E  P  Q  E  L  A  E  H  G  V  R  I  V  S  R  G  R  M  Q  L  F  S  L  N  P  R  N  G  S  L  V  T  A  G  R  I  D  R  E  E  L  C  A  Q  S  P  R  C  L  V  S  F  N  I  L  V  E  D  K  L  N  L  Y  P  V  E  V  E  I  V  D  I  N  D  N  T  P  R  F  L  K  E  E  L  E  V  K  I  L  E  N  A  A  P  S  S  R  F  P  L  M  E  V  Y  D  P  D  V  G  M  N  S  L  Q  G  F  K  L  S  G  N  S  H  F  S  V  D  V  Q  S  E  A  H  G  P  K  Y  P  E  L  V  L  E  G  T  L  D  R  E  G  E  A  V  Y  R  L  V  L  T  A  M  D  G  G  D  P  V  R  S  S  V  A  Q  I  L  V  T  V  L  D  V  N  D  N  T  P  M  F  T  Q  P  V  Y  R  V  S  V  P  E  N  L  P  V  G  T  P  V  L  A  V  T  A  T  D  Q  D  E  G  V  H  G  E  V  T  Y  S  F  V  K  I  T  E  K  I  S  Q  I  F  C  L  N  V  L  T  G  E  I  S  T  S  A  N  L  D  Y  E  D  S  S  F  Y  E  L  G  V  E  A  R  D  G  P  G  L  R  D  R  A  K  V  L  I  T  I  L  D  V  N  D  N  V  P  E  V  V  V  T  S  G  S  R  T  I  A  E  S  A  P  P  G  T  V  I  A  L  F  Q  V  F  D  R  D  S  G  L  N  G  L  V  T  C  S  I  P  R  S  L  P  F  E  L  E  K  S  V  G  N  Y  Y  R  L  V  T  N  A  A  L  D  R  E  E  V  F  L  Y  N  I  T  V  T  A  T  D  K  G  T  P  P  L  S  T  E  T  I  I  S  L  N  V  A  D  T  N  D  N  P  P  T  F  P  H  S  S  Y  S  V  Y  V  L  E  N  N  P  R  G  A  S  I  F  S  V  N  A  L  D  P  D  V  D  Q  N  A  Q  V  S  Y  S  L  A  E  D  T  L  Q  G  A  P  L  S  S  Y  V  S  I  N  S  D  T  G  I  L  Y  A  L  R  S  F  D  Y  E  Q  L  R  D  L  Q  L  W  V  T  A  S  D  S  G  D  P  P  L  S  S  N  V  S  L  S  L  F  V  L  D  Q  N  D  N  A  P  E  I  L  Y  P  A  L  P  T  D  G  S  T  G  V  E  L  A  P  R  S  A  E  P  G  Y  L  V  T  K  V  V  A  V  D  R  D  S  G  Q  N  A  W  L  S  Y  R  L  L  K  A  S  E  P  G  L  F  S  V  G  L  H  T  G  E  V  R  T  A  R  A  L  L  D  R  D  A  L  K  Q  S  L  V  V  A  V  Q  D  H  G  Q  P  P  L  S  A  T  V  T  L  T  V  A  V  A  D  R  I  P  D  I  L  A  D  L  G  S  L  E  P  S  A  K  P  N  D  S  D  L  T  L  Y  L  V  V  A  V  A  A  V  S  C  V  F  L  A  F  V  I  V  L  L  A  L  R  L  Q  R  W  H  K  S  R  L  L
+#ATGGCGCCTCCGCAGAGGCATCCGCAGCGCAGCGAGCAGGTCCTGCTCCTCACGCTCCTGGGGACGCTGTGGGGGGCCGCGGCAGCGCAGATCCGCTACTCTATTCCCGAGGAGCTGGAGAAAGGCTCCTTCGTAGGCAACATCGTCAAGGATCTGGGACTGGAGCCCCAGGAGTTGGCGGAGCACGGAGTCCGCATCGTCTCCAGAGGTAGGATGCAGCTTTTCTCTCTGAATCCGCGAAACGGCAGCTTGGTCACCGCGGGTAGGATAGACCGCGAGGAGCTCTGTGCTCAGAGCCCGCGGTGTCTGGTGAGTTTTAACATCCTTGTCGAGGATAAACTGAATCTTTATCCCGTGGAAGTGGAAATAGTGGACATTAATGACAATACACCCCGATTCTTAAAGGAAGAATTGGAAGTGAAAATTCTCGAAAACGCAGCTCCATCCTCTCGTTTTCCACTAATGGAGGTCTATGACCCTGATGTGGGAATGAACTCCCTTCAGGGATTTAAGCTCAGTGGTAATAGTCACTTCTCAGTGGACGTGCAAAGCGAAGCCCATGGGCCCAAGTACCCGGAGCTGGTGCTGGAGGGCACACTGGACCGGGAAGGAGAAGCCGTTTACCGCCTGGTCCTTACTGCCATGGATGGCGGCGACCCTGTCCGCTCAAGCGTCGCCCAAATTCTGGTAACAGTTCTAGATGTGAATGACAACACTCCAATGTTTACTCAGCCTGTCTACCGTGTAAGTGTTCCTGAAAACCTGCCAGTAGGCACACCAGTGTTGGCAGTGACTGCCACCGACCAGGATGAAGGAGTCCACGGGGAAGTAACTTATTCCTTTGTGAAGATTACAGAAAAGATCTCACAAATTTTCTGTTTGAATGTTTTGACTGGAGAAATTTCAACTTCTGCAAATCTAGACTATGAGGACTCGAGTTTTTATGAGCTGGGTGTTGAAGCCCGGGATGGGCCAGGTCTTCGAGACAGAGCGAAAGTCTTAATAACTATCTTGGATGTCAATGATAATGTACCAGAAGTGGTTGTTACATCTGGAAGCAGAACAATTGCTGAAAGTGCACCTCCAGGAACAGTAATCGCCCTTTTTCAAGTGTTCGATCGAGACTCTGGCCTGAATGGCCTGGTAACCTGTTCCATCCCGAGAAGTCTCCCATTTGAATTGGAAAAATCAGTTGGCAATTATTATCGATTAGTGACAAATGCAGCTCTAGACCGGGAAGAGGTATTCTTGTACAACATCACTGTGACAGCCACGGACAAAGGAACACCACCTCTGTCTACAGAAACAATCATCTCTCTAAATGTGGCAGACACCAACGACAACCCGCCCACCTTCCCCCATTCATCCTACTCAGTCTATGTCCTTGAAAACAACCCCAGGGGTGCCTCCATCTTCTCTGTGAATGCACTGGACCCTGACGTGGACCAGAACGCCCAAGTCTCCTACTCACTGGCAGAAGACACCCTCCAGGGGGCGCCCCTGTCCTCCTACGTGTCCATCAACTCCGACACTGGGATTCTGTACGCCCTGCGCTCCTTCGACTATGAGCAGTTGAGAGACCTACAGCTGTGGGTGACAGCCAGCGACAGCGGGGACCCGCCTCTTAGCAGCAACGTGTCACTGAGCCTGTTTGTGCTGGACCAGAATGACAATGCGCCCGAGATCCTGTACCCCGCCCTCCCCACAGACGGTTCCACTGGCGTGGAGCTGGCGCCCCGCTCCGCAGAGCCCGGCTACCTGGTGACCAAGGTGGTGGCGGTGGACAGAGACTCGGGCCAGAACGCCTGGCTGTCCTACCGCCTGCTCAAGGCCAGCGAGCCAGGACTTTTCTCAGTGGGCCTGCACACGGGCGAGGTGCGCACGGCGCGCGCCCTGCTGGACAGAGACGCGCTCAAGCAGAGCCTAGTGGTGGCCGTCCAGGACCACGGCCAGCCCCCTCTCTCCGCCACTGTCACGCTCACCGTGGCCGTGGCCGACAGGATCCCCGACATCCTGGCCGACCTGGGCAGCCTCGAGCCCTCCGCCAAACCCAACGATTCGGACCTCACTCTGTACCTGGTGGTGGCGGTGGCCGCGGTCTCCTGCGTCTTCCTGGCCTTCGTCATCGTGCTGCTGGCGCTCAGACTGCAGCGCTGGCACAAGTCACGCCTGCTG
+#M  A  P  P  Q  R  H  P  Q  R  S  E  Q  V  L  L  L  T  L  L  G  T  L  W  G  A  A  A  A  Q  I  R  Y  S  I  P  E  E  L  E  K  G  S  F  V  G  N  I  V  K  D  L  G  L  E  P  Q  E  L  A  E  H  G  V  R  I  V  S  R  G  R  M  Q  L  F  S  L  N  P  R  N  G  S  L  V  T  A  G  R  I  D  R  E  E  L  C  A  Q  S  P  R  C  L  V  S  F  N  I  L  V  E  D  K  L  N  L  Y  P  V  E  V  E  I  V  D  I  N  D  N  T  P  R  F  L  K  E  E  L  E  V  K  I  L  E  N  A  A  P  S  S  R  F  P  L  M  E  V  Y  D  P  D  V  G  M  N  S  L  Q  G  F  K  L  S  G  N  S  H  F  S  V  D  V  Q  S  E  A  H  G  P  K  Y  P  E  L  V  L  E  G  T  L  D  R  E  G  E  A  V  Y  R  L  V  L  T  A  M  D  G  G  D  P  V  R  S  S  V  A  Q  I  L  V  T  V  L  D  V  N  D  N  T  P  M  F  T  Q  P  V  Y  R  V  S  V  P  E  N  L  P  V  G  T  P  V  L  A  V  T  A  T  D  Q  D  E  G  V  H  G  E  V  T  Y  S  F  V  K  I  T  E  K  I  S  Q  I  F  C  L  N  V  L  T  G  E  I  S  T  S  A  N  L  D  Y  E  D  S  S  F  Y  E  L  G  V  E  A  R  D  G  P  G  L  R  D  R  A  K  V  L  I  T  I  L  D  V  N  D  N  V  P  E  V  V  V  T  S  G  S  R  T  I  A  E  S  A  P  P  G  T  V  I  A  L  F  Q  V  F  D  R  D  S  G  L  N  G  L  V  T  C  S  I  P  R  S  L  P  F  E  L  E  K  S  V  G  N  Y  Y  R  L  V  T  N  A  A  L  D  R  E  E  V  F  L  Y  N  I  T  V  T  A  T  D  K  G  T  P  P  L  S  T  E  T  I  I  S  L  N  V  A  D  T  N  D  N  P  P  T  F  P  H  S  S  Y  S  V  Y  V  L  E  N  N  P  R  G  A  S  I  F  S  V  N  A  L  D  P  D  V  D  Q  N  A  Q  V  S  Y  S  L  A  E  D  T  L  Q  G  A  P  L  S  S  Y  V  S  I  N  S  D  T  G  I  L  Y  A  L  R  S  F  D  Y  E  Q  L  R  D  L  Q  L  W  V  T  A  S  D  S  G  D  P  P  L  S  S  N  V  S  L  S  L  F  V  L  D  Q  N  D  N  A  P  E  I  L  Y  P  A  L  P  T  D  G  S  T  G  V  E  L  A  P  R  S  A  E  P  G  Y  L  V  T  K  V  V  A  V  D  R  D  S  G  Q  N  A  W  L  S  Y  R  L  L  K  A  S  E  P  G  L  F  S  V  G  L  H  T  G  E  V  R  T  A  R  A  L  L  D  R  D  A  L  K  Q  S  L  V  V  A  V  Q  D  H  G  Q  P  P  L  S  A  T  V  T  L  T  V  A  V  A  D  S  I  P  Q  V  L  A  D  L  G  S  L  E  S  S  E  T  S  D  L  T  L  Y  L  V  V  A  V  A  A  V  S  C  V  F  L  A  F  V  I  L  L  L  A  L  R  L  R  R  W  H  K  S  R  L  L  Q  A  S
+#ATGGCGCCTCCGCAGAGGCATCCGCAGCGCAGCGAGCAGGTCCTGCTCCTCACGCTCCTGGGGACGCTGTGGGGGGCCGCGGCAGCGCAGATCCGCTACTCTATTCCCGAGGAGCTGGAGAAAGGCTCCTTCGTAGGCAACATCGTCAAGGATCTGGGACTGGAGCCCCAGGAGTTGGCGGAGCACGGAGTCCGCATCGTCTCCAGAGGTAGGATGCAGCTTTTCTCTCTGAATCCGCGAAACGGCAGCTTGGTCACCGCGGGTAGGATAGACCGCGAGGAGCTCTGTGCTCAGAGCCCGCGGTGTCTGGTGAGTTTTAACATCCTTGTCGAGGATAAACTGAATCTTTATCCCGTGGAAGTGGAAATAGTGGACATTAATGACAATACACCCCGATTCTTAAAGGAAGAATTGGAAGTGAAAATTCTCGAAAACGCAGCTCCATCCTCTCGTTTTCCACTAATGGAGGTCTATGACCCTGATGTGGGAATGAACTCCCTTCAGGGATTTAAGCTCAGTGGTAATAGTCACTTCTCAGTGGACGTGCAAAGCGAAGCCCATGGGCCCAAGTACCCGGAGCTGGTGCTGGAGGGCACACTGGACCGGGAAGGAGAAGCCGTTTACCGCCTGGTCCTTACTGCCATGGATGGCGGCGACCCTGTCCGCTCAAGCGTCGCCCAAATTCTGGTAACAGTTCTAGATGTGAATGACAACACTCCAATGTTTACTCAGCCTGTCTACCGTGTAAGTGTTCCTGAAAACCTGCCAGTAGGCACACCAGTGTTGGCAGTGACTGCCACCGACCAGGATGAAGGAGTCCACGGGGAAGTAACTTATTCCTTTGTGAAGATTACAGAAAAGATCTCACAAATTTTCTGTTTGAATGTTTTGACTGGAGAAATTTCAACTTCTGCAAATCTAGACTATGAGGACTCGAGTTTTTATGAGCTGGGTGTTGAAGCCCGGGATGGGCCAGGTCTTCGAGACAGAGCGAAAGTCTTAATAACTATCTTGGATGTCAATGATAATGTACCAGAAGTGGTTGTTACATCTGGAAGCAGAACAATTGCTGAAAGTGCACCTCCAGGAACAGTAATCGCCCTTTTTCAAGTGTTCGATCGAGACTCTGGCCTGAATGGCCTGGTAACCTGTTCCATCCCGAGAAGTCTCCCATTTGAATTGGAAAAATCAGTTGGCAATTATTATCGATTAGTGACAAATGCAGCTCTAGACCGGGAAGAGGTATTCTTGTACAACATCACTGTGACAGCCACGGACAAAGGAACACCACCTCTGTCTACAGAAACAATCATCTCTCTAAATGTGGCAGACACCAACGACAACCCGCCCACCTTCCCCCATTCATCCTACTCAGTCTATGTCCTTGAAAACAACCCCAGGGGTGCCTCCATCTTCTCTGTGAATGCACTGGACCCTGACGTGGACCAGAACGCCCAAGTCTCCTACTCACTGGCAGAAGACACCCTCCAGGGGGCGCCCCTGTCCTCCTACGTGTCCATCAACTCCGACACTGGGATTCTGTACGCCCTGCGCTCCTTCGACTATGAGCAGTTGAGAGACCTACAGCTGTGGGTGACAGCCAGCGACAGCGGGGACCCGCCTCTTAGCAGCAACGTGTCACTGAGCCTGTTTGTGCTGGACCAGAATGACAATGCGCCCGAGATCCTGTACCCCGCCCTCCCCACAGACGGTTCCACTGGCGTGGAGCTGGCGCCTCGCTCCGCAGAGCCCGGCTACCTGGTGACCAAGGTGGTGGCGGTGGACAGAGACTCGGGCCAGAACGCCTGGCTGTCCTACCGCCTGCTCAAGGCCAGCGAGCCGGGACTCTTCTCGGTGGGTCTGCACACGGGCGAGGTGCGCACGGCGCGAGCCCTGCTGGACAGAGACGCGCTCAAGCAGAGCCTCGTAGTGGCCGTCCAGGACCACGGCCAGCCCCCTCTCTCCGCCACTGTCACGCTCACCGTGGCCGTGGCCGACAGCATCCCCCAAGTCCTGGCGGACCTCGGCAGCCTCGAGTCCTCTGAAACCTCAGACCTCACTCTGTACCTGGTGGTAGCGGTGGCCGCGGTCTCCTGCGTCTTCCTGGCCTTCGTCATCTTGCTGCTGGCGCTCAGGCTGCGGCGCTGGCACAAGTCACGCCTGCTGCAGGCTTCA
+#Q  A  S  G  G  G  L  A  S  M  P  G  S  H  F  V  G  V  E  G  V  R  A  F  L  Q  T  Y  S  H  E  V  S  L  T  A  D  S  R  K  S  H  L  I  F  P  Q  P  N  Y  A  D  T  L  I  N  Q  E  S  Y  E  K  S  E  P  L  L  I  T  Q  D  L  L  E  T  K  G  E  P  R  Q  L  Q  Q  A  P  P  N  T  D  W  R  F  S  Q  A  Q  R  P  G  T  S  G  S  Q  N  G  D  D  T  G  T  W  P  N  N  Q  F  D  T  E  M  L  Q  A  M  I  L  A  S  A  S  E  A  A  D  G  S  S  T  L  G  G  G  A  G  T  M  G  L  S  A  R  Y  G  P  Q  F  T  L  Q  H  V  P  D  Y  R  Q  N  V  Y  I  P  G  S  N  A  T  L  T  N  A  A  G  K  R  D  G  K  A  P  A  G  G  N  G  N  K  K  K  S  G  K  K  E  K  K
+#CAGGCTTCGGGAGGTGGCTTAGCGAGCATGCCCGGCTCGCACTTTGTGGGCGTGGAAGGGGTTCGGGCTTTCCTGCAGACCTATTCCCACGAGGTCTCACTCACTGCAGACTCGCGTAAGAGTCATCTGATTTTCCCCCAGCCCAACTATGCCGACACGCTTATCAACCAGGAGAGCTATGAGAAAAGCGAGCCTCTTCTGATAACTCAGGATTTACTTGAAACGAAAGGAGAACCCAGGCAACTTCAGCAAGCCCCGCCCAACACGGACTGGCGTTTCTCTCAGGCCCAGAGACCCGGCACCAGCGGCTCCCAAAATGGCGATGACACCGGCACCTGGCCCAACAACCAGTTTGACACAGAGATGCTGCAAGCCATGATCTTGGCGTCCGCCAGTGAAGCTGCTGATGGGAGCTCCACCCTGGGAGGGGGTGCCGGCACCATGGGATTGAGCGCCCGCTACGGACCCCAGTTCACCCTGCAGCACGTGCCCGACTACCGCCAGAATGTCTACATCCCAGGCAGCAATGCCACACTGACCAACGCAGCTGGCAAGCGGGATGGCAAGGCCCCAGCAGGTGGCAATGGCAACAAGAAGAAGTCGGGCAAGAAGGAGAAGAAGTAA
+#G  G  G  L  A  P  A                                                                                                                             R  T  L  W  A  W  T  G  C  R  L  S  C  R  P  I  P  T  R  F  P  S  P  R  T  R  G  R  V  T  *  S  S  P  S  Q  A  P  P  N  T  D  W  R  F  S  Q  A  Q  R  P  G  T  S  G  S  Q  N  G  D  D  T  G  T  W  P  N  N  Q  F  D  T  E  M  L  Q  A  M  I  L  A  S  A  S  E  A  A  D  G  S  S  T  L  G  G  G  A  G  T  M  G  L  S  A  R  Y  G  P  Q  F  T  L  Q  H  V  P  D  Y  R  Q  N  V  Y  I  P  G  S  N  A  T  L  T  N  A  A  G  K  R  D  G  K  A  P  A  G  G  N  G  N  K  K  K  S  G  K  K  E  K  K
+#GGAGGCGGCTTAGCGCCGGC                                                                                                                           TCGCACTTTGTGGGCGTGGACGGGGTGCAGGCTTTCCTGCAGACCTATTCCCACGAGGTTTCCCTCACCACGGACTCGCGGAAGAGTCACCTGATCTTCCCCCAGCCAAGCCCCGCCCAACACGGACTGGCGTTTCTCTCAGGCCCAGAGACCCGGCACCAGCGGCTCCCAAAATGGCGATGACACCGGCACCTGGCCCAACAACCAGTTTGACACAGAGATGCTGCAAGCCATGATCTTGGCGTCCGCCAGTGAAGCTGCTGATGGGAGCTCCACCCTGGGAGGGGGTGCCGGCACCATGGGATTGAGCGCCCGCTACGGACCCCAGTTCACCCTGCAGCACGTGCCCGACTACCGCCAGAATGTCTACATCCCAGGCAGCAATGCCACACTGACCAACGCAGCTGGCAAGCGGGATGGCAAGGCCCCAGCAGGTGGCAATGGCAACAAGAAGAAGTCGGGCAAGAAGGAGAAGAAGTAA
+#
+##M  A  L  W  R  G  S  A  Y  A  G  F  L  A  L  A  V  G  C  V  F  L  L  E  P  E  L  P  G  S  A  L  R  S  L  W  S  S  L  C  L  G  P  A  P  A  P  P  G  P  V  S  P  E  G  R  L  A  A  A  W  D  A  L  I  V  R  P  V  R  R  W  R  R  V  A  V  G  V  N  A  C  V  D  V  V  L  S  G  V  K  L  L  Q  A  L  G  L  S  P  G  N  G  K  D  H  S  I  L  H  S  R  N  D  L  E  E  A  F  I  H  F  M  G  K  G  A  A  A  E  R  F  F  S  D  K  E  T  F  H  D  I  A  Q  V  A  S  E  F  P  G  A  Q  H  Y  V  G  G  N  A  A  L  I  G  Q  K  F  A  A  N  S  D  L  K  V  L  L  C  G  P  V  G  P  K  L  H  E  L  L  D  D  N  V  F  V  P  P  E  S  L  Q  E  V  D  E  F  H  L
+#ATGGCGCTGTGGCGCGGCTCCGCGTACGCGGGCTTCCTGGCGCTGGCCGTGGGCTGCGTCTTCCTGCTGGAGCCAGAGCTGCCAGGCTCGGCGCTGCGCTCTCTCTGGAGCTCGCTGTGTCTGGGGCCCGCGCCTGCGCCCCCGGGACCCGTCTCCCCCGAGGGCCGGTTGGCGGCAGCCTGGGACGCGCTTATCGTGCGGCCAGTCCGGCGCTGGCGCCGCGTGGCAGTGGGAGTCAATGCATGTGTTGATGTGGTGCTCTCAGGGGTGAAGCTCTTGCAGGCACTTGGCCTTAGTCCTGGGAATGGGAAAGATCACAGCATTCTGCATTCAAGGAATGATCTGGAAGAAGCCTTCATTCACTTCATGGGGAAGGGAGCAGCTGCTGAGCGCTTCTTCAGTGATAAGGAAACTTTTCACGACATTGCCCAGGTTGCATCAGAGTTCCCAGGAGCCCAGCACTATGTAGGAGGAAATGCAGCTTTAATTGGACAGAAATTTGCAGCCAACTCAGATTTAAAGGTTCTTCTTTGCGGTCCAGTTGGTCCAAAGCTACATGAGCTTCTTGATGACAATGTCTTTGTTCCACCAGAGTCATTGCAGGAAGTGGATGAGTTCCACCTC
+#M  A  L  W  R  G  S  A  Y  A  G  F  L  A  L  A  V  G  C  V  F  L  L  E  P  E  L  P  G  S  A  L  R  S  L  W  S  S  L  C  L  G  P  A  P  A  P  P  G  P  V  S  P  E  G  R  L  A  A  A  W  D  A  L  I  V  R  P  V  R  R  W  R  R  V  A  V  G  V  N  A  C  V  D  V  V  L  S  G  V  K  L  L  Q  A  L  G  L  S  P  G  N  G  K  D  H  S  I  L  H  S  R  N  D  L  E  E  A  F  I  H  F  M  G  K  G  A  A  A  E  R  F  F  S  D  K  E  T  F  H  D  I  A  Q  V  A  S  E  F  P  G  A  Q  H  Y  V  G  G  N  A  A  L  I  G  Q  K  F  A  A  N  S  D  L  K  V  L  L  C  G  P  V  G  P  K  L  H  E  L  L  D  D  N  V  F  V  P  P  E  S  L  Q  E  V  D  E  F  H  L
+#ATGGCGCTGTGGCGCGGCTCCGCGTACGCGGGCTTCCTGGCGCTGGCCGTGGGCTGCGTCTTCCTGCTGGAGCCAGAGCTGCCAGGCTCGGCGCTGCGCTCTCTCTGGAGCTCGCTGTGTCTGGGGCCCGCGCCTGCGCCCCCGGGACCCGTCTCCCCCGAGGGCCGGTTGGCGGCAGCCTGGGACGCGCTTATCGTGCGGCCAGTCCGGCGCTGGCGCCGCGTGGCAGTGGGAGTCAATGCATGTGTTGATGTGGTGCTCTCAGGGGTGAAGCTCTTGCAGGCACTTGGCCTTAGTCCTGGGAATGGGAAAGATCACAGCATTCTGCATTCAAGGAATGATCTGGAAGAAGCCTTCATTCACTTCATGGGGAAGGGAGCAGCTGCTGAGCGCTTCTTCAGTGATAAGGAAACTTTTCACGACATTGCCCAGGTTGCGTCAGAGTTCCCAGGAGCCCAGCACTATGTAGGAGGAAATGCAGCTTTAATTGGACAGAAATTTGCAGCCAACTCAGATTTAAAGGTTCTTCTTTGCGGTCCAGTTGGTCCAAAGCTACATGAGCTTCTTGATGACAATGTCTTTGTTCCACCAGAGTCATTGCAGGAAGTGGATGAGTTCCACCTC
+#I  L  E  Y  Q  A  G  E  E  W  G  Q  L  K  A  P  H  A  N  R  F  I  F  S  H  D  L  S  N  G  A  M  N  M  L  E  V  F  V  S  S  L  E  E  F  Q  P  D  L  V  V  L  S  G  L  H  M  M  E  G  Q  S  K  E  L  Q  R  K  R  L  L  E  V  V  T  S  I  S  D  I  P  T  G  I  P  V  H  L  E  L  A  S  M  T  N  R  E  L  M  S  S  I  V  H  Q  Q  V  F  P  A  V  T  S  L  G  L  N  E  Q  E  L  L  F  L  T  Q  S  A  S  G  P  H  S  S  L  S  S  W  N  G  V  P  D  V  G  M  V  S  D  I  L  F  W  I  L  K  E  H  G  R  S  K  S  R  A  S  D  L  T  R  I  H  F  H  T  L  V  Y  H  I  L  A  T  V  D  G  H  W  A  N  Q  L  A  A  V  A  A  G  A  R  V  A  G  T  Q  A  C  A  T  E  T  I  D  T  S  R  V  S  L  R  A  P  Q  E  F  M  T  S  H  S  E  A  G  S  R  I  V  L  N  P  N  K  P  V  V  E  W  H  R  E  G  I  S  F  H  F  T  P  V  L  V  C  K  D  P  I  R  T  V  G  L  G  D  A  I  S  A  E  G  L  F  Y  S  E  V  H  P  H  Y
+#ATTTTAGAGTATCAAGCAGGGGAGGAGTGGGGCCAGTTAAAAGCTCCCCATGCCAACCGATTCATCTTCTCTCACGACCTCTCCAACGGGGCCATGAATATGCTGGAGGTGTTTGTGTCTAGCCTGGAGGAGTTTCAGCCAGACCTGGTGGTCCTCTCTGGATTGCACATGATGGAGGGACAAAGCAAGGAGCTCCAGAGGAAGAGACTCTTGGAGGTTGTAACCTCCATTTCTGACATCCCCACTGGTATTCCAGTTCACCTAGAGCTGGCCAGTATGACTAACAGGGAGCTCATGAGCAGCATTGTCCATCAGCAGGTCTTTCCCGCGGTGACTTCCCTTGGGCTGAATGAACAGGAGCTGTTATTTCTCACCCAGTCAGCCTCTGGACCTCACTCTTCTCTCTCTTCCTGGAACGGTGTTCCTGATGTGGGCATGGTCAGTGACATCCTCTTCTGGATCTTGAAAGAACATGGGAGGAGTAAAAGCAGAGCCTCGGATCTCACCAGGATCCATTTCCACACGCTGGTCTACCACATCCTGGCAACTGTGGATGGACACTGGGCCAACCAGCTGGCAGCCGTGGCTGCAGGAGCTCGTGTGGCTGGGACACAGGCCTGCGCCACAGAAACCATAGACACCAGCCGAGTGTCTCTGAGGGCACCCCAAGAGTTCATGACTTCCCATTCGGAGGCAGGCTCCAGGATTGTATTAAACCCAAACAAGCCAGTAGTAGAATGGCACAGAGAGGGAATATCCTTCCACTTCACACCAGTATTGGTGTGTAAAGACCCCATTCGAACTGTAGGCCTTGGAGATGCCATTTCAGCCGAAGGACTCTTCTATTCGGAAGTACACCCTCACTATTAG
+#I  L  E  Y  Q  A  D  E  Y  A  G  G  V  C  V  *  P  G  G  V  S  A  R  P  G  G  P  F  W  I  A  H  D  G  G  T  K  Q  G  A  P  E  E  E  T  L  G  G  C  N  L  H  F  *  H  P  H  W  Y  S  S  S  P  R  A  G  Q  Y  D  *  Q  G  A  H  E  Q  H  C  P  S  A  G  L  S  R  G  D  F  P  W  A  E  *  T  G  A  V  I  S  H  P  V  S  L  W  T  S  L  F  S  L  F  L  E  R  C  S  *  C  G  H  G  Q  *  H  P  L  L  D  L  E  R  T  W  E  E  *  K  Q  S  L  G  S  H  Q  D  P  F  P  H  A  G  L  P  H  P  G  N  C  G  W  T  L  G  Q  P  A  G  S  R  G  C  R  S  S  C  G  W  D  T  G  L  R  H  R  N  H  R  H  Q  P  S  V  S  E  G  T  P  R  V  H  D  F  P  F  G  G  R  L  Q  D  C  I  K  P  K  Q  A  S  S  R  M  A  Q  R  G  N  I  L  P  L  H  T  S  I  G  V  *  R  P  H  S  N  C  R  P  W  R  C  H  F  S  R  R  T  L  L  F  G  S  T  P  S  L  L
+#ATTTTAGAGTATCAAGCAG                                                                          ATGAATATGCTGGAGGTGTTTGTGTCTAGCCTGGAGGAGTTTCAGCCAGACCTGGTGGTCCTTTCTGGATTGCACATGATGGAGGGACAAAGCAAGGAGCTCCAGAGGAAGAGACTCTTGGAGGTTGTAACCTCCATTTCTGACATCCCCACTGGTATTCCAGTTCACCTAGAGCTGGCCAGTATGACTAACAGGGAGCTCATGAGCAGCATTGTCCATCAGCAGGTCTTTCCCGCGGTGACTTCCCTTGGGCTGAATGAACAGGAGCTGTTATTTCTCACCCAGTCAGCCTCTGGACCTCACTCTTCTCTCTCTTCCTGGAACGGTGTTCCTGATGTGGGCATGGTCAGTGACATCCTCTTCTGGATCTTGAAAGAACATGGGAGGAGTAAAAGCAGAGCCTCGGATCTCACCAGGATCCATTTCCACACGCTGGTCTACCACATCCTGGCAACTGTGGATGGACACTGGGCCAACCAGCTGGCAGCCGTGGCTGCAGGAGCTCGTGTGGCTGGGACACAGGCCTGCGCCACAGAAACCATAGACACCAGCCGAGTGTCTCTGAGGGCACCCCAAGAGTTCATGACTTCCCATTCGGAGGCAGGCTCCAGGATTGTATTAAACCCAAACAAGCCAGTAGTAGAATGGCACAGAGAGGGAATATCCTTCCACTTCACACCAGTATTGGTGTGTAAAGACCCCATTCGAACTGTAGGCCTTGGAGATGCCATTTCAGCCGAAGGACTCTTCTATTCGGAAGTACACCCTCACTATTAG
+      return $exon;
+      next;
+    }
+    else {
+      warning("Supporting evidence has too many operation in cigar $cigar_string");
+      ($exon_left, $exon_right) = &_replace_internal_stop_in_exon($stop, $exon, $newtranslation);
+    }
+    &_split_evidences_to_exons($sfs, $exon_left, $exon_right, $analysis);
+    if ($exon->strand == 1) {
+      return $exon_left, $exon_right;
+    }
+    else {
+      return $exon_right, $exon_left;
+    }
+#  }
+#  else {
+#    return;
+#  }
+}
+
 
 1;
