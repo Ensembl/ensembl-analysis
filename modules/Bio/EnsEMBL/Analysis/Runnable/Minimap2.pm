@@ -59,9 +59,9 @@ use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Exon;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_best_translation);
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(is_canonical_splice);
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(align_proteins);
-use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(is_canonical_splice align_proteins execute_with_wait);
+use Bio::EnsEMBL::Utils::Argument qw( rearrange);
+use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning);
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
@@ -110,11 +110,8 @@ sub new {
 sub run {
   my ($self) = @_;
 
-  my $leftover_genes = [];
   my $sam_file = $self->create_filename(undef,'sam');
-  my $bed_file = $self->create_filename(undef,'bed');
   $self->files_to_delete($sam_file);
-  $self->files_to_delete($bed_file);
 
   my $genome_index  = $self->genome_index;
   my $input_file    = $self->input_file;
@@ -149,32 +146,16 @@ sub run {
 
   my $minimap2_command = $self->program." --cs ".$secondary_alignments." -G ". $max_intron_size." -ax ".$splice_type." -u b ".$genome_index." ".$input_file." > ".$sam_file;
   $self->warning("Command:\n".$minimap2_command."\n");
-  if(system($minimap2_command)) {
-    $self->throw("Error running minimap2\nError code: $?\n");
-  }
+  execute_with_wait($minimap2_command);
 
-  my $percent_id_hash = {};
-  my $coverage_hash = {};
-  $self->parse_sam($sam_file,$percent_id_hash,$coverage_hash);
-
-  # I'm putting this in because of a couple of edge case jobs where paftools would not run unless the newline was removed from the end
-  # of the file. This seems unusual, but as it does no harm I've decided to just implement this fix and not investigate further
-  system("perl -pi -e 'chomp if eof' ".$sam_file);
-
-  my $paftools_command = $paftools_path." splice2bed ".$sam_file." > ".$bed_file;
-  $self->warning("Command:\n".$paftools_command."\n");
-  if(system($paftools_command)) {
-    $self->throw("Error running paftools\nError code: $?\n");
-  }
-
-  $self->output($self->parse_results($bed_file,$percent_id_hash,$coverage_hash,$leftover_genes));
+  $self->output($self->parse_results($sam_file));
 
   # This is mostly a repeat of the above but on the reads that were filtered because they had a high non-canonical rate (but passed cov/identity)
   # These could be samples where the reads where accidently reversed as was seen in pig
-  say "Found ".scalar(@$leftover_genes)." leftover genes";
-  if(scalar(@$leftover_genes)) {
+  say "Found ".scalar(@{$self->leftover_genes})." leftover genes";
+  if(scalar(@{$self->leftover_genes})) {
     my $leftover_input_file = $self->create_filename(undef,'lo');
-    $self->create_leftover_input($leftover_genes,$leftover_input_file,$input_file);
+    $self->create_leftover_input($self->leftover_genes,$leftover_input_file,$input_file);
     $self->files_to_delete($leftover_input_file);
 
     my $sam_lo_file = $self->create_filename(undef,'samlo');
@@ -184,22 +165,10 @@ sub run {
 
 
     my $minimap2_lo_command = $self->program." --cs ".$secondary_alignments." -G ". $max_intron_size." -ax ".$splice_type." -uf ".$genome_index." ".$leftover_input_file." > ".$sam_lo_file;
-    $self->warning("Leftover command:\n".$minimap2_command."\n");
-    if(system($minimap2_lo_command)) {
-      $self->throw("Error running minimap2 leftover\nError code: $?\n");
-    }
+    $self->warning("Leftover command:\n$minimap2_lo_command\n");
+    execute_with_wait($minimap2_lo_command);
 
-    my $percent_id_lo_hash = {};
-    my $coverage_lo_hash = {};
-    $self->parse_sam($sam_lo_file,$percent_id_lo_hash,$coverage_lo_hash);
-
-    my $paftools_command = $paftools_path." splice2bed ".$sam_lo_file." > ".$bed_lo_file;
-    $self->warning("Leftover command:\n".$paftools_command."\n");
-    if(system($paftools_command)) {
-      $self->throw("Error running paftools leftover\nError code: $?\n");
-    }
-
-    $self->output($self->parse_results($bed_lo_file,$percent_id_lo_hash,$coverage_lo_hash));
+    $self->output($self->parse_results($sam_lo_file));
   }
 
 }
@@ -286,11 +255,136 @@ sub parse_sam {
 }
 
 
+sub parse_cigar_line {
+  my ($hname, $hstart, $qstrand, $qname, $qlength, $cigar_line) = @_;
+
+  my $qstart = 1;
+  my $qend = 0;
+  if ($qstrand == -1) {
+    $qstart = $qlength;
+    $qend = $qlength+1;
+  }
+  my $hend = $hstart-1;
+  my @features;
+  my @object_cigar;
+  print __LINE__, " $qstart $qend $qstrand $hstart $hend\n";
+  while ($cigar_line =~ /(\d*)([MIDNSHP=X])/gc) {
+    my $len = $1;
+    if ($2 eq 'M') {
+      push(@object_cigar, "$len$2");
+      $qend += $len*$qstrand;
+      $hend += $len;
+      print __LINE__, " $len$2 $qstart $qend $qstrand $hstart $hend\n";
+    }
+    elsif ($2 eq 'N' or $2 eq 'D') {
+      print __LINE__, " $len$2 $qstart $qend $qstrand $hstart $hend\n";
+      if (@object_cigar and !(@object_cigar == 1 and index($object_cigar[0], 'D') > 0)) {
+        push(@features, Bio::EnsEMBL::DnaDnaAlignFeature->new(
+          -seqname    => $hname,
+          -start      => $hstart,
+          -end        => $hend,
+          -strand     => $qstrand,
+          -hseqname   => $qname,
+          -hstart     => $qstrand == 1 ? $qstart : $qend,
+          -hend       => $qstrand == 1 ? $qend : $qstart,
+          -hstrand    => 1,
+#          -cigar_string => join('', @object_cigar),
+          -cigar_string => $qstrand == 1 ? join('', @object_cigar) : join('', reverse(@object_cigar)),
+          -align_type => 'ensembl',
+        ));
+        @object_cigar = ();
+        $qstart = $qend+(1*$qstrand);
+        $hend += $len;
+        $hstart = $hend+1;
+        print __LINE__, " $len$2 $qstart $qend $qstrand $hstart $hend\n";
+      }
+      else {
+        $hend += $len;
+#        $features[-1]->end($hend);
+        $hstart = $hend+1;
+        print __LINE__, " $len$2 $qstart $qend $qstrand $hstart $hend\n";
+      }
+    }
+    elsif ($2 eq 'I') {
+      $qend += $len*$qstrand;
+      push(@object_cigar, "${len}D");
+      print __LINE__, " $len$2 $qstart $qend $qstrand $hstart $hend\n";
+    }
+    elsif ($2 eq 'S') {
+      if ($qstrand == 1 and $qstart == 1) {
+        $qstart += $len;
+        $qend += $len;
+      }
+      elsif ($qstrand == -1 and $qend == $qlength+1) {
+        $qstart -= $len;
+        $qend -= $len;
+      }
+      print __LINE__, " $len$2 $qstart $qend $qstrand $hstart $hend\n";
+    }
+    elsif ($2 eq 'H') {
+    }
+    elsif ($2 eq '=' or $2 eq 'X') {
+      push(@object_cigar, "$len$2");
+      $qend += $len*$qstrand;
+      $hend += $len;
+      print __LINE__, " $len$2 $qstart $qend $qstrand $hstart $hend\n";
+    }
+    elsif ($2 eq 'P') {
+
+    }
+  }
+  if (@object_cigar) {
+    print __LINE__, " $qstart $qend $qstrand $hstart $hend\n";
+    push(@features, Bio::EnsEMBL::DnaDnaAlignFeature->new(
+      -seqname    => $hname,
+      -start      => $hstart,
+      -end        => $hend,
+      -strand     => $qstrand,
+      -hseqname   => $qname,
+      -hstart     => $qstrand == 1 ? $qstart : $qend,
+      -hend       => $qstrand == 1 ? $qend : $qstart,
+      -hstrand    => 1,
+      -cigar_string => $qstrand == 1 ? join('', @object_cigar) : join('', reverse(@object_cigar)),
+      -align_type => 'ensembl',
+    ));
+  }
+  else {
+    warning("Ending without a match after a gap $cigar_line");
+  }
+  return \@features;
+}
+
+
+sub parse_minimap2_cs {
+  my ($cs_line, $seq_length) = @_;
+
+  my $missmatches = $cs_line =~ tr/*/*/;
+  my $matches = 0;
+  while ($cs_line =~ /:(\d+)/gc) {
+    $matches += $1;
+  }
+
+  my $aligned_count = ($matches+$missmatches);
+  my $percent_identity = sprintf("%.2f", (100*($matches/$aligned_count)));
+  print __LINE__, " $matches $missmatches $aligned_count $percent_identity\n";
+
+  my $coverage = sprintf("%.2f", (100*($aligned_count/$seq_length)));
+  print __LINE__, " $aligned_count $seq_length $coverage\n";
+  unless(($percent_identity >= 0 && $percent_identity <= 100) &&
+         ($coverage >= 0 && $coverage <= 100)) {
+    throw("Issue with coverage/percent id calculation. Got values outside of expected range.".
+                 "\nPercent id: ".$percent_identity."\nCoverage: ".$coverage);
+  }
+  return $percent_identity, $coverage;
+}
+
 sub parse_results {
-  my ($self,$output_file,$percent_id_hash,$coverage_hash,$leftover_genes) = @_;
+  my ($self, $output_file) = @_;
 
+#208853  16      JAHAME010000038.1       505     60      1176M48I312M322N145M1273N97M5306N71M    *       0       0
+#GTGATCTGCATGTGTGACACTGATTCTTTGGAAATAAAGAGTGGAAGCTGCAGGTGACACGTGAAGGGTTATTTATGGTTATGATGACCCTGTCCTGCAACGAGGGACTGGCAGCCACTACTGAGGAGGAGGGTCCCATCTCTCTCCTGTCGGCTTTCACCGAGGTCACAGCCAGACGTGGGGCAAAGGTGTTCCCTGTCCTACCCAGCCATTCCTGGGCCTGCCGCCTAGGGGCTCACAGGGCCCAGGAGTCCCCAGCTCACAGGCCAGGGCATCAGGCCAGGCGCGCTCGGTGCACACCGCACCTGGGAGGACCTGGGTACACTCAGGAGACCAAGAGCACTGGCGGGTCAGGATGGTTGGCGTTCAGCTCCTACGGGGTGGGGAGAAGTCTGTAGCCGAGAGCCCAGCCCCCTCCTGCCAGGTCTTCCCAGGTTCGAGAGAGGCTGGAACTCAATTTCTGCAGAAAATCTCCCAGTTTTTCCTGTTTGGTTAGTTTTTTTACAAAGACAGGATCTTGCTGTGTTGCCCAGGCTGGTCTTGAACTCCTGGCCTCAAGCAATCCTCCCACCTCGGCCTCCGAAAGTGCTGGGATTACTGGCATGAACCACTGCGCCCGGCTGGAGCTCCCGGTTTTTAAGCACTGCACGATACTAGAAGAGCTGACCTTTTTTCTGGCCTCACAGCTTATGCTGAAGCTGAGTGTGAGGAACAGAGAGACCTTTCTGTGACGACCGCTGGGGCAGAGTGGTCTATGCGCCGAGATCCTGGCATCAGCAAGGGAGGCGGGTCCTCGGGGAGGGGCAGCTTCCACAGTGTGGCTGCAGCGTGCACAGCCAGGTAGGCCCTGGATGTTCACCCCTCACTGCCCTTGGGGAAGCACCTGACCGCTGGGGATGTCCACCAGGGAGAGGACGCTGTGTCGGGGACAACATGCAGCATCAGCACCCACAAGGGCCCGGCCTGGCCCCGCCTCTCCACTCGCCCGAGGTCTTGCTGTGGCCCAAAGCAGGAGTCCAGGGCTGGCGAGACCTCCGGCTGCAGAAAGGCAGGCCCAGGCCTCACGATGGAGAAAGTCTGGATGTCCTGGTCTGGCCTGCTGTTTCATGCAGTGTGCAAGCAGCAGCATGAGCAGGCAATAGGCCAACTCGGCTGGAGGCACCAACTGAAGCCAAGGCCACGGGTCCTGTGGGCGGTGCACGGGCTCAGGCACACCGGGAATGTGCCACGGGTCCTGTGGGCGGTGCACGGGCTCAGGCACACCGGGAATGTGCCACGGGTCCTGTGGGCGGTGCACGGGCTCAGGCACACCGGGAATGTGCCACGGGTCCTGTGGGCGGTGCACGGGCTCAGGCACACCGGGAATGTGCCATGGGTCCTGTGGGCGGTGCACGGGCTCAGGCACAGTGGGGCTGTCAGCTCTGGCTTGCAGGGTCACCGGCCTCACTGTCGCTGCTCTGAGACAGCTCTGTGGGGCTCTCAAGGCAGTGCAGCTCCAGGAAGCTGGTGATGAGCTTGGCGATGGCTTCCACATCACTGCGGTGGCCCATGACTGCACTCTGCGTGAGGGGGTGGGAGAAGCCCGTCGCAAGCCGGAGCACCACCATGTAGCCTTTCCCGAAGTACCGGACCTTCTCCTCCTCCACGCTCACATCACGGACATCATGGAGCAGGACCACCACCTGGTCGTGGCCAGCTCTGAAAAGAGTCAGCAGCTTCTTGTAGAGGCTGAACGTCTTCAAAACAACCTTCCCTGTGCTCTTGTCGAAGATGGCTTCCGAGAGCACAGCGGTCCCCGCGCCGCAGCAGAGAGACGCGAACCGGCGGGGGCGGGGCCGCGCGCACTTCC
+#*       NM:i:52 ms:i:1727       AS:i:1685       nn:i:0  ts:A:+  tp:A:P  cm:i:317        s1:i:1716       s2:i:83 de:f:0.0028     cs:Z::161*cg:593*ct:71*tc:348+gccacgggtcctgtgggcggtgcacgggctcaggcacaccgggaatgt:9*tc:302~ct322ac:145~ct1273ac:97~ct5306ac:71     rl:i:0
 # 13  0   84793   ENST00000380152.7   1000    +   0   84793   0,128,255   27  194,106,249,109,50,41,115,50,112,1116,4932,96,70,428,182,188,171,355,156,145,122,199,164,139,245,147,2105,  0,948,3603,9602,10627,10768,11025,13969,15445,16798,20791,29084,31353,39387,40954,42268,47049,47705,54928,55482,61196,63843,64276,64533,79215,81424,82688,
-
   my $percent_id_cutoff = $self->perc_id_cutoff();
   my $coverage_cutoff = $self->coverage_cutoff();
   unless(defined($percent_id_cutoff)) {
@@ -303,73 +397,81 @@ sub parse_results {
 
   my $canonical_intron_cutoff = 0.8;
 
-  say "Parsing minimap2 output";
-  my $dba = $self->database_adaptor();
-  my $slice_adaptor = $dba->get_SliceAdaptor();
+  say "Parsing minimap2 sam output";
   my $genes = [];
+  my @leftover_genes;
 
-  unless(-e $output_file) {
-    $self->throw("Output file does not exist. Path used:\n".$output_file);
-  }
-
-  open(IN,$output_file);
-  while(<IN>) {
-    my $line = $_;
+  open(IN, $output_file) or throw("Could not open $output_file");
+  while(my $line = <IN>) {
+    next if (index($line, '@') == 0);
     say "Output:\n".$line;
-    my @results = split("\t",$line);
-    my $hit_name = $results[3];
-    my $percent_identity = $percent_id_hash->{$hit_name};
-    my $coverage = $coverage_hash->{$hit_name};
-    unless($percent_identity >= $percent_id_cutoff) {
-      $self->warning("Percent id for the hit fails the cutoff.\nHit name: ".$hit_name."\nPercent id: ".$percent_identity.
-                     "\nCut-off: ".$percent_id_cutoff);
-      next;
-    }
-
-    unless($coverage >= $coverage_cutoff) {
-      $self->warning("Coverage for the hit fails the cutoff.\nHit name: ".$hit_name."\nCoverage: ".$coverage.
-                     "\nCut-off: ".$coverage_cutoff);
-      next;
-    }
-
-    my $seq_region_name = $results[0];
-    my $offset = $results[1] + $self->add_offset();
-    my $slice = $slice_adaptor->fetch_by_region('toplevel',$seq_region_name);
-    my $strand = $results[5];
-    if($strand eq '+') {
-      $strand = 1;
-    } elsif($strand eq '-') {
+    my @results = split("\t",$line, 12);
+    my $query_name = $results[0];
+    my $flags = $results[1];
+    next if ($flags&0x4);
+    my $hit_name = $results[2];
+    my $hit_start = $results[3];
+    my $mapping_quality = $results[4];
+    my $cigar_line = $results[5];
+    my $second_read_hit_name = $results[6];
+    my $second_read_start = $results[7];
+    my $tlen = $results[8];
+    my $query_seq = $results[9];
+    my $query_quality = $results[10];
+    my $attributes = $results[11];
+    my $strand = 1;
+    if ($flags&0x10) {
       $strand = -1;
-    } else {
-      $self->throw("Expected strand info to be + or -, found: ".$strand);
     }
-    my $block_sizes = $results[10];
-    my $block_starts = $results[11];
+    my $percent_identity = 100;
+    my $coverage = 100;
+    if ($attributes) {
+      my ($cs_line) = $attributes =~ /cs:Z:(\S+)/;
+      if ($cs_line) {
+        ($percent_identity, $coverage) = parse_minimap2_cs($cs_line, length($query_seq));
+        if ($percent_identity < $percent_id_cutoff) {
+          $self->warning("Percent id for the hit fails the cutoff.\nHit name: $hit_name\nPercent id: $percent_identity\nCut-off: $percent_id_cutoff");
+          next;
+        }
 
-    my @block_sizes = split(",",$block_sizes);
-    my @block_starts = split(",",$block_starts);
-
-    my @exons = ();
-    for(my $i=0; $i<scalar(@block_sizes); $i++) {
-      my $block_start = $offset + $block_starts[$i] + 1; # We need to convert to 1-based
-      my $block_end = $block_start + $block_sizes[$i] - 1;
-      if($block_end < $block_start) {
-        $self->warning("Block end < block start due to a 0 length block size. Setting block end to block start");
-        $block_end = $block_start;
+        if ($coverage < $coverage_cutoff) {
+          $self->warning("Coverage for the hit fails the cutoff.\nHit name: $hit_name\nCoverage: $coverage\nCut-off: $coverage_cutoff");
+          next;
+        }
       }
+    }
+    else {
+      print __LINE__, "NO attributes found\n";
+    }
+    my $cigar_objects = parse_cigar_line($hit_name, $hit_start, $strand, $query_name, length($query_seq), $cigar_line);
+    my $slice;
+    if ($self->query) {
+      $slice = $self->query;
+      print __LINE__, ' ', $slice, "\n";
+    }
+    else {
+      $slice = $self->slice_cache($hit_name);
+      print __LINE__, ' ', $slice, "\n";
+    }
+    if (!ref($slice)) {
+      $slice = $self->database_adaptor->get_SliceAdaptor->fetch_by_region('toplevel', $hit_name);
+    }
 
-      my $exon = $self->create_exon($slice,$block_start,$block_end,$strand);
-      unless($exon) {
-        $self->throw("Tried to create an exon and failed: ".$seq_region_name.", ".$block_start.", ".$block_end.", ".$strand);
-      }
-      push(@exons,$exon);
+    my @exons;
+    foreach my $sf (@$cigar_objects) {
+      push(@exons, $self->create_exon($slice, $sf->start, $sf->end, $strand));
+      $sf->analysis($self->analysis);
+      $sf->slice($slice);
+      $sf->percent_id($percent_identity);
+      $sf->hcoverage($coverage);
+      $exons[-1]->add_supporting_features($sf);
     }
 
     if($strand == -1) {
       @exons = reverse(@exons);
     }
 
-    my $gene = $self->create_gene(\@exons,$slice,$hit_name);
+    my $gene = $self->create_gene(\@exons,$slice,$query_name);
     # We aren't going to store a supporting feature, but we can store the coverage and percent id on the gene
     $coverage = int($coverage);
     $gene->version($coverage);
@@ -383,7 +485,7 @@ sub parse_results {
       if($intron_count) {
         my $canonical_count = 0;
         foreach my $intron (@$introns) {
-          my ($is_canonical,$donor,$acceptor) = is_canonical_splice($intron,$slice_adaptor,$slice);
+          my ($is_canonical,$donor,$acceptor) = is_canonical_splice($intron,$self->database_adaptor->get_SliceAdaptor,$slice);
           if($is_canonical) {
             $canonical_count++;
 	        }
@@ -392,18 +494,29 @@ sub parse_results {
         # If it fails the canonical cutoff then we skip this gene, but in case it's just a stranded issue we put onto the leftover pile
         unless($canonical_count/$intron_count >= $canonical_intron_cutoff) {
           say "Gene fails canonical splice site cut-off";
-          if($leftover_genes) {
-            push(@$leftover_genes,$gene);
-	        }
+          push(@leftover_genes,$gene);
           next;
         }
       }
    } # End $self->skip_introns_check()
+   print join(' ', __LINE__, $gene->display_id, $gene->seq_region_start, $gene->seq_region_end, $gene->strand), "\n";
+   foreach my $transcript (@{$gene->get_all_Transcripts}) {
+     print join(' ', __LINE__, $transcript->display_id, $transcript->seq_region_start, $transcript->seq_region_end, $transcript->strand), "\n";
+     foreach my $exon (@{$transcript->get_all_Exons}) {
+       print join(' ', __LINE__, $exon->seq_region_start, $exon->seq_region_end, $exon->strand, $exon->length, $exon->start, $exon->end), "\n";
+       foreach my $sf (@{$exon->get_all_supporting_features}) {
+         print join(' ', __LINE__, $sf->start, $sf->end, $sf->strand, $sf->hstart, $sf->hend, $sf->hseqname), "\n";
+       }
+     }
+   }
     push(@$genes,$gene);
   }
-  close IN;
+  close(IN) or throw("Could not close $output_file");
 
   say "Finished parsing output";
+  if (@leftover_genes) {
+    $self->leftover_genes(\@leftover_genes);
+  }
   return($genes);
 }
 
@@ -629,5 +742,19 @@ sub max_intron_size {
   return $self->{_max_intron_size};
 }
 
+
+sub leftover_genes {
+  my ($self, $val) = @_;
+
+  if ($val) {
+    $self->{_leftover_genes} = $val;
+  }
+
+  return $self->{_leftover_genes} || [];
+}
+
+sub slice_cache {
+  my ($self, $val) = @_;
+}
 
 1;
