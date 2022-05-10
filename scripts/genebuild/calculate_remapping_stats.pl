@@ -187,7 +187,7 @@ foreach my $slice (@$target_slices) {
           next;
         }
 
-        $transcript_description =~ /;parent_transcript=(.+);mapping_coverage=(.+);mapping_identity=(.+)$/;
+        $transcript_description =~ /;parent_transcript=(.+);mapping_coverage=(.+);mapping_identity=([0-9\.]+)$/;
         my $transcript_versioned_stable_id = $1;
         my $transcript_coverage = $2;
         my $transcript_perc_id = $3;
