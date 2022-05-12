@@ -165,6 +165,7 @@ foreach my $slice (@$target_slices) {
     #$gene_stable_id =~ s/\.\d+//;
     my ($gene_stable_id_att) = @{$gene->get_all_Attributes('proj_parent_g')};
     my $gene_stable_id = $gene_stable_id_att->value();
+    $gene_stable_id =~ s/\.\d+//;
 
     # Just process genes in the original mapping list
     if($source_gene_ids_hash->{$gene_stable_id}) {
@@ -187,7 +188,7 @@ foreach my $slice (@$target_slices) {
           next;
         }
 
-        $transcript_description =~ /;parent_transcript=(.+);mapping_coverage=(.+);mapping_identity=(.+)$/;
+        $transcript_description =~ /;parent_transcript=(.+);mapping_coverage=(.+);mapping_identity=([0-9\.]+)/;
         my $transcript_versioned_stable_id = $1;
         my $transcript_coverage = $2;
         my $transcript_perc_id = $3;
@@ -229,7 +230,6 @@ foreach my $gene_id (keys(%{$source_gene_info})) {
   } else {
     $total_gene_count_by_biotype->{$gene_biotype}  = 1;
   }
-
   if($target_gene_info->{$gene_id}) {
     if($mapped_gene_count_by_biotype->{$gene_biotype}) {
       $mapped_gene_count_by_biotype->{$gene_biotype}->{'count'}++;
@@ -252,7 +252,6 @@ foreach my $transcript_id (keys(%{$source_transcript_info})) {
   }
 
   if($target_transcript_info->{$transcript_id}) {
-
     $mapped_transcripts_count++;
     $mapped_transcripts_coverage += $target_transcript_info->{$transcript_id}->{'coverage'};
     $mapped_transcripts_percent_id += $target_transcript_info->{$transcript_id}->{'perc_id'};
@@ -337,11 +336,11 @@ sub print_mapping_stats {
     say MAPPING $mapping_string;
   }
 
-  my $overall_mapping_percent = sprintf("%.2f", (($overall_mapped/$overall_source) * 100));
+  my $overall_mapping_percent = sprintf("%.2f", (($overall_mapped/$overall_source) * 100)) if ($overall_source);
   my $overall_string = "  Overall mapping: ".$overall_mapped."/".$overall_source." (".$overall_mapping_percent."), ".($overall_source - $overall_mapped)." missing";
   if($overall_coverage) {
-    $overall_coverage = sprintf("%.2f", ($mapped_transcripts_coverage/$mapped_transcripts_count));
-    $overall_perc_id = sprintf("%.2f", ($mapped_transcripts_percent_id/$mapped_transcripts_count));
+    $overall_coverage = sprintf("%.2f", ($mapped_transcripts_coverage/$mapped_transcripts_count)) if ($mapped_transcripts_count);
+    $overall_perc_id = sprintf("%.2f", ($mapped_transcripts_percent_id/$mapped_transcripts_count)) if ($mapped_transcripts_count);
     $overall_string .= ", Coverage: ".$overall_coverage."%, Percent id: ".$overall_perc_id."%, Problematic: ".$overall_problematic_count;
   }
   say MAPPING $overall_string;
