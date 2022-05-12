@@ -161,8 +161,8 @@ unless($config_only) {
 $total_running_workers_max = $general_hash->{total_running_workers_max} if (exists $general_hash->{total_running_workers_max});
 my @path = splitdir(realpath($0));
 while (my ($dir) = pop @path) {
-  if ($dir eq 'ensembl-analysis') {
-    last;
+  if ($dir =~ m/ensembl-analysis/) {
+     last;
   }
 }
 my $enscode_directory = catdir(@path);
@@ -463,6 +463,8 @@ sub parse_assembly_report {
   $accession_append =~ s/_//g;
   $assembly_hash->{'production_name'} = $binomial_name.'_'.$accession_append;
 
+
+  $assembly_hash->{'gb_db_name'} = $accession_append;
   $assembly_hash->{'strain'} = $species_name;
   $assembly_hash->{'assembly_level'} = $assembly_level;
   $assembly_hash->{'species_name'} = $species_name;
