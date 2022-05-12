@@ -1185,7 +1185,7 @@ sub project_gene_coords {
 
     my $projected_exon = $self->project_feature(undef,$exon,$source_region_start,$exon_region_start,$exon_region_end,$aligned_source_seq,$aligned_target_seq,$target_region_slice,$target_strand);
 
-    if($projected_exon) {
+    if ($projected_exon and $projected_exon->length() <= $exon->length()*1.2) {
       my ($proj_coverage,$proj_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($exon->seq->seq(),$projected_exon->seq->seq());
       $projected_exon->{'cov'} = $proj_coverage;
       $projected_exon->{'perc_id'} = $proj_percent_id;
@@ -1194,6 +1194,41 @@ sub project_gene_coords {
 #      say "Projected exon (".$projected_exon->{'source_stable_id'}."): Coverage: ".$projected_exon->{'cov'}.", Percent id: ".$projected_exon->{'perc_id'};
 #      say "Alignment:\n".$aligned_source_seq."\n".$aligned_target_seq;
       $projected_exons_by_id->{$projected_exon->{'source_stable_id'}} = $projected_exon;
+    elsif ($projected_exon) {
+      # if the projected exon is longer than the source exon by more than 20% of the length of the source exon, realign using muscle
+      # if muscle alignment is better and complies with the length restriction, use it; if not, leave the exon as not projected
+      
+      my $muscle_coverage = 0;
+      my $muscle_percent_id = 0;
+      my $muscle_aligned_source_seq;
+      my $muscle_aligned_target_seq;
+
+      eval {
+        ($muscle_coverage,$muscle_percent_id,$muscle_aligned_source_seq,$muscle_aligned_target_seq) = align_nucleotide_seqs($source_genome_seq,$target_genome_seq,'muscle');
+      };
+      if ($@) {
+        $self->warning("Issue with running MUSCLE on target region");
+      } else {
+        say "Aligned source and target regions with MUSCLE: Coverage: ".$muscle_coverage.", Percent id: ".$muscle_percent_id;
+        if (($muscle_coverage + $muscle_percent_id) > ($coverage + $percent_id)) {
+          $aligned_source_seq = $muscle_aligned_source_seq;
+          $aligned_target_seq = $muscle_aligned_target_seq;
+          $projected_exon = $self->project_feature(undef,$exon,$source_region_start,$exon_region_start,$exon_region_end,$aligned_source_seq,$aligned_target_seq,$target_region_slice,$target_strand);
+          if ($projected_exon and $projected_exon->length() <= $exon->length()*1.2) {
+            my ($proj_coverage,$proj_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($exon->seq->seq(),$projected_exon->seq->seq());
+            $projected_exon->{'cov'} = $proj_coverage;
+            $projected_exon->{'perc_id'} = $proj_percent_id;
+            $projected_exon->{'source_stable_id'} = $exon->stable_id();
+            $projected_exon->{'source_length'} = $exon->length();
+            $projected_exons_by_id->{$projected_exon->{'source_stable_id'}} = $projected_exon;
+          } else {
+            say "Failed to project exon (".$projected_exon->{'source_stable_id'}.")";
+          }
+        } else {
+          say "Failed to project exon (".$projected_exon->{'source_stable_id'}.")";
+        }
+        
+      }
     } else {
       say "Failed to project exon (".$projected_exon->{'source_stable_id'}.")";
     }
