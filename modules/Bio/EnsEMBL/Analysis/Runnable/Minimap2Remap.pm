@@ -1194,7 +1194,7 @@ sub project_gene_coords {
 #      say "Projected exon (".$projected_exon->{'source_stable_id'}."): Coverage: ".$projected_exon->{'cov'}.", Percent id: ".$projected_exon->{'perc_id'};
 #      say "Alignment:\n".$aligned_source_seq."\n".$aligned_target_seq;
       $projected_exons_by_id->{$projected_exon->{'source_stable_id'}} = $projected_exon;
-    elsif ($projected_exon) {
+    } elsif ($projected_exon) {
       # if the projected exon is longer than the source exon by more than 20% of the length of the source exon, realign using muscle
       # if muscle alignment is better and complies with the length restriction, use it; if not, leave the exon as not projected
       
