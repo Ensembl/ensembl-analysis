@@ -1065,7 +1065,7 @@ sub align_nucleotide_seqs {
   my $align_program_path = 'mafft';
   
   # to run mafft using different parameters like more accuracy-oriented "mafft --localpair --maxiterate 1000"
-  if ($program and $program ~= /mafft/) {
+  if ($program and $program =~ /mafft/) {
     $align_program_path = $program;
   }
   
