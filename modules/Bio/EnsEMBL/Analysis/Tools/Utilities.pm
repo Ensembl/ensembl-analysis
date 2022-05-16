@@ -1039,6 +1039,7 @@ sub align_proteins_with_alignment {
 
   Arg [0]   : source sequence
   Arg [1]   : target sequence
+  Arg [2]   : program to align: 'mafft', 'mafft [pre-input parameters]' or 'muscle'
 
   Function  : It aligns the source sequence to the target sequence to
               calculate the coverage and the percent identity of the source against the target.
@@ -1062,6 +1063,12 @@ sub align_nucleotide_seqs {
   close INPUT;
 
   my $align_program_path = 'mafft';
+  
+  # to run mafft using different parameters like more accuracy-oriented "mafft --localpair --maxiterate 1000"
+  if ($program and $program ~= /mafft/) {
+    $align_program_path = $program;
+  }
+  
   my $cmd = $align_program_path." --progress ".$align_progress_file." --nuc ".$align_input_file." > ".$align_output_file;
 
   if($program and $program eq 'muscle') {
