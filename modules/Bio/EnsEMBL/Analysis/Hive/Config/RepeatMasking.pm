@@ -478,10 +478,88 @@ sub pipeline_analyses {
         trf_path   => $self->o('trf_path'),
       },
       -rc_name       => 'simple_features',
+      -flow_into => {
+	  1 => ['fan_post_repeat_analyses'],
+	  -1 => ['fan_post_repeat_analyses'],
+	  -2 => ['fan_post_repeat_analyses'],
+      },
       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
       -batch_size    => 20,
     },
 
+    {
+      # This will skip downstream analyses like cpg, eponine, genscan etc. if the flag is set
+      -logic_name => 'fan_post_repeat_analyses',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'if [ "#skip_post_repeat_analyses#" -ne "0" ]; then exit 42; else exit 0;fi',
+	  return_codes_2_branches => {'42' => 2},
+      },
+      -rc_name    => 'default',
+      -flow_into  => { '1' => ['run_eponine'] },
+    },
+
+    {
+      # Run eponine
+      -logic_name => 'run_eponine',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveEponine',
+      -parameters => {
+	  target_db => $self->o('reference_db'),
+	  logic_name => 'eponine',
+	  module => 'HiveEponine',
+	  eponine_path => $self->o('eponine_java_path'),
+	  commandline_params => '-epojar => '.$self->o('eponine_jar_path').', -threshold => 0.999',
+      },
+      -rc_name    => 'simple_features',
+      -flow_into => {
+	  1 => ['run_cpg'],
+	  -1 => ['run_cpg'],
+	  -2 => ['run_cpg'],
+      },
+      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -batch_size => 20,
+    },
+
+    {
+      # Run CPG
+      -logic_name => 'run_cpg',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveCPG',
+      -parameters => {
+	  target_db => $self->o('reference_db'),
+	  logic_name => 'cpg',
+	  module => 'HiveCPG',
+	  cpg_path => $self->o('cpg_path'),
+      },
+      -rc_name    => 'simple_features',
+      -flow_into => {
+	  1 => ['run_trnascan'],
+	  -1 => ['run_trnascan'],
+	  -2 => ['run_trnascan'],
+      },
+      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -batch_size => 20,
+    },
+
+    {
+      # Run tRNAscan
+      -logic_name => 'run_trnascan',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveTRNAScan',
+      -parameters => {
+	  target_db => $self->o('reference_db'),
+	  logic_name => 'trnascan',
+	  module => 'HiveTRNAScan',
+	  trnascan_path => $self->o('trnascan_path'),
+      },
+      -rc_name    => 'simple_features',
+      -flow_into => {
+	  1 => ['create_genscan_slices'],
+	  -1 => ['create_genscan_slices'],
+	  -2 => ['create_genscan_slices'],
+      },
+      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -batch_size => 20,
+    },
+      
 # Run Red (REpeat Detector)
     {
       -logic_name => 'repeatdetector',
