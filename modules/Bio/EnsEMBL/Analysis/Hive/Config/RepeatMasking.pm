@@ -555,11 +555,6 @@ sub pipeline_analyses {
 	  trnascan_path => $self->o('trnascan_path'),
       },
       -rc_name    => 'simple_features',
-      -flow_into => {
-	  1 => ['create_genscan_slices'],
-	  -1 => ['create_genscan_slices'],
-	  -2 => ['create_genscan_slices'],
-      },
       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
       -batch_size => 20,
     },
