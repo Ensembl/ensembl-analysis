@@ -123,7 +123,11 @@ sub default_options {
     'repeatmasker_path' => catfile( $self->o('binary_base'), 'RepeatMasker' ),
     red_path            => catfile($self->o('binary_base'), 'Red'),
     samtools_path       => catfile( $self->o('binary_base'), 'samtools' ),       #You may need to specify the full path to the samtools binary
-
+    'eponine_java_path' => catfile($self->o('binary_base'), 'java'),
+    'eponine_jar_path' => catfile($self->o('software_base_path'), 'opt', 'eponine', 'libexec', 'eponine-scan.jar'),
+    'cpg_path' => catfile($self->o('binary_base'), 'cpg_lh'),
+    'trnascan_path' => catfile($self->o('binary_base'), 'tRNAscan-SE'),
+	
 ########################
     # Misc setup info
 ########################
