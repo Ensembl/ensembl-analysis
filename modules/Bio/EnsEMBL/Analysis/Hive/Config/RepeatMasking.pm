@@ -63,7 +63,8 @@ sub default_options {
                                                                                # Keys for custom loading, only set/modify if that's what you're doing
     'repeatmodeler_library'            => '',                                  # This should be the path to a custom repeat library, leave blank if none exists
     'use_repeatmodeler_to_mask'        => '0',                                 # Setting this will include the repeatmodeler library in the masking process
-
+    'skip_post_repeat_analyses'        => '0',
+	
 ########################
     # Pipe and ref db info
 ########################
@@ -169,7 +170,8 @@ sub pipeline_wide_parameters {
     wide_repeat_logic_names => $wide_repeat_logic_names,
     use_genome_flatfile     => $self->o('use_genome_flatfile'),
     genome_file             => $self->o('faidx_genome_file'),
-    }
+    skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),	
+  }
 }
 
 sub pipeline_create_commands {
