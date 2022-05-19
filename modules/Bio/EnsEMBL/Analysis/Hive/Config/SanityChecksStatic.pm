@@ -125,7 +125,18 @@ sub _master_config {
        'eponine'                    => [30000, 'simple'],
        'trnascan'                   => [300, 'simple'],
      },
-       
+   
+    'distant_vertebrate' => {
+       # repeats 
+       'dust'                       => [2260000, 'repeat'],
+       'repeatdetector'             => [153800, 'repeat'],
+       'trf'                        => [504000, 'repeat'],
+
+       # simple features
+       'cpg'                        => [2000, 'simple'],
+       'eponine'                    => [30000, 'simple'],
+       'trnascan'                   => [300, 'simple'],
+     },
    },
 
   'gene_db_checks' => {
