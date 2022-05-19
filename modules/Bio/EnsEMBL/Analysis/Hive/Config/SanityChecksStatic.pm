@@ -109,9 +109,9 @@ sub _master_config {
      },
 
      'fish_basic' => {
-       'dust'                       => [1000000, 'repeat'],
-       'repeatmask_repbase_teleost' => [100000, 'repeat'],
-       'trf'                        => [100000, 'repeat']
+       'dust'                       => [500000, 'repeat'],
+       'repeatmask_repbase_teleost' => [50000, 'repeat'],
+       'trf'                        => [150000, 'repeat']
      },
      
      'insects_basic' => {
