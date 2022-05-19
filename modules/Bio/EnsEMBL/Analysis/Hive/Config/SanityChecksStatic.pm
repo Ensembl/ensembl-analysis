@@ -114,7 +114,7 @@ sub _master_config {
        'trf'                        => [100000, 'repeat']
      },
      
-     'lepidoptera_basic' => {
+     'insects_basic' => {
        # repeats 
        'dust'                       => [500000, 'repeat'],
        'repeatdetector'             => [200000, 'repeat'],
@@ -125,19 +125,7 @@ sub _master_config {
        'eponine'                    => [30000, 'simple'],
        'trnascan'                   => [300, 'simple'],
      },
-
-     'hymenoptera_basic' => {
-       # repeats                    
-       'dust'                       => [500000, 'repeat'],
-       'repeatdetector'             => [200000, 'repeat'],
-       'trf'                        => [50000, 'repeat'],
        
-       # simple features            
-       'cpg'                        => [2000, 'simple'],
-       'eponine'                    => [30000, 'simple'],
-       'trnascan'                   => [300, 'simple'],
-	   
-     },
    },
 
   'gene_db_checks' => {
