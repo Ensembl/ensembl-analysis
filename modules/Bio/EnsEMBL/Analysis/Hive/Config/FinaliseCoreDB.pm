@@ -59,6 +59,7 @@ sub default_options {
     'production_name'    => '',                                                                                                # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'release_number'     => '' || $self->o('ensembl_release'),
     'uniprot_set'        => '',                                                                                                # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
+    'sanity_set'         => '',                                                                                                # sanity checks
     'output_path'        => '',                                                                                                # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'assembly_name'      => '',                                                                                                # Name (as it appears in the assembly report file)
     'assembly_accession' => '',                                                                                                # Versioned GCA assembly accession, e.g. GCA_001857705.1
@@ -520,7 +521,7 @@ sub pipeline_analyses {
         target_db                  => $self->o('reference_db'),
         sanity_check_type          => 'gene_db_checks',
         min_allowed_feature_counts => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-          'gene_db_checks' )->{ $self->o('uniprot_set') }->{'core'},
+          'gene_db_checks' )->{ $self->o('sanity_set') }->{'core'},
       },
       -rc_name   => '4GB',
       -flow_into => {

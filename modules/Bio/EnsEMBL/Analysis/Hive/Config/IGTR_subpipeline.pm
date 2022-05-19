@@ -60,6 +60,7 @@ sub default_options {
     # need for IGTR part:
     'ig_tr_fasta_file'          => 'human_ig_tr.fa', # What IMGT fasta file to use. File should contain protein segments with appropriate headers
     'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
+    'sanity_set'                => '', #sanity checks
 
 ########################
     # Pipe and ref db info
@@ -319,7 +320,7 @@ sub pipeline_analyses {
         target_db => $self->o('ig_tr_db'),
         sanity_check_type => 'gene_db_checks',
         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-          'gene_db_checks')->{$self->o('uniprot_set')}->{'ig_tr'},
+          'gene_db_checks')->{$self->o('sanity_set')}->{'ig_tr'},
         },
 
       -rc_name    => '2GB',
