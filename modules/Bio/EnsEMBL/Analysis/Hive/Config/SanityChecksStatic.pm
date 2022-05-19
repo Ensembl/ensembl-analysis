@@ -67,21 +67,12 @@ sub _master_config {
        'trnascan'                    => [300,'simple'],
        'eponine'                     => [30000,'simple'],
 
-       # prediction transcripts
-       'genscan'                     => [40000,'prediction transcript'],
-
-       # dna align features
-       'unigene'                     => [3000000,'dna align'],
-       'vertrna'                     => [3000000,'dna align'],
-
-       # protein align features
-       'uniprot'                     => [3000000,'protein align'],
      },
 
      'mammals_basic' => {
        # repeats
        'dust'                        => [1392556,'repeat'],
-       'repeatmask_repbase_mammals' =>  [1765829,'repeat'],
+       'repeatmask_repbase_mammals' =>  [1586621,'repeat'],
        'trf'                         => [248970,'repeat'],
 
        # simple features
@@ -89,15 +80,19 @@ sub _master_config {
        'trnascan'                    => [328,'simple'],
        'eponine'                     => [14000,'simple'],
 
-       # prediction transcripts
-       'genscan'                     => [43449,'prediction transcript'],
+     },
 
-       # dna align features
-       'unigene'                     => [3306419,'dna align'],
-       'vertrna'                     => [4000000,'dna align'],
+     'rodentia_basic' => {
+       # repeats
+       'dust'                        => [3362887,'repeat'],
+       'repeatmask_repbase_rodentia' =>  [3416232,'repeat'],
+       'trf'                         => [1411057,'repeat'],
 
-       # protein align features
-       'uniprot'                     => [3005772,'protein align'],
+       # simple features
+       'cpg'                         => [9846,'simple'],
+       'trnascan'                    => [328,'simple'],
+       'eponine'                     => [14000,'simple'],
+
      },
 
      'bird_basic' => {
@@ -111,15 +106,6 @@ sub _master_config {
        'trnascan'                    => [328,'simple'],
        'eponine'                     => [14000,'simple'],
 
-       # prediction transcripts
-       'genscan'                     => [43449,'prediction transcript'],
-
-       # dna align features
-       'unigene'                     => [3306419,'dna align'],
-       'vertrna'                     => [4000000,'dna align'],
-
-       # protein align features
-       'uniprot'                     => [3005772,'protein align'],
      },
 
      'fish_basic' => {
@@ -129,31 +115,28 @@ sub _master_config {
      },
      
      'lepidoptera_basic' => {
+       # repeats 
+       'dust'                       => [500000, 'repeat'],
+       'repeatdetector'             => [200000, 'repeat'],
+       'trf'                        => [50000, 'repeat'],
+
+       # simple features
        'cpg'                        => [2000, 'simple'],
        'eponine'                    => [30000, 'simple'],
        'trnascan'                   => [300, 'simple'],
-       'genscan'                    => [10000, 'prediction transcript'],
-       'dust'                       => [500000, 'repeat'],
-       'repeatdetector'             => [200000, 'repeat'],
-       #'repeatmask_repbase_' => [1500000, 'repeat'],
-       'trf'                        => [50000, 'repeat'],
-       'uniprot'                    => [1, 'protein align'],
-       'unigene'                    => [1, 'dna align'],
-       'vertrna'                    => [1, 'dna align']
      },
 
      'hymenoptera_basic' => {
+       # repeats                    
+       'dust'                       => [500000, 'repeat'],
+       'repeatdetector'             => [200000, 'repeat'],
+       'trf'                        => [50000, 'repeat'],
+       
+       # simple features            
        'cpg'                        => [2000, 'simple'],
        'eponine'                    => [30000, 'simple'],
        'trnascan'                   => [300, 'simple'],
-       'genscan'                    => [10000, 'prediction transcript'],
-       'dust'                       => [500000, 'repeat'],
-       'repeatdetector'             => [200000, 'repeat'],
-       #'repeatmask_repbase_' => [1500000, 'repeat'],
-       'trf'                        => [50000, 'repeat'],
-       'uniprot'                    => [1, 'protein align'],
-       'unigene'                    => [1, 'dna align'],
-       'vertrna'                    => [1, 'dna align']
+	   
      },
    },
 
