@@ -687,7 +687,7 @@ sub clade_settings {
       'uniprot_set'        => 'hymenoptera_basic',
       'skip_projection'    => 1,
       'skip_lastz'         => 1,
-      # need a default projection source db set - for now use human and projection is skipped, will consider updating to use a butterfly annotation
+      # need a default projection source db set - for now use human and projection is skipped, will consider updating to use a hymenoptera annotation
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -695,7 +695,7 @@ sub clade_settings {
     'atroparvus' => {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
-      'uniprot_set'        => 'atroparvus_basic',
+      'uniprot_set'        => 'insects_basic',
       'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/5_01_21-A_atroparvus/Combined_A.atroparvus_n356016',
       'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/5_01_21-A_atroparvus/Combined_A.atroparvus_n356016_index',
       'skip_projection'    => 1,
@@ -707,7 +707,7 @@ sub clade_settings {
    'perniciosus' => {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
-      'uniprot_set'        => 'perniciosus_basic',
+      'uniprot_set'        => 'insects_basic',
       'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/P_perniciosus/Phlebotomus_Uniprot_Ensembl_DB',
       'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/P_perniciosus/Phlebotomus_Uniprot_Ensembl_DB_index',
       'skip_projection'    => 1,
