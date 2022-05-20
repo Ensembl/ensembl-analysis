@@ -46,7 +46,7 @@ use List::Util qw(min max);
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_nucleotide_seqs);
 use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
-use Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap;
+use Bio::EnsEMBL::Analysis::Runnable::LowDivergenceMapping;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
@@ -96,8 +96,12 @@ sub fetch_input {
   }
   close IN;
 
-  my $initial_projected_genes = $target_gene_dba->fetch_all();
-  my ($missing_genes,$problematic_transcripts) = $self->analyses_initial_projections($initial_projected_genes,$input_id_file);
+  # TEST
+#  my $test_slice = $target_gene_dba->get_SliceAdaptor->fetch_by_region('toplevel','17');
+#  my $initial_projected_genes = $target_gene_dba->get_GeneAdaptor->fetch_all_by_Slice($test_slice);
+#  my $initial_projected_genes = $target_gene_dba->get_GeneAdaptor->fetch_all();
+
+#  my ($missing_genes,$problematic_transcripts) = $self->analyses_initial_projections($initial_projected_genes,$input_id_file);
 
   my $input_genes = $self->fetch_source_genes($input_id_file,$source_gene_dba);
 #  my $test_slice = $source_gene_dba->get_SliceAdaptor->fetch_by_region('toplevel','7');
@@ -123,37 +127,22 @@ sub fetch_input {
                                    $a->end() <=> $b->end() }  @{$input_genes}];
 
 
-  my $gene_synteny_hash = {};
-  my $gene_genomic_seqs_hash = {};
   my $parent_gene_id_hash = {};
 
-  my $genomic_reads = $self->set_parent_info($sorted_input_genes,$gene_genomic_seqs_hash,$parent_gene_id_hash,$sequence_adaptor);
-#  my $batched_input_genes = $self->batch_input_genes($sorted_input_genes,$sequence_adaptor);
-#  $self->print_batch_details($batched_input_genes);
-#  $self->calculate_anchors($batched_input_genes,$sequence_adaptor);
-#  $self->map_anchors($batched_input_genes,$genome_index);
-
-#  $self->throw("DEBUG");
-
-  $self->param('gene_synteny_hash',$gene_synteny_hash);
-  my $input_file = $self->write_input_file($genomic_reads);
-  $self->param('input_file',$input_file);
+  $self->set_parent_info($sorted_input_genes,$parent_gene_id_hash,$sequence_adaptor);
 
   my $analysis = $self->create_analysis;
   $analysis->logic_name("minimap2remap");
 
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap->new(
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::LowDivergenceMapping->new(
        -analysis          => $analysis,
        -program           => $self->param('minimap2_path'),
        -paftools_path     => $self->param('paftools_path'),
        -genome_index      => $genome_index,
-       -input_file        => $input_file,
        -source_adaptor    => $source_gene_dba,
        -target_adaptor    => $target_gene_dba,
        -parent_genes      => $sorted_input_genes,
        -parent_gene_ids   => $parent_gene_id_hash,
-       -gene_synteny_hash => $gene_synteny_hash,
-       -gene_genomic_seqs_hash => $gene_genomic_seqs_hash,
        -no_projection     => $self->param('no_projection'),
   );
   $self->runnable($runnable);
@@ -188,7 +177,7 @@ sub write_output {
   my $output_gene_adaptor = $target_gene_dba->get_GeneAdaptor;
   my $output_genes = $self->output();
   foreach my $output_gene (@$output_genes) {
-    say "Final gene: ".$output_gene->stable_id();
+    say "Final gene: ".$output_gene->stable_id()." ".$output_gene->seq_region_start.":".$output_gene->seq_region_end.":".$output_gene->seq_region_strand.":".$output_gene->seq_region_name;
     empty_Gene($output_gene);
     $output_gene_adaptor->store($output_gene);
   }
@@ -206,7 +195,7 @@ sub fetch_source_genes {
   while(<IN>) {
     my $line = $_;
     my @eles = split("\t",$line);
-    my $gene = $source_gene_dba->fetch_by_dbID($eles[0]);
+    my $gene = $source_gene_dba->get_GeneAdaptor->fetch_by_dbID($eles[0]);
     unless($gene) {
       $self->throw("Could not fetch the following gene with dbID ".$eles[0]." from the source gene db");
     }
@@ -251,8 +240,7 @@ sub create_filename {
 
 
 sub set_parent_info {
-  my ($self,$sorted_input_genes,$gene_genomic_seqs_hash,$parent_gene_id_hash,$sequence_adaptor) = @_;
-  my $genomic_reads = [];
+  my ($self,$sorted_input_genes,$parent_gene_id_hash,$sequence_adaptor) = @_;
 
   for(my $i=0; $i<scalar(@$sorted_input_genes); $i++) {
     my $gene = ${$sorted_input_genes}[$i];
@@ -281,44 +269,7 @@ sub set_parent_info {
       $parent_gene_id_hash->{$transcript_id}->{'is_canonical'} = $is_canonical;
       $parent_gene_id_hash->{$transcript_id}->{'source'} = $source;
     }
-
-    my $slice = $gene->slice();
-    my $stable_id = $gene->stable_id.".".$gene->version;
-
-
-    # There's a big issue in terms of small genes, even with a fair amount of padding. To counter this have a minimum
-    # target region size of about 50kb. If the gene is bigger then the padding itself should be enough as it's likely
-    # there are many neutral sites in the gene already
-    my $min_padding = 1000;
-    my $min_region_size = 50000;
-    my $region_diff = $min_region_size - $gene->length;
-    if($region_diff > 0) {
-      $region_diff = ceil($region_diff/2);
-    } else {
-      $region_diff = 0;
-      $min_padding = 5000;
-    }
-
-    my $region_start = $gene->seq_region_start - $min_padding - $region_diff;
-    if($region_start < $slice->seq_region_start()) {
-       $region_start = $slice->seq_region_start();
-    }
-
-    my $region_end = $gene->seq_region_end + $min_padding + $region_diff;
-    if($region_end > $slice->seq_region_end()) {
-      $region_end = $slice->seq_region_end();
-    }
-
-    my $strand = $gene->strand;
-    my $genomic_seq = ${ $sequence_adaptor->fetch_by_Slice_start_end_strand($slice,$region_start,$region_end,$strand) };
-    say "FERGAL DEBUG ORIG REGION S/E, GENE S/E: ".$region_start.'/'.$region_end.", ". $gene->seq_region_start."/".$gene->seq_region_end;
-
-    my $fasta_record = ">".$gene_id."\n".$genomic_seq;
-    push(@$genomic_reads, $fasta_record);
-    $gene_genomic_seqs_hash->{$gene_id} = [$region_start,$region_end,$genomic_seq];
-  } #close foreach sorted_input_gene
-
-  return($genomic_reads);
+  }
 }
 
 sub batch_input_genes {

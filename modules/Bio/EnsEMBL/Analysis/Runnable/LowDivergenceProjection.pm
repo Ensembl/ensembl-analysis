@@ -981,6 +981,7 @@ sub build_batch_genes {
       $target_gene->version($source_gene->version);
       $target_gene->biotype($source_gene->biotype);
       my $gene_description = "Parent: ".$target_gene->stable_id().".".$target_gene->version().", Type: Primary mapping";
+      $target_gene->description($gene_description);
       my $complete_projections = 0;
       foreach my $source_transcript (@$source_transcripts) {
         my $projected_transcript = $self->reconstruct_transcript($source_transcript,$projected_exons_by_id);
@@ -988,7 +989,9 @@ sub build_batch_genes {
           $projected_transcript->{'annotation_method'} = 'alignment_projection';
           if($source_transcript->translation()) {
             $self->project_cds($projected_transcript,$source_transcript);
+            $self->qc_cds_sequences($projected_transcript,$source_transcript);
           }
+          $self->set_transcript_descriptions($projected_transcript,$source_transcript);
           $target_gene->add_Transcript($projected_transcript);
           if($projected_transcript->{'cov'} >= 99 and $projected_transcript->{'perc_id'} >= 99) {
             $complete_projections++;
@@ -1016,6 +1019,18 @@ sub build_batch_genes {
   } # end foreach my $target_region
 }
 
+
+sub set_transcript_descriptions {
+  my ($self,$transcript,$source_transcript) = @_;
+
+  my $description_string = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$transcript->{'cov'}.", Perc id: ".$transcript->{'perc_id'};
+  if($transcript->{'cds_description'}) {
+    $description_string .= $transcript->{'cds_description'};
+  }
+  $transcript->description($description_string);
+}
+
+
 # $self->set_transcript_descriptions($best_transcripts_by_id,$source_transcript_id_hash);
 # fix_cds_issues
 
@@ -1033,49 +1048,30 @@ sub write_input_file {
 }
 
 
-sub set_transcript_descriptions {
-  my ($self,$transcripts_by_id,$source_transcript_id_hash) = @_;
-
-  foreach my $id (keys(%$transcripts_by_id)) {
-    my $transcript = $transcripts_by_id->{$id};
-    my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
-    my $description_string = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$transcript->{'cov'}.", Perc id: ".$transcript->{'perc_id'};
-    if($transcript->{'cds_description'}) {
-      $description_string .= $transcript->{'cds_description'};
-    }
-    $transcript->description($description_string);
-  }
-}
-
-
 sub qc_cds_sequences {
-  my ($self,$transcripts_by_id,$source_transcript_id_hash) = @_;
+  my ($self,$transcript,$source_transcript) = @_;
 
-  foreach my $id (keys(%$transcripts_by_id)) {
-    my $transcript = $transcripts_by_id->{$id};
-    my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
-    if($source_transcript->translation()) {
-      my ($cds_coverage,$cds_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->translateable_seq(),$transcript->translateable_seq());
-      my $cds_description = ", CDS coverage: ".$cds_coverage." CDS perc id: ".$cds_percent_id;
-      my $aligned_source_seq_copy = $aligned_source_seq;
-      my $aligned_target_seq_copy = $aligned_target_seq;
-      $aligned_source_seq_copy =~ s/\-\-\-//g;
-      $aligned_target_seq_copy =~ s/\-\-\-//g;
+  if($source_transcript->translation()) {
+    my ($cds_coverage,$cds_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->translateable_seq(),$transcript->translateable_seq());
+    my $cds_description = ", CDS coverage: ".$cds_coverage." CDS perc id: ".$cds_percent_id;
+    my $aligned_source_seq_copy = $aligned_source_seq;
+    my $aligned_target_seq_copy = $aligned_target_seq;
+    $aligned_source_seq_copy =~ s/\-\-\-//g;
+    $aligned_target_seq_copy =~ s/\-\-\-//g;
 
-      if($aligned_source_seq_copy =~ /\-/ or $aligned_target_seq_copy =~ /\-/) {
-        $cds_description .= ", CDS gap: 1";
-        my $transcript_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
+    if($aligned_source_seq_copy =~ /\-/ or $aligned_target_seq_copy =~ /\-/) {
+      $cds_description .= ", CDS gap: 1";
+      my $transcript_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
                                                              -VALUE => ">source_cds_align\n".$aligned_source_seq."\n>target_cds_align\n".$aligned_target_seq."\n");
-        $transcript->add_Attributes($transcript_attrib);
-        my $translation_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
-                                                              -VALUE => ">source_translation\n".$source_transcript->translation->seq().
-                                                                        "\n>target_translation\n".$transcript->translation->seq()."\n");
-        $transcript->translation->add_Attributes($translation_attrib);
-      } else {
-        $cds_description .= ", CDS gap: 0";
-      }
-      $transcript->{'cds_description'} = $cds_description;
+      $transcript->add_Attributes($transcript_attrib);
+      my $translation_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
+                                                            -VALUE => ">source_translation\n".$source_transcript->translation->seq().
+                                                                      "\n>target_translation\n".$transcript->translation->seq()."\n");
+      $transcript->translation->add_Attributes($translation_attrib);
+    } else {
+      $cds_description .= ", CDS gap: 0";
     }
+    $transcript->{'cds_description'} = $cds_description;
   }
 }
 
