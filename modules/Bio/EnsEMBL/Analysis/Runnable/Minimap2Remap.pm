@@ -1195,40 +1195,11 @@ sub project_gene_coords {
 #      say "Alignment:\n".$aligned_source_seq."\n".$aligned_target_seq;
       $projected_exons_by_id->{$projected_exon->{'source_stable_id'}} = $projected_exon;
     } elsif ($projected_exon) {
-      # if the projected exon is longer than the source exon by more than 20% of the length of the source exon, realign using mafft accuracy-oriented method
-      # if mafft accuracy-oriented method alignment is better and complies with the length restriction, use it; if not, leave the exon as not projected
-      
-      my $mafftaccu_coverage = 0;
-      my $mafftaccu_percent_id = 0;
-      my $mafftaccu_aligned_source_seq;
-      my $mafftaccu_aligned_target_seq;
-
-      eval {
-        ($mafftaccu_coverage,$mafftaccu_percent_id,$mafftaccu_aligned_source_seq,$mafftaccu_aligned_target_seq) = align_nucleotide_seqs($source_genome_seq,$target_genome_seq,'mafft --localpair --maxiterate 1000');
-      };
-      if ($@) {
-        $self->warning("Issue with running 'mafft --localpair --maxiterate 1000' on target region");
-      } else {
-        say "Aligned source and target regions with 'mafft --localpair --maxiterate 1000': Coverage: ".$mafftaccu_coverage.", Percent id: ".$mafftaccu_percent_id;
-        if (($mafftaccu_coverage + $mafftaccu_percent_id) > ($coverage + $percent_id)) {
-          $aligned_source_seq = $mafftaccu_aligned_source_seq;
-          $aligned_target_seq = $mafftaccu_aligned_target_seq;
-          $projected_exon = $self->project_feature(undef,$exon,$source_region_start,$exon_region_start,$exon_region_end,$aligned_source_seq,$aligned_target_seq,$target_region_slice,$target_strand);
-          if ($projected_exon and $projected_exon->length() <= $exon->length()*1.2) {
-            my ($proj_coverage,$proj_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($exon->seq->seq(),$projected_exon->seq->seq());
-            $projected_exon->{'cov'} = $proj_coverage;
-            $projected_exon->{'perc_id'} = $proj_percent_id;
-            $projected_exon->{'source_stable_id'} = $exon->stable_id();
-            $projected_exon->{'source_length'} = $exon->length();
-            $projected_exons_by_id->{$projected_exon->{'source_stable_id'}} = $projected_exon;
-          } else {
-            say "Failed to project exon (".$projected_exon->{'source_stable_id'}.")";
-          }
-        } else {
-          say "Failed to project exon (".$projected_exon->{'source_stable_id'}.")";
-        }
-        
-      }
+      # if the projected exon is longer than the source exon by more than 20% of the length of the source exon,
+      # set 'longer' to 1 so that this is propagated to the 'cov' and 'perc_id' (to set them to 0) for the projected transcript later on
+      # in 'reconstruct_transcript' and the mafft alignment is ignored so that an alternative method is used for the alignment
+      # this would also cover cases where the end of the projected exon lies beyond the end of the seq region
+      $projected_exon->{'longer'} = 1;
     } else {
       say "Failed to project exon (".$projected_exon->{'source_stable_id'}.")";
     }
@@ -1253,10 +1224,13 @@ sub reconstruct_transcript {
 
   my $source_exons = $source_transcript->get_all_Exons();
 
+  my $longer_projected_exon = 0;
   my $projected_exons = [];
   foreach my $source_exon (@$source_exons) {
     my $projected_exon = $projected_exons_by_id->{$source_exon->stable_id};
-    if($projected_exon) {
+    if ($projected_exon and $projected_exon->{'longer'}) {
+      $longer_projected_exon = 1;
+    } elsif ($projected_exon) {
       push(@$projected_exons,$projected_exon);
     }
   }
@@ -1276,8 +1250,18 @@ sub reconstruct_transcript {
   $projected_transcript->{'source_length'} = $source_transcript->length();
 
   my ($proj_coverage,$proj_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->seq->seq(),$projected_transcript->seq->seq());
-  $projected_transcript->{'cov'} = $proj_coverage;
-  $projected_transcript->{'perc_id'} = $proj_percent_id;
+  
+  if ($longer_projected_exon) {
+    # set 'cov' and 'perc_id' to 0 for the projected transcript
+    # so that an alternative method is used for the alignment
+    # this would also cover cases where the end of the projected exon lies beyond the end of the seq region
+    $projected_transcript->{'cov'} = 0;
+    $projected_transcript->{'perc_id'} = 0;
+  } else {
+    $projected_transcript->{'cov'} = $proj_coverage;
+    $projected_transcript->{'perc_id'} = $proj_percent_id;
+  }
+  
   $projected_transcript->{'aligned_source_seq'} = $aligned_source_seq;
   $projected_transcript->{'aligned_target_seq'} = $aligned_target_seq;
   say "Projected transcript (".$projected_transcript->{'source_stable_id'}."): Coverage: ".$projected_transcript->{'cov'}.", Percent id: ".$projected_transcript->{'perc_id'};
