@@ -63,7 +63,8 @@ sub default_options {
                                                                                # Keys for custom loading, only set/modify if that's what you're doing
     'repeatmodeler_library'            => '',                                  # This should be the path to a custom repeat library, leave blank if none exists
     'use_repeatmodeler_to_mask'        => '0',                                 # Setting this will include the repeatmodeler library in the masking process
-
+    'skip_post_repeat_analyses'        => '0',
+	
 ########################
     # Pipe and ref db info
 ########################
@@ -123,7 +124,11 @@ sub default_options {
     'repeatmasker_path' => catfile( $self->o('binary_base'), 'RepeatMasker' ),
     red_path            => catfile($self->o('binary_base'), 'Red'),
     samtools_path       => catfile( $self->o('binary_base'), 'samtools' ),       #You may need to specify the full path to the samtools binary
-
+    'eponine_java_path' => catfile($self->o('binary_base'), 'java'),
+    'eponine_jar_path' => catfile($self->o('linuxbrew_home_path'), 'opt', 'eponine', 'libexec', 'eponine-scan.jar'),
+    'cpg_path' => catfile($self->o('binary_base'), 'cpg_lh'),
+    'trnascan_path' => catfile($self->o('binary_base'), 'tRNAscan-SE'),
+	
 ########################
     # Misc setup info
 ########################
@@ -165,7 +170,8 @@ sub pipeline_wide_parameters {
     wide_repeat_logic_names => $wide_repeat_logic_names,
     use_genome_flatfile     => $self->o('use_genome_flatfile'),
     genome_file             => $self->o('faidx_genome_file'),
-    }
+    skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),	
+  }
 }
 
 sub pipeline_create_commands {
@@ -478,10 +484,83 @@ sub pipeline_analyses {
         trf_path   => $self->o('trf_path'),
       },
       -rc_name       => 'simple_features',
+      -flow_into => {
+	  1 => ['fan_post_repeat_analyses'],
+	  -1 => ['fan_post_repeat_analyses'],
+	  -2 => ['fan_post_repeat_analyses'],
+      },
       -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
       -batch_size    => 20,
     },
 
+    {
+      # This will skip downstream analyses like cpg, eponine, genscan etc. if the flag is set
+      -logic_name => 'fan_post_repeat_analyses',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+          cmd => 'if [ "#skip_post_repeat_analyses#" -ne "0" ]; then exit 42; else exit 0;fi',
+	  return_codes_2_branches => {'42' => 2},
+      },
+      -rc_name    => 'default',
+      -flow_into  => { '1' => ['run_eponine'] },
+    },
+
+    {
+      # Run eponine
+      -logic_name => 'run_eponine',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveEponine',
+      -parameters => {
+	  target_db => $self->o('reference_db'),
+	  logic_name => 'eponine',
+	  module => 'HiveEponine',
+	  eponine_path => $self->o('eponine_java_path'),
+	  commandline_params => '-epojar => '.$self->o('eponine_jar_path').', -threshold => 0.999',
+      },
+      -rc_name    => 'simple_features',
+      -flow_into => {
+	  1 => ['run_cpg'],
+	  -1 => ['run_cpg'],
+	  -2 => ['run_cpg'],
+      },
+      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -batch_size => 20,
+    },
+
+    {
+      # Run CPG
+      -logic_name => 'run_cpg',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveCPG',
+      -parameters => {
+	  target_db => $self->o('reference_db'),
+	  logic_name => 'cpg',
+	  module => 'HiveCPG',
+	  cpg_path => $self->o('cpg_path'),
+      },
+      -rc_name    => 'simple_features',
+      -flow_into => {
+	  1 => ['run_trnascan'],
+	  -1 => ['run_trnascan'],
+	  -2 => ['run_trnascan'],
+      },
+      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -batch_size => 20,
+    },
+
+    {
+      # Run tRNAscan
+      -logic_name => 'run_trnascan',
+      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveTRNAScan',
+      -parameters => {
+	  target_db => $self->o('reference_db'),
+	  logic_name => 'trnascan',
+	  module => 'HiveTRNAScan',
+	  trnascan_path => $self->o('trnascan_path'),
+      },
+      -rc_name    => 'simple_features',
+      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -batch_size => 20,
+    },
+      
 # Run Red (REpeat Detector)
     {
       -logic_name => 'repeatdetector',
