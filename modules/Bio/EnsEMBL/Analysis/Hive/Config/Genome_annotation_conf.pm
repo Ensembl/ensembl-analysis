@@ -100,7 +100,7 @@ sub default_options {
     long_read_fastq_dir              => '' || catdir($self->o('long_read_dir'),'input'),
 
     skip_repeatmodeler               => '0', # Skip using our repeatmodeler library for the species with repeatmasker, will still run standard repeatmasker
-    skip_post_repeat_analyses        => '0', # Will everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
+    skip_post_repeat_analyses        => '0', # Will skip everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
     skip_projection                  => '0', # Will skip projection process if 1
     skip_lastz                       => '0', # Will skip lastz if 1 (if skip_projection is enabled this is irrelevant)
     skip_rnaseq                      => '0', # Will skip rnaseq analyses if 1
