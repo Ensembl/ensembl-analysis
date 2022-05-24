@@ -56,6 +56,9 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input {
   my($self) = @_;
 
+  my $adaptors = Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors;
+  $adaptors->{Sequence} = 'Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor';
+  *Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors = sub {return $adaptors};
   $self->create_analysis;
 
 #  $self->param('region_padding',10000);
@@ -65,6 +68,10 @@ sub fetch_input {
   my $target_dna_dba = $self->hrdb_get_dba($self->param('target_dna_db'));
   $self->hrdb_set_con($source_dna_dba,'source_dna_db');
   $self->hrdb_set_con($target_dna_dba,'target_dna_db');
+  $source_dna_dba->get_SequenceAdaptor->fasta($self->param_required('source_dna_fasta'));
+  my $target_dna_fasta = $self->param_required('genome_index');
+  $target_dna_fasta =~ s/(\.fa(sta)?).*$/$1/;
+  $target_dna_dba->get_SequenceAdaptor->fasta($target_dna_fasta);
 
   # Define the source and target gene dbs
   my $source_gene_dba = $self->hrdb_get_dba($self->param('source_gene_db'));

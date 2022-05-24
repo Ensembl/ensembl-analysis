@@ -319,6 +319,7 @@ sub pipeline_wide_parameters {
   return {
     %{$self->SUPER::pipeline_wide_parameters},
     wide_ensembl_release => $self->o('ensembl_release'),
+    wide_reference_fasta => $self->o('reference_fasta'),
   }
 }
 
@@ -606,6 +607,7 @@ sub pipeline_analyses {
                          target_gene_db => '#core_db#',
                          paftools_path => $self->o('paftools_path'),
                          minimap2_path => $self->o('minimap2_path'),
+                         source_dna_fasta => '#wide_reference_fasta#',
                        },
         -rc_name    => '15GB',
       },
