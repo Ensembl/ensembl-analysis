@@ -81,7 +81,7 @@ sub get_content {
   my $sth_logic = $db->dbc->prepare("select logic_name from analysis");
   $sth_logic->execute;
   my $http_client = HTTP::Tiny->new;
-  my $server = 'http://production-services.ensembl.org';
+  my $server = 'https://services.ensembl.ebi.ac.uk:2000';
   my $ext = '/api/production_db/analysisdescription';
   my @rnaseq_logic_names = ();
   while (my $logic_name = $sth_logic->fetchrow) {
