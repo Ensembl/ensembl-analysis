@@ -504,7 +504,7 @@ sub set_cds_sequences {
   foreach my $id (keys(%$transcripts_by_id)) {
     my $transcript = $transcripts_by_id->{$id};
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
-    if($source_transcript->translation()) {
+    if($source_transcript->translation() and !$transcript->translation) {
       $self->project_cds($transcript,$source_transcript);
     }
   }
