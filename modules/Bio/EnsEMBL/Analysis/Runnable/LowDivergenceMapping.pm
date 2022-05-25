@@ -129,10 +129,10 @@ sub run {
   my $target_gene_adaptor = $target_adaptor->get_GeneAdaptor();
   my $source_genes = $self->genes_to_process();
   # TEST!!!!!!!!!!!!!!!!
-  my $test_slice = $target_adaptor->get_SliceAdaptor->fetch_by_region('toplevel','17');
-  my $target_genes = $target_adaptor->get_GeneAdaptor->fetch_all_by_Slice($test_slice);
+#  my $test_slice = $target_adaptor->get_SliceAdaptor->fetch_by_region('toplevel','17');
+#  my $target_genes = $target_adaptor->get_GeneAdaptor->fetch_all_by_Slice($test_slice);
 
-#  my $target_genes = $target_gene_adaptor->fetch_all();
+  my $target_genes = $target_gene_adaptor->fetch_all();
   my $source_genes_by_slice = $self->sort_genes_by_slice($source_genes);
   my $target_genes_by_slice = $self->sort_genes_by_slice($target_genes);
   my $source_genes_by_stable_id = $self->genes_by_stable_id($source_genes);
@@ -143,9 +143,9 @@ sub run {
 
   foreach my $gene (@$target_genes) {
     # TEST!!!!!
-    unless($gene->seq_region_name eq '17') {
-      next;
-    }
+#    unless($gene->seq_region_name eq '17') {
+#      next;
+#    }
     my $source_gene = ${$source_genes_by_stable_id->{$gene->stable_id()}}[0];
     # TEST!!!!!!!!!!!!!
     unless($source_gene) {
@@ -162,9 +162,9 @@ sub run {
   foreach my $slice (keys(%$source_genes_by_slice)) {
     say " Getting info for source genes on region: ".$slice;
     # TEST!!!!!!!!!!!!!!!!!
-    unless($slice eq '17') {
-      next;
-    }
+#    unless($slice eq '17') {
+#      next;
+#    }
     my $genes = $source_genes_by_slice->{$slice};
     my $midpoint_coords_by_id = {};
     foreach my $gene (@$genes) {
@@ -194,13 +194,27 @@ sub run {
   say "Got ".$high_confidence_count." high condfidence genes from a total of ".scalar(@$target_genes);
 
 
-  my $input_file = $self->create_input_file($missing_source_genes,$gene_genomic_seqs_hash,$source_adaptor);
+  # Now that we have a high confidence set of genes, we want to take the missing genes and see where they should be located, then try to map
+  # them to the expected region
+  $self->set_expected_regions($missing_source_genes,$source_genes_by_slice,$high_confidence_genes_by_id);
+  my $missing_gene_reads_file = $self->create_input_file($missing_source_genes,$gene_genomic_seqs_hash,$source_adaptor);
+
+  # We want to take the missing genes, along with the flanking regions and then map, allowing secondary mappings. Foreach hit we should define the
+  # expected region to be covered by the gene. Then for the next hit, if it also falls in the boundary, we should check if it's redundant or if
+  # it overlaps and extends an existing region, or if it's a unique region. Basically we should get all hits within the region, extend as perdicted
+  # from the source region, order the extended hits and then merge into clustered regions. Foreach clustered region, then proceed normally with the
+  # analysis
+
+
   my $paf_file = $self->create_filename(undef,'paf');
   $self->files_to_delete($paf_file);
+
   my $genome_index  = $self->genome_index;
+  my $options = $self->options;
+
 
   # run minimap2
-  my $minimap2_command = $self->program." --cs --secondary=no -x map-ont ".$genome_index." ".$input_file." > ".$paf_file;
+  my $minimap2_command = $self->program." --cs --secondary=yes -x map-ont ".$genome_index." ".$missing_gene_reads_file." > ".$paf_file;
   $self->warning("Command:\n".$minimap2_command."\n");
   if(system($minimap2_command)) {
     $self->throw("Error running minimap2\nError code: $?\nCommand line used:\n".$minimap2_command);
@@ -214,51 +228,49 @@ sub run {
   }
   close IN;
 
-  my $total_results = 0;
   my $processed_gene_ids = {};
   my $paf_results_hash = {};
   foreach my $paf_result (@$paf_results) {
     say "PAF results for first pass:\n".$paf_result;
     my @result_cols = split("\t",$paf_result);
-    my $gene_id = $result_cols[0];
-    if($paf_results_hash->{$gene_id}) {
-      push(@{$paf_results_hash->{$gene_id}},\@result_cols)
+    my $gene_stable_id = $result_cols[0];
+    if($paf_results_hash->{$gene_stable_id}) {
+      push(@{$paf_results_hash->{$gene_stable_id}},\@result_cols)
     } else {
-      $paf_results_hash->{$gene_id} = [\@result_cols];
+      $paf_results_hash->{$gene_stable_id} = [\@result_cols];
     }
   }
 
-  foreach my $gene_stable_id (keys(%$paf_results_hash)) {
-    my $paf_results = $paf_results_hash->{$gene_stable_id};
-    my $source_gene = ${$source_genes_by_stable_id->{$gene_stable_id}}[0];
-    $self->filter_paf_hits($source_gene,$paf_results);
-  }
-
+  my $all_recovered_genes = [];
   foreach my $gene (@$missing_source_genes) {
-    say "Processing missing source gene: ".$gene->stable_id();
-    $self->process_results($gene,$paf_results_hash,$target_genes);
+    say "Processing source gene: ".$gene->stable_id();
+    my $paf_results = $paf_results_hash->{$gene->stable_id()};
+    $self->filter_paf_hits($gene,$paf_results);
+    my $recovered_genes = $self->process_results($gene,$gene_genomic_seqs_hash,$target_genes);
+    if(scalar(@$recovered_genes)) {
+      push(@$all_recovered_genes,@$recovered_genes);
+    }
   }
 
+  say "Got ".scalar(@$all_recovered_genes)." genes after recovery";
 
-  # First identify the multimapping genes
-#  my $multimapped_target_genes = $self->get_multimapped_target_genes($target_genes_by_stable_id,$source_genes_by_slice,$high_confidence_genes_by_id);
-#  say "Found ".scalar(@$multimapped_target_genes)." instances of multimapped genes";
 
-  # Then set the expected regions based on high confidence genes (if possible)
-#  $self->check_expected_regions($multimapped_target_genes,$source_genes_by_stable_id,$source_genes_by_slice,$high_confidence_genes_by_id);
-#   $self->check_expected_regions($target_genes,$source_genes_by_stable_id,$source_genes_by_slice,$high_confidence_genes_by_id);
+  if(scalar(@$all_recovered_genes)) {
+    push(@$target_genes,@$all_recovered_genes);
+    $target_genes_by_slice = $self->sort_genes_by_slice($target_genes);
+    $target_genes_by_stable_id = $self->genes_by_stable_id($target_genes);
+    $high_confidence_genes = $self->list_high_confidence_genes($target_genes_by_slice,$target_genes_by_stable_id,$source_genes_by_stable_id);
+    $high_confidence_genes_by_slice = $self->sort_genes_by_slice($high_confidence_genes);
+    $high_confidence_genes_by_id = $self->genes_by_stable_id($high_confidence_genes);
+  }
 
-# IDEA!!!!!!!!!!!!!!
-# For the neighbourhood, only use non-overlapping genes to calculate, that way if things are piled up there can still be neighbourhood scores
-# that are more or less correct, despite the pileup
+  # Because the target genes can have the same stable ids, and some of the recovered genes don't have dbIDs, assign unique internal ids
+  $self->assign_internal_ids($target_genes);
 
   # Check for conflic. Conflict is when we have a gene with exon overlap with another gene, that it does not have exon overlap with in the reference
   # There are different levels of conflict, for example a very minor overlap with a neighbouring gene in the reference might just be a slight misalignment
   # of a UTR. Whereas if you have two genes with significant overlap, the assumption is that that are paralogues and thus one of them is mismapped. There
   # might be lots of them mismapped at a locus. For the moment we just want to record if there is conflict
-  $target_genes_by_slice = $self->sort_genes_by_slice($target_genes);
-  $target_genes_by_stable_id = $self->genes_by_stable_id($target_genes);
-
   $self->check_conflict($target_genes_by_slice,$source_genes_by_slice,$source_genes_by_stable_id,$target_genes_by_stable_id,$high_confidence_genes_by_id);
 
   # At this point any gene with conflict is labelled with $gene->{'genomic_conflict'} = 1 and has a list of conflicting stable ids with dbIDs as the values
@@ -266,18 +278,9 @@ sub run {
   # This means we can loop through all the genes on the slice and decide what to do for each conflicting pair
   $self->resolve_conflict($target_genes_by_slice,$source_genes_by_slice,$source_genes_by_stable_id,$target_genes_by_stable_id);
 
-
-  # Now that the conflict is set, it should be possible to at least clean multimappers. A conflicting multimapper outside the expected region or with a bad neighbourhood
-  # score, or a lower than expected perc id/coverage should be the first things to clear up
-
-
-  # At this point there will be any found missing genes added to target genes, so update the genes by slice and stable id
-   # hashes to reflect that
-
-  # First thing to do is to look at multimapping genes
-
-  # Process results adds genes
-#  $self->throw("DEBUG");
+  # The genes that have been recovered will have a 'to_write' tag, the ones to remove will have 'to_remove'. If a gene has both then
+  # the 'to_remove' supercedes the 'to_write'
+  $self->output($target_genes);
 } # End run
 
 
@@ -287,8 +290,6 @@ sub resolve_conflict {
   # This will go through the target genes and look for what overlaps then. First check stranded genomic overlap and
   # then exon overlap. Conflict is when a gene has exon overlap (need to decide level of exon overlap), with something
   # it does not have exon overlap with on the reference
-
-
   say "Processing genes by slice to remove conflicts";
   my $coverage_cutoff = 99;
   my $identity_cutoff = 99;
@@ -302,9 +303,9 @@ sub resolve_conflict {
         next;
       }
 
-      say "Examing gene ".$gene->stable_id()." (".$gene->dbID().") as it is listed as having conflict";
-      if($genes_to_remove->{$gene->stable_id()}->{$gene->dbID()}) {
-        say "  Skipping gene ".$gene->stable_id()." (".$gene->dbID().") as it is already listed for removal";
+      say "Examing gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is listed as having conflict";
+      if($genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}}) {
+        say "  Skipping gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is already listed for removal";
         next;
       }
 
@@ -326,7 +327,7 @@ sub resolve_conflict {
 
         my $conflicting_gene;
         foreach my $target_conflicting_gene (@{$target_genes_by_stable_id->{$stable_id}}) {
-          if($target_conflicting_gene->dbID == $conflicting_db_id) {
+          if($target_conflicting_gene->{'internal_id'} == $conflicting_db_id) {
             $conflicting_gene = $target_conflicting_gene;
             last;
           }
@@ -338,25 +339,35 @@ sub resolve_conflict {
 
         # 1) Fliter based on confidence
         if($gene->{'is_high_confidence'} and !($conflicting_gene->{'is_high_confidence'})) {
-          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->dbID().") as it is not high confidence while ".$gene->stable_id()." (".$gene->dbID().") is";
-          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->dbID()} = 1;
+          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as it is not high confidence while ".$gene->stable_id().
+              " (".$gene->{'internal_id'}.") is";
+          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
+          $conflicting_gene->{'to_remove'} = 1;
           next;
         } elsif($conflicting_gene->{'is_high_confidence'} and !($gene->{'is_high_confidence'})) {
-          $genes_to_remove->{$gene->stable_id()}->{$gene->dbID()} = 1;
-          say "  Removing current gene ".$gene->stable_id()." (".$gene->dbID().") as it is not high confidence while ".$conflicting_gene->stable_id()." (".$conflicting_gene->dbID().") is";
+          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
+          $gene->{'to_remove'} = 1;
+          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is not high confidence while ".$conflicting_gene->stable_id()." (".
+              $conflicting_gene->{'internal_id'}.") is";
           last;
         } else {
           say "  Both genes are high confidence";
         }
 
         # 2) Filter based on one gene passing cut-offs while the other fails
-        if(($gene->{'avg_cov'} >= $coverage_cutoff and $gene->{'avg_perc_id'} >= $identity_cutoff) and ($conflicting_gene->{'avg_cov'} < $coverage_cutoff or $conflicting_gene->{'avg_perc_id'} < $identity_cutoff)) {
-          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->dbID()} = 1;
-          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->dbID().") as it fails the coverage/identity cut-off while ".$gene->stable_id()." (".$gene->dbID().") does not";
+        if(($gene->{'avg_cov'} >= $coverage_cutoff and $gene->{'avg_perc_id'} >= $identity_cutoff) and
+           ($conflicting_gene->{'avg_cov'} < $coverage_cutoff or $conflicting_gene->{'avg_perc_id'} < $identity_cutoff)) {
+          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
+          $conflicting_gene->{'to_remove'} = 1;
+          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as it fails the coverage/identity cut-off while ".$gene->stable_id().
+              " (".$gene->{'internal_id'}.") does not";
           next;
-        } elsif(($conflicting_gene->{'avg_cov'} >= $coverage_cutoff and $conflicting_gene->{'avg_perc_id'} >= $identity_cutoff) and ($gene->{'avg_cov'} < $coverage_cutoff or $gene->{'avg_perc_id'} < $identity_cutoff)) {
-          $genes_to_remove->{$gene->stable_id()}->{$gene->dbID()} = 1;
-          say "  Removing current gene ".$gene->stable_id()." (".$gene->dbID().") as it fails the coverage/identity cut-off while ".$conflicting_gene->stable_id()." (".$conflicting_gene->dbID().") does not";
+        } elsif(($conflicting_gene->{'avg_cov'} >= $coverage_cutoff and $conflicting_gene->{'avg_perc_id'} >= $identity_cutoff) and
+                ($gene->{'avg_cov'} < $coverage_cutoff or $gene->{'avg_perc_id'} < $identity_cutoff)) {
+          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
+          $gene->{'to_remove'} = 1;
+          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it fails the coverage/identity cut-off while ".$conflicting_gene->stable_id()." (".
+              $conflicting_gene->{'internal_id'}.") does not";
           last;
         } else {
           say "  Both genes pass coverage/perc id cut-offs: ".$gene->{'avg_cov'}."/".$gene->{'avg_perc_id'}." vs ".$conflicting_gene->{'avg_cov'}."/".$conflicting_gene->{'avg_perc_id'};
@@ -364,22 +375,69 @@ sub resolve_conflict {
 
         # 3) Filter by expected location
         if($gene->{'expected_location'} and !($conflicting_gene->{'expected_location'})) {
-          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->dbID()} = 1;
-          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->dbID().") as it is not in the expected location ".$gene->stable_id()." (".$gene->dbID().") is";
+          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
+          $conflicting_gene->{'to_remove'} = 1;
+          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as it is not in the expected location ".$gene->stable_id().
+              " (".$gene->{'internal_id'}.") is";
           next;
         } elsif($conflicting_gene->{'expected_location'} and !($gene->{'expected_location'})) {
-          $genes_to_remove->{$gene->stable_id()}->{$gene->dbID()} = 1;
-          say "  Removing current gene ".$gene->stable_id()." (".$gene->dbID().") as it is not in the expected location ".$conflicting_gene->stable_id()." (".$conflicting_gene->dbID().") is";
+          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
+          $gene->{'to_remove'} = 1;
+          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is not in the expected location ".$conflicting_gene->stable_id()." (".
+              $conflicting_gene->{'internal_id'}.") is";
           last;
         } else {
           say "  Both genes are in the expected location";
         }
 
+        # 4) Filter by neighbourhood score
+        if($gene->{'neighbourhood_score'} > $conflicting_gene->{'neighbourhood_score'}) {
+          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
+          $conflicting_gene->{'to_remove'} = 1;
+          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as it is has a lower neighbourhood score ".$gene->stable_id().
+              " (".$gene->{'internal_id'}."), ".
+              $conflicting_gene->{'neighbourhood_score'}." vs ".$gene->{'neighbourhood_score'};
+          next;
+        } elsif($conflicting_gene->{'neighbourhood_score'} > $gene->{'neighbourhood_score'}) {
+          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
+          $gene->{'to_remove'} = 1;
+          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is has a lower neighbourhood score ".$conflicting_gene->stable_id().
+              " (".$conflicting_gene->{'internal_id'}."), ".$gene->{'neighbourhood_score'}." vs ".$conflicting_gene->{'neighbourhood_score'};
+          last;
+        } else {
+          say "  Both genes have the same neighbourhood score, ".$gene->{'neighbourhood_score'};
+        }
+
+        # 5) Just take the highest identity/coverage, or the current gene if they're still identical
+        if(($gene->{'avg_cov'} + $gene->{'avg_perc_id'}) >= ($conflicting_gene->{'avg_cov'} + $conflicting_gene->{'avg_perc_id'})) {
+          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
+          $conflicting_gene->{'to_remove'} = 1;
+          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as a lower or equivalent combined average cov/perc id ".$gene->stable_id().
+              " (".$gene->{'internal_id'}.")";
+          next;
+        } else {
+          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
+          $gene->{'to_remove'} = 1;
+          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is has the lower combined average cov/perc id ".$conflicting_gene->stable_id()." (".
+              $conflicting_gene->{'internal_id'}.")";
+          last;
+        }
       }
     } # for(my $i=0; $i<scalar
   } # foreach my $slice (keys
 
 }
+
+sub assign_internal_ids {
+  my ($self,$genes) = @_;
+
+  my $id_counter = 1;
+  foreach my $gene (@$genes) {
+    $gene->{'internal_id'} = $id_counter;
+    $id_counter++;
+  }
+}
+
 
 sub check_conflict {
   my ($self,$target_genes_by_slice,$source_genes_by_slice,$source_genes_by_stable_id,$target_genes_by_stable_id,$high_confidence_genes_by_id) = @_;
@@ -402,7 +460,7 @@ sub check_conflict {
         my $gene2 = ${$target_genes}[$j];
 
         if($self->coords_overlap($gene1->seq_region_start(),$gene1->seq_region_end(),$gene2->seq_region_start(),$gene2->seq_region_end()) and $gene1->strand() == $gene2->strand()) {
-          $gene1->{'genomic_overlapping_genes'}->{$gene2->stable_id()} = $gene2->dbID();
+          $gene1->{'genomic_overlapping_genes'}->{$gene2->stable_id()} = $gene2->{'internal_id'};
         } else {
           $overlap = 0;
         }
@@ -412,7 +470,7 @@ sub check_conflict {
       for(my $j=$i-1; $j>=0 and $overlap; $j--) {
         my $gene2 = ${$target_genes}[$j];
         if($self->coords_overlap($gene1->seq_region_start(),$gene1->seq_region_end(),$gene2->seq_region_start(),$gene2->seq_region_end()) and $gene1->strand() == $gene2->strand()) {
-          $gene1->{'genomic_overlapping_genes'}->{$gene2->stable_id()} = $gene2->dbID();
+          $gene1->{'genomic_overlapping_genes'}->{$gene2->stable_id()} = $gene2->{'internal_id'};
         } else {
           $overlap = 0;
         }
@@ -435,6 +493,13 @@ sub check_conflict {
       # an issue with a terminal UTR being misaligned slightly, but at least to being with we'll just count any exon overlap as conflict
       # We want to group things into conflicting sets and then try and reduce the contents of the sets down to a single choice wherever possible
       my $source_gene = ${$source_genes_by_stable_id->{$target_gene->stable_id()}}[0];
+
+      # TEST!!!!!!!!!!!!!!
+      unless($source_gene) {
+        next;
+      }
+
+
       my $slice_source_genes = $source_genes_by_slice->{$source_gene->seq_region_name()};
       foreach my $slice_source_gene (@$slice_source_genes) {
         if($source_gene->stable_id() eq $slice_source_gene->stable_id()) {
@@ -453,7 +518,7 @@ sub check_conflict {
           my $target_conflict_gene_db_id =  $target_gene->{'genomic_overlapping_genes'}->{$id};
           my $target_conflict_gene;
           foreach my $gene (@{$target_genes_by_stable_id->{$id}}) {
-            if($gene->dbID == $target_conflict_gene_db_id) {
+            if($gene->{'internal_id'} == $target_conflict_gene_db_id) {
               $target_conflict_gene = $gene;
               last;
             }
@@ -470,7 +535,7 @@ sub check_conflict {
           if($pairwise_coverage >= $pairwise_coverage_cutoff) {
             say "The genes fail the average coverage check, classing as conflict. Average coverage: ".$pairwise_coverage;
             $target_gene->{'genomic_conflict'} = 1;
-            $target_gene->{'conflicting_genes'}->{$target_conflict_gene->stable_id()} = $target_conflict_gene->dbID();
+            $target_gene->{'conflicting_genes'}->{$target_conflict_gene->stable_id()} = $target_conflict_gene->{'internal_id'};
             $self->set_expected_regions([$source_gene],$source_genes_by_slice,$high_confidence_genes_by_id);
           }
         } # end unless($source_gene->{'genomic_overlapping_genes'}
@@ -506,22 +571,18 @@ sub check_expected_regions {
  #   say "FERGAL SID CHECK: ".$stable_id;
     my $source_gene = ${$source_genes_by_stable_id->{$stable_id}}[0];
 
-    # TEST!!!
-##    unless($source_gene) {
-#      say "FERGAL DEBUG: issue with finding source gene so skipping";
+# TEST!!!!!!!!!!
+#    unless($source_gene->seq_region_name eq '17') {
 #      next;
 #    }
-    unless($source_gene->seq_region_name eq '17') {
-      next;
-    }
- #   say "FERGAL SID CHECK2: ".$source_gene->stable_id();
+
     $self->set_expected_regions([$source_gene],$source_genes_by_slice,$high_confidence_genes_by_id);
     say "Checking multimappers for ".$stable_id;
 #    foreach my $gene (@$genes) {
       # TEST!!!!!!!!!!!
-      unless($gene->seq_region_name eq '17') {
-        next;
-      }
+#      unless($gene->seq_region_name eq '17') {
+#        next;
+#      }
 
       if($gene->seq_region_name eq $source_gene->{'target_slice'} and $gene->seq_region_start() >= $source_gene->{'left_boundary'} and
          $gene->seq_region_end() <= $source_gene->{'right_boundary'}) {
@@ -748,9 +809,9 @@ sub list_high_confidence_genes {
 
   my $high_confidence_genes = [];
   foreach my $target_slice (keys(%$target_genes_by_slice)) {
-    unless($target_slice eq '17') {
-      next;
-    }
+#    unless($target_slice eq '17') {
+#      next;
+#    }
     my $target_slice_genes = $target_genes_by_slice->{$target_slice};
     my $midpoint_coords_by_id = {};
 
@@ -777,7 +838,7 @@ sub list_high_confidence_genes {
     # for how similar the ordering is
     say "  Setting neighbourhood scores for genes on ".$target_slice;
     foreach my $gene (@$target_slice_genes) {
-      my $source_gene = $source_genes_by_stable_id->{$gene->stable_id};
+      my $source_gene = ${$source_genes_by_stable_id->{$gene->stable_id}}[0];
       unless($source_gene) {
 #        $self->throw("Couldn't find a source gene with a matching stable id to the target. Target stable id: ".$gene->stable_id());
         # TEST!!!!!!!!!!
@@ -785,50 +846,53 @@ sub list_high_confidence_genes {
         $gene->{'neighbourhood_score'} = 0;
         next;
       }
-      $self->set_neighbourhood_score($gene,${$source_genes_by_stable_id->{$gene->stable_id}}[0]);
+      $self->set_neighbourhood_score($gene,$source_gene);
     }
+  }
 
 
-    # We now have a score on each gene in terms of how similar the source and target neighbours are (though a very basic calculation)
-    # We can start deciding what genes are high confidence at this point
-    my $neighbourhood_cutoff = 0.8;
-    foreach my $id (keys(%$target_genes_by_stable_id)) {
-
-      my $genes = $target_genes_by_stable_id->{$id};
-      my $gene =  ${$genes}[0];
+  # We now have a score on each gene in terms of how similar the source and target neighbours are (though a very basic calculation)
+  # We can start deciding what genes are high confidence at this point
+  my $neighbourhood_cutoff = 0.8;
+  foreach my $id (keys(%$target_genes_by_stable_id)) {
+    my $genes = $target_genes_by_stable_id->{$id};
+    my $gene =  ${$genes}[0];
       # TEST!!!!!!!!!!!!!!!!!!
-      unless($gene->seq_region_name eq '17') {
-        next;
-      }
+#      unless($gene->seq_region_name eq '17') {
+#        next;
+#      }
 
-      my $source_gene = ${$source_genes_by_stable_id->{$id}}[0];
-      my $source_transcripts = $source_gene->get_all_Transcripts();
-
-      if(scalar(@$genes) > 1) {
-        say "  Gene with stable id ".$id." has multiple mappings, so not high confidence";
-        next;
-      }
-
-      unless($gene->{'complete_mapping'}) {
-        say "  Gene with stable id ".$id." fails the transcript mapping check, so not high confidence";
-        next;
-      }
-
-      if($gene->{'neighbourhood_score'} < $neighbourhood_cutoff) {
-        say "  Gene with stable id ".$gene->stable_id." fails the neighbourhood score cutoff, so not high confidence";
-        next;
-      }
-
-
-      # At this point we are reasonably confident the gene is mapped correctly because it only maps in one place, has
-      # all the transcripts mapped with hight coverage and identity and it has a very similar set of neighbouring genes
-      # The weakness here is in the fact that the similar set of neighbouring genes is not that strict, but at the same
-      # time some of these assemblies are scaffold level and thus break synteny artifically, there are real expansions
-      # and contractions and the fact that these are single loci and have excellent mapping scores means it should almost
-      # always be correct
-      $gene->{'is_high_confidence'} = 1;
-      push(@$high_confidence_genes,$gene);
+    my $source_gene = ${$source_genes_by_stable_id->{$id}}[0];
+    # TEST!!!!!!!!!
+    unless($source_gene) {
+      next;
     }
+
+    my $source_transcripts = $source_gene->get_all_Transcripts();
+
+    if(scalar(@$genes) > 1) {
+      say "  Gene with stable id ".$id." has multiple mappings, so not high confidence";
+      next;
+    }
+
+    unless($gene->{'complete_mapping'}) {
+      say "  Gene with stable id ".$id." fails the transcript mapping check, so not high confidence";
+      next;
+    }
+
+    if($gene->{'neighbourhood_score'} < $neighbourhood_cutoff) {
+      say "  Gene with stable id ".$gene->stable_id." fails the neighbourhood score cutoff, so not high confidence. Score: ".$gene->{'neighbourhood_score'};
+      next;
+    }
+
+    # At this point we are reasonably confident the gene is mapped correctly because it only maps in one place, has
+    # all the transcripts mapped with hight coverage and identity and it has a very similar set of neighbouring genes
+    # The weakness here is in the fact that the similar set of neighbouring genes is not that strict, but at the same
+    # time some of these assemblies are scaffold level and thus break synteny artifically, there are real expansions
+    # and contractions and the fact that these are single loci and have excellent mapping scores means it should almost
+    # always be correct
+    $gene->{'is_high_confidence'} = 1;
+    push(@$high_confidence_genes,$gene);
   }
 
   say "Found ".scalar(@$high_confidence_genes)." high confidence genes in target";
@@ -895,6 +959,7 @@ sub check_complete_mapping {
 sub set_neighbourhood_score {
   my ($self,$target_gene,$source_gene) = @_;
 
+#  say "FERGAL TARGET: ".$target_gene->stable_id;
   my $neighbour_limit = 100;
   my $source_neighbours = $source_gene->{'sorted_neighbours'};
   my $filtered_source_neighbours = [];
@@ -956,9 +1021,9 @@ sub list_missing_genes {
     unless($target_genes_by_stable_id->{$stable_id}) {
       say "Missing the following stable id in target, will add to list: ".$stable_id;
       # TEST!!!!!!!!!!!!!!!!!!!
-      unless(${$source_genes_by_stable_id->{$stable_id}}[0]->seq_region_name eq '17') {
-        next;
-      }
+#      unless(${$source_genes_by_stable_id->{$stable_id}}[0]->seq_region_name eq '17') {
+#        next;
+#      }
       push(@$missing_source_genes,${$source_genes_by_stable_id->{$stable_id}}[0]);
     }
   }
@@ -1157,12 +1222,13 @@ sub process_results {
         $transcript->description($updated_description);
       }
 
+      $gene->{'to_write'} = 1;
       push(@$final_genes,$gene);
     }
 
   }
 
-  say "Build ".scalar(@$final_genes)." final genes";
+  say "Built ".scalar(@$final_genes)." final genes";
   return($final_genes);
 #  push(@$target_genes,@$final_genes);
 #  $self->output($final_genes);
@@ -1416,6 +1482,7 @@ sub filter_paf_hits {
   }
 
   my $overlapping_paf_results = [];
+  my $non_overlapping_paf_results = [];
   foreach my $paf_result (@$paf_results) {
     my $paf_target_genomic_start = ${$paf_result}[7];
     my $paf_target_genomic_end = ${$paf_result}[8];
@@ -1424,12 +1491,13 @@ sub filter_paf_hits {
     my $paf_hit_identities = ${$paf_result}[9];
     my $paf_perc_ident = $paf_hit_identities/$paf_hit_length;
 
-    if($gene_left_boundary and $gene_right_boundary and $gene_target_slice) {
-      unless($paf_target_genomic_start >= $gene_left_boundary and $paf_target_genomic_end <= $gene_right_boundary and $gene_target_slice eq $paf_target_genomic_name and $paf_perc_ident >= $hit_identity_cutoff) {
-        next;
-      } else {
-        push(@$overlapping_paf_results,$paf_result);
-      }
+    if(($gene_left_boundary and $gene_right_boundary and $gene_target_slice) and
+       ($paf_target_genomic_start >= $gene_left_boundary and $paf_target_genomic_end <= $gene_right_boundary and $gene_target_slice eq $paf_target_genomic_name and $paf_perc_ident >= $hit_identity_cutoff)) {
+#      unless($paf_target_genomic_start >= $gene_left_boundary and $paf_target_genomic_end <= $gene_right_boundary and $gene_target_slice eq $paf_target_genomic_name and $paf_perc_ident >= $hit_identity_cutoff) {
+#        next;
+#      } else {
+      push(@$overlapping_paf_results,$paf_result);
+#      }
     } elsif($paf_perc_ident >= $hit_identity_cutoff) {
       say "Missing gene ".$gene->stable_id()." did not have an identified high confidence target region. Will take only the top paf as it passes the identity cutoff";
       push(@$overlapping_paf_results,$paf_result);

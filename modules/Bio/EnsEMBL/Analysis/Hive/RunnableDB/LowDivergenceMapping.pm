@@ -177,9 +177,13 @@ sub write_output {
   my $output_gene_adaptor = $target_gene_dba->get_GeneAdaptor;
   my $output_genes = $self->output();
   foreach my $output_gene (@$output_genes) {
-    say "Final gene: ".$output_gene->stable_id()." ".$output_gene->seq_region_start.":".$output_gene->seq_region_end.":".$output_gene->seq_region_strand.":".$output_gene->seq_region_name;
-    empty_Gene($output_gene);
-    $output_gene_adaptor->store($output_gene);
+#    say "Final gene: ".$output_gene->stable_id()." ".$output_gene->seq_region_start.":".$output_gene->seq_region_end.":".$output_gene->seq_region_strand.":".$output_gene->seq_region_name;
+    if($output_gene->{'to_remove'} and !($output_gene->{'to_write'})) {
+      $output_gene_adaptor->remove($output_gene);
+    } elsif($output_gene->{'to_write'} and !($output_gene->{'to_remove'})) {
+      empty_Gene($output_gene);
+      $output_gene_adaptor->store($output_gene);
+    }
   }
 
   return 1;
