@@ -1069,11 +1069,8 @@ sub align_nucleotide_seqs {
     $cmd = $align_program_path." -in ".$align_input_file." -out ".$align_output_file;
   }
 
-  my $result = system($cmd);
-
-  if ($result) {
-    throw("Got a non-zero exit code from alignment. Command line used:\n".$cmd);
-  }
+  warning($cmd);
+  execute_with_wait($cmd);
 
   my $file = "";
   open(ALIGN,$align_output_file) or die("Could not open $align_output_file");
