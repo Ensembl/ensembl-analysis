@@ -321,6 +321,17 @@ sub fetch_input_genes_by_id {
     } # End foreach my $transcript
 
     unless($is_readthrough) {
+      # This is to load the gene and transcripts and limit the connections to the server later
+      foreach my $transcript (@{$gene->get_all_Transcripts}) {
+        $transcript->get_all_Exons;
+        if ($transcript->translation) {
+          $transcript->get_all_alternative_translations();
+          $transcript->translation->get_all_Attributes;
+          $transcript->translation->get_all_SeqEdits;
+          $transcript->translate;
+        }
+        $transcript->get_all_SeqEdits();
+      }
       push(@$input_genes,$gene);
     }
   }
