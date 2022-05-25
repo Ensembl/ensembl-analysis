@@ -316,6 +316,9 @@ sub process_results {
   my $global_transcripts_by_id = {};
   foreach my $transcript (@$global_mapped_transcripts) {
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id};
+    if ($source_transcript->translation) {
+      $self->calculate_translation_based_on_source_transcript($transcript, $source_transcript);
+    }
     my ($mapped_coverage,$mapped_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->seq->seq(),$transcript->seq->seq());
     $transcript->{'cov'} = $mapped_coverage;
     $transcript->{'perc_id'} = $mapped_percent_id;
@@ -921,12 +924,15 @@ sub map_gene_minimap {
   }
 
   say "Generating initial set of minimap2 mappings";
-  my $minimap_transcripts = $self->generate_minimap_transcripts($source_transcript_fasta_seqs,$target_genome_index,$target_adaptor,$target_genomic_start,$max_intron_size);
+  my $minimap_transcripts = $self->generate_minimap_transcripts($source_transcript_fasta_seqs,$target_genome_file,$target_adaptor,$target_genomic_start,$max_intron_size, $target_region_slice);
 
   my $transcripts_by_id = {};
   foreach my $transcript (@$minimap_transcripts) {
     $transcripts_by_id->{$transcript->stable_id} = $transcript;
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id};
+    if ($source_transcript->translation) {
+      $self->calculate_translation_based_on_source_transcript($transcript, $source_transcript);
+    }
 
     my ($mapped_coverage,$mapped_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->seq->seq(),$transcript->seq->seq());
     $transcript->{'cov'} = $mapped_coverage;
@@ -1438,7 +1444,7 @@ sub set_complete_transcript_cds {
 
 
 sub generate_minimap_transcripts {
-  my ($self,$source_transcript_fasta_seqs,$target_genome_index,$target_adaptor,$target_genomic_start,$max_intron_size) = @_;
+  my ($self,$source_transcript_fasta_seqs,$target_genome_index,$target_adaptor,$target_genomic_start,$max_intron_size, $target_region_slice) = @_;
 
   # This will take in the target genomic region (via the index)
   my $coverage_cutoff = 80;
@@ -1462,6 +1468,7 @@ sub generate_minimap_transcripts {
        -max_intron_size          => $max_intron_size,
        -perc_id                  => $perc_id_cutoff,
        -coverage                 => $coverage_cutoff,
+       -query                    => $target_region_slice,
   );
 
   $runnable->run();
@@ -2007,7 +2014,7 @@ sub create_gene_from_cluster {
     if($is_canonical) {
       $transcript->is_canonical(1);
     }
-    if ($transcript->{annotation_method} eq 'exonerate_local') {
+    if ($transcript->{annotation_method} eq 'exonerate_local' or $transcript->{annotation_method} eq 'minimap_local') {
       my $toplevel_transcript = $transcript->transfer($transcript->slice->seq_region_Slice);
       if (!$toplevel_transcript) {
         $self->throw('Could not transfer '.$transcript->display_id.' from '.$transcript->slice->name.' to toplevel');
@@ -2370,6 +2377,130 @@ sub revcomp {
   my $revcomp = reverse $seq;
   $revcomp =~ tr/ATGCatgc/TACGtacg/;
   return($revcomp);
+}
+
+
+=head2 calculate_translation_based_on_source_transcript
+
+ Arg [1]    : Bio::EnsEMBL::Transcript $transcript, the aligned transcript
+ Arg [2]    : Bio::EnsEMBL::Transcript $source_transcript, the source transcript
+ Description: Set the translation of the aligned transcript using the CIGAR strings
+              and informations from the source transcript like the original translation
+              coordinates
+              If a translation is already set, it doesn't do any processing
+ Returntype : Bio::EnsEMBL::Transcript
+ Exceptions : Throws if start_Exon or end_Exon is not set
+
+=cut
+
+sub calculate_translation_based_on_source_transcript {
+  my ($self, $transcript, $source_transcript) = @_;
+
+  my $original_cdna_coding_start = $source_transcript->cdna_coding_start;
+  my $original_cdna_coding_end = $source_transcript->cdna_coding_end;
+  if (!$transcript->translation) {
+    my $last_exon = $transcript->end_Exon;
+    my $last_sf = $last_exon->get_all_supporting_features->[0];
+    if ($original_cdna_coding_end > $last_sf->hend) {
+      $original_cdna_coding_end = $last_sf->hend;
+    }
+    my $original_start_phase = $source_transcript->translation->start_Exon->phase;
+    my $new_translation = $transcript->translation || $source_transcript->translation->new;
+    $transcript->translation(undef);
+    if ($last_sf->hend < $original_cdna_coding_start) {
+      return $transcript;
+    }
+    my $first_exon = $transcript->start_Exon;
+    my $first_sf = $first_exon->get_all_supporting_features->[0];
+    if ($original_cdna_coding_start < $first_sf->hstart) {
+      my $removed_length = $first_sf->hstart-$original_cdna_coding_start;
+      if ($original_start_phase != -1) {
+        $original_start_phase = ($original_start_phase+$removed_length)%3;
+      }
+      else {
+        $original_start_phase = $removed_length%3;
+      }
+      $new_translation->start(1);
+      $first_exon->phase($original_start_phase);
+      $new_translation->start_Exon($first_exon);
+      $transcript->cdna_coding_start(1);
+    }
+    my $source_cdna_start = $first_sf->hstart;
+    my $source_cdna_end = $source_cdna_start;
+    my $cdna_coding_start = $first_sf->hstart;
+    my $cdna_coding_end = $cdna_coding_start;
+    foreach my $exon (@{$transcript->get_all_Exons}) {
+      foreach my $sf (@{$exon->get_all_supporting_features}) {
+        my $cigar_string = $sf->cigar_string;
+        my $exon_start = 1;
+        my $exon_end = 1;
+        my $cdna_start_exon_start = $cdna_coding_start;
+        my $cdna_end_exon_start = $cdna_coding_end;
+        while ($cigar_string =~ /(\d*)([MDI])/gc) {
+          my $len = $1 || 1;
+          if ($2 eq 'M') {
+            if (!$transcript->cdna_coding_start) {
+              if ($source_cdna_start+$len > $original_cdna_coding_start) {
+                my $diff = $original_cdna_coding_start-$source_cdna_start;
+                if ($diff >= 0) {
+                  $cdna_coding_start += $diff;
+                  $exon_start = $cdna_coding_start-$cdna_start_exon_start+1;
+                }
+                else {
+                  my $phase = abs($diff)%3;
+                  if ($phase > 0) {
+                    $cdna_coding_start += 1;
+                    $exon_start += $cdna_coding_start-$cdna_start_exon_start;
+                  }
+                }
+                $transcript->cdna_coding_start($cdna_coding_start);
+                $new_translation->start_Exon($exon);
+                $new_translation->start($exon_start);
+              }
+              else {
+                $source_cdna_start += $len;
+                $cdna_coding_start += $len;
+              }
+            }
+            if (!$transcript->cdna_coding_end) {
+              if ($source_cdna_end+$len > $original_cdna_coding_end) {
+                my $diff = $original_cdna_coding_end-$source_cdna_end;
+                if ($diff >= 0) {
+                  $cdna_coding_end += $diff;
+                  $exon_end = $cdna_coding_end-$cdna_end_exon_start+1;
+                }
+                $transcript->cdna_coding_end($cdna_coding_end);
+                $new_translation->end_Exon($exon);
+                $new_translation->end($exon_end);
+              }
+              else {
+                $source_cdna_end += $len;
+                $cdna_coding_end += $len;
+              }
+            }
+          }
+          elsif ($2 eq 'D') {
+            $source_cdna_start += $len;
+            $source_cdna_end += $len;
+          }
+          elsif ($2 eq 'I') {
+            $cdna_coding_start += $len;
+            $cdna_coding_end += $len;
+          }
+        }
+      }
+      last if ($transcript->cdna_coding_start and $transcript->cdna_coding_end);
+    }
+    if ($new_translation->start_Exon and $new_translation->end_Exon and $new_translation->start and $new_translation->end) {
+      $transcript->translation($new_translation);
+      calculate_exon_phases($transcript, $original_start_phase);
+    }
+    else {
+      $self->throw('start or end exon is missing: '.($new_translation->start_Exon || 'Start missing').' '.($new_translation->end_Exon || 'End missing'));
+    }
+
+  }
+  return $transcript;
 }
 
 1;
