@@ -1540,65 +1540,75 @@ sub run_exonerate {
     return($output_transcripts);
   }
 
-  say "Running Exonerate on ".$source_transcript->stable_id();
+  my %parameters = (-coverage_by_aligned => 1);
+  $parameters{-options} = "--forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE ".
+                          "--saturatethreshold 100 --dnawordlen 15 --dnahspthreshold 60 --bestn 2 --maxintron ".$max_intron_size;
   my $annotation_features;
   my $non_coding_transcript = 0;
   if($source_transcript->translation()) {
     $annotation_features = $self->create_annotation_features($source_transcript);
+    $parameters{-options} .= ' --model cdna2genome --codonwordlen 15';
+    if ($source_transcript->length < 50) {
+      $parameters{-options} .= ' --score 50';
+    }
+    else {
+      $parameters{-options} .= ' --score 500';
+    }
+
   } else {
     $non_coding_transcript = 1;
+    $parameters{-options} .= ' --model est2genome';
   }
-
-  my $source_transcript_header = $source_transcript->stable_id.'.'.$source_transcript->version;
-  my $source_transcript_seq_object = Bio::Seq->new(-display_id => $source_transcript_header, -seq => $source_transcript->seq->seq());
-
-
-  my %parameters = ();
-  $parameters{-options} = "--model cdna2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --score 500 ".
-                          "--saturatethreshold 100 --dnawordlen 15 --codonwordlen 15 --dnahspthreshold 60 --bestn 1 --maxintron ".$max_intron_size;
-  $parameters{-coverage_by_aligned} = 1;
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
                     -program  => '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/opt/exonerate22/bin/exonerate',
-                    -analysis => $self->analysis(),
+                    -analysis => $self->analysis,
                     -query_type     => "dna",
                     -calculate_coverage_and_pid => 1,
-                    -annotation_features => $annotation_features,
                     -non_coding_transcript => $non_coding_transcript,
                      %parameters,
                  );
 
+  if ($annotation_features) {
+    $runnable->annotation_features($annotation_features);
+  }
   $runnable->target_seqs([$target_region_slice]);
-  $runnable->query_seqs([$source_transcript_seq_object]);
+  $runnable->query_seqs([$source_transcript->seq]);
   $runnable->run();
   if (scalar(@{$runnable->output()})) {
-    my $initial_output_transcript = ${$runnable->output()}[0];
-    my $output_transcript = $self->update_exonerate_transcript_coords($initial_output_transcript,$target_slice_adaptor);
-    if ($source_transcript->translation() and $output_transcript->translation()) {
-      $self->check_exonerate_translation($source_transcript,$output_transcript);
+    my $output_transcript = ${$runnable->output()}[0];
+    attach_Slice_to_Transcript($output_transcript, $target_region_slice);
+    attach_Analysis_to_Transcript($output_transcript, $self->analysis);
+    my $source_translation = $source_transcript->translation;
+    if ($source_translation) {
+      my $output_translation = $output_transcript->translation;
+      if ($output_translation) {
+        if ($source_translation->start_Exon->phase > 0 and $output_translation->start_Exon->phase == -1) {
+          if ($output_translation->start > 3) {
+            $self->warning("Partial transcript, start should be less than 4, not ".$output_translation->start);
+          }
+          else {
+            if ($output_translation->start == 2) {
+              $output_translation->start_Exon->phase(2);
+            }
+            elsif ($output_translation->start == 3) {
+              $output_translation->start_Exon->phase(1);
+            }
+            else {
+              $output_translation->start_Exon->phase(0);
+            }
+            $output_translation->start(1);
+          }
+        }
+      }
+      else {
+        $self->warning($source_transcript->display_id.' FAILED no translation for a protein coding transcript');
+      }
+    }
+    else {
+      $output_transcript->translation(undef);
     }
 
-#    my $transcript_after_replaced_stops = $output_transcript;
-#    if ($output_transcript->translate() and $output_transcript->translate()->seq()) {
-#      $transcript_after_replaced_stops = replace_stops_with_introns($output_transcript,$max_stops);
-#      if ($transcript_after_replaced_stops and $transcript_after_replaced_stops->translate()->seq() !~ /\*/) {
-#        ;#push(@$output_transcripts,$transcript_after_replaced_stops);
-#      } elsif ($transcript_after_replaced_stops and !($transcript_after_replaced_stops->translate())) {
-#        print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$output_transcript->seq_region_start().",".$output_transcript->seq_region_end().",".$output_transcript->seq_region_strand().",".$output_transcript->seq_region_name().") does not translate after repl#acing a maximum of $max_stops stops. Removing translation and setting biotype to processed_transcript.\n";
-#        $transcript_after_replaced_stops->translation(undef);
-#        $transcript_after_replaced_stops->biotype("processed_transcript");
-#      } elsif ($transcript_after_replaced_stops) {
-#        print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$output_transcript->seq_region_start().",".$output_transcript->seq_region_end().",".$output_transcript->seq_region_strand().",".$output_transcript->seq_region_name().") has more than the maximum of $max_stops stops or it has stops after replace_stops_with_introns. Removing translation and setting biotype to processed_transcript.\n";
-#        $transcript_after_replaced_stops->translation(undef);
-#        $transcript_after_replaced_stops->biotype("processed_transcript");
-#      } else {
-#        print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$output_transcript->seq_region_start().",".$output_transcript->seq_region_end().",".$output_transcript->seq_region_strand().",".$output_transcript->seq_region_name().") replace_stops_with_introns failed. Pushing transcript as it was before the attempt to replace stops.\n";
-#        $transcript_after_replaced_stops = $output_transcript;
-#      }
-#    }
-#    if ($transcript_after_replaced_stops->translation()) {
-#      $self->check_and_fix_translation_boundaries($transcript_after_replaced_stops);
-#    }
     $output_transcript->stable_id($source_transcript->dbID());
     push(@$output_transcripts,$output_transcript);
   }
@@ -1997,6 +2007,16 @@ sub create_gene_from_cluster {
     if($is_canonical) {
       $transcript->is_canonical(1);
     }
+    if ($transcript->{annotation_method} eq 'exonerate_local') {
+      my $toplevel_transcript = $transcript->transfer($transcript->slice->seq_region_Slice);
+      if (!$toplevel_transcript) {
+        $self->throw('Could not transfer '.$transcript->display_id.' from '.$transcript->slice->name.' to toplevel');
+      }
+      else {
+        $toplevel_transcript->{annotation_method} = $transcript->{annotation_method};
+        $transcript = $toplevel_transcript;
+      }
+    }
 
     $transcript->source($source);
     $gene->add_Transcript($transcript);
@@ -2122,18 +2142,22 @@ sub create_annotation_features {
 
   my $cds_start  = $transcript->cdna_coding_start;
   my $cds_end    = $transcript->cdna_coding_end;
-  my $stable_id  = $transcript->stable_id.".".$transcript->version;
-
 
   my $start_phase = $transcript->translation->start_Exon->phase();
   my $end_phase = $transcript->translation->end_Exon->end_phase();
+  if ($start_phase > 0) {
+    $cds_start += $start_phase == 1 ? 2 : 1;
+  }
+  if ($end_phase > 0) {
+    $cds_end -= $end_phase;
+  }
 
-  my $annotation_feature = Bio::EnsEMBL::Feature->new(-seqname => $stable_id,
+  my $annotation_feature = Bio::EnsEMBL::Feature->new(-seqname => $transcript->stable_id,
                                                       -strand  => 1,
                                                       -start   => $cds_start,
                                                       -end     => $cds_end);
 
- my $annotation_features->{$stable_id} = $annotation_feature;
+ my $annotation_features->{$transcript->stable_id_version} = $annotation_feature;
  return($annotation_features);
 }
 
