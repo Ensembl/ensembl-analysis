@@ -1095,15 +1095,15 @@ sub align_nucleotide_seqs {
 
   # Work out coverage
   my $coverage;
-  my $temp = $aligned_target_seq;
-  my $projected_gap_count = $temp =~ s/\-//g;
-  my $ungapped_source_seq = $aligned_source_seq;
-  $ungapped_source_seq  =~ s/\-//g;
+  my $projected_gap_count = $aligned_target_seq =~ tr/-/-/;
+  my $source_length = length($source_protein_seq);
+  my $source_gap_count = $aligned_source_seq =~ tr/-/-/;
+  $source_length -= $source_gap_count;
 
-  if (length($ungapped_source_seq) == 0) {
+  if ($source_length == 0) {
     $coverage = 0;
   } else {
-    $coverage = 100-(($projected_gap_count/length($ungapped_source_seq))*100);
+    $coverage = 100-(($projected_gap_count/$source_length)*100);
   }
 
   # Work out percent identity
