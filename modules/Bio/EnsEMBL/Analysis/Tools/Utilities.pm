@@ -945,9 +945,9 @@ sub align_proteins {
 sub align_proteins_with_alignment {
   my ($source_protein_seq,$target_protein_seq) = @_;
 
-  my $align_input_file = "/tmp/align_".$$.".fa";
-  my $align_output_file = "/tmp/align_".$$.".aln";
-  my $align_progress_file = "/tmp/align_".$$.".log";
+  my $align_input_file = create_file_name('align', 'fa');
+  my $align_output_file = create_file_name('align', 'aln');
+  my $align_progress_file = create_file_name('align', 'log');
 
   open(INPUT,">".$align_input_file);
   say INPUT ">query";
@@ -1050,9 +1050,9 @@ sub align_proteins_with_alignment {
 sub align_nucleotide_seqs {
   my ($source_protein_seq,$target_protein_seq,$program) = @_;
 
-  my $align_input_file = "/tmp/align_".$$.".fa";
-  my $align_output_file = "/tmp/align_".$$.".aln";
-  my $align_progress_file = "/tmp/align_".$$.".log";
+  my $align_input_file = create_file_name('align', 'fa');
+  my $align_output_file = create_file_name('align', 'aln');
+  my $align_progress_file = create_file_name('align', 'log');
 
   open(INPUT,">".$align_input_file);
   say INPUT ">query";
