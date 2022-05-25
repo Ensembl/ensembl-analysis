@@ -124,12 +124,12 @@ sub run {
   execute_with_wait($minimap2_command);
 
   my $paf_results = [];
-  open(IN,$paf_file);
+  open(IN, $paf_file) or $self->throw("Could not open $paf_file for reading");
   while(<IN>) {
     chomp($_);
     push(@$paf_results,$_);
   }
-  close IN;
+  close(IN) or $self->throw("Could not close $paf_file");
 
   my $high_confidence = 0;
   my $total_results = 0;
