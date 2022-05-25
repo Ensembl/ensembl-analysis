@@ -252,11 +252,9 @@ sub process_results {
     }
 
     # Note that we are going to use the forward strand regardless of what strand the PAF hit is on here because minimap2/exonerate assume the region is on the forward strand
-    my $target_sequence_adaptor = $target_adaptor->get_SequenceAdaptor;
-    my $target_genomic_seq = ${ $target_sequence_adaptor->fetch_by_Slice_start_end_strand($target_parent_slice, $target_genomic_start, $target_genomic_end, 1) };
-    my $target_region_slice = $target_slice_adaptor->fetch_by_region('toplevel', $target_genomic_name, $target_genomic_start, $target_genomic_end, 1);
+    my $target_region_slice = $target_parent_slice->sub_Slice($target_genomic_start, $target_genomic_end);
     say "Target slice identified to search for transcripts in after first pass: ".$target_region_slice->name();
-    my $target_genomic_fasta = ">".$target_genomic_name."\n".$target_genomic_seq;
+    my $target_genomic_fasta = ">".$target_genomic_name."\n".$target_region_slice->seq;
     my $target_genome_file = $self->write_input_file([$target_genomic_fasta]);
 
     say "Projecting gene: ".$source_gene->stable_id();
