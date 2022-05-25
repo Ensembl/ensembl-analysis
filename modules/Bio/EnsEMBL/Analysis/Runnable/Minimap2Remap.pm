@@ -1204,6 +1204,8 @@ sub project_gene_coords {
     say "Aligned source and target regions with MAFFT: Coverage: ".$coverage.", Percent id: ".$percent_id;
   }
 
+  $self->source_adaptor->dbc->disconnect_when_inactive(0);
+  $self->target_adaptor->dbc->disconnect_when_inactive(0);
   # Check if there's an issue with the alignment, MAFFT can sometimes get regions with duplications completely wrong
   if($coverage < 90 or $percent_id < 95 and $gene->length < $gene_length_threshold) {
     say "MAFFT coverage/id failed threshold, will re-align with MUSCLE and take the alignment with the highest combined coverage/id";
