@@ -1054,12 +1054,12 @@ sub align_nucleotide_seqs {
   my $align_output_file = create_file_name('align', 'aln');
   my $align_progress_file = create_file_name('align', 'log');
 
-  open(INPUT,">".$align_input_file);
+  open(INPUT,">".$align_input_file) or throw("Could not open $align_input_file");
   say INPUT ">query";
   say INPUT $source_protein_seq;
   say INPUT ">target";
   say INPUT $target_protein_seq;
-  close INPUT;
+  close INPUT or throw("Could not close $align_input_file");
 
   my $align_program_path = 'mafft';
   my $cmd = $align_program_path." --progress ".$align_progress_file." --nuc ".$align_input_file." > ".$align_output_file;
@@ -1076,11 +1076,11 @@ sub align_nucleotide_seqs {
   }
 
   my $file = "";
-  open(ALIGN,$align_output_file);
+  open(ALIGN,$align_output_file) or die("Could not open $align_output_file");
   while (<ALIGN>) {
     $file .= $_;
   }
-  close ALIGN;
+  close ALIGN or die("Could not open $align_output_file");
 
   if ($file !~ /\>.+\n(([^>]+\n)+)\>.+\n(([^>]+\n)+)/) {
     warning("Could not parse the alignment file for the alignment sequences. Alignment file: ".$align_output_file);
