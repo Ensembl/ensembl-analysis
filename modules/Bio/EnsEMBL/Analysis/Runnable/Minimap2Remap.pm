@@ -547,7 +547,8 @@ sub project_cds {
   my $target_cds_start_index;
   my $target_cds_end_index;
   my $in_feature_alignment = 0;
-  my $out_of_feature_alignment = 0;
+  my $source_index_target_cds_start = 1;
+
   for(my $i=0; $i < scalar(@source_align_array); $i++) {
     my $source_value = $source_align_array[$i];
     my $target_value = $target_align_array[$i];
@@ -560,28 +561,35 @@ sub project_cds {
     }
 
     if($source_cds_pos == $source_cds_start) {
-      $source_cds_start_index = $source_cds_pos - 1;
+      $source_cds_start_index = $source_cds_pos;
       say "Index of the feature start in source seq: ".$source_cds_start_index;
       $in_feature_alignment = 1;
     }
 
     if($in_feature_alignment and $target_value ne '-' and !(defined($target_cds_start_index))) {
-      $target_cds_start_index = $target_cds_pos - 1;
+      $target_cds_start_index = $target_cds_pos;
+      $source_index_target_cds_start = $source_cds_pos;
     }
 
     if($source_cds_pos == $source_cds_end) {
-      $source_cds_end_index = $source_cds_pos - 1;
-      $target_cds_end_index = $target_cds_pos - 1;
+      $source_cds_end_index = $source_cds_pos;
+      $target_cds_end_index = $target_cds_pos;
       say "Index of the feature end in source seq: ".$source_cds_end_index;
       $in_feature_alignment = 0;
+      last;
     }
   }
 
   my $source_feature_length = $source_cds_end_index - $source_cds_start_index + 1;
   my $target_feature_length = $target_cds_end_index - $target_cds_start_index + 1;
-  my $recovered_source_feature_seq = substr($source_seq,$source_cds_start_index,$source_feature_length);
-  my $recovered_target_feature_seq = substr($target_seq,$target_cds_start_index,$target_feature_length);
+  my $recovered_source_feature_seq = substr($source_seq,$source_cds_start_index-1,$source_feature_length);
+  my $recovered_target_feature_seq = substr($target_seq,$target_cds_start_index-1,$target_feature_length);
   say "For transcript ".$source_transcript->stable_id()." original and mapped CDS sequences:\n".$recovered_source_feature_seq."\n".$recovered_target_feature_seq;
+  my $original_phase = 0;
+  if ($source_transcript->translation->start_Exon->phase > 0) {
+    $original_phase = $source_transcript->translation->start_Exon->phase;
+  }
+  my $phase_adjust = ($source_index_target_cds_start-$source_cds_start-$original_phase)%3;
 
   my $cds_start_exon;
   my $cds_end_exon;
@@ -594,20 +602,20 @@ sub project_cds {
     if(($target_cds_start_index >= $cumulative_length) and ($target_cds_start_index <= $cumulative_length + $exon->length())) {
       $cds_start_exon = $exon;
       if($transcript->strand == 1) {
-        $cds_start_offset = $target_cds_start_index - $cumulative_length + 1;
+        $cds_start_offset = $target_cds_start_index - $cumulative_length;
       } else {
-        say "FERGAL CDS START DEBUG: ".$exon->length." - (".($exon->length - $target_cds_start_index).") + 1";
-        $cds_start_offset = $exon->length - ($exon->length - $target_cds_start_index) - $cumulative_length + 1;
+        say "FERGAL CDS START DEBUG: ".$exon->length." - (".($exon->length - $target_cds_start_index).") - $cumulative_length";
+        $cds_start_offset = $exon->length - ($exon->length - $target_cds_start_index) - $cumulative_length;
       }
     }
 
     if(($target_cds_end_index >= $cumulative_length) and ($target_cds_end_index <= $cumulative_length + $exon->length())) {
       $cds_end_exon = $exon;
       if($transcript->strand == 1) {
-        $cds_end_offset = $target_cds_end_index - $cumulative_length + 1;
+        $cds_end_offset = $target_cds_end_index - $cumulative_length;
       } else {
-        say "FERGAL CDS END DEBUG: ".$exon->length." - (".($exon->length - $target_cds_end_index).") + 1";
-        $cds_end_offset = $exon->length - ($exon->length - $target_cds_end_index) - $cumulative_length + 1;
+        say "FERGAL CDS END DEBUG: ".$exon->length." - (".($exon->length - $target_cds_end_index).") - $cumulative_length";
+        $cds_end_offset = $exon->length - ($exon->length - $target_cds_end_index) - $cumulative_length;
       }
     }
     $cumulative_length += $exon->length();
@@ -637,11 +645,10 @@ sub project_cds {
   $transcript->translation($translation);
 
   # Set the phases
-  calculate_exon_phases($transcript,0);
+  calculate_exon_phases($transcript, $phase_adjust);
   # Set the phase of the start exon to match the start exon of the source. We probably want some checks on this in general to ensure there's a
   # valid alignment at the start of the CDS. If the start is not conserved the best option would probably be to clip the start in the target to
   # the nearest aligned codon
-  $transcript->translation->start_Exon->phase($source_transcript->translation->start_Exon->phase());
 
   say "For transcript ".$source_transcript->stable_id()." translateable seq:\n".$transcript->translateable_seq();
   say "For transcript ".$source_transcript->stable_id()." translation seq:\n".$transcript->translation->seq();
