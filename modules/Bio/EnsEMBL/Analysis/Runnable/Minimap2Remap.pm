@@ -1279,8 +1279,8 @@ sub project_feature {
   my $target_align_seq_pos = 0;
 
   # Seen to have some issue in terms of getting the real start/end for some features. Was using +1, but seems off
-  my $source_feature_seq_start =  $feature_start - $source_region_start;
-  my $source_feature_seq_end = $feature_end - $source_region_start;
+  my $source_feature_seq_start =  $feature_start - $source_region_start + 1;
+  my $source_feature_seq_end = $feature_end - $source_region_start + 1;
   say "Source feature seq start: ".$source_feature_seq_start;
   say "Source feature seq end: ".$source_feature_seq_end;
   say "Source region start: ".$source_region_start;
@@ -1292,7 +1292,6 @@ sub project_feature {
   my $target_seq_start_index;
   my $target_seq_end_index;
   my $in_feature_alignment = 0;
-  my $out_of_feature_alignment = 0;
   for(my $i=0; $i < scalar(@source_align_array); $i++) {
     my $source_value = $source_align_array[$i];
     my $target_value = $target_align_array[$i];
@@ -1319,7 +1318,13 @@ sub project_feature {
       $target_seq_end_index = $target_seq_pos;
       say "Index of the feature end in source seq: ".$source_seq_end_index;
       $in_feature_alignment = 0;
+      last;
     }
+  }
+
+  unless(defined($target_seq_start_index) and defined($target_seq_end_index)) {
+    $self->warning("Issue with recovering start/end of the exon feature in target alignment sequence, not building exon");
+    return;
   }
 
   my $source_feature_length = $source_seq_end_index - $source_seq_start_index + 1;
@@ -1327,11 +1332,6 @@ sub project_feature {
   my $recovered_source_feature_seq = substr($source_seq,$source_seq_start_index,$source_feature_length);
   if($exon->strand != 1) {
     $recovered_source_feature_seq = $self->revcomp($recovered_source_feature_seq);
-  }
-
-  unless(defined($target_seq_start_index) and defined($target_seq_end_index)) {
-    $self->warning("Issue with recovering start/end of the exon feature in target alignment sequence, not building exon");
-    return;
   }
 
   my $recovered_target_feature_seq = substr($target_seq,$target_seq_start_index,$target_feature_length);
@@ -1368,11 +1368,11 @@ sub build_projected_exon {
 
   say "Start/End index: ".$seq_start_index."/".$seq_end_index;
   if($target_strand == $exon->strand) {
-    $exon_start = $region_start + $seq_start_index;
-    $exon_end = $region_start + $seq_end_index;
+    $exon_start = $region_start + $seq_start_index-1;
+    $exon_end = $region_start + $seq_end_index-1;
   } else {
     # In this case we need to reverse the coords
-    $exon_end = $region_end - $seq_start_index;
+    $exon_end = $region_end - $seq_start_index+1;
     $exon_start = $exon_end - ($seq_end_index - $seq_start_index);
   }
 
@@ -1389,11 +1389,6 @@ sub build_projected_exon {
                                                -end_phase => $end_phase,
                                                -analysis  => $self->analysis,
                                                -slice     => $parent_slice);
-
-  if($transcript and $exon->is_coding($transcript)) {
-    $projected_exon->phase($exon->phase());
-    $projected_exon->end_phase($exon->end_phase());
-  }
 
   if($exon_start > $exon_end) {
     $self->throw("Created an exon where the start > than the end, this shouldn't be possible: ".$parent_slice->name." ".$exon->start."..".$exon->end." ".$target_strand);
