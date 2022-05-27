@@ -1426,80 +1426,85 @@ sub project_cds {
       last;
     }
   }
+  if ($target_cds_start_index and $target_cds_end_index) {
+    my $source_feature_length = $source_cds_end_index - $source_cds_start_index + 1;
+    my $target_feature_length = $target_cds_end_index - $target_cds_start_index + 1;
+    my $recovered_source_feature_seq = substr($source_seq,$source_cds_start_index-1,$source_feature_length);
+    my $recovered_target_feature_seq = substr($target_seq,$target_cds_start_index-1,$target_feature_length);
+    say "For transcript ".$source_transcript->stable_id()." original and mapped CDS sequences:\n".$recovered_source_feature_seq."\n".$recovered_target_feature_seq;
+    my $original_phase = 0;
+    if ($source_transcript->translation->start_Exon->phase > 0) {
+      $original_phase = $source_transcript->translation->start_Exon->phase;
+    }
+    my $phase_adjust = ($source_index_target_cds_start-$source_cds_start-$original_phase)%3;
 
-  my $source_feature_length = $source_cds_end_index - $source_cds_start_index + 1;
-  my $target_feature_length = $target_cds_end_index - $target_cds_start_index + 1;
-  my $recovered_source_feature_seq = substr($source_seq,$source_cds_start_index-1,$source_feature_length);
-  my $recovered_target_feature_seq = substr($target_seq,$target_cds_start_index-1,$target_feature_length);
-  say "For transcript ".$source_transcript->stable_id()." original and mapped CDS sequences:\n".$recovered_source_feature_seq."\n".$recovered_target_feature_seq;
-  my $original_phase = 0;
-  if ($source_transcript->translation->start_Exon->phase > 0) {
-    $original_phase = $source_transcript->translation->start_Exon->phase;
-  }
-  my $phase_adjust = ($source_index_target_cds_start-$source_cds_start-$original_phase)%3;
-
-  my $cds_start_exon;
-  my $cds_end_exon;
-  my $cds_start_offset = 0;
-  my $cds_end_offset = 0;
-  my $cumulative_length = 0;
-  my $exons = $transcript->get_all_Exons();
-  foreach my $exon (@$exons) {
-    say "Checking exons with the following start/end for CDS coords: ".$exon->start()."/".$exon->end();
-    if(($target_cds_start_index >= $cumulative_length) and ($target_cds_start_index <= $cumulative_length + $exon->length())) {
-      $cds_start_exon = $exon;
-      if($transcript->strand == 1) {
-        $cds_start_offset = $target_cds_start_index - $cumulative_length;
-      } else {
-        say "FERGAL CDS START DEBUG: ".$exon->length." - (".($exon->length - $target_cds_start_index).") - $cumulative_length";
-        $cds_start_offset = $exon->length - ($exon->length - $target_cds_start_index) - $cumulative_length;
+    my $cds_start_exon;
+    my $cds_end_exon;
+    my $cds_start_offset = 0;
+    my $cds_end_offset = 0;
+    my $cumulative_length = 0;
+    my $exons = $transcript->get_all_Exons();
+    foreach my $exon (@$exons) {
+      say "Checking exons with the following start/end for CDS coords: ".$exon->start()."/".$exon->end();
+      if(($target_cds_start_index >= $cumulative_length) and ($target_cds_start_index <= $cumulative_length + $exon->length())) {
+        $cds_start_exon = $exon;
+        if($transcript->strand == 1) {
+          $cds_start_offset = $target_cds_start_index - $cumulative_length;
+        } else {
+          say "FERGAL CDS START DEBUG: ".$exon->length." - (".($exon->length - $target_cds_start_index).") - $cumulative_length";
+          $cds_start_offset = $exon->length - ($exon->length - $target_cds_start_index) - $cumulative_length;
+        }
       }
+
+      if(($target_cds_end_index >= $cumulative_length) and ($target_cds_end_index <= $cumulative_length + $exon->length())) {
+        $cds_end_exon = $exon;
+        if($transcript->strand == 1) {
+          $cds_end_offset = $target_cds_end_index - $cumulative_length;
+        } else {
+          say "FERGAL CDS END DEBUG: ".$exon->length." - (".($exon->length - $target_cds_end_index).") - $cumulative_length";
+          $cds_end_offset = $exon->length - ($exon->length - $target_cds_end_index) - $cumulative_length;
+        }
+      }
+      $cumulative_length += $exon->length();
     }
 
-    if(($target_cds_end_index >= $cumulative_length) and ($target_cds_end_index <= $cumulative_length + $exon->length())) {
-      $cds_end_exon = $exon;
-      if($transcript->strand == 1) {
-        $cds_end_offset = $target_cds_end_index - $cumulative_length;
-      } else {
-        say "FERGAL CDS END DEBUG: ".$exon->length." - (".($exon->length - $target_cds_end_index).") - $cumulative_length";
-        $cds_end_offset = $exon->length - ($exon->length - $target_cds_end_index) - $cumulative_length;
-      }
+    unless($cds_start_exon and $cds_end_exon) {
+      # Note this is only for testing, if this happens we should just put a warning and do a compute_translation
+      # as there will probably be plenty of cases where a bad mapping means the exons are missing
+      $self->warning("For ".$source_transcript->stable_id()." couldn't find the equivalent CDS start/end exon in the alignment of the transcripts. ".
+                     "Will compute translation instead");
+      compute_best_translation($transcript);
+      return;
     }
-    $cumulative_length += $exon->length();
-  }
 
-  unless($cds_start_exon and $cds_end_exon) {
-    # Note this is only for testing, if this happens we should just put a warning and do a compute_translation
-    # as there will probably be plenty of cases where a bad mapping means the exons are missing
-    $self->warning("For ".$source_transcript->stable_id()." couldn't find the equivalent CDS start/end exon in the alignment of the transcripts. ".
-                   "Will compute translation instead");
-    compute_best_translation($transcript);
+    say "Orig CDS start/end exon lengths: ".$source_transcript->translation->start_Exon->length."/".$source_transcript->translation->end_Exon->length;
+    say "Orig CDS start/end exon phases: ".$source_transcript->translation->start_Exon->phase()."/".$source_transcript->translation->end_Exon->end_phase();
+    say "Orig CDS start exon frame: ".$source_transcript->translation->start_Exon->frame();
+    say "Orig CDS start/end exon offsets: ".$source_transcript->translation->start()."/".$source_transcript->translation->end();
+    say "CDS start/end index: ".$target_cds_start_index."/".$target_cds_end_index;
+    say "CDS start/end exon lengths: ".$cds_start_exon->length()."/".$cds_end_exon->length();
+    say "CDS start/end exon offsets: ".$cds_start_offset."/".$cds_end_offset;
+    my $translation = Bio::EnsEMBL::Translation->new();
+    $translation->start_Exon($cds_start_exon);
+    $translation->start($cds_start_offset);
+    $translation->end_Exon($cds_end_exon);
+    $translation->end($cds_end_offset);
+    $transcript->translation($translation);
+
+    # Set the phases
+    calculate_exon_phases($transcript, $phase_adjust);
+    # Set the phase of the start exon to match the start exon of the source. We probably want some checks on this in general to ensure there's a
+    # valid alignment at the start of the CDS. If the start is not conserved the best option would probably be to clip the start in the target to
+    # the nearest aligned codon
+
+    say "For transcript ".$source_transcript->stable_id()." translateable seq:\n".$transcript->translateable_seq();
+    say "For transcript ".$source_transcript->stable_id()." translation seq:\n".$transcript->translation->seq();
+    say "Source transcript translation seq:\n".$source_transcript->translation->seq();
+  }
+  else {
+    $self->warning('Could not find a CDS for the projection of '.$source_transcript->stable_id);
     return;
   }
-
-  say "Orig CDS start/end exon lengths: ".$source_transcript->translation->start_Exon->length."/".$source_transcript->translation->end_Exon->length;
-  say "Orig CDS start/end exon phases: ".$source_transcript->translation->start_Exon->phase()."/".$source_transcript->translation->end_Exon->end_phase();
-  say "Orig CDS start exon frame: ".$source_transcript->translation->start_Exon->frame();
-  say "Orig CDS start/end exon offsets: ".$source_transcript->translation->start()."/".$source_transcript->translation->end();
-  say "CDS start/end index: ".$target_cds_start_index."/".$target_cds_end_index;
-  say "CDS start/end exon lengths: ".$cds_start_exon->length()."/".$cds_end_exon->length();
-  say "CDS start/end exon offsets: ".$cds_start_offset."/".$cds_end_offset;
-  my $translation = Bio::EnsEMBL::Translation->new();
-  $translation->start_Exon($cds_start_exon);
-  $translation->start($cds_start_offset);
-  $translation->end_Exon($cds_end_exon);
-  $translation->end($cds_end_offset);
-  $transcript->translation($translation);
-
-  # Set the phases
-  calculate_exon_phases($transcript, $phase_adjust);
-  # Set the phase of the start exon to match the start exon of the source. We probably want some checks on this in general to ensure there's a
-  # valid alignment at the start of the CDS. If the start is not conserved the best option would probably be to clip the start in the target to
-  # the nearest aligned codon
-
-  say "For transcript ".$source_transcript->stable_id()." translateable seq:\n".$transcript->translateable_seq();
-  say "For transcript ".$source_transcript->stable_id()." translation seq:\n".$transcript->translation->seq();
-  say "Source transcript translation seq:\n".$source_transcript->translation->seq();
 }
 
 
