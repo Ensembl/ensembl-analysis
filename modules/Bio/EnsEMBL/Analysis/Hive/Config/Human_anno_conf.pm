@@ -617,7 +617,7 @@ sub pipeline_analyses {
 
       {
         -logic_name => 'map_remaining_genes',
-        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::LowDivergenceMapping',
+        -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Minimap2Remap',
         -parameters => {
                          genome_index   => '#reheadered_toplevel_genome_file#'.'.mmi',
                          source_dna_db => $self->o('reference_db'),
