@@ -51,6 +51,7 @@ sub param_defaults {
     patch_only => 0,
     lfs_stripe => 0,
     lfs_options => undef,
+    header => 'default',
   }
 }
 
@@ -144,6 +145,7 @@ sub run {
             ' -toplevel'.
             ' -onefile'.
             ' -nonref'.
+            ' -header '.$self->param('header').
             ' -filename '.catfile($self->param('output_path'), $self->param('species_name').$extension);
 
   $cmd .= $repeat_string if ($repeat_string);
