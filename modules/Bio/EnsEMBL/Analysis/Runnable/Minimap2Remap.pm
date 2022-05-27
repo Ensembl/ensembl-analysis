@@ -1,6 +1,6 @@
 =head1 LICENSE
 
- Copyright [2019-2020] EMBL-European Bioinformatics Institute
+ Copyright [2022] EMBL-European Bioinformatics Institute
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -26,34 +26,48 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::Star
+Bio::EnsEMBL::Analysis::Runnable::LowDivergenceMapping
 
 =head1 SYNOPSIS
 
   my $runnable =
-    Bio::EnsEMBL::Analysis::Runnable::Star->new();
+    Bio::EnsEMBL::Analysis::Runnable::LowDivergenceMapping->new();
 
  $runnable->run;
  my @results = $runnable->output;
 
 =head1 DESCRIPTION
 
-This module uses Star to align fastq to a genomic sequence. Star is a splice aware
-aligner. It creates output files with the reads overlapping splice sites and the reads
-aligning on the exons. Some reads are aligned multiple times in the genome.
+This module acts as a follow up to the LowDivergenceProjection module. It uses an alternative strategy to try and map genes
+and transcripts that are absent or problematic from the projected set. In some cases these genes will be correctly missing,
+so should not really be mapped, but this module will try anyway. The idea is to look at the expected location of the gene,
+based on finding syntenic regions in the source and target dbs through high confidence, unambiguous projections. High confidence
+unambiguous projections are ones that
+1) Have all their transcripts mapped >= 99 percent cov and identity
+2) Have only been mapped to one place
+3) Don't overlap with something, or only overlap with something that they overlap with in the source
+4) Have the same neighbouring genes as in source. Might need to be less strict on this due to scaffold level assemblies and
+   the fact that things were allowed multimap in the previous step. At the same time, it may be fine to be strict in practice
+   since the goal is to confidently get the region and not necessarily to completely pinpoint the exact location
+
+Another point to consider is that if the target gene is supposed to be between two high confidence projections and the region
+has shrunk in the target assembly versus the source, then that's an indication that a deletion/expansion might have happened
+
+The next step in the process is to take the combined set of genes from the two modules and remove things that shouldn't be there
 
 =head1 METHODS
 
 =cut
 
 
-package Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap;
+package Bio::EnsEMBL::Analysis::Runnable::LowDivergenceMapping;
 
 use warnings;
 use strict;
 use feature 'say';
 use Data::Dumper;
 use POSIX;
+use List::Util qw(min max);
 
 use Bio::EnsEMBL::Analysis::Runnable::Minimap2;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
@@ -83,7 +97,7 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($genome_index, $input_file, $paftools_path, $source_adaptor, $target_adaptor, $delete_input_file, $parent_genes, $parent_gene_ids, $gene_synteny_hash, $gene_genomic_seqs_hash, $no_projection) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH SOURCE_ADAPTOR TARGET_ADAPTOR DELETE_INPUT_FILE PARENT_GENES PARENT_GENE_IDS GENE_SYNTENY_HASH GENE_GENOMIC_SEQS_HASH NO_PROJECTION)],@args);
+  my ($genome_index, $input_file, $paftools_path, $source_adaptor, $target_adaptor, $delete_input_file, $parent_genes, $parent_gene_ids, $no_projection) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH SOURCE_ADAPTOR TARGET_ADAPTOR DELETE_INPUT_FILE PARENT_GENES PARENT_GENE_IDS NO_PROJECTION)],@args);
   $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->paftools_path($paftools_path);
@@ -92,8 +106,6 @@ sub new {
   $self->delete_input_file($delete_input_file);
   $self->genes_to_process($parent_genes);
   $self->parent_gene_ids($parent_gene_ids);
-  $self->gene_synteny_hash($gene_synteny_hash);
-  $self->gene_genomic_seqs_hash($gene_genomic_seqs_hash);
   $self->no_projection($no_projection);
   return $self;
 }
@@ -110,21 +122,99 @@ sub new {
 sub run {
   my ($self) = @_;
 
-  my $leftover_genes = [];
+  my $gene_genomic_seqs_hash = {};
+  my $source_adaptor = $self->source_adaptor();
+  my $target_adaptor = $self->target_adaptor();
+  my $source_gene_adaptor = $source_adaptor->get_GeneAdaptor();
+  my $target_gene_adaptor = $target_adaptor->get_GeneAdaptor();
+  my $source_genes = $self->genes_to_process();
+  # TEST!!!!!!!!!!!!!!!!
+#  my $test_slice = $target_adaptor->get_SliceAdaptor->fetch_by_region('toplevel','17');
+#  my $target_genes = $target_adaptor->get_GeneAdaptor->fetch_all_by_Slice($test_slice);
+
+  my $target_genes = $target_gene_adaptor->fetch_all();
+  my $source_genes_by_slice = $self->sort_genes_by_slice($source_genes);
+  my $target_genes_by_slice = $self->sort_genes_by_slice($target_genes);
+  my $source_genes_by_stable_id = $self->genes_by_stable_id($source_genes);
+  my $target_genes_by_stable_id = $self->genes_by_stable_id($target_genes);
+  say "Searching for missing source genes";
+  my $missing_source_genes = $self->list_missing_genes($source_genes_by_stable_id,$target_genes_by_stable_id);
+  say "Found ".scalar(@$missing_source_genes)." missing source genes";
+
+  foreach my $gene (@$target_genes) {
+    # TEST!!!!!
+#    unless($gene->seq_region_name eq '17') {
+#      next;
+#    }
+    my $source_gene = ${$source_genes_by_stable_id->{$gene->stable_id()}}[0];
+    # TEST!!!!!!!!!!!!!
+    unless($source_gene) {
+      next;
+    }
+    my $source_transcripts = $source_gene->get_all_Transcripts();
+    $self->check_complete_mapping($gene,$source_transcripts);
+  }
+
+  # This will add a list of all the genes on the slice ordered by increasing midpoint distance to every gene in the source set
+  # It's probably overkill to calculate all distances per gene, but will leave it this way for now. Later having all of them
+  # could allow a highly accurate global distance between the synteny of the source and target genes to be calculated
+  say "Calculating source gene neighbours and midpoints";
+  foreach my $slice (keys(%$source_genes_by_slice)) {
+    say " Getting info for source genes on region: ".$slice;
+    # TEST!!!!!!!!!!!!!!!!!
+#    unless($slice eq '17') {
+#      next;
+#    }
+    my $genes = $source_genes_by_slice->{$slice};
+    my $midpoint_coords_by_id = {};
+    foreach my $gene (@$genes) {
+      my $midpoint = $gene->start + ceil($gene->length()/2);
+      unless($midpoint_coords_by_id->{$gene->stable_id()}) {
+        $midpoint_coords_by_id->{$gene->stable_id()} = [];
+      }
+      push(@{$midpoint_coords_by_id->{$gene->stable_id()}},$midpoint);
+    }
+    foreach my $gene (@$genes) {
+      $self->set_closest_gene_ids($gene,$midpoint_coords_by_id);
+    }
+  }
+
+  say "Calculating high confidence genes in target";
+  my $high_confidence_genes = $self->list_high_confidence_genes($target_genes_by_slice,$target_genes_by_stable_id,$source_genes_by_stable_id);
+  my $high_confidence_genes_by_slice = $self->sort_genes_by_slice($high_confidence_genes);
+  my $high_confidence_genes_by_id = $self->genes_by_stable_id($high_confidence_genes);
+
+  my $high_confidence_count = 0;
+  foreach my $gene (@$target_genes) {
+    if($gene->{'is_high_confidence'}) {
+       $high_confidence_count++;
+    }
+  }
+
+  say "Got ".$high_confidence_count." high condfidence genes from a total of ".scalar(@$target_genes);
+
+
+  # Now that we have a high confidence set of genes, we want to take the missing genes and see where they should be located, then try to map
+  # them to the expected region
+  $self->set_expected_regions($missing_source_genes,$source_genes_by_slice,$high_confidence_genes_by_id);
+  my $missing_gene_reads_file = $self->create_input_file($missing_source_genes,$gene_genomic_seqs_hash,$source_adaptor);
+
+  # We want to take the missing genes, along with the flanking regions and then map, allowing secondary mappings. Foreach hit we should define the
+  # expected region to be covered by the gene. Then for the next hit, if it also falls in the boundary, we should check if it's redundant or if
+  # it overlaps and extends an existing region, or if it's a unique region. Basically we should get all hits within the region, extend as perdicted
+  # from the source region, order the extended hits and then merge into clustered regions. Foreach clustered region, then proceed normally with the
+  # analysis
+
+
   my $paf_file = $self->create_filename(undef,'paf');
   $self->files_to_delete($paf_file);
 
   my $genome_index  = $self->genome_index;
-  my $input_file    = $self->input_file;
   my $options = $self->options;
 
+
   # run minimap2
-  my $minimap2_command = $self->program." --cs --secondary=no -x map-ont ".$genome_index." ".$input_file." > ".$paf_file;
-#  `cp $input_file test_seqs.fa`;
-
-  $self->throw("DEBUG");
-
-#  my $minimap2_command = $self->program." --cs --secondary=no -x asm5  ".$genome_index." ".$input_file." > ".$paf_file;
+  my $minimap2_command = $self->program." --cs --secondary=yes -x map-ont ".$genome_index." ".$missing_gene_reads_file." > ".$paf_file;
   $self->warning("Command:\n".$minimap2_command."\n");
   if(system($minimap2_command)) {
     $self->throw("Error running minimap2\nError code: $?\nCommand line used:\n".$minimap2_command);
@@ -138,45 +228,853 @@ sub run {
   }
   close IN;
 
-  my $high_confidence = 0;
-  my $total_results = 0;
   my $processed_gene_ids = {};
   my $paf_results_hash = {};
   foreach my $paf_result (@$paf_results) {
     say "PAF results for first pass:\n".$paf_result;
     my @result_cols = split("\t",$paf_result);
-    my $gene_id = $result_cols[0];
-    if($paf_results_hash->{$gene_id}) {
-      push(@{$paf_results_hash->{$gene_id}},\@result_cols)
+    my $gene_stable_id = $result_cols[0];
+    if($paf_results_hash->{$gene_stable_id}) {
+      push(@{$paf_results_hash->{$gene_stable_id}},\@result_cols)
     } else {
-      $paf_results_hash->{$gene_id} = [\@result_cols];
+      $paf_results_hash->{$gene_stable_id} = [\@result_cols];
     }
-
-#    $paf_results_hash->{$gene_id} = \@result_cols;
   }
 
-#  $self->throw("DEbUG");
-
-  my $genes_to_process = $self->genes_to_process();
-  foreach my $gene (@$genes_to_process) {
+  my $all_recovered_genes = [];
+  foreach my $gene (@$missing_source_genes) {
     say "Processing source gene: ".$gene->stable_id();
-    $high_confidence += $self->process_results($gene,$paf_results_hash);
-    $total_results++;
+    my $paf_results = $paf_results_hash->{$gene->stable_id()};
+    $self->filter_paf_hits($gene,$paf_results);
+    my $recovered_genes = $self->process_results($gene,$gene_genomic_seqs_hash,$target_genes);
+    if(scalar(@$recovered_genes)) {
+      push(@$all_recovered_genes,@$recovered_genes);
+    }
   }
 
-  say "TOTAL RESULTS: ".$total_results;
-  say "HIGH CONFIDENCE: ".$high_confidence;
+  say "Got ".scalar(@$all_recovered_genes)." genes after recovery";
+
+
+  if(scalar(@$all_recovered_genes)) {
+    push(@$target_genes,@$all_recovered_genes);
+    $target_genes_by_slice = $self->sort_genes_by_slice($target_genes);
+    $target_genes_by_stable_id = $self->genes_by_stable_id($target_genes);
+    $high_confidence_genes = $self->list_high_confidence_genes($target_genes_by_slice,$target_genes_by_stable_id,$source_genes_by_stable_id);
+    $high_confidence_genes_by_slice = $self->sort_genes_by_slice($high_confidence_genes);
+    $high_confidence_genes_by_id = $self->genes_by_stable_id($high_confidence_genes);
+  }
+
+  # Because the target genes can have the same stable ids, and some of the recovered genes don't have dbIDs, assign unique internal ids
+  $self->assign_internal_ids($target_genes);
+
+  # Check for conflic. Conflict is when we have a gene with exon overlap with another gene, that it does not have exon overlap with in the reference
+  # There are different levels of conflict, for example a very minor overlap with a neighbouring gene in the reference might just be a slight misalignment
+  # of a UTR. Whereas if you have two genes with significant overlap, the assumption is that that are paralogues and thus one of them is mismapped. There
+  # might be lots of them mismapped at a locus. For the moment we just want to record if there is conflict
+  $self->check_conflict($target_genes_by_slice,$source_genes_by_slice,$source_genes_by_stable_id,$target_genes_by_stable_id,$high_confidence_genes_by_id);
+
+  # At this point any gene with conflict is labelled with $gene->{'genomic_conflict'} = 1 and has a list of conflicting stable ids with dbIDs as the values
+  # accessed via $gene->{'conflicting_genes'}->{$id} = $dbID
+  # This means we can loop through all the genes on the slice and decide what to do for each conflicting pair
+  $self->resolve_conflict($target_genes_by_slice,$source_genes_by_slice,$source_genes_by_stable_id,$target_genes_by_stable_id);
+
+  # The genes that have been recovered will have a 'to_write' tag, the ones to remove will have 'to_remove'. If a gene has both then
+  # the 'to_remove' supercedes the 'to_write'
+  $self->output($target_genes);
 } # End run
 
 
+sub resolve_conflict {
+  my ($self,$target_genes_by_slice,$source_genes_by_slice,$source_genes_by_stable_id,$target_genes_by_stable_id) = @_;
+
+  # This will go through the target genes and look for what overlaps then. First check stranded genomic overlap and
+  # then exon overlap. Conflict is when a gene has exon overlap (need to decide level of exon overlap), with something
+  # it does not have exon overlap with on the reference
+  say "Processing genes by slice to remove conflicts";
+  my $coverage_cutoff = 99;
+  my $identity_cutoff = 99;
+
+  my $genes_to_remove = {};
+  foreach my $slice (keys(%$target_genes_by_slice)) {
+    my $target_genes = $target_genes_by_slice->{$slice};
+    for(my $i=0; $i<scalar(@$target_genes)-1; $i++) {
+      my $gene = ${$target_genes}[$i];
+      unless($gene->{'genomic_conflict'}) {
+        next;
+      }
+
+      say "Examing gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is listed as having conflict";
+      if($genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}}) {
+        say "  Skipping gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is already listed for removal";
+        next;
+      }
+
+      say "  Gene ".$gene->stable_id()." is in conflict with ".scalar(keys(%{$gene->{'conflicting_genes'}}))." genes, processing to resolve conflict";
+
+      # How to resolve conflict, take the easiest cases first
+      # Gene A is high confidence, Gene B is not
+      # Gene A has a lower than expected cov/identity, gene B has passes
+      # Gene A is in expected location, gene B is not
+      # Gene A has a lower neighbourhood score than gene B
+      # Gene A further from expected order than gene B
+      # If it's sort of impossible to pick, just pick the one with the most exons
+      foreach my $stable_id (keys(%{$gene->{'conflicting_genes'}})) {
+        my $conflicting_db_id = $gene->{'conflicting_genes'}->{$stable_id};
+        # If the conlficting gene has already been processed for removal, then there's nothing to do
+        if($genes_to_remove->{$stable_id}->{$conflicting_db_id}) {
+          next;
+        }
+
+        my $conflicting_gene;
+        foreach my $target_conflicting_gene (@{$target_genes_by_stable_id->{$stable_id}}) {
+          if($target_conflicting_gene->{'internal_id'} == $conflicting_db_id) {
+            $conflicting_gene = $target_conflicting_gene;
+            last;
+          }
+        }
+
+        # We now have the current gene and the conflicting gene, so start filtering
+        # NOTE: ultimately a better strategy in terms of using syntenty info to begin with should go in here. But in this iteration
+        #       we will use a more straightforward strategy to begin with
+
+        # 1) Fliter based on confidence
+        if($gene->{'is_high_confidence'} and !($conflicting_gene->{'is_high_confidence'})) {
+          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as it is not high confidence while ".$gene->stable_id().
+              " (".$gene->{'internal_id'}.") is";
+          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
+          $conflicting_gene->{'to_remove'} = 1;
+          next;
+        } elsif($conflicting_gene->{'is_high_confidence'} and !($gene->{'is_high_confidence'})) {
+          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
+          $gene->{'to_remove'} = 1;
+          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is not high confidence while ".$conflicting_gene->stable_id()." (".
+              $conflicting_gene->{'internal_id'}.") is";
+          last;
+        } else {
+          say "  Both genes are high confidence";
+        }
+
+        # 2) Filter based on one gene passing cut-offs while the other fails
+        if(($gene->{'avg_cov'} >= $coverage_cutoff and $gene->{'avg_perc_id'} >= $identity_cutoff) and
+           ($conflicting_gene->{'avg_cov'} < $coverage_cutoff or $conflicting_gene->{'avg_perc_id'} < $identity_cutoff)) {
+          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
+          $conflicting_gene->{'to_remove'} = 1;
+          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as it fails the coverage/identity cut-off while ".$gene->stable_id().
+              " (".$gene->{'internal_id'}.") does not";
+          next;
+        } elsif(($conflicting_gene->{'avg_cov'} >= $coverage_cutoff and $conflicting_gene->{'avg_perc_id'} >= $identity_cutoff) and
+                ($gene->{'avg_cov'} < $coverage_cutoff or $gene->{'avg_perc_id'} < $identity_cutoff)) {
+          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
+          $gene->{'to_remove'} = 1;
+          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it fails the coverage/identity cut-off while ".$conflicting_gene->stable_id()." (".
+              $conflicting_gene->{'internal_id'}.") does not";
+          last;
+        } else {
+          say "  Both genes pass coverage/perc id cut-offs: ".$gene->{'avg_cov'}."/".$gene->{'avg_perc_id'}." vs ".$conflicting_gene->{'avg_cov'}."/".$conflicting_gene->{'avg_perc_id'};
+        }
+
+        # 3) Filter by expected location
+        if($gene->{'expected_location'} and !($conflicting_gene->{'expected_location'})) {
+          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
+          $conflicting_gene->{'to_remove'} = 1;
+          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as it is not in the expected location ".$gene->stable_id().
+              " (".$gene->{'internal_id'}.") is";
+          next;
+        } elsif($conflicting_gene->{'expected_location'} and !($gene->{'expected_location'})) {
+          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
+          $gene->{'to_remove'} = 1;
+          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is not in the expected location ".$conflicting_gene->stable_id()." (".
+              $conflicting_gene->{'internal_id'}.") is";
+          last;
+        } else {
+          say "  Both genes are in the expected location";
+        }
+
+        # 4) Filter by neighbourhood score
+        if($gene->{'neighbourhood_score'} > $conflicting_gene->{'neighbourhood_score'}) {
+          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
+          $conflicting_gene->{'to_remove'} = 1;
+          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as it is has a lower neighbourhood score ".$gene->stable_id().
+              " (".$gene->{'internal_id'}."), ".
+              $conflicting_gene->{'neighbourhood_score'}." vs ".$gene->{'neighbourhood_score'};
+          next;
+        } elsif($conflicting_gene->{'neighbourhood_score'} > $gene->{'neighbourhood_score'}) {
+          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
+          $gene->{'to_remove'} = 1;
+          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is has a lower neighbourhood score ".$conflicting_gene->stable_id().
+              " (".$conflicting_gene->{'internal_id'}."), ".$gene->{'neighbourhood_score'}." vs ".$conflicting_gene->{'neighbourhood_score'};
+          last;
+        } else {
+          say "  Both genes have the same neighbourhood score, ".$gene->{'neighbourhood_score'};
+        }
+
+        # 5) Just take the highest identity/coverage, or the current gene if they're still identical
+        if(($gene->{'avg_cov'} + $gene->{'avg_perc_id'}) >= ($conflicting_gene->{'avg_cov'} + $conflicting_gene->{'avg_perc_id'})) {
+          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
+          $conflicting_gene->{'to_remove'} = 1;
+          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as a lower or equivalent combined average cov/perc id ".$gene->stable_id().
+              " (".$gene->{'internal_id'}.")";
+          next;
+        } else {
+          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
+          $gene->{'to_remove'} = 1;
+          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is has the lower combined average cov/perc id ".$conflicting_gene->stable_id()." (".
+              $conflicting_gene->{'internal_id'}.")";
+          last;
+        }
+      }
+    } # for(my $i=0; $i<scalar
+  } # foreach my $slice (keys
+
+}
+
+sub assign_internal_ids {
+  my ($self,$genes) = @_;
+
+  my $id_counter = 1;
+  foreach my $gene (@$genes) {
+    $gene->{'internal_id'} = $id_counter;
+    $id_counter++;
+  }
+}
+
+
+sub check_conflict {
+  my ($self,$target_genes_by_slice,$source_genes_by_slice,$source_genes_by_stable_id,$target_genes_by_stable_id,$high_confidence_genes_by_id) = @_;
+
+  # This will go through the target genes and look for what overlaps then. First check stranded genomic overlap and
+  # then exon overlap. Conflict is when a gene has exon overlap (need to decide level of exon overlap), with something
+  # it does not have exon overlap with on the reference
+  foreach my $slice (keys(%$target_genes_by_slice)) {
+    say "Calculating genomically overlapping genes for target slice: ".$slice;
+    my $target_genes = $target_genes_by_slice->{$slice};
+    for(my $i=0; $i<scalar(@$target_genes)-1; $i++) {
+      my $gene1 = ${$target_genes}[$i];
+      unless($gene1->{'genomic_overlapping_genes'}) {
+        $gene1->{'genomic_overlapping_genes'} = {};
+      }
+
+      # Would be faster to go in both directions from the current gene and keep adding till no overlap
+      my $overlap = 1;
+      for(my $j=$i+1; $j<scalar(@$target_genes) and $overlap; $j++) {
+        my $gene2 = ${$target_genes}[$j];
+
+        if($self->coords_overlap($gene1->seq_region_start(),$gene1->seq_region_end(),$gene2->seq_region_start(),$gene2->seq_region_end()) and $gene1->strand() == $gene2->strand()) {
+          $gene1->{'genomic_overlapping_genes'}->{$gene2->stable_id()} = $gene2->{'internal_id'};
+        } else {
+          $overlap = 0;
+        }
+      } # end for(my $j=$i+1;
+
+      $overlap = 1;
+      for(my $j=$i-1; $j>=0 and $overlap; $j--) {
+        my $gene2 = ${$target_genes}[$j];
+        if($self->coords_overlap($gene1->seq_region_start(),$gene1->seq_region_end(),$gene2->seq_region_start(),$gene2->seq_region_end()) and $gene1->strand() == $gene2->strand()) {
+          $gene1->{'genomic_overlapping_genes'}->{$gene2->stable_id()} = $gene2->{'internal_id'};
+        } else {
+          $overlap = 0;
+        }
+      } # end for(my $j=$i-1;
+    } # end for(my $i=0
+  } # end foreach my $slice
+
+  foreach my $slice (keys(%$target_genes_by_slice)) {
+    say "Calculating source gene overlap for target genes that have overlap: ".$slice;
+    my $target_genes = $target_genes_by_slice->{$slice};
+    foreach my $target_gene (@$target_genes) {
+      unless(scalar(keys(%{$target_gene->{'genomic_overlapping_genes'}}))) {
+        next;
+      }
+      # At this point the target gene has something that overlaps with it on the same strand, so we want to investigate
+      # If it has the same set of things overlapping as the reference (or less, since maybe something didn't project) then it's
+      # not conflicting. If there are extra things overlapping, then there is some level of conflict. If there is no exon overlap
+      # then at least for the moment we will mark it as non-conflicting. If there is exon overal, then there is positional conflict
+      # and a decision needs to be made. Ideally if there's only a very small overlap we could forgive this as it's possibly just
+      # an issue with a terminal UTR being misaligned slightly, but at least to being with we'll just count any exon overlap as conflict
+      # We want to group things into conflicting sets and then try and reduce the contents of the sets down to a single choice wherever possible
+      my $source_gene = ${$source_genes_by_stable_id->{$target_gene->stable_id()}}[0];
+
+      # TEST!!!!!!!!!!!!!!
+      unless($source_gene) {
+        next;
+      }
+
+
+      my $slice_source_genes = $source_genes_by_slice->{$source_gene->seq_region_name()};
+      foreach my $slice_source_gene (@$slice_source_genes) {
+        if($source_gene->stable_id() eq $slice_source_gene->stable_id()) {
+          next;
+        }
+        if($self->coords_overlap($source_gene->seq_region_start(),$source_gene->seq_region_end(),$slice_source_gene->seq_region_start(),$slice_source_gene->seq_region_end())
+           and $source_gene->strand() == $slice_source_gene->strand()) {
+          $source_gene->{'genomic_overlapping_genes'}->{$slice_source_gene->stable_id()} = $source_gene->dbID();
+        }
+      }
+
+      # At this point we have all the overlapping genes for the source and target
+      foreach my $id (keys(%{$target_gene->{'genomic_overlapping_genes'}})) {
+        unless($source_gene->{'genomic_overlapping_genes'}->{$id}) {
+          my $source_conflict_gene = ${$source_genes_by_stable_id->{$id}}[0];
+          my $target_conflict_gene_db_id =  $target_gene->{'genomic_overlapping_genes'}->{$id};
+          my $target_conflict_gene;
+          foreach my $gene (@{$target_genes_by_stable_id->{$id}}) {
+            if($gene->{'internal_id'} == $target_conflict_gene_db_id) {
+              $target_conflict_gene = $gene;
+              last;
+            }
+          }
+
+          say "For ".$target_gene->stable_id()." got an unexpected overlap with ".$id.": Source: ".$source_gene->seq_region_name().":".$source_gene->seq_region_start().":".
+              $source_gene->seq_region_end().":".$source_gene->strand()." ".$source_conflict_gene->seq_region_name().":".$source_conflict_gene->seq_region_start().":".
+              $source_conflict_gene->seq_region_end().":".$source_conflict_gene->strand().", Target: ".$target_gene->seq_region_name().":".$target_gene->seq_region_start().":".
+              $target_gene->seq_region_end().":".$target_gene->strand()." ".$target_conflict_gene->seq_region_name().":".$target_conflict_gene->seq_region_start().":".
+              $target_conflict_gene->seq_region_end().":".$target_conflict_gene->strand();
+
+          my $pairwise_coverage_cutoff = 0.75;
+          my $pairwise_coverage = $self->get_pairwise_coverage($target_gene,$target_conflict_gene);
+          if($pairwise_coverage >= $pairwise_coverage_cutoff) {
+            say "The genes fail the average coverage check, classing as conflict. Average coverage: ".$pairwise_coverage;
+            $target_gene->{'genomic_conflict'} = 1;
+            $target_gene->{'conflicting_genes'}->{$target_conflict_gene->stable_id()} = $target_conflict_gene->{'internal_id'};
+            $self->set_expected_regions([$source_gene],$source_genes_by_slice,$high_confidence_genes_by_id);
+          }
+        } # end unless($source_gene->{'genomic_overlapping_genes'}
+      } # end foreach my $id (keys
+    } # end oreach my $target_gene
+  } # end foreach my $slice
+}
+
+
+sub get_pairwise_coverage {
+  my ($self,$gene1,$gene2) = @_;
+
+  my $max_start = max($gene1->seq_region_start(),$gene2->seq_region_start());
+  my $min_end = min($gene1->seq_region_end(),$gene2->seq_region_end());
+  my $overlap = max(1,$min_end-$max_start);
+
+  my $gene1_overlap = $overlap / ($gene1->seq_region_end() - $gene1->seq_region_start());
+  my $gene2_overlap = $overlap / ($gene2->seq_region_end() - $gene2->seq_region_start());
+
+  my $average_overlap = ($gene1_overlap + $gene2_overlap) / 2;
+
+  return($average_overlap);
+}
+
+
+sub check_expected_regions {
+  my ($self,$target_genes,$source_genes_by_stable_id,$source_genes_by_slice,$high_confidence_genes_by_id) = @_;
+
+#  foreach my $genes (@$multimapped_target_genes) {
+  foreach my $gene (@$target_genes) {
+#    my $stable_id = ${$genes}[0]->stable_id();
+    my $stable_id = $gene->stable_id();
+ #   say "FERGAL SID CHECK: ".$stable_id;
+    my $source_gene = ${$source_genes_by_stable_id->{$stable_id}}[0];
+
+# TEST!!!!!!!!!!
+#    unless($source_gene->seq_region_name eq '17') {
+#      next;
+#    }
+
+    $self->set_expected_regions([$source_gene],$source_genes_by_slice,$high_confidence_genes_by_id);
+    say "Checking multimappers for ".$stable_id;
+#    foreach my $gene (@$genes) {
+      # TEST!!!!!!!!!!!
+#      unless($gene->seq_region_name eq '17') {
+#        next;
+#      }
+
+      if($gene->seq_region_name eq $source_gene->{'target_slice'} and $gene->seq_region_start() >= $source_gene->{'left_boundary'} and
+         $gene->seq_region_end() <= $source_gene->{'right_boundary'}) {
+        $gene->{'expected_location'} = 1;
+        say "  Gene ".$gene->seq_region_start().":".$gene->seq_region_end().":".$gene->seq_region_strand().":".$gene->seq_region_name()." is in expected location:".
+            "  ".$source_gene->{'target_slice'}.":".$source_gene->{'left_boundary'}.":".$source_gene->{'right_boundary'}.", Neighbourhood score: ".
+            $gene->{'neighbourhood_score'}.", Avg cov: ".$gene->{'avg_cov'}.", Avg perc id: ".$gene->{'avg_perc_id'};
+      } else {
+        $gene->{'expected_location'} = 0;
+        say "  Gene ".$gene->seq_region_start().":".$gene->seq_region_end().":".$gene->seq_region_strand().":".$gene->seq_region_name()." is not in expected location:".
+            "  ".$source_gene->{'target_slice'}.":".$source_gene->{'left_boundary'}.":".$source_gene->{'right_boundary'}.", Neighbourhood score: ".
+            $gene->{'neighbourhood_score'}.", Avg cov: ".$gene->{'avg_cov'}.", Avg perc id: ".$gene->{'avg_perc_id'};
+      }
+#    }
+  }
+}
+
+sub get_multimapped_target_genes {
+  my ($self,$target_genes_by_stable_id,$source_genes_by_slice,$high_confidence_genes_by_id) = @_;
+
+  my $multimapped_genes = [];
+  foreach my $id (keys(%$target_genes_by_stable_id)) {
+    my $genes = $target_genes_by_stable_id->{$id};
+    if(scalar(@$genes) > 1) {
+      push(@$multimapped_genes,$genes);
+    }
+  }
+  return($multimapped_genes);
+}
+
+
+sub create_input_file {
+  my ($self,$genes,$gene_genomic_seqs_hash,$source_adaptor) = @_;
+
+  my $source_sequence_adaptor = $source_adaptor->get_SequenceAdaptor();
+  my $genomic_reads = [];
+  foreach my $gene (@$genes) {
+    my $slice = $gene->slice();
+
+    # There's a big issue in terms of small genes, even with a fair amount of padding. To counter this have a minimum
+    # target region size of about 50kb. If the gene is bigger then the padding itself should be enough as it's likely
+    # there are many neutral sites in the gene already
+    my $min_padding = 25000;
+
+    my $region_start = $gene->seq_region_start - $min_padding;
+    if($region_start < $slice->seq_region_start()) {
+       $region_start = $slice->seq_region_start();
+    }
+
+    my $region_end = $gene->seq_region_end + $min_padding;
+    if($region_end > $slice->seq_region_end()) {
+      $region_end = $slice->seq_region_end();
+    }
+
+    my $genomic_seq = ${ $source_sequence_adaptor->fetch_by_Slice_start_end_strand($slice,$region_start,$region_end,1) };
+
+    my $fasta_record = ">".$gene->stable_id()."\n".$genomic_seq;
+    push(@$genomic_reads, $fasta_record);
+    $gene_genomic_seqs_hash->{$gene->stable_id()} = [$region_start,$region_end,$genomic_seq];
+  }
+
+  my $output_file = $self->write_input_file($genomic_reads);
+  return($output_file);
+}
+
+
+sub write_input_file {
+  my ($self,$genomic_reads) = @_;
+
+  my $output_file = $self->create_filename();
+  open(OUT,">".$output_file);
+  foreach my $genomic_read (@$genomic_reads) {
+    say OUT $genomic_read;
+  }
+  close OUT;
+
+  return($output_file);
+}
+
+
+sub set_expected_regions {
+  my ($self,$genes,$source_genes_by_slice,$high_confidence_genes_by_id) = @_;
+
+  # Foreach missing source gene, find the nearest non-overlapping 5' and 3' genes. Look these up in the high confidence set, keep looking up until
+  # you either find a high confidence 5' and 3' on the same slice, or just take the nearest high confidence one and the expected length of the region
+  # Maybe if you can't find two high confidence ones on the same slice that's a sign that we should try further anyway
+  # Could take a few and see what the consensue region is, then focus on the two closest on that?
+
+  foreach my $gene (@$genes) {
+    say "Setting expected region for missing source gene with stable id ".$gene->stable_id();
+    my $five_prime_neighbours = $self->fetch_neighbours($gene,$source_genes_by_slice,1);
+    my $three_prime_neighbours = $self->fetch_neighbours($gene,$source_genes_by_slice,0);
+    say "  Retrieved ".scalar(@$five_prime_neighbours)." 5' neighbours";
+    say "  Retrieved ".scalar(@$three_prime_neighbours)." 3' neighbours";
+
+    my $target_slice = $self->identify_target_slice([@$five_prime_neighbours,@$three_prime_neighbours],$high_confidence_genes_by_id);
+    unless($target_slice) {
+      say "  No target slice identified for missing gene with stable id ".$gene->stable_id().", skipping";
+      next;
+    }
+
+    say "  Target slice retrieved: ".$target_slice;
+    my ($left_boundary,$right_boundary) = $self->get_boundaries($gene,$five_prime_neighbours,$three_prime_neighbours,$high_confidence_genes_by_id,$target_slice);
+    if($left_boundary and $right_boundary) {
+      say "  Boundaries calculated: ".$left_boundary."..".$right_boundary;
+    }
+    $gene->{'left_boundary'} = $left_boundary;
+    $gene->{'right_boundary'} = $right_boundary;
+    $gene->{'target_slice'} = $target_slice;
+  }
+}
+
+
+sub get_boundaries {
+  my ($self,$gene,$five_prime_neighbours,$three_prime_neighbours,$high_confidence_genes_by_id,$target_slice) = @_;
+
+  my $five_prime_gene;
+  my $three_prime_gene;
+  foreach my $neighbour_gene (@$five_prime_neighbours) {
+    # THINK THIS WILL NEED TO ACCOUNT FOR ARRAYREF
+    if($high_confidence_genes_by_id->{$neighbour_gene->stable_id()} and ${$high_confidence_genes_by_id->{$neighbour_gene->stable_id()}}[0]->seq_region_name eq $target_slice) {
+      $five_prime_gene = ${$high_confidence_genes_by_id->{$neighbour_gene->stable_id()}}[0];
+      last;
+    }
+  }
+
+  foreach my $neighbour_gene (@$three_prime_neighbours) {
+    # THINK THIS WILL NEED TO ACCOUNT FOR ARRAYREF
+    if($high_confidence_genes_by_id->{$neighbour_gene->stable_id()} and ${$high_confidence_genes_by_id->{$neighbour_gene->stable_id()}}[0]->seq_region_name eq $target_slice) {
+      $three_prime_gene = ${$high_confidence_genes_by_id->{$neighbour_gene->stable_id()}}[0];
+      last;
+    }
+  }
+
+  unless($five_prime_gene and $three_prime_gene) {
+    say "Did not find both a high confidence 5' and 3' gene on the target slice, so cannot calculate a target region";
+    return;
+  }
+
+  if($five_prime_gene->seq_region_end() < $three_prime_gene->seq_region_start()) {
+    return($five_prime_gene->seq_region_end(),$three_prime_gene->seq_region_start());
+  } else {
+    return($three_prime_gene->seq_region_end(),$five_prime_gene->seq_region_start());
+  }
+}
+
+
+sub identify_target_slice {
+  my ($self,$neighbours,$high_confidence_genes_by_id) = @_;
+
+  my $region_counter = {};
+#  say "FERGAL DEBUG CHECKING NEIGHBOURS: ".scalar(@$neighbours)." ".scalar(keys(%$high_confidence_genes_by_id));
+  foreach my $gene (@$neighbours) {
+#    say "FERGAL DEBUG GSID: ".$gene->stable_id();
+    unless($high_confidence_genes_by_id->{$gene->stable_id()}) {
+      next;
+    }
+
+#    say "FERGAL DEBUG GSRN: ".$gene->seq_region_name();
+    unless($region_counter->{$gene->seq_region_name()}) {
+      $region_counter->{$gene->seq_region_name()} = 1;
+    } else {
+      $region_counter->{$gene->seq_region_name()}++;
+    }
+  }
+
+  my $best_region;
+  my $best_region_count = 0;
+  foreach my $region (keys(%$region_counter)) {
+    my $count = $region_counter->{$region};
+    if($count > $best_region_count) {
+      $best_region = $region;
+      $best_region_count = $count;
+    }
+  }
+
+  unless($best_region) {
+    $self->warning("Didn't find a target region, implies no high confidence neighbours in the set");
+  }
+  return($best_region);
+}
+
+sub fetch_neighbours {
+  my ($self,$gene,$genes_by_slice,$direction) = @_;
+
+  my $slice_name = $gene->seq_region_name();
+  my $slice_genes = $genes_by_slice->{$slice_name};
+
+  my $neighbour_limit = 50;
+  my $neighbours = [];
+  for(my $i=0; $i<scalar(@$slice_genes); $i++) {
+    my $slice_gene = ${$slice_genes}[$i];
+    if($slice_gene->stable_id() eq $gene->stable_id()) {
+      my $neighbour_counter = 0;
+      if($direction) {
+        for(my $j=$i-1; $j>=0 and $neighbour_counter < $neighbour_limit; $j--) {
+          my $neighbour_gene = ${$slice_genes}[$j];
+          if($self->coords_overlap($gene->seq_region_start(),$gene->seq_region_end(),$neighbour_gene->seq_region_start(),$neighbour_gene->seq_region_end())) {
+            next;
+          }
+          # At this point we have a gene that doesn't overlap in the 5' direction
+          push(@$neighbours,$neighbour_gene);
+          $neighbour_counter++;
+        }
+      } else {
+        for(my $j=$i+1; $j<scalar(@$slice_genes) and $neighbour_counter < $neighbour_limit; $j++) {
+          my $neighbour_gene = ${$slice_genes}[$j];
+          if($self->coords_overlap($gene->seq_region_start(),$gene->seq_region_end(),$neighbour_gene->seq_region_start(),$neighbour_gene->seq_region_end())) {
+            next;
+          }
+          # At this point we have a gene that doesn't overlap in the 3' direction
+          push(@$neighbours,$neighbour_gene);
+          $neighbour_counter++;
+        }
+      }
+      last;
+    }
+  }
+  return($neighbours);
+}
+
+sub list_high_confidence_genes {
+  my ($self,$target_genes_by_slice,$target_genes_by_stable_id,$source_genes_by_stable_id) = @_;
+
+  my $high_confidence_genes = [];
+  foreach my $target_slice (keys(%$target_genes_by_slice)) {
+#    unless($target_slice eq '17') {
+#      next;
+#    }
+    my $target_slice_genes = $target_genes_by_slice->{$target_slice};
+    my $midpoint_coords_by_id = {};
+
+    # First calculate the midpoints for the all the genes and store them by stable id. As the target ids might not be unique, this means
+    # we have to store an arrayref
+    say "  Setting midpoints for genes on ".$target_slice;
+    foreach my $gene (@$target_slice_genes) {
+      # By default say the gene is not high confidence
+      $gene->{'is_high_confidence'} = 0;
+      my $midpoint = $gene->start + ceil($gene->length()/2);
+      unless($midpoint_coords_by_id->{$gene->stable_id()}) {
+        $midpoint_coords_by_id->{$gene->stable_id()} = [];
+      }
+      push(@{$midpoint_coords_by_id->{$gene->stable_id()}},$midpoint);
+    }
+
+    # Now set the closest set of ids on the target genes, so we can get a score later against the reference
+    say "  Setting closest genes for genes on ".$target_slice;
+    foreach my $gene (@$target_slice_genes) {
+      $self->set_closest_gene_ids($gene,$midpoint_coords_by_id);
+    }
+
+    # The source genes have already had their ordered neighbours calculated, so foreach target gene we should be able to get a score
+    # for how similar the ordering is
+    say "  Setting neighbourhood scores for genes on ".$target_slice;
+    foreach my $gene (@$target_slice_genes) {
+      my $source_gene = ${$source_genes_by_stable_id->{$gene->stable_id}}[0];
+      unless($source_gene) {
+#        $self->throw("Couldn't find a source gene with a matching stable id to the target. Target stable id: ".$gene->stable_id());
+        # TEST!!!!!!!!!!
+        say "Couldn't find a source gene with a matching stable id to the target. Target stable id: ".$gene->stable_id();
+        $gene->{'neighbourhood_score'} = 0;
+        next;
+      }
+      $self->set_neighbourhood_score($gene,$source_gene);
+    }
+  }
+
+
+  # We now have a score on each gene in terms of how similar the source and target neighbours are (though a very basic calculation)
+  # We can start deciding what genes are high confidence at this point
+  my $neighbourhood_cutoff = 0.8;
+  foreach my $id (keys(%$target_genes_by_stable_id)) {
+    my $genes = $target_genes_by_stable_id->{$id};
+    my $gene =  ${$genes}[0];
+      # TEST!!!!!!!!!!!!!!!!!!
+#      unless($gene->seq_region_name eq '17') {
+#        next;
+#      }
+
+    my $source_gene = ${$source_genes_by_stable_id->{$id}}[0];
+    # TEST!!!!!!!!!
+    unless($source_gene) {
+      next;
+    }
+
+    my $source_transcripts = $source_gene->get_all_Transcripts();
+
+    if(scalar(@$genes) > 1) {
+      say "  Gene with stable id ".$id." has multiple mappings, so not high confidence";
+      next;
+    }
+
+    unless($gene->{'complete_mapping'}) {
+      say "  Gene with stable id ".$id." fails the transcript mapping check, so not high confidence";
+      next;
+    }
+
+    if($gene->{'neighbourhood_score'} < $neighbourhood_cutoff) {
+      say "  Gene with stable id ".$gene->stable_id." fails the neighbourhood score cutoff, so not high confidence. Score: ".$gene->{'neighbourhood_score'};
+      next;
+    }
+
+    # At this point we are reasonably confident the gene is mapped correctly because it only maps in one place, has
+    # all the transcripts mapped with hight coverage and identity and it has a very similar set of neighbouring genes
+    # The weakness here is in the fact that the similar set of neighbouring genes is not that strict, but at the same
+    # time some of these assemblies are scaffold level and thus break synteny artifically, there are real expansions
+    # and contractions and the fact that these are single loci and have excellent mapping scores means it should almost
+    # always be correct
+    $gene->{'is_high_confidence'} = 1;
+    push(@$high_confidence_genes,$gene);
+  }
+
+  say "Found ".scalar(@$high_confidence_genes)." high confidence genes in target";
+  return($high_confidence_genes);
+}
+
+
+sub check_complete_mapping {
+  my ($self,$gene,$source_transcripts) = @_;
+
+  my $coverage_cutoff = 99;
+  my $perc_id_cutoff = 99;
+  my $target_transcripts = $gene->get_all_Transcripts();
+
+  $gene->{'complete_mapping'} = 1;
+
+  my $target_transcript_ids = {};
+  my $total_cov = 0;
+  my $total_perc_id = 0;
+  foreach my $target_transcript (@$target_transcripts) {
+    my $description = $target_transcript->description();
+    $description =~ /Parent: (ENS.+)\.\d+\, Coverage\: (\d+\.\d+)\, Perc id\: (\d+\.\d+)/;
+    my $stable_id = $1;
+    my $coverage = $2;
+    my $perc_id = $3;
+    unless($stable_id and defined($coverage) and defined($perc_id)) {
+      $self->throw("Issue finding info for parent stable id and coverage/identity from transcript description. Description: ".$description);
+    }
+    $target_transcript_ids->{$stable_id} = 1;
+    $total_cov += $coverage;
+    $total_perc_id += $perc_id;
+  }
+
+  my $avg_cov = $total_cov/scalar(@$target_transcripts);
+  my $avg_perc_id = $total_perc_id/scalar(@$target_transcripts);
+  $gene->{'avg_cov'} = $avg_cov;
+  $gene->{'avg_perc_id'} = $avg_perc_id;
+  unless($avg_perc_id >= $perc_id_cutoff and $avg_cov >= $coverage_cutoff) {
+    say "  Gene fails average coverage and identity cutoffs, so failing: Covereage: ".$avg_cov.", Perc id: ".$avg_perc_id;
+    $gene->{'complete_mapping'} = 0;
+    return(0);
+  }
+
+  foreach my $source_transcript (@$source_transcripts) {
+    unless($target_transcript_ids->{$source_transcript->stable_id}) {
+      say "  Source transcript with stable id ".$source_transcript->stable_id." was not found in the target transcript stable id list, so failing";
+      $gene->{'complete_mapping'} = 0;
+      return(0);
+    }
+  }
+
+  # This would be unusual given the other checks, but no harm keeping
+  unless(scalar(@$source_transcripts) == scalar(@$target_transcripts)) {
+    say "  Source and target transcript count differ, so failing";
+    $gene->{'complete_mapping'} = 0;
+    return(0);
+  }
+
+#  say "  Mapping check okay!";
+  return(1);
+}
+
+
+sub set_neighbourhood_score {
+  my ($self,$target_gene,$source_gene) = @_;
+
+#  say "FERGAL TARGET: ".$target_gene->stable_id;
+  my $neighbour_limit = 100;
+  my $source_neighbours = $source_gene->{'sorted_neighbours'};
+  my $filtered_source_neighbours = [];
+
+  my $target_neighbours = $target_gene->{'sorted_neighbours'};
+  my $target_neighbours_by_id = {};
+  for(my $i=0; $i<scalar(@$target_neighbours) and $i<$neighbour_limit; $i++) {
+    $target_neighbours_by_id->{${$target_neighbours}[$i]} = 1;
+  }
+
+  my $score = 0;
+  for(my $i=0; $i<scalar(@$source_neighbours) and $i<$neighbour_limit; $i++) {
+    my $id = ${$source_neighbours}[$i];
+    if($target_neighbours_by_id->{$id}) {
+      $score++;
+    }
+  }
+
+  my $neighbourhood_score = $score/$neighbour_limit;
+#  say "Neighbourhood score ".$target_gene->stable_id.": ".$neighbourhood_score;
+  $target_gene->{'neighbourhood_score'} = $neighbourhood_score;
+}
+
+
+sub set_closest_gene_ids {
+  my ($self,$gene,$midpoint_coords_by_id) = @_;
+
+  my $id_distances = {};
+  my $gene_midpoint = $gene->start + ceil($gene->length()/2);
+
+  # Loop through each id, calculate the distance between the midpoint of the current gene and the midpoint of each other gene
+  # If there are more than one genes for an id, then take the distance of the closest one
+  foreach my $id (keys(%$midpoint_coords_by_id)) {
+    if($id eq $gene->stable_id()) {
+      next;
+    }
+    my $slice_gene_id_midpoints = $midpoint_coords_by_id->{$id};
+    my $min_dist;
+    foreach my $midpoint (@$slice_gene_id_midpoints) {
+      my $dist = abs($gene_midpoint - $midpoint);
+      unless($id_distances->{$id}) {
+        $id_distances->{$id} = $dist;
+      } elsif($dist < $id_distances->{$id}) {
+        $id_distances->{$id} = $dist;
+      }
+    }
+  }
+
+  # At this point $id_distance will have exactly one distance per id so we should sort and add up to the ten closest ids
+  my @sorted_ids = sort {$id_distances->{$a} <=> $id_distances->{$b}} keys(%$id_distances);
+  $gene->{'sorted_neighbours'} = \@sorted_ids;
+}
+
+sub list_missing_genes {
+  my ($self,$source_genes_by_stable_id,$target_genes_by_stable_id) = @_;
+
+  my $missing_source_genes = [];
+  foreach my $stable_id (keys(%$source_genes_by_stable_id)) {
+    unless($target_genes_by_stable_id->{$stable_id}) {
+      say "Missing the following stable id in target, will add to list: ".$stable_id;
+      # TEST!!!!!!!!!!!!!!!!!!!
+#      unless(${$source_genes_by_stable_id->{$stable_id}}[0]->seq_region_name eq '17') {
+#        next;
+#      }
+      push(@$missing_source_genes,${$source_genes_by_stable_id->{$stable_id}}[0]);
+    }
+  }
+  return($missing_source_genes);
+}
+
+
+sub genes_by_stable_id {
+  my ($self,$genes) = @_;
+
+  # This holds genes in a hash using the stable id as the key. Note that while in the source we expect the stable id to be unique, we don't expect that in the target
+  # Therefore the hash keys will point to an arrayref instead of just directly to the gene
+  my $genes_by_id = {};
+  foreach my $gene (@$genes) {
+    unless($gene->stable_id()) {
+      $self->throw("Gene with dbID ".$gene->dbID()." does not have a stable id assigned, need an assigned stable id to compare between source and target sets");
+    }
+    unless($genes_by_id->{$gene->stable_id()}) {
+      $genes_by_id->{$gene->stable_id()} = [];
+    }
+    push(@{$genes_by_id->{$gene->stable_id()}},$gene);
+  }
+  return($genes_by_id);
+}
+
+
+sub sort_genes_by_slice {
+  my ($self,$genes) = @_;
+
+  my $genes_by_slice_hash = {};
+  foreach my $gene (@$genes) {
+    unless($genes_by_slice_hash->{$gene->seq_region_name()}) {
+      $genes_by_slice_hash->{$gene->seq_region_name()} = [];
+    }
+    push(@{$genes_by_slice_hash->{$gene->seq_region_name()}},$gene);
+  }
+
+  foreach my $slice (keys(%$genes_by_slice_hash)) {
+    my $slice_genes = $genes_by_slice_hash->{$slice};
+    my @sorted_slice_genes  = sort { $a->start <=> $b->start } @{$slice_genes};
+    $genes_by_slice_hash->{$slice} = \@sorted_slice_genes;
+  }
+
+  return($genes_by_slice_hash);
+}
+
+
 sub process_results {
-  my ($self,$source_gene,$paf_results) = @_;
+  my ($self,$source_gene,$gene_genomic_seqs_hash,$target_genes) = @_;
 
   my $high_confidence = 0;
-
-#  unless($source_gene->stable_id eq 'ENSG00000147753') {
-#    return;
-#  }
 
   my $gene_seq = $source_gene->seq();
 
@@ -185,15 +1083,6 @@ sub process_results {
 
   say "Source transcript list:";
   foreach my $source_transcript (@$source_transcripts) {
-#    unless($source_transcript->stable_id() eq 'ENST00000354192') {
-#      next;
-#    } else {
-#      my $source_transcript_id = $source_transcript->dbID();
-#      $source_transcript_id_hash->{$source_transcript_id} = $source_transcript;
-#      $source_transcripts = [$source_transcript];
-#      last;
-#    }
-
     say "  ".$source_transcript->stable_id();
     my $source_transcript_id = $source_transcript->dbID();
     $source_transcript_id_hash->{$source_transcript_id} = $source_transcript;
@@ -203,65 +1092,19 @@ sub process_results {
   $max_intron_size = ceil($max_intron_size);
   say "Max intron size of transcripts in the cluster: ".$max_intron_size;
 
-  my $gene_paf_results = $paf_results->{$source_gene->dbID()};
   my $good_transcripts = []; # Transcripts that pass the cut-off thresholds
   my $bad_source_transcripts = []; # The source transcripts for mapped Transcripts that don't pass the threshold
   my $bad_transcripts = []; # When both the minimap and exonerate mappings fail the cut-offs, this will store the version with the highest combined coverage and percent id
 
   my $target_adaptor = $self->target_adaptor();
-
   my $final_genes = [];
-
-  # This is a paf result from the alignment of a genomic read representing a gene against the target genome
-  # Only one such mapped read per gene will be passed into this based on the top hit in the paf results
-  # This method will update the mapped area if it is shorter than the genomic span of the original gene
-  # Once the updated mapped area is calculated:
-  # 1) Run minimap2 on the transcripts from the source gene onto the mapped region
-  #    Foreach source transcript:
-  #      - Run mapping
-  #      - If coding, calculate coverage and identity of the CDS
-  #      - If coding, check whether CDS is longer than expected
-  #      - If non-coding, calculated coverage and identity of full transcript seq
-  # 2) Once transcripts have been mapped, assess quality of mapping
-  #    Foreach minimap2 transcript:
-  #      - If the coverage or percent identity of the seq is < 95, or if there's a CDS sequence and it is > 5 percent longer
-  #        -> Run exonerate the soruce transcript on the region
-  #        -> If the cov/perc id of the resulting transcript passes the above criteria mark as good
-  #      - Else mark the minimap2 transcript as good
-  # 3) For the transcripts not marked as good, examine the minimap2 and exonerate versions:
-  #    Foreach bad transcript:
-  #      - Check the other transcripts, if available
-  #      - If there is another transcript from the gene marked as good
-  #        -> Examine the span of all good transcripts in the source gene
-  #        -> If the bad transcript is within the boundary of that span in the source gene then there is an issue, but just add or filter out
-  #        -> If the bad transcript extends outside the boundary, calculate the offset and try and align to the offset equivalent in the target, then add or filter out
-  #      - If there are no other transcripts, then the gene is bad and this needs to be dealt with separately
-  # 4) Deal with bad genes (gene with no good transcripts)
-  #    Foreach bad gene:
-  #      - Take the source canonical transcript and align to the whole genome using minimap2 and exonerate
-  #      - For the best of the two alignment, check if they are better than the original combined cov/identity (if there is an existing model)
-  #      - If better or no existing then:
-  #        -> Calculate offsets based on the source canonical transcript for the expected gene boundaries in the target
-  #        -> Using the calculated boundaries, get the region in target and align remaining transcripts
-  #      - If worse, then do no more
-  #      - Once you have the final set of transcripts decide whether to keep the gene or not
-
-  my $good_transcripts_hash = {};
-  my $bad_transcripts_hash = {};
-  my $best_transcripts_by_id = {};
-  if($gene_paf_results) {
-#    my $chained_paf_result = $self->chain_paf_results($gene_paf_results);
-    my $chained_paf_result = $self->calculate_region_boundary($gene_paf_results);
-#    $self->throw("DEBUG");
-
-#    my $source_genomic_length = ${$paf_result}[1];
-#    my $source_genomic_start = ${$paf_result}[2];
-#    my $source_genomic_end = ${$paf_result}[3];
-#    my $target_strand = ${$paf_result}[4];
-    my $target_genomic_start = ${$chained_paf_result}[0];
-    my $target_genomic_end = ${$chained_paf_result}[1];
-    my $target_strand = ${$chained_paf_result}[2];
-    my $target_genomic_name = ${$chained_paf_result}[3];
+  my $paf_results = $source_gene->{'paf_regions'};
+  foreach my $paf_result (@$paf_results) {
+    my $best_transcripts_by_id = {};
+    my $target_genomic_start = ${$paf_result}[0];
+    my $target_genomic_end = ${$paf_result}[1];
+    my $target_strand = ${$paf_result}[2];
+    my $target_genomic_name = ${$paf_result}[3];
 
     if($target_strand eq '+') {
       $target_strand = 1;
@@ -269,33 +1112,7 @@ sub process_results {
       $target_strand = -1;
     }
 
-#    my $target_genomic_length = ${$paf_result}[6];
-#    my $target_genomic_start = ${$paf_result}[7];
-#    my $target_genomic_end = ${$paf_result}[8];
-#    my $matching_bases = ${$paf_result}[9];
-#    my $total_bases = ${$paf_result}[10];
-#    my $mapping_quality = ${$paf_result}[11];
-
-#    my $mapping_identity = ($matching_bases/$total_bases) * 100;
-#    my $mapping_coverage = ($target_genomic_end - $target_genomic_start + 1)/$source_genomic_length;
-
-    say "First pass genomic start/end: ".$target_genomic_start."/".$target_genomic_end;
-
-#    if($mapping_identity >= 80 and $mapping_coverage >= 0.8) {
-#      $high_confidence++;
-#    }
-
-#    my $adjust_left = $source_genomic_start;
-#    my $adjust_right = $source_genomic_length - $source_genomic_end;
-#    if($target_strand == 1) {
-#      $target_genomic_start -= $adjust_left;
-#      $target_genomic_end += $adjust_right;
-#    } else {
-#      $target_genomic_start -= $adjust_right;
-#      $target_genomic_end += $adjust_left;
-#    }
-
-    say "First pass adjusted genomic start/end: ".$target_genomic_start."/".$target_genomic_end;
+    say "Mapping gene ".$source_gene->stable_id()." to ".$target_genomic_start.":".$target_genomic_end.":".$target_strand.":".$target_genomic_name;
 
     my $target_slice_adaptor = $target_adaptor->get_SliceAdaptor();
     my $target_parent_slice = $target_slice_adaptor->fetch_by_region('toplevel',$target_genomic_name);
@@ -303,14 +1120,6 @@ sub process_results {
     unless($target_parent_slice) {
       $self->throw("Could not fetch the slice in the target assembly. Slice name: ".$target_genomic_name);
     }
-
-#    if($target_genomic_start <= 0) {
-#      $target_genomic_start = 1;
-#    }
-
-#    if($target_genomic_end > $target_parent_slice->length()) {
-#      $target_genomic_end = $target_parent_slice->length();
-#    }
 
     # Note that we are going to use the forward strand regardless of what strand the PAF hit is on here because minimap2/exonerate assume the region is on the forward strand
     my $target_sequence_adaptor = $target_adaptor->get_SequenceAdaptor;
@@ -322,204 +1131,107 @@ sub process_results {
 
     say "Projecting gene: ".$source_gene->stable_id();
 
-#    open(TESTOUT,">srctgt_seq.fa");
-#    my $revcomp_gene_seq = $self->revcomp($gene_seq);
-#    my $gene_genomic_seqs_hash = $self->gene_genomic_seqs_hash();
-#    my $source_genomic_seq_info = $gene_genomic_seqs_hash->{$source_gene->dbID()};
-#    my $source_genome_seq = ${$source_genomic_seq_info}[2];
-#    say TESTOUT ">src\n".$gene_seq."\n>tgt\n".$target_genomic_seq."\n>origsrc\n".$source_genome_seq;
-#    close TESTOUT;
-#    $self->throw("DEBUG");
 
     my $coverage_threshold = 98;
     my $perc_id_threshold = 98;
-    my $projected_transcripts_by_id = $self->project_gene_coords($source_gene,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand);
+    my $projected_transcripts_by_id = $self->project_gene_coords($source_gene,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,$gene_genomic_seqs_hash);
     $self->print_transcript_stats($projected_transcripts_by_id,'projection');
-#    my $projected_transcripts_by_id = {};
     $self->update_best_transcripts($best_transcripts_by_id,$projected_transcripts_by_id);
-#     my $minimap_transcripts_by_id = {};
+
     my $minimap_transcripts_by_id = $self->map_gene_minimap($source_gene,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,
                                                             $target_genome_file,$source_transcript_id_hash,$max_intron_size,$target_adaptor,$target_slice_adaptor,
                                                             $best_transcripts_by_id);
     $self->print_transcript_stats($minimap_transcripts_by_id,'minimap local');
-
     $self->update_best_transcripts($best_transcripts_by_id,$minimap_transcripts_by_id);
-#     my $exonerate_transcripts_by_id = {};
+
     my $exonerate_transcripts_by_id = $self->map_gene_exonerate($source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,
                                                                 $target_genome_file,$source_transcript_id_hash,$max_intron_size,$target_adaptor,
                                                                 $target_slice_adaptor,$best_transcripts_by_id);
     $self->print_transcript_stats($exonerate_transcripts_by_id,'exonerate local');
-
     $self->update_best_transcripts($best_transcripts_by_id,$exonerate_transcripts_by_id);
-  } else {
-    say "Did not get a paf result from the first pass, will resort to global mapping of the transcripts";
-  }
 
+    $self->set_cds_sequences($best_transcripts_by_id,$source_transcript_id_hash);
+    $self->qc_cds_sequences($best_transcripts_by_id,$source_transcript_id_hash);
+    $self->fix_cds_issues($best_transcripts_by_id);
+    $self->set_transcript_descriptions($best_transcripts_by_id,$source_transcript_id_hash);
 
-  # Now split into good and bad transcripts
-# $self->split_initial_transcripts($best_transcripts_by_id,$good_transcripts,$bad_transcripts);
+    my $all_transcripts = $self->label_transcript_status($best_transcripts_by_id);
+    my $biotypes_hash = $self->generate_biotypes_hash($all_transcripts);
 
-  # At this point we have the selected set of good/bad transcripts. There may also be missing transcripts at the moment, i.e.
-  # those that did no get aligned by either method. We now want to take the original sequences for the bad and missing transcripts
-  # and run a genome-wide alignment via minimap. We then have two scenarios to work out. The first is if there were any good transcripts
-  # to begin with. If there were then were going to make the assumption (correctly or incorrectly), that the good transcripts represent
-  # where the gene is likely to be. We need to decide once we do the global mapping what to do with any mapped transcripts. The first thing
-  # is to check whether a global transcript actually scores better than the original mapping (if there was one). If not, then we just add
-  # the selected bad transcript to the gene. If it is better then we have to work out what to do. We basically need to cluster the transcripts
-  # and figure out if they're all in the same region.
+    # Need to create single transcript genes for clustering purposes
+    say "Building single transcript genes ahead of clustering";
+    my $single_transcript_genes = $self->generate_single_transcript_genes($all_transcripts);
 
-  say "Checking for missing transcripts";
-#  my $transcripts_for_global_mapping = $self->list_missing_transcripts($best_transcripts_by_id,$source_transcripts);
-  my $transcripts_for_global_mapping = $self->filter_transcripts_to_map($source_transcripts,$best_transcripts_by_id);
-  say "Found ".scalar(@$transcripts_for_global_mapping)." missing transcripts";
-
-  # Now run a global mapping of the missing/bad transcripts
-  my $transcripts_to_map_fasta_seqs = [];
-  foreach my $transcript (@$transcripts_for_global_mapping) {
-    my $transcript_sequence = $transcript->seq->seq();
-    my $fasta_record = ">".$transcript->dbID()."\n".$transcript_sequence;
-    push(@$transcripts_to_map_fasta_seqs,$fasta_record);
-  }
-
-  say "Preparing to map bad and missing transcripts globally to the genome";
-  say "Number of transcripts to map globally: ".scalar(@$transcripts_for_global_mapping);
-  my $target_global_genome_index = $self->genome_index();
-  my $global_mapped_transcripts = $self->generate_minimap_transcripts($transcripts_to_map_fasta_seqs,$target_global_genome_index,$target_adaptor,1,$max_intron_size);
-  say "Number of globally mapped transcripts: ".scalar(@$global_mapped_transcripts);
-
-  my $global_transcripts_by_id = {};
-  foreach my $transcript (@$global_mapped_transcripts) {
-    my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id};
-    my ($mapped_coverage,$mapped_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->seq->seq(),$transcript->seq->seq());
-    $transcript->{'cov'} = $mapped_coverage;
-    $transcript->{'perc_id'} = $mapped_percent_id;
-    $transcript->{'aligned_source_seq'} = $aligned_source_seq;
-    $transcript->{'aligned_target_seq'} = $aligned_target_seq;
-#    my $description_string = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$transcript->{'cov'}.", Perc id: ".$transcript->{'perc_id'};
-#    $transcript->description($description_string);
-
-    $transcript->{'annotation_method'} = 'minimap_global';
-    my $db_id = $transcript->stable_id();
-    $global_transcripts_by_id->{$db_id} = $transcript;
-  }
-
-  # Want to use global mapping if the the current best model is below the coverage thresholds and the global model is better
-  # The coverage thresholds are lower in this instance as we would give more weight to any of the other approaches since they use the alignment
-#  my $global_coverage_threshold = 95;
-#  my $global_perc_id_threshold = 95;
-  $self->print_transcript_stats($global_transcripts_by_id,'minimap global');
-  $self->update_best_transcripts($best_transcripts_by_id,$global_transcripts_by_id);
-
-  $self->set_cds_sequences($best_transcripts_by_id,$source_transcript_id_hash);
-  $self->qc_cds_sequences($best_transcripts_by_id,$source_transcript_id_hash);
-  $self->fix_cds_issues($best_transcripts_by_id);
-  $self->set_transcript_descriptions($best_transcripts_by_id,$source_transcript_id_hash);
-
-  # You want ot cluster all transcripts at this point. Clusters of the original good transcripts determine where we believe the locus is
-  # If you have such a cluster then you keep all good/bad transcripts in this cluster (taking care to remove any duplicates since some bad
-  # transcripts will have global versions too)
-  # If good cluster:
-  #   Add bad transcripts
-  #   Add good/bad global transcripts
-  #   If the global is good, remove original bad version if present
-  #   If the global is bad and there's a bad original, pick the best of the pair
-  # If global good cluster:
-  #   Add good/bad transcripts
-  #   If the global is good, remove original bad version if present
-  #   If the global is bad and there's a bad original, pick the best of the pair
-  # If bad cluster and no good/global good cluster:
-  #   Add clustered bad genes
-  # If bad cluster and good/global good:
-  #   Skip
-
-  my $all_transcripts = $self->label_transcript_status($best_transcripts_by_id);
-  my $biotypes_hash = $self->generate_biotypes_hash($all_transcripts);
-
-  # Need to create single transcript genes for clustering purposes
-  say "Building single transcript genes ahead of clustering";
-  my $single_transcript_genes = $self->generate_single_transcript_genes($all_transcripts);
-
-  my $genes_by_seq_region = {};
-  foreach my $gene (@$single_transcript_genes) {
-    my $seq_region_name = $gene->seq_region_name();
-    unless($genes_by_seq_region->{$seq_region_name}) {
-      $genes_by_seq_region->{$seq_region_name} = [];
-    }
-    push(@{$genes_by_seq_region->{$seq_region_name}},$gene);
-  }
-
-  say "Clustering genes";
-  my $found_good_cluster = 0;
-  my $all_clusters = [];
-  foreach my $seq_region_name (keys(%{$genes_by_seq_region})) {
-    my $genes = $genes_by_seq_region->{$seq_region_name};
-    my ($clusters, $unclustered) = cluster_Genes($genes,$biotypes_hash);
-    # There's an issue here in terms of genes
-    say "Found ".scalar(@$clusters)." transcript clusters";
-    say "Found ".scalar(@$unclustered)." unclustered transcripts";
-    push(@$all_clusters,@$clusters);
-    push(@$all_clusters,@$unclustered);
-  }
-
-  say "Found ".scalar(@$all_clusters)." initial clusters";
-
-  # The all_clusters array now has every cluster associated with mapped transcripts from the current source gene
-  # Some of these clusters may have multiple mappings for a source transcript, or even multiple copies across clusters
-  # So there needs to be a way to take the best copies, ideally only having one mapped transcript per source transcript
-  foreach my $cluster (@$all_clusters) {
-    $self->check_cluster_status($cluster);
-    if($cluster->{'status'} eq 'good') {
-      $found_good_cluster = 1;
-    }
-  }
-
-  # To get the final list of clusters, you take all good clusters. If there are no good clusters you take the bad clusters
-  my $final_clusters = [];
-  foreach my $cluster (@$all_clusters) {
-    if($cluster->{'status'} eq 'good') {
-      push(@$final_clusters,$cluster);
-    } elsif($cluster->{'status'} eq 'bad' and !$found_good_cluster) {
-      push(@$final_clusters,$cluster);
-    }
-  }
-
-  say "Found ".scalar(@$final_clusters)." final clusters";
-
-  say "Building genes from final clusters";
-  # Now remove duplicates and form genes
-  my $parent_gene_ids = $self->parent_gene_ids();
-
-  foreach my $cluster (@$final_clusters) {
-    my $gene = $self->create_gene_from_cluster($cluster,$parent_gene_ids,$source_transcript_id_hash);
-    say "Created gene: ".$gene->stable_id()." ".$gene->seq_region_name().":".$gene->seq_region_start.":".$gene->seq_region_end.":".$gene->strand();
-    my $transcripts = $gene->get_all_Transcripts();
-    foreach my $transcript (@$transcripts) {
-      say "  Transcript: ".$transcript->stable_id()." ".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$transcript->strand();
-      my $updated_description = $transcript->description().", Annotation method: ".$transcript->{'annotation_method'};
-      $transcript->description($updated_description);
+    my $genes_by_seq_region = {};
+    foreach my $gene (@$single_transcript_genes) {
+      my $seq_region_name = $gene->seq_region_name();
+      unless($genes_by_seq_region->{$seq_region_name}) {
+        $genes_by_seq_region->{$seq_region_name} = [];
+      }
+      push(@{$genes_by_seq_region->{$seq_region_name}},$gene);
     }
 
-    push(@$final_genes,$gene);
+    say "Clustering genes";
+    my $found_good_cluster = 0;
+    my $all_clusters = [];
+    foreach my $seq_region_name (keys(%{$genes_by_seq_region})) {
+      my $genes = $genes_by_seq_region->{$seq_region_name};
+      my ($clusters, $unclustered) = cluster_Genes($genes,$biotypes_hash);
+      # There's an issue here in terms of genes
+      say "Found ".scalar(@$clusters)." transcript clusters";
+      say "Found ".scalar(@$unclustered)." unclustered transcripts";
+      push(@$all_clusters,@$clusters);
+      push(@$all_clusters,@$unclustered);
+    }
+
+    say "Found ".scalar(@$all_clusters)." initial clusters";
+
+    # The all_clusters array now has every cluster associated with mapped transcripts from the current source gene
+    # Some of these clusters may have multiple mappings for a source transcript, or even multiple copies across clusters
+    # So there needs to be a way to take the best copies, ideally only having one mapped transcript per source transcript
+    foreach my $cluster (@$all_clusters) {
+      $self->check_cluster_status($cluster);
+      if($cluster->{'status'} eq 'good') {
+        $found_good_cluster = 1;
+      }
+    }
+
+    # To get the final list of clusters, you take all good clusters. If there are no good clusters you take the bad clusters
+    my $final_clusters = [];
+    foreach my $cluster (@$all_clusters) {
+      if($cluster->{'status'} eq 'good') {
+        push(@$final_clusters,$cluster);
+      } elsif($cluster->{'status'} eq 'bad' and !$found_good_cluster) {
+        push(@$final_clusters,$cluster);
+      }
+    }
+
+    say "Found ".scalar(@$final_clusters)." final clusters";
+
+    say "Building genes from final clusters";
+    # Now remove duplicates and form genes
+    my $parent_gene_ids = $self->parent_gene_ids();
+
+    foreach my $cluster (@$final_clusters) {
+      my $gene = $self->create_gene_from_cluster($cluster,$parent_gene_ids,$source_transcript_id_hash);
+      say "Created gene: ".$gene->stable_id()." ".$gene->seq_region_name().":".$gene->seq_region_start.":".$gene->seq_region_end.":".$gene->strand();
+      my $transcripts = $gene->get_all_Transcripts();
+      foreach my $transcript (@$transcripts) {
+        say "  Transcript: ".$transcript->stable_id()." ".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$transcript->strand();
+        my $updated_description = $transcript->description().", Annotation method: ".$transcript->{'annotation_method'};
+        $transcript->description($updated_description);
+      }
+
+      $gene->{'to_write'} = 1;
+      push(@$final_genes,$gene);
+    }
+
   }
 
-  say "Build ".scalar(@$final_genes)." final genes";
-
-  $self->output($final_genes);
-  return($high_confidence);
-}
-
-
-sub write_input_file {
-  my ($self,$fasta_records) = @_;
-
-  my $output_file = $self->create_filename();
-  open(OUT,">".$output_file);
-  foreach my $fasta_record (@$fasta_records) {
-    say OUT $fasta_record;
-  }
-  close OUT;
-
-  return($output_file);
+  say "Built ".scalar(@$final_genes)." final genes";
+  return($final_genes);
+#  push(@$target_genes,@$final_genes);
+#  $self->output($final_genes);
 }
 
 
@@ -756,62 +1468,140 @@ sub fix_cds_issues {
 }
 
 
-sub calculate_region_boundary {
-  my ($self,$paf_results) = @_;
+sub filter_paf_hits {
+  my ($self,$gene,$paf_results) = @_;
 
-  my $top_paf_result = shift(@$paf_results);
-  my $top_paf_strand = ${$top_paf_result}[4];
-  my $top_paf_source_genomic_start = ${$top_paf_result}[2];
-  my $top_paf_source_genomic_end = ${$top_paf_result}[3];
-  my $top_paf_target_genomic_start = ${$top_paf_result}[7];
-  my $top_paf_target_genomic_end = ${$top_paf_result}[8];
-  my $top_paf_target_genomic_name = ${$top_paf_result}[5];
-  my $source_genomic_length = ${$top_paf_result}[1];
-  my $target_genomic_length = ${$top_paf_result}[6];
-
-  say "Top paf source start/end: ".$top_paf_source_genomic_start."/".$top_paf_source_genomic_end;
-  say "Top paf target start/end: ".$top_paf_target_genomic_start."/".$top_paf_target_genomic_end;
-  # This will control the variability of the gap between two hits on the target relative to the
-  # gap in coverage on the source sequence
-
-  my $cluster_source_genomic_start = $top_paf_source_genomic_start;
-  my $cluster_source_genomic_end = $top_paf_source_genomic_end;
-  my $cluster_target_genomic_start = $top_paf_target_genomic_start;
-  my $cluster_target_genomic_end = $top_paf_target_genomic_end;
-
-  my $target_flanking = 500;
-  my $cluster_scaling_ratio = 1.5;
-
-  my $source_missing_coverage = $source_genomic_length - ($top_paf_source_genomic_end - $top_paf_source_genomic_start) + 1;
-  my $source_missing_left = $top_paf_source_genomic_start;
-  my $source_missing_right = $source_genomic_length - $top_paf_source_genomic_end;
-  my $source_scaled_left = ceil($cluster_scaling_ratio * $source_missing_left) + $target_flanking;
-  my $source_scaled_right = ceil($cluster_scaling_ratio * $source_missing_right) + $target_flanking;
-
-  if($top_paf_strand eq '-') {
-    my $tmp = $source_scaled_left;
-    $source_scaled_left = $source_scaled_right;
-    $source_scaled_right = $tmp;
+  my $hit_identity_cutoff = 0.99;
+  say "Calculating hit regions withing expected boundaries for ".$gene->stable_id();
+  my $gene_left_boundary = $gene->{'left_boundary'};
+  my $gene_right_boundary = $gene->{'right_boundary'};
+  my $gene_target_slice = $gene->{'target_slice'};
+  unless($gene_left_boundary and $gene_right_boundary and $gene_target_slice) {
+    say "Couldn't find expected gene boundaries for gene with stable id ".$gene->stable_id()."";
+    return;
   }
 
-  say "Say source missing coverage/left/right: ".$source_missing_coverage."/".$source_missing_left."/".$source_missing_right;
+  my $overlapping_paf_results = [];
+  my $non_overlapping_paf_results = [];
+  foreach my $paf_result (@$paf_results) {
+    my $paf_target_genomic_start = ${$paf_result}[7];
+    my $paf_target_genomic_end = ${$paf_result}[8];
+    my $paf_target_genomic_name = ${$paf_result}[5];
+    my $paf_hit_length = ${$paf_result}[1];
+    my $paf_hit_identities = ${$paf_result}[9];
+    my $paf_perc_ident = $paf_hit_identities/$paf_hit_length;
 
-  say "Source cluster coverage start-end: ".$cluster_source_genomic_start."-".$cluster_source_genomic_end;
-  say "Unadjusted cluster details: Start: ".$cluster_target_genomic_start.", End: ".$cluster_target_genomic_end.", Strand: ".$top_paf_strand.", Name: ".$top_paf_target_genomic_name;
-
-  $cluster_target_genomic_start -= $source_scaled_left;
-  $cluster_target_genomic_end += $source_scaled_right;
-
-  if($cluster_target_genomic_start <= 0) {
-    $cluster_target_genomic_start = 1;
+    if(($gene_left_boundary and $gene_right_boundary and $gene_target_slice) and
+       ($paf_target_genomic_start >= $gene_left_boundary and $paf_target_genomic_end <= $gene_right_boundary and $gene_target_slice eq $paf_target_genomic_name and $paf_perc_ident >= $hit_identity_cutoff)) {
+#      unless($paf_target_genomic_start >= $gene_left_boundary and $paf_target_genomic_end <= $gene_right_boundary and $gene_target_slice eq $paf_target_genomic_name and $paf_perc_ident >= $hit_identity_cutoff) {
+#        next;
+#      } else {
+      push(@$overlapping_paf_results,$paf_result);
+#      }
+    } elsif($paf_perc_ident >= $hit_identity_cutoff) {
+      say "Missing gene ".$gene->stable_id()." did not have an identified high confidence target region. Will take only the top paf as it passes the identity cutoff";
+      push(@$overlapping_paf_results,$paf_result);
+      last;
+    } else {
+      say "Missing gene ".$gene->stable_id()." did not have an identified high confidence target region and failed identity cutoff on top hit, so will not process";
+      last;
+    }
   }
 
-  if($cluster_target_genomic_end > $target_genomic_length) {
-    $cluster_target_genomic_end = $target_genomic_length;
+  my $extended_regions = [];
+  foreach my $paf_result (@$overlapping_paf_results) {
+    my $paf_strand = ${$paf_result}[4];
+    my $paf_source_genomic_start = ${$paf_result}[2];
+    my $paf_source_genomic_end = ${$paf_result}[3];
+    my $paf_target_genomic_start = ${$paf_result}[7];
+    my $paf_target_genomic_end = ${$paf_result}[8];
+    my $paf_target_genomic_name = ${$paf_result}[5];
+    my $source_genomic_length = ${$paf_result}[1];
+    my $target_genomic_length = ${$paf_result}[6];
+
+    say "  Initial paf hit: ".$paf_target_genomic_start.":".$paf_target_genomic_end.":".$paf_strand.":".$paf_target_genomic_name;
+    # This will control the variability of the gap between two hits on the target relative to the
+    # gap in coverage on the source sequence
+
+    my $source_genomic_start = $paf_source_genomic_start;
+    my $source_genomic_end = $paf_source_genomic_end;
+    my $target_genomic_start = $paf_target_genomic_start;
+    my $target_genomic_end = $paf_target_genomic_end;
+
+    my $target_flanking = 500;
+    my $scaling_ratio = 1.5;
+
+    my $source_missing_coverage = $source_genomic_length - ($paf_source_genomic_end - $paf_source_genomic_start) + 1;
+    my $source_missing_left = $paf_source_genomic_start;
+    my $source_missing_right = $source_genomic_length - $paf_source_genomic_end;
+    my $source_scaled_left = ceil($scaling_ratio * $source_missing_left) + $target_flanking;
+    my $source_scaled_right = ceil($scaling_ratio * $source_missing_right) + $target_flanking;
+
+    if($paf_strand eq '-') {
+      my $tmp = $source_scaled_left;
+      $source_scaled_left = $source_scaled_right;
+      $source_scaled_right = $tmp;
+    }
+
+    $target_genomic_start -= $source_scaled_left;
+    $target_genomic_end += $source_scaled_right;
+
+    if($target_genomic_start <= 0) {
+      $target_genomic_start = 1;
+    }
+
+    if($target_genomic_end > $target_genomic_length) {
+      $target_genomic_end = $target_genomic_length;
+    }
+
+    push(@$extended_regions,[$target_genomic_start,$target_genomic_end,$paf_strand,$paf_target_genomic_name]);
   }
 
-  say "Final cluster details: Start: ".$cluster_target_genomic_start.", End: ".$cluster_target_genomic_end.", Strand: ".$top_paf_strand.", Name: ".$top_paf_target_genomic_name;
-  return([$cluster_target_genomic_start,$cluster_target_genomic_end,$top_paf_strand,$top_paf_target_genomic_name]);
+  # At this point, extended regions has any paf hit in the region, and it will have been extended based on the expected length of the region
+  # versus the length of the hit itself. So if there were a few hits, it's likely that the different extended regions will actually just
+  # describe the same region. If there are close paralogues, there may be distinct regions. This is okay, we will allow multi mapping and
+  # then try and clear up later. At this point we want to cluster into however many distinct regions there are based on overlap
+  my @sorted_res = sort { $a->[1] cmp $b->[1] } @$extended_regions;
+  foreach my $region (@sorted_res) {
+    my $start = ${$region}[0];
+    my $end = ${$region}[1];
+    my $strand = ${$region}[2];
+  }
+
+  for(my $i=0; $i<scalar(@sorted_res)-1; $i++) {
+    my $res1 = $sorted_res[$i];
+    unless($res1) {
+      next;
+    }
+    my $coord_i_1 = ${$res1}[0];
+    my $coord_i_2 = ${$res1}[1];
+    my $strand_i = ${$res1}[2];
+    my $region_i = ${$res1}[3];
+    for(my $j=$i+1; $j<scalar(@sorted_res); $j++) {
+      my $res2 = $sorted_res[$j];
+      unless($res2) {
+        next;
+      }
+      my $coord_j_1 = ${$res2}[0];
+      my $coord_j_2 = ${$res2}[1];
+      my $strand_j = ${$res2}[2];
+      my $region_j = ${$res2}[3];
+      if($self->coords_overlap($coord_i_1,$coord_i_2,$coord_j_1,$coord_j_2) and $strand_i eq $strand_j and $region_i eq $region_j) {
+        $sorted_res[$i] = [min($coord_i_1,$coord_j_1),max($coord_i_2,$coord_j_2),$strand_i,$region_i];
+        $sorted_res[$j] = undef;
+      }
+    } # End for $j
+  } # End for $i
+
+  my $final_paf_regions = [];
+  foreach my $region (@sorted_res) {
+    if($region) {
+      push(@$final_paf_regions,$region);
+      say " Chosen hit: ".${$region}[0].":".${$region}[1].":".${$region}[2].":".${$region}[3];
+    }
+  }
+
+  $gene->{'paf_regions'} = $final_paf_regions;
 }
 
 
@@ -1004,74 +1794,8 @@ sub map_gene_minimap {
     $transcript->{'aligned_source_seq'} = $aligned_source_seq;
     $transcript->{'aligned_target_seq'} = $aligned_target_seq;
     say "Mapped transcript (".$source_transcript->stable_id()."): Coverage: ".$transcript->{'cov'}.", Percent id: ".$transcript->{'perc_id'};
-
-#    my $description_string = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$transcript->{'cov'}.", Perc id: ".$transcript->{'perc_id'};
-#    $transcript->description($description_string);
   }
   return($transcripts_by_id);
-
-#  my $bad_minimap_transcripts = $self->check_mapping_quality($output_minimap_transcripts,$source_transcript_id_hash,$good_transcripts);
-#  say "Number of good transcripts after minimap2: ".scalar(@$good_transcripts);
-#  say "Number of bad transcripts after minimap2: ".scalar(@$bad_minimap_transcripts);
-
-#  say "Running exonerate on bad transcripts";
-#  my $output_exonerate_transcripts = $self->generate_exonerate_transcripts($bad_minimap_transcripts,$source_transcript_id_hash,$target_region_slice,$target_slice_adaptor,$max_intron_size);
-#  my $bad_exonerate_transcripts = $self->check_mapping_quality($output_exonerate_transcripts,$source_transcript_id_hash,$good_transcripts);
-#  say "Number of good transcripts after exonerate: ".scalar(@$good_transcripts);
-#  say "Number of bad transcripts after exonerate: ".scalar(@$bad_exonerate_transcripts);
-
-  # Store these in a hash for making selecting the best based on dbID easier
-#  foreach my $transcript (@$good_transcripts) {
-#    $good_transcripts_hash->{$transcript->stable_id()} = $transcript;
-#  }
-
-#  my $bad_minimap_transcripts_hash = {};
-#  foreach my $transcript (@$bad_minimap_transcripts) {
-#    $bad_minimap_transcripts_hash->{$transcript->stable_id()} = $transcript;
-#  }
-
-#  my $bad_exonerate_transcripts_hash = {};
-#  foreach my $transcript (@$bad_exonerate_transcripts) {
-#    $bad_exonerate_transcripts_hash->{$transcript->stable_id()} = $transcript;
-#  }
-
-  # This is bit of a mess as I only realised that many of the hardest edge cases can be recovered with exonerate, but might totally fail on minimap2
-  # Thus there needed to be a step added for when the minimap transcript is missing to begin wit, because the way the rest of the code is designed
-  # a transcript might just not be found via minimap and then all that will happen is that it gets globally aligned via minimap later and likely not
-  # found again. This just ensures that a local exonerate is run on the region for totally missing transcripts, not just ones that fail the minimap
-  # cut-offs. To refactor this at some point it would be better to rely less on arrays of the mapped transcripts and instead go through the id hashes
-#  say "Checking for missing transcripts to perform exonerate on region";
-#  my $initial_missing_source_transcripts = $self->list_missing_transcripts($good_transcripts_hash,$bad_exonerate_transcripts_hash,$source_transcripts);
-#  say "Found ".scalar(@$initial_missing_source_transcripts)." initial missing transcripts";
-#  my $missing_exonerate_transcripts = [];
-#  foreach my $missing_source_transcript (@$initial_missing_source_transcripts) {
-#    say "Initial missing source transcript: ".$missing_source_transcript->stable_id();
-#    my $exonerate_transcripts = $self->run_exonerate($missing_source_transcript,$target_region_slice,$target_slice_adaptor,$max_intron_size);
-#    push(@$missing_exonerate_transcripts,@$exonerate_transcripts);
-#  }
-
-#  say "After mapping initial missing transcripts with exonerate in region found ".scalar(@$missing_exonerate_transcripts)." exonerate transcripts";
-
-#   my $bad_initial_missing_transcripts = $self->check_mapping_quality($missing_exonerate_transcripts,$source_transcript_id_hash,$good_transcripts);
-#   foreach my $transcript (@$bad_initial_missing_transcripts) {
-#     $bad_exonerate_transcripts_hash->{$transcript->stable_id()} = $transcript;
-#   }
-
-   # Select the best transcript foreach pair across both hashes, and any transcripts that are unique to either hash
-   # Then put the corresponding source transcripts into an array to do a global mapping later
-#   say "Selecting best transcripts out of bad minimap2/exonerate transcripts";
-#   $best_bad_transcripts = $self->select_best_transcripts($bad_minimap_transcripts_hash,$bad_exonerate_transcripts_hash);
-#   foreach my $transcript (@$best_bad_transcripts) {
-     # If a transcript was bad from minimap and good after exonerate, then we want to skip over it
-#     if($good_transcripts_hash->{$transcript->stable_id()}) {
-#       next;
-#     }
-
-#     $best_bad_transcripts_hash->{$transcript->stable_id()} = $transcript;
-#     push(@$bad_source_transcripts,$source_transcript_id_hash->{$transcript->stable_id()});
-#   }
-
-#   say "Number of bad transcripts after selection: ".scalar(@$bad_source_transcripts);
 }
 
 
@@ -1096,12 +1820,6 @@ sub map_gene_exonerate {
 
 sub update_best_transcripts {
   my ($self,$best_transcripts_by_id,$new_transcripts_by_id,$coverage_threshold,$perc_id_threshold) = @_;
-
-#  say "FERGAL DUMPER: ".Dumper($new_transcripts_by_id);
-#  say "FERGAL REF: ".ref($new_transcripts_by_id);
-#  foreach my $test_id (keys(%$new_transcripts_by_id)) {
-#    say "TEST ID:".$test_id;
-#  }
 
   my @ids = keys(%{$new_transcripts_by_id});
   foreach my $id (@ids) {
@@ -1158,7 +1876,7 @@ sub filter_transcripts_to_map {
 
 
 sub project_gene_coords {
-  my ($self,$gene,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand) = @_;
+  my ($self,$gene,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,$gene_genomic_seqs_hash) = @_;
 
   my $transcripts_by_id = {};
 
@@ -1166,18 +1884,7 @@ sub project_gene_coords {
     return($transcripts_by_id);
   }
 
-  # As this uses a MAFFT alignment, there are some limits in terms of getting that to run, for the handful of really long genes
-  # just skip and rely on the minimap approach
-  # Note, skipping as I'm not sure big genes are really much of an issue for MAFFT, it's likely other factors that determine if
-  # something gets stuck and projection is likely to be better in the case of big genes
-  my $gene_length_threshold = 250000;
-#  if($gene->length >= $gene_length_threshold) {
-#    say "The source gene is longer than the gene length threshold, will align via minimap in the target region instead of projecting";
-#    return($transcripts_by_id);
-#  }
-
-  my $gene_genomic_seqs_hash = $self->gene_genomic_seqs_hash();
-  my $source_genomic_seq_info = $gene_genomic_seqs_hash->{$gene->dbID()};
+  my $source_genomic_seq_info = $gene_genomic_seqs_hash->{$gene->stable_id};
 
   unless($source_genomic_seq_info) {
     $self->throw("Could not find the genomic seq info for source gene with dbID: ".$gene->dbID());
@@ -1191,11 +1898,11 @@ sub project_gene_coords {
   my $target_genome_seq = $target_region_slice->seq();
 
   # Put back onto forward strand for simplicity
-  if($gene->strand != 1) {
-    $source_genome_seq = $self->revcomp($source_genome_seq);
-  }
+#  if($gene->strand != 1) {
+#    $source_genome_seq = $self->revcomp($source_genome_seq);
+#  }
 
-  if($target_strand != $gene->strand) {
+  if($target_strand != 1) {
     $target_genome_seq = $self->revcomp($target_genome_seq);
   }
 
@@ -1217,26 +1924,6 @@ sub project_gene_coords {
     say "Aligned source and target regions with MAFFT: Coverage: ".$coverage.", Percent id: ".$percent_id;
   }
 
-  # Check if there's an issue with the alignment, MAFFT can sometimes get regions with duplications completely wrong
-  if($coverage < 90 or $percent_id < 95 and $gene->length < $gene_length_threshold) {
-    say "MAFFT coverage/id failed threshold, will re-align with MUSCLE and take the alignment with the highest combined coverage/id";
-
-    my $muscle_coverage = 0;
-    my $muscle_percent_id = 0;
-    my $muscle_aligned_source_seq;
-    my $muscle_aligned_target_seq;
-#    eval {
-#      ($muscle_coverage,$muscle_percent_id,$muscle_aligned_source_seq,$muscle_aligned_target_seq) = align_nucleotide_seqs($source_genome_seq,$target_genome_seq,'muscle');
-#    }; if ($@) {
-#      $self->warning("Issue with running MUSCLE on target region");
-#    } else {
-#      say "Aligned source and target regions with MUSCLE: Coverage: ".$muscle_coverage.", Percent id: ".$muscle_percent_id;
-#      if (($muscle_coverage + $muscle_percent_id) > ($coverage + $percent_id)) {
-#         $aligned_source_seq = $muscle_aligned_source_seq;
-#         $aligned_target_seq = $muscle_aligned_target_seq;
-#      }
-#    }
-  }
 
   unless($coverage and $percent_id) {
     say "No coverage/percent id calculated therefore not proceeding with projection";
@@ -1255,12 +1942,11 @@ sub project_gene_coords {
 
     if($projected_exon) {
       my ($proj_coverage,$proj_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($exon->seq->seq(),$projected_exon->seq->seq());
+      say "Projected exon alignment scores: Coverage: ".$proj_coverage.", Perc identity: ".$proj_percent_id;
       $projected_exon->{'cov'} = $proj_coverage;
       $projected_exon->{'perc_id'} = $proj_percent_id;
       $projected_exon->{'source_stable_id'} = $exon->stable_id();
       $projected_exon->{'source_length'} = $exon->length();
-#      say "Projected exon (".$projected_exon->{'source_stable_id'}."): Coverage: ".$projected_exon->{'cov'}.", Percent id: ".$projected_exon->{'perc_id'};
-#      say "Alignment:\n".$aligned_source_seq."\n".$aligned_target_seq;
       $projected_exons_by_id->{$projected_exon->{'source_stable_id'}} = $projected_exon;
     } else {
       say "Failed to project exon (".$projected_exon->{'source_stable_id'}.")";
@@ -1268,9 +1954,6 @@ sub project_gene_coords {
   }
 
   foreach my $source_transcript (@$source_transcripts) {
-#    unless($source_transcript->stable_id() eq 'ENST00000556119') {
-#      next;
-#    }
     my $projected_transcript = $self->reconstruct_transcript($source_transcript,$projected_exons_by_id);
     if($projected_transcript) {
       $projected_transcript->{'annotation_method'} = 'alignment_projection';
@@ -1313,11 +1996,9 @@ sub reconstruct_transcript {
   $projected_transcript->{'perc_id'} = $proj_percent_id;
   $projected_transcript->{'aligned_source_seq'} = $aligned_source_seq;
   $projected_transcript->{'aligned_target_seq'} = $aligned_target_seq;
-  say "Projected transcript (".$projected_transcript->{'source_stable_id'}."): Coverage: ".$projected_transcript->{'cov'}.", Percent id: ".$projected_transcript->{'perc_id'};
+  say "Projected transcript (".$projected_transcript->{'source_stable_id'}.") ".$projected_transcript->seq_region_name." ".$projected_transcript->seq_region_start."/".
+      $projected_transcript->seq_region_end." ".$projected_transcript->strand.": Coverage: ".$projected_transcript->{'cov'}.", Percent id: ".$projected_transcript->{'perc_id'};
   say "Alignment:\n".$aligned_source_seq."\n".$aligned_target_seq;
-
-#  my $description_string = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$proj_coverage.", Perc id: ".$proj_percent_id;
-#  $projected_transcript->description($description_string);
 
   return($projected_transcript);
 }
@@ -1417,7 +2098,7 @@ sub project_feature {
   }
 
   my $recovered_target_feature_seq = substr($target_seq,$target_seq_start_index,$target_feature_length);
-  if($target_strand != 1) {
+  if($target_strand != $exon->strand()) {
     $recovered_target_feature_seq = $self->revcomp($recovered_target_feature_seq);
   }
 
@@ -1443,15 +2124,75 @@ sub build_projected_exon {
   say "Region end: ".$region_end;
 
   my $parent_slice = $region_slice->seq_region_Slice();
+  my $exon_start;
+  my $exon_end;
+  my $exon_strand = 1;
+  say "Start/End index: ".$seq_start_index."/".$seq_end_index;
+  if($target_strand == 1) {
+    $exon_start = $region_start + $seq_start_index;
+    $exon_end = $region_start + $seq_end_index;
+    $exon_strand = $exon->strand();
+  } else {
+    # In this case we need to reverse the coords
+    $exon_end = $region_end - $seq_start_index;
+    $exon_start = $exon_end - ($seq_end_index - $seq_start_index);
+    if($exon->strand() == 1) {
+       $exon_strand = -1;
+    } else {
+      $exon_strand = 1;
+    }
+  }
+
+  my $phase = -1;
+  my $end_phase = -1;
+
+  say "Projected exon start/end slice coords: ".$exon_start."/".$exon_end;
+  say "Parent slice stard/end genomic coords: ".$parent_slice->seq_region_start."/".$parent_slice->seq_region_end;
+  my $projected_exon = Bio::EnsEMBL::Exon->new(-start     => $exon_start,
+                                               -end       => $exon_end,
+                                               -strand    => $exon_strand,
+                                               -phase     => $phase,
+                                               -end_phase => $end_phase,
+                                               -analysis  => $self->analysis,
+                                               -slice     => $parent_slice);
+
+  if($transcript and $exon->is_coding($transcript)) {
+    $projected_exon->phase($exon->phase());
+    $projected_exon->end_phase($exon->end_phase());
+  }
+
+  if($exon_start > $exon_end) {
+    $self->throw("Created an exon where the start > than the end, this shouldn't be possible: ".$parent_slice->name." ".$exon->start."..".$exon->end." ".$target_strand);
+  }
+
+  say "New exon seq:";
+  say $projected_exon->seq->seq();
+  say "Original exon seq:";
+  say $exon->seq->seq();
+
+  return($projected_exon);
+}
+
+sub build_projected_exon_orig {
+  my ($self,$transcript,$exon,$seq_start_index,$seq_end_index,$region_slice,$target_strand) = @_;
+
+  say "Region slice: ".$region_slice->name();
+  my $region_start = $region_slice->seq_region_start();
+  my $region_end = $region_slice->seq_region_end();
+  say "Region start: ".$region_start;
+  say "Region end: ".$region_end;
+
+  my $parent_slice = $region_slice->seq_region_Slice();
 #  say "Parent slice: ".$parent_slice->name();
 
   my $exon_start;
   my $exon_end;
-
+  my $exon_strand = 1;
   say "Start/End index: ".$seq_start_index."/".$seq_end_index;
   if($target_strand == $exon->strand) {
     $exon_start = $region_start + $seq_start_index;
     $exon_end = $region_start + $seq_end_index;
+    $exon_strand = $target_strand;
   } else {
     # In this case we need to reverse the coords
     $exon_end = $region_end - $seq_start_index;
@@ -1481,8 +2222,6 @@ sub build_projected_exon {
     $self->throw("Created an exon where the start > than the end, this shouldn't be possible: ".$parent_slice->name." ".$exon->start."..".$exon->end." ".$target_strand);
   }
 
-#  say "New exon slice: ".$projected_exon->slice->name();
-#  say "New exon start/end/strand: ".$projected_exon->start().":".$projected_exon->end().":".$projected_exon->strand();
   say "New exon seq:";
   say $projected_exon->seq->seq();
   say "Original exon seq:";
@@ -1506,14 +2245,6 @@ sub set_complete_transcript_cds {
   $translation->end_Exon($end_exon);
   $translation->end($end_exon->length());
   $transcript->translation($translation);
-
-#  say "New translation info:";
-#  say "  Translation start: ".$transcript->translation->start();
-#  say "  Translation end: ".$transcript->translation->end();
-#  say "  Start exon phase: ".$transcript->start_Exon->phase();
-#  say "  Start exon end phase: ".$transcript->start_Exon->end_phase();
-#  say "  Start exon frame: ".$transcript->start_Exon->frame();
-
 }
 
 
@@ -1548,27 +2279,8 @@ sub generate_minimap_transcripts {
 
   my $output_genes = $runnable->output();
   foreach my $gene (@$output_genes) {
-    say "FERGAL DEBUG MINIMAP LOCAL OUTPUT!!!!!!!";
     my $transcripts = $gene->get_all_Transcripts();
     foreach my $transcript (@$transcripts) {
-#      my $transcript_after_replaced_stops = $transcript;
-#      if ($transcript->translate() and $transcript->translate()->seq()) {
-#        $transcript_after_replaced_stops = replace_stops_with_introns($transcript,$max_stops);
-#        if ($transcript_after_replaced_stops and $transcript_after_replaced_stops->translate()->seq !~ /\*/) {
-#          ;#push(@$minimap_transcripts,$transcript_after_replaced_stops);
-#        } elsif (!$transcript_after_replaced_stops->translate()) {
-#          print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region->strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Discarded.\n";
-#          $transcript_after_replaced_stops->translation(undef);
-#          $transcript_after_replaced_stops->biotype("processed_transcript");
-#        } else {
-#          print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region->strand().",".$transcript->seq_region_name().") has more than the maximum of $max_stops stops or it has stops after replace_stops_with_introns. Discarded.\n";
-#          $transcript_after_replaced_stops->translation(undef);
-#          $transcript_after_replaced_stops->biotype("processed_transcript");
-#        }
-#      }
-#      if ($transcript_after_replaced_stops->translation()) {
-#        $self->check_and_fix_translation_boundaries($transcript_after_replaced_stops);
-#      }
       $transcript->{'annotation_method'} = 'minimap_local';
       push(@$minimap_transcripts,$transcript);
     }
@@ -1600,8 +2312,6 @@ sub generate_exonerate_transcripts {
       $transcript->{'aligned_target_seq'} = $aligned_target_seq;
       $transcript->{'annotation_method'} = 'exonerate_local';
       say "Mapped transcript (".$source_transcript->stable_id()."): Coverage: ".$transcript->{'cov'}.", Percent id: ".$transcript->{'perc_id'};
-#      my $description_string = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$transcript->{'cov'}.", Perc id: ".$transcript->{'perc_id'};
-#      $transcript->description($description_string);
       push(@$output_transcripts,$transcript);
     }
   }
@@ -1658,27 +2368,6 @@ sub run_exonerate {
       $self->check_exonerate_translation($source_transcript,$output_transcript);
     }
 
-#    my $transcript_after_replaced_stops = $output_transcript;
-#    if ($output_transcript->translate() and $output_transcript->translate()->seq()) {
-#      $transcript_after_replaced_stops = replace_stops_with_introns($output_transcript,$max_stops);
-#      if ($transcript_after_replaced_stops and $transcript_after_replaced_stops->translate()->seq() !~ /\*/) {
-#        ;#push(@$output_transcripts,$transcript_after_replaced_stops);
-#      } elsif ($transcript_after_replaced_stops and !($transcript_after_replaced_stops->translate())) {
-#        print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$output_transcript->seq_region_start().",".$output_transcript->seq_region_end().",".$output_transcript->seq_region_strand().",".$output_transcript->seq_region_name().") does not translate after repl#acing a maximum of $max_stops stops. Removing translation and setting biotype to processed_transcript.\n";
-#        $transcript_after_replaced_stops->translation(undef);
-#        $transcript_after_replaced_stops->biotype("processed_transcript");
-#      } elsif ($transcript_after_replaced_stops) {
-#        print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$output_transcript->seq_region_start().",".$output_transcript->seq_region_end().",".$output_transcript->seq_region_strand().",".$output_transcript->seq_region_name().") has more than the maximum of $max_stops stops or it has stops after replace_stops_with_introns. Removing translation and setting biotype to processed_transcript.\n";
-#        $transcript_after_replaced_stops->translation(undef);
-#        $transcript_after_replaced_stops->biotype("processed_transcript");
-#      } else {
-#        print STDERR "exonerate transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$output_transcript->seq_region_start().",".$output_transcript->seq_region_end().",".$output_transcript->seq_region_strand().",".$output_transcript->seq_region_name().") replace_stops_with_introns failed. Pushing transcript as it was before the attempt to replace stops.\n";
-#        $transcript_after_replaced_stops = $output_transcript;
-#      }
-#    }
-#    if ($transcript_after_replaced_stops->translation()) {
-#      $self->check_and_fix_translation_boundaries($transcript_after_replaced_stops);
-#    }
     $output_transcript->stable_id($source_transcript->dbID());
     push(@$output_transcripts,$output_transcript);
   }
@@ -1796,7 +2485,6 @@ sub check_mapping_quality {
 
       unless($transcript_seq) {
         $self->warning("Couldn't find an ORF in transcript mapped from ".$source_transcript->stable_id().". Source transcript has an ORF");
-#        push(@$bad_transcripts,$transcript);
         next;
       }
 
