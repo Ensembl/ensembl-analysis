@@ -104,6 +104,8 @@ sub fetch_input {
     $self->sequence_accession();
   } elsif($iid_type eq 'rechunk') {
     $self->rechunk_input_ids();
+  } elsif($iid_type eq 'unpack') {
+    $self->unpack_input_ids();
   } elsif($iid_type eq 'fastq_range') {
     $self->fastq_range($self->param_required('fastq_file'),$self->param_required('batch_size'));
   } else {
@@ -1161,5 +1163,35 @@ sub fastq_range {
 
   $self->param('inputlist', $self->_chunk_input_ids(1, $batch_array));
 }
+
+
+=head2 unpack_input_ids
+
+ Arg [1]    : None
+ Description: Take an input_id which contains a array and create multiple input ids with each element of
+              the array having all the keys specified with 'shared_keys'.
+              The array is retrieved using 'unpack_key'.
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub unpack_input_ids {
+  my ($self) = @_;
+
+  my $key_to_unpack = $self->param_required('unpack_key');
+  my $iids_to_unpack = $self->param_required($key_to_unpack);
+  my @shared_data;
+  foreach my $key (@{$self->param_required('shared_key')}) {
+    push(@shared_data, $self->param_required($key));
+  }
+  my @iids;
+  foreach my $iid (@$iids_to_unpack) {
+    push(@iids, [[$iid], @shared_data]);
+  }
+  $self->param('column_names', [$key_to_unpack, @{$self->param('shared_key')}]);
+  $self->param('inputlist', \@iids);
+}
+
 
 1;
