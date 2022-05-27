@@ -945,9 +945,9 @@ sub align_proteins {
 sub align_proteins_with_alignment {
   my ($source_protein_seq,$target_protein_seq) = @_;
 
-  my $align_input_file = "/tmp/align_".$$.".fa";
-  my $align_output_file = "/tmp/align_".$$.".aln";
-  my $align_progress_file = "/tmp/align_".$$.".log";
+  my $align_input_file = create_file_name('align', 'fa');
+  my $align_output_file = create_file_name('align', 'aln');
+  my $align_progress_file = create_file_name('align', 'log');
 
   open(INPUT,">".$align_input_file);
   say INPUT ">query";
@@ -1050,16 +1050,16 @@ sub align_proteins_with_alignment {
 sub align_nucleotide_seqs {
   my ($source_protein_seq,$target_protein_seq,$program) = @_;
 
-  my $align_input_file = "/tmp/align_".$$.".fa";
-  my $align_output_file = "/tmp/align_".$$.".aln";
-  my $align_progress_file = "/tmp/align_".$$.".log";
+  my $align_input_file = create_file_name('align', 'fa');
+  my $align_output_file = create_file_name('align', 'aln');
+  my $align_progress_file = create_file_name('align', 'log');
 
-  open(INPUT,">".$align_input_file);
+  open(INPUT,">".$align_input_file) or throw("Could not open $align_input_file");
   say INPUT ">query";
   say INPUT $source_protein_seq;
   say INPUT ">target";
   say INPUT $target_protein_seq;
-  close INPUT;
+  close INPUT or throw("Could not close $align_input_file");
 
   my $align_program_path = 'mafft';
   my $cmd = $align_program_path." --progress ".$align_progress_file." --nuc ".$align_input_file." > ".$align_output_file;
@@ -1069,18 +1069,15 @@ sub align_nucleotide_seqs {
     $cmd = $align_program_path." -in ".$align_input_file." -out ".$align_output_file;
   }
 
-  my $result = system($cmd);
-
-  if ($result) {
-    throw("Got a non-zero exit code from alignment. Command line used:\n".$cmd);
-  }
+  warning($cmd);
+  execute_with_wait($cmd);
 
   my $file = "";
-  open(ALIGN,$align_output_file);
+  open(ALIGN,$align_output_file) or die("Could not open $align_output_file");
   while (<ALIGN>) {
     $file .= $_;
   }
-  close ALIGN;
+  close ALIGN or die("Could not open $align_output_file");
 
   if ($file !~ /\>.+\n(([^>]+\n)+)\>.+\n(([^>]+\n)+)/) {
     warning("Could not parse the alignment file for the alignment sequences. Alignment file: ".$align_output_file);
@@ -1098,15 +1095,15 @@ sub align_nucleotide_seqs {
 
   # Work out coverage
   my $coverage;
-  my $temp = $aligned_target_seq;
-  my $projected_gap_count = $temp =~ s/\-//g;
-  my $ungapped_source_seq = $aligned_source_seq;
-  $ungapped_source_seq  =~ s/\-//g;
+  my $projected_gap_count = $aligned_target_seq =~ tr/-/-/;
+  my $source_length = length($source_protein_seq);
+  my $source_gap_count = $aligned_source_seq =~ tr/-/-/;
+  $source_length -= $source_gap_count;
 
-  if (length($ungapped_source_seq) == 0) {
+  if ($source_length == 0) {
     $coverage = 0;
   } else {
-    $coverage = 100-(($projected_gap_count/length($ungapped_source_seq))*100);
+    $coverage = 100-(($projected_gap_count/$source_length)*100);
   }
 
   # Work out percent identity

@@ -26,12 +26,12 @@
 
 =head1 NAME
 
-Bio::EnsEMBL::Analysis::Runnable::LowDivergenceMapping
+Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap
 
 =head1 SYNOPSIS
 
   my $runnable =
-    Bio::EnsEMBL::Analysis::Runnable::LowDivergenceMapping->new();
+    Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap->new();
 
  $runnable->run;
  my @results = $runnable->output;
@@ -60,7 +60,7 @@ The next step in the process is to take the combined set of genes from the two m
 =cut
 
 
-package Bio::EnsEMBL::Analysis::Runnable::LowDivergenceMapping;
+package Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap;
 
 use warnings;
 use strict;
@@ -74,7 +74,7 @@ use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_best_translation);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(set_alignment_supporting_features attach_Slice_to_Transcript attach_Analysis_to_Transcript calculate_exon_phases replace_stops_with_introns);
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_nucleotide_seqs map_cds_location align_proteins);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_nucleotide_seqs map_cds_location align_proteins execute_with_wait);
 use File::Spec;
 use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
@@ -212,21 +212,18 @@ sub run {
   my $genome_index  = $self->genome_index;
   my $options = $self->options;
 
-
   # run minimap2
   my $minimap2_command = $self->program." --cs --secondary=yes -x map-ont ".$genome_index." ".$missing_gene_reads_file." > ".$paf_file;
   $self->warning("Command:\n".$minimap2_command."\n");
-  if(system($minimap2_command)) {
-    $self->throw("Error running minimap2\nError code: $?\nCommand line used:\n".$minimap2_command);
-  }
+  execute_with_wait($minimap2_command);
 
   my $paf_results = [];
-  open(IN,$paf_file);
+  open(IN, $paf_file) or $self->throw("Could not open $paf_file for reading");
   while(<IN>) {
     chomp($_);
     push(@$paf_results,$_);
   }
-  close IN;
+  close(IN) or $self->throw("Could not close $paf_file");
 
   my $processed_gene_ids = {};
   my $paf_results_hash = {};
@@ -1131,19 +1128,16 @@ sub process_results {
 
     say "Projecting gene: ".$source_gene->stable_id();
 
-
     my $coverage_threshold = 98;
     my $perc_id_threshold = 98;
     my $projected_transcripts_by_id = $self->project_gene_coords($source_gene,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,$gene_genomic_seqs_hash);
     $self->print_transcript_stats($projected_transcripts_by_id,'projection');
     $self->update_best_transcripts($best_transcripts_by_id,$projected_transcripts_by_id);
-
     my $minimap_transcripts_by_id = $self->map_gene_minimap($source_gene,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,
                                                             $target_genome_file,$source_transcript_id_hash,$max_intron_size,$target_adaptor,$target_slice_adaptor,
                                                             $best_transcripts_by_id);
     $self->print_transcript_stats($minimap_transcripts_by_id,'minimap local');
     $self->update_best_transcripts($best_transcripts_by_id,$minimap_transcripts_by_id);
-
     my $exonerate_transcripts_by_id = $self->map_gene_exonerate($source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,
                                                                 $target_genome_file,$source_transcript_id_hash,$max_intron_size,$target_adaptor,
                                                                 $target_slice_adaptor,$best_transcripts_by_id);
@@ -1241,7 +1235,12 @@ sub set_transcript_descriptions {
   foreach my $id (keys(%$transcripts_by_id)) {
     my $transcript = $transcripts_by_id->{$id};
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
-    my $description_string = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$transcript->{'cov'}.", Perc id: ".$transcript->{'perc_id'};
+
+    # add source transcript stable id as transcript attribute
+    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $source_transcript->stable_id().".".$source_transcript->version());
+    $transcript->add_Attributes($parent_attribute);
+
+    my $description_string = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version().";mapping_coverage=".$transcript->{'cov'}.";mapping_identity=".$transcript->{'perc_id'};
     if($transcript->{'cds_description'}) {
       $description_string .= $transcript->{'cds_description'};
     }
@@ -1256,27 +1255,81 @@ sub qc_cds_sequences {
   foreach my $id (keys(%$transcripts_by_id)) {
     my $transcript = $transcripts_by_id->{$id};
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
-    if($source_transcript->translation()) {
+    my $source_translation = $source_transcript->translation;
+
+    if($source_translation) {
       my ($cds_coverage,$cds_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->translateable_seq(),$transcript->translateable_seq());
-      my $cds_description = ", CDS coverage: ".$cds_coverage." CDS perc id: ".$cds_percent_id;
+      my $cds_description = ";cds_coverage=".$cds_coverage.";cds_identity=".$cds_percent_id;
       my $aligned_source_seq_copy = $aligned_source_seq;
       my $aligned_target_seq_copy = $aligned_target_seq;
       $aligned_source_seq_copy =~ s/\-\-\-//g;
       $aligned_target_seq_copy =~ s/\-\-\-//g;
 
       if($aligned_source_seq_copy =~ /\-/ or $aligned_target_seq_copy =~ /\-/) {
-        $cds_description .= ", CDS gap: 1";
-        my $transcript_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
+        $cds_description .= ";cds_gap=1";
+        my $transcript_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'hidden_remark',
                                                              -VALUE => ">source_cds_align\n".$aligned_source_seq."\n>target_cds_align\n".$aligned_target_seq."\n");
         $transcript->add_Attributes($transcript_attrib);
-        my $translation_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
-                                                              -VALUE => ">source_translation\n".$source_transcript->translation->seq().
+        my $translation_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'hidden_remark',
+                                                              -VALUE => ">source_translation\n".$source_translation->seq().
                                                                         "\n>target_translation\n".$transcript->translation->seq()."\n");
         $transcript->translation->add_Attributes($translation_attrib);
       } else {
-        $cds_description .= ", CDS gap: 0";
+        $cds_description .= ";cds_gap=0";
       }
       $transcript->{'cds_description'} = $cds_description;
+      my $new_seq = $transcript->translate->seq;
+      foreach my $attribute (@{$source_transcript->get_all_Attributes}) {
+        if ($attribute->code eq 'cds_start_NF' or $attribute->code eq 'cds_end_NF') {
+          $transcript->add_Attributes($attribute);
+        }
+      }
+      foreach my $attribute (@{$source_translation->get_all_Attributes}) {
+        if ($attribute->code eq 'initial_met') {
+          if (substr($new_seq, 0, 1) ne 'M') {
+            $transcript->translation->add_Attributes($attribute);
+          }
+        }
+      }
+      my $num_internal_stops = $new_seq =~ tr/*/*/;
+      if ($num_internal_stops) {
+# We are checking if the source has some selenocysteine or a known internal stop codon
+        if (index($source_translation->seq, 'U') >= 0 or index(substr($source_translation->seq, 1, $source_translation->length-2), 'X') >= 0) {
+          my $source_seq_edits = $source_translation->get_all_SeqEdits;
+          my $pos = 0;
+          foreach my $seq_edit (@$source_seq_edits) {
+            if ($seq_edit->name ne 'initial_met') {
+              $pos = index($new_seq, '*', $pos);
+              if ($pos == -1) {
+                $self->warning($source_transcript->display_id.', I was expecting an internal stop but could not find one');
+              }
+              else {
+                ++$pos; # We need to be in 1-index coordinates
+                if ($seq_edit->code eq '_selenocysteine') {
+                  $self->warning($source_transcript->display_id." selenocysteine might not be that internal stop at $pos")
+                    unless ($seq_edit->start == $pos or ($pos >= $seq_edit->start-10 and $pos <= $seq_edit->start+10));
+                  $transcript->translation->add_Attributes(ref($seq_edit)->new(
+                    -code => '_selenocysteine',
+                    -start => $pos,
+                    -end => $pos,
+                    -alt_seq => 'U',
+                  )->get_Attribute);
+                }
+                elsif ($seq_edit->code eq '_stop_codon_rt') {
+                  $self->warning($source_transcript->display_id." stop codon readthrough might not be that internal stop at $pos")
+                    unless ($seq_edit->start == $pos or ($pos >= $seq_edit->start-10 and $pos <= $seq_edit->start+10));
+                  $transcript->translation->add_Attributes(ref($seq_edit)->new(
+                    -code => '_stop_codon_rt',
+                    -start => $pos,
+                    -end => $pos,
+                    -alt_seq => 'X',
+                  )->get_Attribute);
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -1288,7 +1341,7 @@ sub set_cds_sequences {
   foreach my $id (keys(%$transcripts_by_id)) {
     my $transcript = $transcripts_by_id->{$id};
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
-    if($source_transcript->translation()) {
+    if($source_transcript->translation() and !$transcript->translation) {
       $self->project_cds($transcript,$source_transcript);
     }
   }
@@ -1331,7 +1384,8 @@ sub project_cds {
   my $target_cds_start_index;
   my $target_cds_end_index;
   my $in_feature_alignment = 0;
-  my $out_of_feature_alignment = 0;
+  my $source_index_target_cds_start = 1;
+
   for(my $i=0; $i < scalar(@source_align_array); $i++) {
     my $source_value = $source_align_array[$i];
     my $target_value = $target_align_array[$i];
@@ -1344,28 +1398,35 @@ sub project_cds {
     }
 
     if($source_cds_pos == $source_cds_start) {
-      $source_cds_start_index = $source_cds_pos - 1;
+      $source_cds_start_index = $source_cds_pos;
       say "Index of the feature start in source seq: ".$source_cds_start_index;
       $in_feature_alignment = 1;
     }
 
     if($in_feature_alignment and $target_value ne '-' and !(defined($target_cds_start_index))) {
-      $target_cds_start_index = $target_cds_pos - 1;
+      $target_cds_start_index = $target_cds_pos;
+      $source_index_target_cds_start = $source_cds_pos;
     }
 
     if($source_cds_pos == $source_cds_end) {
-      $source_cds_end_index = $source_cds_pos - 1;
-      $target_cds_end_index = $target_cds_pos - 1;
+      $source_cds_end_index = $source_cds_pos;
+      $target_cds_end_index = $target_cds_pos;
       say "Index of the feature end in source seq: ".$source_cds_end_index;
       $in_feature_alignment = 0;
+      last;
     }
   }
 
   my $source_feature_length = $source_cds_end_index - $source_cds_start_index + 1;
   my $target_feature_length = $target_cds_end_index - $target_cds_start_index + 1;
-  my $recovered_source_feature_seq = substr($source_seq,$source_cds_start_index,$source_feature_length);
-  my $recovered_target_feature_seq = substr($target_seq,$target_cds_start_index,$target_feature_length);
+  my $recovered_source_feature_seq = substr($source_seq,$source_cds_start_index-1,$source_feature_length);
+  my $recovered_target_feature_seq = substr($target_seq,$target_cds_start_index-1,$target_feature_length);
   say "For transcript ".$source_transcript->stable_id()." original and mapped CDS sequences:\n".$recovered_source_feature_seq."\n".$recovered_target_feature_seq;
+  my $original_phase = 0;
+  if ($source_transcript->translation->start_Exon->phase > 0) {
+    $original_phase = $source_transcript->translation->start_Exon->phase;
+  }
+  my $phase_adjust = ($source_index_target_cds_start-$source_cds_start-$original_phase)%3;
 
   my $cds_start_exon;
   my $cds_end_exon;
@@ -1378,20 +1439,20 @@ sub project_cds {
     if(($target_cds_start_index >= $cumulative_length) and ($target_cds_start_index <= $cumulative_length + $exon->length())) {
       $cds_start_exon = $exon;
       if($transcript->strand == 1) {
-        $cds_start_offset = $target_cds_start_index - $cumulative_length + 1;
+        $cds_start_offset = $target_cds_start_index - $cumulative_length;
       } else {
-        say "FERGAL CDS START DEBUG: ".$exon->length." - (".($exon->length - $target_cds_start_index).") + 1";
-        $cds_start_offset = $exon->length - ($exon->length - $target_cds_start_index) - $cumulative_length + 1;
+        say "FERGAL CDS START DEBUG: ".$exon->length." - (".($exon->length - $target_cds_start_index).") - $cumulative_length";
+        $cds_start_offset = $exon->length - ($exon->length - $target_cds_start_index) - $cumulative_length;
       }
     }
 
     if(($target_cds_end_index >= $cumulative_length) and ($target_cds_end_index <= $cumulative_length + $exon->length())) {
       $cds_end_exon = $exon;
       if($transcript->strand == 1) {
-        $cds_end_offset = $target_cds_end_index - $cumulative_length + 1;
+        $cds_end_offset = $target_cds_end_index - $cumulative_length;
       } else {
-        say "FERGAL CDS END DEBUG: ".$exon->length." - (".($exon->length - $target_cds_end_index).") + 1";
-        $cds_end_offset = $exon->length - ($exon->length - $target_cds_end_index) - $cumulative_length + 1;
+        say "FERGAL CDS END DEBUG: ".$exon->length." - (".($exon->length - $target_cds_end_index).") - $cumulative_length";
+        $cds_end_offset = $exon->length - ($exon->length - $target_cds_end_index) - $cumulative_length;
       }
     }
     $cumulative_length += $exon->length();
@@ -1421,11 +1482,10 @@ sub project_cds {
   $transcript->translation($translation);
 
   # Set the phases
-  calculate_exon_phases($transcript,0);
+  calculate_exon_phases($transcript, $phase_adjust);
   # Set the phase of the start exon to match the start exon of the source. We probably want some checks on this in general to ensure there's a
   # valid alignment at the start of the CDS. If the start is not conserved the best option would probably be to clip the start in the target to
   # the nearest aligned codon
-  $transcript->translation->start_Exon->phase($source_transcript->translation->start_Exon->phase());
 
   say "For transcript ".$source_transcript->stable_id()." translateable seq:\n".$transcript->translateable_seq();
   say "For transcript ".$source_transcript->stable_id()." translation seq:\n".$transcript->translation->seq();
@@ -1448,20 +1508,22 @@ sub fix_cds_issues {
       $transcript = replace_stops_with_introns($transcript,$max_stops);
       if ($transcript and $transcript->translate()->seq !~ /\*/) {
           #;#push(@$minimap_transcripts,$transcript_after_replaced_stops);
-      } elsif (!$transcript->translate()) {
+      } elsif ($transcript and !$transcript->translate()) {
         print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().
-                     ",".$transcript->seq_region_end().",".$transcript->seq_region->strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Discarded.\n";
+                     ",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Discarded.\n";
+        $transcript->translation(undef);
+        $transcript->biotype("processed_transcript");
+      } elsif ($transcript) {
+        print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().
+                     ",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") has more than the maximum of $max_stops stops or it has stops after replace_stops_with_introns. Discarded.\n";
         $transcript->translation(undef);
         $transcript->biotype("processed_transcript");
       } else {
-        print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().
-                     ",".$transcript->seq_region_end().",".$transcript->seq_region->strand().",".$transcript->seq_region_name().") has more than the maximum of $max_stops stops or it has stops after replace_stops_with_introns. Discarded.\n";
-        $transcript->translation(undef);
-        $transcript->biotype("processed_transcript");
+        print STDERR "No transcript defined in 'fix_cds_issues()' after 'replace_stops_with_introns()'.\n";
       }
     }
 
-    if($transcript->translation()) {
+    if ($transcript and $transcript->translation()) {
       $self->check_and_fix_translation_boundaries($transcript);
     }
   }
@@ -1767,7 +1829,6 @@ sub map_gene_minimap {
   if($index_result) {
     $self->throw('The minimap2 index command returned a non-zero exit code. Commandline used:\n'.$target_index_command);
   }
-
   my $source_transcript_fasta_seqs = [];
   my $source_transcripts_to_map = $self->filter_transcripts_to_map($source_transcripts,$best_transcripts_by_id);
 
@@ -1781,12 +1842,15 @@ sub map_gene_minimap {
   }
 
   say "Generating initial set of minimap2 mappings";
-  my $minimap_transcripts = $self->generate_minimap_transcripts($source_transcript_fasta_seqs,$target_genome_index,$target_adaptor,$target_genomic_start,$max_intron_size);
+  my $minimap_transcripts = $self->generate_minimap_transcripts($source_transcript_fasta_seqs,$target_genome_file,$target_adaptor,$target_genomic_start,$max_intron_size, $target_region_slice);
 
   my $transcripts_by_id = {};
   foreach my $transcript (@$minimap_transcripts) {
     $transcripts_by_id->{$transcript->stable_id} = $transcript;
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id};
+    if ($source_transcript->translation) {
+      $self->calculate_translation_based_on_source_transcript($transcript, $source_transcript);
+    }
 
     my ($mapped_coverage,$mapped_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->seq->seq(),$transcript->seq->seq());
     $transcript->{'cov'} = $mapped_coverage;
@@ -2029,11 +2093,6 @@ sub project_feature {
   my $target_seq = $aligned_target_seq;
   $target_seq =~ s/\-//g;
 
-  open(OUT,">tmp.seq");
-  say OUT ">source\n".$source_seq;
-  say OUT ">target\n".$target_seq;
-  close OUT;
-
   my @source_align_array = split('',$aligned_source_seq);
   my @target_align_array = split('',$aligned_target_seq);
   my $source_seq_pos = 0;
@@ -2042,8 +2101,8 @@ sub project_feature {
   my $target_align_seq_pos = 0;
 
   # Seen to have some issue in terms of getting the real start/end for some features. Was using +1, but seems off
-  my $source_feature_seq_start =  $feature_start - $source_region_start;
-  my $source_feature_seq_end = $feature_end - $source_region_start;
+  my $source_feature_seq_start =  $feature_start - $source_region_start + 1;
+  my $source_feature_seq_end = $feature_end - $source_region_start + 1;
   say "Source feature seq start: ".$source_feature_seq_start;
   say "Source feature seq end: ".$source_feature_seq_end;
   say "Source region start: ".$source_region_start;
@@ -2055,7 +2114,6 @@ sub project_feature {
   my $target_seq_start_index;
   my $target_seq_end_index;
   my $in_feature_alignment = 0;
-  my $out_of_feature_alignment = 0;
   for(my $i=0; $i < scalar(@source_align_array); $i++) {
     my $source_value = $source_align_array[$i];
     my $target_value = $target_align_array[$i];
@@ -2082,7 +2140,13 @@ sub project_feature {
       $target_seq_end_index = $target_seq_pos;
       say "Index of the feature end in source seq: ".$source_seq_end_index;
       $in_feature_alignment = 0;
+      last;
     }
+  }
+
+  unless(defined($target_seq_start_index) and defined($target_seq_end_index)) {
+    $self->warning("Issue with recovering start/end of the exon feature in target alignment sequence, not building exon");
+    return;
   }
 
   my $source_feature_length = $source_seq_end_index - $source_seq_start_index + 1;
@@ -2090,11 +2154,6 @@ sub project_feature {
   my $recovered_source_feature_seq = substr($source_seq,$source_seq_start_index,$source_feature_length);
   if($exon->strand != 1) {
     $recovered_source_feature_seq = $self->revcomp($recovered_source_feature_seq);
-  }
-
-  unless(defined($target_seq_start_index) and defined($target_seq_end_index)) {
-    $self->warning("Issue with recovering start/end of the exon feature in target alignment sequence, not building exon");
-    return;
   }
 
   my $recovered_target_feature_seq = substr($target_seq,$target_seq_start_index,$target_feature_length);
@@ -2190,12 +2249,11 @@ sub build_projected_exon_orig {
   my $exon_strand = 1;
   say "Start/End index: ".$seq_start_index."/".$seq_end_index;
   if($target_strand == $exon->strand) {
-    $exon_start = $region_start + $seq_start_index;
-    $exon_end = $region_start + $seq_end_index;
-    $exon_strand = $target_strand;
+    $exon_start = $region_start + $seq_start_index-1;
+    $exon_end = $region_start + $seq_end_index-1;
   } else {
     # In this case we need to reverse the coords
-    $exon_end = $region_end - $seq_start_index;
+    $exon_end = $region_end - $seq_start_index+1;
     $exon_start = $exon_end - ($seq_end_index - $seq_start_index);
   }
 
@@ -2212,11 +2270,6 @@ sub build_projected_exon_orig {
                                                -end_phase => $end_phase,
                                                -analysis  => $self->analysis,
                                                -slice     => $parent_slice);
-
-  if($transcript and $exon->is_coding($transcript)) {
-    $projected_exon->phase($exon->phase());
-    $projected_exon->end_phase($exon->end_phase());
-  }
 
   if($exon_start > $exon_end) {
     $self->throw("Created an exon where the start > than the end, this shouldn't be possible: ".$parent_slice->name." ".$exon->start."..".$exon->end." ".$target_strand);
@@ -2249,7 +2302,7 @@ sub set_complete_transcript_cds {
 
 
 sub generate_minimap_transcripts {
-  my ($self,$source_transcript_fasta_seqs,$target_genome_index,$target_adaptor,$target_genomic_start,$max_intron_size) = @_;
+  my ($self,$source_transcript_fasta_seqs,$target_genome_index,$target_adaptor,$target_genomic_start,$max_intron_size, $target_region_slice) = @_;
 
   # This will take in the target genomic region (via the index)
   my $coverage_cutoff = 80;
@@ -2273,6 +2326,7 @@ sub generate_minimap_transcripts {
        -max_intron_size          => $max_intron_size,
        -perc_id                  => $perc_id_cutoff,
        -coverage                 => $coverage_cutoff,
+       -query                    => $target_region_slice,
   );
 
   $runnable->run();
@@ -2330,42 +2384,73 @@ sub run_exonerate {
     return($output_transcripts);
   }
 
-  say "Running Exonerate on ".$source_transcript->stable_id();
+  my %parameters = (-coverage_by_aligned => 1);
+  $parameters{-options} = "--forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE ".
+                          "--saturatethreshold 100 --dnawordlen 15 --dnahspthreshold 60 --bestn 2 --maxintron ".$max_intron_size;
   my $annotation_features;
   my $non_coding_transcript = 0;
   if($source_transcript->translation()) {
     $annotation_features = $self->create_annotation_features($source_transcript);
+    $parameters{-options} .= ' --model cdna2genome --codonwordlen 15';
+    if ($source_transcript->length < 50) {
+      $parameters{-options} .= ' --score 50';
+    }
+    else {
+      $parameters{-options} .= ' --score 500';
+    }
+
   } else {
     $non_coding_transcript = 1;
+    $parameters{-options} .= ' --model est2genome';
   }
-
-  my $source_transcript_header = $source_transcript->stable_id.'.'.$source_transcript->version;
-  my $source_transcript_seq_object = Bio::Seq->new(-display_id => $source_transcript_header, -seq => $source_transcript->seq->seq());
-
-
-  my %parameters = ();
-  $parameters{-options} = "--model cdna2genome --forwardcoordinates FALSE --softmasktarget TRUE --exhaustive FALSE --score 500 ".
-                          "--saturatethreshold 100 --dnawordlen 15 --codonwordlen 15 --dnahspthreshold 60 --bestn 1 --maxintron ".$max_intron_size;
-  $parameters{-coverage_by_aligned} = 1;
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript->new(
                     -program  => '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/opt/exonerate22/bin/exonerate',
-                    -analysis => $self->analysis(),
+                    -analysis => $self->analysis,
                     -query_type     => "dna",
                     -calculate_coverage_and_pid => 1,
-                    -annotation_features => $annotation_features,
                     -non_coding_transcript => $non_coding_transcript,
                      %parameters,
                  );
 
+  if ($annotation_features) {
+    $runnable->annotation_features($annotation_features);
+  }
   $runnable->target_seqs([$target_region_slice]);
-  $runnable->query_seqs([$source_transcript_seq_object]);
+  $runnable->query_seqs([$source_transcript->seq]);
   $runnable->run();
   if (scalar(@{$runnable->output()})) {
-    my $initial_output_transcript = ${$runnable->output()}[0];
-    my $output_transcript = $self->update_exonerate_transcript_coords($initial_output_transcript,$target_slice_adaptor);
-    if ($source_transcript->translation() and $output_transcript->translation()) {
-      $self->check_exonerate_translation($source_transcript,$output_transcript);
+    my $output_transcript = ${$runnable->output()}[0];
+    attach_Slice_to_Transcript($output_transcript, $target_region_slice);
+    attach_Analysis_to_Transcript($output_transcript, $self->analysis);
+    my $source_translation = $source_transcript->translation;
+    if ($source_translation) {
+      my $output_translation = $output_transcript->translation;
+      if ($output_translation) {
+        if ($source_translation->start_Exon->phase > 0 and $output_translation->start_Exon->phase == -1) {
+          if ($output_translation->start > 3) {
+            $self->warning("Partial transcript, start should be less than 4, not ".$output_translation->start);
+          }
+          else {
+            if ($output_translation->start == 2) {
+              $output_translation->start_Exon->phase(2);
+            }
+            elsif ($output_translation->start == 3) {
+              $output_translation->start_Exon->phase(1);
+            }
+            else {
+              $output_translation->start_Exon->phase(0);
+            }
+            $output_translation->start(1);
+          }
+        }
+      }
+      else {
+        $self->warning($source_transcript->display_id.' FAILED no translation for a protein coding transcript');
+      }
+    }
+    else {
+      $output_transcript->translation(undef);
     }
 
     $output_transcript->stable_id($source_transcript->dbID());
@@ -2472,8 +2557,19 @@ sub check_mapping_quality {
     my $cds_length_diff = 0;
 
     # Set the description now on the minor chance the transcript doesn't have a cds that can be calculated
-    my $transcript_description = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version();
+    my $transcript_description = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version();
+    if ($source_transcript->display_xref()) {
+      if ($source_transcript->display_xref()->display_id()) {
+        $transcript_description .= ";parent_transcript_display_xref=".$source_transcript->display_xref()->display_id();
+      }
+    }
+
     $transcript->description($transcript_description);
+
+    # add source transcript stable id as transcript attribute
+    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $source_transcript->stable_id().".".$source_transcript->version());
+    $transcript->add_Attributes($parent_attribute);
+
     if($source_transcript->translation()) {
       $source_transcript_seq = $source_transcript->translateable_seq();
       $transcript_seq = $transcript->translateable_seq();
@@ -2512,7 +2608,7 @@ sub check_mapping_quality {
     $transcript_genomic_span_diff = sprintf("%.2f", $transcript_genomic_span_diff);
     $transcript->{'transcript_genomic_span_diff'} = $transcript_genomic_span_diff;
 
-    $transcript_description .= ", Coverage: ".$coverage.", Perc id: ".$percent_id;
+    $transcript_description .= ";mapping_coverage=".$coverage.";mapping_identity=".$percent_id;
     $transcript->description($transcript_description);
 
     # I added this in because even when minimap is explicitly told not to output secondary alignments, it very occasionally does
@@ -2733,6 +2829,7 @@ sub create_gene_from_cluster {
   my $parent_gene_stable_id = $parent_gene_ids->{$transcript_id}->{'gene_stable_id'};
   my $parent_gene_version = $parent_gene_ids->{$transcript_id}->{'gene_version'};
   my $parent_gene_biotype = $parent_gene_ids->{$transcript_id}->{'gene_biotype'};
+  my $parent_gene_description = $parent_gene_ids->{$transcript_id}->{'gene_description'};
 
   foreach my $transcript (@$final_transcripts) {
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
@@ -2753,11 +2850,18 @@ sub create_gene_from_cluster {
     if($is_canonical) {
       $transcript->is_canonical(1);
     }
-
+    if ($transcript->{annotation_method} eq 'exonerate_local' or $transcript->{annotation_method} eq 'minimap_local') {
+      my $toplevel_transcript = $transcript->transfer($transcript->slice->seq_region_Slice);
+      if (!$toplevel_transcript) {
+        $self->throw('Could not transfer '.$transcript->display_id.' from '.$transcript->slice->name.' to toplevel');
+      }
+      else {
+        $toplevel_transcript->{annotation_method} = $transcript->{annotation_method};
+        $transcript = $toplevel_transcript;
+      }
+    }
 
     $transcript->source($source);
-#    my $cov_string = "cov: ".$transcript->{'cov'}." perc_id: ".$transcript->{'perc_id'};
-#    $transcript->description($cov_string);
     $gene->add_Transcript($transcript);
   }
 
@@ -2765,8 +2869,13 @@ sub create_gene_from_cluster {
   $gene->stable_id($parent_gene_stable_id);
   $gene->version($parent_gene_version);
   $gene->biotype($parent_gene_biotype);
-  my $gene_description = "Parent: ".$parent_gene_stable_id.".".$parent_gene_version.", Type: Primary mapping";
-  $gene->description($gene_description);
+  #my $gene_description = ";parent_gene=".$parent_gene_stable_id.".".$parent_gene_version.";mapping_type=primary_mapping";
+  #$gene->description($gene_description);
+  $gene->description($parent_gene_description);
+
+  # add source gene stable id as gene attribute
+  my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $parent_gene_stable_id.".".$parent_gene_version);
+  $gene->add_Attributes($parent_attribute);
 
   return($gene);
 }
@@ -2876,18 +2985,22 @@ sub create_annotation_features {
 
   my $cds_start  = $transcript->cdna_coding_start;
   my $cds_end    = $transcript->cdna_coding_end;
-  my $stable_id  = $transcript->stable_id.".".$transcript->version;
-
 
   my $start_phase = $transcript->translation->start_Exon->phase();
   my $end_phase = $transcript->translation->end_Exon->end_phase();
+  if ($start_phase > 0) {
+    $cds_start += $start_phase == 1 ? 2 : 1;
+  }
+  if ($end_phase > 0) {
+    $cds_end -= $end_phase;
+  }
 
-  my $annotation_feature = Bio::EnsEMBL::Feature->new(-seqname => $stable_id,
+  my $annotation_feature = Bio::EnsEMBL::Feature->new(-seqname => $transcript->stable_id,
                                                       -strand  => 1,
                                                       -start   => $cds_start,
                                                       -end     => $cds_end);
 
- my $annotation_features->{$stable_id} = $annotation_feature;
+ my $annotation_features->{$transcript->stable_id_version} = $annotation_feature;
  return($annotation_features);
 }
 
@@ -3100,6 +3213,130 @@ sub revcomp {
   my $revcomp = reverse $seq;
   $revcomp =~ tr/ATGCatgc/TACGtacg/;
   return($revcomp);
+}
+
+
+=head2 calculate_translation_based_on_source_transcript
+
+ Arg [1]    : Bio::EnsEMBL::Transcript $transcript, the aligned transcript
+ Arg [2]    : Bio::EnsEMBL::Transcript $source_transcript, the source transcript
+ Description: Set the translation of the aligned transcript using the CIGAR strings
+              and informations from the source transcript like the original translation
+              coordinates
+              If a translation is already set, it doesn't do any processing
+ Returntype : Bio::EnsEMBL::Transcript
+ Exceptions : Throws if start_Exon or end_Exon is not set
+
+=cut
+
+sub calculate_translation_based_on_source_transcript {
+  my ($self, $transcript, $source_transcript) = @_;
+
+  my $original_cdna_coding_start = $source_transcript->cdna_coding_start;
+  my $original_cdna_coding_end = $source_transcript->cdna_coding_end;
+  if (!$transcript->translation) {
+    my $last_exon = $transcript->end_Exon;
+    my $last_sf = $last_exon->get_all_supporting_features->[0];
+    if ($original_cdna_coding_end > $last_sf->hend) {
+      $original_cdna_coding_end = $last_sf->hend;
+    }
+    my $original_start_phase = $source_transcript->translation->start_Exon->phase;
+    my $new_translation = $transcript->translation || $source_transcript->translation->new;
+    $transcript->translation(undef);
+    if ($last_sf->hend < $original_cdna_coding_start) {
+      return $transcript;
+    }
+    my $first_exon = $transcript->start_Exon;
+    my $first_sf = $first_exon->get_all_supporting_features->[0];
+    if ($original_cdna_coding_start < $first_sf->hstart) {
+      my $removed_length = $first_sf->hstart-$original_cdna_coding_start;
+      if ($original_start_phase != -1) {
+        $original_start_phase = ($original_start_phase+$removed_length)%3;
+      }
+      else {
+        $original_start_phase = $removed_length%3;
+      }
+      $new_translation->start(1);
+      $first_exon->phase($original_start_phase);
+      $new_translation->start_Exon($first_exon);
+      $transcript->cdna_coding_start(1);
+    }
+    my $source_cdna_start = $first_sf->hstart;
+    my $source_cdna_end = $source_cdna_start;
+    my $cdna_coding_start = $first_sf->hstart;
+    my $cdna_coding_end = $cdna_coding_start;
+    foreach my $exon (@{$transcript->get_all_Exons}) {
+      foreach my $sf (@{$exon->get_all_supporting_features}) {
+        my $cigar_string = $sf->cigar_string;
+        my $exon_start = 1;
+        my $exon_end = 1;
+        my $cdna_start_exon_start = $cdna_coding_start;
+        my $cdna_end_exon_start = $cdna_coding_end;
+        while ($cigar_string =~ /(\d*)([MDI])/gc) {
+          my $len = $1 || 1;
+          if ($2 eq 'M') {
+            if (!$transcript->cdna_coding_start) {
+              if ($source_cdna_start+$len > $original_cdna_coding_start) {
+                my $diff = $original_cdna_coding_start-$source_cdna_start;
+                if ($diff >= 0) {
+                  $cdna_coding_start += $diff;
+                  $exon_start = $cdna_coding_start-$cdna_start_exon_start+1;
+                }
+                else {
+                  my $phase = abs($diff)%3;
+                  if ($phase > 0) {
+                    $cdna_coding_start += 1;
+                    $exon_start += $cdna_coding_start-$cdna_start_exon_start;
+                  }
+                }
+                $transcript->cdna_coding_start($cdna_coding_start);
+                $new_translation->start_Exon($exon);
+                $new_translation->start($exon_start);
+              }
+              else {
+                $source_cdna_start += $len;
+                $cdna_coding_start += $len;
+              }
+            }
+            if (!$transcript->cdna_coding_end) {
+              if ($source_cdna_end+$len > $original_cdna_coding_end) {
+                my $diff = $original_cdna_coding_end-$source_cdna_end;
+                if ($diff >= 0) {
+                  $cdna_coding_end += $diff;
+                  $exon_end = $cdna_coding_end-$cdna_end_exon_start+1;
+                }
+                $transcript->cdna_coding_end($cdna_coding_end);
+                $new_translation->end_Exon($exon);
+                $new_translation->end($exon_end);
+              }
+              else {
+                $source_cdna_end += $len;
+                $cdna_coding_end += $len;
+              }
+            }
+          }
+          elsif ($2 eq 'D') {
+            $source_cdna_start += $len;
+            $source_cdna_end += $len;
+          }
+          elsif ($2 eq 'I') {
+            $cdna_coding_start += $len;
+            $cdna_coding_end += $len;
+          }
+        }
+      }
+      last if ($transcript->cdna_coding_start and $transcript->cdna_coding_end);
+    }
+    if ($new_translation->start_Exon and $new_translation->end_Exon and $new_translation->start and $new_translation->end) {
+      $transcript->translation($new_translation);
+      calculate_exon_phases($transcript, $original_start_phase);
+    }
+    else {
+      $self->throw('start or end exon is missing: '.($new_translation->start_Exon || 'Start missing').' '.($new_translation->end_Exon || 'End missing'));
+    }
+
+  }
+  return $transcript;
 }
 
 1;

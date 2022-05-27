@@ -32,6 +32,7 @@ sub default_options {
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
+    'email'                     => '', # email to receive report from the HiveDeleteTranscripts module
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'user'                      => '', # write db user
     'password'                  => '', # password for write db user
@@ -133,6 +134,7 @@ sub default_options {
     'repeatmodeler_logic_name'    => 'repeatmask_repeatmodeler',
     'homology_models_path'        => catdir($self->o('output_path'),'homology_models'),
 
+    ensembl_analysis_script_genebuild => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild'),
     ensembl_analysis_script           => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     load_optimise_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
     mapping_stats_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'calculate_remapping_stats.pl'),
@@ -317,6 +319,7 @@ sub pipeline_wide_parameters {
   return {
     %{$self->SUPER::pipeline_wide_parameters},
     wide_ensembl_release => $self->o('ensembl_release'),
+    wide_reference_fasta => $self->o('reference_fasta'),
   }
 }
 
@@ -419,7 +422,7 @@ sub pipeline_analyses {
           output_path   => '#output_path#',
           target_db     => '#core_db#',
         },
-        -rc_name    => '8GB',
+        -rc_name    => '4GB',
       	-max_retry_count => 0,
         -flow_into  => {
           1 => ['load_meta_info'],
@@ -496,7 +499,7 @@ sub pipeline_analyses {
           1 => ['reheader_toplevel_file'],
         },
         -analysis_capacity => 20,
-        -rc_name    => '3GB',
+        -rc_name    => 'default',
       },
 
 
@@ -519,7 +522,7 @@ sub pipeline_analyses {
      {
         -logic_name => 'create_faidx',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -rc_name => '5GB',
+        -rc_name => 'default',
         -parameters => {
           cmd => 'if [ ! -e "'.'#reheadered_toplevel_genome_file#'.'.fai" ]; then '.$self->o('samtools_path').' faidx '.'#reheadered_toplevel_genome_file#'.';fi',
         },
@@ -569,7 +572,7 @@ sub pipeline_analyses {
                          y_marker_fasta_path => $self->o('y_marker_fasta_path'),
                          output_dir          => '#output_path#',
                        },
-        -rc_name    => '30GB',
+        -rc_name    => '9GB',
         -flow_into  => {
           '1->A' => ['create_remap_jobs'],
           'A->1' => ['map_remaining_genes'],
@@ -588,7 +591,7 @@ sub pipeline_analyses {
           batch_size          => 100,
           id_output_file_path => '#output_path#/gene_ids_to_map.txt',
         },
-        -rc_name    => '4GB',
+        -rc_name    => 'default',
         -flow_into => {
           2 => {'project_gene_batches' => {'xy_scanner' => '#xy_scanner#', 'core_db' => '#core_db#','genome_index' => '#reheadered_toplevel_genome_file#'.'.mmi','iid' => '#iid#'}},
         },
@@ -606,8 +609,9 @@ sub pipeline_analyses {
                          target_gene_db => '#core_db#',
                          paftools_path => $self->o('paftools_path'),
                          minimap2_path => $self->o('minimap2_path'),
+                         source_dna_fasta => '#wide_reference_fasta#',
                        },
-        -rc_name    => '10GB',
+        -rc_name    => '15GB',
       },
 
 
@@ -640,7 +644,7 @@ sub pipeline_analyses {
           feature_type        => 'gene',
           batch_size          => 1000,
         },
-        -rc_name    => '4GB',
+        -rc_name    => 'default',
         -flow_into => {
           '2->A' => {'find_paralogues' => {'core_db' => '#core_db#','genome_file' => '#reheadered_toplevel_genome_file#','genome_index' => '#reheadered_toplevel_genome_file#'.'.mmi','iid' => '#iid#'}},
           'A->1' => ['collapse_paralogues'],
@@ -659,7 +663,7 @@ sub pipeline_analyses {
                          paftools_path => $self->o('paftools_path'),
                          minimap2_path => $self->o('minimap2_path'),
                        },
-        -rc_name    => '25GB',
+        -rc_name    => '15GB',
       },
 
 
@@ -675,7 +679,7 @@ sub pipeline_analyses {
                         1 => ['update_biotypes_and_analyses'],
                       },
 
-        -rc_name    => '25GB',
+        -rc_name    => '12GB',
         -flow_into  => {
           1 => ['finalise_geneset'],
         },
@@ -695,7 +699,7 @@ sub pipeline_analyses {
                         1 => ['update_biotypes_and_analyses'],
                       },
 
-        -rc_name    => '25GB',
+        -rc_name    => '12GB',
         -flow_into  => {
           1 => ['set_meta_coords'],
         },
@@ -747,7 +751,7 @@ sub pipeline_analyses {
                                 ' -port '.$self->o('core_db','-port').
                                 ' -dbpattern '.'#core_dbname#'
                        },
-        -rc_name => '10GB',
+        -rc_name => '3GB',
         -flow_into => { 1 => ['set_canonical_transcripts'] },
       },
 
@@ -764,10 +768,112 @@ sub pipeline_analyses {
                                 ' -dbname '.'#core_dbname#'.
                                 ' -coord toplevel -write'
                        },
-        -rc_name => '10GB',
-        -flow_into => { 1 => ['null_columns'] },
+        -rc_name => '3GB',
+        -flow_into => { 1 => ['update_pcnonpc_biotypes'] },
       },
 
+      {
+        # update the gene and transcript biotypes to 'pcnonpc' in preparation for deletion
+        # for genes whose biotype is protein-coding and its canonical transcript biotype is not
+        -logic_name => 'update_pcnonpc_biotypes',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn    => '#core_db#',
+          sql => [
+	       "UPDATE gene g ".
+            "  INNER JOIN transcript t ON g.canonical_transcript_id = t.transcript_id ".
+            "  INNER JOIN seq_region sr ON g.seq_region_id = sr.seq_region_id ".
+            "  INNER JOIN coord_system cs USING (coord_system_id) ".
+            "SET g.biotype='pcnonpc' ".
+            "WHERE g.biotype = 'protein_coding' ".
+            "  AND t.biotype NOT IN ('protein_coding', 'nonsense_mediated_decay') ".
+            "  AND cs.species_id = 1",
+	    
+            "UPDATE transcript t,gene g ".
+            "SET t.biotype='pcnonpc' ".
+            "WHERE t.gene_id=g.gene_id ".
+            "  AND g.biotype='pcnonpc'",
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
+          1 => ['delete_pcnonpc_transcripts_and_genes'],
+        },
+      },
+      
+      {
+        -logic_name => 'delete_pcnonpc_transcripts_and_genes',
+        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDeleteTranscripts',
+        -parameters => {
+          dbhost => $self->o('core_db','-host'),
+          dbname => '#core_dbname#',
+          dbuser => $self->o('user'),
+          dbpass => $self->o('password'),
+          dbport => $self->o('core_db','-port'),
+          biotype => 'pcnonpc',  # this will delete the transcripts whose biotype is 'pcnonpc'
+          fix_broken_genes => 1, # this will delete the genes that are empty after deleting their transcripts, which will be the case for all the pcnonpc as a result of the previous analysis
+          delete_transcripts_path => $self->o('ensembl_analysis_script_genebuild')."/",
+          delete_genes_path => $self->o('ensembl_analysis_script_genebuild')."/",
+          delete_transcripts_script_name => 'delete_transcripts.pl',
+          delete_genes_script_name => 'delete_genes.pl',
+          email => $self->o('email'),
+          output_path => $self->o('output_path'),
+          output_file_name => 'delete_pcnonpc_transcripts_and_genes.out',
+        },
+        -max_retry_count => 0,
+        -flow_into => {
+                        '1' => ['update_shortcds_transcript_biotypes'],
+                      },
+      },
+
+      {
+        # update the transcript biotypes to 'shortcds' in preparation for deletion
+        # for transcripts whose CDS is shorter than 3 bp
+        -logic_name => 'update_shortcds_transcript_biotypes',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        -parameters => {
+          db_conn    => '#core_db#',
+          sql => [
+	    "UPDATE translation tn ".
+	    "  INNER JOIN  transcript tt USING (transcript_id) ".
+	    "  INNER JOIN  seq_region sr USING (seq_region_id) ".
+	    "  INNER JOIN  coord_system cs USING (coord_system_id) ".
+	    "SET tt.biotype='shortcds' ".
+	    "WHERE tn.start_exon_id = tn.end_exon_id AND ".
+	    "  (CAST(tn.seq_end AS SIGNED) - CAST(tn.seq_start AS SIGNED)) + 1 < 3 AND ".
+	    "  cs.species_id = 1;"
+          ],
+        },
+        -rc_name    => 'default',
+        -flow_into => {
+          1 => ['delete_shortcds_transcripts'],
+        },
+      },
+      
+      {
+        -logic_name => 'delete_shortcds_transcripts',
+        -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDeleteTranscripts',
+        -parameters => {
+          dbhost => $self->o('core_db','-host'),
+          dbname => '#core_dbname#',
+          dbuser => $self->o('user'),
+          dbpass => $self->o('password'),
+          dbport => $self->o('core_db','-port'),
+          biotype => 'shortcds',  # this will delete the transcripts whose biotype is 'pcnonpc'
+          fix_broken_genes => 1, # this will delete the genes that are empty after deleting their transcripts, which will be the case for all the pcnonpc as a result of the previous analysis
+          delete_transcripts_path => $self->o('ensembl_analysis_script_genebuild')."/",
+          delete_genes_path => $self->o('ensembl_analysis_script_genebuild')."/",
+          delete_transcripts_script_name => 'delete_transcripts.pl',
+          delete_genes_script_name => 'delete_genes.pl',
+          email => $self->o('email'),
+          output_path => $self->o('output_path'),
+          output_file_name => 'delete_shortcds_transcripts.out',
+        },
+        -max_retry_count => 0,
+        -flow_into => {
+                        '1' => ['null_columns'],
+                      },
+      },
 
       {
         -logic_name => 'null_columns',
@@ -814,7 +920,9 @@ sub pipeline_analyses {
           db_conn => '#core_db#',
           sql => [
             'INSERT INTO meta (species_id, meta_key, meta_value) VALUES '.
-              '(1, "genebuild.last_geneset_update", (SELECT CONCAT((EXTRACT(YEAR FROM now())),"-",(LPAD(EXTRACT(MONTH FROM now()),2,"0")))))'
+              '(1, "genebuild.last_geneset_update", (SELECT CONCAT((EXTRACT(YEAR FROM now())),"-",(LPAD(EXTRACT(MONTH FROM now()),2,"0")))))',
+	    'INSERT INTO meta (species_id, meta_key, meta_value) VALUES '.
+	      '(1, "genebuild.method_display", "Ensembl Genebuild")'
           ],
         },
         -rc_name    => 'default',
@@ -873,7 +981,7 @@ sub pipeline_analyses {
                                 ' -output_dir '.'#output_path#'.
                                 ' -output_file_prefix '.'#assembly_accession#'."_mapping_stats"
                        },
-        -rc_name => '10GB',
+        -rc_name => '3GB',
         -flow_into => { 1 => ['add_placeholder_sample_location'] },
       },
 
@@ -924,6 +1032,7 @@ sub resource_classes {
     '8GB' => { LSF => $self->lsf_resource_builder('production', 8000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '9GB' => { LSF => $self->lsf_resource_builder('production', 9000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '10GB' => { LSF => $self->lsf_resource_builder('production', 10000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    '12GB' => { LSF => $self->lsf_resource_builder('production', 12000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '15GB_lastz' => { LSF => [$self->lsf_resource_builder('production', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{compara_registry_file}]},
     '15GB' => { LSF => $self->lsf_resource_builder('production', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
     '20GB' => { LSF => $self->lsf_resource_builder('production', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},

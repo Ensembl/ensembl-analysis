@@ -46,7 +46,7 @@ sub fetch_input {
 
   my $core_dba = $self->hrdb_get_dba($self->param_required('input_db'));
   $self->hrdb_set_con($core_dba, 'input_db');
-  my $support_test = $core_dba->dbc->prepare('select count(*) from supporting_feature');
+  my $support_test = $core_dba->dbc->prepare('select count(*) from transcript_supporting_feature');
   $support_test->execute;
 
   my $test = $support_test->fetchrow_array;
@@ -78,7 +78,6 @@ sub run {
   my $sample_transcript;
 
   if ($self->{'has_supporting'} == 1) {
-
     LOOP: while (my $seq_region_id = $sth_longest->fetchrow_array) {
       my $region = $sa->fetch_by_seq_region_id($seq_region_id);
       TRANSCRIPT:foreach my $transcript (@{ $region->get_all_Transcripts_by_type('protein_coding') }) {
