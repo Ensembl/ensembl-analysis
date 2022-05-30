@@ -1023,7 +1023,7 @@ sub build_batch_genes {
 sub set_transcript_descriptions {
   my ($self,$transcript,$source_transcript) = @_;
 
-  my $description_string = "Parent: ".$source_transcript->stable_id().".".$source_transcript->version().", Coverage: ".$transcript->{'cov'}.", Perc id: ".$transcript->{'perc_id'};
+  my $description_string = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version().";mapping_coverage=".$transcript->{'cov'}.";mapping_identity=".$transcript->{'perc_id'};
   if($transcript->{'cds_description'}) {
     $description_string .= $transcript->{'cds_description'};
   }
