@@ -212,6 +212,11 @@ sub _master_config {
          }, # biotypes
       }, # rnaseq_blast
       'layer' => {
+        'logic_names' =>    {
+          'genblast'                => 10000,
+          'best_targetted'          => 1000,
+          'genblast_rnaseq_support' => 10000,
+        }, # logic_names
         'biotypes' =>    {
           'IG_'                  => 0,
           'TR_'                  => 0,
@@ -220,7 +225,6 @@ sub _master_config {
           'vert_pe12_'       => 300,
           'mammals_pe12_'        => 12000,
           'realign_'             => 0,
-          'rnaseq_merged_'       => 10000,
           'rnaseq_tissue_'       => 149000,
         }, # biotypes
       }, # layer
@@ -236,7 +240,6 @@ sub _master_config {
           'vert_pe12_'      => 2000,
           'mammals_pe12_'       => 1000,
           'realign_'            => 10000,
-          'rnaseq_merged_'      => 2000,
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
@@ -262,7 +265,6 @@ sub _master_config {
           'IG_'                  => 20,
           'TR_'                  => 20,
           'realign_'            => 10000,
-          'rnaseq_merged_'      => 2000,
           'human_pe12_'         => 2000,
           'mouse_pe12_'      => 2000,
           'vert_pe12_'      => 2000,
@@ -378,6 +380,11 @@ sub _master_config {
          }, # biotypes
       }, # rnaseq_blast
       'layer' => {
+        'logic_names' =>    {
+          'genblast'                => 10000,
+          'best_targetted'          => 1000,
+          'genblast_rnaseq_support' => 10000,
+        }, # logic_names	      
         'biotypes' =>    {
           'IG_'                  => 20,
           'TR_'                  => 20,
@@ -385,7 +392,6 @@ sub _master_config {
           'primates_pe12_'       => 15000,
           'mammals_pe12_'        => 10000,
           'realign_'             => 30000,
-          'rnaseq_merged_'       => 5000,
           'rnaseq_tissue_'       => 100,
         }, # biotypes
       }, # layer
@@ -400,7 +406,6 @@ sub _master_config {
           'primates_pe12_'      => 2000,
           'mammals_pe12_'       => 1000,
           'realign_'            => 10000,
-          'rnaseq_merged_'      => 2000,
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
@@ -426,7 +431,6 @@ sub _master_config {
           'IG_'                  => 20,
           'TR_'                  => 20,
           'realign_'            => 10000,
-          'rnaseq_merged_'      => 2000,
           'human_pe12_'         => 2000,
           'primates_pe12_'      => 2000,
           'mammals_pe12_'       => 1000,
@@ -545,7 +549,6 @@ sub _master_config {
           'vert_pe12_'       => 200,
           'mammals_pe12_'        => 500,
           'realign_'             => 0,
-          'rnaseq_merged_'       => 0,
           'rnaseq_tissue_'       => 149000,
         }, # biotypes
       }, # layer
@@ -561,7 +564,6 @@ sub _master_config {
           'vert_pe12_'      => 2000,
           'mammals_pe12_'       => 1000,
           'realign_'            => 10000,
-          'rnaseq_merged_'      => 2000,
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
@@ -587,7 +589,6 @@ sub _master_config {
           'IG_'                  => 20,
           'TR_'                  => 20,
           'realign_'            => 10000,
-          'rnaseq_merged_'      => 2000,
           'human_pe12_'         => 2000,
           'mouse_pe12_'      => 2000,
           'vert_pe12_'      => 2000,
@@ -694,6 +695,11 @@ sub _master_config {
          }, # biotypes
       }, # rnaseq_blast
       'layer' => {
+        'logic_names' =>    {
+          'genblast'                => 3000,
+          'best_targetted'          => 300,
+          'genblast_rnaseq_support' => 1000,
+        }, # logic_names	      
         'biotypes' =>    {
           'IG_'                  => 0,
           'TR_'                  => 0,
@@ -702,7 +708,6 @@ sub _master_config {
           'vert_pe12_'       => 300,
           'mammals_pe12_'        => 12000,
           'realign_'             => 0,
-          'rnaseq_merged_'       => 10000,
           'rnaseq_tissue_'       => 149000,
         }, # biotypes
       }, # layer
@@ -713,12 +718,11 @@ sub _master_config {
         'biotypes' =>    {
           'IG_'                  => 20,
           'TR_'                  => 20,
-          'human_pe12_'         => 2000,
+          'human_pe12_'         => 1700,
           'mouse_pe12_'      => 2000,
           'vert_pe12_'      => 2000,
           'mammals_pe12_'       => 1000,
           'realign_'            => 10000,
-          'rnaseq_merged_'      => 2000,
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
@@ -744,7 +748,6 @@ sub _master_config {
           'IG_'                  => 20,
           'TR_'                  => 20,
           'realign_'            => 10000,
-          'rnaseq_merged_'      => 2000,
           'human_pe12_'         => 2000,
           'mouse_pe12_'      => 2000,
           'vert_pe12_'      => 2000,
@@ -867,7 +870,6 @@ sub _master_config {
           'primates_pe12_'       => 15000,
           'mammals_pe12_'        => 10000,
           'realign_'             => 30000,
-          'rnaseq_merged_'       => 5000,
           'rnaseq_tissue_'       => 100,
         }, # biotypes
       }, # layer
@@ -882,7 +884,6 @@ sub _master_config {
           'primates_pe12_'      => 2000,
           'mammals_pe12_'       => 1000,
           'realign_'            => 10000,
-          'rnaseq_merged_'      => 2000,
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
@@ -908,7 +909,6 @@ sub _master_config {
           'IG_'                  => 20,
           'TR_'                  => 20,
           'realign_'            => 10000,
-          'rnaseq_merged_'      => 2000,
           'human_pe12_'         => 2000,
           'primates_pe12_'      => 2000,
           'mammals_pe12_'       => 1000,
