@@ -142,7 +142,7 @@ sub fetch_input {
   my $analysis = $self->create_analysis;
   $analysis->logic_name("minimap2remap");
 
-  my $runnable = Bio::EnsEMBL::Analysis::Runnable::LowDivergenceMapping->new(
+  my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap->new(
        -analysis          => $analysis,
        -program           => $self->param('minimap2_path'),
        -paftools_path     => $self->param('paftools_path'),
