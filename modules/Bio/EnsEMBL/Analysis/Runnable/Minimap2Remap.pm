@@ -911,7 +911,7 @@ sub check_complete_mapping {
   my $total_perc_id = 0;
   foreach my $target_transcript (@$target_transcripts) {
     my $description = $target_transcript->description();
-    $description =~ /Parent: (ENS.+)\.\d+\, Coverage\: (\d+\.\d+)\, Perc id\: (\d+\.\d+)/;
+    $description =~ /parent_transcript=(ENS.+)\.\d+\;mapping_coverage=(\d+\.\d+);mapping_identity=(\d+\.\d+)/;
     my $stable_id = $1;
     my $coverage = $2;
     my $perc_id = $3;
@@ -1212,7 +1212,7 @@ sub process_results {
       my $transcripts = $gene->get_all_Transcripts();
       foreach my $transcript (@$transcripts) {
         say "  Transcript: ".$transcript->stable_id()." ".$transcript->seq_region_start.":".$transcript->seq_region_end.":".$transcript->strand();
-        my $updated_description = $transcript->description().", Annotation method: ".$transcript->{'annotation_method'};
+        my $updated_description = $transcript->description().";annotation_method=".$transcript->{'annotation_method'};
         $transcript->description($updated_description);
       }
 
