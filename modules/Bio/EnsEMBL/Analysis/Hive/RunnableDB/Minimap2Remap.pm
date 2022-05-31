@@ -189,17 +189,18 @@ sub fetch_source_genes {
 
   my $source_genes = [];
 
+  my @id_list;
   open(IN,$input_id_file) or $self->throw("Could not open $input_id_file");
   while(<IN>) {
     my $line = $_;
     my @eles = split("\t",$line);
-    my $gene = $source_gene_dba->get_GeneAdaptor->fetch_by_dbID($eles[0]);
-    unless($gene) {
-      $self->throw("Could not fetch the following gene with dbID ".$eles[0]." from the source gene db");
-    }
-    push(@$source_genes,$gene);
+    push(@id_list, $eles[0]);
   }
   close IN or $self->throw("Could not close $input_id_file");
+  my $source_genes = $source_gene_dba->get_GeneAdaptor->fetch_all_by_dbID_list(\@id_list);
+  if (@$source_genes != @id_list) {
+    $self->throw("Fetched ".scalar(@$source_genes).' genes but expected '.scalar(@id_list));
+  }
 
   return($source_genes);
 }
