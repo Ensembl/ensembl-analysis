@@ -980,8 +980,14 @@ sub build_batch_genes {
       $target_gene->stable_id($source_gene->stable_id);
       $target_gene->version($source_gene->version);
       $target_gene->biotype($source_gene->biotype);
-      my $gene_description = "Parent: ".$target_gene->stable_id().".".$target_gene->version().", Type: Primary mapping";
-      $target_gene->description($gene_description);
+      $target_gene->description($source_gene->description());
+      #my $gene_description = "Parent: ".$target_gene->stable_id().".".$target_gene->version().", Type: Primary mapping";
+      #$target_gene->description($gene_description);
+
+      # add source gene stable id as gene attribute
+      my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_gene->stable_id_version);
+      $target_gene->add_Attributes($parent_attribute);
+
       my $complete_projections = 0;
       foreach my $source_transcript (@$source_transcripts) {
         my $projected_transcript = $self->reconstruct_transcript($source_transcript,$projected_exons_by_id);
