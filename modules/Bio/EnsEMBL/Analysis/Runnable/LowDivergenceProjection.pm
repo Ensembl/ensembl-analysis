@@ -336,7 +336,7 @@ sub calculate_target_regions {
 
   my $anchors = $batch->{'anchor_seqs'};
   my $paf_results = $batch->{'paf_results'};
-  unless(scalar(@$paf_results ) > 1) {
+  unless($paf_results and scalar(@$paf_results ) > 1) {
     return;
   }
 
