@@ -1059,14 +1059,14 @@ sub qc_cds_sequences {
 
   if($source_transcript->translation()) {
     my ($cds_coverage,$cds_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->translateable_seq(),$transcript->translateable_seq());
-    my $cds_description = ", CDS coverage: ".$cds_coverage." CDS perc id: ".$cds_percent_id;
+    my $cds_description = ";cds_coverage=".$cds_coverage.";cds_identity=".$cds_percent_id;
     my $aligned_source_seq_copy = $aligned_source_seq;
     my $aligned_target_seq_copy = $aligned_target_seq;
     $aligned_source_seq_copy =~ s/\-\-\-//g;
     $aligned_target_seq_copy =~ s/\-\-\-//g;
 
     if($aligned_source_seq_copy =~ /\-/ or $aligned_target_seq_copy =~ /\-/) {
-      $cds_description .= ", CDS gap: 1";
+      $cds_description .= ";cds_gap=1";
       my $transcript_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
                                                              -VALUE => ">source_cds_align\n".$aligned_source_seq."\n>target_cds_align\n".$aligned_target_seq."\n");
       $transcript->add_Attributes($transcript_attrib);
@@ -1075,7 +1075,7 @@ sub qc_cds_sequences {
                                                                       "\n>target_translation\n".$transcript->translation->seq()."\n");
       $transcript->translation->add_Attributes($translation_attrib);
     } else {
-      $cds_description .= ", CDS gap: 0";
+      $cds_description .= ";cds_gap=0";
     }
     $transcript->{'cds_description'} = $cds_description;
   }
