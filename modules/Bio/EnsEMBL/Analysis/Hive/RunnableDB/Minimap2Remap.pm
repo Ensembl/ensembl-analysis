@@ -91,18 +91,6 @@ sub fetch_input {
     $self->throw("Did not find an input id file containing the list of source genes to be projected/mapped");
   }
 
-  my $initial_gene_ids_hash = {};
-  open(IN,$input_id_file);
-  while(<IN>) {
-    my $line = $_;
-    chomp $line;
-    if($line =~ /^\d+\tENS/) {
-      my @eles = split("\t",$line);
-      $initial_gene_ids_hash->{$eles[0]} = $eles[1];
-    }
-  }
-  close IN;
-
   # TEST
 #  my $test_slice = $target_gene_dba->get_SliceAdaptor->fetch_by_region('toplevel','17');
 #  my $initial_projected_genes = $target_gene_dba->get_GeneAdaptor->fetch_all_by_Slice($test_slice);
