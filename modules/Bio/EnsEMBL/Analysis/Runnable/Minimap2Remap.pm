@@ -125,16 +125,19 @@ sub run {
   my $gene_genomic_seqs_hash = {};
   my $source_adaptor = $self->source_adaptor();
   my $target_adaptor = $self->target_adaptor();
-  my $source_gene_adaptor = $source_adaptor->get_GeneAdaptor();
   my $target_gene_adaptor = $target_adaptor->get_GeneAdaptor();
   my $source_genes = $self->genes_to_process();
   # TEST!!!!!!!!!!!!!!!!
 #  my $test_slice = $target_adaptor->get_SliceAdaptor->fetch_by_region('toplevel','17');
 #  my $target_genes = $target_adaptor->get_GeneAdaptor->fetch_all_by_Slice($test_slice);
 
-  my $target_genes = $target_gene_adaptor->fetch_all();
   my $source_genes_by_slice = $self->sort_genes_by_slice($source_genes);
-  my $target_genes_by_slice = $self->sort_genes_by_slice($target_genes);
+  my $target_genes_by_slice = {};
+  my $target_genes = [];
+  foreach my $slice (@{$target_adaptor->get_SliceAdaptor->fetch_all('toplevel')}) {
+    $target_genes_by_slice->{$slice->seq_region_name} = [sort {$a->start <=> $b->start} @{$slice->get_all_Genes}];
+    push(@$target_genes, @{$target_genes_by_slice->{$slice->seq_region_name}});
+  }
   my $source_genes_by_stable_id = $self->genes_by_stable_id($source_genes);
   my $target_genes_by_stable_id = $self->genes_by_stable_id($target_genes);
   say "Searching for missing source genes";
