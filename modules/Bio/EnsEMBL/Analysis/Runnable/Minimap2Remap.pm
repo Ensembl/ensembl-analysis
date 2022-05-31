@@ -923,8 +923,12 @@ sub check_complete_mapping {
     $total_perc_id += $perc_id;
   }
 
-  my $avg_cov = $total_cov/scalar(@$target_transcripts);
-  my $avg_perc_id = $total_perc_id/scalar(@$target_transcripts);
+  my $avg_cov = 0;
+  my $avg_perc_id = 0;
+  if (scalar(@$target_transcripts)) {
+    $avg_cov = $total_cov/scalar(@$target_transcripts);
+    $avg_perc_id = $total_perc_id/scalar(@$target_transcripts);
+  }
   $gene->{'avg_cov'} = $avg_cov;
   $gene->{'avg_perc_id'} = $avg_perc_id;
   unless($avg_perc_id >= $perc_id_cutoff and $avg_cov >= $coverage_cutoff) {
