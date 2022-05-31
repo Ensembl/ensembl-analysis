@@ -620,6 +620,7 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::Minimap2Remap',
         -parameters => {
                          genome_index   => '#reheadered_toplevel_genome_file#'.'.mmi',
+                         logic_name => 'minimap2remap',
                          source_dna_fasta => '#wide_reference_fasta#',
                          source_dna_db => $self->o('reference_db'),
                          source_gene_db => $self->o('reference_db'),

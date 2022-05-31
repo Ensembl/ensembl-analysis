@@ -139,11 +139,9 @@ sub fetch_input {
 
   $self->set_parent_info($sorted_input_genes,$parent_gene_id_hash,$sequence_adaptor);
 
-  my $analysis = $self->create_analysis;
-  $analysis->logic_name("minimap2remap");
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap->new(
-       -analysis          => $analysis,
+       -analysis          => $self->analysis,
        -program           => $self->param('minimap2_path'),
        -paftools_path     => $self->param('paftools_path'),
        -genome_index      => $genome_index,
