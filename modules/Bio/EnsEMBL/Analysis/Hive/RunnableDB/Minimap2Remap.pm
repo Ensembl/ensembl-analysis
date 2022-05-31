@@ -201,7 +201,7 @@ sub fetch_source_genes {
 
   my $source_genes = [];
 
-  open(IN,$input_id_file);
+  open(IN,$input_id_file) or $self->throw("Could not open $input_id_file");
   while(<IN>) {
     my $line = $_;
     my @eles = split("\t",$line);
@@ -211,7 +211,7 @@ sub fetch_source_genes {
     }
     push(@$source_genes,$gene);
   }
-  close IN;
+  close IN or $self->throw("Could not close $input_id_file");
 
   return($source_genes);
 }

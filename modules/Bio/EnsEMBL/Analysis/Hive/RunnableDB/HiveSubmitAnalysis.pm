@@ -736,7 +736,7 @@ sub feature_id {
   my $id_output_file_path;
   if($self->param_is_defined('id_output_file_path')) {
     $id_output_file_path = $self->param('id_output_file_path');
-    open(IDOUT,">".$id_output_file_path);
+    open(IDOUT,">".$id_output_file_path) or $self->throw("could not open $id_output_file_path");
   }
 
 
@@ -809,7 +809,7 @@ sub feature_id {
   } # end foreach my $slice
 
   if($id_output_file_path) {
-    close IDOUT;
+    close IDOUT or $self->throw("could not open $id_output_file_path");;
   }
 
   if($self->param_is_defined('batch_size')) {
