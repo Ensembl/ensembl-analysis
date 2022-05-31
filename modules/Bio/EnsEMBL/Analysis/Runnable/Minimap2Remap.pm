@@ -625,7 +625,7 @@ sub create_input_file {
     # There's a big issue in terms of small genes, even with a fair amount of padding. To counter this have a minimum
     # target region size of about 50kb. If the gene is bigger then the padding itself should be enough as it's likely
     # there are many neutral sites in the gene already
-    my $min_padding = 25000;
+    my $min_padding = 500;
 
     my $region_start = $gene->seq_region_start - $min_padding;
     if($region_start < $slice->seq_region_start()) {
