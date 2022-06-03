@@ -583,6 +583,7 @@ sub create_config {
 sub clade_settings {
   my ($clade) = @_;
   my $clade_settings = {
+
     'primates' => {
       'repbase_library'    => 'primates',
       'repbase_logic_name' => 'primates',
@@ -647,6 +648,8 @@ sub clade_settings {
       # need a default projection source db set
       'projection_source_production_name' => 'danio_rerio',
       'projection_source_db_name' => current_projection_source_db('danio_rerio'),
+      # need a different value for creating repeatmasker slices
+      repeatmasker_slice_size => 500000,
     },
 
     'distant_vertebrate' => {
@@ -657,6 +660,9 @@ sub clade_settings {
       'masking_timer_short' => '3h',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+      # need a different value for creating repeatmasker slices and batching slices to avoid long-running jobs
+      repeatmasker_slice_size => 300000,
+      batch_target_size => 300000,
     },
 
 
