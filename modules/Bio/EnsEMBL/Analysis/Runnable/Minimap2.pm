@@ -59,7 +59,7 @@ use Bio::EnsEMBL::Gene;
 use Bio::EnsEMBL::Transcript;
 use Bio::EnsEMBL::Exon;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_best_translation);
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(is_canonical_splice execute_with_wait);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(execute_with_wait);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 
@@ -444,8 +444,7 @@ sub parse_results {
       if($intron_count) {
         my $canonical_count = 0;
         foreach my $intron (@$introns) {
-          my ($is_canonical,$donor,$acceptor) = is_canonical_splice($intron,$self->database_adaptor->get_SliceAdaptor,$slice);
-          if($is_canonical) {
+          if($intron->is_splice_canonical) {
             $canonical_count++;
 	        }
         }
