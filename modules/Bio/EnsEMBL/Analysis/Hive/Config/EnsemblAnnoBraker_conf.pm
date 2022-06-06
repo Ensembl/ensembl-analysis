@@ -2086,7 +2086,7 @@ sub pipeline_analyses {
       -logic_name => 'run_anno_softmasking',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'python3.7 ' . catfile( $self->o('enscode_root_dir'), 'ensembl-anno', 'ensemul-anno.py' ) . ' #anno_red_commandline#;' .
+        cmd => 'python3.7 ' . catfile( $self->o('enscode_root_dir'), 'ensembl-anno', 'ensembl-anno.py' ) . ' #anno_red_commandline#;' .
           'cp #output_path#/red_output/mask_output/#species_name#_reheadered_toplevel.msk #output_path#/#species_name#_softmasked_toplevel.fa',
       },
       -rc_name         => 'anno',
