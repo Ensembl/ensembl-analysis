@@ -510,7 +510,7 @@ sub fetch_input_genes_by_id {
     my $transcript = $self->set_canonical($gene);
     if ($transcript) {
       my $transcript_description = $transcript->description();
-      $transcript_description =~ /;mapping_coverage=([0-9.]+);.*;mapping_identity=([0-9.]+)$/;
+      $transcript_description =~ /;mapping_coverage=([0-9.]+);.*mapping_identity=([0-9.]+)$/;
       my $coverage = $1;
       my $perc_id = $2;
       unless(defined($coverage) and defined($perc_id)) {
