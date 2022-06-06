@@ -351,6 +351,7 @@ sub parse_results {
   my $genes = [];
   my @leftover_genes;
 
+  my %seq_lengths;
   open(IN, $output_file) or throw("Could not open $output_file");
   while(my $line = <IN>) {
     next if (index($line, '@') == 0);
@@ -372,12 +373,13 @@ sub parse_results {
     if ($flags&0x10) {
       $strand = -1;
     }
+    $seq_lengths{$query_name} = length($query_seq) unless ($flags&0x100);
     my $percent_identity = 100;
     my $coverage = 100;
     if ($attributes) {
       my ($cs_line) = $attributes =~ /cs:Z:(\S+)/;
       if ($cs_line) {
-        ($percent_identity, $coverage) = parse_minimap2_cs($cs_line, length($query_seq));
+        ($percent_identity, $coverage) = parse_minimap2_cs($cs_line, $seq_lengths{$query_name});
         if ($percent_identity < $percent_id_cutoff) {
           warning("Percent id for the hit fails the cutoff.\nHit name: $hit_name\nPercent id: $percent_identity\nCut-off: $percent_id_cutoff");
           next;
@@ -389,7 +391,7 @@ sub parse_results {
         }
       }
     }
-    my $cigar_objects = parse_cigar_line($hit_name, $hit_start, $strand, $query_name, length($query_seq), $cigar_line);
+    my $cigar_objects = parse_cigar_line($hit_name, $hit_start, $strand, $query_name, $seq_lengths{$query_name}, $cigar_line);
     my $slice;
     if ($self->query) {
       $slice = $self->query;
