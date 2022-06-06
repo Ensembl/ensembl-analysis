@@ -1439,7 +1439,11 @@ sub project_batch_feature {
 
   my $source_feature_length = $source_seq_end_index - $source_seq_start_index + 1;
   my $target_feature_length = $target_seq_end_index - $target_seq_start_index + 1;
-  my $recovered_source_feature_seq = substr($source_seq,$source_seq_start_index,$source_feature_length);
+  if ($source_feature_length*1.5 < $target_feature_length) {
+    $self->warning("Target exon is at least 1.5 bigger than source: $source_feature_length < $target_feature_length");
+    return;
+  }
+  my $recovered_source_feature_seq = substr($source_seq,$source_seq_start_index-1,$source_feature_length);
   if($exon->strand != 1) {
     $recovered_source_feature_seq = $self->revcomp($recovered_source_feature_seq);
   }
