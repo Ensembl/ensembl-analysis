@@ -693,7 +693,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -rc_name    => 'default',
       -parameters => {
-        inputlist => ['daf', 'ise'],
+        inputlist => ['daf'],
         column_names => ['type'],
         species => $self->o('species_name'),
       },
@@ -756,7 +756,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -rc_name    => 'default',
       -parameters => {
-        inputlist => ['daf', 'ise'],
+        inputlist => ['daf'],
         column_names => ['type'],
         species => $self->o('species_name'),
       },
