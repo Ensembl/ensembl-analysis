@@ -128,7 +128,7 @@ sub run {
     $self->output(\@output);
   }
   else {
-    self->throw("Could not obtain a suitable placeholder transcript.")
+    $self->throw("Could not obtain a suitable placeholder transcript.")
   }
 }
 
