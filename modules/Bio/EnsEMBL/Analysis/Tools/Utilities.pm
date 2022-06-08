@@ -97,6 +97,7 @@ our @EXPORT_OK = qw(
               get_biotype_groups
               get_feature_name
               create_production_directory
+              setup_fasta_db
               );
 
 
@@ -1870,4 +1871,21 @@ sub create_production_directory {
   }
 }
 
+=head2 setup_fasta_db
+
+ Arg [1]    : None
+ Description: Replace Bio::EnsEMBL::DBSQL::SliceAdaptor with Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor
+              to retrieve the genomic sequence from a fasta file which is preferably indexed with samtools faidx.
+              The method should be called, preferably before any call to a DBAdaptor. The fasta file can be set
+              with: $dba->get_SequenceAdaptor->fasta($path_to_fasta_file);
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub setup_fasta_db {
+  my $adaptors = Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors;
+  $adaptors->{Sequence} = 'Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor';
+  *Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors = sub {return $adaptors};
+}
 1;

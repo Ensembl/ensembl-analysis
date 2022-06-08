@@ -58,6 +58,7 @@ sub param_defaults {
         _output => [],
         skip_analysis => 0,
         _skip_cache_clearing => 0,
+        use_genome_flatfile => 0,
     }
 }
 
@@ -757,6 +758,24 @@ sub post_cleanup {
     sleep(5);
   }
 
+}
+
+=head2 setup_fasta_db
+
+ Arg [1]    : None
+ Description: Replace Bio::EnsEMBL::DBSQL::SliceAdaptor with Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor
+              to retrieve the genomic sequence from a fasta file which is preferably indexed with samtools faidx.
+              The method should be called, preferably before any call to a DBAdaptor. The fasta file can be set
+              with: $dba->get_SequenceAdaptor->fasta($path_to_fasta_file);
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub setup_fasta_db {
+  my ($self) = @_;
+
+  Bio::EnsEMBL::Analysis::Tools::Utilities::setup_fasta_db();
 }
 
 1;
