@@ -122,13 +122,17 @@ sub fetch_input {
   }
   foreach my $db_title (@{$self->param('databases')}) {
     my $db = $self->param($db_title);
-    $self->warning("Your $db_title dbname has upper case character, it might cause problems, ".$db->{'-dbname'})
-      if ($db->{'-dbname'} =~ /[[:upper:]]/);
-    push(@cmd, '-'.$db_title.'_name', $db->{'-dbname'});
-    push(@cmd, '-'.$db_title.'_host', $db->{'-host'});
-    push(@cmd, '-'.$db_title.'_port', $db->{'-port'});
-    push(@cmd, '-'.$db_title.'_user', $db->{'-user'}) if (exists $db->{'-user'});
-    push(@cmd, '-'.$db_title.'_pass', $db->{'-pass'}) if (exists $db->{'-pass'} and $db->{'-pass'});
+	if ($db){
+    	$self->warning("Your $db_title dbname has upper case character, it might cause problems, ".$db->{'-dbname'})
+    	  if ($db->{'-dbname'} =~ /[[:upper:]]/);
+    	push(@cmd, '-'.$db_title.'_name', $db->{'-dbname'});
+    	push(@cmd, '-'.$db_title.'_host', $db->{'-host'});
+    	push(@cmd, '-'.$db_title.'_port', $db->{'-port'});
+    	push(@cmd, '-'.$db_title.'_user', $db->{'-user'}) if (exists $db->{'-user'});
+    	push(@cmd, '-'.$db_title.'_pass', $db->{'-pass'}) if (exists $db->{'-pass'} and $db->{'-pass'});
+	}else{
+		$self->throw("$db_title is not found in your parameter");
+	}
   }
   if ($self->param_is_defined('extra_parameters')) {
     my $extra_parameters = $self->param('extra_parameters');
@@ -145,7 +149,7 @@ sub fetch_input {
           # We need to make sure that an arrayref/hashref is correctly passed to the init script
           my $value = ref($extra_parameters->{$key}) ? stringify($extra_parameters->{$key}) : $extra_parameters->{$key};
           if ($value or (defined $value and $value eq "0")) {
-            push(@cmd, "-$key", $value) if ($value);
+            push(@cmd, "-$key", $value);
           }
         }
       }
