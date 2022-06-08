@@ -98,8 +98,15 @@ sub fetch_input {
     $short_read_dir = $self->param('use_existing_short_read_dir');
   }
 
+  #create the output dir with write permissions for group so that genebuild user can create output dirs here when running BRAKER
+  my $od_result = system( 'mkdir -p -m775 ' . $output_dir );
+    if ($od_result) {
+      $self->throw( "Failed to create dir: " . $dir );
+    }
+  }
+  
   my $long_read_dir = catdir( $output_dir, 'long_read_fastq' );
-  push( @$dirs_to_create, ( $output_dir, $genome_files_dir, $short_read_dir, $long_read_dir ) );
+  push( @$dirs_to_create, ($genome_files_dir, $short_read_dir, $long_read_dir ) );
 
   foreach my $dir (@$dirs_to_create) {
     my $result = system( 'mkdir -p ' . $dir );
