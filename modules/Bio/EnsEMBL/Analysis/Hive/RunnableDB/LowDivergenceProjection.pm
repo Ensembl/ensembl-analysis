@@ -44,34 +44,34 @@ use File::Spec::Functions qw(tmpdir catfile);
 use POSIX;
 
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_nucleotide_seqs);
-use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 use Bio::EnsEMBL::Analysis::Runnable::LowDivergenceProjection;
 #use Bio::EnsEMBL::Analysis::Tools::Utilities qw (align_nucleotide_seqs);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
-use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my($self) = @_;
 
-  my $adaptors = Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors;
-  $adaptors->{Sequence} = 'Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor';
-  *Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors = sub {return $adaptors};
+  if ($self->param('use_genome_flatfile')) {
+    $self->setup_fasta_db;
+  }
   $self->create_analysis;
-
-#  $self->param('region_padding',10000);
+  my $genome_index = $self->param_required('genome_index');
 
   # Define the dna dbs
   my $source_dna_dba = $self->hrdb_get_dba($self->param('source_dna_db'));
   my $target_dna_dba = $self->hrdb_get_dba($self->param('target_dna_db'));
   $self->hrdb_set_con($source_dna_dba,'source_dna_db');
   $self->hrdb_set_con($target_dna_dba,'target_dna_db');
-  $source_dna_dba->get_SequenceAdaptor->fasta($self->param_required('source_dna_fasta'));
-  my $target_dna_fasta = $self->param_required('genome_index');
-  $target_dna_fasta =~ s/(\.fa(sta)?).*$/$1/;
-  $target_dna_dba->get_SequenceAdaptor->fasta($target_dna_fasta);
+  if ($self->param('use_genome_flatfile')) {
+    if ($self->param_is_defined('source_dna_fasta')) {
+      $source_dna_dba->get_SequenceAdaptor->fasta($self->param_required('source_dna_fasta'));
+    }
+    my $target_dna_fasta = $genome_index;
+    $target_dna_fasta =~ s/(\.fa(sta)?).*$/$1/;
+    $target_dna_dba->get_SequenceAdaptor->fasta($target_dna_fasta);
+  }
 
   # Define the source and target gene dbs
   my $source_gene_dba = $self->hrdb_get_dba($self->param('source_gene_db'));
