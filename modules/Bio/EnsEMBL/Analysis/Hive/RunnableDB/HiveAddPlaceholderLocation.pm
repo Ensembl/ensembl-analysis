@@ -76,6 +76,7 @@ sub run {
   my $sth_longest = $core_dba->dbc->prepare('select seq_region_id from seq_region order by length desc limit 10');
   $sth_longest->execute;
   my $sample_transcript;
+  my $selected_gene;
 
   if ($self->{'has_supporting'} == 1) {
     LOOP: while (my $seq_region_id = $sth_longest->fetchrow_array) {
@@ -97,7 +98,6 @@ sub run {
 
   else {
     my $most_exons = 0;
-    my $selected_gene;
 
     while (my $seq_region_id = $sth_longest->fetchrow_array) {
       my $region = $sa->fetch_by_seq_region_id($seq_region_id);
@@ -128,7 +128,7 @@ sub run {
     $self->output(\@output);
   }
   else {
-    $self->throw("Could not obtain a suitable placeholder transcript.")
+    $self->throw("Could not obtain a suitable placeholder transcript for selected gene ".$selected_gene->dbID()." ".$selected_gene->stable_id_version())
   }
 }
 
