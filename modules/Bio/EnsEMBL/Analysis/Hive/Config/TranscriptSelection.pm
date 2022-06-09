@@ -57,6 +57,7 @@ sub default_options {
     'species_name'              => '',                                                          # e.g. mus_musculus
     'production_name'           => '',                                                          # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'uniprot_set'               => '',                                                          # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
+    'sanity_set'                => '',                                                          # sanity checks
     'output_path'               => '',                                                          # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     pseudogenes_path            => catfile($self->o('output_path'), 'pseudogenes'),
     cleaner_path                => catfile($self->o('output_path'), 'clean_genes'),
@@ -661,7 +662,7 @@ sub pipeline_analyses {
         target_db                  => $self->o('layering_db'),
         sanity_check_type          => 'gene_db_checks',
         min_allowed_feature_counts => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-          'gene_db_checks' )->{ $self->o('uniprot_set') }->{'layer'},
+          'gene_db_checks' )->{ $self->o('sanity_set') }->{'layer'},
       },
       -rc_name   => '4GB',
       -flow_into => {
@@ -678,7 +679,7 @@ sub pipeline_analyses {
         target_db                  => $self->o('genebuilder_db'),
         sanity_check_type          => 'gene_db_checks',
         min_allowed_feature_counts => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-          'gene_db_checks' )->{ $self->o('uniprot_set') }->{'genebuilder'},
+          'gene_db_checks' )->{ $self->o('sanity_set') }->{'genebuilder'},
       },
       -rc_name   => '4GB',
       -flow_into => {
@@ -990,7 +991,7 @@ sub pipeline_analyses {
         target_db                  => $self->o('final_geneset_db'),
         sanity_check_type          => 'gene_db_checks',
         min_allowed_feature_counts => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-          'gene_db_checks' )->{ $self->o('uniprot_set') }->{'final'},
+          'gene_db_checks' )->{ $self->o('sanity_set') }->{'final'},
       },
       -rc_name => '4GB',
     },
