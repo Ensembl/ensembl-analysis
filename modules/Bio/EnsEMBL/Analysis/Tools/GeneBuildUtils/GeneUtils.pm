@@ -213,6 +213,8 @@ sub clone_Gene{
     $newgene->add_Transcript($newtranscript);
   }
   $newgene->slice($gene->slice);
+  my $attribs = $gene->get_all_Attributes();
+  $newgene->add_Attributes(@$attribs);
   return $newgene;
 }
 
