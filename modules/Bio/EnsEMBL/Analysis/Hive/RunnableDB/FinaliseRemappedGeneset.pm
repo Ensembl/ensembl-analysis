@@ -167,7 +167,7 @@ sub low_identity_genes_to_remove {
   my $average_coverage_cutoff = 50;
 
   foreach my $gene (@$genes) {
-    if($gene->description() =~ /Potential paralogue/) {
+    if($gene->description() =~ /potential_paralogue/) {
       next;
     }
     my $transcripts = $gene->get_all_Transcripts();

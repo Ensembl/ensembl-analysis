@@ -83,7 +83,7 @@ sub fetch_input {
     my $new_genes = [];
     foreach my $input_gene (@$initial_genes) {
       my $input_gene_description = $input_gene->description();
-      if($input_gene_description =~ /Potential paralogue/) {
+      if($input_gene_description =~ /potential_paralogue/) {
         push(@$new_genes,$input_gene);
         push(@$all_new_genes,$input_gene);
       }
@@ -117,7 +117,7 @@ sub run {
     $id_string =~ s/\:$//;
 
     foreach my $output_gene (@$output_genes) {
-      my $gene_description = "Parent: ".$id_string.", Type: Potential paralogue";
+      my $gene_description = ";parent_gene=".$id_string.";mapping_type=potential_paralogue";
       $output_gene->description($gene_description);
       $self->output([$output_gene]);
     }
@@ -165,7 +165,7 @@ sub make_runnables {
     # There is a slight chance that this cluster has genes from multiple parents, so track this
     foreach my $gene (@$clustered_genes) {
       my $description = $gene->description();
-      $description =~ /^Parent\: ([^\,]+)\,/;
+      $description =~ /;parent_gene=([^\,]+)\,/;
       my $parent_stable_id = $1;
       push(@$parent_gene_ids,$parent_stable_id)
     }
