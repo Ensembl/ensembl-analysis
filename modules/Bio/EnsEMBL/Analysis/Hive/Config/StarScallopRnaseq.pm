@@ -631,8 +631,7 @@ sub pipeline_analyses {
       -rc_name    => 'default',
       -priority => -2,
       -flow_into => {
-        '2->A' => ['create_tissue_jobs'],
-        'A->1' => ['merged_bam_file'],
+        1 => ['create_tissue_jobs'],
       },
     },
     {
@@ -705,69 +704,6 @@ sub pipeline_analyses {
     },
     {
       -logic_name => 'create_rnaseq_tissue_analyses',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
-      -rc_name    => 'default',
-      -parameters => {
-        source_type => 'list',
-        target_db => $self->o('scallop_blast_db'),
-      },
-      -priority => -2,
-    },
-    {
-      -logic_name => 'merged_bam_file',
-      -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveMergeBamFiles',
-      -parameters => {
-        %{get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::BamMergeStatic', $self->o('rnaseq_merge_type'))},
-        # target_db is the database where we will write the files in the data_file table
-        # You can use store_datafile => 0, if you don't want to store the output file
-        target_db => $self->o('scallop_blast_db'),
-        assembly_name => $self->o('assembly_name'),
-        rnaseq_data_provider => $self->o('rnaseq_data_provider'),
-        disconnect_jobs => 1,
-        species => $self->o('species_name'),
-        output_dir => $self->o('merge_dir'),
-        input_dir => $self->o('merge_dir'),
-        samtools => $self->o('samtools_path'),
-        picard_lib_jar => $self->o('picard_lib_jar'),
-        use_threads => $self->o('rnaseq_merge_threads'),
-      },
-      -rc_name    => '5GB_merge_multithread',
-      -priority => -2,
-      -flow_into => {
-        1 => ['fan_merge_analyses'],
-      },
-    },
-
-   {
-      -logic_name => 'fan_merge_analyses',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'if [[ $(cut -f1 '.$self->o('rnaseq_summary_file')." | sort -u | wc -l) == 1 ]]; then exit 42; else exit 0;fi",
-        return_codes_2_branches => {'42' => 2},
-      },
-      -rc_name    => 'default',
-      -priority => -2,
-      -flow_into  => {
-  1 => ['create_merge_analyses_type_job'],
-      },
-    },
-
-    {
-      -logic_name => 'create_merge_analyses_type_job',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-      -rc_name    => 'default',
-      -parameters => {
-        inputlist => ['daf'],
-        column_names => ['type'],
-        species => $self->o('species_name'),
-      },
-      -priority => -2,
-      -flow_into => {
-        2 => {'create_rnaseq_merge_analyses' => {analyses => [{'-logic_name' => '#species#_merged_rnaseq_#type#'}]}},
-      },
-    },
-    {
-      -logic_name => 'create_rnaseq_merge_analyses',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAddAnalyses',
       -rc_name    => 'default',
       -parameters => {
