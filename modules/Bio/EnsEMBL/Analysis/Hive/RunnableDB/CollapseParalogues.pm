@@ -83,7 +83,7 @@ sub fetch_input {
     my $new_genes = [];
     foreach my $input_gene (@$initial_genes) {
       my $input_gene_description = $input_gene->description();
-      if($input_gene_description =~ /potential_paralogue/) {
+      if ($input_gene_description and $input_gene_description =~ /potential_paralogue/) {
         if (scalar(@{$input_gene->get_all_Transcripts()})) {
           push(@$new_genes,$input_gene);
           push(@$all_new_genes,$input_gene);
@@ -118,7 +118,7 @@ print STDERR "CollapseParalogues foreach my id (parent_gene_ids): ".$id."\n";
       }
     }
     $id_string =~ s/\:$//;
-
+print STDERR "CollapseParalogues id_string: ".$id_string."\n";
     foreach my $output_gene (@$output_genes) {
       my $gene_description = ";parent_gene=".$id_string.";mapping_type=potential_paralogue";
       $output_gene->description($gene_description);
