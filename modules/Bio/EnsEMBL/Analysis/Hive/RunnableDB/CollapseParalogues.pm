@@ -84,8 +84,10 @@ sub fetch_input {
     foreach my $input_gene (@$initial_genes) {
       my $input_gene_description = $input_gene->description();
       if($input_gene_description =~ /potential_paralogue/) {
-        push(@$new_genes,$input_gene);
-        push(@$all_new_genes,$input_gene);
+        if (scalar(@{$input_gene->get_all_Transcripts()})) {
+          push(@$new_genes,$input_gene);
+          push(@$all_new_genes,$input_gene);
+        }
       }
     }
     $self->make_runnables($new_genes,$slice);
