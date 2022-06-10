@@ -111,6 +111,7 @@ sub run {
     my $id_seen = {};
     my $id_string = "";
     foreach my $id (@parent_gene_ids) {
+print STDERR "CollapseParalogues foreach my id (parent_gene_ids): ".$id."\n";
       unless($id_seen->{$id}) {
         $id_string .= $id.":";
         $id_seen->{$id} = 1;
@@ -167,7 +168,7 @@ sub make_runnables {
     # There is a slight chance that this cluster has genes from multiple parents, so track this
     foreach my $gene (@$clustered_genes) {
       my $description = $gene->description();
-      $description =~ /;parent_gene=([^\,]+)\,/;
+      $description =~ /;parent_gene=([^;]+);/;
       my $parent_stable_id = $1;
       push(@$parent_gene_ids,$parent_stable_id)
     }
