@@ -370,7 +370,7 @@ sub filter_by_cutoffs {
     if ($gene->description() !~ /;parent_gene=([^;]+);/) {
       $gene->description($source_gene->description().";parent_gene=".$source_transcript->{'parent_gene_stable_id'});
     }
-    $gene->description($source_gene->description().";mapping_type=potential_paralogue");
+    $gene->description($gene->description().";mapping_type=potential_paralogue");
 
     # add source gene stable id as gene attribute
     $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_transcript->{'parent_gene_stable_id'});

@@ -111,16 +111,14 @@ sub run {
     my $id_seen = {};
     my $id_string = "";
     foreach my $id (@parent_gene_ids) {
-print STDERR "CollapseParalogues foreach my id (parent_gene_ids): ".$id."\n";
       unless($id_seen->{$id}) {
         $id_string .= $id.":";
         $id_seen->{$id} = 1;
       }
     }
     $id_string =~ s/\:$//;
-print STDERR "CollapseParalogues id_string: ".$id_string."\n";
     foreach my $output_gene (@$output_genes) {
-      my $gene_description = ";parent_gene=".$id_string.";mapping_type=potential_paralogue";
+      my $gene_description = $output_gene->description().";parent_gene=".$id_string.";mapping_type=potential_paralogue";
       $output_gene->description($gene_description);
       $self->output([$output_gene]);
     }
