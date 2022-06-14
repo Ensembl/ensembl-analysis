@@ -171,6 +171,8 @@ sub pipeline_wide_parameters {
     use_genome_flatfile     => $self->o('use_genome_flatfile'),
     genome_file             => $self->o('faidx_genome_file'),
     skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),	
+    repeatmasker_slice_size   => $self->o('repeatmasker_slice_size'),
+    batch_target_size       => $self->o('batch_target_size'),
   }
 }
 
@@ -237,8 +239,8 @@ sub pipeline_analyses {
       -parameters => {
         target_db         => $self->o('dna_db'),
         iid_type          => 'rebatch_and_resize_slices',
-        slice_size        => 1000000,
-        batch_target_size => 500000,
+        slice_size        => $self->o('repeatmasker_slice_size'),
+        batch_target_size => $self->o('batch_target_size'),
       },
       -rc_name   => 'default',
       -flow_into => {

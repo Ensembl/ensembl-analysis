@@ -74,6 +74,8 @@ sub default_options {
     assembly_refseq_accession        => '', # Versioned GCF accession, e.g. GCF_001857705.1
     registry_file                    => '' || catfile($self->o('output_path'), "Databases.pm"), # Path to databse registry for LastaZ and Production sync
     use_genome_flatfile              => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
+    repeatmasker_slice_size          => '1000000',# This is the default value for creating repeatmasker slice sizes
+    batch_target_size                => '500000',# This is the default value for batching repeatmasker slice jobs
     species_url                      => '', # sets species.url meta key
     species_division                 => 'EnsemblVertebrates', # sets species.division meta key
     is_non_vert                      => '0', # Setting this will indicate that the assembly corresponds to a non-vertebrate species.
@@ -543,6 +545,8 @@ sub pipeline_wide_parameters {
     skip_repeatmodeler => $self->o('skip_repeatmodeler'),
     wide_repeat_logic_names => $wide_repeat_logic_names,
     skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),	
+    repeatmasker_slice_size   => $self->o('repeatmasker_slice_size'),
+    batch_target_size => $self->o('batch_target_size'),
   }
 }
 
@@ -947,6 +951,8 @@ sub pipeline_analyses {
           repeatmodeler_library => $self->o('repeatmodeler_library'),
           use_repeatmodeler_to_mask => $self->o('use_repeatmodeler_to_mask'),
 	  skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),
+	  batch_target_size => $self->o('batch_target_size'),
+	  repeatmasker_slice_size => $self->o('repeatmasker_slice_size'),
         },
       },
       -rc_name      => 'default',
