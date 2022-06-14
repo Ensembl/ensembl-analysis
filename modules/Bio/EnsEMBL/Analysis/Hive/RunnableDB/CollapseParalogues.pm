@@ -120,6 +120,9 @@ sub run {
     foreach my $output_gene (@$output_genes) {
       my $gene_description = $output_gene->description().";parent_gene=".$id_string.";mapping_type=potential_paralogue";
       $output_gene->description($gene_description);
+      # add string of source genes stable ids as gene attribute
+      my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $id_string);
+      $output_gene->add_Attributes($parent_attribute);
       $self->output([$output_gene]);
     }
   }
