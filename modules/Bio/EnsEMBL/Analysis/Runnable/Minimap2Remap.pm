@@ -1453,7 +1453,7 @@ sub project_cds {
     my $exons = $transcript->get_all_Exons();
     foreach my $exon (@$exons) {
       say "Checking exons with the following start/end for CDS coords: ".$exon->start()."/".$exon->end();
-      if(($target_cds_start_index >= $cumulative_length) and ($target_cds_start_index <= $cumulative_length + $exon->length())) {
+      if(!$cds_start_exon and $target_cds_start_index >= $cumulative_length and $target_cds_start_index <= ($cumulative_length + $exon->length)) {
         $cds_start_exon = $exon;
         if($transcript->strand == 1) {
           $cds_start_offset = $target_cds_start_index - $cumulative_length;
@@ -1471,6 +1471,7 @@ sub project_cds {
           say "FERGAL CDS END DEBUG: ".$exon->length." - (".($exon->length - $target_cds_end_index).") - $cumulative_length";
           $cds_end_offset = $exon->length - ($exon->length - $target_cds_end_index) - $cumulative_length;
         }
+        last;
       }
       $cumulative_length += $exon->length();
     }
