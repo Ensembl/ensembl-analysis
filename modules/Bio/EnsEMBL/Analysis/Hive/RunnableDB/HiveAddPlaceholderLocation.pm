@@ -84,7 +84,8 @@ sub run {
       TRANSCRIPT:foreach my $transcript (@{ $region->get_all_Transcripts_by_type('protein_coding') }) {
         my $supporting_features = $transcript->get_all_supporting_features;
         foreach my $support (@$supporting_features) {
-          if ($support->hcoverage() >= 99 && $support->percent_id() >= 75) {
+          if (($support->hcoverage() >= 99 && $support->percent_id() >= 75) or
+	      !$sample_transcript) {
             $sample_transcript=$transcript;
 	          last LOOP;
           }
@@ -109,7 +110,6 @@ sub run {
         }
       }
     }
-
     $sample_transcript = $selected_gene->canonical_transcript;
   }
 
@@ -117,7 +117,6 @@ sub run {
     my $db_name = $core_dba->dbc->dbname;
     my $sample_gene = $sample_transcript->get_Gene;
     my $sample_coord = $sample_gene->seq_region_name().':'.$sample_gene->seq_region_start().'-'.$sample_gene->seq_region_end();
-
     my @output = (['sample.location_param', $sample_coord],
                   ['sample.location_text', $sample_coord],
                   ['sample.gene_param', $sample_gene->stable_id()],
