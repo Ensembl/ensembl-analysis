@@ -662,7 +662,7 @@ sub pipeline_analyses {
      -logic_name => 'delete_data_files',
      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
      -parameters => { 
-        cmd => 'rm '. $self->o('merge_dir') . '/* ' .$self->o('output_dir') . '/* ',
+        cmd => 'rm -r '. $self->o('merge_dir') . '/* ' .$self->o('output_dir') . '/* ',
      },
     },
   ];
