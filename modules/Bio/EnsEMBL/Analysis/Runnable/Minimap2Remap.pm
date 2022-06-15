@@ -1865,16 +1865,30 @@ sub map_gene_minimap {
       $self->calculate_translation_based_on_source_transcript($transcript, $source_transcript);
     }
 
-    my ($mapped_coverage,$mapped_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->seq->seq(),$transcript->seq->seq());
-    $transcript->{'cov'} = $mapped_coverage;
-    $transcript->{'perc_id'} = $mapped_percent_id;
-    $transcript->{'aligned_source_seq'} = $aligned_source_seq;
-    $transcript->{'aligned_target_seq'} = $aligned_target_seq;
+    $self->set_transcript_coverage_and_identity($source_transcript, $transcript);
     say "Mapped transcript (".$source_transcript->stable_id()."): Coverage: ".$transcript->{'cov'}.", Percent id: ".$transcript->{'perc_id'};
   }
   return($transcripts_by_id);
 }
 
+
+sub set_transcript_coverage_and_identity {
+  my ($self, $source_transcript, $transcript) = @_;
+
+  $transcript->{'aligned_source_seq'} = $source_transcript->seq->seq;
+  $transcript->{'aligned_target_seq'} = $transcript->seq->seq;
+  if ($transcript->{'aligned_source_seq'} eq $transcript->{'aligned_target_seq'}) {
+    $transcript->{'cov'} = sprintf("%.2f", 100);
+    $transcript->{'perc_id'} = sprintf("%.2f", 100);
+  }
+  else {
+    my ($proj_coverage,$proj_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($transcript->{'aligned_source_seq'}, $transcript->{'aligned_target_seq'});
+    $transcript->{'cov'} = $proj_coverage;
+    $transcript->{'perc_id'} = $proj_percent_id;
+    $transcript->{'aligned_source_seq'} = $aligned_source_seq;
+    $transcript->{'aligned_target_seq'} = $aligned_target_seq;
+  }
+}
 
 sub map_gene_exonerate {
   my ($self,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,
@@ -2018,12 +2032,18 @@ sub project_gene_coords {
     my $projected_exon = $self->project_feature(undef,$exon,$source_region_start,$exon_region_start,$exon_region_end,$aligned_source_seq,$aligned_target_seq,$target_region_slice,$target_strand);
 
     if($projected_exon) {
-      my ($proj_coverage,$proj_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($exon->seq->seq(),$projected_exon->seq->seq());
-      say "Projected exon alignment scores: Coverage: ".$proj_coverage.", Perc identity: ".$proj_percent_id;
-      $projected_exon->{'cov'} = $proj_coverage;
-      $projected_exon->{'perc_id'} = $proj_percent_id;
-      $projected_exon->{'source_stable_id'} = $exon->stable_id();
-      $projected_exon->{'source_length'} = $exon->length();
+      if ($exon->seq->seq eq $projected_exon->seq->seq) {
+        $projected_exon->{'cov'} = sprintf("%.2f", 100);
+        $projected_exon->{'perc_id'} = sprintf("%.2f", 100);
+      }
+      else {
+        my ($proj_coverage, $proj_percent_id, undef, undef) = align_nucleotide_seqs($exon->seq->seq, $projected_exon->seq->seq);
+        say "Projected exon alignment scores: Coverage: ".$proj_coverage.", Perc identity: ".$proj_percent_id;
+        $projected_exon->{'cov'} = $proj_coverage;
+        $projected_exon->{'perc_id'} = $proj_percent_id;
+        $projected_exon->{'source_stable_id'} = $exon->stable_id();
+        $projected_exon->{'source_length'} = $exon->length();
+      }
       $projected_exons_by_id->{$projected_exon->{'source_stable_id'}} = $projected_exon;
     } else {
       say "Failed to project exon (".$projected_exon->{'source_stable_id'}.")";
@@ -2068,17 +2088,14 @@ sub reconstruct_transcript {
   $projected_transcript->{'source_biotype_group'} = $source_transcript->get_Biotype->biotype_group();
   $projected_transcript->{'source_length'} = $source_transcript->length();
 
-  my ($proj_coverage,$proj_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->seq->seq(),$projected_transcript->seq->seq());
-  $projected_transcript->{'cov'} = $proj_coverage;
-  $projected_transcript->{'perc_id'} = $proj_percent_id;
-  $projected_transcript->{'aligned_source_seq'} = $aligned_source_seq;
-  $projected_transcript->{'aligned_target_seq'} = $aligned_target_seq;
+  $self->set_transcript_coverage_and_identity($source_transcript, $projected_transcript);
   say "Projected transcript (".$projected_transcript->{'source_stable_id'}.") ".$projected_transcript->seq_region_name." ".$projected_transcript->seq_region_start."/".
       $projected_transcript->seq_region_end." ".$projected_transcript->strand.": Coverage: ".$projected_transcript->{'cov'}.", Percent id: ".$projected_transcript->{'perc_id'};
-  say "Alignment:\n".$aligned_source_seq."\n".$aligned_target_seq;
 
   return($projected_transcript);
 }
+
+
 
 
 sub project_feature {
@@ -2371,12 +2388,7 @@ sub generate_exonerate_transcripts {
     my $exonerate_transcripts = $self->run_exonerate($source_transcript,$target_region_slice,$target_slice_adaptor,$max_intron_size);
     say "Got ".scalar(@$exonerate_transcripts)." from Exonerate";
     foreach my $transcript (@$exonerate_transcripts) {
-
-      my ($mapped_coverage,$mapped_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->seq->seq(),$transcript->seq->seq());
-      $transcript->{'cov'} = $mapped_coverage;
-      $transcript->{'perc_id'} = $mapped_percent_id;
-      $transcript->{'aligned_source_seq'} = $aligned_source_seq;
-      $transcript->{'aligned_target_seq'} = $aligned_target_seq;
+      $self->set_transcript_coverage_and_identity($source_transcript, $transcript);
       $transcript->{'annotation_method'} = 'exonerate_local';
       say "Mapped transcript (".$source_transcript->stable_id()."): Coverage: ".$transcript->{'cov'}.", Percent id: ".$transcript->{'perc_id'};
       push(@$output_transcripts,$transcript);

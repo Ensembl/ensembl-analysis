@@ -961,9 +961,15 @@ sub build_batch_genes {
                                                           $target_region_slice,$target_region_strand);
 
         if($projected_exon) {
-          my ($proj_coverage,$proj_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($exon->seq->seq(),$projected_exon->seq->seq());
-          $projected_exon->{'cov'} = $proj_coverage;
-          $projected_exon->{'perc_id'} = $proj_percent_id;
+          if ($exon->seq->seq eq $projected_exon->seq->seq) {
+            $projected_exon->{'cov'} = 100.00;
+            $projected_exon->{'perc_id'} = 100.00;
+          }
+          else {
+            my ($proj_coverage,$proj_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($exon->seq->seq(),$projected_exon->seq->seq());
+            $projected_exon->{'cov'} = $proj_coverage;
+            $projected_exon->{'perc_id'} = $proj_percent_id;
+          }
           $projected_exon->{'source_stable_id'} = $exon->stable_id();
           $projected_exon->{'source_length'} = $exon->length();
 #        say "Projected exon (".$projected_exon->{'source_stable_id'}."): Coverage: ".$projected_exon->{'cov'}.", Percent id: ".$projected_exon->{'perc_id'};
