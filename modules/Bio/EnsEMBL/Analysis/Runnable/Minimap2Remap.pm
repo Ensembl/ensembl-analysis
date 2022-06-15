@@ -390,38 +390,38 @@ sub resolve_conflict {
           say "  Both genes are in the expected location";
         }
 
-        # 4) Filter by neighbourhood score
-        if($gene->{'neighbourhood_score'} > $conflicting_gene->{'neighbourhood_score'}) {
-          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
-          $conflicting_gene->{'to_remove'} = 1;
-          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as it is has a lower neighbourhood score ".$gene->stable_id().
-              " (".$gene->{'internal_id'}."), ".
-              $conflicting_gene->{'neighbourhood_score'}." vs ".$gene->{'neighbourhood_score'};
-          next;
-        } elsif($conflicting_gene->{'neighbourhood_score'} > $gene->{'neighbourhood_score'}) {
-          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
-          $gene->{'to_remove'} = 1;
-          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is has a lower neighbourhood score ".$conflicting_gene->stable_id().
-              " (".$conflicting_gene->{'internal_id'}."), ".$gene->{'neighbourhood_score'}." vs ".$conflicting_gene->{'neighbourhood_score'};
-          last;
-        } else {
-          say "  Both genes have the same neighbourhood score, ".$gene->{'neighbourhood_score'};
-        }
-
-        # 5) Just take the highest identity/coverage, or the current gene if they're still identical
-        if(($gene->{'avg_cov'} + $gene->{'avg_perc_id'}) >= ($conflicting_gene->{'avg_cov'} + $conflicting_gene->{'avg_perc_id'})) {
-          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
-          $conflicting_gene->{'to_remove'} = 1;
-          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as a lower or equivalent combined average cov/perc id ".$gene->stable_id().
-              " (".$gene->{'internal_id'}.")";
-          next;
-        } else {
-          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
-          $gene->{'to_remove'} = 1;
-          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is has the lower combined average cov/perc id ".$conflicting_gene->stable_id()." (".
-              $conflicting_gene->{'internal_id'}.")";
-          last;
-        }
+#        # 4) Filter by neighbourhood score
+#        if($gene->{'neighbourhood_score'} > $conflicting_gene->{'neighbourhood_score'}) {
+#          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
+#          $conflicting_gene->{'to_remove'} = 1;
+#          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as it is has a lower neighbourhood score ".$gene->stable_id().
+#              " (".$gene->{'internal_id'}."), ".
+#              $conflicting_gene->{'neighbourhood_score'}." vs ".$gene->{'neighbourhood_score'};
+#          next;
+#        } elsif($conflicting_gene->{'neighbourhood_score'} > $gene->{'neighbourhood_score'}) {
+#          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
+#          $gene->{'to_remove'} = 1;
+#          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is has a lower neighbourhood score ".$conflicting_gene->stable_id().
+#              " (".$conflicting_gene->{'internal_id'}."), ".$gene->{'neighbourhood_score'}." vs ".$conflicting_gene->{'neighbourhood_score'};
+#          last;
+#        } else {
+#          say "  Both genes have the same neighbourhood score, ".$gene->{'neighbourhood_score'};
+#        }
+#
+#        # 5) Just take the highest identity/coverage, or the current gene if they're still identical
+#        if(($gene->{'avg_cov'} + $gene->{'avg_perc_id'}) >= ($conflicting_gene->{'avg_cov'} + $conflicting_gene->{'avg_perc_id'})) {
+#          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
+#          $conflicting_gene->{'to_remove'} = 1;
+#          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as a lower or equivalent combined average cov/perc id ".$gene->stable_id().
+#              " (".$gene->{'internal_id'}.")";
+#          next;
+#        } else {
+#          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
+#          $gene->{'to_remove'} = 1;
+#          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it is has the lower combined average cov/perc id ".$conflicting_gene->stable_id()." (".
+#              $conflicting_gene->{'internal_id'}.")";
+#          last;
+#        }
       }
     } # for(my $i=0; $i<scalar
   } # foreach my $slice (keys
