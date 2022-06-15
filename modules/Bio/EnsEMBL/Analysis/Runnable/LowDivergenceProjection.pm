@@ -1396,8 +1396,8 @@ sub project_batch_feature {
   my $target_align_seq_pos = 0;
 
   # Seen to have some issue in terms of getting the real start/end for some features. Was using +1, but seems off
-  my $source_feature_seq_start =  $feature_start - $source_region_start;
-  my $source_feature_seq_end = $feature_end - $source_region_start;
+  my $source_feature_seq_start =  $feature_start - $source_region_start + 1;
+  my $source_feature_seq_end = $feature_end - $source_region_start + 1;
   say "Source feature seq start: ".$source_feature_seq_start;
   say "Source feature seq end: ".$source_feature_seq_end;
   say "Source region start: ".$source_region_start;
@@ -1466,7 +1466,7 @@ sub project_batch_feature {
   say "Source feature in alignment:\n".$source_feature_align_seq;
   say "Target feature in alignment:\n".$target_feature_align_seq;
 
-  my $recovered_target_feature_seq = substr($target_seq,$target_seq_start_index,$target_feature_length);
+  my $recovered_target_feature_seq = substr($target_seq,$target_seq_start_index-1,$target_feature_length);
   # There's something wrong with this, but I'm not sure what the right condition is. The feature seq is correct in the end, but
   # I think this is wrong if the target strand is -1
   if($target_strand * $exon->strand != 1) {
