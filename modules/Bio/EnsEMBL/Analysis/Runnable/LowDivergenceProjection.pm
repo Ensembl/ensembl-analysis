@@ -1443,6 +1443,11 @@ sub project_batch_feature {
     }
   }
 
+  unless(defined($target_seq_start_index) and defined($target_seq_end_index)) {
+    $self->warning("Issue with recovering start/end of the exon feature in target alignment sequence, not building exon");
+    return;
+  }
+
   my $source_feature_length = $source_seq_end_index - $source_seq_start_index + 1;
   my $target_feature_length = $target_seq_end_index - $target_seq_start_index + 1;
   if ($source_feature_length*1.5 < $target_feature_length) {
@@ -1452,11 +1457,6 @@ sub project_batch_feature {
   my $recovered_source_feature_seq = substr($source_seq,$source_seq_start_index-1,$source_feature_length);
   if($exon->strand != 1) {
     $recovered_source_feature_seq = $self->revcomp($recovered_source_feature_seq);
-  }
-
-  unless(defined($target_seq_start_index) and defined($target_seq_end_index)) {
-    $self->warning("Issue with recovering start/end of the exon feature in target alignment sequence, not building exon");
-    return;
   }
 
 
