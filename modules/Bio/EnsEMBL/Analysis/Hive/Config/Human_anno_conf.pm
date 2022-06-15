@@ -320,6 +320,7 @@ sub pipeline_wide_parameters {
     %{$self->SUPER::pipeline_wide_parameters},
     wide_ensembl_release => $self->o('ensembl_release'),
     wide_reference_fasta => $self->o('reference_fasta'),
+    use_genome_flatfile => $self->o('use_genome_flatfile'),
   }
 }
 
