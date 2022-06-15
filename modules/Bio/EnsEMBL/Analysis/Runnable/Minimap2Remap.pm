@@ -1236,107 +1236,107 @@ sub process_results {
 }
 
 
+sub set_transcript_description {
+  my ($self, $transcript, $source_transcript) = @_;
+
+  # add source transcript stable id as transcript attribute
+  my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $source_transcript->stable_id().".".$source_transcript->version());
+  $transcript->add_Attributes($parent_attribute);
+
+  my $description_string = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version().";mapping_coverage=".$transcript->{'cov'}.";mapping_identity=".$transcript->{'perc_id'};
+  if($transcript->{'cds_description'}) {
+    $description_string .= $transcript->{'cds_description'};
+  }
+  $transcript->description($description_string);
+}
+
+
 sub set_transcript_descriptions {
   my ($self,$transcripts_by_id,$source_transcript_id_hash) = @_;
 
   foreach my $id (keys(%$transcripts_by_id)) {
     my $transcript = $transcripts_by_id->{$id};
-    my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
-
-    # add source transcript stable id as transcript attribute
-    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $source_transcript->stable_id().".".$source_transcript->version());
-    $transcript->add_Attributes($parent_attribute);
-
-    my $description_string = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version().";mapping_coverage=".$transcript->{'cov'}.";mapping_identity=".$transcript->{'perc_id'};
-    if($transcript->{'cds_description'}) {
-      $description_string .= $transcript->{'cds_description'};
-    }
-    $transcript->description($description_string);
+    $self->set_transcript_description($transcript, $source_transcript_id_hash->{$transcript->stable_id});
   }
 }
 
 
-sub qc_cds_sequences {
-  my ($self,$transcripts_by_id,$source_transcript_id_hash) = @_;
+sub qc_cds_sequence {
+  my ($self, $transcript, $source_transcript) = @_;
 
-  foreach my $id (keys(%$transcripts_by_id)) {
-    my $transcript = $transcripts_by_id->{$id};
-    my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
-    my $source_translation = $source_transcript->translation;
+  my $source_translation = $source_transcript->translation;
+  if($source_translation) {
+    my $transcript_cdna = $transcript->translateable_seq;
+    if ($transcript_cdna) {
+      my ($cds_coverage,$cds_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->translateable_seq(),$transcript_cdna);
+      my $cds_description = ";cds_coverage=".$cds_coverage.";cds_identity=".$cds_percent_id;
+      my $aligned_source_seq_copy = $aligned_source_seq;
+      my $aligned_target_seq_copy = $aligned_target_seq;
+      $aligned_source_seq_copy =~ s/\-\-\-//g;
+      $aligned_target_seq_copy =~ s/\-\-\-//g;
 
-    if($source_translation) {
-      my $transcript_cdna = $transcript->translateable_seq;
-      if ($transcript_cdna) {
-        my ($cds_coverage,$cds_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->translateable_seq(),$transcript_cdna);
-        my $cds_description = ";cds_coverage=".$cds_coverage.";cds_identity=".$cds_percent_id;
-        my $aligned_source_seq_copy = $aligned_source_seq;
-        my $aligned_target_seq_copy = $aligned_target_seq;
-        $aligned_source_seq_copy =~ s/\-\-\-//g;
-        $aligned_target_seq_copy =~ s/\-\-\-//g;
-
-        if($aligned_source_seq_copy =~ /\-/ or $aligned_target_seq_copy =~ /\-/) {
-          $cds_description .= ";cds_gap=1";
-          my $transcript_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'hidden_remark',
-                                                               -VALUE => ">source_cds_align\n".$aligned_source_seq."\n>target_cds_align\n".$aligned_target_seq."\n");
-          $transcript->add_Attributes($transcript_attrib);
-          my $translation_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'hidden_remark',
-                                                                -VALUE => ">source_translation\n".$source_translation->seq().
-                                                                          "\n>target_translation\n".$transcript->translation->seq()."\n");
-          $transcript->translation->add_Attributes($translation_attrib);
-        } else {
-          $cds_description .= ";cds_gap=0";
+      if($aligned_source_seq_copy =~ /\-/ or $aligned_target_seq_copy =~ /\-/) {
+        $cds_description .= ";cds_gap=1";
+        my $transcript_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'hidden_remark',
+                                                             -VALUE => ">source_cds_align\n".$aligned_source_seq."\n>target_cds_align\n".$aligned_target_seq."\n");
+        $transcript->add_Attributes($transcript_attrib);
+        my $translation_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'hidden_remark',
+                                                              -VALUE => ">source_translation\n".$source_translation->seq().
+                                                                        "\n>target_translation\n".$transcript->translation->seq()."\n");
+        $transcript->translation->add_Attributes($translation_attrib);
+      } else {
+        $cds_description .= ";cds_gap=0";
+      }
+      $transcript->{'cds_description'} = $cds_description;
+      say join(' ', __LINE__, $source_transcript->display_id, $source_transcript->biotype), "\n";
+      my $translated_transcript = $transcript->translate;
+      if ($translated_transcript) {
+        my $new_seq = $transcript->translate->seq;
+        foreach my $attribute (@{$source_transcript->get_all_Attributes}) {
+          if ($attribute->code eq 'cds_start_NF' or $attribute->code eq 'cds_end_NF') {
+            $transcript->add_Attributes($attribute);
+          }
         }
-        $transcript->{'cds_description'} = $cds_description;
-        say join(' ', __LINE__, $source_transcript->display_id, $source_transcript->biotype), "\n";
-        my $translated_transcript = $transcript->translate;
-        if ($translated_transcript) {
-          my $new_seq = $transcript->translate->seq;
-          foreach my $attribute (@{$source_transcript->get_all_Attributes}) {
-            if ($attribute->code eq 'cds_start_NF' or $attribute->code eq 'cds_end_NF') {
-              $transcript->add_Attributes($attribute);
+        foreach my $attribute (@{$source_translation->get_all_Attributes}) {
+          if ($attribute->code eq 'initial_met') {
+            if (substr($new_seq, 0, 1) ne 'M') {
+              $transcript->translation->add_Attributes($attribute);
             }
           }
-          foreach my $attribute (@{$source_translation->get_all_Attributes}) {
-            if ($attribute->code eq 'initial_met') {
-              if (substr($new_seq, 0, 1) ne 'M') {
-                $transcript->translation->add_Attributes($attribute);
-              }
-            }
-          }
-          my $num_internal_stops = $new_seq =~ tr/*/*/;
-          if ($num_internal_stops) {
+        }
+        my $num_internal_stops = $new_seq =~ tr/*/*/;
+        if ($num_internal_stops) {
 # We are checking if the source has some selenocysteine or a known internal stop codon
-            if (index($source_translation->seq, 'U') >= 0 or index(substr($source_translation->seq, 1, $source_translation->length-2), 'X') >= 0) {
-              my $source_seq_edits = $source_translation->get_all_SeqEdits;
-              my $pos = 0;
-              foreach my $seq_edit (@$source_seq_edits) {
-                if ($seq_edit->name ne 'initial_met') {
-                  $pos = index($new_seq, '*', $pos);
-                  if ($pos == -1) {
-                    $self->warning($source_transcript->display_id.', I was expecting an internal stop but could not find one');
+          if (index($source_translation->seq, 'U') >= 0 or index(substr($source_translation->seq, 1, $source_translation->length-2), 'X') >= 0) {
+            my $source_seq_edits = $source_translation->get_all_SeqEdits;
+            my $pos = 0;
+            foreach my $seq_edit (@$source_seq_edits) {
+              if ($seq_edit->name ne 'initial_met') {
+                $pos = index($new_seq, '*', $pos);
+                if ($pos == -1) {
+                  $self->warning($source_transcript->display_id.', I was expecting an internal stop but could not find one');
+                }
+                else {
+                  ++$pos; # We need to be in 1-index coordinates
+                  if ($seq_edit->code eq '_selenocysteine') {
+                    $self->warning($source_transcript->display_id." selenocysteine might not be that internal stop at $pos")
+                      unless ($seq_edit->start == $pos or ($pos >= $seq_edit->start-10 and $pos <= $seq_edit->start+10));
+                    $transcript->translation->add_Attributes(ref($seq_edit)->new(
+                      -code => '_selenocysteine',
+                      -start => $pos,
+                      -end => $pos,
+                      -alt_seq => 'U',
+                    )->get_Attribute);
                   }
-                  else {
-                    ++$pos; # We need to be in 1-index coordinates
-                    if ($seq_edit->code eq '_selenocysteine') {
-                      $self->warning($source_transcript->display_id." selenocysteine might not be that internal stop at $pos")
-                        unless ($seq_edit->start == $pos or ($pos >= $seq_edit->start-10 and $pos <= $seq_edit->start+10));
-                      $transcript->translation->add_Attributes(ref($seq_edit)->new(
-                        -code => '_selenocysteine',
-                        -start => $pos,
-                        -end => $pos,
-                        -alt_seq => 'U',
-                      )->get_Attribute);
-                    }
-                    elsif ($seq_edit->code eq '_stop_codon_rt') {
-                      $self->warning($source_transcript->display_id." stop codon readthrough might not be that internal stop at $pos")
-                        unless ($seq_edit->start == $pos or ($pos >= $seq_edit->start-10 and $pos <= $seq_edit->start+10));
-                      $transcript->translation->add_Attributes(ref($seq_edit)->new(
-                        -code => '_stop_codon_rt',
-                        -start => $pos,
-                        -end => $pos,
-                        -alt_seq => 'X',
-                      )->get_Attribute);
-                    }
+                  elsif ($seq_edit->code eq '_stop_codon_rt') {
+                    $self->warning($source_transcript->display_id." stop codon readthrough might not be that internal stop at $pos")
+                      unless ($seq_edit->start == $pos or ($pos >= $seq_edit->start-10 and $pos <= $seq_edit->start+10));
+                    $transcript->translation->add_Attributes(ref($seq_edit)->new(
+                      -code => '_stop_codon_rt',
+                      -start => $pos,
+                      -end => $pos,
+                      -alt_seq => 'X',
+                    )->get_Attribute);
                   }
                 }
               }
@@ -1344,10 +1344,20 @@ sub qc_cds_sequences {
           }
         }
       }
-      else {
-        $transcript->{'cds_description'} = ";cds_coverage=0.00;cds_identity=0.00";
-      }
     }
+    else {
+      $transcript->{'cds_description'} = ";cds_coverage=0.00;cds_identity=0.00";
+    }
+  }
+}
+
+sub qc_cds_sequences {
+  my ($self,$transcripts_by_id,$source_transcript_id_hash) = @_;
+
+  foreach my $id (keys(%$transcripts_by_id)) {
+    my $transcript = $transcripts_by_id->{$id};
+    my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
+    $self->qc_cds_sequence($transcript, $source_transcript);
   }
 }
 
