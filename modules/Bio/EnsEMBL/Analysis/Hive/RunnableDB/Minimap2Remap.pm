@@ -199,7 +199,8 @@ sub fetch_source_genes {
   }
   close IN or $self->throw("Could not close $input_id_file");
   $source_genes = $source_gene_dba->get_GeneAdaptor->fetch_all_by_dbID_list(\@id_list);
-  if (@$source_genes != @id_list) {
+  my %unique_ids = map {$_ => 1} @id_list;
+  if (@$source_genes != scalar(keys %unique_ids)) {
     $self->throw("Fetched ".scalar(@$source_genes).' genes but expected '.scalar(@id_list));
   }
 
