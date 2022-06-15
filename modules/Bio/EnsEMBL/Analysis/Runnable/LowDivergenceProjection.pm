@@ -976,7 +976,7 @@ sub build_batch_genes {
 #        say "Alignment:\n".$aligned_source_seq."\n".$aligned_target_seq;
           $projected_exons_by_id->{$projected_exon->{'source_stable_id'}} = $projected_exon;
         } else {
-          say "Failed to project exon (".$projected_exon->{'source_stable_id'}.")";
+          say "Failed to project exon (".$exon->stable_id.")";
         }
       } # end foreach my $exon
 
