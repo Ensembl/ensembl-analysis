@@ -966,7 +966,6 @@ sub set_neighbourhood_score {
 #  say "FERGAL TARGET: ".$target_gene->stable_id;
   my $neighbour_limit = 100;
   my $source_neighbours = $source_gene->{'sorted_neighbours'};
-  my $filtered_source_neighbours = [];
 
   my $target_neighbours = $target_gene->{'sorted_neighbours'};
   my $target_neighbours_by_id = {};
@@ -1692,96 +1691,6 @@ sub filter_paf_hits {
 
 
 
-sub chain_paf_results {
-  my ($self,$paf_results) = @_;
-
-  my $top_paf_result = shift(@$paf_results);
-  my $top_paf_strand = ${$top_paf_result}[4];
-  my $top_paf_source_genomic_start = ${$top_paf_result}[2];
-  my $top_paf_source_genomic_end = ${$top_paf_result}[3];
-  my $top_paf_target_genomic_start = ${$top_paf_result}[7];
-  my $top_paf_target_genomic_end = ${$top_paf_result}[8];
-  my $top_paf_target_genomic_name = ${$top_paf_result}[5];
-  my $source_genomic_length = ${$top_paf_result}[1];
-
-  say "Top paf source start/end: ".$top_paf_source_genomic_start."/".$top_paf_source_genomic_end;
-  say "Top paf target start/end: ".$top_paf_target_genomic_start."/".$top_paf_target_genomic_end;
-  # This will control the variability of the gap between two hits on the target relative to the
-  # gap in coverage on the source sequence
-
-  my $cluster_source_genomic_start = $top_paf_source_genomic_start;
-  my $cluster_source_genomic_end = $top_paf_source_genomic_end;
-  my $cluster_target_genomic_start = $top_paf_target_genomic_start;
-  my $cluster_target_genomic_end = $top_paf_target_genomic_end;
-
-  my $min_allowed_gap = 500;
-  my $small_cluster_gap_size = 5000;
-  my $small_cluster_gap_ratio = 2.5;
-  my $large_cluster_gap_ratio = 1.2;
-  foreach my $paf_result (@$paf_results) {
-    my $hit_strand = ${$paf_result}[4];
-    my $hit_genomic_name = ${$paf_result}[5];
-    my $hit_source_genomic_start = ${$paf_result}[2];
-    my $hit_source_genomic_end = ${$paf_result}[3];
-    my $hit_target_genomic_start = ${$paf_result}[7];
-    my $hit_target_genomic_end = ${$paf_result}[8];
-    my $hit_target_genomic_name = ${$paf_result}[5];
-
-    unless($hit_strand eq $top_paf_strand and $hit_genomic_name eq $top_paf_target_genomic_name) {
-      next;
-    }
-
-    # Check if there's a feature overlap with the current cluster boundaries. If so skip
-    if($self->coords_overlap($hit_source_genomic_start,$hit_source_genomic_end,$top_paf_source_genomic_start,$top_paf_source_genomic_end) or
-       $self->coords_overlap($hit_target_genomic_start,$hit_target_genomic_end,$top_paf_target_genomic_start,$top_paf_target_genomic_end)) {
-      next;
-    }
-
-    say "Hit source start/end: ".$hit_source_genomic_start."/".$hit_source_genomic_end;
-    say "Hit target start/end: ".$hit_target_genomic_start."/".$hit_target_genomic_end;
-
-    # At this point find the gap between the source region and the top hit source region, then do the same with the target regions
-    # and determine if the source gap is similar to the target gap and if it is then adjust the cluster boundaries on the target
-    my $source_gap = $self->calculate_coord_distance($top_paf_source_genomic_start,$top_paf_source_genomic_end,$hit_source_genomic_start,$hit_source_genomic_end);
-    my $scaled_source_gap = $source_gap;
-    if($source_gap <= $small_cluster_gap_size) {
-      $scaled_source_gap = ($source_gap * $small_cluster_gap_ratio) + $min_allowed_gap;
-    } else {
-      $scaled_source_gap = ($source_gap * $large_cluster_gap_ratio) + $min_allowed_gap;;
-    }
-
-    my $target_gap = $self->calculate_coord_distance($top_paf_target_genomic_start,$top_paf_target_genomic_end,$hit_target_genomic_start,$hit_target_genomic_end);
-
-    say "Source gap: ".$source_gap;
-    say "Scaled source gap: ".$scaled_source_gap;
-    say "Target gap: ".$target_gap;
-
-    if($target_gap <= $scaled_source_gap) {
-      if($hit_target_genomic_start < $cluster_target_genomic_start) {
-        $cluster_target_genomic_start = $hit_target_genomic_start;
-      }
-
-      if($hit_target_genomic_end > $cluster_target_genomic_end) {
-        $cluster_target_genomic_end = $hit_target_genomic_end;
-      }
-
-      if($hit_source_genomic_start < $cluster_source_genomic_start) {
-        $cluster_source_genomic_start = $hit_source_genomic_start;
-      }
-
-      if($hit_source_genomic_end > $cluster_source_genomic_end) {
-        $cluster_source_genomic_end = $hit_source_genomic_end;
-      }
-    }
-  }
-
-  say "Source cluster coverage start-end: ".$cluster_source_genomic_start."-".$cluster_source_genomic_end;
-  say "Unadjuster cluster details: Start: ".$cluster_target_genomic_start.", End: ".$cluster_target_genomic_end.", Strand: ".$top_paf_strand.", Name: ".$top_paf_target_genomic_name;
-  my $adjust_left = $cluster_target_genomic_start - $cluster_source_genomic_start;
-  my $adjust_right = $cluster_target_genomic_end + ($source_genomic_length - $cluster_source_genomic_end);
-  say "Final cluster details: Start: ".$cluster_target_genomic_start.", End: ".$cluster_target_genomic_end.", Strand: ".$top_paf_strand.", Name: ".$top_paf_target_genomic_name;
-  return([$cluster_target_genomic_start,$cluster_target_genomic_end,$top_paf_strand,$top_paf_target_genomic_name]);
-}
 
 
 sub coords_overlap {
@@ -1811,25 +1720,6 @@ sub calculate_coord_distance {
 }
 
 
-
-sub check_for_small_gene {
-  my ($self,$transcripts) = @_;
-
-  # For the moment it's just going to check for genes with single exon short transcripts
-  my $small_length = 100;
-  my $is_small = 1;
-  foreach my $transcript (@$transcripts) {
-    if($transcript->length > $small_length) {
-      $is_small = 0;
-    }
-
-    my $exons = $transcript->get_all_Exons();
-    if(scalar(@$exons) > 1) {
-      $is_small = 0;
-    }
-  }
-  return($is_small);
-}
 
 
 sub print_transcript_stats {
@@ -2267,73 +2157,8 @@ sub build_projected_exon {
   return($projected_exon);
 }
 
-sub build_projected_exon_orig {
-  my ($self,$transcript,$exon,$seq_start_index,$seq_end_index,$region_slice,$target_strand) = @_;
-
-  say "Region slice: ".$region_slice->name();
-  my $region_start = $region_slice->seq_region_start();
-  my $region_end = $region_slice->seq_region_end();
-  say "Region start: ".$region_start;
-  say "Region end: ".$region_end;
-
-  my $parent_slice = $region_slice->seq_region_Slice();
-#  say "Parent slice: ".$parent_slice->name();
-
-  my $exon_start;
-  my $exon_end;
-  my $exon_strand = 1;
-  say "Start/End index: ".$seq_start_index."/".$seq_end_index;
-  if($target_strand == $exon->strand) {
-    $exon_start = $region_start + $seq_start_index-1;
-    $exon_end = $region_start + $seq_end_index-1;
-  } else {
-    # In this case we need to reverse the coords
-    $exon_end = $region_end - $seq_start_index+1;
-    $exon_start = $exon_end - ($seq_end_index - $seq_start_index);
-  }
 
 
-  my $phase = -1;
-  my $end_phase = -1;
-
-  say "Projected exon start/end slice coords: ".$exon_start."/".$exon_end;
-  say "Parent slice stard/end genomic coords: ".$parent_slice->seq_region_start."/".$parent_slice->seq_region_end;
-  my $projected_exon = Bio::EnsEMBL::Exon->new(-start     => $exon_start,
-                                               -end       => $exon_end,
-                                               -strand    => $target_strand,
-                                               -phase     => $phase,
-                                               -end_phase => $end_phase,
-                                               -analysis  => $self->analysis,
-                                               -slice     => $parent_slice);
-
-  if($exon_start > $exon_end) {
-    $self->throw("Created an exon where the start > than the end, this shouldn't be possible: ".$parent_slice->name." ".$exon->start."..".$exon->end." ".$target_strand);
-  }
-
-  say "New exon seq:";
-  say $projected_exon->seq->seq();
-  say "Original exon seq:";
-  say $exon->seq->seq();
-
-  return($projected_exon);
-}
-
-
-sub set_complete_transcript_cds {
-  my ($self,$transcript) = @_;
-
-  # This will take a transcript and assume it is a completely coding sequence, so will just apply a translation across the whole thing
-  # This is mostly to just replicate the cds for the small, coding, single exon genes that are projected at the moment
-  my $exons = $transcript->get_all_Exons();
-  my $start_exon = ${$exons}[0];
-  my $end_exon = ${$exons}[scalar(@$exons)-1];
-  my $translation = Bio::EnsEMBL::Translation->new();
-  $translation->start_Exon($start_exon);
-  $translation->start(1);
-  $translation->end_Exon($end_exon);
-  $translation->end($end_exon->length());
-  $transcript->translation($translation);
-}
 
 
 sub generate_minimap_transcripts {
@@ -2491,264 +2316,13 @@ sub run_exonerate {
 }
 
 
-sub check_exonerate_translation {
-  my ($self,$source_transcript,$output_transcript) = @_;
-
-  my $source_se = $source_transcript->translation->start_Exon();
-  my $source_ee = $source_transcript->translation->end_Exon();
-
-  my $output_se = $output_transcript->translation->start_Exon();
-  my $output_ee = $output_transcript->translation->end_Exon();
-
-  # This will sort an incomplete start codon out. Exonerate will always make a CDS that's a multiple
-  # of three even if the annotation features is not a multiple of three. So this code will cut the
-  # equivalent amount off the end of the CDS. Note that at the moment there's no code to deal with
-  # edge cases like if this moved the cds into another exon (start would be < 1)
-  if($source_se->phase()) {
-    my $translation = $output_transcript->translation();
-    $output_se->phase($source_se->phase());
-    my $end_offset = $translation->end() - $source_se->phase();
-    $translation->end($end_offset);
-    $output_transcript->translation($translation);
-  }
-
-  # Need some code to sort out the situation where the cds end is wrong because exonerate won't make a
-  # complete cds. This can happen if the end codon of the original cds is not complete. Exonerate will
-  # just truncate it to the closest codon
-  my $translation_offset = length($output_transcript->translateable_seq()) % 3;
-  if($translation_offset) {
-    my $translation = $output_transcript->translation();
-    my $end_offset = $translation->end() - $translation_offset;
-    $translation->end($end_offset);
-    $output_transcript->translation($translation)
-  }
-}
-
-sub update_exonerate_transcript_coords {
-  my ($self,$transcript,$target_slice_adaptor) = @_;
-
-  $transcript->flush_supporting_features();
-  my $slice_id = $transcript->start_Exon->seqname;
-
-  $slice_id =~ /[^\:]+\:[^\:]+\:([^\:]+)\:([^\:]+)\:([^\:]+)\:[^\:]+$/;
-  my $region_name = $1;
-  my $start_offset = $2 - 1;
-  my $slice = $target_slice_adaptor->fetch_by_region('toplevel',$region_name);
-
-  my $exons = $transcript->get_all_Exons();
-  foreach my $exon (@$exons) {
-    $exon->start($exon->start() + $start_offset);
-    $exon->end($exon->end() + $start_offset);
-  }
-
-  $transcript->start($transcript->start() + $start_offset);
-  $transcript->end($transcript->end() + $start_offset);
-  attach_Slice_to_Transcript($transcript,$slice);
-  attach_Analysis_to_Transcript($transcript,$self->analysis());
-
-  return($transcript);
-}
 
 
-sub check_mapping_quality {
-  my ($self,$target_transcripts,$source_transcript_id_hash,$good_transcripts) = @_;
-  my $bad_transcripts = [];
-  my $coverage_cutoff_groups = {'coding' => 95,
-                                'pseudogene' => 80,
-                                'snoncoding' => 90,
-                                'mnoncoding' => 80,
-                                'lnoncoding' => 80,
-                                'undefined'  => 50};
-
-  my $percent_identity_groups = {'coding' => 95,
-                                 'pseudogene' => 80,
-                                 'snoncoding' => 80,
-                                 'mnoncoding' => 80,
-                                 'lnoncoding' => 80,
-                                 'undefined'  => 50};
-
-  my $cds_length_diff_cutoff = 0.05;
-  my $genomic_span_diff_cutoff = 0.80;
-  my $exonerate_length_cutoff = 15000;
-
-  my $processed_transcripts = {};
-
-  foreach my $transcript (@$target_transcripts) {
-    say "Checking mapping quality for mapped transcript with original dbID: ".$transcript->stable_id();
-    my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
-    unless($source_transcript) {
-      $self->throw("Issue with fetching source transcript for target transcript with dbID: ".$transcript->stable_id());
-    }
-
-    my $source_genomic_span = $source_transcript->seq_region_end() - $source_transcript->seq_region_start() + 1;
-    my $target_genomic_span = $transcript->seq_region_end() - $transcript->seq_region_start() + 1;
-    my $source_transcript_seq;
-    my $transcript_seq;
-    my $cds_length_diff = 0;
-
-    # Set the description now on the minor chance the transcript doesn't have a cds that can be calculated
-    my $transcript_description = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version();
-    if ($source_transcript->display_xref()) {
-      if ($source_transcript->display_xref()->display_id()) {
-        $transcript_description .= ";parent_transcript_display_xref=".$source_transcript->display_xref()->display_id();
-      }
-    }
-
-    $transcript->description($transcript_description);
-
-    # add source transcript stable id as transcript attribute
-    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $source_transcript->stable_id().".".$source_transcript->version());
-    $transcript->add_Attributes($parent_attribute);
-
-    if($source_transcript->translation()) {
-      $source_transcript_seq = $source_transcript->translateable_seq();
-      $transcript_seq = $transcript->translateable_seq();
-
-      unless($transcript_seq) {
-        compute_best_translation($transcript);
-        $transcript_seq = $transcript->translateable_seq();
-      }
-
-      unless($transcript_seq) {
-        $self->warning("Couldn't find an ORF in transcript mapped from ".$source_transcript->stable_id().". Source transcript has an ORF");
-        next;
-      }
-
-      # This is for cds seqs only, so this is only run if there's a translation. Meaning that cds_length_diff is 0 for all other transcripts, and thus
-      # they automatically pass the length check. There isn't really a risk of a non-coding transcript being longer than expected, only shorter than
-      # expected (and that's handled by coverage), whereas an ORF could be longer due to selecting an incorrect upstream methionine
-      if(length($transcript_seq) > length($source_transcript_seq)) {
-        $cds_length_diff = 1 - (length($source_transcript_seq)/length($transcript_seq));
-      }
-    } else {
-      $source_transcript_seq = $source_transcript->seq->seq();
-      $transcript_seq = $transcript->seq->seq();
-    }
-
-    my ($coverage,$percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript_seq,$transcript_seq);
-    $transcript->{'cov'} = $coverage;
-    $transcript->{'perc_id'} = $percent_id;
-    $transcript->{'cds_length_diff'} = $cds_length_diff;
-    $transcript->{'source_stable_id'} = $source_transcript->stable_id();
-    $transcript->{'source_biotype_group'} = $source_transcript->get_Biotype->biotype_group();
-    $transcript->{'source_length'} = $source_transcript->length();
-    say "FERGAL SOURCE SPAN: ".$source_genomic_span;
-    say "FERGAL TARGET SPAN: ".$target_genomic_span;
-    my $transcript_genomic_span_diff = $target_genomic_span/$source_genomic_span;
-    $transcript_genomic_span_diff = sprintf("%.2f", $transcript_genomic_span_diff);
-    $transcript->{'transcript_genomic_span_diff'} = $transcript_genomic_span_diff;
-
-    $transcript_description .= ";mapping_coverage=".$coverage.";mapping_identity=".$percent_id;
-    $transcript->description($transcript_description);
-
-    # I added this in because even when minimap is explicitly told not to output secondary alignments, it very occasionally does
-    # The example case was ENST00000624628, which is a large lncRNA (24kb) and for some reason it seems to split into one large
-    # alignment and one small one and outputs both
-    if($processed_transcripts->{$transcript->stable_id()}) {
-      if(($transcript->{'cov'} + $transcript->{'perc_id'}) > ($processed_transcripts->{$transcript->stable_id()}->{'cov'} + $processed_transcripts->{$transcript->stable_id()}->{'perc_id'})) {
-        say "Found two transcripts for the same dbID. Selecting transcript with highest combined coverage and identity: ".$transcript->{'cov'}." cov, ".$transcript->{'perc_id'}." perc_id";
-        $processed_transcripts->{$transcript->stable_id()} = $transcript;
-      }
-    } else {
-      $processed_transcripts->{$transcript->stable_id()} = $transcript;
-    }
-  }
-
-  foreach my $transcript_id (keys(%{$processed_transcripts})) {
-    my $transcript = $processed_transcripts->{$transcript_id};
-    my $biotype_group = $transcript->{'source_biotype_group'};
-    my $coverage_cutoff = $coverage_cutoff_groups->{$biotype_group};
-    my $perc_id_cutoff = $percent_identity_groups->{$biotype_group};
-
-    unless($coverage_cutoff and $perc_id_cutoff) {
-      $self->throw("Issue fetching coverage and percent id cutoffs for the biotype group of the parent transcript. Biotype group: ".$biotype_group);
-    }
-
-    if($transcript->{'cov'} >= $coverage_cutoff and $transcript->{'perc_id'} >= $perc_id_cutoff and
-       $transcript->{'cds_length_diff'} <= $cds_length_diff_cutoff and $transcript->{'transcript_genomic_span_diff'} >= $genomic_span_diff_cutoff) {
-      say "Transcript ".$transcript->{'source_stable_id'}." (".$transcript->stable_id().", ".$biotype_group.") passed check: ".$transcript->{'cov'}." cov, ".
-          $transcript->{'perc_id'}." perc_id, ".$transcript->{'cds_length_diff'}." length diff, ".$transcript->{'transcript_genomic_span_diff'}." genomic span diff";
-      push(@$good_transcripts,$transcript);
-    } else {
-      say "Transcript ".$transcript->{'source_stable_id'}." (".$transcript->stable_id().", ".$biotype_group.") failed check: ".$transcript->{'cov'}." cov, ".
-          $transcript->{'perc_id'}." perc_id, ".$transcript->{'cds_length_diff'}." length diff, ".$transcript->{'transcript_genomic_span_diff'}." genomic span diff";
-      push(@$bad_transcripts,$transcript);
-    }
-  }
-
-  # Add any missing transcripts to the bad pile also
 
 
-  return($bad_transcripts);
-}
 
 
-sub select_best_transcripts {
-  my ($self,$bad_minimap_transcripts_hash,$bad_exonerate_transcripts_hash) = @_;
 
-  # This will take two hashes of transcripts and check the keys, which are dbIDs to see which
-  # hash has the highest combined coverage and perc identity in cases where there's a dbID across both
-  # There probably shouldn't be dbIDs unique to each, but to make the code more robust it will handle
-  # those cases too
-
-  my $processed_ids_hash = {};
-  my $selected_transcripts = [];
-
-  foreach my $db_id (keys(%{$bad_minimap_transcripts_hash})) {
-    my $minimap_transcript = $bad_minimap_transcripts_hash->{$db_id};
-    my $exonerate_transcript = $bad_exonerate_transcripts_hash->{$db_id};
-
-    # If there's no exonerate transcript just move on
-    unless($exonerate_transcript) {
-      push(@$selected_transcripts,$minimap_transcript);
-      next;
-    }
-
-    # Just take whatever has the best combined perc id/cov for now
-    if(($minimap_transcript->{'cov'} + $minimap_transcript->{'perc_id'}) > ($exonerate_transcript->{'cov'} + $exonerate_transcript->{'perc_id'})) {
-      push(@$selected_transcripts,$minimap_transcript);
-    } else {
-      push(@$selected_transcripts,$exonerate_transcript);
-    }
-
-    $processed_ids_hash->{$db_id} = 1;
-  }
-
-  # Find and deal with any unique dbIDs in the exonerate hash
-  foreach my $db_id (keys(%{$bad_exonerate_transcripts_hash})) {
-    if($processed_ids_hash->{$db_id}) {
-      next;
-    }
-
-    # In this scenario the only possiblity is that the transcript isn't in the minimap hash, so include it in the selected transcripts array
-    my $exonerate_transcript = $bad_exonerate_transcripts_hash->{$db_id};
-    push(@$selected_transcripts,$exonerate_transcript);
-  }
-
-  return($selected_transcripts);
-}
-
-
-sub list_missing_transcripts {
-  my ($self,$transcripts_by_id,$source_transcripts) = @_;
-
-  # This just gets the dbIDs from both hashes and then looks at the dbIDs of the source transcripts to see any ones that are not present
-  my $missing_transcripts = [];
-
-  my $db_id_hash = {};
-  foreach my $db_id (keys(%{$transcripts_by_id})) {
-    $db_id_hash->{$db_id} = 1;
-  }
-
-  foreach my $source_transcript (@$source_transcripts) {
-    my $db_id = $source_transcript->dbID();
-    unless($db_id_hash->{$db_id}) {
-      say "Add source transcript ".$source_transcript->stable_id()." to missing transcripts list";
-      push(@$missing_transcripts,$source_transcript);
-    }
-  }
-  return($missing_transcripts);
-}
 
 
 sub label_transcript_status {
@@ -2911,63 +2485,6 @@ sub create_gene_from_cluster {
 }
 
 
-sub access_transcripts_for_recovery {
-  my ($self,$bad_transcripts,$source_transcript_id_hash,$good_transcripts,$target_parent_slice,$target_slice_adaptor,$target_sequence_adaptor,$target_genomic_name) = @_;
-
-  # This will look at the bad transcripts and decide if there are any good transcripts from the same gene
-  # If there are it will determine whether the bad transcript is contained within the boundaries covered
-  # by the good transcript in the origninal source gene. If it is then the implication is that the region
-  # if likely correct and there's just some fundamental issue with the transcript, so nothing can be done
-  # If the transcript only partially overlapped with the good transcripts in the source gene, there's the
-  # possibility that the target region was truncated and thus the transcript could only partially align to
-  # it. If this is the case, then we want to attempt to create a new extended target region and try again
-
-  my ($good_transcripts_start,$good_transcripts_end) = $self->get_transcript_boundaries($good_transcripts,$source_transcript_id_hash);
-  my ($bad_transcripts_start,$bad_transcripts_end) = $self->get_transcript_boundaries($bad_transcripts,$source_transcript_id_hash);
-
-  # Check if the bad transcript boundaries lie outside the good transcript boundaries in the source gene
-  my $start_offset = 0;
-  my $end_offset = 0;
-  my $offset_buffer = 1000;
-  if($bad_transcripts_start < $good_transcripts_start) {
-    $start_offset = $good_transcripts_start - $bad_transcripts_start;
-  }
-
-  if($bad_transcripts_end > $good_transcripts_end) {
-    $end_offset = $bad_transcripts_end - $good_transcripts_end;
-  }
-
-  my $target_transcripts_start;
-  my $target_transcripts_end;
-  foreach my $good_transcript (@$good_transcripts) {
-    if(!$target_transcripts_start or $good_transcript->seq_region_start() < $target_transcripts_start) {
-      $target_transcripts_start = $good_transcript->seq_region_start();
-    }
-
-    if(!$target_transcripts_end or $good_transcript->seq_region_end() > $target_transcripts_end) {
-      $target_transcripts_end = $good_transcript->seq_region_end();
-    }
-  } # End foreach my $good_transcript
-
-  $target_transcripts_start -= $start_offset - $offset_buffer;
-  $target_transcripts_end += $end_offset + $offset_buffer;
-  if($target_transcripts_start < 1) {
-    $target_transcripts_start = 1;
-  }
-
-
-  my $target_strand = 1;
-  my $target_genomic_seq = ${ $target_sequence_adaptor->fetch_by_Slice_start_end_strand($target_parent_slice, $target_transcripts_start, $target_transcripts_end, $target_strand) };
-  my $target_region_slice = $target_slice_adaptor->fetch_by_region('toplevel', $target_genomic_name, $target_transcripts_start, $target_transcripts_end, $target_strand);
-  my $target_genomic_fasta = ">".$target_genomic_name."\n".$target_genomic_seq;
-  my $target_genome_file = $self->write_input_file([$target_genomic_fasta]);
-  my $target_genome_index = $target_genome_file.".mmi";
-  my $target_index_command = $self->program()." -d ".$target_genome_index." ".$target_genome_file;
-  my $index_result = system($target_index_command);
-  if($index_result) {
-    $self->throw('The minimap2 index command returned a non-zero exit code. Commandline used:\n'.$target_index_command);
-  }
-}
 
 
 sub calculate_max_intron_size {
@@ -2989,25 +2506,6 @@ sub calculate_max_intron_size {
 }
 
 
-sub get_transcript_boundaries {
-  my ($self,$transcripts,$source_transcript_id_hash) = @_;
-
-  my $transcripts_start;
-  my $transcripts_end;
-
-  foreach my $transcript (@$transcripts) {
-    my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
-    if(!$transcripts_start or $source_transcript->seq_region_start() < $transcripts_start) {
-      $transcripts_start = $source_transcript->seq_region_start();
-    }
-
-    if(!$transcripts_end or $source_transcript->seq_region_end() > $transcripts_end) {
-      $transcripts_end = $source_transcript->seq_region_end();
-    }
-  } # End foreach my $good_transcript
-
-  return($transcripts_start,$transcripts_end);
-}
 
 
 sub create_annotation_features {
