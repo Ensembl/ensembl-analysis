@@ -764,7 +764,7 @@ sub feature_id {
     $slices = [$dba->get_SliceAdaptor->fetch_by_name($self->param('iid'))];
   }
   else {
-    $slices = $dba->get_SliceAdaptor->fetch_all($self->param('coord_system_name'));
+    $slices = $dba->get_SliceAdaptor->fetch_all($self->param('coord_system_name'), undef, undef, $self->param_is_defined('xy_scanner'));
   }
   foreach my $slice (@$slices) {
     if($xy_scanner and ($slice->seq_region_name() eq 'X' or $slice->seq_region_name() eq 'Y')) {
