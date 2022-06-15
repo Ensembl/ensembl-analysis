@@ -2219,12 +2219,12 @@ sub build_projected_exon {
   my $exon_strand = 1;
   say "Start/End index: ".$seq_start_index."/".$seq_end_index;
   if($target_strand == 1) {
-    $exon_start = $region_start + $seq_start_index;
-    $exon_end = $region_start + $seq_end_index;
+    $exon_start = $region_start + $seq_start_index - 1;
+    $exon_end = $region_start + $seq_end_index - 1;
     $exon_strand = $exon->strand();
   } else {
     # In this case we need to reverse the coords
-    $exon_end = $region_end - $seq_start_index;
+    $exon_end = $region_end - $seq_start_index + 1;
     $exon_start = $exon_end - ($seq_end_index - $seq_start_index);
     if($exon->strand() == 1) {
        $exon_strand = -1;
