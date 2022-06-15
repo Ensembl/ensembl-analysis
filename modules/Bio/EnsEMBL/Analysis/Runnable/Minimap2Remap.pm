@@ -1837,12 +1837,6 @@ sub map_gene_minimap {
   my ($self,$gene,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,
       $target_genome_file,$source_transcript_id_hash,$max_intron_size,$target_adaptor,$target_slice_adaptor,$best_transcripts_by_id) = @_;
 
-  my $target_genome_index = $target_genome_file.".mmi";
-  my $target_index_command = $self->program()." -d ".$target_genome_index." ".$target_genome_file;
-  my $index_result = system($target_index_command);
-  if($index_result) {
-    $self->throw('The minimap2 index command returned a non-zero exit code. Commandline used:\n'.$target_index_command);
-  }
   my $source_transcript_fasta_seqs = [];
   my $source_transcripts_to_map = $self->filter_transcripts_to_map($source_transcripts,$best_transcripts_by_id);
 
