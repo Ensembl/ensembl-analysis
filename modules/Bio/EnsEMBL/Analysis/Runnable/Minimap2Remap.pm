@@ -1551,20 +1551,13 @@ sub fix_cds_issues {
   }
 }
 
-
 sub filter_paf_hits {
   my ($self,$gene,$paf_results) = @_;
-
   my $hit_identity_cutoff = 0.99;
   say "Calculating hit regions withing expected boundaries for ".$gene->stable_id();
   my $gene_left_boundary = $gene->{'left_boundary'};
   my $gene_right_boundary = $gene->{'right_boundary'};
   my $gene_target_slice = $gene->{'target_slice'};
-  unless($gene_left_boundary and $gene_right_boundary and $gene_target_slice) {
-    say "Couldn't find expected gene boundaries for gene with stable id ".$gene->stable_id()."";
-    return;
-  }
-
   my $overlapping_paf_results = [];
   my $non_overlapping_paf_results = [];
   foreach my $paf_result (@$paf_results) {
@@ -1574,22 +1567,20 @@ sub filter_paf_hits {
     my $paf_hit_length = ${$paf_result}[1];
     my $paf_hit_identities = ${$paf_result}[9];
     my $paf_perc_ident = $paf_hit_identities/$paf_hit_length;
-
     if(($gene_left_boundary and $gene_right_boundary and $gene_target_slice) and
-       ($paf_target_genomic_start >= $gene_left_boundary and $paf_target_genomic_end <= $gene_right_boundary and $gene_target_slice eq $paf_target_genomic_name and $paf_perc_ident >= $hit_identity_cutoff)) {
-#      unless($paf_target_genomic_start >= $gene_left_boundary and $paf_target_genomic_end <= $gene_right_boundary and $gene_target_slice eq $paf_target_genomic_name and $paf_perc_ident >= $hit_identity_cutoff) {
-#        next;
-#      } else {
+       ($paf_target_genomic_start >= $gene_left_boundary and $paf_target_genomic_end <= $gene_right_boundary and $gene_target_slice eq $paf_target_genomic_name and
+        $paf_perc_ident >= $hit_identity_cutoff)) {
       push(@$overlapping_paf_results,$paf_result);
-#      }
     } elsif($paf_perc_ident >= $hit_identity_cutoff) {
       say "Missing gene ".$gene->stable_id()." did not have an identified high confidence target region. Will take only the top paf as it passes the identity cutoff";
-      push(@$overlapping_paf_results,$paf_result);
-      last;
-    } else {
-      say "Missing gene ".$gene->stable_id()." did not have an identified high confidence target region and failed identity cutoff on top hit, so will not process";
-      last;
+      push(@$non_overlapping_paf_results,$paf_result);
     }
+  }
+  my $selected_overlapping_paf_results = [];
+  if(scalar(@$overlapping_paf_results)) {
+    $selected_overlapping_paf_results = $overlapping_paf_results;
+  } elsif(scalar(@$non_overlapping_paf_results)) {
+    $selected_overlapping_paf_results = $non_overlapping_paf_results;
   }
 
   my $extended_regions = [];
