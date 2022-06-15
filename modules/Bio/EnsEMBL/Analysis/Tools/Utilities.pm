@@ -1886,6 +1886,7 @@ sub create_production_directory {
 sub setup_fasta_db {
   my $adaptors = Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors;
   $adaptors->{Sequence} = 'Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor';
+  no warnings 'redefine';
   *Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors = sub {return $adaptors};
 }
 1;
