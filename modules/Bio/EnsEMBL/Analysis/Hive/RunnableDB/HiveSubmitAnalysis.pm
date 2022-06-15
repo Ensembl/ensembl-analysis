@@ -782,7 +782,7 @@ sub feature_id {
     }
 
     foreach my $logic_name (@$logic_names) {
-      foreach my $feature (@{$feature_adaptor->fetch_all_by_Slice($slice, $logic_name)}) {
+      foreach my $feature (sort {$a->start <=> $b->start || $a->end <=> $b->end} @{$feature_adaptor->fetch_all_by_Slice($slice, $logic_name)}) {
         if($self->param_is_defined('exclude_biotype')) {
           foreach my $biotype (@{$self->param('exclude_biotype')}){
             if($feature->biotype eq $biotype) {
