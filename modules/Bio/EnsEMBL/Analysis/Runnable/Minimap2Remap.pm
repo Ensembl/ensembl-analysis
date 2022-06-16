@@ -1152,7 +1152,7 @@ sub process_results {
 
     $self->set_cds_sequences($best_transcripts_by_id,$source_transcript_id_hash);
     $self->qc_cds_sequences($best_transcripts_by_id,$source_transcript_id_hash);
-    $self->fix_cds_issues($best_transcripts_by_id);
+#    $self->fix_cds_issues($best_transcripts_by_id);
     $self->set_transcript_descriptions($best_transcripts_by_id,$source_transcript_id_hash);
 
     my $all_transcripts = $self->label_transcript_status($best_transcripts_by_id);
@@ -1286,7 +1286,6 @@ sub qc_cds_sequence {
       } else {
         $cds_description .= ";cds_gap=0";
       }
-      $transcript->{'cds_description'} = $cds_description;
       say join(' ', __LINE__, $source_transcript->display_id, $source_transcript->biotype), "\n";
       my $translated_transcript = $transcript->translate;
       if ($translated_transcript) {
@@ -1341,8 +1340,20 @@ sub qc_cds_sequence {
               }
             }
           }
+          else {
+            my $no_intermal_stop_transcript = replace_stops_with_introns($transcript, $num_internal_stops);
+            if ($no_intermal_stop_transcript) {
+              $no_intermal_stop_transcript->{cov} = $transcript->{cov};
+              $no_intermal_stop_transcript->{perc_id} = $transcript->{perc_id};
+              $transcript = $no_intermal_stop_transcript;
+            }
+            else {
+              $self->warning('Could not replace internal stops for '.$source_transcript->display_id);
+            }
+          }
         }
       }
+      $transcript->{'cds_description'} = $cds_description;
     }
     else {
       $transcript->{'cds_description'} = ";cds_coverage=0.00;cds_identity=0.00";
