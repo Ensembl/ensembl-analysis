@@ -1463,7 +1463,7 @@ sub project_cds {
     if ($source_transcript->translation->start_Exon->phase > 0) {
       $original_phase = $source_transcript->translation->start_Exon->phase;
     }
-    my $phase_adjust = ($source_index_target_cds_start-$source_cds_start-$original_phase)%3;
+    my $phase_adjust = abs($source_index_target_cds_start-$source_cds_start-$original_phase)%3;
 
     my $cds_start_exon;
     my $cds_end_exon;
