@@ -361,7 +361,6 @@ sub pipeline_analyses {
         -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::ProcessGCA',
         -parameters => {
                          'num_threads'      => $self->o('num_threads'),
-                         'dbowner'          => $self->o('dbowner'),
                          'core_db'          => $self->o('core_db'),
                          'ensembl_release'  => $self->o('release_number'),
                          'base_output_dir'  => $self->o('base_output_dir'),

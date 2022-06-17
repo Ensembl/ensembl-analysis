@@ -187,7 +187,10 @@ sub fetch_input {
   my $ensembl_release = $self->param('ensembl_release');
 
   my $core_db_details = $self->param('core_db');
-  my $core_dbname = $self->param('dbowner').'_'.$production_name.'_core_'.$ensembl_release.'_1';
+  my $core_dbname = $production_name.'_core_'.$ensembl_release.'_1';
+  if ($self->param_is_defined('dbowner')) {
+    $core_dbname = $self->param('dbowner')"_$core_dbname";
+  }
   $core_db_details->{'-dbname'} = $core_dbname;
 
   my $rnaseq_summary_file          = catfile($short_read_dir, $production_name.'.csv');
