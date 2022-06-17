@@ -368,7 +368,7 @@ sub pipeline_analyses {
                          'registry_db'      => $self->o('registry_db'),
                          'registry_file'      => $self->o('registry_file'),
                        },
-        -rc_name    => 'default',
+        -rc_name    => '4GB',
 
         -flow_into  => {
                          1 => ['create_core_db'],
@@ -387,7 +387,7 @@ sub pipeline_analyses {
                          'enscode_root_dir' => $self->o('enscode_root_dir'),
                          'create_type'      => 'core_only',
                        },
-        -rc_name    => 'default',
+        -rc_name    => '4GB',
 
         -flow_into  => {
                          1 => ['populate_production_tables'],
@@ -405,7 +405,7 @@ sub pipeline_analyses {
                          'enscode_root_dir' => $self->o('enscode_root_dir'),
                          'production_db'    => $self->o('production_db'),
                        },
-        -rc_name    => 'default',
+        -rc_name    => '4GB',
 
         -flow_into  => {
                          1 => ['process_assembly_info'],
@@ -463,7 +463,7 @@ sub pipeline_analyses {
           ],
         },
         -max_retry_count => 0,
-        -rc_name    => 'default',
+        -rc_name    => '4GB',
         -flow_into  => {
           1 => ['load_taxonomy_info'],
         },
@@ -476,7 +476,7 @@ sub pipeline_analyses {
                          'target_db'        => '#core_db#',
                          'taxonomy_db'      => $self->o('taxonomy_db'),
                        },
-        -rc_name    => 'default',
+        -rc_name    => '4GB',
 
         -flow_into  => {
                           1 => ['dump_toplevel_file'],#['load_windowmasker_repeats'],# 'fan_refseq_import'],
@@ -499,7 +499,7 @@ sub pipeline_analyses {
           1 => ['reheader_toplevel_file'],
         },
         -analysis_capacity => 20,
-        -rc_name    => 'default',
+        -rc_name    => '4GB',
       },
 
 
@@ -512,7 +512,7 @@ sub pipeline_analyses {
                                       ' -input_file #toplevel_genome_file#'.
                                       ' -output_file #reheadered_toplevel_genome_file#',
                        },
-        -rc_name => 'default',
+        -rc_name => '4GB',
         -flow_into => {
           1 => ['create_faidx'],
         },
@@ -522,7 +522,7 @@ sub pipeline_analyses {
      {
         -logic_name => 'create_faidx',
         -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-        -rc_name => 'default',
+        -rc_name => '4GB',
         -parameters => {
           cmd => 'if [ ! -e "'.'#reheadered_toplevel_genome_file#'.'.fai" ]; then '.$self->o('samtools_path').' faidx '.'#reheadered_toplevel_genome_file#'.';fi',
         },
@@ -558,7 +558,7 @@ sub pipeline_analyses {
         -flow_into  => {
           1 => ['xy_scanner'],
         },
-        -rc_name => 'default',
+        -rc_name => '9GB',
       },
 
 
@@ -591,7 +591,7 @@ sub pipeline_analyses {
           batch_size          => 100,
           id_output_file_path => '#output_path#/gene_ids_to_map.txt',
         },
-        -rc_name    => 'default',
+        -rc_name    => '15GB',
         -flow_into => {
           2 => {'project_gene_batches' => {'xy_scanner' => '#xy_scanner#', 'core_db' => '#core_db#','genome_index' => '#reheadered_toplevel_genome_file#'.'.mmi','iid' => '#iid#'}},
         },
@@ -650,7 +650,7 @@ sub pipeline_analyses {
           feature_type        => 'gene',
           batch_size          => 1000,
         },
-        -rc_name    => 'default',
+        -rc_name    => '15GB',
         -flow_into => {
           '2->A' => {'find_paralogues' => {'core_db' => '#core_db#','genome_file' => '#reheadered_toplevel_genome_file#','genome_index' => '#reheadered_toplevel_genome_file#'.'.mmi','iid' => '#iid#'}},
           'A->1' => ['collapse_paralogues'],
@@ -687,7 +687,7 @@ sub pipeline_analyses {
                         1 => ['update_biotypes_and_analyses'],
                       },
 
-        -rc_name    => '12GB',
+        -rc_name    => '15GB',
         -max_retry_count => 0,
         -flow_into  => {
           1 => ['finalise_geneset'],
@@ -708,7 +708,7 @@ sub pipeline_analyses {
                         1 => ['update_biotypes_and_analyses'],
                       },
 
-        -rc_name    => '12GB',
+        -rc_name    => '15GB',
         -max_retry_count => 0,
         -flow_into  => {
           1 => ['set_meta_coords'],
@@ -727,7 +727,7 @@ sub pipeline_analyses {
                                 ' -port '.$self->o('core_db','-port').
                                 ' -dbpattern '.'#core_dbname#'
                        },
-        -rc_name => 'default',
+        -rc_name => '3GB',
         -flow_into => {
                         1 => ['set_meta_levels'],
                       },
@@ -745,7 +745,7 @@ sub pipeline_analyses {
                                 ' -port '.$self->o('core_db','-port').
                                 ' -dbname '.'#core_dbname#'
                        },
-        -rc_name => 'default',
+        -rc_name => '3GB',
         -flow_into => { 1 => ['set_frameshift_introns'] },
       },
 
@@ -805,7 +805,7 @@ sub pipeline_analyses {
             "  AND g.biotype='pcnonpc'",
           ],
         },
-        -rc_name    => 'default',
+        -rc_name    => '3GB',
         -flow_into => {
           1 => ['delete_pcnonpc_transcripts_and_genes'],
         },
@@ -831,6 +831,7 @@ sub pipeline_analyses {
           output_file_name => 'delete_pcnonpc_transcripts_and_genes.out',
         },
         -max_retry_count => 0,
+        -rc_name => '3GB',
         -flow_into => {
                         '1' => ['update_shortcds_transcript_biotypes'],
                       },
@@ -854,7 +855,7 @@ sub pipeline_analyses {
 	    "  cs.species_id = 1;"
           ],
         },
-        -rc_name    => 'default',
+        -rc_name    => '3GB',
         -flow_into => {
           1 => ['delete_shortcds_transcripts'],
         },
@@ -880,6 +881,7 @@ sub pipeline_analyses {
           output_file_name => 'delete_shortcds_transcripts.out',
         },
         -max_retry_count => 0,
+        -rc_name => '3GB',
         -flow_into => {
                         '1' => ['null_columns'],
                       },
@@ -899,7 +901,7 @@ sub pipeline_analyses {
             'UPDATE dna_align_feature set external_db_id = NULL',
           ],
         },
-        -rc_name    => 'default',
+        -rc_name    => '3GB',
         -flow_into => {
                         1 => ['run_stable_ids'],
                       },
@@ -916,7 +918,7 @@ sub pipeline_analyses {
                          id_start => '#stable_id_prefix#'.'#stable_id_start#',
                          output_path => '#output_path#',
                        },
-        -rc_name    => 'default',
+        -rc_name    => '3GB',
         -flow_into => {
                         1 => ['final_meta_updates'],
                       },
@@ -935,7 +937,7 @@ sub pipeline_analyses {
 	      '(1, "genebuild.method_display", "Ensembl Genebuild")'
           ],
         },
-        -rc_name    => 'default',
+        -rc_name    => '3GB',
         -flow_into  => {
                          1 => ['final_cleaning'],
                        },
@@ -963,7 +965,7 @@ sub pipeline_analyses {
             'UPDATE repeat_feature JOIN seq_region USING(seq_region_id) SET repeat_end = length WHERE repeat_end > length',
           ],
         },
-        -rc_name    => 'default',
+        -rc_name    => '3GB',
         -flow_into => {
                        1 => ['generate_mapping_stats'],
         },
@@ -999,7 +1001,7 @@ sub pipeline_analyses {
         -parameters => {
                         input_db => '#core_db#',
                        },
-        -rc_name    => 'default',
+        -rc_name    => '3GB',
         -flow_into => {
                        1 => ['populate_analysis_descriptions'],
         },
@@ -1012,7 +1014,7 @@ sub pipeline_analyses {
                         species => '#production_name#',
                         group => 'core',
                        },
-        -rc_name    => 'default_registry',
+        -rc_name    => '4GB_registry',
         -flow_into => {
                        1 => ['run_data_checks'],
         },
@@ -1044,7 +1046,7 @@ sub pipeline_analyses {
           cmd => 'mkdir -p #output_dir#',
           output_dir => catdir('#output_path#', 'GFF3'),
         },
-        -rc_name => 'default',
+        -rc_name => '4GB_registry',
         -flow_into => {
           1 => ['dump_gff'],
         },
