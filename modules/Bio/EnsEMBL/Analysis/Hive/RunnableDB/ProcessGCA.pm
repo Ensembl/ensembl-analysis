@@ -189,7 +189,7 @@ sub fetch_input {
   my $core_db_details = $self->param('core_db');
   my $core_dbname = $production_name.'_core_'.$ensembl_release.'_1';
   if ($self->param_is_defined('dbowner')) {
-    $core_dbname = $self->param('dbowner')"_$core_dbname";
+    $core_dbname = $self->param('dbowner')."_$core_dbname";
   }
   $core_db_details->{'-dbname'} = $core_dbname;
 
