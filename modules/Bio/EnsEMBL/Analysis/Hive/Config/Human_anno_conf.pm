@@ -613,6 +613,7 @@ sub pipeline_analyses {
                          source_dna_fasta => '#wide_reference_fasta#',
                        },
         -rc_name    => '15GB',
+        -max_retry_count => 0,
       },
 
 
@@ -632,6 +633,7 @@ sub pipeline_analyses {
                          input_id_file => '#output_path#/gene_ids_to_map.txt',
                        },
         -rc_name    => '35GB',
+        -max_retry_count => 0,
         -flow_into  => {
           1 => ['create_paralogue_jobs'],
 	      },
@@ -667,6 +669,7 @@ sub pipeline_analyses {
                          minimap2_path => $self->o('minimap2_path'),
                        },
         -rc_name    => '15GB',
+        -max_retry_count => 0,
       },
 
 
@@ -683,6 +686,7 @@ sub pipeline_analyses {
                       },
 
         -rc_name    => '12GB',
+        -max_retry_count => 0,
         -flow_into  => {
           1 => ['finalise_geneset'],
         },
@@ -703,6 +707,7 @@ sub pipeline_analyses {
                       },
 
         -rc_name    => '12GB',
+        -max_retry_count => 0,
         -flow_into  => {
           1 => ['set_meta_coords'],
         },
