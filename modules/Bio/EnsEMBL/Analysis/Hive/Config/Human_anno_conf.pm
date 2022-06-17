@@ -1014,6 +1014,57 @@ sub pipeline_analyses {
                         group => 'core',
                        },
         -rc_name    => 'default_registry',
+        -flow_into => {
+                       1 => ['run_data_checks'],
+        },
+      },
+
+      {
+        -logic_name      => 'run_data_checks',
+        -module          => 'Bio::EnsEMBL::DataCheck::Pipeline::RunDataChecks',
+        -parameters      => {
+          datacheck_groups => ['core'],
+          failures_fatal  => 1,
+          output_file     => catfile('#output_path#', '#production_name#_dc.log'),
+          registry_file   => $self->o('registry_file'),
+          species         => '#production_name#',
+        },
+        -max_retry_count => 1,
+        -hive_capacity   => 50,
+        -batch_size      => 10,
+        -rc_name         => 'default',
+        -flow_into => {
+                       1 => ['create_dump_dir'],
+        },
+      },
+
+      {
+        -logic_name => 'create_dump_dir',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+          cmd => 'mkdir -p #output_dir#',
+          output_dir => catdir('#output_path#', 'GFF3'),
+        },
+        -rc_name => 'default',
+        -flow_into => {
+          1 => ['dump_gff'],
+        },
+      },
+
+      {
+        -logic_name  => 'dump_gff',
+        -module      => 'Bio::EnsEMBL::Production::Pipeline::FileDump::Geneset_GFF3',
+        -parameters  => {
+          output_dir => catdir('#output_path#', 'GFF3'),
+          species    => '#production_name#',
+          reg_conf   => $self->o('registry_file'),
+          custom_filenames => {
+            genes => catfile('#output_dir#', '#core_dbname#.gff3'),
+          }
+        },
+        -max_retry_count => 1,
+        -hive_capacity   => 50,
+        -rc_name         => 'default',
       },
 
     ];
