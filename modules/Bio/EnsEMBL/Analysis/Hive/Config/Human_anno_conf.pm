@@ -612,6 +612,7 @@ sub pipeline_analyses {
                          source_dna_fasta => '#wide_reference_fasta#',
                        },
         -rc_name    => '15GB',
+        -hive_capacity => 700,
         -max_retry_count => 0,
       },
 
@@ -633,6 +634,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => '35GB',
         -max_retry_count => 0,
+        -hive_capacity => 700,
         -flow_into  => {
           1 => ['create_paralogue_jobs'],
 	      },
@@ -668,6 +670,7 @@ sub pipeline_analyses {
                          minimap2_path => $self->o('minimap2_path'),
                        },
         -rc_name    => '15GB',
+        -hive_capacity => 700,
         -max_retry_count => 0,
       },
 
