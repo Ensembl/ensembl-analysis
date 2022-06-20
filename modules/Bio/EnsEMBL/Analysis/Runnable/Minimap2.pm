@@ -134,7 +134,7 @@ sub run {
   # By default we have secondary alignments off, but if we want them on then we just remove the flag to turn them off and put in the -N flag with the number of secondary alignments we want
   my $secondary_alignments = '--secondary=no';
   if($self->secondary_alignments()) {
-    $secondary_alignments = '-N '.$self->secondary_alignments();
+    $secondary_alignments = '-Y -N '.$self->secondary_alignments();
   }
 
   my $minimap2_command = $self->program." --cs ".$secondary_alignments." -G ". $max_intron_size." -ax ".$splice_type." -u b ".$genome_index." ".$input_file." > ".$sam_file;
