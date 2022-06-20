@@ -428,9 +428,13 @@ sub create_input_file {
   open(OUT,">".$output_file);
   foreach my $gene (@$genes) {
     my $gene_description = $gene->description();
-    $gene_description =~ /;mapping_type=(.+)$/;
-    my $type = $1; # type could be present or not
-    
+    if ($gene_description) {
+      my ($type) = $gene_description =~ /;mapping_type=(.+)$/;
+      if ($type and $type eq 'potential_paralogue') {
+        # Just in case there's accidental re-runs or testing
+        next;
+      }
+    }
     my ($parent_stable_id_att) = @{$gene->get_all_Attributes('proj_parent_g')};
     if (!$parent_stable_id_att) {
       $self->throw("Issue getting the proj_parent_g attribute for gene with dbID ".$gene->dbID().". Description: ".$gene_description);
@@ -438,11 +442,6 @@ sub create_input_file {
     my $parent_stable_id = $parent_stable_id_att->value();
     if (!$parent_stable_id) {
       $self->throw("Issue getting the parent stable id from gene attribute for gene with dbID ".$gene->dbID().". Description: ".$gene_description);
-    }
-
-    if ($type and $type eq 'potential_paralogue') {
-      # Just in case there's accidental re-runs or testing
-      next;
     }
 
     # Just going to use the canonical
