@@ -952,6 +952,7 @@ sub pipeline_analyses {
             'DELETE exon FROM exon LEFT JOIN exon_transcript ON exon.exon_id = exon_transcript.exon_id WHERE exon_transcript.exon_id IS NULL',
             'TRUNCATE supporting_feature',
             'TRUNCATE transcript_supporting_feature',
+            'TRUNCATE dna_align_feature',
             'UPDATE analysis SET logic_name="ensembl" WHERE logic_name="minimap2remap"',
             'UPDATE gene SET analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "ensembl")'.
             ' WHERE analysis_id IN'.
@@ -1026,6 +1027,7 @@ sub pipeline_analyses {
           datacheck_groups => ['core'],
           failures_fatal  => 1,
           output_file     => catfile('#output_path#', '#production_name#_dc.log'),
+          history_file     => catfile('#output_path#', '#production_name#_dc.json'),
           registry_file   => $self->o('registry_file'),
           species         => '#production_name#',
         },
@@ -1034,7 +1036,7 @@ sub pipeline_analyses {
         -batch_size      => 10,
         -rc_name         => '4GB_registry',
         -flow_into => {
-                       1 => ['create_dump_dir'],
+                       1 => {'create_dump_dir' => {core_dbname => '#core_dbname#', production_name => '#production_name#', output_path => '#output_path#'}},
         },
       },
 
@@ -1057,7 +1059,6 @@ sub pipeline_analyses {
         -parameters  => {
           output_dir => catdir('#output_path#', 'GFF3'),
           species    => '#production_name#',
-          reg_conf   => $self->o('registry_file'),
           custom_filenames => {
             genes => catfile('#output_dir#', '#core_dbname#.gff3'),
           }
