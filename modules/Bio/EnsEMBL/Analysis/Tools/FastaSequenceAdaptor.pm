@@ -40,6 +40,8 @@ package Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor;
 use strict;
 use warnings;
 
+use Bio::DB::Fasta;
+use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Bio::EnsEMBL::Utils::Sequence  qw(reverse_comp);
 
