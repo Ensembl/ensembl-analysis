@@ -356,6 +356,11 @@ sub calculate_target_regions {
 
   foreach my $line (@$paf_results) {
     my @eles = split("\t",$line);
+    $eles[2]++;
+    $eles[3]++;
+    $eles[7]++;
+    $eles[8]++;
+
     my $anchor_name = $eles[0];
     my $source_length = $eles[1];
     my $source_hit_start = $eles[2];
