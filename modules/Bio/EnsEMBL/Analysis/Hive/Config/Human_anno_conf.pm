@@ -452,13 +452,10 @@ sub pipeline_analyses {
               '(1, "species.strain_group", "#species_strain_group#"),'.
               '(1, "species.production_name", "#production_name#"),'.
               '(1, "strain.type", "#strain_type#"),'.
-              '(1, "repeat.analysis", "repeatdetector"),'.
-              '(1, "repeat.analysis", "dust"),'.
-              '(1, "repeat.analysis", "trf"),'.
               '(1, "genebuild.initial_release_date", NULL),'.
-              '(1, "genebuild.projection_source_db", NULL),'.
+              '(1, "genebuild.projection_source_db", '.$self->o('ref_db_name').'),'.
               '(1, "genebuild.id", '.$self->o('genebuilder_id').'),'.
-              '(1, "genebuild.method", "full_genebuild")'
+              '(1, "genebuild.method", "projection_build")'
           ],
         },
         -max_retry_count => 0,
