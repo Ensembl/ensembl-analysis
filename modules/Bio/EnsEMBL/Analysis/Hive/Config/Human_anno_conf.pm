@@ -23,8 +23,6 @@ use warnings;
 use File::Spec::Functions;
 
 use Bio::EnsEMBL::ApiVersion qw/software_version/;
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(get_analysis_settings);
-use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
 use base ('Bio::EnsEMBL::Analysis::Hive::Config::HiveBaseConfig_conf');
 
 sub default_options {
@@ -32,63 +30,30 @@ sub default_options {
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
-    'email'                     => '', # email to receive report from the HiveDeleteTranscripts module
+    'email'                     => '' || $ENV{USER}.'@ebi.ac.uk', # email to receive report from the HiveDeleteTranscripts module
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'user'                      => '', # write db user
     'password'                  => '', # password for write db user
     'base_output_dir'           => '', # Where to write the files to
     'registry_file'             => '', # This needs to be a standard registry with the production/meta data/taxonomy db adaptors in there
-    'pipeline_name'             => '' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('ensembl_release'),
+    'pipeline_name'             => '' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('release_number'),
     'production_name'           => '' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
-    'release_number'            => '' || $self->o('ensembl_release'),
-    'xy_scanner_path'           => '/hps/software/users/ensembl/repositories/fergal/ensembl-analysis/scripts/genebuild/xy_scanner.py',
-    'x_marker_fasta_path'       => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/hprc/x_markers.fa',
-    'y_marker_fasta_path'       => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/hprc/y_markers.fa',
+    'release_number'            => '',
     'ref_db_server'             => 'mysql-ens-genebuild-prod-1', # host for dna db
     'ref_db_port'               => '4527',
     'ref_db_name'               => 'homo_sapiens_core_104_38',
     'user_r'                    => 'ensro', # read only db user
     'num_threads' => 20,
-    'server_set'                => '', # What server set to user, e.g. set1
     'pipe_db_server'            => $ENV{GBS7}, # host for pipe db
-    'databases_server'          => $ENV{GBS5}, # host for general output dbs
     'dna_db_server'             => $ENV{GBS6}, # host for dna db
     'pipe_db_port'              => $ENV{GBP7}, # port for pipeline host
-    'databases_port'            => $ENV{GBP5}, # port for general output db host
     'dna_db_port'               => $ENV{GBP6}, # port for dna db host
     'registry_db_server'        => $ENV{GBS1}, # host for registry db
     'registry_db_port'          => $ENV{GBP1}, # port for registry db
     'registry_db_name'          => 'gb_assembly_registry', # name for registry db
-    'repbase_logic_name'        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
-    'repbase_library'           => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
     'species_name'              => '', # e.g. mus_musculus
-    'taxon_id'                  => '', # should be in the assembly report file
-    'species_taxon_id'          => '' || $self->o('taxon_id'), # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
-    'genus_taxon_id'            => '' || $self->o('taxon_id'), # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
-    'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
-    'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
-    'assembly_name'             => '', # Name (as it appears in the assembly report file)
-    'assembly_accession'        => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
-    'assembly_refseq_accession' => '', # Versioned GCF accession, e.g. GCF_001857705.1
-    'stable_id_prefix'          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
     'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
-    'species_url'               => '' || $self->o('production_name').$self->o('production_name_modifier'), # sets species.url meta key
-    'species_division'          => '', # sets species.division meta key
-    'stable_id_start'           => '', # When mapping is not required this is usually set to 0
-    'mapping_required'          => '0', # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
-    'mapping_db'                => '', # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
-    'uniprot_version'           => 'uniprot_2018_07', # What UniProt data dir to use for various analyses
-    'vertrna_version'           => '136', # The version of VertRNA to use, should correspond to a numbered dir in VertRNA dir
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
-
-    # Keys for custom loading, only set/modify if that's what you're doing
-    'repeatmodeler_library'        => '', # This should be the path to a custom repeat library, leave blank if none exists
-    'use_repeatmodeler_to_mask'    => '0', # Setting this will include the repeatmodeler library in the masking process
-    'protein_blast_db'             => '' || catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata'), # Blast database for comparing the final models to.
-    'protein_blast_index'          => '' || catdir($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index'), # Indicate Index for the blast database.
-    'protein_entry_loc'            => catfile($self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc'), # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
-
-    'softmask_logic_names' => [],
 
 ########################
 # Pipe and ref db info
@@ -101,18 +66,10 @@ sub default_options {
     'dna_db_name'                   => $self->o('dbowner').'_'.$self->o('production_name').$self->o('production_name_modifier').'_core_'.$self->o('release_number'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
-    'ensembl_release'              => $ENV{ENSEMBL_RELEASE}, # this is the current release version on staging to be able to get the correct database
     'production_db_server'         => 'mysql-ens-meta-prod-1',
     'production_db_port'           => '4483',
 
-    databases_to_delete => ['reference_db'],
-
-########################
-# BLAST db paths
-########################
-    'base_blast_db_path'        => $ENV{BLASTDB_DIR},
-    'vertrna_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'vertrna', $self->o('vertrna_version'), 'embl_vertrna-1'),
-    'unigene_blast_db_path'     => catfile($self->o('base_blast_db_path'), 'unigene', 'unigene'),
+    databases_to_delete => [],
 
 ######################################################
 #
@@ -120,22 +77,8 @@ sub default_options {
 #
 ######################################################
 
-    genome_dumps                  => catdir($self->o('output_path'), 'genome_dumps'),
-    # This one is used by most analyses that run against a genome flatfile like exonerate, genblast etc. Has slice name style headers. Is softmasked
-    softmasked_genome_file        => catfile($self->o('genome_dumps'), $self->o('species_name').'_softmasked_toplevel.fa'),
-    # This one is used in replacement of the dna table in the core db, so where analyses override slice->seq. Has simple headers with just the seq_region name. Also used by bwa in the RNA-seq analyses. Not masked
-    faidx_genome_file             => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
-    # This one is a cross between the two above, it has the seq_region name header but is softmasked. It is used by things that would both want to skip using the dna table and also want to avoid the repeat_feature table, e.g. bam2introns
-    faidx_softmasked_genome_file  => catfile($self->o('genome_dumps'), $self->o('species_name').'_softmasked_toplevel.fa.reheader'),
-
-    full_repbase_logic_name => "repeatmask_repbase_".$self->o('repbase_logic_name'),
-
-    'repeatmodeler_logic_name'    => 'repeatmask_repeatmodeler',
-    'homology_models_path'        => catdir($self->o('output_path'),'homology_models'),
-
     ensembl_analysis_script_genebuild => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild'),
     ensembl_analysis_script           => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
-    load_optimise_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
     mapping_stats_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'calculate_remapping_stats.pl'),
 
     ensembl_misc_script        => catdir($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts'),
@@ -144,75 +87,17 @@ sub default_options {
     meta_levels_script         => catfile($self->o('ensembl_misc_script'), 'meta_levels.pl'),
     frameshift_attrib_script   => catfile($self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl'),
     select_canonical_script    => catfile($self->o('ensembl_misc_script'),'canonical_transcripts', 'select_canonical_transcripts.pl'),
-    assembly_name_script       => catfile($self->o('ensembl_analysis_script'), 'update_assembly_name.pl'),
 
-    # Genes biotypes to ignore from the final db when copying to core
-    copy_biotypes_to_ignore => {
-                                 'low_coverage' => 1,
-                                 'CRISPR' => 1,
-                               },
-########################
-# Extra db settings
-########################
-
-    'num_tokens' => 10,
-    mysql_dump_options => '--max_allowed_packet=1000MB',
 
 ########################
 # Executable paths
 ########################
-    'minimap2_genome_index'  => $self->o('faidx_genome_file').'.mmi',
-    'minimap2_path'          => '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/minimap2',
-    'paftools_path'          => '/hps/software/users/ensembl/ensw/C8-MAR21-sandybridge/linuxbrew/bin/paftools.js',
-    'minimap2_batch_size'    => '5000',
-
-    'blast_type' => 'ncbi', # It can be 'ncbi', 'wu', or 'legacy_ncbi'
-    'dust_path' => catfile($self->o('binary_base'), 'dustmasker'),
-    'trf_path' => catfile($self->o('binary_base'), 'trf'),
-    'eponine_java_path' => catfile($self->o('binary_base'), 'java'),
-    'eponine_jar_path' => catfile($self->o('software_base_path'), 'opt', 'eponine', 'libexec', 'eponine-scan.jar'),
-    'cpg_path' => catfile($self->o('binary_base'), 'cpg_lh'),
-    'trnascan_path' => catfile($self->o('binary_base'), 'tRNAscan-SE'),
-    'repeatmasker_path' => catfile($self->o('binary_base'), 'RepeatMasker'),
-    'genscan_path' => catfile($self->o('binary_base'), 'genscan'),
-    'genscan_matrix_path' => catfile($self->o('software_base_path'), 'share', 'HumanIso.smat'),
-    'uniprot_blast_exe_path' => catfile($self->o('binary_base'), 'blastp'),
-    'blastn_exe_path' => catfile($self->o('binary_base'), 'blastn'),
-    'vertrna_blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
-    'unigene_blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
+    minimap2_path => catfile($self->o('binary_base'), 'minimap2'),
+    paftools_path => catfile($self->o('binary_base'), 'paftools.js'),
     samtools_path => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
-
-    'uniprot_table_name'          => 'uniprot_sequences',
-
-########################
-# Interproscan
-########################
-    required_externalDb => '',
-    interproscan_lookup_applications => [
-      'PfamA',
-    ],
-    required_externalDb => [],
-    pathway_sources => [],
-    required_analysis => [
-      {
-        'logic_name'    => 'pfam',
-        'db'            => 'Pfam',
-        'db_version'    => '31.0',
-        'ipscan_name'   => 'Pfam',
-        'ipscan_xml'    => 'PFAM',
-        'ipscan_lookup' => 1,
-      },
-    ],
-
-# Max internal stops for projected transcripts
-    'realign_table_name'                    => 'projection_source_sequences',
-
-########################
-# Misc setup info
-########################
-    'repeatmasker_engine'       => 'crossmatch',
-    'masking_timer_long'        => '5h',
-    'masking_timer_short'       => '2h',
+    xy_scanner_path => '/hps/software/users/ensembl/repositories/fergal/ensembl-analysis/scripts/genebuild/xy_scanner.py',
+    x_marker_fasta_path => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/hprc/x_markers.fa',
+    y_marker_fasta_path => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/hprc/y_markers.fa',
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # No option below this mark should be modified
@@ -224,10 +109,6 @@ sub default_options {
     'ncbi_base_ftp'           => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all',
     'insdc_base_ftp'          => $self->o('ncbi_base_ftp').'/#expr(substr(#assembly_accession#, 0, 3))expr#/#expr(substr(#assembly_accession#, 4, 3))expr#/#expr(substr(#assembly_accession#, 7, 3))expr#/#expr(substr(#assembly_accession#, 10, 3))expr#/#assembly_accession#_#assembly_name#',
     'assembly_ftp_path'       => $self->o('insdc_base_ftp'),
-    'refseq_base_ftp'         => $self->o('ncbi_base_ftp').'/#expr(substr(#assembly_refseq_accession#, 0, 3))expr#/#expr(substr(#assembly_refseq_accession#, 4, 3))expr#/#expr(substr(#assembly_refseq_accession#, 7, 3))expr#/#expr(substr(#assembly_refseq_accession#, 10, 3))expr#/#assembly_refseq_accession#_#assembly_name#',
-    'refseq_import_ftp_path'  => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_genomic.gff.gz',
-    'refseq_mrna_ftp_path'    => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_rna.fna.gz',
-    'refseq_report_ftp_path' => $self->o('refseq_base_ftp').'/#assembly_refseq_accession#_#assembly_name#_assembly_report.txt',
 
 ########################
 # db info
@@ -280,44 +161,12 @@ sub default_options {
   };
 }
 
-sub pipeline_create_commands {
-    my ($self) = @_;
-
-################
-# LastZ
-################
-
-    my $second_pass     = exists $self->{'_is_second_pass'};
-    $self->{'_is_second_pass'} = $second_pass;
-    return $self->SUPER::pipeline_create_commands if $self->can('no_compara_schema');
-    my $pipeline_url    = $self->pipeline_url();
-    my $parsed_url      = $second_pass && Bio::EnsEMBL::Hive::Utils::URL::parse( $pipeline_url );
-    my $driver          = $second_pass ? $parsed_url->{'driver'} : '';
-
-################
-# /LastZ
-################
-
-    return [
-    # inheriting database and hive tables' creation
-      @{$self->SUPER::pipeline_create_commands},
-
-      $self->hive_data_table('protein', $self->o('uniprot_table_name')),
-
-      $self->db_cmd('CREATE TABLE '.$self->o('realign_table_name').' ('.
-                    'accession varchar(50) NOT NULL,'.
-                    'seq text NOT NULL,'.
-                    'PRIMARY KEY (accession))'),
-    ];
-}
-
 
 sub pipeline_wide_parameters {
   my ($self) = @_;
 
   return {
     %{$self->SUPER::pipeline_wide_parameters},
-    wide_ensembl_release => $self->o('ensembl_release'),
     wide_reference_fasta => $self->o('reference_fasta'),
     use_genome_flatfile => $self->o('use_genome_flatfile'),
   }
@@ -326,20 +175,6 @@ sub pipeline_wide_parameters {
 ## See diagram for pipeline structure
 sub pipeline_analyses {
     my ($self) = @_;
-
-    my %genblast_params = (
-      wu    => '-P wublast -gff -e #blast_eval# -c #blast_cov#',
-      ncbi  => '-P blast -gff -e #blast_eval# -c #blast_cov# -W 3 -softmask -scodon 50 -i 30 -x 10 -n 30 -d 200000 -g T',
-      wu_genome    => '-P wublast -gff -e #blast_eval# -c #blast_cov#',
-      ncbi_genome  => '-P blast -gff -e #blast_eval# -c #blast_cov# -W 3 -softmask -scodon 50 -i 30 -x 10 -n 30 -d 200000 -g T',
-      wu_projection    => '-P wublast -gff -e #blast_eval# -c #blast_cov# -n 100 -x 5 ',
-      ncbi_projection  => '-P blast -gff -e #blast_eval# -c #blast_cov# -W 3 -scodon 50 -i 30 -x 10 -n 30 -d 200000 -g T',
-      );
-    my %commandline_params = (
-      'ncbi' => '-num_threads 3 -window_size 40',
-      'wu' => '-cpus 3 -hitdist 40',
-      'legacy_ncbi' => '-a 3 -A 40',
-      );
 
     return [
 
@@ -438,8 +273,8 @@ sub pipeline_analyses {
           db_conn => '#core_db#',
           sql => [
             'INSERT IGNORE INTO meta (species_id, meta_key, meta_value) VALUES '.
-              '(1, "annotation.provider_name", "Ensembl"),'.
-              '(1, "annotation.provider_url", "www.ensembl.org"),'.
+              '(1, "annotation.provider_name", "'.$self->o('provider_name').'"),'.
+              '(1, "annotation.provider_url", "'.$self->o('provider_url').'"),'.
               '(1, "assembly.coverage_depth", "high"),'.
               '(1, "assembly.provider_name", NULL),'.
               '(1, "assembly.provider_url", NULL),'.
@@ -489,7 +324,7 @@ sub pipeline_analyses {
                          'output_path'          => '#output_path#',
                          'enscode_root_dir'     => $self->o('enscode_root_dir'),
                          'species_name'         => '#species_name#',
-                         'repeat_logic_names'   => $self->o('softmask_logic_names'), # This is emtpy as we just use masking present in downloaded file
+                         'repeat_logic_names'   => [], # This is emtpy as we just use masking present in downloaded file
                        },
         -flow_into => {
           1 => ['reheader_toplevel_file'],
@@ -823,7 +658,7 @@ sub pipeline_analyses {
           delete_transcripts_script_name => 'delete_transcripts.pl',
           delete_genes_script_name => 'delete_genes.pl',
           email => $self->o('email'),
-          output_path => $self->o('output_path'),
+          output_path => '#output_path#',
           output_file_name => 'delete_pcnonpc_transcripts_and_genes.out',
         },
         -max_retry_count => 0,
@@ -873,7 +708,7 @@ sub pipeline_analyses {
           delete_transcripts_script_name => 'delete_transcripts.pl',
           delete_genes_script_name => 'delete_genes.pl',
           email => $self->o('email'),
-          output_path => $self->o('output_path'),
+          output_path => '#output_path#',
           output_file_name => 'delete_shortcds_transcripts.out',
         },
         -max_retry_count => 0,
@@ -1073,35 +908,17 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default_registry' => { LSF => [$self->lsf_resource_builder('production', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{'registry_file'}]},
-    '3GB' => { LSF => $self->lsf_resource_builder('production', 3000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '4GB_registry' => { LSF => [$self->lsf_resource_builder('production', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}]), '-reg_conf '.$self->default_options->{registry_file}]},
-    '4GB' => { LSF => $self->lsf_resource_builder('production', 4000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '9GB' => { LSF => $self->lsf_resource_builder('production', 9000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '12GB' => { LSF => $self->lsf_resource_builder('production', 12000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '15GB' => { LSF => $self->lsf_resource_builder('production', 15000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '20GB' => { LSF => $self->lsf_resource_builder('production', 20000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    '35GB' => { LSF => $self->lsf_resource_builder('production', 35000, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
-    'default' => { LSF => $self->lsf_resource_builder('production', 900, [$self->default_options->{'pipe_db_server'}, $self->default_options->{'dna_db_server'}], [$self->default_options->{'num_tokens'}])},
+    'default_registry' => { LSF => [$self->lsf_resource_builder('production', 900), '-reg_conf '.$self->default_options->{'registry_file'}]},
+    '3GB' => { LSF => $self->lsf_resource_builder('production', 3000)},
+    '4GB_registry' => { LSF => [$self->lsf_resource_builder('production', 4000), '-reg_conf '.$self->default_options->{registry_file}]},
+    '4GB' => { LSF => $self->lsf_resource_builder('production', 4000)},
+    '9GB' => { LSF => $self->lsf_resource_builder('production', 9000)},
+    '12GB' => { LSF => $self->lsf_resource_builder('production', 12000)},
+    '15GB' => { LSF => $self->lsf_resource_builder('production', 15000)},
+    '20GB' => { LSF => $self->lsf_resource_builder('production', 20000)},
+    '35GB' => { LSF => $self->lsf_resource_builder('production', 35000)},
+    'default' => { LSF => $self->lsf_resource_builder('production', 900)},
   }
-}
-
-
-sub hive_capacity_classes {
-  my $self = shift;
-
-  return {
-           'hc_low'    => 200,
-           'hc_medium' => 500,
-           'hc_high'   => 1000,
-         };
-}
-
-
-sub check_file_in_ensembl {
-  my ($self, $file_path) = @_;
-  push @{$self->{'_ensembl_file_paths'}}, $file_path;
-  return $self->o('enscode_root_dir').'/'.$file_path;
 }
 
 1;
