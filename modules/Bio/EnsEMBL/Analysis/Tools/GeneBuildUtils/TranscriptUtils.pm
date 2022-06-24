@@ -1213,7 +1213,7 @@ sub replace_stops_with_introns{
   my $pep = $translate_obj->seq if ($translate_obj);
   # gaps adjacent to internal stop codons - skip
   # I'm not sure this happens often but I had a peptide equal to '*'
-  return 0 if ($pep eq '*' or $pep =~ /X\*/ || $pep =~ /\*X/);
+  #return 0 if ($pep eq '*' or $pep =~ /X\*/ || $pep =~ /\*X/);
   my $num_stops = $pep =~ s/\*/\*/g;
 
   # The next few bits of code are to do some checks in terms of the allowed number of stops and to throw
