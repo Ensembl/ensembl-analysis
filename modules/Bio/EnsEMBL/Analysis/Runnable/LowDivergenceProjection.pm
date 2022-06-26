@@ -59,6 +59,7 @@ use List::Util qw(min max);
 use Bio::EnsEMBL::Analysis::Runnable::Minimap2;
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Analysis::Tools::Algorithms::ClusterUtils;
+use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Slice_to_Gene empty_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(compute_best_translation);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(set_alignment_supporting_features attach_Slice_to_Transcript attach_Analysis_to_Transcript calculate_exon_phases replace_stops_with_introns);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_nucleotide_seqs map_cds_location align_proteins);
@@ -74,7 +75,7 @@ use parent ('Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap');
  Arg [DECOMPRESS]           : String as a command like 'gzip -c -'
  Arg [EXPECTED_ATTRIBUTES]  : String specify the attribute expected for the output, see STAR manual
  Description                : Creates a  object to align reads to a genome using STAR
- Returntype                 : 
+ Returntype                 :
  Exceptions                 : Throws if WORKDIR does not exist
                               Throws if the genome has not been indexed
 
@@ -111,9 +112,6 @@ sub new {
 sub run {
   my ($self) = @_;
 
-  my $source_adaptor = $self->source_adaptor();
-  my $sequence_adaptor = $source_adaptor->get_SequenceAdaptor();
-
   my $leftover_genes = [];
   my $paf_file = $self->create_filename(undef,'paf');
   $self->files_to_delete($paf_file);
@@ -122,13 +120,375 @@ sub run {
   my $input_file    = $self->input_file;
   my $options = $self->options;
 
-  # Process the batches first to map co-localised genes first
-  my $genes_to_process = $self->genes_to_process();
+  # TEST!!!!!!!!!!!!
+#  my $source_adaptor = $self->source_adaptor();
+#  my $source_gene_adaptor = $source_adaptor->get_GeneAdaptor();
+#  my $source_genes = [$source_gene_adaptor->fetch_by_stable_id('ENSG00000175170')];
 
-  $self->process_gene_batches($genes_to_process,$sequence_adaptor,$genome_index);
+  # Process the batches first to map co-localised genes first
+  my $source_genes = $self->genes_to_process();
+
+  my $all_source_transcripts_id_hash = {};
+  foreach my $source_gene (@$source_genes) {
+    my $source_transcripts = $source_gene->get_all_Transcripts();
+    foreach my $source_transcript (@$source_transcripts) {
+      $all_source_transcripts_id_hash->{$source_transcript->dbID()} = $source_transcript;
+    }
+  }
+
+  $self->process_gene_batches($source_genes,$genome_index,$all_source_transcripts_id_hash);
 } # End run
 
 
+sub process_gene_batches {
+  my ($self,$source_genes,$genome_index,$all_source_transcripts_id_hash) = @_;
+
+  my $source_adaptor = $self->source_adaptor();
+  my $source_sequence_adaptor = $source_adaptor->get_SequenceAdaptor();
+  my $target_adaptor = $self->target_adaptor();
+
+  my $batched_input_genes = $self->batch_input_genes($source_genes);
+  $self->print_batch_details($batched_input_genes);
+  $self->calculate_anchors($batched_input_genes,$source_sequence_adaptor);
+  $self->map_anchors($batched_input_genes,$genome_index);
+
+  # At this point we should have everything we need to project the batch
+  my $target_genes_by_id = $self->project_batch_genes($batched_input_genes,$source_sequence_adaptor);
+  my $target_genes = [];
+  foreach my $id (keys(%$target_genes_by_id)) {
+    my $genes = $target_genes_by_id->{$id};
+    push(@$target_genes,@$genes);
+  }
+
+  my $source_genes_by_stable_id = $self->genes_by_stable_id($source_genes);
+  my $target_genes_by_stable_id = $self->genes_by_stable_id($target_genes);
+
+
+  my $problematic_genes = [];
+  foreach my $gene (@$target_genes) {
+    say "Checking if ".$gene->stable_id()." has problematic transcripts";
+    $self->check_for_problematic_transcripts($gene,$source_genes_by_stable_id,$source_adaptor);
+    if($gene->{'is_problematic'}) {
+      say "Gene has problematic transcripts";
+      push(@$problematic_genes,$gene);
+    } else {
+      $self->output([$gene]);
+    }
+  }
+
+  if(scalar(@$problematic_genes)) {
+    say "Found ".scalar(@$problematic_genes)." problematic genes, will try to recover problematic transcripts";
+  } else {
+    say "No problematic genes found after projection";
+  }
+
+  my $output_genes = [];
+  foreach my $gene (@$problematic_genes) {
+    my $target_genomic_name = $gene->slice->seq_region_name();
+    my $target_slice_adaptor = $target_adaptor->get_SliceAdaptor;
+    my $target_parent_slice = $target_slice_adaptor->fetch_by_region('toplevel',$target_genomic_name);#$target_gene->slice->seq_region_Slice();
+
+    say "Recovering transcripts for ".$gene->stable_id();
+    my $updated_transcripts = $self->recover_transcripts($gene,$source_genes_by_stable_id,$source_adaptor,$target_parent_slice,$target_adaptor,$target_slice_adaptor);
+    if($updated_transcripts) {
+      say "Gene has transcript set modified, will build new gene";
+      my $source_gene = ${$source_genes_by_stable_id->{$gene->stable_id()}}[0];
+      unless($source_gene) {
+        $self->throw("Could not fund source gene for target gene with stable id: ".$gene->stable_id());
+      }
+      my $new_gene = $self->build_new_gene($source_gene,$updated_transcripts,$all_source_transcripts_id_hash,$target_parent_slice);
+      push(@$output_genes,$new_gene);
+    } else {
+      say "Transcript set was not updated, so will keep gene as-is";
+      push(@$output_genes,$gene);
+    }
+  }
+
+  $self->output($output_genes);
+}
+
+
+sub build_new_gene {
+  my ($self,$source_gene,$target_transcripts,$all_source_transcripts_id_hash,$target_parent_slice) = @_;
+  my $new_gene = Bio::EnsEMBL::Gene->new(-analysis => $self->analysis);
+  $new_gene->{'parent_gene_id'} = $source_gene->dbID();
+  $new_gene->{'parent_gene_versioned_stable_id'} = $source_gene->stable_id().".".$source_gene->version;
+  $new_gene->stable_id($source_gene->stable_id);
+  $new_gene->version($source_gene->version);
+  $new_gene->biotype($source_gene->biotype);
+  $new_gene->description($source_gene->description());
+
+  # add source gene stable id as gene attribute
+  my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_gene->stable_id_version);
+  $new_gene->add_Attributes($parent_attribute);
+  $new_gene->slice($target_parent_slice);
+  $new_gene->{'is_new'} = 1;
+
+  foreach my $target_transcript (@$target_transcripts) {
+    $target_transcript->slice($target_parent_slice);
+    my $source_transcript = $all_source_transcripts_id_hash->{$target_transcript->stable_id()};
+    $target_transcript->biotype($source_transcript->biotype);
+    $target_transcript->{'parent_transcript_versioned_stable_id'} = $source_transcript->stable_id().".".$source_transcript->version();
+
+    unless($source_transcript) {
+      $self->throw("Couldn't retrieve source transcript for target transcript with stable id (dbID of source transcript): ".$target_transcript->stable_id());
+    }
+
+    if($source_transcript->translation()) {
+      $self->project_cds($target_transcript,$source_transcript);
+      $self->qc_cds_sequence($target_transcript,$source_transcript);
+    }
+
+    $self->set_transcript_description($target_transcript,$source_transcript);
+    $new_gene->add_Transcript($target_transcript);
+  }
+  return($new_gene);
+}
+
+
+sub check_for_problematic_transcripts {
+  my ($self,$target_gene,$source_genes_by_stable_id,$source_adaptor) = @_;
+
+  my $coverage_cutoff = 98;
+  my $perc_id_cutoff = 99;
+  my $extended_length_variation_cutoff = 0.1;
+  my $source_transcript_adaptor = $source_adaptor->get_TranscriptAdaptor();
+  my $problematic_genes = [];
+
+  # The input is source genes, so only process target genes linked to the input source genes via a stable id
+  my $source_gene = ${$source_genes_by_stable_id->{$target_gene->stable_id()}}[0];
+  unless($source_gene) {
+    return;
+  }
+
+  $target_gene->{'problematic_transcripts'} = {};
+  my $source_transcripts = $source_gene->get_all_Transcripts();
+  my $source_transcripts_id_hash = {};
+
+  # This is used later to keep track of any missing transcripts
+  foreach my $source_transcript (@$source_transcripts) {
+    $source_transcripts_id_hash->{$source_transcript->stable_id()} = $source_transcript;
+  }
+
+  my $target_transcripts = $target_gene->get_all_Transcripts();
+  foreach my $target_transcript (@$target_transcripts) {
+    my $description = $target_transcript->description();
+    $description =~ /parent_transcript=(ENS.+)\.\d+;mapping_coverage=(\d+\.\d+);mapping_identity=(\d+\.\d+)/;
+    my $stable_id = $1;
+    my $coverage = $2;
+    my $perc_id = $3;
+    $target_transcript->{'cov'} = $coverage;
+    $target_transcript->{'perc_id'} = $perc_id;
+    unless($stable_id and defined($coverage) and defined($perc_id)) {
+      $self->throw("Issue finding info for parent stable id and coverage/identity from transcript description. Description: ".$description);
+    }
+
+    # This overwrites the transcript ref, so if the value is 1 we won't consider it missing
+
+    my $source_transcript = $source_transcripts_id_hash->{$stable_id};
+    $source_transcripts_id_hash->{$stable_id} = 1;
+    my $length_diff = $target_transcript->length() - $source_transcript->length();
+
+    my $problematic_transcript = 0;
+    my $problem_string = "Problematic transcript ".$stable_id.", issue:";
+    if($length_diff >= 0 and ($length_diff/$source_transcript->length() > $extended_length_variation_cutoff)) {
+      $problem_string .= " length";
+      $problematic_transcript = 1;
+    }
+
+    if($coverage < $coverage_cutoff) {
+      $problem_string .= " coverage";
+      $problematic_transcript = 1;
+    }
+
+    if($perc_id < $perc_id_cutoff) {
+      $problem_string .= " perc_id";
+      $problematic_transcript = 1;
+    }
+
+    if($problematic_transcript) {
+      say $problem_string;
+      $target_gene->{'is_problematic'} = 1;
+      $target_gene->{'problematic_transcripts'}->{$stable_id} = [$source_transcript,$target_transcript];
+    }
+  } # foreach my $target_transcript
+
+  # This adds in any missing transcripts as problematic transcripts
+  foreach my $source_transcript_stable_id (keys(%$source_transcripts_id_hash)) {
+    if($source_transcripts_id_hash->{$source_transcript_stable_id} == 1) {
+      next;
+    }
+    say "Problematic transcript ".$source_transcript_stable_id.", issue: missing";
+    $target_gene->{'problematic_transcripts'}->{$source_transcript_stable_id} = [$source_transcripts_id_hash->{$source_transcript_stable_id}];
+  }
+}
+
+
+sub recover_transcripts {
+  my ($self,$target_gene,$source_genes_by_stable_id,$source_adaptor,$target_parent_slice,$target_adaptor,$target_slice_adaptor) = @_;
+
+
+  my $coverage_cutoff = 98;
+  my $perc_id_cutoff = 99;
+  my $region_scaling = 0.1;
+  my $min_buffer = 500;
+  my $source_gene_adaptor = $source_adaptor->get_TranscriptAdaptor();
+  my $problematic_genes = [];
+
+  # We now have a list of missing and problematic transcripts. We want to look for these, but in the region
+  # the gene seems to lie in. The issue is that the transcripts that are present may not represent the true
+  # boundaries of the gene, even if there are fully mapped transcript they might only represent part of the
+  # are covered. To deal with this, we'll pad the region the gene covers with whatever the difference in length
+  # is either side. This is not perfect, but should cover most of the issues
+  my $stable_id = $target_gene->stable_id();
+  my $source_gene = ${$source_genes_by_stable_id->{$target_gene->stable_id()}}[0];
+  my $source_transcripts = $source_gene->get_all_Transcripts();
+
+  my $source_gene_length = $source_gene->length();
+  my $target_gene_length = $target_gene->length();
+  my $length_diff = $source_gene_length - $target_gene_length;
+  my $region_buffer = 0;
+  if($length_diff >= 0) {
+    $region_buffer = $length_diff + ($length_diff * $region_scaling) + $min_buffer;
+  } else {
+    $region_buffer = $min_buffer;
+  }
+
+  $region_buffer = ceil($region_buffer);
+  my $target_region_left_boundary = $target_gene->seq_region_start() - $region_buffer;
+  my $target_region_right_boundary = $target_gene->seq_region_end() + $region_buffer;
+  if($target_region_left_boundary <= 0) {
+    $target_region_left_boundary = 1;
+  }
+
+  if($target_region_right_boundary > $target_gene->slice->length()) {
+    $target_region_right_boundary = $target_gene->slice->length();
+  }
+
+  my $target_genomic_name = $target_parent_slice->seq_region_name();
+  my $target_genomic_start = $target_region_left_boundary;
+  my $target_genomic_end = $target_region_right_boundary;
+
+  say "Mapping gene ".$source_gene->stable_id()." to ".$target_genomic_start.":".$target_genomic_end.":".$target_gene->strand.":".$target_genomic_name;
+
+  # Note that we are going to use the forward strand regardless of what strand the PAF hit is on here because minimap2/exonerate assume the region is on the forward strand
+  my $target_strand = $target_gene->strand();
+  my $target_sequence_adaptor = $target_adaptor->get_SequenceAdaptor;
+  my $target_genomic_seq = ${ $target_sequence_adaptor->fetch_by_Slice_start_end_strand($target_parent_slice, $target_genomic_start, $target_genomic_end, 1) };
+  my $target_region_slice = $target_slice_adaptor->fetch_by_region('toplevel', $target_genomic_name, $target_genomic_start, $target_genomic_end, 1);
+  say "Target slice identified to search for transcripts in after first pass: ".$target_region_slice->name();
+  my $target_genomic_fasta = ">".$target_genomic_name."\n".$target_genomic_seq;
+  my $target_genome_file = $self->write_input_file([$target_genomic_fasta]);
+
+  say "Projecting gene: ".$source_gene->stable_id();
+
+  my $coverage_threshold = 98;
+  my $perc_id_threshold = 99;
+  my $best_transcripts_by_id = {};
+  my $source_transcript_id_hash = {}; # A hash to organise transcripts by dbID (note that the dbID is somewhat confusingly saved in the stable id field here, safer than using the realstable id)
+  say "Source transcript list:";
+  my $problematic_source_transcripts = [];
+  foreach my $source_transcript (@$source_transcripts) {
+    my $source_transcript_id = $source_transcript->dbID();
+    $source_transcript_id_hash->{$source_transcript_id} = $source_transcript;
+
+    unless($target_gene->{'problematic_transcripts'}->{$source_transcript->stable_id()}) {
+      next;
+    }
+
+    say "  ".$source_transcript->stable_id();
+    push(@$problematic_source_transcripts,$source_transcript);
+  }
+
+  my $max_intron_size = $self->calculate_max_intron_size($problematic_source_transcripts);
+  $max_intron_size = ceil($max_intron_size);
+
+  say "FERGAL DEBUG TARGETGS: ".$target_genomic_start;
+  my $minimap_transcripts_by_id = $self->map_gene_minimap($problematic_source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,
+                                                          $target_genome_file,$source_transcript_id_hash,$max_intron_size,$target_adaptor,$target_slice_adaptor,
+                                                          $best_transcripts_by_id);
+  $self->print_transcript_stats($minimap_transcripts_by_id,'minimap local');
+  $self->update_best_transcripts($best_transcripts_by_id,$minimap_transcripts_by_id);
+  my $exonerate_transcripts_by_id = $self->map_gene_exonerate($problematic_source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,
+                                                              $target_genome_file,$source_transcript_id_hash,$max_intron_size,$target_adaptor,
+                                                              $target_slice_adaptor,$best_transcripts_by_id);
+  $self->print_transcript_stats($exonerate_transcripts_by_id,'exonerate local');
+  $self->update_best_transcripts($best_transcripts_by_id,$exonerate_transcripts_by_id);
+
+  $self->set_cds_sequences($best_transcripts_by_id,$source_transcript_id_hash);
+  $self->qc_cds_sequences($best_transcripts_by_id,$source_transcript_id_hash);
+  $self->set_transcript_descriptions($best_transcripts_by_id,$source_transcript_id_hash);
+
+  # Now need to loop through the best recovered transcripts and overwrite the original ones (if present)
+  my $final_transcripts = [];
+  my $target_transcripts = $target_gene->get_all_Transcripts();
+  foreach my $target_transcript (@$target_transcripts) {
+    # I cannot remember why the target transcripts had dbID in the stable id field at this point, but this is something that should be refactored
+    my $target_transcript_stable_id = $source_transcript_id_hash->{$target_transcript->stable_id()}->stable_id();
+    unless($target_transcript_stable_id) {
+      $self->throw("Failed to retrieve a source stable id transcript with dbID ".$target_transcript->stable_id());
+    }
+    unless($target_gene->{'problematic_transcripts'}->{$target_transcript_stable_id}) {
+      push(@$final_transcripts,$target_transcript);
+    }
+  }
+
+  # Problem: best_transcripts_by_id uses source_transcript->dbID for id, problematic_transcripts uses stable id
+
+  my $gene_modified = 0;
+  foreach my $source_transcript (@$source_transcripts) {
+    if($target_gene->{'problematic_transcripts'}->{$source_transcript->stable_id()}) {
+      my $problematic_transcripts = $target_gene->{'problematic_transcripts'}->{$source_transcript->stable_id()};
+      # If there's only one, then this was a missing transcript, so just take whatever is in the best transcript hash
+      if(scalar(@$problematic_transcripts) == 1) {
+        my $best_transcript = $best_transcripts_by_id->{${$problematic_transcripts}[0]->dbID()};
+        if($best_transcript) {
+          $best_transcript->{'is_new'} = 1;
+          $best_transcript->{'parent_transcript_versioned_stable_id'} = $source_transcript->stable_id().".".$source_transcript->version();
+          say "  Adding missing transcript ".$best_transcript->stable_id();
+          push(@$final_transcripts,$best_transcript);
+          $gene_modified = 1;
+        }
+      } else {
+        # In this case there's an existing projected transcript
+        my $best_transcript = $best_transcripts_by_id->{${$problematic_transcripts}[0]->dbID()};
+        unless($best_transcript){
+          say "  Warning: did not find a best transcript for ".${$problematic_transcripts}[0]->stable_id();
+        }
+        $best_transcript->{'is_new'} = 1;
+        $best_transcript->{'parent_transcript_versioned_stable_id'} = $source_transcript->stable_id().".".$source_transcript->version();
+        my $projected_transcript = ${$problematic_transcripts}[1];
+        my $best_coverage = $best_transcript->{'cov'};
+        my $best_perc_id = $best_transcript->{'perc_id'};
+        my $best_total = $best_coverage + $best_perc_id;
+        my $projected_transcript_coverage = $projected_transcript->{'cov'};
+        my $projected_transcript_perc_id = $projected_transcript->{'perc_id'};
+        my $projected_total = $projected_transcript_coverage + $projected_transcript_perc_id;
+        if($best_total >= $projected_total or ($best_perc_id >= $perc_id_cutoff and $best_coverage >= $coverage_cutoff)) {
+          say "  Replacing projected transcript ".$best_transcript->stable_id()." with best mapped transcript";
+          push(@$final_transcripts,$best_transcript);
+          $gene_modified = 1;
+        } else {
+          say "  Keeping projected transcript ".$projected_transcript->stable_id()." over best mapped transcript";
+          push(@$final_transcripts,$projected_transcript);
+        }
+      }
+    }
+  } # End foreach my $source_transcript
+
+
+  if(scalar(@$final_transcripts) < scalar(@$target_transcripts)) {
+    $self->throw("After recoverey have ".scalar(@$final_transcripts)." transcripts, which is less than the initial amount of ".scalar(@$target_transcripts));
+  }
+
+  say "After recoverey have ".scalar(@$final_transcripts)." transcripts, initially had ".scalar(@$target_transcripts);
+
+  unless($gene_modified) {
+    return;
+  } else {
+    return($final_transcripts);
+  }
+}
 
 sub batch_input_genes {
   my ($self,$genes) = @_;
@@ -295,6 +655,7 @@ sub map_anchors {
     my $batch = $batched_input_genes->{$id};
     my $anchors = $batch->{'anchor_seqs'};
     my $fasta_record = ">batch_".$id."_al\n".${$anchors}[0][2]."\n>batch_".$id."_am\n".${$anchors}[1][2]."\n>batch_".$id."_ar\n".${$anchors}[2][2]."\n";
+#    say "DEBUG:\n".$fasta_record;
     push(@$fasta_records,$fasta_record);
   }
 
@@ -303,6 +664,8 @@ sub map_anchors {
   my $minimap2_command = $self->program()." --cs --secondary=yes -x map-ont -N 10 ".$genome_index." ".$input_file." > ".$paf_file;
   system($minimap2_command);
 
+  say "DEBUG: ".$minimap2_command;
+
   unless(-e $paf_file) {
     $self->throw("Could not find paf file from running minimap on anchor seqs");
   }
@@ -310,6 +673,7 @@ sub map_anchors {
   open(IN,$paf_file);
   while(<IN>) {
     my $line = $_;
+    print "PAF: ".$line;
     unless($line =~ /^batch\_(\d+)\_(.+)$/) {
       next;
     }
@@ -838,23 +1202,6 @@ sub calculate_target_midpoint {
 }
 
 
-sub process_gene_batches {
-  my ($self,$genes_to_process,$source_sequence_adaptor,$genome_index) = @_;
-
-  my $batched_input_genes = $self->batch_input_genes($genes_to_process);
-  $self->print_batch_details($batched_input_genes);
-  $self->calculate_anchors($batched_input_genes,$source_sequence_adaptor);
-  $self->map_anchors($batched_input_genes,$genome_index);
-
-  # At this point we should have everything we need to project the batch
-  my $output_genes_by_id = $self->project_batch_genes($batched_input_genes,$source_sequence_adaptor);
-  my $output_genes = [];
-  foreach my $id (keys(%$output_genes_by_id)) {
-    my $genes = $output_genes_by_id->{$id};
-    push(@$output_genes,@$genes);
-  }
-  $self->output($output_genes);
-}
 
 
 
@@ -988,6 +1335,7 @@ sub build_batch_genes {
 
       my $target_gene = Bio::EnsEMBL::Gene->new(-analysis => $self->analysis);
       $target_gene->{'parent_gene_id'} = $source_gene->dbID();
+      $target_gene->{'parent_gene_versioned_stable_id'} = $source_gene->stable_id().".".$source_gene->version();
       $target_gene->stable_id($source_gene->stable_id);
       $target_gene->version($source_gene->version);
       $target_gene->biotype($source_gene->biotype);
@@ -1003,6 +1351,7 @@ sub build_batch_genes {
       foreach my $source_transcript (@$source_transcripts) {
         my $projected_transcript = $self->reconstruct_transcript($source_transcript,$projected_exons_by_id);
         if($projected_transcript) {
+          $projected_transcript->{'parent_transcript_versioned_stable_id'} = $source_transcript->stable_id().".".$source_transcript->version();
           $projected_transcript->{'annotation_method'} = 'alignment_projection';
           if($source_transcript->translation()) {
             $self->project_cds($projected_transcript,$source_transcript);
