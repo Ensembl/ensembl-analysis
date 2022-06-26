@@ -126,7 +126,7 @@ sub fetch_input {
 
   my $parent_gene_id_hash = {};
 
-  $self->set_parent_info($sorted_input_genes,$parent_gene_id_hash,$sequence_adaptor);
+#  $self->set_parent_info($sorted_input_genes,$parent_gene_id_hash,$sequence_adaptor);
 
 
   my $runnable = Bio::EnsEMBL::Analysis::Runnable::Minimap2Remap->new(
