@@ -128,7 +128,7 @@ sub run {
   my $target_gene_adaptor = $target_adaptor->get_GeneAdaptor();
   my $source_genes = $self->genes_to_process();
   # TEST!!!!!!!!!!!!!!!!
-#  my $test_slice = $target_adaptor->get_SliceAdaptor->fetch_by_region('toplevel','17');
+#check_for_problematic_transcripts  my $test_slice = $target_adaptor->get_SliceAdaptor->fetch_by_region('toplevel','17');
 #  my $target_genes = $target_adaptor->get_GeneAdaptor->fetch_all_by_Slice($test_slice);
 
   my $source_genes_by_slice = $self->sort_genes_by_slice($source_genes);
@@ -141,6 +141,7 @@ sub run {
   my $source_genes_by_stable_id = $self->genes_by_stable_id($source_genes);
   my $target_genes_by_stable_id = $self->genes_by_stable_id($target_genes);
   say "Searching for missing source genes";
+
   my $missing_source_genes = $self->list_missing_genes($source_genes_by_stable_id,$target_genes_by_stable_id);
   say "Found ".scalar(@$missing_source_genes)." missing source genes";
 
@@ -264,6 +265,18 @@ sub run {
     $high_confidence_genes_by_id = $self->genes_by_stable_id($high_confidence_genes);
   }
 
+#  my $still_missing_genes = $self->list_remaining_missing_genes($missing_source_genes,$all_recovered_genes);
+#  my $final_recovered_genes = $self->search_minimap_global($still_missing_genes,$target_genes,$genome_index);
+
+#  if(scalar(@$final_recovered_genes)) {
+#    push(@$target_genes,@$final_recovered_genes);
+#    $target_genes_by_slice = $self->sort_genes_by_slice($target_genes);
+#    $target_genes_by_stable_id = $self->genes_by_stable_id($target_genes);
+#    $high_confidence_genes = $self->list_high_confidence_genes($target_genes_by_slice,$target_genes_by_stable_id,$source_genes_by_stable_id);
+#    $high_confidence_genes_by_slice = $self->sort_genes_by_slice($high_confidence_genes);
+#    $high_confidence_genes_by_id = $self->genes_by_stable_id($high_confidence_genes);
+#  }
+
   # Because the target genes can have the same stable ids, and some of the recovered genes don't have dbIDs, assign unique internal ids
   $self->assign_internal_ids($target_genes);
 
@@ -282,6 +295,75 @@ sub run {
   # the 'to_remove' supercedes the 'to_write'
   $self->output($target_genes);
 } # End run
+
+
+sub list_remaining_missing_genes {
+  my ($self,$missing_source_genes,$recovered_genes) = @_;
+
+  say "Checking for remaining missing genes from the initial list of ".scalar(@$missing_source_genes);
+  my $remaining_missing_genes = [];
+  my $recovered_genes_id_hash = {};
+  foreach my $gene (@$recovered_genes) {
+    $recovered_genes_id_hash->{$gene->stable_id()} = 1;
+  }
+
+  foreach my $source_gene (@$missing_source_genes) {
+    unless($recovered_genes_id_hash->{$source_gene->stable_id()}) {
+      push(@$remaining_missing_genes,$source_gene);
+    }
+  }
+
+  say "Found ".scalar(@$remaining_missing_genes)." for global minimap";
+  return($remaining_missing_genes);
+}
+
+
+sub search_minimap_global {
+  my ($self,$missing_genes,$target_genes,$genome_index) = @_;
+
+  my $coverage_cutoff = 0.95;
+  my $perc_id_cutoff = 0.95;
+  my $transcripts_to_map_fasta_seqs = [];
+  foreach my $source_gene (@$missing_genes) {
+    # This will only use the canonical transcript since it's sort of a last ditch effort
+    my $transcript = $source_gene->canonical_transcript();
+    my $transcript_sequence = $transcript->seq->seq();
+    my $fasta_record = ">".$transcript->stable_id()."\n".$transcript_sequence;
+    push(@$transcripts_to_map_fasta_seqs,$fasta_record);
+  }
+
+  # Now run a global mapping of the missing/bad transcripts
+  say "Preparing to map canonical transcripts of missing genes globally to the genome";
+  say "Number of genes to map globally: ".scalar(@$transcripts_to_map_fasta_seqs);
+
+  my $target_adaptor = $self->target_adaptor();
+  my $global_mapped_transcripts = $self->generate_minimap_transcripts($transcripts_to_map_fasta_seqs,$genome_index,$target_adaptor,1,200000);
+  say "Number of globally mapped transcripts: ".scalar(@$global_mapped_transcripts);
+
+  # Want to get cov/id, remove bad mappings, add to genes, cluster and iteratively add where there's no exon overlap
+  # Maybe using a layering of biotype groups
+
+#  my $filtered_trancripts = [];
+#  foreach my $transcript (@$global_mapped_transcripts) {
+#    unless() {
+
+#    }
+#    $transcript->{'annotation_method'} = 'minimap_local';
+#    push(@$minimap_transcripts,$transcript);
+#  }
+#  my $transcripts_by_id = {};
+#  foreach my $transcript (@$minimap_transcripts) {
+#    $transcripts_by_id->{$transcript->stable_id} = $transcript;
+#    my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id};
+#    if ($source_transcript->translation) {
+#      $self->calculate_translation_based_on_source_transcript($transcript, $source_transcript);
+#    }
+
+#    $self->set_transcript_coverage_and_identity($source_transcript, $transcript);
+#    say "Mapped transcript (".$source_transcript->stable_id()."): Coverage: ".$transcript->{'cov'}.", Percent id: ".$transcript->{'perc_id'};
+#  }
+
+}
 
 
 sub resolve_conflict {
@@ -1139,7 +1221,7 @@ sub process_results {
     my $projected_transcripts_by_id = $self->project_gene_coords($source_gene,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,$gene_genomic_seqs_hash);
     $self->print_transcript_stats($projected_transcripts_by_id,'projection');
     $self->update_best_transcripts($best_transcripts_by_id,$projected_transcripts_by_id);
-    my $minimap_transcripts_by_id = $self->map_gene_minimap($source_gene,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,
+    my $minimap_transcripts_by_id = $self->map_gene_minimap($source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,
                                                             $target_genome_file,$source_transcript_id_hash,$max_intron_size,$target_adaptor,$target_slice_adaptor,
                                                             $best_transcripts_by_id);
     $self->print_transcript_stats($minimap_transcripts_by_id,'minimap local');
@@ -1305,52 +1387,52 @@ sub qc_cds_sequence {
         my $num_internal_stops = $new_seq =~ tr/*/*/;
         if ($num_internal_stops) {
 # We are checking if the source has some selenocysteine or a known internal stop codon
-          if (index($source_translation->seq, 'U') >= 0 or index(substr($source_translation->seq, 1, $source_translation->length-2), 'X') >= 0) {
-            my $source_seq_edits = $source_translation->get_all_SeqEdits;
-            my $pos = 0;
-            foreach my $seq_edit (@$source_seq_edits) {
-              if ($seq_edit->name ne 'initial_met') {
-                $pos = index($new_seq, '*', $pos);
-                if ($pos == -1) {
-                  $self->warning($source_transcript->display_id.', I was expecting an internal stop but could not find one');
-                }
-                else {
-                  ++$pos; # We need to be in 1-index coordinates
-                  if ($seq_edit->code eq '_selenocysteine') {
-                    $self->warning($source_transcript->display_id." selenocysteine might not be that internal stop at $pos")
-                      unless ($seq_edit->start == $pos or ($pos >= $seq_edit->start-10 and $pos <= $seq_edit->start+10));
-                    $transcript->translation->add_Attributes(ref($seq_edit)->new(
-                      -code => '_selenocysteine',
-                      -start => $pos,
-                      -end => $pos,
-                      -alt_seq => 'U',
-                    )->get_Attribute);
-                  }
-                  elsif ($seq_edit->code eq '_stop_codon_rt') {
-                    $self->warning($source_transcript->display_id." stop codon readthrough might not be that internal stop at $pos")
-                      unless ($seq_edit->start == $pos or ($pos >= $seq_edit->start-10 and $pos <= $seq_edit->start+10));
-                    $transcript->translation->add_Attributes(ref($seq_edit)->new(
-                      -code => '_stop_codon_rt',
-                      -start => $pos,
-                      -end => $pos,
-                      -alt_seq => 'X',
-                    )->get_Attribute);
-                  }
-                }
-              }
-            }
-          }
-          else {
-            my $no_intermal_stop_transcript = replace_stops_with_introns($transcript, $num_internal_stops);
-            if ($no_intermal_stop_transcript) {
-              $no_intermal_stop_transcript->{cov} = $transcript->{cov};
-              $no_intermal_stop_transcript->{perc_id} = $transcript->{perc_id};
-              $transcript = $no_intermal_stop_transcript;
+#          if (index($source_translation->seq, 'U') >= 0 or index(substr($source_translation->seq, 1, $source_translation->length-2), 'X') >= 0) {
+#            my $source_seq_edits = $source_translation->get_all_SeqEdits;
+#            my $pos = 0;
+#            foreach my $seq_edit (@$source_seq_edits) {
+#              if ($seq_edit->name ne 'initial_met') {
+#                $pos = index($new_seq, '*', $pos);
+#                if ($pos == -1) {
+#                  $self->warning($source_transcript->display_id.', I was expecting an internal stop but could not find one');
+#                }
+#                else {
+#                  ++$pos; # We need to be in 1-index coordinates
+#                  if ($seq_edit->code eq '_selenocysteine') {
+#                    $self->warning($source_transcript->display_id." selenocysteine might not be that internal stop at $pos")
+#                      unless ($seq_edit->start == $pos or ($pos >= $seq_edit->start-10 and $pos <= $seq_edit->start+10));
+#                    $transcript->translation->add_Attributes(ref($seq_edit)->new(
+#                      -code => '_selenocysteine',
+#                      -start => $pos,
+#                      -end => $pos,
+#                      -alt_seq => 'U',
+#                    )->get_Attribute);
+#                  }
+#                  elsif ($seq_edit->code eq '_stop_codon_rt') {
+#                    $self->warning($source_transcript->display_id." stop codon readthrough might not be that internal stop at $pos")
+#                      unless ($seq_edit->start == $pos or ($pos >= $seq_edit->start-10 and $pos <= $seq_edit->start+10));
+#                    $transcript->translation->add_Attributes(ref($seq_edit)->new(
+#                      -code => '_stop_codon_rt',
+#                      -start => $pos,
+#                      -end => $pos,
+#                      -alt_seq => 'X',
+#                    )->get_Attribute);
+#                  }
+#                }
+#              }
+#            }
+#          }
+#          else {
+            my $no_internal_stop_transcript = replace_stops_with_introns($transcript, $num_internal_stops);
+            if ($no_internal_stop_transcript) {
+              $no_internal_stop_transcript->{cov} = $transcript->{cov};
+              $no_internal_stop_transcript->{perc_id} = $transcript->{perc_id};
+              $transcript = $no_internal_stop_transcript;
             }
             else {
               $self->warning('Could not replace internal stops for '.$source_transcript->display_id);
             }
-          }
+#          }
         }
       }
       $transcript->{'cds_description'} = $cds_description;
@@ -1745,7 +1827,7 @@ sub print_transcript_stats {
 
 
 sub map_gene_minimap {
-  my ($self,$gene,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,
+  my ($self,$source_transcripts,$target_genomic_start,$target_region_slice,$target_strand,
       $target_genome_file,$source_transcript_id_hash,$max_intron_size,$target_adaptor,$target_slice_adaptor,$best_transcripts_by_id) = @_;
 
   my $source_transcript_fasta_seqs = [];
