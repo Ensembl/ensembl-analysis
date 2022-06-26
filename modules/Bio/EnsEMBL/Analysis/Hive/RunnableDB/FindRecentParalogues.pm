@@ -222,8 +222,6 @@ sub cluster_source_genes {
       $genes_by_slice->{$slice->seq_region_name()} = $slice->get_all_Genes();
     }
 
-#    $new_gene->biotype("new_".$new_gene->biotype);
-
     my $intial_slice_genes = $genes_by_slice->{$slice->seq_region_name()};
     my $slice_genes = [];
 
@@ -300,7 +298,6 @@ sub filter_by_cutoffs {
     my $source_transcript_seq;
     my $transcript_seq;
     if(defined($source_transcript->translation())) {
-      say "FERGAL IN SC TRANS: ".$source_transcript->dbID();
       $source_transcript_seq = $source_transcript->translateable_seq();
       $transcript_seq = $transcript->translateable_seq();
 
@@ -341,13 +338,13 @@ sub filter_by_cutoffs {
 
       if ($aligned_source_seq_copy =~ /\-/ or $aligned_target_seq_copy =~ /\-/) {
         $cds_description .= ";cds_gap=1";
-        my $transcript_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
-                                                             -VALUE => ">source_cds_align\n".$aligned_source_seq."\n>target_cds_align\n".$aligned_target_seq."\n");
-        $transcript->add_Attributes($transcript_attrib);
-        my $translation_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
-                                                              -VALUE => ">source_translation\n".$source_transcript->translation->seq().
-                                                                        "\n>target_translation\n".$transcript->translation->seq()."\n");
-        $transcript->translation->add_Attributes($translation_attrib);
+#        my $transcript_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
+#                                                             -VALUE => ">source_cds_align\n".$aligned_source_seq."\n>target_cds_align\n".$aligned_target_seq."\n");
+#        $transcript->add_Attributes($transcript_attrib);
+#        my $translation_attrib = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',
+#                                                              -VALUE => ">source_translation\n".$source_transcript->translation->seq().
+#                                                                        "\n>target_translation\n".$transcript->translation->seq()."\n");
+#        $transcript->translation->add_Attributes($translation_attrib);
       } else {
         $cds_description .= ";cds_gap=0";
       }
@@ -468,9 +465,9 @@ sub set_canonical {
   foreach my $transcript (@$transcripts) {
     if($transcript->translation()) {
       if($longest_translation) {
-        if($transcript->translation->length() > $longest_translation->translation->length()) {
+        if(length($transcript->translateable_seq) > length($longest_translation->translateable_seq())) {
           $longest_translation = $transcript;
-        } elsif(($transcript->translation->length() > $longest_translation->translation->length()) and ($transcript->length() > $longest_translation->length())) {
+        } elsif((length($transcript->translateable_seq()) > length($longest_translation->translateable_seq())) and ($transcript->length() > $longest_translation->length())) {
           $longest_translation = $transcript;
         }
       } else {
@@ -498,7 +495,7 @@ sub fetch_input_genes_by_id {
   my ($self,$gene_ids,$source_gene_dba) = @_;
 
   my $coverage_cutoff = 98;
-  my $perc_id_cutoff = 98;
+  my $perc_id_cutoff = 95;
 
   my $input_genes = [];
   my $source_gene_adaptor = $source_gene_dba->get_GeneAdaptor();
@@ -509,7 +506,8 @@ sub fetch_input_genes_by_id {
       $self->throw("Couldn't fetch gene from source db with dbID: ".$gene_id);
     }
 
-    my $transcript = $self->set_canonical($gene);
+   $self->set_canonical($gene);
+   my $transcript = $gene->canonical_transcript();
     if ($transcript) {
       my $transcript_description = $transcript->description();
       $transcript_description =~ /;mapping_coverage=([0-9.]+);.*mapping_identity=([0-9.]+)/;
@@ -529,7 +527,6 @@ sub fetch_input_genes_by_id {
 
     push(@$input_genes,$gene);
   }
-
   return($input_genes);
 }
 
