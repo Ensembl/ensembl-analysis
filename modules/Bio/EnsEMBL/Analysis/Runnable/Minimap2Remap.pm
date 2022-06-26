@@ -151,9 +151,8 @@ sub run {
 #      next;
 #    }
     my $source_gene = ${$source_genes_by_stable_id->{$gene->stable_id()}}[0];
-    # TEST!!!!!!!!!!!!!
     unless($source_gene) {
-      next;
+      $self->throw("Couldn't find a source gene for ".$gene->stable_id());
     }
     my $source_transcripts = $source_gene->get_all_Transcripts();
     $self->check_complete_mapping($gene,$source_transcripts);
