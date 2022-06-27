@@ -1493,7 +1493,9 @@ sub replace_stops_with_introns{
                 }
 
                 else {
-                  throw("Something about this feature has not been covered in the conditionals, edit code");
+                  #throw("Something about this feature has not been covered in the conditionals, edit code");
+                  warning("Something about this feature has not been covered in the conditionals, edit code. Returning 0.");
+                  return 0;
                 }
 
               } # foreach my $ug ($f->ungapped_features)
