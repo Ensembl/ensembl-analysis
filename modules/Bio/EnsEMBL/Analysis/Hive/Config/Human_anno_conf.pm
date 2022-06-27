@@ -558,6 +558,7 @@ sub pipeline_analyses {
                                 ' -pass '.$self->o('password').
                                 ' -host '.$self->o('core_db','-host').
                                 ' -port '.$self->o('core_db','-port').
+                                ' -output_dir '.'#output_path#'.
                                 ' -dbname '.'#core_dbname#',
                        },
         -rc_name => '5GB',
