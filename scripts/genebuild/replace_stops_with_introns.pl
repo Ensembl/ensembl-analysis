@@ -37,11 +37,15 @@ my $dbhost = '';
 my $dbport;
 my $dbpass;
 
-my $options = GetOptions ("dbuser=s" => \$dbuser,
-                          "dbhost=s" => \$dbhost,
-                          "dbport=i" => \$dbport,
-                          "dbname=s" => \$dbname,
-                          "dbpass=s" => \$dbpass);
+my $options = GetOptions ("dbuser=s"     => \$dbuser,
+                          "dbhost=s"     => \$dbhost,
+                          "dbport=i"     => \$dbport,
+                          "dbname=s"     => \$dbname,
+                          "dbpass=s"     => \$dbpass,
+                          "output_dir=s" => \$output_dir);
+
+my $log_file = $output_dir."replace_stops_with_introns_".$dbname.".log";
+open(LOG,">".$log_file);
 
 my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
   -port    => $dbport,
@@ -58,46 +62,47 @@ foreach my $old_gene (@{$gene_adaptor->fetch_all()}) {
   my $num_transcripts_changed = 0;
   my $transcripts = $old_gene->get_all_Transcripts();
   my $gene = clone_Gene($old_gene);
-  print STDERR "Gene: ".$old_gene->dbID()." ".$old_gene->stable_id()."\n";
+  say LOG "Gene: ".$old_gene->dbID()." ".$old_gene->stable_id();
   $gene->flush_Transcripts();
   TRANSCRIPT: foreach my $transcript (@$transcripts) {
     if ($transcript->biotype() ne 'polymorphic_pseudogene' and
         $transcript->translation() and
         $transcript->translation()->seq() =~ /\*/) {
       # we replace the stop codons with introns
-      print STDERR "old translation: ".$transcript->translation()->seq()."\n";
+      say LOG "old translation: ".$transcript->translation()->seq();
       $transcript = replace_stops_with_introns($transcript,$max_stops);
-      print STDERR "new translation: ".$transcript->translation()->seq()."\n";
+      say LOG "new translation: ".$transcript->translation()->seq();
       if ($transcript and $transcript->translate()->seq() !~ /\*/) {
         $gene->add_Transcript($transcript);
 	$num_transcripts++;
 	$num_transcripts_changed++;
-        print STDERR "The transcript ".$transcript->dbID()." ".$transcript->stable_id()." has been changed.\n";
+        say LOG "The transcript ".$transcript->dbID()." ".$transcript->stable_id()." has been changed";
       } elsif ($transcript and !$transcript->translate()) {
-        print STDERR "Transcript ".$transcript->dbID()." ".$transcript->stable_id()." (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Discarded.\n";
+        say LOG "Transcript ".$transcript->dbID()." ".$transcript->stable_id()." (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Discarded.";
       } elsif ($transcript) {
-        print STDERR "Transcript ".$transcript->dbID()." ".$transcript->stable_id()." (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Discarded.\n";
+        say LOG "Transcript ".$transcript->dbID()." ".$transcript->stable_id()." (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Discarded.";
       } else {
-        print STDERR "No transcript defined after replacing stops.\n";
+        say LOG "No transcript defined after replacing stops.";
       }
     } else {
       # we skip the transcript by adding it to the gene as it is
-      print STDERR "Transcript ".$transcript->dbID()." ".$transcript->stable_id()." does not contain any stop or it is a polymorphic_pseudogene. Kept as it is.\n";
+      say LOG "Transcript ".$transcript->dbID()." ".$transcript->stable_id()." does not contain any stop or it is a polymorphic_pseudogene. Kept as it is.";
       $gene->add_Transcript($transcript);
       $num_transcripts++;
     }
   }
   
   if ($num_transcripts and $num_transcripts_changed) {
-    print STDERR "Removing old gene: ".$old_gene->dbID()." ".$old_gene->stable_id()."\n";
+    say LOG "Removing old gene: ".$old_gene->dbID()." ".$old_gene->stable_id();
     $gene_adaptor->remove($old_gene);
     $gene->dbID(undef);
     $gene_adaptor->store($gene);
-    print STDERR "Stored new gene: ".$gene->dbID()." ".$gene->stable_id()."\n\n";
+    say LOG "Stored new gene: ".$gene->dbID()." ".$gene->stable_id()."\n";
   } elsif ($num_transcripts) {
-    print STDERR "Gene kept: ".$gene->dbID()." ".$gene->stable_id()."\n\n";
+    say LOG "Gene kept: ".$gene->dbID()." ".$gene->stable_id()."\n";
   } else {
-    print STDERR "Gene does not have any transcript. Not storing.\n\n";
+    say LOG "Gene does not have any transcript. Not storing.\n";
   }
+close LOG;
 }
 
