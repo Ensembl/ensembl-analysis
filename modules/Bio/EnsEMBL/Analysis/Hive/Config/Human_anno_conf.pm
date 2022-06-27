@@ -30,6 +30,7 @@ sub default_options {
   return {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
+    'reference_fasta'           => '',
     'email'                     => '' || $ENV{USER}.'@ebi.ac.uk', # email to receive report from the HiveDeleteTranscripts module
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'user'                      => '', # write db user
@@ -87,6 +88,7 @@ sub default_options {
     meta_levels_script         => catfile($self->o('ensembl_misc_script'), 'meta_levels.pl'),
     frameshift_attrib_script   => catfile($self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl'),
     select_canonical_script    => catfile($self->o('ensembl_misc_script'),'canonical_transcripts', 'select_canonical_transcripts.pl'),
+    remove_internal_stops_script => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'remove_internal_stops.pl'),
 
 
 ########################
@@ -288,7 +290,7 @@ sub pipeline_analyses {
               '(1, "species.production_name", "#production_name#"),'.
               '(1, "strain.type", "#strain_type#"),'.
               '(1, "genebuild.initial_release_date", NULL),'.
-              '(1, "genebuild.projection_source_db", '.$self->o('ref_db_name').'),'.
+              '(1, "genebuild.projection_source_db", "'.$self->o('ref_db_name').'"),'.
               '(1, "genebuild.id", '.$self->o('genebuilder_id').'),'.
               '(1, "genebuild.method", "projection_build")'
           ],
@@ -542,8 +544,26 @@ sub pipeline_analyses {
         -rc_name    => '15GB',
         -max_retry_count => 0,
         -flow_into  => {
-          1 => ['set_meta_coords'],
+          1 => ['remove_internal_stops'],
         },
+      },
+
+
+      {
+        -logic_name => 'remove_internal_stops',
+        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -parameters => {
+                         cmd => 'perl '.$self->o('remove_internal_stops_script').
+                                ' -user '.$self->o('user').
+                                ' -pass '.$self->o('password').
+                                ' -host '.$self->o('core_db','-host').
+                                ' -port '.$self->o('core_db','-port').
+                                ' -dbname '.'#core_dbname#',
+                       },
+        -rc_name => '5GB',
+        -flow_into => {
+                        1 => ['set_meta_coords'],
+                      },
       },
 
 
@@ -629,7 +649,6 @@ sub pipeline_analyses {
             "WHERE g.biotype = 'protein_coding' ".
             "  AND t.biotype NOT IN ('protein_coding', 'nonsense_mediated_decay') ".
             "  AND cs.species_id = 1",
-	    
             "UPDATE transcript t,gene g ".
             "SET t.biotype='pcnonpc' ".
             "WHERE t.gene_id=g.gene_id ".
@@ -641,7 +660,7 @@ sub pipeline_analyses {
           1 => ['delete_pcnonpc_transcripts_and_genes'],
         },
       },
-      
+
       {
         -logic_name => 'delete_pcnonpc_transcripts_and_genes',
         -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDeleteTranscripts',
@@ -691,7 +710,7 @@ sub pipeline_analyses {
           1 => ['delete_shortcds_transcripts'],
         },
       },
-      
+
       {
         -logic_name => 'delete_shortcds_transcripts',
         -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDeleteTranscripts',
@@ -912,6 +931,7 @@ sub resource_classes {
     '3GB' => { LSF => $self->lsf_resource_builder('production', 3000)},
     '4GB_registry' => { LSF => [$self->lsf_resource_builder('production', 4000), '-reg_conf '.$self->default_options->{registry_file}]},
     '4GB' => { LSF => $self->lsf_resource_builder('production', 4000)},
+    '5GB' => { LSF => $self->lsf_resource_builder('production', 5000)},
     '9GB' => { LSF => $self->lsf_resource_builder('production', 9000)},
     '12GB' => { LSF => $self->lsf_resource_builder('production', 12000)},
     '15GB' => { LSF => $self->lsf_resource_builder('production', 15000)},

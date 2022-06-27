@@ -267,7 +267,10 @@ sub simple_layer_genes {
   $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $parent_stable_id);
   $selected_transcript->add_Attributes($parent_attribute);
 
-  return([$selected_gene]);
+  unless($selected_gene) {
+    $self->throw("No gene selected from cluster, something has gone wrong");
+  }
+  return($selected_gene);
 }
 
 

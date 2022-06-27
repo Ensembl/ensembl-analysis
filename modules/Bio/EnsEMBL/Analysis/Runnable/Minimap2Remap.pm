@@ -317,11 +317,77 @@ sub list_remaining_missing_genes {
 }
 
 
+sub simple_layer_genes {
+  my ($self,$genes) = @_;
+
+  # This is just a simple filtering to make sure we don't make any weird complex clusters like sncRNA transcripts with protein coding ones
+  # It does mean that some potentially interesting edge cases might be missed, but this is fine for now
+  my $biotype_group_priorities = { 'coding'     => 5,
+                                   'lnoncoding' => 4,
+                                   'pseudogene' => 3,
+                                   'snoncoding' => 2,
+                                   'mnoncoding' => 1,
+                                   'undefined'  => 0,
+                                 };
+
+  my $selected_gene;
+  my $selected_transcript;
+  my $max_priority = 0;
+  foreach my $gene (@$genes) {
+    my $transcript = ${$gene->get_all_Transcripts()}[0];
+    my $biotype_group = $gene->get_Biotype->biotype_group();
+    my $priority = $biotype_group_priorities->{$biotype_group};
+
+    if(!($selected_gene)) {
+      $selected_gene = $gene;
+      $selected_transcript = $transcript;
+      $max_priority = $priority;
+    } elsif($priority > $max_priority) {
+      $selected_gene = $gene;
+      $selected_transcript = $transcript;
+      $max_priority = $priority;
+    } elsif($priority == $max_priority and $transcript->length() > $selected_transcript->length()) {
+      $selected_gene = $gene;
+      $selected_transcript = $transcript;
+      $max_priority = $priority;
+    }
+  }
+
+  if($selected_gene->get_Biotype->biotype_group() eq 'coding') {
+    $selected_gene->biotype('protein_coding');
+    $selected_transcript->biotype('protein_coding');
+  } elsif($selected_gene->get_Biotype->biotype_group() eq 'lnoncoding') {
+    $selected_gene->biotype('lncRNA');
+    $selected_transcript->biotype('lncRNA');
+  } else {
+    $selected_transcript->biotype($selected_gene->biotype());
+  }
+
+  my $description = $selected_gene->description();
+  $description =~ /;parent_gene=([^;]+);/;
+  my $parent_stable_id = $1;
+  my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $parent_stable_id);
+  $selected_gene->add_Attributes($parent_attribute);
+
+  $description = $selected_transcript->description();
+  $description =~ /;parent_transcript=([^;]+);/;
+  $parent_stable_id = $1;
+  $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $parent_stable_id);
+  $selected_transcript->add_Attributes($parent_attribute);
+
+  unless($selected_gene) {
+    $self->throw("No gene selected from cluster, something has gone wrong");
+  }
+  return($selected_gene);
+}
+
+
 sub search_minimap_global {
   my ($self,$missing_genes,$target_genes,$genome_index) = @_;
 
   my $coverage_cutoff = 0.95;
   my $perc_id_cutoff = 0.95;
+  my $transcript_parent_genes_by_stable_id = {};
   my $transcripts_to_map_fasta_seqs = [];
   foreach my $source_gene (@$missing_genes) {
     # This will only use the canonical transcript since it's sort of a last ditch effort
@@ -329,6 +395,7 @@ sub search_minimap_global {
     my $transcript_sequence = $transcript->seq->seq();
     my $fasta_record = ">".$transcript->stable_id()."\n".$transcript_sequence;
     push(@$transcripts_to_map_fasta_seqs,$fasta_record);
+    $transcript_parent_genes_by_stable_id->{$transcript->stable_id()} = $source_gene;
   }
 
   # Now run a global mapping of the missing/bad transcripts
@@ -339,29 +406,63 @@ sub search_minimap_global {
   my $global_mapped_transcripts = $self->generate_minimap_transcripts($transcripts_to_map_fasta_seqs,$genome_index,$target_adaptor,1,200000);
   say "Number of globally mapped transcripts: ".scalar(@$global_mapped_transcripts);
 
-  # Want to get cov/id, remove bad mappings, add to genes, cluster and iteratively add where there's no exon overlap
-  # Maybe using a layering of biotype groups
+  my $genes = $self->generate_single_transcript_genes($global_mapped_transcripts);
+  my $biotypes_hash = $self->generate_biotypes_hash($genes);
 
-#  my $filtered_trancripts = [];
-#  foreach my $transcript (@$global_mapped_transcripts) {
-#    unless() {
+  say "Processing ".scalar(@$genes)." globally mapped genes";
+  my ($clusters, $unclustered) = cluster_Genes($genes,$biotypes_hash);
 
-#    }
-#    $transcript->{'annotation_method'} = 'minimap_local';
-#    push(@$minimap_transcripts,$transcript);
-#  }
-#  my $transcripts_by_id = {};
-#  foreach my $transcript (@$minimap_transcripts) {
-#    $transcripts_by_id->{$transcript->stable_id} = $transcript;
-#    my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id};
-#    if ($source_transcript->translation) {
-#      $self->calculate_translation_based_on_source_transcript($transcript, $source_transcript);
-#    }
+  my $selected_genes = [];
+  foreach my $cluster (@$clusters) {
+    my $clustered_genes = $cluster->get_Genes();
+    my $selected_gene = $self->simple_layer_genes($clustered_genes);
+    push(@$selected_genes,$selected_gene);
+  }
 
-#    $self->set_transcript_coverage_and_identity($source_transcript, $transcript);
-#    say "Mapped transcript (".$source_transcript->stable_id()."): Coverage: ".$transcript->{'cov'}.", Percent id: ".$transcript->{'perc_id'};
-#  }
+  # For unclustered stuff there's no need to build a runnable, so just put directly on the output
+  foreach my $unclustered (@$unclustered) {
+    my $unclustered_genes = $unclustered->get_Genes();
+    foreach my $unclustered_gene (@$unclustered_genes) {
+      push(@$selected_genes,$unclustered_gene);
+    }
+  }
 
+  # At this point we have one gene per locus for the recovered genes (in terms of exon overlap), next we need to cluster
+  # with the existing geneset and remove anything that has any exon overlap
+  foreach my $selected_gene (@$selected_genes) {
+    my $transcript = ${$selected_gene->get_all_Transcripts}[0];
+    my $source_gene = $transcript_parent_genes_by_stable_id->{$transcript->stable_id()};
+    unless($source_gene) {
+      $self->throw("Could not find a parent source gene for gene/transcript with transcript stable id: ".$transcript->stable_id());
+    }
+    my $source_transcript = $source_gene->canonical_transcript();
+    unless($source_transcript->stable_id() eq $transcript->stable_id()) {
+      $self->throw("Mapped transcript stable id (".$transcript->stable_id().") does not match source canoncial transcript stable id (".$source_transcript->stable_id().")");
+    }
+
+    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_gene->stable_id().".".$source_gene->version());
+    $selected_gene->add_Attributes($parent_attribute);
+    $self->set_transcript_description($transcript,$source_transcript);
+    $self->set_transcript_coverage_and_identity($transcript,$source_transcript);
+    $self->qc_cds_sequence($transcript,$source_transcript);
+    $selected_gene->{'recovered_globally'} = 1;
+    $selected_gene->{'annotation_method'} = 'minimap_global';
+  }
+
+  my $final_missing_genes = [];
+  my $all_genes = [@$target_genes,@$selected_genes];
+  $biotypes_hash = $self->generate_biotypes_hash($all_genes);
+  ($clusters, $unclustered) = cluster_Genes($all_genes,$biotypes_hash);
+  foreach my $unclustered (@$unclustered) {
+    my $unclustered_genes = $unclustered->get_Genes();
+    foreach my $unclustered_gene (@$unclustered_genes) {
+      if($unclustered_gene->{'recovered_globally'}) {
+        push(@$final_missing_genes,$unclustered_gene);
+      }
+    }
+  }
+
+  return($final_missing_genes);
 }
 
 
@@ -471,6 +572,22 @@ sub resolve_conflict {
           say "  Both genes are in the expected location";
         }
 
+        # 4) Remove global
+#        if($gene->{'annotation_method'} eq 'minimap_global' and !($conflicting_gene->{'annotation_method'}) eq 'minimap_global') {
+#          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
+#          $conflicting_gene->{'to_remove'} = 1;
+#          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as it was generated by global minimap ".$gene->stable_id().
+#              " (".$gene->{'internal_id'}.") is";
+#          next;
+#        } elsif($conflicting_gene->{'annotation_method'} eq 'minimap_global' and !($gene->{'annotation_method'}) eq 'minimap_global') {
+#          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
+#          $gene->{'to_remove'} = 1;
+#          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it was generated by global minimap ".$conflicting_gene->stable_id()." (".
+#              $conflicting_gene->{'internal_id'}.") is";
+#          last;
+#        } else {
+#          say "  Can't use global minimap to resolve";
+#        }
 #        # 4) Filter by neighbourhood score
 #        if($gene->{'neighbourhood_score'} > $conflicting_gene->{'neighbourhood_score'}) {
 #          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
@@ -1303,6 +1420,9 @@ sub process_results {
         $transcript->description($updated_description);
       }
 
+      # add source gene stable id as gene attribute
+      my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_gene->stable_id.".".$source_gene->version);
+      $gene->add_Attributes($parent_attribute);
       $gene->{'to_write'} = 1;
       push(@$final_genes,$gene);
     }
