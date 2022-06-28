@@ -1666,7 +1666,7 @@ sub pipeline_analyses {
         hive_config => $self->o('hive_homology_rnaseq_config'),
         databases => ['genblast_db', 'rnaseq_refine_db', 'genblast_rnaseq_support_nr_db', 'dna_db'],
         genblast_db => $self->o('genblast_db'),
-        rnaseq_refine_db => undef,
+        rnaseq_refine_db => $self->o('rnaseq_for_layer_nr_db'),
         genblast_rnaseq_support_nr_db => $self->o('genblast_rnaseq_support_nr_db'),
         dna_db => $self->o('dna_db'),
         enscode_root_dir => $self->o('enscode_root_dir'),
