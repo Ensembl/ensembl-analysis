@@ -36,6 +36,7 @@ my $dbuser   = '';
 my $dbhost = '';
 my $dbport;
 my $dbpass;
+my $output_dir;
 
 my $options = GetOptions ("dbuser=s"     => \$dbuser,
                           "dbhost=s"     => \$dbhost,
