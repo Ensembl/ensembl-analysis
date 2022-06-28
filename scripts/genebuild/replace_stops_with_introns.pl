@@ -45,7 +45,7 @@ my $options = GetOptions ("dbuser=s"     => \$dbuser,
                           "dbpass=s"     => \$dbpass,
                           "output_dir=s" => \$output_dir);
 
-my $log_file = $output_dir."replace_stops_with_introns_".$dbname.".log";
+my $log_file = $output_dir."/replace_stops_with_introns_".$dbname.".log";
 open(LOG,">".$log_file);
 
 my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
