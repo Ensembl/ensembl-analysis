@@ -104,6 +104,8 @@ foreach my $old_gene (@{$gene_adaptor->fetch_all()}) {
   } else {
     say LOG "Gene does not have any transcript. Not storing.\n";
   }
-close LOG;
 }
 
+close LOG;
+
+1;
