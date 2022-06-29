@@ -1222,6 +1222,13 @@ sub process_results {
         $transcript->description($updated_description);
       }
 
+      # add source gene stable id as gene attribute
+      my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_gene->stable_id.".".$source_gene->version);
+      $gene->add_Attributes($parent_attribute);
+
+      $gene->biotype($source_gene->biotype());
+      $gene->stable_id($source_gene->stable_id());
+
       $gene->{'to_write'} = 1;
       push(@$final_genes,$gene);
     }
