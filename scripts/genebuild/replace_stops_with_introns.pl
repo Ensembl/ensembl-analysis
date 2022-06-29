@@ -68,7 +68,6 @@ my $slice_adaptor = $db->get_SliceAdaptor;
 my @genes_to_process;
 my $count = 0;
 foreach my $slice (@{$slice_adaptor->fetch_all('toplevel', undef, undef, 1)}) {
-  next unless ($slice->seq_region_name eq "3");
   foreach my $old_gene (@{$slice->get_all_Genes(undef, undef, 1)}) {
     ++$count;
     my $max_stops = 999999;
