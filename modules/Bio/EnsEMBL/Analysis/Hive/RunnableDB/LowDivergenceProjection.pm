@@ -262,8 +262,7 @@ sub set_parent_attribs {
   my ($self,$gene) = @_;
 
   my ($current_gene_attrib) = @{$gene->get_all_Attributes('proj_parent_g')};
-
-  unless($current_gene_attrib and $current_gene_attrib =~ /^ENS/) {
+  unless($current_gene_attrib and $current_gene_attrib->value() =~ /^ENS/) {
     my $parent_versioned_stable_id = $gene->{'parent_gene_versioned_stable_id'};
     unless($parent_versioned_stable_id) {
       $self->throw("Couldn't find a parent_gene_versioned_stable_id key on the output gene, something has gone wrong");
@@ -276,7 +275,7 @@ sub set_parent_attribs {
   my $transcripts = $gene->get_all_Transcripts();
   foreach my $transcript (@$transcripts) {
     my ($current_transcript_attrib) = @{$transcript->get_all_Attributes('proj_parent_t')};
-    unless($current_transcript_attrib and $current_transcript_attrib =~ /^ENS/) {
+    unless($current_transcript_attrib and $current_transcript_attrib->value() =~ /^ENS/) {
       my $parent_versioned_stable_id = $transcript->{'parent_transcript_versioned_stable_id'};
       unless($parent_versioned_stable_id) {
         $self->throw("Couldn't find a parent_transcript_versioned_stable_id key on the output gene, something has gone wrong");
