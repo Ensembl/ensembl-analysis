@@ -58,7 +58,7 @@ my $db = new Bio::EnsEMBL::DBSQL::DBAdaptor(
 my $gene_adaptor = $db->get_GeneAdaptor();
 
 foreach my $old_gene (@{$gene_adaptor->fetch_all()}) {
-  my $max_stops = 999;
+  my $max_stops = 999999;
   my $num_transcripts = 0;
   my $num_transcripts_changed = 0;
   my $transcripts = $old_gene->get_all_Transcripts();
