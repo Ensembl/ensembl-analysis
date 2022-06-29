@@ -127,9 +127,14 @@ sub run {
   my $target_adaptor = $self->target_adaptor();
   my $target_gene_adaptor = $target_adaptor->get_GeneAdaptor();
   my $source_genes = $self->genes_to_process();
+
+#  foreach my $source_gene (@$source_genes) {
+#    say "FERGAL SOURCE: ".$source_gene->seq_region_name()." ".$source_gene->stable_id();
+#  }
   # TEST!!!!!!!!!!!!!!!!
-#check_for_problematic_transcripts  my $test_slice = $target_adaptor->get_SliceAdaptor->fetch_by_region('toplevel','17');
+#  my $test_slice = $target_adaptor->get_SliceAdaptor->fetch_by_region('toplevel','17');
 #  my $target_genes = $target_adaptor->get_GeneAdaptor->fetch_all_by_Slice($test_slice);
+#  my $target_genes_by_slice = $self->sort_genes_by_slice($target_genes);
 
   my $source_genes_by_slice = $self->sort_genes_by_slice($source_genes);
   my $target_genes_by_slice = {};
@@ -152,7 +157,7 @@ sub run {
 #    }
     my $source_gene = ${$source_genes_by_stable_id->{$gene->stable_id()}}[0];
     unless($source_gene) {
-      $self->throw("Couldn't find a source gene for ".$gene->stable_id());
+      $self->throw("Couldn't find a source gene for ".$gene->stable_id()); 
     }
     my $source_transcripts = $source_gene->get_all_Transcripts();
     $self->check_complete_mapping($gene,$source_transcripts);
@@ -253,7 +258,6 @@ sub run {
   }
 
   say "Got ".scalar(@$all_recovered_genes)." genes after recovery";
-
 
   if(scalar(@$all_recovered_genes)) {
     push(@$target_genes,@$all_recovered_genes);
@@ -762,11 +766,8 @@ sub get_pairwise_coverage {
 sub check_expected_regions {
   my ($self,$target_genes,$source_genes_by_stable_id,$source_genes_by_slice,$high_confidence_genes_by_id) = @_;
 
-#  foreach my $genes (@$multimapped_target_genes) {
   foreach my $gene (@$target_genes) {
-#    my $stable_id = ${$genes}[0]->stable_id();
     my $stable_id = $gene->stable_id();
- #   say "FERGAL SID CHECK: ".$stable_id;
     my $source_gene = ${$source_genes_by_stable_id->{$stable_id}}[0];
 
 # TEST!!!!!!!!!!
@@ -776,25 +777,23 @@ sub check_expected_regions {
 
     $self->set_expected_regions([$source_gene],$source_genes_by_slice,$high_confidence_genes_by_id);
     say "Checking multimappers for ".$stable_id;
-#    foreach my $gene (@$genes) {
       # TEST!!!!!!!!!!!
 #      unless($gene->seq_region_name eq '17') {
 #        next;
 #      }
 
-      if($gene->seq_region_name eq $source_gene->{'target_slice'} and $gene->seq_region_start() >= $source_gene->{'left_boundary'} and
-         $gene->seq_region_end() <= $source_gene->{'right_boundary'}) {
-        $gene->{'expected_location'} = 1;
-        say "  Gene ".$gene->seq_region_start().":".$gene->seq_region_end().":".$gene->seq_region_strand().":".$gene->seq_region_name()." is in expected location:".
-            "  ".$source_gene->{'target_slice'}.":".$source_gene->{'left_boundary'}.":".$source_gene->{'right_boundary'}.", Neighbourhood score: ".
-            $gene->{'neighbourhood_score'}.", Avg cov: ".$gene->{'avg_cov'}.", Avg perc id: ".$gene->{'avg_perc_id'};
-      } else {
-        $gene->{'expected_location'} = 0;
-        say "  Gene ".$gene->seq_region_start().":".$gene->seq_region_end().":".$gene->seq_region_strand().":".$gene->seq_region_name()." is not in expected location:".
-            "  ".$source_gene->{'target_slice'}.":".$source_gene->{'left_boundary'}.":".$source_gene->{'right_boundary'}.", Neighbourhood score: ".
-            $gene->{'neighbourhood_score'}.", Avg cov: ".$gene->{'avg_cov'}.", Avg perc id: ".$gene->{'avg_perc_id'};
-      }
-#    }
+    if($gene->seq_region_name eq $source_gene->{'target_slice'} and $gene->seq_region_start() >= $source_gene->{'left_boundary'} and
+      $gene->seq_region_end() <= $source_gene->{'right_boundary'}) {
+      $gene->{'expected_location'} = 1;
+      say "  Gene ".$gene->seq_region_start().":".$gene->seq_region_end().":".$gene->seq_region_strand().":".$gene->seq_region_name()." is in expected location:".
+          "  ".$source_gene->{'target_slice'}.":".$source_gene->{'left_boundary'}.":".$source_gene->{'right_boundary'}.", Neighbourhood score: ".
+          $gene->{'neighbourhood_score'}.", Avg cov: ".$gene->{'avg_cov'}.", Avg perc id: ".$gene->{'avg_perc_id'};
+    } else {
+      $gene->{'expected_location'} = 0;
+      say "  Gene ".$gene->seq_region_start().":".$gene->seq_region_end().":".$gene->seq_region_strand().":".$gene->seq_region_name()." is not in expected location:".
+      "  ".$source_gene->{'target_slice'}.":".$source_gene->{'left_boundary'}.":".$source_gene->{'right_boundary'}.", Neighbourhood score: ".
+       $gene->{'neighbourhood_score'}.", Avg cov: ".$gene->{'avg_cov'}.", Avg perc id: ".$gene->{'avg_perc_id'};
+    }
   }
 }
 
@@ -1007,6 +1006,7 @@ sub list_high_confidence_genes {
 
   my $high_confidence_genes = [];
   foreach my $target_slice (keys(%$target_genes_by_slice)) {
+# TEST!!!!!!!!!!!!!!!!!!!
 #    unless($target_slice eq '17') {
 #      next;
 #    }
@@ -1023,6 +1023,7 @@ sub list_high_confidence_genes {
       unless($midpoint_coords_by_id->{$gene->stable_id()}) {
         $midpoint_coords_by_id->{$gene->stable_id()} = [];
       }
+      # CHECK, this seems like it is wrong, assumes stable id is 
       push(@{$midpoint_coords_by_id->{$gene->stable_id()}},$midpoint);
     }
 
@@ -1062,9 +1063,9 @@ sub list_high_confidence_genes {
 
     my $source_gene = ${$source_genes_by_stable_id->{$id}}[0];
     # TEST!!!!!!!!!
-    unless($source_gene) {
-      next;
-    }
+ #   unless($source_gene) {
+ #     next;
+ #   }
 
     my $source_transcripts = $source_gene->get_all_Transcripts();
 
@@ -1161,7 +1162,6 @@ sub check_complete_mapping {
 sub set_neighbourhood_score {
   my ($self,$target_gene,$source_gene) = @_;
 
-#  say "FERGAL TARGET: ".$target_gene->stable_id;
   my $neighbour_limit = 100;
   my $source_neighbours = $source_gene->{'sorted_neighbours'};
 
@@ -1220,11 +1220,11 @@ sub list_missing_genes {
   my $missing_source_genes = [];
   foreach my $stable_id (keys(%$source_genes_by_stable_id)) {
     unless($target_genes_by_stable_id->{$stable_id}) {
-      say "Missing the following stable id in target, will add to list: ".$stable_id;
       # TEST!!!!!!!!!!!!!!!!!!!
 #      unless(${$source_genes_by_stable_id->{$stable_id}}[0]->seq_region_name eq '17') {
 #        next;
 #      }
+      say "Missing the following stable id in target, will add to list: ".$stable_id;
       push(@$missing_source_genes,${$source_genes_by_stable_id->{$stable_id}}[0]);
     }
   }
@@ -1422,6 +1422,8 @@ sub process_results {
 
       # add source gene stable id as gene attribute
       my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_gene->stable_id.".".$source_gene->version);
+      $gene->biotype($source_gene->biotype());
+      $gene->stable_id($source_gene->stable_id());
       $gene->add_Attributes($parent_attribute);
       $gene->{'to_write'} = 1;
       push(@$final_genes,$gene);
@@ -1792,21 +1794,25 @@ sub filter_paf_hits {
     if(($gene_left_boundary and $gene_right_boundary and $gene_target_slice) and
        ($paf_target_genomic_start >= $gene_left_boundary and $paf_target_genomic_end <= $gene_right_boundary and $gene_target_slice eq $paf_target_genomic_name and
         $paf_perc_ident >= $hit_identity_cutoff)) {
+      say "FERGAL DEBUG P1";
       push(@$overlapping_paf_results,$paf_result);
     } elsif($paf_perc_ident >= $hit_identity_cutoff) {
+      say "FERGAL DEBUG P2";
       say "Missing gene ".$gene->stable_id()." did not have an identified high confidence target region. Will take only the top paf as it passes the identity cutoff";
       push(@$non_overlapping_paf_results,$paf_result);
     }
   }
-  my $selected_overlapping_paf_results = [];
+  my $selected_paf_results = [];
   if(scalar(@$overlapping_paf_results)) {
-    $selected_overlapping_paf_results = $overlapping_paf_results;
+    $selected_paf_results = $overlapping_paf_results;
+    say "Found ".scalar(@$selected_paf_results)." overlapping paf results";
   } elsif(scalar(@$non_overlapping_paf_results)) {
-    $selected_overlapping_paf_results = $non_overlapping_paf_results;
+    $selected_paf_results = ${$non_overlapping_paf_results}[0];
+    say "Found ".scalar(@$selected_paf_results)." non-overlapping paf results, no overlapping results so will use the top hit";
   }
 
   my $extended_regions = [];
-  foreach my $paf_result (@$overlapping_paf_results) {
+  foreach my $paf_result (@$selected_paf_results) {
     my $paf_strand = ${$paf_result}[4];
     my $paf_source_genomic_start = ${$paf_result}[2];
     my $paf_source_genomic_end = ${$paf_result}[3];
