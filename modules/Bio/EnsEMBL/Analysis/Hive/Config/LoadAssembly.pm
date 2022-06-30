@@ -344,7 +344,7 @@ sub pipeline_analyses {
             '(1, "repeat.analysis", "'.$self->o('full_repbase_logic_name').'"),').
           ($self->o('use_repeatmodeler_to_mask') ? '(1, "repeat.analysis", "'.$self->o('repeatmodeler_logic_name').'"),': '').
           '(1, "repeat.analysis", "dust"),'.
-          '(1, "repeat.analysis", "trf"),',
+          '(1, "repeat.analysis", "trf")',
         ],
       },
       -rc_name    => 'default',
