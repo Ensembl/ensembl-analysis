@@ -74,9 +74,9 @@ foreach my $slice (@{$slice_adaptor->fetch_all('toplevel', undef, undef, 1)}) {
     my $max_stops = 999999;
     my $num_transcripts = 0;
     my $num_transcripts_changed = 0;
-    my $transcripts = $old_gene->get_all_Transcripts();
     my $gene = clone_Gene($old_gene, 1);
     say LOG "Gene: ".$old_gene->dbID()." ".$old_gene->stable_id();
+    my $transcripts = $gene->get_all_Transcripts();
     $gene->flush_Transcripts();
     TRANSCRIPT: foreach my $transcript (@$transcripts) {
       my $translation = $transcript->translation;
