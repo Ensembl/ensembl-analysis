@@ -269,6 +269,14 @@ if (!$slice) {
   $slice = $slice_adaptor->fetch_by_region('toplevel',$MIT_NAME);
 }
 
+#Add sequence location attribute to seq_region_table
+my $satrb = $output_db->get_AttributeAdaptor();
+my $seq_loc_attribute = Bio::EnsEMBL::Attribute->new(
+  -CODE        => 'sequence_location',
+  -VALUE       => 'mitochondrial_chromosome',
+);
+$satrb->store_on_Slice( $slice, [$seq_loc_attribute]);
+
 # Trying to add karyotype_rank attribute if we have chromosomes
 my $max_attrib = 0;
 foreach my $chromosome (@{$slice->adaptor->fetch_all_karyotype}) {

@@ -295,8 +295,8 @@ sub pipeline_analyses {
       -parameters => {
         db_conn => $self->o('rnaseq_db'),
         sql => [
-          'DELETE data_file FROM data_file JOIN analysis USING(analysis_id) WHERE logic_name LIKE "%\_merged_rnaseq\_%"',
-          'DELETE FROM analysis WHERE logic_name LIKE "%\_merged_rnaseq\_%"',
+          'DELETE FROM data_file WHERE analysis_id IN (SELECT analysis_id FROM analysis WHERE logic_name LIKE "%merged_rnaseq%")',
+          'DELETE FROM analysis WHERE logic_name LIKE "%merged_rnaseq%"',
         ],
       },
       -rc_name    => 'default',
@@ -618,28 +618,52 @@ sub pipeline_analyses {
 
       -rc_name => 'default',
       -flow_into  => {
-        1 => ['copy_data_files_to_ftp'],
+        1 => ['create_species_ftp_dir'],
       },
     },
     
     {
-      -logic_name => 'copy_data_files_to_ftp',
+      -logic_name => 'create_species_ftp_dir',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-                       cmd => "sudo -u genebuild mkdir -p " . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/' . ";sudo -u genebuild rsync -ahvW " . $self->o('merge_dir') . '/* ' . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/' . ";sudo -u genebuild chmod -R g+w " .$self->o('production_ftp_dir') . 'species/' . ucfirst($self->o('species_name')). "/",
+	      cmd => "sudo -u genebuild mkdir -p " . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/',
                      },
       -rc_name    => '2GB',
       -flow_into => {
-	1 => ['delete_data_files'],
+	1 => ['copy_data_files'],
       }
     },
 
-    { 
-      -logic_name => 'delete_data_files',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-       -parameters => { 
-	 cmd => 'rm '. $self->o('merge_dir') . '/* ',
-       }
+   {
+    -logic_name => 'copy_data_files',
+    -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+    -parameters => {
+      cmd => "sudo -u genebuild rsync -ahvW " . $self->o('merge_dir') . '/* ' . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/ && rsync -avhc ' . $self->o('merge_dir') . '/* ' . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/',
+     },
+     -rc_name    => '2GB',
+     -flow_into => {
+	1 => ['set_dir_permission'],
+      },
+   },
+
+   {
+     -logic_name => 'set_dir_permission',
+     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+     -parameters => {
+       cmd => "sudo -u genebuild chmod -R g+w " .$self->o('production_ftp_dir') . 'species/' . ucfirst($self->o('species_name')). "/; sudo -u genebuild chmod -R g+w " .$self->o('production_ftp_dir') . 'species/' . ucfirst($self->o('species_name')). "/".$self->o('assembly_accession'),
+     },
+     -rc_name    => '2GB',
+     -flow_into => {
+	1 => ['delete_data_files'],
+     },
+   },
+
+   { 
+     -logic_name => 'delete_data_files',
+     -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+     -parameters => { 
+        cmd => 'rm -r '. $self->o('merge_dir') . '/* ' .$self->o('output_dir') . '/* ',
+     },
     },
   ];
 }

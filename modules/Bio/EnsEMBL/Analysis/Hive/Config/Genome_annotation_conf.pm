@@ -65,6 +65,7 @@ sub default_options {
     species_taxon_id                 => '' || $self->o('taxon_id'), # Species level id, could be different to taxon_id if we have a subspecies, used to get species level RNA-seq CSV data
     genus_taxon_id                   => '' || $self->o('taxon_id'), # Genus level taxon id, used to get a genus level csv file in case there is not enough species level transcriptomic data
     uniprot_set                      => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
+    sanity_set                       => '', #sanity checks
     ig_tr_fasta_file                 => '', # file containing ig and tr proteins to be used during the IGTR subpipeline. This would come from the clade settings defined in "create_annotation_configs.pl" (ie 'fish_ig_tr.fa')
     output_path                      => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     wgs_id                           => '', # Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
@@ -73,6 +74,8 @@ sub default_options {
     assembly_refseq_accession        => '', # Versioned GCF accession, e.g. GCF_001857705.1
     registry_file                    => '' || catfile($self->o('output_path'), "Databases.pm"), # Path to databse registry for LastaZ and Production sync
     use_genome_flatfile              => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
+    repeatmasker_slice_size          => '1000000',# This is the default value for creating repeatmasker slice sizes
+    batch_target_size                => '500000',# This is the default value for batching repeatmasker slice jobs
     species_url                      => '', # sets species.url meta key
     species_division                 => 'EnsemblVertebrates', # sets species.division meta key
     is_non_vert                      => '0', # Setting this will indicate that the assembly corresponds to a non-vertebrate species.
@@ -100,7 +103,7 @@ sub default_options {
     long_read_fastq_dir              => '' || catdir($self->o('long_read_dir'),'input'),
 
     skip_repeatmodeler               => '0', # Skip using our repeatmodeler library for the species with repeatmasker, will still run standard repeatmasker
-    skip_post_repeat_analyses        => '1', # Will everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
+    skip_post_repeat_analyses        => '0', # Will skip everything after the repreats (rm, dust, trf) in the genome prep phase if 1, i.e. skips cpg, eponine, genscan, genscan blasts etc.
     skip_projection                  => '0', # Will skip projection process if 1
     skip_lastz                       => '0', # Will skip lastz if 1 (if skip_projection is enabled this is irrelevant)
     skip_rnaseq                      => '0', # Will skip rnaseq analyses if 1
@@ -541,6 +544,9 @@ sub pipeline_wide_parameters {
     skip_lastz => $self->o('skip_lastz'),
     skip_repeatmodeler => $self->o('skip_repeatmodeler'),
     wide_repeat_logic_names => $wide_repeat_logic_names,
+    skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),	
+    repeatmasker_slice_size   => $self->o('repeatmasker_slice_size'),
+    batch_target_size => $self->o('batch_target_size'),
   }
 }
 
@@ -944,6 +950,9 @@ sub pipeline_analyses {
           red_logic_name => $self->o('red_logic_name'),
           repeatmodeler_library => $self->o('repeatmodeler_library'),
           use_repeatmodeler_to_mask => $self->o('use_repeatmodeler_to_mask'),
+	  skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),
+	  batch_target_size => $self->o('batch_target_size'),
+	  repeatmasker_slice_size => $self->o('repeatmasker_slice_size'),
         },
       },
       -rc_name      => 'default',
@@ -971,7 +980,7 @@ sub pipeline_analyses {
         target_db => $self->o('dna_db'),
         sanity_check_type => 'genome_preparation_checks',
         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-            'genome_preparation_checks')->{$self->o('uniprot_set')},
+            'genome_preparation_checks')->{$self->o('sanity_set')},
       },
 
       -flow_into =>  {
@@ -1054,6 +1063,7 @@ sub pipeline_analyses {
           skip_rnaseq => $self->o('skip_rnaseq'),
           skip_cleaning => $self->o('skip_cleaning'),
           uniprot_set => $self->o('uniprot_set'),
+          sanity_set => $self->o('sanity_set'),
         },
       },
       -rc_name      => 'default',
@@ -1321,7 +1331,8 @@ sub pipeline_analyses {
           production_name => $self->o('production_name'),
           projection_source_db_name => $self->o('projection_source_db_name'),
           uniprot_set => $self->o('uniprot_set'),
-          transcript_selection_url => $transcript_selection_pipe_url,
+          sanity_set => $self->o('sanity_set'),
+	  transcript_selection_url => $transcript_selection_pipe_url,
           species_name => $self->o('species_name'),
         },
       },
@@ -1382,7 +1393,8 @@ sub pipeline_analyses {
           species_name => $self->o('species_name'),
           taxon_id => $self->o('taxon_id'),
           uniprot_set => $self->o('uniprot_set'),
-          use_genome_flatfile => $self->o('use_genome_flatfile'),
+          sanity_set => $self->o('sanity_set'),
+	  use_genome_flatfile => $self->o('use_genome_flatfile'),
           transcript_selection_url => $transcript_selection_pipe_url,
         },
       },
@@ -1501,7 +1513,8 @@ sub pipeline_analyses {
           production_name => $self->o('production_name'),
           species_name => $self->o('species_name'),
           uniprot_set => $self->o('uniprot_set'),
-          ig_tr_fasta_file => $self->o('ig_tr_fasta_file'),
+          sanity_set => $self->o('sanity_set'),
+	  ig_tr_fasta_file => $self->o('ig_tr_fasta_file'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
           transcript_selection_url => $transcript_selection_pipe_url,
         },
@@ -1583,7 +1596,8 @@ sub pipeline_analyses {
           production_name => $self->o('production_name'),
           species_name => $self->o('species_name'),
           taxon_id => $self->o('taxon_id'),
-          uniprot_set => $self->o('uniprot_set'),
+          sanity_set => $self->o('sanity_set'),
+	  uniprot_set => $self->o('uniprot_set'),
           repbase_logic_name => $self->o('repbase_logic_name'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
         },
@@ -1652,7 +1666,7 @@ sub pipeline_analyses {
         hive_config => $self->o('hive_homology_rnaseq_config'),
         databases => ['genblast_db', 'rnaseq_refine_db', 'genblast_rnaseq_support_nr_db', 'dna_db'],
         genblast_db => $self->o('genblast_db'),
-        rnaseq_refine_db => undef,
+        rnaseq_refine_db => $self->o('rnaseq_for_layer_nr_db'),
         genblast_rnaseq_support_nr_db => $self->o('genblast_rnaseq_support_nr_db'),
         dna_db => $self->o('dna_db'),
         enscode_root_dir => $self->o('enscode_root_dir'),
@@ -1667,7 +1681,8 @@ sub pipeline_analyses {
           production_name => $self->o('production_name'),
           species_name => $self->o('species_name'),
           uniprot_set => $self->o('uniprot_set'),
-          use_genome_flatfile => $self->o('use_genome_flatfile'),
+          sanity_set => $self->o('sanity_set'),
+	  use_genome_flatfile => $self->o('use_genome_flatfile'),
           transcript_selection_url => $transcript_selection_pipe_url,
         },
       },
@@ -1721,7 +1736,8 @@ sub pipeline_analyses {
           species_name => $self->o('species_name'),
           taxon_id => $self->o('taxon_id'),
           uniprot_set => $self->o('uniprot_set'),
-          use_genome_flatfile => $self->o('use_genome_flatfile'),
+          sanity_set => $self->o('sanity_set'),
+	  use_genome_flatfile => $self->o('use_genome_flatfile'),
           main_pipeline_url => $self->pipeline_url,
           transcript_selection_url => $transcript_selection_pipe_url,
           homology_rnaseq_url => $homology_rnaseq_pipe_url,
@@ -1870,7 +1886,8 @@ sub pipeline_analyses {
           production_name => $self->o('production_name'),
           species_name => $self->o('species_name'),
           uniprot_set => $self->o('uniprot_set'),
-          registry_host => $self->o('registry_host'),
+          sanity_set => $self->o('sanity_set'),
+	  registry_host => $self->o('registry_host'),
           registry_port => $self->o('registry_port'),
           registry_db => $self->o('registry_db'),
           assembly_name => $self->o('assembly_name'),

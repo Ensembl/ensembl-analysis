@@ -73,6 +73,7 @@ sub default_options {
     'production_name'     => '',                                                                                      # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'taxon_id'            => '',                                                                                      # should be in the assembly report file
     'genus_taxon_id'      => $self->o('taxon_id'),
+    'sanity_set'          => '',
     'uniprot_set'         => '',                                                                                      # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'output_path'         => '',                                                                                      # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'assembly_name'       => '',                                                                                      # Name (as it appears in the assembly report file)
@@ -693,7 +694,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -rc_name    => 'default',
       -parameters => {
-        inputlist => ['daf', 'ise'],
+        inputlist => ['daf'],
         column_names => ['type'],
         species => $self->o('species_name'),
       },
@@ -756,7 +757,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
       -rc_name    => 'default',
       -parameters => {
-        inputlist => ['daf', 'ise'],
+        inputlist => ['daf'],
         column_names => ['type'],
         species => $self->o('species_name'),
       },
@@ -963,7 +964,7 @@ sub pipeline_analyses {
         target_db                  => $self->o('rnaseq_for_layer_db'),
         sanity_check_type          => 'gene_db_checks',
         min_allowed_feature_counts => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-          'gene_db_checks' )->{ $self->o('uniprot_set') }->{'rnaseq_blast'},
+          'gene_db_checks' )->{ $self->o('sanity_set') }->{'rnaseq_blast'},
       },
       -flow_into => {
         1 => ['create_rnaseq_layer_nr_db_star'],

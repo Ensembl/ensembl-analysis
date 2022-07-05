@@ -583,10 +583,12 @@ sub create_config {
 sub clade_settings {
   my ($clade) = @_;
   my $clade_settings = {
+
     'primates' => {
       'repbase_library'    => 'primates',
       'repbase_logic_name' => 'primates',
       'uniprot_set'        => 'primates_basic',
+      'sanity_set'         => 'primates_basic',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -595,6 +597,7 @@ sub clade_settings {
       'repbase_library'    => 'rodentia',
       'repbase_logic_name' => 'rodentia',
       'uniprot_set'        => 'mammals_basic',
+      'sanity_set'         => 'rodentia_basic',      
       'projection_source_production_name' => 'mus_musculus',
       'projection_source_db_name' => current_projection_source_db('mus_musculus'),
     },
@@ -603,6 +606,7 @@ sub clade_settings {
       'repbase_library'    => 'mammals',
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
+      'sanity_set'         => 'mammals_basic',      
       'ig_tr_fasta_file'    => 'multispecies_ig_tr.fa',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
@@ -612,6 +616,7 @@ sub clade_settings {
       'repbase_library'    => 'mammals',
       'repbase_logic_name' => 'mammals',
       'uniprot_set'        => 'mammals_basic',
+      'sanity_set'         => 'mammals_basic',      
       'ig_tr_fasta_file'    => 'multispecies_ig_tr.fa',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
@@ -621,6 +626,7 @@ sub clade_settings {
       'repbase_library'    => 'Birds',
       'repbase_logic_name' => 'aves',
       'uniprot_set'        => 'birds_basic',
+      'sanity_set'         => 'birds_basic',      
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -629,6 +635,7 @@ sub clade_settings {
       'repbase_library'    => 'vertebrates',
       'repbase_logic_name' => 'vertebrates',
       'uniprot_set'        => 'reptiles_basic',
+      'sanity_set'         => 'reptiles_basic',      
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',
       'projection_source_production_name' => 'homo_sapiens',
@@ -639,6 +646,7 @@ sub clade_settings {
       'repbase_library'     => 'Teleostei',
       'repbase_logic_name'  => 'teleost',
       'uniprot_set'         => 'fish_basic',
+      'sanity_set'          => 'fish_basic',      
       'ig_tr_fasta_file'    => 'fish_ig_tr.fa',
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',
@@ -647,16 +655,22 @@ sub clade_settings {
       # need a default projection source db set
       'projection_source_production_name' => 'danio_rerio',
       'projection_source_db_name' => current_projection_source_db('danio_rerio'),
+      # need a different value for creating repeatmasker slices
+      repeatmasker_slice_size => 500000,
     },
 
     'distant_vertebrate' => {
       'repbase_library'    => 'vertebrates',
       'repbase_logic_name' => 'vertebrates',
       'uniprot_set'        => 'distant_vertebrate',
+      'sanity_set'         => 'distant_vertebrate',      
       'masking_timer_long'  => '6h',
       'masking_timer_short' => '3h',
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
+      # need a different value for creating repeatmasker slices and batching slices to avoid long-running jobs
+      repeatmasker_slice_size => 300000,
+      batch_target_size => 300000,
     },
 
 
@@ -664,6 +678,7 @@ sub clade_settings {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
       'uniprot_set'        => 'insects_basic',
+      'sanity_set'         => 'insects_basic',      
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -672,6 +687,7 @@ sub clade_settings {
       'repbase_library'    => 'lepidoptera',
       'repbase_logic_name' => 'lepidoptera',
       'uniprot_set'        => 'lepidoptera_basic',
+      'sanity_set'         => 'lepidoptera_basic',      
       'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/HMLEP',
       'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/HMLEP_index',
       'skip_projection'    => 1,
@@ -685,9 +701,10 @@ sub clade_settings {
       'repbase_library'    => 'hymenoptera',
       'repbase_logic_name' => 'hymenoptera',
       'uniprot_set'        => 'hymenoptera_basic',
+      'sanity_set'         => 'hymenoptera_basic',      
       'skip_projection'    => 1,
       'skip_lastz'         => 1,
-      # need a default projection source db set - for now use human and projection is skipped, will consider updating to use a butterfly annotation
+      # need a default projection source db set - for now use human and projection is skipped, will consider updating to use a hymenoptera annotation
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -695,7 +712,8 @@ sub clade_settings {
     'atroparvus' => {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
-      'uniprot_set'        => 'atroparvus_basic',
+      'uniprot_set'        => 'insects_basic',
+      'sanity_set'         => 'insects_basic',      
       'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/5_01_21-A_atroparvus/Combined_A.atroparvus_n356016',
       'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/5_01_21-A_atroparvus/Combined_A.atroparvus_n356016_index',
       'skip_projection'    => 1,
@@ -707,7 +725,8 @@ sub clade_settings {
    'perniciosus' => {
       'repbase_library'    => 'insecta',
       'repbase_logic_name' => 'insects',
-      'uniprot_set'        => 'perniciosus_basic',
+      'uniprot_set'        => 'insects_basic',
+      'sanity_set'         => 'insects_basic',      
       'protein_blast_db'   => '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/P_perniciosus/Phlebotomus_Uniprot_Ensembl_DB',
       'protein_blast_index'=> '/hps/nobackup/flicek/ensembl/genebuild/blastdb/proteomes/P_perniciosus/Phlebotomus_Uniprot_Ensembl_DB_index',
       'skip_projection'    => 1,
@@ -720,6 +739,7 @@ sub clade_settings {
       'repbase_library'    => 'non_vertebrates',
       'repbase_logic_name' => 'non_vertebrates',
       'uniprot_set'        => 'non_vertebrates_basic',
+      'sanity_set'         => 'non_vertebrates_basic',      
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -728,6 +748,7 @@ sub clade_settings {
       'repbase_library'    => 'fungi',
       'repbase_logic_name' => 'fungi',
       'uniprot_set'        => 'fungi_basic',
+      'sanity_set'         => 'fungi_basic',      
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -736,6 +757,7 @@ sub clade_settings {
       'repbase_library'    => 'metazoa',
       'repbase_logic_name' => 'metazoa',
       'uniprot_set'        => 'metazoa_basic',
+      'sanity_set'         => 'metazoa_basic',      
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -744,6 +766,7 @@ sub clade_settings {
       'repbase_library'    => 'plants',
       'repbase_logic_name' => 'plants',
       'uniprot_set'        => 'plants_basic',
+      'sanity_set'         => 'plants_basic',      
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },
@@ -752,6 +775,7 @@ sub clade_settings {
       'repbase_library'    => 'protists',
       'repbase_logic_name' => 'protists',
       'uniprot_set'        => 'protists_basic',
+      'sanity_set'         => 'protists_basic',      
       'projection_source_production_name' => 'homo_sapiens',
       'projection_source_db_name' => current_projection_source_db('homo_sapiens'),
     },

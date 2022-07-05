@@ -55,6 +55,7 @@ sub default_options {
     'dna_db_port'               => '', # port for dna db host
     'databases_port'            => '', # port for general output db host
     'uniprot_set'               => '', # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
+    'sanity_set'                => '', # sanity checks
     'output_path'               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     species_name                => '',
 
@@ -471,7 +472,7 @@ sub pipeline_analyses {
         target_db => $self->o('projection_db'),
         sanity_check_type => 'gene_db_checks',
         min_allowed_feature_counts => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
-          'gene_db_checks')->{$self->o('uniprot_set')}->{'projection_coding'},
+          'gene_db_checks')->{$self->o('sanity_set')}->{'projection_coding'},
       },
       -rc_name    => '4GB',
       -flow_into => {

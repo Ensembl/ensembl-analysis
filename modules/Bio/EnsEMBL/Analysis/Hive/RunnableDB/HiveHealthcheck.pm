@@ -110,7 +110,6 @@ sub fetch_input {
       push(@$methods_list, qw(
         rnaseq_analysis_sanity
         data_file_sanity
-        intron_supporting_evidence_sanity
         dna_align_feature_sanity
       ));
     }
@@ -543,8 +542,8 @@ sub gene_sanity {
 
  Arg [1]    : None
  Description: Check that 'other_protein' is present, check that all the other logic_names have 'rnaseq'
-              in the name and that there is four similar analyses for each samples. The type is expected
-              to be bam, daf, ise, gene.
+              in the name and that there is 3 similar analyses for each samples. The type is expected
+              to be bam, daf, and gene.
  Returntype : None
  Exceptions : None
 
@@ -586,15 +585,15 @@ sub rnaseq_analysis_sanity {
     $failed = 1;
     $self->say_with_header('Some of your analyses have uppercase characters');
   }
-  if (4 != keys %types) {
+  if (3 != keys %types) {
     $failed = 1;
-    $self->say_with_header('Some of your analyses are missing either gene, daf, bam or ise');
+    $self->say_with_header('Some of your analyses are missing either gene, daf or bam');
   }
   foreach my $base (keys %bases) {
-    if ($bases{$base} != 4) {
+    if ($bases{$base} != 3) {
       $failed = 1;
       $self->say_with_header('There is a problem with your analysis '.$base);
-      $self->say_with_header('Check if gene, daf, bam and ise analyses are present.');
+      $self->say_with_header('Check if gene, daf and bam analyses are present.');
       $self->say_with_header('Total number of analyses in the database: '.$total);
     }
   }
