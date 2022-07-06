@@ -32,7 +32,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-    base_url => 'https://rest.uniprot.org/uniprotkb/search?&query=',
+    base_url => 'https://rest.uniprot.org/uniprotkb/stream?&query=',
     format => 'fasta',
   }
 }
@@ -180,16 +180,7 @@ sub build_query {
     $format = $query_params->{'format'};
   }
 
-  # http://www.uniprot.org/uniprot/?query=existence%3A%22evidence+at+protein+level%22+OR+existence%3A%22evidence+at+transcript+level%22+AND+taxonomy%3A%22Mammalia+%5B40674%5D%22+NOT+taxonomy%3A%22Primates+%5B9443%5D%22&sort=score
-
   my $full_query = $self->param('base_url');
-  my %pe_code = (
-                  '1' => 'evidence+at+protein+level',
-                  '2' => 'evidence+at+transcript+level',
-                  '3' => 'inferred+from+homology',
-                  '4' => 'predicted',
-                  '5' => 'uncertain',
-                );
 
   # Must have file_name, pe_level, dest_dir and either taxon_id or taxonomy
   unless($file_name && $dest_dir && ($taxon_id || $taxon_group) && $pe_level) {
@@ -210,7 +201,7 @@ sub build_query {
     unless($parsed_pe_level >= 1 && $parsed_pe_level <= 5) {
      $self->throw("Parsed PE level is outside the normal range of 1-5: ".$parsed_pe_level);
    }
-   $pe_string .= 'existence%3A%22'.$pe_code{$pe_level}.'%22+OR+';
+   $pe_string .= 'existence%3A'.$pe_level.'+OR+';
   }
 
   $pe_string =~ s/\+OR\+$/\)/;
