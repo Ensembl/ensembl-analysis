@@ -557,13 +557,8 @@ sub _master_config {
           'ensembl'             => 19000,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                  => 20,
-          'TR_'                  => 20,
-          'human_pe12_'         => 2000,
-          'mouse_pe12_'      => 2000,
-          'vert_pe12_'      => 2000,
-          'mammals_pe12_'       => 1000,
-          'realign_'            => 10000,
+          'pre_lncRNA'          => 1000,
+          'protein_coding'      => 18000,
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
@@ -593,8 +588,8 @@ sub _master_config {
           'mouse_pe12_'      => 2000,
           'vert_pe12_'      => 2000,
           'mammals_pe12_'       => 1000,
-          'miRNA'               => 500,
-          'misc_RNA'            => 1000,
+          'miRNA'               => 100,
+          'misc_RNA'            => 50,
           'ribozyme'            => 0,
           'rRNA'                => 200,
           'scaRNA'              => 0,
@@ -613,8 +608,8 @@ sub _master_config {
           'protein_coding'       => 25000,
           'pseudogene'           => 50,
           'processed_pseudogene' => 0,
-          'miRNA'                => 500,
-          'misc_RNA'             => 1000,
+          'miRNA'                => 100,
+          'misc_RNA'             => 50,
           'ribozyme'             => 0,
           'rRNA'                 => 200,
           'scaRNA'               => 0,
