@@ -1179,8 +1179,8 @@ sub pipeline_analyses {
         db_conn => '#core_db#',
         sql     => [
           'UPDATE analysis SET module=NULL',
-          'UPDATE gene SET biotype = "protein_coding" WHERE biotype = "gbiab_protein_coding"',
-          'UPDATE gene SET biotype = "lncRNA" WHERE biotype = "gbiab_lncRNA"',
+          'UPDATE gene SET biotype = "protein_coding" WHERE biotype = "anno_protein_coding"',
+          'UPDATE gene SET biotype = "lncRNA" WHERE biotype = "anno_lncRNA"',
           'UPDATE transcript JOIN gene USING(gene_id) SET transcript.biotype = gene.biotype',
           'UPDATE transcript JOIN gene USING(gene_id) SET transcript.analysis_id = gene.analysis_id',
           'UPDATE repeat_feature SET repeat_start = 1 WHERE repeat_start < 1',

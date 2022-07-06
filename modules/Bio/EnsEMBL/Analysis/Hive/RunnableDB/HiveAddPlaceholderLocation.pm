@@ -1,4 +1,4 @@
-=head1 LICENSE
+=Head LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
 Copyright [2016-2020] EMBL-European Bioinformatics Institute
@@ -110,7 +110,6 @@ sub run {
         }
       }
     }
-
     $sample_transcript = $selected_gene->canonical_transcript;
   }
 

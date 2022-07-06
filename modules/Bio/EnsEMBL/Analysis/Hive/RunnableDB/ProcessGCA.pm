@@ -101,9 +101,8 @@ sub fetch_input {
   #create the output dir with write permissions for group so that genebuild user can create output dirs here when running BRAKER
   my $od_result = system( 'mkdir -p -m775 ' . $output_dir );
     if ($od_result) {
-      $self->throw( "Failed to create dir: " . $dir );
+      $self->throw( "Failed to create dir: " . $output_dir );
     }
-  }
   
   my $long_read_dir = catdir( $output_dir, 'long_read_fastq' );
   push( @$dirs_to_create, ($genome_files_dir, $short_read_dir, $long_read_dir ) );
@@ -446,6 +445,7 @@ sub fetch_input {
   $output_params->{'species_prefix'}                  = $species_prefix;
   $output_params->{'repeatmodeler_library'}           = $repeatmodeler_library;
   $self->param( 'output_params', $output_params );
+
 }
 
 sub run {
