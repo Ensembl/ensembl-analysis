@@ -33,11 +33,8 @@ sub default_options {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
     #BRAKER parameters
-    'augustus_config_path'     => '/nfs/production/flicek/ensembl/genebuild/ftricomi/augustus_config/config',
-    'augustus_species_path'    => '/nfs/production/flicek/ensembl/genebuild/ftricomi/augustus_config/config/species/',
-#GCA_932273785.1
-#GCA_932273905.1
-#GCA_932274405.1
+    'augustus_config_path'     => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/augustus_config/config',
+    'augustus_species_path'    => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/augustus_config/config/species/',
     'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-braker2_es_ep_etp.simg',
     'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-agat.simg',
     'busco_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
@@ -249,7 +246,7 @@ sub default_options {
     remove_duplicates_script          => catfile( $self->o('ensembl_analysis_script'), 'find_and_remove_duplicates.pl' ),
     sncrna_analysis_script            => catdir( $self->o('ensembl_analysis_script'), 'genebuild', 'sncrna' ),
     ensembl_misc_script               => catdir( $self->o('enscode_root_dir'),        'ensembl',   'misc-scripts' ),
-    clean_lncrna_script               => catfile( $self->o('ensembl_analysis_script'), 'genebuild',  'gbiab', 'support_scripts_perl', 'clean_lncrna.pl' ),
+    clean_lncrna_script               => catfile( $self->o('enscode_root_dir'), 'ensembl_anno', 'support_scripts_perl', 'clean_lncrna.pl' ),
     repeat_types_script               => catfile( $self->o('ensembl_misc_script'),     'repeats',    'repeat-types.pl' ),
     meta_coord_script                 => catfile( $self->o('ensembl_misc_script'),     'meta_coord', 'update_meta_coord.pl' ),
     meta_levels_script                => catfile( $self->o('ensembl_misc_script'),     'meta_levels.pl' ),
@@ -1326,7 +1323,6 @@ sub pipeline_analyses {
       -logic_name => 'run_anno',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-	      # cmd => 'python3.7 ' . catfile( $self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'gbiab', 'gbiab.py' ) . ' #anno_commandline#',
          cmd => 'python3.7 ' . catfile( $self->o('enscode_root_dir'), 'ensembl-anno', 'ensembl-anno.py' ) . ' #anno_commandline#',
       },
       -rc_name         => 'anno',
