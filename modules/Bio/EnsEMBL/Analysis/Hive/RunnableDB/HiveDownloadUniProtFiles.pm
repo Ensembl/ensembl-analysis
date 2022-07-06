@@ -32,7 +32,7 @@ sub param_defaults {
 
   return {
     %{$self->SUPER::param_defaults},
-    base_url => 'http://www.uniprot.org/uniprot/?query=',
+    base_url => 'https://rest.uniprot.org/uniprotkb/search?&query=',
     format => 'fasta',
   }
 }
@@ -217,16 +217,16 @@ sub build_query {
 
   # NOTE this bit of the code with taxonomy and exclude is shit and needs to be upgraded
   if($taxon_id) {
-    $taxonomy_string = '+AND+taxonomy%3A+'.$taxon_id;
+    $taxonomy_string = '+AND+taxonomy_id%3A+'.$taxon_id;
   } elsif($taxon_group) {
-    $taxonomy_string = '+AND+taxonomy%3A'.$taxon_group;
+    $taxonomy_string = '+AND+taxonomy_id%3A'.$taxon_group;
   }
 
 #+NOT+taxonomy%3A%22
   if($exclude_id) {
     my @exclusion_array = @{$exclude_id};
     foreach my $id_to_exclude (@exclusion_array) {
-      $exclude_string .= '+NOT+taxonomy%3A+'.$id_to_exclude;
+      $exclude_string .= '+NOT+taxonomy_id%3A+'.$id_to_exclude;
     }
   }
 
