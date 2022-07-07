@@ -46,6 +46,7 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::FileFactory;
 use strict;
 use warnings;
 
+use File::Spec::Functions qw(tmpdir);
 use base ('Bio::EnsEMBL::Hive::Process');
 
 
@@ -63,7 +64,7 @@ sub param_defaults {
         'output_suffix'     => '.txt',
 
         'inputfile'         => undef,
-        'output_dir'        => '/tmp/',
+        'output_dir'        => tmpdir(),
 
         'fan_branch_code'   => 2,
     };

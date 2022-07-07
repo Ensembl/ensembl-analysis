@@ -46,6 +46,7 @@ use strict;
 use warnings;
 
 use File::Basename;
+use File::Spec::Functions qw(tmpdir);
 
 use Bio::EnsEMBL::Analysis::Runnable::BaseAbInitio;
 use Bio::EnsEMBL::Utils::Exception qw(throw warning);
@@ -139,7 +140,7 @@ sub run_analysis{
   throw($program." is not executable GenBlast::run_analysis ") 
     unless($program && -x $program);
 
-  my $workdir = "/tmp";
+  my $workdir = tmpdir();
 
   # set up environment variables
   # we want the path of the program_file

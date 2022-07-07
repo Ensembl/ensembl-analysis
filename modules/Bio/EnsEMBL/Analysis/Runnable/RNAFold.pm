@@ -209,7 +209,7 @@ sub write_seq{
   my $filename = $self->create_filename("miRNA","seq");
   # have to write file so the sequence is all on a single line 
   # cos thats the way RNAfold likes it
-  $self->files_to_delete("/tmp/$filename");
+  $self->files_to_delete($filename);
   eval{
     open (FILE,">$filename");
     print FILE ">".$seq->display_id."\n";
