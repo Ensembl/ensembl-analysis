@@ -58,7 +58,7 @@ use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(attach_Analysis_to_Gene attach_Slice_to_Gene);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(empty_Transcript);
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(parse_timer);
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(parse_timer create_file_name);
 
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns);
@@ -337,8 +337,8 @@ sub realign_translation {
   my $query_seq = $source_transcript->translate->seq();
   my $projected_seq = $projected_transcript->translate->seq();
 
-  my $align_input_file = "/tmp/projected_align_".$$.".fa";
-  my $align_output_file = "/tmp/projected_align_".$$.".aln";
+  my $align_input_file = create_file_name('projected_align_', 'fa');
+  my $align_output_file = create_file_name('projected_align_', 'aln');
 
   open(INPUT,">".$align_input_file);
   say INPUT ">query";

@@ -946,8 +946,8 @@ sub align_proteins {
 sub align_proteins_with_alignment {
   my ($source_protein_seq,$target_protein_seq) = @_;
 
-  my $align_input_file = "/tmp/align_".$$.".fa";
-  my $align_output_file = "/tmp/align_".$$.".aln";
+  my $align_input_file = create_file_name('align_', 'fa');
+  my $align_output_file = create_file_name('align_', 'aln');
 
   open(INPUT,">".$align_input_file);
   say INPUT ">query";

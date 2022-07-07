@@ -69,6 +69,7 @@ use warnings ;
 use strict;
 use feature 'say';
 
+use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 use Bio::EnsEMBL::Analysis::Runnable::ExonerateTranscript;
 use Bio::EnsEMBL::Gene;
@@ -983,8 +984,8 @@ sub realign_translation {
   my $query_seq = $self->peptide_seq;
   my $translation = $transcript->translate->seq();
 
-  my $align_input_file = "/tmp/exonerate_align_".$$.".fa";
-  my $align_output_file = "/tmp/exonerate_align_".$$.".aln";
+  my $align_input_file = create_file_name('exonerate_align_', 'fa');
+  my $align_output_file = create_file_name('exonerate_align_', 'aln');
 
   open(INPUT,">".$align_input_file);
   say INPUT ">query";

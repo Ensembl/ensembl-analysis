@@ -18,6 +18,7 @@ package Bio::EnsEMBL::Analysis::Tools::BlastDB;
 use warnings ;
 use strict;
 
+use File::Spec::Functions qw(tmpdir);
 use Bio::EnsEMBL::Utils::Exception qw(throw);
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
 use Bio::EnsEMBL::Analysis::Tools::Logger qw(logger_info);
@@ -40,7 +41,7 @@ sub new {
  
   #default setting
   $self->blast_type("ncbi");
-  $self->output_dir("/tmp/");
+  $self->output_dir(tmpdir());
   ###############
 
   $self->sequences($sequences);

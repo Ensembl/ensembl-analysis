@@ -57,6 +57,7 @@ Smith-Waterman alignment program.
 
 package Bio::EnsEMBL::Analysis::Runnable::CrossMatch;
 use warnings ;
+use File::Spec::Functions qw(tmpdir);
 use Bio::EnsEMBL::FeaturePair;
 use Bio::EnsEMBL::Analysis::Runnable;
 use Bio::EnsEMBL::Utils::Exception qw(info verbose throw warning);
@@ -106,7 +107,7 @@ sub new {
   if( $workdir) { 
     $self->workdir($workdir); 
   } else {
-    $self->workdir("/tmp");
+    $self->workdir(tmpdir());
   }
 
   $minmatch = 30 unless (defined $minmatch); # $minmatch = $minscore compatatible with cvs version 1.7
