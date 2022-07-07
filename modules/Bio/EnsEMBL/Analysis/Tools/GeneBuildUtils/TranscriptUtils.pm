@@ -600,7 +600,7 @@ sub is_not_folded{
     $exons->[$i]->stable_id('');
     if($exons->[$i]->strand == 1){
       if($exons->[$i]->start < $exons->[$i-1]->end){
-        warning($transcript->display_id." is folded");
+        print($transcript->display_id." is folded");
         warn($i." ".id($exons->[$i])." has a start which ".
                     "is less than ".($i-1)." ".id($exons->[$i-1]).
                     " end");
@@ -608,7 +608,7 @@ sub is_not_folded{
       }
     }else{
       if($exons->[$i]->end > $exons->[$i-1]->start){
-        warning($transcript->display_id." is folded");
+        print($transcript->display_id." is folded");
         warn($i." ".id($exons->[$i])." has a end which ".
                     "is greater than ".($i-1)." ".id($exons->[$i-1]).
                     " start");
@@ -700,7 +700,7 @@ sub get_evidence_ids{
 sub is_spliced{
   my ($transcript, $intron_size) = @_;
   my $count = count_real_introns($transcript, $intron_size);
-  warning($transcript->display_id." has no introns ".
+  print($transcript->display_id." has no introns ".
           "longer than $intron_size bps") if(!$count);
   return 0 if(!$count);
   return 1;
@@ -1064,14 +1064,14 @@ sub tidy_split_transcripts{
       my ($exon) = @{$stran->get_all_Exons};
       my $warn = $stran->display_id." only has one exon\n".
           Exon_info($exon);
-      warning($warn);
+      print($warn);
       next;
     }
 
     if($stran->translate->seq =~ /\*/){
       my $warn = Transcript_info($stran).
           " does not translate\n";
-      warning($warn);
+      print($warn);
       next;
     }
 
@@ -1081,7 +1081,7 @@ sub tidy_split_transcripts{
       my $warn = Transcript_info($stran)." translation ".
           "does not appear to be a subset of the original ".
           "translation";
-      warning($warn);
+      print($warn);
       next;
     }
 
@@ -1089,14 +1089,14 @@ sub tidy_split_transcripts{
     if(!are_strands_consistent($stran)){
       my $warn = Transcript_info($stran)." has ".
           "inconsistent strands";
-      warning($warn);
+      print($warn);
       next;
     }
 
     if(!are_phases_consistent($stran)){
       my $warn = Transcript_info($stran)." has ".
           "inconsistent phases";
-      warning($warn);
+      print($warn);
       next;
     }
 
@@ -1228,13 +1228,13 @@ sub replace_stops_with_introns{
 
   # If max_stops is defined and there are more stops than the value then throw
   if(defined($max_stops) && ($num_stops > $max_stops)) {
-    warning("You have set max_stops to ".$max_stops." however the number of stops in the translation is ".$num_stops);
+    print("You have set max_stops to ".$max_stops." however the number of stops in the translation is ".$num_stops);
     return(0);
   }
 
   # Warn that there are internal stops
   if ($num_stops > 0) {
-    warning("Transcript has ".$num_stops." internal stops\n");
+    print("Transcript has ".$num_stops." internal stops\n");
   }
   else {
     return $transcript;
@@ -1244,6 +1244,10 @@ sub replace_stops_with_introns{
   my $newtranslation = $newtranscript->translation;
   my @exons = @{$newtranscript->get_all_Exons};
   my $removed_exon_count = 0;
+  my $phase_adjust = 0;
+  if ($newtranslation->start_Exon->phase > 0) {
+    $phase_adjust = $newtranslation->start_Exon->phase;
+  }
 
   while($pep =~ /\*/g) {
     # find the position of the stop codon within the peptide
@@ -1254,22 +1258,24 @@ sub replace_stops_with_introns{
     my @coords = $newtranscript->pep2genomic($position, $position);
 
     foreach my $stop (@coords) {
-      print "Found stop at position start ".$stop->start." end ".$stop->end." on strand ".$transcript->strand."\n";
+      my $stop_start = $stop->start-$phase_adjust;
+      my $stop_end = $stop->end-$phase_adjust;
+      print "Found stop at position start ".$stop_start." end ".$stop_end." on strand ".$transcript->strand."\n";
       # locate the exon that this stop lies in
       my @new_exons;
       foreach my $exon (@exons) {
         # NOTE that at this point the stop will always lie on a translateable exon
-        if ($stop->start() > $exon->seq_region_start() and $stop->end() < $exon->seq_region_end()) {
+        if ($stop_start > $exon->seq_region_start() and $stop_end < $exon->seq_region_end()) {
           # This stop lies _completely_ within an exon and not on its
           # boundary. We therefore can split the exon into two UNLESS
           # (the stop starts at the start of the translation OR
           #  the stop ends at the end of the translation)
           if ( ($newtranslation->start_Exon->start == $exon->start and
-                $newtranslation->genomic_start() == $stop->start and
+                $newtranslation->genomic_start() == $stop_start and
                 $newtranscript->strand == 1)
                or
                ($newtranslation->start_Exon->start == $exon->start and
-                $newtranslation->genomic_end() == $stop->end and
+                $newtranslation->genomic_end() == $stop_end and
                 $newtranscript->strand == -1) ) {
             # if the stop starts at the start of the translation
             # the translation start is shifted and the exon is not divided
@@ -1281,11 +1287,11 @@ sub replace_stops_with_introns{
             next;
 
           } elsif ( ($newtranslation->end_Exon->start == $exon->start and
-                     $newtranslation->genomic_end() == $stop->end and
+                     $newtranslation->genomic_end() == $stop_end and
                      $newtranscript->strand == 1)
                     or
                     ($newtranslation->end_Exon->start == $exon->start and
-                     $newtranslation->genomic_start() == $stop->start and
+                     $newtranslation->genomic_start() == $stop_start and
                      $newtranscript->strand == -1) )
           {
 
@@ -1304,7 +1310,7 @@ sub replace_stops_with_introns{
             my $exon_left = Bio::EnsEMBL::Exon->new(
                     -slice     => $exon->slice,
                     -start     => $exon->start,
-                    -end       => $exon->start+($stop->start()-$exon->seq_region_start())-1,
+                    -end       => $exon->start+($stop_start-$exon->seq_region_start())-1,
                     -strand    => $exon->strand,
                     -phase     => $exon->strand < 0 ? 0 : $exon->phase,
                     -end_phase => $exon->strand < 0 ? $exon->end_phase  :0);
@@ -1326,10 +1332,10 @@ sub replace_stops_with_introns{
             if ($newtranslation->end_Exon == $exon) {
               # and this is the last translateable exon
               if ($exon->strand == 1) {
-                $newtranslation->end($newtranslation->end-($stop->end-$exon->seq_region_start+1));
+                $newtranslation->end($newtranslation->end-($stop_end-$exon->seq_region_start+1));
                 $newtranslation->end_Exon($exon_right);
               } else {
-                $newtranslation->end($newtranslation->end-($exon->seq_region_end-$stop->start+1));
+                $newtranslation->end($newtranslation->end-($exon->seq_region_end-$stop_start+1));
                 $newtranslation->end_Exon($exon_left);
               }
             }
@@ -1377,7 +1383,7 @@ sub replace_stops_with_introns{
                     # This case might crop up if the feature went over the edge of the end of the
                     # left exon. Possibly because of a previous stop removal. I'm keeping this as
                     # a separate case to draw attention to the possibility
-                  warning("Feature only partially overlaps with left exon. Will add anyway.");
+                  print("Feature only partially overlaps with left exon. Will add anyway.");
                   push @ug_left, $ug;
 
                 } elsif ($ug->start >= $exon_right->start-3 &&
@@ -1391,7 +1397,7 @@ sub replace_stops_with_introns{
                     # This case might crop up if the feature went over the edge of the end of the
                     # right exon. Possibly because of a previous stop removal. I'm keeping this as
                     # a separate case to draw attention to the possibility
-                  warning("Feature only partially overlaps with right exon. Will add anyway.");
+                  print("Feature only partially overlaps with right exon. Will add anyway.");
                   push @ug_right, $ug;
 
                 } elsif ($ug->start >= ($exon_left->start-3) && $ug->end <= ($exon_right->end+3)) {
@@ -1489,11 +1495,13 @@ sub replace_stops_with_introns{
                 elsif($ug->start < $exon_left->start && $ug->end < $exon_left->start ||
                     $ug->start > $exon_right->end && $ug->end > $exon_right->end
                     ) {
-                  warning("Feature is present but lies fully outside the left and right exons, not adding");
+                  print("Feature is present but lies fully outside the left and right exons, not adding");
                 }
 
                 else {
-                  throw("Something about this feature has not been covered in the conditionals, edit code");
+                  #throw("Something about this feature has not been covered in the conditionals, edit code");
+                  print("Something about this feature has not been covered in the conditionals, edit code. ".$transcript->stable_id()." Returning 0.");
+                  return 0;
                 }
 
               } # foreach my $ug ($f->ungapped_features)
@@ -1519,25 +1527,25 @@ sub replace_stops_with_introns{
             }
           }
 
-        } elsif($stop->start() <= $exon->seq_region_start() && $stop->end() >= $exon->seq_region_end()) {
-          warning("Exon is a stop codon, removing the exon");
+        } elsif($stop_start <= $exon->seq_region_start() && $stop_end >= $exon->seq_region_end()) {
+          print("Exon is a stop codon, removing the exon");
 
           # This will later be added to the end_exon_index to account for the removed
           # exon or exons. This works on the test case and seems sensible, but is
           # difficult to thoroughly test.
-        } elsif ($stop->start() == $exon->seq_region_start()) {
+        } elsif ($stop_start == $exon->seq_region_start()) {
           # stop lies at the start of the exon
           print("---stop lies at the start of the exon\n");
-          # note that +3 has been replaced with $stop->end-$stop->start+1 to
+          # note that +3 has been replaced with $stop_end-$stop_start+1 to
           # fix the rare cases where stops lie on two consecutive exons
-          $exon->start($exon->start + ($stop->end-$stop->start+1));
+          $exon->start($exon->start + ($stop_end-$stop_start+1));
           # Because the stop length may not now be 3 bases long now we need to fix the phase
           if ( $newtranscript->strand == -1 ) {
             $exon->end_phase(0);
           } else {
             $exon->phase(0);
             if ($newtranslation->end_Exon->start == $exon->start) {
-              $newtranslation->end($newtranslation->end-($stop->end-$stop->start+1));
+              $newtranslation->end($newtranslation->end-($stop_end-$stop_start+1));
             }
           }
           
@@ -1547,19 +1555,19 @@ sub replace_stops_with_introns{
           # the above line of code, where no modification occurs to the supporting features. Might leave slight
           # overhang, but this is no big deal
 
-        } elsif ($stop->end() == $exon->seq_region_end()) {
+        } elsif ($stop_end == $exon->seq_region_end()) {
           # stop lies at the end of the exon
           print("---stop lies at the end of the exon\n");
-          # note that +3 has been replaced with $stop->end-$stop->start+1 to
+          # note that +3 has been replaced with $stop_end-$stop_start+1 to
           # fix the rare cases where stops lie on two consecutive exons
-          #print "DB8 e end: ". $exon->end. " s sta: ". $stop->start. " s end: " .$stop->end. " s len: " .$stop->length."\n"; 
-          $exon->end($exon->end - ($stop->end-$stop->start+1));  
+          #print "DB8 e end: ". $exon->end. " s sta: ". $stop_start. " s end: " .$stop_end. " s len: " .$stop_length."\n";
+          $exon->end($exon->end - ($stop_end-$stop_start+1));
           
           # Because the stop length may not now be 3 bases long now we need to fix the phase
           if ( $newtranscript->strand == -1 ) {
             $exon->phase(0);
             if ($newtranslation->end_Exon->start == $exon->start) {
-              $newtranslation->end($newtranslation->end-($stop->end-$stop->start+1));
+              $newtranslation->end($newtranslation->end-($stop_end-$stop_start+1));
             }
           } else {
             $exon->end_phase(0);
@@ -2057,7 +2065,7 @@ sub evidence_coverage{
     foreach my $f(@{$exon->get_all_supporting_features}){
       
       if($evidence_name ne $f->hseqname){
-        warning("$evidence_name ne " . $f->hseqname . "\n");
+        print("$evidence_name ne " . $f->hseqname . "\n");
       }
       
       if((!$pstart) || $pstart > $f->hstart){
@@ -2073,7 +2081,7 @@ sub evidence_coverage{
 
   $plength = $evidence->length;
   if(!defined($plength) || $plength == 0){
-    warning("TranscriptUtils: no sensible length for ".$evidence_name." assuming 0% ".
+    print("TranscriptUtils: no sensible length for ".$evidence_name." assuming 0% ".
             "coverage");
     return 0;
   }
@@ -2270,13 +2278,13 @@ sub evidence_coverage_greater_than_minimum{
   if ($evidence) {
     my $coverage = evidence_coverage($transcript, $evidence);
     if (!($coverage > $min_coverage)) {
-      warning(Transcript_info($transcript)." based on ".$evidence->id." has too ".
+      print(Transcript_info($transcript)." based on ".$evidence->id." has too ".
             "low coverage ".$coverage." of the evidence");
     return 0;
     }
   }
   else {
-    warning ("There has been no evidence passed in for ".Transcript_info($transcript).
+    print("There has been no evidence passed in for ".Transcript_info($transcript).
              "Assuming coverage is fine");
   }
   return 1;
@@ -2330,7 +2338,7 @@ sub set_start_codon{
 
   # check transcript has a translation
   if(!$transcript->translation || !$transcript->translation->start_Exon){
-    warning("Transcript has no translation, or no start exon - maybe a pseudogene?");
+    print("Transcript has no translation, or no start exon - maybe a pseudogene?");
     return $transcript;
   }
   my $cloned_transcript = clone_Transcript($transcript);
@@ -3201,7 +3209,7 @@ sub set_alignment_supporting_features {
         if (($feature_pair->start() < $prev_feature_pair->end() and $feature_pair->strand() == 1) or
             ($feature_pair->end() > $prev_feature_pair->start() and $feature_pair->strand() == -1)) {
           # if features are not sorted, do not add them
-          warning("Feature pair not in order. Added to exon supporting features but not added to transcript supporting features.");
+          print("Feature pair not in order. Added to exon supporting features but not added to transcript supporting features.");
           next;
         } else {
           push(@{$all_exon_supporting_features},$feature_pair);
@@ -3216,7 +3224,7 @@ sub set_alignment_supporting_features {
       my $final_exon_supporting_features = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => $exon_feature_pairs);
       $exon->add_supporting_features($final_exon_supporting_features);
     } else {
-      warning("No supporting features added for exon.\nExon start: ".$exon->start."\nExon end: ".$exon->end);
+      print("No supporting features added for exon.\nExon start: ".$exon->start."\nExon end: ".$exon->end);
     }
   }
 
@@ -3226,10 +3234,10 @@ sub set_alignment_supporting_features {
     if ($transcript_supporting_features) {
       $transcript->add_supporting_features($transcript_supporting_features);
     } else {
-      warning("There are some all_exon_supporting_features but no $transcript_supporting_features for transcript ".$transcript->dbID()." ".$transcript->stable_id());
+      print("There are some all_exon_supporting_features but no $transcript_supporting_features for transcript ".$transcript->dbID()." ".$transcript->stable_id());
     }
   } else {
-    warning("There are no all_exon_supporting_features and, therefore, no transcript_supporting_features for transcript ".$transcript->dbID()." ".$transcript->stable_id());
+    print("There are no all_exon_supporting_features and, therefore, no transcript_supporting_features for transcript ".$transcript->dbID()." ".$transcript->stable_id());
   }
 }
 
@@ -3260,7 +3268,7 @@ sub find_codon_alignment_index {
   }
   unless($align_index >= 0) {
     #throw("Did not find the alignment index for the codon");
-    warning("Did not find the alignment index for the codon");
+    print("Did not find the alignment index for the codon");
   }
 
   return($align_index);

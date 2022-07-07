@@ -1425,6 +1425,10 @@ sub process_results {
       $gene->biotype($source_gene->biotype());
       $gene->stable_id($source_gene->stable_id());
       $gene->add_Attributes($parent_attribute);
+
+      $gene->biotype($source_gene->biotype());
+      $gene->stable_id($source_gene->stable_id());
+
       $gene->{'to_write'} = 1;
       push(@$final_genes,$gene);
     }
