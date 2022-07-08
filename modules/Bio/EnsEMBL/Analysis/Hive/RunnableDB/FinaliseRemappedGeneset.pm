@@ -175,7 +175,7 @@ sub low_identity_genes_to_remove {
     my $cumulative_coverage = 0;
     foreach my $transcript (@$transcripts) {
       my $description = $transcript->description();
-      $description =~ /Coverage\: ([^,]+)\, Perc id\: ([^,]+)\,/;
+      $description =~ /;mapping_coverage=([^,]+);mapping_identity=([^,]+)/;
       my $coverage = $1;
       my $perc_id = $2;
       $cumulative_coverage += $coverage;
