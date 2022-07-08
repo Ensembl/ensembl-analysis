@@ -1811,7 +1811,7 @@ sub filter_paf_hits {
     $selected_paf_results = $overlapping_paf_results;
     say "Found ".scalar(@$selected_paf_results)." overlapping paf results";
   } elsif(scalar(@$non_overlapping_paf_results)) {
-    $selected_paf_results = ${$non_overlapping_paf_results}[0];
+    $selected_paf_results = [${$non_overlapping_paf_results}[0]];
     say "Found ".scalar(@$selected_paf_results)." non-overlapping paf results, no overlapping results so will use the top hit";
   }
 
