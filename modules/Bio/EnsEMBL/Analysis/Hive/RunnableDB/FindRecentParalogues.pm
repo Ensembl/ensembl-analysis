@@ -309,6 +309,16 @@ sub filter_by_cutoffs {
       unless($transcript_seq) {
         next;
       }
+      
+      if ($transcript->coding_region_start() and
+          $transcript->coding_region_end() and
+          $transcript->coding_region_end()-$transcript->coding_region_start()+1 < 3) {
+        # By convention, the coding_region_end is always higher than the
+        # value returned by the coding_region_start method.
+        say "Transcript CDS is too short (< 3 bp). Transcript dbID: ".$transcript->dbID();
+        next;
+      }
+
     } else {
       $source_transcript_seq = $source_transcript->seq->seq();
       $transcript_seq = $transcript->seq->seq();
