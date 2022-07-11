@@ -1358,9 +1358,18 @@ sub build_batch_genes {
             $self->qc_cds_sequence($projected_transcript,$source_transcript);
           }
           $self->set_transcript_description($projected_transcript,$source_transcript);
-          $target_gene->add_Transcript($projected_transcript);
-          if($projected_transcript->{'cov'} >= 99 and $projected_transcript->{'perc_id'} >= 99) {
-            $complete_projections++;
+          
+          if ($projected_transcript->coding_region_start() and
+              $projected_transcript->coding_region_end() and
+              $projected_transcript->coding_region_end()-$projected_transcript->coding_region_start()+1 < 3) {
+            # By convention, the coding_region_end is always higher than the
+            # value returned by the coding_region_start method.
+            say "Projected transcript CDS is too short (< 3 bp). Parent transcript stable id: ".$projected_transcript->{'parent_transcript_versioned_stable_id'};
+          } else {
+            $target_gene->add_Transcript($projected_transcript);
+            if($projected_transcript->{'cov'} >= 99 and $projected_transcript->{'perc_id'} >= 99) {
+              $complete_projections++;
+            }
           }
         }
       } # end foreach my $source_transcript
