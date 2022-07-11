@@ -2688,7 +2688,16 @@ sub create_gene_from_cluster {
     }
 
     $transcript->source($source);
-    $gene->add_Transcript($transcript);
+    
+    if ($transcript->coding_region_start() and
+        $transcript->coding_region_end() and
+        $transcript->coding_region_end()-$transcript->coding_region_start()+1 < 3) {
+      # By convention, the coding_region_end is always higher than the
+      # value returned by the coding_region_start method.
+      say "Transcript CDS is too short (< 3 bp). Parent transcript stable id: ".$parent_transcript_stable_id.".".$parent_transcript_version;
+    } else {        
+      $gene->add_Transcript($transcript);
+    }
   }
 
   $gene->{'parent_gene_id'} = $parent_gene_id;
