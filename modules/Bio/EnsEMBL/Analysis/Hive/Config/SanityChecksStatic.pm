@@ -149,7 +149,6 @@ sub _master_config {
         'biotypes' =>    {
           'human_pe12_'         => 20000,
           'mouse_pe12_'      => 50000,
-          'vert_pe12_'      => 50000,
           'mammals_pe12_'       => 100000,
         }, # biotypes
       }, # genblast
@@ -627,7 +626,6 @@ sub _master_config {
         'biotypes' =>    {
           'human_pe12_'         => 20000,
           'mouse_pe12_'      => 50000,
-          'vert_pe12_'      => 50000,
           'mammals_pe12_'       => 100000,
         }, # biotypes
       }, # genblast
