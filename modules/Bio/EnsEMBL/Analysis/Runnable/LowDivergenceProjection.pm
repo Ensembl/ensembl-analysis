@@ -1365,6 +1365,8 @@ sub build_batch_genes {
             # By convention, the coding_region_end is always higher than the
             # value returned by the coding_region_start method.
             say "Projected transcript CDS is too short (< 3 bp). Parent transcript stable id: ".$projected_transcript->{'parent_transcript_versioned_stable_id'};
+          } elsif ($projected_transcript->biotype() eq 'protein_coding' and !($projected_transcript->translation())) {
+            say "Projected transcript biotype is protein_coding but it does not have any translation. Parent transcript stable id: ".$projected_transcript->{'parent_transcript_versioned_stable_id'};
           } else {
             $target_gene->add_Transcript($projected_transcript);
             if($projected_transcript->{'cov'} >= 99 and $projected_transcript->{'perc_id'} >= 99) {
