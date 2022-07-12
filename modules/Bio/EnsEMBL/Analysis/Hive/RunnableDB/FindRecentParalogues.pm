@@ -319,6 +319,11 @@ sub filter_by_cutoffs {
         next;
       }
 
+      if ($transcript->biotype() eq 'protein_coding' and !($transcript->translation())) {
+        say "Transcript biotype is protein_coding but it does not have any translation. Transcript dbID: ".$transcript->dbID();
+        next;
+      }
+
     } else {
       $source_transcript_seq = $source_transcript->seq->seq();
       $transcript_seq = $transcript->seq->seq();
