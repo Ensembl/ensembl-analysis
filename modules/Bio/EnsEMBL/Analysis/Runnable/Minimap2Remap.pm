@@ -2695,6 +2695,8 @@ sub create_gene_from_cluster {
       # By convention, the coding_region_end is always higher than the
       # value returned by the coding_region_start method.
       say "Transcript CDS is too short (< 3 bp). Parent transcript stable id: ".$parent_transcript_stable_id.".".$parent_transcript_version;
+    } elsif ($transcript->biotype() eq 'protein_coding' and !($transcript->translation())) {
+      say "Transcript biotype is protein_coding but it does not have any translation. Parent transcript stable id: ".$parent_transcript_stable_id.".".$parent_transcript_version;
     } else {        
       $gene->add_Transcript($transcript);
     }
