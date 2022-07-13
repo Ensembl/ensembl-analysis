@@ -103,7 +103,7 @@ sub default_options {
     do_uniprot_run => 1,
     uniprot_set => 'havana_human_blast',
     blast_type => 'ncbi',
-    protein_entry_loc => '/hps/nobackup2/production/ensembl/genebuild/blastdb/uniprot/uniprot_2019_04/entry_loc',
+    protein_entry_loc => '/hps/nobackup2/production/ensembl/genebuild/blastdb/uniprot/uniprot_2021_04/entry_loc',
 
     meta_pipeline_db_host => $self->o('pipe_db_host'),
     meta_pipeline_db_port => $self->o('pipe_db_port'),

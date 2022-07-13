@@ -69,7 +69,7 @@ sub default_options {
     'skip_rnaseq'        => '0',                                                                                               # Will skip rnaseq analyses if 1
     'mapping_required'   => '0',                                                                                               # If set to 1 this will run stable_id mapping sometime in the future. At the moment it does nothing
     'mapping_db'         => '',                                                                                                # Tied to mapping_required being set to 1, we should have a mapping db defined in this case, leave undef for now
-    'uniprot_version'    => 'uniprot_2019_04',                                                                                 # What UniProt data dir to use for various analyses
+    'uniprot_version'    => 'uniprot_2021_04',                                                                                 # What UniProt data dir to use for various analyses
     'protein_entry_loc'  => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),    # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
     registry_file        => catfile($self->o('output_path'), "Databases.pm"), # Path to databse registry for LastaZ and Production sync
 
