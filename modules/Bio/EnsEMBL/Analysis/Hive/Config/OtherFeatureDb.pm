@@ -62,7 +62,7 @@ sub default_options {
     'output_path'               => '',                                  # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'assembly_name'             => '',                                  # Name (as it appears in the assembly report file)
     'assembly_accession'        => '',                                  # Versioned GCA assembly accession, e.g. GCA_001857705.1
-    'uniprot_version'           => 'uniprot_2019_04',                   # What UniProt data dir to use for various analyses
+    'uniprot_version'           => 'uniprot_2021_04',                   # What UniProt data dir to use for various analyses
 
     # Keys for custom loading, only set/modify if that's what you're doing
     'protein_entry_loc' => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),    # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing

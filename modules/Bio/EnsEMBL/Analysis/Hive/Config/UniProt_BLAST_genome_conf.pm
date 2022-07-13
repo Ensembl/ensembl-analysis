@@ -52,7 +52,7 @@ sub default_options {
     'blast_type' => 'ncbi',
     'blast_exe_path' => catfile($self->o('binary_base'), 'tblastn'),
 
-    protein_entry_loc => '/hps/nobackup2/production/ensembl/genebuild/blastdb/uniprot/uniprot_2019_04/entry_loc',
+    protein_entry_loc => '/hps/nobackup2/production/ensembl/genebuild/blastdb/uniprot/uniprot_2021_04/entry_loc',
     load_optimise_script => catfile($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild', 'load_external_db_ids_and_optimize_af.pl'),
 
     'blast_db_user'   => $self->o('user'),

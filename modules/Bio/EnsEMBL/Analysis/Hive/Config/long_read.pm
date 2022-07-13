@@ -61,7 +61,7 @@ sub default_options {
     'species_name'    => '',                                                                                                          # e.g. mus_musculus
     'production_name' => '',                                                                                                          # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'output_path'     => '',                                                                                                          # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
-    'uniprot_version' => 'uniprot_2019_04',                                                                                           # What UniProt data dir to use for various analyses
+    'uniprot_version' => 'uniprot_2021_04',                                                                                           # What UniProt data dir to use for various analyses
 
     # Keys for custom loading, only set/modify if that's what you're doing
     'protein_blast_db' => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), ($self->o('is_non_vert') eq '1') ? 'PE12' : 'PE12_vertebrata' ),    # Blast database for comparing the final models to.

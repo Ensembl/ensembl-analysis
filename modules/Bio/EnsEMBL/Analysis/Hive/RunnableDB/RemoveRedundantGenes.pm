@@ -133,6 +133,7 @@ sub run {
       $self->say_with_header("Completed: $count/$total_genes");
     }
     # Only works on a one transcript per gene model
+    say($gene->dbID());
     my $transcript = ${$gene->get_all_Transcripts}[0];
     my $transcript_string;
     my $intron_string;
