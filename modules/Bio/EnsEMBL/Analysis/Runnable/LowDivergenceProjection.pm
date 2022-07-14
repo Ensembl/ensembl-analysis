@@ -197,7 +197,11 @@ sub process_gene_batches {
         $self->throw("Could not fund source gene for target gene with stable id: ".$gene->stable_id());
       }
       my $new_gene = $self->build_new_gene($source_gene,$updated_transcripts,$all_source_transcripts_id_hash,$target_parent_slice);
-      push(@$output_genes,$new_gene);
+      if ($new_gene and $new_gene->get_all_Transcripts()) {
+        push(@$output_genes,$new_gene);
+      } else {
+        say "The new gene has not been built because it does not contain any transcript."
+      }
     } else {
       say "Transcript set was not updated, so will keep gene as-is";
       push(@$output_genes,$gene);
@@ -217,6 +221,7 @@ sub build_new_gene {
   $new_gene->version($source_gene->version);
   $new_gene->biotype($source_gene->biotype);
   $new_gene->description($source_gene->description());
+  $new_gene->strand($source_gene->strand());
 
   # add source gene stable id as gene attribute
   my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_gene->stable_id_version);
@@ -240,7 +245,12 @@ sub build_new_gene {
     }
 
     $self->set_transcript_description($target_transcript,$source_transcript);
-    $new_gene->add_Transcript($target_transcript);
+
+    if ($target_transcript->strand() == $new_gene->strand()) {
+      $new_gene->add_Transcript($target_transcript);
+    } else {
+      say "The target transcript (stable ID = ".$target_transcript->stable_id().") strand and the new gene ".$new_gene->stable_id()." strand do not match.";
+    }
   }
   return($new_gene);
 }
