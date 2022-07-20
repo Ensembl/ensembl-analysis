@@ -339,10 +339,20 @@ sub filter_by_cutoffs {
     $transcript->{'parent_gene_stable_id'} = $source_transcript->{'parent_gene_stable_id'};
     $transcript->{'source_biotype_group'} = $source_transcript->get_Biotype->biotype_group();
     $transcript->{'source_length'} = $source_transcript->length();
+    
+    my ($parent_t_stable_id_att) = @{$source_transcript->get_all_Attributes('proj_parent_t')};
+    if (!$parent_t_stable_id_att) {
+      $self->throw("Issue getting the proj_parent_t attribute for transcript with dbID ".$transcript->dbID());
+    }
+    my $parent_t_stable_id = $parent_t_stable_id_att->value();
+    if (!$parent_t_stable_id) {
+      $self->throw("Issue getting the parent transcript stable id from transcript attribute for transcript with dbID ".$transcript->dbID());
+    }
+    
     my $biotype_group = $transcript->{'source_biotype_group'};
     my $coverage_cutoff = $coverage_cutoff_groups->{$biotype_group};
     my $perc_id_cutoff = $percent_identity_groups->{$biotype_group};
-    my $transcript_description = ";parent_transcript=".$source_transcript->stable_id().".".$source_transcript->version().";mapping_coverage=".$coverage.";mapping_identity=".$percent_id;
+    my $transcript_description = ";parent_transcript=".$parent_t_stable_id.";mapping_coverage=".$coverage.";mapping_identity=".$percent_id;
     if ($source_transcript->translation()) {
       my ($cds_coverage,$cds_percent_id,$aligned_source_seq,$aligned_target_seq) = align_nucleotide_seqs($source_transcript->translateable_seq(),$transcript->translateable_seq());
       my $cds_description = ";cds_coverage=".$cds_coverage.";cds_identity=".$cds_percent_id;
