@@ -57,6 +57,7 @@ sub default_options {
     'registry_db'        => '',                                                                                                # name for registry db
     'species_name'       => '',                                                                                                # e.g. mus_musculus
     'production_name'    => '',                                                                                                # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     'release_number'     => '' || $self->o('ensembl_release'),
     'uniprot_set'        => '',                                                                                                # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'sanity_set'         => '',                                                                                                # sanity checks
@@ -79,8 +80,8 @@ sub default_options {
 
     'projection_source_db_name'         => '',                                                                                 # This is generally a pre-existing db, like the current human/mouse core for example
 
-    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . '_pipe_' . $self->o('release_number'),
-    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . '_core_' . $self->o('release_number'),
+    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_pipe_' . $self->o('release_number'),
+    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_core_' . $self->o('release_number'),
 
     'reference_db_name'   => $self->o('dna_db_name'),
     'reference_db_host'   => $self->o('dna_db_host'),
@@ -135,7 +136,7 @@ sub default_options {
     },
 
     'final_geneset_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_final_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_final_' . $self->o('release_number'),
       -host   => $self->o('final_geneset_db_host'),
       -port   => $self->o('final_geneset_db_port'),
       -user   => $self->o('user'),

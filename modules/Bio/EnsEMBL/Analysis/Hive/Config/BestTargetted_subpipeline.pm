@@ -60,6 +60,7 @@ sub default_options {
     'release_number' => '' || $self->o('ensembl_release'),
     'species_name'    => '',     # e.g. mus_musculus
     'production_name' => '',     # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
 
     'taxon_id'    => '',         # should be in the assembly report file
     use_genome_flatfile => 1,
@@ -99,8 +100,8 @@ sub default_options {
     # These values can be replaced in the analysis_base table if they're not known yet
     # If they are not needed (i.e. no projection or rnaseq) then leave them as is
 
-    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . '_pipe_' . $self->o('release_number'),
-    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . '_core_' . $self->o('release_number'),
+    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_pipe_' . $self->o('release_number'),
+    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_core_' . $self->o('release_number'),
 
     'cdna_db_host'   => $self->o('databases_host'),
     'cdna_db_port'   => $self->o('databases_port'),
@@ -143,7 +144,7 @@ sub default_options {
     ########################
 
     'cdna_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_cdna_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_cdna_' . $self->o('release_number'),
       -host   => $self->o('cdna_db_host'),
       -port   => $self->o('cdna_db_port'),
       -user   => $self->o('user'),
@@ -152,7 +153,7 @@ sub default_options {
     },
 
     'cdna2genome_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_cdna2genome_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_cdna2genome_' . $self->o('release_number'),
       -host   => $self->o('cdna2genome_db_host'),
       -port   => $self->o('cdna2genome_db_port'),
       -user   => $self->o('user'),
@@ -161,7 +162,7 @@ sub default_options {
     },
 
     'genewise_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_genewise_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_genewise_' . $self->o('release_number'),
       -host   => $self->o('genewise_db_host'),
       -port   => $self->o('genewise_db_port'),
       -user   => $self->o('user'),
@@ -170,7 +171,7 @@ sub default_options {
     },
 
     'best_targeted_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_bt_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_bt_' . $self->o('release_number'),
       -host   => $self->o('best_targeted_db_host'),
       -port   => $self->o('best_targeted_db_port'),
       -user   => $self->o('user'),

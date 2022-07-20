@@ -53,6 +53,7 @@ sub default_options {
     release_number            => '' || $self->o('ensembl_release'),
     species_name              => '', # e.g. mus_musculus
     production_name           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     taxon_id                  => '', # should be in the assembly report file
     output_path               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     wgs_id                    => '', # Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
@@ -82,8 +83,8 @@ sub default_options {
 ########################
 # Pipe and ref db info
 ########################
-    pipe_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_load_assembly_pipe_'.$self->o('release_number'),
-    dna_db_name  => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
+    pipe_db_name => $self->o('dbowner').'_'.$self->o('dbname_accession').'_load_assembly_pipe_'.$self->o('release_number'),
+    dna_db_name  => $self->o('dbowner').'_'.$self->o('dbname_accession').'_core_'.$self->o('release_number'),
 
     reference_db_name   => $self->o('dna_db_name'),
     reference_db_host   => $self->o('dna_db_host'),

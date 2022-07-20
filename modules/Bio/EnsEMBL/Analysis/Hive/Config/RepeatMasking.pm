@@ -43,6 +43,7 @@ sub default_options {
 ########################
     'dbowner' => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name' => '' || $self->o('production_name') . '_' . $self->o('ensembl_release'),
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     'user_r'                           => '',                                  # read only db user
     'user'                             => '',                                  # write db user
     'password'                         => '',                                  # password for write db user
@@ -73,8 +74,8 @@ sub default_options {
 # These values can be replaced in the analysis_base table if they're not known yet
 # If they are not needed (i.e. no projection or rnaseq) then leave them as is
 
-    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . '_pipe_' . $self->o('release_number'),
-    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . '_core_' . $self->o('release_number'),
+    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_pipe_' . $self->o('release_number'),
+    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_core_' . $self->o('release_number'),
 
     'reference_db_name'   => $self->o('dna_db_name'),
     'reference_db_host'   => $self->o('dna_db_host'),
