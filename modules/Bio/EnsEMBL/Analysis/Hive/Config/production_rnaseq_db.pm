@@ -245,7 +245,7 @@ sub pipeline_analyses {
       -rc_name => 'default',
       -flow_into  => {
         '2->A' => ['delete_merge_genes'],
-        'A->1' => ['create_delete_merge_files_jobs'],
+        'A->1' => ['prepare_rnaseq_meta_data'],
       },
     },
 
@@ -263,47 +263,6 @@ sub pipeline_analyses {
       },
       -rc_name => 'default',
       -hive_capacity => 200,
-    },
-
-    {
-      -logic_name => 'create_delete_merge_files_jobs',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
-      -parameters => {
-        db_conn => $self->o('rnaseq_db'),
-        inputquery => 'SELECT name FROM data_file JOIN analysis USING(analysis_id) WHERE logic_name LIKE "%\_merged_rnaseq\_%"',
-        column_names => ['file'],
-      },
-      -rc_name => 'default',
-      -flow_into  => {
-        '2->A' => ['delete_merge_files'],
-        'A->1' => ['clean_tables_merged_data'],
-      },
-    },
-
-    {
-      -logic_name => 'delete_merge_files',
-      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -parameters => {
-        cmd => 'if [[ -e "'.$self->o('merge_dir').'/#file#.bam" ]]; then rm '.$self->o('merge_dir').'/#file#.bam*; fi',
-      },
-      -rc_name => 'default',
-    },
-
-    {
-      -logic_name => 'clean_tables_merged_data',
-      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-      -parameters => {
-        db_conn => $self->o('rnaseq_db'),
-        sql => [
-          'DELETE FROM data_file WHERE analysis_id IN (SELECT analysis_id FROM analysis WHERE logic_name LIKE "%merged_rnaseq%")',
-          'DELETE FROM analysis WHERE logic_name LIKE "%merged_rnaseq%"',
-        ],
-      },
-      -rc_name    => 'default',
-
-      -flow_into => {
-        1 => ['prepare_rnaseq_meta_data'],
-      },
     },
 
     {
