@@ -60,6 +60,7 @@ sub default_options {
     'release_number' => '' || $self->o('ensembl_release'),
     'species_name'    => '',                                                                                                          # e.g. mus_musculus
     'production_name' => '',                                                                                                          # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     'output_path'     => '',                                                                                                          # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     'uniprot_version' => 'uniprot_2021_04',                                                                                           # What UniProt data dir to use for various analyses
 
@@ -143,7 +144,7 @@ sub default_options {
     # db info
     ########################
     long_read_initial_db => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrinitial_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_lrinitial_' . $self->o('release_number'),
       -host   => $self->o('long_read_initial_db_host'),
       -port   => $self->o('long_read_initial_db_port'),
       -user   => $self->o('user'),
@@ -152,7 +153,7 @@ sub default_options {
     },
 
     long_read_collapse_db => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrcollapse_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_lrcollapse_' . $self->o('release_number'),
       -host   => $self->o('long_read_collapse_db_host'),
       -port   => $self->o('long_read_collapse_db_port'),
       -user   => $self->o('user'),
@@ -161,7 +162,7 @@ sub default_options {
     },
 
     long_read_final_db => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrfinal_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_lrfinal_' . $self->o('release_number'),
       -host   => $self->o('long_read_final_db_host'),
       -port   => $self->o('long_read_final_db_port'),
       -user   => $self->o('user'),

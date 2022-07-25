@@ -56,6 +56,7 @@ sub default_options {
     'release_number'            => '' || $self->o('ensembl_release'),
     'species_name'              => '',                                                          # e.g. mus_musculus
     'production_name'           => '',                                                          # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     'uniprot_set'               => '',                                                          # e.g. mammals_basic, check UniProtCladeDownloadStatic.pm module in hive config dir for suitable set,
     'sanity_set'                => '',                                                          # sanity checks
     'output_path'               => '',                                                          # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
@@ -140,7 +141,7 @@ sub default_options {
 
     'ncrna_db_host'   => $self->o('databases_host'),
     'ncrna_db_port'   => $self->o('databases_port'),
-    ncrna_db_name     => $self->o('dbowner') . '_' . $self->o('production_name') . '_ncrna_' . $self->o('release_number'),
+    ncrna_db_name     => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_ncrna_' . $self->o('release_number'),
     'ncrna_db_user'   => $self->o('user'),
     'ncrna_db_pass'   => $self->o('password'),
 
@@ -238,20 +239,20 @@ sub default_options {
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #
 
-    cdna_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_cdna_' . $self->o('release_number'),
-    genblast_nr_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_genblast_nr_'.$self->o('release_number'),
-    genblast_rnaseq_support_nr_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_gb_rnaseq_nr_'.$self->o('release_number'),
-    ig_tr_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_igtr_'.$self->o('release_number'),
-    best_targeted_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_bt_'.$self->o('release_number'),
-    long_read_final_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_lrfinal_' . $self->o('release_number'),
-    selected_projection_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_sel_proj_' . $self->o('release_number'),
-    rnaseq_for_layer_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_rnalayer_nr_' . $self->o('release_number'),
-    rnaseq_for_layer_nr_db_name => $self->o('dbowner').'_'.$self->o('production_name').'_rnalayer_nr_'.$self->o('release_number'),
-    layering_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_layer_' . $self->o('release_number'),
-    utr_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_utr_' . $self->o('release_number'),
-    genebuilder_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_gbuild_' . $self->o('release_number'),
-    pseudogene_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_pseudo_' . $self->o('release_number'),
-    final_geneset_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_final_' . $self->o('release_number'),
+    cdna_db_name => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_cdna_' . $self->o('release_number'),
+    genblast_nr_db_name => $self->o('dbowner').'_'.$self->o('dbname_accession').'_genblast_nr_'.$self->o('release_number'),
+    genblast_rnaseq_support_nr_db_name => $self->o('dbowner').'_'.$self->o('dbname_accession').'_gb_rnaseq_nr_'.$self->o('release_number'),
+    ig_tr_db_name => $self->o('dbowner').'_'.$self->o('dbname_accession').'_igtr_'.$self->o('release_number'),
+    best_targeted_db_name => $self->o('dbowner').'_'.$self->o('dbname_accession').'_bt_'.$self->o('release_number'),
+    long_read_final_db_name => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_lrfinal_' . $self->o('release_number'),
+    selected_projection_db_name => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_sel_proj_' . $self->o('release_number'),
+    rnaseq_for_layer_db_name => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_rnalayer_nr_' . $self->o('release_number'),
+    rnaseq_for_layer_nr_db_name => $self->o('dbowner').'_'.$self->o('dbname_accession').'_rnalayer_nr_'.$self->o('release_number'),
+    layering_db_name => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_layer_' . $self->o('release_number'),
+    utr_db_name => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_utr_' . $self->o('release_number'),
+    genebuilder_db_name => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_gbuild_' . $self->o('release_number'),
+    pseudogene_db_name => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_pseudo_' . $self->o('release_number'),
+    final_geneset_db_name => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_final_' . $self->o('release_number'),
 
 ########################
 # db info

@@ -71,6 +71,7 @@ sub default_options {
     'protein_entry_loc_file' => 'entry_loc',
     'species_name'        => '',                                                                                      # e.g. mus_musculus
     'production_name'     => '',                                                                                      # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     'taxon_id'            => '',                                                                                      # should be in the assembly report file
     'genus_taxon_id'      => $self->o('taxon_id'),
     'sanity_set'          => '',
@@ -89,8 +90,8 @@ sub default_options {
 # Pipe and ref db info
 ########################
 
-    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('production_name') . '_scallop_pipe_' . $self->o('release_number'),
-    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('production_name') . '_core_' . $self->o('release_number'),
+    'pipe_db_name' => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_scallop_pipe_' . $self->o('release_number'),
+    'dna_db_name'  => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_core_' . $self->o('release_number'),
 
     'reference_db_name'   => $self->o('dna_db_name'),
     'reference_db_host'   => $self->o('dna_db_host'),
@@ -98,11 +99,11 @@ sub default_options {
 
     'rnaseq_for_layer_db_host'   => $self->o('databases_host'),
     'rnaseq_for_layer_db_port'   => $self->o('databases_port'),
-    'rnaseq_for_layer_db_name'   => $self->o('dbowner') . '_' . $self->o('production_name') . '_star_rs_layer_' . $self->o('release_number'),
+    'rnaseq_for_layer_db_name'   => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_star_rs_layer_' . $self->o('release_number'),
 
     'rnaseq_for_layer_nr_db_host'   => $self->o('databases_host'),
     'rnaseq_for_layer_nr_db_port'   => $self->o('databases_port'),
-    'rnaseq_for_layer_nr_db_name'   => $self->o('dbowner') . '_' . $self->o('production_name') . '_star_rs_layer_nr_' . $self->o('release_number'),
+    'rnaseq_for_layer_nr_db_name'   => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_star_rs_layer_nr_' . $self->o('release_number'),
 
     'scallop_initial_db_host'   => $self->o('databases_host'),
     'scallop_initial_db_port'   => $self->o('databases_port'),
@@ -112,7 +113,7 @@ sub default_options {
     
     'pcp_db_host' => $self->o('databases_host'),
     'pcp_db_port' => $self->o('databases_port'),
-    'pcp_db_name' => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
+    'pcp_db_name' => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pcp_'.$self->o('release_number'),
 
     # This is used for the ensembl_production and the ncbi_taxonomy databases
     'ensembl_release' => $ENV{ENSEMBL_RELEASE},    # this is the current release version on staging to be able to get the correct database
@@ -237,7 +238,7 @@ sub default_options {
     },
 
     'scallop_initial_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_scallop_initial_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_scallop_initial_' . $self->o('release_number'),
       -host   => $self->o('scallop_initial_db_host'),
       -port   => $self->o('scallop_initial_db_port'),
       -user   => $self->o('user'),
@@ -246,7 +247,7 @@ sub default_options {
     },
 
     'scallop_blast_db' => {
-      -dbname => $self->o('dbowner') . '_' . $self->o('production_name') . '_scallop_blast_' . $self->o('release_number'),
+      -dbname => $self->o('dbowner') . '_' . $self->o('dbname_accession') . '_scallop_blast_' . $self->o('release_number'),
       -host   => $self->o('scallop_blast_db_host'),
       -port   => $self->o('scallop_blast_db_port'),
       -user   => $self->o('user'),
@@ -255,7 +256,7 @@ sub default_options {
     },
 
     'pcp_db'=> {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pcp_'.$self->o('release_number'),
       -host   => $self->o('pcp_db_host'),
       -port   => $self->o('pcp_db_port'),
       -user   => $self->o('user'),
@@ -264,7 +265,7 @@ sub default_options {
     },
 
     'pcp_nr_db'=> {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_pcp_nr_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pcp_nr_'.$self->o('release_number'),
       -host   => $self->o('pcp_db_host'),
       -port   => $self->o('pcp_db_port'),
       -user   => $self->o('user'),

@@ -44,6 +44,7 @@ sub default_options {
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'pipeline_name'             => '' || $self->o('production_name').'_'.$self->o('ensembl_release'),
     'production_name'           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
+    dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     'release_number'            => '' || $self->o('ensembl_release'),
     'user_r'                    => '', # read only db user
     'user'                      => '', # write db user
@@ -71,13 +72,13 @@ sub default_options {
     # The following might not be known in advance, since the come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
     # If they are not needed (i.e. no projection or rnaseq) then leave them as is
-    'pipe_db_name'  => $self->o('dbowner').'_'.$self->o('production_name').'_pipe_'.$self->o('release_number'),
+    'pipe_db_name'  => $self->o('dbowner').'_'.$self->o('dbname_accession').'_pipe_'.$self->o('release_number'),
 
-    'projection_lastz_db_name'     => $self->o('dbowner').'_'.$self->o('production_name').'_lastz_pipe_'.$self->o('release_number'),
+    'projection_lastz_db_name'     => $self->o('dbowner').'_'.$self->o('dbname_accession').'_lastz_pipe_'.$self->o('release_number'),
     'projection_lastz_db_host'     => $self->o('pipe_db_host'),
     'projection_lastz_db_port'     => $self->o('pipe_db_port'),
 
-    'dna_db_name'   => $self->o('dbowner').'_'.$self->o('production_name').'_core_'.$self->o('release_number'),
+    'dna_db_name'   => $self->o('dbowner').'_'.$self->o('dbname_accession').'_core_'.$self->o('release_number'),
     genome_dumps => catdir( $self->o('output_path'), 'genome_dumps' ),
     use_genome_flatfile => 1,
     faidx_genome_file => catfile( $self->o('genome_dumps'), $self->o('species_name') . '_toplevel.fa' ),
@@ -120,7 +121,7 @@ sub default_options {
 ########################
 
     'projection_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_proj_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_proj_'.$self->o('release_number'),
       -host   => $self->o('projection_db_host'),
       -port   => $self->o('projection_db_port'),
       -user   => $self->o('user'),
@@ -147,7 +148,7 @@ sub default_options {
     },
 
     'selected_projection_db' => {
-      -dbname => $self->o('dbowner').'_'.$self->o('production_name').'_sel_proj_'.$self->o('release_number'),
+      -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_sel_proj_'.$self->o('release_number'),
       -host   => $self->o('selected_projection_db_host'),
       -port   => $self->o('selected_projection_db_port'),
       -user   => $self->o('user'),

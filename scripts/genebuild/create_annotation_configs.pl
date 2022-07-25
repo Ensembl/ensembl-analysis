@@ -455,6 +455,7 @@ sub parse_assembly_report {
   }
 
 # create production name - must be unique, no more than trinomial, and include GCA
+# Add dbname_accession which replace production_name in the dbname and is just the GCA MySQL friendly
   my $underscore_count = $species_name =~ tr/_//;
   $species_name =~ /(^[^_]+_[^_]+)_*.*/;
   my $binomial_name = $1;
@@ -462,6 +463,7 @@ sub parse_assembly_report {
   $accession_append =~ s/\./v/g;
   $accession_append =~ s/_//g;
   $assembly_hash->{'production_name'} = $binomial_name.'_'.$accession_append;
+  $assembly_hash->{'dbname_accession'} = $accession_append;
 
   $assembly_hash->{'strain'} = $species_name;
   $assembly_hash->{'assembly_level'} = $assembly_level;
