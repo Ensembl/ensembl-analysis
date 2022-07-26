@@ -610,8 +610,7 @@ sub pipeline_analyses {
      -logic_name => 'set_dir_permission',
      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
      -parameters => {
-       cmd => "sudo -u genebuild chmod -R g+w " .$self->o('production_ftp_dir') . 'species/' . ucfirst($self->o('species_name')). "/; sudo -u genebuild chmod -R g+w " .$self->o('production_ftp_dir') . 'species/' . ucfirst($self->o('species_name')). "/".$self->o('assembly_accession'),
-     },
+       cmd => "sudo -u genebuild find " .$self->o('production_ftp_dir') . 'species/' . ucfirst($self->o('species_name')). "/ -user genebuild -exec chmod g+w {} \\;"},
      -rc_name    => '2GB',
      -flow_into => {
 	1 => ['delete_data_files'],
