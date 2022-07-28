@@ -542,7 +542,6 @@ sub _retrieve_biosample_info {
           $self->warning('Replacing '.$data->{sex}.' with '.$json->{characteristics}->{sex}->[0]->{text});
         }
         $data->{sex} = $json->{characteristics}->{sex}->[0]->{text};
-        last;
       }
       # The order of the keys influence the age given. If unborn we expect the two values to be the same
       foreach my $age_string ('gestational age at sample collection', 'animal age at collection', 'age') {
