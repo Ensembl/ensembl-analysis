@@ -800,7 +800,6 @@ sub pipeline_analyses {
           custom_toplevel_file_path => $self->o('custom_toplevel_file_path'),
           use_repeatmodeler_to_mask => $self->o('use_repeatmodeler_to_mask'),
           replace_repbase_with_red_to_mask => $self->o('replace_repbase_with_red_to_mask'),
-          projection_source_db_name => $self->o('projection_source_db_name'),
         },
       },
       -rc_name      => 'default',

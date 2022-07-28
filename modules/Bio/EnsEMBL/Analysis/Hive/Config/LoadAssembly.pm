@@ -100,8 +100,6 @@ sub default_options {
     taxonomy_db_port   => $self->o('production_db_port'),
     taxonomy_db_name   => 'ncbi_taxonomy',
 
-    projection_source_db_name => '', # This is generally a pre-existing db, like the current human/mouse core for example
-
     databases_to_delete => ['reference_db'],#, 'projection_realign_db'
 
 
@@ -335,7 +333,6 @@ sub pipeline_analyses {
           '(1, "genebuild.id", '.$self->o('genebuilder_id').'),'.
 	  '(1, "genebuild.method", "full_genebuild"),'.
 	  '(1, "genebuild.method_display", "Ensembl Genebuild"),'.
-          '(1, "genebuild.projection_source_db", "'.$self->o('projection_source_db_name').'"),'.
           '(1, "assembly.provider_name", "'.$self->o('assembly_provider_name').'"),'.
           '(1, "assembly.provider_url", "'.$self->o('assembly_provider_url').'"),'.
           '(1, "annotation.provider_name", "'.$self->o('annotation_provider_name').'"),'.
@@ -473,7 +470,6 @@ sub pipeline_analyses {
           'genebuild.id' => $self->o('genebuilder_id'),
 	  'genebuild.method' => 'full_genebuild',
 	  'genebuild.method_display' => 'Ensembl Genebuild', 
-          'genebuild.projection_source_db' => $self->o('projection_source_db_name'),
           'assembly.provider_name' => $self->o('assembly_provider_name'),
           'assembly.provider_url' => $self->o('assembly_provider_url'),
           'annotation.provider_name' => $self->o('annotation_provider_name'),

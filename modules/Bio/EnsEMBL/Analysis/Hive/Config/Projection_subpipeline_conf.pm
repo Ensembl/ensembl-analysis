@@ -492,6 +492,21 @@ sub pipeline_analyses {
       },
       -rc_name    => '4GB',
       -flow_into  => {
+        '1'  => ['insert_production_source_db_meta_key'],
+      },
+    },
+
+    {
+      -logic_name => 'insert_production_source_db_meta_key',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => $self->o('reference_db'),
+        sql => [
+          'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.projection_source_db","'.$self->o('projection_source_db_name').'")',
+        ],
+      },
+      -rc_name    => 'default',
+      -flow_into  => {
         '1'  => ['notification_pipeline_is_done'],
       },
     },
