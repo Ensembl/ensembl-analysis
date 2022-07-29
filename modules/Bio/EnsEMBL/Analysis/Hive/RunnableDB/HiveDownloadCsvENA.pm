@@ -534,6 +534,7 @@ sub _retrieve_biosample_info {
             $self->warning('Replacing '.$data->{dev_stage}.' with '.$json->{characteristics}->{$dev_stage}->[0]->{text});
           }
           $data->{dev_stage} = $json->{characteristics}->{$dev_stage}->[0]->{text};
+          last;
         }
       }
       if (exists $json->{characteristics}->{sex} and $json->{characteristics}->{sex}->[0]->{text} ne 'not determined') {
@@ -549,6 +550,7 @@ sub _retrieve_biosample_info {
             $self->warning('Replacing '.$data->{age}.' with '.$json->{characteristics}->{$age_string}->[0]->{text}.' '.$json->{characteristics}->{$age_string}->[0]->{unit});
           }
           $data->{age} = $json->{characteristics}->{$age_string}->[0]->{text}.' '.$json->{characteristics}->{$age_string}->[0]->{unit};
+          last;
         }
       }
       # The choice of the order is based on a specific submission and may not be the best for the majority of the samples
@@ -558,6 +560,7 @@ sub _retrieve_biosample_info {
             $self->warning('Replacing '.$data->{sample_alias}.' with '.$json->{characteristics}->{$sample_string}->[0]->{text});
           }
           $data->{sample_alias} = $json->{characteristics}->{$sample_string}->[0]->{text};
+          last;
         }
       }
       if (exists $data->{sample_alias} and index($data->{sample_alias}, $json->{name}) > -1 and length($json->{name}) < length($data->{sample_alias})) {
@@ -570,6 +573,7 @@ sub _retrieve_biosample_info {
             $self->warning('Replacing '.$data->{organismPart}.' with '.$json->{characteristics}->{$tissue}->[0]->{text});
           }
           $data->{organismPart} = $json->{characteristics}->{$tissue}->[0]->{text};
+          last;
         }
       }
       if (exists $json->{characteristics}->{age} and $data->{organismPart} =~ /embryo/) {
