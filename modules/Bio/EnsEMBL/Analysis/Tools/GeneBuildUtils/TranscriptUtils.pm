@@ -1244,10 +1244,6 @@ sub replace_stops_with_introns{
   my $newtranslation = $newtranscript->translation;
   my @exons = @{$newtranscript->get_all_Exons};
   my $removed_exon_count = 0;
-  my $phase_adjust = 0;
-  if ($newtranslation->start_Exon->phase > 0) {
-    $phase_adjust = $newtranslation->start_Exon->phase;
-  }
 
   while($pep =~ /\*/g) {
     # find the position of the stop codon within the peptide
@@ -1258,24 +1254,22 @@ sub replace_stops_with_introns{
     my @coords = $newtranscript->pep2genomic($position, $position);
 
     foreach my $stop (@coords) {
-      my $stop_start = $stop->start-$phase_adjust;
-      my $stop_end = $stop->end-$phase_adjust;
-      print "Found stop at position start ".$stop_start." end ".$stop_end." on strand ".$transcript->strand."\n";
+      print "Found stop at position start ".$stop->start." end ".$stop->end." on strand ".$transcript->strand."\n";
       # locate the exon that this stop lies in
       my @new_exons;
       foreach my $exon (@exons) {
         # NOTE that at this point the stop will always lie on a translateable exon
-        if ($stop_start > $exon->seq_region_start() and $stop_end < $exon->seq_region_end()) {
+        if ($stop->start() > $exon->seq_region_start() and $stop->end() < $exon->seq_region_end()) {
           # This stop lies _completely_ within an exon and not on its
           # boundary. We therefore can split the exon into two UNLESS
           # (the stop starts at the start of the translation OR
           #  the stop ends at the end of the translation)
           if ( ($newtranslation->start_Exon->start == $exon->start and
-                $newtranslation->genomic_start() == $stop_start and
+                $newtranslation->genomic_start() == $stop->start and
                 $newtranscript->strand == 1)
                or
                ($newtranslation->start_Exon->start == $exon->start and
-                $newtranslation->genomic_end() == $stop_end and
+                $newtranslation->genomic_end() == $stop->end and
                 $newtranscript->strand == -1) ) {
             # if the stop starts at the start of the translation
             # the translation start is shifted and the exon is not divided
@@ -1287,11 +1281,11 @@ sub replace_stops_with_introns{
             next;
 
           } elsif ( ($newtranslation->end_Exon->start == $exon->start and
-                     $newtranslation->genomic_end() == $stop_end and
+                     $newtranslation->genomic_end() == $stop->end and
                      $newtranscript->strand == 1)
                     or
                     ($newtranslation->end_Exon->start == $exon->start and
-                     $newtranslation->genomic_start() == $stop_start and
+                     $newtranslation->genomic_start() == $stop->start and
                      $newtranscript->strand == -1) )
           {
 
@@ -1310,7 +1304,7 @@ sub replace_stops_with_introns{
             my $exon_left = Bio::EnsEMBL::Exon->new(
                     -slice     => $exon->slice,
                     -start     => $exon->start,
-                    -end       => $exon->start+($stop_start-$exon->seq_region_start())-1,
+                    -end       => $exon->start+($stop->start()-$exon->seq_region_start())-1,
                     -strand    => $exon->strand,
                     -phase     => $exon->strand < 0 ? 0 : $exon->phase,
                     -end_phase => $exon->strand < 0 ? $exon->end_phase  :0);
@@ -1332,10 +1326,10 @@ sub replace_stops_with_introns{
             if ($newtranslation->end_Exon == $exon) {
               # and this is the last translateable exon
               if ($exon->strand == 1) {
-                $newtranslation->end($newtranslation->end-($stop_end-$exon->seq_region_start+1));
+                $newtranslation->end($newtranslation->end-($stop->end-$exon->seq_region_start+1));
                 $newtranslation->end_Exon($exon_right);
               } else {
-                $newtranslation->end($newtranslation->end-($exon->seq_region_end-$stop_start+1));
+                $newtranslation->end($newtranslation->end-($exon->seq_region_end-$stop->start+1));
                 $newtranslation->end_Exon($exon_left);
               }
             }
@@ -1527,25 +1521,25 @@ sub replace_stops_with_introns{
             }
           }
 
-        } elsif($stop_start <= $exon->seq_region_start() && $stop_end >= $exon->seq_region_end()) {
+        } elsif($stop->start() <= $exon->seq_region_start() && $stop->end() >= $exon->seq_region_end()) {
           print("Exon is a stop codon, removing the exon");
 
           # This will later be added to the end_exon_index to account for the removed
           # exon or exons. This works on the test case and seems sensible, but is
           # difficult to thoroughly test.
-        } elsif ($stop_start == $exon->seq_region_start()) {
+        } elsif ($stop->start() == $exon->seq_region_start()) {
           # stop lies at the start of the exon
           print("---stop lies at the start of the exon\n");
-          # note that +3 has been replaced with $stop_end-$stop_start+1 to
+          # note that +3 has been replaced with $stop->end-$stop->start+1 to
           # fix the rare cases where stops lie on two consecutive exons
-          $exon->start($exon->start + ($stop_end-$stop_start+1));
+          $exon->start($exon->start + ($stop->end-$stop->start+1));
           # Because the stop length may not now be 3 bases long now we need to fix the phase
           if ( $newtranscript->strand == -1 ) {
             $exon->end_phase(0);
           } else {
             $exon->phase(0);
             if ($newtranslation->end_Exon->start == $exon->start) {
-              $newtranslation->end($newtranslation->end-($stop_end-$stop_start+1));
+              $newtranslation->end($newtranslation->end-($stop->end-$stop->start+1));
             }
           }
           
@@ -1555,19 +1549,19 @@ sub replace_stops_with_introns{
           # the above line of code, where no modification occurs to the supporting features. Might leave slight
           # overhang, but this is no big deal
 
-        } elsif ($stop_end == $exon->seq_region_end()) {
+        } elsif ($stop->end() == $exon->seq_region_end()) {
           # stop lies at the end of the exon
           print("---stop lies at the end of the exon\n");
-          # note that +3 has been replaced with $stop_end-$stop_start+1 to
+          # note that +3 has been replaced with $stop->end-$stop->start+1 to
           # fix the rare cases where stops lie on two consecutive exons
-          #print "DB8 e end: ". $exon->end. " s sta: ". $stop_start. " s end: " .$stop_end. " s len: " .$stop_length."\n";
-          $exon->end($exon->end - ($stop_end-$stop_start+1));
+          #print "DB8 e end: ". $exon->end. " s sta: ". $stop->start. " s end: " .$stop->end. " s len: " .$stop->length."\n"; 
+          $exon->end($exon->end - ($stop->end-$stop->start+1));  
           
           # Because the stop length may not now be 3 bases long now we need to fix the phase
           if ( $newtranscript->strand == -1 ) {
             $exon->phase(0);
             if ($newtranslation->end_Exon->start == $exon->start) {
-              $newtranslation->end($newtranslation->end-($stop_end-$stop_start+1));
+              $newtranslation->end($newtranslation->end-($stop->end-$stop->start+1));
             }
           } else {
             $exon->end_phase(0);
