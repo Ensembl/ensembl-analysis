@@ -632,7 +632,7 @@ sub pipeline_analyses {
       -rc_name    => 'default',
       -priority => -2,
       -flow_into => {
-        1 => ['create_tissue_jobs'],
+        2 => ['create_tissue_jobs'],
       },
     },
     {
@@ -685,8 +685,9 @@ sub pipeline_analyses {
       },
       -rc_name    => '3GB_rnaseq_multithread',
       -priority => -2,
+      -max_retry_count => 0,
       -flow_into => {
-        1 => ['create_analyses_type_job', '?accu_name=filename&accu_address=[]&accu_input_variable=bam_file'],
+        1 => ['create_analyses_type_job'],
       },
     },
     {
