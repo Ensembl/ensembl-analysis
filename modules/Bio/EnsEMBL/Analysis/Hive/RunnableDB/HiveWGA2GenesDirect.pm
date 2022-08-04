@@ -195,7 +195,7 @@ sub run {
      my $successfully_projected = 0;
      my $preliminary_transcripts = [];
      eval {
-      local $SIG{ALRM} = sub { die "alarm clock restart" };
+      local $SIG{ALRM} = sub { die "alarm clock restart\n" };
       alarm $timer; #schedule alarm in '$timer' seconds
 
       foreach my $chain (@{$source_transcript->{_genomic_align_block_chains}}) {
@@ -239,7 +239,7 @@ sub run {
       alarm 0; #reset alarm
     }; # end eval
 
-    if($@ && $@ !~ /alarm clock restart/) {
+    if($@ && $@ eq "alarm clock restart\n") {
       say "Projection failed for transcript ".$source_transcript->dbID." because of time limit on timer param";
     }
 
