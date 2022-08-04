@@ -208,7 +208,7 @@ sub gene_db_checks {
         }
 
         $self->say_with_header("Observed gene/transcript count for $biotype : $observed_count");
-        unless($observed_count && ($observed_count >= $min_count)) {
+        unless(defined $observed_count && ($observed_count >= $min_count)) {
           $self->throw("Gene/transcript count is below the min value of ".$min_count." for ".$biotype.", observed count: ".$observed_count);
         }
       }
