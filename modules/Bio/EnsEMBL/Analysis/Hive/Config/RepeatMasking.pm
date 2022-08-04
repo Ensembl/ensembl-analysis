@@ -261,6 +261,7 @@ sub pipeline_analyses {
         commandline_params  => '-nolow -species "' . $self->o('repbase_library') . '" -engine "' . $self->o('repeatmasker_engine') . '"',
         use_genome_flatfile => $self->o('use_genome_flatfile'),
         genome_file         => $self->o('faidx_genome_file'),
+        disconnect_jobs     => 1,
       },
       -rc_name   => 'repeatmasker',
       -flow_into => {
@@ -298,6 +299,7 @@ sub pipeline_analyses {
         commandline_params  => '-nolow -species "' . $self->o('repbase_library') . '" -engine "' . $self->o('repeatmasker_engine') . '"',
         use_genome_flatfile => $self->o('use_genome_flatfile'),
         genome_file         => $self->o('faidx_genome_file'),
+        disconnect_jobs     => 1,
       },
       -rc_name   => 'repeatmasker_rebatch',
       -flow_into => {
