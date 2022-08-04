@@ -577,7 +577,7 @@ sub place_transcript {
       }
       
       if (@fps) {
-        my $f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@fps);
+        my $f = Bio::EnsEMBL::DnaPepAlignFeature->new(-features => \@fps, -align_type => 'ensembl');
         if($exon_aligned_aas == 0) {
           $f->percent_id(0);
         } else {
@@ -663,7 +663,7 @@ sub place_transcript {
           map { $_->percent_id(100) } @ug_feats;
 
           my $new_sup_feat = Bio::EnsEMBL::DnaPepAlignFeature->
-              new(-features => \@ug_feats);
+              new(-features => \@ug_feats, -align_type => 'ensembl');
           $new_sup_feat->percent_id((($len_l * $pid_l) + ($len_r * $pid_r)) 
                                     / ($len_l + $len_r));
           $merged_exon->add_supporting_features($new_sup_feat);
@@ -703,7 +703,7 @@ sub place_transcript {
 
   if (@trans_fps) {
     my $t_sf = Bio::EnsEMBL::DnaPepAlignFeature->
-        new(-features => \@trans_fps);
+        new(-features => \@trans_fps, -align_type => 'ensembl');
     # use score to hold coverage, so that it is stored somewhere when written to db
     $t_sf->score(100 * ($transcript_aligned_aas / length($source_pep)));
     $t_sf->hcoverage( 100 * ($transcript_aligned_aas / length($source_pep)));
