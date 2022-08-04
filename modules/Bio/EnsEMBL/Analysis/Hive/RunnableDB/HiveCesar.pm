@@ -112,7 +112,10 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 =cut
 
 sub param_defaults {
+    my ($self) = @_;
+
     return {
+      %{$self->SUPER::param_defaults},
       iid => '',
       output_path => '',
       source_dna_db => '',
@@ -129,6 +132,10 @@ sub param_defaults {
       stops2introns => 0,
       max_stops => 0,
       logic_name => 'cesar',
+      fail_data_flows => [
+        15,
+        30,
+      ],
       #TRANSCRIPT_FILTER => {
       #                       OBJECT     => 'Bio::EnsEMBL::Analysis::Tools::ExonerateTranscriptFilter',
       #                       PARAMETERS => {
@@ -265,12 +272,14 @@ sub fetch_input {
     $self->throw("No MethodLinkSpeciesSet for :\n".$self->param('method_link_type')."\n".$source_species."\n".$target_species);
   }
 
+  my $sa = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor();
+  my $genomic_align_block_adaptor = $compara_dba->get_GenomicAlignBlockAdaptor();
   foreach my $ii (@input_id) {
 
     my $gene = $source_transcript_dba->get_GeneAdaptor->fetch_by_dbID($ii);
+    my $full_slice = $gene->slice->seq_region_Slice;
     my @unique_translateable_transcripts = $self->get_unique_translateable_transcripts($gene,$self->param('canonical'));
     my $transcript_align_slices;
-    my $genomic_align_block_adaptor = $compara_dba->get_GenomicAlignBlockAdaptor();
     my $transcript_region_padding = $self->param('transcript_region_padding');
 
     foreach my $transcript (@unique_translateable_transcripts) {
@@ -282,8 +291,8 @@ sub fetch_input {
       my $transcript_group_id_seq_region_strands = {};
    
       my $transcript_padded_start = $transcript->start()-$transcript_region_padding;
-      if ($transcript_padded_start < 0) {
-        $transcript_padded_start = 0;
+      if ($transcript_padded_start < 1) {
+        $transcript_padded_start = 1;
       }
 
       my $transcript_padded_end = $transcript->end()+$transcript_region_padding;
@@ -291,10 +300,9 @@ sub fetch_input {
         $transcript_padded_end = $gene->slice()->length();
       }
 
-      my $slice_adaptor = $source_dna_dba->get_SliceAdaptor();
-      my $transcript_slice = $slice_adaptor->fetch_by_region($transcript->slice()->coord_system_name(),$transcript->slice()->seq_region_name(),$transcript_padded_start,$transcript_padded_end,$transcript->seq_region_strand());
+      my $transcript_slice = $full_slice->sub_Slice($transcript_padded_start, $transcript_padded_end, $transcript->seq_region_strand);
 
-      say "---transcript slice: ".$transcript_slice->coord_system_name()." ".$transcript_slice->name()."\n"."length of transcript slice seq: ".length($transcript_slice->seq());
+      say "---transcript slice: ".$transcript_slice->coord_system_name()." ".$transcript_slice->name()."\n"."length of transcript slice seq: ".$transcript_slice->length;
 
       my $genomic_align_blocks = $genomic_align_block_adaptor->fetch_all_by_MethodLinkSpeciesSet_Slice($mlss,$transcript_slice);
       my $transcript_slices = [];
@@ -305,7 +313,7 @@ sub fetch_input {
           my $gab_group_id = $gab->group_id();
           foreach my $genomic_align (@{$gab->get_all_non_reference_genomic_aligns()}) {
             my $genomic_align_slice = $genomic_align->get_Slice();
-            $transcript_group_id_lengths->{$gab_group_id} += length($genomic_align_slice->seq());
+            $transcript_group_id_lengths->{$gab_group_id} += $genomic_align_slice->length;
             
             if (!($transcript_group_id_min_starts->{$gab_group_id})) {
               $transcript_group_id_min_starts->{$gab_group_id} = $genomic_align_slice->start();
@@ -313,7 +321,7 @@ sub fetch_input {
               $transcript_group_id_min_starts->{$gab_group_id} = min($transcript_group_id_min_starts->{$gab_group_id},
                                                                      $genomic_align_slice->start());
             }
-            $transcript_group_id_max_ends->{$gab_group_id} = max($transcript_group_id_max_ends->{$gab_group_id},
+            $transcript_group_id_max_ends->{$gab_group_id} = max($transcript_group_id_max_ends->{$gab_group_id} || 0,
                                                                  $genomic_align_slice->end());
             $transcript_group_id_seq_region_names->{$gab_group_id} = $genomic_align_slice->seq_region_name();
             $transcript_group_id_seq_region_strands->{$gab_group_id} = $genomic_align_slice->strand();
@@ -321,7 +329,7 @@ sub fetch_input {
             say "GAS NAME: ".$genomic_align_slice->name();
             say "GAS START: ".$genomic_align_slice->start();
             say "GAS END: ".$genomic_align_slice->end();
-            say "GAS SEQ length: ".length($genomic_align_slice->seq());         
+            say "GAS SEQ length: ".$genomic_align_slice->length;
           } 
         }
       }
@@ -334,7 +342,6 @@ sub fetch_input {
         print "longest group is: ".$longest_group_id."\n";
         print "length: ".$transcript_group_id_lengths->{$longest_group_id}."\n";
       
-        my $sa = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor();       
         my $target_transcript_slice = $sa->fetch_by_region(undef,
                                                   $transcript_group_id_seq_region_names->{$longest_group_id},
                                                   $transcript_group_id_min_starts->{$longest_group_id},
@@ -431,7 +438,6 @@ sub write_output {
   my ($self) = @_;
 
   my $gene_adaptor = $self->hrdb_get_con('target_transcript_db')->get_GeneAdaptor;
-  my $slice_adaptor = $self->hrdb_get_con('target_transcript_db')->get_SliceAdaptor;
 
   my $genes = $self->output_genes();
   foreach my $gene (@{$genes}) {
@@ -723,13 +729,13 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
 
     # replace TGA stops/selenocysteines with NNN so CESAR2.0 makes it match with anything
     my $i_step = 1;
-    for (my $i = 0; $i < length($seq); $i += $i_step) {
+    for (my $i = 0; $i < length($seq)-2; $i += $i_step) {
       my $base_1 = substr($seq,$i,1);
       if ($base_1 !~ /[acgtn]/) {
         # we have reached the first (upper case or -) base of the exon sequence
         $i_step = 3;
       }
-      if ($i_step == 3) {
+      if ($i_step == 3 and $base_1 eq 'T') {
         my $base_2 = substr($seq,$i+1,1);
         my $base_3 = substr($seq,$i+2,1);
           if ($base_1 eq "T" and
@@ -789,22 +795,7 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
   if ($cesar_output =~ /Your attempt requires ([0-9]+)\./) {
     # Parse error message from CESAR2.0 to retry the job according to the memory required:
     # CRITICAL src/Cesar.c:117 main():  The memory consumption is limited to 20.0000 GB by default. Your attempt requires 73.6664 GB. You can change the limit via --max-memory.
-    my $output_hash = {};
-    push(@{$output_hash->{'iid'}},@{$self->parent_genes()}[$gene_index]->dbID());
-
-    say "CESAR required memory estimate is greater than ".$1." GB.";
-
-    if ($1 < 10) {
-      $self->dataflow_output_id($output_hash,10);
-    } elsif ($1 < 20) {
-      $self->dataflow_output_id($output_hash,20);
-    } elsif ($1 < 25) {
-      $self->dataflow_output_id($output_hash,25);
-    } elsif ($1 < 30) {
-      $self->dataflow_output_id($output_hash,30);
-    } else {
-      $self->dataflow_output_id($output_hash,-1);
-    }
+    $self->dataflow_output_id({iid => [$self->parent_genes()->[$gene_index]->dbID()]}, $self->select_dataflow_on_fail($1));
     
     $self->warning("cesar required memory estimate is greater than ".$1." GB. cesar command FAILED and it will be passed to either cesar_XXX or failed_cesar_himem: ".$cesar_command.". Gene ID: ".@{$self->parent_genes()}[$gene_index]->dbID()." CESAR output: ".$cesar_output."\n");
     say "project_transcript will return -1";
@@ -838,6 +829,19 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
     return (0);
   }
 }
+
+
+sub select_dataflow_on_fail {
+  my ($self, $estimated_mem) = @_;
+
+  foreach my $mem (@{$self->param('fail_data_flows')}) {
+    if ($estimated_mem < $mem) {
+      return $mem;
+    }
+  }
+  return -1;
+}
+
 
 =head2 parse_transcript
 
