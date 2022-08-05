@@ -85,8 +85,6 @@ sub default_options {
 
     repbase_logic_name               => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     repbase_library                  => '', # repbase library name, this is the actual repeat repbase library to use, e.g. "Mus musculus"
-    replace_repbase_with_red_to_mask => '0', # Setting this will replace 'full_repbase_logic_name' with 'red_logic_name' repeat features in the masking process
-    use_repeatmodeler_to_mask        => '0', # Setting this will include the repeatmodeler library in the masking process
     repeatmodeler_library            => '', # This should be the path to a custom repeat library, leave blank if none exists
 
     stable_id_start                  => '0', # When mapping is not required this is usually set to 0
@@ -255,6 +253,9 @@ sub default_options {
     full_repbase_logic_name  => "repeatmask_repbase_".$self->o('repbase_logic_name'),
     red_logic_name           => 'repeatdetector', # logic name for the Red repeat finding analysis
     repeatmodeler_logic_name => 'repeatmask_repeatmodeler',
+    first_choice_repeat => $self->o('full_repbase_logic_name'),
+    second_choice_repeat => $self->o('repeatmodeler_logic_name'),
+    third_choice_repeat => $self->o('red_logic_name'),
 
     ensembl_analysis_script => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     loading_report_script   => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'report_genome_prep_stats.pl'),
@@ -526,16 +527,6 @@ sub pipeline_create_commands {
 sub pipeline_wide_parameters {
   my ($self) = @_;
 
-  # set the logic names for repeat masking
-  my $wide_repeat_logic_names;
-  if ($self->o('use_repeatmodeler_to_mask')) {
-    $wide_repeat_logic_names = [$self->o('full_repbase_logic_name'),$self->o('repeatmodeler_logic_name'),'dust'];
-  } elsif ($self->o('replace_repbase_with_red_to_mask')) {
-    $wide_repeat_logic_names = [$self->o('red_logic_name'),'dust'];
-  } else {
-    $wide_repeat_logic_names = [$self->o('full_repbase_logic_name'),'dust'];
-  }
-
   return {
     %{$self->SUPER::pipeline_wide_parameters},
     skip_projection => $self->o('skip_projection'),
@@ -544,10 +535,7 @@ sub pipeline_wide_parameters {
     skip_long_read => $self->o('skip_long_read'),
     skip_lastz => $self->o('skip_lastz'),
     skip_repeatmodeler => $self->o('skip_repeatmodeler'),
-    wide_repeat_logic_names => $wide_repeat_logic_names,
     skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),	
-    repeatmasker_slice_size   => $self->o('repeatmasker_slice_size'),
-    batch_target_size => $self->o('batch_target_size'),
   }
 }
 
@@ -785,7 +773,6 @@ sub pipeline_analyses {
           user_r => $self->o('user_r'),
           dna_db_host => $self->o('dna_db_host'),
           dna_db_port => $self->o('dna_db_port'),
-          repbase_logic_name => $self->o('repbase_logic_name'),
           release_number => $self->o('release_number'),
           species_name => $self->o('species_name'),
           production_name => $self->o('production_name'),
@@ -798,8 +785,6 @@ sub pipeline_analyses {
           species_url => $self->o('species_url'),
           load_toplevel_only => $self->o('load_toplevel_only'),
           custom_toplevel_file_path => $self->o('custom_toplevel_file_path'),
-          use_repeatmodeler_to_mask => $self->o('use_repeatmodeler_to_mask'),
-          replace_repbase_with_red_to_mask => $self->o('replace_repbase_with_red_to_mask'),
         },
       },
       -rc_name      => 'default',
@@ -949,10 +934,8 @@ sub pipeline_analyses {
           species_name => $self->o('species_name'),
           use_genome_flatfile => $self->o('use_genome_flatfile'),
           skip_repeatmodeler => $self->o('skip_repeatmodeler'),
-          replace_repbase_with_red_to_mask => $self->o('replace_repbase_with_red_to_mask'),
           red_logic_name => $self->o('red_logic_name'),
           repeatmodeler_library => $self->o('repeatmodeler_library'),
-          use_repeatmodeler_to_mask => $self->o('use_repeatmodeler_to_mask'),
 	  skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),
 	  batch_target_size => $self->o('batch_target_size'),
 	  repeatmasker_slice_size => $self->o('repeatmasker_slice_size'),

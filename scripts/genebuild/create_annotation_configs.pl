@@ -129,6 +129,11 @@ while(<IN>) {
 }
 close IN || throw("Could not close $config_file");
 
+# If replace_repbase_with_red_to_mask is true then force first_choice_repeat to be red logic name
+if (exists $general_hash->{'replace_repbase_with_red_to_mask'} and $general_hash->{'replace_repbase_with_red_to_mask'} and !exists $general_hash->{first_choice_repeat}) {
+  $general_hash->{first_choice_repeat} = $general_hash->{red_logic_name} || 'repeatdetector';
+}
+
  my $assembly_registry = new Bio::EnsEMBL::Analysis::Hive::DBSQL::AssemblyRegistryAdaptor(
   -host    => $assembly_registry_host,
   -port    => $assembly_registry_port,
