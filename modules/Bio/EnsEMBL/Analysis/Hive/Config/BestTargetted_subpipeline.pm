@@ -64,7 +64,7 @@ sub default_options {
 
     'taxon_id'    => '',         # should be in the assembly report file
     use_genome_flatfile => 1,
-    wide_repeat_logic_names => [],
+    repeat_logic_names => [],
 
     'output_path'   => '',                                               # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
     targetted_path  => catdir( $self->o('output_path'), 'targetted' ),
@@ -212,7 +212,7 @@ sub pipeline_wide_parameters {
     %{$self->SUPER::pipeline_wide_parameters},
     use_genome_flatfile => $self->o('use_genome_flatfile'),
     genome_file => $self->o('faidx_genome_file'),
-    wide_repeat_logic_names => $self->o('wide_repeat_logic_names'),
+    wide_repeat_logic_names => $self->o('repeat_logic_names'),
   }
 }
 

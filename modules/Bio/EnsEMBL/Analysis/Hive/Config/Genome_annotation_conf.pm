@@ -1445,7 +1445,7 @@ sub pipeline_analyses {
           dbname_accession => $self->o('dbname_accession'),
           species_name => $self->o('species_name'),
           taxon_id => $self->o('taxon_id'),
-          wide_repeat_logic_names => '#wide_repeat_logic_names#',
+          repeat_logic_names => [$self->o('first_choice_repeat'), 'dust'],
           transcript_selection_url => $transcript_selection_pipe_url,
           use_genome_flatfile => $self->o('use_genome_flatfile'),
         },
