@@ -149,6 +149,9 @@ sub fetch_input{
                    );
     $self->runnable($runnable);
   }
+  if ($self->param('disconnect_jobs')) {
+    $dba->dbc->disconnect_when_inactive(1);
+  }
   return 1;
 }
 
@@ -166,7 +169,7 @@ sub fetch_input{
 
 sub run {
   my ($self) = @_;
-  $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
+  $self->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
 
   # If timer_batch is defined then use this to set the timer for the runnables. For the first
   # runnable the timer will be the value of timer_batch. For the next runnable it will be the
@@ -201,6 +204,7 @@ sub run {
       $self->output($runnable->output);
     }
   }
+  $self->dbc->disconnect_when_inactive(0);
   return $self->output;
 }
 
@@ -221,6 +225,7 @@ sub write_output {
   my ($self) = @_;
 
   my $adaptor  = $self->get_adaptor();
+  $adaptor->dbc->disconnect_when_inactive(0);
   my $analysis = $self->analysis();
 
   # if a batch fails store only the slice names that worked here and output them
