@@ -1153,38 +1153,38 @@ sub pipeline_analyses {
       },
       -rc_name => 'default',
       -flow_into => {
-        1 =>['repeat_masker_coverage'],
+        1 =>['create_repeatmasking_coverage_jobs'],
       },
     },
 
 
     {
-      -logic_name => 'repeat_masker_coverage',
+      -logic_name => 'create_repeatmasking_coverage_jobs',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+      -parameters => {
+        column_names => ['repeat_logic_name', 'assembly_name'],
+        inputlist => [[$self->o('first_choice_repeat'), '#assembly_name#'], [$self->o('second_choice_repeat'), '#assembly_name#'], [$self->o('third_choice_repeat'), '#assembly_name#']],
+      },
+      -rc_name => 'default',
+      -max_retry_count => 0,
+      -flow_into => {
+        2 => ['repeatmasking_coverage'],
+      }
+    },
+
+
+    {
+      -logic_name => 'repeatmasking_coverage',
       -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRepeatCoverage',
       -parameters => {
         source_db => $self->o('reference_db'),
-        repeat_logic_names => '#wide_repeat_logic_names#',
+        repeat_logic_names => ['#repeat_logic_name#', 'dust'],
         coord_system_version => '#assembly_name#',
         email => $self->o('email_address'),
       },
       -rc_name => '10GB',
-      -flow_into => {
-        1 =>['repeatmodeler_coverage'],
-      },
     },
 
-
-    {
-      -logic_name => 'repeatmodeler_coverage',
-      -module => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveRepeatCoverage',
-      -parameters => {
-        source_db => $self->o('reference_db'),
-        repeat_logic_names => [$self->o('repeatmodeler_logic_name')],
-        coord_system_version => '#assembly_name#',
-        email => $self->o('email_address'),
-      },
-      -rc_name => '4GB',
-    },
 
     {
       -logic_name => 'skip_lastz',
