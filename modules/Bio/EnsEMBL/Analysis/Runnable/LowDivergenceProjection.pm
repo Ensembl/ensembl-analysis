@@ -221,35 +221,35 @@ sub build_new_gene {
   $new_gene->version($source_gene->version);
   $new_gene->biotype($source_gene->biotype);
   $new_gene->description($source_gene->description());
-  $new_gene->strand($source_gene->strand());
+  # We take the strand of the first transcript to replicate what add_Transcript/recalculate_coordinates would do
+  $new_gene->strand($target_transcripts->[0]->strand);
 
   # add source gene stable id as gene attribute
   my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_gene->stable_id_version);
   $new_gene->add_Attributes($parent_attribute);
-  $new_gene->slice($target_parent_slice);
   $new_gene->{'is_new'} = 1;
 
   foreach my $target_transcript (@$target_transcripts) {
-    $target_transcript->slice($target_parent_slice);
     my $source_transcript = $all_source_transcripts_id_hash->{$target_transcript->stable_id()};
-    $target_transcript->biotype($source_transcript->biotype);
-    $target_transcript->{'parent_transcript_versioned_stable_id'} = $source_transcript->stable_id().".".$source_transcript->version();
-
     unless($source_transcript) {
       $self->throw("Couldn't retrieve source transcript for target transcript with stable id (dbID of source transcript): ".$target_transcript->stable_id());
     }
 
-    if($source_transcript->translation()) {
-      $self->project_cds($target_transcript,$source_transcript);
-      $self->qc_cds_sequence($target_transcript,$source_transcript);
-    }
+    $target_transcript->biotype($source_transcript->biotype);
+    $target_transcript->{'parent_transcript_versioned_stable_id'} = $source_transcript->stable_id().".".$source_transcript->version();
+
+    my $projected_transcript = $target_transcript->transfer($target_parent_slice);
+    $projected_transcript->{annotation_method} = $target_transcript->{annotation_method};
+    $projected_transcript->{cov} = $target_transcript->{cov};
+    $projected_transcript->{perc_id} = $target_transcript->{perc_id};
+    $projected_transcript->{parent_transcript_versioned_stable_id} = $target_transcript->{parent_transcript_versioned_stable_id};
 
     $self->set_transcript_description($target_transcript,$source_transcript);
 
-    if ($target_transcript->strand() == $new_gene->strand()) {
-      $new_gene->add_Transcript($target_transcript);
+    if ($projected_transcript->strand() == $new_gene->strand()) {
+      $new_gene->add_Transcript($projected_transcript);
     } else {
-      say "The target transcript (stable ID = ".$target_transcript->stable_id().") strand and the new gene ".$new_gene->stable_id()." strand do not match.";
+      $self->warning('The target transcript (stable ID = '.$projected_transcript->stable_id().') strand and the new gene '.$new_gene->stable_id().' strand do not match.');
     }
   }
   return($new_gene);
