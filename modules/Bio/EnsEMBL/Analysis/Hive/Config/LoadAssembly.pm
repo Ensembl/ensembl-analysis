@@ -49,7 +49,6 @@ sub default_options {
     dna_db_host               => '', # host for dna db
     pipe_db_port              => '', # port for pipeline host
     dna_db_port               => '', # port for dna db host
-    repbase_logic_name        => '', # repbase logic name i.e. repeatmask_repbase_XXXX, ONLY FILL THE XXXX BIT HERE!!! e.g primates
     release_number            => '' || $self->o('ensembl_release'),
     species_name              => '', # e.g. mus_musculus
     production_name           => '', # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
@@ -66,10 +65,7 @@ sub default_options {
     # Keys for custom loading, only set/modify if that's what you're doing
     load_toplevel_only        => '1', # This will not load the assembly info and will instead take any chromosomes, unplaced and unlocalised scaffolds directly in the DNA table
     custom_toplevel_file_path => '', # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
-    use_repeatmodeler_to_mask => '0', # Setting this will include the repeatmodeler library in the masking process
 
-    red_logic_name                   => 'repeatdetector', # logic name for the Red repeat finding analysis
-    replace_repbase_with_red_to_mask => '0', # Setting this will replace 'full_repbase_logic_name' with 'red_logic_name' repeat features in the masking process
 
     # The following might not be known in advance, since the come from other pipelines
     # These values can be replaced in the analysis_base table if they're not known yet
@@ -115,8 +111,6 @@ sub default_options {
     primary_assembly_dir_name => 'Primary_Assembly',
     contigs_source            => 'ena',
 
-    full_repbase_logic_name  => "repeatmask_repbase_".$self->o('repbase_logic_name'),
-    repeatmodeler_logic_name => 'repeatmask_repeatmodeler',
 
     ensembl_analysis_script => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     sequence_dump_script    => catfile($self->o('ensembl_analysis_script'), 'sequence_dump.pl'),
@@ -337,12 +331,7 @@ sub pipeline_analyses {
           '(1, "assembly.provider_url", "'.$self->o('assembly_provider_url').'"),'.
           '(1, "annotation.provider_name", "'.$self->o('annotation_provider_name').'"),'.
           '(1, "annotation.provider_url", "'.$self->o('annotation_provider_url').'"),'.
-          '(1, "species.production_name", "'.$self->o('production_name').'"),'.
-          ($self->o('replace_repbase_with_red_to_mask') ? '(1, "repeat.analysis", "'.$self->o('red_logic_name').'"),' :
-            '(1, "repeat.analysis", "'.$self->o('full_repbase_logic_name').'"),').
-          ($self->o('use_repeatmodeler_to_mask') ? '(1, "repeat.analysis", "'.$self->o('repeatmodeler_logic_name').'"),': '').
-          '(1, "repeat.analysis", "dust"),'.
-          '(1, "repeat.analysis", "trf")',
+          '(1, "species.production_name", "'.$self->o('production_name').'")',
         ],
       },
       -rc_name    => 'default',
@@ -474,7 +463,6 @@ sub pipeline_analyses {
           'assembly.provider_url' => $self->o('assembly_provider_url'),
           'annotation.provider_name' => $self->o('annotation_provider_name'),
           'annotation.provider_url' => $self->o('annotation_provider_url'),
-          'repeat.analysis' => [$self->o('full_repbase_logic_name'), 'dust', 'trf'],
           'species.production_name' => $self->o('production_name'),
           'species.taxonomy_id' => $self->o('taxon_id'),
         }

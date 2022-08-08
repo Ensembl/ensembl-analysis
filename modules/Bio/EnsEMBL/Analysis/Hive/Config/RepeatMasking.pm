@@ -65,6 +65,9 @@ sub default_options {
     'repeatmodeler_library'            => '',                                  # This should be the path to a custom repeat library, leave blank if none exists
     'use_repeatmodeler_to_mask'        => '0',                                 # Setting this will include the repeatmodeler library in the masking process
     'skip_post_repeat_analyses'        => '0',
+    first_choice_repeat => $self->o('full_repbase_logic_name'),
+    second_choice_repeat => $self->o('repeatmodeler_logic_name'),
+    third_choice_repeat => $self->o('red_logic_name'),
 	
 ########################
     # Pipe and ref db info
@@ -155,20 +158,9 @@ sub default_options {
 sub pipeline_wide_parameters {
   my ($self) = @_;
 
-  # set the logic names for repeat masking
-  my $wide_repeat_logic_names;
-  if ( $self->o('use_repeatmodeler_to_mask') and $self->o('use_repeatmodeler_to_mask') !~ /^#:subst/) {
-    $wide_repeat_logic_names = [ $self->o('full_repbase_logic_name'), $self->o('repeatmodeler_logic_name'), 'dust' ];
-  } elsif ( $self->o('replace_repbase_with_red_to_mask') and $self->o('replace_repbase_with_red_to_mask') !~ /^#:subst/) {
-    $wide_repeat_logic_names = [ $self->o('red_logic_name'), 'dust' ];
-  } else {
-    $wide_repeat_logic_names = [ $self->o('full_repbase_logic_name'), 'dust' ];
-  }
-
   return {
     %{ $self->SUPER::pipeline_wide_parameters },
     skip_repeatmodeler      => $self->o('skip_repeatmodeler'),
-    wide_repeat_logic_names => $wide_repeat_logic_names,
     use_genome_flatfile     => $self->o('use_genome_flatfile'),
     genome_file             => $self->o('faidx_genome_file'),
     skip_post_repeat_analyses => $self->o('skip_post_repeat_analyses'),	
@@ -218,7 +210,7 @@ sub pipeline_analyses {
       -input_ids  => [{}],
       -flow_into => {
         '2->A' => ['semaphore_10mb_slices'],
-        'A->1' => ['dump_softmasked_toplevel'],
+        'A->1' => ['insert_fixed_repeat_analysis_meta_key_jobs'],
         1 => ['repeatdetector'],
       },
     },
@@ -399,6 +391,106 @@ sub pipeline_analyses {
     },
 
     {
+      -logic_name => 'insert_fixed_repeat_analysis_meta_key_jobs',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+      -rc_name    => 'default',
+      -parameters => {
+        inputlist => ['dust', 'trf'],
+        column_names => ['repeat_logic_name'],
+      },
+      -flow_into => {
+        '2->A' => ['check_fixed_repeat_analysis_meta_key'],
+        '1->A' => ['check_first_choice_repeat_present'],
+        'A->1' => ['dump_softmasked_toplevel'],
+      },
+    },
+
+    {
+      -logic_name => 'check_fixed_repeat_analysis_meta_key',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name    => 'default',
+      -parameters => {
+        cmd => q(if [[ `mysql -h #reference_db_host# -P #reference_db_port# -u #user_r# #reference_db_name# -NB -e "SELECT COUNT(*) FROM repeat_feature JOIN analysis USING(analysis_id) WHERE logic_name = '#repeat_logic_name#'"` -eq 0 ]]; then exit 42; fi),
+        reference_db_host => $self->o('reference_db_host'),
+        reference_db_port => $self->o('reference_db_port'),
+        reference_db_name => $self->o('reference_db_name'),
+        user_r => $self->o('user_r'),
+        return_codes_2_branches => {42 => 2},
+      },
+      -flow_into => {
+        1 => ['insert_repeat_analysis_meta_key'],
+      },
+    },
+
+    {
+      -logic_name => 'check_first_choice_repeat_present',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name    => 'default',
+      -parameters => {
+        cmd => q(if [[ `mysql -h #reference_db_host# -P #reference_db_port# -u #user_r# #reference_db_name# -NB -e "SELECT COUNT(*) FROM repeat_feature JOIN analysis USING(analysis_id) WHERE logic_name = '#repeat_logic_name#'"` -eq 0 ]]; then exit 42; fi),
+        repeat_logic_name => $self->o('first_choice_repeat'),
+        reference_db_host => $self->o('reference_db_host'),
+        reference_db_port => $self->o('reference_db_port'),
+        reference_db_name => $self->o('reference_db_name'),
+        user_r => $self->o('user_r'),
+        return_codes_2_branches => {42 => 2},
+      },
+      -flow_into => {
+        1 => {'insert_repeat_analysis_meta_key' => {repeat_logic_name => '#repeat_logic_name#'}},
+        2 => ['check_second_choice_repeat_present'],
+      },
+    },
+
+    {
+      -logic_name => 'check_second_choice_repeat_present',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name    => 'default',
+      -parameters => {
+        cmd => q(if [[ `mysql -h #reference_db_host# -P #reference_db_port# -u #user_r# #reference_db_name# -NB -e "SELECT COUNT(*) FROM repeat_feature JOIN analysis USING(analysis_id) WHERE logic_name = '#repeat_logic_name#'"` -eq 0 ]]; then exit 42; fi),
+        repeat_logic_name => $self->o('second_choice_repeat'),
+        reference_db_host => $self->o('reference_db_host'),
+        reference_db_port => $self->o('reference_db_port'),
+        reference_db_name => $self->o('reference_db_name'),
+        user_r => $self->o('user_r'),
+        return_codes_2_branches => {42 => 2},
+      },
+      -flow_into => {
+        1 => {'insert_repeat_analysis_meta_key' => {repeat_logic_name => '#repeat_logic_name#'}},
+        2 => ['check_third_choice_repeat_present'],
+      },
+    },
+
+    {
+      -logic_name => 'check_third_choice_repeat_present',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -rc_name    => 'default',
+      -parameters => {
+        cmd => q(if [[ `mysql -h #reference_db_host# -P #reference_db_port# -u #user_r# #reference_db_name# -NB -e "SELECT COUNT(*) FROM repeat_feature JOIN analysis USING(analysis_id) WHERE logic_name = '#repeat_logic_name#'"` -eq 0 ]]; then exit 42; fi),
+        repeat_logic_name => $self->o('third_choice_repeat'),
+        reference_db_host => $self->o('reference_db_host'),
+        reference_db_port => $self->o('reference_db_port'),
+        reference_db_name => $self->o('reference_db_name'),
+        user_r => $self->o('user_r'),
+        return_codes_2_branches => {42 => 2},
+      },
+      -flow_into => {
+        1 => {'insert_repeat_analysis_meta_key' => {repeat_logic_name => '#repeat_logic_name#'}},
+      },
+    },
+
+    {
+      -logic_name => 'insert_repeat_analysis_meta_key',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+      -parameters => {
+        db_conn => $self->o('reference_db'),
+        sql => [
+          'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"repeat.analysis","#repeat_logic_name#")',
+        ],
+      },
+      -rc_name    => 'default',
+    },
+
+    {
       # Set the toplevel
       -logic_name => 'dump_softmasked_toplevel',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDumpGenome',
@@ -408,7 +500,7 @@ sub pipeline_analyses {
         'output_path'        => $self->o('genome_dumps'),
         'enscode_root_dir'   => $self->o('enscode_root_dir'),
         'species_name'       => $self->o('species_name'),
-        'repeat_logic_names' => '#wide_repeat_logic_names#',
+        mask                 => 1,
       },
       -flow_into => {
         1 => ['format_softmasked_toplevel'],
