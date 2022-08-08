@@ -542,10 +542,10 @@ sub calculate_exon_phases {
     my @exons = @{$transcript->get_all_Exons};
 
     while($exons[0] != $tr->start_Exon) {
-      shift @exons;
+      shift @exons or throw("No start exon for $transcript");
     }
     while($exons[-1] != $tr->end_Exon) {
-      pop @exons;
+      pop @exons or throw("No end exon for $transcript");
     }
 
     # set phase of for first coding exon
