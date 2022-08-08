@@ -456,7 +456,7 @@ sub search_minimap_global {
     $selected_gene->add_Attributes($parent_attribute);
     $self->set_transcript_description($transcript,$source_transcript);
     $self->set_transcript_coverage_and_identity($transcript,$source_transcript);
-    $self->qc_cds_sequence($transcript,$source_transcript);
+    $transcript = $self->qc_cds_sequence($transcript,$source_transcript);
     $selected_gene->{'recovered_globally'} = 1;
     $selected_gene->{'annotation_method'} = 'minimap_global';
   }
@@ -1565,6 +1565,8 @@ sub qc_cds_sequence {
             if ($no_internal_stop_transcript) {
               $no_internal_stop_transcript->{cov} = $transcript->{cov};
               $no_internal_stop_transcript->{perc_id} = $transcript->{perc_id};
+              $no_internal_stop_transcript->{parent_transcript_versioned_stable_id} = $transcript->{parent_transcript_versioned_stable_id};
+              $no_internal_stop_transcript->{annotation_method} = $transcript->{annotation_method};
               $transcript = $no_internal_stop_transcript;
             }
             else {
@@ -1579,15 +1581,15 @@ sub qc_cds_sequence {
       $transcript->{'cds_description'} = ";cds_coverage=0.00;cds_identity=0.00";
     }
   }
+  return $transcript;
 }
 
 sub qc_cds_sequences {
   my ($self,$transcripts_by_id,$source_transcript_id_hash) = @_;
 
-  foreach my $id (keys(%$transcripts_by_id)) {
-    my $transcript = $transcripts_by_id->{$id};
+  foreach my $transcript (values(%$transcripts_by_id)) {
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
-    $self->qc_cds_sequence($transcript, $source_transcript);
+    $transcript = $self->qc_cds_sequence($transcript, $source_transcript);
   }
 }
 

@@ -1365,7 +1365,7 @@ sub build_batch_genes {
           $projected_transcript->{'annotation_method'} = 'alignment_projection';
           if($source_transcript->translation()) {
             $self->project_cds($projected_transcript,$source_transcript);
-            $self->qc_cds_sequence($projected_transcript,$source_transcript);
+            $projected_transcript = $self->qc_cds_sequence($projected_transcript,$source_transcript);
           }
           $self->set_transcript_description($projected_transcript,$source_transcript);
           
