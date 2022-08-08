@@ -468,8 +468,8 @@ sub recover_transcripts {
         $best_transcript->{'is_new'} = 1;
         $best_transcript->{'parent_transcript_versioned_stable_id'} = $source_transcript->stable_id().".".$source_transcript->version();
         my $projected_transcript = ${$problematic_transcripts}[1];
-        my $best_coverage = $best_transcript->{'cov'};
-        my $best_perc_id = $best_transcript->{'perc_id'};
+        my $best_coverage = $best_transcript->{'cov'} || 0;
+        my $best_perc_id = $best_transcript->{'perc_id'} || 0;
         my $best_total = $best_coverage + $best_perc_id;
         my $projected_transcript_coverage = $projected_transcript->{'cov'};
         my $projected_transcript_perc_id = $projected_transcript->{'perc_id'};
