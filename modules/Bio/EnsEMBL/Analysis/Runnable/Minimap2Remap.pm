@@ -253,6 +253,14 @@ sub run {
     $self->filter_paf_hits($gene,$paf_results);
     my $recovered_genes = $self->process_results($gene,$gene_genomic_seqs_hash,$target_genes);
     if(scalar(@$recovered_genes)) {
+      foreach my $recovered_gene (@$recovered_genes) {
+        my $source_gene = ${$source_genes_by_stable_id->{$recovered_gene->stable_id()}}[0];
+        unless($source_gene) {
+          $self->throw("Couldn't find a source gene for recovered gene ".$recovered_gene->stable_id());
+        }
+        my $source_transcripts = $source_gene->get_all_Transcripts();
+        $self->check_complete_mapping($recovered_gene,$source_transcripts);
+      }
       push(@$all_recovered_genes,@$recovered_genes);
     }
   }
@@ -541,22 +549,27 @@ sub resolve_conflict {
         }
 
         # 2) Filter based on one gene passing cut-offs while the other fails
-        if(($gene->{'avg_cov'} >= $coverage_cutoff and $gene->{'avg_perc_id'} >= $identity_cutoff) and
-           ($conflicting_gene->{'avg_cov'} < $coverage_cutoff or $conflicting_gene->{'avg_perc_id'} < $identity_cutoff)) {
-          $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
-          $conflicting_gene->{'to_remove'} = 1;
-          say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as it fails the coverage/identity cut-off while ".$gene->stable_id().
+        if ($gene->{'avg_cov'} and $gene->{'avg_perc_id'} and
+            $conflicting_gene->{'avg_cov'} and $conflicting_gene->{'avg_perc_id'}) {
+          if(($gene->{'avg_cov'} >= $coverage_cutoff and $gene->{'avg_perc_id'} >= $identity_cutoff) and
+             ($conflicting_gene->{'avg_cov'} < $coverage_cutoff or $conflicting_gene->{'avg_perc_id'} < $identity_cutoff)) {
+            $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
+            $conflicting_gene->{'to_remove'} = 1;
+            say "  Removing conflicting gene ".$conflicting_gene->stable_id()." (".$conflicting_gene->{'internal_id'}.") as it fails the coverage/identity cut-off while ".$gene->stable_id().
               " (".$gene->{'internal_id'}.") does not";
-          next;
-        } elsif(($conflicting_gene->{'avg_cov'} >= $coverage_cutoff and $conflicting_gene->{'avg_perc_id'} >= $identity_cutoff) and
-                ($gene->{'avg_cov'} < $coverage_cutoff or $gene->{'avg_perc_id'} < $identity_cutoff)) {
-          $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
-          $gene->{'to_remove'} = 1;
-          say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it fails the coverage/identity cut-off while ".$conflicting_gene->stable_id()." (".
-              $conflicting_gene->{'internal_id'}.") does not";
-          last;
+            next;
+          } elsif(($conflicting_gene->{'avg_cov'} >= $coverage_cutoff and $conflicting_gene->{'avg_perc_id'} >= $identity_cutoff) and
+                  ($gene->{'avg_cov'} < $coverage_cutoff or $gene->{'avg_perc_id'} < $identity_cutoff)) {
+            $genes_to_remove->{$gene->stable_id()}->{$gene->{'internal_id'}} = 1;
+            $gene->{'to_remove'} = 1;
+            say "  Removing current gene ".$gene->stable_id()." (".$gene->{'internal_id'}.") as it fails the coverage/identity cut-off while ".$conflicting_gene->stable_id()." (".
+                $conflicting_gene->{'internal_id'}.") does not";
+            last;
+          } else {
+            say "  Both genes pass coverage/perc id cut-offs: ".$gene->{'avg_cov'}."/".$gene->{'avg_perc_id'}." vs ".$conflicting_gene->{'avg_cov'}."/".$conflicting_gene->{'avg_perc_id'};
+          }
         } else {
-          say "  Both genes pass coverage/perc id cut-offs: ".$gene->{'avg_cov'}."/".$gene->{'avg_perc_id'}." vs ".$conflicting_gene->{'avg_cov'}."/".$conflicting_gene->{'avg_perc_id'};
+          $self->throw("avg_cov or avg_perc_id not defined for gene or conflicting_gene");
         }
 
         # 3) Filter by expected location
