@@ -288,15 +288,15 @@ sub fetch_input {
   my $ensembl_release = $self->param('ensembl_release');
 
   my $core_db_details = $self->param('core_db');
-  my $core_dbname     = $self->param('dbowner') . '_' . $production_name . '_core_' . $ensembl_release . '_1';
+  my $core_dbname     = $self->param('dbowner') . '_' . $p2 . '_core_' . $ensembl_release . '_1';
   $core_db_details->{'-dbname'} = $core_dbname;
 
   my $clean_db_details = $self->param('clean_utr_db');
-  my $clean_dbname     = $self->param('dbowner') . '_' . $production_name . '_cleanutr_' . $ensembl_release . '_1';
+  my $clean_dbname     = $self->param('dbowner') . '_' . $p2 . '_cleanutr_' . $ensembl_release . '_1';
   $clean_db_details->{'-dbname'} = $clean_dbname;
 
   my $otherfeatures_db_details = $self->param('otherfeatures_db');
-  my $otherfeatures_dbname     = $self->param('dbowner') . '_' . $production_name . '_otherfeatures_' . $ensembl_release . '_1';
+  my $otherfeatures_dbname     = $self->param('dbowner') . '_' . $p2 . '_otherfeatures_' . $ensembl_release . '_1';
   $otherfeatures_db_details->{'-dbname'} = $otherfeatures_dbname;
 
   my $rnaseq_summary_file    = catfile( $short_read_dir, $production_name . '.csv' );
@@ -348,8 +348,8 @@ sub fetch_input {
 
     $anno_commandline .= ' --repeatmasker_library ' . $repeatmodeler_library if ($repeatmodeler_library);
 
-	$anno_commandline .= ' --run_full_annotation 1' .
-    ' --load_to_ensembl_db 1';
+	$anno_commandline .= ' --run_full_annotation ' .
+    ' --load_to_ensembl_db ';
 
   my $anno_red_commandline = ' --genome_file ' . $reheadered_toplevel_genome_file .
     ' --db_details ' . $core_db_details->{'-dbname'} . ',' .
@@ -359,10 +359,10 @@ sub fetch_input {
     $core_db_details->{'-pass'} .
     ' --output_dir ' . $output_dir .
     ' --num_threads ' . $self->param('num_threads') .
-    ' --run_masking 1' .
-    ' --run_repeats 1' .
-    ' --run_simple_features 1' .
-    ' --load_to_ensembl_db 1';
+    ' --run_masking ' .
+    ' --run_repeats ' .
+    ' --run_simple_features ' .
+    ' --load_to_ensembl_db ';
 
   if ( $self->param('diamond_validation_db') ) {
     $anno_commandline .= ' --diamond_validation_db ' . $self->param('diamond_validation_db');
