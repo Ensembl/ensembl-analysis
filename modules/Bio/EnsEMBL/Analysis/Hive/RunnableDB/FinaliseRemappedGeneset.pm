@@ -676,6 +676,7 @@ sub add_gene_symbols {
         }
         $target_gene_adaptor->update($gene);
         my $dbea = $target_gene_db->get_DBEntryAdaptor();
+        $xref->analysis($gene->analysis());
         $dbea->store($xref,$gene->dbID(),'Gene',1); # 1 to ignore the external db version
       }
     } # End foreach my $gene
