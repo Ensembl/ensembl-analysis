@@ -246,7 +246,7 @@ sub default_options {
     remove_duplicates_script          => catfile( $self->o('ensembl_analysis_script'), 'find_and_remove_duplicates.pl' ),
     sncrna_analysis_script            => catdir( $self->o('ensembl_analysis_script'), 'genebuild', 'sncrna' ),
     ensembl_misc_script               => catdir( $self->o('enscode_root_dir'),        'ensembl',   'misc-scripts' ),
-    clean_lncrna_script               => catfile( $self->o('enscode_root_dir'), 'ensembl_anno', 'support_scripts_perl', 'clean_lncrna.pl' ),
+    clean_lncrna_script               => catfile( $self->o('enscode_root_dir'), 'ensembl-anno', 'support_scripts_perl', 'clean_lncrna.pl' ),
     repeat_types_script               => catfile( $self->o('ensembl_misc_script'),     'repeats',    'repeat-types.pl' ),
     meta_coord_script                 => catfile( $self->o('ensembl_misc_script'),     'meta_coord', 'update_meta_coord.pl' ),
     meta_levels_script                => catfile( $self->o('ensembl_misc_script'),     'meta_levels.pl' ),
@@ -1165,7 +1165,7 @@ sub pipeline_analyses {
         target_db     => '#core_db#',
       },
       -rc_name         => '8GB',
-      -max_retry_count => 0,
+      -max_retry_count => 3,
       -flow_into       => {
         1 => ['check_load_meta_info'],
       },
@@ -1587,7 +1587,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
 
       -parameters => {
-        cmd => 'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('agat_singularity_image') . ' agat_sp_extract_sequences.pl --gff /data/braker/braker.gtf -f  #output_path#/#species_name#_softmasked_toplevel.fa -p  -o  #output_path#/braker/braker_proteins.fa;',
+        cmd => 'sudo -u genebuild singularity exec --bind #output_path#/:/data:rw  ' . $self->o('agat_singularity_image') . ' agat_sp_extract_sequences.pl --gff /data/braker/braker.gtf -f  #output_path#/#species_name#_softmasked_toplevel.fa -p  -o  #output_path#/braker/braker_proteins.fa;',
       },
       -rc_name         => 'braker',
       -max_retry_count => 0,
@@ -1601,7 +1601,12 @@ sub pipeline_analyses {
 
       -parameters => {
         cmd => 'cd #output_path#/;' .
-          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -i #output_path#/braker/braker_proteins.fa -m prot -l #busco_group# -o output_busco_#assembly_accession#  ;',
+          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa -m prot -l #busco_group# -o output_busco_#assembly_accession#  ;' .
+	  'rm -rf  #output_path#/output_busco_#assembly_accession#/logs;' .
+	  'rm -rf  #output_path#/output_busco_#assembly_accession#/busco_downloads;' .
+	  'rm -rf  #output_path#/output_busco_#assembly_accession#/run*;' .
+	  'sed  -i "/genebuild/d"  #output_path#/output_busco_#assembly_accession#/*.txt' .
+	  'mv #output_path#/output_busco_#assembly_accession#/*.txt #output_path#/output_busco_#assembly_accession#/#species_strain_group#_busco_short_summary.txt';
       },
       -rc_name   => 'braker',
       -flow_into => {
@@ -1662,7 +1667,11 @@ sub pipeline_analyses {
         cmd => 'cd #output_path#; singularity exec ' .
           $self->o('busco_singularity_image') .
           ' busco -f -i #output_path#/busco_score_data/canonical_proteins.fa -m prot -l ' . '#busco_group#' .
-          ' -o busco_score_output;',
+          ' -o busco_score_output;' .
+	  'rm -rf  #output_path#/busco_score_output/logs;' .
+          'rm -rf  #output_path#/busco_score_output/busco_downloads;' .
+          'rm -rf  #output_path#/busco_score_output/run*;' .
+	  'mv #output_path#/busco_score_output/*.txt #output_path#/busco_score_output/#species_strain_group#_busco_short_summary.txt',
       },
       -rc_name   => 'busco',
       -flow_into => { 1 => ['fan_otherfeatures_db'] },
@@ -1753,7 +1762,11 @@ sub pipeline_analyses {
           'cd #output_path#/prothint;' .
           'singularity exec --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file# ;' .
           'cd #output_path#/;' .
-          'sudo -u genebuild singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#assembly_accession#_#species_name# --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
+          'sudo -u genebuild singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#assembly_accession#_#species_name# --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' .
+	  'rm -rf #output_path#/prothint/diamond;' .
+	  'rm -rf #output_path#/prothint/GeneMark_ES;' .
+	  'rm -rf #output_path#/prothint/Spaln;' .
+	  'sudo -u genebuild rm -rf #output_path#/braker/GeneMark-EP;' ,
       },
       -rc_name         => 'braker',
       -max_retry_count => 0,
@@ -1996,7 +2009,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
 
       -parameters => {
-        cmd => 'singularity exec --bind #output_path#/:/data:rw  ' . $self->o('agat_singularity_image') . ' agat_sp_extract_sequences.pl --gff /data/braker/braker.gtf -f  #output_path#/#species_name#_softmasked_toplevel.fa -p  -o  #output_path#/braker/braker_proteins.fa;',
+        cmd => 'sudo -u genebuild singularity exec --bind #output_path#/:/data:rw  ' . $self->o('agat_singularity_image') . ' agat_sp_extract_sequences.pl --gff /data/braker/braker.gtf -f  #output_path#/#species_name#_softmasked_toplevel.fa -p  -o  #output_path#/braker/braker_proteins.fa;',
       },
       -rc_name         => 'braker',
       -max_retry_count => 0,
@@ -2010,7 +2023,12 @@ sub pipeline_analyses {
 
       -parameters => {
         cmd => 'cd #output_path#/;' .
-          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -i #output_path#/braker/braker_proteins.fa -m prot -l #busco_group# -o output_busco_#assembly_accession#  ;',
+          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa -m prot -l #busco_group# -o output_busco_#assembly_accession#  ;' .
+	  'rm -rf  #output_path#/output_busco_#assembly_accession#/logs;' .
+          'rm -rf  #output_path#/output_busco_#assembly_accession#/busco_downloads;' .
+          'rm -rf  #output_path#/output_busco_#assembly_accession#/run*;' .
+	  'sed  -i "/genebuild/d"  #output_path#/output_busco_#assembly_accession#/*.txt' .
+	  'mv #output_path#/output_busco_#assembly_accession#/*.txt #output_path#/output_busco_#assembly_accession#/#species_strain_group#_busco_short_summary.txt';
       },
       -rc_name   => 'braker',
       -flow_into => {
@@ -2100,7 +2118,11 @@ sub pipeline_analyses {
           'cd #output_path#/prothint;' .
           'singularity exec --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file# ;' .
           'cd #output_path#/;' .
-          'sudo -u genebuild singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#assembly_accession#_#species_name# --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';',
+          'sudo -u genebuild singularity exec --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#assembly_accession#_#species_name# --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' .
+	  'rm -rf #output_path#/prothint/diamond;' .
+          'rm -rf #output_path#/prothint/GeneMark_ES;' .
+          'rm -rf #output_path#/prothint/Spaln;' .
+          'sudo -u genebuild rm -rf #output_path#/braker/GeneMark-EP;' ,
       },
       -rc_name         => 'braker',
       -max_retry_count => 0,
