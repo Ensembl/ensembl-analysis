@@ -1365,13 +1365,15 @@ sub build_batch_genes {
           $projected_transcript->{'annotation_method'} = 'alignment_projection';
           if($source_transcript->translation()) {
             $self->project_cds($projected_transcript,$source_transcript);
+            say join(' ', __LINE__, $projected_transcript);
             $projected_transcript = $self->qc_cds_sequence($projected_transcript,$source_transcript);
+            say join(' ', __LINE__, $projected_transcript);
           }
           $self->set_transcript_description($projected_transcript,$source_transcript);
           
-          if ($projected_transcript->coding_region_start() and
-              $projected_transcript->coding_region_end() and
-              $projected_transcript->coding_region_end()-$projected_transcript->coding_region_start()+1 < 3) {
+          if ($projected_transcript->cdna_coding_start() and
+              $projected_transcript->cdna_coding_end() and
+              $projected_transcript->cdna_coding_end()-$projected_transcript->cdna_coding_start()+1 < 3) {
             # By convention, the coding_region_end is always higher than the
             # value returned by the coding_region_start method.
             say "Projected transcript CDS is too short (< 3 bp). Parent transcript stable id: ".$projected_transcript->{'parent_transcript_versioned_stable_id'};
