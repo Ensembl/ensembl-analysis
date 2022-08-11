@@ -451,7 +451,7 @@ sub pipeline_analyses {
                        },
         -rc_name    => '15GB',
         -hive_capacity => 700,
-        -max_retry_count => 0,
+        -max_retry_count => 2,
       },
 
 
