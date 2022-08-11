@@ -77,9 +77,14 @@ sub default_options {
 #
 ######################################################
 
-    ensembl_analysis_script_genebuild => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild'),
     ensembl_analysis_script           => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
+    ensembl_analysis_script_genebuild => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts', 'genebuild'),
     mapping_stats_script              => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'calculate_remapping_stats.pl'),
+
+    xy_scanner_path => catfile($self->o('ensembl_analysis_script'), 'pangenome', 'xy_scanner.py'),
+    xy_scanner_data_path => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/hprc/',
+    x_marker_fasta_path => catfile($self->o('xy_scanner_data_path'), 'x_markers.fa'),
+    y_marker_fasta_path => catfile($self->o('xy_scanner_data_path'), 'y_markers.fa'),
 
     ensembl_misc_script        => catdir($self->o('enscode_root_dir'), 'ensembl', 'misc-scripts'),
     repeat_types_script        => catfile($self->o('ensembl_misc_script'), 'repeats', 'repeat-types.pl'),
@@ -96,9 +101,6 @@ sub default_options {
     minimap2_path => catfile($self->o('binary_base'), 'minimap2'),
     paftools_path => catfile($self->o('binary_base'), 'paftools.js'),
     samtools_path => catfile($self->o('binary_base'), 'samtools'), #You may need to specify the full path to the samtools binary
-    xy_scanner_path => '/hps/software/users/ensembl/repositories/fergal/ensembl-analysis/scripts/genebuild/xy_scanner.py',
-    x_marker_fasta_path => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/hprc/x_markers.fa',
-    y_marker_fasta_path => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/hprc/y_markers.fa',
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # No option below this mark should be modified
@@ -515,10 +517,6 @@ sub pipeline_analyses {
                          target_dna_db   => '#core_db#',
                          target_db  => '#core_db#',
                        },
-        -flow_into => {
-                        1 => ['update_biotypes_and_analyses'],
-                      },
-
         -rc_name    => '15GB',
         -max_retry_count => 0,
         -flow_into  => {
@@ -536,10 +534,6 @@ sub pipeline_analyses {
                          target_dna_db   => '#core_db#',
                          target_db  => '#core_db#',
                        },
-        -flow_into => {
-                        1 => ['update_biotypes_and_analyses'],
-                      },
-
         -rc_name    => '15GB',
         -max_retry_count => 0,
         -flow_into  => {
