@@ -44,7 +44,7 @@ sub default_options {
     'current_genebuild'            => 1,
     'cores'                        => 30,
     'num_threads'                  => 20,
-    'dbowner'                      => '',                                                                                                                # || $ENV{EHIVE_USER} || $ENV{USER},
+    'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'base_output_dir'              => '',
     'init_config'               => '', #path for configuration file (custom loading)
     'override_clade'               => '',
@@ -923,7 +923,7 @@ sub pipeline_analyses {
         'current_genebuild'           => $self->o('current_genebuild'),
 	'init_config'     =>$self->o('init_config'),
         'assembly_accession'     =>$self->o('assembly_accession'),
-   	'repeatmodeler_library' =>$self->o('repeatmodeler_library'),  
+   	'repeatmodeler_library' =>$self->o('repeatmodeler_library'),
    },
       -rc_name => 'default',
 
@@ -1154,7 +1154,7 @@ sub pipeline_analyses {
       },
     },
 
-  
+
     {
       # Download the files and dir structure from the NCBI ftp site. Uses the link to a species in the ftp_link_file
       -logic_name => 'process_assembly_info',
@@ -1257,7 +1257,7 @@ sub pipeline_analyses {
         1 => ['load_taxonomy_info'],
       },
     },
-    
+
     {
       -logic_name => 'load_taxonomy_info',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveAssemblyLoading::HiveLoadTaxonomyInfo',
@@ -1323,7 +1323,7 @@ sub pipeline_analyses {
       -logic_name => 'run_anno',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-         cmd => 'python3.7 ' . catfile( $self->o('enscode_root_dir'), 'ensembl-anno', 'ensembl-anno.py' ) . ' #anno_commandline#',
+         cmd => 'python3.7 ' . catfile( $self->o('enscode_root_dir'), 'ensembl-anno', 'ensembl_anno.py' ) . ' #anno_commandline#',
       },
       -rc_name         => 'anno',
       -max_retry_count => 0,
@@ -1820,7 +1820,7 @@ sub pipeline_analyses {
 		# 'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
 		#'UPDATE meta set meta_value="BRAKER#species_prefix#" where meta_key="species.stable_id_prefix"',
 		#'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id)'.
-		# ' JOIN dna_align_feature ON feature_id = dna_align_feature_id SET stable_id = hit_name',  
+		# ' JOIN dna_align_feature ON feature_id = dna_align_feature_id SET stable_id = hit_name',
 		#  ],
 		# },
 		# -rc_name   => 'default',
@@ -2078,7 +2078,7 @@ sub pipeline_analyses {
       -flow_into       => { 1 => ['delete_short_reads'], },
 
     },
-     { 
+     {
       -logic_name => 'delete_short_reads',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
@@ -2094,13 +2094,13 @@ sub pipeline_analyses {
          cmd => 'if [ -f ' . '#long_read_dir#' . '/* ]; then rm ' . '#long_read_dir#' . '/*; fi',
        },
        -rc_name => 'default',
-     },    
+     },
 
     {
       -logic_name => 'run_anno_softmasking',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'python3.7 ' . catfile( $self->o('enscode_root_dir'), 'ensembl-anno', 'ensembl-anno.py' ) . ' #anno_red_commandline#;' .
+        cmd => 'python3.7 ' . catfile( $self->o('enscode_root_dir'), 'ensembl-anno', 'ensembl_anno.py' ) . ' #anno_red_commandline#;' .
           'cp #output_path#/red_output/mask_output/#species_name#_reheadered_toplevel.msk #output_path#/#species_name#_softmasked_toplevel.fa',
       },
       -rc_name         => 'anno',
