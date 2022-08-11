@@ -31,12 +31,11 @@ sub default_options {
     # inherit other stuff from the base class
     %{ $self->SUPER::default_options() },
     'reference_fasta'           => '',
-    'email'                     => '' || $ENV{USER}.'@ebi.ac.uk', # email to receive report from the HiveDeleteTranscripts module
     'dbowner'                   => '' || $ENV{EHIVE_USER} || $ENV{USER},
     'user'                      => '', # write db user
     'password'                  => '', # password for write db user
     'base_output_dir'           => '', # Where to write the files to
-    'registry_file'             => '', # This needs to be a standard registry with the production/meta data/taxonomy db adaptors in there
+    'registry_file'             => catfile($self->o('base_output_dir'), 'Databases.pm'), # This needs to be a standard registry with the production/meta data/taxonomy db adaptors in there
     'pipeline_name'             => '' || $self->o('production_name').$self->o('production_name_modifier').'_'.$self->o('release_number'),
     'production_name'           => '' || $self->o('species_name'), # usually the same as species name but currently needs to be a unique entry for the production db, used in all core-like db names
     'release_number'            => '',
@@ -824,9 +823,8 @@ sub resource_classes {
   my $self = shift;
 
   return {
-    'default_registry' => { LSF => [$self->lsf_resource_builder('production', 900), '-reg_conf '.$self->default_options->{'registry_file'}]},
     '3GB' => { LSF => $self->lsf_resource_builder('production', 3000)},
-    '4GB_registry' => { LSF => [$self->lsf_resource_builder('production', 4000), '-reg_conf '.$self->default_options->{registry_file}]},
+    '4GB_registry' => { LSF => [$self->lsf_resource_builder('production', 4000), '-reg_conf '.$self->o('registry_file')]},
     '4GB' => { LSF => $self->lsf_resource_builder('production', 4000)},
     '5GB' => { LSF => $self->lsf_resource_builder('production', 5000)},
     '9GB' => { LSF => $self->lsf_resource_builder('production', 9000)},
