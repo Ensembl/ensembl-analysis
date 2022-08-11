@@ -1038,8 +1038,9 @@ sub align_proteins_with_alignment {
 
 =head2 align_nucleotide_seqs
 
-  Arg [0]   : source sequence
-  Arg [1]   : target sequence
+  Arg [1]   : String, source sequence
+  Arg [2]   : String, target sequence
+  Arg [3]   : String (optional) muscle or mafft, mafft is default
 
   Function  : It aligns the source sequence to the target sequence to
               calculate the coverage and the percent identity of the source against the target.
@@ -1062,12 +1063,12 @@ sub align_nucleotide_seqs {
   say INPUT $target_protein_seq;
   close INPUT or throw("Could not close $align_input_file");
 
-  my $align_program_path = 'mafft';
-  my $cmd = $align_program_path." --progress ".$align_progress_file." --nuc ".$align_input_file." > ".$align_output_file;
-
-  if($program and $program eq 'muscle') {
-    $align_program_path = 'muscle';
-    $cmd = $align_program_path." -in ".$align_input_file." -out ".$align_output_file;
+  my $cmd = $program || 'mafft';
+  if ($cmd eq 'mafft') {
+    $cmd .= " --progress $align_progress_file --nuc $align_input_file > $align_output_file";
+  }
+  else {
+    $cmd .= " -in $align_input_file -out $align_output_file";
   }
 
   warning($cmd);
