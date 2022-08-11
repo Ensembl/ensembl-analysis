@@ -54,6 +54,10 @@ sub default_options {
     'species_name'              => '', # e.g. mus_musculus
     'use_genome_flatfile'       => '1',# This will read sequence where possible from a dumped flatfile instead of the core db
     'production_name_modifier'  => '', # Do not set unless working with non-reference strains, breeds etc. Must include _ in modifier, e.g. _hni for medaka strain HNI
+    species_division            => 'EnsemblVertebrates',
+    strain_type                 => 'haplotype',
+    initial_release_date        => '2022-07',
+    source_assembly_name        => 'GRCh38',
 
 ########################
 # Pipe and ref db info
@@ -284,15 +288,16 @@ sub pipeline_analyses {
               '(1, "species.stable_id_prefix", "#stable_id_prefix#"),'.
               '(1, "species.url", "#species_url#"),'.
               '(1, "species.display_name", "#species_display_name#"),'.
-              '(1, "species.division", "#species_division#"),'.
-              '(1, "species.strain", "#species_strain#"),'.
-              '(1, "species.strain_group", "#species_strain_group#"),'.
+              '(1, "species.division", "'.$self->o('species_division').'"),'.
+              '(1, "species.strain", REPLACE("#assembly_name#", "-", "_")),'.
               '(1, "species.production_name", "#production_name#"),'.
-              '(1, "strain.type", "#strain_type#"),'.
-              '(1, "genebuild.initial_release_date", NULL),'.
+              '(1, "strain.type", "'.$self->o('strain_type').'"),'.
+              '(1, "genebuild.initial_release_date", "'.$self->o('initial_release_date').'"),'.
+              '(1, "genebuild.last_geneset_update", "'.$self->o('initial_release_date').'")'.
               '(1, "genebuild.projection_source_db", "'.$self->o('ref_db_name').'"),'.
               '(1, "genebuild.id", '.$self->o('genebuilder_id').'),'.
-              '(1, "genebuild.method", "projection_build")'
+              '(1, "genebuild.method", "projection_build")'.
+              '(1, "genebuild.method_display", "Projection from '.$self->o('source_assembly_name').'")',
           ],
         },
         -max_retry_count => 0,
@@ -670,27 +675,8 @@ sub pipeline_analyses {
                        },
         -rc_name    => '3GB',
         -flow_into => {
-                        1 => ['final_meta_updates'],
-                      },
-      },
-
-
-      {
-        -logic_name => 'final_meta_updates',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-        -parameters => {
-          db_conn => '#core_db#',
-          sql => [
-            'INSERT INTO meta (species_id, meta_key, meta_value) VALUES '.
-              '(1, "genebuild.last_geneset_update", (SELECT CONCAT((EXTRACT(YEAR FROM now())),"-",(LPAD(EXTRACT(MONTH FROM now()),2,"0")))))',
-	    'INSERT INTO meta (species_id, meta_key, meta_value) VALUES '.
-	      '(1, "genebuild.method_display", "Ensembl Genebuild")'
-          ],
-        },
-        -rc_name    => '3GB',
-        -flow_into  => {
                          1 => ['generate_mapping_stats'],
-                       },
+                      },
       },
 
 
