@@ -92,7 +92,6 @@ sub default_options {
     meta_levels_script         => catfile($self->o('ensembl_misc_script'), 'meta_levels.pl'),
     frameshift_attrib_script   => catfile($self->o('ensembl_misc_script'), 'frameshift_transcript_attribs.pl'),
     select_canonical_script    => catfile($self->o('ensembl_misc_script'),'canonical_transcripts', 'select_canonical_transcripts.pl'),
-    remove_internal_stops_script => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'remove_internal_stops.pl'),
 
 
 ########################
@@ -537,28 +536,39 @@ sub pipeline_analyses {
         -rc_name    => '15GB',
         -max_retry_count => 0,
         -flow_into  => {
-          1 => ['remove_internal_stops'],
+          1 => ['final_cleaning'],
         },
       },
 
-
       {
-        -logic_name => 'remove_internal_stops',
-        -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+        -logic_name => 'final_cleaning',
+        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
         -parameters => {
-                         cmd => 'perl '.$self->o('remove_internal_stops_script').
-                                ' -user '.$self->o('user').
-                                ' -pass '.$self->o('password').
-                                ' -host '.$self->o('core_db','-host').
-                                ' -port '.$self->o('core_db','-port').
-                                ' -output_dir '.'#output_path#'.
-                                ' -dbname '.'#core_dbname#',
-                       },
-        -rc_name => '5GB',
+          db_conn => '#core_db#',
+          sql => [
+            'DELETE exon FROM exon LEFT JOIN exon_transcript ON exon.exon_id = exon_transcript.exon_id WHERE exon_transcript.exon_id IS NULL',
+            'TRUNCATE supporting_feature',
+            'TRUNCATE transcript_supporting_feature',
+            'TRUNCATE dna_align_feature',
+            'UPDATE analysis SET logic_name="ensembl" WHERE logic_name="minimap2remap"',
+            'UPDATE gene SET analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "ensembl")'.
+            ' WHERE analysis_id IN'.
+            ' (SELECT analysis_id FROM analysis WHERE logic_name IN ("find_paralogues","collapse_paralogues"))',
+            'DELETE FROM analysis WHERE logic_name IN ("find_paralogues","collapse_paralogues")',
+            'DELETE FROM ad USING analysis_description ad LEFT JOIN analysis a ON ad.analysis_id = a.analysis_id WHERE a.analysis_id IS NULL',
+            'UPDATE transcript JOIN gene USING(gene_id) SET transcript.analysis_id = gene.analysis_id',
+            'UPDATE repeat_feature SET repeat_start = 1 WHERE repeat_start < 1',
+            'UPDATE repeat_feature SET repeat_end = 1 WHERE repeat_end < 1',
+            'UPDATE repeat_feature JOIN seq_region USING(seq_region_id) SET repeat_end = length WHERE repeat_end > length',
+          ],
+        },
+        -rc_name    => '3GB',
         -flow_into => {
-                        1 => ['set_meta_coords'],
-                      },
+                       1 => ['set_meta_coords'],
+        },
+
       },
+
 
 
       {
@@ -679,38 +689,8 @@ sub pipeline_analyses {
         },
         -rc_name    => '3GB',
         -flow_into  => {
-                         1 => ['final_cleaning'],
+                         1 => ['generate_mapping_stats'],
                        },
-      },
-
-
-      {
-        -logic_name => 'final_cleaning',
-        -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-        -parameters => {
-          db_conn => '#core_db#',
-          sql => [
-            'DELETE exon FROM exon LEFT JOIN exon_transcript ON exon.exon_id = exon_transcript.exon_id WHERE exon_transcript.exon_id IS NULL',
-            'TRUNCATE supporting_feature',
-            'TRUNCATE transcript_supporting_feature',
-            'TRUNCATE dna_align_feature',
-            'UPDATE analysis SET logic_name="ensembl" WHERE logic_name="minimap2remap"',
-            'UPDATE gene SET analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "ensembl")'.
-            ' WHERE analysis_id IN'.
-            ' (SELECT analysis_id FROM analysis WHERE logic_name IN ("find_paralogues","collapse_paralogues"))',
-            'DELETE FROM analysis WHERE logic_name IN ("find_paralogues","collapse_paralogues")',
-            'DELETE FROM ad USING analysis_description ad LEFT JOIN analysis a ON ad.analysis_id = a.analysis_id WHERE a.analysis_id IS NULL',
-            'UPDATE transcript JOIN gene USING(gene_id) SET transcript.analysis_id = gene.analysis_id',
-            'UPDATE repeat_feature SET repeat_start = 1 WHERE repeat_start < 1',
-            'UPDATE repeat_feature SET repeat_end = 1 WHERE repeat_end < 1',
-            'UPDATE repeat_feature JOIN seq_region USING(seq_region_id) SET repeat_end = length WHERE repeat_end > length',
-          ],
-        },
-        -rc_name    => '3GB',
-        -flow_into => {
-                       1 => ['generate_mapping_stats'],
-        },
-
       },
 
 
