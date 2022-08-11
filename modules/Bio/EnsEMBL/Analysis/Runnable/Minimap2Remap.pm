@@ -78,6 +78,7 @@ use Bio::EnsEMBL::Analysis::Tools::Utilities qw(create_file_name align_nucleotid
 use File::Spec;
 use Bio::DB::HTS::Faidx;
 use Bio::EnsEMBL::Utils::Argument qw( rearrange );
+use Bio::EnsEMBL::Utils::Exception qw(throw);
 
 use parent ('Bio::EnsEMBL::Analysis::Runnable');
 
@@ -1525,42 +1526,28 @@ sub qc_cds_sequence {
         my $num_internal_stops = $new_seq =~ tr/*/*/;
         if ($num_internal_stops) {
 # We are checking if the source has some selenocysteine or a known internal stop codon
-#          if (index($source_translation->seq, 'U') >= 0 or index(substr($source_translation->seq, 1, $source_translation->length-2), 'X') >= 0) {
-#            my $source_seq_edits = $source_translation->get_all_SeqEdits;
-#            my $pos = 0;
-#            foreach my $seq_edit (@$source_seq_edits) {
-#              if ($seq_edit->name ne 'initial_met') {
-#                $pos = index($new_seq, '*', $pos);
-#                if ($pos == -1) {
-#                  $self->warning($source_transcript->display_id.', I was expecting an internal stop but could not find one');
-#                }
-#                else {
-#                  ++$pos; # We need to be in 1-index coordinates
-#                  if ($seq_edit->code eq '_selenocysteine') {
-#                    $self->warning($source_transcript->display_id." selenocysteine might not be that internal stop at $pos")
-#                      unless ($seq_edit->start == $pos or ($pos >= $seq_edit->start-10 and $pos <= $seq_edit->start+10));
-#                    $transcript->translation->add_Attributes(ref($seq_edit)->new(
-#                      -code => '_selenocysteine',
-#                      -start => $pos,
-#                      -end => $pos,
-#                      -alt_seq => 'U',
-#                    )->get_Attribute);
-#                  }
-#                  elsif ($seq_edit->code eq '_stop_codon_rt') {
-#                    $self->warning($source_transcript->display_id." stop codon readthrough might not be that internal stop at $pos")
-#                      unless ($seq_edit->start == $pos or ($pos >= $seq_edit->start-10 and $pos <= $seq_edit->start+10));
-#                    $transcript->translation->add_Attributes(ref($seq_edit)->new(
-#                      -code => '_stop_codon_rt',
-#                      -start => $pos,
-#                      -end => $pos,
-#                      -alt_seq => 'X',
-#                    )->get_Attribute);
-#                  }
-#                }
-#              }
-#            }
-#          }
-#          else {
+          if (index($source_translation->seq, 'U') >= 0 or index(substr($source_translation->seq, 1, $source_translation->length-2), 'X') >= 0) {
+            my $source_seq_edits = $source_translation->get_all_SeqEdits;
+            my $pos = 0;
+            foreach my $seq_edit (@$source_seq_edits) {
+              if ($seq_edit->code eq '_selenocysteine' or $seq_edit->code eq '_stop_codon_rt') {
+                $pos = index($new_seq, '*', $pos);
+                if ($pos == -1) {
+                  $self->warning($source_transcript->display_id.', I was expecting an internal stop but could not find one');
+                }
+                ++$pos; # We need to be in 1-index coordinates
+                $self->warning("Internal stop at $pos might not be a ".$seq_edit->name.' for '.$source_transcript->display_id)
+                  unless ($seq_edit->start == $pos or ($pos >= $seq_edit->start-10 and $pos <= $seq_edit->start+10));
+                $transcript->translation->add_Attributes(ref($seq_edit)->new(
+                  -code => $seq_edit->code,
+                  -start => $pos,
+                  -end => $pos,
+                  -alt_seq => $seq_edit->alt_seq,
+                )->get_Attribute);
+              }
+            }
+          }
+          else {
             my $no_internal_stop_transcript = replace_stops_with_introns($transcript, $num_internal_stops);
             if ($no_internal_stop_transcript) {
               $no_internal_stop_transcript->{cov} = $transcript->{cov};
@@ -1572,7 +1559,7 @@ sub qc_cds_sequence {
             else {
               $self->warning('Could not replace internal stops for '.$source_transcript->display_id);
             }
-#          }
+          }
         }
       }
       $transcript->{'cds_description'} = $cds_description;
@@ -1597,8 +1584,7 @@ sub qc_cds_sequences {
 sub set_cds_sequences {
   my ($self,$transcripts_by_id,$source_transcript_id_hash) = @_;
 
-  foreach my $id (keys(%$transcripts_by_id)) {
-    my $transcript = $transcripts_by_id->{$id};
+  foreach my $transcript (values(%$transcripts_by_id)) {
     my $source_transcript = $source_transcript_id_hash->{$transcript->stable_id()};
     if($source_transcript->translation() and !$transcript->translation) {
       $self->project_cds($transcript,$source_transcript);
@@ -1645,15 +1631,22 @@ sub project_cds {
   my $in_feature_alignment = 0;
   my $source_index_target_cds_start = 1;
 
+  my @frameshifts;
   for(my $i=0; $i < scalar(@source_align_array); $i++) {
     my $source_value = $source_align_array[$i];
     my $target_value = $target_align_array[$i];
     if($source_value ne '-') {
       $source_cds_pos++;
     }
+    else {
+      push(@frameshifts, ['I', $i+1]);
+    }
 
     if($target_value ne '-') {
       $target_cds_pos++;
+    }
+    else {
+      push(@frameshifts, ['D', $i+1]);
     }
 
     if($source_cds_pos == $source_cds_start) {
@@ -1682,8 +1675,9 @@ sub project_cds {
     my $recovered_target_feature_seq = substr($target_seq,$target_cds_start_index-1,$target_feature_length);
     say "For transcript ".$source_transcript->stable_id()." original and mapped CDS sequences:\n".$recovered_source_feature_seq."\n".$recovered_target_feature_seq;
     my $original_phase = 0;
-    if ($source_transcript->translation->start_Exon->phase > 0) {
-      $original_phase = $source_transcript->translation->start_Exon->phase;
+    my $source_translation = $source_transcript->translation;
+    if ($source_translation->start_Exon->phase > 0) {
+      $original_phase = $source_translation->start_Exon->phase;
     }
     my $phase_adjust = abs($source_index_target_cds_start-$source_cds_start-$original_phase)%3;
 
@@ -1726,11 +1720,10 @@ sub project_cds {
       compute_best_translation($transcript);
       return;
     }
-
-    say "Orig CDS start/end exon lengths: ".$source_transcript->translation->start_Exon->length."/".$source_transcript->translation->end_Exon->length;
-    say "Orig CDS start/end exon phases: ".$source_transcript->translation->start_Exon->phase()."/".$source_transcript->translation->end_Exon->end_phase();
-    say "Orig CDS start exon frame: ".$source_transcript->translation->start_Exon->frame();
-    say "Orig CDS start/end exon offsets: ".$source_transcript->translation->start()."/".$source_transcript->translation->end();
+    say "Orig CDS start/end exon lengths: ".$source_translation->start_Exon->length."/".$source_translation->end_Exon->length;
+    say "Orig CDS start/end exon phases: ".$source_translation->start_Exon->phase()."/".$source_translation->end_Exon->end_phase();
+    say "Orig CDS start exon frame: ".$source_translation->start_Exon->frame();
+    say "Orig CDS start/end exon offsets: ".$source_translation->start()."/".$source_translation->end();
     say "CDS start/end index: ".$target_cds_start_index."/".$target_cds_end_index;
     say "CDS start/end exon lengths: ".$cds_start_exon->length()."/".$cds_end_exon->length();
     say "CDS start/end exon offsets: ".$cds_start_offset."/".$cds_end_offset;
@@ -1740,6 +1733,230 @@ sub project_cds {
     $translation->end_Exon($cds_end_exon);
     $translation->end($cds_end_offset);
     $transcript->translation($translation);
+    if ($phase_adjust) {
+      calculate_exon_phases($transcript, $phase_adjust);
+    }
+
+    my $protein = $transcript->translate;
+    if ($protein and index($protein->seq, '*') >= 0 and index($source_translation->seq, '*') == -1) {
+      say join(' ', __LINE__, $transcript->display_id, 'STOP CODON', $protein->seq);
+      foreach my $exon (@{$transcript->get_all_Exons}) {
+        print join("\t", __LINE__, $exon, $exon->stable_id || 'NULL', $exon->start, $exon->end, $exon->strand, $exon->phase, $exon->end_phase, $exon->seq->seq), "\n";
+      }
+      my @gaps;
+      my $deletion_shift = 0;
+      if (@frameshifts) {
+        if (scalar(@frameshifts)%3 == 0 or index($protein->seq, 'X*') == 0) {
+          say join(' ', __LINE__, scalar(@frameshifts)%3, index($protein->seq, 'X*'));
+        }
+        else {
+          for (my $i = 0; $i < scalar(@frameshifts); $i++) {
+            if (@gaps) {
+              if ($frameshifts[$i-1]->[1]+1 == $frameshifts[$i]->[1] and $frameshifts[$i]->[0] eq $gaps[-1]->[2]) {
+                $gaps[-1]->[1]++;
+              }
+              else {
+                if ($gaps[-1]->[2] eq 'D') {
+                  $deletion_shift += $gaps[-1]->[1];
+                }
+                if ($gaps[-1]->[1]%3 == 0) {
+                  say join(' ', __LINE__, $transcript->display_id, @{$frameshifts[$i]}, @{$gaps[-1]});
+                  pop(@gaps);
+                }
+                push(@gaps, [$frameshifts[$i]->[1], 1, $frameshifts[$i]->[0]]);
+                $gaps[-1]->[0] -= $deletion_shift;
+              }
+            }
+            else {
+              push(@gaps, [$frameshifts[$i]->[1], 1, $frameshifts[$i]->[0]]);
+            }
+          }
+          if ($gaps[-1]->[1]%3 == 0) {
+            pop(@gaps);
+          }
+        }
+      }
+      my $overall_shift = 0;
+      if (@gaps and @gaps < 10) {
+        foreach my $position_length (@gaps) {
+          my $frameshift_start = $position_length->[0]-$overall_shift;
+          my $frameshift_length = $position_length->[1];
+          my $frameshift_op = $position_length->[2];
+          my $frameshift_end = $frameshift_start+$frameshift_length-1;
+          my $shift = $frameshift_length%3;
+          $self->throw("Modulo should not be 0") unless ($shift);
+          my $cdna_exon_start = 1;
+          my $end_exon = $transcript->translation->end_Exon;
+          my $translation_end = $transcript->translation->end;
+          my $cds_start = $transcript->cdna_coding_start;
+          my $cds_end = $transcript->cdna_coding_end;
+          $transcript->flush_Exons;
+          if ($frameshift_op eq 'I') {
+            foreach my $exon (@$exons) {
+              my $cdna_exon_end = $cdna_exon_start+$exon->length-1;
+              if ($frameshift_start < $cds_end and $frameshift_end > $cds_start) {
+                if ($frameshift_start > $cdna_exon_start and $frameshift_end < $cdna_exon_end) {
+                  my $right_exon = ref($exon)->new();
+                  $right_exon->phase(-1);
+                  $right_exon->end_phase(-1);
+                  if ($exon->strand == 1) {
+                    $right_exon->end($exon->end);
+                    $right_exon->start($right_exon->end-($cdna_exon_end-$frameshift_end-1));
+                    $exon->end($right_exon->start-($shift+1));
+                  }
+                  else {
+                    $right_exon->start($exon->start);
+                    $right_exon->end($right_exon->start+($cdna_exon_end-$frameshift_end-1));
+                    $exon->start($right_exon->end+($shift+1));
+                  }
+                  if ($exon == $end_exon) {
+                    $transcript->translation->end_Exon($right_exon);
+                    $transcript->translation->end($translation_end-$exon->length-$shift);
+                  }
+                  $right_exon->strand($exon->strand);
+                  $right_exon->slice($exon->slice);
+                  $transcript->add_Exon($right_exon);
+                }
+                elsif ($frameshift_start == $cdna_exon_start) {
+                  if ($exon->strand == 1) {
+                    $exon->start($exon->start+$shift);
+                  }
+                  else {
+                    $exon->end($exon->end-$shift);
+                  }
+                  if ($exon == $end_exon) {
+                    $transcript->translation->end($translation_end-$shift);
+                  }
+                }
+                elsif ($frameshift_end == $cdna_exon_end) {
+                  if ($exon->strand == 1) {
+                    $exon->end($exon->end-$shift);
+                  }
+                  else {
+                    $exon->start($exon->start+$shift);
+                  }
+                }
+                elsif ($frameshift_start > $cdna_exon_start and $frameshift_start <= $cdna_exon_end) {
+                  if ($exon->strand == 1) {
+                    $exon->end($exon->end-($cdna_exon_end-$frameshift_start+1));
+                  }
+                  else {
+                    $exon->start($exon->start+($cdna_exon_end-$frameshift_start+1));
+                  }
+                }
+                elsif ($frameshift_end > $exon->start and $frameshift_end < $exon->end) {
+                  if ($exon->strand == 1) {
+                    $exon->start($exon->start+($frameshift_end-$cdna_exon_start+1));
+                  }
+                  else {
+                    $exon->end($exon->end-($frameshift_end-$cdna_exon_start+1));
+                  }
+                  if ($exon == $end_exon) {
+                    $transcript->translation->end($transcript->translation->end-($frameshift_end-$cdna_exon_start+1));
+                  }
+                }
+              }
+              $transcript->add_Exon($exon);
+              $cdna_exon_start = $cdna_exon_end+1;
+            }
+          }
+          else {
+            $shift = $shift == 1 ? 2 : 1;
+            $self->throw("shift is 0 for ".$transcript->display_id) if ($shift == 0);
+            foreach my $exon (@$exons) {
+              my $cdna_exon_end = $cdna_exon_start+$exon->length-1;
+             $frameshift_end = $frameshift_start+$shift-1;
+              if ($frameshift_start < $cds_end and $frameshift_end > $cds_start) {
+                if ($frameshift_start > $cdna_exon_start and $frameshift_end < $cdna_exon_end) {
+                  my $right_exon = ref($exon)->new();
+                  $right_exon->phase(-1);
+                  $right_exon->end_phase(-1);
+                  if ($exon->strand == 1) {
+                    $right_exon->end($exon->end);
+                    $exon->end($exon->start+($frameshift_start-$cdna_exon_start-1));
+                    $right_exon->start($exon->end+$shift+1);
+                  }
+                  else {
+                    $right_exon->start($exon->start);
+                    $exon->start($exon->end-($frameshift_start-$cdna_exon_start-1));
+                    $right_exon->end($exon->start-($shift+1));
+                  }
+                  if ($exon == $end_exon) {
+                    $transcript->translation->end_Exon($right_exon);
+                    $transcript->translation->end($translation_end-$exon->length-$shift);
+                  }
+                  $right_exon->strand($exon->strand);
+                  $right_exon->slice($exon->slice);
+                  $transcript->add_Exon($right_exon);
+                }
+                elsif ($frameshift_start == $cdna_exon_start) {
+                  if ($exon->length == $shift) {
+                    next;
+                  }
+                  if ($exon->strand == 1) {
+                    $exon->start($exon->start+$shift);
+                  }
+                  else {
+                    $exon->end($exon->end-$shift);
+                  }
+                  if ($exon == $end_exon) {
+                    $transcript->translation->end($translation_end-$shift);
+                  }
+                }
+                elsif ($frameshift_end == $cdna_exon_end) {
+                  if ($exon->strand == 1) {
+                    $exon->end($exon->end-$shift);
+                  }
+                  else {
+                    $exon->start($exon->start+$shift);
+                  }
+                }
+                elsif ($frameshift_end > $cdna_exon_end and $frameshift_start <= $cdna_exon_end) {
+                  if ($exon->strand == 1) {
+                    $exon->end($exon->end-($cdna_exon_end-$frameshift_start+1));
+                  }
+                  else {
+                    $exon->start($exon->start+($cdna_exon_end-$frameshift_start+1));
+                  }
+                }
+                elsif ($frameshift_start < $cdna_exon_start and $frameshift_end >= $cdna_exon_start) {
+                  if ($exon->strand == 1) {
+                    $exon->start($exon->start+($shift+1));
+                  }
+                  else {
+                    $exon->end($exon->end-($shift+1));
+                  }
+                  if ($exon == $end_exon) {
+                    $transcript->translation->end($transcript->translation->end-($shift+1));
+                  }
+                }
+                else {
+                  say join(' ', __LINE__, $frameshift_start, $cdna_exon_start, $frameshift_end, $cdna_exon_end, $frameshift_length);
+                }
+              }
+              $transcript->add_Exon($exon);
+              $cdna_exon_start = $cdna_exon_end+1;
+            }
+            $deletion_shift += $frameshift_length;
+          }
+          my $new_translation_seq = $transcript->translate;
+          if ($new_translation_seq) {
+            if (index($new_translation_seq->seq, '*') == -1) {
+              last;
+            }
+            else {
+              $self->warning('Still have internal stop codons for '.$source_transcript->stable_id);
+            }
+          }
+          else {
+            $self->throw('Failed recreating a translation from '.$transcript->display_id);
+          }
+          $self->warning("In case I need to do more than one round of modifications $shift $overall_shift");
+          $overall_shift += $shift;
+          $exons = $transcript->get_all_Exons();
+        }
+      }
+    }
 
     # Set the phases
     calculate_exon_phases($transcript, $phase_adjust);
@@ -2182,6 +2399,7 @@ sub project_gene_coords {
     }
   }
 
+  my $clone_exons = scalar(@$source_transcripts)-1;
   foreach my $source_transcript (@$source_transcripts) {
     my $projected_transcript = $self->reconstruct_transcript($source_transcript,$projected_exons_by_id);
     if($projected_transcript) {
@@ -2194,7 +2412,7 @@ sub project_gene_coords {
 
 
 sub reconstruct_transcript {
-  my ($self,$source_transcript,$projected_exons_by_id) = @_;
+  my ($self,$source_transcript,$projected_exons_by_id, $clone_exons) = @_;
 
   my $source_exons = $source_transcript->get_all_Exons();
 
@@ -2202,7 +2420,9 @@ sub reconstruct_transcript {
   foreach my $source_exon (@$source_exons) {
     my $projected_exon = $projected_exons_by_id->{$source_exon->stable_id};
     if($projected_exon) {
-      push(@$projected_exons,$projected_exon);
+      my %tmp_exon = %$projected_exon;
+      my $cloned_exon = Bio::EnsEMBL::Exon->new_fast(\%tmp_exon);
+      push(@$projected_exons, $cloned_exon);
     }
   }
 
@@ -2377,6 +2597,7 @@ sub build_projected_exon {
                                                -analysis  => $self->analysis,
                                                -slice     => $parent_slice);
 
+  $projected_exon->stable_id($exon->stable_id);
   if($transcript and $exon->is_coding($transcript)) {
     $projected_exon->phase($exon->phase());
     $projected_exon->end_phase($exon->end_phase());

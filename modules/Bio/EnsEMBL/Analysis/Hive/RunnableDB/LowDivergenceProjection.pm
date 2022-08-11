@@ -218,40 +218,13 @@ sub run {
 
 sub write_output {
   my ($self) = @_;
-  my $output_dba = $self->hrdb_get_con('target_gene_db');
 
-  my $target_dna_dba = $self->hrdb_get_dba($self->param('target_dna_db'));
-  my $target_gene_dba = $self->hrdb_get_dba($self->param('target_gene_db'));
-  $target_gene_dba->dnadb($target_dna_dba);
-
-  my $output_gene_adaptor = $target_gene_dba->get_GeneAdaptor;
-  my $output_genes = $self->output();
-  foreach my $output_gene (@$output_genes) {
+  my $output_gene_adaptor = $self->hrdb_get_con('target_gene_db')->get_GeneAdaptor;
+  foreach my $output_gene (@{$self->output}) {
     say "Final gene: ".$output_gene->stable_id();
     empty_Gene($output_gene);
     $self->set_parent_attribs($output_gene);
     $output_gene_adaptor->store($output_gene);
-
-    # This incredibly stupid bit of code is to deal with an API bug that I have not figured out. Basically if the transcripts have both subslices
-    # and complete slices, then the API makes it incredibly hard to store them in the same gene correctly. It's easy enough to store the transcripts
-    # correctly without having to do anything other than making their slices match the complete slice, they'll then be sorted on the correct coords.
-    # But if you try attaching the parent slice to the gene, this will break all the transcript coords on subslices. The only way I found of dealing
-    # with this was storing the gene, reading again, removing and storing with the correct start/end. Every other attempt ended up with either the
-    # gene having the wrong start/end or the transcript coords being totally off. There is probably some sort of easy fix for this, but things like
-    # using project_to_slice don't fix it and without removing and storing again the coords for the gene won't update
-    # 2nd note: I updated to just clone, which cleaned up a bit, but prior to that I also discovered another issue, for some reasons the attribs
-    # also get lost in this scenario, i.e. if you just retrieve the stored gene, remove it, then recalculate the coords and store again the attribs
-    # will be lost. Cloning also fixes this. Might be something to do with the gene being lazy loaded, but cloning is fine as a solution. Note that
-    # I tried cloning prior to store, but this does not fix the issue with the coords, which only seem to be fixed on the initial store for the
-    # transcripts and the second store for the gene boundaries
-    if($output_gene->{'is_new'}) {
-      my $dbid = $output_gene->dbID();
-      my $stored_gene = $output_gene_adaptor->fetch_by_dbID($dbid);
-      my $cloned_gene = clone_Gene($stored_gene);
-      $output_gene_adaptor->remove($stored_gene);
-      $cloned_gene->recalculate_coordinates();
-      $output_gene_adaptor->store($cloned_gene);
-    }
   }
 
   return 1;
