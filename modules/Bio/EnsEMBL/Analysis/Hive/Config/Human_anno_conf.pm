@@ -293,10 +293,10 @@ sub pipeline_analyses {
               '(1, "species.production_name", "#production_name#"),'.
               '(1, "strain.type", "'.$self->o('strain_type').'"),'.
               '(1, "genebuild.initial_release_date", "'.$self->o('initial_release_date').'"),'.
-              '(1, "genebuild.last_geneset_update", "'.$self->o('initial_release_date').'")'.
+              '(1, "genebuild.last_geneset_update", "'.$self->o('initial_release_date').'"),'.
               '(1, "genebuild.projection_source_db", "'.$self->o('ref_db_name').'"),'.
               '(1, "genebuild.id", '.$self->o('genebuilder_id').'),'.
-              '(1, "genebuild.method", "projection_build")'.
+              '(1, "genebuild.method", "projection_build"),'.
               '(1, "genebuild.method_display", "Projection from '.$self->o('source_assembly_name').'")',
           ],
         },
