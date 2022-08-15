@@ -97,7 +97,7 @@ foreach my $gene (@$target_genes) {
         }
       }
     } # end if($transcript->translation()
-    push($updated_transcripts,$transcript);
+    push(@$updated_transcripts,$transcript);
   } # end foreach my $transcript
 
   if($gene_updated) {
