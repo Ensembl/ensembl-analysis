@@ -1786,12 +1786,14 @@ sub project_cds {
           my $shift = $frameshift_length%3;
           $self->throw("Modulo should not be 0") unless ($shift);
           my $cdna_exon_start = 1;
+          my $start_exon = $transcript->translation->start_Exon;
           my $end_exon = $transcript->translation->end_Exon;
           my $translation_end = $transcript->translation->end;
           my $cds_start = $transcript->cdna_coding_start;
           my $cds_end = $transcript->cdna_coding_end;
           $transcript->flush_Exons;
           if ($frameshift_op eq 'I') {
+            my $start_exon_index;
             foreach my $exon (@$exons) {
               my $cdna_exon_end = $cdna_exon_start+$exon->length-1;
               if ($frameshift_start < $cds_end and $frameshift_end > $cds_start) {
@@ -1818,6 +1820,13 @@ sub project_cds {
                   $transcript->add_Exon($right_exon);
                 }
                 elsif ($frameshift_start == $cdna_exon_start) {
+                  if ($exon->length <= $shift) {
+                    $shift -= $exon->length;
+                    if ($exon->strand == 1 and $exon == $start_exon) {
+                      $start_exon_index = @{$transcript->get_all_Exons};
+                    }
+                    next;
+                  }
                   if ($exon->strand == 1) {
                     $exon->start($exon->start+$shift);
                   }
@@ -1858,11 +1867,17 @@ sub project_cds {
               }
               $transcript->add_Exon($exon);
               $cdna_exon_start = $cdna_exon_end+1;
+              if (defined $start_exon_index) {
+                $transcript->translation->start_Exon($transcript->get_all_Exons->[0]);
+                $transcript->translation->start(1);
+                undef $start_exon_index;
+              }
             }
           }
           else {
             $shift = $shift == 1 ? 2 : 1;
             $self->throw("shift is 0 for ".$transcript->display_id) if ($shift == 0);
+            my $start_exon_index;
             foreach my $exon (@$exons) {
               my $cdna_exon_end = $cdna_exon_start+$exon->length-1;
              $frameshift_end = $frameshift_start+$shift-1;
@@ -1890,7 +1905,11 @@ sub project_cds {
                   $transcript->add_Exon($right_exon);
                 }
                 elsif ($frameshift_start == $cdna_exon_start) {
-                  if ($exon->length == $shift) {
+                  if ($exon->length <= $shift) {
+                    $shift -= $exon->length;
+                    if ($exon->strand == 1 and $exon == $start_exon) {
+                      $start_exon_index = @{$transcript->get_all_Exons};
+                    }
                     next;
                   }
                   if ($exon->strand == 1) {
@@ -1936,6 +1955,11 @@ sub project_cds {
               }
               $transcript->add_Exon($exon);
               $cdna_exon_start = $cdna_exon_end+1;
+              if (defined $start_exon_index) {
+                $transcript->translation->start_Exon($transcript->get_all_Exons->[0]);
+                $transcript->translation->start(1);
+                undef $start_exon_index;
+              }
             }
             $deletion_shift += $frameshift_length;
           }
@@ -3293,6 +3317,7 @@ sub calculate_translation_based_on_source_transcript {
               else {
                 $source_cdna_start += $len;
                 $cdna_coding_start += $len;
+                $exon_end += $len;
               }
             }
             if (!$transcript->cdna_coding_end) {
@@ -3309,6 +3334,7 @@ sub calculate_translation_based_on_source_transcript {
               else {
                 $source_cdna_end += $len;
                 $cdna_coding_end += $len;
+                $exon_end += $len;
               }
             }
           }
