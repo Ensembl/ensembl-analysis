@@ -1542,13 +1542,70 @@ sub replace_stops_with_introns{
               $newtranslation->end($newtranslation->end-($stop->end-$stop->start+1));
             }
           }
+          my $sfs = $exon->get_all_supporting_features;
+          $exon->flush_supporting_features;
+          my @ugs;
+
+          my $feature_isa = undef;
+          my $feature_unit_length = undef;
+
+          foreach my $f (@$sfs) {
+            if ($f->isa("Bio::EnsEMBL::DnaDnaAlignFeature")) {
+
+              if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaDnaAlignFeature")) {
+                throw("All the supporting features must be of the same type.");
+              }
+
+              $feature_unit_length = 1; # ie feature is a cDNA alignment
+              $feature_isa = "Bio::EnsEMBL::DnaDnaAlignFeature";
+
+            } elsif ($f->isa("Bio::EnsEMBL::DnaPepAlignFeature")) {
+
+              if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaPepAlignFeature")) {
+                throw("All the supporting features must be of the same type.");
+              }
+
+              $feature_unit_length = 3; # ie feature is a protein alignment
+              $feature_isa = "Bio::EnsEMBL::DnaPepAlignFeature";
+
+            } else {
+              throw("Feature ".$f->dbID()." is not Bio::EnsEMBL::DnaDnaAlignFeature nor Bio::EnsEMBL::DnaPepAlignFeature.");
+            }
+
+            foreach my $ug ($f->ungapped_features) {
+              $ug->analysis($newtranscript->analysis);
+
+              my $orignial_analysis = $ug->analysis;
+              if ($ug->start >= $exon->start && $ug->end <= $exon->end) {
+                push @ugs, $ug;
+              }
+              elsif($ug->end < $exon->start or $ug->start > $exon->end) {
+                print("Feature is present but lies fully outside the left and right exons, not adding\n");
+              }
+              else {
+                my $fp = Bio::EnsEMBL::FeaturePair->new();
+                if ($ug->slice) {
+                  $fp->slice($ug->slice);
+                }
+                $fp->seqname   ($ug->seqname);
+                $fp->strand    ($ug->strand);
+                $fp->hstrand   ($ug->hstrand);
+                $fp->hseqname  ($ug->hseqname);
+                $fp->score     ($ug->score);
+                $fp->percent_id($ug->percent_id);
+                $fp->start     ($exon->start);
+                $fp->end       ($ug->end);
+                $fp->external_db_id($ug->external_db_id);
+                $fp->hcoverage($ug->hcoverage);
+                $fp->analysis($orignial_analysis);
+                $fp->hstart($ug->hstart);
+                $fp->hend($ug->hstart + ceil($fp->length / $feature_unit_length) - 1);
+              }
+            } # foreach my $ug ($f->ungapped_features)
+          } # foreach my $f (@$sfs)
+          $exon = add_dna_align_features_by_hitname_and_analysis(\@ugs,$exon,$feature_isa) ;
           
           push @new_exons, $exon;
-          # I'm removing the call to the truncate sub because it still needs work, sometimes it truncates things
-          # it doesn't need to. As we are short on time the simplist thing is to just use the old way, which is
-          # the above line of code, where no modification occurs to the supporting features. Might leave slight
-          # overhang, but this is no big deal
-
         } elsif ($stop->end() == $exon->seq_region_end()) {
           # stop lies at the end of the exon
           print("---stop lies at the end of the exon\n");
@@ -1566,15 +1623,70 @@ sub replace_stops_with_introns{
           } else {
             $exon->end_phase(0);
           }
+          my $sfs = $exon->get_all_supporting_features;
+          $exon->flush_supporting_features;
+          my @ugs;
+
+          my $feature_isa = undef;
+          my $feature_unit_length = undef;
+
+          foreach my $f (@$sfs) {
+            if ($f->isa("Bio::EnsEMBL::DnaDnaAlignFeature")) {
+
+              if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaDnaAlignFeature")) {
+                throw("All the supporting features must be of the same type.");
+              }
+
+              $feature_unit_length = 1; # ie feature is a cDNA alignment
+              $feature_isa = "Bio::EnsEMBL::DnaDnaAlignFeature";
+
+            } elsif ($f->isa("Bio::EnsEMBL::DnaPepAlignFeature")) {
+
+              if ($feature_isa and ($feature_isa ne "Bio::EnsEMBL::DnaPepAlignFeature")) {
+                throw("All the supporting features must be of the same type.");
+              }
+
+              $feature_unit_length = 3; # ie feature is a protein alignment
+              $feature_isa = "Bio::EnsEMBL::DnaPepAlignFeature";
+
+            } else {
+              throw("Feature ".$f->dbID()." is not Bio::EnsEMBL::DnaDnaAlignFeature nor Bio::EnsEMBL::DnaPepAlignFeature.");
+            }
+
+            foreach my $ug ($f->ungapped_features) {
+              $ug->analysis($newtranscript->analysis);
+
+              my $orignial_analysis = $ug->analysis;
+              if ($ug->start >= $exon->start && $ug->end <= $exon->end) {
+                push @ugs, $ug;
+              }
+              elsif($ug->end < $exon->start or $ug->start > $exon->end) {
+                print("Feature is present but lies fully outside the left and right exons, not adding\n");
+              }
+              else {
+                my $fp = Bio::EnsEMBL::FeaturePair->new();
+                if ($ug->slice) {
+                  $fp->slice($ug->slice);
+                }
+                $fp->seqname   ($ug->seqname);
+                $fp->strand    ($ug->strand);
+                $fp->hstrand   ($ug->hstrand);
+                $fp->hseqname  ($ug->hseqname);
+                $fp->score     ($ug->score);
+                $fp->percent_id($ug->percent_id);
+                $fp->start     ($ug->start);
+                $fp->end       ($exon->end);
+                $fp->external_db_id($ug->external_db_id);
+                $fp->hcoverage($ug->hcoverage);
+                $fp->analysis($orignial_analysis);
+                $fp->hstart($ug->hstart);
+                $fp->hend($ug->hstart + ceil($fp->length / $feature_unit_length) - 1);
+              }
+            } # foreach my $ug ($f->ungapped_features)
+          } # foreach my $f (@$sfs)
+          $exon = add_dna_align_features_by_hitname_and_analysis(\@ugs,$exon,$feature_isa) ;
 
           push @new_exons, $exon;
-          # I'm removing the call to the truncate sub because it still needs work, sometimes it truncates things
-          # it doesn't need to. As we are short on time the simplist thing is to just use the old way, which is
-          # the above line of code, where no modification occurs to the supporting features. Might leave slight
-          # overhang, but this is no big deal
-#          my $new_exon = truncate_exon_features($exon,$newtranscript->analysis,1);
-#          push @new_exons, $new_exon;
-
         } else {
           # this exon is unaffected by this stop
           print("---this exon is unaffected by this stop\n");
