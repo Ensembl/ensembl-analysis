@@ -26,11 +26,9 @@
 use warnings;
 use strict;
 use feature 'say';
-use Digest::MD5 qw(md5);
 
-use Bio::EnsEMBL::Translation;
+use Bio::EnsEMBL::Utils::Exception qw(throw warning);
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Analysis::Tools::Utilities qw(align_nucleotide_seqs);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(clone_Gene empty_Gene);
 use Getopt::Long qw(:config no_ignore_case);
