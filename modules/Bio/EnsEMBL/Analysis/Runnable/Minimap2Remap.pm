@@ -1534,6 +1534,7 @@ sub qc_cds_sequence {
                 $pos = index($new_seq, '*', $pos);
                 if ($pos == -1) {
                   $self->warning($source_transcript->display_id.', I was expecting an internal stop but could not find one');
+                  last;
                 }
                 ++$pos; # We need to be in 1-index coordinates
                 $self->warning("Internal stop at $pos might not be a ".$seq_edit->name.' for '.$source_transcript->display_id)
@@ -1544,6 +1545,21 @@ sub qc_cds_sequence {
                   -end => $pos,
                   -alt_seq => $seq_edit->alt_seq,
                 )->get_Attribute);
+              }
+            }
+            my $latest_seq = $transcript->translate->seq;
+            my $still_internal_stops = $latest_seq =~ tr/*/*/;
+            if ($still_internal_stops) {
+              my $no_internal_stop_transcript = replace_stops_with_introns($transcript, $still_internal_stops);
+              if ($no_internal_stop_transcript) {
+                $no_internal_stop_transcript->{cov} = $transcript->{cov};
+                $no_internal_stop_transcript->{perc_id} = $transcript->{perc_id};
+                $no_internal_stop_transcript->{parent_transcript_versioned_stable_id} = $transcript->{parent_transcript_versioned_stable_id};
+                $no_internal_stop_transcript->{annotation_method} = $transcript->{annotation_method};
+                $transcript = $no_internal_stop_transcript;
+              }
+              else {
+                $self->warning('Could not replace internal stops for '.$source_transcript->display_id);
               }
             }
           }
@@ -1853,7 +1869,7 @@ sub project_cds {
                     $exon->start($exon->start+($cdna_exon_end-$frameshift_start+1));
                   }
                 }
-                elsif ($frameshift_end > $exon->start and $frameshift_end < $exon->end) {
+                elsif ($frameshift_end > $cdna_exon_start and $frameshift_end < $cdna_exon_end) {
                   if ($exon->strand == 1) {
                     $exon->start($exon->start+($frameshift_end-$cdna_exon_start+1));
                   }
