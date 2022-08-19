@@ -1394,7 +1394,7 @@ sub replace_stops_with_introns{
                   print("Feature only partially overlaps with right exon. Will add anyway.");
                   push @ug_right, $ug;
 
-                } elsif ($ug->start >= ($exon_left->start-3) && $ug->end <= ($exon_right->end+3)) {
+                } elsif ($ug->start <= $exon_left->end && $ug->end >= $exon_right->start) {
 
                   # this ug must span the split
                   my $fp_left = Bio::EnsEMBL::FeaturePair->new();
