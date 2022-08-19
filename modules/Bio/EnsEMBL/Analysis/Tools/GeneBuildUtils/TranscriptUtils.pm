@@ -1489,13 +1489,11 @@ sub replace_stops_with_introns{
                 elsif($ug->start < $exon_left->start && $ug->end < $exon_left->start ||
                     $ug->start > $exon_right->end && $ug->end > $exon_right->end
                     ) {
-                  print("Feature is present but lies fully outside the left and right exons, not adding");
+                  print("Feature is present but lies fully outside the left and right exons, not adding\n");
                 }
 
                 else {
-                  #throw("Something about this feature has not been covered in the conditionals, edit code");
-                  print("Something about this feature has not been covered in the conditionals, edit code. ".$transcript->stable_id()." Returning 0.");
-                  return 0;
+                  throw("Something about this feature has not been covered in the conditionals, edit code");
                 }
 
               } # foreach my $ug ($f->ungapped_features)
