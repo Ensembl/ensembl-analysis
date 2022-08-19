@@ -1606,7 +1606,7 @@ sub pipeline_analyses {
 	  'rm -rf  #output_path#/output_busco_#assembly_accession#/busco_downloads;' .
 	  'rm -rf  #output_path#/output_busco_#assembly_accession#/run*;' .
 	  'sed  -i "/genebuild/d"  #output_path#/output_busco_#assembly_accession#/*.txt' .
-	  'mv #output_path#/output_busco_#assembly_accession#/*.txt #output_path#/output_busco_#assembly_accession#/#species_strain_group#_busco_short_summary.txt';
+	  'mv #output_path#/output_busco_#assembly_accession#/*.txt #output_path#/output_busco_#assembly_accession#/#species_strain_group#_busco_short_summary.txt',
       },
       -rc_name   => 'braker',
       -flow_into => {
@@ -2028,7 +2028,7 @@ sub pipeline_analyses {
           'rm -rf  #output_path#/output_busco_#assembly_accession#/busco_downloads;' .
           'rm -rf  #output_path#/output_busco_#assembly_accession#/run*;' .
 	  'sed  -i "/genebuild/d"  #output_path#/output_busco_#assembly_accession#/*.txt' .
-	  'mv #output_path#/output_busco_#assembly_accession#/*.txt #output_path#/output_busco_#assembly_accession#/#species_strain_group#_busco_short_summary.txt';
+	  'mv #output_path#/output_busco_#assembly_accession#/*.txt #output_path#/output_busco_#assembly_accession#/#species_strain_group#_busco_short_summary.txt',
       },
       -rc_name   => 'braker',
       -flow_into => {
