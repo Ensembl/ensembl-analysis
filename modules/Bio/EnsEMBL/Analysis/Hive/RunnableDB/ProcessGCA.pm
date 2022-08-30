@@ -288,15 +288,15 @@ sub fetch_input {
   my $ensembl_release = $self->param('ensembl_release');
 
   my $core_db_details = $self->param('core_db');
-  my $core_dbname     = $self->param('dbowner') . '_' . $p2 . '_core_' . $ensembl_release . '_1';
+  my $core_dbname     = $self->param('dbowner') . '_' . $production_gca . '_core_' . $ensembl_release . '_1';
   $core_db_details->{'-dbname'} = $core_dbname;
 
   my $clean_db_details = $self->param('clean_utr_db');
-  my $clean_dbname     = $self->param('dbowner') . '_' . $p2 . '_cleanutr_' . $ensembl_release . '_1';
+  my $clean_dbname     = $self->param('dbowner') . '_' . $production_gca . '_cleanutr_' . $ensembl_release . '_1';
   $clean_db_details->{'-dbname'} = $clean_dbname;
 
   my $otherfeatures_db_details = $self->param('otherfeatures_db');
-  my $otherfeatures_dbname     = $self->param('dbowner') . '_' . $p2 . '_otherfeatures_' . $ensembl_release . '_1';
+  my $otherfeatures_dbname     = $self->param('dbowner') . '_' . $production_gca . '_otherfeatures_' . $ensembl_release . '_1';
   $otherfeatures_db_details->{'-dbname'} = $otherfeatures_dbname;
 
   my $rnaseq_summary_file    = catfile( $short_read_dir, $production_name . '.csv' );
