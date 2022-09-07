@@ -64,7 +64,12 @@ sub default_options {
 ########################
 # Pipe and ref db info
 ########################
-
+     dna_db_name  => $self->o('dbowner').'_'.$self->o('dbname_accession').'_core_'.$self->o('release_number'),
+	
+     reference_db_name   => $self->o('dna_db_name'),
+     reference_db_host   => $self->o('dna_db_host'),
+     reference_db_port   => $self->o('dna_db_port'),
+	
     'projection_source_db_name'         => '', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_host'         => 'mysql-ens-mirror-1',
     'projection_source_db_port'         => '4240',
@@ -120,6 +125,15 @@ sub default_options {
 # db info
 ########################
 
+    reference_db => {
+      -dbname => $self->o('reference_db_name'),
+      -host   => $self->o('reference_db_host'),
+      -port   => $self->o('reference_db_port'),
+      -user   => $self->o('user'),
+      -pass   => $self->o('password'),
+      -driver => $self->o('hive_driver'),
+    },
+	
     'projection_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_proj_'.$self->o('release_number'),
       -host   => $self->o('projection_db_host'),
