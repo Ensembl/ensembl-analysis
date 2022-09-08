@@ -522,6 +522,12 @@ sub get_clade_params {
       $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_mollusc_ids.txt',
       $clade_params->{'species_division'}     = 'EnsemblMetazoa',
       $clade_params->{'busco_group'}          = 'mollusca_odb10',;
+  } elsif ( $clade eq 'hemiptera' ) {
+    $clade_params->{'protein_file'} = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hemiptera_uniprot_proteins.fa',
+      $clade_params->{'busco_protein_file'}   = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/hemiptera_orthodb_proteins.fa',
+      $clade_params->{'rfam_accessions_file'} = '/hps/nobackup/flicek/ensembl/genebuild/blastdb/ncrna/Rfam_14.1/clade_accessions/rfam_hemiptera_ids.txt',
+      $clade_params->{'species_division'}     = 'EnsemblMetazoa',
+      $clade_params->{'busco_group'}          = 'hemiptera_odb10',;
   } elsif ( $clade eq 'plants' ) {
     $clade_params->{'max_intron_length'} = 10000;
     $clade_params->{'protein_file'}      = '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/protein_sets/viridiplantae_uniprot_proteins.fa',
