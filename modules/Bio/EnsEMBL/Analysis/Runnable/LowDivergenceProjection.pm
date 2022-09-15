@@ -392,8 +392,6 @@ sub recover_transcripts {
 
   say "Projecting gene: ".$source_gene->stable_id();
 
-  my $coverage_threshold = 98;
-  my $perc_id_threshold = 99;
   my $best_transcripts_by_id = {};
   my $source_transcript_id_hash = {}; # A hash to organise transcripts by dbID (note that the dbID is somewhat confusingly saved in the stable id field here, safer than using the realstable id)
   say "Source transcript list:";
