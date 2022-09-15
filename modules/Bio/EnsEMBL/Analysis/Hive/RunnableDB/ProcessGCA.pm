@@ -291,10 +291,6 @@ sub fetch_input {
   my $core_dbname     = $self->param('dbowner') . '_' . $production_gca . '_core_' . $ensembl_release . '_1';
   $core_db_details->{'-dbname'} = $core_dbname;
 
-  my $clean_db_details = $self->param('clean_utr_db');
-  my $clean_dbname     = $self->param('dbowner') . '_' . $production_gca . '_cleanutr_' . $ensembl_release . '_1';
-  $clean_db_details->{'-dbname'} = $clean_dbname;
-
   my $otherfeatures_db_details = $self->param('otherfeatures_db');
   my $otherfeatures_dbname     = $self->param('dbowner') . '_' . $production_gca . '_otherfeatures_' . $ensembl_release . '_1';
   $otherfeatures_db_details->{'-dbname'} = $otherfeatures_dbname;
@@ -402,8 +398,6 @@ sub fetch_input {
   #Output
   $output_params->{'core_db'}                         = $core_db_details;
   $output_params->{'core_dbname'}                     = $core_dbname;
-  $output_params->{'clean_utr_db'}                    = $clean_db_details;
-  $output_params->{'clean_utr_dbname'}                = $clean_dbname;
   $output_params->{'otherfeatures_db'}                = $otherfeatures_db_details;
   $output_params->{'otherfeatures_dbname'}            = $otherfeatures_dbname;
   $output_params->{'stable_id_start'}                 = $stable_id_start;

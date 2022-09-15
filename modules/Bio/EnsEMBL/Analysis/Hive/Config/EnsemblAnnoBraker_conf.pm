@@ -242,9 +242,6 @@ sub default_options {
     'insdc_base_ftp'         => $self->o('ncbi_base_ftp') . '/#expr(substr(#assembly_accession#, 0, 3))expr#/#expr(substr(#assembly_accession#, 4, 3))expr#/#expr(substr(#assembly_accession#, 7, 3))expr#/#expr(substr(#assembly_accession#, 10, 3))expr#/#assembly_accession#_#assembly_name#',
     'assembly_ftp_path'      => $self->o('insdc_base_ftp'),
 
-    clean_utr_db_host => $self->o('dna_db_server'),
-    clean_utr_db_port => $self->o('dna_db_port'),
-    clean_utr_db_name => $self->o('dbowner') . '_' . $self->o('production_name') . '_clean_utr_' . $self->o('release_number'),
 
     otherfeatures_db_host => $self->o('dna_db_server'),
     otherfeatures_db_port => $self->o('dna_db_port'),
@@ -289,14 +286,6 @@ sub default_options {
       -driver => $self->o('hive_driver'),
     },
 
-    'clean_utr_db' => {
-      -dbname => $self->o('clean_utr_db_name'),
-      -host   => $self->o('clean_utr_db_host'),
-      -port   => $self->o('clean_utr_db_port'),
-      -user   => $self->o('user'),
-      -pass   => $self->o('password'),
-      -driver => $self->o('hive_driver'),
-    },
 
     'pipe_db' => {
       -dbname => $self->o('pipe_db_name'),
@@ -314,7 +303,7 @@ sub default_options {
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
     },
-    databases_to_delete => [ 'reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_db', 'selected_projection_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db', 'lincrna_db', 'rnaseq_db', 'clean_utr_db' ],
+    databases_to_delete => [ 'reference_db', 'cdna_db', 'genblast_db', 'genewise_db', 'projection_db', 'selected_projection_db', 'layering_db', 'utr_db', 'genebuilder_db', 'pseudogene_db', 'ncrna_db', 'final_geneset_db', 'refseq_db', 'cdna2genome_db', 'rnaseq_blast_db', 'rnaseq_refine_db', 'rnaseq_rough_db', 'lincrna_db', 'rnaseq_db' ],
 
     #######################
     # Extra db settings
@@ -461,7 +450,6 @@ sub pipeline_analyses {
         'num_threads'                 => $self->o('num_threads'),
         'dbowner'                     => $self->o('dbowner'),
         'core_db'                     => $self->o('core_db'),
-        'clean_utr_db'                => $self->o('clean_utr_db'),
         'otherfeatures_db'            => $self->o('otherfeatures_db'),
         'ensembl_release'             => $self->o('ensembl_release'),
         'base_output_dir'             => $self->o('base_output_dir'),
