@@ -37,8 +37,8 @@ sub default_options {
     'augustus_species_path'    => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/augustus_config/config/species/',
     'braker_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-braker2_es_ep_etp.simg',
     'agat_singularity_image'   => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/test-agat.simg',
-    'busco_singularity_image' => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
-
+    'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
+    'busco_download_path'      => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data',
 
     'current_genebuild'            => 1,
     'cores'                        => 30,
@@ -1142,7 +1142,7 @@ sub pipeline_analyses {
 
       -parameters => {
         cmd => 'cd #output_path#/;' .
-          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa -m prot -l #busco_group# -o output_busco_#assembly_accession#  ;' .
+          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa  -m prot -l #busco_group# -c 20 -o output_busco_#assembly_accession# --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
 	  'rm -rf  #output_path#/output_busco_#assembly_accession#/logs;' .
 	  'rm -rf  #output_path#/output_busco_#assembly_accession#/busco_downloads;' .
 	  'rm -rf  #output_path#/output_busco_#assembly_accession#/run*;' .
@@ -1205,10 +1205,8 @@ sub pipeline_analyses {
       -logic_name => 'run_busco_anno',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'cd #output_path#; singularity exec ' .
-          $self->o('busco_singularity_image') .
-          ' busco -f -i #output_path#/busco_score_data/canonical_proteins.fa -m prot -l ' . '#busco_group#' .
-          ' -o busco_score_output;' .
+        cmd => 'cd #output_path#; ' .
+	  'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/busco_score_data/canonical_proteins.fa  -m prot -l #busco_group# -c 20 -o busco_score_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
 	  'rm -rf  #output_path#/busco_score_output/logs;' .
           'rm -rf  #output_path#/busco_score_output/busco_downloads;' .
           'rm -rf  #output_path#/busco_score_output/run*;' .
@@ -1565,7 +1563,7 @@ sub pipeline_analyses {
 
       -parameters => {
         cmd => 'cd #output_path#/;' .
-          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa -m prot -l #busco_group# -o output_busco_#assembly_accession#  ;' .
+          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/braker/braker_proteins.fa  -m prot -l #busco_group# -c 20 -o output_busco_#assembly_accession# --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
 	  'rm -rf  #output_path#/output_busco_#assembly_accession#/logs;' .
           'rm -rf  #output_path#/output_busco_#assembly_accession#/busco_downloads;' .
           'rm -rf  #output_path#/output_busco_#assembly_accession#/run*;' .
