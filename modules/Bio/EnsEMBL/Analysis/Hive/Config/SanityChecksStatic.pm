@@ -221,7 +221,6 @@ sub _master_config {
           'TR_'                  => 0,
           'human_pe12_'          => 0,
           'mouse_pe12_'       => 15000,
-          'vert_pe12_'       => 300,
           'mammals_pe12_'        => 12000,
           'realign_'             => 0,
           'rnaseq_tissue_'       => 149000,
@@ -236,7 +235,6 @@ sub _master_config {
           'TR_'                  => 20,
           'human_pe12_'         => 2000,
           'mouse_pe12_'      => 2000,
-          'vert_pe12_'      => 2000,
           'mammals_pe12_'       => 1000,
           'realign_'            => 10000,
         }, # biotypes
@@ -266,7 +264,6 @@ sub _master_config {
           'realign_'            => 10000,
           'human_pe12_'         => 2000,
           'mouse_pe12_'      => 2000,
-          'vert_pe12_'      => 2000,
           'mammals_pe12_'       => 1000,
           'miRNA'               => 500,
           'misc_RNA'            => 1000,
