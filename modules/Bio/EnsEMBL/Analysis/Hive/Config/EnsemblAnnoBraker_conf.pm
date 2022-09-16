@@ -109,6 +109,7 @@ sub default_options {
     'custom_toplevel_file_path' => '',                                                                                                                   # Only set this if you are loading a custom toplevel, requires load_toplevel_only to also be set to 2
     'repeatmodeler_library'     => '',                                                                                                                   # This should be the path to a custom repeat library, leave blank if none exists
     'use_repeatmodeler_to_mask' => '0',                                                                                                                  # Setting this will include the repeatmodeler library in the masking process
+    'base_blast_db_path'    => $ENV{BLASTDB_DIR},
     'protein_blast_db'          => '' || catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata' ),           # Blast database for comparing the final models to.
     'protein_blast_index'       => '' || catdir( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'PE12_vertebrata_index' ),      # Indicate Index for the blast database.
     'protein_entry_loc'         => catfile( $self->o('base_blast_db_path'), 'uniprot', $self->o('uniprot_version'), 'entry_loc' ),                       # Used by genscan blasts and optimise daf/paf. Don't change unless you know what you're doing
