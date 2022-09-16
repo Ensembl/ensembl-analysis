@@ -502,8 +502,6 @@ sub batch_input_genes {
   my ($self,$genes) = @_;
 
   my $max_batch_span = 100000;
-  my $anchor_size = 10000;
-  my $anchor_dist = 5000;
   my $source_flank = 1000;
   my $batched_input_genes = {};
   my $batch_id = 1;
