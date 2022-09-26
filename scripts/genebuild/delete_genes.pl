@@ -45,12 +45,12 @@
               Not recommended...
 =head1 EXAMPLES
 
-  perl delete_genes.pl -dbhost my_host -dbuser ensadmin -dbpass **** \
+  perl delete_genes.pl -dbhost my_host -dbport my_port -dbuser ensadmin -dbpass **** \
     -dbname rat_Jun03_mk2 -idfile genes_to_delete.dbIDs
 
   or
 
-  perl delete_genes.pl -dbhost my_host -dbuser ensadmin -dbpass **** \
+  perl delete_genes.pl -dbhost my_host -dbport my_port -dbuser ensadmin -dbpass **** \
     -dbname some_database -idfile my_ENSG_IDs.txt -stable_id
 
   or
