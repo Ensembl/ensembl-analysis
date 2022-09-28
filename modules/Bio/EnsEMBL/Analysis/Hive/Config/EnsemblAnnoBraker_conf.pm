@@ -1106,9 +1106,23 @@ sub pipeline_analyses {
         group   => 'core',
       },
       -flow_into => {
-        1 => ['fan_busco_output'],
+        1 => ['run_busco_core_genome_mode'],
       },
       -rc_name => 'default_registry',
+    },
+    {
+      -logic_name => 'run_busco_core_genome_mode',
+      -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'cd #output_path#; ' .
+          'singularity exec ' . $self->o('busco_singularity_image') . ' busco -f -i #output_path#/#species_name#_reheadered_toplevel.fa  -m genome -l #busco_group# -c 20 -o busco_genome_score_output --offline --download_path ' . $self->o('busco_download_path') . ' ; ' .
+          'rm -rf  #output_path#/busco_genome_score_output/logs;' .
+          'rm -rf  #output_path#/busco_genome_score_output/busco_downloads;' .
+          'rm -rf  #output_path#/busco_genome_score_output/run*;' .
+          'mv #output_path#/busco_genome_score_output/*.txt #output_path#/busco_genome_score_output/#species_strain_group#_genome_busco_short_summary.txt',
+      },
+      -rc_name   => 'busco',
+      -flow_into => { 1 => ['fan_busco_output'] },
     },
     {
       -logic_name => 'fan_busco_output',
