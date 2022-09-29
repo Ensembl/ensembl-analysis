@@ -790,7 +790,8 @@ sub pipeline_analyses {
             '(1, "genebuild.initial_release_date", NULL),' .
             '(1, "genebuild.id", ' . $self->o('genebuilder_id') . '),' .
             '(1, "genebuild.method", "braker"),'.
-	    '(1, "genebuild.method_display", "BRAKER2")'
+	    '(1, "genebuild.method_display", "BRAKER2"),'.
+	    '(1, "species.annotation_source", "braker")'
         ],
       },
       -max_retry_count => 0,
