@@ -1280,7 +1280,7 @@ sub pipeline_analyses {
           'DELETE FROM meta WHERE meta_key IN' .
             ' ("repeat.analysis","genebuild.method","genebuild.last_geneset_update","genebuild.projection_source_db","genebuild.start_date","species.strain_group")',
           'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
-          'UPDATE meta set meta_value="BRAKER#species_prefix#" where meta_key="species.stable_id_prefix"',
+          'UPDATE meta set meta_value="#stable_id_prefix#" where meta_key="species.stable_id_prefix"',
           'UPDATE transcript JOIN transcript_supporting_feature USING(transcript_id)'.
               ' JOIN dna_align_feature ON feature_id = dna_align_feature_id SET stable_id = hit_name',
       ],
@@ -1476,7 +1476,7 @@ sub pipeline_analyses {
         enscode_root_dir => $self->o('enscode_root_dir'),
         mapping_required => 0,
         target_db        => '#otherfeatures_db#',
-        id_start         => 'BRAKER#species_prefix#' . '#stable_id_start#',
+        id_start         => '#stable_id_prefix#' . '#stable_id_start#',
         output_path      => '#output_path#',
       },
       -rc_name   => 'default',
