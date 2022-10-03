@@ -1315,7 +1315,7 @@ sub pipeline_analyses {
         cmd => 'cp #output_path#/red_output/mask_output/#species_name#_reheadered_toplevel.msk #output_path#/#species_name#_softmasked_toplevel.fa;' .
           'mkdir #output_path#/prothint;' .
           'cd #output_path#/prothint;' .
-          'singularity exec --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file# ;' .
+          'singularity exec -H /hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/data:/home --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file# ;' .
           'cd #output_path#/;' .
 	  'sudo -u genebuild rm -rf ' . $self->o('augustus_config_path') . '/species/#assembly_accession#_#species_name#;' .
           'sudo -u genebuild singularity exec -H /hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/data:/home --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#assembly_accession#_#species_name# --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' .
@@ -1672,7 +1672,7 @@ sub pipeline_analyses {
       -parameters => {
         cmd => 'mkdir #output_path#/prothint;' .
           'cd #output_path#/prothint;' .
-          'singularity exec --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file# ;' .
+          'singularity exec -H /hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/data:/home --bind #output_path#/prothint/:/data:rw  ' . $self->o('braker_singularity_image') . ' prothint.py #output_path#/#species_name#_softmasked_toplevel.fa #protein_file# ;' .
           'cd #output_path#/;' .
 	  'sudo -u genebuild rm -rf ' . $self->o('augustus_config_path') . '/species/#assembly_accession#_#species_name#;' .
           'sudo -u genebuild singularity exec -H /hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/data:/home --bind #output_path#/:/data:rw  ' . $self->o('braker_singularity_image') . ' braker.pl --genome=#species_name#_softmasked_toplevel.fa --softmasking  --hints=/data/prothint/prothint_augustus.gff --prothints=/data/prothint/prothint.gff --evidence=/data/prothint/evidence.gff --epmode --species=#assembly_accession#_#species_name# --AUGUSTUS_CONFIG_PATH=' . $self->o('augustus_config_path') . ' --cores ' . $self->o('cores') . ';' .
