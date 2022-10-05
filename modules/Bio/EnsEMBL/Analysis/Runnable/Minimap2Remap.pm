@@ -1939,6 +1939,10 @@ sub project_cds {
                   }
                 }
                 elsif ($frameshift_end == $cdna_exon_end) {
+                  if ($exon->length <= $shift) {
+                    say join(' ', __LINE__, $exon, $exon->start, $exon->end, $shift);
+                    next;
+                  }
                   if ($exon->strand == 1) {
                     $exon->end($exon->end-$shift);
                   }
