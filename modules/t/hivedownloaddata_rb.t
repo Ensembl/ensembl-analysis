@@ -35,7 +35,7 @@ use_ok('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData');
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
 	{ # input param hash
-		'url'     => 'http://ftp.ensembl.org/pub/release-104/README',
+		'url'     => 'https://ftp.ensembl.org/pub/release-104/README',
 		'download_method'     => 'http',
     'md5sum' => '0ddb2b5156d12c2e740da6800ee56811',
     'output_dir' => $output_dir,
@@ -53,7 +53,7 @@ standaloneJob(
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
 	{ # input param hash
-		'url'     => 'http://ftp.ensembl.org/pub/release-104/README',
+		'url'     => 'https://ftp.ensembl.org/pub/release-104/README',
 		'download_method'     => 'http',
     'md5sum' => '2a3ea6c67b0bf0a1cc72c5b15c73b931',
     'output_dir' => $output_dir,
@@ -74,7 +74,7 @@ standaloneJob(
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
 	{ # input param hash
-		'url'     => 'http://ftp.ensembl.org/pub/release-104/README',
+		'url'     => 'https://ftp.ensembl.org/pub/release-104/README',
 		'download_method'     => 'http',
     'output_dir' => $output_dir,
     'uncompress' => 0,
@@ -91,7 +91,7 @@ standaloneJob(
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
 	{ # input param hash
-		'url'     => 'http://ftp.ensembl.org/pub/release-104/mysql/ailuropoda_melanoleuca_core_104_2/unmapped_reason.txt.gz',
+		'url'     => 'https://ftp.ensembl.org/pub/release-104/mysql/ailuropoda_melanoleuca_core_104_2/unmapped_reason.txt.gz',
 		'download_method'     => 'http',
     'output_dir' => $output_dir,
 	},
@@ -107,7 +107,7 @@ standaloneJob(
 standaloneJob(
 	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
 	{ # input param hash
-		'url'     => 'ftp://ftp.sra.ebi.ac.uk/ensemblorg/pub/release-104/README',
+		'url'     => 'https://ftp.sra.ebi.ac.uk/ensemblorg/pub/release-104/README',
 		'download_method'     => 'ftp',
     'output_dir' => $output_dir,
     'uncompress' => 0,

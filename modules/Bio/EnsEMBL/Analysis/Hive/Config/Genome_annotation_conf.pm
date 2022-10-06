@@ -69,7 +69,7 @@ sub default_options {
     sanity_set                       => '', #sanity checks
     ig_tr_fasta_file                 => '', # file containing ig and tr proteins to be used during the IGTR subpipeline. This would come from the clade settings defined in "create_annotation_configs.pl" (ie 'fish_ig_tr.fa')
     output_path                      => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
-    wgs_id                           => '', # Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
+    wgs_id                           => '', # Can be found in assembly report file on https://ftp.ncbi.nlm.nih.gov/genomes/genbank/
     assembly_name                    => '', # Name (as it appears in the assembly report file)
     assembly_accession               => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
     assembly_refseq_accession        => '', # Versioned GCF accession, e.g. GCF_001857705.1

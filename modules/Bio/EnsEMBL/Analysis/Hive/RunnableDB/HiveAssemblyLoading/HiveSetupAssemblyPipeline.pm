@@ -153,7 +153,7 @@ sub parse_ftp_link_file {
 
     unless($link =~ /\/genomes\/genbank\/[^\/]+\/([^\/]+)\/all_assembly_versions\/([^\/]+)\//) {
       $self->throw("Failed to parse the following line:\n".$link."\n\nExpected a link to the main dir for the species. For example:\n".
-                   "ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Propithecus_coquereli/all_assembly_versions/GCA_000956105.1_Pcoq_1.0/");
+                   "https://ftp.ncbi.nlm.nih.gov/genomes/genbank/vertebrate_mammalian/Propithecus_coquereli/all_assembly_versions/GCA_000956105.1_Pcoq_1.0/");
     }
 
     $species_name = $1;

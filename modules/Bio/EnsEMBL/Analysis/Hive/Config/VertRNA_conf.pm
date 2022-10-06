@@ -60,7 +60,7 @@ sub default_options {
     return {
         %{ $self->SUPER::default_options() },
 
-        base_ena_ftp  => $ENV{'BASE_ENA_FTP'} || 'ftp://ftp.ebi.ac.uk/pub/databases/ena/sequence/release/std',
+        base_ena_ftp  => $ENV{'BASE_ENA_FTP'} || 'https://ftp.ebi.ac.uk/pub/databases/ena/sequence/release/std',
         vertrna_file  => $ENV{'VERTRNA_FILE'} || 'embl_vertrna-1',
         embl2fasta_script  => $ENV{'EMBL2FASTA_SCRIPT'} || catfile($ENV{ENSCODE}, 'ensembl-analysis', 'scripts', 'databases', 'EMBL2fasta.pl'),
         vertrna_version  => $ENV{'VERTRNA_VERSION'},

@@ -55,7 +55,7 @@ sub default_options {
     dbname_accession          => '', # This is the assembly accession without [._] and all lower case, i.e gca001857705v1
     taxon_id                  => '', # should be in the assembly report file
     output_path               => '', # Lustre output dir. This will be the primary dir to house the assembly info and various things from analyses
-    wgs_id                    => '', # Can be found in assembly report file on ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/
+    wgs_id                    => '', # Can be found in assembly report file on https://ftp.ncbi.nlm.nih.gov/genomes/genbank/
     assembly_name             => '', # Name (as it appears in the assembly report file)
     assembly_accession        => '', # Versioned GCA assembly accession, e.g. GCA_001857705.1
     stable_id_prefix          => '', # e.g. ENSPTR. When running a new annotation look up prefix in the assembly registry db
@@ -129,7 +129,7 @@ sub default_options {
 ########################################################
 # URLs for retrieving the INSDC contigs and RefSeq files
 ########################################################
-    ncbi_base_ftp           => 'ftp://ftp.ncbi.nlm.nih.gov/genomes/all',
+    ncbi_base_ftp           => 'https://ftp.ncbi.nlm.nih.gov/genomes/all',
     insdc_base_ftp          => $self->o('ncbi_base_ftp').'/#expr(substr(#assembly_accession#, 0, 3))expr#/#expr(substr(#assembly_accession#, 4, 3))expr#/#expr(substr(#assembly_accession#, 7, 3))expr#/#expr(substr(#assembly_accession#, 10, 3))expr#/#assembly_accession#_#assembly_name#',
     assembly_ftp_path       => $self->o('insdc_base_ftp'),
 

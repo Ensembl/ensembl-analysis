@@ -109,7 +109,7 @@ use vars qw(%Config);
 
 	          #try to find predefined pairing (between protein & cDNA) as the first step 
 	          # reads GenBank seq. file which link NP proteins to a specific NM cDNA 
-	          # source : ftp://ftp.ncbi.nlm.nih.gov/refseq/M_musculus/mRNA_Prot/mouse.protein.gpff.gz
+	          # source : https://ftp.ncbi.nlm.nih.gov/refseq/M_musculus/mRNA_Prot/mouse.protein.gpff.gz
 	          LOOK_FOR_KNOWN       => 0,
 		  KNOWNUTR_FILE        => '/tmp/human.protein.gpff',
 

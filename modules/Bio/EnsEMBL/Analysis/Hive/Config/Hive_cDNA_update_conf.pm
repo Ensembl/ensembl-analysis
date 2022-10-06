@@ -102,8 +102,8 @@ sub default_options {
     'user_r'                     => 'ensro',
     'password_r'                 => undef,
 
-    'refseq_ftp'                 => 'ftp://ftp.ncbi.nlm.nih.gov/refseq/release/vertebrate_mammalian',
-    'ena_ftp'                    => 'ftp://ftp.ebi.ac.uk/pub/databases/ena/sequence',
+    'refseq_ftp'                 => 'https://ftp.ncbi.nlm.nih.gov/refseq/release/vertebrate_mammalian',
+    'ena_ftp'                    => 'https://ftp.ebi.ac.uk/pub/databases/ena/sequence',
 
     'cdna_table_name'            => 'cdna_sequences',
 

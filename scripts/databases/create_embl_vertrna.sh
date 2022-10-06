@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-BASE_ENA_FTP="ftp://ftp.ebi.ac.uk/pub/databases/ena/sequence/release/std"
+BASE_ENA_FTP="https://ftp.ebi.ac.uk/pub/databases/ena/sequence/release/std"
 VERTRNADIR="$BLASTDB_DIR/vertrna"
 VERTRNA_FILE="embl_vertrna-1"
 BLAST_TYPE="ncbi"
