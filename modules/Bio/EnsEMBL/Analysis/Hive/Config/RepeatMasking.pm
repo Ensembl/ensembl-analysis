@@ -410,7 +410,7 @@ sub pipeline_analyses {
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -rc_name    => 'default',
       -parameters => {
-        cmd => q(if [[ `mysql -h #reference_db_host# -P #reference_db_port# -u #user_r# #reference_db_name# -NB -e "SELECT COUNT(*) FROM repeat_feature JOIN analysis USING(analysis_id) WHERE logic_name = '#repeat_logic_name#'"` -eq 0 ]]; then exit 42; fi),
+        cmd => q(if [[ `mysql -h #reference_db_host# -P #reference_db_port# -u #user_r# #reference_db_name# -NB -e "SELECT COUNT(*) FROM meta WHERE meta_key = 'repeat.analysis'"` -eq 0 ]]; then exit 42; fi),
         reference_db_host => $self->o('reference_db_host'),
         reference_db_port => $self->o('reference_db_port'),
         reference_db_name => $self->o('reference_db_name'),
