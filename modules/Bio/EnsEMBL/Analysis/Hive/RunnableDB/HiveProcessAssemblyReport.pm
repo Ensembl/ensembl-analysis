@@ -80,6 +80,7 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
                load_non_nuclear => 0,
                _agp_branch => 3,
                _coord_systems => {},
+               _skip_cache_clearing => 1, # Needed to avoid an SQL error if post_cleanup is called
  Returntype : Hashref
  Exceptions : None
 
@@ -113,6 +114,7 @@ sub param_defaults {
     load_non_nuclear => 0,
     _agp_branch => 3,
     _coord_systems => {},
+    _skip_cache_clearing => 1, # Needed to avoid an SQL error if post_cleanup is called
   }
 }
 
