@@ -1939,7 +1939,7 @@ sub pipeline_analyses {
         cdna_query => 'mysql -h #expr(#cdna_db#->{-host})expr# -P #expr(#cdna_db#->{-port})expr# -u #expr(#cdna_db#->{-user})expr# -p#expr(#cdna_db#->{-pass})expr# #expr(#cdna_db#->{-dbname})expr# -NB -e "SELECT COUNT(*) FROM gene"',
         cdna_threshold => $self->o('cdna_threshold'),
         cdna_db => $self->o('cdna_db'),
-	long_read_query => `mysql -h #expr(#long_read_final_db#->{-host})expr#  -P #expr(#long_read_final_db#->{-port})expr# -u #expr(#long_read_final_db#->{-user})expr# -NB -e "SHOW DATABASES LIKE '#dbowner#_#dbname_accession#_lrfinal_#release_number#'"`,
+	long_read_query => `mysql -h #expr(#long_read_final_db#->{-host})expr#  -P #expr(#long_read_final_db#->{-port})expr# -u #expr(#long_read_final_db#->{-user})expr# -NB -e "SHOW DATABASES LIKE '#expr(#long_read_final_db#->{-dbname})expr#'"`,
         long_read_final_db => $self->o('long_read_final_db'),
        },
 
