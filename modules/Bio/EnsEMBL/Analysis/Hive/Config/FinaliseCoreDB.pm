@@ -242,7 +242,7 @@ sub pipeline_analyses {
           'UPDATE gene SET biotype = "protein_coding" WHERE biotype = "ensembl"',
           'UPDATE gene SET biotype = "vault_RNA" WHERE biotype IN ("Vault_RNA","vaultRNA")',
           'UPDATE gene SET analysis_id = (SELECT analysis_id FROM analysis WHERE logic_name = "ensembl")'.
-            ' WHERE analysis_id != (SELECT analysis_id FROM analysis WHERE logic_name = "ncrna")',
+            ' WHERE analysis_id NOT IN (SELECT analysis_id FROM analysis WHERE logic_name IN ("ncrna", "mt_genbank_import"))',
           'UPDATE transcript JOIN gene USING(gene_id) SET transcript.biotype = gene.biotype',
           'UPDATE transcript JOIN gene USING(gene_id) SET transcript.analysis_id = gene.analysis_id',
           'UPDATE protein_align_feature SET analysis_id =' .
