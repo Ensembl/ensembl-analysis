@@ -40,7 +40,7 @@ sub default_options {
     'busco_singularity_image'  => '/hps/software/users/ensembl/genebuild/genebuild_virtual_user/singularity/busco-v5.1.2_cv1.simg',
     'busco_download_path'      => '/nfs/production/flicek/ensembl/genebuild/genebuild_virtual_user/data/busco_data/data',
 
-    'current_genebuild'            => 1,
+    'current_genebuild'            => 0,
     'cores'                        => 30,
     'num_threads'                  => 20,
     'dbowner'                      => '' || $ENV{EHIVE_USER} || $ENV{USER},
