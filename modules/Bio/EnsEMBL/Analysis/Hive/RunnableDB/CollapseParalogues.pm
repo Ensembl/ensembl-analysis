@@ -255,18 +255,6 @@ sub simple_layer_genes {
     $selected_transcript->biotype($selected_gene->biotype());
   }
 
-  my $description = $selected_gene->description();
-  $description =~ /;parent_gene=([^;]+);/;
-  my $parent_stable_id = $1;
-  my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $parent_stable_id);
-  $selected_gene->add_Attributes($parent_attribute);
-
-  $description = $selected_transcript->description();
-  $description =~ /;parent_transcript=([^;]+);/;
-  $parent_stable_id = $1;
-  $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $parent_stable_id);
-  $selected_transcript->add_Attributes($parent_attribute);
-
   unless($selected_gene) {
     $self->throw("No gene selected from cluster, something has gone wrong");
   }
