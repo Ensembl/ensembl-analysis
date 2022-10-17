@@ -110,7 +110,7 @@ sub default_options {
         'refine_db_server' => $self->o('data_db_server'),
         'rough_db_server'  => $self->o('data_db_server'),
 
-        'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
+        'rnaseq_ftp_base' => 'https://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
         'use_ucsc_naming' => 0,
 

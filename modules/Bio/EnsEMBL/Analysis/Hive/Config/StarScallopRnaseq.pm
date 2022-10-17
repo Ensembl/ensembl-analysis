@@ -176,7 +176,7 @@ sub default_options {
     'merge_dir' => catdir( $self->o('rnaseq_dir'),  'merge' ),
     'pcp_dir' => catdir( $self->o('rnaseq_dir'),  'pcp' ),
 
-    'rnaseq_ftp_base' => 'ftp://ftp.sra.ebi.ac.uk/vol1/fastq/',
+    'rnaseq_ftp_base' => 'https://ftp.sra.ebi.ac.uk/vol1/fastq/',
 
     # Regular expression to allow FastQ files to be correctly paired,
     # for example: file_1.fastq and file_2.fastq could be paired using

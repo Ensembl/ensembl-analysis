@@ -54,7 +54,7 @@ sub default_options {
         pipeline_name => 'hive_interproscan_'.`printf "%s" "\`date +%Y_%m_%d\`"`,
         base_directory  => '/software/ensembl/genebuild/bin/interproscan',
         working_dir => '',
-        interproscan_http => 'ftp://ftp.ebi.ac.uk/pub/software/unix/iprscan/5',
+        interproscan_http => 'https://ftp.ebi.ac.uk/pub/software/unix/iprscan/5',
         interproscan_version => '',
         tmhmm_model_path => '/software/ensembl/genebuild/bin/tmhmm/tmhmm-2.0c/lib/TMHMM2.0.model',
         binary_signalp_path => '/software/ensembl/genebuild/bin/signalp-4.1/signalp',

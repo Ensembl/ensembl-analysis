@@ -155,7 +155,7 @@ if($clone_state_file) {
 } else {
   warning("You have not provided a clone state file, so no states will be added for the clones.\n".
           "This file is usually available on the ftp site. For examples the mouse combined file is:\n".
-          "ftp://ftp.ncbi.nih.gov/repository/clone/reports/Mus_musculus/clone_acstate_10090.out");
+          "https://ftp.ncbi.nih.gov/repository/clone/reports/Mus_musculus/clone_acstate_10090.out");
 }
 
 # This is a hash that will hold the parent inserts for the ends based on the parent id
