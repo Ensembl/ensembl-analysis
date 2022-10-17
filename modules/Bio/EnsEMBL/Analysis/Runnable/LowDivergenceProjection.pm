@@ -283,10 +283,10 @@ sub check_for_problematic_transcripts {
   my $target_transcripts = $target_gene->get_all_Transcripts();
   foreach my $target_transcript (@$target_transcripts) {
     my $description = $target_transcript->description();
-    $description =~ /parent_transcript=(ENS.+)\.\d+;mapping_coverage=(\d+\.\d+);mapping_identity=(\d+\.\d+)/;
+    $description =~ /parent_transcript=((ENS|GeneID_|LOC|XR_|XM_).+)\.\d*;mapping_coverage=(\d+\.\d+);mapping_identity=(\d+\.\d+)/;
     my $stable_id = $1;
-    my $coverage = $2;
-    my $perc_id = $3;
+    my $coverage = $3;
+    my $perc_id = $4;
     $target_transcript->{'cov'} = $coverage;
     $target_transcript->{'perc_id'} = $perc_id;
     unless($stable_id and defined($coverage) and defined($perc_id)) {
