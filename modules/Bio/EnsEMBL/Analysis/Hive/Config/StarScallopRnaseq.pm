@@ -904,6 +904,7 @@ sub pipeline_analyses {
         min_allowed_feature_counts => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::SanityChecksStatic',
           'gene_db_checks' )->{ $self->o('sanity_set') }->{'rnaseq_blast'},
       },
+      -rc_name   => '2GB',
       -flow_into => {
         1 => ['create_rnaseq_layer_nr_db_star'],
       },
