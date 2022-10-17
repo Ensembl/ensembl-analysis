@@ -1934,12 +1934,15 @@ sub pipeline_analyses {
       -logic_name => 'skip_otherfeatures_db',
       -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-        cmd => 'if [[ -n "#assembly_refseq_accession#" ]] || [[ #skip_long_read# -eq 0 ]] || [[ $(#cdna_query#) -gt #cdna_threshold# ]]; then exit 0; else exit 42;fi',
+        cmd => 'if [[ -n "#assembly_refseq_accession#" ]] || [[ -n #long_read_query# ]] || [[ $(#cdna_query#) -gt #cdna_threshold# ]]; then exit 0; else exit 42;fi',
         return_codes_2_branches => {'42' => 2},
         cdna_query => 'mysql -h #expr(#cdna_db#->{-host})expr# -P #expr(#cdna_db#->{-port})expr# -u #expr(#cdna_db#->{-user})expr# -p#expr(#cdna_db#->{-pass})expr# #expr(#cdna_db#->{-dbname})expr# -NB -e "SELECT COUNT(*) FROM gene"',
         cdna_threshold => $self->o('cdna_threshold'),
         cdna_db => $self->o('cdna_db'),
-      },
+	long_read_query => `mysql -h #expr(#long_read_final_db#->{-host})expr#  -P #expr(#long_read_final_db#->{-port})expr# -u #expr(#long_read_final_db#->{-user})expr# -NB -e "SHOW DATABASES LIKE '#expr(#long_read_final_db#->{-dbname})expr#'"`,
+        long_read_final_db => $self->o('long_read_final_db'),
+       },
+
       -rc_name => 'default',
       -flow_into  => {
         1 => ['create_otherfeatures_db_pipeline_job'],
