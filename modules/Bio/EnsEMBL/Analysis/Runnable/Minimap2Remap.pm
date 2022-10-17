@@ -550,8 +550,8 @@ sub resolve_conflict {
         }
 
         # 2) Filter based on one gene passing cut-offs while the other fails
-        if ($gene->{'avg_cov'} and $gene->{'avg_perc_id'} and
-            $conflicting_gene->{'avg_cov'} and $conflicting_gene->{'avg_perc_id'}) {
+        if (defined($gene->{'avg_cov'}) and defined($gene->{'avg_perc_id'}) and
+            defined($conflicting_gene->{'avg_cov'}) and defined($conflicting_gene->{'avg_perc_id'})) {
           if(($gene->{'avg_cov'} >= $coverage_cutoff and $gene->{'avg_perc_id'} >= $identity_cutoff) and
              ($conflicting_gene->{'avg_cov'} < $coverage_cutoff or $conflicting_gene->{'avg_perc_id'} < $identity_cutoff)) {
             $genes_to_remove->{$conflicting_gene->stable_id()}->{$conflicting_gene->{'internal_id'}} = 1;
