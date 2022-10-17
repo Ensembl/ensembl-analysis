@@ -768,8 +768,8 @@ sub get_pairwise_coverage {
   my $min_end = min($gene1->seq_region_end(),$gene2->seq_region_end());
   my $overlap = max(1,$min_end-$max_start);
 
-  my $gene1_overlap = $overlap / ($gene1->seq_region_end() - $gene1->seq_region_start());
-  my $gene2_overlap = $overlap / ($gene2->seq_region_end() - $gene2->seq_region_start());
+  my $gene1_overlap = $overlap / ($gene1->seq_region_end() - $gene1->seq_region_start() + 1);
+  my $gene2_overlap = $overlap / ($gene2->seq_region_end() - $gene2->seq_region_start() + 1);
 
   my $average_overlap = ($gene1_overlap + $gene2_overlap) / 2;
 
