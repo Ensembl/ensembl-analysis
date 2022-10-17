@@ -196,12 +196,16 @@ sub fetch_input {
        -no_projection     => $self->param('no_projection'),
   );
   $self->runnable($runnable);
+  if ($self->param('disconnect_jobs')) {
+    $target_gene_dba->dbc->disconnect_when_inactive(1);
+    $source_gene_dba->dbc->disconnect_when_inactive(1);
+  }
 }
 
 
 sub run {
   my ($self) = @_;
-  $self->dbc->disconnect_if_idle() if ($self->param('disconnect_jobs'));
+  $self->dbc->disconnect_when_inactive(1) if ($self->param('disconnect_jobs'));
   foreach my $runnable(@{$self->runnable}){
     $runnable->run;
     if ($self->can('filter_results')) {
@@ -211,7 +215,7 @@ sub run {
       $self->output($runnable->output);
     }
   }
-
+  $self->dbc->disconnect_when_inactive(0);
   return $self->output;
 }
 
@@ -220,6 +224,7 @@ sub write_output {
   my ($self) = @_;
 
   my $output_gene_adaptor = $self->hrdb_get_con('target_gene_db')->get_GeneAdaptor;
+  $output_gene_adaptor->dbc->disconnect_when_inactive(0);
   foreach my $output_gene (@{$self->output}) {
     say "Final gene: ".$output_gene->stable_id();
     empty_Gene($output_gene);
