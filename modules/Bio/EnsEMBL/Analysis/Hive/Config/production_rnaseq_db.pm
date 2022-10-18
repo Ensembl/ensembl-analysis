@@ -198,6 +198,15 @@ sub pipeline_create_commands {
 }
 
 
+sub pipeline_wide_parameters {
+  my ($self) = @_;
+
+  return {
+    %{$self->SUPER::pipeline_wide_parameters},
+    production_ftp_dir => $self->o('production_ftp_dir'),	
+  }
+}
+
 ## See diagram for pipeline structure
 sub pipeline_analyses {
   my ($self) = @_;
@@ -586,7 +595,7 @@ sub pipeline_analyses {
       -logic_name => 'create_species_ftp_dir',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
       -parameters => {
-	      cmd => "sudo -u genebuild mkdir -p " . $self->o('production_ftp_dir') . 'species/'. ucfirst($self->o('species_name')) . '/' . $self->o('assembly_accession') . '/rnaseq/',
+	      cmd => 'sudo -u genebuild mkdir -p ' . catdir('#production_ftp_dir#', 'species', ucfirst($self->o('species_name')), $self->o('assembly_accession'), 'rnaseq'),
                      },
       -rc_name    => '2GB',
       -flow_into => {
