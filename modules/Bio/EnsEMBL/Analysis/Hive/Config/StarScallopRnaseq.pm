@@ -920,7 +920,7 @@ sub pipeline_analyses {
         create_type => 'copy',
       },
       -max_retry_count => 0,
-      -rc_name   => 'default',
+      -rc_name   => '2GB',
       -flow_into => {
         '1' => ['create_rnaseq_layer_nr_slices_star'],
       },
