@@ -29,9 +29,9 @@ use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
 sub fetch_input {
   my $self = shift;
-  my $dba = $self->hrdb_get_dba($self->param_required('target_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
-  $dba->dnadb($dna_dba);
+
+  $self->setup_fasta_db;
+  my $dba = $self->get_database_by_name('target_db');
   $self->hrdb_set_con($dba,'target_db');
 
 }

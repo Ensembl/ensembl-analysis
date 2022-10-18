@@ -56,16 +56,13 @@ sub fetch_input {
   # set up the target (genome)
   ##########################################
 
+  $self->setup_fasta_db;
   $self->create_analysis;
   my ($slice_name, $accession) = $self->input_id =~ /^(.*):+([^:]+)$/;
   $self->query_acc($accession);
   #repeat masking logic names
   $self->throw("Repeat logic names are not in an array") if(!(ref($self->SOFT_MASKED_REPEATS) eq "ARRAY"));
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  if($dna_dba) {
-    $dba->dnadb($dna_dba);
-  }
+  my $dba = $self->get_database_by_name('target_db');
   $self->hrdb_set_con($dba,'target_db');
 
   foreach my $repeat_logic_name ( @{ $self->SOFT_MASKED_REPEATS } ) {

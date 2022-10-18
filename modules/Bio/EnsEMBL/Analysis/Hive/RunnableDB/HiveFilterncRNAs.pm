@@ -87,6 +87,7 @@ my $runnable;
 sub fetch_input{
   my ($self)=@_;
 
+  $self->setup_fasta_db;
   my $analysis = new Bio::EnsEMBL::Analysis(
                                              -logic_name => $self->param('logic_name'),
                                              -module => $self->param('module'),
@@ -95,13 +96,7 @@ sub fetch_input{
 
 
   # The output db should be the one that the dafs to check have been written to
-  my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-
-
-  if($dna_dba) {
-    $output_dba->dnadb($dna_dba);
-  }
+  my $output_dba = $self->get_database_by_name('output_db');
 
   $self->hrdb_set_con($output_dba,'output_db');
 

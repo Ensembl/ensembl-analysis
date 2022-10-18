@@ -98,6 +98,7 @@ sub default_options {
     transcript_selection_url => undef,
 
 # This one is used by most analyses that run against a genome flatfile like exonerate, genblast etc. Has slice name style headers. Is softmasked
+    genome_file        => catfile($self->o('genome_dumps'), $self->o('species_name').'_toplevel.fa'),
     softmasked_genome_file        => catfile($self->o('genome_dumps'), $self->o('species_name').'_softmasked_toplevel.fa'),
     ensembl_analysis_script           => catdir($self->o('enscode_root_dir'), 'ensembl-analysis', 'scripts'),
     load_fasta_script_path            => catfile($self->o('ensembl_analysis_script'), 'genebuild', 'load_fasta_to_db_table.pl'),
@@ -142,7 +143,7 @@ sub pipeline_wide_parameters {
   return {
     %{$self->SUPER::pipeline_wide_parameters},
     use_genome_flatfile => $self->o('use_genome_flatfile'),
-    genome_file => $self->o('softmasked_genome_file'),
+    genome_file => $self->o('genome_file'),
   }
 }
 

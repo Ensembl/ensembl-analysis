@@ -44,7 +44,7 @@ sub fetch_input {
 
   my $input_gene_dbs =  $self->param('input_gene_dbs');
 
-  my $dba = $self->hrdb_get_dba($self->param('dna_db'));
+  my $dba = $self->get_database_by_name('dna_db');
   $self->hrdb_set_con($dba,'dna_db');
 
   my $input_id = $self->param('iid');

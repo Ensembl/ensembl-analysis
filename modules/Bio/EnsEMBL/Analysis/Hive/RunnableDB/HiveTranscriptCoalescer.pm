@@ -102,6 +102,7 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
+  $self->setup_fasta_db;
   $self->create_analysis;
   my $dna_db = $self->get_database_by_name('dna_db');
   $self->hrdb_set_con($self->hrdb_get_dba($self->param_required('target_db'), $dna_db), 'target_db');

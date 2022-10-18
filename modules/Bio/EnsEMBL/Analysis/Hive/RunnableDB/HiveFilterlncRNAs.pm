@@ -51,6 +51,8 @@ sub param_defaults {
 
 sub fetch_input {
   my $self = shift;
+
+  $self->setup_fasta_db;
   my $test_case = 0;
   my $analysis = Bio::EnsEMBL::Analysis->new(
                                               -logic_name => $self->param('logic_name'),
@@ -58,12 +60,8 @@ sub fetch_input {
                                             );
   $self->analysis($analysis);
 
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  $self->hrdb_set_con($dna_dba,'dna_db');
-
-  my $input_dba = $self->hrdb_get_dba($self->param('input_gene_db'));
+  my $input_dba = $self->get_database_by_name('input_gene_db');
   $self->hrdb_set_con($input_dba,'input_gene_db');
-  $input_dba->dnadb($dna_dba);
 }
 
 sub run {
