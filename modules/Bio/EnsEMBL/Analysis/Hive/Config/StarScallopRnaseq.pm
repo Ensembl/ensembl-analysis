@@ -442,6 +442,7 @@ sub pipeline_analyses {
         read_length_table => $self->o('read_length_table'),
         _input_id_name => 'filename',
       },
+      -max_retry_count => 0,
     },
 
     {
