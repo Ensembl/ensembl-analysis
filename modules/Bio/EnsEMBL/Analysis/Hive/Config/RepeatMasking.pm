@@ -515,7 +515,7 @@ sub pipeline_analyses {
       -parameters => {
         'cmd' => 'if [ "' . $self->o('blast_type') . '" = "ncbi" ]; then convert2blastmask -in ' . $self->o('softmasked_genome_file') . ' -parse_seqids -masking_algorithm repeatmasker -masking_options "repeatmasker, default" -outfmt maskinfo_asn1_bin -out ' . $self->o('softmasked_genome_file') . '.asnb;makeblastdb -in ' . $self->o('softmasked_genome_file') . ' -dbtype nucl  -max_file_sz "10GB"  -parse_seqids -mask_data ' . $self->o('softmasked_genome_file') . '.asnb -title "' . $self->o('species_name') . '"; else xdformat -n ' . $self->o('softmasked_genome_file') . ';fi',
       },
-      -rc_name   => '5GB',
+      -rc_name   => '3GB',
       -flow_into => {
         1 => ['create_reheadered_softmasked_file'],
       },
@@ -530,7 +530,7 @@ sub pipeline_analyses {
           ' -input_file ' . $self->o('softmasked_genome_file') .
           ' -output_file ' . $self->o('faidx_softmasked_genome_file'),
       },
-      -rc_name   => 'default',
+      -rc_name   => '3GB',
       -flow_into => {
         1 => ['create_softmasked_faidx'],
       },
@@ -539,7 +539,7 @@ sub pipeline_analyses {
     {
       -logic_name => 'create_softmasked_faidx',
       -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
-      -rc_name    => '5GB',
+      -rc_name    => '3GB',
       -parameters => {
         cmd => 'if [ ! -e "' . $self->o('faidx_softmasked_genome_file') . '.fai" ]; then ' . $self->o('samtools_path') . ' faidx ' . $self->o('faidx_softmasked_genome_file') . ';fi',
       },
