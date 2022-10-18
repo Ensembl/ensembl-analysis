@@ -143,15 +143,20 @@ sub run {
 
   my $client = $self->param('client');
   my $file = $client->fetch(($self->param_is_defined('options') ? @{$self->param('options')}: undef));
-  $self->check_file($file);
-  $file = $self->uncompress($file) if ($self->param('uncompress'));
-  if ($self->param('create_faidx')) {
-    my $samtools = Bio::EnsEMBL::Analysis::Runnable::Samtools->new(
-                   -program => $self->param('samtools'),
-                   );
-    $samtools->index_genome($file);
+  if ($file) {
+    $self->check_file($file);
+    $file = $self->uncompress($file) if ($self->param('uncompress'));
+    if ($self->param('create_faidx')) {
+      my $samtools = Bio::EnsEMBL::Analysis::Runnable::Samtools->new(
+                     -program => $self->param('samtools'),
+                     );
+      $samtools->index_genome($file);
+    }
+    $self->output([$file]);
   }
-  $self->output([$file]);
+  else {
+    $self->throw($client->error());
+  }
 }
 
 
