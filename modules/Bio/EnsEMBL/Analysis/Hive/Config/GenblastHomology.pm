@@ -318,7 +318,7 @@ sub pipeline_analyses {
         -2 => ['split_genblast_jobs'],
         -3 => ['split_genblast_jobs'],
       },
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -364,7 +364,7 @@ sub pipeline_analyses {
         -2 => ['failed_genblast_proteins'],
         -3 => ['failed_genblast_proteins'],
       },
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -449,6 +449,7 @@ sub pipeline_analyses {
         target_type => 'biotype_priority',
         layers      => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic', $self->o('uniprot_set'), undef, 'ARRAY' ),
       },
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name => '5GB',
     },
 

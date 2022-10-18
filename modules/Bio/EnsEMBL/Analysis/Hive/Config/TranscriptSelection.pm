@@ -500,7 +500,7 @@ sub pipeline_analyses {
         iid_type       => 'slice',
       },
       -batch_size    => 100,
-      -hive_capacity => $self->hive_capacity_classes->{'hc_medium'},
+      -hive_capacity => $self->o('hc_medium'),
       -rc_name       => '5GB',
       -flow_into     => {
         '2' => ['layer_annotation'],
@@ -530,6 +530,7 @@ sub pipeline_analyses {
         LAYERS => get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic', $self->o('uniprot_set'), undef, 'ARRAY' ),
       },
       -rc_name   => '4GB',
+      -hive_capacity => $self->o('hc_medium'),
       -flow_into => {
         '1->A' => ['run_utr_addition'],
         'A->1' => ['genebuilder'],
@@ -550,7 +551,7 @@ sub pipeline_analyses {
         iid_type               => 'slice',
       },
       -batch_size    => 20,
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_medium'),
       -rc_name       => '5GB',
       -flow_into     => {
         -1 => ['run_utr_addition_10GB'],
@@ -570,7 +571,7 @@ sub pipeline_analyses {
         iid_type               => 'slice',
       },
       -batch_size    => 20,
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_medium'),
       -rc_name       => '10GB',
       -flow_into     => {
         -1 => ['run_utr_addition_30GB'],
@@ -590,7 +591,7 @@ sub pipeline_analyses {
         iid_type               => 'slice',
       },
       -batch_size    => 20,
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_medium'),
       -rc_name       => '30GB',
       -flow_into     => {
         -1 => ['utr_memory_failover'],
@@ -611,7 +612,7 @@ sub pipeline_analyses {
         copy_only              => 1,
       },
       -batch_size    => 20,
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_medium'),
       -rc_name       => '10GB',
     },
 
@@ -651,7 +652,7 @@ sub pipeline_analyses {
         CODING_ONLY => 1,
       },
       -rc_name       => '4GB',
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_medium'),
     },
 
     {
@@ -767,6 +768,7 @@ sub pipeline_analyses {
         module            => 'HivePseudogenes',
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::PseudoGeneStatic', 'pseudogenes' ) },
       },
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name   => '3GB',
     },
 

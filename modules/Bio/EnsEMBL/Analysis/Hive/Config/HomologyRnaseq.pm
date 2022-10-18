@@ -277,6 +277,7 @@ sub pipeline_analyses {
         target_type => 'biotype_priority',
         layers      => get_analysis_settings('Bio::EnsEMBL::Analysis::Hive::Config::LayerAnnotationStatic', $self->o('uniprot_set'), undef, 'ARRAY'),
       },
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name    => '5GB',
     },
 

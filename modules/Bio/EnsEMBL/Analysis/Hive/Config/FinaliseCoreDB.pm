@@ -210,7 +210,7 @@ sub pipeline_analyses {
       },
       -rc_name => '4GB',
       -max_retry_count => 1,
-      -analysis_capacity => 400,
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {

@@ -299,7 +299,7 @@ sub pipeline_analyses {
       },
       -rc_name => 'default',
       -batch_size => 30,
-      -hive_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {

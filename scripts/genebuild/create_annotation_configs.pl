@@ -37,7 +37,7 @@ my $config_only = 0;
 my $custom_load = 0;
 my $early_load = 0;
 
-my $total_running_workers_max = 200;
+my $total_running_workers_max = 2000;
 my $base_guihive = 'http://guihive.ebi.ac.uk:8080';
 my $ftphost = "ftp.ncbi.nlm.nih.gov";
 my $ftpuser = "anonymous";

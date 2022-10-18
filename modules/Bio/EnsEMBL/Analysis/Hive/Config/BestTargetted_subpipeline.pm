@@ -323,6 +323,7 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
       },
       -rc_name => '3GB',
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into => {
         -1 => ['targetted_exonerate_retry'],
       },
@@ -343,6 +344,7 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => $self->o('target_exonerate_calculate_coverage_and_pid'),
       },
       -rc_name => '10GB',
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -391,6 +393,7 @@ sub pipeline_analyses {
         OPTIONS           => '-T 20',                                                # set threshold to 14 for more sensitive search
       },
       -rc_name => '3GB',
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -439,6 +442,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise' ) },
       },
       -rc_name => '3GB',
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into => {
         MEMLIMIT => ['targetted_genewise_gtag_6GB'],
       },
@@ -459,6 +463,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_genewise' ) },
       },
       -rc_name => '6GB',
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -476,6 +481,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_exonerate' ) },
       },
       -rc_name => '3GB',
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into => {
         MEMLIMIT => ['targetted_exo_6GB'],
       },
@@ -496,6 +502,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::GeneWiseStatic', 'targetted_exonerate' ) },
       },
       -rc_name => '6GB',
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -568,6 +575,7 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => 0,
       },
       -batch_size => 100,
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into  => {
         -1 => ['exonerate_retry'],
       },
@@ -594,6 +602,7 @@ sub pipeline_analyses {
         calculate_coverage_and_pid => 0,
       },
       -batch_size           => 100,
+      -hive_capacity => $self->o('hc_normal'),
       -failed_job_tolerance => 100,
       -can_be_empty         => 1,
     },
@@ -713,6 +722,7 @@ sub pipeline_analyses {
         SOFT_MASKED_REPEATS        => '#wide_repeat_logic_names#',
       },
       -batch_size => 10,
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into  => {
         '-1' => ['cdna2genome_himem'],
       },
@@ -737,6 +747,7 @@ sub pipeline_analyses {
         repeat_libraries           => '#wide_repeat_logic_names#',
       },
       -batch_size => 10,
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {

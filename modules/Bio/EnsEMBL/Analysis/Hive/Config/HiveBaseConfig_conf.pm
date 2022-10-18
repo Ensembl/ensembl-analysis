@@ -122,6 +122,12 @@ sub default_options {
         linuxbrew_home_path => $ENV{LINUXBREW_HOME},
         binary_base => catdir($self->o('linuxbrew_home_path'), 'bin'),
 
+        hc_minimal => 20,
+        hc_low => 50,
+        hc_medium => 100,
+        hc_normal => 200,
+        hc_high => 1000,
+
         guihive_host => 'http://guihive.ebi.ac.uk',
         guihive_port => 8080,
 
