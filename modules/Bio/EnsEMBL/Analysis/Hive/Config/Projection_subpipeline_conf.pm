@@ -314,7 +314,6 @@ sub pipeline_analyses {
       -parameters           => {},
       -rc_name              => 'default',
       -can_be_empty         => 1,
-      -failed_job_tolerance => 100,
     },
 
     {
@@ -354,7 +353,6 @@ sub pipeline_analyses {
       -rc_name              => '3GB',
       -analysis_capacity    => 50,
       -max_retry_count      => 1,
-      -failed_job_tolerance => 5,
       -flow_into => {
         15 => ['cesar_15'],
         30 => ['cesar_30'],
@@ -382,7 +380,6 @@ sub pipeline_analyses {
       -analysis_capacity    => 50,
       -max_retry_count      => 1,
       -can_be_empty         => 1,
-      -failed_job_tolerance => 5,
       -flow_into => {
         -1 => ['cesar_30'],
       },
@@ -408,7 +405,6 @@ sub pipeline_analyses {
       -analysis_capacity    => 50,
       -max_retry_count      => 1,
       -can_be_empty         => 1,
-      -failed_job_tolerance => 10,
       -flow_into => {
         -1 => ['cesar_failed_projection'],
       },
@@ -419,7 +415,6 @@ sub pipeline_analyses {
       -module               => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
       -parameters           => {},
       -rc_name              => 'default',
-      -failed_job_tolerance => 100,
       -can_be_empty         => 1,
     },
 
