@@ -49,7 +49,6 @@ into NNN triplets to make the best possible aligment.
 
 -iid                  gene_id or array of gene_id from the source_db corresponding to the
 gene to be projected from the source_dna_db to the target_dna_db.
--output_path          Path where the output files will be stored.
 -source_dna_db        Ensembl database containing the DNA sequences that
 correspond to the input gene_id from the source_db.
 -target_dna_db        Ensembl database containing the DNA sequences
@@ -85,9 +84,9 @@ use strict;
 use feature 'say';
 use Scalar::Util 'reftype';
 use List::Util qw[min max];
+use File::Spec::Functions qw(catfile);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene);
 
-use Bio::SeqIO;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Analysis::Tools::WGA2Genes::GeneScaffold;
@@ -98,7 +97,6 @@ qw(replace_stops_with_introns
    set_alignment_supporting_features                                                                  
    features_overlap);
 use Bio::EnsEMBL::Analysis::Tools::Utilities qw(align_proteins);
-use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(replace_stops_with_introns features_overlap);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -117,7 +115,6 @@ sub param_defaults {
     return {
       %{$self->SUPER::param_defaults},
       iid => '',
-      output_path => '',
       source_dna_db => '',
       target_dna_db => '',
       source_db => '',
@@ -204,10 +201,6 @@ sub pre_cleanup {
 
 sub fetch_input {
   my($self) = @_;
-
-  unless(-e $self->param('output_path')) {
-    system("mkdir -p ".$self->param('output_path'));
-  }
 
   my @input_id = ();
   if (reftype($self->param('iid')) eq "ARRAY") {
@@ -670,12 +663,10 @@ sub project_transcript {
   }
 
   # set output filename
-  my $rand = int(rand(10000));
   # Note as each accession will occur in only one file, there should be no problem using the first one
-  my $outfile_path = $self->param('output_path')."/cesar_".$$."_".$transcript->stable_id()."_".$rand.".fasta";
-  $self->files_to_delete($outfile_path);
+  my $outfile_path = catfile($self->worker_temp_directory, join('_', 'cesar', $$, $transcript->stable_id(), int(rand(10000)).'.fasta'));
 
-  open(OUT,">".$outfile_path);
+  open(OUT, ">$outfile_path") or $self->throw("Could not open '$outfile_path' for writing");
   my $exon_index = 0;
 EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
     my $seq = $exon->seq->seq();
@@ -777,7 +768,7 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
   $transcript_align_slice_seq =~ tr/ykwmsrdvhbxRYKWMSDVHBX/nnnnnnnnnnnNNNNNNNNNNN/;
   say OUT $transcript_align_slice_seq;
 
-  close OUT;
+  close OUT or $self->throw("Could not close '$outfile_path' for writing");
 
   chdir $self->param('cesar_path');
   my $cesar_command = $self->param('cesar_path')."/cesar ".$outfile_path." --clade human ";
@@ -787,11 +778,9 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
 
   say $cesar_command;
 
-  my $cesar_output;
-  $cesar_output = `$cesar_command 2>&1`;
-  my $fces_name_tmp = $outfile_path.".ces.tmp";
-  my $fces_name = $outfile_path.".ces";
+  my $cesar_output = `$cesar_command 2>&1`;
 
+  my @projection_array;
   if ($cesar_output =~ /Your attempt requires ([0-9]+)\./) {
     # Parse error message from CESAR2.0 to retry the job according to the memory required:
     # CRITICAL src/Cesar.c:117 main():  The memory consumption is limited to 20.0000 GB by default. Your attempt requires 73.6664 GB. You can change the limit via --max-memory.
@@ -810,18 +799,21 @@ EXON:  foreach my $exon (@{$transcript->get_all_translateable_Exons()}) {
   } elsif ($cesar_output =~ /CRITICAL/) {
     $self->throw("cesar command FAILED: ".$cesar_command."\n");
   } else {
-    open(FCES,'>',$fces_name_tmp) or die $!;
-    print FCES $cesar_output;
-    close(FCES);
-    system("grep -v WARNING $fces_name_tmp > $fces_name"); # remove CESAR2.0 warnings
+    foreach my $line (split("\n", $cesar_output)) {
+      next if ($line =~ /WARNING/);
+      chomp($line);
+      push(@projection_array, $line);
+    }
+    # remove last line if blank and not corresponding to the last sequence
+    if ($projection_array[-1] =~ /^\$/ and $projection_array[-3] =~ /^>/) {
+      pop(@projection_array);
+    }
+    if (scalar(@projection_array) > 4) {
+      $self->throw("Output file has more than one projection. The projection having fewer gaps will be chosen. Transcript: ".$transcript->stable_id());
+    }
   }
 
-  $self->files_to_delete($fces_name_tmp);
-  $self->files_to_delete($fces_name);
-  my $projected_transcript = $self->parse_transcript($transcript,$fces_name);
-#  while(my $file_to_delete = shift(@{$self->files_to_delete})) {
-#    system('rm '.$file_to_delete);
-#  }
+  my $projected_transcript = $self->parse_transcript($transcript, \@projection_array);
 
   if ($projected_transcript) {
     return ($projected_transcript);
@@ -855,21 +847,29 @@ sub select_dataflow_on_fail {
 =cut
 
 sub parse_transcript {
-  my ($self,$source_transcript,$projected_outfile_path) = @_;
+  my ($self,$source_transcript, $projection_array) = @_;
 
-  open(IN,$projected_outfile_path);
-  my @projection_array = <IN>;
-  close IN;
-  
-  # remove last line if blank and not corresponding to the last sequence
-  if ($projection_array[-1] =~ /^\$/ and $projection_array[-3] =~ /^>/) {
-    pop(@projection_array);
+  my $reference_exon_header = shift(@$projection_array);
+  my $source_seq =  shift(@$projection_array);
+  my $slice_name = shift(@$projection_array);
+  if ($slice_name !~ /^>(.+\:.+\:.+\:)(.+)\:(.+)\:(.+)$/) {
+    $self->throw("Couldn't parse the header to get the slice name. Header: ".$slice_name);
   }
-  
-  my $reference_exon_header = shift(@projection_array);
-  my $source_seq =  shift(@projection_array);
-  my $slice_name = shift(@projection_array);
-  my $proj_seq = shift(@projection_array);
+  my $proj_transcript_slice_name = $1;
+  my $transcript_start_coord = $2;
+  my $transcript_end_coord = $3;
+  my $original_proj_transcript_strand = $4;
+
+  $proj_transcript_slice_name .= join(":",($transcript_start_coord,$transcript_end_coord,$original_proj_transcript_strand));
+  my $slice_adaptor = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor();
+
+  my $proj_transcript_slice = $slice_adaptor->fetch_by_name($proj_transcript_slice_name);
+
+  if (!($proj_transcript_slice)) {
+    $self->throw("Couldn't retrieve a slice for transcript: ".$proj_transcript_slice_name);
+  }
+
+  my $proj_seq = shift(@$projection_array);
 
   # CESAR sometimes produces projected exon sequences with no actual exonic sequence like 
   # >reference
@@ -879,21 +879,6 @@ sub parse_transcript {
   # which we are going to discard.
   my $num_proj_seq_exonic_bases = $proj_seq =~ tr/ACGTNYKWMSRDVHBX//;
 
-  if (scalar(@projection_array) > 0) {
-    $self->throw("Output file has more than one projection. The projection having fewer gaps will be chosen. Transcript: ".$source_transcript->stable_id());
-  }
-
-  chomp($source_seq);
-  chomp($proj_seq);
-  
-  if ($slice_name !~ /^>(.+\:.+\:.+\:)(.+)\:(.+)\:(.+)$/) {
-    $self->throw("Couldn't parse the header to get the slice name. Header: ".$slice_name);
-  }
-
-  my $proj_transcript_slice_name = $1;
-  my $transcript_start_coord = $2;
-  my $transcript_end_coord = $3;
-  my $original_proj_transcript_strand = $4;
   my $strand = $original_proj_transcript_strand;
 
   $source_seq =~ /( *)([\-atgcnATGCN> ]+[-atgcnATGCN>]+)( *)/; # '>' means do not expect a splice site in the query because the intron has been deleted, annotate as one composite exon
@@ -904,15 +889,6 @@ sub parse_transcript {
   my $exon_offset_from_start = 0;
   
   $exon_offset_from_start = length($transcript_left_flank);
-
-  $proj_transcript_slice_name .= join(":",($transcript_start_coord,$transcript_end_coord,$original_proj_transcript_strand));
-  my $slice_adaptor = $self->hrdb_get_con('target_dna_db')->get_SliceAdaptor();
-
-  my $proj_transcript_slice = $slice_adaptor->fetch_by_name($proj_transcript_slice_name);
-
-  if (!($proj_transcript_slice)) {
-    $self->throw("Couldn't retrieve a slice for transcript: ".$proj_transcript_slice_name);
-  }
 
   # I have to store the source sequence exons as they appear in the alignment file
   # so I can compare the split codons from the source and the projected sequence later on.
@@ -945,7 +921,7 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
 
     if ($proj_exon_sequence =~ /^\-+\-+$/) {
       # skip projected exon sequences which only contain '-'
-      say "Skipping projected exon sequence because it only contains '-'. File: ".$projected_outfile_path;
+      say "Skipping projected exon sequence because it only contains '-'.";
       $source_exon_index = 0;
       next PROJSEQ;
     } elsif ($proj_exon_sequence =~ /(^\-*)[ATGCNatgcn]+(\-*$)/) {
@@ -953,13 +929,13 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
       
       if (length($1) % 3 == 1) {
         # ignore 1 '-' at the beginning to keep the phase
-        say "Ignoring 1 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name File: ".$projected_outfile_path;
+        say "Ignoring 1 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name";
         $source_exons[$source_exon_index] = substr($source_exons[$source_exon_index],1);
         $proj_exon_sequence = substr($proj_exon_sequence,1);
         $exon_start += 1;
       } elsif (length($1) % 3 == 2) {
         # ignore 2 '-' at the beginning to keep the phase
-        say "Ignoring 2 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name File: ".$projected_outfile_path;
+        say "Ignoring 2 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name";
         $source_exons[$source_exon_index] = substr($source_exons[$source_exon_index],2);
         $proj_exon_sequence = substr($proj_exon_sequence,2);
         $exon_start += 2;
@@ -967,13 +943,13 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
 
       if (length($2) % 3 == 1) {
         # ignore 1 '-' at the end to keep the phase
-        say "Ignoring 1 '-' at the end of the exon to keep the phase. $proj_transcript_slice_name File: ".$projected_outfile_path;
+        say "Ignoring 1 '-' at the end of the exon to keep the phase. $proj_transcript_slice_name";
         $source_exons[$source_exon_index] = substr($source_exons[$source_exon_index],0,-1);
         $proj_exon_sequence = substr($proj_exon_sequence,0,-1);
         $exon_end -= 1;
       } elsif (length($2) % 3 == 2) {
         # ignore 2 '-' at the end to keep the phase
-        say "Ignoring 2 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name File: ".$projected_outfile_path;
+        say "Ignoring 2 '-' at the beginning of the exon to keep the phase. $proj_transcript_slice_name";
         $source_exons[$source_exon_index] = substr($source_exons[$source_exon_index],0,-2);
         $proj_exon_sequence = substr($proj_exon_sequence,0,-2);
         $exon_end -= 2;
@@ -1000,7 +976,7 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
     my $source_exon_sequence = $source_exons[$source_exon_index];
     while (length($proj_exon_sequence) != length($source_exon_sequence) and
            $source_exon_index < @source_exons) {
-      say "Source exon sequence and projected exon sequence lengths IN THE ALIGNMENT (including '-') do not match. Source exon index: ".$source_exon_index.". Skipping source exon. File: ".$projected_outfile_path;
+      say "Source exon sequence and projected exon sequence lengths IN THE ALIGNMENT (including '-') do not match. Source exon index: ".$source_exon_index.". Skipping source exon.";
       $source_exon_index++;
       $source_exon_sequence = $source_exons[$source_exon_index];
     }
@@ -1009,7 +985,7 @@ PROJSEQ: while ($proj_seq =~ /([\-ATGCN]+)/g) {
     #say "source exon sequence length: ".length($source_exon_sequence);
    
     if (length($proj_exon_sequence) != length($source_exon_sequence)) {
-      $self->warning("Source exon sequence not found for current projected sequence ".$proj_exon_sequence.". Projected exon not added to the projected transcript. File: ".$projected_outfile_path);
+      $self->warning("Source exon sequence not found for current projected sequence ".$proj_exon_sequence.". Projected exon not added to the projected transcript.");
       $source_exon_index = 0;
       next PROJSEQ;
     } else {
