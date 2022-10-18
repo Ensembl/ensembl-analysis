@@ -89,7 +89,8 @@ sub param_defaults {
  Description: Check the different parameters and check the url. It will select the client to use
               based on the 'download_method' parameter.
  Returntype : None
- Exceptions : Throws if 'download_method' is not set
+ Exceptions : Throws if using Perl 5.24
+              Throws if 'download_method' is not set
               Throws if 'output_dir' is not set
               Throws if 'url' is not set
 
@@ -98,6 +99,9 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
+  if ($] =~ '^5.024') {
+    $self->throw("Perl 5.24 doesn't work with this module. If you manage to make it work, please submit a pull-request");
+  }
   my $download_method = $self->param_required('download_method');
   my $output_dir = $self->param_required('output_dir');
   if (!-d $output_dir) {

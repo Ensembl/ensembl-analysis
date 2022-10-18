@@ -30,97 +30,84 @@ sub cleaning {
   unlink catfile($output_dir, 'unmapped_reason.txt');
 }
 
-use_ok('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData');
+SKIP: {
+  skip "You are using Perl 5.24" if ($] =~ '^5.024');
 
-standaloneJob(
-	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
-	{ # input param hash
-		'url'     => 'https://ftp.ensembl.org/pub/release-104/README',
-		'download_method'     => 'http',
-    'md5sum' => '0ddb2b5156d12c2e740da6800ee56811',
-    'output_dir' => $output_dir,
-    'uncompress' => 0,
-	},
-	[ # list of events to test for (just 1 event in this case)
-		[ # start event
-			'DATAFLOW', # event to test for (could be WARNING)
-			$expected_dataflow, # expected data flowed out
-			2 # dataflow branch
-		], # end event
-	]
-);
+  use_ok('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData');
 
-standaloneJob(
-	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
-	{ # input param hash
-		'url'     => 'https://ftp.ensembl.org/pub/release-104/README',
-		'download_method'     => 'http',
-    'md5sum' => '2a3ea6c67b0bf0a1cc72c5b15c73b931',
-    'output_dir' => $output_dir,
-    'uncompress' => 0,
-	},
-	[ # list of events to test for (just 1 event in this case)
-		[ # start event
-			'WARNING', # event to test for (could be WARNING)
-			$expected_warning, # expected data flowed out
-      'WORKER_ERROR', # dataflow branch
-		], # end event
-	],
-  {
-    expect_failure => 1,
-  }
-);
+  standaloneJob(
+    'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
+    { # input param hash
+      'url'     => 'https://ftp.ensembl.org/pub/release-104/README',
+      'download_method'     => 'https',
+      'md5sum' => '0ddb2b5156d12c2e740da6800ee56811',
+      'output_dir' => $output_dir,
+      'uncompress' => 0,
+    },
+    [ # list of events to test for (just 1 event in this case)
+      [ # start event
+        'DATAFLOW', # event to test for (could be WARNING)
+        $expected_dataflow, # expected data flowed out
+        2 # dataflow branch
+      ], # end event
+    ]
+  );
 
-standaloneJob(
-	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
-	{ # input param hash
-		'url'     => 'https://ftp.ensembl.org/pub/release-104/README',
-		'download_method'     => 'http',
-    'output_dir' => $output_dir,
-    'uncompress' => 0,
-	},
-	[ # list of events to test for (just 1 event in this case)
-		[ # start event
-			'DATAFLOW', # event to test for (could be WARNING)
-			$expected_dataflow, # expected data flowed out
-			2 # dataflow branch
-		], # end event
-	]
-);
+  standaloneJob(
+    'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
+    { # input param hash
+      'url'     => 'https://ftp.ensembl.org/pub/release-104/README',
+      'download_method'     => 'https',
+      'md5sum' => '2a3ea6c67b0bf0a1cc72c5b15c73b931',
+      'output_dir' => $output_dir,
+      'uncompress' => 0,
+    },
+    [ # list of events to test for (just 1 event in this case)
+      [ # start event
+        'WARNING', # event to test for (could be WARNING)
+        $expected_warning, # expected data flowed out
+        'WORKER_ERROR', # dataflow branch
+      ], # end event
+    ],
+    {
+      expect_failure => 1,
+    }
+  );
 
-standaloneJob(
-	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
-	{ # input param hash
-		'url'     => 'https://ftp.ensembl.org/pub/release-104/mysql/ailuropoda_melanoleuca_core_104_2/unmapped_reason.txt.gz',
-		'download_method'     => 'http',
-    'output_dir' => $output_dir,
-	},
-	[ # list of events to test for (just 1 event in this case)
-		[ # start event
-			'DATAFLOW', # event to test for (could be WARNING)
-			$expected_dataflow_gzip, # expected data flowed out
-			2 # dataflow branch
-		], # end event
-	]
-);
+  standaloneJob(
+    'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
+    { # input param hash
+      'url'     => 'https://ftp.ensembl.org/pub/release-104/README',
+      'download_method'     => 'https',
+      'output_dir' => $output_dir,
+      'uncompress' => 0,
+    },
+    [ # list of events to test for (just 1 event in this case)
+      [ # start event
+        'DATAFLOW', # event to test for (could be WARNING)
+        $expected_dataflow, # expected data flowed out
+        2 # dataflow branch
+      ], # end event
+    ]
+  );
 
-standaloneJob(
-	'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
-	{ # input param hash
-		'url'     => 'https://ftp.sra.ebi.ac.uk/ensemblorg/pub/release-104/README',
-		'download_method'     => 'ftp',
-    'output_dir' => $output_dir,
-    'uncompress' => 0,
-	},
-	[ # list of events to test for (just 1 event in this case)
-		[ # start event
-			'DATAFLOW', # event to test for (could be WARNING)
-			$expected_dataflow, # expected data flowed out
-			2 # dataflow branch
-		], # end event
-	]
-);
+  standaloneJob(
+    'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveDownloadData', # module
+    { # input param hash
+      'url'     => 'https://ftp.ensembl.org/pub/release-104/mysql/ailuropoda_melanoleuca_core_104_2/unmapped_reason.txt.gz',
+      'download_method'     => 'https',
+      'output_dir' => $output_dir,
+    },
+    [ # list of events to test for (just 1 event in this case)
+      [ # start event
+        'DATAFLOW', # event to test for (could be WARNING)
+        $expected_dataflow_gzip, # expected data flowed out
+        2 # dataflow branch
+      ], # end event
+    ]
+  );
+
+  cleaning();
+};
 
 done_testing();
-
-cleaning();
