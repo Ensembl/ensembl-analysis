@@ -93,12 +93,8 @@ sub param_defaults {
 sub fetch_input {
   my($self) = @_;
 
-
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  if($dna_dba) {
-    $dba->dnadb($dna_dba);
-  }
+  $self->setup_fasta_db;
+  my $dba = $self->get_database_by_name('target_db');
   $self->hrdb_set_con($dba,'target_db');
 
 
@@ -140,10 +136,7 @@ sub fetch_input {
     my $feature_type = $self->param('feature_type');
     if($feature_type eq 'transcript') {
       my $transcript_id = $self->param('iid');
-      my $transcript_dba = $self->hrdb_get_dba($self->param('transcript_db'));
-      if($dna_dba) {
-        $transcript_dba->dnadb($dna_dba);
-      }
+      my $transcript_dba = $self->get_database_by_name('transcript_db');
       $self->hrdb_set_con($transcript_dba,'transcript_db');
 
       my ($slice,$accession_array) = $self->get_transcript_region($transcript_id);
@@ -159,7 +152,7 @@ sub fetch_input {
     }
   } elsif($iid_type eq 'projection_transcript_id') {
        my ($projection_transcript_id, $projection_protein_accession) = @{$self->param('iid')};
-       my $transcript_dba = $self->hrdb_get_dba($self->param('transcript_db'), $dna_dba);
+       my $transcript_dba = $self->get_database_by_name('transcript_db');
        my $padding = $self->param("projection_padding");
 
        $self->hrdb_set_con($transcript_dba,'transcript_db');

@@ -60,20 +60,15 @@ sub fetch_input {
 
   my $self = shift;
   
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  $self->hrdb_set_con($dna_dba,'dna_db');
-  
-  my $wga_dba = $self->hrdb_get_dba($self->param('wga_db'));
+  $self->setup_fasta_db;
+  my $wga_dba = $self->get_database_by_name('wga_db');
   $self->hrdb_set_con($wga_dba,'wga_db');
-  $wga_dba->dnadb($dna_dba);
   
-  my $cesar_dba = $self->hrdb_get_dba($self->param('cesar_db'));
+  my $cesar_dba = $self->get_database_by_name('cesar_db');
   $self->hrdb_set_con($cesar_dba,'cesar_db');
-  $cesar_dba->dnadb($dna_dba);
   
-  my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
+  my $output_dba = $self->get_database_by_name('output_db');
   $self->hrdb_set_con($output_dba,'output_db');
-  $output_dba->dnadb($dna_dba);
 
   return 1;
 }

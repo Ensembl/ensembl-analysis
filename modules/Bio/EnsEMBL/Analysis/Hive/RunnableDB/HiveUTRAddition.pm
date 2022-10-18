@@ -50,7 +50,6 @@ use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::ExonUtils qw(transfer_support
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranscriptUtils qw(calculate_exon_phases);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::TranslationUtils qw(create_Translation);
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils qw(empty_Gene validate_store);
-use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -104,22 +103,10 @@ sub param_defaults {
 sub fetch_input {
   my ($self) = @_;
 
+  $self->setup_fasta_db;
   $self->create_analysis;
 
-  my $target_dba = $self->hrdb_get_dba($self->param_required('target_db'));
-  my $dna_dba;
-  if($self->param('use_genome_flatfile')) {
-    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
-      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
-    }
-    setup_fasta(
-                 -FASTA => $self->param_required('genome_file'),
-               );
-  } else {
-    $dna_dba = $self->hrdb_get_dba($self->param_required('dna_db'));
-    $target_dba->dnadb($dna_dba);
-  }
-
+  my $target_dba = $self->get_database_by_name('target_db');
   $self->hrdb_set_con($target_dba,'target_db');
 
   my $input_id_type = $self->param_required('iid_type');
@@ -1240,9 +1227,10 @@ sub filter_input_genes {
 
   my @genes;
   my $slice = $self->query;
+  my $dna_db = $slice->adaptor->db->dnadb;
 
   foreach my $db_conn (@$gene_source_dbs) {
-    my $db_adaptor = $self->hrdb_get_dba($db_conn);
+    my $db_adaptor = $self->hrdb_get_dba($db_conn, $dna_db);
     my $gene_adaptor = $db_adaptor->get_GeneAdaptor();
     my $dbname = $db_conn->{'-dbname'};
 

@@ -63,7 +63,6 @@ use Bio::EnsEMBL::Analysis::Tools::Stashes qw( package_stash ) ; # needed for re
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Utils::Exception qw(verbose throw warning stack_trace_dump);
 use Bio::EnsEMBL::Utils::Argument qw(rearrange);
-use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 our @EXPORT_OK = qw(
               shuffle
@@ -98,6 +97,7 @@ our @EXPORT_OK = qw(
               get_feature_name
               create_production_directory
               parse_uri
+              setup_fasta_db
               );
 
 
@@ -1029,6 +1029,8 @@ sub align_proteins_with_alignment {
               -host, -user, -dbname, -port [, -pass, -dna_db,...]
  Arg [2]    : Bio::EnsEMBL::DBSQL::DBAdaptor object (optional), the database will have the dna
  Arg [3]    : String $alternative_class (optional), Allowed class are Variation, Compara, Funcgen
+ Arg [4]    : String $fasta_file (optional), fasta file containing the toplevel sequences, preferably indexed.
+              setup_fasta_db must have been called before trying to get any DBAdaptor.
  Example    : hrdb_get_dba->($self->param('target_db'));
  Description: It creates a object based on the information contained in $connection_info.
               If the hasref contains -dna_db or if the second argument is populated, it will
@@ -1037,11 +1039,12 @@ sub align_proteins_with_alignment {
  Exceptions : Throws if it cannot connect to the database.
               Throws if $connection_info is not a hashref
               Throws if $dna_db is not a Bio::EnsEMBL::DBSQL::DBAdaptor object
+              Throws if $fasta_file does not exist
 
 =cut
 
 sub hrdb_get_dba {
-  my ($connection_info, $dna_db, $alternative_class) = @_;
+  my ($connection_info, $dna_db, $alternative_class, $fasta_file) = @_;
 
   my $dba;
   my %params;
@@ -1076,18 +1079,25 @@ sub hrdb_get_dba {
   }
 
   if (defined $dna_db) {
-      if (!ref($dna_db)) {
-        my($scheme, $user, $password, $host, $port, $path) = parse_uri($dna_db);
-        if ($scheme eq 'file' or !$scheme) {
-          setup_fasta(-FASTA => $path);
-        }
-      }
       if ($dna_db->isa('Bio::EnsEMBL::DBSQL::DBAdaptor')) {
           $dba->dnadb($dna_db);
       }
       else {
           throw(ref($dna_db)." is not a Bio::EnsEMBL::DBSQL::DBAdaptor\n");
       }
+  }
+  if ($fasta_file) {
+    if (-e $fasta_file) {
+      if ($dba->dnadb) {
+        $dba->dnadb->get_SequenceAdaptor->fasta($fasta_file);
+      }
+      else {
+        $dba->get_SequenceAdaptor->fasta($fasta_file);
+      }
+    }
+    else {
+      throw("'$fasta_file' does not exist");
+    }
   }
 
   return $dba;
@@ -1532,4 +1542,25 @@ sub parse_uri {
 
   return $uri =~ m|(?:([^:/?#]+):)?(?://([^/:?#]*)?(?::([^@]*))?@([^:?#]*)(?::(\d+))\/?)?([^?#]*)|;
 }
+
+
+=head2 setup_fasta_db
+
+ Arg [1]    : None
+ Description: Replace Bio::EnsEMBL::DBSQL::SliceAdaptor with Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor
+              to retrieve the genomic sequence from a fasta file which is preferably indexed with samtools faidx.
+              The method should be called, preferably before any call to a DBAdaptor. The fasta file can be set
+              with: $dba->get_SequenceAdaptor->fasta($path_to_fasta_file);
+ Returntype : None
+ Exceptions : None
+
+=cut
+
+sub setup_fasta_db {
+  my $adaptors = Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors;
+  $adaptors->{Sequence} = 'Bio::EnsEMBL::Analysis::Tools::FastaSequenceAdaptor';
+  no warnings 'redefine';
+  *Bio::EnsEMBL::DBSQL::DBAdaptor::get_available_adaptors = sub {return $adaptors};
+}
+
 1;

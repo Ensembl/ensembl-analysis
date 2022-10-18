@@ -57,7 +57,6 @@ package Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBlastmiRNA;
 use strict;
 use warnings;
 use feature 'say';
-use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 use Data::Dumper;
 
 use Bio::EnsEMBL::Analysis::Runnable::BlastmiRNA;
@@ -82,6 +81,7 @@ sub fetch_input{
   my ($self) = @_;
 
   #add dna_db
+  $self->setup_fasta_db;
 
   my $analysis = new Bio::EnsEMBL::Analysis(
                                              -logic_name => $self->param('logic_name'),
@@ -93,23 +93,7 @@ sub fetch_input{
   $self->analysis($analysis);
 
 
-  my $output_dba = $self->hrdb_get_dba($self->param('output_db'));
-  my $dna_db;
-  if($self->param('use_genome_flatfile')) {
-    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
-      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
-    }
-
-    setup_fasta(
-                 -FASTA => $self->param('genome_file'),
-	       );
-  } elsif($self->param('dna_db')) {
-    $dna_db = $self->get_database_by_name('dna_db');
-    $output_dba->dnadb($dna_db);
-  } else {
-    $self->throw("You must provide either a flatfile or a dna db to read from");
-  }
-
+  my $output_dba = $self->get_database_by_name('output_db');
   $self->hrdb_set_con($output_dba,'output_db');
 
   my $blast_params = $self->param('BLAST_PARAMS');

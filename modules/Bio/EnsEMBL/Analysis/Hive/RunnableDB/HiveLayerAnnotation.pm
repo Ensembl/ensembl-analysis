@@ -47,7 +47,6 @@ use feature 'say';
 
 use Bio::EnsEMBL::Analysis::Tools::GeneBuildUtils::GeneUtils;
 use Bio::EnsEMBL::Utils::Argument qw (rearrange);
-use Bio::EnsEMBL::Variation::Utils::FastaSequence qw(setup_fasta);
 
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 
@@ -64,29 +63,18 @@ sub fetch_input {
   foreach my $i (qw(LAYERS SOURCEDB_REFS TARGETDB_REF FILTER)) {
      $self->throw("You must define $i in config") unless ($self->param_required($i));
   }
+  $self->setup_fasta_db;
   $self->create_analysis;
 
-  my $target_dba = $self->hrdb_get_dba($self->TARGETDB_REF);
-  my $dna_dba;
-  if($self->param('use_genome_flatfile')) {
-    unless($self->param_required('genome_file') && -e $self->param('genome_file')) {
-      $self->throw("You selected to use a flatfile to fetch the genome seq, but did not find the flatfile. Path provided:\n".$self->param('genome_file'));
-    }
-    setup_fasta(
-                 -FASTA => $self->param_required('genome_file'),
-               );
-  } else {
-    $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-    $target_dba->dnadb($dna_dba);
-  }
+  my $target_dba = $self->get_database_by_name('TARGETDB_REF');
 
   $self->hrdb_set_con($target_dba,'target_db');
 
   my $found_input_genes = 0;
   foreach my $input_db (@{$self->SOURCEDB_REFS}) {
     my $dba = $self->hrdb_get_dba($input_db);
-    if($dna_dba) {
-      $dba->dnadb($dna_dba);
+    if($target_dba->dnadb) {
+      $dba->dnadb($target_dba->dnadb);
     }
 
     my $slice = $dba->get_SliceAdaptor->fetch_by_name($self->param('iid'));

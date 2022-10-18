@@ -94,11 +94,8 @@ sub fetch_input {
   my($self) = @_;
 
 
-  my $dba = $self->hrdb_get_dba($self->param('target_db'));
-  my $dna_dba = $self->hrdb_get_dba($self->param('dna_db'));
-  if($dna_dba) {
-    $dba->dnadb($dna_dba);
-  }
+  $self->setup_fasta_db;
+  my $dba = $self->get_database_by_name('target_db');
   $self->hrdb_set_con($dba,'target_db');
 
 
