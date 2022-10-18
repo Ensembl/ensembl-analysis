@@ -817,6 +817,16 @@ sub pipeline_analyses {
       },
       -wait_for => ['healthcheck'],
       -rc_name  => '2GB_lastz',
+      -flow_into => ['clean_directories'],
+    },
+
+    {
+      -logic_name => 'clean_directories',
+      -module => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+      -parameters => {
+        cmd => 'rm -rf '.$self->o('compara_dump_dir'),
+      },
+      -rc_name => '2GB_lastz',
     },
   ];
 }
