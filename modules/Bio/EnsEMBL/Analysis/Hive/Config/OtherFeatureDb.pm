@@ -190,7 +190,7 @@ sub pipeline_analyses {
           'DELETE FROM meta WHERE meta_key LIKE "assembly.web_accession%"',
           'DELETE FROM meta WHERE meta_key LIKE "sample.%"',
           'DELETE FROM meta WHERE meta_key IN'.
-            ' ("repeat.analysis", "genebuild.last_geneset_update","genebuild.method","genebuild.projection_source_db","genebuild.start_date")',
+            ' ("repeat.analysis", "genebuild.last_geneset_update","genebuild.method","genebuild.projection_source_db","genebuild.start_date","genebuild.method_display")',
           'INSERT INTO meta (species_id,meta_key,meta_value) VALUES (1,"genebuild.last_otherfeatures_update",NOW())',
         ],
       },
