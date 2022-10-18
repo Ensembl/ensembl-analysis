@@ -807,6 +807,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic', 'BlastGenscanPep', { BLAST_PARAMS => { -type => $self->o('blast_type') } } ) },
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40',
       },
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into => {
         '-1' => ['blast_scallop_longseq'],
         '2'  => ['blast_scallop_longseq'],
@@ -829,6 +830,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic', 'BlastGenscanPep', { BLAST_PARAMS => { -type => $self->o('blast_type') } } ) },
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40',
       },
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name => '10GB_multithread',
     },
 
@@ -954,6 +956,7 @@ sub pipeline_analyses {
         target_db   => $self->o('rnaseq_for_layer_nr_db'),
         target_type => 'generic',
       },
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name => '5GB',
     },
 
@@ -1141,6 +1144,7 @@ sub pipeline_analyses {
         target_db   => $self->o('pcp_nr_db'),
         target_type => 'generic',
       },
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name => '5GB',
     },
 

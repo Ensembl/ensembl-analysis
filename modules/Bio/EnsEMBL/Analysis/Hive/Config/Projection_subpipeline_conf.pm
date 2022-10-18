@@ -270,7 +270,7 @@ sub pipeline_analyses {
       },
       -rc_name        => 'project_transcripts',
       -batch_size     => 100,
-      -hive_capacity  => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_low'),
     },
 
     {
@@ -304,7 +304,7 @@ sub pipeline_analyses {
       },
       -rc_name        => 'project_transcripts_himem',
       -batch_size     => 100,
-      -hive_capacity  => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_low'),
       -can_be_empty   => 1,
     },
 
@@ -351,7 +351,7 @@ sub pipeline_analyses {
         'stops2introns'         => 1,
       },
       -rc_name              => '3GB',
-      -analysis_capacity    => 50,
+      -hive_capacity => $self->o('hc_low'),
       -max_retry_count      => 1,
       -flow_into => {
         15 => ['cesar_15'],
@@ -377,7 +377,7 @@ sub pipeline_analyses {
         'stops2introns'         => 1,
       },
       -rc_name              => '15GB',
-      -analysis_capacity    => 50,
+      -hive_capacity => $self->o('hc_low'),
       -max_retry_count      => 1,
       -can_be_empty         => 1,
       -flow_into => {
@@ -402,7 +402,7 @@ sub pipeline_analyses {
         'stops2introns'         => 1,
       },
       -rc_name              => '30GB',
-      -analysis_capacity    => 50,
+      -hive_capacity => $self->o('hc_low'),
       -max_retry_count      => 1,
       -can_be_empty         => 1,
       -flow_into => {

@@ -260,7 +260,7 @@ sub pipeline_analyses {
         '-1' => ['rebatch_repeatmasker'],
         '-2' => ['rebatch_repeatmasker'],
       },
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -298,7 +298,7 @@ sub pipeline_analyses {
         -1 => ['failed_repeatmasker_batches'],
         -2 => ['failed_repeatmasker_batches'],
       },
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_normal'),
       -can_be_empty  => 1,
     },
 
@@ -340,7 +340,7 @@ sub pipeline_analyses {
         '-1' => ['rebatch_repeatmasker_repeatmodeler'],
         '-2' => ['rebatch_repeatmasker_repeatmodeler'],
       },
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -377,7 +377,7 @@ sub pipeline_analyses {
         -1 => ['failed_repeatmasker_repeatmodeler_batches'],
         -2 => ['failed_repeatmasker_repeatmodeler_batches'],
       },
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_normal'),
       -can_be_empty  => 1,
     },
 
@@ -566,7 +566,7 @@ sub pipeline_analyses {
         -1 => ['run_trf'],
         -2 => ['run_trf'],
       },
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_normal'),
       -batch_size    => 20,
     },
 
@@ -586,7 +586,7 @@ sub pipeline_analyses {
 	  -1 => ['fan_post_repeat_analyses'],
 	  -2 => ['fan_post_repeat_analyses'],
       },
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_normal'),
       -batch_size    => 20,
     },
 
@@ -619,7 +619,7 @@ sub pipeline_analyses {
 	  -1 => ['run_cpg'],
 	  -2 => ['run_cpg'],
       },
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_normal'),
       -batch_size => 20,
     },
 
@@ -639,7 +639,7 @@ sub pipeline_analyses {
 	  -1 => ['run_trnascan'],
 	  -2 => ['run_trnascan'],
       },
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_normal'),
       -batch_size => 20,
     },
 
@@ -654,7 +654,7 @@ sub pipeline_analyses {
 	  trnascan_path => $self->o('trnascan_path'),
       },
       -rc_name    => 'simple_features',
-      -hive_capacity => $self->hive_capacity_classes->{'hc_high'},
+      -hive_capacity => $self->o('hc_normal'),
       -batch_size => 20,
     },
       

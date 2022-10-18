@@ -320,7 +320,7 @@ sub pipeline_analyses {
         module                       => 'Minimap2',
       },
       -rc_name   => '15GB',
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into => {
         -1 => { 'minimap2_himem' => { 'input_file' => '#input_file#', 'iid' => '#iid#' } },
       },
@@ -340,7 +340,7 @@ sub pipeline_analyses {
         logic_name                   => 'minimap2',
         module                       => 'Minimap2',
       },
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name => '25GB',
     },
 
@@ -403,7 +403,7 @@ sub pipeline_analyses {
         use_strand     => 1,
       },
       -batch_size => 100,
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name    => '5GB',
       -flow_into  => {
         2 => { 'collapse_transcripts' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },
@@ -426,7 +426,7 @@ sub pipeline_analyses {
         -1 => { 'collapse_transcripts_20GB' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },
       },
       -batch_size        => 100,
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -445,7 +445,7 @@ sub pipeline_analyses {
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40 -seg no',
       },
       -rc_name   => 'blast',
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
       -flow_into => {
         -1 => ['blast_10G'],
       },
@@ -466,7 +466,7 @@ sub pipeline_analyses {
         %{ get_analysis_settings( 'Bio::EnsEMBL::Analysis::Hive::Config::BlastStatic', 'BlastGenscanPep', { BLAST_PARAMS => { -type => $self->o('blast_type') } } ) },
         commandline_params => $self->o('blast_type') eq 'wu' ? '-cpus=' . $self->o('use_threads') . ' -hitdist=40' : '-num_threads ' . $self->o('use_threads') . ' -window_size 40 -seg no',
       },
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name => 'blast10GB',
     },
 
@@ -486,7 +486,7 @@ sub pipeline_analyses {
         -1 => { 'failed_collapse' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },
       },
       -batch_size        => 10,
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
@@ -499,7 +499,7 @@ sub pipeline_analyses {
         biotypes   => [ "isoseq", "cdna" ],
         copy_only  => 1,
       },
-      -analysis_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
       -rc_name   => '10GB',
       -flow_into => {
         1 => { 'blast' => { 'slice_strand' => '#slice_strand#', 'iid' => '#iid#' } },

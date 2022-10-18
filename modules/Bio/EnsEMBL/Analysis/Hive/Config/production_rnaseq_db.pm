@@ -272,7 +272,7 @@ sub pipeline_analyses {
           ' -idfile #id_file#'
       },
       -rc_name => 'default',
-      -hive_capacity => 200,
+      -hive_capacity => $self->o('hc_normal'),
     },
 
     {
