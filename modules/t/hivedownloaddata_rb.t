@@ -107,7 +107,7 @@ SKIP: {
     ]
   );
 
-  done_testing();
-
   cleaning();
 };
+
+done_testing();
