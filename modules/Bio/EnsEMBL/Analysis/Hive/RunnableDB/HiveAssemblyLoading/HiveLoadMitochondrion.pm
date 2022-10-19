@@ -24,7 +24,46 @@ use File::Fetch;
 use File::Spec::Functions;
 use File::Path qw(make_path);
 
+use Bio::DB::EUtilities;
+
 use parent ('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
+
+=head2 param_defaults
+
+ Arg [1]    : None
+ Description: Default parameters for the module
+                ncbi_check => 1, # If mt_accession is not set, search for the RefSeq annotation for the species
+                mt_accession => '',
+ Returntype : Hashref
+ Exceptions : None
+
+=cut
+
+sub param_defaults {
+  my $self = shift;
+
+  return {
+    %{$self->SUPER::param_defaults},
+    ncbi_check => 1,
+    mt_accession => '',
+  }
+}
+
+
+=head2 fetch_input
+
+ Arg [1]    : None
+ Description: Retrieves the mitochondrial genome Genbank file and its RefSeq annotation
+              based on the accession provided with 'mt_accession' (usually NC_XXXXXXX).
+              If the accession is not provided and 'ncbi_check' is true, it will query
+              NCBI to find the accession for the species or a subspecies.
+              If multiple entries are found and there is non for the expected taxonomy id,
+              it uses the accession with the lowest taxonomy id as it is expected to be the
+              lowest in the tree, i.e not a sub species
+ Returntype : None
+ Exceptions : None
+
+=cut
 
 sub fetch_input {
   my $self = shift;
@@ -36,21 +75,59 @@ sub fetch_input {
   $self->param_required('target_db');
   $self->param_required('enscode_root_dir');
   $self->param_required('species_name');
+  my $target_db = $self->get_database_by_name('target_db');
 
-  unless($self->param_is_defined('chromosomes_present')) {
-    my $target_db = $self->get_database_by_name('target_db');
-    my $cs_adaptor = $target_db->get_CoordSystemAdaptor;
-    my $cs_rank1 = $cs_adaptor->fetch_by_rank(1);
-    if ($cs_rank1->name eq 'primary_assembly' or $cs_rank1->name eq 'chromosome') {
-      $self->param('chromosomes_present', $cs_rank1->name);
+  if (!$self->param('mt_accession') and $self->param('ncbi_check')) {
+    my $scientific_name = $target_db->get_MetaContainerAdaptor->get_scientific_name;
+    my $taxon_id = $target_db->get_MetaContainerAdaptor->get_taxonomy_id;
+    my $email = $ENV{HIVE_EMAIL} || 'genebuild@ebi.ac.uk';
+    my $factory = Bio::DB::EUtilities->new(
+      -eutil => 'esearch',
+      -db     => 'nuccore',
+      -term   => '"'.$scientific_name.'"[Organism] AND biomol_genomic[PROP] AND refseq[filter] AND mitochondrion[filter]',
+      -email  => $email,
+      -retmax => 5,
+    );
+    if ($factory->get_count) {
+      $self->say_with_header(join(' ID: ', $factory->get_ids));
+      my @uids = $factory->get_ids;
+
+      $factory->reset_parameters(
+        -eutil => 'esummary',
+        -db    => 'nuccore',
+        -email  => $email,
+        -id    => \@uids
+      );
+
+      my %mt_accessions;
+      while (my $ds = $factory->next_DocSum) {
+        $self->say_with_header('ID: '.$ds->get_id.' ACCESSION: '.join(' ', $ds->get_contents_by_name('AccessionVersion')));
+        my ($mt_accession) = $ds->get_contents_by_name('AccessionVersion');
+        my ($tax_id) = $ds->get_contents_by_name('TaxId');
+        $mt_accessions{$tax_id} = $mt_accession;
+      }
+      if (exists $mt_accessions{$taxon_id}) {
+        $self->param('mt_accession', $mt_accessions{$taxon_id});
+      }
+      else {
+        my @tax_ids = sort {$a <=> $b} keys %mt_accessions;
+        $self->param('mt_accession', $mt_accessions{$tax_ids[0]});
+      }
     }
   }
+  if ($self->param('mt_accession')) {
+    unless($self->param_is_defined('chromosomes_present')) {
+      my $cs_adaptor = $target_db->get_CoordSystemAdaptor;
+      my $cs_rank1 = $cs_adaptor->fetch_by_rank(1);
+      if ($cs_rank1->name eq 'primary_assembly' or $cs_rank1->name eq 'chromosome') {
+        $self->param('chromosomes_present', $cs_rank1->name);
+      }
+    }
 
-  if (!-e $self->param_required('output_path')) {
-    make_path($self->param('output_path'));
-  }
+    if (!-e $self->param_required('output_path')) {
+      make_path($self->param('output_path'));
+    }
 
-  if ($self->param_is_defined('mt_accession') and $self->param('mt_accession')) {
     chdir($self->param('output_path'));
     my $fetcher = File::Fetch->new(uri => 'http://www.ncbi.nlm.nih.gov/nuccore/'.$self->param('mt_accession'));
     $self->param('mt_filename', $fetcher->fetch());
