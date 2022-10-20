@@ -340,17 +340,16 @@ sub _master_config {
         # substring of the other. At the moment it's really just a check that theres'
         # some stuff in there
         'logic_names' => {
-#          $species.'_merged_rnaseq' => 10000,
+
         }, # logic_names
         'biotypes' =>    {
           'rnaseq'              => 10000,
          }, # biotypes
       }, # rnaseq_blast
       'layer' => {
-        'logic_names' =>    {
-          'genblast'                => 10000,
-          'best_targetted'          => 1000,
-          'genblast_rnaseq_support' => 10000,
+	  # This is pretty variable so we need to think of a sensible plan for the logic_name checks
+	  'logic_names' =>    {
+
         }, # logic_names	      
         'biotypes' =>    {
           'IG_'                  => 20,
