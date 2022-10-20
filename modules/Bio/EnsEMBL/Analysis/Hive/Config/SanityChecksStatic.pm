@@ -311,13 +311,11 @@ sub _master_config {
     'primates_basic' => {
       'genblast' => {
         'logic_names' => {
-          'genblast'            => 125000,
-          'genblast_not_best'   => 125000,
+          'genblast'            => 40000,
+          'genblast_not_best'   => 60000,
         }, # logic_names
         'biotypes' =>    {
           'human_pe12_'         => 20000,
-          'primates_pe12_'      => 50000,
-          'mammals_pe12_'       => 100000,
         }, # biotypes
       }, # genblast
       'genblast_select' => {
