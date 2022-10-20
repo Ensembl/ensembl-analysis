@@ -318,11 +318,6 @@ sub _master_config {
           'human_pe12_'         => 20000,
         }, # biotypes
       }, # genblast
-      'genblast_select' => {
-        'biotypes' =>    {
-          'genblast_select_' => 10000,
-        }, # biotypes
-      }, # genblast_select
       'ig_tr' => {
         'logic_names' => {
           'ig_tr_gene'          => 80,
