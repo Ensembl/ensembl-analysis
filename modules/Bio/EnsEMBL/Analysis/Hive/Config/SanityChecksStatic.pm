@@ -420,6 +420,11 @@ sub _master_config {
           'snRNA'                => 400,
         }, # biotypes
       }, # core
+   rnaseq_final => {
+       'biotypes' => {
+	   'protein_coding'         => 5000,
+       },
+      }, # rnaseq_final
     }, # primates_basic
 
     'fish_basic' => {
