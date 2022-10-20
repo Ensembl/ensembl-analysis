@@ -376,7 +376,7 @@ sub _master_config {
           'miRNA'               => 500,
           'misc_RNA'            => 1000,
           'ribozyme'            => 0,
-          'rRNA'                => 200,
+          'rRNA'                => 50,
           'scaRNA'              => 0,
           'snoRNA'              => 200,
           'snRNA'               => 400,
