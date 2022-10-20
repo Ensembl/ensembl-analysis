@@ -365,10 +365,7 @@ sub _master_config {
         'biotypes' =>    {
           'IG_'                  => 20,
           'TR_'                  => 20,
-          'human_pe12_'         => 2000,
-          'primates_pe12_'      => 2000,
-          'mammals_pe12_'       => 1000,
-          'realign_'            => 10000,
+          'protein_coding'            => 19000,
         }, # biotypes
       }, # genebuilder
       'ncrna' => {
