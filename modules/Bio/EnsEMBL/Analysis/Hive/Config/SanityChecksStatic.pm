@@ -335,31 +335,6 @@ sub _master_config {
           'projection'          => 51000,
         }, # biotypes
       }, # projection_coding
-      'projection_lincrna' => {
-        'logic_names' => {
-          'project_lincrna' => 40,
-        }, # logic_names
-      }, # projection_lincrna
-      'projection_pseudogene' => {
-        'logic_names' => {
-          'project_pseudogene' => 3900,
-        }, # logic_names
-      }, # projection_pseudogene
-      'projection_ig_tr' => {
-        'logic_names' => {
-          'project_ig_tr' => 80,
-        }, # logic_names
-      }, # projection_ig_tr
-      'realign' => {
-        'logic_names' => {
-          # Would actually prefer an upper limit on realign as opposed to a lower limit
-          'project_transcripts'  => 40000,
-          'genblast'             => 9000,
-        }, # logic_names
-        'biotypes' =>    {
-          'realign'             => 50000,
-        }, # biotypes
-      }, # realign
       'rnaseq_blast' =>  {
         # This one is an issue, logic names, counts are varied and one biotype is a
         # substring of the other. At the moment it's really just a check that theres'
