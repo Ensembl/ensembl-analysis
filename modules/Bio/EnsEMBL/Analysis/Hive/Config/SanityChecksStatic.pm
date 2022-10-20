@@ -354,10 +354,7 @@ sub _master_config {
         'biotypes' =>    {
           'IG_'                  => 20,
           'TR_'                  => 20,
-          'human_pe12_'          => 10000,
-          'primates_pe12_'       => 15000,
-          'mammals_pe12_'        => 10000,
-          'realign_'             => 30000,
+          'human_pe12_'          => 2000,
           'rnaseq_tissue_'       => 100,
         }, # biotypes
       }, # layer
