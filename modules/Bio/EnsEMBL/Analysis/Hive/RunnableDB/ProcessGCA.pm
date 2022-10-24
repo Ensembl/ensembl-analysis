@@ -210,7 +210,7 @@ sub fetch_input {
                  common_name,
                  refseq_accession,
                  assembly_date,
-                 subspecies_name,
+                 species_name,
                  assembly_group,
                  stable_id_space_start
                  FROM assembly JOIN meta as m USING(assembly_id) JOIN stable_id_space USING(stable_id_space_id) WHERE assembly_id=?";
