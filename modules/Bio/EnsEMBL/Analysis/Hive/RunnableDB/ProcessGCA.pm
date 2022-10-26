@@ -125,7 +125,7 @@ sub fetch_input {
                  common_name,
                  refseq_accession,
                  assembly_date,
-                 subspecies_name,
+                 species_name,
                  assembly_group,
                  stable_id_space_start
                  FROM assembly JOIN meta as m USING(assembly_id) JOIN stable_id_space USING(stable_id_space_id) WHERE assembly_id=?";
@@ -222,7 +222,6 @@ sub fetch_input {
   # Note this should probably be update so that haps are strain assemblies under a strain group
   # The group should be changed to cut off the GCA from the production name, then the type can
   # be set to alternate haplotype. This needs to be discussed before implementing
-  my $species_strain = "reference";
   my $species_strain_group = $production_name;
   my $strain_type = "strain";
 
