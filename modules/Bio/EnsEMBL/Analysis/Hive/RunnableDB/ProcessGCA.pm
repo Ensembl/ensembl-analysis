@@ -265,7 +265,7 @@ sub fetch_input {
   $output_params->{'species_url'} = $species_url;
   $output_params->{'species_division'} = $species_division;
   $output_params->{'species_display_name'} = $species_display_name;
-  $output_params->{'species_strain'} = $species_strain;
+  #$output_params->{'species_strain'} = $species_strain;
   $output_params->{'species_strain_group'} = $species_strain_group;
   $output_params->{'strain_type'} = $strain_type;
   $output_params->{'production_name'} = $production_name;
