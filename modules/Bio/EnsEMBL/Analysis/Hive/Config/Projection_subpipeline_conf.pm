@@ -66,10 +66,6 @@ sub default_options {
 ########################
      dna_db_name  => $self->o('dbowner').'_'.$self->o('dbname_accession').'_core_'.$self->o('release_number'),
 	
-     reference_db_name   => $self->o('dna_db_name'),
-     reference_db_host   => $self->o('dna_db_host'),
-     reference_db_port   => $self->o('dna_db_port'),
-	
     'projection_source_db_name'         => '', # This is generally a pre-existing db, like the current human/mouse core for example
     'projection_source_db_host'         => 'mysql-ens-mirror-1',
     'projection_source_db_port'         => '4240',
@@ -126,14 +122,14 @@ sub default_options {
 ########################
 
     reference_db => {
-      -dbname => $self->o('reference_db_name'),
-      -host   => $self->o('reference_db_host'),
-      -port   => $self->o('reference_db_port'),
+      -dbname => $self->o('dna_db', '-dbname'),
+      -host   => $self->o('dna_db', '-host'),
+      -port   => $self->o('dna_db', '-port'),
       -user   => $self->o('user'),
       -pass   => $self->o('password'),
       -driver => $self->o('hive_driver'),
     },
-	
+
     'projection_db' => {
       -dbname => $self->o('dbowner').'_'.$self->o('dbname_accession').'_proj_'.$self->o('release_number'),
       -host   => $self->o('projection_db_host'),
@@ -338,7 +334,6 @@ sub pipeline_analyses {
       -logic_name => 'cesar',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
       -parameters => {
-        'output_path'           => $self->o('output_path')."/cesar_projection/",
         'source_dna_db'         => $self->default_options()->{'projection_source_db'},
         'target_dna_db'         => $self->o('dna_db'),
         'source_db'             => $self->o('projection_source_db'),
@@ -364,7 +359,6 @@ sub pipeline_analyses {
       -logic_name => 'cesar_15',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
       -parameters => {
-        'output_path'           => $self->o('output_path')."/cesar_projection/",
         'source_dna_db'         => $self->default_options()->{'projection_source_db'},
         'target_dna_db'         => $self->o('dna_db'),
         'source_db'             => $self->o('projection_source_db'),
@@ -389,7 +383,6 @@ sub pipeline_analyses {
       -logic_name => 'cesar_30',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveCesar',
       -parameters => {
-        'output_path'           => $self->o('output_path')."/cesar_projection/",
         'source_dna_db'         => $self->default_options()->{'projection_source_db'},
         'target_dna_db'         => $self->o('dna_db'),
         'source_db'             => $self->o('projection_source_db'),
@@ -494,10 +487,10 @@ sub pipeline_analyses {
       -logic_name => 'select_projected_genes',
       -module     => 'Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveSelectProjectedGenes',
       -parameters => {
-        wga_db   => $self->o('projection_db'),
-        cesar_db   => $self->o('projection_db'),
+        wga_db    => $self->o('projection_db'),
+        cesar_db  => $self->o('projection_db'),
         output_db => $self->o('selected_projection_db'),
-        dna_db => $self->o('dna_db'),
+        dna_db    => $self->o('dna_db'),
       },
       -rc_name    => '4GB',
       -flow_into  => {
