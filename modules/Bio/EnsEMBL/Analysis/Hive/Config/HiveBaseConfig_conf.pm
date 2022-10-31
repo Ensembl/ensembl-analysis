@@ -303,6 +303,36 @@ sub lsf_resource_builder {
 }
 
 
+=head2 slurm_resource_builder
+
+ Arg [1]    : String $queue, name of the queue to submit to, default is 'standard'
+ Arg [2]    : Integer $mem, memory required in MB
+ Arg [3]    : String $time, allocated time for the job, format is 'mm', 'hh:mm:ss', 'dd-hh'
+ Arg [4]    : Integer $num_threads, number of cores, use only if you ask for multiple cores
+ Arg [5]    : String $extra_requirements, any other parameters you want to give to SLURM
+ Example    : '1GB' => { SLURM => $self->slurm_resource_builder('standard', 1000, 5)},
+              '3GB_multithread' => { SLURM => $self->slurm_resource_builder('long', 3000, '12:00:00', 3)},
+ Description: It will return the SLURM requirement parameters you require based on the queue, the memory, time limit and the number
+              of CPUs. If you need any other other options you can add it with Arg[5].
+ Returntype : String
+ Exceptions : None
+
+
+=cut
+
+sub slurm_resource_builder {
+    my ($self, $queue, $memory, $time, $threads, $extra_requirements) = @_;
+
+    my $slurm_requirement = '--partition='.($queue || 'standard')
+                          .' --mem='.($memory || 1000)
+                          .' --time='.($time || '1:00:00');
+    if ($threads) {
+        $slurm_requirement .= " --cpus-per-task=$threads";
+    }
+    return $slurm_requirement.($extra_requirements || '');
+}
+
+
 =head2 create_database_hash
 
  Arg [1]    : String host
