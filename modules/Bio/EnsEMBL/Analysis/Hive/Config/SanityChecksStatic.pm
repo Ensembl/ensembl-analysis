@@ -354,7 +354,10 @@ sub _master_config {
         'biotypes' =>    {
           'IG_'                  => 20,
           'TR_'                  => 20,
-          'human_pe12_'          => 2000,
+	  'human_pe12_'          => 2000,
+	  #projection from human is quite relaible in primates so having this set high is reasonable    
+	  'projection_'          => 20000    
+	  #I'm leaving this number low so it's just a check to see if some rnaseq stuff exists    
           'rnaseq_tissue_'       => 100,
         }, # biotypes
       }, # layer
