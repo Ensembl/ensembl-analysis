@@ -376,16 +376,19 @@ sub simple_layer_genes {
     $selected_transcript->biotype($selected_gene->biotype());
   }
 
-  my $description = $selected_gene->description();
-  $description =~ /;parent_gene=([^;]+);/;
-  my $parent_stable_id = $1;
-  my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $parent_stable_id);
-  $selected_gene->add_Attributes($parent_attribute);
+  # Bugfix: this was inserting "." in the gene_attrib table
+  # but the correct value for proj_parent_g had already been inserted
+  # so no need to do anything here
+  #my $description = $selected_gene->description();
+  #$description =~ /;parent_gene=([^;]+);/;
+  #my $parent_stable_id = $1;
+  #my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $parent_stable_id);
+  #$selected_gene->add_Attributes($parent_attribute);
 
-  $description = $selected_transcript->description();
+  my $description = $selected_transcript->description();
   $description =~ /;parent_transcript=([^;]+);/;
-  $parent_stable_id = $1;
-  $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $parent_stable_id);
+  my $parent_stable_id = $1;
+  my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $parent_stable_id);
   $selected_transcript->add_Attributes($parent_attribute);
 
   unless($selected_gene) {
@@ -2991,8 +2994,8 @@ sub create_gene_from_cluster {
   $gene->description($parent_gene_description);
 
   # add source gene stable id as gene attribute
-  my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $parent_gene_stable_id.".".$parent_gene_version);
-  $gene->add_Attributes($parent_attribute);
+  # my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $parent_gene_stable_id.".".$parent_gene_version);
+  #$gene->add_Attributes($parent_attribute);
 
   return($gene);
 }
