@@ -448,6 +448,7 @@ sub pipeline_analyses {
                          paftools_path => $self->o('paftools_path'),
                          minimap2_path => $self->o('minimap2_path'),
                          source_dna_fasta => '#wide_reference_fasta#',
+                         disconnect_jobs => 1,
                        },
         -rc_name    => '15GB',
         -hive_capacity => 700,
