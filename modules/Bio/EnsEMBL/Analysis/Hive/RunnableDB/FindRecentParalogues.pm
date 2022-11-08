@@ -384,7 +384,7 @@ sub filter_by_cutoffs {
     $transcript->description($transcript_description);
 
     # add source transcript stable id as transcript attribute
-    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $source_transcript->stable_id().".".$source_transcript->version());
+    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $parent_t_stable_id.".".$source_transcript->version());
     $transcript->add_Attributes($parent_attribute);
 
     $gene->description($gene->description().";mapping_type=potential_paralogue");
