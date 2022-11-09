@@ -113,9 +113,9 @@ sub _master_config {
        'repeatmask_repbase_teleost' => [50000, 'repeat'],
        'trf'                        => [150000, 'repeat']
      },
-     
+
      'insects_basic' => {
-       # repeats 
+       # repeats
        'dust'                       => [500000, 'repeat'],
        'repeatdetector'             => [200000, 'repeat'],
        'trf'                        => [50000, 'repeat'],
@@ -125,9 +125,9 @@ sub _master_config {
        'eponine'                    => [30000, 'simple'],
        'trnascan'                   => [300, 'simple'],
      },
-   
+
     'distant_vertebrate' => {
-       # repeats 
+       # repeats
        'dust'                       => [2260000, 'repeat'],
        'repeatdetector'             => [153800, 'repeat'],
        'trf'                        => [504000, 'repeat'],
@@ -380,7 +380,7 @@ sub _master_config {
           'genblast'                => 10000,
           'best_targetted'          => 1000,
           'genblast_rnaseq_support' => 10000,
-        }, # logic_names	      
+        }, # logic_names
         'biotypes' =>    {
           'IG_'                  => 20,
           'TR_'                  => 20,
@@ -473,18 +473,13 @@ sub _master_config {
           'vert_pe12_' => 10000,
         }, # biotypes
       }, # genblast
-      'genblast_select' => {
-        'biotypes' =>    {
-          'genblast_select_' => 10000,
-        }, # biotypes
-      }, # genblast_select
       'ig_tr' => {
         'logic_names' => {
           'ig_tr_gene'          => 1,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                 => 3,
-          'TR_'                 => 1,
+          'IG_'                 => 1,
+          'TR_'                 => 0,
         }, # biotypes
       }, # ig_tr
       'projection_coding' => {
@@ -689,7 +684,7 @@ sub _master_config {
           'genblast'                => 3000,
           'best_targetted'          => 300,
           'genblast_rnaseq_support' => 1000,
-        }, # logic_names	      
+        }, # logic_names
         'biotypes' =>    {
           'IG_'                  => 0,
           'TR_'                  => 0,
