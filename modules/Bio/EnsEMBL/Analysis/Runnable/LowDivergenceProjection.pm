@@ -85,7 +85,7 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($genome_index, $input_file, $paftools_path, $source_adaptor, $target_adaptor, $delete_input_file, $parent_genes, $parent_gene_ids, $gene_synteny_hash, $gene_genomic_seqs_hash, $no_projection) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH SOURCE_ADAPTOR TARGET_ADAPTOR DELETE_INPUT_FILE PARENT_GENES PARENT_GENE_IDS GENE_SYNTENY_HASH GENE_GENOMIC_SEQS_HASH NO_PROJECTION)],@args);
+  my ($genome_index, $input_file, $paftools_path, $source_adaptor, $target_adaptor, $delete_input_file, $parent_genes, $parent_gene_ids, $gene_synteny_hash, $gene_genomic_seqs_hash, $no_projection, $coverage_cutoff, $perc_id_cutoff, $extended_length_variation_cutoff) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH SOURCE_ADAPTOR TARGET_ADAPTOR DELETE_INPUT_FILE PARENT_GENES PARENT_GENE_IDS GENE_SYNTENY_HASH GENE_GENOMIC_SEQS_HASH NO_PROJECTION COVERAGE_CUTOFF PERC_ID_CUTOFF EXTENDED_LENGTH_VARIATION_CUTOFF)],@args);
   $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->paftools_path($paftools_path);
@@ -97,6 +97,9 @@ sub new {
   $self->gene_synteny_hash($gene_synteny_hash);
   $self->gene_genomic_seqs_hash($gene_genomic_seqs_hash);
   $self->no_projection($no_projection);
+  $self->coverage_cutoff($coverage_cutoff);
+  $self->perc_id_cutoff($perc_id_cutoff);
+  $self->extended_length_variation_cutoff($extended_length_variation_cutoff);
   return $self;
 }
 
@@ -136,12 +139,12 @@ sub run {
     }
   }
 
-  $self->process_gene_batches($source_genes,$genome_index,$all_source_transcripts_id_hash);
+  $self->process_gene_batches($source_genes,$genome_index,$all_source_transcripts_id_hash,$self->coverage_cutoff(),$self->perc_id_cutoff(),$self->extended_length_variation_cutoff());
 } # End run
 
 
 sub process_gene_batches {
-  my ($self,$source_genes,$genome_index,$all_source_transcripts_id_hash) = @_;
+  my ($self,$source_genes,$genome_index,$all_source_transcripts_id_hash,$coverage_cutoff,$perc_id_cutoff,$extended_length_variation_cutoff) = @_;
 
   my $source_adaptor = $self->source_adaptor();
   my $source_sequence_adaptor = $source_adaptor->get_SequenceAdaptor();
@@ -167,7 +170,7 @@ sub process_gene_batches {
   my $problematic_genes = [];
   foreach my $gene (@$target_genes) {
     say "Checking if ".$gene->stable_id()." has problematic transcripts";
-    $self->check_for_problematic_transcripts($gene,$source_genes_by_stable_id,$source_adaptor);
+    $self->check_for_problematic_transcripts($gene,$source_genes_by_stable_id,$source_adaptor,$coverage_cutoff,$perc_id_cutoff,$extended_length_variation_cutoff);
     if($gene->{'is_problematic'}) {
       say "Gene has problematic transcripts";
       push(@$problematic_genes,$gene);
@@ -189,7 +192,7 @@ sub process_gene_batches {
     my $target_parent_slice = $target_slice_adaptor->fetch_by_region('toplevel',$target_genomic_name);#$target_gene->slice->seq_region_Slice();
 
     say "Recovering transcripts for ".$gene->stable_id();
-    my $updated_transcripts = $self->recover_transcripts($gene,$source_genes_by_stable_id,$source_adaptor,$target_parent_slice,$target_adaptor,$target_slice_adaptor);
+    my $updated_transcripts = $self->recover_transcripts($gene,$source_genes_by_stable_id,$source_adaptor,$target_parent_slice,$target_adaptor,$target_slice_adaptor,$coverage_cutoff,$perc_id_cutoff);
     if($updated_transcripts) {
       say "Gene has transcript set modified, will build new gene";
       my $source_gene = ${$source_genes_by_stable_id->{$gene->stable_id()}}[0];
@@ -257,11 +260,8 @@ sub build_new_gene {
 
 
 sub check_for_problematic_transcripts {
-  my ($self,$target_gene,$source_genes_by_stable_id,$source_adaptor) = @_;
+  my ($self,$target_gene,$source_genes_by_stable_id,$source_adaptor,$coverage_cutoff,$perc_id_cutoff,$extended_length_variation_cutoff) = @_;
 
-  my $coverage_cutoff = 98;
-  my $perc_id_cutoff = 99;
-  my $extended_length_variation_cutoff = 0.1;
   my $source_transcript_adaptor = $source_adaptor->get_TranscriptAdaptor();
   my $problematic_genes = [];
 
@@ -335,11 +335,11 @@ sub check_for_problematic_transcripts {
 
 
 sub recover_transcripts {
-  my ($self,$target_gene,$source_genes_by_stable_id,$source_adaptor,$target_parent_slice,$target_adaptor,$target_slice_adaptor) = @_;
+  my ($self,$target_gene,$source_genes_by_stable_id,$source_adaptor,$target_parent_slice,$target_adaptor,$target_slice_adaptor,$coverage_cutoff,$perc_id_cutoff) = @_;
 
 
-  my $coverage_cutoff = 98;
-  my $perc_id_cutoff = 99;
+  #my $coverage_cutoff = 98;
+  #my $perc_id_cutoff = 99;
   my $region_scaling = 0.1;
   my $min_buffer = 500;
   my $source_gene_adaptor = $source_adaptor->get_TranscriptAdaptor();

@@ -60,6 +60,15 @@ sub default_options {
     source_assembly_name        => 'GRCh38',
 
 ########################
+# Cut-offs
+########################
+
+    # cut-offs for problematic transcripts in LowDivergenceProjection
+    coverage_cutoff                  => 98,
+    perc_id_cutoff                   => 99,
+    extended_length_variation_cutoff => 0.1,
+
+########################
 # Pipe and ref db info
 ########################
 
@@ -449,6 +458,9 @@ sub pipeline_analyses {
                          minimap2_path => $self->o('minimap2_path'),
                          source_dna_fasta => '#wide_reference_fasta#',
                          disconnect_jobs => 1,
+                         coverage_cutoff => $self->o('coverage_cutoff'),
+                         perc_id_cutoff => $self->o('perc_id_cutoff'),
+                         extended_length_variation_cutoff => $self->o('extended_length_variation_cutoff'),
                        },
         -rc_name    => '15GB',
         -hive_capacity => 700,

@@ -194,6 +194,9 @@ sub fetch_input {
        -gene_synteny_hash => $gene_synteny_hash,
        -gene_genomic_seqs_hash => $gene_genomic_seqs_hash,
        -no_projection     => $self->param('no_projection'),
+       -coverage_cutoff   => $self->param('coverage_cutoff'),
+       -perc_id_cutoff    => $self->param('perc_id_cutoff'),
+       -extended_length_variation_cutoff => $self->param('extended_length_variation_cutoff'),
   );
   $self->runnable($runnable);
   if ($self->param('disconnect_jobs')) {
