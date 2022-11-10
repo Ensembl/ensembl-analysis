@@ -63,10 +63,12 @@ sub default_options {
 # Cut-offs
 ########################
 
-    # cut-offs for problematic transcripts in LowDivergenceProjection
+    # cut-offs for problematic transcripts and anchors in LowDivergenceProjection
     coverage_cutoff                  => 98,
     perc_id_cutoff                   => 99,
     extended_length_variation_cutoff => 0.1,
+    anchor_coverage_cutoff           => 0.95,
+    anchor_perc_id_cutoff            => 0.99,
 
 ########################
 # Pipe and ref db info
@@ -461,6 +463,8 @@ sub pipeline_analyses {
                          coverage_cutoff => $self->o('coverage_cutoff'),
                          perc_id_cutoff => $self->o('perc_id_cutoff'),
                          extended_length_variation_cutoff => $self->o('extended_length_variation_cutoff'),
+                         anchor_coverage_cutoff => $self->o('anchor_coverage_cutoff'),
+                         anchor_perc_id_cutoff => $self->o('anchor_perc_id_cutoff'),
                        },
         -rc_name    => '15GB',
         -hive_capacity => 700,

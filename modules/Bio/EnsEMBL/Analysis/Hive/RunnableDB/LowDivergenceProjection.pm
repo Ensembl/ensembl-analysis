@@ -197,6 +197,8 @@ sub fetch_input {
        -coverage_cutoff   => $self->param('coverage_cutoff'),
        -perc_id_cutoff    => $self->param('perc_id_cutoff'),
        -extended_length_variation_cutoff => $self->param('extended_length_variation_cutoff'),
+       -anchor_coverage_cutoff => $self->param('anchor_coverage_cutoff'),
+       -anchor_perc_id_cutoff => $self->param('anchor_perc_id_cutoff'),
   );
   $self->runnable($runnable);
   if ($self->param('disconnect_jobs')) {

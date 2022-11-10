@@ -85,7 +85,7 @@ sub new {
   my ( $class, @args ) = @_;
 
   my $self = $class->SUPER::new(@args);
-  my ($genome_index, $input_file, $paftools_path, $source_adaptor, $target_adaptor, $delete_input_file, $parent_genes, $parent_gene_ids, $gene_synteny_hash, $gene_genomic_seqs_hash, $no_projection, $coverage_cutoff, $perc_id_cutoff, $extended_length_variation_cutoff) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH SOURCE_ADAPTOR TARGET_ADAPTOR DELETE_INPUT_FILE PARENT_GENES PARENT_GENE_IDS GENE_SYNTENY_HASH GENE_GENOMIC_SEQS_HASH NO_PROJECTION COVERAGE_CUTOFF PERC_ID_CUTOFF EXTENDED_LENGTH_VARIATION_CUTOFF)],@args);
+  my ($genome_index, $input_file, $paftools_path, $source_adaptor, $target_adaptor, $delete_input_file, $parent_genes, $parent_gene_ids, $gene_synteny_hash, $gene_genomic_seqs_hash, $no_projection, $coverage_cutoff, $perc_id_cutoff, $extended_length_variation_cutoff, $anchor_coverage_cutoff, $anchor_perc_id_cutoff) = rearrange([qw (GENOME_INDEX INPUT_FILE PAFTOOLS_PATH SOURCE_ADAPTOR TARGET_ADAPTOR DELETE_INPUT_FILE PARENT_GENES PARENT_GENE_IDS GENE_SYNTENY_HASH GENE_GENOMIC_SEQS_HASH NO_PROJECTION COVERAGE_CUTOFF PERC_ID_CUTOFF EXTENDED_LENGTH_VARIATION_CUTOFF ANCHOR_COVERAGE_CUTOFF ANCHOR_PERC_ID_CUTOFF)],@args);
   $self->genome_index($genome_index);
   $self->input_file($input_file);
   $self->paftools_path($paftools_path);
@@ -100,6 +100,8 @@ sub new {
   $self->coverage_cutoff($coverage_cutoff);
   $self->perc_id_cutoff($perc_id_cutoff);
   $self->extended_length_variation_cutoff($extended_length_variation_cutoff);
+  $self->anchor_coverage_cutoff($anchor_coverage_cutoff);
+  $self->anchor_perc_id_cutoff($anchor_perc_id_cutoff);
   return $self;
 }
 
@@ -139,12 +141,12 @@ sub run {
     }
   }
 
-  $self->process_gene_batches($source_genes,$genome_index,$all_source_transcripts_id_hash,$self->coverage_cutoff(),$self->perc_id_cutoff(),$self->extended_length_variation_cutoff());
+  $self->process_gene_batches($source_genes,$genome_index,$all_source_transcripts_id_hash,$self->coverage_cutoff(),$self->perc_id_cutoff(),$self->extended_length_variation_cutoff(),$self->anchor_coverage_cutoff(),$self->anchor_perc_id_cutoff());
 } # End run
 
 
 sub process_gene_batches {
-  my ($self,$source_genes,$genome_index,$all_source_transcripts_id_hash,$coverage_cutoff,$perc_id_cutoff,$extended_length_variation_cutoff) = @_;
+  my ($self,$source_genes,$genome_index,$all_source_transcripts_id_hash,$coverage_cutoff,$perc_id_cutoff,$extended_length_variation_cutoff,$anchor_coverage_cutoff,$anchor_perc_id_cutoff) = @_;
 
   my $source_adaptor = $self->source_adaptor();
   my $source_sequence_adaptor = $source_adaptor->get_SequenceAdaptor();
@@ -153,7 +155,7 @@ sub process_gene_batches {
   my $batched_input_genes = $self->batch_input_genes($source_genes);
   $self->print_batch_details($batched_input_genes);
   $self->calculate_anchors($batched_input_genes,$source_sequence_adaptor);
-  $self->map_anchors($batched_input_genes,$genome_index);
+  $self->map_anchors($batched_input_genes,$genome_index,$anchor_coverage_cutoff,$anchor_perc_id_cutoff);
 
   # At this point we should have everything we need to project the batch
   my $target_genes_by_id = $self->project_batch_genes($batched_input_genes,$source_sequence_adaptor);
@@ -653,7 +655,7 @@ sub calculate_anchors {
 
 
 sub map_anchors {
-  my ($self,$batched_input_genes,$genome_index) = @_;
+  my ($self,$batched_input_genes,$genome_index,$anchor_coverage_cutoff,$anchor_perc_id_cutoff) = @_;
 
   say "Creating fasta records";
   my $fasta_records = [];
@@ -696,13 +698,13 @@ sub map_anchors {
   foreach my $id (keys(%$batched_input_genes)) {
     say "Mapping Anchors for batch ID: ".$id;
     my $batch = $batched_input_genes->{$id};
-    $self->calculate_target_regions($batch);
+    $self->calculate_target_regions($batch,$anchor_coverage_cutoff,$anchor_perc_id_cutoff);
   }
 }
 
 
 sub calculate_target_regions {
-  my ($self,$batch) = @_;
+  my ($self,$batch,$anchor_coverage_cutoff,$anchor_perc_id_cutoff) = @_;
 
   my $anchors = $batch->{'anchor_seqs'};
   my $paf_results = $batch->{'paf_results'};
@@ -748,12 +750,12 @@ sub calculate_target_regions {
     my $failed_identity = 0;
 
     # Skip hits that are below 99 percent identity, should probably reconsider this in terms of more divergent stuff like mouse strains
-    unless($alignment_identities/$source_hit_length >= 0.99) {
+    unless($alignment_identities/$source_hit_length >= $anchor_perc_id_cutoff) {
       say "Hit fails the identity cutoff: (".$target_genomic_start."/".$target_genomic_end.")";
       $failed_identity = 1;
     }
 
-    unless($source_hit_length >= ($source_length * 0.95)) {
+    unless($source_hit_length >= ($source_length * $anchor_coverage_cutoff)) {
       say "Hit fails the coverage cutoff: (".$target_genomic_start."/".$target_genomic_end."), Hit start: ".$source_hit_start.", Hit end: ".$source_hit_end;
       $failed_coverage = 1;
     }
