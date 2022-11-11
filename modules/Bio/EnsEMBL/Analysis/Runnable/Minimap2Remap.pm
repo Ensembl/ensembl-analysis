@@ -277,18 +277,6 @@ sub run {
     $high_confidence_genes_by_id = $self->genes_by_stable_id($high_confidence_genes);
   }
 
-#  my $still_missing_genes = $self->list_remaining_missing_genes($missing_source_genes,$all_recovered_genes);
-#  my $final_recovered_genes = $self->search_minimap_global($still_missing_genes,$target_genes,$genome_index);
-
-#  if(scalar(@$final_recovered_genes)) {
-#    push(@$target_genes,@$final_recovered_genes);
-#    $target_genes_by_slice = $self->sort_genes_by_slice($target_genes);
-#    $target_genes_by_stable_id = $self->genes_by_stable_id($target_genes);
-#    $high_confidence_genes = $self->list_high_confidence_genes($target_genes_by_slice,$target_genes_by_stable_id,$source_genes_by_stable_id);
-#    $high_confidence_genes_by_slice = $self->sort_genes_by_slice($high_confidence_genes);
-#    $high_confidence_genes_by_id = $self->genes_by_stable_id($high_confidence_genes);
-#  }
-
   # Because the target genes can have the same stable ids, and some of the recovered genes don't have dbIDs, assign unique internal ids
   $self->assign_internal_ids($target_genes);
 
@@ -307,180 +295,6 @@ sub run {
   # the 'to_remove' supercedes the 'to_write'
   $self->output($target_genes);
 } # End run
-
-
-sub list_remaining_missing_genes {
-  my ($self,$missing_source_genes,$recovered_genes) = @_;
-
-  say "Checking for remaining missing genes from the initial list of ".scalar(@$missing_source_genes);
-  my $remaining_missing_genes = [];
-  my $recovered_genes_id_hash = {};
-  foreach my $gene (@$recovered_genes) {
-    $recovered_genes_id_hash->{$gene->stable_id()} = 1;
-  }
-
-  foreach my $source_gene (@$missing_source_genes) {
-    unless($recovered_genes_id_hash->{$source_gene->stable_id()}) {
-      push(@$remaining_missing_genes,$source_gene);
-    }
-  }
-
-  say "Found ".scalar(@$remaining_missing_genes)." for global minimap";
-  return($remaining_missing_genes);
-}
-
-
-sub simple_layer_genes {
-  my ($self,$genes) = @_;
-
-  # This is just a simple filtering to make sure we don't make any weird complex clusters like sncRNA transcripts with protein coding ones
-  # It does mean that some potentially interesting edge cases might be missed, but this is fine for now
-  my $biotype_group_priorities = { 'coding'     => 5,
-                                   'lnoncoding' => 4,
-                                   'pseudogene' => 3,
-                                   'snoncoding' => 2,
-                                   'mnoncoding' => 1,
-                                   'undefined'  => 0,
-                                 };
-
-  my $selected_gene;
-  my $selected_transcript;
-  my $max_priority = 0;
-  foreach my $gene (@$genes) {
-    my $transcript = ${$gene->get_all_Transcripts()}[0];
-    my $biotype_group = $gene->get_Biotype->biotype_group();
-    my $priority = $biotype_group_priorities->{$biotype_group};
-
-    if(!($selected_gene)) {
-      $selected_gene = $gene;
-      $selected_transcript = $transcript;
-      $max_priority = $priority;
-    } elsif($priority > $max_priority) {
-      $selected_gene = $gene;
-      $selected_transcript = $transcript;
-      $max_priority = $priority;
-    } elsif($priority == $max_priority and $transcript->length() > $selected_transcript->length()) {
-      $selected_gene = $gene;
-      $selected_transcript = $transcript;
-      $max_priority = $priority;
-    }
-  }
-
-  if($selected_gene->get_Biotype->biotype_group() eq 'coding') {
-    $selected_gene->biotype('protein_coding');
-    $selected_transcript->biotype('protein_coding');
-  } elsif($selected_gene->get_Biotype->biotype_group() eq 'lnoncoding') {
-    $selected_gene->biotype('lncRNA');
-    $selected_transcript->biotype('lncRNA');
-  } else {
-    $selected_transcript->biotype($selected_gene->biotype());
-  }
-
-  # Bugfix: this was inserting "." in the gene_attrib table
-  # but the correct value for proj_parent_g had already been inserted
-  # so no need to do anything here
-  #my $description = $selected_gene->description();
-  #$description =~ /;parent_gene=([^;]+);/;
-  #my $parent_stable_id = $1;
-  #my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $parent_stable_id);
-  #$selected_gene->add_Attributes($parent_attribute);
-
-  my $description = $selected_transcript->description();
-  $description =~ /;parent_transcript=([^;]+);/;
-  my $parent_stable_id = $1;
-  my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_t',-VALUE => $parent_stable_id);
-  $selected_transcript->add_Attributes($parent_attribute);
-
-  unless($selected_gene) {
-    $self->throw("No gene selected from cluster, something has gone wrong");
-  }
-  return($selected_gene);
-}
-
-
-sub search_minimap_global {
-  my ($self,$missing_genes,$target_genes,$genome_index) = @_;
-
-  my $coverage_cutoff = 0.95;
-  my $perc_id_cutoff = 0.95;
-  my $transcript_parent_genes_by_stable_id = {};
-  my $transcripts_to_map_fasta_seqs = [];
-  foreach my $source_gene (@$missing_genes) {
-    # This will only use the canonical transcript since it's sort of a last ditch effort
-    my $transcript = $source_gene->canonical_transcript();
-    my $transcript_sequence = $transcript->seq->seq();
-    my $fasta_record = ">".$transcript->stable_id()."\n".$transcript_sequence;
-    push(@$transcripts_to_map_fasta_seqs,$fasta_record);
-    $transcript_parent_genes_by_stable_id->{$transcript->stable_id()} = $source_gene;
-  }
-
-  # Now run a global mapping of the missing/bad transcripts
-  say "Preparing to map canonical transcripts of missing genes globally to the genome";
-  say "Number of genes to map globally: ".scalar(@$transcripts_to_map_fasta_seqs);
-
-  my $target_adaptor = $self->target_adaptor();
-  my $global_mapped_transcripts = $self->generate_minimap_transcripts($transcripts_to_map_fasta_seqs,$genome_index,$target_adaptor,1,200000);
-  say "Number of globally mapped transcripts: ".scalar(@$global_mapped_transcripts);
-
-  my $genes = $self->generate_single_transcript_genes($global_mapped_transcripts);
-  my $biotypes_hash = $self->generate_biotypes_hash($genes);
-
-  say "Processing ".scalar(@$genes)." globally mapped genes";
-  my ($clusters, $unclustered) = cluster_Genes($genes,$biotypes_hash);
-
-  my $selected_genes = [];
-  foreach my $cluster (@$clusters) {
-    my $clustered_genes = $cluster->get_Genes();
-    my $selected_gene = $self->simple_layer_genes($clustered_genes);
-    push(@$selected_genes,$selected_gene);
-  }
-
-  # For unclustered stuff there's no need to build a runnable, so just put directly on the output
-  foreach my $unclustered (@$unclustered) {
-    my $unclustered_genes = $unclustered->get_Genes();
-    foreach my $unclustered_gene (@$unclustered_genes) {
-      push(@$selected_genes,$unclustered_gene);
-    }
-  }
-
-  # At this point we have one gene per locus for the recovered genes (in terms of exon overlap), next we need to cluster
-  # with the existing geneset and remove anything that has any exon overlap
-  foreach my $selected_gene (@$selected_genes) {
-    my $transcript = ${$selected_gene->get_all_Transcripts}[0];
-    my $source_gene = $transcript_parent_genes_by_stable_id->{$transcript->stable_id()};
-    unless($source_gene) {
-      $self->throw("Could not find a parent source gene for gene/transcript with transcript stable id: ".$transcript->stable_id());
-    }
-    my $source_transcript = $source_gene->canonical_transcript();
-    unless($source_transcript->stable_id() eq $transcript->stable_id()) {
-      $self->throw("Mapped transcript stable id (".$transcript->stable_id().") does not match source canoncial transcript stable id (".$source_transcript->stable_id().")");
-    }
-
-    my $parent_attribute = Bio::EnsEMBL::Attribute->new(-CODE => 'proj_parent_g',-VALUE => $source_gene->stable_id().".".$source_gene->version());
-    $selected_gene->add_Attributes($parent_attribute);
-    $self->set_transcript_description($transcript,$source_transcript);
-    $self->set_transcript_coverage_and_identity($transcript,$source_transcript);
-    $transcript = $self->qc_cds_sequence($transcript,$source_transcript);
-    $selected_gene->{'recovered_globally'} = 1;
-    $selected_gene->{'annotation_method'} = 'minimap_global';
-  }
-
-  my $final_missing_genes = [];
-  my $all_genes = [@$target_genes,@$selected_genes];
-  $biotypes_hash = $self->generate_biotypes_hash($all_genes);
-  ($clusters, $unclustered) = cluster_Genes($all_genes,$biotypes_hash);
-  foreach my $unclustered (@$unclustered) {
-    my $unclustered_genes = $unclustered->get_Genes();
-    foreach my $unclustered_gene (@$unclustered_genes) {
-      if($unclustered_gene->{'recovered_globally'}) {
-        push(@$final_missing_genes,$unclustered_gene);
-      }
-    }
-  }
-
-  return($final_missing_genes);
-}
-
 
 sub resolve_conflict {
   my ($self,$target_genes_by_slice,$source_genes_by_slice,$source_genes_by_stable_id,$target_genes_by_stable_id) = @_;
@@ -777,54 +591,6 @@ sub get_pairwise_coverage {
   my $average_overlap = ($gene1_overlap + $gene2_overlap) / 2;
 
   return($average_overlap);
-}
-
-
-sub check_expected_regions {
-  my ($self,$target_genes,$source_genes_by_stable_id,$source_genes_by_slice,$high_confidence_genes_by_id) = @_;
-
-  foreach my $gene (@$target_genes) {
-    my $stable_id = $gene->stable_id();
-    my $source_gene = ${$source_genes_by_stable_id->{$stable_id}}[0];
-
-# TEST!!!!!!!!!!
-#    unless($source_gene->seq_region_name eq '17') {
-#      next;
-#    }
-
-    $self->set_expected_regions([$source_gene],$source_genes_by_slice,$high_confidence_genes_by_id);
-    say "Checking multimappers for ".$stable_id;
-      # TEST!!!!!!!!!!!
-#      unless($gene->seq_region_name eq '17') {
-#        next;
-#      }
-
-    if($gene->seq_region_name eq $source_gene->{'target_slice'} and $gene->seq_region_start() >= $source_gene->{'left_boundary'} and
-      $gene->seq_region_end() <= $source_gene->{'right_boundary'}) {
-      $gene->{'expected_location'} = 1;
-      say "  Gene ".$gene->seq_region_start().":".$gene->seq_region_end().":".$gene->seq_region_strand().":".$gene->seq_region_name()." is in expected location:".
-          "  ".$source_gene->{'target_slice'}.":".$source_gene->{'left_boundary'}.":".$source_gene->{'right_boundary'}.", Neighbourhood score: ".
-          $gene->{'neighbourhood_score'}.", Avg cov: ".$gene->{'avg_cov'}.", Avg perc id: ".$gene->{'avg_perc_id'};
-    } else {
-      $gene->{'expected_location'} = 0;
-      say "  Gene ".$gene->seq_region_start().":".$gene->seq_region_end().":".$gene->seq_region_strand().":".$gene->seq_region_name()." is not in expected location:".
-      "  ".$source_gene->{'target_slice'}.":".$source_gene->{'left_boundary'}.":".$source_gene->{'right_boundary'}.", Neighbourhood score: ".
-       $gene->{'neighbourhood_score'}.", Avg cov: ".$gene->{'avg_cov'}.", Avg perc id: ".$gene->{'avg_perc_id'};
-    }
-  }
-}
-
-sub get_multimapped_target_genes {
-  my ($self,$target_genes_by_stable_id,$source_genes_by_slice,$high_confidence_genes_by_id) = @_;
-
-  my $multimapped_genes = [];
-  foreach my $id (keys(%$target_genes_by_stable_id)) {
-    my $genes = $target_genes_by_stable_id->{$id};
-    if(scalar(@$genes) > 1) {
-      push(@$multimapped_genes,$genes);
-    }
-  }
-  return($multimapped_genes);
 }
 
 
@@ -1215,7 +981,6 @@ sub set_closest_gene_ids {
       next;
     }
     my $slice_gene_id_midpoints = $midpoint_coords_by_id->{$id};
-    my $min_dist;
     foreach my $midpoint (@$slice_gene_id_midpoints) {
       my $dist = abs($gene_midpoint - $midpoint);
       unless($id_distances->{$id}) {
@@ -1367,7 +1132,6 @@ sub process_results {
 
     $self->set_cds_sequences($best_transcripts_by_id,$source_transcript_id_hash);
     $self->qc_cds_sequences($best_transcripts_by_id,$source_transcript_id_hash);
-#    $self->fix_cds_issues($best_transcripts_by_id);
     $self->set_transcript_descriptions($best_transcripts_by_id,$source_transcript_id_hash);
 
     my $all_transcripts = $self->label_transcript_status($best_transcripts_by_id);
@@ -2021,42 +1785,6 @@ sub project_cds {
   }
 }
 
-
-sub fix_cds_issues {
-  my ($self,$transcripts_by_id) = @_;
-
-  # First we should consider any transcript that has a non-perfect cds alignment
-
-
-  # After the CDS has been updated in terms of potential issues with frameshifts or gaps, then examine for inframe stops and remove them
-  # as needed. Polymorphic pseudogenes are expected to have inframe stops, so ignore these
-  my $max_stops = 999;
-  foreach my $id (keys(%$transcripts_by_id)) {
-    my $transcript = $transcripts_by_id->{$id};
-    if ($transcript->translation and $transcript->translation->seq() =~ /\*/ and $transcript->biotype ne 'polymorphic_pseudogene') {
-      $transcript = replace_stops_with_introns($transcript,$max_stops);
-      if ($transcript and $transcript->translate()->seq !~ /\*/) {
-          #;#push(@$minimap_transcripts,$transcript_after_replaced_stops);
-      } elsif ($transcript and !$transcript->translate()) {
-        print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().
-                     ",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") does not translate after replacing a maximum of $max_stops stops. Discarded.\n";
-        $transcript->translation(undef);
-        $transcript->biotype("processed_transcript");
-      } elsif ($transcript) {
-        print STDERR "minimap transcript (seq_region_start,seq_region_end,seq_region_strand,seq_region_name) (".$transcript->seq_region_start().
-                     ",".$transcript->seq_region_end().",".$transcript->seq_region_strand().",".$transcript->seq_region_name().") has more than the maximum of $max_stops stops or it has stops after replace_stops_with_introns. Discarded.\n";
-        $transcript->translation(undef);
-        $transcript->biotype("processed_transcript");
-      } else {
-        print STDERR "No transcript defined in 'fix_cds_issues()' after 'replace_stops_with_introns()'.\n";
-      }
-    }
-
-    if ($transcript and $transcript->translation()) {
-      $self->check_and_fix_translation_boundaries($transcript);
-    }
-  }
-}
 
 sub filter_paf_hits {
   my ($self,$gene,$paf_results) = @_;
