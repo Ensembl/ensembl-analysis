@@ -540,7 +540,7 @@ sub _master_config {
         'biotypes' =>    {
           'protein_coding'      => 19000,
           'lncRNA'              => 5,
-          'miRNA'               => 50,
+          'miRNA'               => 30,
           'misc_RNA'            => 5,
           'rRNA'                => 50,
           'snoRNA'              => 50,
