@@ -423,7 +423,7 @@ sub _master_config {
           'snRNA'                => 400,
         }, # biotypes
       }, # core
-   rnaseq_final => {
+   'rnaseq_final' => {
        'biotypes' => {
 	   'protein_coding'         => 5000,
        },
