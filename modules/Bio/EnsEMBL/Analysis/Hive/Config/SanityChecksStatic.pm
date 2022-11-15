@@ -549,22 +549,17 @@ sub _master_config {
       }, # final
       'core' => {
         'logic_names' => {
-          'ensembl'             => 18000,
-          'ncrna'               => 3000,
+          'ensembl'             => 13000,
+          'ncrna'               => 400,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                  => 20,
-          'TR_'                  => 20,
-          'protein_coding'       => 25000,
+          'protein_coding'       => 20000,
           'pseudogene'           => 50,
-          'processed_pseudogene' => 0,
-          'miRNA'                => 100,
-          'misc_RNA'             => 50,
-          'ribozyme'             => 0,
-          'rRNA'                 => 200,
-          'scaRNA'               => 0,
-          'snoRNA'               => 200,
-          'snRNA'                => 400,
+          'miRNA'                => 30,
+          'misc_RNA'             => 5,
+          'rRNA'                 => 50,
+          'snoRNA'               => 50,
+          'snRNA'                => 100,
         }, # biotypes
       }, # core
     }, # fish_basic
