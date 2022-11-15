@@ -297,12 +297,12 @@ sub _master_config {
           'snRNA'                => 400,
         }, # biotypes
       }, # core
-      otherfeatures => {
+      'otherfeatures' => {
         'logic_names' => {
           'refseq_import'          => 30000,
         },
       }, # otherfeatures
-      rnaseq_final => {
+      'rnaseq_final' => {
         'biotypes' => {
           'protein_coding'         => 5000,
         },
