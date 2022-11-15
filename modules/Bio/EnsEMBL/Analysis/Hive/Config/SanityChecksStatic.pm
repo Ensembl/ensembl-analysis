@@ -562,6 +562,11 @@ sub _master_config {
           'snRNA'                => 100,
         }, # biotypes
       }, # core
+      'rnaseq_final' => {
+        'biotypes' => {
+          'protein_coding'      => 50000,
+        }, # biotypes
+      }, # rnaseq_final
     }, # fish_basic
     'rodentia_basic' => {
       'genblast' => {
