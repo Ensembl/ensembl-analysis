@@ -538,7 +538,7 @@ sub _master_config {
           'ncrna'               => 500,
         }, # logic_names
         'biotypes' =>    {
-          'protein_coding'      => 15000,
+          'protein_coding'      => 19000,
           'lncRNA'              => 5,
           'miRNA'               => 50,
           'misc_RNA'            => 5,
@@ -553,7 +553,7 @@ sub _master_config {
           'ncrna'               => 400,
         }, # logic_names
         'biotypes' =>    {
-          'protein_coding'       => 20000,
+          'protein_coding'       => 19000,
           'pseudogene'           => 50,
           'miRNA'                => 30,
           'misc_RNA'             => 5,
