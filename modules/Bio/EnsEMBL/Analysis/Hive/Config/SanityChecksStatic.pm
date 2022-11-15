@@ -504,18 +504,11 @@ sub _master_config {
       'layer' => {
         'logic_names' =>    {
           'genblast'                => 10000,
-          'best_targetted'          => 1000,
-          'genblast_rnaseq_support' => 10000,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                  => 0,
-          'TR_'                  => 0,
-          'human_pe12_'          => 0,
-          'mouse_pe12_'       => 0,
           'vert_pe12_'       => 200,
           'mammals_pe12_'        => 500,
-          'realign_'             => 0,
-          'rnaseq_tissue_'       => 149000,
+          'rnaseq_tissue_'       => 14000,
         }, # biotypes
       }, # layer
       'genebuilder' => {
