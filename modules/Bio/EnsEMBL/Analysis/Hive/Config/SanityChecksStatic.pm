@@ -534,24 +534,17 @@ sub _master_config {
       }, # ncrna
       'final' => {
         'logic_names' => {
-          'ensembl'             => 18000,
-          'ncrna'               => 3000,
+          'ensembl'             => 12000,
+          'ncrna'               => 500,
         }, # logic_names
         'biotypes' =>    {
-          'IG_'                  => 20,
-          'TR_'                  => 20,
-          'realign_'            => 10000,
-          'human_pe12_'         => 2000,
-          'mouse_pe12_'      => 2000,
-          'vert_pe12_'      => 2000,
-          'mammals_pe12_'       => 1000,
-          'miRNA'               => 100,
-          'misc_RNA'            => 50,
-          'ribozyme'            => 0,
-          'rRNA'                => 200,
-          'scaRNA'              => 0,
-          'snoRNA'              => 200,
-          'snRNA'               => 400,
+          'protein_coding'      => 15000,
+          'lncRNA'              => 5,
+          'miRNA'               => 50,
+          'misc_RNA'            => 5,
+          'rRNA'                => 50,
+          'snoRNA'              => 50,
+          'snRNA'               => 100,
         }, # biotypes
       }, # final
       'core' => {
