@@ -522,16 +522,14 @@ sub _master_config {
       }, # genebuilder
       'ncrna' => {
         'logic_names' => {
-          'ncrna' => 400,
+          'ncrna' => 300,
         }, # logic_names
         'biotypes' =>    {
-          'miRNA'               => 100,
-          'misc_RNA'            => 10,
-          'ribozyme'            => 0,
+          'miRNA'               => 50,
+          'misc_RNA'            => 5,
           'rRNA'                => 10,
-          'scaRNA'              => 0,
-          'snoRNA'              => 100,
-          'snRNA'               => 100,
+          'snoRNA'              => 80,
+          'snRNA'               => 80,
         }, # biotypes
       }, # ncrna
       'final' => {
