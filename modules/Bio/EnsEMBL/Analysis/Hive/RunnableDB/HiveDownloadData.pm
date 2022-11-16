@@ -146,7 +146,13 @@ sub run {
   my ($self) = @_;
 
   my $client = $self->param('client');
-  my $file = $client->fetch(($self->param_is_defined('options') ? @{$self->param('options')}: undef));
+  my $file;
+  if ($self->param_is_defined('md5sum') and -e catfile($self->param_required('output_dir'), basename($self->param_required('url')))) {
+    $file = catfile($self->param_required('output_dir'), basename($self->param_required('url')));
+  }
+  else {
+    $file = $client->fetch(($self->param_is_defined('options') ? @{$self->param('options')}: undef));
+  }
   if ($file) {
     $self->check_file($file);
     $file = $self->uncompress($file) if ($self->param('uncompress'));
