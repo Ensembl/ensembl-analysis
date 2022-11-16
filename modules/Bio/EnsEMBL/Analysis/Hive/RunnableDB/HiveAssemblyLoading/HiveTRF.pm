@@ -81,6 +81,9 @@ use parent('Bio::EnsEMBL::Analysis::Hive::RunnableDB::HiveBaseRunnableDB');
 sub fetch_input{
   my ($self) = @_;
 
+  if ($self->param('skip_analysis')) {
+    $self->complete_early('I was asked to skip this analysis');
+  }
   $self->setup_fasta_db;
   my $dba = $self->get_database_by_name('target_db');
   my $rfa = $dba->get_RepeatFeatureAdaptor();
